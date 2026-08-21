@@ -1,0 +1,22 @@
+# Grupo A — confirmado por RF, se puede cargar sin validar con ESSERI.
+# Ver docs/diccionario-de-datos-esseri.md, sección "Tablas Catálogo — Datos a Precargar".
+#
+# Este archivo es solo datos: todavía NO hay un script que los cargue, porque los
+# modelos SQLAlchemy de ROL (auth/models.py) y TIPO_EVENTO (workflows/models.py)
+# son placeholders vacíos por ahora. Cuando existan, un script en esta carpeta
+# (ej. 01_roles.py, 02_tipo_evento.py) debería leer este YAML e insertar las filas
+# vía SessionLocal (src/database.py) — nunca con SQL escrito a mano.
+
+rol: # RF-28, textual: "dirección, administración, docente, familia"
+  - nombre: dirección
+  - nombre: administración
+  - nombre: docente
+  - nombre: familia
+
+tipo_evento: # RF-24, ejemplos textuales
+  - nombre: inasistencia.registrada
+    descripcion: Se registró una ausencia
+  - nombre: factura.vencida
+    descripcion: Una factura pasó a estado vencida
+  - nombre: inscripcion.cambio_matricula
+    descripcion: Cambio de nivel, división o baja

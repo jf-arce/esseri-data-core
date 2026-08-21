@@ -1,0 +1,8 @@
+# Solo lo que aplica a todo el repo. Lo específico de cada capa
+# (node_modules/, venv/, dist/, etc.) va en el .gitignore de esa capa.
+
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.swp
