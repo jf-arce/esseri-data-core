@@ -1,5 +1,6 @@
 import { useRoutes } from 'react-router'
 import { AppLayout } from '@/layout/app-layout'
+import { WelcomePage } from '@/pages/welcome-page'
 import { authRoutes } from '@/modules/auth/routes'
 import { familiasAlumnosRoutes } from '@/modules/familias-alumnos/routes'
 import { academicoRoutes } from '@/modules/academico/routes'
@@ -12,7 +13,6 @@ import { panelAdminRoutes } from '@/modules/panel-admin/routes'
 import { iaSugerenciasRoutes } from '@/modules/ia-sugerencias/routes'
 
 const moduleRoutes = [
-  ...authRoutes,
   ...familiasAlumnosRoutes,
   ...academicoRoutes,
   ...inscripcionesRoutes,
@@ -25,5 +25,9 @@ const moduleRoutes = [
 ]
 
 export function AppRouter() {
-  return useRoutes([{ element: <AppLayout />, children: moduleRoutes }])
+  return useRoutes([
+    { index: true, element: <WelcomePage /> },
+    ...authRoutes,
+    { element: <AppLayout />, children: moduleRoutes },
+  ])
 }
