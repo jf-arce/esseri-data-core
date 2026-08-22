@@ -6,3 +6,6 @@
 .idea/
 .DS_Store
 *.swp
+
+# Configuración local de Claude Code
+.claude/settings.local.json
