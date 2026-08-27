@@ -4,9 +4,19 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+# Importar todos los modelos para que SQLAlchemy pueda resolver las FKs
+# noqa: F401 - Estos imports son necesarios para registrar los modelos en Base.metadata
+from src.academico import models as academico_models  # noqa: F401
+from src.auth import models as auth_models  # noqa: F401
 from src.database import get_db
+from src.facturacion import models as facturacion_models  # noqa: F401
+from src.familias_alumnos import models as familias_alumnos_models  # noqa: F401
+from src.ia_sugerencias import models as ia_sugerencias_models  # noqa: F401
+from src.inscripciones import models as inscripciones_models  # noqa: F401
 from src.main import app
 from src.models import Base
+from src.proveedores_compras import models as proveedores_compras_models  # noqa: F401
+from src.workflows import models as workflows_models  # noqa: F401
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
