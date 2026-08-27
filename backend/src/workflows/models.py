@@ -147,9 +147,7 @@ class Notificacion(Base):
     cuerpo_snapshot: Mapped[str] = mapped_column(sa.String)
     estado_envio: Mapped[str] = mapped_column(sa.String, default="pendiente")
     sent_at: Mapped[datetime | None] = mapped_column(sa.DateTime)
-    workflow_execution_id: Mapped[uuid.UUID] = mapped_column(
-        sa.ForeignKey("workflow_execution.id")
-    )
+    workflow_execution_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("workflow_execution.id"))
     familia_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("familia.id"))
     usuario_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("usuario.id"))
 

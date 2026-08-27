@@ -43,9 +43,7 @@ class TestFamiliaService:
     def test_obtener_familia_por_id(self, db_session: Session):
         """Test de obtención de una familia por ID."""
         # Crear persona y familia
-        persona = Persona(
-            nombre="María", apellido="García", dni="87654321", sexo="F"
-        )
+        persona = Persona(nombre="María", apellido="García", dni="87654321", sexo="F")
         db_session.add(persona)
         db_session.commit()
         db_session.refresh(persona)
@@ -68,12 +66,8 @@ class TestFamiliaService:
     def test_actualizar_familia(self, db_session: Session):
         """Test de actualización de una familia."""
         # Crear dos personas
-        persona1 = Persona(
-            nombre="Carlos", apellido="López", dni="11111111", sexo="M"
-        )
-        persona2 = Persona(
-            nombre="Ana", apellido="Martínez", dni="22222222", sexo="F"
-        )
+        persona1 = Persona(nombre="Carlos", apellido="López", dni="11111111", sexo="M")
+        persona2 = Persona(nombre="Ana", apellido="Martínez", dni="22222222", sexo="F")
         db_session.add(persona1)
         db_session.add(persona2)
         db_session.commit()
@@ -93,9 +87,7 @@ class TestFamiliaService:
     def test_eliminar_familia(self, db_session: Session):
         """Test de eliminación de una familia."""
         # Crear persona y familia
-        persona = Persona(
-            nombre="Roberto", apellido="Sánchez", dni="33333333", sexo="M"
-        )
+        persona = Persona(nombre="Roberto", apellido="Sánchez", dni="33333333", sexo="M")
         db_session.add(persona)
         db_session.commit()
         db_session.refresh(persona)
@@ -118,9 +110,7 @@ class TestFamiliaEndpoints:
     def test_crear_familia_endpoint(self, client: TestClient, db_session: Session):
         """Test del endpoint POST /familias-alumnos/familias."""
         # Crear persona primero
-        persona = Persona(
-            nombre="Laura", apellido="Rodríguez", dni="44444444", sexo="F"
-        )
+        persona = Persona(nombre="Laura", apellido="Rodríguez", dni="44444444", sexo="F")
         db_session.add(persona)
         db_session.commit()
         db_session.refresh(persona)
@@ -140,9 +130,7 @@ class TestFamiliaEndpoints:
     def test_obtener_familia_endpoint(self, client: TestClient, db_session: Session):
         """Test del endpoint GET /familias-alumnos/familias/{id}."""
         # Crear persona y familia
-        persona = Persona(
-            nombre="Diego", apellido="Fernández", dni="55555555", sexo="M"
-        )
+        persona = Persona(nombre="Diego", apellido="Fernández", dni="55555555", sexo="M")
         db_session.add(persona)
         db_session.commit()
         db_session.refresh(persona)
@@ -166,12 +154,8 @@ class TestFamiliaEndpoints:
     def test_actualizar_familia_endpoint(self, client: TestClient, db_session: Session):
         """Test del endpoint PUT /familias-alumnos/familias/{id}."""
         # Crear dos personas
-        persona1 = Persona(
-            nombre="Patricia", apellido="Gómez", dni="66666666", sexo="F"
-        )
-        persona2 = Persona(
-            nombre="Javier", apellido="Ruiz", dni="77777777", sexo="M"
-        )
+        persona1 = Persona(nombre="Patricia", apellido="Gómez", dni="66666666", sexo="F")
+        persona2 = Persona(nombre="Javier", apellido="Ruiz", dni="77777777", sexo="M")
         db_session.add(persona1)
         db_session.add(persona2)
         db_session.commit()
@@ -195,9 +179,7 @@ class TestFamiliaEndpoints:
     def test_eliminar_familia_endpoint(self, client: TestClient, db_session: Session):
         """Test del endpoint DELETE /familias-alumnos/familias/{id}."""
         # Crear persona y familia
-        persona = Persona(
-            nombre="Carmen", apellido="Morales", dni="88888888", sexo="F"
-        )
+        persona = Persona(nombre="Carmen", apellido="Morales", dni="88888888", sexo="F")
         db_session.add(persona)
         db_session.commit()
         db_session.refresh(persona)

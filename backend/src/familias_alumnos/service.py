@@ -111,9 +111,7 @@ def actualizar_familia(
     return familia
 
 
-def eliminar_familia(
-    db: Session, familia: Familia, usuario_id: uuid.UUID | None = None
-) -> None:
+def eliminar_familia(db: Session, familia: Familia, usuario_id: uuid.UUID | None = None) -> None:
     """Eliminar una familia (baja física).
 
     Args:
