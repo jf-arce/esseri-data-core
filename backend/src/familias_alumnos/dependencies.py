@@ -11,7 +11,8 @@ from src.familias_alumnos.service import obtener_familia_por_id
 
 
 def obtener_familia_o_404(
-    familia_id: uuid.UUID, db: Session = Depends(get_db)  # noqa: B008
+    familia_id: uuid.UUID,
+    db: Session = Depends(get_db),  # noqa: B008
 ) -> Familia:
     """Dependencia para obtener una familia por ID o retornar 404.
 
