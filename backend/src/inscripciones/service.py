@@ -14,18 +14,17 @@ from src.inscripciones.exceptions import (
     InscripcionNoEncontrada,
 )
 from src.inscripciones.models import Inscripcion, SolicitudInscripcion
-from src.inscripciones.schemas import InscripcionNuevaCreate
+from src.inscripciones.schemas import InscripcionNuevaCreate, ReinscripcionCreate
 
 
-def crear_inscripcion_nueva(db: Session, datos: InscripcionNuevaCreate) -> Inscripcion:
-    """Confirma la inscripción de un alumno que completó el proceso de admisión."""
-
-    # Los bloqueos serializan altas concurrentes para el mismo alumno o solicitud.
-    alumno = db.get(Alumno, datos.alumno_id, with_for_update=True)
+def _obtener_alumno_y_division(
+    db: Session, alumno_id: uuid.UUID, division_id: uuid.UUID
+) -> tuple[Alumno, Division, Anio]:
+    alumno = db.get(Alumno, alumno_id, with_for_update=True)
     if alumno is None:
         raise InscripcionNoEncontrada("El alumno indicado no existe.")
 
-    division = db.get(Division, datos.division_id)
+    division = db.get(Division, division_id)
     if division is None:
         raise InscripcionNoEncontrada("La división indicada no existe.")
 
@@ -33,13 +32,55 @@ def crear_inscripcion_nueva(db: Session, datos: InscripcionNuevaCreate) -> Inscr
     if anio is None:
         raise InscripcionInvalida("La división no está vinculada a un año académico válido.")
 
+    return alumno, division, anio
+
+
+def _validar_vinculo_familiar(db: Session, alumno_id: uuid.UUID) -> None:
     vinculo_familiar = db.scalar(
-        select(FamiliaAlumno.id).where(FamiliaAlumno.alumno_id == alumno.id).limit(1)
+        select(FamiliaAlumno.id).where(FamiliaAlumno.alumno_id == alumno_id).limit(1)
     )
     if vinculo_familiar is None:
         raise InscripcionInvalida(
             "El alumno debe estar vinculado al menos a una familia antes de inscribirse."
         )
+
+
+def _validar_inscripcion_no_duplicada(
+    db: Session, alumno_id: uuid.UUID, ciclo_lectivo: str
+) -> None:
+    inscripcion_existente = db.scalar(
+        select(Inscripcion.id)
+        .where(
+            Inscripcion.alumno_id == alumno_id,
+            Inscripcion.ciclo_lectivo == ciclo_lectivo,
+        )
+        .limit(1)
+    )
+    if inscripcion_existente is not None:
+        raise ConflictoInscripcion("El alumno ya tiene una inscripción para ese ciclo lectivo.")
+
+
+def _guardar_inscripcion(db: Session, inscripcion: Inscripcion) -> Inscripcion:
+    db.add(inscripcion)
+
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ConflictoInscripcion(
+            "No se pudo registrar la inscripción porque sus datos entran en conflicto."
+        ) from exc
+
+    db.refresh(inscripcion)
+    return inscripcion
+
+
+def crear_inscripcion_nueva(db: Session, datos: InscripcionNuevaCreate) -> Inscripcion:
+    """Confirma la inscripción de un alumno que completó el proceso de admisión."""
+
+    # Los bloqueos serializan altas concurrentes para el mismo alumno o solicitud.
+    alumno, division, anio = _obtener_alumno_y_division(db, datos.alumno_id, datos.division_id)
+    _validar_vinculo_familiar(db, alumno.id)
 
     solicitud = db.get(
         SolicitudInscripcion,
@@ -67,16 +108,7 @@ def crear_inscripcion_nueva(db: Session, datos: InscripcionNuevaCreate) -> Inscr
             "El ciclo lectivo debe coincidir con el de la solicitud aprobada."
         )
 
-    inscripcion_existente = db.scalar(
-        select(Inscripcion.id)
-        .where(
-            Inscripcion.alumno_id == alumno.id,
-            Inscripcion.ciclo_lectivo == datos.ciclo_lectivo,
-        )
-        .limit(1)
-    )
-    if inscripcion_existente is not None:
-        raise ConflictoInscripcion("El alumno ya tiene una inscripción para ese ciclo lectivo.")
+    _validar_inscripcion_no_duplicada(db, alumno.id, datos.ciclo_lectivo)
 
     solicitud_utilizada = db.scalar(
         select(Inscripcion.id).where(Inscripcion.solicitud_inscripcion_id == solicitud.id).limit(1)
@@ -93,18 +125,44 @@ def crear_inscripcion_nueva(db: Session, datos: InscripcionNuevaCreate) -> Inscr
         division_id=division.id,
         solicitud_inscripcion_id=solicitud.id,
     )
-    db.add(inscripcion)
+    return _guardar_inscripcion(db, inscripcion)
 
-    try:
-        db.commit()
-    except IntegrityError as exc:
-        db.rollback()
-        raise ConflictoInscripcion(
-            "No se pudo registrar la inscripción porque sus datos entran en conflicto."
-        ) from exc
 
-    db.refresh(inscripcion)
-    return inscripcion
+def crear_reinscripcion(db: Session, datos: ReinscripcionCreate) -> Inscripcion:
+    """Reinscribe a un alumno activo en el ciclo lectivo inmediatamente siguiente."""
+
+    alumno, division, _ = _obtener_alumno_y_division(db, datos.alumno_id, datos.division_id)
+    if alumno.estado != "activo":
+        raise InscripcionInvalida("Solo se puede reinscribir a un alumno activo.")
+
+    _validar_vinculo_familiar(db, alumno.id)
+    _validar_inscripcion_no_duplicada(db, alumno.id, datos.ciclo_lectivo)
+
+    ciclo_anterior = str(int(datos.ciclo_lectivo) - 1)
+    inscripcion_anterior = db.scalar(
+        select(Inscripcion.id)
+        .where(
+            Inscripcion.alumno_id == alumno.id,
+            Inscripcion.ciclo_lectivo == ciclo_anterior,
+            Inscripcion.estado != "baja",
+        )
+        .limit(1)
+    )
+    if inscripcion_anterior is None:
+        raise InscripcionInvalida(
+            "El alumno debe tener una inscripción no dada de baja en el ciclo lectivo anterior."
+        )
+
+    reinscripcion = Inscripcion(
+        ciclo_lectivo=datos.ciclo_lectivo,
+        fecha_inscripcion=datos.fecha_inscripcion,
+        tipo="reinscripcion",
+        estado="activa",
+        alumno_id=alumno.id,
+        division_id=division.id,
+        solicitud_inscripcion_id=None,
+    )
+    return _guardar_inscripcion(db, reinscripcion)
 
 
 def obtener_inscripcion(db: Session, inscripcion_id: uuid.UUID) -> Inscripcion:
