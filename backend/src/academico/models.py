@@ -48,9 +48,7 @@ class Materia(Base):
     """`division_id` nulo = común al año; con valor = específica de la división."""
 
     __tablename__ = "materia"
-    __table_args__ = (
-        sa.CheckConstraint("tipo IN ('materia', 'taller')", name="ck_materia_tipo"),
-    )
+    __table_args__ = (sa.CheckConstraint("tipo IN ('materia', 'taller')", name="ck_materia_tipo"),)
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
     nombre: Mapped[str] = mapped_column(sa.String)

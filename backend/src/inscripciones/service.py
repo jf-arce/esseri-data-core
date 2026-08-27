@@ -79,9 +79,7 @@ def crear_inscripcion_nueva(db: Session, datos: InscripcionNuevaCreate) -> Inscr
         raise ConflictoInscripcion("El alumno ya tiene una inscripción para ese ciclo lectivo.")
 
     solicitud_utilizada = db.scalar(
-        select(Inscripcion.id)
-        .where(Inscripcion.solicitud_inscripcion_id == solicitud.id)
-        .limit(1)
+        select(Inscripcion.id).where(Inscripcion.solicitud_inscripcion_id == solicitud.id).limit(1)
     )
     if solicitud_utilizada is not None:
         raise ConflictoInscripcion("La solicitud ya fue utilizada para generar una inscripción.")

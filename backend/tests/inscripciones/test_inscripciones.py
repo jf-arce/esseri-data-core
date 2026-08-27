@@ -149,9 +149,7 @@ def test_rechaza_alumno_sin_familia(client, db_session):
         ("aprobada", "documentacion_contrato"),
     ],
 )
-def test_rechaza_solicitud_sin_confirmar(
-    client, db_session, estado_solicitud, etapa
-):
+def test_rechaza_solicitud_sin_confirmar(client, db_session, estado_solicitud, etapa):
     escenario = crear_escenario(db_session, estado_solicitud=estado_solicitud, etapa=etapa)
 
     response = client.post("/inscripciones", json=crear_payload(escenario))
