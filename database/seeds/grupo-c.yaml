@@ -1,0 +1,15 @@
+# Grupo C — dato operativo real de ESSERI. Ver database/seeds/README.md.
+#
+# CORRECCIÓN respecto al diccionario: docs/diccionario-de-datos-esseri.md dice
+# "el equipo ya recibió del cliente la tabla maestra con los valores concretos",
+# pero docs/aclaraciones-cliente-esseri.md (pregunta 19) lo dice en futuro
+# ("vamos a entregar/preparar") — todavía no llegó. Acá solo va lo que SÍ está
+# confirmado con valor concreto: los 3 niveles educativos (pregunta 6).
+#
+# NO transcribir ANIO/DIVISION/MATERIA ni PRODUCTO_SERVICIO todavía — no
+# inventar esos valores, esperar la entrega real del cliente.
+
+nivel_educativo:
+  - nombre: Nivel Inicial
+  - nombre: Nivel Primario
+  - nombre: Nivel Secundario

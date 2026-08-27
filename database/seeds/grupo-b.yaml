@@ -1,0 +1,213 @@
+# Grupo B — propuesta del equipo (no confirmada por ESSERI), cargada vía 03_seed_grupo_b.py.
+# Ver database/seeds/README.md y docs/diccionario-de-datos-esseri.md, sección
+# "Tablas Catálogo — Datos a Precargar". Punto de partida acotado, editable después
+# vía el ABM de roles/permisos — no volviendo a correr este seed.
+#
+# `rol` en `permiso` y `tipo_evento` en `campo_evento` se referencian por nombre;
+# el script de carga los resuelve al id real ya insertado.
+
+# --- PERMISO: matriz rol × módulo × acción --------------------------------
+# Criterio del borrador: "administrador del sistema" = todo. El resto, acceso
+# acotado al/los módulo(s) que le corresponde por su función. `exportar` solo
+# donde el diccionario ya lo sugiere (Facturación RF-36, Proveedores RF-38,
+# Asistencias RF-37). Regla ya decidida por el equipo (pregunta #4): si dos
+# roles del mismo usuario chocan, gana el permiso más permisivo — así que
+# conviene pecar de poco antes que de mucho acá, es más fácil sumar después.
+permiso:
+  # administrador del sistema — CRUD completo en todos los módulos
+  - rol: administrador del sistema
+    modulo: Autenticación
+    acciones: [crear, leer, actualizar, eliminar]
+  - rol: administrador del sistema
+    modulo: Familias y Alumnos
+    acciones: [crear, leer, actualizar, eliminar]
+  - rol: administrador del sistema
+    modulo: Académico
+    acciones: [crear, leer, actualizar, eliminar]
+  - rol: administrador del sistema
+    modulo: Inscripciones
+    acciones: [crear, leer, actualizar, eliminar]
+  - rol: administrador del sistema
+    modulo: Facturación
+    acciones: [crear, leer, actualizar, eliminar, exportar]
+  - rol: administrador del sistema
+    modulo: Proveedores y Compras
+    acciones: [crear, leer, actualizar, eliminar, exportar]
+  - rol: administrador del sistema
+    modulo: Workflows
+    acciones: [crear, leer, actualizar, eliminar]
+  - rol: administrador del sistema
+    modulo: Auditoría
+    acciones: [leer]
+  - rol: administrador del sistema
+    modulo: Panel Administrativo
+    acciones: [leer]
+  - rol: administrador del sistema
+    modulo: IA/Sugerencias
+    acciones: [crear, leer, actualizar]
+
+  # dirección — visión completa, exporta, pero no opera el día a día
+  - rol: dirección
+    modulo: Panel Administrativo
+    acciones: [leer]
+  - rol: dirección
+    modulo: Facturación
+    acciones: [leer, exportar]
+  - rol: dirección
+    modulo: Académico
+    acciones: [leer, exportar]
+  - rol: dirección
+    modulo: Proveedores y Compras
+    acciones: [leer, exportar]
+  - rol: dirección
+    modulo: Workflows
+    acciones: [leer, actualizar] # configura reglas/plantillas
+  - rol: dirección
+    modulo: Auditoría
+    acciones: [leer]
+
+  # administración — opera Familias/Facturación/Proveedores (RF-32)
+  - rol: administración
+    modulo: Familias y Alumnos
+    acciones: [crear, leer, actualizar]
+  - rol: administración
+    modulo: Facturación
+    acciones: [crear, leer, actualizar, exportar]
+  - rol: administración
+    modulo: Proveedores y Compras
+    acciones: [crear, leer, actualizar, exportar]
+  - rol: administración
+    modulo: Panel Administrativo
+    acciones: [leer]
+
+  # docente — solo su propia asistencia/materias, nada de facturación
+  - rol: docente
+    modulo: Académico
+    acciones: [leer, actualizar] # marca presente/ausente/tardanza
+
+  # familia — solo lectura de lo propio + alta de solicitudes/justificaciones
+  - rol: familia
+    modulo: Familias y Alumnos
+    acciones: [leer]
+  - rol: familia
+    modulo: Facturación
+    acciones: [leer] # su propio extracto de cuenta corriente
+  - rol: familia
+    modulo: Inscripciones
+    acciones: [leer, crear] # reinscripción, cambios
+  - rol: familia
+    modulo: Académico
+    acciones: [leer, crear] # justificación de ausencias
+
+  # secretaría — carga operativa de Familias/Académico/Inscripciones
+  - rol: secretaría
+    modulo: Familias y Alumnos
+    acciones: [crear, leer, actualizar]
+  - rol: secretaría
+    modulo: Académico
+    acciones: [crear, leer, actualizar]
+  - rol: secretaría
+    modulo: Inscripciones
+    acciones: [crear, leer, actualizar]
+
+  # coordinación académica — dueña de la estructura curricular
+  - rol: coordinación académica
+    modulo: Académico
+    acciones: [crear, leer, actualizar, eliminar]
+
+  # bienestar/orientación — resuelve justificaciones, dato sensible
+  - rol: bienestar/orientación
+    modulo: Académico
+    acciones: [leer, actualizar]
+    tipo_informacion: datos_medicos
+
+  # admisiones/comercial — dueña del pipeline de Admisiones
+  - rol: admisiones/comercial
+    modulo: Inscripciones
+    acciones: [crear, leer, actualizar]
+
+  # compras — dueña de Proveedores y Compras
+  - rol: compras
+    modulo: Proveedores y Compras
+    acciones: [crear, leer, actualizar, exportar]
+
+# --- CAMPO_EVENTO: variables disponibles por TIPO_EVENTO -------------------
+# Alimenta los desplegables de WORKFLOW_RULE.condicion y los chips de
+# NOTIFICACION_TEMPLATE.cuerpo. tipo_dato: numero / texto / fecha.
+campo_evento:
+  inasistencia.registrada:
+    - nombre_interno: alumno_nombre
+      etiqueta: Nombre del alumno
+      tipo_dato: texto
+    - nombre_interno: tipo_asistencia
+      etiqueta: Tipo de registro (ausente_pendiente, tardanza, etc.)
+      tipo_dato: texto
+    - nombre_interno: fecha
+      etiqueta: Fecha de la ausencia
+      tipo_dato: fecha
+
+  inasistencia.justificada:
+    - nombre_interno: alumno_nombre
+      etiqueta: Nombre del alumno
+      tipo_dato: texto
+    - nombre_interno: motivo
+      etiqueta: Motivo de la justificación
+      tipo_dato: texto
+    - nombre_interno: fecha_resolucion
+      etiqueta: Fecha de resolución
+      tipo_dato: fecha
+
+  factura.vencida:
+    - nombre_interno: dias_vencido
+      etiqueta: Días de deuda
+      tipo_dato: numero
+    - nombre_interno: monto_deuda
+      etiqueta: Monto adeudado
+      tipo_dato: numero
+    - nombre_interno: nombre_familia
+      etiqueta: Nombre del responsable económico
+      tipo_dato: texto
+
+  inscripcion.cambio_matricula:
+    - nombre_interno: alumno_nombre
+      etiqueta: Nombre del alumno
+      tipo_dato: texto
+    - nombre_interno: tipo_cambio
+      etiqueta: Tipo de cambio (división, nivel, baja)
+      tipo_dato: texto
+    - nombre_interno: fecha
+      etiqueta: Fecha del cambio
+      tipo_dato: fecha
+
+  solicitud_inscripcion.aprobada:
+    - nombre_interno: aspirante_nombre
+      etiqueta: Nombre del aspirante
+      tipo_dato: texto
+    - nombre_interno: nivel_educativo
+      etiqueta: Nivel al que ingresa
+      tipo_dato: texto
+    - nombre_interno: fecha_resolucion
+      etiqueta: Fecha de aprobación
+      tipo_dato: fecha
+
+  pago.registrado:
+    - nombre_interno: monto
+      etiqueta: Monto del pago
+      tipo_dato: numero
+    - nombre_interno: metodo_pago
+      etiqueta: Método de pago
+      tipo_dato: texto
+    - nombre_interno: fecha_operacion
+      etiqueta: Fecha en que se procesó
+      tipo_dato: fecha
+
+  pago.rechazado:
+    - nombre_interno: monto
+      etiqueta: Monto del pago
+      tipo_dato: numero
+    - nombre_interno: motivo_rechazo
+      etiqueta: Motivo del rechazo
+      tipo_dato: texto
+    - nombre_interno: fecha_operacion
+      etiqueta: Fecha en que se procesó
+      tipo_dato: fecha

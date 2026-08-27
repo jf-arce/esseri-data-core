@@ -18,9 +18,15 @@ services:
 
   backend:
     build:
-      context: ../backend
+      context: ..
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
-    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    command: >
+      sh -c "alembic upgrade head &&
+             python /database/seeds/01_seed_grupo_a.py &&
+             python /database/seeds/02_seed_grupo_c.py &&
+             python /database/seeds/03_seed_grupo_b.py &&
+             uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
     env_file:
       - ../backend/.env
     environment:
@@ -28,6 +34,7 @@ services:
     volumes:
       - ../backend/src:/app/src
       - ../backend/alembic:/app/alembic
+      - ../database/seeds:/database/seeds
     ports:
       - "8000:8000"
     depends_on:

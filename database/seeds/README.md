@@ -6,8 +6,24 @@ El diccionario clasifica los catálogos en 3 grupos según qué tan segura es la
 
 | Grupo | Estado acá | Por qué |
 |---|---|---|
-| **A** — confirmado por RF o por el cliente | `grupo-a.yaml` — datos ya cargados, **script de inserción todavía pendiente** | `ROL` (10 valores), `TIPO_EVENTO`, `METODO_PAGO`, `CONCEPTO_COBRO`, `MOTIVO_JUSTIFICACION` y `REGLA_PENALIDAD` están confirmados por RF o por las aclaraciones directas del cliente (`docs/aclaraciones-cliente-esseri.md`), pero los modelos SQLAlchemy (`auth/models.py`, `workflows/models.py`, `facturacion/models.py`, `academico/models.py`) todavía son placeholders vacíos — no hay clase para insertar. Cuando existan, un script acá (ej. `01_roles.py`) debe leer este YAML e insertar vía `SessionLocal` de `src/database.py`, nunca con SQL a mano. `METODO_PAGO` y `ROL` pasaron acá desde el Grupo B una vez que el cliente confirmó los valores — ver diccionario. |
-| **B** — propuesta razonable, validar con ESSERI | No cargado | `PERMISO`, `CAMPO_EVENTO` — valores propuestos por el equipo pero sin confirmar (ver pregunta pendiente #4 sobre roles con permisos conflictivos y la matriz rol→permiso en el diccionario, que ahora crece porque son 10 roles en vez de 4). |
-| **C** — dato real de ESSERI | No cargado | `NIVEL_EDUCATIVO`, `ANIO`, `DIVISION`, `MATERIA` — estructura curricular real. El cliente ya confirmó la jerarquía (Nivel → Año/Sala → División/Orientación → Materias → Docentes) y entregó la tabla maestra con los valores concretos (ver `docs/aclaraciones-cliente-esseri.md`) — falta transcribirla acá. `PRODUCTO_SERVICIO` también queda en este grupo: el cliente confirmó que va a entregar el catálogo real de proveedores/compras (pregunta pendiente #17), todavía no recibido. |
+| **A** — confirmado por RF o por el cliente | **Cargado.** `grupo-a.yaml` + `01_seed_grupo_a.py` | `ROL` (10), `TIPO_EVENTO` (7), `METODO_PAGO` (4), `CONCEPTO_COBRO` (10), `MOTIVO_JUSTIFICACION` (7), `REGLA_PENALIDAD` (3) — corridos contra Postgres local, verificados por conteo. |
+| **B** — propuesta del equipo, validada informalmente (no por ESSERI) | **Cargado.** `grupo-b.yaml` + `03_seed_grupo_b.py` | `PERMISO` (38 filas) + `ROL_PERMISO` (87 vínculos) + `CAMPO_EVENTO` (21). Matriz rol × módulo × acción acotada a propósito — más fácil sumar un permiso después que sacar uno de más. Editable después vía el futuro ABM de roles/permisos, no volviendo a correr el seed. |
+| **C** — dato real de ESSERI | `NIVEL_EDUCATIVO` (3 valores) **cargado** vía `02_seed_grupo_c.py`. El resto (`ANIO`/`DIVISION`/`MATERIA`, `PRODUCTO_SERVICIO`) **sigue bloqueado**. | **Corrección sobre el diccionario**: dice que "el equipo ya recibió la tabla maestra", pero `docs/aclaraciones-cliente-esseri.md` (pregunta 19) lo dice en futuro ("vamos a entregar/preparar") — todavía no llegó. Solo los 3 niveles (Inicial/Primario/Secundario) están confirmados con nombre concreto (pregunta 6); años, divisiones, materias, docentes y catálogo de productos siguen sin entregar — no inventarlos. |
 
-Orden de carga una vez que haya script: Grupo A primero (sin dependencias entre sí, salvo `REGLA_PENALIDAD` que depende de `CONCEPTO_COBRO` ya cargado), después B (algunos, como `CAMPO_EVENTO`, dependen de que `TIPO_EVENTO` ya esté cargado), C al final o en paralelo (no tiene FKs hacia A/B).
+## Cómo correr los scripts ya disponibles
+
+Requiere Postgres corriendo (`infra/docker-compose.yml`, servicio `postgres`) y `backend/.env` configurado.
+
+```bash
+cd backend
+source venv/bin/activate
+python ../database/seeds/01_seed_grupo_a.py
+python ../database/seeds/02_seed_grupo_c.py
+python ../database/seeds/03_seed_grupo_b.py   # requiere que 01 ya haya corrido
+```
+
+Los tres son idempotentes — correrlos de nuevo no duplica filas.
+
+## Pendiente
+
+- **Grupo C restante**: transcribir `ANIO`/`DIVISION`/`MATERIA` y `PRODUCTO_SERVICIO` cuando ESSERI entregue la tabla maestra real (pregunta pendiente #17 del diccionario) — no antes.

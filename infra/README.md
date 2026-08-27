@@ -4,6 +4,12 @@ Todo lo que no es código de aplicación pero hace falta para correr el sistema 
 
 ## Entorno local
 
+Antes de levantar el stack por primera vez:
+
+```bash
+cp ../backend/.env.example ../backend/.env   # completar lo que haga falta
+```
+
 ```bash
 cd infra
 docker-compose up
@@ -14,15 +20,9 @@ Levanta 4 servicios en la misma red interna:
 | Servicio | URL local | Notas |
 |---|---|---|
 | `postgres` | `localhost:5432` | Usuario/clave/DB: `esseri`/`esseri`/`esseri_data_core` (coincide con `backend/.env.example`). |
-| `backend` | `http://localhost:8000` | Corre `uvicorn --reload`, con `backend/src` montado como volumen para hot-reload. Lee `backend/.env` (copiarlo desde `backend/.env.example` antes de levantar). |
+| `backend` | `http://localhost:8000` | Antes de levantar `uvicorn --reload` corre `alembic upgrade head` y los 3 scripts de `database/seeds/` (idempotentes, no rompen nada si ya corrieron). `backend/src` está montado como volumen para hot-reload. Lee `backend/.env`. |
 | `frontend` | `http://localhost:5173` | Corre `npm run dev` sobre la imagen `node:26-alpine`, con `frontend/` montado como volumen para hot-reload. |
 | `n8n` | `http://localhost:5678` | Sin autenticación en local. Los workflows se exportan a `infra/n8n/` (ver el README de esa carpeta). |
-
-Antes de levantar el stack por primera vez:
-
-```bash
-cp ../backend/.env.example ../backend/.env   # completar lo que haga falta
-```
 
 Para bajar todo (y borrar los datos de Postgres/n8n): `docker-compose down -v`.
 

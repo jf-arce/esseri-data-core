@@ -1,0 +1,15 @@
+# Build context del backend pasó a ser la raíz del repo (necesita copiar
+# database/seeds/ además de backend/) — este es el .dockerignore que aplica,
+# no backend/.dockerignore (Docker solo lee el de la raíz del contexto).
+
+.git
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/.pytest_cache/
+backend/.ruff_cache/
+backend/tests/
+backend/.env
+frontend/node_modules/
+frontend/dist/

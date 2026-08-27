@@ -1,12 +1,5 @@
-# Grupo A — confirmado por RF o por el cliente, se puede cargar sin validar más con ESSERI.
-# Ver docs/diccionario-de-datos-esseri.md, sección "Tablas Catálogo — Datos a Precargar".
-#
-# Este archivo es solo datos: todavía NO hay un script que los cargue, porque los
-# modelos SQLAlchemy de los módulos correspondientes (auth/models.py, workflows/models.py,
-# facturacion/models.py, academico/models.py) son placeholders vacíos por ahora. Cuando
-# existan, un script en esta carpeta (ej. 01_roles.py, 02_tipo_evento.py) debería leer
-# este YAML e insertar las filas vía SessionLocal (src/database.py) — nunca con SQL
-# escrito a mano.
+# Grupo A — confirmado por RF o por el cliente. Ver docs/diccionario-de-datos-esseri.md,
+# sección "Tablas Catálogo — Datos a Precargar". Cargado vía 01_seed_grupo_a.py.
 
 rol: # RF-28 + aclaración cliente respuesta 18 — pasa de 4 a 10 valores
   - nombre: dirección
