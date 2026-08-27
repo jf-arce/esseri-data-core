@@ -281,8 +281,9 @@ Así lo resuelve directamente el repo de referencia: unos pocos archivos a nivel
 ### Notas por módulo específico
 | Módulo | Particularidad |
 |---|---|
-| `workflows/` | Además de los archivos estándar, contiene el cliente que dispara la automatización externa (motor de workflows resuelto vía n8n según el diccionario de datos). |
-| `auditoria/` | Solo `router.py` y `service.py` — es una capa de consulta sobre tablas de otros módulos (`EVENT_LOG`, `LOG_ACCESO`, `WORKFLOW_EXECUTION`, `NOTIFICACION`), no tiene `models.py` propio. |
+| `facturacion/` | Además de facturas/pagos, incluye la cuenta corriente por alumno (`CUENTA_CORRIENTE`/`MOVIMIENTO`, libro de movimientos inmutable — el saldo nunca se persiste, se calcula sumando movimientos) y el motor de penalidades por tramos (`REGLA_PENALIDAD`, `EXCEPCION_VENCIMIENTO`) que dispara `aplicar_vencimiento`/`aplicar_penalidad` desde `workflows/`. |
+| `workflows/` | Además de los archivos estándar, contiene el cliente que dispara la automatización externa (motor de workflows resuelto vía n8n según el diccionario de datos) y la entidad `TAREA` con su cadena de escalamiento (`crear_tarea`/`escalar_caso`, dos de los 15 tipos de acción del motor). |
+| `auditoria/` | Solo `router.py` y `service.py` — es una capa de consulta sobre tablas de otros módulos (`AUDIT_LOG`, `EVENT_LOG`, `LOG_ACCESO`, `WORKFLOW_EXECUTION`, `NOTIFICACION`, `CUENTA_CORRIENTE`/`MOVIMIENTO`, `TAREA`), no tiene `models.py` propio. `AUDIT_LOG` (cambios de datos, ex `EVENT_LOG`) y `EVENT_LOG` (hechos de negocio append-only que consume el motor de workflows) son transversales y viven en `src/models.py`, no acá — ver diccionario de datos. |
 | `panel_admin/` | Igual que auditoría: sin modelo propio, solo agrega y expone datos de otros módulos. |
 | `ia_sugerencias/` | Contiene el cliente que se comunica con la API de OpenAI, además de los archivos estándar para `IA_SUGERENCIA`. |
 
@@ -388,7 +389,7 @@ Con esto, cada capa queda autocontenida: alguien puede clonar el repo, entrar so
 
 ## Pendiente de definir (no incluido acá a propósito)
 
-- Contenido exacto de `infra/n8n/` — depende de cómo terminen de definir el motor de workflows (Pregunta pendiente #9 del diccionario de datos: si el motor solo dispara notificaciones o también otras acciones automáticas).
+- Contenido exacto de `infra/n8n/` — el motor ya tiene los 15 tipos de acción confirmados por el cliente (ver `WORKFLOW_RULE.tipo_accion` en el diccionario de datos), pero falta la allowlist campo por campo de `accion_config` y qué acciones requieren `requiere_aprobacion_humana` — decisión de equipo, no de ESSERI (preguntas pendientes #15/#16 del diccionario).
 
 ## Decisiones acordadas con el equipo (no vienen de la guía ni del cliente)
 

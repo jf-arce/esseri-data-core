@@ -21,9 +21,10 @@ npm install
 cp .env.example .env
 ```
 
-| Variable       | Descripción                                                   |
-| -------------- | ------------------------------------------------------------- |
-| `VITE_API_URL` | URL base de la API del backend (ej. `http://localhost:8000`). |
+| Variable               | Descripción                                                   |
+| ---------------------- | ------------------------------------------------------------- |
+| `VITE_API_URL`         | URL base de la API del backend (ej. `http://localhost:8000`). |
+| `VITE_GOOGLE_CLIENT_ID` | Client ID de Google Identity/OAuth (login principal, ver `ARCHITECTURE.md` y el diccionario de datos). Mismo valor que `GOOGLE_CLIENT_ID` en `backend/.env.example`. |
 
 ## Desarrollo local
 
