@@ -8,7 +8,7 @@ import { PermisoDialog } from '@/modules/auth/components/permiso-dialog'
 import { PermisosFiltros } from '@/modules/auth/components/permisos-filtros'
 import { PermisosTabla } from '@/modules/auth/components/permisos-tabla'
 import { usePermisos } from '@/modules/auth/hooks/use-permisos'
-import { SeccionHeader } from '@/modules/auth/pages/configuracion-acceso-page'
+import { PageHeader } from '@/components/page-header'
 import { eliminarPermiso } from '@/modules/auth/services/eliminar-permiso'
 import type { Permiso } from '@/modules/auth/types'
 import { filtrarYOrdenarPermisos, type OrdenPermisos } from '@/modules/auth/utils'
@@ -39,7 +39,7 @@ export function PermisosPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SeccionHeader
+      <PageHeader
         titulo="Usuarios y roles"
         accion={
           <Button

@@ -3,8 +3,8 @@ import { useMemo, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { PageHeader } from '@/components/page-header'
 import { StatTile } from '@/components/stat-tile'
-import { SeccionHeader } from '@/modules/auth/pages/configuracion-acceso-page'
 import { UsuarioDetalleDialog } from '@/modules/auth/components/usuario-detalle-dialog'
 import { UsuarioRolesDialog } from '@/modules/auth/components/usuario-roles-dialog'
 import { UsuariosFiltros } from '@/modules/auth/components/usuarios-filtros'
@@ -64,7 +64,7 @@ export function UsuariosPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SeccionHeader titulo="Usuarios y roles" />
+      <PageHeader titulo="Usuarios y roles" />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatTile

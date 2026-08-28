@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   crearPayloadInscripcion,
   crearPayloadReinscripcion,
+  etiquetaEstadoInscripcion,
+  etiquetaTipoInscripcion,
+  formatearFechaInscripcion,
   formularioInscripcionSchema,
+  paginasVisibles,
   type FormularioInscripcionValues,
 } from '@/modules/inscripciones/utils'
 import type {
@@ -89,5 +93,19 @@ describe('lógica del formulario de inscripción', () => {
       alumno_id: 'alumno-2',
       division_id: 'division-1',
     })
+  })
+})
+
+describe('utilidades del listado de inscripciones', () => {
+  it('formatea los valores que muestra la tabla', () => {
+    expect(formatearFechaInscripcion('2026-08-28')).toBe('28/08/2026')
+    expect(etiquetaTipoInscripcion('cambio_matricula')).toBe('Cambio de matrícula')
+    expect(etiquetaEstadoInscripcion('finalizada')).toBe('Finalizada')
+  })
+
+  it('acota la cantidad de páginas visibles', () => {
+    expect(paginasVisibles(3, 2)).toEqual([1, 2, 3])
+    expect(paginasVisibles(10, 5)).toEqual([1, 'elipsis', 4, 5, 6, 'elipsis', 10])
+    expect(paginasVisibles(10, 10)).toEqual([1, 'elipsis', 7, 8, 9, 10])
   })
 })

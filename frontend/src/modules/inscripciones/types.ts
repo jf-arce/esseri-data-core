@@ -40,6 +40,42 @@ export interface InscripcionRead {
   solicitud_inscripcion_id: string | null
 }
 
+export type TipoInscripcion = InscripcionRead['tipo']
+export type EstadoInscripcion = InscripcionRead['estado']
+
+export interface InscripcionListadoItem {
+  id: string
+  ciclo_lectivo: string
+  fecha_inscripcion: string
+  tipo: TipoInscripcion
+  estado: EstadoInscripcion
+  alumno_id: string
+  alumno_nombre: string
+  alumno_apellido: string
+  numero_legajo: string
+  division_id: string
+  division_nombre: string
+  anio_numero: number
+  nivel_educativo_nombre: string
+}
+
+export interface InscripcionListado {
+  items: InscripcionListadoItem[]
+  total: number
+  pagina: number
+  tamanio_pagina: number
+  total_paginas: number
+}
+
+export interface FiltrosInscripciones {
+  buscar?: string
+  cicloLectivo?: string
+  estado?: EstadoInscripcion
+  tipo?: TipoInscripcion
+  pagina: number
+  tamanioPagina: number
+}
+
 export interface CrearInscripcionPayload {
   ciclo_lectivo: string
   fecha_inscripcion: string
