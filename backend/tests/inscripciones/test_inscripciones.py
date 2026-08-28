@@ -274,6 +274,22 @@ def test_rechaza_ciclo_invalido_al_listar_reinscripciones(client):
     assert response.status_code == 422
 
 
+@pytest.mark.parametrize(
+    "ruta",
+    [
+        "/inscripciones/opciones/solicitudes",
+        "/inscripciones/opciones/divisiones",
+        "/inscripciones/opciones/reinscripciones?ciclo_lectivo=2028",
+    ],
+)
+def test_listar_opciones_sin_sesion_rechaza(client, ruta):
+    client.cookies.clear()
+
+    response = client.get(ruta)
+
+    assert response.status_code == 401
+
+
 def test_crear_inscripcion_nueva(client, db_session):
     escenario = crear_escenario(db_session)
 

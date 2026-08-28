@@ -44,6 +44,7 @@ def crear_reinscripcion(
 @router.get("/opciones/solicitudes")
 def listar_solicitudes_disponibles(
     db: DbSession,
+    _: PuedeLeer,
     buscar: Annotated[str | None, Query(max_length=100)] = None,
     limite: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> list[SolicitudInscripcionOpcionRead]:
@@ -51,13 +52,14 @@ def listar_solicitudes_disponibles(
 
 
 @router.get("/opciones/divisiones")
-def listar_divisiones_disponibles(db: DbSession) -> list[DivisionOpcionRead]:
+def listar_divisiones_disponibles(db: DbSession, _: PuedeLeer) -> list[DivisionOpcionRead]:
     return service.listar_divisiones_disponibles(db)
 
 
 @router.get("/opciones/reinscripciones")
 def listar_alumnos_elegibles_reinscripcion(
     db: DbSession,
+    _: PuedeLeer,
     ciclo_lectivo: Annotated[
         str,
         Query(min_length=4, max_length=4, pattern=r"^[1-9]\d{3}$"),
