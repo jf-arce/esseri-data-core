@@ -92,6 +92,30 @@ def crear_payload(escenario):
     }
 
 
+def crear_inscripcion_previa(db_session, escenario, *, ciclo="2027", estado="finalizada"):
+    inscripcion = Inscripcion(
+        ciclo_lectivo=ciclo,
+        fecha_inscripcion=date(2026, 8, 27),
+        tipo="nueva",
+        estado=estado,
+        alumno_id=escenario["alumno_id"],
+        division_id=escenario["division_id"],
+        solicitud_inscripcion_id=escenario["solicitud_id"],
+    )
+    db_session.add(inscripcion)
+    db_session.commit()
+    return inscripcion
+
+
+def crear_payload_reinscripcion(escenario, *, ciclo="2028"):
+    return {
+        "ciclo_lectivo": ciclo,
+        "fecha_inscripcion": "2027-08-27",
+        "alumno_id": str(escenario["alumno_id"]),
+        "division_id": str(escenario["division_id"]),
+    }
+
+
 def test_crear_inscripcion_nueva(client, db_session):
     escenario = crear_escenario(db_session)
 
@@ -241,6 +265,115 @@ def test_rechaza_inscripcion_duplicada(client, db_session):
     assert response.json() == {
         "detail": "El alumno ya tiene una inscripción para ese ciclo lectivo."
     }
+    assert db_session.query(Inscripcion).count() == 1
+
+
+def test_crear_reinscripcion_para_ciclo_siguiente(client, db_session):
+    escenario = crear_escenario(db_session)
+    inscripcion_anterior = crear_inscripcion_previa(db_session, escenario)
+
+    response = client.post(
+        "/inscripciones/reinscripciones",
+        json=crear_payload_reinscripcion(escenario),
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["tipo"] == "reinscripcion"
+    assert body["estado"] == "activa"
+    assert body["ciclo_lectivo"] == "2028"
+    assert body["alumno_id"] == str(escenario["alumno_id"])
+    assert body["division_id"] == str(escenario["division_id"])
+    assert body["solicitud_inscripcion_id"] is None
+    assert db_session.query(Inscripcion).count() == 2
+    assert db_session.get(Inscripcion, inscripcion_anterior.id).estado == "finalizada"
+
+
+def test_rechaza_reinscripcion_de_alumno_inactivo(client, db_session):
+    escenario = crear_escenario(db_session)
+    crear_inscripcion_previa(db_session, escenario)
+    alumno = db_session.get(Alumno, escenario["alumno_id"])
+    alumno.estado = "inactivo"
+    db_session.commit()
+
+    response = client.post(
+        "/inscripciones/reinscripciones",
+        json=crear_payload_reinscripcion(escenario),
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Solo se puede reinscribir a un alumno activo."}
+    assert db_session.query(Inscripcion).count() == 1
+
+
+def test_rechaza_reinscripcion_sin_inscripcion_anterior(client, db_session):
+    escenario = crear_escenario(db_session)
+
+    response = client.post(
+        "/inscripciones/reinscripciones",
+        json=crear_payload_reinscripcion(escenario),
+    )
+
+    mensaje_esperado = (
+        "El alumno debe tener una inscripción no dada de baja en el ciclo lectivo anterior."
+    )
+    assert response.status_code == 422
+    assert response.json() == {"detail": mensaje_esperado}
+    assert db_session.query(Inscripcion).count() == 0
+
+
+def test_rechaza_reinscripcion_si_la_anterior_esta_dada_de_baja(client, db_session):
+    escenario = crear_escenario(db_session)
+    crear_inscripcion_previa(db_session, escenario, estado="baja")
+
+    response = client.post(
+        "/inscripciones/reinscripciones",
+        json=crear_payload_reinscripcion(escenario),
+    )
+
+    assert response.status_code == 422
+    assert db_session.query(Inscripcion).count() == 1
+
+
+def test_rechaza_reinscripcion_para_un_ciclo_no_consecutivo(client, db_session):
+    escenario = crear_escenario(db_session)
+    crear_inscripcion_previa(db_session, escenario)
+
+    response = client.post(
+        "/inscripciones/reinscripciones",
+        json=crear_payload_reinscripcion(escenario, ciclo="2029"),
+    )
+
+    assert response.status_code == 422
+    assert db_session.query(Inscripcion).count() == 1
+
+
+def test_rechaza_reinscripcion_duplicada(client, db_session):
+    escenario = crear_escenario(db_session)
+    crear_inscripcion_previa(db_session, escenario)
+    payload = crear_payload_reinscripcion(escenario)
+    primera_respuesta = client.post("/inscripciones/reinscripciones", json=payload)
+
+    response = client.post("/inscripciones/reinscripciones", json=payload)
+
+    assert primera_respuesta.status_code == 201
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "El alumno ya tiene una inscripción para ese ciclo lectivo."
+    }
+    assert db_session.query(Inscripcion).count() == 2
+
+
+def test_rechaza_reinscripcion_con_ciclo_no_anual(client, db_session):
+    escenario = crear_escenario(db_session)
+    crear_inscripcion_previa(db_session, escenario)
+
+    response = client.post(
+        "/inscripciones/reinscripciones",
+        json=crear_payload_reinscripcion(escenario, ciclo="2028-2029"),
+    )
+
+    assert response.status_code == 422
     assert db_session.query(Inscripcion).count() == 1
 
 
