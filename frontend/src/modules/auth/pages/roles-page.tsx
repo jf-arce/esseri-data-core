@@ -1,5 +1,5 @@
-import { MoreHorizontalIcon, PlusIcon, ShieldCheckIcon } from 'lucide-react'
-import { useState } from 'react'
+import { MoreHorizontalIcon, PencilIcon, PlusIcon, ShieldCheckIcon, Trash2Icon } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -10,7 +10,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { Skeleton } from '@/components/ui/skeleton'
+import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
+import { FilterDropdown } from '@/components/filter-dropdown'
+import { TableSkeleton, type ColumnaEsqueleto } from '@/components/table-skeleton'
 import {
   Table,
   TableBody,
@@ -25,22 +27,18 @@ import { useRoles } from '@/modules/auth/hooks/use-roles'
 import { SeccionHeader } from '@/modules/auth/pages/configuracion-acceso-page'
 import { eliminarRol } from '@/modules/auth/services/eliminar-rol'
 import type { Rol } from '@/modules/auth/types'
+import { filtrarYOrdenarRoles, type OrdenRoles } from '@/modules/auth/utils'
 
-function FilaEsqueleto() {
-  return (
-    <TableRow>
-      <TableCell>
-        <Skeleton className="h-4 w-36" />
-      </TableCell>
-      <TableCell>
-        <Skeleton className="h-4 w-56" />
-      </TableCell>
-      <TableCell data-align="end">
-        <Skeleton className="ml-auto size-8 rounded-full" />
-      </TableCell>
-    </TableRow>
-  )
-}
+const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
+  { tipo: 'texto', ancho: 'h-4 w-32', anchoAlt: 'h-4 w-44' },
+  { tipo: 'texto', ancho: 'h-4 w-12', anchoAlt: 'h-4 w-48' },
+  { tipo: 'accion' },
+]
+
+const OPCIONES_ORDEN: { value: OrdenRoles; label: string }[] = [
+  { value: 'nombre-asc', label: 'Nombre, A-Z' },
+  { value: 'nombre-desc', label: 'Nombre, Z-A' },
+]
 
 export function RolesPage() {
   const { datos: roles, cargando, error, recargar } = useRoles()
@@ -48,8 +46,16 @@ export function RolesPage() {
   const [rolEditando, setRolEditando] = useState<Rol | null>(null)
   const [rolAEliminar, setRolAEliminar] = useState<Rol | null>(null)
 
+  const [busqueda, setBusqueda] = useState('')
+  const [orden, setOrden] = useState<OrdenRoles>('nombre-asc')
+
+  const filtrados = useMemo(
+    () => filtrarYOrdenarRoles(roles, { busqueda, orden }),
+    [roles, busqueda, orden],
+  )
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <SeccionHeader
         titulo="Usuarios y roles"
         accion={
@@ -77,17 +83,37 @@ export function RolesPage() {
         </Alert>
       )}
 
-      {!cargando && roles.length === 0 ? (
-        <Empty className="rounded-panel bg-superficie shadow-card">
+      <FilterBar>
+        <FilterSearch value={busqueda} onChange={setBusqueda} placeholder="Buscar rol" />
+        <FilterBarSpacer />
+        <FilterDropdown
+          label={OPCIONES_ORDEN.find((o) => o.value === orden)?.label ?? 'Ordenar por'}
+          align="end"
+          options={OPCIONES_ORDEN}
+          value={orden}
+          onChange={(valor) => setOrden(valor as OrdenRoles)}
+        />
+      </FilterBar>
+
+      {!cargando && filtrados.length === 0 ? (
+        <Empty className="min-h-[280px] rounded-panel bg-superficie shadow-card">
           <EmptyMedia variant="icon" className="bg-violeta-suave text-violeta">
             <ShieldCheckIcon />
           </EmptyMedia>
-          <EmptyTitle>Todavía no hay roles creados.</EmptyTitle>
-          <EmptyDescription>Acción sugerida: crear el primer rol del sistema.</EmptyDescription>
-          <Button onClick={() => setDialogoAbierto(true)}>
-            <PlusIcon />
-            Nuevo rol
-          </Button>
+          <EmptyTitle>
+            {roles.length === 0 ? 'Todavía no hay roles creados.' : 'Ningún rol coincide con la búsqueda.'}
+          </EmptyTitle>
+          {roles.length === 0 ? (
+            <>
+              <EmptyDescription>Acción sugerida: crear el primer rol del sistema.</EmptyDescription>
+              <Button onClick={() => setDialogoAbierto(true)}>
+                <PlusIcon />
+                Nuevo rol
+              </Button>
+            </>
+          ) : (
+            <EmptyDescription>Probá ajustar la búsqueda.</EmptyDescription>
+          )}
         </Empty>
       ) : (
         <Table>
@@ -102,9 +128,9 @@ export function RolesPage() {
           </TableHeader>
           <TableBody>
             {cargando ? (
-              Array.from({ length: 4 }).map((_, i) => <FilaEsqueleto key={i} />)
+              <TableSkeleton columnas={COLUMNAS_ESQUELETO} filas={6} />
             ) : (
-              roles.map((rol) => (
+              filtrados.map((rol) => (
                 <TableRow key={rol.id}>
                   <TableCell className="font-medium">{rol.nombre}</TableCell>
                   <TableCell className="text-texto-2">{rol.descripcion ?? '—'}</TableCell>
@@ -122,10 +148,12 @@ export function RolesPage() {
                             setDialogoAbierto(true)
                           }}
                         >
+                          <PencilIcon className="text-petroleo" />
                           Editar rol
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem variant="destructive" onSelect={() => setRolAEliminar(rol)}>
+                          <Trash2Icon />
                           Eliminar rol
                         </DropdownMenuItem>
                       </DropdownMenuContent>

@@ -178,9 +178,11 @@
   --texto-3: #7c7688;
   --desactivado: #9a94a6;
 
-  /* Elevación y movimiento (§5.2, §6) */
-  --sombra-card: 0 6px 20px rgba(20, 17, 26, 0.06);
-  --sombra-overlay: 0 16px 36px rgba(20, 17, 26, 0.16);
+  /* Elevación y movimiento (§5.2, §6). Revisado: la sombra original (0 6px 20px / .06) leía más
+     pesada de lo que corresponde a una herramienta interna densa; se baja la intensidad
+     manteniendo dos capas (contacto + difusión) en vez de sacarla del todo. */
+  --sombra-card: 0 1px 2px rgba(20, 17, 26, 0.03), 0 4px 12px rgba(20, 17, 26, 0.025);
+  --sombra-overlay: 0 8px 24px rgba(20, 17, 26, 0.08);
   --curva-esseri: cubic-bezier(0.2, 0, 0, 1);
 
   /* Contrato shadcn/ui mapeado sobre los tokens ESSERI de arriba */
@@ -265,7 +267,7 @@
   background-image: linear-gradient(
     90deg,
     var(--fila-hover) 25%,
-    #e9e5ef 37%,
+    color-mix(in oklch, var(--fila-hover) 70%, var(--superficie)) 37%,
     var(--fila-hover) 63%
   );
   background-size: 400% 100%;

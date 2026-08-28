@@ -42,30 +42,31 @@ function FilterTrigger({
   count,
   className,
   icon: Icon,
-}: {
+  ...rest
+}: React.ComponentProps<'button'> & {
   label: string
   active?: boolean
   count?: number
-  className?: string
   icon?: LucideIcon
 }) {
   return (
     <button
       type="button"
       className={cn(
-        'inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-borde bg-superficie pr-3 pl-3.5 text-xs font-medium text-texto-2 transition-colors hover:bg-fila-hover',
+        'inline-flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-borde bg-superficie pr-3.5 pl-4 text-sm font-medium text-texto-2 transition-colors hover:bg-fila-hover focus-visible:ring-2 focus-visible:ring-violeta focus-visible:ring-offset-2 focus-visible:outline-none',
         active && 'border-violeta-borde bg-violeta-suave text-violeta hover:bg-violeta-suave',
         className,
       )}
+      {...rest}
     >
-      {Icon && <Icon className="size-3.5" />}
+      {Icon && <Icon className="size-4" />}
       {label}
       {!!count && (
         <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-violeta px-1 text-xs font-bold text-superficie">
           {count}
         </span>
       )}
-      <ChevronDownIcon className="size-3.5" />
+      <ChevronDownIcon className="size-4" />
     </button>
   )
 }
@@ -160,12 +161,12 @@ function FilterChips({
   onClearAll: () => void
 }) {
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
       {children}
       <button
         type="button"
         onClick={onClearAll}
-        className="text-xs font-semibold text-texto-3 hover:text-texto-2"
+        className="cursor-pointer text-xs font-semibold text-texto-3 hover:text-texto-2"
       >
         Limpiar todo
       </button>
@@ -180,7 +181,7 @@ function FilterChip({ children, onRemove }: { children: React.ReactNode; onRemov
       <button
         type="button"
         onClick={onRemove}
-        className="flex size-4 shrink-0 items-center justify-center rounded-full hover:bg-violeta/15"
+        className="flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-violeta/15"
         aria-label="Quitar filtro"
       >
         <XIcon className="size-3" />

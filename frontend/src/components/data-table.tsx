@@ -65,10 +65,7 @@ function DataTable<TData extends RowData>({
 
   return (
     <div className="overflow-hidden rounded-panel bg-superficie shadow-card">
-      <Table
-        containerClassName="rounded-none shadow-none"
-        data-density={density === 'compact' ? 'compact' : undefined}
-      >
+      <Table bare data-density={density === 'compact' ? 'compact' : undefined}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -82,7 +79,7 @@ function DataTable<TData extends RowData>({
                       <button
                         type="button"
                         onClick={header.column.getToggleSortingHandler()}
-                        className="flex items-center gap-1 uppercase tracking-[.06em] text-texto-3 hover:text-texto"
+                        className="flex cursor-pointer items-center gap-1 uppercase tracking-[.06em] text-texto-3 hover:text-texto"
                       >
                         {flexRender(header.column.columnDef.header, header.getContext())}
                         {sortState === 'asc' && <ArrowUpIcon className="size-3.5" />}

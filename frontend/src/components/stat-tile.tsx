@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface StatTileProps {
   label: string
@@ -9,6 +10,9 @@ interface StatTileProps {
   variant?: 'default' | 'dark'
   iconClassName?: string
   className?: string
+  // Mientras carga, el valor grande se reemplaza por un esqueleto (§9.5 DESIGN.md) en vez de
+  // mostrar un "0" que parece un dato real.
+  cargando?: boolean
 }
 
 // Card de indicador (§9 DESIGN.md): etiqueta a la izquierda, tile de ícono a la derecha,
@@ -23,6 +27,7 @@ export function StatTile({
   variant = 'default',
   iconClassName,
   className,
+  cargando,
 }: StatTileProps) {
   const esOscuro = variant === 'dark'
 
@@ -60,14 +65,18 @@ export function StatTile({
           <Icon className="size-4" />
         </div>
       </div>
-      <p
-        className={cn(
-          'relative mt-2.5 text-2xl font-semibold tabular-nums',
-          esOscuro ? 'text-texto-sobre-oscuro' : 'text-texto',
-        )}
-      >
-        {value}
-      </p>
+      {cargando ? (
+        <Skeleton className={cn('relative mt-2.5 h-8 w-16', esOscuro && 'bg-white/10')} />
+      ) : (
+        <p
+          className={cn(
+            'relative mt-2.5 text-2xl font-semibold tabular-nums',
+            esOscuro ? 'text-texto-sobre-oscuro' : 'text-texto',
+          )}
+        >
+          {value}
+        </p>
+      )}
       {note && (
         <p
           className={cn(

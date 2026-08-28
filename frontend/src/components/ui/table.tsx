@@ -10,17 +10,30 @@ import { cn } from '@/lib/utils'
 // `minWidth` fuerza el ancho mínimo real de las columnas para que el overflow-x-auto de acá
 // scrollee la tabla en vez de que las columnas se aplasten (el bug que hacía scrollear la
 // página entera en vez de la tabla).
+//
+// `bare` saca el radio/fondo/sombra propios (para cuando la tabla comparte card con un pie de
+// paginación y el radio/sombra los pone ese wrapper): usar la prop, no pisar la clase por
+// `containerClassName`, porque `rounded-panel`/`rounded-none` no son tokens que `tailwind-merge`
+// conozca y ambas clases quedan en el DOM — la que gana termina siendo la que el navegador
+// resuelva por orden de la hoja de estilos, no la última en el string, así que la tabla
+// terminaba redondeada igual y el hover de la última fila se recortaba contra ese radio de más.
 function Table({
   className,
   containerClassName,
   minWidth = 'min-w-[720px]',
+  bare = false,
   ...props
-}: React.ComponentProps<'table'> & { minWidth?: string; containerClassName?: string }) {
+}: React.ComponentProps<'table'> & {
+  minWidth?: string
+  containerClassName?: string
+  bare?: boolean
+}) {
   return (
     <div
       data-slot="table-container"
       className={cn(
-        'relative w-full overflow-x-auto overflow-hidden rounded-panel bg-superficie shadow-card',
+        'relative w-full overflow-x-auto overflow-hidden',
+        !bare && 'rounded-panel bg-superficie shadow-card',
         containerClassName,
       )}
     >
@@ -85,8 +98,10 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
       data-slot="table-head"
       className={cn(
         // Padding asimétrico del mock (16px 24px 10px): el encabezado respira arriba y se
-        // pega al divisor abajo, en vez de centrarse en el medio de la fila de 44px.
-        'px-6 pt-4 pb-2.5 text-left align-bottom text-xs font-bold tracking-[.06em] whitespace-nowrap text-texto-3 uppercase data-[align=end]:text-right [&:has([role=checkbox])]:pr-0',
+        // pega al divisor abajo, en vez de centrarse en el medio de la fila de 44px. En modo
+        // compacto el padding horizontal también baja, para que la densidad se note más allá
+        // de la altura de fila (§5.2/§9.1).
+        'px-6 in-data-[density=compact]:px-4 pt-4 in-data-[density=compact]:pt-3 pb-2.5 in-data-[density=compact]:pb-2 text-left align-bottom text-xs font-bold tracking-[.06em] whitespace-nowrap text-texto-3 uppercase data-[align=end]:text-right [&:has([role=checkbox])]:pr-0',
         className,
       )}
       {...props}
@@ -99,7 +114,7 @@ function TableCell({ className, ...props }: React.ComponentProps<'td'>) {
     <td
       data-slot="table-cell"
       className={cn(
-        'h-11 in-data-[density=compact]:h-9 in-data-[density=compact]:text-xs px-6 align-middle whitespace-nowrap data-[align=end]:text-right data-[align=end]:tabular-nums [&:has([role=checkbox])]:pr-0',
+        'h-11 in-data-[density=compact]:h-9 in-data-[density=compact]:text-xs px-6 in-data-[density=compact]:px-4 align-middle whitespace-nowrap data-[align=end]:text-right data-[align=end]:tabular-nums [&:has([role=checkbox])]:pr-0',
         className,
       )}
       {...props}

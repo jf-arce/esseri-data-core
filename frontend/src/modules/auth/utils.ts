@@ -1,4 +1,4 @@
-import type { UsuarioConRoles } from '@/modules/auth/types'
+import type { Permiso, Rol, UsuarioConRoles } from '@/modules/auth/types'
 
 // Colores de avatar/chip de identidad estables por id (§9.3 DESIGN.md: identidad puntual en
 // fila densa). No son la paleta de módulo de dominio (§2.5): un rol como "Docente" o
@@ -38,6 +38,16 @@ export function nombreDeUsuario(email: string): string {
   if (partes.length < 2) return partes[0] ?? email
   const [nombre, ...apellido] = partes
   return `${apellido.join(' ')}, ${nombre}`
+}
+
+// Los nombres de rol llegan en distintas casings según la fuente: el JWT trae los roles de la
+// cuenta tal cual los define el backend (ej. "ADMINISTRADOR DEL SISTEMA"), y `Rol.nombre` del
+// ABM de roles se guarda en minúsculas (ej. "administrador del sistema"). Para mostrarlo en la
+// UI (menú de avatar §8.1, chip de rol en la tabla de usuarios) se normaliza a sentence case,
+// la convención de voz de §11 — nunca todo en mayúscula ni todo en minúscula.
+export function formatearNombreRol(rol: string): string {
+  const minusculas = rol.toLowerCase()
+  return minusculas.charAt(0).toUpperCase() + minusculas.slice(1)
 }
 
 export function inicialesDeUsuario(email: string): string {
@@ -112,4 +122,91 @@ export function filtrarYOrdenarUsuarios(
   })
 
   return ordenados
+}
+
+export type OrdenRoles = 'nombre-asc' | 'nombre-desc'
+
+// Filtro + orden de la tabla de roles (§9.1 DESIGN.md): tabla chica, solo búsqueda y orden, sin
+// filtro de dato adicional (no hay otro campo por el que segmentar) ni densidad.
+export function filtrarYOrdenarRoles(
+  roles: Rol[],
+  filtros: { busqueda: string; orden: OrdenRoles },
+): Rol[] {
+  const busqueda = filtros.busqueda.trim().toLowerCase()
+
+  const filtrados = roles.filter((rol) => {
+    if (!busqueda) return true
+    return (
+      rol.nombre.toLowerCase().includes(busqueda) ||
+      (rol.descripcion ?? '').toLowerCase().includes(busqueda)
+    )
+  })
+
+  const ordenados = [...filtrados]
+  ordenados.sort((a, b) => {
+    const cmp = a.nombre.localeCompare(b.nombre, 'es')
+    return filtros.orden === 'nombre-asc' ? cmp : -cmp
+  })
+
+  return ordenados
+}
+
+export type OrdenPermisos = 'modulo-asc' | 'accion-asc'
+
+interface FiltrosPermisos {
+  busqueda: string
+  modulos: string[]
+  orden: OrdenPermisos
+}
+
+// Filtro + orden de la tabla de permisos (§9.1): es la tabla de más volumen (8 módulos ×
+// acciones), lleva búsqueda, filtro múltiple de módulo y orden además de la densidad que ya
+// maneja `DensityToggle`.
+export function filtrarYOrdenarPermisos(permisos: Permiso[], filtros: FiltrosPermisos): Permiso[] {
+  const busqueda = filtros.busqueda.trim().toLowerCase()
+
+  const filtrados = permisos.filter((permiso) => {
+    if (busqueda) {
+      const enTexto = `${permiso.modulo} ${permiso.accion} ${permiso.tipo_informacion ?? ''}`.toLowerCase()
+      if (!enTexto.includes(busqueda)) return false
+    }
+    if (filtros.modulos.length > 0 && !filtros.modulos.includes(permiso.modulo)) {
+      return false
+    }
+    return true
+  })
+
+  const ordenados = [...filtrados]
+  ordenados.sort((a, b) => {
+    switch (filtros.orden) {
+      case 'accion-asc':
+        return a.accion.localeCompare(b.accion, 'es')
+      case 'modulo-asc':
+      default:
+        return a.modulo.localeCompare(b.modulo, 'es')
+    }
+  })
+
+  return ordenados
+}
+
+// Filtro de la matriz de permisos (§9.1): tabla de referencia de solo lectura, lleva búsqueda y
+// filtro de módulo sobre las filas módulo·acción, sin orden ni densidad (no aplica a una
+// grilla de referencia con roles como columnas fijas).
+export function filtrarPermisosDeMatriz(
+  permisos: Permiso[],
+  filtros: { busqueda: string; modulos: string[] },
+): Permiso[] {
+  const busqueda = filtros.busqueda.trim().toLowerCase()
+
+  return permisos.filter((permiso) => {
+    if (busqueda) {
+      const enTexto = `${permiso.modulo} ${permiso.accion}`.toLowerCase()
+      if (!enTexto.includes(busqueda)) return false
+    }
+    if (filtros.modulos.length > 0 && !filtros.modulos.includes(permiso.modulo)) {
+      return false
+    }
+    return true
+  })
 }

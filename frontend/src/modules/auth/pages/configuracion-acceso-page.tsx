@@ -21,20 +21,20 @@ export function ConfiguracionAccesoPage() {
   const location = useLocation()
 
   return (
-    <div>
-      <p className="mb-1.5 text-xs font-bold tracking-[.08em] text-texto-3 uppercase">
-        Configuración
-      </p>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-1.5">
+        <p className="text-xs font-bold tracking-[.08em] text-texto-3 uppercase">Configuración</p>
 
-      <Tabs value={tabActivo(location.pathname)}>
-        <TabsList className="mb-6">
-          {TABS.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value} asChild>
-              <Link to={tab.href}>{tab.label}</Link>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+        <Tabs value={tabActivo(location.pathname)}>
+          <TabsList>
+            {TABS.map((tab) => (
+              <TabsTrigger key={tab.value} value={tab.value} asChild>
+                <Link to={tab.href}>{tab.label}</Link>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </div>
 
       <Outlet />
     </div>
@@ -44,7 +44,7 @@ export function ConfiguracionAccesoPage() {
 // Encabezado de cada página de tab (§8 DESIGN.md): título + acción primaria a la derecha.
 export function SeccionHeader({ titulo, accion }: { titulo: string; accion?: ReactNode }) {
   return (
-    <div className="mb-6 flex items-end justify-between gap-6">
+    <div className="flex items-end justify-between gap-6">
       <h1 className="text-2xl font-semibold tracking-[-.01em] text-texto">{titulo}</h1>
       {accion}
     </div>
