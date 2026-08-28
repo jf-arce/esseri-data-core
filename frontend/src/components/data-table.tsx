@@ -2,8 +2,15 @@ import { flexRender, useTable, type RowData } from '@tanstack/react-table'
 import { ArrowDownIcon, ArrowUpIcon, ArrowUpDownIcon, InboxIcon } from 'lucide-react'
 import { useState } from 'react'
 
-import { Button } from '@/components/ui/button'
 import { Empty, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationCount,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination'
 import {
   Table,
   TableBody,
@@ -51,9 +58,17 @@ function DataTable<TData extends RowData>({
     )
   }
 
+  const totalFilas = data.length
+  const { pageIndex, pageSize: pageSizeActual } = table.state.pagination
+  const desde = totalFilas === 0 ? 0 : pageIndex * pageSizeActual + 1
+  const hasta = Math.min(totalFilas, (pageIndex + 1) * pageSizeActual)
+
   return (
-    <div className="flex flex-col gap-3">
-      <Table data-density={density === 'compact' ? 'compact' : undefined}>
+    <div className="overflow-hidden rounded-panel bg-superficie shadow-card">
+      <Table
+        containerClassName="rounded-none shadow-none"
+        data-density={density === 'compact' ? 'compact' : undefined}
+      >
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -97,29 +112,33 @@ function DataTable<TData extends RowData>({
       </Table>
 
       {table.getPageCount() > 1 && (
-        <div className="flex items-center justify-between px-1">
-          <p className="text-sm text-texto-3">
-            Página {table.state.pagination.pageIndex + 1} de {table.getPageCount()}
-          </p>
-          <div className="flex gap-1.5">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              Siguiente
-            </Button>
-          </div>
-        </div>
+        <Pagination>
+          <PaginationCount>
+            {desde}-{hasta} de {totalFilas} resultados
+          </PaginationCount>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                onClick={(evento) => {
+                  evento.preventDefault()
+                  table.previousPage()
+                }}
+                aria-disabled={!table.getCanPreviousPage()}
+                className={!table.getCanPreviousPage() ? 'pointer-events-none opacity-40' : undefined}
+              />
+            </PaginationItem>
+            <PaginationItem>
+              <PaginationNext
+                onClick={(evento) => {
+                  evento.preventDefault()
+                  table.nextPage()
+                }}
+                aria-disabled={!table.getCanNextPage()}
+                className={!table.getCanNextPage() ? 'pointer-events-none opacity-40' : undefined}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
       )}
     </div>
   )

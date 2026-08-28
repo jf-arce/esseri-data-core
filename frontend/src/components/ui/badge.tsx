@@ -20,6 +20,10 @@ const badgeVariants = cva(
         error:
           "bg-error-suave text-error before:content-[''] before:size-1.5 before:shrink-0 before:rounded-full before:bg-current",
         info: "bg-info-suave text-info before:content-[''] before:size-1.5 before:shrink-0 before:rounded-full before:bg-current",
+        // Estado neutro (ej. "Inactivo"): no es una advertencia, es la ausencia del estado
+        // positivo. Punto + texto igual que los semánticos, sin tinte de alerta.
+        neutro:
+          "bg-fila-hover text-texto-2 before:content-[''] before:size-1.5 before:shrink-0 before:rounded-full before:bg-texto-3",
         modulo:
           'data-[modulo=familias]:bg-[color-mix(in_oklch,var(--mod-familias)_12%,white)] data-[modulo=familias]:text-mod-familias data-[modulo=academico]:bg-[color-mix(in_oklch,var(--mod-academico)_12%,white)] data-[modulo=academico]:text-mod-academico data-[modulo=inscripciones]:bg-[color-mix(in_oklch,var(--mod-inscripciones)_12%,white)] data-[modulo=inscripciones]:text-mod-inscripciones data-[modulo=facturacion]:bg-[color-mix(in_oklch,var(--mod-facturacion)_12%,white)] data-[modulo=facturacion]:text-mod-facturacion data-[modulo=compras]:bg-[color-mix(in_oklch,var(--mod-compras)_12%,white)] data-[modulo=compras]:text-mod-compras data-[modulo=workflows]:bg-[color-mix(in_oklch,var(--mod-workflows)_12%,white)] data-[modulo=workflows]:text-mod-workflows data-[modulo=auditoria]:bg-[color-mix(in_oklch,var(--mod-auditoria)_12%,white)] data-[modulo=auditoria]:text-mod-auditoria data-[modulo=ia]:bg-[color-mix(in_oklch,var(--mod-ia)_12%,white)] data-[modulo=ia]:text-mod-ia',
         secondary: 'bg-fila-hover text-texto-2',

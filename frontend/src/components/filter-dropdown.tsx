@@ -1,4 +1,4 @@
-import { ChevronDownIcon } from 'lucide-react'
+import { ChevronDownIcon, XIcon, type LucideIcon } from 'lucide-react'
 import { useId, useState } from 'react'
 
 import { Checkbox } from '@/components/ui/checkbox'
@@ -17,6 +17,11 @@ interface FilterDropdownBaseProps {
   options: FilterDropdownOption[]
   active?: boolean
   className?: string
+  // Ícono a la izquierda del label, para el disparador "Ordenar por" del mock (§9.1).
+  icon?: LucideIcon
+  // Lado del panel: "start" (default) para filtros, "end" para el último de la barra
+  // (Ordenar por), que abre hacia la izquierda para no salirse del viewport.
+  align?: 'start' | 'end'
 }
 
 type FilterDropdownProps =
@@ -36,11 +41,13 @@ function FilterTrigger({
   active,
   count,
   className,
+  icon: Icon,
 }: {
   label: string
   active?: boolean
   count?: number
   className?: string
+  icon?: LucideIcon
 }) {
   return (
     <button
@@ -51,6 +58,7 @@ function FilterTrigger({
         className,
       )}
     >
+      {Icon && <Icon className="size-3.5" />}
       {label}
       {!!count && (
         <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-violeta px-1 text-xs font-bold text-superficie">
@@ -67,7 +75,7 @@ function FilterPanelLabel({ label }: { label: string }) {
 }
 
 function FilterDropdown(props: FilterDropdownProps) {
-  const { label, options, active, className } = props
+  const { label, options, active, className, icon, align = 'start' } = props
   const [open, setOpen] = useState(false)
   const groupId = useId()
 
@@ -86,9 +94,10 @@ function FilterDropdown(props: FilterDropdownProps) {
             active={active ?? value.length > 0}
             count={value.length}
             className={className}
+            icon={icon}
           />
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-56 gap-3">
+        <PopoverContent align={align} className="w-56 gap-3">
           <FilterPanelLabel label={label} />
           <div className="grid w-full gap-2">
             {options.map((option) => {
@@ -115,9 +124,9 @@ function FilterDropdown(props: FilterDropdownProps) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <FilterTrigger label={label} active={active} className={className} />
+        <FilterTrigger label={label} active={active} className={className} icon={icon} />
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-56 gap-3">
+      <PopoverContent align={align} className="w-56 gap-3">
         <FilterPanelLabel label={label} />
         <RadioGroup
           value={value}
@@ -141,5 +150,44 @@ function FilterDropdown(props: FilterDropdownProps) {
   )
 }
 
-export { FilterDropdown }
+// Fila de chips de filtro activo, removibles, con "Limpiar todo" (§9.1). Cada chip nombra el
+// criterio concreto (ej. "Rol: Docente"), no solo el valor, para que tenga sentido suelto.
+function FilterChips({
+  children,
+  onClearAll,
+}: {
+  children: React.ReactNode
+  onClearAll: () => void
+}) {
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-1.5">
+      {children}
+      <button
+        type="button"
+        onClick={onClearAll}
+        className="text-xs font-semibold text-texto-3 hover:text-texto-2"
+      >
+        Limpiar todo
+      </button>
+    </div>
+  )
+}
+
+function FilterChip({ children, onRemove }: { children: React.ReactNode; onRemove: () => void }) {
+  return (
+    <span className="inline-flex h-[26px] items-center gap-1.5 rounded-full bg-violeta-suave py-0 pr-1.5 pl-3 text-xs font-medium text-violeta">
+      {children}
+      <button
+        type="button"
+        onClick={onRemove}
+        className="flex size-4 shrink-0 items-center justify-center rounded-full hover:bg-violeta/15"
+        aria-label="Quitar filtro"
+      >
+        <XIcon className="size-3" />
+      </button>
+    </span>
+  )
+}
+
+export { FilterDropdown, FilterChips, FilterChip }
 export type { FilterDropdownOption }
