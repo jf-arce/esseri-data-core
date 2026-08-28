@@ -45,3 +45,37 @@ class InscripcionRead(BaseModel):
     alumno_id: uuid.UUID
     division_id: uuid.UUID
     solicitud_inscripcion_id: uuid.UUID | None
+
+
+class SolicitudInscripcionOpcionRead(BaseModel):
+    """Solicitud confirmada que todavía puede originar una inscripción nueva."""
+
+    id: uuid.UUID
+    ciclo_lectivo: str
+    fecha_solicitud: date
+    alumno_id: uuid.UUID
+    alumno_nombre: str
+    alumno_apellido: str
+    numero_legajo: str
+    nivel_educativo_id: uuid.UUID
+    nivel_educativo_nombre: str
+
+
+class DivisionOpcionRead(BaseModel):
+    """División con el contexto académico necesario para mostrarla en un selector."""
+
+    id: uuid.UUID
+    nombre: str
+    anio_numero: int
+    nivel_educativo_id: uuid.UUID
+    nivel_educativo_nombre: str
+
+
+class AlumnoReinscripcionOpcionRead(BaseModel):
+    """Alumno que cumple las condiciones para reinscribirse en un ciclo determinado."""
+
+    alumno_id: uuid.UUID
+    alumno_nombre: str
+    alumno_apellido: str
+    numero_legajo: str
+    ciclo_anterior: str
