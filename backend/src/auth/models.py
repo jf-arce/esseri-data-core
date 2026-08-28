@@ -35,6 +35,7 @@ class Usuario(Base):
 
 class Rol(Base):
     __tablename__ = "rol"
+    __table_args__ = (sa.UniqueConstraint("nombre", name="uq_rol_nombre"),)
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
     nombre: Mapped[str] = mapped_column(sa.String)
@@ -49,6 +50,9 @@ class UsuarioRol(Base):
     """Tabla intermedia. Un usuario puede tener más de un rol simultáneo."""
 
     __tablename__ = "usuario_rol"
+    __table_args__ = (
+        sa.UniqueConstraint("usuario_id", "rol_id", name="uq_usuario_rol_usuario_id_rol_id"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
     usuario_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("usuario.id"))
@@ -74,6 +78,9 @@ class RolPermiso(Base):
     """Tabla intermedia."""
 
     __tablename__ = "rol_permiso"
+    __table_args__ = (
+        sa.UniqueConstraint("rol_id", "permiso_id", name="uq_rol_permiso_rol_id_permiso_id"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
     rol_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("rol.id"))

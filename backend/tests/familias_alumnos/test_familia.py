@@ -127,7 +127,7 @@ class TestFamiliaEndpoints:
         assert data["persona_id"] == str(persona.id)
         assert data["estado_deuda"] is None
 
-    def test_obtener_familia_endpoint(self, client: TestClient, db_session: Session):
+    def test_obtener_familia_endpoint(self, client_autenticado: TestClient, db_session: Session):
         """Test del endpoint GET /familias-alumnos/familias/{id}."""
         # Crear persona y familia
         persona = Persona(nombre="Diego", apellido="Fernández", dni="55555555", sexo="M")
@@ -139,17 +139,22 @@ class TestFamiliaEndpoints:
         familia = crear_familia(db_session, familia_data)
 
         # Llamar al endpoint
-        response = client.get(f"/familias-alumnos/familias/{familia.id}")
+        response = client_autenticado.get(f"/familias-alumnos/familias/{familia.id}")
 
         assert response.status_code == 200
         data = response.json()
         assert data["id"] == str(familia.id)
         assert data["persona_id"] == str(persona.id)
 
-    def test_obtener_familia_no_existente_endpoint(self, client: TestClient):
+    def test_obtener_familia_no_existente_endpoint(self, client_autenticado: TestClient):
         """Test del endpoint GET con familia inexistente."""
-        response = client.get(f"/familias-alumnos/familias/{uuid.uuid4()}")
+        response = client_autenticado.get(f"/familias-alumnos/familias/{uuid.uuid4()}")
         assert response.status_code == 404
+
+    def test_obtener_familia_endpoint_sin_sesion_rechaza(self, client: TestClient):
+        """El GET también exige sesión y permiso ahora (RF-30) — antes era público."""
+        response = client.get(f"/familias-alumnos/familias/{uuid.uuid4()}")
+        assert response.status_code == 401
 
     def test_actualizar_familia_endpoint(self, client_autenticado: TestClient, db_session: Session):
         """Test del endpoint PUT /familias-alumnos/familias/{id}."""

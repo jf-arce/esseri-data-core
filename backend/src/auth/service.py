@@ -9,18 +9,23 @@ from datetime import UTC, datetime, timedelta
 
 import bcrypt
 from jose import JWTError, jwt
-from sqlalchemy import select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from src.auth import config
+from src.auth.constants import ACCION_ACTUALIZAR, MODULO_AUTENTICACION
 from src.auth.exceptions import (
     CredencialesInvalidas,
+    PermisoDuplicado,
+    RolDuplicado,
+    RolEnUso,
     TokenInvalido,
     UsuarioInactivo,
     UsuarioNoHabilitado,
 )
 from src.auth.google_client import GoogleIdentity
-from src.auth.models import LogAcceso, Rol, Usuario, UsuarioRol
+from src.auth.models import LogAcceso, Permiso, Rol, RolPermiso, Usuario, UsuarioRol
+from src.auth.schemas import PermisoCreate, PermisoUpdate, RolCreate, RolUpdate
 
 # bcrypt solo mira los primeros 72 bytes y falla si le pasás más; truncar en los dos sentidos
 # mantiene hash y verificación consistentes.
@@ -180,3 +185,268 @@ def finalizar_login(db: Session, usuario: Usuario, ip_origen: str | None) -> str
     db.refresh(usuario)
     registrar_acceso(db, RESULTADO_EXITOSO, ip_origen, usuario.id)
     return crear_access_token(usuario.id)
+
+
+# --- Autorización (RF-30) -----------------------------------------------------------------
+
+
+def _existe(db: Session, stmt) -> bool:
+    return bool(db.scalar(select(stmt.exists())))
+
+
+def tiene_permiso(
+    db: Session,
+    usuario_id: uuid.UUID,
+    modulo: str,
+    accion: str,
+    tipo_informacion: str | None = None,
+) -> bool:
+    """True si alguno de los roles del usuario habilita (modulo, accion).
+
+    Si dos roles del mismo usuario chocan, gana el más permisivo (decisión de equipo): alcanza
+    con que uno solo de sus roles habilite la acción, así que un solo EXISTS sobre todos sus
+    roles ya resuelve esa regla.
+
+    `tipo_informacion=None` no filtra: cualquier permiso de ese módulo+acción sirve. Si se pide
+    un `tipo_informacion` puntual, lo satisface un permiso con ese tipo exacto o uno amplio
+    (tipo_informacion NULL en la base).
+    """
+    condiciones = [
+        UsuarioRol.usuario_id == usuario_id,
+        Permiso.modulo == modulo,
+        Permiso.accion == accion,
+    ]
+    if tipo_informacion is not None:
+        condiciones.append(
+            or_(Permiso.tipo_informacion.is_(None), Permiso.tipo_informacion == tipo_informacion)
+        )
+    stmt = (
+        select(UsuarioRol.id)
+        .join(RolPermiso, RolPermiso.rol_id == UsuarioRol.rol_id)
+        .join(Permiso, Permiso.id == RolPermiso.permiso_id)
+        .where(*condiciones)
+    )
+    return _existe(db, stmt)
+
+
+def permisos_de(db: Session, usuario_id: uuid.UUID) -> list[Permiso]:
+    return list(
+        db.scalars(
+            select(Permiso)
+            .join(RolPermiso, RolPermiso.permiso_id == Permiso.id)
+            .join(UsuarioRol, UsuarioRol.rol_id == RolPermiso.rol_id)
+            .where(UsuarioRol.usuario_id == usuario_id)
+            .distinct()
+        )
+    )
+
+
+# --- ABM de Rol -----------------------------------------------------------------------------
+
+
+def listar_roles(db: Session) -> list[Rol]:
+    return list(db.scalars(select(Rol)))
+
+
+def obtener_rol(db: Session, rol_id: uuid.UUID) -> Rol | None:
+    return db.get(Rol, rol_id)
+
+
+def crear_rol(db: Session, datos: RolCreate) -> Rol:
+    if _existe(db, select(Rol.id).where(Rol.nombre == datos.nombre)):
+        raise RolDuplicado()
+    rol = Rol(**datos.model_dump())
+    db.add(rol)
+    db.commit()
+    db.refresh(rol)
+    return rol
+
+
+def actualizar_rol(db: Session, rol: Rol, datos: RolUpdate) -> Rol:
+    cambios = datos.model_dump(exclude_unset=True)
+    nuevo_nombre = cambios.get("nombre")
+    if nuevo_nombre and nuevo_nombre != rol.nombre:
+        if _existe(db, select(Rol.id).where(Rol.nombre == nuevo_nombre)):
+            raise RolDuplicado()
+    for campo, valor in cambios.items():
+        setattr(rol, campo, valor)
+    db.commit()
+    db.refresh(rol)
+    return rol
+
+
+def eliminar_rol(db: Session, rol: Rol) -> None:
+    if _existe(db, select(UsuarioRol.id).where(UsuarioRol.rol_id == rol.id)):
+        raise RolEnUso()
+    db.execute(delete(RolPermiso).where(RolPermiso.rol_id == rol.id))
+    db.delete(rol)
+    db.commit()
+
+
+# --- ABM de Permiso --------------------------------------------------------------------------
+
+
+def listar_permisos(db: Session, modulo: str | None = None) -> list[Permiso]:
+    stmt = select(Permiso)
+    if modulo is not None:
+        stmt = stmt.where(Permiso.modulo == modulo)
+    return list(db.scalars(stmt))
+
+
+def obtener_permiso(db: Session, permiso_id: uuid.UUID) -> Permiso | None:
+    return db.get(Permiso, permiso_id)
+
+
+def _permiso_duplicado(db: Session, modulo: str, accion: str, tipo_informacion: str | None) -> bool:
+    condiciones = [Permiso.modulo == modulo, Permiso.accion == accion]
+    condiciones.append(
+        Permiso.tipo_informacion.is_(None)
+        if tipo_informacion is None
+        else Permiso.tipo_informacion == tipo_informacion
+    )
+    return _existe(db, select(Permiso.id).where(*condiciones))
+
+
+def crear_permiso(db: Session, datos: PermisoCreate) -> Permiso:
+    if _permiso_duplicado(db, datos.modulo, datos.accion, datos.tipo_informacion):
+        raise PermisoDuplicado()
+    permiso = Permiso(**datos.model_dump())
+    db.add(permiso)
+    db.commit()
+    db.refresh(permiso)
+    return permiso
+
+
+def actualizar_permiso(db: Session, permiso: Permiso, datos: PermisoUpdate) -> Permiso:
+    cambios = datos.model_dump(exclude_unset=True)
+    modulo = cambios.get("modulo", permiso.modulo)
+    accion = cambios.get("accion", permiso.accion)
+    tipo_informacion = cambios.get("tipo_informacion", permiso.tipo_informacion)
+    if (modulo, accion, tipo_informacion) != (
+        permiso.modulo,
+        permiso.accion,
+        permiso.tipo_informacion,
+    ):
+        if _permiso_duplicado(db, modulo, accion, tipo_informacion):
+            raise PermisoDuplicado()
+    for campo, valor in cambios.items():
+        setattr(permiso, campo, valor)
+    db.commit()
+    db.refresh(permiso)
+    return permiso
+
+
+def eliminar_permiso(db: Session, permiso: Permiso) -> None:
+    db.execute(delete(RolPermiso).where(RolPermiso.permiso_id == permiso.id))
+    db.delete(permiso)
+    db.commit()
+
+
+# --- ROL_PERMISO (RF-28) ---------------------------------------------------------------------
+
+
+def permisos_de_rol(db: Session, rol_id: uuid.UUID) -> list[Permiso]:
+    return list(
+        db.scalars(
+            select(Permiso)
+            .join(RolPermiso, RolPermiso.permiso_id == Permiso.id)
+            .where(RolPermiso.rol_id == rol_id)
+        )
+    )
+
+
+def asignar_permiso_a_rol(db: Session, rol_id: uuid.UUID, permiso_id: uuid.UUID) -> RolPermiso:
+    existente = db.scalar(
+        select(RolPermiso).where(RolPermiso.rol_id == rol_id, RolPermiso.permiso_id == permiso_id)
+    )
+    if existente is not None:
+        return existente
+    vinculo = RolPermiso(rol_id=rol_id, permiso_id=permiso_id)
+    db.add(vinculo)
+    db.commit()
+    db.refresh(vinculo)
+    return vinculo
+
+
+def quitar_permiso_a_rol(db: Session, rol_id: uuid.UUID, permiso_id: uuid.UUID) -> None:
+    vinculo = db.scalar(
+        select(RolPermiso).where(RolPermiso.rol_id == rol_id, RolPermiso.permiso_id == permiso_id)
+    )
+    if vinculo is None:
+        return
+    db.delete(vinculo)
+    db.commit()
+
+
+# --- USUARIO_ROL (RF-29) ----------------------------------------------------------------------
+
+
+def roles_de_usuario(db: Session, usuario_id: uuid.UUID) -> list[Rol]:
+    return list(
+        db.scalars(
+            select(Rol)
+            .join(UsuarioRol, UsuarioRol.rol_id == Rol.id)
+            .where(UsuarioRol.usuario_id == usuario_id)
+        )
+    )
+
+
+def _quedaria_sin_administrador(
+    db: Session, usuario_id: uuid.UUID, rol_a_quitar_id: uuid.UUID
+) -> bool:
+    """Anti-lockout: sin esto, un admin puede quitarse su propio rol y dejar la instalación sin
+    nadie que pueda reasignar permisos — irrecuperable sin entrar a la base a mano."""
+    conserva_via_otro_rol = _existe(
+        db,
+        select(UsuarioRol.id)
+        .join(RolPermiso, RolPermiso.rol_id == UsuarioRol.rol_id)
+        .join(Permiso, Permiso.id == RolPermiso.permiso_id)
+        .where(
+            UsuarioRol.usuario_id == usuario_id,
+            UsuarioRol.rol_id != rol_a_quitar_id,
+            Permiso.modulo == MODULO_AUTENTICACION,
+            Permiso.accion == ACCION_ACTUALIZAR,
+        ),
+    )
+    if conserva_via_otro_rol:
+        return False
+
+    hay_otro_administrador = _existe(
+        db,
+        select(UsuarioRol.id)
+        .join(RolPermiso, RolPermiso.rol_id == UsuarioRol.rol_id)
+        .join(Permiso, Permiso.id == RolPermiso.permiso_id)
+        .where(
+            UsuarioRol.usuario_id != usuario_id,
+            Permiso.modulo == MODULO_AUTENTICACION,
+            Permiso.accion == ACCION_ACTUALIZAR,
+        ),
+    )
+    return not hay_otro_administrador
+
+
+def asignar_rol_a_usuario(db: Session, usuario_id: uuid.UUID, rol_id: uuid.UUID) -> UsuarioRol:
+    existente = db.scalar(
+        select(UsuarioRol).where(UsuarioRol.usuario_id == usuario_id, UsuarioRol.rol_id == rol_id)
+    )
+    if existente is not None:
+        return existente
+    vinculo = UsuarioRol(usuario_id=usuario_id, rol_id=rol_id)
+    db.add(vinculo)
+    db.commit()
+    db.refresh(vinculo)
+    return vinculo
+
+
+def quitar_rol_a_usuario(db: Session, usuario_id: uuid.UUID, rol_id: uuid.UUID) -> None:
+    vinculo = db.scalar(
+        select(UsuarioRol).where(UsuarioRol.usuario_id == usuario_id, UsuarioRol.rol_id == rol_id)
+    )
+    if vinculo is None:
+        return
+    if _quedaria_sin_administrador(db, usuario_id, rol_id):
+        raise RolEnUso(
+            "No se puede quitar: dejaría al sistema sin nadie que administre roles y permisos"
+        )
+    db.delete(vinculo)
+    db.commit()

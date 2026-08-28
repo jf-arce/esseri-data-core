@@ -7,13 +7,29 @@ direcciones. `state` y el verifier de PKCE viajan en su propia cookie firmada, d
 import base64
 import hashlib
 import secrets
+import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Body, Depends, Request, Response, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from jose import JWTError, jwt
 
 from src.auth import config, google_client, service
-from src.auth.dependencies import DbSession, UsuarioAutenticado
+from src.auth.constants import (
+    ACCION_ACTUALIZAR,
+    ACCION_CREAR,
+    ACCION_ELIMINAR,
+    ACCION_LEER,
+    MODULO_AUTENTICACION,
+)
+from src.auth.dependencies import (
+    DbSession,
+    UsuarioAutenticado,
+    obtener_permiso_o_404,
+    obtener_rol_o_404,
+    obtener_usuario_o_404,
+    requiere_permiso,
+)
 from src.auth.exceptions import (
     CredencialesInvalidas,
     EstadoOAuthInvalido,
@@ -21,7 +37,17 @@ from src.auth.exceptions import (
     UsuarioInactivo,
     UsuarioNoHabilitado,
 )
-from src.auth.schemas import LoginLocalIn, UsuarioActual
+from src.auth.models import Permiso, Rol, Usuario
+from src.auth.schemas import (
+    LoginLocalIn,
+    PermisoCreate,
+    PermisoRead,
+    PermisoUpdate,
+    RolCreate,
+    RolRead,
+    RolUpdate,
+    UsuarioActual,
+)
 from src.exceptions import AppException
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -149,6 +175,7 @@ def me(usuario: UsuarioAutenticado, db: DbSession) -> UsuarioActual:
         auth_provider=usuario.auth_provider,
         estado=usuario.estado,
         roles=service.roles_de(db, usuario.id),
+        permisos=service.permisos_de(db, usuario.id),
     )
 
 
@@ -157,3 +184,160 @@ def logout() -> JSONResponse:
     respuesta = JSONResponse({"detail": "Sesión cerrada"})
     respuesta.delete_cookie(config.COOKIE_SESION, path="/")
     return respuesta
+
+
+# --- ABM de Rol y Permiso (RF-28) ---------------------------------------------------------
+# Guardados con requiere_permiso: el ABM se protege con el mismo mecanismo que instala.
+
+
+@router.get("/roles", response_model=list[RolRead])
+def listar_roles(
+    db: DbSession,
+    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_LEER))],
+) -> list[Rol]:
+    return service.listar_roles(db)
+
+
+@router.post("/roles", response_model=RolRead, status_code=status.HTTP_201_CREATED)
+def crear_rol(
+    datos: RolCreate,
+    db: DbSession,
+    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_CREAR))],
+) -> Rol:
+    return service.crear_rol(db, datos)
+
+
+@router.get("/roles/{rol_id}", response_model=RolRead)
+def obtener_rol(
+    rol: Annotated[Rol, Depends(obtener_rol_o_404)],
+    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_LEER))],
+) -> Rol:
+    return rol
+
+
+@router.put("/roles/{rol_id}", response_model=RolRead)
+def actualizar_rol(
+    datos: RolUpdate,
+    db: DbSession,
+    rol: Annotated[Rol, Depends(obtener_rol_o_404)],
+    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_ACTUALIZAR))],
+) -> Rol:
+    return service.actualizar_rol(db, rol, datos)
+
+
+@router.delete("/roles/{rol_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_rol(
+    db: DbSession,
+    rol: Annotated[Rol, Depends(obtener_rol_o_404)],
+    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_ELIMINAR))],
+) -> None:
+    service.eliminar_rol(db, rol)
+
+
+@router.get("/permisos", response_model=list[PermisoRead])
+def listar_permisos(
+    db: DbSession,
+    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_LEER))],
+    modulo: str | None = None,
+) -> list[Permiso]:
+    return service.listar_permisos(db, modulo)
+
+
+@router.post("/permisos", response_model=PermisoRead, status_code=status.HTTP_201_CREATED)
+def crear_permiso(
+    datos: PermisoCreate,
+    db: DbSession,
+    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_CREAR))],
+) -> Permiso:
+    return service.crear_permiso(db, datos)
+
+
+@router.get("/permisos/{permiso_id}", response_model=PermisoRead)
+def obtener_permiso(
+    permiso: Annotated[Permiso, Depends(obtener_permiso_o_404)],
+    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_LEER))],
+) -> Permiso:
+    return permiso
+
+
+@router.put("/permisos/{permiso_id}", response_model=PermisoRead)
+def actualizar_permiso(
+    datos: PermisoUpdate,
+    db: DbSession,
+    permiso: Annotated[Permiso, Depends(obtener_permiso_o_404)],
+    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_ACTUALIZAR))],
+) -> Permiso:
+    return service.actualizar_permiso(db, permiso, datos)
+
+
+@router.delete("/permisos/{permiso_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_permiso(
+    db: DbSession,
+    permiso: Annotated[Permiso, Depends(obtener_permiso_o_404)],
+    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_ELIMINAR))],
+) -> None:
+    service.eliminar_permiso(db, permiso)
+
+
+# --- ROL_PERMISO (RF-28) ------------------------------------------------------------------
+
+
+@router.get("/roles/{rol_id}/permisos", response_model=list[PermisoRead])
+def listar_permisos_de_rol(
+    db: DbSession,
+    rol: Annotated[Rol, Depends(obtener_rol_o_404)],
+    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_LEER))],
+) -> list[Permiso]:
+    return service.permisos_de_rol(db, rol.id)
+
+
+@router.post("/roles/{rol_id}/permisos", status_code=status.HTTP_204_NO_CONTENT)
+def asignar_permiso_a_rol(
+    db: DbSession,
+    permiso_id: Annotated[uuid.UUID, Body(embed=True)],
+    rol: Annotated[Rol, Depends(obtener_rol_o_404)],
+    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_ACTUALIZAR))],
+) -> None:
+    service.asignar_permiso_a_rol(db, rol.id, permiso_id)
+
+
+@router.delete("/roles/{rol_id}/permisos/{permiso_id}", status_code=status.HTTP_204_NO_CONTENT)
+def quitar_permiso_a_rol(
+    db: DbSession,
+    rol: Annotated[Rol, Depends(obtener_rol_o_404)],
+    permiso: Annotated[Permiso, Depends(obtener_permiso_o_404)],
+    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_ACTUALIZAR))],
+) -> None:
+    service.quitar_permiso_a_rol(db, rol.id, permiso.id)
+
+
+# --- USUARIO_ROL (RF-29) ------------------------------------------------------------------
+
+
+@router.get("/usuarios/{usuario_id}/roles", response_model=list[RolRead])
+def listar_roles_de_usuario(
+    db: DbSession,
+    usuario: Annotated[Usuario, Depends(obtener_usuario_o_404)],
+    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_LEER))],
+) -> list[Rol]:
+    return service.roles_de_usuario(db, usuario.id)
+
+
+@router.post("/usuarios/{usuario_id}/roles", status_code=status.HTTP_204_NO_CONTENT)
+def asignar_rol_a_usuario(
+    db: DbSession,
+    rol_id: Annotated[uuid.UUID, Body(embed=True)],
+    usuario: Annotated[Usuario, Depends(obtener_usuario_o_404)],
+    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_ACTUALIZAR))],
+) -> None:
+    service.asignar_rol_a_usuario(db, usuario.id, rol_id)
+
+
+@router.delete("/usuarios/{usuario_id}/roles/{rol_id}", status_code=status.HTTP_204_NO_CONTENT)
+def quitar_rol_a_usuario(
+    db: DbSession,
+    usuario: Annotated[Usuario, Depends(obtener_usuario_o_404)],
+    rol: Annotated[Rol, Depends(obtener_rol_o_404)],
+    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_ACTUALIZAR))],
+) -> None:
+    service.quitar_rol_a_usuario(db, usuario.id, rol.id)

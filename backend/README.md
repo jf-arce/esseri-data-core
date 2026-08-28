@@ -56,6 +56,34 @@ frontend), no solo cómo levantar el backend. Ahí está el flujo de OAuth, cóm
 credenciales de Google, y cómo crear el primer usuario administrador
 (`database/seeds/00_bootstrap_admin.py`) para poder loguearse.
 
+## Autorización por permisos (RF-30)
+
+Para proteger un endpoint según módulo y acción, usar `requiere_permiso(...)` de
+`src.auth.dependencies` en vez de (o además de) `UsuarioAutenticado` — devuelve el `Usuario`
+igual que `UsuarioAutenticado`, así que se puede usar donde ya se usa esa:
+
+```python
+from typing import Annotated
+
+from fastapi import Depends
+
+from src.auth.constants import ACCION_LEER, MODULO_ACADEMICO
+from src.auth.dependencies import requiere_permiso
+from src.auth.models import Usuario
+
+PuedeLeerAcademico = Annotated[Usuario, Depends(requiere_permiso(MODULO_ACADEMICO, ACCION_LEER))]
+
+
+@router.get("/materias")
+def listar_materias(usuario: PuedeLeerAcademico, db: DbSession) -> list[MateriaRead]:
+    ...
+```
+
+`modulo` y `accion` tienen que ser los strings exactos de `src.auth.constants` (coinciden con
+`database/seeds/grupo-b.yaml`). 401 sin sesión, 403 si la sesión no alcanza. El ABM de roles y
+permisos vive en `/auth/roles`, `/auth/permisos` y `/auth/usuarios/{id}/roles` — ver
+`src/auth/router.py`.
+
 ## Levantar el servidor
 
 ```bash
