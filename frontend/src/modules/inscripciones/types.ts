@@ -90,3 +90,12 @@ export interface CrearReinscripcionPayload {
   alumno_id: string
   division_id: string
 }
+
+export interface CambioMatriculaPayload {
+  division_id: string
+  fecha_cambio: string
+}
+
+export interface BajaInscripcionPayload {
+  fecha_baja: string
+}
