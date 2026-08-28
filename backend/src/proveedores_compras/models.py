@@ -50,9 +50,7 @@ class ProductoProveedor(Base):
     __tablename__ = "producto_proveedor"
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
-    producto_servicio_id: Mapped[uuid.UUID] = mapped_column(
-        sa.ForeignKey("producto_servicio.id")
-    )
+    producto_servicio_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("producto_servicio.id"))
     proveedor_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("proveedor.id"))
 
 
@@ -66,9 +64,7 @@ class PrecioProducto(Base):
     updated_at: Mapped[datetime] = mapped_column(
         sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
     )
-    producto_servicio_id: Mapped[uuid.UUID] = mapped_column(
-        sa.ForeignKey("producto_servicio.id")
-    )
+    producto_servicio_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("producto_servicio.id"))
     proveedor_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("proveedor.id"))
 
 
@@ -128,9 +124,7 @@ class OrdenCompraDetalle(Base):
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
     cantidad_pedida: Mapped[decimal.Decimal] = mapped_column(sa.Numeric(10, 2))
     orden_compra_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("orden_compra.id"))
-    producto_servicio_id: Mapped[uuid.UUID] = mapped_column(
-        sa.ForeignKey("producto_servicio.id")
-    )
+    producto_servicio_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("producto_servicio.id"))
 
 
 class RecepcionCompra(Base):
