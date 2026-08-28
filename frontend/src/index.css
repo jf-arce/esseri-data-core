@@ -3,8 +3,6 @@
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/geist';
 
-@custom-variant dark (&:is(.dark *));
-
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', sans-serif;
@@ -39,6 +37,60 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+
+  /* Tokens ESSERI (DESIGN.md) expuestos como utilidades Tailwind: bg-superficie, text-texto-2, etc. */
+  --color-lienzo: var(--lienzo);
+  --color-superficie: var(--superficie);
+  --color-fila-hover: var(--fila-hover);
+  --color-borde: var(--borde);
+  --color-sup-familias: var(--sup-familias);
+  --color-sup-academico: var(--sup-academico);
+  --color-sup-inscripciones: var(--sup-inscripciones);
+  --color-sup-facturacion: var(--sup-facturacion);
+  --color-sup-compras: var(--sup-compras);
+  --color-sup-workflows: var(--sup-workflows);
+  --color-sup-auditoria: var(--sup-auditoria);
+  --color-sup-ia: var(--sup-ia);
+  --color-tinta: var(--tinta);
+  --color-nav: var(--nav);
+  --color-nav-hover: var(--nav-hover);
+  --color-nav-activo: var(--nav-activo);
+  --color-banda-oscura: var(--banda-oscura);
+  --color-texto-sobre-oscuro: var(--texto-sobre-oscuro);
+  --color-texto-2-sobre-oscuro: var(--texto-2-sobre-oscuro);
+  --color-lila-claro: var(--lila-claro);
+  --color-violeta: var(--violeta);
+  --color-violeta-esseri: var(--violeta-esseri);
+  --color-violeta-pressed: var(--violeta-pressed);
+  --color-violeta-suave: var(--violeta-suave);
+  --color-violeta-borde: var(--violeta-borde);
+  --color-petroleo: var(--petroleo);
+  --color-exito: var(--exito);
+  --color-exito-suave: var(--exito-suave);
+  --color-advertencia: var(--advertencia);
+  --color-advertencia-suave: var(--advertencia-suave);
+  --color-error: var(--error);
+  --color-error-suave: var(--error-suave);
+  --color-info: var(--info);
+  --color-info-suave: var(--info-suave);
+  --color-mod-familias: var(--mod-familias);
+  --color-mod-academico: var(--mod-academico);
+  --color-mod-inscripciones: var(--mod-inscripciones);
+  --color-mod-facturacion: var(--mod-facturacion);
+  --color-mod-compras: var(--mod-compras);
+  --color-mod-workflows: var(--mod-workflows);
+  --color-mod-auditoria: var(--mod-auditoria);
+  --color-mod-ia: var(--mod-ia);
+  --color-texto: var(--texto);
+  --color-texto-2: var(--texto-2);
+  --color-texto-3: var(--texto-3);
+  --color-desactivado: var(--desactivado);
+
+  --shadow-card: var(--sombra-card);
+  --shadow-overlay: var(--sombra-overlay);
+  --ease-esseri: var(--curva-esseri);
+
+  /* Radio por tamaño de componente (DESIGN.md §5.1): nunca un radio único */
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -46,75 +98,115 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-card-sm: 12px;
+  --radius-card: 16px;
+  --radius-panel: 20px;
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
+  color-scheme: light;
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Superficies (DESIGN.md §2.1): tres capas neutras, nunca #FFFFFF puro */
+  --lienzo: #f6f5f8;
+  --superficie: #fdfcfe;
+  --fila-hover: #f1eff4;
+  /* Oscurecido respecto al valor original de DESIGN.md (#E6E2EC, 1.25:1 contra superficie):
+     ese valor quedaba por debajo del piso de 3:1 de WCAG 1.4.11 para el límite de un control
+     interactivo. #DAD3E2 sube a ~1.43:1 manteniendo el mismo hue violáceo (~268°). */
+  --borde: #dad3e2;
+
+  /* Superficies de módulo (§2.1): reservadas a nodos del canvas de workflows y tiles de ícono */
+  --sup-familias: #f2e9f6;
+  --sup-academico: #e8effb;
+  --sup-inscripciones: #e7f2f3;
+  --sup-facturacion: #f8eee6;
+  --sup-compras: #eeeef2;
+  --sup-workflows: #f2edfc;
+  --sup-auditoria: #ebecee;
+  --sup-ia: #e7f2f3;
+
+  /* Rampa de navegación (§2.2): nunca #000000 puro */
+  --tinta: #14111a;
+  --nav: #241e2e;
+  --nav-hover: #322c42;
+  --nav-activo: #3d2f4e;
+  --banda-oscura: #2a2436;
+  --texto-sobre-oscuro: #ede8f2;
+  --texto-2-sobre-oscuro: oklch(78% 0.03 308);
+  --lila-claro: #d9b8f0;
+
+  /* Violeta: dos roles nunca intercambiables (§2.3) */
+  --violeta: #7c24a3;
+  --violeta-esseri: #6e2a8d;
+  --violeta-pressed: #55206e;
+  --violeta-suave: #f6edfb;
+  --violeta-borde: #e7cff2;
+
+  /* Acento secundario y semánticos (§2.4) */
+  --petroleo: #0e7c86;
+  --exito: #0f7a4d;
+  --advertencia: #b45309;
+  --error: #b42318;
+  --info: #175cd3;
+  --exito-suave: #e0ece9;
+  --advertencia-suave: #f4e8e1;
+  --error-suave: #f4e2e2;
+  --info-suave: #e1e9f9;
+
+  /* Paleta de módulo (§2.5): identidad de dominio, distinta del semántico de estado */
+  --mod-familias: #7c24a3;
+  --mod-academico: #175cd3;
+  --mod-inscripciones: #0e7c86;
+  --mod-facturacion: #b45309;
+  --mod-compras: #54577a;
+  --mod-workflows: #7b49e3;
+  --mod-auditoria: #334155;
+  --mod-ia: #0e7c86;
+
+  /* Texto (§2.6) */
+  --texto: #1b1822;
+  --texto-2: #6b6577;
+  --texto-3: #7c7688;
+  --desactivado: #9a94a6;
+
+  /* Elevación y movimiento (§5.2, §6) */
+  --sombra-card: 0 6px 20px rgba(20, 17, 26, 0.06);
+  --sombra-overlay: 0 16px 36px rgba(20, 17, 26, 0.16);
+  --curva-esseri: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Contrato shadcn/ui mapeado sobre los tokens ESSERI de arriba */
+  --background: var(--lienzo);
+  --foreground: var(--texto);
+  --card: var(--superficie);
+  --card-foreground: var(--texto);
+  --popover: var(--superficie);
+  --popover-foreground: var(--texto);
+  --primary: var(--violeta);
+  --primary-foreground: var(--superficie);
+  --secondary: var(--superficie);
+  --secondary-foreground: var(--texto);
+  --muted: var(--fila-hover);
+  --muted-foreground: var(--texto-2);
+  --accent: var(--fila-hover);
+  --accent-foreground: var(--texto);
+  --destructive: var(--error);
+  --border: var(--borde);
+  --input: var(--borde);
+  --ring: var(--violeta);
+  --chart-1: var(--violeta);
+  --chart-2: var(--petroleo);
+  --chart-3: var(--advertencia);
+  --chart-4: #b8a1cf;
+  --chart-5: #54577a;
+  --radius: 0.5rem;
+  --sidebar: var(--nav);
+  --sidebar-foreground: var(--texto-2-sobre-oscuro);
+  --sidebar-primary: var(--nav-activo);
+  --sidebar-primary-foreground: var(--lila-claro);
+  --sidebar-accent: var(--nav-hover);
+  --sidebar-accent-foreground: var(--texto-sobre-oscuro);
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: var(--violeta);
 }
 
 @layer base {
@@ -122,9 +214,51 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-lienzo text-texto;
   }
   html {
     @apply font-sans;
   }
+  ::selection {
+    background: var(--violeta-borde);
+    color: var(--violeta-pressed);
+  }
+  :focus-visible {
+    outline: 2px solid var(--violeta);
+    outline-offset: 2px;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Esqueleto de carga (§9.5): shimmer de baja amplitud, nunca un spinner suelto centrado */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.skeleton-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--fila-hover) 25%,
+    #e9e5ef 37%,
+    var(--fila-hover) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
 }
