@@ -1,8 +1,9 @@
 """Lógica de negocio de inscripciones."""
 
+import unicodedata
 import uuid
 
-from sqlalchemy import exists, or_, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -17,11 +18,149 @@ from src.inscripciones.models import Inscripcion, SolicitudInscripcion
 from src.inscripciones.schemas import (
     AlumnoReinscripcionOpcionRead,
     DivisionOpcionRead,
+    InscripcionListadoItemRead,
+    InscripcionListadoRead,
     InscripcionNuevaCreate,
     ReinscripcionCreate,
     SolicitudInscripcionOpcionRead,
 )
 from src.models import Persona
+
+
+def _normalizar_texto_busqueda(valor: str) -> str:
+    """Quita tildes y unifica mayúsculas para comparar términos de búsqueda."""
+
+    return "".join(
+        caracter
+        for caracter in unicodedata.normalize("NFD", valor.casefold())
+        if unicodedata.category(caracter) != "Mn"
+    )
+
+
+def _normalizar_columna_busqueda(columna):
+    """Expresión SQL portable para búsquedas sin tildes en SQLite y PostgreSQL."""
+
+    resultado = func.lower(columna)
+    for origen, destino in (
+        ("á", "a"),
+        ("é", "e"),
+        ("í", "i"),
+        ("ó", "o"),
+        ("ú", "u"),
+        ("ü", "u"),
+        ("ñ", "n"),
+        ("Á", "a"),
+        ("É", "e"),
+        ("Í", "i"),
+        ("Ó", "o"),
+        ("Ú", "u"),
+        ("Ü", "u"),
+        ("Ñ", "n"),
+    ):
+        resultado = func.replace(resultado, origen, destino)
+    return resultado
+
+
+def listar_inscripciones(
+    db: Session,
+    *,
+    ciclo_lectivo: str | None = None,
+    estado: str | None = None,
+    tipo: str | None = None,
+    alumno_id: uuid.UUID | None = None,
+    division_id: uuid.UUID | None = None,
+    buscar: str | None = None,
+    pagina: int = 1,
+    tamanio_pagina: int = 20,
+) -> InscripcionListadoRead:
+    """Lista inscripciones con filtros y contexto de alumno y división."""
+
+    filtros = []
+    if ciclo_lectivo is not None:
+        filtros.append(Inscripcion.ciclo_lectivo == ciclo_lectivo)
+    if estado is not None:
+        filtros.append(Inscripcion.estado == estado)
+    if tipo is not None:
+        filtros.append(Inscripcion.tipo == tipo)
+    if alumno_id is not None:
+        filtros.append(Inscripcion.alumno_id == alumno_id)
+    if division_id is not None:
+        filtros.append(Inscripcion.division_id == division_id)
+
+    termino = _normalizar_texto_busqueda(buscar.strip()) if buscar else ""
+    if termino:
+        patron = f"%{termino}%"
+        filtros.append(
+            or_(
+                _normalizar_columna_busqueda(Persona.nombre).like(patron),
+                _normalizar_columna_busqueda(Persona.apellido).like(patron),
+                _normalizar_columna_busqueda(Alumno.numero_legajo).like(patron),
+            )
+        )
+
+    joins = (
+        (Alumno, Alumno.id == Inscripcion.alumno_id),
+        (Persona, Persona.id == Alumno.persona_id),
+        (Division, Division.id == Inscripcion.division_id),
+        (Anio, Anio.id == Division.anio_id),
+        (NivelEducativo, NivelEducativo.id == Anio.nivel_educativo_id),
+    )
+    total_statement = select(func.count(Inscripcion.id))
+    listado_statement = select(
+        Inscripcion,
+        Alumno,
+        Persona,
+        Division,
+        Anio,
+        NivelEducativo,
+    )
+    for entidad, condicion in joins:
+        total_statement = total_statement.join(entidad, condicion)
+        listado_statement = listado_statement.join(entidad, condicion)
+
+    total = db.scalar(total_statement.where(*filtros)) or 0
+    offset = (pagina - 1) * tamanio_pagina
+    listado_statement = (
+        listado_statement.where(*filtros)
+        .order_by(
+            Inscripcion.ciclo_lectivo.desc(),
+            Persona.apellido,
+            Persona.nombre,
+            Inscripcion.id,
+        )
+        .offset(offset)
+        .limit(tamanio_pagina)
+    )
+
+    items = [
+        InscripcionListadoItemRead(
+            id=inscripcion.id,
+            ciclo_lectivo=inscripcion.ciclo_lectivo,
+            fecha_inscripcion=inscripcion.fecha_inscripcion,
+            tipo=inscripcion.tipo,
+            estado=inscripcion.estado,
+            alumno_id=alumno.id,
+            alumno_nombre=persona.nombre,
+            alumno_apellido=persona.apellido,
+            numero_legajo=alumno.numero_legajo,
+            division_id=division.id,
+            division_nombre=division.nombre,
+            anio_numero=anio.numero,
+            nivel_educativo_nombre=nivel.nombre,
+        )
+        for inscripcion, alumno, persona, division, anio, nivel in db.execute(
+            listado_statement
+        ).all()
+    ]
+    total_paginas = (total + tamanio_pagina - 1) // tamanio_pagina
+
+    return InscripcionListadoRead(
+        items=items,
+        total=total,
+        pagina=pagina,
+        tamanio_pagina=tamanio_pagina,
+        total_paginas=total_paginas,
+    )
 
 
 def _obtener_alumno_y_division(

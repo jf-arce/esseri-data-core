@@ -36,13 +36,15 @@ def get_current_user(request: Request, db: DbSession) -> Usuario:
 UsuarioAutenticado = Annotated[Usuario, Depends(get_current_user)]
 
 
-def requiere_permiso(
-    modulo: str, accion: str, tipo_informacion: str | None = None
-) -> Callable[[Usuario, DbSession], Usuario]:
-    """Factory de dependency (RF-30): 401 sin sesión, 403 si la sesión no alcanza."""
+def requiere_permiso(codigo: str) -> Callable[[Usuario, DbSession], Usuario]:
+    """Factory de dependency (RF-30): 401 sin sesión, 403 si la sesión no alcanza.
+
+    `codigo` es la clave estable de `Permiso.codigo` (ver `src.auth.constants.codigo_de`), no
+    el par (modulo, accion) que se usaba antes.
+    """
 
     def _verificar(usuario: UsuarioAutenticado, db: DbSession) -> Usuario:
-        if not service.tiene_permiso(db, usuario.id, modulo, accion, tipo_informacion):
+        if not service.tiene_permiso(db, usuario.id, codigo):
             raise PermisoDenegado()
         return usuario
 

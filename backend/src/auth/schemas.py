@@ -1,6 +1,7 @@
 """Modelos Pydantic de Autenticación y Roles."""
 
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -55,6 +56,7 @@ class PermisoRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    codigo: str
     modulo: str
     accion: str
     tipo_informacion: str | None
@@ -65,10 +67,16 @@ class RolConPermisos(RolRead):
 
 
 class UsuarioConRoles(BaseModel):
+    """Respuesta de GET /auth/usuarios: el listado que hoy no existe, necesario para el
+    selector de rol(es) por usuario (RF-29)."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     email: str
+    estado: str
+    auth_provider: str
+    ultimo_acceso: datetime | None
     roles: list[RolRead]
 
 

@@ -28,7 +28,10 @@ export async function apiClient<T>(path: string, init?: RequestInit): Promise<T>
     }
     throw new ApiError(res.status, detail)
   }
-
-  if (res.status === 204) return undefined as T
+  // Los DELETE y las asignaciones rol<->permiso/usuario del ABM de auth devuelven 204 sin
+  // body: un res.json() ahí explotaría con "Unexpected end of JSON input".
+  if (res.status === 204) {
+    return undefined as T
+  }
   return res.json() as Promise<T>
 }

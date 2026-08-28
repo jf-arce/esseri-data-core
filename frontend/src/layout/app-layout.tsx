@@ -1,136 +1,396 @@
-import { NavLink, Outlet, useLocation } from 'react-router'
-import '@/styles/shell.css'
+import {
+  BellIcon,
+  CalendarIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  LogOut,
+  Menu,
+  ReceiptIcon,
+  Search,
+  ShieldCheckIcon,
+  UserIcon,
+  UsersRoundIcon,
+} from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from '@/components/ui/command'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+} from '@/components/ui/sidebar'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { NAV_GROUPS } from '@/layout/nav-items'
+import { logout } from '@/modules/auth/services/logout'
+import { colorIdentidad, formatearNombreRol, nombreDeUsuario } from '@/modules/auth/utils'
+import { useAuthStore } from '@/store/auth-store'
+import { useUiStore } from '@/store/ui-store'
+import { Button } from '@/components/ui/button'
 
-export function AppLayout() {
-  const location = useLocation()
-  const isActivePath = (path: string) => location.pathname.startsWith(path)
+// El isotipo de marca (§13 DESIGN.md): hexágono con nodos, versión mínima para el tile de 28px
+// del rail. La ilustración geométrica completa es decorativa y va en portadas/estados vacíos,
+// no acá.
+function MarcaEsseri() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" aria-hidden="true">
+      <path
+        d="M12 3.5 20 8v8l-8 4.5L4 16V8z"
+        stroke="#fff"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+// Paleta de comandos (vista `Shell` del mock): fachada sobre las búsquedas por módulo, sin
+// alcance propio todavía. El único ítem que navega de verdad hoy es "Usuarios y roles"; el
+// resto queda deshabilitado a propósito, con el motivo a la vista en CommandEmpty.
+function ComandoGlobal({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const navigate = useNavigate()
 
   return (
-    <div className="shell">
-      {/* Navigation Sidebar */}
-      <div className="nav">
-        <div className="nav-brand">
-          <div className="mark">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 3.5 20 8v8l-8 4.5L4 16V8z" />
-            </svg>
-          </div>
-          <span className="word">ESSERI</span>
-        </div>
-        <div className="nav-group-label">Gestión</div>
-        <NavLink to="/" end className={`nav-item ${location.pathname === '/' ? 'active' : ''}`}>
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 11.5 12 4l8 7.5" />
-            <path d="M6 10v9h12v-9" />
-          </svg>
-          Inicio
-        </NavLink>
-        <NavLink to="/familias-alumnos/nueva-familia" className={`nav-item ${isActivePath('/familias-alumnos') ? 'active' : ''}`}>
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="9" cy="8" r="3" />
-            <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
-          </svg>
-          Familias y alumnos
-        </NavLink>
-        <div className="nav-item">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 5.5C4 4.7 4.7 4 5.5 4H12v16H5.5A1.5 1.5 0 0 1 4 18.5z" />
-            <path d="M20 5.5c0-.8-.7-1.5-1.5-1.5H12v16h6.5a1.5 1.5 0 0 0 1.5-1.5z" />
-          </svg>
-          Académico
-        </div>
-        <div className="nav-item">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="5" y="5" width="14" height="16" rx="2" />
-            <path d="m9 13 2 2 4-4.5" />
-          </svg>
-          Inscripciones
-        </div>
-        <div className="nav-item">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M6 3h12v18l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5z" />
-            <path d="M9 8h6M9 12h6" />
-          </svg>
-          Facturación
-        </div>
-        <div className="nav-item">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2.5" y="7" width="11" height="9" />
-            <path d="M13.5 10h4l3.5 3.5V16h-7.5z" />
-            <circle cx="7" cy="18" r="1.8" />
-            <circle cx="17" cy="18" r="1.8" />
-          </svg>
-          Proveedores y compras
-        </div>
-        <div className="nav-group-label">Sistema</div>
-        <div className="nav-item">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="6" cy="5" r="2" />
-            <circle cx="6" cy="19" r="2" />
-            <circle cx="18" cy="9" r="2" />
-            <path d="M6 7v10M6 12c0-3.5 3-5 8-5h1" />
-          </svg>
-          Workflows
-        </div>
-        <div className="nav-item">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 3.5 19 6v6c0 4.5-3 7.5-7 8.5-4-1-7-4-7-8.5V6z" />
-          </svg>
-          Auditoría
-        </div>
-        <div className="nav-item">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M12 3v2.5M12 18.5V21M21 12h-2.5M5.5 12H3M18 6l-1.8 1.8M7.8 16.2 6 18M18 18l-1.8-1.8M7.8 7.8 6 6" />
-          </svg>
-          Sugerencias de IA
-        </div>
-        <div className="nav-item">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="9" cy="7.5" r="3" />
-            <path d="M3.5 20c0-3.3 2.5-6 5.5-6s5.5 2.7 5.5 6" />
-            <path d="m16 11 2 2 3.5-4" />
-          </svg>
-          Usuarios y roles
-        </div>
-      </div>
+    <CommandDialog open={open} onOpenChange={onOpenChange} title="Buscar o ir a…">
+      <Command>
+        <CommandInput placeholder="Buscar o ir a…" />
+        <CommandList>
+          <CommandEmpty>La búsqueda global todavía no está conectada.</CommandEmpty>
+          <CommandGroup heading="Ir a">
+            <CommandItem
+              onSelect={() => {
+                onOpenChange(false)
+                navigate('/configuracion/acceso')
+              }}
+            >
+              <ShieldCheckIcon className="text-violeta" />
+              Usuarios y roles
+            </CommandItem>
+          </CommandGroup>
+          <CommandSeparator />
+          <CommandGroup heading="Familias">
+            <CommandItem disabled>
+              <UsersRoundIcon className="text-mod-familias" />
+              Buscar familias (todavía no conectado)
+            </CommandItem>
+          </CommandGroup>
+          <CommandGroup heading="Facturación">
+            <CommandItem disabled>
+              <ReceiptIcon className="text-mod-facturacion" />
+              Buscar facturas (todavía no conectado)
+            </CommandItem>
+          </CommandGroup>
+        </CommandList>
+      </Command>
+    </CommandDialog>
+  )
+}
 
-      {/* Main Content */}
-      <div className="main">
-        {/* Topbar */}
-        <div className="topbar">
-          <div className="icon-btn">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </div>
-          <div className="search-chip">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="10.5" cy="10.5" r="6.5" />
-              <path d="m20 20-4.4-4.4" />
-            </svg>
-            Buscar o ir a…
-            <kbd>⌘K</kbd>
-          </div>
-          <div className="ciclo">
-            Ciclo 2026
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m6 9 6 6 6-6" />
-            </svg>
-          </div>
-          <div className="icon-btn">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 10a6 6 0 0 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 14 6 10Z" />
-            </svg>
-          </div>
-          <div className="avatar">JA</div>
-        </div>
+export function AppLayout() {
+  const sidebarOpen = useUiStore((state) => state.sidebarOpen)
+  const setSidebarOpen = useUiStore((state) => state.setSidebarOpen)
+  const usuario = useAuthStore((state) => state.usuario)
+  const clearSesion = useAuthStore((state) => state.clearSesion)
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [comandoAbierto, setComandoAbierto] = useState(false)
+  const [ciclo, setCiclo] = useState('2026')
+  const [cambiarVistaAbierto, setCambiarVistaAbierto] = useState(false)
 
-        {/* Content */}
-        <main className="content">
-          <Outlet />
-        </main>
-      </div>
-    </div>
+  // Sin notificaciones conectadas todavía (backend no expone el endpoint): el punto de "no
+  // leídas" queda listo, oculto hasta que haya datos reales que mostrar.
+  const hayNotificacionesSinLeer = false
+
+  useEffect(() => {
+    function onKeyDown(evento: KeyboardEvent) {
+      if (evento.key === 'k' && (evento.metaKey || evento.ctrlKey)) {
+        evento.preventDefault()
+        setComandoAbierto((abierto) => !abierto)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
+  async function cerrarSesion() {
+    await logout().catch(() => {})
+    clearSesion()
+    navigate('/login', { replace: true })
+  }
+
+  const inicialAvatar = usuario?.email.charAt(0).toUpperCase() ?? '?'
+  const rolActual = usuario?.roles[0] ?? null
+  const otrosRoles = usuario?.roles.slice(1) ?? []
+  const tieneMasDeUnRol = otrosRoles.length > 0
+
+  return (
+    <TooltipProvider>
+      <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <Sidebar collapsible="icon">
+          <SidebarHeader>
+            <div className="flex items-center gap-2.5 px-1.5 py-1">
+              <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-violeta">
+                <MarcaEsseri />
+              </div>
+              <span className="text-sm font-semibold text-texto-sobre-oscuro group-data-[collapsible=icon]:hidden">
+                ESSERI
+              </span>
+            </div>
+          </SidebarHeader>
+          <SidebarContent>
+            {NAV_GROUPS.map((grupo) => (
+              <SidebarGroup key={grupo.label}>
+                <SidebarGroupLabel>{grupo.label}</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {grupo.items.map((item) => (
+                      <SidebarMenuItem key={item.href}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={location.pathname.startsWith(item.href)}
+                          tooltip={item.label}
+                        >
+                          <Link to={item.href}>
+                            <item.icon />
+                            <span>{item.label}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            ))}
+          </SidebarContent>
+        </Sidebar>
+
+        <SidebarInset>
+          <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-4 border-b border-borde bg-superficie px-7">
+            <Button
+              type="button"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              variant="ghost"
+              className="flex cursor-pointer size-9 shrink-0 items-center justify-center rounded-full"
+              aria-label="Mostrar u ocultar la navegación"
+            >
+              <Menu className="size-4.5" />
+            </Button>
+
+            <button
+              type="button"
+              onClick={() => setComandoAbierto(true)}
+              className="mx-auto flex h-10 w-full max-w-150 cursor-pointer items-center gap-2.5 rounded-full border border-borde bg-lienzo px-4 text-left text-sm text-texto-3 hover:bg-fila-hover"
+            >
+              <Search className="size-4 shrink-0" />
+              <span>Buscar o ir a…</span>
+              <kbd className="ml-auto rounded-md border border-borde bg-superficie px-1.5 py-0.5">
+                <div className="text-xs text-texto-3 flex gap-0.5 items-center justify-center">
+                  <span>⌘</span>
+                  <span>K</span>
+                </div>
+              </kbd>
+            </button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-borde px-3 py-2 text-sm font-medium text-texto-2 hover:bg-fila-hover"
+                >
+                  <CalendarIcon className="size-4 text-texto-3" />
+                  Ciclo {ciclo}
+                  <ChevronDownIcon className="size-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuRadioGroup value={ciclo} onValueChange={setCiclo}>
+                  <DropdownMenuRadioItem value="2026">
+                    <CalendarIcon className="text-texto-3" />
+                    2026
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="2025">
+                    <CalendarIcon className="text-texto-3" />
+                    2025
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-texto-2 hover:bg-fila-hover"
+                  aria-label="Notificaciones"
+                >
+                  <BellIcon className="size-5" />
+                  {hayNotificacionesSinLeer && (
+                    <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-advertencia" />
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80">
+                <Empty className="p-4">
+                  <EmptyMedia variant="neutral">
+                    <BellIcon />
+                  </EmptyMedia>
+                  <EmptyTitle>No hay notificaciones</EmptyTitle>
+                  <EmptyDescription>Todavía no hay avisos para mostrar acá.</EmptyDescription>
+                </Empty>
+              </PopoverContent>
+            </Popover>
+
+            <DropdownMenu
+              onOpenChange={(open) => {
+                if (!open) setCambiarVistaAbierto(false)
+              }}
+            >
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="cursor-pointer rounded-full p-0.5 hover:bg-fila-hover focus-visible:ring-2 focus-visible:ring-violeta focus-visible:ring-offset-2 focus-visible:outline-none"
+                  aria-label="Cuenta"
+                >
+                  <Avatar>
+                    <AvatarFallback className="bg-violeta text-xs font-semibold text-superficie">
+                      {inicialAvatar}
+                    </AvatarFallback>
+                  </Avatar>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuLabel className="flex flex-col gap-1 px-2.5 pt-2.5 pb-2 text-sm font-normal normal-case tracking-normal text-texto">
+                  <span className="text-sm font-semibold text-texto">
+                    {usuario ? nombreDeUsuario(usuario.email) : ''}
+                  </span>
+                  <span className="text-xs text-texto-3">{usuario?.email}</span>
+                  {rolActual && (
+                    <span
+                      className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full py-1 pr-3 pl-2.5 text-[11px] font-semibold"
+                      style={{
+                        backgroundColor: `color-mix(in oklch, ${colorIdentidad(rolActual)} 12%, white)`,
+                        color: colorIdentidad(rolActual),
+                      }}
+                    >
+                      <span
+                        className="size-1.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: colorIdentidad(rolActual) }}
+                      />
+                      {formatearNombreRol(rolActual)}
+                    </span>
+                  )}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {tieneMasDeUnRol && (
+                  <>
+                    <DropdownMenuItem
+                      className="justify-between text-texto-2"
+                      onSelect={(evento) => {
+                        evento.preventDefault()
+                        setCambiarVistaAbierto((abierto) => !abierto)
+                      }}
+                    >
+                      Cambiar vista
+                      <ChevronDownIcon
+                        className={`size-4! transition-transform duration-150 ${cambiarVistaAbierto ? 'rotate-180' : ''}`}
+                      />
+                    </DropdownMenuItem>
+                    {cambiarVistaAbierto && (
+                      <div className="flex flex-col gap-0.5 py-1">
+                        {rolActual && (
+                          <div className="flex items-center gap-2.5 rounded-md py-1.5 pr-4 pl-8 text-sm font-semibold text-texto">
+                            <span
+                              className="flex size-6 shrink-0 items-center justify-center rounded-lg"
+                              style={{
+                                backgroundColor: `color-mix(in oklch, ${colorIdentidad(rolActual)} 12%, white)`,
+                                color: colorIdentidad(rolActual),
+                              }}
+                            >
+                              <UserIcon className="size-3.5" />
+                            </span>
+                            {formatearNombreRol(rolActual)}
+                            <CheckIcon className="ml-auto size-3.5 text-violeta" />
+                          </div>
+                        )}
+                        {otrosRoles.map((rol) => (
+                          <button
+                            key={rol}
+                            type="button"
+                            className="flex cursor-pointer items-center gap-2.5 rounded-md py-1.5 pr-4 pl-8 text-sm text-texto-2 hover:bg-fila-hover"
+                          >
+                            <span
+                              className="flex size-6 shrink-0 items-center justify-center rounded-lg"
+                              style={{
+                                backgroundColor: `color-mix(in oklch, ${colorIdentidad(rol)} 12%, white)`,
+                                color: colorIdentidad(rol),
+                              }}
+                            >
+                              <UserIcon className="size-3.5" />
+                            </span>
+                            {formatearNombreRol(rol)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem disabled>
+                  <UserIcon />
+                  Mi cuenta
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onSelect={cerrarSesion}>
+                  <LogOut />
+                  Cerrar sesión
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </header>
+
+          <main className="min-w-0 flex-1 px-8 py-6">
+            <Outlet />
+          </main>
+        </SidebarInset>
+      </SidebarProvider>
+
+      <ComandoGlobal open={comandoAbierto} onOpenChange={setComandoAbierto} />
+    </TooltipProvider>
   )
 }

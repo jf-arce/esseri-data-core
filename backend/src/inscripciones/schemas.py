@@ -47,6 +47,34 @@ class InscripcionRead(BaseModel):
     solicitud_inscripcion_id: uuid.UUID | None
 
 
+class InscripcionListadoItemRead(BaseModel):
+    """Inscripción con el contexto necesario para mostrarla en el listado."""
+
+    id: uuid.UUID
+    ciclo_lectivo: str
+    fecha_inscripcion: date
+    tipo: Literal["nueva", "reinscripcion", "cambio_matricula", "baja"]
+    estado: Literal["activa", "finalizada", "baja"]
+    alumno_id: uuid.UUID
+    alumno_nombre: str
+    alumno_apellido: str
+    numero_legajo: str
+    division_id: uuid.UUID
+    division_nombre: str
+    anio_numero: int
+    nivel_educativo_nombre: str
+
+
+class InscripcionListadoRead(BaseModel):
+    """Página de inscripciones junto con sus datos de paginación."""
+
+    items: list[InscripcionListadoItemRead]
+    total: int
+    pagina: int
+    tamanio_pagina: int
+    total_paginas: int
+
+
 class SolicitudInscripcionOpcionRead(BaseModel):
     """Solicitud confirmada que todavía puede originar una inscripción nueva."""
 
