@@ -49,6 +49,13 @@ python ../database/seeds/02_seed_grupo_c.py
 python ../database/seeds/03_seed_grupo_b.py
 ```
 
+## Login con Google + primer usuario (RF-27)
+
+Documentado aparte, en `docs/auth-oauth-google.md` — abarca todo el módulo Auth (backend +
+frontend), no solo cómo levantar el backend. Ahí está el flujo de OAuth, cómo configurar las
+credenciales de Google, y cómo crear el primer usuario administrador
+(`database/seeds/00_bootstrap_admin.py`) para poder loguearse.
+
 ## Levantar el servidor
 
 ```bash

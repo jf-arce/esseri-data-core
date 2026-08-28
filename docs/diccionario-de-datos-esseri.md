@@ -46,15 +46,27 @@ RF cubiertos: RF-27, RF-28, RF-29, RF-30 · RNF-03, RNF-10
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
 | id | uuid | PK |  |
-| email | string |  | Credencial de login. Distinto de `FAMILIA.email` (contacto para notificaciones) |
-| password_hash | string |  | `[ACLARACIÓN CLIENTE]` Ya no obligatorio: con Google Identity como login principal, queda como fallback explícito. Nulo cuando `auth_provider = google` |
-| auth_provider | string |  | `[ACLARACIÓN CLIENTE]` google / local |
-| provider_subject | string |  | `[ACLARACIÓN CLIENTE]` Identificador estable que devuelve Google Identity. Nulo cuando `auth_provider = local` |
+| email | string | UQ | Credencial de login. Distinto de `FAMILIA.email` (contacto para notificaciones). **[IMPLEMENTACIÓN RF-27]** `UNIQUE` + índice: es la columna por la que buscan los dos caminos de login, y con duplicados el resultado sería no determinístico |
+| password_hash | string |  | `[ACLARACIÓN CLIENTE]` Ya no obligatorio: con Google Identity como login principal, queda como fallback explícito. Nulo en las cuentas que nacieron por Google |
+| auth_provider | string |  | `[ACLARACIÓN CLIENTE]` google / local. **[IMPLEMENTACIÓN RF-27]** Marca el método **principal**, no una exclusión — ver la nota de abajo sobre cuentas vinculadas |
+| provider_subject | string |  | `[ACLARACIÓN CLIENTE]` Identificador estable que devuelve Google Identity. Nulo mientras la cuenta no haya entrado nunca por Google |
 | estado | string |  | activo / inactivo |
 | fecha_creacion | datetime |  |  |
 | ultimo_acceso | datetime |  |  |
 | updated_at | datetime |  | Fecha y hora de la última modificación del registro. |
 | persona_id | uuid | FK | 1:1, opcional (no toda persona tiene cuenta) |
+
+**[IMPLEMENTACIÓN RF-27] Cómo conviven los dos logins.** `auth_provider` indica el método principal, no una exclusión — una cuenta puede terminar con las dos vías habilitadas:
+
+| `auth_provider` | `password_hash` | `provider_subject` | Entra por |
+|---|---|---|---|
+| `google` | nulo | el `sub` de Google | Solo botón de Google |
+| `local` | hash bcrypt | nulo | Solo email + contraseña |
+| `google` | hash bcrypt | el `sub` de Google | Ambos (cuenta vinculada) |
+
+La tercera fila aparece cuando una cuenta creada como `local` entra por Google por primera vez: se le guarda el `provider_subject` y pasa a `google`, **sin borrarle el `password_hash`**, que es justamente el fallback. Por eso la condición del login con contraseña es `password_hash IS NOT NULL` y no `auth_provider = 'local'`: si fuera lo segundo, vincular la cuenta mataría el fallback. La vinculación exige que Google reporte el email como verificado.
+
+**[IMPLEMENTACIÓN RF-27] No hay auto-registro.** Un email de Google que no está en `USUARIO` se rechaza (403) y el intento queda en `LOG_ACCESO`. Google autentica; habilitar la cuenta es decisión del sistema. La carga de usuarios la hacen los ABM (familias, inscripciones) — un `USUARIO` creado al vuelo no tendría `persona_id`, ni roles, ni vínculo con `FAMILIA`. El primer administrador se crea desde afuera con `database/seeds/00_bootstrap_admin.py`.
 
 **Dependencia de infraestructura externa nueva:** Google Cloud/Workspace. Registrar en el Plan de Gestión de Riesgos (mismo tratamiento pendiente que ya tenía n8n).
 
@@ -99,6 +111,8 @@ RF cubiertos: RF-27, RF-28, RF-29, RF-30 · RNF-03, RNF-10
 
 ### `LOG_ACCESO`
 > Cubre RF-27: *"intentos fallidos son registrados"*. Distinto de `AUDIT_LOG` (que registra cambios de campos) y de `EVENT_LOG` (que registra hechos de negocio).
+>
+> **[IMPLEMENTACIÓN RF-27]** `usuario_id` pasa a **nullable**. Un intento de login con un email que no existe en `USUARIO` no tiene a quién apuntar, y es justo uno de los casos que el RF pide registrar — con la FK obligatoria era irrepresentable.
 
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
@@ -106,7 +120,9 @@ RF cubiertos: RF-27, RF-28, RF-29, RF-30 · RNF-03, RNF-10
 | fecha | datetime |  |  |
 | resultado | string |  | exitoso / fallido |
 | ip_origen | string |  |  |
-| usuario_id | uuid | FK |  |
+| usuario_id | uuid | FK | Nulo cuando el email del intento no corresponde a ningún usuario del sistema |
+
+**Pregunta abierta para el equipo:** con `usuario_id` nulo, de un intento fallido de un desconocido solo queda la IP — no *qué* email se probó. Registrarlo requeriría un campo `email_intento` nuevo, que es un cambio de esquema sobre el modelo congelado y no se tomó por cuenta propia.
 
 ---
 

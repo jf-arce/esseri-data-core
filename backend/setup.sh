@@ -25,4 +25,12 @@ python ../database/seeds/01_seed_grupo_a.py
 python ../database/seeds/02_seed_grupo_c.py
 python ../database/seeds/03_seed_grupo_b.py
 
+# Solo si está configurado: el script pide la contraseña por consola y trabaría el setup.
+if grep -qE '^BOOTSTRAP_ADMIN_EMAIL=.+' .env; then
+    python ../database/seeds/00_bootstrap_admin.py
+else
+    echo "Sin BOOTSTRAP_ADMIN_EMAIL en .env — nadie va a poder loguearse todavía."
+    echo "Crear el primer admin con: python ../database/seeds/00_bootstrap_admin.py tu-email@ejemplo.com"
+fi
+
 exec uvicorn src.main:app --reload

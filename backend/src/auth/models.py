@@ -20,7 +20,7 @@ class Usuario(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
-    email: Mapped[str] = mapped_column(sa.String)
+    email: Mapped[str] = mapped_column(sa.String, unique=True, index=True)
     password_hash: Mapped[str | None] = mapped_column(sa.String)
     auth_provider: Mapped[str] = mapped_column(sa.String)
     provider_subject: Mapped[str | None] = mapped_column(sa.String)
@@ -81,7 +81,11 @@ class RolPermiso(Base):
 
 
 class LogAcceso(Base):
-    """Cubre RF-27: intentos fallidos de login. Distinto de AuditLog/EventLog."""
+    """Cubre RF-27: intentos fallidos de login. Distinto de AuditLog/EventLog.
+
+    `usuario_id` es nullable: un intento con un email que no existe en `usuario` no tiene a quién
+    apuntar, y es justo uno de los casos que RF-27 pide registrar.
+    """
 
     __tablename__ = "log_acceso"
     __table_args__ = (
@@ -92,4 +96,4 @@ class LogAcceso(Base):
     fecha: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
     resultado: Mapped[str] = mapped_column(sa.String)
     ip_origen: Mapped[str | None] = mapped_column(sa.String)
-    usuario_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("usuario.id"))
+    usuario_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("usuario.id"))

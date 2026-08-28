@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from src.auth.dependencies import UsuarioAutenticado
 from src.database import get_db
 from src.familias_alumnos.dependencies import obtener_familia_o_404
 from src.familias_alumnos.models import Familia
@@ -19,23 +20,20 @@ router = APIRouter(prefix="/familias-alumnos", tags=["familias_alumnos"])
 @router.post("/familias", response_model=FamiliaResponse, status_code=201)
 def crear_familia_endpoint(
     familia_data: FamiliaCreate,
+    usuario: UsuarioAutenticado,
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Familia:
     """Crear una nueva Familia.
 
     Args:
         familia_data: Datos de la familia a crear
+        usuario: Usuario autenticado que realiza la acción
         db: Sesión de base de datos
 
     Returns:
         La familia creada
-
-    TODO: Integración con Auth - obtener usuario_id del token JWT
     """
-    # TODO: Obtener usuario_id del contexto de autenticación cuando auth esté implementado
-    usuario_id = None
-
-    return crear_familia(db, familia_data, usuario_id)
+    return crear_familia(db, familia_data, usuario.id)
 
 
 @router.get("/familias/{familia_id}", response_model=FamiliaResponse)
@@ -56,6 +54,7 @@ def obtener_familia_endpoint(
 @router.put("/familias/{familia_id}", response_model=FamiliaResponse)
 def actualizar_familia_endpoint(
     familia_data: FamiliaUpdate,
+    usuario: UsuarioAutenticado,
     familia: Familia = Depends(obtener_familia_o_404),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Familia:
@@ -63,35 +62,29 @@ def actualizar_familia_endpoint(
 
     Args:
         familia_data: Datos actualizados de la familia
+        usuario: Usuario autenticado que realiza la acción
         familia: Familia a actualizar
         db: Sesión de base de datos
 
     Returns:
         La familia actualizada
-
-    TODO: Integración con Auth - obtener usuario_id del token JWT
     """
-    # TODO: Obtener usuario_id del contexto de autenticación cuando auth esté implementado
-    usuario_id = None
-
-    return actualizar_familia(db, familia, familia_data, usuario_id)
+    return actualizar_familia(db, familia, familia_data, usuario.id)
 
 
 @router.delete("/familias/{familia_id}", status_code=204)
 def eliminar_familia_endpoint(
+    usuario: UsuarioAutenticado,
     familia: Familia = Depends(obtener_familia_o_404),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> None:
     """Eliminar una familia (baja física).
 
     Args:
+        usuario: Usuario autenticado que realiza la acción
         familia: Familia a eliminar
         db: Sesión de base de datos
 
-    TODO: Integración con Auth - obtener usuario_id del token JWT
     TODO: Considerar si debería ser soft-delete en lugar de baja física
     """
-    # TODO: Obtener usuario_id del contexto de autenticación cuando auth esté implementado
-    usuario_id = None
-
-    eliminar_familia(db, familia, usuario_id)
+    eliminar_familia(db, familia, usuario.id)
