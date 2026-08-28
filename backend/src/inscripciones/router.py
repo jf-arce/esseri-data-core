@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from src.auth.constants import ACCION_CREAR, ACCION_LEER, MODULO_INSCRIPCIONES
@@ -9,7 +9,14 @@ from src.auth.dependencies import requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
 from src.inscripciones import service
-from src.inscripciones.schemas import InscripcionNuevaCreate, InscripcionRead, ReinscripcionCreate
+from src.inscripciones.schemas import (
+    AlumnoReinscripcionOpcionRead,
+    DivisionOpcionRead,
+    InscripcionNuevaCreate,
+    InscripcionRead,
+    ReinscripcionCreate,
+    SolicitudInscripcionOpcionRead,
+)
 
 router = APIRouter(prefix="/inscripciones", tags=["inscripciones"])
 
@@ -32,6 +39,40 @@ def crear_reinscripcion(
 ) -> InscripcionRead:
     inscripcion = service.crear_reinscripcion(db, datos)
     return InscripcionRead.model_validate(inscripcion)
+
+
+@router.get("/opciones/solicitudes")
+def listar_solicitudes_disponibles(
+    db: DbSession,
+    _: PuedeLeer,
+    buscar: Annotated[str | None, Query(max_length=100)] = None,
+    limite: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> list[SolicitudInscripcionOpcionRead]:
+    return service.listar_solicitudes_disponibles(db, buscar=buscar, limite=limite)
+
+
+@router.get("/opciones/divisiones")
+def listar_divisiones_disponibles(db: DbSession, _: PuedeLeer) -> list[DivisionOpcionRead]:
+    return service.listar_divisiones_disponibles(db)
+
+
+@router.get("/opciones/reinscripciones")
+def listar_alumnos_elegibles_reinscripcion(
+    db: DbSession,
+    _: PuedeLeer,
+    ciclo_lectivo: Annotated[
+        str,
+        Query(min_length=4, max_length=4, pattern=r"^[1-9]\d{3}$"),
+    ],
+    buscar: Annotated[str | None, Query(max_length=100)] = None,
+    limite: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> list[AlumnoReinscripcionOpcionRead]:
+    return service.listar_alumnos_elegibles_reinscripcion(
+        db,
+        ciclo_lectivo,
+        buscar=buscar,
+        limite=limite,
+    )
 
 
 @router.get("/{inscripcion_id}")
