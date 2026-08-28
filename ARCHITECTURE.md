@@ -123,7 +123,7 @@ Con esto, ningún módulo necesita saber de la existencia de los demás para def
 ### Resto de `frontend/src/` (carpetas compartidas con todos los módulos)
 | Carpeta/archivo | Contenido |
 |---|---|
-| `components/ui/` | Componentes base generados por shadcn/ui (`button.tsx`, `dialog.tsx`, `table.tsx`, etc.) — no se editan a mano, se regeneran con la CLI de shadcn. |
+| `components/ui/` | Componentes base, generados con la CLI de shadcn (`npx shadcn@latest add <componente>`) y luego editados a mano para reemplazar por completo el estilo por defecto de la librería por los tokens de `DESIGN.md` — variantes, radios, colores y estados quedan horneados adentro del componente (ver `frontend/README.md`), nunca resueltos con `className` en cada pantalla. Al regenerar uno con `--diff`, revisar el diff y volver a aplicar los cambios locales; no usar `--overwrite`. |
 | `components/` (resto) | Componentes propios armados a partir de los de `ui/`, reutilizados por más de un módulo (ej. `data-table.tsx`, exportando `DataTable`, un genérico con paginación). |
 | `hooks/` | Hooks genéricos (ej. `useDebounce`, `usePagination`). |
 | `api/` | Cliente HTTP base (instancia de fetch/axios, interceptor de token JWT, manejo de errores comunes) — es la base técnica que todos los `services/` de cada módulo usan por debajo; no contiene llamadas a endpoints específicos, eso queda en `modules/<modulo>/services/`. |
@@ -134,7 +134,7 @@ Con esto, ningún módulo necesita saber de la existencia de los demás para def
 | `types/global.d.ts` | Tipos globales que no pertenecen a un módulo específico. |
 | `App.tsx` | Componente raíz: renderiza el `RouterProvider` (o `<Routes>`) con el árbol armado en `src/router/`, envuelto en el `layout/` general. |
 | `main.tsx` | Punto de entrada de la aplicación. |
-| `index.css` | Estilos globales y punto de entrada de Tailwind. |
+| `index.css` | Estilos globales y punto de entrada de Tailwind. Acá viven los tokens de `DESIGN.md` (`--violeta`, `--superficie`, `--texto-2`, etc.), mapeados sobre el contrato de variables de shadcn/ui y expuestos como utilidades Tailwind (`bg-superficie`, `text-texto-2`). Modo claro únicamente: no hay bloque `.dark`. |
 | `components.json` | Archivo de configuración de shadcn/ui (le indica a la CLI dónde generar los componentes: `src/components/ui/`). |
 
 ### Archivos propios de `frontend/` (independientes del resto del repo)

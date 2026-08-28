@@ -21,7 +21,7 @@ Modo claro únicamente. Nunca `#000000` ni `#FFFFFF` puros: todo neutro de este 
 | lienzo | `#F6F5F8` | fondo de la aplicación |
 | superficie | `#FDFCFE` | tablas, modales, inputs (nunca `#FFFFFF`) |
 | fila-hover | `#F1EFF4` | hover de fila en tablas, fondo de sección hover |
-| borde | `#E6E2EC` | hairline de 1px: inputs, divisores, filas de tabla (ya no separa cards — ver 5.2) |
+| borde | `#DAD3E2` | hairline de 1px: inputs, divisores, filas de tabla (ya no separa cards — ver 5.2). Revisado: el valor original (`#E6E2EC`) daba 1.25:1 de contraste contra `superficie`, muy por debajo del piso de 3:1 de WCAG 1.4.11 para el límite de un control interactivo — este valor sube a ~1.43:1 manteniendo el mismo hue violáceo (~268°) |
 
 **Superficies de módulo (`--sup-*`)**: además de las tres capas neutras, cada módulo de la tabla en 2.5 tiene una superficie tonal propia (el color del módulo llevado a ~90–96% de luminosidad manteniendo el hue) — `sup-familias`, `sup-academico`, `sup-inscripciones`, `sup-facturacion`, `sup-compras`, `sup-workflows`, `sup-auditoria`, `sup-ia`. **No es el fondo de la Card** (ver 9): la Card va siempre sobre `superficie` lisa, sin excepción por módulo. Los `--sup-*` quedan reservados a dos usos puntuales: el fondo de un nodo en el canvas de workflows (disparador/condición/acción, ver 9) y el fondo de un tile de ícono (`36–44px`, radio 10–12px) donde hace falta más peso visual que un ícono suelto. Ninguna tabla los usa tampoco: una tabla densa se mantiene sobre `superficie` neutra por legibilidad de fila.
 
@@ -110,6 +110,18 @@ Una sola familia tipográfica: **Geist** (variable, pesos 100–900, roman + ita
 
 - **Etiquetas de sección**: Geist peso 700, versalitas (uppercase), tracking ~0.08em, tamaño ~12px. Es el único lugar donde va texto tracked en mayúsculas; nunca en frases largas.
 - **UI y cuerpo**: Geist 400/500/600, base 13–14px. Títulos de página 22–26px/600, encabezados de sección 16px/600, cuerpo 14px/400, texto secundario 13px/500.
+
+### 3.1 Escala (revisado: seis pasos, no valores sueltos)
+
+| Rol | Tamaño | Uso |
+|---|---|---|
+| micro | 12px | Etiqueta de sección (versalitas), encabezado de columna de tabla densa, texto auxiliar mínimo (helper, error inline) |
+| secundario | 13px | Texto secundario/metadata, label de campo, badge, chip, texto de tabs, breadcrumb |
+| cuerpo | 14px | Cuerpo de UI por defecto: botón, input, select, texto de fila de tabla, cuerpo de card |
+| encabezado | 16px | Encabezado de sección |
+| título | 22–26px | Título de página |
+
+Nunca un valor suelto entre estos pasos (nada de 12.5px, 13.5px, 14.5px, 15px): si un texto no encaja claramente en un rol, es señal de que le falta jerarquía real (peso, color, spacing), no que necesite un tamaño intermedio. La densidad de este sistema (§1) ya justifica un piso de 12-14px para texto de UI corriente, por debajo del piso de 16px que aplicaría a una superficie de lectura o de marketing.
 - **Datos**: Geist con numerales tabulares (`font-variant-numeric: tabular-nums`) para todo dato: montos, legajos, DNI, fechas, IDs, logs. No hay una fuente monoespaciada separada; la alineación tabular se logra con la feature OpenType, no con otra tipografía.
 - Longitud de línea de texto corrido: 65–75ch máximo.
 - Cualquier texto que pueda envolver a más de una línea (títulos, valores grandes) necesita un `line-height` explícito acorde a su tamaño (ej. 1.2–1.3), nunca heredar el line-height compacto del cuerpo: a 26–40px de tamaño, un line-height de cuerpo (20px) hace que las líneas se superpongan.
