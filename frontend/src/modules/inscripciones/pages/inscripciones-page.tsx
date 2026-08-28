@@ -5,10 +5,16 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { PageHeader } from '@/components/page-header'
+import { BajaInscripcionDialog } from '@/modules/inscripciones/components/baja-inscripcion-dialog'
+import { CambioMatriculaDialog } from '@/modules/inscripciones/components/cambio-matricula-dialog'
 import { InscripcionesFiltros } from '@/modules/inscripciones/components/inscripciones-filtros'
 import { InscripcionesTabla } from '@/modules/inscripciones/components/inscripciones-tabla'
 import { useInscripciones } from '@/modules/inscripciones/hooks/use-inscripciones'
-import type { EstadoInscripcion, TipoInscripcion } from '@/modules/inscripciones/types'
+import type {
+  EstadoInscripcion,
+  InscripcionListadoItem,
+  TipoInscripcion,
+} from '@/modules/inscripciones/types'
 
 const TAMANIO_PAGINA = 10
 
@@ -20,6 +26,12 @@ export function InscripcionesPage() {
   const [estado, setEstado] = useState<EstadoInscripcion | ''>('')
   const [densidad, setDensidad] = useState<'comfortable' | 'compact'>('comfortable')
   const [pagina, setPagina] = useState(1)
+  const [inscripcionParaCambio, setInscripcionParaCambio] = useState<InscripcionListadoItem | null>(
+    null,
+  )
+  const [inscripcionParaBaja, setInscripcionParaBaja] = useState<InscripcionListadoItem | null>(
+    null,
+  )
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setBusquedaAplicada(busqueda.trim()), 300)
@@ -132,6 +144,29 @@ export function InscripcionesPage() {
           total={datos.total}
           totalPaginas={datos.total_paginas}
           onCambiarPagina={setPagina}
+          onCambiarMatricula={setInscripcionParaCambio}
+          onRegistrarBaja={setInscripcionParaBaja}
+        />
+      )}
+
+      {inscripcionParaCambio && (
+        <CambioMatriculaDialog
+          inscripcion={inscripcionParaCambio}
+          open
+          onOpenChange={(open) => {
+            if (!open) setInscripcionParaCambio(null)
+          }}
+          onRegistrado={recargar}
+        />
+      )}
+      {inscripcionParaBaja && (
+        <BajaInscripcionDialog
+          inscripcion={inscripcionParaBaja}
+          open
+          onOpenChange={(open) => {
+            if (!open) setInscripcionParaBaja(null)
+          }}
+          onRegistrada={recargar}
         />
       )}
     </div>

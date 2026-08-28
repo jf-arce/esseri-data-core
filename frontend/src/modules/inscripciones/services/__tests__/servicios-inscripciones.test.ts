@@ -4,6 +4,8 @@ import { crearReinscripcion } from '@/modules/inscripciones/services/crear-reins
 import { listarAlumnosReinscripcion } from '@/modules/inscripciones/services/listar-alumnos-reinscripcion'
 import { listarInscripciones } from '@/modules/inscripciones/services/listar-inscripciones'
 import { listarSolicitudesDisponibles } from '@/modules/inscripciones/services/listar-solicitudes-disponibles'
+import { registrarBajaInscripcion } from '@/modules/inscripciones/services/registrar-baja-inscripcion'
+import { registrarCambioMatricula } from '@/modules/inscripciones/services/registrar-cambio-matricula'
 
 const respuestaOk = () =>
   new Response(JSON.stringify({}), {
@@ -73,5 +75,25 @@ describe('servicios de inscripciones', () => {
     expect(fetchMock.mock.calls[0][0]).toContain(
       '/inscripciones?pagina=2&tamanio_pagina=10&buscar=P%C3%A9rez+10&ciclo_lectivo=2027&estado=activa&tipo=reinscripcion',
     )
+  })
+
+  it('usa los endpoints de cambio de matrícula y baja con sus fechas', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await registrarCambioMatricula('inscripcion-1', {
+      division_id: 'division-2',
+      fecha_cambio: '2027-03-10',
+    })
+    await registrarBajaInscripcion('inscripcion-1', { fecha_baja: '2027-05-15' })
+
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/inscripciones\/inscripcion-1\/cambios-matricula$/)
+    expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).toEqual({
+      division_id: 'division-2',
+      fecha_cambio: '2027-03-10',
+    })
+    expect(fetchMock.mock.calls[1][0]).toMatch(/\/inscripciones\/inscripcion-1\/bajas$/)
+    expect(JSON.parse(fetchMock.mock.calls[1][1]?.body as string)).toEqual({
+      fecha_baja: '2027-05-15',
+    })
   })
 })

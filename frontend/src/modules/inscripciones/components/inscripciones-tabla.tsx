@@ -1,6 +1,16 @@
 import type { MouseEvent } from 'react'
+import { ArrowRightLeftIcon, MoreHorizontalIcon, UserRoundMinusIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Pagination,
   PaginationContent,
@@ -35,6 +45,7 @@ const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'chip', ancho: 'w-24', anchoAlt: 'w-28' },
   { tipo: 'texto', ancho: 'h-4 w-20' },
   { tipo: 'chip', ancho: 'w-20', anchoAlt: 'w-16' },
+  { tipo: 'texto', ancho: 'h-4 w-8' },
 ]
 
 const CLASE_TIPO: Record<TipoInscripcion, string> = {
@@ -66,6 +77,8 @@ interface InscripcionesTablaProps {
   total: number
   totalPaginas: number
   onCambiarPagina: (pagina: number) => void
+  onCambiarMatricula: (inscripcion: InscripcionListadoItem) => void
+  onRegistrarBaja: (inscripcion: InscripcionListadoItem) => void
 }
 
 export function InscripcionesTabla({
@@ -77,6 +90,8 @@ export function InscripcionesTabla({
   total,
   totalPaginas,
   onCambiarPagina,
+  onCambiarMatricula,
+  onRegistrarBaja,
 }: InscripcionesTablaProps) {
   const primeraFila = (pagina - 1) * tamanioPagina + 1
   const ultimaFila = Math.min(total, pagina * tamanioPagina)
@@ -91,7 +106,7 @@ export function InscripcionesTabla({
       <Table
         bare
         data-density={densidad === 'compact' ? 'compact' : undefined}
-        minWidth="min-w-[860px]"
+        minWidth="min-w-[940px]"
       >
         <TableHeader>
           <TableRow>
@@ -101,6 +116,9 @@ export function InscripcionesTabla({
             <TableHead>Tipo</TableHead>
             <TableHead>Fecha</TableHead>
             <TableHead>Estado</TableHead>
+            <TableHead data-align="end">
+              <span className="sr-only">Acciones</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -136,6 +154,43 @@ export function InscripcionesTabla({
                   <Badge variant={inscripcion.estado === 'activa' ? 'exito' : 'neutro'}>
                     {etiquetaEstadoInscripcion(inscripcion.estado)}
                   </Badge>
+                </TableCell>
+                <TableCell data-align="end">
+                  {inscripcion.estado === 'activa' ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Acciones para ${inscripcion.alumno_apellido}, ${inscripcion.alumno_nombre}`}
+                        >
+                          <MoreHorizontalIcon />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem onSelect={() => onCambiarMatricula(inscripcion)}>
+                            <ArrowRightLeftIcon className="text-petroleo" />
+                            Cambio de matrícula
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onSelect={() => onRegistrarBaja(inscripcion)}
+                          >
+                            <UserRoundMinusIcon />
+                            Registrar baja
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    <span className="text-texto-3" aria-label="Sin acciones disponibles">
+                      —
+                    </span>
+                  )}
                 </TableCell>
               </TableRow>
             ))
