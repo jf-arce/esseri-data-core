@@ -14,6 +14,7 @@ except ImportError:
 
 import yaml
 
+from src.auth.constants import codigo_de
 from src.auth.models import Permiso, Rol
 from src.database import SessionLocal
 from src.workflows.models import CampoEvento, TipoEvento
@@ -27,16 +28,9 @@ def seed_permiso(db, data):
         rol = db.query(Rol).filter_by(nombre=entry["rol"]).one()
         for accion in entry["acciones"]:
             # Permiso no tiene FK directa a rol (va vía ROL_PERMISO), así que el
-            # chequeo de existencia es por (modulo, accion, tipo_informacion).
-            existing = (
-                db.query(Permiso)
-                .filter_by(
-                    modulo=entry["modulo"],
-                    accion=accion,
-                    tipo_informacion=entry.get("tipo_informacion"),
-                )
-                .first()
-            )
+            # chequeo de existencia es por `codigo` (clave estable, ver `codigo_de`).
+            codigo = codigo_de(entry["modulo"], accion, entry.get("tipo_informacion"))
+            existing = db.query(Permiso).filter_by(codigo=codigo).first()
             if existing:
                 permiso = existing
                 print(f"  ya existe: Permiso({entry['modulo']!r}, {accion!r})")

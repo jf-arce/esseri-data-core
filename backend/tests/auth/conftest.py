@@ -99,7 +99,18 @@ def google_responde(monkeypatch):
 
 @pytest.fixture()
 def permiso_factory(db_session):
+    """Get-or-create por `codigo`: dos roles de prueba que piden el mismo (modulo, accion,
+    tipo_informacion) tienen que compartir la misma fila de `Permiso`, igual que hace el seed
+    real (`03_seed_grupo_b.py`) — `Permiso.codigo` es UNIQUE, así que crear una fila nueva por
+    cada pedido rompería con la segunda llamada repetida."""
+
     def _crear(modulo, accion, tipo_informacion=None):
+        from src.auth.constants import codigo_de
+
+        codigo = codigo_de(modulo, accion, tipo_informacion)
+        existente = db_session.query(Permiso).filter_by(codigo=codigo).first()
+        if existente is not None:
+            return existente
         permiso = Permiso(modulo=modulo, accion=accion, tipo_informacion=tipo_informacion)
         db_session.add(permiso)
         db_session.commit()

@@ -13,7 +13,7 @@ from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from src.auth import config
-from src.auth.constants import ACCION_ACTUALIZAR, MODULO_AUTENTICACION
+from src.auth.constants import PERMISO_AUTENTICACION_ACTUALIZAR, codigo_de
 from src.auth.exceptions import (
     CredencialesInvalidas,
     PermisoDuplicado,
@@ -194,37 +194,35 @@ def _existe(db: Session, stmt) -> bool:
     return bool(db.scalar(select(stmt.exists())))
 
 
-def tiene_permiso(
-    db: Session,
-    usuario_id: uuid.UUID,
-    modulo: str,
-    accion: str,
-    tipo_informacion: str | None = None,
-) -> bool:
-    """True si alguno de los roles del usuario habilita (modulo, accion).
+def tiene_permiso(db: Session, usuario_id: uuid.UUID, codigo: str) -> bool:
+    """True si alguno de los roles del usuario habilita `codigo`.
 
     Si dos roles del mismo usuario chocan, gana el más permisivo (decisión de equipo): alcanza
     con que uno solo de sus roles habilite la acción, así que un solo EXISTS sobre todos sus
     roles ya resuelve esa regla.
 
-    `tipo_informacion=None` no filtra: cualquier permiso de ese módulo+acción sirve. Si se pide
-    un `tipo_informacion` puntual, lo satisface un permiso con ese tipo exacto o uno amplio
-    (tipo_informacion NULL en la base).
+    `codigo` es siempre ASCII por construcción (ver `codigo_de`), así que a diferencia del
+    viejo par (modulo, accion) no hay ambigüedad de normalización Unicode (NFC/NFD) posible acá
+    — ese era justo el problema que `codigo` vino a resolver.
+
+    Dos formas de `codigo`, mismo comportamiento que el viejo `tipo_informacion=None` opcional:
+    - `"<modulo>.<accion>"` (pedido genérico, sin tipo): lo satisface cualquier permiso de ese
+      módulo+acción, tenga o no `tipo_informacion` — típicamente lo que pide `requiere_permiso`
+      en un router, que nunca pasa un tipo puntual hoy.
+    - `"<modulo>.<accion>:<tipo>"` (pedido puntual): lo satisface el código exacto o el permiso
+      amplio sin tipo (`"<modulo>.<accion>"`), nunca uno de un tipo distinto.
     """
-    condiciones = [
-        UsuarioRol.usuario_id == usuario_id,
-        Permiso.modulo == modulo,
-        Permiso.accion == accion,
-    ]
-    if tipo_informacion is not None:
-        condiciones.append(
-            or_(Permiso.tipo_informacion.is_(None), Permiso.tipo_informacion == tipo_informacion)
-        )
+    base, separador, _tipo = codigo.partition(":")
+    if separador:
+        condicion_codigo = Permiso.codigo.in_([codigo, base])
+    else:
+        condicion_codigo = or_(Permiso.codigo == base, Permiso.codigo.like(f"{base}:%"))
+
     stmt = (
         select(UsuarioRol.id)
         .join(RolPermiso, RolPermiso.rol_id == UsuarioRol.rol_id)
         .join(Permiso, Permiso.id == RolPermiso.permiso_id)
-        .where(*condiciones)
+        .where(UsuarioRol.usuario_id == usuario_id, condicion_codigo)
     )
     return _existe(db, stmt)
 
@@ -297,18 +295,13 @@ def obtener_permiso(db: Session, permiso_id: uuid.UUID) -> Permiso | None:
     return db.get(Permiso, permiso_id)
 
 
-def _permiso_duplicado(db: Session, modulo: str, accion: str, tipo_informacion: str | None) -> bool:
-    condiciones = [Permiso.modulo == modulo, Permiso.accion == accion]
-    condiciones.append(
-        Permiso.tipo_informacion.is_(None)
-        if tipo_informacion is None
-        else Permiso.tipo_informacion == tipo_informacion
-    )
-    return _existe(db, select(Permiso.id).where(*condiciones))
+def _permiso_duplicado(db: Session, codigo: str) -> bool:
+    return _existe(db, select(Permiso.id).where(Permiso.codigo == codigo))
 
 
 def crear_permiso(db: Session, datos: PermisoCreate) -> Permiso:
-    if _permiso_duplicado(db, datos.modulo, datos.accion, datos.tipo_informacion):
+    codigo = codigo_de(datos.modulo, datos.accion, datos.tipo_informacion)
+    if _permiso_duplicado(db, codigo):
         raise PermisoDuplicado()
     permiso = Permiso(**datos.model_dump())
     db.add(permiso)
@@ -322,13 +315,11 @@ def actualizar_permiso(db: Session, permiso: Permiso, datos: PermisoUpdate) -> P
     modulo = cambios.get("modulo", permiso.modulo)
     accion = cambios.get("accion", permiso.accion)
     tipo_informacion = cambios.get("tipo_informacion", permiso.tipo_informacion)
-    if (modulo, accion, tipo_informacion) != (
-        permiso.modulo,
-        permiso.accion,
-        permiso.tipo_informacion,
-    ):
-        if _permiso_duplicado(db, modulo, accion, tipo_informacion):
+    nuevo_codigo = codigo_de(modulo, accion, tipo_informacion)
+    if nuevo_codigo != permiso.codigo:
+        if _permiso_duplicado(db, nuevo_codigo):
             raise PermisoDuplicado()
+        cambios["codigo"] = nuevo_codigo
     for campo, valor in cambios.items():
         setattr(permiso, campo, valor)
     db.commit()
@@ -391,6 +382,22 @@ def roles_de_usuario(db: Session, usuario_id: uuid.UUID) -> list[Rol]:
     )
 
 
+def listar_usuarios(db: Session) -> list[tuple[Usuario, list[Rol]]]:
+    """Usuarios con sus roles, en dos queries (no N+1 por usuario): sin `relationship()` en
+    los modelos (decisión del proyecto: los joins quedan explícitos acá), se resuelve trayendo
+    todos los vínculos usuario_rol->rol de una y agrupándolos en memoria por usuario_id."""
+    usuarios = list(db.scalars(select(Usuario).order_by(Usuario.email)))
+
+    vinculos = db.execute(
+        select(UsuarioRol.usuario_id, Rol).join(Rol, Rol.id == UsuarioRol.rol_id)
+    ).all()
+    roles_por_usuario: dict[uuid.UUID, list[Rol]] = {}
+    for usuario_id, rol in vinculos:
+        roles_por_usuario.setdefault(usuario_id, []).append(rol)
+
+    return [(usuario, roles_por_usuario.get(usuario.id, [])) for usuario in usuarios]
+
+
 def _quedaria_sin_administrador(
     db: Session, usuario_id: uuid.UUID, rol_a_quitar_id: uuid.UUID
 ) -> bool:
@@ -404,8 +411,7 @@ def _quedaria_sin_administrador(
         .where(
             UsuarioRol.usuario_id == usuario_id,
             UsuarioRol.rol_id != rol_a_quitar_id,
-            Permiso.modulo == MODULO_AUTENTICACION,
-            Permiso.accion == ACCION_ACTUALIZAR,
+            Permiso.codigo == PERMISO_AUTENTICACION_ACTUALIZAR,
         ),
     )
     if conserva_via_otro_rol:
@@ -418,8 +424,7 @@ def _quedaria_sin_administrador(
         .join(Permiso, Permiso.id == RolPermiso.permiso_id)
         .where(
             UsuarioRol.usuario_id != usuario_id,
-            Permiso.modulo == MODULO_AUTENTICACION,
-            Permiso.accion == ACCION_ACTUALIZAR,
+            Permiso.codigo == PERMISO_AUTENTICACION_ACTUALIZAR,
         ),
     )
     return not hay_otro_administrador

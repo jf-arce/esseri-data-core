@@ -1,10 +1,17 @@
 """Vocabulario de la matriz de permisos.
 
-Transcrito de `database/seeds/grupo-b.yaml`: son los strings exactos que quedan guardados en
-`permiso.modulo` / `permiso.accion`. Sin esto, un typo en un `requiere_permiso(...)` fallaría en
-silencio (denegando siempre) en vez de romper en el momento del cambio.
+Transcrito de `database/seeds/grupo-b.yaml`: `MODULOS`/`ACCIONES` son los strings de display
+exactos que quedan guardados en `permiso.modulo` / `permiso.accion`, y lo que valida
+`PermisoCreate`/`PermisoUpdate` vía los `Literal`.
+
+La clave de autorización real es `permiso.codigo` (ver `codigo_de`), no el par
+modulo+accion: un string con acentos y espacios es frágil como clave (una `ó` en NFD vs NFC no
+matchea contra la misma fila en NFC, y el fallo es silencioso — deniega en vez de romper). Las
+constantes `PERMISO_*` de acá abajo son lo que efectivamente se pasa a `requiere_permiso(...)`.
 """
 
+import re
+import unicodedata
 from typing import Literal
 
 MODULO_AUTENTICACION = "Autenticación"
@@ -59,3 +66,59 @@ ModuloLiteral = Literal[
 ]
 
 AccionLiteral = Literal["crear", "leer", "actualizar", "eliminar", "exportar"]
+
+
+# --- Slug ASCII de módulo, usado para derivar el código de permiso ------------------------
+
+SLUG_POR_MODULO: dict[str, str] = {
+    MODULO_AUTENTICACION: "autenticacion",
+    MODULO_FAMILIAS_ALUMNOS: "familias_alumnos",
+    MODULO_ACADEMICO: "academico",
+    MODULO_INSCRIPCIONES: "inscripciones",
+    MODULO_FACTURACION: "facturacion",
+    MODULO_PROVEEDORES_COMPRAS: "proveedores_compras",
+    MODULO_WORKFLOWS: "workflows",
+    MODULO_AUDITORIA: "auditoria",
+    MODULO_PANEL_ADMIN: "panel_administrativo",
+    MODULO_IA_SUGERENCIAS: "ia_sugerencias",
+}
+
+
+def _slug_de_modulo(modulo: str) -> str:
+    """Fallback para un `modulo` fuera del vocabulario fijo: nunca debería pasar en un
+    `Permiso` válido (el `Literal` lo impide en el ABM), pero una migración o un dato viejo
+    podría traer uno. Deriva un slug razonable en vez de reventar."""
+    conocido = SLUG_POR_MODULO.get(modulo)
+    if conocido is not None:
+        return conocido
+    sin_acentos = unicodedata.normalize("NFKD", modulo).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]+", "_", sin_acentos.lower()).strip("_")
+
+
+def codigo_de(modulo: str, accion: str, tipo_informacion: str | None = None) -> str:
+    """Clave de autorización estable y ASCII para un permiso.
+
+    `tipo_informacion` entra en el código a propósito: así el UNIQUE de base sobre `codigo`
+    reproduce exactamente la unicidad de (modulo, accion, tipo_informacion) que hoy solo
+    valida `_permiso_duplicado` en Python.
+    """
+    base = f"{_slug_de_modulo(modulo)}.{accion}"
+    if tipo_informacion is None:
+        return base
+    return f"{base}:{tipo_informacion}"
+
+
+# --- Códigos de permiso usados en `requiere_permiso(...)` en los routers ------------------
+
+PERMISO_AUTENTICACION_CREAR = codigo_de(MODULO_AUTENTICACION, ACCION_CREAR)
+PERMISO_AUTENTICACION_LEER = codigo_de(MODULO_AUTENTICACION, ACCION_LEER)
+PERMISO_AUTENTICACION_ACTUALIZAR = codigo_de(MODULO_AUTENTICACION, ACCION_ACTUALIZAR)
+PERMISO_AUTENTICACION_ELIMINAR = codigo_de(MODULO_AUTENTICACION, ACCION_ELIMINAR)
+
+PERMISO_FAMILIAS_ALUMNOS_CREAR = codigo_de(MODULO_FAMILIAS_ALUMNOS, ACCION_CREAR)
+PERMISO_FAMILIAS_ALUMNOS_LEER = codigo_de(MODULO_FAMILIAS_ALUMNOS, ACCION_LEER)
+PERMISO_FAMILIAS_ALUMNOS_ACTUALIZAR = codigo_de(MODULO_FAMILIAS_ALUMNOS, ACCION_ACTUALIZAR)
+PERMISO_FAMILIAS_ALUMNOS_ELIMINAR = codigo_de(MODULO_FAMILIAS_ALUMNOS, ACCION_ELIMINAR)
+
+PERMISO_INSCRIPCIONES_CREAR = codigo_de(MODULO_INSCRIPCIONES, ACCION_CREAR)
+PERMISO_INSCRIPCIONES_LEER = codigo_de(MODULO_INSCRIPCIONES, ACCION_LEER)
