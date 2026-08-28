@@ -1,6 +1,7 @@
 import { useRoutes } from 'react-router'
 import { AppLayout } from '@/layout/app-layout'
-import { WelcomePage } from '@/pages/welcome-page'
+import { HomePage } from '@/pages/home-page'
+import { ProtectedRoute } from '@/router/protected-route'
 import { authRoutes } from '@/modules/auth/routes'
 import { familiasAlumnosRoutes } from '@/modules/familias-alumnos/routes'
 import { academicoRoutes } from '@/modules/academico/routes'
@@ -26,8 +27,15 @@ const moduleRoutes = [
 
 export function AppRouter() {
   return useRoutes([
-    { index: true, element: <WelcomePage /> },
     ...authRoutes,
-    { element: <AppLayout />, children: moduleRoutes },
+    {
+      element: <ProtectedRoute />,
+      children: [
+        {
+          element: <AppLayout />,
+          children: [{ index: true, element: <HomePage /> }, ...moduleRoutes],
+        },
+      ],
+    },
   ])
 }

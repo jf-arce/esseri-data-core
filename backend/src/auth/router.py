@@ -14,10 +14,33 @@ from jose import JWTError, jwt
 
 from src.auth import config, google_client, service
 from src.auth.dependencies import DbSession, UsuarioAutenticado
-from src.auth.exceptions import EstadoOAuthInvalido, LoginCancelado
+from src.auth.exceptions import (
+    CredencialesInvalidas,
+    EstadoOAuthInvalido,
+    LoginCancelado,
+    UsuarioInactivo,
+    UsuarioNoHabilitado,
+)
 from src.auth.schemas import LoginLocalIn, UsuarioActual
+from src.exceptions import AppException
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# Slug corto por excepción para el `?error=` del redirect al frontend. El callback es una
+# navegación de página completa del browser, no un fetch: si dejáramos que la excepción llegue
+# al exception handler global, el usuario vería el JSON crudo en vez de la pantalla de error.
+_SLUG_DE_ERROR: dict[type[AppException], str] = {
+    UsuarioNoHabilitado: "no_habilitado",
+    UsuarioInactivo: "inactivo",
+    CredencialesInvalidas: "credenciales_invalidas",
+    EstadoOAuthInvalido: "oauth_invalido",
+    LoginCancelado: "cancelado",
+}
+
+
+def _redirect_de_error(exc: AppException) -> RedirectResponse:
+    slug = _SLUG_DE_ERROR.get(type(exc), "login_fallido")
+    return RedirectResponse(f"{config.FRONTEND_URL}/login?error={slug}")
 
 
 def _ip_de(request: Request) -> str | None:
@@ -73,29 +96,32 @@ def google_login() -> RedirectResponse:
 def google_callback(
     request: Request, state: str, db: DbSession, code: str = "", error: str = ""
 ) -> RedirectResponse:
-    if error:
-        # error=access_denied: el usuario canceló en Google, no es un state inválido.
-        raise LoginCancelado()
-
-    cookie = request.cookies.get(config.COOKIE_OAUTH_STATE)
-    if not cookie or not code:
-        raise EstadoOAuthInvalido()
-
     try:
-        emitido = jwt.decode(cookie, config.JWT_SECRET, algorithms=[config.JWT_ALGORITHM])
-    except JWTError as exc:
-        raise EstadoOAuthInvalido() from exc
+        if error:
+            # error=access_denied: el usuario canceló en Google, no es un state inválido.
+            raise LoginCancelado()
 
-    if not secrets.compare_digest(emitido.get("state", ""), state):
-        raise EstadoOAuthInvalido()
+        cookie = request.cookies.get(config.COOKIE_OAUTH_STATE)
+        if not cookie or not code:
+            raise EstadoOAuthInvalido()
 
-    identidad = google_client.verify_id_token(
-        google_client.exchange_code(code, emitido["verifier"])
-    )
+        try:
+            emitido = jwt.decode(cookie, config.JWT_SECRET, algorithms=[config.JWT_ALGORITHM])
+        except JWTError as exc:
+            raise EstadoOAuthInvalido() from exc
 
-    ip = _ip_de(request)
-    usuario = service.resolver_usuario_google(db, identidad, ip)
-    token = service.finalizar_login(db, usuario, ip)
+        if not secrets.compare_digest(emitido.get("state", ""), state):
+            raise EstadoOAuthInvalido()
+
+        identidad = google_client.verify_id_token(
+            google_client.exchange_code(code, emitido["verifier"])
+        )
+
+        ip = _ip_de(request)
+        usuario = service.resolver_usuario_google(db, identidad, ip)
+        token = service.finalizar_login(db, usuario, ip)
+    except AppException as exc:
+        return _redirect_de_error(exc)
 
     respuesta = RedirectResponse(config.FRONTEND_URL)
     _setear_cookie_sesion(respuesta, token)

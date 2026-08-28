@@ -1,11 +1,13 @@
 import { Navigate, Outlet } from 'react-router'
+import { useAuthStore } from '@/store/auth-store'
 
 interface RoleRouteProps {
   allowedRoles: string[]
 }
 
 export function RoleRoute({ allowedRoles }: RoleRouteProps) {
-  const userRole = 'admin' // TODO: reemplazar por store/auth-store.ts cuando exista el módulo auth
+  const roles = useAuthStore((state) => state.usuario?.roles ?? [])
+  const tienePermiso = roles.some((rol) => allowedRoles.includes(rol))
 
-  return allowedRoles.includes(userRole) ? <Outlet /> : <Navigate to="/" replace />
+  return tienePermiso ? <Outlet /> : <Navigate to="/" replace />
 }

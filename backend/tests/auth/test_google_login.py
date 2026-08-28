@@ -47,7 +47,8 @@ def test_usuario_desconocido_no_entra(client, google_responde, iniciar_flujo_goo
 
     respuesta = client.get(f"/auth/google/callback?code=abc&state={state}", follow_redirects=False)
 
-    assert respuesta.status_code == 403
+    assert respuesta.status_code in (302, 307)
+    assert respuesta.headers["location"] == f"{config.FRONTEND_URL}/login?error=no_habilitado"
     assert config.COOKIE_SESION not in respuesta.cookies
 
 
@@ -57,7 +58,8 @@ def test_usuario_inactivo_no_entra(client, usuario_inactivo, google_responde, in
 
     respuesta = client.get(f"/auth/google/callback?code=abc&state={state}", follow_redirects=False)
 
-    assert respuesta.status_code == 403
+    assert respuesta.status_code in (302, 307)
+    assert respuesta.headers["location"] == f"{config.FRONTEND_URL}/login?error=inactivo"
 
 
 def test_state_que_no_coincide_se_rechaza(
@@ -69,7 +71,8 @@ def test_state_que_no_coincide_se_rechaza(
 
     respuesta = client.get("/auth/google/callback?code=abc&state=inventado", follow_redirects=False)
 
-    assert respuesta.status_code == 400
+    assert respuesta.status_code in (302, 307)
+    assert respuesta.headers["location"] == f"{config.FRONTEND_URL}/login?error=oauth_invalido"
 
 
 def test_callback_sin_cookie_de_state_se_rechaza(client, usuario_google, google_responde):
@@ -77,7 +80,8 @@ def test_callback_sin_cookie_de_state_se_rechaza(client, usuario_google, google_
 
     respuesta = client.get("/auth/google/callback?code=abc&state=algo", follow_redirects=False)
 
-    assert respuesta.status_code == 400
+    assert respuesta.status_code in (302, 307)
+    assert respuesta.headers["location"] == f"{config.FRONTEND_URL}/login?error=oauth_invalido"
 
 
 def test_callback_con_error_de_google_no_se_confunde_con_state_invalido(
@@ -90,8 +94,8 @@ def test_callback_con_error_de_google_no_se_confunde_con_state_invalido(
         f"/auth/google/callback?error=access_denied&state={state}", follow_redirects=False
     )
 
-    assert respuesta.status_code == 400
-    assert "cancel" in respuesta.json()["detail"].lower()
+    assert respuesta.status_code in (302, 307)
+    assert respuesta.headers["location"] == f"{config.FRONTEND_URL}/login?error=cancelado"
 
 
 def test_subject_distinto_al_registrado_se_rechaza(
@@ -103,7 +107,10 @@ def test_subject_distinto_al_registrado_se_rechaza(
 
     respuesta = client.get(f"/auth/google/callback?code=abc&state={state}", follow_redirects=False)
 
-    assert respuesta.status_code == 401
+    assert respuesta.status_code in (302, 307)
+    assert (
+        respuesta.headers["location"] == f"{config.FRONTEND_URL}/login?error=credenciales_invalidas"
+    )
 
 
 def test_cuenta_local_se_vincula_y_conserva_la_password(
@@ -132,7 +139,10 @@ def test_email_no_verificado_no_vincula(
 
     respuesta = client.get(f"/auth/google/callback?code=abc&state={state}", follow_redirects=False)
 
-    assert respuesta.status_code == 401
+    assert respuesta.status_code in (302, 307)
+    assert (
+        respuesta.headers["location"] == f"{config.FRONTEND_URL}/login?error=credenciales_invalidas"
+    )
     db_session.refresh(usuario_local)
     assert usuario_local.provider_subject is None
 
