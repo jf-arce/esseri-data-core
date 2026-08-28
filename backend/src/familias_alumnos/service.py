@@ -4,7 +4,8 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from src.familias_alumnos.models import Familia
+from src.familias_alumnos.exceptions import FamiliaConVinculos
+from src.familias_alumnos.models import Familia, FamiliaAlumno
 from src.familias_alumnos.schemas import FamiliaCreate, FamiliaUpdate
 
 
@@ -119,12 +120,17 @@ def eliminar_familia(db: Session, familia: Familia, usuario_id: uuid.UUID | None
         familia: Instancia de Familia a eliminar
         usuario_id: ID del usuario que realiza la acción (para auditoría)
 
-    TODO: Integración con Auth - obtener usuario_id del contexto de autenticación
     TODO: Considerar si debería ser soft-delete en lugar de baja física
-    TODO: Validar que no haya alumnos vinculados antes de eliminar
+
+    Raises:
+        FamiliaConVinculos: si hay algún Alumno vinculado a esta familia.
     """
-    # TODO: Validar que no haya registros en FAMILIA_ALUMNO vinculados
     # TODO: Considerar registrar la baja en AUDIT_LOG antes de eliminar
+    tiene_vinculos = (
+        db.query(FamiliaAlumno).filter(FamiliaAlumno.familia_id == familia.id).first() is not None
+    )
+    if tiene_vinculos:
+        raise FamiliaConVinculos()
 
     db.delete(familia)
     db.commit()

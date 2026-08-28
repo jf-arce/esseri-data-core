@@ -107,7 +107,7 @@ class TestFamiliaService:
 class TestFamiliaEndpoints:
     """Tests para los endpoints de Familia."""
 
-    def test_crear_familia_endpoint(self, client: TestClient, db_session: Session):
+    def test_crear_familia_endpoint(self, client_autenticado: TestClient, db_session: Session):
         """Test del endpoint POST /familias-alumnos/familias."""
         # Crear persona primero
         persona = Persona(nombre="Laura", apellido="Rodríguez", dni="44444444", sexo="F")
@@ -116,7 +116,7 @@ class TestFamiliaEndpoints:
         db_session.refresh(persona)
 
         # Llamar al endpoint
-        response = client.post(
+        response = client_autenticado.post(
             "/familias-alumnos/familias",
             json={"persona_id": str(persona.id)},
         )
@@ -151,7 +151,7 @@ class TestFamiliaEndpoints:
         response = client.get(f"/familias-alumnos/familias/{uuid.uuid4()}")
         assert response.status_code == 404
 
-    def test_actualizar_familia_endpoint(self, client: TestClient, db_session: Session):
+    def test_actualizar_familia_endpoint(self, client_autenticado: TestClient, db_session: Session):
         """Test del endpoint PUT /familias-alumnos/familias/{id}."""
         # Crear dos personas
         persona1 = Persona(nombre="Patricia", apellido="Gómez", dni="66666666", sexo="F")
@@ -167,7 +167,7 @@ class TestFamiliaEndpoints:
         familia = crear_familia(db_session, familia_data)
 
         # Actualizar a persona2
-        response = client.put(
+        response = client_autenticado.put(
             f"/familias-alumnos/familias/{familia.id}",
             json={"persona_id": str(persona2.id)},
         )
@@ -176,7 +176,7 @@ class TestFamiliaEndpoints:
         data = response.json()
         assert data["persona_id"] == str(persona2.id)
 
-    def test_eliminar_familia_endpoint(self, client: TestClient, db_session: Session):
+    def test_eliminar_familia_endpoint(self, client_autenticado: TestClient, db_session: Session):
         """Test del endpoint DELETE /familias-alumnos/familias/{id}."""
         # Crear persona y familia
         persona = Persona(nombre="Carmen", apellido="Morales", dni="88888888", sexo="F")
@@ -188,10 +188,52 @@ class TestFamiliaEndpoints:
         familia = crear_familia(db_session, familia_data)
 
         # Eliminar familia
-        response = client.delete(f"/familias-alumnos/familias/{familia.id}")
+        response = client_autenticado.delete(f"/familias-alumnos/familias/{familia.id}")
 
         assert response.status_code == 204
 
         # Verificar que fue eliminada
-        response_get = client.get(f"/familias-alumnos/familias/{familia.id}")
+        response_get = client_autenticado.get(f"/familias-alumnos/familias/{familia.id}")
         assert response_get.status_code == 404
+
+    def test_eliminar_familia_con_alumnos_vinculados_rechaza(
+        self, client_autenticado: TestClient, db_session: Session
+    ):
+        """Borrar una familia con un alumno vinculado tiene que dar 409, no un 500 crudo."""
+        from src.familias_alumnos.models import Alumno, FamiliaAlumno
+
+        persona_familia = Persona(nombre="Nora", apellido="Ibáñez", dni="99999999", sexo="F")
+        persona_alumno = Persona(nombre="Tomás", apellido="Ibáñez", dni="10101010", sexo="M")
+        db_session.add(persona_familia)
+        db_session.add(persona_alumno)
+        db_session.commit()
+        db_session.refresh(persona_familia)
+        db_session.refresh(persona_alumno)
+
+        familia = crear_familia(db_session, FamiliaCreate(persona_id=persona_familia.id))
+        alumno = Alumno(persona_id=persona_alumno.id, numero_legajo="L-1", estado="activo")
+        db_session.add(alumno)
+        db_session.commit()
+        db_session.refresh(alumno)
+        db_session.add(FamiliaAlumno(familia_id=familia.id, alumno_id=alumno.id))
+        db_session.commit()
+
+        response = client_autenticado.delete(f"/familias-alumnos/familias/{familia.id}")
+
+        assert response.status_code == 409
+
+    def test_crear_familia_endpoint_sin_sesion_rechaza(
+        self, client: TestClient, db_session: Session
+    ):
+        """Los endpoints de ABM de Familia exigen sesión (RF-27)."""
+        persona = Persona(nombre="Silvia", apellido="Torres", dni="20202020", sexo="F")
+        db_session.add(persona)
+        db_session.commit()
+        db_session.refresh(persona)
+
+        response = client.post(
+            "/familias-alumnos/familias",
+            json={"persona_id": str(persona.id)},
+        )
+
+        assert response.status_code == 401

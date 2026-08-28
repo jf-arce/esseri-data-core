@@ -47,3 +47,19 @@ def test_el_hash_verifica_y_no_es_el_texto_plano():
 
 def test_dos_hashes_de_la_misma_password_son_distintos():
     assert service.hashear_password("secreta") != service.hashear_password("secreta")
+
+
+def test_email_inexistente_igual_dispara_una_comparacion_de_hash(db_session, monkeypatch):
+    """Si no comparara nada, un email inexistente respondería más rápido y sería enumerable."""
+    llamadas = []
+    original = service.verificar_password
+    monkeypatch.setattr(
+        service,
+        "verificar_password",
+        lambda password, hash_: llamadas.append(hash_) or original(password, hash_),
+    )
+
+    with pytest.raises(service.CredencialesInvalidas):
+        service.autenticar_local(db_session, "nadie@esseri.edu.ar", "algo", ip_origen=None)
+
+    assert llamadas == [service._DUMMY_PASSWORD_HASH]

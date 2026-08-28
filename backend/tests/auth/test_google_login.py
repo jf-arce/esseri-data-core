@@ -80,6 +80,20 @@ def test_callback_sin_cookie_de_state_se_rechaza(client, usuario_google, google_
     assert respuesta.status_code == 400
 
 
+def test_callback_con_error_de_google_no_se_confunde_con_state_invalido(
+    client, iniciar_flujo_google
+):
+    """`error=access_denied` (usuario cancela en Google) es un caso distinto de un state trucho."""
+    state = iniciar_flujo_google()
+
+    respuesta = client.get(
+        f"/auth/google/callback?error=access_denied&state={state}", follow_redirects=False
+    )
+
+    assert respuesta.status_code == 400
+    assert "cancel" in respuesta.json()["detail"].lower()
+
+
 def test_subject_distinto_al_registrado_se_rechaza(
     client, usuario_google, google_responde, iniciar_flujo_google
 ):

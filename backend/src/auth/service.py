@@ -26,6 +26,11 @@ from src.auth.models import LogAcceso, Rol, Usuario, UsuarioRol
 # mantiene hash y verificación consistentes.
 BCRYPT_MAX_BYTES = 72
 
+# Se compara contra esto cuando el email no existe, para no filtrar por timing qué emails existen.
+_DUMMY_PASSWORD_HASH = bcrypt.hashpw(
+    b"no existe ningun usuario con este email", bcrypt.gensalt()
+).decode("utf-8")
+
 RESULTADO_EXITOSO = "exitoso"
 RESULTADO_FALLIDO = "fallido"
 
@@ -114,11 +119,16 @@ def autenticar_local(db: Session, email: str, password: str, ip_origen: str | No
     """
     usuario = buscar_por_email(db, email)
 
+    hash_a_comparar = (
+        usuario.password_hash if usuario and usuario.password_hash else _DUMMY_PASSWORD_HASH
+    )
+    password_correcta = verificar_password(password, hash_a_comparar)
+
     if usuario is None:
         registrar_acceso(db, RESULTADO_FALLIDO, ip_origen)
         raise CredencialesInvalidas()
 
-    if usuario.password_hash is None or not verificar_password(password, usuario.password_hash):
+    if usuario.password_hash is None or not password_correcta:
         registrar_acceso(db, RESULTADO_FALLIDO, ip_origen, usuario.id)
         raise CredencialesInvalidas()
 

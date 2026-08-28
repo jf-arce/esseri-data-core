@@ -14,7 +14,7 @@ from jose import JWTError, jwt
 
 from src.auth import config, google_client, service
 from src.auth.dependencies import DbSession, UsuarioAutenticado
-from src.auth.exceptions import EstadoOAuthInvalido
+from src.auth.exceptions import EstadoOAuthInvalido, LoginCancelado
 from src.auth.schemas import LoginLocalIn, UsuarioActual
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -71,8 +71,12 @@ def google_login() -> RedirectResponse:
 
 @router.get("/google/callback")
 def google_callback(
-    request: Request, state: str, db: DbSession, code: str = ""
+    request: Request, state: str, db: DbSession, code: str = "", error: str = ""
 ) -> RedirectResponse:
+    if error:
+        # error=access_denied: el usuario canceló en Google, no es un state inválido.
+        raise LoginCancelado()
+
     cookie = request.cookies.get(config.COOKIE_OAUTH_STATE)
     if not cookie or not code:
         raise EstadoOAuthInvalido()

@@ -48,3 +48,12 @@ class EstadoOAuthInvalido(AppException):
 
     def __init__(self, message: str = "La sesión de login expiró o no es válida"):
         super().__init__(message)
+
+
+class LoginCancelado(AppException):
+    """El usuario canceló el consentimiento en la pantalla de Google (no llegó `code`)."""
+
+    status_code = 400
+
+    def __init__(self, message: str = "Cancelaste el inicio de sesión con Google"):
+        super().__init__(message)
