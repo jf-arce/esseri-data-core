@@ -116,10 +116,14 @@ export function UsuariosPage() {
             <UsersRoundIcon />
           </EmptyMedia>
           <EmptyTitle>
-            {usuarios.length === 0 ? 'Todavía no hay usuarios cargados.' : 'Ningún usuario coincide con estos filtros.'}
+            {usuarios.length === 0
+              ? 'Todavía no hay usuarios cargados.'
+              : 'Ningún usuario coincide con estos filtros.'}
           </EmptyTitle>
           {usuarios.length > 0 && (
-            <EmptyDescription>Probá ajustar la búsqueda o limpiar los filtros activos.</EmptyDescription>
+            <EmptyDescription>
+              Probá ajustar la búsqueda o limpiar los filtros activos.
+            </EmptyDescription>
           )}
         </Empty>
       ) : (

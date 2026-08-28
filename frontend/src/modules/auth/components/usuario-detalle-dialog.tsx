@@ -6,7 +6,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { colorIdentidad, formatearFechaHora, inicialesDeUsuario, nombreDeUsuario } from '@/modules/auth/utils'
+import {
+  colorIdentidad,
+  formatearFechaHora,
+  inicialesDeUsuario,
+  nombreDeUsuario,
+} from '@/modules/auth/utils'
 import type { UsuarioConRoles } from '@/modules/auth/types'
 
 interface UsuarioDetalleDialogProps {
@@ -55,11 +60,15 @@ export function UsuarioDetalleDialog({
         <div className="flex flex-col gap-3.5">
           <Fila
             etiqueta="Roles"
-            valor={usuario.roles.length ? usuario.roles.map((rol) => rol.nombre).join(', ') : 'Sin rol'}
+            valor={
+              usuario.roles.length ? usuario.roles.map((rol) => rol.nombre).join(', ') : 'Sin rol'
+            }
           />
           <Fila
             etiqueta="Acceso"
-            valor={usuario.auth_provider === 'google' ? 'Google (institucional)' : 'Correo y contraseña'}
+            valor={
+              usuario.auth_provider === 'google' ? 'Google (institucional)' : 'Correo y contraseña'
+            }
           />
           <Fila etiqueta="Estado" valor={usuario.estado === 'activo' ? 'Activo' : 'Inactivo'} />
           <Fila etiqueta="Último acceso" valor={formatearFechaHora(usuario.ultimo_acceso)} />

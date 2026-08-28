@@ -52,7 +52,12 @@ export function StatTile({
         </svg>
       )}
       <div className="relative flex items-start justify-between gap-2.5">
-        <p className={cn('text-xs font-semibold', esOscuro ? 'text-texto-2-sobre-oscuro' : 'text-texto-2')}>
+        <p
+          className={cn(
+            'text-xs font-semibold',
+            esOscuro ? 'text-texto-2-sobre-oscuro' : 'text-texto-2',
+          )}
+        >
           {label}
         </p>
         <div

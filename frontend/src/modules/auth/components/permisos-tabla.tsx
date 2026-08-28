@@ -86,7 +86,11 @@ function PermisosTabla({ permisos, cargando, densidad, onEditar, onEliminar }: P
               <TableCell data-align="end">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon-sm" aria-label={`Acciones para ${permiso.codigo}`}>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Acciones para ${permiso.codigo}`}
+                    >
                       <MoreHorizontalIcon />
                     </Button>
                   </DropdownMenuTrigger>

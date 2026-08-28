@@ -121,7 +121,9 @@ function DataTable<TData extends RowData>({
                   table.previousPage()
                 }}
                 aria-disabled={!table.getCanPreviousPage()}
-                className={!table.getCanPreviousPage() ? 'pointer-events-none opacity-40' : undefined}
+                className={
+                  !table.getCanPreviousPage() ? 'pointer-events-none opacity-40' : undefined
+                }
               />
             </PaginationItem>
             <PaginationItem>

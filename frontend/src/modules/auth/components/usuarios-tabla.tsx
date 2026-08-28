@@ -161,8 +161,8 @@ function UsuariosTabla({
       {!cargando && totalFiltrados > 0 && (
         <Pagination>
           <PaginationCount>
-            {paginaActual * pageSize + 1}-{Math.min(totalFiltrados, (paginaActual + 1) * pageSize)} de{' '}
-            {totalFiltrados} usuarios
+            {paginaActual * pageSize + 1}-{Math.min(totalFiltrados, (paginaActual + 1) * pageSize)}{' '}
+            de {totalFiltrados} usuarios
           </PaginationCount>
           {totalPaginas > 1 && (
             <PaginationContent>

@@ -18,7 +18,10 @@ export function MatrizPermisosPage() {
   const [modulosFiltro, setModulosFiltro] = useState<string[]>([])
 
   const modulosDisponibles = useMemo(
-    () => Array.from(new Set(matriz.permisos.map((p) => p.modulo))).sort((a, b) => a.localeCompare(b, 'es')),
+    () =>
+      Array.from(new Set(matriz.permisos.map((p) => p.modulo))).sort((a, b) =>
+        a.localeCompare(b, 'es'),
+      ),
     [matriz.permisos],
   )
 
@@ -36,11 +39,18 @@ export function MatrizPermisosPage() {
         accion={
           <div className="flex gap-2">
             {matriz.hayCambiosPendientes && (
-              <Button variant="secondary" onClick={matriz.descartarCambios} disabled={matriz.guardando}>
+              <Button
+                variant="secondary"
+                onClick={matriz.descartarCambios}
+                disabled={matriz.guardando}
+              >
                 Descartar cambios
               </Button>
             )}
-            <Button onClick={matriz.guardarCambios} disabled={!matriz.hayCambiosPendientes || matriz.guardando}>
+            <Button
+              onClick={matriz.guardarCambios}
+              disabled={!matriz.hayCambiosPendientes || matriz.guardando}
+            >
               Guardar cambios
             </Button>
           </div>
@@ -111,7 +121,9 @@ export function MatrizPermisosPage() {
             <SearchIcon />
           </EmptyMedia>
           <EmptyTitle>Ningún permiso coincide con estos filtros.</EmptyTitle>
-          <EmptyDescription>Probá ajustar la búsqueda o limpiar los filtros activos.</EmptyDescription>
+          <EmptyDescription>
+            Probá ajustar la búsqueda o limpiar los filtros activos.
+          </EmptyDescription>
         </Empty>
       ) : (
         <MatrizPermisos matriz={{ ...matriz, permisos: permisosFiltrados }} />

@@ -167,7 +167,8 @@ export function filtrarYOrdenarPermisos(permisos: Permiso[], filtros: FiltrosPer
 
   const filtrados = permisos.filter((permiso) => {
     if (busqueda) {
-      const enTexto = `${permiso.modulo} ${permiso.accion} ${permiso.tipo_informacion ?? ''}`.toLowerCase()
+      const enTexto =
+        `${permiso.modulo} ${permiso.accion} ${permiso.tipo_informacion ?? ''}`.toLowerCase()
       if (!enTexto.includes(busqueda)) return false
     }
     if (filtros.modulos.length > 0 && !filtros.modulos.includes(permiso.modulo)) {

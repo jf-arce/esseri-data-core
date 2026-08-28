@@ -77,7 +77,13 @@ function MarcaEsseri() {
 // Paleta de comandos (vista `Shell` del mock): fachada sobre las búsquedas por módulo, sin
 // alcance propio todavía. El único ítem que navega de verdad hoy es "Usuarios y roles"; el
 // resto queda deshabilitado a propósito, con el motivo a la vista en CommandEmpty.
-function ComandoGlobal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+function ComandoGlobal({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   const navigate = useNavigate()
 
   return (
@@ -213,17 +219,12 @@ export function AppLayout() {
             >
               <Search className="size-4 shrink-0" />
               <span>Buscar o ir a…</span>
-                <kbd className="ml-auto rounded-md border border-borde bg-superficie px-1.5 py-0.5">
-                  <div className="text-xs text-texto-3 flex gap-0.5 items-center justify-center">
-                    <span>
-                      ⌘
-                    </span>
-                    <span>
-                      K
-                    </span>
-                  </div>                  
-                </kbd>
-              
+              <kbd className="ml-auto rounded-md border border-borde bg-superficie px-1.5 py-0.5">
+                <div className="text-xs text-texto-3 flex gap-0.5 items-center justify-center">
+                  <span>⌘</span>
+                  <span>K</span>
+                </div>
+              </kbd>
             </button>
 
             <DropdownMenu>
@@ -270,9 +271,7 @@ export function AppLayout() {
                     <BellIcon />
                   </EmptyMedia>
                   <EmptyTitle>No hay notificaciones</EmptyTitle>
-                  <EmptyDescription>
-                    Todavía no hay avisos para mostrar acá.
-                  </EmptyDescription>
+                  <EmptyDescription>Todavía no hay avisos para mostrar acá.</EmptyDescription>
                 </Empty>
               </PopoverContent>
             </Popover>

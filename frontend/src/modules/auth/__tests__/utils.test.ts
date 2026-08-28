@@ -35,7 +35,12 @@ describe('nombreDeUsuario', () => {
 
 describe('filtrarYOrdenarUsuarios', () => {
   const usuarios = [
-    usuario({ id: 'u1', email: 'mariana.cufre@esseri.edu.ar', estado: 'activo', roles: [ROL_DOCENTE] }),
+    usuario({
+      id: 'u1',
+      email: 'mariana.cufre@esseri.edu.ar',
+      estado: 'activo',
+      roles: [ROL_DOCENTE],
+    }),
     usuario({
       id: 'u2',
       email: 'julieta.amaya@esseri.edu.ar',
@@ -144,12 +149,21 @@ function permiso(overrides: Partial<Permiso>): Permiso {
 describe('filtrarYOrdenarPermisos', () => {
   const permisos = [
     permiso({ id: 'p1', modulo: 'Familias y Alumnos', accion: 'Ver' }),
-    permiso({ id: 'p2', modulo: 'Facturación', accion: 'Registrar pago', tipo_informacion: 'Económica' }),
+    permiso({
+      id: 'p2',
+      modulo: 'Facturación',
+      accion: 'Registrar pago',
+      tipo_informacion: 'Económica',
+    }),
     permiso({ id: 'p3', modulo: 'Académico', accion: 'Editar' }),
   ]
 
   it('filtra por texto contra módulo, acción y tipo de información', () => {
-    const resultado = filtrarYOrdenarPermisos(permisos, { busqueda: 'económica', modulos: [], orden: 'modulo-asc' })
+    const resultado = filtrarYOrdenarPermisos(permisos, {
+      busqueda: 'económica',
+      modulos: [],
+      orden: 'modulo-asc',
+    })
     expect(resultado.map((p) => p.id)).toEqual(['p2'])
   })
 
@@ -163,10 +177,18 @@ describe('filtrarYOrdenarPermisos', () => {
   })
 
   it('ordena por módulo y por acción', () => {
-    const porModulo = filtrarYOrdenarPermisos(permisos, { busqueda: '', modulos: [], orden: 'modulo-asc' })
+    const porModulo = filtrarYOrdenarPermisos(permisos, {
+      busqueda: '',
+      modulos: [],
+      orden: 'modulo-asc',
+    })
     expect(porModulo.map((p) => p.id)).toEqual(['p3', 'p2', 'p1'])
 
-    const porAccion = filtrarYOrdenarPermisos(permisos, { busqueda: '', modulos: [], orden: 'accion-asc' })
+    const porAccion = filtrarYOrdenarPermisos(permisos, {
+      busqueda: '',
+      modulos: [],
+      orden: 'accion-asc',
+    })
     expect(porAccion.map((p) => p.id)).toEqual(['p3', 'p2', 'p1'])
   })
 })
@@ -183,7 +205,10 @@ describe('filtrarPermisosDeMatriz', () => {
   })
 
   it('filtra por módulo', () => {
-    const resultado = filtrarPermisosDeMatriz(permisos, { busqueda: '', modulos: ['Familias y Alumnos'] })
+    const resultado = filtrarPermisosDeMatriz(permisos, {
+      busqueda: '',
+      modulos: ['Familias y Alumnos'],
+    })
     expect(resultado.map((p) => p.id)).toEqual(['p1'])
   })
 })

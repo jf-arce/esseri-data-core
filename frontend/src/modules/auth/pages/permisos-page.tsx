@@ -25,7 +25,8 @@ export function PermisosPage() {
   const [densidad, setDensidad] = useState<'comfortable' | 'compact'>('comfortable')
 
   const modulosDisponibles = useMemo(
-    () => Array.from(new Set(permisos.map((p) => p.modulo))).sort((a, b) => a.localeCompare(b, 'es')),
+    () =>
+      Array.from(new Set(permisos.map((p) => p.modulo))).sort((a, b) => a.localeCompare(b, 'es')),
     [permisos],
   )
 
@@ -90,14 +91,18 @@ export function PermisosPage() {
           </EmptyTitle>
           {permisos.length === 0 ? (
             <>
-              <EmptyDescription>Acción sugerida: crear el primer permiso del sistema.</EmptyDescription>
+              <EmptyDescription>
+                Acción sugerida: crear el primer permiso del sistema.
+              </EmptyDescription>
               <Button onClick={() => setDialogoAbierto(true)}>
                 <PlusIcon />
                 Nuevo permiso
               </Button>
             </>
           ) : (
-            <EmptyDescription>Probá ajustar la búsqueda o limpiar los filtros activos.</EmptyDescription>
+            <EmptyDescription>
+              Probá ajustar la búsqueda o limpiar los filtros activos.
+            </EmptyDescription>
           )}
         </Empty>
       ) : (

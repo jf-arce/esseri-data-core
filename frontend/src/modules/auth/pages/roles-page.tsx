@@ -101,7 +101,9 @@ export function RolesPage() {
             <ShieldCheckIcon />
           </EmptyMedia>
           <EmptyTitle>
-            {roles.length === 0 ? 'Todavía no hay roles creados.' : 'Ningún rol coincide con la búsqueda.'}
+            {roles.length === 0
+              ? 'Todavía no hay roles creados.'
+              : 'Ningún rol coincide con la búsqueda.'}
           </EmptyTitle>
           {roles.length === 0 ? (
             <>
@@ -137,7 +139,11 @@ export function RolesPage() {
                   <TableCell data-align="end">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon-sm" aria-label={`Acciones para ${rol.nombre}`}>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Acciones para ${rol.nombre}`}
+                        >
                           <MoreHorizontalIcon />
                         </Button>
                       </DropdownMenuTrigger>
@@ -152,7 +158,10 @@ export function RolesPage() {
                           Editar rol
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem variant="destructive" onSelect={() => setRolAEliminar(rol)}>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onSelect={() => setRolAEliminar(rol)}
+                        >
                           <Trash2Icon />
                           Eliminar rol
                         </DropdownMenuItem>

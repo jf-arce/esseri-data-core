@@ -28,7 +28,9 @@ function CeldaEsqueleto({ columna, fila }: { columna: ColumnaEsqueleto; fila: nu
         <TableCell>
           <div className="flex items-center gap-2.5">
             <Skeleton className="size-6 shrink-0 rounded-full" />
-            <Skeleton className={anchoDeFila(columna.ancho ?? 'h-4 w-32', columna.anchoAlt, fila)} />
+            <Skeleton
+              className={anchoDeFila(columna.ancho ?? 'h-4 w-32', columna.anchoAlt, fila)}
+            />
           </div>
         </TableCell>
       )
@@ -36,7 +38,10 @@ function CeldaEsqueleto({ columna, fila }: { columna: ColumnaEsqueleto; fila: nu
       return (
         <TableCell>
           <Skeleton
-            className={cn(anchoDeFila(columna.ancho ?? 'w-20', columna.anchoAlt, fila), 'h-[22px] rounded-full')}
+            className={cn(
+              anchoDeFila(columna.ancho ?? 'w-20', columna.anchoAlt, fila),
+              'h-[22px] rounded-full',
+            )}
           />
         </TableCell>
       )
