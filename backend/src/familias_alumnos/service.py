@@ -2,11 +2,57 @@
 
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from src.auth import service as auth_service
+from src.auth.models import Rol, Usuario, UsuarioRol
+from src.models import Persona
 from src.familias_alumnos.exceptions import FamiliaConVinculos
 from src.familias_alumnos.models import Familia, FamiliaAlumno
-from src.familias_alumnos.schemas import FamiliaCreate, FamiliaUpdate
+from src.familias_alumnos.schemas import AltaFamiliaCreate, FamiliaCreate, FamiliaUpdate
+
+
+ROL_FAMILIA = "familia"
+
+
+def crear_alta_familia(db: Session, datos: AltaFamiliaCreate, usuario_id: uuid.UUID) -> tuple[Persona, Familia]:
+    """Crea Persona, Usuario, rol y Familia en una única transacción."""
+    if db.scalar(select(Usuario.id).where(Usuario.email == datos.usuario.email)) is not None:
+        raise ValueError("El correo ya está registrado")
+
+    persona = Persona(
+        nombre=datos.persona.nombre.strip(),
+        apellido=datos.persona.apellido.strip(),
+        dni=datos.persona.dni.strip(),
+        telefono=datos.persona.telefono,
+        sexo=datos.persona.sexo,
+    )
+    db.add(persona)
+    db.flush()
+
+    usuario = Usuario(
+        email=datos.usuario.email,
+        password_hash=auth_service.hashear_password(datos.usuario.password),
+        auth_provider=auth_service.PROVIDER_LOCAL,
+        estado=auth_service.ESTADO_ACTIVO,
+        persona_id=persona.id,
+    )
+    db.add(usuario)
+    db.flush()
+
+    rol = db.scalar(select(Rol).where(Rol.nombre == ROL_FAMILIA))
+    if rol is None:
+        raise ValueError("No existe el rol familia")
+    db.add(UsuarioRol(usuario_id=usuario.id, rol_id=rol.id))
+
+    familia = Familia(persona_id=persona.id)
+    db.add(familia)
+    db.flush()
+    db.commit()
+    db.refresh(persona)
+    db.refresh(familia)
+    return persona, familia
 
 
 def crear_familia(

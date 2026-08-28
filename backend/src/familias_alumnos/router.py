@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from src.auth.constants import (
@@ -17,14 +17,36 @@ from src.auth.models import Usuario
 from src.database import get_db
 from src.familias_alumnos.dependencies import obtener_familia_o_404
 from src.familias_alumnos.models import Familia
-from src.familias_alumnos.schemas import FamiliaCreate, FamiliaResponse, FamiliaUpdate
+from src.familias_alumnos.schemas import (
+    AltaFamiliaCreate,
+    AltaFamiliaResponse,
+    FamiliaCreate,
+    FamiliaResponse,
+    FamiliaUpdate,
+)
 from src.familias_alumnos.service import (
     actualizar_familia,
+    crear_alta_familia,
     crear_familia,
     eliminar_familia,
 )
 
 router = APIRouter(prefix="/familias-alumnos", tags=["familias_alumnos"])
+
+
+@router.post("/alta-completa", response_model=AltaFamiliaResponse, status_code=status.HTTP_201_CREATED)
+def crear_alta_completa(
+    datos: AltaFamiliaCreate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(MODULO_FAMILIAS_ALUMNOS, ACCION_CREAR))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> dict:
+    """Crear Persona responsable, Usuario con rol familia y Familia."""
+    try:
+        persona, familia = crear_alta_familia(db, datos, usuario.id)
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return {"persona": persona, "familia": familia}
 
 
 @router.post("/familias", response_model=FamiliaResponse, status_code=201)
