@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from src.auth.constants import ACCION_CREAR, ACCION_LEER, MODULO_INSCRIPCIONES
+from src.auth.constants import PERMISO_INSCRIPCIONES_CREAR, PERMISO_INSCRIPCIONES_LEER
 from src.auth.dependencies import requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
@@ -21,8 +21,8 @@ from src.inscripciones.schemas import (
 router = APIRouter(prefix="/inscripciones", tags=["inscripciones"])
 
 DbSession = Annotated[Session, Depends(get_db)]
-PuedeCrear = Annotated[Usuario, Depends(requiere_permiso(MODULO_INSCRIPCIONES, ACCION_CREAR))]
-PuedeLeer = Annotated[Usuario, Depends(requiere_permiso(MODULO_INSCRIPCIONES, ACCION_LEER))]
+PuedeCrear = Annotated[Usuario, Depends(requiere_permiso(PERMISO_INSCRIPCIONES_CREAR))]
+PuedeLeer = Annotated[Usuario, Depends(requiere_permiso(PERMISO_INSCRIPCIONES_LEER))]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)

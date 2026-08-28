@@ -6,11 +6,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from src.auth.constants import (
-    ACCION_ACTUALIZAR,
-    ACCION_CREAR,
-    ACCION_ELIMINAR,
-    ACCION_LEER,
-    MODULO_FAMILIAS_ALUMNOS,
+    PERMISO_FAMILIAS_ALUMNOS_ACTUALIZAR,
+    PERMISO_FAMILIAS_ALUMNOS_CREAR,
+    PERMISO_FAMILIAS_ALUMNOS_ELIMINAR,
+    PERMISO_FAMILIAS_ALUMNOS_LEER,
 )
 from src.auth.dependencies import requiere_permiso
 from src.auth.models import Usuario
@@ -30,7 +29,7 @@ router = APIRouter(prefix="/familias-alumnos", tags=["familias_alumnos"])
 @router.post("/familias", response_model=FamiliaResponse, status_code=201)
 def crear_familia_endpoint(
     familia_data: FamiliaCreate,
-    usuario: Annotated[Usuario, Depends(requiere_permiso(MODULO_FAMILIAS_ALUMNOS, ACCION_CREAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_FAMILIAS_ALUMNOS_CREAR))],
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Familia:
     """Crear una nueva Familia."""
@@ -39,7 +38,7 @@ def crear_familia_endpoint(
 
 @router.get("/familias/{familia_id}", response_model=FamiliaResponse)
 def obtener_familia_endpoint(
-    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_FAMILIAS_ALUMNOS, ACCION_LEER))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_FAMILIAS_ALUMNOS_LEER))],
     familia: Familia = Depends(obtener_familia_o_404),  # noqa: B008
 ) -> Familia:
     """Obtener una familia por su ID."""
@@ -49,9 +48,7 @@ def obtener_familia_endpoint(
 @router.put("/familias/{familia_id}", response_model=FamiliaResponse)
 def actualizar_familia_endpoint(
     familia_data: FamiliaUpdate,
-    usuario: Annotated[
-        Usuario, Depends(requiere_permiso(MODULO_FAMILIAS_ALUMNOS, ACCION_ACTUALIZAR))
-    ],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_FAMILIAS_ALUMNOS_ACTUALIZAR))],
     familia: Familia = Depends(obtener_familia_o_404),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Familia:
@@ -61,9 +58,7 @@ def actualizar_familia_endpoint(
 
 @router.delete("/familias/{familia_id}", status_code=204)
 def eliminar_familia_endpoint(
-    usuario: Annotated[
-        Usuario, Depends(requiere_permiso(MODULO_FAMILIAS_ALUMNOS, ACCION_ELIMINAR))
-    ],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_FAMILIAS_ALUMNOS_ELIMINAR))],
     familia: Familia = Depends(obtener_familia_o_404),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> None:

@@ -16,11 +16,10 @@ from jose import JWTError, jwt
 
 from src.auth import config, google_client, service
 from src.auth.constants import (
-    ACCION_ACTUALIZAR,
-    ACCION_CREAR,
-    ACCION_ELIMINAR,
-    ACCION_LEER,
-    MODULO_AUTENTICACION,
+    PERMISO_AUTENTICACION_ACTUALIZAR,
+    PERMISO_AUTENTICACION_CREAR,
+    PERMISO_AUTENTICACION_ELIMINAR,
+    PERMISO_AUTENTICACION_LEER,
 )
 from src.auth.dependencies import (
     DbSession,
@@ -47,6 +46,7 @@ from src.auth.schemas import (
     RolRead,
     RolUpdate,
     UsuarioActual,
+    UsuarioConRoles,
 )
 from src.exceptions import AppException
 
@@ -193,7 +193,7 @@ def logout() -> JSONResponse:
 @router.get("/roles", response_model=list[RolRead])
 def listar_roles(
     db: DbSession,
-    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_LEER))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_LEER))],
 ) -> list[Rol]:
     return service.listar_roles(db)
 
@@ -202,7 +202,7 @@ def listar_roles(
 def crear_rol(
     datos: RolCreate,
     db: DbSession,
-    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_CREAR))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_CREAR))],
 ) -> Rol:
     return service.crear_rol(db, datos)
 
@@ -210,7 +210,7 @@ def crear_rol(
 @router.get("/roles/{rol_id}", response_model=RolRead)
 def obtener_rol(
     rol: Annotated[Rol, Depends(obtener_rol_o_404)],
-    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_LEER))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_LEER))],
 ) -> Rol:
     return rol
 
@@ -220,7 +220,7 @@ def actualizar_rol(
     datos: RolUpdate,
     db: DbSession,
     rol: Annotated[Rol, Depends(obtener_rol_o_404)],
-    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_ACTUALIZAR))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ACTUALIZAR))],
 ) -> Rol:
     return service.actualizar_rol(db, rol, datos)
 
@@ -229,7 +229,7 @@ def actualizar_rol(
 def eliminar_rol(
     db: DbSession,
     rol: Annotated[Rol, Depends(obtener_rol_o_404)],
-    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_ELIMINAR))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ELIMINAR))],
 ) -> None:
     service.eliminar_rol(db, rol)
 
@@ -237,7 +237,7 @@ def eliminar_rol(
 @router.get("/permisos", response_model=list[PermisoRead])
 def listar_permisos(
     db: DbSession,
-    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_LEER))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_LEER))],
     modulo: str | None = None,
 ) -> list[Permiso]:
     return service.listar_permisos(db, modulo)
@@ -247,7 +247,7 @@ def listar_permisos(
 def crear_permiso(
     datos: PermisoCreate,
     db: DbSession,
-    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_CREAR))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_CREAR))],
 ) -> Permiso:
     return service.crear_permiso(db, datos)
 
@@ -255,7 +255,7 @@ def crear_permiso(
 @router.get("/permisos/{permiso_id}", response_model=PermisoRead)
 def obtener_permiso(
     permiso: Annotated[Permiso, Depends(obtener_permiso_o_404)],
-    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_LEER))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_LEER))],
 ) -> Permiso:
     return permiso
 
@@ -265,7 +265,7 @@ def actualizar_permiso(
     datos: PermisoUpdate,
     db: DbSession,
     permiso: Annotated[Permiso, Depends(obtener_permiso_o_404)],
-    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_ACTUALIZAR))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ACTUALIZAR))],
 ) -> Permiso:
     return service.actualizar_permiso(db, permiso, datos)
 
@@ -274,7 +274,7 @@ def actualizar_permiso(
 def eliminar_permiso(
     db: DbSession,
     permiso: Annotated[Permiso, Depends(obtener_permiso_o_404)],
-    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_ELIMINAR))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ELIMINAR))],
 ) -> None:
     service.eliminar_permiso(db, permiso)
 
@@ -286,7 +286,7 @@ def eliminar_permiso(
 def listar_permisos_de_rol(
     db: DbSession,
     rol: Annotated[Rol, Depends(obtener_rol_o_404)],
-    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_LEER))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_LEER))],
 ) -> list[Permiso]:
     return service.permisos_de_rol(db, rol.id)
 
@@ -296,7 +296,7 @@ def asignar_permiso_a_rol(
     db: DbSession,
     permiso_id: Annotated[uuid.UUID, Body(embed=True)],
     rol: Annotated[Rol, Depends(obtener_rol_o_404)],
-    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_ACTUALIZAR))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ACTUALIZAR))],
 ) -> None:
     service.asignar_permiso_a_rol(db, rol.id, permiso_id)
 
@@ -306,7 +306,7 @@ def quitar_permiso_a_rol(
     db: DbSession,
     rol: Annotated[Rol, Depends(obtener_rol_o_404)],
     permiso: Annotated[Permiso, Depends(obtener_permiso_o_404)],
-    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_ACTUALIZAR))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ACTUALIZAR))],
 ) -> None:
     service.quitar_permiso_a_rol(db, rol.id, permiso.id)
 
@@ -314,11 +314,29 @@ def quitar_permiso_a_rol(
 # --- USUARIO_ROL (RF-29) ------------------------------------------------------------------
 
 
+@router.get("/usuarios", response_model=list[UsuarioConRoles])
+def listar_usuarios(
+    db: DbSession,
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_LEER))],
+) -> list[UsuarioConRoles]:
+    return [
+        UsuarioConRoles(
+            id=usuario.id,
+            email=usuario.email,
+            estado=usuario.estado,
+            auth_provider=usuario.auth_provider,
+            ultimo_acceso=usuario.ultimo_acceso,
+            roles=roles,
+        )
+        for usuario, roles in service.listar_usuarios(db)
+    ]
+
+
 @router.get("/usuarios/{usuario_id}/roles", response_model=list[RolRead])
 def listar_roles_de_usuario(
     db: DbSession,
     usuario: Annotated[Usuario, Depends(obtener_usuario_o_404)],
-    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_LEER))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_LEER))],
 ) -> list[Rol]:
     return service.roles_de_usuario(db, usuario.id)
 
@@ -328,7 +346,7 @@ def asignar_rol_a_usuario(
     db: DbSession,
     rol_id: Annotated[uuid.UUID, Body(embed=True)],
     usuario: Annotated[Usuario, Depends(obtener_usuario_o_404)],
-    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_ACTUALIZAR))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ACTUALIZAR))],
 ) -> None:
     service.asignar_rol_a_usuario(db, usuario.id, rol_id)
 
@@ -338,6 +356,6 @@ def quitar_rol_a_usuario(
     db: DbSession,
     usuario: Annotated[Usuario, Depends(obtener_usuario_o_404)],
     rol: Annotated[Rol, Depends(obtener_rol_o_404)],
-    _: Annotated[Usuario, Depends(requiere_permiso(MODULO_AUTENTICACION, ACCION_ACTUALIZAR))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ACTUALIZAR))],
 ) -> None:
     service.quitar_rol_a_usuario(db, usuario.id, rol.id)

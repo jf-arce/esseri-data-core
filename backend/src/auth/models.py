@@ -60,11 +60,19 @@ class UsuarioRol(Base):
 
 
 class Permiso(Base):
-    """Cubre RF-28: permisos diferenciados por módulo y acción."""
+    """Cubre RF-28: permisos diferenciados por módulo y acción.
+
+    `codigo` es la clave de autorización real (ver `src.auth.constants.codigo_de`):
+    `modulo`/`accion` quedan como display, con acentos y espacios, frágiles como clave. Se
+    deriva en `__init__` así ningún sitio que construya `Permiso(modulo=..., accion=...)`
+    directamente (fixtures de test, el seed) puede dejarlo desincronizado con esos campos.
+    """
 
     __tablename__ = "permiso"
+    __table_args__ = (sa.UniqueConstraint("codigo", name="uq_permiso_codigo"),)
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    codigo: Mapped[str] = mapped_column(sa.String)
     modulo: Mapped[str] = mapped_column(sa.String)
     accion: Mapped[str] = mapped_column(sa.String)
     tipo_informacion: Mapped[str | None] = mapped_column(sa.String)
@@ -72,6 +80,15 @@ class Permiso(Base):
     updated_at: Mapped[datetime] = mapped_column(
         sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
     )
+
+    def __init__(self, **kwargs):
+        if "codigo" not in kwargs and "modulo" in kwargs and "accion" in kwargs:
+            from src.auth.constants import codigo_de
+
+            kwargs["codigo"] = codigo_de(
+                kwargs["modulo"], kwargs["accion"], kwargs.get("tipo_informacion")
+            )
+        super().__init__(**kwargs)
 
 
 class RolPermiso(Base):
