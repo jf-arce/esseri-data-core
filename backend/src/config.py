@@ -11,6 +11,18 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 60
 
+    # Google Identity/OAuth (RF-27). El secret solo vive acá, nunca en el frontend.
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/auth/google/callback"
+
+    # A dónde vuelve el navegador después del callback de Google.
+    FRONTEND_URL: str = "http://localhost:5173"
+
+    # Primer superadmin (ver database/seeds/00_bootstrap_admin.py).
+    BOOTSTRAP_ADMIN_EMAIL: str = ""
+    BOOTSTRAP_ADMIN_PASSWORD: str = ""
+
     OPENAI_API_KEY: str = ""
 
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]

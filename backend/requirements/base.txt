@@ -6,5 +6,6 @@ psycopg2-binary
 pydantic-settings
 python-dotenv
 python-jose[cryptography]
-passlib[bcrypt]
+bcrypt
+google-auth[requests]
 pyyaml

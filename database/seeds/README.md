@@ -24,6 +24,16 @@ python ../database/seeds/03_seed_grupo_b.py   # requiere que 01 ya haya corrido
 
 Los tres son idempotentes — correrlos de nuevo no duplica filas.
 
+## `00_bootstrap_admin.py` — no es un catálogo
+
+Va aparte de los tres de arriba: no precarga un catálogo del diccionario, crea el **primer usuario administrador** para que alguien pueda entrar al sistema (RF-27). El login rechaza a cualquiera que no esté ya en `usuario`, y los endpoints que crean usuarios están protegidos — sin esta fila inicial nadie puede loguearse. Es el equivalente al `createsuperuser` de Django.
+
+```bash
+python ../database/seeds/00_bootstrap_admin.py tu-email@ejemplo.com
+```
+
+Pide la contraseña por consola; en entornos no interactivos toma `BOOTSTRAP_ADMIN_EMAIL` y `BOOTSTRAP_ADMIN_PASSWORD` de `backend/.env`. Requiere que `01_seed_grupo_a.py` haya corrido antes (es el que precarga el rol *administrador del sistema*). Idempotente: si el email ya existe, no toca nada.
+
 ## Pendiente
 
 - **Grupo C restante**: transcribir `ANIO`/`DIVISION`/`MATERIA` y `PRODUCTO_SERVICIO` cuando ESSERI entregue la tabla maestra real (pregunta pendiente #17 del diccionario) — no antes.
