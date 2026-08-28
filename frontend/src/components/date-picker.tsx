@@ -17,6 +17,7 @@ interface DatePickerProps {
   onChange: (date: Date | undefined) => void
   placeholder?: string
   disabled?: boolean
+  invalid?: boolean
   className?: string
 }
 
@@ -26,6 +27,7 @@ function DatePicker({
   onChange,
   placeholder = 'Seleccionar fecha',
   disabled,
+  invalid,
   className,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false)
@@ -42,6 +44,7 @@ function DatePicker({
             type="button"
             variant="ghost"
             disabled={disabled}
+            aria-invalid={invalid}
             className="w-full justify-start px-0 font-normal text-texto data-placeholder:text-desactivado"
             data-placeholder={value ? undefined : ''}
           >
