@@ -24,7 +24,7 @@ import {
 import { ConfirmarEliminacion } from '@/modules/auth/components/confirmar-eliminacion'
 import { RolDialog } from '@/modules/auth/components/rol-dialog'
 import { useRoles } from '@/modules/auth/hooks/use-roles'
-import { SeccionHeader } from '@/modules/auth/pages/configuracion-acceso-page'
+import { PageHeader } from '@/components/page-header'
 import { eliminarRol } from '@/modules/auth/services/eliminar-rol'
 import type { Rol } from '@/modules/auth/types'
 import { filtrarYOrdenarRoles, type OrdenRoles } from '@/modules/auth/utils'
@@ -56,7 +56,7 @@ export function RolesPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SeccionHeader
+      <PageHeader
         titulo="Usuarios y roles"
         accion={
           <Button

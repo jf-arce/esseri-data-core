@@ -3,6 +3,7 @@ import type {
   AlumnoReinscripcionOpcion,
   CrearInscripcionPayload,
   CrearReinscripcionPayload,
+  InscripcionRead,
   SolicitudInscripcionOpcion,
   TipoInscripcionFormulario,
 } from '@/modules/inscripciones/types'
@@ -92,4 +93,42 @@ export function valoresIniciales(tipo: TipoInscripcionFormulario = 'nueva') {
     alumnoId: '',
     divisionId: '',
   } satisfies FormularioInscripcionValues
+}
+
+export function formatearFechaInscripcion(fecha: string) {
+  const [anio, mes, dia] = fecha.split('-')
+  return `${dia}/${mes}/${anio}`
+}
+
+export function etiquetaTipoInscripcion(tipo: InscripcionRead['tipo']) {
+  const etiquetas: Record<InscripcionRead['tipo'], string> = {
+    nueva: 'Nueva',
+    reinscripcion: 'Reinscripción',
+    cambio_matricula: 'Cambio de matrícula',
+    baja: 'Baja',
+  }
+  return etiquetas[tipo]
+}
+
+export function etiquetaEstadoInscripcion(estado: InscripcionRead['estado']) {
+  const etiquetas: Record<InscripcionRead['estado'], string> = {
+    activa: 'Activa',
+    finalizada: 'Finalizada',
+    baja: 'Baja',
+  }
+  return etiquetas[estado]
+}
+
+export type PaginaVisible = number | 'elipsis'
+
+export function paginasVisibles(totalPaginas: number, paginaActual: number): PaginaVisible[] {
+  if (totalPaginas <= 5) {
+    return Array.from({ length: totalPaginas }, (_, indice) => indice + 1)
+  }
+
+  if (paginaActual <= 3) return [1, 2, 3, 4, 'elipsis', totalPaginas]
+  if (paginaActual >= totalPaginas - 2) {
+    return [1, 'elipsis', totalPaginas - 3, totalPaginas - 2, totalPaginas - 1, totalPaginas]
+  }
+  return [1, 'elipsis', paginaActual - 1, paginaActual, paginaActual + 1, 'elipsis', totalPaginas]
 }

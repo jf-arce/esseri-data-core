@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react'
 import { Link, Outlet, useLocation } from 'react-router'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
@@ -15,8 +14,8 @@ function tabActivo(pathname: string): (typeof TABS)[number]['value'] {
 }
 
 // Layout de la sección: eyebrow + tabs (cada uno una ruta real, ver `routes.tsx`) + Outlet.
-// El título y la acción primaria de cada tab viven en la página del tab (`SeccionHeader`, más
-// abajo), porque son ellas las que tienen el estado del diálogo que esa acción abre.
+// El título y la acción primaria de cada tab viven en la página del tab (`PageHeader`),
+// porque son ellas las que tienen el estado del diálogo que esa acción abre.
 export function ConfiguracionAccesoPage() {
   const location = useLocation()
 
@@ -37,16 +36,6 @@ export function ConfiguracionAccesoPage() {
       </div>
 
       <Outlet />
-    </div>
-  )
-}
-
-// Encabezado de cada página de tab (§8 DESIGN.md): título + acción primaria a la derecha.
-export function SeccionHeader({ titulo, accion }: { titulo: string; accion?: ReactNode }) {
-  return (
-    <div className="flex items-end justify-between gap-6">
-      <h1 className="text-2xl font-semibold tracking-[-.01em] text-texto">{titulo}</h1>
-      {accion}
     </div>
   )
 }

@@ -8,7 +8,7 @@ import { FilterChip, FilterChips, FilterDropdown } from '@/components/filter-dro
 import { MatrizPermisos } from '@/modules/auth/components/matriz-permisos'
 import { MatrizPermisosSkeleton } from '@/modules/auth/components/matriz-permisos-skeleton'
 import { useMatrizPermisos } from '@/modules/auth/hooks/use-matriz-permisos'
-import { SeccionHeader } from '@/modules/auth/pages/configuracion-acceso-page'
+import { PageHeader } from '@/components/page-header'
 import { filtrarPermisosDeMatriz } from '@/modules/auth/utils'
 
 export function MatrizPermisosPage() {
@@ -34,7 +34,7 @@ export function MatrizPermisosPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SeccionHeader
+      <PageHeader
         titulo="Matriz de permisos"
         accion={
           <div className="flex gap-2">

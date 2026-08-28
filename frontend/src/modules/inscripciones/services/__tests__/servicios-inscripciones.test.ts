@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { crearInscripcion } from '@/modules/inscripciones/services/crear-inscripcion'
 import { crearReinscripcion } from '@/modules/inscripciones/services/crear-reinscripcion'
 import { listarAlumnosReinscripcion } from '@/modules/inscripciones/services/listar-alumnos-reinscripcion'
+import { listarInscripciones } from '@/modules/inscripciones/services/listar-inscripciones'
 import { listarSolicitudesDisponibles } from '@/modules/inscripciones/services/listar-solicitudes-disponibles'
 
 const respuestaOk = () =>
@@ -54,6 +55,23 @@ describe('servicios de inscripciones', () => {
     )
     expect(JSON.parse(fetchMock.mock.calls[1][1]?.body as string)).not.toHaveProperty(
       'solicitud_inscripcion_id',
+    )
+  })
+
+  it('envía los filtros y la paginación al listar inscripciones', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await listarInscripciones({
+      buscar: 'Pérez 10',
+      cicloLectivo: '2027',
+      tipo: 'reinscripcion',
+      estado: 'activa',
+      pagina: 2,
+      tamanioPagina: 10,
+    })
+
+    expect(fetchMock.mock.calls[0][0]).toContain(
+      '/inscripciones?pagina=2&tamanio_pagina=10&buscar=P%C3%A9rez+10&ciclo_lectivo=2027&estado=activa&tipo=reinscripcion',
     )
   })
 })
