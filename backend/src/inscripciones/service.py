@@ -1,5 +1,6 @@
 """Lógica de negocio de inscripciones."""
 
+import unicodedata
 import uuid
 
 from sqlalchemy import exists, func, or_, select
@@ -24,6 +25,40 @@ from src.inscripciones.schemas import (
     SolicitudInscripcionOpcionRead,
 )
 from src.models import Persona
+
+
+def _normalizar_texto_busqueda(valor: str) -> str:
+    """Quita tildes y unifica mayúsculas para comparar términos de búsqueda."""
+
+    return "".join(
+        caracter
+        for caracter in unicodedata.normalize("NFD", valor.casefold())
+        if unicodedata.category(caracter) != "Mn"
+    )
+
+
+def _normalizar_columna_busqueda(columna):
+    """Expresión SQL portable para búsquedas sin tildes en SQLite y PostgreSQL."""
+
+    resultado = func.lower(columna)
+    for origen, destino in (
+        ("á", "a"),
+        ("é", "e"),
+        ("í", "i"),
+        ("ó", "o"),
+        ("ú", "u"),
+        ("ü", "u"),
+        ("ñ", "n"),
+        ("Á", "a"),
+        ("É", "e"),
+        ("Í", "i"),
+        ("Ó", "o"),
+        ("Ú", "u"),
+        ("Ü", "u"),
+        ("Ñ", "n"),
+    ):
+        resultado = func.replace(resultado, origen, destino)
+    return resultado
 
 
 def listar_inscripciones(
@@ -52,14 +87,14 @@ def listar_inscripciones(
     if division_id is not None:
         filtros.append(Inscripcion.division_id == division_id)
 
-    termino = buscar.strip() if buscar else ""
+    termino = _normalizar_texto_busqueda(buscar.strip()) if buscar else ""
     if termino:
         patron = f"%{termino}%"
         filtros.append(
             or_(
-                Persona.nombre.ilike(patron),
-                Persona.apellido.ilike(patron),
-                Alumno.numero_legajo.ilike(patron),
+                _normalizar_columna_busqueda(Persona.nombre).like(patron),
+                _normalizar_columna_busqueda(Persona.apellido).like(patron),
+                _normalizar_columna_busqueda(Alumno.numero_legajo).like(patron),
             )
         )
 

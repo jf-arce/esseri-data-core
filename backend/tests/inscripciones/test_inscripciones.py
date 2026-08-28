@@ -10,7 +10,13 @@ from src.inscripciones.models import Inscripcion, SolicitudInscripcion
 from src.models import Persona
 
 
-def crear_escenario(db_session, *, estado_solicitud="aprobada", etapa="inscripcion_confirmada"):
+def crear_escenario(
+    db_session,
+    *,
+    estado_solicitud="aprobada",
+    etapa="inscripcion_confirmada",
+    nombre_alumno="Tiziano",
+):
     aspirante_persona_id = uuid.uuid4()
     familiar_persona_id = uuid.uuid4()
     alumno_id = uuid.uuid4()
@@ -25,7 +31,7 @@ def crear_escenario(db_session, *, estado_solicitud="aprobada", etapa="inscripci
         [
             Persona(
                 id=aspirante_persona_id,
-                nombre="Tiziano",
+                nombre=nombre_alumno,
                 apellido="Cabral",
                 dni="50111222",
             ),
@@ -171,6 +177,16 @@ def test_filtrar_listado_inscripciones(client, db_session, parametros, cantidad_
     assert response.status_code == 200
     assert response.json()["total"] == cantidad_esperada
     assert len(response.json()["items"]) == cantidad_esperada
+
+
+def test_filtrar_listado_inscripciones_sin_distinguir_tildes(client, db_session):
+    escenario = crear_escenario(db_session, nombre_alumno="Sofía")
+    crear_inscripcion_previa(db_session, escenario)
+
+    response = client.get("/inscripciones", params={"buscar": "Sofia"})
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
 
 
 def test_filtrar_listado_por_alumno_y_division(client, db_session):
