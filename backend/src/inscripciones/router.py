@@ -4,13 +4,19 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from src.auth.constants import PERMISO_INSCRIPCIONES_CREAR, PERMISO_INSCRIPCIONES_LEER
+from src.auth.constants import (
+    PERMISO_INSCRIPCIONES_ACTUALIZAR,
+    PERMISO_INSCRIPCIONES_CREAR,
+    PERMISO_INSCRIPCIONES_LEER,
+)
 from src.auth.dependencies import requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
 from src.inscripciones import service
 from src.inscripciones.schemas import (
     AlumnoReinscripcionOpcionRead,
+    BajaInscripcionCreate,
+    CambioMatriculaCreate,
     DivisionOpcionRead,
     InscripcionListadoRead,
     InscripcionNuevaCreate,
@@ -24,6 +30,7 @@ router = APIRouter(prefix="/inscripciones", tags=["inscripciones"])
 DbSession = Annotated[Session, Depends(get_db)]
 PuedeCrear = Annotated[Usuario, Depends(requiere_permiso(PERMISO_INSCRIPCIONES_CREAR))]
 PuedeLeer = Annotated[Usuario, Depends(requiere_permiso(PERMISO_INSCRIPCIONES_LEER))]
+PuedeActualizar = Annotated[Usuario, Depends(requiere_permiso(PERMISO_INSCRIPCIONES_ACTUALIZAR))]
 
 
 @router.get("")
@@ -68,6 +75,28 @@ def crear_reinscripcion(
     datos: ReinscripcionCreate, db: DbSession, _: PuedeCrear
 ) -> InscripcionRead:
     inscripcion = service.crear_reinscripcion(db, datos)
+    return InscripcionRead.model_validate(inscripcion)
+
+
+@router.post("/{inscripcion_id}/cambios-matricula", status_code=status.HTTP_201_CREATED)
+def registrar_cambio_matricula(
+    inscripcion_id: uuid.UUID,
+    datos: CambioMatriculaCreate,
+    db: DbSession,
+    _: PuedeActualizar,
+) -> InscripcionRead:
+    inscripcion = service.registrar_cambio_matricula(db, inscripcion_id, datos)
+    return InscripcionRead.model_validate(inscripcion)
+
+
+@router.post("/{inscripcion_id}/bajas", status_code=status.HTTP_201_CREATED)
+def registrar_baja_inscripcion(
+    inscripcion_id: uuid.UUID,
+    datos: BajaInscripcionCreate,
+    db: DbSession,
+    _: PuedeActualizar,
+) -> InscripcionRead:
+    inscripcion = service.registrar_baja_inscripcion(db, inscripcion_id, datos)
     return InscripcionRead.model_validate(inscripcion)
 
 

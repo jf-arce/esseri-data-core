@@ -17,6 +17,8 @@ from src.inscripciones.exceptions import (
 from src.inscripciones.models import Inscripcion, SolicitudInscripcion
 from src.inscripciones.schemas import (
     AlumnoReinscripcionOpcionRead,
+    BajaInscripcionCreate,
+    CambioMatriculaCreate,
     DivisionOpcionRead,
     InscripcionListadoItemRead,
     InscripcionListadoRead,
@@ -309,6 +311,72 @@ def crear_reinscripcion(db: Session, datos: ReinscripcionCreate) -> Inscripcion:
         solicitud_inscripcion_id=None,
     )
     return _guardar_inscripcion(db, reinscripcion)
+
+
+def _obtener_inscripcion_activa_para_movimiento(
+    db: Session, inscripcion_id: uuid.UUID
+) -> Inscripcion:
+    inscripcion = db.get(Inscripcion, inscripcion_id, with_for_update=True)
+    if inscripcion is None:
+        raise InscripcionNoEncontrada("La inscripción indicada no existe.")
+    if inscripcion.estado != "activa":
+        raise InscripcionInvalida(
+            "Solo se puede registrar un movimiento sobre una inscripción activa."
+        )
+    return inscripcion
+
+
+def registrar_cambio_matricula(
+    db: Session, inscripcion_id: uuid.UUID, datos: CambioMatriculaCreate
+) -> Inscripcion:
+    """Traslada una inscripción activa y conserva ambos movimientos en el historial."""
+
+    inscripcion_anterior = _obtener_inscripcion_activa_para_movimiento(db, inscripcion_id)
+    alumno, division_destino, _ = _obtener_alumno_y_division(
+        db,
+        inscripcion_anterior.alumno_id,
+        datos.division_id,
+    )
+    if alumno.estado != "activo":
+        raise InscripcionInvalida("Solo se puede cambiar la matrícula de un alumno activo.")
+    if division_destino.id == inscripcion_anterior.division_id:
+        raise InscripcionInvalida("La división de destino debe ser distinta de la actual.")
+
+    inscripcion_anterior.estado = "finalizada"
+    cambio_matricula = Inscripcion(
+        ciclo_lectivo=inscripcion_anterior.ciclo_lectivo,
+        fecha_inscripcion=datos.fecha_cambio,
+        tipo="cambio_matricula",
+        estado="activa",
+        alumno_id=alumno.id,
+        division_id=division_destino.id,
+        solicitud_inscripcion_id=None,
+    )
+    return _guardar_inscripcion(db, cambio_matricula)
+
+
+def registrar_baja_inscripcion(
+    db: Session, inscripcion_id: uuid.UUID, datos: BajaInscripcionCreate
+) -> Inscripcion:
+    """Registra la baja sin borrar la matrícula ni sus movimientos previos."""
+
+    inscripcion_anterior = _obtener_inscripcion_activa_para_movimiento(db, inscripcion_id)
+    alumno = db.get(Alumno, inscripcion_anterior.alumno_id, with_for_update=True)
+    if alumno is None:
+        raise InscripcionNoEncontrada("El alumno indicado no existe.")
+
+    inscripcion_anterior.estado = "finalizada"
+    alumno.estado = "inactivo"
+    baja = Inscripcion(
+        ciclo_lectivo=inscripcion_anterior.ciclo_lectivo,
+        fecha_inscripcion=datos.fecha_baja,
+        tipo="baja",
+        estado="baja",
+        alumno_id=alumno.id,
+        division_id=inscripcion_anterior.division_id,
+        solicitud_inscripcion_id=None,
+    )
+    return _guardar_inscripcion(db, baja)
 
 
 def listar_solicitudes_disponibles(
