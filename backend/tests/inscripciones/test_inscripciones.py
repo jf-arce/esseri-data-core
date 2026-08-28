@@ -382,3 +382,13 @@ def test_obtener_inscripcion_inexistente(client):
 
     assert response.status_code == 404
     assert response.json() == {"detail": "La inscripción indicada no existe."}
+
+
+def test_crear_inscripcion_sin_sesion_rechaza(client, db_session):
+    """RF-30: antes estos endpoints eran públicos, ahora exigen sesión + permiso."""
+    escenario = crear_escenario(db_session)
+    client.cookies.clear()
+
+    response = client.post("/inscripciones", json=crear_payload(escenario))
+
+    assert response.status_code == 401
