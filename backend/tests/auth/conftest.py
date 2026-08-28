@@ -3,8 +3,15 @@
 import pytest
 
 from src.auth import service
+from src.auth.constants import (
+    ACCION_ACTUALIZAR,
+    ACCION_CREAR,
+    ACCION_ELIMINAR,
+    ACCION_LEER,
+    MODULO_AUTENTICACION,
+)
 from src.auth.google_client import GoogleIdentity
-from src.auth.models import Rol, Usuario, UsuarioRol
+from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
 
 PASSWORD_VALIDA = "una-contrasenia-larga"
 
@@ -88,6 +95,55 @@ def google_responde(monkeypatch):
         return identidad
 
     return _configurar
+
+
+@pytest.fixture()
+def permiso_factory(db_session):
+    def _crear(modulo, accion, tipo_informacion=None):
+        permiso = Permiso(modulo=modulo, accion=accion, tipo_informacion=tipo_informacion)
+        db_session.add(permiso)
+        db_session.commit()
+        return permiso
+
+    return _crear
+
+
+@pytest.fixture()
+def rol_con_permisos(db_session, permiso_factory):
+    def _crear(nombre, permisos):
+        """`permisos`: lista de tuplas (modulo, accion) o (modulo, accion, tipo_informacion)."""
+        rol = Rol(nombre=nombre)
+        db_session.add(rol)
+        db_session.commit()
+        for datos in permisos:
+            permiso = permiso_factory(*datos)
+            db_session.add(RolPermiso(rol_id=rol.id, permiso_id=permiso.id))
+        db_session.commit()
+        return rol
+
+    return _crear
+
+
+@pytest.fixture()
+def client_admin(client, db_session, rol_con_permisos, usuario_local):
+    """Cliente logueado con un rol que tiene el CRUD completo de Autenticación."""
+    rol = rol_con_permisos(
+        "admin de prueba",
+        [
+            (MODULO_AUTENTICACION, ACCION_CREAR),
+            (MODULO_AUTENTICACION, ACCION_LEER),
+            (MODULO_AUTENTICACION, ACCION_ACTUALIZAR),
+            (MODULO_AUTENTICACION, ACCION_ELIMINAR),
+        ],
+    )
+    db_session.add(UsuarioRol(usuario_id=usuario_local.id, rol_id=rol.id))
+    db_session.commit()
+
+    respuesta = client.post(
+        "/auth/login", json={"email": usuario_local.email, "password": PASSWORD_VALIDA}
+    )
+    assert respuesta.status_code == 200
+    return client
 
 
 @pytest.fixture()

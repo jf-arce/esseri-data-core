@@ -1,25 +1,20 @@
-"""Fixtures compartidas para tests del módulo Familias y Alumnos."""
+"""Fixtures compartidas para tests del módulo Inscripciones."""
 
 import pytest
 
 from src.auth import service
-from src.auth.constants import (
-    ACCION_ACTUALIZAR,
-    ACCION_CREAR,
-    ACCION_ELIMINAR,
-    ACCION_LEER,
-    MODULO_FAMILIAS_ALUMNOS,
-)
+from src.auth.constants import ACCION_CREAR, ACCION_LEER, MODULO_INSCRIPCIONES
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
 
 PASSWORD_VALIDA = "una-contrasenia-larga"
 
 
 @pytest.fixture()
-def client_autenticado(client, db_session):
-    """Cliente de test ya logueado, con el CRUD de Familias y Alumnos (RF-27 + RF-30)."""
+def client(client, db_session):
+    """Sobreescribe el `client` de la raíz: con RF-30, todos los endpoints de Inscripciones
+    pasan a exigir sesión (antes eran públicos), así que el fixture ya viene logueado."""
     usuario = Usuario(
-        email="staff@esseri.edu.ar",
+        email="secretaria-inscripciones@esseri.edu.ar",
         password_hash=service.hashear_password(PASSWORD_VALIDA),
         auth_provider="local",
         estado="activo",
@@ -27,12 +22,12 @@ def client_autenticado(client, db_session):
     db_session.add(usuario)
     db_session.commit()
 
-    rol = Rol(nombre="staff de prueba")
+    rol = Rol(nombre="secretaría de prueba")
     db_session.add(rol)
     db_session.commit()
 
-    for accion in (ACCION_CREAR, ACCION_LEER, ACCION_ACTUALIZAR, ACCION_ELIMINAR):
-        permiso = Permiso(modulo=MODULO_FAMILIAS_ALUMNOS, accion=accion)
+    for accion in (ACCION_CREAR, ACCION_LEER):
+        permiso = Permiso(modulo=MODULO_INSCRIPCIONES, accion=accion)
         db_session.add(permiso)
         db_session.commit()
         db_session.add(RolPermiso(rol_id=rol.id, permiso_id=permiso.id))

@@ -57,3 +57,36 @@ class LoginCancelado(AppException):
 
     def __init__(self, message: str = "Cancelaste el inicio de sesión con Google"):
         super().__init__(message)
+
+
+class PermisoDenegado(AppException):
+    """La sesión es válida y la cuenta está activa; lo que falta es el permiso (RF-30)."""
+
+    status_code = 403
+
+    def __init__(self, message: str = "No tenés permiso para realizar esta acción"):
+        super().__init__(message)
+
+
+class RolDuplicado(AppException):
+    status_code = 409
+
+    def __init__(self, message: str = "Ya existe un rol con ese nombre"):
+        super().__init__(message)
+
+
+class PermisoDuplicado(AppException):
+    status_code = 409
+
+    def __init__(self, message: str = "Ya existe un permiso con ese módulo, acción y tipo"):
+        super().__init__(message)
+
+
+class RolEnUso(AppException):
+    """El rol tiene usuarios asignados, o quitarlo dejaría al sistema sin nadie que administre
+    permisos (anti-lockout)."""
+
+    status_code = 409
+
+    def __init__(self, message: str = "El rol está en uso y no se puede eliminar"):
+        super().__init__(message)
