@@ -1,6 +1,10 @@
 # ESSERI Data Core — Frontend
 
-Interfaz web del sistema. Stack: TypeScript, React, Vite, Tailwind CSS, shadcn/ui, Zustand, React Router.
+Interfaz web del sistema. Stack: TypeScript, React, Vite, Tailwind CSS, shadcn/ui, Zustand, React
+Router. Para formularios: React Hook Form + Zod. Para tablas con orden/paginación/filtro:
+TanStack Table (compuesto sobre `components/ui/table.tsx` de shadcn, que no trae esa lógica por sí
+solo). Para selección de fecha: React Day Picker (dependencia del `Calendar` de shadcn). Para
+adjuntar archivos por drag-and-drop: React Dropzone.
 
 Para la estructura completa de carpetas y las convenciones del proyecto, ver **`ARCHITECTURE.md`** en la raíz del repo.
 

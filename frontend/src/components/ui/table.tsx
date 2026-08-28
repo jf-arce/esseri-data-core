@@ -12,7 +12,7 @@ function Table({ className, ...props }: React.ComponentProps<'table'>) {
     >
       <table
         data-slot="table"
-        className={cn('w-full caption-bottom text-[14px] text-texto', className)}
+        className={cn('w-full caption-bottom text-sm text-texto', className)}
         {...props}
       />
     </div>
@@ -67,7 +67,7 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
     <th
       data-slot="table-head"
       className={cn(
-        'h-11 in-data-[density=compact]:h-9 px-4 text-left align-middle text-[12px] font-bold tracking-[.06em] whitespace-nowrap text-texto-3 uppercase [&:has([role=checkbox])]:pr-0',
+        'h-11 in-data-[density=compact]:h-9 px-4 text-left align-middle text-xs font-bold tracking-[.06em] whitespace-nowrap text-texto-3 uppercase [&:has([role=checkbox])]:pr-0',
         className,
       )}
       {...props}
@@ -80,7 +80,7 @@ function TableCell({ className, ...props }: React.ComponentProps<'td'>) {
     <td
       data-slot="table-cell"
       className={cn(
-        'h-11 in-data-[density=compact]:h-9 in-data-[density=compact]:text-[13px] px-4 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0',
+        'h-11 in-data-[density=compact]:h-9 in-data-[density=compact]:text-xs px-4 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0',
         className,
       )}
       {...props}

@@ -122,7 +122,7 @@ function FieldDescription({ className, ...props }: React.ComponentProps<'p'>) {
     <p
       data-slot="field-description"
       className={cn(
-        'text-left text-[12px] leading-normal font-normal text-texto-3 group-has-data-horizontal/field:text-balance [[data-variant=legend]+&]:-mt-1.5',
+        'text-left text-xs leading-normal font-normal text-texto-3 group-has-data-horizontal/field:text-balance [[data-variant=legend]+&]:-mt-1.5',
         'last:mt-0 nth-last-2:-mt-1',
         '[&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-violeta',
         className,
@@ -200,7 +200,7 @@ function FieldError({
     <div
       role="alert"
       data-slot="field-error"
-      className={cn('text-[12px] font-normal text-error', className)}
+      className={cn('text-xs font-normal text-error', className)}
       {...props}
     >
       {content}
