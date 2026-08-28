@@ -1,5 +1,5 @@
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
@@ -12,6 +12,7 @@ from src.inscripciones import service
 from src.inscripciones.schemas import (
     AlumnoReinscripcionOpcionRead,
     DivisionOpcionRead,
+    InscripcionListadoRead,
     InscripcionNuevaCreate,
     InscripcionRead,
     ReinscripcionCreate,
@@ -23,6 +24,35 @@ router = APIRouter(prefix="/inscripciones", tags=["inscripciones"])
 DbSession = Annotated[Session, Depends(get_db)]
 PuedeCrear = Annotated[Usuario, Depends(requiere_permiso(PERMISO_INSCRIPCIONES_CREAR))]
 PuedeLeer = Annotated[Usuario, Depends(requiere_permiso(PERMISO_INSCRIPCIONES_LEER))]
+
+
+@router.get("")
+def listar_inscripciones(
+    db: DbSession,
+    _: PuedeLeer,
+    ciclo_lectivo: Annotated[str | None, Query(min_length=1, max_length=20)] = None,
+    estado: Annotated[Literal["activa", "finalizada", "baja"] | None, Query()] = None,
+    tipo: Annotated[
+        Literal["nueva", "reinscripcion", "cambio_matricula", "baja"] | None,
+        Query(),
+    ] = None,
+    alumno_id: Annotated[uuid.UUID | None, Query()] = None,
+    division_id: Annotated[uuid.UUID | None, Query()] = None,
+    buscar: Annotated[str | None, Query(max_length=100)] = None,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    tamanio_pagina: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> InscripcionListadoRead:
+    return service.listar_inscripciones(
+        db,
+        ciclo_lectivo=ciclo_lectivo.strip() if ciclo_lectivo else None,
+        estado=estado,
+        tipo=tipo,
+        alumno_id=alumno_id,
+        division_id=division_id,
+        buscar=buscar,
+        pagina=pagina,
+        tamanio_pagina=tamanio_pagina,
+    )
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
