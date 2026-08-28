@@ -7,6 +7,7 @@ const usuario = {
   auth_provider: 'google',
   estado: 'activo',
   roles: ['admin'],
+  permisos: [],
 }
 
 beforeEach(() => {

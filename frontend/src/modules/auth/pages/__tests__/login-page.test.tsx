@@ -48,6 +48,7 @@ describe('LoginPage', () => {
       auth_provider: 'local',
       estado: 'activo',
       roles: ['docente'],
+      permisos: [],
     }
     mockedLoginLocal.mockResolvedValueOnce({ detail: 'Sesión iniciada' })
     mockedGetMe.mockResolvedValueOnce(usuario)
