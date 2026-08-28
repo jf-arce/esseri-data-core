@@ -31,6 +31,19 @@ class ReinscripcionCreate(InscripcionCreateBase):
     ciclo_lectivo: str = Field(min_length=4, max_length=4, pattern=r"^[1-9]\d{3}$")
 
 
+class CambioMatriculaCreate(BaseModel):
+    """Datos para trasladar una inscripción activa a otra división."""
+
+    division_id: uuid.UUID
+    fecha_cambio: date
+
+
+class BajaInscripcionCreate(BaseModel):
+    """Datos para registrar la baja de una inscripción activa."""
+
+    fecha_baja: date
+
+
 class InscripcionRead(BaseModel):
     """Representación pública de una inscripción."""
 
