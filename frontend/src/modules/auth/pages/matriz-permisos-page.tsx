@@ -1,15 +1,36 @@
+import { SearchIcon } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { FilterBar, FilterSearch } from '@/components/filter-bar'
+import { FilterChip, FilterChips, FilterDropdown } from '@/components/filter-dropdown'
 import { MatrizPermisos } from '@/modules/auth/components/matriz-permisos'
+import { MatrizPermisosSkeleton } from '@/modules/auth/components/matriz-permisos-skeleton'
 import { useMatrizPermisos } from '@/modules/auth/hooks/use-matriz-permisos'
 import { SeccionHeader } from '@/modules/auth/pages/configuracion-acceso-page'
+import { filtrarPermisosDeMatriz } from '@/modules/auth/utils'
 
 export function MatrizPermisosPage() {
   const matriz = useMatrizPermisos()
 
+  const [busqueda, setBusqueda] = useState('')
+  const [modulosFiltro, setModulosFiltro] = useState<string[]>([])
+
+  const modulosDisponibles = useMemo(
+    () => Array.from(new Set(matriz.permisos.map((p) => p.modulo))).sort((a, b) => a.localeCompare(b, 'es')),
+    [matriz.permisos],
+  )
+
+  const permisosFiltrados = useMemo(
+    () => filtrarPermisosDeMatriz(matriz.permisos, { busqueda, modulos: modulosFiltro }),
+    [matriz.permisos, busqueda, modulosFiltro],
+  )
+
+  const hayFiltrosActivos = busqueda.trim() !== '' || modulosFiltro.length > 0
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <SeccionHeader
         titulo="Matriz de permisos"
         accion={
@@ -44,23 +65,56 @@ export function MatrizPermisosPage() {
         </Alert>
       )}
 
-      {matriz.cargando ? (
-        <div className="overflow-hidden rounded-panel bg-superficie shadow-card">
-          <div className="flex flex-col gap-3 p-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <Skeleton className="h-4 w-40 shrink-0" />
-                <div className="flex flex-1 gap-4">
-                  {Array.from({ length: 10 }).map((_, j) => (
-                    <Skeleton key={j} className="size-4 shrink-0 rounded-[5px]" />
-                  ))}
-                </div>
-              </div>
+      <div className="flex flex-col gap-3">
+        <FilterBar>
+          <FilterSearch
+            value={busqueda}
+            onChange={setBusqueda}
+            placeholder="Buscar módulo o acción"
+          />
+          <FilterDropdown
+            multiple
+            label="Módulo"
+            options={modulosDisponibles.map((modulo) => ({ value: modulo, label: modulo }))}
+            value={modulosFiltro}
+            onChange={setModulosFiltro}
+          />
+        </FilterBar>
+
+        {hayFiltrosActivos && (
+          <FilterChips
+            onClearAll={() => {
+              setBusqueda('')
+              setModulosFiltro([])
+            }}
+          >
+            {busqueda.trim() !== '' && (
+              <FilterChip onRemove={() => setBusqueda('')}>Búsqueda: {busqueda}</FilterChip>
+            )}
+            {modulosFiltro.map((modulo) => (
+              <FilterChip
+                key={modulo}
+                onRemove={() => setModulosFiltro(modulosFiltro.filter((m) => m !== modulo))}
+              >
+                Módulo: {modulo}
+              </FilterChip>
             ))}
-          </div>
-        </div>
+          </FilterChips>
+        )}
+      </div>
+
+      {matriz.cargando ? (
+        <MatrizPermisosSkeleton />
+      ) : permisosFiltrados.length === 0 ? (
+        <Empty className="min-h-[280px] rounded-panel bg-superficie shadow-card">
+          <EmptyMedia variant="icon" className="bg-violeta-suave text-violeta">
+            <SearchIcon />
+          </EmptyMedia>
+          <EmptyTitle>Ningún permiso coincide con estos filtros.</EmptyTitle>
+          <EmptyDescription>Probá ajustar la búsqueda o limpiar los filtros activos.</EmptyDescription>
+        </Empty>
       ) : (
-        <MatrizPermisos matriz={matriz} />
+        <MatrizPermisos matriz={{ ...matriz, permisos: permisosFiltrados }} />
       )}
     </div>
   )
