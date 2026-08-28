@@ -12,6 +12,7 @@ function renderConRoles(roles: string[]) {
       auth_provider: 'local',
       estado: 'activo',
       roles,
+      permisos: [],
     },
     status: 'authenticated',
   })

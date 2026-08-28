@@ -151,7 +151,7 @@ Grilla de 8px, submúltiplos de 4: **8 / 16 / 24 / 32 / 48**. Padding interno m�
 
 ### 5.2 Elevación de card: superficie + sombra baja, sin borde
 
-La Card (ver 9) no usa el hairline de 1px como recurso de separación — el hairline queda para inputs, divisores y filas de tabla. Una card se separa del lienzo por su `superficie` lisa (ver 2.1) más una sombra baja y difusa en reposo: `0 6px 20px rgba(20,17,26,.06)`. Sigue prohibida una sombra dura, de radio grande, o cualquier sombra decorativa fuera de ese valor — la sombra existe para separar la card del fondo, no para simular profundidad.
+La Card (ver 9) no usa el hairline de 1px como recurso de separación — el hairline queda para inputs, divisores y filas de tabla. Una card se separa del lienzo por su `superficie` lisa (ver 2.1) más una sombra baja y muy sutil en reposo: `0 1px 2px rgba(20,17,26,.03), 0 4px 12px rgba(20,17,26,.025)` (dos capas, contacto + difusión). Revisado varias veces: el valor original (`0 6px 20px rgba(20,17,26,.06)`) leía más pesado de lo que corresponde a una herramienta interna densa; se probó incluso sacarla del todo (solo el contraste `superficie`/`lienzo`), pero se decidió mantenerla, apenas por debajo de la intensidad anterior — sin sacar la sombra del todo, para mantener la separación de card del §5.2 sin que compita con el dato. Sigue prohibida una sombra dura, de radio grande, o cualquier sombra decorativa fuera de ese valor — la sombra existe para separar la card del fondo, no para simular profundidad.
 
 Los demás overlays (dropdowns, modales, toasts, popovers) mantienen su propia sombra de overlay, más marcada que la de una card en reposo. Un ítem en estado de arrastre activo puede llevar una sombra sutil como feedback transitorio.
 

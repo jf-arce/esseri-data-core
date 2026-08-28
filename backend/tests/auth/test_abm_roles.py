@@ -65,6 +65,7 @@ class TestPermiso:
 
         assert respuesta.status_code == 201
         assert respuesta.json()["modulo"] == MODULO_ACADEMICO
+        assert respuesta.json()["codigo"] == "academico.leer"
 
     def test_crear_permiso_duplicado_devuelve_409(self, client_admin):
         payload = {"modulo": MODULO_ACADEMICO, "accion": ACCION_LEER}
