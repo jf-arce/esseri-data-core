@@ -27,3 +27,34 @@ export interface CrearProveedorPayload {
 export type ActualizarProveedorPayload = Partial<CrearProveedorPayload>
 
 export type OrdenProveedores = 'nombre-asc' | 'nombre-desc' | 'categoria-asc'
+
+// --- Solicitudes internas de compra (RF-20) -------------------------------------------------
+// Espeja los schemas de `SolicitudCompra` en el backend.
+
+export type EstadoSolicitud = 'pendiente' | 'aprobada' | 'rechazada'
+
+export interface SolicitudCompra {
+  id: string
+  articulo: string | null
+  producto_servicio_id: string | null
+  cantidad: number
+  area_solicitante: string | null
+  estado: EstadoSolicitud
+  fecha: string
+  usuario_id: string
+  updated_at: string
+}
+
+// `usuario_id` no va: el backend lo toma de la sesion, no del payload.
+export interface CrearSolicitudPayload {
+  articulo?: string | null
+  producto_servicio_id?: string | null
+  cantidad: number
+  area_solicitante?: string | null
+  fecha?: string | null
+}
+
+// El estado no entra aca: cambiarlo es una decision de negocio y tiene su propio endpoint.
+export type ActualizarSolicitudPayload = Partial<CrearSolicitudPayload>
+
+export type OrdenSolicitudes = 'fecha-desc' | 'fecha-asc' | 'cantidad-desc'
