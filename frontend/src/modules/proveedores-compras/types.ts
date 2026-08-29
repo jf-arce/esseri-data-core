@@ -119,3 +119,43 @@ export interface CrearOrdenPayload {
 }
 
 export type OrdenOrdenes = 'fecha-desc' | 'fecha-asc'
+
+// --- Recepcion de compras (issue #111) ------------------------------------------------------
+
+export type TipoRecepcion = 'total' | 'parcial'
+
+// `cantidad_pendiente` no es columna en la base: la calcula el backend como
+// cantidad_pedida - SUM(cantidad_recibida). Llega ya resuelta.
+export interface LineaPendiente {
+  orden_compra_detalle_id: string
+  producto_servicio_id: string
+  cantidad_pedida: string
+  cantidad_recibida: string
+  cantidad_pendiente: string
+}
+
+export interface RecepcionDetalle {
+  id: string
+  orden_compra_detalle_id: string
+  cantidad_recibida: string
+}
+
+export interface Recepcion {
+  id: string
+  fecha: string
+  tipo: TipoRecepcion
+  remito: string | null
+  observaciones: string | null
+  orden_compra_id: string
+  usuario_id: string
+  updated_at: string
+  detalles: RecepcionDetalle[]
+}
+
+// Ni `tipo` ni `usuario_id` van: el backend los deriva de las cantidades y de la sesion.
+export interface CrearRecepcionPayload {
+  fecha?: string | null
+  remito?: string | null
+  observaciones?: string | null
+  detalles: { orden_compra_detalle_id: string; cantidad_recibida: string }[]
+}

@@ -6,6 +6,7 @@ import type {
   OrdenProductos,
   OrdenProveedores,
   OrdenSolicitudes,
+  LineaPendiente,
   ProductoServicio,
   Proveedor,
   SolicitudCompra,
@@ -185,4 +186,18 @@ export function filtrarYOrdenarOrdenes(
 // solo para mostrar, nunca para persistir.
 export function totalUnidadesPedidas(ordenCompra: OrdenCompra): number {
   return ordenCompra.detalles.reduce((total, detalle) => total + Number(detalle.cantidad_pedida), 0)
+}
+
+// --- Recepcion de compras (issue #111) ------------------------------------------------------
+
+// Una orden esta completa cuando ninguna linea tiene pendiente. Se decide sobre las lineas y no
+// sobre el estado de la orden, porque es el mismo criterio que aplica el backend para pasarla a
+// `recibida`: si se mirara solo el estado, una orden recien completada se veria incompleta
+// hasta el proximo refresco.
+export function ordenSinPendientes(lineas: LineaPendiente[]): boolean {
+  return lineas.length > 0 && lineas.every((linea) => Number(linea.cantidad_pendiente) <= 0)
+}
+
+export function totalPendiente(lineas: LineaPendiente[]): number {
+  return lineas.reduce((total, linea) => total + Number(linea.cantidad_pendiente), 0)
 }

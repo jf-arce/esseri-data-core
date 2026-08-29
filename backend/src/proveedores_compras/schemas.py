@@ -20,6 +20,9 @@ TipoProductoServicio = Literal["producto", "servicio"]
 # Ídem para `ck_orden_compra_estado`.
 EstadoOrdenCompra = Literal["emitida", "recibida", "cancelada"]
 
+# Ídem para `ck_recepcion_compra_tipo`.
+TipoRecepcion = Literal["total", "parcial"]
+
 
 class ProveedorBase(BaseModel):
     """Campos comunes de Proveedor (RF-19).
@@ -249,3 +252,80 @@ class OrdenCompraResponse(BaseModel):
     solicitud_ids: list[uuid.UUID] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class RecepcionCompraDetalleCreate(BaseModel):
+    """Lo que efectivamente llegó de una línea de la orden."""
+
+    orden_compra_detalle_id: uuid.UUID = Field(..., description="Línea de la orden que se recibe")
+    cantidad_recibida: decimal.Decimal = Field(
+        ..., gt=0, description="Cantidad recibida en esta entrega, mayor a cero"
+    )
+
+
+class RecepcionCompraCreate(BaseModel):
+    """Registrar una recepción contra una orden (respuesta 13 del cliente).
+
+    `tipo` no se acepta del cliente: se deriva de las cantidades. Si alguien pudiera declararlo
+    a mano, nada impediría marcar "total" habiendo recibido la mitad, y el pendiente quedaría
+    mintiendo.
+
+    `usuario_id` tampoco: el responsable que recibe sale de la sesión.
+    """
+
+    fecha: date | None = Field(None, description="Fecha de recepción; por defecto, hoy")
+    remito: str | None = Field(None, description="Número de remito o documentación de respaldo")
+    observaciones: str | None = Field(None, description="Diferencias, faltantes o comentarios")
+    detalles: list[RecepcionCompraDetalleCreate] = Field(
+        ..., min_length=1, description="Qué llegó y en qué cantidad"
+    )
+
+    @model_validator(mode="after")
+    def validar_sin_lineas_repetidas(self) -> "RecepcionCompraCreate":
+        lineas = [detalle.orden_compra_detalle_id for detalle in self.detalles]
+        if len(set(lineas)) != len(lineas):
+            raise ValueError(
+                "Hay líneas repetidas en la recepción: sumá las cantidades en una sola."
+            )
+        return self
+
+
+class RecepcionCompraDetalleResponse(BaseModel):
+    """Línea de una recepción tal como sale por la API."""
+
+    id: uuid.UUID
+    orden_compra_detalle_id: uuid.UUID
+    cantidad_recibida: decimal.Decimal
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RecepcionCompraResponse(BaseModel):
+    """Recepción tal como sale por la API."""
+
+    id: uuid.UUID
+    fecha: date
+    tipo: TipoRecepcion
+    remito: str | None
+    observaciones: str | None
+    orden_compra_id: uuid.UUID
+    usuario_id: uuid.UUID
+    updated_at: datetime
+    detalles: list[RecepcionCompraDetalleResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LineaPendienteResponse(BaseModel):
+    """Estado de una línea de la orden: cuánto se pidió, cuánto llegó y cuánto falta.
+
+    `cantidad_pendiente` **no es columna**: se calcula como
+    `cantidad_pedida - SUM(cantidad_recibida)`, mismo criterio de derivado sin cache que usa
+    `CUENTA_CORRIENTE` (ver el diccionario de datos).
+    """
+
+    orden_compra_detalle_id: uuid.UUID
+    producto_servicio_id: uuid.UUID
+    cantidad_pedida: decimal.Decimal
+    cantidad_recibida: decimal.Decimal
+    cantidad_pendiente: decimal.Decimal

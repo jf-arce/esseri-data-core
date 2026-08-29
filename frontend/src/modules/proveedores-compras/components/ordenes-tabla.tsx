@@ -1,10 +1,11 @@
-import { BanIcon, MoreHorizontalIcon } from 'lucide-react'
+import { BanIcon, MoreHorizontalIcon, PackageCheckIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { TableSkeleton, type ColumnaEsqueleto } from '@/components/table-skeleton'
@@ -46,6 +47,7 @@ interface OrdenesTablaProps {
   cargando: boolean
   densidad: 'comfortable' | 'compact'
   nombrePorProveedor: Record<string, string>
+  onRecibir: (orden: OrdenCompra) => void
   onCancelar: (orden: OrdenCompra) => void
 }
 
@@ -54,6 +56,7 @@ function OrdenesTabla({
   cargando,
   densidad,
   nombrePorProveedor,
+  onRecibir,
   onCancelar,
 }: OrdenesTablaProps) {
   return (
@@ -103,13 +106,21 @@ function OrdenesTabla({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    {/* Cancelar es la única acción, y solo sobre una orden emitida: una
-                        recibida ya tiene mercadería asociada (§9.2 DESIGN.md). */}
+                    {/* Las acciones dependen del estado (§9.2 DESIGN.md): solo una orden
+                        emitida se puede recibir o cancelar. Una recibida ya cerró su ciclo y
+                        una cancelada nunca va a llegar. */}
                     {orden.estado === 'emitida' ? (
-                      <DropdownMenuItem variant="destructive" onSelect={() => onCancelar(orden)}>
-                        <BanIcon />
-                        Cancelar orden
-                      </DropdownMenuItem>
+                      <>
+                        <DropdownMenuItem onSelect={() => onRecibir(orden)}>
+                          <PackageCheckIcon className="text-petroleo" />
+                          Registrar recepción
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem variant="destructive" onSelect={() => onCancelar(orden)}>
+                          <BanIcon />
+                          Cancelar orden
+                        </DropdownMenuItem>
+                      </>
                     ) : (
                       <DropdownMenuItem disabled>Sin acciones disponibles</DropdownMenuItem>
                     )}
