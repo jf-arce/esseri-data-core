@@ -1,5 +1,6 @@
 """Modelos Pydantic: forma de los datos que entran y salen por la API de este módulo."""
 
+import decimal
 import uuid
 from datetime import date, datetime
 from typing import Literal
@@ -15,6 +16,9 @@ EstadoSolicitud = Literal["pendiente", "aprobada", "rechazada"]
 
 # Ídem para `ck_producto_servicio_tipo`.
 TipoProductoServicio = Literal["producto", "servicio"]
+
+# Ídem para `ck_orden_compra_estado`.
+EstadoOrdenCompra = Literal["emitida", "recibida", "cancelada"]
 
 
 class ProveedorBase(BaseModel):
@@ -169,5 +173,79 @@ class ProductoServicioResponse(ProductoServicioBase):
     activo: bool
     created_at: datetime
     updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OrdenCompraDetalleCreate(BaseModel):
+    """Una línea de lo que se le pide al proveedor.
+
+    Es el ítem de la **orden**, no de la solicitud: varias solicitudes del mismo producto se
+    consolidan en una sola línea, que es lo que el cliente llamó "resulte compatible
+    agruparlas" (respuesta 12 de las aclaraciones).
+    """
+
+    producto_servicio_id: uuid.UUID = Field(..., description="Ítem del catálogo que se pide")
+    cantidad_pedida: decimal.Decimal = Field(..., gt=0, description="Cantidad, mayor a cero")
+
+
+class OrdenCompraDetalleResponse(BaseModel):
+    """Línea de la orden tal como sale por la API."""
+
+    id: uuid.UUID
+    producto_servicio_id: uuid.UUID
+    cantidad_pedida: decimal.Decimal
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OrdenCompraCreate(BaseModel):
+    """Datos para emitir una orden de compra (RF-21).
+
+    Las solicitudes dan la **trazabilidad** (por qué se compra) y el detalle dice **qué** se le
+    pide al proveedor. Van separados a propósito: una solicitud puede venir con el artículo en
+    texto libre, y la orden necesita sí o sí un ítem del catálogo.
+    """
+
+    proveedor_id: uuid.UUID = Field(..., description="Proveedor al que se le emite la orden")
+    fecha: date | None = Field(None, description="Fecha de emisión; por defecto, hoy")
+    solicitud_ids: list[uuid.UUID] = Field(
+        ...,
+        min_length=1,
+        description="Solicitudes aprobadas que origina esta orden; cada una conserva su ID",
+    )
+    detalles: list[OrdenCompraDetalleCreate] = Field(
+        ..., min_length=1, description="Ítems y cantidades que se le piden al proveedor"
+    )
+
+    @model_validator(mode="after")
+    def validar_sin_repetidos(self) -> "OrdenCompraCreate":
+        if len(set(self.solicitud_ids)) != len(self.solicitud_ids):
+            raise ValueError("Hay solicitudes repetidas en la orden.")
+        productos = [detalle.producto_servicio_id for detalle in self.detalles]
+        if len(set(productos)) != len(productos):
+            raise ValueError(
+                "Hay ítems repetidos en el detalle: sumá las cantidades en una sola línea."
+            )
+        return self
+
+
+class OrdenCompraCambioEstado(BaseModel):
+    """Cambio de estado de una orden. Hoy solo se usa para cancelarla: `recibida` lo pone la
+    recepción de compras (issue #111), no una edición manual."""
+
+    estado: EstadoOrdenCompra
+
+
+class OrdenCompraResponse(BaseModel):
+    """Orden tal como sale por la API, con su detalle y las solicitudes que la originaron."""
+
+    id: uuid.UUID
+    fecha: date
+    estado: EstadoOrdenCompra
+    proveedor_id: uuid.UUID
+    updated_at: datetime
+    detalles: list[OrdenCompraDetalleResponse] = []
+    solicitud_ids: list[uuid.UUID] = []
 
     model_config = ConfigDict(from_attributes=True)

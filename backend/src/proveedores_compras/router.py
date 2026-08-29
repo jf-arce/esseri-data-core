@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from src.auth.constants import (
@@ -15,12 +15,21 @@ from src.auth.dependencies import requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
 from src.proveedores_compras.dependencies import (
+    obtener_orden_compra_o_404,
     obtener_producto_servicio_o_404,
     obtener_proveedor_o_404,
     obtener_solicitud_o_404,
 )
-from src.proveedores_compras.models import ProductoServicio, Proveedor, SolicitudCompra
+from src.proveedores_compras.models import (
+    OrdenCompra,
+    ProductoServicio,
+    Proveedor,
+    SolicitudCompra,
+)
 from src.proveedores_compras.schemas import (
+    OrdenCompraCambioEstado,
+    OrdenCompraCreate,
+    OrdenCompraResponse,
     ProductoServicioCreate,
     ProductoServicioResponse,
     ProductoServicioUpdate,
@@ -37,15 +46,20 @@ from src.proveedores_compras.service import (
     actualizar_proveedor,
     actualizar_solicitud,
     cambiar_estado_solicitud,
+    cancelar_orden_compra,
+    crear_orden_compra,
     crear_producto_servicio,
     crear_proveedor,
     crear_solicitud,
     eliminar_producto_servicio,
     eliminar_proveedor,
     eliminar_solicitud,
+    listar_ordenes_compra,
     listar_productos_servicios,
     listar_proveedores,
     listar_solicitudes,
+    obtener_detalles_de_orden,
+    obtener_solicitudes_de_orden,
 )
 
 router = APIRouter(prefix="/proveedores-compras", tags=["proveedores_compras"])
@@ -220,3 +234,69 @@ def eliminar_producto_servicio_endpoint(
     Da 409 si ya está referenciado por una compra: ahí corresponde `activo = false`.
     """
     eliminar_producto_servicio(db, producto, usuario.id)
+
+
+def _armar_respuesta_orden(db: Session, orden: OrdenCompra) -> OrdenCompraResponse:
+    """La orden vive en tres tablas (cabecera, detalle y vínculos con solicitudes): esto las
+    junta en la forma que espera el frontend, para que no tenga que hacer tres llamadas."""
+    return OrdenCompraResponse(
+        id=orden.id,
+        fecha=orden.fecha,
+        estado=orden.estado,
+        proveedor_id=orden.proveedor_id,
+        updated_at=orden.updated_at,
+        detalles=obtener_detalles_de_orden(db, orden.id),
+        solicitud_ids=obtener_solicitudes_de_orden(db, orden.id),
+    )
+
+
+@router.post("/ordenes", response_model=OrdenCompraResponse, status_code=201)
+def crear_orden_compra_endpoint(
+    orden_data: OrdenCompraCreate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_CREAR))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> OrdenCompraResponse:
+    """Emitir una orden de compra a partir de solicitudes aprobadas (RF-21)."""
+    orden = crear_orden_compra(db, orden_data, usuario.id)
+    return _armar_respuesta_orden(db, orden)
+
+
+@router.get("/ordenes", response_model=list[OrdenCompraResponse])
+def listar_ordenes_compra_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_LEER))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[OrdenCompraResponse]:
+    """Listar las órdenes, de la más reciente a la más vieja, con su detalle."""
+    return [_armar_respuesta_orden(db, orden) for orden in listar_ordenes_compra(db)]
+
+
+@router.get("/ordenes/{orden_id}", response_model=OrdenCompraResponse)
+def obtener_orden_compra_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_LEER))],
+    orden: OrdenCompra = Depends(obtener_orden_compra_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> OrdenCompraResponse:
+    """Obtener una orden con su detalle y las solicitudes que la originaron."""
+    return _armar_respuesta_orden(db, orden)
+
+
+@router.patch("/ordenes/{orden_id}/estado", response_model=OrdenCompraResponse)
+def cancelar_orden_compra_endpoint(
+    cambio: OrdenCompraCambioEstado,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_ACTUALIZAR))],
+    orden: OrdenCompra = Depends(obtener_orden_compra_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> OrdenCompraResponse:
+    """Cancelar una orden emitida.
+
+    Es el único cambio de estado manual: `recibida` lo va a poner la recepción de compras
+    (issue #111) a partir de mercadería real, no una edición a mano. Por eso cualquier otro
+    destino se rechaza con 422 en vez de aplicarse.
+    """
+    if cambio.estado != "cancelada":
+        raise HTTPException(
+            status_code=422,
+            detail="Desde acá solo se puede cancelar una orden; 'recibida' lo define la recepción.",
+        )
+    orden = cancelar_orden_compra(db, orden, usuario.id)
+    return _armar_respuesta_orden(db, orden)

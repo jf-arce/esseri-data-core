@@ -6,14 +6,20 @@ from datetime import date
 from sqlalchemy.orm import Session
 
 from src.proveedores_compras.exceptions import (
+    OrdenCompraNoCancelable,
     ProductoServicioEnUso,
+    ProductoServicioInactivo,
     ProductoServicioInexistente,
     ProveedorConVinculos,
+    ProveedorInexistente,
+    SolicitudNoAprobada,
     SolicitudSinArticuloNiProducto,
+    SolicitudYaEnOrden,
 )
 from src.proveedores_compras.models import (
     OrdenCompra,
     OrdenCompraDetalle,
+    OrdenCompraSolicitud,
     PrecioProducto,
     ProductoProveedor,
     ProductoServicio,
@@ -21,6 +27,7 @@ from src.proveedores_compras.models import (
     SolicitudCompra,
 )
 from src.proveedores_compras.schemas import (
+    OrdenCompraCreate,
     ProductoServicioCreate,
     ProductoServicioUpdate,
     ProveedorCreate,
@@ -401,3 +408,141 @@ def eliminar_producto_servicio(
     db.commit()
 
     # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
+
+
+# --- Órdenes de compra (RF-21) --------------------------------------------------------------
+
+
+def crear_orden_compra(
+    db: Session, orden_data: OrdenCompraCreate, usuario_id: uuid.UUID | None = None
+) -> OrdenCompra:
+    """Emitir una orden de compra a partir de solicitudes aprobadas (RF-21).
+
+    Una orden puede agrupar varias solicitudes, y cada una conserva su ID a través de
+    `ORDEN_COMPRA_SOLICITUD` — es la trazabilidad que pidió el cliente en la respuesta 12.
+
+    La regla "todas del mismo proveedor" se cumple por construcción: `SolicitudCompra` no
+    guarda proveedor, así que el proveedor lo define la orden y todo lo agrupado va ahí.
+
+    Raises:
+        ProveedorInexistente: si el proveedor no existe.
+        SolicitudNoAprobada: si alguna solicitud no existe o no está aprobada.
+        SolicitudYaEnOrden: si alguna ya está incluida en otra orden.
+        ProductoServicioInexistente / ProductoServicioInactivo: por cada ítem del detalle.
+    """
+    if db.query(Proveedor).filter(Proveedor.id == orden_data.proveedor_id).first() is None:
+        raise ProveedorInexistente()
+
+    _validar_solicitudes_para_orden(db, orden_data.solicitud_ids)
+    for detalle in orden_data.detalles:
+        _validar_producto_pedible(db, detalle.producto_servicio_id)
+
+    nueva_orden = OrdenCompra(
+        fecha=orden_data.fecha or date.today(),
+        estado="emitida",
+        proveedor_id=orden_data.proveedor_id,
+    )
+    db.add(nueva_orden)
+    db.flush()  # necesita el id de la orden antes de colgarle detalle y vínculos
+
+    for detalle in orden_data.detalles:
+        db.add(
+            OrdenCompraDetalle(
+                orden_compra_id=nueva_orden.id,
+                producto_servicio_id=detalle.producto_servicio_id,
+                cantidad_pedida=detalle.cantidad_pedida,
+            )
+        )
+    for solicitud_id in orden_data.solicitud_ids:
+        db.add(
+            OrdenCompraSolicitud(orden_compra_id=nueva_orden.id, solicitud_compra_id=solicitud_id)
+        )
+
+    db.commit()
+    db.refresh(nueva_orden)
+
+    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
+    # TODO: Emitir el evento de negocio con emit_event() cuando exista, para que Workflows
+    # pueda enganchar una notificación al proveedor.
+
+    return nueva_orden
+
+
+def obtener_orden_compra_por_id(db: Session, orden_id: uuid.UUID) -> OrdenCompra | None:
+    """Obtener una orden por su ID, o None si no existe."""
+    return db.query(OrdenCompra).filter(OrdenCompra.id == orden_id).first()
+
+
+def listar_ordenes_compra(db: Session) -> list[OrdenCompra]:
+    """Listar las órdenes, de la más reciente a la más vieja."""
+    return (
+        db.query(OrdenCompra)
+        .order_by(OrdenCompra.fecha.desc(), OrdenCompra.updated_at.desc())
+        .all()
+    )
+
+
+def obtener_detalles_de_orden(db: Session, orden_id: uuid.UUID) -> list[OrdenCompraDetalle]:
+    """Líneas de una orden."""
+    return db.query(OrdenCompraDetalle).filter(OrdenCompraDetalle.orden_compra_id == orden_id).all()
+
+
+def obtener_solicitudes_de_orden(db: Session, orden_id: uuid.UUID) -> list[uuid.UUID]:
+    """IDs de las solicitudes que originaron una orden."""
+    vinculos = (
+        db.query(OrdenCompraSolicitud)
+        .filter(OrdenCompraSolicitud.orden_compra_id == orden_id)
+        .all()
+    )
+    return [vinculo.solicitud_compra_id for vinculo in vinculos]
+
+
+def cancelar_orden_compra(
+    db: Session, orden: OrdenCompra, usuario_id: uuid.UUID | None = None
+) -> OrdenCompra:
+    """Cancelar una orden emitida.
+
+    No hay borrado de órdenes: una orden emitida ya salió hacia el proveedor, así que la baja
+    es un estado y no un DELETE, para no perder el historial.
+
+    Raises:
+        OrdenCompraNoCancelable: si la orden ya fue recibida.
+    """
+    if orden.estado != "emitida":
+        raise OrdenCompraNoCancelable()
+
+    orden.estado = "cancelada"
+    db.commit()
+    db.refresh(orden)
+
+    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
+
+    return orden
+
+
+def _validar_solicitudes_para_orden(db: Session, solicitud_ids: list[uuid.UUID]) -> None:
+    """Las solicitudes tienen que existir, estar aprobadas y no estar ya en otra orden."""
+    solicitudes = db.query(SolicitudCompra).filter(SolicitudCompra.id.in_(solicitud_ids)).all()
+    if len(solicitudes) != len(solicitud_ids):
+        raise SolicitudNoAprobada()
+    if any(solicitud.estado != "aprobada" for solicitud in solicitudes):
+        raise SolicitudNoAprobada()
+
+    ya_vinculada = (
+        db.query(OrdenCompraSolicitud)
+        .filter(OrdenCompraSolicitud.solicitud_compra_id.in_(solicitud_ids))
+        .first()
+    )
+    if ya_vinculada is not None:
+        raise SolicitudYaEnOrden()
+
+
+def _validar_producto_pedible(db: Session, producto_servicio_id: uuid.UUID) -> None:
+    """Un ítem del detalle tiene que existir y estar activo en el catálogo."""
+    producto = (
+        db.query(ProductoServicio).filter(ProductoServicio.id == producto_servicio_id).first()
+    )
+    if producto is None:
+        raise ProductoServicioInexistente()
+    if not producto.activo:
+        raise ProductoServicioInactivo()
