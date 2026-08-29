@@ -1,5 +1,8 @@
 import type {
+  EstadoOrdenCompra,
   EstadoSolicitud,
+  OrdenCompra,
+  OrdenOrdenes,
   OrdenProductos,
   OrdenProveedores,
   OrdenSolicitudes,
@@ -146,4 +149,40 @@ export function categoriasDeProductos(productos: ProductoServicio[]): string[] {
     .map((producto) => producto.categoria)
     .filter((categoria): categoria is string => Boolean(categoria))
   return Array.from(new Set(categorias)).sort((a, b) => a.localeCompare(b, 'es'))
+}
+
+// --- Ordenes de compra (RF-21) --------------------------------------------------------------
+
+interface FiltrosOrdenes {
+  busqueda: string
+  estado: '' | EstadoOrdenCompra
+  orden: OrdenOrdenes
+}
+
+// El nombre del proveedor no viaja en la respuesta de la orden (solo `proveedor_id`), asi que
+// la busqueda por texto necesita el mapa id -> nombre que la pagina ya tiene cargado.
+export function filtrarYOrdenarOrdenes(
+  ordenes: OrdenCompra[],
+  { busqueda, estado, orden }: FiltrosOrdenes,
+  nombrePorProveedor: Record<string, string> = {},
+): OrdenCompra[] {
+  const termino = normalizar(busqueda.trim())
+
+  const filtradas = ordenes.filter((ordenCompra) => {
+    if (estado && ordenCompra.estado !== estado) return false
+    if (!termino) return true
+    return normalizar(nombrePorProveedor[ordenCompra.proveedor_id] ?? '').includes(termino)
+  })
+
+  return [...filtradas].sort((a, b) => {
+    if (orden === 'fecha-asc') return a.fecha.localeCompare(b.fecha)
+    return b.fecha.localeCompare(a.fecha)
+  })
+}
+
+// Cuantas unidades tiene pedida una orden en total. Las cantidades vienen como string desde el
+// backend (son Numeric, y JSON no distingue decimales exactos de floats): se suman con Number
+// solo para mostrar, nunca para persistir.
+export function totalUnidadesPedidas(ordenCompra: OrdenCompra): number {
+  return ordenCompra.detalles.reduce((total, detalle) => total + Number(detalle.cantidad_pedida), 0)
 }

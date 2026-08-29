@@ -6,8 +6,14 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from src.database import get_db
-from src.proveedores_compras.models import ProductoServicio, Proveedor, SolicitudCompra
+from src.proveedores_compras.models import (
+    OrdenCompra,
+    ProductoServicio,
+    Proveedor,
+    SolicitudCompra,
+)
 from src.proveedores_compras.service import (
+    obtener_orden_compra_por_id,
     obtener_producto_servicio_por_id,
     obtener_proveedor_por_id,
     obtener_solicitud_por_id,
@@ -87,3 +93,28 @@ def obtener_producto_servicio_o_404(
             detail=f"Producto o servicio con ID {producto_id} no encontrado",
         )
     return producto
+
+
+def obtener_orden_compra_o_404(
+    orden_id: uuid.UUID,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> OrdenCompra:
+    """Obtener una orden de compra por ID o cortar con 404.
+
+    Args:
+        orden_id: ID de la orden a buscar
+        db: Sesión de base de datos inyectada
+
+    Returns:
+        La orden encontrada
+
+    Raises:
+        HTTPException: Si la orden no existe (404)
+    """
+    orden = obtener_orden_compra_por_id(db, orden_id)
+    if orden is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Orden de compra con ID {orden_id} no encontrada",
+        )
+    return orden

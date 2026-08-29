@@ -59,3 +59,65 @@ class ProductoServicioEnUso(AppException):
         ),
     ):
         super().__init__(message)
+
+
+class ProveedorInexistente(AppException):
+    """El `proveedor_id` recibido no existe."""
+
+    status_code = 422
+
+    def __init__(self, message: str = "El proveedor indicado no existe."):
+        super().__init__(message)
+
+
+class SolicitudNoAprobada(AppException):
+    """Se quiso meter en una orden una solicitud que no está aprobada.
+
+    RF-21 es explícito: la orden se genera a partir de solicitud(es) **aprobada(s)**. Comprar
+    contra un pedido pendiente o rechazado saltearía la autorización.
+    """
+
+    status_code = 422
+
+    def __init__(self, message: str = "Solo se pueden incluir solicitudes aprobadas en una orden."):
+        super().__init__(message)
+
+
+class SolicitudYaEnOrden(AppException):
+    """La solicitud ya está vinculada a otra orden de compra.
+
+    Sin esto, el mismo pedido podría comprarse dos veces sin que nada avise.
+    """
+
+    status_code = 409
+
+    def __init__(
+        self, message: str = "Alguna de las solicitudes ya está incluida en otra orden de compra."
+    ):
+        super().__init__(message)
+
+
+class ProductoServicioInactivo(AppException):
+    """Se quiso pedir un ítem dado de baja del catálogo."""
+
+    status_code = 422
+
+    def __init__(
+        self,
+        message: str = (
+            "Alguno de los ítems está inactivo en el catálogo y no se puede pedir en una "
+            "orden nueva."
+        ),
+    ):
+        super().__init__(message)
+
+
+class OrdenCompraNoCancelable(AppException):
+    """Solo una orden `emitida` se puede cancelar: una ya recibida tiene mercadería asociada."""
+
+    status_code = 409
+
+    def __init__(
+        self, message: str = "Solo se puede cancelar una orden emitida, no una ya recibida."
+    ):
+        super().__init__(message)

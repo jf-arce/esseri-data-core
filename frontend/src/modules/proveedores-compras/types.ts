@@ -85,3 +85,37 @@ export interface CrearProductoPayload {
 export type ActualizarProductoPayload = Partial<CrearProductoPayload>
 
 export type OrdenProductos = 'nombre-asc' | 'nombre-desc' | 'categoria-asc'
+
+// --- Ordenes de compra (RF-21) --------------------------------------------------------------
+
+export type EstadoOrdenCompra = 'emitida' | 'recibida' | 'cancelada'
+
+export interface OrdenCompraDetalle {
+  id: string
+  producto_servicio_id: string
+  cantidad_pedida: string
+}
+
+export interface OrdenCompra {
+  id: string
+  fecha: string
+  estado: EstadoOrdenCompra
+  proveedor_id: string
+  updated_at: string
+  detalles: OrdenCompraDetalle[]
+  solicitud_ids: string[]
+}
+
+export interface CrearOrdenDetallePayload {
+  producto_servicio_id: string
+  cantidad_pedida: string
+}
+
+export interface CrearOrdenPayload {
+  proveedor_id: string
+  fecha?: string | null
+  solicitud_ids: string[]
+  detalles: CrearOrdenDetallePayload[]
+}
+
+export type OrdenOrdenes = 'fecha-desc' | 'fecha-asc'
