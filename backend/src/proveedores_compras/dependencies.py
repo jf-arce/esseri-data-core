@@ -6,8 +6,12 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from src.database import get_db
-from src.proveedores_compras.models import Proveedor, SolicitudCompra
-from src.proveedores_compras.service import obtener_proveedor_por_id, obtener_solicitud_por_id
+from src.proveedores_compras.models import ProductoServicio, Proveedor, SolicitudCompra
+from src.proveedores_compras.service import (
+    obtener_producto_servicio_por_id,
+    obtener_proveedor_por_id,
+    obtener_solicitud_por_id,
+)
 
 
 def obtener_proveedor_o_404(
@@ -58,3 +62,28 @@ def obtener_solicitud_o_404(
             detail=f"Solicitud de compra con ID {solicitud_id} no encontrada",
         )
     return solicitud
+
+
+def obtener_producto_servicio_o_404(
+    producto_id: uuid.UUID,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> ProductoServicio:
+    """Obtener un ítem del catálogo por ID o cortar con 404.
+
+    Args:
+        producto_id: ID del producto o servicio a buscar
+        db: Sesión de base de datos inyectada
+
+    Returns:
+        El ítem encontrado
+
+    Raises:
+        HTTPException: Si no existe (404)
+    """
+    producto = obtener_producto_servicio_por_id(db, producto_id)
+    if producto is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Producto o servicio con ID {producto_id} no encontrado",
+        )
+    return producto

@@ -58,3 +58,30 @@ export interface CrearSolicitudPayload {
 export type ActualizarSolicitudPayload = Partial<CrearSolicitudPayload>
 
 export type OrdenSolicitudes = 'fecha-desc' | 'fecha-asc' | 'cantidad-desc'
+
+// --- Catalogo de productos y servicios ------------------------------------------------------
+
+export type TipoProductoServicio = 'producto' | 'servicio'
+
+export interface ProductoServicio {
+  id: string
+  nombre: string
+  categoria: string | null
+  unidad: string | null
+  tipo: TipoProductoServicio
+  activo: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CrearProductoPayload {
+  nombre: string
+  categoria?: string | null
+  unidad?: string | null
+  tipo: TipoProductoServicio
+  activo: boolean
+}
+
+export type ActualizarProductoPayload = Partial<CrearProductoPayload>
+
+export type OrdenProductos = 'nombre-asc' | 'nombre-desc' | 'categoria-asc'

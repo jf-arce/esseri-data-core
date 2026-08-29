@@ -6,12 +6,14 @@ from datetime import date
 from sqlalchemy.orm import Session
 
 from src.proveedores_compras.exceptions import (
+    ProductoServicioEnUso,
     ProductoServicioInexistente,
     ProveedorConVinculos,
     SolicitudSinArticuloNiProducto,
 )
 from src.proveedores_compras.models import (
     OrdenCompra,
+    OrdenCompraDetalle,
     PrecioProducto,
     ProductoProveedor,
     ProductoServicio,
@@ -19,6 +21,8 @@ from src.proveedores_compras.models import (
     SolicitudCompra,
 )
 from src.proveedores_compras.schemas import (
+    ProductoServicioCreate,
+    ProductoServicioUpdate,
     ProveedorCreate,
     ProveedorUpdate,
     SolicitudCompraCreate,
@@ -312,3 +316,88 @@ def _validar_producto_servicio(db: Session, producto_servicio_id: uuid.UUID | No
     )
     if not existe:
         raise ProductoServicioInexistente()
+
+
+# --- Catálogo de productos y servicios ------------------------------------------------------
+
+
+def crear_producto_servicio(
+    db: Session, producto_data: ProductoServicioCreate, usuario_id: uuid.UUID | None = None
+) -> ProductoServicio:
+    """Dar de alta un ítem del catálogo de compras."""
+    nuevo_producto = ProductoServicio(**producto_data.model_dump())
+    db.add(nuevo_producto)
+    db.commit()
+    db.refresh(nuevo_producto)
+
+    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
+
+    return nuevo_producto
+
+
+def obtener_producto_servicio_por_id(
+    db: Session, producto_id: uuid.UUID
+) -> ProductoServicio | None:
+    """Obtener un ítem del catálogo por su ID, o None si no existe."""
+    return db.query(ProductoServicio).filter(ProductoServicio.id == producto_id).first()
+
+
+def listar_productos_servicios(db: Session) -> list[ProductoServicio]:
+    """Listar el catálogo completo, ordenado por nombre.
+
+    Devuelve también los inactivos: quién arma una compra necesita ver solo los activos, pero
+    quien administra el catálogo necesita ver todo para poder reactivar algo. El filtro por
+    `activo` se resuelve en el cliente, igual que el resto de los listados del módulo.
+    """
+    return db.query(ProductoServicio).order_by(ProductoServicio.nombre).all()
+
+
+def actualizar_producto_servicio(
+    db: Session,
+    producto: ProductoServicio,
+    producto_data: ProductoServicioUpdate,
+    usuario_id: uuid.UUID | None = None,
+) -> ProductoServicio:
+    """Modificar un ítem del catálogo."""
+    update_data = producto_data.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        setattr(producto, field, value)
+
+    db.commit()
+    db.refresh(producto)
+
+    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
+
+    return producto
+
+
+def eliminar_producto_servicio(
+    db: Session, producto: ProductoServicio, usuario_id: uuid.UUID | None = None
+) -> None:
+    """Eliminar un ítem del catálogo que todavía no se usó en ningún lado.
+
+    Raises:
+        ProductoServicioEnUso: si ya está referenciado por una solicitud, un detalle de orden,
+            un precio o una relación con un proveedor. En ese caso la baja correcta es
+            `activo = False`: borrarlo dejaría compras históricas apuntando a nada.
+    """
+    # Cada par es (modelo, columna que apunta al catálogo). Se recorre así en vez de encadenar
+    # `or` para que sumar una tabla nueva sea una línea más y no otro bloque de query.
+    referencias = (
+        (SolicitudCompra, SolicitudCompra.producto_servicio_id),
+        (OrdenCompraDetalle, OrdenCompraDetalle.producto_servicio_id),
+        (PrecioProducto, PrecioProducto.producto_servicio_id),
+        (ProductoProveedor, ProductoProveedor.producto_servicio_id),
+    )
+    esta_en_uso = any(
+        db.query(modelo).filter(columna == producto.id).first() is not None
+        for modelo, columna in referencias
+    )
+    if esta_en_uso:
+        raise ProductoServicioEnUso()
+
+    db.delete(producto)
+    db.commit()
+
+    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)

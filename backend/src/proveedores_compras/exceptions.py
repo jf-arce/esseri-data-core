@@ -40,3 +40,22 @@ class ProductoServicioInexistente(AppException):
 
     def __init__(self, message: str = "El producto o servicio indicado no existe en el catálogo."):
         super().__init__(message)
+
+
+class ProductoServicioEnUso(AppException):
+    """El ítem del catálogo ya está referenciado por una solicitud, una orden o un precio.
+
+    Borrarlo rompería la trazabilidad de compras que ya pasaron. La baja correcta es
+    `activo = False`, que lo saca de las compras nuevas sin tocar el historial.
+    """
+
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = (
+            "No se puede eliminar: el ítem ya se usó en solicitudes, órdenes o precios. "
+            "Marcalo como inactivo en vez de borrarlo."
+        ),
+    ):
+        super().__init__(message)
