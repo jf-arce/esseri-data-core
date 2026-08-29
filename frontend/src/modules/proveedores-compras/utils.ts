@@ -1,9 +1,12 @@
 import type {
   EstadoSolicitud,
+  OrdenProductos,
   OrdenProveedores,
   OrdenSolicitudes,
+  ProductoServicio,
   Proveedor,
   SolicitudCompra,
+  TipoProductoServicio,
 } from '@/modules/proveedores-compras/types'
 
 interface FiltrosProveedores {
@@ -99,4 +102,48 @@ export function descripcionSolicitud(solicitud: SolicitudCompra): string {
   if (solicitud.articulo) return solicitud.articulo
   if (solicitud.producto_servicio_id) return 'Ítem de catálogo'
   return '—'
+}
+
+// --- Catalogo de productos y servicios ------------------------------------------------------
+
+interface FiltrosProductos {
+  busqueda: string
+  categorias: string[]
+  tipo: '' | TipoProductoServicio
+  soloActivos: boolean
+  orden: OrdenProductos
+}
+
+export function filtrarYOrdenarProductos(
+  productos: ProductoServicio[],
+  { busqueda, categorias, tipo, soloActivos, orden }: FiltrosProductos,
+): ProductoServicio[] {
+  const termino = normalizar(busqueda.trim())
+
+  const filtrados = productos.filter((producto) => {
+    if (soloActivos && !producto.activo) return false
+    if (tipo && producto.tipo !== tipo) return false
+    if (categorias.length > 0 && !categorias.includes(producto.categoria ?? '')) return false
+    if (!termino) return true
+    return (
+      normalizar(producto.nombre).includes(termino) ||
+      normalizar(producto.categoria ?? '').includes(termino)
+    )
+  })
+
+  return [...filtrados].sort((a, b) => {
+    if (orden === 'nombre-desc') return b.nombre.localeCompare(a.nombre, 'es')
+    if (orden === 'categoria-asc') {
+      const porCategoria = (a.categoria ?? '').localeCompare(b.categoria ?? '', 'es')
+      if (porCategoria !== 0) return porCategoria
+    }
+    return a.nombre.localeCompare(b.nombre, 'es')
+  })
+}
+
+export function categoriasDeProductos(productos: ProductoServicio[]): string[] {
+  const categorias = productos
+    .map((producto) => producto.categoria)
+    .filter((categoria): categoria is string => Boolean(categoria))
+  return Array.from(new Set(categorias)).sort((a, b) => a.localeCompare(b, 'es'))
 }

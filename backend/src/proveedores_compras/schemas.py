@@ -13,6 +13,9 @@ EstadoProveedor = Literal["activo", "inactivo"]
 # Ídem para `ck_solicitud_compra_estado`.
 EstadoSolicitud = Literal["pendiente", "aprobada", "rechazada"]
 
+# Ídem para `ck_producto_servicio_tipo`.
+TipoProductoServicio = Literal["producto", "servicio"]
+
 
 class ProveedorBase(BaseModel):
     """Campos comunes de Proveedor (RF-19).
@@ -124,6 +127,47 @@ class SolicitudCompraResponse(BaseModel):
     estado: EstadoSolicitud
     fecha: date
     usuario_id: uuid.UUID
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProductoServicioBase(BaseModel):
+    """Campos comunes de un ítem del catálogo de compras.
+
+    `categoria` y `unidad` son texto libre: el cliente todavía no entregó la tabla maestra
+    normalizada (pregunta 14 de las aclaraciones), así que fijar un vocabulario acá sería
+    inventarle un estándar que después no coincide con el suyo.
+    """
+
+    nombre: str = Field(..., min_length=1, description="Nombre del producto o servicio")
+    categoria: str | None = Field(None, description="Rubro al que pertenece")
+    unidad: str | None = Field(None, description="Unidad de medida, ej. unidad, caja, hora")
+    tipo: TipoProductoServicio = Field(..., description="Si es un producto o un servicio")
+
+
+class ProductoServicioCreate(ProductoServicioBase):
+    """Datos para dar de alta un ítem del catálogo."""
+
+    activo: bool = Field(True, description="Si está disponible para nuevas compras")
+
+
+class ProductoServicioUpdate(BaseModel):
+    """Datos para modificar un ítem del catálogo."""
+
+    nombre: str | None = Field(None, min_length=1)
+    categoria: str | None = None
+    unidad: str | None = None
+    tipo: TipoProductoServicio | None = None
+    activo: bool | None = None
+
+
+class ProductoServicioResponse(ProductoServicioBase):
+    """Ítem del catálogo tal como sale por la API."""
+
+    id: uuid.UUID
+    activo: bool
+    created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

@@ -15,11 +15,15 @@ from src.auth.dependencies import requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
 from src.proveedores_compras.dependencies import (
+    obtener_producto_servicio_o_404,
     obtener_proveedor_o_404,
     obtener_solicitud_o_404,
 )
-from src.proveedores_compras.models import Proveedor, SolicitudCompra
+from src.proveedores_compras.models import ProductoServicio, Proveedor, SolicitudCompra
 from src.proveedores_compras.schemas import (
+    ProductoServicioCreate,
+    ProductoServicioResponse,
+    ProductoServicioUpdate,
     ProveedorCreate,
     ProveedorResponse,
     ProveedorUpdate,
@@ -29,13 +33,17 @@ from src.proveedores_compras.schemas import (
     SolicitudCompraUpdate,
 )
 from src.proveedores_compras.service import (
+    actualizar_producto_servicio,
     actualizar_proveedor,
     actualizar_solicitud,
     cambiar_estado_solicitud,
+    crear_producto_servicio,
     crear_proveedor,
     crear_solicitud,
+    eliminar_producto_servicio,
     eliminar_proveedor,
     eliminar_solicitud,
+    listar_productos_servicios,
     listar_proveedores,
     listar_solicitudes,
 )
@@ -160,3 +168,55 @@ def eliminar_solicitud_endpoint(
 ) -> None:
     """Eliminar una solicitud."""
     eliminar_solicitud(db, solicitud, usuario.id)
+
+
+@router.post("/productos", response_model=ProductoServicioResponse, status_code=201)
+def crear_producto_servicio_endpoint(
+    producto_data: ProductoServicioCreate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_CREAR))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> ProductoServicio:
+    """Dar de alta un ítem en el catálogo de compras."""
+    return crear_producto_servicio(db, producto_data, usuario.id)
+
+
+@router.get("/productos", response_model=list[ProductoServicioResponse])
+def listar_productos_servicios_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_LEER))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[ProductoServicio]:
+    """Listar el catálogo completo, activos e inactivos, ordenado por nombre."""
+    return listar_productos_servicios(db)
+
+
+@router.get("/productos/{producto_id}", response_model=ProductoServicioResponse)
+def obtener_producto_servicio_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_LEER))],
+    producto: ProductoServicio = Depends(obtener_producto_servicio_o_404),  # noqa: B008
+) -> ProductoServicio:
+    """Obtener un ítem del catálogo por su ID."""
+    return producto
+
+
+@router.put("/productos/{producto_id}", response_model=ProductoServicioResponse)
+def actualizar_producto_servicio_endpoint(
+    producto_data: ProductoServicioUpdate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_ACTUALIZAR))],
+    producto: ProductoServicio = Depends(obtener_producto_servicio_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> ProductoServicio:
+    """Modificar un ítem del catálogo. Para darlo de baja, alcanza con `activo = false`."""
+    return actualizar_producto_servicio(db, producto, producto_data, usuario.id)
+
+
+@router.delete("/productos/{producto_id}", status_code=204)
+def eliminar_producto_servicio_endpoint(
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_ELIMINAR))],
+    producto: ProductoServicio = Depends(obtener_producto_servicio_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> None:
+    """Eliminar un ítem del catálogo que todavía no se usó.
+
+    Da 409 si ya está referenciado por una compra: ahí corresponde `activo = false`.
+    """
+    eliminar_producto_servicio(db, producto, usuario.id)
