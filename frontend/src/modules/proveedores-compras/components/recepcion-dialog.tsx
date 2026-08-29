@@ -17,16 +17,12 @@ import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 import { crearRecepcion } from '@/modules/proveedores-compras/services/crear-recepcion'
 import { listarPendientesDeOrden } from '@/modules/proveedores-compras/services/listar-pendientes-orden'
-import type {
-  LineaPendiente,
-  OrdenCompra,
-  ProductoServicio,
-} from '@/modules/proveedores-compras/types'
+import type { LineaPendiente, ProductoServicio } from '@/modules/proveedores-compras/types'
 
 interface RecepcionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  orden: OrdenCompra
+  ordenId: string
   productos: ProductoServicio[]
   onRegistrada: () => void
 }
@@ -34,7 +30,7 @@ interface RecepcionDialogProps {
 export function RecepcionDialog({
   open,
   onOpenChange,
-  orden,
+  ordenId,
   productos,
   onRegistrada,
 }: RecepcionDialogProps) {
@@ -43,7 +39,7 @@ export function RecepcionDialog({
       <DialogContent className="sm:max-w-2xl">
         {open && (
           <RecepcionForm
-            orden={orden}
+            ordenId={ordenId}
             productos={productos}
             onOpenChange={onOpenChange}
             onRegistrada={onRegistrada}
@@ -55,12 +51,12 @@ export function RecepcionDialog({
 }
 
 function RecepcionForm({
-  orden,
+  ordenId,
   productos,
   onOpenChange,
   onRegistrada,
 }: {
-  orden: OrdenCompra
+  ordenId: string
   productos: ProductoServicio[]
   onOpenChange: (open: boolean) => void
   onRegistrada: () => void
@@ -77,7 +73,7 @@ function RecepcionForm({
   // Se piden los pendientes al abrir en vez de derivarlos de la orden que ya está en memoria:
   // entre que se cargó el listado y se abre el diálogo, otra persona pudo registrar una entrega.
   useEffect(() => {
-    listarPendientesDeOrden(orden.id)
+    listarPendientesDeOrden(ordenId)
       .then((lineas) => {
         setPendientes(lineas)
         // Precargar con lo que falta es el caso habitual (llegó todo lo pendiente); quien
@@ -92,7 +88,7 @@ function RecepcionForm({
         setError(err instanceof ApiError ? err.detail : 'No se pudieron cargar los pendientes.')
       })
       .finally(() => setCargando(false))
-  }, [orden.id])
+  }, [ordenId])
 
   const nombrePorProducto = Object.fromEntries(
     productos.map((producto) => [producto.id, producto.nombre]),
@@ -115,7 +111,7 @@ function RecepcionForm({
     setEnviando(true)
     setError(null)
     try {
-      await crearRecepcion(orden.id, {
+      await crearRecepcion(ordenId, {
         fecha: fecha || null,
         remito: remito.trim() || null,
         observaciones: observaciones.trim() || null,

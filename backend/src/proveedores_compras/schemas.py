@@ -329,3 +329,31 @@ class LineaPendienteResponse(BaseModel):
     cantidad_pedida: decimal.Decimal
     cantidad_recibida: decimal.Decimal
     cantidad_pendiente: decimal.Decimal
+
+
+class OrdenCompraListadoItem(BaseModel):
+    """Orden con el nombre del proveedor ya resuelto, para el listado.
+
+    El listado hace el join en vez de devolver solo `proveedor_id`: si no, el frontend tiene
+    que tener cargados todos los proveedores para poder mostrar una fila, y la búsqueda por
+    nombre de proveedor no podría resolverse en el backend.
+    """
+
+    id: uuid.UUID
+    fecha: date
+    estado: EstadoOrdenCompra
+    proveedor_id: uuid.UUID
+    proveedor_nombre: str
+    cantidad_items: int
+    unidades_pedidas: decimal.Decimal
+    updated_at: datetime
+
+
+class OrdenCompraListado(BaseModel):
+    """Página de resultados. Mismo contrato que el listado de Inscripciones."""
+
+    items: list[OrdenCompraListadoItem]
+    total: int
+    pagina: int
+    tamanio_pagina: int
+    total_paginas: int

@@ -1,12 +1,8 @@
 import type {
-  EstadoOrdenCompra,
   EstadoSolicitud,
-  OrdenCompra,
-  OrdenOrdenes,
   OrdenProductos,
   OrdenProveedores,
   OrdenSolicitudes,
-  LineaPendiente,
   ProductoServicio,
   Proveedor,
   SolicitudCompra,
@@ -150,54 +146,4 @@ export function categoriasDeProductos(productos: ProductoServicio[]): string[] {
     .map((producto) => producto.categoria)
     .filter((categoria): categoria is string => Boolean(categoria))
   return Array.from(new Set(categorias)).sort((a, b) => a.localeCompare(b, 'es'))
-}
-
-// --- Ordenes de compra (RF-21) --------------------------------------------------------------
-
-interface FiltrosOrdenes {
-  busqueda: string
-  estado: '' | EstadoOrdenCompra
-  orden: OrdenOrdenes
-}
-
-// El nombre del proveedor no viaja en la respuesta de la orden (solo `proveedor_id`), asi que
-// la busqueda por texto necesita el mapa id -> nombre que la pagina ya tiene cargado.
-export function filtrarYOrdenarOrdenes(
-  ordenes: OrdenCompra[],
-  { busqueda, estado, orden }: FiltrosOrdenes,
-  nombrePorProveedor: Record<string, string> = {},
-): OrdenCompra[] {
-  const termino = normalizar(busqueda.trim())
-
-  const filtradas = ordenes.filter((ordenCompra) => {
-    if (estado && ordenCompra.estado !== estado) return false
-    if (!termino) return true
-    return normalizar(nombrePorProveedor[ordenCompra.proveedor_id] ?? '').includes(termino)
-  })
-
-  return [...filtradas].sort((a, b) => {
-    if (orden === 'fecha-asc') return a.fecha.localeCompare(b.fecha)
-    return b.fecha.localeCompare(a.fecha)
-  })
-}
-
-// Cuantas unidades tiene pedida una orden en total. Las cantidades vienen como string desde el
-// backend (son Numeric, y JSON no distingue decimales exactos de floats): se suman con Number
-// solo para mostrar, nunca para persistir.
-export function totalUnidadesPedidas(ordenCompra: OrdenCompra): number {
-  return ordenCompra.detalles.reduce((total, detalle) => total + Number(detalle.cantidad_pedida), 0)
-}
-
-// --- Recepcion de compras (issue #111) ------------------------------------------------------
-
-// Una orden esta completa cuando ninguna linea tiene pendiente. Se decide sobre las lineas y no
-// sobre el estado de la orden, porque es el mismo criterio que aplica el backend para pasarla a
-// `recibida`: si se mirara solo el estado, una orden recien completada se veria incompleta
-// hasta el proximo refresco.
-export function ordenSinPendientes(lineas: LineaPendiente[]): boolean {
-  return lineas.length > 0 && lineas.every((linea) => Number(linea.cantidad_pendiente) <= 0)
-}
-
-export function totalPendiente(lineas: LineaPendiente[]): number {
-  return lineas.reduce((total, linea) => total + Number(linea.cantidad_pendiente), 0)
 }

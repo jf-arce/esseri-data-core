@@ -2,7 +2,8 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from src.auth.constants import (
@@ -14,6 +15,7 @@ from src.auth.constants import (
 from src.auth.dependencies import requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
+from src.exports import respuesta_csv, texto_o_vacio
 from src.proveedores_compras.dependencies import (
     obtener_orden_compra_o_404,
     obtener_producto_servicio_o_404,
@@ -31,6 +33,7 @@ from src.proveedores_compras.schemas import (
     LineaPendienteResponse,
     OrdenCompraCambioEstado,
     OrdenCompraCreate,
+    OrdenCompraListado,
     OrdenCompraResponse,
     ProductoServicioCreate,
     ProductoServicioResponse,
@@ -49,6 +52,7 @@ from src.proveedores_compras.service import (
     actualizar_producto_servicio,
     actualizar_proveedor,
     actualizar_solicitud,
+    buscar_ordenes_compra,
     calcular_pendientes_de_orden,
     cambiar_estado_solicitud,
     cancelar_orden_compra,
@@ -60,6 +64,8 @@ from src.proveedores_compras.service import (
     eliminar_producto_servicio,
     eliminar_proveedor,
     eliminar_solicitud,
+    filas_export_ordenes,
+    filas_export_proveedores,
     listar_ordenes_compra,
     listar_productos_servicios,
     listar_proveedores,
@@ -367,3 +373,50 @@ def listar_recepciones_endpoint(
         _armar_respuesta_recepcion(db, recepcion)
         for recepcion in listar_recepciones_de_orden(db, orden.id)
     ]
+
+
+@router.get("/ordenes-buscar", response_model=OrdenCompraListado)
+def buscar_ordenes_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_LEER))],
+    buscar: str | None = Query(None, description="Busca por nombre de proveedor, sin tildes"),
+    estado: str | None = Query(None, description="emitida, recibida o cancelada"),
+    pagina: int = Query(1, ge=1),
+    tamanio_pagina: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),  # noqa: B008
+) -> OrdenCompraListado:
+    """Buscar órdenes por proveedor y estado, paginado (RF-34/RF-35).
+
+    Va en `/ordenes-buscar` y no en `/ordenes` para no romper a quien ya consume el listado
+    completo: son dos contratos distintos (una lista contra una página de resultados).
+    """
+    return buscar_ordenes_compra(
+        db, buscar=buscar, estado=estado, pagina=pagina, tamanio_pagina=tamanio_pagina
+    )
+
+
+@router.get("/proveedores-exportar")
+def exportar_proveedores_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_LEER))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> StreamingResponse:
+    """Descargar el listado de proveedores en CSV (RF-38)."""
+    filas = [[texto_o_vacio(celda) for celda in fila] for fila in filas_export_proveedores(db)]
+    return respuesta_csv(
+        "proveedores",
+        ["Nombre", "Categoría", "Teléfono", "Email", "Estado"],
+        filas,
+    )
+
+
+@router.get("/ordenes-exportar")
+def exportar_ordenes_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_LEER))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> StreamingResponse:
+    """Descargar el listado de órdenes de compra en CSV (RF-38)."""
+    filas = [[texto_o_vacio(celda) for celda in fila] for fila in filas_export_ordenes(db)]
+    return respuesta_csv(
+        "ordenes-de-compra",
+        ["Fecha", "Proveedor", "Estado", "Ítems", "Unidades pedidas", "Solicitudes"],
+        filas,
+    )
