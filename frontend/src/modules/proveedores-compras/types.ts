@@ -118,8 +118,6 @@ export interface CrearOrdenPayload {
   detalles: CrearOrdenDetallePayload[]
 }
 
-export type OrdenOrdenes = 'fecha-desc' | 'fecha-asc'
-
 // --- Recepcion de compras (issue #111) ------------------------------------------------------
 
 export type TipoRecepcion = 'total' | 'parcial'
@@ -158,4 +156,35 @@ export interface CrearRecepcionPayload {
   remito?: string | null
   observaciones?: string | null
   detalles: { orden_compra_detalle_id: string; cantidad_recibida: string }[]
+}
+
+// --- Busqueda paginada de ordenes (RF-34/35) ------------------------------------------------
+
+// El listado paginado trae el nombre del proveedor ya resuelto: mismo contrato que el listado
+// de inscripciones.
+export interface OrdenListadoItem {
+  id: string
+  fecha: string
+  estado: EstadoOrdenCompra
+  proveedor_id: string
+  proveedor_nombre: string
+  cantidad_items: number
+  // Numeric del backend: llega como string para no perder precision decimal en JSON.
+  unidades_pedidas: string
+  updated_at: string
+}
+
+export interface OrdenListado {
+  items: OrdenListadoItem[]
+  total: number
+  pagina: number
+  tamanio_pagina: number
+  total_paginas: number
+}
+
+export interface FiltrosOrdenesBusqueda {
+  buscar?: string
+  estado?: EstadoOrdenCompra | ''
+  pagina: number
+  tamanioPagina: number
 }

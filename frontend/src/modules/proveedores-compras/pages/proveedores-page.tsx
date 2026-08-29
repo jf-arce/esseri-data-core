@@ -1,4 +1,4 @@
-import { PlusIcon, ShieldAlertIcon, TruckIcon } from 'lucide-react'
+import { DownloadIcon, PlusIcon, ShieldAlertIcon, TruckIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { ProveedorDialog } from '@/modules/proveedores-compras/components/provee
 import { ProveedoresFiltros } from '@/modules/proveedores-compras/components/proveedores-filtros'
 import { ProveedoresTabla } from '@/modules/proveedores-compras/components/proveedores-tabla'
 import { useProveedores } from '@/modules/proveedores-compras/hooks/use-proveedores'
+import { descargarExport } from '@/modules/proveedores-compras/services/descargar-export'
 import { eliminarProveedor } from '@/modules/proveedores-compras/services/eliminar-proveedor'
 import type {
   EstadoProveedor,
@@ -31,6 +32,16 @@ export function ProveedoresPage() {
   const [estado, setEstado] = useState<'' | EstadoProveedor>('')
   const [orden, setOrden] = useState<OrdenProveedores>('nombre-asc')
   const [densidad, setDensidad] = useState<'comfortable' | 'compact'>('comfortable')
+  const [errorExport, setErrorExport] = useState<string | null>(null)
+
+  async function handleExportar() {
+    setErrorExport(null)
+    try {
+      await descargarExport('/proveedores-compras/proveedores-exportar', 'proveedores.csv')
+    } catch {
+      setErrorExport('No se pudo descargar el archivo. Probá de nuevo en unos segundos.')
+    }
+  }
 
   const categorias = useMemo(() => calcularCategorias(proveedores), [proveedores])
 
@@ -68,17 +79,30 @@ export function ProveedoresPage() {
       <PageHeader
         titulo="Proveedores"
         accion={
-          <Button
-            onClick={() => {
-              setProveedorEditando(null)
-              setDialogoAbierto(true)
-            }}
-          >
-            <PlusIcon />
-            Nuevo proveedor
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={handleExportar}>
+              <DownloadIcon />
+              Exportar CSV
+            </Button>
+            <Button
+              onClick={() => {
+                setProveedorEditando(null)
+                setDialogoAbierto(true)
+              }}
+            >
+              <PlusIcon />
+              Nuevo proveedor
+            </Button>
+          </div>
         }
       />
+
+      {errorExport && (
+        <Alert variant="error">
+          <AlertTitle>No se pudo exportar</AlertTitle>
+          <AlertDescription>{errorExport}</AlertDescription>
+        </Alert>
+      )}
 
       {error && (
         <Alert variant="error">

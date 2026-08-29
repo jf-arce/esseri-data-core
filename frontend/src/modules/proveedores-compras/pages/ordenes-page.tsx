@@ -1,5 +1,11 @@
-import { ArrowDownAZIcon, PlusIcon, ReceiptTextIcon, ShieldAlertIcon } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import {
+  ArrowDownAZIcon,
+  DownloadIcon,
+  PlusIcon,
+  ReceiptTextIcon,
+  ShieldAlertIcon,
+} from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { ApiError } from '@/api/client'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -11,22 +17,16 @@ import { PageHeader } from '@/components/page-header'
 import { OrdenDialog } from '@/modules/proveedores-compras/components/orden-dialog'
 import { OrdenesTabla } from '@/modules/proveedores-compras/components/ordenes-tabla'
 import { RecepcionDialog } from '@/modules/proveedores-compras/components/recepcion-dialog'
-import { useOrdenes } from '@/modules/proveedores-compras/hooks/use-ordenes'
+import { useBusquedaOrdenes } from '@/modules/proveedores-compras/hooks/use-busqueda-ordenes'
 import { useProductos } from '@/modules/proveedores-compras/hooks/use-productos'
 import { useProveedores } from '@/modules/proveedores-compras/hooks/use-proveedores'
 import { useSolicitudes } from '@/modules/proveedores-compras/hooks/use-solicitudes'
 import { cancelarOrden } from '@/modules/proveedores-compras/services/cancelar-orden'
-import type {
-  EstadoOrdenCompra,
-  OrdenCompra,
-  OrdenOrdenes,
-} from '@/modules/proveedores-compras/types'
-import { filtrarYOrdenarOrdenes } from '@/modules/proveedores-compras/utils'
+import { descargarExport } from '@/modules/proveedores-compras/services/descargar-export'
+import { listarOrdenes } from '@/modules/proveedores-compras/services/listar-ordenes'
+import type { EstadoOrdenCompra, OrdenListadoItem } from '@/modules/proveedores-compras/types'
 
-const OPCIONES_ORDEN: { value: OrdenOrdenes; label: string }[] = [
-  { value: 'fecha-desc', label: 'Más recientes primero' },
-  { value: 'fecha-asc', label: 'Más antiguas primero' },
-]
+const TAMANIO_PAGINA = 10
 
 const OPCIONES_ESTADO: { value: EstadoOrdenCompra; label: string }[] = [
   { value: 'emitida', label: 'Emitida' },
@@ -35,50 +35,80 @@ const OPCIONES_ESTADO: { value: EstadoOrdenCompra; label: string }[] = [
 ]
 
 export function OrdenesPage() {
-  const { datos: ordenes, cargando, error, sinPermiso, recargar } = useOrdenes()
+  const [busqueda, setBusqueda] = useState('')
+  const [busquedaAplicada, setBusquedaAplicada] = useState('')
+  const [estado, setEstado] = useState<'' | EstadoOrdenCompra>('')
+  const [pagina, setPagina] = useState(1)
+  const [densidad, setDensidad] = useState<'comfortable' | 'compact'>('comfortable')
+
+  // Debounce de 300ms, igual que el listado de inscripciones: sin esto cada tecla dispara una
+  // consulta contra la base.
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setBusquedaAplicada(busqueda.trim()), 300)
+    return () => window.clearTimeout(timeout)
+  }, [busqueda])
+
+  const filtros = useMemo(
+    () => ({
+      buscar: busquedaAplicada || undefined,
+      estado: estado || undefined,
+      pagina,
+      tamanioPagina: TAMANIO_PAGINA,
+    }),
+    [busquedaAplicada, estado, pagina],
+  )
+  const { datos, cargando, error, sinPermiso, recargar } = useBusquedaOrdenes(filtros)
+
   const { datos: proveedores } = useProveedores()
   const { datos: solicitudes, recargar: recargarSolicitudes } = useSolicitudes()
   const { datos: productos } = useProductos()
 
   const [dialogoAbierto, setDialogoAbierto] = useState(false)
-  const [ordenACancelar, setOrdenACancelar] = useState<OrdenCompra | null>(null)
-  const [ordenARecibir, setOrdenARecibir] = useState<OrdenCompra | null>(null)
+  const [ordenACancelar, setOrdenACancelar] = useState<OrdenListadoItem | null>(null)
+  const [ordenARecibir, setOrdenARecibir] = useState<OrdenListadoItem | null>(null)
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
+  const [solicitudesUsadas, setSolicitudesUsadas] = useState<Set<string>>(new Set())
 
-  const [busqueda, setBusqueda] = useState('')
-  const [estado, setEstado] = useState<'' | EstadoOrdenCompra>('')
-  const [orden, setOrden] = useState<OrdenOrdenes>('fecha-desc')
-  const [densidad, setDensidad] = useState<'comfortable' | 'compact'>('comfortable')
+  // Qué solicitudes ya están comprometidas en otra orden no se puede saber desde el listado
+  // paginado (solo trae la página actual), así que se consulta aparte al abrir el formulario.
+  // El backend igual lo rechaza; esto evita ofrecer algo que va a fallar.
+  useEffect(() => {
+    if (!dialogoAbierto) return
+    listarOrdenes()
+      .then((todas) => setSolicitudesUsadas(new Set(todas.flatMap((orden) => orden.solicitud_ids))))
+      .catch(() => setSolicitudesUsadas(new Set()))
+  }, [dialogoAbierto])
 
-  const nombrePorProveedor = useMemo(
-    () => Object.fromEntries(proveedores.map((proveedor) => [proveedor.id, proveedor.nombre])),
-    [proveedores],
-  )
-
-  // Una solicitud ya incluida en otra orden no se puede volver a usar: el backend lo rechaza,
-  // así que se saca del selector en vez de dejar que el usuario elija algo que va a fallar.
-  const solicitudesYaUsadas = useMemo(
-    () => new Set(ordenes.flatMap((ordenCompra) => ordenCompra.solicitud_ids)),
-    [ordenes],
-  )
   const solicitudesAprobadas = useMemo(
     () =>
       solicitudes.filter(
-        (solicitud) => solicitud.estado === 'aprobada' && !solicitudesYaUsadas.has(solicitud.id),
+        (solicitud) => solicitud.estado === 'aprobada' && !solicitudesUsadas.has(solicitud.id),
       ),
-    [solicitudes, solicitudesYaUsadas],
+    [solicitudes, solicitudesUsadas],
   )
   const productosActivos = useMemo(
     () => productos.filter((producto) => producto.activo),
     [productos],
   )
 
-  const filtradas = useMemo(
-    () => filtrarYOrdenarOrdenes(ordenes, { busqueda, estado, orden }, nombrePorProveedor),
-    [ordenes, busqueda, estado, orden, nombrePorProveedor],
-  )
-
   const hayFiltrosActivos = busqueda.trim() !== '' || estado !== ''
+
+  function actualizarFiltro<T>(setter: (valor: T) => void) {
+    return (valor: T) => {
+      setter(valor)
+      // Cambiar un filtro estando en la página 5 dejaría un resultado vacío sin explicación.
+      setPagina(1)
+    }
+  }
+
+  async function handleExportar() {
+    setErrorAccion(null)
+    try {
+      await descargarExport('/proveedores-compras/ordenes-exportar', 'ordenes-de-compra.csv')
+    } catch {
+      setErrorAccion('No se pudo descargar el archivo. Probá de nuevo en unos segundos.')
+    }
+  }
 
   if (sinPermiso) {
     return (
@@ -99,10 +129,16 @@ export function OrdenesPage() {
       <PageHeader
         titulo="Órdenes de compra"
         accion={
-          <Button onClick={() => setDialogoAbierto(true)}>
-            <PlusIcon />
-            Nueva orden
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={handleExportar}>
+              <DownloadIcon />
+              Exportar CSV
+            </Button>
+            <Button onClick={() => setDialogoAbierto(true)}>
+              <PlusIcon />
+              Nueva orden
+            </Button>
+          </div>
         }
       />
 
@@ -120,7 +156,7 @@ export function OrdenesPage() {
 
       {errorAccion && (
         <Alert variant="error">
-          <AlertTitle>No se pudo cancelar la orden</AlertTitle>
+          <AlertTitle>No se pudo completar la acción</AlertTitle>
           <AlertDescription>{errorAccion}</AlertDescription>
         </Alert>
       )}
@@ -129,24 +165,22 @@ export function OrdenesPage() {
         <FilterBar>
           <FilterSearch
             value={busqueda}
-            onChange={setBusqueda}
+            onChange={actualizarFiltro(setBusqueda)}
             placeholder="Buscar por proveedor"
           />
           <FilterDropdown
             label="Estado"
             options={OPCIONES_ESTADO}
             value={estado}
-            onChange={(valor) => setEstado(valor as '' | EstadoOrdenCompra)}
+            onChange={(valor) => actualizarFiltro(setEstado)(valor as '' | EstadoOrdenCompra)}
           />
           <FilterBarSpacer />
-          <FilterDropdown
-            label={OPCIONES_ORDEN.find((o) => o.value === orden)?.label ?? 'Ordenar por'}
-            icon={ArrowDownAZIcon}
-            align="end"
-            options={OPCIONES_ORDEN}
-            value={orden}
-            onChange={(valor) => setOrden(valor as OrdenOrdenes)}
-          />
+          {/* Sin dropdown de orden: el backend devuelve siempre de más reciente a más vieja,
+              que es el único criterio con sentido para un historial de compras. */}
+          <span className="text-texto-3 flex items-center gap-1.5 text-xs">
+            <ArrowDownAZIcon className="size-3.5" aria-hidden />
+            Más recientes primero
+          </span>
           <DensityToggle value={densidad} onChange={setDensidad} />
         </FilterBar>
 
@@ -155,13 +189,16 @@ export function OrdenesPage() {
             onClearAll={() => {
               setBusqueda('')
               setEstado('')
+              setPagina(1)
             }}
           >
             {busqueda.trim() !== '' && (
-              <FilterChip onRemove={() => setBusqueda('')}>Búsqueda: {busqueda}</FilterChip>
+              <FilterChip onRemove={() => actualizarFiltro(setBusqueda)('')}>
+                Búsqueda: {busqueda}
+              </FilterChip>
             )}
             {estado !== '' && (
-              <FilterChip onRemove={() => setEstado('')}>
+              <FilterChip onRemove={() => actualizarFiltro(setEstado)('')}>
                 Estado: {OPCIONES_ESTADO.find((o) => o.value === estado)?.label}
               </FilterChip>
             )}
@@ -169,17 +206,21 @@ export function OrdenesPage() {
         )}
       </div>
 
-      {!cargando && filtradas.length === 0 ? (
+      {!cargando && datos.items.length === 0 ? (
         <Empty className="rounded-panel bg-superficie shadow-card min-h-[280px]">
           <EmptyMedia variant="icon" className="bg-sup-compras text-mod-compras">
             <ReceiptTextIcon />
           </EmptyMedia>
           <EmptyTitle>
-            {ordenes.length === 0
-              ? 'Todavía no se emitió ninguna orden de compra.'
-              : 'Ninguna orden coincide con estos filtros.'}
+            {hayFiltrosActivos
+              ? 'Ninguna orden coincide con estos filtros.'
+              : 'Todavía no se emitió ninguna orden de compra.'}
           </EmptyTitle>
-          {ordenes.length === 0 ? (
+          {hayFiltrosActivos ? (
+            <EmptyDescription>
+              Probá ajustar la búsqueda o limpiar los filtros activos.
+            </EmptyDescription>
+          ) : (
             <>
               <EmptyDescription>
                 Acción sugerida: emitir una orden a partir de solicitudes ya aprobadas.
@@ -189,18 +230,17 @@ export function OrdenesPage() {
                 Nueva orden
               </Button>
             </>
-          ) : (
-            <EmptyDescription>
-              Probá ajustar la búsqueda o limpiar los filtros activos.
-            </EmptyDescription>
           )}
         </Empty>
       ) : (
         <OrdenesTabla
-          ordenes={filtradas}
+          ordenes={datos.items}
           cargando={cargando}
           densidad={densidad}
-          nombrePorProveedor={nombrePorProveedor}
+          pagina={datos.pagina || pagina}
+          totalPaginas={datos.total_paginas}
+          total={datos.total}
+          onCambiarPagina={setPagina}
           onRecibir={setOrdenARecibir}
           onCancelar={setOrdenACancelar}
         />
@@ -214,8 +254,6 @@ export function OrdenesPage() {
         productosActivos={productosActivos}
         onGuardado={() => {
           recargar()
-          // Las solicitudes usadas dejan de estar disponibles: hay que releerlas para que el
-          // próximo diálogo no las siga ofreciendo.
           recargarSolicitudes()
         }}
       />
@@ -224,7 +262,7 @@ export function OrdenesPage() {
         <RecepcionDialog
           open={!!ordenARecibir}
           onOpenChange={(open) => !open && setOrdenARecibir(null)}
-          orden={ordenARecibir}
+          ordenId={ordenARecibir.id}
           productos={productos}
           onRegistrada={recargar}
         />
@@ -234,7 +272,7 @@ export function OrdenesPage() {
         <ConfirmarEliminacion
           open={!!ordenACancelar}
           onOpenChange={(open) => !open && setOrdenACancelar(null)}
-          titulo={`Cancelar la orden del ${ordenACancelar.fecha}`}
+          titulo={`Cancelar la orden de ${ordenACancelar.proveedor_nombre}`}
           descripcion="La orden queda registrada como cancelada, no se borra. Las solicitudes que la originaron siguen vinculadas a ella, así que no vuelven a quedar disponibles para una orden nueva."
           onConfirmar={async () => {
             setErrorAccion(null)

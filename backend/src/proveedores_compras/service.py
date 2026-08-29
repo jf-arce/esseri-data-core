@@ -36,6 +36,8 @@ from src.proveedores_compras.models import (
 from src.proveedores_compras.schemas import (
     LineaPendienteResponse,
     OrdenCompraCreate,
+    OrdenCompraListado,
+    OrdenCompraListadoItem,
     ProductoServicioCreate,
     ProductoServicioUpdate,
     ProveedorCreate,
@@ -44,6 +46,7 @@ from src.proveedores_compras.schemas import (
     SolicitudCompraCreate,
     SolicitudCompraUpdate,
 )
+from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
 
 
 def crear_proveedor(
@@ -687,3 +690,118 @@ def _cantidad_recibida_de_linea(db: Session, orden_compra_detalle_id: uuid.UUID)
         .scalar()
     )
     return decimal.Decimal(total or 0)
+
+
+# --- Búsqueda y exportación (RF-34/35 y RF-38) ----------------------------------------------
+
+
+def buscar_ordenes_compra(
+    db: Session,
+    *,
+    buscar: str | None = None,
+    estado: str | None = None,
+    pagina: int = 1,
+    tamanio_pagina: int = 20,
+) -> OrdenCompraListado:
+    """Listado de órdenes con búsqueda por proveedor, filtro por estado y paginación (RF-35).
+
+    Va contra la base y no en el cliente porque las órdenes se acumulan para siempre: un
+    listado completo funciona el primer año y deja de funcionar el tercero. Los proveedores,
+    en cambio, son decenas y siguen filtrándose en el cliente.
+    """
+    filtros = []
+    if estado is not None:
+        filtros.append(OrdenCompra.estado == estado)
+
+    termino = normalizar_texto_busqueda(buscar.strip()) if buscar else ""
+    if termino:
+        filtros.append(normalizar_columna_busqueda(Proveedor.nombre).like(f"%{termino}%"))
+
+    total = (
+        db.scalar(
+            sa.select(sa.func.count(OrdenCompra.id))
+            .join(Proveedor, Proveedor.id == OrdenCompra.proveedor_id)
+            .where(*filtros)
+        )
+        or 0
+    )
+
+    offset = (pagina - 1) * tamanio_pagina
+    filas = db.execute(
+        sa.select(OrdenCompra, Proveedor)
+        .join(Proveedor, Proveedor.id == OrdenCompra.proveedor_id)
+        .where(*filtros)
+        .order_by(OrdenCompra.fecha.desc(), OrdenCompra.id)
+        .offset(offset)
+        .limit(tamanio_pagina)
+    ).all()
+
+    items = []
+    for orden, proveedor in filas:
+        detalles = obtener_detalles_de_orden(db, orden.id)
+        items.append(
+            OrdenCompraListadoItem(
+                id=orden.id,
+                fecha=orden.fecha,
+                estado=orden.estado,
+                proveedor_id=proveedor.id,
+                proveedor_nombre=proveedor.nombre,
+                cantidad_items=len(detalles),
+                unidades_pedidas=sum(
+                    (detalle.cantidad_pedida for detalle in detalles), decimal.Decimal(0)
+                ),
+                updated_at=orden.updated_at,
+            )
+        )
+
+    total_paginas = (total + tamanio_pagina - 1) // tamanio_pagina if tamanio_pagina else 0
+    return OrdenCompraListado(
+        items=items,
+        total=total,
+        pagina=pagina,
+        tamanio_pagina=tamanio_pagina,
+        total_paginas=total_paginas,
+    )
+
+
+def filas_export_proveedores(db: Session) -> list[list[object]]:
+    """Proveedores en el orden en que salen en pantalla, listos para el CSV (RF-38)."""
+    return [
+        [
+            proveedor.nombre,
+            proveedor.categoria,
+            proveedor.telefono,
+            proveedor.email,
+            "Activo" if proveedor.estado == "activo" else "Inactivo",
+        ]
+        for proveedor in listar_proveedores(db)
+    ]
+
+
+def filas_export_ordenes(db: Session) -> list[list[object]]:
+    """Órdenes con el proveedor resuelto y los totales ya calculados (RF-38).
+
+    Se exporta lo que se ve en pantalla, no las columnas crudas de la tabla: quien abre el
+    archivo necesita "Papelera del Sur", no un UUID.
+    """
+    filas = db.execute(
+        sa.select(OrdenCompra, Proveedor)
+        .join(Proveedor, Proveedor.id == OrdenCompra.proveedor_id)
+        .order_by(OrdenCompra.fecha.desc(), OrdenCompra.id)
+    ).all()
+
+    export = []
+    for orden, proveedor in filas:
+        detalles = obtener_detalles_de_orden(db, orden.id)
+        unidades = sum((detalle.cantidad_pedida for detalle in detalles), decimal.Decimal(0))
+        export.append(
+            [
+                orden.fecha.isoformat(),
+                proveedor.nombre,
+                orden.estado.capitalize(),
+                len(detalles),
+                unidades,
+                len(obtener_solicitudes_de_orden(db, orden.id)),
+            ]
+        )
+    return export
