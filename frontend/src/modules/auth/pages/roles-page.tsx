@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { ConfirmarEliminacion } from '@/modules/auth/components/confirmar-eliminacion'
+import { ConfirmarEliminacion } from '@/components/confirmar-eliminacion'
 import { RolDialog } from '@/modules/auth/components/rol-dialog'
 import { useRoles } from '@/modules/auth/hooks/use-roles'
 import { PageHeader } from '@/components/page-header'
