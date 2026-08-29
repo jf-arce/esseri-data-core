@@ -10,6 +10,7 @@ import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui
 import { PageHeader } from '@/components/page-header'
 import { OrdenDialog } from '@/modules/proveedores-compras/components/orden-dialog'
 import { OrdenesTabla } from '@/modules/proveedores-compras/components/ordenes-tabla'
+import { RecepcionDialog } from '@/modules/proveedores-compras/components/recepcion-dialog'
 import { useOrdenes } from '@/modules/proveedores-compras/hooks/use-ordenes'
 import { useProductos } from '@/modules/proveedores-compras/hooks/use-productos'
 import { useProveedores } from '@/modules/proveedores-compras/hooks/use-proveedores'
@@ -41,6 +42,7 @@ export function OrdenesPage() {
 
   const [dialogoAbierto, setDialogoAbierto] = useState(false)
   const [ordenACancelar, setOrdenACancelar] = useState<OrdenCompra | null>(null)
+  const [ordenARecibir, setOrdenARecibir] = useState<OrdenCompra | null>(null)
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
 
   const [busqueda, setBusqueda] = useState('')
@@ -199,6 +201,7 @@ export function OrdenesPage() {
           cargando={cargando}
           densidad={densidad}
           nombrePorProveedor={nombrePorProveedor}
+          onRecibir={setOrdenARecibir}
           onCancelar={setOrdenACancelar}
         />
       )}
@@ -216,6 +219,16 @@ export function OrdenesPage() {
           recargarSolicitudes()
         }}
       />
+
+      {ordenARecibir && (
+        <RecepcionDialog
+          open={!!ordenARecibir}
+          onOpenChange={(open) => !open && setOrdenARecibir(null)}
+          orden={ordenARecibir}
+          productos={productos}
+          onRegistrada={recargar}
+        />
+      )}
 
       {ordenACancelar && (
         <ConfirmarEliminacion

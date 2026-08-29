@@ -1,17 +1,22 @@
 """Lógica de negocio propia de este módulo."""
 
+import decimal
 import uuid
 from datetime import date
 
+import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from src.proveedores_compras.exceptions import (
+    LineaAjenaALaOrden,
     OrdenCompraNoCancelable,
+    OrdenNoRecibible,
     ProductoServicioEnUso,
     ProductoServicioInactivo,
     ProductoServicioInexistente,
     ProveedorConVinculos,
     ProveedorInexistente,
+    RecepcionExcedeLoPedido,
     SolicitudNoAprobada,
     SolicitudSinArticuloNiProducto,
     SolicitudYaEnOrden,
@@ -24,14 +29,18 @@ from src.proveedores_compras.models import (
     ProductoProveedor,
     ProductoServicio,
     Proveedor,
+    RecepcionCompra,
+    RecepcionCompraDetalle,
     SolicitudCompra,
 )
 from src.proveedores_compras.schemas import (
+    LineaPendienteResponse,
     OrdenCompraCreate,
     ProductoServicioCreate,
     ProductoServicioUpdate,
     ProveedorCreate,
     ProveedorUpdate,
+    RecepcionCompraCreate,
     SolicitudCompraCreate,
     SolicitudCompraUpdate,
 )
@@ -546,3 +555,135 @@ def _validar_producto_pedible(db: Session, producto_servicio_id: uuid.UUID) -> N
         raise ProductoServicioInexistente()
     if not producto.activo:
         raise ProductoServicioInactivo()
+
+
+# --- Recepción de compras (issue #111) ------------------------------------------------------
+
+
+def calcular_pendientes_de_orden(db: Session, orden_id: uuid.UUID) -> list[LineaPendienteResponse]:
+    """Cuánto se pidió, cuánto llegó y cuánto falta, por línea de la orden.
+
+    `cantidad_pendiente` no se guarda en ninguna columna: se calcula acá cada vez. Cachearla
+    significaría tener dos fuentes para el mismo dato, que es exactamente lo que RNF-04 prohíbe
+    — y el día que una recepción falla a mitad de camino, la copia queda mintiendo.
+    """
+    detalles = obtener_detalles_de_orden(db, orden_id)
+    pendientes = []
+    for detalle in detalles:
+        recibido = _cantidad_recibida_de_linea(db, detalle.id)
+        pendientes.append(
+            LineaPendienteResponse(
+                orden_compra_detalle_id=detalle.id,
+                producto_servicio_id=detalle.producto_servicio_id,
+                cantidad_pedida=detalle.cantidad_pedida,
+                cantidad_recibida=recibido,
+                cantidad_pendiente=detalle.cantidad_pedida - recibido,
+            )
+        )
+    return pendientes
+
+
+def crear_recepcion(
+    db: Session,
+    orden: OrdenCompra,
+    recepcion_data: RecepcionCompraCreate,
+    usuario_id: uuid.UUID,
+) -> RecepcionCompra:
+    """Registrar una recepción, total o parcial, contra una orden emitida.
+
+    Una recepción parcial deja el resto pendiente **automáticamente**: no hace falta marcar
+    nada, porque el pendiente se deriva de las cantidades (respuesta 13 del cliente).
+
+    Cuando la orden queda sin pendiente, pasa a `recibida`. Es el único lugar que escribe ese
+    estado: por eso el endpoint de cambio de estado de la orden no lo acepta a mano.
+
+    Raises:
+        OrdenNoRecibible: si la orden no está emitida.
+        LineaAjenaALaOrden: si alguna línea pertenece a otra orden.
+        RecepcionExcedeLoPedido: si lo recibido superaría lo pedido en alguna línea.
+    """
+    if orden.estado != "emitida":
+        raise OrdenNoRecibible()
+
+    pendientes = {
+        linea.orden_compra_detalle_id: linea.cantidad_pendiente
+        for linea in calcular_pendientes_de_orden(db, orden.id)
+    }
+    for detalle in recepcion_data.detalles:
+        if detalle.orden_compra_detalle_id not in pendientes:
+            raise LineaAjenaALaOrden()
+        if detalle.cantidad_recibida > pendientes[detalle.orden_compra_detalle_id]:
+            raise RecepcionExcedeLoPedido()
+
+    # El tipo se deriva: si con esta entrega no queda nada pendiente en toda la orden, es total.
+    recibido_ahora = {
+        detalle.orden_compra_detalle_id: detalle.cantidad_recibida
+        for detalle in recepcion_data.detalles
+    }
+    queda_pendiente = any(
+        pendiente - recibido_ahora.get(linea_id, decimal.Decimal(0)) > 0
+        for linea_id, pendiente in pendientes.items()
+    )
+
+    nueva_recepcion = RecepcionCompra(
+        fecha=recepcion_data.fecha or date.today(),
+        tipo="parcial" if queda_pendiente else "total",
+        remito=recepcion_data.remito,
+        observaciones=recepcion_data.observaciones,
+        orden_compra_id=orden.id,
+        usuario_id=usuario_id,
+    )
+    db.add(nueva_recepcion)
+    db.flush()
+
+    for detalle in recepcion_data.detalles:
+        db.add(
+            RecepcionCompraDetalle(
+                recepcion_compra_id=nueva_recepcion.id,
+                orden_compra_detalle_id=detalle.orden_compra_detalle_id,
+                cantidad_recibida=detalle.cantidad_recibida,
+            )
+        )
+
+    if not queda_pendiente:
+        orden.estado = "recibida"
+
+    db.commit()
+    db.refresh(nueva_recepcion)
+
+    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
+    # TODO: emit_event() de recepcion.registrada cuando exista, para que Workflows pueda avisar
+    # de un faltante.
+
+    return nueva_recepcion
+
+
+def listar_recepciones_de_orden(db: Session, orden_id: uuid.UUID) -> list[RecepcionCompra]:
+    """Historial de recepciones de una orden, de la más vieja a la más nueva."""
+    return (
+        db.query(RecepcionCompra)
+        .filter(RecepcionCompra.orden_compra_id == orden_id)
+        .order_by(RecepcionCompra.fecha, RecepcionCompra.updated_at)
+        .all()
+    )
+
+
+def obtener_detalles_de_recepcion(
+    db: Session, recepcion_id: uuid.UUID
+) -> list[RecepcionCompraDetalle]:
+    """Líneas de una recepción."""
+    return (
+        db.query(RecepcionCompraDetalle)
+        .filter(RecepcionCompraDetalle.recepcion_compra_id == recepcion_id)
+        .all()
+    )
+
+
+def _cantidad_recibida_de_linea(db: Session, orden_compra_detalle_id: uuid.UUID) -> decimal.Decimal:
+    """Suma de todo lo recibido para una línea de la orden, en todas sus recepciones."""
+    total = (
+        db.query(sa.func.sum(RecepcionCompraDetalle.cantidad_recibida))
+        .filter(RecepcionCompraDetalle.orden_compra_detalle_id == orden_compra_detalle_id)
+        .scalar()
+    )
+    return decimal.Decimal(total or 0)

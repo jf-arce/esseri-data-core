@@ -24,9 +24,11 @@ from src.proveedores_compras.models import (
     OrdenCompra,
     ProductoServicio,
     Proveedor,
+    RecepcionCompra,
     SolicitudCompra,
 )
 from src.proveedores_compras.schemas import (
+    LineaPendienteResponse,
     OrdenCompraCambioEstado,
     OrdenCompraCreate,
     OrdenCompraResponse,
@@ -36,6 +38,8 @@ from src.proveedores_compras.schemas import (
     ProveedorCreate,
     ProveedorResponse,
     ProveedorUpdate,
+    RecepcionCompraCreate,
+    RecepcionCompraResponse,
     SolicitudCompraCambioEstado,
     SolicitudCompraCreate,
     SolicitudCompraResponse,
@@ -45,11 +49,13 @@ from src.proveedores_compras.service import (
     actualizar_producto_servicio,
     actualizar_proveedor,
     actualizar_solicitud,
+    calcular_pendientes_de_orden,
     cambiar_estado_solicitud,
     cancelar_orden_compra,
     crear_orden_compra,
     crear_producto_servicio,
     crear_proveedor,
+    crear_recepcion,
     crear_solicitud,
     eliminar_producto_servicio,
     eliminar_proveedor,
@@ -57,8 +63,10 @@ from src.proveedores_compras.service import (
     listar_ordenes_compra,
     listar_productos_servicios,
     listar_proveedores,
+    listar_recepciones_de_orden,
     listar_solicitudes,
     obtener_detalles_de_orden,
+    obtener_detalles_de_recepcion,
     obtener_solicitudes_de_orden,
 )
 
@@ -300,3 +308,62 @@ def cancelar_orden_compra_endpoint(
         )
     orden = cancelar_orden_compra(db, orden, usuario.id)
     return _armar_respuesta_orden(db, orden)
+
+
+def _armar_respuesta_recepcion(db: Session, recepcion: RecepcionCompra) -> RecepcionCompraResponse:
+    """Junta la recepción con sus líneas, para que el frontend no haga dos llamadas."""
+    return RecepcionCompraResponse(
+        id=recepcion.id,
+        fecha=recepcion.fecha,
+        tipo=recepcion.tipo,
+        remito=recepcion.remito,
+        observaciones=recepcion.observaciones,
+        orden_compra_id=recepcion.orden_compra_id,
+        usuario_id=recepcion.usuario_id,
+        updated_at=recepcion.updated_at,
+        detalles=obtener_detalles_de_recepcion(db, recepcion.id),
+    )
+
+
+@router.get("/ordenes/{orden_id}/pendientes", response_model=list[LineaPendienteResponse])
+def listar_pendientes_de_orden_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_LEER))],
+    orden: OrdenCompra = Depends(obtener_orden_compra_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[LineaPendienteResponse]:
+    """Cuánto se pidió, cuánto llegó y cuánto falta por línea.
+
+    Es lo que necesita el formulario de recepción para precargar las cantidades sin que nadie
+    tenga que sacar la cuenta a mano.
+    """
+    return calcular_pendientes_de_orden(db, orden.id)
+
+
+@router.post(
+    "/ordenes/{orden_id}/recepciones", response_model=RecepcionCompraResponse, status_code=201
+)
+def crear_recepcion_endpoint(
+    recepcion_data: RecepcionCompraCreate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_CREAR))],
+    orden: OrdenCompra = Depends(obtener_orden_compra_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> RecepcionCompraResponse:
+    """Registrar una recepción, total o parcial, contra una orden emitida.
+
+    El responsable que recibe sale de la sesión, y el tipo se deriva de las cantidades.
+    """
+    recepcion = crear_recepcion(db, orden, recepcion_data, usuario.id)
+    return _armar_respuesta_recepcion(db, recepcion)
+
+
+@router.get("/ordenes/{orden_id}/recepciones", response_model=list[RecepcionCompraResponse])
+def listar_recepciones_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_LEER))],
+    orden: OrdenCompra = Depends(obtener_orden_compra_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[RecepcionCompraResponse]:
+    """Historial de recepciones de una orden."""
+    return [
+        _armar_respuesta_recepcion(db, recepcion)
+        for recepcion in listar_recepciones_de_orden(db, orden.id)
+    ]

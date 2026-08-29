@@ -121,3 +121,47 @@ class OrdenCompraNoCancelable(AppException):
         self, message: str = "Solo se puede cancelar una orden emitida, no una ya recibida."
     ):
         super().__init__(message)
+
+
+class OrdenNoRecibible(AppException):
+    """Solo se puede recibir mercadería contra una orden emitida.
+
+    Una cancelada nunca va a llegar, y una ya recibida no tiene nada pendiente.
+    """
+
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = "Solo se puede registrar una recepción sobre una orden emitida.",
+    ):
+        super().__init__(message)
+
+
+class LineaAjenaALaOrden(AppException):
+    """La línea que se quiere recibir pertenece a otra orden de compra."""
+
+    status_code = 422
+
+    def __init__(
+        self, message: str = "Alguna de las líneas recibidas no pertenece a esta orden de compra."
+    ):
+        super().__init__(message)
+
+
+class RecepcionExcedeLoPedido(AppException):
+    """Se quiso recibir más de lo que se había pedido en esa línea.
+
+    Recibir de más no es un ajuste silencioso: o hubo un error de carga, o el proveedor mandó
+    de más y eso se resuelve con una orden nueva, no inflando la original.
+    """
+
+    status_code = 422
+
+    def __init__(
+        self,
+        message: str = (
+            "La cantidad recibida supera lo pedido en alguna línea. Revisá las cantidades."
+        ),
+    ):
+        super().__init__(message)
