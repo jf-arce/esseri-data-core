@@ -4,7 +4,13 @@ import { Card } from '@/components/ui/card'
 import { FieldError } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type { FamiliaFormData } from '../types'
 import './familia-form.css'
 
@@ -15,7 +21,12 @@ type FamiliaFormProps = {
   onCancel: () => void
 }
 
-export function FamiliaForm({ isEditing = false, isSubmitting = false, onSubmit, onCancel }: FamiliaFormProps) {
+export function FamiliaForm({
+  isEditing = false,
+  isSubmitting = false,
+  onSubmit,
+  onCancel,
+}: FamiliaFormProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState<FamiliaFormData>({
     nombre: '',
@@ -60,7 +71,8 @@ export function FamiliaForm({ isEditing = false, isSubmitting = false, onSubmit,
       if (!formData.email.trim()) nextErrors.email = 'El correo es obligatorio'
       else if (!/^\S+@\S+\.\S+$/.test(formData.email)) nextErrors.email = 'Ingresá un correo válido'
       if (!formData.password?.trim()) nextErrors.password = 'La contraseña es obligatoria'
-      else if (formData.password.length < 12) nextErrors.password = 'La contraseña debe tener al menos 12 caracteres'
+      else if (formData.password.length < 12)
+        nextErrors.password = 'La contraseña debe tener al menos 12 caracteres'
     }
     return nextErrors
   }
@@ -92,9 +104,7 @@ export function FamiliaForm({ isEditing = false, isSubmitting = false, onSubmit,
       {/* Steps */}
       <div className="steps">
         <div className={`step ${currentStep > 1 ? 'done' : 'active'}`}>
-          <div className="n">
-            {currentStep > 1 ? '✓' : '1'}
-          </div>
+          <div className="n">{currentStep > 1 ? '✓' : '1'}</div>
           Persona responsable
         </div>
         <div className="step-sep" />
@@ -109,11 +119,25 @@ export function FamiliaForm({ isEditing = false, isSubmitting = false, onSubmit,
         </div>
       </div>
 
-      {errors.form ? <div className="errsum" role="alert"><h4>No se pudo guardar la familia</h4><p>{errors.form}</p></div> : null}
+      {errors.form ? (
+        <div className="errsum" role="alert">
+          <h4>No se pudo guardar la familia</h4>
+          <p>{errors.form}</p>
+        </div>
+      ) : null}
       {Object.keys(errors).filter((key) => key !== 'form').length > 0 ? (
         <div className="errsum" role="alert" tabIndex={-1}>
-          <h4>Hay {Object.keys(errors).filter((key) => key !== 'form').length} campos que revisar antes de continuar</h4>
-          {Object.entries(errors).filter(([key]) => key !== 'form').map(([key, message]) => <a key={key} href={`#${key}`}>{message}</a>)}
+          <h4>
+            Hay {Object.keys(errors).filter((key) => key !== 'form').length} campos que revisar
+            antes de continuar
+          </h4>
+          {Object.entries(errors)
+            .filter(([key]) => key !== 'form')
+            .map(([key, message]) => (
+              <a key={key} href={`#${key}`}>
+                {message}
+              </a>
+            ))}
         </div>
       ) : null}
 
@@ -121,33 +145,75 @@ export function FamiliaForm({ isEditing = false, isSubmitting = false, onSubmit,
       <Card className="card p-7">
         <div className="form-grid">
           <div>
-            <Label className="field-label" htmlFor="nombre">Nombre</Label>
-            <Input id="nombre" className={errors.nombre ? 'err' : ''} value={formData.nombre} onChange={(e) => handleInputChange('nombre', e.target.value)} aria-invalid={Boolean(errors.nombre)} />
-            <FieldError errors={errors.nombre ? [{ message: errors.nombre }] : undefined} className="errmsg" />
-          </div>
-          <div>
-            <Label className="field-label" htmlFor="apellido">Apellido</Label>
-            <Input id="apellido" className={errors.apellido ? 'err' : ''} value={formData.apellido} onChange={(e) => handleInputChange('apellido', e.target.value)} aria-invalid={Boolean(errors.apellido)} />
-            <FieldError errors={errors.apellido ? [{ message: errors.apellido }] : undefined} className="errmsg" />
-          </div>
-          <div>
-            <Label className="field-label" htmlFor="dni">DNI</Label>
-            <Input id="dni" className={errors.dni ? 'err' : ''} value={formData.dni} onChange={(e) => handleInputChange('dni', e.target.value)} aria-invalid={Boolean(errors.dni)} />
-            <FieldError errors={errors.dni ? [{ message: errors.dni }] : undefined} className="errmsg" />
-          </div>
-          {currentStep === 2 ? <div>
-            <Label className="field-label" htmlFor="email">Correo de acceso</Label>
+            <Label className="field-label" htmlFor="nombre">
+              Nombre
+            </Label>
             <Input
-              id="email"
-              className={errors.email ? 'err' : ''}
-              type="email"
-              value={formData.email}
-              onChange={(e) => handleInputChange('email', e.target.value)}
+              id="nombre"
+              className={errors.nombre ? 'err' : ''}
+              value={formData.nombre}
+              onChange={(e) => handleInputChange('nombre', e.target.value)}
+              aria-invalid={Boolean(errors.nombre)}
             />
-            <FieldError errors={errors.email ? [{ message: errors.email }] : undefined} className="errmsg" />
-          </div> : null}
+            <FieldError
+              errors={errors.nombre ? [{ message: errors.nombre }] : undefined}
+              className="errmsg"
+            />
+          </div>
           <div>
-            <Label className="field-label" htmlFor="telefono">Teléfono</Label>
+            <Label className="field-label" htmlFor="apellido">
+              Apellido
+            </Label>
+            <Input
+              id="apellido"
+              className={errors.apellido ? 'err' : ''}
+              value={formData.apellido}
+              onChange={(e) => handleInputChange('apellido', e.target.value)}
+              aria-invalid={Boolean(errors.apellido)}
+            />
+            <FieldError
+              errors={errors.apellido ? [{ message: errors.apellido }] : undefined}
+              className="errmsg"
+            />
+          </div>
+          <div>
+            <Label className="field-label" htmlFor="dni">
+              DNI
+            </Label>
+            <Input
+              id="dni"
+              className={errors.dni ? 'err' : ''}
+              value={formData.dni}
+              onChange={(e) => handleInputChange('dni', e.target.value)}
+              aria-invalid={Boolean(errors.dni)}
+            />
+            <FieldError
+              errors={errors.dni ? [{ message: errors.dni }] : undefined}
+              className="errmsg"
+            />
+          </div>
+          {currentStep === 2 ? (
+            <div>
+              <Label className="field-label" htmlFor="email">
+                Correo de acceso
+              </Label>
+              <Input
+                id="email"
+                className={errors.email ? 'err' : ''}
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+              />
+              <FieldError
+                errors={errors.email ? [{ message: errors.email }] : undefined}
+                className="errmsg"
+              />
+            </div>
+          ) : null}
+          <div>
+            <Label className="field-label" htmlFor="telefono">
+              Teléfono
+            </Label>
             <Input
               id="telefono"
               className={errors.telefono ? 'err' : ''}
@@ -155,122 +221,154 @@ export function FamiliaForm({ isEditing = false, isSubmitting = false, onSubmit,
               value={formData.telefono}
               onChange={(e) => handleInputChange('telefono', e.target.value)}
             />
-            <FieldError errors={errors.telefono ? [{ message: errors.telefono }] : undefined} className="errmsg" />
+            <FieldError
+              errors={errors.telefono ? [{ message: errors.telefono }] : undefined}
+              className="errmsg"
+            />
           </div>
-          {currentStep === 1 ? <div>
-            <Label className="field-label" htmlFor="sexo">Sexo</Label>
-            <Select value={formData.sexo} onValueChange={(value) => handleInputChange('sexo', value)}>
-              <SelectTrigger id="sexo" className="w-full">
-                <SelectValue placeholder="Seleccioná una opción" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="femenino">Femenino</SelectItem>
-                <SelectItem value="masculino">Masculino</SelectItem>
-                <SelectItem value="otro">Otro</SelectItem>
-              </SelectContent>
-            </Select>
-          </div> : null}
-          {currentStep === 2 ? <div className="full">
-            <Label className="field-label" htmlFor="password">Contraseña provisoria</Label>
-            <div className="pw-field">
-              <svg
-                className="f-ic"
-                viewBox="0 0 24 24"
-                width="15"
-                height="15"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+          {currentStep === 1 ? (
+            <div>
+              <Label className="field-label" htmlFor="sexo">
+                Sexo
+              </Label>
+              <Select
+                value={formData.sexo}
+                onValueChange={(value) => handleInputChange('sexo', value)}
               >
-                <rect x="5" y="11" width="14" height="9" rx="2" />
-                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-              </svg>
-              <Input
-                id="password"
-                style={{ paddingLeft: '34px', paddingRight: '76px' }}
-                type={showPassword ? 'text' : 'password'}
-                value={formData.password}
-                onChange={(e) => handleInputChange('password', e.target.value)}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                className="pw-toggle"
-                title="Mostrar contraseña"
-                onClick={() => setShowPassword((visible) => !visible)}
-              >
+                <SelectTrigger id="sexo" className="w-full">
+                  <SelectValue placeholder="Seleccioná una opción" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="femenino">Femenino</SelectItem>
+                  <SelectItem value="masculino">Masculino</SelectItem>
+                  <SelectItem value="otro">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+          {currentStep === 2 ? (
+            <div className="full">
+              <Label className="field-label" htmlFor="password">
+                Contraseña provisoria
+              </Label>
+              <div className="pw-field">
                 <svg
+                  className="f-ic"
                   viewBox="0 0 24 24"
                   width="15"
                   height="15"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="1.6"
+                  strokeWidth="1.7"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-                  <circle cx="12" cy="12" r="3" />
+                  <rect x="5" y="11" width="14" height="9" rx="2" />
+                  <path d="M8 11V7a4 4 0 0 1 8 0v4" />
                 </svg>
-              </Button>
-              <Button type="button" variant="secondary" className="pw-gen" onClick={generatePassword}>
-                Generar
-              </Button>
-            </div>
-          </div> : null}
-          {currentStep === 2 ? <div
-            className="full"
-            style={{
-              borderTop: '1px solid var(--borde)',
-              marginTop: '4px',
-              paddingTop: '18px',
-            }}
-          >
-            <Label className="field-label">Rol asignado</Label>
-            <div className="field">
-              <svg
-                className="f-ic"
-                viewBox="0 0 24 24"
-                width="15"
-                height="15"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="m3 12 8.5-8.5H19a2 2 0 0 1 2 2v7.5L12.5 21z" />
-                <circle cx="14.5" cy="8.5" r="1.5" />
-              </svg>
-              <div className="select">
-                Familia
-                <svg
-                  viewBox="0 0 24 24"
-                  width="16"
-                  height="16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                <Input
+                  id="password"
+                  style={{ paddingLeft: '34px', paddingRight: '76px' }}
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="pw-toggle"
+                  title="Mostrar contraseña"
+                  onClick={() => setShowPassword((visible) => !visible)}
                 >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="15"
+                    height="15"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="pw-gen"
+                  onClick={generatePassword}
+                >
+                  Generar
+                </Button>
               </div>
             </div>
-          </div> : null}
+          ) : null}
+          {currentStep === 2 ? (
+            <div
+              className="full"
+              style={{
+                borderTop: '1px solid var(--borde)',
+                marginTop: '4px',
+                paddingTop: '18px',
+              }}
+            >
+              <Label className="field-label">Rol asignado</Label>
+              <div className="field">
+                <svg
+                  className="f-ic"
+                  viewBox="0 0 24 24"
+                  width="15"
+                  height="15"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m3 12 8.5-8.5H19a2 2 0 0 1 2 2v7.5L12.5 21z" />
+                  <circle cx="14.5" cy="8.5" r="1.5" />
+                </svg>
+                <div className="select">
+                  Familia
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       </Card>
 
       {/* Form Actions */}
       <div className="form-actions">
-        <Button type="button" variant="secondary" className="btn btn-secondary" onClick={currentStep === 1 ? onCancel : () => setCurrentStep(1)}>
+        <Button
+          type="button"
+          variant="secondary"
+          className="btn btn-secondary"
+          onClick={currentStep === 1 ? onCancel : () => setCurrentStep(1)}
+        >
           {currentStep === 1 ? 'Cancelar' : 'Volver a Persona responsable'}
         </Button>
         <Button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-          {isSubmitting ? 'Guardando...' : currentStep === 1 ? 'Continuar a datos de acceso' : isEditing ? 'Guardar cambios' : 'Crear familia'}
+          {isSubmitting
+            ? 'Guardando...'
+            : currentStep === 1
+              ? 'Continuar a datos de acceso'
+              : isEditing
+                ? 'Guardar cambios'
+                : 'Crear familia'}
         </Button>
       </div>
     </form>

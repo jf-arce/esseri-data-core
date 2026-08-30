@@ -33,10 +33,17 @@ from src.familias_alumnos.service import (
 router = APIRouter(prefix="/familias-alumnos", tags=["familias_alumnos"])
 
 
-@router.post("/alta-completa", response_model=AltaFamiliaResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/alta-completa",
+    response_model=AltaFamiliaResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def crear_alta_completa(
     datos: AltaFamiliaCreate,
-    usuario: Annotated[Usuario, Depends(requiere_permiso(MODULO_FAMILIAS_ALUMNOS, ACCION_CREAR))],
+    usuario: Annotated[
+        Usuario,
+        Depends(requiere_permiso(PERMISO_FAMILIAS_ALUMNOS_CREAR)),
+    ],
     db: Session = Depends(get_db),  # noqa: B008
 ) -> dict:
     """Crear Persona responsable, Usuario con rol familia y Familia."""

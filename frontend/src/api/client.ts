@@ -21,7 +21,10 @@ export async function apiClient<T>(path: string, init?: RequestInit): Promise<T>
     try {
       const body = (await res.json()) as { detail?: string | Array<{ msg?: string }> }
       detail = Array.isArray(body.detail)
-        ? body.detail.map((item) => item.msg).filter(Boolean).join(', ')
+        ? body.detail
+            .map((item) => item.msg)
+            .filter(Boolean)
+            .join(', ')
         : body.detail
     } catch {
       detail = undefined

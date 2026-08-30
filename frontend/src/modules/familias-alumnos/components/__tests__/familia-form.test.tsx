@@ -30,9 +30,15 @@ describe('FamiliaForm', () => {
     fireEvent.change(screen.getByLabelText('Apellido'), { target: { value: 'García' } })
     fireEvent.change(screen.getByLabelText('DNI'), { target: { value: '40111222' } })
     fireEvent.click(screen.getByText('Continuar a datos de acceso'))
-    fireEvent.change(screen.getByLabelText('Correo de acceso'), { target: { value: 'familia@example.com' } })
-    fireEvent.change(screen.getByLabelText('Contraseña provisoria'), { target: { value: 'una-contrasena-larga' } })
+    fireEvent.change(screen.getByLabelText('Correo de acceso'), {
+      target: { value: 'familia@example.com' },
+    })
+    fireEvent.change(screen.getByLabelText('Contraseña provisoria'), {
+      target: { value: 'una-contrasena-larga' },
+    })
     fireEvent.click(screen.getByText('Crear familia'))
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ nombre: 'Ana', email: 'familia@example.com' }))
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ nombre: 'Ana', email: 'familia@example.com' }),
+    )
   })
 })

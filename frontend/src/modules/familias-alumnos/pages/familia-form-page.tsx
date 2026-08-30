@@ -19,7 +19,8 @@ export function FamiliaFormPage() {
     getFamiliaById(familiaId)
       .then((data) => active && setFamilia(data))
       .catch((error: unknown) => {
-        if (active) setLoadError(error instanceof ApiError ? error.message : 'No se pudo cargar la familia')
+        if (active)
+          setLoadError(error instanceof ApiError ? error.message : 'No se pudo cargar la familia')
       })
       .finally(() => active && setIsLoading(false))
     return () => {

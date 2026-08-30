@@ -7,16 +7,17 @@ from sqlalchemy.orm import Session
 
 from src.auth import service as auth_service
 from src.auth.models import Rol, Usuario, UsuarioRol
-from src.models import Persona
 from src.familias_alumnos.exceptions import FamiliaConVinculos
 from src.familias_alumnos.models import Familia, FamiliaAlumno
 from src.familias_alumnos.schemas import AltaFamiliaCreate, FamiliaCreate, FamiliaUpdate
-
+from src.models import Persona
 
 ROL_FAMILIA = "familia"
 
 
-def crear_alta_familia(db: Session, datos: AltaFamiliaCreate, usuario_id: uuid.UUID) -> tuple[Persona, Familia]:
+def crear_alta_familia(
+    db: Session, datos: AltaFamiliaCreate, usuario_id: uuid.UUID
+) -> tuple[Persona, Familia]:
     """Crea Persona, Usuario, rol y Familia en una única transacción."""
     if db.scalar(select(Usuario.id).where(Usuario.email == datos.usuario.email)) is not None:
         raise ValueError("El correo ya está registrado")
