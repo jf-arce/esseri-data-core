@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ClipboardListIcon, SearchIcon, ShieldAlertIcon } from 'lucide-react'
-import { useNavigate } from 'react-router'
+import { ClipboardListIcon, PlusIcon, SearchIcon, ShieldAlertIcon } from 'lucide-react'
+import { Link, useNavigate } from 'react-router'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -82,7 +82,17 @@ export function AdmisionesPage() {
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
         <p className="text-xs font-bold tracking-[.08em] text-texto-3 uppercase">Inscripciones</p>
-        <PageHeader titulo="Admisiones" />
+        <PageHeader
+          titulo="Admisiones"
+          accion={
+            <Button asChild>
+              <Link to="/inscripciones/admisiones/nueva">
+                <PlusIcon data-icon="inline-start" />
+                Nueva admisión
+              </Link>
+            </Button>
+          }
+        />
         <p className="text-sm text-texto-2">
           Seguimiento de cada aspirante desde la consulta hasta la documentación.
         </p>
@@ -160,7 +170,7 @@ export function AdmisionesPage() {
           </EmptyMedia>
           <EmptyTitle>No hay solicitudes para mostrar.</EmptyTitle>
           <EmptyDescription>
-            Las solicitudes de admisión aparecerán aquí cuando se registren.
+            Iniciá una nueva admisión para registrar el primer aspirante.
           </EmptyDescription>
         </Empty>
       ) : (
