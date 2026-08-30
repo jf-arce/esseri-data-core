@@ -181,6 +181,23 @@ export interface SolicitudAdmision {
   documentos: DocumentoSolicitudAdmision[]
 }
 
+export interface CrearSolicitudAdmisionPayload {
+  ciclo_lectivo: string
+  fecha_solicitud: string
+  nivel_educativo_id: string
+  aspirante: PersonaSolicitudAdmisionPayload
+  contacto?: PersonaSolicitudAdmisionPayload
+  observaciones?: string
+}
+
+export interface PersonaSolicitudAdmisionPayload {
+  nombre: string
+  apellido: string
+  dni: string
+  telefono?: string
+  sexo?: string
+}
+
 export interface FiltrosSolicitudesAdmision {
   buscar?: string
   estado?: EstadoSolicitudAdmision
