@@ -57,23 +57,6 @@ import { useAuthStore } from '@/store/auth-store'
 import { useUiStore } from '@/store/ui-store'
 import { Button } from '@/components/ui/button'
 
-// El isotipo de marca (§13 DESIGN.md): hexágono con nodos, versión mínima para el tile de 28px
-// del rail. La ilustración geométrica completa es decorativa y va en portadas/estados vacíos,
-// no acá.
-function MarcaEsseri() {
-  return (
-    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" aria-hidden="true">
-      <path
-        d="M12 3.5 20 8v8l-8 4.5L4 16V8z"
-        stroke="#fff"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
 // Paleta de comandos (vista `Shell` del mock): fachada sobre las búsquedas por módulo, sin
 // alcance propio todavía. El único ítem que navega de verdad hoy es "Usuarios y roles"; el
 // resto queda deshabilitado a propósito, con el motivo a la vista en CommandEmpty.
@@ -165,8 +148,8 @@ export function AppLayout() {
         <Sidebar collapsible="icon">
           <SidebarHeader>
             <div className="flex items-center gap-2.5 px-1.5 py-1">
-              <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-violeta">
-                <MarcaEsseri />
+              <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-superficie">
+                <img src="/esseri-icon.png" alt="" className="size-5 object-contain" />
               </div>
               <span className="text-sm font-semibold text-texto-sobre-oscuro group-data-[collapsible=icon]:hidden">
                 ESSERI

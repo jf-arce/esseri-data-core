@@ -3,7 +3,12 @@
 import pytest
 
 from src.auth import service
-from src.auth.constants import ACCION_CREAR, ACCION_LEER, MODULO_INSCRIPCIONES
+from src.auth.constants import (
+    ACCION_ACTUALIZAR,
+    ACCION_CREAR,
+    ACCION_LEER,
+    MODULO_INSCRIPCIONES,
+)
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
 
 PASSWORD_VALIDA = "una-contrasenia-larga"
@@ -26,7 +31,7 @@ def client(client, db_session):
     db_session.add(rol)
     db_session.commit()
 
-    for accion in (ACCION_CREAR, ACCION_LEER):
+    for accion in (ACCION_CREAR, ACCION_LEER, ACCION_ACTUALIZAR):
         permiso = Permiso(modulo=MODULO_INSCRIPCIONES, accion=accion)
         db_session.add(permiso)
         db_session.commit()

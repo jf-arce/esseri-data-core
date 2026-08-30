@@ -122,6 +122,39 @@ def crear_payload_reinscripcion(escenario, *, ciclo="2028"):
     }
 
 
+def crear_payload_solicitud(escenario):
+    return {
+        "ciclo_lectivo": "2027",
+        "fecha_solicitud": "2026-08-02",
+        "nivel_educativo_id": str(escenario["nivel_id"]),
+        "aspirante": {
+            "nombre": "Sofía",
+            "apellido": "Vega",
+            "dni": "50999888",
+            "telefono": "1122334455",
+        },
+        "contacto": {
+            "nombre": "Laura",
+            "apellido": "Vega",
+            "dni": "30999888",
+        },
+        "observaciones": "Consulta inicial.",
+    }
+
+
+def crear_division_destino(db_session, escenario):
+    division_id = uuid.uuid4()
+    db_session.add(
+        Division(
+            id=division_id,
+            nombre="4°A",
+            anio_id=db_session.get(Division, escenario["division_id"]).anio_id,
+        )
+    )
+    db_session.commit()
+    return division_id
+
+
 def test_listar_inscripciones_con_contexto(client, db_session):
     escenario = crear_escenario(db_session)
     inscripcion = crear_inscripcion_previa(db_session, escenario)
@@ -692,6 +725,148 @@ def test_rechaza_reinscripcion_con_ciclo_no_anual(client, db_session):
 
     assert response.status_code == 422
     assert db_session.query(Inscripcion).count() == 1
+
+
+def test_registrar_cambio_matricula_conserva_el_historial(client, db_session):
+    escenario = crear_escenario(db_session)
+    inscripcion_actual = crear_inscripcion_previa(db_session, escenario, estado="activa")
+    division_destino_id = crear_division_destino(db_session, escenario)
+
+    response = client.post(
+        f"/inscripciones/{inscripcion_actual.id}/cambios-matricula",
+        json={"division_id": str(division_destino_id), "fecha_cambio": "2027-03-10"},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["tipo"] == "cambio_matricula"
+    assert body["estado"] == "activa"
+    assert body["fecha_inscripcion"] == "2027-03-10"
+    assert body["division_id"] == str(division_destino_id)
+    assert body["alumno_id"] == str(escenario["alumno_id"])
+    assert db_session.get(Inscripcion, inscripcion_actual.id).estado == "finalizada"
+    assert db_session.get(Alumno, escenario["alumno_id"]).estado == "activo"
+    assert db_session.query(Inscripcion).count() == 2
+
+
+def test_rechaza_cambio_matricula_a_la_misma_division(client, db_session):
+    escenario = crear_escenario(db_session)
+    inscripcion_actual = crear_inscripcion_previa(db_session, escenario, estado="activa")
+
+    response = client.post(
+        f"/inscripciones/{inscripcion_actual.id}/cambios-matricula",
+        json={"division_id": str(escenario["division_id"]), "fecha_cambio": "2027-03-10"},
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "La división de destino debe ser distinta de la actual."}
+    assert db_session.query(Inscripcion).count() == 1
+
+
+def test_registrar_baja_conserva_el_historial_y_actualiza_alumno(client, db_session):
+    escenario = crear_escenario(db_session)
+    inscripcion_actual = crear_inscripcion_previa(db_session, escenario, estado="activa")
+
+    response = client.post(
+        f"/inscripciones/{inscripcion_actual.id}/bajas",
+        json={"fecha_baja": "2027-05-15"},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["tipo"] == "baja"
+    assert body["estado"] == "baja"
+    assert body["fecha_inscripcion"] == "2027-05-15"
+    assert body["division_id"] == str(escenario["division_id"])
+    assert db_session.get(Inscripcion, inscripcion_actual.id).estado == "finalizada"
+    assert db_session.get(Alumno, escenario["alumno_id"]).estado == "inactivo"
+    assert db_session.query(Inscripcion).count() == 2
+
+
+def test_rechaza_movimiento_sobre_inscripcion_no_activa(client, db_session):
+    escenario = crear_escenario(db_session)
+    inscripcion = crear_inscripcion_previa(db_session, escenario)
+
+    response = client.post(
+        f"/inscripciones/{inscripcion.id}/bajas",
+        json={"fecha_baja": "2027-05-15"},
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "Solo se puede registrar un movimiento sobre una inscripción activa."
+    }
+
+
+def test_crear_y_listar_solicitud_de_admision(client, db_session):
+    escenario = crear_escenario(db_session)
+
+    creada = client.post("/inscripciones/solicitudes", json=crear_payload_solicitud(escenario))
+    listado = client.get("/inscripciones/solicitudes", params={"buscar": "Sofía"})
+
+    assert creada.status_code == 201
+    assert creada.json()["etapa"] == "consulta_lead"
+    assert creada.json()["estado"] == "en_proceso"
+    assert creada.json()["aspirante"]["dni"] == "50999888"
+    assert len(creada.json()["etapas"]) == 1
+    assert listado.status_code == 200
+    assert listado.json()["total"] == 1
+    assert listado.json()["items"][0]["aspirante_apellido"] == "Vega"
+
+
+def test_aprobar_y_validar_documentacion_de_solicitud(client, db_session):
+    escenario = crear_escenario(db_session)
+    solicitud = client.post(
+        "/inscripciones/solicitudes", json=crear_payload_solicitud(escenario)
+    ).json()
+    solicitud_id = solicitud["id"]
+
+    for _ in range(3):
+        response = client.post(
+            f"/inscripciones/solicitudes/{solicitud_id}/avanzar",
+            json={"observaciones": "Etapa completada."},
+        )
+        assert response.status_code == 200
+
+    aprobada = client.post(
+        f"/inscripciones/solicitudes/{solicitud_id}/aprobar",
+        json={"observaciones": "Aprobada."},
+    )
+    documentacion = client.post(
+        f"/inscripciones/solicitudes/{solicitud_id}/avanzar",
+        json={"observaciones": "Reserva confirmada."},
+    )
+    documento = client.post(
+        f"/inscripciones/solicitudes/{solicitud_id}/documentos",
+        json={"tipo_documento": "DNI", "archivo": "dni-sofia.pdf"},
+    )
+    validado = client.put(
+        f"/inscripciones/solicitudes/{solicitud_id}/documentos/{documento.json()['id']}",
+        json={"estado": "validado"},
+    )
+
+    assert aprobada.status_code == 200
+    assert aprobada.json()["estado"] == "aprobada"
+    assert aprobada.json()["etapa"] == "reserva_matricula"
+    assert documentacion.status_code == 200
+    assert documentacion.json()["etapa"] == "documentacion_contrato"
+    assert documento.status_code == 201
+    assert validado.status_code == 200
+    assert validado.json()["estado"] == "validado"
+
+
+def test_rechaza_solicitud_solo_en_evaluacion(client, db_session):
+    escenario = crear_escenario(db_session)
+    solicitud = client.post(
+        "/inscripciones/solicitudes", json=crear_payload_solicitud(escenario)
+    ).json()
+
+    response = client.post(
+        f"/inscripciones/solicitudes/{solicitud['id']}/rechazar",
+        json={"observaciones": "No cumple los requisitos."},
+    )
+
+    assert response.status_code == 422
 
 
 def test_obtener_inscripcion_inexistente(client):
