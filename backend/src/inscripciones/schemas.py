@@ -212,6 +212,16 @@ class InscripcionListadoRead(BaseModel):
     total_paginas: int
 
 
+class InscripcionesResumenRead(BaseModel):
+    """Indicadores del listado para un ciclo lectivo."""
+
+    ciclo_lectivo: str
+    inscripciones_activas: int
+    nuevas: int
+    reinscripciones: int
+    bajas: int
+
+
 class SolicitudInscripcionOpcionRead(BaseModel):
     """Solicitud confirmada que todavía puede originar una inscripción nueva."""
 

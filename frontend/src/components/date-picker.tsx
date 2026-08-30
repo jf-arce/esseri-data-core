@@ -45,7 +45,7 @@ function DatePicker({
             variant="ghost"
             disabled={disabled}
             aria-invalid={invalid}
-            className="w-full justify-start px-0 font-normal text-texto data-placeholder:text-desactivado"
+            className="w-full justify-start px-0 font-normal text-texto hover:bg-transparent data-placeholder:text-desactivado"
             data-placeholder={value ? undefined : ''}
           >
             {value ? formatFecha(value) : placeholder}

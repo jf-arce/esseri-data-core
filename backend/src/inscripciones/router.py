@@ -22,6 +22,7 @@ from src.inscripciones.schemas import (
     DocumentoSolicitudRead,
     DocumentoSolicitudUpdate,
     EtapaSolicitudCreate,
+    InscripcionesResumenRead,
     InscripcionListadoRead,
     InscripcionNuevaCreate,
     InscripcionRead,
@@ -53,6 +54,8 @@ def listar_inscripciones(
     alumno_id: Annotated[uuid.UUID | None, Query()] = None,
     division_id: Annotated[uuid.UUID | None, Query()] = None,
     buscar: Annotated[str | None, Query(max_length=100)] = None,
+    ordenar_por: Annotated[Literal["fecha", "alumno"], Query()] = "fecha",
+    direccion: Annotated[Literal["asc", "desc"], Query()] = "desc",
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanio_pagina: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> InscripcionListadoRead:
@@ -64,9 +67,20 @@ def listar_inscripciones(
         alumno_id=alumno_id,
         division_id=division_id,
         buscar=buscar,
+        ordenar_por=ordenar_por,
+        direccion=direccion,
         pagina=pagina,
         tamanio_pagina=tamanio_pagina,
     )
+
+
+@router.get("/resumen")
+def obtener_resumen_inscripciones(
+    db: DbSession,
+    _: PuedeLeer,
+    ciclo_lectivo: Annotated[str | None, Query(min_length=4, max_length=4)] = None,
+) -> InscripcionesResumenRead:
+    return matriculas_service.obtener_resumen_inscripciones(db, ciclo_lectivo)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
