@@ -1,4 +1,12 @@
-import { ClipboardCheck, ShieldCheck, type LucideIcon } from 'lucide-react'
+import {
+  Boxes,
+  ClipboardCheck,
+  ClipboardList,
+  ReceiptText,
+  ShieldCheck,
+  Truck,
+  type LucideIcon,
+} from 'lucide-react'
 
 export interface NavItem {
   label: string
@@ -16,7 +24,13 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Gestión',
-    items: [{ label: 'Inscripciones', href: '/inscripciones', icon: ClipboardCheck }],
+    items: [
+      { label: 'Inscripciones', href: '/inscripciones', icon: ClipboardCheck },
+      { label: 'Proveedores', href: '/proveedores', icon: Truck },
+      { label: 'Solicitudes de compra', href: '/solicitudes-compra', icon: ClipboardList },
+      { label: 'Órdenes de compra', href: '/ordenes-compra', icon: ReceiptText },
+      { label: 'Catálogo de compras', href: '/catalogo-compras', icon: Boxes },
+    ],
   },
   {
     label: 'Sistema',

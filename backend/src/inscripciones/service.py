@@ -1,6 +1,5 @@
 """Lógica de negocio de inscripciones."""
 
-import unicodedata
 import uuid
 from datetime import date
 
@@ -40,6 +39,7 @@ from src.inscripciones.schemas import (
     SolicitudInscripcionRead,
 )
 from src.models import Persona
+from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
 
 ETAPAS_ADMISION = (
     "consulta_lead",
@@ -50,40 +50,6 @@ ETAPAS_ADMISION = (
     "documentacion_contrato",
     "inscripcion_confirmada",
 )
-
-
-def _normalizar_texto_busqueda(valor: str) -> str:
-    """Quita tildes y unifica mayúsculas para comparar términos de búsqueda."""
-
-    return "".join(
-        caracter
-        for caracter in unicodedata.normalize("NFD", valor.casefold())
-        if unicodedata.category(caracter) != "Mn"
-    )
-
-
-def _normalizar_columna_busqueda(columna):
-    """Expresión SQL portable para búsquedas sin tildes en SQLite y PostgreSQL."""
-
-    resultado = func.lower(columna)
-    for origen, destino in (
-        ("á", "a"),
-        ("é", "e"),
-        ("í", "i"),
-        ("ó", "o"),
-        ("ú", "u"),
-        ("ü", "u"),
-        ("ñ", "n"),
-        ("Á", "a"),
-        ("É", "e"),
-        ("Í", "i"),
-        ("Ó", "o"),
-        ("Ú", "u"),
-        ("Ü", "u"),
-        ("Ñ", "n"),
-    ):
-        resultado = func.replace(resultado, origen, destino)
-    return resultado
 
 
 def listar_inscripciones(
@@ -112,14 +78,14 @@ def listar_inscripciones(
     if division_id is not None:
         filtros.append(Inscripcion.division_id == division_id)
 
-    termino = _normalizar_texto_busqueda(buscar.strip()) if buscar else ""
+    termino = normalizar_texto_busqueda(buscar.strip()) if buscar else ""
     if termino:
         patron = f"%{termino}%"
         filtros.append(
             or_(
-                _normalizar_columna_busqueda(Persona.nombre).like(patron),
-                _normalizar_columna_busqueda(Persona.apellido).like(patron),
-                _normalizar_columna_busqueda(Alumno.numero_legajo).like(patron),
+                normalizar_columna_busqueda(Persona.nombre).like(patron),
+                normalizar_columna_busqueda(Persona.apellido).like(patron),
+                normalizar_columna_busqueda(Alumno.numero_legajo).like(patron),
             )
         )
 
