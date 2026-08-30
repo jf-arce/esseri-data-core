@@ -8,6 +8,9 @@ Si estás generando o modificando código en este repositorio, seguí estas regl
 2. **No crees una carpeta compartida nueva (`src/algo-nuevo/`) sin que ya exista una necesidad real de 2+ módulos.** Si estás resolviendo algo para un solo módulo, va adentro de `modules/<modulo>/` (frontend) o `src/<modulo>/` (backend), aunque "parezca" que en el futuro lo va a necesitar otro módulo.
 3. **Respetá la convención de nombres de archivo de cada capa**: `kebab-case` en todo `frontend/` (incluidos componentes — el nombre del archivo no va en PascalCase aunque el componente exportado sí), `snake_case` en todo `backend/` (estándar de Python).
 4. **No agregues un archivo `service.py`, `store.ts`, `types.ts`, etc. a un módulo que no lo necesita todavía.** No todos los módulos tienen todas las subcarpetas — revisar la tabla de "Notas por módulo específico" en `ARCHITECTURE.md` antes de asumir que un módulo necesita determinado archivo.
+   Si un servicio backend ya contiene subdominios independientes y supera el umbral documentado en
+   `ARCHITECTURE.md`, dividilo por capacidad como `<subdominio>_service.py`; no crees una fachada
+   `service.py` que solo reexporte funciones.
 5. **Si el cambio toca infraestructura** (Docker, CI/CD, variables de entorno, dependencias nuevas), actualizá el `README.md` y el `.env.example` de la capa correspondiente en el mismo cambio — no lo dejes para después.
 6. **No dupliques lógica entre módulos.** Si al escribir código notás que ya existe algo parecido en otro módulo, es señal de que probablemente corresponde subir eso al nivel compartido (`src/` de esa capa) en vez de copiarlo.
 7. **Los tests no son obligatorios para todo.** Antes de generar un test para un componente nuevo, evaluá si tiene lógica real (condicionales, cálculos, manejo de estado) — si es puro layout/composición, no hace falta testearlo. Ver la sección de Testing en `ARCHITECTURE.md` para el criterio completo.
@@ -45,6 +48,7 @@ Para cuando hay que decidir dónde va algo nuevo, sin releer `ARCHITECTURE.md` c
 | Una pantalla que combina datos de **2+ módulos** | `src/pages/`, no en `modules/<modulo>/pages/`. |
 | Una ruta nueva del frontend | Declararla en el `routes.tsx` del módulo dueño; `src/router/` la junta automáticamente, no hace falta tocarlo. |
 | Un modelo SQLAlchemy / endpoint / lógica de negocio que pertenece a **un solo módulo** del backend | Dentro de `src/<modulo>/`, en el archivo que corresponda (`models.py`, `router.py`, `service.py`, etc.). |
+| Un `service.py` backend que contiene **2+ subdominios independientes** y supera ~500 líneas o 15 operaciones públicas | Dividirlo dentro del mismo módulo en `<subdominio>_service.py`, según el criterio completo de `ARCHITECTURE.md`. |
 | Una entidad, tabla intermedia o enum que usan **2+ módulos** del backend | `src/models.py` (nivel `src/`, no adentro de ningún módulo). |
 | Un componente de shadcn/ui nuevo | Se genera con la CLI de shadcn, cae en `src/components/ui/` — no se escribe a mano. |
 | Un test de un componente/hook/servicio del frontend | `__tests__/` dentro de la misma subcarpeta que el archivo que prueba. Solo si tiene lógica real. |

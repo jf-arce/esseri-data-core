@@ -259,11 +259,37 @@ backend/
 | `router.py` | Endpoints HTTP del módulo (define las rutas de la API). |
 | `schemas.py` | Modelos Pydantic — forma de los datos que entran y salen por la API. |
 | `models.py` | Modelos SQLAlchemy — tablas del módulo según el diccionario de datos (ej. en `facturacion/models.py`: `Factura`, `DetalleFactura`, `MetodoPago`). |
-| `service.py` | Lógica de negocio del módulo (qué pasa cuando se registra un pago, cuándo se genera una alerta de morosidad, etc.). |
+| `service.py` | Lógica de negocio del módulo cuando sus operaciones forman un único flujo cohesivo (qué pasa cuando se registra un pago, cuándo se genera una alerta de morosidad, etc.). |
+| `<subdominio>_service.py` | División excepcional de la lógica de negocio cuando un módulo contiene subdominios independientes y el servicio único dejó de ser navegable. Ejemplos: `admisiones_service.py`, `movimientos_service.py`. |
 | `dependencies.py` | Dependencias de FastAPI propias del módulo (ej. validar que una factura exista antes de procesarla). |
 | `constants.py` | Constantes y códigos de error específicos del módulo. |
 | `exceptions.py` | Excepciones propias del módulo (ej. `FacturaYaPagada`, `AlumnoNoEncontrado`). |
 | `config.py` | Variables de configuración específicas del módulo, si las tiene (ej. `auth/config.py` con parámetros de JWT). |
+
+#### Cuándo dividir la lógica de negocio de un módulo
+
+La unidad principal sigue siendo el **módulo de dominio**: no se crea un módulo nuevo solo para
+reducir el tamaño de un archivo. Dentro de `src/<modulo>/`, `service.py` se conserva mientras la
+lógica represente un único flujo que pueda leerse de forma coherente.
+
+Se permite dividirlo en archivos `<subdominio>_service.py` cuando se cumplen ambas condiciones:
+
+1. existen al menos dos grupos de operaciones con vocabulario, reglas y ciclo de vida propios, que
+   pueden describirse sin depender de los detalles internos del otro; y
+2. el servicio supera aproximadamente 500 líneas o 15 operaciones públicas, de modo que encontrar
+   y revisar un flujo requiere conocer código no relacionado.
+
+La división se hace por capacidad de negocio (`admisiones`, `movimientos`, `opciones`), nunca por
+operación técnica (`lecturas`, `escrituras`) ni con nombres genéricos (`helpers`, `utils`). El router
+importa cada servicio directamente; no se mantiene un `service.py` que solo reexporte funciones,
+porque agregaría una capa sin comportamiento. Una función auxiliar se extrae a un archivo propio
+únicamente cuando la usan dos o más servicios del mismo módulo; si pertenece a un solo flujo, queda
+privada dentro de su servicio.
+
+Los tests se dividen por comportamiento observable (`test_admisiones.py`,
+`test_movimientos.py`), no copiando mecánicamente los nombres de los archivos internos. Fixtures
+propias del módulo quedan en `tests/<modulo>/conftest.py`; builders de datos reutilizados por varios
+archivos pueden vivir en `tests/<modulo>/factories.py`.
 
 ### Resto de `src/` (archivos sueltos, no pertenecen a un módulo)
 Así lo resuelve directamente el repo de referencia: unos pocos archivos a nivel de `src/`, sin carpeta aparte. Arrancamos así por simplicidad; si con el tiempo `models.py` empieza a acumular demasiado (muchas entidades compartidas, tablas intermedias, enums, etc.) y se vuelve difícil de navegar, ahí se evalúa partirlo — pero no antes.

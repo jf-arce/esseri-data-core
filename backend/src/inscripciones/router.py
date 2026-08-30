@@ -12,7 +12,7 @@ from src.auth.constants import (
 from src.auth.dependencies import requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
-from src.inscripciones import service
+from src.inscripciones import admisiones_service, matriculas_service, opciones_service
 from src.inscripciones.schemas import (
     AlumnoReinscripcionOpcionRead,
     BajaInscripcionCreate,
@@ -56,7 +56,7 @@ def listar_inscripciones(
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanio_pagina: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> InscripcionListadoRead:
-    return service.listar_inscripciones(
+    return matriculas_service.listar_inscripciones(
         db,
         ciclo_lectivo=ciclo_lectivo.strip() if ciclo_lectivo else None,
         estado=estado,
@@ -73,7 +73,7 @@ def listar_inscripciones(
 def crear_inscripcion(
     datos: InscripcionNuevaCreate, db: DbSession, _: PuedeCrear
 ) -> InscripcionRead:
-    inscripcion = service.crear_inscripcion_nueva(db, datos)
+    inscripcion = matriculas_service.crear_inscripcion_nueva(db, datos)
     return InscripcionRead.model_validate(inscripcion)
 
 
@@ -81,7 +81,7 @@ def crear_inscripcion(
 def crear_reinscripcion(
     datos: ReinscripcionCreate, db: DbSession, _: PuedeCrear
 ) -> InscripcionRead:
-    inscripcion = service.crear_reinscripcion(db, datos)
+    inscripcion = matriculas_service.crear_reinscripcion(db, datos)
     return InscripcionRead.model_validate(inscripcion)
 
 
@@ -89,7 +89,7 @@ def crear_reinscripcion(
 def crear_solicitud_inscripcion(
     datos: SolicitudInscripcionCreate, db: DbSession, usuario: PuedeCrear
 ) -> SolicitudInscripcionRead:
-    return service.crear_solicitud_inscripcion(db, datos, usuario.id)
+    return admisiones_service.crear_solicitud_inscripcion(db, datos, usuario.id)
 
 
 @router.get("/solicitudes")
@@ -116,7 +116,7 @@ def listar_solicitudes_inscripcion(
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanio_pagina: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> SolicitudInscripcionListadoRead:
-    return service.listar_solicitudes_inscripcion(
+    return admisiones_service.listar_solicitudes_inscripcion(
         db,
         estado=estado,
         etapa=etapa,
@@ -130,7 +130,7 @@ def listar_solicitudes_inscripcion(
 def obtener_solicitud_inscripcion(
     solicitud_id: uuid.UUID, db: DbSession, _: PuedeLeer
 ) -> SolicitudInscripcionRead:
-    return service.obtener_solicitud_inscripcion(db, solicitud_id)
+    return admisiones_service.obtener_solicitud_inscripcion(db, solicitud_id)
 
 
 @router.post("/solicitudes/{solicitud_id}/avanzar")
@@ -140,7 +140,9 @@ def avanzar_solicitud_inscripcion(
     db: DbSession,
     usuario: PuedeActualizar,
 ) -> SolicitudInscripcionRead:
-    return service.avanzar_solicitud_inscripcion(db, solicitud_id, datos.observaciones, usuario.id)
+    return admisiones_service.avanzar_solicitud_inscripcion(
+        db, solicitud_id, datos.observaciones, usuario.id
+    )
 
 
 @router.post("/solicitudes/{solicitud_id}/aprobar")
@@ -150,7 +152,9 @@ def aprobar_solicitud_inscripcion(
     db: DbSession,
     usuario: PuedeActualizar,
 ) -> SolicitudInscripcionRead:
-    return service.aprobar_solicitud_inscripcion(db, solicitud_id, datos.observaciones, usuario.id)
+    return admisiones_service.aprobar_solicitud_inscripcion(
+        db, solicitud_id, datos.observaciones, usuario.id
+    )
 
 
 @router.post("/solicitudes/{solicitud_id}/rechazar")
@@ -160,7 +164,7 @@ def rechazar_solicitud_inscripcion(
     db: DbSession,
     _: PuedeActualizar,
 ) -> SolicitudInscripcionRead:
-    return service.rechazar_solicitud_inscripcion(db, solicitud_id, datos.observaciones)
+    return admisiones_service.rechazar_solicitud_inscripcion(db, solicitud_id, datos.observaciones)
 
 
 @router.post("/solicitudes/{solicitud_id}/documentos", status_code=status.HTTP_201_CREATED)
@@ -170,7 +174,7 @@ def registrar_documento_solicitud(
     db: DbSession,
     usuario: PuedeActualizar,
 ) -> DocumentoSolicitudRead:
-    return service.registrar_documento_solicitud(db, solicitud_id, datos, usuario.id)
+    return admisiones_service.registrar_documento_solicitud(db, solicitud_id, datos, usuario.id)
 
 
 @router.put("/solicitudes/{solicitud_id}/documentos/{documento_id}")
@@ -181,7 +185,7 @@ def actualizar_documento_solicitud(
     db: DbSession,
     _: PuedeActualizar,
 ) -> DocumentoSolicitudRead:
-    return service.actualizar_documento_solicitud(db, solicitud_id, documento_id, datos)
+    return admisiones_service.actualizar_documento_solicitud(db, solicitud_id, documento_id, datos)
 
 
 @router.post("/{inscripcion_id}/cambios-matricula", status_code=status.HTTP_201_CREATED)
@@ -191,7 +195,7 @@ def registrar_cambio_matricula(
     db: DbSession,
     _: PuedeActualizar,
 ) -> InscripcionRead:
-    inscripcion = service.registrar_cambio_matricula(db, inscripcion_id, datos)
+    inscripcion = matriculas_service.registrar_cambio_matricula(db, inscripcion_id, datos)
     return InscripcionRead.model_validate(inscripcion)
 
 
@@ -202,7 +206,7 @@ def registrar_baja_inscripcion(
     db: DbSession,
     _: PuedeActualizar,
 ) -> InscripcionRead:
-    inscripcion = service.registrar_baja_inscripcion(db, inscripcion_id, datos)
+    inscripcion = matriculas_service.registrar_baja_inscripcion(db, inscripcion_id, datos)
     return InscripcionRead.model_validate(inscripcion)
 
 
@@ -213,12 +217,12 @@ def listar_solicitudes_disponibles(
     buscar: Annotated[str | None, Query(max_length=100)] = None,
     limite: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> list[SolicitudInscripcionOpcionRead]:
-    return service.listar_solicitudes_disponibles(db, buscar=buscar, limite=limite)
+    return opciones_service.listar_solicitudes_disponibles(db, buscar=buscar, limite=limite)
 
 
 @router.get("/opciones/divisiones")
 def listar_divisiones_disponibles(db: DbSession, _: PuedeLeer) -> list[DivisionOpcionRead]:
-    return service.listar_divisiones_disponibles(db)
+    return opciones_service.listar_divisiones_disponibles(db)
 
 
 @router.get("/opciones/reinscripciones")
@@ -232,7 +236,7 @@ def listar_alumnos_elegibles_reinscripcion(
     buscar: Annotated[str | None, Query(max_length=100)] = None,
     limite: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> list[AlumnoReinscripcionOpcionRead]:
-    return service.listar_alumnos_elegibles_reinscripcion(
+    return opciones_service.listar_alumnos_elegibles_reinscripcion(
         db,
         ciclo_lectivo,
         buscar=buscar,
@@ -242,5 +246,5 @@ def listar_alumnos_elegibles_reinscripcion(
 
 @router.get("/{inscripcion_id}")
 def obtener_inscripcion(inscripcion_id: uuid.UUID, db: DbSession, _: PuedeLeer) -> InscripcionRead:
-    inscripcion = service.obtener_inscripcion(db, inscripcion_id)
+    inscripcion = matriculas_service.obtener_inscripcion(db, inscripcion_id)
     return InscripcionRead.model_validate(inscripcion)
