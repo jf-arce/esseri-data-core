@@ -329,6 +329,7 @@ export function FormularioInscripcion({ onCancelar }: FormularioInscripcionProps
                 aria-labelledby="tipo-inscripcion-label"
                 variant="outline"
                 spacing={0}
+                className="w-fit!"
               >
                 <ToggleGroupItem value="nueva">Nueva inscripción</ToggleGroupItem>
                 <ToggleGroupItem value="reinscripcion">Reinscripción</ToggleGroupItem>

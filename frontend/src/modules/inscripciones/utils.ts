@@ -4,6 +4,8 @@ import type {
   CrearInscripcionPayload,
   CrearReinscripcionPayload,
   InscripcionRead,
+  EstadoSolicitudAdmision,
+  EtapaSolicitudAdmision,
   SolicitudInscripcionOpcion,
   TipoInscripcionFormulario,
 } from '@/modules/inscripciones/types'
@@ -115,6 +117,29 @@ export function etiquetaEstadoInscripcion(estado: InscripcionRead['estado']) {
     activa: 'Activa',
     finalizada: 'Finalizada',
     baja: 'Baja',
+  }
+  return etiquetas[estado]
+}
+
+export function etiquetaEtapaSolicitud(etapa: EtapaSolicitudAdmision) {
+  const etiquetas: Record<EtapaSolicitudAdmision, string> = {
+    consulta_lead: 'Consulta / lead',
+    entrevista: 'Entrevista',
+    postulacion: 'Postulación',
+    evaluacion_aprobacion: 'Evaluación',
+    reserva_matricula: 'Reserva de vacante',
+    documentacion_contrato: 'Documentación y contrato',
+    inscripcion_confirmada: 'Inscripción confirmada',
+  }
+  return etiquetas[etapa]
+}
+
+export function etiquetaEstadoSolicitud(estado: EstadoSolicitudAdmision) {
+  const etiquetas: Record<EstadoSolicitudAdmision, string> = {
+    en_proceso: 'En proceso',
+    aprobada: 'Aprobada',
+    rechazada: 'Rechazada',
+    desistida: 'Desistida',
   }
   return etiquetas[estado]
 }
