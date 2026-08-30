@@ -1,6 +1,7 @@
 """Altas, consultas y movimientos de matrícula."""
 
 import uuid
+from datetime import date
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -17,6 +18,7 @@ from src.inscripciones.models import Inscripcion, SolicitudInscripcion
 from src.inscripciones.schemas import (
     BajaInscripcionCreate,
     CambioMatriculaCreate,
+    InscripcionesResumenRead,
     InscripcionListadoItemRead,
     InscripcionListadoRead,
     InscripcionNuevaCreate,
@@ -35,6 +37,8 @@ def listar_inscripciones(
     alumno_id: uuid.UUID | None = None,
     division_id: uuid.UUID | None = None,
     buscar: str | None = None,
+    ordenar_por: str = "fecha",
+    direccion: str = "desc",
     pagina: int = 1,
     tamanio_pagina: int = 20,
 ) -> InscripcionListadoRead:
@@ -85,16 +89,29 @@ def listar_inscripciones(
 
     total = db.scalar(total_statement.where(*filtros)) or 0
     offset = (pagina - 1) * tamanio_pagina
-    listado_statement = (
-        listado_statement.where(*filtros)
-        .order_by(
+    if ordenar_por == "alumno":
+        orden = (
+            (Persona.apellido.asc(), Persona.nombre.asc())
+            if direccion == "asc"
+            else (Persona.apellido.desc(), Persona.nombre.desc())
+        )
+        orden = (*orden, Inscripcion.fecha_inscripcion.desc(), Inscripcion.id)
+    else:
+        orden_fecha = (
+            Inscripcion.fecha_inscripcion.asc()
+            if direccion == "asc"
+            else Inscripcion.fecha_inscripcion.desc()
+        )
+        orden = (
+            orden_fecha,
             Inscripcion.ciclo_lectivo.desc(),
             Persona.apellido,
             Persona.nombre,
             Inscripcion.id,
         )
-        .offset(offset)
-        .limit(tamanio_pagina)
+
+    listado_statement = (
+        listado_statement.where(*filtros).order_by(*orden).offset(offset).limit(tamanio_pagina)
     )
 
     items = [
@@ -125,6 +142,34 @@ def listar_inscripciones(
         pagina=pagina,
         tamanio_pagina=tamanio_pagina,
         total_paginas=total_paginas,
+    )
+
+
+def obtener_resumen_inscripciones(
+    db: Session, ciclo_lectivo: str | None = None
+) -> InscripcionesResumenRead:
+    """Cuenta las inscripciones del ciclo sin depender de la página visible del listado."""
+
+    ciclo = ciclo_lectivo or str(date.today().year)
+    resumen = db.execute(
+        select(
+            func.count(Inscripcion.id)
+            .filter(Inscripcion.estado == "activa")
+            .label("inscripciones_activas"),
+            func.count(Inscripcion.id).filter(Inscripcion.tipo == "nueva").label("nuevas"),
+            func.count(Inscripcion.id)
+            .filter(Inscripcion.tipo == "reinscripcion")
+            .label("reinscripciones"),
+            func.count(Inscripcion.id).filter(Inscripcion.tipo == "baja").label("bajas"),
+        ).where(Inscripcion.ciclo_lectivo == ciclo)
+    ).one()
+
+    return InscripcionesResumenRead(
+        ciclo_lectivo=ciclo,
+        inscripciones_activas=resumen.inscripciones_activas,
+        nuevas=resumen.nuevas,
+        reinscripciones=resumen.reinscripciones,
+        bajas=resumen.bajas,
     )
 
 

@@ -8,8 +8,10 @@ import { PageHeader } from '@/components/page-header'
 import { BajaInscripcionDialog } from '@/modules/inscripciones/components/baja-inscripcion-dialog'
 import { CambioMatriculaDialog } from '@/modules/inscripciones/components/cambio-matricula-dialog'
 import { InscripcionesFiltros } from '@/modules/inscripciones/components/inscripciones-filtros'
+import { InscripcionesResumen } from '@/modules/inscripciones/components/inscripciones-resumen'
 import { InscripcionesTabla } from '@/modules/inscripciones/components/inscripciones-tabla'
 import { useInscripciones } from '@/modules/inscripciones/hooks/use-inscripciones'
+import { useResumenInscripciones } from '@/modules/inscripciones/hooks/use-resumen-inscripciones'
 import type {
   EstadoInscripcion,
   InscripcionListadoItem,
@@ -24,6 +26,7 @@ export function InscripcionesPage() {
   const [cicloLectivo, setCicloLectivo] = useState('')
   const [tipo, setTipo] = useState<TipoInscripcion | ''>('')
   const [estado, setEstado] = useState<EstadoInscripcion | ''>('')
+  const [orden, setOrden] = useState<'fecha_desc' | 'fecha_asc' | 'alumno_asc'>('fecha_desc')
   const [densidad, setDensidad] = useState<'comfortable' | 'compact'>('comfortable')
   const [pagina, setPagina] = useState(1)
   const [inscripcionParaCambio, setInscripcionParaCambio] = useState<InscripcionListadoItem | null>(
@@ -39,18 +42,28 @@ export function InscripcionesPage() {
   }, [busqueda])
 
   const cicloAplicado = cicloLectivo.length === 4 ? cicloLectivo : undefined
-  const filtros = useMemo(
-    () => ({
+  const cicloResumen = cicloAplicado ?? String(new Date().getFullYear())
+  const filtros = useMemo(() => {
+    const criterioOrden =
+      orden === 'alumno_asc'
+        ? { ordenarPor: 'alumno' as const, direccion: 'asc' as const }
+        : {
+            ordenarPor: 'fecha' as const,
+            direccion: orden === 'fecha_asc' ? ('asc' as const) : ('desc' as const),
+          }
+
+    return {
       buscar: busquedaAplicada || undefined,
       cicloLectivo: cicloAplicado,
       tipo: tipo || undefined,
       estado: estado || undefined,
+      ...criterioOrden,
       pagina,
       tamanioPagina: TAMANIO_PAGINA,
-    }),
-    [busquedaAplicada, cicloAplicado, estado, pagina, tipo],
-  )
+    }
+  }, [busquedaAplicada, cicloAplicado, estado, orden, pagina, tipo])
   const { datos, cargando, error, sinPermiso, recargar } = useInscripciones(filtros)
+  const resumen = useResumenInscripciones(cicloResumen)
 
   const actualizarFiltro = <T,>(setter: (valor: T) => void) => {
     return (valor: T) => {
@@ -113,6 +126,15 @@ export function InscripcionesPage() {
         </Alert>
       )}
 
+      {resumen.error && (
+        <Alert variant="error">
+          <AlertTitle>No se pudieron cargar los indicadores</AlertTitle>
+          <AlertDescription>{resumen.error}</AlertDescription>
+        </Alert>
+      )}
+
+      <InscripcionesResumen resumen={resumen.datos} cargando={resumen.cargando} />
+
       <InscripcionesFiltros
         busqueda={busqueda}
         onBusquedaChange={actualizarFiltro(setBusqueda)}
@@ -122,6 +144,8 @@ export function InscripcionesPage() {
         onTipoChange={actualizarFiltro(setTipo)}
         estado={estado}
         onEstadoChange={actualizarFiltro(setEstado)}
+        orden={orden}
+        onOrdenChange={actualizarFiltro(setOrden)}
         densidad={densidad}
         onDensidadChange={setDensidad}
       />

@@ -42,6 +42,8 @@ export interface InscripcionRead {
 
 export type TipoInscripcion = InscripcionRead['tipo']
 export type EstadoInscripcion = InscripcionRead['estado']
+export type OrdenarPorInscripciones = 'fecha' | 'alumno'
+export type DireccionOrden = 'asc' | 'desc'
 
 export interface InscripcionListadoItem {
   id: string
@@ -71,9 +73,19 @@ export interface FiltrosInscripciones {
   buscar?: string
   cicloLectivo?: string
   estado?: EstadoInscripcion
+  ordenarPor?: OrdenarPorInscripciones
+  direccion?: DireccionOrden
   tipo?: TipoInscripcion
   pagina: number
   tamanioPagina: number
+}
+
+export interface ResumenInscripciones {
+  ciclo_lectivo: string
+  inscripciones_activas: number
+  nuevas: number
+  reinscripciones: number
+  bajas: number
 }
 
 export interface CrearInscripcionPayload {
