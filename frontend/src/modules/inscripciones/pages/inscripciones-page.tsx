@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ClipboardCheckIcon, PlusIcon, ShieldAlertIcon } from 'lucide-react'
+import { ClipboardCheckIcon, ListChecksIcon, PlusIcon, ShieldAlertIcon } from 'lucide-react'
 import { Link } from 'react-router'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -83,12 +83,20 @@ export function InscripcionesPage() {
         <PageHeader
           titulo="Inscripciones"
           accion={
-            <Button asChild>
-              <Link to="/inscripciones/nueva">
-                <PlusIcon data-icon="inline-start" />
-                Nueva inscripción
-              </Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" asChild>
+                <Link to="/inscripciones/admisiones">
+                  <ListChecksIcon data-icon="inline-start" />
+                  Admisiones
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link to="/inscripciones/nueva">
+                  <PlusIcon data-icon="inline-start" />
+                  Nueva inscripción
+                </Link>
+              </Button>
+            </div>
           }
         />
       </div>

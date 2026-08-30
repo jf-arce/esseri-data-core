@@ -99,3 +99,109 @@ export interface CambioMatriculaPayload {
 export interface BajaInscripcionPayload {
   fecha_baja: string
 }
+
+export type EtapaSolicitudAdmision =
+  | 'consulta_lead'
+  | 'entrevista'
+  | 'postulacion'
+  | 'evaluacion_aprobacion'
+  | 'reserva_matricula'
+  | 'documentacion_contrato'
+  | 'inscripcion_confirmada'
+
+export type EstadoSolicitudAdmision = 'en_proceso' | 'aprobada' | 'rechazada' | 'desistida'
+
+export interface EtapaSolicitudAdmisionItem {
+  id: string
+  etapa: EtapaSolicitudAdmision
+  estado: 'en_proceso' | 'completada' | 'rechazada'
+  fecha: string
+  observaciones: string | null
+  usuario_id: string
+}
+
+export interface DocumentoSolicitudAdmision {
+  id: string
+  tipo_documento: string
+  archivo: string
+  estado: 'pendiente' | 'validado' | 'rechazado'
+  fecha_carga: string
+  updated_at: string
+  usuario_id: string
+}
+
+export interface SolicitudAdmisionListadoItem {
+  id: string
+  ciclo_lectivo: string
+  etapa: EtapaSolicitudAdmision
+  estado: EstadoSolicitudAdmision
+  fecha_solicitud: string
+  aspirante_nombre: string
+  aspirante_apellido: string
+  aspirante_dni: string
+  nivel_educativo_nombre: string
+}
+
+export interface SolicitudesAdmisionListado {
+  items: SolicitudAdmisionListadoItem[]
+  total: number
+  pagina: number
+  tamanio_pagina: number
+  total_paginas: number
+}
+
+export interface SolicitudAdmision {
+  id: string
+  ciclo_lectivo: string
+  etapa: EtapaSolicitudAdmision
+  estado: EstadoSolicitudAdmision
+  fecha_solicitud: string
+  fecha_resolucion: string | null
+  observaciones: string | null
+  updated_at: string
+  nivel_educativo_id: string
+  aspirante: {
+    id: string
+    nombre: string
+    apellido: string
+    dni: string
+    telefono: string | null
+    sexo: string | null
+  }
+  contacto: {
+    id: string
+    nombre: string
+    apellido: string
+    dni: string
+    telefono: string | null
+    sexo: string | null
+  } | null
+  usuario_id: string
+  etapas: EtapaSolicitudAdmisionItem[]
+  documentos: DocumentoSolicitudAdmision[]
+}
+
+export interface CrearSolicitudAdmisionPayload {
+  ciclo_lectivo: string
+  fecha_solicitud: string
+  nivel_educativo_id: string
+  aspirante: PersonaSolicitudAdmisionPayload
+  contacto?: PersonaSolicitudAdmisionPayload
+  observaciones?: string
+}
+
+export interface PersonaSolicitudAdmisionPayload {
+  nombre: string
+  apellido: string
+  dni: string
+  telefono?: string
+  sexo?: string
+}
+
+export interface FiltrosSolicitudesAdmision {
+  buscar?: string
+  estado?: EstadoSolicitudAdmision
+  etapa?: EtapaSolicitudAdmision
+  pagina: number
+  tamanioPagina: number
+}
