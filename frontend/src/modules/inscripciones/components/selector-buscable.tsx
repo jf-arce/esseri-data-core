@@ -59,7 +59,7 @@ export function SelectorBuscable({
           aria-expanded={abierto}
           aria-invalid={invalid}
           disabled={disabled}
-          className="h-9 w-full justify-between rounded-lg px-3 font-normal"
+          className="h-9 w-full justify-between rounded-lg px-3 font-normal hover:bg-superficie"
         >
           <span className="truncate">{seleccionada?.titulo ?? placeholder}</span>
           <ChevronsUpDown data-icon="inline-end" />

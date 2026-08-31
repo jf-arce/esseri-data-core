@@ -1,4 +1,4 @@
-import { CalendarRangeIcon } from 'lucide-react'
+import { ArrowDownUpIcon, CalendarRangeIcon } from 'lucide-react'
 import { DensityToggle, FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
 import { FilterChip, FilterChips, FilterDropdown } from '@/components/filter-dropdown'
 import type { EstadoInscripcion, TipoInscripcion } from '@/modules/inscripciones/types'
@@ -19,6 +19,12 @@ const OPCIONES_ESTADO = [
   { value: 'baja', label: 'Baja' },
 ]
 
+const OPCIONES_ORDEN = [
+  { value: 'fecha_desc', label: 'Fecha más reciente' },
+  { value: 'fecha_asc', label: 'Fecha más antigua' },
+  { value: 'alumno_asc', label: 'Alumno, A-Z' },
+]
+
 interface InscripcionesFiltrosProps {
   busqueda: string
   onBusquedaChange: (valor: string) => void
@@ -28,6 +34,8 @@ interface InscripcionesFiltrosProps {
   onTipoChange: (valor: TipoInscripcion | '') => void
   estado: EstadoInscripcion | ''
   onEstadoChange: (valor: EstadoInscripcion | '') => void
+  orden: 'fecha_desc' | 'fecha_asc' | 'alumno_asc'
+  onOrdenChange: (valor: 'fecha_desc' | 'fecha_asc' | 'alumno_asc') => void
   densidad: 'comfortable' | 'compact'
   onDensidadChange: (valor: 'comfortable' | 'compact') => void
 }
@@ -67,6 +75,8 @@ export function InscripcionesFiltros({
   onTipoChange,
   estado,
   onEstadoChange,
+  orden,
+  onOrdenChange,
   densidad,
   onDensidadChange,
 }: InscripcionesFiltrosProps) {
@@ -106,6 +116,14 @@ export function InscripcionesFiltros({
           active={estado !== ''}
         />
         <FilterBarSpacer />
+        <FilterDropdown
+          label={OPCIONES_ORDEN.find((opcion) => opcion.value === orden)?.label ?? 'Ordenar'}
+          options={OPCIONES_ORDEN}
+          value={orden}
+          onChange={(valor) => onOrdenChange(valor as typeof orden)}
+          icon={ArrowDownUpIcon}
+          align="end"
+        />
         <DensityToggle value={densidad} onChange={onDensidadChange} />
       </FilterBar>
 

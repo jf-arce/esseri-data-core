@@ -11,6 +11,8 @@ export function listarInscripciones(filtros: FiltrosInscripciones, signal?: Abor
   if (filtros.cicloLectivo) parametros.set('ciclo_lectivo', filtros.cicloLectivo)
   if (filtros.estado) parametros.set('estado', filtros.estado)
   if (filtros.tipo) parametros.set('tipo', filtros.tipo)
+  if (filtros.ordenarPor) parametros.set('ordenar_por', filtros.ordenarPor)
+  if (filtros.direccion) parametros.set('direccion', filtros.direccion)
 
   return apiClient<InscripcionListado>(`/inscripciones?${parametros.toString()}`, { signal })
 }

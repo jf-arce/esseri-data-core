@@ -20,12 +20,15 @@ export function useInscripciones(filtros: FiltrosInscripciones) {
     sinPermiso: boolean
   }>({ clave: null, datos: LISTADO_VACIO, error: null, sinPermiso: false })
 
-  const { buscar, cicloLectivo, estado, tipo, pagina, tamanioPagina } = filtros
+  const { buscar, cicloLectivo, estado, tipo, ordenarPor, direccion, pagina, tamanioPagina } =
+    filtros
   const claveSolicitud = JSON.stringify([
     buscar,
     cicloLectivo,
     estado,
     tipo,
+    ordenarPor,
+    direccion,
     pagina,
     tamanioPagina,
     revision,
@@ -37,7 +40,7 @@ export function useInscripciones(filtros: FiltrosInscripciones) {
     const controller = new AbortController()
 
     listarInscripciones(
-      { buscar, cicloLectivo, estado, tipo, pagina, tamanioPagina },
+      { buscar, cicloLectivo, estado, tipo, ordenarPor, direccion, pagina, tamanioPagina },
       controller.signal,
     )
       .then((datos) => {
@@ -59,7 +62,17 @@ export function useInscripciones(filtros: FiltrosInscripciones) {
       })
 
     return () => controller.abort()
-  }, [buscar, cicloLectivo, claveSolicitud, estado, pagina, tamanioPagina, tipo])
+  }, [
+    buscar,
+    cicloLectivo,
+    claveSolicitud,
+    direccion,
+    estado,
+    ordenarPor,
+    pagina,
+    tamanioPagina,
+    tipo,
+  ])
 
   const solicitudVigente = resultado.clave === claveSolicitud
 
