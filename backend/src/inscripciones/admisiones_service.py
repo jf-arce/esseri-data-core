@@ -1,7 +1,7 @@
 """Pipeline de solicitudes de admisión y su documentación."""
 
 import uuid
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -168,6 +168,7 @@ def crear_solicitud_inscripcion(
         EtapaSolicitud(
             etapa=ETAPAS_ADMISION[0],
             estado="en_proceso",
+            fecha=datetime.now(),
             observaciones=datos.observaciones,
             solicitud_inscripcion_id=solicitud.id,
             usuario_id=usuario_id,
@@ -299,6 +300,7 @@ def revertir_ultima_etapa_solicitud(
         EtapaSolicitud(
             etapa=etapa_anterior,
             estado="en_proceso",
+            fecha=datetime.now(),
             observaciones=f"Etapa reabierta. Motivo: {motivo}",
             solicitud_inscripcion_id=solicitud.id,
             usuario_id=usuario_id,
@@ -361,6 +363,7 @@ def revocar_aprobacion_solicitud(
         EtapaSolicitud(
             etapa="evaluacion_aprobacion",
             estado="en_proceso",
+            fecha=datetime.now(),
             observaciones=f"Aprobación revocada. Motivo: {motivo}",
             solicitud_inscripcion_id=solicitud.id,
             usuario_id=usuario_id,
@@ -405,6 +408,7 @@ def avanzar_solicitud_inscripcion(
         EtapaSolicitud(
             etapa=siguiente_etapa,
             estado="en_proceso",
+            fecha=datetime.now(),
             observaciones=observaciones,
             solicitud_inscripcion_id=solicitud.id,
             usuario_id=usuario_id,
@@ -454,6 +458,7 @@ def confirmar_inscripcion_solicitud(
         EtapaSolicitud(
             etapa="inscripcion_confirmada",
             estado="completada",
+            fecha=datetime.now(),
             observaciones="Inscripción confirmada con documentación validada.",
             solicitud_inscripcion_id=solicitud.id,
             usuario_id=usuario_id,
@@ -494,6 +499,7 @@ def aprobar_solicitud_inscripcion(
         EtapaSolicitud(
             etapa="reserva_matricula",
             estado="en_proceso",
+            fecha=datetime.now(),
             observaciones=observaciones,
             solicitud_inscripcion_id=solicitud.id,
             usuario_id=usuario_id,
