@@ -352,6 +352,7 @@ En el alcance actual, una solicitud aprobada en `documentacion_contrato` pasa a 
 | tipo | string |  | presente / tardanza / ausente_pendiente / ausente_justificado / ausente_injustificado — ver flujo completo arriba |
 | updated_at | datetime |  | Fecha y hora de la última modificación del registro. |
 | inscripcion_id | uuid | FK |  |
+| responsable_economico_id | uuid | FK | Responsable vigente en `fecha_emision`; se cristaliza para que la factura no cambie si luego cambia el responsable |
 
 ---
 

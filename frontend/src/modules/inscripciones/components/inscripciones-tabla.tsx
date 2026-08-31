@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react'
 import { ArrowRightLeftIcon, MoreHorizontalIcon, UserRoundMinusIcon } from 'lucide-react'
+import { paginasVisibles } from '@/lib/paginacion'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -35,7 +36,6 @@ import {
   etiquetaEstadoInscripcion,
   etiquetaTipoInscripcion,
   formatearFechaInscripcion,
-  paginasVisibles,
 } from '@/modules/inscripciones/utils'
 
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [

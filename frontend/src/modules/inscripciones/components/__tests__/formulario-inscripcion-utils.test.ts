@@ -6,7 +6,6 @@ import {
   etiquetaTipoInscripcion,
   formatearFechaInscripcion,
   formularioInscripcionSchema,
-  paginasVisibles,
   type FormularioInscripcionValues,
 } from '@/modules/inscripciones/utils'
 import type {
@@ -101,11 +100,5 @@ describe('utilidades del listado de inscripciones', () => {
     expect(formatearFechaInscripcion('2026-08-28')).toBe('28/08/2026')
     expect(etiquetaTipoInscripcion('cambio_matricula')).toBe('Cambio de matrícula')
     expect(etiquetaEstadoInscripcion('finalizada')).toBe('Finalizada')
-  })
-
-  it('acota la cantidad de páginas visibles', () => {
-    expect(paginasVisibles(3, 2)).toEqual([1, 2, 3])
-    expect(paginasVisibles(10, 5)).toEqual([1, 'elipsis', 4, 5, 6, 'elipsis', 10])
-    expect(paginasVisibles(10, 10)).toEqual([1, 'elipsis', 7, 8, 9, 10])
   })
 })
