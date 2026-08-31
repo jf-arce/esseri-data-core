@@ -5,10 +5,12 @@ import uuid
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from src.academico.models import Anio, Division, Materia, NivelEducativo
+from src.academico.models import Anio, AsignacionDocente, Division, Docente, Materia, NivelEducativo
 from src.academico.service import (
     obtener_anio_por_id,
+    obtener_asignacion_docente_por_id,
     obtener_division_por_id,
+    obtener_docente_por_id,
     obtener_materia_por_id,
     obtener_nivel_educativo_por_id,
 )
@@ -69,3 +71,31 @@ def obtener_materia_o_404(
             detail=f"Materia con ID {materia_id} no encontrada",
         )
     return materia
+
+
+def obtener_docente_o_404(
+    docente_id: uuid.UUID,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Docente:
+    """Dependencia para obtener un docente por ID o retornar 404."""
+    docente = obtener_docente_por_id(db, docente_id)
+    if docente is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Docente con ID {docente_id} no encontrado",
+        )
+    return docente
+
+
+def obtener_asignacion_docente_o_404(
+    asignacion_id: uuid.UUID,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> AsignacionDocente:
+    """Dependencia para obtener una asignación docente por ID o retornar 404."""
+    asignacion = obtener_asignacion_docente_por_id(db, asignacion_id)
+    if asignacion is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Asignación docente con ID {asignacion_id} no encontrada",
+        )
+    return asignacion

@@ -8,28 +8,45 @@ from sqlalchemy.orm import Session
 
 from src.academico.dependencies import (
     obtener_anio_o_404,
+    obtener_asignacion_docente_o_404,
     obtener_division_o_404,
+    obtener_docente_o_404,
     obtener_materia_o_404,
     obtener_nivel_educativo_o_404,
 )
 from src.academico.exceptions import (
     AnioConDivisiones,
     AnioDuplicado,
+    AsignacionDocenteDuplicada,
     DivisionConAsignaciones,
     DivisionDuplicada,
+    DocenteConAsignaciones,
+    LegajoDuplicado,
     MateriaConAsignaciones,
     MateriaDuplicada,
     NivelEducativoConAnios,
     NombreNivelDuplicado,
 )
-from src.academico.models import Anio, Division, Materia, NivelEducativo
+from src.academico.models import (
+    Anio,
+    AsignacionDocente,
+    Division,
+    Docente,
+    Materia,
+    NivelEducativo,
+)
 from src.academico.schemas import (
     AnioCreate,
     AnioResponse,
     AnioUpdate,
+    AsignacionDocenteCreate,
+    AsignacionDocenteResponse,
     DivisionCreate,
     DivisionResponse,
     DivisionUpdate,
+    DocenteCreate,
+    DocenteResponse,
+    DocenteUpdate,
     MateriaCreate,
     MateriaResponse,
     MateriaUpdate,
@@ -40,20 +57,27 @@ from src.academico.schemas import (
 from src.academico.service import (
     actualizar_anio,
     actualizar_division,
+    actualizar_docente,
     actualizar_materia,
     actualizar_nivel_educativo,
     crear_anio,
+    crear_asignacion_docente,
     crear_division,
+    crear_docente,
     crear_materia,
     crear_nivel_educativo,
     eliminar_anio,
+    eliminar_asignacion_docente,
     eliminar_division,
+    eliminar_docente,
     eliminar_materia,
     eliminar_nivel_educativo,
     listar_anios,
     listar_anios_por_nivel,
+    listar_asignaciones_docentes,
     listar_divisiones,
     listar_divisiones_por_anio,
+    listar_docentes,
     listar_materias,
     listar_materias_por_anio,
     listar_materias_por_division,
@@ -330,3 +354,121 @@ def eliminar_materia_endpoint(
         eliminar_materia(db, materia, usuario.id)
     except MateriaConAsignaciones as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+
+
+# --- Docente -----------------------------------------------------------------------------
+
+
+@router.post("/docentes", response_model=DocenteResponse, status_code=201)
+def crear_docente_endpoint(
+    datos: DocenteCreate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_CREAR))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Docente:
+    """Crear un nuevo docente."""
+    try:
+        return crear_docente(db, datos, usuario.id)
+    except LegajoDuplicado as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+
+
+@router.get("/docentes", response_model=list[DocenteResponse])
+def listar_docentes_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[Docente]:
+    """Listar todos los docentes."""
+    return listar_docentes(db)
+
+
+@router.get("/docentes/{docente_id}", response_model=DocenteResponse)
+def obtener_docente_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    docente: Docente = Depends(obtener_docente_o_404),  # noqa: B008
+) -> Docente:
+    """Obtener un docente por su ID."""
+    return docente
+
+
+@router.put("/docentes/{docente_id}", response_model=DocenteResponse)
+def actualizar_docente_endpoint(
+    datos: DocenteUpdate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR))],
+    docente: Docente = Depends(obtener_docente_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Docente:
+    """Actualizar un docente existente."""
+    try:
+        return actualizar_docente(db, docente, datos, usuario.id)
+    except LegajoDuplicado as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+
+
+@router.delete("/docentes/{docente_id}", status_code=204)
+def eliminar_docente_endpoint(
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ELIMINAR))],
+    docente: Docente = Depends(obtener_docente_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> None:
+    """Eliminar un docente."""
+    try:
+        eliminar_docente(db, docente, usuario.id)
+    except DocenteConAsignaciones as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+
+
+# --- AsignacionDocente -------------------------------------------------------------------
+
+
+@router.post("/asignaciones-docentes", response_model=AsignacionDocenteResponse, status_code=201)
+def crear_asignacion_docente_endpoint(
+    datos: AsignacionDocenteCreate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_CREAR))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> AsignacionDocente:
+    """Asignar un docente a materia+división por ciclo lectivo."""
+    try:
+        return crear_asignacion_docente(db, datos, usuario.id)
+    except AsignacionDocenteDuplicada as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+
+
+@router.get("/asignaciones-docentes", response_model=list[AsignacionDocenteResponse])
+def listar_asignaciones_docentes_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    ciclo_lectivo: str | None = None,
+    docente_id: uuid.UUID | None = None,
+    materia_id: uuid.UUID | None = None,
+    division_id: uuid.UUID | None = None,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[AsignacionDocente]:
+    """Listar asignaciones docentes con filtros opcionales."""
+    return listar_asignaciones_docentes(
+        db,
+        ciclo_lectivo=ciclo_lectivo,
+        docente_id=docente_id,
+        materia_id=materia_id,
+        division_id=division_id,
+    )
+
+
+@router.get(
+    "/asignaciones-docentes/{asignacion_id}",
+    response_model=AsignacionDocenteResponse,
+)
+def obtener_asignacion_docente_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    asignacion: AsignacionDocente = Depends(obtener_asignacion_docente_o_404),  # noqa: B008
+) -> AsignacionDocente:
+    """Obtener una asignación docente por su ID."""
+    return asignacion
+
+
+@router.delete("/asignaciones-docentes/{asignacion_id}", status_code=204)
+def eliminar_asignacion_docente_endpoint(
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ELIMINAR))],
+    asignacion: AsignacionDocente = Depends(obtener_asignacion_docente_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> None:
+    """Desasignar un docente (eliminar la asignación docente)."""
+    eliminar_asignacion_docente(db, asignacion, usuario.id)
