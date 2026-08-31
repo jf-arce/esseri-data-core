@@ -26,6 +26,8 @@ from src.familias_alumnos.exceptions import (
 )
 from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
 from src.familias_alumnos.schemas import (
+    AltaAlumnoCreate,
+    AltaAlumnoResponse,
     AltaFamiliaCreate,
     AltaFamiliaResponse,
     AlumnoCreate,
@@ -42,6 +44,7 @@ from src.familias_alumnos.service import (
     actualizar_alumno,
     actualizar_familia,
     actualizar_vinculo,
+    crear_alta_alumno,
     crear_alta_familia,
     crear_alumno,
     crear_familia,
@@ -133,6 +136,28 @@ def eliminar_familia_endpoint(
 
 
 # --- ABM de Alumno (RF-03) ---------------------------------------------------------------
+
+
+@router.post(
+    "/alumnos/alta-completa",
+    response_model=AltaAlumnoResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def crear_alta_alumno_endpoint(
+    datos: AltaAlumnoCreate,
+    usuario: Annotated[
+        Usuario,
+        Depends(requiere_permiso(PERMISO_FAMILIAS_ALUMNOS_CREAR)),
+    ],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> dict:
+    """Crear Persona y Alumno en una única transacción."""
+    try:
+        persona, alumno = crear_alta_alumno(db, datos, usuario.id)
+    except LegajoDuplicado as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+    return {"persona": persona, "alumno": alumno}
 
 
 @router.post("/alumnos", response_model=AlumnoResponse, status_code=201)

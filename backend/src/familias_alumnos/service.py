@@ -15,6 +15,7 @@ from src.familias_alumnos.exceptions import (
 )
 from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
 from src.familias_alumnos.schemas import (
+    AltaAlumnoCreate,
     AltaFamiliaCreate,
     AlumnoCreate,
     AlumnoUpdate,
@@ -212,6 +213,36 @@ def eliminar_familia(db: Session, familia: Familia, usuario_id: uuid.UUID | None
 
 
 # --- ABM de Alumno (RF-03) ---------------------------------------------------------------
+
+
+def crear_alta_alumno(
+    db: Session, datos: AltaAlumnoCreate, usuario_id: uuid.UUID
+) -> tuple[Persona, Alumno]:
+    """Crea Persona y Alumno en una única transacción."""
+    if db.scalar(select(Alumno.id).where(Alumno.numero_legajo == datos.numero_legajo)) is not None:
+        raise LegajoDuplicado()
+
+    persona = Persona(
+        nombre=datos.persona.nombre.strip(),
+        apellido=datos.persona.apellido.strip(),
+        dni=datos.persona.dni.strip(),
+        telefono=datos.persona.telefono,
+        sexo=datos.persona.sexo,
+    )
+    db.add(persona)
+    db.flush()
+
+    alumno = Alumno(
+        numero_legajo=datos.numero_legajo,
+        estado=datos.estado,
+        persona_id=persona.id,
+    )
+    db.add(alumno)
+    db.flush()
+    db.commit()
+    db.refresh(persona)
+    db.refresh(alumno)
+    return persona, alumno
 
 
 def crear_alumno(

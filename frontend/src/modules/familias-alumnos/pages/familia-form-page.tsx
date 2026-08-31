@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 import { FamiliaForm } from '../components/familia-form'
 import { createAltaFamilia, getFamiliaById, updateFamilia } from '../services/create-familia'
+import { crearVinculo } from '../services/crear-vinculo'
 import type { FamiliaFormData, Familia } from '../types'
 
 export function FamiliaFormPage() {
@@ -30,12 +32,18 @@ export function FamiliaFormPage() {
 
   const handleSubmit = async (data: FamiliaFormData): Promise<string | undefined> => {
     setIsSubmitting(true)
+    console.log('[familia-form-page] handleSubmit data:', {
+      ...data,
+      vinculos: data.vinculos.length,
+    })
     try {
+      let familiaCreadaId: string | undefined
       if (familiaId) {
         if (!familia) return 'No se pudo cargar la familia para editarla'
         await updateFamilia(familiaId, { persona_id: familia.persona_id })
+        familiaCreadaId = familiaId
       } else {
-        await createAltaFamilia({
+        const respuesta = await createAltaFamilia({
           persona: {
             nombre: data.nombre,
             apellido: data.apellido,
@@ -45,11 +53,66 @@ export function FamiliaFormPage() {
           },
           usuario: { email: data.email, password: data.password ?? '' },
         })
+        familiaCreadaId = respuesta.familia.id
+        console.log('[familia-form-page] Familia creada:', familiaCreadaId)
       }
-      navigate('/familias-alumnos')
+
+      if (familiaCreadaId && data.vinculos.length > 0) {
+        console.log(
+          '[familia-form-page] Creando',
+          data.vinculos.length,
+          'vinculos para familia',
+          familiaCreadaId,
+        )
+        console.log('[familia-form-page] Vinculos:', JSON.stringify(data.vinculos, null, 2))
+        try {
+          for (const vinculo of data.vinculos) {
+            console.log(
+              '[familia-form-page] Creando vinculo:',
+              vinculo.alumno_id,
+              '->',
+              familiaCreadaId,
+            )
+            const resultado = await crearVinculo({
+              alumno_id: vinculo.alumno_id,
+              familia_id: familiaCreadaId,
+              parentesco: vinculo.parentesco || null,
+              responsable_principal: vinculo.responsable_principal,
+              recibe_comunicaciones: vinculo.recibe_comunicaciones,
+            })
+            console.log('[familia-form-page] Vinculo creado OK:', resultado)
+          }
+          console.log('[familia-form-page] Todos los vinculos creados OK')
+        } catch (vinculoError) {
+          console.error('[familia-form-page] Error al vincular:', vinculoError)
+          const msg =
+            vinculoError instanceof ApiError
+              ? vinculoError.detail
+              : 'No se pudieron vincular los alumnos.'
+          toast.warning(
+            `La familia se creó correctamente, pero hubo un error al vincular alumnos: ${msg ?? 'error desconocido'}`,
+          )
+          navigate(`/familias-alumnos/familias/${familiaCreadaId}`)
+          return undefined
+        }
+      } else {
+        console.log(
+          '[familia-form-page] No hay vinculos para crear. vinculos.length =',
+          data.vinculos.length,
+        )
+      }
+
+      toast.success(
+        familiaId ? 'Familia actualizada correctamente.' : 'Familia creada correctamente.',
+      )
+      navigate(
+        familiaCreadaId ? `/familias-alumnos/familias/${familiaCreadaId}` : '/familias-alumnos',
+      )
       return undefined
     } catch (error) {
-      return error instanceof ApiError ? error.message : 'No se pudo guardar la familia'
+      const msg = error instanceof ApiError ? error.message : 'No se pudo guardar la familia'
+      toast.error(msg)
+      return msg
     } finally {
       setIsSubmitting(false)
     }
