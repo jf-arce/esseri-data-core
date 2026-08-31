@@ -52,7 +52,11 @@ export function LoginPage() {
       setUsuario(usuario)
       navigate('/', { replace: true })
     } catch (err) {
-      setError(err instanceof ApiError ? err.detail : 'No pudimos iniciar sesión. Probá de nuevo.')
+      setError(
+        err instanceof ApiError
+          ? (err.detail ?? err.message)
+          : 'No pudimos iniciar sesión. Probá de nuevo.',
+      )
     } finally {
       setEnviando(false)
     }

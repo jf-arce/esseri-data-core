@@ -5,6 +5,7 @@ import {
   ReceiptText,
   ShieldCheck,
   Truck,
+  UsersRound,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -25,6 +26,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Gestión',
     items: [
+      { label: 'Familias y alumnos', href: '/familias-alumnos/nueva-familia', icon: UsersRound },
       { label: 'Inscripciones', href: '/inscripciones', icon: ClipboardCheck },
       { label: 'Proveedores', href: '/proveedores', icon: Truck },
       { label: 'Solicitudes de compra', href: '/solicitudes-compra', icon: ClipboardList },
