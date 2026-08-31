@@ -131,3 +131,110 @@ class FacturaListadoRead(BaseModel):
     total: int
     pagina: int
     tamanio: int
+
+
+PeriodicidadReglaFacturacion = Literal["mensual", "anual"]
+CriterioAplicacionReglaFacturacion = Literal["todas_inscripciones", "nivel", "anio", "division"]
+EstadoReglaFacturacion = Literal["borrador", "activa", "pausada", "finalizada"]
+
+
+class ReglaFacturacionBase(BaseModel):
+    nombre: str = Field(min_length=1, max_length=150)
+    descripcion: str | None = Field(default=None, max_length=500)
+    ciclo_lectivo: str = Field(pattern=r"^[1-9]\d{3}$")
+    concepto_cobro_id: uuid.UUID
+    importe: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    periodicidad: PeriodicidadReglaFacturacion
+    vigencia_desde: date
+    vigencia_hasta: date
+    mes_aplicacion: int | None = Field(default=None, ge=1, le=12)
+    dia_vencimiento: int = Field(ge=1, le=31)
+    criterio_aplicacion: CriterioAplicacionReglaFacturacion
+    nivel_educativo_id: uuid.UUID | None = None
+    anio_id: uuid.UUID | None = None
+    division_id: uuid.UUID | None = None
+
+    @field_validator("nombre", "descripcion", mode="before")
+    @classmethod
+    def normalizar_texto(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def validar_regla(self) -> "ReglaFacturacionBase":
+        if self.vigencia_hasta < self.vigencia_desde:
+            raise ValueError("La vigencia hasta no puede ser anterior a la vigencia desde.")
+        ciclo = int(self.ciclo_lectivo)
+        if self.vigencia_desde.year != ciclo or self.vigencia_hasta.year != ciclo:
+            raise ValueError("La vigencia debe pertenecer al ciclo lectivo indicado.")
+        if self.periodicidad == "anual" and self.mes_aplicacion is None:
+            raise ValueError("Una regla anual requiere mes de aplicación.")
+        if self.periodicidad == "mensual" and self.mes_aplicacion is not None:
+            raise ValueError("Una regla mensual no debe indicar un mes de aplicación.")
+
+        destinos = {
+            "nivel": self.nivel_educativo_id,
+            "anio": self.anio_id,
+            "division": self.division_id,
+        }
+        if self.criterio_aplicacion == "todas_inscripciones":
+            if any(destinos.values()):
+                raise ValueError("El criterio todas_inscripciones no admite un destino específico.")
+        elif destinos[self.criterio_aplicacion] is None:
+            raise ValueError("El criterio de aplicación requiere seleccionar su destino.")
+        elif any(
+            valor is not None
+            for clave, valor in destinos.items()
+            if clave != self.criterio_aplicacion
+        ):
+            raise ValueError("Solo puede indicarse el destino correspondiente al criterio elegido.")
+        return self
+
+
+class ReglaFacturacionCreate(ReglaFacturacionBase):
+    estado: EstadoReglaFacturacion = "borrador"
+
+
+class ReglaFacturacionUpdate(ReglaFacturacionBase):
+    pass
+
+
+class ReglaFacturacionEstadoUpdate(BaseModel):
+    estado: EstadoReglaFacturacion
+
+
+class ReglaFacturacionRead(ReglaFacturacionBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    estado: EstadoReglaFacturacion
+    created_at: datetime
+    updated_at: datetime
+
+
+class GeneracionFacturacionRequest(BaseModel):
+    periodo: date
+
+    @field_validator("periodo")
+    @classmethod
+    def validar_inicio_periodo(cls, value: date) -> date:
+        if value.day != 1:
+            raise ValueError("El período debe indicarse con el primer día del mes.")
+        return value
+
+
+class GeneracionFacturacionResumenRead(BaseModel):
+    periodo: date
+    reglas_aplicables: int
+    alumnos_alcanzados: int
+    cargos_aptos: int
+    cargos_omitidos: int
+    cargos_bloqueados: int
+    monto_estimado: Decimal
+
+
+class EjecucionFacturacionRead(GeneracionFacturacionResumenRead):
+    id: uuid.UUID
+    fecha_ejecucion: datetime
+    facturas_generadas: int
+    cargos_generados: int
+    monto_total: Decimal

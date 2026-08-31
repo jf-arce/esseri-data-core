@@ -111,3 +111,29 @@ class MontoFacturaInvalido(AppException):
 
     def __init__(self, message: str = "El total de la factura supera el máximo permitido."):
         super().__init__(message)
+
+
+class ReglaFacturacionNoEncontrada(AppException):
+    status_code = 404
+
+    def __init__(self, message: str = "La regla de facturación indicada no existe."):
+        super().__init__(message)
+
+
+class ReglaFacturacionIncompatible(AppException):
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = (
+            "Ya existe una regla activa incompatible para ese concepto, población y vigencia."
+        ),
+    ):
+        super().__init__(message)
+
+
+class ReglaFacturacionInvalida(AppException):
+    status_code = 422
+
+    def __init__(self, message: str = "La configuración de la regla de facturación no es válida."):
+        super().__init__(message)

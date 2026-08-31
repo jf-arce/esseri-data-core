@@ -17,6 +17,7 @@ from src.facturacion.models import (
     ConceptoCobro,
     DetalleFactura,
     Movimiento,
+    ReglaFacturacion,
     ReglaPenalidad,
     ResponsableEconomico,
 )
@@ -79,6 +80,7 @@ def eliminar_concepto_cobro(db: Session, concepto: ConceptoCobro) -> None:
     referencias = (
         (DetalleFactura, DetalleFactura.concepto_cobro_id),
         (Movimiento, Movimiento.concepto_cobro_id),
+        (ReglaFacturacion, ReglaFacturacion.concepto_cobro_id),
         (ReglaPenalidad, ReglaPenalidad.concepto_cobro_id),
     )
     if any(

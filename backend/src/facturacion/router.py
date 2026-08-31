@@ -13,18 +13,25 @@ from src.auth.constants import (
 from src.auth.dependencies import requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
-from src.facturacion import facturas_service, service
+from src.facturacion import facturas_service, reglas_facturacion_service, service
 from src.facturacion.dependencies import obtener_concepto_cobro_o_404, obtener_factura_o_404
 from src.facturacion.models import ConceptoCobro, Factura
 from src.facturacion.schemas import (
     ConceptoCobroCreate,
     ConceptoCobroRead,
     ConceptoCobroUpdate,
+    EjecucionFacturacionRead,
     FacturaCreate,
     FacturaEstado,
     FacturaListadoRead,
     FacturaRead,
     FacturaUpdate,
+    GeneracionFacturacionRequest,
+    GeneracionFacturacionResumenRead,
+    ReglaFacturacionCreate,
+    ReglaFacturacionEstadoUpdate,
+    ReglaFacturacionRead,
+    ReglaFacturacionUpdate,
     ResponsableEconomicoCreate,
     ResponsableEconomicoRead,
 )
@@ -155,3 +162,67 @@ def actualizar_factura(
 @router.delete("/facturas/{factura_id}", status_code=204)
 def eliminar_factura(db: DbSession, _: PuedeEliminar, factura: FacturaActual) -> None:
     facturas_service.eliminar_factura(db, factura)
+
+
+@router.post("/reglas", status_code=201)
+def crear_regla_facturacion(
+    datos: ReglaFacturacionCreate, db: DbSession, _: PuedeCrear
+) -> ReglaFacturacionRead:
+    return ReglaFacturacionRead.model_validate(
+        reglas_facturacion_service.crear_regla_facturacion(db, datos)
+    )
+
+
+@router.get("/reglas")
+def listar_reglas_facturacion(db: DbSession, _: PuedeLeer) -> list[ReglaFacturacionRead]:
+    return [
+        ReglaFacturacionRead.model_validate(regla)
+        for regla in reglas_facturacion_service.listar_reglas_facturacion(db)
+    ]
+
+
+@router.post("/reglas/generaciones/previsualizar")
+def previsualizar_generacion_facturacion(
+    datos: GeneracionFacturacionRequest, db: DbSession, _: PuedeLeer
+) -> GeneracionFacturacionResumenRead:
+    plan = reglas_facturacion_service.planificar_generacion_facturacion(db, datos.periodo)
+    return reglas_facturacion_service.resumen_plan_generacion(plan)
+
+
+@router.post("/reglas/generaciones", status_code=201)
+def generar_facturacion(
+    datos: GeneracionFacturacionRequest, db: DbSession, usuario: PuedeCrear
+) -> EjecucionFacturacionRead:
+    return reglas_facturacion_service.generar_facturacion(db, datos.periodo, usuario.id)
+
+
+@router.get("/reglas/{regla_id}")
+def obtener_regla_facturacion(
+    regla_id: uuid.UUID, db: DbSession, _: PuedeLeer
+) -> ReglaFacturacionRead:
+    return ReglaFacturacionRead.model_validate(
+        reglas_facturacion_service.obtener_regla_o_error(db, regla_id)
+    )
+
+
+@router.put("/reglas/{regla_id}")
+def actualizar_regla_facturacion(
+    regla_id: uuid.UUID, datos: ReglaFacturacionUpdate, db: DbSession, _: PuedeActualizar
+) -> ReglaFacturacionRead:
+    regla = reglas_facturacion_service.obtener_regla_o_error(db, regla_id)
+    return ReglaFacturacionRead.model_validate(
+        reglas_facturacion_service.actualizar_regla_facturacion(db, regla, datos)
+    )
+
+
+@router.patch("/reglas/{regla_id}/estado")
+def actualizar_estado_regla_facturacion(
+    regla_id: uuid.UUID,
+    datos: ReglaFacturacionEstadoUpdate,
+    db: DbSession,
+    _: PuedeActualizar,
+) -> ReglaFacturacionRead:
+    regla = reglas_facturacion_service.obtener_regla_o_error(db, regla_id)
+    return ReglaFacturacionRead.model_validate(
+        reglas_facturacion_service.actualizar_estado_regla_facturacion(db, regla, datos)
+    )
