@@ -73,22 +73,31 @@ def _calcular_total(detalles: list[DetalleFacturaCreate]) -> Decimal:
     return total
 
 
-def crear_factura(db: Session, datos: FacturaCreate) -> Factura:
+def construir_factura(
+    db: Session, datos: FacturaCreate, responsable: ResponsableEconomico | None = None
+) -> Factura:
+    """Valida y construye una factura sin persistirla; reutilizable en generación masiva."""
     inscripcion = db.get(Inscripcion, datos.inscripcion_id)
     if inscripcion is None or inscripcion.estado != "activa":
         raise InscripcionNoFacturable()
 
     _validar_conceptos_activos(db, datos.detalles)
-    responsable = _obtener_responsable_en_fecha(db, inscripcion.alumno_id, datos.fecha_emision)
-    factura = Factura(
+    responsable_vigente = responsable or _obtener_responsable_en_fecha(
+        db, inscripcion.alumno_id, datos.fecha_emision
+    )
+    return Factura(
         fecha_emision=datos.fecha_emision,
         fecha_vencimiento=datos.fecha_vencimiento,
         monto_total=_calcular_total(datos.detalles),
         estado="pendiente",
         inscripcion_id=inscripcion.id,
-        responsable_economico_id=responsable.id,
+        responsable_economico_id=responsable_vigente.id,
         detalles=_armar_detalles(datos.detalles),
     )
+
+
+def crear_factura(db: Session, datos: FacturaCreate) -> Factura:
+    factura = construir_factura(db, datos)
     db.add(factura)
     db.commit()
     creada = obtener_factura(db, factura.id)
