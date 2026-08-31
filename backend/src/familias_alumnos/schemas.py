@@ -6,7 +6,7 @@ Forma de los datos que entran y salen por la API del módulo.
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class FamiliaBase(BaseModel):
@@ -51,3 +51,42 @@ class FamiliaResponse(FamiliaBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PersonaFamiliaCreate(BaseModel):
+    nombre: str = Field(..., min_length=1)
+    apellido: str = Field(..., min_length=1)
+    dni: str = Field(..., min_length=1)
+    telefono: str | None = None
+    sexo: str | None = None
+
+
+class PersonaResponse(BaseModel):
+    id: uuid.UUID
+    nombre: str
+    apellido: str
+    dni: str
+    telefono: str | None
+    sexo: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UsuarioFamiliaCreate(BaseModel):
+    email: str = Field(..., min_length=1)
+    password: str = Field(..., min_length=12)
+
+    @field_validator("email")
+    @classmethod
+    def normalizar_email(cls, value: str) -> str:
+        return value.strip().lower()
+
+
+class AltaFamiliaCreate(BaseModel):
+    persona: PersonaFamiliaCreate
+    usuario: UsuarioFamiliaCreate
+
+
+class AltaFamiliaResponse(BaseModel):
+    persona: PersonaResponse
+    familia: FamiliaResponse
