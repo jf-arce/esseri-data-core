@@ -8,19 +8,32 @@ from sqlalchemy.orm import Session
 from src.academico.exceptions import (
     AnioConDivisiones,
     AnioDuplicado,
+    AsignacionDocenteDuplicada,
     DivisionConAsignaciones,
     DivisionDuplicada,
+    DocenteConAsignaciones,
+    LegajoDuplicado,
     MateriaConAsignaciones,
     MateriaDuplicada,
     NivelEducativoConAnios,
     NombreNivelDuplicado,
 )
-from src.academico.models import Anio, AsignacionDocente, Division, Materia, NivelEducativo
+from src.academico.models import (
+    Anio,
+    AsignacionDocente,
+    Division,
+    Docente,
+    Materia,
+    NivelEducativo,
+)
 from src.academico.schemas import (
     AnioCreate,
     AnioUpdate,
+    AsignacionDocenteCreate,
     DivisionCreate,
     DivisionUpdate,
+    DocenteCreate,
+    DocenteUpdate,
     MateriaCreate,
     MateriaUpdate,
     NivelEducativoCreate,
@@ -377,4 +390,145 @@ def eliminar_materia(db: Session, materia: Materia, usuario_id: uuid.UUID | None
         raise MateriaConAsignaciones()
 
     db.delete(materia)
+    db.commit()
+
+
+# --- Docente -----------------------------------------------------------------------------
+
+
+def crear_docente(
+    db: Session, datos: DocenteCreate, usuario_id: uuid.UUID | None = None
+) -> Docente:
+    """Crear un nuevo docente. Valida legajo único."""
+    if db.scalar(select(Docente.id).where(Docente.legajo == datos.legajo.strip())) is not None:
+        raise LegajoDuplicado()
+
+    nuevo = Docente(legajo=datos.legajo.strip(), persona_id=datos.persona_id)
+    db.add(nuevo)
+    db.commit()
+    db.refresh(nuevo)
+    return nuevo
+
+
+def obtener_docente_por_id(db: Session, docente_id: uuid.UUID) -> Docente | None:
+    """Obtener un docente por su ID."""
+    return db.query(Docente).filter(Docente.id == docente_id).first()
+
+
+def listar_docentes(db: Session) -> list[Docente]:
+    """Listar todos los docentes ordenados por legajo."""
+    return db.query(Docente).order_by(Docente.legajo).all()
+
+
+def actualizar_docente(
+    db: Session,
+    docente: Docente,
+    datos: DocenteUpdate,
+    usuario_id: uuid.UUID | None = None,
+) -> Docente:
+    """Actualizar un docente existente."""
+    update_data = datos.model_dump(exclude_unset=True)
+
+    if "legajo" in update_data and update_data["legajo"] != docente.legajo:
+        if (
+            db.scalar(
+                select(Docente.id).where(
+                    Docente.legajo == update_data["legajo"].strip(),
+                    Docente.id != docente.id,
+                )
+            )
+            is not None
+        ):
+            raise LegajoDuplicado()
+        update_data["legajo"] = update_data["legajo"].strip()
+
+    for field, value in update_data.items():
+        setattr(docente, field, value)
+
+    db.commit()
+    db.refresh(docente)
+    return docente
+
+
+def eliminar_docente(db: Session, docente: Docente, usuario_id: uuid.UUID | None = None) -> None:
+    """Eliminar un docente. Valida que no tenga asignaciones docentes."""
+    tiene_asignaciones = (
+        db.query(AsignacionDocente).filter(AsignacionDocente.docente_id == docente.id).first()
+        is not None
+    )
+    if tiene_asignaciones:
+        raise DocenteConAsignaciones()
+
+    db.delete(docente)
+    db.commit()
+
+
+# --- AsignacionDocente -------------------------------------------------------------------
+
+
+def crear_asignacion_docente(
+    db: Session, datos: AsignacionDocenteCreate, usuario_id: uuid.UUID | None = None
+) -> AsignacionDocente:
+    """Asignar un docente a materia+división por ciclo lectivo.
+
+    Valida que no exista ya una asignación para el mismo docente,
+    materia, división y ciclo lectivo.
+    """
+    if (
+        db.scalar(
+            select(AsignacionDocente.id).where(
+                AsignacionDocente.docente_id == datos.docente_id,
+                AsignacionDocente.materia_id == datos.materia_id,
+                AsignacionDocente.division_id == datos.division_id,
+                AsignacionDocente.ciclo_lectivo == datos.ciclo_lectivo.strip(),
+            )
+        )
+        is not None
+    ):
+        raise AsignacionDocenteDuplicada()
+
+    nuevo = AsignacionDocente(
+        ciclo_lectivo=datos.ciclo_lectivo.strip(),
+        docente_id=datos.docente_id,
+        materia_id=datos.materia_id,
+        division_id=datos.division_id,
+    )
+    db.add(nuevo)
+    db.commit()
+    db.refresh(nuevo)
+    return nuevo
+
+
+def obtener_asignacion_docente_por_id(
+    db: Session, asignacion_id: uuid.UUID
+) -> AsignacionDocente | None:
+    """Obtener una asignación docente por su ID."""
+    return db.query(AsignacionDocente).filter(AsignacionDocente.id == asignacion_id).first()
+
+
+def listar_asignaciones_docentes(
+    db: Session,
+    ciclo_lectivo: str | None = None,
+    docente_id: uuid.UUID | None = None,
+    materia_id: uuid.UUID | None = None,
+    division_id: uuid.UUID | None = None,
+) -> list[AsignacionDocente]:
+    """Listar asignaciones docentes con filtros opcionales."""
+    query = db.query(AsignacionDocente)
+    if ciclo_lectivo is not None:
+        query = query.filter(AsignacionDocente.ciclo_lectivo == ciclo_lectivo)
+    if docente_id is not None:
+        query = query.filter(AsignacionDocente.docente_id == docente_id)
+    if materia_id is not None:
+        query = query.filter(AsignacionDocente.materia_id == materia_id)
+    if division_id is not None:
+        query = query.filter(AsignacionDocente.division_id == division_id)
+    return query.order_by(AsignacionDocente.ciclo_lectivo).all()
+
+
+def eliminar_asignacion_docente(
+    db: Session, asignacion: AsignacionDocente, usuario_id: uuid.UUID | None = None
+) -> None:
+    """Desasignar un docente (eliminar la asignación docente)."""
+    db.delete(asignacion)
     db.commit()

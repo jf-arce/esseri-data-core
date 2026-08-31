@@ -95,6 +95,61 @@ class DivisionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# --- Docente -----------------------------------------------------------------------------
+
+
+class DocenteCreate(BaseModel):
+    """Schema para crear un nuevo Docente."""
+
+    legajo: str = Field(..., min_length=1, description="Legajo del docente")
+    persona_id: uuid.UUID = Field(..., description="ID de la persona asociada")
+
+
+class DocenteUpdate(BaseModel):
+    """Schema para actualizar un Docente existente."""
+
+    legajo: str | None = Field(None, min_length=1, description="Legajo del docente")
+    persona_id: uuid.UUID | None = Field(None, description="ID de la persona asociada")
+
+
+class DocenteResponse(BaseModel):
+    """Schema para responder con datos de Docente."""
+
+    id: uuid.UUID
+    legajo: str
+    persona_id: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- AsignacionDocente -------------------------------------------------------------------
+
+
+class AsignacionDocenteCreate(BaseModel):
+    """Schema para asignar un docente a materia+división por ciclo lectivo."""
+
+    ciclo_lectivo: str = Field(..., min_length=1, description="Ciclo lectivo (ej: '2025')")
+    docente_id: uuid.UUID = Field(..., description="ID del docente")
+    materia_id: uuid.UUID = Field(..., description="ID de la materia")
+    division_id: uuid.UUID = Field(..., description="ID de la división")
+
+
+class AsignacionDocenteResponse(BaseModel):
+    """Schema para responder con datos de AsignacionDocente."""
+
+    id: uuid.UUID
+    ciclo_lectivo: str
+    docente_id: uuid.UUID
+    materia_id: uuid.UUID
+    division_id: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # --- Materia -----------------------------------------------------------------------------
 
 

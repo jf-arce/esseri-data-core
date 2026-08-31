@@ -89,3 +89,38 @@ class MateriaConAsignaciones(AppException):
         message: str = "No se puede eliminar: la materia tiene asignaciones docentes",
     ):
         super().__init__(message)
+
+
+class LegajoDuplicado(AppException):
+    """Ya existe un docente con ese legajo."""
+
+    status_code = 409
+
+    def __init__(self, message: str = "Ya existe un docente con ese legajo"):
+        super().__init__(message)
+
+
+class DocenteConAsignaciones(AppException):
+    """El docente tiene asignaciones docentes asociadas."""
+
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = "No se puede eliminar: el docente tiene asignaciones docentes",
+    ):
+        super().__init__(message)
+
+
+class AsignacionDocenteDuplicada(AppException):
+    """Ya existe una asignación para ese docente, materia, división y ciclo lectivo."""
+
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = (
+            "Ya existe una asignación para ese docente, materia, división y ciclo lectivo"
+        ),
+    ):
+        super().__init__(message)
