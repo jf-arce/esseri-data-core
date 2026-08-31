@@ -36,6 +36,7 @@ describe('FamiliaForm', () => {
     fireEvent.change(screen.getByLabelText('Contraseña provisoria'), {
       target: { value: 'una-contrasena-larga' },
     })
+    fireEvent.click(screen.getByText('Continuar a vincular alumnos'))
     fireEvent.click(screen.getByText('Crear familia'))
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({ nombre: 'Ana', email: 'familia@example.com' }),
