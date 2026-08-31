@@ -4,6 +4,7 @@ import logging
 import uuid
 from datetime import date
 
+from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -38,6 +39,7 @@ from src.academico.schemas import (
     AsistenciaBulkCreate,
     AsistenciaBulkResponse,
     AsistenciaCreate,
+    AsistenciaResumen,
     AsistenciaUpdate,
     DivisionCreate,
     DivisionUpdate,
@@ -189,14 +191,24 @@ def listar_asistencias(
     db: Session,
     inscripcion_id: uuid.UUID | None = None,
     fecha: date | None = None,
+    fecha_desde: date | None = None,
+    fecha_hasta: date | None = None,
     division_id: uuid.UUID | None = None,
 ) -> list[Asistencia]:
-    """Listar registros de asistencia con filtros opcionales."""
+    """Listar registros de asistencia con filtros opcionales.
+
+    Si se pasa fecha_desde/fecha_hasta se filtra por rango (inclusive).
+    Si se pasa fecha exacta, filtra por ese día.
+    """
     query = db.query(Asistencia)
     if inscripcion_id is not None:
         query = query.filter(Asistencia.inscripcion_id == inscripcion_id)
     if fecha is not None:
         query = query.filter(Asistencia.fecha == fecha)
+    if fecha_desde is not None:
+        query = query.filter(Asistencia.fecha >= fecha_desde)
+    if fecha_hasta is not None:
+        query = query.filter(Asistencia.fecha <= fecha_hasta)
     if division_id is not None:
         query = query.join(Inscripcion).filter(Inscripcion.division_id == division_id)
     return query.order_by(Asistencia.fecha.desc()).all()
@@ -236,6 +248,72 @@ def eliminar_asistencia(
     """Eliminar un registro de asistencia."""
     db.delete(asistencia)
     db.commit()
+
+
+def calcular_resumen_asistencia(
+    db: Session,
+    inscripcion_id: uuid.UUID,
+    fecha_desde: date,
+    fecha_hasta: date,
+) -> AsistenciaResumen:
+    """Calcular resumen de asistencia de un alumno en un período (RF-06).
+
+    Devuelve conteos por tipo y porcentajes de presencia,
+    ausencias justificadas vs. injustificadas.
+    """
+    inscripcion = db.get(Inscripcion, inscripcion_id)
+    if inscripcion is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Inscripción con ID {inscripcion_id} no encontrada",
+        )
+
+    registros = (
+        db.query(Asistencia)
+        .filter(
+            Asistencia.inscripcion_id == inscripcion_id,
+            Asistencia.fecha >= fecha_desde,
+            Asistencia.fecha <= fecha_hasta,
+        )
+        .all()
+    )
+
+    total = len(registros)
+    presentes = sum(1 for r in registros if r.tipo == "presente")
+    tardanzas = sum(1 for r in registros if r.tipo == "tardanza")
+    ausentes_pendientes = sum(1 for r in registros if r.tipo == "ausente_pendiente")
+    ausentes_justificadas = sum(1 for r in registros if r.tipo == "ausente_justificado")
+    ausentes_injustificadas = sum(1 for r in registros if r.tipo == "ausente_injustificado")
+
+    total_ausentes = ausentes_pendientes + ausentes_justificadas + ausentes_injustificadas
+
+    if total > 0:
+        porcentaje_presencia = round((presentes + tardanzas) / total * 100, 2)
+    else:
+        porcentaje_presencia = 0.0
+
+    if total_ausentes > 0:
+        porcentaje_justificadas = round(ausentes_justificadas / total_ausentes * 100, 2)
+        porcentaje_injustificadas = round(ausentes_injustificadas / total_ausentes * 100, 2)
+    else:
+        porcentaje_justificadas = 0.0
+        porcentaje_injustificadas = 0.0
+
+    return AsistenciaResumen(
+        inscripcion_id=inscripcion_id,
+        alumno_id=inscripcion.alumno_id,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        total_registros=total,
+        presentes=presentes,
+        tardanzas=tardanzas,
+        ausentes_pendientes=ausentes_pendientes,
+        ausentes_justificadas=ausentes_justificadas,
+        ausentes_injustificadas=ausentes_injustificadas,
+        porcentaje_presencia=porcentaje_presencia,
+        porcentaje_justificadas=porcentaje_justificadas,
+        porcentaje_injustificadas=porcentaje_injustificadas,
+    )
 
 
 # --- NivelEducativo ----------------------------------------------------------------------
