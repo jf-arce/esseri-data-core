@@ -19,7 +19,7 @@ class ConceptoCobroEnUso(AppException):
             "No se puede eliminar el concepto porque ya tiene movimientos, reglas o facturas "
             "asociadas. Marcálo como inactivo en su lugar."
         ),
-        ):
+    ):
         super().__init__(message)
 
 

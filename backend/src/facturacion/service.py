@@ -106,9 +106,7 @@ def calcular_vigencia_desde(fecha_solicitud: date) -> date:
     return _primer_dia_del_mes_siguiente(periodo_siguiente)
 
 
-def _obtener_responsable_abierto(
-    db: Session, alumno_id: uuid.UUID
-) -> ResponsableEconomico | None:
+def _obtener_responsable_abierto(db: Session, alumno_id: uuid.UUID) -> ResponsableEconomico | None:
     return db.scalar(
         select(ResponsableEconomico)
         .where(
@@ -156,9 +154,7 @@ def asignar_responsable_economico(
     return responsable
 
 
-def obtener_responsable_economico_actual(
-    db: Session, alumno_id: uuid.UUID
-) -> ResponsableEconomico:
+def obtener_responsable_economico_actual(db: Session, alumno_id: uuid.UUID) -> ResponsableEconomico:
     responsable = _obtener_responsable_abierto(db, alumno_id)
     if responsable is None:
         raise ResponsableEconomicoNoEncontrado()

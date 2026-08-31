@@ -109,9 +109,7 @@ def test_endpoints_permiten_consultar_responsable_e_historial(client_autenticado
             "fecha_solicitud_cambio": "2026-08-05",
         },
     )
-    actual = client_autenticado.get(
-        f"/facturacion/alumnos/{alumno.id}/responsable-economico"
-    )
+    actual = client_autenticado.get(f"/facturacion/alumnos/{alumno.id}/responsable-economico")
     historial = client_autenticado.get(
         f"/facturacion/alumnos/{alumno.id}/responsable-economico/historial"
     )
