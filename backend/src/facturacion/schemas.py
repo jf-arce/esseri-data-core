@@ -1,7 +1,7 @@
 """Modelos Pydantic: forma de los datos que entran y salen por la API de este módulo."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -45,4 +45,25 @@ class ConceptoCobroRead(ConceptoCobroBase):
     id: uuid.UUID
     activo: bool
     created_at: datetime
+    updated_at: datetime
+
+
+class ResponsableEconomicoCreate(BaseModel):
+    """Solicitud para designar o cambiar el responsable económico de un alumno."""
+
+    familia_id: uuid.UUID
+    fecha_solicitud_cambio: date
+
+
+class ResponsableEconomicoRead(BaseModel):
+    """Responsable económico de un alumno durante un período determinado."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    vigencia_desde: date
+    vigencia_hasta: date | None
+    fecha_solicitud_cambio: date | None
+    alumno_id: uuid.UUID
+    familia_id: uuid.UUID
     updated_at: datetime
