@@ -2,6 +2,7 @@ import {
   Boxes,
   ClipboardCheck,
   ClipboardList,
+  GraduationCap,
   ReceiptText,
   ShieldCheck,
   Truck,
@@ -26,7 +27,8 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Gestión',
     items: [
-      { label: 'Familias y alumnos', href: '/familias-alumnos/nueva-familia', icon: UsersRound },
+      { label: 'Familias', href: '/familias-alumnos', icon: UsersRound },
+      { label: 'Alumnos', href: '/familias-alumnos/alumnos', icon: GraduationCap },
       { label: 'Inscripciones', href: '/inscripciones', icon: ClipboardCheck },
       { label: 'Proveedores', href: '/proveedores', icon: Truck },
       { label: 'Solicitudes de compra', href: '/solicitudes-compra', icon: ClipboardList },

@@ -47,6 +47,11 @@ class FamiliaResponse(FamiliaBase):
         None,
         description="Estado de deuda (derivado de Facturación, no se escribe aquí)",
     )
+    persona_nombre: str = Field(..., description="Nombre de la persona asociada")
+    persona_apellido: str = Field(..., description="Apellido de la persona asociada")
+    persona_dni: str = Field(..., description="DNI de la persona asociada")
+    persona_telefono: str | None = Field(None, description="Teléfono de la persona asociada")
+    persona_sexo: str | None = Field(None, description="Sexo de la persona asociada")
     created_at: datetime
     updated_at: datetime
 
@@ -87,12 +92,38 @@ class AltaFamiliaCreate(BaseModel):
     usuario: UsuarioFamiliaCreate
 
 
+class PersonaAlumnoCreate(BaseModel):
+    """Datos de la persona que será el alumno."""
+
+    nombre: str = Field(..., min_length=1)
+    apellido: str = Field(..., min_length=1)
+    dni: str = Field(..., min_length=1)
+    telefono: str | None = None
+    sexo: str | None = None
+
+
 class AlumnoCreate(BaseModel):
     """Schema para crear un nuevo Alumno."""
 
     numero_legajo: str = Field(..., min_length=1, description="Número de legajo del alumno")
     estado: str = Field("activo", description="Estado del alumno: activo / inactivo / egresado")
     persona_id: uuid.UUID = Field(..., description="ID de la persona asociada (1:1)")
+
+    @field_validator("estado")
+    @classmethod
+    def validar_estado(cls, value: str) -> str:
+        valores_validos = {"activo", "inactivo", "egresado"}
+        if value not in valores_validos:
+            raise ValueError(f"Estado inválido: debe ser uno de {valores_validos}")
+        return value
+
+
+class AltaAlumnoCreate(BaseModel):
+    """Schema para crear Persona + Alumno en una única transacción."""
+
+    persona: PersonaAlumnoCreate
+    numero_legajo: str = Field(..., min_length=1, description="Número de legajo del alumno")
+    estado: str = Field("activo", description="Estado del alumno: activo / inactivo / egresado")
 
     @field_validator("estado")
     @classmethod
@@ -128,6 +159,11 @@ class AlumnoResponse(BaseModel):
     numero_legajo: str
     estado: str
     persona_id: uuid.UUID
+    persona_nombre: str = Field(..., description="Nombre de la persona asociada")
+    persona_apellido: str = Field(..., description="Apellido de la persona asociada")
+    persona_dni: str = Field(..., description="DNI de la persona asociada")
+    persona_telefono: str | None = Field(None, description="Teléfono de la persona asociada")
+    persona_sexo: str | None = Field(None, description="Sexo de la persona asociada")
     created_at: datetime
     updated_at: datetime
 
@@ -161,6 +197,9 @@ class VinculoResponse(BaseModel):
     recibe_comunicaciones: bool
     familia_id: uuid.UUID
     alumno_id: uuid.UUID
+    alumno_nombre: str = Field(..., description="Nombre completo del alumno")
+    alumno_legajo: str = Field(..., description="Número de legajo del alumno")
+    familia_nombre: str = Field(..., description="Nombre completo del responsable de la familia")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -168,3 +207,8 @@ class VinculoResponse(BaseModel):
 class AltaFamiliaResponse(BaseModel):
     persona: PersonaResponse
     familia: FamiliaResponse
+
+
+class AltaAlumnoResponse(BaseModel):
+    persona: PersonaResponse
+    alumno: AlumnoResponse
