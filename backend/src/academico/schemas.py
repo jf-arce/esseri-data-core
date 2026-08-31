@@ -219,6 +219,35 @@ class AsistenciaBulkResponse(BaseModel):
     )
 
 
+class AsistenciaResumen(BaseModel):
+    """Resumen de asistencia de un alumno en un período (RF-06).
+
+    Incluye conteos por tipo y porcentajes de presencia,
+    ausencias justificadas e injustificadas.
+    """
+
+    inscripcion_id: uuid.UUID = Field(..., description="ID de la inscripción")
+    alumno_id: uuid.UUID = Field(..., description="ID del alumno")
+    fecha_desde: date = Field(..., description="Inicio del período")
+    fecha_hasta: date = Field(..., description="Fin del período")
+    total_registros: int = Field(..., description="Total de registros en el período")
+    presentes: int = Field(..., description="Cantidad de presentes")
+    tardanzas: int = Field(..., description="Cantidad de tardanzas")
+    ausentes_pendientes: int = Field(..., description="Cantidad de ausentes pendientes")
+    ausentes_justificadas: int = Field(..., description="Cantidad de ausentes justificadas")
+    ausentes_injustificadas: int = Field(..., description="Cantidad de ausentes injustificadas")
+    porcentaje_presencia: float = Field(
+        ..., description="Porcentaje de presencia (presente + tardanza) sobre el total"
+    )
+    porcentaje_justificadas: float = Field(
+        ..., description="Porcentaje de ausencias justificadas sobre el total de ausencias"
+    )
+    porcentaje_injustificadas: float = Field(
+        ...,
+        description="Porcentaje de ausencias injustificadas sobre el total de ausencias",
+    )
+
+
 # --- Materia -----------------------------------------------------------------------------
 
 

@@ -50,6 +50,7 @@ from src.academico.schemas import (
     AsistenciaBulkResponse,
     AsistenciaCreate,
     AsistenciaResponse,
+    AsistenciaResumen,
     AsistenciaUpdate,
     DivisionCreate,
     DivisionResponse,
@@ -71,6 +72,7 @@ from src.academico.service import (
     actualizar_docente,
     actualizar_materia,
     actualizar_nivel_educativo,
+    calcular_resumen_asistencia,
     crear_anio,
     crear_asignacion_docente,
     crear_division,
@@ -532,16 +534,39 @@ def listar_asistencias_endpoint(
     _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
     inscripcion_id: uuid.UUID | None = None,
     fecha: date | None = None,
+    fecha_desde: date | None = None,
+    fecha_hasta: date | None = None,
     division_id: uuid.UUID | None = None,
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[Asistencia]:
-    """Listar registros de asistencia con filtros opcionales."""
+    """Listar registros de asistencia con filtros opcionales.
+
+    Soporta fecha exacta o rango con fecha_desde/fecha_hasta (inclusive).
+    """
     return listar_asistencias(
         db,
         inscripcion_id=inscripcion_id,
         fecha=fecha,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
         division_id=division_id,
     )
+
+
+@router.get("/asistencias/resumen", response_model=AsistenciaResumen)
+def resumen_asistencia_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    inscripcion_id: uuid.UUID = ...,
+    fecha_desde: date = ...,
+    fecha_hasta: date = ...,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> AsistenciaResumen:
+    """Calcular resumen de asistencia de un alumno en un período (RF-06).
+
+    Devuelve conteos por tipo y porcentajes de presencia,
+    ausencias justificadas vs. injustificadas.
+    """
+    return calcular_resumen_asistencia(db, inscripcion_id, fecha_desde, fecha_hasta)
 
 
 @router.get("/asistencias/{asistencia_id}", response_model=AsistenciaResponse)
