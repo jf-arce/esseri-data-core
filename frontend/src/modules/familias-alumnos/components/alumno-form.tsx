@@ -224,9 +224,7 @@ export function AlumnoForm({
                 <FieldLabel htmlFor="estado">Estado</FieldLabel>
                 <Select
                   value={formData.estado}
-                  onValueChange={(value) =>
-                    handleInputChange('estado', value)
-                  }
+                  onValueChange={(value) => handleInputChange('estado', value)}
                 >
                   <SelectTrigger id="estado" className="w-full">
                     <SelectValue />

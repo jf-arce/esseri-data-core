@@ -32,7 +32,10 @@ export function FamiliaFormPage() {
 
   const handleSubmit = async (data: FamiliaFormData): Promise<string | undefined> => {
     setIsSubmitting(true)
-    console.log('[familia-form-page] handleSubmit data:', { ...data, vinculos: data.vinculos.length })
+    console.log('[familia-form-page] handleSubmit data:', {
+      ...data,
+      vinculos: data.vinculos.length,
+    })
     try {
       let familiaCreadaId: string | undefined
       if (familiaId) {
@@ -55,11 +58,21 @@ export function FamiliaFormPage() {
       }
 
       if (familiaCreadaId && data.vinculos.length > 0) {
-        console.log('[familia-form-page] Creando', data.vinculos.length, 'vinculos para familia', familiaCreadaId)
+        console.log(
+          '[familia-form-page] Creando',
+          data.vinculos.length,
+          'vinculos para familia',
+          familiaCreadaId,
+        )
         console.log('[familia-form-page] Vinculos:', JSON.stringify(data.vinculos, null, 2))
         try {
           for (const vinculo of data.vinculos) {
-            console.log('[familia-form-page] Creando vinculo:', vinculo.alumno_id, '->', familiaCreadaId)
+            console.log(
+              '[familia-form-page] Creando vinculo:',
+              vinculo.alumno_id,
+              '->',
+              familiaCreadaId,
+            )
             const resultado = await crearVinculo({
               alumno_id: vinculo.alumno_id,
               familia_id: familiaCreadaId,
@@ -83,13 +96,18 @@ export function FamiliaFormPage() {
           return undefined
         }
       } else {
-        console.log('[familia-form-page] No hay vinculos para crear. vinculos.length =', data.vinculos.length)
+        console.log(
+          '[familia-form-page] No hay vinculos para crear. vinculos.length =',
+          data.vinculos.length,
+        )
       }
 
       toast.success(
         familiaId ? 'Familia actualizada correctamente.' : 'Familia creada correctamente.',
       )
-      navigate(familiaCreadaId ? `/familias-alumnos/familias/${familiaCreadaId}` : '/familias-alumnos')
+      navigate(
+        familiaCreadaId ? `/familias-alumnos/familias/${familiaCreadaId}` : '/familias-alumnos',
+      )
       return undefined
     } catch (error) {
       const msg = error instanceof ApiError ? error.message : 'No se pudo guardar la familia'

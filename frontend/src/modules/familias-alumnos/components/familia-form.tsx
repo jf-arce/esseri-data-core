@@ -381,66 +381,69 @@ export function FamiliaForm({
               <p className="text-sm text-texto-2">Cargando alumnos…</p>
             ) : errorAlumnos ? (
               <p className="text-sm text-error">
-                Error al cargar alumnos: {errorAlumnos}. Podés vincularlos después desde la ficha de la familia.
+                Error al cargar alumnos: {errorAlumnos}. Podés vincularlos después desde la ficha de
+                la familia.
               </p>
             ) : alumnosDisponibles.length === 0 ? (
               <p className="text-sm text-texto-2">
-                No hay alumnos cargados. Podés crearlos desde la sección Alumnos y vincularlos después.
+                No hay alumnos cargados. Podés crearlos desde la sección Alumnos y vincularlos
+                después.
               </p>
             ) : (
-            <>
-            <div className="flex flex-col gap-1.5">
-              <Label className="field-label" htmlFor="alumno-select">
-                Alumno
-              </Label>
-              <Select value={alumnoSeleccionado} onValueChange={setAlumnoSeleccionado}>
-                <SelectTrigger id="alumno-select" className="w-[280px]">
-                  <SelectValue placeholder="Seleccionar alumno" />
-                </SelectTrigger>
-                <SelectContent>
-                  {alumnosDisponibles
-                    .filter((a) => !formData.vinculos.some((v) => v.alumno_id === a.id))
-                    .map((alumno: Alumno) => (
-                      <SelectItem key={alumno.id} value={alumno.id}>
-                        {alumno.persona_nombre} {alumno.persona_apellido} — {alumno.numero_legajo}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label className="field-label" htmlFor="parentesco-input">
-                Parentesco
-              </Label>
-              <Input
-                id="parentesco-input"
-                value={parentesco}
-                onChange={(e) => setParentesco(e.target.value)}
-                placeholder="Madre, padre, tutor..."
-                className="w-[200px]"
-              />
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={!alumnoSeleccionado}
-              onClick={() => {
-                const nuevo: VinculoFormEntry = {
-                  alumno_id: alumnoSeleccionado,
-                  parentesco: parentesco.trim(),
-                  responsable_principal: formData.vinculos.length === 0,
-                  recibe_comunicaciones: true,
-                }
-                console.log('[familia-form] Agregando vinculo:', nuevo)
-                setFormData((prev) => ({ ...prev, vinculos: [...prev.vinculos, nuevo] }))
-                setAlumnoSeleccionado('')
-                setParentesco('')
-              }}
-            >
-              <PlusIcon />
-              Agregar
-            </Button>
-            </>
+              <>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="field-label" htmlFor="alumno-select">
+                    Alumno
+                  </Label>
+                  <Select value={alumnoSeleccionado} onValueChange={setAlumnoSeleccionado}>
+                    <SelectTrigger id="alumno-select" className="w-[280px]">
+                      <SelectValue placeholder="Seleccionar alumno" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {alumnosDisponibles
+                        .filter((a) => !formData.vinculos.some((v) => v.alumno_id === a.id))
+                        .map((alumno: Alumno) => (
+                          <SelectItem key={alumno.id} value={alumno.id}>
+                            {alumno.persona_nombre} {alumno.persona_apellido} —{' '}
+                            {alumno.numero_legajo}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="field-label" htmlFor="parentesco-input">
+                    Parentesco
+                  </Label>
+                  <Input
+                    id="parentesco-input"
+                    value={parentesco}
+                    onChange={(e) => setParentesco(e.target.value)}
+                    placeholder="Madre, padre, tutor..."
+                    className="w-[200px]"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={!alumnoSeleccionado}
+                  onClick={() => {
+                    const nuevo: VinculoFormEntry = {
+                      alumno_id: alumnoSeleccionado,
+                      parentesco: parentesco.trim(),
+                      responsable_principal: formData.vinculos.length === 0,
+                      recibe_comunicaciones: true,
+                    }
+                    console.log('[familia-form] Agregando vinculo:', nuevo)
+                    setFormData((prev) => ({ ...prev, vinculos: [...prev.vinculos, nuevo] }))
+                    setAlumnoSeleccionado('')
+                    setParentesco('')
+                  }}
+                >
+                  <PlusIcon />
+                  Agregar
+                </Button>
+              </>
             )}
           </div>
 
@@ -467,9 +470,7 @@ export function FamiliaForm({
                           ? `${alumno.persona_nombre} ${alumno.persona_apellido}`
                           : vinculo.alumno_id.slice(0, 8)}
                       </TableCell>
-                      <TableCell className="text-texto-2">
-                        {vinculo.parentesco || '—'}
-                      </TableCell>
+                      <TableCell className="text-texto-2">{vinculo.parentesco || '—'}</TableCell>
                       <TableCell>
                         <Switch
                           checked={vinculo.responsable_principal}
@@ -479,7 +480,12 @@ export function FamiliaForm({
                               vinculos: prev.vinculos.map((v) =>
                                 v.alumno_id === vinculo.alumno_id
                                   ? { ...v, responsable_principal: checked }
-                                  : { ...v, responsable_principal: checked ? false : v.responsable_principal },
+                                  : {
+                                      ...v,
+                                      responsable_principal: checked
+                                        ? false
+                                        : v.responsable_principal,
+                                    },
                               ),
                             }))
                           }}
@@ -525,7 +531,8 @@ export function FamiliaForm({
             </Table>
           ) : (
             <div className="px-6 py-8 text-center text-sm text-texto-2">
-              No hay alumnos vinculados. Podés agregarlos ahora o hacerlo más tarde desde la ficha de la familia.
+              No hay alumnos vinculados. Podés agregarlos ahora o hacerlo más tarde desde la ficha
+              de la familia.
             </div>
           )}
         </Card>

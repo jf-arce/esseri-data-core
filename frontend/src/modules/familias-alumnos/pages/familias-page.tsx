@@ -8,12 +8,7 @@ import { ConfirmarEliminacion } from '@/components/confirmar-eliminacion'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { PageHeader } from '@/components/page-header'
 import { StatTile } from '@/components/stat-tile'
-import {
-  FilterBar,
-  FilterBarSpacer,
-  FilterSearch,
-  DensityToggle,
-} from '@/components/filter-bar'
+import { FilterBar, FilterBarSpacer, FilterSearch, DensityToggle } from '@/components/filter-bar'
 import { FilterDropdown, type FilterDropdownOption } from '@/components/filter-dropdown'
 import { useFamilias } from '@/modules/familias-alumnos/hooks/use-familias'
 import { FamiliasTabla } from '@/modules/familias-alumnos/components/familias-tabla'

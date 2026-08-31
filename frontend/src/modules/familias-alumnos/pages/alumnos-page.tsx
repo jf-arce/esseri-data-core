@@ -16,12 +16,7 @@ import { Card } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { PageHeader } from '@/components/page-header'
 import { StatTile } from '@/components/stat-tile'
-import {
-  FilterBar,
-  FilterBarSpacer,
-  FilterSearch,
-  DensityToggle,
-} from '@/components/filter-bar'
+import { FilterBar, FilterBarSpacer, FilterSearch, DensityToggle } from '@/components/filter-bar'
 import { FilterDropdown, type FilterDropdownOption } from '@/components/filter-dropdown'
 import {
   Table,
@@ -175,11 +170,7 @@ export function AlumnosPage() {
       )}
 
       <FilterBar>
-        <FilterSearch
-          value={busqueda}
-          onChange={setBusqueda}
-          placeholder="Buscar por legajo"
-        />
+        <FilterSearch value={busqueda} onChange={setBusqueda} placeholder="Buscar por legajo" />
         <FilterDropdown
           label="Estado"
           options={ESTADO_OPTIONS}
@@ -255,9 +246,7 @@ export function AlumnosPage() {
                     <TableCell className="font-medium text-texto">
                       {alumno.persona_nombre} {alumno.persona_apellido}
                     </TableCell>
-                    <TableCell className="font-mono font-medium">
-                      {alumno.numero_legajo}
-                    </TableCell>
+                    <TableCell className="font-mono font-medium">{alumno.numero_legajo}</TableCell>
                     <TableCell>
                       <BadgeEstado estado={alumno.estado} />
                     </TableCell>
@@ -273,9 +262,7 @@ export function AlumnosPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            onSelect={() =>
-                              navigate(`/familias-alumnos/alumnos/${alumno.id}`)
-                            }
+                            onSelect={() => navigate(`/familias-alumnos/alumnos/${alumno.id}`)}
                           >
                             <EyeIcon className="text-petroleo" />
                             Ver ficha

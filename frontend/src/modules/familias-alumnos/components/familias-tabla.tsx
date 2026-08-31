@@ -41,12 +41,7 @@ interface FamiliasTablaProps {
   onEliminar: (familia: Familia) => void
 }
 
-export function FamiliasTabla({
-  familias,
-  cargando,
-  densidad,
-  onEliminar,
-}: FamiliasTablaProps) {
+export function FamiliasTabla({ familias, cargando, densidad, onEliminar }: FamiliasTablaProps) {
   const navigate = useNavigate()
 
   return (
@@ -74,20 +69,14 @@ export function FamiliasTabla({
               <TableCell className="font-medium text-texto">
                 {familia.persona_nombre} {familia.persona_apellido}
               </TableCell>
-              <TableCell className="text-texto-2">
-                {familia.persona_telefono ?? '—'}
-              </TableCell>
+              <TableCell className="text-texto-2">{familia.persona_telefono ?? '—'}</TableCell>
               <TableCell>
                 <BadgeEstadoDeuda estado={familia.estado_deuda} />
               </TableCell>
               <TableCell data-align="end" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Acciones"
-                    >
+                    <Button variant="ghost" size="icon-sm" aria-label="Acciones">
                       <MoreHorizontalIcon />
                     </Button>
                   </DropdownMenuTrigger>
@@ -99,18 +88,13 @@ export function FamiliasTabla({
                       Ver ficha
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onSelect={() =>
-                        navigate(`/familias-alumnos/familias/${familia.id}/editar`)
-                      }
+                      onSelect={() => navigate(`/familias-alumnos/familias/${familia.id}/editar`)}
                     >
                       <PencilIcon className="text-petroleo" />
                       Editar datos
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onSelect={() => onEliminar(familia)}
-                    >
+                    <DropdownMenuItem variant="destructive" onSelect={() => onEliminar(familia)}>
                       <Trash2Icon />
                       Dar de baja
                     </DropdownMenuItem>

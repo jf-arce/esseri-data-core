@@ -64,7 +64,9 @@ export function FamiliaFichaPage() {
 
   const recargarVinculos = () => {
     if (!familiaId) return
-    listarVinculosFamilia(familiaId).then(setVinculos).catch(() => {})
+    listarVinculosFamilia(familiaId)
+      .then(setVinculos)
+      .catch(() => {})
   }
 
   const handleVincular = async () => {
@@ -106,7 +108,9 @@ export function FamiliaFichaPage() {
       .catch((error: unknown) => {
         if (active)
           setLoadError(
-            error instanceof ApiError ? error.detail ?? undefined : 'No se pudo cargar la familia',
+            error instanceof ApiError
+              ? (error.detail ?? undefined)
+              : 'No se pudo cargar la familia',
           )
       })
       .finally(() => active && setCargando(false))
@@ -182,17 +186,16 @@ export function FamiliaFichaPage() {
                   {familia.estado_deuda === 'con_deuda' && (
                     <Badge variant="advertencia">Con deuda</Badge>
                   )}
-                  {familia.estado_deuda === 'en_mora' && (
-                    <Badge variant="error">En mora</Badge>
+                  {familia.estado_deuda === 'en_mora' && <Badge variant="error">En mora</Badge>}
+                  {familia.estado_deuda !== 'con_deuda' && familia.estado_deuda !== 'en_mora' && (
+                    <Badge variant="exito">Al día</Badge>
                   )}
-                  {familia.estado_deuda !== 'con_deuda' &&
-                    familia.estado_deuda !== 'en_mora' && (
-                      <Badge variant="exito">Al día</Badge>
-                    )}
                 </div>
                 <div className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-3 px-6 py-5 text-sm">
                   <span className="text-texto-2">Nombre</span>
-                  <span className="font-medium text-texto">{familia.persona_nombre} {familia.persona_apellido}</span>
+                  <span className="font-medium text-texto">
+                    {familia.persona_nombre} {familia.persona_apellido}
+                  </span>
                   <span className="text-texto-2">DNI</span>
                   <span className="font-medium text-texto">{familia.persona_dni}</span>
                   <span className="text-texto-2">Teléfono</span>
@@ -349,9 +352,7 @@ export function FamiliaFichaPage() {
                       <TableCell className="font-medium text-texto">
                         {vinculo.alumno_nombre}
                       </TableCell>
-                      <TableCell className="text-texto-2">
-                        {vinculo.parentesco ?? '—'}
-                      </TableCell>
+                      <TableCell className="text-texto-2">{vinculo.parentesco ?? '—'}</TableCell>
                       <TableCell>
                         {vinculo.responsable_principal ? (
                           <Badge variant="exito">Sí</Badge>
@@ -380,7 +381,8 @@ export function FamiliaFichaPage() {
           <DialogHeader>
             <DialogTitle>Vincular alumno</DialogTitle>
             <DialogDescription>
-              Seleccioná un alumno para vincularlo a {familia.persona_nombre} {familia.persona_apellido}.
+              Seleccioná un alumno para vincularlo a {familia.persona_nombre}{' '}
+              {familia.persona_apellido}.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-4">
@@ -412,16 +414,10 @@ export function FamiliaFichaPage() {
             </Field>
           </div>
           <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setMostrarDialogoVincular(false)}
-            >
+            <Button variant="secondary" onClick={() => setMostrarDialogoVincular(false)}>
               Cancelar
             </Button>
-            <Button
-              onClick={handleVincular}
-              disabled={!alumnoSeleccionado || vinculando}
-            >
+            <Button onClick={handleVincular} disabled={!alumnoSeleccionado || vinculando}>
               {vinculando ? 'Vinculando...' : 'Vincular'}
             </Button>
           </DialogFooter>

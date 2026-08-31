@@ -60,7 +60,7 @@ export function AlumnoFichaPage() {
       .catch((error: unknown) => {
         if (active)
           setLoadError(
-            error instanceof ApiError ? error.detail ?? undefined : 'No se pudo cargar el alumno',
+            error instanceof ApiError ? (error.detail ?? undefined) : 'No se pudo cargar el alumno',
           )
       })
       .finally(() => active && setCargando(false))
@@ -148,9 +148,7 @@ export function AlumnoFichaPage() {
                 </div>
                 <div className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-3 px-6 py-5 text-sm">
                   <span className="text-texto-2">Número de legajo</span>
-                  <span className="font-mono font-medium text-texto">
-                    {alumno.numero_legajo}
-                  </span>
+                  <span className="font-mono font-medium text-texto">{alumno.numero_legajo}</span>
                   <span className="text-texto-2">Estado</span>
                   <span>
                     <BadgeEstado estado={alumno.estado} />
@@ -186,9 +184,7 @@ export function AlumnoFichaPage() {
                         className="flex items-center justify-between border-b border-borde py-3 last:border-0"
                       >
                         <div>
-                          <p className="text-sm font-medium text-texto">
-                            {vinculo.familia_nombre}
-                          </p>
+                          <p className="text-sm font-medium text-texto">{vinculo.familia_nombre}</p>
                           <p className="text-xs text-texto-2">
                             {vinculo.parentesco ?? 'Sin parentesco'}
                           </p>
@@ -248,9 +244,7 @@ export function AlumnoFichaPage() {
                       <TableCell className="font-medium text-texto">
                         {vinculo.familia_nombre}
                       </TableCell>
-                      <TableCell className="text-texto-2">
-                        {vinculo.parentesco ?? '—'}
-                      </TableCell>
+                      <TableCell className="text-texto-2">{vinculo.parentesco ?? '—'}</TableCell>
                       <TableCell>
                         {vinculo.responsable_principal ? (
                           <Badge variant="exito">Sí</Badge>
@@ -281,9 +275,7 @@ export function AlumnoFichaPage() {
                               Ver ficha de la familia
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem variant="destructive">
-                              Desvincular
-                            </DropdownMenuItem>
+                            <DropdownMenuItem variant="destructive">Desvincular</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
