@@ -7,9 +7,22 @@ from sqlalchemy.orm import Session
 
 from src.auth import service as auth_service
 from src.auth.models import Rol, Usuario, UsuarioRol
-from src.familias_alumnos.exceptions import FamiliaConVinculos
-from src.familias_alumnos.models import Familia, FamiliaAlumno
-from src.familias_alumnos.schemas import AltaFamiliaCreate, FamiliaCreate, FamiliaUpdate
+from src.familias_alumnos.exceptions import (
+    AlumnoConVinculos,
+    FamiliaConVinculos,
+    LegajoDuplicado,
+    VinculoDuplicado,
+)
+from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
+from src.familias_alumnos.schemas import (
+    AltaFamiliaCreate,
+    AlumnoCreate,
+    AlumnoUpdate,
+    FamiliaCreate,
+    FamiliaUpdate,
+    VinculoCreate,
+    VinculoUpdate,
+)
 from src.models import Persona
 
 ROL_FAMILIA = "familia"
@@ -109,6 +122,11 @@ def obtener_familia_por_id(db: Session, familia_id: uuid.UUID) -> Familia | None
     return db.query(Familia).filter(Familia.id == familia_id).first()
 
 
+def listar_familias(db: Session) -> list[Familia]:
+    """Listar todas las familias."""
+    return db.query(Familia).all()
+
+
 def actualizar_familia(
     db: Session,
     familia: Familia,
@@ -191,3 +209,174 @@ def eliminar_familia(db: Session, familia: Familia, usuario_id: uuid.UUID | None
     #     valor_nuevo=None,
     #     usuario_id=usuario_id,
     # )
+
+
+# --- ABM de Alumno (RF-03) ---------------------------------------------------------------
+
+
+def crear_alumno(
+    db: Session, alumno_data: AlumnoCreate, usuario_id: uuid.UUID | None = None
+) -> Alumno:
+    """Crear un nuevo Alumno.
+
+    Valida que el número de legajo no esté duplicado.
+    """
+    if (
+        db.scalar(select(Alumno.id).where(Alumno.numero_legajo == alumno_data.numero_legajo))
+        is not None
+    ):
+        raise LegajoDuplicado()
+
+    nuevo_alumno = Alumno(**alumno_data.model_dump())
+    db.add(nuevo_alumno)
+    db.commit()
+    db.refresh(nuevo_alumno)
+
+    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
+    # log_audit(
+    #     entidad="Alumno",
+    #     entidad_id=nuevo_alumno.id,
+    #     campo="__alta__",
+    #     valor_anterior=None,
+    #     valor_nuevo=str(nuevo_alumno.numero_legajo),
+    #     usuario_id=usuario_id,
+    # )
+
+    return nuevo_alumno
+
+
+def obtener_alumno_por_id(db: Session, alumno_id: uuid.UUID) -> Alumno | None:
+    """Obtener un alumno por su ID."""
+    return db.query(Alumno).filter(Alumno.id == alumno_id).first()
+
+
+def listar_alumnos(db: Session) -> list[Alumno]:
+    """Listar todos los alumnos."""
+    return db.query(Alumno).order_by(Alumno.numero_legajo).all()
+
+
+def actualizar_alumno(
+    db: Session,
+    alumno: Alumno,
+    alumno_data: AlumnoUpdate,
+    usuario_id: uuid.UUID | None = None,
+) -> Alumno:
+    """Actualizar un alumno existente."""
+    update_data = alumno_data.model_dump(exclude_unset=True)
+
+    if "numero_legajo" in update_data and update_data["numero_legajo"] != alumno.numero_legajo:
+        if (
+            db.scalar(
+                select(Alumno.id).where(
+                    Alumno.numero_legajo == update_data["numero_legajo"],
+                    Alumno.id != alumno.id,
+                )
+            )
+            is not None
+        ):
+            raise LegajoDuplicado()
+
+    for field, value in update_data.items():
+        setattr(alumno, field, value)
+
+    db.commit()
+    db.refresh(alumno)
+
+    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
+
+    return alumno
+
+
+def eliminar_alumno(db: Session, alumno: Alumno, usuario_id: uuid.UUID | None = None) -> None:
+    """Eliminar un alumno (baja física).
+
+    Raises:
+        AlumnoConVinculos: si hay alguna Familia vinculada a este alumno.
+    """
+    tiene_vinculos = (
+        db.query(FamiliaAlumno).filter(FamiliaAlumno.alumno_id == alumno.id).first() is not None
+    )
+    if tiene_vinculos:
+        raise AlumnoConVinculos()
+
+    db.delete(alumno)
+    db.commit()
+
+    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
+
+
+# --- Vincular / desvincular alumno↔familia (RF-03) --------------------------------------
+
+
+def vincular_alumno_familia(
+    db: Session, datos: VinculoCreate, usuario_id: uuid.UUID | None = None
+) -> FamiliaAlumno:
+    """Vincular un alumno con una familia.
+
+    Valida que no exista ya un vínculo entre la misma familia y el mismo alumno.
+    """
+    existe = (
+        db.query(FamiliaAlumno)
+        .filter(
+            FamiliaAlumno.familia_id == datos.familia_id,
+            FamiliaAlumno.alumno_id == datos.alumno_id,
+        )
+        .first()
+        is not None
+    )
+    if existe:
+        raise VinculoDuplicado()
+
+    nuevo_vinculo = FamiliaAlumno(**datos.model_dump())
+    db.add(nuevo_vinculo)
+    db.commit()
+    db.refresh(nuevo_vinculo)
+
+    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
+
+    return nuevo_vinculo
+
+
+def obtener_vinculo_por_id(db: Session, vinculo_id: uuid.UUID) -> FamiliaAlumno | None:
+    """Obtener un vínculo familia-alumno por su ID."""
+    return db.query(FamiliaAlumno).filter(FamiliaAlumno.id == vinculo_id).first()
+
+
+def actualizar_vinculo(
+    db: Session,
+    vinculo: FamiliaAlumno,
+    datos: VinculoUpdate,
+    usuario_id: uuid.UUID | None = None,
+) -> FamiliaAlumno:
+    """Actualizar los campos de un vínculo existente."""
+    update_data = datos.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        setattr(vinculo, field, value)
+
+    db.commit()
+    db.refresh(vinculo)
+
+    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
+
+    return vinculo
+
+
+def desvincular_alumno_familia(
+    db: Session, vinculo: FamiliaAlumno, usuario_id: uuid.UUID | None = None
+) -> None:
+    """Eliminar un vínculo entre familia y alumno."""
+    db.delete(vinculo)
+    db.commit()
+
+    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
+
+
+def listar_vinculos_de_alumno(db: Session, alumno_id: uuid.UUID) -> list[FamiliaAlumno]:
+    """Listar todas las familias vinculadas a un alumno."""
+    return db.query(FamiliaAlumno).filter(FamiliaAlumno.alumno_id == alumno_id).all()
+
+
+def listar_vinculos_de_familia(db: Session, familia_id: uuid.UUID) -> list[FamiliaAlumno]:
+    """Listar todos los alumnos vinculados a una familia."""
+    return db.query(FamiliaAlumno).filter(FamiliaAlumno.familia_id == familia_id).all()

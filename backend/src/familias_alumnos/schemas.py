@@ -87,6 +87,84 @@ class AltaFamiliaCreate(BaseModel):
     usuario: UsuarioFamiliaCreate
 
 
+class AlumnoCreate(BaseModel):
+    """Schema para crear un nuevo Alumno."""
+
+    numero_legajo: str = Field(..., min_length=1, description="Número de legajo del alumno")
+    estado: str = Field("activo", description="Estado del alumno: activo / inactivo / egresado")
+    persona_id: uuid.UUID = Field(..., description="ID de la persona asociada (1:1)")
+
+    @field_validator("estado")
+    @classmethod
+    def validar_estado(cls, value: str) -> str:
+        valores_validos = {"activo", "inactivo", "egresado"}
+        if value not in valores_validos:
+            raise ValueError(f"Estado inválido: debe ser uno de {valores_validos}")
+        return value
+
+
+class AlumnoUpdate(BaseModel):
+    """Schema para actualizar un Alumno existente."""
+
+    numero_legajo: str | None = Field(None, min_length=1, description="Número de legajo")
+    estado: str | None = Field(None, description="Estado: activo / inactivo / egresado")
+    persona_id: uuid.UUID | None = Field(None, description="ID de la persona asociada")
+
+    @field_validator("estado")
+    @classmethod
+    def validar_estado(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        valores_validos = {"activo", "inactivo", "egresado"}
+        if value not in valores_validos:
+            raise ValueError(f"Estado inválido: debe ser uno de {valores_validos}")
+        return value
+
+
+class AlumnoResponse(BaseModel):
+    """Schema para responder con datos de Alumno."""
+
+    id: uuid.UUID
+    numero_legajo: str
+    estado: str
+    persona_id: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class VinculoCreate(BaseModel):
+    """Schema para vincular un alumno con una familia."""
+
+    parentesco: str | None = Field(None, description="Parentesco del responsable con el alumno")
+    responsable_principal: bool = Field(False, description="Responsable parental principal")
+    recibe_comunicaciones: bool = Field(True, description="Si recibe avisos y comunicaciones")
+    familia_id: uuid.UUID = Field(..., description="ID de la familia a vincular")
+    alumno_id: uuid.UUID = Field(..., description="ID del alumno a vincular")
+
+
+class VinculoUpdate(BaseModel):
+    """Schema para actualizar un vínculo existente."""
+
+    parentesco: str | None = None
+    responsable_principal: bool | None = None
+    recibe_comunicaciones: bool | None = None
+
+
+class VinculoResponse(BaseModel):
+    """Schema para responder con datos de un vínculo familia-alumno."""
+
+    id: uuid.UUID
+    parentesco: str | None
+    responsable_principal: bool
+    recibe_comunicaciones: bool
+    familia_id: uuid.UUID
+    alumno_id: uuid.UUID
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class AltaFamiliaResponse(BaseModel):
     persona: PersonaResponse
     familia: FamiliaResponse
