@@ -10,8 +10,8 @@ from src.academico.exceptions import (
     AnioDuplicado,
     DivisionConAsignaciones,
     DivisionDuplicada,
-    NombreNivelDuplicado,
     NivelEducativoConAnios,
+    NombreNivelDuplicado,
 )
 from src.academico.models import Anio, AsignacionDocente, Division, NivelEducativo
 from src.academico.schemas import (
@@ -22,7 +22,6 @@ from src.academico.schemas import (
     NivelEducativoCreate,
     NivelEducativoUpdate,
 )
-
 
 # --- NivelEducativo ----------------------------------------------------------------------
 
@@ -251,7 +250,11 @@ def actualizar_division(
         if (
             db.scalar(
                 select(Division.id).where(
-                    Division.nombre == nombre_check.strip() if isinstance(nombre_check, str) else nombre_check,
+                    Division.nombre == (
+                        nombre_check.strip()
+                        if isinstance(nombre_check, str)
+                        else nombre_check
+                    ),
                     Division.anio_id == anio_check,
                     Division.id != division.id,
                 )

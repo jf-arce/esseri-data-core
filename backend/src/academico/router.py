@@ -16,8 +16,8 @@ from src.academico.exceptions import (
     AnioDuplicado,
     DivisionConAsignaciones,
     DivisionDuplicada,
-    NombreNivelDuplicado,
     NivelEducativoConAnios,
+    NombreNivelDuplicado,
 )
 from src.academico.models import Anio, Division, NivelEducativo
 from src.academico.schemas import (

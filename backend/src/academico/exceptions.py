@@ -6,7 +6,10 @@ class NivelEducativoConAnios(AppException):
 
     status_code = 409
 
-    def __init__(self, message: str = "No se puede eliminar: el nivel educativo tiene años asociados"):
+    def __init__(
+        self,
+        message: str = "No se puede eliminar: el nivel educativo tiene años asociados",
+    ):
         super().__init__(message)
 
 
@@ -15,7 +18,10 @@ class AnioConDivisiones(AppException):
 
     status_code = 409
 
-    def __init__(self, message: str = "No se puede eliminar: el año tiene divisiones asociadas"):
+    def __init__(
+        self,
+        message: str = "No se puede eliminar: el año tiene divisiones asociadas",
+    ):
         super().__init__(message)
 
 
@@ -25,7 +31,8 @@ class DivisionConAsignaciones(AppException):
     status_code = 409
 
     def __init__(
-        self, message: str = "No se puede eliminar: la división tiene asignaciones docentes"
+        self,
+        message: str = "No se puede eliminar: la división tiene asignaciones docentes",
     ):
         super().__init__(message)
 
@@ -44,7 +51,10 @@ class AnioDuplicado(AppException):
 
     status_code = 409
 
-    def __init__(self, message: str = "Ya existe un año con ese número para ese nivel educativo"):
+    def __init__(
+        self,
+        message: str = "Ya existe un año con ese número para ese nivel educativo",
+    ):
         super().__init__(message)
 
 

@@ -8,7 +8,6 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # --- NivelEducativo ----------------------------------------------------------------------
 
 
@@ -42,7 +41,9 @@ class AnioCreate(BaseModel):
     """Schema para crear un nuevo Anio."""
 
     numero: int = Field(..., ge=1, description="Número del año (1, 2, 3, etc.)")
-    nivel_educativo_id: uuid.UUID = Field(..., description="ID del nivel educativo al que pertenece")
+    nivel_educativo_id: uuid.UUID = Field(
+        ..., description="ID del nivel educativo al que pertenece"
+    )
 
 
 class AnioUpdate(BaseModel):
