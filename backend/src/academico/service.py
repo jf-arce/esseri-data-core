@@ -1,6 +1,8 @@
 """Lógica de negocio del módulo Académico."""
 
+import logging
 import uuid
+from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -9,9 +11,12 @@ from src.academico.exceptions import (
     AnioConDivisiones,
     AnioDuplicado,
     AsignacionDocenteDuplicada,
+    AsistenciaDuplicada,
+    AsistenciaYaJustificada,
     DivisionConAsignaciones,
     DivisionDuplicada,
     DocenteConAsignaciones,
+    InscripcionNoActiva,
     LegajoDuplicado,
     MateriaConAsignaciones,
     MateriaDuplicada,
@@ -30,6 +35,10 @@ from src.academico.schemas import (
     AnioCreate,
     AnioUpdate,
     AsignacionDocenteCreate,
+    AsistenciaBulkCreate,
+    AsistenciaBulkResponse,
+    AsistenciaCreate,
+    AsistenciaUpdate,
     DivisionCreate,
     DivisionUpdate,
     DocenteCreate,
@@ -39,6 +48,195 @@ from src.academico.schemas import (
     NivelEducativoCreate,
     NivelEducativoUpdate,
 )
+from src.familias_alumnos.models import FamiliaAlumno
+from src.inscripciones.models import Asistencia, Inscripcion
+
+logger = logging.getLogger(__name__)
+
+# --- Asistencia --------------------------------------------------------------------------
+
+
+_TIPO_DOCENTE_A_DB = {
+    "presente": "presente",
+    "tardanza": "tardanza",
+    "ausente": "ausente_pendiente",
+}
+
+_TIPOS_JUSTIFICADOS = {"ausente_justificado", "ausente_injustificado"}
+
+
+def _notificar_ausencia(db: Session, inscripcion: Inscripcion, fecha: date) -> int:
+    """Notificar a todos los responsables con recibe_comunicaciones=true.
+
+    Placeholder: loggea la notificación. Cuando exista infraestructura de
+    email/SMS/push, este función es el único punto a modificar.
+    """
+    responsables = (
+        db.query(FamiliaAlumno)
+        .filter(
+            FamiliaAlumno.alumno_id == inscripcion.alumno_id,
+            FamiliaAlumno.recibe_comunicaciones.is_(True),
+        )
+        .all()
+    )
+    for resp in responsables:
+        logger.info(
+            "Notificación de ausencia: alumno_id=%s fecha=%s familia_id=%s parentesco=%s",
+            inscripcion.alumno_id,
+            fecha,
+            resp.familia_id,
+            resp.parentesco,
+        )
+    return len(responsables)
+
+
+def registrar_asistencia(
+    db: Session, datos: AsistenciaCreate, usuario_id: uuid.UUID | None = None
+) -> Asistencia:
+    """Registrar asistencia diaria de un alumno.
+
+    - presente/tardanza se guardan tal cual.
+    - ausente se guarda como 'ausente_pendiente' y dispara notificación.
+    """
+    inscripcion = db.get(Inscripcion, datos.inscripcion_id)
+    if inscripcion is None or inscripcion.estado != "activa":
+        raise InscripcionNoActiva()
+
+    existente = db.scalar(
+        select(Asistencia.id).where(
+            Asistencia.inscripcion_id == datos.inscripcion_id,
+            Asistencia.fecha == datos.fecha,
+        )
+    )
+    if existente is not None:
+        raise AsistenciaDuplicada()
+
+    tipo_db = _TIPO_DOCENTE_A_DB[datos.tipo]
+    nuevo = Asistencia(
+        inscripcion_id=datos.inscripcion_id,
+        fecha=datos.fecha,
+        tipo=tipo_db,
+    )
+    db.add(nuevo)
+    db.commit()
+    db.refresh(nuevo)
+
+    if tipo_db == "ausente_pendiente":
+        _notificar_ausencia(db, inscripcion, datos.fecha)
+
+    return nuevo
+
+
+def registrar_asistencia_masiva(
+    db: Session, datos: AsistenciaBulkCreate, usuario_id: uuid.UUID | None = None
+) -> AsistenciaBulkResponse:
+    """Registrar asistencia de toda una división en una fecha.
+
+    Si ya existe un registro para (inscripcion_id, fecha), se actualiza.
+    Si no existe, se crea. Para 'ausente' se dispara notificación.
+    """
+    creadas = 0
+    actualizadas = 0
+    notificaciones = 0
+
+    for registro in datos.registros:
+        inscripcion = db.get(Inscripcion, registro.inscripcion_id)
+        if inscripcion is None or inscripcion.estado != "activa":
+            continue
+
+        existente = (
+            db.query(Asistencia)
+            .filter(
+                Asistencia.inscripcion_id == registro.inscripcion_id,
+                Asistencia.fecha == datos.fecha,
+            )
+            .first()
+        )
+
+        tipo_db = _TIPO_DOCENTE_A_DB[registro.tipo]
+
+        if existente is not None:
+            if existente.tipo in _TIPOS_JUSTIFICADOS:
+                continue
+            existente.tipo = tipo_db
+            actualizadas += 1
+        else:
+            nuevo = Asistencia(
+                inscripcion_id=registro.inscripcion_id,
+                fecha=datos.fecha,
+                tipo=tipo_db,
+            )
+            db.add(nuevo)
+            creadas += 1
+
+        if tipo_db == "ausente_pendiente":
+            notificaciones += _notificar_ausencia(db, inscripcion, datos.fecha)
+
+    db.commit()
+    return AsistenciaBulkResponse(
+        creadas=creadas,
+        actualizadas=actualizadas,
+        notificaciones_disparadas=notificaciones,
+    )
+
+
+def obtener_asistencia_por_id(db: Session, asistencia_id: uuid.UUID) -> Asistencia | None:
+    """Obtener un registro de asistencia por su ID."""
+    return db.query(Asistencia).filter(Asistencia.id == asistencia_id).first()
+
+
+def listar_asistencias(
+    db: Session,
+    inscripcion_id: uuid.UUID | None = None,
+    fecha: date | None = None,
+    division_id: uuid.UUID | None = None,
+) -> list[Asistencia]:
+    """Listar registros de asistencia con filtros opcionales."""
+    query = db.query(Asistencia)
+    if inscripcion_id is not None:
+        query = query.filter(Asistencia.inscripcion_id == inscripcion_id)
+    if fecha is not None:
+        query = query.filter(Asistencia.fecha == fecha)
+    if division_id is not None:
+        query = query.join(Inscripcion).filter(Inscripcion.division_id == division_id)
+    return query.order_by(Asistencia.fecha.desc()).all()
+
+
+def actualizar_asistencia(
+    db: Session,
+    asistencia: Asistencia,
+    datos: AsistenciaUpdate,
+    usuario_id: uuid.UUID | None = None,
+) -> Asistencia:
+    """Actualizar un registro de asistencia.
+
+    El docente solo puede cambiar entre presente/tardanza/ausente.
+    No puede modificar un registro ya justificado.
+    """
+    if asistencia.tipo in _TIPOS_JUSTIFICADOS:
+        raise AsistenciaYaJustificada()
+
+    tipo_db = _TIPO_DOCENTE_A_DB[datos.tipo]
+    tipo_anterior = asistencia.tipo
+    asistencia.tipo = tipo_db
+    db.commit()
+    db.refresh(asistencia)
+
+    if tipo_db == "ausente_pendiente" and tipo_anterior != "ausente_pendiente":
+        inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
+        if inscripcion is not None:
+            _notificar_ausencia(db, inscripcion, asistencia.fecha)
+
+    return asistencia
+
+
+def eliminar_asistencia(
+    db: Session, asistencia: Asistencia, usuario_id: uuid.UUID | None = None
+) -> None:
+    """Eliminar un registro de asistencia."""
+    db.delete(asistencia)
+    db.commit()
+
 
 # --- NivelEducativo ----------------------------------------------------------------------
 

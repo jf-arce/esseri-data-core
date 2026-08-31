@@ -124,3 +124,41 @@ class AsignacionDocenteDuplicada(AppException):
         ),
     ):
         super().__init__(message)
+
+
+class AsistenciaDuplicada(AppException):
+    """Ya existe un registro de asistencia para esa inscripción en esa fecha."""
+
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = ("Ya existe un registro de asistencia para esa inscripción en esa fecha"),
+    ):
+        super().__init__(message)
+
+
+class AsistenciaYaJustificada(AppException):
+    """La asistencia ya fue justificada y no puede modificarse desde el registro docente."""
+
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = (
+            "La asistencia ya fue justificada y no puede modificarse desde el registro docente"
+        ),
+    ):
+        super().__init__(message)
+
+
+class InscripcionNoActiva(AppException):
+    """La inscripción no está activa, no se puede registrar asistencia."""
+
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = "La inscripción no está activa, no se puede registrar asistencia",
+    ):
+        super().__init__(message)

@@ -9,12 +9,14 @@ from src.academico.models import Anio, AsignacionDocente, Division, Docente, Mat
 from src.academico.service import (
     obtener_anio_por_id,
     obtener_asignacion_docente_por_id,
+    obtener_asistencia_por_id,
     obtener_division_por_id,
     obtener_docente_por_id,
     obtener_materia_por_id,
     obtener_nivel_educativo_por_id,
 )
 from src.database import get_db
+from src.inscripciones.models import Asistencia
 
 
 def obtener_nivel_educativo_o_404(
@@ -99,3 +101,17 @@ def obtener_asignacion_docente_o_404(
             detail=f"Asignación docente con ID {asignacion_id} no encontrada",
         )
     return asignacion
+
+
+def obtener_asistencia_o_404(
+    asistencia_id: uuid.UUID,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Asistencia:
+    """Dependencia para obtener un registro de asistencia por ID o retornar 404."""
+    asistencia = obtener_asistencia_por_id(db, asistencia_id)
+    if asistencia is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Asistencia con ID {asistencia_id} no encontrada",
+        )
+    return asistencia
