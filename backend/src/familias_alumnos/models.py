@@ -4,9 +4,9 @@ import uuid
 from datetime import datetime
 
 import sqlalchemy as sa
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.models import Base
+from src.models import Base, Persona
 
 
 class Familia(Base):
@@ -26,6 +26,27 @@ class Familia(Base):
         sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
     )
     persona_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("persona.id"))
+    persona: Mapped[Persona] = relationship(lazy="joined")
+
+    @property
+    def persona_nombre(self) -> str:
+        return self.persona.nombre
+
+    @property
+    def persona_apellido(self) -> str:
+        return self.persona.apellido
+
+    @property
+    def persona_dni(self) -> str:
+        return self.persona.dni
+
+    @property
+    def persona_telefono(self) -> str | None:
+        return self.persona.telefono
+
+    @property
+    def persona_sexo(self) -> str | None:
+        return self.persona.sexo
 
 
 class Alumno(Base):
@@ -42,6 +63,27 @@ class Alumno(Base):
         sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
     )
     persona_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("persona.id"))
+    persona: Mapped[Persona] = relationship(lazy="joined")
+
+    @property
+    def persona_nombre(self) -> str:
+        return self.persona.nombre
+
+    @property
+    def persona_apellido(self) -> str:
+        return self.persona.apellido
+
+    @property
+    def persona_dni(self) -> str:
+        return self.persona.dni
+
+    @property
+    def persona_telefono(self) -> str | None:
+        return self.persona.telefono
+
+    @property
+    def persona_sexo(self) -> str | None:
+        return self.persona.sexo
 
 
 class FamiliaAlumno(Base):
@@ -55,3 +97,17 @@ class FamiliaAlumno(Base):
     recibe_comunicaciones: Mapped[bool] = mapped_column(sa.Boolean, default=True)
     familia_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("familia.id"))
     alumno_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("alumno.id"))
+    familia: Mapped[Familia] = relationship(lazy="joined")
+    alumno: Mapped[Alumno] = relationship(lazy="joined")
+
+    @property
+    def alumno_nombre(self) -> str:
+        return f"{self.alumno.persona_nombre} {self.alumno.persona_apellido}"
+
+    @property
+    def alumno_legajo(self) -> str:
+        return self.alumno.numero_legajo
+
+    @property
+    def familia_nombre(self) -> str:
+        return f"{self.familia.persona_nombre} {self.familia.persona_apellido}"

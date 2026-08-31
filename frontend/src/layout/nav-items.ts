@@ -2,6 +2,8 @@ import {
   Boxes,
   ClipboardCheck,
   ClipboardList,
+  GraduationCap,
+  BookOpenIcon,
   Landmark,
   ReceiptText,
   ShieldCheck,
@@ -27,7 +29,9 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Gestión',
     items: [
-      { label: 'Familias y alumnos', href: '/familias-alumnos/nueva-familia', icon: UsersRound },
+      { label: 'Familias', href: '/familias-alumnos', icon: UsersRound },
+      { label: 'Alumnos', href: '/familias-alumnos/alumnos', icon: GraduationCap },
+      { label: 'Académico', href: '/academico', icon: BookOpenIcon },
       { label: 'Inscripciones', href: '/inscripciones', icon: ClipboardCheck },
       { label: 'Facturación', href: '/facturacion', icon: Landmark },
       { label: 'Proveedores', href: '/proveedores', icon: Truck },
