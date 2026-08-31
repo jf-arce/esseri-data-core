@@ -2,9 +2,9 @@ const API_URL = import.meta.env.VITE_API_URL
 
 export class ApiError extends Error {
   status: number
-  detail?: string
+  detail: string | null
 
-  constructor(status: number, detail?: string) {
+  constructor(status: number, detail: string | null) {
     super(detail ?? `API error ${status}`)
     this.name = 'ApiError'
     this.status = status
@@ -17,7 +17,7 @@ export async function apiClient<T>(path: string, init?: RequestInit): Promise<T>
   // no la manda y el backend ve cada request como anónima.
   const res = await fetch(`${API_URL}${path}`, { credentials: 'include', ...init })
   if (!res.ok) {
-    let detail: string | undefined
+    let detail: string | null
     try {
       const body = (await res.json()) as { detail?: string | Array<{ msg?: string }> }
       detail = Array.isArray(body.detail)
@@ -25,9 +25,9 @@ export async function apiClient<T>(path: string, init?: RequestInit): Promise<T>
             .map((item) => item.msg)
             .filter(Boolean)
             .join(', ')
-        : body.detail
+        : (body.detail ?? null)
     } catch {
-      detail = undefined
+      detail = null
     }
     throw new ApiError(res.status, detail)
   }
