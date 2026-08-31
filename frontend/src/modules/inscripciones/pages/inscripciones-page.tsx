@@ -12,6 +12,7 @@ import { InscripcionesResumen } from '@/modules/inscripciones/components/inscrip
 import { InscripcionesTabla } from '@/modules/inscripciones/components/inscripciones-tabla'
 import { useInscripciones } from '@/modules/inscripciones/hooks/use-inscripciones'
 import { useResumenInscripciones } from '@/modules/inscripciones/hooks/use-resumen-inscripciones'
+import { exportarInscripciones } from '@/modules/inscripciones/services/exportar-inscripciones'
 import type {
   EstadoInscripcion,
   InscripcionListadoItem,
@@ -35,6 +36,8 @@ export function InscripcionesPage() {
   const [inscripcionParaBaja, setInscripcionParaBaja] = useState<InscripcionListadoItem | null>(
     null,
   )
+  const [exportando, setExportando] = useState(false)
+  const [errorExportacion, setErrorExportacion] = useState<string | null>(null)
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setBusquedaAplicada(busqueda.trim()), 300)
@@ -64,6 +67,18 @@ export function InscripcionesPage() {
   }, [busquedaAplicada, cicloAplicado, estado, orden, pagina, tipo])
   const { datos, cargando, error, sinPermiso, recargar } = useInscripciones(filtros)
   const resumen = useResumenInscripciones(cicloResumen)
+
+  const exportarListado = async () => {
+    setErrorExportacion(null)
+    setExportando(true)
+    try {
+      await exportarInscripciones(filtros)
+    } catch {
+      setErrorExportacion('No se pudo descargar el archivo. Probá de nuevo en unos segundos.')
+    } finally {
+      setExportando(false)
+    }
+  }
 
   const actualizarFiltro = <T,>(setter: (valor: T) => void) => {
     return (valor: T) => {
@@ -126,6 +141,13 @@ export function InscripcionesPage() {
         </Alert>
       )}
 
+      {errorExportacion && (
+        <Alert variant="error">
+          <AlertTitle>No se pudo exportar el listado</AlertTitle>
+          <AlertDescription>{errorExportacion}</AlertDescription>
+        </Alert>
+      )}
+
       {resumen.error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar los indicadores</AlertTitle>
@@ -148,6 +170,8 @@ export function InscripcionesPage() {
         onOrdenChange={actualizarFiltro(setOrden)}
         densidad={densidad}
         onDensidadChange={setDensidad}
+        onExportar={exportarListado}
+        exportando={exportando}
       />
 
       {!cargando && datos.items.length === 0 && !error ? (

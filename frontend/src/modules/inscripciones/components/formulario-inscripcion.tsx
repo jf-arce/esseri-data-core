@@ -470,7 +470,7 @@ export function FormularioInscripcion({ onCancelar }: FormularioInscripcionProps
             )}
 
             {(solicitudSeleccionada || alumnoSeleccionado) && (
-              <div className="grid gap-3 rounded-card-sm bg-mod-inscripciones p-4 text-sm md:grid-cols-3">
+              <div className="grid gap-3 rounded-card-sm border border-[color-mix(in_oklch,var(--petroleo)_20%,white)] bg-sup-inscripciones p-4 text-sm md:grid-cols-3">
                 <div>
                   <p className="text-xs font-medium text-texto-3">Alumno</p>
                   <p className="font-semibold text-texto">

@@ -95,8 +95,35 @@ class SolicitudInscripcionCreate(BaseModel):
         return value.strip() if isinstance(value, str) else value
 
 
+class SolicitudInscripcionAdministrativaUpdate(BaseModel):
+    """Campos administrativos editables mientras la admisión sigue en proceso.
+
+    El estado, la etapa y las personas vinculadas se modifican únicamente mediante acciones
+    específicas del pipeline. Así se evita convertir esta operación en un PATCH genérico.
+    """
+
+    ciclo_lectivo: str = Field(min_length=4, max_length=20)
+    fecha_solicitud: date
+    nivel_educativo_id: uuid.UUID
+    observaciones: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("ciclo_lectivo", mode="before")
+    @classmethod
+    def normalizar_ciclo_lectivo(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
 class EtapaSolicitudCreate(BaseModel):
     observaciones: str | None = Field(default=None, max_length=2000)
+
+
+class MotivoSolicitudCreate(BaseModel):
+    motivo: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("motivo", mode="before")
+    @classmethod
+    def normalizar_motivo(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
 
 
 class DocumentoSolicitudCreate(BaseModel):
@@ -113,7 +140,7 @@ class EtapaSolicitudRead(BaseModel):
 
     id: uuid.UUID
     etapa: EtapaSolicitud
-    estado: Literal["en_proceso", "completada", "rechazada"]
+    estado: Literal["en_proceso", "completada", "rechazada", "revertida", "desistida"]
     fecha: datetime
     observaciones: str | None
     usuario_id: uuid.UUID

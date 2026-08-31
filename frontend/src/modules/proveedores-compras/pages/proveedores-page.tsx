@@ -9,7 +9,7 @@ import { ProveedorDialog } from '@/modules/proveedores-compras/components/provee
 import { ProveedoresFiltros } from '@/modules/proveedores-compras/components/proveedores-filtros'
 import { ProveedoresTabla } from '@/modules/proveedores-compras/components/proveedores-tabla'
 import { useProveedores } from '@/modules/proveedores-compras/hooks/use-proveedores'
-import { descargarExport } from '@/modules/proveedores-compras/services/descargar-export'
+import { descargarExport } from '@/lib/descargar-export'
 import { eliminarProveedor } from '@/modules/proveedores-compras/services/eliminar-proveedor'
 import type {
   EstadoProveedor,

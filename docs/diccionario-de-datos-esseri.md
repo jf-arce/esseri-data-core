@@ -303,7 +303,7 @@ RF cubiertos: RF-10, RF-11, RF-12, RF-33
 |---|---|---|---|
 | id | uuid | PK |  |
 | etapa | string |  | Mismo enum que `SOLICITUD_INSCRIPCION.etapa` |
-| estado | string |  | en_proceso / completada / rechazada |
+| estado | string |  | en_proceso / completada / rechazada / revertida / desistida |
 | fecha | datetime |  | Cuándo se registró el paso por esta etapa |
 | observaciones | string |  |  |
 | solicitud_inscripcion_id | uuid | FK |  |
@@ -311,6 +311,8 @@ RF cubiertos: RF-10, RF-11, RF-12, RF-33
 
 ### `DOCUMENTO_SOLICITUD`
 > **[ACLARACIÓN CLIENTE]** (respuesta 8): *"solicitar/validar documentación y contrato"* es un paso explícito del workflow de aprobación de admisión, y la inscripción no queda confirmada hasta cumplirlo — la creación de alumno/familia puede ser automática, pero la confirmación no.
+
+En el alcance actual, una solicitud aprobada en `documentacion_contrato` pasa a `inscripcion_confirmada` mediante una acción explícita cuando tiene al menos un documento validado y ningún documento pendiente. Esta confirmación no crea automáticamente Alumno, Familia, Factura, pagos ni la fila de `INSCRIPCION`. Un catálogo de requisitos documentales por nivel queda fuera de este bloque.
 
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
@@ -888,7 +890,7 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | `ASISTENCIA.tipo` | presente, **tardanza**, ausente_pendiente, ausente_justificado, ausente_injustificado | **MODIFICADO** — `[ACLARACIÓN CLIENTE]` respuesta 9 (antes: presente, ausente_justificado, ausente_injustificado) |
 | `SOLICITUD_INSCRIPCION.etapa` | consulta_lead, entrevista, postulacion, evaluacion_aprobacion, reserva_matricula, documentacion_contrato, inscripcion_confirmada | **NUEVO, ya no bloqueado** — `[ACLARACIÓN CLIENTE]` respuestas 7 y 8 |
 | `SOLICITUD_INSCRIPCION.estado` | en_proceso, aprobada, rechazada, desistida | [DECISIÓN DE DISEÑO] — **NUEVO** |
-| `ETAPA_SOLICITUD.estado` | en_proceso, completada, rechazada | [DECISIÓN DE DISEÑO] — **NUEVO** |
+| `ETAPA_SOLICITUD.estado` | en_proceso, completada, rechazada, revertida, desistida | [DECISIÓN DE DISEÑO] — **NUEVO**. `revertida` conserva la etapa avanzada por error; `desistida` registra la etapa en la que la familia dejó de continuar. |
 | `DOCUMENTO_SOLICITUD.estado` | pendiente, validado, rechazado | [DECISIÓN DE DISEÑO] — **NUEVO** |
 | `MOTIVO_JUSTIFICACION.nombre` | enfermedad, certificado_medico, turno_estudio_medico, viaje_familiar, motivo_familiar_personal, actividad_autorizada_esseri, otro | `[ACLARACIÓN CLIENTE]` respuesta 10 — **NUEVO** |
 | `JUSTIFICACION_INASISTENCIA.estado` | pendiente, aprobada, rechazada | [DECISIÓN DE DISEÑO] — **NUEVO** |

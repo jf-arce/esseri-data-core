@@ -2,6 +2,7 @@ import uuid
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from src.auth.constants import (
@@ -12,6 +13,7 @@ from src.auth.constants import (
 from src.auth.dependencies import requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
+from src.exports import respuesta_csv, texto_o_vacio
 from src.inscripciones import admisiones_service, matriculas_service, opciones_service
 from src.inscripciones.schemas import (
     AlumnoReinscripcionOpcionRead,
@@ -26,7 +28,9 @@ from src.inscripciones.schemas import (
     InscripcionListadoRead,
     InscripcionNuevaCreate,
     InscripcionRead,
+    MotivoSolicitudCreate,
     ReinscripcionCreate,
+    SolicitudInscripcionAdministrativaUpdate,
     SolicitudInscripcionCreate,
     SolicitudInscripcionListadoRead,
     SolicitudInscripcionOpcionRead,
@@ -71,6 +75,50 @@ def listar_inscripciones(
         direccion=direccion,
         pagina=pagina,
         tamanio_pagina=tamanio_pagina,
+    )
+
+
+@router.get("/exportar")
+def exportar_inscripciones(
+    db: DbSession,
+    _: PuedeLeer,
+    ciclo_lectivo: Annotated[str | None, Query(min_length=1, max_length=20)] = None,
+    estado: Annotated[Literal["activa", "finalizada", "baja"] | None, Query()] = None,
+    tipo: Annotated[
+        Literal["nueva", "reinscripcion", "cambio_matricula", "baja"] | None,
+        Query(),
+    ] = None,
+    buscar: Annotated[str | None, Query(max_length=100)] = None,
+    ordenar_por: Annotated[Literal["fecha", "alumno"], Query()] = "fecha",
+    direccion: Annotated[Literal["asc", "desc"], Query()] = "desc",
+) -> StreamingResponse:
+    """Descargar en CSV todas las inscripciones que coinciden con los filtros del listado."""
+
+    filas = [
+        [texto_o_vacio(celda) for celda in fila]
+        for fila in matriculas_service.filas_export_inscripciones(
+            db,
+            ciclo_lectivo=ciclo_lectivo.strip() if ciclo_lectivo else None,
+            estado=estado,
+            tipo=tipo,
+            buscar=buscar,
+            ordenar_por=ordenar_por,
+            direccion=direccion,
+        )
+    ]
+    return respuesta_csv(
+        "inscripciones",
+        [
+            "Alumno",
+            "Legajo",
+            "División",
+            "Nivel educativo",
+            "Ciclo lectivo",
+            "Tipo",
+            "Fecha",
+            "Estado",
+        ],
+        filas,
     )
 
 
@@ -147,6 +195,18 @@ def obtener_solicitud_inscripcion(
     return admisiones_service.obtener_solicitud_inscripcion(db, solicitud_id)
 
 
+@router.put("/solicitudes/{solicitud_id}")
+def actualizar_solicitud_inscripcion(
+    solicitud_id: uuid.UUID,
+    datos: SolicitudInscripcionAdministrativaUpdate,
+    db: DbSession,
+    _: PuedeActualizar,
+) -> SolicitudInscripcionRead:
+    """Editar los datos administrativos de una admisión que sigue en proceso."""
+
+    return admisiones_service.actualizar_solicitud_inscripcion(db, solicitud_id, datos)
+
+
 @router.post("/solicitudes/{solicitud_id}/avanzar")
 def avanzar_solicitud_inscripcion(
     solicitud_id: uuid.UUID,
@@ -159,6 +219,28 @@ def avanzar_solicitud_inscripcion(
     )
 
 
+@router.post("/solicitudes/{solicitud_id}/revertir-etapa")
+def revertir_ultima_etapa_solicitud(
+    solicitud_id: uuid.UUID,
+    datos: MotivoSolicitudCreate,
+    db: DbSession,
+    usuario: PuedeActualizar,
+) -> SolicitudInscripcionRead:
+    return admisiones_service.revertir_ultima_etapa_solicitud(
+        db, solicitud_id, datos.motivo, usuario.id
+    )
+
+
+@router.post("/solicitudes/{solicitud_id}/desistir")
+def desistir_solicitud_inscripcion(
+    solicitud_id: uuid.UUID,
+    datos: MotivoSolicitudCreate,
+    db: DbSession,
+    _: PuedeActualizar,
+) -> SolicitudInscripcionRead:
+    return admisiones_service.desistir_solicitud_inscripcion(db, solicitud_id, datos.motivo)
+
+
 @router.post("/solicitudes/{solicitud_id}/aprobar")
 def aprobar_solicitud_inscripcion(
     solicitud_id: uuid.UUID,
@@ -168,6 +250,29 @@ def aprobar_solicitud_inscripcion(
 ) -> SolicitudInscripcionRead:
     return admisiones_service.aprobar_solicitud_inscripcion(
         db, solicitud_id, datos.observaciones, usuario.id
+    )
+
+
+@router.post("/solicitudes/{solicitud_id}/confirmar-inscripcion")
+def confirmar_inscripcion_solicitud(
+    solicitud_id: uuid.UUID,
+    db: DbSession,
+    usuario: PuedeActualizar,
+) -> SolicitudInscripcionRead:
+    """Confirma una admisión documentada; no crea todavía la inscripción académica."""
+
+    return admisiones_service.confirmar_inscripcion_solicitud(db, solicitud_id, usuario.id)
+
+
+@router.post("/solicitudes/{solicitud_id}/revocar-aprobacion")
+def revocar_aprobacion_solicitud(
+    solicitud_id: uuid.UUID,
+    datos: MotivoSolicitudCreate,
+    db: DbSession,
+    usuario: PuedeActualizar,
+) -> SolicitudInscripcionRead:
+    return admisiones_service.revocar_aprobacion_solicitud(
+        db, solicitud_id, datos.motivo, usuario.id
     )
 
 

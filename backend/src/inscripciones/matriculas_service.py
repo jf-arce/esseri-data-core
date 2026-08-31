@@ -145,6 +145,70 @@ def listar_inscripciones(
     )
 
 
+_ETIQUETAS_TIPO_EXPORT = {
+    "nueva": "Nueva",
+    "reinscripcion": "Reinscripción",
+    "cambio_matricula": "Cambio de matrícula",
+    "baja": "Baja",
+}
+_ETIQUETAS_ESTADO_EXPORT = {
+    "activa": "Activa",
+    "finalizada": "Finalizada",
+    "baja": "Baja",
+}
+
+
+def filas_export_inscripciones(
+    db: Session,
+    *,
+    ciclo_lectivo: str | None = None,
+    estado: str | None = None,
+    tipo: str | None = None,
+    buscar: str | None = None,
+    ordenar_por: str = "fecha",
+    direccion: str = "desc",
+) -> list[list[object]]:
+    """Devuelve todas las inscripciones filtradas, en el mismo orden que el listado.
+
+    Se reutiliza la consulta paginada para mantener un único criterio de búsqueda y orden. El
+    endpoint de exportación no expone paginación, pero recorre las páginas en bloques acotados
+    para no cargar un listado histórico completo en una sola consulta.
+    """
+
+    filas: list[list[object]] = []
+    pagina = 1
+    while True:
+        listado = listar_inscripciones(
+            db,
+            ciclo_lectivo=ciclo_lectivo,
+            estado=estado,
+            tipo=tipo,
+            buscar=buscar,
+            ordenar_por=ordenar_por,
+            direccion=direccion,
+            pagina=pagina,
+            tamanio_pagina=100,
+        )
+        filas.extend(
+            [
+                f"{item.alumno_apellido}, {item.alumno_nombre}",
+                item.numero_legajo,
+                item.division_nombre,
+                f"{item.nivel_educativo_nombre}, {item.anio_numero}° año",
+                item.ciclo_lectivo,
+                _ETIQUETAS_TIPO_EXPORT[item.tipo],
+                item.fecha_inscripcion.isoformat(),
+                _ETIQUETAS_ESTADO_EXPORT[item.estado],
+            ]
+            for item in listado.items
+        )
+        if pagina >= listado.total_paginas:
+            break
+        pagina += 1
+
+    return filas
+
+
 def obtener_resumen_inscripciones(
     db: Session, ciclo_lectivo: str | None = None
 ) -> InscripcionesResumenRead:

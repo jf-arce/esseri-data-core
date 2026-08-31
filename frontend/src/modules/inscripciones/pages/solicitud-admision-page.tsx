@@ -1,11 +1,28 @@
 import { useEffect, useState } from 'react'
-import { CheckIcon, ChevronLeftIcon, FilePlus2Icon, XIcon } from 'lucide-react'
+import {
+  CheckIcon,
+  ChevronLeftIcon,
+  FilePlus2Icon,
+  MoreHorizontalIcon,
+  PencilIcon,
+  RotateCcwIcon,
+  Undo2Icon,
+  UserRoundXIcon,
+  XIcon,
+} from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
@@ -14,12 +31,26 @@ import {
   actualizarDocumentoSolicitudAdmision,
   aprobarSolicitudAdmision,
   avanzarSolicitudAdmision,
+  confirmarInscripcionSolicitudAdmision,
+  desistirSolicitudAdmision,
+  editarSolicitudAdmision,
   obtenerSolicitudAdmision,
   rechazarSolicitudAdmision,
   registrarDocumentoSolicitudAdmision,
+  revertirEtapaSolicitudAdmision,
+  revocarAprobacionSolicitudAdmision,
 } from '@/modules/inscripciones/services/solicitudes-admision'
-import type { SolicitudAdmision } from '@/modules/inscripciones/types'
 import {
+  AccionExcepcionalAdmisionDialog,
+  type AccionExcepcionalAdmision,
+} from '@/modules/inscripciones/components/accion-excepcional-admision-dialog'
+import { EditarSolicitudAdmisionDialog } from '@/modules/inscripciones/components/editar-solicitud-admision-dialog'
+import type {
+  ActualizarSolicitudAdmisionPayload,
+  SolicitudAdmision,
+} from '@/modules/inscripciones/types'
+import {
+  etiquetaEstadoEtapaSolicitud,
   etiquetaEstadoSolicitud,
   etiquetaEtapaSolicitud,
   formatearFechaInscripcion,
@@ -49,6 +80,8 @@ export function SolicitudAdmisionPage() {
   const [observaciones, setObservaciones] = useState('')
   const [tipoDocumento, setTipoDocumento] = useState('')
   const [archivo, setArchivo] = useState('')
+  const [editando, setEditando] = useState(false)
+  const [accionExcepcional, setAccionExcepcional] = useState<AccionExcepcionalAdmision | null>(null)
 
   useEffect(() => {
     if (!solicitudId) return
@@ -83,6 +116,44 @@ export function SolicitudAdmisionPage() {
             ? 'Solicitud rechazada.'
             : 'Etapa actualizada.',
       )
+    } catch (error) {
+      setResultado((actual) => ({ ...actual, error: mensajeError(error) }))
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  async function guardarEdicion(datos: ActualizarSolicitudAdmisionPayload) {
+    if (!solicitud) return
+    const actualizada = await editarSolicitudAdmision(solicitud.id, datos)
+    setResultado({ solicitud: actualizada, error: null })
+    toast.success('Admisión actualizada.')
+  }
+
+  async function ejecutarAccionExcepcional(accion: AccionExcepcionalAdmision, motivo: string) {
+    if (!solicitud) return
+    const actualizar = {
+      revertir: revertirEtapaSolicitudAdmision,
+      desistir: desistirSolicitudAdmision,
+      revocar_aprobacion: revocarAprobacionSolicitudAdmision,
+    }[accion]
+    const actualizada = await actualizar(solicitud.id, motivo)
+    setResultado({ solicitud: actualizada, error: null })
+    const mensajes = {
+      revertir: 'Última etapa revertida.',
+      desistir: 'Desistimiento registrado.',
+      revocar_aprobacion: 'Aprobación revocada.',
+    }
+    toast.success(mensajes[accion])
+  }
+
+  async function confirmarInscripcion() {
+    if (!solicitud) return
+    setEnviando(true)
+    try {
+      const actualizada = await confirmarInscripcionSolicitudAdmision(solicitud.id)
+      setResultado({ solicitud: actualizada, error: null })
+      toast.success('Inscripción confirmada. Ya está disponible para el alta de inscripción.')
     } catch (error) {
       setResultado((actual) => ({ ...actual, error: mensajeError(error) }))
     } finally {
@@ -128,13 +199,29 @@ export function SolicitudAdmisionPage() {
 
   const permiteResolver =
     solicitud?.estado === 'en_proceso' && solicitud.etapa === 'evaluacion_aprobacion'
-  const permiteAvanzar =
+  const permiteAvanzarEnProceso =
     solicitud?.estado === 'en_proceso' &&
     solicitud.etapa !== 'evaluacion_aprobacion' &&
     solicitud.etapa !== 'documentacion_contrato' &&
     solicitud.etapa !== 'inscripcion_confirmada'
+  const permiteAvanzarReserva =
+    solicitud?.estado === 'aprobada' && solicitud.etapa === 'reserva_matricula'
+  const permiteAvanzar = permiteAvanzarEnProceso || permiteAvanzarReserva
   const permiteDocumentos =
     solicitud?.estado === 'aprobada' && solicitud.etapa === 'documentacion_contrato'
+  const documentacionCompleta =
+    solicitud?.documentos.length !== 0 &&
+    solicitud?.documentos.some((documento) => documento.estado === 'validado') &&
+    solicitud?.documentos.every((documento) => documento.estado !== 'pendiente')
+  const permiteEditar = solicitud?.estado === 'en_proceso'
+  const permiteRevertir = solicitud?.estado === 'en_proceso' && solicitud.etapa !== 'consulta_lead'
+  const permiteDesistir =
+    (solicitud?.estado === 'en_proceso' || solicitud?.estado === 'aprobada') &&
+    solicitud.etapa !== 'inscripcion_confirmada'
+  const permiteRevocarAprobacion =
+    solicitud?.estado === 'aprobada' && solicitud.etapa === 'reserva_matricula'
+  const muestraAccionesExcepcionales =
+    permiteRevertir || permiteDesistir || permiteRevocarAprobacion
 
   if (!solicitud && !resultado.error) {
     return <Spinner className="mx-auto my-24" />
@@ -182,20 +269,65 @@ export function SolicitudAdmisionPage() {
               </span>
             </p>
           </div>
-          {permiteResolver && (
-            <div className="flex gap-2">
-              <Button
-                variant="destructive"
-                disabled={enviando}
-                onClick={() => ejecutarAccion('rechazar')}
-              >
-                <XIcon data-icon="inline-start" />
-                Rechazar
-              </Button>
-              <Button disabled={enviando} onClick={() => ejecutarAccion('aprobar')}>
-                <CheckIcon data-icon="inline-start" />
-                Aprobar solicitud
-              </Button>
+          {(permiteResolver || permiteEditar || muestraAccionesExcepcionales) && (
+            <div className="flex flex-wrap gap-2">
+              {permiteEditar && (
+                <Button variant="secondary" disabled={enviando} onClick={() => setEditando(true)}>
+                  <PencilIcon data-icon="inline-start" />
+                  Editar
+                </Button>
+              )}
+              {permiteResolver && (
+                <>
+                  <Button
+                    variant="destructive"
+                    disabled={enviando}
+                    onClick={() => ejecutarAccion('rechazar')}
+                  >
+                    <XIcon data-icon="inline-start" />
+                    Rechazar
+                  </Button>
+                  <Button disabled={enviando} onClick={() => ejecutarAccion('aprobar')}>
+                    <CheckIcon data-icon="inline-start" />
+                    Aprobar solicitud
+                  </Button>
+                </>
+              )}
+              {muestraAccionesExcepcionales && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="secondary" size="icon-sm" aria-label="Acciones excepcionales">
+                      <MoreHorizontalIcon />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {permiteRevertir && (
+                      <DropdownMenuItem onSelect={() => setAccionExcepcional('revertir')}>
+                        <RotateCcwIcon />
+                        Revertir última etapa
+                      </DropdownMenuItem>
+                    )}
+                    {permiteRevocarAprobacion && (
+                      <DropdownMenuItem onSelect={() => setAccionExcepcional('revocar_aprobacion')}>
+                        <Undo2Icon />
+                        Revocar aprobación
+                      </DropdownMenuItem>
+                    )}
+                    {permiteDesistir && (permiteRevertir || permiteRevocarAprobacion) && (
+                      <DropdownMenuSeparator />
+                    )}
+                    {permiteDesistir && (
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={() => setAccionExcepcional('desistir')}
+                      >
+                        <UserRoundXIcon />
+                        Registrar desistimiento
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
           )}
         </div>
@@ -259,7 +391,7 @@ export function SolicitudAdmisionPage() {
                     <span className="absolute top-1.5 -left-[21px] size-2.5 rounded-full bg-violeta" />
                     <p className="font-medium">{etiquetaEtapaSolicitud(etapa.etapa)}</p>
                     <p className="text-xs text-texto-3">
-                      {etapa.estado.replace('_', ' ')} ·{' '}
+                      {etiquetaEstadoEtapaSolicitud(etapa.estado)} ·{' '}
                       {new Date(etapa.fecha).toLocaleDateString('es-AR')}
                     </p>
                     {etapa.observaciones && (
@@ -373,15 +505,50 @@ export function SolicitudAdmisionPage() {
                   <FilePlus2Icon data-icon="inline-start" />
                   Agregar documento
                 </Button>
+                <div className="mt-5 border-t border-borde pt-4">
+                  <p className="text-sm font-medium">Confirmación de inscripción</p>
+                  <p className="mt-1 text-xs text-texto-3">
+                    Requiere al menos un documento validado y ningún documento pendiente.
+                  </p>
+                  <Button
+                    className="mt-3"
+                    disabled={enviando || !documentacionCompleta}
+                    onClick={confirmarInscripcion}
+                  >
+                    {enviando && <Spinner data-icon="inline-start" />}
+                    <CheckIcon data-icon="inline-start" />
+                    Confirmar inscripción
+                  </Button>
+                </div>
               </>
             ) : (
               <p className="text-sm text-texto-2">
-                La documentación se gestiona al llegar a esa etapa del proceso.
+                {solicitud.etapa === 'inscripcion_confirmada'
+                  ? 'La inscripción está confirmada y ya puede usarse para el alta académica.'
+                  : 'La documentación se gestiona al llegar a esa etapa del proceso.'}
               </p>
             )}
           </div>
         </aside>
       </div>
+
+      {editando && (
+        <EditarSolicitudAdmisionDialog
+          solicitud={solicitud}
+          onOpenChange={setEditando}
+          onGuardar={guardarEdicion}
+        />
+      )}
+      {accionExcepcional && (
+        <AccionExcepcionalAdmisionDialog
+          accion={accionExcepcional}
+          solicitud={solicitud}
+          onOpenChange={(open) => {
+            if (!open) setAccionExcepcional(null)
+          }}
+          onConfirmar={ejecutarAccionExcepcional}
+        />
+      )}
     </div>
   )
 }
