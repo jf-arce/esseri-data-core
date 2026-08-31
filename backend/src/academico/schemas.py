@@ -4,7 +4,7 @@ Forma de los datos que entran y salen por la API del módulo.
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -148,6 +148,75 @@ class AsignacionDocenteResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# --- Asistencia --------------------------------------------------------------------------
+
+
+TipoAsistenciaDocente = Literal["presente", "tardanza", "ausente"]
+
+
+class AsistenciaCreate(BaseModel):
+    """Schema para registrar asistencia de un alumno.
+
+    El docente solo marca presente/tardanza/ausente.
+    Si marca 'ausente', el service lo traduce a 'ausente_pendiente'
+    y dispara la notificación automática a los responsables.
+    """
+
+    inscripcion_id: uuid.UUID = Field(..., description="ID de la inscripción del alumno")
+    fecha: date = Field(..., description="Fecha del registro de asistencia")
+    tipo: TipoAsistenciaDocente = Field(..., description="Tipo: 'presente', 'tardanza' o 'ausente'")
+
+
+class AsistenciaRegistroBulk(BaseModel):
+    """Un registro dentro del listado masivo."""
+
+    inscripcion_id: uuid.UUID = Field(..., description="ID de la inscripción del alumno")
+    tipo: TipoAsistenciaDocente = Field(..., description="Tipo: 'presente', 'tardanza' o 'ausente'")
+
+
+class AsistenciaBulkCreate(BaseModel):
+    """Schema para registrar asistencia de toda una división en una fecha."""
+
+    fecha: date = Field(..., description="Fecha del registro de asistencia")
+    division_id: uuid.UUID = Field(..., description="ID de la división")
+    registros: list[AsistenciaRegistroBulk] = Field(
+        ..., min_length=1, description="Lista de registros de asistencia"
+    )
+
+
+class AsistenciaUpdate(BaseModel):
+    """Schema para actualizar un registro de asistencia existente.
+
+    El docente solo puede cambiar entre presente/tardanza/ausente.
+    No puede modificar un registro que ya fue justificado
+    (ausente_justificado / ausente_injustificado).
+    """
+
+    tipo: TipoAsistenciaDocente = Field(..., description="Tipo: 'presente', 'tardanza' o 'ausente'")
+
+
+class AsistenciaResponse(BaseModel):
+    """Schema para responder con datos de Asistencia."""
+
+    id: uuid.UUID
+    fecha: date
+    tipo: str
+    inscripcion_id: uuid.UUID
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AsistenciaBulkResponse(BaseModel):
+    """Schema para responder al registro masivo de asistencia."""
+
+    creadas: int = Field(..., description="Cantidad de registros creados")
+    actualizadas: int = Field(..., description="Cantidad de registros actualizados")
+    notificaciones_disparadas: int = Field(
+        ..., description="Cantidad de notificaciones de ausencia disparadas"
+    )
 
 
 # --- Materia -----------------------------------------------------------------------------

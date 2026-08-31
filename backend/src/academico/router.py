@@ -1,6 +1,7 @@
 """Endpoints HTTP del módulo Académico."""
 
 import uuid
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 from src.academico.dependencies import (
     obtener_anio_o_404,
     obtener_asignacion_docente_o_404,
+    obtener_asistencia_o_404,
     obtener_division_o_404,
     obtener_docente_o_404,
     obtener_materia_o_404,
@@ -18,9 +20,12 @@ from src.academico.exceptions import (
     AnioConDivisiones,
     AnioDuplicado,
     AsignacionDocenteDuplicada,
+    AsistenciaDuplicada,
+    AsistenciaYaJustificada,
     DivisionConAsignaciones,
     DivisionDuplicada,
     DocenteConAsignaciones,
+    InscripcionNoActiva,
     LegajoDuplicado,
     MateriaConAsignaciones,
     MateriaDuplicada,
@@ -41,6 +46,11 @@ from src.academico.schemas import (
     AnioUpdate,
     AsignacionDocenteCreate,
     AsignacionDocenteResponse,
+    AsistenciaBulkCreate,
+    AsistenciaBulkResponse,
+    AsistenciaCreate,
+    AsistenciaResponse,
+    AsistenciaUpdate,
     DivisionCreate,
     DivisionResponse,
     DivisionUpdate,
@@ -56,6 +66,7 @@ from src.academico.schemas import (
 )
 from src.academico.service import (
     actualizar_anio,
+    actualizar_asistencia,
     actualizar_division,
     actualizar_docente,
     actualizar_materia,
@@ -68,6 +79,7 @@ from src.academico.service import (
     crear_nivel_educativo,
     eliminar_anio,
     eliminar_asignacion_docente,
+    eliminar_asistencia,
     eliminar_division,
     eliminar_docente,
     eliminar_materia,
@@ -75,6 +87,7 @@ from src.academico.service import (
     listar_anios,
     listar_anios_por_nivel,
     listar_asignaciones_docentes,
+    listar_asistencias,
     listar_divisiones,
     listar_divisiones_por_anio,
     listar_docentes,
@@ -82,6 +95,8 @@ from src.academico.service import (
     listar_materias_por_anio,
     listar_materias_por_division,
     listar_niveles_educativos,
+    registrar_asistencia,
+    registrar_asistencia_masiva,
 )
 from src.auth.constants import (
     PERMISO_ACADEMICO_ACTUALIZAR,
@@ -92,6 +107,7 @@ from src.auth.constants import (
 from src.auth.dependencies import requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
+from src.inscripciones.models import Asistencia
 
 router = APIRouter(prefix="/academico", tags=["academico"])
 
@@ -472,3 +488,94 @@ def eliminar_asignacion_docente_endpoint(
 ) -> None:
     """Desasignar un docente (eliminar la asignación docente)."""
     eliminar_asignacion_docente(db, asignacion, usuario.id)
+
+
+# --- Asistencia --------------------------------------------------------------------------
+
+
+@router.post("/asistencias", response_model=AsistenciaResponse, status_code=201)
+def registrar_asistencia_endpoint(
+    datos: AsistenciaCreate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_CREAR))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Asistencia:
+    """Registrar asistencia diaria de un alumno.
+
+    El docente marca presente/tardanza/ausente.
+    Si marca 'ausente', se guarda como 'ausente_pendiente' y se dispara
+    notificación automática a los responsables con recibe_comunicaciones=true.
+    """
+    try:
+        return registrar_asistencia(db, datos, usuario.id)
+    except InscripcionNoActiva as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+    except AsistenciaDuplicada as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+
+
+@router.post("/asistencias/bulk", response_model=AsistenciaBulkResponse)
+def registrar_asistencia_masiva_endpoint(
+    datos: AsistenciaBulkCreate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_CREAR))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> AsistenciaBulkResponse:
+    """Registrar asistencia de toda una división en una fecha.
+
+    Crea o actualiza registros existentes. Para 'ausente' dispara
+    notificación automática a los responsables.
+    """
+    return registrar_asistencia_masiva(db, datos, usuario.id)
+
+
+@router.get("/asistencias", response_model=list[AsistenciaResponse])
+def listar_asistencias_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    inscripcion_id: uuid.UUID | None = None,
+    fecha: date | None = None,
+    division_id: uuid.UUID | None = None,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[Asistencia]:
+    """Listar registros de asistencia con filtros opcionales."""
+    return listar_asistencias(
+        db,
+        inscripcion_id=inscripcion_id,
+        fecha=fecha,
+        division_id=division_id,
+    )
+
+
+@router.get("/asistencias/{asistencia_id}", response_model=AsistenciaResponse)
+def obtener_asistencia_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    asistencia: Asistencia = Depends(obtener_asistencia_o_404),  # noqa: B008
+) -> Asistencia:
+    """Obtener un registro de asistencia por su ID."""
+    return asistencia
+
+
+@router.put("/asistencias/{asistencia_id}", response_model=AsistenciaResponse)
+def actualizar_asistencia_endpoint(
+    datos: AsistenciaUpdate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR))],
+    asistencia: Asistencia = Depends(obtener_asistencia_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Asistencia:
+    """Actualizar un registro de asistencia.
+
+    El docente solo puede cambiar entre presente/tardanza/ausente.
+    No puede modificar un registro ya justificado.
+    """
+    try:
+        return actualizar_asistencia(db, asistencia, datos, usuario.id)
+    except AsistenciaYaJustificada as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+
+
+@router.delete("/asistencias/{asistencia_id}", status_code=204)
+def eliminar_asistencia_endpoint(
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ELIMINAR))],
+    asistencia: Asistencia = Depends(obtener_asistencia_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> None:
+    """Eliminar un registro de asistencia."""
+    eliminar_asistencia(db, asistencia, usuario.id)
