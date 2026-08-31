@@ -5,10 +5,11 @@ import uuid
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from src.academico.models import Anio, Division, NivelEducativo
+from src.academico.models import Anio, Division, Materia, NivelEducativo
 from src.academico.service import (
     obtener_anio_por_id,
     obtener_division_por_id,
+    obtener_materia_por_id,
     obtener_nivel_educativo_por_id,
 )
 from src.database import get_db
@@ -54,3 +55,17 @@ def obtener_division_o_404(
             detail=f"División con ID {division_id} no encontrada",
         )
     return division
+
+
+def obtener_materia_o_404(
+    materia_id: uuid.UUID,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Materia:
+    """Dependencia para obtener una materia por ID o retornar 404."""
+    materia = obtener_materia_por_id(db, materia_id)
+    if materia is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Materia con ID {materia_id} no encontrada",
+        )
+    return materia

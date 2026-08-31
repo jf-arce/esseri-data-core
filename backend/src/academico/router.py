@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from src.academico.dependencies import (
     obtener_anio_o_404,
     obtener_division_o_404,
+    obtener_materia_o_404,
     obtener_nivel_educativo_o_404,
 )
 from src.academico.exceptions import (
@@ -16,10 +17,12 @@ from src.academico.exceptions import (
     AnioDuplicado,
     DivisionConAsignaciones,
     DivisionDuplicada,
+    MateriaConAsignaciones,
+    MateriaDuplicada,
     NivelEducativoConAnios,
     NombreNivelDuplicado,
 )
-from src.academico.models import Anio, Division, NivelEducativo
+from src.academico.models import Anio, Division, Materia, NivelEducativo
 from src.academico.schemas import (
     AnioCreate,
     AnioResponse,
@@ -27,6 +30,9 @@ from src.academico.schemas import (
     DivisionCreate,
     DivisionResponse,
     DivisionUpdate,
+    MateriaCreate,
+    MateriaResponse,
+    MateriaUpdate,
     NivelEducativoCreate,
     NivelEducativoResponse,
     NivelEducativoUpdate,
@@ -34,17 +40,23 @@ from src.academico.schemas import (
 from src.academico.service import (
     actualizar_anio,
     actualizar_division,
+    actualizar_materia,
     actualizar_nivel_educativo,
     crear_anio,
     crear_division,
+    crear_materia,
     crear_nivel_educativo,
     eliminar_anio,
     eliminar_division,
+    eliminar_materia,
     eliminar_nivel_educativo,
     listar_anios,
     listar_anios_por_nivel,
     listar_divisiones,
     listar_divisiones_por_anio,
+    listar_materias,
+    listar_materias_por_anio,
+    listar_materias_por_division,
     listar_niveles_educativos,
 )
 from src.auth.constants import (
@@ -246,4 +258,75 @@ def eliminar_division_endpoint(
     try:
         eliminar_division(db, division, usuario.id)
     except DivisionConAsignaciones as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+
+
+# --- Materia -----------------------------------------------------------------------------
+
+
+@router.post("/materias", response_model=MateriaResponse, status_code=201)
+def crear_materia_endpoint(
+    datos: MateriaCreate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_CREAR))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Materia:
+    """Crear una nueva materia.
+
+    `division_id` nulo = materia común a todo el año;
+    con valor = específica de esa división/orientación.
+    """
+    try:
+        return crear_materia(db, datos, usuario.id)
+    except MateriaDuplicada as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+
+
+@router.get("/materias", response_model=list[MateriaResponse])
+def listar_materias_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    anio_id: uuid.UUID | None = None,
+    division_id: uuid.UUID | None = None,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[Materia]:
+    """Listar materias. Opcionalmente filtrar por ?anio_id= o ?division_id="""
+    if division_id is not None:
+        return listar_materias_por_division(db, division_id)
+    if anio_id is not None:
+        return listar_materias_por_anio(db, anio_id)
+    return listar_materias(db)
+
+
+@router.get("/materias/{materia_id}", response_model=MateriaResponse)
+def obtener_materia_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    materia: Materia = Depends(obtener_materia_o_404),  # noqa: B008
+) -> Materia:
+    """Obtener una materia por su ID."""
+    return materia
+
+
+@router.put("/materias/{materia_id}", response_model=MateriaResponse)
+def actualizar_materia_endpoint(
+    datos: MateriaUpdate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR))],
+    materia: Materia = Depends(obtener_materia_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Materia:
+    """Actualizar una materia existente."""
+    try:
+        return actualizar_materia(db, materia, datos, usuario.id)
+    except MateriaDuplicada as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+
+
+@router.delete("/materias/{materia_id}", status_code=204)
+def eliminar_materia_endpoint(
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ELIMINAR))],
+    materia: Materia = Depends(obtener_materia_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> None:
+    """Eliminar una materia."""
+    try:
+        eliminar_materia(db, materia, usuario.id)
+    except MateriaConAsignaciones as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
