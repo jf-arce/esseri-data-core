@@ -5,6 +5,7 @@ import type {
   CrearReinscripcionPayload,
   InscripcionRead,
   EstadoSolicitudAdmision,
+  EstadoEtapaSolicitudAdmision,
   EtapaSolicitudAdmision,
   SolicitudInscripcionOpcion,
   TipoInscripcionFormulario,
@@ -139,6 +140,17 @@ export function etiquetaEstadoSolicitud(estado: EstadoSolicitudAdmision) {
     en_proceso: 'En proceso',
     aprobada: 'Aprobada',
     rechazada: 'Rechazada',
+    desistida: 'Desistida',
+  }
+  return etiquetas[estado]
+}
+
+export function etiquetaEstadoEtapaSolicitud(estado: EstadoEtapaSolicitudAdmision) {
+  const etiquetas: Record<EstadoEtapaSolicitudAdmision, string> = {
+    en_proceso: 'En proceso',
+    completada: 'Completada',
+    rechazada: 'Rechazada',
+    revertida: 'Revertida',
     desistida: 'Desistida',
   }
   return etiquetas[estado]

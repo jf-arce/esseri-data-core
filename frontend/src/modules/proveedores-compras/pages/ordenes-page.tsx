@@ -22,7 +22,7 @@ import { useProductos } from '@/modules/proveedores-compras/hooks/use-productos'
 import { useProveedores } from '@/modules/proveedores-compras/hooks/use-proveedores'
 import { useSolicitudes } from '@/modules/proveedores-compras/hooks/use-solicitudes'
 import { cancelarOrden } from '@/modules/proveedores-compras/services/cancelar-orden'
-import { descargarExport } from '@/modules/proveedores-compras/services/descargar-export'
+import { descargarExport } from '@/lib/descargar-export'
 import { listarOrdenes } from '@/modules/proveedores-compras/services/listar-ordenes'
 import type { EstadoOrdenCompra, OrdenListadoItem } from '@/modules/proveedores-compras/types'
 

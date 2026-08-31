@@ -48,10 +48,8 @@ function FilterBarSpacer() {
   return <div className="flex-1" />
 }
 
-// Control de densidad (§9.1): dos estados nomás, así que un switch binario es más directo que
-// un segmentado de dos botones. El ícono vive dentro del thumb y cambia (cómoda/compacta) a
-// medida que el thumb se desliza, en vez de quedar como dos íconos fijos a los costados de un
-// on/off genérico.
+// Control de densidad (§9.1): muestra los dos modos en simultáneo y resalta el activo. Sigue
+// usando un switch accesible para conservar una única interacción de teclado y un único estado.
 function DensityToggle({
   value,
   onChange,
@@ -62,25 +60,41 @@ function DensityToggle({
   const esCompacta = value === 'compact'
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <SwitchPrimitive.Root
-          checked={esCompacta}
-          onCheckedChange={(checked) => onChange(checked ? 'compact' : 'comfortable')}
-          className="relative inline-flex h-10 w-[72px] shrink-0 cursor-pointer items-center rounded-full border border-borde bg-superficie p-1 transition-colors data-checked:border-violeta data-checked:bg-violeta"
-          aria-label={esCompacta ? 'Vista compacta activada' : 'Vista cómoda activada'}
-        >
-          <SwitchPrimitive.Thumb className="flex size-8 items-center justify-center rounded-full bg-superficie shadow-overlay transition-transform duration-200 ease-esseri data-checked:translate-x-[32px]">
-            {esCompacta ? (
-              <Rows4Icon className="size-4 text-violeta" />
-            ) : (
-              <Rows2Icon className="size-4 text-texto-2" />
+    <SwitchPrimitive.Root
+      checked={esCompacta}
+      onCheckedChange={(checked) => onChange(checked ? 'compact' : 'comfortable')}
+      className="relative inline-flex h-10 w-[72px] shrink-0 cursor-pointer items-center justify-between rounded-full border border-borde bg-superficie p-1 transition-colors focus-visible:border-violeta"
+      aria-label={esCompacta ? 'Vista compacta activada' : 'Vista cómoda activada'}
+    >
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            aria-hidden="true"
+            className={cn(
+              'z-10 flex size-8 items-center justify-center rounded-full transition-colors',
+              esCompacta ? 'text-texto-3' : 'bg-violeta-suave text-violeta',
             )}
-          </SwitchPrimitive.Thumb>
-        </SwitchPrimitive.Root>
-      </TooltipTrigger>
-      <TooltipContent>{esCompacta ? 'Vista compacta' : 'Vista cómoda'}</TooltipContent>
-    </Tooltip>
+          >
+            <Rows2Icon className="size-4" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>Vista cómoda</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            aria-hidden="true"
+            className={cn(
+              'z-10 flex size-8 items-center justify-center rounded-full transition-colors',
+              esCompacta ? 'bg-violeta-suave text-violeta' : 'text-texto-3',
+            )}
+          >
+            <Rows4Icon className="size-4" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>Vista compacta</TooltipContent>
+      </Tooltip>
+    </SwitchPrimitive.Root>
   )
 }
 

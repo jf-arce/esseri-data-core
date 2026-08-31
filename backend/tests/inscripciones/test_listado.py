@@ -1,7 +1,11 @@
 import uuid
+from datetime import date
 
 import pytest
 
+from src.familias_alumnos.models import Alumno
+from src.inscripciones.models import Inscripcion
+from src.models import Persona
 from tests.inscripciones.factories import (
     crear_escenario,
     crear_inscripcion_previa,
@@ -121,6 +125,107 @@ def test_paginar_listado_inscripciones(client, db_session):
     assert segunda_pagina.json()["items"][0]["ciclo_lectivo"] == "2027"
 
 
+def test_ordenar_listado_inscripciones_antes_de_paginar(client, db_session):
+    escenario = crear_escenario(db_session)
+    primera = crear_inscripcion_previa(db_session, escenario, ciclo="2027")
+    primera.fecha_inscripcion = date(2026, 3, 10)
+    persona_id = uuid.uuid4()
+    alumno_id = uuid.uuid4()
+    db_session.add_all(
+        [
+            Persona(id=persona_id, nombre="Sofía", apellido="Vega", dni="50999888"),
+            Alumno(
+                id=alumno_id,
+                numero_legajo="A-2028-002",
+                estado="activo",
+                persona_id=persona_id,
+            ),
+            Inscripcion(
+                ciclo_lectivo="2028",
+                fecha_inscripcion=date(2026, 8, 10),
+                tipo="nueva",
+                estado="finalizada",
+                alumno_id=alumno_id,
+                division_id=escenario["division_id"],
+            ),
+        ]
+    )
+    db_session.commit()
+
+    por_fecha = client.get("/inscripciones", params={"ordenar_por": "fecha", "direccion": "asc"})
+    por_alumno = client.get("/inscripciones", params={"ordenar_por": "alumno", "direccion": "desc"})
+
+    assert por_fecha.status_code == 200
+    assert [item["ciclo_lectivo"] for item in por_fecha.json()["items"]] == ["2027", "2028"]
+    assert por_alumno.status_code == 200
+    assert [item["alumno_nombre"] for item in por_alumno.json()["items"]] == ["Sofía", "Tiziano"]
+
+
+def test_exportar_inscripciones_csv_respeta_filtros_y_orden(client, db_session):
+    escenario = crear_escenario(db_session, nombre_alumno="Sofía")
+    crear_inscripcion_previa(db_session, escenario, ciclo="2027")
+    otra_persona_id = uuid.uuid4()
+    otro_alumno_id = uuid.uuid4()
+    db_session.add_all(
+        [
+            Persona(id=otra_persona_id, nombre="Sofía", apellido="Vega", dni="50999888"),
+            Alumno(
+                id=otro_alumno_id,
+                numero_legajo="A-2027-002",
+                estado="activo",
+                persona_id=otra_persona_id,
+            ),
+            Inscripcion(
+                ciclo_lectivo="2027",
+                fecha_inscripcion=date(2026, 8, 28),
+                tipo="nueva",
+                estado="activa",
+                alumno_id=otro_alumno_id,
+                division_id=escenario["division_id"],
+            ),
+        ]
+    )
+    db_session.commit()
+
+    response = client.get(
+        "/inscripciones/exportar",
+        params={"buscar": "Sofia", "ordenar_por": "alumno", "direccion": "asc"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv")
+    assert "attachment" in response.headers["content-disposition"]
+    texto = response.content.decode("utf-8-sig")
+    lineas = texto.strip().split("\n")
+    assert lineas[0] == "Alumno,Legajo,División,Nivel educativo,Ciclo lectivo,Tipo,Fecha,Estado"
+    assert "Cabral, Sofía" in lineas[1]
+    assert "Vega, Sofía" in lineas[2]
+
+
+def test_obtener_resumen_inscripciones_del_ciclo(client, db_session):
+    escenario = crear_escenario(db_session)
+    activa = crear_inscripcion_previa(db_session, escenario, ciclo="2027", estado="activa")
+    activa.tipo = "nueva"
+    reinscripcion = crear_inscripcion_previa(db_session, escenario, ciclo="2028", estado="activa")
+    reinscripcion.solicitud_inscripcion_id = None
+    reinscripcion.tipo = "reinscripcion"
+    baja = crear_inscripcion_previa(db_session, escenario, ciclo="2027", estado="baja")
+    baja.solicitud_inscripcion_id = None
+    baja.tipo = "baja"
+    db_session.commit()
+
+    response = client.get("/inscripciones/resumen", params={"ciclo_lectivo": "2027"})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "ciclo_lectivo": "2027",
+        "inscripciones_activas": 1,
+        "nuevas": 1,
+        "reinscripciones": 0,
+        "bajas": 1,
+    }
+
+
 @pytest.mark.parametrize(
     "parametros",
     [
@@ -129,6 +234,8 @@ def test_paginar_listado_inscripciones(client, db_session):
         {"tamanio_pagina": 101},
         {"estado": "desconocida"},
         {"tipo": "desconocido"},
+        {"ordenar_por": "desconocido"},
+        {"direccion": "lateral"},
     ],
 )
 def test_rechaza_filtros_invalidos_del_listado(client, parametros):
@@ -141,5 +248,13 @@ def test_listar_inscripciones_sin_sesion_rechaza(client):
     client.cookies.clear()
 
     response = client.get("/inscripciones")
+
+    assert response.status_code == 401
+
+
+def test_exportar_inscripciones_sin_sesion_rechaza(client):
+    client.cookies.clear()
+
+    response = client.get("/inscripciones/exportar")
 
     assert response.status_code == 401
