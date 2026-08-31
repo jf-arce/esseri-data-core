@@ -17,9 +17,18 @@ import {
 import { actualizarEstadoReglaFacturacion } from '@/modules/facturacion/services/actualizar-estado-regla-facturacion'
 import { GenerarFacturacionDialog } from '@/modules/facturacion/components/generar-facturacion-dialog'
 import { ReglaFacturacionDialog } from '@/modules/facturacion/components/regla-facturacion-dialog'
+import { useEjecucionesFacturacion } from '@/modules/facturacion/hooks/use-ejecuciones-facturacion'
 import { useReglasFacturacion } from '@/modules/facturacion/hooks/use-reglas-facturacion'
-import type { EstadoReglaFacturacion, ReglaFacturacion } from '@/modules/facturacion/types'
-import { formatearMoneda } from '@/modules/facturacion/utils'
+import type {
+  EjecucionFacturacion,
+  EstadoReglaFacturacion,
+  ReglaFacturacion,
+} from '@/modules/facturacion/types'
+import {
+  formatearFechaFactura,
+  formatearFechaHora,
+  formatearMoneda,
+} from '@/modules/facturacion/utils'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 
@@ -33,9 +42,24 @@ const VARIANTE_ESTADO: Record<
   EstadoReglaFacturacion,
   'neutro' | 'exito' | 'advertencia' | 'error'
 > = { borrador: 'neutro', activa: 'exito', pausada: 'advertencia', finalizada: 'error' }
+const ETIQUETA_EJECUCION: Record<EjecucionFacturacion['estado'], string> = {
+  exitosa: 'Exitosa',
+  parcial: 'Parcial',
+  fallida: 'Fallida',
+}
+const VARIANTE_EJECUCION: Record<
+  EjecucionFacturacion['estado'],
+  'exito' | 'advertencia' | 'error'
+> = { exitosa: 'exito', parcial: 'advertencia', fallida: 'error' }
 
 export function ReglasFacturacionPage() {
-  const { reglas, cargando, error, sinPermiso, recargar } = useReglasFacturacion()
+  const { reglas, cargando, error, sinPermiso, recargar: recargarReglas } = useReglasFacturacion()
+  const {
+    ejecuciones,
+    cargando: cargandoEjecuciones,
+    error: errorEjecuciones,
+    recargar: recargarEjecuciones,
+  } = useEjecucionesFacturacion()
   const [dialogoRegla, setDialogoRegla] = useState(false)
   const [reglaEditando, setReglaEditando] = useState<ReglaFacturacion | undefined>()
   const [dialogoGenerar, setDialogoGenerar] = useState(false)
@@ -50,7 +74,7 @@ export function ReglasFacturacionPage() {
     try {
       await actualizarEstadoReglaFacturacion(regla.id, siguiente)
       toast.success(`Regla ${siguiente === 'activa' ? 'activada' : 'pausada'}`)
-      recargar()
+      recargarReglas()
     } catch (causa) {
       toast.error(causa instanceof ApiError ? causa.detail : 'No se pudo actualizar la regla.')
     }
@@ -100,7 +124,7 @@ export function ReglasFacturacionPage() {
           <AlertTitle>No se pudieron cargar las reglas</AlertTitle>
           <AlertDescription className="flex items-center justify-between gap-3">
             {error}
-            <Button variant="secondary" size="sm" onClick={recargar}>
+            <Button variant="secondary" size="sm" onClick={recargarReglas}>
               Reintentar
             </Button>
           </AlertDescription>
@@ -139,7 +163,9 @@ export function ReglasFacturacionPage() {
                   <TableCell>
                     <div className="font-medium">{regla.nombre}</div>
                     <span className="text-xs text-texto-3">
-                      Vence el día {regla.dia_vencimiento}
+                      {regla.modo_generacion === 'automatica'
+                        ? `Automática · genera el día ${regla.dia_generacion} · vence el día ${regla.dia_vencimiento}`
+                        : `Manual · vence el día ${regla.dia_vencimiento}`}
                     </span>
                   </TableCell>
                   <TableCell>{regla.ciclo_lectivo}</TableCell>
@@ -178,12 +204,84 @@ export function ReglasFacturacionPage() {
           </Table>
         </div>
       )}
+      <section className="flex flex-col gap-3" aria-labelledby="historial-facturacion-titulo">
+        <div>
+          <h2 id="historial-facturacion-titulo" className="text-lg font-semibold text-texto">
+            Historial de ejecuciones
+          </h2>
+          <p className="text-sm text-texto-2">
+            Registro de generaciones manuales y automáticas, incluidos intentos parciales o
+            fallidos.
+          </p>
+        </div>
+        {errorEjecuciones && (
+          <Alert variant="error">
+            <AlertTitle>No se pudo cargar el historial</AlertTitle>
+            <AlertDescription>{errorEjecuciones}</AlertDescription>
+          </Alert>
+        )}
+        {!cargandoEjecuciones && ejecuciones.length === 0 && !errorEjecuciones ? (
+          <Empty className="min-h-[180px] rounded-panel bg-superficie shadow-card">
+            <EmptyMedia variant="neutral">
+              <CalendarClockIcon />
+            </EmptyMedia>
+            <EmptyTitle>Todavía no hay ejecuciones.</EmptyTitle>
+            <EmptyDescription>
+              Los intentos manuales y automáticos aparecerán acá cuando se procesen.
+            </EmptyDescription>
+          </Empty>
+        ) : (
+          <div className="overflow-hidden rounded-panel bg-superficie shadow-card">
+            <Table bare minWidth="min-w-[940px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Período</TableHead>
+                  <TableHead>Origen</TableHead>
+                  <TableHead>Reglas</TableHead>
+                  <TableHead>Resultado</TableHead>
+                  <TableHead data-align="end">Facturas / cargos</TableHead>
+                  <TableHead data-align="end">Omitidos / bloqueados</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {ejecuciones.map((ejecucion) => (
+                  <TableRow key={ejecucion.id}>
+                    <TableCell>{formatearFechaHora(ejecucion.fecha_ejecucion)}</TableCell>
+                    <TableCell>{formatearFechaFactura(ejecucion.periodo)}</TableCell>
+                    <TableCell>
+                      {ejecucion.origen === 'automatica' ? 'Automática' : 'Manual'}
+                    </TableCell>
+                    <TableCell>{ejecucion.regla_ids.length}</TableCell>
+                    <TableCell>
+                      <Badge variant={VARIANTE_EJECUCION[ejecucion.estado]}>
+                        {ETIQUETA_EJECUCION[ejecucion.estado]}
+                      </Badge>
+                      {ejecucion.error_detalle && (
+                        <p className="mt-1 max-w-56 text-xs text-error">
+                          {ejecucion.error_detalle}
+                        </p>
+                      )}
+                    </TableCell>
+                    <TableCell data-align="end" className="tabular-nums">
+                      {ejecucion.facturas_generadas} / {ejecucion.cargos_generados}
+                    </TableCell>
+                    <TableCell data-align="end" className="tabular-nums">
+                      {ejecucion.cargos_omitidos} / {ejecucion.cargos_bloqueados}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </section>
       {dialogoRegla && (
         <ReglaFacturacionDialog
           open
           regla={reglaEditando}
           onOpenChange={setDialogoRegla}
-          onExito={recargar}
+          onExito={recargarReglas}
         />
       )}
       <GenerarFacturacionDialog
@@ -191,7 +289,8 @@ export function ReglasFacturacionPage() {
         ciclos={ciclos}
         onOpenChange={setDialogoGenerar}
         onExito={() => {
-          recargar()
+          recargarReglas()
+          recargarEjecuciones()
           toast.success('Podés consultar las facturas recién creadas desde el listado.')
         }}
       />

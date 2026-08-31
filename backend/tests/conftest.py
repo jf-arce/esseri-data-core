@@ -18,6 +18,8 @@ from src.models import Base
 from src.proveedores_compras import models as proveedores_compras_models  # noqa: F401
 from src.workflows import models as workflows_models  # noqa: F401
 
+app.state.facturacion_job_habilitado = False
+
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
 engine = create_engine(

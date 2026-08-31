@@ -196,6 +196,15 @@ def generar_facturacion(
     return reglas_facturacion_service.generar_facturacion(db, datos.periodo, usuario.id)
 
 
+@router.get("/reglas/generaciones")
+def listar_ejecuciones_facturacion(
+    db: DbSession,
+    _: PuedeLeer,
+    limite: Annotated[int, Query(ge=1, le=500)] = 100,
+) -> list[EjecucionFacturacionRead]:
+    return reglas_facturacion_service.listar_ejecuciones_facturacion(db, limite)
+
+
 @router.get("/reglas/{regla_id}")
 def obtener_regla_facturacion(
     regla_id: uuid.UUID, db: DbSession, _: PuedeLeer

@@ -92,6 +92,16 @@ uvicorn src.main:app --reload
 
 Docs interactivas en `http://localhost:8000/docs`.
 
+### Facturación recurrente automática
+
+El backend inicia un job recuperable de facturación al arrancar y vuelve a ejecutarlo según
+`FACTURACION_JOB_INTERVAL_SECONDS` (un día por defecto). El job no usa una fecha global de emisión:
+cada regla activa con `modo_generacion = automatica` define su propio `dia_generacion`. Si una
+corrida no se completa, el período sigue pendiente y se reintenta sin duplicar cargos.
+
+Para deshabilitar temporalmente el job, configurar
+`FACTURACION_AUTOMATICA_HABILITADA=false`. El flujo manual “Generar período” permanece disponible.
+
 ## Tests
 
 ```bash

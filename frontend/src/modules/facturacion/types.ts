@@ -54,6 +54,7 @@ export type PeriodicidadReglaFacturacion = 'mensual' | 'anual'
 export type CriterioAplicacionReglaFacturacion =
   'todas_inscripciones' | 'nivel' | 'anio' | 'division'
 export type EstadoReglaFacturacion = 'borrador' | 'activa' | 'pausada' | 'finalizada'
+export type ModoGeneracionReglaFacturacion = 'manual' | 'automatica'
 
 export interface ReglaFacturacion {
   id: string
@@ -66,6 +67,8 @@ export interface ReglaFacturacion {
   vigencia_desde: string
   vigencia_hasta: string
   mes_aplicacion: number | null
+  modo_generacion: ModoGeneracionReglaFacturacion
+  dia_generacion: number | null
   dia_vencimiento: number
   criterio_aplicacion: CriterioAplicacionReglaFacturacion
   nivel_educativo_id: string | null
@@ -92,4 +95,8 @@ export interface EjecucionFacturacion extends ResumenGeneracionFacturacion {
   facturas_generadas: number
   cargos_generados: number
   monto_total: string
+  origen: ModoGeneracionReglaFacturacion
+  estado: 'exitosa' | 'parcial' | 'fallida'
+  error_detalle: string | null
+  regla_ids: string[]
 }
