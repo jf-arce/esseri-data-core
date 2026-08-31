@@ -65,3 +65,27 @@ class DivisionDuplicada(AppException):
 
     def __init__(self, message: str = "Ya existe una división con ese nombre para ese año"):
         super().__init__(message)
+
+
+class MateriaDuplicada(AppException):
+    """Ya existe una materia con ese nombre para ese año y división."""
+
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = "Ya existe una materia con ese nombre para ese año y división",
+    ):
+        super().__init__(message)
+
+
+class MateriaConAsignaciones(AppException):
+    """La materia tiene asignaciones docentes asociadas."""
+
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = "No se puede eliminar: la materia tiene asignaciones docentes",
+    ):
+        super().__init__(message)

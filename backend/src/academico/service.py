@@ -10,15 +10,19 @@ from src.academico.exceptions import (
     AnioDuplicado,
     DivisionConAsignaciones,
     DivisionDuplicada,
+    MateriaConAsignaciones,
+    MateriaDuplicada,
     NivelEducativoConAnios,
     NombreNivelDuplicado,
 )
-from src.academico.models import Anio, AsignacionDocente, Division, NivelEducativo
+from src.academico.models import Anio, AsignacionDocente, Division, Materia, NivelEducativo
 from src.academico.schemas import (
     AnioCreate,
     AnioUpdate,
     DivisionCreate,
     DivisionUpdate,
+    MateriaCreate,
+    MateriaUpdate,
     NivelEducativoCreate,
     NivelEducativoUpdate,
 )
@@ -265,4 +269,112 @@ def eliminar_division(db: Session, division: Division, usuario_id: uuid.UUID | N
         raise DivisionConAsignaciones()
 
     db.delete(division)
+    db.commit()
+
+
+# --- Materia -----------------------------------------------------------------------------
+
+
+def crear_materia(
+    db: Session, datos: MateriaCreate, usuario_id: uuid.UUID | None = None
+) -> Materia:
+    """Crear una nueva materia.
+
+    Valida que no exista otra materia con el mismo nombre para el mismo año
+    y la misma división (incluyendo division_id = None).
+    """
+    if (
+        db.scalar(
+            select(Materia.id).where(
+                Materia.nombre == datos.nombre.strip(),
+                Materia.anio_id == datos.anio_id,
+                Materia.division_id == datos.division_id,
+            )
+        )
+        is not None
+    ):
+        raise MateriaDuplicada()
+
+    nuevo = Materia(
+        nombre=datos.nombre.strip(),
+        tipo=datos.tipo,
+        anio_id=datos.anio_id,
+        division_id=datos.division_id,
+    )
+    db.add(nuevo)
+    db.commit()
+    db.refresh(nuevo)
+    return nuevo
+
+
+def obtener_materia_por_id(db: Session, materia_id: uuid.UUID) -> Materia | None:
+    """Obtener una materia por su ID."""
+    return db.query(Materia).filter(Materia.id == materia_id).first()
+
+
+def listar_materias(db: Session) -> list[Materia]:
+    """Listar todas las materias ordenadas por nombre."""
+    return db.query(Materia).order_by(Materia.nombre).all()
+
+
+def listar_materias_por_anio(db: Session, anio_id: uuid.UUID) -> list[Materia]:
+    """Listar las materias de un año específico."""
+    return db.query(Materia).filter(Materia.anio_id == anio_id).order_by(Materia.nombre).all()
+
+
+def listar_materias_por_division(db: Session, division_id: uuid.UUID) -> list[Materia]:
+    """Listar las materias de una división específica."""
+    return (
+        db.query(Materia).filter(Materia.division_id == division_id).order_by(Materia.nombre).all()
+    )
+
+
+def actualizar_materia(
+    db: Session,
+    materia: Materia,
+    datos: MateriaUpdate,
+    usuario_id: uuid.UUID | None = None,
+) -> Materia:
+    """Actualizar una materia existente."""
+    update_data = datos.model_dump(exclude_unset=True)
+
+    if "nombre" in update_data or "anio_id" in update_data or "division_id" in update_data:
+        nombre_check = update_data.get("nombre", materia.nombre)
+        anio_check = update_data.get("anio_id", materia.anio_id)
+        division_check = update_data.get("division_id", materia.division_id)
+        if isinstance(nombre_check, str):
+            nombre_check = nombre_check.strip()
+        if (
+            db.scalar(
+                select(Materia.id).where(
+                    Materia.nombre == nombre_check,
+                    Materia.anio_id == anio_check,
+                    Materia.division_id == division_check,
+                    Materia.id != materia.id,
+                )
+            )
+            is not None
+        ):
+            raise MateriaDuplicada()
+        if isinstance(update_data.get("nombre"), str):
+            update_data["nombre"] = update_data["nombre"].strip()
+
+    for field, value in update_data.items():
+        setattr(materia, field, value)
+
+    db.commit()
+    db.refresh(materia)
+    return materia
+
+
+def eliminar_materia(db: Session, materia: Materia, usuario_id: uuid.UUID | None = None) -> None:
+    """Eliminar una materia. Valida que no tenga asignaciones docentes."""
+    tiene_asignaciones = (
+        db.query(AsignacionDocente).filter(AsignacionDocente.materia_id == materia.id).first()
+        is not None
+    )
+    if tiene_asignaciones:
+        raise MateriaConAsignaciones()
+
+    db.delete(materia)
     db.commit()
