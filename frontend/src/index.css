@@ -234,7 +234,7 @@
     background: var(--violeta-borde);
     color: var(--violeta-pressed);
   }
-  :focus-visible {
+  :focus-visible:not(input):not(textarea):not([role='combobox']) {
     outline: 2px solid var(--violeta);
     outline-offset: 2px;
   }
