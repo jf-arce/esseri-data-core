@@ -5,7 +5,7 @@ import uuid
 from datetime import date, datetime
 
 import sqlalchemy as sa
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import Base
 
@@ -29,6 +29,12 @@ class Factura(Base):
         sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
     )
     inscripcion_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("inscripcion.id"))
+    responsable_economico_id: Mapped[uuid.UUID] = mapped_column(
+        sa.ForeignKey("responsable_economico.id", name="fk_factura_responsable_economico")
+    )
+    detalles: Mapped[list["DetalleFactura"]] = relationship(
+        back_populates="factura", cascade="all, delete-orphan"
+    )
 
 
 class DetalleFactura(Base):
@@ -39,6 +45,7 @@ class DetalleFactura(Base):
     monto: Mapped[decimal.Decimal] = mapped_column(sa.Numeric(12, 2))
     factura_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("factura.id"))
     concepto_cobro_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("concepto_cobro.id"))
+    factura: Mapped[Factura] = relationship(back_populates="detalles")
 
 
 class Pago(Base):
