@@ -69,6 +69,8 @@ describe('servicios de facturación', () => {
       vigencia_desde: '2027-03-01',
       vigencia_hasta: '2027-12-31',
       mes_aplicacion: null,
+      modo_generacion: 'automatica' as const,
+      dia_generacion: 1,
       dia_vencimiento: 5,
       criterio_aplicacion: 'todas_inscripciones' as const,
       nivel_educativo_id: null,

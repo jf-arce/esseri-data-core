@@ -7,7 +7,13 @@ import pytest
 from sqlalchemy import select
 
 from src.facturacion.exceptions import ConceptoCobroEnUso, ReglaFacturacionIncompatible
-from src.facturacion.models import ConceptoCobro, Factura, ResponsableEconomico
+from src.facturacion.facturacion_job import ejecutar_facturacion_automatica
+from src.facturacion.models import (
+    ConceptoCobro,
+    EjecucionFacturacion,
+    Factura,
+    ResponsableEconomico,
+)
 from src.facturacion.reglas_facturacion_service import (
     crear_regla_facturacion,
     generar_facturacion,
@@ -110,3 +116,65 @@ def test_previsualizacion_informa_cargos_bloqueados_sin_responsable(db_session):
 
     assert len(plan.cargos_aptos) == 0
     assert len(plan.cargos_bloqueados) == 1
+
+
+def test_job_ejecuta_solo_reglas_automaticas_vencidas(db_session):
+    _, cuota, transporte = _escenario_facturable(db_session)
+    automatica = crear_regla_facturacion(
+        db_session,
+        _regla(cuota.id, modo_generacion="automatica", dia_generacion=3),
+    )
+    crear_regla_facturacion(
+        db_session,
+        _regla(transporte.id, nombre="Transporte", modo_generacion="manual"),
+    )
+
+    ejecuciones = ejecutar_facturacion_automatica(db_session, date(2027, 3, 4))
+
+    assert len(ejecuciones) == 1
+    assert ejecuciones[0].origen == "automatica"
+    assert ejecuciones[0].estado == "exitosa"
+    assert ejecuciones[0].regla_ids == [automatica.id]
+    assert ejecuciones[0].cargos_generados == 1
+
+
+def test_job_recupera_periodo_atrasado_y_no_lo_repite(db_session):
+    _, cuota, _ = _escenario_facturable(db_session)
+    crear_regla_facturacion(
+        db_session,
+        _regla(cuota.id, modo_generacion="automatica", dia_generacion=3),
+    )
+
+    primera = ejecutar_facturacion_automatica(db_session, date(2027, 3, 10))
+    segunda = ejecutar_facturacion_automatica(db_session, date(2027, 3, 11))
+
+    assert len(primera) == 1
+    assert primera[0].cargos_generados == 1
+    assert segunda == []
+
+
+def test_job_reintenta_ejecucion_parcial_cuando_se_resuelve_el_bloqueo(db_session):
+    inscripcion, cuota, _ = _escenario_facturable(db_session)
+    familia_id = db_session.scalar(select(ResponsableEconomico.familia_id))
+    db_session.query(ResponsableEconomico).delete()
+    db_session.commit()
+    crear_regla_facturacion(
+        db_session,
+        _regla(cuota.id, modo_generacion="automatica", dia_generacion=3),
+    )
+
+    bloqueada = ejecutar_facturacion_automatica(db_session, date(2027, 3, 3))
+    db_session.add(
+        ResponsableEconomico(
+            vigencia_desde=date(2027, 1, 1),
+            alumno_id=inscripcion.alumno_id,
+            familia_id=familia_id,
+        )
+    )
+    db_session.commit()
+    recuperada = ejecutar_facturacion_automatica(db_session, date(2027, 3, 4))
+
+    assert bloqueada[0].estado == "parcial"
+    assert bloqueada[0].cargos_bloqueados == 1
+    assert recuperada[0].estado == "exitosa"
+    assert db_session.query(EjecucionFacturacion).count() == 2

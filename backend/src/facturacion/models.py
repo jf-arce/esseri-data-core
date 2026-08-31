@@ -53,6 +53,10 @@ class ReglaFacturacion(Base):
             "estado IN ('borrador', 'activa', 'pausada', 'finalizada')",
             name="ck_regla_facturacion_estado",
         ),
+        sa.CheckConstraint(
+            "modo_generacion IN ('manual', 'automatica')",
+            name="ck_regla_facturacion_modo_generacion",
+        ),
         sa.Index("ix_regla_facturacion_ciclo_estado", "ciclo_lectivo", "estado"),
     )
 
@@ -65,6 +69,10 @@ class ReglaFacturacion(Base):
     vigencia_desde: Mapped[date] = mapped_column(sa.Date)
     vigencia_hasta: Mapped[date] = mapped_column(sa.Date)
     mes_aplicacion: Mapped[int | None] = mapped_column(sa.Integer)
+    modo_generacion: Mapped[str] = mapped_column(
+        sa.String, default="manual", server_default="manual"
+    )
+    dia_generacion: Mapped[int | None] = mapped_column(sa.Integer)
     dia_vencimiento: Mapped[int] = mapped_column(sa.Integer)
     criterio_aplicacion: Mapped[str] = mapped_column(sa.String)
     estado: Mapped[str] = mapped_column(sa.String, default="borrador")
@@ -84,7 +92,17 @@ class EjecucionFacturacion(Base):
     """Resultado de una generación para un período, incluso cuando se reintenta."""
 
     __tablename__ = "ejecucion_facturacion"
-    __table_args__ = (sa.Index("ix_ejecucion_facturacion_periodo", "periodo"),)
+    __table_args__ = (
+        sa.CheckConstraint(
+            "origen IN ('manual', 'automatica')",
+            name="ck_ejecucion_facturacion_origen",
+        ),
+        sa.CheckConstraint(
+            "estado IN ('exitosa', 'parcial', 'fallida')",
+            name="ck_ejecucion_facturacion_estado",
+        ),
+        sa.Index("ix_ejecucion_facturacion_periodo", "periodo"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
     periodo: Mapped[date] = mapped_column(sa.Date)
@@ -96,7 +114,33 @@ class EjecucionFacturacion(Base):
     monto_total: Mapped[decimal.Decimal] = mapped_column(
         sa.Numeric(12, 2), default=decimal.Decimal("0.00")
     )
+    origen: Mapped[str] = mapped_column(sa.String, default="manual", server_default="manual")
+    estado: Mapped[str] = mapped_column(sa.String, default="exitosa", server_default="exitosa")
+    error_detalle: Mapped[str | None] = mapped_column(sa.Text)
     usuario_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("usuario.id"))
+
+
+class EjecucionFacturacionRegla(Base):
+    """Reglas incluidas en una ejecución; permite auditar y recuperar períodos pendientes."""
+
+    __tablename__ = "ejecucion_facturacion_regla"
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "ejecucion_facturacion_id",
+            "regla_facturacion_id",
+            name="uq_ejecucion_facturacion_regla",
+        ),
+        sa.Index(
+            "ix_ejecucion_facturacion_regla_regla",
+            "regla_facturacion_id",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    ejecucion_facturacion_id: Mapped[uuid.UUID] = mapped_column(
+        sa.ForeignKey("ejecucion_facturacion.id")
+    )
+    regla_facturacion_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("regla_facturacion.id"))
 
 
 class CargoFacturacionGenerado(Base):

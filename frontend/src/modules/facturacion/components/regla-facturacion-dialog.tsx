@@ -29,6 +29,7 @@ import { listarConceptosCobro } from '@/modules/facturacion/services/listar-conc
 import type {
   CriterioAplicacionReglaFacturacion,
   EstadoReglaFacturacion,
+  ModoGeneracionReglaFacturacion,
   PeriodicidadReglaFacturacion,
   ReglaFacturacion,
   ReglaFacturacionPayload,
@@ -61,6 +62,8 @@ type ValoresRegla = {
   desde: string
   hasta: string
   mes: string
+  modoGeneracion: ModoGeneracionReglaFacturacion
+  diaGeneracion: string
   dia: string
   criterio: CriterioAplicacionReglaFacturacion
   destinoId: string
@@ -80,6 +83,8 @@ function valoresIniciales(regla?: ReglaFacturacion): ValoresRegla {
     desde: regla?.vigencia_desde ?? `${anioActual}-03-01`,
     hasta: regla?.vigencia_hasta ?? `${anioActual}-12-31`,
     mes: regla?.mes_aplicacion ? String(regla.mes_aplicacion) : '',
+    modoGeneracion: regla?.modo_generacion ?? 'manual',
+    diaGeneracion: String(regla?.dia_generacion ?? 1),
     dia: String(regla?.dia_vencimiento ?? 5),
     criterio: regla?.criterio_aplicacion ?? 'todas_inscripciones',
     destinoId,
@@ -161,6 +166,9 @@ export function ReglaFacturacionDialog({
       vigencia_desde: valores.desde,
       vigencia_hasta: valores.hasta,
       mes_aplicacion: valores.periodicidad === 'anual' ? Number(valores.mes) : null,
+      modo_generacion: valores.modoGeneracion,
+      dia_generacion:
+        valores.modoGeneracion === 'automatica' ? Number(valores.diaGeneracion) : null,
       dia_vencimiento: Number(valores.dia),
       criterio_aplicacion: valores.criterio,
       nivel_educativo_id: valores.criterio === 'nivel' ? valores.destinoId : null,
@@ -262,7 +270,7 @@ export function ReglaFacturacionDialog({
               onChange={(e) => actualizar('descripcion', e.target.value)}
             />
           </Field>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Field>
               <FieldLabel>Periodicidad</FieldLabel>
               <Select
@@ -298,6 +306,43 @@ export function ReglaFacturacionDialog({
               </Field>
             )}
             <Field>
+              <FieldLabel>Modo de generación</FieldLabel>
+              <Select
+                value={valores.modoGeneracion}
+                onValueChange={(valor: ModoGeneracionReglaFacturacion) =>
+                  actualizar('modoGeneracion', valor)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Manual</SelectItem>
+                  <SelectItem value="automatica">Automática</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            {valores.modoGeneracion === 'automatica' && (
+              <Field>
+                <FieldLabel>Día de generación</FieldLabel>
+                <Select
+                  value={valores.diaGeneracion}
+                  onValueChange={(valor) => actualizar('diaGeneracion', valor)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 31 }, (_, i) => String(i + 1)).map((dia) => (
+                      <SelectItem key={dia} value={dia}>
+                        Día {dia}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+            <Field>
               <FieldLabel>Día de vencimiento</FieldLabel>
               <Select value={valores.dia} onValueChange={(valor) => actualizar('dia', valor)}>
                 <SelectTrigger>
@@ -313,6 +358,12 @@ export function ReglaFacturacionDialog({
               </Select>
             </Field>
           </div>
+          {valores.modoGeneracion === 'automatica' && (
+            <p className="text-xs text-texto-3">
+              El backend revisa diariamente esta regla. Si la corrida prevista falla, vuelve a
+              intentarla sin duplicar los cargos ya emitidos.
+            </p>
+          )}
           <div className="grid gap-4 md:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="regla-desde">Vigencia desde</FieldLabel>
