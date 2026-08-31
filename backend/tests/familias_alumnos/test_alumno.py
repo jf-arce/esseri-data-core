@@ -50,9 +50,7 @@ class TestAlumnoService:
         alumno_data = AlumnoCreate(numero_legajo="L-DUP", estado="activo", persona_id=persona1.id)
         crear_alumno(db_session, alumno_data)
 
-        alumno_data_2 = AlumnoCreate(
-            numero_legajo="L-DUP", estado="activo", persona_id=persona2.id
-        )
+        alumno_data_2 = AlumnoCreate(numero_legajo="L-DUP", estado="activo", persona_id=persona2.id)
         from src.familias_alumnos.exceptions import LegajoDuplicado
 
         try:
@@ -92,9 +90,7 @@ class TestAlumnoService:
             db_session, AlumnoCreate(numero_legajo="L-003", estado="activo", persona_id=persona.id)
         )
 
-        alumno_actualizado = actualizar_alumno(
-            db_session, alumno, AlumnoUpdate(estado="inactivo")
-        )
+        alumno_actualizado = actualizar_alumno(db_session, alumno, AlumnoUpdate(estado="inactivo"))
 
         assert alumno_actualizado.estado == "inactivo"
         assert alumno_actualizado.numero_legajo == "L-003"

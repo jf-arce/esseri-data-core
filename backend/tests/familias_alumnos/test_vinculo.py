@@ -217,9 +217,7 @@ class TestVinculoEndpoints:
         assert data["parentesco"] == "padre"
         assert data["responsable_principal"] is True
 
-    def test_vincular_duplicado_endpoint(
-        self, client_autenticado: TestClient, db_session: Session
-    ):
+    def test_vincular_duplicado_endpoint(self, client_autenticado: TestClient, db_session: Session):
         """Vincular dos veces la misma pareja devuelve 409."""
         familia, alumno = _crear_familia_y_alumno(db_session)
 
@@ -254,9 +252,7 @@ class TestVinculoEndpoints:
         response = client_autenticado.get(f"/familias-alumnos/vinculos/{uuid.uuid4()}")
         assert response.status_code == 404
 
-    def test_actualizar_vinculo_endpoint(
-        self, client_autenticado: TestClient, db_session: Session
-    ):
+    def test_actualizar_vinculo_endpoint(self, client_autenticado: TestClient, db_session: Session):
         """Test del endpoint PUT /familias-alumnos/vinculos/{id}."""
         familia, alumno = _crear_familia_y_alumno(db_session)
 
