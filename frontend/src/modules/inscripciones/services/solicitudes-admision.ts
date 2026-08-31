@@ -1,5 +1,6 @@
 import { apiClient } from '@/api/client'
 import type {
+  ActualizarSolicitudAdmisionPayload,
   DocumentoSolicitudAdmision,
   FiltrosSolicitudesAdmision,
   SolicitudAdmision,
@@ -40,6 +41,14 @@ function actualizarSolicitud(
   })
 }
 
+export function editarSolicitudAdmision(id: string, datos: ActualizarSolicitudAdmisionPayload) {
+  return apiClient<SolicitudAdmision>(`/inscripciones/solicitudes/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datos),
+  })
+}
+
 export function avanzarSolicitudAdmision(id: string, observaciones?: string) {
   return actualizarSolicitud(id, 'avanzar', observaciones)
 }
@@ -48,8 +57,38 @@ export function aprobarSolicitudAdmision(id: string, observaciones?: string) {
   return actualizarSolicitud(id, 'aprobar', observaciones)
 }
 
+export function confirmarInscripcionSolicitudAdmision(id: string) {
+  return apiClient<SolicitudAdmision>(`/inscripciones/solicitudes/${id}/confirmar-inscripcion`, {
+    method: 'POST',
+  })
+}
+
 export function rechazarSolicitudAdmision(id: string, observaciones?: string) {
   return actualizarSolicitud(id, 'rechazar', observaciones)
+}
+
+function ejecutarAccionExcepcional(
+  id: string,
+  accion: 'revertir-etapa' | 'desistir' | 'revocar-aprobacion',
+  motivo: string,
+) {
+  return apiClient<SolicitudAdmision>(`/inscripciones/solicitudes/${id}/${accion}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ motivo: motivo.trim() }),
+  })
+}
+
+export function revertirEtapaSolicitudAdmision(id: string, motivo: string) {
+  return ejecutarAccionExcepcional(id, 'revertir-etapa', motivo)
+}
+
+export function desistirSolicitudAdmision(id: string, motivo: string) {
+  return ejecutarAccionExcepcional(id, 'desistir', motivo)
+}
+
+export function revocarAprobacionSolicitudAdmision(id: string, motivo: string) {
+  return ejecutarAccionExcepcional(id, 'revocar-aprobacion', motivo)
 }
 
 export function registrarDocumentoSolicitudAdmision(

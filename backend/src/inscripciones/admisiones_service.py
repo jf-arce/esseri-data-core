@@ -13,11 +13,17 @@ from src.inscripciones.exceptions import (
     InscripcionInvalida,
     InscripcionNoEncontrada,
 )
-from src.inscripciones.models import DocumentoSolicitud, EtapaSolicitud, SolicitudInscripcion
+from src.inscripciones.models import (
+    DocumentoSolicitud,
+    EtapaSolicitud,
+    Inscripcion,
+    SolicitudInscripcion,
+)
 from src.inscripciones.schemas import (
     DocumentoSolicitudCreate,
     DocumentoSolicitudRead,
     DocumentoSolicitudUpdate,
+    SolicitudInscripcionAdministrativaUpdate,
     SolicitudInscripcionCreate,
     SolicitudInscripcionListadoItemRead,
     SolicitudInscripcionListadoRead,
@@ -62,6 +68,42 @@ def _obtener_solicitud(
     if solicitud is None:
         raise InscripcionNoEncontrada("La solicitud de inscripción indicada no existe.")
     return solicitud
+
+
+def _tiene_inscripcion_asociada(db: Session, solicitud_id: uuid.UUID) -> bool:
+    return (
+        db.scalar(
+            select(Inscripcion.id)
+            .where(Inscripcion.solicitud_inscripcion_id == solicitud_id)
+            .limit(1)
+        )
+        is not None
+    )
+
+
+def _validar_sin_inscripcion_asociada(db: Session, solicitud: SolicitudInscripcion) -> None:
+    if _tiene_inscripcion_asociada(db, solicitud.id):
+        raise InscripcionInvalida(
+            "La solicitud ya tiene una inscripción asociada y no admite esta operación."
+        )
+
+
+def _etapa_actual_en_proceso(db: Session, solicitud: SolicitudInscripcion) -> EtapaSolicitud | None:
+    return db.scalar(
+        select(EtapaSolicitud)
+        .where(
+            EtapaSolicitud.solicitud_inscripcion_id == solicitud.id,
+            EtapaSolicitud.etapa == solicitud.etapa,
+            EtapaSolicitud.estado == "en_proceso",
+        )
+        .order_by(EtapaSolicitud.fecha.desc())
+        .limit(1)
+    )
+
+
+def _agregar_motivo(observaciones: str | None, etiqueta: str, motivo: str) -> str:
+    detalle = f"{etiqueta}: {motivo}"
+    return f"{observaciones}\n\n{detalle}" if observaciones else detalle
 
 
 def _respuesta_solicitud(db: Session, solicitud: SolicitudInscripcion) -> SolicitudInscripcionRead:
@@ -205,6 +247,130 @@ def obtener_solicitud_inscripcion(db: Session, solicitud_id: uuid.UUID) -> Solic
     return _respuesta_solicitud(db, _obtener_solicitud(db, solicitud_id))
 
 
+def actualizar_solicitud_inscripcion(
+    db: Session,
+    solicitud_id: uuid.UUID,
+    datos: SolicitudInscripcionAdministrativaUpdate,
+) -> SolicitudInscripcionRead:
+    """Actualiza únicamente datos administrativos de una admisión aún abierta."""
+
+    solicitud = _obtener_solicitud(db, solicitud_id, bloquear=True)
+    if solicitud.estado != "en_proceso":
+        raise InscripcionInvalida("Solo se puede editar una admisión que está en proceso.")
+    _validar_sin_inscripcion_asociada(db, solicitud)
+
+    nivel = db.get(NivelEducativo, datos.nivel_educativo_id)
+    if nivel is None:
+        raise InscripcionNoEncontrada("El nivel educativo indicado no existe.")
+
+    solicitud.ciclo_lectivo = datos.ciclo_lectivo
+    solicitud.fecha_solicitud = datos.fecha_solicitud
+    solicitud.nivel_educativo_id = nivel.id
+    solicitud.observaciones = datos.observaciones
+    _guardar_cambios(db)
+    db.refresh(solicitud)
+    return _respuesta_solicitud(db, solicitud)
+
+
+def revertir_ultima_etapa_solicitud(
+    db: Session, solicitud_id: uuid.UUID, motivo: str, usuario_id: uuid.UUID
+) -> SolicitudInscripcionRead:
+    """Reabre exactamente la etapa anterior sin eliminar el historial recorrido."""
+
+    solicitud = _obtener_solicitud(db, solicitud_id, bloquear=True)
+    if solicitud.estado != "en_proceso":
+        raise InscripcionInvalida("Solo se puede revertir una solicitud que está en proceso.")
+    _validar_sin_inscripcion_asociada(db, solicitud)
+
+    indice_actual = ETAPAS_ADMISION.index(solicitud.etapa)
+    if indice_actual == 0:
+        raise InscripcionInvalida("No se puede revertir la primera etapa de la admisión.")
+
+    etapa_actual = _etapa_actual_en_proceso(db, solicitud)
+    if etapa_actual is not None:
+        etapa_actual.estado = "revertida"
+        etapa_actual.observaciones = _agregar_motivo(
+            etapa_actual.observaciones, "Etapa revertida", motivo
+        )
+
+    etapa_anterior = ETAPAS_ADMISION[indice_actual - 1]
+    solicitud.etapa = etapa_anterior
+    db.add(
+        EtapaSolicitud(
+            etapa=etapa_anterior,
+            estado="en_proceso",
+            observaciones=f"Etapa reabierta. Motivo: {motivo}",
+            solicitud_inscripcion_id=solicitud.id,
+            usuario_id=usuario_id,
+        )
+    )
+    _guardar_cambios(db)
+    db.refresh(solicitud)
+    return _respuesta_solicitud(db, solicitud)
+
+
+def desistir_solicitud_inscripcion(
+    db: Session, solicitud_id: uuid.UUID, motivo: str
+) -> SolicitudInscripcionRead:
+    """Cierra una admisión abandonada, preservando la etapa y los registros existentes."""
+
+    solicitud = _obtener_solicitud(db, solicitud_id, bloquear=True)
+    if solicitud.estado not in {"en_proceso", "aprobada"}:
+        raise InscripcionInvalida("Solo se puede desistir una solicitud que sigue abierta.")
+    if solicitud.etapa == "inscripcion_confirmada":
+        raise InscripcionInvalida("No se puede desistir una solicitud con inscripción confirmada.")
+    _validar_sin_inscripcion_asociada(db, solicitud)
+
+    etapa_actual = _etapa_actual_en_proceso(db, solicitud)
+    if etapa_actual is not None:
+        etapa_actual.estado = "desistida"
+        etapa_actual.observaciones = _agregar_motivo(
+            etapa_actual.observaciones, "Solicitud desistida", motivo
+        )
+
+    solicitud.estado = "desistida"
+    solicitud.fecha_resolucion = date.today()
+    _guardar_cambios(db)
+    db.refresh(solicitud)
+    return _respuesta_solicitud(db, solicitud)
+
+
+def revocar_aprobacion_solicitud(
+    db: Session, solicitud_id: uuid.UUID, motivo: str, usuario_id: uuid.UUID
+) -> SolicitudInscripcionRead:
+    """Deshace una aprobación accidental antes de que genere una inscripción."""
+
+    solicitud = _obtener_solicitud(db, solicitud_id, bloquear=True)
+    if solicitud.estado != "aprobada" or solicitud.etapa != "reserva_matricula":
+        raise InscripcionInvalida(
+            "Solo se puede revocar una aprobación durante la reserva de matrícula."
+        )
+    _validar_sin_inscripcion_asociada(db, solicitud)
+
+    etapa_actual = _etapa_actual_en_proceso(db, solicitud)
+    if etapa_actual is not None:
+        etapa_actual.estado = "revertida"
+        etapa_actual.observaciones = _agregar_motivo(
+            etapa_actual.observaciones, "Aprobación revocada", motivo
+        )
+
+    solicitud.estado = "en_proceso"
+    solicitud.etapa = "evaluacion_aprobacion"
+    solicitud.fecha_resolucion = None
+    db.add(
+        EtapaSolicitud(
+            etapa="evaluacion_aprobacion",
+            estado="en_proceso",
+            observaciones=f"Aprobación revocada. Motivo: {motivo}",
+            solicitud_inscripcion_id=solicitud.id,
+            usuario_id=usuario_id,
+        )
+    )
+    _guardar_cambios(db)
+    db.refresh(solicitud)
+    return _respuesta_solicitud(db, solicitud)
+
+
 def avanzar_solicitud_inscripcion(
     db: Session, solicitud_id: uuid.UUID, observaciones: str | None, usuario_id: uuid.UUID
 ) -> SolicitudInscripcionRead:
@@ -218,7 +384,7 @@ def avanzar_solicitud_inscripcion(
         )
     if indice_actual >= len(ETAPAS_ADMISION) - 2:
         raise InscripcionInvalida(
-            "La confirmación final requiere documentación y pago validados por Facturación."
+            "La confirmación final se realiza desde la etapa de documentación y contrato."
         )
 
     etapa_actual = db.scalar(
@@ -240,6 +406,55 @@ def avanzar_solicitud_inscripcion(
             etapa=siguiente_etapa,
             estado="en_proceso",
             observaciones=observaciones,
+            solicitud_inscripcion_id=solicitud.id,
+            usuario_id=usuario_id,
+        )
+    )
+    _guardar_cambios(db)
+    db.refresh(solicitud)
+    return _respuesta_solicitud(db, solicitud)
+
+
+def confirmar_inscripcion_solicitud(
+    db: Session, solicitud_id: uuid.UUID, usuario_id: uuid.UUID
+) -> SolicitudInscripcionRead:
+    """Confirma una admisión cuya documentación ya fue validada.
+
+    Esta operación no crea Alumno, Familia, Factura ni la inscripción académica. Solo deja la
+    solicitud disponible para que el alta de inscripción nueva use el flujo existente.
+    """
+
+    solicitud = _obtener_solicitud(db, solicitud_id, bloquear=True)
+    if solicitud.estado != "aprobada" or solicitud.etapa != "documentacion_contrato":
+        raise InscripcionInvalida(
+            "Solo se puede confirmar una solicitud en documentación y contrato."
+        )
+    _validar_sin_inscripcion_asociada(db, solicitud)
+
+    documentos = db.scalars(
+        select(DocumentoSolicitud.estado).where(
+            DocumentoSolicitud.solicitud_inscripcion_id == solicitud.id
+        )
+    ).all()
+    if not documentos:
+        raise InscripcionInvalida(
+            "Debe cargarse y validarse al menos un documento antes de confirmar la inscripción."
+        )
+    if "validado" not in documentos or "pendiente" in documentos:
+        raise InscripcionInvalida(
+            "Debe existir un documento validado y no pueden quedar documentos pendientes."
+        )
+
+    etapa_actual = _etapa_actual_en_proceso(db, solicitud)
+    if etapa_actual is not None:
+        etapa_actual.estado = "completada"
+
+    solicitud.etapa = "inscripcion_confirmada"
+    db.add(
+        EtapaSolicitud(
+            etapa="inscripcion_confirmada",
+            estado="completada",
+            observaciones="Inscripción confirmada con documentación validada.",
             solicitud_inscripcion_id=solicitud.id,
             usuario_id=usuario_id,
         )

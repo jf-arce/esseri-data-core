@@ -52,7 +52,8 @@ class EtapaSolicitud(Base):
             name="ck_etapa_solicitud_etapa",
         ),
         sa.CheckConstraint(
-            "estado IN ('en_proceso', 'completada', 'rechazada')", name="ck_etapa_solicitud_estado"
+            "estado IN ('en_proceso', 'completada', 'rechazada', 'revertida', 'desistida')",
+            name="ck_etapa_solicitud_estado",
         ),
     )
 

@@ -1,6 +1,8 @@
-import { ArrowDownUpIcon, CalendarRangeIcon } from 'lucide-react'
+import { ArrowDownUpIcon, CalendarRangeIcon, DownloadIcon } from 'lucide-react'
 import { DensityToggle, FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
 import { FilterChip, FilterChips, FilterDropdown } from '@/components/filter-dropdown'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { EstadoInscripcion, TipoInscripcion } from '@/modules/inscripciones/types'
 import { etiquetaEstadoInscripcion, etiquetaTipoInscripcion } from '@/modules/inscripciones/utils'
 
@@ -38,6 +40,8 @@ interface InscripcionesFiltrosProps {
   onOrdenChange: (valor: 'fecha_desc' | 'fecha_asc' | 'alumno_asc') => void
   densidad: 'comfortable' | 'compact'
   onDensidadChange: (valor: 'comfortable' | 'compact') => void
+  onExportar: () => void
+  exportando: boolean
 }
 
 function CicloLectivoFiltro({
@@ -79,6 +83,8 @@ export function InscripcionesFiltros({
   onOrdenChange,
   densidad,
   onDensidadChange,
+  onExportar,
+  exportando,
 }: InscripcionesFiltrosProps) {
   const hayFiltros =
     busqueda.trim() !== '' || cicloLectivo.length === 4 || tipo !== '' || estado !== ''
@@ -125,6 +131,20 @@ export function InscripcionesFiltros({
           align="end"
         />
         <DensityToggle value={densidad} onChange={onDensidadChange} />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="secondary"
+              size="icon-sm"
+              aria-label="Descargar inscripciones en CSV"
+              disabled={exportando}
+              onClick={onExportar}
+            >
+              <DownloadIcon />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{exportando ? 'Preparando CSV…' : 'Descargar CSV'}</TooltipContent>
+        </Tooltip>
       </FilterBar>
 
       {hayFiltros && (

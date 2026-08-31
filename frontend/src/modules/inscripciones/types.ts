@@ -123,10 +123,13 @@ export type EtapaSolicitudAdmision =
 
 export type EstadoSolicitudAdmision = 'en_proceso' | 'aprobada' | 'rechazada' | 'desistida'
 
+export type EstadoEtapaSolicitudAdmision =
+  'en_proceso' | 'completada' | 'rechazada' | 'revertida' | 'desistida'
+
 export interface EtapaSolicitudAdmisionItem {
   id: string
   etapa: EtapaSolicitudAdmision
-  estado: 'en_proceso' | 'completada' | 'rechazada'
+  estado: EstadoEtapaSolicitudAdmision
   fecha: string
   observaciones: string | null
   usuario_id: string
@@ -200,6 +203,13 @@ export interface CrearSolicitudAdmisionPayload {
   aspirante: PersonaSolicitudAdmisionPayload
   contacto?: PersonaSolicitudAdmisionPayload
   observaciones?: string
+}
+
+export interface ActualizarSolicitudAdmisionPayload {
+  ciclo_lectivo: string
+  fecha_solicitud: string
+  nivel_educativo_id: string
+  observaciones?: string | null
 }
 
 export interface PersonaSolicitudAdmisionPayload {
