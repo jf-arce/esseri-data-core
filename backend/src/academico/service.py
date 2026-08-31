@@ -31,9 +31,7 @@ def crear_nivel_educativo(
 ) -> NivelEducativo:
     """Crear un nuevo nivel educativo. Valida nombre único."""
     if (
-        db.scalar(
-            select(NivelEducativo.id).where(NivelEducativo.nombre == datos.nombre.strip())
-        )
+        db.scalar(select(NivelEducativo.id).where(NivelEducativo.nombre == datos.nombre.strip()))
         is not None
     ):
         raise NombreNivelDuplicado()
@@ -89,9 +87,7 @@ def eliminar_nivel_educativo(
     db: Session, nivel: NivelEducativo, usuario_id: uuid.UUID | None = None
 ) -> None:
     """Eliminar un nivel educativo. Valida que no tenga años asociados."""
-    tiene_anios = (
-        db.query(Anio).filter(Anio.nivel_educativo_id == nivel.id).first() is not None
-    )
+    tiene_anios = db.query(Anio).filter(Anio.nivel_educativo_id == nivel.id).first() is not None
     if tiene_anios:
         raise NivelEducativoConAnios()
 
@@ -102,9 +98,7 @@ def eliminar_nivel_educativo(
 # --- Anio --------------------------------------------------------------------------------
 
 
-def crear_anio(
-    db: Session, datos: AnioCreate, usuario_id: uuid.UUID | None = None
-) -> Anio:
+def crear_anio(db: Session, datos: AnioCreate, usuario_id: uuid.UUID | None = None) -> Anio:
     """Crear un nuevo año. Valida que no exista el mismo número para el nivel."""
     if (
         db.scalar(
@@ -176,13 +170,9 @@ def actualizar_anio(
     return anio
 
 
-def eliminar_anio(
-    db: Session, anio: Anio, usuario_id: uuid.UUID | None = None
-) -> None:
+def eliminar_anio(db: Session, anio: Anio, usuario_id: uuid.UUID | None = None) -> None:
     """Eliminar un año. Valida que no tenga divisiones asociadas."""
-    tiene_divisiones = (
-        db.query(Division).filter(Division.anio_id == anio.id).first() is not None
-    )
+    tiene_divisiones = db.query(Division).filter(Division.anio_id == anio.id).first() is not None
     if tiene_divisiones:
         raise AnioConDivisiones()
 
@@ -227,12 +217,7 @@ def listar_divisiones(db: Session) -> list[Division]:
 
 def listar_divisiones_por_anio(db: Session, anio_id: uuid.UUID) -> list[Division]:
     """Listar las divisiones de un año específico."""
-    return (
-        db.query(Division)
-        .filter(Division.anio_id == anio_id)
-        .order_by(Division.nombre)
-        .all()
-    )
+    return db.query(Division).filter(Division.anio_id == anio_id).order_by(Division.nombre).all()
 
 
 def actualizar_division(
@@ -250,11 +235,8 @@ def actualizar_division(
         if (
             db.scalar(
                 select(Division.id).where(
-                    Division.nombre == (
-                        nombre_check.strip()
-                        if isinstance(nombre_check, str)
-                        else nombre_check
-                    ),
+                    Division.nombre
+                    == (nombre_check.strip() if isinstance(nombre_check, str) else nombre_check),
                     Division.anio_id == anio_check,
                     Division.id != division.id,
                 )
@@ -273,14 +255,10 @@ def actualizar_division(
     return division
 
 
-def eliminar_division(
-    db: Session, division: Division, usuario_id: uuid.UUID | None = None
-) -> None:
+def eliminar_division(db: Session, division: Division, usuario_id: uuid.UUID | None = None) -> None:
     """Eliminar una división. Valida que no tenga asignaciones docentes."""
     tiene_asignaciones = (
-        db.query(AsignacionDocente)
-        .filter(AsignacionDocente.division_id == division.id)
-        .first()
+        db.query(AsignacionDocente).filter(AsignacionDocente.division_id == division.id).first()
         is not None
     )
     if tiene_asignaciones:

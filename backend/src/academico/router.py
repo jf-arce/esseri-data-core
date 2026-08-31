@@ -247,4 +247,3 @@ def eliminar_division_endpoint(
         eliminar_division(db, division, usuario.id)
     except DivisionConAsignaciones as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
-
