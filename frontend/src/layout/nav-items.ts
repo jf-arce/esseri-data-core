@@ -5,6 +5,7 @@ import {
   GraduationCap,
   BookOpenIcon,
   Landmark,
+  LayoutDashboard,
   ReceiptText,
   ShieldCheck,
   Truck,
@@ -26,6 +27,13 @@ export interface NavGroup {
 // Cada módulo suma su propia línea acá cuando tenga una página real. No se dibujan ítems
 // muertos: cada href tiene que apuntar a una ruta implementada (§8 DESIGN.md).
 export const NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Paneles',
+    items: [
+      { label: 'Panel de Dirección', href: '/panel', icon: LayoutDashboard },
+      { label: 'Panel Administrativo', href: '/admin', icon: LayoutDashboard },
+    ],
+  },
   {
     label: 'Gestión',
     items: [
