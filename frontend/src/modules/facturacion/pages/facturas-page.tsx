@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { FileTextIcon, PlusIcon, Settings2Icon, ShieldAlertIcon } from 'lucide-react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -8,16 +8,41 @@ import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui
 import { FacturasFiltros } from '@/modules/facturacion/components/facturas-filtros'
 import { FacturasTabla } from '@/modules/facturacion/components/facturas-tabla'
 import { useFacturas } from '@/modules/facturacion/hooks/use-facturas'
-import type { EstadoFactura } from '@/modules/facturacion/types'
+import type {
+  DireccionOrdenFacturas,
+  EstadoFactura,
+  OrdenarPorFacturas,
+} from '@/modules/facturacion/types'
 
 const TAMANIO_PAGINA = 10
 
 export function FacturasPage() {
-  const [estado, setEstado] = useState<EstadoFactura | ''>('')
-  const [pagina, setPagina] = useState(1)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [estado, setEstado] = useState<EstadoFactura | ''>(
+    (searchParams.get('estado') as EstadoFactura | null) ?? '',
+  )
+  const [alumnoId, setAlumnoId] = useState(searchParams.get('alumno_id') ?? '')
+  const [conceptoCobroId, setConceptoCobroId] = useState(
+    searchParams.get('concepto_cobro_id') ?? '',
+  )
+  const [ordenarPor, setOrdenarPor] = useState<OrdenarPorFacturas>(
+    (searchParams.get('ordenar_por') as OrdenarPorFacturas | null) ?? 'fecha_vencimiento',
+  )
+  const [direccion, setDireccion] = useState<DireccionOrdenFacturas>(
+    (searchParams.get('direccion') as DireccionOrdenFacturas | null) ?? 'asc',
+  )
+  const [pagina, setPagina] = useState(Number(searchParams.get('pagina')) || 1)
   const filtros = useMemo(
-    () => ({ pagina, tamanio: TAMANIO_PAGINA, estado: estado || undefined }),
-    [estado, pagina],
+    () => ({
+      pagina,
+      tamanio: TAMANIO_PAGINA,
+      estado: estado || undefined,
+      alumnoId: alumnoId || undefined,
+      conceptoCobroId: conceptoCobroId || undefined,
+      ordenarPor,
+      direccion,
+    }),
+    [alumnoId, conceptoCobroId, direccion, estado, ordenarPor, pagina],
   )
   const { datos, cargando, error, sinPermiso, recargar } = useFacturas(filtros)
 
@@ -25,6 +50,36 @@ export function FacturasPage() {
     setEstado(siguiente)
     setPagina(1)
   }
+
+  const actualizarAlumno = (siguiente: string) => {
+    setAlumnoId(siguiente)
+    setPagina(1)
+  }
+
+  const actualizarConcepto = (siguiente: string) => {
+    setConceptoCobroId(siguiente)
+    setPagina(1)
+  }
+
+  const actualizarOrden = (campo: OrdenarPorFacturas) => {
+    if (campo === ordenarPor) setDireccion((actual) => (actual === 'asc' ? 'desc' : 'asc'))
+    else {
+      setOrdenarPor(campo)
+      setDireccion('asc')
+    }
+    setPagina(1)
+  }
+
+  useEffect(() => {
+    const parametros = new URLSearchParams()
+    if (estado) parametros.set('estado', estado)
+    if (alumnoId) parametros.set('alumno_id', alumnoId)
+    if (conceptoCobroId) parametros.set('concepto_cobro_id', conceptoCobroId)
+    if (ordenarPor !== 'fecha_vencimiento') parametros.set('ordenar_por', ordenarPor)
+    if (direccion !== 'asc') parametros.set('direccion', direccion)
+    if (pagina !== 1) parametros.set('pagina', String(pagina))
+    setSearchParams(parametros, { replace: true })
+  }, [alumnoId, conceptoCobroId, direccion, estado, ordenarPor, pagina, setSearchParams])
 
   if (sinPermiso) {
     return (
@@ -79,7 +134,14 @@ export function FacturasPage() {
         </Alert>
       )}
 
-      <FacturasFiltros estado={estado} onEstadoChange={actualizarEstado} />
+      <FacturasFiltros
+        estado={estado}
+        alumnoId={alumnoId}
+        conceptoCobroId={conceptoCobroId}
+        onEstadoChange={actualizarEstado}
+        onAlumnoChange={actualizarAlumno}
+        onConceptoCobroChange={actualizarConcepto}
+      />
 
       {!cargando && datos.items.length === 0 && !error ? (
         <Empty className="min-h-[300px] rounded-panel bg-superficie shadow-card">
@@ -113,6 +175,9 @@ export function FacturasPage() {
           tamanioPagina={TAMANIO_PAGINA}
           total={datos.total}
           onCambiarPagina={setPagina}
+          ordenarPor={ordenarPor}
+          direccion={direccion}
+          onOrdenar={actualizarOrden}
         />
       )}
     </div>

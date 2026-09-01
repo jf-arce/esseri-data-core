@@ -137,6 +137,9 @@ class FacturaRead(BaseModel):
     updated_at: datetime
     inscripcion_id: uuid.UUID
     responsable_economico_id: uuid.UUID
+    alumno_id: uuid.UUID | None = None
+    alumno_nombre: str | None = None
+    alumno_apellido: str | None = None
     detalles: list[DetalleFacturaRead]
 
     _normalizar_timestamps = field_validator("updated_at")(_normalizar_instante_utc)

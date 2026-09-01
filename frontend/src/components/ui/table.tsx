@@ -32,7 +32,7 @@ function Table({
     <div
       data-slot="table-container"
       className={cn(
-        'relative w-full overflow-x-auto overflow-hidden',
+        'relative w-full overflow-x-auto overflow-y-hidden',
         !bare && 'rounded-panel bg-superficie shadow-card',
         containerClassName,
       )}
