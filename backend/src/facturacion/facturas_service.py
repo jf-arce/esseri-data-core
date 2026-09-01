@@ -1,7 +1,7 @@
 """Lógica de generación y administración de facturas por alumno."""
 
 import uuid
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from io import BytesIO
 
@@ -223,7 +223,7 @@ def registrar_pago(
         comprobante=comprobante_nombre,
         estado="aprobado",
         referencia_transaccion=referencia_transaccion.strip() if referencia_transaccion else None,
-        fecha_operacion=datetime.now(),
+        fecha_operacion=datetime.now(UTC),
         factura_id=factura.id,
         metodo_pago_id=metodo_pago.id,
         usuario_registro_id=usuario_registro_id,

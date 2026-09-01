@@ -1,16 +1,21 @@
 """Job recuperable para ejecutar reglas automáticas de facturación."""
 
 import asyncio
-import calendar
 import logging
 from collections import defaultdict
-from datetime import date
+from datetime import UTC, date, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.config import settings
 from src.database import SessionLocal
+from src.facturacion.calendario_facturacion import (
+    fecha_operativa_argentina,
+    fecha_programada,
+    periodos_entre,
+    proxima_corrida_diaria_argentina,
+)
 from src.facturacion.models import ReglaFacturacion
 from src.facturacion.reglas_facturacion_service import (
     generar_facturacion,
@@ -23,25 +28,6 @@ from src.facturacion.schemas import EjecucionFacturacionRead
 logger = logging.getLogger(__name__)
 
 
-def _periodos_entre(desde: date, hasta: date) -> list[date]:
-    periodo = date(desde.year, desde.month, 1)
-    ultimo = date(hasta.year, hasta.month, 1)
-    periodos: list[date] = []
-    while periodo <= ultimo:
-        periodos.append(periodo)
-        periodo = (
-            date(periodo.year + 1, 1, 1)
-            if periodo.month == 12
-            else date(periodo.year, periodo.month + 1, 1)
-        )
-    return periodos
-
-
-def _fecha_programada(regla: ReglaFacturacion, periodo: date) -> date:
-    ultimo_dia = calendar.monthrange(periodo.year, periodo.month)[1]
-    return date(periodo.year, periodo.month, min(regla.dia_generacion or 1, ultimo_dia))
-
-
 def periodos_pendientes_de_regla(
     db: Session, regla: ReglaFacturacion, fecha_actual: date
 ) -> list[date]:
@@ -51,11 +37,11 @@ def periodos_pendientes_de_regla(
         return []
     hasta = min(fecha_actual, regla.vigencia_hasta)
     pendientes: list[date] = []
-    for periodo in _periodos_entre(regla.vigencia_desde, hasta):
+    for periodo in periodos_entre(regla.vigencia_desde, hasta):
         if not regla_aplica_periodo(regla, periodo):
             continue
-        fecha_programada = max(_fecha_programada(regla, periodo), regla.vigencia_desde)
-        if fecha_programada > fecha_actual:
+        fecha_de_agenda = max(fecha_programada(regla.dia_generacion, periodo), regla.vigencia_desde)
+        if fecha_de_agenda > fecha_actual:
             continue
         if not periodo_completado_para_regla(db, regla.id, periodo):
             pendientes.append(periodo)
@@ -67,7 +53,7 @@ def ejecutar_facturacion_automatica(
 ) -> list[EjecucionFacturacionRead]:
     """Ejecuta solo reglas automáticas pendientes, agrupadas por período."""
 
-    hoy = fecha_actual or date.today()
+    hoy = fecha_actual or fecha_operativa_argentina()
     reglas = list(
         db.scalars(
             select(ReglaFacturacion).where(
@@ -105,7 +91,7 @@ def _ejecutar_corrida_con_sesion() -> None:
 
 
 async def ejecutar_job_facturacion_periodico() -> None:
-    """Corre al iniciar el backend y luego con el intervalo operativo configurado."""
+    """Recupera al iniciar y luego corre a una hora diaria fija de Argentina."""
 
     while True:
         try:
@@ -114,4 +100,8 @@ async def ejecutar_job_facturacion_periodico() -> None:
             raise
         except Exception:
             logger.exception("No se pudo completar la corrida del job de facturación")
-        await asyncio.sleep(settings.FACTURACION_JOB_INTERVAL_SECONDS)
+        ahora = datetime.now(UTC)
+        proxima_corrida = proxima_corrida_diaria_argentina(
+            settings.FACTURACION_HORA_EJECUCION, ahora
+        )
+        await asyncio.sleep((proxima_corrida - ahora).total_seconds())
