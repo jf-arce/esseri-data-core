@@ -124,11 +124,11 @@ function useBusquedaGlobal(consulta: string) {
       const admisiones =
         resultadoAdmisiones.status === 'fulfilled' ? resultadoAdmisiones.value.items : []
       const facturas = resultadoFacturas.status === 'fulfilled' ? resultadoFacturas.value.items : []
-        const coincidenciasFactura = facturas.map((factura) => ({
-            id: factura.id,
-            etiqueta: `Factura #${factura.id.slice(0, 8)}`,
-            detalle: `${factura.estado} · ${factura.monto_total}`,
-          }))
+      const coincidenciasFactura = facturas.map((factura) => ({
+        id: factura.id,
+        etiqueta: `Factura #${factura.id.slice(0, 8)}`,
+        detalle: `${factura.estado} · ${factura.monto_total}`,
+      }))
       setResultado({
         clave,
         inscripciones: inscripciones.map((inscripcion) => ({
