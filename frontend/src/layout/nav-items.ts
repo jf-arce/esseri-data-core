@@ -11,6 +11,7 @@ import {
   Truck,
   UsersRound,
   UserCog,
+  CalendarCheck,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -42,6 +43,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: 'Alumnos', href: '/familias-alumnos/alumnos', icon: GraduationCap },
       { label: 'Académico', href: '/academico', icon: BookOpenIcon },
       { label: 'Asignaciones docentes', href: '/academico/asignaciones', icon: UserCog },
+      { label: 'Tomar asistencia', href: '/academico/asistencia', icon: CalendarCheck },
       { label: 'Inscripciones', href: '/inscripciones', icon: ClipboardCheck },
       { label: 'Facturación', href: '/facturacion', icon: Landmark },
       { label: 'Proveedores', href: '/proveedores', icon: Truck },
