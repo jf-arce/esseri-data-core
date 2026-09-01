@@ -7,6 +7,7 @@ export const PERMISO_AUTENTICACION_LEER = 'autenticacion.leer'
 export const PERMISO_AUTENTICACION_CREAR = 'autenticacion.crear'
 export const PERMISO_AUTENTICACION_ACTUALIZAR = 'autenticacion.actualizar'
 export const PERMISO_AUTENTICACION_ELIMINAR = 'autenticacion.eliminar'
+export const PERMISO_PANEL_ADMIN_LEER = 'panel_administrativo.leer'
 
 export function tienePermiso(permisos: Permiso[], codigo: string): boolean {
   const [base] = codigo.split(':')

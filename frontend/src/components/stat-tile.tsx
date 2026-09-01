@@ -10,6 +10,7 @@ interface StatTileProps {
   variant?: 'default' | 'dark'
   iconClassName?: string
   className?: string
+  compact?: boolean
   // Mientras carga, el valor grande se reemplaza por un esqueleto (§9.5 DESIGN.md) en vez de
   // mostrar un "0" que parece un dato real.
   cargando?: boolean
@@ -27,6 +28,7 @@ export function StatTile({
   variant = 'default',
   iconClassName,
   className,
+  compact = false,
   cargando,
 }: StatTileProps) {
   const esOscuro = variant === 'dark'
@@ -34,7 +36,8 @@ export function StatTile({
   return (
     <div
       className={cn(
-        'relative overflow-hidden rounded-card-sm p-5 shadow-card',
+        'relative overflow-hidden rounded-card-sm shadow-card',
+        compact ? 'p-4' : 'p-5',
         esOscuro ? 'bg-banda-oscura' : 'bg-superficie',
         className,
       )}
