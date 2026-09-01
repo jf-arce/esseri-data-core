@@ -6,7 +6,7 @@ import type { FacturasListado, FiltrosFacturas } from '@/modules/facturacion/typ
 const LISTADO_VACIO: FacturasListado = { items: [], total: 0, pagina: 1, tamanio: 10 }
 
 export function useFacturas(filtros: FiltrosFacturas) {
-  const { pagina, tamanio, estado } = filtros
+  const { pagina, tamanio, estado, alumnoId, conceptoCobroId, ordenarPor, direccion } = filtros
   const [revision, setRevision] = useState(0)
   const [resultado, setResultado] = useState<{
     clave: string | null
@@ -14,12 +14,24 @@ export function useFacturas(filtros: FiltrosFacturas) {
     error: string | null
     sinPermiso: boolean
   }>({ clave: null, datos: LISTADO_VACIO, error: null, sinPermiso: false })
-  const clave = JSON.stringify([pagina, tamanio, estado, revision])
+  const clave = JSON.stringify([
+    pagina,
+    tamanio,
+    estado,
+    alumnoId,
+    conceptoCobroId,
+    ordenarPor,
+    direccion,
+    revision,
+  ])
   const recargar = useCallback(() => setRevision((actual) => actual + 1), [])
 
   useEffect(() => {
     const controller = new AbortController()
-    listarFacturas({ pagina, tamanio, estado }, controller.signal)
+    listarFacturas(
+      { pagina, tamanio, estado, alumnoId, conceptoCobroId, ordenarPor, direccion },
+      controller.signal,
+    )
       .then((datos) => setResultado({ clave, datos, error: null, sinPermiso: false }))
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') return
@@ -37,7 +49,7 @@ export function useFacturas(filtros: FiltrosFacturas) {
       })
 
     return () => controller.abort()
-  }, [clave, pagina, tamanio, estado])
+  }, [alumnoId, clave, conceptoCobroId, direccion, ordenarPor, pagina, tamanio, estado])
 
   const vigente = resultado.clave === clave
   return {

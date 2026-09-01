@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   etiquetaEstadoFactura,
+  etiquetaMetodoPago,
   fechaApi,
   formatearFechaFactura,
   formatearFechaHora,
   formatearMoneda,
+  resumenConceptosFactura,
 } from '@/modules/facturacion/utils'
 
 describe('utilidades de facturación', () => {
@@ -12,6 +14,19 @@ describe('utilidades de facturación', () => {
     expect(formatearFechaFactura('2027-03-01')).toBe('01/03/2027')
     expect(formatearMoneda('120000')).toContain('120.000,00')
     expect(etiquetaEstadoFactura('pendiente')).toBe('Pendiente')
+    expect(etiquetaMetodoPago('debito_directo')).toBe('Débito directo')
+    expect(etiquetaMetodoPago('tarjeta_credito')).toBe('Tarjeta de crédito')
+    expect(
+      resumenConceptosFactura([
+        {
+          id: '1',
+          concepto_cobro_id: 'cuota',
+          monto: '1',
+          descripcion: 'DEMO · Cuota educativa mensual · 08/2026',
+        },
+        { id: '2', concepto_cobro_id: 'comedor', monto: '1', descripcion: 'Comedor agosto' },
+      ]),
+    ).toBe('Cuota educativa mensual + 1 más')
   })
 
   it('convierte una fecha local al formato del backend', () => {
