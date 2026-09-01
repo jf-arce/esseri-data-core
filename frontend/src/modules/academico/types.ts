@@ -109,3 +109,41 @@ export type AsignacionDocenteCreate = {
   materia_id: string
   division_id: string
 }
+
+export type TipoAsistencia =
+  'presente' | 'tardanza' | 'ausente_pendiente' | 'ausente_justificado' | 'ausente_injustificado'
+
+export type Asistencia = {
+  id: string
+  fecha: string
+  tipo: TipoAsistencia
+  inscripcion_id: string
+  updated_at: string
+}
+
+export type AsistenciaCreate = {
+  fecha: string
+  tipo: TipoAsistencia
+  inscripcion_id: string
+}
+
+export type AsistenciaUpdate = {
+  tipo: TipoAsistencia
+}
+
+export type AsistenciaBulkRegistro = {
+  inscripcion_id: string
+  tipo: TipoAsistencia
+}
+
+export type AsistenciaBulkCreate = {
+  fecha: string
+  division_id: string
+  registros: AsistenciaBulkRegistro[]
+}
+
+export type AsistenciaBulkResponse = {
+  creadas: number
+  actualizadas: number
+  notificaciones_disparadas: number
+}

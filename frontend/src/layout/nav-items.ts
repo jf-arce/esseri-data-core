@@ -5,11 +5,13 @@ import {
   GraduationCap,
   BookOpenIcon,
   Landmark,
+  LayoutDashboard,
   ReceiptText,
   ShieldCheck,
   Truck,
   UsersRound,
   UserCog,
+  CalendarCheck,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -28,12 +30,20 @@ export interface NavGroup {
 // muertos: cada href tiene que apuntar a una ruta implementada (§8 DESIGN.md).
 export const NAV_GROUPS: NavGroup[] = [
   {
+    label: 'Paneles',
+    items: [
+      { label: 'Panel de Dirección', href: '/panel', icon: LayoutDashboard },
+      { label: 'Panel Administrativo', href: '/admin', icon: LayoutDashboard },
+    ],
+  },
+  {
     label: 'Gestión',
     items: [
       { label: 'Familias', href: '/familias-alumnos', icon: UsersRound },
       { label: 'Alumnos', href: '/familias-alumnos/alumnos', icon: GraduationCap },
       { label: 'Académico', href: '/academico', icon: BookOpenIcon },
       { label: 'Asignaciones docentes', href: '/academico/asignaciones', icon: UserCog },
+      { label: 'Tomar asistencia', href: '/academico/asistencia', icon: CalendarCheck },
       { label: 'Inscripciones', href: '/inscripciones', icon: ClipboardCheck },
       { label: 'Facturación', href: '/facturacion', icon: Landmark },
       { label: 'Proveedores', href: '/proveedores', icon: Truck },
