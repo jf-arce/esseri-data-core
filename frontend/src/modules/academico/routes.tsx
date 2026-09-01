@@ -1,5 +1,6 @@
 import type { RouteObject } from 'react-router'
 import { EstructuraAcademicaPage } from './pages/estructura-academica-page'
+import { AsignacionesDocentesPage } from './pages/asignaciones-docentes-page'
 
 export const academicoRoutes: RouteObject[] = [
   {
@@ -8,6 +9,10 @@ export const academicoRoutes: RouteObject[] = [
       {
         index: true,
         element: <EstructuraAcademicaPage />,
+      },
+      {
+        path: 'asignaciones',
+        element: <AsignacionesDocentesPage />,
       },
     ],
   },
