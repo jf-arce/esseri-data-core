@@ -74,3 +74,38 @@ export type MateriaUpdate = {
   anio_id?: string
   division_id?: string | null
 }
+
+export type Docente = {
+  id: string
+  legajo: string
+  persona_id: string
+  created_at: string
+  updated_at: string
+}
+
+export type DocenteCreate = {
+  legajo: string
+  persona_id: string
+}
+
+export type DocenteUpdate = {
+  legajo?: string
+  persona_id?: string
+}
+
+export type AsignacionDocente = {
+  id: string
+  ciclo_lectivo: string
+  docente_id: string
+  materia_id: string
+  division_id: string
+  created_at: string
+  updated_at: string
+}
+
+export type AsignacionDocenteCreate = {
+  ciclo_lectivo: string
+  docente_id: string
+  materia_id: string
+  division_id: string
+}
