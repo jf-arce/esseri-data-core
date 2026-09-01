@@ -133,6 +133,35 @@ class FacturaListadoRead(BaseModel):
     tamanio: int
 
 
+class MetodoPagoRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    nombre: str
+    requiere_comprobante: bool
+
+
+class PagoRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    fecha: date
+    monto: Decimal
+    comprobante: str | None
+    estado: Literal["aprobado", "rechazado", "pendiente"]
+    referencia_transaccion: str | None
+    fecha_operacion: datetime | None
+    registrado_por: str | None
+    metodo_pago: MetodoPagoRead
+
+
+class FacturaDetalleRead(FacturaRead):
+    alumno_nombre: str
+    alumno_legajo: str
+    responsable_economico_nombre: str | None
+    pagos: list[PagoRead]
+
+
 PeriodicidadReglaFacturacion = Literal["mensual", "anual"]
 CriterioAplicacionReglaFacturacion = Literal["todas_inscripciones", "nivel", "anio", "division"]
 EstadoReglaFacturacion = Literal["borrador", "activa", "pausada", "finalizada"]

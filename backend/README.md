@@ -102,6 +102,12 @@ corrida no se completa, el período sigue pendiente y se reintenta sin duplicar 
 Para deshabilitar temporalmente el job, configurar
 `FACTURACION_AUTOMATICA_HABILITADA=false`. El flujo manual “Generar período” permanece disponible.
 
+### Comprobantes y PDF de factura
+
+El detalle de una factura permite registrar pagos parciales o totales. Los comprobantes de métodos
+que los requieran se guardan junto al pago en la base de datos; se aceptan PDF, JPG y PNG de hasta
+5 MB. La descarga de la factura se genera bajo demanda como PDF, sin almacenar una copia adicional.
+
 ## Tests
 
 ```bash

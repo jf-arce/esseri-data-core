@@ -5,25 +5,12 @@ import {
   ChevronDownIcon,
   LogOut,
   Menu,
-  ReceiptIcon,
   Search,
-  ShieldCheckIcon,
   UserIcon,
-  UsersRoundIcon,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import {
-  Command,
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from '@/components/ui/command'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,59 +38,12 @@ import {
 } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { NAV_GROUPS } from '@/layout/nav-items'
+import { GlobalSearchDialog } from '@/layout/global-search-dialog'
 import { logout } from '@/modules/auth/services/logout'
 import { colorIdentidad, formatearNombreRol, nombreDeUsuario } from '@/modules/auth/utils'
 import { useAuthStore } from '@/store/auth-store'
 import { useUiStore } from '@/store/ui-store'
 import { Button } from '@/components/ui/button'
-
-// Paleta de comandos (vista `Shell` del mock): fachada sobre las búsquedas por módulo, sin
-// alcance propio todavía. El único ítem que navega de verdad hoy es "Usuarios y roles"; el
-// resto queda deshabilitado a propósito, con el motivo a la vista en CommandEmpty.
-function ComandoGlobal({
-  open,
-  onOpenChange,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}) {
-  const navigate = useNavigate()
-
-  return (
-    <CommandDialog open={open} onOpenChange={onOpenChange} title="Buscar o ir a…">
-      <Command>
-        <CommandInput placeholder="Buscar o ir a…" />
-        <CommandList>
-          <CommandEmpty>La búsqueda global todavía no está conectada.</CommandEmpty>
-          <CommandGroup heading="Ir a">
-            <CommandItem
-              onSelect={() => {
-                onOpenChange(false)
-                navigate('/configuracion/acceso')
-              }}
-            >
-              <ShieldCheckIcon className="text-violeta" />
-              Usuarios y roles
-            </CommandItem>
-          </CommandGroup>
-          <CommandSeparator />
-          <CommandGroup heading="Familias">
-            <CommandItem disabled>
-              <UsersRoundIcon className="text-mod-familias" />
-              Buscar familias (todavía no conectado)
-            </CommandItem>
-          </CommandGroup>
-          <CommandGroup heading="Facturación">
-            <CommandItem disabled>
-              <ReceiptIcon className="text-mod-facturacion" />
-              Buscar facturas (todavía no conectado)
-            </CommandItem>
-          </CommandGroup>
-        </CommandList>
-      </Command>
-    </CommandDialog>
-  )
-}
 
 export function AppLayout() {
   const sidebarOpen = useUiStore((state) => state.sidebarOpen)
@@ -373,7 +313,7 @@ export function AppLayout() {
         </SidebarInset>
       </SidebarProvider>
 
-      <ComandoGlobal open={comandoAbierto} onOpenChange={setComandoAbierto} />
+      <GlobalSearchDialog open={comandoAbierto} onOpenChange={setComandoAbierto} />
     </TooltipProvider>
   )
 }

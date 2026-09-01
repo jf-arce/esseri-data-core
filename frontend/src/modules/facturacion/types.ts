@@ -26,6 +26,39 @@ export interface Factura {
   detalles: DetalleFactura[]
 }
 
+export interface MetodoPago {
+  id: string
+  nombre: string
+  requiere_comprobante: boolean
+}
+
+export interface PagoFactura {
+  id: string
+  fecha: string
+  monto: string
+  comprobante: string | null
+  estado: 'aprobado' | 'rechazado' | 'pendiente'
+  referencia_transaccion: string | null
+  fecha_operacion: string | null
+  registrado_por: string | null
+  metodo_pago: MetodoPago
+}
+
+export interface FacturaDetalle extends Factura {
+  alumno_nombre: string
+  alumno_legajo: string
+  responsable_economico_nombre: string | null
+  pagos: PagoFactura[]
+}
+
+export interface RegistrarPagoPayload {
+  fecha: string
+  monto: string
+  metodo_pago_id: string
+  referencia_transaccion?: string
+  comprobante?: File
+}
+
 export interface FacturasListado {
   items: Factura[]
   total: number
@@ -48,6 +81,7 @@ export interface FiltrosFacturas {
   pagina: number
   tamanio: number
   estado?: EstadoFactura
+  buscar?: string
 }
 
 export type PeriodicidadReglaFacturacion = 'mensual' | 'anual'

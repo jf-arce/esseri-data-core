@@ -9,3 +9,5 @@ python-jose[cryptography]
 bcrypt
 google-auth[requests]
 pyyaml
+python-multipart
+reportlab
