@@ -7,6 +7,7 @@ from datetime import date, datetime
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from src.auth.models import Usuario
 from src.models import Base
 
 
@@ -35,6 +36,7 @@ class Factura(Base):
     detalles: Mapped[list["DetalleFactura"]] = relationship(
         back_populates="factura", cascade="all, delete-orphan"
     )
+    pagos: Mapped[list["Pago"]] = relationship(back_populates="factura")
 
 
 class ReglaFacturacion(Base):
@@ -203,6 +205,33 @@ class Pago(Base):
     )
     factura_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("factura.id"))
     metodo_pago_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("metodo_pago.id"))
+    usuario_registro_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("usuario.id"))
+    factura: Mapped[Factura] = relationship(back_populates="pagos")
+    metodo_pago: Mapped["MetodoPago"] = relationship()
+    usuario_registro: Mapped[Usuario | None] = relationship()
+    archivo_comprobante: Mapped["ArchivoComprobantePago | None"] = relationship(
+        back_populates="pago", cascade="all, delete-orphan", uselist=False
+    )
+
+    @property
+    def registrado_por(self) -> str | None:
+        return self.usuario_registro.email if self.usuario_registro is not None else None
+
+
+class ArchivoComprobantePago(Base):
+    """Comprobante binario asociado a un pago; evita depender de un almacenamiento externo."""
+
+    __tablename__ = "archivo_comprobante_pago"
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    nombre: Mapped[str] = mapped_column(sa.String)
+    tipo_contenido: Mapped[str] = mapped_column(sa.String)
+    tamanio: Mapped[int] = mapped_column(sa.Integer)
+    contenido: Mapped[bytes] = mapped_column(sa.LargeBinary)
+    pago_id: Mapped[uuid.UUID] = mapped_column(
+        sa.ForeignKey("pago.id"), unique=True, nullable=False
+    )
+    pago: Mapped[Pago] = relationship(back_populates="archivo_comprobante")
 
 
 class MetodoPago(Base):

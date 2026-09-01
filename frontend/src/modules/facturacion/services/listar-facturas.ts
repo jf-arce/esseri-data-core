@@ -7,6 +7,7 @@ export function listarFacturas(filtros: FiltrosFacturas, signal?: AbortSignal) {
     tamanio: String(filtros.tamanio),
   })
   if (filtros.estado) parametros.set('estado', filtros.estado)
+  if (filtros.buscar?.trim()) parametros.set('buscar', filtros.buscar.trim())
 
   return apiClient<FacturasListado>(`/facturacion/facturas?${parametros.toString()}`, { signal })
 }

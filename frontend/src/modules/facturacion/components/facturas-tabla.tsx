@@ -1,4 +1,5 @@
 import type { MouseEvent } from 'react'
+import { Link } from 'react-router'
 import { cn } from '@/lib/utils'
 import { paginasVisibles } from '@/lib/paginacion'
 import {
@@ -88,7 +89,12 @@ export function FacturasTabla({
             items.map((factura) => (
               <TableRow key={factura.id}>
                 <TableCell>
-                  <span className="font-medium tabular-nums">#{factura.id.slice(0, 8)}</span>
+                  <Link
+                    to={`/facturacion/${factura.id}`}
+                    className="font-medium tabular-nums hover:text-violeta hover:underline"
+                  >
+                    #{factura.id.slice(0, 8)}
+                  </Link>
                 </TableCell>
                 <TableCell className="tabular-nums">
                   {formatearFechaFactura(factura.fecha_emision)}
