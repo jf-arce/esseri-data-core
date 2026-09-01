@@ -92,6 +92,22 @@ uvicorn src.main:app --reload
 
 Docs interactivas en `http://localhost:8000/docs`.
 
+### Facturación recurrente automática
+
+El backend inicia un job recuperable de facturación al arrancar y vuelve a ejecutarlo según
+`FACTURACION_JOB_INTERVAL_SECONDS` (un día por defecto). El job no usa una fecha global de emisión:
+cada regla activa con `modo_generacion = automatica` define su propio `dia_generacion`. Si una
+corrida no se completa, el período sigue pendiente y se reintenta sin duplicar cargos.
+
+Para deshabilitar temporalmente el job, configurar
+`FACTURACION_AUTOMATICA_HABILITADA=false`. El flujo manual “Generar período” permanece disponible.
+
+### Comprobantes y PDF de factura
+
+El detalle de una factura permite registrar pagos parciales o totales. Los comprobantes de métodos
+que los requieran se guardan junto al pago en la base de datos; se aceptan PDF, JPG y PNG de hasta
+5 MB. La descarga de la factura se genera bajo demanda como PDF, sin almacenar una copia adicional.
+
 ## Tests
 
 ```bash

@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,6 +25,10 @@ class Settings(BaseSettings):
     BOOTSTRAP_ADMIN_PASSWORD: str = ""
 
     OPENAI_API_KEY: str = ""
+
+    # El job solo decide cuándo ejecutar; cada regla define su propio día de generación.
+    FACTURACION_AUTOMATICA_HABILITADA: bool = True
+    FACTURACION_JOB_INTERVAL_SECONDS: int = Field(default=86400, ge=60)
 
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
 

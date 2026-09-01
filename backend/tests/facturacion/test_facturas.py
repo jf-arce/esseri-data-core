@@ -150,6 +150,21 @@ def test_listar_facturas_filtra_por_alumno_y_pagina(db_session):
     assert facturas[0].detalles
 
 
+def test_listar_facturas_busca_por_numero(db_session):
+    _, inscripcion, concepto, _ = _crear_base_facturable(db_session)
+    factura = crear_factura(db_session, _datos_factura(inscripcion.id, concepto.id))
+
+    facturas, total = listar_facturas(
+        db_session,
+        pagina=1,
+        tamanio=20,
+        buscar=str(factura.id)[:8],
+    )
+
+    assert total == 1
+    assert facturas[0].id == factura.id
+
+
 def test_endpoints_exponen_crud_de_facturas(client_autenticado, db_session):
     _, inscripcion, concepto, responsable = _crear_base_facturable(db_session)
     payload = {

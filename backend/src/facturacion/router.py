@@ -1,7 +1,9 @@
 import uuid
+from datetime import date
+from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from src.auth.constants import (
@@ -20,14 +22,18 @@ from src.facturacion.schemas import (
     ConceptoCobroCreate,
     ConceptoCobroRead,
     ConceptoCobroUpdate,
+    DetalleFacturaRead,
     EjecucionFacturacionRead,
     FacturaCreate,
+    FacturaDetalleRead,
     FacturaEstado,
     FacturaListadoRead,
     FacturaRead,
     FacturaUpdate,
     GeneracionFacturacionRequest,
     GeneracionFacturacionResumenRead,
+    MetodoPagoRead,
+    PagoRead,
     ReglaFacturacionCreate,
     ReglaFacturacionEstadoUpdate,
     ReglaFacturacionRead,
@@ -48,6 +54,32 @@ PuedeEliminar = Annotated[Usuario, Depends(requiere_permiso(PERMISO_FACTURACION_
 ConceptoCobroActual = Annotated[ConceptoCobro, Depends(obtener_concepto_cobro_o_404)]
 FacturaActual = Annotated[Factura, Depends(obtener_factura_o_404)]
 AlumnoActual = Annotated[Alumno, Depends(obtener_alumno_o_404)]
+
+
+def _factura_detalle_read(db: Session, factura: Factura) -> FacturaDetalleRead:
+    alumno = facturas_service.obtener_alumno_factura(db, factura)
+    responsable = facturas_service.obtener_responsable_factura(db, factura)
+    if alumno is None:
+        raise HTTPException(status_code=409, detail="La factura no tiene un alumno asociado.")
+    return FacturaDetalleRead(
+        id=factura.id,
+        fecha_emision=factura.fecha_emision,
+        fecha_vencimiento=factura.fecha_vencimiento,
+        monto_total=factura.monto_total,
+        estado=factura.estado,
+        updated_at=factura.updated_at,
+        inscripcion_id=factura.inscripcion_id,
+        responsable_economico_id=factura.responsable_economico_id,
+        detalles=[DetalleFacturaRead.model_validate(detalle) for detalle in factura.detalles],
+        alumno_nombre=f"{alumno.persona.apellido}, {alumno.persona.nombre}",
+        alumno_legajo=alumno.numero_legajo,
+        responsable_economico_nombre=(
+            f"{responsable.persona.apellido}, {responsable.persona.nombre}"
+            if responsable is not None
+            else None
+        ),
+        pagos=[PagoRead.model_validate(pago) for pago in factura.pagos],
+    )
 
 
 @router.post("/conceptos", status_code=201)
@@ -135,9 +167,15 @@ def listar_facturas(
     tamanio: Annotated[int, Query(ge=1, le=100)] = 20,
     alumno_id: uuid.UUID | None = None,
     estado: FacturaEstado | None = None,
+    buscar: Annotated[str | None, Query(max_length=100)] = None,
 ) -> FacturaListadoRead:
     facturas, total = facturas_service.listar_facturas(
-        db, pagina=pagina, tamanio=tamanio, alumno_id=alumno_id, estado=estado
+        db,
+        pagina=pagina,
+        tamanio=tamanio,
+        alumno_id=alumno_id,
+        estado=estado,
+        buscar=buscar,
     )
     return FacturaListadoRead(
         items=[FacturaRead.model_validate(factura) for factura in facturas],
@@ -147,9 +185,70 @@ def listar_facturas(
     )
 
 
+@router.get("/metodos-pago")
+def listar_metodos_pago(db: DbSession, _: PuedeLeer) -> list[MetodoPagoRead]:
+    return [
+        MetodoPagoRead.model_validate(metodo) for metodo in facturas_service.listar_metodos_pago(db)
+    ]
+
+
+@router.get("/facturas/{factura_id}/pdf")
+def descargar_factura_pdf(db: DbSession, _: PuedeLeer, factura: FacturaActual) -> Response:
+    alumno = facturas_service.obtener_alumno_factura(db, factura)
+    if alumno is None:
+        raise HTTPException(status_code=409, detail="La factura no tiene un alumno asociado.")
+    contenido = facturas_service.generar_pdf_factura(factura, alumno)
+    return Response(
+        content=contenido,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="factura-{str(factura.id)[:8]}.pdf"'
+        },
+    )
+
+
+@router.post("/facturas/{factura_id}/pagos", status_code=201)
+def registrar_pago(
+    db: DbSession,
+    usuario: PuedeCrear,
+    factura: FacturaActual,
+    fecha: Annotated[date, Form()],
+    monto: Annotated[Decimal, Form(gt=0, max_digits=12, decimal_places=2)],
+    metodo_pago_id: Annotated[uuid.UUID, Form()],
+    referencia_transaccion: Annotated[str | None, Form(max_length=120)] = None,
+    comprobante: Annotated[UploadFile | None, File()] = None,
+) -> PagoRead:
+    contenido = comprobante.file.read() if comprobante is not None else None
+    pago = facturas_service.registrar_pago(
+        db,
+        factura=factura,
+        usuario_registro_id=usuario.id,
+        fecha=fecha,
+        monto=monto,
+        metodo_pago_id=metodo_pago_id,
+        referencia_transaccion=referencia_transaccion,
+        comprobante_nombre=comprobante.filename if comprobante is not None else None,
+        comprobante_tipo_contenido=comprobante.content_type if comprobante is not None else None,
+        comprobante_contenido=contenido,
+    )
+    return PagoRead.model_validate(pago)
+
+
+@router.get("/pagos/{pago_id}/comprobante")
+def descargar_comprobante_pago(pago_id: uuid.UUID, db: DbSession, _: PuedeLeer) -> Response:
+    archivo = facturas_service.obtener_comprobante_pago(db, pago_id)
+    if archivo is None:
+        raise HTTPException(status_code=404, detail="El pago no tiene comprobante adjunto.")
+    return Response(
+        content=archivo.contenido,
+        media_type=archivo.tipo_contenido,
+        headers={"Content-Disposition": f'attachment; filename="{archivo.nombre}"'},
+    )
+
+
 @router.get("/facturas/{factura_id}")
-def obtener_factura(_: PuedeLeer, factura: FacturaActual) -> FacturaRead:
-    return FacturaRead.model_validate(factura)
+def obtener_factura(db: DbSession, _: PuedeLeer, factura: FacturaActual) -> FacturaDetalleRead:
+    return _factura_detalle_read(db, factura)
 
 
 @router.put("/facturas/{factura_id}")
@@ -194,6 +293,15 @@ def generar_facturacion(
     datos: GeneracionFacturacionRequest, db: DbSession, usuario: PuedeCrear
 ) -> EjecucionFacturacionRead:
     return reglas_facturacion_service.generar_facturacion(db, datos.periodo, usuario.id)
+
+
+@router.get("/reglas/generaciones")
+def listar_ejecuciones_facturacion(
+    db: DbSession,
+    _: PuedeLeer,
+    limite: Annotated[int, Query(ge=1, le=500)] = 100,
+) -> list[EjecucionFacturacionRead]:
+    return reglas_facturacion_service.listar_ejecuciones_facturacion(db, limite)
 
 
 @router.get("/reglas/{regla_id}")

@@ -97,6 +97,37 @@ class FacturaEnUso(AppException):
         super().__init__(message)
 
 
+class FacturaYaPagada(AppException):
+    status_code = 409
+
+    def __init__(self, message: str = "La factura ya está pagada y no admite nuevos pagos."):
+        super().__init__(message)
+
+
+class MetodoPagoInvalido(AppException):
+    status_code = 422
+
+    def __init__(self, message: str = "El método de pago indicado no existe o no está activo."):
+        super().__init__(message)
+
+
+class PagoExcedeSaldo(AppException):
+    status_code = 422
+
+    def __init__(self, message: str = "El pago no puede superar el saldo pendiente de la factura."):
+        super().__init__(message)
+
+
+class ComprobantePagoInvalido(AppException):
+    status_code = 422
+
+    def __init__(
+        self,
+        message: str = "El comprobante debe ser un archivo PDF, JPG o PNG de hasta 5 MB.",
+    ):
+        super().__init__(message)
+
+
 class FechaVencimientoInvalida(AppException):
     status_code = 422
 

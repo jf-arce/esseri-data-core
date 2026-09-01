@@ -133,9 +133,39 @@ class FacturaListadoRead(BaseModel):
     tamanio: int
 
 
+class MetodoPagoRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    nombre: str
+    requiere_comprobante: bool
+
+
+class PagoRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    fecha: date
+    monto: Decimal
+    comprobante: str | None
+    estado: Literal["aprobado", "rechazado", "pendiente"]
+    referencia_transaccion: str | None
+    fecha_operacion: datetime | None
+    registrado_por: str | None
+    metodo_pago: MetodoPagoRead
+
+
+class FacturaDetalleRead(FacturaRead):
+    alumno_nombre: str
+    alumno_legajo: str
+    responsable_economico_nombre: str | None
+    pagos: list[PagoRead]
+
+
 PeriodicidadReglaFacturacion = Literal["mensual", "anual"]
 CriterioAplicacionReglaFacturacion = Literal["todas_inscripciones", "nivel", "anio", "division"]
 EstadoReglaFacturacion = Literal["borrador", "activa", "pausada", "finalizada"]
+ModoGeneracionReglaFacturacion = Literal["manual", "automatica"]
 
 
 class ReglaFacturacionBase(BaseModel):
@@ -148,6 +178,8 @@ class ReglaFacturacionBase(BaseModel):
     vigencia_desde: date
     vigencia_hasta: date
     mes_aplicacion: int | None = Field(default=None, ge=1, le=12)
+    modo_generacion: ModoGeneracionReglaFacturacion = "manual"
+    dia_generacion: int | None = Field(default=None, ge=1, le=31)
     dia_vencimiento: int = Field(ge=1, le=31)
     criterio_aplicacion: CriterioAplicacionReglaFacturacion
     nivel_educativo_id: uuid.UUID | None = None
@@ -170,6 +202,12 @@ class ReglaFacturacionBase(BaseModel):
             raise ValueError("Una regla anual requiere mes de aplicación.")
         if self.periodicidad == "mensual" and self.mes_aplicacion is not None:
             raise ValueError("Una regla mensual no debe indicar un mes de aplicación.")
+        if self.modo_generacion == "automatica" and self.dia_generacion is None:
+            raise ValueError("Una regla automática requiere día de generación.")
+        if self.modo_generacion == "manual" and self.dia_generacion is not None:
+            raise ValueError("Una regla manual no debe indicar día de generación.")
+        if self.dia_generacion is not None and self.dia_generacion > self.dia_vencimiento:
+            raise ValueError("El día de generación no puede ser posterior al vencimiento.")
 
         destinos = {
             "nivel": self.nivel_educativo_id,
@@ -238,3 +276,7 @@ class EjecucionFacturacionRead(GeneracionFacturacionResumenRead):
     facturas_generadas: int
     cargos_generados: int
     monto_total: Decimal
+    origen: Literal["manual", "automatica"]
+    estado: Literal["exitosa", "parcial", "fallida"]
+    error_detalle: str | None
+    regla_ids: list[uuid.UUID]

@@ -23,6 +23,7 @@ from src.facturacion.models import (
     CargoFacturacionGenerado,
     ConceptoCobro,
     EjecucionFacturacion,
+    EjecucionFacturacionRegla,
     ReglaFacturacion,
     ResponsableEconomico,
 )
@@ -63,7 +64,7 @@ def _fecha_vencimiento(periodo: date, dia: int) -> date:
     return date(periodo.year, periodo.month, min(dia, _mes_final(periodo).day))
 
 
-def _regla_aplica_periodo(regla: ReglaFacturacion, periodo: date) -> bool:
+def regla_aplica_periodo(regla: ReglaFacturacion, periodo: date) -> bool:
     if regla.vigencia_desde > _mes_final(periodo) or regla.vigencia_hasta < periodo:
         return False
     return regla.periodicidad == "mensual" or regla.mes_aplicacion == periodo.month
@@ -216,16 +217,30 @@ def _inscripciones_de_regla(db: Session, regla: ReglaFacturacion) -> list[Inscri
     return list(db.scalars(consulta).all())
 
 
-def _reglas_aplicables(db: Session, periodo: date) -> list[ReglaFacturacion]:
-    reglas = db.scalars(
-        select(ReglaFacturacion).where(
-            ReglaFacturacion.estado == "activa",
-            ReglaFacturacion.ciclo_lectivo == str(periodo.year),
-            ReglaFacturacion.vigencia_desde <= _mes_final(periodo),
-            ReglaFacturacion.vigencia_hasta >= periodo,
+def _reglas_aplicables(
+    db: Session,
+    periodo: date,
+    reglas: list[ReglaFacturacion] | None = None,
+) -> list[ReglaFacturacion]:
+    candidatas = reglas
+    if candidatas is None:
+        candidatas = list(
+            db.scalars(
+                select(ReglaFacturacion).where(
+                    ReglaFacturacion.estado == "activa",
+                    ReglaFacturacion.ciclo_lectivo == str(periodo.year),
+                    ReglaFacturacion.vigencia_desde <= _mes_final(periodo),
+                    ReglaFacturacion.vigencia_hasta >= periodo,
+                )
+            ).all()
         )
-    ).all()
-    return [regla for regla in reglas if _regla_aplica_periodo(regla, periodo)]
+    return [
+        regla
+        for regla in candidatas
+        if regla.estado == "activa"
+        and regla.ciclo_lectivo == str(periodo.year)
+        and regla_aplica_periodo(regla, periodo)
+    ]
 
 
 def _responsables_vigentes(
@@ -251,8 +266,12 @@ def _responsables_vigentes(
     return resultado
 
 
-def planificar_generacion_facturacion(db: Session, periodo: date) -> PlanGeneracion:
-    reglas = _reglas_aplicables(db, periodo)
+def planificar_generacion_facturacion(
+    db: Session,
+    periodo: date,
+    reglas: list[ReglaFacturacion] | None = None,
+) -> PlanGeneracion:
+    reglas = _reglas_aplicables(db, periodo, reglas)
     candidatos = [
         CargoPlanificado(regla, inscripcion, _fecha_vencimiento(periodo, regla.dia_vencimiento))
         for regla in reglas
@@ -309,10 +328,46 @@ def _detalle_de_cargo(cargo: CargoPlanificado, periodo: date) -> DetalleFacturaC
     )
 
 
-def generar_facturacion(
-    db: Session, periodo: date, usuario_id: uuid.UUID | None, *, _reintento: bool = False
+def _regla_ids_de_ejecucion(db: Session, ejecucion_id: uuid.UUID) -> list[uuid.UUID]:
+    return list(
+        db.scalars(
+            select(EjecucionFacturacionRegla.regla_facturacion_id).where(
+                EjecucionFacturacionRegla.ejecucion_facturacion_id == ejecucion_id
+            )
+        ).all()
+    )
+
+
+def _ejecucion_read(
+    db: Session,
+    ejecucion: EjecucionFacturacion,
+    resumen: GeneracionFacturacionResumenRead,
+    regla_ids: list[uuid.UUID] | None = None,
 ) -> EjecucionFacturacionRead:
-    plan = planificar_generacion_facturacion(db, periodo)
+    return EjecucionFacturacionRead(
+        id=ejecucion.id,
+        fecha_ejecucion=ejecucion.fecha_ejecucion,
+        facturas_generadas=ejecucion.facturas_generadas,
+        cargos_generados=ejecucion.cargos_generados,
+        monto_total=ejecucion.monto_total,
+        origen=ejecucion.origen,
+        estado=ejecucion.estado,
+        error_detalle=ejecucion.error_detalle,
+        regla_ids=regla_ids if regla_ids is not None else _regla_ids_de_ejecucion(db, ejecucion.id),
+        **resumen.model_dump(),
+    )
+
+
+def generar_facturacion(
+    db: Session,
+    periodo: date,
+    usuario_id: uuid.UUID | None,
+    reglas: list[ReglaFacturacion] | None = None,
+    origen: str = "manual",
+    *,
+    _reintento: bool = False,
+) -> EjecucionFacturacionRead:
+    plan = planificar_generacion_facturacion(db, periodo, reglas)
     resumen = resumen_plan_generacion(plan)
     responsables = _responsables_vigentes(
         db, {cargo.inscripcion.alumno_id for cargo in plan.cargos_aptos}, periodo
@@ -321,12 +376,23 @@ def generar_facturacion(
         periodo=periodo,
         cargos_omitidos=resumen.cargos_omitidos,
         cargos_bloqueados=resumen.cargos_bloqueados,
+        origen=origen,
+        estado="parcial" if resumen.cargos_bloqueados else "exitosa",
         usuario_id=usuario_id,
     )
     facturas_generadas = 0
     try:
         db.add(ejecucion)
         db.flush()
+        db.add_all(
+            [
+                EjecucionFacturacionRegla(
+                    ejecucion_facturacion_id=ejecucion.id,
+                    regla_facturacion_id=regla.id,
+                )
+                for regla in plan.reglas
+            ]
+        )
         por_factura: dict[tuple[uuid.UUID, date], list[CargoPlanificado]] = defaultdict(list)
         for cargo in plan.cargos_aptos:
             por_factura[(cargo.inscripcion.id, cargo.fecha_vencimiento)].append(cargo)
@@ -368,17 +434,115 @@ def generar_facturacion(
         db.rollback()
         if _reintento:
             raise
-        return generar_facturacion(db, periodo, usuario_id, _reintento=True)
+        return generar_facturacion(
+            db,
+            periodo,
+            usuario_id,
+            reglas=reglas,
+            origen=origen,
+            _reintento=True,
+        )
 
     db.refresh(ejecucion)
-    return EjecucionFacturacionRead(
-        id=ejecucion.id,
-        fecha_ejecucion=ejecucion.fecha_ejecucion,
-        facturas_generadas=ejecucion.facturas_generadas,
-        cargos_generados=ejecucion.cargos_generados,
-        monto_total=ejecucion.monto_total,
-        **resumen.model_dump(),
+    return _ejecucion_read(db, ejecucion, resumen)
+
+
+def registrar_ejecucion_fallida(
+    db: Session,
+    periodo: date,
+    reglas: list[ReglaFacturacion],
+    error: Exception,
+    origen: str = "automatica",
+) -> EjecucionFacturacionRead:
+    """Conserva el intento fallido sin alterar facturas ni cargos."""
+
+    db.rollback()
+    ejecucion = EjecucionFacturacion(
+        periodo=periodo,
+        origen=origen,
+        estado="fallida",
+        error_detalle=str(error)[:2000] or error.__class__.__name__,
     )
+    db.add(ejecucion)
+    db.flush()
+    db.add_all(
+        [
+            EjecucionFacturacionRegla(
+                ejecucion_facturacion_id=ejecucion.id,
+                regla_facturacion_id=regla.id,
+            )
+            for regla in reglas
+        ]
+    )
+    db.commit()
+    db.refresh(ejecucion)
+    resumen = GeneracionFacturacionResumenRead(
+        periodo=periodo,
+        reglas_aplicables=len(reglas),
+        alumnos_alcanzados=0,
+        cargos_aptos=0,
+        cargos_omitidos=0,
+        cargos_bloqueados=0,
+        monto_estimado=Decimal("0.00"),
+    )
+    return _ejecucion_read(db, ejecucion, resumen)
+
+
+def periodo_completado_para_regla(db: Session, regla_id: uuid.UUID, periodo: date) -> bool:
+    return (
+        db.scalar(
+            select(EjecucionFacturacion.id)
+            .join(
+                EjecucionFacturacionRegla,
+                EjecucionFacturacionRegla.ejecucion_facturacion_id == EjecucionFacturacion.id,
+            )
+            .where(
+                EjecucionFacturacionRegla.regla_facturacion_id == regla_id,
+                EjecucionFacturacion.periodo == periodo,
+                EjecucionFacturacion.estado == "exitosa",
+            )
+            .limit(1)
+        )
+        is not None
+    )
+
+
+def listar_ejecuciones_facturacion(
+    db: Session, limite: int = 100
+) -> list[EjecucionFacturacionRead]:
+    ejecuciones = db.scalars(
+        select(EjecucionFacturacion)
+        .order_by(EjecucionFacturacion.fecha_ejecucion.desc())
+        .limit(limite)
+    ).all()
+    reglas_por_ejecucion: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
+    if ejecuciones:
+        asociaciones = db.execute(
+            select(
+                EjecucionFacturacionRegla.ejecucion_facturacion_id,
+                EjecucionFacturacionRegla.regla_facturacion_id,
+            ).where(
+                EjecucionFacturacionRegla.ejecucion_facturacion_id.in_(
+                    [ejecucion.id for ejecucion in ejecuciones]
+                )
+            )
+        ).all()
+        for ejecucion_id, regla_id in asociaciones:
+            reglas_por_ejecucion[ejecucion_id].append(regla_id)
+    resultado: list[EjecucionFacturacionRead] = []
+    for ejecucion in ejecuciones:
+        regla_ids = reglas_por_ejecucion[ejecucion.id]
+        resumen = GeneracionFacturacionResumenRead(
+            periodo=ejecucion.periodo,
+            reglas_aplicables=len(regla_ids),
+            alumnos_alcanzados=0,
+            cargos_aptos=ejecucion.cargos_generados,
+            cargos_omitidos=ejecucion.cargos_omitidos,
+            cargos_bloqueados=ejecucion.cargos_bloqueados,
+            monto_estimado=ejecucion.monto_total,
+        )
+        resultado.append(_ejecucion_read(db, ejecucion, resumen, regla_ids))
+    return resultado
 
 
 def obtener_regla_o_error(db: Session, regla_id: uuid.UUID) -> ReglaFacturacion:
