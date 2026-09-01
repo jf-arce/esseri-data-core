@@ -1,5 +1,7 @@
 import type { EstadoFactura } from '@/modules/facturacion/types'
 
+const ZONA_HORARIA_ARGENTINA = 'America/Argentina/Buenos_Aires'
+
 export function formatearMoneda(valor: string | number) {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
@@ -23,6 +25,8 @@ export function formatearFechaHora(valor: string) {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: ZONA_HORARIA_ARGENTINA,
+    timeZoneName: 'short',
   }).format(new Date(valor))
 }
 

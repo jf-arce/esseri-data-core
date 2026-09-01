@@ -106,7 +106,7 @@ export function ReglasFacturacionPage() {
           </Button>
           <Button variant="secondary" onClick={() => setDialogoGenerar(true)}>
             <PlayIcon data-icon="inline-start" />
-            Generar período
+            Generar ahora
           </Button>
           <Button
             onClick={() => {
@@ -146,14 +146,18 @@ export function ReglasFacturacionPage() {
         </Empty>
       ) : (
         <div className="overflow-hidden rounded-panel bg-superficie shadow-card">
-          <Table bare minWidth="min-w-[820px]">
+          <Table bare minWidth="min-w-[1240px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Regla</TableHead>
                 <TableHead>Ciclo</TableHead>
                 <TableHead>Periodicidad</TableHead>
                 <TableHead data-align="end">Importe</TableHead>
+                <TableHead>Generación</TableHead>
+                <TableHead>Vencimiento</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead>Próxima generación</TableHead>
+                <TableHead>Última ejecución</TableHead>
                 <TableHead data-align="end">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -163,9 +167,7 @@ export function ReglasFacturacionPage() {
                   <TableCell>
                     <div className="font-medium">{regla.nombre}</div>
                     <span className="text-xs text-texto-3">
-                      {regla.modo_generacion === 'automatica'
-                        ? `Automática · genera el día ${regla.dia_generacion} · vence el día ${regla.dia_vencimiento}`
-                        : `Manual · vence el día ${regla.dia_vencimiento}`}
+                      {regla.modo_generacion === 'automatica' ? 'Automática' : 'Manual'}
                     </span>
                   </TableCell>
                   <TableCell>{regla.ciclo_lectivo}</TableCell>
@@ -174,9 +176,41 @@ export function ReglasFacturacionPage() {
                     {formatearMoneda(Number(regla.importe))}
                   </TableCell>
                   <TableCell>
+                    {regla.modo_generacion === 'automatica'
+                      ? `Día ${regla.dia_generacion}`
+                      : 'Manual excepcional'}
+                  </TableCell>
+                  <TableCell>Día {regla.dia_vencimiento}</TableCell>
+                  <TableCell>
                     <Badge variant={VARIANTE_ESTADO[regla.estado]}>
                       {ETIQUETA_ESTADO[regla.estado]}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {regla.proxima_generacion
+                      ? formatearFechaFactura(regla.proxima_generacion)
+                      : 'Sin agenda pendiente'}
+                  </TableCell>
+                  <TableCell>
+                    {regla.ultima_ejecucion ? (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs text-texto-2">
+                          {formatearFechaHora(regla.ultima_ejecucion.fecha_ejecucion)} ·{' '}
+                          {regla.ultima_ejecucion.origen === 'automatica' ? 'Automática' : 'Manual'}
+                        </span>
+                        <Badge variant={VARIANTE_EJECUCION[regla.ultima_ejecucion.estado]}>
+                          {ETIQUETA_EJECUCION[regla.ultima_ejecucion.estado]} ·{' '}
+                          {regla.ultima_ejecucion.facturas_generadas} factura(s) /{' '}
+                          {regla.ultima_ejecucion.cargos_generados} cargo(s)
+                        </Badge>
+                        <span className="text-xs text-texto-3">
+                          Omitidos: {regla.ultima_ejecucion.cargos_omitidos} · Bloqueados:{' '}
+                          {regla.ultima_ejecucion.cargos_bloqueados}
+                        </span>
+                      </div>
+                    ) : (
+                      'Sin ejecuciones'
+                    )}
                   </TableCell>
                   <TableCell data-align="end">
                     <div className="flex justify-end gap-1">

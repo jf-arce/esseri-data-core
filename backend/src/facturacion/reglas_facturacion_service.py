@@ -1,6 +1,5 @@
 """Reglas y ejecución idempotente de facturación recurrente."""
 
-import calendar
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass
@@ -13,6 +12,12 @@ from sqlalchemy.orm import Session
 
 from src.academico.models import Anio, Division, NivelEducativo
 from src.facturacion import facturas_service
+from src.facturacion.calendario_facturacion import (
+    fecha_operativa_argentina,
+    fecha_programada,
+    mes_final,
+    periodos_entre,
+)
 from src.facturacion.exceptions import (
     ConceptoCobroInvalido,
     ReglaFacturacionIncompatible,
@@ -34,7 +39,9 @@ from src.facturacion.schemas import (
     GeneracionFacturacionResumenRead,
     ReglaFacturacionCreate,
     ReglaFacturacionEstadoUpdate,
+    ReglaFacturacionRead,
     ReglaFacturacionUpdate,
+    UltimaEjecucionReglaRead,
 )
 from src.inscripciones.models import Inscripcion
 
@@ -56,16 +63,12 @@ class PlanGeneracion:
     alumnos_alcanzados: int
 
 
-def _mes_final(periodo: date) -> date:
-    return date(periodo.year, periodo.month, calendar.monthrange(periodo.year, periodo.month)[1])
-
-
 def _fecha_vencimiento(periodo: date, dia: int) -> date:
-    return date(periodo.year, periodo.month, min(dia, _mes_final(periodo).day))
+    return date(periodo.year, periodo.month, min(dia, mes_final(periodo).day))
 
 
 def regla_aplica_periodo(regla: ReglaFacturacion, periodo: date) -> bool:
-    if regla.vigencia_desde > _mes_final(periodo) or regla.vigencia_hasta < periodo:
+    if regla.vigencia_desde > mes_final(periodo) or regla.vigencia_hasta < periodo:
         return False
     return regla.periodicidad == "mensual" or regla.mes_aplicacion == periodo.month
 
@@ -162,6 +165,95 @@ def listar_reglas_facturacion(db: Session) -> list[ReglaFacturacion]:
     )
 
 
+def _proxima_generacion_de_regla(
+    regla: ReglaFacturacion,
+    fecha_actual: date,
+    periodos_completados: set[date],
+) -> date | None:
+    """Calcula la siguiente agenda pendiente sin considerar como listo un intento parcial."""
+
+    if regla.estado != "activa" or regla.modo_generacion != "automatica":
+        return None
+    if fecha_actual > regla.vigencia_hasta:
+        return None
+    for periodo in periodos_entre(regla.vigencia_desde, regla.vigencia_hasta):
+        if not regla_aplica_periodo(regla, periodo) or periodo in periodos_completados:
+            continue
+        programada = max(fecha_programada(regla.dia_generacion, periodo), regla.vigencia_desde)
+        if programada >= fecha_actual:
+            return programada
+        # Una fecha pasada que no quedó exitosa es recuperable y sigue pendiente.
+        return programada
+    return None
+
+
+def _lecturas_reglas_facturacion(
+    db: Session,
+    reglas: list[ReglaFacturacion],
+    fecha_actual: date | None = None,
+) -> list[ReglaFacturacionRead]:
+    """Enriquece reglas en bloque con su agenda y última ejecución asociada."""
+
+    if not reglas:
+        return []
+    regla_ids = [regla.id for regla in reglas]
+    asociaciones = db.execute(
+        select(EjecucionFacturacionRegla.regla_facturacion_id, EjecucionFacturacion)
+        .join(
+            EjecucionFacturacion,
+            EjecucionFacturacion.id == EjecucionFacturacionRegla.ejecucion_facturacion_id,
+        )
+        .where(EjecucionFacturacionRegla.regla_facturacion_id.in_(regla_ids))
+        .order_by(EjecucionFacturacion.fecha_ejecucion.desc())
+    ).all()
+    completados_por_regla: dict[uuid.UUID, set[date]] = defaultdict(set)
+    ultima_por_regla: dict[uuid.UUID, EjecucionFacturacion] = {}
+    for regla_id, ejecucion in asociaciones:
+        ultima_por_regla.setdefault(regla_id, ejecucion)
+        if ejecucion.estado == "exitosa":
+            completados_por_regla[regla_id].add(ejecucion.periodo)
+
+    hoy = fecha_actual or fecha_operativa_argentina()
+    lecturas: list[ReglaFacturacionRead] = []
+    for regla in reglas:
+        ultima = ultima_por_regla.get(regla.id)
+        ultima_lectura = (
+            UltimaEjecucionReglaRead(
+                id=ultima.id,
+                fecha_ejecucion=ultima.fecha_ejecucion,
+                periodo=ultima.periodo,
+                origen=ultima.origen,
+                estado=ultima.estado,
+                facturas_generadas=ultima.facturas_generadas,
+                cargos_generados=ultima.cargos_generados,
+                cargos_omitidos=ultima.cargos_omitidos,
+                cargos_bloqueados=ultima.cargos_bloqueados,
+                error_detalle=ultima.error_detalle,
+            )
+            if ultima is not None
+            else None
+        )
+        lecturas.append(
+            ReglaFacturacionRead.model_validate(regla).model_copy(
+                update={
+                    "proxima_generacion": _proxima_generacion_de_regla(
+                        regla, hoy, completados_por_regla[regla.id]
+                    ),
+                    "ultima_ejecucion": ultima_lectura,
+                }
+            )
+        )
+    return lecturas
+
+
+def listar_reglas_facturacion_read(db: Session) -> list[ReglaFacturacionRead]:
+    return _lecturas_reglas_facturacion(db, listar_reglas_facturacion(db))
+
+
+def regla_facturacion_read(db: Session, regla: ReglaFacturacion) -> ReglaFacturacionRead:
+    return _lecturas_reglas_facturacion(db, [regla])[0]
+
+
 def actualizar_regla_facturacion(
     db: Session, regla: ReglaFacturacion, datos: ReglaFacturacionUpdate
 ) -> ReglaFacturacion:
@@ -229,7 +321,7 @@ def _reglas_aplicables(
                 select(ReglaFacturacion).where(
                     ReglaFacturacion.estado == "activa",
                     ReglaFacturacion.ciclo_lectivo == str(periodo.year),
-                    ReglaFacturacion.vigencia_desde <= _mes_final(periodo),
+                    ReglaFacturacion.vigencia_desde <= mes_final(periodo),
                     ReglaFacturacion.vigencia_hasta >= periodo,
                 )
             ).all()

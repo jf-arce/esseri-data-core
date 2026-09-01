@@ -95,10 +95,10 @@ export function GenerarFacturacionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:!max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Generar facturación recurrente</DialogTitle>
+          <DialogTitle>Generar ahora</DialogTitle>
           <DialogDescription>
-            Primero previsualizá el resultado. La confirmación crea las facturas pendientes del
-            período.
+            Ejecución manual excepcional. Usala como respaldo: las reglas automáticas se procesan
+            según su propia agenda. Primero previsualizá el resultado.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">

@@ -267,17 +267,14 @@ def eliminar_factura(db: DbSession, _: PuedeEliminar, factura: FacturaActual) ->
 def crear_regla_facturacion(
     datos: ReglaFacturacionCreate, db: DbSession, _: PuedeCrear
 ) -> ReglaFacturacionRead:
-    return ReglaFacturacionRead.model_validate(
-        reglas_facturacion_service.crear_regla_facturacion(db, datos)
+    return reglas_facturacion_service.regla_facturacion_read(
+        db, reglas_facturacion_service.crear_regla_facturacion(db, datos)
     )
 
 
 @router.get("/reglas")
 def listar_reglas_facturacion(db: DbSession, _: PuedeLeer) -> list[ReglaFacturacionRead]:
-    return [
-        ReglaFacturacionRead.model_validate(regla)
-        for regla in reglas_facturacion_service.listar_reglas_facturacion(db)
-    ]
+    return reglas_facturacion_service.listar_reglas_facturacion_read(db)
 
 
 @router.post("/reglas/generaciones/previsualizar")
@@ -308,8 +305,8 @@ def listar_ejecuciones_facturacion(
 def obtener_regla_facturacion(
     regla_id: uuid.UUID, db: DbSession, _: PuedeLeer
 ) -> ReglaFacturacionRead:
-    return ReglaFacturacionRead.model_validate(
-        reglas_facturacion_service.obtener_regla_o_error(db, regla_id)
+    return reglas_facturacion_service.regla_facturacion_read(
+        db, reglas_facturacion_service.obtener_regla_o_error(db, regla_id)
     )
 
 
@@ -318,8 +315,8 @@ def actualizar_regla_facturacion(
     regla_id: uuid.UUID, datos: ReglaFacturacionUpdate, db: DbSession, _: PuedeActualizar
 ) -> ReglaFacturacionRead:
     regla = reglas_facturacion_service.obtener_regla_o_error(db, regla_id)
-    return ReglaFacturacionRead.model_validate(
-        reglas_facturacion_service.actualizar_regla_facturacion(db, regla, datos)
+    return reglas_facturacion_service.regla_facturacion_read(
+        db, reglas_facturacion_service.actualizar_regla_facturacion(db, regla, datos)
     )
 
 
@@ -331,6 +328,6 @@ def actualizar_estado_regla_facturacion(
     _: PuedeActualizar,
 ) -> ReglaFacturacionRead:
     regla = reglas_facturacion_service.obtener_regla_o_error(db, regla_id)
-    return ReglaFacturacionRead.model_validate(
-        reglas_facturacion_service.actualizar_estado_regla_facturacion(db, regla, datos)
+    return reglas_facturacion_service.regla_facturacion_read(
+        db, reglas_facturacion_service.actualizar_estado_regla_facturacion(db, regla, datos)
     )

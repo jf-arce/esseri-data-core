@@ -1,25 +1,36 @@
 """Tests de reglas y generación recurrente de facturación."""
 
-from datetime import date
+import uuid
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 
 import pytest
 from sqlalchemy import select
 
+from src.facturacion.calendario_facturacion import (
+    fecha_operativa_argentina,
+    fecha_programada,
+    proxima_corrida_diaria_argentina,
+)
 from src.facturacion.exceptions import ConceptoCobroEnUso, ReglaFacturacionIncompatible
-from src.facturacion.facturacion_job import ejecutar_facturacion_automatica
+from src.facturacion.facturacion_job import (
+    ejecutar_facturacion_automatica,
+    periodos_pendientes_de_regla,
+)
 from src.facturacion.models import (
     ConceptoCobro,
     EjecucionFacturacion,
+    EjecucionFacturacionRegla,
     Factura,
     ResponsableEconomico,
 )
 from src.facturacion.reglas_facturacion_service import (
     crear_regla_facturacion,
     generar_facturacion,
+    listar_reglas_facturacion_read,
     planificar_generacion_facturacion,
 )
-from src.facturacion.schemas import ReglaFacturacionCreate
+from src.facturacion.schemas import EjecucionFacturacionRead, ReglaFacturacionCreate
 from src.facturacion.service import eliminar_concepto_cobro
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
@@ -178,3 +189,149 @@ def test_job_reintenta_ejecucion_parcial_cuando_se_resuelve_el_bloqueo(db_sessio
     assert bloqueada[0].cargos_bloqueados == 1
     assert recuperada[0].estado == "exitosa"
     assert db_session.query(EjecucionFacturacion).count() == 2
+
+
+def test_calendario_usa_argentina_y_respeta_el_ultimo_dia_del_mes():
+    assert fecha_operativa_argentina(datetime(2027, 3, 1, 2, 30, tzinfo=UTC)) == date(2027, 2, 28)
+    assert fecha_programada(31, date(2027, 2, 1)) == date(2027, 2, 28)
+    assert proxima_corrida_diaria_argentina(
+        time(0, 5), datetime(2027, 3, 1, 2, 0, tzinfo=UTC)
+    ) == datetime(2027, 3, 1, 3, 5, tzinfo=UTC)
+
+
+def test_proxima_corrida_pasa_al_dia_siguiente_luego_de_la_hora_configurada():
+    assert proxima_corrida_diaria_argentina(
+        time(0, 5), datetime(2027, 3, 1, 3, 6, tzinfo=UTC)
+    ) == datetime(2027, 3, 2, 3, 5, tzinfo=UTC)
+
+
+def test_respuesta_de_ejecucion_normaliza_timestamps_historicos_a_utc():
+    lectura = EjecucionFacturacionRead(
+        id=uuid.uuid4(),
+        periodo=date(2027, 3, 1),
+        fecha_ejecucion=datetime(2027, 3, 1, 3, 5),
+        facturas_generadas=0,
+        cargos_generados=0,
+        cargos_omitidos=0,
+        cargos_bloqueados=0,
+        monto_total=Decimal("0.00"),
+        origen="automatica",
+        estado="exitosa",
+        error_detalle=None,
+        regla_ids=[],
+        reglas_aplicables=0,
+        alumnos_alcanzados=0,
+        cargos_aptos=0,
+        monto_estimado=Decimal("0.00"),
+    )
+
+    assert lectura.fecha_ejecucion.tzinfo == UTC
+
+
+def test_job_omite_reglas_pausadas_y_finalizadas(db_session):
+    _, cuota, transporte = _escenario_facturable(db_session)
+    crear_regla_facturacion(
+        db_session,
+        _regla(cuota.id, modo_generacion="automatica", dia_generacion=3, estado="pausada"),
+    )
+    crear_regla_facturacion(
+        db_session,
+        _regla(
+            transporte.id,
+            nombre="Transporte",
+            modo_generacion="automatica",
+            dia_generacion=3,
+            estado="finalizada",
+        ),
+    )
+
+    assert ejecutar_facturacion_automatica(db_session, date(2027, 3, 4)) == []
+
+
+def test_job_registra_un_intento_fallido_y_lo_deja_recuperable(db_session, monkeypatch):
+    _, cuota, _ = _escenario_facturable(db_session)
+    regla = crear_regla_facturacion(
+        db_session,
+        _regla(cuota.id, modo_generacion="automatica", dia_generacion=3),
+    )
+
+    def fallar_generacion(*_args, **_kwargs):
+        raise RuntimeError("servicio temporalmente no disponible")
+
+    monkeypatch.setattr("src.facturacion.facturacion_job.generar_facturacion", fallar_generacion)
+
+    ejecuciones = ejecutar_facturacion_automatica(db_session, date(2027, 3, 4))
+
+    assert ejecuciones[0].estado == "fallida"
+    assert ejecuciones[0].regla_ids == [regla.id]
+    assert periodos_pendientes_de_regla(db_session, regla, date(2027, 3, 5)) == [date(2027, 3, 1)]
+
+
+def test_job_ejecuta_una_regla_anual_en_su_mes_y_no_en_otro(db_session):
+    _, cuota, _ = _escenario_facturable(db_session)
+    regla = crear_regla_facturacion(
+        db_session,
+        _regla(
+            cuota.id,
+            periodicidad="anual",
+            mes_aplicacion=4,
+            modo_generacion="automatica",
+            dia_generacion=2,
+        ),
+    )
+
+    assert periodos_pendientes_de_regla(db_session, regla, date(2027, 3, 31)) == []
+    assert periodos_pendientes_de_regla(db_session, regla, date(2027, 4, 2)) == [date(2027, 4, 1)]
+
+
+def test_listado_de_reglas_expone_proxima_y_ultima_ejecucion_por_regla(db_session):
+    _, cuota, transporte = _escenario_facturable(db_session)
+    primera = crear_regla_facturacion(
+        db_session,
+        _regla(cuota.id, modo_generacion="automatica", dia_generacion=3),
+    )
+    segunda = crear_regla_facturacion(
+        db_session,
+        _regla(
+            transporte.id,
+            nombre="Transporte",
+            modo_generacion="automatica",
+            dia_generacion=3,
+        ),
+    )
+    ejecucion_vieja = EjecucionFacturacion(
+        periodo=date(2027, 3, 1),
+        estado="exitosa",
+        origen="automatica",
+        fecha_ejecucion=datetime(2027, 3, 3, 3, 5, tzinfo=UTC),
+    )
+    ejecucion_reciente = EjecucionFacturacion(
+        periodo=date(2027, 3, 1),
+        estado="parcial",
+        origen="manual",
+        fecha_ejecucion=datetime(2027, 3, 4, 3, 5, tzinfo=UTC),
+    )
+    db_session.add_all([ejecucion_vieja, ejecucion_reciente])
+    db_session.flush()
+    db_session.add_all(
+        [
+            EjecucionFacturacionRegla(
+                ejecucion_facturacion_id=ejecucion_vieja.id,
+                regla_facturacion_id=primera.id,
+            ),
+            EjecucionFacturacionRegla(
+                ejecucion_facturacion_id=ejecucion_reciente.id,
+                regla_facturacion_id=segunda.id,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    lecturas = {regla.id: regla for regla in listar_reglas_facturacion_read(db_session)}
+
+    assert lecturas[primera.id].ultima_ejecucion is not None
+    assert lecturas[primera.id].ultima_ejecucion.estado == "exitosa"
+    assert lecturas[primera.id].proxima_generacion == date(2027, 4, 3)
+    assert lecturas[segunda.id].ultima_ejecucion is not None
+    assert lecturas[segunda.id].ultima_ejecucion.estado == "parcial"
+    assert lecturas[segunda.id].proxima_generacion == date(2027, 3, 3)

@@ -109,9 +109,14 @@ export interface ReglaFacturacion {
   anio_id: string | null
   division_id: string | null
   estado: EstadoReglaFacturacion
+  proxima_generacion: string | null
+  ultima_ejecucion: UltimaEjecucionReglaFacturacion | null
 }
 
-export type ReglaFacturacionPayload = Omit<ReglaFacturacion, 'id'>
+export type ReglaFacturacionPayload = Omit<
+  ReglaFacturacion,
+  'id' | 'proxima_generacion' | 'ultima_ejecucion'
+>
 
 export interface ResumenGeneracionFacturacion {
   periodo: string
@@ -133,4 +138,17 @@ export interface EjecucionFacturacion extends ResumenGeneracionFacturacion {
   estado: 'exitosa' | 'parcial' | 'fallida'
   error_detalle: string | null
   regla_ids: string[]
+}
+
+export interface UltimaEjecucionReglaFacturacion {
+  id: string
+  fecha_ejecucion: string
+  periodo: string
+  origen: ModoGeneracionReglaFacturacion
+  estado: EjecucionFacturacion['estado']
+  facturas_generadas: number
+  cargos_generados: number
+  cargos_omitidos: number
+  cargos_bloqueados: number
+  error_detalle: string | null
 }

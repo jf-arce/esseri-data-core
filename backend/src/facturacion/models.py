@@ -27,7 +27,7 @@ class Factura(Base):
     monto_total: Mapped[decimal.Decimal] = mapped_column(sa.Numeric(12, 2))
     estado: Mapped[str] = mapped_column(sa.String, default="pendiente")
     updated_at: Mapped[datetime] = mapped_column(
-        sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
+        sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()
     )
     inscripcion_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("inscripcion.id"))
     responsable_economico_id: Mapped[uuid.UUID] = mapped_column(
@@ -78,9 +78,11 @@ class ReglaFacturacion(Base):
     dia_vencimiento: Mapped[int] = mapped_column(sa.Integer)
     criterio_aplicacion: Mapped[str] = mapped_column(sa.String)
     estado: Mapped[str] = mapped_column(sa.String, default="borrador")
-    created_at: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
+        sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()
     )
     concepto_cobro_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("concepto_cobro.id"))
     nivel_educativo_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -108,7 +110,9 @@ class EjecucionFacturacion(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
     periodo: Mapped[date] = mapped_column(sa.Date)
-    fecha_ejecucion: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
+    fecha_ejecucion: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
     facturas_generadas: Mapped[int] = mapped_column(sa.Integer, default=0)
     cargos_generados: Mapped[int] = mapped_column(sa.Integer, default=0)
     cargos_omitidos: Mapped[int] = mapped_column(sa.Integer, default=0)
@@ -199,9 +203,9 @@ class Pago(Base):
     comprobante: Mapped[str | None] = mapped_column(sa.String)
     estado: Mapped[str] = mapped_column(sa.String, default="pendiente")
     referencia_transaccion: Mapped[str | None] = mapped_column(sa.String)
-    fecha_operacion: Mapped[datetime | None] = mapped_column(sa.DateTime)
+    fecha_operacion: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(
-        sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
+        sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()
     )
     factura_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("factura.id"))
     metodo_pago_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("metodo_pago.id"))
@@ -241,9 +245,11 @@ class MetodoPago(Base):
     nombre: Mapped[str] = mapped_column(sa.String)
     activo: Mapped[bool] = mapped_column(sa.Boolean, default=True)
     requiere_comprobante: Mapped[bool] = mapped_column(sa.Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
+        sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()
     )
 
 
@@ -254,9 +260,11 @@ class ConceptoCobro(Base):
     nombre: Mapped[str] = mapped_column(sa.String)
     categoria: Mapped[str | None] = mapped_column(sa.String)
     activo: Mapped[bool] = mapped_column(sa.Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
+        sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()
     )
 
 
@@ -270,7 +278,7 @@ class ResponsableEconomico(Base):
     vigencia_hasta: Mapped[date | None] = mapped_column(sa.Date)
     fecha_solicitud_cambio: Mapped[date | None] = mapped_column(sa.Date)
     updated_at: Mapped[datetime] = mapped_column(
-        sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
+        sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()
     )
     alumno_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("alumno.id"))
     familia_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("familia.id"))
@@ -284,9 +292,11 @@ class ReglaPenalidad(Base):
     hasta_dia_vencido: Mapped[int | None] = mapped_column(sa.Integer)
     porcentaje: Mapped[decimal.Decimal] = mapped_column(sa.Numeric(5, 2))
     activo: Mapped[bool] = mapped_column(sa.Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
+        sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()
     )
     concepto_cobro_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("concepto_cobro.id"))
 
@@ -297,7 +307,9 @@ class ExcepcionVencimiento(Base):
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
     fecha_vencimiento_excepcional: Mapped[date] = mapped_column(sa.Date)
     motivo: Mapped[str | None] = mapped_column(sa.String)
-    created_at: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
     familia_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("familia.id"))
     usuario_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("usuario.id"))
 
@@ -319,7 +331,9 @@ class Movimiento(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
-    fecha: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
+    fecha: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
     tipo: Mapped[str] = mapped_column(sa.String)
     monto: Mapped[decimal.Decimal] = mapped_column(sa.Numeric(12, 2))
     observacion: Mapped[str | None] = mapped_column(sa.String)
