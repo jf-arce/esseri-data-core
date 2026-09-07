@@ -35,6 +35,7 @@ from src.facturacion.models import (
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate, FacturaUpdate
 from src.familias_alumnos.models import Alumno, Familia
 from src.inscripciones.models import Inscripcion
+from src.models import Persona
 
 MAX_TAMANIO_COMPROBANTE = 5 * 1024 * 1024
 TIPOS_COMPROBANTE_PERMITIDOS = {"application/pdf", "image/jpeg", "image/png"}
@@ -333,16 +334,28 @@ def listar_facturas(
     pagina: int,
     tamanio: int,
     alumno_id: uuid.UUID | None = None,
+    concepto_cobro_id: uuid.UUID | None = None,
     estado: str | None = None,
     buscar: str | None = None,
+    ordenar_por: str = "fecha_vencimiento",
+    direccion: str = "asc",
 ) -> tuple[list[Factura], int]:
     filtros = []
-    consulta = select(Factura)
-    consulta_total = select(func.count(Factura.id))
+    consulta = (
+        select(Factura, Alumno.id.label("alumno_id"), Persona.nombre, Persona.apellido)
+        .join(Inscripcion, Factura.inscripcion_id == Inscripcion.id)
+        .join(Alumno, Inscripcion.alumno_id == Alumno.id)
+        .join(Persona, Alumno.persona_id == Persona.id)
+    )
+    consulta_total = (
+        select(func.count(Factura.id))
+        .select_from(Factura)
+        .join(Inscripcion, Factura.inscripcion_id == Inscripcion.id)
+    )
     if alumno_id is not None:
-        consulta = consulta.join(Inscripcion)
-        consulta_total = consulta_total.join(Inscripcion)
         filtros.append(Inscripcion.alumno_id == alumno_id)
+    if concepto_cobro_id is not None:
+        filtros.append(Factura.detalles.any(DetalleFactura.concepto_cobro_id == concepto_cobro_id))
     if estado is not None:
         filtros.append(Factura.estado == estado)
     if buscar:
@@ -352,14 +365,23 @@ def listar_facturas(
         consulta_total = consulta_total.where(*filtros)
 
     total = db.scalar(consulta_total) or 0
-    facturas = list(
-        db.scalars(
-            consulta.options(selectinload(Factura.detalles))
-            .order_by(Factura.fecha_emision.desc(), Factura.id)
-            .offset((pagina - 1) * tamanio)
-            .limit(tamanio)
-        ).all()
-    )
+    columna_orden = {
+        "fecha_vencimiento": Factura.fecha_vencimiento,
+        "monto_total": Factura.monto_total,
+    }[ordenar_por]
+    orden = columna_orden.desc() if direccion == "desc" else columna_orden.asc()
+    filas = db.execute(
+        consulta.options(selectinload(Factura.detalles))
+        .order_by(orden, Factura.id)
+        .offset((pagina - 1) * tamanio)
+        .limit(tamanio)
+    ).all()
+    facturas = []
+    for factura, alumno_id_fila, alumno_nombre, alumno_apellido in filas:
+        factura.alumno_id = alumno_id_fila
+        factura.alumno_nombre = alumno_nombre
+        factura.alumno_apellido = alumno_apellido
+        facturas.append(factura)
     return facturas, total
 
 

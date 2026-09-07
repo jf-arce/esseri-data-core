@@ -24,6 +24,32 @@ python ../database/seeds/03_seed_grupo_b.py   # requiere que 01 ya haya corrido
 
 Los tres son idempotentes — correrlos de nuevo no duplica filas.
 
+## `04_seed_demo.py` — datos ficticios para una demo local
+
+Este seed es opcional y manual: crea familias, alumnos, estructura académica, asistencias,
+admisiones, reglas/facturas/pagos y compras de ejemplo. **No reemplaza los catálogos canónicos
+ni se ejecuta al levantar Docker.**
+
+Requiere haber ejecutado los tres seeds canónicos y una confirmación explícita. Nunca correrlo
+contra producción.
+
+```bash
+cd backend
+source venv/bin/activate
+ESSERI_DEMO_SEED_ENABLED=true python ../database/seeds/04_seed_demo.py
+```
+
+Con Docker:
+
+```bash
+cd infra
+docker compose exec -e ESSERI_DEMO_SEED_ENABLED=true backend python /database/seeds/04_seed_demo.py
+```
+
+La cuenta creada es `demo.admin@esseri.local`; la contraseña por defecto es
+`EsseriDemo2026!`. Puede reemplazarse solo para la carga con `ESSERI_DEMO_PASSWORD`.
+El script rechaza `ENVIRONMENT=production`/`prod` y es idempotente para sus propias claves demo.
+
 ## `00_bootstrap_admin.py` — no es un catálogo
 
 Va aparte de los tres de arriba: no precarga un catálogo del diccionario, crea el **primer usuario administrador** para que alguien pueda entrar al sistema (RF-27). El login rechaza a cualquiera que no esté ya en `usuario`, y los endpoints que crean usuarios están protegidos — sin esta fila inicial nadie puede loguearse. Es el equivalente al `createsuperuser` de Django.

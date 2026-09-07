@@ -19,7 +19,7 @@ import {
 import { listarMetodosPago } from '@/modules/facturacion/services/listar-metodos-pago'
 import { registrarPago } from '@/modules/facturacion/services/registrar-pago'
 import type { FacturaDetalle, MetodoPago } from '@/modules/facturacion/types'
-import { fechaApi, formatearMoneda } from '@/modules/facturacion/utils'
+import { etiquetaMetodoPago, fechaApi, formatearMoneda } from '@/modules/facturacion/utils'
 
 const MAX_TAMANIO_COMPROBANTE = 5 * 1024 * 1024
 const TIPOS_COMPROBANTE = {
@@ -154,7 +154,7 @@ export function FormularioPagoFactura({ factura, onPagoRegistrado }: FormularioP
                     <SelectGroup>
                       {metodos.map((opcion) => (
                         <SelectItem key={opcion.id} value={opcion.id}>
-                          {opcion.nombre}
+                          {etiquetaMetodoPago(opcion.nombre)}
                         </SelectItem>
                       ))}
                     </SelectGroup>

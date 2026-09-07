@@ -1,4 +1,4 @@
-import type { EstadoFactura } from '@/modules/facturacion/types'
+import type { DetalleFactura, EstadoFactura } from '@/modules/facturacion/types'
 
 const ZONA_HORARIA_ARGENTINA = 'America/Argentina/Buenos_Aires'
 
@@ -32,6 +32,37 @@ export function formatearFechaHora(valor: string) {
 
 export function etiquetaEstadoFactura(estado: EstadoFactura) {
   return { pendiente: 'Pendiente', vencida: 'Vencida', pagada: 'Pagada' }[estado]
+}
+
+export function etiquetaMetodoPago(nombre: string) {
+  const etiquetas: Record<string, string> = {
+    debito_directo: 'Débito directo',
+    tarjeta_credito: 'Tarjeta de crédito',
+    tarjeta_debito: 'Tarjeta de débito',
+    transferencia: 'Transferencia bancaria',
+    efectivo: 'Efectivo',
+  }
+  return etiquetas[nombre] ?? nombre.replaceAll('_', ' ')
+}
+
+export function etiquetasConceptosFactura(detalles: DetalleFactura[]) {
+  const conceptos = [
+    ...new Map(detalles.map((detalle) => [detalle.concepto_cobro_id, detalle])).values(),
+  ]
+  const etiqueta = (descripcion: string) => {
+    const partes = descripcion
+      .split(' · ')
+      .map((parte) => parte.trim())
+      .filter(Boolean)
+    return partes.length >= 3 ? partes[1] : (partes[0] ?? descripcion)
+  }
+  return conceptos.map((concepto) => etiqueta(concepto.descripcion))
+}
+
+export function resumenConceptosFactura(detalles: DetalleFactura[]) {
+  const conceptos = etiquetasConceptosFactura(detalles)
+  const primero = conceptos[0] ?? '—'
+  return conceptos.length > 1 ? `${primero} + ${conceptos.length - 1} más` : primero
 }
 
 export function fechaApi(fecha: Date) {

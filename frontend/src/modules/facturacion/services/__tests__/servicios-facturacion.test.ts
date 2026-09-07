@@ -17,13 +17,22 @@ describe('servicios de facturación', () => {
     vi.restoreAllMocks()
   })
 
-  it('envía paginación, estado y búsqueda al consultar facturas', async () => {
+  it('envía filtros combinables y orden al consultar facturas', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
 
-    await listarFacturas({ pagina: 2, tamanio: 10, estado: 'pendiente', buscar: 'c4341acf' })
+    await listarFacturas({
+      pagina: 2,
+      tamanio: 10,
+      estado: 'pendiente',
+      buscar: 'c4341acf',
+      alumnoId: 'alumno-1',
+      conceptoCobroId: 'concepto-1',
+      ordenarPor: 'monto_total',
+      direccion: 'desc',
+    })
 
     expect(fetchMock.mock.calls[0][0]).toContain(
-      '/facturacion/facturas?pagina=2&tamanio=10&estado=pendiente&buscar=c4341acf',
+      '/facturacion/facturas?pagina=2&tamanio=10&estado=pendiente&buscar=c4341acf&alumno_id=alumno-1&concepto_cobro_id=concepto-1&ordenar_por=monto_total&direccion=desc',
     )
   })
 

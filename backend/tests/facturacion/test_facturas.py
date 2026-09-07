@@ -18,7 +18,7 @@ from src.facturacion.facturas_service import (
     eliminar_factura,
     listar_facturas,
 )
-from src.facturacion.models import ConceptoCobro, ResponsableEconomico
+from src.facturacion.models import ConceptoCobro, DetalleFactura, ResponsableEconomico
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate, FacturaUpdate
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
@@ -85,7 +85,7 @@ def test_no_factura_si_la_suma_supera_la_precision_de_base(db_session):
     _, inscripcion, concepto, _ = _crear_base_facturable(db_session)
     datos = _datos_factura(inscripcion.id, concepto.id, monto="6000000000.00")
     datos.detalles.append(
-        DetalleFacturaCreate(
+        DetalleFactura(
             descripcion="Segundo cargo",
             monto=Decimal("6000000000.00"),
             concepto_cobro_id=concepto.id,
@@ -148,6 +148,35 @@ def test_listar_facturas_filtra_por_alumno_y_pagina(db_session):
     assert total == 2
     assert len(facturas) == 1
     assert facturas[0].detalles
+
+
+def test_listar_facturas_filtra_por_concepto_sin_duplicar_y_expone_alumno(db_session):
+    escenario, inscripcion, concepto, _ = _crear_base_facturable(db_session)
+    otro_concepto = ConceptoCobro(nombre="Comedor", categoria="Servicios", activo=True)
+    db_session.add(otro_concepto)
+    db_session.commit()
+    factura = crear_factura(db_session, _datos_factura(inscripcion.id, concepto.id))
+    factura.detalles.append(
+        DetalleFactura(
+            descripcion="Comedor marzo", monto=Decimal("100.00"), concepto_cobro_id=otro_concepto.id
+        )
+    )
+    db_session.commit()
+
+    facturas, total = listar_facturas(
+        db_session,
+        pagina=1,
+        tamanio=20,
+        alumno_id=escenario["alumno_id"],
+        concepto_cobro_id=otro_concepto.id,
+        ordenar_por="monto_total",
+        direccion="desc",
+    )
+
+    assert total == 1
+    assert [item.id for item in facturas] == [factura.id]
+    assert facturas[0].alumno_id == escenario["alumno_id"]
+    assert facturas[0].alumno_nombre
 
 
 def test_listar_facturas_busca_por_numero(db_session):

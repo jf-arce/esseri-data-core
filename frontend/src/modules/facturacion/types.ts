@@ -23,6 +23,9 @@ export interface Factura {
   updated_at: string
   inscripcion_id: string
   responsable_economico_id: string
+  alumno_id: string | null
+  alumno_nombre: string | null
+  alumno_apellido: string | null
   detalles: DetalleFactura[]
 }
 
@@ -82,7 +85,14 @@ export interface FiltrosFacturas {
   tamanio: number
   estado?: EstadoFactura
   buscar?: string
+  alumnoId?: string
+  conceptoCobroId?: string
+  ordenarPor?: OrdenarPorFacturas
+  direccion?: DireccionOrdenFacturas
 }
+
+export type OrdenarPorFacturas = 'fecha_vencimiento' | 'monto_total'
+export type DireccionOrdenFacturas = 'asc' | 'desc'
 
 export type PeriodicidadReglaFacturacion = 'mensual' | 'anual'
 export type CriterioAplicacionReglaFacturacion =

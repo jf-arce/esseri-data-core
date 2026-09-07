@@ -18,6 +18,7 @@ import { FormularioPagoFactura } from '@/modules/facturacion/components/formular
 import { useFacturaDetalle } from '@/modules/facturacion/hooks/use-factura-detalle'
 import {
   etiquetaEstadoFactura,
+  etiquetaMetodoPago,
   formatearFechaFactura,
   formatearMoneda,
 } from '@/modules/facturacion/utils'
@@ -173,7 +174,8 @@ export function FacturaDetallePage() {
                     >
                       <div>
                         <p className="font-medium text-texto">
-                          {pago.metodo_pago.nombre} · {formatearFechaFactura(pago.fecha)}
+                          {etiquetaMetodoPago(pago.metodo_pago.nombre)} ·{' '}
+                          {formatearFechaFactura(pago.fecha)}
                         </p>
                         <p className="text-xs text-texto-3">
                           {pago.comprobante ??

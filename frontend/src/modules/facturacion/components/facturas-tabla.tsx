@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react'
 import { Link } from 'react-router'
+import { ArrowDownIcon, ArrowUpIcon, ArrowUpDownIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { paginasVisibles } from '@/lib/paginacion'
 import {
@@ -13,6 +14,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination'
 import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { TableSkeleton, type ColumnaEsqueleto } from '@/components/table-skeleton'
 import {
   Table,
@@ -22,11 +24,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import type { EstadoFactura, Factura } from '@/modules/facturacion/types'
+import type {
+  DireccionOrdenFacturas,
+  EstadoFactura,
+  Factura,
+  OrdenarPorFacturas,
+} from '@/modules/facturacion/types'
 import {
   etiquetaEstadoFactura,
   formatearFechaFactura,
   formatearMoneda,
+  etiquetasConceptosFactura,
+  resumenConceptosFactura,
 } from '@/modules/facturacion/utils'
 
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
@@ -51,6 +60,37 @@ interface FacturasTablaProps {
   tamanioPagina: number
   total: number
   onCambiarPagina: (pagina: number) => void
+  ordenarPor: OrdenarPorFacturas
+  direccion: DireccionOrdenFacturas
+  onOrdenar: (campo: OrdenarPorFacturas) => void
+}
+
+function EncabezadoOrdenable({
+  campo,
+  etiqueta,
+  ordenarPor,
+  direccion,
+  onOrdenar,
+}: {
+  campo: OrdenarPorFacturas
+  etiqueta: string
+  ordenarPor: OrdenarPorFacturas
+  direccion: DireccionOrdenFacturas
+  onOrdenar: (campo: OrdenarPorFacturas) => void
+}) {
+  const activo = ordenarPor === campo
+  const Icono = !activo ? ArrowUpDownIcon : direccion === 'asc' ? ArrowUpIcon : ArrowDownIcon
+  return (
+    <button
+      type="button"
+      className="inline-flex items-center gap-1 rounded-sm text-inherit outline-none hover:text-texto focus-visible:ring-2 focus-visible:ring-violeta"
+      aria-label={`Ordenar por ${etiqueta.toLowerCase()}: ${activo && direccion === 'asc' ? 'ascendente' : 'descendente'}`}
+      onClick={() => onOrdenar(campo)}
+    >
+      {etiqueta}
+      <Icono className="size-3.5" aria-hidden="true" />
+    </button>
+  )
 }
 
 export function FacturasTabla({
@@ -60,6 +100,9 @@ export function FacturasTabla({
   tamanioPagina,
   total,
   onCambiarPagina,
+  ordenarPor,
+  direccion,
+  onOrdenar,
 }: FacturasTablaProps) {
   const totalPaginas = Math.max(1, Math.ceil(total / tamanioPagina))
   const primeraFila = (pagina - 1) * tamanioPagina + 1
@@ -70,16 +113,52 @@ export function FacturasTabla({
   }
 
   return (
-    <div className="overflow-hidden rounded-panel bg-superficie shadow-card">
-      <Table bare minWidth="min-w-[780px]">
+    <div className="rounded-panel bg-superficie shadow-card">
+      <Table bare minWidth="min-w-[1080px]" data-density="compact" className="table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead>Factura</TableHead>
-            <TableHead>Emisión</TableHead>
-            <TableHead>Vencimiento</TableHead>
-            <TableHead>Conceptos</TableHead>
-            <TableHead data-align="end">Total</TableHead>
-            <TableHead>Estado</TableHead>
+            <TableHead className="w-28">Factura</TableHead>
+            <TableHead className="w-44">Alumno</TableHead>
+            <TableHead className="w-24">Emisión</TableHead>
+            <TableHead
+              className="w-32"
+              aria-sort={
+                ordenarPor === 'fecha_vencimiento'
+                  ? direccion === 'asc'
+                    ? 'ascending'
+                    : 'descending'
+                  : 'none'
+              }
+            >
+              <EncabezadoOrdenable
+                campo="fecha_vencimiento"
+                etiqueta="Vencimiento"
+                ordenarPor={ordenarPor}
+                direccion={direccion}
+                onOrdenar={onOrdenar}
+              />
+            </TableHead>
+            <TableHead className="w-56">Conceptos</TableHead>
+            <TableHead
+              className="w-32"
+              data-align="end"
+              aria-sort={
+                ordenarPor === 'monto_total'
+                  ? direccion === 'asc'
+                    ? 'ascending'
+                    : 'descending'
+                  : 'none'
+              }
+            >
+              <EncabezadoOrdenable
+                campo="monto_total"
+                etiqueta="Total"
+                ordenarPor={ordenarPor}
+                direccion={direccion}
+                onOrdenar={onOrdenar}
+              />
+            </TableHead>
+            <TableHead className="w-28">Estado</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -96,16 +175,41 @@ export function FacturasTabla({
                     #{factura.id.slice(0, 8)}
                   </Link>
                 </TableCell>
+                <TableCell className="truncate">
+                  {factura.alumno_nombre} {factura.alumno_apellido}
+                </TableCell>
                 <TableCell className="tabular-nums">
                   {formatearFechaFactura(factura.fecha_emision)}
                 </TableCell>
                 <TableCell className="tabular-nums">
                   {formatearFechaFactura(factura.fecha_vencimiento)}
                 </TableCell>
-                <TableCell>
-                  <span className="line-clamp-1 max-w-[320px]">
-                    {factura.detalles.map((detalle) => detalle.descripcion).join(' · ')}
-                  </span>
+                <TableCell className="w-56">
+                  {factura.detalles.length > 1 ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          className="block w-full truncate text-left outline-none focus-visible:ring-2 focus-visible:ring-violeta"
+                          aria-label={`Ver ${etiquetasConceptosFactura(factura.detalles).length} conceptos`}
+                        >
+                          {resumenConceptosFactura(factura.detalles)}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent sideOffset={6} className="block max-w-sm">
+                        <p className="mb-1 font-semibold">Conceptos incluidos</p>
+                        <ul className="list-disc pl-4">
+                          {etiquetasConceptosFactura(factura.detalles).map((concepto) => (
+                            <li key={concepto}>{concepto}</li>
+                          ))}
+                        </ul>
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <span className="block truncate" title={factura.detalles[0]?.descripcion}>
+                      {resumenConceptosFactura(factura.detalles)}
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell data-align="end" className="font-medium tabular-nums">
                   {formatearMoneda(Number(factura.monto_total))}

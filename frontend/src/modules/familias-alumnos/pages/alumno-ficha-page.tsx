@@ -94,6 +94,9 @@ export function AlumnoFichaPage() {
           </h1>
         </div>
         <div className="flex gap-2">
+          <Button variant="secondary" asChild>
+            <Link to={`/facturacion?alumno_id=${alumno.id}`}>Ver facturas</Link>
+          </Button>
           <Button
             variant="secondary"
             onClick={() => navigate(`/familias-alumnos/alumnos/${alumno.id}/editar`)}

@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from sqlalchemy.orm import Session
@@ -166,16 +166,22 @@ def listar_facturas(
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanio: Annotated[int, Query(ge=1, le=100)] = 20,
     alumno_id: uuid.UUID | None = None,
+    concepto_cobro_id: uuid.UUID | None = None,
     estado: FacturaEstado | None = None,
     buscar: Annotated[str | None, Query(max_length=100)] = None,
+    ordenar_por: Literal["fecha_vencimiento", "monto_total"] = "fecha_vencimiento",
+    direccion: Literal["asc", "desc"] = "asc",
 ) -> FacturaListadoRead:
     facturas, total = facturas_service.listar_facturas(
         db,
         pagina=pagina,
         tamanio=tamanio,
         alumno_id=alumno_id,
+        concepto_cobro_id=concepto_cobro_id,
         estado=estado,
         buscar=buscar,
+        ordenar_por=ordenar_por,
+        direccion=direccion,
     )
     return FacturaListadoRead(
         items=[FacturaRead.model_validate(factura) for factura in facturas],

@@ -49,6 +49,15 @@ python ../database/seeds/02_seed_grupo_c.py
 python ../database/seeds/03_seed_grupo_b.py
 ```
 
+Para cargar datos ficticios de recorrido completo en una demo local, ejecutar manualmente:
+
+```bash
+ESSERI_DEMO_SEED_ENABLED=true python ../database/seeds/04_seed_demo.py
+```
+
+No se incluye en el arranque automático de Docker y está bloqueado cuando
+`ENVIRONMENT=production` o `prod`. Ver `database/seeds/README.md`.
+
 ## Login con Google + primer usuario (RF-27)
 
 Documentado aparte, en `docs/auth-oauth-google.md` — abarca todo el módulo Auth (backend +
