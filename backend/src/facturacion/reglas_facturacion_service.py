@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.academico.models import Anio, Division, NivelEducativo
-from src.facturacion import facturas_service
+from src.facturacion import cuenta_corriente_service, facturas_service
 from src.facturacion.calendario_facturacion import (
     fecha_operativa_argentina,
     fecha_programada,
@@ -502,6 +502,7 @@ def generar_facturacion(
             )
             db.add(factura)
             db.flush()
+            cuenta_corriente_service.registrar_cargos_factura_en_transaccion(db, factura)
             db.add_all(
                 [
                     CargoFacturacionGenerado(

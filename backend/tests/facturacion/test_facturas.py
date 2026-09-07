@@ -18,7 +18,13 @@ from src.facturacion.facturas_service import (
     eliminar_factura,
     listar_facturas,
 )
-from src.facturacion.models import ConceptoCobro, DetalleFactura, ResponsableEconomico
+from src.facturacion.models import (
+    ConceptoCobro,
+    CuentaCorriente,
+    DetalleFactura,
+    Movimiento,
+    ResponsableEconomico,
+)
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate, FacturaUpdate
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
@@ -53,7 +59,7 @@ def _datos_factura(inscripcion_id, concepto_id, *, monto="125000.50"):
 
 
 def test_crear_factura_calcula_total_y_cristaliza_responsable(db_session):
-    _, inscripcion, concepto, responsable = _crear_base_facturable(db_session)
+    escenario, inscripcion, concepto, responsable = _crear_base_facturable(db_session)
 
     factura = crear_factura(db_session, _datos_factura(inscripcion.id, concepto.id))
 
@@ -61,6 +67,11 @@ def test_crear_factura_calcula_total_y_cristaliza_responsable(db_session):
     assert factura.estado == "pendiente"
     assert factura.responsable_economico_id == responsable.id
     assert len(factura.detalles) == 1
+    cuenta = db_session.query(CuentaCorriente).filter_by(alumno_id=escenario["alumno_id"]).one()
+    movimiento = db_session.query(Movimiento).filter_by(cuenta_corriente_id=cuenta.id).one()
+    assert movimiento.tipo == "debe"
+    assert movimiento.monto == factura.monto_total
+    assert movimiento.detalle_factura_id == factura.detalles[0].id
 
 
 def test_no_factura_sin_responsable_vigente(db_session):
@@ -96,28 +107,25 @@ def test_no_factura_si_la_suma_supera_la_precision_de_base(db_session):
         crear_factura(db_session, datos)
 
 
-def test_actualizar_factura_recalcula_total(db_session):
+def test_no_actualiza_una_factura_ya_emitida(db_session):
     _, inscripcion, concepto, _ = _crear_base_facturable(db_session)
     factura = crear_factura(db_session, _datos_factura(inscripcion.id, concepto.id))
 
-    actualizada = actualizar_factura(
-        db_session,
-        factura,
-        FacturaUpdate(
-            fecha_vencimiento=date(2027, 3, 15),
-            detalles=[
-                DetalleFacturaCreate(
-                    descripcion="Matrícula actualizada",
-                    monto=Decimal("130000.00"),
-                    concepto_cobro_id=concepto.id,
-                )
-            ],
-        ),
-    )
-
-    assert actualizada.fecha_vencimiento == date(2027, 3, 15)
-    assert actualizada.monto_total == Decimal("130000.00")
-    assert actualizada.detalles[0].descripcion == "Matrícula actualizada"
+    with pytest.raises(FacturaNoEditable):
+        actualizar_factura(
+            db_session,
+            factura,
+            FacturaUpdate(
+                fecha_vencimiento=date(2027, 3, 15),
+                detalles=[
+                    DetalleFacturaCreate(
+                        descripcion="Matrícula actualizada",
+                        monto=Decimal("130000.00"),
+                        concepto_cobro_id=concepto.id,
+                    )
+                ],
+            ),
+        )
 
 
 def test_no_modifica_ni_elimina_factura_pagada(db_session):
@@ -194,8 +202,8 @@ def test_listar_facturas_busca_por_numero(db_session):
     assert facturas[0].id == factura.id
 
 
-def test_endpoints_exponen_crud_de_facturas(client_autenticado, db_session):
-    _, inscripcion, concepto, responsable = _crear_base_facturable(db_session)
+def test_endpoints_exponen_factura_y_cuenta_corriente(client_autenticado, db_session):
+    escenario, inscripcion, concepto, responsable = _crear_base_facturable(db_session)
     payload = {
         "fecha_emision": "2027-03-01",
         "fecha_vencimiento": "2027-03-10",
@@ -211,8 +219,16 @@ def test_endpoints_exponen_crud_de_facturas(client_autenticado, db_session):
 
     creada = client_autenticado.post("/facturacion/facturas", json=payload)
     listado = client_autenticado.get("/facturacion/facturas")
+    cuenta = client_autenticado.get(
+        f"/facturacion/alumnos/{escenario['alumno_id']}/cuenta-corriente"
+    )
 
     assert creada.status_code == 201
     assert creada.json()["responsable_economico_id"] == str(responsable.id)
     assert listado.status_code == 200
     assert listado.json()["total"] == 1
+    assert cuenta.status_code == 200
+    assert cuenta.json()["total_debe"] == "125000.50"
+    assert cuenta.json()["total_haber"] == "0.00"
+    assert cuenta.json()["saldo"] == "125000.50"
+    assert cuenta.json()["total_movimientos"] == 1

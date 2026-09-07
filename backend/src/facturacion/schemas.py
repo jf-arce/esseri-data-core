@@ -183,6 +183,34 @@ class FacturaDetalleRead(FacturaRead):
     pagos: list[PagoRead]
 
 
+class MovimientoCuentaCorrienteRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    fecha: datetime
+    tipo: Literal["debe", "haber"]
+    monto: Decimal
+    observacion: str | None
+    concepto_cobro_id: uuid.UUID | None
+    concepto_nombre: str | None = None
+    factura_id: uuid.UUID | None
+    pago_id: uuid.UUID | None
+
+    _normalizar_timestamps = field_validator("fecha")(_normalizar_instante_utc)
+
+
+class CuentaCorrienteRead(BaseModel):
+    cuenta_corriente_id: uuid.UUID | None
+    alumno_id: uuid.UUID
+    total_debe: Decimal
+    total_haber: Decimal
+    saldo: Decimal
+    movimientos: list[MovimientoCuentaCorrienteRead]
+    total_movimientos: int
+    pagina: int
+    tamanio: int
+
+
 PeriodicidadReglaFacturacion = Literal["mensual", "anual"]
 CriterioAplicacionReglaFacturacion = Literal["todas_inscripciones", "nivel", "anio", "division"]
 EstadoReglaFacturacion = Literal["borrador", "activa", "pausada", "finalizada"]

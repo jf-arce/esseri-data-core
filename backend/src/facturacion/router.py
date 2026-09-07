@@ -15,13 +15,19 @@ from src.auth.constants import (
 from src.auth.dependencies import requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
-from src.facturacion import facturas_service, reglas_facturacion_service, service
+from src.facturacion import (
+    cuenta_corriente_service,
+    facturas_service,
+    reglas_facturacion_service,
+    service,
+)
 from src.facturacion.dependencies import obtener_concepto_cobro_o_404, obtener_factura_o_404
 from src.facturacion.models import ConceptoCobro, Factura
 from src.facturacion.schemas import (
     ConceptoCobroCreate,
     ConceptoCobroRead,
     ConceptoCobroUpdate,
+    CuentaCorrienteRead,
     DetalleFacturaRead,
     EjecucionFacturacionRead,
     FacturaCreate,
@@ -33,6 +39,7 @@ from src.facturacion.schemas import (
     GeneracionFacturacionRequest,
     GeneracionFacturacionResumenRead,
     MetodoPagoRead,
+    MovimientoCuentaCorrienteRead,
     PagoRead,
     ReglaFacturacionCreate,
     ReglaFacturacionEstadoUpdate,
@@ -152,6 +159,38 @@ def listar_historial_responsables_economicos(
         ResponsableEconomicoRead.model_validate(responsable)
         for responsable in service.listar_historial_responsables_economicos(db, alumno.id)
     ]
+
+
+@router.get("/alumnos/{alumno_id}/cuenta-corriente")
+def obtener_cuenta_corriente(
+    db: DbSession,
+    _: PuedeLeer,
+    alumno: AlumnoActual,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    tamanio: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> CuentaCorrienteRead:
+    cuenta, total_debe, total_haber, saldo = cuenta_corriente_service.obtener_resumen_cuenta(
+        db, alumno.id
+    )
+    movimientos = []
+    total_movimientos = 0
+    if cuenta is not None:
+        movimientos, total_movimientos = cuenta_corriente_service.listar_movimientos(
+            db, cuenta.id, pagina=pagina, tamanio=tamanio
+        )
+    return CuentaCorrienteRead(
+        cuenta_corriente_id=cuenta.id if cuenta is not None else None,
+        alumno_id=alumno.id,
+        total_debe=total_debe,
+        total_haber=total_haber,
+        saldo=saldo,
+        movimientos=[
+            MovimientoCuentaCorrienteRead.model_validate(movimiento) for movimiento in movimientos
+        ],
+        total_movimientos=total_movimientos,
+        pagina=pagina,
+        tamanio=tamanio,
+    )
 
 
 @router.post("/facturas", status_code=201)

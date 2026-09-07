@@ -19,9 +19,11 @@ from src.facturacion.facturacion_job import (
 )
 from src.facturacion.models import (
     ConceptoCobro,
+    CuentaCorriente,
     EjecucionFacturacion,
     EjecucionFacturacionRegla,
     Factura,
+    Movimiento,
     ResponsableEconomico,
 )
 from src.facturacion.reglas_facturacion_service import (
@@ -84,6 +86,14 @@ def test_generar_facturacion_agrupa_conceptos_en_una_factura(db_session):
     assert factura is not None
     assert factura.inscripcion_id == inscripcion.id
     assert len(factura.detalles) == 2
+    cuenta = db_session.query(CuentaCorriente).one()
+    movimientos = (
+        db_session.query(Movimiento).filter_by(cuenta_corriente_id=cuenta.id, tipo="debe").all()
+    )
+    assert len(movimientos) == 2
+    assert sum((movimiento.monto for movimiento in movimientos), Decimal("0.00")) == Decimal(
+        "185000.00"
+    )
 
 
 def test_reintentar_generacion_no_duplica_cargos(db_session):

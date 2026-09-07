@@ -8,6 +8,7 @@ from io import BytesIO
 from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from src.facturacion import cuenta_corriente_service
 from src.facturacion.exceptions import (
     ComprobantePagoInvalido,
     ConceptoCobroInvalido,
@@ -111,6 +112,8 @@ def construir_factura(
 def crear_factura(db: Session, datos: FacturaCreate) -> Factura:
     factura = construir_factura(db, datos)
     db.add(factura)
+    db.flush()
+    cuenta_corriente_service.registrar_cargos_factura_en_transaccion(db, factura)
     db.commit()
     creada = obtener_factura(db, factura.id)
     if creada is None:
@@ -238,6 +241,7 @@ def registrar_pago(
         )
     db.add(pago)
     db.flush()
+    cuenta_corriente_service.registrar_pago_en_transaccion(db, pago)
     if total_pagado + monto == factura.monto_total:
         factura.estado = "pagada"
     db.commit()
@@ -387,7 +391,10 @@ def listar_facturas(
 
 def actualizar_factura(db: Session, factura: Factura, datos: FacturaUpdate) -> Factura:
     tiene_pagos = db.scalar(select(Pago.id).where(Pago.factura_id == factura.id).limit(1))
-    if factura.estado != "pendiente" or tiene_pagos is not None:
+    tiene_movimientos = db.scalar(
+        select(Movimiento.id).where(Movimiento.factura_id == factura.id).limit(1)
+    )
+    if factura.estado != "pendiente" or tiene_pagos is not None or tiene_movimientos is not None:
         raise FacturaNoEditable()
 
     if datos.fecha_vencimiento is not None:
