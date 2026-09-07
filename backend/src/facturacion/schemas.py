@@ -211,6 +211,30 @@ class CuentaCorrienteRead(BaseModel):
     tamanio: int
 
 
+EstadoDeudaFamilia = Literal["pendiente", "vencida", "pagada"]
+
+
+class DeudaFamiliaRead(BaseModel):
+    familia_id: uuid.UUID
+    familia_nombre: str
+    familia_apellido: str
+    familia_dni: str
+    monto_pendiente: Decimal
+    monto_vencido: Decimal
+    monto_pagado: Decimal
+    deuda_total: Decimal
+    facturas_pendientes: int
+    facturas_pagadas: int
+    estado: EstadoDeudaFamilia
+
+
+class DeudaFamiliaListadoRead(BaseModel):
+    items: list[DeudaFamiliaRead]
+    total: int
+    pagina: int
+    tamanio: int
+
+
 PeriodicidadReglaFacturacion = Literal["mensual", "anual"]
 CriterioAplicacionReglaFacturacion = Literal["todas_inscripciones", "nivel", "anio", "division"]
 EstadoReglaFacturacion = Literal["borrador", "activa", "pausada", "finalizada"]

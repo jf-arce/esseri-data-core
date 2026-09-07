@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session
 
 from src.facturacion.models import (
@@ -14,8 +14,11 @@ from src.facturacion.models import (
     Factura,
     Movimiento,
     Pago,
+    ResponsableEconomico,
 )
+from src.familias_alumnos.models import Familia
 from src.inscripciones.models import Inscripcion
+from src.models import Persona
 
 ZONA_ARGENTINA = ZoneInfo("America/Argentina/Buenos_Aires")
 
@@ -164,3 +167,124 @@ def listar_movimientos(
     for movimiento in movimientos:
         movimiento.concepto_nombre = conceptos.get(movimiento.concepto_cobro_id)
     return movimientos, total
+
+
+def listar_deuda_por_familia(
+    db: Session,
+    *,
+    fecha_referencia: date,
+    pagina: int,
+    tamanio: int,
+    estado: str | None = None,
+    buscar: str | None = None,
+) -> tuple[list[dict[str, object]], int]:
+    """Agrupa saldos por responsable económico usando solo movimientos contables."""
+
+    debe = func.coalesce(
+        func.sum(Movimiento.monto).filter(Movimiento.tipo == "debe"), Decimal("0.00")
+    )
+    haber = func.coalesce(
+        func.sum(Movimiento.monto).filter(Movimiento.tipo == "haber"), Decimal("0.00")
+    )
+    por_factura = (
+        select(
+            Factura.id.label("factura_id"),
+            Factura.fecha_vencimiento.label("fecha_vencimiento"),
+            ResponsableEconomico.familia_id.label("familia_id"),
+            Familia.persona_id.label("persona_id"),
+            debe.label("total_debe"),
+            haber.label("total_haber"),
+        )
+        .select_from(Factura)
+        .join(
+            ResponsableEconomico,
+            ResponsableEconomico.id == Factura.responsable_economico_id,
+        )
+        .join(Familia, Familia.id == ResponsableEconomico.familia_id)
+        .outerjoin(Movimiento, Movimiento.factura_id == Factura.id)
+        .group_by(
+            Factura.id,
+            Factura.fecha_vencimiento,
+            ResponsableEconomico.familia_id,
+            Familia.persona_id,
+        )
+        .subquery()
+    )
+    saldo_factura = por_factura.c.total_debe - por_factura.c.total_haber
+    monto_pendiente = func.coalesce(
+        func.sum(
+            case(
+                (
+                    and_(saldo_factura > 0, por_factura.c.fecha_vencimiento >= fecha_referencia),
+                    saldo_factura,
+                ),
+                else_=Decimal("0.00"),
+            )
+        ),
+        Decimal("0.00"),
+    )
+    monto_vencido = func.coalesce(
+        func.sum(
+            case(
+                (
+                    and_(saldo_factura > 0, por_factura.c.fecha_vencimiento < fecha_referencia),
+                    saldo_factura,
+                ),
+                else_=Decimal("0.00"),
+            )
+        ),
+        Decimal("0.00"),
+    )
+    monto_pagado = func.coalesce(func.sum(por_factura.c.total_haber), Decimal("0.00"))
+    deuda_total = monto_pendiente + monto_vencido
+    facturas_pendientes = func.coalesce(func.sum(case((saldo_factura > 0, 1), else_=0)), 0)
+    facturas_pagadas = func.coalesce(func.sum(case((saldo_factura <= 0, 1), else_=0)), 0)
+    resumen = (
+        select(
+            por_factura.c.familia_id,
+            Persona.nombre.label("familia_nombre"),
+            Persona.apellido.label("familia_apellido"),
+            Persona.dni.label("familia_dni"),
+            monto_pendiente.label("monto_pendiente"),
+            monto_vencido.label("monto_vencido"),
+            monto_pagado.label("monto_pagado"),
+            deuda_total.label("deuda_total"),
+            facturas_pendientes.label("facturas_pendientes"),
+            facturas_pagadas.label("facturas_pagadas"),
+        )
+        .join(Persona, Persona.id == por_factura.c.persona_id)
+        .group_by(
+            por_factura.c.familia_id,
+            Persona.nombre,
+            Persona.apellido,
+            Persona.dni,
+        )
+        .subquery()
+    )
+    estado_calculado = case(
+        (resumen.c.monto_vencido > 0, "vencida"),
+        (resumen.c.deuda_total > 0, "pendiente"),
+        else_="pagada",
+    )
+    consulta = select(resumen, estado_calculado.label("estado"))
+    filtros = []
+    if estado is not None:
+        filtros.append(estado_calculado == estado)
+    if buscar:
+        termino = f"%{buscar.strip()}%"
+        filtros.append(
+            or_(
+                resumen.c.familia_nombre.ilike(termino),
+                resumen.c.familia_apellido.ilike(termino),
+                resumen.c.familia_dni.ilike(termino),
+            )
+        )
+    if filtros:
+        consulta = consulta.where(*filtros)
+    total = db.scalar(select(func.count()).select_from(consulta.subquery())) or 0
+    filas = db.execute(
+        consulta.order_by(resumen.c.monto_vencido.desc(), resumen.c.deuda_total.desc())
+        .offset((pagina - 1) * tamanio)
+        .limit(tamanio)
+    ).mappings()
+    return [dict(fila) for fila in filas], total
