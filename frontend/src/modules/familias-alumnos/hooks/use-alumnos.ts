@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '@/api/client'
 import { listarAlumnos } from '@/modules/familias-alumnos/services/listar-alumnos'
-import type { Alumno } from '@/modules/familias-alumnos/types'
+import type { Alumno, FiltrosListarAlumnos } from '@/modules/familias-alumnos/types'
 
-export function useAlumnos() {
+export function useAlumnos(filtros?: FiltrosListarAlumnos) {
   const [datos, setDatos] = useState<Alumno[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sinPermiso, setSinPermiso] = useState(false)
 
   const cargar = useCallback(() => {
-    return listarAlumnos()
+    return listarAlumnos(filtros)
       .then((alumnos) => {
         setDatos(alumnos)
         setSinPermiso(false)
@@ -23,7 +23,7 @@ export function useAlumnos() {
         setError(err instanceof ApiError ? err.detail : 'No se pudieron cargar los alumnos.')
       })
       .finally(() => setCargando(false))
-  }, [])
+  }, [filtros])
 
   useEffect(() => {
     cargar()

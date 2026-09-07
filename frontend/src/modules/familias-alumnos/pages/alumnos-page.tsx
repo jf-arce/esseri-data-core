@@ -17,7 +17,12 @@ import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui
 import { PageHeader } from '@/components/page-header'
 import { StatTile } from '@/components/stat-tile'
 import { FilterBar, FilterBarSpacer, FilterSearch, DensityToggle } from '@/components/filter-bar'
-import { FilterDropdown, type FilterDropdownOption } from '@/components/filter-dropdown'
+import {
+  FilterDropdown,
+  FilterChip,
+  FilterChips,
+  type FilterDropdownOption,
+} from '@/components/filter-dropdown'
 import {
   Table,
   TableBody,
@@ -36,7 +41,7 @@ import {
 import { ConfirmarEliminacion } from '@/components/confirmar-eliminacion'
 import { useAlumnos } from '../hooks/use-alumnos'
 import { eliminarAlumno } from '../services/eliminar-alumno'
-import type { Alumno, EstadoAlumno } from '../types'
+import type { Alumno, EstadoAlumno, FiltrosListarAlumnos } from '../types'
 
 const ESTADO_OPTIONS: FilterDropdownOption[] = [
   { value: 'todos', label: 'Todos' },
@@ -58,13 +63,22 @@ function BadgeEstado({ estado }: { estado: EstadoAlumno }) {
 }
 
 export function AlumnosPage() {
-  const { datos: alumnos, cargando, error, sinPermiso, recargar } = useAlumnos()
-  const navigate = useNavigate()
-  const [alumnoAEliminar, setAlumnoAEliminar] = useState<Alumno | null>(null)
   const [busqueda, setBusqueda] = useState('')
   const [estado, setEstado] = useState('todos')
   const [orden, setOrden] = useState('recientes')
   const [densidad, setDensidad] = useState<'comfortable' | 'compact'>('comfortable')
+
+  // Construir filtros para el backend
+  const filtros: FiltrosListarAlumnos = useMemo(() => {
+    const f: FiltrosListarAlumnos = {}
+    if (busqueda.trim()) f.buscar = busqueda.trim()
+    if (estado !== 'todos') f.estado = estado as EstadoAlumno
+    return f
+  }, [busqueda, estado])
+
+  const { datos: alumnos, cargando, error, sinPermiso, recargar } = useAlumnos(filtros)
+  const navigate = useNavigate()
+  const [alumnoAEliminar, setAlumnoAEliminar] = useState<Alumno | null>(null)
 
   const stats = useMemo(() => {
     const total = alumnos.length
@@ -74,31 +88,18 @@ export function AlumnosPage() {
     return { total, activos, inactivos, egresados }
   }, [alumnos])
 
-  const filtrados = useMemo(() => {
-    let resultado = alumnos
-    if (busqueda.trim()) {
-      const q = busqueda.toLowerCase()
-      resultado = resultado.filter(
-        (a) =>
-          a.numero_legajo.toLowerCase().includes(q) ||
-          a.persona_nombre.toLowerCase().includes(q) ||
-          a.persona_apellido.toLowerCase().includes(q) ||
-          a.persona_dni.toLowerCase().includes(q),
-      )
-    }
-    if (estado !== 'todos') {
-      resultado = resultado.filter((a) => a.estado === estado)
-    }
-    const ordenados = [...resultado]
+  // Solo ordenamiento local (el filtrado ahora lo hace el backend)
+  const ordenados = useMemo(() => {
+    const resultado = [...alumnos]
     if (orden === 'recientes') {
-      ordenados.sort((a, b) => b.created_at.localeCompare(a.created_at))
+      resultado.sort((a, b) => b.created_at.localeCompare(a.created_at))
     } else if (orden === 'antiguas') {
-      ordenados.sort((a, b) => a.created_at.localeCompare(b.created_at))
+      resultado.sort((a, b) => a.created_at.localeCompare(b.created_at))
     } else if (orden === 'legajo') {
-      ordenados.sort((a, b) => a.numero_legajo.localeCompare(b.numero_legajo))
+      resultado.sort((a, b) => a.numero_legajo.localeCompare(b.numero_legajo))
     }
-    return ordenados
-  }, [alumnos, busqueda, estado, orden])
+    return resultado
+  }, [alumnos, orden])
 
   if (sinPermiso) {
     return (
@@ -170,9 +171,13 @@ export function AlumnosPage() {
       )}
 
       <FilterBar>
-        <FilterSearch value={busqueda} onChange={setBusqueda} placeholder="Buscar por legajo" />
+        <FilterSearch
+          value={busqueda}
+          onChange={setBusqueda}
+          placeholder="Buscar por legajo, nombre, apellido o DNI"
+        />
         <FilterDropdown
-          label="Estado"
+          label={ESTADO_OPTIONS.find((opcion) => opcion.value === estado)?.label ?? 'Estado'}
           options={ESTADO_OPTIONS}
           value={estado}
           onChange={setEstado}
@@ -189,7 +194,25 @@ export function AlumnosPage() {
         <DensityToggle value={densidad} onChange={setDensidad} />
       </FilterBar>
 
-      {!cargando && filtrados.length === 0 ? (
+      {(busqueda.trim() !== '' || estado !== 'todos') && (
+        <FilterChips
+          onClearAll={() => {
+            setBusqueda('')
+            setEstado('todos')
+          }}
+        >
+          {busqueda.trim() !== '' && (
+            <FilterChip onRemove={() => setBusqueda('')}>Búsqueda: {busqueda}</FilterChip>
+          )}
+          {estado !== 'todos' && (
+            <FilterChip onRemove={() => setEstado('todos')}>
+              Estado: {ESTADO_OPTIONS.find((opcion) => opcion.value === estado)?.label}
+            </FilterChip>
+          )}
+        </FilterChips>
+      )}
+
+      {!cargando && ordenados.length === 0 ? (
         <Empty className="rounded-panel bg-superficie shadow-card min-h-[280px]">
           <EmptyMedia variant="icon" className="bg-violeta-suave text-violeta">
             <GraduationCapIcon />
@@ -237,7 +260,7 @@ export function AlumnosPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filtrados.map((alumno) => (
+                ordenados.map((alumno) => (
                   <TableRow
                     key={alumno.id}
                     className="cursor-pointer"

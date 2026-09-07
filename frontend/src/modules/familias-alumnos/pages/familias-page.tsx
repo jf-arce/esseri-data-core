@@ -9,11 +9,16 @@ import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui
 import { PageHeader } from '@/components/page-header'
 import { StatTile } from '@/components/stat-tile'
 import { FilterBar, FilterBarSpacer, FilterSearch, DensityToggle } from '@/components/filter-bar'
-import { FilterDropdown, type FilterDropdownOption } from '@/components/filter-dropdown'
+import {
+  FilterDropdown,
+  FilterChip,
+  FilterChips,
+  type FilterDropdownOption,
+} from '@/components/filter-dropdown'
 import { useFamilias } from '@/modules/familias-alumnos/hooks/use-familias'
 import { FamiliasTabla } from '@/modules/familias-alumnos/components/familias-tabla'
 import { deleteFamilia } from '@/modules/familias-alumnos/services/create-familia'
-import type { Familia } from '@/modules/familias-alumnos/types'
+import type { Familia, FiltrosListarFamilias } from '@/modules/familias-alumnos/types'
 
 const ESTADO_OPTIONS: FilterDropdownOption[] = [
   { value: 'todas', label: 'Todas' },
@@ -28,13 +33,22 @@ const ORDEN_OPTIONS: FilterDropdownOption[] = [
 ]
 
 export function FamiliasPage() {
-  const { datos: familias, cargando, error, sinPermiso, recargar } = useFamilias()
-  const navigate = useNavigate()
-  const [familiaAEliminar, setFamiliaAEliminar] = useState<Familia | null>(null)
   const [busqueda, setBusqueda] = useState('')
   const [estado, setEstado] = useState('todas')
   const [orden, setOrden] = useState('recientes')
   const [densidad, setDensidad] = useState<'comfortable' | 'compact'>('comfortable')
+
+  // Construir filtros para el backend
+  const filtros: FiltrosListarFamilias = useMemo(() => {
+    const f: FiltrosListarFamilias = {}
+    if (busqueda.trim()) f.buscar = busqueda.trim()
+    if (estado !== 'todas' && estado !== 'al_dia') f.estado_deuda = estado
+    return f
+  }, [busqueda, estado])
+
+  const { datos: familias, cargando, error, sinPermiso, recargar } = useFamilias(filtros)
+  const navigate = useNavigate()
+  const [familiaAEliminar, setFamiliaAEliminar] = useState<Familia | null>(null)
 
   const stats = useMemo(() => {
     const total = familias.length
@@ -44,34 +58,16 @@ export function FamiliasPage() {
     return { total, conDeuda, enMora, alDia }
   }, [familias])
 
-  const filtradas = useMemo(() => {
-    let resultado = familias
-    if (busqueda.trim()) {
-      const q = busqueda.toLowerCase()
-      resultado = resultado.filter(
-        (f) =>
-          f.persona_nombre.toLowerCase().includes(q) ||
-          f.persona_apellido.toLowerCase().includes(q) ||
-          f.persona_dni.toLowerCase().includes(q),
-      )
-    }
-    if (estado !== 'todas') {
-      if (estado === 'al_dia') {
-        resultado = resultado.filter(
-          (f) => f.estado_deuda !== 'con_deuda' && f.estado_deuda !== 'en_mora',
-        )
-      } else {
-        resultado = resultado.filter((f) => f.estado_deuda === estado)
-      }
-    }
-    const ordenadas = [...resultado]
+  // Solo ordenamiento local (el filtrado ahora lo hace el backend)
+  const ordenadas = useMemo(() => {
+    const resultado = [...familias]
     if (orden === 'recientes') {
-      ordenadas.sort((a, b) => b.created_at.localeCompare(a.created_at))
+      resultado.sort((a, b) => b.created_at.localeCompare(a.created_at))
     } else {
-      ordenadas.sort((a, b) => a.created_at.localeCompare(b.created_at))
+      resultado.sort((a, b) => a.created_at.localeCompare(b.created_at))
     }
-    return ordenadas
-  }, [familias, busqueda, estado, orden])
+    return resultado
+  }, [familias, orden])
 
   if (sinPermiso) {
     return (
@@ -146,10 +142,10 @@ export function FamiliasPage() {
         <FilterSearch
           value={busqueda}
           onChange={setBusqueda}
-          placeholder="Buscar por ID de persona"
+          placeholder="Buscar por nombre, apellido o DNI"
         />
         <FilterDropdown
-          label="Estado de cuenta"
+          label={ESTADO_OPTIONS.find((opcion) => opcion.value === estado)?.label ?? 'Estado de cuenta'}
           options={ESTADO_OPTIONS}
           value={estado}
           onChange={setEstado}
@@ -166,7 +162,25 @@ export function FamiliasPage() {
         <DensityToggle value={densidad} onChange={setDensidad} />
       </FilterBar>
 
-      {!cargando && filtradas.length === 0 ? (
+      {(busqueda.trim() !== '' || estado !== 'todas') && (
+        <FilterChips
+          onClearAll={() => {
+            setBusqueda('')
+            setEstado('todas')
+          }}
+        >
+          {busqueda.trim() !== '' && (
+            <FilterChip onRemove={() => setBusqueda('')}>Búsqueda: {busqueda}</FilterChip>
+          )}
+          {estado !== 'todas' && (
+            <FilterChip onRemove={() => setEstado('todas')}>
+              Estado de cuenta: {ESTADO_OPTIONS.find((opcion) => opcion.value === estado)?.label}
+            </FilterChip>
+          )}
+        </FilterChips>
+      )}
+
+      {!cargando && ordenadas.length === 0 ? (
         <Empty className="rounded-panel bg-superficie shadow-card min-h-[280px]">
           <EmptyMedia variant="icon" className="bg-sup-familias text-mod-familias">
             <UsersRoundIcon />
@@ -195,7 +209,7 @@ export function FamiliasPage() {
       ) : (
         <Card className="overflow-hidden p-0">
           <FamiliasTabla
-            familias={filtradas}
+            familias={ordenadas}
             cargando={cargando}
             densidad={densidad}
             onEliminar={setFamiliaAEliminar}
