@@ -83,7 +83,13 @@ class ConceptoCobroInvalido(AppException):
 class FacturaNoEditable(AppException):
     status_code = 409
 
-    def __init__(self, message: str = "Solo se pueden modificar facturas pendientes sin pagos."):
+    def __init__(
+        self,
+        message: str = (
+            "La factura emitida no puede modificarse; las correcciones deben registrarse "
+            "mediante movimientos de ajuste."
+        ),
+    ):
         super().__init__(message)
 
 
@@ -92,7 +98,9 @@ class FacturaEnUso(AppException):
 
     def __init__(
         self,
-        message: str = "No se puede eliminar una factura que ya tiene pagos o movimientos.",
+        message: str = (
+            "La factura emitida no puede eliminarse; las correcciones deben conservar el historial."
+        ),
     ):
         super().__init__(message)
 

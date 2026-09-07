@@ -328,6 +328,20 @@ class Movimiento(Base):
     __table_args__ = (
         sa.CheckConstraint("tipo IN ('debe', 'haber')", name="ck_movimiento_tipo"),
         sa.Index("ix_movimiento_cuenta_corriente_fecha", "cuenta_corriente_id", "fecha"),
+        sa.Index(
+            "uq_movimiento_detalle_factura",
+            "detalle_factura_id",
+            unique=True,
+            sqlite_where=sa.text("detalle_factura_id IS NOT NULL"),
+            postgresql_where=sa.text("detalle_factura_id IS NOT NULL"),
+        ),
+        sa.Index(
+            "uq_movimiento_pago",
+            "pago_id",
+            unique=True,
+            sqlite_where=sa.text("pago_id IS NOT NULL"),
+            postgresql_where=sa.text("pago_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
@@ -338,7 +352,10 @@ class Movimiento(Base):
     monto: Mapped[decimal.Decimal] = mapped_column(sa.Numeric(12, 2))
     observacion: Mapped[str | None] = mapped_column(sa.String)
     cuenta_corriente_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("cuenta_corriente.id"))
-    concepto_cobro_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("concepto_cobro.id"))
+    concepto_cobro_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("concepto_cobro.id"))
+    detalle_factura_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.ForeignKey("detalle_factura.id")
+    )
     factura_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("factura.id"))
     pago_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("pago.id"))
     event_log_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("event_log.id"))
