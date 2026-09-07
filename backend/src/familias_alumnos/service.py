@@ -3,6 +3,7 @@
 import uuid
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.auth import service as auth_service
@@ -27,6 +28,27 @@ from src.familias_alumnos.schemas import (
 from src.models import Persona
 
 ROL_FAMILIA = "familia"
+PREFIJO_LEGAJO_AUTOMATICO = "ALU-"
+
+
+def _siguiente_numero_legajo_automatico(db: Session) -> str:
+    """Obtiene el siguiente legajo permanente de la serie ``ALU-000001``.
+
+    Los legajos previos que usan otro formato se preservan y no alteran esta serie.
+    La restricción única de base y el reintento con savepoint resuelven carreras entre altas.
+    """
+
+    legajos = db.scalars(
+        select(Alumno.numero_legajo)
+        .where(Alumno.numero_legajo.like(f"{PREFIJO_LEGAJO_AUTOMATICO}%"))
+        .with_for_update()
+    ).all()
+    ultimo = 0
+    for legajo in legajos:
+        sufijo = legajo.removeprefix(PREFIJO_LEGAJO_AUTOMATICO)
+        if sufijo.isdecimal():
+            ultimo = max(ultimo, int(sufijo))
+    return f"{PREFIJO_LEGAJO_AUTOMATICO}{ultimo + 1:06d}"
 
 
 def crear_alta_familia(
@@ -276,6 +298,50 @@ def crear_alumno(
     return nuevo_alumno
 
 
+def crear_alumno_desde_persona_en_transaccion(
+    db: Session,
+    *,
+    persona_id: uuid.UUID,
+) -> Alumno:
+    """Crea un alumno con legajo permanente automático, sin confirmar la transacción.
+
+    El flujo integrado de Admisiones ya posee la Persona del aspirante. Mantener esta variante
+    separada evita recrearla y permite que el coordinador del flujo haga un único ``commit``.
+    """
+
+    for _ in range(3):
+        try:
+            with db.begin_nested():
+                alumno = Alumno(
+                    numero_legajo=_siguiente_numero_legajo_automatico(db),
+                    estado="activo",
+                    persona_id=persona_id,
+                )
+                db.add(alumno)
+                db.flush()
+                return alumno
+        except IntegrityError:
+            # Otra transacción tomó el mismo correlativo. El savepoint permite recalcularlo
+            # sin perder el resto de la alta integrada pendiente.
+            continue
+    raise LegajoDuplicado()
+
+
+def obtener_o_crear_familia_para_persona_en_transaccion(
+    db: Session, persona_id: uuid.UUID
+) -> Familia:
+    """Reutiliza la Familia de una Persona o la crea sin confirmar la transacción."""
+
+    familia = db.scalar(select(Familia).where(Familia.persona_id == persona_id).limit(1))
+    if familia is not None:
+        return familia
+
+    familia = Familia(persona_id=persona_id)
+    db.add(familia)
+    db.flush()
+    return familia
+
+
 def obtener_alumno_por_id(db: Session, alumno_id: uuid.UUID) -> Alumno | None:
     """Obtener un alumno por su ID."""
     return db.query(Alumno).filter(Alumno.id == alumno_id).first()
@@ -366,6 +432,30 @@ def vincular_alumno_familia(
     # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
 
     return nuevo_vinculo
+
+
+def obtener_o_vincular_alumno_familia_en_transaccion(
+    db: Session, datos: VinculoCreate
+) -> FamiliaAlumno:
+    """Reutiliza un vínculo existente o lo crea sin confirmar la transacción.
+
+    El ABM público conserva su error de vínculo duplicado. Solo el alta integrada necesita ser
+    reintentable cuando el alumno y la familia ya estaban relacionados.
+    """
+
+    vinculo = db.scalar(
+        select(FamiliaAlumno).where(
+            FamiliaAlumno.familia_id == datos.familia_id,
+            FamiliaAlumno.alumno_id == datos.alumno_id,
+        )
+    )
+    if vinculo is not None:
+        return vinculo
+
+    vinculo = FamiliaAlumno(**datos.model_dump())
+    db.add(vinculo)
+    db.flush()
+    return vinculo
 
 
 def obtener_vinculo_por_id(db: Session, vinculo_id: uuid.UUID) -> FamiliaAlumno | None:

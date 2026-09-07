@@ -136,6 +136,7 @@ def crear_payload_solicitud(escenario):
             "apellido": "Vega",
             "dni": "30999888",
         },
+        "contacto_parentesco": "Madre",
         "observaciones": "Consulta inicial.",
     }
 

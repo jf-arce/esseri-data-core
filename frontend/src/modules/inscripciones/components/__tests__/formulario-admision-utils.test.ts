@@ -16,19 +16,27 @@ const valoresBase: FormularioAdmisionValues = {
     telefono: '11 5555 5555',
     sexo: '',
   },
-  contacto: { nombre: '', apellido: '', dni: '', telefono: '', sexo: '' },
+  contacto: {
+    nombre: 'Marina',
+    apellido: 'Pérez',
+    dni: '23456789',
+    telefono: '11 4444 4444',
+    sexo: '',
+  },
+  contactoParentesco: 'Madre',
+  contactoParentescoOtro: '',
   observaciones: 'Solicita entrevista por la mañana.',
 }
 
 describe('lógica del formulario de admisión', () => {
-  it('permite no informar contacto responsable al iniciar una admisión', () => {
+  it('exige un contacto responsable al iniciar una admisión', () => {
     expect(formularioAdmisionSchema.safeParse(valoresBase).success).toBe(true)
   })
 
-  it('exige los datos mínimos si se empieza a cargar un contacto', () => {
+  it('informa los campos obligatorios del contacto', () => {
     const resultado = formularioAdmisionSchema.safeParse({
       ...valoresBase,
-      contacto: { ...valoresBase.contacto, telefono: '11 4444 4444' },
+      contacto: { ...valoresBase.contacto, nombre: '', apellido: '', dni: '' },
     })
 
     expect(resultado.success).toBe(false)
@@ -41,7 +49,23 @@ describe('lógica del formulario de admisión', () => {
     }
   })
 
-  it('arma el payload sin contacto vacío y conserva los datos de la solicitud', () => {
+  it('requiere especificar el parentesco cuando se selecciona Otro', () => {
+    const incompleto = formularioAdmisionSchema.safeParse({
+      ...valoresBase,
+      contactoParentesco: 'Otro',
+      contactoParentescoOtro: '',
+    })
+    const completo = formularioAdmisionSchema.safeParse({
+      ...valoresBase,
+      contactoParentesco: 'Otro',
+      contactoParentescoOtro: 'Representante legal',
+    })
+
+    expect(incompleto.success).toBe(false)
+    expect(completo.success).toBe(true)
+  })
+
+  it('incluye el contacto responsable en el payload de la solicitud', () => {
     expect(crearPayloadSolicitudAdmision(valoresBase)).toEqual({
       ciclo_lectivo: '2027',
       fecha_solicitud: '2026-08-30',
@@ -52,6 +76,13 @@ describe('lógica del formulario de admisión', () => {
         dni: '12345678',
         telefono: '11 5555 5555',
       },
+      contacto: {
+        nombre: 'Marina',
+        apellido: 'Pérez',
+        dni: '23456789',
+        telefono: '11 4444 4444',
+      },
+      contacto_parentesco: 'Madre',
       observaciones: 'Solicita entrevista por la mañana.',
     })
   })

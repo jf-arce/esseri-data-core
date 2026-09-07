@@ -37,6 +37,7 @@ class SolicitudInscripcion(Base):
     )
     aspirante_persona_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("persona.id"))
     contacto_persona_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("persona.id"))
+    contacto_parentesco: Mapped[str | None] = mapped_column(sa.String)
     nivel_educativo_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("nivel_educativo.id"))
     usuario_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("usuario.id"))
 

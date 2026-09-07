@@ -124,6 +124,21 @@ def asignar_responsable_economico(
 ) -> ResponsableEconomico:
     """Cierra la vigencia previa y conserva el historial al cambiar el responsable."""
 
+    responsable = preparar_responsable_economico_en_transaccion(db, alumno_id, datos)
+    db.commit()
+    db.refresh(responsable)
+    return responsable
+
+
+def preparar_responsable_economico_en_transaccion(
+    db: Session, alumno_id: uuid.UUID, datos: ResponsableEconomicoCreate
+) -> ResponsableEconomico:
+    """Prepara un responsable económico conservando las reglas vigentes, sin ``commit``.
+
+    La alta integrada coordina Alumno, Familia, Inscripción y responsable económico en una sola
+    transacción. El endpoint propio de Facturación sigue usando ``asignar_responsable_economico``.
+    """
+
     vinculo_existe = db.scalar(
         select(FamiliaAlumno.id).where(
             FamiliaAlumno.alumno_id == alumno_id,
@@ -151,9 +166,19 @@ def asignar_responsable_economico(
         fecha_solicitud_cambio=datos.fecha_solicitud_cambio,
     )
     db.add(responsable)
-    db.commit()
-    db.refresh(responsable)
+    db.flush()
     return responsable
+
+
+def obtener_o_preparar_responsable_economico_en_transaccion(
+    db: Session, alumno_id: uuid.UUID, datos: ResponsableEconomicoCreate
+) -> ResponsableEconomico:
+    """Reutiliza el responsable ya vigente o prepara un cambio con las reglas existentes."""
+
+    responsable_abierto = _obtener_responsable_abierto(db, alumno_id)
+    if responsable_abierto is not None and responsable_abierto.familia_id == datos.familia_id:
+        return responsable_abierto
+    return preparar_responsable_economico_en_transaccion(db, alumno_id, datos)
 
 
 def obtener_responsable_economico_actual(db: Session, alumno_id: uuid.UUID) -> ResponsableEconomico:

@@ -31,9 +31,9 @@ import {
   actualizarDocumentoSolicitudAdmision,
   aprobarSolicitudAdmision,
   avanzarSolicitudAdmision,
-  confirmarInscripcionSolicitudAdmision,
   desistirSolicitudAdmision,
   editarSolicitudAdmision,
+  finalizarAdmisionConAltaIntegrada,
   obtenerSolicitudAdmision,
   rechazarSolicitudAdmision,
   registrarDocumentoSolicitudAdmision,
@@ -45,7 +45,9 @@ import {
   type AccionExcepcionalAdmision,
 } from '@/modules/inscripciones/components/accion-excepcional-admision-dialog'
 import { EditarSolicitudAdmisionDialog } from '@/modules/inscripciones/components/editar-solicitud-admision-dialog'
+import { FinalizarAdmisionDialog } from '@/modules/inscripciones/components/finalizar-admision-dialog'
 import type {
+  AltaIntegradaAdmisionPayload,
   ActualizarSolicitudAdmisionPayload,
   SolicitudAdmision,
 } from '@/modules/inscripciones/types'
@@ -81,6 +83,7 @@ export function SolicitudAdmisionPage() {
   const [tipoDocumento, setTipoDocumento] = useState('')
   const [archivo, setArchivo] = useState('')
   const [editando, setEditando] = useState(false)
+  const [finalizandoAdmision, setFinalizandoAdmision] = useState(false)
   const [accionExcepcional, setAccionExcepcional] = useState<AccionExcepcionalAdmision | null>(null)
 
   useEffect(() => {
@@ -147,18 +150,14 @@ export function SolicitudAdmisionPage() {
     toast.success(mensajes[accion])
   }
 
-  async function confirmarInscripcion() {
-    if (!solicitud) return
-    setEnviando(true)
-    try {
-      const actualizada = await confirmarInscripcionSolicitudAdmision(solicitud.id)
-      setResultado({ solicitud: actualizada, error: null })
-      toast.success('Inscripción confirmada. Ya está disponible para el alta de inscripción.')
-    } catch (error) {
-      setResultado((actual) => ({ ...actual, error: mensajeError(error) }))
-    } finally {
-      setEnviando(false)
-    }
+  async function finalizarAdmision(datos: AltaIntegradaAdmisionPayload) {
+    if (!solicitud) throw new Error('La solicitud ya no está disponible.')
+    const resultadoAlta = await finalizarAdmisionConAltaIntegrada(solicitud.id, datos)
+    const actualizada = await obtenerSolicitudAdmision(solicitud.id)
+    setResultado({ solicitud: actualizada, error: null })
+    toast.success('Admisión finalizada e inscripción registrada.')
+    navigate(`/inscripciones/${resultadoAlta.inscripcion.id}`)
+    return resultadoAlta
   }
 
   async function recargarDetalle() {
@@ -213,6 +212,10 @@ export function SolicitudAdmisionPage() {
     solicitud?.documentos.length !== 0 &&
     solicitud?.documentos.some((documento) => documento.estado === 'validado') &&
     solicitud?.documentos.every((documento) => documento.estado !== 'pendiente')
+  const permiteFinalizarAdmision =
+    solicitud?.estado === 'aprobada' &&
+    ((solicitud.etapa === 'documentacion_contrato' && documentacionCompleta) ||
+      solicitud.etapa === 'inscripcion_confirmada')
   const permiteEditar = solicitud?.estado === 'en_proceso'
   const permiteRevertir = solicitud?.estado === 'en_proceso' && solicitud.etapa !== 'consulta_lead'
   const permiteDesistir =
@@ -506,27 +509,35 @@ export function SolicitudAdmisionPage() {
                   Agregar documento
                 </Button>
                 <div className="mt-5 border-t border-borde pt-4">
-                  <p className="text-sm font-medium">Confirmación de inscripción</p>
+                  <p className="text-sm font-medium">Finalización e inscripción</p>
                   <p className="mt-1 text-xs text-texto-3">
-                    Requiere al menos un documento validado y ningún documento pendiente.
+                    Requiere al menos un documento validado y ningún documento pendiente. El alta
+                    crea o reutiliza los datos necesarios en una única operación.
                   </p>
                   <Button
                     className="mt-3"
-                    disabled={enviando || !documentacionCompleta}
-                    onClick={confirmarInscripcion}
+                    disabled={enviando || !permiteFinalizarAdmision}
+                    onClick={() => setFinalizandoAdmision(true)}
                   >
-                    {enviando && <Spinner data-icon="inline-start" />}
                     <CheckIcon data-icon="inline-start" />
-                    Confirmar inscripción
+                    Finalizar admisión e inscribir
                   </Button>
                 </div>
               </>
             ) : (
-              <p className="text-sm text-texto-2">
-                {solicitud.etapa === 'inscripcion_confirmada'
-                  ? 'La inscripción está confirmada y ya puede usarse para el alta académica.'
-                  : 'La documentación se gestiona al llegar a esa etapa del proceso.'}
-              </p>
+              <>
+                <p className="text-sm text-texto-2">
+                  {solicitud.etapa === 'inscripcion_confirmada'
+                    ? 'La documentación ya fue validada. Completá el alta integrada para crear la inscripción académica.'
+                    : 'La documentación se gestiona al llegar a esa etapa del proceso.'}
+                </p>
+                {permiteFinalizarAdmision && (
+                  <Button className="mt-3" onClick={() => setFinalizandoAdmision(true)}>
+                    <CheckIcon data-icon="inline-start" />
+                    Completar alta integrada
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </aside>
@@ -537,6 +548,13 @@ export function SolicitudAdmisionPage() {
           solicitud={solicitud}
           onOpenChange={setEditando}
           onGuardar={guardarEdicion}
+        />
+      )}
+      {finalizandoAdmision && (
+        <FinalizarAdmisionDialog
+          solicitud={solicitud}
+          onOpenChange={setFinalizandoAdmision}
+          onFinalizar={finalizarAdmision}
         />
       )}
       {accionExcepcional && (

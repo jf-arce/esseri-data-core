@@ -19,6 +19,8 @@ describe('crearSolicitudAdmision', () => {
       fecha_solicitud: '2026-08-30',
       nivel_educativo_id: 'nivel-1',
       aspirante: { nombre: 'Sofía', apellido: 'Pérez', dni: '12345678' },
+      contacto: { nombre: 'Marina', apellido: 'Pérez', dni: '23456789' },
+      contacto_parentesco: 'Madre',
     })
 
     expect(fetchMock.mock.calls[0][0]).toMatch(/\/inscripciones\/solicitudes$/)
@@ -26,6 +28,8 @@ describe('crearSolicitudAdmision', () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).toMatchObject({
       ciclo_lectivo: '2027',
       aspirante: { nombre: 'Sofía', apellido: 'Pérez', dni: '12345678' },
+      contacto: { nombre: 'Marina', apellido: 'Pérez', dni: '23456789' },
+      contacto_parentesco: 'Madre',
     })
   })
 })
