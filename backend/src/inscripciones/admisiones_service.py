@@ -2,12 +2,19 @@
 
 import uuid
 from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.academico.models import NivelEducativo
+from src.facturacion import service as facturacion_service
+from src.facturacion.schemas import ResponsableEconomicoCreate
+from src.familias_alumnos import service as familias_alumnos_service
+from src.familias_alumnos.models import Alumno, Familia
+from src.familias_alumnos.schemas import VinculoCreate
+from src.inscripciones import matriculas_service
 from src.inscripciones.exceptions import (
     ConflictoInscripcion,
     InscripcionInvalida,
@@ -20,9 +27,13 @@ from src.inscripciones.models import (
     SolicitudInscripcion,
 )
 from src.inscripciones.schemas import (
+    AltaIntegradaAdmisionCreate,
+    AltaIntegradaAdmisionRead,
     DocumentoSolicitudCreate,
     DocumentoSolicitudRead,
     DocumentoSolicitudUpdate,
+    InscripcionNuevaCreate,
+    InscripcionRead,
     SolicitudInscripcionAdministrativaUpdate,
     SolicitudInscripcionCreate,
     SolicitudInscripcionListadoItemRead,
@@ -40,6 +51,11 @@ ETAPAS_ADMISION = (
     "documentacion_contrato",
     "inscripcion_confirmada",
 )
+ZONA_HORARIA_ARGENTINA = ZoneInfo("America/Argentina/Buenos_Aires")
+
+
+def _fecha_actual_argentina() -> date:
+    return datetime.now(ZONA_HORARIA_ARGENTINA).date()
 
 
 def _guardar_cambios(db: Session) -> None:
@@ -136,6 +152,7 @@ def _respuesta_solicitud(db: Session, solicitud: SolicitudInscripcion) -> Solici
         nivel_educativo_id=solicitud.nivel_educativo_id,
         aspirante=aspirante,
         contacto=contacto,
+        contacto_parentesco=solicitud.contacto_parentesco,
         usuario_id=solicitud.usuario_id,
         etapas=etapas,
         documentos=documentos,
@@ -150,7 +167,12 @@ def crear_solicitud_inscripcion(
         raise InscripcionNoEncontrada("El nivel educativo indicado no existe.")
 
     aspirante = _obtener_o_crear_persona(db, datos.aspirante)
-    contacto = _obtener_o_crear_persona(db, datos.contacto) if datos.contacto else None
+    contacto = _obtener_o_crear_persona(db, datos.contacto)
+    parentesco_contacto = (
+        datos.contacto_parentesco_otro
+        if datos.contacto_parentesco == "Otro"
+        else datos.contacto_parentesco
+    )
     solicitud = SolicitudInscripcion(
         ciclo_lectivo=datos.ciclo_lectivo,
         etapa=ETAPAS_ADMISION[0],
@@ -158,7 +180,8 @@ def crear_solicitud_inscripcion(
         fecha_solicitud=datos.fecha_solicitud,
         observaciones=datos.observaciones,
         aspirante_persona_id=aspirante.id,
-        contacto_persona_id=contacto.id if contacto else None,
+        contacto_persona_id=contacto.id,
+        contacto_parentesco=parentesco_contacto,
         nivel_educativo_id=nivel.id,
         usuario_id=usuario_id,
     )
@@ -429,6 +452,17 @@ def confirmar_inscripcion_solicitud(
     """
 
     solicitud = _obtener_solicitud(db, solicitud_id, bloquear=True)
+    _preparar_confirmacion_inscripcion_en_transaccion(db, solicitud, usuario_id)
+    _guardar_cambios(db)
+    db.refresh(solicitud)
+    return _respuesta_solicitud(db, solicitud)
+
+
+def _preparar_confirmacion_inscripcion_en_transaccion(
+    db: Session, solicitud: SolicitudInscripcion, usuario_id: uuid.UUID
+) -> None:
+    """Valida documentación y deja la solicitud confirmada sin confirmar la transacción."""
+
     if solicitud.estado != "aprobada" or solicitud.etapa != "documentacion_contrato":
         raise InscripcionInvalida(
             "Solo se puede confirmar una solicitud en documentación y contrato."
@@ -464,9 +498,135 @@ def confirmar_inscripcion_solicitud(
             usuario_id=usuario_id,
         )
     )
-    _guardar_cambios(db)
-    db.refresh(solicitud)
-    return _respuesta_solicitud(db, solicitud)
+
+
+def _resolver_familia_para_alta_integrada(
+    db: Session, solicitud: SolicitudInscripcion, datos: AltaIntegradaAdmisionCreate
+) -> Familia:
+    if datos.familia_id is not None:
+        familia = db.get(Familia, datos.familia_id, with_for_update=True)
+        if familia is None:
+            raise InscripcionNoEncontrada("La familia seleccionada no existe.")
+        return familia
+
+    if datos.usar_contacto_como_familia:
+        if solicitud.contacto_persona_id is None:
+            raise InscripcionInvalida(
+                "La solicitud no tiene contacto para reutilizar como familia. "
+                "Cargá una familia nueva."
+            )
+        contacto = db.get(Persona, solicitud.contacto_persona_id, with_for_update=True)
+        if contacto is None:
+            raise InscripcionInvalida("La solicitud no tiene un contacto válido para reutilizar.")
+        return familias_alumnos_service.obtener_o_crear_familia_para_persona_en_transaccion(
+            db, contacto.id
+        )
+
+    if datos.familia_nueva is None:
+        raise InscripcionInvalida("Indicá los datos de la familia que se va a crear.")
+    persona = _obtener_o_crear_persona(db, datos.familia_nueva)
+    return familias_alumnos_service.obtener_o_crear_familia_para_persona_en_transaccion(
+        db, persona.id
+    )
+
+
+def finalizar_admision_con_alta_integrada(
+    db: Session,
+    solicitud_id: uuid.UUID,
+    datos: AltaIntegradaAdmisionCreate,
+    usuario_id: uuid.UUID,
+) -> AltaIntegradaAdmisionRead:
+    """Cierra una admisión documentada con Alumno, Familia, responsable e Inscripción.
+
+    Este es el único coordinador de la operación. Las funciones de Familias, Facturación y
+    Matrículas usadas aquí validan y hacen ``flush``, pero el ``commit`` se realiza una sola vez
+    al final. Por eso ningún paso queda persistido si falla otro posterior.
+
+    No genera cargos. Cuando Facturación agregue la conciliación posterior al alta, el punto de
+    integración es el ``alumno_id`` e inscripción devueltos: la idempotencia debe usar alumno,
+    concepto y período, nunca solo la inscripción, para soportar cambios de matrícula.
+    """
+
+    try:
+        solicitud = _obtener_solicitud(db, solicitud_id, bloquear=True)
+        if solicitud.estado != "aprobada":
+            raise InscripcionInvalida("Solo se puede finalizar una solicitud aprobada.")
+        if solicitud.etapa == "documentacion_contrato":
+            _preparar_confirmacion_inscripcion_en_transaccion(db, solicitud, usuario_id)
+        elif solicitud.etapa == "inscripcion_confirmada":
+            _validar_sin_inscripcion_asociada(db, solicitud)
+        else:
+            raise InscripcionInvalida(
+                "La solicitud debe estar en documentación y contrato o con la inscripción "
+                "confirmada."
+            )
+
+        aspirante = db.get(Persona, solicitud.aspirante_persona_id, with_for_update=True)
+        if aspirante is None:
+            raise InscripcionInvalida("La solicitud no tiene un aspirante válido.")
+
+        fecha_inscripcion = datos.fecha_inscripcion or _fecha_actual_argentina()
+        alumno = db.scalar(
+            select(Alumno).where(Alumno.persona_id == aspirante.id).with_for_update().limit(1)
+        )
+        if alumno is None:
+            alumno = familias_alumnos_service.crear_alumno_desde_persona_en_transaccion(
+                db, persona_id=aspirante.id
+            )
+
+        familia = _resolver_familia_para_alta_integrada(db, solicitud, datos)
+        parentesco = (
+            solicitud.contacto_parentesco
+            if datos.usar_contacto_como_familia and solicitud.contacto_parentesco
+            else datos.parentesco
+        )
+        familias_alumnos_service.obtener_o_vincular_alumno_familia_en_transaccion(
+            db,
+            VinculoCreate(
+                alumno_id=alumno.id,
+                familia_id=familia.id,
+                parentesco=parentesco,
+                responsable_principal=datos.responsable_principal,
+                recibe_comunicaciones=datos.recibe_comunicaciones,
+            ),
+        )
+
+        responsable = facturacion_service.obtener_o_preparar_responsable_economico_en_transaccion(
+            db,
+            alumno.id,
+            ResponsableEconomicoCreate(
+                familia_id=familia.id,
+                fecha_solicitud_cambio=fecha_inscripcion,
+            ),
+        )
+        inscripcion = matriculas_service.preparar_inscripcion_nueva_en_transaccion(
+            db,
+            InscripcionNuevaCreate(
+                ciclo_lectivo=solicitud.ciclo_lectivo,
+                fecha_inscripcion=fecha_inscripcion,
+                alumno_id=alumno.id,
+                division_id=datos.division_id,
+                solicitud_inscripcion_id=solicitud.id,
+            ),
+        )
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ConflictoInscripcion(
+            "No se pudo finalizar la admisión porque alguno de sus datos entra en conflicto."
+        ) from exc
+    except Exception:
+        db.rollback()
+        raise
+
+    db.refresh(inscripcion)
+    return AltaIntegradaAdmisionRead(
+        solicitud_id=solicitud.id,
+        alumno_id=alumno.id,
+        familia_id=familia.id,
+        responsable_economico_id=responsable.id,
+        inscripcion=InscripcionRead.model_validate(inscripcion),
+    )
 
 
 def aprobar_solicitud_inscripcion(

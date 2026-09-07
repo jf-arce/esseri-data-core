@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { AlertCircleIcon, ClipboardPlusIcon, UserRoundIcon } from 'lucide-react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 import { DatePicker } from '@/components/date-picker'
@@ -30,6 +30,7 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   crearPayloadSolicitudAdmision,
   formularioAdmisionSchema,
+  OPCIONES_PARENTESCO,
   type FormularioAdmisionValues,
   valoresInicialesAdmision,
 } from '@/modules/inscripciones/formulario-admision-utils'
@@ -96,6 +97,7 @@ export function FormularioAdmision({ onCancelar, onCreada }: FormularioAdmisionP
   )
 
   const hayErrores = Object.keys(errors).length > 0
+  const contactoParentesco = useWatch({ control, name: 'contactoParentesco' })
 
   async function enviar(valores: FormularioAdmisionValues) {
     setEnviando(true)
@@ -272,7 +274,8 @@ export function FormularioAdmision({ onCancelar, onCreada }: FormularioAdmisionP
               <div className="border-b border-borde pb-3">
                 <h2 className="text-sm font-semibold text-texto">Contacto responsable</h2>
                 <p className="text-xs text-texto-3">
-                  Opcional. Si empezás a cargarlo, nombre, apellido y DNI son obligatorios.
+                  Obligatorio. Sus datos se podrán reutilizar al vincular la familia y responsable
+                  económico.
                 </p>
               </div>
 
@@ -300,6 +303,39 @@ export function FormularioAdmision({ onCancelar, onCreada }: FormularioAdmisionP
                     {...register('contacto.telefono')}
                   />
                 </Field>
+                <Controller
+                  control={control}
+                  name="contactoParentesco"
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="contactoParentesco">Parentesco</FieldLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger id="contactoParentesco" className="w-full">
+                          <SelectValue placeholder="Seleccionar parentesco" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {OPCIONES_PARENTESCO.map((opcion) => (
+                            <SelectItem key={opcion} value={opcion}>
+                              {opcion}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FieldError errors={[fieldState.error]} />
+                    </Field>
+                  )}
+                />
+                {contactoParentesco === 'Otro' && (
+                  <Field data-invalid={Boolean(errors.contactoParentescoOtro)}>
+                    <FieldLabel htmlFor="contactoParentescoOtro">Especificar parentesco</FieldLabel>
+                    <Input
+                      id="contactoParentescoOtro"
+                      placeholder="Ej.: tío, madrina, representante legal"
+                      {...register('contactoParentescoOtro')}
+                    />
+                    <FieldError errors={[errors.contactoParentescoOtro]} />
+                  </Field>
+                )}
               </div>
             </section>
           </FieldGroup>

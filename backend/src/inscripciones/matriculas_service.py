@@ -298,6 +298,19 @@ def _guardar_inscripcion(db: Session, inscripcion: Inscripcion) -> Inscripcion:
 def crear_inscripcion_nueva(db: Session, datos: InscripcionNuevaCreate) -> Inscripcion:
     """Confirma la inscripción de un alumno que completó el proceso de admisión."""
 
+    return _guardar_inscripcion(db, preparar_inscripcion_nueva_en_transaccion(db, datos))
+
+
+def preparar_inscripcion_nueva_en_transaccion(
+    db: Session, datos: InscripcionNuevaCreate
+) -> Inscripcion:
+    """Valida y agrega una inscripción nueva sin confirmar la transacción.
+
+    Permite que Admisiones complete la creación de persona/alumno/familia/responsable e
+    inscripción como una única operación atómica. El endpoint histórico conserva el commit en
+    ``crear_inscripcion_nueva``.
+    """
+
     # Los bloqueos serializan altas concurrentes para el mismo alumno o solicitud.
     alumno, division, anio = _obtener_alumno_y_division(db, datos.alumno_id, datos.division_id)
     _validar_vinculo_familiar(db, alumno.id)
@@ -345,7 +358,8 @@ def crear_inscripcion_nueva(db: Session, datos: InscripcionNuevaCreate) -> Inscr
         division_id=division.id,
         solicitud_inscripcion_id=solicitud.id,
     )
-    return _guardar_inscripcion(db, inscripcion)
+    db.add(inscripcion)
+    return inscripcion
 
 
 def crear_reinscripcion(db: Session, datos: ReinscripcionCreate) -> Inscripcion:

@@ -53,6 +53,7 @@ class Alumno(Base):
     __tablename__ = "alumno"
     __table_args__ = (
         sa.CheckConstraint("estado IN ('activo', 'inactivo', 'egresado')", name="ck_alumno_estado"),
+        sa.UniqueConstraint("numero_legajo", name="uq_alumno_numero_legajo"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)

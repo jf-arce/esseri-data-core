@@ -3,19 +3,19 @@ import type { CrearSolicitudAdmisionPayload } from '@/modules/inscripciones/type
 import { fechaParaApi } from '@/modules/inscripciones/utils'
 
 const requerido = 'Este campo es obligatorio.'
+export const OPCIONES_PARENTESCO = [
+  'Madre',
+  'Padre',
+  'Tutor/a',
+  'Abuelo/a',
+  'Hermano/a',
+  'Otro',
+] as const
 
 const personaSchema = z.object({
   nombre: z.string().trim().min(1, requerido),
   apellido: z.string().trim().min(1, requerido),
   dni: z.string().trim().min(6, 'Ingresá un DNI válido.'),
-  telefono: z.string().trim(),
-  sexo: z.string().trim(),
-})
-
-const contactoSchema = z.object({
-  nombre: z.string().trim(),
-  apellido: z.string().trim(),
-  dni: z.string().trim(),
   telefono: z.string().trim(),
   sexo: z.string().trim(),
 })
@@ -26,22 +26,18 @@ export const formularioAdmisionSchema = z
     fechaSolicitud: z.date({ error: requerido }),
     nivelEducativoId: z.string().min(1, requerido),
     aspirante: personaSchema,
-    contacto: contactoSchema,
+    contacto: personaSchema,
+    contactoParentesco: z.enum(OPCIONES_PARENTESCO, { error: requerido }),
+    contactoParentescoOtro: z.string().trim(),
     observaciones: z.string().trim().max(2000, 'Máximo 2000 caracteres.'),
   })
   .superRefine((datos, contexto) => {
-    const valoresContacto = Object.values(datos.contacto)
-    const tieneContacto = valoresContacto.some((valor) => valor.length > 0)
-    if (!tieneContacto) return
-
-    for (const campo of ['nombre', 'apellido', 'dni'] as const) {
-      if (!datos.contacto[campo]) {
-        contexto.addIssue({
-          code: 'custom',
-          path: ['contacto', campo],
-          message: requerido,
-        })
-      }
+    if (datos.contactoParentesco === 'Otro' && !datos.contactoParentescoOtro) {
+      contexto.addIssue({
+        code: 'custom',
+        path: ['contactoParentescoOtro'],
+        message: 'Especificá el parentesco.',
+      })
     }
   })
 
@@ -60,15 +56,16 @@ function personaPayload(persona: FormularioAdmisionValues['aspirante']) {
 export function crearPayloadSolicitudAdmision(
   valores: FormularioAdmisionValues,
 ): CrearSolicitudAdmisionPayload {
-  const contacto = personaPayload(valores.contacto)
-  const tieneContacto = Object.values(contacto).some((valor) => valor.length > 0)
-
   return {
     ciclo_lectivo: valores.cicloLectivo,
     fecha_solicitud: fechaParaApi(valores.fechaSolicitud),
     nivel_educativo_id: valores.nivelEducativoId,
     aspirante: personaPayload(valores.aspirante),
-    ...(tieneContacto ? { contacto } : {}),
+    contacto: personaPayload(valores.contacto),
+    contacto_parentesco: valores.contactoParentesco,
+    ...(valores.contactoParentesco === 'Otro'
+      ? { contacto_parentesco_otro: valores.contactoParentescoOtro.trim() }
+      : {}),
     ...(valores.observaciones ? { observaciones: valores.observaciones } : {}),
   }
 }
@@ -80,6 +77,8 @@ export function valoresInicialesAdmision(fecha = new Date()): FormularioAdmision
     nivelEducativoId: '',
     aspirante: { nombre: '', apellido: '', dni: '', telefono: '', sexo: '' },
     contacto: { nombre: '', apellido: '', dni: '', telefono: '', sexo: '' },
+    contactoParentesco: 'Madre',
+    contactoParentescoOtro: '',
     observaciones: '',
   }
 }

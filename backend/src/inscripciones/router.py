@@ -16,6 +16,8 @@ from src.database import get_db
 from src.exports import respuesta_csv, texto_o_vacio
 from src.inscripciones import admisiones_service, matriculas_service, opciones_service
 from src.inscripciones.schemas import (
+    AltaIntegradaAdmisionCreate,
+    AltaIntegradaAdmisionRead,
     AlumnoReinscripcionOpcionRead,
     BajaInscripcionCreate,
     CambioMatriculaCreate,
@@ -262,6 +264,23 @@ def confirmar_inscripcion_solicitud(
     """Confirma una admisión documentada; no crea todavía la inscripción académica."""
 
     return admisiones_service.confirmar_inscripcion_solicitud(db, solicitud_id, usuario.id)
+
+
+@router.post(
+    "/solicitudes/{solicitud_id}/alta-integrada",
+    status_code=status.HTTP_201_CREATED,
+)
+def finalizar_admision_con_alta_integrada(
+    solicitud_id: uuid.UUID,
+    datos: AltaIntegradaAdmisionCreate,
+    db: DbSession,
+    usuario: PuedeActualizar,
+) -> AltaIntegradaAdmisionRead:
+    """Crea o reutiliza los datos académicos y familiares desde una admisión documentada."""
+
+    return admisiones_service.finalizar_admision_con_alta_integrada(
+        db, solicitud_id, datos, usuario.id
+    )
 
 
 @router.post("/solicitudes/{solicitud_id}/revocar-aprobacion")

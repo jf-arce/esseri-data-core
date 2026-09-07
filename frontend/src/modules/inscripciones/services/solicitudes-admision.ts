@@ -1,5 +1,7 @@
 import { apiClient } from '@/api/client'
 import type {
+  AltaIntegradaAdmisionPayload,
+  AltaIntegradaAdmisionRead,
   ActualizarSolicitudAdmisionPayload,
   DocumentoSolicitudAdmision,
   FiltrosSolicitudesAdmision,
@@ -60,6 +62,14 @@ export function aprobarSolicitudAdmision(id: string, observaciones?: string) {
 export function confirmarInscripcionSolicitudAdmision(id: string) {
   return apiClient<SolicitudAdmision>(`/inscripciones/solicitudes/${id}/confirmar-inscripcion`, {
     method: 'POST',
+  })
+}
+
+export function finalizarAdmisionConAltaIntegrada(id: string, datos: AltaIntegradaAdmisionPayload) {
+  return apiClient<AltaIntegradaAdmisionRead>(`/inscripciones/solicitudes/${id}/alta-integrada`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datos),
   })
 }
 

@@ -96,6 +96,27 @@ export interface CrearInscripcionPayload {
   solicitud_inscripcion_id: string
 }
 
+export interface AltaIntegradaAdmisionPayload {
+  division_id: string
+  fecha_inscripcion?: string
+  familia_id?: string
+  usar_contacto_como_familia?: boolean
+  familia_nueva?: PersonaSolicitudAdmisionPayload
+  parentesco?: string
+  responsable_principal: boolean
+  recibe_comunicaciones: boolean
+  responsable_economico_familia_id?: string
+  confirmar_familia_nueva_como_responsable_economico: boolean
+}
+
+export interface AltaIntegradaAdmisionRead {
+  solicitud_id: string
+  alumno_id: string
+  familia_id: string
+  responsable_economico_id: string
+  inscripcion: InscripcionRead
+}
+
 export interface CrearReinscripcionPayload {
   ciclo_lectivo: string
   fecha_inscripcion: string
@@ -191,6 +212,7 @@ export interface SolicitudAdmision {
     telefono: string | null
     sexo: string | null
   } | null
+  contacto_parentesco: string | null
   usuario_id: string
   etapas: EtapaSolicitudAdmisionItem[]
   documentos: DocumentoSolicitudAdmision[]
@@ -201,7 +223,9 @@ export interface CrearSolicitudAdmisionPayload {
   fecha_solicitud: string
   nivel_educativo_id: string
   aspirante: PersonaSolicitudAdmisionPayload
-  contacto?: PersonaSolicitudAdmisionPayload
+  contacto: PersonaSolicitudAdmisionPayload
+  contacto_parentesco: ParentescoContacto
+  contacto_parentesco_otro?: string
   observaciones?: string
 }
 
@@ -219,6 +243,8 @@ export interface PersonaSolicitudAdmisionPayload {
   telefono?: string
   sexo?: string
 }
+
+export type ParentescoContacto = 'Madre' | 'Padre' | 'Tutor/a' | 'Abuelo/a' | 'Hermano/a' | 'Otro'
 
 export interface FiltrosSolicitudesAdmision {
   buscar?: string

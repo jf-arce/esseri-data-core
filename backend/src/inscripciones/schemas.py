@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 EtapaSolicitud = Literal[
     "consulta_lead",
@@ -16,6 +16,7 @@ EtapaSolicitud = Literal[
     "inscripcion_confirmada",
 ]
 EstadoSolicitud = Literal["en_proceso", "aprobada", "rechazada", "desistida"]
+ParentescoContacto = Literal["Madre", "Padre", "Tutor/a", "Abuelo/a", "Hermano/a", "Otro"]
 
 
 class InscripcionCreateBase(BaseModel):
@@ -70,6 +71,63 @@ class PersonaSolicitudCreate(BaseModel):
         return value.strip() if isinstance(value, str) else value
 
 
+class PersonaFamiliaIntegradaCreate(PersonaSolicitudCreate):
+    """Datos mínimos solo cuando la admisión no tiene un contacto reutilizable."""
+
+
+class AltaIntegradaAdmisionCreate(BaseModel):
+    """Finaliza una admisión y crea su matrícula en una única transacción.
+
+    La familia se elige explícitamente, se confirma usando el contacto existente o se carga solo
+    cuando faltaba. El responsable económico nunca se infiere del contacto.
+    """
+
+    division_id: uuid.UUID
+    fecha_inscripcion: date | None = None
+    familia_id: uuid.UUID | None = None
+    usar_contacto_como_familia: bool = False
+    familia_nueva: PersonaFamiliaIntegradaCreate | None = None
+    parentesco: str | None = Field(default=None, max_length=100)
+    responsable_principal: bool = True
+    recibe_comunicaciones: bool = True
+    responsable_economico_familia_id: uuid.UUID | None = None
+    confirmar_familia_nueva_como_responsable_economico: bool = False
+
+    @field_validator("parentesco", mode="before")
+    @classmethod
+    def normalizar_campos_opcionales(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def validar_origen_y_responsable_familiar(self) -> "AltaIntegradaAdmisionCreate":
+        origenes = (
+            int(self.familia_id is not None)
+            + int(self.usar_contacto_como_familia)
+            + int(self.familia_nueva is not None)
+        )
+        if origenes != 1:
+            raise ValueError(
+                "Seleccioná una familia existente, confirmá el contacto o cargá una familia nueva."
+            )
+        if self.familia_id is not None:
+            if self.responsable_economico_familia_id != self.familia_id:
+                raise ValueError(
+                    "Seleccioná explícitamente la familia elegida como responsable económico."
+                )
+            if self.confirmar_familia_nueva_como_responsable_economico:
+                raise ValueError(
+                    "La confirmación aplica solo cuando se crea o reutiliza una familia."
+                )
+        elif self.responsable_economico_familia_id is not None:
+            raise ValueError(
+                "La familia nueva todavía no tiene identificador: confirmá que será responsable "
+                "económico."
+            )
+        elif not self.confirmar_familia_nueva_como_responsable_economico:
+            raise ValueError("Confirmá el responsable económico antes de finalizar la admisión.")
+        return self
+
+
 class PersonaSolicitudRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -86,13 +144,28 @@ class SolicitudInscripcionCreate(BaseModel):
     fecha_solicitud: date
     nivel_educativo_id: uuid.UUID
     aspirante: PersonaSolicitudCreate
-    contacto: PersonaSolicitudCreate | None = None
+    contacto: PersonaSolicitudCreate
+    contacto_parentesco: ParentescoContacto
+    contacto_parentesco_otro: str | None = Field(default=None, min_length=1, max_length=100)
     observaciones: str | None = Field(default=None, max_length=2000)
 
     @field_validator("ciclo_lectivo", mode="before")
     @classmethod
     def normalizar_ciclo_lectivo(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
+
+    @field_validator("contacto_parentesco_otro", mode="before")
+    @classmethod
+    def normalizar_parentesco_otro(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def validar_parentesco_otro(self) -> "SolicitudInscripcionCreate":
+        if self.contacto_parentesco == "Otro" and not self.contacto_parentesco_otro:
+            raise ValueError("Especificá el parentesco del contacto responsable.")
+        if self.contacto_parentesco != "Otro" and self.contacto_parentesco_otro is not None:
+            raise ValueError("El detalle del parentesco solo corresponde si seleccionás Otro.")
+        return self
 
 
 class SolicitudInscripcionAdministrativaUpdate(BaseModel):
@@ -170,6 +243,7 @@ class SolicitudInscripcionRead(BaseModel):
     nivel_educativo_id: uuid.UUID
     aspirante: PersonaSolicitudRead
     contacto: PersonaSolicitudRead | None
+    contacto_parentesco: str | None
     usuario_id: uuid.UUID
     etapas: list[EtapaSolicitudRead]
     documentos: list[DocumentoSolicitudRead]
@@ -209,6 +283,16 @@ class InscripcionRead(BaseModel):
     alumno_id: uuid.UUID
     division_id: uuid.UUID
     solicitud_inscripcion_id: uuid.UUID | None
+
+
+class AltaIntegradaAdmisionRead(BaseModel):
+    """Resultado de la alta coordinada desde una solicitud de admisión."""
+
+    solicitud_id: uuid.UUID
+    alumno_id: uuid.UUID
+    familia_id: uuid.UUID
+    responsable_economico_id: uuid.UUID
+    inscripcion: InscripcionRead
 
 
 class InscripcionListadoItemRead(BaseModel):
