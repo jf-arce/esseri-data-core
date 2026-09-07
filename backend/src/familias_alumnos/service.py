@@ -2,10 +2,11 @@
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from src.academico.models import Anio, Division
 from src.auth import service as auth_service
 from src.auth.models import Rol, Usuario, UsuarioRol
 from src.familias_alumnos.exceptions import (
@@ -22,9 +23,12 @@ from src.familias_alumnos.schemas import (
     AlumnoUpdate,
     FamiliaCreate,
     FamiliaUpdate,
+    FiltrosListarAlumnos,
+    FiltrosListarFamilias,
     VinculoCreate,
     VinculoUpdate,
 )
+from src.inscripciones.models import Inscripcion
 from src.models import Persona
 
 ROL_FAMILIA = "familia"
@@ -145,9 +149,32 @@ def obtener_familia_por_id(db: Session, familia_id: uuid.UUID) -> Familia | None
     return db.query(Familia).filter(Familia.id == familia_id).first()
 
 
-def listar_familias(db: Session) -> list[Familia]:
-    """Listar todas las familias."""
-    return db.query(Familia).all()
+def listar_familias(db: Session, filtros: FiltrosListarFamilias | None = None) -> list[Familia]:
+    """Listar familias con filtros opcionales.
+
+    Filtros soportados:
+    - buscar: búsqueda por nombre, apellido o DNI
+    - estado_deuda: estado de deuda (al_dia/con_deuda/en_mora)
+    """
+    query = db.query(Familia).join(Persona)
+
+    if filtros:
+        # Búsqueda por nombre, apellido o DNI
+        if filtros.buscar:
+            busqueda = f"%{filtros.buscar}%"
+            query = query.filter(
+                or_(
+                    Persona.nombre.ilike(busqueda),
+                    Persona.apellido.ilike(busqueda),
+                    Persona.dni.ilike(busqueda),
+                )
+            )
+
+        # Filtro por estado de deuda
+        if filtros.estado_deuda:
+            query = query.filter(Familia.estado_deuda == filtros.estado_deuda)
+
+    return query.all()
 
 
 def actualizar_familia(
@@ -347,9 +374,58 @@ def obtener_alumno_por_id(db: Session, alumno_id: uuid.UUID) -> Alumno | None:
     return db.query(Alumno).filter(Alumno.id == alumno_id).first()
 
 
-def listar_alumnos(db: Session) -> list[Alumno]:
-    """Listar todos los alumnos."""
-    return db.query(Alumno).order_by(Alumno.numero_legajo).all()
+def listar_alumnos(db: Session, filtros: FiltrosListarAlumnos | None = None) -> list[Alumno]:
+    """Listar alumnos con filtros opcionales.
+
+    Filtros soportados:
+    - buscar: búsqueda por nombre, apellido o DNI
+    - estado: estado del alumno (activo/inactivo/egresado)
+    - nivel_educativo_id: filtrar por nivel educativo
+    - estado_deuda: estado de deuda de la familia (al_dia/con_deuda/en_mora)
+    - estado_inscripcion: estado de inscripción (activa/finalizada/baja)
+    """
+    query = db.query(Alumno).join(Persona)
+
+    if filtros:
+        # Búsqueda por nombre, apellido o DNI
+        if filtros.buscar:
+            busqueda = f"%{filtros.buscar}%"
+            query = query.filter(
+                or_(
+                    Persona.nombre.ilike(busqueda),
+                    Persona.apellido.ilike(busqueda),
+                    Persona.dni.ilike(busqueda),
+                )
+            )
+
+        # Filtro por estado del alumno
+        if filtros.estado:
+            query = query.filter(Alumno.estado == filtros.estado)
+
+        # Filtro por nivel educativo (join con Inscripcion -> Division -> Anio)
+        if filtros.nivel_educativo_id:
+            query = (
+                query.join(Inscripcion, Alumno.id == Inscripcion.alumno_id)
+                .join(Division, Inscripcion.division_id == Division.id)
+                .join(Anio, Division.anio_id == Anio.id)
+                .filter(Anio.nivel_educativo_id == filtros.nivel_educativo_id)
+            )
+
+        # Filtro por estado de deuda de la familia (requiere join con FamiliaAlumno -> Familia)
+        if filtros.estado_deuda:
+            query = (
+                query.join(FamiliaAlumno, Alumno.id == FamiliaAlumno.alumno_id)
+                .join(Familia, FamiliaAlumno.familia_id == Familia.id)
+                .filter(Familia.estado_deuda == filtros.estado_deuda)
+            )
+
+        # Filtro por estado de inscripción
+        if filtros.estado_inscripcion:
+            query = query.join(Inscripcion, Alumno.id == Inscripcion.alumno_id).filter(
+                Inscripcion.estado == filtros.estado_inscripcion
+            )
+
+    return query.order_by(Alumno.numero_legajo).all()
 
 
 def actualizar_alumno(

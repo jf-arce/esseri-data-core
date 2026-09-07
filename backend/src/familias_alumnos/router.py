@@ -36,6 +36,8 @@ from src.familias_alumnos.schemas import (
     FamiliaCreate,
     FamiliaResponse,
     FamiliaUpdate,
+    FiltrosListarAlumnos,
+    FiltrosListarFamilias,
     VinculoCreate,
     VinculoResponse,
     VinculoUpdate,
@@ -96,10 +98,13 @@ def crear_familia_endpoint(
 @router.get("/familias", response_model=list[FamiliaResponse])
 def listar_familias_endpoint(
     _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_FAMILIAS_ALUMNOS_LEER))],
+    buscar: str | None = None,
+    estado_deuda: str | None = None,
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[Familia]:
-    """Listar todas las familias."""
-    return listar_familias(db)
+    """Listar familias con filtros opcionales."""
+    filtros = FiltrosListarFamilias(buscar=buscar, estado_deuda=estado_deuda)
+    return listar_familias(db, filtros)
 
 
 @router.get("/familias/{familia_id}", response_model=FamiliaResponse)
@@ -176,10 +181,22 @@ def crear_alumno_endpoint(
 @router.get("/alumnos", response_model=list[AlumnoResponse])
 def listar_alumnos_endpoint(
     _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_FAMILIAS_ALUMNOS_LEER))],
+    buscar: str | None = None,
+    estado: str | None = None,
+    nivel_educativo_id: str | None = None,
+    estado_deuda: str | None = None,
+    estado_inscripcion: str | None = None,
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[Alumno]:
-    """Listar todos los alumnos."""
-    return listar_alumnos(db)
+    """Listar alumnos con filtros opcionales."""
+    filtros = FiltrosListarAlumnos(
+        buscar=buscar,
+        estado=estado,
+        nivel_educativo_id=nivel_educativo_id,
+        estado_deuda=estado_deuda,
+        estado_inscripcion=estado_inscripcion,
+    )
+    return listar_alumnos(db, filtros)
 
 
 @router.get("/alumnos/{alumno_id}", response_model=AlumnoResponse)

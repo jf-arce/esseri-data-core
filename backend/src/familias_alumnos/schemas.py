@@ -212,3 +212,29 @@ class AltaFamiliaResponse(BaseModel):
 class AltaAlumnoResponse(BaseModel):
     persona: PersonaResponse
     alumno: AlumnoResponse
+
+
+# --- Filtros para búsqueda/listado (RF-02) --------------------------------------
+
+
+class FiltrosListarAlumnos(BaseModel):
+    """Filtros para listar alumnos con búsqueda y filtros específicos."""
+
+    buscar: str | None = Field(None, description="Búsqueda por nombre, apellido o DNI")
+    estado: str | None = Field(None, description="Estado del alumno: activo / inactivo / egresado")
+    nivel_educativo_id: uuid.UUID | None = Field(None, description="Filtrar por nivel educativo")
+    estado_deuda: str | None = Field(
+        None, description="Estado de deuda de la familia: al_dia / con_deuda / en_mora"
+    )
+    estado_inscripcion: str | None = Field(
+        None, description="Estado de inscripción: activa / finalizada / baja"
+    )
+
+
+class FiltrosListarFamilias(BaseModel):
+    """Filtros para listar familias con búsqueda y filtros específicos."""
+
+    buscar: str | None = Field(None, description="Búsqueda por nombre, apellido o DNI")
+    estado_deuda: str | None = Field(
+        None, description="Estado de deuda: al_dia / con_deuda / en_mora"
+    )
