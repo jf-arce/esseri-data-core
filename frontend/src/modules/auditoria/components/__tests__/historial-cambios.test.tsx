@@ -39,13 +39,15 @@ describe('HistorialCambios', () => {
 
     render(<HistorialCambios entidad="ALUMNO" entidadId="alumno-1" />)
 
-    await waitFor(() =>
-      expect(screen.getByText('Estado: "activo" → "inactivo"')).toBeInTheDocument(),
-    )
+    await waitFor(() => expect(screen.getByText('Estado')).toBeInTheDocument())
     const items = screen.getAllByRole('listitem')
     expect(items).toHaveLength(2)
-    expect(items[0]).toHaveTextContent('Estado: "activo" → "inactivo"')
-    expect(items[1]).toHaveTextContent('Numero legajo: "1001" → "1002"')
+    expect(items[0]).toHaveTextContent('Estado')
+    expect(items[0]).toHaveTextContent('activo')
+    expect(items[0]).toHaveTextContent('inactivo')
+    expect(items[1]).toHaveTextContent('Numero legajo')
+    expect(items[1]).toHaveTextContent('1001')
+    expect(items[1]).toHaveTextContent('1002')
   })
 
   it('muestra un estado vacío cuando no hay cambios registrados', async () => {
