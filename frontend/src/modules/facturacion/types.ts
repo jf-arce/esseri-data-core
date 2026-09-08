@@ -1,4 +1,5 @@
 export type EstadoFactura = 'pendiente' | 'vencida' | 'pagada'
+export type EstadoDeudaFamilia = EstadoFactura
 
 export interface ConceptoCobro {
   id: string
@@ -67,6 +68,34 @@ export interface FacturasListado {
   total: number
   pagina: number
   tamanio: number
+}
+
+export interface DeudaFamilia {
+  familia_id: string
+  familia_nombre: string
+  familia_apellido: string
+  familia_dni: string
+  monto_pendiente: string
+  monto_vencido: string
+  monto_pagado: string
+  deuda_total: string
+  facturas_pendientes: number
+  facturas_pagadas: number
+  estado: EstadoDeudaFamilia
+}
+
+export interface DeudaFamiliasListado {
+  items: DeudaFamilia[]
+  total: number
+  pagina: number
+  tamanio: number
+}
+
+export interface FiltrosDeudaFamilias {
+  pagina: number
+  tamanio: number
+  estado?: EstadoDeudaFamilia
+  buscar?: string
 }
 
 export interface CrearFacturaPayload {
