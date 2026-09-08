@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FileTextIcon, PlusIcon, Settings2Icon, ShieldAlertIcon } from 'lucide-react'
+import {
+  FileTextIcon,
+  PlusIcon,
+  Settings2Icon,
+  ShieldAlertIcon,
+  WalletCardsIcon,
+} from 'lucide-react'
 import { Link, useSearchParams } from 'react-router'
 import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -105,6 +111,12 @@ export function FacturasPage() {
           titulo="Facturas"
           accion={
             <div className="flex gap-2">
+              <Button variant="secondary" asChild>
+                <Link to="/facturacion/deudas/familias">
+                  <WalletCardsIcon data-icon="inline-start" />
+                  Deudas por familia
+                </Link>
+              </Button>
               <Button variant="secondary" asChild>
                 <Link to="/facturacion/reglas">
                   <Settings2Icon data-icon="inline-start" />
