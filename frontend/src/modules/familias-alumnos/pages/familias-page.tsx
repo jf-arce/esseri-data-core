@@ -145,7 +145,9 @@ export function FamiliasPage() {
           placeholder="Buscar por nombre, apellido o DNI"
         />
         <FilterDropdown
-          label={ESTADO_OPTIONS.find((opcion) => opcion.value === estado)?.label ?? 'Estado de cuenta'}
+          label={
+            ESTADO_OPTIONS.find((opcion) => opcion.value === estado)?.label ?? 'Estado de cuenta'
+          }
           options={ESTADO_OPTIONS}
           value={estado}
           onChange={setEstado}
