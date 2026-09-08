@@ -150,3 +150,18 @@ export type VinculoUpdate = {
   responsable_principal?: boolean
   recibe_comunicaciones?: boolean
 }
+
+// --- Filtros para búsqueda/listado (RF-02) --------------------------------------
+
+export type FiltrosListarAlumnos = {
+  buscar?: string
+  estado?: EstadoAlumno
+  nivel_educativo_id?: string
+  estado_deuda?: string
+  estado_inscripcion?: string
+}
+
+export type FiltrosListarFamilias = {
+  buscar?: string
+  estado_deuda?: string
+}

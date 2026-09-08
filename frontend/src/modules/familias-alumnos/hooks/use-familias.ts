@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '@/api/client'
 import { listarFamilias } from '@/modules/familias-alumnos/services/listar-familias'
-import type { Familia } from '@/modules/familias-alumnos/types'
+import type { Familia, FiltrosListarFamilias } from '@/modules/familias-alumnos/types'
 
-export function useFamilias() {
+export function useFamilias(filtros?: FiltrosListarFamilias) {
   const [datos, setDatos] = useState<Familia[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sinPermiso, setSinPermiso] = useState(false)
 
   const cargar = useCallback(() => {
-    return listarFamilias()
+    return listarFamilias(filtros)
       .then((familias) => {
         setDatos(familias)
         setSinPermiso(false)
@@ -23,7 +23,7 @@ export function useFamilias() {
         setError(err instanceof ApiError ? err.detail : 'No se pudieron cargar las familias.')
       })
       .finally(() => setCargando(false))
-  }, [])
+  }, [filtros])
 
   useEffect(() => {
     cargar()
