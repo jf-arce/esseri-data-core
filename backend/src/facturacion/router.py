@@ -21,6 +21,7 @@ from src.facturacion import (
     reglas_facturacion_service,
     service,
 )
+from src.facturacion.calendario_facturacion import fecha_operativa_argentina
 from src.facturacion.dependencies import obtener_concepto_cobro_o_404, obtener_factura_o_404
 from src.facturacion.models import ConceptoCobro, Factura
 from src.facturacion.schemas import (
@@ -29,7 +30,10 @@ from src.facturacion.schemas import (
     ConceptoCobroUpdate,
     CuentaCorrienteRead,
     DetalleFacturaRead,
+    DeudaFamiliaListadoRead,
+    DeudaFamiliaRead,
     EjecucionFacturacionRead,
+    EstadoDeudaFamilia,
     FacturaCreate,
     FacturaDetalleRead,
     FacturaEstado,
@@ -188,6 +192,32 @@ def obtener_cuenta_corriente(
             MovimientoCuentaCorrienteRead.model_validate(movimiento) for movimiento in movimientos
         ],
         total_movimientos=total_movimientos,
+        pagina=pagina,
+        tamanio=tamanio,
+    )
+
+
+@router.get("/deudas/familias")
+def listar_deuda_por_familia(
+    db: DbSession,
+    _: PuedeLeer,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    tamanio: Annotated[int, Query(ge=1, le=100)] = 20,
+    estado: EstadoDeudaFamilia | None = None,
+    buscar: Annotated[str | None, Query(max_length=100)] = None,
+    fecha_referencia: date | None = None,
+) -> DeudaFamiliaListadoRead:
+    items, total = cuenta_corriente_service.listar_deuda_por_familia(
+        db,
+        fecha_referencia=fecha_referencia or fecha_operativa_argentina(),
+        pagina=pagina,
+        tamanio=tamanio,
+        estado=estado,
+        buscar=buscar,
+    )
+    return DeudaFamiliaListadoRead(
+        items=[DeudaFamiliaRead.model_validate(item) for item in items],
+        total=total,
         pagina=pagina,
         tamanio=tamanio,
     )
