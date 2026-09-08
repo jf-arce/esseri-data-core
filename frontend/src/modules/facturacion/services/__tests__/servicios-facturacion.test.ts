@@ -4,6 +4,7 @@ import { crearReglaFacturacion } from '@/modules/facturacion/services/crear-regl
 import { generarFacturacion } from '@/modules/facturacion/services/generar-facturacion'
 import { listarConceptosCobro } from '@/modules/facturacion/services/listar-conceptos-cobro'
 import { listarFacturas } from '@/modules/facturacion/services/listar-facturas'
+import { listarDeudaFamilias } from '@/modules/facturacion/services/listar-deuda-familias'
 import { previsualizarGeneracionFacturacion } from '@/modules/facturacion/services/previsualizar-generacion-facturacion'
 
 const respuestaOk = () =>
@@ -33,6 +34,21 @@ describe('servicios de facturación', () => {
 
     expect(fetchMock.mock.calls[0][0]).toContain(
       '/facturacion/facturas?pagina=2&tamanio=10&estado=pendiente&buscar=c4341acf&alumno_id=alumno-1&concepto_cobro_id=concepto-1&ordenar_por=monto_total&direccion=desc',
+    )
+  })
+
+  it('consulta deuda familiar con búsqueda, estado y paginación', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await listarDeudaFamilias({
+      pagina: 3,
+      tamanio: 10,
+      estado: 'vencida',
+      buscar: 'García 30111222',
+    })
+
+    expect(fetchMock.mock.calls[0][0]).toContain(
+      '/facturacion/deudas/familias?pagina=3&tamanio=10&estado=vencida&buscar=Garc%C3%ADa+30111222',
     )
   })
 
