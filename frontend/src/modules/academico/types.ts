@@ -113,6 +113,11 @@ export type AsignacionDocenteCreate = {
 export type TipoAsistencia =
   'presente' | 'tardanza' | 'ausente_pendiente' | 'ausente_justificado' | 'ausente_injustificado'
 
+// Lo único que el docente puede elegir al marcar asistencia. El backend traduce 'ausente' a
+// 'ausente_pendiente' y dispara la notificación — nunca se manda un TipoAsistencia persistido
+// (p. ej. 'ausente_justificado') como valor de entrada, el backend lo rechaza con 422.
+export type TipoAsistenciaDocente = 'presente' | 'tardanza' | 'ausente'
+
 export type Asistencia = {
   id: string
   fecha: string
@@ -123,17 +128,17 @@ export type Asistencia = {
 
 export type AsistenciaCreate = {
   fecha: string
-  tipo: TipoAsistencia
+  tipo: TipoAsistenciaDocente
   inscripcion_id: string
 }
 
 export type AsistenciaUpdate = {
-  tipo: TipoAsistencia
+  tipo: TipoAsistenciaDocente
 }
 
 export type AsistenciaBulkRegistro = {
   inscripcion_id: string
-  tipo: TipoAsistencia
+  tipo: TipoAsistenciaDocente
 }
 
 export type AsistenciaBulkCreate = {

@@ -8,13 +8,13 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { useAsistenciaDivision } from '@/modules/academico/hooks/use-asistencia-division'
 import { registrarAsistenciaMasiva } from '@/modules/academico/services/asistencias'
 import { listarDivisiones } from '@/modules/academico/services/divisiones'
-import type { TipoAsistencia } from '@/modules/academico/types'
+import type { TipoAsistencia, TipoAsistenciaDocente } from '@/modules/academico/types'
 
 export function AsistenciaDivisionPage() {
   const [divisionId, setDivisionId] = useState<string | null>(null)
   const [fecha, setFecha] = useState(() => new Date().toISOString().split('T')[0])
   const [guardando, setGuardando] = useState(false)
-  const [seleccionLocal, setSeleccionLocal] = useState<Record<string, TipoAsistencia>>({})
+  const [seleccionLocal, setSeleccionLocal] = useState<Record<string, TipoAsistenciaDocente>>({})
 
   const { alumnos, cargando, error, sinPermiso, recargar } = useAsistenciaDivision(
     divisionId,
@@ -31,7 +31,8 @@ export function AsistenciaDivisionPage() {
   // Combinar alumnos del hook con selección local
   const alumnosConSeleccion = alumnos.map((alumno) => ({
     ...alumno,
-    estadoAsistencia: seleccionLocal[alumno.id] || alumno.estadoAsistencia,
+    estadoAsistencia: (seleccionLocal[alumno.id] ?? alumno.estadoAsistencia) as
+      TipoAsistencia | TipoAsistenciaDocente | undefined,
   }))
 
   const stats = {
@@ -46,12 +47,14 @@ export function AsistenciaDivisionPage() {
 
     setGuardando(true)
     try {
-      const registros = alumnosConSeleccion
-        .filter((a) => a.estadoAsistencia)
-        .map((a) => ({
-          inscripcion_id: a.id,
-          tipo: a.estadoAsistencia as TipoAsistencia,
-        }))
+      // Solo se manda lo que el docente tocó esta sesión: `seleccionLocal` ya está en el
+      // vocabulario que acepta el backend (presente/tardanza/ausente). Un alumno sin cambios
+      // puede tener persistido 'ausente_justificado' u otro estado que el backend rechaza como
+      // entrada, así que no se re-envía.
+      const registros = Object.entries(seleccionLocal).map(([inscripcion_id, tipo]) => ({
+        inscripcion_id,
+        tipo,
+      }))
 
       if (registros.length === 0) {
         toast.warning('No hay alumnos marcados para guardar.')
@@ -74,7 +77,7 @@ export function AsistenciaDivisionPage() {
     }
   }
 
-  function toggleAsistencia(inscripcionId: string, tipo: TipoAsistencia) {
+  function toggleAsistencia(inscripcionId: string, tipo: TipoAsistenciaDocente) {
     setSeleccionLocal((prev) => {
       const nuevoEstado = prev[inscripcionId] === tipo ? undefined : tipo
       const nuevo = { ...prev }
@@ -87,9 +90,11 @@ export function AsistenciaDivisionPage() {
     })
   }
 
-  // Helper para verificar si un alumno tiene un tipo de asistencia seleccionado
-  const isSelected = (estado: TipoAsistencia | undefined, tipo: TipoAsistencia) => {
-    if (tipo === 'ausente_pendiente') {
+  // Helper para verificar si un alumno tiene un tipo de asistencia seleccionado. 'ausente' agrupa
+  // los tres estados persistidos (pendiente/justificado/injustificado): al docente solo le
+  // importa que el botón se vea marcado, no distinguirlos.
+  const isSelected = (estado: string | undefined, tipo: TipoAsistenciaDocente) => {
+    if (tipo === 'ausente') {
       return estado?.startsWith('ausente') ?? false
     }
     return estado === tipo
@@ -253,9 +258,9 @@ export function AsistenciaDivisionPage() {
                         Tardanza
                       </button>
                       <button
-                        onClick={() => toggleAsistencia(alumno.id, 'ausente_pendiente')}
+                        onClick={() => toggleAsistencia(alumno.id, 'ausente')}
                         className={`h-9 rounded-full border-2 px-3.5 text-xs font-bold transition-colors ${
-                          isSelected(alumno.estadoAsistencia, 'ausente_pendiente')
+                          isSelected(alumno.estadoAsistencia, 'ausente')
                             ? 'border-error bg-error-suave text-error'
                             : 'border-borde bg-superficie text-texto-2 hover:border-texto-3'
                         }`}

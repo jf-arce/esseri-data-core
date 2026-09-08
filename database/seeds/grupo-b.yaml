@@ -84,6 +84,9 @@ permiso:
   - rol: docente
     modulo: Académico
     acciones: [leer, actualizar] # marca presente/ausente/tardanza
+  - rol: docente
+    modulo: Inscripciones
+    acciones: [leer] # necesita el listado de inscriptos para tomar asistencia
 
   # familia — solo lectura de lo propio + alta de solicitudes/justificaciones
   - rol: familia
