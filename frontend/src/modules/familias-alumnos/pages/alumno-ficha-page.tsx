@@ -24,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { HistorialCambios } from '@/components/historial-cambios'
+import { HistorialCambios } from '@/modules/auditoria/components/historial-cambios'
 import { obtenerAlumno } from '../services/obtener-alumno'
 import { eliminarAlumno } from '../services/eliminar-alumno'
 import { listarVinculosAlumno } from '../services/listar-vinculos-alumno'
