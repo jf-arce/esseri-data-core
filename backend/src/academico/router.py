@@ -498,7 +498,7 @@ def eliminar_asignacion_docente_endpoint(
 @router.post("/asistencias", response_model=AsistenciaResponse, status_code=201)
 def registrar_asistencia_endpoint(
     datos: AsistenciaCreate,
-    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_CREAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR))],
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Asistencia:
     """Registrar asistencia diaria de un alumno.
@@ -518,7 +518,7 @@ def registrar_asistencia_endpoint(
 @router.post("/asistencias/bulk", response_model=AsistenciaBulkResponse)
 def registrar_asistencia_masiva_endpoint(
     datos: AsistenciaBulkCreate,
-    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_CREAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR))],
     db: Session = Depends(get_db),  # noqa: B008
 ) -> AsistenciaBulkResponse:
     """Registrar asistencia de toda una división en una fecha.
