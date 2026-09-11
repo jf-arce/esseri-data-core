@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
+  ChevronRightIcon,
   ClipboardCheckIcon,
   FilePlus2Icon,
   FileTextIcon,
@@ -27,62 +28,58 @@ import { listarSolicitudesAdmision } from '@/modules/inscripciones/services/soli
 
 const MINIMO_CARACTERES = 2
 
-const ACCESOS = [
+// Color por módulo (§2.5 DESIGN.md): identifica de un vistazo a qué dominio pertenece cada
+// resultado o destino. Clases completas como literales (nunca `text-mod-${modulo}`): Tailwind
+// v4 escanea el código en busca de nombres de clase exactos.
+const COLOR_POR_MODULO = {
+  familias: 'text-mod-familias',
+  academico: 'text-mod-academico',
+  inscripciones: 'text-mod-inscripciones',
+  facturacion: 'text-mod-facturacion',
+  compras: 'text-mod-compras',
+} as const
+
+type Modulo = keyof typeof COLOR_POR_MODULO
+
+const NAVEGACION: Array<{
+  etiqueta: string
+  ruta: string
+  icono: typeof ShieldCheckIcon
+  modulo: Modulo
+}> = [
+  { etiqueta: 'Familias', ruta: '/familias-alumnos', icono: UsersRoundIcon, modulo: 'familias' },
   {
-    grupo: 'Ir a',
-    etiqueta: 'Usuarios y roles',
-    ruta: '/configuracion/acceso',
-    icono: ShieldCheckIcon,
-  },
-  {
-    grupo: 'Familias y alumnos',
-    etiqueta: 'Familias',
-    ruta: '/familias-alumnos',
-    icono: UsersRoundIcon,
-  },
-  {
-    grupo: 'Familias y alumnos',
-    etiqueta: 'Nuevo alumno',
-    ruta: '/familias-alumnos/alumnos/nuevo',
-    icono: UserPlusIcon,
-  },
-  {
-    grupo: 'Inscripciones',
     etiqueta: 'Inscripciones',
     ruta: '/inscripciones',
     icono: ClipboardCheckIcon,
+    modulo: 'inscripciones',
   },
   {
-    grupo: 'Inscripciones',
-    etiqueta: 'Nueva inscripción',
-    ruta: '/inscripciones/nueva',
-    icono: FilePlus2Icon,
-  },
-  {
-    grupo: 'Inscripciones',
     etiqueta: 'Admisiones',
     ruta: '/inscripciones/admisiones',
     icono: ClipboardCheckIcon,
+    modulo: 'inscripciones',
   },
+  { etiqueta: 'Facturas', ruta: '/facturacion', icono: LandmarkIcon, modulo: 'facturacion' },
   {
-    grupo: 'Inscripciones',
-    etiqueta: 'Nueva admisión',
-    ruta: '/inscripciones/admisiones/nueva',
-    icono: FilePlus2Icon,
-  },
-  { grupo: 'Facturación', etiqueta: 'Facturas', ruta: '/facturacion', icono: LandmarkIcon },
-  {
-    grupo: 'Facturación',
-    etiqueta: 'Nueva factura',
-    ruta: '/facturacion/nueva',
-    icono: FilePlus2Icon,
-  },
-  {
-    grupo: 'Facturación',
     etiqueta: 'Reglas de facturación',
     ruta: '/facturacion/reglas',
     icono: Settings2Icon,
+    modulo: 'facturacion',
   },
+  {
+    etiqueta: 'Usuarios y roles',
+    ruta: '/configuracion/acceso',
+    icono: ShieldCheckIcon,
+    modulo: 'compras',
+  },
+]
+
+const ACCIONES: Array<{ etiqueta: string; ruta: string; icono: typeof UserPlusIcon }> = [
+  { etiqueta: 'Nuevo alumno', ruta: '/familias-alumnos/alumnos/nuevo', icono: UserPlusIcon },
+  { etiqueta: 'Nueva inscripción', ruta: '/inscripciones/nueva', icono: FilePlus2Icon },
+  { etiqueta: 'Nueva admisión', ruta: '/inscripciones/admisiones/nueva', icono: FilePlus2Icon },
+  { etiqueta: 'Nueva factura', ruta: '/facturacion/nueva', icono: FilePlus2Icon },
 ]
 
 interface ResultadoBusqueda {
@@ -173,14 +170,6 @@ export function GlobalSearchDialog({
     admisiones,
     facturas,
   } = useBusquedaGlobal(consultaAplicada)
-  const accesosPorGrupo = useMemo(
-    () =>
-      ACCESOS.reduce<Record<string, Array<(typeof ACCESOS)[number]>>>((grupos, acceso) => {
-        grupos[acceso.grupo] = [...(grupos[acceso.grupo] ?? []), acceso]
-        return grupos
-      }, {}),
-    [],
-  )
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setConsultaAplicada(consulta), 250)
@@ -189,6 +178,10 @@ export function GlobalSearchDialog({
 
   const buscando =
     consulta.length >= MINIMO_CARACTERES && (consultaAplicada !== consulta || busquedaEnCurso)
+  const hayResultadosDeBusqueda =
+    consulta.length >= MINIMO_CARACTERES &&
+    !buscando &&
+    (inscripciones.length > 0 || admisiones.length > 0 || facturas.length > 0)
 
   function irA(ruta: string) {
     manejarCambioAbierto(false)
@@ -213,21 +206,6 @@ export function GlobalSearchDialog({
             No encontramos resultados. Probá con nombre, legajo, DNI o número de factura.
           </CommandEmpty>
 
-          {Object.entries(accesosPorGrupo).map(([grupo, accesos]) => (
-            <CommandGroup key={grupo} heading={grupo}>
-              {accesos.map((acceso) => (
-                <CommandItem
-                  key={acceso.ruta}
-                  value={acceso.etiqueta}
-                  onSelect={() => irA(acceso.ruta)}
-                >
-                  <acceso.icono className="text-violeta" />
-                  {acceso.etiqueta}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          ))}
-
           {consulta.length >= MINIMO_CARACTERES && (
             <>
               {buscando ? (
@@ -244,7 +222,7 @@ export function GlobalSearchDialog({
                           value={`${inscripcion.etiqueta} ${inscripcion.detalle}`}
                           onSelect={() => irA('/inscripciones')}
                         >
-                          <ClipboardCheckIcon className="text-mod-inscripciones" />
+                          <ClipboardCheckIcon className={COLOR_POR_MODULO.inscripciones} />
                           <span className="flex min-w-0 flex-col">
                             <span>{inscripcion.etiqueta}</span>
                             <span className="text-xs text-texto-3">{inscripcion.detalle}</span>
@@ -261,7 +239,7 @@ export function GlobalSearchDialog({
                           value={`${admision.etiqueta} ${admision.detalle}`}
                           onSelect={() => irA(`/inscripciones/admisiones/${admision.id}`)}
                         >
-                          <FileTextIcon className="text-mod-inscripciones" />
+                          <FileTextIcon className={COLOR_POR_MODULO.inscripciones} />
                           <span className="flex min-w-0 flex-col">
                             <span>{admision.etiqueta}</span>
                             <span className="text-xs text-texto-3">{admision.detalle}</span>
@@ -278,7 +256,7 @@ export function GlobalSearchDialog({
                           value={`${factura.etiqueta} ${factura.detalle}`}
                           onSelect={() => irA(`/facturacion/${factura.id}`)}
                         >
-                          <ReceiptTextIcon className="text-mod-facturacion" />
+                          <ReceiptTextIcon className={COLOR_POR_MODULO.facturacion} />
                           <span className="flex min-w-0 flex-col">
                             <span>{factura.etiqueta}</span>
                             <span className="text-xs text-texto-3">{factura.detalle}</span>
@@ -291,7 +269,42 @@ export function GlobalSearchDialog({
               )}
             </>
           )}
-          <CommandSeparator />
+
+          {hayResultadosDeBusqueda && <CommandSeparator />}
+
+          <CommandGroup heading="Ir a">
+            {NAVEGACION.map((acceso) => (
+              <CommandItem
+                key={acceso.ruta}
+                value={acceso.etiqueta}
+                onSelect={() => irA(acceso.ruta)}
+                className="pr-8"
+              >
+                <acceso.icono className={COLOR_POR_MODULO[acceso.modulo]} />
+                {acceso.etiqueta}
+                {/* Posición absoluta, no `ml-auto`: `CommandItem` ya agrega al final un
+                    `CheckIcon` oculto con `ml-auto` propio (para su uso como selector) — dos
+                    márgenes automáticos en la misma fila se repartían el espacio libre entre
+                    los dos y el chevron quedaba corrido, no pegado al borde derecho. */}
+                <ChevronRightIcon className="absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-texto-3" />
+              </CommandItem>
+            ))}
+          </CommandGroup>
+
+          <CommandGroup heading="Acciones">
+            {ACCIONES.map((accion) => (
+              <CommandItem
+                key={accion.ruta}
+                value={accion.etiqueta}
+                onSelect={() => irA(accion.ruta)}
+              >
+                <span className="flex size-5 items-center justify-center rounded-[6px] bg-violeta text-white">
+                  <accion.icono className="size-3" />
+                </span>
+                {accion.etiqueta}
+              </CommandItem>
+            ))}
+          </CommandGroup>
         </CommandList>
       </Command>
     </CommandDialog>

@@ -31,7 +31,6 @@ export function CatalogoPage() {
   const [tipo, setTipo] = useState<'' | TipoProductoServicio>('')
   const [soloActivos, setSoloActivos] = useState(true)
   const [orden, setOrden] = useState<OrdenProductos>('nombre-asc')
-  const [densidad, setDensidad] = useState<'comfortable' | 'compact'>('comfortable')
 
   const categorias = useMemo(() => categoriasDeProductos(productos), [productos])
 
@@ -105,8 +104,6 @@ export function CatalogoPage() {
         onSoloActivosChange={setSoloActivos}
         orden={orden}
         onOrdenChange={setOrden}
-        densidad={densidad}
-        onDensidadChange={setDensidad}
         hayFiltrosActivos={hayFiltrosActivos}
       />
 
@@ -146,7 +143,6 @@ export function CatalogoPage() {
         <ProductosTabla
           productos={filtrados}
           cargando={cargando}
-          densidad={densidad}
           onEditar={(producto) => {
             setProductoEditando(producto)
             setDialogoAbierto(true)

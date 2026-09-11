@@ -37,15 +37,14 @@ function BadgeEstadoDeuda({ estado }: { estado: string | null }) {
 interface FamiliasTablaProps {
   familias: Familia[]
   cargando: boolean
-  densidad: 'comfortable' | 'compact'
   onEliminar: (familia: Familia) => void
 }
 
-export function FamiliasTabla({ familias, cargando, densidad, onEliminar }: FamiliasTablaProps) {
+export function FamiliasTabla({ familias, cargando, onEliminar }: FamiliasTablaProps) {
   const navigate = useNavigate()
 
   return (
-    <Table data-density={densidad === 'compact' ? 'compact' : undefined}>
+    <Table>
       <TableHeader>
         <TableRow>
           <TableHead>Familia</TableHead>

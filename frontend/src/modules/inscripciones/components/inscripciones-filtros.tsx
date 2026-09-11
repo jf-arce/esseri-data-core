@@ -1,5 +1,5 @@
 import { ArrowDownUpIcon, CalendarRangeIcon, DownloadIcon } from 'lucide-react'
-import { DensityToggle, FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
+import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
 import { FilterChip, FilterChips, FilterDropdown } from '@/components/filter-dropdown'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -38,8 +38,6 @@ interface InscripcionesFiltrosProps {
   onEstadoChange: (valor: EstadoInscripcion | '') => void
   orden: 'fecha_desc' | 'fecha_asc' | 'alumno_asc'
   onOrdenChange: (valor: 'fecha_desc' | 'fecha_asc' | 'alumno_asc') => void
-  densidad: 'comfortable' | 'compact'
-  onDensidadChange: (valor: 'comfortable' | 'compact') => void
   onExportar: () => void
   exportando: boolean
 }
@@ -52,7 +50,7 @@ function CicloLectivoFiltro({
   onChange: (valor: string) => void
 }) {
   return (
-    <label className="flex h-10 w-40 items-center gap-2 rounded-full border border-borde bg-superficie px-3.5 text-sm text-texto-2 transition-colors focus-within:border-violeta">
+    <label className="flex h-10 w-40 items-center gap-2 rounded-lg border border-borde bg-superficie px-3.5 text-sm text-texto-2 transition-colors has-[:focus-visible]:shadow-[0_0_0_1.5px_var(--violeta)]">
       <CalendarRangeIcon className="size-4 shrink-0 text-texto-3" />
       <span className="sr-only">Ciclo lectivo</span>
       <input
@@ -60,7 +58,7 @@ function CicloLectivoFiltro({
         inputMode="numeric"
         maxLength={4}
         placeholder="Ciclo lectivo"
-        className="min-w-0 flex-1 bg-transparent tabular-nums outline-none placeholder:text-texto-3"
+        className="min-w-0 flex-1 bg-transparent tabular-nums outline-none focus-visible:shadow-none placeholder:text-texto-3"
         onChange={(evento) => {
           const siguiente = evento.target.value.replace(/\D/g, '')
           onChange(siguiente)
@@ -81,8 +79,6 @@ export function InscripcionesFiltros({
   onEstadoChange,
   orden,
   onOrdenChange,
-  densidad,
-  onDensidadChange,
   onExportar,
   exportando,
 }: InscripcionesFiltrosProps) {
@@ -130,7 +126,6 @@ export function InscripcionesFiltros({
           icon={ArrowDownUpIcon}
           align="end"
         />
-        <DensityToggle value={densidad} onChange={onDensidadChange} />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

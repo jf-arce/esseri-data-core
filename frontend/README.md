@@ -147,7 +147,7 @@ badge, ítem de nav), `rounded-lg` (input/select, 8px), `rounded-card-sm` (12px)
 | Confirmación destructiva                                           | `<AlertDialog>` con el nombre concreto del registro afectado en el título                                                             |
 | Menú de acciones de fila                                           | `<DropdownMenu>`; la acción destructiva va al final, separada por `<DropdownMenuSeparator>`, `variant="destructive"`                  |
 | Chip de filtro / botón segmentado                                  | `<ToggleGroup>` + `<ToggleGroupItem>` (`variant="default"` = chip, `variant="outline"` dentro de un grupo `spacing={0}` = segmentado) |
-| Tabla densa, cómoda o compacta                                     | `<Table data-density="compact">` para 36px de fila; sin el atributo, 44px                                                             |
+| Tabla                                                              | `<Table>`, una sola densidad: fila de 40px, `text-sm`, sin variantes                                                                  |
 
 ### Qué NO hacer
 

@@ -46,11 +46,26 @@ export function StatTile({
         <svg
           viewBox="0 0 130 130"
           aria-hidden="true"
-          className="pointer-events-none absolute -right-5 -bottom-5 size-32 opacity-[0.09]"
+          className="pointer-events-none absolute -right-5 -bottom-5 size-32 text-texto-sobre-oscuro opacity-10"
         >
-          <g fill="none" stroke="#fff" strokeWidth="1.5">
+          <g
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M65 10 112 36 112 84 65 110 18 84 18 36Z" />
-            <path d="M65 36 92 51 92 79 65 94 38 79 38 51Z" />
+            <path d="M65 60 65 10 M65 60 112 36 M65 60 112 84 M65 60 65 110 M65 60 18 84 M65 60 18 36" />
+          </g>
+          <g fill="currentColor" stroke="none">
+            <circle cx="65" cy="10" r="4" />
+            <circle cx="112" cy="36" r="4" />
+            <circle cx="112" cy="84" r="4" />
+            <circle cx="65" cy="110" r="4" />
+            <circle cx="18" cy="84" r="4" />
+            <circle cx="18" cy="36" r="4" />
+            <circle cx="65" cy="60" r="4.5" />
           </g>
         </svg>
       )}

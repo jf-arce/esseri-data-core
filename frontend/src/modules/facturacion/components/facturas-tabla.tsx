@@ -83,7 +83,7 @@ function EncabezadoOrdenable({
   return (
     <button
       type="button"
-      className="inline-flex items-center gap-1 rounded-sm text-inherit outline-none hover:text-texto focus-visible:ring-2 focus-visible:ring-violeta"
+      className="inline-flex items-center gap-1 rounded-sm text-inherit hover:text-texto"
       aria-label={`Ordenar por ${etiqueta.toLowerCase()}: ${activo && direccion === 'asc' ? 'ascendente' : 'descendente'}`}
       onClick={() => onOrdenar(campo)}
     >
@@ -114,7 +114,7 @@ export function FacturasTabla({
 
   return (
     <div className="rounded-panel bg-superficie shadow-card">
-      <Table bare minWidth="min-w-[1080px]" data-density="compact" className="table-fixed">
+      <Table bare minWidth="min-w-[1080px]" className="table-fixed">
         <TableHeader>
           <TableRow>
             <TableHead className="w-28">Factura</TableHead>
@@ -190,7 +190,7 @@ export function FacturasTabla({
                       <TooltipTrigger asChild>
                         <button
                           type="button"
-                          className="block w-full truncate text-left outline-none focus-visible:ring-2 focus-visible:ring-violeta"
+                          className="block w-full truncate text-left"
                           aria-label={`Ver ${etiquetasConceptosFactura(factura.detalles).length} conceptos`}
                         >
                           {resumenConceptosFactura(factura.detalles)}

@@ -68,7 +68,7 @@ Regla dura: el violeta va siempre **plano**. Cero degradés, y en particular cer
 | advertencia | `#B45309` | estado de alerta |
 | error | `#B42318` | estado negativo/destructivo |
 | info | `#175CD3` | estado informativo |
-| exito-suave / advertencia-suave / error-suave / info-suave | `#E0ECE9` / `#F4E8E1` / `#F4E2E2` / `#E1E9F9` | fondo pastel de cada semántico, para badges de estado |
+| exito-suave / advertencia-suave / error-suave / info-suave | `#E0ECE9` / `#F2DFC9` / `#F4E2E2` / `#E1E9F9` | fondo pastel de cada semántico, para badges de estado |
 
 Los semánticos comunican **solo estado**, nunca identidad ni acción. Un badge de estado usa fondo `-suave` + texto/ícono en el color saturado + un punto indicador: el estado nunca se comunica solo por color.
 
@@ -157,7 +157,7 @@ Los demás overlays (dropdowns, modales, toasts, popovers) mantienen su propia s
 
 Prohibido anidar cards dentro de cards: para agrupar contenido dentro de una card se usan divisores (`border-top`) y encabezados de sección internos, nunca otra card.
 
-Densidad empresarial en tablas: fila de 44px (36px en modo compacto).
+Densidad empresarial en tablas: una sola densidad, fila de 40px, con `text-sm` (15px) en la celda y padding lateral de 16px. Revisado: hubo dos modos (cómoda 44px/15px y compacta 36px/13px, alternables con un switch); en el uso real el switch no aportaba una decisión real —"cómoda" no se sentía más cómoda, solo más vacía— y la compacta bajaba el texto por debajo de lo legible. Se unificó en un solo valor, el punto medio de aire horizontal de la compacta con la tipografía de cuerpo del sistema.
 
 ## 6. Movimiento
 
@@ -211,9 +211,11 @@ Los 7 estados que todo control interactivo (Button, Input, ítem de nav, chip) c
 
 ### 9.1 Filtros de tabla
 
-Nunca una fila de chips todos-al-lado-del-otro cuando hay más de dos o tres opciones: eso no escala y no deja lugar a más de un criterio a la vez. El patrón es una barra con, de izquierda a derecha: búsqueda, uno o más **dropdowns de filtro** (cada uno abre un panel con el tipo de input que corresponde al dato: radio para estado excluyente, checkbox para selección múltiple con contador en el disparador, rango de dos inputs para importe, presets + rango personalizado para fecha), un espaciador, **Ordenar por** (alfabético, numérico o por fecha, según lo que la tabla realmente tenga) y, en tablas de alto volumen, el control de densidad (cómoda / compacta). Los filtros activos se muestran como chips removibles debajo de la barra, con "Limpiar todo".
+Nunca una fila de chips todos-al-lado-del-otro cuando hay más de dos o tres opciones: eso no escala y no deja lugar a más de un criterio a la vez. El patrón es una barra con, de izquierda a derecha: búsqueda, uno o más **dropdowns de filtro** (cada uno abre un panel con el tipo de input que corresponde al dato: radio para estado excluyente, checkbox para selección múltiple con contador en el disparador, rango de dos inputs para importe, presets + rango personalizado para fecha) y un espaciador seguido de **Ordenar por** (alfabético, numérico o por fecha, según lo que la tabla realmente tenga). Los filtros activos se muestran como chips removibles debajo de la barra, con "Limpiar todo".
 
-No todas las tablas necesitan todos estos filtros. El criterio es el dato: una tabla de solo lectura (auditoría, log de accesos) lleva filtro y orden pero no densidad ni acciones; una tabla chica embebida en una vista de detalle (el historial de facturas de una familia, en su propio portal) no necesita el aparato completo de una barra de filtros — alcanza con orden simple o nada. Forzar el mismo patrón en todos lados es tan mal criterio como no tener ninguno.
+No todas las tablas necesitan todos estos filtros. El criterio es el dato: una tabla de solo lectura (auditoría, log de accesos) lleva filtro y orden pero no acciones; una tabla chica embebida en una vista de detalle (el historial de facturas de una familia, en su propio portal) no necesita el aparato completo de una barra de filtros — alcanza con orden simple o nada. Forzar el mismo patrón en todos lados es tan mal criterio como no tener ninguno.
+
+*(Nota de revisión: este documento tenía además un control de densidad cómoda/compacta en esta barra, quitado — ver §5.2.)*
 
 ### 9.2 Acciones de fila
 
@@ -285,7 +287,7 @@ El isotipo de la marca es un hexágono rodeado de nodos conectados: una red, por
 
 **El riel de eventos** (estructural): una línea fina con nodos circulares. El centro de cada nodo cae exactamente sobre la línea, nunca desplazado (revisar la aritmética del CSS, no a ojo: con nodo de 8px y borde de 2px en `box-sizing:border-box`, el centro queda a 4px del borde del nodo). Aparece como estructura real, no decoración, en líneas de tiempo de auditoría, historiales de ejecución de workflows y feeds de alertas. Tiene una variante horizontal (línea + nodo centrado, misma aritmética, orientación horizontal) para procesos de pocos pasos como la ejecución de un workflow paso a paso; el paso que falla queda en rojo (`error`/`error-suave`) con su mensaje debajo.
 
-**Ilustración geométrica** (decorativa, nueva en este documento): composiciones abstractas del hexágono con sus nodos, en trazo fino y muy baja opacidad (0.12-0.18), coloreadas con el lila claro de marca u otro color de módulo cuando la pantalla pertenece a un dominio específico. Van solo en zonas de respiro sin datos que leer: portadas de sección, login, estados vacíos, y como fondo de headers de card (nivel académico, tarjeta de rol, celda hero de un bento). **Nunca dentro de una tabla, un formulario o cualquier superficie con datos reales**: ahí compiten con la información en vez de enmarcarla. Donde la ilustración es interactiva (ej. una portada con hover), la transición sigue las reglas de §6: 150-220ms, ease-out, sin glow ni blur. Siguen prohibidas las ilustraciones figurativas (objetos, escenas, personajes): el motivo es siempre geométrico y deriva del isotipo, nunca decoración genérica de stock.
+**Ilustración geométrica** (decorativa, nueva en este documento): composiciones abstractas del hexágono **con sus nodos** —el motivo completo, no el hexágono solo: un hexágono sin nodos se lee como forma genérica de stock, no como la marca—, en trazo fino y muy baja opacidad (0.10-0.18), coloreadas con el lila claro de marca u otro color de módulo cuando la pantalla pertenece a un dominio específico. Van solo en zonas de respiro sin datos que leer: portadas de sección, login, estados vacíos, y como fondo de headers de card (nivel académico, tarjeta de rol, celda hero de un bento). **Nunca dentro de una tabla, un formulario o cualquier superficie con datos reales**: ahí compiten con la información en vez de enmarcarla. Donde la ilustración es interactiva (ej. una portada con hover), la transición sigue las reglas de §6: 150-220ms, ease-out, sin glow ni blur. Siguen prohibidas las ilustraciones figurativas (objetos, escenas, personajes): el motivo es siempre geométrico y deriva del isotipo, nunca decoración genérica de stock.
 
 ## 14. Qué evitar (resumen)
 

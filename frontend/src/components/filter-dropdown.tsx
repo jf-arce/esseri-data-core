@@ -53,7 +53,7 @@ function FilterTrigger({
     <button
       type="button"
       className={cn(
-        'inline-flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-borde bg-superficie pr-3.5 pl-4 text-sm font-medium text-texto-2 transition-colors hover:bg-fila-hover focus-visible:ring-2 focus-visible:ring-violeta focus-visible:ring-offset-2 focus-visible:outline-none',
+        'inline-flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-borde bg-superficie pr-3.5 pl-4 text-sm font-medium text-texto-2 transition-colors hover:bg-fila-hover',
         active && 'border-violeta-borde bg-violeta-suave text-violeta hover:bg-violeta-suave',
         className,
       )}

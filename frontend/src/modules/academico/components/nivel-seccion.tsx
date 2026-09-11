@@ -240,11 +240,11 @@ function DivisionCard({
             >
               <span className="flex items-center gap-1.5 text-texto">
                 {materia.tipo === 'taller' ? (
-                  <span className="rounded bg-sup-workflows px-1.5 py-0.5 text-[10px] font-semibold text-violeta">
+                  <span className="rounded bg-sup-workflows px-1.5 py-0.5 text-xs font-semibold text-violeta">
                     Taller
                   </span>
                 ) : (
-                  <span className="rounded bg-sup-academico px-1.5 py-0.5 text-[10px] font-semibold text-info">
+                  <span className="rounded bg-sup-academico px-1.5 py-0.5 text-xs font-semibold text-info">
                     Materia
                   </span>
                 )}

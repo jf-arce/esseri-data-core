@@ -39,20 +39,13 @@ function BadgeEstado({ estado }: { estado: Proveedor['estado'] }) {
 interface ProveedoresTablaProps {
   proveedores: Proveedor[]
   cargando: boolean
-  densidad: 'comfortable' | 'compact'
   onEditar: (proveedor: Proveedor) => void
   onEliminar: (proveedor: Proveedor) => void
 }
 
-function ProveedoresTabla({
-  proveedores,
-  cargando,
-  densidad,
-  onEditar,
-  onEliminar,
-}: ProveedoresTablaProps) {
+function ProveedoresTabla({ proveedores, cargando, onEditar, onEliminar }: ProveedoresTablaProps) {
   return (
-    <Table data-density={densidad === 'compact' ? 'compact' : undefined}>
+    <Table>
       <TableHeader>
         <TableRow>
           <TableHead>Proveedor</TableHead>

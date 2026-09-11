@@ -51,7 +51,6 @@ function BadgeEstado({ estado }: { estado: EstadoSolicitud }) {
 interface SolicitudesTablaProps {
   solicitudes: SolicitudCompra[]
   cargando: boolean
-  densidad: 'comfortable' | 'compact'
   onEditar: (solicitud: SolicitudCompra) => void
   onCambiarEstado: (solicitud: SolicitudCompra, estado: EstadoSolicitud) => void
   onEliminar: (solicitud: SolicitudCompra) => void
@@ -60,13 +59,12 @@ interface SolicitudesTablaProps {
 function SolicitudesTabla({
   solicitudes,
   cargando,
-  densidad,
   onEditar,
   onCambiarEstado,
   onEliminar,
 }: SolicitudesTablaProps) {
   return (
-    <Table data-density={densidad === 'compact' ? 'compact' : undefined}>
+    <Table>
       <TableHeader>
         <TableRow>
           <TableHead>Artículo</TableHead>

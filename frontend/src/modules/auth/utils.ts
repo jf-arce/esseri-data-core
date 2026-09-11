@@ -5,12 +5,12 @@ import type { Permiso, Rol, UsuarioConRoles } from '@/modules/auth/types'
 // "Secretaría" no es un módulo del sistema, así que se le asigna un color estable por hash en
 // vez de forzar una correspondencia inventada rol→módulo.
 const PALETA_IDENTIDAD = [
-  '#7C24A3', // violeta-vibrante
-  '#0E7C86', // petroleo
-  '#B45309', // advertencia
-  '#175CD3', // info
-  '#54577A', // pizarra violácea
-  '#7B49E3', // lila frío (workflows)
+  'var(--violeta)',
+  'var(--petroleo)',
+  'var(--advertencia)',
+  'var(--info)',
+  'var(--mod-compras)', // pizarra violácea
+  'var(--mod-workflows)', // lila frío
 ] as const
 
 function hashEstable(texto: string): number {
@@ -127,7 +127,7 @@ export function filtrarYOrdenarUsuarios(
 export type OrdenRoles = 'nombre-asc' | 'nombre-desc'
 
 // Filtro + orden de la tabla de roles (§9.1 DESIGN.md): tabla chica, solo búsqueda y orden, sin
-// filtro de dato adicional (no hay otro campo por el que segmentar) ni densidad.
+// filtro de dato adicional (no hay otro campo por el que segmentar).
 export function filtrarYOrdenarRoles(
   roles: Rol[],
   filtros: { busqueda: string; orden: OrdenRoles },
@@ -160,8 +160,7 @@ interface FiltrosPermisos {
 }
 
 // Filtro + orden de la tabla de permisos (§9.1): es la tabla de más volumen (8 módulos ×
-// acciones), lleva búsqueda, filtro múltiple de módulo y orden además de la densidad que ya
-// maneja `DensityToggle`.
+// acciones), lleva búsqueda, filtro múltiple de módulo y orden.
 export function filtrarYOrdenarPermisos(permisos: Permiso[], filtros: FiltrosPermisos): Permiso[] {
   const busqueda = filtros.busqueda.trim().toLowerCase()
 
@@ -192,8 +191,8 @@ export function filtrarYOrdenarPermisos(permisos: Permiso[], filtros: FiltrosPer
 }
 
 // Filtro de la matriz de permisos (§9.1): tabla de referencia de solo lectura, lleva búsqueda y
-// filtro de módulo sobre las filas módulo·acción, sin orden ni densidad (no aplica a una
-// grilla de referencia con roles como columnas fijas).
+// filtro de módulo sobre las filas módulo·acción, sin orden (no aplica a una grilla de
+// referencia con roles como columnas fijas).
 export function filtrarPermisosDeMatriz(
   permisos: Permiso[],
   filtros: { busqueda: string; modulos: string[] },

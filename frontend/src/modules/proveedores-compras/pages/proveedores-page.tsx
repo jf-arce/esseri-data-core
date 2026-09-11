@@ -31,7 +31,6 @@ export function ProveedoresPage() {
   const [categoriasFiltro, setCategoriasFiltro] = useState<string[]>([])
   const [estado, setEstado] = useState<'' | EstadoProveedor>('')
   const [orden, setOrden] = useState<OrdenProveedores>('nombre-asc')
-  const [densidad, setDensidad] = useState<'comfortable' | 'compact'>('comfortable')
   const [errorExport, setErrorExport] = useState<string | null>(null)
 
   async function handleExportar() {
@@ -126,8 +125,6 @@ export function ProveedoresPage() {
         onEstadoChange={setEstado}
         orden={orden}
         onOrdenChange={setOrden}
-        densidad={densidad}
-        onDensidadChange={setDensidad}
         hayFiltrosActivos={hayFiltrosActivos}
       />
 
@@ -166,7 +163,6 @@ export function ProveedoresPage() {
         <ProveedoresTabla
           proveedores={filtrados}
           cargando={cargando}
-          densidad={densidad}
           onEditar={(proveedor) => {
             setProveedorEditando(proveedor)
             setDialogoAbierto(true)

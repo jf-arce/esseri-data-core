@@ -52,7 +52,7 @@ export function PanelAdministracionPage() {
           <Link
             key={href}
             to={href}
-            className="group rounded-card focus-visible:ring-2 focus-visible:ring-violeta focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="group rounded-card"
           >
             <Card className="h-full py-4 transition-colors duration-200 group-hover:bg-fila-hover">
               <CardHeader>

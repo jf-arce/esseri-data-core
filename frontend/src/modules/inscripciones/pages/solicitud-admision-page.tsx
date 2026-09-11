@@ -259,7 +259,7 @@ export function SolicitudAdmisionPage() {
         </Button>
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <p className="text-xs font-bold tracking-[.08em] text-texto-3 uppercase">
+            <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
               Inscripciones
             </p>
             <h1 className="mt-1 text-2xl font-semibold">

@@ -54,14 +54,13 @@ function BadgeModulo({ modulo }: { modulo: string }) {
 interface PermisosTablaProps {
   permisos: Permiso[]
   cargando: boolean
-  densidad: 'comfortable' | 'compact'
   onEditar: (permiso: Permiso) => void
   onEliminar: (permiso: Permiso) => void
 }
 
-function PermisosTabla({ permisos, cargando, densidad, onEditar, onEliminar }: PermisosTablaProps) {
+function PermisosTabla({ permisos, cargando, onEditar, onEliminar }: PermisosTablaProps) {
   return (
-    <Table data-density={densidad === 'compact' ? 'compact' : undefined}>
+    <Table>
       <TableHeader>
         <TableRow>
           <TableHead>Módulo</TableHead>

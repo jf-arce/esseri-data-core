@@ -5,14 +5,15 @@ import { Slot } from 'radix-ui'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-transparent bg-clip-padding text-sm font-semibold whitespace-nowrap transition-colors outline-none select-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-transparent bg-clip-padding text-sm font-semibold whitespace-nowrap transition-colors outline-none select-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default: 'bg-violeta text-superficie hover:bg-violeta-esseri active:bg-violeta-pressed',
         secondary: 'border-borde bg-superficie text-texto hover:bg-fila-hover',
         ghost: 'text-texto-2 hover:bg-fila-hover hover:text-texto',
-        destructive: 'bg-error-suave text-error hover:bg-[#F0CFCC]',
+        destructive:
+          'bg-error-suave text-error hover:bg-[color-mix(in_oklch,var(--error)_15%,var(--error-suave))]',
         link: 'text-violeta underline-offset-4 hover:underline',
       },
       size: {

@@ -22,7 +22,6 @@ export function PermisosPage() {
   const [busqueda, setBusqueda] = useState('')
   const [modulosFiltro, setModulosFiltro] = useState<string[]>([])
   const [orden, setOrden] = useState<OrdenPermisos>('modulo-asc')
-  const [densidad, setDensidad] = useState<'comfortable' | 'compact'>('comfortable')
 
   const modulosDisponibles = useMemo(
     () =>
@@ -74,8 +73,6 @@ export function PermisosPage() {
         modulosDisponibles={modulosDisponibles}
         orden={orden}
         onOrdenChange={setOrden}
-        densidad={densidad}
-        onDensidadChange={setDensidad}
         hayFiltrosActivos={hayFiltrosActivos}
       />
 
@@ -109,7 +106,6 @@ export function PermisosPage() {
         <PermisosTabla
           permisos={filtrados}
           cargando={cargando}
-          densidad={densidad}
           onEditar={(permiso) => {
             setPermisoEditando(permiso)
             setDialogoAbierto(true)

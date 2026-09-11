@@ -28,7 +28,6 @@ export function UsuariosPage() {
   const [estado, setEstado] = useState<EstadoUsuarioFiltro>('todos')
   const [rolesFiltro, setRolesFiltro] = useState<string[]>([])
   const [orden, setOrden] = useState<OrdenUsuarios>('nombre-asc')
-  const [densidad, setDensidad] = useState<'comfortable' | 'compact'>('comfortable')
   const [pagina, setPagina] = useState(0)
 
   const [usuarioDetalle, setUsuarioDetalle] = useState<UsuarioConRoles | null>(null)
@@ -104,8 +103,6 @@ export function UsuariosPage() {
         onRolesFiltroChange={actualizarFiltro(setRolesFiltro)}
         orden={orden}
         onOrdenChange={actualizarFiltro(setOrden)}
-        densidad={densidad}
-        onDensidadChange={setDensidad}
         roles={roles}
         hayFiltrosActivos={hayFiltrosActivos}
       />
@@ -130,7 +127,6 @@ export function UsuariosPage() {
         <UsuariosTabla
           visibles={visibles}
           cargando={cargando}
-          densidad={densidad}
           pageSize={PAGE_SIZE}
           totalFiltrados={filtrados.length}
           paginaActual={paginaActual}

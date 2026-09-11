@@ -132,7 +132,7 @@ export function FamiliaFichaPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <p className="text-xs font-bold tracking-[.08em] text-texto-3 uppercase">
+      <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
         Familias y alumnos
       </p>
 

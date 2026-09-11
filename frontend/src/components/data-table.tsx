@@ -25,7 +25,6 @@ interface DataTableProps<TData extends RowData> {
   columns: DataTableColumnDef<TData>[]
   data: TData[]
   pageSize?: number
-  density?: 'compact' | 'comfortable'
   emptyMessage?: string
 }
 
@@ -33,7 +32,6 @@ function DataTable<TData extends RowData>({
   columns,
   data,
   pageSize = 10,
-  density = 'comfortable',
   emptyMessage = 'No hay resultados para mostrar.',
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<{ id: string; desc: boolean }[]>([])
@@ -65,7 +63,7 @@ function DataTable<TData extends RowData>({
 
   return (
     <div className="overflow-hidden rounded-panel bg-superficie shadow-card">
-      <Table bare data-density={density === 'compact' ? 'compact' : undefined}>
+      <Table bare>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

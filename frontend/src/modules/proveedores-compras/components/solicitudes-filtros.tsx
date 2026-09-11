@@ -1,5 +1,5 @@
 import { ArrowDownAZIcon } from 'lucide-react'
-import { DensityToggle, FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
+import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
 import { FilterChip, FilterChips, FilterDropdown } from '@/components/filter-dropdown'
 import type { EstadoSolicitud, OrdenSolicitudes } from '@/modules/proveedores-compras/types'
 
@@ -22,8 +22,6 @@ interface SolicitudesFiltrosProps {
   onEstadoChange: (valor: '' | EstadoSolicitud) => void
   orden: OrdenSolicitudes
   onOrdenChange: (valor: OrdenSolicitudes) => void
-  densidad: 'comfortable' | 'compact'
-  onDensidadChange: (valor: 'comfortable' | 'compact') => void
   hayFiltrosActivos: boolean
 }
 
@@ -34,8 +32,6 @@ function SolicitudesFiltros({
   onEstadoChange,
   orden,
   onOrdenChange,
-  densidad,
-  onDensidadChange,
   hayFiltrosActivos,
 }: SolicitudesFiltrosProps) {
   return (
@@ -64,8 +60,6 @@ function SolicitudesFiltros({
           value={orden}
           onChange={(valor) => onOrdenChange(valor as OrdenSolicitudes)}
         />
-
-        <DensityToggle value={densidad} onChange={onDensidadChange} />
       </FilterBar>
 
       {hayFiltrosActivos && (

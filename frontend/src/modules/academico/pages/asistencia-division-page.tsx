@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { StatTile } from '@/components/stat-tile'
 import { useAsistenciaDivision } from '@/modules/academico/hooks/use-asistencia-division'
 import { registrarAsistenciaMasiva } from '@/modules/academico/services/asistencias'
 import { listarDivisiones } from '@/modules/academico/services/divisiones'
@@ -149,50 +150,34 @@ export function AsistenciaDivisionPage() {
         <>
           {/* Stats */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <div className="rounded-panel bg-superficie p-4 shadow-card">
-              <div className="flex items-center gap-2.5">
-                <div className="flex size-8 items-center justify-center rounded-full bg-exito-suave text-exito">
-                  <CheckIcon className="size-4" />
-                </div>
-                <div>
-                  <p className="text-xs text-texto-2">Presentes</p>
-                  <p className="text-lg font-semibold tabular-nums">{stats.presentes}</p>
-                </div>
-              </div>
-            </div>
-            <div className="rounded-panel bg-superficie p-4 shadow-card">
-              <div className="flex items-center gap-2.5">
-                <div className="flex size-8 items-center justify-center rounded-full bg-advertencia-suave text-advertencia">
-                  <ClockIcon className="size-4" />
-                </div>
-                <div>
-                  <p className="text-xs text-texto-2">Tardanzas</p>
-                  <p className="text-lg font-semibold tabular-nums">{stats.tardanzas}</p>
-                </div>
-              </div>
-            </div>
-            <div className="rounded-panel bg-superficie p-4 shadow-card">
-              <div className="flex items-center gap-2.5">
-                <div className="flex size-8 items-center justify-center rounded-full bg-error-suave text-error">
-                  <XIcon className="size-4" />
-                </div>
-                <div>
-                  <p className="text-xs text-texto-2">Ausentes</p>
-                  <p className="text-lg font-semibold tabular-nums">{stats.ausentes}</p>
-                </div>
-              </div>
-            </div>
-            <div className="rounded-panel bg-superficie p-4 shadow-card">
-              <div className="flex items-center gap-2.5">
-                <div className="flex size-8 items-center justify-center rounded-full bg-fila-hover text-texto-3">
-                  <CalendarIcon className="size-4" />
-                </div>
-                <div>
-                  <p className="text-xs text-texto-2">Sin marcar</p>
-                  <p className="text-lg font-semibold tabular-nums">{stats.sinMarcar}</p>
-                </div>
-              </div>
-            </div>
+            <StatTile
+              variant="dark"
+              compact
+              label="Presentes"
+              value={stats.presentes}
+              icon={CheckIcon}
+            />
+            <StatTile
+              compact
+              label="Tardanzas"
+              value={stats.tardanzas}
+              icon={ClockIcon}
+              iconClassName="bg-advertencia-suave text-advertencia"
+            />
+            <StatTile
+              compact
+              label="Ausentes"
+              value={stats.ausentes}
+              icon={XIcon}
+              iconClassName="bg-error-suave text-error"
+            />
+            <StatTile
+              compact
+              label="Sin marcar"
+              value={stats.sinMarcar}
+              icon={CalendarIcon}
+              iconClassName="bg-fila-hover text-texto-3"
+            />
           </div>
 
           {/* Grid de alumnos */}
@@ -239,7 +224,7 @@ export function AsistenciaDivisionPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => toggleAsistencia(alumno.id, 'presente')}
-                        className={`h-9 rounded-full border-2 px-3.5 text-xs font-bold transition-colors ${
+                        className={`h-9 rounded-lg border-2 px-3.5 text-xs font-bold transition-colors ${
                           isSelected(alumno.estadoAsistencia, 'presente')
                             ? 'border-exito bg-exito-suave text-exito'
                             : 'border-borde bg-superficie text-texto-2 hover:border-texto-3'
@@ -249,7 +234,7 @@ export function AsistenciaDivisionPage() {
                       </button>
                       <button
                         onClick={() => toggleAsistencia(alumno.id, 'tardanza')}
-                        className={`h-9 rounded-full border-2 px-3.5 text-xs font-bold transition-colors ${
+                        className={`h-9 rounded-lg border-2 px-3.5 text-xs font-bold transition-colors ${
                           isSelected(alumno.estadoAsistencia, 'tardanza')
                             ? 'border-advertencia bg-advertencia-suave text-advertencia'
                             : 'border-borde bg-superficie text-texto-2 hover:border-texto-3'
@@ -259,7 +244,7 @@ export function AsistenciaDivisionPage() {
                       </button>
                       <button
                         onClick={() => toggleAsistencia(alumno.id, 'ausente')}
-                        className={`h-9 rounded-full border-2 px-3.5 text-xs font-bold transition-colors ${
+                        className={`h-9 rounded-lg border-2 px-3.5 text-xs font-bold transition-colors ${
                           isSelected(alumno.estadoAsistencia, 'ausente')
                             ? 'border-error bg-error-suave text-error'
                             : 'border-borde bg-superficie text-texto-2 hover:border-texto-3'
