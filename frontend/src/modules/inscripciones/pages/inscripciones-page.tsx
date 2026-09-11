@@ -28,7 +28,6 @@ export function InscripcionesPage() {
   const [tipo, setTipo] = useState<TipoInscripcion | ''>('')
   const [estado, setEstado] = useState<EstadoInscripcion | ''>('')
   const [orden, setOrden] = useState<'fecha_desc' | 'fecha_asc' | 'alumno_asc'>('fecha_desc')
-  const [densidad, setDensidad] = useState<'comfortable' | 'compact'>('comfortable')
   const [pagina, setPagina] = useState(1)
   const [inscripcionParaCambio, setInscripcionParaCambio] = useState<InscripcionListadoItem | null>(
     null,
@@ -107,7 +106,7 @@ export function InscripcionesPage() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
-        <p className="text-xs font-bold tracking-[.08em] text-texto-3 uppercase">Inscripciones</p>
+        <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">Inscripciones</p>
         <PageHeader
           titulo="Inscripciones"
           accion={
@@ -168,8 +167,6 @@ export function InscripcionesPage() {
         onEstadoChange={actualizarFiltro(setEstado)}
         orden={orden}
         onOrdenChange={actualizarFiltro(setOrden)}
-        densidad={densidad}
-        onDensidadChange={setDensidad}
         onExportar={exportarListado}
         exportando={exportando}
       />
@@ -194,7 +191,6 @@ export function InscripcionesPage() {
         <InscripcionesTabla
           items={datos.items}
           cargando={cargando}
-          densidad={densidad}
           pagina={datos.pagina || pagina}
           tamanioPagina={TAMANIO_PAGINA}
           total={datos.total}

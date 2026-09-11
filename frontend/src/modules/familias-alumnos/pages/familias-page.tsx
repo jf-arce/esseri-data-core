@@ -8,7 +8,7 @@ import { ConfirmarEliminacion } from '@/components/confirmar-eliminacion'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { PageHeader } from '@/components/page-header'
 import { StatTile } from '@/components/stat-tile'
-import { FilterBar, FilterBarSpacer, FilterSearch, DensityToggle } from '@/components/filter-bar'
+import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
 import {
   FilterDropdown,
   FilterChip,
@@ -36,7 +36,6 @@ export function FamiliasPage() {
   const [busqueda, setBusqueda] = useState('')
   const [estado, setEstado] = useState('todas')
   const [orden, setOrden] = useState('recientes')
-  const [densidad, setDensidad] = useState<'comfortable' | 'compact'>('comfortable')
 
   // Construir filtros para el backend
   const filtros: FiltrosListarFamilias = useMemo(() => {
@@ -161,7 +160,6 @@ export function FamiliasPage() {
           onChange={setOrden}
           align="end"
         />
-        <DensityToggle value={densidad} onChange={setDensidad} />
       </FilterBar>
 
       {(busqueda.trim() !== '' || estado !== 'todas') && (
@@ -213,7 +211,6 @@ export function FamiliasPage() {
           <FamiliasTabla
             familias={ordenadas}
             cargando={cargando}
-            densidad={densidad}
             onEliminar={setFamiliaAEliminar}
           />
         </Card>

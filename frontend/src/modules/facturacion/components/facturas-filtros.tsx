@@ -73,7 +73,7 @@ export function FacturasFiltros(props: FacturasFiltrosProps) {
       <FilterBar>
         <Popover open={abierto} onOpenChange={setAbierto}>
           <PopoverTrigger asChild>
-            <Button variant="secondary" className="h-10 rounded-full" aria-expanded={abierto}>
+            <Button variant="secondary" className="h-10" aria-expanded={abierto}>
               <span className="max-w-48 truncate">
                 {alumnoSeleccionado
                   ? `${alumnoSeleccionado.persona_apellido}, ${alumnoSeleccionado.persona_nombre}`

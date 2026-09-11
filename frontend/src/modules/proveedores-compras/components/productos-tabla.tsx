@@ -31,20 +31,13 @@ const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
 interface ProductosTablaProps {
   productos: ProductoServicio[]
   cargando: boolean
-  densidad: 'comfortable' | 'compact'
   onEditar: (producto: ProductoServicio) => void
   onEliminar: (producto: ProductoServicio) => void
 }
 
-function ProductosTabla({
-  productos,
-  cargando,
-  densidad,
-  onEditar,
-  onEliminar,
-}: ProductosTablaProps) {
+function ProductosTabla({ productos, cargando, onEditar, onEliminar }: ProductosTablaProps) {
   return (
-    <Table data-density={densidad === 'compact' ? 'compact' : undefined}>
+    <Table>
       <TableHeader>
         <TableRow>
           <TableHead>Nombre</TableHead>

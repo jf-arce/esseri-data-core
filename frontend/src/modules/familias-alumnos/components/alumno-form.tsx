@@ -86,7 +86,7 @@ export function AlumnoForm({
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      <p className="text-xs font-bold tracking-[.08em] text-texto-3 uppercase">
+      <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
         Familias y alumnos
       </p>
       <p className="mb-2.5 text-sm text-texto-2">

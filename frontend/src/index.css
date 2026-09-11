@@ -158,7 +158,7 @@
   --error: #b42318;
   --info: #175cd3;
   --exito-suave: #e0ece9;
-  --advertencia-suave: #f4e8e1;
+  --advertencia-suave: #f2dfc9;
   --error-suave: #f4e2e2;
   --info-suave: #e1e9f9;
 
@@ -181,7 +181,7 @@
   /* Elevación y movimiento (§5.2, §6). Revisado: la sombra original (0 6px 20px / .06) leía más
      pesada de lo que corresponde a una herramienta interna densa; se baja la intensidad
      manteniendo dos capas (contacto + difusión) en vez de sacarla del todo. */
-  --sombra-card: 0 1px 2px rgba(20, 17, 26, 0.03), 0 4px 12px rgba(20, 17, 26, 0.025);
+  --sombra-card: 0 1px 2px rgba(20, 17, 26, 0.04), 0 4px 12px rgba(20, 17, 26, 0.035);
   --sombra-overlay: 0 8px 24px rgba(20, 17, 26, 0.08);
   --curva-esseri: cubic-bezier(0.2, 0, 0, 1);
 
@@ -234,9 +234,35 @@
     background: var(--violeta-borde);
     color: var(--violeta-pressed);
   }
-  :focus-visible:not(input):not(textarea):not([role='combobox']) {
-    outline: 2px solid var(--violeta);
-    outline-offset: 2px;
+  /* Foco unificado: un solo anillo (box-shadow, no outline) de 1.5px sólido en
+     `--violeta`, pegado al borde (sin offset, sin "sobresalir"), para TODO control
+     interactivo — botones, links, chips, cards, inputs, textarea, selects, combobox.
+     Usar box-shadow evita el conflicto de capas de Tailwind entre `outline-none`
+     (utilities) y un `outline` definido acá (base) — `outline-none` siempre gana esa
+     pulseada, así que un outline global termina invisible en cualquier control que ya
+     traiga `outline-none` (Button, Input, Select, Textarea, Toggle…). El `!important`
+     en el outline es porque algunos componentes (ej. el trigger de un DropdownMenu de
+     Radix) terminan con un outline propio que ninguna capa de Tailwind logra tapar.
+     El borde propio de cada campo (gris, `border-borde`) no cambia de color en foco —
+     el anillo solo. El `<input>` real dentro de un InputGroup (ver input-group.tsx)
+     trae su propio `ring-0`, así que ahí el anillo no se duplica: lo muestra el
+     contenedor con ícono, no el input sin borde (mismo truco en FilterSearch y
+     CicloLectivoFiltro, con `focus-visible:shadow-none` en el input interno).
+     Se excluyen los ítems de listas navegables (opción de Select, ítem de
+     DropdownMenu/Command) porque Radix les mueve el foco real de teclado uno por uno
+     al navegar con flechas — como están apretados dentro de un popup con poco margen,
+     el anillo termina pegado o saliéndose del borde redondeado del panel. Esos ítems
+     ya se distinguen con el fondo `accent` (`focus:bg-accent`), no necesitan anillo.
+     El `outline: none` va aparte y sin excepciones: si no, esos mismos ítems muestran
+     el outline nativo del navegador en su lugar (el anillo desaparece pero el foco
+     seguiría marcándose con otra cosa). */
+  :focus-visible {
+    outline: none !important;
+  }
+  :focus-visible:not([role='option']):not([role='menuitem']):not([role='menuitemcheckbox']):not(
+      [role='menuitemradio']
+    ) {
+    box-shadow: 0 0 0 1.5px var(--violeta);
   }
   .tabular {
     font-variant-numeric: tabular-nums;

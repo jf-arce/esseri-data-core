@@ -10,7 +10,7 @@ import { ApiError } from '@/api/client'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ConfirmarEliminacion } from '@/components/confirmar-eliminacion'
-import { DensityToggle, FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
+import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
 import { FilterChip, FilterChips, FilterDropdown } from '@/components/filter-dropdown'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { PageHeader } from '@/components/page-header'
@@ -39,7 +39,6 @@ export function OrdenesPage() {
   const [busquedaAplicada, setBusquedaAplicada] = useState('')
   const [estado, setEstado] = useState<'' | EstadoOrdenCompra>('')
   const [pagina, setPagina] = useState(1)
-  const [densidad, setDensidad] = useState<'comfortable' | 'compact'>('comfortable')
 
   // Debounce de 300ms, igual que el listado de inscripciones: sin esto cada tecla dispara una
   // consulta contra la base.
@@ -181,7 +180,6 @@ export function OrdenesPage() {
             <ArrowDownAZIcon className="size-3.5" aria-hidden />
             Más recientes primero
           </span>
-          <DensityToggle value={densidad} onChange={setDensidad} />
         </FilterBar>
 
         {hayFiltrosActivos && (
@@ -236,7 +234,6 @@ export function OrdenesPage() {
         <OrdenesTabla
           ordenes={datos.items}
           cargando={cargando}
-          densidad={densidad}
           pagina={datos.pagina || pagina}
           totalPaginas={datos.total_paginas}
           total={datos.total}

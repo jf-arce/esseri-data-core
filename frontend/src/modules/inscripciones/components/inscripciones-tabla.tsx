@@ -71,7 +71,6 @@ function TipoChip({ tipo }: { tipo: TipoInscripcion }) {
 interface InscripcionesTablaProps {
   items: InscripcionListadoItem[]
   cargando: boolean
-  densidad: 'comfortable' | 'compact'
   pagina: number
   tamanioPagina: number
   total: number
@@ -84,7 +83,6 @@ interface InscripcionesTablaProps {
 export function InscripcionesTabla({
   items,
   cargando,
-  densidad,
   pagina,
   tamanioPagina,
   total,
@@ -103,11 +101,7 @@ export function InscripcionesTabla({
 
   return (
     <div className="overflow-hidden rounded-panel bg-superficie shadow-card">
-      <Table
-        bare
-        data-density={densidad === 'compact' ? 'compact' : undefined}
-        minWidth="min-w-[940px]"
-      >
+      <Table bare minWidth="min-w-[940px]">
         <TableHeader>
           <TableRow>
             <TableHead>Alumno</TableHead>

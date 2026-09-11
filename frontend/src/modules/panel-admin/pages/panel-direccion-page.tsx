@@ -32,7 +32,7 @@ export function PanelDireccionPage() {
         <Link
           to="/familias-alumnos/alumnos"
           aria-label="Ver alumnos activos"
-          className="group rounded-card-sm focus-visible:ring-2 focus-visible:ring-violeta focus-visible:ring-offset-2 focus-visible:outline-none"
+          className="group rounded-card-sm"
         >
           <StatTile
             label="Alumnos activos"
@@ -47,7 +47,7 @@ export function PanelDireccionPage() {
         <Link
           to="/facturacion"
           aria-label="Ver facturas y deuda pendiente"
-          className="group rounded-card-sm focus-visible:ring-2 focus-visible:ring-violeta focus-visible:ring-offset-2 focus-visible:outline-none"
+          className="group rounded-card-sm"
         >
           <StatTile
             label="Deuda pendiente"
@@ -62,7 +62,7 @@ export function PanelDireccionPage() {
         <Link
           to="/academico"
           aria-label="Ver inasistencias en Académico"
-          className="group rounded-card-sm focus-visible:ring-2 focus-visible:ring-violeta focus-visible:ring-offset-2 focus-visible:outline-none"
+          className="group rounded-card-sm"
         >
           <StatTile
             label="Inasistencias de hoy"
@@ -77,7 +77,7 @@ export function PanelDireccionPage() {
         <Link
           to="/solicitudes-compra"
           aria-label="Ver solicitudes de compra pendientes"
-          className="group rounded-card-sm focus-visible:ring-2 focus-visible:ring-violeta focus-visible:ring-offset-2 focus-visible:outline-none"
+          className="group rounded-card-sm"
         >
           <StatTile
             label="Solicitudes de compra pendientes"

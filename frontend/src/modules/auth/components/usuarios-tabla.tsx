@@ -46,7 +46,7 @@ function RolChip({ nombre, id }: { nombre: string; id: string }) {
   return (
     <span
       className="inline-flex h-[22px] shrink-0 items-center rounded-full px-2.5 text-xs font-semibold whitespace-nowrap"
-      style={{ backgroundColor: `color-mix(in oklch, ${color} 12%, white)`, color }}
+      style={{ backgroundColor: `color-mix(in oklch, ${color} 22%, var(--superficie))`, color }}
     >
       {formatearNombreRol(nombre)}
     </span>
@@ -56,7 +56,6 @@ function RolChip({ nombre, id }: { nombre: string; id: string }) {
 interface UsuariosTablaProps {
   visibles: UsuarioConRoles[]
   cargando: boolean
-  densidad: 'comfortable' | 'compact'
   pageSize: number
   totalFiltrados: number
   paginaActual: number
@@ -69,7 +68,6 @@ interface UsuariosTablaProps {
 function UsuariosTabla({
   visibles,
   cargando,
-  densidad,
   pageSize,
   totalFiltrados,
   paginaActual,
@@ -80,7 +78,7 @@ function UsuariosTabla({
 }: UsuariosTablaProps) {
   return (
     <div className="overflow-hidden rounded-panel bg-superficie shadow-card">
-      <Table bare data-density={densidad === 'compact' ? 'compact' : undefined}>
+      <Table bare>
         <TableHeader>
           <TableRow>
             <TableHead>Usuario</TableHead>
@@ -102,7 +100,10 @@ function UsuariosTabla({
                   <div className="flex items-center gap-2.5">
                     <Avatar size="sm">
                       <AvatarFallback
-                        style={{ backgroundColor: colorIdentidad(usuario.id), color: '#fff' }}
+                        style={{
+                          backgroundColor: colorIdentidad(usuario.id),
+                          color: 'var(--superficie)',
+                        }}
                       >
                         {inicialesDeUsuario(usuario.email)}
                       </AvatarFallback>

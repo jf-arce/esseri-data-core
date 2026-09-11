@@ -32,7 +32,6 @@ describe('InscripcionesTabla', () => {
           { ...inscripcionActiva, id: 'inscripcion-finalizada', estado: 'finalizada' },
         ]}
         cargando={false}
-        densidad="comfortable"
         pagina={1}
         tamanioPagina={10}
         total={2}

@@ -104,7 +104,7 @@ export function FacturasPage() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
-        <p className="text-xs font-bold tracking-[.08em] text-texto-3 uppercase">
+        <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
           Facturación y cobranza
         </p>
         <PageHeader

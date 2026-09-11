@@ -16,7 +16,7 @@ import { Card } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { PageHeader } from '@/components/page-header'
 import { StatTile } from '@/components/stat-tile'
-import { FilterBar, FilterBarSpacer, FilterSearch, DensityToggle } from '@/components/filter-bar'
+import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
 import {
   FilterDropdown,
   FilterChip,
@@ -66,7 +66,6 @@ export function AlumnosPage() {
   const [busqueda, setBusqueda] = useState('')
   const [estado, setEstado] = useState('todos')
   const [orden, setOrden] = useState('recientes')
-  const [densidad, setDensidad] = useState<'comfortable' | 'compact'>('comfortable')
 
   // Construir filtros para el backend
   const filtros: FiltrosListarAlumnos = useMemo(() => {
@@ -191,7 +190,6 @@ export function AlumnosPage() {
           onChange={setOrden}
           align="end"
         />
-        <DensityToggle value={densidad} onChange={setDensidad} />
       </FilterBar>
 
       {(busqueda.trim() !== '' || estado !== 'todos') && (
@@ -240,7 +238,7 @@ export function AlumnosPage() {
         </Empty>
       ) : (
         <Card className="overflow-hidden p-0">
-          <Table data-density={densidad === 'compact' ? 'compact' : undefined}>
+          <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>

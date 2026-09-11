@@ -32,7 +32,6 @@ export function SolicitudesPage() {
   const [busqueda, setBusqueda] = useState('')
   const [estado, setEstado] = useState<'' | EstadoSolicitud>('')
   const [orden, setOrden] = useState<OrdenSolicitudes>('fecha-desc')
-  const [densidad, setDensidad] = useState<'comfortable' | 'compact'>('comfortable')
 
   const filtradas = useMemo(
     () => filtrarYOrdenarSolicitudes(solicitudes, { busqueda, estado, orden }),
@@ -114,8 +113,6 @@ export function SolicitudesPage() {
         onEstadoChange={setEstado}
         orden={orden}
         onOrdenChange={setOrden}
-        densidad={densidad}
-        onDensidadChange={setDensidad}
         hayFiltrosActivos={hayFiltrosActivos}
       />
 
@@ -154,7 +151,6 @@ export function SolicitudesPage() {
         <SolicitudesTabla
           solicitudes={filtradas}
           cargando={cargando}
-          densidad={densidad}
           onEditar={(solicitud) => {
             setSolicitudEditando(solicitud)
             setDialogoAbierto(true)

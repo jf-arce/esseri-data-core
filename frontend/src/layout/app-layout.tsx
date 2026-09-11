@@ -3,6 +3,9 @@ import {
   CalendarIcon,
   CheckIcon,
   ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  HouseIcon,
   LogOut,
   Menu,
   Search,
@@ -37,7 +40,12 @@ import {
   SidebarProvider,
 } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { NAV_GROUPS } from '@/layout/nav-items'
+import {
+  NAV_GROUPS,
+  calcularHrefActivo,
+  contieneRutaActiva,
+  type NavItem,
+} from '@/layout/nav-items'
 import { GlobalSearchDialog } from '@/layout/global-search-dialog'
 import { logout } from '@/modules/auth/services/logout'
 import { colorIdentidad, formatearNombreRol, nombreDeUsuario } from '@/modules/auth/utils'
@@ -52,9 +60,23 @@ export function AppLayout() {
   const clearSesion = useAuthStore((state) => state.clearSesion)
   const location = useLocation()
   const navigate = useNavigate()
+  const hrefActivo = calcularHrefActivo(location.pathname, NAV_GROUPS)
   const [comandoAbierto, setComandoAbierto] = useState(false)
   const [ciclo, setCiclo] = useState('2026')
   const [cambiarVistaAbierto, setCambiarVistaAbierto] = useState(false)
+  const [moduloSeleccionado, setModuloSeleccionado] = useState<NavItem | null>(() =>
+    moduloDeRuta(location.pathname),
+  )
+
+  // El panel de módulo se sincroniza con la ruta (deep link, buscador global, atrás del
+  // navegador). Una selección manual (botón "volver", o clickear un módulo sin landing propia
+  // como "Proveedores y compras") no pasa por acá y por eso persiste hasta la próxima navegación
+  // real — no hay un segundo estado paralelo para eso.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    setModuloSeleccionado(moduloDeRuta(location.pathname))
+  }, [location.pathname])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Sin notificaciones conectadas todavía (backend no expone el endpoint): el punto de "no
   // leídas" queda listo, oculto hasta que haya datos reales que mostrar.
@@ -96,30 +118,32 @@ export function AppLayout() {
               </span>
             </div>
           </SidebarHeader>
-          <SidebarContent>
-            {NAV_GROUPS.map((grupo) => (
-              <SidebarGroup key={grupo.label}>
-                <SidebarGroupLabel>{grupo.label}</SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {grupo.items.map((item) => (
-                      <SidebarMenuItem key={item.href}>
-                        <SidebarMenuButton
-                          asChild
-                          isActive={location.pathname.startsWith(item.href)}
-                          tooltip={item.label}
-                        >
-                          <Link to={item.href}>
-                            <item.icon />
-                            <span>{item.label}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            ))}
+          <SidebarContent className="relative overflow-hidden">
+            <div
+              className={`absolute inset-0 overflow-y-auto transition-opacity duration-150 ease-in-out ${
+                moduloSeleccionado ? 'pointer-events-none opacity-0' : 'opacity-100'
+              }`}
+              aria-hidden={moduloSeleccionado !== null}
+            >
+              <SidebarRootView
+                hrefActivo={hrefActivo}
+                onSeleccionarModulo={setModuloSeleccionado}
+              />
+            </div>
+            <div
+              className={`absolute inset-0 overflow-y-auto transition-opacity duration-150 ease-in-out ${
+                moduloSeleccionado ? 'opacity-100' : 'pointer-events-none opacity-0'
+              }`}
+              aria-hidden={moduloSeleccionado === null}
+            >
+              {moduloSeleccionado && (
+                <SidebarModuloView
+                  modulo={moduloSeleccionado}
+                  hrefActivo={hrefActivo}
+                  onVolver={() => setModuloSeleccionado(null)}
+                />
+              )}
+            </div>
           </SidebarContent>
         </Sidebar>
 
@@ -129,7 +153,7 @@ export function AppLayout() {
               type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
               variant="ghost"
-              className="flex cursor-pointer size-9 shrink-0 items-center justify-center rounded-full"
+              className="flex cursor-pointer size-9 shrink-0 items-center justify-center"
               aria-label="Mostrar u ocultar la navegación"
             >
               <Menu className="size-4.5" />
@@ -138,7 +162,7 @@ export function AppLayout() {
             <button
               type="button"
               onClick={() => setComandoAbierto(true)}
-              className="mx-auto flex h-10 w-full max-w-150 cursor-pointer items-center gap-2.5 rounded-full border border-borde bg-lienzo px-4 text-left text-sm text-texto-3 hover:bg-fila-hover"
+              className="mx-auto flex h-10 w-full max-w-150 cursor-pointer items-center gap-2.5 rounded-lg border border-borde bg-lienzo px-4 text-left text-sm text-texto-3 hover:bg-fila-hover"
             >
               <Search className="size-4 shrink-0" />
               <span>Buscar o ir a…</span>
@@ -154,7 +178,7 @@ export function AppLayout() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-borde px-3 py-2 text-sm font-medium text-texto-2 hover:bg-fila-hover"
+                  className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-borde px-3 py-2 text-sm font-medium text-texto-2 hover:bg-fila-hover"
                 >
                   <CalendarIcon className="size-4 text-texto-3" />
                   Ciclo {ciclo}
@@ -179,7 +203,7 @@ export function AppLayout() {
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-texto-2 hover:bg-fila-hover"
+                  className="relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-texto-2 hover:bg-fila-hover"
                   aria-label="Notificaciones"
                 >
                   <BellIcon className="size-5" />
@@ -207,7 +231,7 @@ export function AppLayout() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="cursor-pointer rounded-full p-0.5 hover:bg-fila-hover focus-visible:ring-2 focus-visible:ring-violeta focus-visible:ring-offset-2 focus-visible:outline-none"
+                  className="cursor-pointer rounded-full p-0.5 hover:bg-fila-hover"
                   aria-label="Cuenta"
                 >
                   <Avatar>
@@ -225,9 +249,9 @@ export function AppLayout() {
                   <span className="text-xs text-texto-3">{usuario?.email}</span>
                   {rolActual && (
                     <span
-                      className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full py-1 pr-3 pl-2.5 text-[11px] font-semibold"
+                      className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full p-0.5 pr-3 pl-2.5 text-xs font-semibold"
                       style={{
-                        backgroundColor: `color-mix(in oklch, ${colorIdentidad(rolActual)} 12%, white)`,
+                        backgroundColor: `color-mix(in oklch, ${colorIdentidad(rolActual)} 22%, var(--superficie))`,
                         color: colorIdentidad(rolActual),
                       }}
                     >
@@ -261,7 +285,7 @@ export function AppLayout() {
                             <span
                               className="flex size-6 shrink-0 items-center justify-center rounded-lg"
                               style={{
-                                backgroundColor: `color-mix(in oklch, ${colorIdentidad(rolActual)} 12%, white)`,
+                                backgroundColor: `color-mix(in oklch, ${colorIdentidad(rolActual)} 22%, var(--superficie))`,
                                 color: colorIdentidad(rolActual),
                               }}
                             >
@@ -280,7 +304,7 @@ export function AppLayout() {
                             <span
                               className="flex size-6 shrink-0 items-center justify-center rounded-lg"
                               style={{
-                                backgroundColor: `color-mix(in oklch, ${colorIdentidad(rol)} 12%, white)`,
+                                backgroundColor: `color-mix(in oklch, ${colorIdentidad(rol)} 22%, var(--superficie))`,
                                 color: colorIdentidad(rol),
                               }}
                             >
@@ -315,5 +339,132 @@ export function AppLayout() {
 
       <GlobalSearchDialog open={comandoAbierto} onOpenChange={setComandoAbierto} />
     </TooltipProvider>
+  )
+}
+
+/** El módulo (ítem con `children`) cuyo subárbol contiene la ruta activa, o `null` si ninguno. */
+function moduloDeRuta(pathname: string): NavItem | null {
+  return (
+    NAV_GROUPS.flatMap((grupo) => grupo.items).find(
+      (item) => item.children && contieneRutaActiva(item, pathname),
+    ) ?? null
+  )
+}
+
+// La landing del módulo se muestra como primera fila al entrar al panel, con el título real de
+// esa página (`tituloLanding`, ver nav-items.ts) — nunca un "General" genérico. Si el módulo no
+// tiene landing propia ("Usuarios y roles" solo redirige a su primer hijo; "Proveedores y
+// compras" no tiene `href`), no se agrega fila sintética: el hijo correspondiente ya cubre ese
+// lugar. Ícono distinto al del módulo (que ya se ve en la fila "volver" arriba) para no repetirlo.
+function seccionesDe(item: NavItem): NavItem[] {
+  const landing =
+    item.href && item.tituloLanding
+      ? [{ label: item.tituloLanding, href: item.href, icon: HouseIcon }]
+      : []
+  return [...landing, ...(item.children ?? [])]
+}
+
+// Vista raíz: ítems sin hijos navegan directo; los que tienen hijos no se expanden inline, solo
+// seleccionan el módulo — es `SidebarContent` quien decide, vía transición, mostrar el panel de
+// ese módulo (`SidebarModuloView`) en lugar de expandir un acordeón.
+function SidebarRootView({
+  hrefActivo,
+  onSeleccionarModulo,
+}: {
+  hrefActivo: string | null
+  onSeleccionarModulo: (item: NavItem) => void
+}) {
+  return (
+    <>
+      {NAV_GROUPS.map((grupo) => (
+        <SidebarGroup key={grupo.label}>
+          <SidebarGroupLabel>{grupo.label}</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {grupo.items.map((item) =>
+                item.children && item.children.length > 0 ? (
+                  <SidebarMenuItem key={item.label}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={item.href === hrefActivo}
+                      tooltip={item.label}
+                      onClick={() => onSeleccionarModulo(item)}
+                    >
+                      {/* Si el módulo no tiene landing propia (ej. "Proveedores y compras"),
+                          entra directo a la primera sección en vez de quedar sin navegar. */}
+                      <Link to={item.href ?? item.children[0].href ?? '#'}>
+                        <item.icon />
+                        <span>{item.label}</span>
+                        <ChevronRightIcon className="ml-auto size-4 text-texto-3" />
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ) : (
+                  <SidebarMenuItem key={item.label}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={item.href === hrefActivo}
+                      tooltip={item.label}
+                    >
+                      <Link to={item.href ?? '#'}>
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ),
+              )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      ))}
+    </>
+  )
+}
+
+// Panel de un módulo: fila "volver" (no navega, solo cambia la vista) + sus secciones en plano,
+// sin la indentación de un desplegable anidado ya que ahora ocupan el panel completo.
+function SidebarModuloView({
+  modulo,
+  hrefActivo,
+  onVolver,
+}: {
+  modulo: NavItem
+  hrefActivo: string | null
+  onVolver: () => void
+}) {
+  return (
+    <SidebarGroup>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={onVolver} tooltip="Volver">
+              <ChevronLeftIcon className="group-data-[collapsible=icon]:hidden" />
+              <modulo.icon />
+              <span>{modulo.label}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarGroupContent>
+      <SidebarGroupLabel>{modulo.label}</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {seccionesDe(modulo).map((seccion) => (
+            <SidebarMenuItem key={seccion.href}>
+              <SidebarMenuButton
+                asChild
+                isActive={seccion.href === hrefActivo}
+                tooltip={seccion.label}
+              >
+                <Link to={seccion.href ?? '#'}>
+                  <seccion.icon />
+                  <span>{seccion.label}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
   )
 }

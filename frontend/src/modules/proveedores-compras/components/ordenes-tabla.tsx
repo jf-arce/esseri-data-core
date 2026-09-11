@@ -52,7 +52,6 @@ const ETIQUETA_POR_ESTADO: Record<EstadoOrdenCompra, string> = {
 interface OrdenesTablaProps {
   ordenes: OrdenListadoItem[]
   cargando: boolean
-  densidad: 'comfortable' | 'compact'
   pagina: number
   totalPaginas: number
   total: number
@@ -64,7 +63,6 @@ interface OrdenesTablaProps {
 function OrdenesTabla({
   ordenes,
   cargando,
-  densidad,
   pagina,
   totalPaginas,
   total,
@@ -74,7 +72,7 @@ function OrdenesTabla({
 }: OrdenesTablaProps) {
   return (
     <div className="flex flex-col gap-3">
-      <Table data-density={densidad === 'compact' ? 'compact' : undefined}>
+      <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Proveedor</TableHead>

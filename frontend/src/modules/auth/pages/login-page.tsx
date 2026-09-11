@@ -104,7 +104,7 @@ export function LoginPage() {
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <Field>
               <FieldLabel htmlFor="email">Correo institucional</FieldLabel>
-              <InputGroup className="h-12">
+              <InputGroup className="h-12 px-1">
                 <InputGroupAddon>
                   <Mail />
                 </InputGroupAddon>
@@ -122,7 +122,7 @@ export function LoginPage() {
 
             <Field>
               <FieldLabel htmlFor="password">Contraseña</FieldLabel>
-              <InputGroup className="h-12">
+              <InputGroup className="h-12 px-1">
                 <InputGroupAddon>
                   <Lock />
                 </InputGroupAddon>
@@ -132,11 +132,10 @@ export function LoginPage() {
                   required
                   autoComplete="current-password"
                   placeholder="••••••••"
-                  className="placeholder:text-2xl placeholder:tracking-[1px]"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
-                <InputGroupAddon align="inline-end" className="pr-3 has-[>button]:mr-0">
+                <InputGroupAddon align="inline-end" className="has-[>button]:mr-0">
                   <InputGroupButton
                     type="button"
                     size="icon-xs"

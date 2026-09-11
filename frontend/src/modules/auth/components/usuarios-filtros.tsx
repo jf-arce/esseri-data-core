@@ -1,5 +1,5 @@
 import { ArrowDownAZIcon } from 'lucide-react'
-import { DensityToggle, FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
+import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
 import { FilterChip, FilterChips, FilterDropdown } from '@/components/filter-dropdown'
 import type { Rol } from '@/modules/auth/types'
 import type { EstadoUsuarioFiltro, OrdenUsuarios } from '@/modules/auth/utils'
@@ -26,8 +26,6 @@ interface UsuariosFiltrosProps {
   onRolesFiltroChange: (valor: string[]) => void
   orden: OrdenUsuarios
   onOrdenChange: (valor: OrdenUsuarios) => void
-  densidad: 'comfortable' | 'compact'
-  onDensidadChange: (valor: 'comfortable' | 'compact') => void
   roles: Rol[]
   hayFiltrosActivos: boolean
 }
@@ -41,8 +39,6 @@ function UsuariosFiltros({
   onRolesFiltroChange,
   orden,
   onOrdenChange,
-  densidad,
-  onDensidadChange,
   roles,
   hayFiltrosActivos,
 }: UsuariosFiltrosProps) {
@@ -77,8 +73,6 @@ function UsuariosFiltros({
           value={orden}
           onChange={(valor) => onOrdenChange(valor as OrdenUsuarios)}
         />
-
-        <DensityToggle value={densidad} onChange={onDensidadChange} />
       </FilterBar>
 
       {hayFiltrosActivos && (

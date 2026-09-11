@@ -1,5 +1,5 @@
 import { ArrowDownAZIcon } from 'lucide-react'
-import { DensityToggle, FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
+import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
 import { FilterChip, FilterChips, FilterDropdown } from '@/components/filter-dropdown'
 import type { OrdenPermisos } from '@/modules/auth/utils'
 
@@ -16,8 +16,6 @@ interface PermisosFiltrosProps {
   modulosDisponibles: string[]
   orden: OrdenPermisos
   onOrdenChange: (valor: OrdenPermisos) => void
-  densidad: 'comfortable' | 'compact'
-  onDensidadChange: (valor: 'comfortable' | 'compact') => void
   hayFiltrosActivos: boolean
 }
 
@@ -29,8 +27,6 @@ function PermisosFiltros({
   modulosDisponibles,
   orden,
   onOrdenChange,
-  densidad,
-  onDensidadChange,
   hayFiltrosActivos,
 }: PermisosFiltrosProps) {
   return (
@@ -56,8 +52,6 @@ function PermisosFiltros({
           value={orden}
           onChange={(valor) => onOrdenChange(valor as OrdenPermisos)}
         />
-
-        <DensityToggle value={densidad} onChange={onDensidadChange} />
       </FilterBar>
 
       {hayFiltrosActivos && (

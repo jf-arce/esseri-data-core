@@ -123,7 +123,7 @@ export function FamiliaFormPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-lienzo py-8">
       {isLoading ? <p>Cargando familia...</p> : null}
       {loadError ? <p role="alert">{loadError}</p> : null}
       {!isLoading && !loadError ? (

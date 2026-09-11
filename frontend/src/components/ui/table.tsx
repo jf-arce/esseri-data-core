@@ -2,8 +2,7 @@ import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 
-// Grilla de datos (DESIGN.md §5.2, §9): fila de 44px cómoda, 36px compacta. Pasar
-// data-density="compact" a <Table> para el modo compacto de una tabla de alto volumen.
+// Grilla de datos (DESIGN.md §5.2, §9): una sola densidad, fila de 40px.
 //
 // La tabla ES la card (superficie + radio 20px + sombra baja): quien la usa no la envuelve en
 // otro contenedor con radio/sombra propios, o queda una card dentro de otra (prohibido, §5.2).
@@ -97,11 +96,9 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
     <th
       data-slot="table-head"
       className={cn(
-        // Padding asimétrico del mock (16px 24px 10px): el encabezado respira arriba y se
-        // pega al divisor abajo, en vez de centrarse en el medio de la fila de 44px. En modo
-        // compacto el padding horizontal también baja, para que la densidad se note más allá
-        // de la altura de fila (§5.2/§9.1).
-        'px-6 in-data-[density=compact]:px-4 pt-4 in-data-[density=compact]:pt-3 pb-2.5 in-data-[density=compact]:pb-2 text-left align-bottom text-xs font-bold tracking-[.06em] whitespace-nowrap text-texto-3 uppercase data-[align=end]:text-right [&:has([role=checkbox])]:pr-0',
+        // Padding asimétrico del mock (12px 16px 8px): el encabezado respira arriba y se pega
+        // al divisor abajo, en vez de centrarse en el medio de la fila.
+        'px-4 pt-3 pb-2 text-left align-bottom text-xs font-bold tracking-[.06em] whitespace-nowrap text-texto-3 uppercase data-[align=end]:text-right [&:has([role=checkbox])]:pr-0',
         className,
       )}
       {...props}
@@ -114,7 +111,7 @@ function TableCell({ className, ...props }: React.ComponentProps<'td'>) {
     <td
       data-slot="table-cell"
       className={cn(
-        'h-11 in-data-[density=compact]:h-9 in-data-[density=compact]:text-xs px-6 in-data-[density=compact]:px-4 align-middle whitespace-nowrap data-[align=end]:text-right data-[align=end]:tabular-nums [&:has([role=checkbox])]:pr-0',
+        'h-10 px-4 align-middle whitespace-nowrap data-[align=end]:text-right data-[align=end]:tabular-nums [&:has([role=checkbox])]:pr-0',
         className,
       )}
       {...props}

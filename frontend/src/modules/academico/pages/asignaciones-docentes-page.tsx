@@ -14,6 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { PageHeader } from '@/components/page-header'
+import { StatTile } from '@/components/stat-tile'
 import { FilterBar, FilterBarSpacer } from '@/components/filter-bar'
 import { FilterDropdown, type FilterDropdownOption } from '@/components/filter-dropdown'
 import {
@@ -121,44 +122,30 @@ export function AsignacionesDocentesPage() {
 
       {/* Stats strip */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div className="rounded-panel bg-banda-oscura p-5 text-texto-sobre-oscuro shadow-card">
-          <div className="flex items-start justify-between gap-2.5">
-            <p className="text-xs font-semibold text-texto-2-sobre-oscuro">Asignaciones activas</p>
-            <div className="flex size-7.5 items-center justify-center rounded-lg bg-white/15">
-              <UsersIcon className="size-4" />
-            </div>
-          </div>
-          <p className="mt-2.5 text-2xl font-semibold tabular-nums">{stats.activas}</p>
-        </div>
-        <div className="rounded-panel bg-superficie p-5 shadow-card">
-          <div className="flex items-start justify-between gap-2.5">
-            <p className="text-xs font-semibold text-texto-2">Docentes con asignación</p>
-            <div className="flex size-7.5 items-center justify-center rounded-lg bg-info-suave text-info">
-              <GraduationCapIcon className="size-4" />
-            </div>
-          </div>
-          <p className="mt-2.5 text-2xl font-semibold tabular-nums text-texto">{stats.docentes}</p>
-        </div>
-        <div className="rounded-panel bg-superficie p-5 shadow-card">
-          <div className="flex items-start justify-between gap-2.5">
-            <p className="text-xs font-semibold text-texto-2">Divisiones cubiertas</p>
-            <div className="flex size-7.5 items-center justify-center rounded-lg bg-info-suave text-info">
-              <BuildingIcon className="size-4" />
-            </div>
-          </div>
-          <p className="mt-2.5 text-2xl font-semibold tabular-nums text-texto">
-            {stats.divisiones}
-          </p>
-        </div>
-        <div className="rounded-panel bg-superficie p-5 shadow-card">
-          <div className="flex items-start justify-between gap-2.5">
-            <p className="text-xs font-semibold text-texto-2">Materias sin docente</p>
-            <div className="flex size-7.5 items-center justify-center rounded-lg bg-error-suave text-error">
-              <AlertTriangleIcon className="size-4" />
-            </div>
-          </div>
-          <p className="mt-2.5 text-2xl font-semibold tabular-nums text-texto">—</p>
-        </div>
+        <StatTile
+          variant="dark"
+          label="Asignaciones activas"
+          value={stats.activas}
+          icon={UsersIcon}
+        />
+        <StatTile
+          label="Docentes con asignación"
+          value={stats.docentes}
+          icon={GraduationCapIcon}
+          iconClassName="bg-info-suave text-info"
+        />
+        <StatTile
+          label="Divisiones cubiertas"
+          value={stats.divisiones}
+          icon={BuildingIcon}
+          iconClassName="bg-info-suave text-info"
+        />
+        <StatTile
+          label="Materias sin docente"
+          value="—"
+          icon={AlertTriangleIcon}
+          iconClassName="bg-error-suave text-error"
+        />
       </div>
 
       {error && (
@@ -175,7 +162,7 @@ export function AsignacionesDocentesPage() {
 
       {asignaciones.length > 0 && (
         <FilterBar>
-          <div className="relative flex h-10 min-w-[200px] items-center gap-2 rounded-full border border-borde bg-superficie pl-3.5 pr-3 text-sm text-texto-2">
+          <div className="relative flex h-10 min-w-[200px] items-center gap-2 rounded-lg border border-borde bg-superficie pl-3.5 pr-3 text-sm text-texto-2">
             <SearchIcon className="size-4 text-texto-3" />
             <input
               type="text"

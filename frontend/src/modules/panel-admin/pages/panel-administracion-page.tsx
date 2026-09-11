@@ -49,11 +49,7 @@ export function PanelAdministracionPage() {
 
       <section aria-label="Accesos rápidos" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {accesos.map(({ titulo, descripcion, href, icono: Icono }) => (
-          <Link
-            key={href}
-            to={href}
-            className="group rounded-card focus-visible:ring-2 focus-visible:ring-violeta focus-visible:ring-offset-2 focus-visible:outline-none"
-          >
+          <Link key={href} to={href} className="group rounded-card">
             <Card className="h-full py-4 transition-colors duration-200 group-hover:bg-fila-hover">
               <CardHeader>
                 <div className="mb-1 flex size-10 items-center justify-center rounded-[10px] bg-violeta-suave text-violeta">

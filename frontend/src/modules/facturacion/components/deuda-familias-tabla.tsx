@@ -69,7 +69,7 @@ export function DeudaFamiliasTabla({
 
   return (
     <div className="rounded-panel bg-superficie shadow-card">
-      <Table bare minWidth="min-w-[1050px]" data-density="compact" className="table-fixed">
+      <Table bare minWidth="min-w-[1050px]" className="table-fixed">
         <TableHeader>
           <TableRow>
             <TableHead className="w-56">Responsable económico</TableHead>

@@ -1,5 +1,5 @@
 import { ArrowDownAZIcon } from 'lucide-react'
-import { DensityToggle, FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
+import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
 import { FilterChip, FilterChips, FilterDropdown } from '@/components/filter-dropdown'
 import type { OrdenProductos, TipoProductoServicio } from '@/modules/proveedores-compras/types'
 
@@ -31,8 +31,6 @@ interface ProductosFiltrosProps {
   onSoloActivosChange: (valor: boolean) => void
   orden: OrdenProductos
   onOrdenChange: (valor: OrdenProductos) => void
-  densidad: 'comfortable' | 'compact'
-  onDensidadChange: (valor: 'comfortable' | 'compact') => void
   hayFiltrosActivos: boolean
 }
 
@@ -48,8 +46,6 @@ function ProductosFiltros({
   onSoloActivosChange,
   orden,
   onOrdenChange,
-  densidad,
-  onDensidadChange,
   hayFiltrosActivos,
 }: ProductosFiltrosProps) {
   return (
@@ -101,8 +97,6 @@ function ProductosFiltros({
           value={orden}
           onChange={(valor) => onOrdenChange(valor as OrdenProductos)}
         />
-
-        <DensityToggle value={densidad} onChange={onDensidadChange} />
       </FilterBar>
 
       {hayFiltrosActivos && (
