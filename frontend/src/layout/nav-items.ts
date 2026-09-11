@@ -81,9 +81,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: '/inscripciones',
         tituloLanding: 'Inscripciones',
         icon: ClipboardCheck,
-        children: [
-          { label: 'Admisiones', href: '/inscripciones/admisiones', icon: UserPlusIcon },
-        ],
+        children: [{ label: 'Admisiones', href: '/inscripciones/admisiones', icon: UserPlusIcon }],
       },
       {
         label: 'Facturación',

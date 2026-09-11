@@ -451,7 +451,11 @@ function SidebarModuloView({
         <SidebarMenu>
           {seccionesDe(modulo).map((seccion) => (
             <SidebarMenuItem key={seccion.href}>
-              <SidebarMenuButton asChild isActive={seccion.href === hrefActivo} tooltip={seccion.label}>
+              <SidebarMenuButton
+                asChild
+                isActive={seccion.href === hrefActivo}
+                tooltip={seccion.label}
+              >
                 <Link to={seccion.href ?? '#'}>
                   <seccion.icon />
                   <span>{seccion.label}</span>
