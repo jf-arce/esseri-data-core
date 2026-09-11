@@ -132,7 +132,7 @@ export function LoginPage() {
                   required
                   autoComplete="current-password"
                   placeholder="••••••••"
-                  className="placeholder:text-2xl placeholder:tracking-[1px]"
+                  className="text-[10.5px] placeholder:text-base"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />

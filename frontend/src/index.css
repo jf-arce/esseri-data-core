@@ -181,7 +181,7 @@
   /* Elevación y movimiento (§5.2, §6). Revisado: la sombra original (0 6px 20px / .06) leía más
      pesada de lo que corresponde a una herramienta interna densa; se baja la intensidad
      manteniendo dos capas (contacto + difusión) en vez de sacarla del todo. */
-  --sombra-card: 0 1px 2px rgba(20, 17, 26, 0.03), 0 4px 12px rgba(20, 17, 26, 0.025);
+  --sombra-card: 0 1px 2px rgba(20, 17, 26, 0.04), 0 4px 12px rgba(20, 17, 26, 0.035);
   --sombra-overlay: 0 8px 24px rgba(20, 17, 26, 0.08);
   --curva-esseri: cubic-bezier(0.2, 0, 0, 1);
 

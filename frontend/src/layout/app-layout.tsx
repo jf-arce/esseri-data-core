@@ -225,7 +225,7 @@ export function AppLayout() {
                   <span className="text-xs text-texto-3">{usuario?.email}</span>
                   {rolActual && (
                     <span
-                      className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full py-1 pr-3 pl-2.5 text-[11px] font-semibold"
+                      className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full p-0.5 pr-3 pl-2.5 text-[11px] font-semibold"
                       style={{
                         backgroundColor: `color-mix(in oklch, ${colorIdentidad(rolActual)} 12%, white)`,
                         color: colorIdentidad(rolActual),
