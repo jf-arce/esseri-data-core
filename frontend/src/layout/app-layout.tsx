@@ -394,7 +394,10 @@ function SidebarRootView({
                           entra directo a la primera sección en vez de quedar sin navegar. */}
                       <Link to={item.href ?? item.children[0].href ?? '#'}>
                         <item.icon />
-                        <span>{item.label}</span>
+                        {/* truncate explícito: el chevron es el último hijo, así que la regla
+                            `span:last-child` del botón no aplica y el label se partía en dos
+                            líneas durante la animación de ancho. */}
+                        <span className="truncate">{item.label}</span>
                         <ChevronRightIcon className="ml-auto size-4 text-texto-3" />
                       </Link>
                     </SidebarMenuButton>
