@@ -49,9 +49,9 @@ const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
 ]
 
 const CLASE_TIPO: Record<TipoInscripcion, string> = {
-  nueva: 'bg-[color-mix(in_oklch,var(--petroleo)_12%,white)] text-petroleo',
+  nueva: 'bg-petroleo-suave text-petroleo',
   reinscripcion: 'bg-info-suave text-info',
-  cambio_matricula: 'bg-[color-mix(in_oklch,var(--mod-compras)_12%,white)] text-mod-compras',
+  cambio_matricula: 'bg-mod-compras-suave text-mod-compras',
   baja: 'bg-advertencia-suave text-advertencia',
 }
 

@@ -24,8 +24,11 @@ const badgeVariants = cva(
         // positivo. Punto + texto igual que los semánticos, sin tinte de alerta.
         neutro:
           "bg-fila-hover text-texto-2 before:content-[''] before:size-1.5 before:shrink-0 before:rounded-full before:bg-texto-3",
+        // Fondo con hex fijo por módulo (--mod-*-suave), no color-mix(in oklch, ...):
+        // ese color-mix se resuelve distinto entre Firefox y Chromium (gamut-mapping),
+        // así que el badge quedaba más gris en uno que en otro.
         modulo:
-          'data-[modulo=familias]:bg-[color-mix(in_oklch,var(--mod-familias)_12%,var(--superficie))] data-[modulo=familias]:text-mod-familias data-[modulo=academico]:bg-[color-mix(in_oklch,var(--mod-academico)_12%,var(--superficie))] data-[modulo=academico]:text-mod-academico data-[modulo=inscripciones]:bg-[color-mix(in_oklch,var(--mod-inscripciones)_12%,var(--superficie))] data-[modulo=inscripciones]:text-mod-inscripciones data-[modulo=facturacion]:bg-[color-mix(in_oklch,var(--mod-facturacion)_12%,var(--superficie))] data-[modulo=facturacion]:text-mod-facturacion data-[modulo=compras]:bg-[color-mix(in_oklch,var(--mod-compras)_12%,var(--superficie))] data-[modulo=compras]:text-mod-compras data-[modulo=workflows]:bg-[color-mix(in_oklch,var(--mod-workflows)_12%,var(--superficie))] data-[modulo=workflows]:text-mod-workflows data-[modulo=auditoria]:bg-[color-mix(in_oklch,var(--mod-auditoria)_12%,var(--superficie))] data-[modulo=auditoria]:text-mod-auditoria data-[modulo=ia]:bg-[color-mix(in_oklch,var(--mod-ia)_12%,var(--superficie))] data-[modulo=ia]:text-mod-ia',
+          'data-[modulo=familias]:bg-mod-familias-suave data-[modulo=familias]:text-mod-familias data-[modulo=academico]:bg-mod-academico-suave data-[modulo=academico]:text-mod-academico data-[modulo=inscripciones]:bg-mod-inscripciones-suave data-[modulo=inscripciones]:text-mod-inscripciones data-[modulo=facturacion]:bg-mod-facturacion-suave data-[modulo=facturacion]:text-mod-facturacion data-[modulo=compras]:bg-mod-compras-suave data-[modulo=compras]:text-mod-compras data-[modulo=workflows]:bg-mod-workflows-suave data-[modulo=workflows]:text-mod-workflows data-[modulo=auditoria]:bg-mod-auditoria-suave data-[modulo=auditoria]:text-mod-auditoria data-[modulo=ia]:bg-mod-ia-suave data-[modulo=ia]:text-mod-ia',
         secondary: 'bg-fila-hover text-texto-2',
         outline: 'border-borde text-texto-2',
       },

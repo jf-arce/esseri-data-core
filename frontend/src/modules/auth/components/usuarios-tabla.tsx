@@ -27,6 +27,7 @@ import {
 import type { UsuarioConRoles } from '@/modules/auth/types'
 import {
   colorIdentidad,
+  colorIdentidadSuave,
   formatearFechaHora,
   formatearNombreRol,
   inicialesDeUsuario,
@@ -46,7 +47,7 @@ function RolChip({ nombre, id }: { nombre: string; id: string }) {
   return (
     <span
       className="inline-flex h-[22px] shrink-0 items-center rounded-full px-2.5 text-xs font-semibold whitespace-nowrap"
-      style={{ backgroundColor: `color-mix(in oklch, ${color} 22%, var(--superficie))`, color }}
+      style={{ backgroundColor: colorIdentidadSuave(id), color }}
     >
       {formatearNombreRol(nombre)}
     </span>

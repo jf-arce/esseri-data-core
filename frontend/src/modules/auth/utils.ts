@@ -13,6 +13,18 @@ const PALETA_IDENTIDAD = [
   'var(--mod-workflows)', // lila frío
 ] as const
 
+// Fondo del chip para cada color de PALETA_IDENTIDAD (mismo índice), precalculado a hex fijo
+// en vez de color-mix(in oklch, ...) en tiempo de render: ese color-mix se resuelve distinto
+// entre Firefox y Chromium, así que el chip quedaba con otro tono según el navegador.
+const PALETA_IDENTIDAD_SUAVE = [
+  'var(--identidad-violeta-suave)',
+  'var(--identidad-petroleo-suave)',
+  'var(--identidad-advertencia-suave)',
+  'var(--identidad-info-suave)',
+  'var(--identidad-mod-compras-suave)',
+  'var(--identidad-mod-workflows-suave)',
+] as const
+
 function hashEstable(texto: string): number {
   let hash = 0
   for (let i = 0; i < texto.length; i++) {
@@ -24,6 +36,10 @@ function hashEstable(texto: string): number {
 
 export function colorIdentidad(semilla: string): string {
   return PALETA_IDENTIDAD[hashEstable(semilla) % PALETA_IDENTIDAD.length]
+}
+
+export function colorIdentidadSuave(semilla: string): string {
+  return PALETA_IDENTIDAD_SUAVE[hashEstable(semilla) % PALETA_IDENTIDAD_SUAVE.length]
 }
 
 // El backend no separa nombre/apellido: hasta que lo haga, se deriva un nombre de pantalla a

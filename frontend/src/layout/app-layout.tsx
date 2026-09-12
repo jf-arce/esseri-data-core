@@ -48,7 +48,12 @@ import {
 } from '@/layout/nav-items'
 import { GlobalSearchDialog } from '@/layout/global-search-dialog'
 import { logout } from '@/modules/auth/services/logout'
-import { colorIdentidad, formatearNombreRol, nombreDeUsuario } from '@/modules/auth/utils'
+import {
+  colorIdentidad,
+  colorIdentidadSuave,
+  formatearNombreRol,
+  nombreDeUsuario,
+} from '@/modules/auth/utils'
 import { useAuthStore } from '@/store/auth-store'
 import { useUiStore } from '@/store/ui-store'
 import { Button } from '@/components/ui/button'
@@ -251,7 +256,7 @@ export function AppLayout() {
                     <span
                       className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full p-0.5 pr-3 pl-2.5 text-xs font-semibold"
                       style={{
-                        backgroundColor: `color-mix(in oklch, ${colorIdentidad(rolActual)} 22%, var(--superficie))`,
+                        backgroundColor: colorIdentidadSuave(rolActual),
                         color: colorIdentidad(rolActual),
                       }}
                     >
@@ -285,7 +290,7 @@ export function AppLayout() {
                             <span
                               className="flex size-6 shrink-0 items-center justify-center rounded-lg"
                               style={{
-                                backgroundColor: `color-mix(in oklch, ${colorIdentidad(rolActual)} 22%, var(--superficie))`,
+                                backgroundColor: colorIdentidadSuave(rolActual),
                                 color: colorIdentidad(rolActual),
                               }}
                             >
@@ -304,7 +309,7 @@ export function AppLayout() {
                             <span
                               className="flex size-6 shrink-0 items-center justify-center rounded-lg"
                               style={{
-                                backgroundColor: `color-mix(in oklch, ${colorIdentidad(rol)} 22%, var(--superficie))`,
+                                backgroundColor: colorIdentidadSuave(rol),
                                 color: colorIdentidad(rol),
                               }}
                             >
