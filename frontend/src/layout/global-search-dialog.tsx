@@ -149,7 +149,7 @@ const RESULTADO_INICIAL: ResultadoBusqueda = {
   facturas: [],
 }
 
-function useBusquedaGlobal(consulta: string) {
+function useBusquedaGlobal(consulta: string, puedeVerInscripciones: boolean, puedeVerFacturas: boolean) {
   const [resultado, setResultado] = useState<ResultadoBusqueda>(RESULTADO_INICIAL)
 
   useEffect(() => {
@@ -157,16 +157,31 @@ function useBusquedaGlobal(consulta: string) {
     const controller = new AbortController()
     const clave = consulta.toLocaleLowerCase()
 
+    // Cada búsqueda se gatea por el mismo permiso `.leer` que protege su ruta (`PermisoRoute`
+    // en `inscripcionesRoutes`/`facturacionRoutes`): sin esto, un rol sin acceso a Facturación
+    // veía facturas ajenas en el buscador y chocaba con "no tenés acceso" al hacer click.
     Promise.allSettled([
-      listarInscripciones(
-        { buscar: consulta, pagina: 1, tamanioPagina: 5, ordenarPor: 'alumno', direccion: 'asc' },
-        controller.signal,
-      ),
-      listarSolicitudesAdmision(
-        { buscar: consulta, pagina: 1, tamanioPagina: 5 },
-        controller.signal,
-      ),
-      listarFacturas({ buscar: consulta, pagina: 1, tamanio: 5 }, controller.signal),
+      puedeVerInscripciones
+        ? listarInscripciones(
+            {
+              buscar: consulta,
+              pagina: 1,
+              tamanioPagina: 5,
+              ordenarPor: 'alumno',
+              direccion: 'asc',
+            },
+            controller.signal,
+          )
+        : Promise.resolve({ items: [] }),
+      puedeVerInscripciones
+        ? listarSolicitudesAdmision(
+            { buscar: consulta, pagina: 1, tamanioPagina: 5 },
+            controller.signal,
+          )
+        : Promise.resolve({ items: [] }),
+      puedeVerFacturas
+        ? listarFacturas({ buscar: consulta, pagina: 1, tamanio: 5 }, controller.signal)
+        : Promise.resolve({ items: [] }),
     ]).then(([resultadoInscripciones, resultadoAdmisiones, resultadoFacturas]) => {
       if (controller.signal.aborted) return
       const inscripciones =
@@ -196,7 +211,7 @@ function useBusquedaGlobal(consulta: string) {
     })
 
     return () => controller.abort()
-  }, [consulta])
+  }, [consulta, puedeVerInscripciones, puedeVerFacturas])
 
   return {
     ...resultado,
@@ -217,6 +232,8 @@ export function GlobalSearchDialog({
   const permisos = useAuthStore(permisosActivos)
   const navegacionVisible = NAVEGACION.filter((acceso) => tienePermiso(permisos, acceso.permiso))
   const accionesVisibles = ACCIONES.filter((accion) => tienePermiso(permisos, accion.permiso))
+  const puedeVerInscripciones = tienePermiso(permisos, PERMISO_INSCRIPCIONES_LEER)
+  const puedeVerFacturas = tienePermiso(permisos, PERMISO_FACTURACION_LEER)
   const [termino, setTermino] = useState('')
   const [consultaAplicada, setConsultaAplicada] = useState('')
   const consulta = termino.trim()
@@ -225,7 +242,7 @@ export function GlobalSearchDialog({
     inscripciones,
     admisiones,
     facturas,
-  } = useBusquedaGlobal(consultaAplicada)
+  } = useBusquedaGlobal(consultaAplicada, puedeVerInscripciones, puedeVerFacturas)
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setConsultaAplicada(consulta), 250)

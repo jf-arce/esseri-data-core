@@ -53,7 +53,8 @@ beforeEach(() => {
       permisos: PERMISOS_DE_PRUEBA,
       perfiles: [
         {
-          id: 'administrador del sistema',
+          id: 'administrador_del_sistema',
+          codigo: 'administrador_del_sistema',
           nombre: 'administrador del sistema',
           descripcion: null,
           permisos: PERMISOS_DE_PRUEBA,
@@ -61,7 +62,7 @@ beforeEach(() => {
       ],
     },
     status: 'authenticated',
-    rolActivo: 'administrador del sistema',
+    rolActivo: 'administrador_del_sistema',
   })
   mockedListarInscripciones.mockResolvedValue({
     items: [
@@ -130,5 +131,42 @@ describe('GlobalSearchDialog', () => {
     )
 
     await waitFor(() => expect(screen.getByText('Demo, Sofía')).toBeInTheDocument())
+  })
+
+  it('no busca en un módulo si el rol activo no tiene su permiso .leer', async () => {
+    const user = userEvent.setup()
+    const permisosSinFacturacion = PERMISOS_DE_PRUEBA.filter(
+      (permiso) => permiso.codigo !== 'facturacion.leer',
+    )
+    useAuthStore.setState({
+      usuario: {
+        id: 'u1',
+        email: 'a@esseri.edu.ar',
+        auth_provider: 'local',
+        estado: 'activo',
+        roles: ['secretaría'],
+        permisos: permisosSinFacturacion,
+        perfiles: [
+          {
+            id: 'secretaria',
+            codigo: 'secretaria',
+            nombre: 'secretaría',
+            descripcion: null,
+            permisos: permisosSinFacturacion,
+          },
+        ],
+      },
+      status: 'authenticated',
+      rolActivo: 'secretaria',
+    })
+    renderDialogo()
+
+    await user.type(
+      screen.getByPlaceholderText('Buscar alumno, aspirante, legajo, DNI o factura…'),
+      'Sofía',
+    )
+
+    await waitFor(() => expect(screen.getByText('Demo, Sofía')).toBeInTheDocument())
+    expect(mockedListarFacturas).not.toHaveBeenCalled()
   })
 })

@@ -38,9 +38,10 @@ function renderConUsuario(ruta: string, roles: string[], permisos: string[]) {
       estado: 'activo',
       roles,
       permisos: permisosDelRol,
-      perfiles: roles.map((nombre) => ({
-        id: nombre,
-        nombre,
+      perfiles: roles.map((codigo) => ({
+        id: codigo,
+        codigo,
+        nombre: codigo,
         descripcion: null,
         permisos: permisosDelRol,
       })),
@@ -64,38 +65,48 @@ beforeEach(() => {
 
 describe('rutas del panel administrativo', () => {
   it('muestra el panel de Dirección al rol y permiso correspondientes', () => {
-    renderConUsuario('/panel', ['dirección'], ['panel_administrativo.leer'])
+    renderConUsuario('/panel', ['direccion'], ['panel_administrativo.leer'])
 
     expect(screen.getByRole('heading', { name: 'Panel de Dirección' })).toBeInTheDocument()
   })
 
   it('redirige a inicio si Administración intenta entrar al panel de Dirección', () => {
-    renderConUsuario('/panel', ['administración'], ['panel_administrativo.leer'])
+    renderConUsuario('/panel', ['administracion'], ['panel_administrativo.leer'])
 
     expect(screen.getByText('Inicio')).toBeInTheDocument()
   })
 
   it('mantiene el mensaje de permiso cuando Dirección no tiene acceso al módulo', () => {
-    renderConUsuario('/panel', ['dirección'], [])
+    renderConUsuario('/panel', ['direccion'], [])
 
     expect(screen.getByText('No tenés acceso a esta sección')).toBeInTheDocument()
   })
 
   it('muestra los accesos operativos al rol Administración', () => {
-    renderConUsuario('/admin', ['administración'], ['panel_administrativo.leer'])
+    renderConUsuario(
+      '/admin',
+      ['administracion'],
+      ['panel_administrativo.leer', 'proveedores_compras.leer'],
+    )
 
     expect(screen.getByRole('heading', { name: 'Panel Administrativo' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /abrir compras/i })).toBeInTheDocument()
   })
 
+  it('oculta los accesos a módulos sin permiso de lectura', () => {
+    renderConUsuario('/admin', ['administracion'], ['panel_administrativo.leer'])
+
+    expect(screen.queryByRole('link', { name: /abrir compras/i })).not.toBeInTheDocument()
+  })
+
   it('administrador del sistema también puede entrar a /admin (= todo en grupo-b.yaml)', () => {
-    renderConUsuario('/admin', ['administrador del sistema'], ['panel_administrativo.leer'])
+    renderConUsuario('/admin', ['administrador_del_sistema'], ['panel_administrativo.leer'])
 
     expect(screen.getByRole('heading', { name: 'Panel Administrativo' })).toBeInTheDocument()
   })
 
   it('administrador del sistema también puede entrar a /panel', () => {
-    renderConUsuario('/panel', ['administrador del sistema'], ['panel_administrativo.leer'])
+    renderConUsuario('/panel', ['administrador_del_sistema'], ['panel_administrativo.leer'])
 
     expect(screen.getByRole('heading', { name: 'Panel de Dirección' })).toBeInTheDocument()
   })
