@@ -5,13 +5,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ElegirPerfilPage } from '@/pages/elegir-perfil-page'
 import { getMisDivisiones } from '@/modules/academico/services/get-mis-divisiones'
 import { getMisAlumnos } from '@/modules/familias-alumnos/services/get-mis-alumnos'
+import { setRolActivoRemoto } from '@/modules/auth/services/set-rol-activo'
 import { useAuthStore } from '@/store/auth-store'
 
 vi.mock('@/modules/academico/services/get-mis-divisiones')
 vi.mock('@/modules/familias-alumnos/services/get-mis-alumnos')
+vi.mock('@/modules/auth/services/set-rol-activo')
 
 const mockedGetMisDivisiones = vi.mocked(getMisDivisiones)
 const mockedGetMisAlumnos = vi.mocked(getMisAlumnos)
+const mockedSetRolActivoRemoto = vi.mocked(setRolActivoRemoto)
 
 // El permiso real de docente (grupo-b.yaml): `actualizar` acotado a asistencia, nunca el
 // `actualizar` sin tipo que da acceso a la estructura curricular.
@@ -35,7 +38,7 @@ function renderPagina() {
     <MemoryRouter initialEntries={['/elegir-perfil']}>
       <Routes>
         <Route path="/elegir-perfil" element={<ElegirPerfilPage />} />
-        <Route path="/academico/asistencia" element={<p>Tomar asistencia</p>} />
+        <Route path="/docente" element={<p>Portal de Docente</p>} />
         <Route path="/facturacion" element={<p>Facturas</p>} />
       </Routes>
     </MemoryRouter>,
@@ -46,6 +49,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockedGetMisDivisiones.mockResolvedValue([])
   mockedGetMisAlumnos.mockResolvedValue([])
+  mockedSetRolActivoRemoto.mockResolvedValue({ detail: 'Rol activo actualizado' })
   useAuthStore.setState({
     usuario: {
       id: 'u1',
@@ -58,6 +62,7 @@ beforeEach(() => {
         { id: 'docente', nombre: 'docente', descripcion: null, permisos: [permisoAcademico] },
         { id: 'familia', nombre: 'familia', descripcion: null, permisos: [permisoFacturacion] },
       ],
+      rol_activo: null,
     },
     status: 'authenticated',
     rolActivo: null,
@@ -97,6 +102,7 @@ describe('ElegirPerfilPage', () => {
             permisos: [permisoAcademico],
           },
         ],
+        rol_activo: null,
       },
       status: 'authenticated',
       rolActivo: null,
@@ -114,8 +120,9 @@ describe('ElegirPerfilPage', () => {
     await user.click(screen.getByText('Docente'))
     await user.click(screen.getByRole('button', { name: 'Continuar' }))
 
+    expect(mockedSetRolActivoRemoto).toHaveBeenCalledWith('docente')
+    expect(await screen.findByText('Portal de Docente')).toBeInTheDocument()
     expect(useAuthStore.getState().rolActivo).toBe('docente')
-    expect(await screen.findByText('Tomar asistencia')).toBeInTheDocument()
   })
 
   it('el botón Continuar arranca deshabilitado sin ninguna card elegida', () => {

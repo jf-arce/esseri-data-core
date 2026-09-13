@@ -26,6 +26,14 @@ Los tres son idempotentes — correrlos de nuevo no duplica filas. Después de e
 (sumar una acción a un rol, por ejemplo) alcanza con volver a correr `03_seed_grupo_b.py`: no
 toca los permisos existentes, solo agrega los `Permiso`/`RolPermiso` nuevos.
 
+**Ojo:** el seed nunca *saca* un vínculo `RolPermiso`, solo agrega. Si `grupo-b.yaml` cambia
+para que un rol pierda una acción (o la cambie por una variante tipada, como pasó con
+`docente` en RF-06: `academico.actualizar` → `academico.actualizar:asistencia`), una base ya
+sembrada con el YAML viejo se queda con el vínculo de más — volver a correr el seed no lo
+corrige. Esa corrección va en una migración de datos de Alembic (ver
+`backend/alembic/versions/58d7c7ac8e3c_corrige_permiso_de_asistencia_del_rol_.py` como
+ejemplo), no en el seed ni a mano en cada base.
+
 ## `04_seed_demo.py` — datos ficticios para una demo local
 
 Este seed es opcional y manual: crea familias, alumnos, estructura académica, asistencias,

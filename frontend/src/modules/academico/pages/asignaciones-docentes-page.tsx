@@ -34,6 +34,8 @@ import {
 import { useAsignacionesDocentes } from '@/modules/academico/hooks/use-asignaciones-docentes'
 import { AsignacionDialog } from '@/modules/academico/components/asignacion-dialog'
 import type { AsignacionDocente } from '@/modules/academico/types'
+import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
+import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 type DialogState =
   { open: false } | { open: true; modo: 'crear' | 'eliminar'; item?: AsignacionDocente }
@@ -41,6 +43,10 @@ type DialogState =
 export function AsignacionesDocentesPage() {
   const { asignaciones, docentes, materias, divisiones, cargando, error, sinPermiso, recargar } =
     useAsignacionesDocentes()
+  // Entrar acá solo pide `academico.leer` (ver routes.tsx); crear/quitar una asignación sigue
+  // pidiendo el `actualizar` de escritura — mismo patrón que `estructura-academica-page.tsx`.
+  const permisos = useAuthStore(permisosActivos)
+  const puedeEditar = tienePermiso(permisos, PERMISO_ACADEMICO_ACTUALIZAR)
   const [busqueda, setBusqueda] = useState('')
   const [filtroCiclo, setFiltroCiclo] = useState('todos')
   const [filtroDivision, setFiltroDivision] = useState<string[]>([])
@@ -113,10 +119,12 @@ export function AsignacionesDocentesPage() {
       <PageHeader
         titulo="Asignaciones docentes"
         accion={
-          <Button onClick={() => setDialog({ open: true, modo: 'crear' })}>
-            <PlusIcon />
-            Nueva asignación
-          </Button>
+          puedeEditar && (
+            <Button onClick={() => setDialog({ open: true, modo: 'crear' })}>
+              <PlusIcon />
+              Nueva asignación
+            </Button>
+          )
         }
       />
 
@@ -209,12 +217,16 @@ export function AsignacionesDocentesPage() {
           </EmptyMedia>
           <EmptyTitle>Todavía no hay asignaciones docentes.</EmptyTitle>
           <EmptyDescription>
-            Asigná docentes a materias y divisiones para el ciclo lectivo actual.
+            {puedeEditar
+              ? 'Asigná docentes a materias y divisiones para el ciclo lectivo actual.'
+              : 'Todavía no se cargó ninguna asignación para el ciclo lectivo actual.'}
           </EmptyDescription>
-          <Button onClick={() => setDialog({ open: true, modo: 'crear' })}>
-            <PlusIcon />
-            Nueva asignación
-          </Button>
+          {puedeEditar && (
+            <Button onClick={() => setDialog({ open: true, modo: 'crear' })}>
+              <PlusIcon />
+              Nueva asignación
+            </Button>
+          )}
         </Empty>
       ) : (
         <Table>
@@ -242,24 +254,30 @@ export function AsignacionesDocentesPage() {
                 <TableCell>{asignacion.division_nombre}</TableCell>
                 <TableCell className="tabular-nums">{asignacion.ciclo_lectivo}</TableCell>
                 <TableCell data-align="end">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon-sm" aria-label="Acciones de la asignación">
-                        <MoreHorizontalIcon />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onSelect={() =>
-                          setDialog({ open: true, modo: 'eliminar', item: asignacion })
-                        }
-                      >
-                        <Trash2Icon />
-                        Quitar asignación
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {puedeEditar && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Acciones de la asignación"
+                        >
+                          <MoreHorizontalIcon />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onSelect={() =>
+                            setDialog({ open: true, modo: 'eliminar', item: asignacion })
+                          }
+                        >
+                          <Trash2Icon />
+                          Quitar asignación
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

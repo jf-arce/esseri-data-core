@@ -20,13 +20,24 @@ describe('filtrarNav', () => {
   })
 
   it('un módulo sin su permiso desaparece, hijos incluidos', () => {
-    // "Académico" (estructura curricular) pide el `actualizar` sin tipo, no `.leer` — así un
-    // docente (que solo tiene el `actualizar` tipado de asistencia) no lo ve.
-    const grupos = filtrarNav(NAV_GROUPS, 'secretaría', [permiso('academico.actualizar')])
+    // "Académico" (estructura curricular) pide el `.leer` para entrar — un permiso de otro
+    // módulo (ej. Familias) no lo desbloquea, ni viceversa.
+    const grupos = filtrarNav(NAV_GROUPS, 'secretaría', [permiso('academico.leer')])
 
     const labels = grupos.flatMap((g) => g.items.map((i) => i.label))
     expect(labels).toContain('Académico')
     expect(labels).not.toContain('Familias y alumnos')
+  })
+
+  it('dirección ve "Académico" con solo `.leer` (mira la estructura, no la opera)', () => {
+    // Antes esta sección pedía el `actualizar` de escritura para simplemente entrar: dirección
+    // (que solo tiene `.leer`/`.exportar` por diseño, grupo-b.yaml) quedaba afuera aunque el
+    // Panel de Dirección la linkeara. Ahora alcanza con `.leer`; los botones de crear/editar/
+    // eliminar se ocultan aparte, dentro de la página (`estructura-academica-page.tsx`).
+    const grupos = filtrarNav(NAV_GROUPS, 'dirección', [permiso('academico.leer')])
+
+    const labels = grupos.flatMap((g) => g.items.map((i) => i.label))
+    expect(labels).toContain('Académico')
   })
 
   it('"Tomar asistencia" pide el permiso tipado de asistencia, no la estructura', () => {
@@ -88,16 +99,23 @@ describe('rutaInicioDe', () => {
     expect(rutaInicioDe('administración', [permiso('panel_administrativo.leer')])).toBe('/admin')
   })
 
-  it('un rol sin panel entra por el primer módulo al que tiene acceso', () => {
-    // Docente real: solo el permiso tipado de asistencia, nunca el `actualizar` de estructura
-    // (ver nav-items.test.tsx > filtrarNav) — su único módulo visible es "Tomar asistencia".
-    expect(rutaInicioDe('docente', [permiso('academico.actualizar:asistencia')])).toBe(
-      '/academico/asistencia',
-    )
+  it('un rol de consola sin panel entra por el primer módulo al que tiene acceso', () => {
+    expect(rutaInicioDe('secretaría', [permiso('familias_alumnos.leer')])).toBe('/familias-alumnos')
   })
 
-  it('un rol sin ningún acceso devuelve null (pantalla "sin acceso")', () => {
-    expect(rutaInicioDe('docente', [])).toBeNull()
+  it('un rol de consola sin ningún acceso devuelve null (pantalla "sin acceso")', () => {
+    expect(rutaInicioDe('secretaría', [])).toBeNull()
+  })
+
+  it('docente (Portal) siempre cae en /docente: todavía no tiene pantallas propias', () => {
+    // El Portal lo construye otro integrante del equipo — por ahora es una página en blanco,
+    // así que no hay ítems que buscar: cualquier permiso del rol activo da lo mismo.
+    expect(rutaInicioDe('docente', [permiso('academico.actualizar:asistencia')])).toBe('/docente')
+    expect(rutaInicioDe('docente', [])).toBe('/docente')
+  })
+
+  it('familia (Portal, sin pantallas propias todavía) siempre cae en /familia', () => {
+    expect(rutaInicioDe('familia', [])).toBe('/familia')
   })
 
   it('sin rol activo, un panel (con `roles`) no cuenta pero un módulo por permiso sí', () => {
@@ -105,6 +123,6 @@ describe('rutaInicioDe', () => {
     // cubre el comportamiento de la función pura: `roles` en un ítem exige rol activo, un
     // `permiso` solo exige el código.
     expect(rutaInicioDe(null, [permiso('panel_administrativo.leer')])).toBeNull()
-    expect(rutaInicioDe(null, [permiso('academico.actualizar')])).toBe('/academico')
+    expect(rutaInicioDe(null, [permiso('academico.leer')])).toBe('/academico')
   })
 })

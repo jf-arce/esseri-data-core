@@ -33,11 +33,13 @@ export interface UsuarioActual {
   email: string
   auth_provider: string
   estado: string
-  /** Suma de todos los roles — lo que efectivamente autoriza el backend (RF-30). */
+  /** Suma de todos los roles de la cuenta — informativo, ya no es lo que autoriza el backend. */
   roles: string[]
   permisos: Permiso[]
   /** Los mismos roles, desglosados: cada uno con sus propios permisos, no la suma. Alimenta
-   * la pantalla "¿Cómo querés entrar?" y "Cambiar vista" — el rol activo solo filtra qué se
-   * *muestra*, nunca lo que el backend permite. */
+   * la pantalla "¿Cómo querés entrar?" y "Cambiar vista". */
   perfiles: PerfilRol[]
+  /** Rol con el que la sesión está autorizando de verdad (RF-30). `null` si todavía no se
+   * eligió uno (0 o 2+ roles recién logueado). */
+  rol_activo: string | null
 }

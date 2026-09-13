@@ -149,6 +149,42 @@ def test_secretaria_puede_editar_la_estructura_curricular(client_secretaria):
     assert respuesta.status_code == 404
 
 
+def test_rol_activo_docente_no_hereda_el_acceso_de_secretaria_de_la_misma_cuenta(
+    client_docente_y_secretaria, db_session
+):
+    """El caso que motivó autorizar por ROL ACTIVO y no por la suma de roles: una cuenta con
+    docente + secretaría, actuando como docente, tiene que seguir acotada por
+    `AsignacionDocente` — antes, la suma de roles le daba el bypass estructural completo de
+    secretaría aunque estuviera "viendo" la pantalla simplificada de docente."""
+    client, rol_docente, rol_secretaria = client_docente_y_secretaria
+    escenario = crear_escenario(db_session)
+    inscripcion = crear_inscripcion_previa(db_session, escenario, estado="activa")
+
+    assert client.post("/auth/rol-activo", json={"rol": rol_docente}).status_code == 200
+
+    respuesta_ajena = client.post(
+        "/academico/asistencias",
+        json={
+            "inscripcion_id": str(inscripcion.id),
+            "fecha": "2027-03-15",
+            "tipo": "presente",
+        },
+    )
+    assert respuesta_ajena.status_code == 403
+
+    assert client.post("/auth/rol-activo", json={"rol": rol_secretaria}).status_code == 200
+
+    respuesta_con_secretaria = client.post(
+        "/academico/asistencias",
+        json={
+            "inscripcion_id": str(inscripcion.id),
+            "fecha": "2027-03-15",
+            "tipo": "presente",
+        },
+    )
+    assert respuesta_con_secretaria.status_code == 201
+
+
 def test_docente_no_puede_editar_la_estructura_curricular(client_docente):
     """El permiso tipado `academico.actualizar:asistencia` no satisface el `actualizar` sin
     tipo que piden los endpoints de estructura — antes de la corrección, el mismo

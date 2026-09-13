@@ -66,6 +66,10 @@ class RolConPermisos(RolRead):
     permisos: list[PermisoRead]
 
 
+class RolActivoIn(BaseModel):
+    rol: str
+
+
 class UsuarioConRoles(BaseModel):
     """Respuesta de GET /auth/usuarios: el listado que hoy no existe, necesario para el
     selector de rol(es) por usuario (RF-29)."""
@@ -83,10 +87,10 @@ class UsuarioConRoles(BaseModel):
 class UsuarioActual(BaseModel):
     """Lo que devuelve GET /auth/me: quién es, qué roles y qué permisos tiene.
 
-    `roles`/`permisos` son la suma de todos los roles de la cuenta — lo que efectivamente
-    autoriza el backend (RF-30), sin cambios. `perfiles` desglosa esa suma por rol: el frontend
-    lo usa para la pantalla "¿Cómo querés entrar?" y el selector "Cambiar vista" (rol activo),
-    que solo filtra qué se *muestra*, nunca lo que el backend permite.
+    `roles`/`permisos` son la suma de todos los roles de la cuenta — informativo, ya no es lo
+    que autoriza el backend. `perfiles` desglosa esa suma por rol: alimenta la pantalla
+    "¿Cómo querés entrar?" y el selector "Cambiar vista". `rol_activo` es el rol con el que la
+    sesión está autorizando de verdad (RF-30) — `None` si todavía no se eligió uno.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -98,3 +102,4 @@ class UsuarioActual(BaseModel):
     roles: list[str]
     permisos: list[PermisoRead]
     perfiles: list[RolConPermisos]
+    rol_activo: str | None

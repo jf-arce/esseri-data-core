@@ -110,7 +110,7 @@ from src.auth.constants import (
     PERMISO_ACADEMICO_ELIMINAR,
     PERMISO_ACADEMICO_LEER,
 )
-from src.auth.dependencies import UsuarioAutenticado, requiere_permiso
+from src.auth.dependencies import RolActivo, UsuarioAutenticado, requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
 from src.inscripciones.models import Asistencia
@@ -519,6 +519,7 @@ def eliminar_asignacion_docente_endpoint(
 def registrar_asistencia_endpoint(
     datos: AsistenciaCreate,
     usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA))],
+    rol_activo: RolActivo,
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Asistencia:
     """Registrar asistencia diaria de un alumno.
@@ -528,7 +529,7 @@ def registrar_asistencia_endpoint(
     notificación automática a los responsables con recibe_comunicaciones=true.
     """
     try:
-        return registrar_asistencia(db, datos, usuario.id)
+        return registrar_asistencia(db, datos, usuario.id, rol_activo)
     except InscripcionNoActiva as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
     except AsistenciaDuplicada as exc:
@@ -539,6 +540,7 @@ def registrar_asistencia_endpoint(
 def registrar_asistencia_masiva_endpoint(
     datos: AsistenciaBulkCreate,
     usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA))],
+    rol_activo: RolActivo,
     db: Session = Depends(get_db),  # noqa: B008
 ) -> AsistenciaBulkResponse:
     """Registrar asistencia de toda una división en una fecha.
@@ -546,12 +548,13 @@ def registrar_asistencia_masiva_endpoint(
     Crea o actualiza registros existentes. Para 'ausente' dispara
     notificación automática a los responsables.
     """
-    return registrar_asistencia_masiva(db, datos, usuario.id)
+    return registrar_asistencia_masiva(db, datos, usuario.id, rol_activo)
 
 
 @router.get("/asistencias", response_model=list[AsistenciaResponse])
 def listar_asistencias_endpoint(
     usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    rol_activo: RolActivo,
     inscripcion_id: uuid.UUID | None = None,
     fecha: date | None = None,
     fecha_desde: date | None = None,
@@ -566,6 +569,7 @@ def listar_asistencias_endpoint(
     return listar_asistencias(
         db,
         usuario.id,
+        rol_activo,
         inscripcion_id=inscripcion_id,
         fecha=fecha,
         fecha_desde=fecha_desde,
@@ -577,6 +581,7 @@ def listar_asistencias_endpoint(
 @router.get("/asistencias/resumen", response_model=AsistenciaResumen)
 def resumen_asistencia_endpoint(
     usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    rol_activo: RolActivo,
     inscripcion_id: uuid.UUID = ...,
     fecha_desde: date = ...,
     fecha_hasta: date = ...,
@@ -587,17 +592,20 @@ def resumen_asistencia_endpoint(
     Devuelve conteos por tipo y porcentajes de presencia,
     ausencias justificadas vs. injustificadas.
     """
-    return calcular_resumen_asistencia(db, usuario.id, inscripcion_id, fecha_desde, fecha_hasta)
+    return calcular_resumen_asistencia(
+        db, usuario.id, rol_activo, inscripcion_id, fecha_desde, fecha_hasta
+    )
 
 
 @router.get("/asistencias/{asistencia_id}", response_model=AsistenciaResponse)
 def obtener_asistencia_endpoint(
     usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    rol_activo: RolActivo,
     asistencia: Asistencia = Depends(obtener_asistencia_o_404),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Asistencia:
     """Obtener un registro de asistencia por su ID."""
-    verificar_acceso_a_asistencia(db, asistencia, usuario.id)
+    verificar_acceso_a_asistencia(db, asistencia, usuario.id, rol_activo)
     return asistencia
 
 
@@ -605,6 +613,7 @@ def obtener_asistencia_endpoint(
 def actualizar_asistencia_endpoint(
     datos: AsistenciaUpdate,
     usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA))],
+    rol_activo: RolActivo,
     asistencia: Asistencia = Depends(obtener_asistencia_o_404),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Asistencia:
@@ -614,7 +623,7 @@ def actualizar_asistencia_endpoint(
     No puede modificar un registro ya justificado.
     """
     try:
-        return actualizar_asistencia(db, asistencia, datos, usuario.id)
+        return actualizar_asistencia(db, asistencia, datos, usuario.id, rol_activo)
     except AsistenciaYaJustificada as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 
@@ -622,8 +631,9 @@ def actualizar_asistencia_endpoint(
 @router.delete("/asistencias/{asistencia_id}", status_code=204)
 def eliminar_asistencia_endpoint(
     usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ELIMINAR))],
+    rol_activo: RolActivo,
     asistencia: Asistencia = Depends(obtener_asistencia_o_404),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> None:
     """Eliminar un registro de asistencia."""
-    eliminar_asistencia(db, asistencia, usuario.id)
+    eliminar_asistencia(db, asistencia, usuario.id, rol_activo)

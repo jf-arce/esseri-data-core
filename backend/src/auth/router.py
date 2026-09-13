@@ -23,6 +23,7 @@ from src.auth.constants import (
 )
 from src.auth.dependencies import (
     DbSession,
+    RolActivo,
     UsuarioAutenticado,
     obtener_permiso_o_404,
     obtener_rol_o_404,
@@ -33,6 +34,7 @@ from src.auth.exceptions import (
     CredencialesInvalidas,
     EstadoOAuthInvalido,
     LoginCancelado,
+    PermisoDenegado,
     UsuarioInactivo,
     UsuarioNoHabilitado,
 )
@@ -42,6 +44,7 @@ from src.auth.schemas import (
     PermisoCreate,
     PermisoRead,
     PermisoUpdate,
+    RolActivoIn,
     RolConPermisos,
     RolCreate,
     RolRead,
@@ -169,13 +172,14 @@ def login_local(datos: LoginLocalIn, request: Request, db: DbSession) -> JSONRes
 
 
 @router.get("/me", response_model=UsuarioActual)
-def me(usuario: UsuarioAutenticado, db: DbSession) -> UsuarioActual:
+def me(usuario: UsuarioAutenticado, db: DbSession, rol_activo: RolActivo) -> UsuarioActual:
+    roles = service.roles_de(db, usuario.id)
     return UsuarioActual(
         id=usuario.id,
         email=usuario.email,
         auth_provider=usuario.auth_provider,
         estado=usuario.estado,
-        roles=service.roles_de(db, usuario.id),
+        roles=roles,
         permisos=service.permisos_de(db, usuario.id),
         perfiles=[
             RolConPermisos(
@@ -186,7 +190,23 @@ def me(usuario: UsuarioAutenticado, db: DbSession) -> UsuarioActual:
             )
             for rol, permisos in service.perfiles_de(db, usuario.id)
         ],
+        # Si el rol de la cookie ya no es válido (renombrado/revocado), se reporta null en vez
+        # de un nombre viejo — el frontend vuelve a preguntar en vez de quedar inconsistente.
+        rol_activo=rol_activo if rol_activo in roles else None,
     )
+
+
+@router.post("/rol-activo")
+def establecer_rol_activo(
+    datos: RolActivoIn, usuario: UsuarioAutenticado, db: DbSession
+) -> JSONResponse:
+    if datos.rol not in service.roles_de(db, usuario.id):
+        raise PermisoDenegado("Ese rol no pertenece a tu cuenta")
+
+    token = service.crear_access_token(usuario.id, datos.rol)
+    respuesta = JSONResponse({"detail": "Rol activo actualizado"})
+    _setear_cookie_sesion(respuesta, token)
+    return respuesta
 
 
 @router.post("/logout")

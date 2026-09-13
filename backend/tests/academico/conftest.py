@@ -104,6 +104,54 @@ def client_secretaria(client, db_session):
 
 
 @pytest.fixture()
+def client_docente_y_secretaria(client, db_session, persona_docente):
+    """Una sola cuenta con AMBOS roles (docente + secretaría), para probar que el backend
+    autoriza por rol ACTIVO y no por la suma: con docente activo tiene que seguir acotada por
+    `AsignacionDocente` aunque la cuenta también tenga secretaría."""
+    usuario = Usuario(
+        email="docente-secretaria@esseri.edu.ar",
+        password_hash=service.hashear_password(PASSWORD_VALIDA),
+        auth_provider="local",
+        estado="activo",
+        persona_id=persona_docente.id,
+    )
+    rol_docente = Rol(nombre="docente combinado de prueba")
+    rol_secretaria = Rol(nombre="secretaría combinada de prueba")
+    db_session.add_all([usuario, rol_docente, rol_secretaria])
+    db_session.flush()
+
+    # academico.leer lo piden ambos roles: una sola fila, `Permiso.codigo` es UNIQUE.
+    permiso_academico_leer = Permiso(modulo=MODULO_ACADEMICO, accion=ACCION_LEER)
+    permisos_solo_docente = [
+        Permiso(modulo=MODULO_ACADEMICO, accion=ACCION_ACTUALIZAR, tipo_informacion="asistencia"),
+        Permiso(modulo=MODULO_INSCRIPCIONES, accion=ACCION_LEER),
+    ]
+    permisos_solo_secretaria = [
+        Permiso(modulo=MODULO_ACADEMICO, accion=ACCION_CREAR),
+        Permiso(modulo=MODULO_ACADEMICO, accion=ACCION_ACTUALIZAR),
+    ]
+    db_session.add_all(
+        [permiso_academico_leer, *permisos_solo_docente, *permisos_solo_secretaria]
+    )
+    db_session.flush()
+    for permiso in [permiso_academico_leer, *permisos_solo_docente]:
+        db_session.add(RolPermiso(rol_id=rol_docente.id, permiso_id=permiso.id))
+    for permiso in [permiso_academico_leer, *permisos_solo_secretaria]:
+        db_session.add(RolPermiso(rol_id=rol_secretaria.id, permiso_id=permiso.id))
+    db_session.add(UsuarioRol(usuario_id=usuario.id, rol_id=rol_docente.id))
+    db_session.add(UsuarioRol(usuario_id=usuario.id, rol_id=rol_secretaria.id))
+    db_session.commit()
+
+    respuesta = client.post(
+        "/auth/login", json={"email": usuario.email, "password": PASSWORD_VALIDA}
+    )
+    assert respuesta.status_code == 200
+    # Cuenta con 2 roles: arranca sin rol activo, el propio test elige con cuál entrar.
+
+    return client, rol_docente.nombre, rol_secretaria.nombre
+
+
+@pytest.fixture()
 def asignar_division_a_docente(db_session, persona_docente):
     """Liga la cuenta de `client_docente` a una `AsignacionDocente` vigente para una división,
     simulando que ese docente realmente la tiene a cargo (RF-06: scoping por fila)."""

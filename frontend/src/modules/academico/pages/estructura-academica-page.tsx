@@ -13,6 +13,8 @@ import { AbmDialog } from '@/modules/academico/components/abm-dialog'
 import { listarAnios } from '@/modules/academico/services/anios'
 import { listarDivisiones } from '@/modules/academico/services/divisiones'
 import type { Anio, Division, Materia, NivelEducativo } from '@/modules/academico/types'
+import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
+import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 type DialogState =
   | { open: false }
@@ -31,6 +33,11 @@ type DialogState =
 
 export function EstructuraAcademicaPage() {
   const { datos: niveles, cargando, error, sinPermiso, recargar } = useEstructuraAcademica()
+  // Entrar a esta página solo pide `academico.leer` (dirección la mira sin operarla, ver
+  // nav-items.ts); crear/editar/eliminar sigue pidiendo el `actualizar` de escritura — mismo
+  // patrón que `asistencia-division-page.tsx` para "acceso estructural".
+  const permisos = useAuthStore(permisosActivos)
+  const puedeEditar = tienePermiso(permisos, PERMISO_ACADEMICO_ACTUALIZAR)
   const [filtroNivel, setFiltroNivel] = useState('todos')
   const [dialog, setDialog] = useState<DialogState>({ open: false })
   const [allAnios, setAllAnios] = useState<Anio[]>([])
@@ -100,10 +107,12 @@ export function EstructuraAcademicaPage() {
       <PageHeader
         titulo="Estructura académica"
         accion={
-          <Button onClick={() => abrirDialog('nivel', 'crear')}>
-            <PlusIcon />
-            Agregar nivel
-          </Button>
+          puedeEditar && (
+            <Button onClick={() => abrirDialog('nivel', 'crear')}>
+              <PlusIcon />
+              Agregar nivel
+            </Button>
+          )
         }
       />
 
@@ -158,13 +167,16 @@ export function EstructuraAcademicaPage() {
           </EmptyMedia>
           <EmptyTitle>Todavía no hay niveles cargados.</EmptyTitle>
           <EmptyDescription>
-            Acción sugerida: crear el primer nivel educativo para poder agregar años, divisiones y
-            materias.
+            {puedeEditar
+              ? 'Acción sugerida: crear el primer nivel educativo para poder agregar años, divisiones y materias.'
+              : 'Todavía no se cargó ningún nivel educativo.'}
           </EmptyDescription>
-          <Button onClick={() => abrirDialog('nivel', 'crear')}>
-            <PlusIcon />
-            Agregar nivel
-          </Button>
+          {puedeEditar && (
+            <Button onClick={() => abrirDialog('nivel', 'crear')}>
+              <PlusIcon />
+              Agregar nivel
+            </Button>
+          )}
         </Empty>
       ) : (
         <Card className="p-6">
@@ -172,6 +184,7 @@ export function EstructuraAcademicaPage() {
             <NivelSeccion
               key={nivel.id}
               nivel={nivel}
+              puedeEditar={puedeEditar}
               onEditarNivel={(n) => abrirDialog('nivel', 'editar', { tipo: 'nivel', data: n })}
               onEliminarNivel={(n) => abrirDialog('nivel', 'eliminar', { tipo: 'nivel', data: n })}
               onAgregarAnio={(nivelId) => abrirDialog('anio', 'crear', undefined, nivelId)}

@@ -1,5 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { setRolActivoRemoto } from '@/modules/auth/services/set-rol-activo'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
+
+vi.mock('@/modules/auth/services/set-rol-activo')
 
 const permisoLeer = {
   id: 'p1',
@@ -17,6 +20,7 @@ const usuarioUnRol = {
   roles: ['admin'],
   permisos: [permisoLeer],
   perfiles: [{ id: 'admin', nombre: 'admin', descripcion: null, permisos: [permisoLeer] }],
+  rol_activo: 'admin',
 }
 
 const usuarioDosRoles = {
@@ -30,10 +34,11 @@ const usuarioDosRoles = {
     { id: 'docente', nombre: 'docente', descripcion: null, permisos: [permisoLeer] },
     { id: 'familia', nombre: 'familia', descripcion: null, permisos: [] },
   ],
+  rol_activo: null,
 }
 
 beforeEach(() => {
-  sessionStorage.clear()
+  vi.mocked(setRolActivoRemoto).mockReset().mockResolvedValue({ detail: 'Rol activo actualizado' })
   useAuthStore.setState({ usuario: null, status: 'idle', rolActivo: null })
 })
 
@@ -69,35 +74,35 @@ describe('useAuthStore', () => {
     expect(useAuthStore.getState()).toMatchObject({ usuario: usuarioUnRol, status: 'loading' })
   })
 
-  it('con un solo rol, lo fija como rol activo automáticamente', () => {
+  it('confía en el rol_activo que devuelve el backend', () => {
     useAuthStore.getState().setUsuario(usuarioUnRol)
 
     expect(useAuthStore.getState().rolActivo).toBe('admin')
   })
 
-  it('con más de un rol y nada guardado, no elige ninguno (hay que preguntarle)', () => {
+  it('con rol_activo null (0 o 2+ roles), no elige ninguno (hay que preguntarle)', () => {
     useAuthStore.getState().setUsuario(usuarioDosRoles)
 
     expect(useAuthStore.getState().rolActivo).toBeNull()
   })
 
-  it('setRolActivo cambia el rol activo y sus permisos', () => {
+  it('setRolActivo avisa al backend y recién después cambia el rol activo y sus permisos', async () => {
     useAuthStore.getState().setUsuario(usuarioDosRoles)
 
-    useAuthStore.getState().setRolActivo('docente')
+    await useAuthStore.getState().setRolActivo('docente')
 
+    expect(setRolActivoRemoto).toHaveBeenCalledWith('docente')
     expect(useAuthStore.getState().rolActivo).toBe('docente')
     expect(permisosActivos(useAuthStore.getState())).toEqual([permisoLeer])
   })
 
-  it('un rol activo guardado para el mismo usuario se recupera al volver a loguear', () => {
+  it('si el backend rechaza el cambio, no toca el rol activo local', async () => {
     useAuthStore.getState().setUsuario(usuarioDosRoles)
-    useAuthStore.getState().setRolActivo('familia')
-    useAuthStore.setState({ usuario: null, status: 'unauthenticated', rolActivo: null })
+    vi.mocked(setRolActivoRemoto).mockRejectedValueOnce(new Error('403'))
 
-    useAuthStore.getState().setUsuario(usuarioDosRoles)
+    await expect(useAuthStore.getState().setRolActivo('docente')).rejects.toThrow()
 
-    expect(useAuthStore.getState().rolActivo).toBe('familia')
+    expect(useAuthStore.getState().rolActivo).toBeNull()
   })
 
   it('permisosActivos devuelve lista vacía sin rol activo', () => {

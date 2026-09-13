@@ -36,15 +36,33 @@ def get_current_user(request: Request, db: DbSession) -> Usuario:
 UsuarioAutenticado = Annotated[Usuario, Depends(get_current_user)]
 
 
-def requiere_permiso(codigo: str) -> Callable[[Usuario, DbSession], Usuario]:
-    """Factory de dependency (RF-30): 401 sin sesión, 403 si la sesión no alcanza.
+def obtener_rol_activo(request: Request) -> str | None:
+    """Rol con el que la sesión está actuando, embebido como claim `rol` en el JWT.
+
+    `None` significa "todavía no eligió": cuenta recién logueada con 0 o 2+ roles.
+    """
+    token = request.cookies.get(config.COOKIE_SESION)
+    if not token:
+        raise TokenInvalido("No hay sesión activa")
+    return service.decodificar_rol_activo(token)
+
+
+RolActivo = Annotated[str | None, Depends(obtener_rol_activo)]
+
+
+def requiere_permiso(codigo: str) -> Callable[[Usuario, DbSession, str | None], Usuario]:
+    """Factory de dependency (RF-30): 401 sin sesión, 403 si el rol activo no alcanza.
 
     `codigo` es la clave estable de `Permiso.codigo` (ver `src.auth.constants.codigo_de`), no
-    el par (modulo, accion) que se usaba antes.
+    el par (modulo, accion) que se usaba antes. Autoriza contra el ROL ACTIVO de la sesión, no
+    contra la suma de roles de la cuenta — dos roles en la misma cuenta ya no se combinan a
+    nivel API, aunque `auth_service.tiene_permiso` (la suma) siga existiendo para uso informativo.
     """
 
-    def _verificar(usuario: UsuarioAutenticado, db: DbSession) -> Usuario:
-        if not service.tiene_permiso(db, usuario.id, codigo):
+    def _verificar(usuario: UsuarioAutenticado, db: DbSession, rol_activo: RolActivo) -> Usuario:
+        if rol_activo is None:
+            raise PermisoDenegado("Elegí con qué rol entrar antes de continuar")
+        if not service.tiene_permiso_en_rol(db, usuario.id, rol_activo, codigo):
             raise PermisoDenegado()
         return usuario
 

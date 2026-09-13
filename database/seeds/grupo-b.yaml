@@ -70,6 +70,11 @@ permiso:
   - rol: dirección
     modulo: Auditoría
     acciones: [leer]
+  # El Panel de Dirección (stat "Alumnos activos") linkea a Familias y Alumnos — sin esto,
+  # dirección chocaba con una pantalla "sin acceso" al hacer click en su propio panel.
+  - rol: dirección
+    modulo: Familias y Alumnos
+    acciones: [leer]
 
   # administración — opera Familias/Facturación/Proveedores (RF-32)
   - rol: administración
@@ -83,6 +88,11 @@ permiso:
     acciones: [crear, leer, actualizar, exportar]
   - rol: administración
     modulo: Panel Administrativo
+    acciones: [leer]
+  # El Panel Administrativo (card "Inscripciones") linkea a Inscripciones — sin esto,
+  # administración chocaba con una pantalla "sin acceso" al hacer click en su propio panel.
+  - rol: administración
+    modulo: Inscripciones
     acciones: [leer]
 
   # docente — solo su propia asistencia/materias, nada de facturación

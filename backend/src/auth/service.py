@@ -63,7 +63,7 @@ def verificar_password(password: str, password_hash: str) -> bool:
 # --- JWT ---------------------------------------------------------------------------------
 
 
-def crear_access_token(usuario_id: uuid.UUID) -> str:
+def crear_access_token(usuario_id: uuid.UUID, rol_activo: str | None = None) -> str:
     ahora = datetime.now(UTC)
     payload = {
         "sub": str(usuario_id),
@@ -71,6 +71,8 @@ def crear_access_token(usuario_id: uuid.UUID) -> str:
         "exp": ahora + timedelta(minutes=config.JWT_EXPIRE_MINUTES),
         "jti": str(uuid.uuid4()),
     }
+    if rol_activo is not None:
+        payload["rol"] = rol_activo
     return jwt.encode(payload, config.JWT_SECRET, algorithm=config.JWT_ALGORITHM)
 
 
@@ -80,6 +82,14 @@ def decodificar_access_token(token: str) -> uuid.UUID:
         return uuid.UUID(payload["sub"])
     except (JWTError, KeyError, ValueError) as exc:
         raise TokenInvalido() from exc
+
+
+def decodificar_rol_activo(token: str) -> str | None:
+    try:
+        payload = jwt.decode(token, config.JWT_SECRET, algorithms=[config.JWT_ALGORITHM])
+    except JWTError as exc:
+        raise TokenInvalido() from exc
+    return payload.get("rol")
 
 
 # --- Consultas ---------------------------------------------------------------------------
@@ -200,13 +210,19 @@ def resolver_usuario_google(
 
 
 def finalizar_login(db: Session, usuario: Usuario, ip_origen: str | None) -> str:
-    """Único punto por el que se emite un token, lo use Google o el login local."""
+    """Único punto por el que se emite un token, lo use Google o el login local.
+
+    Con un solo rol, ese rol se embebe como rol activo de entrada — nadie nota el cambio.
+    Con 0 o 2+ roles arranca en `None`: `requiere_permiso` deniega hasta `POST /auth/rol-activo`.
+    """
     usuario.ultimo_acceso = datetime.now(UTC).replace(tzinfo=None)
     db.add(usuario)
     db.commit()
     db.refresh(usuario)
     registrar_acceso(db, RESULTADO_EXITOSO, ip_origen, usuario.id)
-    return crear_access_token(usuario.id)
+    roles = roles_de(db, usuario.id)
+    rol_inicial = roles[0] if len(roles) == 1 else None
+    return crear_access_token(usuario.id, rol_inicial)
 
 
 # --- Autorización (RF-30) -----------------------------------------------------------------
@@ -234,17 +250,38 @@ def tiene_permiso(db: Session, usuario_id: uuid.UUID, codigo: str) -> bool:
     - `"<modulo>.<accion>:<tipo>"` (pedido puntual): lo satisface el código exacto o el permiso
       amplio sin tipo (`"<modulo>.<accion>"`), nunca uno de un tipo distinto.
     """
-    base, separador, _tipo = codigo.partition(":")
-    if separador:
-        condicion_codigo = Permiso.codigo.in_([codigo, base])
-    else:
-        condicion_codigo = or_(Permiso.codigo == base, Permiso.codigo.like(f"{base}:%"))
+    condicion_codigo = _condicion_codigo(codigo)
 
     stmt = (
         select(UsuarioRol.id)
         .join(RolPermiso, RolPermiso.rol_id == UsuarioRol.rol_id)
         .join(Permiso, Permiso.id == RolPermiso.permiso_id)
         .where(UsuarioRol.usuario_id == usuario_id, condicion_codigo)
+    )
+    return _existe(db, stmt)
+
+
+def _condicion_codigo(codigo: str):
+    base, separador, _tipo = codigo.partition(":")
+    if separador:
+        return Permiso.codigo.in_([codigo, base])
+    return or_(Permiso.codigo == base, Permiso.codigo.like(f"{base}:%"))
+
+
+def tiene_permiso_en_rol(db: Session, usuario_id: uuid.UUID, rol_nombre: str, codigo: str) -> bool:
+    """Como `tiene_permiso`, pero acotado a un único rol de la cuenta (el rol activo).
+
+    Si `rol_nombre` fue revocado o renombrado después de emitido el token, el join a `Rol`
+    no matchea nada y esto da `False` sin necesitar invalidar tokens.
+    """
+    condicion_codigo = _condicion_codigo(codigo)
+
+    stmt = (
+        select(UsuarioRol.id)
+        .join(RolPermiso, RolPermiso.rol_id == UsuarioRol.rol_id)
+        .join(Permiso, Permiso.id == RolPermiso.permiso_id)
+        .join(Rol, Rol.id == UsuarioRol.rol_id)
+        .where(UsuarioRol.usuario_id == usuario_id, Rol.nombre == rol_nombre, condicion_codigo)
     )
     return _existe(db, stmt)
 

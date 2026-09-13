@@ -103,7 +103,7 @@ def _docente_de(db: Session, usuario_id: uuid.UUID) -> Docente | None:
     return db.query(Docente).filter(Docente.persona_id == usuario.persona_id).first()
 
 
-def _tiene_acceso_estructural(db: Session, usuario_id: uuid.UUID) -> bool:
+def _tiene_acceso_estructural(db: Session, usuario_id: uuid.UUID, rol_activo: str | None) -> bool:
     """El personal con `academico.actualizar` amplio, sin tipo (secretaría, coordinación
     académica, administrador del sistema) opera cualquier división. Se pide el código CON tipo
     (`..._ESTRUCTURA`, el mismo que exigen los endpoints de estructura) y no el código sin
@@ -113,11 +113,22 @@ def _tiene_acceso_estructural(db: Session, usuario_id: uuid.UUID) -> bool:
 
     A propósito NO se usa "¿tiene una fila en `Docente`?" como señal: un docente recién dado de
     alta, todavía sin esa fila cargada por RR.HH., tiene que seguir acotado a nada (deniega) en
-    vez de leerse como "sin restricción"."""
-    return auth_service.tiene_permiso(db, usuario_id, PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA)
+    vez de leerse como "sin restricción".
+
+    Se evalúa contra el ROL ACTIVO de la sesión, no la suma de roles de la cuenta (RF-30): una
+    cuenta con docente + administración, actuando como docente, no hereda el acceso estructural
+    de administración. `rol_activo=None` nunca pasa por acá en la práctica (`requiere_permiso`
+    ya cortó antes), pero si pasara se trata como sin acceso, nunca como bypass."""
+    if rol_activo is None:
+        return False
+    return auth_service.tiene_permiso_en_rol(
+        db, usuario_id, rol_activo, PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA
+    )
 
 
-def verificar_acceso_a_division(db: Session, usuario_id: uuid.UUID, division_id: uuid.UUID) -> None:
+def verificar_acceso_a_division(
+    db: Session, usuario_id: uuid.UUID, division_id: uuid.UUID, rol_activo: str | None
+) -> None:
     """RF-06: sin el `academico.actualizar` estructural (o sea, con solo el permiso tipado de
     asistencia — un docente), solo se opera sobre las divisiones con una `AsignacionDocente`
     vigente — sin esto, cualquier docente podía tomar/editar/leer asistencia de una división
@@ -128,7 +139,7 @@ def verificar_acceso_a_division(db: Session, usuario_id: uuid.UUID, division_id:
     tipo) queda del lado "acotado" acá — nunca tiene una `AsignacionDocente` propia, así que
     hoy no puede leer asistencia por este camino. No es una regresión activa (ningún flujo del
     frontend lo ejercita todavía), pero queda pendiente si dirección necesita este acceso."""
-    if _tiene_acceso_estructural(db, usuario_id):
+    if _tiene_acceso_estructural(db, usuario_id, rol_activo):
         return
     docente = _docente_de(db, usuario_id)
     tiene_asignacion = docente is not None and (
@@ -145,16 +156,18 @@ def verificar_acceso_a_division(db: Session, usuario_id: uuid.UUID, division_id:
 
 
 def verificar_acceso_a_asistencia(
-    db: Session, asistencia: Asistencia, usuario_id: uuid.UUID
+    db: Session, asistencia: Asistencia, usuario_id: uuid.UUID, rol_activo: str | None
 ) -> None:
     """Variante de `verificar_acceso_a_division` a partir de un registro ya cargado (GET por id,
     actualizar, eliminar): resuelve la división vía su inscripción."""
     inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
     if inscripcion is not None:
-        verificar_acceso_a_division(db, usuario_id, inscripcion.division_id)
+        verificar_acceso_a_division(db, usuario_id, inscripcion.division_id, rol_activo)
 
 
-def registrar_asistencia(db: Session, datos: AsistenciaCreate, usuario_id: uuid.UUID) -> Asistencia:
+def registrar_asistencia(
+    db: Session, datos: AsistenciaCreate, usuario_id: uuid.UUID, rol_activo: str | None
+) -> Asistencia:
     """Registrar asistencia diaria de un alumno.
 
     - presente/tardanza se guardan tal cual.
@@ -163,7 +176,7 @@ def registrar_asistencia(db: Session, datos: AsistenciaCreate, usuario_id: uuid.
     inscripcion = db.get(Inscripcion, datos.inscripcion_id)
     if inscripcion is None or inscripcion.estado != "activa":
         raise InscripcionNoActiva()
-    verificar_acceso_a_division(db, usuario_id, inscripcion.division_id)
+    verificar_acceso_a_division(db, usuario_id, inscripcion.division_id, rol_activo)
 
     existente = db.scalar(
         select(Asistencia.id).where(
@@ -191,14 +204,14 @@ def registrar_asistencia(db: Session, datos: AsistenciaCreate, usuario_id: uuid.
 
 
 def registrar_asistencia_masiva(
-    db: Session, datos: AsistenciaBulkCreate, usuario_id: uuid.UUID
+    db: Session, datos: AsistenciaBulkCreate, usuario_id: uuid.UUID, rol_activo: str | None
 ) -> AsistenciaBulkResponse:
     """Registrar asistencia de toda una división en una fecha.
 
     Si ya existe un registro para (inscripcion_id, fecha), se actualiza.
     Si no existe, se crea. Para 'ausente' se dispara notificación.
     """
-    verificar_acceso_a_division(db, usuario_id, datos.division_id)
+    verificar_acceso_a_division(db, usuario_id, datos.division_id, rol_activo)
 
     creadas = 0
     actualizadas = 0
@@ -253,6 +266,7 @@ def obtener_asistencia_por_id(db: Session, asistencia_id: uuid.UUID) -> Asistenc
 def listar_asistencias(
     db: Session,
     usuario_id: uuid.UUID,
+    rol_activo: str | None,
     inscripcion_id: uuid.UUID | None = None,
     fecha: date | None = None,
     fecha_desde: date | None = None,
@@ -274,8 +288,8 @@ def listar_asistencias(
         division_a_verificar = inscripcion_filtro.division_id if inscripcion_filtro else None
 
     if division_a_verificar is not None:
-        verificar_acceso_a_division(db, usuario_id, division_a_verificar)
-    elif not _tiene_acceso_estructural(db, usuario_id):
+        verificar_acceso_a_division(db, usuario_id, division_a_verificar, rol_activo)
+    elif not _tiene_acceso_estructural(db, usuario_id, rol_activo):
         raise PermisoDenegado("No tenés asignada esta división")
 
     query = db.query(Asistencia)
@@ -297,13 +311,14 @@ def actualizar_asistencia(
     asistencia: Asistencia,
     datos: AsistenciaUpdate,
     usuario_id: uuid.UUID,
+    rol_activo: str | None,
 ) -> Asistencia:
     """Actualizar un registro de asistencia.
 
     El docente solo puede cambiar entre presente/tardanza/ausente.
     No puede modificar un registro ya justificado.
     """
-    verificar_acceso_a_asistencia(db, asistencia, usuario_id)
+    verificar_acceso_a_asistencia(db, asistencia, usuario_id, rol_activo)
     if asistencia.tipo in _TIPOS_JUSTIFICADOS:
         raise AsistenciaYaJustificada()
 
@@ -321,9 +336,11 @@ def actualizar_asistencia(
     return asistencia
 
 
-def eliminar_asistencia(db: Session, asistencia: Asistencia, usuario_id: uuid.UUID) -> None:
+def eliminar_asistencia(
+    db: Session, asistencia: Asistencia, usuario_id: uuid.UUID, rol_activo: str | None
+) -> None:
     """Eliminar un registro de asistencia."""
-    verificar_acceso_a_asistencia(db, asistencia, usuario_id)
+    verificar_acceso_a_asistencia(db, asistencia, usuario_id, rol_activo)
     db.delete(asistencia)
     db.commit()
 
@@ -331,6 +348,7 @@ def eliminar_asistencia(db: Session, asistencia: Asistencia, usuario_id: uuid.UU
 def calcular_resumen_asistencia(
     db: Session,
     usuario_id: uuid.UUID,
+    rol_activo: str | None,
     inscripcion_id: uuid.UUID,
     fecha_desde: date,
     fecha_hasta: date,
@@ -346,7 +364,7 @@ def calcular_resumen_asistencia(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Inscripción con ID {inscripcion_id} no encontrada",
         )
-    verificar_acceso_a_division(db, usuario_id, inscripcion.division_id)
+    verificar_acceso_a_division(db, usuario_id, inscripcion.division_id, rol_activo)
 
     registros = (
         db.query(Asistencia)

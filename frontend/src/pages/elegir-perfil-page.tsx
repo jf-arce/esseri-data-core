@@ -1,6 +1,7 @@
 import { CheckIcon, UserIcon } from 'lucide-react'
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { rutaInicioDe } from '@/layout/nav-items'
@@ -31,6 +32,7 @@ export function ElegirPerfilPage() {
   const [seleccionado, setSeleccionado] = useState<string | null>(
     perfiles.length === 1 ? perfiles[0].nombre : null,
   )
+  const [enviando, setEnviando] = useState(false)
 
   // Con 0 o 1 rol no hay nada que elegir: `setUsuario` ya fija el rol activo solo en ese caso,
   // así que si de todos modos se llega acá (deep link directo) hay que salir sin preguntar.
@@ -38,12 +40,18 @@ export function ElegirPerfilPage() {
     return <Navigate to="/" replace />
   }
 
-  function continuar() {
-    if (!seleccionado || !usuario) return
-    setRolActivo(seleccionado)
-    const permisosDelRol =
-      usuario.perfiles.find((perfil) => perfil.nombre === seleccionado)?.permisos ?? []
-    navigate(rutaInicioDe(seleccionado, permisosDelRol) ?? '/', { replace: true })
+  async function continuar() {
+    if (!seleccionado || !usuario || enviando) return
+    setEnviando(true)
+    try {
+      await setRolActivo(seleccionado)
+      const permisosDelRol =
+        usuario.perfiles.find((perfil) => perfil.nombre === seleccionado)?.permisos ?? []
+      navigate(rutaInicioDe(seleccionado, permisosDelRol) ?? '/', { replace: true })
+    } catch {
+      toast.error('No se pudo cambiar de rol. Intentá de nuevo.')
+      setEnviando(false)
+    }
   }
 
   return (
@@ -106,7 +114,12 @@ export function ElegirPerfilPage() {
           ))}
         </div>
 
-        <Button size="lg" className="w-full" disabled={!seleccionado} onClick={continuar}>
+        <Button
+          size="lg"
+          className="w-full"
+          disabled={!seleccionado || enviando}
+          onClick={continuar}
+        >
           Continuar
         </Button>
       </div>

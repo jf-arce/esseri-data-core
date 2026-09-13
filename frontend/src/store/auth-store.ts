@@ -1,46 +1,17 @@
 import { create } from 'zustand'
+import { setRolActivoRemoto } from '@/modules/auth/services/set-rol-activo'
 import type { Permiso, UsuarioActual } from '@/modules/auth/types'
 
 type SessionStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated'
 
-const CLAVE_ROL_ACTIVO = 'esseri.rol-activo'
-
-// sessionStorage (no localStorage): el rol activo sobrevive a un F5 dentro de la misma pestaña,
-// pero un login nuevo (otra pestaña, o cerrar sesión y volver a entrar) vuelve a preguntar —
-// no queremos que quede "pegado" el rol de otro usuario en la misma máquina. Puede tirar en un
-// modo privado o con storage bloqueado: nunca debe romper el login por eso.
-function leerRolGuardado(usuarioId: string): string | null {
-  try {
-    const guardado = sessionStorage.getItem(CLAVE_ROL_ACTIVO)
-    if (!guardado) return null
-    const { usuarioId: id, rol } = JSON.parse(guardado) as { usuarioId: string; rol: string }
-    return id === usuarioId ? rol : null
-  } catch {
-    return null
-  }
-}
-
-function guardarRolActivo(usuarioId: string, rol: string | null): void {
-  try {
-    if (rol === null) {
-      sessionStorage.removeItem(CLAVE_ROL_ACTIVO)
-    } else {
-      sessionStorage.setItem(CLAVE_ROL_ACTIVO, JSON.stringify({ usuarioId, rol }))
-    }
-  } catch {
-    // Sin persistencia (modo privado, storage bloqueado): el rol activo sigue funcionando en
-    // memoria para esta sesión de pestaña, solo no sobrevive a un F5.
-  }
-}
-
 interface AuthState {
   usuario: UsuarioActual | null
   status: SessionStatus
-  /** Rol con el que el usuario decidió entrar (pantalla "¿Cómo querés entrar?" o "Cambiar
-   * vista"). `null` con más de un rol disponible: todavía no eligió, hay que preguntarle. */
+  /** Rol con el que la sesión está autorizando de verdad — lo fija el backend (RF-30), esto
+   * solo refleja `usuario.rol_activo`. `null` sin rol elegido todavía: hay que preguntarle. */
   rolActivo: string | null
   setUsuario: (usuario: UsuarioActual) => void
-  setRolActivo: (rol: string) => void
+  setRolActivo: (rol: string) => Promise<void>
   clearSesion: () => void
   setLoading: () => void
 }
@@ -50,21 +21,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   status: 'idle',
   rolActivo: null,
   setUsuario: (usuario) => {
-    const nombresDeRoles = usuario.perfiles.map((perfil) => perfil.nombre)
-    const guardado = leerRolGuardado(usuario.id)
-    const rolActivo =
-      nombresDeRoles.length === 1
-        ? nombresDeRoles[0]
-        : guardado && nombresDeRoles.includes(guardado)
-          ? guardado
-          : null
-    set({ usuario, status: 'authenticated', rolActivo })
+    set({ usuario, status: 'authenticated', rolActivo: usuario.rol_activo })
   },
-  setRolActivo: (rol) =>
-    set((state) => {
-      if (state.usuario) guardarRolActivo(state.usuario.id, rol)
-      return { rolActivo: rol }
-    }),
+  setRolActivo: async (rol) => {
+    // Si el backend rechaza el cambio (rol que no pertenece a la cuenta), no tocamos el
+    // estado local: el llamador decide cómo mostrar el error.
+    await setRolActivoRemoto(rol)
+    set({ rolActivo: rol })
+  },
   clearSesion: () => set({ usuario: null, status: 'unauthenticated', rolActivo: null }),
   setLoading: () => set({ status: 'loading' }),
 }))

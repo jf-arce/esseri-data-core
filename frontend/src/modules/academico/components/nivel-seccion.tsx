@@ -12,6 +12,9 @@ import type { Anio, Division, Materia, NivelEducativo } from '@/modules/academic
 
 interface NivelSeccionProps {
   nivel: NivelConEstructura
+  /** Sin esto (ej. dirección, que solo mira la estructura), se ocultan todos los triggers de
+   * escritura de esta sección y sus hijos — no solo se deshabilitan. */
+  puedeEditar: boolean
   onEditarNivel: (nivel: NivelEducativo) => void
   onEliminarNivel: (nivel: NivelEducativo) => void
   onAgregarAnio: (nivelId: string) => void
@@ -42,7 +45,7 @@ const COLORES_NIVEL = [
 ]
 
 export function NivelSeccion(props: NivelSeccionProps) {
-  const { nivel } = props
+  const { nivel, puedeEditar } = props
   const colorIdx = 0
 
   const totalDivisiones = nivel.anios.reduce((acc, a) => acc + a.divisiones.length, 0)
@@ -66,39 +69,47 @@ export function NivelSeccion(props: NivelSeccionProps) {
             {totalMaterias === 1 ? 'materia' : 'materias'}
           </p>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="Acciones del nivel">
-              <MoreHorizontalIcon />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => props.onAgregarAnio(nivel.id)}>
-              <PlusIcon className="text-petroleo" />
-              Agregar año
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => props.onEditarNivel(nivel)}>
-              <PencilIcon className="text-petroleo" />
-              Editar nivel
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={() => props.onEliminarNivel(nivel)}>
-              <Trash2Icon />
-              Dar de baja
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {puedeEditar && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" aria-label="Acciones del nivel">
+                <MoreHorizontalIcon />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => props.onAgregarAnio(nivel.id)}>
+                <PlusIcon className="text-petroleo" />
+                Agregar año
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => props.onEditarNivel(nivel)}>
+                <PencilIcon className="text-petroleo" />
+                Editar nivel
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onSelect={() => props.onEliminarNivel(nivel)}>
+                <Trash2Icon />
+                Dar de baja
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {nivel.anios.length === 0 ? (
         <div className="rounded-card bg-superficie p-6 text-center text-sm text-texto-3 shadow-card">
-          No hay años cargados en este nivel.{' '}
-          <button
-            className="font-semibold text-violeta hover:underline"
-            onClick={() => props.onAgregarAnio(nivel.id)}
-          >
-            Agregar el primer año
-          </button>
+          {puedeEditar ? (
+            <>
+              No hay años cargados en este nivel.{' '}
+              <button
+                className="font-semibold text-violeta hover:underline"
+                onClick={() => props.onAgregarAnio(nivel.id)}
+              >
+                Agregar el primer año
+              </button>
+            </>
+          ) : (
+            'No hay años cargados en este nivel.'
+          )}
         </div>
       ) : (
         <div className="flex flex-col gap-4">
@@ -113,6 +124,7 @@ export function NivelSeccion(props: NivelSeccionProps) {
 
 function AnioGrupo({
   anio,
+  puedeEditar,
   onEditarAnio,
   onEliminarAnio,
   onAgregarDivision,
@@ -131,45 +143,53 @@ function AnioGrupo({
             {anio.divisiones.length} {anio.divisiones.length === 1 ? 'división' : 'divisiones'}
           </span>
         </div>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => onAgregarDivision(anio.id)}>
-            <PlusIcon className="size-3.5" />
-            División
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => onAgregarMateria(anio.id)}>
-            <PlusIcon className="size-3.5" />
-            Materia
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Acciones del año">
-                <MoreHorizontalIcon />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => onEditarAnio(anio)}>
-                <PencilIcon className="text-petroleo" />
-                Editar año
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onSelect={() => onEliminarAnio(anio)}>
-                <Trash2Icon />
-                Dar de baja
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        {puedeEditar && (
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => onAgregarDivision(anio.id)}>
+              <PlusIcon className="size-3.5" />
+              División
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => onAgregarMateria(anio.id)}>
+              <PlusIcon className="size-3.5" />
+              Materia
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon-sm" aria-label="Acciones del año">
+                  <MoreHorizontalIcon />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => onEditarAnio(anio)}>
+                  <PencilIcon className="text-petroleo" />
+                  Editar año
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onSelect={() => onEliminarAnio(anio)}>
+                  <Trash2Icon />
+                  Dar de baja
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
       </div>
 
       {anio.divisiones.length === 0 ? (
         <div className="rounded-lg border border-dashed border-borde p-4 text-center text-sm text-texto-3">
-          Sin divisiones.{' '}
-          <button
-            className="font-semibold text-violeta hover:underline"
-            onClick={() => onAgregarDivision(anio.id)}
-          >
-            Agregar división
-          </button>
+          {puedeEditar ? (
+            <>
+              Sin divisiones.{' '}
+              <button
+                className="font-semibold text-violeta hover:underline"
+                onClick={() => onAgregarDivision(anio.id)}
+              >
+                Agregar división
+              </button>
+            </>
+          ) : (
+            'Sin divisiones.'
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -177,6 +197,7 @@ function AnioGrupo({
             <DivisionCard
               key={division.id}
               division={division}
+              puedeEditar={puedeEditar}
               onEditar={() => onEditarDivision(division)}
               onEliminar={() => onEliminarDivision(division)}
               onEditarMateria={onEditarMateria}
@@ -191,12 +212,14 @@ function AnioGrupo({
 
 function DivisionCard({
   division,
+  puedeEditar,
   onEditar,
   onEliminar,
   onEditarMateria,
   onEliminarMateria,
 }: {
   division: NivelConEstructura['anios'][number]['divisiones'][number]
+  puedeEditar: boolean
   onEditar: () => void
   onEliminar: () => void
   onEditarMateria: (materia: Materia) => void
@@ -211,24 +234,26 @@ function DivisionCard({
             {division.materias.length} {division.materias.length === 1 ? 'materia' : 'materias'}
           </p>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="Acciones de la división">
-              <MoreHorizontalIcon />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={onEditar}>
-              <PencilIcon className="text-petroleo" />
-              Editar división
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={onEliminar}>
-              <Trash2Icon />
-              Dar de baja
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {puedeEditar && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" aria-label="Acciones de la división">
+                <MoreHorizontalIcon />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={onEditar}>
+                <PencilIcon className="text-petroleo" />
+                Editar división
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onSelect={onEliminar}>
+                <Trash2Icon />
+                Dar de baja
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {division.materias.length > 0 && (
@@ -251,22 +276,24 @@ function DivisionCard({
                 {materia.nombre}
                 {materia.division_id === null && <span className="text-texto-3">(común)</span>}
               </span>
-              <div className="flex items-center gap-0.5">
-                <button
-                  className="rounded p-1 text-texto-3 hover:bg-superficie hover:text-texto"
-                  onClick={() => onEditarMateria(materia)}
-                  aria-label="Editar materia"
-                >
-                  <PencilIcon className="size-3" />
-                </button>
-                <button
-                  className="rounded p-1 text-texto-3 hover:bg-superficie hover:text-error"
-                  onClick={() => onEliminarMateria(materia)}
-                  aria-label="Eliminar materia"
-                >
-                  <Trash2Icon className="size-3" />
-                </button>
-              </div>
+              {puedeEditar && (
+                <div className="flex items-center gap-0.5">
+                  <button
+                    className="rounded p-1 text-texto-3 hover:bg-superficie hover:text-texto"
+                    onClick={() => onEditarMateria(materia)}
+                    aria-label="Editar materia"
+                  >
+                    <PencilIcon className="size-3" />
+                  </button>
+                  <button
+                    className="rounded p-1 text-texto-3 hover:bg-superficie hover:text-error"
+                    onClick={() => onEliminarMateria(materia)}
+                    aria-label="Eliminar materia"
+                  >
+                    <Trash2Icon className="size-3" />
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

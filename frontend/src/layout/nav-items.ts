@@ -23,8 +23,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import {
-  PERMISO_ACADEMICO_ACTUALIZAR,
   PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
+  PERMISO_ACADEMICO_LEER,
   PERMISO_AUTENTICACION_LEER,
   PERMISO_FACTURACION_LEER,
   PERMISO_FAMILIAS_ALUMNOS_LEER,
@@ -59,6 +59,17 @@ export interface NavItem {
 export interface NavGroup {
   label: string
   items: NavItem[]
+}
+
+/** Qué shell le corresponde al rol activo (§8 DESIGN.md): Consola (rail lateral, ~10 destinos)
+ * para los roles de gestión, Portal (nav de píldoras arriba) para Docente y Familia, que tienen
+ * 3 destinos o menos y además tienen su propio flujo, sin nada que ver con el de backoffice. */
+export type Vista = 'consola' | 'docente' | 'familia'
+
+export function vistaDe(rolActivo: string | null): Vista {
+  if (rolActivo === 'docente') return 'docente'
+  if (rolActivo === 'familia') return 'familia'
+  return 'consola'
 }
 
 // Cada módulo suma su propia línea acá cuando tenga una página real. No se dibujan ítems
@@ -101,23 +112,25 @@ export const NAV_GROUPS: NavGroup[] = [
         children: [{ label: 'Alumnos', href: '/familias-alumnos/alumnos', icon: GraduationCap }],
       },
       {
-        // Gestión de la estructura curricular (RF de Académico), no de asistencia: por eso
-        // pide el `actualizar` sin tipo (dueño de la estructura), no el `.leer` — un docente
-        // que solo puede tomar asistencia no debería ver esta sección ni "Asignaciones
-        // docentes" en absoluto, no solo tener los botones de editar deshabilitados.
+        // Gestión de la estructura curricular (RF de Académico): pide el `.leer` para ENTRAR
+        // (dirección la mira sin operarla — "visión completa, exporta, pero no opera el día a
+        // día", grupo-b.yaml), no el `actualizar` de escritura — eso solo condiciona los
+        // botones de crear/editar/eliminar dentro de la página, no el acceso a verla. Un
+        // docente también tiene `academico.leer`, pero nunca llega a este árbol de consola:
+        // `VistaRoute` lo manda a su propio Portal antes de que este permiso importe.
         label: 'Académico',
         href: '/academico',
         tituloLanding: 'Estructura académica',
         icon: BookOpenIcon,
-        permiso: PERMISO_ACADEMICO_ACTUALIZAR,
+        permiso: PERMISO_ACADEMICO_LEER,
         children: [
           { label: 'Asignaciones docentes', href: '/academico/asignaciones', icon: UserCog },
         ],
       },
       {
-        // Separado de "Académico": es la vista de un docente (o de cualquiera que también
-        // pueda tomar asistencia), con su propio permiso tipado — no depende de tener acceso
-        // a la estructura curricular.
+        // Solo para roles de consola que también toman asistencia (secretaría, coordinación
+        // académica, administrador del sistema, y dirección si en algún momento la necesita) —
+        // el docente toma asistencia desde su propio Portal, fuera de este árbol de consola.
         label: 'Tomar asistencia',
         href: '/academico/asistencia',
         icon: CalendarCheck,
@@ -214,11 +227,16 @@ export function filtrarNav(
     .filter((grupo) => grupo.items.length > 0)
 }
 
-/** La pantalla principal del rol activo: el primer href del nav ya filtrado por permisos. Los
- * paneles (Dirección/Administración) tienen prioridad porque son la landing "propia" del rol,
- * no un módulo compartido con otros roles. `null` si el rol no tiene ningún acceso — pantalla
- * "sin acceso" en vez de un `/` sin nada que mostrar. */
+/** La pantalla principal del rol activo. Para Docente/Familia (Portal, todavía sin pantallas
+ * propias — lo construye otro integrante del equipo), directo `/<vista>`: esa ruta es hoy una
+ * página en blanco. Para el resto (Consola), el primer href de `NAV_GROUPS` ya filtrado por
+ * permisos — los paneles (Dirección/Administración) tienen prioridad porque son la landing
+ * "propia" del rol, no un módulo compartido con otros roles. `null` solo puede pasar en
+ * Consola sin ningún acceso — pantalla "sin acceso" en vez de un `/` sin nada que mostrar. */
 export function rutaInicioDe(rolActivo: string | null, permisos: Permiso[]): string | null {
+  const vista = vistaDe(rolActivo)
+  if (vista !== 'consola') return `/${vista}`
+
   const filtrado = filtrarNav(NAV_GROUPS, rolActivo, permisos)
   const panel = filtrado[0]?.items.find((item) => item.href === '/panel' || item.href === '/admin')
   if (panel?.href) return panel.href
