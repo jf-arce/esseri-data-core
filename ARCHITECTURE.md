@@ -116,9 +116,18 @@ Arma el árbol de rutas de React Router juntando lo que cada módulo expone en s
 |---|---|
 | `index.tsx` | Router principal: importa el array de rutas de cada `modules/<modulo>/routes.tsx` y las combina en una sola lista que usa `App.tsx`. Acá también entran las rutas de `src/pages/` que no pertenecen a ningún módulo específico. |
 | `protected-route.tsx` | Componente wrapper que envuelve rutas que requieren sesión iniciada — redirige a login si no hay usuario autenticado (usa `store/auth-store.ts`). |
-| `role-route.tsx` | Wrapper similar a `protected-route.tsx`, pero además valida el rol del usuario contra los roles permitidos para esa ruta (ej. solo `admin` puede entrar a `panel-admin`). |
+| `rol-activo-route.tsx` | Dentro de `ProtectedRoute`, antes del shell: con sesión pero sin rol activo elegido todavía, redirige a `/elegir-perfil` en vez de dejar entrar a un panel sin rol. |
+| `inicio-route.tsx` | La ruta `index` del shell: redirige a la pantalla principal del rol activo (`nav-items.ts` → `rutaInicioDe`), o muestra "sin acceso" si el rol no tiene ningún permiso. Reemplaza a la vieja `HomePage` genérica. |
+| `role-route.tsx` | Wrapper similar a `protected-route.tsx`, pero además valida el **rol activo** (no todos los roles de la cuenta) contra los roles permitidos para esa ruta (ej. solo `dirección` entra a `/panel`, solo `administración` a `/admin`). |
+| `permiso-route.tsx` | Análogo a `role-route.tsx` pero por permiso: valida el código contra los permisos del **rol activo** (`store/auth-store.ts` → `permisosActivos`), no contra la suma de permisos de la cuenta. |
 
 Con esto, ningún módulo necesita saber de la existencia de los demás para definir sus propias rutas — cada uno declara las suyas en su `routes.tsx`, y `router/index.tsx` es el único lugar que los conoce a todos.
+
+#### Rol activo: cuentas con más de un rol
+
+`ROL` en base admite que una cuenta tenga varios roles simultáneos (ej. docente + familia). El backend nunca elige entre ellos: `GET /auth/me` devuelve `permisos` (la suma de todos los roles — lo que efectivamente autoriza cada endpoint, RF-30, sin cambios) y `perfiles` (los mismos roles desglosados, cada uno con sus propios permisos).
+
+El **rol activo** es una decisión puramente de UI, guardada en `store/auth-store.ts` (persistida en `sessionStorage`, por cuenta): con un solo rol se fija solo; con más de uno, `/elegir-perfil` (`src/pages/elegir-perfil-page.tsx`) pregunta con cuál entrar, y el menú de cuenta ("Cambiar vista") permite cambiarlo después. El rol activo decide qué pantalla principal, qué panel y qué ítems del sidebar se ven (`layout/nav-items.ts` → `filtrarNav`) — **nunca** amplía ni reduce lo que el backend deja hacer. Cambiar de vista no es un cambio de permisos, es un cambio de qué parte de los permisos ya otorgados se muestra.
 
 ### Resto de `frontend/src/` (carpetas compartidas con todos los módulos)
 | Carpeta/archivo | Contenido |
@@ -127,10 +136,10 @@ Con esto, ningún módulo necesita saber de la existencia de los demás para def
 | `components/` (resto) | Componentes propios armados a partir de los de `ui/`, reutilizados por más de un módulo (ej. `data-table.tsx`, exportando `DataTable`, un genérico con paginación). |
 | `hooks/` | Hooks genéricos (ej. `useDebounce`, `usePagination`). |
 | `api/` | Cliente HTTP base (instancia de fetch/axios, interceptor de token JWT, manejo de errores comunes) — es la base técnica que todos los `services/` de cada módulo usan por debajo; no contiene llamadas a endpoints específicos, eso queda en `modules/<modulo>/services/`. |
-| `store/` | Stores de Zustand con estado global de la app (ej. `auth-store.ts` con el usuario logueado y sus roles, `ui-store.ts` con estado de sidebar/tema) — separado de los stores por módulo, que viven dentro de cada `modules/<modulo>/store.ts`. |
+| `store/` | Stores de Zustand con estado global de la app (ej. `auth-store.ts` con el usuario logueado, sus roles y el **rol activo** — ver nota abajo —, `ui-store.ts` con estado de sidebar/tema) — separado de los stores por módulo, que viven dentro de cada `modules/<modulo>/store.ts`. |
 | `lib/utils.ts` | Helper `cn()` (combinación de clases de Tailwind) que shadcn/ui necesita — es el archivo que la CLI de shadcn genera ahí por defecto. |
 | `lib/` (resto) | Funciones auxiliares generales, no visuales, que usa más de un módulo (ej. `format-currency.ts`, `format-date.ts`, validación de DNI). Aprovechamos que shadcn ya crea `lib/` para que sea la única carpeta de utilidades globales, sin duplicar con una `utils/` aparte. Regla para decidir dónde va una función: si la necesita un solo módulo, queda en `modules/<modulo>/utils.ts`; en el momento en que un segundo módulo la necesita, se mueve a `lib/` y ambos importan desde ahí. |
-| `layout/` | Headers, sidebars y navegación, adaptados según el rol del usuario logueado. |
+| `layout/` | Headers, sidebars y navegación, adaptados según el rol del usuario logueado. `nav-items.ts` es la única fuente del árbol de navegación: cada ítem declara el permiso `.leer` que lo habilita (y, si aplica, los roles a los que se restringe, como los dos paneles); `filtrarNav`/`rutaInicioDe` lo acotan al rol activo. |
 | `types/global.d.ts` | Tipos globales que no pertenecen a un módulo específico. |
 | `App.tsx` | Componente raíz: renderiza el `RouterProvider` (o `<Routes>`) con el árbol armado en `src/router/`, envuelto en el `layout/` general. |
 | `main.tsx` | Punto de entrada de la aplicación. |

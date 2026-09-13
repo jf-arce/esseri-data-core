@@ -42,6 +42,7 @@ from src.auth.schemas import (
     PermisoCreate,
     PermisoRead,
     PermisoUpdate,
+    RolConPermisos,
     RolCreate,
     RolRead,
     RolUpdate,
@@ -176,6 +177,15 @@ def me(usuario: UsuarioAutenticado, db: DbSession) -> UsuarioActual:
         estado=usuario.estado,
         roles=service.roles_de(db, usuario.id),
         permisos=service.permisos_de(db, usuario.id),
+        perfiles=[
+            RolConPermisos(
+                id=rol.id,
+                nombre=rol.nombre,
+                descripcion=rol.descripcion,
+                permisos=permisos,
+            )
+            for rol, permisos in service.perfiles_de(db, usuario.id)
+        ],
     )
 
 

@@ -6,6 +6,24 @@ import { GlobalSearchDialog } from '@/layout/global-search-dialog'
 import { listarFacturas } from '@/modules/facturacion/services/listar-facturas'
 import { listarInscripciones } from '@/modules/inscripciones/services/listar-inscripciones'
 import { listarSolicitudesAdmision } from '@/modules/inscripciones/services/solicitudes-admision'
+import { useAuthStore } from '@/store/auth-store'
+
+// El buscador filtra "Ir a"/"Acciones" por el permiso `.leer`/`.crear` del rol activo — un rol
+// con acceso a todo lo que este archivo prueba (mismo criterio que "administrador del sistema").
+const PERMISOS_DE_PRUEBA = [
+  'familias_alumnos.leer',
+  'inscripciones.leer',
+  'inscripciones.crear',
+  'facturacion.leer',
+  'facturacion.crear',
+  'autenticacion.leer',
+].map((codigo, indice) => ({
+  id: `p${indice}`,
+  codigo,
+  modulo: codigo,
+  accion: codigo.split('.')[1],
+  tipo_informacion: null,
+}))
 
 vi.mock('@/modules/facturacion/services/listar-facturas')
 vi.mock('@/modules/inscripciones/services/listar-inscripciones')
@@ -25,6 +43,26 @@ function renderDialogo() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  useAuthStore.setState({
+    usuario: {
+      id: 'u1',
+      email: 'a@esseri.edu.ar',
+      auth_provider: 'local',
+      estado: 'activo',
+      roles: ['administrador del sistema'],
+      permisos: PERMISOS_DE_PRUEBA,
+      perfiles: [
+        {
+          id: 'administrador del sistema',
+          nombre: 'administrador del sistema',
+          descripcion: null,
+          permisos: PERMISOS_DE_PRUEBA,
+        },
+      ],
+    },
+    status: 'authenticated',
+    rolActivo: 'administrador del sistema',
+  })
   mockedListarInscripciones.mockResolvedValue({
     items: [
       {

@@ -124,6 +124,17 @@ class DocenteResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class MiDivisionResponse(BaseModel):
+    """Una división asignada al docente autenticado (GET /academico/docentes/me/divisiones).
+
+    `etiqueta` ya viene armada ("4°B") para que la pantalla "¿Cómo querés entrar?" no tenga
+    que resolver Año + División por separado.
+    """
+
+    division_id: uuid.UUID
+    etiqueta: str
+
+
 # --- AsignacionDocente -------------------------------------------------------------------
 
 

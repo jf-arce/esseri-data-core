@@ -61,6 +61,7 @@ from src.academico.schemas import (
     MateriaCreate,
     MateriaResponse,
     MateriaUpdate,
+    MiDivisionResponse,
     NivelEducativoCreate,
     NivelEducativoResponse,
     NivelEducativoUpdate,
@@ -79,6 +80,7 @@ from src.academico.service import (
     crear_docente,
     crear_materia,
     crear_nivel_educativo,
+    divisiones_de_persona,
     eliminar_anio,
     eliminar_asignacion_docente,
     eliminar_asistencia,
@@ -99,14 +101,16 @@ from src.academico.service import (
     listar_niveles_educativos,
     registrar_asistencia,
     registrar_asistencia_masiva,
+    verificar_acceso_a_asistencia,
 )
 from src.auth.constants import (
-    PERMISO_ACADEMICO_ACTUALIZAR,
+    PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
+    PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA,
     PERMISO_ACADEMICO_CREAR,
     PERMISO_ACADEMICO_ELIMINAR,
     PERMISO_ACADEMICO_LEER,
 )
-from src.auth.dependencies import requiere_permiso
+from src.auth.dependencies import UsuarioAutenticado, requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
 from src.inscripciones.models import Asistencia
@@ -151,7 +155,7 @@ def obtener_nivel_educativo_endpoint(
 @router.put("/niveles/{nivel_educativo_id}", response_model=NivelEducativoResponse)
 def actualizar_nivel_educativo_endpoint(
     datos: NivelEducativoUpdate,
-    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA))],
     nivel: NivelEducativo = Depends(obtener_nivel_educativo_o_404),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> NivelEducativo:
@@ -215,7 +219,7 @@ def obtener_anio_endpoint(
 @router.put("/anios/{anio_id}", response_model=AnioResponse)
 def actualizar_anio_endpoint(
     datos: AnioUpdate,
-    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA))],
     anio: Anio = Depends(obtener_anio_o_404),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Anio:
@@ -279,7 +283,7 @@ def obtener_division_endpoint(
 @router.put("/divisiones/{division_id}", response_model=DivisionResponse)
 def actualizar_division_endpoint(
     datos: DivisionUpdate,
-    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA))],
     division: Division = Depends(obtener_division_o_404),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Division:
@@ -350,7 +354,7 @@ def obtener_materia_endpoint(
 @router.put("/materias/{materia_id}", response_model=MateriaResponse)
 def actualizar_materia_endpoint(
     datos: MateriaUpdate,
-    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA))],
     materia: Materia = Depends(obtener_materia_o_404),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Materia:
@@ -399,6 +403,22 @@ def listar_docentes_endpoint(
     return listar_docentes(db)
 
 
+@router.get("/docentes/me/divisiones", response_model=list[MiDivisionResponse])
+def mis_divisiones_endpoint(
+    usuario: UsuarioAutenticado,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[MiDivisionResponse]:
+    """Divisiones asignadas al docente autenticado. Dato propio: solo requiere sesión, no
+    `academico.leer` (RF-30 no aplica acá, es la propia cuenta). Antes de `/docentes/{id}`
+    para que "me" no matchee como un UUID."""
+    if usuario.persona_id is None:
+        return []
+    return [
+        MiDivisionResponse(division_id=division_id, etiqueta=etiqueta)
+        for division_id, etiqueta in divisiones_de_persona(db, usuario.persona_id)
+    ]
+
+
 @router.get("/docentes/{docente_id}", response_model=DocenteResponse)
 def obtener_docente_endpoint(
     _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
@@ -411,7 +431,7 @@ def obtener_docente_endpoint(
 @router.put("/docentes/{docente_id}", response_model=DocenteResponse)
 def actualizar_docente_endpoint(
     datos: DocenteUpdate,
-    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA))],
     docente: Docente = Depends(obtener_docente_o_404),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Docente:
@@ -498,7 +518,7 @@ def eliminar_asignacion_docente_endpoint(
 @router.post("/asistencias", response_model=AsistenciaResponse, status_code=201)
 def registrar_asistencia_endpoint(
     datos: AsistenciaCreate,
-    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA))],
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Asistencia:
     """Registrar asistencia diaria de un alumno.
@@ -518,7 +538,7 @@ def registrar_asistencia_endpoint(
 @router.post("/asistencias/bulk", response_model=AsistenciaBulkResponse)
 def registrar_asistencia_masiva_endpoint(
     datos: AsistenciaBulkCreate,
-    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA))],
     db: Session = Depends(get_db),  # noqa: B008
 ) -> AsistenciaBulkResponse:
     """Registrar asistencia de toda una división en una fecha.
@@ -531,7 +551,7 @@ def registrar_asistencia_masiva_endpoint(
 
 @router.get("/asistencias", response_model=list[AsistenciaResponse])
 def listar_asistencias_endpoint(
-    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
     inscripcion_id: uuid.UUID | None = None,
     fecha: date | None = None,
     fecha_desde: date | None = None,
@@ -545,6 +565,7 @@ def listar_asistencias_endpoint(
     """
     return listar_asistencias(
         db,
+        usuario.id,
         inscripcion_id=inscripcion_id,
         fecha=fecha,
         fecha_desde=fecha_desde,
@@ -555,7 +576,7 @@ def listar_asistencias_endpoint(
 
 @router.get("/asistencias/resumen", response_model=AsistenciaResumen)
 def resumen_asistencia_endpoint(
-    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
     inscripcion_id: uuid.UUID = ...,
     fecha_desde: date = ...,
     fecha_hasta: date = ...,
@@ -566,22 +587,24 @@ def resumen_asistencia_endpoint(
     Devuelve conteos por tipo y porcentajes de presencia,
     ausencias justificadas vs. injustificadas.
     """
-    return calcular_resumen_asistencia(db, inscripcion_id, fecha_desde, fecha_hasta)
+    return calcular_resumen_asistencia(db, usuario.id, inscripcion_id, fecha_desde, fecha_hasta)
 
 
 @router.get("/asistencias/{asistencia_id}", response_model=AsistenciaResponse)
 def obtener_asistencia_endpoint(
-    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
     asistencia: Asistencia = Depends(obtener_asistencia_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
 ) -> Asistencia:
     """Obtener un registro de asistencia por su ID."""
+    verificar_acceso_a_asistencia(db, asistencia, usuario.id)
     return asistencia
 
 
 @router.put("/asistencias/{asistencia_id}", response_model=AsistenciaResponse)
 def actualizar_asistencia_endpoint(
     datos: AsistenciaUpdate,
-    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA))],
     asistencia: Asistencia = Depends(obtener_asistencia_o_404),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Asistencia:

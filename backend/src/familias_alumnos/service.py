@@ -6,7 +6,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from src.academico.models import Anio, Division
+from src.academico.models import Anio, Division, NivelEducativo
 from src.auth import service as auth_service
 from src.auth.models import Rol, Usuario, UsuarioRol
 from src.familias_alumnos.exceptions import (
@@ -577,3 +577,40 @@ def listar_vinculos_de_alumno(db: Session, alumno_id: uuid.UUID) -> list[Familia
 def listar_vinculos_de_familia(db: Session, familia_id: uuid.UUID) -> list[FamiliaAlumno]:
     """Listar todos los alumnos vinculados a una familia."""
     return db.query(FamiliaAlumno).filter(FamiliaAlumno.familia_id == familia_id).all()
+
+
+def alumnos_a_cargo_de_persona(
+    db: Session, persona_id: uuid.UUID
+) -> list[tuple[Alumno, str | None]]:
+    """Alumnos de las familias de `persona_id`, con "3°B · Primario" (o `None` sin
+    inscripción activa) de su división actual.
+
+    Usado por GET /familias-alumnos/familias/me/alumnos (usuario autenticado, dato propio:
+    no depende de `familias_alumnos.leer`). Mismo join Inscripcion→Division→Anio que ya usa
+    `listar_alumnos` para filtrar por nivel educativo.
+    """
+    familia = db.query(Familia).join(Persona).filter(Persona.id == persona_id).first()
+    if familia is None:
+        return []
+
+    alumnos = (
+        db.query(Alumno)
+        .join(FamiliaAlumno, FamiliaAlumno.alumno_id == Alumno.id)
+        .filter(FamiliaAlumno.familia_id == familia.id)
+        .all()
+    )
+
+    resultado = []
+    for alumno in alumnos:
+        fila = (
+            db.query(Anio.numero, Division.nombre, NivelEducativo.nombre)
+            .select_from(Inscripcion)
+            .join(Division, Inscripcion.division_id == Division.id)
+            .join(Anio, Division.anio_id == Anio.id)
+            .join(NivelEducativo, Anio.nivel_educativo_id == NivelEducativo.id)
+            .filter(Inscripcion.alumno_id == alumno.id, Inscripcion.estado == "activa")
+            .first()
+        )
+        etiqueta = f"{fila[0]}°{fila[1]} · {fila[2]}" if fila else None
+        resultado.append((alumno, etiqueta))
+    return resultado

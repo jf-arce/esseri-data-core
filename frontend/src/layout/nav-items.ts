@@ -22,6 +22,18 @@ import {
   UsersRound,
   type LucideIcon,
 } from 'lucide-react'
+import {
+  PERMISO_ACADEMICO_ACTUALIZAR,
+  PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
+  PERMISO_AUTENTICACION_LEER,
+  PERMISO_FACTURACION_LEER,
+  PERMISO_FAMILIAS_ALUMNOS_LEER,
+  PERMISO_INSCRIPCIONES_LEER,
+  PERMISO_PANEL_ADMIN_LEER,
+  PERMISO_PROVEEDORES_COMPRAS_LEER,
+  tienePermiso,
+} from '@/modules/auth/constants'
+import type { Permiso } from '@/modules/auth/types'
 
 export interface NavItem {
   label: string
@@ -35,6 +47,13 @@ export interface NavItem {
   tituloLanding?: string
   icon: LucideIcon
   children?: NavItem[]
+  /** Permiso `.leer` que habilita ver este ítem (mismo código que protege la ruta con
+   * `PermisoRoute`). Ausente en ítems que solo agrupan hijos sin landing propia — ahí el
+   * filtro corre por los hijos. */
+  permiso?: string
+  /** Además del permiso, restringe el ítem a estos roles (ej. los paneles: mismo permiso,
+   * pero cada uno es de un rol distinto). */
+  roles?: string[]
 }
 
 export interface NavGroup {
@@ -50,8 +69,22 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Paneles',
     items: [
-      { label: 'Panel de Dirección', href: '/panel', icon: LayoutDashboard },
-      { label: 'Panel Administrativo', href: '/admin', icon: LayoutDashboard },
+      {
+        label: 'Panel de Dirección',
+        href: '/panel',
+        icon: LayoutDashboard,
+        permiso: PERMISO_PANEL_ADMIN_LEER,
+        roles: ['dirección', 'administrador del sistema'],
+      },
+      {
+        label: 'Panel Administrativo',
+        href: '/admin',
+        icon: LayoutDashboard,
+        permiso: PERMISO_PANEL_ADMIN_LEER,
+        // administrador del sistema = todo (grupo-b.yaml): ve los dos paneles en el sidebar,
+        // aunque su pantalla de inicio por default sea /panel (ver rutaInicioDe más abajo).
+        roles: ['administración', 'administrador del sistema'],
+      },
     ],
   },
   {
@@ -64,23 +97,38 @@ export const NAV_GROUPS: NavGroup[] = [
         href: '/familias-alumnos',
         tituloLanding: 'Familias',
         icon: UsersRound,
+        permiso: PERMISO_FAMILIAS_ALUMNOS_LEER,
         children: [{ label: 'Alumnos', href: '/familias-alumnos/alumnos', icon: GraduationCap }],
       },
       {
+        // Gestión de la estructura curricular (RF de Académico), no de asistencia: por eso
+        // pide el `actualizar` sin tipo (dueño de la estructura), no el `.leer` — un docente
+        // que solo puede tomar asistencia no debería ver esta sección ni "Asignaciones
+        // docentes" en absoluto, no solo tener los botones de editar deshabilitados.
         label: 'Académico',
         href: '/academico',
         tituloLanding: 'Estructura académica',
         icon: BookOpenIcon,
+        permiso: PERMISO_ACADEMICO_ACTUALIZAR,
         children: [
           { label: 'Asignaciones docentes', href: '/academico/asignaciones', icon: UserCog },
-          { label: 'Tomar asistencia', href: '/academico/asistencia', icon: CalendarCheck },
         ],
+      },
+      {
+        // Separado de "Académico": es la vista de un docente (o de cualquiera que también
+        // pueda tomar asistencia), con su propio permiso tipado — no depende de tener acceso
+        // a la estructura curricular.
+        label: 'Tomar asistencia',
+        href: '/academico/asistencia',
+        icon: CalendarCheck,
+        permiso: PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
       },
       {
         label: 'Inscripciones',
         href: '/inscripciones',
         tituloLanding: 'Inscripciones',
         icon: ClipboardCheck,
+        permiso: PERMISO_INSCRIPCIONES_LEER,
         children: [{ label: 'Admisiones', href: '/inscripciones/admisiones', icon: UserPlusIcon }],
       },
       {
@@ -88,6 +136,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: '/facturacion',
         tituloLanding: 'Facturas',
         icon: Landmark,
+        permiso: PERMISO_FACTURACION_LEER,
         children: [
           {
             label: 'Deuda por familia',
@@ -100,6 +149,7 @@ export const NAV_GROUPS: NavGroup[] = [
       {
         label: 'Proveedores y compras',
         icon: Truck,
+        permiso: PERMISO_PROVEEDORES_COMPRAS_LEER,
         children: [
           { label: 'Proveedores', href: '/proveedores', icon: Building2Icon },
           { label: 'Solicitudes de compra', href: '/solicitudes-compra', icon: ClipboardList },
@@ -114,15 +164,16 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       {
         label: 'Usuarios y roles',
-        href: '/configuracion/acceso',
+        href: '/usuarios-roles',
         icon: ShieldCheck,
+        permiso: PERMISO_AUTENTICACION_LEER,
         children: [
-          { label: 'Usuarios', href: '/configuracion/acceso/usuarios', icon: UserIcon },
-          { label: 'Roles', href: '/configuracion/acceso/roles', icon: IdCardIcon },
-          { label: 'Permisos', href: '/configuracion/acceso/permisos', icon: KeyRoundIcon },
+          { label: 'Usuarios', href: '/usuarios-roles/usuarios', icon: UserIcon },
+          { label: 'Roles', href: '/usuarios-roles/roles', icon: IdCardIcon },
+          { label: 'Permisos', href: '/usuarios-roles/permisos', icon: KeyRoundIcon },
           {
             label: 'Matriz de permisos',
-            href: '/configuracion/acceso/matriz',
+            href: '/usuarios-roles/matriz',
             icon: Grid3x3Icon,
           },
         ],
@@ -130,6 +181,57 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
 ]
+
+// Ítem visible si tiene el permiso `.leer` que declara (los que no declaran ninguno, como
+// "Proveedores y compras" que agrupa hijos sin landing propia, se filtran por sus hijos) y,
+// cuando declara `roles`, si el rol activo está entre ellos.
+function itemVisible(item: NavItem, rolActivo: string | null, permisos: Permiso[]): boolean {
+  if (item.roles && (rolActivo === null || !item.roles.includes(rolActivo))) return false
+  if (item.permiso && !tienePermiso(permisos, item.permiso)) return false
+  return true
+}
+
+/** El árbol de navegación acotado a lo que el rol activo puede ver: descarta ítems e hijos sin
+ * acceso, y un padre que se queda sin ningún hijo visible ni landing propia. Un grupo sin
+ * ítems visibles desaparece entero. Usado por el sidebar, el buscador global y `rutaInicioDe`. */
+export function filtrarNav(
+  grupos: NavGroup[],
+  rolActivo: string | null,
+  permisos: Permiso[],
+): NavGroup[] {
+  return grupos
+    .map((grupo) => ({
+      ...grupo,
+      items: grupo.items
+        .filter((item) => itemVisible(item, rolActivo, permisos))
+        .map((item) => {
+          if (!item.children) return item
+          const hijos = item.children.filter((hijo) => itemVisible(hijo, rolActivo, permisos))
+          return { ...item, children: hijos }
+        })
+        .filter((item) => item.href || (item.children && item.children.length > 0)),
+    }))
+    .filter((grupo) => grupo.items.length > 0)
+}
+
+/** La pantalla principal del rol activo: el primer href del nav ya filtrado por permisos. Los
+ * paneles (Dirección/Administración) tienen prioridad porque son la landing "propia" del rol,
+ * no un módulo compartido con otros roles. `null` si el rol no tiene ningún acceso — pantalla
+ * "sin acceso" en vez de un `/` sin nada que mostrar. */
+export function rutaInicioDe(rolActivo: string | null, permisos: Permiso[]): string | null {
+  const filtrado = filtrarNav(NAV_GROUPS, rolActivo, permisos)
+  const panel = filtrado[0]?.items.find((item) => item.href === '/panel' || item.href === '/admin')
+  if (panel?.href) return panel.href
+
+  for (const grupo of filtrado) {
+    for (const item of grupo.items) {
+      if (item.href) return item.href
+      const primerHijo = item.children?.find((hijo) => hijo.href)
+      if (primerHijo?.href) return primerHijo.href
+    }
+  }
+  return null
+}
 
 // Compara por segmento de ruta, no por prefijo de string crudo: `/panel` no debe activarse con
 // `/panel-algo`, y `esRutaActiva('/familias-alumnos', '/familias-alumnos/alumnos')` es false

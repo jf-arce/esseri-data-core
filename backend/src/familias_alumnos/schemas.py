@@ -170,6 +170,19 @@ class AlumnoResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class MiAlumnoResponse(BaseModel):
+    """Un alumno a cargo de la familia autenticada (GET /familias-alumnos/familias/me/alumnos).
+
+    `division_etiqueta` ya viene armada ("3°B · Primario") a partir de la inscripción activa;
+    `None` si el alumno no tiene una.
+    """
+
+    alumno_id: uuid.UUID
+    nombre: str
+    apellido: str
+    division_etiqueta: str | None
+
+
 class VinculoCreate(BaseModel):
     """Schema para vincular un alumno con una familia."""
 

@@ -13,6 +13,11 @@
 # Asistencias RF-37). Regla ya decidida por el equipo (pregunta #4): si dos
 # roles del mismo usuario chocan, gana el permiso más permisivo — así que
 # conviene pecar de poco antes que de mucho acá, es más fácil sumar después.
+#
+# `tipo_informacion` acota un (módulo, acción) a un subconjunto puntual, no solo a "dato
+# sensible" (el caso original de bienestar/orientación con datos_medicos): docente usa el
+# mismo mecanismo para separar "tomar asistencia" de "editar la estructura curricular",
+# ambos con acción `actualizar` sobre Académico. Ver comentario en la entrada de docente.
 permiso:
   # administrador del sistema — CRUD completo en todos los módulos
   - rol: administrador del sistema
@@ -26,7 +31,7 @@ permiso:
     acciones: [crear, leer, actualizar, eliminar]
   - rol: administrador del sistema
     modulo: Inscripciones
-    acciones: [crear, leer, actualizar, eliminar]
+    acciones: [crear, leer, actualizar, eliminar, exportar]
   - rol: administrador del sistema
     modulo: Facturación
     acciones: [crear, leer, actualizar, eliminar, exportar]
@@ -83,7 +88,16 @@ permiso:
   # docente — solo su propia asistencia/materias, nada de facturación
   - rol: docente
     modulo: Académico
-    acciones: [leer, actualizar] # marca presente/ausente/tardanza
+    acciones: [leer] # lectura de estructura (nombres de división/materia), no la maneja
+  # `tipo_informacion: asistencia` acota este `actualizar` a marcar presente/ausente/tardanza:
+  # nunca alcanza para editar la estructura curricular ni asignar materias a otros docentes
+  # (eso pide el `actualizar` sin tipo del bloque de arriba, que un docente no tiene). El
+  # scoping por fila (solo sus propias divisiones asignadas) lo valida
+  # `academico/service.py::verificar_acceso_a_division`, no la matriz de permisos.
+  - rol: docente
+    modulo: Académico
+    acciones: [actualizar]
+    tipo_informacion: asistencia
   - rol: docente
     modulo: Inscripciones
     acciones: [leer] # necesita el listado de inscriptos para tomar asistencia
@@ -111,7 +125,7 @@ permiso:
     acciones: [crear, leer, actualizar]
   - rol: secretaría
     modulo: Inscripciones
-    acciones: [crear, leer, actualizar]
+    acciones: [crear, leer, actualizar, exportar]
 
   # coordinación académica — dueña de la estructura curricular
   - rol: coordinación académica
@@ -127,7 +141,7 @@ permiso:
   # admisiones/comercial — dueña del pipeline de Admisiones
   - rol: admisiones/comercial
     modulo: Inscripciones
-    acciones: [crear, leer, actualizar]
+    acciones: [crear, leer, actualizar, exportar]
 
   # compras — dueña de Proveedores y Compras
   - rol: compras

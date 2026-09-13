@@ -22,6 +22,14 @@ function RutasPaneles() {
 }
 
 function renderConUsuario(ruta: string, roles: string[], permisos: string[]) {
+  const permisosDelRol = permisos.map((codigo, indice) => ({
+    id: `p${indice}`,
+    codigo,
+    modulo: 'Panel Administrativo',
+    accion: 'leer',
+    tipo_informacion: null,
+  }))
+
   useAuthStore.setState({
     usuario: {
       id: 'u1',
@@ -29,15 +37,18 @@ function renderConUsuario(ruta: string, roles: string[], permisos: string[]) {
       auth_provider: 'local',
       estado: 'activo',
       roles,
-      permisos: permisos.map((codigo, indice) => ({
-        id: `p${indice}`,
-        codigo,
-        modulo: 'Panel Administrativo',
-        accion: 'leer',
-        tipo_informacion: null,
+      permisos: permisosDelRol,
+      perfiles: roles.map((nombre) => ({
+        id: nombre,
+        nombre,
+        descripcion: null,
+        permisos: permisosDelRol,
       })),
     },
     status: 'authenticated',
+    // El rol activo (elegido en "¿Cómo querés entrar?"/"Cambiar vista") es lo que filtran
+    // RoleRoute y PermisoRoute — un solo rol en el test, así que es directamente ese.
+    rolActivo: roles[0] ?? null,
   })
 
   return render(
@@ -48,7 +59,7 @@ function renderConUsuario(ruta: string, roles: string[], permisos: string[]) {
 }
 
 beforeEach(() => {
-  useAuthStore.setState({ usuario: null, status: 'idle' })
+  useAuthStore.setState({ usuario: null, status: 'idle', rolActivo: null })
 })
 
 describe('rutas del panel administrativo', () => {
@@ -75,5 +86,17 @@ describe('rutas del panel administrativo', () => {
 
     expect(screen.getByRole('heading', { name: 'Panel Administrativo' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /abrir compras/i })).toBeInTheDocument()
+  })
+
+  it('administrador del sistema también puede entrar a /admin (= todo en grupo-b.yaml)', () => {
+    renderConUsuario('/admin', ['administrador del sistema'], ['panel_administrativo.leer'])
+
+    expect(screen.getByRole('heading', { name: 'Panel Administrativo' })).toBeInTheDocument()
+  })
+
+  it('administrador del sistema también puede entrar a /panel', () => {
+    renderConUsuario('/panel', ['administrador del sistema'], ['panel_administrativo.leer'])
+
+    expect(screen.getByRole('heading', { name: 'Panel de Dirección' })).toBeInTheDocument()
   })
 })

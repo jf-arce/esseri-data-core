@@ -221,6 +221,37 @@ class TestExportacion:
         assert client.get("/proveedores-compras/proveedores-exportar").status_code == 401
         assert client.get("/proveedores-compras/ordenes-exportar").status_code == 401
 
+    def test_exportar_requiere_exportar_no_alcanza_con_leer(
+        self, client: TestClient, db_session: Session
+    ):
+        """`docente` y `familia` (grupo-b.yaml) no tienen Proveedores y Compras en absoluto,
+        pero cualquier rol que solo tenga `.leer` del módulo (sin `.exportar`) tampoco puede
+        descargar el CSV — son acciones distintas en la matriz de permisos."""
+        from src.auth import service
+        from src.auth.constants import ACCION_LEER, MODULO_PROVEEDORES_COMPRAS
+        from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
+
+        password = "una-contrasenia-larga"
+        usuario = Usuario(
+            email="solo-lectura@esseri.edu.ar",
+            password_hash=service.hashear_password(password),
+            auth_provider="local",
+            estado="activo",
+        )
+        rol = Rol(nombre="solo lectura de prueba")
+        db_session.add_all([usuario, rol])
+        db_session.flush()
+        permiso = Permiso(modulo=MODULO_PROVEEDORES_COMPRAS, accion=ACCION_LEER)
+        db_session.add(permiso)
+        db_session.flush()
+        db_session.add(RolPermiso(rol_id=rol.id, permiso_id=permiso.id))
+        db_session.add(UsuarioRol(usuario_id=usuario.id, rol_id=rol.id))
+        db_session.commit()
+        client.post("/auth/login", json={"email": usuario.email, "password": password})
+
+        assert client.get("/proveedores-compras/proveedores-exportar").status_code == 403
+        assert client.get("/proveedores-compras/ordenes-exportar").status_code == 403
+
 
 class TestBusquedaEndpoints:
     """La búsqueda expuesta por HTTP."""

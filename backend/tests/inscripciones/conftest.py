@@ -6,6 +6,7 @@ from src.auth import service
 from src.auth.constants import (
     ACCION_ACTUALIZAR,
     ACCION_CREAR,
+    ACCION_EXPORTAR,
     ACCION_LEER,
     MODULO_INSCRIPCIONES,
 )
@@ -31,7 +32,7 @@ def client(client, db_session):
     db_session.add(rol)
     db_session.commit()
 
-    for accion in (ACCION_CREAR, ACCION_LEER, ACCION_ACTUALIZAR):
+    for accion in (ACCION_CREAR, ACCION_LEER, ACCION_ACTUALIZAR, ACCION_EXPORTAR):
         permiso = Permiso(modulo=MODULO_INSCRIPCIONES, accion=accion)
         db_session.add(permiso)
         db_session.commit()

@@ -25,6 +25,17 @@ import {
 import { listarFacturas } from '@/modules/facturacion/services/listar-facturas'
 import { listarInscripciones } from '@/modules/inscripciones/services/listar-inscripciones'
 import { listarSolicitudesAdmision } from '@/modules/inscripciones/services/solicitudes-admision'
+import {
+  PERMISO_AUTENTICACION_LEER,
+  PERMISO_FACTURACION_CREAR,
+  PERMISO_FACTURACION_LEER,
+  PERMISO_FAMILIAS_ALUMNOS_CREAR,
+  PERMISO_FAMILIAS_ALUMNOS_LEER,
+  PERMISO_INSCRIPCIONES_CREAR,
+  PERMISO_INSCRIPCIONES_LEER,
+  tienePermiso,
+} from '@/modules/auth/constants'
+import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 const MINIMO_CARACTERES = 2
 
@@ -46,40 +57,82 @@ const NAVEGACION: Array<{
   ruta: string
   icono: typeof ShieldCheckIcon
   modulo: Modulo
+  permiso: string
 }> = [
-  { etiqueta: 'Familias', ruta: '/familias-alumnos', icono: UsersRoundIcon, modulo: 'familias' },
+  {
+    etiqueta: 'Familias',
+    ruta: '/familias-alumnos',
+    icono: UsersRoundIcon,
+    modulo: 'familias',
+    permiso: PERMISO_FAMILIAS_ALUMNOS_LEER,
+  },
   {
     etiqueta: 'Inscripciones',
     ruta: '/inscripciones',
     icono: ClipboardCheckIcon,
     modulo: 'inscripciones',
+    permiso: PERMISO_INSCRIPCIONES_LEER,
   },
   {
     etiqueta: 'Admisiones',
     ruta: '/inscripciones/admisiones',
     icono: ClipboardCheckIcon,
     modulo: 'inscripciones',
+    permiso: PERMISO_INSCRIPCIONES_LEER,
   },
-  { etiqueta: 'Facturas', ruta: '/facturacion', icono: LandmarkIcon, modulo: 'facturacion' },
+  {
+    etiqueta: 'Facturas',
+    ruta: '/facturacion',
+    icono: LandmarkIcon,
+    modulo: 'facturacion',
+    permiso: PERMISO_FACTURACION_LEER,
+  },
   {
     etiqueta: 'Reglas de facturación',
     ruta: '/facturacion/reglas',
     icono: Settings2Icon,
     modulo: 'facturacion',
+    permiso: PERMISO_FACTURACION_LEER,
   },
   {
     etiqueta: 'Usuarios y roles',
-    ruta: '/configuracion/acceso',
+    ruta: '/usuarios-roles',
     icono: ShieldCheckIcon,
     modulo: 'compras',
+    permiso: PERMISO_AUTENTICACION_LEER,
   },
 ]
 
-const ACCIONES: Array<{ etiqueta: string; ruta: string; icono: typeof UserPlusIcon }> = [
-  { etiqueta: 'Nuevo alumno', ruta: '/familias-alumnos/alumnos/nuevo', icono: UserPlusIcon },
-  { etiqueta: 'Nueva inscripción', ruta: '/inscripciones/nueva', icono: FilePlus2Icon },
-  { etiqueta: 'Nueva admisión', ruta: '/inscripciones/admisiones/nueva', icono: FilePlus2Icon },
-  { etiqueta: 'Nueva factura', ruta: '/facturacion/nueva', icono: FilePlus2Icon },
+const ACCIONES: Array<{
+  etiqueta: string
+  ruta: string
+  icono: typeof UserPlusIcon
+  permiso: string
+}> = [
+  {
+    etiqueta: 'Nuevo alumno',
+    ruta: '/familias-alumnos/alumnos/nuevo',
+    icono: UserPlusIcon,
+    permiso: PERMISO_FAMILIAS_ALUMNOS_CREAR,
+  },
+  {
+    etiqueta: 'Nueva inscripción',
+    ruta: '/inscripciones/nueva',
+    icono: FilePlus2Icon,
+    permiso: PERMISO_INSCRIPCIONES_CREAR,
+  },
+  {
+    etiqueta: 'Nueva admisión',
+    ruta: '/inscripciones/admisiones/nueva',
+    icono: FilePlus2Icon,
+    permiso: PERMISO_INSCRIPCIONES_CREAR,
+  },
+  {
+    etiqueta: 'Nueva factura',
+    ruta: '/facturacion/nueva',
+    icono: FilePlus2Icon,
+    permiso: PERMISO_FACTURACION_CREAR,
+  },
 ]
 
 interface ResultadoBusqueda {
@@ -161,6 +214,9 @@ export function GlobalSearchDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const navigate = useNavigate()
+  const permisos = useAuthStore(permisosActivos)
+  const navegacionVisible = NAVEGACION.filter((acceso) => tienePermiso(permisos, acceso.permiso))
+  const accionesVisibles = ACCIONES.filter((accion) => tienePermiso(permisos, accion.permiso))
   const [termino, setTermino] = useState('')
   const [consultaAplicada, setConsultaAplicada] = useState('')
   const consulta = termino.trim()
@@ -273,7 +329,7 @@ export function GlobalSearchDialog({
           {hayResultadosDeBusqueda && <CommandSeparator />}
 
           <CommandGroup heading="Ir a">
-            {NAVEGACION.map((acceso) => (
+            {navegacionVisible.map((acceso) => (
               <CommandItem
                 key={acceso.ruta}
                 value={acceso.etiqueta}
@@ -292,7 +348,7 @@ export function GlobalSearchDialog({
           </CommandGroup>
 
           <CommandGroup heading="Acciones">
-            {ACCIONES.map((accion) => (
+            {accionesVisibles.map((accion) => (
               <CommandItem
                 key={accion.ruta}
                 value={accion.etiqueta}

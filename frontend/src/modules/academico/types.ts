@@ -93,6 +93,12 @@ export type DocenteUpdate = {
   persona_id?: string
 }
 
+/** Una división asignada al docente autenticado (GET /academico/docentes/me/divisiones). */
+export type MiDivision = {
+  division_id: string
+  etiqueta: string
+}
+
 export type AsignacionDocente = {
   id: string
   ciclo_lectivo: string

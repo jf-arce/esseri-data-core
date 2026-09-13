@@ -1,7 +1,9 @@
 import { useRoutes } from 'react-router'
 import { AppLayout } from '@/layout/app-layout'
-import { HomePage } from '@/pages/home-page'
+import { ElegirPerfilPage } from '@/pages/elegir-perfil-page'
 import { ProtectedRoute } from '@/router/protected-route'
+import { RolActivoRoute } from '@/router/rol-activo-route'
+import { InicioRoute } from '@/router/inicio-route'
 import { authPrivateRoutes, authRoutes } from '@/modules/auth/routes'
 import { familiasAlumnosRoutes } from '@/modules/familias-alumnos/routes'
 import { academicoRoutes } from '@/modules/academico/routes'
@@ -32,9 +34,17 @@ export function AppRouter() {
     {
       element: <ProtectedRoute />,
       children: [
+        // Fuera del shell (sin sidebar): con sesión pero sin rol activo todavía elegido,
+        // `RolActivoRoute` manda acá antes de mostrar nada del panel.
+        { path: '/elegir-perfil', element: <ElegirPerfilPage /> },
         {
-          element: <AppLayout />,
-          children: [{ index: true, element: <HomePage /> }, ...moduleRoutes],
+          element: <RolActivoRoute />,
+          children: [
+            {
+              element: <AppLayout />,
+              children: [{ index: true, element: <InicioRoute /> }, ...moduleRoutes],
+            },
+          ],
         },
       ],
     },

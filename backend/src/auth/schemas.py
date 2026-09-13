@@ -81,7 +81,13 @@ class UsuarioConRoles(BaseModel):
 
 
 class UsuarioActual(BaseModel):
-    """Lo que devuelve GET /auth/me: quién es, qué roles y qué permisos tiene."""
+    """Lo que devuelve GET /auth/me: quién es, qué roles y qué permisos tiene.
+
+    `roles`/`permisos` son la suma de todos los roles de la cuenta — lo que efectivamente
+    autoriza el backend (RF-30), sin cambios. `perfiles` desglosa esa suma por rol: el frontend
+    lo usa para la pantalla "¿Cómo querés entrar?" y el selector "Cambiar vista" (rol activo),
+    que solo filtra qué se *muestra*, nunca lo que el backend permite.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -91,3 +97,4 @@ class UsuarioActual(BaseModel):
     estado: str
     roles: list[str]
     permisos: list[PermisoRead]
+    perfiles: list[RolConPermisos]

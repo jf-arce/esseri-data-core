@@ -124,10 +124,31 @@ PERMISO_ACADEMICO_CREAR = codigo_de(MODULO_ACADEMICO, ACCION_CREAR)
 PERMISO_ACADEMICO_LEER = codigo_de(MODULO_ACADEMICO, ACCION_LEER)
 PERMISO_ACADEMICO_ACTUALIZAR = codigo_de(MODULO_ACADEMICO, ACCION_ACTUALIZAR)
 PERMISO_ACADEMICO_ELIMINAR = codigo_de(MODULO_ACADEMICO, ACCION_ELIMINAR)
+# Dos variantes acotadas de `actualizar`, para separar "marcar presente/ausente/tardanza" de
+# "editar la estructura curricular" (niveles/años/divisiones/materias/docentes) — un mismo
+# `actualizar` sin tipo cubría las dos cosas antes de esta corrección (RF-06).
+#
+# OJO con `tiene_permiso`: un pedido SIN tipo (`PERMISO_ACADEMICO_ACTUALIZAR`, el que usaba
+# todo estructura) queda satisfecho por CUALQUIER variante tipada del usuario (`Permiso.codigo
+# LIKE 'academico.actualizar:%'`) — por eso los endpoints de estructura no pueden seguir
+# pidiendo el código sin tipo: un docente con solo `..._ASISTENCIA` colaría igual. Por eso
+# estructura también pasa a pedir un código CON tipo (`..._ESTRUCTURA`): un pedido CON tipo
+# solo lo satisface ese tipo exacto o el permiso amplio sin tipo — nunca el tipo del otro. Con
+# esto, secretaría/coordinación académica/administrador del sistema (que conservan el
+# `actualizar` amplio, sin tipo) no necesitan ningún permiso nuevo en el seed para seguir
+# pudiendo las dos cosas; un docente con solo `..._ASISTENCIA` queda afuera de `..._ESTRUCTURA`
+# y viceversa.
+PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA = codigo_de(
+    MODULO_ACADEMICO, ACCION_ACTUALIZAR, "asistencia"
+)
+PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA = codigo_de(
+    MODULO_ACADEMICO, ACCION_ACTUALIZAR, "estructura"
+)
 
 PERMISO_INSCRIPCIONES_CREAR = codigo_de(MODULO_INSCRIPCIONES, ACCION_CREAR)
 PERMISO_INSCRIPCIONES_LEER = codigo_de(MODULO_INSCRIPCIONES, ACCION_LEER)
 PERMISO_INSCRIPCIONES_ACTUALIZAR = codigo_de(MODULO_INSCRIPCIONES, ACCION_ACTUALIZAR)
+PERMISO_INSCRIPCIONES_EXPORTAR = codigo_de(MODULO_INSCRIPCIONES, ACCION_EXPORTAR)
 
 PERMISO_FACTURACION_CREAR = codigo_de(MODULO_FACTURACION, ACCION_CREAR)
 PERMISO_FACTURACION_LEER = codigo_de(MODULO_FACTURACION, ACCION_LEER)
@@ -138,6 +159,7 @@ PERMISO_PROVEEDORES_COMPRAS_CREAR = codigo_de(MODULO_PROVEEDORES_COMPRAS, ACCION
 PERMISO_PROVEEDORES_COMPRAS_LEER = codigo_de(MODULO_PROVEEDORES_COMPRAS, ACCION_LEER)
 PERMISO_PROVEEDORES_COMPRAS_ACTUALIZAR = codigo_de(MODULO_PROVEEDORES_COMPRAS, ACCION_ACTUALIZAR)
 PERMISO_PROVEEDORES_COMPRAS_ELIMINAR = codigo_de(MODULO_PROVEEDORES_COMPRAS, ACCION_ELIMINAR)
+PERMISO_PROVEEDORES_COMPRAS_EXPORTAR = codigo_de(MODULO_PROVEEDORES_COMPRAS, ACCION_EXPORTAR)
 
 PERMISO_AUDITORIA_LEER = codigo_de(MODULO_AUDITORIA, ACCION_LEER)
 

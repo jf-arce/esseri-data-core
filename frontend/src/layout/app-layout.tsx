@@ -11,7 +11,7 @@ import {
   Search,
   UserIcon,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -44,6 +44,9 @@ import {
   NAV_GROUPS,
   calcularHrefActivo,
   contieneRutaActiva,
+  filtrarNav,
+  rutaInicioDe,
+  type NavGroup,
   type NavItem,
 } from '@/layout/nav-items'
 import { GlobalSearchDialog } from '@/layout/global-search-dialog'
@@ -54,7 +57,7 @@ import {
   formatearNombreRol,
   nombreDeUsuario,
 } from '@/modules/auth/utils'
-import { useAuthStore } from '@/store/auth-store'
+import { permisosActivos, useAuthStore } from '@/store/auth-store'
 import { useUiStore } from '@/store/ui-store'
 import { Button } from '@/components/ui/button'
 
@@ -62,15 +65,24 @@ export function AppLayout() {
   const sidebarOpen = useUiStore((state) => state.sidebarOpen)
   const setSidebarOpen = useUiStore((state) => state.setSidebarOpen)
   const usuario = useAuthStore((state) => state.usuario)
+  const rolActivo = useAuthStore((state) => state.rolActivo)
+  const permisos = useAuthStore(permisosActivos)
+  const setRolActivo = useAuthStore((state) => state.setRolActivo)
   const clearSesion = useAuthStore((state) => state.clearSesion)
   const location = useLocation()
   const navigate = useNavigate()
-  const hrefActivo = calcularHrefActivo(location.pathname, NAV_GROUPS)
+  // Sidebar, buscador y ruta activa comparten un único árbol ya acotado al rol activo — un
+  // docente no debe ni ver ni poder activar por URL un módulo que su vista no muestra.
+  const navGrupos = useMemo(
+    () => filtrarNav(NAV_GROUPS, rolActivo, permisos),
+    [rolActivo, permisos],
+  )
+  const hrefActivo = calcularHrefActivo(location.pathname, navGrupos)
   const [comandoAbierto, setComandoAbierto] = useState(false)
   const [ciclo, setCiclo] = useState('2026')
   const [cambiarVistaAbierto, setCambiarVistaAbierto] = useState(false)
   const [moduloSeleccionado, setModuloSeleccionado] = useState<NavItem | null>(() =>
-    moduloDeRuta(location.pathname),
+    moduloDeRuta(location.pathname, navGrupos),
   )
 
   // El panel de módulo se sincroniza con la ruta (deep link, buscador global, atrás del
@@ -79,7 +91,8 @@ export function AppLayout() {
   // real — no hay un segundo estado paralelo para eso.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    setModuloSeleccionado(moduloDeRuta(location.pathname))
+    setModuloSeleccionado(moduloDeRuta(location.pathname, navGrupos))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname])
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -105,9 +118,21 @@ export function AppLayout() {
   }
 
   const inicialAvatar = usuario?.email.charAt(0).toUpperCase() ?? '?'
-  const rolActual = usuario?.roles[0] ?? null
-  const otrosRoles = usuario?.roles.slice(1) ?? []
+  const rolActual = rolActivo
+  const otrosRoles = (usuario?.perfiles ?? [])
+    .map((perfil) => perfil.nombre)
+    .filter((nombre) => nombre !== rolActivo)
   const tieneMasDeUnRol = otrosRoles.length > 0
+
+  function cambiarVista(rol: string) {
+    // Permisos del rol elegido calculados acá (no vía `permisosActivos`, que todavía lee el
+    // rol viejo hasta el próximo render): `rutaInicioDe` los necesita ya, para no navegar a
+    // `/` y depender de un segundo redirect.
+    const permisosDelRol = usuario?.perfiles.find((perfil) => perfil.nombre === rol)?.permisos ?? []
+    setRolActivo(rol)
+    setCambiarVistaAbierto(false)
+    navigate(rutaInicioDe(rol, permisosDelRol) ?? '/', { replace: true })
+  }
 
   return (
     <TooltipProvider>
@@ -131,6 +156,7 @@ export function AppLayout() {
               aria-hidden={moduloSeleccionado !== null}
             >
               <SidebarRootView
+                grupos={navGrupos}
                 hrefActivo={hrefActivo}
                 onSeleccionarModulo={setModuloSeleccionado}
               />
@@ -304,6 +330,7 @@ export function AppLayout() {
                           <button
                             key={rol}
                             type="button"
+                            onClick={() => cambiarVista(rol)}
                             className="flex cursor-pointer items-center gap-2.5 rounded-md py-1.5 pr-4 pl-8 text-sm text-texto-2 hover:bg-fila-hover"
                           >
                             <span
@@ -348,11 +375,11 @@ export function AppLayout() {
 }
 
 /** El módulo (ítem con `children`) cuyo subárbol contiene la ruta activa, o `null` si ninguno. */
-function moduloDeRuta(pathname: string): NavItem | null {
+function moduloDeRuta(pathname: string, grupos: NavGroup[]): NavItem | null {
   return (
-    NAV_GROUPS.flatMap((grupo) => grupo.items).find(
-      (item) => item.children && contieneRutaActiva(item, pathname),
-    ) ?? null
+    grupos
+      .flatMap((grupo) => grupo.items)
+      .find((item) => item.children && contieneRutaActiva(item, pathname)) ?? null
   )
 }
 
@@ -373,15 +400,17 @@ function seccionesDe(item: NavItem): NavItem[] {
 // seleccionan el módulo — es `SidebarContent` quien decide, vía transición, mostrar el panel de
 // ese módulo (`SidebarModuloView`) en lugar de expandir un acordeón.
 function SidebarRootView({
+  grupos,
   hrefActivo,
   onSeleccionarModulo,
 }: {
+  grupos: NavGroup[]
   hrefActivo: string | null
   onSeleccionarModulo: (item: NavItem) => void
 }) {
   return (
     <>
-      {NAV_GROUPS.map((grupo) => (
+      {grupos.map((grupo) => (
         <SidebarGroup key={grupo.label}>
           <SidebarGroupLabel>{grupo.label}</SidebarGroupLabel>
           <SidebarGroupContent>

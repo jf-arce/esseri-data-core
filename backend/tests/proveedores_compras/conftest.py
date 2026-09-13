@@ -7,6 +7,7 @@ from src.auth.constants import (
     ACCION_ACTUALIZAR,
     ACCION_CREAR,
     ACCION_ELIMINAR,
+    ACCION_EXPORTAR,
     ACCION_LEER,
     MODULO_PROVEEDORES_COMPRAS,
 )
@@ -31,7 +32,7 @@ def client_autenticado(client, db_session):
     db_session.add(rol)
     db_session.commit()
 
-    for accion in (ACCION_CREAR, ACCION_LEER, ACCION_ACTUALIZAR, ACCION_ELIMINAR):
+    for accion in (ACCION_CREAR, ACCION_LEER, ACCION_ACTUALIZAR, ACCION_ELIMINAR, ACCION_EXPORTAR):
         permiso = Permiso(modulo=MODULO_PROVEEDORES_COMPRAS, accion=accion)
         db_session.add(permiso)
         db_session.commit()

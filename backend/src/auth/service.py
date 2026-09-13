@@ -90,13 +90,35 @@ def buscar_por_email(db: Session, email: str) -> Usuario | None:
 
 
 def roles_de(db: Session, usuario_id: uuid.UUID) -> list[str]:
+    # order_by a propósito: sin orden fijo, `roles[0]` (el "rol actual" que muestra el
+    # frontend) podía cambiar de una consulta a otra para el mismo usuario.
     return list(
         db.scalars(
             select(Rol.nombre)
             .join(UsuarioRol, UsuarioRol.rol_id == Rol.id)
             .where(UsuarioRol.usuario_id == usuario_id)
+            .order_by(Rol.nombre)
         )
     )
+
+
+def perfiles_de(db: Session, usuario_id: uuid.UUID) -> list[tuple[Rol, list[Permiso]]]:
+    """Los roles de la cuenta, cada uno con sus propios permisos (no la suma).
+
+    Alimenta la pantalla "¿Cómo querés entrar?" y "Cambiar vista" del frontend: a diferencia
+    de `permisos_de` (la suma, lo que efectivamente autoriza el backend), acá cada rol trae
+    solo lo suyo. Sin `relationship()` en los modelos (igual que `listar_usuarios`): una query
+    para los roles del usuario y una para sus permisos, resueltas en memoria.
+    """
+    roles = list(
+        db.scalars(
+            select(Rol)
+            .join(UsuarioRol, UsuarioRol.rol_id == Rol.id)
+            .where(UsuarioRol.usuario_id == usuario_id)
+            .order_by(Rol.nombre)
+        )
+    )
+    return [(rol, permisos_de_rol(db, rol.id)) for rol in roles]
 
 
 # --- LOG_ACCESO (RF-27 / RNF-10) ---------------------------------------------------------
