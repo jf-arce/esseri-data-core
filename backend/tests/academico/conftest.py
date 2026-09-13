@@ -148,7 +148,7 @@ def client_docente_y_secretaria(client, db_session, persona_docente):
     assert respuesta.status_code == 200
     # Cuenta con 2 roles: arranca sin rol activo, el propio test elige con cuál entrar.
 
-    return client, rol_docente.nombre, rol_secretaria.nombre
+    return client, rol_docente.codigo, rol_secretaria.codigo
 
 
 @pytest.fixture()

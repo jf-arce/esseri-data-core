@@ -31,6 +31,11 @@ import {
   PERMISO_INSCRIPCIONES_LEER,
   PERMISO_PANEL_ADMIN_LEER,
   PERMISO_PROVEEDORES_COMPRAS_LEER,
+  ROL_ADMINISTRACION,
+  ROL_ADMINISTRADOR_DEL_SISTEMA,
+  ROL_DIRECCION,
+  ROL_DOCENTE,
+  ROL_FAMILIA,
   tienePermiso,
 } from '@/modules/auth/constants'
 import type { Permiso } from '@/modules/auth/types'
@@ -67,8 +72,8 @@ export interface NavGroup {
 export type Vista = 'consola' | 'docente' | 'familia'
 
 export function vistaDe(rolActivo: string | null): Vista {
-  if (rolActivo === 'docente') return 'docente'
-  if (rolActivo === 'familia') return 'familia'
+  if (rolActivo === ROL_DOCENTE) return 'docente'
+  if (rolActivo === ROL_FAMILIA) return 'familia'
   return 'consola'
 }
 
@@ -85,7 +90,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: '/panel',
         icon: LayoutDashboard,
         permiso: PERMISO_PANEL_ADMIN_LEER,
-        roles: ['dirección', 'administrador del sistema'],
+        roles: [ROL_DIRECCION, ROL_ADMINISTRADOR_DEL_SISTEMA],
       },
       {
         label: 'Panel Administrativo',
@@ -94,7 +99,7 @@ export const NAV_GROUPS: NavGroup[] = [
         permiso: PERMISO_PANEL_ADMIN_LEER,
         // administrador del sistema = todo (grupo-b.yaml): ve los dos paneles en el sidebar,
         // aunque su pantalla de inicio por default sea /panel (ver rutaInicioDe más abajo).
-        roles: ['administración', 'administrador del sistema'],
+        roles: [ROL_ADMINISTRACION, ROL_ADMINISTRADOR_DEL_SISTEMA],
       },
     ],
   },
@@ -125,16 +130,21 @@ export const NAV_GROUPS: NavGroup[] = [
         permiso: PERMISO_ACADEMICO_LEER,
         children: [
           { label: 'Asignaciones docentes', href: '/academico/asignaciones', icon: UserCog },
+          {
+            // Solo para roles de consola que también toman asistencia (secretaría, coordinación
+            // académica, administrador del sistema, y dirección si en algún momento la
+            // necesita) — el docente toma asistencia desde su propio Portal, fuera de este
+            // árbol de consola. OJO: como hijo, este ítem solo se evalúa si el padre pasa antes
+            // su propio `permiso` (`academico.leer`) — hoy todo rol de consola con permiso de
+            // asistencia también tiene `.leer`, así que es seguro; si algún día existiera un
+            // rol de consola con asistencia pero sin `.leer`, este ítem quedaría oculto y habría
+            // que revisar `itemVisible`/`filtrarNav`.
+            label: 'Tomar asistencia',
+            href: '/academico/asistencia',
+            icon: CalendarCheck,
+            permiso: PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
+          },
         ],
-      },
-      {
-        // Solo para roles de consola que también toman asistencia (secretaría, coordinación
-        // académica, administrador del sistema, y dirección si en algún momento la necesita) —
-        // el docente toma asistencia desde su propio Portal, fuera de este árbol de consola.
-        label: 'Tomar asistencia',
-        href: '/academico/asistencia',
-        icon: CalendarCheck,
-        permiso: PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
       },
       {
         label: 'Inscripciones',

@@ -34,18 +34,33 @@ describe('filtrarNav', () => {
     // (que solo tiene `.leer`/`.exportar` por diseño, grupo-b.yaml) quedaba afuera aunque el
     // Panel de Dirección la linkeara. Ahora alcanza con `.leer`; los botones de crear/editar/
     // eliminar se ocultan aparte, dentro de la página (`estructura-academica-page.tsx`).
-    const grupos = filtrarNav(NAV_GROUPS, 'dirección', [permiso('academico.leer')])
+    const grupos = filtrarNav(NAV_GROUPS, 'direccion', [permiso('academico.leer')])
 
     const labels = grupos.flatMap((g) => g.items.map((i) => i.label))
     expect(labels).toContain('Académico')
   })
 
-  it('"Tomar asistencia" pide el permiso tipado de asistencia, no la estructura', () => {
-    const grupos = filtrarNav(NAV_GROUPS, 'docente', [permiso('academico.actualizar:asistencia')])
+  it('"Tomar asistencia" (anidado en Académico) pide el permiso tipado de asistencia, no la estructura', () => {
+    // Anidado bajo "Académico" (§ nota de filtrado en nav-items.ts): el padre necesita su
+    // propio `academico.leer` para que sus hijos se evalúen — un docente real siempre lo
+    // tiene (ver seed), así que en la práctica esto nunca se oculta para él.
+    const grupos = filtrarNav(NAV_GROUPS, 'docente', [
+      permiso('academico.leer'),
+      permiso('academico.actualizar:asistencia'),
+    ])
 
-    const labels = grupos.flatMap((g) => g.items.map((i) => i.label))
-    expect(labels).toContain('Tomar asistencia')
-    expect(labels).not.toContain('Académico')
+    const academico = grupos.flatMap((g) => g.items).find((i) => i.label === 'Académico')
+    const hijos = academico?.children?.map((h) => h.label) ?? []
+    expect(hijos).toContain('Tomar asistencia')
+    expect(hijos).toContain('Asignaciones docentes')
+  })
+
+  it('"Tomar asistencia" desaparece sin su permiso tipado, aunque el padre sea visible', () => {
+    const grupos = filtrarNav(NAV_GROUPS, 'docente', [permiso('academico.leer')])
+
+    const academico = grupos.flatMap((g) => g.items).find((i) => i.label === 'Académico')
+    const hijos = academico?.children?.map((h) => h.label) ?? []
+    expect(hijos).not.toContain('Tomar asistencia')
   })
 
   it('un ítem con roles (los paneles) exige también el rol activo, no solo el permiso', () => {
@@ -57,7 +72,7 @@ describe('filtrarNav', () => {
   })
 
   it('dirección con panel_administrativo.leer ve el Panel de Dirección, no el Administrativo', () => {
-    const grupos = filtrarNav(NAV_GROUPS, 'dirección', [permiso('panel_administrativo.leer')])
+    const grupos = filtrarNav(NAV_GROUPS, 'direccion', [permiso('panel_administrativo.leer')])
 
     const labels = grupos.flatMap((g) => g.items.map((i) => i.label))
     expect(labels).toContain('Panel de Dirección')
@@ -65,7 +80,7 @@ describe('filtrarNav', () => {
   })
 
   it('administrador del sistema (grupo-b.yaml: "= todo") ve los dos paneles', () => {
-    const grupos = filtrarNav(NAV_GROUPS, 'administrador del sistema', [
+    const grupos = filtrarNav(NAV_GROUPS, 'administrador_del_sistema', [
       permiso('panel_administrativo.leer'),
     ])
 
@@ -77,7 +92,7 @@ describe('filtrarNav', () => {
   it('un padre sin hijos visibles ni landing propia desaparece entero', () => {
     // "Proveedores y compras" no tiene `permiso` propio ni `href`: sin el permiso de sus
     // hijos, no debería quedar un ítem fantasma con `children: []`.
-    const grupos = filtrarNav(NAV_GROUPS, 'dirección', [permiso('academico.leer')])
+    const grupos = filtrarNav(NAV_GROUPS, 'direccion', [permiso('academico.leer')])
 
     const labels = grupos.flatMap((g) => g.items.map((i) => i.label))
     expect(labels).not.toContain('Proveedores y compras')
@@ -86,17 +101,17 @@ describe('filtrarNav', () => {
 
 describe('rutaInicioDe', () => {
   it('dirección va a /panel', () => {
-    expect(rutaInicioDe('dirección', [permiso('panel_administrativo.leer')])).toBe('/panel')
+    expect(rutaInicioDe('direccion', [permiso('panel_administrativo.leer')])).toBe('/panel')
   })
 
   it('la pantalla de inicio por default de administrador del sistema es /panel (aunque también puede entrar a /admin)', () => {
-    expect(rutaInicioDe('administrador del sistema', [permiso('panel_administrativo.leer')])).toBe(
+    expect(rutaInicioDe('administrador_del_sistema', [permiso('panel_administrativo.leer')])).toBe(
       '/panel',
     )
   })
 
   it('administración va a /admin', () => {
-    expect(rutaInicioDe('administración', [permiso('panel_administrativo.leer')])).toBe('/admin')
+    expect(rutaInicioDe('administracion', [permiso('panel_administrativo.leer')])).toBe('/admin')
   })
 
   it('un rol de consola sin panel entra por el primer módulo al que tiene acceso', () => {

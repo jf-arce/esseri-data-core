@@ -41,6 +41,7 @@ from src.academico.models import (
     NivelEducativo,
 )
 from src.academico.schemas import (
+    AltaDocenteCreate,
     AnioCreate,
     AnioResponse,
     AnioUpdate,
@@ -56,6 +57,7 @@ from src.academico.schemas import (
     DivisionResponse,
     DivisionUpdate,
     DocenteCreate,
+    DocenteDesdeUsuarioCreate,
     DocenteResponse,
     DocenteUpdate,
     MateriaCreate,
@@ -74,10 +76,12 @@ from src.academico.service import (
     actualizar_materia,
     actualizar_nivel_educativo,
     calcular_resumen_asistencia,
+    crear_alta_docente,
     crear_anio,
     crear_asignacion_docente,
     crear_division,
     crear_docente,
+    crear_docente_desde_usuario,
     crear_materia,
     crear_nivel_educativo,
     divisiones_de_persona,
@@ -401,6 +405,37 @@ def listar_docentes_endpoint(
 ) -> list[Docente]:
     """Listar todos los docentes."""
     return listar_docentes(db)
+
+
+@router.post("/docentes/alta-completa", response_model=DocenteResponse, status_code=201)
+def crear_alta_docente_endpoint(
+    datos: AltaDocenteCreate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_CREAR))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Docente:
+    """Crear Persona + Usuario (rol docente) + Docente en un único alta. Antes de
+    `/docentes/{docente_id}` para que "alta-completa" no matchee como un UUID."""
+    try:
+        _persona, docente = crear_alta_docente(db, datos)
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return docente
+
+
+@router.post("/docentes/desde-usuario", response_model=DocenteResponse, status_code=201)
+def crear_docente_desde_usuario_endpoint(
+    datos: DocenteDesdeUsuarioCreate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_CREAR))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Docente:
+    """Suma el rol docente (y su ficha) a una cuenta que ya existe, ej. desde el diálogo de
+    roles de Usuarios."""
+    try:
+        return crear_docente_desde_usuario(db, datos)
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
 @router.get("/docentes/me/divisiones", response_model=list[MiDivisionResponse])

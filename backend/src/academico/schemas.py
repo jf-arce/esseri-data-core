@@ -9,6 +9,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.auth.schemas import AccesoCreate, PersonaCreate
+
 # --- NivelEducativo ----------------------------------------------------------------------
 
 
@@ -122,6 +124,22 @@ class DocenteResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AltaDocenteCreate(BaseModel):
+    """Alta de un docente nuevo: crea Persona + Usuario (rol docente) + Docente juntos."""
+
+    persona: PersonaCreate
+    acceso: AccesoCreate
+    legajo: str = Field(..., min_length=1, description="Legajo del docente")
+
+
+class DocenteDesdeUsuarioCreate(BaseModel):
+    """Suma el rol docente (y su ficha) a una cuenta que ya existe. La cuenta necesita tener
+    `persona_id` (la usuario-roles-dialog del frontend deshabilita esta opción si no lo tiene)."""
+
+    usuario_id: uuid.UUID
+    legajo: str = Field(..., min_length=1, description="Legajo del docente")
 
 
 class MiDivisionResponse(BaseModel):

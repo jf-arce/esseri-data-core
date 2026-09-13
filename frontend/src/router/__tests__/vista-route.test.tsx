@@ -29,9 +29,16 @@ function renderConRolActivo(rolActivo: string | null, initialEntry: string) {
       roles: ['docente', 'secretaría'],
       permisos: [],
       perfiles: [
-        { id: 'docente', nombre: 'docente', descripcion: null, permisos: [permisoAsistencia] },
         {
-          id: 'secretaría',
+          id: 'docente',
+          codigo: 'docente',
+          nombre: 'docente',
+          descripcion: null,
+          permisos: [permisoAsistencia],
+        },
+        {
+          id: 'secretaria',
+          codigo: 'secretaria',
           nombre: 'secretaría',
           descripcion: null,
           permisos: [permisoFamilias],
@@ -69,7 +76,7 @@ describe('VistaRoute', () => {
   })
 
   it('un rol de Consola no entra al Portal Docente: lo redirige a su propio inicio', () => {
-    renderConRolActivo('secretaría', '/docente')
+    renderConRolActivo('secretaria', '/docente')
 
     expect(screen.getByText('Consola')).toBeInTheDocument()
   })

@@ -10,7 +10,7 @@ import secrets
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Request, Response, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from jose import JWTError, jwt
 
@@ -51,6 +51,7 @@ from src.auth.schemas import (
     RolUpdate,
     UsuarioActual,
     UsuarioConRoles,
+    UsuarioCreate,
 )
 from src.exceptions import AppException
 
@@ -173,26 +174,29 @@ def login_local(datos: LoginLocalIn, request: Request, db: DbSession) -> JSONRes
 
 @router.get("/me", response_model=UsuarioActual)
 def me(usuario: UsuarioAutenticado, db: DbSession, rol_activo: RolActivo) -> UsuarioActual:
-    roles = service.roles_de(db, usuario.id)
+    perfiles = service.perfiles_de(db, usuario.id)
+    codigos = [rol.codigo for rol, _ in perfiles]
     return UsuarioActual(
         id=usuario.id,
         email=usuario.email,
         auth_provider=usuario.auth_provider,
         estado=usuario.estado,
-        roles=roles,
+        # Informativo/display: nombres, no códigos.
+        roles=[rol.nombre for rol, _ in perfiles],
         permisos=service.permisos_de(db, usuario.id),
         perfiles=[
             RolConPermisos(
                 id=rol.id,
+                codigo=rol.codigo,
                 nombre=rol.nombre,
                 descripcion=rol.descripcion,
                 permisos=permisos,
             )
-            for rol, permisos in service.perfiles_de(db, usuario.id)
+            for rol, permisos in perfiles
         ],
-        # Si el rol de la cookie ya no es válido (renombrado/revocado), se reporta null en vez
-        # de un nombre viejo — el frontend vuelve a preguntar en vez de quedar inconsistente.
-        rol_activo=rol_activo if rol_activo in roles else None,
+        # Si el rol de la cookie ya no es válido (revocado), se reporta null en vez de un
+        # código viejo — el frontend vuelve a preguntar en vez de quedar inconsistente.
+        rol_activo=rol_activo if rol_activo in codigos else None,
     )
 
 
@@ -357,9 +361,34 @@ def listar_usuarios(
             auth_provider=usuario.auth_provider,
             ultimo_acceso=usuario.ultimo_acceso,
             roles=roles,
+            persona_id=usuario.persona_id,
         )
         for usuario, roles in service.listar_usuarios(db)
     ]
+
+
+@router.post("/usuarios", response_model=UsuarioConRoles, status_code=status.HTTP_201_CREATED)
+def crear_usuario(
+    datos: UsuarioCreate,
+    db: DbSession,
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_CREAR))],
+) -> UsuarioConRoles:
+    """Alta de una cuenta de personal. Familia y docente tienen su propio formulario (crean,
+    además, Familia/Docente) — acá se rechazan con 422 si vienen entre los roles pedidos."""
+    try:
+        usuario, roles = service.crear_usuario(db, datos)
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return UsuarioConRoles(
+        id=usuario.id,
+        email=usuario.email,
+        estado=usuario.estado,
+        auth_provider=usuario.auth_provider,
+        ultimo_acceso=usuario.ultimo_acceso,
+        roles=roles,
+        persona_id=usuario.persona_id,
+    )
 
 
 @router.get("/usuarios/{usuario_id}/roles", response_model=list[RolRead])

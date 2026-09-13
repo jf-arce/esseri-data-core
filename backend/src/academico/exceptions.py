@@ -100,6 +100,15 @@ class LegajoDuplicado(AppException):
         super().__init__(message)
 
 
+class CuentaSinPersona(AppException):
+    """La cuenta no tiene `persona_id`: no hay a quién engancharle la ficha Docente."""
+
+    status_code = 409
+
+    def __init__(self, message: str = "Esa cuenta no tiene una persona asociada"):
+        super().__init__(message)
+
+
 class DocenteConAsignaciones(AppException):
     """El docente tiene asignaciones docentes asociadas."""
 

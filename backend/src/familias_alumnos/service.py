@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 
 from src.academico.models import Anio, Division, NivelEducativo
 from src.auth import service as auth_service
-from src.auth.models import Rol, Usuario, UsuarioRol
 from src.familias_alumnos.exceptions import (
     AlumnoConVinculos,
     FamiliaConVinculos,
@@ -59,9 +58,6 @@ def crear_alta_familia(
     db: Session, datos: AltaFamiliaCreate, usuario_id: uuid.UUID
 ) -> tuple[Persona, Familia]:
     """Crea Persona, Usuario, rol y Familia en una única transacción."""
-    if db.scalar(select(Usuario.id).where(Usuario.email == datos.usuario.email)) is not None:
-        raise ValueError("El correo ya está registrado")
-
     persona = Persona(
         nombre=datos.persona.nombre.strip(),
         apellido=datos.persona.apellido.strip(),
@@ -72,20 +68,15 @@ def crear_alta_familia(
     db.add(persona)
     db.flush()
 
-    usuario = Usuario(
+    # `crear_cuenta` levanta EmailRegistrado (AppException, 409) si el email ya existe, y
+    # ValueError si el rol familia no existe todavía (el router ya sabe traducir eso a 409).
+    auth_service.crear_cuenta(
+        db,
+        persona=persona,
         email=datos.usuario.email,
-        password_hash=auth_service.hashear_password(datos.usuario.password),
-        auth_provider=auth_service.PROVIDER_LOCAL,
-        estado=auth_service.ESTADO_ACTIVO,
-        persona_id=persona.id,
+        password=datos.usuario.password,
+        codigos_rol=[ROL_FAMILIA],
     )
-    db.add(usuario)
-    db.flush()
-
-    rol = db.scalar(select(Rol).where(Rol.nombre == ROL_FAMILIA))
-    if rol is None:
-        raise ValueError("No existe el rol familia")
-    db.add(UsuarioRol(usuario_id=usuario.id, rol_id=rol.id))
 
     familia = Familia(persona_id=persona.id)
     db.add(familia)

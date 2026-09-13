@@ -59,8 +59,20 @@ beforeEach(() => {
       roles: ['docente', 'familia'],
       permisos: [],
       perfiles: [
-        { id: 'docente', nombre: 'docente', descripcion: null, permisos: [permisoAcademico] },
-        { id: 'familia', nombre: 'familia', descripcion: null, permisos: [permisoFacturacion] },
+        {
+          id: 'docente',
+          codigo: 'docente',
+          nombre: 'docente',
+          descripcion: null,
+          permisos: [permisoAcademico],
+        },
+        {
+          id: 'familia',
+          codigo: 'familia',
+          nombre: 'familia',
+          descripcion: null,
+          permisos: [permisoFacturacion],
+        },
       ],
       rol_activo: null,
     },
@@ -94,9 +106,16 @@ describe('ElegirPerfilPage', () => {
         roles: ['docente', 'coordinación académica'],
         permisos: [],
         perfiles: [
-          { id: 'docente', nombre: 'docente', descripcion: null, permisos: [permisoAcademico] },
           {
-            id: 'coordinación académica',
+            id: 'docente',
+            codigo: 'docente',
+            nombre: 'docente',
+            descripcion: null,
+            permisos: [permisoAcademico],
+          },
+          {
+            id: 'coordinacion_academica',
+            codigo: 'coordinacion_academica',
             nombre: 'coordinación académica',
             descripcion: 'Dueña de la estructura curricular',
             permisos: [permisoAcademico],

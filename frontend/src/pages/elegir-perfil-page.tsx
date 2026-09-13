@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card'
 import { rutaInicioDe } from '@/layout/nav-items'
 import { useMisDivisiones } from '@/modules/academico/hooks/use-mis-divisiones'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
+import { ROL_DOCENTE, ROL_FAMILIA } from '@/modules/auth/constants'
 import {
   colorIdentidad,
   colorIdentidadSuave,
@@ -24,13 +25,13 @@ export function ElegirPerfilPage() {
   const navigate = useNavigate()
 
   const perfiles = usuario?.perfiles ?? []
-  const tieneDocente = perfiles.some((perfil) => perfil.nombre === 'docente')
-  const tieneFamilia = perfiles.some((perfil) => perfil.nombre === 'familia')
+  const tieneDocente = perfiles.some((perfil) => perfil.codigo === ROL_DOCENTE)
+  const tieneFamilia = perfiles.some((perfil) => perfil.codigo === ROL_FAMILIA)
   const { divisiones, cargando: cargandoDivisiones } = useMisDivisiones(tieneDocente)
   const { alumnos, cargando: cargandoAlumnos } = useMisAlumnos(tieneFamilia)
 
   const [seleccionado, setSeleccionado] = useState<string | null>(
-    perfiles.length === 1 ? perfiles[0].nombre : null,
+    perfiles.length === 1 ? perfiles[0].codigo : null,
   )
   const [enviando, setEnviando] = useState(false)
 
@@ -46,7 +47,7 @@ export function ElegirPerfilPage() {
     try {
       await setRolActivo(seleccionado)
       const permisosDelRol =
-        usuario.perfiles.find((perfil) => perfil.nombre === seleccionado)?.permisos ?? []
+        usuario.perfiles.find((perfil) => perfil.codigo === seleccionado)?.permisos ?? []
       navigate(rutaInicioDe(seleccionado, permisosDelRol) ?? '/', { replace: true })
     } catch {
       toast.error('No se pudo cambiar de rol. Intentá de nuevo.')
@@ -66,19 +67,19 @@ export function ElegirPerfilPage() {
         <div className="mb-8 flex flex-col gap-3">
           {perfiles.map((perfil) => (
             <Card
-              key={perfil.nombre}
+              key={perfil.codigo}
               role="radio"
               tabIndex={0}
-              aria-checked={seleccionado === perfil.nombre}
-              onClick={() => setSeleccionado(perfil.nombre)}
+              aria-checked={seleccionado === perfil.codigo}
+              onClick={() => setSeleccionado(perfil.codigo)}
               onKeyDown={(evento) => {
                 if (evento.key === 'Enter' || evento.key === ' ') {
                   evento.preventDefault()
-                  setSeleccionado(perfil.nombre)
+                  setSeleccionado(perfil.codigo)
                 }
               }}
               className={`cursor-pointer flex-row items-center gap-3 border px-4 ${
-                seleccionado === perfil.nombre
+                seleccionado === perfil.codigo
                   ? 'border-violeta shadow-none ring-2 ring-violeta'
                   : 'border-borde shadow-none'
               }`}
@@ -86,8 +87,8 @@ export function ElegirPerfilPage() {
               <span
                 className="flex size-9 shrink-0 items-center justify-center rounded-lg"
                 style={{
-                  backgroundColor: colorIdentidadSuave(perfil.nombre),
-                  color: colorIdentidad(perfil.nombre),
+                  backgroundColor: colorIdentidadSuave(perfil.codigo),
+                  color: colorIdentidad(perfil.codigo),
                 }}
               >
                 <UserIcon className="size-4" />
@@ -97,7 +98,7 @@ export function ElegirPerfilPage() {
                   {formatearNombreRol(perfil.nombre)}
                 </span>
                 <DetalleDePerfil
-                  perfil={perfil.nombre}
+                  codigo={perfil.codigo}
                   tieneDocente={tieneDocente}
                   tieneFamilia={tieneFamilia}
                   cargandoDivisiones={cargandoDivisiones}
@@ -107,7 +108,7 @@ export function ElegirPerfilPage() {
                   descripcion={perfil.descripcion}
                 />
               </span>
-              {seleccionado === perfil.nombre && (
+              {seleccionado === perfil.codigo && (
                 <CheckIcon className="size-4 shrink-0 text-violeta" />
               )}
             </Card>
@@ -128,7 +129,7 @@ export function ElegirPerfilPage() {
 }
 
 function DetalleDePerfil({
-  perfil,
+  codigo,
   tieneDocente,
   tieneFamilia,
   cargandoDivisiones,
@@ -137,7 +138,7 @@ function DetalleDePerfil({
   alumnos,
   descripcion,
 }: {
-  perfil: string
+  codigo: string
   tieneDocente: boolean
   tieneFamilia: boolean
   cargandoDivisiones: boolean
@@ -146,7 +147,7 @@ function DetalleDePerfil({
   alumnos: { nombre: string; apellido: string; division_etiqueta: string | null }[]
   descripcion: string | null
 }) {
-  if (perfil === 'docente' && tieneDocente) {
+  if (codigo === ROL_DOCENTE && tieneDocente) {
     if (cargandoDivisiones) return <span className="text-xs text-texto-3">Cargando…</span>
     return (
       <span className="text-xs text-texto-3">
@@ -155,7 +156,7 @@ function DetalleDePerfil({
     )
   }
 
-  if (perfil === 'familia' && tieneFamilia) {
+  if (codigo === ROL_FAMILIA && tieneFamilia) {
     if (cargandoAlumnos) return <span className="text-xs text-texto-3">Cargando…</span>
     return (
       <span className="text-xs text-texto-3">

@@ -43,7 +43,7 @@ const SIN_PERMISOS: Permiso[] = []
  * sidebar y las rutas. Lista vacía sin rol activo todavía elegido. */
 export function permisosActivos(state: AuthState): Permiso[] {
   return (
-    state.usuario?.perfiles.find((perfil) => perfil.nombre === state.rolActivo)?.permisos ??
+    state.usuario?.perfiles.find((perfil) => perfil.codigo === state.rolActivo)?.permisos ??
     SIN_PERMISOS
   )
 }

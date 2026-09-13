@@ -19,7 +19,9 @@ const usuarioUnRol = {
   estado: 'activo',
   roles: ['admin'],
   permisos: [permisoLeer],
-  perfiles: [{ id: 'admin', nombre: 'admin', descripcion: null, permisos: [permisoLeer] }],
+  perfiles: [
+    { id: 'admin', codigo: 'admin', nombre: 'admin', descripcion: null, permisos: [permisoLeer] },
+  ],
   rol_activo: 'admin',
 }
 
@@ -31,8 +33,14 @@ const usuarioDosRoles = {
   roles: ['docente', 'familia'],
   permisos: [],
   perfiles: [
-    { id: 'docente', nombre: 'docente', descripcion: null, permisos: [permisoLeer] },
-    { id: 'familia', nombre: 'familia', descripcion: null, permisos: [] },
+    {
+      id: 'docente',
+      codigo: 'docente',
+      nombre: 'docente',
+      descripcion: null,
+      permisos: [permisoLeer],
+    },
+    { id: 'familia', codigo: 'familia', nombre: 'familia', descripcion: null, permisos: [] },
   ],
   rol_activo: null,
 }

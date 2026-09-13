@@ -14,6 +14,7 @@ from src.academico.exceptions import (
     AsignacionDocenteDuplicada,
     AsistenciaDuplicada,
     AsistenciaYaJustificada,
+    CuentaSinPersona,
     DivisionConAsignaciones,
     DivisionDuplicada,
     DocenteConAsignaciones,
@@ -33,6 +34,7 @@ from src.academico.models import (
     NivelEducativo,
 )
 from src.academico.schemas import (
+    AltaDocenteCreate,
     AnioCreate,
     AnioUpdate,
     AsignacionDocenteCreate,
@@ -44,6 +46,7 @@ from src.academico.schemas import (
     DivisionCreate,
     DivisionUpdate,
     DocenteCreate,
+    DocenteDesdeUsuarioCreate,
     DocenteUpdate,
     MateriaCreate,
     MateriaUpdate,
@@ -53,9 +56,12 @@ from src.academico.schemas import (
 from src.auth import service as auth_service
 from src.auth.constants import PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA
 from src.auth.exceptions import PermisoDenegado
-from src.auth.models import Usuario
+from src.auth.models import Rol, Usuario, UsuarioRol
 from src.familias_alumnos.models import FamiliaAlumno
 from src.inscripciones.models import Asistencia, Inscripcion
+from src.models import Persona
+
+ROL_DOCENTE = "docente"
 
 logger = logging.getLogger(__name__)
 
@@ -782,6 +788,74 @@ def crear_docente(
     db.commit()
     db.refresh(nuevo)
     return nuevo
+
+
+def crear_alta_docente(db: Session, datos: AltaDocenteCreate) -> tuple[Persona, Docente]:
+    """Crea Persona, Usuario (rol docente) y Docente en una única transacción.
+
+    Mismo patrón que `crear_alta_familia` (`familias_alumnos/service.py`): el legajo se valida
+    primero para no dejar Persona/Usuario a mitad de camino si está duplicado.
+    """
+    if db.scalar(select(Docente.id).where(Docente.legajo == datos.legajo.strip())) is not None:
+        raise LegajoDuplicado()
+
+    persona = Persona(
+        nombre=datos.persona.nombre.strip(),
+        apellido=datos.persona.apellido.strip(),
+        dni=datos.persona.dni.strip(),
+        telefono=datos.persona.telefono,
+        sexo=datos.persona.sexo,
+    )
+    db.add(persona)
+    db.flush()
+
+    auth_service.crear_cuenta(
+        db,
+        persona=persona,
+        email=datos.acceso.email,
+        password=datos.acceso.password,
+        codigos_rol=[ROL_DOCENTE],
+    )
+
+    docente = Docente(legajo=datos.legajo.strip(), persona_id=persona.id)
+    db.add(docente)
+    db.flush()
+    db.commit()
+    db.refresh(persona)
+    db.refresh(docente)
+    return persona, docente
+
+
+def crear_docente_desde_usuario(db: Session, datos: DocenteDesdeUsuarioCreate) -> Docente:
+    """Suma el rol docente (y su ficha) a una cuenta que ya existe, ej. una familia que también
+    da clases. Idempotente en el rol: si la cuenta ya tenía `docente`, no falla."""
+    usuario = db.get(Usuario, datos.usuario_id)
+    if usuario is None or usuario.persona_id is None:
+        raise CuentaSinPersona()
+
+    if db.scalar(select(Docente.id).where(Docente.legajo == datos.legajo.strip())) is not None:
+        raise LegajoDuplicado()
+
+    docente = db.scalar(select(Docente).where(Docente.persona_id == usuario.persona_id))
+    if docente is None:
+        docente = Docente(legajo=datos.legajo.strip(), persona_id=usuario.persona_id)
+        db.add(docente)
+        db.flush()
+
+    rol = db.scalar(select(Rol).where(Rol.codigo == ROL_DOCENTE))
+    if rol is None:
+        raise ValueError("No existe el rol docente")
+    ya_tiene_rol = db.scalar(
+        select(UsuarioRol.id).where(
+            UsuarioRol.usuario_id == usuario.id, UsuarioRol.rol_id == rol.id
+        )
+    )
+    if ya_tiene_rol is None:
+        db.add(UsuarioRol(usuario_id=usuario.id, rol_id=rol.id))
+
+    db.commit()
+    db.refresh(docente)
+    return docente
 
 
 def obtener_docente_por_id(db: Session, docente_id: uuid.UUID) -> Docente | None:

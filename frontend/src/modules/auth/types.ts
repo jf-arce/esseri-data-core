@@ -23,6 +23,7 @@ export interface UsuarioConRoles {
 
 export interface PerfilRol {
   id: string
+  codigo: string
   nombre: string
   descripcion: string | null
   permisos: Permiso[]

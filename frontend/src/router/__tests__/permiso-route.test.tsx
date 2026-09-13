@@ -26,6 +26,7 @@ function renderConPermisos(permisos: { codigo: string }[]) {
       perfiles: [
         {
           id: ROL_DE_PRUEBA,
+          codigo: ROL_DE_PRUEBA,
           nombre: ROL_DE_PRUEBA,
           descripcion: null,
           permisos: permisosCompletos,
@@ -85,7 +86,7 @@ describe('PermisoRoute', () => {
         estado: 'activo',
         roles: [rol],
         permisos,
-        perfiles: [{ id: rol, nombre: rol, descripcion: null, permisos }],
+        perfiles: [{ id: rol, codigo: rol, nombre: rol, descripcion: null, permisos }],
       },
       status: 'authenticated',
       rolActivo: rol,
@@ -124,7 +125,15 @@ describe('PermisoRoute', () => {
         estado: 'activo',
         roles: [ROL_DE_PRUEBA],
         permisos,
-        perfiles: [{ id: ROL_DE_PRUEBA, nombre: ROL_DE_PRUEBA, descripcion: null, permisos }],
+        perfiles: [
+          {
+            id: ROL_DE_PRUEBA,
+            codigo: ROL_DE_PRUEBA,
+            nombre: ROL_DE_PRUEBA,
+            descripcion: null,
+            permisos,
+          },
+        ],
       },
       status: 'authenticated',
       rolActivo: null,

@@ -84,6 +84,13 @@ SLUG_POR_MODULO: dict[str, str] = {
 }
 
 
+def slug_ascii(texto: str) -> str:
+    """Slug ASCII estable: normaliza acentos, minúsculas, separadores a `_`. Usado tanto para
+    el fallback de módulo acá abajo como para derivar `Rol.codigo` (`src.auth.models.Rol`)."""
+    sin_acentos = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]+", "_", sin_acentos.lower()).strip("_")
+
+
 def _slug_de_modulo(modulo: str) -> str:
     """Fallback para un `modulo` fuera del vocabulario fijo: nunca debería pasar en un
     `Permiso` válido (el `Literal` lo impide en el ABM), pero una migración o un dato viejo
@@ -91,8 +98,7 @@ def _slug_de_modulo(modulo: str) -> str:
     conocido = SLUG_POR_MODULO.get(modulo)
     if conocido is not None:
         return conocido
-    sin_acentos = unicodedata.normalize("NFKD", modulo).encode("ascii", "ignore").decode("ascii")
-    return re.sub(r"[^a-z0-9]+", "_", sin_acentos.lower()).strip("_")
+    return slug_ascii(modulo)
 
 
 def codigo_de(modulo: str, accion: str, tipo_informacion: str | None = None) -> str:

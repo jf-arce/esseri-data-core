@@ -90,3 +90,23 @@ class RolEnUso(AppException):
 
     def __init__(self, message: str = "El rol está en uso y no se puede eliminar"):
         super().__init__(message)
+
+
+class EmailRegistrado(AppException):
+    status_code = 409
+
+    def __init__(self, message: str = "Ese email ya está registrado"):
+        super().__init__(message)
+
+
+class RolConAltaPropia(AppException):
+    """`familia` y `docente` tienen su propio flujo de alta (crean Familia/Docente además de la
+    cuenta): el alta genérica de usuarios los rechaza para no dejar esas fichas sin crear."""
+
+    status_code = 422
+
+    def __init__(
+        self,
+        message: str = ("Los roles familia y docente tienen su propio formulario de alta"),
+    ):
+        super().__init__(message)

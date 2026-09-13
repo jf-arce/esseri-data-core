@@ -2,8 +2,9 @@
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from src.auth.constants import AccionLiteral, ModuloLiteral
 
@@ -36,6 +37,7 @@ class RolRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    codigo: str
     nombre: str
     descripcion: str | None
 
@@ -82,6 +84,49 @@ class UsuarioConRoles(BaseModel):
     auth_provider: str
     ultimo_acceso: datetime | None
     roles: list[RolRead]
+    # Necesario para el alta de docente "desde una cuenta existente" (usuario-roles-dialog):
+    # sin persona la ficha Docente no tiene a qué engancharse.
+    persona_id: uuid.UUID | None
+
+
+class PersonaCreate(BaseModel):
+    """Datos de la persona detrás de una cuenta nueva (alta de usuario/docente)."""
+
+    nombre: str = Field(..., min_length=1)
+    apellido: str = Field(..., min_length=1)
+    dni: str = Field(..., min_length=1)
+    telefono: str | None = None
+    sexo: str | None = None
+
+
+class AccesoCreate(BaseModel):
+    """Cómo va a entrar la cuenta nueva: por Google (sin contraseña, se vincula sola en el
+    primer login) o con una contraseña inicial que carga quien da de alta."""
+
+    email: str = Field(..., min_length=1)
+    metodo: Literal["google", "local"]
+    password: str | None = Field(None, min_length=12)
+
+    @field_validator("email")
+    @classmethod
+    def normalizar_email(cls, valor: str) -> str:
+        return valor.strip().lower()
+
+    @model_validator(mode="after")
+    def validar_password(self) -> "AccesoCreate":
+        if self.metodo == "local" and self.password is None:
+            raise ValueError("Falta la contraseña inicial")
+        if self.metodo == "google" and self.password is not None:
+            raise ValueError("El acceso por Google no lleva contraseña")
+        return self
+
+
+class UsuarioCreate(BaseModel):
+    """Alta de una cuenta de personal (no familia, no docente: esos tienen su propio flujo)."""
+
+    persona: PersonaCreate
+    acceso: AccesoCreate
+    rol_ids: list[uuid.UUID] = Field(..., min_length=1)
 
 
 class UsuarioActual(BaseModel):

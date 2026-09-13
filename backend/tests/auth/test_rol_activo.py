@@ -31,7 +31,7 @@ def test_login_con_un_solo_rol_ya_lo_deja_activo(
     respuesta = client.get("/auth/me")
 
     assert respuesta.status_code == 200
-    assert respuesta.json()["rol_activo"] == rol.nombre
+    assert respuesta.json()["rol_activo"] == rol.codigo
     assert client.get("/auth/roles").status_code == 200
 
 
@@ -73,11 +73,11 @@ def test_elegir_rol_activo_habilita_el_endpoint_de_ese_rol(
     login(client, usuario_local)
     assert client.get("/auth/roles").status_code == 403
 
-    respuesta = client.post("/auth/rol-activo", json={"rol": rol_con_permiso.nombre})
+    respuesta = client.post("/auth/rol-activo", json={"rol": rol_con_permiso.codigo})
 
     assert respuesta.status_code == 200
     assert client.get("/auth/roles").status_code == 200
-    assert client.get("/auth/me").json()["rol_activo"] == rol_con_permiso.nombre
+    assert client.get("/auth/me").json()["rol_activo"] == rol_con_permiso.codigo
 
 
 def test_rol_activo_con_rol_que_la_cuenta_no_tiene_da_403(client, usuario_local):
@@ -99,10 +99,10 @@ def test_cambiar_a_un_rol_sin_el_permiso_vuelve_a_denegar(
     db_session.commit()
     login(client, usuario_local)
 
-    client.post("/auth/rol-activo", json={"rol": rol_docente.nombre})
+    client.post("/auth/rol-activo", json={"rol": rol_docente.codigo})
     assert client.get("/auth/roles").status_code == 403
 
-    client.post("/auth/rol-activo", json={"rol": rol_admin.nombre})
+    client.post("/auth/rol-activo", json={"rol": rol_admin.codigo})
     assert client.get("/auth/roles").status_code == 200
 
 
@@ -113,7 +113,7 @@ def test_me_con_rol_de_cookie_ya_no_valido_devuelve_rol_activo_null(
     db_session.add(UsuarioRol(usuario_id=usuario_local.id, rol_id=rol.id))
     db_session.commit()
     login(client, usuario_local)
-    assert client.get("/auth/me").json()["rol_activo"] == rol.nombre
+    assert client.get("/auth/me").json()["rol_activo"] == rol.codigo
 
     db_session.query(RolPermiso).filter(RolPermiso.rol_id == rol.id).delete()
     db_session.query(UsuarioRol).filter(UsuarioRol.rol_id == rol.id).delete()

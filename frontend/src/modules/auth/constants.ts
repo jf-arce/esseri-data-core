@@ -31,6 +31,16 @@ export const PERMISO_FACTURACION_ACTUALIZAR = 'facturacion.actualizar'
 
 export const PERMISO_PROVEEDORES_COMPRAS_LEER = 'proveedores_compras.leer'
 
+// Códigos de rol (`Rol.codigo`, derivado del nombre una sola vez al crear el rol — ver
+// `backend/src/auth/models.py`): identidad estable para autorizar por rol activo, a diferencia
+// del `nombre`, que es editable desde `/usuarios-roles/roles`. Solo los 5 que el frontend
+// compara por string hoy — los otros 5 roles del seed no tienen ningún literal hardcodeado acá.
+export const ROL_DOCENTE = 'docente'
+export const ROL_FAMILIA = 'familia'
+export const ROL_DIRECCION = 'direccion'
+export const ROL_ADMINISTRACION = 'administracion'
+export const ROL_ADMINISTRADOR_DEL_SISTEMA = 'administrador_del_sistema'
+
 export function tienePermiso(permisos: Permiso[], codigo: string): boolean {
   const [base] = codigo.split(':')
   return permisos.some((permiso) => permiso.codigo === codigo || permiso.codigo === base)

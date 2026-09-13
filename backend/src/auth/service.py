@@ -13,10 +13,12 @@ from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from src.auth import config
-from src.auth.constants import PERMISO_AUTENTICACION_ACTUALIZAR, codigo_de
+from src.auth.constants import PERMISO_AUTENTICACION_ACTUALIZAR, codigo_de, slug_ascii
 from src.auth.exceptions import (
     CredencialesInvalidas,
+    EmailRegistrado,
     PermisoDuplicado,
+    RolConAltaPropia,
     RolDuplicado,
     RolEnUso,
     TokenInvalido,
@@ -25,7 +27,12 @@ from src.auth.exceptions import (
 )
 from src.auth.google_client import GoogleIdentity
 from src.auth.models import LogAcceso, Permiso, Rol, RolPermiso, Usuario, UsuarioRol
-from src.auth.schemas import PermisoCreate, PermisoUpdate, RolCreate, RolUpdate
+from src.auth.schemas import PermisoCreate, PermisoUpdate, RolCreate, RolUpdate, UsuarioCreate
+from src.models import Persona
+
+# Roles con su propio flujo de alta (crean, además de la cuenta, una ficha de dominio propia):
+# familia -> Familia, docente -> Docente. El alta genérica de usuarios los rechaza.
+CODIGOS_ROL_CON_ALTA_PROPIA = {"familia", "docente"}
 
 # bcrypt solo mira los primeros 72 bytes y falla si le pasás más; truncar en los dos sentidos
 # mantiene hash y verificación consistentes.
@@ -100,14 +107,15 @@ def buscar_por_email(db: Session, email: str) -> Usuario | None:
 
 
 def roles_de(db: Session, usuario_id: uuid.UUID) -> list[str]:
+    """Códigos de rol (no nombres): es lo que se embebe en el JWT y lo que autoriza (RF-30)."""
     # order_by a propósito: sin orden fijo, `roles[0]` (el "rol actual" que muestra el
     # frontend) podía cambiar de una consulta a otra para el mismo usuario.
     return list(
         db.scalars(
-            select(Rol.nombre)
+            select(Rol.codigo)
             .join(UsuarioRol, UsuarioRol.rol_id == Rol.id)
             .where(UsuarioRol.usuario_id == usuario_id)
-            .order_by(Rol.nombre)
+            .order_by(Rol.codigo)
         )
     )
 
@@ -225,6 +233,79 @@ def finalizar_login(db: Session, usuario: Usuario, ip_origen: str | None) -> str
     return crear_access_token(usuario.id, rol_inicial)
 
 
+# --- Alta de cuentas -----------------------------------------------------------------------
+
+
+def crear_cuenta(
+    db: Session,
+    *,
+    persona: Persona,
+    email: str,
+    password: str | None,
+    codigos_rol: list[str],
+) -> Usuario:
+    """Crea la cuenta (Usuario + UsuarioRol) para una `persona` ya creada (y flusheada) en esta
+    misma transacción. No hace commit: cada alta (familia, personal, docente) arma el resto de
+    sus filas alrededor y confirma todo junto.
+
+    `password` presente = acceso local (se hashea acá); `None` = acceso por Google, sin
+    contraseña — `resolver_usuario_google` vincula `provider_subject` sola en el primer login.
+    """
+    if buscar_por_email(db, email) is not None:
+        raise EmailRegistrado()
+
+    usuario = Usuario(
+        email=email.strip().lower(),
+        password_hash=hashear_password(password) if password is not None else None,
+        auth_provider=PROVIDER_LOCAL if password is not None else PROVIDER_GOOGLE,
+        estado=ESTADO_ACTIVO,
+        persona_id=persona.id,
+    )
+    db.add(usuario)
+    db.flush()
+
+    roles = list(db.scalars(select(Rol).where(Rol.codigo.in_(codigos_rol))))
+    if len(roles) != len(set(codigos_rol)):
+        faltantes = set(codigos_rol) - {rol.codigo for rol in roles}
+        raise ValueError(f"No existe(n) el/los rol(es): {', '.join(sorted(faltantes))}")
+    for rol in roles:
+        db.add(UsuarioRol(usuario_id=usuario.id, rol_id=rol.id))
+    db.flush()
+
+    return usuario
+
+
+def crear_usuario(db: Session, datos: UsuarioCreate) -> tuple[Usuario, list[Rol]]:
+    """Alta de una cuenta de personal (cualquier rol salvo familia/docente, que tienen su propio
+    flujo porque además crean una ficha de dominio)."""
+    roles = list(db.scalars(select(Rol).where(Rol.id.in_(datos.rol_ids))))
+    if len(roles) != len(set(datos.rol_ids)):
+        raise ValueError("Alguno de los roles no existe")
+    if any(rol.codigo in CODIGOS_ROL_CON_ALTA_PROPIA for rol in roles):
+        raise RolConAltaPropia()
+
+    persona = Persona(
+        nombre=datos.persona.nombre.strip(),
+        apellido=datos.persona.apellido.strip(),
+        dni=datos.persona.dni.strip(),
+        telefono=datos.persona.telefono,
+        sexo=datos.persona.sexo,
+    )
+    db.add(persona)
+    db.flush()
+
+    usuario = crear_cuenta(
+        db,
+        persona=persona,
+        email=datos.acceso.email,
+        password=datos.acceso.password,
+        codigos_rol=[rol.codigo for rol in roles],
+    )
+    db.commit()
+    db.refresh(usuario)
+    return usuario, roles
+
+
 # --- Autorización (RF-30) -----------------------------------------------------------------
 
 
@@ -268,11 +349,12 @@ def _condicion_codigo(codigo: str):
     return or_(Permiso.codigo == base, Permiso.codigo.like(f"{base}:%"))
 
 
-def tiene_permiso_en_rol(db: Session, usuario_id: uuid.UUID, rol_nombre: str, codigo: str) -> bool:
+def tiene_permiso_en_rol(db: Session, usuario_id: uuid.UUID, rol_codigo: str, codigo: str) -> bool:
     """Como `tiene_permiso`, pero acotado a un único rol de la cuenta (el rol activo).
 
-    Si `rol_nombre` fue revocado o renombrado después de emitido el token, el join a `Rol`
-    no matchea nada y esto da `False` sin necesitar invalidar tokens.
+    Si `rol_codigo` fue revocado después de emitido el token, el join a `Rol` no matchea nada y
+    esto da `False` sin necesitar invalidar tokens. Comparar por `codigo` (no `nombre`) es lo que
+    hace que renombrar el rol no rompa esto.
     """
     condicion_codigo = _condicion_codigo(codigo)
 
@@ -281,7 +363,7 @@ def tiene_permiso_en_rol(db: Session, usuario_id: uuid.UUID, rol_nombre: str, co
         .join(RolPermiso, RolPermiso.rol_id == UsuarioRol.rol_id)
         .join(Permiso, Permiso.id == RolPermiso.permiso_id)
         .join(Rol, Rol.id == UsuarioRol.rol_id)
-        .where(UsuarioRol.usuario_id == usuario_id, Rol.nombre == rol_nombre, condicion_codigo)
+        .where(UsuarioRol.usuario_id == usuario_id, Rol.codigo == rol_codigo, condicion_codigo)
     )
     return _existe(db, stmt)
 
@@ -312,6 +394,8 @@ def obtener_rol(db: Session, rol_id: uuid.UUID) -> Rol | None:
 def crear_rol(db: Session, datos: RolCreate) -> Rol:
     if _existe(db, select(Rol.id).where(Rol.nombre == datos.nombre)):
         raise RolDuplicado()
+    if _existe(db, select(Rol.id).where(Rol.codigo == slug_ascii(datos.nombre))):
+        raise RolDuplicado("Ya existe un rol cuyo nombre deriva el mismo código")
     rol = Rol(**datos.model_dump())
     db.add(rol)
     db.commit()

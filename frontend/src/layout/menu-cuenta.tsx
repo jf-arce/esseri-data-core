@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { rutaInicioDe } from '@/layout/nav-items'
 import { logout } from '@/modules/auth/services/logout'
+import type { PerfilRol } from '@/modules/auth/types'
 import {
   colorIdentidad,
   colorIdentidadSuave,
@@ -34,20 +35,22 @@ export function MenuCuenta() {
 
   const inicialAvatar = usuario?.email.charAt(0).toUpperCase() ?? '?'
   const rolActual = rolActivo
-  const otrosRoles = (usuario?.perfiles ?? [])
-    .map((perfil) => perfil.nombre)
-    .filter((nombre) => nombre !== rolActivo)
+  const nombreRolActivo = usuario?.perfiles.find((perfil) => perfil.codigo === rolActivo)?.nombre
+  const otrosRoles: PerfilRol[] = (usuario?.perfiles ?? []).filter(
+    (perfil) => perfil.codigo !== rolActivo,
+  )
   const tieneMasDeUnRol = otrosRoles.length > 0
 
-  async function cambiarVista(rol: string) {
+  async function cambiarVista(codigo: string) {
     // Permisos del rol elegido calculados acá (no vía `permisosActivos`, que todavía lee el
     // rol viejo hasta el próximo render): `rutaInicioDe` los necesita ya, para no navegar a
     // "/" y depender de un segundo redirect.
-    const permisosDelRol = usuario?.perfiles.find((perfil) => perfil.nombre === rol)?.permisos ?? []
+    const permisosDelRol =
+      usuario?.perfiles.find((perfil) => perfil.codigo === codigo)?.permisos ?? []
     try {
-      await setRolActivo(rol)
+      await setRolActivo(codigo)
       setCambiarVistaAbierto(false)
-      navigate(rutaInicioDe(rol, permisosDelRol) ?? '/', { replace: true })
+      navigate(rutaInicioDe(codigo, permisosDelRol) ?? '/', { replace: true })
     } catch {
       toast.error('No se pudo cambiar de rol. Intentá de nuevo.')
     }
@@ -84,7 +87,7 @@ export function MenuCuenta() {
             {usuario ? nombreDeUsuario(usuario.email) : ''}
           </span>
           <span className="text-xs text-texto-3">{usuario?.email}</span>
-          {rolActual && (
+          {rolActual && nombreRolActivo && (
             <span
               className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full p-0.5 pr-3 pl-2.5 text-xs font-semibold"
               style={{
@@ -96,7 +99,7 @@ export function MenuCuenta() {
                 className="size-1.5 shrink-0 rounded-full"
                 style={{ backgroundColor: colorIdentidad(rolActual) }}
               />
-              {formatearNombreRol(rolActual)}
+              {formatearNombreRol(nombreRolActivo)}
             </span>
           )}
         </DropdownMenuLabel>
@@ -117,7 +120,7 @@ export function MenuCuenta() {
             </DropdownMenuItem>
             {cambiarVistaAbierto && (
               <div className="flex flex-col gap-0.5 py-1">
-                {rolActual && (
+                {rolActual && nombreRolActivo && (
                   <div className="flex items-center gap-2.5 rounded-md py-1.5 pr-4 pl-8 text-sm font-semibold text-texto">
                     <span
                       className="flex size-6 shrink-0 items-center justify-center rounded-lg"
@@ -128,27 +131,27 @@ export function MenuCuenta() {
                     >
                       <UserIcon className="size-3.5" />
                     </span>
-                    {formatearNombreRol(rolActual)}
+                    {formatearNombreRol(nombreRolActivo)}
                     <CheckIcon className="ml-auto size-3.5 text-violeta" />
                   </div>
                 )}
-                {otrosRoles.map((rol) => (
+                {otrosRoles.map((perfil) => (
                   <button
-                    key={rol}
+                    key={perfil.codigo}
                     type="button"
-                    onClick={() => cambiarVista(rol)}
+                    onClick={() => cambiarVista(perfil.codigo)}
                     className="flex cursor-pointer items-center gap-2.5 rounded-md py-1.5 pr-4 pl-8 text-sm text-texto-2 hover:bg-fila-hover"
                   >
                     <span
                       className="flex size-6 shrink-0 items-center justify-center rounded-lg"
                       style={{
-                        backgroundColor: colorIdentidadSuave(rol),
-                        color: colorIdentidad(rol),
+                        backgroundColor: colorIdentidadSuave(perfil.codigo),
+                        color: colorIdentidad(perfil.codigo),
                       }}
                     >
                       <UserIcon className="size-3.5" />
                     </span>
-                    {formatearNombreRol(rol)}
+                    {formatearNombreRol(perfil.nombre)}
                   </button>
                 ))}
               </div>
