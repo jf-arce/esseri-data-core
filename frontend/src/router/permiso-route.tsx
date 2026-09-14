@@ -2,7 +2,7 @@ import { ShieldAlert } from 'lucide-react'
 import { Navigate, Outlet } from 'react-router'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { tienePermiso } from '@/modules/auth/constants'
-import { useAuthStore } from '@/store/auth-store'
+import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 interface PermisoRouteProps {
   codigo: string
@@ -14,7 +14,7 @@ interface PermisoRouteProps {
 // redirige a "/" en silencio), acá se muestra la Pantalla sin permiso (§9.6 de DESIGN.md) —
 // nombra el permiso que falta en vez de desaparecer la ruta sin explicación.
 export function PermisoRoute({ codigo, label }: PermisoRouteProps) {
-  const permisos = useAuthStore((state) => state.usuario?.permisos ?? [])
+  const permisos = useAuthStore(permisosActivos)
   const status = useAuthStore((state) => state.status)
 
   if (status === 'idle' || status === 'loading') {

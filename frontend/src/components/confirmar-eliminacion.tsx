@@ -17,6 +17,11 @@ interface ConfirmarEliminacionProps {
   titulo: string
   descripcion: string
   onConfirmar: () => Promise<void>
+  /** Texto del botón de confirmación. Por defecto "Confirmar". */
+  textoConfirmar?: string
+  /** Operaciones irreversibles (borrado físico) usan el botón en rojo, para distinguirlas de
+   * una baja lógica reversible. */
+  destructivo?: boolean
 }
 
 // Acción destructiva con confirmación explícita nombrando el registro concreto (§11
@@ -27,6 +32,8 @@ export function ConfirmarEliminacion({
   titulo,
   descripcion,
   onConfirmar,
+  textoConfirmar = 'Confirmar',
+  destructivo = false,
 }: ConfirmarEliminacionProps) {
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -54,13 +61,14 @@ export function ConfirmarEliminacion({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={enviando}>Cancelar</AlertDialogCancel>
           <AlertDialogAction
+            variant={destructivo ? 'destructive' : undefined}
             disabled={enviando}
             onClick={(evento) => {
               evento.preventDefault()
               handleConfirmar()
             }}
           >
-            Confirmar
+            {textoConfirmar}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

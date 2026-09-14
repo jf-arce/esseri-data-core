@@ -7,8 +7,7 @@
   --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', sans-serif;
 
-  /* Escala tipográfica (DESIGN.md §3.1) apenas más grande que el nativo de Tailwind:
-     el sistema lo usa personal de colegio, no solo un equipo técnico. --text-2xl (título) no se toca. */
+  /* Escala tipográfica (DESIGN.md §3.1) apenas más grande que la nativa de Tailwind */
   --text-xs: 13px;
   --text-xs--line-height: 18px;
   --text-sm: 15px;
@@ -74,6 +73,7 @@
   --color-violeta-suave: var(--violeta-suave);
   --color-violeta-borde: var(--violeta-borde);
   --color-petroleo: var(--petroleo);
+  --color-petroleo-suave: var(--petroleo-suave);
   --color-exito: var(--exito);
   --color-exito-suave: var(--exito-suave);
   --color-advertencia: var(--advertencia);
@@ -90,6 +90,14 @@
   --color-mod-workflows: var(--mod-workflows);
   --color-mod-auditoria: var(--mod-auditoria);
   --color-mod-ia: var(--mod-ia);
+  --color-mod-familias-suave: var(--mod-familias-suave);
+  --color-mod-academico-suave: var(--mod-academico-suave);
+  --color-mod-inscripciones-suave: var(--mod-inscripciones-suave);
+  --color-mod-facturacion-suave: var(--mod-facturacion-suave);
+  --color-mod-compras-suave: var(--mod-compras-suave);
+  --color-mod-workflows-suave: var(--mod-workflows-suave);
+  --color-mod-auditoria-suave: var(--mod-auditoria-suave);
+  --color-mod-ia-suave: var(--mod-ia-suave);
   --color-texto: var(--texto);
   --color-texto-2: var(--texto-2);
   --color-texto-3: var(--texto-3);
@@ -119,9 +127,7 @@
   --lienzo: #f6f5f8;
   --superficie: #fdfcfe;
   --fila-hover: #f1eff4;
-  /* Oscurecido respecto al valor original de DESIGN.md (#E6E2EC, 1.25:1 contra superficie):
-     ese valor quedaba por debajo del piso de 3:1 de WCAG 1.4.11 para el límite de un control
-     interactivo. #DAD3E2 sube a ~1.43:1 manteniendo el mismo hue violáceo (~268°). */
+  /* Oscurecido respecto al valor original de DESIGN.md: ese no llegaba al piso 3:1 de WCAG 1.4.11 */
   --borde: #dad3e2;
 
   /* Superficies de módulo (§2.1): reservadas a nodos del canvas de workflows y tiles de ícono */
@@ -157,10 +163,12 @@
   --advertencia: #b45309;
   --error: #b42318;
   --info: #175cd3;
-  --exito-suave: #e0ece9;
-  --advertencia-suave: #f2dfc9;
-  --error-suave: #f4e2e2;
-  --info-suave: #e1e9f9;
+  /* Mismo tono que --mod-*-suave e --identidad-*-suave: mezcla 18%/82% con --superficie */
+  --exito-suave: #d2e5de;
+  --advertencia-suave: #f0ded2;
+  --error-suave: #f0d5d5;
+  --info-suave: #d4dff6;
+  --petroleo-suave: #d2e5e8;
 
   /* Paleta de módulo (§2.5): identidad de dominio, distinta del semántico de estado */
   --mod-familias: #7c24a3;
@@ -172,15 +180,33 @@
   --mod-auditoria: #334155;
   --mod-ia: #0e7c86;
 
+  /* Fondo de badge de módulo (mezcla 18%/82% con --superficie), fijado a hex porque
+     color-mix(in oklch, ...) se resuelve distinto entre Firefox y Chromium */
+  --mod-familias-suave: #e6d5ee;
+  --mod-academico-suave: #d4dff6;
+  --mod-inscripciones-suave: #d2e5e8;
+  --mod-facturacion-suave: #f0ded2;
+  --mod-compras-suave: #dfdee6;
+  --mod-workflows-suave: #e6dcf9;
+  --mod-auditoria-suave: #d9dae0;
+  --mod-ia-suave: #d2e5e8;
+
+  /* Fondo del chip de "identidad de rol" (colorIdentidad() en modules/auth/utils.ts), mismo
+     criterio que arriba: hex fijo, mezclado 18%/82% con --superficie */
+  --identidad-violeta-suave: #e6d5ee;
+  --identidad-petroleo-suave: #d2e5e8;
+  --identidad-advertencia-suave: #f0ded2;
+  --identidad-info-suave: #d4dff6;
+  --identidad-mod-compras-suave: #dfdee6;
+  --identidad-mod-workflows-suave: #e6dcf9;
+
   /* Texto (§2.6) */
   --texto: #1b1822;
   --texto-2: #6b6577;
   --texto-3: #7c7688;
   --desactivado: #9a94a6;
 
-  /* Elevación y movimiento (§5.2, §6). Revisado: la sombra original (0 6px 20px / .06) leía más
-     pesada de lo que corresponde a una herramienta interna densa; se baja la intensidad
-     manteniendo dos capas (contacto + difusión) en vez de sacarla del todo. */
+  /* Elevación y movimiento (§5.2, §6) */
   --sombra-card: 0 1px 2px rgba(20, 17, 26, 0.04), 0 4px 12px rgba(20, 17, 26, 0.035);
   --sombra-overlay: 0 8px 24px rgba(20, 17, 26, 0.08);
   --curva-esseri: cubic-bezier(0.2, 0, 0, 1);
@@ -234,28 +260,11 @@
     background: var(--violeta-borde);
     color: var(--violeta-pressed);
   }
-  /* Foco unificado: un solo anillo (box-shadow, no outline) de 1.5px sólido en
-     `--violeta`, pegado al borde (sin offset, sin "sobresalir"), para TODO control
-     interactivo — botones, links, chips, cards, inputs, textarea, selects, combobox.
-     Usar box-shadow evita el conflicto de capas de Tailwind entre `outline-none`
-     (utilities) y un `outline` definido acá (base) — `outline-none` siempre gana esa
-     pulseada, así que un outline global termina invisible en cualquier control que ya
-     traiga `outline-none` (Button, Input, Select, Textarea, Toggle…). El `!important`
-     en el outline es porque algunos componentes (ej. el trigger de un DropdownMenu de
-     Radix) terminan con un outline propio que ninguna capa de Tailwind logra tapar.
-     El borde propio de cada campo (gris, `border-borde`) no cambia de color en foco —
-     el anillo solo. El `<input>` real dentro de un InputGroup (ver input-group.tsx)
-     trae su propio `ring-0`, así que ahí el anillo no se duplica: lo muestra el
-     contenedor con ícono, no el input sin borde (mismo truco en FilterSearch y
-     CicloLectivoFiltro, con `focus-visible:shadow-none` en el input interno).
-     Se excluyen los ítems de listas navegables (opción de Select, ítem de
-     DropdownMenu/Command) porque Radix les mueve el foco real de teclado uno por uno
-     al navegar con flechas — como están apretados dentro de un popup con poco margen,
-     el anillo termina pegado o saliéndose del borde redondeado del panel. Esos ítems
-     ya se distinguen con el fondo `accent` (`focus:bg-accent`), no necesitan anillo.
-     El `outline: none` va aparte y sin excepciones: si no, esos mismos ítems muestran
-     el outline nativo del navegador en su lugar (el anillo desaparece pero el foco
-     seguiría marcándose con otra cosa). */
+  /* Foco unificado: anillo de box-shadow (no outline, para ganarle a `outline-none` de
+     Tailwind) en `--violeta` para todo control interactivo. Se excluyen los ítems de
+     listas navegables (Select, DropdownMenu/Command) porque Radix les mueve el foco
+     con las flechas dentro de un popup angosto y el anillo queda cortado — esos ya
+     se distinguen con `focus:bg-accent`. */
   :focus-visible {
     outline: none !important;
   }

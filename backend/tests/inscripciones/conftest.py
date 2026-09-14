@@ -2,10 +2,11 @@
 
 import pytest
 
-from src.auth import service
+from src.auth import sesion_service
 from src.auth.constants import (
     ACCION_ACTUALIZAR,
     ACCION_CREAR,
+    ACCION_EXPORTAR,
     ACCION_LEER,
     MODULO_INSCRIPCIONES,
 )
@@ -20,7 +21,7 @@ def client(client, db_session):
     pasan a exigir sesión (antes eran públicos), así que el fixture ya viene logueado."""
     usuario = Usuario(
         email="secretaria-inscripciones@esseri.edu.ar",
-        password_hash=service.hashear_password(PASSWORD_VALIDA),
+        password_hash=sesion_service.hashear_password(PASSWORD_VALIDA),
         auth_provider="local",
         estado="activo",
     )
@@ -31,7 +32,7 @@ def client(client, db_session):
     db_session.add(rol)
     db_session.commit()
 
-    for accion in (ACCION_CREAR, ACCION_LEER, ACCION_ACTUALIZAR):
+    for accion in (ACCION_CREAR, ACCION_LEER, ACCION_ACTUALIZAR, ACCION_EXPORTAR):
         permiso = Permiso(modulo=MODULO_INSCRIPCIONES, accion=accion)
         db_session.add(permiso)
         db_session.commit()

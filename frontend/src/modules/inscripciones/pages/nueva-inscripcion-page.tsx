@@ -1,11 +1,5 @@
 import { useNavigate } from 'react-router'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb'
+import { BackLink } from '@/components/back-link'
 import { FormularioInscripcion } from '@/modules/inscripciones/components/formulario-inscripcion'
 
 export function NuevaInscripcionPage() {
@@ -13,15 +7,7 @@ export function NuevaInscripcionPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 py-4">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>Inscripciones</BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>Nueva inscripción</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+      <BackLink to="/inscripciones" label="Volver a Inscripciones" />
 
       <header className="flex flex-col gap-1">
         <p className="text-xs font-bold tracking-widest text-texto-3 uppercase">Inscripciones</p>

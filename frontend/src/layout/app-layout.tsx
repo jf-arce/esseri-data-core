@@ -1,27 +1,20 @@
 import {
   BellIcon,
   CalendarIcon,
-  CheckIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   HouseIcon,
-  LogOut,
   Menu,
   Search,
-  UserIcon,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { Link, Outlet, useLocation, useNavigate } from 'react-router'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, Outlet, useLocation } from 'react-router'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -44,28 +37,33 @@ import {
   NAV_GROUPS,
   calcularHrefActivo,
   contieneRutaActiva,
+  filtrarNav,
+  type NavGroup,
   type NavItem,
 } from '@/layout/nav-items'
 import { GlobalSearchDialog } from '@/layout/global-search-dialog'
-import { logout } from '@/modules/auth/services/logout'
-import { colorIdentidad, formatearNombreRol, nombreDeUsuario } from '@/modules/auth/utils'
-import { useAuthStore } from '@/store/auth-store'
+import { MenuCuenta } from '@/layout/menu-cuenta'
+import { permisosActivos, useAuthStore } from '@/store/auth-store'
 import { useUiStore } from '@/store/ui-store'
 import { Button } from '@/components/ui/button'
 
 export function AppLayout() {
   const sidebarOpen = useUiStore((state) => state.sidebarOpen)
   const setSidebarOpen = useUiStore((state) => state.setSidebarOpen)
-  const usuario = useAuthStore((state) => state.usuario)
-  const clearSesion = useAuthStore((state) => state.clearSesion)
+  const rolActivo = useAuthStore((state) => state.rolActivo)
+  const permisos = useAuthStore(permisosActivos)
   const location = useLocation()
-  const navigate = useNavigate()
-  const hrefActivo = calcularHrefActivo(location.pathname, NAV_GROUPS)
+  // Sidebar, buscador y ruta activa comparten un único árbol ya acotado al rol activo — un
+  // docente no debe ni ver ni poder activar por URL un módulo que su vista no muestra.
+  const navGrupos = useMemo(
+    () => filtrarNav(NAV_GROUPS, rolActivo, permisos),
+    [rolActivo, permisos],
+  )
+  const hrefActivo = calcularHrefActivo(location.pathname, navGrupos)
   const [comandoAbierto, setComandoAbierto] = useState(false)
   const [ciclo, setCiclo] = useState('2026')
-  const [cambiarVistaAbierto, setCambiarVistaAbierto] = useState(false)
   const [moduloSeleccionado, setModuloSeleccionado] = useState<NavItem | null>(() =>
-    moduloDeRuta(location.pathname),
+    moduloDeRuta(location.pathname, navGrupos),
   )
 
   // El panel de módulo se sincroniza con la ruta (deep link, buscador global, atrás del
@@ -74,7 +72,8 @@ export function AppLayout() {
   // real — no hay un segundo estado paralelo para eso.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    setModuloSeleccionado(moduloDeRuta(location.pathname))
+    setModuloSeleccionado(moduloDeRuta(location.pathname, navGrupos))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname])
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -92,17 +91,6 @@ export function AppLayout() {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
-
-  async function cerrarSesion() {
-    await logout().catch(() => {})
-    clearSesion()
-    navigate('/login', { replace: true })
-  }
-
-  const inicialAvatar = usuario?.email.charAt(0).toUpperCase() ?? '?'
-  const rolActual = usuario?.roles[0] ?? null
-  const otrosRoles = usuario?.roles.slice(1) ?? []
-  const tieneMasDeUnRol = otrosRoles.length > 0
 
   return (
     <TooltipProvider>
@@ -126,6 +114,7 @@ export function AppLayout() {
               aria-hidden={moduloSeleccionado !== null}
             >
               <SidebarRootView
+                grupos={navGrupos}
                 hrefActivo={hrefActivo}
                 onSeleccionarModulo={setModuloSeleccionado}
               />
@@ -223,112 +212,7 @@ export function AppLayout() {
               </PopoverContent>
             </Popover>
 
-            <DropdownMenu
-              onOpenChange={(open) => {
-                if (!open) setCambiarVistaAbierto(false)
-              }}
-            >
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="cursor-pointer rounded-full p-0.5 hover:bg-fila-hover"
-                  aria-label="Cuenta"
-                >
-                  <Avatar>
-                    <AvatarFallback className="bg-violeta text-xs font-semibold text-superficie">
-                      {inicialAvatar}
-                    </AvatarFallback>
-                  </Avatar>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72">
-                <DropdownMenuLabel className="flex flex-col gap-1 px-2.5 pt-2.5 pb-2 text-sm font-normal normal-case tracking-normal text-texto">
-                  <span className="text-sm font-semibold text-texto">
-                    {usuario ? nombreDeUsuario(usuario.email) : ''}
-                  </span>
-                  <span className="text-xs text-texto-3">{usuario?.email}</span>
-                  {rolActual && (
-                    <span
-                      className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full p-0.5 pr-3 pl-2.5 text-xs font-semibold"
-                      style={{
-                        backgroundColor: `color-mix(in oklch, ${colorIdentidad(rolActual)} 22%, var(--superficie))`,
-                        color: colorIdentidad(rolActual),
-                      }}
-                    >
-                      <span
-                        className="size-1.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: colorIdentidad(rolActual) }}
-                      />
-                      {formatearNombreRol(rolActual)}
-                    </span>
-                  )}
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {tieneMasDeUnRol && (
-                  <>
-                    <DropdownMenuItem
-                      className="justify-between text-texto-2"
-                      onSelect={(evento) => {
-                        evento.preventDefault()
-                        setCambiarVistaAbierto((abierto) => !abierto)
-                      }}
-                    >
-                      Cambiar vista
-                      <ChevronDownIcon
-                        className={`size-4! transition-transform duration-150 ${cambiarVistaAbierto ? 'rotate-180' : ''}`}
-                      />
-                    </DropdownMenuItem>
-                    {cambiarVistaAbierto && (
-                      <div className="flex flex-col gap-0.5 py-1">
-                        {rolActual && (
-                          <div className="flex items-center gap-2.5 rounded-md py-1.5 pr-4 pl-8 text-sm font-semibold text-texto">
-                            <span
-                              className="flex size-6 shrink-0 items-center justify-center rounded-lg"
-                              style={{
-                                backgroundColor: `color-mix(in oklch, ${colorIdentidad(rolActual)} 22%, var(--superficie))`,
-                                color: colorIdentidad(rolActual),
-                              }}
-                            >
-                              <UserIcon className="size-3.5" />
-                            </span>
-                            {formatearNombreRol(rolActual)}
-                            <CheckIcon className="ml-auto size-3.5 text-violeta" />
-                          </div>
-                        )}
-                        {otrosRoles.map((rol) => (
-                          <button
-                            key={rol}
-                            type="button"
-                            className="flex cursor-pointer items-center gap-2.5 rounded-md py-1.5 pr-4 pl-8 text-sm text-texto-2 hover:bg-fila-hover"
-                          >
-                            <span
-                              className="flex size-6 shrink-0 items-center justify-center rounded-lg"
-                              style={{
-                                backgroundColor: `color-mix(in oklch, ${colorIdentidad(rol)} 22%, var(--superficie))`,
-                                color: colorIdentidad(rol),
-                              }}
-                            >
-                              <UserIcon className="size-3.5" />
-                            </span>
-                            {formatearNombreRol(rol)}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-                <DropdownMenuItem disabled>
-                  <UserIcon />
-                  Mi cuenta
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onSelect={cerrarSesion}>
-                  <LogOut />
-                  Cerrar sesión
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <MenuCuenta />
           </header>
 
           <main className="min-w-0 flex-1 px-8 py-6">
@@ -343,11 +227,11 @@ export function AppLayout() {
 }
 
 /** El módulo (ítem con `children`) cuyo subárbol contiene la ruta activa, o `null` si ninguno. */
-function moduloDeRuta(pathname: string): NavItem | null {
+function moduloDeRuta(pathname: string, grupos: NavGroup[]): NavItem | null {
   return (
-    NAV_GROUPS.flatMap((grupo) => grupo.items).find(
-      (item) => item.children && contieneRutaActiva(item, pathname),
-    ) ?? null
+    grupos
+      .flatMap((grupo) => grupo.items)
+      .find((item) => item.children && contieneRutaActiva(item, pathname)) ?? null
   )
 }
 
@@ -368,15 +252,17 @@ function seccionesDe(item: NavItem): NavItem[] {
 // seleccionan el módulo — es `SidebarContent` quien decide, vía transición, mostrar el panel de
 // ese módulo (`SidebarModuloView`) en lugar de expandir un acordeón.
 function SidebarRootView({
+  grupos,
   hrefActivo,
   onSeleccionarModulo,
 }: {
+  grupos: NavGroup[]
   hrefActivo: string | null
   onSeleccionarModulo: (item: NavItem) => void
 }) {
   return (
     <>
-      {NAV_GROUPS.map((grupo) => (
+      {grupos.map((grupo) => (
         <SidebarGroup key={grupo.label}>
           <SidebarGroupLabel>{grupo.label}</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -394,7 +280,10 @@ function SidebarRootView({
                           entra directo a la primera sección en vez de quedar sin navegar. */}
                       <Link to={item.href ?? item.children[0].href ?? '#'}>
                         <item.icon />
-                        <span>{item.label}</span>
+                        {/* truncate explícito: el chevron es el último hijo, así que la regla
+                            `span:last-child` del botón no aplica y el label se partía en dos
+                            líneas durante la animación de ancho. */}
+                        <span className="truncate">{item.label}</span>
                         <ChevronRightIcon className="ml-auto size-4 text-texto-3" />
                       </Link>
                     </SidebarMenuButton>

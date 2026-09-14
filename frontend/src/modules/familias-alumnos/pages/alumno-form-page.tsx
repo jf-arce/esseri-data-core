@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
+import { BackLink } from '@/components/back-link'
 import { AlumnoForm } from '../components/alumno-form'
 import { crearAlumno } from '../services/crear-alumno'
 import { actualizarAlumno } from '../services/actualizar-alumno'
@@ -47,12 +48,19 @@ export function AlumnoFormPage() {
     }
   }
 
+  const destinoVolver =
+    isEditing && alumnoId ? `/familias-alumnos/alumnos/${alumnoId}` : '/familias-alumnos/alumnos'
+  const etiquetaVolver = isEditing ? 'Volver al alumno' : 'Volver a Alumnos'
+
   return (
-    <AlumnoForm
-      isEditing={isEditing}
-      isSubmitting={isSubmitting}
-      onSubmit={handleSubmit}
-      onCancel={() => navigate(-1)}
-    />
+    <div className="flex flex-col gap-5">
+      <BackLink to={destinoVolver} label={etiquetaVolver} />
+      <AlumnoForm
+        isEditing={isEditing}
+        isSubmitting={isSubmitting}
+        onSubmit={handleSubmit}
+        onCancel={() => navigate(-1)}
+      />
+    </div>
   )
 }

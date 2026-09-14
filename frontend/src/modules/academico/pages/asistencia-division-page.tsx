@@ -9,7 +9,10 @@ import { StatTile } from '@/components/stat-tile'
 import { useAsistenciaDivision } from '@/modules/academico/hooks/use-asistencia-division'
 import { registrarAsistenciaMasiva } from '@/modules/academico/services/asistencias'
 import { listarDivisiones } from '@/modules/academico/services/divisiones'
+import { getMisDivisiones } from '@/modules/academico/services/get-mis-divisiones'
 import type { TipoAsistencia, TipoAsistenciaDocente } from '@/modules/academico/types'
+import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
+import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 export function AsistenciaDivisionPage() {
   const [divisionId, setDivisionId] = useState<string | null>(null)
@@ -282,13 +285,24 @@ function DivisionSelector({
 }) {
   const [divisiones, setDivisiones] = useState<Array<{ id: string; nombre: string }>>([])
   const [cargando, setCargando] = useState(true)
+  // Con acceso estructural a Académico (secretaría, coordinación, admin): cualquier división
+  // del colegio, como hasta ahora. Sin él (docente, con el permiso tipado de asistencia
+  // únicamente): solo las suyas — GET /academico/docentes/me/divisiones ya viene acotado por
+  // `AsignacionDocente`, no hay nada que filtrar acá.
+  const permisos = useAuthStore(permisosActivos)
+  const tieneAccesoEstructural = tienePermiso(permisos, PERMISO_ACADEMICO_ACTUALIZAR)
 
   useEffect(() => {
-    listarDivisiones().then((data) => {
+    const cargarDivisiones = tieneAccesoEstructural
+      ? listarDivisiones()
+      : getMisDivisiones().then((misDivisiones) =>
+          misDivisiones.map((d) => ({ id: d.division_id, nombre: d.etiqueta })),
+        )
+    cargarDivisiones.then((data) => {
       setDivisiones(data)
       setCargando(false)
     })
-  }, [])
+  }, [tieneAccesoEstructural])
 
   return (
     <div className="flex flex-col gap-1.5">

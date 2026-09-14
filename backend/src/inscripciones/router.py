@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from src.auth.constants import (
     PERMISO_INSCRIPCIONES_ACTUALIZAR,
     PERMISO_INSCRIPCIONES_CREAR,
+    PERMISO_INSCRIPCIONES_EXPORTAR,
     PERMISO_INSCRIPCIONES_LEER,
 )
 from src.auth.dependencies import requiere_permiso
@@ -45,6 +46,7 @@ DbSession = Annotated[Session, Depends(get_db)]
 PuedeCrear = Annotated[Usuario, Depends(requiere_permiso(PERMISO_INSCRIPCIONES_CREAR))]
 PuedeLeer = Annotated[Usuario, Depends(requiere_permiso(PERMISO_INSCRIPCIONES_LEER))]
 PuedeActualizar = Annotated[Usuario, Depends(requiere_permiso(PERMISO_INSCRIPCIONES_ACTUALIZAR))]
+PuedeExportar = Annotated[Usuario, Depends(requiere_permiso(PERMISO_INSCRIPCIONES_EXPORTAR))]
 
 
 @router.get("")
@@ -83,7 +85,7 @@ def listar_inscripciones(
 @router.get("/exportar")
 def exportar_inscripciones(
     db: DbSession,
-    _: PuedeLeer,
+    _: PuedeExportar,
     ciclo_lectivo: Annotated[str | None, Query(min_length=1, max_length=20)] = None,
     estado: Annotated[Literal["activa", "finalizada", "baja"] | None, Query()] = None,
     tipo: Annotated[

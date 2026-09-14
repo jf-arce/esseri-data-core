@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
+import { BackLink } from '@/components/back-link'
 import { FamiliaForm } from '../components/familia-form'
 import { createAltaFamilia, getFamiliaById, updateFamilia } from '../services/create-familia'
 import { crearVinculo } from '../services/crear-vinculo'
@@ -123,7 +124,11 @@ export function FamiliaFormPage() {
   }
 
   return (
-    <div className="min-h-screen bg-lienzo py-8">
+    <div className="flex min-h-screen flex-col gap-5 bg-lienzo py-8">
+      <BackLink
+        to={familiaId ? `/familias-alumnos/familias/${familiaId}` : '/familias-alumnos'}
+        label={familiaId ? 'Volver a la familia' : 'Volver a Familias'}
+      />
       {isLoading ? <p>Cargando familia...</p> : null}
       {loadError ? <p role="alert">{loadError}</p> : null}
       {!isLoading && !loadError ? (

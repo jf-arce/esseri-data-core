@@ -165,3 +165,11 @@ export type FiltrosListarFamilias = {
   buscar?: string
   estado_deuda?: string
 }
+
+/** Un alumno a cargo de la familia autenticada (GET /familias-alumnos/familias/me/alumnos). */
+export type MiAlumno = {
+  alumno_id: string
+  nombre: string
+  apellido: string
+  division_etiqueta: string | null
+}

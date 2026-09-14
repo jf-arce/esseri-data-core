@@ -14,6 +14,7 @@ from src.academico.exceptions import (
     AsignacionDocenteDuplicada,
     AsistenciaDuplicada,
     AsistenciaYaJustificada,
+    CuentaSinPersona,
     DivisionConAsignaciones,
     DivisionDuplicada,
     DocenteConAsignaciones,
@@ -33,6 +34,7 @@ from src.academico.models import (
     NivelEducativo,
 )
 from src.academico.schemas import (
+    AltaDocenteCreate,
     AnioCreate,
     AnioUpdate,
     AsignacionDocenteCreate,
@@ -44,14 +46,23 @@ from src.academico.schemas import (
     DivisionCreate,
     DivisionUpdate,
     DocenteCreate,
+    DocenteDesdeUsuarioCreate,
     DocenteUpdate,
     MateriaCreate,
     MateriaUpdate,
     NivelEducativoCreate,
     NivelEducativoUpdate,
 )
+from src.auth import autorizacion_service
+from src.auth import usuarios_service as auth_usuarios_service
+from src.auth.constants import PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA
+from src.auth.exceptions import PermisoDenegado
+from src.auth.models import Rol, Usuario, UsuarioRol
 from src.familias_alumnos.models import FamiliaAlumno
 from src.inscripciones.models import Asistencia, Inscripcion
+from src.models import Persona
+
+ROL_DOCENTE = "docente"
 
 logger = logging.getLogger(__name__)
 
@@ -92,8 +103,77 @@ def _notificar_ausencia(db: Session, inscripcion: Inscripcion, fecha: date) -> i
     return len(responsables)
 
 
+def _docente_de(db: Session, usuario_id: uuid.UUID) -> Docente | None:
+    usuario = db.get(Usuario, usuario_id)
+    if usuario is None or usuario.persona_id is None:
+        return None
+    return db.query(Docente).filter(Docente.persona_id == usuario.persona_id).first()
+
+
+def _tiene_acceso_estructural(db: Session, usuario_id: uuid.UUID, rol_activo: str | None) -> bool:
+    """El personal con `academico.actualizar` amplio, sin tipo (secretaría, coordinación
+    académica, administrador del sistema) opera cualquier división. Se pide el código CON tipo
+    (`..._ESTRUCTURA`, el mismo que exigen los endpoints de estructura) y no el código sin
+    tipo: pedirlo sin tipo lo satisface cualquier variante tipada del usuario — incluida
+    `..._ASISTENCIA`, la que tiene un docente — y volvería a filtrar la restricción que esto
+    existe para poner (ver el comentario en `auth/constants.py`).
+
+    A propósito NO se usa "¿tiene una fila en `Docente`?" como señal: un docente recién dado de
+    alta, todavía sin esa fila cargada por RR.HH., tiene que seguir acotado a nada (deniega) en
+    vez de leerse como "sin restricción".
+
+    Se evalúa contra el ROL ACTIVO de la sesión, no la suma de roles de la cuenta (RF-30): una
+    cuenta con docente + administración, actuando como docente, no hereda el acceso estructural
+    de administración. `rol_activo=None` nunca pasa por acá en la práctica (`requiere_permiso`
+    ya cortó antes), pero si pasara se trata como sin acceso, nunca como bypass."""
+    if rol_activo is None:
+        return False
+    return autorizacion_service.tiene_permiso_en_rol(
+        db, usuario_id, rol_activo, PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA
+    )
+
+
+def verificar_acceso_a_division(
+    db: Session, usuario_id: uuid.UUID, division_id: uuid.UUID, rol_activo: str | None
+) -> None:
+    """RF-06: sin el `academico.actualizar` estructural (o sea, con solo el permiso tipado de
+    asistencia — un docente), solo se opera sobre las divisiones con una `AsignacionDocente`
+    vigente — sin esto, cualquier docente podía tomar/editar/leer asistencia de una división
+    ajena con solo cambiar el `division_id` en la request. El resto de las cuentas (secretaría,
+    coordinación académica, administrador del sistema) no tiene esta restricción.
+
+    Limitación conocida: dirección (`Académico: leer, exportar`, sin `actualizar` de ningún
+    tipo) queda del lado "acotado" acá — nunca tiene una `AsignacionDocente` propia, así que
+    hoy no puede leer asistencia por este camino. No es una regresión activa (ningún flujo del
+    frontend lo ejercita todavía), pero queda pendiente si dirección necesita este acceso."""
+    if _tiene_acceso_estructural(db, usuario_id, rol_activo):
+        return
+    docente = _docente_de(db, usuario_id)
+    tiene_asignacion = docente is not None and (
+        db.query(AsignacionDocente)
+        .filter(
+            AsignacionDocente.docente_id == docente.id,
+            AsignacionDocente.division_id == division_id,
+        )
+        .first()
+        is not None
+    )
+    if not tiene_asignacion:
+        raise PermisoDenegado("No tenés asignada esta división")
+
+
+def verificar_acceso_a_asistencia(
+    db: Session, asistencia: Asistencia, usuario_id: uuid.UUID, rol_activo: str | None
+) -> None:
+    """Variante de `verificar_acceso_a_division` a partir de un registro ya cargado (GET por id,
+    actualizar, eliminar): resuelve la división vía su inscripción."""
+    inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
+    if inscripcion is not None:
+        verificar_acceso_a_division(db, usuario_id, inscripcion.division_id, rol_activo)
+
+
 def registrar_asistencia(
-    db: Session, datos: AsistenciaCreate, usuario_id: uuid.UUID | None = None
+    db: Session, datos: AsistenciaCreate, usuario_id: uuid.UUID, rol_activo: str | None
 ) -> Asistencia:
     """Registrar asistencia diaria de un alumno.
 
@@ -103,6 +183,7 @@ def registrar_asistencia(
     inscripcion = db.get(Inscripcion, datos.inscripcion_id)
     if inscripcion is None or inscripcion.estado != "activa":
         raise InscripcionNoActiva()
+    verificar_acceso_a_division(db, usuario_id, inscripcion.division_id, rol_activo)
 
     existente = db.scalar(
         select(Asistencia.id).where(
@@ -130,13 +211,15 @@ def registrar_asistencia(
 
 
 def registrar_asistencia_masiva(
-    db: Session, datos: AsistenciaBulkCreate, usuario_id: uuid.UUID | None = None
+    db: Session, datos: AsistenciaBulkCreate, usuario_id: uuid.UUID, rol_activo: str | None
 ) -> AsistenciaBulkResponse:
     """Registrar asistencia de toda una división en una fecha.
 
     Si ya existe un registro para (inscripcion_id, fecha), se actualiza.
     Si no existe, se crea. Para 'ausente' se dispara notificación.
     """
+    verificar_acceso_a_division(db, usuario_id, datos.division_id, rol_activo)
+
     creadas = 0
     actualizadas = 0
     notificaciones = 0
@@ -189,6 +272,8 @@ def obtener_asistencia_por_id(db: Session, asistencia_id: uuid.UUID) -> Asistenc
 
 def listar_asistencias(
     db: Session,
+    usuario_id: uuid.UUID,
+    rol_activo: str | None,
     inscripcion_id: uuid.UUID | None = None,
     fecha: date | None = None,
     fecha_desde: date | None = None,
@@ -199,7 +284,21 @@ def listar_asistencias(
 
     Si se pasa fecha_desde/fecha_hasta se filtra por rango (inclusive).
     Si se pasa fecha exacta, filtra por ese día.
+
+    Para un docente (RF-06), el alcance tiene que resolverse a una división puntual antes de
+    consultar: sin `division_id` ni `inscripcion_id` no hay nada que verificar contra sus
+    `AsignacionDocente`, y dejarlo pasar sería listar asistencia de toda la institución.
     """
+    division_a_verificar = division_id
+    if division_a_verificar is None and inscripcion_id is not None:
+        inscripcion_filtro = db.get(Inscripcion, inscripcion_id)
+        division_a_verificar = inscripcion_filtro.division_id if inscripcion_filtro else None
+
+    if division_a_verificar is not None:
+        verificar_acceso_a_division(db, usuario_id, division_a_verificar, rol_activo)
+    elif not _tiene_acceso_estructural(db, usuario_id, rol_activo):
+        raise PermisoDenegado("No tenés asignada esta división")
+
     query = db.query(Asistencia)
     if inscripcion_id is not None:
         query = query.filter(Asistencia.inscripcion_id == inscripcion_id)
@@ -218,13 +317,15 @@ def actualizar_asistencia(
     db: Session,
     asistencia: Asistencia,
     datos: AsistenciaUpdate,
-    usuario_id: uuid.UUID | None = None,
+    usuario_id: uuid.UUID,
+    rol_activo: str | None,
 ) -> Asistencia:
     """Actualizar un registro de asistencia.
 
     El docente solo puede cambiar entre presente/tardanza/ausente.
     No puede modificar un registro ya justificado.
     """
+    verificar_acceso_a_asistencia(db, asistencia, usuario_id, rol_activo)
     if asistencia.tipo in _TIPOS_JUSTIFICADOS:
         raise AsistenciaYaJustificada()
 
@@ -243,15 +344,18 @@ def actualizar_asistencia(
 
 
 def eliminar_asistencia(
-    db: Session, asistencia: Asistencia, usuario_id: uuid.UUID | None = None
+    db: Session, asistencia: Asistencia, usuario_id: uuid.UUID, rol_activo: str | None
 ) -> None:
     """Eliminar un registro de asistencia."""
+    verificar_acceso_a_asistencia(db, asistencia, usuario_id, rol_activo)
     db.delete(asistencia)
     db.commit()
 
 
 def calcular_resumen_asistencia(
     db: Session,
+    usuario_id: uuid.UUID,
+    rol_activo: str | None,
     inscripcion_id: uuid.UUID,
     fecha_desde: date,
     fecha_hasta: date,
@@ -267,6 +371,7 @@ def calcular_resumen_asistencia(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Inscripción con ID {inscripcion_id} no encontrada",
         )
+    verificar_acceso_a_division(db, usuario_id, inscripcion.division_id, rol_activo)
 
     registros = (
         db.query(Asistencia)
@@ -686,6 +791,74 @@ def crear_docente(
     return nuevo
 
 
+def crear_alta_docente(db: Session, datos: AltaDocenteCreate) -> tuple[Persona, Docente]:
+    """Crea Persona, Usuario (rol docente) y Docente en una única transacción.
+
+    Mismo patrón que `crear_alta_familia` (`familias_alumnos/service.py`): el legajo se valida
+    primero para no dejar Persona/Usuario a mitad de camino si está duplicado.
+    """
+    if db.scalar(select(Docente.id).where(Docente.legajo == datos.legajo.strip())) is not None:
+        raise LegajoDuplicado()
+
+    persona = Persona(
+        nombre=datos.persona.nombre.strip(),
+        apellido=datos.persona.apellido.strip(),
+        dni=datos.persona.dni.strip(),
+        telefono=datos.persona.telefono,
+        sexo=datos.persona.sexo,
+    )
+    db.add(persona)
+    db.flush()
+
+    auth_usuarios_service.crear_cuenta(
+        db,
+        persona=persona,
+        email=datos.acceso.email,
+        password=datos.acceso.password,
+        codigos_rol=[ROL_DOCENTE],
+    )
+
+    docente = Docente(legajo=datos.legajo.strip(), persona_id=persona.id)
+    db.add(docente)
+    db.flush()
+    db.commit()
+    db.refresh(persona)
+    db.refresh(docente)
+    return persona, docente
+
+
+def crear_docente_desde_usuario(db: Session, datos: DocenteDesdeUsuarioCreate) -> Docente:
+    """Suma el rol docente (y su ficha) a una cuenta que ya existe, ej. una familia que también
+    da clases. Idempotente en el rol: si la cuenta ya tenía `docente`, no falla."""
+    usuario = db.get(Usuario, datos.usuario_id)
+    if usuario is None or usuario.persona_id is None:
+        raise CuentaSinPersona()
+
+    if db.scalar(select(Docente.id).where(Docente.legajo == datos.legajo.strip())) is not None:
+        raise LegajoDuplicado()
+
+    docente = db.scalar(select(Docente).where(Docente.persona_id == usuario.persona_id))
+    if docente is None:
+        docente = Docente(legajo=datos.legajo.strip(), persona_id=usuario.persona_id)
+        db.add(docente)
+        db.flush()
+
+    rol = db.scalar(select(Rol).where(Rol.codigo == ROL_DOCENTE))
+    if rol is None:
+        raise ValueError("No existe el rol docente")
+    ya_tiene_rol = db.scalar(
+        select(UsuarioRol.id).where(
+            UsuarioRol.usuario_id == usuario.id, UsuarioRol.rol_id == rol.id
+        )
+    )
+    if ya_tiene_rol is None:
+        db.add(UsuarioRol(usuario_id=usuario.id, rol_id=rol.id))
+
+    db.commit()
+    db.refresh(docente)
+    return docente
+
+
 def obtener_docente_por_id(db: Session, docente_id: uuid.UUID) -> Docente | None:
     """Obtener un docente por su ID."""
     return db.query(Docente).filter(Docente.id == docente_id).first()
@@ -800,6 +973,30 @@ def listar_asignaciones_docentes(
     if division_id is not None:
         query = query.filter(AsignacionDocente.division_id == division_id)
     return query.order_by(AsignacionDocente.ciclo_lectivo).all()
+
+
+def divisiones_de_persona(db: Session, persona_id: uuid.UUID) -> list[tuple[uuid.UUID, str]]:
+    """Divisiones donde el docente ligado a `persona_id` tiene una asignación vigente.
+
+    Usado por GET /academico/docentes/me/divisiones (usuario autenticado, sin depender de
+    `academico.leer`: es un dato propio, no una consulta al módulo). Sin `relationship()` en
+    los modelos: resuelve Docente → AsignacionDocente → Division/Anio con joins explícitos,
+    distinct por división para no repetir una división con varias materias asignadas.
+    """
+    docente = db.query(Docente).filter(Docente.persona_id == persona_id).first()
+    if docente is None:
+        return []
+
+    filas = (
+        db.query(Division.id, Anio.numero, Division.nombre)
+        .join(AsignacionDocente, AsignacionDocente.division_id == Division.id)
+        .join(Anio, Anio.id == Division.anio_id)
+        .filter(AsignacionDocente.docente_id == docente.id)
+        .distinct()
+        .order_by(Anio.numero, Division.nombre)
+        .all()
+    )
+    return [(division_id, f"{numero}°{nombre}") for division_id, numero, nombre in filas]
 
 
 def eliminar_asignacion_docente(

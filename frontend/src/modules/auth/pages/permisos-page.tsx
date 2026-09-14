@@ -1,5 +1,6 @@
 import { PlusIcon, ShieldCheckIcon } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -15,7 +16,10 @@ import { filtrarYOrdenarPermisos, type OrdenPermisos } from '@/modules/auth/util
 
 export function PermisosPage() {
   const { datos: permisos, cargando, error, recargar } = usePermisos()
-  const [dialogoAbierto, setDialogoAbierto] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  // El buscador global (Cmd/Ctrl+K → "Nuevo permiso") linkea acá con `?crear=1` para abrir el
+  // diálogo de alta directo, ya que el permiso no tiene una ruta de alta propia.
+  const [dialogoAbierto, setDialogoAbierto] = useState(() => searchParams.get('crear') === '1')
   const [permisoEditando, setPermisoEditando] = useState<Permiso | null>(null)
   const [permisoAEliminar, setPermisoAEliminar] = useState<Permiso | null>(null)
 
@@ -35,6 +39,10 @@ export function PermisosPage() {
   )
 
   const hayFiltrosActivos = busqueda.trim() !== '' || modulosFiltro.length > 0
+
+  useEffect(() => {
+    if (searchParams.get('crear') === '1') setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams])
 
   return (
     <div className="flex flex-col gap-5">

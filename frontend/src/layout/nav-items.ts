@@ -22,6 +22,23 @@ import {
   UsersRound,
   type LucideIcon,
 } from 'lucide-react'
+import {
+  PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
+  PERMISO_ACADEMICO_LEER,
+  PERMISO_AUTENTICACION_LEER,
+  PERMISO_FACTURACION_LEER,
+  PERMISO_FAMILIAS_ALUMNOS_LEER,
+  PERMISO_INSCRIPCIONES_LEER,
+  PERMISO_PANEL_ADMIN_LEER,
+  PERMISO_PROVEEDORES_COMPRAS_LEER,
+  ROL_ADMINISTRACION,
+  ROL_ADMINISTRADOR_DEL_SISTEMA,
+  ROL_DIRECCION,
+  ROL_DOCENTE,
+  ROL_FAMILIA,
+  tienePermiso,
+} from '@/modules/auth/constants'
+import type { Permiso } from '@/modules/auth/types'
 
 export interface NavItem {
   label: string
@@ -35,11 +52,29 @@ export interface NavItem {
   tituloLanding?: string
   icon: LucideIcon
   children?: NavItem[]
+  /** Permiso `.leer` que habilita ver este ítem (mismo código que protege la ruta con
+   * `PermisoRoute`). Ausente en ítems que solo agrupan hijos sin landing propia — ahí el
+   * filtro corre por los hijos. */
+  permiso?: string
+  /** Además del permiso, restringe el ítem a estos roles (ej. los paneles: mismo permiso,
+   * pero cada uno es de un rol distinto). */
+  roles?: string[]
 }
 
 export interface NavGroup {
   label: string
   items: NavItem[]
+}
+
+/** Qué shell le corresponde al rol activo (§8 DESIGN.md): Consola (rail lateral, ~10 destinos)
+ * para los roles de gestión, Portal (nav de píldoras arriba) para Docente y Familia, que tienen
+ * 3 destinos o menos y además tienen su propio flujo, sin nada que ver con el de backoffice. */
+export type Vista = 'consola' | 'docente' | 'familia'
+
+export function vistaDe(rolActivo: string | null): Vista {
+  if (rolActivo === ROL_DOCENTE) return 'docente'
+  if (rolActivo === ROL_FAMILIA) return 'familia'
+  return 'consola'
 }
 
 // Cada módulo suma su propia línea acá cuando tenga una página real. No se dibujan ítems
@@ -50,8 +85,22 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Paneles',
     items: [
-      { label: 'Panel de Dirección', href: '/panel', icon: LayoutDashboard },
-      { label: 'Panel Administrativo', href: '/admin', icon: LayoutDashboard },
+      {
+        label: 'Panel de Dirección',
+        href: '/panel',
+        icon: LayoutDashboard,
+        permiso: PERMISO_PANEL_ADMIN_LEER,
+        roles: [ROL_DIRECCION, ROL_ADMINISTRADOR_DEL_SISTEMA],
+      },
+      {
+        label: 'Panel Administrativo',
+        href: '/admin',
+        icon: LayoutDashboard,
+        permiso: PERMISO_PANEL_ADMIN_LEER,
+        // administrador del sistema = todo (grupo-b.yaml): ve los dos paneles en el sidebar,
+        // aunque su pantalla de inicio por default sea /panel (ver rutaInicioDe más abajo).
+        roles: [ROL_ADMINISTRACION, ROL_ADMINISTRADOR_DEL_SISTEMA],
+      },
     ],
   },
   {
@@ -64,16 +113,37 @@ export const NAV_GROUPS: NavGroup[] = [
         href: '/familias-alumnos',
         tituloLanding: 'Familias',
         icon: UsersRound,
+        permiso: PERMISO_FAMILIAS_ALUMNOS_LEER,
         children: [{ label: 'Alumnos', href: '/familias-alumnos/alumnos', icon: GraduationCap }],
       },
       {
+        // Gestión de la estructura curricular (RF de Académico): pide el `.leer` para ENTRAR
+        // (dirección la mira sin operarla — "visión completa, exporta, pero no opera el día a
+        // día", grupo-b.yaml), no el `actualizar` de escritura — eso solo condiciona los
+        // botones de crear/editar/eliminar dentro de la página, no el acceso a verla. Un
+        // docente también tiene `academico.leer`, pero nunca llega a este árbol de consola:
+        // `VistaRoute` lo manda a su propio Portal antes de que este permiso importe.
         label: 'Académico',
         href: '/academico',
         tituloLanding: 'Estructura académica',
         icon: BookOpenIcon,
+        permiso: PERMISO_ACADEMICO_LEER,
         children: [
           { label: 'Asignaciones docentes', href: '/academico/asignaciones', icon: UserCog },
-          { label: 'Tomar asistencia', href: '/academico/asistencia', icon: CalendarCheck },
+          {
+            // Solo para roles de consola que también toman asistencia (secretaría, coordinación
+            // académica, administrador del sistema, y dirección si en algún momento la
+            // necesita) — el docente toma asistencia desde su propio Portal, fuera de este
+            // árbol de consola. OJO: como hijo, este ítem solo se evalúa si el padre pasa antes
+            // su propio `permiso` (`academico.leer`) — hoy todo rol de consola con permiso de
+            // asistencia también tiene `.leer`, así que es seguro; si algún día existiera un
+            // rol de consola con asistencia pero sin `.leer`, este ítem quedaría oculto y habría
+            // que revisar `itemVisible`/`filtrarNav`.
+            label: 'Tomar asistencia',
+            href: '/academico/asistencia',
+            icon: CalendarCheck,
+            permiso: PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
+          },
         ],
       },
       {
@@ -81,6 +151,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: '/inscripciones',
         tituloLanding: 'Inscripciones',
         icon: ClipboardCheck,
+        permiso: PERMISO_INSCRIPCIONES_LEER,
         children: [{ label: 'Admisiones', href: '/inscripciones/admisiones', icon: UserPlusIcon }],
       },
       {
@@ -88,6 +159,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: '/facturacion',
         tituloLanding: 'Facturas',
         icon: Landmark,
+        permiso: PERMISO_FACTURACION_LEER,
         children: [
           {
             label: 'Deuda por familia',
@@ -100,6 +172,7 @@ export const NAV_GROUPS: NavGroup[] = [
       {
         label: 'Proveedores y compras',
         icon: Truck,
+        permiso: PERMISO_PROVEEDORES_COMPRAS_LEER,
         children: [
           { label: 'Proveedores', href: '/proveedores', icon: Building2Icon },
           { label: 'Solicitudes de compra', href: '/solicitudes-compra', icon: ClipboardList },
@@ -114,15 +187,16 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       {
         label: 'Usuarios y roles',
-        href: '/configuracion/acceso',
+        href: '/usuarios-roles',
         icon: ShieldCheck,
+        permiso: PERMISO_AUTENTICACION_LEER,
         children: [
-          { label: 'Usuarios', href: '/configuracion/acceso/usuarios', icon: UserIcon },
-          { label: 'Roles', href: '/configuracion/acceso/roles', icon: IdCardIcon },
-          { label: 'Permisos', href: '/configuracion/acceso/permisos', icon: KeyRoundIcon },
+          { label: 'Usuarios', href: '/usuarios-roles/usuarios', icon: UserIcon },
+          { label: 'Roles', href: '/usuarios-roles/roles', icon: IdCardIcon },
+          { label: 'Permisos', href: '/usuarios-roles/permisos', icon: KeyRoundIcon },
           {
             label: 'Matriz de permisos',
-            href: '/configuracion/acceso/matriz',
+            href: '/usuarios-roles/matriz',
             icon: Grid3x3Icon,
           },
         ],
@@ -130,6 +204,62 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
 ]
+
+// Ítem visible si tiene el permiso `.leer` que declara (los que no declaran ninguno, como
+// "Proveedores y compras" que agrupa hijos sin landing propia, se filtran por sus hijos) y,
+// cuando declara `roles`, si el rol activo está entre ellos.
+function itemVisible(item: NavItem, rolActivo: string | null, permisos: Permiso[]): boolean {
+  if (item.roles && (rolActivo === null || !item.roles.includes(rolActivo))) return false
+  if (item.permiso && !tienePermiso(permisos, item.permiso)) return false
+  return true
+}
+
+/** El árbol de navegación acotado a lo que el rol activo puede ver: descarta ítems e hijos sin
+ * acceso, y un padre que se queda sin ningún hijo visible ni landing propia. Un grupo sin
+ * ítems visibles desaparece entero. Usado por el sidebar, el buscador global y `rutaInicioDe`. */
+export function filtrarNav(
+  grupos: NavGroup[],
+  rolActivo: string | null,
+  permisos: Permiso[],
+): NavGroup[] {
+  return grupos
+    .map((grupo) => ({
+      ...grupo,
+      items: grupo.items
+        .filter((item) => itemVisible(item, rolActivo, permisos))
+        .map((item) => {
+          if (!item.children) return item
+          const hijos = item.children.filter((hijo) => itemVisible(hijo, rolActivo, permisos))
+          return { ...item, children: hijos }
+        })
+        .filter((item) => item.href || (item.children && item.children.length > 0)),
+    }))
+    .filter((grupo) => grupo.items.length > 0)
+}
+
+/** La pantalla principal del rol activo. Para Docente/Familia (Portal, todavía sin pantallas
+ * propias — lo construye otro integrante del equipo), directo `/<vista>`: esa ruta es hoy una
+ * página en blanco. Para el resto (Consola), el primer href de `NAV_GROUPS` ya filtrado por
+ * permisos — los paneles (Dirección/Administración) tienen prioridad porque son la landing
+ * "propia" del rol, no un módulo compartido con otros roles. `null` solo puede pasar en
+ * Consola sin ningún acceso — pantalla "sin acceso" en vez de un `/` sin nada que mostrar. */
+export function rutaInicioDe(rolActivo: string | null, permisos: Permiso[]): string | null {
+  const vista = vistaDe(rolActivo)
+  if (vista !== 'consola') return `/${vista}`
+
+  const filtrado = filtrarNav(NAV_GROUPS, rolActivo, permisos)
+  const panel = filtrado[0]?.items.find((item) => item.href === '/panel' || item.href === '/admin')
+  if (panel?.href) return panel.href
+
+  for (const grupo of filtrado) {
+    for (const item of grupo.items) {
+      if (item.href) return item.href
+      const primerHijo = item.children?.find((hijo) => hijo.href)
+      if (primerHijo?.href) return primerHijo.href
+    }
+  }
+  return null
+}
 
 // Compara por segmento de ruta, no por prefijo de string crudo: `/panel` no debe activarse con
 // `/panel-algo`, y `esRutaActiva('/familias-alumnos', '/familias-alumnos/alumnos')` es false

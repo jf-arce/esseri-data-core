@@ -1,4 +1,11 @@
-import { EyeIcon, MoreHorizontalIcon, PencilIcon } from 'lucide-react'
+import {
+  MoreHorizontalIcon,
+  PencilIcon,
+  ShieldIcon,
+  Trash2Icon,
+  UserCheckIcon,
+  UserXIcon,
+} from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -6,6 +13,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -27,10 +35,11 @@ import {
 import type { UsuarioConRoles } from '@/modules/auth/types'
 import {
   colorIdentidad,
+  colorIdentidadSuave,
   formatearFechaHora,
   formatearNombreRol,
-  inicialesDeUsuario,
-  nombreDeUsuario,
+  inicialesVisiblesDeUsuario,
+  nombreVisibleDeUsuario,
 } from '@/modules/auth/utils'
 
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
@@ -46,7 +55,7 @@ function RolChip({ nombre, id }: { nombre: string; id: string }) {
   return (
     <span
       className="inline-flex h-[22px] shrink-0 items-center rounded-full px-2.5 text-xs font-semibold whitespace-nowrap"
-      style={{ backgroundColor: `color-mix(in oklch, ${color} 22%, var(--superficie))`, color }}
+      style={{ backgroundColor: colorIdentidadSuave(id), color }}
     >
       {formatearNombreRol(nombre)}
     </span>
@@ -61,8 +70,15 @@ interface UsuariosTablaProps {
   paginaActual: number
   totalPaginas: number
   onCambiarPagina: (pagina: number) => void
-  onVerDetalle: (usuario: UsuarioConRoles) => void
   onEditarRoles: (usuario: UsuarioConRoles) => void
+  onEditarUsuario: (usuario: UsuarioConRoles) => void
+  onCambiarEstado: (usuario: UsuarioConRoles) => void
+  onEliminar: (usuario: UsuarioConRoles) => void
+  /** id de la cuenta logueada: oculta baja/eliminar en su propia fila (el backend las rechaza
+   * igual, pero no tiene sentido ofrecerlas). */
+  usuarioActualId: string | undefined
+  puedeActualizar: boolean
+  puedeEliminar: boolean
 }
 
 function UsuariosTabla({
@@ -73,8 +89,13 @@ function UsuariosTabla({
   paginaActual,
   totalPaginas,
   onCambiarPagina,
-  onVerDetalle,
   onEditarRoles,
+  onEditarUsuario,
+  onCambiarEstado,
+  onEliminar,
+  usuarioActualId,
+  puedeActualizar,
+  puedeEliminar,
 }: UsuariosTablaProps) {
   return (
     <div className="overflow-hidden rounded-panel bg-superficie shadow-card">
@@ -105,10 +126,10 @@ function UsuariosTabla({
                           color: 'var(--superficie)',
                         }}
                       >
-                        {inicialesDeUsuario(usuario.email)}
+                        {inicialesVisiblesDeUsuario(usuario)}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="font-medium">{nombreDeUsuario(usuario.email)}</span>
+                    <span className="font-medium">{nombreVisibleDeUsuario(usuario)}</span>
                   </div>
                 </TableCell>
                 <TableCell>
@@ -142,14 +163,41 @@ function UsuariosTabla({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onSelect={() => onVerDetalle(usuario)}>
-                        <EyeIcon className="text-violeta" />
-                        Ver detalle
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => onEditarRoles(usuario)}>
-                        <PencilIcon className="text-petroleo" />
-                        Editar roles
-                      </DropdownMenuItem>
+                      {puedeActualizar && (
+                        <DropdownMenuItem onSelect={() => onEditarUsuario(usuario)}>
+                          <PencilIcon className="text-petroleo" />
+                          Editar usuario
+                        </DropdownMenuItem>
+                      )}
+                      {puedeActualizar && (
+                        <DropdownMenuItem onSelect={() => onEditarRoles(usuario)}>
+                          <ShieldIcon className="text-petroleo" />
+                          Editar roles
+                        </DropdownMenuItem>
+                      )}
+                      {puedeEliminar && usuario.id !== usuarioActualId && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            variant={usuario.estado === 'activo' ? 'destructive' : undefined}
+                            onSelect={() => onCambiarEstado(usuario)}
+                          >
+                            {usuario.estado === 'activo' ? (
+                              <UserXIcon />
+                            ) : (
+                              <UserCheckIcon className="text-exito" />
+                            )}
+                            {usuario.estado === 'activo' ? 'Dar de baja' : 'Reactivar'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onSelect={() => onEliminar(usuario)}
+                          >
+                            <Trash2Icon />
+                            Eliminar definitivamente
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>

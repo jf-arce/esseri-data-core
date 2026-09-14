@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.auth import service
+from src.auth import sesion_service
 from src.auth.constants import (
     ACCION_ACTUALIZAR,
     ACCION_CREAR,
@@ -44,7 +44,7 @@ def usuario_local(db_session):
     """Cuenta creada por el bootstrap: contraseña, todavía sin vincular a Google."""
     usuario = Usuario(
         email="admin@esseri.edu.ar",
-        password_hash=service.hashear_password(PASSWORD_VALIDA),
+        password_hash=sesion_service.hashear_password(PASSWORD_VALIDA),
         auth_provider="local",
         provider_subject=None,
         estado="activo",
@@ -58,7 +58,7 @@ def usuario_local(db_session):
 def usuario_inactivo(db_session):
     usuario = Usuario(
         email="baja@esseri.edu.ar",
-        password_hash=service.hashear_password(PASSWORD_VALIDA),
+        password_hash=sesion_service.hashear_password(PASSWORD_VALIDA),
         auth_provider="google",
         provider_subject="google-sub-baja",
         estado="inactivo",

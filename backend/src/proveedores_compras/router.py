@@ -10,6 +10,7 @@ from src.auth.constants import (
     PERMISO_PROVEEDORES_COMPRAS_ACTUALIZAR,
     PERMISO_PROVEEDORES_COMPRAS_CREAR,
     PERMISO_PROVEEDORES_COMPRAS_ELIMINAR,
+    PERMISO_PROVEEDORES_COMPRAS_EXPORTAR,
     PERMISO_PROVEEDORES_COMPRAS_LEER,
 )
 from src.auth.dependencies import requiere_permiso
@@ -396,7 +397,7 @@ def buscar_ordenes_endpoint(
 
 @router.get("/proveedores-exportar")
 def exportar_proveedores_endpoint(
-    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_LEER))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_EXPORTAR))],
     db: Session = Depends(get_db),  # noqa: B008
 ) -> StreamingResponse:
     """Descargar el listado de proveedores en CSV (RF-38)."""
@@ -410,7 +411,7 @@ def exportar_proveedores_endpoint(
 
 @router.get("/ordenes-exportar")
 def exportar_ordenes_endpoint(
-    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_LEER))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_EXPORTAR))],
     db: Session = Depends(get_db),  # noqa: B008
 ) -> StreamingResponse:
     """Descargar el listado de órdenes de compra en CSV (RF-38)."""

@@ -34,16 +34,32 @@ class Usuario(Base):
 
 
 class Rol(Base):
+    """`codigo` es la clave de identidad estable (ver `src.auth.constants.slug_ascii`): se deriva
+    de `nombre` una sola vez al crear el rol, en `__init__`, y nunca se vuelve a tocar después
+    (`RolUpdate` no tiene ese campo) — así renombrar un rol no rompe todo lo que hoy lo identifica
+    por ese código (JWT, autorización por rol activo, asignación automática del rol familia)."""
+
     __tablename__ = "rol"
-    __table_args__ = (sa.UniqueConstraint("nombre", name="uq_rol_nombre"),)
+    __table_args__ = (
+        sa.UniqueConstraint("nombre", name="uq_rol_nombre"),
+        sa.UniqueConstraint("codigo", name="uq_rol_codigo"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    codigo: Mapped[str] = mapped_column(sa.String)
     nombre: Mapped[str] = mapped_column(sa.String)
     descripcion: Mapped[str | None] = mapped_column(sa.String)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
     updated_at: Mapped[datetime] = mapped_column(
         sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
     )
+
+    def __init__(self, **kwargs):
+        if "codigo" not in kwargs and "nombre" in kwargs:
+            from src.auth.constants import slug_ascii
+
+            kwargs["codigo"] = slug_ascii(kwargs["nombre"])
+        super().__init__(**kwargs)
 
 
 class UsuarioRol(Base):

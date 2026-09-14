@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams, Link } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 import { MoreHorizontalIcon, Trash2Icon, UserPlusIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
+import { BackLink } from '@/components/back-link'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -132,6 +133,8 @@ export function FamiliaFichaPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      <BackLink to="/familias-alumnos" label="Volver a Familias" />
+
       <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
         Familias y alumnos
       </p>
@@ -155,14 +158,6 @@ export function FamiliaFichaPage() {
             Dar de baja
           </Button>
         </div>
-      </div>
-
-      <div className="flex items-center gap-1.5 text-sm text-texto-2">
-        <Link to="/familias-alumnos" className="hover:text-texto">
-          Familias
-        </Link>
-        <span className="text-desactivado">/</span>
-        <span className="font-semibold text-texto">{tituloFamilia}</span>
       </div>
 
       <Tabs defaultValue="datos">

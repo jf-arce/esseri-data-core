@@ -56,6 +56,43 @@ class TestRol:
     def test_rol_inexistente_devuelve_404(self, client_admin):
         assert client_admin.get(f"/auth/roles/{uuid.uuid4()}").status_code == 404
 
+    def test_crear_rol_deriva_codigo_del_nombre(self, client_admin):
+        respuesta = client_admin.post("/auth/roles", json={"nombre": "Coordinación Académica"})
+
+        assert respuesta.status_code == 201
+        assert respuesta.json()["codigo"] == "coordinacion_academica"
+
+    def test_crear_rol_con_codigo_colisionando_devuelve_409(self, client_admin):
+        """Dos nombres distintos pueden derivar el mismo slug (ej. mayúsculas/símbolos)."""
+        client_admin.post("/auth/roles", json={"nombre": "Docente"})
+
+        respuesta = client_admin.post("/auth/roles", json={"nombre": "docente!!"})
+
+        assert respuesta.status_code == 409
+
+    def test_renombrar_rol_no_cambia_el_codigo_y_la_autorizacion_sigue_funcionando(
+        self, client_admin, db_session, usuario_local
+    ):
+        """Garantía central de RF-30 sin acoplar identidad a un nombre editable: renombrar un
+        rol no le corta el acceso a las cuentas que lo tienen."""
+        creado = client_admin.post("/auth/roles", json={"nombre": "compras"}).json()
+        rol_id, codigo_original = creado["id"], creado["codigo"]
+        permiso_id = client_admin.post(
+            "/auth/permisos", json={"modulo": MODULO_ACADEMICO, "accion": ACCION_LEER}
+        ).json()["id"]
+        client_admin.post(f"/auth/roles/{rol_id}/permisos", json={"permiso_id": permiso_id})
+        db_session.add(UsuarioRol(usuario_id=usuario_local.id, rol_id=uuid.UUID(rol_id)))
+        db_session.commit()
+
+        respuesta = client_admin.put(
+            f"/auth/roles/{rol_id}", json={"nombre": "Compras y Proveedores"}
+        )
+
+        assert respuesta.status_code == 200
+        assert respuesta.json()["codigo"] == codigo_original
+        assert respuesta.json()["nombre"] == "Compras y Proveedores"
+        assert db_session.get(Rol, uuid.UUID(rol_id)).codigo == codigo_original
+
 
 class TestPermiso:
     def test_crear_permiso(self, client_admin):

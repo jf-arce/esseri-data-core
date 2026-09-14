@@ -11,7 +11,7 @@ from src.auth.constants import (
     PERMISO_FAMILIAS_ALUMNOS_ELIMINAR,
     PERMISO_FAMILIAS_ALUMNOS_LEER,
 )
-from src.auth.dependencies import requiere_permiso
+from src.auth.dependencies import UsuarioAutenticado, requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
 from src.familias_alumnos.dependencies import (
@@ -38,6 +38,7 @@ from src.familias_alumnos.schemas import (
     FamiliaUpdate,
     FiltrosListarAlumnos,
     FiltrosListarFamilias,
+    MiAlumnoResponse,
     VinculoCreate,
     VinculoResponse,
     VinculoUpdate,
@@ -46,6 +47,7 @@ from src.familias_alumnos.service import (
     actualizar_alumno,
     actualizar_familia,
     actualizar_vinculo,
+    alumnos_a_cargo_de_persona,
     crear_alta_alumno,
     crear_alta_familia,
     crear_alumno,
@@ -105,6 +107,27 @@ def listar_familias_endpoint(
     """Listar familias con filtros opcionales."""
     filtros = FiltrosListarFamilias(buscar=buscar, estado_deuda=estado_deuda)
     return listar_familias(db, filtros)
+
+
+@router.get("/familias/me/alumnos", response_model=list[MiAlumnoResponse])
+def mis_alumnos_endpoint(
+    usuario: UsuarioAutenticado,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[MiAlumnoResponse]:
+    """Alumnos a cargo del usuario autenticado. Dato propio: solo requiere sesión, no
+    `familias_alumnos.leer` (RF-30 no aplica acá, es la propia cuenta). Antes de
+    `/familias/{id}` para que "me" no matchee como un UUID."""
+    if usuario.persona_id is None:
+        return []
+    return [
+        MiAlumnoResponse(
+            alumno_id=alumno.id,
+            nombre=alumno.persona_nombre,
+            apellido=alumno.persona_apellido,
+            division_etiqueta=etiqueta,
+        )
+        for alumno, etiqueta in alumnos_a_cargo_de_persona(db, usuario.persona_id)
+    ]
 
 
 @router.get("/familias/{familia_id}", response_model=FamiliaResponse)

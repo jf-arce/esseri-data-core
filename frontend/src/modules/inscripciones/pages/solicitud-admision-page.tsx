@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
   CheckIcon,
-  ChevronLeftIcon,
   FilePlus2Icon,
   MoreHorizontalIcon,
   PencilIcon,
@@ -10,9 +9,10 @@ import {
   UserRoundXIcon,
   XIcon,
 } from 'lucide-react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
+import { BackLink } from '@/components/back-link'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -236,13 +236,7 @@ export function SolicitudAdmisionPage() {
         <AlertTitle>No se pudo abrir la solicitud</AlertTitle>
         <AlertDescription className="flex items-center justify-between gap-3">
           {resultado.error}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => navigate('/inscripciones/admisiones')}
-          >
-            Volver a Admisiones
-          </Button>
+          <BackLink to="/inscripciones/admisiones" label="Volver a Admisiones" />
         </AlertDescription>
       </Alert>
     )
@@ -251,12 +245,7 @@ export function SolicitudAdmisionPage() {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
       <div className="flex flex-col gap-3">
-        <Button className="w-fit" variant="ghost" size="sm" asChild>
-          <Link to="/inscripciones/admisiones">
-            <ChevronLeftIcon data-icon="inline-start" />
-            Admisiones
-          </Link>
-        </Button>
+        <BackLink to="/inscripciones/admisiones" label="Volver a Admisiones" />
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
@@ -265,12 +254,6 @@ export function SolicitudAdmisionPage() {
             <h1 className="mt-1 text-2xl font-semibold">
               Solicitud de {solicitud.aspirante.apellido}, {solicitud.aspirante.nombre}
             </h1>
-            <p className="mt-1 text-sm text-texto-2">
-              Admisiones /{' '}
-              <span className="font-medium text-texto">
-                {solicitud.aspirante.apellido}, {solicitud.aspirante.nombre}
-              </span>
-            </p>
           </div>
           {(permiteResolver || permiteEditar || muestraAccionesExcepcionales) && (
             <div className="flex flex-wrap gap-2">

@@ -1,14 +1,7 @@
 import { DownloadIcon, ShieldAlertIcon } from 'lucide-react'
-import { Link, useParams } from 'react-router'
+import { useParams } from 'react-router'
 import { descargarExport } from '@/lib/descargar-export'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb'
+import { BackLink } from '@/components/back-link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -44,9 +37,7 @@ export function FacturaDetallePage() {
         <EmptyDescription>
           {error ?? 'Volvé al listado de facturas para continuar.'}
         </EmptyDescription>
-        <Button variant="secondary" asChild>
-          <Link to="/facturacion">Volver a facturas</Link>
-        </Button>
+        <BackLink to="/facturacion" label="Volver a facturas" className="mx-auto" />
       </Empty>
     )
   }
@@ -64,19 +55,7 @@ export function FacturaDetallePage() {
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 py-4">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link to="/facturacion">Facturación</Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>Factura #{factura.id.slice(0, 8)}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+      <BackLink to="/facturacion" label="Volver a facturas" />
 
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div className="flex flex-col gap-1">

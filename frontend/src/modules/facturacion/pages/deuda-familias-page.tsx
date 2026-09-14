@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeftIcon, CircleDollarSignIcon, ShieldAlertIcon } from 'lucide-react'
-import { Link, useSearchParams } from 'react-router'
+import { CircleDollarSignIcon, ShieldAlertIcon } from 'lucide-react'
+import { useSearchParams } from 'react-router'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { BackLink } from '@/components/back-link'
 import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
 import { FilterDropdown } from '@/components/filter-dropdown'
 import { PageHeader } from '@/components/page-header'
@@ -62,20 +63,11 @@ export function DeudaFamiliasPage() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
+        <BackLink to="/facturacion" label="Volver a facturas" />
         <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
           Facturación y cobranza
         </p>
-        <PageHeader
-          titulo="Deuda por familia"
-          accion={
-            <Button variant="secondary" asChild>
-              <Link to="/facturacion">
-                <ArrowLeftIcon data-icon="inline-start" />
-                Volver a facturas
-              </Link>
-            </Button>
-          }
-        />
+        <PageHeader titulo="Deuda por familia" />
       </div>
 
       {error && (
