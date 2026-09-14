@@ -1,4 +1,4 @@
-import { ArrowDownUpIcon, CalendarRangeIcon, DownloadIcon } from 'lucide-react'
+import { ArrowDownUpIcon, DownloadIcon } from 'lucide-react'
 import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
 import { FilterChip, FilterChips, FilterDropdown } from '@/components/filter-dropdown'
 import { Button } from '@/components/ui/button'
@@ -30,8 +30,6 @@ const OPCIONES_ORDEN = [
 interface InscripcionesFiltrosProps {
   busqueda: string
   onBusquedaChange: (valor: string) => void
-  cicloLectivo: string
-  onCicloLectivoChange: (valor: string) => void
   tipo: TipoInscripcion | ''
   onTipoChange: (valor: TipoInscripcion | '') => void
   estado: EstadoInscripcion | ''
@@ -42,37 +40,9 @@ interface InscripcionesFiltrosProps {
   exportando: boolean
 }
 
-function CicloLectivoFiltro({
-  value,
-  onChange,
-}: {
-  value: string
-  onChange: (valor: string) => void
-}) {
-  return (
-    <label className="flex h-10 w-40 items-center gap-2 rounded-lg border border-borde bg-superficie px-3.5 text-sm text-texto-2 transition-colors has-[:focus-visible]:shadow-[0_0_0_1.5px_var(--violeta)]">
-      <CalendarRangeIcon className="size-4 shrink-0 text-texto-3" />
-      <span className="sr-only">Ciclo lectivo</span>
-      <input
-        value={value}
-        inputMode="numeric"
-        maxLength={4}
-        placeholder="Ciclo lectivo"
-        className="min-w-0 flex-1 bg-transparent tabular-nums outline-none focus-visible:shadow-none placeholder:text-texto-3"
-        onChange={(evento) => {
-          const siguiente = evento.target.value.replace(/\D/g, '')
-          onChange(siguiente)
-        }}
-      />
-    </label>
-  )
-}
-
 export function InscripcionesFiltros({
   busqueda,
   onBusquedaChange,
-  cicloLectivo,
-  onCicloLectivoChange,
   tipo,
   onTipoChange,
   estado,
@@ -82,12 +52,10 @@ export function InscripcionesFiltros({
   onExportar,
   exportando,
 }: InscripcionesFiltrosProps) {
-  const hayFiltros =
-    busqueda.trim() !== '' || cicloLectivo.length === 4 || tipo !== '' || estado !== ''
+  const hayFiltros = busqueda.trim() !== '' || tipo !== '' || estado !== ''
 
   const limpiar = () => {
     onBusquedaChange('')
-    onCicloLectivoChange('')
     onTipoChange('')
     onEstadoChange('')
   }
@@ -100,7 +68,6 @@ export function InscripcionesFiltros({
           onChange={onBusquedaChange}
           placeholder="Buscar por alumno o legajo"
         />
-        <CicloLectivoFiltro value={cicloLectivo} onChange={onCicloLectivoChange} />
         <FilterDropdown
           label="Tipo"
           options={OPCIONES_TIPO}
@@ -146,9 +113,6 @@ export function InscripcionesFiltros({
         <FilterChips onClearAll={limpiar}>
           {busqueda.trim() !== '' && (
             <FilterChip onRemove={() => onBusquedaChange('')}>Búsqueda: {busqueda}</FilterChip>
-          )}
-          {cicloLectivo.length === 4 && (
-            <FilterChip onRemove={() => onCicloLectivoChange('')}>Ciclo: {cicloLectivo}</FilterChip>
           )}
           {tipo !== '' && (
             <FilterChip onRemove={() => onTipoChange('')}>
