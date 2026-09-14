@@ -5,11 +5,12 @@ import {
   filtrarYOrdenarRoles,
   filtrarYOrdenarUsuarios,
   nombreDeUsuario,
+  nombreVisibleDeUsuario,
 } from '@/modules/auth/utils'
 import type { Permiso, Rol, UsuarioConRoles } from '@/modules/auth/types'
 
-const ROL_DOCENTE = { id: 'r1', nombre: 'Docente', descripcion: null }
-const ROL_FAMILIA = { id: 'r2', nombre: 'Familia', descripcion: null }
+const ROL_DOCENTE = { id: 'r1', codigo: 'docente', nombre: 'Docente', descripcion: null }
+const ROL_FAMILIA = { id: 'r2', codigo: 'familia', nombre: 'Familia', descripcion: null }
 
 function usuario(overrides: Partial<UsuarioConRoles>): UsuarioConRoles {
   return {
@@ -19,6 +20,9 @@ function usuario(overrides: Partial<UsuarioConRoles>): UsuarioConRoles {
     auth_provider: 'google',
     ultimo_acceso: '2026-08-24T07:55:00Z',
     roles: [],
+    persona_id: null,
+    persona_nombre: null,
+    persona_apellido: null,
     ...overrides,
   }
 }
@@ -30,6 +34,18 @@ describe('nombreDeUsuario', () => {
 
   it('devuelve el mail completo si no hay separador', () => {
     expect(nombreDeUsuario('admin@esseri.edu.ar')).toBe('Admin')
+  })
+})
+
+describe('nombreVisibleDeUsuario', () => {
+  it('prefiere el nombre de la persona sobre el derivado del email', () => {
+    const conPersona = usuario({ persona_nombre: 'Julieta', persona_apellido: 'Amaya' })
+    expect(nombreVisibleDeUsuario(conPersona)).toBe('Amaya, Julieta')
+  })
+
+  it('cae al nombre derivado del email si la cuenta no tiene persona', () => {
+    const sinPersona = usuario({ persona_nombre: null, persona_apellido: null })
+    expect(nombreVisibleDeUsuario(sinPersona)).toBe(nombreDeUsuario(sinPersona.email))
   })
 })
 
@@ -105,7 +121,7 @@ describe('filtrarYOrdenarUsuarios', () => {
 })
 
 function rol(overrides: Partial<Rol>): Rol {
-  return { id: 'r1', nombre: 'Docente', descripcion: null, ...overrides }
+  return { id: 'r1', codigo: 'docente', nombre: 'Docente', descripcion: null, ...overrides }
 }
 
 describe('filtrarYOrdenarRoles', () => {

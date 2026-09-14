@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { BackLink } from '@/components/back-link'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { PageHeader } from '@/components/page-header'
@@ -116,6 +117,7 @@ export function AsignacionesDocentesPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      <BackLink to="/academico" label="Volver a Académico" />
       <PageHeader
         titulo="Asignaciones docentes"
         accion={

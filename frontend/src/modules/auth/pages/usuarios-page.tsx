@@ -1,28 +1,45 @@
-import { UserCheckIcon, UsersRoundIcon, UserXIcon } from 'lucide-react'
+import { PlusIcon, UserCheckIcon, UsersRoundIcon, UserXIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { ConfirmarEliminacion } from '@/components/confirmar-eliminacion'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { PageHeader } from '@/components/page-header'
 import { StatTile } from '@/components/stat-tile'
-import { UsuarioDetalleDialog } from '@/modules/auth/components/usuario-detalle-dialog'
+import {
+  PERMISO_AUTENTICACION_ACTUALIZAR,
+  PERMISO_AUTENTICACION_CREAR,
+  PERMISO_AUTENTICACION_ELIMINAR,
+  tienePermiso,
+} from '@/modules/auth/constants'
 import { UsuarioRolesDialog } from '@/modules/auth/components/usuario-roles-dialog'
 import { UsuariosFiltros } from '@/modules/auth/components/usuarios-filtros'
 import { UsuariosTabla } from '@/modules/auth/components/usuarios-tabla'
 import { useRoles } from '@/modules/auth/hooks/use-roles'
 import { useUsuarios } from '@/modules/auth/hooks/use-usuarios'
+import { cambiarEstadoUsuario } from '@/modules/auth/services/cambiar-estado-usuario'
+import { eliminarUsuario } from '@/modules/auth/services/eliminar-usuario'
 import type { UsuarioConRoles } from '@/modules/auth/types'
 import {
   filtrarYOrdenarUsuarios,
+  nombreVisibleDeUsuario,
   type EstadoUsuarioFiltro,
   type OrdenUsuarios,
 } from '@/modules/auth/utils'
+import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 const PAGE_SIZE = 10
 
 export function UsuariosPage() {
+  const navigate = useNavigate()
   const { datos: usuarios, cargando, error, recargar } = useUsuarios()
   const { datos: roles } = useRoles()
+  const permisos = useAuthStore(permisosActivos)
+  const usuarioActualId = useAuthStore((s) => s.usuario?.id)
+  const puedeCrear = tienePermiso(permisos, PERMISO_AUTENTICACION_CREAR)
+  const puedeActualizar = tienePermiso(permisos, PERMISO_AUTENTICACION_ACTUALIZAR)
+  const puedeEliminar = tienePermiso(permisos, PERMISO_AUTENTICACION_ELIMINAR)
 
   const [busqueda, setBusqueda] = useState('')
   const [estado, setEstado] = useState<EstadoUsuarioFiltro>('todos')
@@ -30,8 +47,11 @@ export function UsuariosPage() {
   const [orden, setOrden] = useState<OrdenUsuarios>('nombre-asc')
   const [pagina, setPagina] = useState(0)
 
-  const [usuarioDetalle, setUsuarioDetalle] = useState<UsuarioConRoles | null>(null)
   const [usuarioEditandoRoles, setUsuarioEditandoRoles] = useState<UsuarioConRoles | null>(null)
+  const [usuarioCambiandoEstado, setUsuarioCambiandoEstado] = useState<UsuarioConRoles | null>(
+    null,
+  )
+  const [usuarioAEliminar, setUsuarioAEliminar] = useState<UsuarioConRoles | null>(null)
 
   const filtrados = useMemo(
     () => filtrarYOrdenarUsuarios(usuarios, { busqueda, estado, roles: rolesFiltro, orden }),
@@ -63,7 +83,17 @@ export function UsuariosPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader titulo="Usuarios y roles" />
+      <PageHeader
+        titulo="Usuarios y roles"
+        accion={
+          puedeCrear && (
+            <Button onClick={() => navigate('/usuarios-roles/usuarios/nuevo')}>
+              <PlusIcon />
+              Nuevo usuario
+            </Button>
+          )
+        }
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatTile
@@ -132,20 +162,15 @@ export function UsuariosPage() {
           paginaActual={paginaActual}
           totalPaginas={totalPaginas}
           onCambiarPagina={setPagina}
-          onVerDetalle={setUsuarioDetalle}
           onEditarRoles={setUsuarioEditandoRoles}
+          onEditarUsuario={(usuario) => navigate(`/usuarios-roles/usuarios/${usuario.id}/editar`)}
+          onCambiarEstado={setUsuarioCambiandoEstado}
+          onEliminar={setUsuarioAEliminar}
+          usuarioActualId={usuarioActualId}
+          puedeActualizar={puedeActualizar}
+          puedeEliminar={puedeEliminar}
         />
       )}
-
-      <UsuarioDetalleDialog
-        open={!!usuarioDetalle}
-        onOpenChange={(open) => !open && setUsuarioDetalle(null)}
-        usuario={usuarioDetalle}
-        onEditarRoles={() => {
-          setUsuarioEditandoRoles(usuarioDetalle)
-          setUsuarioDetalle(null)
-        }}
-      />
 
       <UsuarioRolesDialog
         open={!!usuarioEditandoRoles}
@@ -154,6 +179,49 @@ export function UsuariosPage() {
         roles={roles}
         onGuardado={recargar}
       />
+
+      {usuarioCambiandoEstado &&
+        (usuarioCambiandoEstado.estado === 'activo' ? (
+          <ConfirmarEliminacion
+            open={!!usuarioCambiandoEstado}
+            onOpenChange={(open) => !open && setUsuarioCambiandoEstado(null)}
+            titulo={`Dar de baja a "${nombreVisibleDeUsuario(usuarioCambiandoEstado)}"`}
+            descripcion="No va a poder iniciar sesión y su sesión actual se cierra. Podés reactivarla cuando quieras."
+            textoConfirmar="Dar de baja"
+            destructivo
+            onConfirmar={async () => {
+              await cambiarEstadoUsuario(usuarioCambiandoEstado.id, 'inactivo')
+              recargar()
+            }}
+          />
+        ) : (
+          <ConfirmarEliminacion
+            open={!!usuarioCambiandoEstado}
+            onOpenChange={(open) => !open && setUsuarioCambiandoEstado(null)}
+            titulo={`Reactivar a "${nombreVisibleDeUsuario(usuarioCambiandoEstado)}"`}
+            descripcion="Va a poder volver a iniciar sesión con su método de acceso habitual."
+            textoConfirmar="Reactivar"
+            onConfirmar={async () => {
+              await cambiarEstadoUsuario(usuarioCambiandoEstado.id, 'activo')
+              recargar()
+            }}
+          />
+        ))}
+
+      {usuarioAEliminar && (
+        <ConfirmarEliminacion
+          open={!!usuarioAEliminar}
+          onOpenChange={(open) => !open && setUsuarioAEliminar(null)}
+          titulo={`Eliminar definitivamente a "${nombreVisibleDeUsuario(usuarioAEliminar)}"`}
+          descripcion="⚠ Esta acción es irreversible: se borra la cuenta y sus roles. Si la cuenta tiene movimientos registrados no se va a poder eliminar; en ese caso dala de baja."
+          textoConfirmar="Eliminar definitivamente"
+          destructivo
+          onConfirmar={async () => {
+            await eliminarUsuario(usuarioAEliminar.id)
+            recargar()
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -45,6 +45,7 @@ function renderConUsuario(ruta: string, roles: string[], permisos: string[]) {
         descripcion: null,
         permisos: permisosDelRol,
       })),
+      rol_activo: roles[0] ?? null,
     },
     status: 'authenticated',
     // El rol activo (elegido en "¿Cómo querés entrar?"/"Cambiar vista") es lo que filtran

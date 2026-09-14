@@ -53,7 +53,8 @@ from src.academico.schemas import (
     NivelEducativoCreate,
     NivelEducativoUpdate,
 )
-from src.auth import service as auth_service
+from src.auth import autorizacion_service
+from src.auth import usuarios_service as auth_usuarios_service
 from src.auth.constants import PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA
 from src.auth.exceptions import PermisoDenegado
 from src.auth.models import Rol, Usuario, UsuarioRol
@@ -127,7 +128,7 @@ def _tiene_acceso_estructural(db: Session, usuario_id: uuid.UUID, rol_activo: st
     ya cortó antes), pero si pasara se trata como sin acceso, nunca como bypass."""
     if rol_activo is None:
         return False
-    return auth_service.tiene_permiso_en_rol(
+    return autorizacion_service.tiene_permiso_en_rol(
         db, usuario_id, rol_activo, PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA
     )
 
@@ -809,7 +810,7 @@ def crear_alta_docente(db: Session, datos: AltaDocenteCreate) -> tuple[Persona, 
     db.add(persona)
     db.flush()
 
-    auth_service.crear_cuenta(
+    auth_usuarios_service.crear_cuenta(
         db,
         persona=persona,
         email=datos.acceso.email,

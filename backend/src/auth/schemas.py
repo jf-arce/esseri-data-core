@@ -87,6 +87,18 @@ class UsuarioConRoles(BaseModel):
     # Necesario para el alta de docente "desde una cuenta existente" (usuario-roles-dialog):
     # sin persona la ficha Docente no tiene a qué engancharse.
     persona_id: uuid.UUID | None
+    # Nombre real de la persona (nulo si la cuenta no tiene persona asociada todavía): el
+    # frontend lo prefiere sobre el nombre inventado a partir del email.
+    persona_nombre: str | None
+    persona_apellido: str | None
+
+
+class UsuarioDetalle(UsuarioConRoles):
+    """Respuesta de GET /auth/usuarios/{id} y de las operaciones de edición: suma el DNI y el
+    teléfono de la persona para precargar el formulario de edición."""
+
+    persona_dni: str | None
+    persona_telefono: str | None
 
 
 class PersonaCreate(BaseModel):
@@ -99,26 +111,31 @@ class PersonaCreate(BaseModel):
     sexo: str | None = None
 
 
-class AccesoCreate(BaseModel):
-    """Cómo va a entrar la cuenta nueva: por Google (sin contraseña, se vincula sola en el
-    primer login) o con una contraseña inicial que carga quien da de alta."""
+class AccesoUpdate(BaseModel):
+    """Cómo entra la cuenta: por Google (sin contraseña, se vincula sola en el próximo login)
+    o con contraseña, que se resetea cada vez que se manda `password`."""
 
-    email: str = Field(..., min_length=1)
     metodo: Literal["google", "local"]
     password: str | None = Field(None, min_length=12)
+
+    @model_validator(mode="after")
+    def validar_password(self) -> "AccesoUpdate":
+        if self.metodo == "local" and self.password is None:
+            raise ValueError("Falta la contraseña")
+        if self.metodo == "google" and self.password is not None:
+            raise ValueError("El acceso por Google no lleva contraseña")
+        return self
+
+
+class AccesoCreate(AccesoUpdate):
+    """Alta: además del método, necesita el email por el que va a entrar la cuenta nueva."""
+
+    email: str = Field(..., min_length=1)
 
     @field_validator("email")
     @classmethod
     def normalizar_email(cls, valor: str) -> str:
         return valor.strip().lower()
-
-    @model_validator(mode="after")
-    def validar_password(self) -> "AccesoCreate":
-        if self.metodo == "local" and self.password is None:
-            raise ValueError("Falta la contraseña inicial")
-        if self.metodo == "google" and self.password is not None:
-            raise ValueError("El acceso por Google no lleva contraseña")
-        return self
 
 
 class UsuarioCreate(BaseModel):
@@ -127,6 +144,34 @@ class UsuarioCreate(BaseModel):
     persona: PersonaCreate
     acceso: AccesoCreate
     rol_ids: list[uuid.UUID] = Field(..., min_length=1)
+
+
+class PersonaUpdate(BaseModel):
+    """Edición de la persona detrás de una cuenta existente. Todo opcional: se manda solo lo
+    que cambió."""
+
+    nombre: str | None = Field(None, min_length=1)
+    apellido: str | None = Field(None, min_length=1)
+    dni: str | None = Field(None, min_length=1)
+    telefono: str | None = None
+    sexo: str | None = None
+
+
+class UsuarioUpdate(BaseModel):
+    """PATCH /auth/usuarios/{id}: datos de persona y/o email. La contraseña y el método de
+    acceso van por separado, en `AccesoUpdate` (PUT /auth/usuarios/{id}/acceso)."""
+
+    persona: PersonaUpdate | None = None
+    email: str | None = Field(None, min_length=1)
+
+    @field_validator("email")
+    @classmethod
+    def normalizar_email(cls, valor: str | None) -> str | None:
+        return valor.strip().lower() if valor is not None else None
+
+
+class EstadoUsuarioIn(BaseModel):
+    estado: Literal["activo", "inactivo"]
 
 
 class UsuarioActual(BaseModel):

@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.auth import service
+from src.auth import sesion_service
 from src.auth.constants import ACCION_LEER, MODULO_AUDITORIA
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
 
@@ -13,7 +13,7 @@ PASSWORD_VALIDA = "una-contrasenia-larga"
 def client_autenticado(client, db_session):
     usuario = Usuario(
         email="auditoria@esseri.edu.ar",
-        password_hash=service.hashear_password(PASSWORD_VALIDA),
+        password_hash=sesion_service.hashear_password(PASSWORD_VALIDA),
         auth_provider="local",
         estado="activo",
     )

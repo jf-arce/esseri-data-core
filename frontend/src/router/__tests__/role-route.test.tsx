@@ -20,6 +20,7 @@ function renderConRolActivo(roles: string[], rolActivo: string | null) {
         descripcion: null,
         permisos: [],
       })),
+      rol_activo: rolActivo,
     },
     status: 'authenticated',
     rolActivo,

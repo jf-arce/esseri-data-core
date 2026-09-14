@@ -6,7 +6,7 @@ import uuid
 from datetime import date
 
 from src.academico.models import Anio, Division, NivelEducativo
-from src.auth import service
+from src.auth import sesion_service
 from src.auth.models import Usuario
 from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
 from src.inscripciones.models import Inscripcion
@@ -30,7 +30,7 @@ def _crear_familia_con_alumno(db_session, *, con_usuario=True, con_inscripcion_a
 
     usuario = Usuario(
         email="familia.roldan@esseri.edu.ar",
-        password_hash=service.hashear_password(PASSWORD_VALIDA),
+        password_hash=sesion_service.hashear_password(PASSWORD_VALIDA),
         auth_provider="local",
         estado="activo",
         persona_id=persona_familiar_id if con_usuario else None,

@@ -321,6 +321,7 @@ Así lo resuelve directamente el repo de referencia: unos pocos archivos a nivel
 | `auditoria/` | Solo `router.py` y `service.py` — es una capa de consulta sobre tablas de otros módulos (`AUDIT_LOG`, `EVENT_LOG`, `LOG_ACCESO`, `WORKFLOW_EXECUTION`, `NOTIFICACION`, `CUENTA_CORRIENTE`/`MOVIMIENTO`, `TAREA`), no tiene `models.py` propio. `AUDIT_LOG` (cambios de datos, ex `EVENT_LOG`) y `EVENT_LOG` (hechos de negocio append-only que consume el motor de workflows) son transversales y viven en `src/models.py`, no acá — ver diccionario de datos. |
 | `panel_admin/` | Igual que auditoría: sin modelo propio, solo agrega y expone datos de otros módulos. |
 | `ia_sugerencias/` | Contiene el cliente que se comunica con la API de OpenAI, además de los archivos estándar para `IA_SUGERENCIA`. |
+| `auth/` | Sin `service.py` único: se dividió en `sesion_service.py` (contraseñas, JWT, login), `autorizacion_service.py` (permisos/roles de la sesión, RF-30), `roles_service.py` (ABM de Rol/Permiso y ROL_PERMISO) y `usuarios_service.py` (alta, edición, baja y eliminación de cuentas, y USUARIO_ROL) — superaba el umbral de la sección "Cuándo dividir la lógica de negocio de un módulo" y sus subdominios (sesión, autorización, roles/permisos, usuarios) tienen vocabulario y ciclo de vida propios. |
 
 ### Resto de `backend/` (fuera de `src/`)
 | Carpeta/archivo | Contenido |

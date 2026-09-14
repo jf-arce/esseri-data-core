@@ -263,14 +263,14 @@ def test_exportar_inscripciones_sin_sesion_rechaza(client):
 def test_exportar_requiere_exportar_no_alcanza_con_leer(client, db_session):
     """El fixture `client` (conftest de este módulo) tiene `.exportar`; un rol que solo tenga
     `.leer` de Inscripciones (ej. docente o familia en grupo-b.yaml) no puede exportar."""
-    from src.auth import service
+    from src.auth import sesion_service
     from src.auth.constants import ACCION_LEER, MODULO_INSCRIPCIONES
     from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
 
     password = "una-contrasenia-larga"
     usuario = Usuario(
         email="solo-lectura-inscripciones@esseri.edu.ar",
-        password_hash=service.hashear_password(password),
+        password_hash=sesion_service.hashear_password(password),
         auth_provider="local",
         estado="activo",
     )

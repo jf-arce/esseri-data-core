@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 from jose import jwt
 
-from src.auth import config, service
+from src.auth import config, sesion_service
 from tests.auth.conftest import PASSWORD_VALIDA
 
 
@@ -33,7 +33,7 @@ def test_me_con_token_expirado_rechaza(client, usuario_local):
 
 
 def test_me_con_usuario_borrado_rechaza(client):
-    client.cookies.set(config.COOKIE_SESION, service.crear_access_token(uuid.uuid4()))
+    client.cookies.set(config.COOKIE_SESION, sesion_service.crear_access_token(uuid.uuid4()))
     assert client.get("/auth/me").status_code == 401
 
 

@@ -40,6 +40,8 @@ class TestCrearUsuario:
         assert cuerpo["email"] == "nueva@esseri.edu.ar"
         assert cuerpo["auth_provider"] == "local"
         assert cuerpo["persona_id"] is not None
+        assert cuerpo["persona_nombre"] == "Ana"
+        assert cuerpo["persona_apellido"] == "Pérez"
         assert [r["codigo"] for r in cuerpo["roles"]] == [rol.codigo]
 
         # la cuenta recién creada puede loguearse

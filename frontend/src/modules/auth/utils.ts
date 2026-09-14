@@ -42,8 +42,9 @@ export function colorIdentidadSuave(semilla: string): string {
   return PALETA_IDENTIDAD_SUAVE[hashEstable(semilla) % PALETA_IDENTIDAD_SUAVE.length]
 }
 
-// El backend no separa nombre/apellido: hasta que lo haga, se deriva un nombre de pantalla a
-// partir de la parte local del mail (ej. "mariana.cufre@esseri.edu.ar" → "Cufre, Mariana").
+// Fallback para cuando no hay persona asociada a la cuenta (ej. `UsuarioActual`, que no la
+// trae): se deriva un nombre de pantalla a partir de la parte local del mail
+// (ej. "mariana.cufre@esseri.edu.ar" → "Cufre, Mariana").
 export function nombreDeUsuario(email: string): string {
   const parteLocal = email.split('@')[0] ?? email
   const partes = parteLocal
@@ -54,6 +55,15 @@ export function nombreDeUsuario(email: string): string {
   if (partes.length < 2) return partes[0] ?? email
   const [nombre, ...apellido] = partes
   return `${apellido.join(' ')}, ${nombre}`
+}
+
+// El nombre real de la persona (cargado en el alta) siempre le gana al derivado del email —
+// que queda solo como fallback para cuentas sin persona asociada todavía.
+export function nombreVisibleDeUsuario(usuario: UsuarioConRoles): string {
+  if (usuario.persona_nombre && usuario.persona_apellido) {
+    return `${usuario.persona_apellido}, ${usuario.persona_nombre}`
+  }
+  return nombreDeUsuario(usuario.email)
 }
 
 // Los nombres de rol llegan en distintas casings según la fuente: el JWT trae los roles de la
@@ -72,6 +82,13 @@ export function inicialesDeUsuario(email: string): string {
   if (partes.length === 0) return email.charAt(0).toUpperCase()
   if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase()
   return (partes[0].charAt(0) + partes[1].charAt(0)).toUpperCase()
+}
+
+export function inicialesVisiblesDeUsuario(usuario: UsuarioConRoles): string {
+  if (usuario.persona_nombre && usuario.persona_apellido) {
+    return (usuario.persona_nombre.charAt(0) + usuario.persona_apellido.charAt(0)).toUpperCase()
+  }
+  return inicialesDeUsuario(usuario.email)
 }
 
 export function formatearFechaHora(iso: string | null): string {
@@ -107,7 +124,7 @@ export function filtrarYOrdenarUsuarios(
 
   const filtrados = usuarios.filter((usuario) => {
     if (busqueda) {
-      const nombre = nombreDeUsuario(usuario.email).toLowerCase()
+      const nombre = nombreVisibleDeUsuario(usuario).toLowerCase()
       if (!nombre.includes(busqueda) && !usuario.email.toLowerCase().includes(busqueda)) {
         return false
       }
@@ -125,9 +142,9 @@ export function filtrarYOrdenarUsuarios(
   ordenados.sort((a, b) => {
     switch (filtros.orden) {
       case 'nombre-asc':
-        return nombreDeUsuario(a.email).localeCompare(nombreDeUsuario(b.email), 'es')
+        return nombreVisibleDeUsuario(a).localeCompare(nombreVisibleDeUsuario(b), 'es')
       case 'nombre-desc':
-        return nombreDeUsuario(b.email).localeCompare(nombreDeUsuario(a.email), 'es')
+        return nombreVisibleDeUsuario(b).localeCompare(nombreVisibleDeUsuario(a), 'es')
       case 'acceso-reciente':
         return (b.ultimo_acceso ?? '').localeCompare(a.ultimo_acceso ?? '')
       case 'acceso-antiguo':

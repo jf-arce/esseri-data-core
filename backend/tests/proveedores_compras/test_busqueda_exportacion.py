@@ -227,14 +227,14 @@ class TestExportacion:
         """`docente` y `familia` (grupo-b.yaml) no tienen Proveedores y Compras en absoluto,
         pero cualquier rol que solo tenga `.leer` del módulo (sin `.exportar`) tampoco puede
         descargar el CSV — son acciones distintas en la matriz de permisos."""
-        from src.auth import service
+        from src.auth import sesion_service
         from src.auth.constants import ACCION_LEER, MODULO_PROVEEDORES_COMPRAS
         from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
 
         password = "una-contrasenia-larga"
         usuario = Usuario(
             email="solo-lectura@esseri.edu.ar",
-            password_hash=service.hashear_password(password),
+            password_hash=sesion_service.hashear_password(password),
             auth_provider="local",
             estado="activo",
         )

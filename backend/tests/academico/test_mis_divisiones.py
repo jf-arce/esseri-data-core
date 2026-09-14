@@ -5,7 +5,7 @@ propias divisiones para la pantalla "¿Cómo querés entrar?" del frontend."""
 import uuid
 
 from src.academico.models import Anio, AsignacionDocente, Division, Docente, Materia, NivelEducativo
-from src.auth import service
+from src.auth import sesion_service
 from src.auth.models import Usuario
 from src.models import Persona
 
@@ -23,7 +23,7 @@ def _crear_docente_con_division(db_session, *, con_usuario=True):
     persona = Persona(id=persona_id, nombre="Julieta", apellido="Amaya", dni="40222333")
     usuario = Usuario(
         email="julieta.amaya@esseri.edu.ar",
-        password_hash=service.hashear_password(PASSWORD_VALIDA),
+        password_hash=sesion_service.hashear_password(PASSWORD_VALIDA),
         auth_provider="local",
         estado="activo",
         persona_id=persona_id if con_usuario else None,

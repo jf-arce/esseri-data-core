@@ -5,7 +5,7 @@ import uuid
 import pytest
 
 from src.academico.models import AsignacionDocente, Division, Docente, Materia
-from src.auth import service
+from src.auth import sesion_service
 from src.auth.constants import (
     ACCION_ACTUALIZAR,
     ACCION_CREAR,
@@ -38,7 +38,7 @@ def client_docente(client, db_session, persona_docente):
     sin tipo que pide la estructura curricular) + Inscripciones (leer) -- nunca `crear`."""
     usuario = Usuario(
         email="docente@esseri.edu.ar",
-        password_hash=service.hashear_password(PASSWORD_VALIDA),
+        password_hash=sesion_service.hashear_password(PASSWORD_VALIDA),
         auth_provider="local",
         estado="activo",
         persona_id=persona_docente.id,
@@ -76,7 +76,7 @@ def client_secretaria(client, db_session):
         # `tests/inscripciones/factories.py::crear_escenario`, y varios tests de este archivo
         # usan las dos fixtures juntas.
         email="secretaria-academico@esseri.edu.ar",
-        password_hash=service.hashear_password(PASSWORD_VALIDA),
+        password_hash=sesion_service.hashear_password(PASSWORD_VALIDA),
         auth_provider="local",
         estado="activo",
     )
@@ -110,7 +110,7 @@ def client_docente_y_secretaria(client, db_session, persona_docente):
     `AsignacionDocente` aunque la cuenta también tenga secretaría."""
     usuario = Usuario(
         email="docente-secretaria@esseri.edu.ar",
-        password_hash=service.hashear_password(PASSWORD_VALIDA),
+        password_hash=sesion_service.hashear_password(PASSWORD_VALIDA),
         auth_provider="local",
         estado="activo",
         persona_id=persona_docente.id,
@@ -130,9 +130,7 @@ def client_docente_y_secretaria(client, db_session, persona_docente):
         Permiso(modulo=MODULO_ACADEMICO, accion=ACCION_CREAR),
         Permiso(modulo=MODULO_ACADEMICO, accion=ACCION_ACTUALIZAR),
     ]
-    db_session.add_all(
-        [permiso_academico_leer, *permisos_solo_docente, *permisos_solo_secretaria]
-    )
+    db_session.add_all([permiso_academico_leer, *permisos_solo_docente, *permisos_solo_secretaria])
     db_session.flush()
     for permiso in [permiso_academico_leer, *permisos_solo_docente]:
         db_session.add(RolPermiso(rol_id=rol_docente.id, permiso_id=permiso.id))

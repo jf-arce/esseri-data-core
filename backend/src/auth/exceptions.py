@@ -110,3 +110,27 @@ class RolConAltaPropia(AppException):
         message: str = ("Los roles familia y docente tienen su propio formulario de alta"),
     ):
         super().__init__(message)
+
+
+class OperacionSobreCuentaPropia(AppException):
+    """Dar de baja o eliminar la propia cuenta puede dejar a quien lo hace sin poder deshacerlo."""
+
+    status_code = 409
+
+    def __init__(self, message: str = "No podés dar de baja ni eliminar tu propia cuenta"):
+        super().__init__(message)
+
+
+class UsuarioConHistorial(AppException):
+    """La cuenta tiene filas que la referencian fuera de USUARIO_ROL/LOG_ACCESO (facturas,
+    auditoría, workflows, etc.): eliminarla rompería esas referencias. Se puede dar de baja."""
+
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = (
+            "La cuenta tiene movimientos registrados; dala de baja en lugar de eliminarla"
+        ),
+    ):
+        super().__init__(message)

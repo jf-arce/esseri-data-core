@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.auth import service
+from src.auth import sesion_service
 from src.auth.constants import (
     ACCION_ACTUALIZAR,
     ACCION_CREAR,
@@ -21,7 +21,7 @@ def client_autenticado(client, db_session):
     """Cliente de test ya logueado, con el CRUD de Proveedores y Compras (RF-27 + RF-30)."""
     usuario = Usuario(
         email="compras@esseri.edu.ar",
-        password_hash=service.hashear_password(PASSWORD_VALIDA),
+        password_hash=sesion_service.hashear_password(PASSWORD_VALIDA),
         auth_provider="local",
         estado="activo",
     )

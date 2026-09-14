@@ -11,7 +11,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { crearDocenteDesdeUsuario } from '@/modules/academico/services/docentes'
+import { ROL_DOCENTE } from '@/modules/auth/constants'
 import { asignarRolAUsuario } from '@/modules/auth/services/asignar-rol-a-usuario'
 import { getRolesDeUsuario } from '@/modules/auth/services/get-roles-de-usuario'
 import { quitarRolAUsuario } from '@/modules/auth/services/quitar-rol-a-usuario'
@@ -67,6 +70,7 @@ function UsuarioRolesForm({
   )
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [legajoDocente, setLegajoDocente] = useState('')
 
   useEffect(() => {
     getRolesDeUsuario(usuario.id)
@@ -74,6 +78,13 @@ function UsuarioRolesForm({
       .catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const rolDocente = roles.find((r) => r.codigo === ROL_DOCENTE)
+  const teniaRolDocente = usuario.roles.some((r) => r.codigo === ROL_DOCENTE)
+  // Sumar "docente" a una cuenta sin ficha propia le crea la ficha Docente (con legajo), en vez
+  // de un simple POST /usuarios/{id}/roles — por eso ese rol pide un dato extra acá.
+  const sumandoRolDocente =
+    rolDocente !== undefined && !teniaRolDocente && seleccionados.has(rolDocente.id)
 
   function toggle(rolId: string) {
     setSeleccionados((prev) => {
@@ -96,8 +107,13 @@ function UsuarioRolesForm({
     const aQuitar = [...originales].filter((id) => !seleccionados.has(id))
 
     try {
+      if (sumandoRolDocente && rolDocente) {
+        await crearDocenteDesdeUsuario({ usuario_id: usuario.id, legajo: legajoDocente })
+      }
       await Promise.all([
-        ...aAgregar.map((rolId) => asignarRolAUsuario(usuario.id, rolId)),
+        ...aAgregar
+          .filter((rolId) => rolId !== rolDocente?.id)
+          .map((rolId) => asignarRolAUsuario(usuario.id, rolId)),
         ...aQuitar.map((rolId) => quitarRolAUsuario(usuario.id, rolId)),
       ])
       onGuardado()
@@ -122,20 +138,53 @@ function UsuarioRolesForm({
         </Alert>
       )}
 
+      {usuario.persona_id === null && (
+        <Alert className="mt-2">
+          <AlertDescription>
+            Esta cuenta no tiene una persona asociada: no se le puede sumar el rol docente desde
+            acá.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="mt-2 flex max-h-80 flex-col gap-2.5 overflow-y-auto">
-        {roles.map((rol) => (
-          <Label key={rol.id} className="flex items-center gap-2.5 font-normal">
-            <Checkbox checked={seleccionados.has(rol.id)} onCheckedChange={() => toggle(rol.id)} />
-            {rol.nombre}
-          </Label>
-        ))}
+        {roles.map((rol) => {
+          const esDocenteSinPersona =
+            rol.codigo === ROL_DOCENTE && !teniaRolDocente && usuario.persona_id === null
+          return (
+            <Label key={rol.id} className="flex items-center gap-2.5 font-normal">
+              <Checkbox
+                checked={seleccionados.has(rol.id)}
+                disabled={esDocenteSinPersona}
+                onCheckedChange={() => toggle(rol.id)}
+              />
+              {rol.nombre}
+            </Label>
+          )
+        })}
       </div>
+
+      {sumandoRolDocente && (
+        <div className="mt-3 flex flex-col gap-1.5">
+          <Label htmlFor="legajo-docente">Legajo del docente</Label>
+          <Input
+            id="legajo-docente"
+            value={legajoDocente}
+            onChange={(e) => setLegajoDocente(e.target.value)}
+            placeholder="Ej: DOC-000123"
+          />
+        </div>
+      )}
 
       <DialogFooter className="mt-6">
         <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
           Cancelar
         </Button>
-        <Button type="button" disabled={enviando} onClick={handleGuardar}>
+        <Button
+          type="button"
+          disabled={enviando || (sumandoRolDocente && legajoDocente.trim() === '')}
+          onClick={handleGuardar}
+        >
           Guardar cambios
         </Button>
       </DialogFooter>

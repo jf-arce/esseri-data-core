@@ -1,8 +1,30 @@
 import { apiClient } from '@/api/client'
-import type { Docente, DocenteCreate, DocenteUpdate } from '../types'
+import type {
+  AltaDocenteCreate,
+  Docente,
+  DocenteCreate,
+  DocenteDesdeUsuarioCreate,
+  DocenteUpdate,
+} from '../types'
 
 export function listarDocentes() {
   return apiClient<Docente[]>('/academico/docentes')
+}
+
+export function crearAltaDocente(datos: AltaDocenteCreate) {
+  return apiClient<Docente>('/academico/docentes/alta-completa', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datos),
+  })
+}
+
+export function crearDocenteDesdeUsuario(datos: DocenteDesdeUsuarioCreate) {
+  return apiClient<Docente>('/academico/docentes/desde-usuario', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datos),
+  })
 }
 
 export function obtenerDocente(id: string) {

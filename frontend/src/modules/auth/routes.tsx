@@ -1,10 +1,16 @@
 import type { RouteObject } from 'react-router'
 import { Navigate } from 'react-router'
 import { PermisoRoute } from '@/router/permiso-route'
-import { PERMISO_AUTENTICACION_LEER } from '@/modules/auth/constants'
+import {
+  PERMISO_AUTENTICACION_ACTUALIZAR,
+  PERMISO_AUTENTICACION_CREAR,
+  PERMISO_AUTENTICACION_LEER,
+} from '@/modules/auth/constants'
 import { LoginPage } from './pages/login-page'
 import { UsuariosRolesPage } from './pages/usuarios-roles-page'
 import { UsuariosPage } from './pages/usuarios-page'
+import { UsuarioAltaPage } from './pages/usuario-alta-page'
+import { UsuarioEdicionPage } from './pages/usuario-edicion-page'
 import { RolesPage } from './pages/roles-page'
 import { PermisosPage } from './pages/permisos-page'
 import { MatrizPermisosPage } from './pages/matriz-permisos-page'
@@ -29,6 +35,23 @@ export const authPrivateRoutes: RouteObject[] = [
           { path: 'roles', element: <RolesPage /> },
           { path: 'permisos', element: <PermisosPage /> },
           { path: 'matriz', element: <MatrizPermisosPage /> },
+        ],
+      },
+      {
+        element: (
+          <PermisoRoute codigo={PERMISO_AUTENTICACION_CREAR} label="Autenticación · Crear" />
+        ),
+        children: [{ path: 'usuarios-roles/usuarios/nuevo', element: <UsuarioAltaPage /> }],
+      },
+      {
+        element: (
+          <PermisoRoute
+            codigo={PERMISO_AUTENTICACION_ACTUALIZAR}
+            label="Autenticación · Actualizar"
+          />
+        ),
+        children: [
+          { path: 'usuarios-roles/usuarios/:usuarioId/editar', element: <UsuarioEdicionPage /> },
         ],
       },
     ],

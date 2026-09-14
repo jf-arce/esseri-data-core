@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.academico.models import Anio, Division, NivelEducativo
-from src.auth import service as auth_service
+from src.auth import usuarios_service as auth_usuarios_service
 from src.familias_alumnos.exceptions import (
     AlumnoConVinculos,
     FamiliaConVinculos,
@@ -70,7 +70,7 @@ def crear_alta_familia(
 
     # `crear_cuenta` levanta EmailRegistrado (AppException, 409) si el email ya existe, y
     # ValueError si el rol familia no existe todavía (el router ya sabe traducir eso a 409).
-    auth_service.crear_cuenta(
+    auth_usuarios_service.crear_cuenta(
         db,
         persona=persona,
         email=datos.usuario.email,

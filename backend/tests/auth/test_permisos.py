@@ -1,6 +1,6 @@
-"""Autorización por permisos (RF-30): el núcleo es `service.tiene_permiso`."""
+"""Autorización por permisos (RF-30): el núcleo es `autorizacion_service.tiene_permiso`."""
 
-from src.auth import service
+from src.auth import autorizacion_service
 from src.auth.constants import (
     MODULO_ACADEMICO,
     MODULO_AUTENTICACION,
@@ -22,14 +22,14 @@ def login(client, usuario):
 
 class TestTienePermiso:
     def test_usuario_sin_roles_no_tiene_ningun_permiso(self, db_session, usuario_local):
-        assert not service.tiene_permiso(db_session, usuario_local.id, ACADEMICO_LEER)
+        assert not autorizacion_service.tiene_permiso(db_session, usuario_local.id, ACADEMICO_LEER)
 
     def test_permiso_exacto_habilita(self, db_session, usuario_local, rol_con_permisos):
         rol = rol_con_permisos("docente de prueba", [(MODULO_ACADEMICO, "leer")])
         db_session.add(UsuarioRol(usuario_id=usuario_local.id, rol_id=rol.id))
         db_session.commit()
 
-        assert service.tiene_permiso(db_session, usuario_local.id, ACADEMICO_LEER)
+        assert autorizacion_service.tiene_permiso(db_session, usuario_local.id, ACADEMICO_LEER)
 
     def test_otro_modulo_u_otra_accion_no_habilita(
         self, db_session, usuario_local, rol_con_permisos
@@ -38,8 +38,12 @@ class TestTienePermiso:
         db_session.add(UsuarioRol(usuario_id=usuario_local.id, rol_id=rol.id))
         db_session.commit()
 
-        assert not service.tiene_permiso(db_session, usuario_local.id, ACADEMICO_ACTUALIZAR)
-        assert not service.tiene_permiso(db_session, usuario_local.id, PERMISO_AUTENTICACION_LEER)
+        assert not autorizacion_service.tiene_permiso(
+            db_session, usuario_local.id, ACADEMICO_ACTUALIZAR
+        )
+        assert not autorizacion_service.tiene_permiso(
+            db_session, usuario_local.id, PERMISO_AUTENTICACION_LEER
+        )
 
     def test_dos_roles_donde_solo_uno_habilita_gana_el_mas_permisivo(
         self, db_session, usuario_local, rol_con_permisos
@@ -50,7 +54,7 @@ class TestTienePermiso:
         db_session.add(UsuarioRol(usuario_id=usuario_local.id, rol_id=rol_con_permiso.id))
         db_session.commit()
 
-        assert service.tiene_permiso(db_session, usuario_local.id, ACADEMICO_LEER)
+        assert autorizacion_service.tiene_permiso(db_session, usuario_local.id, ACADEMICO_LEER)
 
     def test_tipo_informacion_none_pedido_lo_satisface_cualquier_permiso_del_modulo(
         self, db_session, usuario_local, rol_con_permisos
@@ -59,7 +63,7 @@ class TestTienePermiso:
         db_session.add(UsuarioRol(usuario_id=usuario_local.id, rol_id=rol.id))
         db_session.commit()
 
-        assert service.tiene_permiso(db_session, usuario_local.id, ACADEMICO_LEER)
+        assert autorizacion_service.tiene_permiso(db_session, usuario_local.id, ACADEMICO_LEER)
 
     def test_permiso_amplio_null_satisface_un_pedido_con_tipo_informacion(
         self, db_session, usuario_local, rol_con_permisos
@@ -68,7 +72,9 @@ class TestTienePermiso:
         db_session.add(UsuarioRol(usuario_id=usuario_local.id, rol_id=rol.id))
         db_session.commit()
 
-        assert service.tiene_permiso(db_session, usuario_local.id, ACADEMICO_LEER_DATOS_MEDICOS)
+        assert autorizacion_service.tiene_permiso(
+            db_session, usuario_local.id, ACADEMICO_LEER_DATOS_MEDICOS
+        )
 
     def test_permiso_de_un_tipo_no_satisface_pedido_de_otro_tipo(
         self, db_session, usuario_local, rol_con_permisos
@@ -77,7 +83,7 @@ class TestTienePermiso:
         db_session.add(UsuarioRol(usuario_id=usuario_local.id, rol_id=rol.id))
         db_session.commit()
 
-        assert not service.tiene_permiso(
+        assert not autorizacion_service.tiene_permiso(
             db_session, usuario_local.id, ACADEMICO_LEER_DATOS_DISCIPLINARIOS
         )
 

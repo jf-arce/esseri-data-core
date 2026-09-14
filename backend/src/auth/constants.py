@@ -170,3 +170,12 @@ PERMISO_PROVEEDORES_COMPRAS_EXPORTAR = codigo_de(MODULO_PROVEEDORES_COMPRAS, ACC
 PERMISO_AUDITORIA_LEER = codigo_de(MODULO_AUDITORIA, ACCION_LEER)
 
 PERMISO_PANEL_ADMIN_LEER = codigo_de(MODULO_PANEL_ADMIN, ACCION_LEER)
+
+# --- Estado de cuenta y proveedor de acceso ----------------------------------------------
+# Usados por varios de los servicios de auth (sesion/usuarios) y por `dependencies.py`.
+
+ESTADO_ACTIVO = "activo"
+ESTADO_INACTIVO = "inactivo"
+
+PROVIDER_GOOGLE = "google"
+PROVIDER_LOCAL = "local"

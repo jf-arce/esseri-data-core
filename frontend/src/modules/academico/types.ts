@@ -1,3 +1,5 @@
+import type { AccesoCreate, PersonaCreate } from '@/modules/auth/types'
+
 export type NivelEducativo = {
   id: string
   nombre: string
@@ -91,6 +93,19 @@ export type DocenteCreate = {
 export type DocenteUpdate = {
   legajo?: string
   persona_id?: string
+}
+
+/** Alta de un docente nuevo: crea Persona + Usuario (rol docente) + Docente juntos. */
+export type AltaDocenteCreate = {
+  persona: PersonaCreate
+  acceso: AccesoCreate
+  legajo: string
+}
+
+/** Suma el rol docente (y su ficha) a una cuenta que ya existe. */
+export type DocenteDesdeUsuarioCreate = {
+  usuario_id: string
+  legajo: string
 }
 
 /** Una división asignada al docente autenticado (GET /academico/docentes/me/divisiones). */

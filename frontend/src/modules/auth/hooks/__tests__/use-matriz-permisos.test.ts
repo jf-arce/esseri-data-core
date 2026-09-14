@@ -20,8 +20,18 @@ const mockedGetPermisosDeRol = vi.mocked(getPermisosDeRol)
 const mockedAsignar = vi.mocked(asignarPermisoARol)
 const mockedQuitar = vi.mocked(quitarPermisoARol)
 
-const rolDocente: Rol = { id: 'rol-docente', nombre: 'docente', descripcion: null }
-const rolFamilia: Rol = { id: 'rol-familia', nombre: 'familia', descripcion: null }
+const rolDocente: Rol = {
+  id: 'rol-docente',
+  codigo: 'docente',
+  nombre: 'docente',
+  descripcion: null,
+}
+const rolFamilia: Rol = {
+  id: 'rol-familia',
+  codigo: 'familia',
+  nombre: 'familia',
+  descripcion: null,
+}
 
 const permisoLeer: Permiso = {
   id: 'permiso-leer',

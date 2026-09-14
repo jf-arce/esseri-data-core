@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router'
 import { MoreHorizontalIcon, Trash2Icon, UserPlusIcon } from 'lucide-react'
 import { ApiError } from '@/api/client'
+import { BackLink } from '@/components/back-link'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -82,6 +83,8 @@ export function AlumnoFichaPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      <BackLink to="/familias-alumnos/alumnos" label="Volver a Alumnos" />
+
       <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
         Familias y alumnos
       </p>
@@ -108,14 +111,6 @@ export function AlumnoFichaPage() {
             Dar de baja
           </Button>
         </div>
-      </div>
-
-      <div className="flex items-center gap-1.5 text-sm text-texto-2">
-        <Link to="/familias-alumnos" className="hover:text-texto">
-          Alumnos
-        </Link>
-        <span className="text-desactivado">/</span>
-        <span className="font-semibold text-texto">{tituloAlumno}</span>
       </div>
 
       <Tabs defaultValue="datos">

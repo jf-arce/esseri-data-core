@@ -3,7 +3,7 @@
 import pytest
 
 from src.academico.models import Docente
-from src.auth import service
+from src.auth import sesion_service
 from src.auth.models import Rol, Usuario, UsuarioRol
 from src.models import Persona
 
@@ -18,7 +18,7 @@ def usuario_docente(db_session):
     db_session.flush()
     usuario = Usuario(
         email="cuenta-existente@esseri.edu.ar",
-        password_hash=service.hashear_password("una-contrasenia-larga"),
+        password_hash=sesion_service.hashear_password("una-contrasenia-larga"),
         auth_provider="local",
         estado="activo",
         persona_id=persona.id,
