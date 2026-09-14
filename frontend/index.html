@@ -5,6 +5,18 @@
     <link rel="icon" type="image/png" href="/esseri-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ESSERI Data Core</title>
+    <script>
+      ;(() => {
+        try {
+          const theme = localStorage.getItem('esseri-theme') === 'dark' ? 'dark' : 'light'
+          document.documentElement.classList.toggle('dark', theme === 'dark')
+          document.documentElement.dataset.theme = theme
+          document.documentElement.style.colorScheme = theme
+        } catch {
+          // El navegador puede bloquear localStorage. En ese caso se conserva el tema claro.
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

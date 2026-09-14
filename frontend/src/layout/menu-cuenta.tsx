@@ -1,4 +1,12 @@
-import { CheckIcon, ChevronDownIcon, LogOut, UserIcon } from 'lucide-react'
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  LogOut,
+  MonitorIcon,
+  MoonIcon,
+  SunIcon,
+  UserIcon,
+} from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -8,7 +16,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { rutaInicioDe } from '@/layout/nav-items'
@@ -21,6 +34,7 @@ import {
   nombreDeUsuario,
 } from '@/modules/auth/utils'
 import { useAuthStore } from '@/store/auth-store'
+import { useUiStore } from '@/store/ui-store'
 
 // Menú del avatar (§8.1 DESIGN.md), compartido por los dos shells (Consola y Portal): cabecera
 // con rol activo, "Cambiar vista" (solo si la cuenta tiene más de un rol), "Mi cuenta" y
@@ -30,6 +44,8 @@ export function MenuCuenta() {
   const rolActivo = useAuthStore((state) => state.rolActivo)
   const setRolActivo = useAuthStore((state) => state.setRolActivo)
   const clearSesion = useAuthStore((state) => state.clearSesion)
+  const themePreference = useUiStore((state) => state.themePreference)
+  const setThemePreference = useUiStore((state) => state.setThemePreference)
   const navigate = useNavigate()
   const [cambiarVistaAbierto, setCambiarVistaAbierto] = useState(false)
 
@@ -163,6 +179,32 @@ export function MenuCuenta() {
           <UserIcon />
           Mi cuenta
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <MonitorIcon />
+            Tema
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="min-w-44">
+            <DropdownMenuRadioGroup
+              value={themePreference}
+              onValueChange={(preference) => {
+                if (preference === 'light' || preference === 'dark') {
+                  setThemePreference(preference)
+                }
+              }}
+            >
+              <DropdownMenuRadioItem value="light">
+                <SunIcon />
+                Claro
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="dark">
+                <MoonIcon />
+                Oscuro
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={cerrarSesion}>
           <LogOut />

@@ -12,7 +12,9 @@ Es una superficie de **producto**, no de marketing: una herramienta de uso inter
 
 ## 2. Color
 
-Modo claro únicamente. Nunca `#000000` ni `#FFFFFF` puros: todo neutro de este sistema lleva un tinte violáceo (hue ≈300 en OKLCH), para que la interfaz se lea como una sola familia y no como grises de sistema operativo.
+El sistema ofrece tema claro y oscuro. Claro es el valor predeterminado y la elección se conserva por navegador; el tema guardado se aplica antes del primer render para evitar un destello de color incorrecto. Nunca `#000000` ni `#FFFFFF` puros: todo neutro de este sistema lleva un tinte violáceo (hue ≈300 en OKLCH), para que la interfaz se lea como una sola familia y no como grises de sistema operativo.
+
+Los tokens semánticos se redefinen en `.dark` dentro de `frontend/src/index.css`; las pantallas y componentes usan exclusivamente esos tokens, sin variantes `dark:` ni colores fijos. El selector de tema vive en el menú de cuenta y ofrece "Claro" y "Oscuro" como opciones de radio accesibles.
 
 ### 2.1 Superficies (tres capas neutras + superficies de módulo)
 

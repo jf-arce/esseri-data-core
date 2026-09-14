@@ -6,13 +6,14 @@ import {
   OctagonXIcon,
   Loader2Icon,
 } from 'lucide-react'
+import { useUiStore } from '@/store/ui-store'
 
-// Snackbar (§9.9): confirmación o fallo de una acción puntual, abajo a la izquierda, apilable.
-// Modo claro únicamente (§2): sin next-themes, no hay nada que alternar.
 const Toaster = ({ ...props }: ToasterProps) => {
+  const themePreference = useUiStore((state) => state.themePreference)
+
   return (
     <Sonner
-      theme="light"
+      theme={themePreference}
       position="bottom-left"
       className="toaster group"
       richColors={false}
