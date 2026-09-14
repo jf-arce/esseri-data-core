@@ -114,9 +114,7 @@ describe('UsuarioEdicionPage', () => {
     await user.type(screen.getByLabelText(/nueva contraseña/i), 'corta')
     await user.click(screen.getByRole('button', { name: /actualizar acceso/i }))
 
-    expect(
-      await screen.findByText(/al menos 12 caracteres/i),
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/al menos 12 caracteres/i)).toBeInTheDocument()
     expect(mockedActualizarAccesoUsuario).not.toHaveBeenCalled()
   })
 })

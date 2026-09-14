@@ -253,54 +253,57 @@ function useBusquedaGlobal(
         ? listarFacturas({ buscar: consulta, pagina: 1, tamanio: 5 }, controller.signal)
         : Promise.resolve({ items: [] }),
       puedeVerUsuarios
-        ? (usuariosCache.current
-            ? Promise.resolve(usuariosCache.current)
-            : getUsuarios().then((datos) => {
-                usuariosCache.current = datos
-                return datos
-              }))
+        ? usuariosCache.current
+          ? Promise.resolve(usuariosCache.current)
+          : getUsuarios().then((datos) => {
+              usuariosCache.current = datos
+              return datos
+            })
         : Promise.resolve([]),
-    ]).then(([resultadoInscripciones, resultadoAdmisiones, resultadoFacturas, resultadoUsuarios]) => {
-      if (controller.signal.aborted) return
-      const inscripciones =
-        resultadoInscripciones.status === 'fulfilled' ? resultadoInscripciones.value.items : []
-      const admisiones =
-        resultadoAdmisiones.status === 'fulfilled' ? resultadoAdmisiones.value.items : []
-      const facturas = resultadoFacturas.status === 'fulfilled' ? resultadoFacturas.value.items : []
-      const usuarios = resultadoUsuarios.status === 'fulfilled' ? resultadoUsuarios.value : []
-      const coincidenciasFactura = facturas.map((factura) => ({
-        id: factura.id,
-        etiqueta: `Factura #${factura.id.slice(0, 8)}`,
-        detalle: `${factura.estado} · ${factura.monto_total}`,
-      }))
-      const coincidenciasUsuario = filtrarYOrdenarUsuarios(usuarios, {
-        busqueda: consulta,
-        estado: 'todos',
-        roles: [],
-        orden: 'nombre-asc',
-      })
-        .slice(0, 5)
-        .map((usuario) => ({
-          id: usuario.id,
-          etiqueta: nombreVisibleDeUsuario(usuario),
-          detalle: usuario.email,
+    ]).then(
+      ([resultadoInscripciones, resultadoAdmisiones, resultadoFacturas, resultadoUsuarios]) => {
+        if (controller.signal.aborted) return
+        const inscripciones =
+          resultadoInscripciones.status === 'fulfilled' ? resultadoInscripciones.value.items : []
+        const admisiones =
+          resultadoAdmisiones.status === 'fulfilled' ? resultadoAdmisiones.value.items : []
+        const facturas =
+          resultadoFacturas.status === 'fulfilled' ? resultadoFacturas.value.items : []
+        const usuarios = resultadoUsuarios.status === 'fulfilled' ? resultadoUsuarios.value : []
+        const coincidenciasFactura = facturas.map((factura) => ({
+          id: factura.id,
+          etiqueta: `Factura #${factura.id.slice(0, 8)}`,
+          detalle: `${factura.estado} · ${factura.monto_total}`,
         }))
-      setResultado({
-        clave,
-        inscripciones: inscripciones.map((inscripcion) => ({
-          id: inscripcion.id,
-          etiqueta: `${inscripcion.alumno_apellido}, ${inscripcion.alumno_nombre}`,
-          detalle: `${inscripcion.numero_legajo} · ${inscripcion.division_nombre}`,
-        })),
-        admisiones: admisiones.map((admision) => ({
-          id: admision.id,
-          etiqueta: `${admision.aspirante_apellido}, ${admision.aspirante_nombre}`,
-          detalle: `${admision.etapa.replaceAll('_', ' ')} · ${admision.ciclo_lectivo}`,
-        })),
-        facturas: coincidenciasFactura,
-        usuarios: coincidenciasUsuario,
-      })
-    })
+        const coincidenciasUsuario = filtrarYOrdenarUsuarios(usuarios, {
+          busqueda: consulta,
+          estado: 'todos',
+          roles: [],
+          orden: 'nombre-asc',
+        })
+          .slice(0, 5)
+          .map((usuario) => ({
+            id: usuario.id,
+            etiqueta: nombreVisibleDeUsuario(usuario),
+            detalle: usuario.email,
+          }))
+        setResultado({
+          clave,
+          inscripciones: inscripciones.map((inscripcion) => ({
+            id: inscripcion.id,
+            etiqueta: `${inscripcion.alumno_apellido}, ${inscripcion.alumno_nombre}`,
+            detalle: `${inscripcion.numero_legajo} · ${inscripcion.division_nombre}`,
+          })),
+          admisiones: admisiones.map((admision) => ({
+            id: admision.id,
+            etiqueta: `${admision.aspirante_apellido}, ${admision.aspirante_nombre}`,
+            detalle: `${admision.etapa.replaceAll('_', ' ')} · ${admision.ciclo_lectivo}`,
+          })),
+          facturas: coincidenciasFactura,
+          usuarios: coincidenciasUsuario,
+        })
+      },
+    )
 
     return () => controller.abort()
   }, [consulta, puedeVerInscripciones, puedeVerFacturas, puedeVerUsuarios])
@@ -355,7 +358,10 @@ export function GlobalSearchDialog({
   const hayResultadosDeBusqueda =
     consulta.length >= MINIMO_CARACTERES &&
     !buscando &&
-    (inscripciones.length > 0 || admisiones.length > 0 || facturas.length > 0 || usuarios.length > 0)
+    (inscripciones.length > 0 ||
+      admisiones.length > 0 ||
+      facturas.length > 0 ||
+      usuarios.length > 0)
 
   function irA(ruta: string) {
     manejarCambioAbierto(false)

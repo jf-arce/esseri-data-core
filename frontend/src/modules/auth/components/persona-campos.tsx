@@ -34,11 +34,7 @@ export function PersonaCampos({
       </Field>
       <Field>
         <FieldLabel htmlFor="apellido">Apellido</FieldLabel>
-        <Input
-          id="apellido"
-          value={apellido}
-          onChange={(e) => onApellidoChange(e.target.value)}
-        />
+        <Input id="apellido" value={apellido} onChange={(e) => onApellidoChange(e.target.value)} />
         <FieldError errors={errors.apellido ? [{ message: errors.apellido }] : undefined} />
       </Field>
       <Field>

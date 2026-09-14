@@ -156,7 +156,13 @@ describe('GlobalSearchDialog', () => {
         roles: ['secretaría'],
         permisos: sinCrear,
         perfiles: [
-          { id: 'secretaria', codigo: 'secretaria', nombre: 'secretaría', descripcion: null, permisos: sinCrear },
+          {
+            id: 'secretaria',
+            codigo: 'secretaria',
+            nombre: 'secretaría',
+            descripcion: null,
+            permisos: sinCrear,
+          },
         ],
         rol_activo: 'secretaria',
       },

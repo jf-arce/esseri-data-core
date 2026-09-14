@@ -48,9 +48,7 @@ export function UsuariosPage() {
   const [pagina, setPagina] = useState(0)
 
   const [usuarioEditandoRoles, setUsuarioEditandoRoles] = useState<UsuarioConRoles | null>(null)
-  const [usuarioCambiandoEstado, setUsuarioCambiandoEstado] = useState<UsuarioConRoles | null>(
-    null,
-  )
+  const [usuarioCambiandoEstado, setUsuarioCambiandoEstado] = useState<UsuarioConRoles | null>(null)
   const [usuarioAEliminar, setUsuarioAEliminar] = useState<UsuarioConRoles | null>(null)
 
   const filtrados = useMemo(

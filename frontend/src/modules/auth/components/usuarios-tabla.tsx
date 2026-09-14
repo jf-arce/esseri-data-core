@@ -189,7 +189,10 @@ function UsuariosTabla({
                             )}
                             {usuario.estado === 'activo' ? 'Dar de baja' : 'Reactivar'}
                           </DropdownMenuItem>
-                          <DropdownMenuItem variant="destructive" onSelect={() => onEliminar(usuario)}>
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onSelect={() => onEliminar(usuario)}
+                          >
                             <Trash2Icon />
                             Eliminar definitivamente
                           </DropdownMenuItem>
