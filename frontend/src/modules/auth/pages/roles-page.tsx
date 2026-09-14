@@ -1,5 +1,6 @@
 import { MoreHorizontalIcon, PencilIcon, PlusIcon, ShieldCheckIcon, Trash2Icon } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -42,12 +43,19 @@ const OPCIONES_ORDEN: { value: OrdenRoles; label: string }[] = [
 
 export function RolesPage() {
   const { datos: roles, cargando, error, recargar } = useRoles()
-  const [dialogoAbierto, setDialogoAbierto] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  // El buscador global (Cmd/Ctrl+K → "Nuevo rol") linkea acá con `?crear=1` para abrir el
+  // diálogo de alta directo, ya que el rol no tiene una ruta de alta propia.
+  const [dialogoAbierto, setDialogoAbierto] = useState(() => searchParams.get('crear') === '1')
   const [rolEditando, setRolEditando] = useState<Rol | null>(null)
   const [rolAEliminar, setRolAEliminar] = useState<Rol | null>(null)
 
   const [busqueda, setBusqueda] = useState('')
   const [orden, setOrden] = useState<OrdenRoles>('nombre-asc')
+
+  useEffect(() => {
+    if (searchParams.get('crear') === '1') setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams])
 
   const filtrados = useMemo(
     () => filtrarYOrdenarRoles(roles, { busqueda, orden }),
