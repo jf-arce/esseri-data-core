@@ -286,33 +286,41 @@ export function PortalFamiliaTramitePage({
         Volver al inicio
       </Link>
       <header>
-        <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
-          Portal de familia
-        </p>
-        <h1 className="mt-1 font-heading text-2xl font-semibold text-texto">{titulo}</h1>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
+              Portal de familia
+            </p>
+            <h1 className="mt-1 font-heading text-2xl font-semibold text-texto">{titulo}</h1>
+          </div>
+          {esJustificacion && alumnos.length > 0 && (
+            <label className="w-full text-sm font-semibold sm:w-56">
+              Alumno
+              <select
+                className="mt-1 block w-full rounded-lg border border-borde bg-superficie p-2"
+                value={alumnoSeleccionado}
+                onChange={(e) => setAlumnoId(e.target.value)}
+              >
+                {alumnos.map((alumno) => (
+                  <option key={alumno.alumno_id} value={alumno.alumno_id}>
+                    {alumno.nombre} {alumno.apellido}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
       </header>
       <Card>
-        <CardHeader>
-          <CardTitle>{titulo}</CardTitle>
-          <CardDescription>{descripcion}</CardDescription>
-        </CardHeader>
+        {!esAsistencias && (
+          <CardHeader>
+            <CardTitle>{titulo}</CardTitle>
+            <CardDescription>{descripcion}</CardDescription>
+          </CardHeader>
+        )}
         <CardContent>
           {esJustificacion && alumnos.length > 0 ? (
             <div className="flex flex-col gap-4">
-              <label className="text-sm font-semibold">
-                Alumno
-                <select
-                  className="mt-1 block w-full rounded-lg border border-borde bg-superficie p-2"
-                  value={alumnoSeleccionado}
-                  onChange={(e) => setAlumnoId(e.target.value)}
-                >
-                  {alumnos.map((alumno) => (
-                    <option key={alumno.alumno_id} value={alumno.alumno_id}>
-                      {alumno.nombre} {alumno.apellido}
-                    </option>
-                  ))}
-                </select>
-              </label>
               <div
                 role="tablist"
                 aria-label="Sección de asistencias"
