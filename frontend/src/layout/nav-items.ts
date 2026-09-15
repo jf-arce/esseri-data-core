@@ -4,10 +4,12 @@ import {
   CalendarCheck,
   ClipboardCheck,
   ClipboardList,
+  DownloadIcon,
   Grid3x3Icon,
   GraduationCap,
   BookOpenIcon,
   HandCoinsIcon,
+  HistoryIcon,
   IdCardIcon,
   KeyRoundIcon,
   Landmark,
@@ -24,6 +26,7 @@ import {
 } from 'lucide-react'
 import {
   PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
+  PERMISO_ACADEMICO_EXPORTAR,
   PERMISO_ACADEMICO_LEER,
   PERMISO_AUTENTICACION_LEER,
   PERMISO_FACTURACION_LEER,
@@ -143,6 +146,22 @@ export const NAV_GROUPS: NavGroup[] = [
             href: '/academico/asistencia',
             icon: CalendarCheck,
             permiso: PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
+          },
+          {
+            // RF-05/RF-06: mismo permiso que la landing del módulo (el padre), no el tipado de
+            // asistencia — es de solo lectura.
+            label: 'Historial de asistencia',
+            href: '/academico/historial-asistencia',
+            icon: HistoryIcon,
+            permiso: PERMISO_ACADEMICO_LEER,
+          },
+          {
+            // RF-37: permiso propio (`academico.exportar`), lo tiene dirección — no depende de
+            // `actualizar` de ningún tipo, así que ni secretaría ni un docente ven este ítem.
+            label: 'Exportar asistencias',
+            href: '/academico/exportar-asistencias',
+            icon: DownloadIcon,
+            permiso: PERMISO_ACADEMICO_EXPORTAR,
           },
         ],
       },

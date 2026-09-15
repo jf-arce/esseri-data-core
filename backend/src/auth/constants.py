@@ -150,6 +150,9 @@ PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA = codigo_de(
 PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA = codigo_de(
     MODULO_ACADEMICO, ACCION_ACTUALIZAR, "estructura"
 )
+# RF-37: exportación del historial de asistencias. Sin tipo — a diferencia de `actualizar`, acá
+# no hace falta separar "asistencia" de "estructura": lo único exportable hoy es asistencia.
+PERMISO_ACADEMICO_EXPORTAR = codigo_de(MODULO_ACADEMICO, ACCION_EXPORTAR)
 
 PERMISO_INSCRIPCIONES_CREAR = codigo_de(MODULO_INSCRIPCIONES, ACCION_CREAR)
 PERMISO_INSCRIPCIONES_LEER = codigo_de(MODULO_INSCRIPCIONES, ACCION_LEER)

@@ -2,11 +2,14 @@ import type { RouteObject } from 'react-router'
 import { PermisoRoute } from '@/router/permiso-route'
 import {
   PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
+  PERMISO_ACADEMICO_EXPORTAR,
   PERMISO_ACADEMICO_LEER,
 } from '@/modules/auth/constants'
 import { EstructuraAcademicaPage } from './pages/estructura-academica-page'
 import { AsignacionesDocentesPage } from './pages/asignaciones-docentes-page'
 import { AsistenciaDivisionPage } from './pages/asistencia-division-page'
+import { HistorialAsistenciaPage } from './pages/historial-asistencia-page'
+import { ExportarAsistenciasPage } from './pages/exportar-asistencias-page'
 
 export const academicoRoutes: RouteObject[] = [
   {
@@ -28,6 +31,13 @@ export const academicoRoutes: RouteObject[] = [
             path: 'asignaciones',
             element: <AsignacionesDocentesPage />,
           },
+          {
+            // RF-05/RF-06: mismo permiso de lectura que el resto de este grupo. El scoping por
+            // división de un docente (`verificar_acceso_a_division`) lo resuelve el backend en
+            // cada request, no esta ruta.
+            path: 'historial-asistencia',
+            element: <HistorialAsistenciaPage />,
+          },
         ],
       },
     ],
@@ -43,5 +53,12 @@ export const academicoRoutes: RouteObject[] = [
       />
     ),
     children: [{ path: 'academico/asistencia', element: <AsistenciaDivisionPage /> }],
+  },
+  {
+    // RF-37: permiso propio, sin tipo -- lo tiene dirección (visión completa, sin
+    // `actualizar` de ningún tipo), no un docente ni secretaría/coordinación (que operan el
+    // día a día pero no exportan reportes institucionales).
+    element: <PermisoRoute codigo={PERMISO_ACADEMICO_EXPORTAR} label="Académico · Exportar" />,
+    children: [{ path: 'academico/exportar-asistencias', element: <ExportarAsistenciasPage /> }],
   },
 ]
