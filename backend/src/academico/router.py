@@ -112,7 +112,6 @@ from src.academico.service import (
     listar_divisiones,
     listar_divisiones_por_anio,
     listar_docentes,
-    listar_justificaciones_pendientes,
     listar_materias,
     listar_materias_por_anio,
     listar_materias_por_division,
@@ -133,9 +132,49 @@ from src.auth.constants import (
 from src.auth.dependencies import RolActivo, UsuarioAutenticado, requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
-from src.inscripciones.models import Asistencia
+from src.familias_alumnos.models import Alumno
+from src.inscripciones.models import Asistencia, Inscripcion
+from src.models import Persona
 
 router = APIRouter(prefix="/academico", tags=["academico"])
+
+
+def _contexto_justificacion(db: Session, justificacion_id: uuid.UUID):
+    return (
+        db.query(Asistencia.fecha, Persona.nombre, Persona.apellido)
+        .join(
+            JustificacionInasistencia,
+            JustificacionInasistencia.asistencia_id == Asistencia.id,
+        )
+        .join(Inscripcion, Inscripcion.id == Asistencia.inscripcion_id)
+        .join(Alumno, Alumno.id == Inscripcion.alumno_id)
+        .join(Persona, Persona.id == Alumno.persona_id)
+        .filter(JustificacionInasistencia.id == justificacion_id)
+        .first()
+    )
+
+
+def _respuesta_justificacion(
+    db: Session, justificacion: JustificacionInasistencia, contexto=None
+) -> JustificacionFamiliaResponse:
+    contexto = contexto or _contexto_justificacion(db, justificacion.id)
+    if contexto is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            "Asistencia de justificación no encontrada",
+        )
+    motivo = db.get(MotivoJustificacion, justificacion.motivo_justificacion_id)
+    return JustificacionFamiliaResponse(
+        id=justificacion.id,
+        asistencia_id=justificacion.asistencia_id,
+        fecha_asistencia=contexto[0],
+        alumno_nombre=f"{contexto[1]} {contexto[2]}",
+        estado=justificacion.estado,
+        motivo=motivo.nombre if motivo is not None else "Otro",
+        observacion=justificacion.observacion,
+        archivo_nombre=justificacion.archivo,
+        fecha_carga=justificacion.fecha_carga,
+    )
 
 
 # --- NivelEducativo ----------------------------------------------------------------------
@@ -681,15 +720,7 @@ def justificar_asistencia_familia(
         comprobante.content_type if comprobante is not None else None,
         contenido,
     )
-    return JustificacionFamiliaResponse(
-        id=justificacion.id,
-        asistencia_id=justificacion.asistencia_id,
-        estado=justificacion.estado,
-        motivo=motivo,
-        observacion=justificacion.observacion,
-        archivo_nombre=justificacion.archivo,
-        fecha_carga=justificacion.fecha_carga,
-    )
+    return _respuesta_justificacion(db, justificacion)
 
 
 @router.get("/justificaciones", response_model=list[JustificacionFamiliaResponse])
@@ -697,17 +728,24 @@ def listar_justificaciones_endpoint(
     _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[JustificacionFamiliaResponse]:
-    return [
-        JustificacionFamiliaResponse(
-            id=item.id,
-            asistencia_id=item.asistencia_id,
-            estado=item.estado,
-            motivo=db.get(MotivoJustificacion, item.motivo_justificacion_id).nombre,
-            observacion=item.observacion,
-            archivo_nombre=item.archivo,
-            fecha_carga=item.fecha_carga,
+    filas = (
+        db.query(
+            JustificacionInasistencia,
+            Asistencia.fecha,
+            Persona.nombre,
+            Persona.apellido,
         )
-        for item in listar_justificaciones_pendientes(db)
+        .join(Asistencia, JustificacionInasistencia.asistencia_id == Asistencia.id)
+        .join(Inscripcion, Inscripcion.id == Asistencia.inscripcion_id)
+        .join(Alumno, Alumno.id == Inscripcion.alumno_id)
+        .join(Persona, Persona.id == Alumno.persona_id)
+        .filter(JustificacionInasistencia.estado == "pendiente")
+        .order_by(JustificacionInasistencia.fecha_carga.asc())
+        .all()
+    )
+    return [
+        _respuesta_justificacion(db, item, (fecha, nombre, apellido))
+        for item, fecha, nombre, apellido in filas
     ]
 
 
@@ -725,15 +763,7 @@ def resolver_justificacion_endpoint(
     if justificacion is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Justificación no encontrada")
     resultado = resolver_justificacion(db, justificacion, datos.aprobar)
-    return JustificacionFamiliaResponse(
-        id=resultado.id,
-        asistencia_id=resultado.asistencia_id,
-        estado=resultado.estado,
-        motivo=db.get(MotivoJustificacion, resultado.motivo_justificacion_id).nombre,
-        observacion=resultado.observacion,
-        archivo_nombre=resultado.archivo,
-        fecha_carga=resultado.fecha_carga,
-    )
+    return _respuesta_justificacion(db, resultado)
 
 
 @router.get("/justificaciones/{justificacion_id}/archivo")

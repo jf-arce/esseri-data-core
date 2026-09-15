@@ -8,6 +8,8 @@ import { descargarExport } from '@/lib/descargar-export'
 type Justificacion = {
   id: string
   asistencia_id: string
+  fecha_asistencia: string
+  alumno_nombre: string
   motivo: string
   observacion: string | null
   archivo_nombre: string | null
@@ -39,7 +41,13 @@ export function JustificacionesPage() {
           {items.map((item) => (
             <div key={item.id} className="flex items-center gap-4 py-4">
               <div className="flex-1">
-                <p className="font-semibold">{item.motivo}</p>
+                <p className="font-semibold">{item.alumno_nombre}</p>
+                <p className="text-sm text-texto-2">
+                  {new Intl.DateTimeFormat('es-AR').format(
+                    new Date(`${item.fecha_asistencia}T00:00:00`),
+                  )}{' '}
+                  · {item.motivo}
+                </p>
                 <p className="text-sm text-texto-2">{item.observacion ?? 'Sin observación'}</p>
                 {item.archivo_nombre && (
                   <Button

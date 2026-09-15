@@ -253,6 +253,8 @@ class JustificacionFamiliaCreate(BaseModel):
 class JustificacionFamiliaResponse(BaseModel):
     id: uuid.UUID
     asistencia_id: uuid.UUID
+    fecha_asistencia: date
+    alumno_nombre: str
     estado: str
     motivo: str
     observacion: str | None
