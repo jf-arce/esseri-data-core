@@ -354,7 +354,7 @@ export function PortalFamiliaTramitePage({
                   <h2 className="mb-2 text-sm font-semibold text-texto">Resumen de asistencia</h2>
                   {asistencias.length > 0 ? (
                     <div className="grid gap-3 sm:grid-cols-3">
-                      <article className="rounded-card border border-borde border-l-4 border-l-exito bg-superficie p-4 shadow-card transition-shadow hover:shadow-overlay">
+                      <article className="rounded-card border border-borde bg-superficie p-4 shadow-card transition-shadow hover:shadow-overlay">
                         <div className="flex items-center justify-between gap-3">
                           <span className="flex size-9 items-center justify-center rounded-lg bg-exito-suave text-exito">
                             <CheckIcon className="size-5" aria-hidden="true" />
@@ -366,7 +366,7 @@ export function PortalFamiliaTramitePage({
                         </p>
                         <p className="mt-1 text-xs text-texto-3">Días presentes</p>
                       </article>
-                      <article className="rounded-card border border-borde border-l-4 border-l-error bg-superficie p-4 shadow-card transition-shadow hover:shadow-overlay">
+                      <article className="rounded-card border border-borde bg-superficie p-4 shadow-card transition-shadow hover:shadow-overlay">
                         <div className="flex items-center justify-between gap-3">
                           <span className="flex size-9 items-center justify-center rounded-lg bg-error-suave text-error">
                             <XIcon className="size-5" aria-hidden="true" />
@@ -381,7 +381,7 @@ export function PortalFamiliaTramitePage({
                           {resumenAsistencias.justificadas === 1 ? 'justificada' : 'justificadas'}
                         </p>
                       </article>
-                      <article className="rounded-card border border-borde border-l-4 border-l-advertencia bg-superficie p-4 shadow-card transition-shadow hover:shadow-overlay">
+                      <article className="rounded-card border border-borde bg-superficie p-4 shadow-card transition-shadow hover:shadow-overlay">
                         <div className="flex items-center justify-between gap-3">
                           <span className="flex size-9 items-center justify-center rounded-lg bg-advertencia-suave text-advertencia">
                             <ClockIcon className="size-5" aria-hidden="true" />
