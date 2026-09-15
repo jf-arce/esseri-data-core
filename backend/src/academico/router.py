@@ -54,6 +54,7 @@ from src.academico.schemas import (
     AsistenciaBulkCreate,
     AsistenciaBulkResponse,
     AsistenciaCreate,
+    AsistenciaFamiliaResponse,
     AsistenciaResponse,
     AsistenciaResumen,
     AsistenciaUpdate,
@@ -111,7 +112,6 @@ from src.academico.service import (
     listar_divisiones,
     listar_divisiones_por_anio,
     listar_docentes,
-    listar_justificaciones_pendientes,
     listar_materias,
     listar_materias_por_anio,
     listar_materias_por_division,
@@ -132,9 +132,49 @@ from src.auth.constants import (
 from src.auth.dependencies import RolActivo, UsuarioAutenticado, requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
-from src.inscripciones.models import Asistencia
+from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
+from src.inscripciones.models import Asistencia, Inscripcion
+from src.models import Persona
 
 router = APIRouter(prefix="/academico", tags=["academico"])
+
+
+def _contexto_justificacion(db: Session, justificacion_id: uuid.UUID):
+    return (
+        db.query(Asistencia.fecha, Persona.nombre, Persona.apellido)
+        .join(
+            JustificacionInasistencia,
+            JustificacionInasistencia.asistencia_id == Asistencia.id,
+        )
+        .join(Inscripcion, Inscripcion.id == Asistencia.inscripcion_id)
+        .join(Alumno, Alumno.id == Inscripcion.alumno_id)
+        .join(Persona, Persona.id == Alumno.persona_id)
+        .filter(JustificacionInasistencia.id == justificacion_id)
+        .first()
+    )
+
+
+def _respuesta_justificacion(
+    db: Session, justificacion: JustificacionInasistencia, contexto=None
+) -> JustificacionFamiliaResponse:
+    contexto = contexto or _contexto_justificacion(db, justificacion.id)
+    if contexto is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            "Asistencia de justificación no encontrada",
+        )
+    motivo = db.get(MotivoJustificacion, justificacion.motivo_justificacion_id)
+    return JustificacionFamiliaResponse(
+        id=justificacion.id,
+        asistencia_id=justificacion.asistencia_id,
+        fecha_asistencia=contexto[0],
+        alumno_nombre=f"{contexto[1]} {contexto[2]}",
+        estado=justificacion.estado,
+        motivo=motivo.nombre if motivo is not None else "Otro",
+        observacion=justificacion.observacion,
+        archivo_nombre=justificacion.archivo,
+        fecha_carga=justificacion.fecha_carga,
+    )
 
 
 # --- NivelEducativo ----------------------------------------------------------------------
@@ -628,14 +668,39 @@ def listar_asistencias_endpoint(
     )
 
 
-@router.get("/familia/alumnos/{alumno_id}/asistencias", response_model=list[AsistenciaResponse])
+@router.get(
+    "/familia/alumnos/{alumno_id}/asistencias",
+    response_model=list[AsistenciaFamiliaResponse],
+)
 def listar_asistencias_familia(
     alumno_id: uuid.UUID,
     usuario: UsuarioAutenticado,
     db: Session = Depends(get_db),  # noqa: B008
-) -> list[Asistencia]:
+) -> list[AsistenciaFamiliaResponse]:
     """Historial diario del alumno, limitado a la familia autenticada."""
-    return asistencias_de_familia(db, usuario, alumno_id)
+    respuestas = []
+    for detalle in asistencias_de_familia(db, usuario, alumno_id):
+        justificacion = detalle.justificacion
+        motivo = (
+            db.get(MotivoJustificacion, justificacion.motivo_justificacion_id)
+            if justificacion
+            else None
+        )
+        respuestas.append(
+            AsistenciaFamiliaResponse(
+                id=detalle.asistencia.id,
+                fecha=detalle.asistencia.fecha,
+                tipo=detalle.asistencia.tipo,
+                inscripcion_id=detalle.asistencia.inscripcion_id,
+                updated_at=detalle.asistencia.updated_at,
+                justificacion_id=justificacion.id if justificacion else None,
+                justificacion_estado=justificacion.estado if justificacion else None,
+                justificacion_motivo=motivo.nombre if motivo else None,
+                justificacion_observacion=justificacion.observacion if justificacion else None,
+                justificacion_archivo_nombre=justificacion.archivo if justificacion else None,
+            )
+        )
+    return respuestas
 
 
 @router.post(
@@ -662,15 +727,7 @@ def justificar_asistencia_familia(
         comprobante.content_type if comprobante is not None else None,
         contenido,
     )
-    return JustificacionFamiliaResponse(
-        id=justificacion.id,
-        asistencia_id=justificacion.asistencia_id,
-        estado=justificacion.estado,
-        motivo=motivo,
-        observacion=justificacion.observacion,
-        archivo_nombre=justificacion.archivo,
-        fecha_carga=justificacion.fecha_carga,
-    )
+    return _respuesta_justificacion(db, justificacion)
 
 
 @router.get("/justificaciones", response_model=list[JustificacionFamiliaResponse])
@@ -678,17 +735,24 @@ def listar_justificaciones_endpoint(
     _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[JustificacionFamiliaResponse]:
-    return [
-        JustificacionFamiliaResponse(
-            id=item.id,
-            asistencia_id=item.asistencia_id,
-            estado=item.estado,
-            motivo=db.get(MotivoJustificacion, item.motivo_justificacion_id).nombre,
-            observacion=item.observacion,
-            archivo_nombre=item.archivo,
-            fecha_carga=item.fecha_carga,
+    filas = (
+        db.query(
+            JustificacionInasistencia,
+            Asistencia.fecha,
+            Persona.nombre,
+            Persona.apellido,
         )
-        for item in listar_justificaciones_pendientes(db)
+        .join(Asistencia, JustificacionInasistencia.asistencia_id == Asistencia.id)
+        .join(Inscripcion, Inscripcion.id == Asistencia.inscripcion_id)
+        .join(Alumno, Alumno.id == Inscripcion.alumno_id)
+        .join(Persona, Persona.id == Alumno.persona_id)
+        .filter(JustificacionInasistencia.estado == "pendiente")
+        .order_by(JustificacionInasistencia.fecha_carga.asc())
+        .all()
+    )
+    return [
+        _respuesta_justificacion(db, item, (fecha, nombre, apellido))
+        for item, fecha, nombre, apellido in filas
     ]
 
 
@@ -705,16 +769,8 @@ def resolver_justificacion_endpoint(
     justificacion = db.get(JustificacionInasistencia, justificacion_id)
     if justificacion is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Justificación no encontrada")
-    resultado = resolver_justificacion(db, justificacion, datos.aprobar)
-    return JustificacionFamiliaResponse(
-        id=resultado.id,
-        asistencia_id=resultado.asistencia_id,
-        estado=resultado.estado,
-        motivo=db.get(MotivoJustificacion, resultado.motivo_justificacion_id).nombre,
-        observacion=resultado.observacion,
-        archivo_nombre=resultado.archivo,
-        fecha_carga=resultado.fecha_carga,
-    )
+    resultado = resolver_justificacion(db, justificacion, datos.aprobar, datos.observacion)
+    return _respuesta_justificacion(db, resultado)
 
 
 @router.get("/justificaciones/{justificacion_id}/archivo")
@@ -730,6 +786,40 @@ def descargar_archivo_justificacion(
     )
     if archivo is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "La justificación no tiene comprobante")
+    return Response(
+        content=archivo.contenido,
+        media_type=archivo.tipo_contenido,
+        headers={"Content-Disposition": f'attachment; filename="{archivo.nombre}"'},
+    )
+
+
+@router.get("/familia/justificaciones/{justificacion_id}/archivo")
+def descargar_archivo_justificacion_familia(
+    justificacion_id: uuid.UUID,
+    usuario: UsuarioAutenticado,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Response:
+    """Descarga un comprobante únicamente si pertenece a un alumno vinculado."""
+    familia = db.query(Familia).filter(Familia.persona_id == usuario.persona_id).first()
+    archivo = db.scalar(
+        select(ArchivoJustificacionInasistencia)
+        .join(
+            JustificacionInasistencia,
+            ArchivoJustificacionInasistencia.justificacion_id == JustificacionInasistencia.id,
+        )
+        .join(Asistencia, JustificacionInasistencia.asistencia_id == Asistencia.id)
+        .join(Inscripcion, Asistencia.inscripcion_id == Inscripcion.id)
+        .join(
+            FamiliaAlumno,
+            FamiliaAlumno.alumno_id == Inscripcion.alumno_id,
+        )
+        .where(
+            ArchivoJustificacionInasistencia.justificacion_id == justificacion_id,
+            FamiliaAlumno.familia_id == (familia.id if familia else None),
+        )
+    )
+    if archivo is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Comprobante no encontrado")
     return Response(
         content=archivo.contenido,
         media_type=archivo.tipo_contenido,

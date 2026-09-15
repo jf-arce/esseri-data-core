@@ -156,6 +156,12 @@ export const NAV_GROUPS: NavGroup[] = [
             permiso: PERMISO_ACADEMICO_LEER,
           },
           {
+            label: 'Justificaciones de asistencia',
+            href: '/academico/justificaciones',
+            icon: ClipboardList,
+            permiso: PERMISO_ACADEMICO_LEER,
+          },
+          {
             // RF-37: permiso propio (`academico.exportar`), lo tiene dirección — no depende de
             // `actualizar` de ningún tipo, así que ni secretaría ni un docente ven este ítem.
             label: 'Exportar asistencias',

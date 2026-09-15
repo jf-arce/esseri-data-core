@@ -93,6 +93,14 @@ TIPOS_COMPROBANTE_JUSTIFICACION_PERMITIDOS = {
 }
 
 
+@dataclass
+class AsistenciaFamiliaDetalle:
+    """Asistencia de un alumno vinculado y su justificación, si fue presentada."""
+
+    asistencia: Asistencia
+    justificacion: JustificacionInasistencia | None
+
+
 def _familia_del_usuario(db: Session, usuario: Usuario) -> Familia:
     familia = db.query(Familia).filter(Familia.persona_id == usuario.persona_id).first()
     if familia is None:
@@ -100,7 +108,9 @@ def _familia_del_usuario(db: Session, usuario: Usuario) -> Familia:
     return familia
 
 
-def asistencias_de_familia(db: Session, usuario: Usuario, alumno_id: uuid.UUID) -> list[Asistencia]:
+def asistencias_de_familia(
+    db: Session, usuario: Usuario, alumno_id: uuid.UUID
+) -> list[AsistenciaFamiliaDetalle]:
     familia = _familia_del_usuario(db, usuario)
     vinculo = (
         db.query(FamiliaAlumno)
@@ -109,13 +119,21 @@ def asistencias_de_familia(db: Session, usuario: Usuario, alumno_id: uuid.UUID) 
     )
     if vinculo is None:
         raise PermisoDenegado("No tenés acceso a este alumno")
-    return (
-        db.query(Asistencia)
+    registros = (
+        db.query(Asistencia, JustificacionInasistencia)
         .join(Inscripcion)
+        .outerjoin(
+            JustificacionInasistencia,
+            JustificacionInasistencia.asistencia_id == Asistencia.id,
+        )
         .filter(Inscripcion.alumno_id == alumno_id)
         .order_by(Asistencia.fecha.desc())
         .all()
     )
+    return [
+        AsistenciaFamiliaDetalle(asistencia=asistencia, justificacion=justificacion)
+        for asistencia, justificacion in registros
+    ]
 
 
 def justificar_asistencia_de_familia(
@@ -132,7 +150,7 @@ def justificar_asistencia_de_familia(
     if inscripcion is None:
         raise PermisoDenegado()
     asistencias_propias = asistencias_de_familia(db, usuario, inscripcion.alumno_id)
-    if not any(registro.id == asistencia.id for registro in asistencias_propias):
+    if not any(registro.asistencia.id == asistencia.id for registro in asistencias_propias):
         raise PermisoDenegado("No tenés acceso a esta ausencia")
     if asistencia.tipo != "ausente_pendiente":
         raise HTTPException(status.HTTP_409_CONFLICT, "Solo podés justificar ausencias pendientes")
@@ -200,11 +218,16 @@ def _validar_comprobante_justificacion(
 
 
 def resolver_justificacion(
-    db: Session, justificacion: JustificacionInasistencia, aprobar: bool
+    db: Session,
+    justificacion: JustificacionInasistencia,
+    aprobar: bool,
+    observacion: str | None = None,
 ) -> JustificacionInasistencia:
     if justificacion.estado != "pendiente":
         raise HTTPException(status.HTTP_409_CONFLICT, "La justificación ya fue resuelta")
     justificacion.estado = "aprobada" if aprobar else "rechazada"
+    if not aprobar:
+        justificacion.observacion = observacion
     justificacion.fecha_resolucion = datetime.now()
     asistencia = db.get(Asistencia, justificacion.asistencia_id)
     if asistencia is not None:

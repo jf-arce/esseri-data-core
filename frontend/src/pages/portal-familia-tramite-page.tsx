@@ -1,7 +1,15 @@
-import { ArrowLeftIcon, CheckIcon, ConstructionIcon, PaperclipIcon } from 'lucide-react'
+import {
+  ArrowLeftIcon,
+  CheckIcon,
+  ConstructionIcon,
+  DownloadIcon,
+  PaperclipIcon,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import type { FileRejection } from 'react-dropzone'
+import { toast } from 'sonner'
+import { ApiError } from '@/api/client'
 import { Dropzone } from '@/components/dropzone'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -9,6 +17,8 @@ import { Button } from '@/components/ui/button'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
 import { listarAsistenciasFamilia } from '@/modules/academico/services/listar-asistencias-familia'
 import { justificarAsistenciaFamilia } from '@/modules/academico/services/justificar-asistencia-familia'
+import { descargarComprobanteJustificacionFamilia } from '@/modules/academico/services/descargar-comprobante-justificacion-familia'
+import type { AsistenciaFamilia } from '@/modules/academico/types'
 
 const MOTIVOS_JUSTIFICACION = [
   'Enfermedad',
@@ -24,15 +34,19 @@ const TIPOS_COMPROBANTE = {
 }
 const MAX_TAMANIO_COMPROBANTE = 5 * 1024 * 1024
 
-function etiquetaAsistencia(tipo: string) {
+function etiquetaAsistencia(asistencia: AsistenciaFamilia) {
+  if (asistencia.justificacion_estado === 'pendiente') return 'En revisión'
+  if (asistencia.justificacion_estado === 'aprobada') return 'Justificación aprobada'
+  if (asistencia.justificacion_estado === 'rechazada') return 'Justificación rechazada'
+
   const etiquetas: Record<string, string> = {
     presente: 'Presente',
     tardanza: 'Tardanza',
     ausente_pendiente: 'Ausente pendiente',
-    ausente_justificado: 'Ausente justificado',
-    ausente_injustificado: 'Ausente injustificado',
+    ausente_justificado: 'Ausente',
+    ausente_injustificado: 'Ausente',
   }
-  return etiquetas[tipo] ?? tipo.replaceAll('_', ' ')
+  return etiquetas[asistencia.tipo] ?? asistencia.tipo.replaceAll('_', ' ')
 }
 
 type PortalFamiliaTramitePageProps = {
@@ -46,7 +60,7 @@ type PortalFamiliaTramitePageProps = {
 export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaTramitePageProps) {
   const esJustificacion = titulo === 'Justificar una ausencia'
   const { alumnos } = useMisAlumnos(esJustificacion)
-  const [asistencias, setAsistencias] = useState<{ id: string; fecha: string; tipo: string }[]>([])
+  const [asistencias, setAsistencias] = useState<AsistenciaFamilia[]>([])
   const [alumnoId, setAlumnoId] = useState('')
   const [asistenciaAJustificar, setAsistenciaAJustificar] = useState<string | null>(null)
   const [motivoSeleccionado, setMotivoSeleccionado] = useState('')
@@ -54,6 +68,7 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
   const [observacion, setObservacion] = useState('')
   const [comprobante, setComprobante] = useState<File | undefined>()
   const [errorComprobante, setErrorComprobante] = useState<string | null>(null)
+  const [errorEnvio, setErrorEnvio] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const alumnoSeleccionado = alumnoId || alumnos[0]?.alumno_id || ''
   useEffect(() => {
@@ -66,19 +81,43 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
     const motivo = motivoSeleccionado === 'Otro' ? motivoOtro.trim() : motivoSeleccionado
     if (!asistenciaAJustificar || !motivo.trim()) return
     setGuardando(true)
+    setErrorEnvio(null)
     try {
-      await justificarAsistenciaFamilia(
+      const justificacion = await justificarAsistenciaFamilia(
         asistenciaAJustificar,
         motivo,
         observacion.trim(),
         comprobante,
+      )
+      setAsistencias((actuales) =>
+        actuales.map((asistencia) =>
+          asistencia.id === justificacion.asistencia_id
+            ? {
+                ...asistencia,
+                justificacion_id: justificacion.id,
+                justificacion_estado: justificacion.estado,
+              }
+            : asistencia,
+        ),
       )
       setAsistenciaAJustificar(null)
       setMotivoSeleccionado('')
       setMotivoOtro('')
       setObservacion('')
       setComprobante(undefined)
-      if (alumnoSeleccionado) setAsistencias(await listarAsistenciasFamilia(alumnoSeleccionado))
+      toast.success('Justificación enviada. Quedará en revisión.')
+      if (alumnoSeleccionado) {
+        listarAsistenciasFamilia(alumnoSeleccionado)
+          .then(setAsistencias)
+          .catch(() => undefined)
+      }
+    } catch (causa) {
+      const mensaje =
+        causa instanceof ApiError
+          ? (causa.detail ?? 'No se pudo enviar la justificación.')
+          : 'No se pudo enviar la justificación. Intentá de nuevo.'
+      setErrorEnvio(mensaje)
+      toast.error(mensaje)
     } finally {
       setGuardando(false)
     }
@@ -130,18 +169,57 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
               </label>
               <div className="divide-y divide-borde">
                 {asistencias.map((asistencia) => (
-                  <div key={asistencia.id} className="flex items-center gap-3 py-3 text-sm">
-                    <span className="flex-1">
-                      {new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString('es-AR')}
-                    </span>
-                    <span className="text-texto-2">{etiquetaAsistencia(asistencia.tipo)}</span>
-                    {asistencia.tipo === 'ausente_pendiente' && (
-                      <Button size="sm" onClick={() => setAsistenciaAJustificar(asistencia.id)}>
-                        Justificar
-                      </Button>
-                    )}
-                    {asistencia.tipo === 'ausente_justificado' && (
-                      <CheckIcon className="size-4 text-exito" aria-label="Justificada" />
+                  <div
+                    key={asistencia.id}
+                    className="border-b border-borde py-3 text-sm last:border-0"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="flex-1">
+                        {new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString('es-AR')}
+                      </span>
+                      <span className="text-texto-2">{etiquetaAsistencia(asistencia)}</span>
+                      {asistencia.tipo === 'ausente_pendiente' &&
+                        !asistencia.justificacion_estado && (
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setAsistenciaAJustificar(asistencia.id)
+                              setErrorEnvio(null)
+                            }}
+                          >
+                            Justificar
+                          </Button>
+                        )}
+                      {asistencia.justificacion_estado === 'aprobada' && (
+                        <CheckIcon className="size-4 text-exito" aria-label="Justificada" />
+                      )}
+                    </div>
+                    {asistencia.justificacion_id && (
+                      <div className="mt-2 rounded-lg bg-fila-hover p-3 text-xs text-texto-2">
+                        <p>
+                          <strong>Motivo:</strong> {asistencia.justificacion_motivo ?? 'Otro'}
+                        </p>
+                        {asistencia.justificacion_observacion && (
+                          <p className="mt-1">
+                            <strong>Observación:</strong> {asistencia.justificacion_observacion}
+                          </p>
+                        )}
+                        {asistencia.justificacion_archivo_nombre && (
+                          <button
+                            type="button"
+                            className="mt-2 inline-flex items-center gap-1 font-semibold text-violeta hover:underline"
+                            onClick={() =>
+                              void descargarComprobanteJustificacionFamilia(
+                                asistencia.justificacion_id!,
+                                asistencia.justificacion_archivo_nombre!,
+                              )
+                            }
+                          >
+                            <DownloadIcon className="size-3.5" aria-hidden="true" />
+                            {asistencia.justificacion_archivo_nombre}
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 ))}
@@ -218,6 +296,7 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
                         setObservacion('')
                         setComprobante(undefined)
                         setErrorComprobante(null)
+                        setErrorEnvio(null)
                       }}
                     >
                       Cancelar
@@ -232,6 +311,11 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
                       Enviar justificación
                     </Button>
                   </div>
+                  {errorEnvio && (
+                    <p className="mt-3 text-sm text-error" role="alert">
+                      {errorEnvio}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

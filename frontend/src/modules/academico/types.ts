@@ -147,6 +147,24 @@ export type Asistencia = {
   updated_at: string
 }
 
+export type AsistenciaFamilia = Asistencia & {
+  justificacion_id: string | null
+  justificacion_estado: 'pendiente' | 'aprobada' | 'rechazada' | null
+  justificacion_motivo: string | null
+  justificacion_observacion: string | null
+  justificacion_archivo_nombre: string | null
+}
+
+export type JustificacionFamilia = {
+  id: string
+  asistencia_id: string
+  estado: 'pendiente' | 'aprobada' | 'rechazada'
+  motivo: string
+  observacion: string | null
+  archivo_nombre: string | null
+  fecha_carga: string
+}
+
 export type AsistenciaCreate = {
   fecha: string
   tipo: TipoAsistenciaDocente
