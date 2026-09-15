@@ -33,10 +33,10 @@ from src.academico.models import (
     AsignacionDocente,
     Division,
     Docente,
-    Materia,
-    NivelEducativo,
     JustificacionInasistencia,
+    Materia,
     MotivoJustificacion,
+    NivelEducativo,
 )
 from src.academico.schemas import (
     AltaDocenteCreate,
@@ -60,7 +60,10 @@ from src.academico.schemas import (
 )
 from src.auth import autorizacion_service
 from src.auth import usuarios_service as auth_usuarios_service
-from src.auth.constants import PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA, PERMISO_ACADEMICO_EXPORTAR
+from src.auth.constants import (
+    PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA,
+    PERMISO_ACADEMICO_EXPORTAR,
+)
 from src.auth.exceptions import PermisoDenegado
 from src.auth.models import Rol, Usuario, UsuarioRol
 from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
@@ -115,23 +118,34 @@ def justificar_asistencia_de_familia(
         raise PermisoDenegado("No tenés acceso a esta ausencia")
     if asistencia.tipo != "ausente_pendiente":
         raise HTTPException(status.HTTP_409_CONFLICT, "Solo podés justificar ausencias pendientes")
-    if db.query(JustificacionInasistencia).filter(JustificacionInasistencia.asistencia_id == asistencia.id).first():
+    existe_justificacion = db.query(JustificacionInasistencia).filter(
+        JustificacionInasistencia.asistencia_id == asistencia.id
+    ).first()
+    if existe_justificacion:
         raise HTTPException(status.HTTP_409_CONFLICT, "Esta ausencia ya tiene una justificación")
-    motivo_db = db.query(MotivoJustificacion).filter(MotivoJustificacion.nombre == motivo.strip()).first()
+    motivo_db = db.query(MotivoJustificacion).filter(
+        MotivoJustificacion.nombre == motivo.strip()
+    ).first()
     if motivo_db is None:
         motivo_db = MotivoJustificacion(nombre=motivo.strip(), activo=True)
         db.add(motivo_db)
         db.flush()
     justificacion = JustificacionInasistencia(
-        asistencia_id=asistencia.id, familia_id=_familia_del_usuario(db, usuario).id,
-        motivo_justificacion_id=motivo_db.id, usuario_id=usuario.id, observacion=observacion,
+        asistencia_id=asistencia.id,
+        familia_id=_familia_del_usuario(db, usuario).id,
+        motivo_justificacion_id=motivo_db.id,
+        usuario_id=usuario.id,
+        observacion=observacion,
     )
     db.add(justificacion)
-    db.commit(); db.refresh(justificacion)
+    db.commit()
+    db.refresh(justificacion)
     return justificacion
 
 
-def resolver_justificacion(db: Session, justificacion: JustificacionInasistencia, aprobar: bool) -> JustificacionInasistencia:
+def resolver_justificacion(
+    db: Session, justificacion: JustificacionInasistencia, aprobar: bool
+) -> JustificacionInasistencia:
     if justificacion.estado != "pendiente":
         raise HTTPException(status.HTTP_409_CONFLICT, "La justificación ya fue resuelta")
     justificacion.estado = "aprobada" if aprobar else "rechazada"
@@ -139,7 +153,8 @@ def resolver_justificacion(db: Session, justificacion: JustificacionInasistencia
     asistencia = db.get(Asistencia, justificacion.asistencia_id)
     if asistencia is not None:
         asistencia.tipo = "ausente_justificado" if aprobar else "ausente_injustificado"
-    db.commit(); db.refresh(justificacion)
+    db.commit()
+    db.refresh(justificacion)
     return justificacion
 
 

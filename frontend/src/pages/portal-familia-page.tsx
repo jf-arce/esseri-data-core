@@ -22,7 +22,10 @@ function accesoClass() {
 export function PortalFamiliaPage() {
   const usuario = useAuthStore((state) => state.usuario)
   const { alumnos, cargando } = useMisAlumnos(true)
-  const saludo = useMemo(() => (usuario ? nombreDeUsuario(usuario.email).split(' ')[0] : ''), [usuario])
+  const saludo = useMemo(
+    () => (usuario ? nombreDeUsuario(usuario.email).split(' ')[0] : ''),
+    [usuario],
+  )
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -30,7 +33,9 @@ export function PortalFamiliaPage() {
         <h1 className="font-heading text-2xl font-semibold text-texto">
           {saludo ? `Hola, ${saludo}` : 'Portal de familia'}
         </h1>
-        <p className="mt-1 text-sm text-texto-2">Toda la información de tu familia, en un solo lugar.</p>
+        <p className="mt-1 text-sm text-texto-2">
+          Toda la información de tu familia, en un solo lugar.
+        </p>
       </header>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
@@ -59,7 +64,10 @@ export function PortalFamiliaPage() {
               ) : alumnos.length > 0 ? (
                 <ul className="flex flex-wrap gap-2" aria-label="Alumnos vinculados">
                   {alumnos.map((alumno) => (
-                    <li key={alumno.alumno_id} className="rounded-full bg-nav-hover px-3 py-1.5 text-sm font-medium text-texto-sobre-oscuro">
+                    <li
+                      key={alumno.alumno_id}
+                      className="rounded-full bg-nav-hover px-3 py-1.5 text-sm font-medium text-texto-sobre-oscuro"
+                    >
                       {alumno.nombre} {alumno.apellido}
                       {alumno.division_etiqueta ? ` · ${alumno.division_etiqueta}` : ''}
                     </li>
@@ -76,7 +84,9 @@ export function PortalFamiliaPage() {
               </span>
               <span>
                 <span className="block text-sm font-semibold text-texto">Mi cuenta</span>
-                <span className="mt-1 block text-xs text-texto-2">Facturas, vencimientos y pagos.</span>
+                <span className="mt-1 block text-xs text-texto-2">
+                  Facturas, vencimientos y pagos.
+                </span>
               </span>
             </Link>
             <Link to="/familia/justificar-ausencia" className={accesoClass()}>
@@ -85,7 +95,9 @@ export function PortalFamiliaPage() {
               </span>
               <span>
                 <span className="block text-sm font-semibold text-texto">Justificar ausencia</span>
-                <span className="mt-1 block text-xs text-texto-2">Cargá el motivo y comprobante.</span>
+                <span className="mt-1 block text-xs text-texto-2">
+                  Cargá el motivo y comprobante.
+                </span>
               </span>
             </Link>
             <Link to="/familia/asistente" className={accesoClass()}>
@@ -94,7 +106,9 @@ export function PortalFamiliaPage() {
               </span>
               <span>
                 <span className="block text-sm font-semibold text-texto">Asistente</span>
-                <span className="mt-1 block text-xs text-texto-2">Consultá información de tus hijos.</span>
+                <span className="mt-1 block text-xs text-texto-2">
+                  Consultá información de tus hijos.
+                </span>
               </span>
             </Link>
           </div>
@@ -102,10 +116,15 @@ export function PortalFamiliaPage() {
           <Card>
             <CardHeader className="border-b border-borde">
               <CardTitle>Información de la familia</CardTitle>
-              <CardDescription>Accesos disponibles según la información registrada.</CardDescription>
+              <CardDescription>
+                Accesos disponibles según la información registrada.
+              </CardDescription>
             </CardHeader>
             <CardContent className="divide-y divide-borde">
-              <Link to="/familia/justificar-ausencia" className="flex items-center gap-3 py-4 hover:text-violeta">
+              <Link
+                to="/familia/justificar-ausencia"
+                className="flex items-center gap-3 py-4 hover:text-violeta"
+              >
                 <FileTextIcon aria-hidden="true" className="size-4 text-info" />
                 <span className="flex-1 text-sm font-medium">Justificaciones de ausencia</span>
                 <ChevronRightIcon aria-hidden="true" className="size-4 text-texto-3" />
@@ -131,7 +150,10 @@ export function PortalFamiliaPage() {
               <CardDescription>Consultá tus facturas y pagos registrados.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Link to="/familia/facturacion" className="inline-flex items-center gap-1 text-sm font-semibold text-violeta hover:underline">
+              <Link
+                to="/familia/facturacion"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-violeta hover:underline"
+              >
                 Ver mi cuenta <ChevronRightIcon aria-hidden="true" className="size-4" />
               </Link>
             </CardContent>
@@ -139,7 +161,9 @@ export function PortalFamiliaPage() {
           <Card>
             <CardHeader>
               <CardTitle>Novedades</CardTitle>
-              <CardDescription>Los avisos del colegio aparecerán acá cuando estén disponibles.</CardDescription>
+              <CardDescription>
+                Los avisos del colegio aparecerán acá cuando estén disponibles.
+              </CardDescription>
             </CardHeader>
           </Card>
         </aside>
