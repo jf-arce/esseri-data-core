@@ -87,15 +87,39 @@ function iconoEstadoJustificacion(estado: AsistenciaFamilia['justificacion_estad
 type PortalFamiliaTramitePageProps = {
   titulo: string
   descripcion: string
+  seccionInicial?: SeccionAsistencia
 }
 
-type SeccionAsistencia = 'pendientes' | 'historial'
+type SeccionAsistencia = 'resumen' | 'pendientes' | 'historial'
+
+type ResumenAsistencias = {
+  presentes: number
+  inasistencias: number
+  tardanzas: number
+}
+
+function resumirAsistencias(asistencias: AsistenciaFamilia[]): ResumenAsistencias {
+  return asistencias.reduce<ResumenAsistencias>(
+    (resumen, asistencia) => {
+      if (asistencia.tipo === 'presente') resumen.presentes += 1
+      else if (asistencia.tipo === 'tardanza') resumen.tardanzas += 1
+      else resumen.inasistencias += 1
+      return resumen
+    },
+    { presentes: 0, inasistencias: 0, tardanzas: 0 },
+  )
+}
 
 // Estos trámites tienen una pantalla propia para completar el flujo del portal sin reutilizar
 // vistas de backoffice. Su operación se habilitará cuando existan endpoints que autoricen a la
 // familia sólo sobre sus alumnos vinculados.
-export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaTramitePageProps) {
-  const esJustificacion = titulo === 'Justificar una ausencia'
+export function PortalFamiliaTramitePage({
+  titulo,
+  descripcion,
+  seccionInicial,
+}: PortalFamiliaTramitePageProps) {
+  const esAsistencias = titulo === 'Asistencias'
+  const esJustificacion = esAsistencias || titulo === 'Justificar una ausencia'
   const { alumnos } = useMisAlumnos(esJustificacion)
   const [asistencias, setAsistencias] = useState<AsistenciaFamilia[]>([])
   const [alumnoId, setAlumnoId] = useState('')
@@ -108,10 +132,23 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [detalleExpandido, setDetalleExpandido] = useState<string | null>(null)
-  const [seccionAsistencia, setSeccionAsistencia] = useState<SeccionAsistencia>('pendientes')
+  const [seccionAsistencia, setSeccionAsistencia] = useState<SeccionAsistencia>(
+    seccionInicial ?? (esAsistencias ? 'resumen' : 'pendientes'),
+  )
   const alumnoSeleccionado = alumnoId || alumnos[0]?.alumno_id || ''
   const asistenciasPendientes = asistencias.filter(esPendiente)
   const asistenciasHistorial = asistencias.filter((asistencia) => !esPendiente(asistencia))
+  const resumenAsistencias = resumirAsistencias(asistencias)
+  const opcionesSeccion: Array<{ clave: SeccionAsistencia; etiqueta: string }> = esAsistencias
+    ? [
+        { clave: 'resumen', etiqueta: 'Resumen' },
+        { clave: 'pendientes', etiqueta: 'Justificar asistencia' },
+        { clave: 'historial', etiqueta: 'Historial' },
+      ]
+    : [
+        { clave: 'pendientes', etiqueta: 'Pendientes' },
+        { clave: 'historial', etiqueta: 'Historial' },
+      ]
   useEffect(() => {
     if (alumnoSeleccionado)
       listarAsistenciasFamilia(alumnoSeleccionado)
@@ -216,35 +253,80 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
               <div
                 role="tablist"
                 aria-label="Sección de asistencias"
-                className="grid grid-cols-2 gap-1 rounded-lg bg-fila-hover p-1"
+                className={`grid gap-1 rounded-lg bg-fila-hover p-1 ${opcionesSeccion.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}
               >
-                {(['pendientes', 'historial'] as const).map((seccion) => {
-                  const seleccionada = seccionAsistencia === seccion
-                  const etiqueta = seccion === 'pendientes' ? 'Pendientes' : 'Historial'
+                {opcionesSeccion.map(({ clave, etiqueta }) => {
+                  const seleccionada = seccionAsistencia === clave
                   return (
                     <button
-                      key={seccion}
-                      id={`asistencias-tab-${seccion}`}
+                      key={clave}
+                      id={`asistencias-tab-${clave}`}
                       type="button"
                       role="tab"
                       aria-selected={seleccionada}
-                      aria-controls={`asistencias-panel-${seccion}`}
+                      aria-controls={`asistencias-panel-${clave}`}
                       className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta ${seleccionada ? 'bg-superficie text-violeta shadow-sm' : 'text-texto-2 hover:text-texto'}`}
-                      onClick={() => setSeccionAsistencia(seccion)}
+                      onClick={() => setSeccionAsistencia(clave)}
                     >
                       {etiqueta}
                     </button>
                   )
                 })}
               </div>
-              {seccionAsistencia === 'pendientes' ? (
+              {seccionAsistencia === 'resumen' ? (
+                <section
+                  id="asistencias-panel-resumen"
+                  role="tabpanel"
+                  aria-labelledby="asistencias-tab-resumen"
+                  tabIndex={0}
+                >
+                  <h2 className="mb-2 text-sm font-semibold text-texto">Resumen de asistencia</h2>
+                  {asistencias.length > 0 ? (
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <article className="rounded-lg border border-borde bg-superficie p-4">
+                        <div className="flex items-center gap-2 text-sm text-texto-2">
+                          <CheckIcon className="size-4 text-exito" aria-hidden="true" />
+                          Asistencias
+                        </div>
+                        <p className="mt-2 text-2xl font-semibold text-texto">
+                          {resumenAsistencias.presentes}
+                        </p>
+                      </article>
+                      <article className="rounded-lg border border-borde bg-superficie p-4">
+                        <div className="flex items-center gap-2 text-sm text-texto-2">
+                          <XIcon className="size-4 text-error" aria-hidden="true" />
+                          Inasistencias
+                        </div>
+                        <p className="mt-2 text-2xl font-semibold text-texto">
+                          {resumenAsistencias.inasistencias}
+                        </p>
+                      </article>
+                      <article className="rounded-lg border border-borde bg-superficie p-4">
+                        <div className="flex items-center gap-2 text-sm text-texto-2">
+                          <ClockIcon className="size-4 text-advertencia" aria-hidden="true" />
+                          Tardanzas
+                        </div>
+                        <p className="mt-2 text-2xl font-semibold text-texto">
+                          {resumenAsistencias.tardanzas}
+                        </p>
+                      </article>
+                    </div>
+                  ) : (
+                    <p className="rounded-lg border border-dashed border-borde p-4 text-sm text-texto-2">
+                      Todavía no hay registros de asistencia para este alumno.
+                    </p>
+                  )}
+                </section>
+              ) : seccionAsistencia === 'pendientes' ? (
                 <section
                   id="asistencias-panel-pendientes"
                   role="tabpanel"
                   aria-labelledby="asistencias-tab-pendientes"
                   tabIndex={0}
                 >
-                  <h2 className="mb-2 text-sm font-semibold text-texto">Pendientes</h2>
+                  <h2 className="mb-2 text-sm font-semibold text-texto">
+                    {esAsistencias ? 'Justificar asistencia' : 'Pendientes'}
+                  </h2>
                   {asistenciasPendientes.length > 0 ? (
                     <div className="divide-y divide-borde rounded-lg border border-borde">
                       {asistenciasPendientes.map((asistencia) => (

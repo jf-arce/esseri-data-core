@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PortalFamiliaTramitePage } from '@/pages/portal-familia-tramite-page'
@@ -148,5 +148,72 @@ describe('PortalFamiliaTramitePage', () => {
     expect(disclosure).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText('Se adjunta certificado.')).toBeVisible()
     expect(screen.getByText('certificado.pdf')).toBeVisible()
+  })
+
+  it('muestra el resumen y las tres secciones dentro de Asistencias', async () => {
+    mockedListarAsistenciasFamilia.mockResolvedValue([
+      {
+        id: 'asistencia-presente',
+        fecha: '2027-03-15',
+        tipo: 'presente',
+        inscripcion_id: 'inscripcion-1',
+        updated_at: '2027-03-15T08:00:00',
+        justificacion_id: null,
+        justificacion_estado: null,
+        justificacion_motivo: null,
+        justificacion_observacion: null,
+        justificacion_archivo_nombre: null,
+      },
+      {
+        id: 'asistencia-tardanza',
+        fecha: '2027-03-14',
+        tipo: 'tardanza',
+        inscripcion_id: 'inscripcion-1',
+        updated_at: '2027-03-14T08:00:00',
+        justificacion_id: null,
+        justificacion_estado: null,
+        justificacion_motivo: null,
+        justificacion_observacion: null,
+        justificacion_archivo_nombre: null,
+      },
+      {
+        id: 'asistencia-ausente',
+        fecha: '2027-03-13',
+        tipo: 'ausente_pendiente',
+        inscripcion_id: 'inscripcion-1',
+        updated_at: '2027-03-13T08:00:00',
+        justificacion_id: null,
+        justificacion_estado: null,
+        justificacion_motivo: null,
+        justificacion_observacion: null,
+        justificacion_archivo_nombre: null,
+      },
+    ])
+
+    render(
+      <MemoryRouter>
+        <PortalFamiliaTramitePage titulo="Asistencias" descripcion="Consultá tus asistencias." />
+      </MemoryRouter>,
+    )
+
+    expect(
+      await screen.findByRole('heading', { name: 'Resumen de asistencia' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Resumen' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Justificar asistencia' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Historial' })).toBeInTheDocument()
+
+    const resumen = screen.getByRole('tabpanel', { name: 'Resumen' })
+    const presentes = within(resumen).getByText('Asistencias').closest('article')
+    const inasistencias = within(resumen).getByText('Inasistencias').closest('article')
+    const tardanzas = within(resumen).getByText('Tardanzas').closest('article')
+    expect(within(presentes!).getByText('1')).toBeInTheDocument()
+    expect(within(inasistencias!).getByText('1')).toBeInTheDocument()
+    expect(within(tardanzas!).getByText('1')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Justificar asistencia' }))
+    expect(screen.getByRole('heading', { name: 'Justificar asistencia' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Historial' }))
+    expect(screen.getByRole('heading', { name: 'Historial' })).toBeInTheDocument()
   })
 })
