@@ -2,9 +2,11 @@ import {
   ArrowLeftIcon,
   CheckIcon,
   ChevronDownIcon,
+  ClockIcon,
   ConstructionIcon,
   DownloadIcon,
   PaperclipIcon,
+  XIcon,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
@@ -64,10 +66,30 @@ function esPendiente(asistencia: AsistenciaFamilia) {
   )
 }
 
+function iconoEstadoJustificacion(estado: AsistenciaFamilia['justificacion_estado']) {
+  if (estado === 'aprobada') {
+    return <CheckIcon className="size-4 shrink-0 text-exito" aria-label="Aprobada" />
+  }
+  if (estado === 'rechazada') {
+    return <XIcon className="size-4 shrink-0 text-error" aria-label="Rechazada" />
+  }
+  if (estado === 'pendiente') {
+    return (
+      <ClockIcon
+        className="size-4 shrink-0 text-advertencia"
+        aria-label="Pendiente de aprobación"
+      />
+    )
+  }
+  return null
+}
+
 type PortalFamiliaTramitePageProps = {
   titulo: string
   descripcion: string
 }
+
+type SeccionAsistencia = 'pendientes' | 'historial'
 
 // Estos trámites tienen una pantalla propia para completar el flujo del portal sin reutilizar
 // vistas de backoffice. Su operación se habilitará cuando existan endpoints que autoricen a la
@@ -86,6 +108,7 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [detalleExpandido, setDetalleExpandido] = useState<string | null>(null)
+  const [seccionAsistencia, setSeccionAsistencia] = useState<SeccionAsistencia>('pendientes')
   const alumnoSeleccionado = alumnoId || alumnos[0]?.alumno_id || ''
   const asistenciasPendientes = asistencias.filter(esPendiente)
   const asistenciasHistorial = asistencias.filter((asistencia) => !esPendiente(asistencia))
@@ -190,53 +213,41 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
                   ))}
                 </select>
               </label>
-              <section aria-labelledby="pendientes-heading">
-                <h2 id="pendientes-heading" className="mb-2 text-sm font-semibold text-texto">
-                  Pendientes
-                </h2>
-                {asistenciasPendientes.length > 0 ? (
-                  <div className="divide-y divide-borde rounded-lg border border-borde">
-                    {asistenciasPendientes.map((asistencia) => (
-                      <div
-                        key={asistencia.id}
-                        className="p-3 text-sm first:rounded-t-lg last:rounded-b-lg"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="flex-1">
-                            {new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString('es-AR')}
-                          </span>
-                          <span className="text-texto-2">{etiquetaAsistencia(asistencia)}</span>
-                          {!asistencia.justificacion_estado && (
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                setAsistenciaAJustificar(asistencia.id)
-                                setErrorEnvio(null)
-                              }}
-                            >
-                              Justificar
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="rounded-lg border border-dashed border-borde p-4 text-sm text-texto-2">
-                    No tenés ausencias pendientes de justificar.
-                  </p>
-                )}
-              </section>
-              <section aria-labelledby="historial-heading">
-                <h2 id="historial-heading" className="mb-2 text-sm font-semibold text-texto">
-                  Historial
-                </h2>
-                {asistenciasHistorial.length > 0 ? (
-                  <div className="divide-y divide-borde rounded-lg border border-borde">
-                    {asistenciasHistorial.map((asistencia) => {
-                      const detalleId = `justificacion-detalle-${asistencia.id}`
-                      const expandido = detalleExpandido === asistencia.id
-                      return (
+              <div
+                role="tablist"
+                aria-label="Sección de asistencias"
+                className="grid grid-cols-2 gap-1 rounded-lg bg-fila-hover p-1"
+              >
+                {(['pendientes', 'historial'] as const).map((seccion) => {
+                  const seleccionada = seccionAsistencia === seccion
+                  const etiqueta = seccion === 'pendientes' ? 'Pendientes' : 'Historial'
+                  return (
+                    <button
+                      key={seccion}
+                      id={`asistencias-tab-${seccion}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={seleccionada}
+                      aria-controls={`asistencias-panel-${seccion}`}
+                      className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta ${seleccionada ? 'bg-superficie text-violeta shadow-sm' : 'text-texto-2 hover:text-texto'}`}
+                      onClick={() => setSeccionAsistencia(seccion)}
+                    >
+                      {etiqueta}
+                    </button>
+                  )
+                })}
+              </div>
+              {seccionAsistencia === 'pendientes' ? (
+                <section
+                  id="asistencias-panel-pendientes"
+                  role="tabpanel"
+                  aria-labelledby="asistencias-tab-pendientes"
+                  tabIndex={0}
+                >
+                  <h2 className="mb-2 text-sm font-semibold text-texto">Pendientes</h2>
+                  {asistenciasPendientes.length > 0 ? (
+                    <div className="divide-y divide-borde rounded-lg border border-borde">
+                      {asistenciasPendientes.map((asistencia) => (
                         <div
                           key={asistencia.id}
                           className="p-3 text-sm first:rounded-t-lg last:rounded-b-lg"
@@ -245,72 +256,119 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
                             <span className="flex-1">
                               {new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString('es-AR')}
                             </span>
-                            <span className="text-right text-texto-2">
-                              {etiquetaAsistencia(asistencia)}
-                            </span>
-                            {asistencia.justificacion_id && (
-                              <button
-                                type="button"
-                                className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-texto-2 transition-colors hover:bg-fila-hover hover:text-violeta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
-                                aria-label={`${expandido ? 'Ocultar' : 'Mostrar'} detalle de la justificación del ${new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString('es-AR')}`}
-                                aria-expanded={expandido}
-                                aria-controls={detalleId}
-                                onClick={() =>
-                                  setDetalleExpandido(expandido ? null : asistencia.id)
-                                }
+                            <span className="text-texto-2">{etiquetaAsistencia(asistencia)}</span>
+                            {iconoEstadoJustificacion(asistencia.justificacion_estado)}
+                            {!asistencia.justificacion_estado && (
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setAsistenciaAJustificar(asistencia.id)
+                                  setErrorEnvio(null)
+                                }}
                               >
-                                <ChevronDownIcon
-                                  aria-hidden="true"
-                                  className={`size-4 transition-transform ${expandido ? 'rotate-180' : ''}`}
-                                />
-                              </button>
-                            )}
-                            {asistencia.justificacion_estado === 'aprobada' && (
-                              <CheckIcon className="size-4 text-exito" aria-label="Aprobada" />
+                                Justificar
+                              </Button>
                             )}
                           </div>
-                          {asistencia.justificacion_id && (
-                            <div
-                              id={detalleId}
-                              hidden={!expandido}
-                              className="mt-3 rounded-lg bg-fila-hover p-3 text-xs text-texto-2"
-                            >
-                              <p>
-                                <strong>Motivo:</strong> {asistencia.justificacion_motivo ?? 'Otro'}
-                              </p>
-                              {asistencia.justificacion_observacion && (
-                                <p className="mt-1">
-                                  <strong>Observación:</strong>{' '}
-                                  {asistencia.justificacion_observacion}
-                                </p>
-                              )}
-                              {asistencia.justificacion_archivo_nombre && (
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="rounded-lg border border-dashed border-borde p-4 text-sm text-texto-2">
+                      No tenés ausencias pendientes de justificar.
+                    </p>
+                  )}
+                </section>
+              ) : (
+                <section
+                  id="asistencias-panel-historial"
+                  role="tabpanel"
+                  aria-labelledby="asistencias-tab-historial"
+                  tabIndex={0}
+                >
+                  <h2 className="mb-2 text-sm font-semibold text-texto">Historial</h2>
+                  {asistenciasHistorial.length > 0 ? (
+                    <div className="divide-y divide-borde rounded-lg border border-borde">
+                      {asistenciasHistorial.map((asistencia) => {
+                        const detalleId = `justificacion-detalle-${asistencia.id}`
+                        const expandido = detalleExpandido === asistencia.id
+                        return (
+                          <div
+                            key={asistencia.id}
+                            className="p-3 text-sm first:rounded-t-lg last:rounded-b-lg"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="flex-1">
+                                {new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString(
+                                  'es-AR',
+                                )}
+                              </span>
+                              <span className="text-right text-texto-2">
+                                {etiquetaAsistencia(asistencia)}
+                              </span>
+                              {iconoEstadoJustificacion(asistencia.justificacion_estado)}
+                              {asistencia.justificacion_id && (
                                 <button
                                   type="button"
-                                  className="mt-2 inline-flex items-center gap-1 font-semibold text-violeta hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
+                                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-texto-2 transition-colors hover:bg-fila-hover hover:text-violeta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
+                                  aria-label={`${expandido ? 'Ocultar' : 'Mostrar'} detalle de la justificación del ${new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString('es-AR')}`}
+                                  aria-expanded={expandido}
+                                  aria-controls={detalleId}
                                   onClick={() =>
-                                    void descargarComprobanteJustificacionFamilia(
-                                      asistencia.justificacion_id!,
-                                      asistencia.justificacion_archivo_nombre!,
-                                    )
+                                    setDetalleExpandido(expandido ? null : asistencia.id)
                                   }
                                 >
-                                  <DownloadIcon className="size-3.5" aria-hidden="true" />
-                                  {asistencia.justificacion_archivo_nombre}
+                                  <ChevronDownIcon
+                                    aria-hidden="true"
+                                    className={`size-4 transition-transform ${expandido ? 'rotate-180' : ''}`}
+                                  />
                                 </button>
                               )}
                             </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <p className="rounded-lg border border-dashed border-borde p-4 text-sm text-texto-2">
-                    Todavía no hay registros en tu historial.
-                  </p>
-                )}
-              </section>
+                            {asistencia.justificacion_id && (
+                              <div
+                                id={detalleId}
+                                hidden={!expandido}
+                                className="mt-3 rounded-lg bg-fila-hover p-3 text-xs text-texto-2"
+                              >
+                                <p>
+                                  <strong>Motivo:</strong>{' '}
+                                  {asistencia.justificacion_motivo ?? 'Otro'}
+                                </p>
+                                {asistencia.justificacion_observacion && (
+                                  <p className="mt-1">
+                                    <strong>Observación:</strong>{' '}
+                                    {asistencia.justificacion_observacion}
+                                  </p>
+                                )}
+                                {asistencia.justificacion_archivo_nombre && (
+                                  <button
+                                    type="button"
+                                    className="mt-2 inline-flex items-center gap-1 font-semibold text-violeta hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
+                                    onClick={() =>
+                                      void descargarComprobanteJustificacionFamilia(
+                                        asistencia.justificacion_id!,
+                                        asistencia.justificacion_archivo_nombre!,
+                                      )
+                                    }
+                                  >
+                                    <DownloadIcon className="size-3.5" aria-hidden="true" />
+                                    {asistencia.justificacion_archivo_nombre}
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <p className="rounded-lg border border-dashed border-borde p-4 text-sm text-texto-2">
+                      Todavía no hay registros en tu historial.
+                    </p>
+                  )}
+                </section>
+              )}
             </div>
           ) : (
             <Empty className="min-h-64">

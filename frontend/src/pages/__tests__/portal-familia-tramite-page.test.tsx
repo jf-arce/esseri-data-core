@@ -53,6 +53,7 @@ describe('PortalFamiliaTramitePage', () => {
     )
 
     expect(await screen.findByText('En revisión')).toBeInTheDocument()
+    expect(screen.getByLabelText('Pendiente de aprobación')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Justificar' })).not.toBeInTheDocument()
   })
 
@@ -94,6 +95,18 @@ describe('PortalFamiliaTramitePage', () => {
         justificacion_observacion: null,
         justificacion_archivo_nombre: null,
       },
+      {
+        id: 'asistencia-rechazada',
+        fecha: '2027-03-12',
+        tipo: 'ausente_pendiente',
+        inscripcion_id: 'inscripcion-1',
+        updated_at: '2027-03-12T08:00:00',
+        justificacion_id: 'justificacion-2',
+        justificacion_estado: 'rechazada',
+        justificacion_motivo: 'Otro',
+        justificacion_observacion: 'Falta documentación.',
+        justificacion_archivo_nombre: null,
+      },
     ])
 
     render(
@@ -106,11 +119,10 @@ describe('PortalFamiliaTramitePage', () => {
     )
 
     expect(await screen.findByRole('heading', { name: 'Pendientes' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Historial' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Historial' })).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Pendientes' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Historial' })).toHaveAttribute('aria-selected', 'false')
     expect(screen.getByRole('button', { name: 'Justificar' })).toBeInTheDocument()
-    expect(screen.getByText('Justificación aprobada')).toBeInTheDocument()
-    expect(screen.getByText('Presente')).toBeInTheDocument()
-    expect(screen.queryByText('Se adjunta certificado.')).not.toBeVisible()
 
     fireEvent.click(screen.getByRole('button', { name: 'Justificar' }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
@@ -118,7 +130,19 @@ describe('PortalFamiliaTramitePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
-    const disclosure = screen.getByRole('button', { name: /Mostrar detalle/ })
+    fireEvent.click(screen.getByRole('tab', { name: 'Historial' }))
+    expect(screen.getByRole('heading', { name: 'Historial' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Historial' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByText('Justificación aprobada')).toBeInTheDocument()
+    expect(screen.getByLabelText('Aprobada')).toBeInTheDocument()
+    expect(screen.getByText('Justificación rechazada')).toBeInTheDocument()
+    expect(screen.getByLabelText('Rechazada')).toBeInTheDocument()
+    expect(screen.getByText('Presente')).toBeInTheDocument()
+    expect(screen.queryByText('Se adjunta certificado.')).not.toBeVisible()
+
+    const disclosure = screen.getByRole('button', {
+      name: 'Mostrar detalle de la justificación del 14/3/2027',
+    })
     expect(disclosure).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(disclosure)
     expect(disclosure).toHaveAttribute('aria-expanded', 'true')
