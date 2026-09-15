@@ -60,6 +60,34 @@ La cuenta creada es `demo.admin@esseri.local`; la contraseña por defecto es
 `EsseriDemo2026!`. Puede reemplazarse solo para la carga con `ESSERI_DEMO_PASSWORD`.
 El script rechaza `ENVIRONMENT=production`/`prod` y es idempotente para sus propias claves demo.
 
+## `05_seed_demo_docente.py` — datos ficticios para demostrar el Portal Docente
+
+Dataset aparte de `04_seed_demo.py` (nombres/legajos propios, no se cruzan), pensado para la
+demo puntual de RF-04 — Portal Docente con asistencia de a un alumno. Reutiliza los datos que
+el equipo ya tenía cargados a mano (docente Jorgelina Moralejo, división "3°C", alumnos
+Botteri/Cangiani) y suma 10 alumnos más a "3°C" (lista larga para la demo) y una segunda
+división "2°B" asignada a la misma docente (sin alumnos todavía).
+
+Mismas reglas que `04_seed_demo.py`: opcional, manual, requiere `ESSERI_DEMO_SEED_ENABLED=true`,
+nunca corre en producción, idempotente por clave natural (DNI, legajo, email, nombre de
+división).
+
+```bash
+cd backend
+source venv/bin/activate
+ESSERI_DEMO_SEED_ENABLED=true python ../database/seeds/05_seed_demo_docente.py
+```
+
+Con Docker:
+
+```bash
+cd infra
+docker compose exec -e ESSERI_DEMO_SEED_ENABLED=true backend python /database/seeds/05_seed_demo_docente.py
+```
+
+La cuenta creada es `docente.prueba@esseri.edu.ar`; la contraseña por defecto es
+`prueba-2027`. Puede reemplazarse solo para la carga con `ESSERI_DEMO_DOCENTE_PASSWORD`.
+
 ## `00_bootstrap_admin.py` — no es un catálogo
 
 Va aparte de los tres de arriba: no precarga un catálogo del diccionario, crea el **primer usuario administrador** para que alguien pueda entrar al sistema (RF-27). El login rechaza a cualquiera que no esté ya en `usuario`, y los endpoints que crean usuarios están protegidos — sin esta fila inicial nadie puede loguearse. Es el equivalente al `createsuperuser` de Django.
