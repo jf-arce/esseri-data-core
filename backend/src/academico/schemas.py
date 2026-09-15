@@ -238,6 +238,24 @@ class AsistenciaResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class JustificacionFamiliaCreate(BaseModel):
+    motivo: str = Field(..., min_length=1, max_length=120)
+    observacion: str | None = Field(None, max_length=500)
+
+
+class JustificacionFamiliaResponse(BaseModel):
+    id: uuid.UUID
+    asistencia_id: uuid.UUID
+    estado: str
+    motivo: str
+    observacion: str | None
+    fecha_carga: datetime
+
+
+class JustificacionResolucion(BaseModel):
+    aprobar: bool
+
+
 class AsistenciaBulkResponse(BaseModel):
     """Schema para responder al registro masivo de asistencia."""
 

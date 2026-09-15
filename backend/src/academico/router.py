@@ -39,6 +39,8 @@ from src.academico.models import (
     Docente,
     Materia,
     NivelEducativo,
+    JustificacionInasistencia,
+    MotivoJustificacion,
 )
 from src.academico.schemas import (
     AltaDocenteCreate,
@@ -52,6 +54,9 @@ from src.academico.schemas import (
     AsistenciaCreate,
     AsistenciaResponse,
     AsistenciaResumen,
+    JustificacionFamiliaCreate,
+    JustificacionFamiliaResponse,
+    JustificacionResolucion,
     AsistenciaUpdate,
     DivisionCreate,
     DivisionResponse,
@@ -76,6 +81,10 @@ from src.academico.service import (
     actualizar_materia,
     actualizar_nivel_educativo,
     calcular_resumen_asistencia,
+    asistencias_de_familia,
+    justificar_asistencia_de_familia,
+    resolver_justificacion,
+    listar_justificaciones_pendientes,
     crear_alta_docente,
     crear_anio,
     crear_asignacion_docente,
@@ -610,6 +619,56 @@ def listar_asistencias_endpoint(
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
         division_id=division_id,
+    )
+
+
+@router.get("/familia/alumnos/{alumno_id}/asistencias", response_model=list[AsistenciaResponse])
+def listar_asistencias_familia(alumno_id: uuid.UUID, usuario: UsuarioAutenticado, db: Session = Depends(get_db)) -> list[Asistencia]:
+    """Historial diario del alumno, limitado a la familia autenticada."""
+    return asistencias_de_familia(db, usuario, alumno_id)
+
+
+@router.post("/familia/asistencias/{asistencia_id}/justificaciones", response_model=JustificacionFamiliaResponse, status_code=201)
+def justificar_asistencia_familia(
+    datos: JustificacionFamiliaCreate, usuario: UsuarioAutenticado,
+    asistencia: Asistencia = Depends(obtener_asistencia_o_404), db: Session = Depends(get_db)
+) -> JustificacionFamiliaResponse:
+    justificacion = justificar_asistencia_de_familia(db, usuario, asistencia, datos.motivo, datos.observacion)
+    return JustificacionFamiliaResponse(id=justificacion.id, asistencia_id=justificacion.asistencia_id,
+        estado=justificacion.estado, motivo=datos.motivo, observacion=justificacion.observacion,
+        fecha_carga=justificacion.fecha_carga)
+
+
+@router.get("/justificaciones", response_model=list[JustificacionFamiliaResponse])
+def listar_justificaciones_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    db: Session = Depends(get_db),
+) -> list[JustificacionFamiliaResponse]:
+    return [
+        JustificacionFamiliaResponse(
+            id=item.id, asistencia_id=item.asistencia_id, estado=item.estado,
+            motivo=(db.get(MotivoJustificacion, item.motivo_justificacion_id).nombre), observacion=item.observacion,
+            fecha_carga=item.fecha_carga,
+        )
+        for item in listar_justificaciones_pendientes(db)
+    ]
+
+
+@router.patch("/justificaciones/{justificacion_id}/resolver", response_model=JustificacionFamiliaResponse)
+def resolver_justificacion_endpoint(
+    justificacion_id: uuid.UUID,
+    datos: JustificacionResolucion,
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    db: Session = Depends(get_db),
+) -> JustificacionFamiliaResponse:
+    justificacion = db.get(JustificacionInasistencia, justificacion_id)
+    if justificacion is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Justificación no encontrada")
+    resultado = resolver_justificacion(db, justificacion, datos.aprobar)
+    return JustificacionFamiliaResponse(
+        id=resultado.id, asistencia_id=resultado.asistencia_id, estado=resultado.estado,
+        motivo=(db.get(MotivoJustificacion, resultado.motivo_justificacion_id).nombre), observacion=resultado.observacion,
+        fecha_carga=resultado.fecha_carga,
     )
 
 

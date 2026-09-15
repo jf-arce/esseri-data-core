@@ -7,6 +7,7 @@ import {
 import { EstructuraAcademicaPage } from './pages/estructura-academica-page'
 import { AsignacionesDocentesPage } from './pages/asignaciones-docentes-page'
 import { AsistenciaDivisionPage } from './pages/asistencia-division-page'
+import { JustificacionesPage } from './pages/justificaciones-page'
 
 export const academicoRoutes: RouteObject[] = [
   {
@@ -28,6 +29,7 @@ export const academicoRoutes: RouteObject[] = [
             path: 'asignaciones',
             element: <AsignacionesDocentesPage />,
           },
+          { path: 'justificaciones', element: <JustificacionesPage /> },
         ],
       },
     ],
