@@ -54,6 +54,7 @@ from src.academico.schemas import (
     AsistenciaBulkCreate,
     AsistenciaBulkResponse,
     AsistenciaCreate,
+    AsistenciaFamiliaResponse,
     AsistenciaResponse,
     AsistenciaResumen,
     AsistenciaUpdate,
@@ -628,14 +629,32 @@ def listar_asistencias_endpoint(
     )
 
 
-@router.get("/familia/alumnos/{alumno_id}/asistencias", response_model=list[AsistenciaResponse])
+@router.get(
+    "/familia/alumnos/{alumno_id}/asistencias",
+    response_model=list[AsistenciaFamiliaResponse],
+)
 def listar_asistencias_familia(
     alumno_id: uuid.UUID,
     usuario: UsuarioAutenticado,
     db: Session = Depends(get_db),  # noqa: B008
-) -> list[Asistencia]:
+) -> list[AsistenciaFamiliaResponse]:
     """Historial diario del alumno, limitado a la familia autenticada."""
-    return asistencias_de_familia(db, usuario, alumno_id)
+    return [
+        AsistenciaFamiliaResponse(
+            id=detalle.asistencia.id,
+            fecha=detalle.asistencia.fecha,
+            tipo=detalle.asistencia.tipo,
+            inscripcion_id=detalle.asistencia.inscripcion_id,
+            updated_at=detalle.asistencia.updated_at,
+            justificacion_id=(
+                detalle.justificacion.id if detalle.justificacion is not None else None
+            ),
+            justificacion_estado=(
+                detalle.justificacion.estado if detalle.justificacion is not None else None
+            ),
+        )
+        for detalle in asistencias_de_familia(db, usuario, alumno_id)
+    ]
 
 
 @router.post(

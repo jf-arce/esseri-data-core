@@ -238,6 +238,13 @@ class AsistenciaResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class AsistenciaFamiliaResponse(AsistenciaResponse):
+    """Asistencia visible para una familia junto al estado de su justificación."""
+
+    justificacion_id: uuid.UUID | None = None
+    justificacion_estado: str | None = None
+
+
 class JustificacionFamiliaCreate(BaseModel):
     motivo: str = Field(..., min_length=1, max_length=120)
     observacion: str | None = Field(None, max_length=500)

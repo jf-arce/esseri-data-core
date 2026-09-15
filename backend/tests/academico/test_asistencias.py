@@ -22,7 +22,11 @@ from src.academico.models import ArchivoJustificacionInasistencia
 from src.academico.service import justificar_asistencia_de_familia
 from src.auth.models import Usuario
 from src.familias_alumnos.models import Familia
-from src.inscripciones.models import Asistencia
+from src.inscripciones.models import Asistencia, Inscripcion
+from tests.familias_alumnos.test_mis_alumnos import (
+    _crear_familia_con_alumno,
+    login,
+)
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
 
@@ -130,6 +134,42 @@ def test_familia_guarda_comprobante_con_justificacion(db_session):
     assert archivo is not None
     assert archivo.nombre == "certificado.pdf"
     assert archivo.contenido == b"%PDF-1.7 certificado"
+
+
+def test_familia_ve_una_justificacion_pendiente_en_el_historial(client, db_session):
+    """Una justificación presentada no puede volver a aparecer como justificable.
+
+    Regresión: el POST devolvía 201, pero GET de asistencias solo exponía el tipo de
+    asistencia (todavía ``ausente_pendiente`` hasta la resolución). El frontend volvía a
+    mostrar el botón y el segundo intento recibía 409.
+    """
+    usuario, alumno_id = _crear_familia_con_alumno(db_session)
+    inscripcion = db_session.query(Inscripcion).filter(Inscripcion.alumno_id == alumno_id).one()
+    asistencia = Asistencia(
+        fecha=date(2027, 3, 15),
+        tipo="ausente_pendiente",
+        inscripcion_id=inscripcion.id,
+    )
+    db_session.add(asistencia)
+    db_session.commit()
+
+    justificacion = justificar_asistencia_de_familia(
+        db_session,
+        usuario,
+        asistencia,
+        "Enfermedad",
+        "Se adjunta certificado.",
+    )
+    login(client, usuario)
+
+    respuesta = client.get(f"/academico/familia/alumnos/{alumno_id}/asistencias")
+
+    assert respuesta.status_code == 200
+    asistencia_respuesta = respuesta.json()[0]
+    assert asistencia_respuesta["id"] == str(asistencia.id)
+    assert asistencia_respuesta["tipo"] == "ausente_pendiente"
+    assert asistencia_respuesta["justificacion_id"] == str(justificacion.id)
+    assert asistencia_respuesta["justificacion_estado"] == "pendiente"
 
 
 def test_docente_no_puede_registrar_asistencia_masiva_de_una_division_ajena(

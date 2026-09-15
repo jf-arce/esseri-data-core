@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client'
+import type { JustificacionFamilia } from '../types'
 
 export function justificarAsistenciaFamilia(
   asistenciaId: string,
@@ -10,8 +11,11 @@ export function justificarAsistenciaFamilia(
   cuerpo.set('motivo', motivo)
   if (observacion) cuerpo.set('observacion', observacion)
   if (comprobante) cuerpo.set('comprobante', comprobante)
-  return apiClient(`/academico/familia/asistencias/${asistenciaId}/justificaciones`, {
-    method: 'POST',
-    body: cuerpo,
-  })
+  return apiClient<JustificacionFamilia>(
+    `/academico/familia/asistencias/${asistenciaId}/justificaciones`,
+    {
+      method: 'POST',
+      body: cuerpo,
+    },
+  )
 }

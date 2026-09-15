@@ -2,6 +2,8 @@ import { ArrowLeftIcon, CheckIcon, ConstructionIcon, PaperclipIcon } from 'lucid
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import type { FileRejection } from 'react-dropzone'
+import { toast } from 'sonner'
+import { ApiError } from '@/api/client'
 import { Dropzone } from '@/components/dropzone'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -9,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
 import { listarAsistenciasFamilia } from '@/modules/academico/services/listar-asistencias-familia'
 import { justificarAsistenciaFamilia } from '@/modules/academico/services/justificar-asistencia-familia'
+import type { AsistenciaFamilia } from '@/modules/academico/types'
 
 const MOTIVOS_JUSTIFICACION = [
   'Enfermedad',
@@ -46,7 +49,7 @@ type PortalFamiliaTramitePageProps = {
 export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaTramitePageProps) {
   const esJustificacion = titulo === 'Justificar una ausencia'
   const { alumnos } = useMisAlumnos(esJustificacion)
-  const [asistencias, setAsistencias] = useState<{ id: string; fecha: string; tipo: string }[]>([])
+  const [asistencias, setAsistencias] = useState<AsistenciaFamilia[]>([])
   const [alumnoId, setAlumnoId] = useState('')
   const [asistenciaAJustificar, setAsistenciaAJustificar] = useState<string | null>(null)
   const [motivoSeleccionado, setMotivoSeleccionado] = useState('')
@@ -54,6 +57,7 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
   const [observacion, setObservacion] = useState('')
   const [comprobante, setComprobante] = useState<File | undefined>()
   const [errorComprobante, setErrorComprobante] = useState<string | null>(null)
+  const [errorEnvio, setErrorEnvio] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const alumnoSeleccionado = alumnoId || alumnos[0]?.alumno_id || ''
   useEffect(() => {
@@ -66,19 +70,43 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
     const motivo = motivoSeleccionado === 'Otro' ? motivoOtro.trim() : motivoSeleccionado
     if (!asistenciaAJustificar || !motivo.trim()) return
     setGuardando(true)
+    setErrorEnvio(null)
     try {
-      await justificarAsistenciaFamilia(
+      const justificacion = await justificarAsistenciaFamilia(
         asistenciaAJustificar,
         motivo,
         observacion.trim(),
         comprobante,
+      )
+      setAsistencias((actuales) =>
+        actuales.map((asistencia) =>
+          asistencia.id === justificacion.asistencia_id
+            ? {
+                ...asistencia,
+                justificacion_id: justificacion.id,
+                justificacion_estado: justificacion.estado,
+              }
+            : asistencia,
+        ),
       )
       setAsistenciaAJustificar(null)
       setMotivoSeleccionado('')
       setMotivoOtro('')
       setObservacion('')
       setComprobante(undefined)
-      if (alumnoSeleccionado) setAsistencias(await listarAsistenciasFamilia(alumnoSeleccionado))
+      toast.success('Justificación enviada. Quedará en revisión.')
+      if (alumnoSeleccionado) {
+        listarAsistenciasFamilia(alumnoSeleccionado)
+          .then(setAsistencias)
+          .catch(() => undefined)
+      }
+    } catch (causa) {
+      const mensaje =
+        causa instanceof ApiError
+          ? (causa.detail ?? 'No se pudo enviar la justificación.')
+          : 'No se pudo enviar la justificación. Intentá de nuevo.'
+      setErrorEnvio(mensaje)
+      toast.error(mensaje)
     } finally {
       setGuardando(false)
     }
@@ -135,11 +163,22 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
                       {new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString('es-AR')}
                     </span>
                     <span className="text-texto-2">{etiquetaAsistencia(asistencia.tipo)}</span>
-                    {asistencia.tipo === 'ausente_pendiente' && (
-                      <Button size="sm" onClick={() => setAsistenciaAJustificar(asistencia.id)}>
-                        Justificar
-                      </Button>
-                    )}
+                    {asistencia.tipo === 'ausente_pendiente' &&
+                      asistencia.justificacion_estado === 'pendiente' && (
+                        <span className="font-medium text-violeta">En revisión</span>
+                      )}
+                    {asistencia.tipo === 'ausente_pendiente' &&
+                      !asistencia.justificacion_estado && (
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setAsistenciaAJustificar(asistencia.id)
+                            setErrorEnvio(null)
+                          }}
+                        >
+                          Justificar
+                        </Button>
+                      )}
                     {asistencia.tipo === 'ausente_justificado' && (
                       <CheckIcon className="size-4 text-exito" aria-label="Justificada" />
                     )}
@@ -218,6 +257,7 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
                         setObservacion('')
                         setComprobante(undefined)
                         setErrorComprobante(null)
+                        setErrorEnvio(null)
                       }}
                     >
                       Cancelar
@@ -232,6 +272,11 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
                       Enviar justificación
                     </Button>
                   </div>
+                  {errorEnvio && (
+                    <p className="mt-3 text-sm text-error" role="alert">
+                      {errorEnvio}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
