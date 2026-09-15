@@ -1313,6 +1313,10 @@ def divisiones_de_persona(db: Session, persona_id: uuid.UUID) -> list[tuple[uuid
     `academico.leer`: es un dato propio, no una consulta al módulo). Sin `relationship()` en
     los modelos: resuelve Docente → AsignacionDocente → Division/Anio con joins explícitos,
     distinct por división para no repetir una división con varias materias asignadas.
+
+    `Division.nombre` ya es la etiqueta completa ("1°A", "3°C" — ver `nivel-seccion.tsx` y sus
+    tests), no un sufijo suelto: anteponerle `Anio.numero` duplicaba el año ("1°3°C"). `numero`
+    se sigue trayendo solo para poder ordenar por año antes que por nombre.
     """
     docente = db.query(Docente).filter(Docente.persona_id == persona_id).first()
     if docente is None:
@@ -1327,7 +1331,7 @@ def divisiones_de_persona(db: Session, persona_id: uuid.UUID) -> list[tuple[uuid
         .order_by(Anio.numero, Division.nombre)
         .all()
     )
-    return [(division_id, f"{numero}°{nombre}") for division_id, numero, nombre in filas]
+    return [(division_id, nombre) for division_id, _numero, nombre in filas]
 
 
 def eliminar_asignacion_docente(
