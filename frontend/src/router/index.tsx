@@ -4,7 +4,6 @@ import { PortalLayout } from '@/layout/portal-layout'
 import { ElegirPerfilPage } from '@/pages/elegir-perfil-page'
 import { PortalDocentePage } from '@/pages/portal-docente-page'
 import { PortalDocenteAsistenciaPage } from '@/pages/portal-docente-asistencia-page'
-import { PortalFamiliaPage } from '@/pages/portal-familia-page'
 import { ProtectedRoute } from '@/router/protected-route'
 import { RolActivoRoute } from '@/router/rol-activo-route'
 import { VistaRoute } from '@/router/vista-route'
@@ -18,7 +17,7 @@ import { proveedoresComprasRoutes } from '@/modules/proveedores-compras/routes'
 import { workflowsRoutes } from '@/modules/workflows/routes'
 import { auditoriaRoutes } from '@/modules/auditoria/routes'
 import { panelAdminRoutes } from '@/modules/panel-admin/routes'
-import { iaSugerenciasRoutes } from '@/modules/ia-sugerencias/routes'
+import { iaSugerenciasFamiliaRoutes, iaSugerenciasRoutes } from '@/modules/ia-sugerencias/routes'
 
 const moduleRoutes = [
   ...authPrivateRoutes,
@@ -48,9 +47,9 @@ export function AppRouter() {
             // Tres vistas exclusivas entre sí (§8 DESIGN.md): Consola para los roles de
             // gestión, Portal Docente y Portal Familia — `VistaRoute` redirige a cada rol
             // activo a la suya, así que ninguna muestra algo de otro rol ni por deep link.
-            // Portal Familia sigue siendo una página en blanco (la construye otro integrante
-            // del equipo); Portal Docente ya tiene su primer flujo real (RF-04: tomar
-            // asistencia), por eso es el único de los dos con rutas anidadas.
+            // Portal Docente (RF-04: tomar asistencia) y Portal Familia (justificación de
+            // inasistencias) ya tienen su primer flujo real, cada uno con sus propias rutas
+            // anidadas.
             {
               element: <VistaRoute vista="consola" />,
               children: [
@@ -80,7 +79,7 @@ export function AppRouter() {
               children: [
                 {
                   element: <PortalLayout />,
-                  children: [{ path: 'familia', element: <PortalFamiliaPage /> }],
+                  children: iaSugerenciasFamiliaRoutes,
                 },
               ],
             },

@@ -4,7 +4,8 @@ import uuid
 from datetime import date
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.academico.dependencies import (
@@ -34,10 +35,13 @@ from src.academico.exceptions import (
 )
 from src.academico.models import (
     Anio,
+    ArchivoJustificacionInasistencia,
     AsignacionDocente,
     Division,
     Docente,
+    JustificacionInasistencia,
     Materia,
+    MotivoJustificacion,
     NivelEducativo,
 )
 from src.academico.schemas import (
@@ -60,6 +64,8 @@ from src.academico.schemas import (
     DocenteDesdeUsuarioCreate,
     DocenteResponse,
     DocenteUpdate,
+    JustificacionFamiliaResponse,
+    JustificacionResolucion,
     MateriaCreate,
     MateriaResponse,
     MateriaUpdate,
@@ -75,6 +81,7 @@ from src.academico.service import (
     actualizar_docente,
     actualizar_materia,
     actualizar_nivel_educativo,
+    asistencias_de_familia,
     calcular_resumen_asistencia,
     crear_alta_docente,
     crear_anio,
@@ -95,6 +102,7 @@ from src.academico.service import (
     generar_csv_reporte_asistencias,
     generar_pdf_reporte_asistencias,
     generar_xlsx_reporte_asistencias,
+    justificar_asistencia_de_familia,
     listar_anios,
     listar_anios_por_nivel,
     listar_asignaciones_docentes,
@@ -103,12 +111,14 @@ from src.academico.service import (
     listar_divisiones,
     listar_divisiones_por_anio,
     listar_docentes,
+    listar_justificaciones_pendientes,
     listar_materias,
     listar_materias_por_anio,
     listar_materias_por_division,
     listar_niveles_educativos,
     registrar_asistencia,
     registrar_asistencia_masiva,
+    resolver_justificacion,
     verificar_acceso_a_asistencia,
 )
 from src.auth.constants import (
@@ -615,6 +625,115 @@ def listar_asistencias_endpoint(
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
         division_id=division_id,
+    )
+
+
+@router.get("/familia/alumnos/{alumno_id}/asistencias", response_model=list[AsistenciaResponse])
+def listar_asistencias_familia(
+    alumno_id: uuid.UUID,
+    usuario: UsuarioAutenticado,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[Asistencia]:
+    """Historial diario del alumno, limitado a la familia autenticada."""
+    return asistencias_de_familia(db, usuario, alumno_id)
+
+
+@router.post(
+    "/familia/asistencias/{asistencia_id}/justificaciones",
+    response_model=JustificacionFamiliaResponse,
+    status_code=201,
+)
+def justificar_asistencia_familia(
+    motivo: Annotated[str, Form(min_length=1, max_length=120)],
+    usuario: UsuarioAutenticado,
+    observacion: Annotated[str | None, Form(max_length=500)] = None,
+    comprobante: Annotated[UploadFile | None, File()] = None,
+    asistencia: Asistencia = Depends(obtener_asistencia_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> JustificacionFamiliaResponse:
+    contenido = comprobante.file.read() if comprobante is not None else None
+    justificacion = justificar_asistencia_de_familia(
+        db,
+        usuario,
+        asistencia,
+        motivo,
+        observacion,
+        comprobante.filename if comprobante is not None else None,
+        comprobante.content_type if comprobante is not None else None,
+        contenido,
+    )
+    return JustificacionFamiliaResponse(
+        id=justificacion.id,
+        asistencia_id=justificacion.asistencia_id,
+        estado=justificacion.estado,
+        motivo=motivo,
+        observacion=justificacion.observacion,
+        archivo_nombre=justificacion.archivo,
+        fecha_carga=justificacion.fecha_carga,
+    )
+
+
+@router.get("/justificaciones", response_model=list[JustificacionFamiliaResponse])
+def listar_justificaciones_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[JustificacionFamiliaResponse]:
+    return [
+        JustificacionFamiliaResponse(
+            id=item.id,
+            asistencia_id=item.asistencia_id,
+            estado=item.estado,
+            motivo=db.get(MotivoJustificacion, item.motivo_justificacion_id).nombre,
+            observacion=item.observacion,
+            archivo_nombre=item.archivo,
+            fecha_carga=item.fecha_carga,
+        )
+        for item in listar_justificaciones_pendientes(db)
+    ]
+
+
+@router.patch(
+    "/justificaciones/{justificacion_id}/resolver",
+    response_model=JustificacionFamiliaResponse,
+)
+def resolver_justificacion_endpoint(
+    justificacion_id: uuid.UUID,
+    datos: JustificacionResolucion,
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> JustificacionFamiliaResponse:
+    justificacion = db.get(JustificacionInasistencia, justificacion_id)
+    if justificacion is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Justificación no encontrada")
+    resultado = resolver_justificacion(db, justificacion, datos.aprobar)
+    return JustificacionFamiliaResponse(
+        id=resultado.id,
+        asistencia_id=resultado.asistencia_id,
+        estado=resultado.estado,
+        motivo=db.get(MotivoJustificacion, resultado.motivo_justificacion_id).nombre,
+        observacion=resultado.observacion,
+        archivo_nombre=resultado.archivo,
+        fecha_carga=resultado.fecha_carga,
+    )
+
+
+@router.get("/justificaciones/{justificacion_id}/archivo")
+def descargar_archivo_justificacion(
+    justificacion_id: uuid.UUID,
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Response:
+    archivo = db.scalar(
+        select(ArchivoJustificacionInasistencia).where(
+            ArchivoJustificacionInasistencia.justificacion_id == justificacion_id
+        )
+    )
+    if archivo is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "La justificación no tiene comprobante")
+    return Response(
+        content=archivo.contenido,
+        media_type=archivo.tipo_contenido,
+        headers={"Content-Disposition": f'attachment; filename="{archivo.nombre}"'},
     )
 
 
