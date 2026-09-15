@@ -28,7 +28,7 @@ permiso:
     acciones: [crear, leer, actualizar, eliminar]
   - rol: administrador del sistema
     modulo: Académico
-    acciones: [crear, leer, actualizar, eliminar]
+    acciones: [crear, leer, actualizar, eliminar, exportar]
   - rol: administrador del sistema
     modulo: Inscripciones
     acciones: [crear, leer, actualizar, eliminar, exportar]

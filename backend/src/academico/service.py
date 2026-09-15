@@ -1,8 +1,11 @@
 """Lógica de negocio del módulo Académico."""
 
+import csv
 import logging
 import uuid
+from dataclasses import dataclass
 from datetime import date
+from io import BytesIO, StringIO
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -55,10 +58,10 @@ from src.academico.schemas import (
 )
 from src.auth import autorizacion_service
 from src.auth import usuarios_service as auth_usuarios_service
-from src.auth.constants import PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA
+from src.auth.constants import PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA, PERMISO_ACADEMICO_EXPORTAR
 from src.auth.exceptions import PermisoDenegado
 from src.auth.models import Rol, Usuario, UsuarioRol
-from src.familias_alumnos.models import FamiliaAlumno
+from src.familias_alumnos.models import Alumno, FamiliaAlumno
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import Persona
 
@@ -118,6 +121,12 @@ def _tiene_acceso_estructural(db: Session, usuario_id: uuid.UUID, rol_activo: st
     `..._ASISTENCIA`, la que tiene un docente — y volvería a filtrar la restricción que esto
     existe para poner (ver el comentario en `auth/constants.py`).
 
+    También cuenta `academico.exportar` (RF-37): dirección tiene `Académico: leer, exportar`,
+    sin `actualizar` de ningún tipo, y nunca va a tener una `AsignacionDocente` propia — sin
+    esto quedaba del lado "acotado" pese a que exportar el historial institucional es
+    justamente para lo que se le dio el permiso (antes era una limitación conocida y anotada
+    acá mismo, sin consumidor real todavía; RF-37 es ese consumidor).
+
     A propósito NO se usa "¿tiene una fila en `Docente`?" como señal: un docente recién dado de
     alta, todavía sin esa fila cargada por RR.HH., tiene que seguir acotado a nada (deniega) en
     vez de leerse como "sin restricción".
@@ -130,6 +139,8 @@ def _tiene_acceso_estructural(db: Session, usuario_id: uuid.UUID, rol_activo: st
         return False
     return autorizacion_service.tiene_permiso_en_rol(
         db, usuario_id, rol_activo, PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA
+    ) or autorizacion_service.tiene_permiso_en_rol(
+        db, usuario_id, rol_activo, PERMISO_ACADEMICO_EXPORTAR
     )
 
 
@@ -140,12 +151,8 @@ def verificar_acceso_a_division(
     asistencia — un docente), solo se opera sobre las divisiones con una `AsignacionDocente`
     vigente — sin esto, cualquier docente podía tomar/editar/leer asistencia de una división
     ajena con solo cambiar el `division_id` en la request. El resto de las cuentas (secretaría,
-    coordinación académica, administrador del sistema) no tiene esta restricción.
-
-    Limitación conocida: dirección (`Académico: leer, exportar`, sin `actualizar` de ningún
-    tipo) queda del lado "acotado" acá — nunca tiene una `AsignacionDocente` propia, así que
-    hoy no puede leer asistencia por este camino. No es una regresión activa (ningún flujo del
-    frontend lo ejercita todavía), pero queda pendiente si dirección necesita este acceso."""
+    coordinación académica, administrador del sistema, y desde RF-37 también dirección vía
+    `academico.exportar`) no tiene esta restricción — ver `_tiene_acceso_estructural`."""
     if _tiene_acceso_estructural(db, usuario_id, rol_activo):
         return
     docente = _docente_de(db, usuario_id)
@@ -419,6 +426,164 @@ def calcular_resumen_asistencia(
         porcentaje_justificadas=porcentaje_justificadas,
         porcentaje_injustificadas=porcentaje_injustificadas,
     )
+
+
+_ETIQUETA_TIPO_ASISTENCIA = {
+    "presente": "Presente",
+    "tardanza": "Tardanza",
+    "ausente_pendiente": "Ausente pendiente",
+    "ausente_justificado": "Ausente justificado",
+    "ausente_injustificado": "Ausente injustificado",
+}
+
+
+@dataclass
+class FilaReporteAsistencia:
+    """Una fila del reporte de exportación (RF-37) — ya en formato de texto, listo para
+    volcar a CSV/Excel/PDF sin que cada formato tenga que conocer el modelo de datos."""
+
+    fecha: date
+    alumno: str
+    numero_legajo: str
+    division: str
+    estado: str
+
+
+def listar_asistencias_reporte(
+    db: Session,
+    usuario_id: uuid.UUID,
+    rol_activo: str | None,
+    fecha_desde: date,
+    fecha_hasta: date,
+    division_id: uuid.UUID | None = None,
+) -> list[FilaReporteAsistencia]:
+    """Reporte institucional de asistencias en un período (RF-37), para exportar.
+
+    A diferencia de `listar_asistencias`/`calcular_resumen_asistencia` (acotadas a una
+    inscripción puntual), esto cruza todos los alumnos de la división elegida — o de toda la
+    institución si no se especifica `division_id`, lo que solo pueden pedir las cuentas con
+    acceso estructural (dirección, secretaría, coordinación académica, administrador del
+    sistema): un docente jamás tiene el permiso `academico.exportar`, así que no llega acá,
+    pero se deja el mismo chequeo que el resto de las consultas de asistencia por consistencia
+    y por si el permiso se le llega a otorgar a un rol más acotado en el futuro.
+    """
+    if division_id is not None:
+        verificar_acceso_a_division(db, usuario_id, division_id, rol_activo)
+    elif not _tiene_acceso_estructural(db, usuario_id, rol_activo):
+        raise PermisoDenegado("Elegí una división para exportar")
+
+    query = (
+        db.query(Asistencia, Persona, Alumno, Division)
+        .join(Inscripcion, Inscripcion.id == Asistencia.inscripcion_id)
+        .join(Alumno, Alumno.id == Inscripcion.alumno_id)
+        .join(Persona, Persona.id == Alumno.persona_id)
+        .join(Division, Division.id == Inscripcion.division_id)
+        .filter(Asistencia.fecha >= fecha_desde, Asistencia.fecha <= fecha_hasta)
+    )
+    if division_id is not None:
+        query = query.filter(Inscripcion.division_id == division_id)
+    query = query.order_by(Asistencia.fecha.desc(), Persona.apellido, Persona.nombre)
+
+    return [
+        FilaReporteAsistencia(
+            fecha=asistencia.fecha,
+            alumno=f"{persona.apellido}, {persona.nombre}",
+            numero_legajo=alumno.numero_legajo,
+            division=division.nombre,
+            estado=_ETIQUETA_TIPO_ASISTENCIA[asistencia.tipo],
+        )
+        for asistencia, persona, alumno, division in query.all()
+    ]
+
+
+_ENCABEZADOS_REPORTE_ASISTENCIA = ("Fecha", "Alumno", "Legajo", "División", "Estado")
+
+
+def _filas_a_tablas(filas: list[FilaReporteAsistencia]) -> list[list[str]]:
+    return [
+        [
+            fila.fecha.strftime("%d/%m/%Y"),
+            fila.alumno,
+            fila.numero_legajo,
+            fila.division,
+            fila.estado,
+        ]
+        for fila in filas
+    ]
+
+
+def generar_csv_reporte_asistencias(filas: list[FilaReporteAsistencia]) -> bytes:
+    buffer = StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(_ENCABEZADOS_REPORTE_ASISTENCIA)
+    writer.writerows(_filas_a_tablas(filas))
+    # BOM (utf-8-sig): sin esto, Excel en Windows abre los acentos rotos al no detectar UTF-8.
+    return buffer.getvalue().encode("utf-8-sig")
+
+
+def generar_xlsx_reporte_asistencias(filas: list[FilaReporteAsistencia]) -> bytes:
+    from openpyxl import Workbook
+
+    libro = Workbook()
+    hoja = libro.active
+    hoja.title = "Asistencias"
+    hoja.append(_ENCABEZADOS_REPORTE_ASISTENCIA)
+    for fila in _filas_a_tablas(filas):
+        hoja.append(fila)
+    for columna in hoja.columns:
+        letra = columna[0].column_letter
+        hoja.column_dimensions[letra].width = max(
+            12, min(40, max(len(str(c.value or "")) for c in columna) + 2)
+        )
+
+    buffer = BytesIO()
+    libro.save(buffer)
+    return buffer.getvalue()
+
+
+def generar_pdf_reporte_asistencias(
+    filas: list[FilaReporteAsistencia], fecha_desde: date, fecha_hasta: date
+) -> bytes:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    violeta = colors.HexColor("#7E22B5")
+    borde = colors.HexColor("#DED8E6")
+    zebra = colors.HexColor("#F6F5F8")
+
+    buffer = BytesIO()
+    documento = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=15 * mm,
+        rightMargin=15 * mm,
+        topMargin=15 * mm,
+        bottomMargin=15 * mm,
+    )
+    estilos = getSampleStyleSheet()
+    titulo = f"Historial de asistencia — {fecha_desde:%d/%m/%Y} a {fecha_hasta:%d/%m/%Y}"
+    elementos = [Paragraph(titulo, estilos["Title"]), Spacer(1, 6 * mm)]
+
+    tabla = Table([list(_ENCABEZADOS_REPORTE_ASISTENCIA), *_filas_a_tablas(filas)], repeatRows=1)
+    tabla.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), violeta),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("GRID", (0, 0), (-1, -1), 0.5, borde),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, zebra]),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]
+        )
+    )
+    elementos.append(tabla)
+    documento.build(elementos)
+    return buffer.getvalue()
 
 
 # --- NivelEducativo ----------------------------------------------------------------------
