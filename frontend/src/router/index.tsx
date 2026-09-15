@@ -3,6 +3,7 @@ import { AppLayout } from '@/layout/app-layout'
 import { PortalLayout } from '@/layout/portal-layout'
 import { ElegirPerfilPage } from '@/pages/elegir-perfil-page'
 import { PortalDocentePage } from '@/pages/portal-docente-page'
+import { PortalDocenteAsistenciaPage } from '@/pages/portal-docente-asistencia-page'
 import { PortalFamiliaPage } from '@/pages/portal-familia-page'
 import { ProtectedRoute } from '@/router/protected-route'
 import { RolActivoRoute } from '@/router/rol-activo-route'
@@ -47,8 +48,9 @@ export function AppRouter() {
             // Tres vistas exclusivas entre sí (§8 DESIGN.md): Consola para los roles de
             // gestión, Portal Docente y Portal Familia — `VistaRoute` redirige a cada rol
             // activo a la suya, así que ninguna muestra algo de otro rol ni por deep link.
-            // Los dos Portal son, por ahora, una página en blanco: las construye otro
-            // integrante del equipo, esta vuelta solo arma la redirección al lugar correcto.
+            // Portal Familia sigue siendo una página en blanco (la construye otro integrante
+            // del equipo); Portal Docente ya tiene su primer flujo real (RF-04: tomar
+            // asistencia), por eso es el único de los dos con rutas anidadas.
             {
               element: <VistaRoute vista="consola" />,
               children: [
@@ -63,7 +65,13 @@ export function AppRouter() {
               children: [
                 {
                   element: <PortalLayout />,
-                  children: [{ path: 'docente', element: <PortalDocentePage /> }],
+                  children: [
+                    { path: 'docente', element: <PortalDocentePage /> },
+                    {
+                      path: 'docente/asistencia/:divisionId',
+                      element: <PortalDocenteAsistenciaPage />,
+                    },
+                  ],
                 },
               ],
             },
