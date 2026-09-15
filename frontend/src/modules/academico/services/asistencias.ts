@@ -4,6 +4,7 @@ import type {
   AsistenciaBulkCreate,
   AsistenciaBulkResponse,
   AsistenciaCreate,
+  AsistenciaResumen,
   AsistenciaUpdate,
 } from '../types'
 
@@ -54,4 +55,19 @@ export function registrarAsistenciaMasiva(datos: AsistenciaBulkCreate) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(datos),
   })
+}
+
+export interface FiltrosResumenAsistencia {
+  inscripcion_id: string
+  fecha_desde: string
+  fecha_hasta: string
+}
+
+export function obtenerResumenAsistencia(filtros: FiltrosResumenAsistencia) {
+  const params = new URLSearchParams({
+    inscripcion_id: filtros.inscripcion_id,
+    fecha_desde: filtros.fecha_desde,
+    fecha_hasta: filtros.fecha_hasta,
+  })
+  return apiClient<AsistenciaResumen>(`/academico/asistencias/resumen?${params.toString()}`)
 }
