@@ -19,7 +19,10 @@ materias/asignaciones docentes) — nunca pensado para eso. Ahora `docente` solo
 from datetime import date
 
 from src.academico.models import ArchivoJustificacionInasistencia
-from src.academico.service import justificar_asistencia_de_familia
+from src.academico.service import (
+    justificar_asistencia_de_familia,
+    resolver_justificacion,
+)
 from src.auth.models import Usuario
 from src.familias_alumnos.models import Familia
 from src.inscripciones.models import Asistencia, Inscripcion
@@ -170,6 +173,27 @@ def test_familia_ve_una_justificacion_pendiente_en_el_historial(client, db_sessi
     assert asistencia_respuesta["tipo"] == "ausente_pendiente"
     assert asistencia_respuesta["justificacion_id"] == str(justificacion.id)
     assert asistencia_respuesta["justificacion_estado"] == "pendiente"
+
+
+def test_rechazar_justificacion_mantiene_estado_y_marca_ausencia_injustificada(db_session):
+    usuario, alumno_id = _crear_familia_con_alumno(db_session)
+    inscripcion = db_session.query(Inscripcion).filter(Inscripcion.alumno_id == alumno_id).one()
+    asistencia = Asistencia(
+        fecha=date(2027, 3, 15),
+        tipo="ausente_pendiente",
+        inscripcion_id=inscripcion.id,
+    )
+    db_session.add(asistencia)
+    db_session.commit()
+    justificacion = justificar_asistencia_de_familia(
+        db_session, usuario, asistencia, "Otro", "Detalle familiar"
+    )
+
+    resultado = resolver_justificacion(db_session, justificacion, False, "Certificado ilegible")
+
+    assert resultado.estado == "rechazada"
+    assert resultado.observacion == "Certificado ilegible"
+    assert db_session.get(Asistencia, asistencia.id).tipo == "ausente_injustificado"
 
 
 def test_docente_no_puede_registrar_asistencia_masiva_de_una_division_ajena(

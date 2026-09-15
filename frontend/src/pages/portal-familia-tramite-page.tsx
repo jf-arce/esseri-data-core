@@ -34,15 +34,19 @@ const TIPOS_COMPROBANTE = {
 }
 const MAX_TAMANIO_COMPROBANTE = 5 * 1024 * 1024
 
-function etiquetaAsistencia(tipo: string) {
+function etiquetaAsistencia(asistencia: AsistenciaFamilia) {
+  if (asistencia.justificacion_estado === 'pendiente') return 'En revisión'
+  if (asistencia.justificacion_estado === 'aprobada') return 'Justificación aprobada'
+  if (asistencia.justificacion_estado === 'rechazada') return 'Justificación rechazada'
+
   const etiquetas: Record<string, string> = {
     presente: 'Presente',
     tardanza: 'Tardanza',
     ausente_pendiente: 'Ausente pendiente',
-    ausente_justificado: 'Ausente justificado',
-    ausente_injustificado: 'Ausente injustificado',
+    ausente_justificado: 'Ausente',
+    ausente_injustificado: 'Ausente',
   }
-  return etiquetas[tipo] ?? tipo.replaceAll('_', ' ')
+  return etiquetas[asistencia.tipo] ?? asistencia.tipo.replaceAll('_', ' ')
 }
 
 type PortalFamiliaTramitePageProps = {
@@ -173,11 +177,7 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
                       <span className="flex-1">
                         {new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString('es-AR')}
                       </span>
-                      <span className="text-texto-2">{etiquetaAsistencia(asistencia.tipo)}</span>
-                      {asistencia.tipo === 'ausente_pendiente' &&
-                        asistencia.justificacion_estado === 'pendiente' && (
-                          <span className="font-medium text-violeta">En revisión</span>
-                        )}
+                      <span className="text-texto-2">{etiquetaAsistencia(asistencia)}</span>
                       {asistencia.tipo === 'ausente_pendiente' &&
                         !asistencia.justificacion_estado && (
                           <Button
@@ -190,7 +190,7 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
                             Justificar
                           </Button>
                         )}
-                      {asistencia.tipo === 'ausente_justificado' && (
+                      {asistencia.justificacion_estado === 'aprobada' && (
                         <CheckIcon className="size-4 text-exito" aria-label="Justificada" />
                       )}
                     </div>
