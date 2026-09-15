@@ -40,6 +40,15 @@ describe('filtrarNav', () => {
     expect(labels).toContain('Académico')
   })
 
+  it('muestra el acceso a Justificaciones con un nombre corto', () => {
+    const grupos = filtrarNav(NAV_GROUPS, 'direccion', [permiso('academico.leer')])
+
+    const academico = grupos.flatMap((g) => g.items).find((i) => i.label === 'Académico')
+    const hijos = academico?.children?.map((h) => h.label) ?? []
+    expect(hijos).toContain('Justificaciones')
+    expect(hijos).not.toContain('Justificaciones de asistencia')
+  })
+
   it('"Tomar asistencia" (anidado en Académico) pide el permiso tipado de asistencia, no la estructura', () => {
     // Anidado bajo "Académico" (§ nota de filtrado en nav-items.ts): el padre necesita su
     // propio `academico.leer` para que sus hijos se evalúen — un docente real siempre lo

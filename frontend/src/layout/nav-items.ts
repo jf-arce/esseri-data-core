@@ -156,7 +156,7 @@ export const NAV_GROUPS: NavGroup[] = [
             permiso: PERMISO_ACADEMICO_LEER,
           },
           {
-            label: 'Justificaciones de asistencia',
+            label: 'Justificaciones',
             href: '/academico/justificaciones',
             icon: ClipboardList,
             permiso: PERMISO_ACADEMICO_LEER,
