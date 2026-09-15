@@ -246,6 +246,88 @@
   --sidebar-ring: var(--violeta);
 }
 
+/* Tema oscuro: conserva la jerarquía violeta de ESSERI sin invertir colores de forma mecánica. */
+:root.dark {
+  color-scheme: dark;
+
+  --lienzo: #19151f;
+  --superficie: #211c29;
+  --fila-hover: #2b2435;
+  --borde: #51465f;
+
+  --sup-familias: #302039;
+  --sup-academico: #1d2b40;
+  --sup-inscripciones: #193437;
+  --sup-facturacion: #3a2a20;
+  --sup-compras: #2b2934;
+  --sup-workflows: #2d2441;
+  --sup-auditoria: #272d37;
+  --sup-ia: #193437;
+
+  --tinta: #120f17;
+  --nav: #17121e;
+  --nav-hover: #282032;
+  --nav-activo: #382949;
+  --banda-oscura: #1d1626;
+  --texto-sobre-oscuro: #f1eaf4;
+  --texto-2-sobre-oscuro: #c9bed2;
+  --lila-claro: #e0bdf4;
+
+  --violeta: #bd75df;
+  --violeta-esseri: #cb93e5;
+  --violeta-pressed: #9b52bb;
+  --violeta-suave: #392542;
+  --violeta-borde: #704c7f;
+
+  --petroleo: #48bdc5;
+  --exito: #4dc78c;
+  --advertencia: #f0b15d;
+  --error: #ff8980;
+  --info: #7dacef;
+  --exito-suave: #1d3b30;
+  --advertencia-suave: #44331f;
+  --error-suave: #482728;
+  --info-suave: #253654;
+  --petroleo-suave: #1d3a3d;
+
+  --mod-familias: #ce91e9;
+  --mod-academico: #83b6ff;
+  --mod-inscripciones: #57c7cc;
+  --mod-facturacion: #f4b86e;
+  --mod-compras: #b5b3cd;
+  --mod-workflows: #b399ff;
+  --mod-auditoria: #b3bbc8;
+  --mod-ia: #57c7cc;
+
+  --mod-familias-suave: #3d2b48;
+  --mod-academico-suave: #263a5c;
+  --mod-inscripciones-suave: #203e40;
+  --mod-facturacion-suave: #483522;
+  --mod-compras-suave: #34323d;
+  --mod-workflows-suave: #382d52;
+  --mod-auditoria-suave: #303640;
+  --mod-ia-suave: #203e40;
+
+  --identidad-violeta-suave: #3d2b48;
+  --identidad-petroleo-suave: #203e40;
+  --identidad-advertencia-suave: #483522;
+  --identidad-info-suave: #263a5c;
+  --identidad-mod-compras-suave: #34323d;
+  --identidad-mod-workflows-suave: #382d52;
+
+  --texto: #f3eef5;
+  --texto-2: #cdc5d3;
+  --texto-3: #b6adbd;
+  --desactivado: #82788c;
+
+  --sombra-card: 0 1px 2px rgba(6, 4, 9, 0.28), 0 4px 12px rgba(6, 4, 9, 0.2);
+  --sombra-overlay: 0 8px 24px rgba(6, 4, 9, 0.42);
+
+  --chart-4: #c4a6db;
+  --chart-5: #b5b3cd;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

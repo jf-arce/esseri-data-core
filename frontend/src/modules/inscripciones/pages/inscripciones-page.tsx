@@ -13,6 +13,7 @@ import { InscripcionesTabla } from '@/modules/inscripciones/components/inscripci
 import { useInscripciones } from '@/modules/inscripciones/hooks/use-inscripciones'
 import { useResumenInscripciones } from '@/modules/inscripciones/hooks/use-resumen-inscripciones'
 import { exportarInscripciones } from '@/modules/inscripciones/services/exportar-inscripciones'
+import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 import type {
   EstadoInscripcion,
   InscripcionListadoItem,
@@ -24,7 +25,6 @@ const TAMANIO_PAGINA = 10
 export function InscripcionesPage() {
   const [busqueda, setBusqueda] = useState('')
   const [busquedaAplicada, setBusquedaAplicada] = useState('')
-  const [cicloLectivo, setCicloLectivo] = useState('')
   const [tipo, setTipo] = useState<TipoInscripcion | ''>('')
   const [estado, setEstado] = useState<EstadoInscripcion | ''>('')
   const [orden, setOrden] = useState<'fecha_desc' | 'fecha_asc' | 'alumno_asc'>('fecha_desc')
@@ -37,14 +37,20 @@ export function InscripcionesPage() {
   )
   const [exportando, setExportando] = useState(false)
   const [errorExportacion, setErrorExportacion] = useState<string | null>(null)
+  const cicloLectivo = useCicloLectivoStore((state) => state.cicloLectivo)
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setBusquedaAplicada(busqueda.trim()), 300)
     return () => window.clearTimeout(timeout)
   }, [busqueda])
 
-  const cicloAplicado = cicloLectivo.length === 4 ? cicloLectivo : undefined
-  const cicloResumen = cicloAplicado ?? String(new Date().getFullYear())
+  // El selector del header delimita el ciclo de todo el módulo; no hay un filtro local paralelo.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    setPagina(1)
+  }, [cicloLectivo])
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   const filtros = useMemo(() => {
     const criterioOrden =
       orden === 'alumno_asc'
@@ -56,16 +62,16 @@ export function InscripcionesPage() {
 
     return {
       buscar: busquedaAplicada || undefined,
-      cicloLectivo: cicloAplicado,
+      cicloLectivo,
       tipo: tipo || undefined,
       estado: estado || undefined,
       ...criterioOrden,
       pagina,
       tamanioPagina: TAMANIO_PAGINA,
     }
-  }, [busquedaAplicada, cicloAplicado, estado, orden, pagina, tipo])
+  }, [busquedaAplicada, cicloLectivo, estado, orden, pagina, tipo])
   const { datos, cargando, error, sinPermiso, recargar } = useInscripciones(filtros)
-  const resumen = useResumenInscripciones(cicloResumen)
+  const resumen = useResumenInscripciones(cicloLectivo)
 
   const exportarListado = async () => {
     setErrorExportacion(null)
@@ -86,8 +92,7 @@ export function InscripcionesPage() {
     }
   }
 
-  const hayFiltros =
-    busqueda.trim() !== '' || cicloLectivo.length === 4 || tipo !== '' || estado !== ''
+  const hayFiltros = busqueda.trim() !== '' || tipo !== '' || estado !== ''
 
   if (sinPermiso) {
     return (
@@ -159,8 +164,6 @@ export function InscripcionesPage() {
       <InscripcionesFiltros
         busqueda={busqueda}
         onBusquedaChange={actualizarFiltro(setBusqueda)}
-        cicloLectivo={cicloLectivo}
-        onCicloLectivoChange={actualizarFiltro(setCicloLectivo)}
         tipo={tipo}
         onTipoChange={actualizarFiltro(setTipo)}
         estado={estado}

@@ -44,6 +44,7 @@ import {
 import { GlobalSearchDialog } from '@/layout/global-search-dialog'
 import { MenuCuenta } from '@/layout/menu-cuenta'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
+import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 import { useUiStore } from '@/store/ui-store'
 import { Button } from '@/components/ui/button'
 
@@ -52,6 +53,8 @@ export function AppLayout() {
   const setSidebarOpen = useUiStore((state) => state.setSidebarOpen)
   const rolActivo = useAuthStore((state) => state.rolActivo)
   const permisos = useAuthStore(permisosActivos)
+  const ciclo = useCicloLectivoStore((state) => state.cicloLectivo)
+  const setCicloLectivo = useCicloLectivoStore((state) => state.setCicloLectivo)
   const location = useLocation()
   // Sidebar, buscador y ruta activa comparten un único árbol ya acotado al rol activo — un
   // docente no debe ni ver ni poder activar por URL un módulo que su vista no muestra.
@@ -61,7 +64,6 @@ export function AppLayout() {
   )
   const hrefActivo = calcularHrefActivo(location.pathname, navGrupos)
   const [comandoAbierto, setComandoAbierto] = useState(false)
-  const [ciclo, setCiclo] = useState('2026')
   const [moduloSeleccionado, setModuloSeleccionado] = useState<NavItem | null>(() =>
     moduloDeRuta(location.pathname, navGrupos),
   )
@@ -175,7 +177,7 @@ export function AppLayout() {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuRadioGroup value={ciclo} onValueChange={setCiclo}>
+                <DropdownMenuRadioGroup value={ciclo} onValueChange={setCicloLectivo}>
                   <DropdownMenuRadioItem value="2026">
                     <CalendarIcon className="text-texto-3" />
                     2026

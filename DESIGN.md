@@ -12,63 +12,65 @@ Es una superficie de **producto**, no de marketing: una herramienta de uso inter
 
 ## 2. Color
 
-Modo claro únicamente. Nunca `#000000` ni `#FFFFFF` puros: todo neutro de este sistema lleva un tinte violáceo (hue ≈300 en OKLCH), para que la interfaz se lea como una sola familia y no como grises de sistema operativo.
+El sistema ofrece tema claro y oscuro. Claro es el valor predeterminado y la elección se conserva por navegador; el tema guardado se aplica antes del primer render para evitar un destello de color incorrecto. Nunca `#000000` ni `#FFFFFF` puros: todo neutro de este sistema lleva un tinte violáceo (hue ≈300 en OKLCH), para que la interfaz se lea como una sola familia y no como grises de sistema operativo.
+
+Los tokens semánticos se redefinen en `.dark` dentro de `frontend/src/index.css`; las pantallas y componentes usan exclusivamente esos tokens, sin variantes `dark:` ni colores fijos. El selector de tema vive en el menú de cuenta y ofrece "Claro" y "Oscuro" como opciones de radio accesibles.
 
 ### 2.1 Superficies (tres capas neutras + superficies de módulo)
 
-| Token | Valor | Uso |
-|---|---|---|
-| lienzo | `#F6F5F8` | fondo de la aplicación |
-| superficie | `#FDFCFE` | tablas, modales, inputs (nunca `#FFFFFF`) |
-| fila-hover | `#F1EFF4` | hover de fila en tablas, fondo de sección hover |
-| borde | `#DAD3E2` | hairline de 1px: inputs, divisores, filas de tabla (ya no separa cards — ver 5.2). Revisado: el valor original (`#E6E2EC`) daba 1.25:1 de contraste contra `superficie`, muy por debajo del piso de 3:1 de WCAG 1.4.11 para el límite de un control interactivo — este valor sube a ~1.43:1 manteniendo el mismo hue violáceo (~268°) |
+| Token      | Valor     | Uso                                                                                                                                                                                                                                                                                                                                   |
+| ---------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| lienzo     | `#F6F5F8` | fondo de la aplicación                                                                                                                                                                                                                                                                                                                |
+| superficie | `#FDFCFE` | tablas, modales, inputs (nunca `#FFFFFF`)                                                                                                                                                                                                                                                                                             |
+| fila-hover | `#F1EFF4` | hover de fila en tablas, fondo de sección hover                                                                                                                                                                                                                                                                                       |
+| borde      | `#DAD3E2` | hairline de 1px: inputs, divisores, filas de tabla (ya no separa cards — ver 5.2). Revisado: el valor original (`#E6E2EC`) daba 1.25:1 de contraste contra `superficie`, muy por debajo del piso de 3:1 de WCAG 1.4.11 para el límite de un control interactivo — este valor sube a ~1.43:1 manteniendo el mismo hue violáceo (~268°) |
 
 **Superficies de módulo (`--sup-*`)**: además de las tres capas neutras, cada módulo de la tabla en 2.5 tiene una superficie tonal propia (el color del módulo llevado a ~90–96% de luminosidad manteniendo el hue) — `sup-familias`, `sup-academico`, `sup-inscripciones`, `sup-facturacion`, `sup-compras`, `sup-workflows`, `sup-auditoria`, `sup-ia`. **No es el fondo de la Card** (ver 9): la Card va siempre sobre `superficie` lisa, sin excepción por módulo. Los `--sup-*` quedan reservados a dos usos puntuales: el fondo de un nodo en el canvas de workflows (disparador/condición/acción, ver 9) y el fondo de un tile de ícono (`36–44px`, radio 10–12px) donde hace falta más peso visual que un ícono suelto. Ninguna tabla los usa tampoco: una tabla densa se mantiene sobre `superficie` neutra por legibilidad de fila.
 
 ### 2.2 Tinta y rampa de navegación (estructura oscura, no negro)
 
-| Token | Valor | Uso |
-|---|---|---|
+| Token | Valor     | Uso                                                                                                                                        |
+| ----- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | tinta | `#14111A` | color de texto sobre superficie clara (títulos de página); fondo de overlays oscuros **transitorios**: snackbar, barra de selección masiva |
 
 `tinta-2` queda deprecado: el hover dentro de superficies oscuras persistentes (el rail) ya no lo usa — ver `nav-hover` abajo.
 
 **Rampa de navegación (rail lateral oscuro)**: el rail de la Consola (ver 8) no usa `tinta` como fondo — tiene su propia rampa, más clara y con más matiz violáceo, para diferenciarse de los overlays transitorios:
 
-| Token | Valor | Uso |
-|---|---|---|
-| nav | `#241E2E` | fondo del rail lateral |
-| nav-hover | `#322C42` | hover de ítem sobre el rail |
-| nav-activo | `#3D2F4E` | fondo píldora del ítem activo del rail |
-| banda-oscura | `#2A2436` | card de dato hero (ver 9), banda oscura de un dashboard |
-| texto-sobre-oscuro | `#EDE8F2` | texto principal sobre nav/banda oscura |
+| Token                | Valor                 | Uso                                                                                                                           |
+| -------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| nav                  | `#241E2E`             | fondo del rail lateral                                                                                                        |
+| nav-hover            | `#322C42`             | hover de ítem sobre el rail                                                                                                   |
+| nav-activo           | `#3D2F4E`             | fondo píldora del ítem activo del rail                                                                                        |
+| banda-oscura         | `#2A2436`             | card de dato hero (ver 9), banda oscura de un dashboard                                                                       |
+| texto-sobre-oscuro   | `#EDE8F2`             | texto principal sobre nav/banda oscura                                                                                        |
 | texto-2-sobre-oscuro | `oklch(78% 0.03 308)` | texto secundario sobre esas mismas superficies: el lila desaturado, nunca gris neutro (gris sobre fondo de color se ve sucio) |
-| lila-claro | `#D9B8F0` | texto e ícono del ítem activo del rail |
+| lila-claro           | `#D9B8F0`             | texto e ícono del ítem activo del rail                                                                                        |
 
 ### 2.3 Violeta: dos roles distintos, nunca intercambiables
 
-| Token | Valor | Rol |
-|---|---|---|
+| Token            | Valor     | Rol                                                                                                         |
+| ---------------- | --------- | ----------------------------------------------------------------------------------------------------------- |
 | violeta-vibrante | `#7C24A3` | **primario de interacción**: botones, links activos, ítem activo de navegación, foco, iconografía de acento |
-| violeta-esseri | `#6E2A8D` | **marca en reposo**: wordmark/logo, y estado *hover* de violeta-vibrante. No es un color de acción |
-| violeta-pressed | `#55206E` | estado *pressed* del primario |
-| violeta-suave | `#F6EDFB` | fondo tenue (chips, superficies seleccionadas) |
-| violeta-borde | `#E7CFF2` | borde tenue a juego con violeta-suave |
+| violeta-esseri   | `#6E2A8D` | **marca en reposo**: wordmark/logo, y estado _hover_ de violeta-vibrante. No es un color de acción          |
+| violeta-pressed  | `#55206E` | estado _pressed_ del primario                                                                               |
+| violeta-suave    | `#F6EDFB` | fondo tenue (chips, superficies seleccionadas)                                                              |
+| violeta-borde    | `#E7CFF2` | borde tenue a juego con violeta-suave                                                                       |
 
 Regla dura: el violeta va siempre **plano**. Cero degradés, y en particular cero violeta→azul o violeta→rosa: es el tell más reconocible de interfaz generada por IA, y acá el riesgo es mayor porque el violeta es la marca real.
 
-*(Nota de revisión: al introducir la elevación de card con sombra en 5.2 se reafirmó deliberadamente esta regla — el objetivo de esa revisión era una interfaz más profesional, y un degradé de marca va en contra de eso exactamente igual que antes.)*
+_(Nota de revisión: al introducir la elevación de card con sombra en 5.2 se reafirmó deliberadamente esta regla — el objetivo de esa revisión era una interfaz más profesional, y un degradé de marca va en contra de eso exactamente igual que antes.)_
 
 ### 2.4 Acento secundario y semánticos
 
-| Token | Valor | Uso |
-|---|---|---|
-| petroleo | `#0E7C86` | acento secundario: datos, links de detalle, y **toda la capa de IA** |
-| exito | `#0F7A4D` | estado positivo |
-| advertencia | `#B45309` | estado de alerta |
-| error | `#B42318` | estado negativo/destructivo |
-| info | `#175CD3` | estado informativo |
-| exito-suave / advertencia-suave / error-suave / info-suave | `#E0ECE9` / `#F2DFC9` / `#F4E2E2` / `#E1E9F9` | fondo pastel de cada semántico, para badges de estado |
+| Token                                                      | Valor                                         | Uso                                                                  |
+| ---------------------------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------- |
+| petroleo                                                   | `#0E7C86`                                     | acento secundario: datos, links de detalle, y **toda la capa de IA** |
+| exito                                                      | `#0F7A4D`                                     | estado positivo                                                      |
+| advertencia                                                | `#B45309`                                     | estado de alerta                                                     |
+| error                                                      | `#B42318`                                     | estado negativo/destructivo                                          |
+| info                                                       | `#175CD3`                                     | estado informativo                                                   |
+| exito-suave / advertencia-suave / error-suave / info-suave | `#E0ECE9` / `#F2DFC9` / `#F4E2E2` / `#E1E9F9` | fondo pastel de cada semántico, para badges de estado                |
 
 Los semánticos comunican **solo estado**, nunca identidad ni acción. Un badge de estado usa fondo `-suave` + texto/ícono en el color saturado + un punto indicador: el estado nunca se comunica solo por color.
 
@@ -78,24 +80,24 @@ Los `-suave` quedan reservados exclusivamente a badges de estado. La identidad d
 
 Para diferenciar el dominio/tipo de evento en listas y líneas de tiempo (distinto del badge de estado semántico):
 
-| Módulo | Color |
-|---|---|
-| familias | violeta-vibrante `#7C24A3` |
-| académico | info `#175CD3` |
-| inscripciones | petróleo `#0E7C86` |
-| facturación | advertencia `#B45309` |
-| compras | `#54577A` (pizarra violácea) |
-| workflows | `#7B49E3` (lila frío, distinto del violeta de marca) |
-| auditoría | `#334155` (pizarra oscura neutra) |
-| IA | petróleo `#0E7C86` (mismo color reservado a la capa de IA) |
+| Módulo        | Color                                                      |
+| ------------- | ---------------------------------------------------------- |
+| familias      | violeta-vibrante `#7C24A3`                                 |
+| académico     | info `#175CD3`                                             |
+| inscripciones | petróleo `#0E7C86`                                         |
+| facturación   | advertencia `#B45309`                                      |
+| compras       | `#54577A` (pizarra violácea)                               |
+| workflows     | `#7B49E3` (lila frío, distinto del violeta de marca)       |
+| auditoría     | `#334155` (pizarra oscura neutra)                          |
+| IA            | petróleo `#0E7C86` (mismo color reservado a la capa de IA) |
 
 ### 2.6 Texto
 
-| Token | Valor | Contraste sobre superficie |
-|---|---|---|
-| texto | `#1B1822` | 16.1:1 |
-| texto-2 | `#6B6577` | 5.2:1 |
-| texto-3 | `#7C7688` | 4.0:1 (solo tamaños grandes) |
+| Token       | Valor     | Contraste sobre superficie                               |
+| ----------- | --------- | -------------------------------------------------------- |
+| texto       | `#1B1822` | 16.1:1                                                   |
+| texto-2     | `#6B6577` | 5.2:1                                                    |
+| texto-3     | `#7C7688` | 4.0:1 (solo tamaños grandes)                             |
 | desactivado | `#9A94A6` | solo placeholder/disabled, nunca texto que haya que leer |
 
 Todo par texto/fondo debe llegar a ≥4.5:1 (piso AA). Texto gris nunca sobre fondo de color.
@@ -117,14 +119,15 @@ La escala vive directamente en la escala de tamaños de Tailwind — **nunca** c
 
 `text-xs`/`text-sm`/`text-base` están redefinidos en `frontend/src/index.css` (`@theme inline`) apenas por encima del valor nativo de Tailwind — el sistema lo usa personal y familias de un colegio, no solo un equipo técnico, así que el piso de legibilidad sube de 12px a 13px, sin llegar a un salto completo de escalón. `text-2xl` (rol título) queda en su valor nativo, 24px.
 
-| Rol | Utilidad Tailwind | Tamaño | Uso |
-|---|---|---|---|
-| micro | `text-xs` | 13px | Etiqueta de sección (versalitas), encabezado de columna de tabla densa, badge, chip, texto auxiliar mínimo (helper, error inline) |
-| cuerpo | `text-sm` | 15px | Cuerpo de UI por defecto: botón, input, select, texto de fila de tabla, label de campo, breadcrumb, texto de tabs. También cubre lo que antes era "texto secundario/metadata" — se diferencia por color (`texto-2`/`texto-3`) y peso, no por un tamaño propio |
-| encabezado | `text-base` | 17px | Encabezado de sección |
-| título | `text-2xl` | 24px | Título de página |
+| Rol        | Utilidad Tailwind | Tamaño | Uso                                                                                                                                                                                                                                                           |
+| ---------- | ----------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| micro      | `text-xs`         | 13px   | Etiqueta de sección (versalitas), encabezado de columna de tabla densa, badge, chip, texto auxiliar mínimo (helper, error inline)                                                                                                                             |
+| cuerpo     | `text-sm`         | 15px   | Cuerpo de UI por defecto: botón, input, select, texto de fila de tabla, label de campo, breadcrumb, texto de tabs. También cubre lo que antes era "texto secundario/metadata" — se diferencia por color (`texto-2`/`texto-3`) y peso, no por un tamaño propio |
+| encabezado | `text-base`       | 17px   | Encabezado de sección                                                                                                                                                                                                                                         |
+| título     | `text-2xl`        | 24px   | Título de página                                                                                                                                                                                                                                              |
 
 Nunca un valor suelto entre estos pasos (nada de 12.5px, 13.5px, 14.5px, 16px, ni un `text-[Npx]` que solo reescribe a mano un valor que la escala de Tailwind ya cubre): si un texto no encaja claramente en un rol, es señal de que le falta jerarquía real (peso, color, spacing), no que necesite un tamaño intermedio. La densidad de este sistema (§1) ya justifica un piso de 13-15px para texto de UI corriente, por debajo del piso de 15-17px que aplicaría a una superficie de lectura o de marketing (el hero de marketing del login es la única excepción documentada, con un tamaño propio de 40px fuera de esta escala).
+
 - **Datos**: Geist con numerales tabulares (`font-variant-numeric: tabular-nums`) para todo dato: montos, legajos, DNI, fechas, IDs, logs. No hay una fuente monoespaciada separada; la alineación tabular se logra con la feature OpenType, no con otra tipografía.
 - Longitud de línea de texto corrido: 65–75ch máximo.
 - Cualquier texto que pueda envolver a más de una línea (títulos, valores grandes) necesita un `line-height` explícito acorde a su tamaño (ej. 1.2–1.3), nunca heredar el line-height compacto del cuerpo: a 26–40px de tamaño, un line-height de cuerpo (20px) hace que las líneas se superpongan.
@@ -137,17 +140,17 @@ Grilla de 8px, submúltiplos de 4: **8 / 16 / 24 / 32 / 48**. Padding interno m�
 
 ### 5.1 Radio por tamaño de componente (nunca un radio único)
 
-| Contexto | Radio |
-|---|---|
-| Botón, ítem de navegación | 999px (píldora) |
-| Input, select, switch | 8px |
-| Checkbox | 5px (radio chico propio, es un control cuadrado pequeño) |
-| Badge (estado o módulo) | 999px (pill) |
-| Card chica (indicador, ítem de lista) | 12px |
-| Card mediana (card genérica, paso de formulario, detalle) | 16px |
-| Contenedor grande (panel completo, marco de una grilla de datos) | 20px |
-| Modal/diálogo | 12px |
-| Grilla de datos densa (fila de tabla, línea de tiempo) | 8px |
+| Contexto                                                         | Radio                                                    |
+| ---------------------------------------------------------------- | -------------------------------------------------------- |
+| Botón, ítem de navegación                                        | 999px (píldora)                                          |
+| Input, select, switch                                            | 8px                                                      |
+| Checkbox                                                         | 5px (radio chico propio, es un control cuadrado pequeño) |
+| Badge (estado o módulo)                                          | 999px (pill)                                             |
+| Card chica (indicador, ítem de lista)                            | 12px                                                     |
+| Card mediana (card genérica, paso de formulario, detalle)        | 16px                                                     |
+| Contenedor grande (panel completo, marco de una grilla de datos) | 20px                                                     |
+| Modal/diálogo                                                    | 12px                                                     |
+| Grilla de datos densa (fila de tabla, línea de tiempo)           | 8px                                                      |
 
 ### 5.2 Elevación de card: superficie + sombra baja, sin borde
 
@@ -215,7 +218,7 @@ Nunca una fila de chips todos-al-lado-del-otro cuando hay más de dos o tres opc
 
 No todas las tablas necesitan todos estos filtros. El criterio es el dato: una tabla de solo lectura (auditoría, log de accesos) lleva filtro y orden pero no acciones; una tabla chica embebida en una vista de detalle (el historial de facturas de una familia, en su propio portal) no necesita el aparato completo de una barra de filtros — alcanza con orden simple o nada. Forzar el mismo patrón en todos lados es tan mal criterio como no tener ninguno.
 
-*(Nota de revisión: este documento tenía además un control de densidad cómoda/compacta en esta barra, quitado — ver §5.2.)*
+_(Nota de revisión: este documento tenía además un control de densidad cómoda/compacta en esta barra, quitado — ver §5.2.)_
 
 ### 9.2 Acciones de fila
 
