@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import {
-  BotMessageSquareIcon,
   CalendarClockIcon,
   ChevronRightIcon,
   FileTextIcon,
@@ -97,17 +96,6 @@ export function PortalFamiliaPage() {
                 <span className="block text-sm font-semibold text-texto">Justificar ausencia</span>
                 <span className="mt-1 block text-xs text-texto-2">
                   Cargá el motivo y comprobante.
-                </span>
-              </span>
-            </Link>
-            <Link to="/familia/asistente" className={accesoClass()}>
-              <span className="flex size-10 items-center justify-center rounded-lg bg-sup-ia text-petroleo">
-                <BotMessageSquareIcon aria-hidden="true" className="size-5" />
-              </span>
-              <span>
-                <span className="block text-sm font-semibold text-texto">Asistente</span>
-                <span className="mt-1 block text-xs text-texto-2">
-                  Consultá información de tus hijos.
                 </span>
               </span>
             </Link>
