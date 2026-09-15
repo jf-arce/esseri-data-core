@@ -249,6 +249,7 @@ class JustificacionFamiliaResponse(BaseModel):
     estado: str
     motivo: str
     observacion: str | None
+    archivo_nombre: str | None
     fecha_carga: datetime
 
 

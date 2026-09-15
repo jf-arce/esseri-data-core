@@ -16,6 +16,13 @@ materias/asignaciones docentes) — nunca pensado para eso. Ahora `docente` solo
 `AsignacionDocente`.
 """
 
+from datetime import date
+
+from src.academico.models import ArchivoJustificacionInasistencia
+from src.academico.service import justificar_asistencia_de_familia
+from src.auth.models import Usuario
+from src.familias_alumnos.models import Familia
+from src.inscripciones.models import Asistencia
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
 
@@ -87,6 +94,42 @@ def test_docente_puede_registrar_asistencia_masiva_de_su_propia_division(
     cuerpo = respuesta.json()
     assert cuerpo["creadas"] == 1
     assert cuerpo["notificaciones_disparadas"] == 1
+
+
+def test_familia_guarda_comprobante_con_justificacion(db_session):
+    escenario = crear_escenario(db_session)
+    inscripcion = crear_inscripcion_previa(db_session, escenario, estado="activa")
+    familia = db_session.get(Familia, escenario["familia_id"])
+    usuario = Usuario(
+        email="familia-asistencia@esseri.edu.ar",
+        password_hash="hash-de-prueba",
+        auth_provider="local",
+        estado="activo",
+        persona_id=familia.persona_id,
+    )
+    asistencia = Asistencia(
+        fecha=date(2027, 3, 15),
+        tipo="ausente_pendiente",
+        inscripcion_id=inscripcion.id,
+    )
+    db_session.add_all([usuario, asistencia])
+    db_session.commit()
+
+    justificacion = justificar_asistencia_de_familia(
+        db_session,
+        usuario,
+        asistencia,
+        "Enfermedad",
+        "Se adjunta certificado.",
+        "certificado.pdf",
+        "application/pdf",
+        b"%PDF-1.7 certificado",
+    )
+
+    archivo = db_session.get(ArchivoJustificacionInasistencia, justificacion.archivo_adjunto.id)
+    assert archivo is not None
+    assert archivo.nombre == "certificado.pdf"
+    assert archivo.contenido == b"%PDF-1.7 certificado"
 
 
 def test_docente_no_puede_registrar_asistencia_masiva_de_una_division_ajena(

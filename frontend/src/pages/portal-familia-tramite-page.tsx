@@ -1,12 +1,39 @@
-import { ArrowLeftIcon, CheckIcon, ConstructionIcon } from 'lucide-react'
+import { ArrowLeftIcon, CheckIcon, ConstructionIcon, PaperclipIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
+import type { FileRejection } from 'react-dropzone'
+import { Dropzone } from '@/components/dropzone'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Button } from '@/components/ui/button'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
 import { listarAsistenciasFamilia } from '@/modules/academico/services/listar-asistencias-familia'
 import { justificarAsistenciaFamilia } from '@/modules/academico/services/justificar-asistencia-familia'
+
+const MOTIVOS_JUSTIFICACION = [
+  'Enfermedad',
+  'Consulta médica',
+  'Trámite familiar',
+  'Fuerza mayor',
+  'Otro',
+]
+const TIPOS_COMPROBANTE = {
+  'application/pdf': ['.pdf'],
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/png': ['.png'],
+}
+const MAX_TAMANIO_COMPROBANTE = 5 * 1024 * 1024
+
+function etiquetaAsistencia(tipo: string) {
+  const etiquetas: Record<string, string> = {
+    presente: 'Presente',
+    tardanza: 'Tardanza',
+    ausente_pendiente: 'Ausente pendiente',
+    ausente_justificado: 'Ausente justificado',
+    ausente_injustificado: 'Ausente injustificado',
+  }
+  return etiquetas[tipo] ?? tipo.replaceAll('_', ' ')
+}
 
 type PortalFamiliaTramitePageProps = {
   titulo: string
@@ -22,8 +49,11 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
   const [asistencias, setAsistencias] = useState<{ id: string; fecha: string; tipo: string }[]>([])
   const [alumnoId, setAlumnoId] = useState('')
   const [asistenciaAJustificar, setAsistenciaAJustificar] = useState<string | null>(null)
-  const [motivo, setMotivo] = useState('')
+  const [motivoSeleccionado, setMotivoSeleccionado] = useState('')
+  const [motivoOtro, setMotivoOtro] = useState('')
   const [observacion, setObservacion] = useState('')
+  const [comprobante, setComprobante] = useState<File | undefined>()
+  const [errorComprobante, setErrorComprobante] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const alumnoSeleccionado = alumnoId || alumnos[0]?.alumno_id || ''
   useEffect(() => {
@@ -33,17 +63,33 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
         .catch(() => setAsistencias([]))
   }, [alumnoSeleccionado])
   async function enviarJustificacion() {
+    const motivo = motivoSeleccionado === 'Otro' ? motivoOtro.trim() : motivoSeleccionado
     if (!asistenciaAJustificar || !motivo.trim()) return
     setGuardando(true)
     try {
-      await justificarAsistenciaFamilia(asistenciaAJustificar, motivo.trim(), observacion.trim())
+      await justificarAsistenciaFamilia(
+        asistenciaAJustificar,
+        motivo,
+        observacion.trim(),
+        comprobante,
+      )
       setAsistenciaAJustificar(null)
-      setMotivo('')
+      setMotivoSeleccionado('')
+      setMotivoOtro('')
       setObservacion('')
+      setComprobante(undefined)
       if (alumnoSeleccionado) setAsistencias(await listarAsistenciasFamilia(alumnoSeleccionado))
     } finally {
       setGuardando(false)
     }
+  }
+  function adjuntarComprobante(archivos: File[], rechazos: FileRejection[]) {
+    if (rechazos.length > 0) {
+      setErrorComprobante('El comprobante debe ser PDF, JPG o PNG y pesar como máximo 5 MB.')
+      return
+    }
+    setComprobante(archivos[0])
+    setErrorComprobante(null)
   }
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-col gap-5">
@@ -88,7 +134,7 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
                     <span className="flex-1">
                       {new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString('es-AR')}
                     </span>
-                    <span className="text-texto-2">{asistencia.tipo.replaceAll('_', ' ')}</span>
+                    <span className="text-texto-2">{etiquetaAsistencia(asistencia.tipo)}</span>
                     {asistencia.tipo === 'ausente_pendiente' && (
                       <Button size="sm" onClick={() => setAsistenciaAJustificar(asistencia.id)}>
                         Justificar
@@ -105,12 +151,31 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
                   <p className="mb-3 text-sm font-semibold">Justificar ausencia</p>
                   <label className="block text-sm">
                     Motivo
-                    <input
+                    <select
                       className="mt-1 w-full rounded-lg border border-borde bg-superficie p-2"
-                      value={motivo}
-                      onChange={(e) => setMotivo(e.target.value)}
-                    />
+                      value={motivoSeleccionado}
+                      onChange={(e) => setMotivoSeleccionado(e.target.value)}
+                    >
+                      <option value="" disabled>
+                        Seleccioná un motivo
+                      </option>
+                      {MOTIVOS_JUSTIFICACION.map((opcion) => (
+                        <option key={opcion} value={opcion}>
+                          {opcion}
+                        </option>
+                      ))}
+                    </select>
                   </label>
+                  {motivoSeleccionado === 'Otro' && (
+                    <label className="mt-3 block text-sm">
+                      Especificá el motivo
+                      <input
+                        className="mt-1 w-full rounded-lg border border-borde bg-superficie p-2"
+                        value={motivoOtro}
+                        onChange={(e) => setMotivoOtro(e.target.value)}
+                      />
+                    </label>
+                  )}
                   <label className="mt-3 block text-sm">
                     Observación
                     <textarea
@@ -119,12 +184,49 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
                       onChange={(e) => setObservacion(e.target.value)}
                     />
                   </label>
+                  <div className="mt-3">
+                    <p className="text-sm">Adjuntar comprobante (opcional)</p>
+                    <Dropzone
+                      accept={TIPOS_COMPROBANTE}
+                      maxSize={MAX_TAMANIO_COMPROBANTE}
+                      onDrop={adjuntarComprobante}
+                      label={
+                        comprobante
+                          ? comprobante.name
+                          : 'Arrastrá el comprobante o hacé clic para adjuntar'
+                      }
+                      hint="PDF, JPG o PNG · Máximo 5 MB"
+                      className="mt-1"
+                    />
+                    {comprobante && (
+                      <p className="mt-2 flex items-center gap-1.5 text-xs text-texto-2">
+                        <PaperclipIcon className="size-3.5" aria-hidden="true" />
+                        {comprobante.name}
+                      </p>
+                    )}
+                    {errorComprobante && (
+                      <p className="mt-2 text-xs text-error">{errorComprobante}</p>
+                    )}
+                  </div>
                   <div className="mt-3 flex gap-2">
-                    <Button variant="secondary" onClick={() => setAsistenciaAJustificar(null)}>
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setAsistenciaAJustificar(null)
+                        setMotivoSeleccionado('')
+                        setMotivoOtro('')
+                        setObservacion('')
+                        setComprobante(undefined)
+                        setErrorComprobante(null)
+                      }}
+                    >
                       Cancelar
                     </Button>
                     <Button
-                      disabled={!motivo.trim() || guardando}
+                      disabled={
+                        !(motivoSeleccionado === 'Otro' ? motivoOtro.trim() : motivoSeleccionado) ||
+                        guardando
+                      }
                       onClick={() => void enviarJustificacion()}
                     >
                       Enviar justificación

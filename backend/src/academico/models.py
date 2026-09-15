@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 import sqlalchemy as sa
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import Base
 
@@ -125,3 +125,24 @@ class JustificacionInasistencia(Base):
         sa.ForeignKey("motivo_justificacion.id")
     )
     usuario_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("usuario.id"))
+    archivo_adjunto: Mapped["ArchivoJustificacionInasistencia | None"] = relationship(
+        back_populates="justificacion", cascade="all, delete-orphan", uselist=False
+    )
+
+
+class ArchivoJustificacionInasistencia(Base):
+    """Comprobante binario asociado a una justificación de ausencia."""
+
+    __tablename__ = "archivo_justificacion_inasistencia"
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    nombre: Mapped[str] = mapped_column(sa.String)
+    tipo_contenido: Mapped[str] = mapped_column(sa.String)
+    tamanio: Mapped[int] = mapped_column(sa.Integer)
+    contenido: Mapped[bytes] = mapped_column(sa.LargeBinary)
+    justificacion_id: Mapped[uuid.UUID] = mapped_column(
+        sa.ForeignKey("justificacion_inasistencia.id"), unique=True, nullable=False
+    )
+    justificacion: Mapped[JustificacionInasistencia] = relationship(
+        back_populates="archivo_adjunto"
+    )
