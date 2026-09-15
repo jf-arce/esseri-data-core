@@ -37,7 +37,9 @@ from src.academico.models import (
     AsignacionDocente,
     Division,
     Docente,
+    JustificacionInasistencia,
     Materia,
+    MotivoJustificacion,
     NivelEducativo,
 )
 from src.academico.schemas import (
@@ -60,6 +62,9 @@ from src.academico.schemas import (
     DocenteDesdeUsuarioCreate,
     DocenteResponse,
     DocenteUpdate,
+    JustificacionFamiliaCreate,
+    JustificacionFamiliaResponse,
+    JustificacionResolucion,
     MateriaCreate,
     MateriaResponse,
     MateriaUpdate,
@@ -75,6 +80,7 @@ from src.academico.service import (
     actualizar_docente,
     actualizar_materia,
     actualizar_nivel_educativo,
+    asistencias_de_familia,
     calcular_resumen_asistencia,
     crear_alta_docente,
     crear_anio,
@@ -95,6 +101,7 @@ from src.academico.service import (
     generar_csv_reporte_asistencias,
     generar_pdf_reporte_asistencias,
     generar_xlsx_reporte_asistencias,
+    justificar_asistencia_de_familia,
     listar_anios,
     listar_anios_por_nivel,
     listar_asignaciones_docentes,
@@ -103,12 +110,14 @@ from src.academico.service import (
     listar_divisiones,
     listar_divisiones_por_anio,
     listar_docentes,
+    listar_justificaciones_pendientes,
     listar_materias,
     listar_materias_por_anio,
     listar_materias_por_division,
     listar_niveles_educativos,
     registrar_asistencia,
     registrar_asistencia_masiva,
+    resolver_justificacion,
     verificar_acceso_a_asistencia,
 )
 from src.auth.constants import (
@@ -615,6 +624,82 @@ def listar_asistencias_endpoint(
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
         division_id=division_id,
+    )
+
+
+@router.get("/familia/alumnos/{alumno_id}/asistencias", response_model=list[AsistenciaResponse])
+def listar_asistencias_familia(
+    alumno_id: uuid.UUID,
+    usuario: UsuarioAutenticado,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[Asistencia]:
+    """Historial diario del alumno, limitado a la familia autenticada."""
+    return asistencias_de_familia(db, usuario, alumno_id)
+
+
+@router.post(
+    "/familia/asistencias/{asistencia_id}/justificaciones",
+    response_model=JustificacionFamiliaResponse,
+    status_code=201,
+)
+def justificar_asistencia_familia(
+    datos: JustificacionFamiliaCreate,
+    usuario: UsuarioAutenticado,
+    asistencia: Asistencia = Depends(obtener_asistencia_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> JustificacionFamiliaResponse:
+    justificacion = justificar_asistencia_de_familia(
+        db, usuario, asistencia, datos.motivo, datos.observacion
+    )
+    return JustificacionFamiliaResponse(
+        id=justificacion.id,
+        asistencia_id=justificacion.asistencia_id,
+        estado=justificacion.estado,
+        motivo=datos.motivo,
+        observacion=justificacion.observacion,
+        fecha_carga=justificacion.fecha_carga,
+    )
+
+
+@router.get("/justificaciones", response_model=list[JustificacionFamiliaResponse])
+def listar_justificaciones_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[JustificacionFamiliaResponse]:
+    return [
+        JustificacionFamiliaResponse(
+            id=item.id,
+            asistencia_id=item.asistencia_id,
+            estado=item.estado,
+            motivo=db.get(MotivoJustificacion, item.motivo_justificacion_id).nombre,
+            observacion=item.observacion,
+            fecha_carga=item.fecha_carga,
+        )
+        for item in listar_justificaciones_pendientes(db)
+    ]
+
+
+@router.patch(
+    "/justificaciones/{justificacion_id}/resolver",
+    response_model=JustificacionFamiliaResponse,
+)
+def resolver_justificacion_endpoint(
+    justificacion_id: uuid.UUID,
+    datos: JustificacionResolucion,
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> JustificacionFamiliaResponse:
+    justificacion = db.get(JustificacionInasistencia, justificacion_id)
+    if justificacion is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Justificación no encontrada")
+    resultado = resolver_justificacion(db, justificacion, datos.aprobar)
+    return JustificacionFamiliaResponse(
+        id=resultado.id,
+        asistencia_id=resultado.asistencia_id,
+        estado=resultado.estado,
+        motivo=db.get(MotivoJustificacion, resultado.motivo_justificacion_id).nombre,
+        observacion=resultado.observacion,
+        fecha_carga=resultado.fecha_carga,
     )
 
 

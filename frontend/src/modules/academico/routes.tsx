@@ -8,8 +8,9 @@ import {
 import { EstructuraAcademicaPage } from './pages/estructura-academica-page'
 import { AsignacionesDocentesPage } from './pages/asignaciones-docentes-page'
 import { AsistenciaDivisionPage } from './pages/asistencia-division-page'
-import { HistorialAsistenciaPage } from './pages/historial-asistencia-page'
 import { ExportarAsistenciasPage } from './pages/exportar-asistencias-page'
+import { HistorialAsistenciaPage } from './pages/historial-asistencia-page'
+import { JustificacionesPage } from './pages/justificaciones-page'
 
 export const academicoRoutes: RouteObject[] = [
   {
@@ -31,6 +32,7 @@ export const academicoRoutes: RouteObject[] = [
             path: 'asignaciones',
             element: <AsignacionesDocentesPage />,
           },
+          { path: 'justificaciones', element: <JustificacionesPage /> },
           {
             // RF-05/RF-06: mismo permiso de lectura que el resto de este grupo. El scoping por
             // división de un docente (`verificar_acceso_a_division`) lo resuelve el backend en

@@ -4,7 +4,7 @@ import csv
 import logging
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from io import BytesIO, StringIO
 
 from fastapi import HTTPException, status
@@ -33,7 +33,9 @@ from src.academico.models import (
     AsignacionDocente,
     Division,
     Docente,
+    JustificacionInasistencia,
     Materia,
+    MotivoJustificacion,
     NivelEducativo,
 )
 from src.academico.schemas import (
@@ -58,10 +60,13 @@ from src.academico.schemas import (
 )
 from src.auth import autorizacion_service
 from src.auth import usuarios_service as auth_usuarios_service
-from src.auth.constants import PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA, PERMISO_ACADEMICO_EXPORTAR
+from src.auth.constants import (
+    PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA,
+    PERMISO_ACADEMICO_EXPORTAR,
+)
 from src.auth.exceptions import PermisoDenegado
 from src.auth.models import Rol, Usuario, UsuarioRol
-from src.familias_alumnos.models import Alumno, FamiliaAlumno
+from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import Persona
 
@@ -81,7 +86,94 @@ _TIPO_DOCENTE_A_DB = {
 _TIPOS_JUSTIFICADOS = {"ausente_justificado", "ausente_injustificado"}
 
 
-def _notificar_ausencia(db: Session, inscripcion: Inscripcion, fecha: date) -> int:
+def _familia_del_usuario(db: Session, usuario: Usuario) -> Familia:
+    familia = db.query(Familia).filter(Familia.persona_id == usuario.persona_id).first()
+    if familia is None:
+        raise PermisoDenegado("Tu cuenta no tiene una familia asociada")
+    return familia
+
+
+def asistencias_de_familia(db: Session, usuario: Usuario, alumno_id: uuid.UUID) -> list[Asistencia]:
+    familia = _familia_del_usuario(db, usuario)
+    vinculo = (
+        db.query(FamiliaAlumno)
+        .filter(FamiliaAlumno.familia_id == familia.id, FamiliaAlumno.alumno_id == alumno_id)
+        .first()
+    )
+    if vinculo is None:
+        raise PermisoDenegado("No tenés acceso a este alumno")
+    return (
+        db.query(Asistencia)
+        .join(Inscripcion)
+        .filter(Inscripcion.alumno_id == alumno_id)
+        .order_by(Asistencia.fecha.desc())
+        .all()
+    )
+
+
+def justificar_asistencia_de_familia(
+    db: Session, usuario: Usuario, asistencia: Asistencia, motivo: str, observacion: str | None
+) -> JustificacionInasistencia:
+    inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
+    if inscripcion is None:
+        raise PermisoDenegado()
+    asistencias_propias = asistencias_de_familia(db, usuario, inscripcion.alumno_id)
+    if not any(registro.id == asistencia.id for registro in asistencias_propias):
+        raise PermisoDenegado("No tenés acceso a esta ausencia")
+    if asistencia.tipo != "ausente_pendiente":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Solo podés justificar ausencias pendientes")
+    existe_justificacion = (
+        db.query(JustificacionInasistencia)
+        .filter(JustificacionInasistencia.asistencia_id == asistencia.id)
+        .first()
+    )
+    if existe_justificacion:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Esta ausencia ya tiene una justificación")
+    motivo_db = (
+        db.query(MotivoJustificacion).filter(MotivoJustificacion.nombre == motivo.strip()).first()
+    )
+    if motivo_db is None:
+        motivo_db = MotivoJustificacion(nombre=motivo.strip(), activo=True)
+        db.add(motivo_db)
+        db.flush()
+    justificacion = JustificacionInasistencia(
+        asistencia_id=asistencia.id,
+        familia_id=_familia_del_usuario(db, usuario).id,
+        motivo_justificacion_id=motivo_db.id,
+        usuario_id=usuario.id,
+        observacion=observacion,
+    )
+    db.add(justificacion)
+    db.commit()
+    db.refresh(justificacion)
+    return justificacion
+
+
+def resolver_justificacion(
+    db: Session, justificacion: JustificacionInasistencia, aprobar: bool
+) -> JustificacionInasistencia:
+    if justificacion.estado != "pendiente":
+        raise HTTPException(status.HTTP_409_CONFLICT, "La justificación ya fue resuelta")
+    justificacion.estado = "aprobada" if aprobar else "rechazada"
+    justificacion.fecha_resolucion = datetime.now()
+    asistencia = db.get(Asistencia, justificacion.asistencia_id)
+    if asistencia is not None:
+        asistencia.tipo = "ausente_justificado" if aprobar else "ausente_injustificado"
+    db.commit()
+    db.refresh(justificacion)
+    return justificacion
+
+
+def listar_justificaciones_pendientes(db: Session) -> list[JustificacionInasistencia]:
+    return (
+        db.query(JustificacionInasistencia)
+        .filter(JustificacionInasistencia.estado == "pendiente")
+        .order_by(JustificacionInasistencia.fecha_carga.asc())
+        .all()
+    )
+
+
+def _notificar_asistencia(db: Session, inscripcion: Inscripcion, fecha: date, tipo: str) -> int:
     """Notificar a todos los responsables con recibe_comunicaciones=true.
 
     Placeholder: loggea la notificación. Cuando exista infraestructura de
@@ -97,7 +189,8 @@ def _notificar_ausencia(db: Session, inscripcion: Inscripcion, fecha: date) -> i
     )
     for resp in responsables:
         logger.info(
-            "Notificación de ausencia: alumno_id=%s fecha=%s familia_id=%s parentesco=%s",
+            "Notificación de %s: alumno_id=%s fecha=%s familia_id=%s parentesco=%s",
+            tipo,
             inscripcion.alumno_id,
             fecha,
             resp.familia_id,
@@ -211,8 +304,8 @@ def registrar_asistencia(
     db.commit()
     db.refresh(nuevo)
 
-    if tipo_db == "ausente_pendiente":
-        _notificar_ausencia(db, inscripcion, datos.fecha)
+    if tipo_db in {"ausente_pendiente", "tardanza"}:
+        _notificar_asistencia(db, inscripcion, datos.fecha, tipo_db)
 
     return nuevo
 
@@ -261,8 +354,8 @@ def registrar_asistencia_masiva(
             db.add(nuevo)
             creadas += 1
 
-        if tipo_db == "ausente_pendiente":
-            notificaciones += _notificar_ausencia(db, inscripcion, datos.fecha)
+        if tipo_db in {"ausente_pendiente", "tardanza"}:
+            notificaciones += _notificar_asistencia(db, inscripcion, datos.fecha, tipo_db)
 
     db.commit()
     return AsistenciaBulkResponse(
@@ -342,10 +435,10 @@ def actualizar_asistencia(
     db.commit()
     db.refresh(asistencia)
 
-    if tipo_db == "ausente_pendiente" and tipo_anterior != "ausente_pendiente":
+    if tipo_db in {"ausente_pendiente", "tardanza"} and tipo_anterior != tipo_db:
         inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
         if inscripcion is not None:
-            _notificar_ausencia(db, inscripcion, asistencia.fecha)
+            _notificar_asistencia(db, inscripcion, asistencia.fecha, tipo_db)
 
     return asistencia
 

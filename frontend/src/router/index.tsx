@@ -3,7 +3,6 @@ import { AppLayout } from '@/layout/app-layout'
 import { PortalLayout } from '@/layout/portal-layout'
 import { ElegirPerfilPage } from '@/pages/elegir-perfil-page'
 import { PortalDocentePage } from '@/pages/portal-docente-page'
-import { PortalFamiliaPage } from '@/pages/portal-familia-page'
 import { ProtectedRoute } from '@/router/protected-route'
 import { RolActivoRoute } from '@/router/rol-activo-route'
 import { VistaRoute } from '@/router/vista-route'
@@ -17,7 +16,7 @@ import { proveedoresComprasRoutes } from '@/modules/proveedores-compras/routes'
 import { workflowsRoutes } from '@/modules/workflows/routes'
 import { auditoriaRoutes } from '@/modules/auditoria/routes'
 import { panelAdminRoutes } from '@/modules/panel-admin/routes'
-import { iaSugerenciasRoutes } from '@/modules/ia-sugerencias/routes'
+import { iaSugerenciasFamiliaRoutes, iaSugerenciasRoutes } from '@/modules/ia-sugerencias/routes'
 
 const moduleRoutes = [
   ...authPrivateRoutes,
@@ -72,7 +71,7 @@ export function AppRouter() {
               children: [
                 {
                   element: <PortalLayout />,
-                  children: [{ path: 'familia', element: <PortalFamiliaPage /> }],
+                  children: iaSugerenciasFamiliaRoutes,
                 },
               ],
             },
