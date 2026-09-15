@@ -34,8 +34,8 @@ export function PortalLayout() {
             <NavLink to="/familia" end className={navItemClass}>
               Inicio
             </NavLink>
-            <NavLink to="/familia/justificar-ausencia" className={navItemClass}>
-              Justificar ausencia
+            <NavLink to="/familia/asistencias" className={navItemClass}>
+              Asistencias
             </NavLink>
             <NavLink to="/familia/facturacion" className={navItemClass}>
               Facturación

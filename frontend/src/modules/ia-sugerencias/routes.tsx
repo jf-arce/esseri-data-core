@@ -9,11 +9,21 @@ export const iaSugerenciasRoutes: RouteObject[] = []
 export const iaSugerenciasFamiliaRoutes: RouteObject[] = [
   { path: 'familia', element: <PortalFamiliaPage /> },
   {
+    path: 'familia/asistencias',
+    element: (
+      <PortalFamiliaTramitePage
+        titulo="Asistencias"
+        descripcion="Consultá el resumen, justificá ausencias y revisá el historial de asistencia."
+      />
+    ),
+  },
+  {
     path: 'familia/justificar-ausencia',
     element: (
       <PortalFamiliaTramitePage
-        titulo="Justificar una ausencia"
+        titulo="Asistencias"
         descripcion="Informá el motivo de la ausencia y adjuntá el comprobante correspondiente."
+        seccionInicial="pendientes"
       />
     ),
   },

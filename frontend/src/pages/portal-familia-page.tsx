@@ -88,14 +88,14 @@ export function PortalFamiliaPage() {
                 </span>
               </span>
             </Link>
-            <Link to="/familia/justificar-ausencia" className={accesoClass()}>
+            <Link to="/familia/asistencias" className={accesoClass()}>
               <span className="flex size-10 items-center justify-center rounded-lg bg-sup-academico text-info">
                 <CalendarClockIcon aria-hidden="true" className="size-5" />
               </span>
               <span>
-                <span className="block text-sm font-semibold text-texto">Justificar ausencia</span>
+                <span className="block text-sm font-semibold text-texto">Asistencias</span>
                 <span className="mt-1 block text-xs text-texto-2">
-                  Cargá el motivo y comprobante.
+                  Resumen, justificaciones e historial.
                 </span>
               </span>
             </Link>
@@ -110,11 +110,11 @@ export function PortalFamiliaPage() {
             </CardHeader>
             <CardContent className="divide-y divide-borde">
               <Link
-                to="/familia/justificar-ausencia"
+                to="/familia/asistencias"
                 className="flex items-center gap-3 py-4 hover:text-violeta"
               >
                 <FileTextIcon aria-hidden="true" className="size-4 text-info" />
-                <span className="flex-1 text-sm font-medium">Justificaciones de ausencia</span>
+                <span className="flex-1 text-sm font-medium">Asistencias</span>
                 <ChevronRightIcon aria-hidden="true" className="size-4 text-texto-3" />
               </Link>
               <div className="flex items-center gap-3 py-4">
