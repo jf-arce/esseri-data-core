@@ -15,6 +15,9 @@ import { permisosActivos, useAuthStore } from '@/store/auth-store'
 interface DivisionSelectorProps {
   value: string | null
   onChange: (id: string | null) => void
+  // RF-37: en la exportación, "sin elegir" es una opción válida (todas las divisiones), no un
+  // estado intermedio -- el texto por defecto ("Seleccionar división") no comunica eso.
+  placeholder?: string
 }
 
 // Compartido por "Tomar asistencia" e "Historial de asistencia": con acceso estructural a
@@ -22,7 +25,11 @@ interface DivisionSelectorProps {
 // con el permiso tipado de asistencia únicamente), solo las suyas — GET
 // /academico/docentes/me/divisiones ya viene acotado por `AsignacionDocente`, no hay nada que
 // filtrar acá.
-export function DivisionSelector({ value, onChange }: DivisionSelectorProps) {
+export function DivisionSelector({
+  value,
+  onChange,
+  placeholder = 'Seleccionar división',
+}: DivisionSelectorProps) {
   const [divisiones, setDivisiones] = useState<Array<{ id: string; nombre: string }>>([])
   const [cargando, setCargando] = useState(true)
   const permisos = useAuthStore(permisosActivos)
@@ -49,7 +56,7 @@ export function DivisionSelector({ value, onChange }: DivisionSelectorProps) {
         disabled={cargando}
       >
         <SelectTrigger id="division-selector" className="w-full">
-          <SelectValue placeholder="Seleccionar división" />
+          <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
           {divisiones.map((d) => (

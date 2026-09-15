@@ -11,3 +11,4 @@ google-auth[requests]
 pyyaml
 python-multipart
 reportlab
+openpyxl
