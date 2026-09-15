@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PortalFamiliaTramitePage } from '@/pages/portal-familia-tramite-page'
@@ -54,5 +54,75 @@ describe('PortalFamiliaTramitePage', () => {
 
     expect(await screen.findByText('En revisión')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Justificar' })).not.toBeInTheDocument()
+  })
+
+  it('separa pendientes del historial y despliega el detalle de una justificación', async () => {
+    mockedListarAsistenciasFamilia.mockResolvedValue([
+      {
+        id: 'asistencia-pendiente',
+        fecha: '2027-03-15',
+        tipo: 'ausente_pendiente',
+        inscripcion_id: 'inscripcion-1',
+        updated_at: '2027-03-15T08:00:00',
+        justificacion_id: null,
+        justificacion_estado: null,
+        justificacion_motivo: null,
+        justificacion_observacion: null,
+        justificacion_archivo_nombre: null,
+      },
+      {
+        id: 'asistencia-aprobada',
+        fecha: '2027-03-14',
+        tipo: 'ausente_pendiente',
+        inscripcion_id: 'inscripcion-1',
+        updated_at: '2027-03-14T08:00:00',
+        justificacion_id: 'justificacion-1',
+        justificacion_estado: 'aprobada',
+        justificacion_motivo: 'Enfermedad',
+        justificacion_observacion: 'Se adjunta certificado.',
+        justificacion_archivo_nombre: 'certificado.pdf',
+      },
+      {
+        id: 'asistencia-presente',
+        fecha: '2027-03-13',
+        tipo: 'presente',
+        inscripcion_id: 'inscripcion-1',
+        updated_at: '2027-03-13T08:00:00',
+        justificacion_id: null,
+        justificacion_estado: null,
+        justificacion_motivo: null,
+        justificacion_observacion: null,
+        justificacion_archivo_nombre: null,
+      },
+    ])
+
+    render(
+      <MemoryRouter>
+        <PortalFamiliaTramitePage
+          titulo="Justificar una ausencia"
+          descripcion="Informá el motivo de la ausencia."
+        />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Pendientes' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Historial' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Justificar' })).toBeInTheDocument()
+    expect(screen.getByText('Justificación aprobada')).toBeInTheDocument()
+    expect(screen.getByText('Presente')).toBeInTheDocument()
+    expect(screen.queryByText('Se adjunta certificado.')).not.toBeVisible()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Justificar' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Justificar ausencia' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    const disclosure = screen.getByRole('button', { name: /Mostrar detalle/ })
+    expect(disclosure).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(disclosure)
+    expect(disclosure).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Se adjunta certificado.')).toBeVisible()
+    expect(screen.getByText('certificado.pdf')).toBeVisible()
   })
 })

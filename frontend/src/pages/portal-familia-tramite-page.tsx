@@ -1,6 +1,7 @@
 import {
   ArrowLeftIcon,
   CheckIcon,
+  ChevronDownIcon,
   ConstructionIcon,
   DownloadIcon,
   PaperclipIcon,
@@ -14,6 +15,13 @@ import { Dropzone } from '@/components/dropzone'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
 import { listarAsistenciasFamilia } from '@/modules/academico/services/listar-asistencias-familia'
 import { justificarAsistenciaFamilia } from '@/modules/academico/services/justificar-asistencia-familia'
@@ -49,6 +57,13 @@ function etiquetaAsistencia(asistencia: AsistenciaFamilia) {
   return etiquetas[asistencia.tipo] ?? asistencia.tipo.replaceAll('_', ' ')
 }
 
+function esPendiente(asistencia: AsistenciaFamilia) {
+  return (
+    asistencia.tipo === 'ausente_pendiente' &&
+    (!asistencia.justificacion_estado || asistencia.justificacion_estado === 'pendiente')
+  )
+}
+
 type PortalFamiliaTramitePageProps = {
   titulo: string
   descripcion: string
@@ -70,7 +85,10 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
   const [errorComprobante, setErrorComprobante] = useState<string | null>(null)
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
+  const [detalleExpandido, setDetalleExpandido] = useState<string | null>(null)
   const alumnoSeleccionado = alumnoId || alumnos[0]?.alumno_id || ''
+  const asistenciasPendientes = asistencias.filter(esPendiente)
+  const asistenciasHistorial = asistencias.filter((asistencia) => !esPendiente(asistencia))
   useEffect(() => {
     if (alumnoSeleccionado)
       listarAsistenciasFamilia(alumnoSeleccionado)
@@ -100,11 +118,7 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
             : asistencia,
         ),
       )
-      setAsistenciaAJustificar(null)
-      setMotivoSeleccionado('')
-      setMotivoOtro('')
-      setObservacion('')
-      setComprobante(undefined)
+      cerrarFormulario()
       toast.success('Justificación enviada. Quedará en revisión.')
       if (alumnoSeleccionado) {
         listarAsistenciasFamilia(alumnoSeleccionado)
@@ -129,6 +143,15 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
     }
     setComprobante(archivos[0])
     setErrorComprobante(null)
+  }
+  function cerrarFormulario() {
+    setAsistenciaAJustificar(null)
+    setMotivoSeleccionado('')
+    setMotivoOtro('')
+    setObservacion('')
+    setComprobante(undefined)
+    setErrorComprobante(null)
+    setErrorEnvio(null)
   }
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-col gap-5">
@@ -167,157 +190,127 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
                   ))}
                 </select>
               </label>
-              <div className="divide-y divide-borde">
-                {asistencias.map((asistencia) => (
-                  <div
-                    key={asistencia.id}
-                    className="border-b border-borde py-3 text-sm last:border-0"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="flex-1">
-                        {new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString('es-AR')}
-                      </span>
-                      <span className="text-texto-2">{etiquetaAsistencia(asistencia)}</span>
-                      {asistencia.tipo === 'ausente_pendiente' &&
-                        !asistencia.justificacion_estado && (
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              setAsistenciaAJustificar(asistencia.id)
-                              setErrorEnvio(null)
-                            }}
-                          >
-                            Justificar
-                          </Button>
-                        )}
-                      {asistencia.justificacion_estado === 'aprobada' && (
-                        <CheckIcon className="size-4 text-exito" aria-label="Justificada" />
-                      )}
-                    </div>
-                    {asistencia.justificacion_id && (
-                      <div className="mt-2 rounded-lg bg-fila-hover p-3 text-xs text-texto-2">
-                        <p>
-                          <strong>Motivo:</strong> {asistencia.justificacion_motivo ?? 'Otro'}
-                        </p>
-                        {asistencia.justificacion_observacion && (
-                          <p className="mt-1">
-                            <strong>Observación:</strong> {asistencia.justificacion_observacion}
-                          </p>
-                        )}
-                        {asistencia.justificacion_archivo_nombre && (
-                          <button
-                            type="button"
-                            className="mt-2 inline-flex items-center gap-1 font-semibold text-violeta hover:underline"
-                            onClick={() =>
-                              void descargarComprobanteJustificacionFamilia(
-                                asistencia.justificacion_id!,
-                                asistencia.justificacion_archivo_nombre!,
-                              )
-                            }
-                          >
-                            <DownloadIcon className="size-3.5" aria-hidden="true" />
-                            {asistencia.justificacion_archivo_nombre}
-                          </button>
-                        )}
+              <section aria-labelledby="pendientes-heading">
+                <h2 id="pendientes-heading" className="mb-2 text-sm font-semibold text-texto">
+                  Pendientes
+                </h2>
+                {asistenciasPendientes.length > 0 ? (
+                  <div className="divide-y divide-borde rounded-lg border border-borde">
+                    {asistenciasPendientes.map((asistencia) => (
+                      <div
+                        key={asistencia.id}
+                        className="p-3 text-sm first:rounded-t-lg last:rounded-b-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="flex-1">
+                            {new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString('es-AR')}
+                          </span>
+                          <span className="text-texto-2">{etiquetaAsistencia(asistencia)}</span>
+                          {!asistencia.justificacion_estado && (
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setAsistenciaAJustificar(asistencia.id)
+                                setErrorEnvio(null)
+                              }}
+                            >
+                              Justificar
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                    )}
+                    ))}
                   </div>
-                ))}
-              </div>
-              {asistenciaAJustificar && (
-                <div className="rounded-card bg-fila-hover p-4">
-                  <p className="mb-3 text-sm font-semibold">Justificar ausencia</p>
-                  <label className="block text-sm">
-                    Motivo
-                    <select
-                      className="mt-1 w-full rounded-lg border border-borde bg-superficie p-2"
-                      value={motivoSeleccionado}
-                      onChange={(e) => setMotivoSeleccionado(e.target.value)}
-                    >
-                      <option value="" disabled>
-                        Seleccioná un motivo
-                      </option>
-                      {MOTIVOS_JUSTIFICACION.map((opcion) => (
-                        <option key={opcion} value={opcion}>
-                          {opcion}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  {motivoSeleccionado === 'Otro' && (
-                    <label className="mt-3 block text-sm">
-                      Especificá el motivo
-                      <input
-                        className="mt-1 w-full rounded-lg border border-borde bg-superficie p-2"
-                        value={motivoOtro}
-                        onChange={(e) => setMotivoOtro(e.target.value)}
-                      />
-                    </label>
-                  )}
-                  <label className="mt-3 block text-sm">
-                    Observación
-                    <textarea
-                      className="mt-1 w-full rounded-lg border border-borde bg-superficie p-2"
-                      value={observacion}
-                      onChange={(e) => setObservacion(e.target.value)}
-                    />
-                  </label>
-                  <div className="mt-3">
-                    <p className="text-sm">Adjuntar comprobante (opcional)</p>
-                    <Dropzone
-                      accept={TIPOS_COMPROBANTE}
-                      maxSize={MAX_TAMANIO_COMPROBANTE}
-                      onDrop={adjuntarComprobante}
-                      label={
-                        comprobante
-                          ? comprobante.name
-                          : 'Arrastrá el comprobante o hacé clic para adjuntar'
-                      }
-                      hint="PDF, JPG o PNG · Máximo 5 MB"
-                      className="mt-1"
-                    />
-                    {comprobante && (
-                      <p className="mt-2 flex items-center gap-1.5 text-xs text-texto-2">
-                        <PaperclipIcon className="size-3.5" aria-hidden="true" />
-                        {comprobante.name}
-                      </p>
-                    )}
-                    {errorComprobante && (
-                      <p className="mt-2 text-xs text-error">{errorComprobante}</p>
-                    )}
+                ) : (
+                  <p className="rounded-lg border border-dashed border-borde p-4 text-sm text-texto-2">
+                    No tenés ausencias pendientes de justificar.
+                  </p>
+                )}
+              </section>
+              <section aria-labelledby="historial-heading">
+                <h2 id="historial-heading" className="mb-2 text-sm font-semibold text-texto">
+                  Historial
+                </h2>
+                {asistenciasHistorial.length > 0 ? (
+                  <div className="divide-y divide-borde rounded-lg border border-borde">
+                    {asistenciasHistorial.map((asistencia) => {
+                      const detalleId = `justificacion-detalle-${asistencia.id}`
+                      const expandido = detalleExpandido === asistencia.id
+                      return (
+                        <div
+                          key={asistencia.id}
+                          className="p-3 text-sm first:rounded-t-lg last:rounded-b-lg"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="flex-1">
+                              {new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString('es-AR')}
+                            </span>
+                            <span className="text-right text-texto-2">
+                              {etiquetaAsistencia(asistencia)}
+                            </span>
+                            {asistencia.justificacion_id && (
+                              <button
+                                type="button"
+                                className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-texto-2 transition-colors hover:bg-fila-hover hover:text-violeta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
+                                aria-label={`${expandido ? 'Ocultar' : 'Mostrar'} detalle de la justificación del ${new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString('es-AR')}`}
+                                aria-expanded={expandido}
+                                aria-controls={detalleId}
+                                onClick={() =>
+                                  setDetalleExpandido(expandido ? null : asistencia.id)
+                                }
+                              >
+                                <ChevronDownIcon
+                                  aria-hidden="true"
+                                  className={`size-4 transition-transform ${expandido ? 'rotate-180' : ''}`}
+                                />
+                              </button>
+                            )}
+                            {asistencia.justificacion_estado === 'aprobada' && (
+                              <CheckIcon className="size-4 text-exito" aria-label="Aprobada" />
+                            )}
+                          </div>
+                          {asistencia.justificacion_id && (
+                            <div
+                              id={detalleId}
+                              hidden={!expandido}
+                              className="mt-3 rounded-lg bg-fila-hover p-3 text-xs text-texto-2"
+                            >
+                              <p>
+                                <strong>Motivo:</strong> {asistencia.justificacion_motivo ?? 'Otro'}
+                              </p>
+                              {asistencia.justificacion_observacion && (
+                                <p className="mt-1">
+                                  <strong>Observación:</strong>{' '}
+                                  {asistencia.justificacion_observacion}
+                                </p>
+                              )}
+                              {asistencia.justificacion_archivo_nombre && (
+                                <button
+                                  type="button"
+                                  className="mt-2 inline-flex items-center gap-1 font-semibold text-violeta hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
+                                  onClick={() =>
+                                    void descargarComprobanteJustificacionFamilia(
+                                      asistencia.justificacion_id!,
+                                      asistencia.justificacion_archivo_nombre!,
+                                    )
+                                  }
+                                >
+                                  <DownloadIcon className="size-3.5" aria-hidden="true" />
+                                  {asistencia.justificacion_archivo_nombre}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
-                  <div className="mt-3 flex gap-2">
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        setAsistenciaAJustificar(null)
-                        setMotivoSeleccionado('')
-                        setMotivoOtro('')
-                        setObservacion('')
-                        setComprobante(undefined)
-                        setErrorComprobante(null)
-                        setErrorEnvio(null)
-                      }}
-                    >
-                      Cancelar
-                    </Button>
-                    <Button
-                      disabled={
-                        !(motivoSeleccionado === 'Otro' ? motivoOtro.trim() : motivoSeleccionado) ||
-                        guardando
-                      }
-                      onClick={() => void enviarJustificacion()}
-                    >
-                      Enviar justificación
-                    </Button>
-                  </div>
-                  {errorEnvio && (
-                    <p className="mt-3 text-sm text-error" role="alert">
-                      {errorEnvio}
-                    </p>
-                  )}
-                </div>
-              )}
+                ) : (
+                  <p className="rounded-lg border border-dashed border-borde p-4 text-sm text-texto-2">
+                    Todavía no hay registros en tu historial.
+                  </p>
+                )}
+              </section>
             </div>
           ) : (
             <Empty className="min-h-64">
@@ -333,6 +326,99 @@ export function PortalFamiliaTramitePage({ titulo, descripcion }: PortalFamiliaT
           )}
         </CardContent>
       </Card>
+      <Dialog
+        open={Boolean(asistenciaAJustificar)}
+        onOpenChange={(abierto) => {
+          if (!abierto) cerrarFormulario()
+        }}
+      >
+        <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Justificar ausencia</DialogTitle>
+            <DialogDescription>
+              Informá el motivo y adjuntá el comprobante correspondiente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <label className="block text-sm">
+              Motivo
+              <select
+                className="mt-1 w-full rounded-lg border border-borde bg-superficie p-2"
+                value={motivoSeleccionado}
+                onChange={(e) => setMotivoSeleccionado(e.target.value)}
+              >
+                <option value="" disabled>
+                  Seleccioná un motivo
+                </option>
+                {MOTIVOS_JUSTIFICACION.map((opcion) => (
+                  <option key={opcion} value={opcion}>
+                    {opcion}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {motivoSeleccionado === 'Otro' && (
+              <label className="mt-3 block text-sm">
+                Especificá el motivo
+                <input
+                  className="mt-1 w-full rounded-lg border border-borde bg-superficie p-2"
+                  value={motivoOtro}
+                  onChange={(e) => setMotivoOtro(e.target.value)}
+                />
+              </label>
+            )}
+            <label className="mt-3 block text-sm">
+              Observación
+              <textarea
+                className="mt-1 w-full rounded-lg border border-borde bg-superficie p-2"
+                value={observacion}
+                onChange={(e) => setObservacion(e.target.value)}
+              />
+            </label>
+            <div className="mt-3">
+              <p className="text-sm">Adjuntar comprobante (opcional)</p>
+              <Dropzone
+                accept={TIPOS_COMPROBANTE}
+                maxSize={MAX_TAMANIO_COMPROBANTE}
+                onDrop={adjuntarComprobante}
+                label={
+                  comprobante
+                    ? comprobante.name
+                    : 'Arrastrá el comprobante o hacé clic para adjuntar'
+                }
+                hint="PDF, JPG o PNG · Máximo 5 MB"
+                className="mt-1"
+              />
+              {comprobante && (
+                <p className="mt-2 flex items-center gap-1.5 text-xs text-texto-2">
+                  <PaperclipIcon className="size-3.5" aria-hidden="true" />
+                  {comprobante.name}
+                </p>
+              )}
+              {errorComprobante && <p className="mt-2 text-xs text-error">{errorComprobante}</p>}
+            </div>
+            <div className="mt-3 flex gap-2">
+              <Button variant="secondary" onClick={cerrarFormulario}>
+                Cancelar
+              </Button>
+              <Button
+                disabled={
+                  !(motivoSeleccionado === 'Otro' ? motivoOtro.trim() : motivoSeleccionado) ||
+                  guardando
+                }
+                onClick={() => void enviarJustificacion()}
+              >
+                Enviar justificación
+              </Button>
+            </div>
+            {errorEnvio && (
+              <p className="mt-3 text-sm text-error" role="alert">
+                {errorEnvio}
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   )
 }
