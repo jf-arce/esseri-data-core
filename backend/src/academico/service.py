@@ -95,15 +95,19 @@ def _familia_del_usuario(db: Session, usuario: Usuario) -> Familia:
 
 def asistencias_de_familia(db: Session, usuario: Usuario, alumno_id: uuid.UUID) -> list[Asistencia]:
     familia = _familia_del_usuario(db, usuario)
-    vinculo = db.query(FamiliaAlumno).filter(
-        FamiliaAlumno.familia_id == familia.id, FamiliaAlumno.alumno_id == alumno_id
-    ).first()
+    vinculo = (
+        db.query(FamiliaAlumno)
+        .filter(FamiliaAlumno.familia_id == familia.id, FamiliaAlumno.alumno_id == alumno_id)
+        .first()
+    )
     if vinculo is None:
         raise PermisoDenegado("No tenés acceso a este alumno")
     return (
-        db.query(Asistencia).join(Inscripcion)
+        db.query(Asistencia)
+        .join(Inscripcion)
         .filter(Inscripcion.alumno_id == alumno_id)
-        .order_by(Asistencia.fecha.desc()).all()
+        .order_by(Asistencia.fecha.desc())
+        .all()
     )
 
 
@@ -118,14 +122,16 @@ def justificar_asistencia_de_familia(
         raise PermisoDenegado("No tenés acceso a esta ausencia")
     if asistencia.tipo != "ausente_pendiente":
         raise HTTPException(status.HTTP_409_CONFLICT, "Solo podés justificar ausencias pendientes")
-    existe_justificacion = db.query(JustificacionInasistencia).filter(
-        JustificacionInasistencia.asistencia_id == asistencia.id
-    ).first()
+    existe_justificacion = (
+        db.query(JustificacionInasistencia)
+        .filter(JustificacionInasistencia.asistencia_id == asistencia.id)
+        .first()
+    )
     if existe_justificacion:
         raise HTTPException(status.HTTP_409_CONFLICT, "Esta ausencia ya tiene una justificación")
-    motivo_db = db.query(MotivoJustificacion).filter(
-        MotivoJustificacion.nombre == motivo.strip()
-    ).first()
+    motivo_db = (
+        db.query(MotivoJustificacion).filter(MotivoJustificacion.nombre == motivo.strip()).first()
+    )
     if motivo_db is None:
         motivo_db = MotivoJustificacion(nombre=motivo.strip(), activo=True)
         db.add(motivo_db)
