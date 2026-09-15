@@ -9,6 +9,7 @@ from src.auth import sesion_service
 from src.auth.constants import (
     ACCION_ACTUALIZAR,
     ACCION_CREAR,
+    ACCION_EXPORTAR,
     ACCION_LEER,
     MODULO_ACADEMICO,
     MODULO_INSCRIPCIONES,
@@ -88,6 +89,40 @@ def client_secretaria(client, db_session):
         Permiso(modulo=MODULO_ACADEMICO, accion=ACCION_CREAR),
         Permiso(modulo=MODULO_ACADEMICO, accion=ACCION_LEER),
         Permiso(modulo=MODULO_ACADEMICO, accion=ACCION_ACTUALIZAR),
+    ]
+    db_session.add_all(permisos)
+    db_session.flush()
+    for permiso in permisos:
+        db_session.add(RolPermiso(rol_id=rol.id, permiso_id=permiso.id))
+    db_session.add(UsuarioRol(usuario_id=usuario.id, rol_id=rol.id))
+    db_session.commit()
+
+    respuesta = client.post(
+        "/auth/login", json={"email": usuario.email, "password": PASSWORD_VALIDA}
+    )
+    assert respuesta.status_code == 200
+    return client
+
+
+@pytest.fixture()
+def client_direccion(client, db_session):
+    """Cliente autenticado con el mismo permiso que el rol `dirección` de grupo-b.yaml para
+    Académico: `leer, exportar` — nunca `actualizar` de ningún tipo, y nunca una
+    `AsignacionDocente` propia (RF-37: por eso `_tiene_acceso_estructural` tiene que
+    reconocer `exportar` además del `actualizar` estructural)."""
+    usuario = Usuario(
+        email="direccion@esseri.edu.ar",
+        password_hash=sesion_service.hashear_password(PASSWORD_VALIDA),
+        auth_provider="local",
+        estado="activo",
+    )
+    rol = Rol(nombre="dirección de prueba")
+    db_session.add_all([usuario, rol])
+    db_session.flush()
+
+    permisos = [
+        Permiso(modulo=MODULO_ACADEMICO, accion=ACCION_LEER),
+        Permiso(modulo=MODULO_ACADEMICO, accion=ACCION_EXPORTAR),
     ]
     db_session.add_all(permisos)
     db_session.flush()

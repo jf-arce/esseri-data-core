@@ -2,9 +2,9 @@
 
 import uuid
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from src.academico.dependencies import (
@@ -101,10 +101,14 @@ from src.academico.service import (
     eliminar_docente,
     eliminar_materia,
     eliminar_nivel_educativo,
+    generar_csv_reporte_asistencias,
+    generar_pdf_reporte_asistencias,
+    generar_xlsx_reporte_asistencias,
     listar_anios,
     listar_anios_por_nivel,
     listar_asignaciones_docentes,
     listar_asistencias,
+    listar_asistencias_reporte,
     listar_divisiones,
     listar_divisiones_por_anio,
     listar_docentes,
@@ -121,6 +125,7 @@ from src.auth.constants import (
     PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA,
     PERMISO_ACADEMICO_CREAR,
     PERMISO_ACADEMICO_ELIMINAR,
+    PERMISO_ACADEMICO_EXPORTAR,
     PERMISO_ACADEMICO_LEER,
 )
 from src.auth.dependencies import RolActivo, UsuarioAutenticado, requiere_permiso
@@ -688,6 +693,45 @@ def resumen_asistencia_endpoint(
     """
     return calcular_resumen_asistencia(
         db, usuario.id, rol_activo, inscripcion_id, fecha_desde, fecha_hasta
+    )
+
+
+_MEDIA_TYPE_POR_FORMATO = {
+    "csv": "text/csv",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "pdf": "application/pdf",
+}
+
+
+@router.get("/asistencias/exportar")
+def exportar_asistencias_endpoint(
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_EXPORTAR))],
+    rol_activo: RolActivo,
+    fecha_desde: date = ...,
+    fecha_hasta: date = ...,
+    formato: Literal["csv", "xlsx", "pdf"] = "csv",
+    division_id: uuid.UUID | None = None,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Response:
+    """Exportación del historial de asistencias (RF-37): reporte institucional en el período
+    elegido, opcionalmente acotado a una división. Sin `division_id`, solo lo puede pedir una
+    cuenta con acceso estructural (dirección, secretaría, coordinación académica,
+    administrador del sistema) — ver `listar_asistencias_reporte`.
+    """
+    filas = listar_asistencias_reporte(
+        db, usuario.id, rol_activo, fecha_desde, fecha_hasta, division_id
+    )
+    nombre_base = f"asistencias_{fecha_desde.isoformat()}_{fecha_hasta.isoformat()}"
+    if formato == "xlsx":
+        contenido = generar_xlsx_reporte_asistencias(filas)
+    elif formato == "pdf":
+        contenido = generar_pdf_reporte_asistencias(filas, fecha_desde, fecha_hasta)
+    else:
+        contenido = generar_csv_reporte_asistencias(filas)
+    return Response(
+        content=contenido,
+        media_type=_MEDIA_TYPE_POR_FORMATO[formato],
+        headers={"Content-Disposition": f'attachment; filename="{nombre_base}.{formato}"'},
     )
 
 
