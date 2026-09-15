@@ -150,6 +150,9 @@ export type Asistencia = {
 export type AsistenciaFamilia = Asistencia & {
   justificacion_id: string | null
   justificacion_estado: 'pendiente' | 'aprobada' | 'rechazada' | null
+  justificacion_motivo: string | null
+  justificacion_observacion: string | null
+  justificacion_archivo_nombre: string | null
 }
 
 export type JustificacionFamilia = {

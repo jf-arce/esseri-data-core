@@ -37,6 +37,9 @@ describe('PortalFamiliaTramitePage', () => {
         updated_at: '2027-03-15T08:00:00',
         justificacion_id: 'justificacion-1',
         justificacion_estado: 'pendiente',
+        justificacion_motivo: 'Enfermedad',
+        justificacion_observacion: 'Se adjunta certificado.',
+        justificacion_archivo_nombre: null,
       },
     ])
 

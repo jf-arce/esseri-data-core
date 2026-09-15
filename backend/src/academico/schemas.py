@@ -7,7 +7,7 @@ import uuid
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.auth.schemas import AccesoCreate, PersonaCreate
 
@@ -243,6 +243,9 @@ class AsistenciaFamiliaResponse(AsistenciaResponse):
 
     justificacion_id: uuid.UUID | None = None
     justificacion_estado: str | None = None
+    justificacion_motivo: str | None = None
+    justificacion_observacion: str | None = None
+    justificacion_archivo_nombre: str | None = None
 
 
 class JustificacionFamiliaCreate(BaseModel):
@@ -264,6 +267,13 @@ class JustificacionFamiliaResponse(BaseModel):
 
 class JustificacionResolucion(BaseModel):
     aprobar: bool
+    observacion: str | None = Field(None, max_length=500)
+
+    @model_validator(mode="after")
+    def validar_observacion_rechazo(self):
+        if not self.aprobar and (not self.observacion or not self.observacion.strip()):
+            raise ValueError("La observación es obligatoria al rechazar una justificación")
+        return self
 
 
 class AsistenciaBulkResponse(BaseModel):

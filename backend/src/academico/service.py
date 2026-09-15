@@ -218,11 +218,16 @@ def _validar_comprobante_justificacion(
 
 
 def resolver_justificacion(
-    db: Session, justificacion: JustificacionInasistencia, aprobar: bool
+    db: Session,
+    justificacion: JustificacionInasistencia,
+    aprobar: bool,
+    observacion: str | None = None,
 ) -> JustificacionInasistencia:
     if justificacion.estado != "pendiente":
         raise HTTPException(status.HTTP_409_CONFLICT, "La justificación ya fue resuelta")
     justificacion.estado = "aprobada" if aprobar else "rechazada"
+    if not aprobar:
+        justificacion.observacion = observacion
     justificacion.fecha_resolucion = datetime.now()
     asistencia = db.get(Asistencia, justificacion.asistencia_id)
     if asistencia is not None:
