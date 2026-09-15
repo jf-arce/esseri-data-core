@@ -30,6 +30,7 @@ from src.academico.exceptions import (
 )
 from src.academico.models import (
     Anio,
+    ArchivoJustificacionInasistencia,
     AsignacionDocente,
     Division,
     Docente,
@@ -84,6 +85,12 @@ _TIPO_DOCENTE_A_DB = {
 }
 
 _TIPOS_JUSTIFICADOS = {"ausente_justificado", "ausente_injustificado"}
+MAX_TAMANIO_COMPROBANTE_JUSTIFICACION = 5 * 1024 * 1024
+TIPOS_COMPROBANTE_JUSTIFICACION_PERMITIDOS = {
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+}
 
 
 def _familia_del_usuario(db: Session, usuario: Usuario) -> Familia:
@@ -112,7 +119,14 @@ def asistencias_de_familia(db: Session, usuario: Usuario, alumno_id: uuid.UUID) 
 
 
 def justificar_asistencia_de_familia(
-    db: Session, usuario: Usuario, asistencia: Asistencia, motivo: str, observacion: str | None
+    db: Session,
+    usuario: Usuario,
+    asistencia: Asistencia,
+    motivo: str,
+    observacion: str | None,
+    comprobante_nombre: str | None = None,
+    comprobante_tipo_contenido: str | None = None,
+    comprobante_contenido: bytes | None = None,
 ) -> JustificacionInasistencia:
     inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
     if inscripcion is None:
@@ -129,6 +143,11 @@ def justificar_asistencia_de_familia(
     )
     if existe_justificacion:
         raise HTTPException(status.HTTP_409_CONFLICT, "Esta ausencia ya tiene una justificación")
+    _validar_comprobante_justificacion(
+        nombre=comprobante_nombre,
+        tipo_contenido=comprobante_tipo_contenido,
+        contenido=comprobante_contenido,
+    )
     motivo_db = (
         db.query(MotivoJustificacion).filter(MotivoJustificacion.nombre == motivo.strip()).first()
     )
@@ -142,11 +161,42 @@ def justificar_asistencia_de_familia(
         motivo_justificacion_id=motivo_db.id,
         usuario_id=usuario.id,
         observacion=observacion,
+        archivo=comprobante_nombre,
     )
+    if comprobante_contenido is not None:
+        justificacion.archivo_adjunto = ArchivoJustificacionInasistencia(
+            nombre=comprobante_nombre or "comprobante",
+            tipo_contenido=comprobante_tipo_contenido or "application/octet-stream",
+            tamanio=len(comprobante_contenido),
+            contenido=comprobante_contenido,
+        )
     db.add(justificacion)
     db.commit()
     db.refresh(justificacion)
     return justificacion
+
+
+def _validar_comprobante_justificacion(
+    *, nombre: str | None, tipo_contenido: str | None, contenido: bytes | None
+) -> None:
+    if contenido is None:
+        return
+    firmas_validas = {
+        "application/pdf": contenido.startswith(b"%PDF-"),
+        "image/jpeg": contenido.startswith(b"\xff\xd8\xff"),
+        "image/png": contenido.startswith(b"\x89PNG\r\n\x1a\n"),
+    }
+    if (
+        not nombre
+        or tipo_contenido not in TIPOS_COMPROBANTE_JUSTIFICACION_PERMITIDOS
+        or not contenido
+        or len(contenido) > MAX_TAMANIO_COMPROBANTE_JUSTIFICACION
+        or not firmas_validas.get(tipo_contenido, False)
+    ):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "El comprobante debe ser un archivo PDF, JPG o PNG de hasta 5 MB.",
+        )
 
 
 def resolver_justificacion(

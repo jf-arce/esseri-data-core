@@ -1,13 +1,16 @@
+import { DownloadIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { apiClient } from '@/api/client'
+import { descargarExport } from '@/lib/descargar-export'
 
 type Justificacion = {
   id: string
   asistencia_id: string
   motivo: string
   observacion: string | null
+  archivo_nombre: string | null
   fecha_carga: string
 }
 
@@ -38,6 +41,21 @@ export function JustificacionesPage() {
               <div className="flex-1">
                 <p className="font-semibold">{item.motivo}</p>
                 <p className="text-sm text-texto-2">{item.observacion ?? 'Sin observación'}</p>
+                {item.archivo_nombre && (
+                  <Button
+                    variant="link"
+                    className="mt-1 h-auto p-0 text-sm"
+                    onClick={() =>
+                      void descargarExport(
+                        `/academico/justificaciones/${item.id}/archivo`,
+                        item.archivo_nombre ?? 'comprobante',
+                      )
+                    }
+                  >
+                    <DownloadIcon data-icon="inline-start" />
+                    {item.archivo_nombre}
+                  </Button>
+                )}
               </div>
               <Button variant="secondary" onClick={() => void resolver(item.id, false)}>
                 Rechazar

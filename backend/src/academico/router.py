@@ -4,7 +4,8 @@ import uuid
 from datetime import date
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.academico.dependencies import (
@@ -34,6 +35,7 @@ from src.academico.exceptions import (
 )
 from src.academico.models import (
     Anio,
+    ArchivoJustificacionInasistencia,
     AsignacionDocente,
     Division,
     Docente,
@@ -62,7 +64,6 @@ from src.academico.schemas import (
     DocenteDesdeUsuarioCreate,
     DocenteResponse,
     DocenteUpdate,
-    JustificacionFamiliaCreate,
     JustificacionFamiliaResponse,
     JustificacionResolucion,
     MateriaCreate,
@@ -643,20 +644,31 @@ def listar_asistencias_familia(
     status_code=201,
 )
 def justificar_asistencia_familia(
-    datos: JustificacionFamiliaCreate,
+    motivo: Annotated[str, Form(min_length=1, max_length=120)],
     usuario: UsuarioAutenticado,
+    observacion: Annotated[str | None, Form(max_length=500)] = None,
+    comprobante: Annotated[UploadFile | None, File()] = None,
     asistencia: Asistencia = Depends(obtener_asistencia_o_404),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> JustificacionFamiliaResponse:
+    contenido = comprobante.file.read() if comprobante is not None else None
     justificacion = justificar_asistencia_de_familia(
-        db, usuario, asistencia, datos.motivo, datos.observacion
+        db,
+        usuario,
+        asistencia,
+        motivo,
+        observacion,
+        comprobante.filename if comprobante is not None else None,
+        comprobante.content_type if comprobante is not None else None,
+        contenido,
     )
     return JustificacionFamiliaResponse(
         id=justificacion.id,
         asistencia_id=justificacion.asistencia_id,
         estado=justificacion.estado,
-        motivo=datos.motivo,
+        motivo=motivo,
         observacion=justificacion.observacion,
+        archivo_nombre=justificacion.archivo,
         fecha_carga=justificacion.fecha_carga,
     )
 
@@ -673,6 +685,7 @@ def listar_justificaciones_endpoint(
             estado=item.estado,
             motivo=db.get(MotivoJustificacion, item.motivo_justificacion_id).nombre,
             observacion=item.observacion,
+            archivo_nombre=item.archivo,
             fecha_carga=item.fecha_carga,
         )
         for item in listar_justificaciones_pendientes(db)
@@ -699,7 +712,28 @@ def resolver_justificacion_endpoint(
         estado=resultado.estado,
         motivo=db.get(MotivoJustificacion, resultado.motivo_justificacion_id).nombre,
         observacion=resultado.observacion,
+        archivo_nombre=resultado.archivo,
         fecha_carga=resultado.fecha_carga,
+    )
+
+
+@router.get("/justificaciones/{justificacion_id}/archivo")
+def descargar_archivo_justificacion(
+    justificacion_id: uuid.UUID,
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Response:
+    archivo = db.scalar(
+        select(ArchivoJustificacionInasistencia).where(
+            ArchivoJustificacionInasistencia.justificacion_id == justificacion_id
+        )
+    )
+    if archivo is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "La justificación no tiene comprobante")
+    return Response(
+        content=archivo.contenido,
+        media_type=archivo.tipo_contenido,
+        headers={"Content-Disposition": f'attachment; filename="{archivo.nombre}"'},
     )
 
 
