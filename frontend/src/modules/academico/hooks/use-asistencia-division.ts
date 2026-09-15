@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '@/api/client'
+import { useAlumnosDivision } from '@/modules/academico/hooks/use-alumnos-division'
 import { listarAsistencias } from '@/modules/academico/services/asistencias'
-import { listarInscripciones } from '@/modules/inscripciones/services/listar-inscripciones'
-import type { InscripcionListadoItem } from '@/modules/inscripciones/types'
 import type { Asistencia, TipoAsistencia } from '@/modules/academico/types'
+import type { InscripcionListadoItem } from '@/modules/inscripciones/types'
 
 export type AlumnoConAsistencia = InscripcionListadoItem & {
   asistencia?: Asistencia
@@ -11,81 +11,62 @@ export type AlumnoConAsistencia = InscripcionListadoItem & {
 }
 
 export function useAsistenciaDivision(divisionId: string | null, fecha: string) {
-  const [alumnos, setAlumnos] = useState<AlumnoConAsistencia[]>([])
-  const [cargando, setCargando] = useState(true)
+  const roster = useAlumnosDivision(divisionId)
+  const [asistencias, setAsistencias] = useState<Asistencia[]>([])
+  const [cargandoAsistencias, setCargandoAsistencias] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sinPermiso, setSinPermiso] = useState(false)
 
-  const cargar = useCallback(async () => {
+  const cargarAsistencias = useCallback(() => {
     if (!divisionId) {
-      setAlumnos([])
-      setCargando(false)
-      return
+      setAsistencias([])
+      setCargandoAsistencias(false)
+      return Promise.resolve()
     }
 
-    setCargando(true)
+    setCargandoAsistencias(true)
     setError(null)
-    try {
-      // Cargar inscripciones activas de la división
-      const inscripcionesResponse = await listarInscripciones({
-        pagina: 1,
-        tamanioPagina: 100, // Límite razonable para una división
+    return listarAsistencias({ fecha, division_id: divisionId })
+      .then((data) => {
+        setAsistencias(data)
+        setSinPermiso(false)
       })
-
-      const inscripcionesDeDivision = inscripcionesResponse.items.filter(
-        (insc) => insc.division_id === divisionId && insc.estado === 'activa',
-      )
-
-      // Cargar asistencias para la fecha y división
-      const asistencias = await listarAsistencias({
-        fecha,
-        division_id: divisionId,
+      .catch((err: unknown) => {
+        if (err instanceof ApiError && err.status === 403) {
+          setSinPermiso(true)
+        } else {
+          setError(
+            err instanceof ApiError ? err.detail : 'No se pudieron cargar los datos de asistencia.',
+          )
+        }
       })
-
-      // Crear mapa de asistencia por inscripción_id
-      const asistenciaMap = new Map(asistencias.map((a) => [a.inscripcion_id, a]))
-
-      // Combinar datos
-      const alumnosConAsistencia: AlumnoConAsistencia[] = inscripcionesDeDivision.map(
-        (inscripcion) => {
-          const asistencia = asistenciaMap.get(inscripcion.id)
-          return {
-            ...inscripcion,
-            asistencia,
-            estadoAsistencia: asistencia?.tipo,
-          }
-        },
-      )
-
-      setAlumnos(alumnosConAsistencia)
-      setSinPermiso(false)
-    } catch (err: unknown) {
-      if (err instanceof ApiError && err.status === 403) {
-        setSinPermiso(true)
-      } else {
-        setError(
-          err instanceof ApiError ? err.detail : 'No se pudieron cargar los datos de asistencia.',
-        )
-      }
-    } finally {
-      setCargando(false)
-    }
+      .finally(() => setCargandoAsistencias(false))
   }, [divisionId, fecha])
 
   useEffect(() => {
-    let cancelled = false
+    let cancelado = false
     ;(async () => {
-      await cargar()
-      if (cancelled) return
+      await cargarAsistencias()
+      if (cancelado) return
     })()
     return () => {
-      cancelled = true
+      cancelado = true
     }
-  }, [cargar])
+  }, [cargarAsistencias])
 
-  const recargar = useCallback(() => {
-    return cargar()
-  }, [cargar])
+  // Combinar el roster de la división con la asistencia registrada para esta fecha puntual.
+  const asistenciaPorInscripcion = new Map(asistencias.map((a) => [a.inscripcion_id, a]))
+  const alumnos: AlumnoConAsistencia[] = roster.alumnos.map((inscripcion) => {
+    const asistencia = asistenciaPorInscripcion.get(inscripcion.id)
+    return { ...inscripcion, asistencia, estadoAsistencia: asistencia?.tipo }
+  })
 
-  return { alumnos, cargando, error, sinPermiso, recargar }
+  return {
+    alumnos,
+    cargando: roster.cargando || cargandoAsistencias,
+    error: roster.error ?? error,
+    sinPermiso: roster.sinPermiso || sinPermiso,
+    // Recarga solo la asistencia: el roster no cambia al guardar/editar registros de un día.
+    recargar: cargarAsistencias,
+  }
 }

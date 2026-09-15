@@ -8,6 +8,7 @@ import {
   GraduationCap,
   BookOpenIcon,
   HandCoinsIcon,
+  HistoryIcon,
   IdCardIcon,
   KeyRoundIcon,
   Landmark,
@@ -143,6 +144,14 @@ export const NAV_GROUPS: NavGroup[] = [
             href: '/academico/asistencia',
             icon: CalendarCheck,
             permiso: PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
+          },
+          {
+            // RF-05/RF-06: mismo permiso que la landing del módulo (el padre), no el tipado de
+            // asistencia — es de solo lectura.
+            label: 'Historial de asistencia',
+            href: '/academico/historial-asistencia',
+            icon: HistoryIcon,
+            permiso: PERMISO_ACADEMICO_LEER,
           },
         ],
       },

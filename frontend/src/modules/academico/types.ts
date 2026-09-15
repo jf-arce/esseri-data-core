@@ -173,3 +173,21 @@ export type AsistenciaBulkResponse = {
   actualizadas: number
   notificaciones_disparadas: number
 }
+
+/** Resumen de asistencia de una inscripción en un período (RF-06): conteos por tipo y
+ * porcentajes ya calculados por el backend, en escala 0-100. */
+export type AsistenciaResumen = {
+  inscripcion_id: string
+  alumno_id: string
+  fecha_desde: string
+  fecha_hasta: string
+  total_registros: number
+  presentes: number
+  tardanzas: number
+  ausentes_pendientes: number
+  ausentes_justificadas: number
+  ausentes_injustificadas: number
+  porcentaje_presencia: number
+  porcentaje_justificadas: number
+  porcentaje_injustificadas: number
+}

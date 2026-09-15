@@ -6,13 +6,10 @@ import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui
 import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { StatTile } from '@/components/stat-tile'
+import { DivisionSelector } from '@/modules/academico/components/division-selector'
 import { useAsistenciaDivision } from '@/modules/academico/hooks/use-asistencia-division'
 import { registrarAsistenciaMasiva } from '@/modules/academico/services/asistencias'
-import { listarDivisiones } from '@/modules/academico/services/divisiones'
-import { getMisDivisiones } from '@/modules/academico/services/get-mis-divisiones'
 import type { TipoAsistencia, TipoAsistenciaDocente } from '@/modules/academico/types'
-import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
-import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 export function AsistenciaDivisionPage() {
   const [divisionId, setDivisionId] = useState<string | null>(null)
@@ -272,54 +269,6 @@ export function AsistenciaDivisionPage() {
           )}
         </>
       )}
-    </div>
-  )
-}
-
-function DivisionSelector({
-  value,
-  onChange,
-}: {
-  value: string | null
-  onChange: (id: string | null) => void
-}) {
-  const [divisiones, setDivisiones] = useState<Array<{ id: string; nombre: string }>>([])
-  const [cargando, setCargando] = useState(true)
-  // Con acceso estructural a Académico (secretaría, coordinación, admin): cualquier división
-  // del colegio, como hasta ahora. Sin él (docente, con el permiso tipado de asistencia
-  // únicamente): solo las suyas — GET /academico/docentes/me/divisiones ya viene acotado por
-  // `AsignacionDocente`, no hay nada que filtrar acá.
-  const permisos = useAuthStore(permisosActivos)
-  const tieneAccesoEstructural = tienePermiso(permisos, PERMISO_ACADEMICO_ACTUALIZAR)
-
-  useEffect(() => {
-    const cargarDivisiones = tieneAccesoEstructural
-      ? listarDivisiones()
-      : getMisDivisiones().then((misDivisiones) =>
-          misDivisiones.map((d) => ({ id: d.division_id, nombre: d.etiqueta })),
-        )
-    cargarDivisiones.then((data) => {
-      setDivisiones(data)
-      setCargando(false)
-    })
-  }, [tieneAccesoEstructural])
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-semibold text-texto-2">División</label>
-      <select
-        value={value || ''}
-        onChange={(e) => onChange(e.target.value || null)}
-        disabled={cargando}
-        className="h-10 min-w-[200px] rounded-lg border border-borde bg-superficie px-3 text-sm"
-      >
-        <option value="">Seleccionar división</option>
-        {divisiones.map((d) => (
-          <option key={d.id} value={d.id}>
-            {d.nombre}
-          </option>
-        ))}
-      </select>
     </div>
   )
 }
