@@ -2,18 +2,22 @@ import {
   ArrowLeftIcon,
   CheckIcon,
   ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   ClockIcon,
   ConstructionIcon,
   DownloadIcon,
   PaperclipIcon,
   XIcon,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import type { FileRejection } from 'react-dropzone'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 import { Dropzone } from '@/components/dropzone'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Button } from '@/components/ui/button'
@@ -24,6 +28,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
 import { listarAsistenciasFamilia } from '@/modules/academico/services/listar-asistencias-familia'
 import { justificarAsistenciaFamilia } from '@/modules/academico/services/justificar-asistencia-familia'
@@ -43,6 +54,7 @@ const TIPOS_COMPROBANTE = {
   'image/png': ['.png'],
 }
 const MAX_TAMANIO_COMPROBANTE = 5 * 1024 * 1024
+const HISTORIAL_REGISTROS_POR_PAGINA = 5
 
 function etiquetaAsistencia(asistencia: AsistenciaFamilia) {
   if (asistencia.justificacion_estado === 'pendiente') return 'En revisión'
@@ -92,10 +104,14 @@ type PortalFamiliaTramitePageProps = {
 
 type SeccionAsistencia = 'resumen' | 'pendientes' | 'historial'
 
+type FiltroHistorial = 'todas' | 'inasistencias' | 'asistencias' | 'tardanzas'
+type OrdenHistorial = 'fecha-desc' | 'fecha-asc'
+
 type ResumenAsistencias = {
   presentes: number
   inasistencias: number
   tardanzas: number
+  justificadas: number
 }
 
 function resumirAsistencias(asistencias: AsistenciaFamilia[]): ResumenAsistencias {
@@ -103,11 +119,26 @@ function resumirAsistencias(asistencias: AsistenciaFamilia[]): ResumenAsistencia
     (resumen, asistencia) => {
       if (asistencia.tipo === 'presente') resumen.presentes += 1
       else if (asistencia.tipo === 'tardanza') resumen.tardanzas += 1
-      else resumen.inasistencias += 1
+      else {
+        resumen.inasistencias += 1
+        if (
+          asistencia.tipo === 'ausente_justificado' ||
+          asistencia.justificacion_estado === 'aprobada'
+        ) {
+          resumen.justificadas += 1
+        }
+      }
       return resumen
     },
-    { presentes: 0, inasistencias: 0, tardanzas: 0 },
+    { presentes: 0, inasistencias: 0, tardanzas: 0, justificadas: 0 },
   )
+}
+
+function coincideConFiltroHistorial(asistencia: AsistenciaFamilia, filtro: FiltroHistorial) {
+  if (filtro === 'todas') return true
+  if (filtro === 'asistencias') return asistencia.tipo === 'presente'
+  if (filtro === 'tardanzas') return asistencia.tipo === 'tardanza'
+  return asistencia.tipo.startsWith('ausente_')
 }
 
 // Estos trámites tienen una pantalla propia para completar el flujo del portal sin reutilizar
@@ -132,6 +163,11 @@ export function PortalFamiliaTramitePage({
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [detalleExpandido, setDetalleExpandido] = useState<string | null>(null)
+  const [historialFechaDesde, setHistorialFechaDesde] = useState('')
+  const [historialFechaHasta, setHistorialFechaHasta] = useState('')
+  const [historialFiltro, setHistorialFiltro] = useState<FiltroHistorial>('todas')
+  const [historialOrden, setHistorialOrden] = useState<OrdenHistorial>('fecha-desc')
+  const [historialPagina, setHistorialPagina] = useState(1)
   const [seccionAsistencia, setSeccionAsistencia] = useState<SeccionAsistencia>(
     seccionInicial ?? (esAsistencias ? 'resumen' : 'pendientes'),
   )
@@ -139,6 +175,33 @@ export function PortalFamiliaTramitePage({
   const asistenciasPendientes = asistencias.filter(esPendiente)
   const asistenciasHistorial = asistencias.filter((asistencia) => !esPendiente(asistencia))
   const resumenAsistencias = resumirAsistencias(asistencias)
+  const asistenciasHistorialFiltradas = useMemo(() => {
+    const filtradas = asistenciasHistorial.filter((asistencia) => {
+      if (historialFechaDesde && asistencia.fecha < historialFechaDesde) return false
+      if (historialFechaHasta && asistencia.fecha > historialFechaHasta) return false
+      return coincideConFiltroHistorial(asistencia, historialFiltro)
+    })
+
+    return filtradas.toSorted((a, b) => {
+      const comparacion = a.fecha.localeCompare(b.fecha)
+      return historialOrden === 'fecha-desc' ? -comparacion : comparacion
+    })
+  }, [
+    asistenciasHistorial,
+    historialFechaDesde,
+    historialFechaHasta,
+    historialFiltro,
+    historialOrden,
+  ])
+  const historialTotalPaginas = Math.max(
+    1,
+    Math.ceil(asistenciasHistorialFiltradas.length / HISTORIAL_REGISTROS_POR_PAGINA),
+  )
+  const historialPaginaActual = Math.min(historialPagina, historialTotalPaginas)
+  const asistenciasHistorialPaginadas = useMemo(() => {
+    const inicio = (historialPaginaActual - 1) * HISTORIAL_REGISTROS_POR_PAGINA
+    return asistenciasHistorialFiltradas.slice(inicio, inicio + HISTORIAL_REGISTROS_POR_PAGINA)
+  }, [asistenciasHistorialFiltradas, historialPaginaActual])
   const opcionesSeccion: Array<{ clave: SeccionAsistencia; etiqueta: string }> = esAsistencias
     ? [
         { clave: 'resumen', etiqueta: 'Resumen' },
@@ -283,32 +346,44 @@ export function PortalFamiliaTramitePage({
                   <h2 className="mb-2 text-sm font-semibold text-texto">Resumen de asistencia</h2>
                   {asistencias.length > 0 ? (
                     <div className="grid gap-3 sm:grid-cols-3">
-                      <article className="rounded-lg border border-borde bg-superficie p-4">
-                        <div className="flex items-center gap-2 text-sm text-texto-2">
-                          <CheckIcon className="size-4 text-exito" aria-hidden="true" />
-                          Asistencias
+                      <article className="rounded-card border border-borde border-l-4 border-l-exito bg-superficie p-4 shadow-card transition-shadow hover:shadow-overlay">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="flex size-9 items-center justify-center rounded-lg bg-exito-suave text-exito">
+                            <CheckIcon className="size-5" aria-hidden="true" />
+                          </span>
+                          <span className="text-sm font-semibold text-texto-2">Asistencias</span>
                         </div>
-                        <p className="mt-2 text-2xl font-semibold text-texto">
+                        <p className="mt-3 text-3xl font-semibold tabular-nums text-texto">
                           {resumenAsistencias.presentes}
                         </p>
+                        <p className="mt-1 text-xs text-texto-3">Días presentes</p>
                       </article>
-                      <article className="rounded-lg border border-borde bg-superficie p-4">
-                        <div className="flex items-center gap-2 text-sm text-texto-2">
-                          <XIcon className="size-4 text-error" aria-hidden="true" />
-                          Inasistencias
+                      <article className="rounded-card border border-borde border-l-4 border-l-error bg-superficie p-4 shadow-card transition-shadow hover:shadow-overlay">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="flex size-9 items-center justify-center rounded-lg bg-error-suave text-error">
+                            <XIcon className="size-5" aria-hidden="true" />
+                          </span>
+                          <span className="text-sm font-semibold text-texto-2">Inasistencias</span>
                         </div>
-                        <p className="mt-2 text-2xl font-semibold text-texto">
+                        <p className="mt-3 text-3xl font-semibold tabular-nums text-texto">
                           {resumenAsistencias.inasistencias}
                         </p>
+                        <p className="mt-1 text-xs font-medium text-error">
+                          {resumenAsistencias.justificadas}{' '}
+                          {resumenAsistencias.justificadas === 1 ? 'justificada' : 'justificadas'}
+                        </p>
                       </article>
-                      <article className="rounded-lg border border-borde bg-superficie p-4">
-                        <div className="flex items-center gap-2 text-sm text-texto-2">
-                          <ClockIcon className="size-4 text-advertencia" aria-hidden="true" />
-                          Tardanzas
+                      <article className="rounded-card border border-borde border-l-4 border-l-advertencia bg-superficie p-4 shadow-card transition-shadow hover:shadow-overlay">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="flex size-9 items-center justify-center rounded-lg bg-advertencia-suave text-advertencia">
+                            <ClockIcon className="size-5" aria-hidden="true" />
+                          </span>
+                          <span className="text-sm font-semibold text-texto-2">Tardanzas</span>
                         </div>
-                        <p className="mt-2 text-2xl font-semibold text-texto">
+                        <p className="mt-3 text-3xl font-semibold tabular-nums text-texto">
                           {resumenAsistencias.tardanzas}
                         </p>
+                        <p className="mt-1 text-xs text-texto-3">Llegadas fuera de horario</p>
                       </article>
                     </div>
                   ) : (
@@ -370,80 +445,190 @@ export function PortalFamiliaTramitePage({
                 >
                   <h2 className="mb-2 text-sm font-semibold text-texto">Historial</h2>
                   {asistenciasHistorial.length > 0 ? (
-                    <div className="divide-y divide-borde rounded-lg border border-borde">
-                      {asistenciasHistorial.map((asistencia) => {
-                        const detalleId = `justificacion-detalle-${asistencia.id}`
-                        const expandido = detalleExpandido === asistencia.id
-                        return (
-                          <div
-                            key={asistencia.id}
-                            className="p-3 text-sm first:rounded-t-lg last:rounded-b-lg"
+                    <>
+                      <div className="mb-4 grid gap-3 rounded-card border border-borde bg-fila-hover/40 p-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <Field>
+                          <FieldLabel htmlFor="historial-fecha-desde">Desde</FieldLabel>
+                          <Input
+                            id="historial-fecha-desde"
+                            type="date"
+                            value={historialFechaDesde}
+                            max={historialFechaHasta || undefined}
+                            onChange={(evento) => {
+                              setHistorialPagina(1)
+                              setHistorialFechaDesde(evento.target.value)
+                            }}
+                          />
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="historial-fecha-hasta">Hasta</FieldLabel>
+                          <Input
+                            id="historial-fecha-hasta"
+                            type="date"
+                            value={historialFechaHasta}
+                            min={historialFechaDesde || undefined}
+                            onChange={(evento) => {
+                              setHistorialPagina(1)
+                              setHistorialFechaHasta(evento.target.value)
+                            }}
+                          />
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="historial-tipo">Tipo</FieldLabel>
+                          <Select
+                            value={historialFiltro}
+                            onValueChange={(valor) => {
+                              setHistorialPagina(1)
+                              setHistorialFiltro(valor as FiltroHistorial)
+                            }}
                           >
-                            <div className="flex items-center gap-3">
-                              <span className="flex-1">
-                                {new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString(
-                                  'es-AR',
-                                )}
-                              </span>
-                              <span className="text-right text-texto-2">
-                                {etiquetaAsistencia(asistencia)}
-                              </span>
-                              {iconoEstadoJustificacion(asistencia.justificacion_estado)}
-                              {asistencia.justificacion_id && (
-                                <button
-                                  type="button"
-                                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-texto-2 transition-colors hover:bg-fila-hover hover:text-violeta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
-                                  aria-label={`${expandido ? 'Ocultar' : 'Mostrar'} detalle de la justificación del ${new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString('es-AR')}`}
-                                  aria-expanded={expandido}
-                                  aria-controls={detalleId}
-                                  onClick={() =>
-                                    setDetalleExpandido(expandido ? null : asistencia.id)
-                                  }
+                            <SelectTrigger id="historial-tipo" className="w-full">
+                              <SelectValue placeholder="Todas" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="todas">Todas</SelectItem>
+                              <SelectItem value="inasistencias">Inasistencias</SelectItem>
+                              <SelectItem value="asistencias">Asistencias</SelectItem>
+                              <SelectItem value="tardanzas">Tardanzas</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="historial-orden">Ordenar por fecha</FieldLabel>
+                          <Select
+                            value={historialOrden}
+                            onValueChange={(valor) => {
+                              setHistorialPagina(1)
+                              setHistorialOrden(valor as OrdenHistorial)
+                            }}
+                          >
+                            <SelectTrigger id="historial-orden" className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="fecha-asc">Ascendente</SelectItem>
+                              <SelectItem value="fecha-desc">Descendente</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </Field>
+                      </div>
+                      {asistenciasHistorialFiltradas.length > 0 ? (
+                        <>
+                          <div className="divide-y divide-borde rounded-lg border border-borde">
+                            {asistenciasHistorialPaginadas.map((asistencia) => {
+                              const detalleId = `justificacion-detalle-${asistencia.id}`
+                              const expandido = detalleExpandido === asistencia.id
+                              return (
+                                <div
+                                  key={asistencia.id}
+                                  className="px-3 py-2 text-sm first:rounded-t-lg last:rounded-b-lg"
                                 >
-                                  <ChevronDownIcon
-                                    aria-hidden="true"
-                                    className={`size-4 transition-transform ${expandido ? 'rotate-180' : ''}`}
-                                  />
-                                </button>
-                              )}
-                            </div>
-                            {asistencia.justificacion_id && (
-                              <div
-                                id={detalleId}
-                                hidden={!expandido}
-                                className="mt-3 rounded-lg bg-fila-hover p-3 text-xs text-texto-2"
-                              >
-                                <p>
-                                  <strong>Motivo:</strong>{' '}
-                                  {asistencia.justificacion_motivo ?? 'Otro'}
-                                </p>
-                                {asistencia.justificacion_observacion && (
-                                  <p className="mt-1">
-                                    <strong>Observación:</strong>{' '}
-                                    {asistencia.justificacion_observacion}
-                                  </p>
-                                )}
-                                {asistencia.justificacion_archivo_nombre && (
-                                  <button
-                                    type="button"
-                                    className="mt-2 inline-flex items-center gap-1 font-semibold text-violeta hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
-                                    onClick={() =>
-                                      void descargarComprobanteJustificacionFamilia(
-                                        asistencia.justificacion_id!,
-                                        asistencia.justificacion_archivo_nombre!,
-                                      )
-                                    }
-                                  >
-                                    <DownloadIcon className="size-3.5" aria-hidden="true" />
-                                    {asistencia.justificacion_archivo_nombre}
-                                  </button>
-                                )}
-                              </div>
-                            )}
+                                  <div className="flex items-center gap-3">
+                                    <span className="flex-1">
+                                      {new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString(
+                                        'es-AR',
+                                      )}
+                                    </span>
+                                    <span className="text-right text-texto-2">
+                                      {etiquetaAsistencia(asistencia)}
+                                    </span>
+                                    {iconoEstadoJustificacion(asistencia.justificacion_estado)}
+                                    {asistencia.justificacion_id && (
+                                      <button
+                                        type="button"
+                                        className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-texto-2 transition-colors hover:bg-fila-hover hover:text-violeta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
+                                        aria-label={`${expandido ? 'Ocultar' : 'Mostrar'} detalle de la justificación del ${new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString('es-AR')}`}
+                                        aria-expanded={expandido}
+                                        aria-controls={detalleId}
+                                        onClick={() =>
+                                          setDetalleExpandido(expandido ? null : asistencia.id)
+                                        }
+                                      >
+                                        <ChevronDownIcon
+                                          aria-hidden="true"
+                                          className={`size-4 transition-transform ${expandido ? 'rotate-180' : ''}`}
+                                        />
+                                      </button>
+                                    )}
+                                  </div>
+                                  {asistencia.justificacion_id && (
+                                    <div
+                                      id={detalleId}
+                                      hidden={!expandido}
+                                      className="mt-2 rounded-lg bg-fila-hover p-2.5 text-xs text-texto-2"
+                                    >
+                                      <p>
+                                        <strong>Motivo:</strong>{' '}
+                                        {asistencia.justificacion_motivo ?? 'Otro'}
+                                      </p>
+                                      {asistencia.justificacion_observacion && (
+                                        <p className="mt-1">
+                                          <strong>Observación:</strong>{' '}
+                                          {asistencia.justificacion_observacion}
+                                        </p>
+                                      )}
+                                      {asistencia.justificacion_archivo_nombre && (
+                                        <button
+                                          type="button"
+                                          className="mt-2 inline-flex items-center gap-1 font-semibold text-violeta hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
+                                          onClick={() =>
+                                            void descargarComprobanteJustificacionFamilia(
+                                              asistencia.justificacion_id!,
+                                              asistencia.justificacion_archivo_nombre!,
+                                            )
+                                          }
+                                        >
+                                          <DownloadIcon className="size-3.5" aria-hidden="true" />
+                                          {asistencia.justificacion_archivo_nombre}
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
                           </div>
-                        )
-                      })}
-                    </div>
+                          {historialTotalPaginas > 1 && (
+                            <nav
+                              className="mt-3 flex items-center justify-between gap-3 text-xs text-texto-2"
+                              aria-label="Paginación del historial"
+                            >
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                disabled={historialPaginaActual === 1}
+                                onClick={() =>
+                                  setHistorialPagina((pagina) => Math.max(1, pagina - 1))
+                                }
+                              >
+                                <ChevronLeftIcon aria-hidden="true" />
+                                Anterior
+                              </Button>
+                              <span aria-live="polite">
+                                Página {historialPaginaActual} de {historialTotalPaginas}
+                              </span>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                disabled={historialPaginaActual === historialTotalPaginas}
+                                onClick={() =>
+                                  setHistorialPagina((pagina) =>
+                                    Math.min(historialTotalPaginas, pagina + 1),
+                                  )
+                                }
+                              >
+                                Siguiente
+                                <ChevronRightIcon aria-hidden="true" />
+                              </Button>
+                            </nav>
+                          )}
+                        </>
+                      ) : (
+                        <p className="rounded-lg border border-dashed border-borde p-4 text-sm text-texto-2">
+                          No hay registros que coincidan con los filtros seleccionados.
+                        </p>
+                      )}
+                    </>
                   ) : (
                     <p className="rounded-lg border border-dashed border-borde p-4 text-sm text-texto-2">
                       Todavía no hay registros en tu historial.
