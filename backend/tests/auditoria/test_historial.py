@@ -1,7 +1,9 @@
 """RF-13/RF-14: historial de cambios de una entidad contra AUDIT_LOG.
 
-No hay (todavía) nada que escriba en AUDIT_LOG automáticamente al modificar una entidad — las
-filas de estos tests se insertan a mano, como haría cualquier módulo que audite un cambio.
+Este archivo prueba solo el lado de lectura (`listar_historial_entidad`), con filas insertadas
+a mano, como haría cualquier módulo que audite un cambio. `familias_alumnos` ya escribe en
+AUDIT_LOG automáticamente vía `log_audit()` (ver tests/familias_alumnos/test_auditoria.py);
+otros módulos con el mismo TODO pendiente (ej. `proveedores_compras`) todavía no.
 """
 
 import uuid

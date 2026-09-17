@@ -501,7 +501,10 @@ def _preparar_confirmacion_inscripcion_en_transaccion(
 
 
 def _resolver_familia_para_alta_integrada(
-    db: Session, solicitud: SolicitudInscripcion, datos: AltaIntegradaAdmisionCreate
+    db: Session,
+    solicitud: SolicitudInscripcion,
+    datos: AltaIntegradaAdmisionCreate,
+    usuario_id: uuid.UUID,
 ) -> Familia:
     if datos.familia_id is not None:
         familia = db.get(Familia, datos.familia_id, with_for_update=True)
@@ -519,14 +522,14 @@ def _resolver_familia_para_alta_integrada(
         if contacto is None:
             raise InscripcionInvalida("La solicitud no tiene un contacto válido para reutilizar.")
         return familias_alumnos_service.obtener_o_crear_familia_para_persona_en_transaccion(
-            db, contacto.id
+            db, contacto.id, usuario_id
         )
 
     if datos.familia_nueva is None:
         raise InscripcionInvalida("Indicá los datos de la familia que se va a crear.")
     persona = _obtener_o_crear_persona(db, datos.familia_nueva)
     return familias_alumnos_service.obtener_o_crear_familia_para_persona_en_transaccion(
-        db, persona.id
+        db, persona.id, usuario_id
     )
 
 
@@ -571,10 +574,10 @@ def finalizar_admision_con_alta_integrada(
         )
         if alumno is None:
             alumno = familias_alumnos_service.crear_alumno_desde_persona_en_transaccion(
-                db, persona_id=aspirante.id
+                db, persona_id=aspirante.id, usuario_id=usuario_id
             )
 
-        familia = _resolver_familia_para_alta_integrada(db, solicitud, datos)
+        familia = _resolver_familia_para_alta_integrada(db, solicitud, datos, usuario_id)
         parentesco = (
             solicitud.contacto_parentesco
             if datos.usar_contacto_como_familia and solicitud.contacto_parentesco
@@ -589,6 +592,7 @@ def finalizar_admision_con_alta_integrada(
                 responsable_principal=datos.responsable_principal,
                 recibe_comunicaciones=datos.recibe_comunicaciones,
             ),
+            usuario_id,
         )
 
         responsable = facturacion_service.obtener_o_preparar_responsable_economico_en_transaccion(
