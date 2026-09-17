@@ -135,11 +135,18 @@ class AltaAlumnoCreate(BaseModel):
 
 
 class AlumnoUpdate(BaseModel):
-    """Schema para actualizar un Alumno existente."""
+    """Schema para actualizar un Alumno existente.
+
+    `telefono`/`sexo` son de `Persona`, no de `Alumno` (relación 1:1) — se aceptan acá para que
+    la ficha del alumno los pueda editar sin un endpoint aparte; `actualizar_alumno` los aplica
+    sobre la `Persona` vinculada.
+    """
 
     numero_legajo: str | None = Field(None, min_length=1, description="Número de legajo")
     estado: str | None = Field(None, description="Estado: activo / inactivo / egresado")
     persona_id: uuid.UUID | None = Field(None, description="ID de la persona asociada")
+    telefono: str | None = Field(None, description="Teléfono de la persona asociada")
+    sexo: str | None = Field(None, description="Sexo de la persona asociada")
 
     @field_validator("estado")
     @classmethod

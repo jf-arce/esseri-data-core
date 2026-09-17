@@ -14,7 +14,7 @@ from src.inscripciones import admisiones_service
 from src.inscripciones.exceptions import InscripcionInvalida
 from src.inscripciones.models import DocumentoSolicitud, Inscripcion, SolicitudInscripcion
 from src.inscripciones.schemas import AltaIntegradaAdmisionCreate
-from src.models import Persona
+from src.models import AuditLog, Persona
 
 
 def _crear_admision_documentada(db_session, *, con_alumno=False, con_contacto=True):
@@ -154,6 +154,39 @@ def test_finaliza_admision_y_crea_alumno_familia_responsable_e_inscripcion(db_se
     solicitud = db_session.get(SolicitudInscripcion, escenario["solicitud"].id)
     assert solicitud is not None
     assert solicitud.etapa == "inscripcion_confirmada"
+
+
+def test_alta_integrada_audita_creacion_de_alumno_familia_y_vinculo(db_session):
+    """RF-13/RF-14: el alta integrada crea Alumno/Familia/vínculo a través de las variantes
+    `_en_transaccion` de familias_alumnos — tienen que auditar igual que el ABM directo."""
+    escenario = _crear_admision_documentada(db_session)
+
+    respuesta = _finalizar(db_session, escenario)
+
+    for entidad, entidad_id in (
+        ("ALUMNO", respuesta.alumno_id),
+        ("FAMILIA", respuesta.familia_id),
+    ):
+        registros = db_session.scalars(
+            select(AuditLog).where(AuditLog.entidad == entidad, AuditLog.entidad_id == entidad_id)
+        ).all()
+        assert len(registros) == 1
+        assert registros[0].campo == "__alta__"
+        assert registros[0].usuario_id == escenario["usuario"].id
+
+    vinculo = db_session.scalar(
+        select(FamiliaAlumno).where(
+            FamiliaAlumno.alumno_id == respuesta.alumno_id,
+            FamiliaAlumno.familia_id == respuesta.familia_id,
+        )
+    )
+    registro_vinculo = db_session.scalars(
+        select(AuditLog).where(
+            AuditLog.entidad == "FAMILIA_ALUMNO", AuditLog.entidad_id == vinculo.id
+        )
+    ).all()
+    assert len(registro_vinculo) == 1
+    assert registro_vinculo[0].usuario_id == escenario["usuario"].id
 
 
 def test_asigna_fecha_actual_argentina_si_no_se_informa(db_session, monkeypatch):

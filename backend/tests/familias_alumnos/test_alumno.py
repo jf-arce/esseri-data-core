@@ -95,6 +95,25 @@ class TestAlumnoService:
         assert alumno_actualizado.estado == "inactivo"
         assert alumno_actualizado.numero_legajo == "L-003"
 
+    def test_actualizar_alumno_telefono_y_sexo_actualiza_la_persona_vinculada(
+        self, db_session: Session
+    ):
+        """`telefono`/`sexo` no son columnas de Alumno (son de Persona, 1:1) -- la ficha del
+        alumno los edita igual, así que `actualizar_alumno` los aplica sobre `alumno.persona`."""
+        persona = Persona(nombre="Delfina", apellido="Ríos", dni="77777777", sexo="F")
+        db_session.add(persona)
+        db_session.commit()
+        db_session.refresh(persona)
+        alumno = crear_alumno(
+            db_session, AlumnoCreate(numero_legajo="L-004", estado="activo", persona_id=persona.id)
+        )
+
+        actualizar_alumno(db_session, alumno, AlumnoUpdate(telefono="1155554444", sexo="masculino"))
+
+        db_session.refresh(persona)
+        assert persona.telefono == "1155554444"
+        assert persona.sexo == "masculino"
+
     def test_actualizar_alumno_legajo_duplicado(self, db_session: Session):
         """No se puede actualizar a un legajo que ya existe en otro alumno."""
         persona1 = Persona(nombre="A", apellido="B", dni="55555555", sexo="M")
