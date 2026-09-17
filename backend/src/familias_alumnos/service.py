@@ -573,12 +573,16 @@ def listar_vinculos_de_familia(db: Session, familia_id: uuid.UUID) -> list[Famil
 def alumnos_a_cargo_de_persona(
     db: Session, persona_id: uuid.UUID
 ) -> list[tuple[Alumno, str | None]]:
-    """Alumnos de las familias de `persona_id`, con "3°B · Primario" (o `None` sin
+    """Alumnos de las familias de `persona_id`, con "3°C · Primario" (o `None` sin
     inscripción activa) de su división actual.
 
     Usado por GET /familias-alumnos/familias/me/alumnos (usuario autenticado, dato propio:
     no depende de `familias_alumnos.leer`). Mismo join Inscripcion→Division→Anio que ya usa
     `listar_alumnos` para filtrar por nivel educativo.
+
+    `Division.nombre` ya es la etiqueta completa ("1°A", "3°C" — ver `nivel-seccion.tsx` y
+    `divisiones_de_persona` en `academico/service.py`), no un sufijo suelto: anteponerle
+    `Anio.numero` duplicaba el año ("1°3°C · Primario").
     """
     familia = db.query(Familia).join(Persona).filter(Persona.id == persona_id).first()
     if familia is None:
@@ -594,7 +598,7 @@ def alumnos_a_cargo_de_persona(
     resultado = []
     for alumno in alumnos:
         fila = (
-            db.query(Anio.numero, Division.nombre, NivelEducativo.nombre)
+            db.query(Division.nombre, NivelEducativo.nombre)
             .select_from(Inscripcion)
             .join(Division, Inscripcion.division_id == Division.id)
             .join(Anio, Division.anio_id == Anio.id)
@@ -602,6 +606,6 @@ def alumnos_a_cargo_de_persona(
             .filter(Inscripcion.alumno_id == alumno.id, Inscripcion.estado == "activa")
             .first()
         )
-        etiqueta = f"{fila[0]}°{fila[1]} · {fila[2]}" if fila else None
+        etiqueta = f"{fila[0]} · {fila[1]}" if fila else None
         resultado.append((alumno, etiqueta))
     return resultado

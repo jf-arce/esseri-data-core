@@ -52,7 +52,7 @@ def _crear_familia_con_alumno(db_session, *, con_usuario=True, con_inscripcion_a
         ),
         NivelEducativo(id=nivel_id, nombre="Primario"),
         Anio(id=anio_id, numero=4, nivel_educativo_id=nivel_id),
-        Division(id=division_id, nombre="B", anio_id=anio_id),
+        Division(id=division_id, nombre="4°B", anio_id=anio_id),
     ]
     if con_inscripcion_activa:
         filas.append(
@@ -105,3 +105,62 @@ def test_usuario_sin_persona_vinculada_devuelve_lista_vacia(client, db_session):
     login(client, usuario)
 
     assert client.get("/familias-alumnos/familias/me/alumnos").json() == []
+
+
+def test_etiqueta_no_duplica_el_anio_cuando_ya_esta_en_el_nombre(client, db_session):
+    """Reproduce el bug real (mismo dato de ambiente de prueba que
+    `academico/test_mis_divisiones.py`): un año 1 con una división nombrada "3°C" salía como
+    "1°3°C · Primario" en vez de "3°C · Primario"."""
+    persona_familiar_id = uuid.uuid4()
+    persona_alumno_id = uuid.uuid4()
+    familia_id = uuid.uuid4()
+    alumno_id = uuid.uuid4()
+    nivel_id = uuid.uuid4()
+    anio_id = uuid.uuid4()
+    division_id = uuid.uuid4()
+
+    usuario = Usuario(
+        email="familia.moralejo@esseri.edu.ar",
+        password_hash=sesion_service.hashear_password(PASSWORD_VALIDA),
+        auth_provider="local",
+        estado="activo",
+        persona_id=persona_familiar_id,
+    )
+    db_session.add_all(
+        [
+            Persona(id=persona_familiar_id, nombre="Marcelo", apellido="Cangiani", dni="30222333"),
+            Persona(id=persona_alumno_id, nombre="Mateo", apellido="Fernández", dni="51222333"),
+            usuario,
+            Familia(id=familia_id, estado_deuda="al_dia", persona_id=persona_familiar_id),
+            Alumno(
+                id=alumno_id,
+                numero_legajo="A-2027-011",
+                estado="activo",
+                persona_id=persona_alumno_id,
+            ),
+            FamiliaAlumno(
+                parentesco="padre",
+                responsable_principal=True,
+                recibe_comunicaciones=True,
+                familia_id=familia_id,
+                alumno_id=alumno_id,
+            ),
+            NivelEducativo(id=nivel_id, nombre="Primario"),
+            Anio(id=anio_id, numero=1, nivel_educativo_id=nivel_id),
+            Division(id=division_id, nombre="3°C", anio_id=anio_id),
+            Inscripcion(
+                ciclo_lectivo="2027",
+                fecha_inscripcion=date(2026, 8, 27),
+                tipo="nueva",
+                estado="activa",
+                alumno_id=alumno_id,
+                division_id=division_id,
+            ),
+        ]
+    )
+    db_session.commit()
+    login(client, usuario)
+
+    cuerpo = client.get("/familias-alumnos/familias/me/alumnos").json()
+
+    assert cuerpo[0]["division_etiqueta"] == "3°C · Primario"
