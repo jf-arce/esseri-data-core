@@ -94,6 +94,8 @@ export type AlumnoUpdate = {
   numero_legajo?: string
   estado?: EstadoAlumno
   persona_id?: string
+  telefono?: string
+  sexo?: string
 }
 
 export type AltaAlumnoCreate = {
