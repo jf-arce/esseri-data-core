@@ -59,6 +59,7 @@ from src.academico.schemas import (
     NivelEducativoCreate,
     NivelEducativoUpdate,
 )
+from src.auditoria.service import log_audit
 from src.auth import autorizacion_service
 from src.auth import usuarios_service as auth_usuarios_service
 from src.auth.constants import (
@@ -189,6 +190,16 @@ def justificar_asistencia_de_familia(
             contenido=comprobante_contenido,
         )
     db.add(justificacion)
+    db.flush()
+    log_audit(
+        db,
+        entidad="JUSTIFICACION_INASISTENCIA",
+        entidad_id=justificacion.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=motivo_db.nombre,
+        usuario_id=usuario.id,
+    )
     db.commit()
     db.refresh(justificacion)
     return justificacion
@@ -222,16 +233,27 @@ def resolver_justificacion(
     justificacion: JustificacionInasistencia,
     aprobar: bool,
     observacion: str | None = None,
+    usuario_id: uuid.UUID | None = None,
 ) -> JustificacionInasistencia:
     if justificacion.estado != "pendiente":
         raise HTTPException(status.HTTP_409_CONFLICT, "La justificación ya fue resuelta")
-    justificacion.estado = "aprobada" if aprobar else "rechazada"
+    estado_nuevo = "aprobada" if aprobar else "rechazada"
+    justificacion.estado = estado_nuevo
     if not aprobar:
         justificacion.observacion = observacion
     justificacion.fecha_resolucion = datetime.now()
     asistencia = db.get(Asistencia, justificacion.asistencia_id)
     if asistencia is not None:
         asistencia.tipo = "ausente_justificado" if aprobar else "ausente_injustificado"
+    log_audit(
+        db,
+        entidad="JUSTIFICACION_INASISTENCIA",
+        entidad_id=justificacion.id,
+        campo="estado",
+        valor_anterior="pendiente",
+        valor_nuevo=estado_nuevo,
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(justificacion)
     return justificacion
@@ -374,6 +396,16 @@ def registrar_asistencia(
         tipo=tipo_db,
     )
     db.add(nuevo)
+    db.flush()
+    log_audit(
+        db,
+        entidad="ASISTENCIA",
+        entidad_id=nuevo.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=tipo_db,
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(nuevo)
 
@@ -416,7 +448,17 @@ def registrar_asistencia_masiva(
         if existente is not None:
             if existente.tipo in _TIPOS_JUSTIFICADOS:
                 continue
+            tipo_anterior = existente.tipo
             existente.tipo = tipo_db
+            log_audit(
+                db,
+                entidad="ASISTENCIA",
+                entidad_id=existente.id,
+                campo="tipo",
+                valor_anterior=tipo_anterior,
+                valor_nuevo=tipo_db,
+                usuario_id=usuario_id,
+            )
             actualizadas += 1
         else:
             nuevo = Asistencia(
@@ -425,6 +467,16 @@ def registrar_asistencia_masiva(
                 tipo=tipo_db,
             )
             db.add(nuevo)
+            db.flush()
+            log_audit(
+                db,
+                entidad="ASISTENCIA",
+                entidad_id=nuevo.id,
+                campo="__alta__",
+                valor_anterior=None,
+                valor_nuevo=tipo_db,
+                usuario_id=usuario_id,
+            )
             creadas += 1
 
         if tipo_db in {"ausente_pendiente", "tardanza"}:
@@ -505,6 +557,15 @@ def actualizar_asistencia(
     tipo_db = _TIPO_DOCENTE_A_DB[datos.tipo]
     tipo_anterior = asistencia.tipo
     asistencia.tipo = tipo_db
+    log_audit(
+        db,
+        entidad="ASISTENCIA",
+        entidad_id=asistencia.id,
+        campo="tipo",
+        valor_anterior=tipo_anterior,
+        valor_nuevo=tipo_db,
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(asistencia)
 
@@ -521,7 +582,18 @@ def eliminar_asistencia(
 ) -> None:
     """Eliminar un registro de asistencia."""
     verificar_acceso_a_asistencia(db, asistencia, usuario_id, rol_activo)
+    asistencia_id = asistencia.id
+    tipo_anterior = asistencia.tipo
     db.delete(asistencia)
+    log_audit(
+        db,
+        entidad="ASISTENCIA",
+        entidad_id=asistencia_id,
+        campo="__eliminacion__",
+        valor_anterior=tipo_anterior,
+        valor_nuevo=None,
+        usuario_id=usuario_id,
+    )
     db.commit()
 
 
@@ -767,6 +839,16 @@ def crear_nivel_educativo(
 
     nuevo = NivelEducativo(nombre=datos.nombre.strip())
     db.add(nuevo)
+    db.flush()
+    log_audit(
+        db,
+        entidad="NIVEL_EDUCATIVO",
+        entidad_id=nuevo.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=nuevo.nombre,
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(nuevo)
     return nuevo
@@ -804,8 +886,21 @@ def actualizar_nivel_educativo(
             raise NombreNivelDuplicado()
         update_data["nombre"] = update_data["nombre"].strip()
 
+    valores_anteriores = {campo: getattr(nivel, campo) for campo in update_data}
+
     for field, value in update_data.items():
         setattr(nivel, field, value)
+
+    for campo, valor_nuevo in update_data.items():
+        log_audit(
+            db,
+            entidad="NIVEL_EDUCATIVO",
+            entidad_id=nivel.id,
+            campo=campo,
+            valor_anterior=str(valores_anteriores[campo]) if valores_anteriores[campo] else None,
+            valor_nuevo=str(valor_nuevo) if valor_nuevo is not None else None,
+            usuario_id=usuario_id,
+        )
 
     db.commit()
     db.refresh(nivel)
@@ -820,7 +915,18 @@ def eliminar_nivel_educativo(
     if tiene_anios:
         raise NivelEducativoConAnios()
 
+    nivel_id = nivel.id
+    nombre = nivel.nombre
     db.delete(nivel)
+    log_audit(
+        db,
+        entidad="NIVEL_EDUCATIVO",
+        entidad_id=nivel_id,
+        campo="__eliminacion__",
+        valor_anterior=nombre,
+        valor_nuevo=None,
+        usuario_id=usuario_id,
+    )
     db.commit()
 
 
@@ -842,6 +948,16 @@ def crear_anio(db: Session, datos: AnioCreate, usuario_id: uuid.UUID | None = No
 
     nuevo = Anio(**datos.model_dump())
     db.add(nuevo)
+    db.flush()
+    log_audit(
+        db,
+        entidad="ANIO",
+        entidad_id=nuevo.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=str(nuevo.numero),
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(nuevo)
     return nuevo
@@ -891,8 +1007,21 @@ def actualizar_anio(
         ):
             raise AnioDuplicado()
 
+    valores_anteriores = {campo: getattr(anio, campo) for campo in update_data}
+
     for field, value in update_data.items():
         setattr(anio, field, value)
+
+    for campo, valor_nuevo in update_data.items():
+        log_audit(
+            db,
+            entidad="ANIO",
+            entidad_id=anio.id,
+            campo=campo,
+            valor_anterior=str(valores_anteriores[campo]) if valores_anteriores[campo] else None,
+            valor_nuevo=str(valor_nuevo) if valor_nuevo is not None else None,
+            usuario_id=usuario_id,
+        )
 
     db.commit()
     db.refresh(anio)
@@ -905,7 +1034,18 @@ def eliminar_anio(db: Session, anio: Anio, usuario_id: uuid.UUID | None = None) 
     if tiene_divisiones:
         raise AnioConDivisiones()
 
+    anio_id = anio.id
+    numero = anio.numero
     db.delete(anio)
+    log_audit(
+        db,
+        entidad="ANIO",
+        entidad_id=anio_id,
+        campo="__eliminacion__",
+        valor_anterior=str(numero),
+        valor_nuevo=None,
+        usuario_id=usuario_id,
+    )
     db.commit()
 
 
@@ -929,6 +1069,16 @@ def crear_division(
 
     nuevo = Division(nombre=datos.nombre.strip(), anio_id=datos.anio_id)
     db.add(nuevo)
+    db.flush()
+    log_audit(
+        db,
+        entidad="DIVISION",
+        entidad_id=nuevo.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=nuevo.nombre,
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(nuevo)
     return nuevo
@@ -976,8 +1126,21 @@ def actualizar_division(
         if isinstance(nombre_check, str):
             update_data["nombre"] = nombre_check.strip()
 
+    valores_anteriores = {campo: getattr(division, campo) for campo in update_data}
+
     for field, value in update_data.items():
         setattr(division, field, value)
+
+    for campo, valor_nuevo in update_data.items():
+        log_audit(
+            db,
+            entidad="DIVISION",
+            entidad_id=division.id,
+            campo=campo,
+            valor_anterior=str(valores_anteriores[campo]) if valores_anteriores[campo] else None,
+            valor_nuevo=str(valor_nuevo) if valor_nuevo is not None else None,
+            usuario_id=usuario_id,
+        )
 
     db.commit()
     db.refresh(division)
@@ -993,7 +1156,18 @@ def eliminar_division(db: Session, division: Division, usuario_id: uuid.UUID | N
     if tiene_asignaciones:
         raise DivisionConAsignaciones()
 
+    division_id = division.id
+    nombre = division.nombre
     db.delete(division)
+    log_audit(
+        db,
+        entidad="DIVISION",
+        entidad_id=division_id,
+        campo="__eliminacion__",
+        valor_anterior=nombre,
+        valor_nuevo=None,
+        usuario_id=usuario_id,
+    )
     db.commit()
 
 
@@ -1027,6 +1201,16 @@ def crear_materia(
         division_id=datos.division_id,
     )
     db.add(nuevo)
+    db.flush()
+    log_audit(
+        db,
+        entidad="MATERIA",
+        entidad_id=nuevo.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=nuevo.nombre,
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(nuevo)
     return nuevo
@@ -1084,8 +1268,21 @@ def actualizar_materia(
         if isinstance(update_data.get("nombre"), str):
             update_data["nombre"] = update_data["nombre"].strip()
 
+    valores_anteriores = {campo: getattr(materia, campo) for campo in update_data}
+
     for field, value in update_data.items():
         setattr(materia, field, value)
+
+    for campo, valor_nuevo in update_data.items():
+        log_audit(
+            db,
+            entidad="MATERIA",
+            entidad_id=materia.id,
+            campo=campo,
+            valor_anterior=str(valores_anteriores[campo]) if valores_anteriores[campo] else None,
+            valor_nuevo=str(valor_nuevo) if valor_nuevo is not None else None,
+            usuario_id=usuario_id,
+        )
 
     db.commit()
     db.refresh(materia)
@@ -1101,7 +1298,18 @@ def eliminar_materia(db: Session, materia: Materia, usuario_id: uuid.UUID | None
     if tiene_asignaciones:
         raise MateriaConAsignaciones()
 
+    materia_id = materia.id
+    nombre = materia.nombre
     db.delete(materia)
+    log_audit(
+        db,
+        entidad="MATERIA",
+        entidad_id=materia_id,
+        campo="__eliminacion__",
+        valor_anterior=nombre,
+        valor_nuevo=None,
+        usuario_id=usuario_id,
+    )
     db.commit()
 
 
@@ -1117,12 +1325,24 @@ def crear_docente(
 
     nuevo = Docente(legajo=datos.legajo.strip(), persona_id=datos.persona_id)
     db.add(nuevo)
+    db.flush()
+    log_audit(
+        db,
+        entidad="DOCENTE",
+        entidad_id=nuevo.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=nuevo.legajo,
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(nuevo)
     return nuevo
 
 
-def crear_alta_docente(db: Session, datos: AltaDocenteCreate) -> tuple[Persona, Docente]:
+def crear_alta_docente(
+    db: Session, datos: AltaDocenteCreate, usuario_id: uuid.UUID | None = None
+) -> tuple[Persona, Docente]:
     """Crea Persona, Usuario (rol docente) y Docente en una única transacción.
 
     Mismo patrón que `crear_alta_familia` (`familias_alumnos/service.py`): el legajo se valida
@@ -1152,13 +1372,24 @@ def crear_alta_docente(db: Session, datos: AltaDocenteCreate) -> tuple[Persona, 
     docente = Docente(legajo=datos.legajo.strip(), persona_id=persona.id)
     db.add(docente)
     db.flush()
+    log_audit(
+        db,
+        entidad="DOCENTE",
+        entidad_id=docente.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=docente.legajo,
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(persona)
     db.refresh(docente)
     return persona, docente
 
 
-def crear_docente_desde_usuario(db: Session, datos: DocenteDesdeUsuarioCreate) -> Docente:
+def crear_docente_desde_usuario(
+    db: Session, datos: DocenteDesdeUsuarioCreate, usuario_id: uuid.UUID | None = None
+) -> Docente:
     """Suma el rol docente (y su ficha) a una cuenta que ya existe, ej. una familia que también
     da clases. Idempotente en el rol: si la cuenta ya tenía `docente`, no falla."""
     usuario = db.get(Usuario, datos.usuario_id)
@@ -1173,6 +1404,15 @@ def crear_docente_desde_usuario(db: Session, datos: DocenteDesdeUsuarioCreate) -
         docente = Docente(legajo=datos.legajo.strip(), persona_id=usuario.persona_id)
         db.add(docente)
         db.flush()
+        log_audit(
+            db,
+            entidad="DOCENTE",
+            entidad_id=docente.id,
+            campo="__alta__",
+            valor_anterior=None,
+            valor_nuevo=docente.legajo,
+            usuario_id=usuario_id,
+        )
 
     rol = db.scalar(select(Rol).where(Rol.codigo == ROL_DOCENTE))
     if rol is None:
@@ -1222,8 +1462,21 @@ def actualizar_docente(
             raise LegajoDuplicado()
         update_data["legajo"] = update_data["legajo"].strip()
 
+    valores_anteriores = {campo: getattr(docente, campo) for campo in update_data}
+
     for field, value in update_data.items():
         setattr(docente, field, value)
+
+    for campo, valor_nuevo in update_data.items():
+        log_audit(
+            db,
+            entidad="DOCENTE",
+            entidad_id=docente.id,
+            campo=campo,
+            valor_anterior=str(valores_anteriores[campo]) if valores_anteriores[campo] else None,
+            valor_nuevo=str(valor_nuevo) if valor_nuevo is not None else None,
+            usuario_id=usuario_id,
+        )
 
     db.commit()
     db.refresh(docente)
@@ -1239,7 +1492,18 @@ def eliminar_docente(db: Session, docente: Docente, usuario_id: uuid.UUID | None
     if tiene_asignaciones:
         raise DocenteConAsignaciones()
 
+    docente_id = docente.id
+    legajo = docente.legajo
     db.delete(docente)
+    log_audit(
+        db,
+        entidad="DOCENTE",
+        entidad_id=docente_id,
+        campo="__eliminacion__",
+        valor_anterior=legajo,
+        valor_nuevo=None,
+        usuario_id=usuario_id,
+    )
     db.commit()
 
 
@@ -1274,6 +1538,18 @@ def crear_asignacion_docente(
         division_id=datos.division_id,
     )
     db.add(nuevo)
+    db.flush()
+    log_audit(
+        db,
+        entidad="ASIGNACION_DOCENTE",
+        entidad_id=nuevo.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=(
+            f"docente={nuevo.docente_id} materia={nuevo.materia_id} division={nuevo.division_id}"
+        ),
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(nuevo)
     return nuevo
@@ -1338,5 +1614,19 @@ def eliminar_asignacion_docente(
     db: Session, asignacion: AsignacionDocente, usuario_id: uuid.UUID | None = None
 ) -> None:
     """Desasignar un docente (eliminar la asignación docente)."""
+    asignacion_id = asignacion.id
+    valor_anterior = (
+        f"docente={asignacion.docente_id} materia={asignacion.materia_id} "
+        f"division={asignacion.division_id}"
+    )
     db.delete(asignacion)
+    log_audit(
+        db,
+        entidad="ASIGNACION_DOCENTE",
+        entidad_id=asignacion_id,
+        campo="__eliminacion__",
+        valor_anterior=valor_anterior,
+        valor_nuevo=None,
+        usuario_id=usuario_id,
+    )
     db.commit()

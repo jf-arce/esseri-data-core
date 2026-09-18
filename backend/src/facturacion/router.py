@@ -95,9 +95,9 @@ def _factura_detalle_read(db: Session, factura: Factura) -> FacturaDetalleRead:
 
 @router.post("/conceptos", status_code=201)
 def crear_concepto_cobro(
-    datos: ConceptoCobroCreate, db: DbSession, _: PuedeCrear
+    datos: ConceptoCobroCreate, db: DbSession, usuario: PuedeCrear
 ) -> ConceptoCobroRead:
-    return ConceptoCobroRead.model_validate(service.crear_concepto_cobro(db, datos))
+    return ConceptoCobroRead.model_validate(service.crear_concepto_cobro(db, datos, usuario.id))
 
 
 @router.get("/conceptos")
@@ -120,30 +120,32 @@ def actualizar_concepto_cobro(
     concepto_id: uuid.UUID,
     datos: ConceptoCobroUpdate,
     db: DbSession,
-    _: PuedeActualizar,
+    usuario: PuedeActualizar,
     concepto: ConceptoCobroActual,
 ) -> ConceptoCobroRead:
-    return ConceptoCobroRead.model_validate(service.actualizar_concepto_cobro(db, concepto, datos))
+    return ConceptoCobroRead.model_validate(
+        service.actualizar_concepto_cobro(db, concepto, datos, usuario.id)
+    )
 
 
 @router.delete("/conceptos/{concepto_id}", status_code=204)
 def eliminar_concepto_cobro(
     concepto_id: uuid.UUID,
     db: DbSession,
-    _: PuedeEliminar,
+    usuario: PuedeEliminar,
     concepto: ConceptoCobroActual,
 ) -> None:
-    service.eliminar_concepto_cobro(db, concepto)
+    service.eliminar_concepto_cobro(db, concepto, usuario.id)
 
 
 @router.post("/alumnos/{alumno_id}/responsable-economico", status_code=201)
 def asignar_responsable_economico(
     datos: ResponsableEconomicoCreate,
     db: DbSession,
-    _: PuedeActualizar,
+    usuario: PuedeActualizar,
     alumno: AlumnoActual,
 ) -> ResponsableEconomicoRead:
-    responsable = service.asignar_responsable_economico(db, alumno.id, datos)
+    responsable = service.asignar_responsable_economico(db, alumno.id, datos, usuario.id)
     return ResponsableEconomicoRead.model_validate(responsable)
 
 
@@ -224,8 +226,8 @@ def listar_deuda_por_familia(
 
 
 @router.post("/facturas", status_code=201)
-def crear_factura(datos: FacturaCreate, db: DbSession, _: PuedeCrear) -> FacturaRead:
-    return FacturaRead.model_validate(facturas_service.crear_factura(db, datos))
+def crear_factura(datos: FacturaCreate, db: DbSession, usuario: PuedeCrear) -> FacturaRead:
+    return FacturaRead.model_validate(facturas_service.crear_factura(db, datos, usuario.id))
 
 
 @router.get("/facturas")
@@ -328,22 +330,24 @@ def obtener_factura(db: DbSession, _: PuedeLeer, factura: FacturaActual) -> Fact
 
 @router.put("/facturas/{factura_id}")
 def actualizar_factura(
-    datos: FacturaUpdate, db: DbSession, _: PuedeActualizar, factura: FacturaActual
+    datos: FacturaUpdate, db: DbSession, usuario: PuedeActualizar, factura: FacturaActual
 ) -> FacturaRead:
-    return FacturaRead.model_validate(facturas_service.actualizar_factura(db, factura, datos))
+    return FacturaRead.model_validate(
+        facturas_service.actualizar_factura(db, factura, datos, usuario.id)
+    )
 
 
 @router.delete("/facturas/{factura_id}", status_code=204)
-def eliminar_factura(db: DbSession, _: PuedeEliminar, factura: FacturaActual) -> None:
-    facturas_service.eliminar_factura(db, factura)
+def eliminar_factura(db: DbSession, usuario: PuedeEliminar, factura: FacturaActual) -> None:
+    facturas_service.eliminar_factura(db, factura, usuario.id)
 
 
 @router.post("/reglas", status_code=201)
 def crear_regla_facturacion(
-    datos: ReglaFacturacionCreate, db: DbSession, _: PuedeCrear
+    datos: ReglaFacturacionCreate, db: DbSession, usuario: PuedeCrear
 ) -> ReglaFacturacionRead:
     return reglas_facturacion_service.regla_facturacion_read(
-        db, reglas_facturacion_service.crear_regla_facturacion(db, datos)
+        db, reglas_facturacion_service.crear_regla_facturacion(db, datos, usuario.id)
     )
 
 
@@ -387,11 +391,11 @@ def obtener_regla_facturacion(
 
 @router.put("/reglas/{regla_id}")
 def actualizar_regla_facturacion(
-    regla_id: uuid.UUID, datos: ReglaFacturacionUpdate, db: DbSession, _: PuedeActualizar
+    regla_id: uuid.UUID, datos: ReglaFacturacionUpdate, db: DbSession, usuario: PuedeActualizar
 ) -> ReglaFacturacionRead:
     regla = reglas_facturacion_service.obtener_regla_o_error(db, regla_id)
     return reglas_facturacion_service.regla_facturacion_read(
-        db, reglas_facturacion_service.actualizar_regla_facturacion(db, regla, datos)
+        db, reglas_facturacion_service.actualizar_regla_facturacion(db, regla, datos, usuario.id)
     )
 
 
@@ -400,9 +404,12 @@ def actualizar_estado_regla_facturacion(
     regla_id: uuid.UUID,
     datos: ReglaFacturacionEstadoUpdate,
     db: DbSession,
-    _: PuedeActualizar,
+    usuario: PuedeActualizar,
 ) -> ReglaFacturacionRead:
     regla = reglas_facturacion_service.obtener_regla_o_error(db, regla_id)
     return reglas_facturacion_service.regla_facturacion_read(
-        db, reglas_facturacion_service.actualizar_estado_regla_facturacion(db, regla, datos)
+        db,
+        reglas_facturacion_service.actualizar_estado_regla_facturacion(
+            db, regla, datos, usuario.id
+        ),
     )

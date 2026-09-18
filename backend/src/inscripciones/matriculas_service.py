@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.academico.models import Anio, Division, NivelEducativo
+from src.auditoria.service import log_audit
 from src.familias_alumnos.models import Alumno, FamiliaAlumno
 from src.inscripciones.exceptions import (
     ConflictoInscripcion,
@@ -280,8 +281,20 @@ def _validar_inscripcion_no_duplicada(
         raise ConflictoInscripcion("El alumno ya tiene una inscripción para ese ciclo lectivo.")
 
 
-def _guardar_inscripcion(db: Session, inscripcion: Inscripcion) -> Inscripcion:
+def _guardar_inscripcion(
+    db: Session, inscripcion: Inscripcion, usuario_id: uuid.UUID | None = None
+) -> Inscripcion:
     db.add(inscripcion)
+    db.flush()
+    log_audit(
+        db,
+        entidad="INSCRIPCION",
+        entidad_id=inscripcion.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=f"alumno={inscripcion.alumno_id} tipo={inscripcion.tipo}",
+        usuario_id=usuario_id,
+    )
 
     try:
         db.commit()
@@ -295,10 +308,14 @@ def _guardar_inscripcion(db: Session, inscripcion: Inscripcion) -> Inscripcion:
     return inscripcion
 
 
-def crear_inscripcion_nueva(db: Session, datos: InscripcionNuevaCreate) -> Inscripcion:
+def crear_inscripcion_nueva(
+    db: Session, datos: InscripcionNuevaCreate, usuario_id: uuid.UUID | None = None
+) -> Inscripcion:
     """Confirma la inscripción de un alumno que completó el proceso de admisión."""
 
-    return _guardar_inscripcion(db, preparar_inscripcion_nueva_en_transaccion(db, datos))
+    return _guardar_inscripcion(
+        db, preparar_inscripcion_nueva_en_transaccion(db, datos), usuario_id
+    )
 
 
 def preparar_inscripcion_nueva_en_transaccion(
@@ -362,7 +379,9 @@ def preparar_inscripcion_nueva_en_transaccion(
     return inscripcion
 
 
-def crear_reinscripcion(db: Session, datos: ReinscripcionCreate) -> Inscripcion:
+def crear_reinscripcion(
+    db: Session, datos: ReinscripcionCreate, usuario_id: uuid.UUID | None = None
+) -> Inscripcion:
     """Reinscribe a un alumno activo en el ciclo lectivo inmediatamente siguiente."""
 
     alumno, division, _ = _obtener_alumno_y_division(db, datos.alumno_id, datos.division_id)
@@ -396,7 +415,7 @@ def crear_reinscripcion(db: Session, datos: ReinscripcionCreate) -> Inscripcion:
         division_id=division.id,
         solicitud_inscripcion_id=None,
     )
-    return _guardar_inscripcion(db, reinscripcion)
+    return _guardar_inscripcion(db, reinscripcion, usuario_id)
 
 
 def _obtener_inscripcion_activa_para_movimiento(
@@ -413,7 +432,10 @@ def _obtener_inscripcion_activa_para_movimiento(
 
 
 def registrar_cambio_matricula(
-    db: Session, inscripcion_id: uuid.UUID, datos: CambioMatriculaCreate
+    db: Session,
+    inscripcion_id: uuid.UUID,
+    datos: CambioMatriculaCreate,
+    usuario_id: uuid.UUID | None = None,
 ) -> Inscripcion:
     """Traslada una inscripción activa y conserva ambos movimientos en el historial."""
 
@@ -438,11 +460,14 @@ def registrar_cambio_matricula(
         division_id=division_destino.id,
         solicitud_inscripcion_id=None,
     )
-    return _guardar_inscripcion(db, cambio_matricula)
+    return _guardar_inscripcion(db, cambio_matricula, usuario_id)
 
 
 def registrar_baja_inscripcion(
-    db: Session, inscripcion_id: uuid.UUID, datos: BajaInscripcionCreate
+    db: Session,
+    inscripcion_id: uuid.UUID,
+    datos: BajaInscripcionCreate,
+    usuario_id: uuid.UUID | None = None,
 ) -> Inscripcion:
     """Registra la baja sin borrar la matrícula ni sus movimientos previos."""
 
@@ -462,7 +487,7 @@ def registrar_baja_inscripcion(
         division_id=inscripcion_anterior.division_id,
         solicitud_inscripcion_id=None,
     )
-    return _guardar_inscripcion(db, baja)
+    return _guardar_inscripcion(db, baja, usuario_id)
 
 
 def obtener_inscripcion(db: Session, inscripcion_id: uuid.UUID) -> Inscripcion:
