@@ -40,14 +40,7 @@ import { listarAsistenciasFamilia } from '@/modules/academico/services/listar-as
 import { justificarAsistenciaFamilia } from '@/modules/academico/services/justificar-asistencia-familia'
 import { descargarComprobanteJustificacionFamilia } from '@/modules/academico/services/descargar-comprobante-justificacion-familia'
 import type { AsistenciaFamilia } from '@/modules/academico/types'
-
-const MOTIVOS_JUSTIFICACION = [
-  'Enfermedad',
-  'Consulta médica',
-  'Trámite familiar',
-  'Fuerza mayor',
-  'Otro',
-]
+import { etiquetaMotivoJustificacion, MOTIVOS_JUSTIFICACION } from '@/modules/academico/utils'
 const TIPOS_COMPROBANTE = {
   'application/pdf': ['.pdf'],
   'image/jpeg': ['.jpg', '.jpeg'],
@@ -219,15 +212,27 @@ export function PortalFamiliaTramitePage({
         .catch(() => setAsistencias([]))
   }, [alumnoSeleccionado])
   async function enviarJustificacion() {
-    const motivo = motivoSeleccionado === 'Otro' ? motivoOtro.trim() : motivoSeleccionado
-    if (!asistenciaAJustificar || !motivo.trim()) return
+    const detalleOtro = motivoSeleccionado === 'otro' ? motivoOtro.trim() : ''
+    if (
+      !asistenciaAJustificar ||
+      !motivoSeleccionado ||
+      (motivoSeleccionado === 'otro' && !detalleOtro)
+    ) {
+      return
+    }
+    const observacionFinal = [
+      detalleOtro ? `Detalle del motivo: ${detalleOtro}` : '',
+      observacion.trim(),
+    ]
+      .filter(Boolean)
+      .join('\n')
     setGuardando(true)
     setErrorEnvio(null)
     try {
       const justificacion = await justificarAsistenciaFamilia(
         asistenciaAJustificar,
-        motivo,
-        observacion.trim(),
+        motivoSeleccionado,
+        observacionFinal,
         comprobante,
       )
       setAsistencias((actuales) =>
@@ -567,7 +572,9 @@ export function PortalFamiliaTramitePage({
                                     >
                                       <p>
                                         <strong>Motivo:</strong>{' '}
-                                        {asistencia.justificacion_motivo ?? 'Otro'}
+                                        {etiquetaMotivoJustificacion(
+                                          asistencia.justificacion_motivo,
+                                        )}
                                       </p>
                                       {asistencia.justificacion_observacion && (
                                         <p className="mt-1">
@@ -684,13 +691,13 @@ export function PortalFamiliaTramitePage({
                   Seleccioná un motivo
                 </option>
                 {MOTIVOS_JUSTIFICACION.map((opcion) => (
-                  <option key={opcion} value={opcion}>
-                    {opcion}
+                  <option key={opcion.value} value={opcion.value}>
+                    {opcion.label}
                   </option>
                 ))}
               </select>
             </label>
-            {motivoSeleccionado === 'Otro' && (
+            {motivoSeleccionado === 'otro' && (
               <label className="mt-3 block text-sm">
                 Especificá el motivo
                 <input
@@ -736,7 +743,8 @@ export function PortalFamiliaTramitePage({
               </Button>
               <Button
                 disabled={
-                  !(motivoSeleccionado === 'Otro' ? motivoOtro.trim() : motivoSeleccionado) ||
+                  !motivoSeleccionado ||
+                  (motivoSeleccionado === 'otro' && !motivoOtro.trim()) ||
                   guardando
                 }
                 onClick={() => void enviarJustificacion()}

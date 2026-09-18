@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { apiClient } from '@/api/client'
 import { descargarExport } from '@/lib/descargar-export'
+import { etiquetaMotivoJustificacion } from '@/modules/academico/utils'
 
 type Justificacion = {
   id: string
@@ -53,7 +54,7 @@ export function JustificacionesPage() {
                     {new Intl.DateTimeFormat('es-AR').format(
                       new Date(`${item.fecha_asistencia}T00:00:00`),
                     )}{' '}
-                    · {item.motivo}
+                    · {etiquetaMotivoJustificacion(item.motivo)}
                   </p>
                   <p className="text-sm text-texto-2">{item.observacion ?? 'Sin observación'}</p>
                   {item.archivo_nombre && (
