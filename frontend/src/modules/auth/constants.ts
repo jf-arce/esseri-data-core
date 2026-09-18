@@ -21,6 +21,9 @@ export const PERMISO_ACADEMICO_ACTUALIZAR = 'academico.actualizar'
 // (niveles/años/divisiones/materias/asignaciones docentes). Ver el comentario de docente en
 // `database/seeds/grupo-b.yaml` y `backend/src/auth/constants.py`.
 export const PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA = 'academico.actualizar:asistencia'
+// Permiso institucional para revisar, resolver y descargar comprobantes de justificaciones.
+// Familia y docente no lo reciben: sus flujos propios usan las rutas acotadas correspondientes.
+export const PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES = 'academico.actualizar:justificaciones'
 // RF-37: exportación del historial de asistencias. Sin tipo (a diferencia de `actualizar`, acá
 // no hace falta separar asistencia de estructura) — lo tiene dirección, no un docente.
 export const PERMISO_ACADEMICO_EXPORTAR = 'academico.exportar'

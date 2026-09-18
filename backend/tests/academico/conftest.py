@@ -89,6 +89,11 @@ def client_secretaria(client, db_session):
         Permiso(modulo=MODULO_ACADEMICO, accion=ACCION_CREAR),
         Permiso(modulo=MODULO_ACADEMICO, accion=ACCION_LEER),
         Permiso(modulo=MODULO_ACADEMICO, accion=ACCION_ACTUALIZAR),
+        Permiso(
+            modulo=MODULO_ACADEMICO,
+            accion=ACCION_ACTUALIZAR,
+            tipo_informacion="justificaciones",
+        ),
     ]
     db_session.add_all(permisos)
     db_session.flush()
@@ -123,6 +128,11 @@ def client_direccion(client, db_session):
     permisos = [
         Permiso(modulo=MODULO_ACADEMICO, accion=ACCION_LEER),
         Permiso(modulo=MODULO_ACADEMICO, accion=ACCION_EXPORTAR),
+        Permiso(
+            modulo=MODULO_ACADEMICO,
+            accion=ACCION_ACTUALIZAR,
+            tipo_informacion="justificaciones",
+        ),
     ]
     db_session.add_all(permisos)
     db_session.flush()

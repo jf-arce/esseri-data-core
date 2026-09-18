@@ -40,8 +40,19 @@ describe('filtrarNav', () => {
     expect(labels).toContain('Académico')
   })
 
-  it('muestra el acceso a Justificaciones con un nombre corto', () => {
+  it('no muestra Justificaciones solo con el permiso de lectura académica', () => {
     const grupos = filtrarNav(NAV_GROUPS, 'direccion', [permiso('academico.leer')])
+
+    const academico = grupos.flatMap((g) => g.items).find((i) => i.label === 'Académico')
+    const hijos = academico?.children?.map((h) => h.label) ?? []
+    expect(hijos).not.toContain('Justificaciones')
+  })
+
+  it('muestra Justificaciones con el permiso institucional específico', () => {
+    const grupos = filtrarNav(NAV_GROUPS, 'direccion', [
+      permiso('academico.leer'),
+      permiso('academico.actualizar:justificaciones'),
+    ])
 
     const academico = grupos.flatMap((g) => g.items).find((i) => i.label === 'Académico')
     const hijos = academico?.children?.map((h) => h.label) ?? []
@@ -62,6 +73,7 @@ describe('filtrarNav', () => {
     const hijos = academico?.children?.map((h) => h.label) ?? []
     expect(hijos).toContain('Tomar asistencia')
     expect(hijos).toContain('Asignaciones docentes')
+    expect(hijos).not.toContain('Justificaciones')
   })
 
   it('"Tomar asistencia" desaparece sin su permiso tipado, aunque el padre sea visible', () => {

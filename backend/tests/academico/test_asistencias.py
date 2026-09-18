@@ -18,7 +18,10 @@ materias/asignaciones docentes) — nunca pensado para eso. Ahora `docente` solo
 
 from datetime import date
 
-from src.academico.models import ArchivoJustificacionInasistencia
+import pytest
+from fastapi import HTTPException
+
+from src.academico.models import ArchivoJustificacionInasistencia, MotivoJustificacion
 from src.academico.service import (
     justificar_asistencia_de_familia,
     resolver_justificacion,
@@ -31,6 +34,24 @@ from tests.familias_alumnos.test_mis_alumnos import (
     login,
 )
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
+
+MOTIVOS_JUSTIFICACION = (
+    "enfermedad",
+    "certificado_medico",
+    "turno_estudio_medico",
+    "viaje_familiar",
+    "motivo_familiar_personal",
+    "actividad_autorizada_esseri",
+    "otro",
+)
+
+
+@pytest.fixture(autouse=True)
+def catalogo_motivos_justificacion(db_session):
+    db_session.add_all(
+        [MotivoJustificacion(nombre=nombre, activo=True) for nombre in MOTIVOS_JUSTIFICACION]
+    )
+    db_session.commit()
 
 
 def test_docente_puede_listar_inscripciones_de_su_division(client_docente, db_session):
@@ -126,7 +147,7 @@ def test_familia_guarda_comprobante_con_justificacion(db_session):
         db_session,
         usuario,
         asistencia,
-        "Enfermedad",
+        "enfermedad",
         "Se adjunta certificado.",
         "certificado.pdf",
         "application/pdf",
@@ -137,6 +158,35 @@ def test_familia_guarda_comprobante_con_justificacion(db_session):
     assert archivo is not None
     assert archivo.nombre == "certificado.pdf"
     assert archivo.contenido == b"%PDF-1.7 certificado"
+
+
+def test_familia_rechaza_un_motivo_fuera_del_catalogo(db_session):
+    usuario, alumno_id = _crear_familia_con_alumno(db_session)
+    inscripcion = db_session.query(Inscripcion).filter(Inscripcion.alumno_id == alumno_id).one()
+    asistencia = Asistencia(
+        fecha=date(2027, 3, 15),
+        tipo="ausente_pendiente",
+        inscripcion_id=inscripcion.id,
+    )
+    db_session.add(asistencia)
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as error:
+        justificar_asistencia_de_familia(
+            db_session,
+            usuario,
+            asistencia,
+            "motivo_inventado",
+            "Detalle",
+        )
+
+    assert error.value.status_code == 422
+    assert (
+        db_session.query(MotivoJustificacion)
+        .filter(MotivoJustificacion.nombre == "motivo_inventado")
+        .first()
+        is None
+    )
 
 
 def test_familia_ve_una_justificacion_pendiente_en_el_historial(client, db_session):
@@ -160,7 +210,7 @@ def test_familia_ve_una_justificacion_pendiente_en_el_historial(client, db_sessi
         db_session,
         usuario,
         asistencia,
-        "Enfermedad",
+        "enfermedad",
         "Se adjunta certificado.",
     )
     login(client, usuario)
@@ -186,7 +236,7 @@ def test_rechazar_justificacion_mantiene_estado_y_marca_ausencia_injustificada(d
     db_session.add(asistencia)
     db_session.commit()
     justificacion = justificar_asistencia_de_familia(
-        db_session, usuario, asistencia, "Otro", "Detalle familiar"
+        db_session, usuario, asistencia, "otro", "Detalle familiar"
     )
 
     resultado = resolver_justificacion(db_session, justificacion, False, "Certificado ilegible")

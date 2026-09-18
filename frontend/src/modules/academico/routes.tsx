@@ -2,6 +2,7 @@ import type { RouteObject } from 'react-router'
 import { PermisoRoute } from '@/router/permiso-route'
 import {
   PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
+  PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES,
   PERMISO_ACADEMICO_EXPORTAR,
   PERMISO_ACADEMICO_LEER,
 } from '@/modules/auth/constants'
@@ -32,7 +33,17 @@ export const academicoRoutes: RouteObject[] = [
             path: 'asignaciones',
             element: <AsignacionesDocentesPage />,
           },
-          { path: 'justificaciones', element: <JustificacionesPage /> },
+          {
+            // Bandeja institucional: no alcanza con `academico.leer`, porque ese permiso
+            // también lo tienen familia y docente para sus propios flujos.
+            element: (
+              <PermisoRoute
+                codigo={PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES}
+                label="Académico · Justificaciones"
+              />
+            ),
+            children: [{ path: 'justificaciones', element: <JustificacionesPage /> }],
+          },
           {
             // RF-05/RF-06: mismo permiso de lectura que el resto de este grupo. El scoping por
             // división de un docente (`verificar_acceso_a_division`) lo resuelve el backend en
