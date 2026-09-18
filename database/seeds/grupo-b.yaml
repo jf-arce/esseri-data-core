@@ -61,6 +61,12 @@ permiso:
   - rol: dirección
     modulo: Académico
     acciones: [leer, exportar]
+  # Revisa y resuelve la bandeja institucional de justificaciones, incluido el acceso a
+  # comprobantes. Es un permiso tipado separado de `academico.leer` (familia/docente).
+  - rol: dirección
+    modulo: Académico
+    acciones: [actualizar]
+    tipo_informacion: justificaciones
   - rol: dirección
     modulo: Proveedores y Compras
     acciones: [leer, exportar]
@@ -133,6 +139,12 @@ permiso:
   - rol: secretaría
     modulo: Académico
     acciones: [crear, leer, actualizar]
+  # Permiso explícito para la bandeja institucional; el `actualizar` amplio de secretaría lo
+  # satisface también, pero esta fila deja documentada la capacidad en la matriz.
+  - rol: secretaría
+    modulo: Académico
+    acciones: [actualizar]
+    tipo_informacion: justificaciones
   - rol: secretaría
     modulo: Inscripciones
     acciones: [crear, leer, actualizar, exportar]

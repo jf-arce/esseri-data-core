@@ -124,6 +124,7 @@ from src.academico.service import (
 from src.auth.constants import (
     PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
     PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA,
+    PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES,
     PERMISO_ACADEMICO_CREAR,
     PERMISO_ACADEMICO_ELIMINAR,
     PERMISO_ACADEMICO_EXPORTAR,
@@ -732,7 +733,7 @@ def justificar_asistencia_familia(
 
 @router.get("/justificaciones", response_model=list[JustificacionFamiliaResponse])
 def listar_justificaciones_endpoint(
-    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES))],
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[JustificacionFamiliaResponse]:
     filas = (
@@ -763,7 +764,7 @@ def listar_justificaciones_endpoint(
 def resolver_justificacion_endpoint(
     justificacion_id: uuid.UUID,
     datos: JustificacionResolucion,
-    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES))],
     db: Session = Depends(get_db),  # noqa: B008
 ) -> JustificacionFamiliaResponse:
     justificacion = db.get(JustificacionInasistencia, justificacion_id)
@@ -776,7 +777,7 @@ def resolver_justificacion_endpoint(
 @router.get("/justificaciones/{justificacion_id}/archivo")
 def descargar_archivo_justificacion(
     justificacion_id: uuid.UUID,
-    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES))],
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Response:
     archivo = db.scalar(
