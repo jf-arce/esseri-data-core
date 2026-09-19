@@ -68,7 +68,7 @@ export type FamiliaFormData = {
 
 // --- Alumno (RF-03) -------------------------------------------------------------------------
 
-export type EstadoAlumno = 'activo' | 'inactivo' | 'egresado'
+export type EstadoAlumno = 'activo' | 'inactivo'
 
 export type Alumno = {
   id: string

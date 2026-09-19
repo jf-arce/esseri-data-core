@@ -307,12 +307,12 @@ class TestAlumnoEndpoints:
 
         response = client_autenticado.put(
             f"/familias-alumnos/alumnos/{alumno.id}",
-            json={"estado": "egresado"},
+            json={"estado": "inactivo"},
         )
 
         assert response.status_code == 200
         data = response.json()
-        assert data["estado"] == "egresado"
+        assert data["estado"] == "inactivo"
 
     def test_eliminar_alumno_endpoint(self, client_autenticado: TestClient, db_session: Session):
         """Test del endpoint DELETE /familias-alumnos/alumnos/{id}."""

@@ -24,7 +24,6 @@ type AlumnoFormProps = {
 const ESTADOS: { valor: EstadoAlumno; etiqueta: string }[] = [
   { valor: 'activo', etiqueta: 'Activo' },
   { valor: 'inactivo', etiqueta: 'Inactivo' },
-  { valor: 'egresado', etiqueta: 'Egresado' },
 ]
 
 export function AlumnoForm({

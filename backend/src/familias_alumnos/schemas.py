@@ -106,13 +106,13 @@ class AlumnoCreate(BaseModel):
     """Schema para crear un nuevo Alumno."""
 
     numero_legajo: str = Field(..., min_length=1, description="Número de legajo del alumno")
-    estado: str = Field("activo", description="Estado del alumno: activo / inactivo / egresado")
+    estado: str = Field("activo", description="Estado del alumno: activo / inactivo")
     persona_id: uuid.UUID = Field(..., description="ID de la persona asociada (1:1)")
 
     @field_validator("estado")
     @classmethod
     def validar_estado(cls, value: str) -> str:
-        valores_validos = {"activo", "inactivo", "egresado"}
+        valores_validos = {"activo", "inactivo"}
         if value not in valores_validos:
             raise ValueError(f"Estado inválido: debe ser uno de {valores_validos}")
         return value
@@ -123,12 +123,12 @@ class AltaAlumnoCreate(BaseModel):
 
     persona: PersonaAlumnoCreate
     numero_legajo: str = Field(..., min_length=1, description="Número de legajo del alumno")
-    estado: str = Field("activo", description="Estado del alumno: activo / inactivo / egresado")
+    estado: str = Field("activo", description="Estado del alumno: activo / inactivo")
 
     @field_validator("estado")
     @classmethod
     def validar_estado(cls, value: str) -> str:
-        valores_validos = {"activo", "inactivo", "egresado"}
+        valores_validos = {"activo", "inactivo"}
         if value not in valores_validos:
             raise ValueError(f"Estado inválido: debe ser uno de {valores_validos}")
         return value
@@ -143,7 +143,7 @@ class AlumnoUpdate(BaseModel):
     """
 
     numero_legajo: str | None = Field(None, min_length=1, description="Número de legajo")
-    estado: str | None = Field(None, description="Estado: activo / inactivo / egresado")
+    estado: str | None = Field(None, description="Estado: activo / inactivo")
     persona_id: uuid.UUID | None = Field(None, description="ID de la persona asociada")
     telefono: str | None = Field(None, description="Teléfono de la persona asociada")
     sexo: str | None = Field(None, description="Sexo de la persona asociada")
@@ -153,7 +153,7 @@ class AlumnoUpdate(BaseModel):
     def validar_estado(cls, value: str | None) -> str | None:
         if value is None:
             return value
-        valores_validos = {"activo", "inactivo", "egresado"}
+        valores_validos = {"activo", "inactivo"}
         if value not in valores_validos:
             raise ValueError(f"Estado inválido: debe ser uno de {valores_validos}")
         return value
@@ -241,7 +241,7 @@ class FiltrosListarAlumnos(BaseModel):
     """Filtros para listar alumnos con búsqueda y filtros específicos."""
 
     buscar: str | None = Field(None, description="Búsqueda por nombre, apellido o DNI")
-    estado: str | None = Field(None, description="Estado del alumno: activo / inactivo / egresado")
+    estado: str | None = Field(None, description="Estado del alumno: activo / inactivo")
     nivel_educativo_id: uuid.UUID | None = Field(None, description="Filtrar por nivel educativo")
     estado_deuda: str | None = Field(
         None, description="Estado de deuda de la familia: al_dia / con_deuda / en_mora"

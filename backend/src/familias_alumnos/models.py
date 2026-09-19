@@ -52,7 +52,7 @@ class Familia(Base):
 class Alumno(Base):
     __tablename__ = "alumno"
     __table_args__ = (
-        sa.CheckConstraint("estado IN ('activo', 'inactivo', 'egresado')", name="ck_alumno_estado"),
+        sa.CheckConstraint("estado IN ('activo', 'inactivo')", name="ck_alumno_estado"),
         sa.UniqueConstraint("numero_legajo", name="uq_alumno_numero_legajo"),
     )
 

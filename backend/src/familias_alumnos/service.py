@@ -404,7 +404,7 @@ def listar_alumnos(db: Session, filtros: FiltrosListarAlumnos | None = None) -> 
 
     Filtros soportados:
     - buscar: búsqueda por nombre, apellido o DNI
-    - estado: estado del alumno (activo/inactivo/egresado)
+    - estado: estado del alumno (activo/inactivo)
     - nivel_educativo_id: filtrar por nivel educativo
     - estado_deuda: estado de deuda de la familia (al_dia/con_deuda/en_mora)
     - estado_inscripcion: estado de inscripción (activa/finalizada/baja)
