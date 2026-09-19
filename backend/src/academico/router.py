@@ -472,7 +472,7 @@ def crear_alta_docente_endpoint(
     """Crear Persona + Usuario (rol docente) + Docente en un único alta. Antes de
     `/docentes/{docente_id}` para que "alta-completa" no matchee como un UUID."""
     try:
-        _persona, docente = crear_alta_docente(db, datos)
+        _persona, docente = crear_alta_docente(db, datos, usuario.id)
     except ValueError as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
@@ -488,7 +488,7 @@ def crear_docente_desde_usuario_endpoint(
     """Suma el rol docente (y su ficha) a una cuenta que ya existe, ej. desde el diálogo de
     roles de Usuarios."""
     try:
-        return crear_docente_desde_usuario(db, datos)
+        return crear_docente_desde_usuario(db, datos, usuario.id)
     except ValueError as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
@@ -764,13 +764,17 @@ def listar_justificaciones_endpoint(
 def resolver_justificacion_endpoint(
     justificacion_id: uuid.UUID,
     datos: JustificacionResolucion,
-    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES))],
+    usuario: Annotated[
+        Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES))
+    ],
     db: Session = Depends(get_db),  # noqa: B008
 ) -> JustificacionFamiliaResponse:
     justificacion = db.get(JustificacionInasistencia, justificacion_id)
     if justificacion is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Justificación no encontrada")
-    resultado = resolver_justificacion(db, justificacion, datos.aprobar, datos.observacion)
+    resultado = resolver_justificacion(
+        db, justificacion, datos.aprobar, datos.observacion, usuario.id
+    )
     return _respuesta_justificacion(db, resultado)
 
 

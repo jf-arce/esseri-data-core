@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.academico.models import Anio, Division, NivelEducativo
+from src.auditoria.service import log_audit
 from src.facturacion import cuenta_corriente_service, facturas_service
 from src.facturacion.calendario_facturacion import (
     fecha_operativa_argentina,
@@ -140,12 +141,24 @@ def _validar_concepto_activo(db: Session, concepto_id: uuid.UUID) -> None:
         raise ConceptoCobroInvalido()
 
 
-def crear_regla_facturacion(db: Session, datos: ReglaFacturacionCreate) -> ReglaFacturacion:
+def crear_regla_facturacion(
+    db: Session, datos: ReglaFacturacionCreate, usuario_id: uuid.UUID | None = None
+) -> ReglaFacturacion:
     _validar_concepto_activo(db, datos.concepto_cobro_id)
     regla = ReglaFacturacion(**datos.model_dump())
     _validar_destino(db, regla)
     _validar_sin_conflictos(db, regla)
     db.add(regla)
+    db.flush()
+    log_audit(
+        db,
+        entidad="REGLA_FACTURACION",
+        entidad_id=regla.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=regla.nombre,
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(regla)
     return regla
@@ -255,15 +268,29 @@ def regla_facturacion_read(db: Session, regla: ReglaFacturacion) -> ReglaFactura
 
 
 def actualizar_regla_facturacion(
-    db: Session, regla: ReglaFacturacion, datos: ReglaFacturacionUpdate
+    db: Session,
+    regla: ReglaFacturacion,
+    datos: ReglaFacturacionUpdate,
+    usuario_id: uuid.UUID | None = None,
 ) -> ReglaFacturacion:
     _validar_concepto_activo(db, datos.concepto_cobro_id)
     valores_anteriores = {campo: getattr(regla, campo) for campo in datos.model_fields_set}
-    for campo, valor in datos.model_dump().items():
+    datos_nuevos = datos.model_dump()
+    for campo, valor in datos_nuevos.items():
         setattr(regla, campo, valor)
     try:
         _validar_destino(db, regla)
         _validar_sin_conflictos(db, regla)
+        for campo, valor_anterior in valores_anteriores.items():
+            log_audit(
+                db,
+                entidad="REGLA_FACTURACION",
+                entidad_id=regla.id,
+                campo=campo,
+                valor_anterior=str(valor_anterior) if valor_anterior is not None else None,
+                valor_nuevo=str(datos_nuevos[campo]) if datos_nuevos[campo] is not None else None,
+                usuario_id=usuario_id,
+            )
         db.commit()
     except Exception:
         db.rollback()
@@ -275,12 +302,24 @@ def actualizar_regla_facturacion(
 
 
 def actualizar_estado_regla_facturacion(
-    db: Session, regla: ReglaFacturacion, datos: ReglaFacturacionEstadoUpdate
+    db: Session,
+    regla: ReglaFacturacion,
+    datos: ReglaFacturacionEstadoUpdate,
+    usuario_id: uuid.UUID | None = None,
 ) -> ReglaFacturacion:
     estado_anterior = regla.estado
     regla.estado = datos.estado
     try:
         _validar_sin_conflictos(db, regla)
+        log_audit(
+            db,
+            entidad="REGLA_FACTURACION",
+            entidad_id=regla.id,
+            campo="estado",
+            valor_anterior=estado_anterior,
+            valor_nuevo=datos.estado,
+            usuario_id=usuario_id,
+        )
         db.commit()
     except Exception:
         db.rollback()
@@ -517,6 +556,15 @@ def generar_facturacion(
                     )
                     for cargo in cargos
                 ]
+            )
+            log_audit(
+                db,
+                entidad="FACTURA",
+                entidad_id=factura.id,
+                campo="__alta__",
+                valor_anterior=None,
+                valor_nuevo=f"inscripcion={factura.inscripcion_id} monto={factura.monto_total}",
+                usuario_id=usuario_id,
             )
             facturas_generadas += 1
         ejecucion.facturas_generadas = facturas_generadas

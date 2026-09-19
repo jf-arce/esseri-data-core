@@ -247,9 +247,9 @@ def listar_roles(
 def crear_rol(
     datos: RolCreate,
     db: DbSession,
-    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_CREAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_CREAR))],
 ) -> Rol:
-    return roles_service.crear_rol(db, datos)
+    return roles_service.crear_rol(db, datos, usuario.id)
 
 
 @router.get("/roles/{rol_id}", response_model=RolRead)
@@ -265,18 +265,18 @@ def actualizar_rol(
     datos: RolUpdate,
     db: DbSession,
     rol: Annotated[Rol, Depends(obtener_rol_o_404)],
-    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ACTUALIZAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ACTUALIZAR))],
 ) -> Rol:
-    return roles_service.actualizar_rol(db, rol, datos)
+    return roles_service.actualizar_rol(db, rol, datos, usuario.id)
 
 
 @router.delete("/roles/{rol_id}", status_code=status.HTTP_204_NO_CONTENT)
 def eliminar_rol(
     db: DbSession,
     rol: Annotated[Rol, Depends(obtener_rol_o_404)],
-    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ELIMINAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ELIMINAR))],
 ) -> None:
-    roles_service.eliminar_rol(db, rol)
+    roles_service.eliminar_rol(db, rol, usuario.id)
 
 
 @router.get("/permisos", response_model=list[PermisoRead])
@@ -292,9 +292,9 @@ def listar_permisos(
 def crear_permiso(
     datos: PermisoCreate,
     db: DbSession,
-    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_CREAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_CREAR))],
 ) -> Permiso:
-    return roles_service.crear_permiso(db, datos)
+    return roles_service.crear_permiso(db, datos, usuario.id)
 
 
 @router.get("/permisos/{permiso_id}", response_model=PermisoRead)
@@ -310,18 +310,18 @@ def actualizar_permiso(
     datos: PermisoUpdate,
     db: DbSession,
     permiso: Annotated[Permiso, Depends(obtener_permiso_o_404)],
-    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ACTUALIZAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ACTUALIZAR))],
 ) -> Permiso:
-    return roles_service.actualizar_permiso(db, permiso, datos)
+    return roles_service.actualizar_permiso(db, permiso, datos, usuario.id)
 
 
 @router.delete("/permisos/{permiso_id}", status_code=status.HTTP_204_NO_CONTENT)
 def eliminar_permiso(
     db: DbSession,
     permiso: Annotated[Permiso, Depends(obtener_permiso_o_404)],
-    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ELIMINAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ELIMINAR))],
 ) -> None:
-    roles_service.eliminar_permiso(db, permiso)
+    roles_service.eliminar_permiso(db, permiso, usuario.id)
 
 
 # --- ROL_PERMISO (RF-28) ------------------------------------------------------------------
@@ -341,9 +341,9 @@ def asignar_permiso_a_rol(
     db: DbSession,
     permiso_id: Annotated[uuid.UUID, Body(embed=True)],
     rol: Annotated[Rol, Depends(obtener_rol_o_404)],
-    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ACTUALIZAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ACTUALIZAR))],
 ) -> None:
-    roles_service.asignar_permiso_a_rol(db, rol.id, permiso_id)
+    roles_service.asignar_permiso_a_rol(db, rol.id, permiso_id, usuario.id)
 
 
 @router.delete("/roles/{rol_id}/permisos/{permiso_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -351,9 +351,9 @@ def quitar_permiso_a_rol(
     db: DbSession,
     rol: Annotated[Rol, Depends(obtener_rol_o_404)],
     permiso: Annotated[Permiso, Depends(obtener_permiso_o_404)],
-    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ACTUALIZAR))],
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_AUTENTICACION_ACTUALIZAR))],
 ) -> None:
-    roles_service.quitar_permiso_a_rol(db, rol.id, permiso.id)
+    roles_service.quitar_permiso_a_rol(db, rol.id, permiso.id, usuario.id)
 
 
 # --- USUARIO_ROL (RF-29) ------------------------------------------------------------------

@@ -137,17 +137,17 @@ def obtener_resumen_inscripciones(
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 def crear_inscripcion(
-    datos: InscripcionNuevaCreate, db: DbSession, _: PuedeCrear
+    datos: InscripcionNuevaCreate, db: DbSession, usuario: PuedeCrear
 ) -> InscripcionRead:
-    inscripcion = matriculas_service.crear_inscripcion_nueva(db, datos)
+    inscripcion = matriculas_service.crear_inscripcion_nueva(db, datos, usuario.id)
     return InscripcionRead.model_validate(inscripcion)
 
 
 @router.post("/reinscripciones", status_code=status.HTTP_201_CREATED)
 def crear_reinscripcion(
-    datos: ReinscripcionCreate, db: DbSession, _: PuedeCrear
+    datos: ReinscripcionCreate, db: DbSession, usuario: PuedeCrear
 ) -> InscripcionRead:
-    inscripcion = matriculas_service.crear_reinscripcion(db, datos)
+    inscripcion = matriculas_service.crear_reinscripcion(db, datos, usuario.id)
     return InscripcionRead.model_validate(inscripcion)
 
 
@@ -204,11 +204,11 @@ def actualizar_solicitud_inscripcion(
     solicitud_id: uuid.UUID,
     datos: SolicitudInscripcionAdministrativaUpdate,
     db: DbSession,
-    _: PuedeActualizar,
+    usuario: PuedeActualizar,
 ) -> SolicitudInscripcionRead:
     """Editar los datos administrativos de una admisión que sigue en proceso."""
 
-    return admisiones_service.actualizar_solicitud_inscripcion(db, solicitud_id, datos)
+    return admisiones_service.actualizar_solicitud_inscripcion(db, solicitud_id, datos, usuario.id)
 
 
 @router.post("/solicitudes/{solicitud_id}/avanzar")
@@ -302,9 +302,11 @@ def rechazar_solicitud_inscripcion(
     solicitud_id: uuid.UUID,
     datos: EtapaSolicitudCreate,
     db: DbSession,
-    _: PuedeActualizar,
+    usuario: PuedeActualizar,
 ) -> SolicitudInscripcionRead:
-    return admisiones_service.rechazar_solicitud_inscripcion(db, solicitud_id, datos.observaciones)
+    return admisiones_service.rechazar_solicitud_inscripcion(
+        db, solicitud_id, datos.observaciones, usuario.id
+    )
 
 
 @router.post("/solicitudes/{solicitud_id}/documentos", status_code=status.HTTP_201_CREATED)
@@ -323,9 +325,11 @@ def actualizar_documento_solicitud(
     documento_id: uuid.UUID,
     datos: DocumentoSolicitudUpdate,
     db: DbSession,
-    _: PuedeActualizar,
+    usuario: PuedeActualizar,
 ) -> DocumentoSolicitudRead:
-    return admisiones_service.actualizar_documento_solicitud(db, solicitud_id, documento_id, datos)
+    return admisiones_service.actualizar_documento_solicitud(
+        db, solicitud_id, documento_id, datos, usuario.id
+    )
 
 
 @router.post("/{inscripcion_id}/cambios-matricula", status_code=status.HTTP_201_CREATED)
@@ -333,9 +337,11 @@ def registrar_cambio_matricula(
     inscripcion_id: uuid.UUID,
     datos: CambioMatriculaCreate,
     db: DbSession,
-    _: PuedeActualizar,
+    usuario: PuedeActualizar,
 ) -> InscripcionRead:
-    inscripcion = matriculas_service.registrar_cambio_matricula(db, inscripcion_id, datos)
+    inscripcion = matriculas_service.registrar_cambio_matricula(
+        db, inscripcion_id, datos, usuario.id
+    )
     return InscripcionRead.model_validate(inscripcion)
 
 
@@ -344,9 +350,11 @@ def registrar_baja_inscripcion(
     inscripcion_id: uuid.UUID,
     datos: BajaInscripcionCreate,
     db: DbSession,
-    _: PuedeActualizar,
+    usuario: PuedeActualizar,
 ) -> InscripcionRead:
-    inscripcion = matriculas_service.registrar_baja_inscripcion(db, inscripcion_id, datos)
+    inscripcion = matriculas_service.registrar_baja_inscripcion(
+        db, inscripcion_id, datos, usuario.id
+    )
     return InscripcionRead.model_validate(inscripcion)
 
 

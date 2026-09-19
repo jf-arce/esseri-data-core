@@ -7,6 +7,7 @@ from datetime import date
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from src.auditoria.service import log_audit
 from src.proveedores_compras.exceptions import (
     LineaAjenaALaOrden,
     OrdenCompraNoCancelable,
@@ -64,18 +65,18 @@ def crear_proveedor(
     """
     nuevo_proveedor = Proveedor(**proveedor_data.model_dump())
     db.add(nuevo_proveedor)
+    db.flush()
+    log_audit(
+        db,
+        entidad="PROVEEDOR",
+        entidad_id=nuevo_proveedor.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=nuevo_proveedor.nombre,
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(nuevo_proveedor)
-
-    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
-    # log_audit(
-    #     entidad="Proveedor",
-    #     entidad_id=nuevo_proveedor.id,
-    #     campo="__alta__",
-    #     valor_anterior=None,
-    #     valor_nuevo=nuevo_proveedor.nombre,
-    #     usuario_id=usuario_id,
-    # )
 
     return nuevo_proveedor
 
@@ -117,25 +118,24 @@ def actualizar_proveedor(
     """
     update_data = proveedor_data.model_dump(exclude_unset=True)
 
-    # Valores previos para auditoría (cuando log_audit() esté implementado)
-    _valores_anteriores = {campo: getattr(proveedor, campo) for campo in update_data}
+    valores_anteriores = {campo: getattr(proveedor, campo) for campo in update_data}
 
     for field, value in update_data.items():
         setattr(proveedor, field, value)
 
+    for campo, valor_nuevo in update_data.items():
+        log_audit(
+            db,
+            entidad="PROVEEDOR",
+            entidad_id=proveedor.id,
+            campo=campo,
+            valor_anterior=str(valores_anteriores[campo]) if valores_anteriores[campo] else None,
+            valor_nuevo=str(valor_nuevo) if valor_nuevo is not None else None,
+            usuario_id=usuario_id,
+        )
+
     db.commit()
     db.refresh(proveedor)
-
-    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
-    # for campo, valor_nuevo in update_data.items():
-    #     log_audit(
-    #         entidad="Proveedor",
-    #         entidad_id=proveedor.id,
-    #         campo=campo,
-    #         valor_anterior=str(_valores_anteriores[campo]),
-    #         valor_nuevo=str(valor_nuevo),
-    #         usuario_id=usuario_id,
-    #     )
 
     return proveedor
 
@@ -168,18 +168,19 @@ def eliminar_proveedor(
     if tiene_vinculos:
         raise ProveedorConVinculos()
 
+    proveedor_id = proveedor.id
+    nombre = proveedor.nombre
     db.delete(proveedor)
+    log_audit(
+        db,
+        entidad="PROVEEDOR",
+        entidad_id=proveedor_id,
+        campo="__eliminacion__",
+        valor_anterior=nombre,
+        valor_nuevo=None,
+        usuario_id=usuario_id,
+    )
     db.commit()
-
-    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
-    # log_audit(
-    #     entidad="Proveedor",
-    #     entidad_id=proveedor.id,
-    #     campo="__eliminacion__",
-    #     valor_anterior=proveedor.nombre,
-    #     valor_nuevo=None,
-    #     usuario_id=usuario_id,
-    # )
 
 
 def crear_solicitud(
@@ -207,18 +208,18 @@ def crear_solicitud(
         estado="pendiente",
     )
     db.add(nueva_solicitud)
+    db.flush()
+    log_audit(
+        db,
+        entidad="SOLICITUD_COMPRA",
+        entidad_id=nueva_solicitud.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=nueva_solicitud.articulo or str(nueva_solicitud.producto_servicio_id),
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(nueva_solicitud)
-
-    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
-    # log_audit(
-    #     entidad="SolicitudCompra",
-    #     entidad_id=nueva_solicitud.id,
-    #     campo="__alta__",
-    #     valor_anterior=None,
-    #     valor_nuevo=nueva_solicitud.articulo,
-    #     usuario_id=usuario_id,
-    # )
 
     return nueva_solicitud
 
@@ -267,13 +268,24 @@ def actualizar_solicitud(
     if "producto_servicio_id" in update_data:
         _validar_producto_servicio(db, update_data["producto_servicio_id"])
 
+    valores_anteriores = {campo: getattr(solicitud, campo) for campo in update_data}
+
     for field, value in update_data.items():
         setattr(solicitud, field, value)
 
+    for campo, valor_nuevo in update_data.items():
+        log_audit(
+            db,
+            entidad="SOLICITUD_COMPRA",
+            entidad_id=solicitud.id,
+            campo=campo,
+            valor_anterior=str(valores_anteriores[campo]) if valores_anteriores[campo] else None,
+            valor_nuevo=str(valor_nuevo) if valor_nuevo is not None else None,
+            usuario_id=usuario_id,
+        )
+
     db.commit()
     db.refresh(solicitud)
-
-    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
 
     return solicitud
 
@@ -290,20 +302,19 @@ def cambiar_estado_solicitud(
     en la práctica una aprobación puede corregirse. La restricción real aparece en RF-21,
     donde solo las aprobadas pueden entrar en una orden de compra.
     """
-    _valor_anterior = solicitud.estado
+    valor_anterior = solicitud.estado
     solicitud.estado = estado
+    log_audit(
+        db,
+        entidad="SOLICITUD_COMPRA",
+        entidad_id=solicitud.id,
+        campo="estado",
+        valor_anterior=valor_anterior,
+        valor_nuevo=estado,
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(solicitud)
-
-    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
-    # log_audit(
-    #     entidad="SolicitudCompra",
-    #     entidad_id=solicitud.id,
-    #     campo="estado",
-    #     valor_anterior=_valor_anterior,
-    #     valor_nuevo=estado,
-    #     usuario_id=usuario_id,
-    # )
 
     return solicitud
 
@@ -318,10 +329,19 @@ def eliminar_solicitud(
             orden. Todavía no se valida porque `ORDEN_COMPRA_SOLICITUD` no se escribe desde
             ningún lado (issue #43).
     """
+    solicitud_id = solicitud.id
+    valor_anterior = solicitud.articulo or str(solicitud.producto_servicio_id)
     db.delete(solicitud)
+    log_audit(
+        db,
+        entidad="SOLICITUD_COMPRA",
+        entidad_id=solicitud_id,
+        campo="__eliminacion__",
+        valor_anterior=valor_anterior,
+        valor_nuevo=None,
+        usuario_id=usuario_id,
+    )
     db.commit()
-
-    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
 
 
 def _validar_producto_servicio(db: Session, producto_servicio_id: uuid.UUID | None) -> None:
@@ -346,10 +366,18 @@ def crear_producto_servicio(
     """Dar de alta un ítem del catálogo de compras."""
     nuevo_producto = ProductoServicio(**producto_data.model_dump())
     db.add(nuevo_producto)
+    db.flush()
+    log_audit(
+        db,
+        entidad="PRODUCTO_SERVICIO",
+        entidad_id=nuevo_producto.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=nuevo_producto.nombre,
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(nuevo_producto)
-
-    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
 
     return nuevo_producto
 
@@ -379,14 +407,24 @@ def actualizar_producto_servicio(
 ) -> ProductoServicio:
     """Modificar un ítem del catálogo."""
     update_data = producto_data.model_dump(exclude_unset=True)
+    valores_anteriores = {campo: getattr(producto, campo) for campo in update_data}
 
     for field, value in update_data.items():
         setattr(producto, field, value)
 
+    for campo, valor_nuevo in update_data.items():
+        log_audit(
+            db,
+            entidad="PRODUCTO_SERVICIO",
+            entidad_id=producto.id,
+            campo=campo,
+            valor_anterior=str(valores_anteriores[campo]) if valores_anteriores[campo] else None,
+            valor_nuevo=str(valor_nuevo) if valor_nuevo is not None else None,
+            usuario_id=usuario_id,
+        )
+
     db.commit()
     db.refresh(producto)
-
-    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
 
     return producto
 
@@ -416,10 +454,19 @@ def eliminar_producto_servicio(
     if esta_en_uso:
         raise ProductoServicioEnUso()
 
+    producto_id = producto.id
+    nombre = producto.nombre
     db.delete(producto)
+    log_audit(
+        db,
+        entidad="PRODUCTO_SERVICIO",
+        entidad_id=producto_id,
+        campo="__eliminacion__",
+        valor_anterior=nombre,
+        valor_nuevo=None,
+        usuario_id=usuario_id,
+    )
     db.commit()
-
-    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
 
 
 # --- Órdenes de compra (RF-21) --------------------------------------------------------------
@@ -470,10 +517,18 @@ def crear_orden_compra(
             OrdenCompraSolicitud(orden_compra_id=nueva_orden.id, solicitud_compra_id=solicitud_id)
         )
 
+    log_audit(
+        db,
+        entidad="ORDEN_COMPRA",
+        entidad_id=nueva_orden.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=f"proveedor={nueva_orden.proveedor_id} fecha={nueva_orden.fecha}",
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(nueva_orden)
 
-    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
     # TODO: Emitir el evento de negocio con emit_event() cuando exista, para que Workflows
     # pueda enganchar una notificación al proveedor.
 
@@ -524,10 +579,17 @@ def cancelar_orden_compra(
         raise OrdenCompraNoCancelable()
 
     orden.estado = "cancelada"
+    log_audit(
+        db,
+        entidad="ORDEN_COMPRA",
+        entidad_id=orden.id,
+        campo="estado",
+        valor_anterior="emitida",
+        valor_nuevo="cancelada",
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(orden)
-
-    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
 
     return orden
 
@@ -651,10 +713,18 @@ def crear_recepcion(
     if not queda_pendiente:
         orden.estado = "recibida"
 
+    log_audit(
+        db,
+        entidad="RECEPCION_COMPRA",
+        entidad_id=nueva_recepcion.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=f"orden={orden.id} tipo={nueva_recepcion.tipo}",
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(nueva_recepcion)
 
-    # TODO: Llamar a log_audit() cuando esté disponible (ticket de Arce)
     # TODO: emit_event() de recepcion.registrada cuando exista, para que Workflows pueda avisar
     # de un faltante.
 

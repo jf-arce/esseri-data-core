@@ -8,6 +8,7 @@ from io import BytesIO
 from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from src.auditoria.service import log_audit
 from src.facturacion import cuenta_corriente_service
 from src.facturacion.exceptions import (
     ComprobantePagoInvalido,
@@ -109,11 +110,22 @@ def construir_factura(
     )
 
 
-def crear_factura(db: Session, datos: FacturaCreate) -> Factura:
+def crear_factura(
+    db: Session, datos: FacturaCreate, usuario_id: uuid.UUID | None = None
+) -> Factura:
     factura = construir_factura(db, datos)
     db.add(factura)
     db.flush()
     cuenta_corriente_service.registrar_cargos_factura_en_transaccion(db, factura)
+    log_audit(
+        db,
+        entidad="FACTURA",
+        entidad_id=factura.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=f"inscripcion={factura.inscripcion_id} monto={factura.monto_total}",
+        usuario_id=usuario_id,
+    )
     db.commit()
     creada = obtener_factura(db, factura.id)
     if creada is None:
@@ -244,6 +256,15 @@ def registrar_pago(
     cuenta_corriente_service.registrar_pago_en_transaccion(db, pago)
     if total_pagado + monto == factura.monto_total:
         factura.estado = "pagada"
+    log_audit(
+        db,
+        entidad="PAGO",
+        entidad_id=pago.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=f"factura={factura.id} monto={monto}",
+        usuario_id=usuario_registro_id,
+    )
     db.commit()
     db.refresh(pago)
     return pago
@@ -389,7 +410,9 @@ def listar_facturas(
     return facturas, total
 
 
-def actualizar_factura(db: Session, factura: Factura, datos: FacturaUpdate) -> Factura:
+def actualizar_factura(
+    db: Session, factura: Factura, datos: FacturaUpdate, usuario_id: uuid.UUID | None = None
+) -> Factura:
     tiene_pagos = db.scalar(select(Pago.id).where(Pago.factura_id == factura.id).limit(1))
     tiene_movimientos = db.scalar(
         select(Movimiento.id).where(Movimiento.factura_id == factura.id).limit(1)
@@ -400,11 +423,31 @@ def actualizar_factura(db: Session, factura: Factura, datos: FacturaUpdate) -> F
     if datos.fecha_vencimiento is not None:
         if datos.fecha_vencimiento < factura.fecha_emision:
             raise FechaVencimientoInvalida()
+        valor_anterior = factura.fecha_vencimiento
         factura.fecha_vencimiento = datos.fecha_vencimiento
+        log_audit(
+            db,
+            entidad="FACTURA",
+            entidad_id=factura.id,
+            campo="fecha_vencimiento",
+            valor_anterior=str(valor_anterior) if valor_anterior else None,
+            valor_nuevo=str(datos.fecha_vencimiento),
+            usuario_id=usuario_id,
+        )
     if datos.detalles is not None:
         _validar_conceptos_activos(db, datos.detalles)
+        monto_anterior = factura.monto_total
         factura.detalles = _armar_detalles(datos.detalles)
         factura.monto_total = _calcular_total(datos.detalles)
+        log_audit(
+            db,
+            entidad="FACTURA",
+            entidad_id=factura.id,
+            campo="monto_total",
+            valor_anterior=str(monto_anterior),
+            valor_nuevo=str(factura.monto_total),
+            usuario_id=usuario_id,
+        )
 
     db.commit()
     actualizada = obtener_factura(db, factura.id)
@@ -413,7 +456,7 @@ def actualizar_factura(db: Session, factura: Factura, datos: FacturaUpdate) -> F
     return actualizada
 
 
-def eliminar_factura(db: Session, factura: Factura) -> None:
+def eliminar_factura(db: Session, factura: Factura, usuario_id: uuid.UUID | None = None) -> None:
     tiene_referencias = any(
         db.scalar(select(modelo.id).where(columna == factura.id).limit(1)) is not None
         for modelo, columna in (
@@ -423,5 +466,16 @@ def eliminar_factura(db: Session, factura: Factura) -> None:
     )
     if factura.estado != "pendiente" or tiene_referencias:
         raise FacturaEnUso()
+    factura_id = factura.id
+    valor_anterior = f"inscripcion={factura.inscripcion_id} monto={factura.monto_total}"
     db.delete(factura)
+    log_audit(
+        db,
+        entidad="FACTURA",
+        entidad_id=factura_id,
+        campo="__eliminacion__",
+        valor_anterior=valor_anterior,
+        valor_nuevo=None,
+        usuario_id=usuario_id,
+    )
     db.commit()

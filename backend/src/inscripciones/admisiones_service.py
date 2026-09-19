@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.academico.models import NivelEducativo
+from src.auditoria.service import log_audit
 from src.facturacion import service as facturacion_service
 from src.facturacion.schemas import ResponsableEconomicoCreate
 from src.familias_alumnos import service as familias_alumnos_service
@@ -197,6 +198,15 @@ def crear_solicitud_inscripcion(
             usuario_id=usuario_id,
         )
     )
+    log_audit(
+        db,
+        entidad="SOLICITUD_ADMISION",
+        entidad_id=solicitud.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=f"aspirante={aspirante.id}",
+        usuario_id=usuario_id,
+    )
     _guardar_cambios(db)
     db.refresh(solicitud)
     return _respuesta_solicitud(db, solicitud)
@@ -275,6 +285,7 @@ def actualizar_solicitud_inscripcion(
     db: Session,
     solicitud_id: uuid.UUID,
     datos: SolicitudInscripcionAdministrativaUpdate,
+    usuario_id: uuid.UUID | None = None,
 ) -> SolicitudInscripcionRead:
     """Actualiza únicamente datos administrativos de una admisión aún abierta."""
 
@@ -287,10 +298,28 @@ def actualizar_solicitud_inscripcion(
     if nivel is None:
         raise InscripcionNoEncontrada("El nivel educativo indicado no existe.")
 
+    cambios = {
+        "ciclo_lectivo": (solicitud.ciclo_lectivo, datos.ciclo_lectivo),
+        "fecha_solicitud": (solicitud.fecha_solicitud, datos.fecha_solicitud),
+        "nivel_educativo_id": (solicitud.nivel_educativo_id, nivel.id),
+        "observaciones": (solicitud.observaciones, datos.observaciones),
+    }
     solicitud.ciclo_lectivo = datos.ciclo_lectivo
     solicitud.fecha_solicitud = datos.fecha_solicitud
     solicitud.nivel_educativo_id = nivel.id
     solicitud.observaciones = datos.observaciones
+    for campo, (valor_anterior, valor_nuevo) in cambios.items():
+        if valor_anterior == valor_nuevo:
+            continue
+        log_audit(
+            db,
+            entidad="SOLICITUD_ADMISION",
+            entidad_id=solicitud.id,
+            campo=campo,
+            valor_anterior=str(valor_anterior) if valor_anterior is not None else None,
+            valor_nuevo=str(valor_nuevo) if valor_nuevo is not None else None,
+            usuario_id=usuario_id,
+        )
     _guardar_cambios(db)
     db.refresh(solicitud)
     return _respuesta_solicitud(db, solicitud)
@@ -602,6 +631,7 @@ def finalizar_admision_con_alta_integrada(
                 familia_id=familia.id,
                 fecha_solicitud_cambio=fecha_inscripcion,
             ),
+            usuario_id,
         )
         inscripcion = matriculas_service.preparar_inscripcion_nueva_en_transaccion(
             db,
@@ -612,6 +642,16 @@ def finalizar_admision_con_alta_integrada(
                 division_id=datos.division_id,
                 solicitud_inscripcion_id=solicitud.id,
             ),
+        )
+        db.flush()
+        log_audit(
+            db,
+            entidad="INSCRIPCION",
+            entidad_id=inscripcion.id,
+            campo="__alta__",
+            valor_anterior=None,
+            valor_nuevo=f"alumno={inscripcion.alumno_id} tipo={inscripcion.tipo}",
+            usuario_id=usuario_id,
         )
         db.commit()
     except IntegrityError as exc:
@@ -669,13 +709,25 @@ def aprobar_solicitud_inscripcion(
             usuario_id=usuario_id,
         )
     )
+    log_audit(
+        db,
+        entidad="SOLICITUD_ADMISION",
+        entidad_id=solicitud.id,
+        campo="estado",
+        valor_anterior="en_proceso",
+        valor_nuevo="aprobada",
+        usuario_id=usuario_id,
+    )
     _guardar_cambios(db)
     db.refresh(solicitud)
     return _respuesta_solicitud(db, solicitud)
 
 
 def rechazar_solicitud_inscripcion(
-    db: Session, solicitud_id: uuid.UUID, observaciones: str | None
+    db: Session,
+    solicitud_id: uuid.UUID,
+    observaciones: str | None,
+    usuario_id: uuid.UUID | None = None,
 ) -> SolicitudInscripcionRead:
     solicitud = _obtener_solicitud(db, solicitud_id, bloquear=True)
     if solicitud.estado != "en_proceso" or solicitud.etapa != "evaluacion_aprobacion":
@@ -699,6 +751,15 @@ def rechazar_solicitud_inscripcion(
 
     solicitud.estado = "rechazada"
     solicitud.fecha_resolucion = date.today()
+    log_audit(
+        db,
+        entidad="SOLICITUD_ADMISION",
+        entidad_id=solicitud.id,
+        campo="estado",
+        valor_anterior="en_proceso",
+        valor_nuevo="rechazada",
+        usuario_id=usuario_id,
+    )
     _guardar_cambios(db)
     db.refresh(solicitud)
     return _respuesta_solicitud(db, solicitud)
@@ -724,6 +785,16 @@ def registrar_documento_solicitud(
         usuario_id=usuario_id,
     )
     db.add(documento)
+    db.flush()
+    log_audit(
+        db,
+        entidad="DOCUMENTO_SOLICITUD",
+        entidad_id=documento.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=documento.tipo_documento,
+        usuario_id=usuario_id,
+    )
     _guardar_cambios(db)
     db.refresh(documento)
     return DocumentoSolicitudRead.model_validate(documento)
@@ -734,6 +805,7 @@ def actualizar_documento_solicitud(
     solicitud_id: uuid.UUID,
     documento_id: uuid.UUID,
     datos: DocumentoSolicitudUpdate,
+    usuario_id: uuid.UUID | None = None,
 ) -> DocumentoSolicitudRead:
     solicitud = _obtener_solicitud(db, solicitud_id, bloquear=True)
     documento = db.get(DocumentoSolicitud, documento_id, with_for_update=True)
@@ -742,7 +814,17 @@ def actualizar_documento_solicitud(
     if solicitud.estado != "aprobada" or solicitud.etapa != "documentacion_contrato":
         raise InscripcionInvalida("El documento solo se puede validar en la etapa correspondiente.")
 
+    valor_anterior = documento.estado
     documento.estado = datos.estado
+    log_audit(
+        db,
+        entidad="DOCUMENTO_SOLICITUD",
+        entidad_id=documento.id,
+        campo="estado",
+        valor_anterior=valor_anterior,
+        valor_nuevo=datos.estado,
+        usuario_id=usuario_id,
+    )
     _guardar_cambios(db)
     db.refresh(documento)
     return DocumentoSolicitudRead.model_validate(documento)
