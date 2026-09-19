@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import {
   PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
+  PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES,
   PERMISO_ACADEMICO_EXPORTAR,
   PERMISO_ACADEMICO_LEER,
   PERMISO_AUTENTICACION_LEER,
@@ -159,7 +160,7 @@ export const NAV_GROUPS: NavGroup[] = [
             label: 'Justificaciones',
             href: '/academico/justificaciones',
             icon: ClipboardList,
-            permiso: PERMISO_ACADEMICO_LEER,
+            permiso: PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES,
           },
           {
             // RF-37: permiso propio (`academico.exportar`), lo tiene dirección — no depende de

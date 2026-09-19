@@ -150,6 +150,12 @@ PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA = codigo_de(
 PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA = codigo_de(
     MODULO_ACADEMICO, ACCION_ACTUALIZAR, "estructura"
 )
+# Permiso acotado para la bandeja institucional de justificaciones: incluye la revisión,
+# resolución y descarga de comprobantes, sin abrir esas operaciones a todo el que tenga
+# `academico.leer` (familia/docente).
+PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES = codigo_de(
+    MODULO_ACADEMICO, ACCION_ACTUALIZAR, "justificaciones"
+)
 # RF-37: exportación del historial de asistencias. Sin tipo — a diferencia de `actualizar`, acá
 # no hace falta separar "asistencia" de "estructura": lo único exportable hoy es asistencia.
 PERMISO_ACADEMICO_EXPORTAR = codigo_de(MODULO_ACADEMICO, ACCION_EXPORTAR)

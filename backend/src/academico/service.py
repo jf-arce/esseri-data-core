@@ -168,12 +168,18 @@ def justificar_asistencia_de_familia(
         contenido=comprobante_contenido,
     )
     motivo_db = (
-        db.query(MotivoJustificacion).filter(MotivoJustificacion.nombre == motivo.strip()).first()
+        db.query(MotivoJustificacion)
+        .filter(
+            MotivoJustificacion.nombre == motivo.strip(),
+            MotivoJustificacion.activo.is_(True),
+        )
+        .first()
     )
     if motivo_db is None:
-        motivo_db = MotivoJustificacion(nombre=motivo.strip(), activo=True)
-        db.add(motivo_db)
-        db.flush()
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "El motivo de la justificación no está disponible en el catálogo.",
+        )
     justificacion = JustificacionInasistencia(
         asistencia_id=asistencia.id,
         familia_id=_familia_del_usuario(db, usuario).id,

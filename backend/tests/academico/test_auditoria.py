@@ -302,6 +302,8 @@ class TestAuditoriaAsistencia:
         assert registros[0].valor_nuevo == "aprobada"
 
     def test_justificar_asistencia_de_familia_audita_alta(self, db_session: Session):
+        from src.academico.models import MotivoJustificacion
+
         escenario = crear_escenario(db_session)
         inscripcion = crear_inscripcion_previa(db_session, escenario, estado="activa")
         familia = db_session.get(Familia, escenario["familia_id"])
@@ -315,7 +317,8 @@ class TestAuditoriaAsistencia:
         asistencia = Asistencia(
             fecha=date(2027, 3, 15), tipo="ausente_pendiente", inscripcion_id=inscripcion.id
         )
-        db_session.add_all([usuario, asistencia])
+        motivo = MotivoJustificacion(nombre="Enfermedad", activo=True)
+        db_session.add_all([usuario, asistencia, motivo])
         db_session.commit()
 
         justificacion = justificar_asistencia_de_familia(
