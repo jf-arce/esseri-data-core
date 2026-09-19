@@ -47,7 +47,6 @@ const ESTADO_OPTIONS: FilterDropdownOption[] = [
   { value: 'todos', label: 'Todos' },
   { value: 'activo', label: 'Activo' },
   { value: 'inactivo', label: 'Inactivo' },
-  { value: 'egresado', label: 'Egresado' },
 ]
 
 const ORDEN_OPTIONS: FilterDropdownOption[] = [
@@ -58,8 +57,7 @@ const ORDEN_OPTIONS: FilterDropdownOption[] = [
 
 function BadgeEstado({ estado }: { estado: EstadoAlumno }) {
   if (estado === 'activo') return <Badge variant="exito">Activo</Badge>
-  if (estado === 'inactivo') return <Badge variant="neutro">Inactivo</Badge>
-  return <Badge variant="info">Egresado</Badge>
+  return <Badge variant="neutro">Inactivo</Badge>
 }
 
 export function AlumnosPage() {
@@ -83,8 +81,7 @@ export function AlumnosPage() {
     const total = alumnos.length
     const activos = alumnos.filter((a) => a.estado === 'activo').length
     const inactivos = alumnos.filter((a) => a.estado === 'inactivo').length
-    const egresados = alumnos.filter((a) => a.estado === 'egresado').length
-    return { total, activos, inactivos, egresados }
+    return { total, activos, inactivos }
   }, [alumnos])
 
   // Solo ordenamiento local (el filtrado ahora lo hace el backend)
@@ -126,7 +123,7 @@ export function AlumnosPage() {
         }
       />
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <StatTile
           label="Alumnos registrados"
           value={stats.total}
@@ -146,13 +143,6 @@ export function AlumnosPage() {
           value={stats.inactivos}
           icon={GraduationCapIcon}
           iconClassName="bg-fila-hover text-texto-3"
-          cargando={cargando}
-        />
-        <StatTile
-          label="Egresados"
-          value={stats.egresados}
-          icon={GraduationCapIcon}
-          iconClassName="bg-info-suave text-info"
           cargando={cargando}
         />
       </div>

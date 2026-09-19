@@ -150,7 +150,7 @@ RF cubiertos: RF-01, RF-02 (parcial), RF-03, RF-13, RF-14
 |---|---|---|---|
 | id | uuid | PK |  |
 | numero_legajo | string |  | (`legajo` en el drawio) Se actualiza automáticamente ante cambios (RF-12) |
-| estado | string |  | activo / inactivo / egresado |
+| estado | string |  | activo / inactivo |
 | created_at | datetime |  | Fecha y hora de creación del registro. |
 | updated_at | datetime |  | Fecha y hora de la última modificación del registro. |
 | persona_id | uuid | FK | 1:1 |
@@ -884,7 +884,7 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 |---|---|---|
 | `USUARIO.estado` | activo, inactivo | [DECISIÓN DE DISEÑO] |
 | `USUARIO.auth_provider` | google, local | [DECISIÓN DE DISEÑO] — **NUEVO** por cambio 2 |
-| `ALUMNO.estado` | activo, inactivo, egresado | [DECISIÓN DE DISEÑO] |
+| `ALUMNO.estado` | activo, inactivo | [DECISIÓN DE DISEÑO] |
 | `FAMILIA.estado_deuda` | al_dia, con_deuda, en_mora | El corte entre "con_deuda" y "en_mora" ya no está pendiente: **[ACLARACIÓN CLIENTE]** respuesta 5 — mora desde el día 6 de vencimiento (tramos 6–15 y 16–30, ver `REGLA_PENALIDAD`) |
 | `INSCRIPCION.tipo` | nueva, reinscripcion, cambio_matricula, baja | RF-10, RF-11, RF-12 |
 | `INSCRIPCION.estado` | activa, finalizada, baja | [DECISIÓN DE DISEÑO] |
