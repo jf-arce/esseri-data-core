@@ -92,9 +92,7 @@ class TestAuditoriaSolicitudAdmision:
             usuario.id,
         )
 
-        registros = {
-            r.campo: r for r in _historial(db_session, "SOLICITUD_ADMISION", solicitud.id)
-        }
+        registros = {r.campo: r for r in _historial(db_session, "SOLICITUD_ADMISION", solicitud.id)}
         assert registros["ciclo_lectivo"].valor_anterior == "2027"
         assert registros["ciclo_lectivo"].valor_nuevo == "2028"
 
@@ -113,9 +111,7 @@ class TestAuditoriaSolicitudAdmision:
             db_session, solicitud.id, "Aprobada", usuario.id
         )
 
-        registros = {
-            r.campo: r for r in _historial(db_session, "SOLICITUD_ADMISION", solicitud.id)
-        }
+        registros = {r.campo: r for r in _historial(db_session, "SOLICITUD_ADMISION", solicitud.id)}
         assert registros["estado"].valor_anterior == "en_proceso"
         assert registros["estado"].valor_nuevo == "aprobada"
 
@@ -134,9 +130,7 @@ class TestAuditoriaSolicitudAdmision:
             db_session, solicitud.id, "Rechazada", usuario.id
         )
 
-        registros = {
-            r.campo: r for r in _historial(db_session, "SOLICITUD_ADMISION", solicitud.id)
-        }
+        registros = {r.campo: r for r in _historial(db_session, "SOLICITUD_ADMISION", solicitud.id)}
         assert registros["estado"].valor_anterior == "en_proceso"
         assert registros["estado"].valor_nuevo == "rechazada"
 
