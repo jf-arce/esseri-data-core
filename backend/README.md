@@ -113,6 +113,44 @@ Para deshabilitar temporalmente el job, configurar
 `FACTURACION_AUTOMATICA_HABILITADA=false`. El flujo manual “Generar ahora” permanece disponible
 como respaldo con previsualización.
 
+### Workflows: eventos y despacho
+
+Los módulos avisan al motor de workflows con `emit_event()` (`src/workflows/service.py`), que
+guarda un hecho de negocio en `EVENT_LOG` con estado `pendiente`:
+
+```python
+from src.workflows.service import emit_event
+
+emit_event(
+    db,
+    tipo="factura.vencida",          # nombre del catálogo `tipo_evento` (ver TipoEventoNombre)
+    entidad="factura",
+    entidad_id=factura.id,
+    payload={"dias_vencido": 6, "monto_deuda": factura.monto_total},
+    usuario_id=None,                 # None = lo originó el sistema
+)
+```
+
+- No hace `commit`: el evento se confirma con la transacción del llamador, igual que `log_audit()`.
+- `payload` debería traer los campos que el catálogo declara para ese tipo (`campo_evento`, ver
+  `database/seeds/grupo-b.yaml`). Si falta alguno se loggea un warning, el evento se registra igual.
+  No incluir datos sensibles innecesarios (RNF-15).
+- Un `tipo` que no esté en `tipo_evento` lanza `TipoEventoNoRegistrado`. Para sumar un evento nuevo:
+  agregarlo a `TipoEventoNombre` (`src/workflows/constants.py`), a `database/seeds/grupo-a.yaml` y
+  sus campos a `grupo-b.yaml`.
+
+El despachador (`procesar_eventos_pendientes`) corre en segundo plano cada
+`WORKFLOWS_DESPACHO_INTERVALO_SEGUNDOS` (apagable con `WORKFLOWS_DESPACHO_HABILITADO=false`) y
+también a pedido con `POST /workflows/procesar`. Por cada evento pendiente busca las reglas activas
+de su tipo, crea un `WORKFLOW_EXECUTION` por regla y marca el evento como `procesado`. Las reglas con
+`requiere_aprobacion_humana` dejan la ejecución en `pendiente`. Hoy ningún tipo de acción tiene
+ejecutor real (`ACCIONES` está vacío): las ejecuciones quedan `fallido` con el error "acción no
+implementada" hasta que se implemente cada una.
+
+Las reglas se administran en `/workflows/reglas` y el catálogo de eventos con sus campos en
+`/workflows/tipos-evento`. Los emails los envía n8n vía el webhook `N8N_WEBHOOK_URL` (ver
+`infra/n8n/README.md`).
+
 ### Comprobantes y PDF de factura
 
 El detalle de una factura permite registrar pagos parciales o totales. Los comprobantes de métodos
