@@ -12,3 +12,4 @@ pyyaml
 python-multipart
 reportlab
 openpyxl
+httpx

@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     WORKFLOWS_DESPACHO_HABILITADO: bool = True
     WORKFLOWS_DESPACHO_INTERVALO_SEGUNDOS: int = 30
 
+    # Webhook de n8n que envía los emails de Workflows. Vacío = integración sin configurar.
+    N8N_WEBHOOK_URL: str = ""
+    N8N_WEBHOOK_TOKEN: str = ""
+
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
 
 

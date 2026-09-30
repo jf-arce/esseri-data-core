@@ -31,3 +31,17 @@ class ReglaNoEncontrada(AppException):
 
     def __init__(self, message: str = "La regla de workflow indicada no existe."):
         super().__init__(message)
+
+
+class N8nNoConfigurado(AppException):
+    status_code = 503
+
+    def __init__(self, message: str = "La integración con n8n no está configurada."):
+        super().__init__(message)
+
+
+class N8nEnvioFallido(AppException):
+    status_code = 502
+
+    def __init__(self, message: str = "n8n no pudo procesar el envío."):
+        super().__init__(message)
