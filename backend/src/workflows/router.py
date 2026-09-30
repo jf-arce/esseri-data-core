@@ -16,6 +16,7 @@ from src.workflows import service
 from src.workflows.dependencies import obtener_regla_o_404
 from src.workflows.models import WorkflowRule
 from src.workflows.schemas import (
+    ResumenDespacho,
     TipoEventoRead,
     WorkflowRuleCreate,
     WorkflowRuleRead,
@@ -61,3 +62,9 @@ def actualizar_regla(
     usuario: PuedeActualizar, regla: ReglaActual, datos: WorkflowRuleUpdate, db: DbSession
 ):
     return service.actualizar_regla(db, regla, datos, usuario.id)
+
+
+@router.post("/procesar", response_model=ResumenDespacho)
+def procesar_eventos_pendientes(db: DbSession, _: PuedeActualizar):
+    """Corre una pasada del despachador sin esperar al job periódico (útil para probar)."""
+    return service.procesar_eventos_pendientes(db)

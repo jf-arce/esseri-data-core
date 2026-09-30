@@ -17,6 +17,7 @@ from src.ia_sugerencias.router import router as ia_sugerencias_router
 from src.inscripciones.router import router as inscripciones_router
 from src.panel_admin.router import router as panel_admin_router
 from src.proveedores_compras.router import router as proveedores_compras_router
+from src.workflows.despacho_job import ejecutar_job_despacho_periodico
 from src.workflows.router import router as workflows_router
 
 
@@ -27,17 +28,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         job = asyncio.create_task(
             ejecutar_job_facturacion_periodico(), name="facturacion-recurrente"
         )
+    despacho: asyncio.Task[None] | None = None
+    if app.state.workflows_despacho_habilitado:
+        despacho = asyncio.create_task(ejecutar_job_despacho_periodico(), name="workflows-despacho")
     try:
         yield
     finally:
-        if job is not None:
-            job.cancel()
-            with suppress(asyncio.CancelledError):
-                await job
+        for tarea in (job, despacho):
+            if tarea is not None:
+                tarea.cancel()
+                with suppress(asyncio.CancelledError):
+                    await tarea
 
 
 app = FastAPI(title="ESSERI Data Core API", lifespan=lifespan)
 app.state.facturacion_job_habilitado = settings.FACTURACION_AUTOMATICA_HABILITADA
+app.state.workflows_despacho_habilitado = settings.WORKFLOWS_DESPACHO_HABILITADO
 
 app.add_middleware(
     CORSMiddleware,

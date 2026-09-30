@@ -82,3 +82,11 @@ class WorkflowRuleRead(BaseModel):
     activo: bool
     created_at: datetime
     updated_at: datetime
+
+
+class ResumenDespacho(BaseModel):
+    """Resultado de una pasada del despachador sobre los eventos pendientes."""
+
+    eventos_procesados: int = 0
+    eventos_fallidos: int = 0
+    ejecuciones_creadas: int = 0

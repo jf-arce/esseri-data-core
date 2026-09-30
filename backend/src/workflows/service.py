@@ -3,6 +3,8 @@
 import logging
 import uuid
 from collections import defaultdict
+from collections.abc import Callable
+from datetime import datetime
 
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import select
@@ -16,9 +18,16 @@ from src.workflows.exceptions import (
     TipoEventoNoEncontrado,
     TipoEventoNoRegistrado,
 )
-from src.workflows.models import CampoEvento, NotificacionTemplate, TipoEvento, WorkflowRule
+from src.workflows.models import (
+    CampoEvento,
+    NotificacionTemplate,
+    TipoEvento,
+    WorkflowExecution,
+    WorkflowRule,
+)
 from src.workflows.schemas import (
     CampoEventoRead,
+    ResumenDespacho,
     TipoEventoRead,
     WorkflowRuleCreate,
     WorkflowRuleUpdate,
@@ -204,3 +213,90 @@ def _validar_referencias(
         and db.get(NotificacionTemplate, notificacion_template_id) is None
     ):
         raise PlantillaNoEncontrada()
+
+
+# --- Despacho de eventos pendientes ------------------------------------------------------
+
+# Una acción recibe la sesión (dentro de un savepoint), la regla y el evento, y devuelve un
+# detalle para `WorkflowExecution.detalle`. Vacío a propósito en el scaffolding: cada tipo de
+# acción se registra acá al implementarse (ver #64 y #68).
+AccionHandler = Callable[[Session, WorkflowRule, EventLog], str | None]
+ACCIONES: dict[str, AccionHandler] = {}
+
+
+def procesar_eventos_pendientes(db: Session, limite: int = 100) -> ResumenDespacho:
+    """Toma los eventos `pendiente` más antiguos y ejecuta las reglas activas de su tipo.
+
+    Cada evento se toma con `FOR UPDATE SKIP LOCKED` y se confirma por separado: dos
+    despachadores a la vez (el job y el endpoint manual) no pisan el mismo evento, y una falla
+    en uno no revierte los ya procesados.
+    """
+    resumen = ResumenDespacho()
+    for _ in range(limite):
+        evento = db.scalars(
+            select(EventLog)
+            .where(EventLog.estado == "pendiente")
+            .order_by(EventLog.timestamp)
+            .limit(1)
+            .with_for_update(skip_locked=True)
+        ).first()
+        if evento is None:
+            break
+
+        evento_id = evento.id
+        try:
+            resumen.ejecuciones_creadas += _despachar_evento(db, evento)
+            evento.estado = "procesado"
+            db.commit()
+            resumen.eventos_procesados += 1
+        except Exception:
+            db.rollback()
+            logger.exception("Falló el despacho del evento %s", evento_id)
+            _marcar_evento_fallido(db, evento_id)
+            resumen.eventos_fallidos += 1
+    return resumen
+
+
+def _despachar_evento(db: Session, evento: EventLog) -> int:
+    reglas = db.scalars(
+        select(WorkflowRule)
+        .where(WorkflowRule.tipo_evento_id == evento.tipo_evento_id, WorkflowRule.activo.is_(True))
+        .order_by(WorkflowRule.nombre)
+    ).all()
+    for regla in reglas:
+        ejecucion = WorkflowExecution(workflow_rule_id=regla.id, event_log_id=evento.id, intento=1)
+        db.add(ejecucion)
+        if regla.requiere_aprobacion_humana:
+            ejecucion.estado = "pendiente"
+            ejecucion.detalle = "Esperando aprobación humana."
+        else:
+            _ejecutar_accion(db, regla, evento, ejecucion)
+    return len(reglas)
+
+
+def _ejecutar_accion(
+    db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
+) -> None:
+    handler = ACCIONES.get(regla.tipo_accion)
+    if handler is None:
+        ejecucion.estado = "fallido"
+        ejecucion.error_detail = f"La acción '{regla.tipo_accion}' todavía no está implementada."
+    else:
+        try:
+            # Savepoint: si la acción falla a mitad de camino, sus escrituras se revierten sin
+            # perder la ejecución ni las de otras reglas del mismo evento.
+            with db.begin_nested():
+                ejecucion.detalle = handler(db, regla, evento)
+            ejecucion.estado = "exitoso"
+        except Exception as error:
+            logger.exception("Falló la acción '%s' de la regla %s", regla.tipo_accion, regla.id)
+            ejecucion.estado = "fallido"
+            ejecucion.error_detail = str(error)
+    ejecucion.finished_at = datetime.now()
+
+
+def _marcar_evento_fallido(db: Session, evento_id: uuid.UUID) -> None:
+    evento = db.get(EventLog, evento_id)
+    if evento is not None:
+        evento.estado = "fallido"
+        db.commit()
