@@ -7,25 +7,9 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.models import JSON_TYPE, Base
+from src.workflows.constants import TIPOS_ACCION
 
-_TIPOS_ACCION = (
-    "notificar",
-    "alerta_interna",
-    "cambiar_estado",
-    "crear_tarea",
-    "generar_cargo",
-    "aplicar_vencimiento",
-    "aplicar_penalidad",
-    "registrar_pago",
-    "registrar_rechazo",
-    "actualizar_cuenta_corriente",
-    "generar_recordatorio",
-    "escalar_caso",
-    "crear_registro_relacionado",
-    "generar_orden_compra",
-    "generar_comunicacion",
-)
-_CK_TIPO_ACCION = "tipo_accion IN (" + ", ".join(f"'{t}'" for t in _TIPOS_ACCION) + ")"
+_CK_TIPO_ACCION = "tipo_accion IN (" + ", ".join(f"'{t}'" for t in TIPOS_ACCION) + ")"
 
 
 class CampoEvento(Base):
@@ -51,6 +35,7 @@ class CampoEvento(Base):
 
 class TipoEvento(Base):
     __tablename__ = "tipo_evento"
+    __table_args__ = (sa.UniqueConstraint("nombre", name="uq_tipo_evento_nombre"),)
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
     nombre: Mapped[str] = mapped_column(sa.String)
