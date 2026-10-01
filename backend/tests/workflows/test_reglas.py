@@ -1,9 +1,17 @@
 import uuid
+from typing import get_args
 
 from sqlalchemy import select
 
 from src.models import AuditLog
+from src.workflows.constants import (
+    ENTIDAD_POR_EVENTO,
+    EVENTOS_POR_ACCION,
+    TIPOS_ACCION,
+    TipoEventoNombre,
+)
 from src.workflows.models import NotificacionTemplate
+from src.workflows.schemas import CONFIG_POR_ACCION
 
 
 def _cuerpo(tipo_evento_id, **extra):
@@ -172,3 +180,9 @@ def test_solo_lectura_no_puede_crear_ni_editar(client_solo_lectura, tipo_factura
     assert (
         client_solo_lectura.patch(f"/workflows/reglas/{uuid.uuid4()}", json={"activo": False})
     ).status_code == 403
+
+
+def test_toda_accion_tiene_config_y_eventos_declarados():
+    assert set(CONFIG_POR_ACCION) == set(TIPOS_ACCION)
+    assert set(EVENTOS_POR_ACCION) == set(TIPOS_ACCION)
+    assert set(ENTIDAD_POR_EVENTO) == set(get_args(TipoEventoNombre))
