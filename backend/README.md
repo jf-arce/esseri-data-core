@@ -166,14 +166,24 @@ emit_event(
    los que ya se procesaron. Una acción que falla no corta las demás reglas del mismo evento.
    Lo mismo vale para una regla que no se puede evaluar (campo ausente o de tipo equivocado en el
    `payload`, config que ya no pasa la allowlist, entidad que no corresponde): su ejecución queda
-   `fallido` con el motivo en `error_detail` y las demás reglas siguen.
+   `fallido` con un motivo controlado en `error_detail` y las demás reglas siguen. El detalle
+   técnico se conserva únicamente en los logs para no persistir ni exponer datos internos.
 
 **Por qué es asíncrono:** así una falla del motor o de n8n no puede romper la operación de negocio
 que originó el evento (por ejemplo, el registro de una ausencia), y el estado
-`pendiente/procesado/fallido` de `EVENT_LOG` deja registrado qué se procesó y qué falló (los
-reintentos son #66). Es el mismo patrón que el job de facturación. El costo es una demora de hasta
+`pendiente/procesado/fallido` de `EVENT_LOG` deja registrado qué se procesó y qué falló. Es el
+mismo patrón que el job de facturación. El costo es una demora de hasta
 `WORKFLOWS_DESPACHO_INTERVALO_SEGUNDOS` entre el evento y la ejecución de sus reglas. Con varias
 instancias del backend, `FOR UPDATE SKIP LOCKED` evita que dos procesen el mismo evento.
+
+**Historial y reintentos:** `GET /workflows/ejecuciones` devuelve el historial paginado y permite
+filtrar por `estado`; `GET /workflows/ejecuciones/{id}` expone el detalle y el evento que originó
+una ejecución sin devolver su `payload`. `POST /workflows/ejecuciones/{id}/reintentar` crea un
+intento nuevo y conserva los anteriores. Solo admite el último intento fallido de una regla activa,
+y rechaza el reintento si la regla fue editada desde esa ejecución. La operación requiere permiso
+`workflows.actualizar` y registra en auditoría quién la solicitó. Cada combinación de regla, evento
+y número de intento es única; si dos solicitudes compiten por el mismo intento, una recibe `409`
+antes de ejecutar la acción.
 
 **Estado actual:** ningún tipo de acción tiene ejecutor real (`ACCIONES` en `despacho_service.py`
 está vacío), así que las reglas sin aprobación humana quedan `fallido` con "acción no implementada"
