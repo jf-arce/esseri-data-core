@@ -6,6 +6,10 @@ import {
   armarConfig,
   armarPatch,
   armarPayloadAlta,
+  cambiarAccion,
+  cambiarCampoCondicion,
+  cambiarEvento,
+  sinConceptosDisponibles,
   defaultsDeConfig,
   filtrarReglas,
   valoresDesdeRegla,
@@ -238,5 +242,86 @@ describe('filtrarReglas', () => {
         (r) => r.id,
       ),
     ).toEqual(['r-2'])
+  })
+})
+
+describe('cambiarEvento', () => {
+  const catalogo = [accion('notificar', null), accion('aplicar_penalidad', ['factura.vencida'])]
+  const valores = {
+    ...VALORES_REGLA_VACIOS,
+    tipoEventoId: 'e-1',
+    campoCondicion: 'dias_vencido',
+    operadorCondicion: '>' as const,
+    valorCondicion: '30',
+    tipoAccion: 'aplicar_penalidad' as const,
+    config: { regla_penalidad_id: 'p-1', campo_monto: 'monto_deuda', estado_nuevo: 'vencida' },
+  }
+
+  it('limpia la condición y la config que depende del evento', () => {
+    const resultado = cambiarEvento(valores, 'e-2', catalogo, 'factura.vencida')
+    expect(resultado).toMatchObject({
+      tipoEventoId: 'e-2',
+      campoCondicion: '',
+      operadorCondicion: '',
+      valorCondicion: '',
+      tipoAccion: 'aplicar_penalidad',
+      config: { regla_penalidad_id: 'p-1' },
+    })
+  })
+
+  it('limpia la acción si el nuevo evento no la admite', () => {
+    const resultado = cambiarEvento(valores, 'e-3', catalogo, 'pago.registrado')
+    expect(resultado.tipoAccion).toBe('')
+    expect(resultado.config).toEqual({})
+  })
+})
+
+describe('cambiarAccion', () => {
+  it('reinicia la config con los defaults y aplica la aprobación por defecto', () => {
+    const resultado = cambiarAccion(
+      { ...VALORES_REGLA_VACIOS, tipoAccion: 'notificar', config: { destinatario: 'x' } },
+      {
+        ...accion('generar_recordatorio', null),
+        requiere_aprobacion_por_defecto: true,
+        config_schema: { properties: { dias_despues: { default: 1 } } },
+      },
+    )
+    expect(resultado).toMatchObject({
+      tipoAccion: 'generar_recordatorio',
+      config: { dias_despues: '1' },
+      requiereAprobacionHumana: true,
+    })
+  })
+})
+
+describe('cambiarCampoCondicion', () => {
+  it('elige el primer operador válido del tipo de dato y vacía el valor', () => {
+    const resultado = cambiarCampoCondicion(
+      { ...VALORES_REGLA_VACIOS, valorCondicion: 'viejo' },
+      { id: 'c-1', nombre_interno: 'motivo', etiqueta: 'Motivo', tipo_dato: 'texto' },
+    )
+    expect(resultado).toMatchObject({
+      campoCondicion: 'motivo',
+      operadorCondicion: '==',
+      valorCondicion: '',
+    })
+  })
+
+  it('sin campo deja la regla sin condición', () => {
+    expect(cambiarCampoCondicion(VALORES_REGLA_VACIOS, null).campoCondicion).toBe('')
+  })
+})
+
+describe('sinConceptosDisponibles', () => {
+  it('bloquea solo las acciones que piden concepto de cobro', () => {
+    const resultado = sinConceptosDisponibles(
+      accionesDisponibles(
+        [accion('notificar', null), accion('generar_cargo', ['pago.rechazado'])],
+        'pago.rechazado',
+      ),
+    )
+    expect(resultado[0].disponible).toBe(true)
+    expect(resultado[1].disponible).toBe(false)
+    expect(resultado[1].motivo).toContain('conceptos de cobro')
   })
 })

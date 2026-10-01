@@ -1,5 +1,6 @@
 import type {
   AccionConfig,
+  CampoEvento,
   Condicion,
   Criticidad,
   Operador,
@@ -324,4 +325,75 @@ export function filtrarReglas(reglas: ReglaWorkflow[], filtros: FiltrosReglas): 
     if (filtros.estado === 'inactivas' && regla.activo) return false
     return filtros.tipoEventoId === 'todos' || regla.tipo_evento_id === filtros.tipoEventoId
   })
+}
+
+// Acciones que piden `concepto_cobro_id`: el catálogo de conceptos vive en Facturación y puede
+// no estar disponible para el usuario (otro permiso).
+export const ACCIONES_CON_CONCEPTO: readonly TipoAccion[] = [
+  'generar_cargo',
+  'actualizar_cuenta_corriente',
+]
+
+/** Marca como no disponibles las acciones que piden un concepto de cobro cuando el catálogo no
+ * se pudo cargar. El resto del editor sigue funcionando. */
+export function sinConceptosDisponibles(disponibles: AccionDisponible[]): AccionDisponible[] {
+  return disponibles.map((accion) =>
+    accion.disponible && ACCIONES_CON_CONCEPTO.includes(accion.tipo_accion)
+      ? {
+          ...accion,
+          disponible: false,
+          motivo:
+            'No se pudieron cargar los conceptos de cobro. Hace falta el permiso Facturación · Leer.',
+        }
+      : accion,
+  )
+}
+
+/** Cambio de evento: la condición y la config que dependen del evento ya no valen, y si la
+ * acción elegida no admite el nuevo evento también se limpia. */
+export function cambiarEvento(
+  valores: ValoresRegla,
+  tipoEventoId: string,
+  tiposAccion: TipoAccionCatalogo[],
+  nombreEvento: string | null,
+): ValoresRegla {
+  const sigueDisponible = accionesDisponibles(tiposAccion, nombreEvento).some(
+    (accion) => accion.tipo_accion === valores.tipoAccion && accion.disponible,
+  )
+  const config = { ...valores.config }
+  for (const campo of CAMPOS_DEPENDIENTES_DEL_EVENTO) delete config[campo]
+  return {
+    ...valores,
+    tipoEventoId,
+    campoCondicion: '',
+    operadorCondicion: '',
+    valorCondicion: '',
+    tipoAccion: sigueDisponible ? valores.tipoAccion : '',
+    config: sigueDisponible ? config : {},
+  }
+}
+
+/** Cambio de acción hecho por el usuario: la config arranca con los defaults de la nueva acción
+ * y recién ahí se aplica su default de aprobación humana. */
+export function cambiarAccion(valores: ValoresRegla, accion: TipoAccionCatalogo): ValoresRegla {
+  return {
+    ...valores,
+    tipoAccion: accion.tipo_accion,
+    config: defaultsDeConfig(accion.config_schema),
+    requiereAprobacionHumana: accion.requiere_aprobacion_por_defecto,
+  }
+}
+
+/** Cambio de campo en la condición: el operador pasa al primero válido para el tipo de dato y
+ * el valor se vacía. `campo` vacío = sin condición. */
+export function cambiarCampoCondicion(
+  valores: ValoresRegla,
+  campo: CampoEvento | null,
+): ValoresRegla {
+  return {
+    ...valores,
+    campoCondicion: campo?.nombre_interno ?? '',
+    operadorCondicion: campo ? OPERADORES_POR_TIPO_DATO[campo.tipo_dato][0] : '',
+    valorCondicion: '',
+  }
 }
