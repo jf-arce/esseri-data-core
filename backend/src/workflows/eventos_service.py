@@ -71,21 +71,27 @@ def coaccionar_valor(tipo_dato: str, valor: object) -> Decimal | date | str:
     """Convierte un valor de payload o de condición al tipo de su `CAMPO_EVENTO`.
 
     Estricto: `null`, booleanos como número y fechas que no son ISO se rechazan con `ValueError`.
+    El mensaje nunca incluye el valor (puede ser un dato personal y termina en `error_detail`),
+    solo el tipo que llegó.
     """
+    recibido = type(valor).__name__
     if tipo_dato == "numero":
         if isinstance(valor, bool) or not isinstance(valor, int | float | Decimal):
-            raise ValueError(f"se esperaba un número y llegó {valor!r}")
+            raise ValueError(f"se esperaba un número y llegó {recibido}")
         numero = Decimal(str(valor))
         if not numero.is_finite():
-            raise ValueError(f"se esperaba un número finito y llegó {valor!r}")
+            raise ValueError("se esperaba un número finito")
         return numero
     if tipo_dato == "fecha":
         if not isinstance(valor, str):
-            raise ValueError(f"se esperaba una fecha ISO y llegó {valor!r}")
-        return datetime.fromisoformat(valor).date()
+            raise ValueError(f"se esperaba una fecha ISO y llegó {recibido}")
+        try:
+            return datetime.fromisoformat(valor).date()
+        except ValueError:
+            raise ValueError("se esperaba una fecha ISO válida") from None
     if tipo_dato == "texto":
         if not isinstance(valor, str):
-            raise ValueError(f"se esperaba un texto y llegó {valor!r}")
+            raise ValueError(f"se esperaba un texto y llegó {recibido}")
         return valor
     raise ValueError(f"tipo de dato desconocido: {tipo_dato}")
 

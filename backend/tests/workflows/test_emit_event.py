@@ -134,3 +134,16 @@ def test_coaccionar_valor_acepta_los_tipos_declarados():
     assert coaccionar_valor("numero", 1500.5) == Decimal("1500.5")
     assert coaccionar_valor("fecha", "2026-09-06") == date(2026, 9, 6)
     assert coaccionar_valor("texto", "hola") == "hola"
+
+
+def test_coaccionar_valor_no_incluye_el_valor_en_el_mensaje():
+    with pytest.raises(ValueError) as numero:
+        coaccionar_valor("numero", "DNI 30.123.456")
+    with pytest.raises(ValueError) as fecha:
+        coaccionar_valor("fecha", "nació el 3 de mayo")
+    with pytest.raises(ValueError) as texto:
+        coaccionar_valor("texto", 30123456)
+
+    for error in (numero, fecha, texto):
+        assert "30" not in str(error.value) and "mayo" not in str(error.value)
+    assert "str" in str(numero.value)
