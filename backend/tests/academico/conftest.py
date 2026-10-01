@@ -16,8 +16,42 @@ from src.auth.constants import (
 )
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
 from src.models import Persona
+from src.workflows.models import CampoEvento, TipoEvento
 
 PASSWORD_VALIDA = "una-contrasenia-larga"
+
+
+@pytest.fixture()
+def tipo_inasistencia_registrada(db_session):
+    """Catálogo mínimo para que `emit_event("inasistencia.registrada", ...)` no falle con
+    `TipoEventoNoRegistrado` -- en producción lo carga el seed de Grupo A, acá no hay seed."""
+    tipo = TipoEvento(nombre="inasistencia.registrada", descripcion="Se registró una ausencia")
+    db_session.add(tipo)
+    db_session.flush()
+    db_session.add_all(
+        [
+            CampoEvento(
+                nombre_interno="alumno_nombre",
+                etiqueta="Nombre del alumno",
+                tipo_dato="texto",
+                tipo_evento_id=tipo.id,
+            ),
+            CampoEvento(
+                nombre_interno="tipo_asistencia",
+                etiqueta="Tipo de registro",
+                tipo_dato="texto",
+                tipo_evento_id=tipo.id,
+            ),
+            CampoEvento(
+                nombre_interno="fecha",
+                etiqueta="Fecha de la ausencia",
+                tipo_dato="fecha",
+                tipo_evento_id=tipo.id,
+            ),
+        ]
+    )
+    db_session.commit()
+    return tipo
 
 
 @pytest.fixture()

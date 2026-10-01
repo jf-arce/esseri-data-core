@@ -110,8 +110,6 @@ def crear_familia(
     Returns:
         La familia creada
 
-    TODO: Integración con Auth - obtener usuario_id del contexto de autenticación
-    cuando el módulo auth esté implementado
     TODO: Integración con Persona - validar que persona_id exista
     TODO: Validar que la persona asociada tenga un USUARIO (login obligatorio para Familia)
     según diccionario de datos
@@ -195,7 +193,6 @@ def actualizar_familia(
     Returns:
         La familia actualizada
 
-    TODO: Integración con Auth - obtener usuario_id del contexto de autenticación
     TODO: Integración con Persona - validar que persona_id exista si se cambia
     """
     update_data = familia_data.model_dump(exclude_unset=True)

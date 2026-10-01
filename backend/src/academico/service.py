@@ -71,6 +71,7 @@ from src.auth.models import Rol, Usuario, UsuarioRol
 from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import Persona
+from src.workflows.eventos_service import emit_event
 
 ROL_DOCENTE = "docente"
 
@@ -300,6 +301,20 @@ def _notificar_asistencia(db: Session, inscripcion: Inscripcion, fecha: date, ti
     return len(responsables)
 
 
+def _nombre_alumno(db: Session, alumno_id: uuid.UUID) -> str:
+    """Devuelve 'Apellido, Nombre' del alumno -- para el payload legible de `emit_event`, no
+    para identificarlo (eso ya lo hace `entidad_id`)."""
+    fila = db.execute(
+        select(Persona.nombre, Persona.apellido)
+        .join(Alumno, Alumno.persona_id == Persona.id)
+        .where(Alumno.id == alumno_id)
+    ).first()
+    if fila is None:
+        return ""
+    nombre, apellido = fila
+    return f"{apellido}, {nombre}"
+
+
 def _docente_de(db: Session, usuario_id: uuid.UUID) -> Docente | None:
     usuario = db.get(Usuario, usuario_id)
     if usuario is None or usuario.persona_id is None:
@@ -412,6 +427,19 @@ def registrar_asistencia(
         valor_nuevo=tipo_db,
         usuario_id=usuario_id,
     )
+    if tipo_db == "ausente_pendiente":
+        emit_event(
+            db,
+            tipo="inasistencia.registrada",
+            entidad="asistencia",
+            entidad_id=nuevo.id,
+            payload={
+                "alumno_nombre": _nombre_alumno(db, inscripcion.alumno_id),
+                "tipo_asistencia": tipo_db,
+                "fecha": datos.fecha.isoformat(),
+            },
+            usuario_id=usuario_id,
+        )
     db.commit()
     db.refresh(nuevo)
 
@@ -466,6 +494,10 @@ def registrar_asistencia_masiva(
                 usuario_id=usuario_id,
             )
             actualizadas += 1
+            asistencia_id = existente.id
+            # Solo en la transición real a ausente: resubir el mismo bulk no debe volver a
+            # emitir el evento para una fila que ya estaba en ausente_pendiente.
+            es_nueva_ausencia = tipo_db == "ausente_pendiente" and tipo_anterior != tipo_db
         else:
             nuevo = Asistencia(
                 inscripcion_id=registro.inscripcion_id,
@@ -484,6 +516,22 @@ def registrar_asistencia_masiva(
                 usuario_id=usuario_id,
             )
             creadas += 1
+            asistencia_id = nuevo.id
+            es_nueva_ausencia = tipo_db == "ausente_pendiente"
+
+        if es_nueva_ausencia:
+            emit_event(
+                db,
+                tipo="inasistencia.registrada",
+                entidad="asistencia",
+                entidad_id=asistencia_id,
+                payload={
+                    "alumno_nombre": _nombre_alumno(db, inscripcion.alumno_id),
+                    "tipo_asistencia": tipo_db,
+                    "fecha": datos.fecha.isoformat(),
+                },
+                usuario_id=usuario_id,
+            )
 
         if tipo_db in {"ausente_pendiente", "tardanza"}:
             notificaciones += _notificar_asistencia(db, inscripcion, datos.fecha, tipo_db)
@@ -572,11 +620,26 @@ def actualizar_asistencia(
         valor_nuevo=tipo_db,
         usuario_id=usuario_id,
     )
+
+    inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
+    es_nueva_ausencia = tipo_db == "ausente_pendiente" and tipo_anterior != tipo_db
+    if es_nueva_ausencia and inscripcion is not None:
+        emit_event(
+            db,
+            tipo="inasistencia.registrada",
+            entidad="asistencia",
+            entidad_id=asistencia.id,
+            payload={
+                "alumno_nombre": _nombre_alumno(db, inscripcion.alumno_id),
+                "tipo_asistencia": tipo_db,
+                "fecha": asistencia.fecha.isoformat(),
+            },
+            usuario_id=usuario_id,
+        )
     db.commit()
     db.refresh(asistencia)
 
     if tipo_db in {"ausente_pendiente", "tardanza"} and tipo_anterior != tipo_db:
-        inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
         if inscripcion is not None:
             _notificar_asistencia(db, inscripcion, asistencia.fecha, tipo_db)
 
