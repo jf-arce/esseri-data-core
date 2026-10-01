@@ -76,11 +76,13 @@ export function PanelCondicion({ valores, evento, deshabilitado, onCambiar }: Pa
             ))}
           </SelectContent>
         </Select>
-        <FieldDescription>
-          {evento
-            ? 'Sin condición, la regla se ejecuta con cada evento.'
-            : 'Elegí primero el evento disparador.'}
-        </FieldDescription>
+        {!campo && (
+          <FieldDescription>
+            {evento
+              ? 'Sin condición, la regla se ejecuta con cada evento.'
+              : 'Elegí primero el evento disparador.'}
+          </FieldDescription>
+        )}
       </Field>
       {campo && (
         <>

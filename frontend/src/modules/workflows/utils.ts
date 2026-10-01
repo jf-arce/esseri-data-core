@@ -334,6 +334,9 @@ export const ACCIONES_CON_CONCEPTO: readonly TipoAccion[] = [
   'actualizar_cuenta_corriente',
 ]
 
+export const MOTIVO_SIN_CONCEPTOS =
+  'No se pudieron cargar los conceptos de cobro. Hace falta el permiso Facturación · Leer.'
+
 /** Marca como no disponibles las acciones que piden un concepto de cobro cuando el catálogo no
  * se pudo cargar. El resto del editor sigue funcionando. */
 export function sinConceptosDisponibles(disponibles: AccionDisponible[]): AccionDisponible[] {
@@ -342,8 +345,7 @@ export function sinConceptosDisponibles(disponibles: AccionDisponible[]): Accion
       ? {
           ...accion,
           disponible: false,
-          motivo:
-            'No se pudieron cargar los conceptos de cobro. Hace falta el permiso Facturación · Leer.',
+          motivo: MOTIVO_SIN_CONCEPTOS,
         }
       : accion,
   )

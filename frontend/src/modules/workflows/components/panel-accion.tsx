@@ -16,6 +16,7 @@ import {
   cambiarAccion,
   ETIQUETA_ACCION,
   ETIQUETA_CRITICIDAD,
+  MOTIVO_SIN_CONCEPTOS,
   type AccionDisponible,
   type ValoresRegla,
 } from '@/modules/workflows/utils'
@@ -39,6 +40,7 @@ export function PanelAccion({
 }: PanelAccionProps) {
   const catalogo = tiposAccion.find((tipo) => tipo.tipo_accion === valores.tipoAccion)
   const motivos = disponibles.filter((accion) => !accion.disponible)
+  const sinConceptos = motivos.some((accion) => accion.motivo === MOTIVO_SIN_CONCEPTOS)
 
   function elegirAccion(tipo: string) {
     const elegida = tiposAccion.find((item) => item.tipo_accion === tipo)
@@ -64,6 +66,7 @@ export function PanelAccion({
                 key={accion.tipo_accion}
                 value={accion.tipo_accion}
                 disabled={!accion.disponible}
+                title={accion.motivo ?? undefined}
               >
                 {ETIQUETA_ACCION[accion.tipo_accion]}
               </SelectItem>
@@ -72,10 +75,10 @@ export function PanelAccion({
         </Select>
         {motivos.length > 0 && (
           <FieldDescription>
-            Hay acciones deshabilitadas:{' '}
-            {motivos
-              .map((accion) => `${ETIQUETA_ACCION[accion.tipo_accion]} (${accion.motivo})`)
-              .join(' ')}
+            {motivos.length === 1
+              ? '1 acción no está disponible para este evento.'
+              : `${motivos.length} acciones no están disponibles para este evento.`}
+            {sinConceptos && ` ${MOTIVO_SIN_CONCEPTOS}`}
           </FieldDescription>
         )}
       </Field>
