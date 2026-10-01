@@ -1,14 +1,21 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
+import { toast } from 'sonner'
+import { ApiError } from '@/api/client'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { EjecucionesWorkflowPage } from '@/modules/workflows/pages/ejecuciones-workflow-page'
 import { listarEjecucionesWorkflow } from '@/modules/workflows/services/listar-ejecuciones-workflow'
+import { reintentarEjecucionWorkflow } from '@/modules/workflows/services/reintentar-ejecucion-workflow'
+import { useAuthStore } from '@/store/auth-store'
 import type { EjecucionWorkflow, EjecucionWorkflowListado } from '@/modules/workflows/types'
 
 vi.mock('@/modules/workflows/services/listar-ejecuciones-workflow')
+vi.mock('@/modules/workflows/services/reintentar-ejecucion-workflow')
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), info: vi.fn(), error: vi.fn() } }))
 
 const mockedListar = vi.mocked(listarEjecucionesWorkflow)
+const mockedReintentar = vi.mocked(reintentarEjecucionWorkflow)
 
 const ejecucionFallida: EjecucionWorkflow = {
   id: 'ej-1',
@@ -50,9 +57,36 @@ async function elegirEstado(nombre: string) {
   await userEvent.click(await screen.findByRole('radio', { name: nombre }))
 }
 
+function conPermisos(codigos: string[]) {
+  const permisos = codigos.map((codigo, indice) => ({
+    id: `p${indice}`,
+    codigo,
+    modulo: 'Workflows',
+    accion: codigo.split('.')[1] ?? 'leer',
+    tipo_informacion: null,
+  }))
+  useAuthStore.setState({
+    usuario: {
+      id: 'u1',
+      email: 'admin@esseri.edu.ar',
+      auth_provider: 'local',
+      estado: 'activo',
+      roles: ['admin'],
+      permisos,
+      perfiles: [{ id: 'admin', codigo: 'admin', nombre: 'admin', descripcion: null, permisos }],
+      rol_activo: 'admin',
+    },
+    status: 'authenticated',
+    rolActivo: 'admin',
+  })
+}
+
+const reintentable: EjecucionWorkflow = { ...ejecucionFallida, reintentable: true }
+
 beforeEach(() => {
   vi.clearAllMocks()
-  mockedListar.mockResolvedValue(listado)
+  conPermisos(['workflows.leer', 'workflows.actualizar'])
+  mockedListar.mockResolvedValue({ ...listado, items: [reintentable] })
 })
 
 describe('EjecucionesWorkflowPage', () => {
@@ -85,5 +119,52 @@ describe('EjecucionesWorkflowPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: /Ver detalle/ }))
 
     expect(await screen.findByRole('dialog')).toHaveTextContent('La acción no pudo completarse.')
+  })
+
+  it.each([
+    ['exitoso', 'success'],
+    ['pendiente', 'info'],
+    ['fallido', 'error'],
+  ] as const)('reintento con respuesta %s avisa con toast.%s y recarga', async (estado, tipo) => {
+    mockedReintentar.mockResolvedValue({ ...reintentable, id: 'ej-2', intento: 2, estado })
+    renderPagina()
+
+    await userEvent.click(await screen.findByRole('button', { name: /Reintentar/ }))
+
+    await waitFor(() => expect(toast[tipo]).toHaveBeenCalledTimes(1))
+    expect(mockedReintentar).toHaveBeenCalledWith('ej-1')
+    await waitFor(() => expect(mockedListar).toHaveBeenCalledTimes(2))
+  })
+
+  it('muestra el detalle del 409 y recarga', async () => {
+    mockedReintentar.mockRejectedValue(new ApiError(409, 'La regla fue modificada.'))
+    renderPagina()
+
+    await userEvent.click(await screen.findByRole('button', { name: /Reintentar/ }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('La regla fue modificada.'))
+    await waitFor(() => expect(mockedListar).toHaveBeenCalledTimes(2))
+  })
+
+  it('ignora un segundo clic mientras el POST sigue pendiente', async () => {
+    let resolver: (valor: EjecucionWorkflow) => void = () => {}
+    mockedReintentar.mockReturnValue(new Promise((resolve) => (resolver = resolve)))
+    renderPagina()
+
+    const boton = await screen.findByRole('button', { name: /Reintentar/ })
+    await userEvent.click(boton)
+    await userEvent.click(boton)
+
+    expect(mockedReintentar).toHaveBeenCalledTimes(1)
+    resolver({ ...reintentable, intento: 2 })
+    await waitFor(() => expect(mockedListar).toHaveBeenCalledTimes(2))
+  })
+
+  it('no ofrece el reintento sin workflows.actualizar', async () => {
+    conPermisos(['workflows.leer'])
+    renderPagina()
+
+    await screen.findByText('Aviso de mora')
+    expect(screen.queryByRole('button', { name: /Reintentar/ })).not.toBeInTheDocument()
   })
 })

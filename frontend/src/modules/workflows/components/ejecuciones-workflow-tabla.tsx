@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react'
-import { EyeIcon } from 'lucide-react'
+import { EyeIcon, RotateCcwIcon } from 'lucide-react'
 import { paginasVisibles } from '@/lib/paginacion'
 import { cn } from '@/lib/utils'
 import { TableSkeleton, type ColumnaEsqueleto } from '@/components/table-skeleton'
@@ -15,6 +15,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination'
+import { Spinner } from '@/components/ui/spinner'
 import {
   Table,
   TableBody,
@@ -51,6 +52,10 @@ interface EjecucionesWorkflowTablaProps {
   totalPaginas: number
   onCambiarPagina: (pagina: number) => void
   onVerDetalle: (ejecucion: EjecucionWorkflow) => void
+  /** Con permiso de actualización se ofrece "Reintentar" en las ejecuciones reintentables. */
+  puedeActualizar: boolean
+  reintentandoId: string | null
+  onReintentar: (ejecucion: EjecucionWorkflow) => void
 }
 
 export function EjecucionesWorkflowTabla({
@@ -62,6 +67,9 @@ export function EjecucionesWorkflowTabla({
   totalPaginas,
   onCambiarPagina,
   onVerDetalle,
+  puedeActualizar,
+  reintentandoId,
+  onReintentar,
 }: EjecucionesWorkflowTablaProps) {
   const primeraFila = (pagina - 1) * tamanioPagina + 1
   const ultimaFila = Math.min(total, pagina * tamanioPagina)
@@ -113,6 +121,21 @@ export function EjecucionesWorkflowTabla({
                       <EyeIcon data-icon="inline-start" />
                       Ver detalle
                     </Button>
+                    {ejecucion.reintentable && puedeActualizar && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={reintentandoId === ejecucion.id}
+                        onClick={() => onReintentar(ejecucion)}
+                      >
+                        {reintentandoId === ejecucion.id ? (
+                          <Spinner data-icon="inline-start" />
+                        ) : (
+                          <RotateCcwIcon data-icon="inline-start" />
+                        )}
+                        Reintentar
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

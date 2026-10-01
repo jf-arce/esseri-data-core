@@ -1,21 +1,26 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { HistoryIcon, ShieldAlertIcon } from 'lucide-react'
+import { toast } from 'sonner'
+import { ApiError } from '@/api/client'
 import { FilterBar, FilterBarSpacer } from '@/components/filter-bar'
 import { FilterDropdown } from '@/components/filter-dropdown'
 import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { PERMISO_WORKFLOWS_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
 import { FILTRO_TODOS, TAMANIO_PAGINA_EJECUCIONES } from '@/modules/workflows/constants'
 import { EjecucionDetalleSheet } from '@/modules/workflows/components/ejecucion-detalle-sheet'
 import { EjecucionesWorkflowTabla } from '@/modules/workflows/components/ejecuciones-workflow-tabla'
 import { useEjecucionesWorkflow } from '@/modules/workflows/hooks/use-ejecuciones-workflow'
+import { reintentarEjecucionWorkflow } from '@/modules/workflows/services/reintentar-ejecucion-workflow'
 import type { EjecucionWorkflow } from '@/modules/workflows/types'
 import {
   esEstadoEjecucionFiltro,
   ETIQUETA_ESTADO_EJECUCION,
   type EstadoEjecucionFiltro,
 } from '@/modules/workflows/utils'
+import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 const OPCIONES_ESTADO: { value: EstadoEjecucionFiltro; label: string }[] = [
   { value: FILTRO_TODOS, label: 'Todos' },
@@ -28,12 +33,36 @@ export function EjecucionesWorkflowPage() {
   const [estado, setEstado] = useState<EstadoEjecucionFiltro>(FILTRO_TODOS)
   const [pagina, setPagina] = useState(1)
   const [detalle, setDetalle] = useState<EjecucionWorkflow | null>(null)
+  const [reintentandoId, setReintentandoId] = useState<string | null>(null)
+  // El estado no alcanza para frenar un segundo clic dentro del mismo render.
+  const reintentoEnCurso = useRef(false)
+  const permisos = useAuthStore(permisosActivos)
+  const puedeActualizar = tienePermiso(permisos, PERMISO_WORKFLOWS_ACTUALIZAR)
 
   const { datos, cargando, error, sinPermiso, recargar } = useEjecucionesWorkflow({
     estado: estado === FILTRO_TODOS ? undefined : estado,
     pagina,
     tamanioPagina: TAMANIO_PAGINA_EJECUCIONES,
   })
+
+  async function reintentar(ejecucion: EjecucionWorkflow) {
+    if (reintentoEnCurso.current) return
+    reintentoEnCurso.current = true
+    setReintentandoId(ejecucion.id)
+    try {
+      const nueva = await reintentarEjecucionWorkflow(ejecucion.id)
+      if (nueva.estado === 'exitoso') toast.success(`El intento ${nueva.intento} se completó.`)
+      else if (nueva.estado === 'pendiente')
+        toast.info(`El intento ${nueva.intento} queda esperando aprobación.`)
+      else toast.error(`El intento ${nueva.intento} volvió a fallar.`)
+    } catch (causa) {
+      toast.error(causa instanceof ApiError ? causa.detail : 'No se pudo reintentar la ejecución.')
+    } finally {
+      reintentoEnCurso.current = false
+      setReintentandoId(null)
+      recargar()
+    }
+  }
 
   if (sinPermiso)
     return (
@@ -98,6 +127,9 @@ export function EjecucionesWorkflowPage() {
               totalPaginas={datos.total_paginas}
               onCambiarPagina={setPagina}
               onVerDetalle={setDetalle}
+              puedeActualizar={puedeActualizar}
+              reintentandoId={reintentandoId}
+              onReintentar={reintentar}
             />
             {!cargando && datos.total === 0 && (
               <p className="text-center text-sm text-texto-2">

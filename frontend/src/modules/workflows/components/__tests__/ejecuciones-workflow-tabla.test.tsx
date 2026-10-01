@@ -34,6 +34,9 @@ function renderTabla(props: Partial<Parameters<typeof EjecucionesWorkflowTabla>[
       totalPaginas={1}
       onCambiarPagina={vi.fn()}
       onVerDetalle={vi.fn()}
+      puedeActualizar
+      reintentandoId={null}
+      onReintentar={vi.fn()}
       {...props}
     />,
   )
@@ -64,5 +67,43 @@ describe('EjecucionesWorkflowTabla', () => {
     await userEvent.click(screen.getByText('2'))
 
     expect(onCambiarPagina).toHaveBeenCalledWith(2)
+  })
+
+  it('ofrece "Reintentar" solo si es reintentable y hay permiso', async () => {
+    const onReintentar = vi.fn()
+    const reintentable = { ...ejecucionFallida, reintentable: true }
+    const { rerender } = renderTabla({ items: [reintentable], onReintentar })
+
+    await userEvent.click(screen.getByRole('button', { name: /Reintentar/ }))
+    expect(onReintentar).toHaveBeenCalledWith(reintentable)
+
+    rerender(
+      <EjecucionesWorkflowTabla
+        items={[reintentable]}
+        cargando={false}
+        pagina={1}
+        tamanioPagina={20}
+        total={1}
+        totalPaginas={1}
+        onCambiarPagina={vi.fn()}
+        onVerDetalle={vi.fn()}
+        puedeActualizar={false}
+        reintentandoId={null}
+        onReintentar={onReintentar}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: /Reintentar/ })).not.toBeInTheDocument()
+  })
+
+  it('no ofrece "Reintentar" si la ejecución no es reintentable', () => {
+    renderTabla()
+
+    expect(screen.queryByRole('button', { name: /Reintentar/ })).not.toBeInTheDocument()
+  })
+
+  it('deshabilita el botón mientras se reintenta esa ejecución', () => {
+    renderTabla({ items: [{ ...ejecucionFallida, reintentable: true }], reintentandoId: 'ej-1' })
+
+    expect(screen.getByRole('button', { name: /Reintentar/ })).toBeDisabled()
   })
 })
