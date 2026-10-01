@@ -10,15 +10,27 @@ from collections.abc import Callable
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from src.auditoria.service import log_audit
 from src.models import EventLog
 from src.workflows.constants import ENTIDAD_POR_EVENTO
 from src.workflows.eventos_service import coaccionar_valor
-from src.workflows.exceptions import EntidadDeEventoInvalida, TipoEventoNoEncontrado
+from src.workflows.exceptions import (
+    EjecucionNoEncontrada,
+    EjecucionNoReintentable,
+    EntidadDeEventoInvalida,
+    TipoEventoNoEncontrado,
+)
 from src.workflows.models import TipoEvento, WorkflowExecution, WorkflowRule
-from src.workflows.schemas import ResumenDespacho
+from src.workflows.schemas import (
+    EstadoWorkflowExecution,
+    ResumenDespacho,
+    WorkflowExecutionListadoRead,
+    WorkflowExecutionRead,
+)
 from src.workflows.service import tipos_de_campos, validar_accion, validar_condicion
 
 logger = logging.getLogger(__name__)
@@ -29,6 +41,11 @@ logger = logging.getLogger(__name__)
 # acción se registra acá al implementarse (ver #68 y #89).
 AccionHandler = Callable[[Session, WorkflowRule, EventLog], str | None]
 ACCIONES: dict[str, AccionHandler] = {}
+
+ERROR_EVALUACION = "No se pudo evaluar la regla con los datos del evento."
+ERROR_CONFIGURACION = "La configuración de la acción no es válida."
+ERROR_ACCION = "La acción no pudo completarse."
+ERROR_ACCION_NO_IMPLEMENTADA = "La acción '{tipo_accion}' todavía no está implementada."
 
 
 def procesar_eventos_pendientes(db: Session, limite: int = 100) -> ResumenDespacho:
@@ -77,35 +94,73 @@ def _despachar_evento(db: Session, evento: EventLog) -> int:
 
     creadas = 0
     for regla in reglas:
-        ejecucion = WorkflowExecution(workflow_rule_id=regla.id, event_log_id=evento.id, intento=1)
-        # Cada regla se evalúa aislada: una que no se puede evaluar queda como ejecución fallida
-        # y no impide que se procesen las demás del mismo evento.
-        try:
-            if not _regla_aplica(regla, evento, tipo_evento.nombre, campos):
-                continue
-            validar_accion(
-                db,
-                regla.tipo_accion,
-                regla.accion_config,
-                tipo_evento.nombre,
-                campos,
-                regla.notificacion_template_id,
-            )
-        except Exception as error:
-            logger.warning("No se pudo evaluar la regla %s", regla.id, exc_info=True)
-            db.add(ejecucion)
-            _marcar_fallida(ejecucion, str(error))
+        ejecucion = _procesar_regla(db, regla, evento, tipo_evento, campos, intento=1)
+        if ejecucion is not None:
             creadas += 1
-            continue
-
-        db.add(ejecucion)
-        creadas += 1
-        if regla.requiere_aprobacion_humana:
-            ejecucion.estado = "pendiente"
-            ejecucion.detalle = "Esperando aprobación humana."
-        else:
-            _ejecutar_accion(db, regla, evento, ejecucion)
     return creadas
+
+
+def _procesar_regla(
+    db: Session,
+    regla: WorkflowRule,
+    evento: EventLog,
+    tipo_evento: TipoEvento,
+    campos: dict[str, str],
+    *,
+    intento: int,
+    registrar_si_no_aplica: bool = False,
+) -> WorkflowExecution | None:
+    ejecucion = WorkflowExecution(
+        workflow_rule_id=regla.id,
+        event_log_id=evento.id,
+        intento=intento,
+    )
+    # Cada regla se evalúa aislada: una que no se puede evaluar queda como ejecución fallida
+    # y no impide que se procesen las demás del mismo evento.
+    try:
+        aplica = _regla_aplica(regla, evento, tipo_evento.nombre, campos)
+    except Exception:
+        logger.warning("No se pudo evaluar la regla %s", regla.id, exc_info=True)
+        _reservar_ejecucion(db, ejecucion)
+        _marcar_fallida(ejecucion, ERROR_EVALUACION)
+        return ejecucion
+
+    if not aplica:
+        if not registrar_si_no_aplica:
+            return None
+        _reservar_ejecucion(db, ejecucion)
+        _marcar_fallida(ejecucion, "La regla ya no aplica al evento original.")
+        return ejecucion
+
+    try:
+        validar_accion(
+            db,
+            regla.tipo_accion,
+            regla.accion_config,
+            tipo_evento.nombre,
+            campos,
+            regla.notificacion_template_id,
+        )
+    except Exception:
+        logger.warning("La configuración de la regla %s no es válida", regla.id, exc_info=True)
+        _reservar_ejecucion(db, ejecucion)
+        _marcar_fallida(ejecucion, ERROR_CONFIGURACION)
+        return ejecucion
+
+    # La fila se inserta antes de cualquier efecto de la acción. La restricción única evita
+    # ejecutar dos veces el mismo número de intento aun si el bloqueo no está disponible.
+    _reservar_ejecucion(db, ejecucion)
+    if regla.requiere_aprobacion_humana:
+        ejecucion.estado = "pendiente"
+        ejecucion.detalle = "Esperando aprobación humana."
+    else:
+        _ejecutar_accion(db, regla, evento, ejecucion)
+    return ejecucion
+
+
+def _reservar_ejecucion(db: Session, ejecucion: WorkflowExecution) -> None:
+    db.add(ejecucion)
+    db.flush()
 
 
 def _regla_aplica(
@@ -160,16 +215,19 @@ def _ejecutar_accion(
 ) -> None:
     handler = ACCIONES.get(regla.tipo_accion)
     if handler is None:
-        _marcar_fallida(ejecucion, f"La acción '{regla.tipo_accion}' todavía no está implementada.")
+        _marcar_fallida(
+            ejecucion,
+            ERROR_ACCION_NO_IMPLEMENTADA.format(tipo_accion=regla.tipo_accion),
+        )
         return
     try:
         # Savepoint: si la acción falla a mitad de camino, sus escrituras se revierten sin
         # perder la ejecución ni las de otras reglas del mismo evento.
         with db.begin_nested():
             ejecucion.detalle = handler(db, regla, evento)
-    except Exception as error:
+    except Exception:
         logger.exception("Falló la acción '%s' de la regla %s", regla.tipo_accion, regla.id)
-        _marcar_fallida(ejecucion, str(error))
+        _marcar_fallida(ejecucion, ERROR_ACCION)
         return
     ejecucion.estado = "exitoso"
     ejecucion.finished_at = datetime.now()
@@ -180,3 +238,172 @@ def _marcar_evento_fallido(db: Session, evento_id: uuid.UUID) -> None:
     if evento is not None:
         evento.estado = "fallido"
         db.commit()
+
+
+# --- Historial y reintentos (RF-23) ------------------------------------------------------
+
+
+def listar_ejecuciones(
+    db: Session,
+    *,
+    estado: EstadoWorkflowExecution | None,
+    pagina: int,
+    tamanio_pagina: int,
+) -> WorkflowExecutionListadoRead:
+    filtros = [] if estado is None else [WorkflowExecution.estado == estado]
+    total = db.scalar(select(func.count(WorkflowExecution.id)).where(*filtros)) or 0
+    filas = db.execute(
+        _consulta_ejecuciones()
+        .where(*filtros)
+        .order_by(WorkflowExecution.started_at.desc(), WorkflowExecution.id.desc())
+        .offset((pagina - 1) * tamanio_pagina)
+        .limit(tamanio_pagina)
+    ).all()
+    return WorkflowExecutionListadoRead(
+        items=[_fila_ejecucion_read(*fila) for fila in filas],
+        total=total,
+        pagina=pagina,
+        tamanio_pagina=tamanio_pagina,
+        total_paginas=(total + tamanio_pagina - 1) // tamanio_pagina,
+    )
+
+
+def obtener_ejecucion_read(db: Session, ejecucion_id: uuid.UUID) -> WorkflowExecutionRead:
+    fila = db.execute(
+        _consulta_ejecuciones().where(WorkflowExecution.id == ejecucion_id)
+    ).one_or_none()
+    if fila is None:
+        raise EjecucionNoEncontrada()
+    return _fila_ejecucion_read(*fila)
+
+
+def reintentar_ejecucion(
+    db: Session, ejecucion_id: uuid.UUID, usuario_id: uuid.UUID
+) -> WorkflowExecutionRead:
+    anterior = db.scalar(
+        select(WorkflowExecution).where(WorkflowExecution.id == ejecucion_id).with_for_update()
+    )
+    if anterior is None:
+        raise EjecucionNoEncontrada()
+
+    # La regla es el ancla estable que serializa reintentos concurrentes del mismo workflow.
+    regla = db.scalar(
+        select(WorkflowRule).where(WorkflowRule.id == anterior.workflow_rule_id).with_for_update()
+    )
+    if regla is None:
+        raise EjecucionNoReintentable("La regla asociada ya no existe.")
+    if not regla.activo:
+        raise EjecucionNoReintentable("No se puede reintentar una regla inactiva.")
+
+    ultimo = db.scalars(
+        select(WorkflowExecution)
+        .where(
+            WorkflowExecution.workflow_rule_id == anterior.workflow_rule_id,
+            WorkflowExecution.event_log_id == anterior.event_log_id,
+        )
+        .order_by(WorkflowExecution.intento.desc())
+        .limit(1)
+    ).one()
+    if ultimo.id != anterior.id:
+        raise EjecucionNoReintentable("La ejecución indicada ya tiene un intento posterior.")
+    if anterior.estado != "fallido":
+        raise EjecucionNoReintentable("Solo se pueden reintentar ejecuciones fallidas.")
+    if regla.updated_at > anterior.started_at:
+        raise EjecucionNoReintentable(
+            "La regla fue modificada después de esta ejecución; debe generarse un evento nuevo."
+        )
+
+    evento = db.get(EventLog, anterior.event_log_id)
+    if evento is None:
+        raise EjecucionNoReintentable("El evento original ya no existe.")
+    tipo_evento = db.get(TipoEvento, evento.tipo_evento_id)
+    if tipo_evento is None:
+        raise TipoEventoNoEncontrado()
+
+    try:
+        nueva = _procesar_regla(
+            db,
+            regla,
+            evento,
+            tipo_evento,
+            tipos_de_campos(db, tipo_evento.id),
+            intento=anterior.intento + 1,
+            registrar_si_no_aplica=True,
+        )
+    except IntegrityError as error:
+        db.rollback()
+        raise EjecucionNoReintentable(
+            "Otro reintento de esta ejecución ya fue registrado."
+        ) from error
+    if nueva is None:
+        raise RuntimeError("El reintento no generó una ejecución.")
+    db.flush()
+    log_audit(
+        db,
+        entidad="WORKFLOW_EXECUTION",
+        entidad_id=nueva.id,
+        campo="__reintento__",
+        valor_anterior=str(anterior.id),
+        valor_nuevo=f"intento={nueva.intento}",
+        usuario_id=usuario_id,
+    )
+    db.commit()
+    return obtener_ejecucion_read(db, nueva.id)
+
+
+def _consulta_ejecuciones():
+    return (
+        select(
+            WorkflowExecution,
+            WorkflowRule.nombre,
+            WorkflowRule.tipo_accion,
+            TipoEvento.nombre,
+            EventLog.timestamp,
+            EventLog.entidad,
+            EventLog.entidad_id,
+        )
+        .join(WorkflowRule, WorkflowRule.id == WorkflowExecution.workflow_rule_id)
+        .join(EventLog, EventLog.id == WorkflowExecution.event_log_id)
+        .join(TipoEvento, TipoEvento.id == EventLog.tipo_evento_id)
+    )
+
+
+def _fila_ejecucion_read(
+    ejecucion: WorkflowExecution,
+    regla_nombre: str,
+    tipo_accion: str,
+    tipo_evento: str,
+    evento_timestamp: datetime,
+    entidad: str,
+    entidad_id: uuid.UUID,
+) -> WorkflowExecutionRead:
+    return WorkflowExecutionRead(
+        id=ejecucion.id,
+        intento=ejecucion.intento,
+        started_at=ejecucion.started_at,
+        finished_at=ejecucion.finished_at,
+        estado=ejecucion.estado,
+        detalle=ejecucion.detalle,
+        error_detail=_error_detail_publico(ejecucion.error_detail, tipo_accion),
+        workflow_rule_id=ejecucion.workflow_rule_id,
+        workflow_rule_nombre=regla_nombre,
+        tipo_accion=tipo_accion,
+        event_log_id=ejecucion.event_log_id,
+        tipo_evento=tipo_evento,
+        evento_timestamp=evento_timestamp,
+        entidad=entidad,
+        entidad_id=entidad_id,
+    )
+
+
+def _error_detail_publico(error_detail: str | None, tipo_accion: str) -> str | None:
+    if error_detail is None:
+        return None
+    controlados = {
+        ERROR_EVALUACION,
+        ERROR_CONFIGURACION,
+        ERROR_ACCION,
+        "La regla ya no aplica al evento original.",
+        ERROR_ACCION_NO_IMPLEMENTADA.format(tipo_accion=tipo_accion),
+    }
+    return error_detail if error_detail in controlados else ERROR_ACCION

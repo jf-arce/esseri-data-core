@@ -44,6 +44,20 @@ class ReglaNoEncontrada(AppException):
         super().__init__(message)
 
 
+class EjecucionNoEncontrada(AppException):
+    status_code = 404
+
+    def __init__(self, message: str = "La ejecución de workflow indicada no existe."):
+        super().__init__(message)
+
+
+class EjecucionNoReintentable(AppException):
+    status_code = 409
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
 class N8nNoConfigurado(AppException):
     status_code = 503
 

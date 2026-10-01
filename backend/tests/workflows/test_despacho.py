@@ -111,7 +111,8 @@ def test_accion_que_lanza_queda_fallida_y_no_corta_las_demas(
 
     estados = {e.estado: e for e in db_session.scalars(select(WorkflowExecution))}
     assert set(estados) == {"fallido", "exitoso"}
-    assert estados["fallido"].error_detail == "n8n no responde"
+    assert estados["fallido"].error_detail == despacho_service.ERROR_ACCION
+    assert "n8n no responde" not in estados["fallido"].error_detail
 
 
 def test_aprobacion_humana_deja_la_ejecucion_pendiente_sin_ejecutar(
@@ -282,7 +283,7 @@ def test_payload_no_evaluable_deja_la_ejecucion_fallida(
 
     ejecucion = _ejecuciones(db_session)[0]
     assert ejecucion.estado == "fallido"
-    assert "dias_vencido" in ejecucion.error_detail
+    assert ejecucion.error_detail == despacho_service.ERROR_EVALUACION
     assert db_session.get(EventLog, evento.id).estado == "procesado"
 
 
@@ -321,7 +322,7 @@ def test_config_invalida_guardada_directo_en_la_base_deja_fallido(
 
     ejecucion = _ejecuciones(db_session)[0]
     assert ejecucion.estado == "fallido"
-    assert "tabla" in ejecucion.error_detail
+    assert ejecucion.error_detail == despacho_service.ERROR_CONFIGURACION
     assert llamadas == []
 
 
@@ -373,4 +374,4 @@ def test_evento_con_entidad_no_canonica_deja_las_ejecuciones_fallidas(
 
     ejecucion = _ejecuciones(db_session)[0]
     assert ejecucion.estado == "fallido"
-    assert "corresponde 'factura'" in ejecucion.error_detail
+    assert ejecucion.error_detail == despacho_service.ERROR_EVALUACION

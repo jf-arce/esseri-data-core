@@ -194,6 +194,37 @@ class WorkflowRuleRead(BaseModel):
     updated_at: datetime
 
 
+EstadoWorkflowExecution = Literal["exitoso", "fallido", "pendiente"]
+
+
+class WorkflowExecutionRead(BaseModel):
+    """Ejecución con el contexto necesario para explicar qué regla y evento la originaron."""
+
+    id: uuid.UUID
+    intento: int
+    started_at: datetime
+    finished_at: datetime | None
+    estado: EstadoWorkflowExecution
+    detalle: str | None
+    error_detail: str | None
+    workflow_rule_id: uuid.UUID
+    workflow_rule_nombre: str
+    tipo_accion: TipoAccion
+    event_log_id: uuid.UUID
+    tipo_evento: str
+    evento_timestamp: datetime
+    entidad: str
+    entidad_id: uuid.UUID
+
+
+class WorkflowExecutionListadoRead(BaseModel):
+    items: list[WorkflowExecutionRead]
+    total: int
+    pagina: int
+    tamanio_pagina: int
+    total_paginas: int
+
+
 class ResumenDespacho(BaseModel):
     """Resultado de una pasada del despachador sobre los eventos pendientes."""
 

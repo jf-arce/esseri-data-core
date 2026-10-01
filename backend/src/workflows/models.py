@@ -97,6 +97,12 @@ class WorkflowExecution(Base):
         sa.CheckConstraint(
             "estado IN ('exitoso', 'fallido', 'pendiente')", name="ck_workflow_execution_estado"
         ),
+        sa.UniqueConstraint(
+            "workflow_rule_id",
+            "event_log_id",
+            "intento",
+            name="uq_workflow_execution_regla_evento_intento",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
