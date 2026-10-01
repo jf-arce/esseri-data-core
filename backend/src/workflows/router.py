@@ -17,6 +17,7 @@ from src.workflows.dependencies import obtener_regla_o_404
 from src.workflows.models import WorkflowRule
 from src.workflows.schemas import (
     ResumenDespacho,
+    TipoAccionRead,
     TipoEventoRead,
     WorkflowRuleCreate,
     WorkflowRuleRead,
@@ -35,6 +36,11 @@ ReglaActual = Annotated[WorkflowRule, Depends(obtener_regla_o_404)]
 @router.get("/tipos-evento", response_model=list[TipoEventoRead])
 def listar_tipos_evento(db: DbSession, _: PuedeLeer):
     return service.listar_tipos_evento(db)
+
+
+@router.get("/tipos-accion", response_model=list[TipoAccionRead])
+def listar_tipos_accion(_: PuedeLeer):
+    return service.listar_tipos_accion()
 
 
 @router.get("/reglas", response_model=list[WorkflowRuleRead])

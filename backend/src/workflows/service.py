@@ -9,6 +9,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from datetime import date, datetime
 from decimal import Decimal
+from typing import get_args
 
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -24,6 +25,7 @@ from src.workflows.constants import (
     ENTIDAD_POR_EVENTO,
     EVENTOS_POR_ACCION,
     OPERADORES_POR_TIPO_DATO,
+    TipoAccion,
 )
 from src.workflows.eventos_service import coaccionar_valor
 from src.workflows.exceptions import (
@@ -49,6 +51,7 @@ from src.workflows.schemas import (
     ConfigCambiarEstado,
     ConfigGenerarCargo,
     ResumenDespacho,
+    TipoAccionRead,
     TipoEventoRead,
     WorkflowRuleCreate,
     WorkflowRuleUpdate,
@@ -81,6 +84,21 @@ def listar_tipos_evento(db: Session) -> list[TipoEventoRead]:
             campos=[CampoEventoRead.model_validate(c) for c in campos_por_tipo[tipo.id]],
         )
         for tipo in tipos
+    ]
+
+
+def listar_tipos_accion() -> list[TipoAccionRead]:
+    return [
+        TipoAccionRead(
+            tipo_accion=tipo,
+            requiere_aprobacion_por_defecto=_aprobacion_por_defecto(tipo),
+            eventos_permitidos=(
+                None if EVENTOS_POR_ACCION[tipo] is None else sorted(EVENTOS_POR_ACCION[tipo])
+            ),
+            admite_plantilla=tipo in ACCIONES_CON_PLANTILLA,
+            config_schema=CONFIG_POR_ACCION[tipo].model_json_schema(),
+        )
+        for tipo in get_args(TipoAccion)
     ]
 
 

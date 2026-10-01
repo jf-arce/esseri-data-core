@@ -427,3 +427,21 @@ def test_cambiar_el_evento_revalida_la_condicion(
     )
 
     assert respuesta.status_code == 422
+
+
+def test_tipos_accion_lista_las_15_con_su_allowlist(client_autenticado):
+    respuesta = client_autenticado.get("/workflows/tipos-accion")
+
+    assert respuesta.status_code == 200
+    tipos = {t["tipo_accion"]: t for t in respuesta.json()}
+    assert set(tipos) == set(TIPOS_ACCION)
+    assert tipos["aplicar_penalidad"]["requiere_aprobacion_por_defecto"] is True
+    assert tipos["aplicar_penalidad"]["eventos_permitidos"] == ["factura.vencida"]
+    assert tipos["notificar"]["eventos_permitidos"] is None
+    assert tipos["notificar"]["admite_plantilla"] is True
+    assert tipos["generar_orden_compra"]["eventos_permitidos"] == []
+    assert "titulo" in tipos["crear_tarea"]["config_schema"]["properties"]
+
+
+def test_tipos_accion_requiere_sesion(client):
+    assert client.get("/workflows/tipos-accion").status_code == 401
