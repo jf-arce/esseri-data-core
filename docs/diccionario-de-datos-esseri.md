@@ -710,6 +710,13 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 ### `NOTIFICACION_TEMPLATE`
 > `nombre` es único (`uq_notificacion_template_nombre`). Las plantillas son reutilizables entre
 > eventos: la compatibilidad de sus placeholders se valida cuando se vinculan a una regla.
+>
+> `[DECISIÓN DE DISEÑO]` Contrato compartido con IA/Sugerencias: los placeholders tienen el formato
+> exacto `{{nombre_campo}}` (minúsculas, dígitos y guion bajo, sin expresiones) y tienen que existir
+> como `CAMPO_EVENTO` del evento de cada regla que use la plantilla, también al editarla. Una
+> plantilla referenciada por una `WORKFLOW_RULE` o una `IA_SUGERENCIA` no se puede eliminar (409).
+> Para crear una plantilla desde otro módulo se usa `plantillas_service.registrar_plantilla()`, que
+> valida y audita sin confirmar la transacción.
 
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
@@ -779,6 +786,20 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 > La base exige exactamente una referencia según `destinatario_tipo` y evita repetir el mismo rol
 > o usuario dentro de una regla (`uq_regla_destinatario_regla_rol` y
 > `uq_regla_destinatario_regla_usuario`).
+>
+> `[DECISIÓN DE DISEÑO]` Un `ROL` referenciado acá no se puede eliminar (409). Auth no importa
+> modelos de Workflows para chequearlo: `eliminar_rol` recorre `Base.metadata` y rechaza el borrado
+> si cualquier tabla fuera de Auth tiene una FK a `rol` con ese valor, así que la protección cubre
+> también las FKs a `rol` que agreguen otros módulos.
+>
+> `[DECISIÓN DE DISEÑO]` Los destinatarios solo se admiten en reglas `alerta_interna`, o en
+> `notificar`/`generar_recordatorio`/`generar_comunicacion` con
+> `accion_config.destinatario = "destinatarios_regla"`. Una regla con destinatarios cargados no
+> puede cambiar a una configuración que no los admita sin vaciarlos antes. Sí puede quedar con
+> `destinatarios_regla` y sin destinatarios: qué hace el despacho en ese caso se define con RF-24.
+>
+> `[DECISIÓN DE DISEÑO]` Un usuario inactivo no se puede agregar como destinatario, pero si ya
+> estaba configurado se conserva para no perder la trazabilidad.
 
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|

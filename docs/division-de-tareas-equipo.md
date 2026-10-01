@@ -206,9 +206,9 @@ Antes del alcance nuevo, estas vistas no tenían dueño formal en ningún docume
 - `WORKFLOW_EXECUTION` trazable: referencia el `EVENT_LOG` que la disparó, número de intento, `started_at`/`finished_at`, `error_detail` (RF-22, RF-23).
 - Integración con n8n vía webhook genérico para el envío real de emails (Gmail/Google Workspace) — el backend resuelve destinatario y contenido antes de llamarlo. n8n **no** reemplaza al `EVENT_LOG` ni al motor.
 - `NOTIFICACION` con destinatario genérico (`destinatario_tipo`: familia o usuario interno) y snapshot inmutable (`destinatario_snapshot`/`asunto_snapshot`/`cuerpo_snapshot`) — la evidencia histórica no cambia si después se edita la plantilla o el email de la familia (RF-26).
-- CRUD de `NOTIFICACION_TEMPLATE` (plantillas con placeholders tipo `{{nombre_familia}}`).
+- CRUD de `NOTIFICACION_TEMPLATE` (plantillas con placeholders tipo `{{nombre_familia}}`), **hecho** (#69).
 - `TAREA` + cadena de escalamiento (`escalada_de_tarea_id`), cubre `crear_tarea`/`escalar_caso`.
-- `REGLA_DESTINATARIO`: una regla puede avisar a un rol completo, a un usuario puntual, o a ambos.
+- `REGLA_DESTINATARIO`: una regla puede avisar a un rol completo, a un usuario puntual, o a ambos. Configuración **hecha** (#69); que el despacho les envíe queda para RF-24 (#68).
 
 **Reglas concretas mínimas a implementar y probar** (arrancar por estas, ampliar con las de Carreon/Botteri en 2do/3er Informe):
 1. `factura.vencida` → `aplicar_vencimiento` + `alerta_interna` (cubre RF-18, morosidad).
@@ -219,7 +219,7 @@ Antes del alcance nuevo, estas vistas no tenían dueño formal en ningún docume
 
 **Frontend (`modules/workflows/`):**
 - ABM de reglas de workflow (RF-22), **hecho** (#65): selector de evento, editor de condición, selector de acción con su configuración, criticidad y aprobación humana.
-- Editor de plantilla con chips insertables de `CAMPO_EVENTO` y destinatarios (`REGLA_DESTINATARIO`) (RF-25), **pendiente** (#69/#70).
+- Editor de plantilla con chips insertables de `CAMPO_EVENTO` y destinatarios (`REGLA_DESTINATARIO`) (RF-25), **pendiente** (#70). El backend ya está (#69).
 - Historial de ejecuciones (RF-23), con filtro por estado.
 - Bandeja de tareas y escalamiento.
 
