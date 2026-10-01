@@ -648,6 +648,8 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 | tipo_evento_id | uuid | FK |  |
 
 ### `TIPO_EVENTO`
+> `[DECISIÓN DE DISEÑO]` `nombre` es `UNIQUE` (`uq_tipo_evento_nombre`): `emit_event()` resuelve el tipo por nombre, así que no puede haber dos filas con el mismo.
+>
 > [DECISIÓN DE DISEÑO] Catálogo en vez de texto libre en `WORKFLOW_RULE`, mismo patrón que `PERMISO`/`METODO_PAGO` (RNF-06). Acá se cargan valores como "factura.vencida", "inasistencia.registrada", "inscripcion.cambio_matricula", y desde las aclaraciones también "solicitud_inscripcion.aprobada", "inasistencia.justificada", "pago.registrado", "pago.rechazado".
 
 | Campo | Tipo | Clave | Descripción |
@@ -777,7 +779,7 @@ RF cubiertos: RF-13, RF-14 · RNF-05
 | Tabla | Qué audita | Módulo de origen |
 |---|---|---|
 | `AUDIT_LOG` (ex `EVENT_LOG`) | Cambios de datos (crear/editar/borrar) en cualquier entidad. Lo escribe `log_audit()` | Transversal (`backend/src/models.py`) |
-| `EVENT_LOG` (nuevo) | Hechos de negocio append-only (ej. `factura.vencida`, `inasistencia.registrada`). Lo escribe `emit_event()`, lo consume el motor de Workflows | Transversal (`backend/src/models.py`) |
+| `EVENT_LOG` (nuevo) | Hechos de negocio append-only (ej. `factura.vencida`, `inasistencia.registrada`). Lo escribe `emit_event()` (`backend/src/workflows/eventos_service.py`), lo consume el motor de Workflows | Transversal (`backend/src/models.py`) |
 | `LOG_ACCESO` | Intentos de login (éxito/fallo) | Autenticación y Roles |
 | `WORKFLOW_EXECUTION` | Disparos de reglas de automatización, con reintentos y errores | Motor de Workflows |
 | `NOTIFICACION` | Comunicaciones efectivamente enviadas, a familias y a usuarios internos | Motor de Workflows |

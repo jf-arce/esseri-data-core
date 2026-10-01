@@ -31,6 +31,14 @@ class Settings(BaseSettings):
     FACTURACION_AUTOMATICA_HABILITADA: bool = True
     FACTURACION_HORA_EJECUCION: time = time(hour=0, minute=5)
 
+    # Despachador de Workflows: procesa EVENT_LOG pendientes cada N segundos.
+    WORKFLOWS_DESPACHO_HABILITADO: bool = True
+    WORKFLOWS_DESPACHO_INTERVALO_SEGUNDOS: int = 30
+
+    # Webhook de n8n que envía los emails de Workflows. Vacío = integración sin configurar.
+    N8N_WEBHOOK_URL: str = ""
+    N8N_WEBHOOK_TOKEN: str = ""
+
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
 
 

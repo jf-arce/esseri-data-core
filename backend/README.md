@@ -113,6 +113,68 @@ Para deshabilitar temporalmente el job, configurar
 `FACTURACION_AUTOMATICA_HABILITADA=false`. El flujo manual “Generar ahora” permanece disponible
 como respaldo con previsualización.
 
+### Workflows: eventos y despacho
+
+Los módulos avisan al motor de workflows con `emit_event()` (`src/workflows/eventos_service.py`),
+que guarda un hecho de negocio en `EVENT_LOG` con estado `pendiente`:
+
+```python
+from src.workflows.eventos_service import emit_event
+
+emit_event(
+    db,
+    tipo="factura.vencida",          # nombre del catálogo `tipo_evento` (ver TipoEventoNombre)
+    entidad="factura",
+    entidad_id=factura.id,
+    payload={"dias_vencido": 6, "monto_deuda": factura.monto_total},
+    usuario_id=None,                 # None = lo originó el sistema
+)
+```
+
+- No hace `commit`: el evento se confirma con la transacción del llamador, igual que `log_audit()`.
+- `payload` debería traer los campos que el catálogo declara para ese tipo (`campo_evento`, ver
+  `database/seeds/grupo-b.yaml`). Si falta alguno se loggea un warning, el evento se registra igual.
+  No incluir datos sensibles innecesarios (RNF-15).
+- Un `tipo` que no esté en `tipo_evento` lanza `TipoEventoNoRegistrado`. Para sumar un evento nuevo:
+  agregarlo a `TipoEventoNombre` (`src/workflows/constants.py`), a `database/seeds/grupo-a.yaml` y
+  sus campos a `grupo-b.yaml`.
+
+**Cómo fluye un evento**
+
+1. El módulo dueño del hecho (facturación, académico, etc.) llama a `emit_event()` y después hace su
+   `commit`. Eso es todo lo que le toca: no espera ni se entera de lo que pase después.
+2. `emit_event()` solo inserta la fila en `EVENT_LOG` con estado `pendiente`, dentro de la
+   transacción del llamador. Si esa operación se revierte, el evento desaparece con ella, así que
+   nunca queda registrado algo que no pasó. El despachador recién ve el evento cuando el llamador
+   confirma.
+3. El despachador (`procesar_eventos_pendientes`) corre solo dentro del backend: al arrancar la app
+   se levanta una tarea en segundo plano (`despacho_job.py`) que cada
+   `WORKFLOWS_DESPACHO_INTERVALO_SEGUNDOS` (30 por defecto) toma los eventos `pendiente`, del más
+   viejo al más nuevo, y los procesa de a uno, hasta 100 por pasada. Nadie del equipo lo llama. Se
+   puede apagar con `WORKFLOWS_DESPACHO_HABILITADO=false` y forzar una pasada con
+   `POST /workflows/procesar`.
+4. Por cada evento busca las reglas activas de su tipo y crea un `WORKFLOW_EXECUTION` por regla. Si
+   la regla tiene `requiere_aprobacion_humana`, la ejecución queda `pendiente` y no se ejecuta nada.
+   Si no, corre la acción y la ejecución queda `exitoso` o `fallido`. Un evento sin reglas también
+   se marca `procesado`.
+5. Cada evento se confirma por separado: si uno falla (el evento pasa a `fallido`) no se revierten
+   los que ya se procesaron. Una acción que falla no corta las demás reglas del mismo evento.
+
+**Por qué es asíncrono:** así una falla del motor o de n8n no puede romper la operación de negocio
+que originó el evento (por ejemplo, el registro de una ausencia), y el estado
+`pendiente/procesado/fallido` de `EVENT_LOG` deja registrado qué se procesó y qué falló (los
+reintentos son #66). Es el mismo patrón que el job de facturación. El costo es una demora de hasta
+`WORKFLOWS_DESPACHO_INTERVALO_SEGUNDOS` entre el evento y la ejecución de sus reglas. Con varias
+instancias del backend, `FOR UPDATE SKIP LOCKED` evita que dos procesen el mismo evento.
+
+**Estado actual:** ningún tipo de acción tiene ejecutor real (`ACCIONES` en `service.py` está
+vacío), así que las reglas sin aprobación humana quedan `fallido` con "acción no implementada"
+hasta que se implemente cada una (#64 y #68).
+
+Las reglas se administran en `/workflows/reglas` y el catálogo de eventos con sus campos en
+`/workflows/tipos-evento`. Los emails los envía n8n vía el webhook `N8N_WEBHOOK_URL` (ver
+`infra/n8n/README.md`).
+
 ### Comprobantes y PDF de factura
 
 El detalle de una factura permite registrar pagos parciales o totales. Los comprobantes de métodos
