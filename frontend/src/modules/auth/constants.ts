@@ -37,6 +37,10 @@ export const PERMISO_FACTURACION_ACTUALIZAR = 'facturacion.actualizar'
 
 export const PERMISO_PROVEEDORES_COMPRAS_LEER = 'proveedores_compras.leer'
 
+export const PERMISO_WORKFLOWS_LEER = 'workflows.leer'
+export const PERMISO_WORKFLOWS_CREAR = 'workflows.crear'
+export const PERMISO_WORKFLOWS_ACTUALIZAR = 'workflows.actualizar'
+
 // Códigos de rol (`Rol.codigo`, derivado del nombre una sola vez al crear el rol — ver
 // `backend/src/auth/models.py`): identidad estable para autorizar por rol activo, a diferencia
 // del `nombre`, que es editable desde `/usuarios-roles/roles`. Solo los 5 que el frontend

@@ -22,6 +22,7 @@ import {
   UserIcon,
   UserPlusIcon,
   UsersRound,
+  WorkflowIcon,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -35,6 +36,7 @@ import {
   PERMISO_INSCRIPCIONES_LEER,
   PERMISO_PANEL_ADMIN_LEER,
   PERMISO_PROVEEDORES_COMPRAS_LEER,
+  PERMISO_WORKFLOWS_LEER,
   ROL_ADMINISTRACION,
   ROL_ADMINISTRADOR_DEL_SISTEMA,
   ROL_DIRECCION,
@@ -42,6 +44,7 @@ import {
   ROL_FAMILIA,
   tienePermiso,
 } from '@/modules/auth/constants'
+import { RUTA_REGLAS } from '@/modules/workflows/constants'
 import type { Permiso } from '@/modules/auth/types'
 
 export interface NavItem {
@@ -82,8 +85,8 @@ export function vistaDe(rolActivo: string | null): Vista {
 }
 
 // Cada módulo suma su propia línea acá cuando tenga una página real. No se dibujan ítems
-// muertos: cada href tiene que apuntar a una ruta implementada (§8 DESIGN.md). Workflows,
-// Auditoría y Sugerencias de IA existen como módulo pero sus routes.tsx todavía están vacíos
+// muertos: cada href tiene que apuntar a una ruta implementada (§8 DESIGN.md). Auditoría y
+// Sugerencias de IA existen como módulo pero sus routes.tsx todavía están vacíos
 // (`RouteObject[] = []`) — se agregan acá cuando tengan una página real.
 export const NAV_GROUPS: NavGroup[] = [
   {
@@ -205,6 +208,13 @@ export const NAV_GROUPS: NavGroup[] = [
           { label: 'Órdenes de compra', href: '/ordenes-compra', icon: ReceiptText },
           { label: 'Catálogo de compras', href: '/catalogo-compras', icon: Boxes },
         ],
+      },
+      {
+        label: 'Workflows',
+        href: RUTA_REGLAS,
+        tituloLanding: 'Reglas de automatización',
+        icon: WorkflowIcon,
+        permiso: PERMISO_WORKFLOWS_LEER,
       },
     ],
   },

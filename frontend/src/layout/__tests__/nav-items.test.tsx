@@ -84,6 +84,15 @@ describe('filtrarNav', () => {
     expect(hijos).not.toContain('Tomar asistencia')
   })
 
+  it('"Workflows" aparece en Gestión con workflows.leer y desaparece sin él', () => {
+    const con = filtrarNav(NAV_GROUPS, 'administrador-del-sistema', [permiso('workflows.leer')])
+    const gestion = con.find((g) => g.label === 'Gestión')
+    expect(gestion?.items.find((i) => i.label === 'Workflows')?.href).toBe('/workflows/reglas')
+
+    const sin = filtrarNav(NAV_GROUPS, 'administrador-del-sistema', [permiso('academico.leer')])
+    expect(sin.flatMap((g) => g.items.map((i) => i.label))).not.toContain('Workflows')
+  })
+
   it('un ítem con roles (los paneles) exige también el rol activo, no solo el permiso', () => {
     const grupos = filtrarNav(NAV_GROUPS, 'docente', [permiso('panel_administrativo.leer')])
 
