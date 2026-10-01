@@ -11,6 +11,8 @@ export function rutaRegla(id: string): string {
   return `${RUTA_REGLAS}/${id}`
 }
 
+export const RUTA_EJECUCIONES = '/workflows/ejecuciones'
+
 // --- Endpoints del backend (`backend/src/workflows/router.py`) -------------------------------
 
 export const API_REGLAS = '/workflows/reglas'
@@ -21,6 +23,12 @@ export function apiRegla(id: string): string {
   return `${API_REGLAS}/${id}`
 }
 
+export const API_EJECUCIONES = '/workflows/ejecuciones'
+
+export function apiReintentarEjecucion(id: string): string {
+  return `${API_EJECUCIONES}/${id}/reintentar`
+}
+
 // --- Listado --------------------------------------------------------------------------------
 
 export const LOCALE = 'es-AR'
@@ -29,6 +37,8 @@ export const FILTRO_TODOS = 'todos'
 export const FILTRO_ACTIVAS = 'activas'
 export const FILTRO_INACTIVAS = 'inactivas'
 export const ESTADOS_REGLA_FILTRO = [FILTRO_TODOS, FILTRO_ACTIVAS, FILTRO_INACTIVAS] as const
+export const ESTADOS_EJECUCION_FILTRO = [FILTRO_TODOS, 'exitoso', 'fallido', 'pendiente'] as const
+export const TAMANIO_PAGINA_EJECUCIONES = 20
 
 // --- accion_config --------------------------------------------------------------------------
 

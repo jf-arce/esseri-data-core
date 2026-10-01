@@ -11,6 +11,8 @@ import {
   cambiarEvento,
   sinConceptosDisponibles,
   defaultsDeConfig,
+  duracionEjecucion,
+  esEstadoEjecucionFiltro,
   etiquetaEvento,
   filtrarReglas,
   valoresDesdeRegla,
@@ -331,5 +333,25 @@ describe('etiquetaEvento', () => {
   it('nombra el evento en lenguaje de usuario y cae al nombre interno si no lo conoce', () => {
     expect(etiquetaEvento('factura.vencida')).toBe('Vence una factura')
     expect(etiquetaEvento('evento.nuevo')).toBe('evento.nuevo')
+  })
+})
+
+describe('esEstadoEjecucionFiltro', () => {
+  it('acepta los estados y también "todos"', () => {
+    expect(esEstadoEjecucionFiltro('todos')).toBe(true)
+    expect(esEstadoEjecucionFiltro('fallido')).toBe(true)
+    expect(esEstadoEjecucionFiltro('otro')).toBe(false)
+  })
+})
+
+describe('duracionEjecucion', () => {
+  it('devuelve null si la ejecución sigue en curso', () => {
+    expect(duracionEjecucion('2026-09-01T10:00:00Z', null)).toBeNull()
+  })
+
+  it('formatea segundos, minutos y horas', () => {
+    expect(duracionEjecucion('2026-09-01T10:00:00Z', '2026-09-01T10:00:05Z')).toBe('5 s')
+    expect(duracionEjecucion('2026-09-01T10:00:00Z', '2026-09-01T10:02:10Z')).toBe('2 min 10 s')
+    expect(duracionEjecucion('2026-09-01T10:00:00Z', '2026-09-01T11:05:00Z')).toBe('1 h 5 min')
   })
 })
