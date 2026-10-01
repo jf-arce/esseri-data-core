@@ -233,6 +233,16 @@ describe('ReglaWorkflowEditorPage', () => {
     expect(await screen.findByText('La regla no existe')).toBeInTheDocument()
   })
 
+  it('trata un id que no es UUID (422) como regla inexistente', async () => {
+    vi.mocked(obtenerReglaWorkflow).mockRejectedValue(
+      new ApiError(422, 'Input should be a valid UUID'),
+    )
+    abrirEditor()
+
+    expect(await screen.findByText('La regla no existe')).toBeInTheDocument()
+    expect(screen.queryByText(/valid UUID/)).not.toBeInTheDocument()
+  })
+
   it('muestra el error del backend al guardar sin salir del editor', async () => {
     const user = userEvent.setup()
     vi.mocked(actualizarReglaWorkflow).mockRejectedValue(

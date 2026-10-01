@@ -19,7 +19,9 @@ export function useReglaWorkflow(id: string | undefined) {
       .then((regla) => setResultado({ id, regla, noEncontrada: false, error: null }))
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') return
-        const noEncontrada = error instanceof ApiError && error.status === 404
+        // 422: un id que no es UUID tampoco corresponde a ninguna regla.
+        const noEncontrada =
+          error instanceof ApiError && (error.status === 404 || error.status === 422)
         setResultado({
           id,
           regla: null,
