@@ -11,6 +11,7 @@ import {
   cambiarEvento,
   sinConceptosDisponibles,
   defaultsDeConfig,
+  etiquetaEvento,
   filtrarReglas,
   valoresDesdeRegla,
   VALORES_REGLA_VACIOS,
@@ -46,7 +47,7 @@ describe('accionesDisponibles', () => {
     expect(resultado[1].disponible).toBe(true)
     const otro = accionesDisponibles(catalogo, 'pago.registrado')
     expect(otro[1].disponible).toBe(false)
-    expect(otro[1].motivo).toContain('factura.vencida')
+    expect(otro[1].motivo).toContain('Vence una factura')
   })
 
   it('deshabilita siempre las acciones sin eventos permitidos', () => {
@@ -323,5 +324,12 @@ describe('sinConceptosDisponibles', () => {
     expect(resultado[0].disponible).toBe(true)
     expect(resultado[1].disponible).toBe(false)
     expect(resultado[1].motivo).toContain('conceptos de cobro')
+  })
+})
+
+describe('etiquetaEvento', () => {
+  it('nombra el evento en lenguaje de usuario y cae al nombre interno si no lo conoce', () => {
+    expect(etiquetaEvento('factura.vencida')).toBe('Vence una factura')
+    expect(etiquetaEvento('evento.nuevo')).toBe('evento.nuevo')
   })
 })

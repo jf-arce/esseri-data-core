@@ -1,3 +1,12 @@
+import {
+  CLAVE_CONFIG,
+  ESTADOS_REGLA_FILTRO,
+  FILTRO_ACTIVAS,
+  FILTRO_INACTIVAS,
+  FILTRO_TODOS,
+  LOCALE,
+  REGISTRO_ALUMNO_Y_FAMILIA,
+} from '@/modules/workflows/constants'
 import type {
   AccionConfig,
   CampoEvento,
@@ -28,6 +37,22 @@ export const ETIQUETA_ACCION: Record<TipoAccion, string> = {
   crear_registro_relacionado: 'Crear registro relacionado',
   generar_orden_compra: 'Generar orden de compra',
   generar_comunicacion: 'Generar comunicación',
+}
+
+// Cómo se nombra cada evento del catálogo (`TipoEventoNombre` en el backend) frente al usuario.
+// Un evento nuevo sin entrada acá se muestra con su nombre interno.
+const ETIQUETA_EVENTO: Record<string, string> = {
+  'inasistencia.registrada': 'Se registra una inasistencia',
+  'inasistencia.justificada': 'Se justifica una inasistencia',
+  'factura.vencida': 'Vence una factura',
+  'inscripcion.cambio_matricula': 'Cambia la matrícula de una inscripción',
+  'solicitud_inscripcion.aprobada': 'Se aprueba una solicitud de inscripción',
+  'pago.registrado': 'Se registra un pago',
+  'pago.rechazado': 'Se rechaza un pago',
+}
+
+export function etiquetaEvento(nombre: string): string {
+  return ETIQUETA_EVENTO[nombre] ?? nombre
 }
 
 export const ETIQUETA_CRITICIDAD: Record<Criticidad, string> = {
@@ -92,7 +117,9 @@ export function accionesDisponibles(
       return {
         tipo_accion,
         disponible: false,
-        motivo: `No aplica a este evento. Eventos permitidos: ${eventos_permitidos.join(', ')}.`,
+        motivo: `No aplica a este evento. Se usa cuando: ${eventos_permitidos
+          .map(etiquetaEvento)
+          .join('; ')}.`,
       }
     }
     return { tipo_accion, disponible: true, motivo: null }
@@ -130,25 +157,29 @@ const texto = (nombre: string): CampoConfig => ({ nombre, tipo: 'texto' })
 const entero = (nombre: string): CampoConfig => ({ nombre, tipo: 'entero' })
 const decimal = (nombre: string): CampoConfig => ({ nombre, tipo: 'decimal' })
 
-const CAMPOS_DESTINATARIO = [texto('destinatario')]
+const CAMPOS_DESTINATARIO = [texto(CLAVE_CONFIG.destinatario)]
 
 /** Campos de `accion_config` por acción (`CONFIG_POR_ACCION` del backend). */
 export const CAMPOS_POR_ACCION: Record<TipoAccion, readonly CampoConfig[]> = {
   notificar: CAMPOS_DESTINATARIO,
   generar_comunicacion: CAMPOS_DESTINATARIO,
-  generar_recordatorio: [texto('destinatario'), entero('dias_despues')],
-  alerta_interna: [texto('mensaje')],
+  generar_recordatorio: [texto(CLAVE_CONFIG.destinatario), entero(CLAVE_CONFIG.diasDespues)],
+  alerta_interna: [texto(CLAVE_CONFIG.mensaje)],
   crear_tarea: [
-    texto('titulo'),
-    texto('descripcion'),
-    texto('prioridad'),
-    entero('dias_para_vencer'),
+    texto(CLAVE_CONFIG.titulo),
+    texto(CLAVE_CONFIG.descripcion),
+    texto(CLAVE_CONFIG.prioridad),
+    entero(CLAVE_CONFIG.diasParaVencer),
   ],
-  escalar_caso: [texto('motivo'), texto('prioridad')],
-  cambiar_estado: [texto('estado_nuevo')],
-  generar_cargo: [texto('concepto_cobro_id'), decimal('monto')],
-  actualizar_cuenta_corriente: [texto('tipo'), texto('concepto_cobro_id'), texto('campo_monto')],
-  aplicar_penalidad: [texto('regla_penalidad_id')],
+  escalar_caso: [texto(CLAVE_CONFIG.motivo), texto(CLAVE_CONFIG.prioridad)],
+  cambiar_estado: [texto(CLAVE_CONFIG.estadoNuevo)],
+  generar_cargo: [texto(CLAVE_CONFIG.conceptoCobroId), decimal(CLAVE_CONFIG.monto)],
+  actualizar_cuenta_corriente: [
+    texto(CLAVE_CONFIG.tipo),
+    texto(CLAVE_CONFIG.conceptoCobroId),
+    texto(CLAVE_CONFIG.campoMonto),
+  ],
+  aplicar_penalidad: [texto(CLAVE_CONFIG.reglaPenalidadId)],
   crear_registro_relacionado: [],
   aplicar_vencimiento: [],
   registrar_pago: [],
@@ -158,11 +189,14 @@ export const CAMPOS_POR_ACCION: Record<TipoAccion, readonly CampoConfig[]> = {
 
 // Valores que el backend exige y que el usuario no elige (un solo valor posible).
 const CONFIG_FIJA_POR_ACCION: Partial<Record<TipoAccion, AccionConfig>> = {
-  crear_registro_relacionado: { registro: 'alumno_y_familia_desde_solicitud' },
+  crear_registro_relacionado: { [CLAVE_CONFIG.registro]: REGISTRO_ALUMNO_Y_FAMILIA },
 }
 
 // Campos de `accion_config` que dependen del evento: se limpian al cambiarlo.
-export const CAMPOS_DEPENDIENTES_DEL_EVENTO = ['campo_monto', 'estado_nuevo'] as const
+export const CAMPOS_DEPENDIENTES_DEL_EVENTO = [
+  CLAVE_CONFIG.campoMonto,
+  CLAVE_CONFIG.estadoNuevo,
+] as const
 
 /** `accion_config` con solo los campos de esa acción y sin valores vacíos. Los enteros viajan
  * como número, `monto` como texto decimal (el backend lo lee como `Decimal`). */
@@ -304,26 +338,26 @@ export function armarPatch(
   }
 }
 
-export type EstadoReglaFiltro = 'todos' | 'activas' | 'inactivas'
+export type EstadoReglaFiltro = (typeof ESTADOS_REGLA_FILTRO)[number]
 
 export function esEstadoReglaFiltro(valor: string): valor is EstadoReglaFiltro {
-  return valor === 'todos' || valor === 'activas' || valor === 'inactivas'
+  return ESTADOS_REGLA_FILTRO.some((estado) => estado === valor)
 }
 
 export interface FiltrosReglas {
   busqueda: string
   estado: EstadoReglaFiltro
-  /** `'todos'` o el id del tipo de evento. */
+  /** `FILTRO_TODOS` o el id del tipo de evento. */
   tipoEventoId: string
 }
 
 export function filtrarReglas(reglas: ReglaWorkflow[], filtros: FiltrosReglas): ReglaWorkflow[] {
-  const busqueda = filtros.busqueda.trim().toLocaleLowerCase('es-AR')
+  const busqueda = filtros.busqueda.trim().toLocaleLowerCase(LOCALE)
   return reglas.filter((regla) => {
-    if (busqueda !== '' && !regla.nombre.toLocaleLowerCase('es-AR').includes(busqueda)) return false
-    if (filtros.estado === 'activas' && !regla.activo) return false
-    if (filtros.estado === 'inactivas' && regla.activo) return false
-    return filtros.tipoEventoId === 'todos' || regla.tipo_evento_id === filtros.tipoEventoId
+    if (busqueda !== '' && !regla.nombre.toLocaleLowerCase(LOCALE).includes(busqueda)) return false
+    if (filtros.estado === FILTRO_ACTIVAS && !regla.activo) return false
+    if (filtros.estado === FILTRO_INACTIVAS && regla.activo) return false
+    return filtros.tipoEventoId === FILTRO_TODOS || regla.tipo_evento_id === filtros.tipoEventoId
   })
 }
 

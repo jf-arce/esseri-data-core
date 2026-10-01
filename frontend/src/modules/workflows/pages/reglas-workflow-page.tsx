@@ -21,6 +21,12 @@ import {
   PERMISO_WORKFLOWS_CREAR,
   tienePermiso,
 } from '@/modules/auth/constants'
+import {
+  FILTRO_ACTIVAS,
+  FILTRO_INACTIVAS,
+  FILTRO_TODOS,
+  RUTA_NUEVA_REGLA,
+} from '@/modules/workflows/constants'
 import { ReglasWorkflowTabla } from '@/modules/workflows/components/reglas-workflow-tabla'
 import { useCatalogosWorkflow } from '@/modules/workflows/hooks/use-catalogos-workflow'
 import { useReglasWorkflow } from '@/modules/workflows/hooks/use-reglas-workflow'
@@ -28,15 +34,16 @@ import { actualizarReglaWorkflow } from '@/modules/workflows/services/actualizar
 import type { ReglaWorkflow } from '@/modules/workflows/types'
 import {
   esEstadoReglaFiltro,
+  etiquetaEvento,
   filtrarReglas,
   type EstadoReglaFiltro,
 } from '@/modules/workflows/utils'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 const OPCIONES_ESTADO: { value: EstadoReglaFiltro; label: string }[] = [
-  { value: 'todos', label: 'Todos' },
-  { value: 'activas', label: 'Activas' },
-  { value: 'inactivas', label: 'Inactivas' },
+  { value: FILTRO_TODOS, label: 'Todos' },
+  { value: FILTRO_ACTIVAS, label: 'Activas' },
+  { value: FILTRO_INACTIVAS, label: 'Inactivas' },
 ]
 
 export function ReglasWorkflowPage() {
@@ -46,8 +53,8 @@ export function ReglasWorkflowPage() {
   const { reglas, cargando, error, sinPermiso, recargar } = useReglasWorkflow()
   const { tiposEvento } = useCatalogosWorkflow()
   const [busqueda, setBusqueda] = useState('')
-  const [estado, setEstado] = useState<EstadoReglaFiltro>('todos')
-  const [tipoEventoId, setTipoEventoId] = useState('todos')
+  const [estado, setEstado] = useState<EstadoReglaFiltro>(FILTRO_TODOS)
+  const [tipoEventoId, setTipoEventoId] = useState(FILTRO_TODOS)
 
   async function cambiarActivo(regla: ReglaWorkflow) {
     try {
@@ -75,7 +82,7 @@ export function ReglasWorkflowPage() {
   const sinReglas = !cargando && !error && reglas.length === 0
   const nuevaRegla = puedeCrear && (
     <Button asChild>
-      <Link to="/workflows/reglas/nueva">
+      <Link to={RUTA_NUEVA_REGLA}>
         <PlusIcon data-icon="inline-start" />
         Nueva regla
       </Link>
@@ -85,7 +92,7 @@ export function ReglasWorkflowPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader titulo="Reglas de automatización" accion={nuevaRegla} />
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-4">
         <StatTile
           label="Reglas activas"
           value={activas}
@@ -137,17 +144,20 @@ export function ReglasWorkflowPage() {
                 onChange={(valor) => {
                   if (esEstadoReglaFiltro(valor)) setEstado(valor)
                 }}
-                active={estado !== 'todos'}
+                active={estado !== FILTRO_TODOS}
               />
               <FilterDropdown
                 label="Evento"
                 options={[
-                  { value: 'todos', label: 'Todos' },
-                  ...tiposEvento.map((tipo) => ({ value: tipo.id, label: tipo.nombre })),
+                  { value: FILTRO_TODOS, label: 'Todos' },
+                  ...tiposEvento.map((tipo) => ({
+                    value: tipo.id,
+                    label: etiquetaEvento(tipo.nombre),
+                  })),
                 ]}
                 value={tipoEventoId}
                 onChange={setTipoEventoId}
-                active={tipoEventoId !== 'todos'}
+                active={tipoEventoId !== FILTRO_TODOS}
               />
               <FilterBarSpacer />
             </FilterBar>

@@ -11,10 +11,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { rutaRegla } from '@/modules/workflows/constants'
 import type { ReglaWorkflow, TipoEvento } from '@/modules/workflows/types'
 import {
   ETIQUETA_ACCION,
   ETIQUETA_CRITICIDAD,
+  etiquetaEvento,
   VARIANTE_CRITICIDAD,
 } from '@/modules/workflows/utils'
 
@@ -44,7 +46,7 @@ export function ReglasWorkflowTabla({
   puedeActualizar,
   onCambiarActivo,
 }: ReglasWorkflowTablaProps) {
-  const nombreEvento = new Map(tiposEvento.map((tipo) => [tipo.id, tipo.nombre]))
+  const nombreEvento = new Map(tiposEvento.map((tipo) => [tipo.id, etiquetaEvento(tipo.nombre)]))
 
   return (
     <div className="overflow-hidden rounded-panel bg-superficie shadow-card">
@@ -52,7 +54,7 @@ export function ReglasWorkflowTabla({
         <TableHeader>
           <TableRow>
             <TableHead>Regla</TableHead>
-            <TableHead>Evento</TableHead>
+            <TableHead>Disparador</TableHead>
             <TableHead>Acción</TableHead>
             <TableHead>Criticidad</TableHead>
             <TableHead>Aprob. humana</TableHead>
@@ -85,7 +87,7 @@ export function ReglasWorkflowTabla({
                 <TableCell data-align="end">
                   <div className="flex justify-end gap-1">
                     <Button variant="ghost" size="sm" asChild>
-                      <Link to={`/workflows/reglas/${regla.id}`}>
+                      <Link to={rutaRegla(regla.id)}>
                         {puedeActualizar ? (
                           <PencilIcon data-icon="inline-start" />
                         ) : (

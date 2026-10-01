@@ -19,6 +19,7 @@ import {
   type NodoRegla,
   type ResumenNodo,
 } from '@/modules/workflows/components/canvas-regla'
+import { PARAMETRO_REGLA_ID, RUTA_REGLAS } from '@/modules/workflows/constants'
 import { PanelAccion } from '@/modules/workflows/components/panel-accion'
 import { PanelCondicion } from '@/modules/workflows/components/panel-condicion'
 import { PanelDisparador } from '@/modules/workflows/components/panel-disparador'
@@ -37,12 +38,15 @@ import {
   ETIQUETA_ACCION,
   ETIQUETA_CRITICIDAD,
   ETIQUETA_OPERADOR,
+  etiquetaEvento,
   sinConceptosDisponibles,
   valoresDesdeRegla,
   VALORES_REGLA_VACIOS,
   type ValoresRegla,
 } from '@/modules/workflows/utils'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
+
+const ETIQUETA_VOLVER_A_REGLAS = 'Volver a las reglas'
 
 const TITULO_PANEL: Record<NodoRegla, string> = {
   disparador: 'Disparador seleccionado',
@@ -78,7 +82,7 @@ function EditorRegla({ regla, tiposEvento, tiposAccion }: EditorReglaProps) {
   const disponibles = accionesDisponibles(tiposAccion, nombreEvento)
 
   const resumenDisparador: ResumenNodo = {
-    titulo: nombreEvento ?? 'Sin evento',
+    titulo: nombreEvento ? etiquetaEvento(nombreEvento) : 'Sin evento',
     detalle: valores.nombre.trim() || 'Sin nombre',
   }
   const resumenCondicion: ResumenNodo = campo
@@ -116,7 +120,7 @@ function EditorRegla({ regla, tiposEvento, tiposAccion }: EditorReglaProps) {
         await crearReglaWorkflow(armarPayloadAlta(valores, tipoAccion, contexto))
         toast.success('Regla creada')
       }
-      navigate('/workflows/reglas')
+      navigate(RUTA_REGLAS)
     } catch (causa) {
       setError(causa instanceof ApiError ? causa.detail : 'No se pudo guardar la regla.')
       setGuardando(false)
@@ -126,7 +130,7 @@ function EditorRegla({ regla, tiposEvento, tiposAccion }: EditorReglaProps) {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
-        <BackLink to="/workflows/reglas" label="Volver a las reglas" />
+        <BackLink to={RUTA_REGLAS} label={ETIQUETA_VOLVER_A_REGLAS} />
         <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">Workflows</p>
       </div>
       <PageHeader
@@ -136,7 +140,7 @@ function EditorRegla({ regla, tiposEvento, tiposAccion }: EditorReglaProps) {
         accion={
           <div className="flex gap-2">
             <Button variant="secondary" asChild>
-              <Link to="/workflows/reglas">{soloLectura ? 'Volver' : 'Cancelar'}</Link>
+              <Link to={RUTA_REGLAS}>{soloLectura ? 'Volver' : 'Cancelar'}</Link>
             </Button>
             {!soloLectura && (
               <Button onClick={guardar} disabled={guardando}>
@@ -221,7 +225,7 @@ function EditorRegla({ regla, tiposEvento, tiposAccion }: EditorReglaProps) {
 }
 
 export function ReglaWorkflowEditorPage() {
-  const { reglaId } = useParams()
+  const reglaId = useParams()[PARAMETRO_REGLA_ID]
   const catalogos = useCatalogosWorkflow()
   const regla = useReglaWorkflow(reglaId)
 
@@ -245,7 +249,7 @@ export function ReglaWorkflowEditorPage() {
         <EmptyTitle>La regla no existe</EmptyTitle>
         <EmptyDescription>Puede que se haya eliminado o que el enlace esté mal.</EmptyDescription>
         <Button variant="secondary" asChild>
-          <Link to="/workflows/reglas">Volver a las reglas</Link>
+          <Link to={RUTA_REGLAS}>{ETIQUETA_VOLVER_A_REGLAS}</Link>
         </Button>
       </Empty>
     )

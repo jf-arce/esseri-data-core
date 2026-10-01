@@ -7,7 +7,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { LIMITE_NOMBRE_REGLA } from '@/modules/workflows/constants'
 import type { TipoEvento } from '@/modules/workflows/types'
+import { etiquetaEvento } from '@/modules/workflows/utils'
 
 interface PanelDisparadorProps {
   nombre: string
@@ -34,21 +36,21 @@ export function PanelDisparador({
         <Input
           id="regla-nombre"
           value={nombre}
-          maxLength={150}
+          maxLength={LIMITE_NOMBRE_REGLA}
           disabled={deshabilitado}
           onChange={(e) => onCambiarNombre(e.target.value)}
         />
       </Field>
       <Field>
-        <FieldLabel htmlFor="regla-evento">Evento disparador</FieldLabel>
+        <FieldLabel htmlFor="regla-evento">Cuándo se dispara</FieldLabel>
         <Select value={tipoEventoId} onValueChange={onCambiarEvento} disabled={deshabilitado}>
           <SelectTrigger id="regla-evento">
-            <SelectValue placeholder="Elegir evento" />
+            <SelectValue placeholder="Elegir cuándo se dispara" />
           </SelectTrigger>
           <SelectContent>
             {tiposEvento.map((tipo) => (
               <SelectItem key={tipo.id} value={tipo.id}>
-                {tipo.nombre}
+                {etiquetaEvento(tipo.nombre)}
               </SelectItem>
             ))}
           </SelectContent>

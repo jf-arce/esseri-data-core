@@ -10,27 +10,18 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import type { ConceptoCobro } from '@/modules/facturacion/types'
-import type { CampoEvento, TipoAccion } from '@/modules/workflows/types'
-
-interface Opcion {
-  value: string
-  label: string
-}
-
-const DESTINATARIOS: Opcion[] = [
-  { value: 'responsable_economico', label: 'Responsable económico' },
-  { value: 'responsables_habilitados', label: 'Responsables habilitados' },
-  { value: 'destinatarios_regla', label: 'Destinatarios de la regla' },
-]
-const PRIORIDADES: Opcion[] = [
-  { value: 'baja', label: 'Baja' },
-  { value: 'media', label: 'Media' },
-  { value: 'alta', label: 'Alta' },
-]
-const TIPOS_ASIENTO: Opcion[] = [
-  { value: 'debe', label: 'Debe' },
-  { value: 'haber', label: 'Haber' },
-]
+import {
+  CLAVE_CONFIG,
+  DESTINATARIOS,
+  LIMITE_MENSAJE_ALERTA,
+  LIMITE_TITULO_TAREA,
+  PRIORIDADES,
+  RANGO_DIAS_RECORDATORIO,
+  RANGO_DIAS_TAREA,
+  RANGO_MONTO,
+  TIPOS_ASIENTO,
+} from '@/modules/workflows/constants'
+import type { CampoEvento, OpcionSelect, TipoAccion } from '@/modules/workflows/types'
 
 export interface ContextoConfig {
   /** Estados a los que puede llevar `cambiar_estado` en el evento elegido. */
@@ -59,7 +50,7 @@ function CampoSelect({
 }: FormularioProps & {
   nombre: string
   etiqueta: string
-  opciones: Opcion[]
+  opciones: OpcionSelect[]
   placeholder?: string
   descripcion?: string
 }) {
@@ -135,7 +126,7 @@ function CampoTexto({
   )
 }
 
-function opcionesConcepto(conceptos: ConceptoCobro[]): Opcion[] {
+function opcionesConcepto(conceptos: ConceptoCobro[]): OpcionSelect[] {
   return conceptos.map((concepto) => ({ value: concepto.id, label: concepto.nombre }))
 }
 
@@ -146,10 +137,9 @@ function SinParametros() {
 const destinatario = (p: FormularioProps) => (
   <CampoSelect
     {...p}
-    nombre="destinatario"
+    nombre={CLAVE_CONFIG.destinatario}
     etiqueta="Destinatario"
     opciones={DESTINATARIOS}
-    placeholder="Responsables habilitados"
   />
 )
 
@@ -163,42 +153,63 @@ const FORMULARIOS: Record<TipoAccion, (props: FormularioProps) => ReactNode> = {
       {destinatario(p)}
       <CampoTexto
         {...p}
-        nombre="dias_despues"
+        nombre={CLAVE_CONFIG.diasDespues}
         etiqueta="Días después del evento"
         tipo="number"
-        limites={{ min: 1, max: 90 }}
-        descripcion="Entre 1 y 90 días."
+        limites={RANGO_DIAS_RECORDATORIO}
+        descripcion={`Entre ${RANGO_DIAS_RECORDATORIO.min} y ${RANGO_DIAS_RECORDATORIO.max} días.`}
       />
     </>
   ),
   alerta_interna: (p) => (
-    <CampoTexto {...p} nombre="mensaje" etiqueta="Mensaje" multilinea maxLength={500} />
+    <CampoTexto
+      {...p}
+      nombre={CLAVE_CONFIG.mensaje}
+      etiqueta="Mensaje"
+      multilinea
+      maxLength={LIMITE_MENSAJE_ALERTA}
+    />
   ),
   crear_tarea: (p) => (
     <>
-      <CampoTexto {...p} nombre="titulo" etiqueta="Título" maxLength={150} />
-      <CampoTexto {...p} nombre="descripcion" etiqueta="Descripción" multilinea />
-      <CampoSelect {...p} nombre="prioridad" etiqueta="Prioridad" opciones={PRIORIDADES} />
       <CampoTexto
         {...p}
-        nombre="dias_para_vencer"
+        nombre={CLAVE_CONFIG.titulo}
+        etiqueta="Título"
+        maxLength={LIMITE_TITULO_TAREA}
+      />
+      <CampoTexto {...p} nombre={CLAVE_CONFIG.descripcion} etiqueta="Descripción" multilinea />
+      <CampoSelect
+        {...p}
+        nombre={CLAVE_CONFIG.prioridad}
+        etiqueta="Prioridad"
+        opciones={PRIORIDADES}
+      />
+      <CampoTexto
+        {...p}
+        nombre={CLAVE_CONFIG.diasParaVencer}
         etiqueta="Días para vencer"
         tipo="number"
-        limites={{ min: 1, max: 60 }}
-        descripcion="Opcional, entre 1 y 60 días."
+        limites={RANGO_DIAS_TAREA}
+        descripcion={`Opcional, entre ${RANGO_DIAS_TAREA.min} y ${RANGO_DIAS_TAREA.max} días.`}
       />
     </>
   ),
   escalar_caso: (p) => (
     <>
-      <CampoTexto {...p} nombre="motivo" etiqueta="Motivo" multilinea />
-      <CampoSelect {...p} nombre="prioridad" etiqueta="Prioridad" opciones={PRIORIDADES} />
+      <CampoTexto {...p} nombre={CLAVE_CONFIG.motivo} etiqueta="Motivo" multilinea />
+      <CampoSelect
+        {...p}
+        nombre={CLAVE_CONFIG.prioridad}
+        etiqueta="Prioridad"
+        opciones={PRIORIDADES}
+      />
     </>
   ),
   cambiar_estado: (p) => (
     <CampoSelect
       {...p}
-      nombre="estado_nuevo"
+      nombre={CLAVE_CONFIG.estadoNuevo}
       etiqueta="Estado nuevo"
       opciones={p.contexto.estadosPermitidos.map((estado) => ({
         value: estado,
@@ -210,32 +221,37 @@ const FORMULARIOS: Record<TipoAccion, (props: FormularioProps) => ReactNode> = {
     <>
       <CampoSelect
         {...p}
-        nombre="concepto_cobro_id"
+        nombre={CLAVE_CONFIG.conceptoCobroId}
         etiqueta="Concepto de cobro"
         opciones={opcionesConcepto(p.contexto.conceptos)}
       />
       <CampoTexto
         {...p}
-        nombre="monto"
+        nombre={CLAVE_CONFIG.monto}
         etiqueta="Monto"
         tipo="number"
-        limites={{ min: 0.01, step: '0.01' }}
+        limites={RANGO_MONTO}
         descripcion="Opcional. Debe ser mayor que cero."
       />
     </>
   ),
   actualizar_cuenta_corriente: (p) => (
     <>
-      <CampoSelect {...p} nombre="tipo" etiqueta="Tipo de asiento" opciones={TIPOS_ASIENTO} />
       <CampoSelect
         {...p}
-        nombre="concepto_cobro_id"
+        nombre={CLAVE_CONFIG.tipo}
+        etiqueta="Tipo de asiento"
+        opciones={TIPOS_ASIENTO}
+      />
+      <CampoSelect
+        {...p}
+        nombre={CLAVE_CONFIG.conceptoCobroId}
         etiqueta="Concepto de cobro"
         opciones={opcionesConcepto(p.contexto.conceptos)}
       />
       <CampoSelect
         {...p}
-        nombre="campo_monto"
+        nombre={CLAVE_CONFIG.campoMonto}
         etiqueta="Campo con el monto"
         opciones={p.contexto.camposNumericos.map((campo) => ({
           value: campo.nombre_interno,
@@ -246,10 +262,10 @@ const FORMULARIOS: Record<TipoAccion, (props: FormularioProps) => ReactNode> = {
     </>
   ),
   aplicar_penalidad: ({ valores }) =>
-    valores.regla_penalidad_id ? (
+    valores[CLAVE_CONFIG.reglaPenalidadId] ? (
       <p className="text-sm text-texto-2">
-        Esta regla usa una regla de penalidad fija ({valores.regla_penalidad_id}). Se conserva al
-        guardar.
+        Esta regla usa una regla de penalidad fija ({valores[CLAVE_CONFIG.reglaPenalidadId]}). Se
+        conserva al guardar.
       </p>
     ) : (
       <p className="text-sm text-texto-2">

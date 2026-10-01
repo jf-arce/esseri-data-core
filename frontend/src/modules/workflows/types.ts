@@ -96,3 +96,8 @@ export interface ReglaWorkflowPatch {
   notificacion_template_id?: string | null
   activo?: boolean
 }
+
+export interface OpcionSelect {
+  value: string
+  label: string
+}

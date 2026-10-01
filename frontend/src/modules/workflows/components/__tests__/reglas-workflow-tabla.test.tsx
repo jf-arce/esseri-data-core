@@ -42,7 +42,7 @@ describe('ReglasWorkflowTabla', () => {
     renderizar(true)
 
     expect(screen.getByText('Penalidad por mora')).toBeInTheDocument()
-    expect(screen.getByText('factura.vencida')).toBeInTheDocument()
+    expect(screen.getByText('Vence una factura')).toBeInTheDocument()
     expect(screen.getByText('Aplicar penalidad')).toBeInTheDocument()
     expect(screen.getByText('Alta')).toBeInTheDocument()
     expect(screen.getByText('Sí')).toBeInTheDocument()

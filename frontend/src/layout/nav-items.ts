@@ -44,6 +44,7 @@ import {
   ROL_FAMILIA,
   tienePermiso,
 } from '@/modules/auth/constants'
+import { RUTA_REGLAS } from '@/modules/workflows/constants'
 import type { Permiso } from '@/modules/auth/types'
 
 export interface NavItem {
@@ -210,7 +211,7 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         label: 'Workflows',
-        href: '/workflows/reglas',
+        href: RUTA_REGLAS,
         tituloLanding: 'Reglas de automatización',
         icon: WorkflowIcon,
         permiso: PERMISO_WORKFLOWS_LEER,

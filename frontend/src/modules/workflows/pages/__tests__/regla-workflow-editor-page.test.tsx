@@ -156,7 +156,7 @@ describe('ReglaWorkflowEditorPage', () => {
     })
     abrirEditor()
 
-    await elegirOpcion(user, 'Evento disparador', 'pago.registrado')
+    await elegirOpcion(user, 'Cuándo se dispara', 'Se registra un pago')
     await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
 
     await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
