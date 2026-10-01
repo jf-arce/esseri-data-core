@@ -12,7 +12,7 @@ from src.auth.constants import (
 from src.auth.dependencies import requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
-from src.workflows import service
+from src.workflows import despacho_service, service
 from src.workflows.dependencies import obtener_regla_o_404
 from src.workflows.models import WorkflowRule
 from src.workflows.schemas import (
@@ -73,4 +73,4 @@ def actualizar_regla(
 @router.post("/procesar", response_model=ResumenDespacho)
 def procesar_eventos_pendientes(db: DbSession, _: PuedeActualizar):
     """Corre una pasada del despachador sin esperar al job periódico (útil para probar)."""
-    return service.procesar_eventos_pendientes(db)
+    return despacho_service.procesar_eventos_pendientes(db)

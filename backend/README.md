@@ -150,7 +150,7 @@ emit_event(
    transacción del llamador. Si esa operación se revierte, el evento desaparece con ella, así que
    nunca queda registrado algo que no pasó. El despachador recién ve el evento cuando el llamador
    confirma.
-3. El despachador (`procesar_eventos_pendientes`) corre solo dentro del backend: al arrancar la app
+3. El despachador (`procesar_eventos_pendientes`, en `despacho_service.py`) corre solo dentro del backend: al arrancar la app
    se levanta una tarea en segundo plano (`despacho_job.py`) que cada
    `WORKFLOWS_DESPACHO_INTERVALO_SEGUNDOS` (30 por defecto) toma los eventos `pendiente`, del más
    viejo al más nuevo, y los procesa de a uno, hasta 100 por pasada. Nadie del equipo lo llama. Se
@@ -175,8 +175,8 @@ reintentos son #66). Es el mismo patrón que el job de facturación. El costo es
 `WORKFLOWS_DESPACHO_INTERVALO_SEGUNDOS` entre el evento y la ejecución de sus reglas. Con varias
 instancias del backend, `FOR UPDATE SKIP LOCKED` evita que dos procesen el mismo evento.
 
-**Estado actual:** ningún tipo de acción tiene ejecutor real (`ACCIONES` en `service.py` está
-vacío), así que las reglas sin aprobación humana quedan `fallido` con "acción no implementada"
+**Estado actual:** ningún tipo de acción tiene ejecutor real (`ACCIONES` en `despacho_service.py`
+está vacío), así que las reglas sin aprobación humana quedan `fallido` con "acción no implementada"
 hasta que se implemente cada una (`notificar` en #68, `crear_tarea`/`escalar_caso` en #89; las que
 tocan Facturación o Inscripciones dependen de los servicios de esos módulos).
 

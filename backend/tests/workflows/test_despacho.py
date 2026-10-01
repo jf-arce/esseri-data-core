@@ -4,10 +4,10 @@ import pytest
 from sqlalchemy import select
 
 from src.models import EventLog
-from src.workflows import service
+from src.workflows import despacho_service
+from src.workflows.despacho_service import procesar_eventos_pendientes
 from src.workflows.eventos_service import emit_event
 from src.workflows.models import WorkflowExecution, WorkflowRule
-from src.workflows.service import procesar_eventos_pendientes
 
 
 def _regla(db, tipo, **extra):
@@ -41,7 +41,7 @@ def _evento(db, payload=None):
 @pytest.fixture()
 def acciones(monkeypatch):
     registro = {}
-    monkeypatch.setattr(service, "ACCIONES", registro)
+    monkeypatch.setattr(despacho_service, "ACCIONES", registro)
     return registro
 
 
@@ -151,14 +151,14 @@ def test_error_inesperado_marca_el_evento_fallido_y_sigue(
 ):
     primero = _evento(db_session)
     segundo = _evento(db_session)
-    original = service._despachar_evento
+    original = despacho_service._despachar_evento
 
     def despachar(db, evento):
         if evento.id == primero.id:
             raise RuntimeError("boom")
         return original(db, evento)
 
-    monkeypatch.setattr(service, "_despachar_evento", despachar)
+    monkeypatch.setattr(despacho_service, "_despachar_evento", despachar)
 
     resumen = procesar_eventos_pendientes(db_session)
 
