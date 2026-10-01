@@ -139,13 +139,37 @@ emit_event(
   agregarlo a `TipoEventoNombre` (`src/workflows/constants.py`), a `database/seeds/grupo-a.yaml` y
   sus campos a `grupo-b.yaml`.
 
-El despachador (`procesar_eventos_pendientes`) corre en segundo plano cada
-`WORKFLOWS_DESPACHO_INTERVALO_SEGUNDOS` (apagable con `WORKFLOWS_DESPACHO_HABILITADO=false`) y
-también a pedido con `POST /workflows/procesar`. Por cada evento pendiente busca las reglas activas
-de su tipo, crea un `WORKFLOW_EXECUTION` por regla y marca el evento como `procesado`. Las reglas con
-`requiere_aprobacion_humana` dejan la ejecución en `pendiente`. Hoy ningún tipo de acción tiene
-ejecutor real (`ACCIONES` está vacío): las ejecuciones quedan `fallido` con el error "acción no
-implementada" hasta que se implemente cada una.
+**Cómo fluye un evento**
+
+1. El módulo dueño del hecho (facturación, académico, etc.) llama a `emit_event()` y después hace su
+   `commit`. Eso es todo lo que le toca: no espera ni se entera de lo que pase después.
+2. `emit_event()` solo inserta la fila en `EVENT_LOG` con estado `pendiente`, dentro de la
+   transacción del llamador. Si esa operación se revierte, el evento desaparece con ella, así que
+   nunca queda registrado algo que no pasó. El despachador recién ve el evento cuando el llamador
+   confirma.
+3. El despachador (`procesar_eventos_pendientes`) corre solo dentro del backend: al arrancar la app
+   se levanta una tarea en segundo plano (`despacho_job.py`) que cada
+   `WORKFLOWS_DESPACHO_INTERVALO_SEGUNDOS` (30 por defecto) toma los eventos `pendiente`, del más
+   viejo al más nuevo, y los procesa de a uno, hasta 100 por pasada. Nadie del equipo lo llama. Se
+   puede apagar con `WORKFLOWS_DESPACHO_HABILITADO=false` y forzar una pasada con
+   `POST /workflows/procesar`.
+4. Por cada evento busca las reglas activas de su tipo y crea un `WORKFLOW_EXECUTION` por regla. Si
+   la regla tiene `requiere_aprobacion_humana`, la ejecución queda `pendiente` y no se ejecuta nada.
+   Si no, corre la acción y la ejecución queda `exitoso` o `fallido`. Un evento sin reglas también
+   se marca `procesado`.
+5. Cada evento se confirma por separado: si uno falla (el evento pasa a `fallido`) no se revierten
+   los que ya se procesaron. Una acción que falla no corta las demás reglas del mismo evento.
+
+**Por qué es asíncrono:** así una falla del motor o de n8n no puede romper la operación de negocio
+que originó el evento (por ejemplo, el registro de una ausencia), y el estado
+`pendiente/procesado/fallido` de `EVENT_LOG` deja registrado qué se procesó y qué falló (los
+reintentos son #66). Es el mismo patrón que el job de facturación. El costo es una demora de hasta
+`WORKFLOWS_DESPACHO_INTERVALO_SEGUNDOS` entre el evento y la ejecución de sus reglas. Con varias
+instancias del backend, `FOR UPDATE SKIP LOCKED` evita que dos procesen el mismo evento.
+
+**Estado actual:** ningún tipo de acción tiene ejecutor real (`ACCIONES` en `service.py` está
+vacío), así que las reglas sin aprobación humana quedan `fallido` con "acción no implementada"
+hasta que se implemente cada una (#64 y #68).
 
 Las reglas se administran en `/workflows/reglas` y el catálogo de eventos con sus campos en
 `/workflows/tipos-evento`. Los emails los envía n8n vía el webhook `N8N_WEBHOOK_URL` (ver
