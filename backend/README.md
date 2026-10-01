@@ -183,7 +183,9 @@ intento nuevo y conserva los anteriores. Solo admite el último intento fallido 
 y rechaza el reintento si la regla fue editada desde esa ejecución. La operación requiere permiso
 `workflows.actualizar` y registra en auditoría quién la solicitó. Cada combinación de regla, evento
 y número de intento es única; si dos solicitudes compiten por el mismo intento, una recibe `409`
-antes de ejecutar la acción.
+antes de ejecutar la acción. Cada ejecución del listado incluye `reintentable`, calculado con esas
+mismas condiciones, para que el frontend solo ofrezca el botón cuando corresponde; el `POST` vuelve
+a validarlas, así que el valor puede quedar viejo entre la carga y el clic.
 
 **Estado actual:** ningún tipo de acción tiene ejecutor real (`ACCIONES` en `despacho_service.py`
 está vacío), así que las reglas sin aprobación humana quedan `fallido` con "acción no implementada"
