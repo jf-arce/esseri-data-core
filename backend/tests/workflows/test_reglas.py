@@ -164,7 +164,11 @@ def test_tipos_evento_incluye_sus_campos(client_autenticado, tipo_factura_vencid
     tipos = client_autenticado.get("/workflows/tipos-evento").json()
 
     assert [t["nombre"] for t in tipos] == ["factura.vencida"]
-    assert {c["nombre_interno"] for c in tipos[0]["campos"]} == {"dias_vencido", "monto_deuda"}
+    assert {c["nombre_interno"] for c in tipos[0]["campos"]} == {
+        "dias_vencido",
+        "monto_deuda",
+        "nombre_familia",
+    }
 
 
 def test_sin_sesion_es_401(client):

@@ -3,10 +3,12 @@
 La emisión de eventos vive en `eventos_service.py` (ver el motivo ahí)."""
 
 import logging
+import operator
 import uuid
 from collections import defaultdict
 from collections.abc import Callable
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -27,6 +29,7 @@ from src.workflows.eventos_service import coaccionar_valor
 from src.workflows.exceptions import (
     AccionConfigInvalida,
     CondicionInvalida,
+    EntidadDeEventoInvalida,
     PlantillaNoEncontrada,
     TipoEventoNoEncontrado,
 )
@@ -364,20 +367,95 @@ def procesar_eventos_pendientes(db: Session, limite: int = 100) -> ResumenDespac
 
 
 def _despachar_evento(db: Session, evento: EventLog) -> int:
+    tipo_evento = db.get(TipoEvento, evento.tipo_evento_id)
+    if tipo_evento is None:
+        raise TipoEventoNoEncontrado()
+    campos = _tipos_de_campos(db, tipo_evento.id)
     reglas = db.scalars(
         select(WorkflowRule)
         .where(WorkflowRule.tipo_evento_id == evento.tipo_evento_id, WorkflowRule.activo.is_(True))
         .order_by(WorkflowRule.nombre)
     ).all()
+
+    creadas = 0
     for regla in reglas:
         ejecucion = WorkflowExecution(workflow_rule_id=regla.id, event_log_id=evento.id, intento=1)
+        # Cada regla se evalúa aislada: una que no se puede evaluar queda como ejecución fallida
+        # y no impide que se procesen las demás del mismo evento.
+        try:
+            if not _regla_aplica(regla, evento, tipo_evento.nombre, campos):
+                continue
+            _validar_accion(
+                db,
+                regla.tipo_accion,
+                regla.accion_config,
+                tipo_evento.nombre,
+                campos,
+                regla.notificacion_template_id,
+            )
+        except Exception as error:
+            logger.warning("No se pudo evaluar la regla %s", regla.id, exc_info=True)
+            db.add(ejecucion)
+            _marcar_fallida(ejecucion, str(error))
+            creadas += 1
+            continue
+
         db.add(ejecucion)
+        creadas += 1
         if regla.requiere_aprobacion_humana:
             ejecucion.estado = "pendiente"
             ejecucion.detalle = "Esperando aprobación humana."
         else:
             _ejecutar_accion(db, regla, evento, ejecucion)
-    return len(reglas)
+    return creadas
+
+
+def _regla_aplica(
+    regla: WorkflowRule, evento: EventLog, tipo_evento_nombre: str, campos: dict[str, str]
+) -> bool:
+    esperada = ENTIDAD_POR_EVENTO.get(tipo_evento_nombre)
+    if esperada != evento.entidad:
+        raise EntidadDeEventoInvalida(tipo_evento_nombre, evento.entidad, esperada or "ninguna")
+    return _cumple_condicion(regla.condicion, campos, evento.payload or {})
+
+
+_Comparable = Decimal | date | str
+_COMPARADORES: dict[str, Callable[[_Comparable, _Comparable], bool]] = {
+    "==": operator.eq,
+    "!=": operator.ne,
+    ">": operator.gt,
+    ">=": operator.ge,
+    "<": operator.lt,
+    "<=": operator.le,
+}
+
+
+def _cumple_condicion(
+    condicion: dict[str, object], campos: dict[str, str], payload: dict[str, object]
+) -> bool:
+    """Evalúa `{campo, operador, valor}` contra el payload del evento. Sin condición, siempre
+    se cumple. Un campo ausente o de tipo equivocado no se compara: se informa como error."""
+    if not condicion:
+        return True
+    _validar_condicion(condicion, campos)
+    parseada = Condicion.model_validate(condicion)
+    tipo_dato = campos[parseada.campo]
+    if parseada.campo not in payload:
+        raise ValueError(f"El evento no trae el campo '{parseada.campo}'.")
+    try:
+        actual = coaccionar_valor(tipo_dato, payload[parseada.campo])
+    except ValueError as error:
+        raise ValueError(f"Campo '{parseada.campo}' del evento: {error}") from error
+    esperado = coaccionar_valor(tipo_dato, parseada.valor)
+    if parseada.operador == "contiene":
+        return str(esperado).lower() in str(actual).lower()
+    return _COMPARADORES[parseada.operador](actual, esperado)
+
+
+def _marcar_fallida(ejecucion: WorkflowExecution, motivo: str) -> None:
+    ejecucion.estado = "fallido"
+    ejecucion.error_detail = motivo
+    ejecucion.finished_at = datetime.now()
 
 
 def _ejecutar_accion(
