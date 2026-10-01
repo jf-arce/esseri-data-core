@@ -379,6 +379,69 @@ def test_patch_de_config_se_valida_contra_la_accion_actual(
     assert buena.json()["accion_config"] == {"destinatario": "responsable_economico"}
 
 
+def test_aplicar_penalidad_valida_la_regla_de_penalidad(
+    client_autenticado, db_session, tipo_factura_vencida, regla_penalidad
+):
+    def alta(regla_id):
+        return _crear(
+            client_autenticado,
+            tipo_factura_vencida.id,
+            tipo_accion="aplicar_penalidad",
+            accion_config={"regla_penalidad_id": str(regla_id)},
+        )
+
+    valida = alta(regla_penalidad.id)
+    inexistente = alta(uuid.uuid4())
+    regla_penalidad.activo = False
+    db_session.commit()
+    inactiva = alta(regla_penalidad.id)
+
+    assert valida.status_code == 201
+    assert inexistente.status_code == 422
+    assert inactiva.status_code == 422
+
+
+@pytest.mark.parametrize("monto", [0, -10])
+def test_generar_cargo_rechaza_monto_no_positivo(
+    client_autenticado, db_session, concepto_cobro, monto
+):
+    otro = TipoEvento(nombre="pago.rechazado")
+    db_session.add(otro)
+    db_session.commit()
+
+    respuesta = _crear(
+        client_autenticado,
+        otro.id,
+        tipo_accion="generar_cargo",
+        accion_config={"concepto_cobro_id": str(concepto_cobro.id), "monto": monto},
+    )
+
+    assert respuesta.status_code == 422
+    assert "monto" in respuesta.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    ("tipo_accion", "campo", "valor"),
+    [
+        ("generar_recordatorio", "dias_despues", 0),
+        ("generar_recordatorio", "dias_despues", 91),
+        ("crear_tarea", "dias_para_vencer", 0),
+        ("crear_tarea", "dias_para_vencer", 61),
+    ],
+)
+def test_plazos_de_las_acciones_tienen_limites(
+    client_autenticado, tipo_factura_vencida, tipo_accion, campo, valor
+):
+    config = {campo: valor, **({"titulo": "Llamar"} if tipo_accion == "crear_tarea" else {})}
+
+    respuesta = _crear(
+        client_autenticado, tipo_factura_vencida.id, tipo_accion=tipo_accion, accion_config=config
+    )
+
+    assert respuesta.status_code == 422
+    assert campo in respuesta.json()["detail"]
+
+
 # --- Condición ----------------------------------------------------------------------------
 
 
