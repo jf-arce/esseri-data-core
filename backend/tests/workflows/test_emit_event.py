@@ -7,8 +7,8 @@ import pytest
 from sqlalchemy import select
 
 from src.models import EventLog
-from src.workflows.eventos_service import emit_event
-from src.workflows.exceptions import TipoEventoNoRegistrado
+from src.workflows.eventos_service import coaccionar_valor, emit_event
+from src.workflows.exceptions import EntidadDeEventoInvalida, TipoEventoNoRegistrado
 
 
 def test_evento_de_sistema_queda_pendiente(db_session, tipo_factura_vencida):
@@ -85,3 +85,52 @@ def test_no_hace_commit(db_session, tipo_factura_vencida):
     db_session.rollback()
 
     assert db_session.scalars(select(EventLog)).all() == []
+
+
+def test_entidad_distinta_de_la_canonica_falla(db_session, tipo_factura_vencida):
+    with pytest.raises(EntidadDeEventoInvalida):
+        emit_event(db_session, tipo="factura.vencida", entidad="tarea", entidad_id=uuid.uuid4())
+
+    assert db_session.scalars(select(EventLog)).all() == []
+
+
+def test_campo_de_tipo_equivocado_loggea_warning_y_registra_igual(
+    db_session, tipo_factura_vencida, caplog
+):
+    with caplog.at_level(logging.WARNING, logger="src.workflows.eventos_service"):
+        evento = emit_event(
+            db_session,
+            tipo="factura.vencida",
+            entidad="factura",
+            entidad_id=uuid.uuid4(),
+            payload={"dias_vencido": "seis", "monto_deuda": True},
+        )
+
+    assert "tipo equivocado" in caplog.text
+    assert "dias_vencido" in caplog.text and "monto_deuda" in caplog.text
+    assert evento.id is not None
+
+
+@pytest.mark.parametrize(
+    ("tipo_dato", "valor"),
+    [
+        ("numero", None),
+        ("numero", True),
+        ("numero", "6"),
+        ("numero", float("nan")),
+        ("fecha", "no es fecha"),
+        ("fecha", 20260906),
+        ("texto", 5),
+        ("texto", None),
+    ],
+)
+def test_coaccionar_valor_rechaza_tipos_invalidos(tipo_dato, valor):
+    with pytest.raises(ValueError):
+        coaccionar_valor(tipo_dato, valor)
+
+
+def test_coaccionar_valor_acepta_los_tipos_declarados():
+    assert coaccionar_valor("numero", 6) == Decimal(6)
+    assert coaccionar_valor("numero", 1500.5) == Decimal("1500.5")
+    assert coaccionar_valor("fecha", "2026-09-06") == date(2026, 9, 6)
+    assert coaccionar_valor("texto", "hola") == "hola"
