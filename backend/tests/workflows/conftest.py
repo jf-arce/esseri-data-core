@@ -11,6 +11,7 @@ from src.auth.constants import (
     MODULO_WORKFLOWS,
 )
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
+from src.facturacion.models import ConceptoCobro
 from src.workflows.models import CampoEvento, TipoEvento
 
 PASSWORD_VALIDA = "una-contrasenia-larga"
@@ -39,6 +40,14 @@ def tipo_factura_vencida(db_session):
     )
     db_session.commit()
     return tipo
+
+
+@pytest.fixture()
+def concepto_cobro(db_session):
+    concepto = ConceptoCobro(nombre="Penalidad por mora", activo=True)
+    db_session.add(concepto)
+    db_session.commit()
+    return concepto
 
 
 def _crear_usuario_con_permisos(db_session, email: str, acciones: tuple[str, ...]) -> Usuario:

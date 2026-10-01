@@ -8,13 +8,28 @@ from collections import defaultdict
 from collections.abc import Callable
 from datetime import datetime
 
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.auditoria.service import log_audit
+from src.facturacion.models import ConceptoCobro, ReglaPenalidad
 from src.models import EventLog
-from src.workflows.constants import ACCIONES_CON_APROBACION_POR_DEFECTO
-from src.workflows.exceptions import PlantillaNoEncontrada, TipoEventoNoEncontrado
+from src.workflows.constants import (
+    ACCIONES_CON_APROBACION_POR_DEFECTO,
+    ACCIONES_CON_PLANTILLA,
+    CAMBIOS_ESTADO_PERMITIDOS,
+    ENTIDAD_POR_EVENTO,
+    EVENTOS_POR_ACCION,
+    OPERADORES_POR_TIPO_DATO,
+)
+from src.workflows.eventos_service import coaccionar_valor
+from src.workflows.exceptions import (
+    AccionConfigInvalida,
+    CondicionInvalida,
+    PlantillaNoEncontrada,
+    TipoEventoNoEncontrado,
+)
 from src.workflows.models import (
     CampoEvento,
     NotificacionTemplate,
@@ -23,7 +38,13 @@ from src.workflows.models import (
     WorkflowRule,
 )
 from src.workflows.schemas import (
+    CONFIG_POR_ACCION,
     CampoEventoRead,
+    Condicion,
+    ConfigActualizarCuentaCorriente,
+    ConfigAplicarPenalidad,
+    ConfigCambiarEstado,
+    ConfigGenerarCargo,
     ResumenDespacho,
     TipoEventoRead,
     WorkflowRuleCreate,
@@ -38,6 +59,10 @@ logger = logging.getLogger(__name__)
 # Campos de `WorkflowRule` que admiten NULL: en una edición, `None` explícito los limpia. Para el
 # resto, `None` significa "no cambiar".
 _CAMPOS_NULLABLES_REGLA = frozenset({"accion_config", "notificacion_template_id"})
+# Campos cuyo cambio obliga a revalidar la regla completa contra la allowlist.
+_CAMPOS_QUE_REVALIDAN_REGLA = frozenset(
+    {"tipo_evento_id", "tipo_accion", "condicion", "accion_config", "notificacion_template_id"}
+)
 
 
 def listar_tipos_evento(db: Session) -> list[TipoEventoRead]:
@@ -77,6 +102,14 @@ def crear_regla(
     _validar_referencias(db, datos.tipo_evento_id, datos.notificacion_template_id)
 
     valores = datos.model_dump()
+    valores["accion_config"] = _validar_regla(
+        db,
+        datos.tipo_evento_id,
+        datos.tipo_accion,
+        datos.condicion,
+        datos.accion_config,
+        datos.notificacion_template_id,
+    )
     if valores["requiere_aprobacion_humana"] is None:
         valores["requiere_aprobacion_humana"] = _aprobacion_por_defecto(datos.tipo_accion)
     regla = WorkflowRule(**valores)
@@ -112,6 +145,19 @@ def actualizar_regla(
         cambios.get("tipo_evento_id"),
         cambios.get("notificacion_template_id"),
     )
+    if cambios.keys() & _CAMPOS_QUE_REVALIDAN_REGLA:
+        # Se valida el estado final (regla actual + cambios), no solo lo que llegó en el PATCH.
+        # Los campos nullables solo están en `cambios` si llegaron explícitos (incluso en null).
+        cambios["accion_config"] = _validar_regla(
+            db,
+            cambios.get("tipo_evento_id", regla.tipo_evento_id),
+            cambios.get("tipo_accion", regla.tipo_accion),
+            cambios.get("condicion", regla.condicion),
+            cambios["accion_config"] if "accion_config" in cambios else regla.accion_config,
+            cambios["notificacion_template_id"]
+            if "notificacion_template_id" in cambios
+            else regla.notificacion_template_id,
+        )
     # Al cambiar de acción sin decidir la aprobación, la regla adopta el default de la nueva.
     if "tipo_accion" in cambios and "requiere_aprobacion_humana" not in cambios:
         cambios["requiere_aprobacion_humana"] = _aprobacion_por_defecto(cambios["tipo_accion"])
@@ -154,6 +200,125 @@ def _validar_referencias(
         and db.get(NotificacionTemplate, notificacion_template_id) is None
     ):
         raise PlantillaNoEncontrada()
+
+
+def _validar_regla(
+    db: Session,
+    tipo_evento_id: uuid.UUID,
+    tipo_accion: str,
+    condicion: dict[str, object],
+    accion_config: dict[str, object] | None,
+    notificacion_template_id: uuid.UUID | None,
+) -> dict[str, object]:
+    """Valida condición y acción contra la allowlist. Devuelve el `accion_config` normalizado
+    (con los defaults completos) que se guarda en la regla."""
+    tipo_evento = db.get(TipoEvento, tipo_evento_id)
+    if tipo_evento is None:
+        raise TipoEventoNoEncontrado()
+    campos = _tipos_de_campos(db, tipo_evento.id)
+    _validar_condicion(condicion, campos)
+    return _validar_accion(
+        db, tipo_accion, accion_config, tipo_evento.nombre, campos, notificacion_template_id
+    )
+
+
+def _tipos_de_campos(db: Session, tipo_evento_id: uuid.UUID) -> dict[str, str]:
+    """`nombre_interno -> tipo_dato` de los campos que declara el evento."""
+    return {
+        nombre: tipo_dato
+        for nombre, tipo_dato in db.execute(
+            select(CampoEvento.nombre_interno, CampoEvento.tipo_dato).where(
+                CampoEvento.tipo_evento_id == tipo_evento_id
+            )
+        )
+    }
+
+
+def _resumen_errores(error: ValidationError) -> str:
+    return "; ".join(
+        f"{'.'.join(str(parte) for parte in e['loc']) or 'valor'}: {e['msg']}"
+        for e in error.errors()
+    )
+
+
+def _validar_condicion(condicion: dict[str, object], campos: dict[str, str]) -> None:
+    if not condicion:
+        return
+    try:
+        parseada = Condicion.model_validate(condicion)
+    except ValidationError as error:
+        raise CondicionInvalida(f"Condición inválida: {_resumen_errores(error)}") from error
+    tipo_dato = campos.get(parseada.campo)
+    if tipo_dato is None:
+        disponibles = ", ".join(sorted(campos)) or "ninguno"
+        raise CondicionInvalida(
+            f"El campo '{parseada.campo}' no existe en este evento. Disponibles: {disponibles}."
+        )
+    if parseada.operador not in OPERADORES_POR_TIPO_DATO[tipo_dato]:
+        raise CondicionInvalida(
+            f"El operador '{parseada.operador}' no aplica a '{parseada.campo}' ({tipo_dato})."
+        )
+    try:
+        coaccionar_valor(tipo_dato, parseada.valor)
+    except ValueError as error:
+        raise CondicionInvalida(f"Valor inválido para '{parseada.campo}': {error}") from error
+
+
+def _validar_accion(
+    db: Session,
+    tipo_accion: str,
+    accion_config: dict[str, object] | None,
+    tipo_evento_nombre: str,
+    campos: dict[str, str],
+    notificacion_template_id: uuid.UUID | None,
+) -> dict[str, object]:
+    permitidos = EVENTOS_POR_ACCION[tipo_accion]
+    if permitidos is not None and tipo_evento_nombre not in permitidos:
+        if not permitidos:
+            raise AccionConfigInvalida(
+                f"La acción '{tipo_accion}' todavía no se puede configurar: "
+                "ningún evento la dispara."
+            )
+        raise AccionConfigInvalida(
+            f"La acción '{tipo_accion}' no admite el evento '{tipo_evento_nombre}'. "
+            f"Eventos permitidos: {', '.join(sorted(permitidos))}."
+        )
+    if notificacion_template_id is not None and tipo_accion not in ACCIONES_CON_PLANTILLA:
+        raise AccionConfigInvalida(
+            f"La acción '{tipo_accion}' no admite plantilla de notificación."
+        )
+    # `null` equivale a `{}`: las reglas sin config siguen siendo válidas si no tienen
+    # parámetros obligatorios.
+    try:
+        config = CONFIG_POR_ACCION[tipo_accion].model_validate(accion_config or {})
+    except ValidationError as error:
+        raise AccionConfigInvalida(
+            f"Configuración inválida para '{tipo_accion}': {_resumen_errores(error)}"
+        ) from error
+
+    if isinstance(config, ConfigCambiarEstado):
+        entidad = ENTIDAD_POR_EVENTO.get(tipo_evento_nombre, "")
+        estados = CAMBIOS_ESTADO_PERMITIDOS.get(entidad, frozenset())
+        if config.estado_nuevo not in estados:
+            raise AccionConfigInvalida(
+                f"'{config.estado_nuevo}' no es un estado permitido para '{entidad}'. "
+                f"Permitidos: {', '.join(sorted(estados)) or 'ninguno'}."
+            )
+    if isinstance(config, ConfigGenerarCargo | ConfigActualizarCuentaCorriente):
+        concepto = db.get(ConceptoCobro, config.concepto_cobro_id)
+        if concepto is None or not concepto.activo:
+            raise AccionConfigInvalida("El concepto de cobro indicado no existe o está inactivo.")
+    if isinstance(config, ConfigActualizarCuentaCorriente) and (
+        campos.get(config.campo_monto) != "numero"
+    ):
+        raise AccionConfigInvalida(
+            f"'{config.campo_monto}' no es un campo numérico de este evento."
+        )
+    if isinstance(config, ConfigAplicarPenalidad) and config.regla_penalidad_id is not None:
+        regla = db.get(ReglaPenalidad, config.regla_penalidad_id)
+        if regla is None or not regla.activo:
+            raise AccionConfigInvalida("La regla de penalidad indicada no existe o está inactiva.")
+    return config.model_dump(mode="json")
 
 
 # --- Despacho de eventos pendientes ------------------------------------------------------
