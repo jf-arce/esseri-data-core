@@ -779,7 +779,7 @@ RF cubiertos: RF-13, RF-14 · RNF-05
 | Tabla | Qué audita | Módulo de origen |
 |---|---|---|
 | `AUDIT_LOG` (ex `EVENT_LOG`) | Cambios de datos (crear/editar/borrar) en cualquier entidad. Lo escribe `log_audit()` | Transversal (`backend/src/models.py`) |
-| `EVENT_LOG` (nuevo) | Hechos de negocio append-only (ej. `factura.vencida`, `inasistencia.registrada`). Lo escribe `emit_event()` (`backend/src/workflows/service.py`), lo consume el motor de Workflows | Transversal (`backend/src/models.py`) |
+| `EVENT_LOG` (nuevo) | Hechos de negocio append-only (ej. `factura.vencida`, `inasistencia.registrada`). Lo escribe `emit_event()` (`backend/src/workflows/eventos_service.py`), lo consume el motor de Workflows | Transversal (`backend/src/models.py`) |
 | `LOG_ACCESO` | Intentos de login (éxito/fallo) | Autenticación y Roles |
 | `WORKFLOW_EXECUTION` | Disparos de reglas de automatización, con reintentos y errores | Motor de Workflows |
 | `NOTIFICACION` | Comunicaciones efectivamente enviadas, a familias y a usuarios internos | Motor de Workflows |

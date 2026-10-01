@@ -115,11 +115,11 @@ como respaldo con previsualización.
 
 ### Workflows: eventos y despacho
 
-Los módulos avisan al motor de workflows con `emit_event()` (`src/workflows/service.py`), que
-guarda un hecho de negocio en `EVENT_LOG` con estado `pendiente`:
+Los módulos avisan al motor de workflows con `emit_event()` (`src/workflows/eventos_service.py`),
+que guarda un hecho de negocio en `EVENT_LOG` con estado `pendiente`:
 
 ```python
-from src.workflows.service import emit_event
+from src.workflows.eventos_service import emit_event
 
 emit_event(
     db,

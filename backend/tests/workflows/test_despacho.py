@@ -5,8 +5,9 @@ from sqlalchemy import select
 
 from src.models import EventLog
 from src.workflows import service
+from src.workflows.eventos_service import emit_event
 from src.workflows.models import WorkflowExecution, WorkflowRule
-from src.workflows.service import emit_event, procesar_eventos_pendientes
+from src.workflows.service import procesar_eventos_pendientes
 
 
 def _regla(db, tipo, **extra):

@@ -7,8 +7,8 @@ import pytest
 from sqlalchemy import select
 
 from src.models import EventLog
+from src.workflows.eventos_service import emit_event
 from src.workflows.exceptions import TipoEventoNoRegistrado
-from src.workflows.service import emit_event
 
 
 def test_evento_de_sistema_queda_pendiente(db_session, tipo_factura_vencida):
@@ -67,7 +67,7 @@ def test_payload_se_serializa_a_json(db_session, tipo_factura_vencida):
 
 
 def test_campo_faltante_loggea_warning_y_registra_igual(db_session, tipo_factura_vencida, caplog):
-    with caplog.at_level(logging.WARNING, logger="src.workflows.service"):
+    with caplog.at_level(logging.WARNING, logger="src.workflows.eventos_service"):
         evento = emit_event(
             db_session,
             tipo="factura.vencida",
