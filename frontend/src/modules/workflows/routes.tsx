@@ -1,7 +1,13 @@
 import type { RouteObject } from 'react-router'
 import { PermisoRoute } from '@/router/permiso-route'
 import { PERMISO_WORKFLOWS_CREAR, PERMISO_WORKFLOWS_LEER } from '@/modules/auth/constants'
-import { RUTA_NUEVA_REGLA, RUTA_REGLA_POR_ID, RUTA_REGLAS } from '@/modules/workflows/constants'
+import {
+  RUTA_EJECUCIONES,
+  RUTA_NUEVA_REGLA,
+  RUTA_REGLA_POR_ID,
+  RUTA_REGLAS,
+} from '@/modules/workflows/constants'
+import { EjecucionesWorkflowPage } from '@/modules/workflows/pages/ejecuciones-workflow-page'
 import { ReglasWorkflowPage } from '@/modules/workflows/pages/reglas-workflow-page'
 import { ReglaWorkflowEditorPage } from '@/modules/workflows/pages/regla-workflow-editor-page'
 
@@ -15,6 +21,7 @@ export const workflowsRoutes: RouteObject[] = [
         children: [{ path: RUTA_NUEVA_REGLA, element: <ReglaWorkflowEditorPage /> }],
       },
       { path: RUTA_REGLA_POR_ID, element: <ReglaWorkflowEditorPage /> },
+      { path: RUTA_EJECUCIONES, element: <EjecucionesWorkflowPage /> },
     ],
   },
 ]
