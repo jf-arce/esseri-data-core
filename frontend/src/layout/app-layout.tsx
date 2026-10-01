@@ -153,11 +153,11 @@ export function AppLayout() {
             <button
               type="button"
               onClick={() => setComandoAbierto(true)}
-              className="mx-auto flex h-10 w-full max-w-150 cursor-pointer items-center gap-2.5 rounded-lg border border-borde bg-lienzo px-4 text-left text-sm text-texto-3 hover:bg-fila-hover"
+              className="mx-auto flex h-10 w-full max-w-150 min-w-0 cursor-pointer items-center gap-2.5 rounded-lg border border-borde bg-lienzo px-4 text-left text-sm text-texto-3 hover:bg-fila-hover"
             >
               <Search className="size-4 shrink-0" />
-              <span>Buscar o ir a…</span>
-              <kbd className="ml-auto rounded-md border border-borde bg-superficie px-1.5 py-0.5">
+              <span className="truncate">Buscar o ir a…</span>
+              <kbd className="ml-auto hidden shrink-0 rounded-md sm:block border border-borde bg-superficie px-1.5 py-0.5">
                 <div className="text-xs text-texto-3 flex gap-0.5 items-center justify-center">
                   <span>⌘</span>
                   <span>K</span>

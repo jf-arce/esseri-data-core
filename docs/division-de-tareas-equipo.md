@@ -218,7 +218,8 @@ Antes del alcance nuevo, estas vistas no tenían dueño formal en ningún docume
 5. `solicitud_inscripcion.aprobada` → `crear_registro_relacionado` (dispara el Loop A completo).
 
 **Frontend (`modules/workflows/`):**
-- ABM de reglas de workflow (selector de evento, editor de condición, editor de plantilla con chips insertables de `CAMPO_EVENTO`, selector de criticidad y aprobación humana).
+- ABM de reglas de workflow (RF-22), **hecho** (#65): selector de evento, editor de condición, selector de acción con su configuración, criticidad y aprobación humana.
+- Editor de plantilla con chips insertables de `CAMPO_EVENTO` y destinatarios (`REGLA_DESTINATARIO`) (RF-25), **pendiente** (#69/#70).
 - Historial de ejecuciones (RF-23), con filtro por estado.
 - Bandeja de tareas y escalamiento.
 
