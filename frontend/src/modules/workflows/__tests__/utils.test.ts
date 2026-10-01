@@ -7,6 +7,7 @@ import {
   armarPatch,
   armarPayloadAlta,
   defaultsDeConfig,
+  filtrarReglas,
   valoresDesdeRegla,
   VALORES_REGLA_VACIOS,
 } from '@/modules/workflows/utils'
@@ -208,5 +209,34 @@ describe('armarPayloadAlta', () => {
     )
     expect(payload).toMatchObject({ nombre: 'Aviso', condicion: {}, accion_config: {} })
     expect('notificacion_template_id' in payload).toBe(false)
+  })
+})
+
+describe('filtrarReglas', () => {
+  const reglas: ReglaWorkflow[] = [
+    regla,
+    { ...regla, id: 'r-2', nombre: 'Aviso de mora', tipo_evento_id: 'e-2', activo: false },
+  ]
+
+  it('busca por nombre sin distinguir mayúsculas', () => {
+    const resultado = filtrarReglas(reglas, {
+      busqueda: 'AVISO',
+      estado: 'todos',
+      tipoEventoId: 'todos',
+    })
+    expect(resultado.map((item) => item.id)).toEqual(['r-2'])
+  })
+
+  it('filtra por estado y por evento', () => {
+    expect(
+      filtrarReglas(reglas, { busqueda: '', estado: 'activas', tipoEventoId: 'todos' }).map(
+        (r) => r.id,
+      ),
+    ).toEqual(['r-1'])
+    expect(
+      filtrarReglas(reglas, { busqueda: '', estado: 'todos', tipoEventoId: 'e-2' }).map(
+        (r) => r.id,
+      ),
+    ).toEqual(['r-2'])
   })
 })

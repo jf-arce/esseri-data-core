@@ -302,3 +302,26 @@ export function armarPatch(
     ...(contexto.admitePlantilla ? {} : { notificacion_template_id: null }),
   }
 }
+
+export type EstadoReglaFiltro = 'todos' | 'activas' | 'inactivas'
+
+export function esEstadoReglaFiltro(valor: string): valor is EstadoReglaFiltro {
+  return valor === 'todos' || valor === 'activas' || valor === 'inactivas'
+}
+
+export interface FiltrosReglas {
+  busqueda: string
+  estado: EstadoReglaFiltro
+  /** `'todos'` o el id del tipo de evento. */
+  tipoEventoId: string
+}
+
+export function filtrarReglas(reglas: ReglaWorkflow[], filtros: FiltrosReglas): ReglaWorkflow[] {
+  const busqueda = filtros.busqueda.trim().toLocaleLowerCase('es-AR')
+  return reglas.filter((regla) => {
+    if (busqueda !== '' && !regla.nombre.toLocaleLowerCase('es-AR').includes(busqueda)) return false
+    if (filtros.estado === 'activas' && !regla.activo) return false
+    if (filtros.estado === 'inactivas' && regla.activo) return false
+    return filtros.tipoEventoId === 'todos' || regla.tipo_evento_id === filtros.tipoEventoId
+  })
+}
