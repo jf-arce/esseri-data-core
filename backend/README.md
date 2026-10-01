@@ -132,12 +132,15 @@ emit_event(
 ```
 
 - No hace `commit`: el evento se confirma con la transacción del llamador, igual que `log_audit()`.
+- `entidad` tiene que ser la que corresponde al tipo (`ENTIDAD_POR_EVENTO` en `constants.py`, por
+  ejemplo `factura.vencida` → `"factura"`, `pago.registrado` → `"pago"`); si no, lanza
+  `EntidadDeEventoInvalida`. Las acciones de las reglas operan sobre esa entidad.
 - `payload` debería traer los campos que el catálogo declara para ese tipo (`campo_evento`, ver
   `database/seeds/grupo-b.yaml`). Si falta alguno se loggea un warning, el evento se registra igual.
   No incluir datos sensibles innecesarios (RNF-15).
 - Un `tipo` que no esté en `tipo_evento` lanza `TipoEventoNoRegistrado`. Para sumar un evento nuevo:
-  agregarlo a `TipoEventoNombre` (`src/workflows/constants.py`), a `database/seeds/grupo-a.yaml` y
-  sus campos a `grupo-b.yaml`.
+  agregarlo a `TipoEventoNombre` y `ENTIDAD_POR_EVENTO` (`src/workflows/constants.py`), a
+  `database/seeds/grupo-a.yaml` y sus campos a `grupo-b.yaml`.
 
 **Cómo fluye un evento**
 
@@ -147,18 +150,23 @@ emit_event(
    transacción del llamador. Si esa operación se revierte, el evento desaparece con ella, así que
    nunca queda registrado algo que no pasó. El despachador recién ve el evento cuando el llamador
    confirma.
-3. El despachador (`procesar_eventos_pendientes`) corre solo dentro del backend: al arrancar la app
+3. El despachador (`procesar_eventos_pendientes`, en `despacho_service.py`) corre solo dentro del backend: al arrancar la app
    se levanta una tarea en segundo plano (`despacho_job.py`) que cada
    `WORKFLOWS_DESPACHO_INTERVALO_SEGUNDOS` (30 por defecto) toma los eventos `pendiente`, del más
    viejo al más nuevo, y los procesa de a uno, hasta 100 por pasada. Nadie del equipo lo llama. Se
    puede apagar con `WORKFLOWS_DESPACHO_HABILITADO=false` y forzar una pasada con
    `POST /workflows/procesar`.
-4. Por cada evento busca las reglas activas de su tipo y crea un `WORKFLOW_EXECUTION` por regla. Si
-   la regla tiene `requiere_aprobacion_humana`, la ejecución queda `pendiente` y no se ejecuta nada.
-   Si no, corre la acción y la ejecución queda `exitoso` o `fallido`. Un evento sin reglas también
-   se marca `procesado`.
+4. Por cada evento busca las reglas activas de su tipo. Para cada una evalúa su `condicion` contra
+   el `payload`: si no se cumple no se crea ninguna ejecución. Si se cumple, revalida el
+   `accion_config` contra la allowlist y crea un `WORKFLOW_EXECUTION`. Si la regla tiene
+   `requiere_aprobacion_humana`, la ejecución queda `pendiente` y no se ejecuta nada. Si no, corre
+   la acción y la ejecución queda `exitoso` o `fallido`. Un evento sin reglas también se marca
+   `procesado`.
 5. Cada evento se confirma por separado: si uno falla (el evento pasa a `fallido`) no se revierten
    los que ya se procesaron. Una acción que falla no corta las demás reglas del mismo evento.
+   Lo mismo vale para una regla que no se puede evaluar (campo ausente o de tipo equivocado en el
+   `payload`, config que ya no pasa la allowlist, entidad que no corresponde): su ejecución queda
+   `fallido` con el motivo en `error_detail` y las demás reglas siguen.
 
 **Por qué es asíncrono:** así una falla del motor o de n8n no puede romper la operación de negocio
 que originó el evento (por ejemplo, el registro de una ausencia), y el estado
@@ -167,9 +175,33 @@ reintentos son #66). Es el mismo patrón que el job de facturación. El costo es
 `WORKFLOWS_DESPACHO_INTERVALO_SEGUNDOS` entre el evento y la ejecución de sus reglas. Con varias
 instancias del backend, `FOR UPDATE SKIP LOCKED` evita que dos procesen el mismo evento.
 
-**Estado actual:** ningún tipo de acción tiene ejecutor real (`ACCIONES` en `service.py` está
-vacío), así que las reglas sin aprobación humana quedan `fallido` con "acción no implementada"
-hasta que se implemente cada una (#64 y #68).
+**Estado actual:** ningún tipo de acción tiene ejecutor real (`ACCIONES` en `despacho_service.py`
+está vacío), así que las reglas sin aprobación humana quedan `fallido` con "acción no implementada"
+hasta que se implemente cada una (`notificar` en #68, `crear_tarea`/`escalar_caso` en #89; las que
+tocan Facturación o Inscripciones dependen de los servicios de esos módulos).
+
+**Reglas y allowlist de `accion_config`**
+
+`condicion` y `accion_config` son datos, nunca código. Al crear o editar una regla (y de nuevo al
+despachar) el backend los valida contra una lista cerrada; lo que no esté declarado se rechaza con
+422. `accion_config = null` equivale a `{}`, y lo que se guarda es la config normalizada con sus
+defaults.
+
+- **`condicion`**: `{}` (siempre se cumple) o `{"campo", "operador", "valor"}`. `campo` tiene que ser
+  un campo del evento de la regla (`GET /workflows/tipos-evento`). Operadores: `==`, `!=`, `>`, `>=`,
+  `<`, `<=` para número y fecha (ISO); `==`, `!=`, `contiene` para texto (sin distinguir mayúsculas).
+- **`accion_config`**: un modelo por acción en `schemas.py` (`CONFIG_POR_ACCION`), con claves
+  extra prohibidas. Los eventos en los que puede usarse cada acción están en `EVENTOS_POR_ACCION`
+  (`constants.py`): solo `notificar`, `alerta_interna`, `generar_recordatorio`, `generar_comunicacion`,
+  `crear_tarea` y `escalar_caso` valen para cualquier evento; las que escriben sobre la entidad del
+  evento o mueven dinero tienen una lista cerrada, y `generar_orden_compra` no se puede configurar
+  hasta que Compras emita un evento. Solo las cuatro que arman un mensaje admiten
+  `notificacion_template_id`.
+- `GET /workflows/tipos-accion` devuelve, por acción, el default de aprobación humana, los eventos
+  permitidos, si admite plantilla y el JSON Schema de su config.
+- Para habilitar una acción en otro evento, o `cambiar_estado` sobre otra entidad
+  (`CAMBIOS_ESTADO_PERMITIDOS`), se edita la constante y se actualiza la nota de `WORKFLOW_RULE` del
+  diccionario de datos.
 
 Las reglas se administran en `/workflows/reglas` y el catálogo de eventos con sus campos en
 `/workflows/tipos-evento`. Los emails los envía n8n vía el webhook `N8N_WEBHOOK_URL` (ver

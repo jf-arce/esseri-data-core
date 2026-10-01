@@ -4,17 +4,18 @@ import pytest
 from sqlalchemy import select
 
 from src.models import EventLog
-from src.workflows import service
+from src.workflows import despacho_service
+from src.workflows.despacho_service import procesar_eventos_pendientes
 from src.workflows.eventos_service import emit_event
 from src.workflows.models import WorkflowExecution, WorkflowRule
-from src.workflows.service import procesar_eventos_pendientes
 
 
 def _regla(db, tipo, **extra):
     regla = WorkflowRule(
         nombre=extra.pop("nombre", "Avisar mora"),
-        condicion={},
+        condicion=extra.pop("condicion", {}),
         tipo_accion=extra.pop("tipo_accion", "notificar"),
+        accion_config=extra.pop("accion_config", None),
         criticidad="media",
         requiere_aprobacion_humana=extra.pop("requiere_aprobacion_humana", False),
         activo=extra.pop("activo", True),
@@ -25,13 +26,13 @@ def _regla(db, tipo, **extra):
     return regla
 
 
-def _evento(db):
+def _evento(db, payload=None):
     evento = emit_event(
         db,
         tipo="factura.vencida",
         entidad="factura",
         entidad_id=uuid.uuid4(),
-        payload={"dias_vencido": 6, "monto_deuda": 10},
+        payload={"dias_vencido": 6, "monto_deuda": 10} if payload is None else payload,
     )
     db.commit()
     return evento
@@ -40,7 +41,7 @@ def _evento(db):
 @pytest.fixture()
 def acciones(monkeypatch):
     registro = {}
-    monkeypatch.setattr(service, "ACCIONES", registro)
+    monkeypatch.setattr(despacho_service, "ACCIONES", registro)
     return registro
 
 
@@ -150,14 +151,14 @@ def test_error_inesperado_marca_el_evento_fallido_y_sigue(
 ):
     primero = _evento(db_session)
     segundo = _evento(db_session)
-    original = service._despachar_evento
+    original = despacho_service._despachar_evento
 
     def despachar(db, evento):
         if evento.id == primero.id:
             raise RuntimeError("boom")
         return original(db, evento)
 
-    monkeypatch.setattr(service, "_despachar_evento", despachar)
+    monkeypatch.setattr(despacho_service, "_despachar_evento", despachar)
 
     resumen = procesar_eventos_pendientes(db_session)
 
@@ -193,3 +194,183 @@ def test_endpoint_procesar_devuelve_resumen(client_autenticado, db_session, tipo
 
 def test_endpoint_procesar_exige_permiso(client_solo_lectura):
     assert client_solo_lectura.post("/workflows/procesar").status_code == 403
+
+
+# --- Condición y revalidación de la regla ------------------------------------------------
+
+
+def _condicion(operador, valor, campo="dias_vencido"):
+    return {"campo": campo, "operador": operador, "valor": valor}
+
+
+def _ejecuciones(db):
+    return db.scalars(select(WorkflowExecution)).all()
+
+
+@pytest.mark.parametrize(
+    ("operador", "valor", "se_ejecuta"),
+    [
+        (">", 5, True),
+        (">", 6, False),
+        (">=", 6, True),
+        ("<", 7, True),
+        ("<=", 5, False),
+        ("==", 6, True),
+        ("!=", 6, False),
+        ("==", 6.0, True),
+    ],
+)
+def test_condicion_decide_si_la_regla_se_ejecuta(
+    db_session, tipo_factura_vencida, acciones, operador, valor, se_ejecuta
+):
+    acciones["notificar"] = lambda db, regla, evento: "ok"
+    _regla(db_session, tipo_factura_vencida, condicion=_condicion(operador, valor))
+    _evento(db_session)
+
+    procesar_eventos_pendientes(db_session)
+
+    assert len(_ejecuciones(db_session)) == (1 if se_ejecuta else 0)
+
+
+def test_condicion_no_cumplida_no_cuenta_como_ejecucion_y_el_evento_queda_procesado(
+    db_session, tipo_factura_vencida, acciones
+):
+    acciones["notificar"] = lambda db, regla, evento: "ok"
+    _regla(db_session, tipo_factura_vencida, condicion=_condicion(">", 30))
+    evento = _evento(db_session)
+
+    resumen = procesar_eventos_pendientes(db_session)
+
+    assert resumen.ejecuciones_creadas == 0
+    assert db_session.get(EventLog, evento.id).estado == "procesado"
+
+
+def test_condicion_de_texto_con_contiene_ignora_mayusculas(
+    db_session, tipo_factura_vencida, acciones
+):
+    acciones["notificar"] = lambda db, regla, evento: "ok"
+    _regla(
+        db_session,
+        tipo_factura_vencida,
+        condicion=_condicion("contiene", "PÉREZ", "nombre_familia"),
+    )
+    _evento(db_session, {"dias_vencido": 6, "monto_deuda": 10, "nombre_familia": "Familia Pérez"})
+
+    procesar_eventos_pendientes(db_session)
+
+    assert len(_ejecuciones(db_session)) == 1
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"monto_deuda": 10},
+        {"dias_vencido": None, "monto_deuda": 10},
+        {"dias_vencido": True, "monto_deuda": 10},
+        {"dias_vencido": "seis", "monto_deuda": 10},
+        {"dias_vencido": [6], "monto_deuda": 10},
+    ],
+)
+def test_payload_no_evaluable_deja_la_ejecucion_fallida(
+    db_session, tipo_factura_vencida, acciones, payload
+):
+    acciones["notificar"] = lambda db, regla, evento: "ok"
+    _regla(db_session, tipo_factura_vencida, condicion=_condicion(">", 5))
+    evento = _evento(db_session, payload)
+
+    procesar_eventos_pendientes(db_session)
+
+    ejecucion = _ejecuciones(db_session)[0]
+    assert ejecucion.estado == "fallido"
+    assert "dias_vencido" in ejecucion.error_detail
+    assert db_session.get(EventLog, evento.id).estado == "procesado"
+
+
+def test_regla_que_no_se_puede_evaluar_no_corta_a_las_demas(
+    db_session, tipo_factura_vencida, acciones
+):
+    acciones["notificar"] = lambda db, regla, evento: "ok"
+    acciones["alerta_interna"] = lambda db, regla, evento: "ok"
+    _regla(
+        db_session,
+        tipo_factura_vencida,
+        nombre="A rota",
+        tipo_accion="notificar",
+        condicion=_condicion(">", 5, "campo_que_no_existe"),
+    )
+    _regla(db_session, tipo_factura_vencida, nombre="B sana", tipo_accion="alerta_interna")
+    evento = _evento(db_session)
+
+    resumen = procesar_eventos_pendientes(db_session)
+
+    estados = {e.workflow_rule_id: e.estado for e in _ejecuciones(db_session)}
+    assert sorted(estados.values()) == ["exitoso", "fallido"]
+    assert resumen.eventos_procesados == 1
+    assert db_session.get(EventLog, evento.id).estado == "procesado"
+
+
+def test_config_invalida_guardada_directo_en_la_base_deja_fallido(
+    db_session, tipo_factura_vencida, acciones
+):
+    llamadas = []
+    acciones["notificar"] = lambda db, regla, evento: llamadas.append(regla.id)
+    _regla(db_session, tipo_factura_vencida, accion_config={"tabla": "usuario"})
+    _evento(db_session)
+
+    procesar_eventos_pendientes(db_session)
+
+    ejecucion = _ejecuciones(db_session)[0]
+    assert ejecucion.estado == "fallido"
+    assert "tabla" in ejecucion.error_detail
+    assert llamadas == []
+
+
+def test_config_invalida_falla_tambien_con_aprobacion_humana(db_session, tipo_factura_vencida):
+    _regla(
+        db_session,
+        tipo_factura_vencida,
+        tipo_accion="generar_cargo",
+        requiere_aprobacion_humana=True,
+    )
+    _evento(db_session)
+
+    procesar_eventos_pendientes(db_session)
+
+    assert _ejecuciones(db_session)[0].estado == "fallido"
+
+
+def test_accion_con_config_null_que_no_tiene_obligatorios_se_ejecuta(
+    db_session, tipo_factura_vencida, acciones
+):
+    acciones["notificar"] = lambda db, regla, evento: "ok"
+    acciones["aplicar_vencimiento"] = lambda db, regla, evento: "ok"
+    _regla(db_session, tipo_factura_vencida, nombre="A", tipo_accion="notificar")
+    _regla(db_session, tipo_factura_vencida, nombre="B", tipo_accion="aplicar_vencimiento")
+    _evento(db_session)
+
+    procesar_eventos_pendientes(db_session)
+
+    assert [e.estado for e in _ejecuciones(db_session)] == ["exitoso", "exitoso"]
+
+
+def test_evento_con_entidad_no_canonica_deja_las_ejecuciones_fallidas(
+    db_session, tipo_factura_vencida, acciones
+):
+    acciones["notificar"] = lambda db, regla, evento: "ok"
+    _regla(db_session, tipo_factura_vencida)
+    evento = EventLog(
+        actor_tipo="sistema",
+        estado="pendiente",
+        entidad="tarea",
+        entidad_id=uuid.uuid4(),
+        tipo_evento_id=tipo_factura_vencida.id,
+        payload={},
+    )
+    db_session.add(evento)
+    db_session.commit()
+
+    procesar_eventos_pendientes(db_session)
+
+    ejecucion = _ejecuciones(db_session)[0]
+    assert ejecucion.estado == "fallido"
+    assert "corresponde 'factura'" in ejecucion.error_detail

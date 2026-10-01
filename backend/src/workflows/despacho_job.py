@@ -5,7 +5,7 @@ import logging
 
 from src.config import settings
 from src.database import SessionLocal
-from src.workflows.service import procesar_eventos_pendientes
+from src.workflows.despacho_service import procesar_eventos_pendientes
 
 logger = logging.getLogger(__name__)
 
