@@ -224,7 +224,7 @@ Antes del alcance nuevo, estas vistas no tenían dueño formal en ningún docume
 
 **Resuelto (decisión de equipo, Pregunta #15):** `requiere_aprobacion_humana = true` por defecto en las acciones que mueven dinero o escalan un caso — `generar_cargo`, `aplicar_penalidad`, `registrar_pago`, `registrar_rechazo`, `escalar_caso`, `generar_orden_compra`. El resto arranca automático. Es un valor inicial, ajustable por regla una vez que el motor esté corriendo.
 
-**Sigue pendiente (Pregunta #16, no bloquea arrancar el módulo):** la especificación campo por campo de la allowlist de `accion_config` — qué entidad/campo puede tocar cada una de las 15 acciones. Arce la define a medida que implementa cada tipo de acción.
+**Resuelto (Pregunta #16):** la allowlist de `accion_config` quedó definida por acción en `backend/src/workflows/` (detalle en el diccionario de datos, nota de `WORKFLOW_RULE`). Arranca cerrada y se abre con cada ejecutor que se implemente.
 
 ---
 

@@ -346,7 +346,7 @@ def _validar_accion(
 
 # Una acción recibe la sesión (dentro de un savepoint), la regla y el evento, y devuelve un
 # detalle para `WorkflowExecution.detalle`. Vacío a propósito en el scaffolding: cada tipo de
-# acción se registra acá al implementarse (ver #64 y #68).
+# acción se registra acá al implementarse (ver #68 y #89).
 AccionHandler = Callable[[Session, WorkflowRule, EventLog], str | None]
 ACCIONES: dict[str, AccionHandler] = {}
 

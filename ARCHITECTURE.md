@@ -425,7 +425,7 @@ Con esto, cada capa queda autocontenida: alguien puede clonar el repo, entrar so
 
 ## Pendiente de definir (no incluido acá a propósito)
 
-- Contenido exacto de `infra/n8n/` — el motor ya tiene los 15 tipos de acción confirmados por el cliente (ver `WORKFLOW_RULE.tipo_accion` en el diccionario de datos), pero falta la allowlist campo por campo de `accion_config` y qué acciones requieren `requiere_aprobacion_humana` — decisión de equipo, no de ESSERI (preguntas pendientes #15/#16 del diccionario).
+- Contenido exacto de `infra/n8n/` — el motor ya tiene los 15 tipos de acción confirmados por el cliente (ver `WORKFLOW_RULE.tipo_accion` en el diccionario de datos), y la allowlist de `accion_config` y los defaults de `requiere_aprobacion_humana` ya están decididos (preguntas #15/#16 del diccionario). Lo que sigue abierto es qué workflows concretos hay que exportar a `infra/n8n/`.
 
 ## Decisiones acordadas con el equipo (no vienen de la guía ni del cliente)
 
