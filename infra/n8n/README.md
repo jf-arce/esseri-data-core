@@ -8,7 +8,7 @@ Workflows exportados de n8n. Vive acá y no en `backend/` porque n8n no tiene l�
 |---|---|
 | `enviar-email.json` | Webhook `POST /enviar-email` (Header Auth) → Gmail → responde 200. Si Gmail falla, la salida de error responde 500. |
 
-> **Borrador**: `enviar-email.json` se armó a mano y su estructura se validó creándolo en una instancia local (nodos Webhook 2.1, Gmail 2.2 y Respond to Webhook 1.5), pero todavía no se probó un envío real. Cuando se pruebe con la credencial de Gmail, reexportarlo desde n8n y reemplazar este archivo.
+> Exportado de una instancia local donde se probó un envío correcto y un fallo de Gmail. Los IDs de credenciales están como `COMPLETAR`: al importar hay que asignar las propias (ver abajo).
 
 ### Importar `enviar-email.json`
 
