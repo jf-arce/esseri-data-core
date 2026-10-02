@@ -330,3 +330,11 @@ class ResumenDespacho(BaseModel):
     eventos_procesados: int = 0
     eventos_fallidos: int = 0
     ejecuciones_creadas: int = 0
+
+
+class ResultadoAccion(BaseModel):
+    """Lo que devuelve un handler de acción. Con `error` cargado la ejecución queda `fallido`,
+    pero las escrituras del handler se conservan (p. ej. notificaciones en `fallido`)."""
+
+    detalle: str | None = None
+    error: str | None = None

@@ -27,6 +27,7 @@ from src.workflows.exceptions import (
 from src.workflows.models import TipoEvento, WorkflowExecution, WorkflowRule
 from src.workflows.schemas import (
     EstadoWorkflowExecution,
+    ResultadoAccion,
     ResumenDespacho,
     WorkflowExecutionListadoRead,
     WorkflowExecutionRead,
@@ -36,10 +37,10 @@ from src.workflows.service import tipos_de_campos, validar_accion, validar_condi
 logger = logging.getLogger(__name__)
 
 
-# Una acción recibe la sesión (dentro de un savepoint), la regla y el evento, y devuelve un
-# detalle para `WorkflowExecution.detalle`. Vacío a propósito en el scaffolding: cada tipo de
-# acción se registra acá al implementarse (ver #68 y #89).
-AccionHandler = Callable[[Session, WorkflowRule, EventLog], str | None]
+# Una acción recibe la sesión (dentro de un savepoint), la regla, el evento y la ejecución en
+# curso, y devuelve el detalle y, si falló sin perder lo ya escrito, el motivo. Nunca hace commit.
+# Cada tipo de acción se registra acá al implementarse (ver #68 y #89).
+AccionHandler = Callable[[Session, WorkflowRule, EventLog, WorkflowExecution], ResultadoAccion]
 ACCIONES: dict[str, AccionHandler] = {}
 
 ERROR_EVALUACION = "No se pudo evaluar la regla con los datos del evento."
@@ -224,10 +225,14 @@ def _ejecutar_accion(
         # Savepoint: si la acción falla a mitad de camino, sus escrituras se revierten sin
         # perder la ejecución ni las de otras reglas del mismo evento.
         with db.begin_nested():
-            ejecucion.detalle = handler(db, regla, evento)
+            resultado = handler(db, regla, evento, ejecucion)
     except Exception:
         logger.exception("Falló la acción '%s' de la regla %s", regla.tipo_accion, regla.id)
         _marcar_fallida(ejecucion, ERROR_ACCION)
+        return
+    ejecucion.detalle = resultado.detalle
+    if resultado.error is not None:
+        _marcar_fallida(ejecucion, resultado.error)
         return
     ejecucion.estado = "exitoso"
     ejecucion.finished_at = datetime.now()
