@@ -1,5 +1,6 @@
 import {
   CLAVE_CONFIG,
+  ESTADOS_EJECUCION_FILTRO,
   ESTADOS_REGLA_FILTRO,
   FILTRO_ACTIVAS,
   FILTRO_INACTIVAS,
@@ -12,6 +13,7 @@ import type {
   CampoEvento,
   Condicion,
   Criticidad,
+  EstadoEjecucion,
   Operador,
   ReglaWorkflow,
   ReglaWorkflowCreatePayload,
@@ -432,4 +434,36 @@ export function cambiarCampoCondicion(
     operadorCondicion: campo ? OPERADORES_POR_TIPO_DATO[campo.tipo_dato][0] : '',
     valorCondicion: '',
   }
+}
+
+export type EstadoEjecucionFiltro = (typeof ESTADOS_EJECUCION_FILTRO)[number]
+
+export function esEstadoEjecucionFiltro(valor: string): valor is EstadoEjecucionFiltro {
+  return ESTADOS_EJECUCION_FILTRO.some((estado) => estado === valor)
+}
+
+export const ETIQUETA_ESTADO_EJECUCION: Record<EstadoEjecucion, string> = {
+  exitoso: 'Exitosa',
+  fallido: 'Fallida',
+  pendiente: 'Pendiente',
+}
+
+export const VARIANTE_ESTADO_EJECUCION: Record<EstadoEjecucion, 'exito' | 'error' | 'advertencia'> =
+  { exitoso: 'exito', fallido: 'error', pendiente: 'advertencia' }
+
+export function formatearFechaHora(iso: string): string {
+  return new Date(iso).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' })
+}
+
+/** Duración legible, o `null` si la ejecución todavía no terminó. */
+export function duracionEjecucion(startedAt: string, finishedAt: string | null): string | null {
+  if (finishedAt === null) return null
+  const segundos = Math.max(
+    0,
+    Math.round((new Date(finishedAt).getTime() - new Date(startedAt).getTime()) / 1000),
+  )
+  if (segundos < 60) return `${segundos} s`
+  const minutos = Math.floor(segundos / 60)
+  if (minutos < 60) return `${minutos} min ${segundos % 60} s`
+  return `${Math.floor(minutos / 60)} h ${minutos % 60} min`
 }

@@ -97,6 +97,44 @@ export interface ReglaWorkflowPatch {
   activo?: boolean
 }
 
+export const ESTADOS_EJECUCION = ['exitoso', 'fallido', 'pendiente'] as const
+export type EstadoEjecucion = (typeof ESTADOS_EJECUCION)[number]
+
+export interface EjecucionWorkflow {
+  id: string
+  intento: number
+  started_at: string
+  /** `null` mientras la ejecución sigue en curso. */
+  finished_at: string | null
+  estado: EstadoEjecucion
+  detalle: string | null
+  error_detail: string | null
+  workflow_rule_id: string
+  workflow_rule_nombre: string
+  tipo_accion: TipoAccion
+  event_log_id: string
+  tipo_evento: string
+  evento_timestamp: string
+  entidad: string
+  entidad_id: string
+  /** Calculado por el backend; el `POST` vuelve a validar al reintentar. */
+  reintentable: boolean
+}
+
+export interface EjecucionWorkflowListado {
+  items: EjecucionWorkflow[]
+  total: number
+  pagina: number
+  tamanio_pagina: number
+  total_paginas: number
+}
+
+export interface FiltrosEjecuciones {
+  estado?: EstadoEjecucion
+  pagina: number
+  tamanioPagina: number
+}
+
 export interface OpcionSelect {
   value: string
   label: string

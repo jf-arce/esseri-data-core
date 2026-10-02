@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { actualizarReglaWorkflow } from '@/modules/workflows/services/actualizar-regla-workflow'
 import { crearReglaWorkflow } from '@/modules/workflows/services/crear-regla-workflow'
+import { listarEjecucionesWorkflow } from '@/modules/workflows/services/listar-ejecuciones-workflow'
 import { listarReglasWorkflow } from '@/modules/workflows/services/listar-reglas-workflow'
 import { listarTiposAccion } from '@/modules/workflows/services/listar-tipos-accion'
 import { listarTiposEvento } from '@/modules/workflows/services/listar-tipos-evento'
+import { reintentarEjecucionWorkflow } from '@/modules/workflows/services/reintentar-ejecucion-workflow'
 import { obtenerReglaWorkflow } from '@/modules/workflows/services/obtener-regla-workflow'
 
 const respuestaOk = () =>
@@ -67,5 +69,29 @@ describe('servicios de workflows', () => {
     expect(url).toContain('/workflows/reglas/regla-1')
     expect(init?.method).toBe('PATCH')
     expect(init?.body).toBe(JSON.stringify({ activo: false }))
+  })
+
+  it('lista ejecuciones con paginación y el estado solo si viene', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await listarEjecucionesWorkflow({ pagina: 2, tamanioPagina: 20 })
+    await listarEjecucionesWorkflow({ estado: 'fallido', pagina: 1, tamanioPagina: 20 })
+
+    expect(fetchMock.mock.calls[0][0]).toContain(
+      '/workflows/ejecuciones?pagina=2&tamanio_pagina=20',
+    )
+    expect(fetchMock.mock.calls[0][0]).not.toContain('estado')
+    expect(fetchMock.mock.calls[1][0]).toContain('estado=fallido')
+  })
+
+  it('reintenta una ejecución con POST sin body', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await reintentarEjecucionWorkflow('ejec-1')
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toContain('/workflows/ejecuciones/ejec-1/reintentar')
+    expect(init?.method).toBe('POST')
+    expect(init?.body).toBeUndefined()
   })
 })

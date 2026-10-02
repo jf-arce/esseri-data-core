@@ -217,6 +217,60 @@ def test_no_reintenta_ejecucion_exitosa(client_autenticado, db_session, tipo_fac
     assert "fallidas" in respuesta.json()["detail"]
 
 
+def _reintentable(client, ejecucion):
+    respuesta = client.get(f"/workflows/ejecuciones/{ejecucion.id}")
+    assert respuesta.status_code == 200
+    return respuesta.json()["reintentable"]
+
+
+def test_reintentable_solo_en_el_ultimo_intento_fallido(
+    client_autenticado, db_session, tipo_factura_vencida
+):
+    regla, evento, anterior = _crear_ejecucion(db_session, tipo_factura_vencida)
+    assert _reintentable(client_autenticado, anterior) is True
+
+    posterior = WorkflowExecution(
+        intento=2,
+        started_at=_ahora_utc_naive() + timedelta(minutes=1),
+        estado="fallido",
+        workflow_rule_id=regla.id,
+        event_log_id=evento.id,
+    )
+    db_session.add(posterior)
+    db_session.commit()
+
+    assert _reintentable(client_autenticado, anterior) is False
+    assert _reintentable(client_autenticado, posterior) is True
+
+
+def test_no_reintentable_si_la_regla_esta_inactiva(
+    client_autenticado, db_session, tipo_factura_vencida
+):
+    regla, _, ejecucion = _crear_ejecucion(db_session, tipo_factura_vencida)
+    regla.activo = False
+    db_session.commit()
+
+    assert _reintentable(client_autenticado, ejecucion) is False
+
+
+def test_no_reintentable_si_la_regla_fue_modificada(
+    client_autenticado, db_session, tipo_factura_vencida
+):
+    regla, _, ejecucion = _crear_ejecucion(db_session, tipo_factura_vencida)
+    regla.updated_at = ejecucion.started_at + timedelta(minutes=1)
+    db_session.commit()
+
+    assert _reintentable(client_autenticado, ejecucion) is False
+
+
+def test_no_reintentable_si_la_ejecucion_no_fallo(
+    client_autenticado, db_session, tipo_factura_vencida
+):
+    _, _, ejecucion = _crear_ejecucion(db_session, tipo_factura_vencida, estado="exitoso")
+
+    assert _reintentable(client_autenticado, ejecucion) is False
+
+
 def test_no_permite_repetir_numero_de_intento(db_session, tipo_factura_vencida):
     regla, evento, _ = _crear_ejecucion(db_session, tipo_factura_vencida)
     db_session.add(

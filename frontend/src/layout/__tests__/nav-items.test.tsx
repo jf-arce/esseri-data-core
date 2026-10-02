@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NAV_GROUPS, filtrarNav, rutaInicioDe } from '@/layout/nav-items'
+import { NAV_GROUPS, calcularHrefActivo, filtrarNav, rutaInicioDe } from '@/layout/nav-items'
 import type { Permiso } from '@/modules/auth/types'
 
 function permiso(codigo: string): Permiso {
@@ -91,6 +91,16 @@ describe('filtrarNav', () => {
 
     const sin = filtrarNav(NAV_GROUPS, 'administrador-del-sistema', [permiso('academico.leer')])
     expect(sin.flatMap((g) => g.items.map((i) => i.label))).not.toContain('Workflows')
+  })
+
+  it('el historial de ejecuciones cuelga de Workflows y no cambia la ruta de inicio', () => {
+    const permisos = [permiso('workflows.leer')]
+    const grupos = filtrarNav(NAV_GROUPS, 'administrador-del-sistema', permisos)
+    const workflows = grupos.flatMap((g) => g.items).find((i) => i.label === 'Workflows')
+
+    expect(workflows?.children?.map((h) => h.href)).toEqual(['/workflows/ejecuciones'])
+    expect(calcularHrefActivo('/workflows/ejecuciones', grupos)).toBe('/workflows/ejecuciones')
+    expect(rutaInicioDe('administrador-del-sistema', permisos)).toBe('/workflows/reglas')
   })
 
   it('un ítem con roles (los paneles) exige también el rol activo, no solo el permiso', () => {

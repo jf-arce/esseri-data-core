@@ -313,6 +313,7 @@ class WorkflowExecutionRead(BaseModel):
     evento_timestamp: datetime
     entidad: str
     entidad_id: uuid.UUID
+    reintentable: bool
 
 
 class WorkflowExecutionListadoRead(BaseModel):

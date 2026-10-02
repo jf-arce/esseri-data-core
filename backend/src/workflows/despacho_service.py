@@ -10,9 +10,9 @@ from collections.abc import Callable
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, exists, func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from src.auditoria.service import log_audit
 from src.models import EventLog
@@ -352,6 +352,18 @@ def reintentar_ejecucion(
 
 
 def _consulta_ejecuciones():
+    # Mismas condiciones que valida `reintentar_ejecucion`, que sigue siendo la fuente de verdad.
+    posterior = aliased(WorkflowExecution)
+    reintentable = and_(
+        WorkflowExecution.estado == "fallido",
+        WorkflowRule.activo,
+        WorkflowRule.updated_at <= WorkflowExecution.started_at,
+        ~exists().where(
+            posterior.workflow_rule_id == WorkflowExecution.workflow_rule_id,
+            posterior.event_log_id == WorkflowExecution.event_log_id,
+            posterior.intento > WorkflowExecution.intento,
+        ),
+    )
     return (
         select(
             WorkflowExecution,
@@ -361,6 +373,7 @@ def _consulta_ejecuciones():
             EventLog.timestamp,
             EventLog.entidad,
             EventLog.entidad_id,
+            reintentable.label("reintentable"),
         )
         .join(WorkflowRule, WorkflowRule.id == WorkflowExecution.workflow_rule_id)
         .join(EventLog, EventLog.id == WorkflowExecution.event_log_id)
@@ -376,6 +389,7 @@ def _fila_ejecucion_read(
     evento_timestamp: datetime,
     entidad: str,
     entidad_id: uuid.UUID,
+    reintentable: bool,
 ) -> WorkflowExecutionRead:
     return WorkflowExecutionRead(
         id=ejecucion.id,
@@ -393,6 +407,7 @@ def _fila_ejecucion_read(
         evento_timestamp=evento_timestamp,
         entidad=entidad,
         entidad_id=entidad_id,
+        reintentable=reintentable,
     )
 
 
