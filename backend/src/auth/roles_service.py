@@ -3,6 +3,7 @@
 import uuid
 
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.auditoria.service import log_audit
@@ -10,6 +11,7 @@ from src.auth.constants import codigo_de, slug_ascii
 from src.auth.exceptions import PermisoDuplicado, RolDuplicado, RolEnUso
 from src.auth.models import Permiso, Rol, RolPermiso, UsuarioRol
 from src.auth.schemas import PermisoCreate, PermisoUpdate, RolCreate, RolUpdate
+from src.models import Base
 
 
 def _existe(db: Session, stmt) -> bool:
@@ -76,8 +78,13 @@ def actualizar_rol(
 
 
 def eliminar_rol(db: Session, rol: Rol, usuario_id: uuid.UUID | None = None) -> None:
+    bloqueado = db.scalar(select(Rol).where(Rol.id == rol.id).with_for_update())
+    if bloqueado is not None:
+        rol = bloqueado
     if _existe(db, select(UsuarioRol.id).where(UsuarioRol.rol_id == rol.id)):
         raise RolEnUso()
+    if _rol_referenciado_por_otro_modulo(db, rol.id):
+        raise RolEnUso("El rol está configurado como destinatario y no se puede eliminar")
     rol_id = rol.id
     nombre = rol.nombre
     db.execute(delete(RolPermiso).where(RolPermiso.rol_id == rol.id))
@@ -91,7 +98,24 @@ def eliminar_rol(db: Session, rol: Rol, usuario_id: uuid.UUID | None = None) -> 
         valor_nuevo=None,
         usuario_id=usuario_id,
     )
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        raise RolEnUso("El rol tiene referencias y no se puede eliminar") from error
+
+
+def _rol_referenciado_por_otro_modulo(db: Session, rol_id: uuid.UUID) -> bool:
+    """Protege FKs de otros módulos sin importar sus modelos desde Auth."""
+    tablas_auth = {"usuario_rol", "rol_permiso"}
+    for tabla in Base.metadata.tables.values():
+        if tabla.name in tablas_auth:
+            continue
+        for columna in tabla.columns:
+            if any(fk.column.table.name == "rol" for fk in columna.foreign_keys):
+                if db.execute(select(columna).where(columna == rol_id).limit(1)).first():
+                    return True
+    return False
 
 
 # --- ABM de Permiso --------------------------------------------------------------------------
