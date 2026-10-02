@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, aliased
 
 from src.auditoria.service import log_audit
 from src.models import EventLog
+from src.workflows import notificaciones_service
 from src.workflows.constants import ENTIDAD_POR_EVENTO
 from src.workflows.eventos_service import coaccionar_valor
 from src.workflows.exceptions import (
@@ -41,7 +42,7 @@ logger = logging.getLogger(__name__)
 # curso, y devuelve el detalle y, si falló sin perder lo ya escrito, el motivo. Nunca hace commit.
 # Cada tipo de acción se registra acá al implementarse (ver #68 y #89).
 AccionHandler = Callable[[Session, WorkflowRule, EventLog, WorkflowExecution], ResultadoAccion]
-ACCIONES: dict[str, AccionHandler] = {}
+ACCIONES: dict[str, AccionHandler] = {"notificar": notificaciones_service.ejecutar_notificar}
 
 ERROR_EVALUACION = "No se pudo evaluar la regla con los datos del evento."
 ERROR_CONFIGURACION = "La configuración de la acción no es válida."
@@ -423,6 +424,7 @@ def _error_detail_publico(error_detail: str | None, tipo_accion: str) -> str | N
         ERROR_EVALUACION,
         ERROR_CONFIGURACION,
         ERROR_ACCION,
+        *notificaciones_service.ERRORES_CONTROLADOS,
         "La regla ya no aplica al evento original.",
         ERROR_ACCION_NO_IMPLEMENTADA.format(tipo_accion=tipo_accion),
     }

@@ -3,7 +3,7 @@ import pytest
 
 from src.config import settings
 from src.workflows import n8n_client
-from src.workflows.exceptions import N8nEnvioFallido, N8nNoConfigurado
+from src.workflows.exceptions import N8nEnvioFallido, N8nNoConfigurado, N8nNoDisponible
 
 
 @pytest.fixture()
@@ -52,13 +52,15 @@ def test_url_sin_configurar(monkeypatch):
 def test_respuesta_de_error_de_n8n(webhook):
     transport = httpx.MockTransport(lambda request: httpx.Response(500))
 
-    with pytest.raises(N8nEnvioFallido, match="500"):
+    with pytest.raises(N8nEnvioFallido, match="500") as error:
         n8n_client.enviar_email("a@b.c", "x", "y", transport=transport)
+
+    assert not isinstance(error.value, N8nNoDisponible)
 
 
 def test_n8n_inalcanzable(webhook):
     def caido(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("sin conexión")
 
-    with pytest.raises(N8nEnvioFallido, match="contactar"):
+    with pytest.raises(N8nNoDisponible, match="contactar"):
         n8n_client.enviar_email("a@b.c", "x", "y", transport=httpx.MockTransport(caido))

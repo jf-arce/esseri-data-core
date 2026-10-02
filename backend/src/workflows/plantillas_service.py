@@ -20,6 +20,7 @@ from src.workflows.models import CampoEvento, NotificacionTemplate, TipoEvento, 
 from src.workflows.schemas import NotificacionTemplateCreate, NotificacionTemplateUpdate
 
 _PLACEHOLDER = re.compile(r"\{\{([a-z][a-z0-9_]*)\}\}")
+_CARACTERES_DE_CONTROL = re.compile(r"[\x00-\x1f\x7f]+")
 
 
 def extraer_placeholders(*textos: str) -> set[str]:
@@ -37,6 +38,20 @@ def extraer_placeholders(*textos: str) -> set[str]:
                 "Los placeholders deben tener el formato exacto '{{nombre_campo}}'."
             )
     return encontrados
+
+
+def renderizar_contenido(asunto: str, cuerpo: str, payload: dict[str, object]) -> tuple[str, str]:
+    """Reemplaza los placeholders con el payload del evento. Falla si falta un campo o es `None`."""
+
+    def reemplazar(coincidencia: re.Match[str]) -> str:
+        campo = coincidencia.group(1)
+        valor = payload.get(campo)
+        if valor is None:
+            raise PlantillaInvalida(f"El evento no trae el campo '{campo}' de la plantilla.")
+        return str(valor)
+
+    asunto_final = _CARACTERES_DE_CONTROL.sub(" ", _PLACEHOLDER.sub(reemplazar, asunto)).strip()
+    return asunto_final, _PLACEHOLDER.sub(reemplazar, cuerpo)
 
 
 def _campos_del_evento(db: Session, tipo_evento_id: uuid.UUID) -> set[str]:
