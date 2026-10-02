@@ -2,7 +2,22 @@
 
 Workflows exportados de n8n. Vive acá y no en `backend/` porque n8n no tiene lógica de aplicación propia: es solo el **ejecutor de envíos** (Gmail/Google Workspace). El motor de workflows, `EVENT_LOG`, `WORKFLOW_EXECUTION` y `NOTIFICACION` viven en el backend (PostgreSQL es la fuente de verdad); el backend resuelve destinatario y contenido antes de llamar a n8n. Ver `ARCHITECTURE.md` y `docs/diccionario-de-datos-esseri.md`.
 
-Todavía no hay ningún workflow exportado en esta carpeta.
+## Workflows
+
+| Archivo | Qué hace |
+|---|---|
+| `enviar-email.json` | Webhook `POST /enviar-email` (Header Auth) → Gmail → responde 200. Si Gmail falla, el workflow termina en error y n8n responde 5xx. |
+
+> **Borrador escrito a mano**: `enviar-email.json` todavía no se probó contra una instancia real. Cuando se importe y se pruebe con la credencial de Gmail, reexportarlo desde n8n y reemplazar este archivo.
+
+### Importar `enviar-email.json`
+
+1. En `http://localhost:5678`: *Workflows → Import from file* y elegir `infra/n8n/enviar-email.json`.
+2. Nodo **Webhook**: crear una credencial *Header Auth* con nombre `Authorization` y valor `Bearer <token>`, donde `<token>` es el mismo `N8N_WEBHOOK_TOKEN` del backend.
+3. Nodo **Enviar con Gmail**: asignar una credencial *Gmail OAuth2* de la cuenta que envía.
+4. Activar el workflow (sin activarlo, solo responde la URL `webhook-test`).
+5. Configurar en el `.env` del backend `N8N_WEBHOOK_URL`: `http://n8n:5678/webhook/enviar-email` dentro de Docker, o `http://localhost:5678/webhook/enviar-email` fuera.
+6. Probar un envío correcto y uno con Gmail fallando (por ejemplo, credencial revocada): el segundo tiene que devolver un código no 2xx.
 
 ## Contrato del webhook de envío de email
 
@@ -16,7 +31,7 @@ El backend (`backend/src/workflows/n8n_client.py`) hace un `POST` a `N8N_WEBHOOK
 - Cualquier respuesta que no sea 2xx, o un timeout (10 s), cuenta como envío fallido.
 - Dentro de `docker-compose` el backend llega a n8n por `http://n8n:5678/webhook/<ruta>`; fuera de Docker, por `http://localhost:5678/webhook/<ruta>`.
 
-Nadie llama todavía a `enviar_email()`: se conecta al implementar la acción `notificar` (RF-24, #68).
+`enviar_email()` lo llama la acción `notificar` (`backend/src/workflows/notificaciones_service.py`).
 
 ## Exportar workflows
 
