@@ -103,3 +103,15 @@ OPERADORES_POR_TIPO_DATO: dict[str, frozenset[str]] = {
     "fecha": frozenset({"==", "!=", ">", ">=", "<", "<="}),
     "texto": frozenset({"==", "!=", "contiene"}),
 }
+
+# Entidades de evento de las que se puede llegar a un alumno, necesario para los destinatarios
+# `responsable_economico` y `responsables_habilitados`.
+ENTIDADES_CON_ALUMNO: frozenset[str] = frozenset(
+    {"factura", "pago", "asistencia", "justificacion_inasistencia", "inscripcion"}
+)
+DESTINATARIOS_FAMILIARES: frozenset[str] = frozenset(
+    {"responsable_economico", "responsables_habilitados"}
+)
+
+# Los envíos se hacen en serie dentro de la transacción del evento: este tope acota su duración.
+MAX_DESTINATARIOS_POR_EJECUCION = 50
