@@ -6,7 +6,7 @@ Workflows exportados de n8n. Vive acá y no en `backend/` porque n8n no tiene l�
 
 | Archivo | Qué hace |
 |---|---|
-| `enviar-email.json` | Webhook `POST /enviar-email` (Header Auth) → Gmail → responde 200. Si Gmail falla, el workflow termina en error y n8n responde 5xx. |
+| `enviar-email.json` | Webhook `POST /enviar-email` (Header Auth) → Gmail → responde 200. Si Gmail falla, la salida de error responde 500. |
 
 > **Borrador**: `enviar-email.json` se armó a mano y su estructura se validó creándolo en una instancia local (nodos Webhook 2.1, Gmail 2.2 y Respond to Webhook 1.5), pero todavía no se probó un envío real. Cuando se pruebe con la credencial de Gmail, reexportarlo desde n8n y reemplazar este archivo.
 
@@ -17,7 +17,7 @@ Workflows exportados de n8n. Vive acá y no en `backend/` porque n8n no tiene l�
 3. Nodo **Enviar con Gmail**: asignar una credencial *Gmail OAuth2* de la cuenta que envía.
 4. Activar el workflow (sin activarlo, solo responde la URL `webhook-test`).
 5. Configurar en el `.env` del backend `N8N_WEBHOOK_URL`: `http://n8n:5678/webhook/enviar-email` dentro de Docker, o `http://localhost:5678/webhook/enviar-email` fuera.
-6. Probar un envío correcto y uno con Gmail fallando (por ejemplo, credencial revocada): el segundo tiene que devolver un código no 2xx.
+6. Probar un envío correcto y uno con Gmail fallando (por ejemplo, credencial revocada): el segundo tiene que devolver 500. No alcanza con que el workflow termine en error: sin la salida de error del nodo Gmail, n8n responde 200 con cuerpo vacío y el backend daría el email por enviado.
 
 ## Contrato del webhook de envío de email
 

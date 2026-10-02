@@ -51,7 +51,8 @@
           "id": "COMPLETAR",
           "name": "Gmail ESSERI"
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -68,6 +69,23 @@
       "position": [
         480,
         0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"enviado\": false } }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "4e9c9cae-3f40-4c88-8d86-3d6c9d3b4005",
+      "name": "Responder error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        480,
+        200
       ]
     }
   ],
@@ -88,6 +106,13 @@
         [
           {
             "node": "Responder OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder error",
             "type": "main",
             "index": 0
           }
