@@ -708,8 +708,7 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 | notificacion_template_id | uuid | FK | Solo si `tipo_accion` genera una notificación |
 
 ### `NOTIFICACION_TEMPLATE`
-> `nombre` es único (`uq_notificacion_template_nombre`). Las plantillas son reutilizables entre
-> eventos: la compatibilidad de sus placeholders se valida cuando se vinculan a una regla.
+> `nombre` es único (`uq_notificacion_template_nombre`).
 >
 > `[DECISIÓN DE DISEÑO]` Contrato compartido con IA/Sugerencias: los placeholders tienen el formato
 > exacto `{{nombre_campo}}` (minúsculas, dígitos y guion bajo, sin expresiones). Otro módulo crea
