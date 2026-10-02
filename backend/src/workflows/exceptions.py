@@ -117,6 +117,13 @@ class N8nEnvioFallido(AppException):
         super().__init__(message)
 
 
+class N8nNoDisponible(N8nEnvioFallido):
+    """No hubo respuesta de n8n (conexión o timeout), a diferencia de un 4xx/5xx."""
+
+    def __init__(self, message: str = "No se pudo contactar a n8n."):
+        super().__init__(message)
+
+
 class AccionConfigInvalida(AppException):
     status_code = 422
 

@@ -18,7 +18,9 @@ from src.workflows.constants import (
     ACCIONES_CON_APROBACION_POR_DEFECTO,
     ACCIONES_CON_PLANTILLA,
     CAMBIOS_ESTADO_PERMITIDOS,
+    DESTINATARIOS_FAMILIARES,
     ENTIDAD_POR_EVENTO,
+    ENTIDADES_CON_ALUMNO,
     EVENTOS_POR_ACCION,
     OPERADORES_POR_TIPO_DATO,
     TipoAccion,
@@ -46,6 +48,7 @@ from src.workflows.schemas import (
     ConfigAplicarPenalidad,
     ConfigCambiarEstado,
     ConfigGenerarCargo,
+    ConfigNotificar,
     TipoAccionRead,
     TipoEventoRead,
     WorkflowRuleCreate,
@@ -336,6 +339,16 @@ def validar_accion(
             f"Configuración inválida para '{tipo_accion}': {_resumen_errores(error)}"
         ) from error
 
+    if isinstance(config, ConfigNotificar) and tipo_accion == "notificar":
+        entidad_evento = ENTIDAD_POR_EVENTO.get(tipo_evento_nombre, "")
+        if (
+            config.destinatario in DESTINATARIOS_FAMILIARES
+            and entidad_evento not in ENTIDADES_CON_ALUMNO
+        ):
+            raise AccionConfigInvalida(
+                f"El evento '{tipo_evento_nombre}' no tiene alumno asociado: "
+                "usá el destinatario 'destinatarios_regla'."
+            )
     if isinstance(config, ConfigCambiarEstado):
         entidad = ENTIDAD_POR_EVENTO.get(tipo_evento_nombre, "")
         estados = CAMBIOS_ESTADO_PERMITIDOS.get(entidad, frozenset())

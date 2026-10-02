@@ -8,7 +8,7 @@ n8n solo ejecuta el envío: el backend ya resolvió destinatario y contenido, y 
 import httpx
 
 from src.config import settings
-from src.workflows.exceptions import N8nEnvioFallido, N8nNoConfigurado
+from src.workflows.exceptions import N8nEnvioFallido, N8nNoConfigurado, N8nNoDisponible
 
 TIMEOUT_SEGUNDOS = 10.0
 
@@ -19,7 +19,8 @@ def enviar_email(
     cuerpo: str,
     transport: httpx.BaseTransport | None = None,
 ) -> None:
-    """Pide a n8n que envíe un email. Lanza `N8nNoConfigurado` o `N8nEnvioFallido`."""
+    """Pide a n8n que envíe un email. Lanza `N8nNoConfigurado`, `N8nNoDisponible` (sin respuesta) o
+    `N8nEnvioFallido` (n8n respondió con error)."""
     if not settings.N8N_WEBHOOK_URL:
         raise N8nNoConfigurado()
 
@@ -38,4 +39,4 @@ def enviar_email(
     except httpx.HTTPStatusError as error:
         raise N8nEnvioFallido(f"n8n respondió {error.response.status_code}.") from error
     except httpx.HTTPError as error:
-        raise N8nEnvioFallido("No se pudo contactar a n8n.") from error
+        raise N8nNoDisponible() from error

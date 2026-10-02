@@ -255,6 +255,24 @@ def test_accion_sobre_un_evento_no_permitido_es_422(client_autenticado, tipo_fac
     assert "pago.registrado" in respuesta.json()["detail"]
 
 
+def test_destinatario_familiar_sobre_evento_sin_alumno_es_422(client_autenticado, db_session):
+    tipo = TipoEvento(nombre="solicitud_inscripcion.aprobada", descripcion="Solicitud aprobada")
+    db_session.add(tipo)
+    db_session.commit()
+
+    for destinatario in ("responsable_economico", "responsables_habilitados"):
+        respuesta = _crear(
+            client_autenticado, tipo.id, accion_config={"destinatario": destinatario}
+        )
+        assert respuesta.status_code == 422
+        assert "destinatarios_regla" in respuesta.json()["detail"]
+
+    permitida = _crear(
+        client_autenticado, tipo.id, accion_config={"destinatario": "destinatarios_regla"}
+    )
+    assert permitida.status_code == 201
+
+
 def test_generar_orden_compra_todavia_no_se_puede_configurar(
     client_autenticado, tipo_factura_vencida
 ):

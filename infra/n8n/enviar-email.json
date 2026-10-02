@@ -1,0 +1,125 @@
+{
+  "name": "Enviar email",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "enviar-email",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "6d037339-03df-4cfd-9c6c-56a425cf8b9b",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "8f2eb448-8245-43b3-bf3b-71f007bdee3b",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "COMPLETAR",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.body.destinatario }}",
+        "subject": "={{ $json.body.asunto }}",
+        "emailType": "text",
+        "message": "={{ $json.body.cuerpo }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "1e87d08f-bc11-478d-9bed-fbd7ce36628b",
+      "name": "Enviar con Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        0
+      ],
+      "webhookId": "04207b6b-7ce6-467c-9fff-e04301572ce4",
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "COMPLETAR",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"enviado\": true } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "85f038ba-b704-419f-a7c4-95eb944c2617",
+      "name": "Responder OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"enviado\": false } }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "a5d56912-12fd-4384-804b-7d9221605778",
+      "name": "Responder error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        480,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Enviar con Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar con Gmail": {
+      "main": [
+        [
+          {
+            "node": "Responder OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

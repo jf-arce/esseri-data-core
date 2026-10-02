@@ -688,6 +688,8 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 >
 > Solo `notificar`, `alerta_interna`, `generar_recordatorio` y `generar_comunicacion` admiten `notificacion_template_id`. Se amplía acción por acción a medida que se implementa su ejecutor. `condicion` se valida contra los `CAMPO_EVENTO` del evento de la regla (operadores `==`, `!=`, `>`, `>=`, `<`, `<=` para número y fecha; `==`, `!=`, `contiene` para texto).
 >
+> **[NOTA]** `notificar` con `destinatario` `responsable_economico` o `responsables_habilitados` necesita un alumno, que se deduce de la entidad del evento (`factura`, `pago`, `asistencia`, `justificacion_inasistencia`, `inscripcion`). Sobre `solicitud_inscripcion.aprobada` solo se acepta `destinatarios_regla`.
+>
 > **[NOTA — decisión revisada]** Se evaluó agregar `n8nWorkflowId` por fila, pero se descartó: todas las reglas con `tipo_accion = "notificar"` llaman al mismo webhook genérico de n8n (backend ya resuelve destinatario y contenido antes de llamarlo), así que guardarlo por regla sería dato repetido sin necesidad. La URL del webhook es config del sistema, no un atributo de `WORKFLOW_RULE`.
 >
 > **[NOTA — arquitectura, no cambia el DER]** El envío real (Gmail/Google Workspace) se ejecuta vía n8n en vez de código propio de integración; `WORKFLOW_EXECUTION`/`NOTIFICACION`/`MOVIMIENTO`/`TAREA` en PostgreSQL siguen siendo la fuente de verdad (RNF-05), n8n es solo el ejecutor. n8n no reemplaza al `EVENT_LOG` ni al motor.
@@ -757,6 +759,8 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 | workflow_execution_id | uuid | FK |  |
 | familia_id | uuid | FK | Destinatario externo, cuando `destinatario_tipo = familia` |
 | usuario_id | uuid | FK | `[ACLARACIÓN CLIENTE]` Destinatario interno, cuando `destinatario_tipo = usuario` |
+
+> **[NOTA]** `PERSONA` no tiene email: el `destinatario_snapshot` de una familia sale de las cuentas activas de `USUARIO` con `persona_id` igual al de `FAMILIA`. Si la persona tiene más de una cuenta, se genera una fila por email. Un reintento de `WORKFLOW_EXECUTION` copia el snapshot de las filas `fallido` del intento anterior en filas nuevas, sin volver a renderizar.
 
 ### `TAREA`
 > **[ACLARACIÓN CLIENTE]** (respuesta 16). Cubre `crear_tarea` y `escalar_caso`, dos de los 15 valores de `WORKFLOW_RULE.tipo_accion`. Habilita que el motor asigne trabajo a una persona, no solo que le avise algo.

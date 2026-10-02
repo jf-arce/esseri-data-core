@@ -9,6 +9,7 @@ from src.models import AuditLog
 from src.workflows import despacho_service
 from src.workflows.eventos_service import emit_event
 from src.workflows.models import WorkflowExecution, WorkflowRule
+from src.workflows.schemas import ResultadoAccion
 
 
 def _ahora_utc_naive() -> datetime:
@@ -138,7 +139,11 @@ def test_reintento_crea_fila_nueva_y_audita_usuario(
     monkeypatch.setattr(
         despacho_service,
         "ACCIONES",
-        {"notificar": lambda db, regla, evento: "Envío completado"},
+        {
+            "notificar": lambda db, regla, evento, ejecucion: ResultadoAccion(
+                detalle="Envío completado"
+            )
+        },
     )
 
     respuesta = client_autenticado.post(f"/workflows/ejecuciones/{anterior.id}/reintentar")
@@ -327,7 +332,11 @@ def test_servicio_lista_y_reintenta_sin_reescribir_el_intento_anterior(
     monkeypatch.setattr(
         despacho_service,
         "ACCIONES",
-        {"notificar": lambda db, regla, evento: "Envío completado"},
+        {
+            "notificar": lambda db, regla, evento, ejecucion: ResultadoAccion(
+                detalle="Envío completado"
+            )
+        },
     )
 
     pagina = despacho_service.listar_ejecuciones(
