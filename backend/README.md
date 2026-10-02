@@ -187,10 +187,12 @@ antes de ejecutar la acción. Cada ejecución del listado incluye `reintentable`
 mismas condiciones, para que el frontend solo ofrezca el botón cuando corresponde; el `POST` vuelve
 a validarlas, así que el valor puede quedar viejo entre la carga y el clic.
 
-**Estado actual:** ningún tipo de acción tiene ejecutor real (`ACCIONES` en `despacho_service.py`
-está vacío), así que las reglas sin aprobación humana quedan `fallido` con "acción no implementada"
-hasta que se implemente cada una (`notificar` en #68, `crear_tarea`/`escalar_caso` en #89; las que
-tocan Facturación o Inscripciones dependen de los servicios de esos módulos).
+**Estado actual:** solo `notificar` tiene ejecutor real (`ACCIONES` en `despacho_service.py`). Las
+demás reglas sin aprobación humana quedan `fallido` con "acción no implementada" hasta que se
+implemente cada una (`crear_tarea`/`escalar_caso` en #89; las que tocan Facturación o Inscripciones
+dependen de los servicios de esos módulos). Un handler recibe `(db, regla, evento, ejecucion)`,
+nunca hace `commit` y devuelve un `ResultadoAccion` (`detalle`, `error`): con `error` la ejecución
+queda `fallido` pero se conservan las filas que escribió el handler.
 
 **Reglas y allowlist de `accion_config`**
 
@@ -232,8 +234,37 @@ acciones `notificar`, `generar_recordatorio` y `generar_comunicacion`, la regla 
 configuración. Los usuarios inactivos ya configurados se conservan para mantener la trazabilidad,
 pero no se pueden agregar como destinatarios nuevos.
 
-Por ahora los destinatarios solo se configuran: el despachador todavía no tiene ejecutores de
-acción registrados, así que nada les envía avisos. El envío llega con RF-24 (#68).
+**Envío de `notificar` (RF-24):** `notificaciones_service.ejecutar_notificar` renderiza la
+plantilla de la regla con el payload del evento, resuelve los destinatarios según
+`accion_config.destinatario`, crea una fila `NOTIFICACION` por destinatario (con snapshot de
+destinatario, asunto y cuerpo) y le pide a n8n el envío (`n8n_client.enviar_email`). La fila queda
+`enviado` con `sent_at`, o `fallido` si ese envío falla.
+
+- `destinatarios_regla`: usuarios y roles de la regla, solo los activos.
+- `responsables_habilitados`: familias del alumno con `recibe_comunicaciones`.
+- `responsable_economico`: para facturas y pagos, el de la factura aunque ya no esté vigente; para
+  el resto, el vigente del alumno.
+- Los dos últimos necesitan un alumno, que se deduce de la entidad del evento. Por eso la regla se
+  rechaza sobre `solicitud_inscripcion.aprobada`, que no lo tiene.
+- `Persona` no tiene email: el de una familia sale de las cuentas activas (`USUARIO.persona_id`) de
+  su persona. Una familia sin cuenta se cuenta en el `detalle` y solo hace fallar la ejecución si no
+  queda ningún destinatario.
+
+La ejecución queda `fallido` si no hay plantilla, si falta un campo del payload, si no hay
+destinatarios con email, si hay más de `MAX_DESTINATARIOS_POR_EJECUCION` (50) o si algún envío
+falla. Al reintentar desde el historial (#67) se reenvían solo las filas `fallido` del intento
+anterior, con los snapshots originales: editar la plantilla o el email entre intentos no cambia lo
+que se manda.
+
+Limitaciones conocidas:
+
+- **Sin idempotencia:** si n8n envía el email pero la respuesta se pierde (timeout), la notificación
+  queda `fallido` y un reintento lo manda otra vez.
+- **HTTP dentro de la transacción:** los envíos van en serie dentro de la transacción del evento
+  (timeout de 10 s cada uno). Si n8n no está configurado o no responde, el resto de las
+  notificaciones se registra `fallido` sin intentar el envío. Un despachador separado (filas
+  `pendiente` + job de envío) queda para `generar_comunicacion`, donde aparecen los envíos masivos;
+  no requiere cambios de esquema.
 
 ### Comprobantes y PDF de factura
 
