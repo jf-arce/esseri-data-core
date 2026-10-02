@@ -228,8 +228,7 @@ Los destinatarios configurables de una regla se consultan y reemplazan de forma 
 acciones `notificar`, `generar_recordatorio` y `generar_comunicacion`, la regla debe usar
 `accion_config.destinatario = "destinatarios_regla"`; `alerta_interna` también admite esta
 configuración. Los usuarios inactivos ya configurados se conservan para mantener la trazabilidad,
-pero no se pueden agregar como destinatarios nuevos. Un rol configurado como destinatario no se
-puede eliminar desde `/auth/roles/{id}` (409) hasta quitarlo de las reglas que lo usan.
+pero no se pueden agregar como destinatarios nuevos.
 
 Por ahora los destinatarios solo se configuran: el despachador todavía no tiene ejecutores de
 acción registrados, así que nada les envía avisos. El envío llega con RF-24 (#68).
