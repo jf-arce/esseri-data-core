@@ -80,6 +80,7 @@ class NotificacionTemplate(Base):
     """`cuerpo` usa placeholders tipo `{{nombre_familia}}`."""
 
     __tablename__ = "notificacion_template"
+    __table_args__ = (sa.UniqueConstraint("nombre", name="uq_notificacion_template_nombre"),)
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
     nombre: Mapped[str] = mapped_column(sa.String)
@@ -179,6 +180,21 @@ class ReglaDestinatario(Base):
     __table_args__ = (
         sa.CheckConstraint(
             "destinatario_tipo IN ('rol', 'usuario')", name="ck_regla_destinatario_tipo"
+        ),
+        sa.CheckConstraint(
+            "(destinatario_tipo = 'rol' AND rol_id IS NOT NULL AND usuario_id IS NULL) "
+            "OR (destinatario_tipo = 'usuario' AND usuario_id IS NOT NULL AND rol_id IS NULL)",
+            name="ck_regla_destinatario_referencia",
+        ),
+        sa.UniqueConstraint(
+            "workflow_rule_id",
+            "rol_id",
+            name="uq_regla_destinatario_regla_rol",
+        ),
+        sa.UniqueConstraint(
+            "workflow_rule_id",
+            "usuario_id",
+            name="uq_regla_destinatario_regla_usuario",
         ),
     )
 

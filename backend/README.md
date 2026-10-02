@@ -219,6 +219,22 @@ Las reglas se administran en `/workflows/reglas` y el catálogo de eventos con s
 `/workflows/tipos-evento`. Los emails los envía n8n vía el webhook `N8N_WEBHOOK_URL` (ver
 `infra/n8n/README.md`).
 
+**Plantillas y destinatarios:** el CRUD de plantillas vive en `/workflows/plantillas`. Una
+plantilla puede reutilizarse entre tipos de evento, pero al asociarla a una regla sus placeholders
+`{{nombre_campo}}` deben existir en el catálogo de campos de ese evento. El listado acepta
+`tipo_evento_id` para devolver solo plantillas compatibles. Una plantilla referenciada por una
+regla o una sugerencia de IA no se puede eliminar.
+
+Los destinatarios configurables de una regla se consultan y reemplazan de forma atómica con
+`GET`/`PUT /workflows/reglas/{id}/destinatarios`. Pueden ser roles y usuarios puntuales. Para las
+acciones `notificar`, `generar_recordatorio` y `generar_comunicacion`, la regla debe usar
+`accion_config.destinatario = "destinatarios_regla"`; `alerta_interna` también admite esta
+configuración. Los usuarios inactivos ya configurados se conservan para mantener la trazabilidad,
+pero no se pueden agregar como destinatarios nuevos.
+
+Por ahora los destinatarios solo se configuran: el despachador todavía no tiene ejecutores de
+acción registrados, así que nada les envía avisos. El envío llega con RF-24 (#68).
+
 ### Comprobantes y PDF de factura
 
 El detalle de una factura permite registrar pagos parciales o totales. Los comprobantes de métodos

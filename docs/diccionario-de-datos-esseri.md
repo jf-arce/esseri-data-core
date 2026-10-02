@@ -708,6 +708,13 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 | notificacion_template_id | uuid | FK | Solo si `tipo_accion` genera una notificación |
 
 ### `NOTIFICACION_TEMPLATE`
+> `nombre` es único (`uq_notificacion_template_nombre`).
+>
+> `[DECISIÓN DE DISEÑO]` Contrato compartido con IA/Sugerencias: los placeholders tienen el formato
+> exacto `{{nombre_campo}}` (minúsculas, dígitos y guion bajo, sin expresiones). Otro módulo crea
+> plantillas con `plantillas_service.registrar_plantilla()`, que valida y audita sin confirmar la
+> transacción. Las reglas de uso de la API están en `backend/README.md`.
+
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
 | id | uuid | PK |  |
@@ -772,6 +779,19 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 
 ### `REGLA_DESTINATARIO` (tabla intermedia)
 > **[ACLARACIÓN CLIENTE]** (respuesta 15): *"el nivel de criticidad y los destinatarios deben ser configurables"*. Permite que una `WORKFLOW_RULE` avise a un rol completo, a un usuario puntual, o a ambos.
+>
+> La base exige exactamente una referencia según `destinatario_tipo` y evita repetir el mismo rol
+> o usuario dentro de una regla (`uq_regla_destinatario_regla_rol` y
+> `uq_regla_destinatario_regla_usuario`).
+>
+> `[DECISIÓN DE DISEÑO]` Un `ROL` referenciado acá no se puede eliminar (409). Auth no importa
+> modelos de Workflows para chequearlo: `eliminar_rol` recorre `Base.metadata` y rechaza el borrado
+> si cualquier tabla fuera de Auth tiene una FK a `rol` con ese valor, así que la protección cubre
+> también las FKs a `rol` que agreguen otros módulos.
+>
+> `[DECISIÓN DE DISEÑO]` Una regla con destinatarios cargados no puede cambiar a una configuración
+> que no los admita sin vaciarlos antes. Sí puede quedar con `destinatarios_regla` y sin
+> destinatarios: qué hace el despacho en ese caso se define con RF-24.
 
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
