@@ -44,7 +44,7 @@ Diferencias con el entorno local:
 
 ## Importar workflows a n8n
 
-Los workflows exportados en `infra/n8n/*.json` se importan desde la UI de n8n (`http://localhost:5678` → Workflows → Import from File) o con la CLI: `n8n import:workflow --input=infra/n8n/<archivo>.json`.
+Los workflows exportados en `infra/n8n/*.json` se importan desde la UI de n8n (`http://localhost:5678` → Workflows → Import from File) o con la CLI: `n8n import:workflow --input=infra/n8n/<archivo>.json`. Después de importar hay que asignar las credenciales y publicar el workflow; los pasos están en `infra/n8n/README.md`.
 
 ## Variables de entorno
 
