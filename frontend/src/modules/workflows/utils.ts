@@ -517,3 +517,8 @@ export function duracionEjecucion(startedAt: string, finishedAt: string | null):
   if (minutos < 60) return `${minutos} min ${segundos % 60} s`
   return `${Math.floor(minutos / 60)} h ${minutos % 60} min`
 }
+
+/** Mismos ids sin importar el orden. */
+export function mismosIds(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((id) => b.includes(id))
+}
