@@ -15,11 +15,10 @@ import { Field, FieldLabel } from '@/components/ui/field'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { PERMISO_WORKFLOWS_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
 import { formatearNombreRol, nombreVisibleDeUsuario } from '@/modules/auth/utils'
+import { ESTADO_USUARIO_ACTIVO } from '@/modules/workflows/constants'
 import type { useDestinatariosDisponibles } from '@/modules/workflows/hooks/use-destinatarios-disponibles'
 import type { DestinatariosRegla } from '@/modules/workflows/types'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
-
-const ESTADO_ACTIVO = 'activo'
 
 export interface SeleccionDestinatarios {
   rolIds: string[]
@@ -88,7 +87,7 @@ function SelectorMultiple({
                 {opciones.map((opcion) => (
                   <CommandItem
                     key={opcion.id}
-                    value={opcion.etiqueta}
+                    value={`${opcion.etiqueta} ${opcion.id}`}
                     data-checked={ids.includes(opcion.id)}
                     onSelect={() => alternar(opcion.id)}
                   >
@@ -168,7 +167,7 @@ export function DestinatariosCampos({
     return {
       id,
       etiqueta: guardado?.email ?? id,
-      inactivo: guardado !== undefined && guardado.estado !== ESTADO_ACTIVO,
+      inactivo: guardado !== undefined && guardado.estado !== ESTADO_USUARIO_ACTIVO,
     }
   })
 

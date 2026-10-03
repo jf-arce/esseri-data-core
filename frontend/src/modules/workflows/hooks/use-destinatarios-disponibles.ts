@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getRoles } from '@/modules/auth/services/get-roles'
 import { getUsuarios } from '@/modules/auth/services/get-usuarios'
+import { ESTADO_USUARIO_ACTIVO } from '@/modules/workflows/constants'
 import type { Rol, UsuarioConRoles } from '@/modules/auth/types'
 
 /** Roles y usuarios activos para elegir destinatarios. Los endpoints son de Autenticación (otro
@@ -20,7 +21,7 @@ export function useDestinatariosDisponibles() {
         if (!vigente) return
         setResultado({
           roles,
-          usuarios: usuarios.filter((usuario) => usuario.estado === 'activo'),
+          usuarios: usuarios.filter((usuario) => usuario.estado === ESTADO_USUARIO_ACTIVO),
           cargando: false,
           noDisponible: false,
         })

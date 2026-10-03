@@ -363,7 +363,7 @@ export function insertarPlaceholder(texto: string, posicion: number, nombreCampo
 }
 
 const PLACEHOLDER = /\{\{([a-z][a-z0-9_]*)\}\}/g
-export const ERROR_FORMATO_PLACEHOLDER =
+const ERROR_FORMATO_PLACEHOLDER =
   "Los placeholders deben tener el formato exacto '{{nombre_campo}}'."
 
 /** Aviso previo al guardado (réplica de `extraer_placeholders` y de la validación contra los

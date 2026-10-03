@@ -84,6 +84,9 @@ export const RANGO_DIAS_RECORDATORIO = { min: 1, max: 90 }
 export const RANGO_DIAS_TAREA = { min: 1, max: 60 }
 export const RANGO_MONTO = { min: 0.01, step: '0.01' }
 
+/** Estado con el que el backend marca a un usuario habilitado (`Usuario.estado`). */
+export const ESTADO_USUARIO_ACTIVO = 'activo'
+
 /** Valor de `accion_config.destinatario` que toma los destinatarios cargados en la regla. */
 export const DESTINATARIO_REGLA = 'destinatarios_regla'
 
