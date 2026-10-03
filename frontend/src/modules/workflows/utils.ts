@@ -1,5 +1,6 @@
 import {
   CLAVE_CONFIG,
+  DESTINATARIO_REGLA,
   ESTADOS_EJECUCION_FILTRO,
   ESTADOS_REGLA_FILTRO,
   FILTRO_ACTIVAS,
@@ -17,7 +18,6 @@ import type {
   Operador,
   ReglaWorkflow,
   ReglaWorkflowCreatePayload,
-  ReglaWorkflowPatch,
   TipoAccion,
   TipoAccionCatalogo,
   TipoDato,
@@ -243,6 +243,8 @@ export interface ValoresRegla {
   valorCondicion: string
   tipoAccion: TipoAccion | ''
   config: Record<string, string>
+  /** Id de la plantilla elegida, o `''` si no hay. */
+  plantillaId: string
   criticidad: Criticidad
   requiereAprobacionHumana: boolean
   activo: boolean
@@ -256,6 +258,7 @@ export const VALORES_REGLA_VACIOS: ValoresRegla = {
   valorCondicion: '',
   tipoAccion: '',
   config: {},
+  plantillaId: '',
   criticidad: 'media',
   requiereAprobacionHumana: false,
   activo: true,
@@ -291,6 +294,7 @@ export function valoresDesdeRegla(regla: ReglaWorkflow): ValoresRegla {
     valorCondicion: valor === undefined ? '' : String(valor),
     tipoAccion: regla.tipo_accion,
     config,
+    plantillaId: regla.notificacion_template_id ?? '',
     criticidad: regla.criticidad,
     requiereAprobacionHumana: regla.requiere_aprobacion_humana,
     activo: regla.activo,
@@ -304,10 +308,13 @@ export interface ContextoPayload {
   admitePlantilla: boolean
 }
 
-export function armarPayloadAlta(
+/** Payload completo de la regla, igual para el alta y el PATCH (reemplazo explícito de todo lo
+ * editable). Siempre manda la aprobación humana: sin ella el backend la recalcularía al cambiar
+ * de acción. */
+export function armarPayloadRegla(
   valores: ValoresRegla,
   tipoAccion: TipoAccion,
-  { tipoDatoCondicion }: ContextoPayload,
+  { tipoDatoCondicion, admitePlantilla }: ContextoPayload,
 ): ReglaWorkflowCreatePayload {
   return {
     nombre: valores.nombre.trim(),
@@ -322,22 +329,61 @@ export function armarPayloadAlta(
     accion_config: armarConfig(tipoAccion, valores.config),
     criticidad: valores.criticidad,
     requiere_aprobacion_humana: valores.requiereAprobacionHumana,
+    notificacion_template_id:
+      admitePlantilla && valores.plantillaId !== '' ? valores.plantillaId : null,
     activo: valores.activo,
   }
 }
 
-/** PATCH con reemplazo explícito de todo lo editable. Siempre manda la aprobación humana: sin
- * ella el backend la recalcularía al cambiar de acción. `notificacion_template_id` no se manda
- * (la regla conserva su plantilla) salvo que la nueva acción no admita plantilla. */
-export function armarPatch(
-  valores: ValoresRegla,
-  tipoAccion: TipoAccion,
-  contexto: ContextoPayload,
-): ReglaWorkflowPatch {
+const ACCIONES_CON_DESTINATARIO_ELEGIBLE: readonly TipoAccion[] = [
+  'notificar',
+  'generar_recordatorio',
+  'generar_comunicacion',
+]
+
+/** Réplica de `config_admite_destinatarios` del backend: `alerta_interna` siempre, y las demás
+ * acciones con plantilla solo si el destinatario es "Destinatarios de la regla". */
+export function admiteDestinatarios(tipoAccion: TipoAccion | '', config: Record<string, string>) {
+  if (tipoAccion === 'alerta_interna') return true
+  return (
+    tipoAccion !== '' &&
+    ACCIONES_CON_DESTINATARIO_ELEGIBLE.includes(tipoAccion) &&
+    config[CLAVE_CONFIG.destinatario] === DESTINATARIO_REGLA
+  )
+}
+
+/** Inserta `{{campo}}` en `posicion` y devuelve el texto nuevo y dónde queda el cursor. */
+export function insertarPlaceholder(texto: string, posicion: number, nombreCampo: string) {
+  const inicio = Math.min(Math.max(posicion, 0), texto.length)
+  const placeholder = `{{${nombreCampo}}}`
   return {
-    ...armarPayloadAlta(valores, tipoAccion, contexto),
-    ...(contexto.admitePlantilla ? {} : { notificacion_template_id: null }),
+    texto: texto.slice(0, inicio) + placeholder + texto.slice(inicio),
+    posicion: inicio + placeholder.length,
   }
+}
+
+const PLACEHOLDER = /\{\{([a-z][a-z0-9_]*)\}\}/g
+export const ERROR_FORMATO_PLACEHOLDER =
+  "Los placeholders deben tener el formato exacto '{{nombre_campo}}'."
+
+/** Aviso previo al guardado (réplica de `extraer_placeholders` y de la validación contra los
+ * campos del evento). `null` si no hay nada que avisar; la validación real es la del backend. */
+export function validarPlaceholders(
+  asunto: string,
+  cuerpo: string,
+  campos: CampoEvento[],
+): string | null {
+  const usados = new Set<string>()
+  for (const texto of [asunto, cuerpo]) {
+    if (texto.includes('{{{') || texto.includes('}}}')) return ERROR_FORMATO_PLACEHOLDER
+    for (const coincidencia of texto.matchAll(PLACEHOLDER)) usados.add(coincidencia[1])
+    const restante = texto.replace(PLACEHOLDER, '')
+    if (restante.includes('{{') || restante.includes('}}')) return ERROR_FORMATO_PLACEHOLDER
+  }
+  const conocidos = new Set(campos.map((campo) => campo.nombre_interno))
+  const desconocidos = [...usados].filter((nombre) => !conocidos.has(nombre)).sort()
+  if (desconocidos.length === 0) return null
+  return `Estos campos no existen en el evento: ${desconocidos.join(', ')}.`
 }
 
 export type EstadoReglaFiltro = (typeof ESTADOS_REGLA_FILTRO)[number]
@@ -408,6 +454,9 @@ export function cambiarEvento(
     valorCondicion: '',
     tipoAccion: sigueDisponible ? valores.tipoAccion : '',
     config: sigueDisponible ? config : {},
+    // Si la acción sigue, la compatibilidad de la plantilla con el nuevo evento la resuelve el
+    // editor cuando llega la lista de plantillas del evento.
+    plantillaId: sigueDisponible ? valores.plantillaId : '',
   }
 }
 
@@ -418,6 +467,7 @@ export function cambiarAccion(valores: ValoresRegla, accion: TipoAccionCatalogo)
     ...valores,
     tipoAccion: accion.tipo_accion,
     config: defaultsDeConfig(accion.config_schema),
+    plantillaId: accion.admite_plantilla ? valores.plantillaId : '',
     requiereAprobacionHumana: accion.requiere_aprobacion_por_defecto,
   }
 }

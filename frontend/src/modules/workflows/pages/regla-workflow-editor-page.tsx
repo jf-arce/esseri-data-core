@@ -31,8 +31,7 @@ import { crearReglaWorkflow } from '@/modules/workflows/services/crear-regla-wor
 import type { ReglaWorkflow, TipoAccionCatalogo, TipoEvento } from '@/modules/workflows/types'
 import {
   accionesDisponibles,
-  armarPatch,
-  armarPayloadAlta,
+  armarPayloadRegla,
   cambiarEvento,
   ESTADOS_POR_EVENTO,
   ETIQUETA_ACCION,
@@ -114,10 +113,10 @@ function EditorRegla({ regla, tiposEvento, tiposAccion }: EditorReglaProps) {
     setError(null)
     try {
       if (regla) {
-        await actualizarReglaWorkflow(regla.id, armarPatch(valores, tipoAccion, contexto))
+        await actualizarReglaWorkflow(regla.id, armarPayloadRegla(valores, tipoAccion, contexto))
         toast.success('Regla guardada')
       } else {
-        await crearReglaWorkflow(armarPayloadAlta(valores, tipoAccion, contexto))
+        await crearReglaWorkflow(armarPayloadRegla(valores, tipoAccion, contexto))
         toast.success('Regla creada')
       }
       navigate(RUTA_REGLAS)
