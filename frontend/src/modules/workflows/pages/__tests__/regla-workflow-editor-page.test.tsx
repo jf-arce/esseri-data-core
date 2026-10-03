@@ -327,7 +327,7 @@ describe('ReglaWorkflowEditorPage', () => {
     }
 
     async function elegirRol(user: ReturnType<typeof userEvent.setup>, nombre: string) {
-      await user.click(await screen.findByRole('combobox', { name: 'Roles' }))
+      await user.click(await screen.findByRole('combobox', { name: 'Destinatarios de la regla' }))
       await user.click(await screen.findByRole('option', { name: nombre }))
       await user.keyboard('{Escape}')
     }
@@ -353,6 +353,48 @@ describe('ReglaWorkflowEditorPage', () => {
       expect(vi.mocked(actualizarReglaWorkflow).mock.invocationCallOrder[0]).toBeLessThan(
         vi.mocked(reemplazarDestinatariosRegla).mock.invocationCallOrder[0],
       )
+    })
+
+    it('permite elegir roles y usuarios activos desde un mismo selector', async () => {
+      vi.mocked(getUsuarios).mockResolvedValue([
+        {
+          id: 'u-1',
+          email: 'ana@esseri.edu.ar',
+          estado: 'activo',
+          auth_provider: 'local',
+          ultimo_acceso: null,
+          roles: [],
+          persona_id: null,
+          persona_nombre: 'Ana',
+          persona_apellido: 'Pérez',
+        },
+        {
+          id: 'u-2',
+          email: 'baja@esseri.edu.ar',
+          estado: 'inactivo',
+          auth_provider: 'local',
+          ultimo_acceso: null,
+          roles: [],
+          persona_id: null,
+          persona_nombre: null,
+          persona_apellido: null,
+        },
+      ])
+      const user = await abrirAccion()
+      await user.click(await screen.findByRole('combobox', { name: 'Destinatarios de la regla' }))
+
+      expect(await screen.findByRole('option', { name: 'Secretaria' })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /baja/i })).not.toBeInTheDocument()
+      await user.click(screen.getByRole('option', { name: 'Pérez, Ana' }))
+      await user.click(screen.getByRole('option', { name: 'Director' }))
+      await user.keyboard('{Escape}')
+      await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+
+      await waitFor(() => expect(reemplazarDestinatariosRegla).toHaveBeenCalled())
+      expect(reemplazarDestinatariosRegla).toHaveBeenCalledWith('r-1', {
+        rol_ids: ['rol-2'],
+        usuario_ids: ['u-1'],
+      })
     })
 
     it('al editar no reenvía los destinatarios si no cambiaron', async () => {
@@ -545,8 +587,7 @@ describe('ReglaWorkflowEditorPage', () => {
       await abrirAccion()
 
       expect(await screen.findByText(/Autenticación · Leer/)).toBeInTheDocument()
-      expect(screen.getByRole('combobox', { name: 'Roles' })).toBeDisabled()
-      expect(screen.getByRole('combobox', { name: 'Usuarios' })).toBeDisabled()
+      expect(screen.getByRole('combobox', { name: 'Destinatarios de la regla' })).toBeDisabled()
       expect(screen.getByText('Secretaria')).toBeInTheDocument()
       expect(screen.getByText(/baja@esseri.edu.ar \(inactivo\)/)).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: /^Quitar/ })).not.toBeInTheDocument()
@@ -556,7 +597,9 @@ describe('ReglaWorkflowEditorPage', () => {
       conPermisos(['workflows.leer', 'workflows.crear'])
       await abrirAccion()
 
-      expect(await screen.findByRole('combobox', { name: 'Roles' })).toBeDisabled()
+      expect(
+        await screen.findByRole('combobox', { name: 'Destinatarios de la regla' }),
+      ).toBeDisabled()
     })
 
     it('ofrece crear y editar plantillas según los permisos', async () => {

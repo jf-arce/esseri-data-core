@@ -25,48 +25,61 @@ export interface SeleccionDestinatarios {
   usuarioIds: string[]
 }
 
+type TipoDestinatario = 'rol' | 'usuario'
+
 interface Opcion {
+  tipo: TipoDestinatario
   id: string
   etiqueta: string
   /** Ya configurado pero inactivo: se puede quitar, no volver a agregar. */
   inactivo?: boolean
 }
 
-interface SelectorMultipleProps {
-  id: string
-  etiqueta: string
-  placeholder: string
-  opciones: Opcion[]
-  seleccionadas: Opcion[]
+interface SelectorDestinatariosProps {
+  roles: Opcion[]
+  usuarios: Opcion[]
+  seleccionados: Opcion[]
   deshabilitado: boolean
-  onCambiar: (ids: string[]) => void
+  onAlternar: (opcion: Opcion) => void
 }
 
-function SelectorMultiple({
-  id,
-  etiqueta,
-  placeholder,
-  opciones,
-  seleccionadas,
-  deshabilitado,
-  onCambiar,
-}: SelectorMultipleProps) {
-  const [abierto, setAbierto] = useState(false)
-  const ids = seleccionadas.map((opcion) => opcion.id)
+const clave = (opcion: Pick<Opcion, 'tipo' | 'id'>) => `${opcion.tipo}:${opcion.id}`
 
-  function alternar(opcionId: string) {
-    onCambiar(
-      ids.includes(opcionId) ? ids.filter((actual) => actual !== opcionId) : [...ids, opcionId],
+function SelectorDestinatarios({
+  roles,
+  usuarios,
+  seleccionados,
+  deshabilitado,
+  onAlternar,
+}: SelectorDestinatariosProps) {
+  const [abierto, setAbierto] = useState(false)
+  const elegidos = new Set(seleccionados.map(clave))
+
+  function grupo(titulo: string, opciones: Opcion[]) {
+    return (
+      <CommandGroup heading={titulo}>
+        {opciones.map((opcion) => (
+          <CommandItem
+            key={clave(opcion)}
+            // cmdk exige valores únicos: dos opciones con la misma etiqueta se pisarían.
+            value={`${opcion.etiqueta} ${clave(opcion)}`}
+            data-checked={elegidos.has(clave(opcion))}
+            onSelect={() => onAlternar(opcion)}
+          >
+            {opcion.etiqueta}
+          </CommandItem>
+        ))}
+      </CommandGroup>
     )
   }
 
   return (
     <Field>
-      <FieldLabel htmlFor={id}>{etiqueta}</FieldLabel>
+      <FieldLabel htmlFor="destinatarios-selector">Destinatarios de la regla</FieldLabel>
       <Popover open={abierto} onOpenChange={setAbierto}>
         <PopoverTrigger asChild>
           <Button
-            id={id}
+            id="destinatarios-selector"
             type="button"
             variant="secondary"
             role="combobox"
@@ -74,7 +87,9 @@ function SelectorMultiple({
             disabled={deshabilitado}
             className="justify-between font-normal"
           >
-            {seleccionadas.length > 0 ? `${seleccionadas.length} elegidos` : placeholder}
+            {seleccionados.length > 0
+              ? `${seleccionados.length} elegidos`
+              : 'Elegir roles o usuarios'}
             <ChevronsUpDownIcon />
           </Button>
         </PopoverTrigger>
@@ -83,34 +98,26 @@ function SelectorMultiple({
             <CommandInput placeholder="Buscar" />
             <CommandList>
               <CommandEmpty>Sin resultados.</CommandEmpty>
-              <CommandGroup>
-                {opciones.map((opcion) => (
-                  <CommandItem
-                    key={opcion.id}
-                    value={`${opcion.etiqueta} ${opcion.id}`}
-                    data-checked={ids.includes(opcion.id)}
-                    onSelect={() => alternar(opcion.id)}
-                  >
-                    {opcion.etiqueta}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
+              {roles.length > 0 && grupo('Roles', roles)}
+              {usuarios.length > 0 && grupo('Usuarios', usuarios)}
             </CommandList>
           </Command>
         </PopoverContent>
       </Popover>
-      {seleccionadas.length > 0 && (
-        <ul className="flex flex-wrap gap-1.5" aria-label={`${etiqueta} elegidos`}>
-          {seleccionadas.map((opcion) => (
-            <li key={opcion.id}>
-              <Badge variant={opcion.inactivo ? 'neutro' : 'info'}>
+      {seleccionados.length > 0 && (
+        <ul className="flex flex-wrap gap-1.5" aria-label="Destinatarios elegidos">
+          {seleccionados.map((opcion) => (
+            <li key={clave(opcion)}>
+              <Badge
+                variant={opcion.inactivo ? 'neutro' : opcion.tipo === 'rol' ? 'info' : 'exito'}
+              >
                 {opcion.etiqueta}
                 {opcion.inactivo && ' (inactivo)'}
                 {!deshabilitado && (
                   <button
                     type="button"
                     aria-label={`Quitar ${opcion.etiqueta}`}
-                    onClick={() => alternar(opcion.id)}
+                    onClick={() => onAlternar(opcion)}
                   >
                     <XIcon />
                   </button>
@@ -145,35 +152,49 @@ export function DestinatariosCampos({
   const soloLectura =
     deshabilitado || sinPermiso || disponibles.cargando || disponibles.noDisponible
 
-  const opcionesRol: Opcion[] = disponibles.roles.map((rol) => ({
+  const roles: Opcion[] = disponibles.roles.map((rol) => ({
+    tipo: 'rol',
     id: rol.id,
     etiqueta: formatearNombreRol(rol.nombre),
   }))
-  const opcionesUsuario: Opcion[] = disponibles.usuarios.map((usuario) => ({
+  const usuarios: Opcion[] = disponibles.usuarios.map((usuario) => ({
+    tipo: 'usuario',
     id: usuario.id,
     etiqueta: nombreVisibleDeUsuario(usuario),
   }))
 
   const rolesElegidos = seleccion.rolIds.map<Opcion>((id) => ({
+    tipo: 'rol',
     id,
     etiqueta:
-      opcionesRol.find((opcion) => opcion.id === id)?.etiqueta ??
+      roles.find((opcion) => opcion.id === id)?.etiqueta ??
       formatearNombreRol(guardados.roles.find((rol) => rol.id === id)?.nombre ?? id),
   }))
   const usuariosElegidos = seleccion.usuarioIds.map<Opcion>((id) => {
-    const delCatalogo = opcionesUsuario.find((opcion) => opcion.id === id)
+    const delCatalogo = usuarios.find((opcion) => opcion.id === id)
     if (delCatalogo) return delCatalogo
     const guardado = guardados.usuarios.find((usuario) => usuario.id === id)
     return {
+      tipo: 'usuario',
       id,
       etiqueta: guardado?.email ?? id,
       inactivo: guardado !== undefined && guardado.estado !== ESTADO_USUARIO_ACTIVO,
     }
   })
 
+  function alternar({ tipo, id }: Opcion) {
+    const campo = tipo === 'rol' ? 'rolIds' : 'usuarioIds'
+    const actuales = seleccion[campo]
+    onCambiar({
+      ...seleccion,
+      [campo]: actuales.includes(id)
+        ? actuales.filter((actual) => actual !== id)
+        : [...actuales, id],
+    })
+  }
+
   return (
-    <div className="flex flex-col gap-4">
-      <p className="text-xs font-semibold text-texto-3">Destinatarios de la regla</p>
+    <div className="flex flex-col gap-3">
       {!deshabilitado && sinPermiso && (
         <Alert variant="info">
           <AlertDescription>
@@ -189,23 +210,12 @@ export function DestinatariosCampos({
           </AlertDescription>
         </Alert>
       )}
-      <SelectorMultiple
-        id="destinatarios-roles"
-        etiqueta="Roles"
-        placeholder="Elegir roles"
-        opciones={opcionesRol}
-        seleccionadas={rolesElegidos}
+      <SelectorDestinatarios
+        roles={roles}
+        usuarios={usuarios}
+        seleccionados={[...rolesElegidos, ...usuariosElegidos]}
         deshabilitado={soloLectura}
-        onCambiar={(rolIds) => onCambiar({ ...seleccion, rolIds })}
-      />
-      <SelectorMultiple
-        id="destinatarios-usuarios"
-        etiqueta="Usuarios"
-        placeholder="Elegir usuarios"
-        opciones={opcionesUsuario}
-        seleccionadas={usuariosElegidos}
-        deshabilitado={soloLectura}
-        onCambiar={(usuarioIds) => onCambiar({ ...seleccion, usuarioIds })}
+        onAlternar={alternar}
       />
     </div>
   )
