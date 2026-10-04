@@ -161,6 +161,50 @@ export interface FiltrosEjecuciones {
   tamanioPagina: number
 }
 
+export const ESTADOS_ENVIO = ['enviado', 'fallido', 'pendiente'] as const
+export type EstadoEnvio = (typeof ESTADOS_ENVIO)[number]
+
+export const DESTINATARIOS_TIPO = ['familia', 'usuario'] as const
+export type DestinatarioTipo = (typeof DESTINATARIOS_TIPO)[number]
+
+export interface NotificacionEnviada {
+  id: string
+  destinatario_tipo: DestinatarioTipo
+  canal: string
+  destinatario_snapshot: string
+  asunto_snapshot: string
+  estado_envio: EstadoEnvio
+  /** `null` si el envío no se concretó. */
+  sent_at: string | null
+  familia_id: string | null
+  usuario_id: string | null
+  workflow_execution_id: string
+  intento: number
+  ejecucion_started_at: string
+  workflow_rule_id: string
+  workflow_rule_nombre: string
+}
+
+/** El cuerpo solo viaja en el detalle: puede tener datos personales. */
+export interface NotificacionEnviadaDetalle extends NotificacionEnviada {
+  cuerpo_snapshot: string
+}
+
+export interface NotificacionEnviadaListado {
+  items: NotificacionEnviada[]
+  total: number
+  pagina: number
+  tamanio_pagina: number
+  total_paginas: number
+}
+
+export interface FiltrosNotificaciones {
+  estadoEnvio?: EstadoEnvio
+  destinatarioTipo?: DestinatarioTipo
+  pagina: number
+  tamanioPagina: number
+}
+
 export interface OpcionSelect {
   value: string
   label: string
