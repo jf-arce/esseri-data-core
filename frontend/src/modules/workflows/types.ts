@@ -82,6 +82,7 @@ export interface ReglaWorkflowCreatePayload {
   accion_config: AccionConfig
   criticidad: Criticidad
   requiere_aprobacion_humana: boolean
+  notificacion_template_id: string | null
   activo: boolean
 }
 
@@ -95,6 +96,31 @@ export interface ReglaWorkflowPatch {
   requiere_aprobacion_humana?: boolean
   notificacion_template_id?: string | null
   activo?: boolean
+}
+
+export interface PlantillaNotificacion {
+  id: string
+  nombre: string
+  asunto: string
+  cuerpo: string
+  created_at: string
+  updated_at: string
+}
+
+export interface PlantillaPayload {
+  nombre: string
+  asunto: string
+  cuerpo: string
+}
+
+export interface DestinatariosRegla {
+  roles: { id: string; nombre: string }[]
+  usuarios: { id: string; email: string; estado: string }[]
+}
+
+export interface DestinatariosReglaPayload {
+  rol_ids: string[]
+  usuario_ids: string[]
 }
 
 export const ESTADOS_EJECUCION = ['exitoso', 'fallido', 'pendiente'] as const

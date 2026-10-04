@@ -219,7 +219,7 @@ Antes del alcance nuevo, estas vistas no tenían dueño formal en ningún docume
 
 **Frontend (`modules/workflows/`):**
 - ABM de reglas de workflow (RF-22), **hecho** (#65): selector de evento, editor de condición, selector de acción con su configuración, criticidad y aprobación humana.
-- Editor de plantilla con chips insertables de `CAMPO_EVENTO` y destinatarios (`REGLA_DESTINATARIO`) (RF-25), **pendiente** (#70). El backend ya está (#69).
+- Editor de plantilla con chips insertables de `CAMPO_EVENTO` y destinatarios (`REGLA_DESTINATARIO`) (RF-25), **hecho** (#70), dentro del editor de reglas. Limitación conocida: los destinatarios se guardan con un `PUT` aparte después del `POST`/`PATCH` de la regla, así que una regla activa puede ejecutarse en el medio sin destinatarios; queda `fallido` con "sin destinatarios" y se reintenta desde el historial.
 - Historial de ejecuciones (RF-23), con filtro por estado, detalle en panel lateral y reintento de las fallidas, **hecho** (#67).
 - Bandeja de tareas y escalamiento.
 
