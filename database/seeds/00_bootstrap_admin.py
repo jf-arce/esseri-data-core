@@ -25,7 +25,7 @@ except ImportError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
 
 from src.auth.models import Rol, Usuario, UsuarioRol
-from src.auth.service import hashear_password
+from src.auth.sesion_service import hashear_password
 from src.config import settings
 from src.database import SessionLocal
 

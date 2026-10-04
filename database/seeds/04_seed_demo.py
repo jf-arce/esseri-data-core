@@ -41,7 +41,7 @@ from src.academico.models import (
     NivelEducativo,
 )
 from src.auth.models import Rol, Usuario, UsuarioRol
-from src.auth.service import hashear_password
+from src.auth.sesion_service import hashear_password
 from src.config import settings
 from src.database import SessionLocal
 from src.facturacion.calendario_facturacion import fecha_operativa_argentina
