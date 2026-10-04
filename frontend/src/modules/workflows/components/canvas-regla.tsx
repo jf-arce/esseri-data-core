@@ -224,8 +224,6 @@ export function CanvasRegla({
 
   function alPresionar(evento: PointerEvent<HTMLButtonElement>, tipo: NodoRegla) {
     if (evento.button !== 0) return
-    // Presionar un nodo lo selecciona, también al empezar a arrastrarlo.
-    onSeleccionar(tipo)
     evento.currentTarget.setPointerCapture?.(evento.pointerId)
     arrastre.current = {
       tipo,
@@ -246,6 +244,14 @@ export function CanvasRegla({
   }
 
   function alSoltar(evento: PointerEvent<HTMLButtonElement>) {
+    const actual = arrastre.current
+    arrastre.current = null
+    evento.currentTarget.releasePointerCapture?.(evento.pointerId)
+    // Un gesto sin movimiento es un clic y abre el nodo; si se arrastró, solo lo movió.
+    if (actual && !actual.movido) onSeleccionar(actual.tipo)
+  }
+
+  function alCancelar(evento: PointerEvent<HTMLButtonElement>) {
     arrastre.current = null
     evento.currentTarget.releasePointerCapture?.(evento.pointerId)
   }
@@ -325,10 +331,10 @@ export function CanvasRegla({
                 onPointerDown={(evento) => alPresionar(evento, tipo)}
                 onPointerMove={alMover}
                 onPointerUp={alSoltar}
-                onPointerCancel={alSoltar}
+                onPointerCancel={alCancelar}
                 onKeyDown={(evento) => alPulsarTecla(evento, tipo)}
                 onClick={(evento) => {
-                  // Con el puntero ya se seleccionó al presionar; esto cubre Enter y Espacio.
+                  // Con el puntero ya se abrió al soltar; esto cubre Enter y Espacio.
                   if (evento.detail === 0) onSeleccionar(tipo)
                 }}
                 style={{ left: x, top: y, width: ANCHO_NODO, height: ALTO_NODO }}

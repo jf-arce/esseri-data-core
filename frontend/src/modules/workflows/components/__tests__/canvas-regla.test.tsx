@@ -38,6 +38,31 @@ describe('CanvasRegla', () => {
     expect(izquierdas).toEqual([29, 295, 561])
   })
 
+  it('abre el nodo al soltar sin haberlo movido, y no antes', () => {
+    const { onSeleccionar, nodo } = renderizar()
+    const condicion = nodo(/Condición/)
+
+    fireEvent.pointerDown(condicion, { button: 0, clientX: 300, clientY: 200 })
+    expect(onSeleccionar).not.toHaveBeenCalled()
+    // Un temblor menor al umbral de arrastre sigue siendo un clic.
+    fireEvent.pointerMove(condicion, { clientX: 302, clientY: 201 })
+    fireEvent.pointerUp(condicion, { clientX: 302, clientY: 201 })
+
+    expect(onSeleccionar).toHaveBeenCalledTimes(1)
+    expect(onSeleccionar).toHaveBeenCalledWith('condicion')
+    expect(Number.parseFloat(condicion.style.left)).toBe(295)
+  })
+
+  it('cancelar el gesto no abre el nodo', () => {
+    const { onSeleccionar, nodo } = renderizar()
+    const condicion = nodo(/Condición/)
+
+    fireEvent.pointerDown(condicion, { button: 0, clientX: 300, clientY: 200 })
+    fireEvent.pointerCancel(condicion)
+
+    expect(onSeleccionar).not.toHaveBeenCalled()
+  })
+
   it('mueve el nodo con las flechas y el enlace lo sigue', async () => {
     const { nodo, trayectos } = renderizar()
     const antes = trayectos()
@@ -49,7 +74,7 @@ describe('CanvasRegla', () => {
     expect(trayectos()).not.toEqual(antes)
   })
 
-  it('arrastra un nodo con el puntero, lo selecciona y "Acomodar" lo devuelve', () => {
+  it('arrastra un nodo con el puntero sin abrirlo y "Acomodar" lo devuelve', () => {
     const { onSeleccionar, nodo } = renderizar()
     const condicion = nodo(/Condición/)
 
@@ -58,8 +83,7 @@ describe('CanvasRegla', () => {
     fireEvent.pointerUp(condicion, { clientX: 340, clientY: 230 })
 
     expect(Number.parseFloat(condicion.style.left)).toBe(335)
-    expect(onSeleccionar).toHaveBeenCalledTimes(1)
-    expect(onSeleccionar).toHaveBeenCalledWith('condicion')
+    expect(onSeleccionar).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Acomodar' }))
     expect(Number.parseFloat(nodo(/Condición/).style.left)).toBe(295)
