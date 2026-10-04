@@ -7,6 +7,7 @@ envía y la respuesta se pierde, un reintento manda el email otra vez."""
 
 import logging
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -35,6 +36,7 @@ from src.workflows.models import (
     WorkflowRule,
 )
 from src.workflows.schemas import (
+    ConfigAlertaInterna,
     ConfigNotificar,
     DestinatarioTipo,
     EstadoEnvioNotificacion,
@@ -47,6 +49,7 @@ from src.workflows.schemas import (
 logger = logging.getLogger(__name__)
 
 ERROR_SIN_PLANTILLA = "La regla no tiene plantilla de notificación."
+ERROR_SIN_MENSAJE = "La regla no tiene mensaje ni plantilla de notificación."
 ERROR_RENDER = "La plantilla no se pudo completar con los datos del evento."
 ERROR_SIN_DESTINATARIOS = "No se encontró ningún destinatario con email."
 ERROR_SIN_ALUMNO = "No se pudo determinar el alumno del evento."
@@ -55,6 +58,7 @@ ERROR_ENVIO = "No se pudo enviar el email a todos los destinatarios."
 ERRORES_CONTROLADOS = frozenset(
     {
         ERROR_SIN_PLANTILLA,
+        ERROR_SIN_MENSAJE,
         ERROR_RENDER,
         ERROR_SIN_DESTINATARIOS,
         ERROR_SIN_ALUMNO,
@@ -81,6 +85,12 @@ class _Mensaje:
 
 class _SinAlumno(Exception):
     pass
+
+
+class _SinContenido(Exception):
+    def __init__(self, error: str) -> None:
+        super().__init__(error)
+        self.error = error
 
 
 # --- Destinatarios -------------------------------------------------------------------------
@@ -219,6 +229,61 @@ def _familia_responsable_economico(
 def ejecutar_notificar(
     db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
 ) -> ResultadoAccion:
+    destino = ConfigNotificar.model_validate(regla.accion_config or {}).destinatario
+    return _ejecutar(db, regla, evento, ejecucion, destino, _contenido_notificar)
+
+
+def ejecutar_alerta_interna(
+    db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
+) -> ResultadoAccion:
+    """Avisa por email a los usuarios y roles de la regla. Usa la plantilla si la regla la tiene
+    y, si no, `accion_config.mensaje` como cuerpo."""
+    return _ejecutar(db, regla, evento, ejecucion, "destinatarios_regla", _contenido_alerta)
+
+
+def _contenido_notificar(db: Session, regla: WorkflowRule, evento: EventLog) -> tuple[str, str]:
+    plantilla = _plantilla_de(db, regla)
+    if plantilla is None:
+        raise _SinContenido(ERROR_SIN_PLANTILLA)
+    return _renderizar(regla, evento, plantilla)
+
+
+def _contenido_alerta(db: Session, regla: WorkflowRule, evento: EventLog) -> tuple[str, str]:
+    plantilla = _plantilla_de(db, regla)
+    if plantilla is not None:
+        return _renderizar(regla, evento, plantilla)
+    mensaje = ConfigAlertaInterna.model_validate(regla.accion_config or {}).mensaje
+    if mensaje is None:
+        raise _SinContenido(ERROR_SIN_MENSAJE)
+    return f"Alerta interna: {regla.nombre}", mensaje
+
+
+def _plantilla_de(db: Session, regla: WorkflowRule) -> NotificacionTemplate | None:
+    if regla.notificacion_template_id is None:
+        return None
+    return db.get(NotificacionTemplate, regla.notificacion_template_id)
+
+
+def _renderizar(
+    regla: WorkflowRule, evento: EventLog, plantilla: NotificacionTemplate
+) -> tuple[str, str]:
+    try:
+        return plantillas_service.renderizar_contenido(
+            plantilla.asunto, plantilla.cuerpo, evento.payload or {}
+        )
+    except PlantillaInvalida:
+        logger.warning("No se pudo renderizar la plantilla de la regla %s", regla.id, exc_info=True)
+        raise _SinContenido(ERROR_RENDER) from None
+
+
+def _ejecutar(
+    db: Session,
+    regla: WorkflowRule,
+    evento: EventLog,
+    ejecucion: WorkflowExecution,
+    destino: str,
+    obtener_contenido: Callable[[Session, WorkflowRule, EventLog], tuple[str, str]],
+) -> ResultadoAccion:
     previas = _notificaciones_del_ultimo_intento(db, regla, evento, ejecucion)
     if previas:
         # Reintento: se reenvía solo lo que falló, tal como se registró.
@@ -240,24 +305,13 @@ def ejecutar_notificar(
             return ResultadoAccion(detalle="Todos los emails ya habían sido enviados.")
         return _enviar_todos(db, ejecucion, pendientes, total=len(pendientes), sin_email=0)
 
-    plantilla = (
-        db.get(NotificacionTemplate, regla.notificacion_template_id)
-        if regla.notificacion_template_id is not None
-        else None
-    )
-    if plantilla is None:
-        return ResultadoAccion(error=ERROR_SIN_PLANTILLA)
     try:
-        asunto, cuerpo = plantillas_service.renderizar_contenido(
-            plantilla.asunto, plantilla.cuerpo, evento.payload or {}
-        )
-    except PlantillaInvalida:
-        logger.warning("No se pudo renderizar la plantilla de la regla %s", regla.id, exc_info=True)
-        return ResultadoAccion(error=ERROR_RENDER)
+        asunto, cuerpo = obtener_contenido(db, regla, evento)
+    except _SinContenido as e:
+        return ResultadoAccion(error=e.error)
 
-    config = ConfigNotificar.model_validate(regla.accion_config or {})
     try:
-        destinatarios, sin_email = resolver_destinatarios(db, regla, evento, config.destinatario)
+        destinatarios, sin_email = resolver_destinatarios(db, regla, evento, destino)
     except _SinAlumno:
         return ResultadoAccion(error=ERROR_SIN_ALUMNO)
     if not destinatarios:

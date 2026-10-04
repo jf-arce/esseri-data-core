@@ -25,7 +25,11 @@ from src.workflows.models import (
     WorkflowExecution,
     WorkflowRule,
 )
-from src.workflows.notificaciones_service import ejecutar_notificar, resolver_destinatarios
+from src.workflows.notificaciones_service import (
+    ejecutar_alerta_interna,
+    ejecutar_notificar,
+    resolver_destinatarios,
+)
 from src.workflows.plantillas_service import renderizar_contenido
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
@@ -439,6 +443,56 @@ def test_regla_sin_plantilla_falla_sin_notificaciones(db_session, tipo_factura_v
     resultado = ejecutar_notificar(db_session, regla, evento, _ejecucion(db_session, regla, evento))
 
     assert resultado.error == notificaciones_service.ERROR_SIN_PLANTILLA
+    assert db_session.scalars(select(Notificacion)).all() == []
+
+
+def _alerta(db, tipo, plantilla, accion_config):
+    regla = _preparar_regla_con_usuarios(db, tipo, plantilla)
+    regla.tipo_accion = "alerta_interna"
+    regla.accion_config = accion_config
+    db.commit()
+    return regla
+
+
+def test_alerta_interna_envia_el_mensaje_a_los_destinatarios_de_la_regla(
+    db_session, tipo_factura_vencida, envios
+):
+    regla = _alerta(db_session, tipo_factura_vencida, None, {"mensaje": "Revisar la mora"})
+    evento = _evento(db_session, tipo_factura_vencida)
+
+    resultado = ejecutar_alerta_interna(
+        db_session, regla, evento, _ejecucion(db_session, regla, evento)
+    )
+
+    assert resultado.error is None
+    filas = db_session.scalars(select(Notificacion)).all()
+    assert {f.asunto_snapshot for f in filas} == {"Alerta interna: Avisar mora"}
+    assert {f.cuerpo_snapshot for f in filas} == {"Revisar la mora"}
+    assert {f.destinatario_tipo for f in filas} == {"usuario"}
+    assert len(envios.enviados) == 2
+
+
+def test_alerta_interna_prefiere_la_plantilla_al_mensaje(
+    db_session, tipo_factura_vencida, plantilla, envios
+):
+    regla = _alerta(db_session, tipo_factura_vencida, plantilla, {"mensaje": "Ignorado"})
+    evento = _evento(db_session, tipo_factura_vencida)
+
+    ejecutar_alerta_interna(db_session, regla, evento, _ejecucion(db_session, regla, evento))
+
+    filas = db_session.scalars(select(Notificacion)).all()
+    assert {f.cuerpo_snapshot for f in filas} == {"Debe 1500"}
+
+
+def test_alerta_interna_sin_mensaje_ni_plantilla_falla(db_session, tipo_factura_vencida, envios):
+    regla = _alerta(db_session, tipo_factura_vencida, None, {})
+    evento = _evento(db_session, tipo_factura_vencida)
+
+    resultado = ejecutar_alerta_interna(
+        db_session, regla, evento, _ejecucion(db_session, regla, evento)
+    )
+
+    assert resultado.error == notificaciones_service.ERROR_SIN_MENSAJE
     assert db_session.scalars(select(Notificacion)).all() == []
 
 

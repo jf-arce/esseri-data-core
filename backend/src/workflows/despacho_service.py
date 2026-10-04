@@ -42,7 +42,10 @@ logger = logging.getLogger(__name__)
 # curso, y devuelve el detalle y, si falló sin perder lo ya escrito, el motivo. Nunca hace commit.
 # Cada tipo de acción se registra acá al implementarse (ver #68 y #89).
 AccionHandler = Callable[[Session, WorkflowRule, EventLog, WorkflowExecution], ResultadoAccion]
-ACCIONES: dict[str, AccionHandler] = {"notificar": notificaciones_service.ejecutar_notificar}
+ACCIONES: dict[str, AccionHandler] = {
+    "notificar": notificaciones_service.ejecutar_notificar,
+    "alerta_interna": notificaciones_service.ejecutar_alerta_interna,
+}
 
 ERROR_EVALUACION = "No se pudo evaluar la regla con los datos del evento."
 ERROR_CONFIGURACION = "La configuración de la acción no es válida."
