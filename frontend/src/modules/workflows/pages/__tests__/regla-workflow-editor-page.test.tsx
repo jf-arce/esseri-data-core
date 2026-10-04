@@ -185,6 +185,21 @@ async function elegirOpcion(
   await user.click(await screen.findByRole('option', { name: opcion }))
 }
 
+async function abrirNodo(user: ReturnType<typeof userEvent.setup>, nodo: RegExp) {
+  await user.click(await screen.findByRole('button', { name: nodo }))
+}
+
+async function aplicar(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: 'Aplicar' }))
+}
+
+/** Aplica el diálogo que haya abierto (si hay) y guarda la regla. */
+async function guardarRegla(user: ReturnType<typeof userEvent.setup>) {
+  const pendiente = screen.queryByRole('button', { name: 'Aplicar' })
+  if (pendiente) await user.click(pendiente)
+  await user.click(await screen.findByRole('button', { name: 'Guardar regla' }))
+}
+
 describe('ReglaWorkflowEditorPage', () => {
   it('al cambiar el evento limpia la condición y el campo_monto', async () => {
     const user = userEvent.setup()
@@ -195,8 +210,9 @@ describe('ReglaWorkflowEditorPage', () => {
     })
     abrirEditor()
 
+    await abrirNodo(user, /^Disparador/)
     await elegirOpcion(user, 'Cuándo se dispara', 'Se registra un pago')
-    await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+    await guardarRegla(user)
 
     await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
     expect(actualizarReglaWorkflow).toHaveBeenCalledWith(
@@ -223,7 +239,7 @@ describe('ReglaWorkflowEditorPage', () => {
     expect(screen.getByRole('switch', { name: 'Requiere aprobación humana' })).not.toBeChecked()
     await elegirOpcion(user, 'Tipo de acción', 'Aplicar penalidad')
     expect(screen.getByRole('switch', { name: 'Requiere aprobación humana' })).toBeChecked()
-    await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+    await guardarRegla(user)
 
     await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
     expect(actualizarReglaWorkflow).toHaveBeenCalledWith(
@@ -243,7 +259,7 @@ describe('ReglaWorkflowEditorPage', () => {
 
     await user.click(await screen.findByRole('button', { name: /^Acción/ }))
     expect(screen.getByRole('switch', { name: 'Requiere aprobación humana' })).not.toBeChecked()
-    await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+    await guardarRegla(user)
 
     await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
     expect(actualizarReglaWorkflow).toHaveBeenCalledWith(
@@ -261,7 +277,10 @@ describe('ReglaWorkflowEditorPage', () => {
     conPermisos(['workflows.leer'])
     abrirEditor()
 
+    await abrirNodo(userEvent.setup(), /^Disparador/)
     expect(await screen.findByRole('textbox', { name: 'Nombre de la regla' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cerrar' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Aplicar' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Guardar regla' })).not.toBeInTheDocument()
   })
 
@@ -289,7 +308,7 @@ describe('ReglaWorkflowEditorPage', () => {
     )
     abrirEditor()
 
-    await user.click(await screen.findByRole('button', { name: 'Guardar regla' }))
+    await guardarRegla(user)
 
     expect(await screen.findByText(/Configuración inválida para crear_tarea/)).toBeInTheDocument()
     expect(screen.queryByText('Listado de reglas')).not.toBeInTheDocument()
@@ -318,6 +337,66 @@ describe('ReglaWorkflowEditorPage', () => {
     )
   })
 
+  describe('diálogos de los nodos', () => {
+    it('cancelar descarta los cambios del borrador', async () => {
+      const user = userEvent.setup()
+      abrirEditor()
+
+      await abrirNodo(user, /^Disparador/)
+      await user.type(
+        await screen.findByRole('textbox', { name: 'Nombre de la regla' }),
+        ' editada',
+      )
+      await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+      await user.click(await screen.findByRole('button', { name: 'Guardar regla' }))
+
+      await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
+      expect(actualizarReglaWorkflow).toHaveBeenCalledWith(
+        'r-1',
+        expect.objectContaining({ nombre: 'Penalidad por mora' }),
+      )
+    })
+
+    it('aplicar pasa el borrador a la regla sin guardarla todavía', async () => {
+      const user = userEvent.setup()
+      abrirEditor()
+
+      await abrirNodo(user, /^Disparador/)
+      await user.type(
+        await screen.findByRole('textbox', { name: 'Nombre de la regla' }),
+        ' editada',
+      )
+      await aplicar(user)
+
+      expect(actualizarReglaWorkflow).not.toHaveBeenCalled()
+      expect(screen.getByRole('button', { name: /^Disparador/ })).toHaveTextContent(
+        'Penalidad por mora editada',
+      )
+    })
+
+    it('en el alta abre el disparador y marca los nodos que faltan', async () => {
+      abrirEditor('/workflows/reglas/nueva')
+
+      expect(await screen.findByRole('textbox', { name: 'Nombre de la regla' })).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+      expect(await screen.findAllByText('Incompleto')).toHaveLength(2)
+    })
+
+    it('"Regla activa" se cambia desde el encabezado', async () => {
+      const user = userEvent.setup()
+      abrirEditor()
+
+      await user.click(await screen.findByRole('switch', { name: 'Regla activa' }))
+      await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+
+      await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
+      expect(actualizarReglaWorkflow).toHaveBeenCalledWith(
+        'r-1',
+        expect.objectContaining({ activo: false }),
+      )
+    })
+  })
+
   describe('plantilla y destinatarios', () => {
     async function abrirAccion() {
       const user = userEvent.setup()
@@ -339,7 +418,7 @@ describe('ReglaWorkflowEditorPage', () => {
     it('al editar guarda la regla y después los destinatarios que cambiaron', async () => {
       const user = await abrirAccion()
       await elegirRol(user, 'Secretaria')
-      await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+      await guardarRegla(user)
 
       await waitFor(() => expect(reemplazarDestinatariosRegla).toHaveBeenCalled())
       expect(actualizarReglaWorkflow).toHaveBeenCalledWith(
@@ -388,7 +467,7 @@ describe('ReglaWorkflowEditorPage', () => {
       await user.click(screen.getByRole('option', { name: 'Pérez, Ana' }))
       await user.click(screen.getByRole('option', { name: 'Director' }))
       await user.keyboard('{Escape}')
-      await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+      await guardarRegla(user)
 
       await waitFor(() => expect(reemplazarDestinatariosRegla).toHaveBeenCalled())
       expect(reemplazarDestinatariosRegla).toHaveBeenCalledWith('r-1', {
@@ -399,7 +478,7 @@ describe('ReglaWorkflowEditorPage', () => {
 
     it('al editar no reenvía los destinatarios si no cambiaron', async () => {
       const user = await abrirAccion()
-      await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+      await guardarRegla(user)
 
       await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
       expect(await screen.findByText('Listado de reglas')).toBeInTheDocument()
@@ -410,15 +489,16 @@ describe('ReglaWorkflowEditorPage', () => {
       vi.mocked(reemplazarDestinatariosRegla).mockRejectedValue(new ApiError(422, 'Rol inválido'))
       const user = await abrirAccion()
       await elegirRol(user, 'Secretaria')
-      await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+      await guardarRegla(user)
 
       expect(await screen.findByText(/no los destinatarios: Rol inválido/)).toBeInTheDocument()
       expect(screen.queryByText('Listado de reglas')).not.toBeInTheDocument()
+      await abrirNodo(user, /^Acción/)
       expect(screen.getByRole('button', { name: 'Quitar Secretaria' })).toBeInTheDocument()
 
       // Reintentar repite el PATCH y el PUT.
       vi.mocked(reemplazarDestinatariosRegla).mockResolvedValue({ roles: [], usuarios: [] })
-      await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+      await guardarRegla(user)
       expect(await screen.findByText('Listado de reglas')).toBeInTheDocument()
       expect(actualizarReglaWorkflow).toHaveBeenCalledTimes(2)
       expect(reemplazarDestinatariosRegla).toHaveBeenCalledTimes(2)
@@ -431,7 +511,7 @@ describe('ReglaWorkflowEditorPage', () => {
       })
       const user = await abrirAccion()
       await elegirOpcion(user, 'Destinatario', 'Responsables habilitados')
-      await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+      await guardarRegla(user)
 
       await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
       expect(reemplazarDestinatariosRegla).toHaveBeenCalledWith('r-1', {
@@ -451,7 +531,7 @@ describe('ReglaWorkflowEditorPage', () => {
       vi.mocked(actualizarReglaWorkflow).mockRejectedValueOnce(new ApiError(422, 'Config inválida'))
       const user = await abrirAccion()
       await elegirOpcion(user, 'Destinatario', 'Responsables habilitados')
-      await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+      await guardarRegla(user)
 
       expect(
         await screen.findByText(/ya se quitaron de la regla.*Config inválida/),
@@ -459,9 +539,10 @@ describe('ReglaWorkflowEditorPage', () => {
       expect(screen.queryByText('Listado de reglas')).not.toBeInTheDocument()
 
       // Vuelve a una config que los admite: la selección local se conserva y se reenvía.
+      await abrirNodo(user, /^Acción/)
       await elegirOpcion(user, 'Destinatario', 'Destinatarios de la regla')
       expect(screen.getByRole('button', { name: 'Quitar Secretaria' })).toBeInTheDocument()
-      await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+      await guardarRegla(user)
 
       await waitFor(() => expect(reemplazarDestinatariosRegla).toHaveBeenCalledTimes(2))
       expect(reemplazarDestinatariosRegla).toHaveBeenLastCalledWith('r-1', {
@@ -477,10 +558,11 @@ describe('ReglaWorkflowEditorPage', () => {
 
       await user.type(await screen.findByRole('textbox', { name: 'Nombre de la regla' }), 'Aviso')
       await elegirOpcion(user, 'Cuándo se dispara', 'Se registra un pago')
-      await user.click(screen.getByRole('button', { name: /^Acción/ }))
+      await aplicar(user)
+      await abrirNodo(user, /^Acción/)
       await elegirOpcion(user, 'Tipo de acción', 'Alerta interna')
       await elegirRol(user, 'Director')
-      await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+      await guardarRegla(user)
 
       expect(await screen.findByText('Listado de reglas')).toBeInTheDocument()
       expect(crearReglaWorkflow).toHaveBeenCalledWith(
@@ -513,10 +595,11 @@ describe('ReglaWorkflowEditorPage', () => {
 
       await user.type(await screen.findByRole('textbox', { name: 'Nombre de la regla' }), 'Aviso')
       await elegirOpcion(user, 'Cuándo se dispara', 'Se registra un pago')
-      await user.click(screen.getByRole('button', { name: /^Acción/ }))
+      await aplicar(user)
+      await abrirNodo(user, /^Acción/)
       await elegirOpcion(user, 'Tipo de acción', 'Alerta interna')
       await elegirRol(user, 'Director')
-      await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+      await guardarRegla(user)
 
       expect(
         await screen.findByText(/La regla se creó, pero no se pudieron guardar los destinatarios/),
@@ -526,7 +609,7 @@ describe('ReglaWorkflowEditorPage', () => {
       expect(await screen.findByRole('button', { name: 'Quitar Director' })).toBeInTheDocument()
 
       // El reintento ya es una edición de la regla creada.
-      await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+      await guardarRegla(user)
       await waitFor(() =>
         expect(actualizarReglaWorkflow).toHaveBeenCalledWith('nueva-1', expect.anything()),
       )
@@ -543,11 +626,13 @@ describe('ReglaWorkflowEditorPage', () => {
       const user = userEvent.setup()
       abrirEditor()
 
+      await abrirNodo(user, /^Disparador/)
       await elegirOpcion(user, 'Cuándo se dispara', 'Se registra un pago')
+      await aplicar(user)
       await waitFor(() =>
         expect(listarPlantillas).toHaveBeenCalledWith('e-pago', expect.anything()),
       )
-      await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+      await guardarRegla(user)
 
       await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
       expect(actualizarReglaWorkflow).toHaveBeenCalledWith(
@@ -564,11 +649,13 @@ describe('ReglaWorkflowEditorPage', () => {
       const user = userEvent.setup()
       abrirEditor()
 
+      await abrirNodo(user, /^Disparador/)
       await elegirOpcion(user, 'Cuándo se dispara', 'Se registra un pago')
+      await aplicar(user)
       await waitFor(() =>
         expect(listarPlantillas).toHaveBeenCalledWith('e-pago', expect.anything()),
       )
-      await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+      await guardarRegla(user)
 
       await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
       expect(actualizarReglaWorkflow).toHaveBeenCalledWith(

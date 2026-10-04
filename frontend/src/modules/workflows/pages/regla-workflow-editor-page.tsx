@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { SearchXIcon } from 'lucide-react'
 import { toast } from 'sonner'
@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import {
   PERMISO_WORKFLOWS_ACTUALIZAR,
   PERMISO_WORKFLOWS_CREAR,
@@ -21,9 +22,7 @@ import {
 } from '@/modules/workflows/components/canvas-regla'
 import { PARAMETRO_REGLA_ID, RUTA_REGLAS, rutaRegla } from '@/modules/workflows/constants'
 import type { SeleccionDestinatarios } from '@/modules/workflows/components/destinatarios-campos'
-import { PanelAccion } from '@/modules/workflows/components/panel-accion'
-import { PanelCondicion } from '@/modules/workflows/components/panel-condicion'
-import { PanelDisparador } from '@/modules/workflows/components/panel-disparador'
+import { DialogosRegla, type Borrador } from '@/modules/workflows/components/dialogos-regla'
 import { useCatalogosWorkflow } from '@/modules/workflows/hooks/use-catalogos-workflow'
 import { useConceptosCobro } from '@/modules/workflows/hooks/use-conceptos-cobro'
 import { useDestinatariosDisponibles } from '@/modules/workflows/hooks/use-destinatarios-disponibles'
@@ -44,7 +43,6 @@ import {
   accionesDisponibles,
   admiteDestinatarios,
   armarPayloadRegla,
-  cambiarEvento,
   ESTADOS_POR_EVENTO,
   ETIQUETA_ACCION,
   ETIQUETA_CRITICIDAD,
@@ -59,12 +57,6 @@ import {
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 const ETIQUETA_VOLVER_A_REGLAS = 'Volver a las reglas'
-
-const TITULO_PANEL: Record<NodoRegla, string> = {
-  disparador: 'Disparador seleccionado',
-  condicion: 'Condición seleccionada',
-  accion: 'Acción seleccionada',
-}
 
 const SIN_DESTINATARIOS: DestinatariosRegla = { roles: [], usuarios: [] }
 
@@ -124,7 +116,6 @@ function EditorRegla({
   const [valores, setValores] = useState<ValoresRegla>(() =>
     regla ? valoresDesdeRegla(regla) : VALORES_REGLA_VACIOS,
   )
-  const [seleccionado, setSeleccionado] = useState<NodoRegla>('disparador')
   // Los destinatarios se guardan por otro endpoint, así que van aparte de `valores`.
   const [seleccion, setSeleccion] = useState<SeleccionDestinatarios>(
     () =>
@@ -138,21 +129,42 @@ function EditorRegla({
     useState<DestinatariosRegla>(destinatariosIniciales)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(pendientes?.error ?? null)
+  // Cada nodo se edita en un diálogo sobre un borrador; "Aplicar" lo pasa a `valores` y
+  // `seleccion`. En el alta arranca abierto el disparador, que es lo primero que falta.
+  const [nodoAbierto, setNodoAbierto] = useState<NodoRegla | null>(regla ? null : 'disparador')
+  const [borrador, setBorrador] = useState<Borrador>({ valores, seleccion })
+  const [instantanea] = useState(() => JSON.stringify({ valores, seleccion }))
+  const sinGuardar = JSON.stringify({ valores, seleccion }) !== instantanea
+
+  useEffect(() => {
+    if (!sinGuardar || guardando) return
+    const avisar = (evento: BeforeUnloadEvent) => evento.preventDefault()
+    window.addEventListener('beforeunload', avisar)
+    return () => window.removeEventListener('beforeunload', avisar)
+  }, [sinGuardar, guardando])
 
   const evento = tiposEvento.find((tipo) => tipo.id === valores.tipoEventoId)
   const nombreEvento = evento?.nombre ?? null
   const campo = evento?.campos.find((item) => item.nombre_interno === valores.campoCondicion)
   const catalogoAccion = tiposAccion.find((tipo) => tipo.tipo_accion === valores.tipoAccion)
   const disponibles = accionesDisponibles(tiposAccion, nombreEvento)
-  const plantillas = usePlantillas(catalogoAccion?.admite_plantilla ? valores.tipoEventoId : '')
+  // Con el diálogo de la acción abierto, las plantillas se piden para la acción del borrador.
+  const tipoAccionActiva =
+    nodoAbierto === 'accion' ? borrador.valores.tipoAccion : valores.tipoAccion
+  const consultaPlantillas = tiposAccion.find((tipo) => tipo.tipo_accion === tipoAccionActiva)
+    ?.admite_plantilla
+    ? valores.tipoEventoId
+    : ''
+  const plantillas = usePlantillas(consultaPlantillas)
   const plantillaElegida = plantillas.plantillas.find((item) => item.id === valores.plantillaId)
 
   // Al cambiar de evento, una plantilla que no es compatible con el nuevo se descarta. Solo con
   // la lista vigente y sin error: mientras carga o si falla no se sabe, y no se toca.
   if (
+    consultaPlantillas !== '' &&
+    catalogoAccion?.admite_plantilla &&
     !plantillas.cargando &&
     plantillas.error === null &&
-    valores.tipoEventoId !== '' &&
     valores.plantillaId !== '' &&
     !plantillas.plantillas.some((item) => item.id === valores.plantillaId)
   ) {
@@ -162,6 +174,7 @@ function EditorRegla({
   const resumenDisparador: ResumenNodo = {
     titulo: nombreEvento ? etiquetaEvento(nombreEvento) : 'Sin evento',
     detalle: valores.nombre.trim() || 'Sin nombre',
+    incompleto: nombreEvento === null || valores.nombre.trim() === '',
   }
   const resumenCondicion: ResumenNodo = campo
     ? {
@@ -171,11 +184,24 @@ function EditorRegla({
         detalle: valores.valorCondicion || 'Sin valor',
       }
     : { titulo: 'Sin condición', detalle: 'Se ejecuta con cada evento' }
+  const sinPlantilla = valores.tipoAccion === 'notificar' && valores.plantillaId === ''
   const resumenAccion: ResumenNodo = {
     titulo: valores.tipoAccion ? ETIQUETA_ACCION[valores.tipoAccion] : 'Sin acción',
+    incompleto: valores.tipoAccion === '' || sinPlantilla,
     detalle: `Criticidad ${ETIQUETA_CRITICIDAD[valores.criticidad].toLowerCase()}${
       valores.requiereAprobacionHumana ? ' · aprobación humana' : ''
-    }${plantillaElegida ? ` · ${plantillaElegida.nombre}` : ''}`,
+    }${plantillaElegida ? ` · ${plantillaElegida.nombre}` : ''}${sinPlantilla ? ' · sin plantilla' : ''}`,
+  }
+
+  function abrirNodo(nodo: NodoRegla) {
+    setBorrador({ valores, seleccion })
+    setNodoAbierto(nodo)
+  }
+
+  function aplicarNodo() {
+    setValores(borrador.valores)
+    setSeleccion(borrador.seleccion)
+    setNodoAbierto(null)
   }
 
   async function guardar() {
@@ -292,7 +318,18 @@ function EditorRegla({
           regla ? `${soloLectura ? 'Regla' : 'Editar regla'} · ${regla.nombre}` : 'Nueva regla'
         }
         accion={
-          <div className="flex gap-2">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="regla-activa"
+                checked={valores.activo}
+                disabled={soloLectura}
+                onCheckedChange={(activo) => setValores({ ...valores, activo })}
+              />
+              <label htmlFor="regla-activa" className="text-sm font-semibold text-texto-2">
+                Regla activa
+              </label>
+            </div>
             <Button variant="secondary" asChild>
               <Link to={RUTA_REGLAS}>{soloLectura ? 'Volver' : 'Cancelar'}</Link>
             </Button>
@@ -304,84 +341,40 @@ function EditorRegla({
           </div>
         }
       />
-      <div className="grid items-start gap-5 lg:grid-cols-[1fr_340px]">
-        <CanvasRegla
-          seleccionado={seleccionado}
-          onSeleccionar={setSeleccionado}
-          disparador={resumenDisparador}
-          condicion={resumenCondicion}
-          accion={resumenAccion}
-        />
-        <div className="flex flex-col gap-4">
-          {error && (
-            <Alert variant="error">
-              <AlertTitle>No se pudo guardar la regla</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <section
-            aria-label={TITULO_PANEL[seleccionado]}
-            className="flex flex-col gap-4 rounded-panel bg-superficie p-5 shadow-card"
-          >
-            <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
-              {TITULO_PANEL[seleccionado]}
-            </p>
-            {seleccionado === 'disparador' && (
-              <PanelDisparador
-                nombre={valores.nombre}
-                tipoEventoId={valores.tipoEventoId}
-                tiposEvento={tiposEvento}
-                deshabilitado={soloLectura}
-                onCambiarNombre={(nombre) => setValores({ ...valores, nombre })}
-                onCambiarEvento={(id) =>
-                  setValores(
-                    cambiarEvento(
-                      valores,
-                      id,
-                      tiposAccion,
-                      tiposEvento.find((tipo) => tipo.id === id)?.nombre ?? null,
-                    ),
-                  )
-                }
-              />
-            )}
-            {seleccionado === 'condicion' && (
-              <PanelCondicion
-                valores={valores}
-                evento={evento}
-                deshabilitado={soloLectura}
-                onCambiar={setValores}
-              />
-            )}
-            {seleccionado === 'accion' && (
-              <PanelAccion
-                valores={valores}
-                tiposAccion={tiposAccion}
-                disponibles={
-                  conceptos.noDisponible ? sinConceptosDisponibles(disponibles) : disponibles
-                }
-                contexto={{
-                  estadosPermitidos: (nombreEvento && ESTADOS_POR_EVENTO[nombreEvento]) || [],
-                  camposNumericos:
-                    evento?.campos.filter((item) => item.tipo_dato === 'numero') ?? [],
-                  conceptos: conceptos.conceptos,
-                  deshabilitado: soloLectura,
-                }}
-                evento={evento}
-                plantillas={plantillas}
-                destinatarios={{
-                  seleccion,
-                  guardados: destinatariosGuardados,
-                  disponibles: destinatariosDisponibles,
-                  onCambiar: setSeleccion,
-                }}
-                deshabilitado={soloLectura}
-                onCambiar={setValores}
-              />
-            )}
-          </section>
-        </div>
-      </div>
+      {error && (
+        <Alert variant="error">
+          <AlertTitle>No se pudo guardar la regla</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      <CanvasRegla
+        seleccionado={nodoAbierto}
+        onSeleccionar={abrirNodo}
+        disparador={resumenDisparador}
+        condicion={resumenCondicion}
+        accion={resumenAccion}
+      />
+      <DialogosRegla
+        nodoAbierto={nodoAbierto}
+        borrador={borrador}
+        tiposEvento={tiposEvento}
+        tiposAccion={tiposAccion}
+        disponibles={conceptos.noDisponible ? sinConceptosDisponibles(disponibles) : disponibles}
+        contexto={{
+          estadosPermitidos: (nombreEvento && ESTADOS_POR_EVENTO[nombreEvento]) || [],
+          camposNumericos: evento?.campos.filter((item) => item.tipo_dato === 'numero') ?? [],
+          conceptos: conceptos.conceptos,
+          deshabilitado: soloLectura,
+        }}
+        evento={evento}
+        plantillas={plantillas}
+        destinatariosDisponibles={destinatariosDisponibles}
+        destinatariosGuardados={destinatariosGuardados}
+        soloLectura={soloLectura}
+        onCambiar={setBorrador}
+        onAplicar={aplicarNodo}
+        onCancelar={() => setNodoAbierto(null)}
+      />
     </div>
   )
 }
