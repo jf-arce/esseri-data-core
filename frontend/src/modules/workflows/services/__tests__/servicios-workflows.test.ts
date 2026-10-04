@@ -4,6 +4,7 @@ import { actualizarReglaWorkflow } from '@/modules/workflows/services/actualizar
 import { crearPlantilla } from '@/modules/workflows/services/crear-plantilla'
 import { crearReglaWorkflow } from '@/modules/workflows/services/crear-regla-workflow'
 import { listarEjecucionesWorkflow } from '@/modules/workflows/services/listar-ejecuciones-workflow'
+import { listarNotificaciones } from '@/modules/workflows/services/listar-notificaciones'
 import { listarPlantillas } from '@/modules/workflows/services/listar-plantillas'
 import { listarReglasWorkflow } from '@/modules/workflows/services/listar-reglas-workflow'
 import { listarTiposAccion } from '@/modules/workflows/services/listar-tipos-accion'
@@ -11,6 +12,7 @@ import { listarTiposEvento } from '@/modules/workflows/services/listar-tipos-eve
 import { obtenerDestinatariosRegla } from '@/modules/workflows/services/obtener-destinatarios-regla'
 import { reemplazarDestinatariosRegla } from '@/modules/workflows/services/reemplazar-destinatarios-regla'
 import { reintentarEjecucionWorkflow } from '@/modules/workflows/services/reintentar-ejecucion-workflow'
+import { obtenerNotificacion } from '@/modules/workflows/services/obtener-notificacion'
 import { obtenerReglaWorkflow } from '@/modules/workflows/services/obtener-regla-workflow'
 
 const respuestaOk = () =>
@@ -88,6 +90,34 @@ describe('servicios de workflows', () => {
     )
     expect(fetchMock.mock.calls[0][0]).not.toContain('estado')
     expect(fetchMock.mock.calls[1][0]).toContain('estado=fallido')
+  })
+
+  it('lista notificaciones con paginación y los filtros solo si vienen', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await listarNotificaciones({ pagina: 2, tamanioPagina: 20 })
+    await listarNotificaciones({
+      estadoEnvio: 'fallido',
+      destinatarioTipo: 'familia',
+      pagina: 1,
+      tamanioPagina: 20,
+    })
+
+    expect(fetchMock.mock.calls[0][0]).toContain(
+      '/workflows/notificaciones?pagina=2&tamanio_pagina=20',
+    )
+    expect(fetchMock.mock.calls[0][0]).not.toContain('estado_envio')
+    expect(fetchMock.mock.calls[0][0]).not.toContain('destinatario_tipo')
+    expect(fetchMock.mock.calls[1][0]).toContain('estado_envio=fallido')
+    expect(fetchMock.mock.calls[1][0]).toContain('destinatario_tipo=familia')
+  })
+
+  it('pide el detalle de una notificación por id', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await obtenerNotificacion('notif-1')
+
+    expect(fetchMock.mock.calls[0][0]).toContain('/workflows/notificaciones/notif-1')
   })
 
   it('reintenta una ejecución con POST sin body', async () => {

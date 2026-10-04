@@ -1,7 +1,9 @@
 import {
   CLAVE_CONFIG,
   DESTINATARIO_REGLA,
+  DESTINATARIOS_TIPO_FILTRO,
   ESTADOS_EJECUCION_FILTRO,
+  ESTADOS_ENVIO_FILTRO,
   ESTADOS_REGLA_FILTRO,
   FILTRO_ACTIVAS,
   FILTRO_INACTIVAS,
@@ -14,7 +16,9 @@ import type {
   CampoEvento,
   Condicion,
   Criticidad,
+  DestinatarioTipo,
   EstadoEjecucion,
+  EstadoEnvio,
   Operador,
   ReglaWorkflow,
   ReglaWorkflowCreatePayload,
@@ -500,6 +504,35 @@ export const ETIQUETA_ESTADO_EJECUCION: Record<EstadoEjecucion, string> = {
 
 export const VARIANTE_ESTADO_EJECUCION: Record<EstadoEjecucion, 'exito' | 'error' | 'advertencia'> =
   { exitoso: 'exito', fallido: 'error', pendiente: 'advertencia' }
+
+export type EstadoEnvioFiltro = (typeof ESTADOS_ENVIO_FILTRO)[number]
+
+export function esEstadoEnvioFiltro(valor: string): valor is EstadoEnvioFiltro {
+  return ESTADOS_ENVIO_FILTRO.some((estado) => estado === valor)
+}
+
+export type DestinatarioTipoFiltro = (typeof DESTINATARIOS_TIPO_FILTRO)[number]
+
+export function esDestinatarioTipoFiltro(valor: string): valor is DestinatarioTipoFiltro {
+  return DESTINATARIOS_TIPO_FILTRO.some((tipo) => tipo === valor)
+}
+
+export const ETIQUETA_ESTADO_ENVIO: Record<EstadoEnvio, string> = {
+  enviado: 'Enviada',
+  fallido: 'Fallida',
+  pendiente: 'Pendiente',
+}
+
+export const VARIANTE_ESTADO_ENVIO: Record<EstadoEnvio, 'exito' | 'error' | 'advertencia'> = {
+  enviado: 'exito',
+  fallido: 'error',
+  pendiente: 'advertencia',
+}
+
+export const ETIQUETA_DESTINATARIO_TIPO: Record<DestinatarioTipo, string> = {
+  familia: 'Familia',
+  usuario: 'Usuario',
+}
 
 export function formatearFechaHora(iso: string): string {
   return new Date(iso).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' })

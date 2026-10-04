@@ -93,13 +93,19 @@ describe('filtrarNav', () => {
     expect(sin.flatMap((g) => g.items.map((i) => i.label))).not.toContain('Workflows')
   })
 
-  it('el historial de ejecuciones cuelga de Workflows y no cambia la ruta de inicio', () => {
+  it('el historial y las notificaciones cuelgan de Workflows y no cambia la ruta de inicio', () => {
     const permisos = [permiso('workflows.leer')]
     const grupos = filtrarNav(NAV_GROUPS, 'administrador-del-sistema', permisos)
     const workflows = grupos.flatMap((g) => g.items).find((i) => i.label === 'Workflows')
 
-    expect(workflows?.children?.map((h) => h.href)).toEqual(['/workflows/ejecuciones'])
+    expect(workflows?.children?.map((h) => h.href)).toEqual([
+      '/workflows/ejecuciones',
+      '/workflows/notificaciones',
+    ])
     expect(calcularHrefActivo('/workflows/ejecuciones', grupos)).toBe('/workflows/ejecuciones')
+    expect(calcularHrefActivo('/workflows/notificaciones', grupos)).toBe(
+      '/workflows/notificaciones',
+    )
     expect(rutaInicioDe('administrador-del-sistema', permisos)).toBe('/workflows/reglas')
   })
 
