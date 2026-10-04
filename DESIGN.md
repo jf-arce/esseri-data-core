@@ -256,6 +256,8 @@ Confirmación o fallo de una acción puntual: posición fija abajo a la izquierd
 
 El editor de una regla de automatización (disparador → condición → acción) se representa como un grafo: fondo de grilla de puntos (`radial-gradient` de `borde`, paso de 20px), cada nodo como una card tonal sin borde en la superficie `--sup-*` de su tipo, conectados por curvas SVG coloreadas según el nodo de destino. Es un lenguaje visual propio de este editor, no se reutiliza fuera de workflows.
 
+El canvas ocupa todo el ancho y el alto disponibles, y la configuración no vive en un panel al costado: cada nodo se edita en un diálogo. Un clic abre el diálogo al soltar el mouse; arrastrar el nodo solo lo mueve y nunca lo abre. El diálogo trabaja sobre un borrador: "Aplicar" lo pasa a la regla y "Cancelar" lo descarta, y recién "Guardar regla" en el encabezado persiste todo. El diálogo aparece sin animación de entrada para que coincida con la marca de selección del nodo. Un nodo sin configurar muestra el indicador "Incompleto" (ícono y texto, no solo color), porque sus campos ya no están a la vista. La plantilla del mensaje se edita en un Sheet lateral y no en el diálogo, porque se guarda al instante y afecta a todas las reglas que la usan.
+
 ## 10. Visualización de datos
 
 - Nunca pie ni dona. Barra horizontal para mostrar composición (ej. facturación por estado), línea para tendencia (ej. cobranza últimos 12 meses).
