@@ -10,7 +10,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.academico.models import JustificacionInasistencia
@@ -21,7 +21,12 @@ from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import EventLog
 from src.workflows import n8n_client, plantillas_service
 from src.workflows.constants import MAX_DESTINATARIOS_POR_EJECUCION
-from src.workflows.exceptions import N8nNoConfigurado, N8nNoDisponible, PlantillaInvalida
+from src.workflows.exceptions import (
+    N8nNoConfigurado,
+    N8nNoDisponible,
+    NotificacionNoEncontrada,
+    PlantillaInvalida,
+)
 from src.workflows.models import (
     Notificacion,
     NotificacionTemplate,
@@ -29,7 +34,15 @@ from src.workflows.models import (
     WorkflowExecution,
     WorkflowRule,
 )
-from src.workflows.schemas import ConfigNotificar, ResultadoAccion
+from src.workflows.schemas import (
+    ConfigNotificar,
+    DestinatarioTipo,
+    EstadoEnvioNotificacion,
+    NotificacionDetalleRead,
+    NotificacionListadoRead,
+    NotificacionRead,
+    ResultadoAccion,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -329,3 +342,99 @@ def _enviar_todos(
     if sin_email:
         detalle += f"; {_detalle_sin_email(sin_email)}"
     return ResultadoAccion(detalle=detalle, error=None if enviados == total else ERROR_ENVIO)
+
+
+# --- Log de notificaciones (RF-26) ---
+
+
+def listar_notificaciones(
+    db: Session,
+    *,
+    estado_envio: EstadoEnvioNotificacion | None,
+    destinatario_tipo: DestinatarioTipo | None,
+    workflow_execution_id: uuid.UUID | None,
+    pagina: int,
+    tamanio_pagina: int,
+) -> NotificacionListadoRead:
+    filtros = []
+    if estado_envio is not None:
+        filtros.append(Notificacion.estado_envio == estado_envio)
+    if destinatario_tipo is not None:
+        filtros.append(Notificacion.destinatario_tipo == destinatario_tipo)
+    if workflow_execution_id is not None:
+        filtros.append(Notificacion.workflow_execution_id == workflow_execution_id)
+
+    total = db.scalar(select(func.count(Notificacion.id)).where(*filtros)) or 0
+    # NOTIFICACION no tiene created_at y sent_at es NULL en las fallidas: se ordena por el
+    # inicio de la ejecución. El id de ejecución evita intercalar ejecuciones con igual inicio.
+    filas = db.execute(
+        _consulta_notificaciones()
+        .where(*filtros)
+        .order_by(
+            WorkflowExecution.started_at.desc(),
+            WorkflowExecution.id,
+            Notificacion.destinatario_snapshot,
+            Notificacion.id,
+        )
+        .offset((pagina - 1) * tamanio_pagina)
+        .limit(tamanio_pagina)
+    ).all()
+    return NotificacionListadoRead(
+        items=[_fila_notificacion_read(*fila) for fila in filas],
+        total=total,
+        pagina=pagina,
+        tamanio_pagina=tamanio_pagina,
+        total_paginas=(total + tamanio_pagina - 1) // tamanio_pagina,
+    )
+
+
+def obtener_notificacion_read(db: Session, notificacion_id: uuid.UUID) -> NotificacionDetalleRead:
+    fila = db.execute(
+        _consulta_notificaciones().where(Notificacion.id == notificacion_id)
+    ).one_or_none()
+    if fila is None:
+        raise NotificacionNoEncontrada()
+    notificacion = fila[0]
+    return NotificacionDetalleRead(
+        **_fila_notificacion_read(*fila).model_dump(),
+        cuerpo_snapshot=notificacion.cuerpo_snapshot,
+    )
+
+
+def _consulta_notificaciones():
+    return (
+        select(
+            Notificacion,
+            WorkflowExecution.intento,
+            WorkflowExecution.started_at,
+            WorkflowRule.id,
+            WorkflowRule.nombre,
+        )
+        .join(WorkflowExecution, WorkflowExecution.id == Notificacion.workflow_execution_id)
+        .join(WorkflowRule, WorkflowRule.id == WorkflowExecution.workflow_rule_id)
+    )
+
+
+def _fila_notificacion_read(
+    notificacion: Notificacion,
+    intento: int,
+    ejecucion_started_at: datetime,
+    regla_id: uuid.UUID,
+    regla_nombre: str,
+) -> NotificacionRead:
+    return NotificacionRead(
+        id=notificacion.id,
+        destinatario_tipo=notificacion.destinatario_tipo,
+        canal=notificacion.canal,
+        destinatario_snapshot=notificacion.destinatario_snapshot,
+        asunto_snapshot=notificacion.asunto_snapshot,
+        estado_envio=notificacion.estado_envio,
+        sent_at=notificacion.sent_at,
+        familia_id=notificacion.familia_id,
+        usuario_id=notificacion.usuario_id,
+        workflow_execution_id=notificacion.workflow_execution_id,
+        intento=intento,
+        ejecucion_started_at=ejecucion_started_at,
+        workflow_rule_id=regla_id,
+        workflow_rule_nombre=regla_nombre,
+    )

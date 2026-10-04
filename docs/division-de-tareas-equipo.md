@@ -207,6 +207,7 @@ Antes del alcance nuevo, estas vistas no tenían dueño formal en ningún docume
 - Integración con n8n vía webhook genérico para el envío real de emails (Gmail/Google Workspace) — el backend resuelve destinatario y contenido antes de llamarlo. n8n **no** reemplaza al `EVENT_LOG` ni al motor. Envío de la acción `notificar` **hecho** (#68).
 - `NOTIFICACION` con destinatario genérico (`destinatario_tipo`: familia o usuario interno) y snapshot inmutable (`destinatario_snapshot`/`asunto_snapshot`/`cuerpo_snapshot`) — la evidencia histórica no cambia si después se edita la plantilla o el email de la familia (RF-26).
 - CRUD de `NOTIFICACION_TEMPLATE` (plantillas con placeholders tipo `{{nombre_familia}}`), **hecho** (#69).
+- Log de notificaciones enviadas (`GET /workflows/notificaciones`, RF-26), **hecho** (#71): listado paginado con filtros y detalle con el cuerpo, solo lectura.
 - `TAREA` + cadena de escalamiento (`escalada_de_tarea_id`), cubre `crear_tarea`/`escalar_caso`.
 - `REGLA_DESTINATARIO`: una regla puede avisar a un rol completo, a un usuario puntual, o a ambos. Configuración **hecha** (#69).
 

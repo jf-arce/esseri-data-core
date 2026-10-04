@@ -324,6 +324,41 @@ class WorkflowExecutionListadoRead(BaseModel):
     total_paginas: int
 
 
+EstadoEnvioNotificacion = Literal["enviado", "fallido", "pendiente"]
+DestinatarioTipo = Literal["familia", "usuario"]
+
+
+class NotificacionRead(BaseModel):
+    """Fila del log de notificaciones. El cuerpo solo viaja en el detalle."""
+
+    id: uuid.UUID
+    destinatario_tipo: DestinatarioTipo
+    canal: str
+    destinatario_snapshot: str
+    asunto_snapshot: str
+    estado_envio: EstadoEnvioNotificacion
+    sent_at: datetime | None
+    familia_id: uuid.UUID | None
+    usuario_id: uuid.UUID | None
+    workflow_execution_id: uuid.UUID
+    intento: int
+    ejecucion_started_at: datetime
+    workflow_rule_id: uuid.UUID
+    workflow_rule_nombre: str
+
+
+class NotificacionDetalleRead(NotificacionRead):
+    cuerpo_snapshot: str
+
+
+class NotificacionListadoRead(BaseModel):
+    items: list[NotificacionRead]
+    total: int
+    pagina: int
+    tamanio_pagina: int
+    total_paginas: int
+
+
 class ResumenDespacho(BaseModel):
     """Resultado de una pasada del despachador sobre los eventos pendientes."""
 

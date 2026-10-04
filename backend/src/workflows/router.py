@@ -13,11 +13,21 @@ from src.auth.constants import (
 from src.auth.dependencies import requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
-from src.workflows import despacho_service, destinatarios_service, plantillas_service, service
+from src.workflows import (
+    despacho_service,
+    destinatarios_service,
+    notificaciones_service,
+    plantillas_service,
+    service,
+)
 from src.workflows.dependencies import obtener_plantilla_o_404, obtener_regla_o_404
 from src.workflows.models import NotificacionTemplate, WorkflowRule
 from src.workflows.schemas import (
+    DestinatarioTipo,
+    EstadoEnvioNotificacion,
     EstadoWorkflowExecution,
+    NotificacionDetalleRead,
+    NotificacionListadoRead,
     NotificacionTemplateCreate,
     NotificacionTemplateRead,
     NotificacionTemplateUpdate,
@@ -124,6 +134,33 @@ def reintentar_ejecucion(
     usuario: PuedeActualizar,
 ) -> WorkflowExecutionRead:
     return despacho_service.reintentar_ejecucion(db, ejecucion_id, usuario.id)
+
+
+@router.get("/notificaciones", response_model=NotificacionListadoRead)
+def listar_notificaciones(
+    db: DbSession,
+    _: PuedeLeer,
+    estado_envio: Annotated[EstadoEnvioNotificacion | None, Query()] = None,
+    destinatario_tipo: Annotated[DestinatarioTipo | None, Query()] = None,
+    workflow_execution_id: Annotated[uuid.UUID | None, Query()] = None,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    tamanio_pagina: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> NotificacionListadoRead:
+    return notificaciones_service.listar_notificaciones(
+        db,
+        estado_envio=estado_envio,
+        destinatario_tipo=destinatario_tipo,
+        workflow_execution_id=workflow_execution_id,
+        pagina=pagina,
+        tamanio_pagina=tamanio_pagina,
+    )
+
+
+@router.get("/notificaciones/{notificacion_id}", response_model=NotificacionDetalleRead)
+def obtener_notificacion(
+    notificacion_id: uuid.UUID, db: DbSession, _: PuedeLeer
+) -> NotificacionDetalleRead:
+    return notificaciones_service.obtener_notificacion_read(db, notificacion_id)
 
 
 @router.get("/reglas", response_model=list[WorkflowRuleRead])
