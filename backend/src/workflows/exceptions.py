@@ -96,6 +96,13 @@ class EjecucionNoEncontrada(AppException):
         super().__init__(message)
 
 
+class NotificacionNoEncontrada(AppException):
+    status_code = 404
+
+    def __init__(self, message: str = "La notificación indicada no existe."):
+        super().__init__(message)
+
+
 class EjecucionNoReintentable(AppException):
     status_code = 409
 
