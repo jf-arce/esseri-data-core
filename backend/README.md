@@ -176,6 +176,21 @@ mismo patrón que el job de facturación. El costo es una demora de hasta
 `WORKFLOWS_DESPACHO_INTERVALO_SEGUNDOS` entre el evento y la ejecución de sus reglas. Con varias
 instancias del backend, `FOR UPDATE SKIP LOCKED` evita que dos procesen el mismo evento.
 
+**Eventos que faltan emitir**
+
+Hoy ningún módulo llama a `emit_event()`. Cada emisor lo agrega el módulo dueño del hecho:
+
+| Evento | Dónde iría | Payload |
+|---|---|---|
+| `inasistencia.registrada` | Académico: alta, carga masiva y cambio de tipo de asistencia, solo `ausente_pendiente` y `tardanza` | `alumno_nombre`, `tipo_asistencia`, `fecha` |
+| `inscripcion.cambio_matricula` | Inscripciones: `registrar_cambio_matricula` | `alumno_nombre`, `tipo_cambio` (`nivel` o `division`), `fecha` |
+| `factura.vencida` | Facturación: todavía no existe el proceso que marca facturas vencidas (#61 y #82) | `dias_vencido`, `monto_deuda`, `nombre_familia` |
+| `solicitud_inscripcion.aprobada`, `inasistencia.justificada`, `pago.registrado`, `pago.rechazado` | Admisiones, Académico y Facturación | ver `grupo-b.yaml` |
+
+Para `inasistencia.registrada` conviene emitir una sola vez por asistencia (en la carga masiva, al
+final del lote) y antes del `commit`. El despacho corre unos segundos después: si la asistencia se
+elimina antes, la ejecución queda `fallido` por no encontrar al alumno.
+
 **Historial y reintentos:** `GET /workflows/ejecuciones` devuelve el historial paginado y permite
 filtrar por `estado`; `GET /workflows/ejecuciones/{id}` expone el detalle y el evento que originó
 una ejecución sin devolver su `payload`. `POST /workflows/ejecuciones/{id}/reintentar` crea un
