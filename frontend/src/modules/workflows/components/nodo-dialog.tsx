@@ -38,7 +38,9 @@ export function NodoDialog({
     <Dialog open={abierto} onOpenChange={(valor) => !valor && onCancelar()}>
       <DialogContent
         className={cn(
-          'max-h-[90dvh] overflow-y-auto',
+          // Sin animación de entrada: el nodo se marca al instante y el diálogo tiene que aparecer
+          // a la vez, no unos 80 ms después.
+          'max-h-[90dvh] overflow-y-auto duration-0',
           amplio ? 'sm:max-w-[min(48rem,calc(100%-2rem))]' : 'sm:max-w-lg',
         )}
       >
