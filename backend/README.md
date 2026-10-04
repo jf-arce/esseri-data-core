@@ -263,6 +263,11 @@ plantilla de la regla con el payload del evento, resuelve los destinatarios seg�
 destinatario, asunto y cuerpo) y le pide a n8n el envío (`n8n_client.enviar_email`). La fila queda
 `enviado` con `sent_at`, o `fallido` si ese envío falla.
 
+**`alerta_interna`:** `notificaciones_service.ejecutar_alerta_interna` reutiliza el mismo envío, pero
+siempre a los `destinatarios_regla`. El cuerpo sale de la plantilla de la regla si tiene una y, si
+no, de `accion_config.mensaje` (asunto `Alerta interna: <nombre de la regla>`). Sin ninguno de los
+dos la ejecución falla.
+
 - `destinatarios_regla`: usuarios y roles de la regla, solo los activos.
 - `responsables_habilitados`: familias del alumno con `recibe_comunicaciones`.
 - `responsable_economico`: para facturas y pagos, el de la factura aunque ya no esté vigente; para
