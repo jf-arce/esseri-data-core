@@ -207,6 +207,7 @@ Antes del alcance nuevo, estas vistas no tenían dueño formal en ningún docume
 - Integración con n8n vía webhook genérico para el envío real de emails (Gmail/Google Workspace) — el backend resuelve destinatario y contenido antes de llamarlo. n8n **no** reemplaza al `EVENT_LOG` ni al motor. Envío de la acción `notificar` **hecho** (#68).
 - `NOTIFICACION` con destinatario genérico (`destinatario_tipo`: familia o usuario interno) y snapshot inmutable (`destinatario_snapshot`/`asunto_snapshot`/`cuerpo_snapshot`) — la evidencia histórica no cambia si después se edita la plantilla o el email de la familia (RF-26).
 - CRUD de `NOTIFICACION_TEMPLATE` (plantillas con placeholders tipo `{{nombre_familia}}`), **hecho** (#69).
+- Log de notificaciones enviadas (`GET /workflows/notificaciones`, RF-26), **hecho** (#71): listado paginado con filtros y detalle con el cuerpo, solo lectura.
 - `TAREA` + cadena de escalamiento (`escalada_de_tarea_id`), cubre `crear_tarea`/`escalar_caso`.
 - `REGLA_DESTINATARIO`: una regla puede avisar a un rol completo, a un usuario puntual, o a ambos. Configuración **hecha** (#69).
 
@@ -221,6 +222,7 @@ Antes del alcance nuevo, estas vistas no tenían dueño formal en ningún docume
 - ABM de reglas de workflow (RF-22), **hecho** (#65): selector de evento, editor de condición, selector de acción con su configuración, criticidad y aprobación humana.
 - Editor de plantilla con chips insertables de `CAMPO_EVENTO` y destinatarios (`REGLA_DESTINATARIO`) (RF-25), **hecho** (#70), dentro del editor de reglas. Limitación conocida: los destinatarios se guardan con un `PUT` aparte después del `POST`/`PATCH` de la regla, así que una regla activa puede ejecutarse en el medio sin destinatarios; queda `fallido` con "sin destinatarios" y se reintenta desde el historial.
 - Historial de ejecuciones (RF-23), con filtro por estado, detalle en panel lateral y reintento de las fallidas, **hecho** (#67).
+- Log de notificaciones enviadas (RF-26), **hecho**: pantalla "Notificaciones enviadas" bajo Workflows, con filtros por estado y tipo de destinatario, y detalle en panel lateral que pide el cuerpo aparte.
 - Bandeja de tareas y escalamiento.
 
 **Resuelto (decisión de equipo, Pregunta #15):** `requiere_aprobacion_humana = true` por defecto en las acciones que mueven dinero o escalan un caso — `generar_cargo`, `aplicar_penalidad`, `registrar_pago`, `registrar_rechazo`, `escalar_caso`, `generar_orden_compra`. El resto arranca automático. Es un valor inicial, ajustable por regla una vez que el motor esté corriendo.

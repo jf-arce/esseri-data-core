@@ -187,6 +187,14 @@ antes de ejecutar la acción. Cada ejecución del listado incluye `reintentable`
 mismas condiciones, para que el frontend solo ofrezca el botón cuando corresponde; el `POST` vuelve
 a validarlas, así que el valor puede quedar viejo entre la carga y el clic.
 
+**Log de notificaciones (RF-26):** `GET /workflows/notificaciones` lista las notificaciones
+enviadas, paginadas, con filtros `estado_envio`, `destinatario_tipo` y `workflow_execution_id`.
+`GET /workflows/notificaciones/{id}` agrega `cuerpo_snapshot`, que no viaja en el listado porque
+puede tener datos personales. Ambos piden `workflows.leer` y no hay rutas de escritura. Cada fila
+es el snapshot del envío, así que editar la plantilla o el email después no la cambia. El orden va
+por el inicio de la ejecución (la más reciente primero), porque `NOTIFICACION` no tiene `created_at`
+y `sent_at` es `NULL` en las fallidas. Un reintento aparece como filas nuevas con su `intento`.
+
 **Estado actual:** solo `notificar` tiene ejecutor real (`ACCIONES` en `despacho_service.py`). Las
 demás reglas sin aprobación humana quedan `fallido` con "acción no implementada" hasta que se
 implemente cada una (`crear_tarea`/`escalar_caso` en #89; las que tocan Facturación o Inscripciones
@@ -285,6 +293,7 @@ Los tests usan una base SQLite en memoria (ver `tests/conftest.py`), no la base 
 ```bash
 ruff check src/ tests/
 ruff format src/ tests/
+ruff format --check src/ tests/   # solo verifica, no modifica
 ```
 
 ## Con Docker

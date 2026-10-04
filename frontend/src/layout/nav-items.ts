@@ -10,6 +10,7 @@ import {
   BookOpenIcon,
   HandCoinsIcon,
   HistoryIcon,
+  MailIcon,
   IdCardIcon,
   KeyRoundIcon,
   Landmark,
@@ -44,7 +45,7 @@ import {
   ROL_FAMILIA,
   tienePermiso,
 } from '@/modules/auth/constants'
-import { RUTA_EJECUCIONES, RUTA_REGLAS } from '@/modules/workflows/constants'
+import { RUTA_EJECUCIONES, RUTA_NOTIFICACIONES, RUTA_REGLAS } from '@/modules/workflows/constants'
 import type { Permiso } from '@/modules/auth/types'
 
 export interface NavItem {
@@ -217,6 +218,7 @@ export const NAV_GROUPS: NavGroup[] = [
         permiso: PERMISO_WORKFLOWS_LEER,
         children: [
           { label: 'Historial de ejecuciones', href: RUTA_EJECUCIONES, icon: HistoryIcon },
+          { label: 'Notificaciones enviadas', href: RUTA_NOTIFICACIONES, icon: MailIcon },
         ],
       },
     ],
