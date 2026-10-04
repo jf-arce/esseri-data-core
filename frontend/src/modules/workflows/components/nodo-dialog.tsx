@@ -37,7 +37,10 @@ export function NodoDialog({
   return (
     <Dialog open={abierto} onOpenChange={(valor) => !valor && onCancelar()}>
       <DialogContent
-        className={cn('max-h-[90dvh] overflow-y-auto', amplio ? 'sm:max-w-3xl' : 'sm:max-w-lg')}
+        className={cn(
+          'max-h-[90dvh] overflow-y-auto',
+          amplio ? 'sm:max-w-[min(48rem,calc(100%-2rem))]' : 'sm:max-w-lg',
+        )}
       >
         <DialogHeader>
           <DialogTitle>{titulo}</DialogTitle>
