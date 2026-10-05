@@ -269,7 +269,9 @@ class TestAuditoriaAsistencia:
         assert registros[0].campo == "__alta__"
         assert registros[0].valor_nuevo == "presente"
 
-    def test_resolver_justificacion_audita_cambio_de_estado(self, db_session: Session):
+    def test_resolver_justificacion_audita_cambio_de_estado(
+        self, db_session: Session, tipo_inasistencia_justificada
+    ):
         from src.academico.models import JustificacionInasistencia, MotivoJustificacion
 
         usuario = _crear_usuario(db_session)

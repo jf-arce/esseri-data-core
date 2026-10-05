@@ -55,6 +55,40 @@ def tipo_inasistencia_registrada(db_session):
 
 
 @pytest.fixture()
+def tipo_inasistencia_justificada(db_session):
+    """Idem `tipo_inasistencia_registrada`, para `emit_event("inasistencia.justificada", ...)`."""
+    tipo = TipoEvento(
+        nombre="inasistencia.justificada", descripcion="Se resolvió una justificación de ausencia"
+    )
+    db_session.add(tipo)
+    db_session.flush()
+    db_session.add_all(
+        [
+            CampoEvento(
+                nombre_interno="alumno_nombre",
+                etiqueta="Nombre del alumno",
+                tipo_dato="texto",
+                tipo_evento_id=tipo.id,
+            ),
+            CampoEvento(
+                nombre_interno="motivo",
+                etiqueta="Motivo de la justificación",
+                tipo_dato="texto",
+                tipo_evento_id=tipo.id,
+            ),
+            CampoEvento(
+                nombre_interno="fecha_resolucion",
+                etiqueta="Fecha de resolución",
+                tipo_dato="fecha",
+                tipo_evento_id=tipo.id,
+            ),
+        ]
+    )
+    db_session.commit()
+    return tipo
+
+
+@pytest.fixture()
 def persona_docente(db_session):
     """La persona detrás de `client_docente`: separada para que un test pueda crear un
     `Docente` + `AsignacionDocente` ligados a ella (ver `asignar_division_a_docente`) y así

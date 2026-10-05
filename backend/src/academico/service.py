@@ -261,6 +261,20 @@ def resolver_justificacion(
         valor_nuevo=estado_nuevo,
         usuario_id=usuario_id,
     )
+    motivo = db.get(MotivoJustificacion, justificacion.motivo_justificacion_id)
+    inscripcion = db.get(Inscripcion, asistencia.inscripcion_id) if asistencia is not None else None
+    emit_event(
+        db,
+        tipo="inasistencia.justificada",
+        entidad="justificacion_inasistencia",
+        entidad_id=justificacion.id,
+        payload={
+            "alumno_nombre": _nombre_alumno(db, inscripcion.alumno_id) if inscripcion else "",
+            "motivo": motivo.nombre if motivo is not None else "",
+            "fecha_resolucion": justificacion.fecha_resolucion.date().isoformat(),
+        },
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(justificacion)
     return justificacion

@@ -262,7 +262,9 @@ def test_familia_ve_una_justificacion_pendiente_en_el_historial(client, db_sessi
     assert asistencia_respuesta["justificacion_estado"] == "pendiente"
 
 
-def test_rechazar_justificacion_mantiene_estado_y_marca_ausencia_injustificada(db_session):
+def test_rechazar_justificacion_mantiene_estado_y_marca_ausencia_injustificada(
+    db_session, tipo_inasistencia_justificada
+):
     usuario, alumno_id = _crear_familia_con_alumno(db_session)
     inscripcion = db_session.query(Inscripcion).filter(Inscripcion.alumno_id == alumno_id).one()
     asistencia = Asistencia(
@@ -281,6 +283,15 @@ def test_rechazar_justificacion_mantiene_estado_y_marca_ausencia_injustificada(d
     assert resultado.estado == "rechazada"
     assert resultado.observacion == "Certificado ilegible"
     assert db_session.get(Asistencia, asistencia.id).tipo == "ausente_injustificado"
+
+    # La resolución también queda como evento pendiente para Workflows.
+    evento = (
+        db_session.query(EventLog).filter_by(tipo_evento_id=tipo_inasistencia_justificada.id).one()
+    )
+    assert evento.estado == "pendiente"
+    assert evento.entidad == "justificacion_inasistencia"
+    assert evento.entidad_id == justificacion.id
+    assert evento.payload["motivo"] == "otro"
 
 
 def test_docente_no_puede_registrar_asistencia_masiva_de_una_division_ajena(
