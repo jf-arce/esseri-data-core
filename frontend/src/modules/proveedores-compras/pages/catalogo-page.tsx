@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { ConfirmarEliminacion } from '@/components/confirmar-eliminacion'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { PageHeader } from '@/components/page-header'
+import { PreciosDialog } from '@/modules/proveedores-compras/components/precios-dialog'
 import { ProductoDialog } from '@/modules/proveedores-compras/components/producto-dialog'
 import { ProductosFiltros } from '@/modules/proveedores-compras/components/productos-filtros'
 import { ProductosTabla } from '@/modules/proveedores-compras/components/productos-tabla'
@@ -25,6 +26,7 @@ export function CatalogoPage() {
   const [dialogoAbierto, setDialogoAbierto] = useState(false)
   const [productoEditando, setProductoEditando] = useState<ProductoServicio | null>(null)
   const [productoAEliminar, setProductoAEliminar] = useState<ProductoServicio | null>(null)
+  const [productoConPrecios, setProductoConPrecios] = useState<ProductoServicio | null>(null)
 
   const [busqueda, setBusqueda] = useState('')
   const [categoriasFiltro, setCategoriasFiltro] = useState<string[]>([])
@@ -147,6 +149,7 @@ export function CatalogoPage() {
             setProductoEditando(producto)
             setDialogoAbierto(true)
           }}
+          onVerPrecios={setProductoConPrecios}
           onEliminar={setProductoAEliminar}
         />
       )}
@@ -156,6 +159,12 @@ export function CatalogoPage() {
         onOpenChange={setDialogoAbierto}
         producto={productoEditando}
         onGuardado={recargar}
+      />
+
+      <PreciosDialog
+        open={productoConPrecios !== null}
+        onOpenChange={(open) => !open && setProductoConPrecios(null)}
+        producto={productoConPrecios}
       />
 
       {productoAEliminar && (

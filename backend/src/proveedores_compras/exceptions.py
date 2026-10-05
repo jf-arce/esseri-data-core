@@ -165,3 +165,92 @@ class RecepcionExcedeLoPedido(AppException):
         ),
     ):
         super().__init__(message)
+
+
+class ProveedorYaAsociado(AppException):
+    """El proveedor ya ofrece ese ítem del catálogo: el par no se repite."""
+
+    status_code = 409
+
+    def __init__(self, message: str = "El proveedor ya está asociado a este ítem del catálogo."):
+        super().__init__(message)
+
+
+class ProveedorNoAsociado(AppException):
+    """Se quiso cargar un precio para un proveedor que no ofrece ese ítem.
+
+    El precio cuelga del par producto + proveedor: sin la asociación, quedaría un precio de
+    alguien que el catálogo no reconoce como proveedor de ese ítem.
+    """
+
+    status_code = 422
+
+    def __init__(
+        self,
+        message: str = (
+            "El proveedor no está asociado a este ítem. Asocialo antes de cargarle un precio."
+        ),
+    ):
+        super().__init__(message)
+
+
+class AsociacionInexistente(AppException):
+    """Se quiso quitar un proveedor que no está asociado a ese ítem."""
+
+    status_code = 404
+
+    def __init__(self, message: str = "El proveedor no está asociado a este ítem del catálogo."):
+        super().__init__(message)
+
+
+class AsociacionConPrecios(AppException):
+    """El par producto + proveedor ya tiene precios cargados.
+
+    Quitar la asociación dejaría ese histórico sin dueño visible, que es justo lo que el cliente
+    pidió conservar (respuesta 12: "precios históricos").
+    """
+
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = (
+            "No se puede quitar el proveedor: ya tiene precios cargados para este ítem y se "
+            "perdería el histórico."
+        ),
+    ):
+        super().__init__(message)
+
+
+class VigenciaNoPosterior(AppException):
+    """El precio nuevo empieza el mismo día o antes que el último ya cargado.
+
+    Un precio nuevo cierra al anterior el día previo; si empezara antes, el anterior quedaría
+    con una vigencia negativa. Para arreglar un dato mal cargado está la corrección.
+    """
+
+    status_code = 422
+
+    def __init__(
+        self,
+        message: str = (
+            "La vigencia tiene que empezar después de la del último precio cargado. Si ese "
+            "precio está mal, corregilo en vez de cargar uno nuevo."
+        ),
+    ):
+        super().__init__(message)
+
+
+class VigenciaFueraDeRango(AppException):
+    """La fecha corregida pisaría la vigencia de otro precio del mismo par."""
+
+    status_code = 422
+
+    def __init__(
+        self,
+        message: str = (
+            "La fecha tiene que quedar después del inicio del precio anterior y no pasarse del "
+            "fin de vigencia de este."
+        ),
+    ):
+        super().__init__(message)

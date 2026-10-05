@@ -1,10 +1,13 @@
 import type {
   EstadoSolicitud,
+  EstadoVigencia,
   OrdenProductos,
   OrdenProveedores,
   OrdenSolicitudes,
+  PrecioProducto,
   ProductoServicio,
   Proveedor,
+  ProveedorDeProducto,
   SolicitudCompra,
   TipoProductoServicio,
 } from '@/modules/proveedores-compras/types'
@@ -146,4 +149,68 @@ export function categoriasDeProductos(productos: ProductoServicio[]): string[] {
     .map((producto) => producto.categoria)
     .filter((categoria): categoria is string => Boolean(categoria))
   return Array.from(new Set(categorias)).sort((a, b) => a.localeCompare(b, 'es'))
+}
+
+// --- Proveedores y precios por item del catalogo (issue #114) -------------------------------
+
+// Las fechas de vigencia viajan como ISO (YYYY-MM-DD) sin hora: comparar los strings alcanza y
+// evita los corrimientos de zona horaria de pasar por `Date`.
+
+export function hoyISO(ahora: Date = new Date()): string {
+  const mes = String(ahora.getMonth() + 1).padStart(2, '0')
+  const dia = String(ahora.getDate()).padStart(2, '0')
+  return `${ahora.getFullYear()}-${mes}-${dia}`
+}
+
+export function formatearFechaVigencia(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString('es-AR')
+}
+
+// A quien se le puede ofrecer el item: proveedores activos que todavia no lo tienen asociado.
+export function proveedoresAsociables(
+  proveedores: Proveedor[],
+  asociados: ProveedorDeProducto[],
+): Proveedor[] {
+  const yaAsociados = new Set(asociados.map((asociado) => asociado.proveedor_id))
+  return proveedores
+    .filter((proveedor) => proveedor.estado === 'activo' && !yaAsociados.has(proveedor.id))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+}
+
+export function preciosDeProveedor(precios: PrecioProducto[], proveedorId: string) {
+  return precios
+    .filter((precio) => precio.proveedor_id === proveedorId)
+    .sort((a, b) => b.vigencia_desde.localeCompare(a.vigencia_desde))
+}
+
+export function estadoVigencia(
+  precio: Pick<PrecioProducto, 'vigencia_desde' | 'vigencia_hasta'>,
+  hoy: string,
+): EstadoVigencia {
+  if (precio.vigencia_desde > hoy) return 'futuro'
+  if (precio.vigencia_hasta !== null && precio.vigencia_hasta < hoy) return 'historico'
+  return 'vigente'
+}
+
+function diaSiguiente(iso: string): string {
+  const fecha = new Date(`${iso}T00:00:00Z`)
+  fecha.setUTCDate(fecha.getUTCDate() + 1)
+  return fecha.toISOString().slice(0, 10)
+}
+
+// El backend rechaza un precio que no empiece despues del ultimo cargado para ese proveedor:
+// el primer dia posible es el siguiente a ese comienzo. Sin precios previos no hay minimo.
+export function fechaMinimaNuevoPrecio(preciosDelProveedor: PrecioProducto[]): string | null {
+  if (preciosDelProveedor.length === 0) return null
+  const ultimoComienzo = preciosDelProveedor
+    .map((precio) => precio.vigencia_desde)
+    .reduce((mayor, fecha) => (fecha > mayor ? fecha : mayor))
+  return diaSiguiente(ultimoComienzo)
+}
+
+// Fecha con la que arranca el formulario: hoy, salvo que el ultimo precio empiece hoy o mas
+// adelante, en cuyo caso hoy seria rechazado.
+export function fechaSugeridaNuevoPrecio(preciosDelProveedor: PrecioProducto[], hoy: string) {
+  const minima = fechaMinimaNuevoPrecio(preciosDelProveedor)
+  return minima !== null && minima > hoy ? minima : hoy
 }

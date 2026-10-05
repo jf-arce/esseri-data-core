@@ -1,4 +1,4 @@
-import { MoreHorizontalIcon, PencilIcon, Trash2Icon } from 'lucide-react'
+import { CircleDollarSignIcon, MoreHorizontalIcon, PencilIcon, Trash2Icon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -32,10 +32,17 @@ interface ProductosTablaProps {
   productos: ProductoServicio[]
   cargando: boolean
   onEditar: (producto: ProductoServicio) => void
+  onVerPrecios: (producto: ProductoServicio) => void
   onEliminar: (producto: ProductoServicio) => void
 }
 
-function ProductosTabla({ productos, cargando, onEditar, onEliminar }: ProductosTablaProps) {
+function ProductosTabla({
+  productos,
+  cargando,
+  onEditar,
+  onVerPrecios,
+  onEliminar,
+}: ProductosTablaProps) {
   return (
     <Table>
       <TableHeader>
@@ -92,6 +99,10 @@ function ProductosTabla({ productos, cargando, onEditar, onEliminar }: Productos
                     <DropdownMenuItem onSelect={() => onEditar(producto)}>
                       <PencilIcon className="text-petroleo" />
                       Editar ítem
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => onVerPrecios(producto)}>
+                      <CircleDollarSignIcon className="text-petroleo" />
+                      Proveedores y precios
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem variant="destructive" onSelect={() => onEliminar(producto)}>
