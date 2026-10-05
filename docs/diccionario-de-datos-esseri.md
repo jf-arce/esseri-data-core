@@ -914,14 +914,18 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | id | uuid | PK |  |
 | tipo | string |  | "patron_detectado" / "comunicacion" |
 | entidad | string |  | Sin FK real, mismo criterio que `EVENT_LOG` |
-| entidad_id | uuid |  | Familia/alumno afectado por el patrón detectado |
-| contenido_generado | string |  | Texto generado por OpenAI (descripción del patrón o borrador de mensaje) |
+| entidad_id | uuid |  | Familia/alumno afectado por el patrón detectado; en una comunicación, el `TIPO_EVENTO` para el que se redactó (`entidad = "tipo_evento"`) |
+| contenido_generado | string |  | En `patron_detectado`, la descripción del patrón (armada por reglas, sin LLM). En `comunicacion`, el borrador en JSON: `nombre`, `asunto`, `cuerpo` e `instrucciones` |
 | requiere_control_humano | boolean |  | Si true, queda en "pendiente_revision" hasta aprobación manual — nunca se ejecuta sola |
 | estado | string |  | pendiente_revision / aprobada / rechazada / ejecutada_automaticamente |
 | fecha_generacion | datetime |  |  |
 | fecha_revision | datetime |  |  |
 | usuario_id | uuid | FK | Quién aprobó/rechazó |
 | notificacion_template_id | uuid | FK | Solo se completa si `tipo = "comunicacion"` y `estado = "aprobada"` — la sugerencia se convirtió en plantilla reutilizable |
+
+> **[DECISIÓN DE EQUIPO]** (issues #51 y #194) Los patrones se detectan a pedido (`POST /ia-sugerencias/patrones/detectar`), con reglas y SQL, sin LLM. **Morosidad**: familia con deuda vencida hace más de 30 días (`entidad = "familia"`). **Inasistencias**: alumno con al menos 3 ausencias sin justificar (`ausente_injustificado` o `ausente_pendiente`) en los últimos 30 días, en inscripciones activas (`entidad = "alumno"`). Los tres umbrales son variables de entorno (`IA_MOROSIDAD_DIAS_VENCIDO`, `IA_INASISTENCIAS_CANTIDAD`, `IA_INASISTENCIAS_VENTANA_DIAS`). Toda sugerencia nace en `pendiente_revision` con `requiere_control_humano = true`; un caso que ya tiene una sugerencia pendiente no se duplica, y uno ya revisado se vuelve a sugerir si el patrón sigue vigente. Aprobar o rechazar es una sola decisión: una sugerencia revisada no se modifica. `usuario_id` es quien revisó, no quien ejecutó la detección (eso queda en `AUDIT_LOG`). **Quién revisa:** además del administrador del sistema, el rol `dirección` (crear, leer, actualizar) — ningún documento del cliente lo define; se sigue el mismo criterio que la bandeja de justificaciones (respuesta 9: decide un rol institucional) y dirección ya lee los datos de Facturación y Académico de los que salen los patrones.
+>
+> **[DECISIÓN DE EQUIPO]** (issue #50) Un borrador de comunicación se pide para un `TIPO_EVENTO` (`POST /ia-sugerencias/comunicaciones`). El proveedor de IA solo redacta: recibe la descripción del evento, sus `CAMPO_EVENTO` y las instrucciones de quien lo pide, nunca datos personales. La respuesta se valida como una plantilla (longitudes, formato `{{campo}}` y que cada marcador exista en el evento) antes de guardarse en `contenido_generado` como JSON; el esquema no cambia. Aprobar crea la `NOTIFICACION_TEMPLATE` con `plantillas_service.registrar_plantilla()` y la enlaza en `notificacion_template_id`, todo en una transacción. Aprobar no envía nada: la plantilla queda disponible para las reglas de Workflows.
 
 ---
 
@@ -1115,4 +1119,6 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | — | **Modelo v1.0 congelado.** Decisiones de equipo que cerraban las últimas preguntas pendientes de esquema/lógica: pregunta #4 (roles conflictivos → gana el permiso más permisivo), pregunta #15 (`requiere_aprobacion_humana` decidido por acción: `generar_cargo`/`aplicar_penalidad`/`registrar_pago`/`registrar_rechazo`/`escalar_caso`/`generar_orden_compra` requieren aprobación, el resto es automático). Vistas del MVP confirmadas y RNF-15 con dueño (Botteri) en `docs/division-de-tareas-equipo.md`. Quedan abiertas solo #16 (allowlist campo por campo, no bloquea) y #17 (catálogo de productos, bloquea solo precarga). |
 | — | **Cerrada la pregunta #16** (allowlist de `accion_config`): definida por acción con su lista cerrada de eventos, entidad canónica por tipo de evento (`emit_event()` la exige) y validación de `condicion` contra `CAMPO_EVENTO`. Solo queda abierta #17. |
 | — | Definidas las reglas de `PRECIO_PRODUCTO` (issue #114): precios sin solapamiento por par producto + proveedor, cierre automático del anterior, vigente calculado por fecha y corrección auditada. Sin cambios de esquema. |
+| — | Definidas las reglas de detección de patrones y el ciclo de revisión de `IA_SUGERENCIA` (issues #51 y #194): morosidad e inasistencias por reglas con umbrales configurables, sin duplicar pendientes. El rol `dirección` suma permisos sobre IA/Sugerencias en `grupo-b.yaml`. Sin cambios de esquema. |
+| — | Definido el flujo de borradores de comunicación de `IA_SUGERENCIA` (issue #50): `contenido_generado` guarda el borrador en JSON y `entidad` apunta al `TIPO_EVENTO`; aprobar crea la `NOTIFICACION_TEMPLATE`. Sin cambios de esquema. |
 | — | Sumados a `TIPO_EVENTO` los dos eventos que emite Proveedores y Compras: `orden_compra.emitida` (entidad `orden_compra`; campos `proveedor_nombre`, `cantidad_items`, `fecha`) y `recepcion_compra.registrada` (entidad `recepcion_compra`; campos `proveedor_nombre`, `tipo_recepcion`, `fecha`). Sin cambios de esquema: son filas de catálogo. |

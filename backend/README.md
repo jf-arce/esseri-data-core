@@ -113,6 +113,40 @@ Para deshabilitar temporalmente el job, configurar
 `FACTURACION_AUTOMATICA_HABILITADA=false`. El flujo manual “Generar ahora” permanece disponible
 como respaldo con previsualización.
 
+### IA/Sugerencias: detección de patrones
+
+`POST /ia-sugerencias/patrones/detectar` busca patrones con reglas y SQL (sin OpenAI) y deja una
+`IA_SUGERENCIA` en `pendiente_revision` por cada caso. No hay job: se ejecuta a pedido desde la
+bandeja, y se puede repetir porque un caso que ya tiene una sugerencia sin revisar no se duplica.
+
+| Patrón | Regla | Variables (`.env`) |
+|---|---|---|
+| Morosidad | Familia con deuda vencida hace más de N días | `IA_MOROSIDAD_DIAS_VENCIDO` (30) |
+| Inasistencias | Alumno con al menos N ausencias sin justificar (`ausente_injustificado` o `ausente_pendiente`) en los últimos M días, en inscripciones activas | `IA_INASISTENCIAS_CANTIDAD` (3), `IA_INASISTENCIAS_VENTANA_DIAS` (30) |
+
+Las sugerencias se listan en `GET /ia-sugerencias/sugerencias` (filtros `estado` y `tipo`) y se
+revisan con `POST /ia-sugerencias/sugerencias/{id}/aprobar` o `/rechazar`. Una sugerencia revisada
+no se puede volver a decidir (409).
+
+### IA/Sugerencias: borradores de comunicación
+
+`POST /ia-sugerencias/comunicaciones` le pide al proveedor de IA que redacte una comunicación
+para un tipo de evento y la deja como `IA_SUGERENCIA` de tipo `comunicacion` en
+`pendiente_revision`. Recibe `tipo_evento_id`, `nombre` (cómo se va a llamar la plantilla) e
+`instrucciones`. Aprobarla crea la `NOTIFICACION_TEMPLATE` con `registrar_plantilla()` de
+Workflows, en la misma transacción; no envía nada.
+
+- El proveedor solo redacta. Recibe la descripción del evento, sus marcadores y las
+  instrucciones; nunca datos de familias o alumnos (RNF-15).
+- Lo que devuelve se valida como una plantilla antes de guardarse: longitudes, formato de los
+  marcadores y que cada uno exista en el evento. Si no pasa, responde 502 y no se guarda.
+- Sin `OPENAI_API_KEY` responde 503; el resto del módulo sigue funcionando.
+- `src/ia_sugerencias/openai_client.py` habla el protocolo de Chat Completions de OpenAI por
+  `httpx`, sin SDK. `OPENAI_BASE_URL` y `OPENAI_MODEL` permiten apuntarlo a otro proveedor
+  compatible con ese protocolo sin cambiar código.
+- Los tests simulan al proveedor con `httpx.MockTransport`: ninguno sale a la red. La
+  integración contra un proveedor real se verifica a mano, con una clave.
+
 ### Workflows: eventos y despacho
 
 Los módulos avisan al motor de workflows con `emit_event()` (`src/workflows/eventos_service.py`),
