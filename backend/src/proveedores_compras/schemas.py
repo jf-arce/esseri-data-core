@@ -357,3 +357,63 @@ class OrdenCompraListado(BaseModel):
     pagina: int
     tamanio_pagina: int
     total_paginas: int
+
+
+class ProductoProveedorCreate(BaseModel):
+    """Asociar un proveedor a un ítem del catálogo (issue #114)."""
+
+    proveedor_id: uuid.UUID = Field(..., description="Proveedor que ofrece el ítem")
+
+
+class PrecioProductoCreate(BaseModel):
+    """Cargar el precio de un ítem para uno de sus proveedores (issue #114).
+
+    `vigencia_hasta` no se acepta: el precio nuevo nace abierto, y el que estaba vigente lo
+    cierra el service el día anterior. Si el cliente pudiera elegirla, nada impediría dejar dos
+    precios vigentes a la vez para el mismo par.
+    """
+
+    proveedor_id: uuid.UUID = Field(..., description="Proveedor que cotiza ese precio")
+    precio: decimal.Decimal = Field(
+        ..., gt=0, max_digits=12, decimal_places=2, description="Precio unitario, mayor a cero"
+    )
+    vigencia_desde: date | None = Field(
+        None, description="Desde cuándo rige el precio; por defecto, hoy"
+    )
+
+
+class PrecioProductoUpdate(BaseModel):
+    """Corregir un precio mal cargado. Cada campo que cambia queda en AUDIT_LOG.
+
+    No es la forma de registrar un aumento: eso es un precio nuevo, que conserva el anterior
+    en el histórico.
+    """
+
+    precio: decimal.Decimal | None = Field(None, gt=0, max_digits=12, decimal_places=2)
+    vigencia_desde: date | None = None
+
+
+class PrecioProductoResponse(BaseModel):
+    """Precio tal como sale por la API. `vigencia_hasta` nulo = no fue reemplazado todavía."""
+
+    id: uuid.UUID
+    precio: decimal.Decimal
+    vigencia_desde: date
+    vigencia_hasta: date | None
+    producto_servicio_id: uuid.UUID
+    proveedor_id: uuid.UUID
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProveedorDeProductoResponse(BaseModel):
+    """Un proveedor que ofrece el ítem, con el nombre resuelto y su precio de hoy.
+
+    `precio_vigente` es el que rige en la fecha de la consulta, no simplemente el último
+    cargado: un precio con vigencia futura todavía no cuenta.
+    """
+
+    proveedor_id: uuid.UUID
+    proveedor_nombre: str
+    precio_vigente: PrecioProductoResponse | None

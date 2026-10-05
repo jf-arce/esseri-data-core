@@ -188,3 +188,38 @@ export interface FiltrosOrdenesBusqueda {
   pagina: number
   tamanioPagina: number
 }
+
+// --- Proveedores y precios por item del catalogo (issue #114) -------------------------------
+
+export interface PrecioProducto {
+  id: string
+  // Numeric del backend: llega como string para no perder precision decimal en JSON.
+  precio: string
+  vigencia_desde: string
+  // null = todavia no fue reemplazado por un precio mas nuevo.
+  vigencia_hasta: string | null
+  producto_servicio_id: string
+  proveedor_id: string
+  updated_at: string
+}
+
+// `precio_vigente` es el que rige hoy segun el backend: un precio con vigencia futura no cuenta.
+export interface ProveedorDeProducto {
+  proveedor_id: string
+  proveedor_nombre: string
+  precio_vigente: PrecioProducto | null
+}
+
+// `vigencia_hasta` no va: el backend cierra el precio anterior al cargar uno nuevo.
+export interface CrearPrecioPayload {
+  proveedor_id: string
+  precio: string
+  vigencia_desde?: string | null
+}
+
+export interface ActualizarPrecioPayload {
+  precio?: string
+  vigencia_desde?: string
+}
+
+export type EstadoVigencia = 'vigente' | 'futuro' | 'historico'
