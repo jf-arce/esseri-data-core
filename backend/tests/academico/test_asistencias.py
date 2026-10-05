@@ -83,8 +83,7 @@ def test_docente_puede_registrar_asistencia_de_su_propia_division(
 
     assert respuesta.status_code == 201
     assert respuesta.json()["tipo"] == "presente"
-    # "inasistencia.registrada" es, literalmente, que se registró una AUSENCIA (ver
-    # descripcion en grupo-a.yaml) -- presente/tardanza no generan evento.
+    # Un presente no genera evento (sí lo hacen ausente_pendiente y tardanza).
     assert db_session.query(EventLog).count() == 0
 
 
@@ -135,6 +134,51 @@ def test_docente_puede_registrar_asistencia_masiva_de_su_propia_division(
     assert evento.entidad == "asistencia"
     assert evento.payload["tipo_asistencia"] == "ausente_pendiente"
     assert evento.payload["alumno_nombre"] == "Cabral, Tiziano"
+
+
+def test_una_tardanza_tambien_emite_inasistencia_registrada(
+    client_docente, db_session, asignar_division_a_docente, tipo_inasistencia_registrada
+):
+    escenario = crear_escenario(db_session)
+    inscripcion = crear_inscripcion_previa(db_session, escenario, estado="activa")
+    asignar_division_a_docente(escenario["division_id"])
+
+    respuesta = client_docente.post(
+        "/academico/asistencias/bulk",
+        json={
+            "fecha": "2027-03-15",
+            "division_id": str(escenario["division_id"]),
+            "registros": [{"inscripcion_id": str(inscripcion.id), "tipo": "tardanza"}],
+        },
+    )
+
+    assert respuesta.status_code == 200
+    evento = db_session.query(EventLog).one()
+    assert evento.payload["tipo_asistencia"] == "tardanza"
+
+
+def test_pasar_de_presente_a_tardanza_emite_un_unico_evento(
+    client_docente, db_session, asignar_division_a_docente, tipo_inasistencia_registrada
+):
+    escenario = crear_escenario(db_session)
+    inscripcion = crear_inscripcion_previa(db_session, escenario, estado="activa")
+    asignar_division_a_docente(escenario["division_id"])
+
+    def marcar(tipo):
+        return client_docente.post(
+            "/academico/asistencias/bulk",
+            json={
+                "fecha": "2027-03-15",
+                "division_id": str(escenario["division_id"]),
+                "registros": [{"inscripcion_id": str(inscripcion.id), "tipo": tipo}],
+            },
+        )
+
+    assert marcar("presente").status_code == 200
+    assert db_session.query(EventLog).count() == 0
+    assert marcar("tardanza").status_code == 200
+    assert marcar("tardanza").status_code == 200
+    assert db_session.query(EventLog).count() == 1
 
 
 def test_reenviar_el_mismo_bulk_no_duplica_el_evento_de_ausencia(

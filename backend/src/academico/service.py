@@ -87,6 +87,10 @@ _TIPO_DOCENTE_A_DB = {
 }
 
 _TIPOS_JUSTIFICADOS = {"ausente_justificado", "ausente_injustificado"}
+
+# Según el README de Workflows, `inasistencia.registrada` se emite para ausente_pendiente y
+# tardanza (no para presente), igual que la notificación a los responsables.
+_TIPOS_CON_EVENTO = {"ausente_pendiente", "tardanza"}
 MAX_TAMANIO_COMPROBANTE_JUSTIFICACION = 5 * 1024 * 1024
 TIPOS_COMPROBANTE_JUSTIFICACION_PERMITIDOS = {
     "application/pdf",
@@ -441,7 +445,7 @@ def registrar_asistencia(
         valor_nuevo=tipo_db,
         usuario_id=usuario_id,
     )
-    if tipo_db == "ausente_pendiente":
+    if tipo_db in _TIPOS_CON_EVENTO:
         emit_event(
             db,
             tipo="inasistencia.registrada",
@@ -509,9 +513,9 @@ def registrar_asistencia_masiva(
             )
             actualizadas += 1
             asistencia_id = existente.id
-            # Solo en la transición real a ausente: resubir el mismo bulk no debe volver a
-            # emitir el evento para una fila que ya estaba en ausente_pendiente.
-            es_nueva_ausencia = tipo_db == "ausente_pendiente" and tipo_anterior != tipo_db
+            # Solo en la transición real: resubir el mismo bulk no debe volver a emitir el
+            # evento para una fila que ya estaba en ese mismo tipo.
+            emite_evento = tipo_db in _TIPOS_CON_EVENTO and tipo_anterior != tipo_db
         else:
             nuevo = Asistencia(
                 inscripcion_id=registro.inscripcion_id,
@@ -531,9 +535,9 @@ def registrar_asistencia_masiva(
             )
             creadas += 1
             asistencia_id = nuevo.id
-            es_nueva_ausencia = tipo_db == "ausente_pendiente"
+            emite_evento = tipo_db in _TIPOS_CON_EVENTO
 
-        if es_nueva_ausencia:
+        if emite_evento:
             emit_event(
                 db,
                 tipo="inasistencia.registrada",
@@ -636,8 +640,8 @@ def actualizar_asistencia(
     )
 
     inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
-    es_nueva_ausencia = tipo_db == "ausente_pendiente" and tipo_anterior != tipo_db
-    if es_nueva_ausencia and inscripcion is not None:
+    emite_evento = tipo_db in _TIPOS_CON_EVENTO and tipo_anterior != tipo_db
+    if emite_evento and inscripcion is not None:
         emit_event(
             db,
             tipo="inasistencia.registrada",
