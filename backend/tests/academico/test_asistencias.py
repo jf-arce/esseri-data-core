@@ -29,6 +29,7 @@ from src.academico.service import (
 from src.auth.models import Usuario
 from src.familias_alumnos.models import Familia
 from src.inscripciones.models import Asistencia, Inscripcion
+from src.models import EventLog
 from tests.familias_alumnos.test_mis_alumnos import (
     _crear_familia_con_alumno,
     login,
@@ -82,6 +83,8 @@ def test_docente_puede_registrar_asistencia_de_su_propia_division(
 
     assert respuesta.status_code == 201
     assert respuesta.json()["tipo"] == "presente"
+    # Un presente no genera evento (sí lo hacen ausente_pendiente y tardanza).
+    assert db_session.query(EventLog).count() == 0
 
 
 def test_docente_no_puede_registrar_asistencia_de_una_division_ajena(client_docente, db_session):
@@ -103,7 +106,7 @@ def test_docente_no_puede_registrar_asistencia_de_una_division_ajena(client_doce
 
 
 def test_docente_puede_registrar_asistencia_masiva_de_su_propia_division(
-    client_docente, db_session, asignar_division_a_docente
+    client_docente, db_session, asignar_division_a_docente, tipo_inasistencia_registrada
 ):
     escenario = crear_escenario(db_session)
     inscripcion = crear_inscripcion_previa(db_session, escenario, estado="activa")
@@ -122,6 +125,84 @@ def test_docente_puede_registrar_asistencia_masiva_de_su_propia_division(
     cuerpo = respuesta.json()
     assert cuerpo["creadas"] == 1
     assert cuerpo["notificaciones_disparadas"] == 1
+
+    # RF (emit_event): la ausencia también queda como evento pendiente para Workflows.
+    evento = (
+        db_session.query(EventLog).filter_by(tipo_evento_id=tipo_inasistencia_registrada.id).one()
+    )
+    assert evento.estado == "pendiente"
+    assert evento.entidad == "asistencia"
+    assert evento.payload["tipo_asistencia"] == "ausente_pendiente"
+    assert evento.payload["alumno_nombre"] == "Cabral, Tiziano"
+
+
+def test_una_tardanza_tambien_emite_inasistencia_registrada(
+    client_docente, db_session, asignar_division_a_docente, tipo_inasistencia_registrada
+):
+    escenario = crear_escenario(db_session)
+    inscripcion = crear_inscripcion_previa(db_session, escenario, estado="activa")
+    asignar_division_a_docente(escenario["division_id"])
+
+    respuesta = client_docente.post(
+        "/academico/asistencias/bulk",
+        json={
+            "fecha": "2027-03-15",
+            "division_id": str(escenario["division_id"]),
+            "registros": [{"inscripcion_id": str(inscripcion.id), "tipo": "tardanza"}],
+        },
+    )
+
+    assert respuesta.status_code == 200
+    evento = db_session.query(EventLog).one()
+    assert evento.payload["tipo_asistencia"] == "tardanza"
+
+
+def test_pasar_de_presente_a_tardanza_emite_un_unico_evento(
+    client_docente, db_session, asignar_division_a_docente, tipo_inasistencia_registrada
+):
+    escenario = crear_escenario(db_session)
+    inscripcion = crear_inscripcion_previa(db_session, escenario, estado="activa")
+    asignar_division_a_docente(escenario["division_id"])
+
+    def marcar(tipo):
+        return client_docente.post(
+            "/academico/asistencias/bulk",
+            json={
+                "fecha": "2027-03-15",
+                "division_id": str(escenario["division_id"]),
+                "registros": [{"inscripcion_id": str(inscripcion.id), "tipo": tipo}],
+            },
+        )
+
+    assert marcar("presente").status_code == 200
+    assert db_session.query(EventLog).count() == 0
+    assert marcar("tardanza").status_code == 200
+    assert marcar("tardanza").status_code == 200
+    assert db_session.query(EventLog).count() == 1
+
+
+def test_reenviar_el_mismo_bulk_no_duplica_el_evento_de_ausencia(
+    client_docente, db_session, asignar_division_a_docente, tipo_inasistencia_registrada
+):
+    """Resubir el mismo formulario (doble clic, reintento de red) actualiza el mismo registro
+    sin volver a emitir el evento -- ya estaba en ausente_pendiente, no es una transición
+    nueva."""
+    escenario = crear_escenario(db_session)
+    inscripcion = crear_inscripcion_previa(db_session, escenario, estado="activa")
+    asignar_division_a_docente(escenario["division_id"])
+    payload = {
+        "fecha": "2027-03-15",
+        "division_id": str(escenario["division_id"]),
+        "registros": [{"inscripcion_id": str(inscripcion.id), "tipo": "ausente"}],
+    }
+
+    primera = client_docente.post("/academico/asistencias/bulk", json=payload)
+    segunda = client_docente.post("/academico/asistencias/bulk", json=payload)
+
+    assert primera.status_code == 200
+    assert segunda.status_code == 200
+    assert segunda.json()["actualizadas"] == 1
+    assert db_session.query(EventLog).count() == 1
 
 
 def test_familia_guarda_comprobante_con_justificacion(db_session):
@@ -225,7 +306,9 @@ def test_familia_ve_una_justificacion_pendiente_en_el_historial(client, db_sessi
     assert asistencia_respuesta["justificacion_estado"] == "pendiente"
 
 
-def test_rechazar_justificacion_mantiene_estado_y_marca_ausencia_injustificada(db_session):
+def test_rechazar_justificacion_mantiene_estado_y_marca_ausencia_injustificada(
+    db_session, tipo_inasistencia_justificada
+):
     usuario, alumno_id = _crear_familia_con_alumno(db_session)
     inscripcion = db_session.query(Inscripcion).filter(Inscripcion.alumno_id == alumno_id).one()
     asistencia = Asistencia(
@@ -244,6 +327,15 @@ def test_rechazar_justificacion_mantiene_estado_y_marca_ausencia_injustificada(d
     assert resultado.estado == "rechazada"
     assert resultado.observacion == "Certificado ilegible"
     assert db_session.get(Asistencia, asistencia.id).tipo == "ausente_injustificado"
+
+    # La resolución también queda como evento pendiente para Workflows.
+    evento = (
+        db_session.query(EventLog).filter_by(tipo_evento_id=tipo_inasistencia_justificada.id).one()
+    )
+    assert evento.estado == "pendiente"
+    assert evento.entidad == "justificacion_inasistencia"
+    assert evento.entidad_id == justificacion.id
+    assert evento.payload["motivo"] == "otro"
 
 
 def test_docente_no_puede_registrar_asistencia_masiva_de_una_division_ajena(

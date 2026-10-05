@@ -71,6 +71,7 @@ from src.auth.models import Rol, Usuario, UsuarioRol
 from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import Persona
+from src.workflows.eventos_service import emit_event
 
 ROL_DOCENTE = "docente"
 
@@ -86,6 +87,10 @@ _TIPO_DOCENTE_A_DB = {
 }
 
 _TIPOS_JUSTIFICADOS = {"ausente_justificado", "ausente_injustificado"}
+
+# Según el README de Workflows, `inasistencia.registrada` se emite para ausente_pendiente y
+# tardanza (no para presente), igual que la notificación a los responsables.
+_TIPOS_CON_EVENTO = {"ausente_pendiente", "tardanza"}
 MAX_TAMANIO_COMPROBANTE_JUSTIFICACION = 5 * 1024 * 1024
 TIPOS_COMPROBANTE_JUSTIFICACION_PERMITIDOS = {
     "application/pdf",
@@ -260,6 +265,20 @@ def resolver_justificacion(
         valor_nuevo=estado_nuevo,
         usuario_id=usuario_id,
     )
+    motivo = db.get(MotivoJustificacion, justificacion.motivo_justificacion_id)
+    inscripcion = db.get(Inscripcion, asistencia.inscripcion_id) if asistencia is not None else None
+    emit_event(
+        db,
+        tipo="inasistencia.justificada",
+        entidad="justificacion_inasistencia",
+        entidad_id=justificacion.id,
+        payload={
+            "alumno_nombre": _nombre_alumno(db, inscripcion.alumno_id) if inscripcion else "",
+            "motivo": motivo.nombre if motivo is not None else "",
+            "fecha_resolucion": justificacion.fecha_resolucion.date().isoformat(),
+        },
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(justificacion)
     return justificacion
@@ -298,6 +317,20 @@ def _notificar_asistencia(db: Session, inscripcion: Inscripcion, fecha: date, ti
             resp.parentesco,
         )
     return len(responsables)
+
+
+def _nombre_alumno(db: Session, alumno_id: uuid.UUID) -> str:
+    """Devuelve 'Apellido, Nombre' del alumno -- para el payload legible de `emit_event`, no
+    para identificarlo (eso ya lo hace `entidad_id`)."""
+    fila = db.execute(
+        select(Persona.nombre, Persona.apellido)
+        .join(Alumno, Alumno.persona_id == Persona.id)
+        .where(Alumno.id == alumno_id)
+    ).first()
+    if fila is None:
+        return ""
+    nombre, apellido = fila
+    return f"{apellido}, {nombre}"
 
 
 def _docente_de(db: Session, usuario_id: uuid.UUID) -> Docente | None:
@@ -412,6 +445,19 @@ def registrar_asistencia(
         valor_nuevo=tipo_db,
         usuario_id=usuario_id,
     )
+    if tipo_db in _TIPOS_CON_EVENTO:
+        emit_event(
+            db,
+            tipo="inasistencia.registrada",
+            entidad="asistencia",
+            entidad_id=nuevo.id,
+            payload={
+                "alumno_nombre": _nombre_alumno(db, inscripcion.alumno_id),
+                "tipo_asistencia": tipo_db,
+                "fecha": datos.fecha.isoformat(),
+            },
+            usuario_id=usuario_id,
+        )
     db.commit()
     db.refresh(nuevo)
 
@@ -466,6 +512,10 @@ def registrar_asistencia_masiva(
                 usuario_id=usuario_id,
             )
             actualizadas += 1
+            asistencia_id = existente.id
+            # Solo en la transición real: resubir el mismo bulk no debe volver a emitir el
+            # evento para una fila que ya estaba en ese mismo tipo.
+            emite_evento = tipo_db in _TIPOS_CON_EVENTO and tipo_anterior != tipo_db
         else:
             nuevo = Asistencia(
                 inscripcion_id=registro.inscripcion_id,
@@ -484,6 +534,22 @@ def registrar_asistencia_masiva(
                 usuario_id=usuario_id,
             )
             creadas += 1
+            asistencia_id = nuevo.id
+            emite_evento = tipo_db in _TIPOS_CON_EVENTO
+
+        if emite_evento:
+            emit_event(
+                db,
+                tipo="inasistencia.registrada",
+                entidad="asistencia",
+                entidad_id=asistencia_id,
+                payload={
+                    "alumno_nombre": _nombre_alumno(db, inscripcion.alumno_id),
+                    "tipo_asistencia": tipo_db,
+                    "fecha": datos.fecha.isoformat(),
+                },
+                usuario_id=usuario_id,
+            )
 
         if tipo_db in {"ausente_pendiente", "tardanza"}:
             notificaciones += _notificar_asistencia(db, inscripcion, datos.fecha, tipo_db)
@@ -572,11 +638,26 @@ def actualizar_asistencia(
         valor_nuevo=tipo_db,
         usuario_id=usuario_id,
     )
+
+    inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
+    emite_evento = tipo_db in _TIPOS_CON_EVENTO and tipo_anterior != tipo_db
+    if emite_evento and inscripcion is not None:
+        emit_event(
+            db,
+            tipo="inasistencia.registrada",
+            entidad="asistencia",
+            entidad_id=asistencia.id,
+            payload={
+                "alumno_nombre": _nombre_alumno(db, inscripcion.alumno_id),
+                "tipo_asistencia": tipo_db,
+                "fecha": asistencia.fecha.isoformat(),
+            },
+            usuario_id=usuario_id,
+        )
     db.commit()
     db.refresh(asistencia)
 
     if tipo_db in {"ausente_pendiente", "tardanza"} and tipo_anterior != tipo_db:
-        inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
         if inscripcion is not None:
             _notificar_asistencia(db, inscripcion, asistencia.fecha, tipo_db)
 
