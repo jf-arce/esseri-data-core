@@ -55,6 +55,8 @@ const ETIQUETA_EVENTO: Record<string, string> = {
   'solicitud_inscripcion.aprobada': 'Se aprueba una solicitud de inscripción',
   'pago.registrado': 'Se registra un pago',
   'pago.rechazado': 'Se rechaza un pago',
+  'orden_compra.emitida': 'Se emite una orden de compra',
+  'recepcion_compra.registrada': 'Se registra una recepción de compra',
 }
 
 export function etiquetaEvento(nombre: string): string {

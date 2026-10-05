@@ -178,7 +178,8 @@ instancias del backend, `FOR UPDATE SKIP LOCKED` evita que dos procesen el mismo
 
 **Eventos que faltan emitir**
 
-Hoy ningún módulo llama a `emit_event()`. Cada emisor lo agrega el módulo dueño del hecho:
+Ya emiten: Proveedores y Compras, `orden_compra.emitida` (en `crear_orden_compra`) y
+`recepcion_compra.registrada` (en `crear_recepcion`). El resto lo agrega el módulo dueño del hecho:
 
 | Evento | Dónde iría | Payload |
 |---|---|---|
@@ -232,7 +233,8 @@ defaults.
   (`constants.py`): solo `notificar`, `alerta_interna`, `generar_recordatorio`, `generar_comunicacion`,
   `crear_tarea` y `escalar_caso` valen para cualquier evento; las que escriben sobre la entidad del
   evento o mueven dinero tienen una lista cerrada, y `generar_orden_compra` no se puede configurar
-  hasta que Compras emita un evento. Solo las cuatro que arman un mensaje admiten
+  hasta que Compras emita un evento que la dispare (los dos que emite hoy ocurren después de la
+  orden). Solo las cuatro que arman un mensaje admiten
   `notificacion_template_id`.
 - `GET /workflows/tipos-accion` devuelve, por acción, el default de aprobación humana, los eventos
   permitidos, si admite plantilla y el JSON Schema de su config.
