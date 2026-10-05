@@ -6,8 +6,8 @@ El diccionario clasifica los catálogos en 3 grupos según qué tan segura es la
 
 | Grupo | Estado acá | Por qué |
 |---|---|---|
-| **A** — confirmado por RF o por el cliente | **Cargado.** `grupo-a.yaml` + `01_seed_grupo_a.py` | `ROL` (10), `TIPO_EVENTO` (7), `METODO_PAGO` (4), `CONCEPTO_COBRO` (10), `MOTIVO_JUSTIFICACION` (7), `REGLA_PENALIDAD` (3) — corridos contra Postgres local, verificados por conteo. |
-| **B** — propuesta del equipo, validada informalmente (no por ESSERI) | **Cargado.** `grupo-b.yaml` + `03_seed_grupo_b.py` | `PERMISO` (40 filas) + `ROL_PERMISO` (91 vínculos) + `CAMPO_EVENTO` (21). Matriz rol × módulo × acción acotada a propósito — más fácil sumar un permiso después que sacar uno de más. Editable después vía el futuro ABM de roles/permisos, no volviendo a correr el seed. |
+| **A** — confirmado por RF o por el cliente | **Cargado.** `grupo-a.yaml` + `01_seed_grupo_a.py` | `ROL` (10), `TIPO_EVENTO` (9), `METODO_PAGO` (4), `CONCEPTO_COBRO` (10), `MOTIVO_JUSTIFICACION` (7), `REGLA_PENALIDAD` (3) — corridos contra Postgres local, verificados por conteo. |
+| **B** — propuesta del equipo, validada informalmente (no por ESSERI) | **Cargado.** `grupo-b.yaml` + `03_seed_grupo_b.py` | `PERMISO` (40 filas) + `ROL_PERMISO` (91 vínculos) + `CAMPO_EVENTO` (27). Matriz rol × módulo × acción acotada a propósito — más fácil sumar un permiso después que sacar uno de más. Editable después vía el futuro ABM de roles/permisos, no volviendo a correr el seed. |
 | **C** — dato real de ESSERI | `NIVEL_EDUCATIVO` (3 valores) **cargado** vía `02_seed_grupo_c.py`. El resto (`ANIO`/`DIVISION`/`MATERIA`, `PRODUCTO_SERVICIO`) **sigue bloqueado**. | **Corrección sobre el diccionario**: dice que "el equipo ya recibió la tabla maestra", pero `docs/aclaraciones-cliente-esseri.md` (pregunta 19) lo dice en futuro ("vamos a entregar/preparar") — todavía no llegó. Solo los 3 niveles (Inicial/Primario/Secundario) están confirmados con nombre concreto (pregunta 6); años, divisiones, materias, docentes y catálogo de productos siguen sin entregar — no inventarlos. |
 
 ## Cómo correr los scripts ya disponibles

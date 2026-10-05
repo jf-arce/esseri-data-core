@@ -28,6 +28,10 @@ tipo_evento: # RF-24 (3 ejemplos originales) + eventos nuevos de las aclaracione
     descripcion: Se confirmó un pago
   - nombre: pago.rechazado
     descripcion: Un pago fue rechazado (ej. stop debit)
+  - nombre: orden_compra.emitida
+    descripcion: Se emitió una orden de compra a un proveedor
+  - nombre: recepcion_compra.registrada
+    descripcion: Se registró una recepción de compra, total o parcial
 
 metodo_pago: # aclaración cliente respuesta 4 — confirmado, pasa del Grupo B a este grupo
   - nombre: debito_directo

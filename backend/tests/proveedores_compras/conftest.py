@@ -1,6 +1,9 @@
 """Fixtures compartidas para tests del módulo Proveedores y Compras."""
 
+from pathlib import Path
+
 import pytest
+import yaml
 
 from src.auth import sesion_service
 from src.auth.constants import (
@@ -12,8 +15,35 @@ from src.auth.constants import (
     MODULO_PROVEEDORES_COMPRAS,
 )
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
+from src.workflows.models import CampoEvento, TipoEvento
 
 PASSWORD_VALIDA = "una-contrasenia-larga"
+
+SEEDS = Path(__file__).resolve().parents[3] / "database" / "seeds"
+EVENTOS_COMPRAS = ("orden_compra.emitida", "recepcion_compra.registrada")
+
+
+@pytest.fixture(autouse=True)
+def catalogo_eventos_compras(db_session):
+    """Carga los tipos de evento que emite el módulo, con sus campos.
+
+    Es `autouse` porque emitir una orden o registrar una recepción llama a `emit_event()`, que
+    falla si el tipo no está en `TIPO_EVENTO`. Se lee de los seeds reales en vez de repetirlos
+    acá: así los tests comparan el payload contra el mismo catálogo que se carga en la base.
+    """
+    descripciones = {
+        item["nombre"]: item.get("descripcion")
+        for item in yaml.safe_load((SEEDS / "grupo-a.yaml").read_text(encoding="utf-8"))[
+            "tipo_evento"
+        ]
+    }
+    campos = yaml.safe_load((SEEDS / "grupo-b.yaml").read_text(encoding="utf-8"))["campo_evento"]
+    for nombre in EVENTOS_COMPRAS:
+        tipo = TipoEvento(nombre=nombre, descripcion=descripciones[nombre])
+        db_session.add(tipo)
+        db_session.flush()
+        db_session.add_all(CampoEvento(tipo_evento_id=tipo.id, **campo) for campo in campos[nombre])
+    db_session.commit()
 
 
 @pytest.fixture()
