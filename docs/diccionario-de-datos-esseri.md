@@ -554,10 +554,14 @@ RF cubiertos: RF-19, RF-20, RF-21, RF-34, RF-35 (búsquedas, no generan tabla), 
 | id | uuid | PK |  |
 | precio | decimal |  |  |
 | vigencia_desde | date |  |  |
-| vigencia_hasta | date |  | Nulo = precio vigente actual |
+| vigencia_hasta | date |  | Nulo = último precio cargado, todavía no reemplazado |
 | updated_at | datetime |  | Fecha y hora de la última modificación del registro. |
 | producto_servicio_id | uuid | FK |  |
 | proveedor_id | uuid | FK |  |
+
+> **[DECISIÓN DE EQUIPO]** (issue #114) Para un par producto + proveedor los precios forman una cadena sin huecos ni solapamientos: cargar un precio nuevo cierra al anterior con `vigencia_hasta` = día previo al comienzo del nuevo, y solo el último queda abierto. El precio **vigente** es el que rige en la fecha de la consulta (`vigencia_desde` ≤ hoy ≤ `vigencia_hasta` o abierto), así que un precio cargado con vigencia futura todavía no cuenta. Solo se cargan precios de proveedores asociados al ítem en `PRODUCTO_PROVEEDOR`, y una asociación con precios no se puede quitar. Un precio mal cargado se **corrige** (monto o comienzo de vigencia) y cada corrección queda en `AUDIT_LOG` con valor anterior y nuevo; un aumento no es una corrección, es un precio nuevo. El precio no se copia a `ORDEN_COMPRA_DETALLE`: la orden sigue sin precio.
+>
+> `[DEUDA TÉCNICA]` `PRODUCTO_PROVEEDOR` no tiene restricción única sobre el par: hoy lo impide el backend. Agregarla requiere una migración.
 
 ### `SOLICITUD_COMPRA`
 > **[ACLARACIÓN CLIENTE]** (respuesta 12) agrega la referencia controlada al catálogo. `articulo` se conserva como texto libre para casos excepcionales que todavía no están en `PRODUCTO_SERVICIO` — **regla dura de backend: debe existir uno de los dos** (`producto_servicio_id` o `articulo`, nunca ninguno).
@@ -650,7 +654,7 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 ### `TIPO_EVENTO`
 > `[DECISIÓN DE DISEÑO]` `nombre` es `UNIQUE` (`uq_tipo_evento_nombre`): `emit_event()` resuelve el tipo por nombre, así que no puede haber dos filas con el mismo.
 >
-> [DECISIÓN DE DISEÑO] Catálogo en vez de texto libre en `WORKFLOW_RULE`, mismo patrón que `PERMISO`/`METODO_PAGO` (RNF-06). Acá se cargan valores como "factura.vencida", "inasistencia.registrada", "inscripcion.cambio_matricula", y desde las aclaraciones también "solicitud_inscripcion.aprobada", "inasistencia.justificada", "pago.registrado", "pago.rechazado".
+> [DECISIÓN DE DISEÑO] Catálogo en vez de texto libre en `WORKFLOW_RULE`, mismo patrón que `PERMISO`/`METODO_PAGO` (RNF-06). Acá se cargan valores como "factura.vencida", "inasistencia.registrada", "inscripcion.cambio_matricula", y desde las aclaraciones también "solicitud_inscripcion.aprobada", "inasistencia.justificada", "pago.registrado", "pago.rechazado". Proveedores y Compras suma "orden_compra.emitida" y "recepcion_compra.registrada".
 
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
@@ -669,7 +673,7 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 >
 > **[DECISIÓN DE EQUIPO — cierra la pregunta pendiente #15]** `requiere_aprobacion_humana = true` (por defecto) para las acciones que mueven dinero o escalan un caso: `generar_cargo`, `aplicar_penalidad`, `registrar_pago`, `registrar_rechazo`, `escalar_caso`, `generar_orden_compra`. El resto arranca en `false`: `notificar`, `alerta_interna`, `generar_recordatorio`, `cambiar_estado`, `crear_tarea`, `crear_registro_relacionado`, `aplicar_vencimiento`, `actualizar_cuenta_corriente`, `generar_comunicacion`. Es el valor por defecto por `tipo_accion`, no un hardcode — el campo sigue siendo configurable por regla, así que el equipo puede ajustar caso por caso una vez que el motor esté corriendo.
 >
-> **[DECISIÓN DE EQUIPO — cierra la pregunta pendiente #16]** La allowlist de `accion_config` vive en `backend/src/workflows/` (`constants.py` y `schemas.py`) y el backend la aplica al crear/editar la regla y otra vez al despachar. Reglas generales: la acción opera siempre sobre la entidad del evento, y `accion_config` nunca trae la entidad ni IDs de filas a modificar, solo parámetros y referencias a catálogos (`CONCEPTO_COBRO`, `REGLA_PENALIDAD`). Cada tipo de evento tiene una entidad canónica en `EVENT_LOG.entidad` (`factura.vencida` → `factura`, `pago.registrado`/`pago.rechazado` → `pago`, `inasistencia.registrada` → `asistencia`, `inasistencia.justificada` → `justificacion_inasistencia`, `inscripcion.cambio_matricula` → `inscripcion`, `solicitud_inscripcion.aprobada` → `solicitud_inscripcion`) y `emit_event()` rechaza cualquier otra. Por acción:
+> **[DECISIÓN DE EQUIPO — cierra la pregunta pendiente #16]** La allowlist de `accion_config` vive en `backend/src/workflows/` (`constants.py` y `schemas.py`) y el backend la aplica al crear/editar la regla y otra vez al despachar. Reglas generales: la acción opera siempre sobre la entidad del evento, y `accion_config` nunca trae la entidad ni IDs de filas a modificar, solo parámetros y referencias a catálogos (`CONCEPTO_COBRO`, `REGLA_PENALIDAD`). Cada tipo de evento tiene una entidad canónica en `EVENT_LOG.entidad` (`factura.vencida` → `factura`, `pago.registrado`/`pago.rechazado` → `pago`, `inasistencia.registrada` → `asistencia`, `inasistencia.justificada` → `justificacion_inasistencia`, `inscripcion.cambio_matricula` → `inscripcion`, `solicitud_inscripcion.aprobada` → `solicitud_inscripcion`, `orden_compra.emitida` → `orden_compra`, `recepcion_compra.registrada` → `recepcion_compra`) y `emit_event()` rechaza cualquier otra. Por acción:
 >
 > | `tipo_accion` | `accion_config` | Eventos permitidos |
 > |---|---|---|
@@ -687,6 +691,8 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 > | `generar_orden_compra` | sin parámetros | ninguno todavía: no se puede configurar hasta que Compras emita un evento |
 >
 > Solo `notificar`, `alerta_interna`, `generar_recordatorio` y `generar_comunicacion` admiten `notificacion_template_id`. Se amplía acción por acción a medida que se implementa su ejecutor. `condicion` se valida contra los `CAMPO_EVENTO` del evento de la regla (operadores `==`, `!=`, `>`, `>=`, `<`, `<=` para número y fecha; `==`, `!=`, `contiene` para texto).
+>
+> **[NOTA]** `notificar` con `destinatario` `responsable_economico` o `responsables_habilitados` necesita un alumno, que se deduce de la entidad del evento (`factura`, `pago`, `asistencia`, `justificacion_inasistencia`, `inscripcion`). Sobre `solicitud_inscripcion.aprobada`, `orden_compra.emitida` y `recepcion_compra.registrada` solo se acepta `destinatarios_regla`.
 >
 > **[NOTA — decisión revisada]** Se evaluó agregar `n8nWorkflowId` por fila, pero se descartó: todas las reglas con `tipo_accion = "notificar"` llaman al mismo webhook genérico de n8n (backend ya resuelve destinatario y contenido antes de llamarlo), así que guardarlo por regla sería dato repetido sin necesidad. La URL del webhook es config del sistema, no un atributo de `WORKFLOW_RULE`.
 >
@@ -708,6 +714,13 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 | notificacion_template_id | uuid | FK | Solo si `tipo_accion` genera una notificación |
 
 ### `NOTIFICACION_TEMPLATE`
+> `nombre` es único (`uq_notificacion_template_nombre`).
+>
+> `[DECISIÓN DE DISEÑO]` Contrato compartido con IA/Sugerencias: los placeholders tienen el formato
+> exacto `{{nombre_campo}}` (minúsculas, dígitos y guion bajo, sin expresiones). Otro módulo crea
+> plantillas con `plantillas_service.registrar_plantilla()`, que valida y audita sin confirmar la
+> transacción. Las reglas de uso de la API están en `backend/README.md`.
+
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
 | id | uuid | PK |  |
@@ -751,6 +764,8 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 | familia_id | uuid | FK | Destinatario externo, cuando `destinatario_tipo = familia` |
 | usuario_id | uuid | FK | `[ACLARACIÓN CLIENTE]` Destinatario interno, cuando `destinatario_tipo = usuario` |
 
+> **[NOTA]** `PERSONA` no tiene email: el `destinatario_snapshot` de una familia sale de las cuentas activas de `USUARIO` con `persona_id` igual al de `FAMILIA`. Si la persona tiene más de una cuenta, se genera una fila por email. Un reintento de `WORKFLOW_EXECUTION` copia el snapshot de las filas `fallido` del intento anterior en filas nuevas, sin volver a renderizar.
+
 ### `TAREA`
 > **[ACLARACIÓN CLIENTE]** (respuesta 16). Cubre `crear_tarea` y `escalar_caso`, dos de los 15 valores de `WORKFLOW_RULE.tipo_accion`. Habilita que el motor asigne trabajo a una persona, no solo que le avise algo.
 
@@ -772,6 +787,19 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 
 ### `REGLA_DESTINATARIO` (tabla intermedia)
 > **[ACLARACIÓN CLIENTE]** (respuesta 15): *"el nivel de criticidad y los destinatarios deben ser configurables"*. Permite que una `WORKFLOW_RULE` avise a un rol completo, a un usuario puntual, o a ambos.
+>
+> La base exige exactamente una referencia según `destinatario_tipo` y evita repetir el mismo rol
+> o usuario dentro de una regla (`uq_regla_destinatario_regla_rol` y
+> `uq_regla_destinatario_regla_usuario`).
+>
+> `[DECISIÓN DE DISEÑO]` Un `ROL` referenciado acá no se puede eliminar (409). Auth no importa
+> modelos de Workflows para chequearlo: `eliminar_rol` recorre `Base.metadata` y rechaza el borrado
+> si cualquier tabla fuera de Auth tiene una FK a `rol` con ese valor, así que la protección cubre
+> también las FKs a `rol` que agreguen otros módulos.
+>
+> `[DECISIÓN DE DISEÑO]` Una regla con destinatarios cargados no puede cambiar a una configuración
+> que no los admita sin vaciarlos antes. Sí puede quedar con `destinatarios_regla` y sin
+> destinatarios: qué hace el despacho en ese caso se define con RF-24.
 
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
@@ -1013,6 +1041,8 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | solicitud_inscripcion.aprobada | `[ACLARACIÓN CLIENTE]` Una solicitud de admisión llegó a etapa aprobada |
 | pago.registrado | `[ACLARACIÓN CLIENTE]` Se confirmó un pago |
 | pago.rechazado | `[ACLARACIÓN CLIENTE]` Un pago fue rechazado (ej. stop debit) |
+| orden_compra.emitida | `[DECISIÓN DE EQUIPO]` Se emitió una orden de compra a un proveedor |
+| recepcion_compra.registrada | `[DECISIÓN DE EQUIPO]` Se registró una recepción de compra, total o parcial |
 
 ### Grupo B — Decisión razonable del equipo, pero conviene validar antes de cargar en producción
 
@@ -1084,3 +1114,5 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | — | **Ejecutados los 19 cambios de la Revisión Maestra Consolidada + las Aclaraciones del Cliente** (`docs/aclaraciones-cliente-esseri.md`; el plan de ejecución que guió este cambio quedó documentado en el historial de git). Renombrado `EVENT_LOG` → `AUDIT_LOG`; creado `EVENT_LOG` nuevo de eventos de negocio; login vía Google Identity/OAuth + JWT interno; `WORKFLOW_EXECUTION` trazable con reintentos; `NOTIFICACION` con snapshot y destinatario genérico (familia/usuario); ciclo completo de justificación de ausencias (`JUSTIFICACION_INASISTENCIA`, `MOTIVO_JUSTIFICACION`, `tardanza`/`ausente_pendiente`); pipeline de admisiones (`SOLICITUD_INSCRIPCION`, `ETAPA_SOLICITUD`, `DOCUMENTO_SOLICITUD`); catálogo `PRODUCTO_SERVICIO` + `PRODUCTO_PROVEEDOR` + `PRECIO_PRODUCTO`; `RESPONSABLE_ECONOMICO` con vigencia; deuda derivada de `CUENTA_CORRIENTE`/`MOVIMIENTO`; motor de acciones ampliado a 15 tipos con `accion_config` + allowlist + `requiere_aprobacion_humana`; `CONCEPTO_COBRO`, `REGLA_PENALIDAD`, `EXCEPCION_VENCIMIENTO`; `PAGO` con estado de transacción; `MATERIA` por división/orientación; recepción de compras completa (`RECEPCION_COMPRA`, `RECEPCION_COMPRA_DETALLE`, `ORDEN_COMPRA_DETALLE`); `ROL` de 4 a 10 valores + `PERMISO.tipo_informacion`; `TAREA` + `REGLA_DESTINATARIO`. Modelo pasa de 29 a **~49 tablas de referencia** (no meta de diseño — recalcular sobre el DER vigente). 10 de 12 preguntas pendientes cerradas; ninguna bloquea esquema. |
 | — | **Modelo v1.0 congelado.** Decisiones de equipo que cerraban las últimas preguntas pendientes de esquema/lógica: pregunta #4 (roles conflictivos → gana el permiso más permisivo), pregunta #15 (`requiere_aprobacion_humana` decidido por acción: `generar_cargo`/`aplicar_penalidad`/`registrar_pago`/`registrar_rechazo`/`escalar_caso`/`generar_orden_compra` requieren aprobación, el resto es automático). Vistas del MVP confirmadas y RNF-15 con dueño (Botteri) en `docs/division-de-tareas-equipo.md`. Quedan abiertas solo #16 (allowlist campo por campo, no bloquea) y #17 (catálogo de productos, bloquea solo precarga). |
 | — | **Cerrada la pregunta #16** (allowlist de `accion_config`): definida por acción con su lista cerrada de eventos, entidad canónica por tipo de evento (`emit_event()` la exige) y validación de `condicion` contra `CAMPO_EVENTO`. Solo queda abierta #17. |
+| — | Definidas las reglas de `PRECIO_PRODUCTO` (issue #114): precios sin solapamiento por par producto + proveedor, cierre automático del anterior, vigente calculado por fecha y corrección auditada. Sin cambios de esquema. |
+| — | Sumados a `TIPO_EVENTO` los dos eventos que emite Proveedores y Compras: `orden_compra.emitida` (entidad `orden_compra`; campos `proveedor_nombre`, `cantidad_items`, `fecha`) y `recepcion_compra.registrada` (entidad `recepcion_compra`; campos `proveedor_nombre`, `tipo_recepcion`, `fecha`). Sin cambios de esquema: son filas de catálogo. |

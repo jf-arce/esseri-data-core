@@ -10,12 +10,13 @@ from collections.abc import Callable
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, exists, func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from src.auditoria.service import log_audit
 from src.models import EventLog
+from src.workflows import notificaciones_service
 from src.workflows.constants import ENTIDAD_POR_EVENTO
 from src.workflows.eventos_service import coaccionar_valor
 from src.workflows.exceptions import (
@@ -27,6 +28,7 @@ from src.workflows.exceptions import (
 from src.workflows.models import TipoEvento, WorkflowExecution, WorkflowRule
 from src.workflows.schemas import (
     EstadoWorkflowExecution,
+    ResultadoAccion,
     ResumenDespacho,
     WorkflowExecutionListadoRead,
     WorkflowExecutionRead,
@@ -36,11 +38,14 @@ from src.workflows.service import tipos_de_campos, validar_accion, validar_condi
 logger = logging.getLogger(__name__)
 
 
-# Una acción recibe la sesión (dentro de un savepoint), la regla y el evento, y devuelve un
-# detalle para `WorkflowExecution.detalle`. Vacío a propósito en el scaffolding: cada tipo de
-# acción se registra acá al implementarse (ver #68 y #89).
-AccionHandler = Callable[[Session, WorkflowRule, EventLog], str | None]
-ACCIONES: dict[str, AccionHandler] = {}
+# Una acción recibe la sesión (dentro de un savepoint), la regla, el evento y la ejecución en
+# curso, y devuelve el detalle y, si falló sin perder lo ya escrito, el motivo. Nunca hace commit.
+# Cada tipo de acción se registra acá al implementarse (ver #68 y #89).
+AccionHandler = Callable[[Session, WorkflowRule, EventLog, WorkflowExecution], ResultadoAccion]
+ACCIONES: dict[str, AccionHandler] = {
+    "notificar": notificaciones_service.ejecutar_notificar,
+    "alerta_interna": notificaciones_service.ejecutar_alerta_interna,
+}
 
 ERROR_EVALUACION = "No se pudo evaluar la regla con los datos del evento."
 ERROR_CONFIGURACION = "La configuración de la acción no es válida."
@@ -224,10 +229,14 @@ def _ejecutar_accion(
         # Savepoint: si la acción falla a mitad de camino, sus escrituras se revierten sin
         # perder la ejecución ni las de otras reglas del mismo evento.
         with db.begin_nested():
-            ejecucion.detalle = handler(db, regla, evento)
+            resultado = handler(db, regla, evento, ejecucion)
     except Exception:
         logger.exception("Falló la acción '%s' de la regla %s", regla.tipo_accion, regla.id)
         _marcar_fallida(ejecucion, ERROR_ACCION)
+        return
+    ejecucion.detalle = resultado.detalle
+    if resultado.error is not None:
+        _marcar_fallida(ejecucion, resultado.error)
         return
     ejecucion.estado = "exitoso"
     ejecucion.finished_at = datetime.now()
@@ -352,6 +361,18 @@ def reintentar_ejecucion(
 
 
 def _consulta_ejecuciones():
+    # Mismas condiciones que valida `reintentar_ejecucion`, que sigue siendo la fuente de verdad.
+    posterior = aliased(WorkflowExecution)
+    reintentable = and_(
+        WorkflowExecution.estado == "fallido",
+        WorkflowRule.activo,
+        WorkflowRule.updated_at <= WorkflowExecution.started_at,
+        ~exists().where(
+            posterior.workflow_rule_id == WorkflowExecution.workflow_rule_id,
+            posterior.event_log_id == WorkflowExecution.event_log_id,
+            posterior.intento > WorkflowExecution.intento,
+        ),
+    )
     return (
         select(
             WorkflowExecution,
@@ -361,6 +382,7 @@ def _consulta_ejecuciones():
             EventLog.timestamp,
             EventLog.entidad,
             EventLog.entidad_id,
+            reintentable.label("reintentable"),
         )
         .join(WorkflowRule, WorkflowRule.id == WorkflowExecution.workflow_rule_id)
         .join(EventLog, EventLog.id == WorkflowExecution.event_log_id)
@@ -376,6 +398,7 @@ def _fila_ejecucion_read(
     evento_timestamp: datetime,
     entidad: str,
     entidad_id: uuid.UUID,
+    reintentable: bool,
 ) -> WorkflowExecutionRead:
     return WorkflowExecutionRead(
         id=ejecucion.id,
@@ -393,6 +416,7 @@ def _fila_ejecucion_read(
         evento_timestamp=evento_timestamp,
         entidad=entidad,
         entidad_id=entidad_id,
+        reintentable=reintentable,
     )
 
 
@@ -403,6 +427,7 @@ def _error_detail_publico(error_detail: str | None, tipo_accion: str) -> str | N
         ERROR_EVALUACION,
         ERROR_CONFIGURACION,
         ERROR_ACCION,
+        *notificaciones_service.ERRORES_CONTROLADOS,
         "La regla ya no aplica al evento original.",
         ERROR_ACCION_NO_IMPLEMENTADA.format(tipo_accion=tipo_accion),
     }

@@ -176,6 +176,22 @@ mismo patrón que el job de facturación. El costo es una demora de hasta
 `WORKFLOWS_DESPACHO_INTERVALO_SEGUNDOS` entre el evento y la ejecución de sus reglas. Con varias
 instancias del backend, `FOR UPDATE SKIP LOCKED` evita que dos procesen el mismo evento.
 
+**Eventos que faltan emitir**
+
+Ya emiten: Proveedores y Compras, `orden_compra.emitida` (en `crear_orden_compra`) y
+`recepcion_compra.registrada` (en `crear_recepcion`). El resto lo agrega el módulo dueño del hecho:
+
+| Evento | Dónde iría | Payload |
+|---|---|---|
+| `inasistencia.registrada` | Académico: alta, carga masiva y cambio de tipo de asistencia, solo `ausente_pendiente` y `tardanza` | `alumno_nombre`, `tipo_asistencia`, `fecha` |
+| `inscripcion.cambio_matricula` | Inscripciones: `registrar_cambio_matricula` | `alumno_nombre`, `tipo_cambio` (`nivel` o `division`), `fecha` |
+| `factura.vencida` | Facturación: todavía no existe el proceso que marca facturas vencidas (#61 y #82) | `dias_vencido`, `monto_deuda`, `nombre_familia` |
+| `solicitud_inscripcion.aprobada`, `inasistencia.justificada`, `pago.registrado`, `pago.rechazado` | Admisiones, Académico y Facturación | ver `grupo-b.yaml` |
+
+Para `inasistencia.registrada` conviene emitir una sola vez por asistencia (en la carga masiva, al
+final del lote) y antes del `commit`. El despacho corre unos segundos después: si la asistencia se
+elimina antes, la ejecución queda `fallido` por no encontrar al alumno.
+
 **Historial y reintentos:** `GET /workflows/ejecuciones` devuelve el historial paginado y permite
 filtrar por `estado`; `GET /workflows/ejecuciones/{id}` expone el detalle y el evento que originó
 una ejecución sin devolver su `payload`. `POST /workflows/ejecuciones/{id}/reintentar` crea un
@@ -183,12 +199,24 @@ intento nuevo y conserva los anteriores. Solo admite el último intento fallido 
 y rechaza el reintento si la regla fue editada desde esa ejecución. La operación requiere permiso
 `workflows.actualizar` y registra en auditoría quién la solicitó. Cada combinación de regla, evento
 y número de intento es única; si dos solicitudes compiten por el mismo intento, una recibe `409`
-antes de ejecutar la acción.
+antes de ejecutar la acción. Cada ejecución del listado incluye `reintentable`, calculado con esas
+mismas condiciones, para que el frontend solo ofrezca el botón cuando corresponde; el `POST` vuelve
+a validarlas, así que el valor puede quedar viejo entre la carga y el clic.
 
-**Estado actual:** ningún tipo de acción tiene ejecutor real (`ACCIONES` en `despacho_service.py`
-está vacío), así que las reglas sin aprobación humana quedan `fallido` con "acción no implementada"
-hasta que se implemente cada una (`notificar` en #68, `crear_tarea`/`escalar_caso` en #89; las que
-tocan Facturación o Inscripciones dependen de los servicios de esos módulos).
+**Log de notificaciones (RF-26):** `GET /workflows/notificaciones` lista las notificaciones
+enviadas, paginadas, con filtros `estado_envio`, `destinatario_tipo` y `workflow_execution_id`.
+`GET /workflows/notificaciones/{id}` agrega `cuerpo_snapshot`, que no viaja en el listado porque
+puede tener datos personales. Ambos piden `workflows.leer` y no hay rutas de escritura. Cada fila
+es el snapshot del envío, así que editar la plantilla o el email después no la cambia. El orden va
+por el inicio de la ejecución (la más reciente primero), porque `NOTIFICACION` no tiene `created_at`
+y `sent_at` es `NULL` en las fallidas. Un reintento aparece como filas nuevas con su `intento`.
+
+**Estado actual:** solo `notificar` tiene ejecutor real (`ACCIONES` en `despacho_service.py`). Las
+demás reglas sin aprobación humana quedan `fallido` con "acción no implementada" hasta que se
+implemente cada una (`crear_tarea`/`escalar_caso` en #89; las que tocan Facturación o Inscripciones
+dependen de los servicios de esos módulos). Un handler recibe `(db, regla, evento, ejecucion)`,
+nunca hace `commit` y devuelve un `ResultadoAccion` (`detalle`, `error`): con `error` la ejecución
+queda `fallido` pero se conservan las filas que escribió el handler.
 
 **Reglas y allowlist de `accion_config`**
 
@@ -205,7 +233,8 @@ defaults.
   (`constants.py`): solo `notificar`, `alerta_interna`, `generar_recordatorio`, `generar_comunicacion`,
   `crear_tarea` y `escalar_caso` valen para cualquier evento; las que escriben sobre la entidad del
   evento o mueven dinero tienen una lista cerrada, y `generar_orden_compra` no se puede configurar
-  hasta que Compras emita un evento. Solo las cuatro que arman un mensaje admiten
+  hasta que Compras emita un evento que la dispare (los dos que emite hoy ocurren después de la
+  orden). Solo las cuatro que arman un mensaje admiten
   `notificacion_template_id`.
 - `GET /workflows/tipos-accion` devuelve, por acción, el default de aprobación humana, los eventos
   permitidos, si admite plantilla y el JSON Schema de su config.
@@ -216,6 +245,56 @@ defaults.
 Las reglas se administran en `/workflows/reglas` y el catálogo de eventos con sus campos en
 `/workflows/tipos-evento`. Los emails los envía n8n vía el webhook `N8N_WEBHOOK_URL` (ver
 `infra/n8n/README.md`).
+
+**Plantillas y destinatarios:** el CRUD de plantillas vive en `/workflows/plantillas`. Una
+plantilla puede reutilizarse entre tipos de evento, pero al asociarla a una regla sus placeholders
+`{{nombre_campo}}` deben existir en el catálogo de campos de ese evento. El listado acepta
+`tipo_evento_id` para devolver solo plantillas compatibles. Una plantilla referenciada por una
+regla o una sugerencia de IA no se puede eliminar.
+
+Los destinatarios configurables de una regla se consultan y reemplazan de forma atómica con
+`GET`/`PUT /workflows/reglas/{id}/destinatarios`. Pueden ser roles y usuarios puntuales. Para las
+acciones `notificar`, `generar_recordatorio` y `generar_comunicacion`, la regla debe usar
+`accion_config.destinatario = "destinatarios_regla"`; `alerta_interna` también admite esta
+configuración. Los usuarios inactivos ya configurados se conservan para mantener la trazabilidad,
+pero no se pueden agregar como destinatarios nuevos.
+
+**Envío de `notificar` (RF-24):** `notificaciones_service.ejecutar_notificar` renderiza la
+plantilla de la regla con el payload del evento, resuelve los destinatarios según
+`accion_config.destinatario`, crea una fila `NOTIFICACION` por destinatario (con snapshot de
+destinatario, asunto y cuerpo) y le pide a n8n el envío (`n8n_client.enviar_email`). La fila queda
+`enviado` con `sent_at`, o `fallido` si ese envío falla.
+
+**`alerta_interna`:** `notificaciones_service.ejecutar_alerta_interna` reutiliza el mismo envío, pero
+siempre a los `destinatarios_regla`. El cuerpo sale de la plantilla de la regla si tiene una y, si
+no, de `accion_config.mensaje` (asunto `Alerta interna: <nombre de la regla>`). Sin ninguno de los
+dos la ejecución falla.
+
+- `destinatarios_regla`: usuarios y roles de la regla, solo los activos.
+- `responsables_habilitados`: familias del alumno con `recibe_comunicaciones`.
+- `responsable_economico`: para facturas y pagos, el de la factura aunque ya no esté vigente; para
+  el resto, el vigente del alumno.
+- Los dos últimos necesitan un alumno, que se deduce de la entidad del evento. Por eso la regla se
+  rechaza sobre `solicitud_inscripcion.aprobada`, que no lo tiene.
+- `Persona` no tiene email: el de una familia sale de las cuentas activas (`USUARIO.persona_id`) de
+  su persona. Una familia sin cuenta se cuenta en el `detalle` y solo hace fallar la ejecución si no
+  queda ningún destinatario.
+
+La ejecución queda `fallido` si no hay plantilla, si falta un campo del payload, si no hay
+destinatarios con email, si hay más de `MAX_DESTINATARIOS_POR_EJECUCION` (50) o si algún envío
+falla. Al reintentar desde el historial (#67) se reenvían solo las filas `fallido` del intento
+anterior, con los snapshots originales: editar la plantilla o el email entre intentos no cambia lo
+que se manda.
+
+Limitaciones conocidas:
+
+- **Sin idempotencia:** si n8n envía el email pero la respuesta se pierde (timeout), la notificación
+  queda `fallido` y un reintento lo manda otra vez.
+- **HTTP dentro de la transacción:** los envíos van en serie dentro de la transacción del evento
+  (timeout de 10 s cada uno). Si n8n no está configurado o no responde, el resto de las
+  notificaciones se registra `fallido` sin intentar el envío. Un despachador separado (filas
+  `pendiente` + job de envío) queda para `generar_comunicacion`, donde aparecen los envíos masivos;
+  no requiere cambios de esquema.
 
 ### Comprobantes y PDF de factura
 
@@ -236,6 +315,7 @@ Los tests usan una base SQLite en memoria (ver `tests/conftest.py`), no la base 
 ```bash
 ruff check src/ tests/
 ruff format src/ tests/
+ruff format --check src/ tests/   # solo verifica, no modifica
 ```
 
 ## Con Docker

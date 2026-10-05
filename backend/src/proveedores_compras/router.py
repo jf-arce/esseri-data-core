@@ -1,5 +1,6 @@
 """Endpoints HTTP del módulo Proveedores y Compras."""
 
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -19,16 +20,26 @@ from src.database import get_db
 from src.exports import respuesta_csv, texto_o_vacio
 from src.proveedores_compras.dependencies import (
     obtener_orden_compra_o_404,
+    obtener_precio_o_404,
     obtener_producto_servicio_o_404,
     obtener_proveedor_o_404,
     obtener_solicitud_o_404,
 )
 from src.proveedores_compras.models import (
     OrdenCompra,
+    PrecioProducto,
     ProductoServicio,
     Proveedor,
     RecepcionCompra,
     SolicitudCompra,
+)
+from src.proveedores_compras.precios_service import (
+    actualizar_precio,
+    asociar_proveedor,
+    crear_precio,
+    desasociar_proveedor,
+    listar_precios_de_producto,
+    listar_proveedores_de_producto,
 )
 from src.proveedores_compras.schemas import (
     LineaPendienteResponse,
@@ -36,10 +47,15 @@ from src.proveedores_compras.schemas import (
     OrdenCompraCreate,
     OrdenCompraListado,
     OrdenCompraResponse,
+    PrecioProductoCreate,
+    PrecioProductoResponse,
+    PrecioProductoUpdate,
+    ProductoProveedorCreate,
     ProductoServicioCreate,
     ProductoServicioResponse,
     ProductoServicioUpdate,
     ProveedorCreate,
+    ProveedorDeProductoResponse,
     ProveedorResponse,
     ProveedorUpdate,
     RecepcionCompraCreate,
@@ -249,6 +265,84 @@ def eliminar_producto_servicio_endpoint(
     Da 409 si ya está referenciado por una compra: ahí corresponde `activo = false`.
     """
     eliminar_producto_servicio(db, producto, usuario.id)
+
+
+@router.get(
+    "/productos/{producto_id}/proveedores", response_model=list[ProveedorDeProductoResponse]
+)
+def listar_proveedores_de_producto_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_LEER))],
+    producto: ProductoServicio = Depends(obtener_producto_servicio_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[ProveedorDeProductoResponse]:
+    """Proveedores que ofrecen el ítem, cada uno con su precio vigente hoy (issue #114)."""
+    return listar_proveedores_de_producto(db, producto.id)
+
+
+@router.post(
+    "/productos/{producto_id}/proveedores",
+    response_model=ProveedorDeProductoResponse,
+    status_code=201,
+)
+def asociar_proveedor_endpoint(
+    asociacion_data: ProductoProveedorCreate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_CREAR))],
+    producto: ProductoServicio = Depends(obtener_producto_servicio_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> ProveedorDeProductoResponse:
+    """Registrar que un proveedor ofrece el ítem. Da 409 si ya estaba asociado."""
+    return asociar_proveedor(db, producto, asociacion_data.proveedor_id, usuario.id)
+
+
+@router.delete("/productos/{producto_id}/proveedores/{proveedor_id}", status_code=204)
+def desasociar_proveedor_endpoint(
+    proveedor_id: uuid.UUID,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_ELIMINAR))],
+    producto: ProductoServicio = Depends(obtener_producto_servicio_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> None:
+    """Quitar un proveedor del ítem. Da 409 si ya tiene precios cargados para ese ítem."""
+    desasociar_proveedor(db, producto, proveedor_id, usuario.id)
+
+
+@router.get("/productos/{producto_id}/precios", response_model=list[PrecioProductoResponse])
+def listar_precios_de_producto_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_LEER))],
+    proveedor_id: Annotated[
+        uuid.UUID | None, Query(description="Acota el histórico a un proveedor")
+    ] = None,
+    producto: ProductoServicio = Depends(obtener_producto_servicio_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[PrecioProducto]:
+    """Histórico de precios del ítem, del más reciente al más viejo."""
+    return listar_precios_de_producto(db, producto.id, proveedor_id)
+
+
+@router.post(
+    "/productos/{producto_id}/precios", response_model=PrecioProductoResponse, status_code=201
+)
+def crear_precio_endpoint(
+    precio_data: PrecioProductoCreate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_CREAR))],
+    producto: ProductoServicio = Depends(obtener_producto_servicio_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> PrecioProducto:
+    """Cargar un precio nuevo para uno de los proveedores del ítem.
+
+    El que estaba vigente para ese proveedor se cierra el día anterior: no se pisa.
+    """
+    return crear_precio(db, producto, precio_data, usuario.id)
+
+
+@router.put("/precios/{precio_id}", response_model=PrecioProductoResponse)
+def actualizar_precio_endpoint(
+    precio_data: PrecioProductoUpdate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_ACTUALIZAR))],
+    precio: PrecioProducto = Depends(obtener_precio_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> PrecioProducto:
+    """Corregir un precio mal cargado. Un aumento no va acá: es un precio nuevo."""
+    return actualizar_precio(db, precio, precio_data, usuario.id)
 
 
 def _armar_respuesta_orden(db: Session, orden: OrdenCompra) -> OrdenCompraResponse:

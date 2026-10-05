@@ -34,6 +34,8 @@ TipoEventoNombre = Literal[
     "solicitud_inscripcion.aprobada",
     "pago.registrado",
     "pago.rechazado",
+    "orden_compra.emitida",
+    "recepcion_compra.registrada",
 ]
 
 # Acciones que mueven dinero o escalan un caso: la regla nace con aprobación humana (Pregunta #15).
@@ -59,11 +61,14 @@ ENTIDAD_POR_EVENTO: dict[TipoEventoNombre, str] = {
     "solicitud_inscripcion.aprobada": "solicitud_inscripcion",
     "pago.registrado": "pago",
     "pago.rechazado": "pago",
+    "orden_compra.emitida": "orden_compra",
+    "recepcion_compra.registrada": "recepcion_compra",
 }
 
 # Allowlist de eventos por acción (Pregunta #16). `None` = cualquier evento: solo las acciones
 # que crean filas propias del motor (notificaciones, tareas). Vacío = todavía no se puede
-# configurar (no hay un evento de Compras que la dispare).
+# configurar (los eventos de Compras que existen ocurren después de emitida la orden: ninguno
+# sirve para dispararla).
 EVENTOS_POR_ACCION: dict[str, frozenset[str] | None] = {
     "notificar": None,
     "alerta_interna": None,
@@ -103,3 +108,15 @@ OPERADORES_POR_TIPO_DATO: dict[str, frozenset[str]] = {
     "fecha": frozenset({"==", "!=", ">", ">=", "<", "<="}),
     "texto": frozenset({"==", "!=", "contiene"}),
 }
+
+# Entidades de evento de las que se puede llegar a un alumno, necesario para los destinatarios
+# `responsable_economico` y `responsables_habilitados`.
+ENTIDADES_CON_ALUMNO: frozenset[str] = frozenset(
+    {"factura", "pago", "asistencia", "justificacion_inasistencia", "inscripcion"}
+)
+DESTINATARIOS_FAMILIARES: frozenset[str] = frozenset(
+    {"responsable_economico", "responsables_habilitados"}
+)
+
+# Los envíos se hacen en serie dentro de la transacción del evento: este tope acota su duración.
+MAX_DESTINATARIOS_POR_EJECUCION = 50

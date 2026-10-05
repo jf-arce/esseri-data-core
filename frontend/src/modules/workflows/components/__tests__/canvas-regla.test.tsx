@@ -34,8 +34,33 @@ describe('CanvasRegla', () => {
     const izquierdas = [/Disparador/, /Condición/, /Acción/].map((n) =>
       Number.parseFloat(nodo(n).style.left),
     )
-    // Con el ancho mínimo (720) y 3 nodos de 190 más 2 separaciones de 56, sobran 38px en total, 19 por lado.
-    expect(izquierdas).toEqual([19, 265, 511])
+    // Con el ancho por defecto (800) y 3 nodos de 210 más 2 separaciones de 56, sobran 58px en total, 29 por lado.
+    expect(izquierdas).toEqual([29, 295, 561])
+  })
+
+  it('abre el nodo al soltar sin haberlo movido, y no antes', () => {
+    const { onSeleccionar, nodo } = renderizar()
+    const condicion = nodo(/Condición/)
+
+    fireEvent.pointerDown(condicion, { button: 0, clientX: 300, clientY: 200 })
+    expect(onSeleccionar).not.toHaveBeenCalled()
+    // Un temblor menor al umbral de arrastre sigue siendo un clic.
+    fireEvent.pointerMove(condicion, { clientX: 302, clientY: 201 })
+    fireEvent.pointerUp(condicion, { clientX: 302, clientY: 201 })
+
+    expect(onSeleccionar).toHaveBeenCalledTimes(1)
+    expect(onSeleccionar).toHaveBeenCalledWith('condicion')
+    expect(Number.parseFloat(condicion.style.left)).toBe(295)
+  })
+
+  it('cancelar el gesto no abre el nodo', () => {
+    const { onSeleccionar, nodo } = renderizar()
+    const condicion = nodo(/Condición/)
+
+    fireEvent.pointerDown(condicion, { button: 0, clientX: 300, clientY: 200 })
+    fireEvent.pointerCancel(condicion)
+
+    expect(onSeleccionar).not.toHaveBeenCalled()
   })
 
   it('mueve el nodo con las flechas y el enlace lo sigue', async () => {
@@ -45,11 +70,11 @@ describe('CanvasRegla', () => {
     nodo(/Condición/).focus()
     await userEvent.keyboard('{ArrowRight}{ArrowDown}')
 
-    expect(Number.parseFloat(nodo(/Condición/).style.left)).toBe(277)
+    expect(Number.parseFloat(nodo(/Condición/).style.left)).toBe(307)
     expect(trayectos()).not.toEqual(antes)
   })
 
-  it('arrastra un nodo con el puntero, lo selecciona y "Acomodar" lo devuelve', () => {
+  it('arrastra un nodo con el puntero sin abrirlo y "Acomodar" lo devuelve', () => {
     const { onSeleccionar, nodo } = renderizar()
     const condicion = nodo(/Condición/)
 
@@ -57,12 +82,11 @@ describe('CanvasRegla', () => {
     fireEvent.pointerMove(condicion, { clientX: 340, clientY: 230 })
     fireEvent.pointerUp(condicion, { clientX: 340, clientY: 230 })
 
-    expect(Number.parseFloat(condicion.style.left)).toBe(305)
-    expect(onSeleccionar).toHaveBeenCalledTimes(1)
-    expect(onSeleccionar).toHaveBeenCalledWith('condicion')
+    expect(Number.parseFloat(condicion.style.left)).toBe(335)
+    expect(onSeleccionar).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Acomodar' }))
-    expect(Number.parseFloat(nodo(/Condición/).style.left)).toBe(265)
+    expect(Number.parseFloat(nodo(/Condición/).style.left)).toBe(295)
   })
 
   it('apila y centra los nodos cuando el canvas es angosto', () => {
@@ -75,12 +99,27 @@ describe('CanvasRegla', () => {
       const { nodo } = renderizar()
 
       const nodos = [/Disparador/, /Condición/, /Acción/].map((n) => nodo(n))
-      expect(nodos.map((n) => Number.parseFloat(n.style.left))).toEqual([105, 105, 105])
+      expect(nodos.map((n) => Number.parseFloat(n.style.left))).toEqual([95, 95, 95])
       const arriba = nodos.map((n) => Number.parseFloat(n.style.top))
       expect(arriba[0]).toBeLessThan(arriba[1])
       expect(arriba[1]).toBeLessThan(arriba[2])
     } finally {
       if (original) Object.defineProperty(HTMLElement.prototype, 'clientWidth', original)
     }
+  })
+
+  it('marca los nodos incompletos', () => {
+    render(
+      <CanvasRegla
+        seleccionado={null}
+        onSeleccionar={vi.fn()}
+        disparador={{ titulo: 'Sin evento', detalle: 'Sin nombre', incompleto: true }}
+        condicion={{ titulo: 'Sin condición', detalle: 'Se ejecuta con cada evento' }}
+        accion={{ titulo: 'Notificar', detalle: 'Criticidad media' }}
+      />,
+    )
+
+    expect(screen.getAllByText('Incompleto')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: /Disparador/ })).toHaveTextContent('Incompleto')
   })
 })

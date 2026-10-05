@@ -48,6 +48,7 @@ from src.proveedores_compras.schemas import (
     SolicitudCompraUpdate,
 )
 from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
+from src.workflows.eventos_service import emit_event
 
 
 def crear_proveedor(
@@ -489,7 +490,8 @@ def crear_orden_compra(
         SolicitudYaEnOrden: si alguna ya está incluida en otra orden.
         ProductoServicioInexistente / ProductoServicioInactivo: por cada ítem del detalle.
     """
-    if db.query(Proveedor).filter(Proveedor.id == orden_data.proveedor_id).first() is None:
+    proveedor = db.query(Proveedor).filter(Proveedor.id == orden_data.proveedor_id).first()
+    if proveedor is None:
         raise ProveedorInexistente()
 
     _validar_solicitudes_para_orden(db, orden_data.solicitud_ids)
@@ -526,11 +528,21 @@ def crear_orden_compra(
         valor_nuevo=f"proveedor={nueva_orden.proveedor_id} fecha={nueva_orden.fecha}",
         usuario_id=usuario_id,
     )
+    # Antes del commit: el evento se confirma con la orden o no se confirma ninguno de los dos.
+    emit_event(
+        db,
+        tipo="orden_compra.emitida",
+        entidad="orden_compra",
+        entidad_id=nueva_orden.id,
+        payload={
+            "proveedor_nombre": proveedor.nombre,
+            "cantidad_items": len(orden_data.detalles),
+            "fecha": nueva_orden.fecha,
+        },
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(nueva_orden)
-
-    # TODO: Emitir el evento de negocio con emit_event() cuando exista, para que Workflows
-    # pueda enganchar una notificación al proveedor.
 
     return nueva_orden
 
@@ -722,11 +734,24 @@ def crear_recepcion(
         valor_nuevo=f"orden={orden.id} tipo={nueva_recepcion.tipo}",
         usuario_id=usuario_id,
     )
+    # `tipo_recepcion` es lo que le permite a una regla de Workflows avisar de un faltante
+    # (condición `tipo_recepcion == parcial`).
+    emit_event(
+        db,
+        tipo="recepcion_compra.registrada",
+        entidad="recepcion_compra",
+        entidad_id=nueva_recepcion.id,
+        payload={
+            "proveedor_nombre": db.query(Proveedor.nombre)
+            .filter(Proveedor.id == orden.proveedor_id)
+            .scalar(),
+            "tipo_recepcion": nueva_recepcion.tipo,
+            "fecha": nueva_recepcion.fecha,
+        },
+        usuario_id=usuario_id,
+    )
     db.commit()
     db.refresh(nueva_recepcion)
-
-    # TODO: emit_event() de recepcion.registrada cuando exista, para que Workflows pueda avisar
-    # de un faltante.
 
     return nueva_recepcion
 

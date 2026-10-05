@@ -37,6 +37,51 @@ class PlantillaNoEncontrada(AppException):
         super().__init__(message)
 
 
+class PlantillaDuplicada(AppException):
+    status_code = 409
+
+    def __init__(self, message: str = "Ya existe una plantilla con ese nombre."):
+        super().__init__(message)
+
+
+class PlantillaEnUso(AppException):
+    status_code = 409
+
+    def __init__(self, message: str = "La plantilla está en uso y no se puede eliminar."):
+        super().__init__(message)
+
+
+class PlantillaInvalida(AppException):
+    status_code = 422
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class DestinatariosInvalidos(AppException):
+    status_code = 422
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class DestinatariosEnConflicto(AppException):
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = "Los destinatarios fueron modificados por otra operación.",
+    ):
+        super().__init__(message)
+
+
+class DestinatarioNoEncontrado(AppException):
+    status_code = 404
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
 class ReglaNoEncontrada(AppException):
     status_code = 404
 
@@ -48,6 +93,13 @@ class EjecucionNoEncontrada(AppException):
     status_code = 404
 
     def __init__(self, message: str = "La ejecución de workflow indicada no existe."):
+        super().__init__(message)
+
+
+class NotificacionNoEncontrada(AppException):
+    status_code = 404
+
+    def __init__(self, message: str = "La notificación indicada no existe."):
         super().__init__(message)
 
 
@@ -69,6 +121,13 @@ class N8nEnvioFallido(AppException):
     status_code = 502
 
     def __init__(self, message: str = "n8n no pudo procesar el envío."):
+        super().__init__(message)
+
+
+class N8nNoDisponible(N8nEnvioFallido):
+    """No hubo respuesta de n8n (conexión o timeout), a diferencia de un 4xx/5xx."""
+
+    def __init__(self, message: str = "No se pudo contactar a n8n."):
         super().__init__(message)
 
 

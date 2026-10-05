@@ -7,16 +7,32 @@ from sqlalchemy.orm import Session
 from src.auth.constants import (
     PERMISO_WORKFLOWS_ACTUALIZAR,
     PERMISO_WORKFLOWS_CREAR,
+    PERMISO_WORKFLOWS_ELIMINAR,
     PERMISO_WORKFLOWS_LEER,
 )
 from src.auth.dependencies import requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
-from src.workflows import despacho_service, service
-from src.workflows.dependencies import obtener_regla_o_404
-from src.workflows.models import WorkflowRule
+from src.workflows import (
+    despacho_service,
+    destinatarios_service,
+    notificaciones_service,
+    plantillas_service,
+    service,
+)
+from src.workflows.dependencies import obtener_plantilla_o_404, obtener_regla_o_404
+from src.workflows.models import NotificacionTemplate, WorkflowRule
 from src.workflows.schemas import (
+    DestinatarioTipo,
+    EstadoEnvioNotificacion,
     EstadoWorkflowExecution,
+    NotificacionDetalleRead,
+    NotificacionListadoRead,
+    NotificacionTemplateCreate,
+    NotificacionTemplateRead,
+    NotificacionTemplateUpdate,
+    ReglaDestinatariosRead,
+    ReglaDestinatariosUpdate,
     ResumenDespacho,
     TipoAccionRead,
     TipoEventoRead,
@@ -33,7 +49,9 @@ DbSession = Annotated[Session, Depends(get_db)]
 PuedeCrear = Annotated[Usuario, Depends(requiere_permiso(PERMISO_WORKFLOWS_CREAR))]
 PuedeLeer = Annotated[Usuario, Depends(requiere_permiso(PERMISO_WORKFLOWS_LEER))]
 PuedeActualizar = Annotated[Usuario, Depends(requiere_permiso(PERMISO_WORKFLOWS_ACTUALIZAR))]
+PuedeEliminar = Annotated[Usuario, Depends(requiere_permiso(PERMISO_WORKFLOWS_ELIMINAR))]
 ReglaActual = Annotated[WorkflowRule, Depends(obtener_regla_o_404)]
+PlantillaActual = Annotated[NotificacionTemplate, Depends(obtener_plantilla_o_404)]
 
 
 @router.get("/tipos-evento", response_model=list[TipoEventoRead])
@@ -44,6 +62,42 @@ def listar_tipos_evento(db: DbSession, _: PuedeLeer):
 @router.get("/tipos-accion", response_model=list[TipoAccionRead])
 def listar_tipos_accion(_: PuedeLeer):
     return service.listar_tipos_accion()
+
+
+@router.get("/plantillas", response_model=list[NotificacionTemplateRead])
+def listar_plantillas(
+    db: DbSession,
+    _: PuedeLeer,
+    tipo_evento_id: uuid.UUID | None = None,
+) -> list[NotificacionTemplate]:
+    return plantillas_service.listar_plantillas(db, tipo_evento_id)
+
+
+@router.post("/plantillas", response_model=NotificacionTemplateRead, status_code=201)
+def crear_plantilla(
+    datos: NotificacionTemplateCreate, db: DbSession, usuario: PuedeCrear
+) -> NotificacionTemplate:
+    return plantillas_service.crear_plantilla(db, datos, usuario.id)
+
+
+@router.get("/plantillas/{plantilla_id}", response_model=NotificacionTemplateRead)
+def obtener_plantilla(_: PuedeLeer, plantilla: PlantillaActual) -> NotificacionTemplate:
+    return plantilla
+
+
+@router.patch("/plantillas/{plantilla_id}", response_model=NotificacionTemplateRead)
+def actualizar_plantilla(
+    datos: NotificacionTemplateUpdate,
+    db: DbSession,
+    usuario: PuedeActualizar,
+    plantilla: PlantillaActual,
+) -> NotificacionTemplate:
+    return plantillas_service.actualizar_plantilla(db, plantilla, datos, usuario.id)
+
+
+@router.delete("/plantillas/{plantilla_id}", status_code=204)
+def eliminar_plantilla(db: DbSession, usuario: PuedeEliminar, plantilla: PlantillaActual) -> None:
+    plantillas_service.eliminar_plantilla(db, plantilla, usuario.id)
 
 
 @router.get("/ejecuciones", response_model=WorkflowExecutionListadoRead)
@@ -82,6 +136,33 @@ def reintentar_ejecucion(
     return despacho_service.reintentar_ejecucion(db, ejecucion_id, usuario.id)
 
 
+@router.get("/notificaciones", response_model=NotificacionListadoRead)
+def listar_notificaciones(
+    db: DbSession,
+    _: PuedeLeer,
+    estado_envio: Annotated[EstadoEnvioNotificacion | None, Query()] = None,
+    destinatario_tipo: Annotated[DestinatarioTipo | None, Query()] = None,
+    workflow_execution_id: Annotated[uuid.UUID | None, Query()] = None,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    tamanio_pagina: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> NotificacionListadoRead:
+    return notificaciones_service.listar_notificaciones(
+        db,
+        estado_envio=estado_envio,
+        destinatario_tipo=destinatario_tipo,
+        workflow_execution_id=workflow_execution_id,
+        pagina=pagina,
+        tamanio_pagina=tamanio_pagina,
+    )
+
+
+@router.get("/notificaciones/{notificacion_id}", response_model=NotificacionDetalleRead)
+def obtener_notificacion(
+    notificacion_id: uuid.UUID, db: DbSession, _: PuedeLeer
+) -> NotificacionDetalleRead:
+    return notificaciones_service.obtener_notificacion_read(db, notificacion_id)
+
+
 @router.get("/reglas", response_model=list[WorkflowRuleRead])
 def listar_reglas(
     db: DbSession,
@@ -107,6 +188,29 @@ def actualizar_regla(
     usuario: PuedeActualizar, regla: ReglaActual, datos: WorkflowRuleUpdate, db: DbSession
 ):
     return service.actualizar_regla(db, regla, datos, usuario.id)
+
+
+@router.get(
+    "/reglas/{regla_id}/destinatarios",
+    response_model=ReglaDestinatariosRead,
+)
+def listar_destinatarios_regla(
+    _: PuedeLeer, regla: ReglaActual, db: DbSession
+) -> ReglaDestinatariosRead:
+    return destinatarios_service.listar_destinatarios_regla(db, regla.id)
+
+
+@router.put(
+    "/reglas/{regla_id}/destinatarios",
+    response_model=ReglaDestinatariosRead,
+)
+def reemplazar_destinatarios_regla(
+    datos: ReglaDestinatariosUpdate,
+    usuario: PuedeActualizar,
+    regla: ReglaActual,
+    db: DbSession,
+) -> ReglaDestinatariosRead:
+    return destinatarios_service.reemplazar_destinatarios_regla(db, regla, datos, usuario.id)
 
 
 @router.post("/procesar", response_model=ResumenDespacho)

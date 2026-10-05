@@ -3,13 +3,20 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '@/api/client'
+import { getRoles } from '@/modules/auth/services/get-roles'
+import { getUsuarios } from '@/modules/auth/services/get-usuarios'
 import { listarConceptosCobro } from '@/modules/facturacion/services/listar-conceptos-cobro'
 import { ReglaWorkflowEditorPage } from '@/modules/workflows/pages/regla-workflow-editor-page'
 import { actualizarReglaWorkflow } from '@/modules/workflows/services/actualizar-regla-workflow'
+import { crearReglaWorkflow } from '@/modules/workflows/services/crear-regla-workflow'
+import { listarPlantillas } from '@/modules/workflows/services/listar-plantillas'
 import { listarTiposAccion } from '@/modules/workflows/services/listar-tipos-accion'
 import { listarTiposEvento } from '@/modules/workflows/services/listar-tipos-evento'
+import { obtenerDestinatariosRegla } from '@/modules/workflows/services/obtener-destinatarios-regla'
 import { obtenerReglaWorkflow } from '@/modules/workflows/services/obtener-regla-workflow'
+import { reemplazarDestinatariosRegla } from '@/modules/workflows/services/reemplazar-destinatarios-regla'
 import type {
+  PlantillaNotificacion,
   ReglaWorkflow,
   TipoAccion,
   TipoAccionCatalogo,
@@ -17,12 +24,17 @@ import type {
 } from '@/modules/workflows/types'
 import { useAuthStore } from '@/store/auth-store'
 
+vi.mock('@/modules/auth/services/get-roles')
+vi.mock('@/modules/auth/services/get-usuarios')
 vi.mock('@/modules/facturacion/services/listar-conceptos-cobro')
 vi.mock('@/modules/workflows/services/actualizar-regla-workflow')
 vi.mock('@/modules/workflows/services/crear-regla-workflow')
+vi.mock('@/modules/workflows/services/listar-plantillas')
 vi.mock('@/modules/workflows/services/listar-tipos-accion')
 vi.mock('@/modules/workflows/services/listar-tipos-evento')
+vi.mock('@/modules/workflows/services/obtener-destinatarios-regla')
 vi.mock('@/modules/workflows/services/obtener-regla-workflow')
+vi.mock('@/modules/workflows/services/reemplazar-destinatarios-regla')
 
 const tiposEvento: TipoEvento[] = [
   {
@@ -62,6 +74,7 @@ const tiposAccion: TipoAccionCatalogo[] = [
     admite_plantilla: true,
     config_schema: { properties: { destinatario: { default: 'responsables_habilitados' } } },
   }),
+  accion('alerta_interna', null, { admite_plantilla: true }),
   accion('aplicar_penalidad', ['factura.vencida'], { requiere_aprobacion_por_defecto: true }),
   accion('actualizar_cuenta_corriente', ['pago.registrado', 'factura.vencida']),
   accion('generar_cargo', ['pago.rechazado']),
@@ -81,6 +94,23 @@ const reglaBase: ReglaWorkflow = {
   activo: true,
   created_at: '2026-09-01T00:00:00Z',
   updated_at: '2026-09-01T00:00:00Z',
+}
+
+const plantilla: PlantillaNotificacion = {
+  id: 'pl-1',
+  nombre: 'Aviso de mora',
+  asunto: 'Deuda de {{monto_deuda}}',
+  cuerpo: 'Tenés {{dias_vencido}} días de mora',
+  created_at: '2026-09-01T00:00:00Z',
+  updated_at: '2026-09-01T00:00:00Z',
+}
+
+const reglaNotificar: ReglaWorkflow = {
+  ...reglaBase,
+  condicion: {},
+  tipo_accion: 'notificar',
+  accion_config: { destinatario: 'destinatarios_regla' },
+  notificacion_template_id: 'pl-1',
 }
 
 function conPermisos(codigos: string[]) {
@@ -107,10 +137,11 @@ function conPermisos(codigos: string[]) {
   })
 }
 
-function abrirEditor() {
+function abrirEditor(ruta = '/workflows/reglas/r-1') {
   return render(
-    <MemoryRouter initialEntries={['/workflows/reglas/r-1']}>
+    <MemoryRouter initialEntries={[ruta]}>
       <Routes>
+        <Route path="/workflows/reglas/nueva" element={<ReglaWorkflowEditorPage />} />
         <Route path="/workflows/reglas/:reglaId" element={<ReglaWorkflowEditorPage />} />
         <Route path="/workflows/reglas" element={<p>Listado de reglas</p>} />
       </Routes>
@@ -135,6 +166,14 @@ beforeEach(() => {
   ])
   vi.mocked(obtenerReglaWorkflow).mockResolvedValue(reglaBase)
   vi.mocked(actualizarReglaWorkflow).mockResolvedValue(reglaBase)
+  vi.mocked(listarPlantillas).mockResolvedValue([plantilla])
+  vi.mocked(obtenerDestinatariosRegla).mockResolvedValue({ roles: [], usuarios: [] })
+  vi.mocked(reemplazarDestinatariosRegla).mockResolvedValue({ roles: [], usuarios: [] })
+  vi.mocked(getRoles).mockResolvedValue([
+    { id: 'rol-1', codigo: 'SECRETARIA', nombre: 'secretaria', descripcion: null },
+    { id: 'rol-2', codigo: 'DIRECTOR', nombre: 'director', descripcion: null },
+  ])
+  vi.mocked(getUsuarios).mockResolvedValue([])
 })
 
 async function elegirOpcion(
@@ -144,6 +183,21 @@ async function elegirOpcion(
 ) {
   await user.click(await screen.findByRole('combobox', { name: combo }))
   await user.click(await screen.findByRole('option', { name: opcion }))
+}
+
+async function abrirNodo(user: ReturnType<typeof userEvent.setup>, nodo: RegExp) {
+  await user.click(await screen.findByRole('button', { name: nodo }))
+}
+
+async function aplicar(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: 'Aplicar' }))
+}
+
+/** Aplica el diálogo que haya abierto (si hay) y guarda la regla. */
+async function guardarRegla(user: ReturnType<typeof userEvent.setup>) {
+  const pendiente = screen.queryByRole('button', { name: 'Aplicar' })
+  if (pendiente) await user.click(pendiente)
+  await user.click(await screen.findByRole('button', { name: 'Guardar regla' }))
 }
 
 describe('ReglaWorkflowEditorPage', () => {
@@ -156,8 +210,9 @@ describe('ReglaWorkflowEditorPage', () => {
     })
     abrirEditor()
 
+    await abrirNodo(user, /^Disparador/)
     await elegirOpcion(user, 'Cuándo se dispara', 'Se registra un pago')
-    await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+    await guardarRegla(user)
 
     await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
     expect(actualizarReglaWorkflow).toHaveBeenCalledWith(
@@ -184,7 +239,7 @@ describe('ReglaWorkflowEditorPage', () => {
     expect(screen.getByRole('switch', { name: 'Requiere aprobación humana' })).not.toBeChecked()
     await elegirOpcion(user, 'Tipo de acción', 'Aplicar penalidad')
     expect(screen.getByRole('switch', { name: 'Requiere aprobación humana' })).toBeChecked()
-    await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+    await guardarRegla(user)
 
     await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
     expect(actualizarReglaWorkflow).toHaveBeenCalledWith(
@@ -204,7 +259,7 @@ describe('ReglaWorkflowEditorPage', () => {
 
     await user.click(await screen.findByRole('button', { name: /^Acción/ }))
     expect(screen.getByRole('switch', { name: 'Requiere aprobación humana' })).not.toBeChecked()
-    await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+    await guardarRegla(user)
 
     await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
     expect(actualizarReglaWorkflow).toHaveBeenCalledWith(
@@ -222,7 +277,10 @@ describe('ReglaWorkflowEditorPage', () => {
     conPermisos(['workflows.leer'])
     abrirEditor()
 
+    await abrirNodo(userEvent.setup(), /^Disparador/)
     expect(await screen.findByRole('textbox', { name: 'Nombre de la regla' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cerrar' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Aplicar' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Guardar regla' })).not.toBeInTheDocument()
   })
 
@@ -250,7 +308,7 @@ describe('ReglaWorkflowEditorPage', () => {
     )
     abrirEditor()
 
-    await user.click(await screen.findByRole('button', { name: 'Guardar regla' }))
+    await guardarRegla(user)
 
     expect(await screen.findByText(/Configuración inválida para crear_tarea/)).toBeInTheDocument()
     expect(screen.queryByText('Listado de reglas')).not.toBeInTheDocument()
@@ -277,5 +335,374 @@ describe('ReglaWorkflowEditorPage', () => {
     expect(screen.getByRole('option', { name: 'Actualizar cuenta corriente' })).toHaveAttribute(
       'data-disabled',
     )
+  })
+
+  describe('diálogos de los nodos', () => {
+    it('cancelar descarta los cambios del borrador', async () => {
+      const user = userEvent.setup()
+      abrirEditor()
+
+      await abrirNodo(user, /^Disparador/)
+      await user.type(
+        await screen.findByRole('textbox', { name: 'Nombre de la regla' }),
+        ' editada',
+      )
+      await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+      await user.click(await screen.findByRole('button', { name: 'Guardar regla' }))
+
+      await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
+      expect(actualizarReglaWorkflow).toHaveBeenCalledWith(
+        'r-1',
+        expect.objectContaining({ nombre: 'Penalidad por mora' }),
+      )
+    })
+
+    it('aplicar pasa el borrador a la regla sin guardarla todavía', async () => {
+      const user = userEvent.setup()
+      abrirEditor()
+
+      await abrirNodo(user, /^Disparador/)
+      await user.type(
+        await screen.findByRole('textbox', { name: 'Nombre de la regla' }),
+        ' editada',
+      )
+      await aplicar(user)
+
+      expect(actualizarReglaWorkflow).not.toHaveBeenCalled()
+      expect(screen.getByRole('button', { name: /^Disparador/ })).toHaveTextContent(
+        'Penalidad por mora editada',
+      )
+    })
+
+    it('en el alta abre el disparador y marca los nodos que faltan', async () => {
+      abrirEditor('/workflows/reglas/nueva')
+
+      expect(await screen.findByRole('textbox', { name: 'Nombre de la regla' })).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+      expect(await screen.findAllByText('Incompleto')).toHaveLength(2)
+    })
+
+    it('"Regla activa" se cambia desde el encabezado', async () => {
+      const user = userEvent.setup()
+      abrirEditor()
+
+      await user.click(await screen.findByRole('switch', { name: 'Regla activa' }))
+      await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+
+      await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
+      expect(actualizarReglaWorkflow).toHaveBeenCalledWith(
+        'r-1',
+        expect.objectContaining({ activo: false }),
+      )
+    })
+  })
+
+  describe('plantilla y destinatarios', () => {
+    async function abrirAccion() {
+      const user = userEvent.setup()
+      abrirEditor()
+      await user.click(await screen.findByRole('button', { name: /^Acción/ }))
+      return user
+    }
+
+    async function elegirRol(user: ReturnType<typeof userEvent.setup>, nombre: string) {
+      await user.click(await screen.findByRole('combobox', { name: 'Destinatarios de la regla' }))
+      await user.click(await screen.findByRole('option', { name: nombre }))
+      await user.keyboard('{Escape}')
+    }
+
+    beforeEach(() => {
+      vi.mocked(obtenerReglaWorkflow).mockResolvedValue(reglaNotificar)
+    })
+
+    it('al editar guarda la regla y después los destinatarios que cambiaron', async () => {
+      const user = await abrirAccion()
+      await elegirRol(user, 'Secretaria')
+      await guardarRegla(user)
+
+      await waitFor(() => expect(reemplazarDestinatariosRegla).toHaveBeenCalled())
+      expect(actualizarReglaWorkflow).toHaveBeenCalledWith(
+        'r-1',
+        expect.objectContaining({ notificacion_template_id: 'pl-1' }),
+      )
+      expect(reemplazarDestinatariosRegla).toHaveBeenCalledWith('r-1', {
+        rol_ids: ['rol-1'],
+        usuario_ids: [],
+      })
+      expect(vi.mocked(actualizarReglaWorkflow).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(reemplazarDestinatariosRegla).mock.invocationCallOrder[0],
+      )
+    })
+
+    it('permite elegir roles y usuarios activos desde un mismo selector', async () => {
+      vi.mocked(getUsuarios).mockResolvedValue([
+        {
+          id: 'u-1',
+          email: 'ana@esseri.edu.ar',
+          estado: 'activo',
+          auth_provider: 'local',
+          ultimo_acceso: null,
+          roles: [],
+          persona_id: null,
+          persona_nombre: 'Ana',
+          persona_apellido: 'Pérez',
+        },
+        {
+          id: 'u-2',
+          email: 'baja@esseri.edu.ar',
+          estado: 'inactivo',
+          auth_provider: 'local',
+          ultimo_acceso: null,
+          roles: [],
+          persona_id: null,
+          persona_nombre: null,
+          persona_apellido: null,
+        },
+      ])
+      const user = await abrirAccion()
+      await user.click(await screen.findByRole('combobox', { name: 'Destinatarios de la regla' }))
+
+      expect(await screen.findByRole('option', { name: 'Secretaria' })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /baja/i })).not.toBeInTheDocument()
+      await user.click(screen.getByRole('option', { name: 'Pérez, Ana' }))
+      await user.click(screen.getByRole('option', { name: 'Director' }))
+      await user.keyboard('{Escape}')
+      await guardarRegla(user)
+
+      await waitFor(() => expect(reemplazarDestinatariosRegla).toHaveBeenCalled())
+      expect(reemplazarDestinatariosRegla).toHaveBeenCalledWith('r-1', {
+        rol_ids: ['rol-2'],
+        usuario_ids: ['u-1'],
+      })
+    })
+
+    it('al editar no reenvía los destinatarios si no cambiaron', async () => {
+      const user = await abrirAccion()
+      await guardarRegla(user)
+
+      await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
+      expect(await screen.findByText('Listado de reglas')).toBeInTheDocument()
+      expect(reemplazarDestinatariosRegla).not.toHaveBeenCalled()
+    })
+
+    it('si falla el PUT tras el PATCH se queda en el editor con la selección intacta', async () => {
+      vi.mocked(reemplazarDestinatariosRegla).mockRejectedValue(new ApiError(422, 'Rol inválido'))
+      const user = await abrirAccion()
+      await elegirRol(user, 'Secretaria')
+      await guardarRegla(user)
+
+      expect(await screen.findByText(/no los destinatarios: Rol inválido/)).toBeInTheDocument()
+      expect(screen.queryByText('Listado de reglas')).not.toBeInTheDocument()
+      await abrirNodo(user, /^Acción/)
+      expect(screen.getByRole('button', { name: 'Quitar Secretaria' })).toBeInTheDocument()
+
+      // Reintentar repite el PATCH y el PUT.
+      vi.mocked(reemplazarDestinatariosRegla).mockResolvedValue({ roles: [], usuarios: [] })
+      await guardarRegla(user)
+      expect(await screen.findByText('Listado de reglas')).toBeInTheDocument()
+      expect(actualizarReglaWorkflow).toHaveBeenCalledTimes(2)
+      expect(reemplazarDestinatariosRegla).toHaveBeenCalledTimes(2)
+    })
+
+    it('si la config ya no admite destinatarios los vacía antes del PATCH', async () => {
+      vi.mocked(obtenerDestinatariosRegla).mockResolvedValue({
+        roles: [{ id: 'rol-1', nombre: 'secretaria' }],
+        usuarios: [],
+      })
+      const user = await abrirAccion()
+      await elegirOpcion(user, 'Destinatario', 'Responsables habilitados')
+      await guardarRegla(user)
+
+      await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
+      expect(reemplazarDestinatariosRegla).toHaveBeenCalledWith('r-1', {
+        rol_ids: [],
+        usuario_ids: [],
+      })
+      expect(vi.mocked(reemplazarDestinatariosRegla).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(actualizarReglaWorkflow).mock.invocationCallOrder[0],
+      )
+    })
+
+    it('si falla el PATCH tras vaciar avisa que los destinatarios ya se quitaron y los reenvía al volver', async () => {
+      vi.mocked(obtenerDestinatariosRegla).mockResolvedValue({
+        roles: [{ id: 'rol-1', nombre: 'secretaria' }],
+        usuarios: [],
+      })
+      vi.mocked(actualizarReglaWorkflow).mockRejectedValueOnce(new ApiError(422, 'Config inválida'))
+      const user = await abrirAccion()
+      await elegirOpcion(user, 'Destinatario', 'Responsables habilitados')
+      await guardarRegla(user)
+
+      expect(
+        await screen.findByText(/ya se quitaron de la regla.*Config inválida/),
+      ).toBeInTheDocument()
+      expect(screen.queryByText('Listado de reglas')).not.toBeInTheDocument()
+
+      // Vuelve a una config que los admite: la selección local se conserva y se reenvía.
+      await abrirNodo(user, /^Acción/)
+      await elegirOpcion(user, 'Destinatario', 'Destinatarios de la regla')
+      expect(screen.getByRole('button', { name: 'Quitar Secretaria' })).toBeInTheDocument()
+      await guardarRegla(user)
+
+      await waitFor(() => expect(reemplazarDestinatariosRegla).toHaveBeenCalledTimes(2))
+      expect(reemplazarDestinatariosRegla).toHaveBeenLastCalledWith('r-1', {
+        rol_ids: ['rol-1'],
+        usuario_ids: [],
+      })
+    })
+
+    it('en el alta crea la regla y después guarda los destinatarios', async () => {
+      vi.mocked(crearReglaWorkflow).mockResolvedValue({ ...reglaNotificar, id: 'nueva-1' })
+      const user = userEvent.setup()
+      abrirEditor('/workflows/reglas/nueva')
+
+      await user.type(await screen.findByRole('textbox', { name: 'Nombre de la regla' }), 'Aviso')
+      await elegirOpcion(user, 'Cuándo se dispara', 'Se registra un pago')
+      await aplicar(user)
+      await abrirNodo(user, /^Acción/)
+      await elegirOpcion(user, 'Tipo de acción', 'Alerta interna')
+      await elegirRol(user, 'Director')
+      await guardarRegla(user)
+
+      expect(await screen.findByText('Listado de reglas')).toBeInTheDocument()
+      expect(crearReglaWorkflow).toHaveBeenCalledWith(
+        expect.objectContaining({ tipo_accion: 'alerta_interna', notificacion_template_id: null }),
+      )
+      expect(reemplazarDestinatariosRegla).toHaveBeenCalledWith('nueva-1', {
+        rol_ids: ['rol-2'],
+        usuario_ids: [],
+      })
+    })
+
+    it('si falla el PUT del alta pasa a editar la regla creada con la selección y el error', async () => {
+      vi.mocked(crearReglaWorkflow).mockResolvedValue({
+        ...reglaNotificar,
+        id: 'nueva-1',
+        tipo_accion: 'alerta_interna',
+        accion_config: { mensaje: 'x' },
+      })
+      vi.mocked(obtenerReglaWorkflow).mockImplementation(async (id) => ({
+        ...reglaNotificar,
+        id,
+        tipo_accion: 'alerta_interna',
+        accion_config: { mensaje: 'x' },
+      }))
+      vi.mocked(reemplazarDestinatariosRegla).mockRejectedValueOnce(
+        new ApiError(422, 'Rol inválido'),
+      )
+      const user = userEvent.setup()
+      abrirEditor('/workflows/reglas/nueva')
+
+      await user.type(await screen.findByRole('textbox', { name: 'Nombre de la regla' }), 'Aviso')
+      await elegirOpcion(user, 'Cuándo se dispara', 'Se registra un pago')
+      await aplicar(user)
+      await abrirNodo(user, /^Acción/)
+      await elegirOpcion(user, 'Tipo de acción', 'Alerta interna')
+      await elegirRol(user, 'Director')
+      await guardarRegla(user)
+
+      expect(
+        await screen.findByText(/La regla se creó, pero no se pudieron guardar los destinatarios/),
+      ).toBeInTheDocument()
+      expect(obtenerReglaWorkflow).toHaveBeenCalledWith('nueva-1', expect.anything())
+      await user.click(screen.getByRole('button', { name: /^Acción/ }))
+      expect(await screen.findByRole('button', { name: 'Quitar Director' })).toBeInTheDocument()
+
+      // El reintento ya es una edición de la regla creada.
+      await guardarRegla(user)
+      await waitFor(() =>
+        expect(actualizarReglaWorkflow).toHaveBeenCalledWith('nueva-1', expect.anything()),
+      )
+      expect(reemplazarDestinatariosRegla).toHaveBeenLastCalledWith('nueva-1', {
+        rol_ids: ['rol-2'],
+        usuario_ids: [],
+      })
+    })
+
+    it('al cambiar a un evento sin la plantilla elegida la limpia', async () => {
+      vi.mocked(listarPlantillas).mockImplementation(async (tipoEventoId) =>
+        tipoEventoId === 'e-vencida' ? [plantilla] : [],
+      )
+      const user = userEvent.setup()
+      abrirEditor()
+
+      await abrirNodo(user, /^Disparador/)
+      await elegirOpcion(user, 'Cuándo se dispara', 'Se registra un pago')
+      await aplicar(user)
+      await waitFor(() =>
+        expect(listarPlantillas).toHaveBeenCalledWith('e-pago', expect.anything()),
+      )
+      await guardarRegla(user)
+
+      await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
+      expect(actualizarReglaWorkflow).toHaveBeenCalledWith(
+        'r-1',
+        expect.objectContaining({ tipo_evento_id: 'e-pago', notificacion_template_id: null }),
+      )
+    })
+
+    it('no limpia la plantilla si falla la carga de las del evento nuevo', async () => {
+      vi.mocked(listarPlantillas).mockImplementation(async (tipoEventoId) => {
+        if (tipoEventoId === 'e-vencida') return [plantilla]
+        throw new ApiError(500, 'Error')
+      })
+      const user = userEvent.setup()
+      abrirEditor()
+
+      await abrirNodo(user, /^Disparador/)
+      await elegirOpcion(user, 'Cuándo se dispara', 'Se registra un pago')
+      await aplicar(user)
+      await waitFor(() =>
+        expect(listarPlantillas).toHaveBeenCalledWith('e-pago', expect.anything()),
+      )
+      await guardarRegla(user)
+
+      await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
+      expect(actualizarReglaWorkflow).toHaveBeenCalledWith(
+        'r-1',
+        expect.objectContaining({ notificacion_template_id: 'pl-1' }),
+      )
+    })
+
+    it('muestra los destinatarios en solo lectura si falta autenticacion.leer', async () => {
+      vi.mocked(getRoles).mockRejectedValue(new ApiError(403, 'Sin permiso'))
+      vi.mocked(getUsuarios).mockRejectedValue(new ApiError(403, 'Sin permiso'))
+      vi.mocked(obtenerDestinatariosRegla).mockResolvedValue({
+        roles: [{ id: 'rol-1', nombre: 'secretaria' }],
+        usuarios: [{ id: 'u-9', email: 'baja@esseri.edu.ar', estado: 'inactivo' }],
+      })
+      await abrirAccion()
+
+      expect(await screen.findByText(/Autenticación · Leer/)).toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: 'Destinatarios de la regla' })).toBeDisabled()
+      expect(screen.getByText('Secretaria')).toBeInTheDocument()
+      expect(screen.getByText(/baja@esseri.edu.ar \(inactivo\)/)).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^Quitar/ })).not.toBeInTheDocument()
+    })
+
+    it('deshabilita los destinatarios sin workflows.actualizar', async () => {
+      conPermisos(['workflows.leer', 'workflows.crear'])
+      await abrirAccion()
+
+      expect(
+        await screen.findByRole('combobox', { name: 'Destinatarios de la regla' }),
+      ).toBeDisabled()
+    })
+
+    it('ofrece crear y editar plantillas según los permisos', async () => {
+      await abrirAccion()
+      expect(await screen.findByRole('button', { name: 'Nueva' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'Editar' })).toBeEnabled()
+    })
+
+    it('avisa que notificar sin plantilla no se envía', async () => {
+      vi.mocked(obtenerReglaWorkflow).mockResolvedValue({
+        ...reglaNotificar,
+        notificacion_template_id: null,
+      })
+      await abrirAccion()
+
+      expect(await screen.findByText(/la notificación no se va a enviar/)).toBeInTheDocument()
+    })
   })
 })

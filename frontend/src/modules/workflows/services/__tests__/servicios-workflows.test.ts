@@ -1,9 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { actualizarPlantilla } from '@/modules/workflows/services/actualizar-plantilla'
 import { actualizarReglaWorkflow } from '@/modules/workflows/services/actualizar-regla-workflow'
+import { crearPlantilla } from '@/modules/workflows/services/crear-plantilla'
 import { crearReglaWorkflow } from '@/modules/workflows/services/crear-regla-workflow'
+import { listarEjecucionesWorkflow } from '@/modules/workflows/services/listar-ejecuciones-workflow'
+import { listarNotificaciones } from '@/modules/workflows/services/listar-notificaciones'
+import { listarPlantillas } from '@/modules/workflows/services/listar-plantillas'
 import { listarReglasWorkflow } from '@/modules/workflows/services/listar-reglas-workflow'
 import { listarTiposAccion } from '@/modules/workflows/services/listar-tipos-accion'
 import { listarTiposEvento } from '@/modules/workflows/services/listar-tipos-evento'
+import { obtenerDestinatariosRegla } from '@/modules/workflows/services/obtener-destinatarios-regla'
+import { reemplazarDestinatariosRegla } from '@/modules/workflows/services/reemplazar-destinatarios-regla'
+import { reintentarEjecucionWorkflow } from '@/modules/workflows/services/reintentar-ejecucion-workflow'
+import { obtenerNotificacion } from '@/modules/workflows/services/obtener-notificacion'
 import { obtenerReglaWorkflow } from '@/modules/workflows/services/obtener-regla-workflow'
 
 const respuestaOk = () =>
@@ -47,6 +56,7 @@ describe('servicios de workflows', () => {
       accion_config: {},
       criticidad: 'media' as const,
       requiere_aprobacion_humana: false,
+      notificacion_template_id: null,
       activo: true,
     }
 
@@ -67,5 +77,109 @@ describe('servicios de workflows', () => {
     expect(url).toContain('/workflows/reglas/regla-1')
     expect(init?.method).toBe('PATCH')
     expect(init?.body).toBe(JSON.stringify({ activo: false }))
+  })
+
+  it('lista ejecuciones con paginación y el estado solo si viene', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await listarEjecucionesWorkflow({ pagina: 2, tamanioPagina: 20 })
+    await listarEjecucionesWorkflow({ estado: 'fallido', pagina: 1, tamanioPagina: 20 })
+
+    expect(fetchMock.mock.calls[0][0]).toContain(
+      '/workflows/ejecuciones?pagina=2&tamanio_pagina=20',
+    )
+    expect(fetchMock.mock.calls[0][0]).not.toContain('estado')
+    expect(fetchMock.mock.calls[1][0]).toContain('estado=fallido')
+  })
+
+  it('lista notificaciones con paginación y los filtros solo si vienen', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await listarNotificaciones({ pagina: 2, tamanioPagina: 20 })
+    await listarNotificaciones({
+      estadoEnvio: 'fallido',
+      destinatarioTipo: 'familia',
+      pagina: 1,
+      tamanioPagina: 20,
+    })
+
+    expect(fetchMock.mock.calls[0][0]).toContain(
+      '/workflows/notificaciones?pagina=2&tamanio_pagina=20',
+    )
+    expect(fetchMock.mock.calls[0][0]).not.toContain('estado_envio')
+    expect(fetchMock.mock.calls[0][0]).not.toContain('destinatario_tipo')
+    expect(fetchMock.mock.calls[1][0]).toContain('estado_envio=fallido')
+    expect(fetchMock.mock.calls[1][0]).toContain('destinatario_tipo=familia')
+  })
+
+  it('pide el detalle de una notificación por id', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await obtenerNotificacion('notif-1')
+
+    expect(fetchMock.mock.calls[0][0]).toContain('/workflows/notificaciones/notif-1')
+  })
+
+  it('reintenta una ejecución con POST sin body', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await reintentarEjecucionWorkflow('ejec-1')
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toContain('/workflows/ejecuciones/ejec-1/reintentar')
+    expect(init?.method).toBe('POST')
+    expect(init?.body).toBeUndefined()
+  })
+
+  it('lista las plantillas compatibles con el evento', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await listarPlantillas('evento-1')
+
+    expect(fetchMock.mock.calls[0][0]).toContain('/workflows/plantillas?tipo_evento_id=evento-1')
+  })
+
+  it('crea una plantilla con POST y el payload en JSON', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+    const payload = { nombre: 'Aviso', asunto: 'Hola {{monto}}', cuerpo: 'Debés {{monto}}' }
+
+    await crearPlantilla(payload)
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toContain('/workflows/plantillas')
+    expect(init?.method).toBe('POST')
+    expect(init?.body).toBe(JSON.stringify(payload))
+  })
+
+  it('actualiza una plantilla con PATCH', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+    const payload = { nombre: 'Aviso', asunto: 'Asunto', cuerpo: 'Cuerpo' }
+
+    await actualizarPlantilla('plantilla-1', payload)
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toContain('/workflows/plantillas/plantilla-1')
+    expect(init?.method).toBe('PATCH')
+    expect(init?.body).toBe(JSON.stringify(payload))
+  })
+
+  it('obtiene los destinatarios de una regla', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await obtenerDestinatariosRegla('regla-1')
+
+    expect(fetchMock.mock.calls[0][0]).toContain('/workflows/reglas/regla-1/destinatarios')
+  })
+
+  it('reemplaza los destinatarios de una regla con PUT', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+    const payload = { rol_ids: ['rol-1'], usuario_ids: [] }
+
+    await reemplazarDestinatariosRegla('regla-1', payload)
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toContain('/workflows/reglas/regla-1/destinatarios')
+    expect(init?.method).toBe('PUT')
+    expect(init?.body).toBe(JSON.stringify(payload))
   })
 })

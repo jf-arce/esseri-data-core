@@ -8,10 +8,12 @@ from sqlalchemy.orm import Session
 from src.database import get_db
 from src.proveedores_compras.models import (
     OrdenCompra,
+    PrecioProducto,
     ProductoServicio,
     Proveedor,
     SolicitudCompra,
 )
+from src.proveedores_compras.precios_service import obtener_precio_por_id
 from src.proveedores_compras.service import (
     obtener_orden_compra_por_id,
     obtener_producto_servicio_por_id,
@@ -118,3 +120,28 @@ def obtener_orden_compra_o_404(
             detail=f"Orden de compra con ID {orden_id} no encontrada",
         )
     return orden
+
+
+def obtener_precio_o_404(
+    precio_id: uuid.UUID,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> PrecioProducto:
+    """Obtener un precio del catálogo por ID o cortar con 404.
+
+    Args:
+        precio_id: ID del precio a buscar
+        db: Sesión de base de datos inyectada
+
+    Returns:
+        El precio encontrado
+
+    Raises:
+        HTTPException: Si el precio no existe (404)
+    """
+    precio = obtener_precio_por_id(db, precio_id)
+    if precio is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Precio con ID {precio_id} no encontrado",
+        )
+    return precio

@@ -204,11 +204,12 @@ Antes del alcance nuevo, estas vistas no tenían dueño formal en ningún docume
 - **La allowlist es la pieza de seguridad central de este módulo**: el backend valida `accion_config` contra una lista cerrada de entidades/campos/estados permitidos antes de ejecutar — el motor no puede escribir arbitrariamente sobre cualquier tabla. Acciones sensibles (disciplinarias, legales, excepciones económicas) quedan con `requiere_aprobacion_humana = true`.
 - `EVENT_LOG` (nuevo, append-only, transversal en `src/models.py`) + helper `emit_event()` — infraestructura que el resto del equipo necesita desde el 1er Informe. No confundir con `AUDIT_LOG` (ex `EVENT_LOG`, de Botteri).
 - `WORKFLOW_EXECUTION` trazable: referencia el `EVENT_LOG` que la disparó, número de intento, `started_at`/`finished_at`, `error_detail` (RF-22, RF-23).
-- Integración con n8n vía webhook genérico para el envío real de emails (Gmail/Google Workspace) — el backend resuelve destinatario y contenido antes de llamarlo. n8n **no** reemplaza al `EVENT_LOG` ni al motor.
+- Integración con n8n vía webhook genérico para el envío real de emails (Gmail/Google Workspace) — el backend resuelve destinatario y contenido antes de llamarlo. n8n **no** reemplaza al `EVENT_LOG` ni al motor. Envío de la acción `notificar` **hecho** (#68).
 - `NOTIFICACION` con destinatario genérico (`destinatario_tipo`: familia o usuario interno) y snapshot inmutable (`destinatario_snapshot`/`asunto_snapshot`/`cuerpo_snapshot`) — la evidencia histórica no cambia si después se edita la plantilla o el email de la familia (RF-26).
-- CRUD de `NOTIFICACION_TEMPLATE` (plantillas con placeholders tipo `{{nombre_familia}}`).
+- CRUD de `NOTIFICACION_TEMPLATE` (plantillas con placeholders tipo `{{nombre_familia}}`), **hecho** (#69).
+- Log de notificaciones enviadas (`GET /workflows/notificaciones`, RF-26), **hecho** (#71): listado paginado con filtros y detalle con el cuerpo, solo lectura.
 - `TAREA` + cadena de escalamiento (`escalada_de_tarea_id`), cubre `crear_tarea`/`escalar_caso`.
-- `REGLA_DESTINATARIO`: una regla puede avisar a un rol completo, a un usuario puntual, o a ambos.
+- `REGLA_DESTINATARIO`: una regla puede avisar a un rol completo, a un usuario puntual, o a ambos. Configuración **hecha** (#69).
 
 **Reglas concretas mínimas a implementar y probar** (arrancar por estas, ampliar con las de Carreon/Botteri en 2do/3er Informe):
 1. `factura.vencida` → `aplicar_vencimiento` + `alerta_interna` (cubre RF-18, morosidad).
@@ -219,8 +220,9 @@ Antes del alcance nuevo, estas vistas no tenían dueño formal en ningún docume
 
 **Frontend (`modules/workflows/`):**
 - ABM de reglas de workflow (RF-22), **hecho** (#65): selector de evento, editor de condición, selector de acción con su configuración, criticidad y aprobación humana.
-- Editor de plantilla con chips insertables de `CAMPO_EVENTO` y destinatarios (`REGLA_DESTINATARIO`) (RF-25), **pendiente** (#69/#70).
-- Historial de ejecuciones (RF-23), con filtro por estado.
+- Editor de plantilla con chips insertables de `CAMPO_EVENTO` y destinatarios (`REGLA_DESTINATARIO`) (RF-25), **hecho** (#70), dentro del editor de reglas. Limitación conocida: los destinatarios se guardan con un `PUT` aparte después del `POST`/`PATCH` de la regla, así que una regla activa puede ejecutarse en el medio sin destinatarios; queda `fallido` con "sin destinatarios" y se reintenta desde el historial.
+- Historial de ejecuciones (RF-23), con filtro por estado, detalle en panel lateral y reintento de las fallidas, **hecho** (#67).
+- Log de notificaciones enviadas (RF-26), **hecho**: pantalla "Notificaciones enviadas" bajo Workflows, con filtros por estado y tipo de destinatario, y detalle en panel lateral que pide el cuerpo aparte.
 - Bandeja de tareas y escalamiento.
 
 **Resuelto (decisión de equipo, Pregunta #15):** `requiere_aprobacion_humana = true` por defecto en las acciones que mueven dinero o escalan un caso — `generar_cargo`, `aplicar_penalidad`, `registrar_pago`, `registrar_rechazo`, `escalar_caso`, `generar_orden_compra`. El resto arranca automático. Es un valor inicial, ajustable por regla una vez que el motor esté corriendo.

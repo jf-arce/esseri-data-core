@@ -250,3 +250,25 @@ campo_evento:
     - nombre_interno: fecha_operacion
       etiqueta: Fecha en que se procesó
       tipo_dato: fecha
+
+  orden_compra.emitida:
+    - nombre_interno: proveedor_nombre
+      etiqueta: Nombre del proveedor
+      tipo_dato: texto
+    - nombre_interno: cantidad_items
+      etiqueta: Cantidad de ítems de la orden
+      tipo_dato: numero
+    - nombre_interno: fecha
+      etiqueta: Fecha de la orden
+      tipo_dato: fecha
+
+  recepcion_compra.registrada:
+    - nombre_interno: proveedor_nombre
+      etiqueta: Nombre del proveedor
+      tipo_dato: texto
+    - nombre_interno: tipo_recepcion
+      etiqueta: Tipo de recepción (total o parcial)
+      tipo_dato: texto
+    - nombre_interno: fecha
+      etiqueta: Fecha de la recepción
+      tipo_dato: fecha

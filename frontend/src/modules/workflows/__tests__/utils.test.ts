@@ -1,18 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import type { ReglaWorkflow, TipoAccionCatalogo } from '@/modules/workflows/types'
+import type { CampoEvento, ReglaWorkflow, TipoAccionCatalogo } from '@/modules/workflows/types'
 import {
   accionesDisponibles,
+  admiteDestinatarios,
   armarCondicion,
   armarConfig,
-  armarPatch,
-  armarPayloadAlta,
+  armarPayloadRegla,
   cambiarAccion,
   cambiarCampoCondicion,
   cambiarEvento,
   sinConceptosDisponibles,
   defaultsDeConfig,
+  duracionEjecucion,
+  esEstadoEjecucionFiltro,
   etiquetaEvento,
   filtrarReglas,
+  insertarPlaceholder,
+  validarPlaceholders,
   valoresDesdeRegla,
   VALORES_REGLA_VACIOS,
 } from '@/modules/workflows/utils'
@@ -171,18 +175,26 @@ const regla: ReglaWorkflow = {
   updated_at: '2026-09-01T00:00:00Z',
 }
 
-describe('valoresDesdeRegla / armarPatch', () => {
+describe('valoresDesdeRegla / armarPayloadRegla', () => {
   it('respeta la aprobación humana guardada aunque difiera del default de la acción', () => {
     expect(valoresDesdeRegla(regla).requiereAprobacionHumana).toBe(false)
   })
 
-  it('reemplaza de forma explícita todo lo editable y conserva la plantilla si la acción la admite', () => {
-    const valores = valoresDesdeRegla({ ...regla, tipo_accion: 'notificar', accion_config: {} })
-    const patch = armarPatch(valores, 'notificar', {
+  it('carga la plantilla guardada', () => {
+    expect(valoresDesdeRegla({ ...regla, notificacion_template_id: 'p-1' }).plantillaId).toBe('p-1')
+    expect(valoresDesdeRegla(regla).plantillaId).toBe('')
+  })
+
+  it('reemplaza de forma explícita todo lo editable y manda la plantilla elegida', () => {
+    const valores = {
+      ...valoresDesdeRegla({ ...regla, tipo_accion: 'notificar', accion_config: {} }),
+      plantillaId: 'p-1',
+    }
+    const payload = armarPayloadRegla(valores, 'notificar', {
       tipoDatoCondicion: 'numero',
       admitePlantilla: true,
     })
-    expect(patch).toEqual({
+    expect(payload).toEqual({
       nombre: 'Penalidad por mora',
       tipo_evento_id: 'e-1',
       condicion: { campo: 'dias_vencido', operador: '>', valor: 30 },
@@ -190,30 +202,89 @@ describe('valoresDesdeRegla / armarPatch', () => {
       accion_config: {},
       criticidad: 'alta',
       requiere_aprobacion_humana: false,
+      notificacion_template_id: 'p-1',
       activo: true,
     })
-    expect('notificacion_template_id' in patch).toBe(false)
   })
 
-  it('manda notificacion_template_id null si la acción nueva no admite plantilla', () => {
-    const patch = armarPatch(valoresDesdeRegla(regla), 'aplicar_penalidad', {
-      tipoDatoCondicion: 'numero',
-      admitePlantilla: false,
-    })
-    expect(patch.notificacion_template_id).toBeNull()
-    expect(patch.accion_config).toEqual({ regla_penalidad_id: 'p-1' })
-  })
-})
-
-describe('armarPayloadAlta', () => {
-  it('no incluye notificacion_template_id', () => {
-    const payload = armarPayloadAlta(
+  it('manda notificacion_template_id null si no se eligió plantilla', () => {
+    const payload = armarPayloadRegla(
       { ...VALORES_REGLA_VACIOS, nombre: ' Aviso ', tipoEventoId: 'e-1' },
       'notificar',
       { tipoDatoCondicion: null, admitePlantilla: true },
     )
     expect(payload).toMatchObject({ nombre: 'Aviso', condicion: {}, accion_config: {} })
-    expect('notificacion_template_id' in payload).toBe(false)
+    expect(payload.notificacion_template_id).toBeNull()
+  })
+
+  it('manda notificacion_template_id null si la acción no admite plantilla', () => {
+    const payload = armarPayloadRegla(
+      { ...valoresDesdeRegla(regla), plantillaId: 'p-1' },
+      'aplicar_penalidad',
+      { tipoDatoCondicion: 'numero', admitePlantilla: false },
+    )
+    expect(payload.notificacion_template_id).toBeNull()
+    expect(payload.accion_config).toEqual({ regla_penalidad_id: 'p-1' })
+  })
+})
+
+describe('admiteDestinatarios', () => {
+  it('alerta_interna siempre los admite', () => {
+    expect(admiteDestinatarios('alerta_interna', {})).toBe(true)
+  })
+
+  it('las acciones con plantilla solo con "destinatarios de la regla"', () => {
+    for (const tipo of ['notificar', 'generar_recordatorio', 'generar_comunicacion'] as const) {
+      expect(admiteDestinatarios(tipo, { destinatario: 'destinatarios_regla' })).toBe(true)
+      expect(admiteDestinatarios(tipo, { destinatario: 'responsables_habilitados' })).toBe(false)
+      expect(admiteDestinatarios(tipo, {})).toBe(false)
+    }
+  })
+
+  it('el resto de las acciones no los admite', () => {
+    expect(admiteDestinatarios('crear_tarea', { destinatario: 'destinatarios_regla' })).toBe(false)
+    expect(admiteDestinatarios('', {})).toBe(false)
+  })
+})
+
+describe('insertarPlaceholder', () => {
+  it('inserta el campo en la posición y deja el cursor después', () => {
+    expect(insertarPlaceholder('Hola ,', 5, 'nombre')).toEqual({
+      texto: 'Hola {{nombre}},',
+      posicion: 15,
+    })
+  })
+
+  it('acota la posición al largo del texto', () => {
+    expect(insertarPlaceholder('abc', 99, 'monto').texto).toBe('abc{{monto}}')
+    expect(insertarPlaceholder('abc', -1, 'monto').texto).toBe('{{monto}}abc')
+  })
+})
+
+describe('validarPlaceholders', () => {
+  const campos: CampoEvento[] = [
+    { id: 'c-1', nombre_interno: 'monto', etiqueta: 'Monto', tipo_dato: 'numero' },
+    { id: 'c-2', nombre_interno: 'dias_vencido', etiqueta: 'Días', tipo_dato: 'numero' },
+  ]
+
+  it('no avisa si los placeholders existen en el evento', () => {
+    expect(validarPlaceholders('Deuda {{monto}}', '{{dias_vencido}} días', campos)).toBeNull()
+    expect(validarPlaceholders('Sin campos', 'Texto', campos)).toBeNull()
+  })
+
+  it.each([
+    ['llaves sueltas', 'Hola {{monto', 'texto'],
+    ['espacios', 'Hola {{ monto }}', 'texto'],
+    ['llaves triples', 'Hola', '{{{monto}}}'],
+    ['llaves de cierre sueltas', 'Hola', 'monto}}'],
+  ])('avisa del formato con %s', (_caso, asunto, cuerpo) => {
+    expect(validarPlaceholders(asunto, cuerpo, campos)).toMatch(/formato exacto/)
+  })
+
+  it('lista los campos que no existen en el evento', () => {
+    expect(validarPlaceholders('{{inventado}}', '{{monto}} {{otro}}', campos)).toBe(
+      'Estos campos no existen en el evento: inventado, otro.',
+    )
   })
 })
 
@@ -270,6 +341,12 @@ describe('cambiarEvento', () => {
     })
   })
 
+  it('limpia la plantilla solo si también limpia la acción', () => {
+    const conPlantilla = { ...valores, plantillaId: 'p-1' }
+    expect(cambiarEvento(conPlantilla, 'e-2', catalogo, 'factura.vencida').plantillaId).toBe('p-1')
+    expect(cambiarEvento(conPlantilla, 'e-3', catalogo, 'pago.registrado').plantillaId).toBe('')
+  })
+
   it('limpia la acción si el nuevo evento no la admite', () => {
     const resultado = cambiarEvento(valores, 'e-3', catalogo, 'pago.registrado')
     expect(resultado.tipoAccion).toBe('')
@@ -278,6 +355,17 @@ describe('cambiarEvento', () => {
 })
 
 describe('cambiarAccion', () => {
+  it('conserva la plantilla si la acción nueva la admite y la limpia si no', () => {
+    const valores = {
+      ...VALORES_REGLA_VACIOS,
+      tipoAccion: 'notificar' as const,
+      plantillaId: 'p-1',
+    }
+    const conPlantilla = { ...accion('alerta_interna', null), admite_plantilla: true }
+    expect(cambiarAccion(valores, conPlantilla).plantillaId).toBe('p-1')
+    expect(cambiarAccion(valores, accion('crear_tarea', null)).plantillaId).toBe('')
+  })
+
   it('reinicia la config con los defaults y aplica la aprobación por defecto', () => {
     const resultado = cambiarAccion(
       { ...VALORES_REGLA_VACIOS, tipoAccion: 'notificar', config: { destinatario: 'x' } },
@@ -331,5 +419,25 @@ describe('etiquetaEvento', () => {
   it('nombra el evento en lenguaje de usuario y cae al nombre interno si no lo conoce', () => {
     expect(etiquetaEvento('factura.vencida')).toBe('Vence una factura')
     expect(etiquetaEvento('evento.nuevo')).toBe('evento.nuevo')
+  })
+})
+
+describe('esEstadoEjecucionFiltro', () => {
+  it('acepta los estados y también "todos"', () => {
+    expect(esEstadoEjecucionFiltro('todos')).toBe(true)
+    expect(esEstadoEjecucionFiltro('fallido')).toBe(true)
+    expect(esEstadoEjecucionFiltro('otro')).toBe(false)
+  })
+})
+
+describe('duracionEjecucion', () => {
+  it('devuelve null si la ejecución sigue en curso', () => {
+    expect(duracionEjecucion('2026-09-01T10:00:00Z', null)).toBeNull()
+  })
+
+  it('formatea segundos, minutos y horas', () => {
+    expect(duracionEjecucion('2026-09-01T10:00:00Z', '2026-09-01T10:00:05Z')).toBe('5 s')
+    expect(duracionEjecucion('2026-09-01T10:00:00Z', '2026-09-01T10:02:10Z')).toBe('2 min 10 s')
+    expect(duracionEjecucion('2026-09-01T10:00:00Z', '2026-09-01T11:05:00Z')).toBe('1 h 5 min')
   })
 })

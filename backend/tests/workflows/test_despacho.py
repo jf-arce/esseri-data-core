@@ -8,6 +8,7 @@ from src.workflows import despacho_service
 from src.workflows.despacho_service import procesar_eventos_pendientes
 from src.workflows.eventos_service import emit_event
 from src.workflows.models import WorkflowExecution, WorkflowRule
+from src.workflows.schemas import ResultadoAccion
 
 
 def _regla(db, tipo, **extra):
@@ -24,6 +25,11 @@ def _regla(db, tipo, **extra):
     db.add(regla)
     db.commit()
     return regla
+
+
+def _registrar(llamadas, regla):
+    llamadas.append(regla.id)
+    return ResultadoAccion()
 
 
 def _evento(db, payload=None):
@@ -56,7 +62,7 @@ def test_evento_sin_reglas_queda_procesado(db_session, tipo_factura_vencida):
 
 
 def test_regla_activa_genera_ejecucion_exitosa(db_session, tipo_factura_vencida, acciones):
-    acciones["notificar"] = lambda db, regla, evento: "enviado"
+    acciones["notificar"] = lambda db, regla, evento, ejecucion: ResultadoAccion(detalle="enviado")
     regla = _regla(db_session, tipo_factura_vencida)
     evento = _evento(db_session)
 
@@ -98,11 +104,11 @@ def test_accion_sin_implementar_falla_la_ejecucion_no_el_evento(
 def test_accion_que_lanza_queda_fallida_y_no_corta_las_demas(
     db_session, tipo_factura_vencida, acciones
 ):
-    def rota(db, regla, evento):
+    def rota(db, regla, evento, ejecucion):
         raise RuntimeError("n8n no responde")
 
     acciones["notificar"] = rota
-    acciones["alerta_interna"] = lambda db, regla, evento: "ok"
+    acciones["alerta_interna"] = lambda db, regla, evento, ejecucion: ResultadoAccion(detalle="ok")
     _regla(db_session, tipo_factura_vencida, nombre="A", tipo_accion="notificar")
     _regla(db_session, tipo_factura_vencida, nombre="B", tipo_accion="alerta_interna")
     _evento(db_session)
@@ -119,7 +125,7 @@ def test_aprobacion_humana_deja_la_ejecucion_pendiente_sin_ejecutar(
     db_session, tipo_factura_vencida, acciones
 ):
     llamadas = []
-    acciones["aplicar_penalidad"] = lambda db, regla, evento: llamadas.append(regla.id)
+    acciones["aplicar_penalidad"] = lambda db, regla, evento, ejecucion: _registrar(llamadas, regla)
     _regla(
         db_session,
         tipo_factura_vencida,
@@ -136,7 +142,7 @@ def test_aprobacion_humana_deja_la_ejecucion_pendiente_sin_ejecutar(
 
 
 def test_no_reprocesa_eventos_ya_despachados(db_session, tipo_factura_vencida, acciones):
-    acciones["notificar"] = lambda db, regla, evento: None
+    acciones["notificar"] = lambda db, regla, evento, ejecucion: ResultadoAccion()
     _regla(db_session, tipo_factura_vencida)
     _evento(db_session)
 
@@ -224,7 +230,7 @@ def _ejecuciones(db):
 def test_condicion_decide_si_la_regla_se_ejecuta(
     db_session, tipo_factura_vencida, acciones, operador, valor, se_ejecuta
 ):
-    acciones["notificar"] = lambda db, regla, evento: "ok"
+    acciones["notificar"] = lambda db, regla, evento, ejecucion: ResultadoAccion(detalle="ok")
     _regla(db_session, tipo_factura_vencida, condicion=_condicion(operador, valor))
     _evento(db_session)
 
@@ -236,7 +242,7 @@ def test_condicion_decide_si_la_regla_se_ejecuta(
 def test_condicion_no_cumplida_no_cuenta_como_ejecucion_y_el_evento_queda_procesado(
     db_session, tipo_factura_vencida, acciones
 ):
-    acciones["notificar"] = lambda db, regla, evento: "ok"
+    acciones["notificar"] = lambda db, regla, evento, ejecucion: ResultadoAccion(detalle="ok")
     _regla(db_session, tipo_factura_vencida, condicion=_condicion(">", 30))
     evento = _evento(db_session)
 
@@ -249,7 +255,7 @@ def test_condicion_no_cumplida_no_cuenta_como_ejecucion_y_el_evento_queda_proces
 def test_condicion_de_texto_con_contiene_ignora_mayusculas(
     db_session, tipo_factura_vencida, acciones
 ):
-    acciones["notificar"] = lambda db, regla, evento: "ok"
+    acciones["notificar"] = lambda db, regla, evento, ejecucion: ResultadoAccion(detalle="ok")
     _regla(
         db_session,
         tipo_factura_vencida,
@@ -275,7 +281,7 @@ def test_condicion_de_texto_con_contiene_ignora_mayusculas(
 def test_payload_no_evaluable_deja_la_ejecucion_fallida(
     db_session, tipo_factura_vencida, acciones, payload
 ):
-    acciones["notificar"] = lambda db, regla, evento: "ok"
+    acciones["notificar"] = lambda db, regla, evento, ejecucion: ResultadoAccion(detalle="ok")
     _regla(db_session, tipo_factura_vencida, condicion=_condicion(">", 5))
     evento = _evento(db_session, payload)
 
@@ -290,8 +296,8 @@ def test_payload_no_evaluable_deja_la_ejecucion_fallida(
 def test_regla_que_no_se_puede_evaluar_no_corta_a_las_demas(
     db_session, tipo_factura_vencida, acciones
 ):
-    acciones["notificar"] = lambda db, regla, evento: "ok"
-    acciones["alerta_interna"] = lambda db, regla, evento: "ok"
+    acciones["notificar"] = lambda db, regla, evento, ejecucion: ResultadoAccion(detalle="ok")
+    acciones["alerta_interna"] = lambda db, regla, evento, ejecucion: ResultadoAccion(detalle="ok")
     _regla(
         db_session,
         tipo_factura_vencida,
@@ -314,7 +320,7 @@ def test_config_invalida_guardada_directo_en_la_base_deja_fallido(
     db_session, tipo_factura_vencida, acciones
 ):
     llamadas = []
-    acciones["notificar"] = lambda db, regla, evento: llamadas.append(regla.id)
+    acciones["notificar"] = lambda db, regla, evento, ejecucion: _registrar(llamadas, regla)
     _regla(db_session, tipo_factura_vencida, accion_config={"tabla": "usuario"})
     _evento(db_session)
 
@@ -343,8 +349,10 @@ def test_config_invalida_falla_tambien_con_aprobacion_humana(db_session, tipo_fa
 def test_accion_con_config_null_que_no_tiene_obligatorios_se_ejecuta(
     db_session, tipo_factura_vencida, acciones
 ):
-    acciones["notificar"] = lambda db, regla, evento: "ok"
-    acciones["aplicar_vencimiento"] = lambda db, regla, evento: "ok"
+    acciones["notificar"] = lambda db, regla, evento, ejecucion: ResultadoAccion(detalle="ok")
+    acciones["aplicar_vencimiento"] = lambda db, regla, evento, ejecucion: ResultadoAccion(
+        detalle="ok"
+    )
     _regla(db_session, tipo_factura_vencida, nombre="A", tipo_accion="notificar")
     _regla(db_session, tipo_factura_vencida, nombre="B", tipo_accion="aplicar_vencimiento")
     _evento(db_session)
@@ -357,7 +365,7 @@ def test_accion_con_config_null_que_no_tiene_obligatorios_se_ejecuta(
 def test_evento_con_entidad_no_canonica_deja_las_ejecuciones_fallidas(
     db_session, tipo_factura_vencida, acciones
 ):
-    acciones["notificar"] = lambda db, regla, evento: "ok"
+    acciones["notificar"] = lambda db, regla, evento, ejecucion: ResultadoAccion(detalle="ok")
     _regla(db_session, tipo_factura_vencida)
     evento = EventLog(
         actor_tipo="sistema",

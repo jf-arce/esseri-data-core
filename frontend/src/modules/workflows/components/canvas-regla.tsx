@@ -6,7 +6,13 @@ import {
   type PointerEvent,
   type ReactNode,
 } from 'react'
-import { ArrowLeftRightIcon, MessageSquareIcon, RotateCcwIcon, ZapIcon } from 'lucide-react'
+import {
+  AlertCircleIcon,
+  ArrowLeftRightIcon,
+  MessageSquareIcon,
+  RotateCcwIcon,
+  ZapIcon,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -15,10 +21,13 @@ export type NodoRegla = 'disparador' | 'condicion' | 'accion'
 export interface ResumenNodo {
   titulo: string
   detalle: string
+  /** Falta configurar algo: el nodo lo marca porque sus campos ya no están a la vista. */
+  incompleto?: boolean
 }
 
 interface CanvasReglaProps {
-  seleccionado: NodoRegla
+  /** Nodo cuyo diálogo está abierto. */
+  seleccionado: NodoRegla | null
   onSeleccionar: (nodo: NodoRegla) => void
   disparador: ResumenNodo
   condicion: ResumenNodo
@@ -36,15 +45,16 @@ const ENLACES: readonly (readonly [NodoRegla, NodoRegla])[] = [
   ['condicion', 'accion'],
 ]
 
-const ANCHO_NODO = 190
-const ALTO_NODO = 92
+const ANCHO_NODO = 210
+const ALTO_NODO = 100
 const SEPARACION = 56
 const ESCALON = 84
+// Alto mínimo del canvas en horizontal; si hay lugar, ocupa el resto de la ventana.
 const ALTO_HORIZONTAL = 320
 // Ancho que se asume cuando todavía no se pudo medir el canvas.
-const ANCHO_POR_DEFECTO = 720
+const ANCHO_POR_DEFECTO = 800
 // Por debajo de este ancho los nodos no entran en fila: se apilan en vertical.
-const ANCHO_MIN_HORIZONTAL = 640
+const ANCHO_MIN_HORIZONTAL = 760
 const SEPARACION_VERTICAL = 44
 const MARGEN_VERTICAL = 20
 const ALTO_VERTICAL = 2 * MARGEN_VERTICAL + 3 * ALTO_NODO + 2 * SEPARACION_VERTICAL
@@ -96,9 +106,9 @@ interface Medidas {
   vertical: boolean
 }
 
-function medidasDe(ancho: number): Medidas {
+function medidasDe(ancho: number, altoMedido: number): Medidas {
   const vertical = ancho < ANCHO_MIN_HORIZONTAL
-  return { ancho, alto: vertical ? ALTO_VERTICAL : ALTO_HORIZONTAL, vertical }
+  return { ancho, alto: vertical ? ALTO_VERTICAL : Math.max(ALTO_HORIZONTAL, altoMedido), vertical }
 }
 
 /** Disposición inicial centrada: en escalera si entran en fila, apilados si no. */
@@ -152,21 +162,25 @@ function trayecto({ salida, entrada }: Extremos, vertical: boolean): string {
   return `M${salida.x},${salida.y} C${salida.x + curvatura},${salida.y} ${entrada.x - curvatura},${entrada.y} ${entrada.x},${entrada.y}`
 }
 
-function useAnchoCanvas() {
+function useTamanioCanvas() {
   const ref = useRef<HTMLDivElement>(null)
-  const [ancho, setAncho] = useState(ANCHO_POR_DEFECTO)
+  const [tamanio, setTamanio] = useState({ ancho: ANCHO_POR_DEFECTO, alto: ALTO_HORIZONTAL })
 
   useLayoutEffect(() => {
     const elemento = ref.current
     if (!elemento) return
-    const medir = () => setAncho(elemento.clientWidth || ANCHO_POR_DEFECTO)
+    const medir = () =>
+      setTamanio({
+        ancho: elemento.clientWidth || ANCHO_POR_DEFECTO,
+        alto: elemento.clientHeight || ALTO_HORIZONTAL,
+      })
     medir()
     const observador = new ResizeObserver(medir)
     observador.observe(elemento)
     return () => observador.disconnect()
   }, [])
 
-  return { ref, ancho }
+  return { ref, ...tamanio }
 }
 
 interface ArrastreEnCurso {
@@ -179,7 +193,7 @@ interface ArrastreEnCurso {
 /** Editor visual de la regla (DESIGN.md §9.10). Los nodos se arrastran (o se mueven con las
  * flechas del teclado) y los enlaces los siguen. La estructura es fija: el backend modela
  * exactamente un evento, una condición y una acción, así que no se agregan ni se reconectan
- * nodos. Elegir un nodo muestra su panel de configuración. */
+ * nodos. Elegir un nodo abre su diálogo de configuración. */
 export function CanvasRegla({
   seleccionado,
   onSeleccionar,
@@ -188,8 +202,8 @@ export function CanvasRegla({
   accion,
 }: CanvasReglaProps) {
   const resumenes: Record<NodoRegla, ResumenNodo> = { disparador, condicion, accion }
-  const { ref, ancho } = useAnchoCanvas()
-  const medidas = medidasDe(ancho)
+  const { ref, ancho, alto } = useTamanioCanvas()
+  const medidas = medidasDe(ancho, alto)
   // Solo se guardan los nodos que el usuario movió: el resto sigue centrado al cambiar el ancho.
   // Las posiciones valen para una disposición: al pasar de fila a columna se descartan.
   const [guardado, setGuardado] = useState<{
@@ -210,8 +224,6 @@ export function CanvasRegla({
 
   function alPresionar(evento: PointerEvent<HTMLButtonElement>, tipo: NodoRegla) {
     if (evento.button !== 0) return
-    // Presionar un nodo lo selecciona, también al empezar a arrastrarlo.
-    onSeleccionar(tipo)
     evento.currentTarget.setPointerCapture?.(evento.pointerId)
     arrastre.current = {
       tipo,
@@ -232,6 +244,14 @@ export function CanvasRegla({
   }
 
   function alSoltar(evento: PointerEvent<HTMLButtonElement>) {
+    const actual = arrastre.current
+    arrastre.current = null
+    evento.currentTarget.releasePointerCapture?.(evento.pointerId)
+    // Un gesto sin movimiento es un clic y abre el nodo; si se arrastró, solo lo movió.
+    if (actual && !actual.movido) onSeleccionar(actual.tipo)
+  }
+
+  function alCancelar(evento: PointerEvent<HTMLButtonElement>) {
     arrastre.current = null
     evento.currentTarget.releasePointerCapture?.(evento.pointerId)
   }
@@ -269,9 +289,9 @@ export function CanvasRegla({
       <div className="overflow-hidden rounded-panel bg-lienzo shadow-card">
         <div
           ref={ref}
-          className="relative"
+          className={cn('relative', !medidas.vertical && 'h-[calc(100dvh-16rem)] min-h-80')}
           style={{
-            height: medidas.alto,
+            height: medidas.vertical ? medidas.alto : undefined,
             backgroundImage: 'radial-gradient(var(--borde) 1px, transparent 1px)',
             backgroundSize: '20px 20px',
           }}
@@ -311,10 +331,10 @@ export function CanvasRegla({
                 onPointerDown={(evento) => alPresionar(evento, tipo)}
                 onPointerMove={alMover}
                 onPointerUp={alSoltar}
-                onPointerCancel={alSoltar}
+                onPointerCancel={alCancelar}
                 onKeyDown={(evento) => alPulsarTecla(evento, tipo)}
                 onClick={(evento) => {
-                  // Con el puntero ya se seleccionó al presionar; esto cubre Enter y Espacio.
+                  // Con el puntero ya se abrió al soltar; esto cubre Enter y Espacio.
                   if (evento.detail === 0) onSeleccionar(tipo)
                 }}
                 style={{ left: x, top: y, width: ANCHO_NODO, height: ALTO_NODO }}
@@ -341,6 +361,12 @@ export function CanvasRegla({
                 <span className="mt-0.5 block truncate text-[11px] text-texto-2">
                   {resumenes[tipo].detalle}
                 </span>
+                {resumenes[tipo].incompleto && (
+                  <span className="absolute top-2.5 right-2.5 flex items-center gap-1 text-[10px] font-semibold text-advertencia">
+                    <AlertCircleIcon className="size-3.5" aria-hidden="true" />
+                    Incompleto
+                  </span>
+                )}
               </button>
             )
           })}

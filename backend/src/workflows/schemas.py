@@ -18,6 +18,19 @@ from pydantic import (
 from src.workflows.constants import Criticidad, Destinatario, Operador, PrioridadTarea, TipoAccion
 
 
+class _EntradaEstricta(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+def _normalizar_asunto(value: object) -> object:
+    if not isinstance(value, str):
+        return value
+    normalizado = value.strip()
+    if any(ord(caracter) < 32 or ord(caracter) == 127 for caracter in normalizado):
+        raise ValueError("El asunto no puede contener caracteres de control.")
+    return normalizado
+
+
 class CampoEventoRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -36,11 +49,9 @@ class TipoEventoRead(BaseModel):
     campos: list[CampoEventoRead]
 
 
-class Condicion(BaseModel):
+class Condicion(_EntradaEstricta):
     """Estructura fija `{campo, operador, valor}`. `campo` y el tipo de `valor` se validan contra
     el `CAMPO_EVENTO` del evento de la regla."""
-
-    model_config = ConfigDict(extra="forbid")
 
     campo: str = Field(min_length=1)
     operador: Operador
@@ -194,6 +205,93 @@ class WorkflowRuleRead(BaseModel):
     updated_at: datetime
 
 
+class NotificacionTemplateCreate(_EntradaEstricta):
+    nombre: str = Field(min_length=1, max_length=150)
+    asunto: str = Field(min_length=1, max_length=200)
+    cuerpo: str = Field(min_length=1, max_length=10_000)
+
+    @field_validator("nombre", mode="before")
+    @classmethod
+    def normalizar_nombre(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("asunto", mode="before")
+    @classmethod
+    def normalizar_asunto(cls, value: object) -> object:
+        return _normalizar_asunto(value)
+
+    @field_validator("cuerpo")
+    @classmethod
+    def rechazar_cuerpo_vacio(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("El cuerpo no puede estar vacío.")
+        return value
+
+
+class NotificacionTemplateUpdate(_EntradaEstricta):
+    nombre: str | None = Field(default=None, min_length=1, max_length=150)
+    asunto: str | None = Field(default=None, min_length=1, max_length=200)
+    cuerpo: str | None = Field(default=None, min_length=1, max_length=10_000)
+
+    @field_validator("nombre", mode="before")
+    @classmethod
+    def normalizar_nombre(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("asunto", mode="before")
+    @classmethod
+    def normalizar_asunto(cls, value: object) -> object:
+        return _normalizar_asunto(value)
+
+    @field_validator("cuerpo")
+    @classmethod
+    def rechazar_cuerpo_vacio(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("El cuerpo no puede estar vacío.")
+        return value
+
+
+class NotificacionTemplateRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    nombre: str
+    asunto: str
+    cuerpo: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ReglaDestinatariosUpdate(_EntradaEstricta):
+    rol_ids: list[uuid.UUID] = Field(max_length=100)
+    usuario_ids: list[uuid.UUID] = Field(max_length=100)
+
+    @field_validator("rol_ids", "usuario_ids")
+    @classmethod
+    def quitar_repetidos(cls, values: list[uuid.UUID]) -> list[uuid.UUID]:
+        return list(dict.fromkeys(values))
+
+
+class DestinatarioRolRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    nombre: str
+
+
+class DestinatarioUsuarioRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    email: str
+    estado: str
+
+
+class ReglaDestinatariosRead(BaseModel):
+    roles: list[DestinatarioRolRead]
+    usuarios: list[DestinatarioUsuarioRead]
+
+
 EstadoWorkflowExecution = Literal["exitoso", "fallido", "pendiente"]
 
 
@@ -215,10 +313,46 @@ class WorkflowExecutionRead(BaseModel):
     evento_timestamp: datetime
     entidad: str
     entidad_id: uuid.UUID
+    reintentable: bool
 
 
 class WorkflowExecutionListadoRead(BaseModel):
     items: list[WorkflowExecutionRead]
+    total: int
+    pagina: int
+    tamanio_pagina: int
+    total_paginas: int
+
+
+EstadoEnvioNotificacion = Literal["enviado", "fallido", "pendiente"]
+DestinatarioTipo = Literal["familia", "usuario"]
+
+
+class NotificacionRead(BaseModel):
+    """Fila del log de notificaciones. El cuerpo solo viaja en el detalle."""
+
+    id: uuid.UUID
+    destinatario_tipo: DestinatarioTipo
+    canal: str
+    destinatario_snapshot: str
+    asunto_snapshot: str
+    estado_envio: EstadoEnvioNotificacion
+    sent_at: datetime | None
+    familia_id: uuid.UUID | None
+    usuario_id: uuid.UUID | None
+    workflow_execution_id: uuid.UUID
+    intento: int
+    ejecucion_started_at: datetime
+    workflow_rule_id: uuid.UUID
+    workflow_rule_nombre: str
+
+
+class NotificacionDetalleRead(NotificacionRead):
+    cuerpo_snapshot: str
+
+
+class NotificacionListadoRead(BaseModel):
+    items: list[NotificacionRead]
     total: int
     pagina: int
     tamanio_pagina: int
@@ -231,3 +365,11 @@ class ResumenDespacho(BaseModel):
     eventos_procesados: int = 0
     eventos_fallidos: int = 0
     ejecuciones_creadas: int = 0
+
+
+class ResultadoAccion(BaseModel):
+    """Lo que devuelve un handler de acción. Con `error` cargado la ejecución queda `fallido`,
+    pero las escrituras del handler se conservan (p. ej. notificaciones en `fallido`)."""
+
+    detalle: str | None = None
+    error: str | None = None

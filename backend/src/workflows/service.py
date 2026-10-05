@@ -13,11 +13,14 @@ from sqlalchemy.orm import Session
 
 from src.auditoria.service import log_audit
 from src.facturacion.models import ConceptoCobro, ReglaPenalidad
+from src.workflows import destinatarios_service, plantillas_service
 from src.workflows.constants import (
     ACCIONES_CON_APROBACION_POR_DEFECTO,
     ACCIONES_CON_PLANTILLA,
     CAMBIOS_ESTADO_PERMITIDOS,
+    DESTINATARIOS_FAMILIARES,
     ENTIDAD_POR_EVENTO,
+    ENTIDADES_CON_ALUMNO,
     EVENTOS_POR_ACCION,
     OPERADORES_POR_TIPO_DATO,
     TipoAccion,
@@ -26,7 +29,9 @@ from src.workflows.eventos_service import coaccionar_valor
 from src.workflows.exceptions import (
     AccionConfigInvalida,
     CondicionInvalida,
+    DestinatariosInvalidos,
     PlantillaNoEncontrada,
+    ReglaNoEncontrada,
     TipoEventoNoEncontrado,
 )
 from src.workflows.models import (
@@ -43,6 +48,7 @@ from src.workflows.schemas import (
     ConfigAplicarPenalidad,
     ConfigCambiarEstado,
     ConfigGenerarCargo,
+    ConfigNotificar,
     TipoAccionRead,
     TipoEventoRead,
     WorkflowRuleCreate,
@@ -145,17 +151,24 @@ def actualizar_regla(
     datos: WorkflowRuleUpdate,
     usuario_id: uuid.UUID | None = None,
 ) -> WorkflowRule:
+    regla_bloqueada = db.scalar(
+        select(WorkflowRule).where(WorkflowRule.id == regla.id).with_for_update()
+    )
+    if regla_bloqueada is None:
+        raise ReglaNoEncontrada()
+    regla = regla_bloqueada
     cambios = {
         campo: valor
         for campo, valor in datos.model_dump(exclude_unset=True).items()
         if valor is not None or campo in _CAMPOS_NULLABLES_REGLA
     }
-    _validar_referencias(
-        db,
-        cambios.get("tipo_evento_id"),
-        cambios.get("notificacion_template_id"),
-    )
     if cambios.keys() & _CAMPOS_QUE_REVALIDAN_REGLA:
+        plantilla_final = (
+            cambios["notificacion_template_id"]
+            if "notificacion_template_id" in cambios
+            else regla.notificacion_template_id
+        )
+        _validar_referencias(db, cambios.get("tipo_evento_id"), plantilla_final)
         # Se valida el estado final (regla actual + cambios), no solo lo que llegó en el PATCH.
         # Los campos nullables solo están en `cambios` si llegaron explícitos (incluso en null).
         cambios["accion_config"] = _validar_regla(
@@ -164,10 +177,16 @@ def actualizar_regla(
             cambios.get("tipo_accion", regla.tipo_accion),
             cambios.get("condicion", regla.condicion),
             cambios["accion_config"] if "accion_config" in cambios else regla.accion_config,
-            cambios["notificacion_template_id"]
-            if "notificacion_template_id" in cambios
-            else regla.notificacion_template_id,
+            plantilla_final,
         )
+        if destinatarios_service.regla_tiene_destinatarios(
+            db, regla.id
+        ) and not destinatarios_service.config_admite_destinatarios(
+            cambios.get("tipo_accion", regla.tipo_accion), cambios["accion_config"]
+        ):
+            raise DestinatariosInvalidos(
+                "La configuración nueva no admite destinatarios; vacialos antes de editar la regla."
+            )
     # Al cambiar de acción sin decidir la aprobación, la regla adopta el default de la nueva.
     if "tipo_accion" in cambios and "requiere_aprobacion_humana" not in cambios:
         cambios["requiere_aprobacion_humana"] = _aprobacion_por_defecto(cambios["tipo_accion"])
@@ -205,11 +224,14 @@ def _validar_referencias(
 ) -> None:
     if tipo_evento_id is not None and db.get(TipoEvento, tipo_evento_id) is None:
         raise TipoEventoNoEncontrado()
-    if (
-        notificacion_template_id is not None
-        and db.get(NotificacionTemplate, notificacion_template_id) is None
-    ):
-        raise PlantillaNoEncontrada()
+    if notificacion_template_id is not None:
+        plantilla = db.scalar(
+            select(NotificacionTemplate)
+            .where(NotificacionTemplate.id == notificacion_template_id)
+            .with_for_update()
+        )
+        if plantilla is None:
+            raise PlantillaNoEncontrada()
 
 
 def _validar_regla(
@@ -299,6 +321,15 @@ def validar_accion(
         raise AccionConfigInvalida(
             f"La acción '{tipo_accion}' no admite plantilla de notificación."
         )
+    if notificacion_template_id is not None:
+        plantilla = db.get(NotificacionTemplate, notificacion_template_id)
+        if plantilla is None:
+            raise PlantillaNoEncontrada()
+        plantillas_service.validar_contenido_para_campos(
+            asunto=plantilla.asunto,
+            cuerpo=plantilla.cuerpo,
+            campos=set(campos),
+        )
     # `null` equivale a `{}`: las reglas sin config siguen siendo válidas si no tienen
     # parámetros obligatorios.
     try:
@@ -308,6 +339,16 @@ def validar_accion(
             f"Configuración inválida para '{tipo_accion}': {_resumen_errores(error)}"
         ) from error
 
+    if isinstance(config, ConfigNotificar) and tipo_accion == "notificar":
+        entidad_evento = ENTIDAD_POR_EVENTO.get(tipo_evento_nombre, "")
+        if (
+            config.destinatario in DESTINATARIOS_FAMILIARES
+            and entidad_evento not in ENTIDADES_CON_ALUMNO
+        ):
+            raise AccionConfigInvalida(
+                f"El evento '{tipo_evento_nombre}' no tiene alumno asociado: "
+                "usá el destinatario 'destinatarios_regla'."
+            )
     if isinstance(config, ConfigCambiarEstado):
         entidad = ENTIDAD_POR_EVENTO.get(tipo_evento_nombre, "")
         estados = CAMBIOS_ESTADO_PERMITIDOS.get(entidad, frozenset())
