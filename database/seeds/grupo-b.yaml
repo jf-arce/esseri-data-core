@@ -76,6 +76,12 @@ permiso:
   - rol: dirección
     modulo: Auditoría
     acciones: [leer]
+  # Revisa las sugerencias de IA y puede pedir un análisis nuevo. Los patrones salen de
+  # Facturación y Académico, que dirección ya lee, así que no ve ningún dato nuevo. Mismo
+  # criterio que la bandeja de justificaciones: la decisión es de un rol institucional.
+  - rol: dirección
+    modulo: IA/Sugerencias
+    acciones: [crear, leer, actualizar]
   # El Panel de Dirección (stat "Alumnos activos") linkea a Familias y Alumnos — sin esto,
   # dirección chocaba con una pantalla "sin acceso" al hacer click en su propio panel.
   - rol: dirección
