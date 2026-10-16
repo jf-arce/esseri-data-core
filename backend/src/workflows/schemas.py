@@ -292,7 +292,7 @@ class ReglaDestinatariosRead(BaseModel):
     usuarios: list[DestinatarioUsuarioRead]
 
 
-EstadoWorkflowExecution = Literal["exitoso", "fallido", "pendiente"]
+EstadoWorkflowExecution = Literal["exitoso", "fallido", "pendiente", "rechazado"]
 
 
 class WorkflowExecutionRead(BaseModel):
