@@ -21,6 +21,8 @@ TipoAccion = Literal[
 ]
 TIPOS_ACCION: tuple[str, ...] = get_args(TipoAccion)
 
+ERROR_ACCION_NO_IMPLEMENTADA = "La acción '{tipo_accion}' todavía no está implementada."
+
 Criticidad = Literal["baja", "media", "alta", "critica"]
 CRITICIDADES: tuple[str, ...] = get_args(Criticidad)
 
@@ -36,6 +38,8 @@ TipoEventoNombre = Literal[
     "pago.rechazado",
     "orden_compra.emitida",
     "recepcion_compra.registrada",
+    "inscripcion.confirmada",
+    "solicitud_compra.aprobada",
 ]
 
 # Acciones que mueven dinero o escalan un caso: la regla nace con aprobación humana (Pregunta #15).
@@ -63,12 +67,12 @@ ENTIDAD_POR_EVENTO: dict[TipoEventoNombre, str] = {
     "pago.rechazado": "pago",
     "orden_compra.emitida": "orden_compra",
     "recepcion_compra.registrada": "recepcion_compra",
+    "inscripcion.confirmada": "inscripcion",
+    "solicitud_compra.aprobada": "solicitud_compra",
 }
 
 # Allowlist de eventos por acción (Pregunta #16). `None` = cualquier evento: solo las acciones
-# que crean filas propias del motor (notificaciones, tareas). Vacío = todavía no se puede
-# configurar (los eventos de Compras que existen ocurren después de emitida la orden: ninguno
-# sirve para dispararla).
+# que crean filas propias del motor (notificaciones, tareas).
 EVENTOS_POR_ACCION: dict[str, frozenset[str] | None] = {
     "notificar": None,
     "alerta_interna": None,
@@ -77,7 +81,7 @@ EVENTOS_POR_ACCION: dict[str, frozenset[str] | None] = {
     "crear_tarea": None,
     "escalar_caso": None,
     "cambiar_estado": frozenset({"factura.vencida"}),
-    "generar_cargo": frozenset({"solicitud_inscripcion.aprobada", "pago.rechazado"}),
+    "generar_cargo": frozenset({"inscripcion.confirmada", "pago.rechazado"}),
     "aplicar_vencimiento": frozenset({"factura.vencida"}),
     "aplicar_penalidad": frozenset({"factura.vencida"}),
     "registrar_pago": frozenset({"pago.registrado"}),
@@ -86,7 +90,7 @@ EVENTOS_POR_ACCION: dict[str, frozenset[str] | None] = {
         {"pago.registrado", "pago.rechazado", "factura.vencida"}
     ),
     "crear_registro_relacionado": frozenset({"solicitud_inscripcion.aprobada"}),
-    "generar_orden_compra": frozenset(),
+    "generar_orden_compra": frozenset({"solicitud_compra.aprobada"}),
 }
 
 # Acciones que arman un mensaje: son las únicas que admiten `notificacion_template_id`.
