@@ -1,4 +1,4 @@
-"""Acciones de vencimiento de facturas. Dueño: Carreon. Stub: ver #199."""
+"""Stubs de aplicar_vencimiento y cambiar_estado. Dueño: Carreon (ver #199)."""
 
 from sqlalchemy.orm import Session
 

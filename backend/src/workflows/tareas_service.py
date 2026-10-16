@@ -1,4 +1,4 @@
-"""Acciones de tareas y escalamiento de casos. Dueño: Arce. Stub: ver #199."""
+"""Stubs de crear_tarea y escalar_caso. Dueño: Arce (ver #199)."""
 
 from sqlalchemy.orm import Session
 

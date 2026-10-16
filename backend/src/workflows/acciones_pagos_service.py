@@ -1,4 +1,4 @@
-"""Acción de rechazo de pagos. Dueño: Carreon. Stub: ver #199."""
+"""Stub de la acción registrar_rechazo. Dueño: Carreon (ver #199)."""
 
 from sqlalchemy.orm import Session
 

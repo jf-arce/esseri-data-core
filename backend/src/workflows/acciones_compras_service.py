@@ -1,4 +1,4 @@
-"""Acciones de Compras. Dueño: Canu. Stub: ver #199."""
+"""Stubs de generar_orden_compra y generar_comunicacion. Dueño: Canu (ver #199)."""
 
 from sqlalchemy.orm import Session
 

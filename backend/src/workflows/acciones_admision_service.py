@@ -1,4 +1,4 @@
-"""Acción de cargos de admisión e inscripción. Dueño: Carreon. Stub: ver #199."""
+"""Stub de la acción generar_cargo. Dueño: Carreon (ver #199)."""
 
 from sqlalchemy.orm import Session
 

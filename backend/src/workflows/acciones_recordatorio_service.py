@@ -1,4 +1,4 @@
-"""Acción de recordatorios. Dueño: Arce. Stub: ver #199."""
+"""Stub de la acción generar_recordatorio. Dueño: Arce (ver #199)."""
 
 from sqlalchemy.orm import Session
 

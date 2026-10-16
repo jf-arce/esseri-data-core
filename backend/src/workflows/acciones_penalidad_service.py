@@ -1,4 +1,4 @@
-"""Acción de penalidad por mora. Dueño: Carreon. Stub: ver #199."""
+"""Stub de la acción aplicar_penalidad. Dueño: Carreon (ver #199)."""
 
 from sqlalchemy.orm import Session
 

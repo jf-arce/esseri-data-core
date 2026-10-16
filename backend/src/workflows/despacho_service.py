@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 # Una acción recibe la sesión (dentro de un savepoint), la regla, el evento y la ejecución en
 # curso, y devuelve el detalle y, si falló sin perder lo ya escrito, el motivo. Nunca hace commit.
-# Cada tipo de acción se registra acá al implementarse (ver #68 y #89).
+# Las acciones sin ejecutor real apuntan a un stub por dueño (ver README del backend).
 AccionHandler = Callable[[Session, WorkflowRule, EventLog, WorkflowExecution], ResultadoAccion]
 ACCIONES: dict[str, AccionHandler] = {
     "notificar": notificaciones_service.ejecutar_notificar,
