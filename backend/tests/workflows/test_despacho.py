@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import select
 
 from src.models import EventLog
-from src.workflows import despacho_service
+from src.workflows import despacho_service, ejecuciones_service
 from src.workflows.constants import TIPOS_ACCION
 from src.workflows.despacho_service import procesar_eventos_pendientes
 from src.workflows.eventos_service import emit_event
@@ -397,7 +397,7 @@ def test_stub_sin_implementar_queda_fallido_con_mensaje_publico(db_session, tipo
     assert ejecucion.estado == "fallido"
     assert ejecucion.error_detail == "La acción 'aplicar_vencimiento' todavía no está implementada."
     assert (
-        despacho_service._error_detail_publico(ejecucion.error_detail, "aplicar_vencimiento")
+        ejecuciones_service._error_detail_publico(ejecucion.error_detail, "aplicar_vencimiento")
         == ejecucion.error_detail
     )
 

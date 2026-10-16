@@ -34,6 +34,7 @@ const ejecucionFallida: EjecucionWorkflow = {
   entidad: 'factura',
   entidad_id: 'f-1',
   reintentable: false,
+  aprobable: false,
 }
 
 const listado: EjecucionWorkflowListado = {

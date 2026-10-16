@@ -1,5 +1,8 @@
 """Fixtures de Workflows: catálogo de eventos y usuario autenticado con permisos del módulo."""
 
+import uuid
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from src.auth import sesion_service
@@ -12,7 +15,8 @@ from src.auth.constants import (
 )
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
 from src.facturacion.models import ConceptoCobro, ReglaPenalidad
-from src.workflows.models import CampoEvento, TipoEvento
+from src.workflows.eventos_service import emit_event
+from src.workflows.models import CampoEvento, TipoEvento, WorkflowExecution, WorkflowRule
 
 PASSWORD_VALIDA = "una-contrasenia-larga"
 
@@ -116,3 +120,54 @@ def client_autenticado(client, usuario_workflows):
 def client_solo_lectura(client, db_session):
     usuario = _crear_usuario_con_permisos(db_session, "lector@esseri.edu.ar", (ACCION_LEER,))
     return _login(client, usuario)
+
+
+def ahora_utc_naive() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
+def crear_ejecucion(
+    db,
+    tipo_evento,
+    *,
+    estado="fallido",
+    intento=1,
+    started_at=None,
+    nombre="Avisar mora",
+    requiere_aprobacion_humana=False,
+):
+    regla = WorkflowRule(
+        nombre=nombre,
+        condicion={},
+        tipo_accion="notificar",
+        accion_config={"destinatario": "responsables_habilitados"},
+        criticidad="media",
+        requiere_aprobacion_humana=requiere_aprobacion_humana,
+        activo=True,
+        tipo_evento_id=tipo_evento.id,
+    )
+    db.add(regla)
+    db.commit()
+    evento = emit_event(
+        db,
+        tipo="factura.vencida",
+        entidad="factura",
+        entidad_id=uuid.uuid4(),
+        payload={"dias_vencido": 6, "monto_deuda": 100},
+    )
+    evento.estado = "procesado"
+    db.commit()
+    inicio = started_at or ahora_utc_naive()
+    ejecucion = WorkflowExecution(
+        intento=intento,
+        started_at=inicio,
+        finished_at=inicio + timedelta(seconds=1) if estado != "pendiente" else None,
+        estado=estado,
+        error_detail="falló el envío" if estado == "fallido" else None,
+        detalle="Esperando aprobación humana." if estado == "pendiente" else None,
+        workflow_rule_id=regla.id,
+        event_log_id=evento.id,
+    )
+    db.add(ejecucion)
+    db.commit()
+    return regla, evento, ejecucion

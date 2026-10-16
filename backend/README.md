@@ -159,7 +159,8 @@ emit_event(
 4. Por cada evento busca las reglas activas de su tipo. Para cada una evalúa su `condicion` contra
    el `payload`: si no se cumple no se crea ninguna ejecución. Si se cumple, revalida el
    `accion_config` contra la allowlist y crea un `WORKFLOW_EXECUTION`. Si la regla tiene
-   `requiere_aprobacion_humana`, la ejecución queda `pendiente` y no se ejecuta nada. Si no, corre
+   `requiere_aprobacion_humana`, la ejecución queda `pendiente` y no se ejecuta nada hasta que alguien la apruebe o la rechace
+   (ver "Historial, reintentos y aprobaciones"). Si no, corre
    la acción y la ejecución queda `exitoso` o `fallido`. Un evento sin reglas también se marca
    `procesado`.
 5. Cada evento se confirma por separado: si uno falla (el evento pasa a `fallido`) no se revierten
@@ -198,7 +199,7 @@ Para `inasistencia.registrada` conviene emitir una sola vez por asistencia (en l
 final del lote) y antes del `commit`. El despacho corre unos segundos después: si la asistencia se
 elimina antes, la ejecución queda `fallido` por no encontrar al alumno.
 
-**Historial y reintentos:** `GET /workflows/ejecuciones` devuelve el historial paginado y permite
+**Historial, reintentos y aprobaciones:** `GET /workflows/ejecuciones` devuelve el historial paginado y permite
 filtrar por `estado`; `GET /workflows/ejecuciones/{id}` expone el detalle y el evento que originó
 una ejecución sin devolver su `payload`. `POST /workflows/ejecuciones/{id}/reintentar` crea un
 intento nuevo y conserva los anteriores. Solo admite el último intento fallido de una regla activa,
@@ -208,6 +209,23 @@ y número de intento es única; si dos solicitudes compiten por el mismo intento
 antes de ejecutar la acción. Cada ejecución del listado incluye `reintentable`, calculado con esas
 mismas condiciones, para que el frontend solo ofrezca el botón cuando corresponde; el `POST` vuelve
 a validarlas, así que el valor puede quedar viejo entre la carga y el clic.
+
+Las ejecuciones `pendiente` (reglas con `requiere_aprobacion_humana`) se destraban con dos
+endpoints, ambos con permiso `workflows.actualizar` y auditoría de quién decidió (`__aprobacion__`
+y `__rechazo__`). Los dos responden `409` si la ejecución ya no está `pendiente`; el `FOR UPDATE`
+serializa dos decisiones simultáneas, así que solo una prospera.
+
+- `POST /workflows/ejecuciones/{id}/aprobar` revalida la config y corre la acción. Queda `exitoso`
+  o `fallido`. Responde `409` si la regla está inactiva o fue editada desde que la ejecución quedó
+  pendiente (hay que rechazarla y generar un evento nuevo). Si la acción falla, el `fallido` se
+  puede reintentar, pero el reintento vuelve a quedar `pendiente`: un intento nuevo necesita una
+  aprobación nueva.
+- `POST /workflows/ejecuciones/{id}/rechazar` recibe `{"motivo": "..."}` (obligatorio) y deja la
+  ejecución en `rechazado`, con el motivo en `detalle`. No valida la regla, así que una pendiente
+  cuya regla cambió siempre se puede cerrar. Una rechazada no es reintentable.
+
+Cada ejecución del listado incluye `aprobable` (`pendiente`, regla activa y sin editar), con la
+misma salvedad que `reintentable`.
 
 **Log de notificaciones (RF-26):** `GET /workflows/notificaciones` lista las notificaciones
 enviadas, paginadas, con filtros `estado_envio`, `destinatario_tipo` y `workflow_execution_id`.
