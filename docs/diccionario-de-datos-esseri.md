@@ -739,7 +739,7 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 | intento | int |  | Número de reintento (1 = primer intento) |
 | started_at | datetime |  | Reemplaza al campo `fecha` anterior |
 | finished_at | datetime |  | Nulo mientras esté en curso |
-| estado | string |  | exitoso / fallido / pendiente |
+| estado | string |  | exitoso / fallido / pendiente / rechazado |
 | detalle | string |  |  |
 | error_detail | string |  | Detalle del error cuando `estado = fallido` |
 | workflow_rule_id | uuid | FK |  |
@@ -954,7 +954,7 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | `PAGO.estado` | aprobado, rechazado, pendiente | `[ACLARACIÓN CLIENTE]` respuesta 4 — **NUEVO** |
 | `MOVIMIENTO.tipo` | debe, haber | [DECISIÓN DE DISEÑO] — **NUEVO** |
 | `LOG_ACCESO.resultado` | exitoso, fallido | RF-27 (textual) |
-| `WORKFLOW_EXECUTION.estado` | exitoso, fallido, pendiente | RF-23 (textual) |
+| `WORKFLOW_EXECUTION.estado` | exitoso, fallido, pendiente, rechazado | RF-23 (textual) |
 | `NOTIFICACION.estado_envio` | enviado, fallido, pendiente | Propuesta del equipo |
 | `NOTIFICACION.destinatario_tipo` | familia, usuario | `[ACLARACIÓN CLIENTE]` respuesta 15 — **NUEVO** |
 | `WORKFLOW_RULE.tipo_accion` | notificar, alerta_interna, cambiar_estado, crear_tarea, generar_cargo, aplicar_vencimiento, aplicar_penalidad, registrar_pago, registrar_rechazo, actualizar_cuenta_corriente, generar_recordatorio, escalar_caso, crear_registro_relacionado, generar_orden_compra, generar_comunicacion | **MODIFICADO — de 2 a 15 valores** — `[ACLARACIÓN CLIENTE]` respuesta 16. `registrar_pago`, `actualizar_cuenta_corriente` y `crear_registro_relacionado` no se implementan en el motor: las reglas con esos tipos quedan `fallido` |
