@@ -32,6 +32,10 @@ tipo_evento: # RF-24 (3 ejemplos originales) + eventos nuevos de las aclaracione
     descripcion: Se emitió una orden de compra a un proveedor
   - nombre: recepcion_compra.registrada
     descripcion: Se registró una recepción de compra, total o parcial
+  - nombre: inscripcion.confirmada
+    descripcion: Se confirmó una inscripción nueva a partir de una solicitud aprobada
+  - nombre: solicitud_compra.aprobada
+    descripcion: Se aprobó una solicitud interna de compra
 
 metodo_pago: # aclaración cliente respuesta 4 — confirmado, pasa del Grupo B a este grupo
   - nombre: debito_directo
