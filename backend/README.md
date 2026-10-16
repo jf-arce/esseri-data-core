@@ -179,14 +179,20 @@ instancias del backend, `FOR UPDATE SKIP LOCKED` evita que dos procesen el mismo
 **Eventos que faltan emitir**
 
 Ya emiten: Proveedores y Compras, `orden_compra.emitida` (en `crear_orden_compra`) y
-`recepcion_compra.registrada` (en `crear_recepcion`). El resto lo agrega el módulo dueño del hecho:
+`recepcion_compra.registrada` (en `crear_recepcion`); Académico, `inasistencia.registrada` e
+`inasistencia.justificada`. El resto lo agrega el módulo dueño del hecho:
 
 | Evento | Dónde iría | Payload |
 |---|---|---|
-| `inasistencia.registrada` | Académico: alta, carga masiva y cambio de tipo de asistencia, solo `ausente_pendiente` y `tardanza` | `alumno_nombre`, `tipo_asistencia`, `fecha` |
 | `inscripcion.cambio_matricula` | Inscripciones: `registrar_cambio_matricula` | `alumno_nombre`, `tipo_cambio` (`nivel` o `division`), `fecha` |
 | `factura.vencida` | Facturación: todavía no existe el proceso que marca facturas vencidas (#61 y #82) | `dias_vencido`, `monto_deuda`, `nombre_familia` |
-| `solicitud_inscripcion.aprobada`, `inasistencia.justificada`, `pago.registrado`, `pago.rechazado` | Admisiones, Académico y Facturación | ver `grupo-b.yaml` |
+| `inscripcion.confirmada` | Inscripciones: al crear la `INSCRIPCION` nueva desde la solicitud (`matriculas_service.py`) | `alumno_nombre`, `nivel_educativo`, `fecha` |
+| `solicitud_compra.aprobada` | Compras: `cambiar_estado_solicitud` cuando pasa a `aprobada` | `item`, `cantidad`, `fecha` |
+| `solicitud_inscripcion.aprobada`, `pago.registrado`, `pago.rechazado` | Admisiones y Facturación | ver `grupo-b.yaml` |
+
+En `solicitud_compra.aprobada`, `item` es un solo campo que nunca puede ser nulo: el `articulo` o,
+si la solicitud usa `producto_servicio_id`, el nombre del producto. No se agregan `articulo` ni
+`area_solicitante` porque pueden ser `None` y `coaccionar_valor` rechaza un texto nulo.
 
 Para `inasistencia.registrada` conviene emitir una sola vez por asistencia (en la carga masiva, al
 final del lote) y antes del `commit`. El despacho corre unos segundos después: si la asistencia se
@@ -211,12 +217,31 @@ es el snapshot del envío, así que editar la plantilla o el email después no l
 por el inicio de la ejecución (la más reciente primero), porque `NOTIFICACION` no tiene `created_at`
 y `sent_at` es `NULL` en las fallidas. Un reintento aparece como filas nuevas con su `intento`.
 
-**Estado actual:** solo `notificar` tiene ejecutor real (`ACCIONES` en `despacho_service.py`). Las
-demás reglas sin aprobación humana quedan `fallido` con "acción no implementada" hasta que se
-implemente cada una (`crear_tarea`/`escalar_caso` en #89; las que tocan Facturación o Inscripciones
-dependen de los servicios de esos módulos). Un handler recibe `(db, regla, evento, ejecucion)`,
-nunca hace `commit` y devuelve un `ResultadoAccion` (`detalle`, `error`): con `error` la ejecución
-queda `fallido` pero se conservan las filas que escribió el handler.
+**Estado actual:** solo `notificar` y `alerta_interna` tienen ejecutor real. El resto está
+registrado en `ACCIONES` (`despacho_service.py`) con un stub por dueño que devuelve "acción no
+implementada", así que la regla sin aprobación humana queda `fallido` hasta que su dueño lo
+reemplace (#199):
+
+| Acción | Archivo | Dueño |
+|---|---|---|
+| `aplicar_vencimiento`, `cambiar_estado` | `acciones_vencimiento_service.py` | Carreon |
+| `aplicar_penalidad` | `acciones_penalidad_service.py` | Carreon |
+| `generar_cargo` | `acciones_admision_service.py` | Carreon |
+| `registrar_rechazo` | `acciones_pagos_service.py` | Carreon |
+| `generar_orden_compra`, `generar_comunicacion` | `acciones_compras_service.py` | Canu |
+| `crear_tarea`, `escalar_caso` | `tareas_service.py` | Arce |
+| `generar_recordatorio` | `acciones_recordatorio_service.py` | Arce |
+
+Contrato del ejecutor: recibe `(db, regla, evento, ejecucion)`, nunca hace `commit` (corre dentro
+de un savepoint) y devuelve un `ResultadoAccion` (`detalle`, `error`). Con `error` la ejecución
+queda `fallido` pero se conservan las filas que escribió. Cada dueño edita solo su archivo: el
+registro, la allowlist y los seeds ya están. Los stubs importan `ResultadoAccion` de `schemas.py` y
+el mensaje de `constants.py`, nunca de `despacho_service.py`.
+
+Tres acciones no se implementan y siguen sin ejecutor: `registrar_pago` y
+`actualizar_cuenta_corriente` (el pago y el libro de movimientos los escribe Facturación al
+registrar el pago, el motor no los duplica) y `crear_registro_relacionado` (el alta de alumno y
+familia desde la solicitud ya la hace Admisiones). Una regla con alguna de ellas queda `fallido`.
 
 **Reglas y allowlist de `accion_config`**
 
@@ -232,10 +257,9 @@ defaults.
   extra prohibidas. Los eventos en los que puede usarse cada acción están en `EVENTOS_POR_ACCION`
   (`constants.py`): solo `notificar`, `alerta_interna`, `generar_recordatorio`, `generar_comunicacion`,
   `crear_tarea` y `escalar_caso` valen para cualquier evento; las que escriben sobre la entidad del
-  evento o mueven dinero tienen una lista cerrada, y `generar_orden_compra` no se puede configurar
-  hasta que Compras emita un evento que la dispare (los dos que emite hoy ocurren después de la
-  orden). Solo las cuatro que arman un mensaje admiten
-  `notificacion_template_id`.
+  evento o mueven dinero tienen una lista cerrada (`generar_orden_compra` solo con
+  `solicitud_compra.aprobada`, `generar_cargo` con `inscripcion.confirmada` o `pago.rechazado`).
+  Solo las cuatro que arman un mensaje admiten `notificacion_template_id`.
 - `GET /workflows/tipos-accion` devuelve, por acción, el default de aprobación humana, los eventos
   permitidos, si admite plantilla y el JSON Schema de su config.
 - Para habilitar una acción en otro evento, o `cambiar_estado` sobre otra entidad

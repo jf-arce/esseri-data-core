@@ -54,9 +54,8 @@ source venv/bin/activate
 pytest
 ```
 
-As of this writing `pytest` collects **0 tests** — `tests/<modulo>/` exist but only
-contain empty `__init__.py`. Don't read "no failures" as "tests pass"; check the
-"collected" count.
+The suite has ~790 tests and takes about 3.5 minutes; for the workflow engine run
+`pytest tests/workflows`.
 
 ## Gotchas
 

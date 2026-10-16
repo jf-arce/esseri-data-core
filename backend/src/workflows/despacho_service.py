@@ -16,8 +16,17 @@ from sqlalchemy.orm import Session, aliased
 
 from src.auditoria.service import log_audit
 from src.models import EventLog
-from src.workflows import notificaciones_service
-from src.workflows.constants import ENTIDAD_POR_EVENTO
+from src.workflows import (
+    acciones_admision_service,
+    acciones_compras_service,
+    acciones_pagos_service,
+    acciones_penalidad_service,
+    acciones_recordatorio_service,
+    acciones_vencimiento_service,
+    notificaciones_service,
+    tareas_service,
+)
+from src.workflows.constants import ENTIDAD_POR_EVENTO, ERROR_ACCION_NO_IMPLEMENTADA
 from src.workflows.eventos_service import coaccionar_valor
 from src.workflows.exceptions import (
     EjecucionNoEncontrada,
@@ -40,17 +49,26 @@ logger = logging.getLogger(__name__)
 
 # Una acción recibe la sesión (dentro de un savepoint), la regla, el evento y la ejecución en
 # curso, y devuelve el detalle y, si falló sin perder lo ya escrito, el motivo. Nunca hace commit.
-# Cada tipo de acción se registra acá al implementarse (ver #68 y #89).
+# Las acciones sin ejecutor real apuntan a un stub por dueño (ver README del backend).
 AccionHandler = Callable[[Session, WorkflowRule, EventLog, WorkflowExecution], ResultadoAccion]
 ACCIONES: dict[str, AccionHandler] = {
     "notificar": notificaciones_service.ejecutar_notificar,
     "alerta_interna": notificaciones_service.ejecutar_alerta_interna,
+    "aplicar_vencimiento": acciones_vencimiento_service.ejecutar_aplicar_vencimiento,
+    "cambiar_estado": acciones_vencimiento_service.ejecutar_cambiar_estado,
+    "aplicar_penalidad": acciones_penalidad_service.ejecutar_aplicar_penalidad,
+    "generar_cargo": acciones_admision_service.ejecutar_generar_cargo,
+    "generar_orden_compra": acciones_compras_service.ejecutar_generar_orden_compra,
+    "generar_comunicacion": acciones_compras_service.ejecutar_generar_comunicacion,
+    "crear_tarea": tareas_service.ejecutar_crear_tarea,
+    "escalar_caso": tareas_service.ejecutar_escalar_caso,
+    "generar_recordatorio": acciones_recordatorio_service.ejecutar_generar_recordatorio,
+    "registrar_rechazo": acciones_pagos_service.ejecutar_registrar_rechazo,
 }
 
 ERROR_EVALUACION = "No se pudo evaluar la regla con los datos del evento."
 ERROR_CONFIGURACION = "La configuración de la acción no es válida."
 ERROR_ACCION = "La acción no pudo completarse."
-ERROR_ACCION_NO_IMPLEMENTADA = "La acción '{tipo_accion}' todavía no está implementada."
 
 
 def procesar_eventos_pendientes(db: Session, limite: int = 100) -> ResumenDespacho:

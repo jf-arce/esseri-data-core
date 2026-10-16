@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from src.models import EventLog
 from src.workflows import despacho_service
+from src.workflows.constants import TIPOS_ACCION
 from src.workflows.despacho_service import procesar_eventos_pendientes
 from src.workflows.eventos_service import emit_event
 from src.workflows.models import WorkflowExecution, WorkflowRule
@@ -383,3 +384,25 @@ def test_evento_con_entidad_no_canonica_deja_las_ejecuciones_fallidas(
     ejecucion = _ejecuciones(db_session)[0]
     assert ejecucion.estado == "fallido"
     assert ejecucion.error_detail == despacho_service.ERROR_EVALUACION
+
+
+# Sin la fixture `acciones`: usa el registro real, donde esta acción es un stub.
+def test_stub_sin_implementar_queda_fallido_con_mensaje_publico(db_session, tipo_factura_vencida):
+    _regla(db_session, tipo_factura_vencida, tipo_accion="aplicar_vencimiento")
+    _evento(db_session)
+
+    procesar_eventos_pendientes(db_session)
+
+    ejecucion = db_session.scalars(select(WorkflowExecution)).one()
+    assert ejecucion.estado == "fallido"
+    assert ejecucion.error_detail == "La acción 'aplicar_vencimiento' todavía no está implementada."
+    assert (
+        despacho_service._error_detail_publico(ejecucion.error_detail, "aplicar_vencimiento")
+        == ejecucion.error_detail
+    )
+
+
+def test_toda_accion_esta_registrada_salvo_las_que_no_se_implementan():
+    sin_ejecutor = {"registrar_pago", "actualizar_cuenta_corriente", "crear_registro_relacionado"}
+
+    assert set(TIPOS_ACCION) - set(despacho_service.ACCIONES) == sin_ejecutor
