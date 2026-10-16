@@ -16,6 +16,7 @@ from src.database import get_db
 from src.workflows import (
     despacho_service,
     destinatarios_service,
+    ejecuciones_service,
     notificaciones_service,
     plantillas_service,
     service,
@@ -108,7 +109,7 @@ def listar_ejecuciones(
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanio_pagina: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> WorkflowExecutionListadoRead:
-    return despacho_service.listar_ejecuciones(
+    return ejecuciones_service.listar_ejecuciones(
         db,
         estado=estado,
         pagina=pagina,
@@ -120,7 +121,7 @@ def listar_ejecuciones(
 def obtener_ejecucion(
     ejecucion_id: uuid.UUID, db: DbSession, _: PuedeLeer
 ) -> WorkflowExecutionRead:
-    return despacho_service.obtener_ejecucion_read(db, ejecucion_id)
+    return ejecuciones_service.obtener_ejecucion_read(db, ejecucion_id)
 
 
 @router.post(
@@ -133,7 +134,7 @@ def reintentar_ejecucion(
     db: DbSession,
     usuario: PuedeActualizar,
 ) -> WorkflowExecutionRead:
-    return despacho_service.reintentar_ejecucion(db, ejecucion_id, usuario.id)
+    return ejecuciones_service.reintentar_ejecucion(db, ejecucion_id, usuario.id)
 
 
 @router.get("/notificaciones", response_model=NotificacionListadoRead)

@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from src.models import AuditLog
-from src.workflows import despacho_service
+from src.workflows import despacho_service, ejecuciones_service
 from src.workflows.eventos_service import emit_event
 from src.workflows.models import WorkflowExecution, WorkflowRule
 from src.workflows.schemas import ResultadoAccion
@@ -339,13 +339,13 @@ def test_servicio_lista_y_reintenta_sin_reescribir_el_intento_anterior(
         },
     )
 
-    pagina = despacho_service.listar_ejecuciones(
+    pagina = ejecuciones_service.listar_ejecuciones(
         db_session,
         estado="fallido",
         pagina=1,
         tamanio_pagina=20,
     )
-    nueva = despacho_service.reintentar_ejecucion(db_session, anterior.id, usuario_workflows.id)
+    nueva = ejecuciones_service.reintentar_ejecucion(db_session, anterior.id, usuario_workflows.id)
 
     assert pagina.total == 1
     assert pagina.items[0].id == anterior.id
