@@ -110,6 +110,13 @@ class EjecucionNoReintentable(AppException):
         super().__init__(message)
 
 
+class EjecucionNoDecidible(AppException):
+    status_code = 409
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
 class N8nNoConfigurado(AppException):
     status_code = 503
 

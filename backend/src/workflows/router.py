@@ -25,6 +25,7 @@ from src.workflows.dependencies import obtener_plantilla_o_404, obtener_regla_o_
 from src.workflows.models import NotificacionTemplate, WorkflowRule
 from src.workflows.schemas import (
     DestinatarioTipo,
+    EjecucionRechazo,
     EstadoEnvioNotificacion,
     EstadoWorkflowExecution,
     NotificacionDetalleRead,
@@ -135,6 +136,25 @@ def reintentar_ejecucion(
     usuario: PuedeActualizar,
 ) -> WorkflowExecutionRead:
     return ejecuciones_service.reintentar_ejecucion(db, ejecucion_id, usuario.id)
+
+
+@router.post("/ejecuciones/{ejecucion_id}/aprobar", response_model=WorkflowExecutionRead)
+def aprobar_ejecucion(
+    ejecucion_id: uuid.UUID,
+    db: DbSession,
+    usuario: PuedeActualizar,
+) -> WorkflowExecutionRead:
+    return ejecuciones_service.aprobar_ejecucion(db, ejecucion_id, usuario.id)
+
+
+@router.post("/ejecuciones/{ejecucion_id}/rechazar", response_model=WorkflowExecutionRead)
+def rechazar_ejecucion(
+    ejecucion_id: uuid.UUID,
+    datos: EjecucionRechazo,
+    db: DbSession,
+    usuario: PuedeActualizar,
+) -> WorkflowExecutionRead:
+    return ejecuciones_service.rechazar_ejecucion(db, ejecucion_id, datos.motivo, usuario.id)
 
 
 @router.get("/notificaciones", response_model=NotificacionListadoRead)

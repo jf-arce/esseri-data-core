@@ -1,6 +1,7 @@
 """Historial de ejecuciones de workflows (RF-23): listado, reintentos y decisiones sobre las
 pendientes de aprobación humana. El despacho de eventos vive en `despacho_service.py`."""
 
+import logging
 import uuid
 from datetime import datetime
 
@@ -14,6 +15,7 @@ from src.workflows import despacho_service, notificaciones_service
 from src.workflows.constants import ERROR_ACCION_NO_IMPLEMENTADA
 from src.workflows.despacho_service import ERROR_ACCION, ERROR_CONFIGURACION, ERROR_EVALUACION
 from src.workflows.exceptions import (
+    EjecucionNoDecidible,
     EjecucionNoEncontrada,
     EjecucionNoReintentable,
     TipoEventoNoEncontrado,
@@ -24,7 +26,9 @@ from src.workflows.schemas import (
     WorkflowExecutionListadoRead,
     WorkflowExecutionRead,
 )
-from src.workflows.service import tipos_de_campos
+from src.workflows.service import tipos_de_campos, validar_accion
+
+logger = logging.getLogger(__name__)
 
 
 def listar_ejecuciones(
@@ -135,8 +139,96 @@ def reintentar_ejecucion(
     return obtener_ejecucion_read(db, nueva.id)
 
 
+def _bloquear_pendiente(db: Session, ejecucion_id: uuid.UUID) -> WorkflowExecution:
+    """Toma la ejecución con `FOR UPDATE`: dos decisiones simultáneas se serializan y la
+    segunda, al conseguir el lock, ya no la ve `pendiente`."""
+    ejecucion = db.scalar(
+        select(WorkflowExecution).where(WorkflowExecution.id == ejecucion_id).with_for_update()
+    )
+    if ejecucion is None:
+        raise EjecucionNoEncontrada()
+    if ejecucion.estado != "pendiente":
+        raise EjecucionNoDecidible("Solo se pueden decidir ejecuciones pendientes de aprobación.")
+    return ejecucion
+
+
+def aprobar_ejecucion(
+    db: Session, ejecucion_id: uuid.UUID, usuario_id: uuid.UUID
+) -> WorkflowExecutionRead:
+    ejecucion = _bloquear_pendiente(db, ejecucion_id)
+    regla = db.scalar(
+        select(WorkflowRule).where(WorkflowRule.id == ejecucion.workflow_rule_id).with_for_update()
+    )
+    if regla is None:
+        raise EjecucionNoDecidible("La regla asociada ya no existe.")
+    if not regla.activo:
+        raise EjecucionNoDecidible("No se puede aprobar una regla inactiva.")
+    if regla.updated_at > ejecucion.started_at:
+        raise EjecucionNoDecidible(
+            "La regla cambió desde que quedó pendiente; rechazala y generá un evento nuevo."
+        )
+    evento = db.get(EventLog, ejecucion.event_log_id)
+    if evento is None:
+        raise EjecucionNoDecidible("El evento original ya no existe.")
+    tipo_evento = db.get(TipoEvento, evento.tipo_evento_id)
+    if tipo_evento is None:
+        raise TipoEventoNoEncontrado()
+
+    # Si no se limpia, "Esperando aprobación humana." sobrevive cuando la acción falla.
+    ejecucion.detalle = None
+    try:
+        validar_accion(
+            db,
+            regla.tipo_accion,
+            regla.accion_config,
+            tipo_evento.nombre,
+            tipos_de_campos(db, tipo_evento.id),
+            regla.notificacion_template_id,
+        )
+    except Exception:
+        logger.warning("La configuración de la regla %s no es válida", regla.id, exc_info=True)
+        despacho_service._marcar_fallida(ejecucion, ERROR_CONFIGURACION)
+    else:
+        despacho_service._ejecutar_accion(db, regla, evento, ejecucion)
+
+    log_audit(
+        db,
+        entidad="WORKFLOW_EXECUTION",
+        entidad_id=ejecucion.id,
+        campo="__aprobacion__",
+        valor_anterior="pendiente",
+        valor_nuevo=ejecucion.estado,
+        usuario_id=usuario_id,
+    )
+    db.commit()
+    return obtener_ejecucion_read(db, ejecucion.id)
+
+
+def rechazar_ejecucion(
+    db: Session, ejecucion_id: uuid.UUID, motivo: str, usuario_id: uuid.UUID
+) -> WorkflowExecutionRead:
+    # No valida la regla: una pendiente cuya regla se editó o desactivó siempre se puede cerrar.
+    ejecucion = _bloquear_pendiente(db, ejecucion_id)
+    ejecucion.estado = "rechazado"
+    # Va en `detalle` y no en `error_detail`, que `_error_detail_publico` enmascara.
+    ejecucion.detalle = f"Rechazada: {motivo}"
+    ejecucion.finished_at = datetime.now()
+    log_audit(
+        db,
+        entidad="WORKFLOW_EXECUTION",
+        entidad_id=ejecucion.id,
+        campo="__rechazo__",
+        valor_anterior="pendiente",
+        valor_nuevo=motivo,
+        usuario_id=usuario_id,
+    )
+    db.commit()
+    return obtener_ejecucion_read(db, ejecucion.id)
+
+
 def _consulta_ejecuciones():
-    # Mismas condiciones que valida `reintentar_ejecucion`, que sigue siendo la fuente de verdad.
+    # `reintentable` y `aprobable` repiten lo que validan `reintentar_ejecucion` y
+    # `aprobar_ejecucion`, que siguen siendo la fuente de verdad.
     posterior = aliased(WorkflowExecution)
     reintentable = and_(
         WorkflowExecution.estado == "fallido",
@@ -148,6 +240,11 @@ def _consulta_ejecuciones():
             posterior.intento > WorkflowExecution.intento,
         ),
     )
+    aprobable = and_(
+        WorkflowExecution.estado == "pendiente",
+        WorkflowRule.activo,
+        WorkflowRule.updated_at <= WorkflowExecution.started_at,
+    )
     return (
         select(
             WorkflowExecution,
@@ -158,6 +255,7 @@ def _consulta_ejecuciones():
             EventLog.entidad,
             EventLog.entidad_id,
             reintentable.label("reintentable"),
+            aprobable.label("aprobable"),
         )
         .join(WorkflowRule, WorkflowRule.id == WorkflowExecution.workflow_rule_id)
         .join(EventLog, EventLog.id == WorkflowExecution.event_log_id)
@@ -174,6 +272,7 @@ def _fila_ejecucion_read(
     entidad: str,
     entidad_id: uuid.UUID,
     reintentable: bool,
+    aprobable: bool,
 ) -> WorkflowExecutionRead:
     return WorkflowExecutionRead(
         id=ejecucion.id,
@@ -192,6 +291,7 @@ def _fila_ejecucion_read(
         entidad=entidad,
         entidad_id=entidad_id,
         reintentable=reintentable,
+        aprobable=aprobable,
     )
 
 
