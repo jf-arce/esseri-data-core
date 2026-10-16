@@ -273,15 +273,59 @@ def test_destinatario_familiar_sobre_evento_sin_alumno_es_422(client_autenticado
     assert permitida.status_code == 201
 
 
-def test_generar_orden_compra_todavia_no_se_puede_configurar(
-    client_autenticado, tipo_factura_vencida
+def test_generar_orden_compra_solo_con_solicitud_compra_aprobada(
+    client_autenticado, db_session, tipo_factura_vencida
 ):
-    respuesta = _crear(
+    tipo = TipoEvento(nombre="solicitud_compra.aprobada", descripcion="Solicitud aprobada")
+    db_session.add(tipo)
+    db_session.commit()
+
+    rechazada = _crear(
         client_autenticado, tipo_factura_vencida.id, tipo_accion="generar_orden_compra"
     )
+    aceptada = _crear(client_autenticado, tipo.id, tipo_accion="generar_orden_compra")
 
-    assert respuesta.status_code == 422
-    assert "todavía no se puede configurar" in respuesta.json()["detail"]
+    assert rechazada.status_code == 422
+    assert "solicitud_compra.aprobada" in rechazada.json()["detail"]
+    assert aceptada.status_code == 201
+
+
+def test_solicitud_compra_aprobada_solo_acepta_destinatarios_de_la_regla(
+    client_autenticado, db_session
+):
+    tipo = TipoEvento(nombre="solicitud_compra.aprobada", descripcion="Solicitud aprobada")
+    db_session.add(tipo)
+    db_session.commit()
+
+    familiar = _crear(
+        client_autenticado, tipo.id, accion_config={"destinatario": "responsable_economico"}
+    )
+
+    assert familiar.status_code == 422
+    assert "destinatarios_regla" in familiar.json()["detail"]
+
+
+def test_generar_cargo_acepta_inscripcion_confirmada_y_pago_rechazado(
+    client_autenticado, db_session, concepto_cobro
+):
+    config = {"concepto_cobro_id": str(concepto_cobro.id)}
+    tipos = {
+        nombre: TipoEvento(nombre=nombre)
+        for nombre in ("inscripcion.confirmada", "pago.rechazado", "solicitud_inscripcion.aprobada")
+    }
+    db_session.add_all(tipos.values())
+    db_session.commit()
+
+    respuestas = {
+        nombre: _crear(
+            client_autenticado, tipo.id, tipo_accion="generar_cargo", accion_config=config
+        )
+        for nombre, tipo in tipos.items()
+    }
+
+    assert respuestas["inscripcion.confirmada"].status_code == 201
+    assert respuestas["pago.rechazado"].status_code == 201
+    assert respuestas["solicitud_inscripcion.aprobada"].status_code == 422
 
 
 def test_plantilla_en_accion_que_no_notifica_es_422(
@@ -520,7 +564,7 @@ def test_tipos_accion_lista_las_15_con_su_allowlist(client_autenticado):
     assert tipos["aplicar_penalidad"]["eventos_permitidos"] == ["factura.vencida"]
     assert tipos["notificar"]["eventos_permitidos"] is None
     assert tipos["notificar"]["admite_plantilla"] is True
-    assert tipos["generar_orden_compra"]["eventos_permitidos"] == []
+    assert tipos["generar_orden_compra"]["eventos_permitidos"] == ["solicitud_compra.aprobada"]
     assert "titulo" in tipos["crear_tarea"]["config_schema"]["properties"]
 
 

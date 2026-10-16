@@ -654,7 +654,7 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 ### `TIPO_EVENTO`
 > `[DECISIÓN DE DISEÑO]` `nombre` es `UNIQUE` (`uq_tipo_evento_nombre`): `emit_event()` resuelve el tipo por nombre, así que no puede haber dos filas con el mismo.
 >
-> [DECISIÓN DE DISEÑO] Catálogo en vez de texto libre en `WORKFLOW_RULE`, mismo patrón que `PERMISO`/`METODO_PAGO` (RNF-06). Acá se cargan valores como "factura.vencida", "inasistencia.registrada", "inscripcion.cambio_matricula", y desde las aclaraciones también "solicitud_inscripcion.aprobada", "inasistencia.justificada", "pago.registrado", "pago.rechazado". Proveedores y Compras suma "orden_compra.emitida" y "recepcion_compra.registrada".
+> [DECISIÓN DE DISEÑO] Catálogo en vez de texto libre en `WORKFLOW_RULE`, mismo patrón que `PERMISO`/`METODO_PAGO` (RNF-06). Acá se cargan valores como "factura.vencida", "inasistencia.registrada", "inscripcion.cambio_matricula", y desde las aclaraciones también "solicitud_inscripcion.aprobada", "inasistencia.justificada", "pago.registrado", "pago.rechazado". Proveedores y Compras suma "orden_compra.emitida" y "recepcion_compra.registrada", y "solicitud_compra.aprobada". Inscripciones suma "inscripcion.confirmada".
 
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
@@ -673,7 +673,7 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 >
 > **[DECISIÓN DE EQUIPO — cierra la pregunta pendiente #15]** `requiere_aprobacion_humana = true` (por defecto) para las acciones que mueven dinero o escalan un caso: `generar_cargo`, `aplicar_penalidad`, `registrar_pago`, `registrar_rechazo`, `escalar_caso`, `generar_orden_compra`. El resto arranca en `false`: `notificar`, `alerta_interna`, `generar_recordatorio`, `cambiar_estado`, `crear_tarea`, `crear_registro_relacionado`, `aplicar_vencimiento`, `actualizar_cuenta_corriente`, `generar_comunicacion`. Es el valor por defecto por `tipo_accion`, no un hardcode — el campo sigue siendo configurable por regla, así que el equipo puede ajustar caso por caso una vez que el motor esté corriendo.
 >
-> **[DECISIÓN DE EQUIPO — cierra la pregunta pendiente #16]** La allowlist de `accion_config` vive en `backend/src/workflows/` (`constants.py` y `schemas.py`) y el backend la aplica al crear/editar la regla y otra vez al despachar. Reglas generales: la acción opera siempre sobre la entidad del evento, y `accion_config` nunca trae la entidad ni IDs de filas a modificar, solo parámetros y referencias a catálogos (`CONCEPTO_COBRO`, `REGLA_PENALIDAD`). Cada tipo de evento tiene una entidad canónica en `EVENT_LOG.entidad` (`factura.vencida` → `factura`, `pago.registrado`/`pago.rechazado` → `pago`, `inasistencia.registrada` → `asistencia`, `inasistencia.justificada` → `justificacion_inasistencia`, `inscripcion.cambio_matricula` → `inscripcion`, `solicitud_inscripcion.aprobada` → `solicitud_inscripcion`, `orden_compra.emitida` → `orden_compra`, `recepcion_compra.registrada` → `recepcion_compra`) y `emit_event()` rechaza cualquier otra. Por acción:
+> **[DECISIÓN DE EQUIPO — cierra la pregunta pendiente #16]** La allowlist de `accion_config` vive en `backend/src/workflows/` (`constants.py` y `schemas.py`) y el backend la aplica al crear/editar la regla y otra vez al despachar. Reglas generales: la acción opera siempre sobre la entidad del evento, y `accion_config` nunca trae la entidad ni IDs de filas a modificar, solo parámetros y referencias a catálogos (`CONCEPTO_COBRO`, `REGLA_PENALIDAD`). Cada tipo de evento tiene una entidad canónica en `EVENT_LOG.entidad` (`factura.vencida` → `factura`, `pago.registrado`/`pago.rechazado` → `pago`, `inasistencia.registrada` → `asistencia`, `inasistencia.justificada` → `justificacion_inasistencia`, `inscripcion.cambio_matricula` → `inscripcion`, `solicitud_inscripcion.aprobada` → `solicitud_inscripcion`, `orden_compra.emitida` → `orden_compra`, `recepcion_compra.registrada` → `recepcion_compra`, `inscripcion.confirmada` → `inscripcion`, `solicitud_compra.aprobada` → `solicitud_compra`) y `emit_event()` rechaza cualquier otra. Por acción:
 >
 > | `tipo_accion` | `accion_config` | Eventos permitidos |
 > |---|---|---|
@@ -683,16 +683,16 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 > | `crear_tarea` | `titulo`, `descripcion?`, `prioridad`, `dias_para_vencer?` (1 a 60) | cualquiera |
 > | `escalar_caso` | `motivo?`, `prioridad` (default `alta`) | cualquiera |
 > | `cambiar_estado` | `estado_nuevo`, solo `factura → vencida` por ahora | `factura.vencida` |
-> | `generar_cargo` | `concepto_cobro_id` (activo), `monto?` (> 0) | `solicitud_inscripcion.aprobada`, `pago.rechazado` |
+> | `generar_cargo` | `concepto_cobro_id` (activo), `monto?` (> 0) | `inscripcion.confirmada`, `pago.rechazado` |
 > | `aplicar_vencimiento`, `registrar_pago`, `registrar_rechazo` | sin parámetros | `factura.vencida`, `pago.registrado`, `pago.rechazado` respectivamente |
 > | `aplicar_penalidad` | `regla_penalidad_id?` (activa; sin valor, tramo según días) | `factura.vencida` |
 > | `actualizar_cuenta_corriente` | `tipo` (`debe`/`haber`), `concepto_cobro_id`, `campo_monto` (campo numérico del evento) | `pago.registrado`, `pago.rechazado`, `factura.vencida` |
 > | `crear_registro_relacionado` | `registro` (`alumno_y_familia_desde_solicitud`) | `solicitud_inscripcion.aprobada` |
-> | `generar_orden_compra` | sin parámetros | ninguno todavía: no se puede configurar hasta que Compras emita un evento |
+> | `generar_orden_compra` | sin parámetros | `solicitud_compra.aprobada` |
 >
 > Solo `notificar`, `alerta_interna`, `generar_recordatorio` y `generar_comunicacion` admiten `notificacion_template_id`. Se amplía acción por acción a medida que se implementa su ejecutor. `condicion` se valida contra los `CAMPO_EVENTO` del evento de la regla (operadores `==`, `!=`, `>`, `>=`, `<`, `<=` para número y fecha; `==`, `!=`, `contiene` para texto).
 >
-> **[NOTA]** `notificar` con `destinatario` `responsable_economico` o `responsables_habilitados` necesita un alumno, que se deduce de la entidad del evento (`factura`, `pago`, `asistencia`, `justificacion_inasistencia`, `inscripcion`). Sobre `solicitud_inscripcion.aprobada`, `orden_compra.emitida` y `recepcion_compra.registrada` solo se acepta `destinatarios_regla`.
+> **[NOTA]** `notificar` con `destinatario` `responsable_economico` o `responsables_habilitados` necesita un alumno, que se deduce de la entidad del evento (`factura`, `pago`, `asistencia`, `justificacion_inasistencia`, `inscripcion`). Sobre `solicitud_inscripcion.aprobada`, `solicitud_compra.aprobada`, `orden_compra.emitida` y `recepcion_compra.registrada` solo se acepta `destinatarios_regla`. `inscripcion.confirmada` sí tiene alumno.
 >
 > **[NOTA — decisión revisada]** Se evaluó agregar `n8nWorkflowId` por fila, pero se descartó: todas las reglas con `tipo_accion = "notificar"` llaman al mismo webhook genérico de n8n (backend ya resuelve destinatario y contenido antes de llamarlo), así que guardarlo por regla sería dato repetido sin necesidad. La URL del webhook es config del sistema, no un atributo de `WORKFLOW_RULE`.
 >
@@ -957,7 +957,7 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | `WORKFLOW_EXECUTION.estado` | exitoso, fallido, pendiente | RF-23 (textual) |
 | `NOTIFICACION.estado_envio` | enviado, fallido, pendiente | Propuesta del equipo |
 | `NOTIFICACION.destinatario_tipo` | familia, usuario | `[ACLARACIÓN CLIENTE]` respuesta 15 — **NUEVO** |
-| `WORKFLOW_RULE.tipo_accion` | notificar, alerta_interna, cambiar_estado, crear_tarea, generar_cargo, aplicar_vencimiento, aplicar_penalidad, registrar_pago, registrar_rechazo, actualizar_cuenta_corriente, generar_recordatorio, escalar_caso, crear_registro_relacionado, generar_orden_compra, generar_comunicacion | **MODIFICADO — de 2 a 15 valores** — `[ACLARACIÓN CLIENTE]` respuesta 16 |
+| `WORKFLOW_RULE.tipo_accion` | notificar, alerta_interna, cambiar_estado, crear_tarea, generar_cargo, aplicar_vencimiento, aplicar_penalidad, registrar_pago, registrar_rechazo, actualizar_cuenta_corriente, generar_recordatorio, escalar_caso, crear_registro_relacionado, generar_orden_compra, generar_comunicacion | **MODIFICADO — de 2 a 15 valores** — `[ACLARACIÓN CLIENTE]` respuesta 16. `registrar_pago`, `actualizar_cuenta_corriente` y `crear_registro_relacionado` no se implementan en el motor: las reglas con esos tipos quedan `fallido` |
 | `WORKFLOW_RULE.criticidad` | baja, media, alta, critica | [DECISIÓN DE DISEÑO] — `[ACLARACIÓN CLIENTE]` respuesta 15 pide que sea configurable |
 | `TAREA.estado` | pendiente, en_progreso, completada, escalada | [DECISIÓN DE DISEÑO] — **NUEVO** |
 | `TAREA.prioridad` | baja, media, alta | [DECISIÓN DE DISEÑO] — **NUEVO** |
@@ -1043,6 +1043,8 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | pago.rechazado | `[ACLARACIÓN CLIENTE]` Un pago fue rechazado (ej. stop debit) |
 | orden_compra.emitida | `[DECISIÓN DE EQUIPO]` Se emitió una orden de compra a un proveedor |
 | recepcion_compra.registrada | `[DECISIÓN DE EQUIPO]` Se registró una recepción de compra, total o parcial |
+| inscripcion.confirmada | `[DECISIÓN DE EQUIPO]` Se confirmó una inscripción nueva a partir de una solicitud aprobada |
+| solicitud_compra.aprobada | `[DECISIÓN DE EQUIPO]` Se aprobó una solicitud interna de compra |
 
 ### Grupo B — Decisión razonable del equipo, pero conviene validar antes de cargar en producción
 
@@ -1091,7 +1093,7 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 **Cerradas por decisión de equipo (no de ESSERI):**
 
 - **#4 — roles con permisos conflictivos:** gana el permiso más permisivo. Si cualquiera de los roles que tiene el usuario habilita la acción, se permite — no hace falta que todos coincidan.
-- **#16 — allowlist de `accion_config`:** definida acción por acción y evento por evento en `backend/src/workflows/` (ver la nota de `WORKFLOW_RULE`). Arranca cerrada y se abre con cada ejecutor; `generar_orden_compra` no se puede configurar hasta que Compras emita un evento.
+- **#16 — allowlist de `accion_config`:** definida acción por acción y evento por evento en `backend/src/workflows/` (ver la nota de `WORKFLOW_RULE`). Arranca cerrada y se abre con cada ejecutor; `generar_orden_compra` se configura solo con `solicitud_compra.aprobada` y `generar_cargo` con `inscripcion.confirmada` o `pago.rechazado`.
 - **#15 — qué acciones requieren `requiere_aprobacion_humana = true`:** las que mueven dinero o escalan un caso — `generar_cargo`, `aplicar_penalidad`, `registrar_pago`, `registrar_rechazo`, `escalar_caso`, `generar_orden_compra`. El resto (`notificar`, `alerta_interna`, `generar_recordatorio`, `cambiar_estado`, `crear_tarea`, `crear_registro_relacionado`, `aplicar_vencimiento`, `actualizar_cuenta_corriente`, `generar_comunicacion`) corre automático. **Es una decisión inicial, no definitiva** — el equipo puede ajustar caso por caso una vez que el motor esté corriendo y se vea el comportamiento real en la demo.
 
 ---
@@ -1116,3 +1118,4 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | — | **Cerrada la pregunta #16** (allowlist de `accion_config`): definida por acción con su lista cerrada de eventos, entidad canónica por tipo de evento (`emit_event()` la exige) y validación de `condicion` contra `CAMPO_EVENTO`. Solo queda abierta #17. |
 | — | Definidas las reglas de `PRECIO_PRODUCTO` (issue #114): precios sin solapamiento por par producto + proveedor, cierre automático del anterior, vigente calculado por fecha y corrección auditada. Sin cambios de esquema. |
 | — | Sumados a `TIPO_EVENTO` los dos eventos que emite Proveedores y Compras: `orden_compra.emitida` (entidad `orden_compra`; campos `proveedor_nombre`, `cantidad_items`, `fecha`) y `recepcion_compra.registrada` (entidad `recepcion_compra`; campos `proveedor_nombre`, `tipo_recepcion`, `fecha`). Sin cambios de esquema: son filas de catálogo. |
+| — | Sumados a `TIPO_EVENTO` `inscripcion.confirmada` (entidad `inscripcion`; campos `alumno_nombre`, `nivel_educativo`, `fecha`) y `solicitud_compra.aprobada` (entidad `solicitud_compra`; campos `item`, `cantidad`, `fecha`), y abiertas en la allowlist de `generar_cargo` y `generar_orden_compra` (issue #199). Sin cambios de esquema: son filas de catálogo. |
