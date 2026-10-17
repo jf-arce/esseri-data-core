@@ -243,8 +243,8 @@ es el snapshot del envío, así que editar la plantilla o el email después no l
 por el inicio de la ejecución (la más reciente primero), porque `NOTIFICACION` no tiene `created_at`
 y `sent_at` es `NULL` en las fallidas. Un reintento aparece como filas nuevas con su `intento`.
 
-**Estado actual:** `notificar`, `alerta_interna`, `aplicar_vencimiento` y `cambiar_estado`
-tienen ejecutor real. El resto de `ACCIONES` (`despacho_service.py`) sigue con un stub por dueño
+**Estado actual:** `notificar`, `alerta_interna`, `aplicar_vencimiento`, `cambiar_estado`,
+`crear_tarea` y `escalar_caso` tienen ejecutor real. El resto de `ACCIONES` (`despacho_service.py`) sigue con un stub por dueño
 que devuelve "acción no implementada", así que una regla sin aprobación humana queda `fallido`
 hasta que su dueño lo reemplace (#199):
 
@@ -255,7 +255,6 @@ hasta que su dueño lo reemplace (#199):
 | `generar_cargo` | `acciones_admision_service.py` | Carreon |
 | `registrar_rechazo` | `acciones_pagos_service.py` | Carreon |
 | `generar_orden_compra`, `generar_comunicacion` | `acciones_compras_service.py` | Canu |
-| `crear_tarea`, `escalar_caso` | `tareas_service.py` | Arce |
 | `generar_recordatorio` | `acciones_recordatorio_service.py` | Arce |
 
 `aplicar_vencimiento` marca la factura `vencida` cuando ya pasó su fecha efectiva: la mayor entre
@@ -312,8 +311,8 @@ regla o una sugerencia de IA no se puede eliminar.
 Los destinatarios configurables de una regla se consultan y reemplazan de forma atómica con
 `GET`/`PUT /workflows/reglas/{id}/destinatarios`. Pueden ser roles y usuarios puntuales. Para las
 acciones `notificar`, `generar_recordatorio` y `generar_comunicacion`, la regla debe usar
-`accion_config.destinatario = "destinatarios_regla"`; `alerta_interna` también admite esta
-configuración. Los usuarios inactivos ya configurados se conservan para mantener la trazabilidad,
+`accion_config.destinatario = "destinatarios_regla"`; `alerta_interna`, `crear_tarea` y
+`escalar_caso` siempre los usan (en las dos últimas son las personas a quienes se asigna la tarea). Los usuarios inactivos ya configurados se conservan para mantener la trazabilidad,
 pero no se pueden agregar como destinatarios nuevos.
 
 **Envío de `notificar` (RF-24):** `notificaciones_service.ejecutar_notificar` renderiza la
@@ -326,6 +325,31 @@ destinatario, asunto y cuerpo) y le pide a n8n el envío (`n8n_client.enviar_ema
 siempre a los `destinatarios_regla`. El cuerpo sale de la plantilla de la regla si tiene una y, si
 no, de `accion_config.mensaje` (asunto `Alerta interna: <nombre de la regla>`). Sin ninguno de los
 dos la ejecución falla.
+
+**Tareas (#89):** `tareas_service.py` ejecuta `crear_tarea` y `escalar_caso`. `TAREA` tiene un único
+responsable (`usuario_id`), así que ambas crean una tarea por cada usuario activo de la regla (directo
+o por rol, sin repetir). Sin usuarios activos la ejecución queda `fallido`, igual que si superan
+`MAX_DESTINATARIOS_POR_EJECUCION`.
+
+- `crear_tarea` crea tareas `pendiente` con el `titulo`, la `descripcion` y la `prioridad` de la
+  config; `dias_para_vencer` fija `fecha_vencimiento`. `entidad`/`entidad_id` salen del evento.
+- `escalar_caso` busca las tareas abiertas (`pendiente` o `en_progreso`) de la misma entidad, las pasa
+  a `escalada` y crea una tarea nueva `pendiente` por cada usuario de la regla, con la prioridad de la
+  config y encadenada con `tarea_id` a la más reciente de las escaladas. Sin tareas abiertas crea la
+  tarea sin antecesora. `escalar_caso` nace con aprobación humana (#15): la ejecución queda
+  `pendiente` hasta que alguien la apruebe (ver "Historial, reintentos y aprobaciones"); con
+  `requiere_aprobacion_humana = false` corre sola.
+- Un reintento no duplica trabajo: los usuarios que ya tienen una tarea de esa regla y ese evento no
+  reciben otra, y las tareas que creó la propia regla no se vuelven a escalar.
+
+La bandeja (`GET /workflows/tareas`, `GET /workflows/tareas/{id}`, `PATCH /workflows/tareas/{id}/estado`)
+es de cada persona: cualquiera con sesión y rol activo ve las tareas que se le asignaron, aunque su rol
+no tenga permisos de Workflows. Con `workflows.leer` se ven las de todos (`solo_mias=true` filtra las
+propias) y con `workflows.actualizar` además se pueden avanzar las ajenas. Una tarea ajena para quien no
+tiene permiso responde `404`. El listado admite `estado`, `prioridad`, `pagina` y `tamanio_pagina`, y el
+detalle incluye la cadena de escalamiento. Una persona solo puede avanzar la tarea
+(`pendiente → en_progreso → completada`): `escalada` la pone el motor y `completada` no se reabre.
+Cada cambio de estado queda en `AUDIT_LOG`.
 
 - `destinatarios_regla`: usuarios y roles de la regla, solo los activos.
 - `responsables_habilitados`: familias del alumno con `recibe_comunicaciones`.

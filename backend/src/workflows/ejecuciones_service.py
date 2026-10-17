@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, aliased
 
 from src.auditoria.service import log_audit
 from src.models import EventLog
-from src.workflows import despacho_service, notificaciones_service
+from src.workflows import despacho_service, notificaciones_service, tareas_service
 from src.workflows.constants import ERROR_ACCION_NO_IMPLEMENTADA
 from src.workflows.despacho_service import ERROR_ACCION, ERROR_CONFIGURACION, ERROR_EVALUACION
 from src.workflows.exceptions import (
@@ -303,6 +303,7 @@ def _error_detail_publico(error_detail: str | None, tipo_accion: str) -> str | N
         ERROR_CONFIGURACION,
         ERROR_ACCION,
         *notificaciones_service.ERRORES_CONTROLADOS,
+        *tareas_service.ERRORES_CONTROLADOS,
         "La regla ya no aplica al evento original.",
         ERROR_ACCION_NO_IMPLEMENTADA.format(tipo_accion=tipo_accion),
     }

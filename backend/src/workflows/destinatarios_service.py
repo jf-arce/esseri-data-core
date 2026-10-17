@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.auditoria.service import log_audit
-from src.auth.models import Rol, Usuario
+from src.auth.models import Rol, Usuario, UsuarioRol
 from src.workflows.exceptions import (
     DestinatarioNoEncontrado,
     DestinatariosEnConflicto,
@@ -24,7 +24,8 @@ from src.workflows.schemas import (
 
 
 def config_admite_destinatarios(tipo_accion: str, accion_config: dict[str, object] | None) -> bool:
-    if tipo_accion == "alerta_interna":
+    # `crear_tarea` y `escalar_caso` también los usan: son las personas a quienes se asigna.
+    if tipo_accion in {"alerta_interna", "crear_tarea", "escalar_caso"}:
         return True
     return (
         tipo_accion in {"notificar", "generar_recordatorio", "generar_comunicacion"}
@@ -40,6 +41,26 @@ def regla_tiene_destinatarios(db: Session, regla_id: uuid.UUID) -> bool:
             .limit(1)
         )
         is not None
+    )
+
+
+def usuarios_activos_de_regla(db: Session, regla_id: uuid.UUID) -> list[Usuario]:
+    """Usuarios activos de la regla (directos o por rol), sin repetir y ordenados por email."""
+    asignados = db.scalars(
+        select(ReglaDestinatario).where(ReglaDestinatario.workflow_rule_id == regla_id)
+    ).all()
+    usuarios_ids = {a.usuario_id for a in asignados if a.usuario_id is not None}
+    roles_ids = {a.rol_id for a in asignados if a.rol_id is not None}
+    por_rol = select(UsuarioRol.usuario_id).where(UsuarioRol.rol_id.in_(roles_ids))
+    return list(
+        db.scalars(
+            select(Usuario)
+            .where(
+                Usuario.estado == "activo",
+                Usuario.id.in_(usuarios_ids) | Usuario.id.in_(por_rol),
+            )
+            .order_by(Usuario.email)
+        )
     )
 
 

@@ -145,6 +145,22 @@ describe('filtrarNav', () => {
   })
 })
 
+describe('filtrarNav: ítem personal "Tareas"', () => {
+  const hrefs = (grupos: ReturnType<typeof filtrarNav>) =>
+    grupos.flatMap((grupo) => grupo.items.map((item) => item.href))
+
+  it('lo ve cualquier rol de consola, aunque no tenga permisos de Workflows', () => {
+    expect(hrefs(filtrarNav(NAV_GROUPS, 'secretaría', []))).toContain('/workflows/tareas')
+    expect(
+      hrefs(filtrarNav(NAV_GROUPS, 'secretaría', [permiso('familias_alumnos.leer')])),
+    ).toContain('/workflows/tareas')
+  })
+
+  it('sin un rol activo elegido no se muestra', () => {
+    expect(hrefs(filtrarNav(NAV_GROUPS, null, []))).not.toContain('/workflows/tareas')
+  })
+})
+
 describe('rutaInicioDe', () => {
   it('dirección va a /panel', () => {
     expect(rutaInicioDe('direccion', [permiso('panel_administrativo.leer')])).toBe('/panel')
@@ -166,6 +182,10 @@ describe('rutaInicioDe', () => {
 
   it('un rol de consola sin ningún acceso devuelve null (pantalla "sin acceso")', () => {
     expect(rutaInicioDe('secretaría', [])).toBeNull()
+  })
+
+  it('la bandeja de tareas, que es personal, nunca es la pantalla de inicio', () => {
+    expect(rutaInicioDe('secretaría', [])).not.toBe('/workflows/tareas')
   })
 
   it('docente (Portal) siempre cae en /docente: todavía no tiene pantallas propias', () => {

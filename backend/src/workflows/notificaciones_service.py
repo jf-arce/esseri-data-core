@@ -15,12 +15,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.academico.models import JustificacionInasistencia
-from src.auth.models import Usuario, UsuarioRol
+from src.auth.models import Usuario
 from src.facturacion.models import Factura, Pago, ResponsableEconomico
 from src.familias_alumnos.models import Familia, FamiliaAlumno
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import EventLog
-from src.workflows import n8n_client, plantillas_service
+from src.workflows import destinatarios_service, n8n_client, plantillas_service
 from src.workflows.constants import MAX_DESTINATARIOS_POR_EJECUCION
 from src.workflows.exceptions import (
     N8nNoConfigurado,
@@ -31,7 +31,6 @@ from src.workflows.exceptions import (
 from src.workflows.models import (
     Notificacion,
     NotificacionTemplate,
-    ReglaDestinatario,
     WorkflowExecution,
     WorkflowRule,
 )
@@ -135,18 +134,7 @@ def _deduplicar(destinatarios: list[Destinatario]) -> list[Destinatario]:
 
 
 def _destinatarios_de_regla(db: Session, regla: WorkflowRule) -> list[Destinatario]:
-    asignados = db.scalars(
-        select(ReglaDestinatario).where(ReglaDestinatario.workflow_rule_id == regla.id)
-    ).all()
-    usuarios_ids = {a.usuario_id for a in asignados if a.usuario_id is not None}
-    roles_ids = {a.rol_id for a in asignados if a.rol_id is not None}
-    consulta = select(Usuario).where(Usuario.estado == "activo")
-    por_rol = select(UsuarioRol.usuario_id).where(UsuarioRol.rol_id.in_(roles_ids))
-    usuarios = db.scalars(
-        consulta.where(Usuario.id.in_(usuarios_ids) | Usuario.id.in_(por_rol)).order_by(
-            Usuario.email
-        )
-    )
+    usuarios = destinatarios_service.usuarios_activos_de_regla(db, regla.id)
     return [Destinatario(tipo="usuario", email=u.email, usuario_id=u.id) for u in usuarios]
 
 

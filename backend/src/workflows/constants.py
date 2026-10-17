@@ -105,6 +105,16 @@ CAMBIOS_ESTADO_PERMITIDOS: dict[str, frozenset[str]] = {
 
 Destinatario = Literal["responsable_economico", "responsables_habilitados", "destinatarios_regla"]
 PrioridadTarea = Literal["baja", "media", "alta"]
+EstadoTarea = Literal["pendiente", "en_progreso", "completada", "escalada"]
+ESTADOS_TAREA: tuple[str, ...] = get_args(EstadoTarea)
+# Una tarea abierta es la que todavía tiene responsable activo: `escalada` ya pasó a otra persona y
+# `completada` está cerrada, así que solo estas dos se pueden escalar o cambiar de estado.
+ESTADOS_TAREA_ABIERTA: tuple[str, ...] = ("pendiente", "en_progreso")
+# Cambios de estado que puede hacer una persona desde la bandeja. `escalada` solo la pone el motor.
+TRANSICIONES_TAREA: dict[str, frozenset[str]] = {
+    "pendiente": frozenset({"en_progreso", "completada"}),
+    "en_progreso": frozenset({"completada"}),
+}
 
 Operador = Literal["==", "!=", ">", ">=", "<", "<=", "contiene"]
 OPERADORES_POR_TIPO_DATO: dict[str, frozenset[str]] = {

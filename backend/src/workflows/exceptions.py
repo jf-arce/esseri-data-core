@@ -150,3 +150,17 @@ class CondicionInvalida(AppException):
 
     def __init__(self, message: str):
         super().__init__(message)
+
+
+class TareaNoEncontrada(AppException):
+    status_code = 404
+
+    def __init__(self, message: str = "La tarea indicada no existe."):
+        super().__init__(message)
+
+
+class TransicionTareaInvalida(AppException):
+    status_code = 409
+
+    def __init__(self, message: str):
+        super().__init__(message)

@@ -27,6 +27,7 @@ import {
 } from '@/modules/workflows/types'
 import {
   admiteDestinatarios,
+  asignaTareas,
   cambiarAccion,
   ETIQUETA_ACCION,
   ETIQUETA_CRITICIDAD,
@@ -166,7 +167,11 @@ export function PanelAccion({
             />
           )}
           {admiteDestinatarios(valores.tipoAccion, valores.config) && (
-            <DestinatariosCampos {...destinatarios} deshabilitado={deshabilitado} />
+            <DestinatariosCampos
+              {...destinatarios}
+              deshabilitado={deshabilitado}
+              etiqueta={asignaTareas(valores.tipoAccion) ? 'Asignar a' : undefined}
+            />
           )}
         </div>
       )}
