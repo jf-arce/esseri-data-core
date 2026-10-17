@@ -37,8 +37,7 @@ def _error(motivo: str) -> ResultadoAccion:
 def _vencer_factura(db: Session, evento: EventLog, *, respetar_fecha: bool) -> ResultadoAccion:
     if evento.entidad != "factura":
         return _error("La acción requiere una factura.")
-    # Refresca también una instancia ya cargada: pudo haberse pagado mientras esperábamos
-    # el bloqueo. El pago usa el mismo bloqueo de fila en facturas_service.
+    # populate_existing: la factura pudo pagarse mientras esperábamos el bloqueo.
     factura = db.scalar(
         select(Factura)
         .where(Factura.id == evento.entidad_id)

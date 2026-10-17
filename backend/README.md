@@ -236,13 +236,13 @@ por el inicio de la ejecución (la más reciente primero), porque `NOTIFICACION`
 y `sent_at` es `NULL` en las fallidas. Un reintento aparece como filas nuevas con su `intento`.
 
 **Estado actual:** `notificar`, `alerta_interna`, `aplicar_vencimiento` y `cambiar_estado`
-tienen ejecutor real. Las demás acciones registradas en `ACCIONES` (`despacho_service.py`)
-siguen con un stub por dueño que devuelve "acción no implementada", así que una regla sin
-aprobación humana queda `fallido` hasta que su dueño lo reemplace (#199):
+tienen ejecutor real. El resto de `ACCIONES` (`despacho_service.py`) sigue con un stub por dueño
+que devuelve "acción no implementada", así que una regla sin aprobación humana queda `fallido`
+hasta que su dueño lo reemplace (#199):
 
 | Acción | Archivo | Dueño |
 |---|---|---|
-| `aplicar_vencimiento`, `cambiar_estado` (implementadas) | `acciones_vencimiento_service.py` | Arce |
+| `aplicar_vencimiento`, `cambiar_estado` | `acciones_vencimiento_service.py` | Arce |
 | `aplicar_penalidad` | `acciones_penalidad_service.py` | Carreon |
 | `generar_cargo` | `acciones_admision_service.py` | Carreon |
 | `registrar_rechazo` | `acciones_pagos_service.py` | Carreon |
@@ -250,15 +250,13 @@ aprobación humana queda `fallido` hasta que su dueño lo reemplace (#199):
 | `crear_tarea`, `escalar_caso` | `tareas_service.py` | Arce |
 | `generar_recordatorio` | `acciones_recordatorio_service.py` | Arce |
 
-`factura.vencida` deberá emitirlo el job de Facturación (#61), que solo detecta facturas vencidas.
-`aplicar_vencimiento` marca la factura `vencida` si ya pasó su fecha efectiva: la mayor entre
-la fecha de la factura y las excepciones autorizadas para la familia de su responsable económico.
-El día exacto del vencimiento todavía no está vencida; se usa la fecha de Buenos Aires. Si hay
-una prórroga vigente, la ejecución queda exitosa sin cambios. Para volver a evaluarla tras la
-prórroga se necesita otro evento; #61 debe contemplarlo al definir la idempotencia del job.
-`cambiar_estado` aplica el destino explícito de `accion_config`
-según `CAMBIOS_ESTADO_PERMITIDOS` (hoy solo `factura → vencida`), sin consultar fechas ni
-excepciones. Ninguna de las dos modifica una factura pagada o ya vencida.
+`aplicar_vencimiento` marca la factura `vencida` cuando ya pasó su fecha efectiva: la mayor entre
+su vencimiento y las excepciones de la familia del responsable económico. El día exacto todavía no
+cuenta como vencida (fecha de Buenos Aires). Con una prórroga vigente la ejecución queda exitosa
+sin cambios, y reevaluarla requiere otro `factura.vencida` (#61 debe contemplarlo en la
+idempotencia del job). `cambiar_estado` aplica el `estado_nuevo` de `accion_config` dentro de
+`CAMBIOS_ESTADO_PERMITIDOS` (hoy solo `factura → vencida`), sin mirar fechas ni excepciones.
+Ninguna modifica una factura pagada o ya vencida.
 
 Contrato del ejecutor: recibe `(db, regla, evento, ejecucion)`, nunca hace `commit` (corre dentro
 de un savepoint) y devuelve un `ResultadoAccion` (`detalle`, `error`). Con `error` la ejecución

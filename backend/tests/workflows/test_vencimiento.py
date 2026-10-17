@@ -28,7 +28,6 @@ def _hoy():
     return HOY
 
 
-# Fija el día del ejecutor: sin esto, un test que cruza la medianoche compara contra otra fecha.
 @pytest.fixture(autouse=True)
 def _fijar_hoy(monkeypatch):
     monkeypatch.setattr(acciones_vencimiento_service, "fecha_operativa_argentina", _hoy)
