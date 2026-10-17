@@ -164,3 +164,17 @@ class TransicionTareaInvalida(AppException):
 
     def __init__(self, message: str):
         super().__init__(message)
+
+
+class TareaNoReasignable(AppException):
+    status_code = 409
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class AsignadoTareaInvalido(AppException):
+    status_code = 422
+
+    def __init__(self, message: str = "El usuario indicado no existe o no está activo."):
+        super().__init__(message)
