@@ -1,16 +1,17 @@
 """Vencimiento y cambio explícito de estado desde eventos de facturación."""
 
 import uuid
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import timedelta
 
 import pytest
 from sqlalchemy import select
 
 from src.auth.models import Usuario
+from src.facturacion.calendario_facturacion import fecha_operativa_argentina
 from src.facturacion.models import ExcepcionVencimiento, Factura, ResponsableEconomico
 from src.familias_alumnos.models import Familia
 from src.models import Persona
+from src.workflows import acciones_vencimiento_service
 from src.workflows.acciones_vencimiento_service import (
     ejecutar_aplicar_vencimiento,
     ejecutar_cambiar_estado,
@@ -20,9 +21,17 @@ from src.workflows.eventos_service import emit_event
 from src.workflows.models import WorkflowExecution, WorkflowRule
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
+HOY = fecha_operativa_argentina()
+
 
 def _hoy():
-    return datetime.now(ZoneInfo("America/Argentina/Buenos_Aires")).date()
+    return HOY
+
+
+# Fija el día del ejecutor: sin esto, un test que cruza la medianoche compara contra otra fecha.
+@pytest.fixture(autouse=True)
+def _fijar_hoy(monkeypatch):
+    monkeypatch.setattr(acciones_vencimiento_service, "fecha_operativa_argentina", _hoy)
 
 
 @pytest.fixture()

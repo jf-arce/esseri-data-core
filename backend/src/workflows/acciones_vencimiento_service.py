@@ -1,11 +1,9 @@
 """Ejecutores de vencimiento y cambio de estado. Dueño: Arce (ver #203)."""
 
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from src.facturacion.calendario_facturacion import fecha_operativa_argentina
 from src.facturacion.models import ExcepcionVencimiento, Factura, ResponsableEconomico
 from src.models import EventLog
 from src.workflows.constants import CAMBIOS_ESTADO_PERMITIDOS
@@ -68,8 +66,7 @@ def _vencer_factura(db: Session, evento: EventLog, *, respetar_fecha: bool) -> R
         vencimiento = factura.fecha_vencimiento
         if excepcion is not None:
             vencimiento = max(vencimiento, excepcion)
-        hoy = datetime.now(ZoneInfo("America/Argentina/Buenos_Aires")).date()
-        if hoy <= vencimiento:
+        if fecha_operativa_argentina() <= vencimiento:
             return ResultadoAccion(
                 detalle=f"Sin cambios: el vencimiento efectivo es {vencimiento.isoformat()}."
             )
