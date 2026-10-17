@@ -1038,7 +1038,7 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 |---|---|
 | inasistencia.registrada | Se registró una ausencia |
 | inasistencia.justificada | `[ACLARACIÓN CLIENTE]` Se resolvió una justificación de ausencia |
-| factura.vencida | Una factura pasó a estado vencida |
+| factura.vencida | Una factura impaga superó su fecha de vencimiento |
 | inscripcion.cambio_matricula | Cambio de nivel, división o baja |
 | solicitud_inscripcion.aprobada | `[ACLARACIÓN CLIENTE]` Una solicitud de admisión llegó a etapa aprobada |
 | pago.registrado | `[ACLARACIÓN CLIENTE]` Se confirmó un pago |
