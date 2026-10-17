@@ -5,16 +5,18 @@ import { ESTADO_USUARIO_ACTIVO } from '@/modules/workflows/constants'
 import type { Rol, UsuarioConRoles } from '@/modules/auth/types'
 
 /** Roles y usuarios activos para elegir destinatarios. Los endpoints son de Autenticación (otro
- * permiso): si alguno responde 403 o falla, `noDisponible` es true y el editor sigue andando. */
-export function useDestinatariosDisponibles() {
+ * permiso): si alguno responde 403 o falla, `noDisponible` es true y el editor sigue andando.
+ * Con `habilitado` en false no pide nada: quien no puede usar la lista se ahorra los pedidos. */
+export function useDestinatariosDisponibles(habilitado = true) {
   const [resultado, setResultado] = useState<{
     roles: Rol[]
     usuarios: UsuarioConRoles[]
     cargando: boolean
     noDisponible: boolean
-  }>({ roles: [], usuarios: [], cargando: true, noDisponible: false })
+  }>({ roles: [], usuarios: [], cargando: habilitado, noDisponible: !habilitado })
 
   useEffect(() => {
+    if (!habilitado) return
     let vigente = true
     Promise.all([getRoles(), getUsuarios()])
       .then(([roles, usuarios]) => {
@@ -32,7 +34,7 @@ export function useDestinatariosDisponibles() {
     return () => {
       vigente = false
     }
-  }, [])
+  }, [habilitado])
 
   return resultado
 }

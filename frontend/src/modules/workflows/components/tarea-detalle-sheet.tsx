@@ -8,6 +8,8 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
+import type { UsuarioConRoles } from '@/modules/auth/types'
+import { ReasignarTarea } from '@/modules/workflows/components/reasignar-tarea'
 import { BotonAvanzar, type EstadoAvance } from '@/modules/workflows/components/tareas-tabla'
 import { useTarea } from '@/modules/workflows/hooks/use-tarea'
 import type { Tarea } from '@/modules/workflows/types'
@@ -38,6 +40,11 @@ interface TareaDetalleSheetProps {
   puedeAvanzar: boolean
   avanzando: boolean
   onAvanzar: (tarea: Tarea, estado: EstadoAvance) => void
+  /** Con `workflows.actualizar` y la lista de usuarios disponible se ofrece reasignar. */
+  puedeReasignar: boolean
+  usuarios: UsuarioConRoles[]
+  reasignando: boolean
+  onReasignar: (tarea: Tarea, usuarioId: string) => void
   onCerrar: () => void
 }
 
@@ -47,6 +54,10 @@ export function TareaDetalleSheet({
   puedeAvanzar,
   avanzando,
   onAvanzar,
+  puedeReasignar,
+  usuarios,
+  reasignando,
+  onReasignar,
   onCerrar,
 }: TareaDetalleSheetProps) {
   const { datos, error, cargando } = useTarea(tarea?.id ?? null, revision)
@@ -104,6 +115,16 @@ export function TareaDetalleSheet({
                     />
                   ))}
                 </div>
+              )}
+
+              {puedeReasignar && estadosSiguientesTarea(actual.estado).length > 0 && (
+                <ReasignarTarea
+                  key={actual.id}
+                  usuarios={usuarios}
+                  responsableId={actual.usuario_id}
+                  reasignando={reasignando}
+                  onReasignar={(usuarioId) => onReasignar(tarea, usuarioId)}
+                />
               )}
 
               <section className="flex flex-col gap-2">

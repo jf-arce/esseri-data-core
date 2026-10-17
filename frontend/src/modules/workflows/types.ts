@@ -263,9 +263,21 @@ export interface TareaListado {
 export interface FiltrosTareas {
   estado?: EstadoTarea
   prioridad?: PrioridadTarea
+  /** Responsable de la tarea; el backend lo ignora sin `workflows.leer` y con `soloMias`. */
+  usuarioId?: string
   soloMias: boolean
   pagina: number
   tamanioPagina: number
+}
+
+/** Opción de una lista de selección única con buscador (`ComboboxBuscable`). */
+export interface OpcionCombo {
+  valor: string
+  etiqueta: string
+  /** Texto secundario (p. ej. el email) que también encuentra el buscador. */
+  detalle?: string
+  /** Las opciones con el mismo grupo se muestran juntas, bajo su título. */
+  grupo?: string
 }
 
 export interface OpcionSelect {

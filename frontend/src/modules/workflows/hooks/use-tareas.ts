@@ -19,10 +19,11 @@ export function useTareas(filtros: FiltrosTareas) {
     error: string | null
   }>({ clave: null, datos: LISTADO_VACIO, error: null })
 
-  const { estado, prioridad, soloMias, pagina, tamanioPagina } = filtros
+  const { estado, prioridad, usuarioId, soloMias, pagina, tamanioPagina } = filtros
   const claveSolicitud = JSON.stringify([
     estado,
     prioridad,
+    usuarioId,
     soloMias,
     pagina,
     tamanioPagina,
@@ -34,7 +35,10 @@ export function useTareas(filtros: FiltrosTareas) {
   useEffect(() => {
     const controller = new AbortController()
 
-    listarTareas({ estado, prioridad, soloMias, pagina, tamanioPagina }, controller.signal)
+    listarTareas(
+      { estado, prioridad, usuarioId, soloMias, pagina, tamanioPagina },
+      controller.signal,
+    )
       .then((datos) => {
         setResultado({ clave: claveSolicitud, datos, error: null })
       })
@@ -48,7 +52,7 @@ export function useTareas(filtros: FiltrosTareas) {
       })
 
     return () => controller.abort()
-  }, [claveSolicitud, estado, prioridad, soloMias, pagina, tamanioPagina])
+  }, [claveSolicitud, estado, prioridad, usuarioId, soloMias, pagina, tamanioPagina])
 
   const solicitudVigente = resultado.clave === claveSolicitud
 

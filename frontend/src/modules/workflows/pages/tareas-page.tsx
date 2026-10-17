@@ -13,11 +13,19 @@ import {
   PERMISO_WORKFLOWS_LEER,
   tienePermiso,
 } from '@/modules/auth/constants'
-import { FILTRO_TODOS, TAMANIO_PAGINA_TAREAS } from '@/modules/workflows/constants'
+import {
+  FILTRO_TODOS,
+  RESPONSABLE_TODOS,
+  RESPONSABLE_YO,
+  TAMANIO_PAGINA_TAREAS,
+} from '@/modules/workflows/constants'
+import { FiltroResponsable } from '@/modules/workflows/components/filtro-responsable'
 import { TareaDetalleSheet } from '@/modules/workflows/components/tarea-detalle-sheet'
 import { TareasTabla, type EstadoAvance } from '@/modules/workflows/components/tareas-tabla'
+import { useDestinatariosDisponibles } from '@/modules/workflows/hooks/use-destinatarios-disponibles'
 import { useTareas } from '@/modules/workflows/hooks/use-tareas'
 import { cambiarEstadoTarea } from '@/modules/workflows/services/cambiar-estado-tarea'
+import { reasignarTarea } from '@/modules/workflows/services/reasignar-tarea'
 import type { Tarea } from '@/modules/workflows/types'
 import {
   esEstadoTareaFiltro,
@@ -44,13 +52,6 @@ const OPCIONES_PRIORIDAD: { value: PrioridadTareaFiltro; label: string }[] = [
   { value: 'baja', label: ETIQUETA_PRIORIDAD_TAREA.baja },
 ]
 
-const ASIGNACION_TODAS = 'todas'
-const ASIGNACION_MIAS = 'mias'
-const OPCIONES_ASIGNACION = [
-  { value: ASIGNACION_TODAS, label: 'De todos' },
-  { value: ASIGNACION_MIAS, label: 'Asignadas a mí' },
-]
-
 const MENSAJE_AVANCE: Record<EstadoAvance, string> = {
   en_progreso: 'La tarea quedó en progreso.',
   completada: 'La tarea se completó.',
@@ -59,23 +60,31 @@ const MENSAJE_AVANCE: Record<EstadoAvance, string> = {
 export function TareasPage() {
   const [estado, setEstado] = useState<EstadoTareaFiltro>(FILTRO_TODOS)
   const [prioridad, setPrioridad] = useState<PrioridadTareaFiltro>(FILTRO_TODOS)
-  const [asignacion, setAsignacion] = useState(ASIGNACION_TODAS)
+  const [responsable, setResponsable] = useState(RESPONSABLE_TODOS)
   const [pagina, setPagina] = useState(1)
   const [detalle, setDetalle] = useState<Tarea | null>(null)
   const [revisionDetalle, setRevisionDetalle] = useState(0)
   const [avanzandoId, setAvanzandoId] = useState<string | null>(null)
+  const [reasignandoId, setReasignandoId] = useState<string | null>(null)
   // El estado no alcanza para frenar un segundo clic dentro del mismo render.
   const avanceEnCurso = useRef(false)
+  const reasignacionEnCurso = useRef(false)
   const permisos = useAuthStore(permisosActivos)
   const usuarioId = useAuthStore((almacen) => almacen.usuario?.id)
   // Sin `workflows.leer` el backend devuelve solo las tareas propias, así que el filtro sobra.
   const veTodas = tienePermiso(permisos, PERMISO_WORKFLOWS_LEER)
-  const gestionaTodas = veTodas && tienePermiso(permisos, PERMISO_WORKFLOWS_ACTUALIZAR)
+  const puedeActualizar = tienePermiso(permisos, PERMISO_WORKFLOWS_ACTUALIZAR)
+  const gestionaTodas = veTodas && puedeActualizar
+  // La lista de usuarios es de Autenticación (otro permiso): solo se pide si alguna de las dos
+  // cosas que la usan (filtrar por responsable, reasignar) está al alcance de la persona.
+  const usuariosDisponibles = useDestinatariosDisponibles(veTodas || puedeActualizar)
 
   const { datos, cargando, error, recargar } = useTareas({
     estado: estado === FILTRO_TODOS ? undefined : estado,
     prioridad: prioridad === FILTRO_TODOS ? undefined : prioridad,
-    soloMias: asignacion === ASIGNACION_MIAS,
+    soloMias: responsable === RESPONSABLE_YO,
+    usuarioId:
+      responsable === RESPONSABLE_TODOS || responsable === RESPONSABLE_YO ? undefined : responsable,
     pagina,
     tamanioPagina: TAMANIO_PAGINA_TAREAS,
   })
@@ -101,9 +110,26 @@ export function TareasPage() {
     }
   }
 
+  async function reasignar(tarea: Tarea, usuarioId: string) {
+    if (reasignacionEnCurso.current) return
+    reasignacionEnCurso.current = true
+    setReasignandoId(tarea.id)
+    try {
+      const reasignada = await reasignarTarea(tarea.id, usuarioId)
+      toast.success(`La tarea se reasignó a ${reasignada.usuario_email}.`)
+    } catch (causa) {
+      toast.error(causa instanceof ApiError ? causa.detail : 'No se pudo reasignar la tarea.')
+    } finally {
+      reasignacionEnCurso.current = false
+      setReasignandoId(null)
+      setRevisionDetalle((actual) => actual + 1)
+      recargar()
+    }
+  }
+
   const hayFiltros = estado !== FILTRO_TODOS || prioridad !== FILTRO_TODOS
   const sinTareas =
-    !cargando && !error && datos.total === 0 && !hayFiltros && asignacion === ASIGNACION_TODAS
+    !cargando && !error && datos.total === 0 && !hayFiltros && responsable === RESPONSABLE_TODOS
 
   return (
     <div className="flex flex-col gap-5">
@@ -158,15 +184,13 @@ export function TareasPage() {
                 active={prioridad !== FILTRO_TODOS}
               />
               {veTodas && (
-                <FilterDropdown
-                  label="Asignación"
-                  options={OPCIONES_ASIGNACION}
-                  value={asignacion}
-                  onChange={(valor) => {
-                    setAsignacion(valor)
+                <FiltroResponsable
+                  valor={responsable}
+                  usuarios={usuariosDisponibles.usuarios}
+                  onCambiar={(valor) => {
+                    setResponsable(valor)
                     setPagina(1)
                   }}
-                  active={asignacion !== ASIGNACION_TODAS}
                 />
               )}
               <FilterBarSpacer />
@@ -198,6 +222,10 @@ export function TareasPage() {
         puedeAvanzar={detalle !== null && puedeAvanzar(detalle)}
         avanzando={detalle !== null && avanzandoId === detalle.id}
         onAvanzar={avanzar}
+        puedeReasignar={puedeActualizar && !usuariosDisponibles.noDisponible}
+        usuarios={usuariosDisponibles.usuarios}
+        reasignando={detalle !== null && reasignandoId === detalle.id}
+        onReasignar={reasignar}
         onCerrar={() => setDetalle(null)}
       />
     </div>

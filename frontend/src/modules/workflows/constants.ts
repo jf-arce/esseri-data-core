@@ -58,6 +58,10 @@ export function apiEstadoTarea(id: string): string {
   return `${apiTarea(id)}/estado`
 }
 
+export function apiAsignadoTarea(id: string): string {
+  return `${apiTarea(id)}/asignado`
+}
+
 export const API_NOTIFICACIONES = '/workflows/notificaciones'
 
 export function apiNotificacion(id: string): string {
@@ -69,6 +73,9 @@ export function apiNotificacion(id: string): string {
 export const LOCALE = 'es-AR'
 /** Valor del filtro que no restringe nada. */
 export const FILTRO_TODOS = 'todos'
+// Valores del filtro por responsable de la bandeja de tareas; cualquier otro es el id de un usuario.
+export const RESPONSABLE_TODOS = 'todos'
+export const RESPONSABLE_YO = 'yo'
 export const FILTRO_ACTIVAS = 'activas'
 export const FILTRO_INACTIVAS = 'inactivas'
 export const ESTADOS_REGLA_FILTRO = [FILTRO_TODOS, FILTRO_ACTIVAS, FILTRO_INACTIVAS] as const

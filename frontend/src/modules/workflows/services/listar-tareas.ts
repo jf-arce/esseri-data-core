@@ -10,6 +10,7 @@ export function listarTareas(filtros: FiltrosTareas, signal?: AbortSignal) {
 
   if (filtros.estado) parametros.set('estado', filtros.estado)
   if (filtros.prioridad) parametros.set('prioridad', filtros.prioridad)
+  if (filtros.usuarioId) parametros.set('usuario_id', filtros.usuarioId)
   if (filtros.soloMias) parametros.set('solo_mias', 'true')
 
   return apiClient<TareaListado>(`${API_TAREAS}?${parametros.toString()}`, { signal })
