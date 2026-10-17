@@ -1,78 +1,29 @@
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from src.models import AuditLog
-from src.workflows import despacho_service
-from src.workflows.eventos_service import emit_event
-from src.workflows.models import WorkflowExecution, WorkflowRule
+from src.workflows import despacho_service, ejecuciones_service
+from src.workflows.models import WorkflowExecution
 from src.workflows.schemas import ResultadoAccion
-
-
-def _ahora_utc_naive() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
-
-
-def _crear_ejecucion(
-    db,
-    tipo_evento,
-    *,
-    estado="fallido",
-    intento=1,
-    started_at=None,
-    nombre="Avisar mora",
-):
-    regla = WorkflowRule(
-        nombre=nombre,
-        condicion={},
-        tipo_accion="notificar",
-        accion_config={"destinatario": "responsables_habilitados"},
-        criticidad="media",
-        requiere_aprobacion_humana=False,
-        activo=True,
-        tipo_evento_id=tipo_evento.id,
-    )
-    db.add(regla)
-    db.commit()
-    evento = emit_event(
-        db,
-        tipo="factura.vencida",
-        entidad="factura",
-        entidad_id=uuid.uuid4(),
-        payload={"dias_vencido": 6, "monto_deuda": 100},
-    )
-    evento.estado = "procesado"
-    db.commit()
-    inicio = started_at or _ahora_utc_naive()
-    ejecucion = WorkflowExecution(
-        intento=intento,
-        started_at=inicio,
-        finished_at=inicio + timedelta(seconds=1) if estado != "pendiente" else None,
-        estado=estado,
-        error_detail="falló el envío" if estado == "fallido" else None,
-        workflow_rule_id=regla.id,
-        event_log_id=evento.id,
-    )
-    db.add(ejecucion)
-    db.commit()
-    return regla, evento, ejecucion
+from tests.workflows.conftest import ahora_utc_naive, crear_ejecucion
 
 
 def test_listado_filtra_pagina_y_expone_trazabilidad_sin_payload(
     client_autenticado, db_session, tipo_factura_vencida
 ):
-    ahora = _ahora_utc_naive()
-    _, _, fallida = _crear_ejecucion(
+    ahora = ahora_utc_naive()
+    _, _, fallida = crear_ejecucion(
         db_session,
         tipo_factura_vencida,
         estado="fallido",
         started_at=ahora,
         nombre="Primera",
     )
-    _crear_ejecucion(
+    crear_ejecucion(
         db_session,
         tipo_factura_vencida,
         estado="exitoso",
@@ -106,11 +57,11 @@ def test_listado_filtra_pagina_y_expone_trazabilidad_sin_payload(
 def test_listado_ordenado_por_inicio_descendente(
     client_autenticado, db_session, tipo_factura_vencida
 ):
-    ahora = _ahora_utc_naive()
-    _, _, antigua = _crear_ejecucion(
+    ahora = ahora_utc_naive()
+    _, _, antigua = crear_ejecucion(
         db_session, tipo_factura_vencida, started_at=ahora, nombre="Antigua"
     )
-    _, _, nueva = _crear_ejecucion(
+    _, _, nueva = crear_ejecucion(
         db_session,
         tipo_factura_vencida,
         started_at=ahora + timedelta(minutes=1),
@@ -135,7 +86,7 @@ def test_reintento_crea_fila_nueva_y_audita_usuario(
     usuario_workflows,
     monkeypatch,
 ):
-    _, evento, anterior = _crear_ejecucion(db_session, tipo_factura_vencida)
+    _, evento, anterior = crear_ejecucion(db_session, tipo_factura_vencida)
     monkeypatch.setattr(
         despacho_service,
         "ACCIONES",
@@ -171,12 +122,12 @@ def test_reintento_crea_fila_nueva_y_audita_usuario(
 
 
 def test_no_reintenta_un_intento_anterior(client_autenticado, db_session, tipo_factura_vencida):
-    regla, evento, anterior = _crear_ejecucion(db_session, tipo_factura_vencida)
+    regla, evento, anterior = crear_ejecucion(db_session, tipo_factura_vencida)
     db_session.add(
         WorkflowExecution(
             intento=2,
-            started_at=_ahora_utc_naive() + timedelta(minutes=1),
-            finished_at=_ahora_utc_naive() + timedelta(minutes=1, seconds=1),
+            started_at=ahora_utc_naive() + timedelta(minutes=1),
+            finished_at=ahora_utc_naive() + timedelta(minutes=1, seconds=1),
             estado="fallido",
             error_detail="segundo fallo",
             workflow_rule_id=regla.id,
@@ -192,7 +143,7 @@ def test_no_reintenta_un_intento_anterior(client_autenticado, db_session, tipo_f
 
 
 def test_no_reintenta_regla_modificada(client_autenticado, db_session, tipo_factura_vencida):
-    regla, _, ejecucion = _crear_ejecucion(db_session, tipo_factura_vencida)
+    regla, _, ejecucion = crear_ejecucion(db_session, tipo_factura_vencida)
     regla.updated_at = ejecucion.started_at + timedelta(minutes=1)
     db_session.commit()
 
@@ -203,7 +154,7 @@ def test_no_reintenta_regla_modificada(client_autenticado, db_session, tipo_fact
 
 
 def test_no_reintenta_regla_inactiva(client_autenticado, db_session, tipo_factura_vencida):
-    regla, _, ejecucion = _crear_ejecucion(db_session, tipo_factura_vencida)
+    regla, _, ejecucion = crear_ejecucion(db_session, tipo_factura_vencida)
     regla.activo = False
     db_session.commit()
 
@@ -214,7 +165,7 @@ def test_no_reintenta_regla_inactiva(client_autenticado, db_session, tipo_factur
 
 
 def test_no_reintenta_ejecucion_exitosa(client_autenticado, db_session, tipo_factura_vencida):
-    _, _, ejecucion = _crear_ejecucion(db_session, tipo_factura_vencida, estado="exitoso")
+    _, _, ejecucion = crear_ejecucion(db_session, tipo_factura_vencida, estado="exitoso")
 
     respuesta = client_autenticado.post(f"/workflows/ejecuciones/{ejecucion.id}/reintentar")
 
@@ -231,12 +182,12 @@ def _reintentable(client, ejecucion):
 def test_reintentable_solo_en_el_ultimo_intento_fallido(
     client_autenticado, db_session, tipo_factura_vencida
 ):
-    regla, evento, anterior = _crear_ejecucion(db_session, tipo_factura_vencida)
+    regla, evento, anterior = crear_ejecucion(db_session, tipo_factura_vencida)
     assert _reintentable(client_autenticado, anterior) is True
 
     posterior = WorkflowExecution(
         intento=2,
-        started_at=_ahora_utc_naive() + timedelta(minutes=1),
+        started_at=ahora_utc_naive() + timedelta(minutes=1),
         estado="fallido",
         workflow_rule_id=regla.id,
         event_log_id=evento.id,
@@ -251,7 +202,7 @@ def test_reintentable_solo_en_el_ultimo_intento_fallido(
 def test_no_reintentable_si_la_regla_esta_inactiva(
     client_autenticado, db_session, tipo_factura_vencida
 ):
-    regla, _, ejecucion = _crear_ejecucion(db_session, tipo_factura_vencida)
+    regla, _, ejecucion = crear_ejecucion(db_session, tipo_factura_vencida)
     regla.activo = False
     db_session.commit()
 
@@ -261,7 +212,7 @@ def test_no_reintentable_si_la_regla_esta_inactiva(
 def test_no_reintentable_si_la_regla_fue_modificada(
     client_autenticado, db_session, tipo_factura_vencida
 ):
-    regla, _, ejecucion = _crear_ejecucion(db_session, tipo_factura_vencida)
+    regla, _, ejecucion = crear_ejecucion(db_session, tipo_factura_vencida)
     regla.updated_at = ejecucion.started_at + timedelta(minutes=1)
     db_session.commit()
 
@@ -271,13 +222,13 @@ def test_no_reintentable_si_la_regla_fue_modificada(
 def test_no_reintentable_si_la_ejecucion_no_fallo(
     client_autenticado, db_session, tipo_factura_vencida
 ):
-    _, _, ejecucion = _crear_ejecucion(db_session, tipo_factura_vencida, estado="exitoso")
+    _, _, ejecucion = crear_ejecucion(db_session, tipo_factura_vencida, estado="exitoso")
 
     assert _reintentable(client_autenticado, ejecucion) is False
 
 
 def test_no_permite_repetir_numero_de_intento(db_session, tipo_factura_vencida):
-    regla, evento, _ = _crear_ejecucion(db_session, tipo_factura_vencida)
+    regla, evento, _ = crear_ejecucion(db_session, tipo_factura_vencida)
     db_session.add(
         WorkflowExecution(
             intento=1,
@@ -295,7 +246,7 @@ def test_no_permite_repetir_numero_de_intento(db_session, tipo_factura_vencida):
 def test_conflicto_concurrente_de_reintento_es_409(
     client_autenticado, db_session, tipo_factura_vencida, monkeypatch
 ):
-    _, _, ejecucion = _crear_ejecucion(db_session, tipo_factura_vencida)
+    _, _, ejecucion = crear_ejecucion(db_session, tipo_factura_vencida)
 
     def simular_conflicto(*args, **kwargs):
         raise IntegrityError("intento duplicado", {}, Exception())
@@ -313,7 +264,7 @@ def test_historial_exige_autenticacion(client):
 
 
 def test_reintento_exige_actualizacion(client_solo_lectura, db_session, tipo_factura_vencida):
-    _, _, ejecucion = _crear_ejecucion(db_session, tipo_factura_vencida)
+    _, _, ejecucion = crear_ejecucion(db_session, tipo_factura_vencida)
 
     assert client_solo_lectura.get("/workflows/ejecuciones").status_code == 200
     assert (
@@ -328,7 +279,7 @@ def test_servicio_lista_y_reintenta_sin_reescribir_el_intento_anterior(
     usuario_workflows,
     monkeypatch,
 ):
-    _, evento, anterior = _crear_ejecucion(db_session, tipo_factura_vencida)
+    _, evento, anterior = crear_ejecucion(db_session, tipo_factura_vencida)
     monkeypatch.setattr(
         despacho_service,
         "ACCIONES",
@@ -339,13 +290,13 @@ def test_servicio_lista_y_reintenta_sin_reescribir_el_intento_anterior(
         },
     )
 
-    pagina = despacho_service.listar_ejecuciones(
+    pagina = ejecuciones_service.listar_ejecuciones(
         db_session,
         estado="fallido",
         pagina=1,
         tamanio_pagina=20,
     )
-    nueva = despacho_service.reintentar_ejecucion(db_session, anterior.id, usuario_workflows.id)
+    nueva = ejecuciones_service.reintentar_ejecucion(db_session, anterior.id, usuario_workflows.id)
 
     assert pagina.total == 1
     assert pagina.items[0].id == anterior.id

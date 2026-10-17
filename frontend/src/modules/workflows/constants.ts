@@ -64,7 +64,13 @@ export const FILTRO_TODOS = 'todos'
 export const FILTRO_ACTIVAS = 'activas'
 export const FILTRO_INACTIVAS = 'inactivas'
 export const ESTADOS_REGLA_FILTRO = [FILTRO_TODOS, FILTRO_ACTIVAS, FILTRO_INACTIVAS] as const
-export const ESTADOS_EJECUCION_FILTRO = [FILTRO_TODOS, 'exitoso', 'fallido', 'pendiente'] as const
+export const ESTADOS_EJECUCION_FILTRO = [
+  FILTRO_TODOS,
+  'exitoso',
+  'fallido',
+  'pendiente',
+  'rechazado',
+] as const
 export const TAMANIO_PAGINA_EJECUCIONES = 20
 export const ESTADOS_ENVIO_FILTRO = [FILTRO_TODOS, 'enviado', 'fallido', 'pendiente'] as const
 export const DESTINATARIOS_TIPO_FILTRO = [FILTRO_TODOS, 'familia', 'usuario'] as const

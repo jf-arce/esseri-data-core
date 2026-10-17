@@ -299,7 +299,7 @@ class ReglaDestinatariosRead(BaseModel):
     usuarios: list[DestinatarioUsuarioRead]
 
 
-EstadoWorkflowExecution = Literal["exitoso", "fallido", "pendiente"]
+EstadoWorkflowExecution = Literal["exitoso", "fallido", "pendiente", "rechazado"]
 
 
 class WorkflowExecutionRead(BaseModel):
@@ -321,6 +321,16 @@ class WorkflowExecutionRead(BaseModel):
     entidad: str
     entidad_id: uuid.UUID
     reintentable: bool
+    aprobable: bool
+
+
+class EjecucionRechazo(_EntradaEstricta):
+    motivo: str = Field(min_length=1, max_length=500)
+
+    @field_validator("motivo", mode="before")
+    @classmethod
+    def normalizar_motivo(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
 
 
 class WorkflowExecutionListadoRead(BaseModel):

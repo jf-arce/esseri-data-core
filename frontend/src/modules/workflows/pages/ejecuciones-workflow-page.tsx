@@ -27,6 +27,7 @@ const OPCIONES_ESTADO: { value: EstadoEjecucionFiltro; label: string }[] = [
   { value: 'exitoso', label: ETIQUETA_ESTADO_EJECUCION.exitoso },
   { value: 'fallido', label: ETIQUETA_ESTADO_EJECUCION.fallido },
   { value: 'pendiente', label: ETIQUETA_ESTADO_EJECUCION.pendiente },
+  { value: 'rechazado', label: ETIQUETA_ESTADO_EJECUCION.rechazado },
 ]
 
 export function EjecucionesWorkflowPage() {

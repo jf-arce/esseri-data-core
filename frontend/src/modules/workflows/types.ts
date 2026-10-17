@@ -123,7 +123,7 @@ export interface DestinatariosReglaPayload {
   usuario_ids: string[]
 }
 
-export const ESTADOS_EJECUCION = ['exitoso', 'fallido', 'pendiente'] as const
+export const ESTADOS_EJECUCION = ['exitoso', 'fallido', 'pendiente', 'rechazado'] as const
 export type EstadoEjecucion = (typeof ESTADOS_EJECUCION)[number]
 
 export interface EjecucionWorkflow {
@@ -145,6 +145,8 @@ export interface EjecucionWorkflow {
   entidad_id: string
   /** Calculado por el backend; el `POST` vuelve a validar al reintentar. */
   reintentable: boolean
+  /** Calculado por el backend; el `POST` vuelve a validar al aprobar. */
+  aprobable: boolean
 }
 
 export interface EjecucionWorkflowListado {

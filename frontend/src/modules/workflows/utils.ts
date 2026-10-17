@@ -520,10 +520,11 @@ export const ETIQUETA_ESTADO_EJECUCION: Record<EstadoEjecucion, string> = {
   exitoso: 'Exitosa',
   fallido: 'Fallida',
   pendiente: 'Pendiente',
+  rechazado: 'Rechazada',
 }
 
 export const VARIANTE_ESTADO_EJECUCION: Record<EstadoEjecucion, 'exito' | 'error' | 'advertencia'> =
-  { exitoso: 'exito', fallido: 'error', pendiente: 'advertencia' }
+  { exitoso: 'exito', fallido: 'error', pendiente: 'advertencia', rechazado: 'advertencia' }
 
 export type EstadoEnvioFiltro = (typeof ESTADOS_ENVIO_FILTRO)[number]
 

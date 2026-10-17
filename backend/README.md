@@ -109,6 +109,14 @@ El job no usa una fecha global de emisión: cada regla activa con
 `modo_generacion = automatica` define su propio `dia_generacion`. Si una corrida no se completa,
 el período sigue pendiente y se reintenta sin duplicar cargos.
 
+Después de facturar, la misma corrida detecta las facturas vencidas (`vencimientos_service.py`) y
+emite `factura.vencida` una vez por tramo activo de `REGLA_PENALIDAD` (con el seed, días 1, 6 y 16
+de mora). Solo emite el evento: el cambio de estado y la penalidad los hacen las acciones del
+workflow. Una `EXCEPCION_VENCIMIENTO` del mismo mes corre la fecha desde la que se cuentan los días.
+
+Para forzar una pasada: `POST /facturacion/vencimientos/procesar`. Con `fecha_referencia` simula
+días de mora, y lo emitido así cuenta como ya emitido cuando llegue la fecha real.
+
 Para deshabilitar temporalmente el job, configurar
 `FACTURACION_AUTOMATICA_HABILITADA=false`. El flujo manual “Generar ahora” permanece disponible
 como respaldo con previsualización.
@@ -159,7 +167,8 @@ emit_event(
 4. Por cada evento busca las reglas activas de su tipo. Para cada una evalúa su `condicion` contra
    el `payload`: si no se cumple no se crea ninguna ejecución. Si se cumple, revalida el
    `accion_config` contra la allowlist y crea un `WORKFLOW_EXECUTION`. Si la regla tiene
-   `requiere_aprobacion_humana`, la ejecución queda `pendiente` y no se ejecuta nada. Si no, corre
+   `requiere_aprobacion_humana`, la ejecución queda `pendiente` y no se ejecuta nada hasta que alguien la apruebe o la rechace
+   (ver "Historial, reintentos y aprobaciones"). Si no, corre
    la acción y la ejecución queda `exitoso` o `fallido`. Un evento sin reglas también se marca
    `procesado`.
 5. Cada evento se confirma por separado: si uno falla (el evento pasa a `fallido`) no se revierten
@@ -185,7 +194,7 @@ Ya emiten: Proveedores y Compras, `orden_compra.emitida` (en `crear_orden_compra
 | Evento | Dónde iría | Payload |
 |---|---|---|
 | `inscripcion.cambio_matricula` | Inscripciones: `registrar_cambio_matricula` | `alumno_nombre`, `tipo_cambio` (`nivel` o `division`), `fecha` |
-| `factura.vencida` | Facturación: todavía no existe el proceso que marca facturas vencidas (#61 y #82) | `dias_vencido`, `monto_deuda`, `nombre_familia` |
+| `factura.vencida` | Facturación: `vencimientos_service.py` al entrar la factura en un tramo de mora | `dias_vencido`, `monto_deuda`, `nombre_familia` |
 | `inscripcion.confirmada` | Inscripciones: al crear la `INSCRIPCION` nueva desde la solicitud (`matriculas_service.py`) | `alumno_nombre`, `nivel_educativo`, `fecha` |
 | `solicitud_compra.aprobada` | Compras: `cambiar_estado_solicitud` cuando pasa a `aprobada` | `item`, `cantidad`, `fecha` |
 | `solicitud_inscripcion.aprobada`, `pago.registrado`, `pago.rechazado` | Admisiones y Facturación | ver `grupo-b.yaml` |
@@ -198,7 +207,7 @@ Para `inasistencia.registrada` conviene emitir una sola vez por asistencia (en l
 final del lote) y antes del `commit`. El despacho corre unos segundos después: si la asistencia se
 elimina antes, la ejecución queda `fallido` por no encontrar al alumno.
 
-**Historial y reintentos:** `GET /workflows/ejecuciones` devuelve el historial paginado y permite
+**Historial, reintentos y aprobaciones:** `GET /workflows/ejecuciones` devuelve el historial paginado y permite
 filtrar por `estado`; `GET /workflows/ejecuciones/{id}` expone el detalle y el evento que originó
 una ejecución sin devolver su `payload`. `POST /workflows/ejecuciones/{id}/reintentar` crea un
 intento nuevo y conserva los anteriores. Solo admite el último intento fallido de una regla activa,
@@ -209,6 +218,23 @@ antes de ejecutar la acción. Cada ejecución del listado incluye `reintentable`
 mismas condiciones, para que el frontend solo ofrezca el botón cuando corresponde; el `POST` vuelve
 a validarlas, así que el valor puede quedar viejo entre la carga y el clic.
 
+Las ejecuciones `pendiente` (reglas con `requiere_aprobacion_humana`) se destraban con dos
+endpoints, ambos con permiso `workflows.actualizar` y auditoría de quién decidió (`__aprobacion__`
+y `__rechazo__`). Los dos responden `409` si la ejecución ya no está `pendiente`; el `FOR UPDATE`
+serializa dos decisiones simultáneas, así que solo una prospera.
+
+- `POST /workflows/ejecuciones/{id}/aprobar` revalida la config y corre la acción. Queda `exitoso`
+  o `fallido`. Responde `409` si la regla está inactiva o fue editada desde que la ejecución quedó
+  pendiente (hay que rechazarla y generar un evento nuevo). Si la acción falla, el `fallido` se
+  puede reintentar, pero el reintento vuelve a quedar `pendiente`: un intento nuevo necesita una
+  aprobación nueva.
+- `POST /workflows/ejecuciones/{id}/rechazar` recibe `{"motivo": "..."}` (obligatorio) y deja la
+  ejecución en `rechazado`, con el motivo en `detalle`. No valida la regla, así que una pendiente
+  cuya regla cambió siempre se puede cerrar. Una rechazada no es reintentable.
+
+Cada ejecución del listado incluye `aprobable` (`pendiente`, regla activa y sin editar), con la
+misma salvedad que `reintentable`.
+
 **Log de notificaciones (RF-26):** `GET /workflows/notificaciones` lista las notificaciones
 enviadas, paginadas, con filtros `estado_envio`, `destinatario_tipo` y `workflow_execution_id`.
 `GET /workflows/notificaciones/{id}` agrega `cuerpo_snapshot`, que no viaja en el listado porque
@@ -217,19 +243,26 @@ es el snapshot del envío, así que editar la plantilla o el email después no l
 por el inicio de la ejecución (la más reciente primero), porque `NOTIFICACION` no tiene `created_at`
 y `sent_at` es `NULL` en las fallidas. Un reintento aparece como filas nuevas con su `intento`.
 
-**Estado actual:** `notificar`, `alerta_interna`, `crear_tarea` y `escalar_caso` tienen ejecutor real. El resto está
-registrado en `ACCIONES` (`despacho_service.py`) con un stub por dueño que devuelve "acción no
-implementada", así que la regla sin aprobación humana queda `fallido` hasta que su dueño lo
-reemplace (#199):
+**Estado actual:** `notificar`, `alerta_interna`, `aplicar_vencimiento`, `cambiar_estado`,
+`crear_tarea` y `escalar_caso` tienen ejecutor real. El resto de `ACCIONES` (`despacho_service.py`) sigue con un stub por dueño
+que devuelve "acción no implementada", así que una regla sin aprobación humana queda `fallido`
+hasta que su dueño lo reemplace (#199):
 
 | Acción | Archivo | Dueño |
 |---|---|---|
-| `aplicar_vencimiento`, `cambiar_estado` | `acciones_vencimiento_service.py` | Carreon |
+| `aplicar_vencimiento`, `cambiar_estado` | `acciones_vencimiento_service.py` | Arce |
 | `aplicar_penalidad` | `acciones_penalidad_service.py` | Carreon |
 | `generar_cargo` | `acciones_admision_service.py` | Carreon |
 | `registrar_rechazo` | `acciones_pagos_service.py` | Carreon |
 | `generar_orden_compra`, `generar_comunicacion` | `acciones_compras_service.py` | Canu |
 | `generar_recordatorio` | `acciones_recordatorio_service.py` | Arce |
+
+`aplicar_vencimiento` marca la factura `vencida` cuando ya pasó su fecha efectiva: la mayor entre
+su vencimiento y las excepciones de la familia del responsable económico. El día exacto todavía no
+cuenta como vencida (fecha de Buenos Aires). Con una prórroga vigente la ejecución queda exitosa
+sin cambios y se reevalúa recién con el `factura.vencida` del siguiente tramo. `cambiar_estado` aplica el `estado_nuevo` de `accion_config` dentro de
+`CAMBIOS_ESTADO_PERMITIDOS` (hoy solo `factura → vencida`), sin mirar fechas ni excepciones.
+Ninguna modifica una factura pagada o ya vencida.
 
 Contrato del ejecutor: recibe `(db, regla, evento, ejecucion)`, nunca hace `commit` (corre dentro
 de un savepoint) y devuelve un `ResultadoAccion` (`detalle`, `error`). Con `error` la ejecución
@@ -303,9 +336,9 @@ o por rol, sin repetir). Sin usuarios activos la ejecución queda `fallido`, igu
 - `escalar_caso` busca las tareas abiertas (`pendiente` o `en_progreso`) de la misma entidad, las pasa
   a `escalada` y crea una tarea nueva `pendiente` por cada usuario de la regla, con la prioridad de la
   config y encadenada con `tarea_id` a la más reciente de las escaladas. Sin tareas abiertas crea la
-  tarea sin antecesora. `escalar_caso` nace con aprobación humana (#15): hasta que exista la
-  aprobación de ejecuciones pendientes, solo corre en una regla creada con
-  `requiere_aprobacion_humana = false`.
+  tarea sin antecesora. `escalar_caso` nace con aprobación humana (#15): la ejecución queda
+  `pendiente` hasta que alguien la apruebe (ver "Historial, reintentos y aprobaciones"); con
+  `requiere_aprobacion_humana = false` corre sola.
 - Un reintento no duplica trabajo: los usuarios que ya tienen una tarea de esa regla y ese evento no
   reciben otra, y las tareas que creó la propia regla no se vuelven a escalar.
 

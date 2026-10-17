@@ -466,6 +466,11 @@ RF cubiertos: RF-15, RF-16, RF-17, RF-18 (parcial, ver nota), RF-36
 ### `EXCEPCION_VENCIMIENTO`
 > **[ACLARACIÓN CLIENTE]** (respuesta 5): *"salvo que exista una fecha excepcional previamente autorizada por ESSERI para esa familia"*.
 
+`aplicar_vencimiento` usa la familia del responsable económico de la factura, aunque su vigencia
+haya terminado. La fecha efectiva es la mayor entre el vencimiento de la factura y las fechas
+excepcionales de esa familia, y la factura pasa a `vencida` recién al día siguiente (fecha de
+`America/Argentina/Buenos_Aires`). `cambiar_estado` no aplica esta política.
+
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
 | id | uuid | PK |  |
@@ -654,6 +659,8 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 ### `TIPO_EVENTO`
 > `[DECISIÓN DE DISEÑO]` `nombre` es `UNIQUE` (`uq_tipo_evento_nombre`): `emit_event()` resuelve el tipo por nombre, así que no puede haber dos filas con el mismo.
 >
+> `[DECISIÓN DE DISEÑO]` `factura.vencida` se emite desde `backend/src/facturacion/vencimientos_service.py`, una vez por tramo activo de `REGLA_PENALIDAD`. Además de `dias_vencido`, `monto_deuda` y `nombre_familia`, el `payload` lleva `tramo_desde_dia` (el `desde_dia_vencido` del tramo) y `fecha_vencimiento_efectiva` (el vencimiento corrido por la `EXCEPCION_VENCIMIENTO` de la familia, si existe).
+
 > [DECISIÓN DE DISEÑO] Catálogo en vez de texto libre en `WORKFLOW_RULE`, mismo patrón que `PERMISO`/`METODO_PAGO` (RNF-06). Acá se cargan valores como "factura.vencida", "inasistencia.registrada", "inscripcion.cambio_matricula", y desde las aclaraciones también "solicitud_inscripcion.aprobada", "inasistencia.justificada", "pago.registrado", "pago.rechazado". Proveedores y Compras suma "orden_compra.emitida" y "recepcion_compra.registrada", y "solicitud_compra.aprobada". Inscripciones suma "inscripcion.confirmada".
 
 | Campo | Tipo | Clave | Descripción |
@@ -739,7 +746,7 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 | intento | int |  | Número de reintento (1 = primer intento) |
 | started_at | datetime |  | Reemplaza al campo `fecha` anterior |
 | finished_at | datetime |  | Nulo mientras esté en curso |
-| estado | string |  | exitoso / fallido / pendiente |
+| estado | string |  | exitoso / fallido / pendiente / rechazado |
 | detalle | string |  |  |
 | error_detail | string |  | Detalle del error cuando `estado = fallido` |
 | workflow_rule_id | uuid | FK |  |
@@ -960,7 +967,7 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | `PAGO.estado` | aprobado, rechazado, pendiente | `[ACLARACIÓN CLIENTE]` respuesta 4 — **NUEVO** |
 | `MOVIMIENTO.tipo` | debe, haber | [DECISIÓN DE DISEÑO] — **NUEVO** |
 | `LOG_ACCESO.resultado` | exitoso, fallido | RF-27 (textual) |
-| `WORKFLOW_EXECUTION.estado` | exitoso, fallido, pendiente | RF-23 (textual) |
+| `WORKFLOW_EXECUTION.estado` | exitoso, fallido, pendiente, rechazado | RF-23 (textual) |
 | `NOTIFICACION.estado_envio` | enviado, fallido, pendiente | Propuesta del equipo |
 | `NOTIFICACION.destinatario_tipo` | familia, usuario | `[ACLARACIÓN CLIENTE]` respuesta 15 — **NUEVO** |
 | `WORKFLOW_RULE.tipo_accion` | notificar, alerta_interna, cambiar_estado, crear_tarea, generar_cargo, aplicar_vencimiento, aplicar_penalidad, registrar_pago, registrar_rechazo, actualizar_cuenta_corriente, generar_recordatorio, escalar_caso, crear_registro_relacionado, generar_orden_compra, generar_comunicacion | **MODIFICADO — de 2 a 15 valores** — `[ACLARACIÓN CLIENTE]` respuesta 16. `registrar_pago`, `actualizar_cuenta_corriente` y `crear_registro_relacionado` no se implementan en el motor: las reglas con esos tipos quedan `fallido` |
@@ -1042,7 +1049,7 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 |---|---|
 | inasistencia.registrada | Se registró una ausencia |
 | inasistencia.justificada | `[ACLARACIÓN CLIENTE]` Se resolvió una justificación de ausencia |
-| factura.vencida | Una factura pasó a estado vencida |
+| factura.vencida | Una factura impaga superó su fecha de vencimiento |
 | inscripcion.cambio_matricula | Cambio de nivel, división o baja |
 | solicitud_inscripcion.aprobada | `[ACLARACIÓN CLIENTE]` Una solicitud de admisión llegó a etapa aprobada |
 | pago.registrado | `[ACLARACIÓN CLIENTE]` Se confirmó un pago |
