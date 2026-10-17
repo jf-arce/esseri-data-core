@@ -23,7 +23,9 @@ PASSWORD_VALIDA = "una-contrasenia-larga"
 
 @pytest.fixture()
 def tipo_factura_vencida(db_session):
-    tipo = TipoEvento(nombre="factura.vencida", descripcion="Una factura impaga superó su fecha de vencimiento")
+    tipo = TipoEvento(
+        nombre="factura.vencida", descripcion="Una factura impaga superó su fecha de vencimiento"
+    )
     db_session.add(tipo)
     db_session.flush()
     db_session.add_all(

@@ -50,7 +50,9 @@ def client_autenticado(client, db_session):
 def tipo_factura_vencida(db_session):
     """Catálogo mínimo para `emit_event("factura.vencida", ...)` y los tramos de mora; en
     producción lo carga el seed de Grupo A, acá no hay seed."""
-    tipo = TipoEvento(nombre="factura.vencida", descripcion="Una factura impaga superó su fecha de vencimiento")
+    tipo = TipoEvento(
+        nombre="factura.vencida", descripcion="Una factura impaga superó su fecha de vencimiento"
+    )
     concepto = ConceptoCobro(nombre="Penalidad por mora", activo=True)
     db_session.add_all([tipo, concepto])
     db_session.flush()
