@@ -15,6 +15,7 @@ import { obtenerDestinatariosRegla } from '@/modules/workflows/services/obtener-
 import { reemplazarDestinatariosRegla } from '@/modules/workflows/services/reemplazar-destinatarios-regla'
 import { aprobarEjecucionWorkflow } from '@/modules/workflows/services/aprobar-ejecucion-workflow'
 import { rechazarEjecucionWorkflow } from '@/modules/workflows/services/rechazar-ejecucion-workflow'
+import { reasignarTarea } from '@/modules/workflows/services/reasignar-tarea'
 import { reintentarEjecucionWorkflow } from '@/modules/workflows/services/reintentar-ejecucion-workflow'
 import { obtenerNotificacion } from '@/modules/workflows/services/obtener-notificacion'
 import { obtenerTarea } from '@/modules/workflows/services/obtener-tarea'
@@ -229,6 +230,25 @@ describe('servicios de workflows', () => {
     expect(conFiltros).toContain('estado=escalada')
     expect(conFiltros).toContain('prioridad=alta')
     expect(conFiltros).toContain('solo_mias=true')
+  })
+
+  it('filtra las tareas por responsable con usuario_id', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await listarTareas({ usuarioId: 'u-2', soloMias: false, pagina: 1, tamanioPagina: 20 })
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain('usuario_id=u-2')
+  })
+
+  it('reasigna una tarea con PATCH y el usuario en el body', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await reasignarTarea('t-1', 'u-3')
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toContain('/workflows/tareas/t-1/asignado')
+    expect(init?.method).toBe('PATCH')
+    expect(init?.body).toBe(JSON.stringify({ usuario_id: 'u-3' }))
   })
 
   it('obtiene el detalle de una tarea y cambia su estado', async () => {

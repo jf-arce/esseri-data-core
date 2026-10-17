@@ -1,24 +1,49 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { toast } from 'sonner'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '@/api/client'
+import type { UsuarioConRoles } from '@/modules/auth/types'
+import { useDestinatariosDisponibles } from '@/modules/workflows/hooks/use-destinatarios-disponibles'
 import { TareasPage } from '@/modules/workflows/pages/tareas-page'
 import { cambiarEstadoTarea } from '@/modules/workflows/services/cambiar-estado-tarea'
 import { listarTareas } from '@/modules/workflows/services/listar-tareas'
 import { obtenerTarea } from '@/modules/workflows/services/obtener-tarea'
+import { reasignarTarea } from '@/modules/workflows/services/reasignar-tarea'
 import type { Tarea, TareaDetalle, TareaListado } from '@/modules/workflows/types'
 import { useAuthStore } from '@/store/auth-store'
 
 vi.mock('@/modules/workflows/services/listar-tareas')
 vi.mock('@/modules/workflows/services/obtener-tarea')
 vi.mock('@/modules/workflows/services/cambiar-estado-tarea')
+vi.mock('@/modules/workflows/services/reasignar-tarea')
+vi.mock('@/modules/workflows/hooks/use-destinatarios-disponibles')
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), info: vi.fn(), error: vi.fn() } }))
 
 const mockedListar = vi.mocked(listarTareas)
 const mockedObtener = vi.mocked(obtenerTarea)
 const mockedCambiar = vi.mocked(cambiarEstadoTarea)
+const mockedReasignar = vi.mocked(reasignarTarea)
+const mockedDisponibles = vi.mocked(useDestinatariosDisponibles)
+
+function usuario(id: string, email: string, nombre: string, apellido: string) {
+  return {
+    id,
+    email,
+    estado: 'activo',
+    persona_nombre: nombre,
+    persona_apellido: apellido,
+  } as unknown as UsuarioConRoles
+}
+
+const USUARIOS = [
+  usuario('u1', 'admin@esseri.edu.ar', 'Ana', 'Admin'),
+  usuario('u2', 'secretaria@esseri.edu.ar', 'Sofía', 'Secretaria'),
+  usuario('u3', 'nuevo@esseri.edu.ar', 'Nora', 'Nuevo'),
+]
+const CON_LISTA = { roles: [], usuarios: USUARIOS, cargando: false, noDisponible: false }
+const SIN_LISTA = { roles: [], usuarios: [], cargando: false, noDisponible: true }
 
 const propia: Tarea = {
   id: 't-1',
@@ -86,8 +111,19 @@ function renderPagina() {
   )
 }
 
+beforeAll(() => {
+  // jsdom no implementa estas APIs, que usan el popover y el buscador.
+  window.HTMLElement.prototype.scrollIntoView = vi.fn()
+  window.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+})
+
 beforeEach(() => {
   vi.clearAllMocks()
+  mockedDisponibles.mockReturnValue({ ...CON_LISTA })
   conPermisos(['workflows.leer', 'workflows.actualizar'])
   mockedListar.mockResolvedValue(listado([propia, ajena]))
   mockedObtener.mockResolvedValue(detalleDe(propia))
@@ -101,8 +137,8 @@ describe('TareasPage', () => {
     expect(screen.getByText('Revisar el legajo')).toBeInTheDocument()
     expect(mockedListar.mock.lastCall?.[0]).toMatchObject({ soloMias: false })
 
-    await userEvent.click(screen.getByRole('button', { name: /Asignación/ }))
-    await userEvent.click(await screen.findByRole('radio', { name: 'Asignadas a mí' }))
+    await userEvent.click(screen.getByRole('button', { name: /Responsable/ }))
+    await userEvent.click(await screen.findByRole('option', { name: /Asignadas a mí/ }))
 
     await waitFor(() => expect(mockedListar.mock.lastCall?.[0]).toMatchObject({ soloMias: true }))
   })
@@ -114,7 +150,7 @@ describe('TareasPage', () => {
 
     await screen.findByText('Llamar a la familia')
 
-    expect(screen.queryByRole('button', { name: /Asignación/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Responsable/ })).not.toBeInTheDocument()
   })
 
   it('al cambiar un filtro vuelve a la página 1 y manda el filtro', async () => {
@@ -231,4 +267,177 @@ describe('TareasPage', () => {
 
     expect(await screen.findByText('Llamar a la familia')).toBeInTheDocument()
   })
+})
+
+describe('TareasPage: responsable y reasignación', () => {
+  beforeEach(() => {
+    // El detalle que se abre es el de la tarea ajena (la segunda fila).
+    mockedObtener.mockResolvedValue(detalleDe(ajena))
+  })
+
+  async function elegirResponsable(nombre: RegExp) {
+    await userEvent.click(screen.getByRole('button', { name: /Responsable/ }))
+    await userEvent.click(await screen.findByRole('option', { name: nombre }))
+  }
+
+  async function abrirDetalleDeLaAjena() {
+    // La ajena es la segunda fila.
+    await userEvent.click(screen.getAllByRole('button', { name: /Ver detalle/ })[1])
+    return screen.findByRole('dialog')
+  }
+
+  it('filtra por una persona concreta y manda su id', async () => {
+    renderPagina()
+    await screen.findByText('Llamar a la familia')
+
+    await elegirResponsable(/Secretaria/)
+
+    await waitFor(() =>
+      expect(mockedListar.mock.lastCall?.[0]).toMatchObject({ usuarioId: 'u2', soloMias: false }),
+    )
+    expect(screen.getByRole('button', { name: /Responsable: Secretaria/ })).toBeInTheDocument()
+  })
+
+  it('el buscador del filtro encuentra a la persona por su email', async () => {
+    renderPagina()
+    await screen.findByText('Llamar a la familia')
+    await userEvent.click(screen.getByRole('button', { name: /Responsable/ }))
+
+    await userEvent.type(await screen.findByPlaceholderText('Buscar'), 'nuevo@esseri')
+
+    expect(await screen.findByRole('option', { name: /Nuevo/ })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /Secretaria/ })).not.toBeInTheDocument()
+  })
+
+  it('al volver a "De todos" quita el filtro por persona', async () => {
+    renderPagina()
+    await screen.findByText('Llamar a la familia')
+    await elegirResponsable(/Secretaria/)
+    await waitFor(() => expect(mockedListar.mock.lastCall?.[0].usuarioId).toBe('u2'))
+
+    await elegirResponsable(/De todos/)
+
+    await waitFor(() => expect(mockedListar.mock.lastCall?.[0].usuarioId).toBeUndefined())
+  })
+
+  it('sin la lista de usuarios el filtro ofrece solo "De todos" y "Asignadas a mí"', async () => {
+    mockedDisponibles.mockReturnValue({ ...SIN_LISTA })
+    renderPagina()
+    await screen.findByText('Llamar a la familia')
+
+    await userEvent.click(screen.getByRole('button', { name: /Responsable/ }))
+
+    expect(await screen.findAllByRole('option')).toHaveLength(2)
+    expect(screen.getByRole('option', { name: /De todos/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /Asignadas a mí/ })).toBeInTheDocument()
+  })
+
+  it('no pide la lista de usuarios a quien no tiene permisos de Workflows', async () => {
+    conPermisos([])
+    renderPagina()
+    await screen.findByText('Llamar a la familia')
+
+    expect(mockedDisponibles).toHaveBeenLastCalledWith(false)
+  })
+
+  it('reasigna la tarea a la persona elegida, avisa y vuelve a pedir el listado', async () => {
+    mockedReasignar.mockResolvedValue(
+      detalleDe({ ...ajena, usuario_id: 'u3', usuario_email: 'nuevo@esseri.edu.ar' }),
+    )
+    renderPagina()
+    await screen.findByText('Revisar el legajo')
+    const pedidos = mockedListar.mock.calls.length
+    const panel = await abrirDetalleDeLaAjena()
+
+    await userEvent.click(within(panel).getByRole('combobox'))
+    await userEvent.click(await screen.findByRole('option', { name: /Nuevo/ }))
+    await userEvent.click(within(panel).getByRole('button', { name: 'Reasignar' }))
+
+    await waitFor(() => expect(mockedReasignar).toHaveBeenCalledWith('t-2', 'u3'))
+    expect(toast.success).toHaveBeenCalledWith('La tarea se reasignó a nuevo@esseri.edu.ar.')
+    await waitFor(() => expect(mockedListar.mock.calls.length).toBeGreaterThan(pedidos))
+  })
+
+  it('no se puede reasignar sin elegir a alguien', async () => {
+    renderPagina()
+    await screen.findByText('Revisar el legajo')
+    const panel = await abrirDetalleDeLaAjena()
+
+    expect(within(panel).getByRole('button', { name: 'Reasignar' })).toBeDisabled()
+  })
+
+  it('no ofrece como destino al responsable actual', async () => {
+    renderPagina()
+    await screen.findByText('Revisar el legajo')
+    const panel = await abrirDetalleDeLaAjena()
+
+    await userEvent.click(within(panel).getByRole('combobox'))
+
+    expect(await screen.findByRole('option', { name: /Nuevo/ })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /Secretaria/ })).not.toBeInTheDocument()
+  })
+
+  it('el buscador de la reasignación encuentra a la persona por su email', async () => {
+    renderPagina()
+    await screen.findByText('Revisar el legajo')
+    const panel = await abrirDetalleDeLaAjena()
+    await userEvent.click(within(panel).getByRole('combobox'))
+
+    await userEvent.type(await screen.findByPlaceholderText('Buscar'), 'admin@esseri')
+
+    expect(await screen.findByRole('option', { name: /Admin/ })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /Nuevo/ })).not.toBeInTheDocument()
+  })
+
+  it('si el backend rechaza la reasignación muestra su motivo', async () => {
+    mockedReasignar.mockRejectedValue(
+      new ApiError(409, "No se puede reasignar una tarea 'completada'."),
+    )
+    renderPagina()
+    await screen.findByText('Revisar el legajo')
+    const panel = await abrirDetalleDeLaAjena()
+
+    await userEvent.click(within(panel).getByRole('combobox'))
+    await userEvent.click(await screen.findByRole('option', { name: /Nuevo/ }))
+    await userEvent.click(within(panel).getByRole('button', { name: 'Reasignar' }))
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("No se puede reasignar una tarea 'completada'."),
+    )
+  })
+
+  it('no ofrece reasignar sin workflows.actualizar', async () => {
+    conPermisos(['workflows.leer'])
+    renderPagina()
+    await screen.findByText('Revisar el legajo')
+
+    const panel = await abrirDetalleDeLaAjena()
+
+    expect(within(panel).queryByText('Reasignar')).not.toBeInTheDocument()
+  })
+
+  it('no ofrece reasignar si la lista de usuarios no está disponible', async () => {
+    mockedDisponibles.mockReturnValue({ ...SIN_LISTA })
+    renderPagina()
+    await screen.findByText('Revisar el legajo')
+
+    const panel = await abrirDetalleDeLaAjena()
+
+    expect(within(panel).queryByText('Reasignar')).not.toBeInTheDocument()
+  })
+
+  it.each(['completada', 'escalada'] as const)(
+    'no ofrece reasignar una tarea %s',
+    async (estado) => {
+      mockedListar.mockResolvedValue(listado([propia, { ...ajena, estado }]))
+      mockedObtener.mockResolvedValue(detalleDe({ ...ajena, estado }))
+      renderPagina()
+      await screen.findByText('Revisar el legajo')
+
+      const panel = await abrirDetalleDeLaAjena()
+      await within(panel).findByText('Esta tarea no se escaló.')
+
+      expect(within(panel).queryByText('Reasignar')).not.toBeInTheDocument()
+    },
+  )
 })

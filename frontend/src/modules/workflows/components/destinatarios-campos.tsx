@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 import { ChevronsUpDownIcon, XIcon } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +18,7 @@ import { formatearNombreRol, nombreVisibleDeUsuario } from '@/modules/auth/utils
 import { ESTADO_USUARIO_ACTIVO } from '@/modules/workflows/constants'
 import type { useDestinatariosDisponibles } from '@/modules/workflows/hooks/use-destinatarios-disponibles'
 import type { DestinatariosRegla } from '@/modules/workflows/types'
+import { desplazarConRueda } from '@/modules/workflows/utils'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 export interface SeleccionDestinatarios {
@@ -58,21 +59,6 @@ function SelectorDestinatarios({
 }: SelectorDestinatariosProps) {
   const [abierto, setAbierto] = useState(false)
   const elegidos = new Set(seleccionados.map(clave))
-  // Dentro de un diálogo (el editor de la acción), su bloqueo de scroll se traga la rueda sobre
-  // este popover, que va en un portal: la lista no se desplaza y los usuarios, que están debajo de
-  // los roles, quedan fuera de alcance. Se desplaza a mano, sin pasar por el bloqueo.
-  const desplazarConRueda = useCallback((lista: HTMLDivElement | null) => {
-    if (lista === null) return
-    lista.addEventListener(
-      'wheel',
-      (evento) => {
-        evento.preventDefault()
-        evento.stopPropagation()
-        lista.scrollTop += evento.deltaY * (evento.deltaMode === 1 ? 16 : 1)
-      },
-      { passive: false },
-    )
-  }, [])
 
   function grupo(titulo: string, opciones: Opcion[]) {
     return (

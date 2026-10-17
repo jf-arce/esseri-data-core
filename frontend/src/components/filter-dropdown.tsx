@@ -190,5 +190,5 @@ function FilterChip({ children, onRemove }: { children: React.ReactNode; onRemov
   )
 }
 
-export { FilterDropdown, FilterChips, FilterChip }
+export { FilterDropdown, FilterTrigger, FilterChips, FilterChip }
 export type { FilterDropdownOption }
