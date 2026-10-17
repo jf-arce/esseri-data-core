@@ -1,4 +1,4 @@
-"""Tareas del motor (#89): ejecutores de `crear_tarea`/`escalar_caso` y bandeja de tareas."""
+"""Tareas del motor (#89, #215): ejecutores de `crear_tarea`/`escalar_caso` y bandeja de tareas."""
 
 import uuid
 from datetime import datetime, timedelta
@@ -668,3 +668,218 @@ def test_cambiar_el_estado_de_una_tarea_inexistente_da_404(client_autenticado):
     )
 
     assert respuesta.status_code == 404
+
+
+# --- Bandeja: filtro por responsable -------------------------------------------------------
+
+
+def test_filtra_por_responsable_con_permiso_de_lectura(
+    client_autenticado, db_session, usuario_workflows, usuario_sin_workflows, caso
+):
+    _tarea(db_session, usuario_workflows, caso, titulo="Mía")
+    _tarea(db_session, usuario_sin_workflows, caso, titulo="De la secretaria")
+
+    respuesta = client_autenticado.get(f"/workflows/tareas?usuario_id={usuario_sin_workflows.id}")
+
+    assert [t["titulo"] for t in respuesta.json()["items"]] == ["De la secretaria"]
+
+
+def test_el_filtro_por_responsable_se_combina_con_los_demas(
+    client_autenticado, db_session, usuario_sin_workflows, caso
+):
+    _tarea(db_session, usuario_sin_workflows, caso, titulo="A", prioridad="alta")
+    _tarea(db_session, usuario_sin_workflows, caso, titulo="B", prioridad="baja")
+
+    respuesta = client_autenticado.get(
+        f"/workflows/tareas?usuario_id={usuario_sin_workflows.id}&prioridad=alta"
+    )
+
+    assert [t["titulo"] for t in respuesta.json()["items"]] == ["A"]
+
+
+def test_sin_permiso_de_lectura_el_filtro_por_responsable_no_muestra_tareas_ajenas(
+    client, db_session, usuario_workflows, usuario_sin_workflows, caso
+):
+    _tarea(db_session, usuario_workflows, caso, titulo="De workflows")
+    _tarea(db_session, usuario_sin_workflows, caso, titulo="Mía")
+    _login(client, usuario_sin_workflows)
+
+    respuesta = client.get(f"/workflows/tareas?usuario_id={usuario_workflows.id}")
+
+    assert [t["titulo"] for t in respuesta.json()["items"]] == ["Mía"]
+
+
+def test_solo_mias_prevalece_sobre_el_filtro_por_responsable(
+    client_autenticado, db_session, usuario_workflows, usuario_sin_workflows, caso
+):
+    _tarea(db_session, usuario_workflows, caso, titulo="Mía")
+    _tarea(db_session, usuario_sin_workflows, caso, titulo="De la secretaria")
+
+    respuesta = client_autenticado.get(
+        f"/workflows/tareas?solo_mias=true&usuario_id={usuario_sin_workflows.id}"
+    )
+
+    assert [t["titulo"] for t in respuesta.json()["items"]] == ["Mía"]
+
+
+def test_un_responsable_que_no_es_un_uuid_se_rechaza_con_422(client_autenticado):
+    assert client_autenticado.get("/workflows/tareas?usuario_id=no-es-uuid").status_code == 422
+
+
+# --- Bandeja: reasignación -----------------------------------------------------------------
+
+
+def _reasignar(client, tarea, usuario):
+    return client.patch(
+        f"/workflows/tareas/{tarea.id}/asignado", json={"usuario_id": str(usuario.id)}
+    )
+
+
+def test_reasignar_pasa_la_tarea_a_otro_usuario_y_lo_audita(
+    client_autenticado, db_session, usuario_workflows, usuario_sin_workflows, caso
+):
+    nuevo = _usuario(db_session, "nuevo@esseri.edu.ar")
+    tarea = _tarea(db_session, usuario_sin_workflows, caso, estado="en_progreso")
+
+    respuesta = _reasignar(client_autenticado, tarea, nuevo)
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert (cuerpo["usuario_id"], cuerpo["usuario_email"]) == (str(nuevo.id), nuevo.email)
+    # Es la misma tarea con otro responsable: el estado no cambia.
+    assert cuerpo["estado"] == "en_progreso"
+    db_session.refresh(tarea)
+    assert tarea.usuario_id == nuevo.id
+    cambios = db_session.scalars(
+        select(AuditLog).where(AuditLog.entidad == "TAREA", AuditLog.entidad_id == tarea.id)
+    ).all()
+    assert [(c.campo, c.valor_anterior, c.valor_nuevo, c.usuario_id) for c in cambios] == [
+        ("usuario_id", str(usuario_sin_workflows.id), str(nuevo.id), usuario_workflows.id)
+    ]
+
+
+def test_tras_reasignar_la_tarea_aparece_en_la_bandeja_del_nuevo_responsable(
+    client, client_autenticado, db_session, usuario_sin_workflows, caso
+):
+    nuevo = _crear_usuario_con_permisos(db_session, "nuevo@esseri.edu.ar", ())
+    tarea = _tarea(db_session, usuario_sin_workflows, caso)
+
+    assert _reasignar(client_autenticado, tarea, nuevo).status_code == 200
+    por_anterior = client_autenticado.get(
+        f"/workflows/tareas?usuario_id={usuario_sin_workflows.id}"
+    ).json()
+    por_nuevo = client_autenticado.get(f"/workflows/tareas?usuario_id={nuevo.id}").json()
+
+    assert por_anterior["items"] == []
+    assert [t["id"] for t in por_nuevo["items"]] == [str(tarea.id)]
+    # El nuevo responsable la ve (y la puede avanzar) sin tener permisos de Workflows.
+    _login(client, nuevo)
+    assert client.get(f"/workflows/tareas/{tarea.id}").status_code == 200
+    avance = client.patch(f"/workflows/tareas/{tarea.id}/estado", json={"estado": "completada"})
+    assert avance.status_code == 200
+
+
+def test_reasignar_no_toca_la_cadena_de_escalamiento(
+    client_autenticado, db_session, usuario_sin_workflows, caso
+):
+    nuevo = _usuario(db_session, "nuevo@esseri.edu.ar")
+    original = _tarea(db_session, usuario_sin_workflows, caso, estado="escalada")
+    escalada = _tarea(db_session, usuario_sin_workflows, caso, tarea_id=original.id)
+
+    respuesta = _reasignar(client_autenticado, escalada, nuevo)
+
+    cadena = respuesta.json()["cadena"]
+    assert [eslabon["id"] for eslabon in cadena] == [str(original.id), str(escalada.id)]
+    assert respuesta.json()["tarea_id"] == str(original.id)
+
+
+@pytest.mark.parametrize("estado", ["completada", "escalada"])
+def test_no_se_reasigna_una_tarea_cerrada_ni_escalada(
+    client_autenticado, db_session, usuario_sin_workflows, caso, estado
+):
+    nuevo = _usuario(db_session, "nuevo@esseri.edu.ar")
+    tarea = _tarea(db_session, usuario_sin_workflows, caso, estado=estado)
+
+    respuesta = _reasignar(client_autenticado, tarea, nuevo)
+
+    assert respuesta.status_code == 409
+    assert estado in respuesta.json()["detail"]
+    db_session.refresh(tarea)
+    assert tarea.usuario_id == usuario_sin_workflows.id
+
+
+def test_no_se_reasigna_a_quien_ya_es_el_responsable(
+    client_autenticado, db_session, usuario_sin_workflows, caso
+):
+    tarea = _tarea(db_session, usuario_sin_workflows, caso)
+
+    respuesta = _reasignar(client_autenticado, tarea, usuario_sin_workflows)
+
+    assert respuesta.status_code == 409
+    assert db_session.scalars(select(AuditLog).where(AuditLog.entidad_id == tarea.id)).all() == []
+
+
+def test_no_se_reasigna_a_un_usuario_inactivo(
+    client_autenticado, db_session, usuario_sin_workflows, caso
+):
+    inactivo = _usuario(db_session, "inactivo@esseri.edu.ar", estado="inactivo")
+    tarea = _tarea(db_session, usuario_sin_workflows, caso)
+
+    respuesta = _reasignar(client_autenticado, tarea, inactivo)
+
+    assert respuesta.status_code == 422
+    db_session.refresh(tarea)
+    assert tarea.usuario_id == usuario_sin_workflows.id
+
+
+def test_no_se_reasigna_a_un_usuario_que_no_existe(
+    client_autenticado, db_session, usuario_sin_workflows, caso
+):
+    tarea = _tarea(db_session, usuario_sin_workflows, caso)
+
+    respuesta = client_autenticado.patch(
+        f"/workflows/tareas/{tarea.id}/asignado", json={"usuario_id": str(uuid.uuid4())}
+    )
+
+    assert respuesta.status_code == 422
+
+
+def test_reasignar_una_tarea_inexistente_da_404(client_autenticado, usuario_workflows):
+    respuesta = client_autenticado.patch(
+        f"/workflows/tareas/{uuid.uuid4()}/asignado", json={"usuario_id": str(usuario_workflows.id)}
+    )
+
+    assert respuesta.status_code == 404
+
+
+def test_reasignar_exige_un_usuario_valido_en_el_cuerpo(
+    client_autenticado, db_session, usuario_sin_workflows, caso
+):
+    tarea = _tarea(db_session, usuario_sin_workflows, caso)
+    url = f"/workflows/tareas/{tarea.id}/asignado"
+
+    assert client_autenticado.patch(url, json={}).status_code == 422
+    assert client_autenticado.patch(url, json={"usuario_id": "nadie"}).status_code == 422
+    extra = {"usuario_id": str(uuid.uuid4()), "estado": "completada"}
+    assert client_autenticado.patch(url, json=extra).status_code == 422
+
+
+def test_reasignar_exige_workflows_actualizar(client, db_session, usuario_sin_workflows, caso):
+    lector = _crear_usuario_con_permisos(db_session, "lector3@esseri.edu.ar", (ACCION_LEER,))
+    nuevo = _usuario(db_session, "nuevo@esseri.edu.ar")
+    tarea = _tarea(db_session, usuario_sin_workflows, caso)
+
+    _login(client, lector)
+    assert _reasignar(client, tarea, nuevo).status_code == 403
+    # Ni siquiera la persona a la que se le asignó la tarea puede pasarla a otra.
+    _login(client, usuario_sin_workflows)
+    assert _reasignar(client, tarea, nuevo).status_code == 403
+
+    db_session.refresh(tarea)
+    assert tarea.usuario_id == usuario_sin_workflows.id
+
+
+def test_reasignar_exige_sesion(client, db_session, usuario_sin_workflows, caso):
+    tarea = _tarea(db_session, usuario_sin_workflows, caso)
+
+    assert _reasignar(client, tarea, usuario_sin_workflows).status_code == 401

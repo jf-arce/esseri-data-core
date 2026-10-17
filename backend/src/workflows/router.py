@@ -44,6 +44,7 @@ from src.workflows.schemas import (
     ReglaDestinatariosRead,
     ReglaDestinatariosUpdate,
     ResumenDespacho,
+    TareaAsignadoUpdate,
     TareaDetalleRead,
     TareaEstadoUpdate,
     TareaListadoRead,
@@ -202,16 +203,18 @@ def listar_tareas(
     alcance: AlcanceActual,
     estado: Annotated[EstadoTarea | None, Query()] = None,
     prioridad: Annotated[PrioridadTarea | None, Query()] = None,
+    usuario_id: Annotated[uuid.UUID | None, Query()] = None,
     solo_mias: Annotated[bool, Query()] = False,
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanio_pagina: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> TareaListadoRead:
-    """Sin `workflows.leer` solo devuelve las tareas del usuario, aunque no pida `solo_mias`."""
+    """Sin `workflows.leer` solo devuelve las tareas del usuario, aunque no pida `solo_mias` ni
+    filtre por otro `usuario_id` (el responsable). Con `solo_mias` se ignora `usuario_id`."""
     propias = solo_mias or not alcance.ve_todas
     filtros = tareas_service.FiltrosTareas(
         estado=estado,
         prioridad=prioridad,
-        usuario_id=alcance.usuario.id if propias else None,
+        usuario_id=alcance.usuario.id if propias else usuario_id,
     )
     return tareas_service.listar_tareas(db, filtros, pagina=pagina, tamanio_pagina=tamanio_pagina)
 
@@ -237,6 +240,18 @@ def cambiar_estado_tarea(
     if not (es_suya or (alcance.ve_todas and alcance.gestiona_todas)):
         raise TareaNoEncontrada()
     return tareas_service.cambiar_estado_tarea(db, tarea_id, datos.estado, alcance.usuario.id)
+
+
+@router.patch("/tareas/{tarea_id}/asignado", response_model=TareaDetalleRead)
+def reasignar_tarea(
+    tarea_id: uuid.UUID,
+    datos: TareaAsignadoUpdate,
+    db: DbSession,
+    usuario: PuedeActualizar,
+) -> TareaDetalleRead:
+    """Solo con `workflows.actualizar`: reasignar es una decisión de gestión, no de quien
+    recibió la tarea."""
+    return tareas_service.reasignar_tarea(db, tarea_id, datos.usuario_id, usuario.id)
 
 
 @router.get("/reglas", response_model=list[WorkflowRuleRead])

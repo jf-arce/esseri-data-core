@@ -439,6 +439,12 @@ class TareaListadoRead(BaseModel):
     total_paginas: int
 
 
+class TareaAsignadoUpdate(_EntradaEstricta):
+    """Nuevo responsable de la tarea: un usuario activo."""
+
+    usuario_id: uuid.UUID
+
+
 class TareaEstadoUpdate(_EntradaEstricta):
     """Una persona solo puede avanzar la tarea: `escalada` la pone el motor."""
 

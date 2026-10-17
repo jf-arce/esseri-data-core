@@ -22,7 +22,12 @@ from src.workflows.constants import (
     MAX_DESTINATARIOS_POR_EJECUCION,
     TRANSICIONES_TAREA,
 )
-from src.workflows.exceptions import TareaNoEncontrada, TransicionTareaInvalida
+from src.workflows.exceptions import (
+    AsignadoTareaInvalido,
+    TareaNoEncontrada,
+    TareaNoReasignable,
+    TransicionTareaInvalida,
+)
 from src.workflows.models import Tarea, WorkflowExecution, WorkflowRule
 from src.workflows.schemas import (
     ConfigCrearTarea,
@@ -277,6 +282,37 @@ def cambiar_estado_tarea(
         valor_anterior=anterior,
         valor_nuevo=nuevo_estado,
         usuario_id=usuario_id,
+    )
+    db.commit()
+    return obtener_tarea_detalle(db, tarea_id)
+
+
+def reasignar_tarea(
+    db: Session, tarea_id: uuid.UUID, nuevo_usuario_id: uuid.UUID, actor_id: uuid.UUID
+) -> TareaDetalleRead:
+    """Pasa una tarea abierta a otro usuario activo. No toca el estado ni la cadena de
+    escalamiento: es la misma tarea con otro responsable. Bloquea la fila para que dos
+    reasignaciones o un cambio de estado simultáneos no se pisen."""
+    tarea = db.scalar(select(Tarea).where(Tarea.id == tarea_id).with_for_update())
+    if tarea is None:
+        raise TareaNoEncontrada()
+    if tarea.estado not in ESTADOS_TAREA_ABIERTA:
+        raise TareaNoReasignable(f"No se puede reasignar una tarea '{tarea.estado}'.")
+    nuevo = db.get(Usuario, nuevo_usuario_id)
+    if nuevo is None or nuevo.estado != "activo":
+        raise AsignadoTareaInvalido()
+    if tarea.usuario_id == nuevo.id:
+        raise TareaNoReasignable("La tarea ya está asignada a ese usuario.")
+    anterior = tarea.usuario_id
+    tarea.usuario_id = nuevo.id
+    log_audit(
+        db,
+        entidad="TAREA",
+        entidad_id=tarea.id,
+        campo="usuario_id",
+        valor_anterior=str(anterior),
+        valor_nuevo=str(nuevo.id),
+        usuario_id=actor_id,
     )
     db.commit()
     return obtener_tarea_detalle(db, tarea_id)

@@ -342,14 +342,24 @@ o por rol, sin repetir). Sin usuarios activos la ejecución queda `fallido`, igu
 - Un reintento no duplica trabajo: los usuarios que ya tienen una tarea de esa regla y ese evento no
   reciben otra, y las tareas que creó la propia regla no se vuelven a escalar.
 
-La bandeja (`GET /workflows/tareas`, `GET /workflows/tareas/{id}`, `PATCH /workflows/tareas/{id}/estado`)
-es de cada persona: cualquiera con sesión y rol activo ve las tareas que se le asignaron, aunque su rol
-no tenga permisos de Workflows. Con `workflows.leer` se ven las de todos (`solo_mias=true` filtra las
-propias) y con `workflows.actualizar` además se pueden avanzar las ajenas. Una tarea ajena para quien no
-tiene permiso responde `404`. El listado admite `estado`, `prioridad`, `pagina` y `tamanio_pagina`, y el
-detalle incluye la cadena de escalamiento. Una persona solo puede avanzar la tarea
-(`pendiente → en_progreso → completada`): `escalada` la pone el motor y `completada` no se reabre.
-Cada cambio de estado queda en `AUDIT_LOG`.
+La bandeja (`GET /workflows/tareas`, `GET /workflows/tareas/{id}`, `PATCH /workflows/tareas/{id}/estado`
+y `PATCH /workflows/tareas/{id}/asignado`) es de cada persona: cualquiera con sesión y rol activo ve las
+tareas que se le asignaron, aunque su rol no tenga permisos de Workflows. Con `workflows.leer` se ven las
+de todos (`solo_mias=true` filtra las propias) y con `workflows.actualizar` además se pueden avanzar las
+ajenas. Una tarea ajena para quien no tiene permiso responde `404`. El listado admite `estado`,
+`prioridad`, `usuario_id` (el responsable), `pagina` y `tamanio_pagina`; sin `workflows.leer`, `usuario_id`
+no amplía lo que se ve y `solo_mias` prevalece sobre él. El detalle incluye la cadena de escalamiento.
+Una persona solo puede avanzar la tarea (`pendiente → en_progreso → completada`): `escalada` la pone el
+motor y `completada` no se reabre. Cada cambio de estado queda en `AUDIT_LOG`.
+
+**Reasignar (#215):** `PATCH /workflows/tareas/{id}/asignado` con `{"usuario_id": ...}` pasa una tarea a
+otro usuario. Exige `workflows.actualizar` (`403` si no): reasignar es una decisión de gestión, así que
+ni el responsable actual puede hacerlo sin ese permiso. Solo admite tareas abiertas (`pendiente` o
+`en_progreso`; `completada` y `escalada` responden `409`), un usuario `activo` (`422` si no existe o
+está inactivo) y distinto del actual (`409`). No cambia el estado ni la cadena de escalamiento, y queda
+en `AUDIT_LOG` (`campo = usuario_id`, con el id anterior y el nuevo). Un reintento de la ejecución que
+creó la tarea mira quién ya tiene una, así que tras reasignar podría crearle otra a la persona original;
+solo se reintentan las ejecuciones `fallido`, que no crean tareas.
 
 - `destinatarios_regla`: usuarios y roles de la regla, solo los activos.
 - `responsables_habilitados`: familias del alumno con `recibe_comunicaciones`.
