@@ -194,7 +194,7 @@ Ya emiten: Proveedores y Compras, `orden_compra.emitida` (en `crear_orden_compra
 | Evento | Dónde iría | Payload |
 |---|---|---|
 | `inscripcion.cambio_matricula` | Inscripciones: `registrar_cambio_matricula` | `alumno_nombre`, `tipo_cambio` (`nivel` o `division`), `fecha` |
-| `factura.vencida` | Facturación: todavía no existe el proceso que marca facturas vencidas (#61 y #82) | `dias_vencido`, `monto_deuda`, `nombre_familia` |
+| `factura.vencida` | Facturación: `vencimientos_service.py` al entrar la factura en un tramo de mora | `dias_vencido`, `monto_deuda`, `nombre_familia` |
 | `inscripcion.confirmada` | Inscripciones: al crear la `INSCRIPCION` nueva desde la solicitud (`matriculas_service.py`) | `alumno_nombre`, `nivel_educativo`, `fecha` |
 | `solicitud_compra.aprobada` | Compras: `cambiar_estado_solicitud` cuando pasa a `aprobada` | `item`, `cantidad`, `fecha` |
 | `solicitud_inscripcion.aprobada`, `pago.registrado`, `pago.rechazado` | Admisiones y Facturación | ver `grupo-b.yaml` |
@@ -261,8 +261,7 @@ hasta que su dueño lo reemplace (#199):
 `aplicar_vencimiento` marca la factura `vencida` cuando ya pasó su fecha efectiva: la mayor entre
 su vencimiento y las excepciones de la familia del responsable económico. El día exacto todavía no
 cuenta como vencida (fecha de Buenos Aires). Con una prórroga vigente la ejecución queda exitosa
-sin cambios, y reevaluarla requiere otro `factura.vencida` (#61 debe contemplarlo en la
-idempotencia del job). `cambiar_estado` aplica el `estado_nuevo` de `accion_config` dentro de
+sin cambios y se reevalúa recién con el `factura.vencida` del siguiente tramo. `cambiar_estado` aplica el `estado_nuevo` de `accion_config` dentro de
 `CAMBIOS_ESTADO_PERMITIDOS` (hoy solo `factura → vencida`), sin mirar fechas ni excepciones.
 Ninguna modifica una factura pagada o ya vencida.
 
