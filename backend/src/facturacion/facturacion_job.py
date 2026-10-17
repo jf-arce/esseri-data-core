@@ -24,6 +24,7 @@ from src.facturacion.reglas_facturacion_service import (
     regla_aplica_periodo,
 )
 from src.facturacion.schemas import EjecucionFacturacionRead
+from src.facturacion.vencimientos_service import detectar_facturas_vencidas
 
 logger = logging.getLogger(__name__)
 
@@ -86,8 +87,17 @@ def ejecutar_facturacion_automatica(
 
 
 def _ejecutar_corrida_con_sesion() -> None:
-    with SessionLocal() as db:
-        ejecutar_facturacion_automatica(db)
+    # Cada paso con su sesión: una transacción rota en uno no arrastra al otro.
+    try:
+        with SessionLocal() as db:
+            ejecutar_facturacion_automatica(db)
+    except Exception:
+        logger.exception("Falló la facturación automática de la corrida")
+    try:
+        with SessionLocal() as db:
+            detectar_facturas_vencidas(db)
+    except Exception:
+        logger.exception("Falló la detección de facturas vencidas")
 
 
 async def ejecutar_job_facturacion_periodico() -> None:
