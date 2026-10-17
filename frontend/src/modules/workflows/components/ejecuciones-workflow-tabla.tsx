@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { BotonesAprobacion } from '@/modules/workflows/components/botones-aprobacion'
 import type { EjecucionWorkflow } from '@/modules/workflows/types'
 import {
   ETIQUETA_ACCION,
@@ -40,10 +41,14 @@ interface EjecucionesWorkflowTablaProps {
   totalPaginas: number
   onCambiarPagina: (pagina: number) => void
   onVerDetalle: (ejecucion: EjecucionWorkflow) => void
-  /** Con permiso de actualización se ofrece "Reintentar" en las ejecuciones reintentables. */
+  /** Con permiso de actualización se ofrece "Reintentar" en las reintentables y "Aprobar" y
+   * "Rechazar" en las aprobables. */
   puedeActualizar: boolean
   reintentandoId: string | null
   onReintentar: (ejecucion: EjecucionWorkflow) => void
+  decidiendoId: string | null
+  onAprobar: (ejecucion: EjecucionWorkflow) => void
+  onRechazar: (ejecucion: EjecucionWorkflow) => void
 }
 
 export function EjecucionesWorkflowTabla({
@@ -58,6 +63,9 @@ export function EjecucionesWorkflowTabla({
   puedeActualizar,
   reintentandoId,
   onReintentar,
+  decidiendoId,
+  onAprobar,
+  onRechazar,
 }: EjecucionesWorkflowTablaProps) {
   return (
     <div className="overflow-hidden rounded-panel bg-superficie shadow-card">
@@ -116,6 +124,13 @@ export function EjecucionesWorkflowTabla({
                         Reintentar
                       </Button>
                     )}
+                    <BotonesAprobacion
+                      ejecucion={ejecucion}
+                      puedeActualizar={puedeActualizar}
+                      decidiendoId={decidiendoId}
+                      onAprobar={onAprobar}
+                      onRechazar={onRechazar}
+                    />
                   </div>
                 </TableCell>
               </TableRow>

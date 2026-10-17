@@ -8,6 +8,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { BotonesAprobacion } from '@/modules/workflows/components/botones-aprobacion'
 import { rutaRegla } from '@/modules/workflows/constants'
 import type { EjecucionWorkflow } from '@/modules/workflows/types'
 import {
@@ -31,9 +32,20 @@ function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactN
 interface EjecucionDetalleSheetProps {
   ejecucion: EjecucionWorkflow | null
   onCerrar: () => void
+  puedeActualizar: boolean
+  decidiendoId: string | null
+  onAprobar: (ejecucion: EjecucionWorkflow) => void
+  onRechazar: (ejecucion: EjecucionWorkflow) => void
 }
 
-export function EjecucionDetalleSheet({ ejecucion, onCerrar }: EjecucionDetalleSheetProps) {
+export function EjecucionDetalleSheet({
+  ejecucion,
+  onCerrar,
+  puedeActualizar,
+  decidiendoId,
+  onAprobar,
+  onRechazar,
+}: EjecucionDetalleSheetProps) {
   return (
     <Sheet open={ejecucion !== null} onOpenChange={(abierto) => !abierto && onCerrar()}>
       <SheetContent className="sm:max-w-md">
@@ -86,6 +98,17 @@ export function EjecucionDetalleSheet({ ejecucion, onCerrar }: EjecucionDetalleS
                     {ejecucion.error_detail}
                   </AlertDescription>
                 </Alert>
+              )}
+              {ejecucion.aprobable && puedeActualizar && (
+                <div className="flex justify-end gap-1">
+                  <BotonesAprobacion
+                    ejecucion={ejecucion}
+                    puedeActualizar={puedeActualizar}
+                    decidiendoId={decidiendoId}
+                    onAprobar={onAprobar}
+                    onRechazar={onRechazar}
+                  />
+                </div>
               )}
             </div>
           </>
