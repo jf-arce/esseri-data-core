@@ -421,8 +421,5 @@ def actualizar_estado_regla_facturacion(
 def procesar_vencimientos(
     db: DbSession, _: PuedeActualizar, fecha_referencia: date | None = None
 ) -> ResumenVencimientos:
-    """Corre la detección de facturas vencidas sin esperar al job (útil para probar).
-
-    Lo emitido con una `fecha_referencia` simulada cuenta para el control de duplicados.
-    """
+    """Corre la detección de facturas vencidas sin esperar al job (útil para probar)."""
     return vencimientos_service.detectar_facturas_vencidas(db, fecha_referencia)

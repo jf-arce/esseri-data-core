@@ -61,10 +61,7 @@ def _tramos_ya_emitidos(db: Session, factura_ids: list[uuid.UUID]) -> dict[uuid.
 def detectar_facturas_vencidas(
     db: Session, fecha_actual: date | None = None
 ) -> ResumenVencimientos:
-    """Emite `factura.vencida` por cada factura impaga que entró en un tramo de mora nuevo.
-
-    No cambia `factura.estado` ni aplica penalidad: eso lo hacen las acciones del workflow.
-    """
+    """Emite `factura.vencida` por cada factura impaga que entró en un tramo de mora nuevo."""
 
     hoy = fecha_actual or fecha_operativa_argentina()
     facturas = list(

@@ -194,8 +194,6 @@ def _validar_comprobante(
 
 
 def total_pagado_factura(db: Session, factura_id: uuid.UUID) -> Decimal:
-    """Suma los pagos aprobados de una factura."""
-
     return db.scalar(
         select(func.coalesce(func.sum(Pago.monto), Decimal("0.00"))).where(
             Pago.factura_id == factura_id, Pago.estado == "aprobado"

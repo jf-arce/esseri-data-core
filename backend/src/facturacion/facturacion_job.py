@@ -87,7 +87,6 @@ def ejecutar_facturacion_automatica(
 
 
 def _ejecutar_corrida_con_sesion() -> None:
-    # Cada paso con su sesión: una transacción rota en uno no arrastra al otro.
     try:
         with SessionLocal() as db:
             ejecutar_facturacion_automatica(db)
