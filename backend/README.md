@@ -109,6 +109,14 @@ El job no usa una fecha global de emisión: cada regla activa con
 `modo_generacion = automatica` define su propio `dia_generacion`. Si una corrida no se completa,
 el período sigue pendiente y se reintenta sin duplicar cargos.
 
+Después de facturar, la misma corrida detecta las facturas vencidas (`vencimientos_service.py`) y
+emite `factura.vencida` una vez por tramo activo de `REGLA_PENALIDAD` (con el seed, días 1, 6 y 16
+de mora). Solo emite el evento: el cambio de estado y la penalidad los hacen las acciones del
+workflow. Una `EXCEPCION_VENCIMIENTO` del mismo mes corre la fecha desde la que se cuentan los días.
+
+Para forzar una pasada: `POST /facturacion/vencimientos/procesar`. Con `fecha_referencia` simula
+días de mora, y lo emitido así cuenta como ya emitido cuando llegue la fecha real.
+
 Para deshabilitar temporalmente el job, configurar
 `FACTURACION_AUTOMATICA_HABILITADA=false`. El flujo manual “Generar ahora” permanece disponible
 como respaldo con previsualización.

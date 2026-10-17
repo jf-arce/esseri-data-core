@@ -19,7 +19,7 @@ tipo_evento: # RF-24 (3 ejemplos originales) + eventos nuevos de las aclaracione
   - nombre: inasistencia.justificada
     descripcion: Se resolvió una justificación de ausencia
   - nombre: factura.vencida
-    descripcion: Una factura pasó a estado vencida
+    descripcion: Una factura impaga superó su fecha de vencimiento
   - nombre: inscripcion.cambio_matricula
     descripcion: Cambio de nivel, división o baja
   - nombre: solicitud_inscripcion.aprobada
