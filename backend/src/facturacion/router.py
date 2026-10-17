@@ -20,6 +20,7 @@ from src.facturacion import (
     facturas_service,
     reglas_facturacion_service,
     service,
+    vencimientos_service,
 )
 from src.facturacion.calendario_facturacion import fecha_operativa_argentina
 from src.facturacion.dependencies import obtener_concepto_cobro_o_404, obtener_factura_o_404
@@ -51,6 +52,7 @@ from src.facturacion.schemas import (
     ReglaFacturacionUpdate,
     ResponsableEconomicoCreate,
     ResponsableEconomicoRead,
+    ResumenVencimientos,
 )
 from src.familias_alumnos.dependencies import obtener_alumno_o_404
 from src.familias_alumnos.models import Alumno
@@ -413,3 +415,11 @@ def actualizar_estado_regla_facturacion(
             db, regla, datos, usuario.id
         ),
     )
+
+
+@router.post("/vencimientos/procesar")
+def procesar_vencimientos(
+    db: DbSession, _: PuedeActualizar, fecha_referencia: date | None = None
+) -> ResumenVencimientos:
+    """Corre la detección de facturas vencidas sin esperar al job (útil para probar)."""
+    return vencimientos_service.detectar_facturas_vencidas(db, fecha_referencia)

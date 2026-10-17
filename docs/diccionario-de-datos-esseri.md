@@ -659,6 +659,8 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 ### `TIPO_EVENTO`
 > `[DECISIÓN DE DISEÑO]` `nombre` es `UNIQUE` (`uq_tipo_evento_nombre`): `emit_event()` resuelve el tipo por nombre, así que no puede haber dos filas con el mismo.
 >
+> `[DECISIÓN DE DISEÑO]` `factura.vencida` se emite desde `backend/src/facturacion/vencimientos_service.py`, una vez por tramo activo de `REGLA_PENALIDAD`. Además de `dias_vencido`, `monto_deuda` y `nombre_familia`, el `payload` lleva `tramo_desde_dia` (el `desde_dia_vencido` del tramo) y `fecha_vencimiento_efectiva` (el vencimiento corrido por la `EXCEPCION_VENCIMIENTO` de la familia, si existe).
+
 > [DECISIÓN DE DISEÑO] Catálogo en vez de texto libre en `WORKFLOW_RULE`, mismo patrón que `PERMISO`/`METODO_PAGO` (RNF-06). Acá se cargan valores como "factura.vencida", "inasistencia.registrada", "inscripcion.cambio_matricula", y desde las aclaraciones también "solicitud_inscripcion.aprobada", "inasistencia.justificada", "pago.registrado", "pago.rechazado". Proveedores y Compras suma "orden_compra.emitida" y "recepcion_compra.registrada", y "solicitud_compra.aprobada". Inscripciones suma "inscripcion.confirmada".
 
 | Campo | Tipo | Clave | Descripción |
@@ -1041,7 +1043,7 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 |---|---|
 | inasistencia.registrada | Se registró una ausencia |
 | inasistencia.justificada | `[ACLARACIÓN CLIENTE]` Se resolvió una justificación de ausencia |
-| factura.vencida | Una factura pasó a estado vencida |
+| factura.vencida | Una factura impaga superó su fecha de vencimiento |
 | inscripcion.cambio_matricula | Cambio de nivel, división o baja |
 | solicitud_inscripcion.aprobada | `[ACLARACIÓN CLIENTE]` Una solicitud de admisión llegó a etapa aprobada |
 | pago.registrado | `[ACLARACIÓN CLIENTE]` Se confirmó un pago |

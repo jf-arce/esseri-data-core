@@ -193,6 +193,14 @@ def _validar_comprobante(
         raise ComprobantePagoInvalido()
 
 
+def total_pagado_factura(db: Session, factura_id: uuid.UUID) -> Decimal:
+    return db.scalar(
+        select(func.coalesce(func.sum(Pago.monto), Decimal("0.00"))).where(
+            Pago.factura_id == factura_id, Pago.estado == "aprobado"
+        )
+    ) or Decimal("0.00")
+
+
 def registrar_pago(
     db: Session,
     *,
@@ -225,11 +233,7 @@ def registrar_pago(
         requerido=metodo_pago.requiere_comprobante,
     )
 
-    total_pagado = db.scalar(
-        select(func.coalesce(func.sum(Pago.monto), Decimal("0.00"))).where(
-            Pago.factura_id == factura.id, Pago.estado == "aprobado"
-        )
-    ) or Decimal("0.00")
+    total_pagado = total_pagado_factura(db, factura.id)
     if monto > factura.monto_total - total_pagado:
         raise PagoExcedeSaldo()
 

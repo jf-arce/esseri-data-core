@@ -376,3 +376,10 @@ class UltimaEjecucionReglaRead(BaseModel):
     error_detalle: str | None
 
     _normalizar_timestamps = field_validator("fecha_ejecucion")(_normalizar_instante_utc)
+
+
+class ResumenVencimientos(BaseModel):
+    """Resultado de una pasada de detección de facturas vencidas."""
+
+    facturas_revisadas: int = 0
+    eventos_emitidos: int = 0
