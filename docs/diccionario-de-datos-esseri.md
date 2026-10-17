@@ -466,6 +466,15 @@ RF cubiertos: RF-15, RF-16, RF-17, RF-18 (parcial, ver nota), RF-36
 ### `EXCEPCION_VENCIMIENTO`
 > **[ACLARACIÓN CLIENTE]** (respuesta 5): *"salvo que exista una fecha excepcional previamente autorizada por ESSERI para esa familia"*.
 
+`aplicar_vencimiento` toma la familia del responsable económico asociado a la factura, incluso
+si su vigencia terminó. La fecha efectiva es la mayor entre el vencimiento de la factura y todas
+las fechas excepcionales de esa familia. Solo pasa de `pendiente` a `vencida` al día siguiente
+de esa fecha, según `America/Argentina/Buenos_Aires`. Si aún no corresponde, la ejecución queda
+exitosa sin cambios. Para reevaluarla tras la prórroga se necesita una nueva emisión de
+`factura.vencida`; el job #61 debe contemplarlo. La acción
+genérica `cambiar_estado` puede marcar `vencida` sin aplicar esta política de fechas, pero no
+modifica facturas pagadas o ya vencidas.
+
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
 | id | uuid | PK |  |
