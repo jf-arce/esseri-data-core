@@ -40,6 +40,14 @@ export function apiReintentarEjecucion(id: string): string {
   return `${API_EJECUCIONES}/${id}/reintentar`
 }
 
+export function apiAprobarEjecucion(id: string): string {
+  return `${API_EJECUCIONES}/${id}/aprobar`
+}
+
+export function apiRechazarEjecucion(id: string): string {
+  return `${API_EJECUCIONES}/${id}/rechazar`
+}
+
 export const API_TAREAS = '/workflows/tareas'
 
 export function apiTarea(id: string): string {
@@ -116,6 +124,7 @@ export const LIMITE_ASUNTO_PLANTILLA = 200
 export const LIMITE_CUERPO_PLANTILLA = 10_000
 export const LIMITE_MENSAJE_ALERTA = 500
 export const LIMITE_TITULO_TAREA = 150
+export const LIMITE_MOTIVO_RECHAZO = 500
 export const RANGO_DIAS_RECORDATORIO = { min: 1, max: 90 }
 export const RANGO_DIAS_TAREA = { min: 1, max: 60 }
 export const RANGO_MONTO = { min: 0.01, step: '0.01' }

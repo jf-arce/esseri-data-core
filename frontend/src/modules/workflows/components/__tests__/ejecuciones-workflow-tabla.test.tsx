@@ -38,6 +38,9 @@ function renderTabla(props: Partial<Parameters<typeof EjecucionesWorkflowTabla>[
       puedeActualizar
       reintentandoId={null}
       onReintentar={vi.fn()}
+      decidiendoId={null}
+      onAprobar={vi.fn()}
+      onRechazar={vi.fn()}
       {...props}
     />,
   )
@@ -91,6 +94,9 @@ describe('EjecucionesWorkflowTabla', () => {
         puedeActualizar={false}
         reintentandoId={null}
         onReintentar={onReintentar}
+        decidiendoId={null}
+        onAprobar={vi.fn()}
+        onRechazar={vi.fn()}
       />,
     )
     expect(screen.queryByRole('button', { name: /Reintentar/ })).not.toBeInTheDocument()
@@ -106,5 +112,45 @@ describe('EjecucionesWorkflowTabla', () => {
     renderTabla({ items: [{ ...ejecucionFallida, reintentable: true }], reintentandoId: 'ej-1' })
 
     expect(screen.getByRole('button', { name: /Reintentar/ })).toBeDisabled()
+  })
+
+  describe('aprobación', () => {
+    const aprobable: EjecucionWorkflow = {
+      ...ejecucionFallida,
+      estado: 'pendiente',
+      error_detail: null,
+      aprobable: true,
+    }
+
+    it('ofrece aprobar y rechazar una ejecución aprobable y avisa con la ejecución', async () => {
+      const onAprobar = vi.fn()
+      const onRechazar = vi.fn()
+      renderTabla({ items: [aprobable], onAprobar, onRechazar })
+
+      await userEvent.click(screen.getByRole('button', { name: /Aprobar/ }))
+      await userEvent.click(screen.getByRole('button', { name: /Rechazar/ }))
+
+      expect(onAprobar).toHaveBeenCalledWith(aprobable)
+      expect(onRechazar).toHaveBeenCalledWith(aprobable)
+    })
+
+    it('no los ofrece si la ejecución no es aprobable', () => {
+      renderTabla({ items: [{ ...aprobable, aprobable: false }] })
+
+      expect(screen.queryByRole('button', { name: /Aprobar|Rechazar/ })).not.toBeInTheDocument()
+    })
+
+    it('no los ofrece sin permiso de actualizar', () => {
+      renderTabla({ items: [aprobable], puedeActualizar: false })
+
+      expect(screen.queryByRole('button', { name: /Aprobar|Rechazar/ })).not.toBeInTheDocument()
+    })
+
+    it('deshabilita los botones mientras se decide una ejecución', () => {
+      renderTabla({ items: [aprobable], decidiendoId: 'ej-1' })
+
+      expect(screen.getByRole('button', { name: /Aprobar/ })).toBeDisabled()
+      expect(screen.getByRole('button', { name: /Rechazar/ })).toBeDisabled()
+    })
   })
 })

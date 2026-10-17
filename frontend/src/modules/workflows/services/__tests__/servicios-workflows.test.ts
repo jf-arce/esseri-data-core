@@ -13,6 +13,8 @@ import { listarTiposAccion } from '@/modules/workflows/services/listar-tipos-acc
 import { listarTiposEvento } from '@/modules/workflows/services/listar-tipos-evento'
 import { obtenerDestinatariosRegla } from '@/modules/workflows/services/obtener-destinatarios-regla'
 import { reemplazarDestinatariosRegla } from '@/modules/workflows/services/reemplazar-destinatarios-regla'
+import { aprobarEjecucionWorkflow } from '@/modules/workflows/services/aprobar-ejecucion-workflow'
+import { rechazarEjecucionWorkflow } from '@/modules/workflows/services/rechazar-ejecucion-workflow'
 import { reintentarEjecucionWorkflow } from '@/modules/workflows/services/reintentar-ejecucion-workflow'
 import { obtenerNotificacion } from '@/modules/workflows/services/obtener-notificacion'
 import { obtenerTarea } from '@/modules/workflows/services/obtener-tarea'
@@ -132,6 +134,28 @@ describe('servicios de workflows', () => {
     expect(url).toContain('/workflows/ejecuciones/ejec-1/reintentar')
     expect(init?.method).toBe('POST')
     expect(init?.body).toBeUndefined()
+  })
+
+  it('aprueba una ejecución con POST sin body', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await aprobarEjecucionWorkflow('ejec-1')
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toContain('/workflows/ejecuciones/ejec-1/aprobar')
+    expect(init?.method).toBe('POST')
+    expect(init?.body).toBeUndefined()
+  })
+
+  it('rechaza una ejecución con POST y el motivo en el body', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await rechazarEjecucionWorkflow('ejec-1', 'Ya se resolvió por otro medio')
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toContain('/workflows/ejecuciones/ejec-1/rechazar')
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(String(init?.body))).toEqual({ motivo: 'Ya se resolvió por otro medio' })
   })
 
   it('lista las plantillas compatibles con el evento', async () => {

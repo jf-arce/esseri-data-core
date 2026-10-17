@@ -1,21 +1,27 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { EjecucionesWorkflowPage } from '@/modules/workflows/pages/ejecuciones-workflow-page'
+import { aprobarEjecucionWorkflow } from '@/modules/workflows/services/aprobar-ejecucion-workflow'
 import { listarEjecucionesWorkflow } from '@/modules/workflows/services/listar-ejecuciones-workflow'
+import { rechazarEjecucionWorkflow } from '@/modules/workflows/services/rechazar-ejecucion-workflow'
 import { reintentarEjecucionWorkflow } from '@/modules/workflows/services/reintentar-ejecucion-workflow'
 import { useAuthStore } from '@/store/auth-store'
 import type { EjecucionWorkflow, EjecucionWorkflowListado } from '@/modules/workflows/types'
 
 vi.mock('@/modules/workflows/services/listar-ejecuciones-workflow')
 vi.mock('@/modules/workflows/services/reintentar-ejecucion-workflow')
+vi.mock('@/modules/workflows/services/aprobar-ejecucion-workflow')
+vi.mock('@/modules/workflows/services/rechazar-ejecucion-workflow')
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), info: vi.fn(), error: vi.fn() } }))
 
 const mockedListar = vi.mocked(listarEjecucionesWorkflow)
 const mockedReintentar = vi.mocked(reintentarEjecucionWorkflow)
+const mockedAprobar = vi.mocked(aprobarEjecucionWorkflow)
+const mockedRechazar = vi.mocked(rechazarEjecucionWorkflow)
 
 const ejecucionFallida: EjecucionWorkflow = {
   id: 'ej-1',
@@ -159,6 +165,141 @@ describe('EjecucionesWorkflowPage', () => {
     expect(mockedReintentar).toHaveBeenCalledTimes(1)
     resolver({ ...reintentable, intento: 2 })
     await waitFor(() => expect(mockedListar).toHaveBeenCalledTimes(2))
+  })
+
+  describe('aprobación', () => {
+    const pendiente: EjecucionWorkflow = {
+      ...ejecucionFallida,
+      estado: 'pendiente',
+      error_detail: null,
+      aprobable: true,
+    }
+
+    beforeEach(() => {
+      mockedListar.mockResolvedValue({ ...listado, items: [pendiente] })
+    })
+
+    it('el filtro de estado ofrece "Pendientes de aprobación" y manda el estado pendiente', async () => {
+      renderPagina()
+      await screen.findByText('Aviso de mora')
+
+      await elegirEstado('Pendientes de aprobación')
+
+      await waitFor(() =>
+        expect(mockedListar.mock.lastCall?.[0]).toMatchObject({ estado: 'pendiente', pagina: 1 }),
+      )
+    })
+
+    it('aprueba desde la tabla, avisa y recarga', async () => {
+      mockedAprobar.mockResolvedValue({ ...pendiente, estado: 'exitoso', aprobable: false })
+      renderPagina()
+
+      await userEvent.click(await screen.findByRole('button', { name: /Aprobar/ }))
+
+      await waitFor(() => expect(mockedAprobar).toHaveBeenCalledWith('ej-1'))
+      expect(toast.success).toHaveBeenCalledWith('La ejecución se aprobó y se completó.')
+      await waitFor(() => expect(mockedListar).toHaveBeenCalledTimes(2))
+    })
+
+    it('si al aprobar la acción falla lo avisa como error', async () => {
+      mockedAprobar.mockResolvedValue({ ...pendiente, estado: 'fallido', aprobable: false })
+      renderPagina()
+
+      await userEvent.click(await screen.findByRole('button', { name: /Aprobar/ }))
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith('La ejecución se aprobó, pero la acción falló.'),
+      )
+    })
+
+    it('muestra el motivo del backend si no se puede aprobar y recarga', async () => {
+      mockedAprobar.mockRejectedValue(
+        new ApiError(409, 'La regla cambió desde que quedó pendiente.'),
+      )
+      renderPagina()
+
+      await userEvent.click(await screen.findByRole('button', { name: /Aprobar/ }))
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith('La regla cambió desde que quedó pendiente.'),
+      )
+      await waitFor(() => expect(mockedListar).toHaveBeenCalledTimes(2))
+    })
+
+    it('rechaza con el motivo, avisa y recarga', async () => {
+      mockedRechazar.mockResolvedValue({ ...pendiente, estado: 'rechazado', aprobable: false })
+      renderPagina()
+
+      await userEvent.click(await screen.findByRole('button', { name: /Rechazar/ }))
+      await userEvent.type(await screen.findByLabelText('Motivo'), '  Ya se resolvió  ')
+      await userEvent.click(
+        within(screen.getByRole('dialog')).getByRole('button', { name: 'Rechazar' }),
+      )
+
+      await waitFor(() => expect(mockedRechazar).toHaveBeenCalledWith('ej-1', 'Ya se resolvió'))
+      expect(toast.success).toHaveBeenCalledWith('La ejecución se rechazó.')
+      await waitFor(() => expect(mockedListar).toHaveBeenCalledTimes(2))
+    })
+
+    it('no deja rechazar sin motivo', async () => {
+      renderPagina()
+
+      await userEvent.click(await screen.findByRole('button', { name: /Rechazar/ }))
+      const dialogo = await screen.findByRole('dialog')
+      await userEvent.type(within(dialogo).getByLabelText('Motivo'), '   ')
+
+      expect(within(dialogo).getByRole('button', { name: 'Rechazar' })).toBeDisabled()
+      expect(mockedRechazar).not.toHaveBeenCalled()
+    })
+
+    it('cancelar el rechazo no llama al backend', async () => {
+      renderPagina()
+
+      await userEvent.click(await screen.findByRole('button', { name: /Rechazar/ }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Cancelar' }))
+
+      expect(mockedRechazar).not.toHaveBeenCalled()
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    })
+
+    it('desde el detalle también se puede aprobar y el detalle muestra el resultado', async () => {
+      mockedAprobar.mockResolvedValue({ ...pendiente, estado: 'exitoso', aprobable: false })
+      renderPagina()
+
+      await userEvent.click(await screen.findByRole('button', { name: /Ver detalle/ }))
+      const detalle = await screen.findByRole('dialog')
+      await userEvent.click(within(detalle).getByRole('button', { name: /Aprobar/ }))
+
+      await waitFor(() => expect(mockedAprobar).toHaveBeenCalledWith('ej-1'))
+      await waitFor(() =>
+        expect(within(screen.getByRole('dialog')).getByText('Exitosa')).toBeInTheDocument(),
+      )
+      expect(
+        within(screen.getByRole('dialog')).queryByRole('button', { name: /Aprobar/ }),
+      ).not.toBeInTheDocument()
+    })
+
+    it('sin workflows.actualizar no ofrece aprobar ni rechazar', async () => {
+      conPermisos(['workflows.leer'])
+      renderPagina()
+
+      await screen.findByText('Aviso de mora')
+      expect(screen.queryByRole('button', { name: /Aprobar|Rechazar/ })).not.toBeInTheDocument()
+    })
+
+    it('ignora un segundo clic mientras la decisión sigue pendiente', async () => {
+      let resolver: (valor: EjecucionWorkflow) => void = () => {}
+      mockedAprobar.mockReturnValue(new Promise((resolve) => (resolver = resolve)))
+      renderPagina()
+
+      const boton = await screen.findByRole('button', { name: /Aprobar/ })
+      await userEvent.click(boton)
+      await userEvent.click(boton)
+
+      expect(mockedAprobar).toHaveBeenCalledTimes(1)
+      resolver({ ...pendiente, estado: 'exitoso', aprobable: false })
+      await waitFor(() => expect(mockedListar).toHaveBeenCalledTimes(2))
+    })
   })
 
   it('no ofrece el reintento sin workflows.actualizar', async () => {
