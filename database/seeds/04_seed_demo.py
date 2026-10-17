@@ -77,10 +77,46 @@ from src.proveedores_compras.models import (
     RecepcionCompraDetalle,
     SolicitudCompra,
 )
+from src.workflows.destinatarios_service import reemplazar_destinatarios_regla
+from src.workflows.models import TipoEvento, WorkflowRule
+from src.workflows.schemas import ReglaDestinatariosUpdate, WorkflowRuleCreate
+from src.workflows.service import crear_regla
 
 DEMO_EMAIL = "demo.admin@esseri.local"
 DEMO_PASSWORD = os.getenv("ESSERI_DEMO_PASSWORD", "EsseriDemo2026!")
 ROL_ADMIN = "administrador del sistema"
+
+
+# Reglas de workflow de la demo (#216). Los nombres hacen que, con más de 30 días, `crear_tarea` se
+# evalúe antes que `escalar_caso` (el motor ordena las reglas por nombre) y la tarea ya exista
+# cuando se escala. `escalar_caso` no fija `requiere_aprobacion_humana`: toma el default de la
+# acción, que es pedir aprobación humana.
+REGLAS_MORA = [
+    {
+        "nombre": "Mora > 15 días: crear tarea",
+        "dias_vencido_mayor_a": 15,
+        "tipo_accion": "crear_tarea",
+        "accion_config": {
+            "titulo": "Reclamar la deuda vencida",
+            "descripcion": "La factura lleva más de 15 días vencida: contactar a la familia.",
+            "prioridad": "media",
+            "dias_para_vencer": 5,
+        },
+        "criticidad": "media",
+        "rol": "administración",
+    },
+    {
+        "nombre": "Mora > 30 días: escalar caso",
+        "dias_vencido_mayor_a": 30,
+        "tipo_accion": "escalar_caso",
+        "accion_config": {
+            "motivo": "La factura lleva más de 30 días vencida sin regularizarse.",
+            "prioridad": "alta",
+        },
+        "criticidad": "alta",
+        "rol": "dirección",
+    },
+]
 
 
 FAMILIAS = [
@@ -758,6 +794,37 @@ def _sync_estados_familia(familias: list[Familia]):
         familia.estado_deuda = "al_dia" if idx < 4 else ("con_deuda" if idx < 8 else "en_mora")
 
 
+def _ensure_reglas_workflow(db, usuario: Usuario):
+    """Reglas de mora de la demo: tarea para Administración y escalamiento a Dirección.
+
+    Se buscan por nombre y, si ya existen, no se tocan: así volver a correr el seed no las
+    duplica ni pisa lo que se haya editado desde la pantalla de reglas."""
+    tipo_evento = _require(db, TipoEvento, nombre="factura.vencida")
+    for regla in REGLAS_MORA:
+        if db.scalar(select(WorkflowRule).where(WorkflowRule.nombre == regla["nombre"])):
+            continue
+        rol = _require(db, Rol, nombre=regla["rol"])
+        creada = crear_regla(
+            db,
+            WorkflowRuleCreate(
+                nombre=regla["nombre"],
+                tipo_evento_id=tipo_evento.id,
+                condicion={
+                    "campo": "dias_vencido",
+                    "operador": ">",
+                    "valor": regla["dias_vencido_mayor_a"],
+                },
+                tipo_accion=regla["tipo_accion"],
+                accion_config=regla["accion_config"],
+                criticidad=regla["criticidad"],
+            ),
+            usuario.id,
+        )
+        reemplazar_destinatarios_regla(
+            db, creada, ReglaDestinatariosUpdate(rol_ids=[rol.id], usuario_ids=[]), usuario.id
+        )
+
+
 def _ensure_compras(db, usuario: Usuario, hoy: date):
     proveedores: list[Proveedor] = []
     for nombre, categoria, telefono, email in PROVEEDORES:
@@ -1062,36 +1129,39 @@ def seed_demo():
         _require(db, MetodoPago, nombre="debito_directo")
         _require(db, Rol, nombre=ROL_ADMIN)
 
-        print("[1/8] Usuario demo")
+        print("[1/9] Usuario demo")
         usuario = _ensure_demo_user(db)
         db.commit()
 
-        print("[2/8] Estructura académica y docentes")
+        print("[2/9] Estructura académica y docentes")
         niveles, divisiones = _ensure_academico(db, ciclo)
         db.commit()
 
-        print("[3/8] Familias, alumnos, inscripciones y responsables económicos")
+        print("[3/9] Familias, alumnos, inscripciones y responsables económicos")
         familias, _alumnos, inscripciones = _ensure_familias_y_alumnos(db, ciclo, divisiones)
         db.commit()
 
-        print("[4/8] Asistencias de hoy")
+        print("[4/9] Asistencias de hoy")
         _ensure_asistencias(db, hoy, inscripciones)
         db.commit()
 
-        print("[5/8] Admisiones")
+        print("[5/9] Admisiones")
         _ensure_admisiones(db, usuario, niveles, hoy)
         db.commit()
 
-        print("[6/8] Reglas, ejecuciones, facturas y pagos")
+        print("[6/9] Reglas, ejecuciones, facturas y pagos")
         _ensure_facturacion(db, usuario, inscripciones, hoy)
         _sync_estados_familia(familias)
         db.commit()
 
-        print("[7/8] Proveedores, solicitudes, órdenes y recepciones")
+        print("[7/9] Reglas de workflow de mora")
+        _ensure_reglas_workflow(db, usuario)
+
+        print("[8/9] Proveedores, solicitudes, órdenes y recepciones")
         _ensure_compras(db, usuario, hoy)
         db.commit()
 
-        print("[8/8] Verificación")
+        print("[9/9] Verificación")
         # Conteos demo por claves estables; no dependen de que la base tenga otros datos de prueba.
         demo_alumnos = db.scalars(
             select(Alumno).where(Alumno.numero_legajo.in_([x[3] for x in ALUMNOS]))

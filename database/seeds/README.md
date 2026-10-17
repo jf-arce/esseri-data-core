@@ -37,7 +37,8 @@ ejemplo), no en el seed ni a mano en cada base.
 ## `04_seed_demo.py` — datos ficticios para una demo local
 
 Este seed es opcional y manual: crea familias, alumnos, estructura académica, asistencias,
-admisiones, reglas/facturas/pagos y compras de ejemplo. **No reemplaza los catálogos canónicos
+admisiones, reglas/facturas/pagos y compras de ejemplo, y dos reglas de workflow para la mora
+(ver abajo). **No reemplaza los catálogos canónicos
 ni se ejecuta al levantar Docker.**
 
 Requiere haber ejecutado los tres seeds canónicos y una confirmación explícita. Nunca correrlo
@@ -59,6 +60,14 @@ docker compose exec -e ESSERI_DEMO_SEED_ENABLED=true backend python /database/se
 La cuenta creada es `demo.admin@esseri.local`; la contraseña por defecto es
 `EsseriDemo2026!`. Puede reemplazarse solo para la carga con `ESSERI_DEMO_PASSWORD`.
 El script rechaza `ENVIRONMENT=production`/`prod` y es idempotente para sus propias claves demo.
+
+**Reglas de workflow de la demo (#216).** Sobre `factura.vencida` crea dos reglas que usan el
+campo `dias_vencido`: `Mora > 15 días: crear tarea` (`crear_tarea`, tarea para el rol
+Administración) y `Mora > 30 días: escalar caso` (`escalar_caso`, nueva tarea para el rol
+Dirección). La segunda nace con aprobación humana: la ejecución queda pendiente hasta que se
+apruebe desde el historial de ejecuciones. Con más de 30 días se disparan las dos, y los nombres
+hacen que `crear_tarea` se evalúe primero (el motor ordena las reglas por nombre). Se buscan por
+nombre: si ya existen, volver a correr el seed no las duplica ni pisa lo editado desde la pantalla.
 
 ## `05_seed_demo_docente.py` — datos ficticios para demostrar el Portal Docente
 
