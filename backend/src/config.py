@@ -26,6 +26,15 @@ class Settings(BaseSettings):
     BOOTSTRAP_ADMIN_PASSWORD: str = ""
 
     OPENAI_API_KEY: str = ""
+    # Cualquier proveedor que hable el protocolo de Chat Completions de OpenAI.
+    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_TIMEOUT_SEGUNDOS: float = 30.0
+
+    # IA/Sugerencias: umbrales de la detección de patrones por reglas.
+    IA_MOROSIDAD_DIAS_VENCIDO: int = 30
+    IA_INASISTENCIAS_CANTIDAD: int = 3
+    IA_INASISTENCIAS_VENTANA_DIAS: int = 30
 
     # El job solo decide cuándo ejecutar; cada regla define su propio día de generación.
     FACTURACION_AUTOMATICA_HABILITADA: bool = True
