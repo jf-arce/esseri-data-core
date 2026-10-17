@@ -194,7 +194,7 @@ Ya emiten: Proveedores y Compras, `orden_compra.emitida` (en `crear_orden_compra
 | Evento | Dónde iría | Payload |
 |---|---|---|
 | `inscripcion.cambio_matricula` | Inscripciones: `registrar_cambio_matricula` | `alumno_nombre`, `tipo_cambio` (`nivel` o `division`), `fecha` |
-| `factura.vencida` | Facturación: todavía no existe el proceso que marca facturas vencidas (#61 y #82) | `dias_vencido`, `monto_deuda`, `nombre_familia` |
+| `factura.vencida` | Facturación: `vencimientos_service.py` al entrar la factura en un tramo de mora | `dias_vencido`, `monto_deuda`, `nombre_familia` |
 | `inscripcion.confirmada` | Inscripciones: al crear la `INSCRIPCION` nueva desde la solicitud (`matriculas_service.py`) | `alumno_nombre`, `nivel_educativo`, `fecha` |
 | `solicitud_compra.aprobada` | Compras: `cambiar_estado_solicitud` cuando pasa a `aprobada` | `item`, `cantidad`, `fecha` |
 | `solicitud_inscripcion.aprobada`, `pago.registrado`, `pago.rechazado` | Admisiones y Facturación | ver `grupo-b.yaml` |
@@ -243,20 +243,27 @@ es el snapshot del envío, así que editar la plantilla o el email después no l
 por el inicio de la ejecución (la más reciente primero), porque `NOTIFICACION` no tiene `created_at`
 y `sent_at` es `NULL` en las fallidas. Un reintento aparece como filas nuevas con su `intento`.
 
-**Estado actual:** solo `notificar` y `alerta_interna` tienen ejecutor real. El resto está
-registrado en `ACCIONES` (`despacho_service.py`) con un stub por dueño que devuelve "acción no
-implementada", así que la regla sin aprobación humana queda `fallido` hasta que su dueño lo
-reemplace (#199):
+**Estado actual:** `notificar`, `alerta_interna`, `aplicar_vencimiento` y `cambiar_estado`
+tienen ejecutor real. El resto de `ACCIONES` (`despacho_service.py`) sigue con un stub por dueño
+que devuelve "acción no implementada", así que una regla sin aprobación humana queda `fallido`
+hasta que su dueño lo reemplace (#199):
 
 | Acción | Archivo | Dueño |
 |---|---|---|
-| `aplicar_vencimiento`, `cambiar_estado` | `acciones_vencimiento_service.py` | Carreon |
+| `aplicar_vencimiento`, `cambiar_estado` | `acciones_vencimiento_service.py` | Arce |
 | `aplicar_penalidad` | `acciones_penalidad_service.py` | Carreon |
 | `generar_cargo` | `acciones_admision_service.py` | Carreon |
 | `registrar_rechazo` | `acciones_pagos_service.py` | Carreon |
 | `generar_orden_compra`, `generar_comunicacion` | `acciones_compras_service.py` | Canu |
 | `crear_tarea`, `escalar_caso` | `tareas_service.py` | Arce |
 | `generar_recordatorio` | `acciones_recordatorio_service.py` | Arce |
+
+`aplicar_vencimiento` marca la factura `vencida` cuando ya pasó su fecha efectiva: la mayor entre
+su vencimiento y las excepciones de la familia del responsable económico. El día exacto todavía no
+cuenta como vencida (fecha de Buenos Aires). Con una prórroga vigente la ejecución queda exitosa
+sin cambios y se reevalúa recién con el `factura.vencida` del siguiente tramo. `cambiar_estado` aplica el `estado_nuevo` de `accion_config` dentro de
+`CAMBIOS_ESTADO_PERMITIDOS` (hoy solo `factura → vencida`), sin mirar fechas ni excepciones.
+Ninguna modifica una factura pagada o ya vencida.
 
 Contrato del ejecutor: recibe `(db, regla, evento, ejecucion)`, nunca hace `commit` (corre dentro
 de un savepoint) y devuelve un `ResultadoAccion` (`detalle`, `error`). Con `error` la ejecución

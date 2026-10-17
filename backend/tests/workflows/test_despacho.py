@@ -388,16 +388,16 @@ def test_evento_con_entidad_no_canonica_deja_las_ejecuciones_fallidas(
 
 # Sin la fixture `acciones`: usa el registro real, donde esta acción es un stub.
 def test_stub_sin_implementar_queda_fallido_con_mensaje_publico(db_session, tipo_factura_vencida):
-    _regla(db_session, tipo_factura_vencida, tipo_accion="aplicar_vencimiento")
+    _regla(db_session, tipo_factura_vencida, tipo_accion="aplicar_penalidad")
     _evento(db_session)
 
     procesar_eventos_pendientes(db_session)
 
     ejecucion = db_session.scalars(select(WorkflowExecution)).one()
     assert ejecucion.estado == "fallido"
-    assert ejecucion.error_detail == "La acción 'aplicar_vencimiento' todavía no está implementada."
+    assert ejecucion.error_detail == "La acción 'aplicar_penalidad' todavía no está implementada."
     assert (
-        ejecuciones_service._error_detail_publico(ejecucion.error_detail, "aplicar_vencimiento")
+        ejecuciones_service._error_detail_publico(ejecucion.error_detail, "aplicar_penalidad")
         == ejecucion.error_detail
     )
 
