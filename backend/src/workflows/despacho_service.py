@@ -446,6 +446,7 @@ def _error_detail_publico(error_detail: str | None, tipo_accion: str) -> str | N
         ERROR_CONFIGURACION,
         ERROR_ACCION,
         *notificaciones_service.ERRORES_CONTROLADOS,
+        *tareas_service.ERRORES_CONTROLADOS,
         "La regla ya no aplica al evento original.",
         ERROR_ACCION_NO_IMPLEMENTADA.format(tipo_accion=tipo_accion),
     }

@@ -2,10 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { actualizarPlantilla } from '@/modules/workflows/services/actualizar-plantilla'
 import { actualizarReglaWorkflow } from '@/modules/workflows/services/actualizar-regla-workflow'
 import { crearPlantilla } from '@/modules/workflows/services/crear-plantilla'
+import { cambiarEstadoTarea } from '@/modules/workflows/services/cambiar-estado-tarea'
 import { crearReglaWorkflow } from '@/modules/workflows/services/crear-regla-workflow'
 import { listarEjecucionesWorkflow } from '@/modules/workflows/services/listar-ejecuciones-workflow'
 import { listarNotificaciones } from '@/modules/workflows/services/listar-notificaciones'
 import { listarPlantillas } from '@/modules/workflows/services/listar-plantillas'
+import { listarTareas } from '@/modules/workflows/services/listar-tareas'
 import { listarReglasWorkflow } from '@/modules/workflows/services/listar-reglas-workflow'
 import { listarTiposAccion } from '@/modules/workflows/services/listar-tipos-accion'
 import { listarTiposEvento } from '@/modules/workflows/services/listar-tipos-evento'
@@ -13,6 +15,7 @@ import { obtenerDestinatariosRegla } from '@/modules/workflows/services/obtener-
 import { reemplazarDestinatariosRegla } from '@/modules/workflows/services/reemplazar-destinatarios-regla'
 import { reintentarEjecucionWorkflow } from '@/modules/workflows/services/reintentar-ejecucion-workflow'
 import { obtenerNotificacion } from '@/modules/workflows/services/obtener-notificacion'
+import { obtenerTarea } from '@/modules/workflows/services/obtener-tarea'
 import { obtenerReglaWorkflow } from '@/modules/workflows/services/obtener-regla-workflow'
 
 const respuestaOk = () =>
@@ -181,5 +184,39 @@ describe('servicios de workflows', () => {
     expect(url).toContain('/workflows/reglas/regla-1/destinatarios')
     expect(init?.method).toBe('PUT')
     expect(init?.body).toBe(JSON.stringify(payload))
+  })
+
+  it('lista las tareas con sus filtros y pide solo las propias cuando se indica', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await listarTareas({ pagina: 2, tamanioPagina: 20, soloMias: false })
+    await listarTareas({
+      estado: 'escalada',
+      prioridad: 'alta',
+      soloMias: true,
+      pagina: 1,
+      tamanioPagina: 20,
+    })
+
+    const sinFiltros = String(fetchMock.mock.calls[0][0])
+    expect(sinFiltros).toContain('/workflows/tareas?pagina=2&tamanio_pagina=20')
+    expect(sinFiltros).not.toContain('solo_mias')
+    const conFiltros = String(fetchMock.mock.calls[1][0])
+    expect(conFiltros).toContain('estado=escalada')
+    expect(conFiltros).toContain('prioridad=alta')
+    expect(conFiltros).toContain('solo_mias=true')
+  })
+
+  it('obtiene el detalle de una tarea y cambia su estado', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await obtenerTarea('t-1')
+    await cambiarEstadoTarea('t-1', 'completada')
+
+    expect(fetchMock.mock.calls[0][0]).toContain('/workflows/tareas/t-1')
+    expect(fetchMock.mock.calls[1][0]).toContain('/workflows/tareas/t-1/estado')
+    const init = fetchMock.mock.calls[1][1]
+    expect(init?.method).toBe('PATCH')
+    expect(init?.body).toBe(JSON.stringify({ estado: 'completada' }))
   })
 })

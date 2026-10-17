@@ -15,6 +15,7 @@ import {
   KeyRoundIcon,
   Landmark,
   LayoutDashboard,
+  ListChecksIcon,
   ReceiptText,
   Settings2Icon,
   ShieldCheck,
@@ -45,7 +46,12 @@ import {
   ROL_FAMILIA,
   tienePermiso,
 } from '@/modules/auth/constants'
-import { RUTA_EJECUCIONES, RUTA_NOTIFICACIONES, RUTA_REGLAS } from '@/modules/workflows/constants'
+import {
+  RUTA_EJECUCIONES,
+  RUTA_NOTIFICACIONES,
+  RUTA_REGLAS,
+  RUTA_TAREAS,
+} from '@/modules/workflows/constants'
 import type { Permiso } from '@/modules/auth/types'
 
 export interface NavItem {
@@ -67,6 +73,9 @@ export interface NavItem {
   /** Además del permiso, restringe el ítem a estos roles (ej. los paneles: mismo permiso,
    * pero cada uno es de un rol distinto). */
   roles?: string[]
+  /** Ítem personal: no exige ningún permiso, solo tener un rol activo (la API ya acota el
+   * contenido a lo de la persona). Con la sesión sin rol elegido no se muestra. */
+  soloRolActivo?: boolean
 }
 
 export interface NavGroup {
@@ -221,6 +230,14 @@ export const NAV_GROUPS: NavGroup[] = [
           { label: 'Notificaciones enviadas', href: RUTA_NOTIFICACIONES, icon: MailIcon },
         ],
       },
+      {
+        // Sin `permiso`: la bandeja es de cada persona. Quien tiene una tarea asignada la ve aunque
+        // su rol no tenga permisos de Workflows (el backend limita la lista a sus tareas).
+        label: 'Tareas',
+        href: RUTA_TAREAS,
+        icon: ListChecksIcon,
+        soloRolActivo: true,
+      },
     ],
   },
   {
@@ -250,6 +267,7 @@ export const NAV_GROUPS: NavGroup[] = [
 // "Proveedores y compras" que agrupa hijos sin landing propia, se filtran por sus hijos) y,
 // cuando declara `roles`, si el rol activo está entre ellos.
 function itemVisible(item: NavItem, rolActivo: string | null, permisos: Permiso[]): boolean {
+  if (item.soloRolActivo && rolActivo === null) return false
   if (item.roles && (rolActivo === null || !item.roles.includes(rolActivo))) return false
   if (item.permiso && !tienePermiso(permisos, item.permiso)) return false
   return true
@@ -294,6 +312,8 @@ export function rutaInicioDe(rolActivo: string | null, permisos: Permiso[]): str
 
   for (const grupo of filtrado) {
     for (const item of grupo.items) {
+      // Un ítem personal no es una pantalla de inicio: sin otro acceso, queda "sin acceso".
+      if (item.soloRolActivo) continue
       if (item.href) return item.href
       const primerHijo = item.children?.find((hijo) => hijo.href)
       if (primerHijo?.href) return primerHijo.href

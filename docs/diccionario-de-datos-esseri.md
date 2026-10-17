@@ -785,6 +785,12 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 | workflow_execution_id | uuid | FK | Si la creó el motor |
 | tarea_id | uuid | FK | Encadena el historial de escalamiento |
 
+> **[DECISIÓN DE DISEÑO]** (#89) `usuario_id` es el responsable y es obligatorio, así que `crear_tarea` y `escalar_caso` crean una `TAREA` por cada usuario activo de `REGLA_DESTINATARIO` (directo o por rol): los destinatarios de la regla son las personas a quienes se asigna el trabajo.
+>
+> **[DECISIÓN DE DISEÑO]** `escalar_caso` pasa a `escalada` las tareas abiertas (`pendiente`/`en_progreso`) de la misma `entidad`/`entidad_id` y crea la tarea nueva `pendiente`, con `tarea_id` apuntando a la más reciente de las escaladas. Sin tareas abiertas, crea la tarea sin antecesora. Una persona solo avanza la tarea (`pendiente → en_progreso → completada`); `escalada` la pone el motor y `completada` no se reabre.
+>
+> **[DECISIÓN DE DISEÑO]** La bandeja es de cada persona: ve las tareas que se le asignaron aunque su rol no tenga permisos de Workflows; con `workflows.leer` ve las de todos.
+
 ### `REGLA_DESTINATARIO` (tabla intermedia)
 > **[ACLARACIÓN CLIENTE]** (respuesta 15): *"el nivel de criticidad y los destinatarios deben ser configurables"*. Permite que una `WORKFLOW_RULE` avise a un rol completo, a un usuario puntual, o a ambos.
 >

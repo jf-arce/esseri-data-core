@@ -13,6 +13,7 @@ export function rutaRegla(id: string): string {
 
 export const RUTA_EJECUCIONES = '/workflows/ejecuciones'
 export const RUTA_NOTIFICACIONES = '/workflows/notificaciones'
+export const RUTA_TAREAS = '/workflows/tareas'
 
 // --- Endpoints del backend (`backend/src/workflows/router.py`) -------------------------------
 
@@ -39,6 +40,16 @@ export function apiReintentarEjecucion(id: string): string {
   return `${API_EJECUCIONES}/${id}/reintentar`
 }
 
+export const API_TAREAS = '/workflows/tareas'
+
+export function apiTarea(id: string): string {
+  return `${API_TAREAS}/${id}`
+}
+
+export function apiEstadoTarea(id: string): string {
+  return `${apiTarea(id)}/estado`
+}
+
 export const API_NOTIFICACIONES = '/workflows/notificaciones'
 
 export function apiNotificacion(id: string): string {
@@ -58,6 +69,15 @@ export const TAMANIO_PAGINA_EJECUCIONES = 20
 export const ESTADOS_ENVIO_FILTRO = [FILTRO_TODOS, 'enviado', 'fallido', 'pendiente'] as const
 export const DESTINATARIOS_TIPO_FILTRO = [FILTRO_TODOS, 'familia', 'usuario'] as const
 export const TAMANIO_PAGINA_NOTIFICACIONES = 20
+export const ESTADOS_TAREA_FILTRO = [
+  FILTRO_TODOS,
+  'pendiente',
+  'en_progreso',
+  'completada',
+  'escalada',
+] as const
+export const PRIORIDADES_TAREA_FILTRO = [FILTRO_TODOS, 'baja', 'media', 'alta'] as const
+export const TAMANIO_PAGINA_TAREAS = 20
 
 // --- accion_config --------------------------------------------------------------------------
 

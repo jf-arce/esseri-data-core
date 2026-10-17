@@ -15,7 +15,14 @@ from pydantic import (
     field_validator,
 )
 
-from src.workflows.constants import Criticidad, Destinatario, Operador, PrioridadTarea, TipoAccion
+from src.workflows.constants import (
+    Criticidad,
+    Destinatario,
+    EstadoTarea,
+    Operador,
+    PrioridadTarea,
+    TipoAccion,
+)
 
 
 class _EntradaEstricta(BaseModel):
@@ -373,3 +380,56 @@ class ResultadoAccion(BaseModel):
 
     detalle: str | None = None
     error: str | None = None
+
+
+class TareaRead(BaseModel):
+    """Fila de la bandeja de tareas. `tarea_id` es la tarea de la que se escaló esta (si la hay)."""
+
+    id: uuid.UUID
+    titulo: str
+    descripcion: str | None
+    estado: EstadoTarea
+    prioridad: PrioridadTarea
+    fecha_vencimiento: datetime | None
+    vencida: bool
+    entidad: str | None
+    entidad_id: uuid.UUID | None
+    usuario_id: uuid.UUID
+    usuario_email: str
+    workflow_execution_id: uuid.UUID | None
+    workflow_rule_nombre: str | None
+    tarea_id: uuid.UUID | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class TareaCadenaRead(BaseModel):
+    """Un eslabón del historial de escalamiento."""
+
+    id: uuid.UUID
+    titulo: str
+    estado: EstadoTarea
+    prioridad: PrioridadTarea
+    usuario_email: str
+    tarea_id: uuid.UUID | None
+    created_at: datetime
+
+
+class TareaDetalleRead(TareaRead):
+    """La cadena va de la tarea original a la última escalada, e incluye a la tarea consultada."""
+
+    cadena: list[TareaCadenaRead]
+
+
+class TareaListadoRead(BaseModel):
+    items: list[TareaRead]
+    total: int
+    pagina: int
+    tamanio_pagina: int
+    total_paginas: int
+
+
+class TareaEstadoUpdate(_EntradaEstricta):
+    """Una persona solo puede avanzar la tarea: `escalada` la pone el motor."""
+
+    estado: Literal["en_progreso", "completada"]

@@ -19,8 +19,16 @@ from src.workflows import (
     notificaciones_service,
     plantillas_service,
     service,
+    tareas_service,
 )
-from src.workflows.dependencies import obtener_plantilla_o_404, obtener_regla_o_404
+from src.workflows.constants import EstadoTarea, PrioridadTarea
+from src.workflows.dependencies import (
+    AlcanceTareas,
+    obtener_alcance_tareas,
+    obtener_plantilla_o_404,
+    obtener_regla_o_404,
+)
+from src.workflows.exceptions import TareaNoEncontrada
 from src.workflows.models import NotificacionTemplate, WorkflowRule
 from src.workflows.schemas import (
     DestinatarioTipo,
@@ -34,6 +42,9 @@ from src.workflows.schemas import (
     ReglaDestinatariosRead,
     ReglaDestinatariosUpdate,
     ResumenDespacho,
+    TareaDetalleRead,
+    TareaEstadoUpdate,
+    TareaListadoRead,
     TipoAccionRead,
     TipoEventoRead,
     WorkflowExecutionListadoRead,
@@ -50,6 +61,7 @@ PuedeCrear = Annotated[Usuario, Depends(requiere_permiso(PERMISO_WORKFLOWS_CREAR
 PuedeLeer = Annotated[Usuario, Depends(requiere_permiso(PERMISO_WORKFLOWS_LEER))]
 PuedeActualizar = Annotated[Usuario, Depends(requiere_permiso(PERMISO_WORKFLOWS_ACTUALIZAR))]
 PuedeEliminar = Annotated[Usuario, Depends(requiere_permiso(PERMISO_WORKFLOWS_ELIMINAR))]
+AlcanceActual = Annotated[AlcanceTareas, Depends(obtener_alcance_tareas)]
 ReglaActual = Annotated[WorkflowRule, Depends(obtener_regla_o_404)]
 PlantillaActual = Annotated[NotificacionTemplate, Depends(obtener_plantilla_o_404)]
 
@@ -161,6 +173,49 @@ def obtener_notificacion(
     notificacion_id: uuid.UUID, db: DbSession, _: PuedeLeer
 ) -> NotificacionDetalleRead:
     return notificaciones_service.obtener_notificacion_read(db, notificacion_id)
+
+
+@router.get("/tareas", response_model=TareaListadoRead)
+def listar_tareas(
+    db: DbSession,
+    alcance: AlcanceActual,
+    estado: Annotated[EstadoTarea | None, Query()] = None,
+    prioridad: Annotated[PrioridadTarea | None, Query()] = None,
+    solo_mias: Annotated[bool, Query()] = False,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    tamanio_pagina: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> TareaListadoRead:
+    """Sin `workflows.leer` solo devuelve las tareas del usuario, aunque no pida `solo_mias`."""
+    propias = solo_mias or not alcance.ve_todas
+    filtros = tareas_service.FiltrosTareas(
+        estado=estado,
+        prioridad=prioridad,
+        usuario_id=alcance.usuario.id if propias else None,
+    )
+    return tareas_service.listar_tareas(db, filtros, pagina=pagina, tamanio_pagina=tamanio_pagina)
+
+
+@router.get("/tareas/{tarea_id}", response_model=TareaDetalleRead)
+def obtener_tarea(tarea_id: uuid.UUID, db: DbSession, alcance: AlcanceActual) -> TareaDetalleRead:
+    tarea = tareas_service.obtener_tarea(db, tarea_id)
+    if not alcance.ve_todas and tarea.usuario_id != alcance.usuario.id:
+        raise TareaNoEncontrada()
+    return tareas_service.obtener_tarea_detalle(db, tarea_id)
+
+
+@router.patch("/tareas/{tarea_id}/estado", response_model=TareaDetalleRead)
+def cambiar_estado_tarea(
+    tarea_id: uuid.UUID,
+    datos: TareaEstadoUpdate,
+    db: DbSession,
+    alcance: AlcanceActual,
+) -> TareaDetalleRead:
+    """La avanza su responsable o quien tenga `workflows.actualizar`."""
+    tarea = tareas_service.obtener_tarea(db, tarea_id)
+    es_suya = tarea.usuario_id == alcance.usuario.id
+    if not (es_suya or (alcance.ve_todas and alcance.gestiona_todas)):
+        raise TareaNoEncontrada()
+    return tareas_service.cambiar_estado_tarea(db, tarea_id, datos.estado, alcance.usuario.id)
 
 
 @router.get("/reglas", response_model=list[WorkflowRuleRead])
