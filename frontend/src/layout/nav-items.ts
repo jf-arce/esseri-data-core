@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   ListChecksIcon,
   ReceiptText,
+  PercentIcon,
   Settings2Icon,
   ShieldCheck,
   Truck,
@@ -206,6 +207,7 @@ export const NAV_GROUPS: NavGroup[] = [
             icon: HandCoinsIcon,
           },
           { label: 'Reglas de facturación', href: '/facturacion/reglas', icon: Settings2Icon },
+          { label: 'Penalidades por mora', href: '/facturacion/penalidades', icon: PercentIcon },
         ],
       },
       {

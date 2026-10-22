@@ -191,3 +191,37 @@ export interface UltimaEjecucionReglaFacturacion {
   cargos_bloqueados: number
   error_detalle: string | null
 }
+
+export interface ReglaPenalidad {
+  id: string
+  desde_dia_vencido: number
+  hasta_dia_vencido: number | null
+  porcentaje: string
+  concepto_cobro_id: string
+  activo: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ReglaPenalidadPayload {
+  desde_dia_vencido: number
+  hasta_dia_vencido: number | null
+  porcentaje: string
+  concepto_cobro_id: string
+}
+
+export interface ExcepcionVencimiento {
+  id: string
+  familia_id: string
+  fecha_vencimiento_excepcional: string
+  motivo: string | null
+  created_at: string
+  usuario_id: string
+  anulada_at: string | null
+  usuario_anulacion_id: string | null
+}
+
+export interface ExcepcionVencimientoPayload {
+  fecha_vencimiento_excepcional: string
+  motivo: string
+}

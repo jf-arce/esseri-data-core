@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { actualizarEstadoReglaPenalidad } from '@/modules/facturacion/services/actualizar-estado-regla-penalidad'
+import { anularExcepcionVencimiento } from '@/modules/facturacion/services/anular-excepcion-vencimiento'
+import { crearExcepcionVencimiento } from '@/modules/facturacion/services/crear-excepcion-vencimiento'
 import { crearFactura } from '@/modules/facturacion/services/crear-factura'
 import { crearReglaFacturacion } from '@/modules/facturacion/services/crear-regla-facturacion'
 import { generarFacturacion } from '@/modules/facturacion/services/generar-facturacion'
@@ -121,5 +124,23 @@ describe('servicios de facturación', () => {
     expect(fetchMock.mock.calls[1][0]).toContain('/reglas/generaciones')
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST' })
     expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: 'POST' })
+  })
+
+  it('administra tramos y prórrogas en sus rutas', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await actualizarEstadoReglaPenalidad('tramo-1', false)
+    await crearExcepcionVencimiento('familia-1', {
+      fecha_vencimiento_excepcional: '2027-03-20',
+      motivo: 'Acuerdo',
+    })
+    await anularExcepcionVencimiento('prorroga-1')
+
+    const [estado, alta, anulacion] = fetchMock.mock.calls
+    expect(estado[0]).toContain('/facturacion/penalidades/tramo-1/estado')
+    expect(estado[1]?.body).toBe(JSON.stringify({ activo: false }))
+    expect(alta[0]).toContain('/facturacion/familias/familia-1/excepciones-vencimiento')
+    expect(alta[1]?.method).toBe('POST')
+    expect(anulacion[0]).toContain('/facturacion/excepciones-vencimiento/prorroga-1/anular')
   })
 })
