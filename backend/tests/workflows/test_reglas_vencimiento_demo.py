@@ -90,9 +90,7 @@ def _regla(db, nombre):
     return db.scalars(select(WorkflowRule).where(WorkflowRule.nombre == nombre)).one()
 
 
-def test_el_seed_crea_las_tres_reglas_con_su_accion_y_destinatarios(
-    db_session, escenario, seed_demo
-):
+def test_el_seed_crea_las_reglas_con_su_accion_y_destinatarios(db_session, escenario, seed_demo):
     _sembrar(seed_demo, db_session, escenario)
 
     marcar = _regla(db_session, "Vencimiento 1: marcar factura vencida")
@@ -115,6 +113,9 @@ def test_el_seed_crea_las_tres_reglas_con_su_accion_y_destinatarios(
         )
     }
     assert por_regla == {alerta.id: "administración"}
+    penalidad = _regla(db_session, "Vencimiento 4: aplicar penalidad por mora")
+    assert penalidad.tipo_accion == "aplicar_penalidad"
+    assert penalidad.requiere_aprobacion_humana is True
 
 
 def test_correr_el_seed_de_nuevo_no_duplica_ni_pisa(db_session, escenario, seed_demo):
@@ -126,7 +127,7 @@ def test_correr_el_seed_de_nuevo_no_duplica_ni_pisa(db_session, escenario, seed_
 
     _sembrar(seed_demo, db_session, escenario)
 
-    assert len(db_session.scalars(select(WorkflowRule)).all()) == 3
+    assert len(db_session.scalars(select(WorkflowRule)).all()) == 4
     assert len(db_session.scalars(select(NotificacionTemplate)).all()) == 1
     assert len(db_session.scalars(select(Usuario)).all()) == cuentas
     db_session.refresh(alerta)
@@ -135,7 +136,8 @@ def test_correr_el_seed_de_nuevo_no_duplica_ni_pisa(db_session, escenario, seed_
 
 def _verificar_cadena(db, escenario, envios):
     ejecuciones = db.scalars(select(WorkflowExecution)).all()
-    assert [e.estado for e in ejecuciones] == ["exitoso"] * 3
+    # La penalidad queda esperando aprobación humana.
+    assert sorted(e.estado for e in ejecuciones) == ["exitoso"] * 3 + ["pendiente"]
     db.refresh(escenario["factura"])
     assert escenario["factura"].estado == "vencida"
     destinatarios = sorted(d for d, _, _ in envios)

@@ -74,8 +74,9 @@ disparan con cada evento): `Vencimiento 1: marcar factura vencida` (`aplicar_ven
 `Vencimiento 2: alerta a Administración` (`alerta_interna`, rol Administración) y
 `Vencimiento 3: aviso a la familia` (`notificar` al responsable económico, con la plantilla
 `Aviso de factura vencida`). Las tres son independientes: si la factura no cambia de estado, los
-avisos salen igual. Falta la regla `aplicar_penalidad`: depende de #82 y #204, todavía sin
-implementar (hoy el ejecutor es un stub).
+avisos salen igual. La cuarta, `Vencimiento 4: aplicar penalidad por mora` (`aplicar_penalidad`,
+#204), registra la penalidad del tramo en la cuenta corriente; nace con aprobación humana, así que
+queda pendiente hasta que se apruebe desde el historial de ejecuciones.
 
 Como `notificar` y `alerta_interna` mandan email a cuentas activas, el seed también crea cuentas
 de la demo sin contraseña (el login local las rechaza): una para el rol Administración, otra para

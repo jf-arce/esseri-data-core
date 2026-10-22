@@ -248,14 +248,14 @@ por el inicio de la ejecución (la más reciente primero), porque `NOTIFICACION`
 y `sent_at` es `NULL` en las fallidas. Un reintento aparece como filas nuevas con su `intento`.
 
 **Estado actual:** `notificar`, `alerta_interna`, `aplicar_vencimiento`, `cambiar_estado`,
-`crear_tarea` y `escalar_caso` tienen ejecutor real. El resto de `ACCIONES` (`despacho_service.py`) sigue con un stub por dueño
+`aplicar_penalidad`, `crear_tarea` y `escalar_caso` tienen ejecutor real. El resto de `ACCIONES` (`despacho_service.py`) sigue con un stub por dueño
 que devuelve "acción no implementada", así que una regla sin aprobación humana queda `fallido`
 hasta que su dueño lo reemplace (#199):
 
 | Acción | Archivo | Dueño |
 |---|---|---|
 | `aplicar_vencimiento`, `cambiar_estado` | `acciones_vencimiento_service.py` | Arce |
-| `aplicar_penalidad` | `acciones_penalidad_service.py` | Carreon |
+| `aplicar_penalidad` | `acciones_penalidad_service.py` | Canu |
 | `generar_cargo` | `acciones_admision_service.py` | Carreon |
 | `registrar_rechazo` | `acciones_pagos_service.py` | Carreon |
 | `generar_orden_compra`, `generar_comunicacion` | `acciones_compras_service.py` | Canu |
@@ -267,6 +267,17 @@ cuenta como vencida (fecha de Buenos Aires). Con una prórroga vigente la ejecuc
 sin cambios y se reevalúa recién con el `factura.vencida` del siguiente tramo. `cambiar_estado` aplica el `estado_nuevo` de `accion_config` dentro de
 `CAMBIOS_ESTADO_PERMITIDOS` (hoy solo `factura → vencida`), sin mirar fechas ni excepciones.
 Ninguna modifica una factura pagada o ya vencida.
+
+`aplicar_penalidad` registra la penalidad como un `MOVIMIENTO` de debe en la cuenta corriente del
+alumno, con el concepto del tramo y el `event_log_id` del evento. El tramo sale de
+`facturacion/penalidades_service.py`: el activo de mayor `desde_dia_vencido` que alcanzó el
+`dias_vencido` del evento (pasado el último, se mantiene el último), o el `regla_penalidad_id` de
+`accion_config` si la regla lo fija. Los tramos no se suman: la penalidad total de la factura es el
+porcentaje del tramo sobre su `monto_total`, y se cobra solo la diferencia con lo ya registrado
+(20 % en 6–15 días, otro 10 % al pasar a 16–30). Por eso es idempotente: el mismo tramo no se cobra
+dos veces. Solo penaliza facturas en estado `vencida`: fechas y prórrogas las decide
+`aplicar_vencimiento`, así que la regla de vencimiento tiene que correr antes. Nace con aprobación
+humana porque mueve dinero.
 
 Contrato del ejecutor: recibe `(db, regla, evento, ejecucion)`, nunca hace `commit` (corre dentro
 de un savepoint) y devuelve un `ResultadoAccion` (`detalle`, `error`). Con `error` la ejecución
