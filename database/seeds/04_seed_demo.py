@@ -90,7 +90,6 @@ from src.workflows.service import crear_regla
 DEMO_EMAIL = "demo.admin@esseri.local"
 DEMO_PASSWORD = os.getenv("ESSERI_DEMO_PASSWORD", "EsseriDemo2026!")
 ROL_ADMIN = "administrador del sistema"
-# Casilla real del equipo para recibir los mails de la demo (ver database/seeds/README.md).
 DEMO_EMAIL_BASE = os.getenv("ESSERI_DEMO_EMAIL_BASE", "").strip()
 
 
@@ -159,7 +158,6 @@ REGLAS_VENCIMIENTO = [
     },
 ]
 
-# Cuentas de personal que necesitan las reglas de mora y de vencimiento para tener destinatario.
 CUENTAS_PERSONAL = [("administracion", "administración"), ("direccion", "dirección")]
 
 
