@@ -58,7 +58,9 @@ ESSERI_DEMO_SEED_ENABLED=true python ../database/seeds/04_seed_demo.py
 No se incluye en el arranque automático de Docker y está bloqueado cuando
 `ENVIRONMENT=production` o `prod`. Ver `database/seeds/README.md`. Además de los datos de
 recorrido, crea dos reglas de workflow de mora sobre `factura.vencida` (`crear_tarea` a partir
-de los 15 días y `escalar_caso`, con aprobación humana, a partir de los 30).
+de los 15 días y `escalar_caso`, con aprobación humana, a partir de los 30), tres de vencimiento
+(marcar vencida, alerta a Administración y aviso a la familia) y las cuentas de email que reciben
+los avisos.
 
 ## Login con Google + primer usuario (RF-27)
 

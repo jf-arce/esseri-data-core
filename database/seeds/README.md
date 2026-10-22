@@ -69,6 +69,28 @@ apruebe desde el historial de ejecuciones. Con más de 30 días se disparan las 
 hacen que `crear_tarea` se evalúe primero (el motor ordena las reglas por nombre). Se buscan por
 nombre: si ya existen, volver a correr el seed no las duplica ni pisa lo editado desde la pantalla.
 
+**Reglas de vencimiento de la demo (#205).** También sobre `factura.vencida`, sin condición (se
+disparan con cada evento): `Vencimiento 1: marcar factura vencida` (`aplicar_vencimiento`),
+`Vencimiento 2: alerta a Administración` (`alerta_interna`, rol Administración) y
+`Vencimiento 3: aviso a la familia` (`notificar` al responsable económico, con la plantilla
+`Aviso de factura vencida`). Las tres son independientes: si la factura no cambia de estado, los
+avisos salen igual. La penalidad se suma cuando estén #82 y #204.
+
+Como `notificar` y `alerta_interna` mandan email a cuentas activas, el seed también crea cuentas
+de la demo sin contraseña (el login local las rechaza): una para el rol Administración, otra para
+Dirección y una por cada familia responsable de una factura impaga. Si la persona o el email ya
+tienen cuenta, no se toca; si queda inactiva o con otro email, el seed imprime un aviso. Los
+emails son `<alias>@esseri.local`; para que lleguen a una casilla real, definir la base:
+
+```bash
+ESSERI_DEMO_EMAIL_BASE=equipo@gmail.com ESSERI_DEMO_SEED_ENABLED=true python ../database/seeds/04_seed_demo.py
+docker compose exec -e ESSERI_DEMO_EMAIL_BASE=equipo@gmail.com -e ESSERI_DEMO_SEED_ENABLED=true backend python /database/seeds/04_seed_demo.py
+```
+
+Eso genera `equipo+administracion@gmail.com`, `equipo+direccion@gmail.com` y
+`equipo+familia-<dni>@gmail.com`. Hay que sembrar antes de la primera detección de vencidas: el
+detector da por emitido un tramo aunque su evento ya se haya procesado.
+
 ## `05_seed_demo_docente.py` — datos ficticios para demostrar el Portal Docente
 
 Dataset aparte de `04_seed_demo.py` (nombres/legajos propios, no se cruzan), pensado para la
