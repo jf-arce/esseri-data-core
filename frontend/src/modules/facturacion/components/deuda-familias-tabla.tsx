@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { PaginadorServidor } from '@/components/paginador-servidor'
 import { TableSkeleton, type ColumnaEsqueleto } from '@/components/table-skeleton'
 import {
@@ -22,6 +23,7 @@ const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-20' },
   { tipo: 'texto', ancho: 'h-4 w-20' },
   { tipo: 'chip', ancho: 'w-24', anchoAlt: 'w-20' },
+  { tipo: 'texto', ancho: 'h-4 w-20' },
 ]
 
 const VARIANTE_ESTADO: Record<EstadoDeudaFamilia, 'advertencia' | 'error' | 'exito'> = {
@@ -37,6 +39,7 @@ interface DeudaFamiliasTablaProps {
   tamanioPagina: number
   total: number
   onCambiarPagina: (pagina: number) => void
+  onVerProrrogas: (deuda: DeudaFamilia) => void
 }
 
 export function DeudaFamiliasTabla({
@@ -46,12 +49,13 @@ export function DeudaFamiliasTabla({
   tamanioPagina,
   total,
   onCambiarPagina,
+  onVerProrrogas,
 }: DeudaFamiliasTablaProps) {
   const totalPaginas = Math.max(1, Math.ceil(total / tamanioPagina))
 
   return (
     <div className="rounded-panel bg-superficie shadow-card">
-      <Table bare minWidth="min-w-[1050px]" className="table-fixed">
+      <Table bare minWidth="min-w-[1170px]" className="table-fixed">
         <TableHeader>
           <TableRow>
             <TableHead className="w-56">Responsable económico</TableHead>
@@ -72,6 +76,9 @@ export function DeudaFamiliasTabla({
               Deuda total
             </TableHead>
             <TableHead className="w-28">Estado</TableHead>
+            <TableHead className="w-28" data-align="end">
+              Prórrogas
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -108,6 +115,11 @@ export function DeudaFamiliasTabla({
                   <Badge variant={VARIANTE_ESTADO[deuda.estado]}>
                     {etiquetaEstadoFactura(deuda.estado)}
                   </Badge>
+                </TableCell>
+                <TableCell data-align="end">
+                  <Button variant="ghost" size="sm" onClick={() => onVerProrrogas(deuda)}>
+                    Ver
+                  </Button>
                 </TableCell>
               </TableRow>
             ))

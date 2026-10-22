@@ -82,7 +82,10 @@ def detectar_facturas_vencidas(
     familia_ids = set(familia_por_factura.values())
     excepciones_por_familia: dict[uuid.UUID, list[ExcepcionVencimiento]] = defaultdict(list)
     for excepcion in db.scalars(
-        select(ExcepcionVencimiento).where(ExcepcionVencimiento.familia_id.in_(familia_ids))
+        select(ExcepcionVencimiento).where(
+            ExcepcionVencimiento.familia_id.in_(familia_ids),
+            ExcepcionVencimiento.anulada_at.is_(None),
+        )
     ).all():
         excepciones_por_familia[excepcion.familia_id].append(excepcion)
     familias = {

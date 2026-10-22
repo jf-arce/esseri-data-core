@@ -463,6 +463,8 @@ RF cubiertos: RF-15, RF-16, RF-17, RF-18 (parcial, ver nota), RF-36
 
 **Precarga confirmada:** 0–5 días vencido: 0% (normal, sin penalidad) · 6–15: 20% · 16–30: 30%.
 
+`[DECISIÓN DE DISEÑO]` (#238) Se configura desde la pantalla *Penalidades por mora*. Dos tramos **activos** no pueden superponerse (el backend rechaza el alta, la edición o la reactivación con 409). La baja es lógica (`activo = false`): un tramo no se borra porque puede haber penalidades cobradas con él.
+
 ### `EXCEPCION_VENCIMIENTO`
 > **[ACLARACIÓN CLIENTE]** (respuesta 5): *"salvo que exista una fecha excepcional previamente autorizada por ESSERI para esa familia"*.
 
@@ -477,8 +479,10 @@ excepcionales de esa familia, y la factura pasa a `vencida` recién al día sigu
 | fecha_vencimiento_excepcional | date |  |  |
 | motivo | string |  |  |
 | created_at | datetime |  | Fecha y hora de creación del registro. |
+| anulada_at | datetime |  | `[DECISIÓN DE DISEÑO]` (#238) Nulo = vigente. Una prórroga no se edita ni se borra: se anula y deja de postergar el vencimiento |
 | familia_id | uuid | FK |  |
-| usuario_id | uuid | FK |  |
+| usuario_id | uuid | FK | Quién otorgó la prórroga |
+| usuario_anulacion_id | uuid | FK | Quién la anuló |
 
 ### `CUENTA_CORRIENTE`
 > **[ACLARACIÓN CLIENTE]**. Resuelve la contradicción que traía este documento: `FAMILIA.estado_deuda` existía como columna al mismo tiempo que el diccionario decía que se calculaba navegando facturas — dos fuentes del mismo dato. La respuesta 16 confirma que el cliente asume la cuenta corriente como concepto de negocio propio (*"actualizar cuentas corrientes"* es una de las 15 acciones que debe poder disparar el motor de workflows), no solo un cálculo agregado sobre facturas.

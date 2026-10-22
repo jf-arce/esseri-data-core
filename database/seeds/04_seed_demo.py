@@ -156,6 +156,12 @@ REGLAS_VENCIMIENTO = [
         "criticidad": "media",
         "plantilla": PLANTILLA_VENCIDA["nombre"],
     },
+    # Sin `requiere_aprobacion_humana`: toma el default de la acción, que mueve dinero (true).
+    {
+        "nombre": "Vencimiento 4: aplicar penalidad por mora",
+        "tipo_accion": "aplicar_penalidad",
+        "criticidad": "alta",
+    },
 ]
 
 CUENTAS_PERSONAL = [("administracion", "administración"), ("direccion", "dirección")]

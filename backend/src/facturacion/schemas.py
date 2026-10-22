@@ -383,3 +383,68 @@ class ResumenVencimientos(BaseModel):
 
     facturas_revisadas: int = 0
     eventos_emitidos: int = 0
+
+
+class ReglaPenalidadBase(BaseModel):
+    """Tramo de mora: sin `hasta_dia_vencido` no tiene límite superior."""
+
+    desde_dia_vencido: int = Field(ge=0, le=3650)
+    hasta_dia_vencido: int | None = Field(default=None, ge=0, le=3650)
+    porcentaje: Decimal = Field(ge=0, le=100, max_digits=5, decimal_places=2)
+    concepto_cobro_id: uuid.UUID
+
+    @model_validator(mode="after")
+    def validar_rango(self) -> "ReglaPenalidadBase":
+        if self.hasta_dia_vencido is not None and self.hasta_dia_vencido < self.desde_dia_vencido:
+            raise ValueError("El día hasta no puede ser menor que el día desde.")
+        return self
+
+
+class ReglaPenalidadCreate(ReglaPenalidadBase):
+    activo: bool = True
+
+
+class ReglaPenalidadUpdate(ReglaPenalidadBase):
+    pass
+
+
+class ReglaPenalidadEstadoUpdate(BaseModel):
+    activo: bool
+
+
+class ReglaPenalidadRead(ReglaPenalidadBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    activo: bool
+    created_at: datetime
+    updated_at: datetime
+
+    _normalizar_timestamps = field_validator("created_at", "updated_at")(_normalizar_instante_utc)
+
+
+class ExcepcionVencimientoCreate(BaseModel):
+    """Prórroga del vencimiento autorizada para una familia."""
+
+    fecha_vencimiento_excepcional: date
+    motivo: str = Field(min_length=1, max_length=500)
+
+    @field_validator("motivo", mode="before")
+    @classmethod
+    def normalizar_motivo(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+class ExcepcionVencimientoRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    familia_id: uuid.UUID
+    fecha_vencimiento_excepcional: date
+    motivo: str | None
+    created_at: datetime
+    usuario_id: uuid.UUID
+    anulada_at: datetime | None
+    usuario_anulacion_id: uuid.UUID | None
+
+    _normalizar_timestamps = field_validator("created_at", "anulada_at")(_normalizar_instante_utc)
