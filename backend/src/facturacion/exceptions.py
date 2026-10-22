@@ -176,3 +176,31 @@ class ReglaFacturacionInvalida(AppException):
 
     def __init__(self, message: str = "La configuración de la regla de facturación no es válida."):
         super().__init__(message)
+
+
+class ReglaPenalidadNoEncontrada(AppException):
+    status_code = 404
+
+    def __init__(self, message: str = "El tramo de penalidad indicado no existe."):
+        super().__init__(message)
+
+
+class TramoPenalidadSuperpuesto(AppException):
+    status_code = 409
+
+    def __init__(self, message: str = "El tramo se superpone con otro tramo activo."):
+        super().__init__(message)
+
+
+class ExcepcionVencimientoNoEncontrada(AppException):
+    status_code = 404
+
+    def __init__(self, message: str = "La prórroga de vencimiento indicada no existe."):
+        super().__init__(message)
+
+
+class ExcepcionVencimientoYaAnulada(AppException):
+    status_code = 409
+
+    def __init__(self, message: str = "La prórroga de vencimiento ya estaba anulada."):
+        super().__init__(message)

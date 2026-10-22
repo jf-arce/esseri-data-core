@@ -47,6 +47,33 @@ def client_autenticado(client, db_session):
 
 
 @pytest.fixture()
+def client_solo_lectura(client, db_session):
+    """Usuario con permiso de lectura de Facturación y nada más."""
+    usuario = Usuario(
+        email="lector-facturacion@esseri.edu.ar",
+        password_hash=sesion_service.hashear_password(PASSWORD_VALIDA),
+        auth_provider="local",
+        estado="activo",
+    )
+    rol = Rol(nombre="lector de facturacion")
+    permiso = Permiso(modulo=MODULO_FACTURACION, accion=ACCION_LEER)
+    db_session.add_all([usuario, rol, permiso])
+    db_session.flush()
+    db_session.add_all(
+        [
+            RolPermiso(rol_id=rol.id, permiso_id=permiso.id),
+            UsuarioRol(usuario_id=usuario.id, rol_id=rol.id),
+        ]
+    )
+    db_session.commit()
+    respuesta = client.post(
+        "/auth/login", json={"email": usuario.email, "password": PASSWORD_VALIDA}
+    )
+    assert respuesta.status_code == 200
+    return client
+
+
+@pytest.fixture()
 def tipo_factura_vencida(db_session):
     """Catálogo mínimo para `emit_event("factura.vencida", ...)` y los tramos de mora; en
     producción lo carga el seed de Grupo A, acá no hay seed."""

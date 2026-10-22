@@ -279,6 +279,12 @@ dos veces. Solo penaliza facturas en estado `vencida`: fechas y prórrogas las d
 `aplicar_vencimiento`, así que la regla de vencimiento tiene que correr antes. Nace con aprobación
 humana porque mueve dinero.
 
+**Tramos y prórrogas (#238):** `GET/POST /facturacion/penalidades`, `PUT /facturacion/penalidades/{id}`
+y `PATCH /facturacion/penalidades/{id}/estado` (baja lógica) administran `REGLA_PENALIDAD`; dos tramos
+activos no pueden superponerse (409). `GET/POST /facturacion/familias/{familia_id}/excepciones-vencimiento`
+lista y otorga prórrogas, y `POST /facturacion/excepciones-vencimiento/{id}/anular` las anula: no se
+editan ni se borran, y una anulada deja de postergar el vencimiento.
+
 Contrato del ejecutor: recibe `(db, regla, evento, ejecucion)`, nunca hace `commit` (corre dentro
 de un savepoint) y devuelve un `ResultadoAccion` (`detalle`, `error`). Con `error` la ejecución
 queda `fallido` pero se conservan las filas que escribió. Cada dueño edita solo su archivo: el

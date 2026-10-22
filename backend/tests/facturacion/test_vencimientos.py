@@ -6,9 +6,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import select
 
-from src.auth import sesion_service
-from src.auth.constants import ACCION_LEER, MODULO_FACTURACION
-from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
+from src.auth.models import Usuario
 from src.facturacion import facturacion_job
 from src.facturacion.facturas_service import crear_factura, registrar_pago
 from src.facturacion.models import (
@@ -20,7 +18,6 @@ from src.facturacion.models import (
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate
 from src.facturacion.vencimientos_service import detectar_facturas_vencidas
 from src.models import EventLog
-from tests.facturacion.conftest import PASSWORD_VALIDA
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
 VENCIMIENTO = date(2027, 3, 5)
@@ -187,31 +184,6 @@ def test_payload_trae_deuda_pendiente_y_nombre_de_familia(db_session, escenario)
     assert evento.payload["nombre_familia"] == "Cabral, Lorena"
 
 
-def _client_con_permiso_de_lectura(client, db_session):
-    usuario = Usuario(
-        email="lector-facturacion@esseri.edu.ar",
-        password_hash=sesion_service.hashear_password(PASSWORD_VALIDA),
-        auth_provider="local",
-        estado="activo",
-    )
-    rol = Rol(nombre="lector de facturacion")
-    permiso = Permiso(modulo=MODULO_FACTURACION, accion=ACCION_LEER)
-    db_session.add_all([usuario, rol, permiso])
-    db_session.flush()
-    db_session.add_all(
-        [
-            RolPermiso(rol_id=rol.id, permiso_id=permiso.id),
-            UsuarioRol(usuario_id=usuario.id, rol_id=rol.id),
-        ]
-    )
-    db_session.commit()
-    respuesta = client.post(
-        "/auth/login", json={"email": usuario.email, "password": PASSWORD_VALIDA}
-    )
-    assert respuesta.status_code == 200
-    return client
-
-
 def test_endpoint_procesa_con_permiso_y_respeta_fecha_referencia(
     client_autenticado, db_session, escenario
 ):
@@ -225,10 +197,8 @@ def test_endpoint_procesa_con_permiso_y_respeta_fecha_referencia(
     assert despues.json() == {"facturas_revisadas": 1, "eventos_emitidos": 1}
 
 
-def test_endpoint_sin_permiso_de_actualizar_es_403(client, db_session):
-    lector = _client_con_permiso_de_lectura(client, db_session)
-
-    assert lector.post("/facturacion/vencimientos/procesar").status_code == 403
+def test_endpoint_sin_permiso_de_actualizar_es_403(client_solo_lectura):
+    assert client_solo_lectura.post("/facturacion/vencimientos/procesar").status_code == 403
 
 
 def test_job_detecta_vencimientos_aunque_falle_la_facturacion(monkeypatch):

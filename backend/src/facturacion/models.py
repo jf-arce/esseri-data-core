@@ -302,6 +302,8 @@ class ReglaPenalidad(Base):
 
 
 class ExcepcionVencimiento(Base):
+    """No se edita ni se borra: una prórroga mal cargada se anula y se otorga otra."""
+
     __tablename__ = "excepcion_vencimiento"
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
@@ -310,8 +312,10 @@ class ExcepcionVencimiento(Base):
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), server_default=sa.func.now()
     )
+    anulada_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     familia_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("familia.id"))
     usuario_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("usuario.id"))
+    usuario_anulacion_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("usuario.id"))
 
 
 class CuentaCorriente(Base):

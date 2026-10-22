@@ -18,6 +18,7 @@ from src.database import get_db
 from src.facturacion import (
     cuenta_corriente_service,
     facturas_service,
+    penalidades_service,
     reglas_facturacion_service,
     service,
     vencimientos_service,
@@ -35,6 +36,8 @@ from src.facturacion.schemas import (
     DeudaFamiliaRead,
     EjecucionFacturacionRead,
     EstadoDeudaFamilia,
+    ExcepcionVencimientoCreate,
+    ExcepcionVencimientoRead,
     FacturaCreate,
     FacturaDetalleRead,
     FacturaEstado,
@@ -50,12 +53,16 @@ from src.facturacion.schemas import (
     ReglaFacturacionEstadoUpdate,
     ReglaFacturacionRead,
     ReglaFacturacionUpdate,
+    ReglaPenalidadCreate,
+    ReglaPenalidadEstadoUpdate,
+    ReglaPenalidadRead,
+    ReglaPenalidadUpdate,
     ResponsableEconomicoCreate,
     ResponsableEconomicoRead,
     ResumenVencimientos,
 )
-from src.familias_alumnos.dependencies import obtener_alumno_o_404
-from src.familias_alumnos.models import Alumno
+from src.familias_alumnos.dependencies import obtener_alumno_o_404, obtener_familia_o_404
+from src.familias_alumnos.models import Alumno, Familia
 
 router = APIRouter(prefix="/facturacion", tags=["facturacion"])
 
@@ -67,6 +74,7 @@ PuedeEliminar = Annotated[Usuario, Depends(requiere_permiso(PERMISO_FACTURACION_
 ConceptoCobroActual = Annotated[ConceptoCobro, Depends(obtener_concepto_cobro_o_404)]
 FacturaActual = Annotated[Factura, Depends(obtener_factura_o_404)]
 AlumnoActual = Annotated[Alumno, Depends(obtener_alumno_o_404)]
+FamiliaActual = Annotated[Familia, Depends(obtener_familia_o_404)]
 
 
 def _factura_detalle_read(db: Session, factura: Factura) -> FacturaDetalleRead:
@@ -423,3 +431,71 @@ def procesar_vencimientos(
 ) -> ResumenVencimientos:
     """Corre la detección de facturas vencidas sin esperar al job (útil para probar)."""
     return vencimientos_service.detectar_facturas_vencidas(db, fecha_referencia)
+
+
+@router.get("/penalidades")
+def listar_reglas_penalidad(db: DbSession, _: PuedeLeer) -> list[ReglaPenalidadRead]:
+    return [
+        ReglaPenalidadRead.model_validate(regla)
+        for regla in penalidades_service.listar_reglas_penalidad(db)
+    ]
+
+
+@router.post("/penalidades", status_code=201)
+def crear_regla_penalidad(
+    datos: ReglaPenalidadCreate, db: DbSession, usuario: PuedeCrear
+) -> ReglaPenalidadRead:
+    return ReglaPenalidadRead.model_validate(
+        penalidades_service.crear_regla_penalidad(db, datos, usuario.id)
+    )
+
+
+@router.put("/penalidades/{regla_id}")
+def actualizar_regla_penalidad(
+    regla_id: uuid.UUID, datos: ReglaPenalidadUpdate, db: DbSession, usuario: PuedeActualizar
+) -> ReglaPenalidadRead:
+    regla = penalidades_service.obtener_regla_penalidad_o_error(db, regla_id)
+    return ReglaPenalidadRead.model_validate(
+        penalidades_service.actualizar_regla_penalidad(db, regla, datos, usuario.id)
+    )
+
+
+@router.patch("/penalidades/{regla_id}/estado")
+def actualizar_estado_regla_penalidad(
+    regla_id: uuid.UUID,
+    datos: ReglaPenalidadEstadoUpdate,
+    db: DbSession,
+    usuario: PuedeActualizar,
+) -> ReglaPenalidadRead:
+    regla = penalidades_service.obtener_regla_penalidad_o_error(db, regla_id)
+    return ReglaPenalidadRead.model_validate(
+        penalidades_service.actualizar_estado_regla_penalidad(db, regla, datos, usuario.id)
+    )
+
+
+@router.get("/familias/{familia_id}/excepciones-vencimiento")
+def listar_excepciones_vencimiento(
+    db: DbSession, _: PuedeLeer, familia: FamiliaActual
+) -> list[ExcepcionVencimientoRead]:
+    return [
+        ExcepcionVencimientoRead.model_validate(excepcion)
+        for excepcion in penalidades_service.listar_excepciones_familia(db, familia.id)
+    ]
+
+
+@router.post("/familias/{familia_id}/excepciones-vencimiento", status_code=201)
+def crear_excepcion_vencimiento(
+    datos: ExcepcionVencimientoCreate, db: DbSession, usuario: PuedeCrear, familia: FamiliaActual
+) -> ExcepcionVencimientoRead:
+    return ExcepcionVencimientoRead.model_validate(
+        penalidades_service.crear_excepcion_vencimiento(db, familia.id, datos, usuario.id)
+    )
+
+
+@router.post("/excepciones-vencimiento/{excepcion_id}/anular")
+def anular_excepcion_vencimiento(
+    excepcion_id: uuid.UUID, db: DbSession, usuario: PuedeActualizar
+) -> ExcepcionVencimientoRead:
+    return ExcepcionVencimientoRead.model_validate(
+        penalidades_service.anular_excepcion_vencimiento(db, excepcion_id, usuario.id)
+    )

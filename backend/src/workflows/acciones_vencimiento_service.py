@@ -59,7 +59,8 @@ def _vencer_factura(db: Session, evento: EventLog, *, respetar_fecha: bool) -> R
             return _error("La factura no tiene un responsable económico válido.")
         excepcion = db.scalar(
             select(func.max(ExcepcionVencimiento.fecha_vencimiento_excepcional)).where(
-                ExcepcionVencimiento.familia_id == responsable.familia_id
+                ExcepcionVencimiento.familia_id == responsable.familia_id,
+                ExcepcionVencimiento.anulada_at.is_(None),
             )
         )
         vencimiento = factura.fecha_vencimiento
