@@ -7,5 +7,8 @@
 .DS_Store
 *.swp
 
+# Backups locales de PostgreSQL; pueden contener datos personales y nunca se versionan.
+backups/
+
 # Configuración local de Claude Code
 .claude/settings.local.json

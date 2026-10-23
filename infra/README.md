@@ -24,7 +24,88 @@ Levanta 4 servicios en la misma red interna:
 | `frontend` | `http://localhost:5173` | Corre `npm run dev` sobre la imagen `node:26-alpine`, con `frontend/` montado como volumen para hot-reload. |
 | `n8n` | `http://localhost:5678` | Sin autenticación en local. Los workflows se exportan a `infra/n8n/` (ver el README de esa carpeta). |
 
-Para bajar todo (y borrar los datos de Postgres/n8n): `docker-compose down -v`.
+Para bajar el stack sin perder los datos locales: `docker compose down`. **No usar** `docker compose down -v` salvo que se quiera borrar deliberadamente los volúmenes de Postgres y n8n.
+
+## Backup y recuperación de PostgreSQL
+
+Los datos de PostgreSQL viven en el volumen Docker `postgres-data`. Un backup lógico en formato
+PostgreSQL (`pg_dump -Fc`) permite recuperarlos incluso si ese volumen se pierde. Ejecutar estos
+comandos desde la raíz del repositorio, con el stack levantado:
+
+```bash
+cd /ruta/a/esseri-data-core
+mkdir -p backups
+
+docker compose -f infra/docker-compose.yml exec -T postgres \
+  pg_dump -U esseri -d esseri_data_core -Fc \
+  > backups/esseri-data-core-$(date +%Y%m%d-%H%M%S).dump
+```
+
+Los archivos de `backups/` son locales y están ignorados por Git. Guardar una copia fuera de la
+máquina de desarrollo antes de hacer cambios de infraestructura, migraciones o una demo.
+
+### Verificar un backup sin tocar la base real
+
+Primero comprobar que el archivo se puede leer:
+
+```bash
+docker compose -f infra/docker-compose.yml exec -T postgres \
+  pg_restore -l < backups/esseri-data-core-AAAAmmdd-HHMMSS.dump
+```
+
+Para una prueba completa, restaurar en una base temporal y compararla con la base real. Reemplazar
+`ARCHIVO.dump` por el backup a comprobar:
+
+```bash
+DUMP=backups/ARCHIVO.dump
+TEST_DB=esseri_restore_verify_$(date +%s)
+
+docker compose -f infra/docker-compose.yml exec -T postgres \
+  psql -U esseri -d postgres -c "CREATE DATABASE ${TEST_DB};"
+docker compose -f infra/docker-compose.yml exec -T postgres \
+  pg_restore -U esseri -d "$TEST_DB" --exit-on-error < "$DUMP"
+docker compose -f infra/docker-compose.yml exec -T postgres \
+  psql -U esseri -d "$TEST_DB" -c "SELECT count(*) AS tablas FROM pg_tables WHERE schemaname = 'public';"
+docker compose -f infra/docker-compose.yml exec -T postgres \
+  psql -U esseri -d postgres -c "DROP DATABASE ${TEST_DB};"
+```
+
+La restauración de prueba no modifica `esseri_data_core`. Confirmar que la cantidad de tablas y los
+datos esperados coinciden antes de considerar válido el backup.
+
+### Restaurar sobre la base real
+
+> **Advertencia: este procedimiento reemplaza por completo `esseri_data_core`.** Detener backend y
+> frontend, crear antes un backup adicional del estado actual y confirmar que el archivo elegido es
+> el correcto.
+
+```bash
+cd /ruta/a/esseri-data-core
+DUMP=backups/ARCHIVO.dump
+
+docker compose -f infra/docker-compose.yml stop backend frontend
+docker compose -f infra/docker-compose.yml exec -T postgres \
+  psql -U esseri -d postgres -c "DROP DATABASE esseri_data_core;"
+docker compose -f infra/docker-compose.yml exec -T postgres \
+  psql -U esseri -d postgres -c "CREATE DATABASE esseri_data_core;"
+docker compose -f infra/docker-compose.yml exec -T postgres \
+  pg_restore -U esseri -d esseri_data_core --exit-on-error < "$DUMP"
+# Anotar la revisión restaurada ANTES de iniciar backend: su arranque ejecuta migraciones y seeds.
+docker compose -f infra/docker-compose.yml exec -T postgres \
+  psql -U esseri -d esseri_data_core -c "SELECT version_num FROM alembic_version;"
+```
+
+Comparar la revisión restaurada con la que requiere el código antes de iniciar backend. Si el
+backup pertenece a una versión anterior incompatible, no arrancar backend ni ejecutar migraciones o
+seeds automáticamente: primero restaurar una versión de código compatible o definir una migración
+controlada. Solo cuando esa compatibilidad esté confirmada:
+
+```bash
+docker compose -f infra/docker-compose.yml start backend frontend
+```
+
+Después de iniciar los servicios, comprobar `http://localhost:8000/docs`, iniciar sesión y verificar
+los datos críticos.
 
 ## Producción
 
