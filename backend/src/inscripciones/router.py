@@ -1,8 +1,9 @@
 import uuid
 from typing import Annotated, Literal
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Query, status
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.orm import Session
 
 from src.auth.constants import (
@@ -38,6 +39,7 @@ from src.inscripciones.schemas import (
     SolicitudInscripcionListadoRead,
     SolicitudInscripcionOpcionRead,
     SolicitudInscripcionRead,
+    TipoDocumentoSolicitud,
 )
 
 router = APIRouter(prefix="/inscripciones", tags=["inscripciones"])
@@ -312,11 +314,46 @@ def rechazar_solicitud_inscripcion(
 @router.post("/solicitudes/{solicitud_id}/documentos", status_code=status.HTTP_201_CREATED)
 def registrar_documento_solicitud(
     solicitud_id: uuid.UUID,
-    datos: DocumentoSolicitudCreate,
+    tipo_documento: Annotated[TipoDocumentoSolicitud, Form()],
+    archivo: Annotated[UploadFile, File()],
     db: DbSession,
     usuario: PuedeActualizar,
 ) -> DocumentoSolicitudRead:
-    return admisiones_service.registrar_documento_solicitud(db, solicitud_id, datos, usuario.id)
+    contenido = archivo.file.read(admisiones_service.MAX_TAMANIO_DOCUMENTO_SOLICITUD + 1)
+    return admisiones_service.registrar_documento_solicitud(
+        db,
+        solicitud_id,
+        DocumentoSolicitudCreate(tipo_documento=tipo_documento),
+        usuario.id,
+        nombre_archivo=archivo.filename,
+        tipo_contenido=archivo.content_type,
+        contenido=contenido,
+    )
+
+
+@router.get("/solicitudes/{solicitud_id}/documentos/{documento_id}/archivo")
+def obtener_archivo_documento_solicitud(
+    solicitud_id: uuid.UUID,
+    documento_id: uuid.UUID,
+    db: DbSession,
+    _: PuedeLeer,
+    descargar: Annotated[bool, Query()] = False,
+) -> Response:
+    documento = admisiones_service.obtener_archivo_documento_solicitud(
+        db, solicitud_id, documento_id
+    )
+    disposition = "attachment" if descargar else "inline"
+    return Response(
+        content=documento.contenido,
+        media_type=documento.tipo_contenido,
+        headers={
+            "Content-Disposition": (
+                f"{disposition}; filename*=UTF-8''{quote(documento.archivo, safe='')}"
+            ),
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, no-store",
+        },
+    )
 
 
 @router.put("/solicitudes/{solicitud_id}/documentos/{documento_id}")

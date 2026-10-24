@@ -4,6 +4,8 @@ import {
   editarSolicitudAdmision,
   revertirEtapaSolicitudAdmision,
   revocarAprobacionSolicitudAdmision,
+  registrarDocumentoSolicitudAdmision,
+  urlArchivoDocumentoSolicitudAdmision,
 } from '@/modules/inscripciones/services/solicitudes-admision'
 
 const respuestaOk = () =>
@@ -31,6 +33,31 @@ describe('servicios de acciones de admisión', () => {
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'PUT' })
     expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).not.toHaveProperty('etapa')
     expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).not.toHaveProperty('estado')
+  })
+
+  it('envía el documento de admisión como multipart con el archivo seleccionado', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+    const archivo = new File(['%PDF-1.7'], 'dni-sofia.pdf', { type: 'application/pdf' })
+
+    await registrarDocumentoSolicitudAdmision('solicitud-1', 'DNI del aspirante', archivo)
+
+    const [url, init] = fetchMock.mock.calls[0]
+    const cuerpo = init?.body as FormData
+    expect(url).toMatch(/\/inscripciones\/solicitudes\/solicitud-1\/documentos$/)
+    expect(init?.method).toBe('POST')
+    expect(init?.headers).toBeUndefined()
+    expect(cuerpo.get('tipo_documento')).toBe('DNI del aspirante')
+    expect((cuerpo.get('archivo') as File).name).toBe('dni-sofia.pdf')
+  })
+
+  it('construye URLs de acceso protegido para ver y descargar archivos', () => {
+    const urlVista = urlArchivoDocumentoSolicitudAdmision('solicitud-1', 'documento-1')
+    const urlDescarga = urlArchivoDocumentoSolicitudAdmision('solicitud-1', 'documento-1', true)
+
+    expect(urlVista).toContain(
+      '/inscripciones/solicitudes/solicitud-1/documentos/documento-1/archivo',
+    )
+    expect(urlDescarga).toContain('?descargar=true')
   })
 
   it('envía cada acción excepcional con un motivo obligatorio', async () => {
