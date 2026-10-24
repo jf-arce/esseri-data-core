@@ -105,6 +105,17 @@ uvicorn src.main:app --reload
 
 Docs interactivas en `http://localhost:8000/docs`.
 
+### Consulta de facturación para familias
+
+El portal consulta `GET /facturacion/familia/me` para mostrar facturas, vencimientos, movimientos,
+pagos registrados y el saldo de la familia autenticada. No registra ni inicia pagos. Los datos se
+limitan en el backend a las facturas cuyo responsable económico persistido corresponde a esa
+familia; una familia vinculada al alumno pero no responsable económica recibe una cuenta vacía.
+
+El comprobante de un pago disponible se descarga desde
+`GET /facturacion/familia/me/pagos/{pago_id}/comprobante`. Ambas respuestas se entregan con
+`Cache-Control: private, no-store` y no aceptan un `familia_id` desde el cliente.
+
 ### Facturación recurrente automática
 
 El backend recupera períodos pendientes al arrancar y luego corre diariamente a

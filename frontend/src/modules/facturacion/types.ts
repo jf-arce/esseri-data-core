@@ -55,6 +55,47 @@ export interface FacturaDetalle extends Factura {
   pagos: PagoFactura[]
 }
 
+export interface DetalleFacturaFamilia {
+  descripcion: string
+  monto: string
+}
+
+export interface PagoFamilia {
+  id: string
+  fecha: string
+  monto: string
+  estado: PagoFactura['estado']
+  metodo_pago: string
+  comprobante_disponible: boolean
+}
+
+export interface FacturaFamilia {
+  id: string
+  fecha_emision: string
+  fecha_vencimiento: string
+  monto_total: string
+  estado: EstadoFactura
+  alumno_nombre: string
+  detalles: DetalleFacturaFamilia[]
+  pagos: PagoFamilia[]
+}
+
+export interface MovimientoFamilia {
+  fecha: string
+  tipo: 'debe' | 'haber'
+  monto: string
+  observacion: string | null
+  factura_id: string
+}
+
+export interface FacturacionFamilia {
+  total_debe: string
+  total_haber: string
+  saldo: string
+  facturas: FacturaFamilia[]
+  movimientos: MovimientoFamilia[]
+}
+
 export interface RegistrarPagoPayload {
   fecha: string
   monto: string
