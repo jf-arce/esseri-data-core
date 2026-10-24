@@ -20,6 +20,7 @@ Si estás generando o modificando código en este repositorio, seguí estas regl
     - `backend/alembic/` o cualquier migración de base de datos — un cambio mal generado puede requerir rehacer el historial de migraciones.
     - `src/auth/` (backend) o `modules/auth/` (frontend) — maneja JWT y permisos; un error ahí es un problema de seguridad, no solo un bug funcional.
     - `docker-compose.yml` / `docker-compose.prod.yml` — cambios ahí afectan a todo el equipo al levantar el entorno local.
+11. **No inventes requisitos ni amplíes el alcance.** “si algo no está claro, revisá el código y lo que conversamos. si seguís con dudas, preguntame. no inventes requisitos ni hagas cambios fuera de lo que te pedí.”
 
 ---
 

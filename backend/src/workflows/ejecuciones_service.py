@@ -185,8 +185,8 @@ def aprobar_ejecucion(
             tipos_de_campos(db, tipo_evento.id),
             regla.notificacion_template_id,
         )
-    except Exception:
-        logger.warning("La configuración de la regla %s no es válida", regla.id, exc_info=True)
+    except Exception as error:
+        logger.warning("La configuración de una regla no es válida (tipo=%s)", type(error).__name__)
         despacho_service._marcar_fallida(ejecucion, ERROR_CONFIGURACION)
     else:
         despacho_service._ejecutar_accion(db, regla, evento, ejecucion)

@@ -339,7 +339,7 @@ Así lo resuelve directamente el repo de referencia: unos pocos archivos a nivel
 | `.env.example` | Misma lista de variables que `.env`, sin valores reales — referencia para saber qué hace falta configurar. |
 | `.gitignore` | Ignora lo específico de esta capa: entornos virtuales (`venv/`, `__pycache__/`), `.env` local. |
 | `alembic.ini` | Configuración de Alembic: dónde está la carpeta de migraciones, formato de nombre de cada archivo de migración, y de dónde toma la URL de conexión a la base (vía `.env`). Es lo que lee Alembic al correr `alembic upgrade head` o `alembic revision --autogenerate`. |
-| `logging.ini` | Configuración del logging de toda la app: nivel de detalle (`DEBUG`/`INFO`/`WARNING`/`ERROR`), formato de cada línea y destino (consola/archivo) — para que Uvicorn y el código de los módulos logueen de forma consistente en vez de que cada uno configure el suyo. |
+| `logging.ini` | Configuración del logging de toda la app: nivel de detalle (`DEBUG`/`INFO`/`WARNING`/`ERROR`), formato de cada línea y destino (consola/archivo). `src/main.py` la carga al iniciar la aplicación; los mensajes de aplicación evitan incluir datos identificatorios o valores de excepciones. |
 | `pyproject.toml` | Configuración de `ruff` (lint + formato para Python, reemplaza tener black/isort/flake8 por separado) — es lo que corre `ci.yml` en el paso de lint del backend. |
 | `Dockerfile` | Build de la imagen del backend: instala dependencias de `requirements/`, copia `src/` y corre Uvicorn. La misma imagen se usa en local (vía `docker-compose` de `infra/`) y en producción. |
 | `.dockerignore` | Evita copiar `venv/`, `__pycache__/`, `tests/` y `.env` dentro de la imagen al buildear. |
