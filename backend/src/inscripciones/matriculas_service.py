@@ -241,7 +241,7 @@ def obtener_resumen_inscripciones(
 def _obtener_alumno_y_division(
     db: Session, alumno_id: uuid.UUID, division_id: uuid.UUID
 ) -> tuple[Alumno, Division, Anio]:
-    alumno = db.get(Alumno, alumno_id, with_for_update=True)
+    alumno = db.scalar(select(Alumno).where(Alumno.id == alumno_id).with_for_update(of=Alumno))
     if alumno is None:
         raise InscripcionNoEncontrada("El alumno indicado no existe.")
 
@@ -472,7 +472,9 @@ def registrar_baja_inscripcion(
     """Registra la baja sin borrar la matrícula ni sus movimientos previos."""
 
     inscripcion_anterior = _obtener_inscripcion_activa_para_movimiento(db, inscripcion_id)
-    alumno = db.get(Alumno, inscripcion_anterior.alumno_id, with_for_update=True)
+    alumno = db.scalar(
+        select(Alumno).where(Alumno.id == inscripcion_anterior.alumno_id).with_for_update(of=Alumno)
+    )
     if alumno is None:
         raise InscripcionNoEncontrada("El alumno indicado no existe.")
 

@@ -120,7 +120,7 @@ def _finalizar(db_session, escenario, **cambios):
     )
 
 
-def test_bloquea_solo_alumno_al_buscarlo_por_persona():
+def test_bloquea_solo_la_entidad_alumno_o_familia_con_relacion_eager():
     """PostgreSQL no admite bloquear el lado nullable del join eager con Persona."""
 
     class SessionEspia:
@@ -132,9 +132,13 @@ def test_bloquea_solo_alumno_al_buscarlo_por_persona():
 
     db = SessionEspia()
     admisiones_service._bloquear_alumno_por_persona(db, uuid.uuid4())
+    sql_alumno = str(db.statement.compile(dialect=postgresql.dialect()))
 
-    sql = str(db.statement.compile(dialect=postgresql.dialect()))
-    assert "FOR UPDATE OF alumno" in sql
+    admisiones_service._bloquear_familia(db, uuid.uuid4())
+    sql_familia = str(db.statement.compile(dialect=postgresql.dialect()))
+
+    assert "FOR UPDATE OF alumno" in sql_alumno
+    assert "FOR UPDATE OF familia" in sql_familia
 
 
 def test_finaliza_admision_y_crea_alumno_familia_responsable_e_inscripcion(db_session):

@@ -536,7 +536,7 @@ def _resolver_familia_para_alta_integrada(
     usuario_id: uuid.UUID,
 ) -> Familia:
     if datos.familia_id is not None:
-        familia = db.get(Familia, datos.familia_id, with_for_update=True)
+        familia = _bloquear_familia(db, datos.familia_id)
         if familia is None:
             raise InscripcionNoEncontrada("La familia seleccionada no existe.")
         return familia
@@ -560,6 +560,11 @@ def _resolver_familia_para_alta_integrada(
     return familias_alumnos_service.obtener_o_crear_familia_para_persona_en_transaccion(
         db, persona.id, usuario_id
     )
+
+
+def _bloquear_familia(db: Session, familia_id: uuid.UUID) -> Familia | None:
+    """Bloquea solo ``familia``; su relación eager con Persona usa un outer join."""
+    return db.scalar(select(Familia).where(Familia.id == familia_id).with_for_update(of=Familia))
 
 
 def _bloquear_alumno_por_persona(db: Session, persona_id: uuid.UUID) -> Alumno | None:
