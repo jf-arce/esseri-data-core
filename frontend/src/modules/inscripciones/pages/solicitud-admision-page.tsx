@@ -37,6 +37,7 @@ import {
   obtenerSolicitudAdmision,
   rechazarSolicitudAdmision,
   registrarDocumentoSolicitudAdmision,
+  urlArchivoDocumentoSolicitudAdmision,
   revertirEtapaSolicitudAdmision,
   revocarAprobacionSolicitudAdmision,
 } from '@/modules/inscripciones/services/solicitudes-admision'
@@ -46,10 +47,12 @@ import {
 } from '@/modules/inscripciones/components/accion-excepcional-admision-dialog'
 import { EditarSolicitudAdmisionDialog } from '@/modules/inscripciones/components/editar-solicitud-admision-dialog'
 import { FinalizarAdmisionDialog } from '@/modules/inscripciones/components/finalizar-admision-dialog'
+import { TIPOS_DOCUMENTO_SOLICITUD_ADMISION } from '@/modules/inscripciones/types'
 import type {
   AltaIntegradaAdmisionPayload,
   ActualizarSolicitudAdmisionPayload,
   SolicitudAdmision,
+  TipoDocumentoSolicitudAdmision,
 } from '@/modules/inscripciones/types'
 import {
   etiquetaEstadoEtapaSolicitud,
@@ -79,8 +82,9 @@ export function SolicitudAdmisionPage() {
   }>({ solicitud: null, error: null })
   const [enviando, setEnviando] = useState(false)
   const [observaciones, setObservaciones] = useState('')
-  const [tipoDocumento, setTipoDocumento] = useState('')
-  const [archivo, setArchivo] = useState('')
+  const [tipoDocumento, setTipoDocumento] = useState<TipoDocumentoSolicitudAdmision | ''>('')
+  const [archivo, setArchivo] = useState<File | null>(null)
+  const [archivoInputVersion, setArchivoInputVersion] = useState(0)
   const [editando, setEditando] = useState(false)
   const [finalizandoAdmision, setFinalizandoAdmision] = useState(false)
   const [accionExcepcional, setAccionExcepcional] = useState<AccionExcepcionalAdmision | null>(null)
@@ -165,13 +169,14 @@ export function SolicitudAdmisionPage() {
   }
 
   async function agregarDocumento() {
-    if (!solicitud || !tipoDocumento.trim() || !archivo.trim()) return
+    if (!solicitud || !tipoDocumento || !archivo) return
     setEnviando(true)
     try {
       await registrarDocumentoSolicitudAdmision(solicitud.id, tipoDocumento, archivo)
       await recargarDetalle()
       setTipoDocumento('')
-      setArchivo('')
+      setArchivo(null)
+      setArchivoInputVersion((version) => version + 1)
       toast.success('Documento agregado.')
     } catch (error) {
       setResultado((actual) => ({ ...actual, error: mensajeError(error) }))
@@ -427,6 +432,26 @@ export function SolicitudAdmisionPage() {
                       <div key={documento.id} className="rounded-lg border border-borde p-3">
                         <p className="font-medium">{documento.tipo_documento}</p>
                         <p className="text-xs text-texto-3">{documento.archivo}</p>
+                        <div className="mt-2 flex gap-3 text-sm">
+                          <a
+                            className="text-texto underline underline-offset-2"
+                            href={urlArchivoDocumentoSolicitudAdmision(solicitud.id, documento.id)}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Ver
+                          </a>
+                          <a
+                            className="text-texto underline underline-offset-2"
+                            href={urlArchivoDocumentoSolicitudAdmision(
+                              solicitud.id,
+                              documento.id,
+                              true,
+                            )}
+                          >
+                            Descargar
+                          </a>
+                        </div>
                         {documento.estado === 'pendiente' ? (
                           <div className="mt-2 flex gap-2">
                             <Button
@@ -460,30 +485,43 @@ export function SolicitudAdmisionPage() {
                 <FieldGroup className="mt-4">
                   <Field>
                     <FieldLabel htmlFor="tipo-documento">Tipo</FieldLabel>
-                    <Input
+                    <select
                       id="tipo-documento"
                       value={tipoDocumento}
-                      onChange={(event) => setTipoDocumento(event.target.value)}
-                      placeholder="DNI, contrato…"
+                      onChange={(event) =>
+                        setTipoDocumento(event.target.value as TipoDocumentoSolicitudAdmision | '')
+                      }
+                      className="h-9 w-full rounded-lg border border-borde bg-superficie px-3 py-1 text-sm text-texto outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-fila-hover disabled:text-desactivado"
                       disabled={enviando}
-                    />
+                    >
+                      <option value="">Seleccioná un tipo</option>
+                      {TIPOS_DOCUMENTO_SOLICITUD_ADMISION.map((tipo) => (
+                        <option key={tipo} value={tipo}>
+                          {tipo}
+                        </option>
+                      ))}
+                    </select>
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="archivo-documento">Archivo o referencia</FieldLabel>
+                    <FieldLabel htmlFor="archivo-documento">Adjuntar archivo</FieldLabel>
                     <Input
+                      key={archivoInputVersion}
                       id="archivo-documento"
-                      value={archivo}
-                      onChange={(event) => setArchivo(event.target.value)}
-                      placeholder="dni-aspirante.pdf"
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                      onChange={(event) => setArchivo(event.target.files?.[0] ?? null)}
                       disabled={enviando}
                     />
+                    <p className="text-xs text-texto-3">
+                      {archivo?.name ?? 'PDF, JPG o PNG (hasta 5 MB).'}
+                    </p>
                   </Field>
                 </FieldGroup>
                 <Button
                   className="mt-3"
                   variant="secondary"
                   size="sm"
-                  disabled={enviando || !tipoDocumento.trim() || !archivo.trim()}
+                  disabled={enviando || !tipoDocumento || !archivo}
                   onClick={agregarDocumento}
                 >
                   <FilePlus2Icon data-icon="inline-start" />

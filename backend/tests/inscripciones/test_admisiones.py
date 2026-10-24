@@ -1,8 +1,41 @@
+import hashlib
+import json
+import uuid
+
+from sqlalchemy import select
+
+from src.inscripciones.admisiones_service import _validar_archivo_documento_solicitud
+from src.inscripciones.models import DocumentoSolicitud
 from tests.inscripciones.factories import (
     crear_escenario,
     crear_inscripcion_previa,
     crear_payload_solicitud,
 )
+
+
+def _hash_documentos(db_session, solicitud_id: str) -> str:
+    documentos = db_session.scalars(
+        select(DocumentoSolicitud)
+        .where(DocumentoSolicitud.solicitud_inscripcion_id == uuid.UUID(solicitud_id))
+        .order_by(DocumentoSolicitud.id)
+    ).all()
+    filas = [
+        (
+            str(documento.id),
+            documento.tipo_documento,
+            documento.archivo,
+            documento.tipo_contenido,
+            documento.tamanio,
+            documento.contenido.hex() if documento.contenido is not None else None,
+            documento.estado,
+            documento.fecha_carga.isoformat(),
+            documento.updated_at.isoformat(),
+            str(documento.solicitud_inscripcion_id),
+            str(documento.usuario_id),
+        )
+        for documento in documentos
+    ]
+    return hashlib.sha256(json.dumps(filas, ensure_ascii=False).encode()).hexdigest()
 
 
 def test_crear_y_listar_solicitud_de_admision(client, db_session):
@@ -43,28 +76,86 @@ def test_aprobar_y_validar_documentacion_de_solicitud(client, db_session):
         f"/inscripciones/solicitudes/{solicitud_id}/avanzar",
         json={"observaciones": "Reserva confirmada."},
     )
+    contenido_pdf = b"%PDF-1.7\nDocumento de prueba"
     documento = client.post(
         f"/inscripciones/solicitudes/{solicitud_id}/documentos",
-        json={"tipo_documento": "DNI", "archivo": "dni-sofia.pdf"},
+        data={"tipo_documento": "DNI del aspirante"},
+        files={"archivo": ("dni-sofia.pdf", contenido_pdf, "application/pdf")},
     )
-    validado = client.put(
-        f"/inscripciones/solicitudes/{solicitud_id}/documentos/{documento.json()['id']}",
-        json={"estado": "validado"},
+    assert documento.status_code == 201
+    documento_id = documento.json()["id"]
+    archivo_inline = client.get(
+        f"/inscripciones/solicitudes/{solicitud_id}/documentos/{documento_id}/archivo"
     )
-    confirmada = client.post(f"/inscripciones/solicitudes/{solicitud_id}/confirmar-inscripcion")
-
+    archivo_descarga = client.get(
+        f"/inscripciones/solicitudes/{solicitud_id}/documentos/{documento_id}/archivo",
+        params={"descargar": "true"},
+    )
+    hash_documentos_antes = _hash_documentos(db_session, solicitud_id)
+    archivo_invalido = client.post(
+        f"/inscripciones/solicitudes/{solicitud_id}/documentos",
+        data={"tipo_documento": "DNI del aspirante"},
+        files={"archivo": ("falso.pdf", b"no es un PDF", "application/pdf")},
+    )
+    tipo_no_permitido = client.post(
+        f"/inscripciones/solicitudes/{solicitud_id}/documentos",
+        data={"tipo_documento": "DNI"},
+        files={"archivo": ("dni.pdf", contenido_pdf, "application/pdf")},
+    )
+    archivo_demasiado_grande = client.post(
+        f"/inscripciones/solicitudes/{solicitud_id}/documentos",
+        data={"tipo_documento": "DNI del aspirante"},
+        files={
+            "archivo": (
+                "grande.pdf",
+                b"%PDF-" + b"x" * (5 * 1024 * 1024 + 1),
+                "application/pdf",
+            )
+        },
+    )
     assert aprobada.status_code == 200
     assert aprobada.json()["estado"] == "aprobada"
     assert aprobada.json()["etapa"] == "reserva_matricula"
     assert documentacion.status_code == 200
     assert documentacion.json()["etapa"] == "documentacion_contrato"
-    assert documento.status_code == 201
+    assert documento.json()["archivo"] == "dni-sofia.pdf"
+    assert archivo_inline.status_code == 200
+    assert archivo_inline.content == contenido_pdf
+    assert archivo_inline.headers["content-type"] == "application/pdf"
+    assert archivo_inline.headers["content-disposition"].startswith("inline;")
+    assert archivo_inline.headers["cache-control"] == "private, no-store"
+    assert archivo_descarga.status_code == 200
+    assert archivo_descarga.content == contenido_pdf
+    assert archivo_descarga.headers["content-disposition"].startswith("attachment;")
+    assert archivo_invalido.status_code == 422
+    assert tipo_no_permitido.status_code == 422
+    assert archivo_demasiado_grande.status_code == 422
+    assert len(client.get(f"/inscripciones/solicitudes/{solicitud_id}").json()["documentos"]) == 1
+    assert _hash_documentos(db_session, solicitud_id) == hash_documentos_antes
+
+    validado = client.put(
+        f"/inscripciones/solicitudes/{solicitud_id}/documentos/{documento_id}",
+        json={"estado": "validado"},
+    )
+    confirmada = client.post(f"/inscripciones/solicitudes/{solicitud_id}/confirmar-inscripcion")
     assert validado.status_code == 200
     assert validado.json()["estado"] == "validado"
     assert confirmada.status_code == 200
     assert confirmada.json()["estado"] == "aprobada"
     assert confirmada.json()["etapa"] == "inscripcion_confirmada"
     assert confirmada.json()["etapas"][-1]["estado"] == "completada"
+
+    archivo_con_padre_distinto = client.get(
+        "/inscripciones/solicitudes/00000000-0000-4000-8000-000000000000"
+        f"/documentos/{documento_id}/archivo"
+    )
+    assert archivo_con_padre_distinto.status_code == 404
+
+    client.cookies.clear()
+    archivo_sin_sesion = client.get(
+        f"/inscripciones/solicitudes/{solicitud_id}/documentos/{documento_id}/archivo"
+    )
+    assert archivo_sin_sesion.status_code == 401
 
 
 def test_rechaza_solicitud_solo_en_evaluacion(client, db_session):
@@ -236,3 +327,20 @@ def test_revocar_aprobacion_reabre_evaluacion_y_conserva_la_reserva(client, db_s
     assert response.json()["etapas"][-2]["estado"] == "revertida"
     assert response.json()["etapas"][-1]["etapa"] == "evaluacion_aprobacion"
     assert response.json()["etapas"][-1]["estado"] == "en_proceso"
+
+
+def test_acepta_firmas_de_jpeg_y_png():
+    archivos = (
+        ("imagen.jpg", "image/jpeg", b"\xff\xd8\xffdatos"),
+        ("imagen.png", "image/png", b"\x89PNG\r\n\x1a\ndatos"),
+    )
+
+    for nombre, tipo_contenido, contenido in archivos:
+        assert (
+            _validar_archivo_documento_solicitud(
+                nombre_archivo=nombre,
+                tipo_contenido=tipo_contenido,
+                contenido=contenido,
+            )
+            == nombre
+        )
