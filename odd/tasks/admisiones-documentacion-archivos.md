@@ -2,6 +2,7 @@
 Objective: Replace text-only document references with stored, authorized admissions uploads.
 Branch: `feat/admisiones-documentos-adjuntos` | Delivery: ask-on-risk | Forecast: ~330 authored lines.
 Tests: `backend/.venv/bin/pytest`; `frontend/node_modules/.bin/vitest`.
+Risk: item 2 (authorization guards for stored files); item 3 (multipart upload and download API contract consumed by the frontend).
 
 ## Specs
 
@@ -19,7 +20,7 @@ Acceptance: A user with Inscripciones read permission can view or download the s
 
 ## Tasks
 
-- T1 — S1-S3 — inline — implemented; own and independent verification passed; native review pending — commit pending.
+- T1 — S1-S3 — inline — implemented; own and independent verification passed; native assessment medium/under_budget (review_due=false) — commit `b927750ae743f770bf8d3be6e216b322025a7c62`.
 
 ## Log
 
@@ -27,4 +28,5 @@ Acceptance: A user with Inscripciones read permission can view or download the s
 - L2 — 2026-10-24: User approved the proposed document-type catalog, view/download access for authorized users, and PDF/JPG/PNG files limited to 5 MiB. No product questions remain.
 - L3 — 2026-10-24: Implemented multipart uploads into the existing binary columns; validates MIME, signature, filename, and a 5 MiB cap; provides read-authorized inline/view and attachment/download responses scoped to the parent request; UI now uses a typed dropdown, file picker, persisted filename, and view/download links. Responses use `private, no-store`.
 - L4 — 2026-10-24: Backend admissions suite passed (89 tests); frontend full suite passed (451 tests); TypeScript `tsc -b` passed; Ruff lint/format checks passed. Existing Starlette deprecation and React `act` warnings remain. A frontend test command needs escalation because Vite writes a temporary config under `node_modules`.
-- L5 — 2026-10-24: Independent verification passed S1-S3 without blockers. The parent spot check reproduced the verifier's full candidate suite result (90 passed, one existing Starlette/httpx deprecation warning); verifier scratch was removed. Next: perform the native RDD risk assessment and follow its exact returned transition. No push or PR has been requested.
+- L5 — 2026-10-24: Independent verification passed S1-S3 without blockers. The parent spot check reproduced the verifier's full candidate suite result (90 passed, one existing Starlette/httpx deprecation warning); verifier scratch was removed.
+- L6 — 2026-10-24: Work-unit commit `b927750ae743f770bf8d3be6e216b322025a7c62` was assessed against base `d3539f9`; native assessment returned medium, `review_due=false`, reason `under_budget`, so no review transaction was started. No push or PR was requested.
