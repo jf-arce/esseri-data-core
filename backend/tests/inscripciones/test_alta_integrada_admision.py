@@ -5,6 +5,7 @@ from datetime import date
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.dialects import postgresql
 
 from src.academico.models import Anio, Division, NivelEducativo
 from src.auth.models import Usuario
@@ -117,6 +118,23 @@ def _finalizar(db_session, escenario, **cambios):
         AltaIntegradaAdmisionCreate.model_validate(_payload(escenario, **cambios)),
         escenario["usuario"].id,
     )
+
+
+def test_bloquea_solo_alumno_al_buscarlo_por_persona():
+    """PostgreSQL no admite bloquear el lado nullable del join eager con Persona."""
+
+    class SessionEspia:
+        statement = None
+
+        def scalar(self, statement):
+            self.statement = statement
+            return None
+
+    db = SessionEspia()
+    admisiones_service._bloquear_alumno_por_persona(db, uuid.uuid4())
+
+    sql = str(db.statement.compile(dialect=postgresql.dialect()))
+    assert "FOR UPDATE OF alumno" in sql
 
 
 def test_finaliza_admision_y_crea_alumno_familia_responsable_e_inscripcion(db_session):

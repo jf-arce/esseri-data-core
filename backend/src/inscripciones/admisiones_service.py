@@ -562,6 +562,13 @@ def _resolver_familia_para_alta_integrada(
     )
 
 
+def _bloquear_alumno_por_persona(db: Session, persona_id: uuid.UUID) -> Alumno | None:
+    """Bloquea solo ``alumno``; su relación eager con Persona usa un outer join."""
+    return db.scalar(
+        select(Alumno).where(Alumno.persona_id == persona_id).with_for_update(of=Alumno).limit(1)
+    )
+
+
 def finalizar_admision_con_alta_integrada(
     db: Session,
     solicitud_id: uuid.UUID,
@@ -598,9 +605,7 @@ def finalizar_admision_con_alta_integrada(
             raise InscripcionInvalida("La solicitud no tiene un aspirante válido.")
 
         fecha_inscripcion = datos.fecha_inscripcion or _fecha_actual_argentina()
-        alumno = db.scalar(
-            select(Alumno).where(Alumno.persona_id == aspirante.id).with_for_update().limit(1)
-        )
+        alumno = _bloquear_alumno_por_persona(db, aspirante.id)
         if alumno is None:
             alumno = familias_alumnos_service.crear_alumno_desde_persona_en_transaccion(
                 db, persona_id=aspirante.id, usuario_id=usuario_id
