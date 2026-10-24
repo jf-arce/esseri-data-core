@@ -9,7 +9,7 @@ import {
   UserRoundXIcon,
   XIcon,
 } from 'lucide-react'
-import { useNavigate, useParams } from 'react-router'
+import { useParams } from 'react-router'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 import { BackLink } from '@/components/back-link'
@@ -73,7 +73,6 @@ function varianteEstado(estado: SolicitudAdmision['estado']) {
 
 export function SolicitudAdmisionPage() {
   const { solicitudId } = useParams<{ solicitudId: string }>()
-  const navigate = useNavigate()
   const [resultado, setResultado] = useState<{
     solicitud: SolicitudAdmision | null
     error: string | null
@@ -156,7 +155,6 @@ export function SolicitudAdmisionPage() {
     const actualizada = await obtenerSolicitudAdmision(solicitud.id)
     setResultado({ solicitud: actualizada, error: null })
     toast.success('Admisión finalizada e inscripción registrada.')
-    navigate(`/inscripciones/${resultadoAlta.inscripcion.id}`)
     return resultadoAlta
   }
 
