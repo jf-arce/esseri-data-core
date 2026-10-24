@@ -96,6 +96,30 @@ export interface FacturacionFamilia {
   movimientos: MovimientoFamilia[]
 }
 
+export interface MovimientoCuentaCorriente {
+  id: string
+  fecha: string
+  tipo: 'debe' | 'haber'
+  monto: string
+  observacion: string | null
+  concepto_cobro_id: string | null
+  concepto_nombre: string | null
+  factura_id: string | null
+  pago_id: string | null
+}
+
+export interface CuentaCorriente {
+  cuenta_corriente_id: string | null
+  alumno_id: string
+  total_debe: string
+  total_haber: string
+  saldo: string
+  movimientos: MovimientoCuentaCorriente[]
+  total_movimientos: number
+  pagina: number
+  tamanio: number
+}
+
 export interface RegistrarPagoPayload {
   fecha: string
   monto: string
