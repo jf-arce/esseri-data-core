@@ -23,6 +23,7 @@ from src.inscripciones.schemas import (
     SolicitudInscripcionAdministrativaUpdate,
 )
 from src.models import AuditLog
+from tests.inscripciones.conftest import crear_catalogo_evento_cambio_matricula
 from tests.inscripciones.factories import (
     crear_escenario,
     crear_inscripcion_previa,
@@ -226,6 +227,7 @@ class TestAuditoriaInscripcion:
     def test_registrar_cambio_matricula_audita_alta(self, db_session):
         from src.academico.models import Division
 
+        crear_catalogo_evento_cambio_matricula(db_session)
         escenario = crear_escenario(db_session)
         inscripcion_previa = crear_inscripcion_previa(
             db_session, escenario, ciclo="2027", estado="activa"
