@@ -20,6 +20,14 @@ from src.facturacion.models import (
 )
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate
 from src.models import EventLog
+from src.workflows.despacho_service import procesar_eventos_pendientes
+from src.workflows.models import (
+    ReglaDestinatario,
+    Tarea,
+    TipoEvento,
+    WorkflowExecution,
+    WorkflowRule,
+)
 from tests.facturacion.conftest import crear_catalogo_evento_pago_registrado
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
@@ -59,6 +67,36 @@ def _crear_factura_pendiente(db_session):
         ),
     )
     return factura, metodo, usuario, escenario["alumno_id"]
+
+
+def _crear_regla_tarea_pago(db_session, usuario):
+    tipo = db_session.query(TipoEvento).filter_by(nombre="pago.registrado").one()
+    regla = WorkflowRule(
+        nombre="Pago registrado: verificar comprobante",
+        condicion={},
+        tipo_accion="crear_tarea",
+        accion_config={
+            "titulo": "Verificar el pago registrado",
+            "descripcion": "Revisar el comprobante del pago.",
+            "prioridad": "media",
+            "dias_para_vencer": 2,
+        },
+        criticidad="media",
+        requiere_aprobacion_humana=False,
+        activo=True,
+        tipo_evento_id=tipo.id,
+    )
+    db_session.add(regla)
+    db_session.flush()
+    db_session.add(
+        ReglaDestinatario(
+            destinatario_tipo="usuario",
+            workflow_rule_id=regla.id,
+            usuario_id=usuario.id,
+        )
+    )
+    db_session.commit()
+    return regla
 
 
 def test_registrar_pago_total_guarda_comprobante_y_paga_factura(db_session):
@@ -149,6 +187,40 @@ def test_falla_despues_de_emitir_evento_revierte_pago_y_evento(db_session, monke
     db_session.rollback()
     assert db_session.query(EventLog).count() == 0
     assert db_session.query(Pago).count() == 0
+
+
+def test_pago_registrado_dispara_la_regla_y_crea_la_tarea(db_session):
+    factura, metodo, usuario, _ = _crear_factura_pendiente(db_session)
+    regla = _crear_regla_tarea_pago(db_session, usuario)
+
+    pago = registrar_pago(
+        db_session,
+        factura=factura,
+        usuario_registro_id=usuario.id,
+        fecha=date(2027, 3, 5),
+        monto=Decimal("100.00"),
+        metodo_pago_id=metodo.id,
+        referencia_transaccion=None,
+        comprobante_nombre="transferencia.pdf",
+        comprobante_tipo_contenido="application/pdf",
+        comprobante_contenido=b"%PDF-1.7 comprobante",
+    )
+
+    resumen = procesar_eventos_pendientes(db_session)
+
+    evento = db_session.query(EventLog).one()
+    assert evento.estado == "procesado"
+    assert resumen.eventos_procesados == 1
+    assert resumen.ejecuciones_creadas == 1
+    ejecucion = db_session.query(WorkflowExecution).one()
+    assert ejecucion.workflow_rule_id == regla.id
+    assert ejecucion.estado == "exitoso"
+    tarea = db_session.query(Tarea).one()
+    assert tarea.entidad == "pago"
+    assert tarea.entidad_id == pago.id
+    assert tarea.usuario_id == usuario.id
+    assert tarea.estado == "pendiente"
+    assert tarea.workflow_execution_id == ejecucion.id
 
 
 def test_no_registra_pago_por_encima_del_saldo(db_session):
