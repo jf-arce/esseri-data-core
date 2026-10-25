@@ -11,6 +11,7 @@ import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { PageHeader } from '@/components/page-header'
 import {
   Table,
@@ -78,6 +79,15 @@ function etiquetaFechaGrafico(fecha: string): string {
   return new Date(`${fecha}T00:00:00`).toLocaleDateString('es-AR', {
     day: '2-digit',
     month: '2-digit',
+  })
+}
+
+function etiquetaFechaDetalladaGrafico(fecha: string): string {
+  return new Date(`${fecha}T00:00:00`).toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
   })
 }
 
@@ -370,48 +380,84 @@ export function PortalDocenteCursoPage({ vista = 'resumen' }: { vista?: VistaCur
                 </p>
               ) : (
                 <div className="overflow-x-auto">
-                  <div
-                    role="img"
-                    aria-label={`Asistencia de los últimos 30 días: ${diasGrafico
-                      .map(
-                        (dia) =>
-                          `${etiquetaFechaGrafico(dia.fecha)}: ${dia.presentes} presentes, ${dia.ausencias} ausencias, ${dia.tardanzas} tardanzas`,
-                      )
-                      .join('; ')}`}
-                    className="flex h-48 min-w-[620px] items-end gap-2 border-b border-borde px-2"
-                  >
-                    {diasGrafico.map((dia) => {
-                      const barras = [
-                        { nombre: 'Presentes', valor: dia.presentes, clase: 'bg-exito' },
-                        { nombre: 'Ausencias', valor: dia.ausencias, clase: 'bg-error' },
-                        { nombre: 'Tardanzas', valor: dia.tardanzas, clase: 'bg-advertencia' },
-                      ]
-                      return (
-                        <div
-                          key={dia.fecha}
-                          className="flex h-full min-w-4 flex-1 flex-col items-center justify-end gap-1"
-                        >
-                          <div className="flex h-36 w-full items-end justify-center gap-0.5">
-                            {barras.map((barra) => (
-                              <span
-                                key={barra.nombre}
-                                className={`w-1.5 rounded-t-sm ${barra.clase}`}
-                                style={{
-                                  height: barra.valor
-                                    ? `${Math.max(4, (barra.valor / maximoGrafico) * 100)}%`
-                                    : '0%',
-                                }}
-                                title={`${etiquetaFechaGrafico(dia.fecha)} · ${barra.nombre}: ${barra.valor}`}
-                              />
-                            ))}
-                          </div>
-                          <span className="whitespace-nowrap text-[10px] text-texto-2">
-                            {etiquetaFechaGrafico(dia.fecha)}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
+                  <TooltipProvider delayDuration={0}>
+                    <div
+                      role="group"
+                      aria-label={`Asistencia de los últimos 30 días: ${diasGrafico
+                        .map(
+                          (dia) =>
+                            `${etiquetaFechaGrafico(dia.fecha)}: ${dia.presentes} presentes, ${dia.ausencias} ausencias, ${dia.tardanzas} tardanzas`,
+                        )
+                        .join('; ')}`}
+                      className="flex h-48 min-w-[620px] items-end gap-2 border-b border-borde px-2"
+                    >
+                      {diasGrafico.map((dia) => {
+                        const barras = [
+                          { nombre: 'Presentes', valor: dia.presentes, clase: 'bg-exito' },
+                          { nombre: 'Ausencias', valor: dia.ausencias, clase: 'bg-error' },
+                          { nombre: 'Tardanzas', valor: dia.tardanzas, clase: 'bg-advertencia' },
+                        ]
+                        const fechaDetallada = etiquetaFechaDetalladaGrafico(dia.fecha)
+                        return (
+                          <Tooltip key={dia.fecha}>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                aria-label={`Ver detalle de asistencia del ${fechaDetallada}`}
+                                className="flex h-full min-w-4 flex-1 cursor-default flex-col items-center justify-end gap-1 rounded-sm bg-transparent p-0 text-left outline-none focus-visible:ring-2 focus-visible:ring-violeta focus-visible:ring-offset-2 focus-visible:ring-offset-superficie"
+                              >
+                                <span
+                                  aria-hidden="true"
+                                  className="flex h-36 w-full items-end justify-center gap-0.5"
+                                >
+                                  {barras.map((barra) => (
+                                    <span
+                                      key={barra.nombre}
+                                      className={`w-1.5 rounded-t-sm ${barra.clase}`}
+                                      style={{
+                                        height: barra.valor
+                                          ? `${Math.max(4, (barra.valor / maximoGrafico) * 100)}%`
+                                          : '0%',
+                                      }}
+                                    />
+                                  ))}
+                                </span>
+                                <span className="whitespace-nowrap text-[10px] text-texto-2">
+                                  {etiquetaFechaGrafico(dia.fecha)}
+                                </span>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="top"
+                              sideOffset={10}
+                              className="flex max-w-none flex-col items-start gap-2 rounded-lg border border-borde bg-superficie px-3 py-2 text-texto shadow-card"
+                            >
+                              <time
+                                dateTime={dia.fecha}
+                                className="text-xs font-semibold capitalize"
+                              >
+                                {fechaDetallada}
+                              </time>
+                              <div className="grid w-full grid-cols-1 gap-1 text-xs text-texto-2">
+                                <p>
+                                  Presentes:{' '}
+                                  <span className="font-semibold text-texto">{dia.presentes}</span>
+                                </p>
+                                <p>
+                                  Ausencias:{' '}
+                                  <span className="font-semibold text-texto">{dia.ausencias}</span>
+                                </p>
+                                <p>
+                                  Tardanzas:{' '}
+                                  <span className="font-semibold text-texto">{dia.tardanzas}</span>
+                                </p>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        )
+                      })}
+                    </div>
+                  </TooltipProvider>
                 </div>
               )}
             </Card>
