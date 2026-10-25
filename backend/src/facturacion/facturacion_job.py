@@ -81,7 +81,11 @@ def ejecutar_facturacion_automatica(
                 )
             )
         except Exception as error:
-            logger.exception("Falló la facturación automática del período %s", periodo)
+            logger.error(
+                "Falló la facturación automática del período %s (tipo=%s)",
+                periodo,
+                type(error).__name__,
+            )
             ejecuciones.append(registrar_ejecucion_fallida(db, periodo, reglas_periodo, error))
     return ejecuciones
 
@@ -90,13 +94,15 @@ def _ejecutar_corrida_con_sesion() -> None:
     try:
         with SessionLocal() as db:
             ejecutar_facturacion_automatica(db)
-    except Exception:
-        logger.exception("Falló la facturación automática de la corrida")
+    except Exception as error:
+        logger.error(
+            "Falló la facturación automática de la corrida (tipo=%s)", type(error).__name__
+        )
     try:
         with SessionLocal() as db:
             detectar_facturas_vencidas(db)
-    except Exception:
-        logger.exception("Falló la detección de facturas vencidas")
+    except Exception as error:
+        logger.error("Falló la detección de facturas vencidas (tipo=%s)", type(error).__name__)
 
 
 async def ejecutar_job_facturacion_periodico() -> None:
@@ -107,8 +113,11 @@ async def ejecutar_job_facturacion_periodico() -> None:
             await asyncio.to_thread(_ejecutar_corrida_con_sesion)
         except asyncio.CancelledError:
             raise
-        except Exception:
-            logger.exception("No se pudo completar la corrida del job de facturación")
+        except Exception as error:
+            logger.error(
+                "No se pudo completar la corrida del job de facturación (tipo=%s)",
+                type(error).__name__,
+            )
         ahora = datetime.now(UTC)
         proxima_corrida = proxima_corrida_diaria_argentina(
             settings.FACTURACION_HORA_EJECUCION, ahora

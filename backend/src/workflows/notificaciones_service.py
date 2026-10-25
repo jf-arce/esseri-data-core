@@ -260,7 +260,7 @@ def _renderizar(
             plantilla.asunto, plantilla.cuerpo, evento.payload or {}
         )
     except PlantillaInvalida:
-        logger.warning("No se pudo renderizar la plantilla de la regla %s", regla.id, exc_info=True)
+        logger.warning("No se pudo renderizar una plantilla de workflow")
         raise _SinContenido(ERROR_RENDER) from None
 
 
@@ -369,12 +369,14 @@ def _enviar_todos(
             continue
         try:
             n8n_client.enviar_email(mensaje.destinatario.email, mensaje.asunto, mensaje.cuerpo)
-        except (N8nNoConfigurado, N8nNoDisponible):
-            logger.warning("n8n no está disponible: se corta el envío", exc_info=True)
+        except (N8nNoConfigurado, N8nNoDisponible) as error:
+            logger.warning(
+                "n8n no está disponible: se corta el envío (tipo=%s)", type(error).__name__
+            )
             n8n_caido = True
             continue
-        except Exception:
-            logger.warning("Falló el envío de la notificación %s", notificacion.id, exc_info=True)
+        except Exception as error:
+            logger.warning("Falló el envío de una notificación (tipo=%s)", type(error).__name__)
             continue
         notificacion.estado_envio = "enviado"
         notificacion.sent_at = datetime.now()

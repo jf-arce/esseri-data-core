@@ -17,6 +17,17 @@ EtapaSolicitud = Literal[
 ]
 EstadoSolicitud = Literal["en_proceso", "aprobada", "rechazada", "desistida"]
 ParentescoContacto = Literal["Madre", "Padre", "Tutor/a", "Abuelo/a", "Hermano/a", "Otro"]
+TipoDocumentoSolicitud = Literal[
+    "DNI del aspirante",
+    "DNI del responsable o tutor",
+    "Partida de nacimiento",
+    "Certificado de vacunas",
+    "Ficha médica o apto físico",
+    "Contrato de matrícula",
+    "Comprobante de domicilio",
+    "Certificado de estudios o pase escolar",
+    "Otro",
+]
 
 
 class InscripcionCreateBase(BaseModel):
@@ -200,8 +211,7 @@ class MotivoSolicitudCreate(BaseModel):
 
 
 class DocumentoSolicitudCreate(BaseModel):
-    tipo_documento: str = Field(min_length=1, max_length=100)
-    archivo: str = Field(min_length=1, max_length=500)
+    tipo_documento: TipoDocumentoSolicitud
 
 
 class DocumentoSolicitudUpdate(BaseModel):

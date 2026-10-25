@@ -307,15 +307,8 @@ def _notificar_asistencia(db: Session, inscripcion: Inscripcion, fecha: date, ti
         )
         .all()
     )
-    for resp in responsables:
-        logger.info(
-            "Notificación de %s: alumno_id=%s fecha=%s familia_id=%s parentesco=%s",
-            tipo,
-            inscripcion.alumno_id,
-            fecha,
-            resp.familia_id,
-            resp.parentesco,
-        )
+    if responsables:
+        logger.info("Notificación académica preparada")
     return len(responsables)
 
 

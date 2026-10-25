@@ -89,9 +89,9 @@ def procesar_eventos_pendientes(db: Session, limite: int = 100) -> ResumenDespac
             evento.estado = "procesado"
             db.commit()
             resumen.eventos_procesados += 1
-        except Exception:
+        except Exception as error:
             db.rollback()
-            logger.exception("Falló el despacho del evento %s", evento_id)
+            logger.error("Falló el despacho de un evento (tipo=%s)", type(error).__name__)
             _marcar_evento_fallido(db, evento_id)
             resumen.eventos_fallidos += 1
     return resumen
@@ -135,8 +135,8 @@ def _procesar_regla(
     # y no impide que se procesen las demás del mismo evento.
     try:
         aplica = _regla_aplica(regla, evento, tipo_evento.nombre, campos)
-    except Exception:
-        logger.warning("No se pudo evaluar la regla %s", regla.id, exc_info=True)
+    except Exception as error:
+        logger.warning("No se pudo evaluar una regla (tipo=%s)", type(error).__name__)
         _reservar_ejecucion(db, ejecucion)
         _marcar_fallida(ejecucion, ERROR_EVALUACION)
         return ejecucion
@@ -157,8 +157,8 @@ def _procesar_regla(
             campos,
             regla.notificacion_template_id,
         )
-    except Exception:
-        logger.warning("La configuración de la regla %s no es válida", regla.id, exc_info=True)
+    except Exception as error:
+        logger.warning("La configuración de una regla no es válida (tipo=%s)", type(error).__name__)
         _reservar_ejecucion(db, ejecucion)
         _marcar_fallida(ejecucion, ERROR_CONFIGURACION)
         return ejecucion
@@ -241,8 +241,8 @@ def _ejecutar_accion(
         # perder la ejecución ni las de otras reglas del mismo evento.
         with db.begin_nested():
             resultado = handler(db, regla, evento, ejecucion)
-    except Exception:
-        logger.exception("Falló la acción '%s' de la regla %s", regla.tipo_accion, regla.id)
+    except Exception as error:
+        logger.error("Falló la ejecución de una acción de workflow (tipo=%s)", type(error).__name__)
         _marcar_fallida(ejecucion, ERROR_ACCION)
         return
     ejecucion.detalle = resultado.detalle

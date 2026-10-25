@@ -1,6 +1,8 @@
 import asyncio
+import logging.config
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +21,11 @@ from src.panel_admin.router import router as panel_admin_router
 from src.proveedores_compras.router import router as proveedores_compras_router
 from src.workflows.despacho_job import ejecutar_job_despacho_periodico
 from src.workflows.router import router as workflows_router
+
+logging.config.fileConfig(
+    Path(__file__).resolve().parents[1] / "logging.ini",
+    disable_existing_loggers=False,
+)
 
 
 @asynccontextmanager
