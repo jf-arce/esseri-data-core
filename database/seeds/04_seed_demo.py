@@ -79,7 +79,7 @@ from src.proveedores_compras.models import (
 )
 from src.workflows.destinatarios_service import reemplazar_destinatarios_regla
 from src.workflows.models import NotificacionTemplate, TipoEvento, WorkflowRule
-from src.workflows.plantillas_service import registrar_plantilla
+from src.workflows.plantillas_service import crear_plantilla
 from src.workflows.schemas import (
     NotificacionTemplateCreate,
     ReglaDestinatariosUpdate,
@@ -166,6 +166,68 @@ REGLAS_VENCIMIENTO = [
 
 CUENTAS_PERSONAL = [("administracion", "administración"), ("direccion", "dirección")]
 
+# Reglas de inasistencias de la demo (#218): avisos a los responsables habilitados de la familia y
+# un recordatorio si la inasistencia sigue sin justificar `dias_despues` días después. Cada una
+# usa la plantilla de su clave en PLANTILLAS_INASISTENCIA.
+PLANTILLAS_INASISTENCIA = {
+    "ausencia": (
+        "Inasistencia registrada",
+        "Inasistencia de {{alumno_nombre}}",
+        "Les informamos que {{alumno_nombre}} no asistió al colegio el {{fecha}}. "
+        "Si corresponde, pueden presentar la justificación.",
+    ),
+    "tardanza": (
+        "Tardanza registrada",
+        "Llegada tarde de {{alumno_nombre}}",
+        "Les informamos que {{alumno_nombre}} llegó tarde al colegio el {{fecha}}.",
+    ),
+    "justificada": (
+        "Justificación de inasistencia resuelta",
+        "Justificación de {{alumno_nombre}} resuelta",
+        "Se resolvió el {{fecha_resolucion}} la justificación de la inasistencia de "
+        "{{alumno_nombre}}. Motivo presentado: {{motivo}}.",
+    ),
+    "recordatorio": (
+        "Recordatorio de justificación pendiente",
+        "Recordatorio: justificación de {{alumno_nombre}}",
+        "Les recordamos que la inasistencia de {{alumno_nombre}} del {{fecha}} todavía no tiene "
+        "justificación. Si corresponde, pueden presentarla.",
+    ),
+}
+REGLAS_INASISTENCIA = [
+    {
+        "nombre": "Inasistencia: avisar a la familia",
+        "evento": "inasistencia.registrada",
+        "condicion": {"campo": "tipo_asistencia", "operador": "==", "valor": "ausente_pendiente"},
+        "tipo_accion": "notificar",
+        "accion_config": {"destinatario": "responsables_habilitados"},
+        "plantilla": "ausencia",
+    },
+    {
+        "nombre": "Tardanza: avisar a la familia",
+        "evento": "inasistencia.registrada",
+        "condicion": {"campo": "tipo_asistencia", "operador": "==", "valor": "tardanza"},
+        "tipo_accion": "notificar",
+        "accion_config": {"destinatario": "responsables_habilitados"},
+        "plantilla": "tardanza",
+    },
+    {
+        "nombre": "Inasistencia justificada: avisar a la familia",
+        "evento": "inasistencia.justificada",
+        "condicion": {},
+        "tipo_accion": "notificar",
+        "accion_config": {"destinatario": "responsables_habilitados"},
+        "plantilla": "justificada",
+    },
+    {
+        "nombre": "Inasistencia sin justificar: recordatorio",
+        "evento": "inasistencia.registrada",
+        "condicion": {"campo": "tipo_asistencia", "operador": "==", "valor": "ausente_pendiente"},
+        "tipo_accion": "generar_recordatorio",
+        "accion_config": {"destinatario": "responsables_habilitados", "dias_despues": 2},
+        "plantilla": "recordatorio",
+    },
+]
 
 FAMILIAS = [
     ("30111001", "Mariana", "Gómez", "+54 9 221 555-1001", "F"),
@@ -971,6 +1033,40 @@ def _ensure_cuentas_familias(db, familias: list[Familia]):
         _ensure_cuenta_demo(db, persona.id, _email_demo(f"familia-{persona.dni}"), None)
 
 
+def _ensure_reglas_inasistencia(db, usuario: Usuario):
+    """Plantillas y reglas del loop de inasistencias. Se buscan por nombre y, si ya existen, no se
+    tocan: volver a correr el seed no las duplica ni pisa lo editado desde la pantalla."""
+    plantillas = {}
+    for clave, (nombre, asunto, cuerpo) in PLANTILLAS_INASISTENCIA.items():
+        plantilla = db.scalar(
+            select(NotificacionTemplate).where(NotificacionTemplate.nombre == nombre)
+        )
+        if plantilla is None:
+            plantilla = crear_plantilla(
+                db,
+                NotificacionTemplateCreate(nombre=nombre, asunto=asunto, cuerpo=cuerpo),
+                usuario.id,
+            )
+        plantillas[clave] = plantilla
+    for regla in REGLAS_INASISTENCIA:
+        if db.scalar(select(WorkflowRule).where(WorkflowRule.nombre == regla["nombre"])):
+            continue
+        tipo_evento = _require(db, TipoEvento, nombre=regla["evento"])
+        crear_regla(
+            db,
+            WorkflowRuleCreate(
+                nombre=regla["nombre"],
+                tipo_evento_id=tipo_evento.id,
+                condicion=regla["condicion"],
+                tipo_accion=regla["tipo_accion"],
+                accion_config=regla["accion_config"],
+                criticidad="baja",
+                notificacion_template_id=plantillas[regla["plantilla"]].id,
+            ),
+            usuario.id,
+        )
+
+
 def _ensure_compras(db, usuario: Usuario, hoy: date):
     proveedores: list[Proveedor] = []
     for nombre, categoria, telefono, email in PROVEEDORES:
@@ -1305,6 +1401,7 @@ def seed_demo():
         _ensure_cuentas_familias(db, familias)
         _ensure_reglas_workflow(db, usuario)
         _ensure_reglas_vencimiento(db, usuario)
+        _ensure_reglas_inasistencia(db, usuario)
         db.commit()
 
         print("[8/9] Proveedores, solicitudes, órdenes y recepciones")
