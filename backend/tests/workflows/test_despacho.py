@@ -197,6 +197,7 @@ def test_endpoint_procesar_devuelve_resumen(client_autenticado, db_session, tipo
         "eventos_procesados": 1,
         "eventos_fallidos": 0,
         "ejecuciones_creadas": 0,
+        "recordatorios_ejecutados": 0,
     }
 
 

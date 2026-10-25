@@ -37,6 +37,7 @@ from src.workflows.models import (
 from src.workflows.schemas import (
     ConfigAlertaInterna,
     ConfigNotificar,
+    ConfigRecordatorio,
     DestinatarioTipo,
     EstadoEnvioNotificacion,
     NotificacionDetalleRead,
@@ -218,6 +219,15 @@ def ejecutar_notificar(
     db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
 ) -> ResultadoAccion:
     destino = ConfigNotificar.model_validate(regla.accion_config or {}).destinatario
+    return _ejecutar(db, regla, evento, ejecucion, destino, _contenido_notificar)
+
+
+def ejecutar_recordatorio(
+    db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
+) -> ResultadoAccion:
+    """El mismo envío que `notificar`, con la config de `generar_recordatorio`. Los `dias_despues`
+    ya los esperó el despachador: acá solo se manda."""
+    destino = ConfigRecordatorio.model_validate(regla.accion_config or {}).destinatario
     return _ejecutar(db, regla, evento, ejecucion, destino, _contenido_notificar)
 
 

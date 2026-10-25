@@ -93,6 +93,8 @@ Eso genera `equipo+administracion@gmail.com`, `equipo+direccion@gmail.com` y
 `equipo+familia-<dni>@gmail.com`. Hay que sembrar antes de la primera detección de vencidas: el
 detector da por emitido un tramo aunque su evento ya se haya procesado.
 
+**Loop de inasistencias (#218).** Además crea 4 plantillas y 4 reglas sobre los eventos de asistencia, todas hacia los responsables habilitados de la familia: `Inasistencia: avisar a la familia` y `Tardanza: avisar a la familia` (`notificar` sobre `inasistencia.registrada`, según `tipo_asistencia`), `Inasistencia justificada: avisar a la familia` (`notificar` sobre `inasistencia.justificada`) e `Inasistencia sin justificar: recordatorio` (`generar_recordatorio` a los 2 días, solo si la inasistencia sigue sin justificar). El aviso de justificación es neutral porque el evento no dice si se aprobó o se rechazó. Los emails salen por n8n (`N8N_WEBHOOK_URL`): sin configurar, las ejecuciones quedan `fallido`.
+
 ## `05_seed_demo_docente.py` — datos ficticios para demostrar el Portal Docente
 
 Dataset aparte de `04_seed_demo.py` (nombres/legajos propios, no se cruzan), pensado para la

@@ -93,6 +93,14 @@ EVENTOS_POR_ACCION: dict[str, frozenset[str] | None] = {
     "generar_orden_compra": frozenset({"solicitud_compra.aprobada"}),
 }
 
+# Acciones que no corren cuando llega el evento sino `dias_despues` días más tarde: el despachador
+# las saltea y las toma `procesar_recordatorios_vencidos`.
+ACCIONES_DIFERIDAS: frozenset[str] = frozenset({"generar_recordatorio"})
+# Cuántos días después de cumplirse `dias_despues` se sigue buscando eventos sin recordar: un evento
+# más viejo (el backend estuvo caído, la regla estuvo apagada) ya no se recuerda, y la búsqueda
+# de cada pasada queda acotada.
+VENTANA_RECORDATORIOS_DIAS = 7
+
 # Acciones que arman un mensaje: son las únicas que admiten `notificacion_template_id`.
 ACCIONES_CON_PLANTILLA: frozenset[str] = frozenset(
     {"notificar", "alerta_interna", "generar_recordatorio", "generar_comunicacion"}
