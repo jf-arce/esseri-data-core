@@ -960,7 +960,7 @@ def _ensure_plantilla_vencida(db, usuario: Usuario):
         )
     ):
         return
-    registrar_plantilla(db, NotificacionTemplateCreate(**PLANTILLA_VENCIDA), usuario.id)
+    crear_plantilla(db, NotificacionTemplateCreate(**PLANTILLA_VENCIDA), usuario.id)
 
 
 def _ensure_reglas_vencimiento(db, usuario: Usuario):
