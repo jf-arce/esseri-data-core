@@ -382,6 +382,7 @@ class ResumenDespacho(BaseModel):
     eventos_procesados: int = 0
     eventos_fallidos: int = 0
     ejecuciones_creadas: int = 0
+    recordatorios_ejecutados: int = 0
 
 
 class ResultadoAccion(BaseModel):

@@ -10,7 +10,7 @@ from src.facturacion.models import Factura, Pago, ResponsableEconomico
 from src.familias_alumnos.models import Familia, FamiliaAlumno
 from src.inscripciones.models import Asistencia
 from src.models import EventLog, Persona
-from src.workflows import despacho_service, n8n_client, notificaciones_service
+from src.workflows import despacho_service, notificaciones_service
 from src.workflows.constants import MAX_DESTINATARIOS_POR_EJECUCION
 from src.workflows.exceptions import (
     N8nEnvioFallido,
@@ -135,30 +135,6 @@ def _ejecucion(db, regla, evento, intento=1):
     db.add(ejecucion)
     db.flush()
     return ejecucion
-
-
-@pytest.fixture()
-def envios(monkeypatch):
-    """Registra los emails enviados; `fallar` lista los destinatarios cuyo envío lanza."""
-
-    class Registro:
-        enviados: list[tuple[str, str, str]]
-        intentos: list[str]
-        fallar: dict[str, Exception]
-
-    registro = Registro()
-    registro.enviados = []
-    registro.intentos = []
-    registro.fallar = {}
-
-    def enviar(destinatario, asunto, cuerpo, transport=None):
-        registro.intentos.append(destinatario)
-        if destinatario in registro.fallar:
-            raise registro.fallar[destinatario]
-        registro.enviados.append((destinatario, asunto, cuerpo))
-
-    monkeypatch.setattr(n8n_client, "enviar_email", enviar)
-    return registro
 
 
 def _emails(destinatarios):
