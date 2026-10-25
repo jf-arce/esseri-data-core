@@ -90,7 +90,9 @@ describe('ElegirPerfilPage', () => {
   })
 
   it('trae las divisiones del docente para su card', async () => {
-    mockedGetMisDivisiones.mockResolvedValue([{ division_id: 'd1', etiqueta: '4°B' }])
+    mockedGetMisDivisiones.mockResolvedValue([
+      { division_id: 'd1', etiqueta: '4°B', anio_numero: 4, nivel_educativo_nombre: 'Primario' },
+    ])
     renderPagina()
 
     expect(await screen.findByText('4°B')).toBeInTheDocument()

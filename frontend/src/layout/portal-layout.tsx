@@ -4,8 +4,7 @@ import { MenuCuenta } from '@/layout/menu-cuenta'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth-store'
 
-// Shell Portal (§8 DESIGN.md): sin rail lateral — los roles de portal tienen un flujo propio,
-// separado de la consola de gestión. La navegación de Familia queda acotada a sus trámites.
+// Shell del Portal Familia (§8 DESIGN.md): navegación compacta, separada de la consola de gestión.
 export function PortalLayout() {
   const rolActivo = useAuthStore((state) => state.rolActivo)
   const navItemClass = ({ isActive }: { isActive: boolean }) =>

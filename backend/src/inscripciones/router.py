@@ -5,13 +5,15 @@ from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from src.academico.service import _tiene_acceso_estructural, verificar_acceso_a_division
 from src.auth.constants import (
     PERMISO_INSCRIPCIONES_ACTUALIZAR,
     PERMISO_INSCRIPCIONES_CREAR,
     PERMISO_INSCRIPCIONES_EXPORTAR,
     PERMISO_INSCRIPCIONES_LEER,
 )
-from src.auth.dependencies import requiere_permiso
+from src.auth.dependencies import RolActivo, requiere_permiso
+from src.auth.exceptions import PermisoDenegado
 from src.auth.models import Usuario
 from src.database import get_db
 from src.exports import respuesta_csv, texto_o_vacio
@@ -49,10 +51,26 @@ PuedeActualizar = Annotated[Usuario, Depends(requiere_permiso(PERMISO_INSCRIPCIO
 PuedeExportar = Annotated[Usuario, Depends(requiere_permiso(PERMISO_INSCRIPCIONES_EXPORTAR))]
 
 
+def _docente_acotado(db: Session, usuario: Usuario, rol_activo: str | None) -> bool:
+    return (
+        rol_activo is not None
+        and (rol_activo == "docente" or rol_activo.startswith("docente_"))
+        and not _tiene_acceso_estructural(db, usuario.id, rol_activo)
+    )
+
+
+def _denegar_consulta_administrativa_docente(
+    db: Session, usuario: Usuario, rol_activo: str | None
+) -> None:
+    if _docente_acotado(db, usuario, rol_activo):
+        raise PermisoDenegado("Esta consulta no está disponible en el Portal Docente")
+
+
 @router.get("")
 def listar_inscripciones(
     db: DbSession,
-    _: PuedeLeer,
+    usuario: PuedeLeer,
+    rol_activo: RolActivo,
     ciclo_lectivo: Annotated[str | None, Query(min_length=1, max_length=20)] = None,
     estado: Annotated[Literal["activa", "finalizada", "baja"] | None, Query()] = None,
     tipo: Annotated[
@@ -67,6 +85,12 @@ def listar_inscripciones(
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanio_pagina: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> InscripcionListadoRead:
+    if _docente_acotado(db, usuario, rol_activo):
+        if division_id is None or ciclo_lectivo is None:
+            raise PermisoDenegado("Para consultar inscripciones necesitás indicar división y ciclo")
+        verificar_acceso_a_division(db, usuario.id, division_id, rol_activo, ciclo_lectivo.strip())
+        estado = "activa"
+
     return matriculas_service.listar_inscripciones(
         db,
         ciclo_lectivo=ciclo_lectivo.strip() if ciclo_lectivo else None,
@@ -161,7 +185,8 @@ def crear_solicitud_inscripcion(
 @router.get("/solicitudes")
 def listar_solicitudes_inscripcion(
     db: DbSession,
-    _: PuedeLeer,
+    usuario: PuedeLeer,
+    rol_activo: RolActivo,
     estado: Annotated[
         Literal["en_proceso", "aprobada", "rechazada", "desistida"] | None, Query()
     ] = None,
@@ -182,6 +207,7 @@ def listar_solicitudes_inscripcion(
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanio_pagina: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> SolicitudInscripcionListadoRead:
+    _denegar_consulta_administrativa_docente(db, usuario, rol_activo)
     return admisiones_service.listar_solicitudes_inscripcion(
         db,
         estado=estado,
@@ -194,8 +220,9 @@ def listar_solicitudes_inscripcion(
 
 @router.get("/solicitudes/{solicitud_id}")
 def obtener_solicitud_inscripcion(
-    solicitud_id: uuid.UUID, db: DbSession, _: PuedeLeer
+    solicitud_id: uuid.UUID, db: DbSession, usuario: PuedeLeer, rol_activo: RolActivo
 ) -> SolicitudInscripcionRead:
+    _denegar_consulta_administrativa_docente(db, usuario, rol_activo)
     return admisiones_service.obtener_solicitud_inscripcion(db, solicitud_id)
 
 
@@ -361,10 +388,12 @@ def registrar_baja_inscripcion(
 @router.get("/opciones/solicitudes")
 def listar_solicitudes_disponibles(
     db: DbSession,
-    _: PuedeLeer,
+    usuario: PuedeLeer,
+    rol_activo: RolActivo,
     buscar: Annotated[str | None, Query(max_length=100)] = None,
     limite: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> list[SolicitudInscripcionOpcionRead]:
+    _denegar_consulta_administrativa_docente(db, usuario, rol_activo)
     return opciones_service.listar_solicitudes_disponibles(db, buscar=buscar, limite=limite)
 
 
@@ -376,7 +405,8 @@ def listar_divisiones_disponibles(db: DbSession, _: PuedeLeer) -> list[DivisionO
 @router.get("/opciones/reinscripciones")
 def listar_alumnos_elegibles_reinscripcion(
     db: DbSession,
-    _: PuedeLeer,
+    usuario: PuedeLeer,
+    rol_activo: RolActivo,
     ciclo_lectivo: Annotated[
         str,
         Query(min_length=4, max_length=4, pattern=r"^[1-9]\d{3}$"),
@@ -384,6 +414,7 @@ def listar_alumnos_elegibles_reinscripcion(
     buscar: Annotated[str | None, Query(max_length=100)] = None,
     limite: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> list[AlumnoReinscripcionOpcionRead]:
+    _denegar_consulta_administrativa_docente(db, usuario, rol_activo)
     return opciones_service.listar_alumnos_elegibles_reinscripcion(
         db,
         ciclo_lectivo,
@@ -393,6 +424,21 @@ def listar_alumnos_elegibles_reinscripcion(
 
 
 @router.get("/{inscripcion_id}")
-def obtener_inscripcion(inscripcion_id: uuid.UUID, db: DbSession, _: PuedeLeer) -> InscripcionRead:
+def obtener_inscripcion(
+    inscripcion_id: uuid.UUID,
+    db: DbSession,
+    usuario: PuedeLeer,
+    rol_activo: RolActivo,
+) -> InscripcionRead:
     inscripcion = matriculas_service.obtener_inscripcion(db, inscripcion_id)
+    if _docente_acotado(db, usuario, rol_activo):
+        if inscripcion.estado != "activa":
+            raise PermisoDenegado("Solo podés consultar alumnos activos de tu división")
+        verificar_acceso_a_division(
+            db,
+            usuario.id,
+            inscripcion.division_id,
+            rol_activo,
+            inscripcion.ciclo_lectivo,
+        )
     return InscripcionRead.model_validate(inscripcion)

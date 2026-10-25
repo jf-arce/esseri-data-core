@@ -15,6 +15,7 @@ export interface FiltrosAsistencia {
   fecha_desde?: string
   fecha_hasta?: string
   division_id?: string
+  ciclo_lectivo?: string
 }
 
 export function listarAsistencias(filtros?: FiltrosAsistencia) {
@@ -24,6 +25,7 @@ export function listarAsistencias(filtros?: FiltrosAsistencia) {
   if (filtros?.fecha_desde) params.set('fecha_desde', filtros.fecha_desde)
   if (filtros?.fecha_hasta) params.set('fecha_hasta', filtros.fecha_hasta)
   if (filtros?.division_id) params.set('division_id', filtros.division_id)
+  if (filtros?.ciclo_lectivo) params.set('ciclo_lectivo', filtros.ciclo_lectivo)
   const qs = params.toString() ? `?${params.toString()}` : ''
   return apiClient<Asistencia[]>(`/academico/asistencias${qs}`)
 }
