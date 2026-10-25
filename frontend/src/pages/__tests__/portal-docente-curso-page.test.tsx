@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '@/api/client'
@@ -119,11 +119,32 @@ describe('PortalDocenteCursoPage', () => {
       </MemoryRouter>,
     )
 
-    const grafico = await screen.findByRole('img', { name: /asistencia de los últimos 30 días/i })
+    const grafico = await screen.findByRole('group', { name: /asistencia de los últimos 30 días/i })
     expect(grafico.getAttribute('aria-label')).toContain('ausencias')
     expect(screen.getByText('Presentes')).toBeInTheDocument()
     expect(screen.getByText('Ausencias')).toBeInTheDocument()
     expect(screen.getByText('Tardanzas')).toBeInTheDocument()
+  })
+
+  it('muestra el detalle diario al pasar o enfocar las barras del gráfico', async () => {
+    render(
+      <MemoryRouter initialEntries={['/docente/cursos/division-1']}>
+        <Routes>
+          <Route path="/docente/cursos/:divisionId" element={<PortalDocenteCursoPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const disparadores = await screen.findAllByRole('button', {
+      name: /ver detalle de asistencia del/i,
+    })
+    fireEvent.pointerMove(disparadores.at(-1)!)
+
+    const tooltip = await screen.findByRole('tooltip')
+    expect(tooltip.querySelector('time')).toHaveAttribute('dateTime', fechaHace(0))
+    expect(tooltip).toHaveTextContent('Presentes: 0')
+    expect(tooltip).toHaveTextContent('Ausencias: 1')
+    expect(tooltip).toHaveTextContent('Tardanzas: 0')
   })
 
   it('shows fallback messages when an API error has no detail', async () => {
