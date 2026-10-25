@@ -333,6 +333,14 @@ def _docente_de(db: Session, usuario_id: uuid.UUID) -> Docente | None:
     return db.query(Docente).filter(Docente.persona_id == usuario.persona_id).first()
 
 
+def obtener_perfil_docente(db: Session, usuario_id: uuid.UUID) -> Persona | None:
+    """Devolver solo la persona asociada al perfil docente autenticado."""
+    docente = _docente_de(db, usuario_id)
+    if docente is None:
+        return None
+    return db.get(Persona, docente.persona_id)
+
+
 def _tiene_acceso_estructural(db: Session, usuario_id: uuid.UUID, rol_activo: str | None) -> bool:
     """El personal con `academico.actualizar` amplio, sin tipo (secretaría, coordinación
     académica, administrador del sistema) opera cualquier división. Se pide el código CON tipo
@@ -365,7 +373,11 @@ def _tiene_acceso_estructural(db: Session, usuario_id: uuid.UUID, rol_activo: st
 
 
 def verificar_acceso_a_division(
-    db: Session, usuario_id: uuid.UUID, division_id: uuid.UUID, rol_activo: str | None
+    db: Session,
+    usuario_id: uuid.UUID,
+    division_id: uuid.UUID,
+    rol_activo: str | None,
+    ciclo_lectivo: str | None = None,
 ) -> None:
     """RF-06: sin el `academico.actualizar` estructural (o sea, con solo el permiso tipado de
     asistencia — un docente), solo se opera sobre las divisiones con una `AsignacionDocente`
@@ -376,14 +388,14 @@ def verificar_acceso_a_division(
     if _tiene_acceso_estructural(db, usuario_id, rol_activo):
         return
     docente = _docente_de(db, usuario_id)
+    filtros_asignacion = [
+        AsignacionDocente.docente_id == docente.id if docente is not None else False,
+        AsignacionDocente.division_id == division_id,
+    ]
+    if ciclo_lectivo is not None:
+        filtros_asignacion.append(AsignacionDocente.ciclo_lectivo == ciclo_lectivo)
     tiene_asignacion = docente is not None and (
-        db.query(AsignacionDocente)
-        .filter(
-            AsignacionDocente.docente_id == docente.id,
-            AsignacionDocente.division_id == division_id,
-        )
-        .first()
-        is not None
+        db.query(AsignacionDocente).filter(*filtros_asignacion).first() is not None
     )
     if not tiene_asignacion:
         raise PermisoDenegado("No tenés asignada esta división")
@@ -396,7 +408,9 @@ def verificar_acceso_a_asistencia(
     actualizar, eliminar): resuelve la división vía su inscripción."""
     inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
     if inscripcion is not None:
-        verificar_acceso_a_division(db, usuario_id, inscripcion.division_id, rol_activo)
+        verificar_acceso_a_division(
+            db, usuario_id, inscripcion.division_id, rol_activo, inscripcion.ciclo_lectivo
+        )
 
 
 def registrar_asistencia(
@@ -410,7 +424,9 @@ def registrar_asistencia(
     inscripcion = db.get(Inscripcion, datos.inscripcion_id)
     if inscripcion is None or inscripcion.estado != "activa":
         raise InscripcionNoActiva()
-    verificar_acceso_a_division(db, usuario_id, inscripcion.division_id, rol_activo)
+    verificar_acceso_a_division(
+        db, usuario_id, inscripcion.division_id, rol_activo, inscripcion.ciclo_lectivo
+    )
 
     existente = db.scalar(
         select(Asistencia.id).where(
@@ -468,7 +484,11 @@ def registrar_asistencia_masiva(
     Si ya existe un registro para (inscripcion_id, fecha), se actualiza.
     Si no existe, se crea. Para 'ausente' se dispara notificación.
     """
-    verificar_acceso_a_division(db, usuario_id, datos.division_id, rol_activo)
+    ciclo_lectivo = datos.ciclo_lectivo
+    if ciclo_lectivo is None and datos.registros:
+        inscripcion_referencia = db.get(Inscripcion, datos.registros[0].inscripcion_id)
+        ciclo_lectivo = inscripcion_referencia.ciclo_lectivo if inscripcion_referencia else None
+    verificar_acceso_a_division(db, usuario_id, datos.division_id, rol_activo, ciclo_lectivo)
 
     creadas = 0
     actualizadas = 0
@@ -477,6 +497,8 @@ def registrar_asistencia_masiva(
     for registro in datos.registros:
         inscripcion = db.get(Inscripcion, registro.inscripcion_id)
         if inscripcion is None or inscripcion.estado != "activa":
+            continue
+        if ciclo_lectivo is not None and inscripcion.ciclo_lectivo != ciclo_lectivo:
             continue
 
         existente = (
@@ -569,6 +591,7 @@ def listar_asistencias(
     fecha_desde: date | None = None,
     fecha_hasta: date | None = None,
     division_id: uuid.UUID | None = None,
+    ciclo_lectivo: str | None = None,
 ) -> list[Asistencia]:
     """Listar registros de asistencia con filtros opcionales.
 
@@ -585,7 +608,14 @@ def listar_asistencias(
         division_a_verificar = inscripcion_filtro.division_id if inscripcion_filtro else None
 
     if division_a_verificar is not None:
-        verificar_acceso_a_division(db, usuario_id, division_a_verificar, rol_activo)
+        ciclo_a_verificar = ciclo_lectivo
+        if inscripcion_id is not None:
+            inscripcion_filtro = db.get(Inscripcion, inscripcion_id)
+            if inscripcion_filtro is not None:
+                ciclo_a_verificar = inscripcion_filtro.ciclo_lectivo
+        verificar_acceso_a_division(
+            db, usuario_id, division_a_verificar, rol_activo, ciclo_a_verificar
+        )
     elif not _tiene_acceso_estructural(db, usuario_id, rol_activo):
         raise PermisoDenegado("No tenés asignada esta división")
 
@@ -600,6 +630,9 @@ def listar_asistencias(
         query = query.filter(Asistencia.fecha <= fecha_hasta)
     if division_id is not None:
         query = query.join(Inscripcion).filter(Inscripcion.division_id == division_id)
+    if ciclo_lectivo is not None:
+        if division_id is not None and inscripcion_id is None:
+            query = query.filter(Inscripcion.ciclo_lectivo == ciclo_lectivo)
     return query.order_by(Asistencia.fecha.desc()).all()
 
 
@@ -696,7 +729,9 @@ def calcular_resumen_asistencia(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Inscripción con ID {inscripcion_id} no encontrada",
         )
-    verificar_acceso_a_division(db, usuario_id, inscripcion.division_id, rol_activo)
+    verificar_acceso_a_division(
+        db, usuario_id, inscripcion.division_id, rol_activo, inscripcion.ciclo_lectivo
+    )
 
     registros = (
         db.query(Asistencia)
@@ -744,6 +779,86 @@ def calcular_resumen_asistencia(
         porcentaje_justificadas=porcentaje_justificadas,
         porcentaje_injustificadas=porcentaje_injustificadas,
     )
+
+
+_TIPOS_AUSENCIA = {
+    "ausente_pendiente",
+    "ausente_justificado",
+    "ausente_injustificado",
+}
+
+
+def calcular_indicadores_inasistencia(registros: list[Asistencia]) -> tuple[int, int, bool]:
+    """Cuenta ausencias reales y la racha más larga, ignorando fechas sin registro.
+
+    Las tardanzas y presencias registradas cortan la racha; los tres estados de ausencia,
+    incluidas las justificadas, cuentan para ambos umbrales.
+    """
+    ordenados = sorted(registros, key=lambda registro: registro.fecha)
+    total_ausencias = sum(1 for registro in ordenados if registro.tipo in _TIPOS_AUSENCIA)
+    racha = 0
+    consecutivas = 0
+    for registro in ordenados:
+        if registro.tipo in _TIPOS_AUSENCIA:
+            racha += 1
+            consecutivas = max(consecutivas, racha)
+        else:
+            racha = 0
+    return total_ausencias, consecutivas, total_ausencias >= 20 or consecutivas >= 5
+
+
+def obtener_seguimiento_division_docente(
+    db: Session,
+    usuario_id: uuid.UUID,
+    rol_activo: str | None,
+    division_id: uuid.UUID,
+    ciclo_lectivo: str,
+) -> list[dict[str, object]]:
+    """Indicadores por inscripción activa, acotados a división y ciclo autorizados."""
+    verificar_acceso_a_division(db, usuario_id, division_id, rol_activo, ciclo_lectivo)
+    anio = int(ciclo_lectivo)
+    inscripciones = (
+        db.query(Inscripcion.id)
+        .filter(
+            Inscripcion.division_id == division_id,
+            Inscripcion.ciclo_lectivo == ciclo_lectivo,
+            Inscripcion.estado == "activa",
+        )
+        .all()
+    )
+    inscripcion_ids = [fila.id for fila in inscripciones]
+    if not inscripcion_ids:
+        return []
+    registros = (
+        db.query(Asistencia)
+        .filter(
+            Asistencia.inscripcion_id.in_(inscripcion_ids),
+            Asistencia.fecha >= date(anio, 1, 1),
+            Asistencia.fecha <= date(anio, 12, 31),
+        )
+        .order_by(Asistencia.fecha.desc())
+        .all()
+    )
+    por_inscripcion: dict[uuid.UUID, list[Asistencia]] = {}
+    for registro in registros:
+        por_inscripcion.setdefault(registro.inscripcion_id, []).append(registro)
+    seguimiento = []
+    for inscripcion_id in inscripcion_ids:
+        registros_alumno = por_inscripcion.get(inscripcion_id, [])
+        if not registros_alumno:
+            continue
+        total_ausencias, ausencias_consecutivas, reiterada = calcular_indicadores_inasistencia(
+            registros_alumno
+        )
+        seguimiento.append(
+            {
+                "inscripcion_id": inscripcion_id,
+                "total_ausencias": total_ausencias,
+                "ausencias_consecutivas": ausencias_consecutivas,
+                "inasistencia_reiterada": reiterada,
+            }
+        )
+    return seguimiento
 
 
 _ETIQUETA_TIPO_ASISTENCIA = {
@@ -1662,7 +1777,9 @@ def listar_asignaciones_docentes(
     return query.order_by(AsignacionDocente.ciclo_lectivo).all()
 
 
-def divisiones_de_persona(db: Session, persona_id: uuid.UUID) -> list[tuple[uuid.UUID, str]]:
+def divisiones_de_persona(
+    db: Session, persona_id: uuid.UUID, ciclo_lectivo: str | None = None
+) -> list[tuple[uuid.UUID, str, int, str]]:
     """Divisiones donde el docente ligado a `persona_id` tiene una asignación vigente.
 
     Usado por GET /academico/docentes/me/divisiones (usuario autenticado, sin depender de
@@ -1678,16 +1795,17 @@ def divisiones_de_persona(db: Session, persona_id: uuid.UUID) -> list[tuple[uuid
     if docente is None:
         return []
 
-    filas = (
-        db.query(Division.id, Anio.numero, Division.nombre)
+    query = (
+        db.query(Division.id, Anio.numero, Division.nombre, NivelEducativo.nombre)
         .join(AsignacionDocente, AsignacionDocente.division_id == Division.id)
         .join(Anio, Anio.id == Division.anio_id)
+        .join(NivelEducativo, NivelEducativo.id == Anio.nivel_educativo_id)
         .filter(AsignacionDocente.docente_id == docente.id)
-        .distinct()
-        .order_by(Anio.numero, Division.nombre)
-        .all()
     )
-    return [(division_id, nombre) for division_id, _numero, nombre in filas]
+    if ciclo_lectivo is not None:
+        query = query.filter(AsignacionDocente.ciclo_lectivo == ciclo_lectivo)
+    filas = query.distinct().order_by(Anio.numero, Division.nombre).all()
+    return [(division_id, nombre, numero, nivel) for division_id, numero, nombre, nivel in filas]
 
 
 def eliminar_asignacion_docente(

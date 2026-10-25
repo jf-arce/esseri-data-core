@@ -112,6 +112,8 @@ export type DocenteDesdeUsuarioCreate = {
 export type MiDivision = {
   division_id: string
   etiqueta: string
+  anio_numero: number
+  nivel_educativo_nombre: string
 }
 
 export type AsignacionDocente = {
@@ -145,6 +147,7 @@ export type Asistencia = {
   tipo: TipoAsistencia
   inscripcion_id: string
   updated_at: string
+  justificacion_estado?: 'pendiente' | 'aprobada' | 'rechazada' | null
 }
 
 export type AsistenciaFamilia = Asistencia & {
@@ -183,7 +186,15 @@ export type AsistenciaBulkRegistro = {
 export type AsistenciaBulkCreate = {
   fecha: string
   division_id: string
+  ciclo_lectivo?: string
   registros: AsistenciaBulkRegistro[]
+}
+
+export type SeguimientoDivisionItem = {
+  inscripcion_id: string
+  total_ausencias: number
+  ausencias_consecutivas: number
+  inasistencia_reiterada: boolean
 }
 
 export type AsistenciaBulkResponse = {
