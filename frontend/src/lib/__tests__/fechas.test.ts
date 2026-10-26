@@ -7,6 +7,10 @@ describe('formatearFechaHora', () => {
     expect(formatearFechaHora('2027-03-01T02:30:00Z')).toBe('28/02/2027, 23:30')
   })
 
+  it('acepta el offset +00:00 que devuelve el backend', () => {
+    expect(formatearFechaHora('2027-03-01T02:30:00+00:00')).toBe('28/02/2027, 23:30')
+  })
+
   it('respeta un offset explícito', () => {
     expect(formatearFechaHora('2027-03-01T00:30:00-03:00')).toBe('01/03/2027, 00:30')
   })
