@@ -18,6 +18,7 @@ from src.academico.models import JustificacionInasistencia
 from src.auth.models import Usuario
 from src.facturacion.models import Factura, Pago, ResponsableEconomico
 from src.familias_alumnos.models import Familia, FamiliaAlumno
+from src.fechas import ahora_utc
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import EventLog
 from src.workflows import destinatarios_service, n8n_client, plantillas_service
@@ -389,7 +390,7 @@ def _enviar_todos(
             logger.warning("Falló el envío de una notificación (tipo=%s)", type(error).__name__)
             continue
         notificacion.estado_envio = "enviado"
-        notificacion.sent_at = datetime.now()
+        notificacion.sent_at = ahora_utc()
         enviados += 1
 
     detalle = f"{enviados} de {total} emails enviados"
