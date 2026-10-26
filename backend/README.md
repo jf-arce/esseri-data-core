@@ -28,6 +28,8 @@ pip install -r requirements/dev.txt
 cp .env.example .env            # completar DATABASE_URL, JWT_SECRET, etc.
 ```
 
+La app fija `timezone=UTC` en cada sesión de Postgres (`src/database.py`), así que `func.now()` en columnas `DateTime` sin zona guarda UTC aunque el servidor de base esté en otra zona. No hay variable de entorno para esto.
+
 ## Migraciones (Alembic)
 
 Nunca se escribe SQL a mano en `database/` — todo cambio de esquema se genera con Alembic desde acá:
