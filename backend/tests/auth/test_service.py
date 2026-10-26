@@ -5,9 +5,11 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from jose import jwt
+from pydantic import ValidationError
 
 from src.auth import config, sesion_service
 from src.auth.exceptions import TokenInvalido
+from src.config import Settings
 
 
 def test_el_token_redondea():
@@ -66,3 +68,32 @@ def test_email_inexistente_igual_dispara_una_comparacion_de_hash(db_session, mon
         sesion_service.autenticar_local(db_session, "nadie@esseri.edu.ar", "algo", ip_origen=None)
 
     assert llamadas == [sesion_service._DUMMY_PASSWORD_HASH]
+
+
+def test_bloqueado_hasta_trata_igual_fechas_con_y_sin_zona(monkeypatch):
+    monkeypatch.setattr(config, "LOGIN_MAX_INTENTOS", 3)
+    ahora = datetime.now(UTC)
+    naive = [(ahora - timedelta(seconds=i)).replace(tzinfo=None) for i in range(3)]
+    con_zona = [ahora - timedelta(seconds=i) for i in range(3)]
+
+    hasta = sesion_service._bloqueado_hasta(naive, ahora)
+
+    assert hasta is not None
+    assert hasta == sesion_service._bloqueado_hasta(con_zona, ahora)
+
+
+def test_bloqueado_hasta_sin_suficientes_fallidos_no_bloquea(monkeypatch):
+    monkeypatch.setattr(config, "LOGIN_MAX_INTENTOS", 3)
+    ahora = datetime.now(UTC)
+
+    assert sesion_service._bloqueado_hasta([ahora, ahora], ahora) is None
+
+
+def test_settings_exige_que_el_bloqueo_cubra_la_ventana():
+    with pytest.raises(ValidationError):
+        Settings(
+            DATABASE_URL="sqlite://",
+            JWT_SECRET="x",
+            LOGIN_VENTANA_MINUTOS=15,
+            LOGIN_BLOQUEO_MINUTOS=5,
+        )

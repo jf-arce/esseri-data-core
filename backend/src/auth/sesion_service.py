@@ -15,6 +15,7 @@ from src.auth.autorizacion_service import roles_de
 from src.auth.constants import ESTADO_ACTIVO, PROVIDER_GOOGLE
 from src.auth.exceptions import (
     CredencialesInvalidas,
+    DemasiadosIntentos,
     TokenInvalido,
     UsuarioInactivo,
     UsuarioNoHabilitado,
@@ -103,6 +104,42 @@ def registrar_acceso(
     db.commit()
 
 
+# --- Bloqueo por intentos ----------------------------------------------------------------
+
+
+def _a_utc(fecha: datetime) -> datetime:
+    # Sin zona se toma como UTC. #188: subir a un helper compartido (ver facturacion/schemas.py).
+    if fecha.tzinfo is None:
+        return fecha.replace(tzinfo=UTC)
+    return fecha.astimezone(UTC)
+
+
+def _bloqueado_hasta(fechas: list[datetime], ahora: datetime) -> datetime | None:
+    """`fechas`: los fallidos más recientes de la IP, del más nuevo al más viejo."""
+    if len(fechas) < config.LOGIN_MAX_INTENTOS:
+        return None
+    utc = [_a_utc(f) for f in fechas]
+    if utc[0] - utc[-1] >= config.LOGIN_VENTANA:
+        return None
+    hasta = utc[0] + config.LOGIN_BLOQUEO
+    return hasta if hasta > ahora else None
+
+
+def _verificar_bloqueo_ip(db: Session, ip_origen: str | None) -> None:
+    if ip_origen is None:
+        return
+    fechas = list(
+        db.scalars(
+            select(LogAcceso.fecha)
+            .where(LogAcceso.ip_origen == ip_origen, LogAcceso.resultado == RESULTADO_FALLIDO)
+            .order_by(LogAcceso.fecha.desc())
+            .limit(config.LOGIN_MAX_INTENTOS)
+        )
+    )
+    if _bloqueado_hasta(fechas, datetime.now(UTC)) is not None:
+        raise DemasiadosIntentos()
+
+
 # --- Login ------------------------------------------------------------------------------
 
 
@@ -112,6 +149,8 @@ def autenticar_local(db: Session, email: str, password: str, ip_origen: str | No
     Los tres motivos de rechazo (email inexistente, usuario sin contraseña, contraseña incorrecta)
     devuelven el mismo error a propósito: distinguirlos permitiría averiguar qué emails existen.
     """
+    # Antes de buscar al usuario: la respuesta no depende de si el email existe.
+    _verificar_bloqueo_ip(db, ip_origen)
     usuario = buscar_por_email(db, email)
 
     hash_a_comparar = (

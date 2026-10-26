@@ -11,8 +11,7 @@ emite su propio JWT interno en una cookie httpOnly. El *client secret* de Google
 backend ni llega al frontend.
 
 Sobre el frontend: con este flujo, el botón de login es un link a `/auth/google/login` — no hace
-falta el SDK de Google Identity Services ni un client ID en el navegador (ver la nota sobre la
-issue #13 más abajo).
+falta el SDK de Google Identity Services ni un client ID en el navegador.
 
 ## Configuración
 
@@ -58,12 +57,36 @@ El usuario nace con `auth_provider='local'` para que el sistema arranque sin dep
 Google Cloud esté configurado; la primera vez que ese admin entre por Google, la cuenta se vincula
 sola y conserva la contraseña como fallback.
 
-## Pendiente
+## Bloqueo por intentos
 
-- **Issue #13** (frontend) está redactada asumiendo el SDK de Google Identity Services y una
-  variable `VITE_GOOGLE_CLIENT_ID`. Con el flujo implementado acá (redirect clásico), el frontend
-  no necesita ninguna de las dos cosas — el botón de login es un `<a href="/auth/google/login">`.
-  Hay que reescribir esa issue y sacar `VITE_GOOGLE_CLIENT_ID` de `frontend/.env.example` y
-  `frontend/README.md`.
-- **Rate limiting / bloqueo por intentos** en `POST /auth/login` — no está implementado. `LOG_ACCESO`
-  registra los fallos pero no bloquea nada. Ver issue [#93](https://github.com/jf-arce/esseri-data-core/issues/93).
+`POST /auth/login` bloquea por IP. Se cuentan las filas `fallido` de `LOG_ACCESO` con la misma
+`ip_origen` (no hace falta migración: se bloquea por IP porque `LOG_ACCESO` no guarda el email).
+
+- **Regla:** se toman los `LOGIN_MAX_INTENTOS` fallidos más recientes de la IP. Si entre el más
+  nuevo y el más viejo pasó menos que `LOGIN_VENTANA_MINUTOS`, la IP queda bloqueada hasta el más
+  nuevo + `LOGIN_BLOQUEO_MINUTOS`. Valores por defecto: 10 / 15 / 15. `Settings` exige
+  `LOGIN_BLOQUEO_MINUTOS >= LOGIN_VENTANA_MINUTOS`, así al vencer un bloqueo el contador arranca
+  de cero.
+- **Respuesta:** `429` con un mensaje genérico, sin `Retry-After`. El chequeo corre antes de buscar
+  al usuario, así que es idéntica exista o no el email, y también rechaza la contraseña correcta.
+- **Los intentos bloqueados no se registran** (no verifican nada, y registrarlos alargaría el
+  bloqueo mientras alguien insista).
+- **Un login exitoso no reinicia el contador**: si lo hiciera, una cuenta válida permitiría seguir
+  probando contra otras cuentas desde la misma IP.
+- **Google queda afuera:** la contraseña la verifica Google y el callback exige un `code` de un
+  solo uso, PKCE y `state` firmado, así que no hay nada que adivinar. Es además la salida para
+  quien quede bloqueado. Sus fallidos sí suman al contador de la IP, porque `LOG_ACCESO` no
+  registra el canal.
+
+Límites conocidos:
+
+- **NAT:** el personal del colegio puede compartir IP pública. Por eso el máximo es 10.
+- **Proxy:** hoy no hay uno delante del backend. Si se agrega, hay que levantar uvicorn con
+  `--proxy-headers --forwarded-allow-ips=<ip del proxy>` (nunca leer `X-Forwarded-For` a mano); si
+  no, todos los usuarios compartirían la IP del proxy.
+- **IPv6:** se puede rotar de dirección dentro de un /64.
+- **Concurrencia:** primero se chequea y después se registra, así que con pedidos en paralelo
+  pueden pasar algunos intentos más allá del máximo. bcrypt ya limita el ritmo.
+- **`ip_origen` nula:** se deja pasar (con uvicorn sin proxy no ocurre).
+- Las fechas se normalizan a UTC en `sesion_service._a_utc`; la #188 puede subirlo a un helper
+  compartido.
