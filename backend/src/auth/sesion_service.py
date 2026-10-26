@@ -22,6 +22,7 @@ from src.auth.exceptions import (
 )
 from src.auth.google_client import GoogleIdentity
 from src.auth.models import LogAcceso, Usuario
+from src.fechas import a_utc, ahora_utc
 
 # bcrypt solo mira los primeros 72 bytes y falla si le pasás más; truncar en los dos sentidos
 # mantiene hash y verificación consistentes.
@@ -107,18 +108,11 @@ def registrar_acceso(
 # --- Bloqueo por intentos ----------------------------------------------------------------
 
 
-def _a_utc(fecha: datetime) -> datetime:
-    # Sin zona se toma como UTC. #188: subir a un helper compartido (ver facturacion/schemas.py).
-    if fecha.tzinfo is None:
-        return fecha.replace(tzinfo=UTC)
-    return fecha.astimezone(UTC)
-
-
 def _bloqueado_hasta(fechas: list[datetime], ahora: datetime) -> datetime | None:
     """`fechas`: los fallidos más recientes de la IP, del más nuevo al más viejo."""
     if len(fechas) < config.LOGIN_MAX_INTENTOS:
         return None
-    utc = [_a_utc(f) for f in fechas]
+    utc = [a_utc(f) for f in fechas]
     if utc[0] - utc[-1] >= config.LOGIN_VENTANA:
         return None
     hasta = utc[0] + config.LOGIN_BLOQUEO
@@ -212,7 +206,7 @@ def finalizar_login(db: Session, usuario: Usuario, ip_origen: str | None) -> str
     Con un solo rol, ese rol se embebe como rol activo de entrada — nadie nota el cambio.
     Con 0 o 2+ roles arranca en `None`: `requiere_permiso` deniega hasta `POST /auth/rol-activo`.
     """
-    usuario.ultimo_acceso = datetime.now(UTC).replace(tzinfo=None)
+    usuario.ultimo_acceso = ahora_utc()
     db.add(usuario)
     db.commit()
     db.refresh(usuario)
