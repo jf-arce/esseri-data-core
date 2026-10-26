@@ -101,6 +101,13 @@ interface FiltrosUsuarios {
   orden: OrdenUsuarios
 }
 
+// Sin acceso (o fecha inválida) cuenta como el más antiguo. Se compara el instante y no el texto
+// ISO: `...13:00:00Z` y `...13:00:00.1Z` no ordenan bien como strings.
+function instanteDeAcceso(usuario: UsuarioConRoles): number {
+  const tiempo = usuario.ultimo_acceso ? new Date(usuario.ultimo_acceso).getTime() : 0
+  return Number.isNaN(tiempo) ? 0 : tiempo
+}
+
 // Filtro + orden de la tabla de usuarios, extraído del componente para poder testearlo sin
 // montar la pantalla. Opera en cliente sobre la lista ya cargada de GET /auth/usuarios (§0 del
 // plan): cuando el backend pagine y filtre, esta función se reemplaza por parámetros de query.
@@ -134,9 +141,9 @@ export function filtrarYOrdenarUsuarios(
       case 'nombre-desc':
         return nombreVisibleDeUsuario(b).localeCompare(nombreVisibleDeUsuario(a), 'es')
       case 'acceso-reciente':
-        return (b.ultimo_acceso ?? '').localeCompare(a.ultimo_acceso ?? '')
+        return instanteDeAcceso(b) - instanteDeAcceso(a)
       case 'acceso-antiguo':
-        return (a.ultimo_acceso ?? '').localeCompare(b.ultimo_acceso ?? '')
+        return instanteDeAcceso(a) - instanteDeAcceso(b)
       default:
         return 0
     }
