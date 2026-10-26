@@ -91,18 +91,6 @@ export function inicialesVisiblesDeUsuario(usuario: UsuarioConRoles): string {
   return inicialesDeUsuario(usuario.email)
 }
 
-export function formatearFechaHora(iso: string | null): string {
-  if (!iso) return '—'
-  const fecha = new Date(iso)
-  if (Number.isNaN(fecha.getTime())) return '—'
-  const dd = String(fecha.getDate()).padStart(2, '0')
-  const mm = String(fecha.getMonth() + 1).padStart(2, '0')
-  const yyyy = fecha.getFullYear()
-  const hh = String(fecha.getHours()).padStart(2, '0')
-  const min = String(fecha.getMinutes()).padStart(2, '0')
-  return `${dd}/${mm}/${yyyy} ${hh}:${min}`
-}
-
 export type OrdenUsuarios = 'nombre-asc' | 'nombre-desc' | 'acceso-reciente' | 'acceso-antiguo'
 export type EstadoUsuarioFiltro = 'todos' | 'activo' | 'inactivo'
 
