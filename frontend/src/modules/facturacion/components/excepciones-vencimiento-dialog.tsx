@@ -12,10 +12,11 @@ import {
 } from '@/components/ui/dialog'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { formatearFechaHora } from '@/lib/fechas'
 import { useExcepcionesVencimiento } from '@/modules/facturacion/hooks/use-excepciones-vencimiento'
 import { anularExcepcionVencimiento } from '@/modules/facturacion/services/anular-excepcion-vencimiento'
 import { crearExcepcionVencimiento } from '@/modules/facturacion/services/crear-excepcion-vencimiento'
-import { formatearFechaFactura, formatearFechaHora } from '@/modules/facturacion/utils'
+import { formatearFechaFactura } from '@/modules/facturacion/utils'
 
 interface ExcepcionesVencimientoDialogProps {
   familiaId: string

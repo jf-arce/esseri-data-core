@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from src.auditoria.service import log_audit
 from src.auth.models import Usuario
+from src.fechas import ahora_utc
 from src.models import EventLog
 from src.workflows import destinatarios_service
 from src.workflows.constants import (
@@ -63,7 +64,7 @@ def ejecutar_crear_tarea(
     vencimiento = (
         None
         if config.dias_para_vencer is None
-        else datetime.now() + timedelta(days=config.dias_para_vencer)
+        else ahora_utc() + timedelta(days=config.dias_para_vencer)
     )
     creadas = _crear_tareas(
         db,
@@ -330,7 +331,7 @@ def _consulta_tareas():
 def _tarea_read(tarea: Tarea, usuario_email: str, regla_nombre: str | None) -> TareaRead:
     vencida = (
         tarea.fecha_vencimiento is not None
-        and tarea.fecha_vencimiento < datetime.now()
+        and tarea.fecha_vencimiento < ahora_utc()
         and tarea.estado in ESTADOS_TAREA_ABIERTA
     )
     return TareaRead(

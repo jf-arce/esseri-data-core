@@ -17,6 +17,7 @@ import {
 import { actualizarEstadoReglaFacturacion } from '@/modules/facturacion/services/actualizar-estado-regla-facturacion'
 import { GenerarFacturacionDialog } from '@/modules/facturacion/components/generar-facturacion-dialog'
 import { ReglaFacturacionDialog } from '@/modules/facturacion/components/regla-facturacion-dialog'
+import { formatearFechaHora } from '@/lib/fechas'
 import { useEjecucionesFacturacion } from '@/modules/facturacion/hooks/use-ejecuciones-facturacion'
 import { useReglasFacturacion } from '@/modules/facturacion/hooks/use-reglas-facturacion'
 import type {
@@ -24,11 +25,7 @@ import type {
   EstadoReglaFacturacion,
   ReglaFacturacion,
 } from '@/modules/facturacion/types'
-import {
-  formatearFechaFactura,
-  formatearFechaHora,
-  formatearMoneda,
-} from '@/modules/facturacion/utils'
+import { formatearFechaFactura, formatearMoneda } from '@/modules/facturacion/utils'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 

@@ -117,7 +117,7 @@ def test_listado_pagina_y_no_incluye_el_cuerpo(
     item = datos["items"][0]
     assert item["workflow_rule_nombre"] == "Avisar mora"
     assert item["intento"] == 1
-    assert item["ejecucion_started_at"] == INICIO.isoformat()
+    assert item["ejecucion_started_at"] == INICIO.isoformat() + "Z"
 
 
 def test_listado_vacio(client_autenticado):
@@ -184,7 +184,7 @@ def test_las_fallidas_sin_sent_at_no_se_pierden(
 
     assert [(i["destinatario_snapshot"], i["sent_at"]) for i in items] == [
         ("a@esseri.edu.ar", None),
-        ("b@esseri.edu.ar", INICIO.isoformat()),
+        ("b@esseri.edu.ar", INICIO.isoformat() + "Z"),
     ]
 
 

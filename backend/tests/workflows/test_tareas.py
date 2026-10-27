@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from src.auth.constants import ACCION_ACTUALIZAR, ACCION_LEER
 from src.auth.models import Rol, Usuario, UsuarioRol
+from src.fechas import ahora_utc
 from src.models import AuditLog, EventLog
 from src.workflows import despacho_service, tareas_service
 from src.workflows.models import ReglaDestinatario, Tarea, WorkflowExecution, WorkflowRule
@@ -153,7 +154,7 @@ def test_crear_tarea_asigna_una_por_usuario_activo_directo_o_por_rol(
         assert tarea.entidad_id == evento.entidad_id
         assert tarea.workflow_execution_id == ejecucion.id
         assert tarea.tarea_id is None
-        esperado = datetime.now() + timedelta(days=5)
+        esperado = ahora_utc() + timedelta(days=5)
         assert abs(tarea.fecha_vencimiento - esperado) < timedelta(minutes=1)
 
 
@@ -507,7 +508,7 @@ def test_filtra_por_estado_y_prioridad_y_pagina(
 def test_una_tarea_abierta_vencida_se_marca_como_vencida(
     client_autenticado, db_session, usuario_workflows, caso
 ):
-    ayer = datetime.now() - timedelta(days=1)
+    ayer = ahora_utc() - timedelta(days=1)
     _tarea(db_session, usuario_workflows, caso, titulo="Vencida", fecha_vencimiento=ayer)
     _tarea(
         db_session,

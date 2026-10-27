@@ -32,11 +32,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { formatearFechaHora } from '@/lib/fechas'
 import type { UsuarioConRoles } from '@/modules/auth/types'
 import {
   colorIdentidad,
   colorIdentidadSuave,
-  formatearFechaHora,
   formatearNombreRol,
   inicialesVisiblesDeUsuario,
   nombreVisibleDeUsuario,
