@@ -690,9 +690,10 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 >
 > | `tipo_accion` | `accion_config` | Eventos permitidos |
 > |---|---|---|
-> | `notificar`, `generar_comunicacion` | `destinatario` (`responsable_economico`, `responsables_habilitados`, `destinatarios_regla`) | cualquiera |
-> | `generar_recordatorio` | `destinatario`, `dias_despues` (1 a 90) | cualquiera |
-> | `alerta_interna` | `mensaje` (opcional, hasta 500) | cualquiera |
+> | `notificar` | `destinatario` (`responsable_economico`, `responsables_habilitados`, `destinatarios_regla`), `enlace?` | cualquiera |
+> | `generar_comunicacion` | `destinatario` | cualquiera |
+> | `generar_recordatorio` | `destinatario`, `dias_despues` (1 a 90), `enlace?` | cualquiera |
+> | `alerta_interna` | `mensaje` (opcional, hasta 500), `enlace?` | cualquiera |
 > | `crear_tarea` | `titulo`, `descripcion?`, `prioridad`, `dias_para_vencer?` (1 a 60). `titulo` y `descripcion` admiten `{{campo}}` del evento | cualquiera |
 > | `escalar_caso` | `motivo?` (admite `{{campo}}` del evento), `prioridad` (default `alta`) | cualquiera |
 > | `cambiar_estado` | `estado_nuevo`, solo `factura → vencida` por ahora | `factura.vencida` |
@@ -800,6 +801,8 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 
 > **[DECISIÓN DE DISEÑO]** (#89) `usuario_id` es el responsable y es obligatorio, así que `crear_tarea` y `escalar_caso` crean una `TAREA` por cada usuario activo de `REGLA_DESTINATARIO` (directo o por rol): los destinatarios de la regla son las personas a quienes se asigna el trabajo.
 >
+> **[DECISIÓN DE DISEÑO]** `accion_config.enlace` agrega un botón al mail que lleva a una pantalla de la app. Es una clave de allowlist (`ENLACES_MAIL` en `backend/src/workflows/constants.py`), nunca una URL: `familia_justificar` (`/familia/justificar-ausencia`), `ejecuciones` (`/workflows/ejecuciones`) y `tareas` (`/workflows/tareas`). La URL se arma con `FRONTEND_URL`; la persona tiene que iniciar sesión y, si venía sin sesión, vuelve a esa pantalla. No se puede responder ni aprobar desde el mail. `NOTIFICACION.cuerpo_snapshot` sigue en texto plano; el HTML es solo la presentación del envío.
+
 > **[DECISIÓN DE DISEÑO]** Al renderizar plantillas, tareas y mails, los números del payload se formatean en es-AR: decimales con 2 cifras y coma (`120.000,00`), enteros con separador de miles (`1.500`) y booleanos como `Sí`/`No`. Un `{{campo}}` que el evento no trae falla la ejecución con un error controlado, y al guardar la regla se valida que el campo exista en el evento.
 
 > **[DECISIÓN DE DISEÑO]** `escalar_caso` pasa a `escalada` las tareas abiertas (`pendiente`/`en_progreso`) de la misma `entidad`/`entidad_id` y crea la tarea nueva `pendiente`, con `tarea_id` apuntando a la más reciente de las escaladas. Sin tareas abiertas, crea la tarea sin antecesora. Una persona solo avanza la tarea (`pendiente → en_progreso → completada`); `escalada` la pone el motor y `completada` no se reabre.

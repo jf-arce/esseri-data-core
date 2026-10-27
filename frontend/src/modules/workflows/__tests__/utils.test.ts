@@ -123,6 +123,38 @@ describe('armarCondicion', () => {
   })
 })
 
+describe('armarConfig con botón del mail', () => {
+  it('conserva el enlace en notificar, recordatorio y alerta interna', () => {
+    expect(armarConfig('notificar', { destinatario: 'x', enlace: 'tareas' })).toEqual({
+      destinatario: 'x',
+      enlace: 'tareas',
+    })
+    expect(
+      armarConfig('generar_recordatorio', {
+        destinatario: 'x',
+        dias_despues: '2',
+        enlace: 'tareas',
+      }),
+    ).toEqual({ destinatario: 'x', dias_despues: 2, enlace: 'tareas' })
+    expect(armarConfig('alerta_interna', { mensaje: 'm', enlace: 'ejecuciones' })).toEqual({
+      mensaje: 'm',
+      enlace: 'ejecuciones',
+    })
+  })
+
+  it('sin botón (valor vacío) no manda el enlace', () => {
+    expect(armarConfig('notificar', { destinatario: 'x', enlace: '' })).toEqual({
+      destinatario: 'x',
+    })
+  })
+
+  it('generar_comunicacion no lo admite: lo descarta', () => {
+    expect(armarConfig('generar_comunicacion', { destinatario: 'x', enlace: 'tareas' })).toEqual({
+      destinatario: 'x',
+    })
+  })
+})
+
 describe('armarConfig', () => {
   it('no arrastra campos de otra acción ni valores vacíos', () => {
     expect(
