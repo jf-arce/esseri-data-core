@@ -160,11 +160,24 @@ class PagoRead(BaseModel):
     metodo_pago: MetodoPagoRead
 
 
+class RecargoRead(BaseModel):
+    """Recargo por mora imputado a la cuenta corriente por una factura vencida."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    fecha: InstanteUtc
+    monto: Decimal
+    observacion: str | None
+
+
 class FacturaDetalleRead(FacturaRead):
     alumno_nombre: str
     alumno_legajo: str
     responsable_economico_nombre: str | None
     pagos: list[PagoRead]
+    # Van a la cuenta corriente: no cambian `monto_total` ni el saldo de esta factura.
+    recargos: list[RecargoRead] = []
 
 
 class MovimientoCuentaCorrienteRead(BaseModel):
