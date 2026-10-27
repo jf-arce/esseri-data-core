@@ -238,3 +238,38 @@ export function filtrarPermisosDeMatriz(
     return true
   })
 }
+
+// --- Destino después del login ---
+
+const CLAVE_DESTINO = 'esseri:destino'
+const RUTAS_EXCLUIDAS = ['/login', '/elegir-perfil']
+
+/** Solo rutas internas: evita que un link armado lleve a otro sitio después del login. */
+function esRutaInterna(ruta: string): boolean {
+  if (!ruta.startsWith('/') || ruta.startsWith('//')) return false
+  if (ruta.includes('\\') || ruta.includes(':')) return false
+  const camino = ruta.split(/[?#]/)[0]
+  return !RUTAS_EXCLUIDAS.includes(camino)
+}
+
+/** Recuerda a dónde quería ir la persona antes de que la manden a iniciar sesión. */
+export function guardarDestino(ruta: string) {
+  if (ruta === '/' || !esRutaInterna(ruta)) return
+  try {
+    sessionStorage.setItem(CLAVE_DESTINO, ruta)
+  } catch {
+    // Sin almacenamiento (ventana privada, sitio bloqueado): se entra a la página de inicio.
+  }
+}
+
+/** Devuelve el destino guardado y lo borra. `null` si no hay o no es una ruta interna válida. */
+export function consumirDestino(): string | null {
+  try {
+    const ruta = sessionStorage.getItem(CLAVE_DESTINO)
+    if (ruta === null) return null
+    sessionStorage.removeItem(CLAVE_DESTINO)
+    return esRutaInterna(ruta) ? ruta : null
+  } catch {
+    return null
+  }
+}
