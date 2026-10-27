@@ -3,17 +3,21 @@ pendientes de aprobación humana. El despacho de eventos vive en `despacho_servi
 
 import logging
 import uuid
+from collections.abc import Sequence
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import and_, exists, func, select
+from sqlalchemy import Row, and_, exists, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
 from src.auditoria.service import log_audit
+from src.facturacion.models import Factura
+from src.facturacion.penalidades_service import calcular_penalidad, resolver_tramo
 from src.fechas import ahora_utc
 from src.models import EventLog
 from src.workflows import despacho_service, notificaciones_service, tareas_service
-from src.workflows.constants import ERROR_ACCION_NO_IMPLEMENTADA
+from src.workflows.constants import CAMPOS_RESERVADOS_RESUMEN, ERROR_ACCION_NO_IMPLEMENTADA
 from src.workflows.despacho_service import ERROR_ACCION, ERROR_CONFIGURACION, ERROR_EVALUACION
 from src.workflows.exceptions import (
     EjecucionNoDecidible,
@@ -21,8 +25,10 @@ from src.workflows.exceptions import (
     EjecucionNoReintentable,
     TipoEventoNoEncontrado,
 )
-from src.workflows.models import TipoEvento, WorkflowExecution, WorkflowRule
+from src.workflows.models import CampoEvento, TipoEvento, WorkflowExecution, WorkflowRule
+from src.workflows.plantillas_service import formatear_valor
 from src.workflows.schemas import (
+    CampoResumen,
     EstadoWorkflowExecution,
     WorkflowExecutionListadoRead,
     WorkflowExecutionRead,
@@ -49,7 +55,7 @@ def listar_ejecuciones(
         .limit(tamanio_pagina)
     ).all()
     return WorkflowExecutionListadoRead(
-        items=[_fila_ejecucion_read(*fila) for fila in filas],
+        items=_filas_read(db, filas),
         total=total,
         pagina=pagina,
         tamanio_pagina=tamanio_pagina,
@@ -63,7 +69,10 @@ def obtener_ejecucion_read(db: Session, ejecucion_id: uuid.UUID) -> WorkflowExec
     ).one_or_none()
     if fila is None:
         raise EjecucionNoEncontrada()
-    return _fila_ejecucion_read(*fila)
+    leida = _filas_read(db, [fila])[0]
+    if leida.estado == "pendiente" and leida.tipo_accion == "aplicar_penalidad":
+        leida.recargo_estimado = _recargo_estimado(db, leida.entidad_id, fila.payload)
+    return leida
 
 
 def reintentar_ejecucion(
@@ -257,6 +266,8 @@ def _consulta_ejecuciones():
             EventLog.entidad_id,
             reintentable.label("reintentable"),
             aprobable.label("aprobable"),
+            EventLog.payload,
+            EventLog.tipo_evento_id,
         )
         .join(WorkflowRule, WorkflowRule.id == WorkflowExecution.workflow_rule_id)
         .join(EventLog, EventLog.id == WorkflowExecution.event_log_id)
@@ -274,6 +285,7 @@ def _fila_ejecucion_read(
     entidad_id: uuid.UUID,
     reintentable: bool,
     aprobable: bool,
+    resumen_evento: list[CampoResumen],
 ) -> WorkflowExecutionRead:
     return WorkflowExecutionRead(
         id=ejecucion.id,
@@ -293,7 +305,65 @@ def _fila_ejecucion_read(
         entidad_id=entidad_id,
         reintentable=reintentable,
         aprobable=aprobable,
+        resumen_evento=resumen_evento,
     )
+
+
+def _filas_read(db: Session, filas: Sequence[Row]) -> list[WorkflowExecutionRead]:
+    # El catálogo de campos se carga una vez por request, no por fila.
+    campos = _campos_por_tipo(db, {fila.tipo_evento_id for fila in filas})
+    return [
+        _fila_ejecucion_read(
+            *fila[:9],
+            _resumen_evento(fila[3], fila.payload, campos.get(fila.tipo_evento_id, [])),
+        )
+        for fila in filas
+    ]
+
+
+def _campos_por_tipo(
+    db: Session, tipos_evento_ids: set[uuid.UUID]
+) -> dict[uuid.UUID, list[CampoEvento]]:
+    campos: dict[uuid.UUID, list[CampoEvento]] = {}
+    for campo in db.scalars(
+        select(CampoEvento)
+        .where(CampoEvento.tipo_evento_id.in_(tipos_evento_ids))
+        .order_by(CampoEvento.nombre_interno)
+    ):
+        campos.setdefault(campo.tipo_evento_id, []).append(campo)
+    return campos
+
+
+def _resumen_evento(
+    tipo_evento: str, payload: dict[str, object] | None, campos: list[CampoEvento]
+) -> list[CampoResumen]:
+    """Valores del payload en el orden del catálogo. Omite nulos, faltantes y reservados."""
+    datos = payload or {}
+    return [
+        CampoResumen(
+            nombre_interno=campo.nombre_interno,
+            etiqueta=campo.etiqueta,
+            valor=formatear_valor(datos[campo.nombre_interno]),
+        )
+        for campo in campos
+        if datos.get(campo.nombre_interno) is not None
+        and (tipo_evento, campo.nombre_interno) not in CAMPOS_RESERVADOS_RESUMEN
+    ]
+
+
+def _recargo_estimado(
+    db: Session, factura_id: uuid.UUID, payload: dict[str, object] | None
+) -> Decimal | None:
+    """Lo que cobraría `aplicar_penalidad` si se aprobara ahora (mismo cálculo que el ejecutor)."""
+    dias_vencido = (payload or {}).get("dias_vencido")
+    factura = db.get(Factura, factura_id)
+    if not isinstance(dias_vencido, int) or factura is None:
+        return None
+    tramo = resolver_tramo(db, dias_vencido)
+    if tramo is None:
+        return None
+    monto = calcular_penalidad(db, factura, tramo)
+    return monto if monto > 0 else None
 
 
 def _error_detail_publico(error_detail: str | None, tipo_accion: str) -> str | None:

@@ -302,6 +302,12 @@ class ReglaDestinatariosRead(BaseModel):
 EstadoWorkflowExecution = Literal["exitoso", "fallido", "pendiente", "rechazado"]
 
 
+class CampoResumen(BaseModel):
+    nombre_interno: str
+    etiqueta: str
+    valor: str
+
+
 class WorkflowExecutionRead(BaseModel):
     """Ejecución con el contexto necesario para explicar qué regla y evento la originaron."""
 
@@ -322,6 +328,9 @@ class WorkflowExecutionRead(BaseModel):
     entidad_id: uuid.UUID
     reintentable: bool
     aprobable: bool
+    resumen_evento: list[CampoResumen] = []
+    # Solo en el detalle de `aplicar_penalidad` pendiente: lo que se cobraría al aprobar hoy.
+    recargo_estimado: Decimal | None = None
 
 
 class EjecucionRechazo(_EntradaEstricta):

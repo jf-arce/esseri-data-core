@@ -199,12 +199,11 @@ instancias del backend, `FOR UPDATE SKIP LOCKED` evita que dos procesen el mismo
 Ya emiten: Proveedores y Compras, `orden_compra.emitida` (en `crear_orden_compra`) y
 `recepcion_compra.registrada` (en `crear_recepcion`); Académico, `inasistencia.registrada` e
 `inasistencia.justificada`; Inscripciones, `inscripcion.cambio_matricula` (en
-`registrar_cambio_matricula`); y Facturación, `pago.registrado` (en `registrar_pago`). El resto lo
-agrega el módulo dueño del hecho:
+`registrar_cambio_matricula`); y Facturación, `pago.registrado` (en `registrar_pago`) y
+`factura.vencida` (en `vencimientos_service.py`). El resto lo agrega el módulo dueño del hecho:
 
 | Evento | Dónde iría | Payload |
 |---|---|---|
-| `factura.vencida` | Facturación: `vencimientos_service.py` al entrar la factura en un tramo de mora | `dias_vencido`, `monto_deuda`, `nombre_familia` |
 | `inscripcion.confirmada` | Inscripciones: al crear la `INSCRIPCION` nueva desde la solicitud (`matriculas_service.py`) | `alumno_nombre`, `nivel_educativo`, `fecha` |
 | `solicitud_compra.aprobada` | Compras: `cambiar_estado_solicitud` cuando pasa a `aprobada` | `item`, `cantidad`, `fecha` |
 | `solicitud_inscripcion.aprobada`, `pago.rechazado` | Admisiones y Facturación | ver `grupo-b.yaml` |

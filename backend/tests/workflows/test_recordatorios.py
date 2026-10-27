@@ -378,7 +378,7 @@ def test_un_recordatorio_de_otro_evento_se_manda_sin_mas_condiciones(
     db_session.commit()
 
     assert despacho_service.procesar_recordatorios_vencidos(db_session) == 1
-    assert envios.enviados == [("destino@esseri.edu.ar", "Deuda de Cabral", "Debe 1500")]
+    assert envios.enviados == [("destino@esseri.edu.ar", "Deuda de Cabral", "Debe 1.500")]
 
 
 def test_el_endpoint_de_procesar_tambien_corre_los_recordatorios_vencidos(

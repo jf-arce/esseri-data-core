@@ -103,8 +103,8 @@ REGLAS_MORA = [
         "dias_vencido_mayor_a": 15,
         "tipo_accion": "crear_tarea",
         "accion_config": {
-            "titulo": "Reclamar la deuda vencida",
-            "descripcion": "La factura lleva más de 15 días vencida: contactar a la familia.",
+            "titulo": "Reclamar la deuda de {{nombre_familia}}",
+            "descripcion": "Lleva {{dias_vencido}} días vencida, deuda de ${{monto_deuda}}.",
             "prioridad": "media",
             "dias_para_vencer": 5,
         },
@@ -116,7 +116,9 @@ REGLAS_MORA = [
         "dias_vencido_mayor_a": 30,
         "tipo_accion": "escalar_caso",
         "accion_config": {
-            "motivo": "La factura lleva más de 30 días vencida sin regularizarse.",
+            "motivo": (
+                "La factura de {{nombre_familia}} lleva más de 30 días vencida sin regularizarse."
+            ),
             "prioridad": "alta",
         },
         "criticidad": "alta",
@@ -136,6 +138,13 @@ PLANTILLA_VENCIDA = {
     ),
 }
 
+# Sin plantilla, la alerta interna usaría `Alerta interna: <nombre de la regla>` como asunto.
+PLANTILLA_ALERTA_VENCIDA = {
+    "nombre": "Alerta interna de factura vencida",
+    "asunto": "Factura vencida: familia {{nombre_familia}}",
+    "cuerpo": "Una factura venció y la familia ya fue notificada.",
+}
+
 REGLAS_VENCIMIENTO = [
     {
         "nombre": "Vencimiento 1: marcar factura vencida",
@@ -145,8 +154,8 @@ REGLAS_VENCIMIENTO = [
     {
         "nombre": "Vencimiento 2: alerta a Administración",
         "tipo_accion": "alerta_interna",
-        "accion_config": {"mensaje": "Una factura venció y la familia ya fue notificada."},
         "criticidad": "media",
+        "plantilla": PLANTILLA_ALERTA_VENCIDA["nombre"],
         "rol": "administración",
     },
     {
@@ -953,20 +962,19 @@ def _ensure_reglas_workflow(db, usuario: Usuario):
         )
 
 
-def _ensure_plantilla_vencida(db, usuario: Usuario):
-    if db.scalar(
-        select(NotificacionTemplate).where(
-            NotificacionTemplate.nombre == PLANTILLA_VENCIDA["nombre"]
-        )
-    ):
-        return
-    crear_plantilla(db, NotificacionTemplateCreate(**PLANTILLA_VENCIDA), usuario.id)
+def _ensure_plantillas_vencimiento(db, usuario: Usuario):
+    for plantilla in (PLANTILLA_VENCIDA, PLANTILLA_ALERTA_VENCIDA):
+        if db.scalar(
+            select(NotificacionTemplate).where(NotificacionTemplate.nombre == plantilla["nombre"])
+        ):
+            continue
+        crear_plantilla(db, NotificacionTemplateCreate(**plantilla), usuario.id)
 
 
 def _ensure_reglas_vencimiento(db, usuario: Usuario):
     """Reglas de vencimiento: marcar la factura vencida y avisar a Administración y a la familia."""
     tipo_evento = _require(db, TipoEvento, nombre="factura.vencida")
-    _ensure_plantilla_vencida(db, usuario)
+    _ensure_plantillas_vencimiento(db, usuario)
     db.flush()
     for regla in REGLAS_VENCIMIENTO:
         _ensure_regla_workflow(db, usuario, tipo_evento, regla)

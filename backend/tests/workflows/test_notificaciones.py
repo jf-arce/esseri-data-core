@@ -1,5 +1,6 @@
 import uuid
 from datetime import date
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import select
@@ -30,7 +31,7 @@ from src.workflows.notificaciones_service import (
     ejecutar_notificar,
     resolver_destinatarios,
 )
-from src.workflows.plantillas_service import renderizar_contenido
+from src.workflows.plantillas_service import formatear_valor, renderizar_contenido
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
 # --- Render --------------------------------------------------------------------------------
@@ -48,7 +49,29 @@ def test_render_reemplaza_placeholders_en_asunto_y_cuerpo():
     )
 
     assert asunto == "Deuda de Cabral"
-    assert cuerpo == "Debe 1500 hace 6 días"
+    assert cuerpo == "Debe 1.500 hace 6 días"
+
+
+@pytest.mark.parametrize(
+    ("valor", "esperado"),
+    [
+        (120000.0, "120.000,00"),
+        (Decimal("1234.5"), "1.234,50"),
+        (16, "16"),
+        (1500, "1.500"),
+        (True, "Sí"),
+        (False, "No"),
+        ("Cabral", "Cabral"),
+    ],
+)
+def test_formatear_valor_por_tipo(valor, esperado):
+    assert formatear_valor(valor) == esperado
+
+
+def test_render_formatea_montos_en_es_ar():
+    _, cuerpo = renderizar_contenido("x", "Deuda de ${{monto_deuda}}", {"monto_deuda": 120000.0})
+
+    assert cuerpo == "Deuda de $120.000,00"
 
 
 @pytest.mark.parametrize("payload", [{}, {"monto_deuda": None}])
@@ -364,7 +387,7 @@ def test_envio_guarda_snapshots_y_marca_enviado(
     assert {f.estado_envio for f in filas} == {"enviado"}
     assert all(f.sent_at is not None for f in filas)
     assert {f.asunto_snapshot for f in filas} == {"Deuda de Cabral"}
-    assert {f.cuerpo_snapshot for f in filas} == {"Debe 1500"}
+    assert {f.cuerpo_snapshot for f in filas} == {"Debe 1.500"}
     assert all(f.workflow_execution_id == ejecucion.id for f in filas)
     assert len(envios.enviados) == 2
 
@@ -457,7 +480,7 @@ def test_alerta_interna_prefiere_la_plantilla_al_mensaje(
     ejecutar_alerta_interna(db_session, regla, evento, _ejecucion(db_session, regla, evento))
 
     filas = db_session.scalars(select(Notificacion)).all()
-    assert {f.cuerpo_snapshot for f in filas} == {"Debe 1500"}
+    assert {f.cuerpo_snapshot for f in filas} == {"Debe 1.500"}
 
 
 def test_alerta_interna_sin_mensaje_ni_plantilla_falla(db_session, tipo_factura_vencida, envios):
@@ -540,7 +563,7 @@ def test_reintento_reenvia_solo_las_fallidas_con_el_snapshot(
     resultado = ejecutar_notificar(db_session, regla, evento, segunda)
 
     assert resultado.error is None
-    assert envios.enviados == [("u00@esseri.edu.ar", "Deuda de Cabral", "Debe 1500")]
+    assert envios.enviados == [("u00@esseri.edu.ar", "Deuda de Cabral", "Debe 1.500")]
     filas = db_session.scalars(
         select(Notificacion).where(Notificacion.workflow_execution_id == segunda.id)
     ).all()

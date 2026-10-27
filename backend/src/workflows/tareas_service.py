@@ -25,11 +25,13 @@ from src.workflows.constants import (
 )
 from src.workflows.exceptions import (
     AsignadoTareaInvalido,
+    PlantillaInvalida,
     TareaNoEncontrada,
     TareaNoReasignable,
     TransicionTareaInvalida,
 )
 from src.workflows.models import Tarea, WorkflowExecution, WorkflowRule
+from src.workflows.plantillas_service import renderizar_contenido
 from src.workflows.schemas import (
     ConfigCrearTarea,
     ConfigEscalarCaso,
@@ -42,7 +44,8 @@ from src.workflows.schemas import (
 
 ERROR_SIN_ASIGNADOS = "No se encontró ningún usuario activo al que asignar la tarea."
 ERROR_TOPE = "La regla supera el máximo de usuarios a los que asignar la tarea."
-ERRORES_CONTROLADOS = frozenset({ERROR_SIN_ASIGNADOS, ERROR_TOPE})
+ERROR_RENDER_TAREA = "La tarea no se pudo completar con los datos del evento."
+ERRORES_CONTROLADOS = frozenset({ERROR_SIN_ASIGNADOS, ERROR_TOPE, ERROR_RENDER_TAREA})
 
 MOTIVO_ESCALAMIENTO_POR_DEFECTO = "Caso escalado por la regla '{regla}'."
 PREFIJO_TITULO_ESCALADA = "Escalada: "
@@ -61,6 +64,11 @@ def ejecutar_crear_tarea(
     if isinstance(asignados, str):
         return ResultadoAccion(error=asignados)
 
+    try:
+        titulo, descripcion = _renderizar_textos(config.titulo, config.descripcion, evento)
+    except PlantillaInvalida:
+        return ResultadoAccion(error=ERROR_RENDER_TAREA)
+
     vencimiento = (
         None
         if config.dias_para_vencer is None
@@ -72,8 +80,8 @@ def ejecutar_crear_tarea(
         evento,
         ejecucion,
         asignados,
-        titulo=config.titulo,
-        descripcion=config.descripcion,
+        titulo=titulo[:LARGO_MAXIMO_TITULO],
+        descripcion=descripcion,
         prioridad=config.prioridad,
         vencimiento=vencimiento,
         tarea_origen_id=None,
@@ -96,7 +104,11 @@ def ejecutar_escalar_caso(
 
     abiertas = _tareas_abiertas_del_caso(db, regla, evento)
     origen = abiertas[0] if abiertas else None  # la más reciente
-    motivo = config.motivo or MOTIVO_ESCALAMIENTO_POR_DEFECTO.format(regla=regla.nombre)
+    try:
+        _, motivo_renderizado = _renderizar_textos("-", config.motivo, evento)
+    except PlantillaInvalida:
+        return ResultadoAccion(error=ERROR_RENDER_TAREA)
+    motivo = motivo_renderizado or MOTIVO_ESCALAMIENTO_POR_DEFECTO.format(regla=regla.nombre)
     titulo = (
         f"Caso escalado: {regla.nombre}"
         if origen is None
@@ -126,6 +138,15 @@ def ejecutar_escalar_caso(
     return ResultadoAccion(
         detalle=f"Se escalaron {len(abiertas)} tarea(s) y se asignó a {creadas} usuario(s)."
     )
+
+
+def _renderizar_textos(
+    titulo: str, descripcion: str | None, evento: EventLog
+) -> tuple[str, str | None]:
+    """Completa los `{{campo}}` del título y la descripción con el payload del evento."""
+    payload = evento.payload or {}
+    titulo_final, descripcion_final = renderizar_contenido(titulo, descripcion or "", payload)
+    return titulo_final, (descripcion_final if descripcion is not None else None)
 
 
 def usuarios_asignables(db: Session, regla: WorkflowRule) -> list[Usuario] | str:

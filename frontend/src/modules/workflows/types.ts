@@ -126,6 +126,13 @@ export interface DestinatariosReglaPayload {
 export const ESTADOS_EJECUCION = ['exitoso', 'fallido', 'pendiente', 'rechazado'] as const
 export type EstadoEjecucion = (typeof ESTADOS_EJECUCION)[number]
 
+export interface CampoResumen {
+  nombre_interno: string
+  etiqueta: string
+  /** Ya formateado por el backend (ej. "120.000,00"). */
+  valor: string
+}
+
 export interface EjecucionWorkflow {
   id: string
   intento: number
@@ -147,6 +154,10 @@ export interface EjecucionWorkflow {
   reintentable: boolean
   /** Calculado por el backend; el `POST` vuelve a validar al aprobar. */
   aprobable: boolean
+  /** Datos del evento en el orden del catálogo, sin nulos ni campos reservados. */
+  resumen_evento: CampoResumen[]
+  /** Solo en el detalle de una penalidad pendiente: lo que se cobraría al aprobar hoy. */
+  recargo_estimado: string | null
 }
 
 export interface EjecucionWorkflowListado {
