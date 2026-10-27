@@ -1,10 +1,16 @@
-"""Parámetros de configuración propios de auth (JWT y Google), leídos de src.config.settings."""
+"""Parámetros de configuración propios de auth (JWT, Google y bloqueo de login)."""
+
+from datetime import timedelta
 
 from src.config import settings
 
 JWT_SECRET = settings.JWT_SECRET
 JWT_ALGORITHM = settings.JWT_ALGORITHM
 JWT_EXPIRE_MINUTES = settings.JWT_EXPIRE_MINUTES
+
+LOGIN_MAX_INTENTOS = settings.LOGIN_MAX_INTENTOS
+LOGIN_VENTANA = timedelta(minutes=settings.LOGIN_VENTANA_MINUTOS)
+LOGIN_BLOQUEO = timedelta(minutes=settings.LOGIN_BLOQUEO_MINUTOS)
 
 GOOGLE_CLIENT_ID = settings.GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET = settings.GOOGLE_CLIENT_SECRET

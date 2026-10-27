@@ -12,3 +12,7 @@ backups/
 
 # Configuración local de Claude Code
 .claude/settings.local.json
+
+# Cachés de Python
+__pycache__/
+*.pyc

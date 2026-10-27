@@ -113,6 +113,8 @@ La tercera fila aparece cuando una cuenta creada como `local` entra por Google p
 > Cubre RF-27: *"intentos fallidos son registrados"*. Distinto de `AUDIT_LOG` (que registra cambios de campos) y de `EVENT_LOG` (que registra hechos de negocio).
 >
 > **[IMPLEMENTACIÓN RF-27]** `usuario_id` pasa a **nullable**. Un intento de login con un email que no existe en `USUARIO` no tiene a quién apuntar, y es justo uno de los casos que el RF pide registrar — con la FK obligatoria era irrepresentable.
+>
+> **[IMPLEMENTACIÓN #93]** Los `fallido` agrupados por `ip_origen` alimentan el bloqueo de `POST /auth/login`. Los intentos rechazados por el bloqueo no se registran. Ver `docs/auth-oauth-google.md`.
 
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|

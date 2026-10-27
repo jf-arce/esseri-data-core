@@ -69,6 +69,9 @@ frontend), no solo cómo levantar el backend. Ahí está el flujo de OAuth, cóm
 credenciales de Google, y cómo crear el primer usuario administrador
 (`database/seeds/00_bootstrap_admin.py`) para poder loguearse.
 
+`POST /auth/login` bloquea la IP tras demasiados fallidos; se ajusta con `LOGIN_MAX_INTENTOS`,
+`LOGIN_VENTANA_MINUTOS` y `LOGIN_BLOQUEO_MINUTOS` (ver "Bloqueo por intentos" en ese documento).
+
 ## Autorización por permisos (RF-30)
 
 Para proteger un endpoint según módulo y acción, usar `requiere_permiso(...)` de
