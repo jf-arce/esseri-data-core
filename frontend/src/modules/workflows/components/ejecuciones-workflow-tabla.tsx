@@ -29,10 +29,10 @@ import {
 
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-40', anchoAlt: 'h-4 w-32' },
-  { tipo: 'texto', ancho: 'h-4 w-36', anchoAlt: 'h-4 w-28', clase: 'hidden lg:table-cell' },
-  { tipo: 'texto' },
-  { tipo: 'texto', ancho: 'h-4 w-6', clase: 'hidden lg:table-cell' },
-  { tipo: 'texto', ancho: 'h-4 w-28', clase: 'hidden md:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-36', anchoAlt: 'h-4 w-28', clase: 'hidden 2xl:table-cell' },
+  { tipo: 'texto', clase: 'hidden lg:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-6', clase: 'hidden 2xl:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-28', clase: 'hidden xl:table-cell' },
   { tipo: 'chip' },
   { tipo: 'accion' },
 ]
@@ -78,10 +78,10 @@ export function EjecucionesWorkflowTabla({
         <TableHeader>
           <TableRow>
             <TableHead>Regla</TableHead>
-            <TableHead className="hidden lg:table-cell">Evento</TableHead>
-            <TableHead>Acción</TableHead>
-            <TableHead className="hidden lg:table-cell">Intento</TableHead>
-            <TableHead className="hidden md:table-cell">Inicio</TableHead>
+            <TableHead className="hidden 2xl:table-cell">Evento</TableHead>
+            <TableHead className="hidden lg:table-cell">Acción</TableHead>
+            <TableHead className="hidden 2xl:table-cell">Intento</TableHead>
+            <TableHead className="hidden xl:table-cell">Inicio</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead data-align="end">
               <span className="sr-only">Acciones</span>
@@ -104,27 +104,29 @@ export function EjecucionesWorkflowTabla({
                   }
                 }}
               >
-                <TableCell>
+                <TableCell className="whitespace-normal md:whitespace-nowrap">
                   <span
-                    className="block max-w-[14rem] truncate font-medium sm:max-w-[20rem]"
+                    className="block font-medium md:max-w-[12rem] md:truncate xl:max-w-[20rem]"
                     title={ejecucion.workflow_rule_nombre}
                   >
                     {ejecucion.workflow_rule_nombre}
                   </span>
                   {ejecucion.resumen_evento.length > 0 && (
-                    <span className="block max-w-[14rem] truncate text-texto-2 sm:max-w-[20rem]">
+                    <span className="block text-texto-2 md:max-w-[12rem] md:truncate xl:max-w-[20rem]">
                       {resumenEnLinea(ejecucion.resumen_evento)}
                     </span>
                   )}
                 </TableCell>
-                <TableCell className="hidden text-texto-2 lg:table-cell">
+                <TableCell className="hidden text-texto-2 2xl:table-cell">
                   {etiquetaEvento(ejecucion.tipo_evento)}
                 </TableCell>
-                <TableCell>{ETIQUETA_ACCION[ejecucion.tipo_accion]}</TableCell>
-                <TableCell className="hidden tabular-nums lg:table-cell">
+                <TableCell className="hidden lg:table-cell">
+                  {ETIQUETA_ACCION[ejecucion.tipo_accion]}
+                </TableCell>
+                <TableCell className="hidden tabular-nums 2xl:table-cell">
                   {ejecucion.intento}
                 </TableCell>
-                <TableCell className="hidden tabular-nums md:table-cell">
+                <TableCell className="hidden tabular-nums xl:table-cell">
                   {formatearFechaHora(ejecucion.started_at)}
                 </TableCell>
                 <TableCell>
@@ -132,7 +134,7 @@ export function EjecucionesWorkflowTabla({
                     {ETIQUETA_ESTADO_EJECUCION[ejecucion.estado]}
                   </Badge>
                 </TableCell>
-                <TableCell data-align="end">
+                <TableCell data-align="end" className="px-2 sm:px-4">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
