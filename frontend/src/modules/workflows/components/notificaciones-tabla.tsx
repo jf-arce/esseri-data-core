@@ -1,3 +1,4 @@
+import { formatearFechaHora } from '@/lib/fechas'
 import { EyeIcon } from 'lucide-react'
 import { PaginadorServidor } from '@/components/paginador-servidor'
 import { TableSkeleton, type ColumnaEsqueleto } from '@/components/table-skeleton'
@@ -15,7 +16,6 @@ import type { NotificacionEnviada } from '@/modules/workflows/types'
 import {
   ETIQUETA_DESTINATARIO_TIPO,
   ETIQUETA_ESTADO_ENVIO,
-  formatearFechaHora,
   VARIANTE_ESTADO_ENVIO,
 } from '@/modules/workflows/utils'
 

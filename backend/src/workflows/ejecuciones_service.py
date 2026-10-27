@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
 from src.auditoria.service import log_audit
+from src.fechas import ahora_utc
 from src.models import EventLog
 from src.workflows import despacho_service, notificaciones_service, tareas_service
 from src.workflows.constants import ERROR_ACCION_NO_IMPLEMENTADA
@@ -212,7 +213,7 @@ def rechazar_ejecucion(
     ejecucion.estado = "rechazado"
     # Va en `detalle` y no en `error_detail`, que `_error_detail_publico` enmascara.
     ejecucion.detalle = f"Rechazada: {motivo}"
-    ejecucion.finished_at = datetime.now()
+    ejecucion.finished_at = ahora_utc()
     log_audit(
         db,
         entidad="WORKFLOW_EXECUTION",

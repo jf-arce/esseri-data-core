@@ -558,10 +558,6 @@ export const ETIQUETA_DESTINATARIO_TIPO: Record<DestinatarioTipo, string> = {
   usuario: 'Usuario',
 }
 
-export function formatearFechaHora(iso: string): string {
-  return new Date(iso).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' })
-}
-
 /** Duración legible, o `null` si la ejecución todavía no terminó. */
 export function duracionEjecucion(startedAt: string, finishedAt: string | null): string | null {
   if (finishedAt === null) return null
@@ -651,8 +647,4 @@ export function desplazarConRueda(lista: HTMLDivElement | null) {
     },
     { passive: false },
   )
-}
-
-export function formatearFecha(iso: string): string {
-  return new Date(iso).toLocaleDateString(LOCALE, { dateStyle: 'short' })
 }

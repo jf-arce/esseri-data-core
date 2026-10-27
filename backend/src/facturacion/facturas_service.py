@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from src.auditoria.service import log_audit
 from src.facturacion import cuenta_corriente_service
+from src.facturacion.calendario_facturacion import fecha_operativa_argentina
 from src.facturacion.exceptions import (
     ComprobantePagoInvalido,
     ConceptoCobroInvalido,
@@ -38,6 +39,7 @@ from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate, Factura
 from src.familias_alumnos.models import Alumno, Familia
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
+from src.workflows.eventos_service import emit_event
 
 MAX_TAMANIO_COMPROBANTE = 5 * 1024 * 1024
 TIPOS_COMPROBANTE_PERMITIDOS = {"application/pdf", "image/jpeg", "image/png"}
@@ -260,6 +262,18 @@ def registrar_pago(
     cuenta_corriente_service.registrar_pago_en_transaccion(db, pago)
     if total_pagado + monto == factura.monto_total:
         factura.estado = "pagada"
+    emit_event(
+        db,
+        tipo="pago.registrado",
+        entidad="pago",
+        entidad_id=pago.id,
+        payload={
+            "monto": pago.monto,
+            "metodo_pago": metodo_pago.nombre,
+            "fecha_operacion": fecha_operativa_argentina(pago.fecha_operacion).isoformat(),
+        },
+        usuario_id=usuario_registro_id,
+    )
     log_audit(
         db,
         entidad="PAGO",

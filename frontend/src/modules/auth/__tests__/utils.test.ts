@@ -118,6 +118,21 @@ describe('filtrarYOrdenarUsuarios', () => {
     expect(resultado[0].id).toBe('u1')
     expect(resultado[resultado.length - 1].id).toBe('u2')
   })
+
+  it('ordena por el instante aunque unos accesos traigan fracción de segundo y otros no', () => {
+    const mezclados = [
+      usuario({ id: 'sin-fraccion', ultimo_acceso: '2026-10-26T13:00:00Z' }),
+      usuario({ id: 'con-fraccion', ultimo_acceso: '2026-10-26T13:00:00.100000Z' }),
+      usuario({ id: 'sin-acceso', ultimo_acceso: null }),
+    ]
+    const filtros = { busqueda: '', estado: 'todos' as const, roles: [] }
+
+    const recientes = filtrarYOrdenarUsuarios(mezclados, { ...filtros, orden: 'acceso-reciente' })
+    const antiguos = filtrarYOrdenarUsuarios(mezclados, { ...filtros, orden: 'acceso-antiguo' })
+
+    expect(recientes.map((u) => u.id)).toEqual(['con-fraccion', 'sin-fraccion', 'sin-acceso'])
+    expect(antiguos.map((u) => u.id)).toEqual(['sin-acceso', 'sin-fraccion', 'con-fraccion'])
+  })
 })
 
 function rol(overrides: Partial<Rol>): Rol {

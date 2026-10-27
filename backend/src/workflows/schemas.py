@@ -1,7 +1,6 @@
 """Modelos Pydantic: forma de los datos que entran y salen por la API de este módulo."""
 
 import uuid
-from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -15,6 +14,7 @@ from pydantic import (
     field_validator,
 )
 
+from src.fechas import InstanteUtc
 from src.workflows.constants import (
     Criticidad,
     Destinatario,
@@ -208,8 +208,8 @@ class WorkflowRuleRead(BaseModel):
     requiere_aprobacion_humana: bool
     notificacion_template_id: uuid.UUID | None
     activo: bool
-    created_at: datetime
-    updated_at: datetime
+    created_at: InstanteUtc
+    updated_at: InstanteUtc
 
 
 class NotificacionTemplateCreate(_EntradaEstricta):
@@ -265,8 +265,8 @@ class NotificacionTemplateRead(BaseModel):
     nombre: str
     asunto: str
     cuerpo: str
-    created_at: datetime
-    updated_at: datetime
+    created_at: InstanteUtc
+    updated_at: InstanteUtc
 
 
 class ReglaDestinatariosUpdate(_EntradaEstricta):
@@ -307,8 +307,8 @@ class WorkflowExecutionRead(BaseModel):
 
     id: uuid.UUID
     intento: int
-    started_at: datetime
-    finished_at: datetime | None
+    started_at: InstanteUtc
+    finished_at: InstanteUtc | None
     estado: EstadoWorkflowExecution
     detalle: str | None
     error_detail: str | None
@@ -317,7 +317,7 @@ class WorkflowExecutionRead(BaseModel):
     tipo_accion: TipoAccion
     event_log_id: uuid.UUID
     tipo_evento: str
-    evento_timestamp: datetime
+    evento_timestamp: InstanteUtc
     entidad: str
     entidad_id: uuid.UUID
     reintentable: bool
@@ -354,12 +354,12 @@ class NotificacionRead(BaseModel):
     destinatario_snapshot: str
     asunto_snapshot: str
     estado_envio: EstadoEnvioNotificacion
-    sent_at: datetime | None
+    sent_at: InstanteUtc | None
     familia_id: uuid.UUID | None
     usuario_id: uuid.UUID | None
     workflow_execution_id: uuid.UUID
     intento: int
-    ejecucion_started_at: datetime
+    ejecucion_started_at: InstanteUtc
     workflow_rule_id: uuid.UUID
     workflow_rule_nombre: str
 
@@ -401,7 +401,7 @@ class TareaRead(BaseModel):
     descripcion: str | None
     estado: EstadoTarea
     prioridad: PrioridadTarea
-    fecha_vencimiento: datetime | None
+    fecha_vencimiento: InstanteUtc | None
     vencida: bool
     entidad: str | None
     entidad_id: uuid.UUID | None
@@ -410,8 +410,8 @@ class TareaRead(BaseModel):
     workflow_execution_id: uuid.UUID | None
     workflow_rule_nombre: str | None
     tarea_id: uuid.UUID | None
-    created_at: datetime
-    updated_at: datetime
+    created_at: InstanteUtc
+    updated_at: InstanteUtc
 
 
 class TareaCadenaRead(BaseModel):
@@ -423,7 +423,7 @@ class TareaCadenaRead(BaseModel):
     prioridad: PrioridadTarea
     usuario_email: str
     tarea_id: uuid.UUID | None
-    created_at: datetime
+    created_at: InstanteUtc
 
 
 class TareaDetalleRead(TareaRead):

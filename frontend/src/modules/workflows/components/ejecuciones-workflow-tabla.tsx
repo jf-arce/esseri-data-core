@@ -1,3 +1,4 @@
+import { formatearFechaHora } from '@/lib/fechas'
 import { EyeIcon, RotateCcwIcon } from 'lucide-react'
 import { PaginadorServidor } from '@/components/paginador-servidor'
 import { TableSkeleton, type ColumnaEsqueleto } from '@/components/table-skeleton'
@@ -18,7 +19,6 @@ import {
   ETIQUETA_ACCION,
   ETIQUETA_ESTADO_EJECUCION,
   etiquetaEvento,
-  formatearFechaHora,
   VARIANTE_ESTADO_EJECUCION,
 } from '@/modules/workflows/utils'
 

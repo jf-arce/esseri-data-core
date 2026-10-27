@@ -37,6 +37,7 @@ from src.facturacion.service import (
     eliminar_concepto_cobro,
 )
 from src.models import AuditLog
+from tests.facturacion.conftest import crear_catalogo_evento_pago_registrado
 from tests.facturacion.test_facturas import _crear_base_facturable, _datos_factura
 from tests.facturacion.test_reglas_facturacion import _regla
 from tests.facturacion.test_responsables_economicos import _crear_alumno_y_familias
@@ -146,6 +147,7 @@ class TestAuditoriaFactura:
         assert registros[0].campo == "__eliminacion__"
 
     def test_registrar_pago_audita_alta(self, db_session: Session):
+        crear_catalogo_evento_pago_registrado(db_session)
         usuario = _crear_usuario(db_session)
         _escenario, inscripcion, concepto, _responsable = _crear_base_facturable(db_session)
         factura = crear_factura(db_session, _datos_factura(inscripcion.id, concepto.id))

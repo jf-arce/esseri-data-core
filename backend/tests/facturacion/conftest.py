@@ -19,6 +19,29 @@ from src.workflows.models import CampoEvento, TipoEvento
 PASSWORD_VALIDA = "una-contrasenia-larga"
 
 
+def crear_catalogo_evento_pago_registrado(db_session) -> TipoEvento:
+    """Replica el catálogo de producción que requiere registrar un pago aprobado."""
+    tipo = TipoEvento(nombre="pago.registrado", descripcion="Se confirmó un pago")
+    db_session.add(tipo)
+    db_session.flush()
+    db_session.add_all(
+        [
+            CampoEvento(
+                nombre_interno=nombre,
+                etiqueta=etiqueta,
+                tipo_dato=tipo_dato,
+                tipo_evento_id=tipo.id,
+            )
+            for nombre, etiqueta, tipo_dato in (
+                ("monto", "Monto del pago", "numero"),
+                ("metodo_pago", "Método de pago", "texto"),
+                ("fecha_operacion", "Fecha en que se procesó", "fecha"),
+            )
+        ]
+    )
+    return tipo
+
+
 @pytest.fixture()
 def client_autenticado(client, db_session):
     usuario = Usuario(

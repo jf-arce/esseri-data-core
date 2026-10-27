@@ -28,6 +28,8 @@ pip install -r requirements/dev.txt
 cp .env.example .env            # completar DATABASE_URL, JWT_SECRET, etc.
 ```
 
+La app fija `timezone=UTC` en cada sesión de Postgres (`src/database.py`), así que `func.now()` en columnas `DateTime` sin zona guarda UTC aunque el servidor de base esté en otra zona. No hay variable de entorno para esto.
+
 ## Migraciones (Alembic)
 
 Nunca se escribe SQL a mano en `database/` — todo cambio de esquema se genera con Alembic desde acá:
@@ -68,6 +70,9 @@ Documentado aparte, en `docs/auth-oauth-google.md` — abarca todo el módulo Au
 frontend), no solo cómo levantar el backend. Ahí está el flujo de OAuth, cómo configurar las
 credenciales de Google, y cómo crear el primer usuario administrador
 (`database/seeds/00_bootstrap_admin.py`) para poder loguearse.
+
+`POST /auth/login` bloquea la IP tras demasiados fallidos; se ajusta con `LOGIN_MAX_INTENTOS`,
+`LOGIN_VENTANA_MINUTOS` y `LOGIN_BLOQUEO_MINUTOS` (ver "Bloqueo por intentos" en ese documento).
 
 ## Autorización por permisos (RF-30)
 
@@ -193,15 +198,16 @@ instancias del backend, `FOR UPDATE SKIP LOCKED` evita que dos procesen el mismo
 
 Ya emiten: Proveedores y Compras, `orden_compra.emitida` (en `crear_orden_compra`) y
 `recepcion_compra.registrada` (en `crear_recepcion`); Académico, `inasistencia.registrada` e
-`inasistencia.justificada`. El resto lo agrega el módulo dueño del hecho:
+`inasistencia.justificada`; Inscripciones, `inscripcion.cambio_matricula` (en
+`registrar_cambio_matricula`); y Facturación, `pago.registrado` (en `registrar_pago`). El resto lo
+agrega el módulo dueño del hecho:
 
 | Evento | Dónde iría | Payload |
 |---|---|---|
-| `inscripcion.cambio_matricula` | Inscripciones: `registrar_cambio_matricula` | `alumno_nombre`, `tipo_cambio` (`nivel` o `division`), `fecha` |
 | `factura.vencida` | Facturación: `vencimientos_service.py` al entrar la factura en un tramo de mora | `dias_vencido`, `monto_deuda`, `nombre_familia` |
 | `inscripcion.confirmada` | Inscripciones: al crear la `INSCRIPCION` nueva desde la solicitud (`matriculas_service.py`) | `alumno_nombre`, `nivel_educativo`, `fecha` |
 | `solicitud_compra.aprobada` | Compras: `cambiar_estado_solicitud` cuando pasa a `aprobada` | `item`, `cantidad`, `fecha` |
-| `solicitud_inscripcion.aprobada`, `pago.registrado`, `pago.rechazado` | Admisiones y Facturación | ver `grupo-b.yaml` |
+| `solicitud_inscripcion.aprobada`, `pago.rechazado` | Admisiones y Facturación | ver `grupo-b.yaml` |
 
 En `solicitud_compra.aprobada`, `item` es un solo campo que nunca puede ser nulo: el `articulo` o,
 si la solicitud usa `producto_servicio_id`, el nombre del producto. No se agregan `articulo` ni
@@ -248,8 +254,11 @@ por el inicio de la ejecución (la más reciente primero), porque `NOTIFICACION`
 y `sent_at` es `NULL` en las fallidas. Un reintento aparece como filas nuevas con su `intento`.
 
 **Estado actual:** `notificar`, `alerta_interna`, `aplicar_vencimiento`, `cambiar_estado`,
-`aplicar_penalidad`, `crear_tarea`, `escalar_caso` y `generar_recordatorio` tienen ejecutor real. El resto de `ACCIONES`
-(`despacho_service.py`) sigue con un stub por dueño que devuelve "acción no implementada", así que una regla sin aprobación humana queda `fallido`
+`aplicar_penalidad`, `crear_tarea`, `escalar_caso` y `generar_recordatorio` tienen ejecutor real.
+Facturación además emite `pago.registrado` al confirmar un pago aprobado, antes de confirmar la misma
+transacción que escribe el pago y el movimiento de cuenta corriente. El resto de `ACCIONES`
+(`despacho_service.py`) sigue con un stub por dueño que devuelve "acción no implementada", así que una
+regla sin aprobación humana queda `fallido`
 hasta que su dueño lo reemplace (#199):
 
 | Acción | Archivo | Dueño |
@@ -312,6 +321,12 @@ Tres acciones no se implementan y siguen sin ejecutor: `registrar_pago` y
 `actualizar_cuenta_corriente` (el pago y el libro de movimientos los escribe Facturación al
 registrar el pago, el motor no los duplica) y `crear_registro_relacionado` (el alta de alumno y
 familia desde la solicitud ya la hace Admisiones). Una regla con alguna de ellas queda `fallido`.
+
+`pago.rechazado` y su ejecutor `registrar_rechazo` quedan pendientes de la integración de retorno
+del débito automático: el flujo manual actual solo confirma pagos aprobados y no inventa rechazos.
+Cuando el banco devuelva su archivo de resultados, la importación deberá registrar el rechazo con su
+referencia y motivo, emitir `pago.rechazado` y recién entonces resolver si `registrar_rechazo` aporta
+una acción adicional sin duplicar la actualización que ya hace Facturación.
 
 **Reglas y allowlist de `accion_config`**
 
@@ -430,6 +445,16 @@ Limitaciones conocidas:
 El detalle de una factura permite registrar pagos parciales o totales. Los comprobantes de métodos
 que los requieran se guardan junto al pago en la base de datos; se aceptan PDF, JPG y PNG de hasta
 5 MB. La descarga de la factura se genera bajo demanda como PDF, sin almacenar una copia adicional.
+
+## Fechas y horas en la API
+
+En Auth, Workflows y Facturación los instantes salen en ISO 8601 UTC con `Z` (`2026-10-26T13:00:00Z`) y las fechas de solo día como `YYYY-MM-DD`. Los esquemas usan `InstanteUtc` (`src/fechas.py`), que agrega la zona al serializar.
+
+Las columnas `DateTime` sin zona de esos módulos guardan UTC: la sesión de Postgres está fijada en UTC (`func.now()` ya devuelve UTC) y las escrituras desde Python usan `ahora_utc()`, nunca `datetime.now()`.
+
+Todavía no lo cubre `academico`, `inscripciones`, `familias_alumnos`, `proveedores_compras` ni `AUDIT_LOG` (`log_audit` escribe con `datetime.now()` aunque lo llamen Auth y Workflows).
+
+Las filas de `finished_at`, `sent_at` y `fecha_vencimiento` de Workflows grabadas antes de este cambio con el backend corriendo en el host quedaron en hora local, y ahora se ven corridas (las tareas abiertas con esa marca vencen antes de tiempo). No hay migración de datos: si tu base de desarrollo se pobló así, volvé a poblarla.
 
 ## Tests
 

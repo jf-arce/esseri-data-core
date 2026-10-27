@@ -91,18 +91,6 @@ export function inicialesVisiblesDeUsuario(usuario: UsuarioConRoles): string {
   return inicialesDeUsuario(usuario.email)
 }
 
-export function formatearFechaHora(iso: string | null): string {
-  if (!iso) return '—'
-  const fecha = new Date(iso)
-  if (Number.isNaN(fecha.getTime())) return '—'
-  const dd = String(fecha.getDate()).padStart(2, '0')
-  const mm = String(fecha.getMonth() + 1).padStart(2, '0')
-  const yyyy = fecha.getFullYear()
-  const hh = String(fecha.getHours()).padStart(2, '0')
-  const min = String(fecha.getMinutes()).padStart(2, '0')
-  return `${dd}/${mm}/${yyyy} ${hh}:${min}`
-}
-
 export type OrdenUsuarios = 'nombre-asc' | 'nombre-desc' | 'acceso-reciente' | 'acceso-antiguo'
 export type EstadoUsuarioFiltro = 'todos' | 'activo' | 'inactivo'
 
@@ -111,6 +99,13 @@ interface FiltrosUsuarios {
   estado: EstadoUsuarioFiltro
   roles: string[]
   orden: OrdenUsuarios
+}
+
+// Sin acceso (o fecha inválida) cuenta como el más antiguo. Se compara el instante y no el texto
+// ISO: `...13:00:00Z` y `...13:00:00.1Z` no ordenan bien como strings.
+function instanteDeAcceso(usuario: UsuarioConRoles): number {
+  const tiempo = usuario.ultimo_acceso ? new Date(usuario.ultimo_acceso).getTime() : 0
+  return Number.isNaN(tiempo) ? 0 : tiempo
 }
 
 // Filtro + orden de la tabla de usuarios, extraído del componente para poder testearlo sin
@@ -146,9 +141,9 @@ export function filtrarYOrdenarUsuarios(
       case 'nombre-desc':
         return nombreVisibleDeUsuario(b).localeCompare(nombreVisibleDeUsuario(a), 'es')
       case 'acceso-reciente':
-        return (b.ultimo_acceso ?? '').localeCompare(a.ultimo_acceso ?? '')
+        return instanteDeAcceso(b) - instanteDeAcceso(a)
       case 'acceso-antiguo':
-        return (a.ultimo_acceso ?? '').localeCompare(b.ultimo_acceso ?? '')
+        return instanteDeAcceso(a) - instanteDeAcceso(b)
       default:
         return 0
     }
