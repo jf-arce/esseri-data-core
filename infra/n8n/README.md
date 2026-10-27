@@ -35,8 +35,18 @@ Errores frecuentes: `access_denied` (403) es que la cuenta no está como usuario
 El backend (`backend/src/workflows/n8n_client.py`) hace un `POST` a `N8N_WEBHOOK_URL` con:
 
 ```json
-{ "destinatario": "familia@mail.com", "asunto": "Aviso de mora", "cuerpo": "Hola ..." }
+{
+  "destinatario": "familia@mail.com",
+  "asunto": "Aviso de mora",
+  "cuerpo": "Hola ...",
+  "cuerpo_html": "<!DOCTYPE html>..."
+}
 ```
+
+- `cuerpo` es el texto plano (la evidencia que guarda `NOTIFICACION`). `cuerpo_html` es el mismo mensaje dentro del layout institucional (`backend/src/workflows/email_html.py`), con el botón de la regla si lo tiene. El nodo Gmail manda `cuerpo_html` y, si faltara, cae a `cuerpo`.
+- El nombre del remitente (`senderName`) está fijo en el nodo Gmail (`ESSERI`): si cambia `EMAIL_INSTITUCION_NOMBRE` del backend, cambiarlo también ahí.
+- El logo y el pie del mail se configuran en el backend (`EMAIL_LOGO_URL`, `EMAIL_INSTITUCION_PIE`, ver `backend/.env.example`), no en n8n. El logo tiene que ser una URL pública.
+- Si se vuelve a importar `enviar-email.json` sobre una instancia existente (por ejemplo, para pasar de texto a HTML), hay que reasignar las credenciales y **volver a publicar** el workflow.
 
 - Si `N8N_WEBHOOK_TOKEN` está definido, manda `Authorization: Bearer <token>`. En n8n, configurar el nodo Webhook con Header Auth usando el mismo valor.
 - Cualquier respuesta que no sea 2xx, o un timeout (10 s), cuenta como envío fallido. Por eso el workflow tiene que responder 5xx cuando Gmail falla (salida de error del nodo Gmail): un error sin respuesta explícita llega al backend como 200 vacío.
