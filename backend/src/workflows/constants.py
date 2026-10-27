@@ -142,3 +142,8 @@ DESTINATARIOS_FAMILIARES: frozenset[str] = frozenset(
 
 # Los envíos se hacen en serie dentro de la transacción del evento: este tope acota su duración.
 MAX_DESTINATARIOS_POR_EJECUCION = 50
+
+# Campos del payload que no se muestran en el resumen del historial (RNF-15): (evento, campo).
+CAMPOS_RESERVADOS_RESUMEN: frozenset[tuple[str, str]] = frozenset(
+    {("inasistencia.justificada", "motivo")}
+)
