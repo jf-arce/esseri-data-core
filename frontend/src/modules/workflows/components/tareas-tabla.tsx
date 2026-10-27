@@ -106,7 +106,10 @@ export function TareasTabla({
             items.map((tarea) => (
               <TableRow key={tarea.id}>
                 <TableCell className="whitespace-normal md:whitespace-nowrap">
-                  <span className="block font-medium md:max-w-xs md:truncate" title={tarea.titulo}>
+                  <span
+                    className="block font-medium md:max-w-[12rem] md:truncate xl:max-w-xs"
+                    title={tarea.titulo}
+                  >
                     {tarea.titulo}
                   </span>
                   {tarea.workflow_rule_nombre && (
