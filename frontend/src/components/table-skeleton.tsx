@@ -9,7 +9,7 @@ import { TableCell, TableRow } from '@/components/ui/table'
 // texto real nunca miden todos lo mismo, así que alternar dos anchos por columna evita el
 // efecto "maqueta" de barras idénticas fila tras fila.
 type ColumnaEsqueleto =
-  | { tipo: 'texto'; ancho?: string; anchoAlt?: string }
+  | { tipo: 'texto'; ancho?: string; anchoAlt?: string; clase?: string }
   | { tipo: 'avatar'; ancho?: string; anchoAlt?: string }
   | { tipo: 'chip'; ancho?: string; anchoAlt?: string }
   | { tipo: 'chips' }
@@ -71,7 +71,7 @@ function CeldaEsqueleto({ columna, fila }: { columna: ColumnaEsqueleto; fila: nu
     case 'texto':
     default:
       return (
-        <TableCell>
+        <TableCell className={columna.clase}>
           <Skeleton className={anchoDeFila(columna.ancho ?? 'h-4 w-28', columna.anchoAlt, fila)} />
         </TableCell>
       )
