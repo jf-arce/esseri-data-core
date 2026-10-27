@@ -58,6 +58,7 @@ export type Materia = {
   nombre: string
   tipo: TipoMateria
   anio_id: string
+  anio_numero?: number
   division_id: string | null
   created_at: string
   updated_at: string
@@ -81,6 +82,8 @@ export type Docente = {
   id: string
   legajo: string
   persona_id: string
+  nombre?: string
+  apellido?: string
   created_at: string
   updated_at: string
 }
