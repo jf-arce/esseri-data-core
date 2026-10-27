@@ -1638,12 +1638,7 @@ def obtener_docente_por_id(db: Session, docente_id: uuid.UUID) -> Docente | None
 
 def listar_docentes(db: Session) -> list[Docente]:
     """Listar todos los docentes ordenados por legajo, con nombre y apellido de la persona."""
-    return (
-        db.query(Docente)
-        .options(joinedload(Docente.persona))
-        .order_by(Docente.legajo)
-        .all()
-    )
+    return db.query(Docente).options(joinedload(Docente.persona)).order_by(Docente.legajo).all()
 
 
 def actualizar_docente(

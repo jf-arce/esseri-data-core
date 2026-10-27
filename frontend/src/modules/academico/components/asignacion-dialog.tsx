@@ -162,9 +162,7 @@ export function AsignacionDialog({
               <SelectContent>
                 {docentes.map((d) => (
                   <SelectItem key={d.id} value={d.id}>
-                    {d.nombre && d.apellido
-                      ? `${d.legajo} - ${d.nombre} ${d.apellido}`
-                      : d.legajo}
+                    {d.nombre && d.apellido ? `${d.legajo} - ${d.nombre} ${d.apellido}` : d.legajo}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -189,17 +187,11 @@ export function AsignacionDialog({
 
           <Field>
             <FieldLabel>Materia</FieldLabel>
-            <Select
-              value={materiaId}
-              onValueChange={setMateriaId}
-              disabled={!divisionId}
-            >
+            <Select value={materiaId} onValueChange={setMateriaId} disabled={!divisionId}>
               <SelectTrigger className="w-full">
                 <SelectValue
                   placeholder={
-                    !divisionId
-                      ? 'Seleccioná primero una división'
-                      : 'Seleccionar materia'
+                    !divisionId ? 'Seleccioná primero una división' : 'Seleccionar materia'
                   }
                 />
               </SelectTrigger>

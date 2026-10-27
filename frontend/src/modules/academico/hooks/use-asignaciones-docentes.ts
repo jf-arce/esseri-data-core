@@ -44,9 +44,10 @@ export function useAsignacionesDocentes(filtros?: FiltrosAsignacion, anioIdMater
         const docente = docenteMap.get(a.docente_id)
         const materia = materiaMap.get(a.materia_id)
         const division = divisionMap.get(a.division_id)
-        const nombreCompleto = docente?.nombre && docente?.apellido
-          ? `${docente.legajo} - ${docente.nombre} ${docente.apellido}`
-          : docente?.legajo ?? '—'
+        const nombreCompleto =
+          docente?.nombre && docente?.apellido
+            ? `${docente.legajo} - ${docente.nombre} ${docente.apellido}`
+            : (docente?.legajo ?? '—')
         return {
           ...a,
           docente_nombre: nombreCompleto,
