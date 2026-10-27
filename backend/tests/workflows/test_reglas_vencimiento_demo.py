@@ -105,6 +105,8 @@ def test_el_seed_crea_las_reglas_con_su_accion_y_destinatarios(db_session, escen
     assert aviso.accion_config == {"destinatario": "responsable_economico"}
     plantilla = db_session.get(NotificacionTemplate, aviso.notificacion_template_id)
     assert plantilla.nombre == "Aviso de factura vencida"
+    plantilla_alerta = db_session.get(NotificacionTemplate, alerta.notificacion_template_id)
+    assert plantilla_alerta.asunto == "Factura vencida: familia {{nombre_familia}}"
     por_regla = {
         r.id: db_session.get(Rol, d.rol_id).nombre
         for r in (marcar, alerta, aviso)
@@ -128,7 +130,7 @@ def test_correr_el_seed_de_nuevo_no_duplica_ni_pisa(db_session, escenario, seed_
     _sembrar(seed_demo, db_session, escenario)
 
     assert len(db_session.scalars(select(WorkflowRule)).all()) == 4
-    assert len(db_session.scalars(select(NotificacionTemplate)).all()) == 1
+    assert len(db_session.scalars(select(NotificacionTemplate)).all()) == 2
     assert len(db_session.scalars(select(Usuario)).all()) == cuentas
     db_session.refresh(alerta)
     assert alerta.activo is False
