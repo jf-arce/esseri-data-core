@@ -22,6 +22,8 @@ const ejecucionFallida: EjecucionWorkflow = {
   entidad_id: 'f-1',
   reintentable: false,
   aprobable: false,
+  resumen_evento: [],
+  recargo_estimado: null,
 }
 
 function renderTabla(props: Partial<Parameters<typeof EjecucionesWorkflowTabla>[0]> = {}) {
@@ -53,6 +55,23 @@ describe('EjecucionesWorkflowTabla', () => {
     expect(screen.getByText('Aviso de mora')).toBeInTheDocument()
     expect(screen.getByText('Vence una factura')).toBeInTheDocument()
     expect(screen.getByText('Fallida')).toBeInTheDocument()
+  })
+
+  it('muestra el resumen del evento debajo del nombre de la regla', () => {
+    renderTabla({
+      items: [
+        {
+          ...ejecucionFallida,
+          resumen_evento: [
+            { nombre_interno: 'nombre_familia', etiqueta: 'Familia', valor: 'Castro' },
+            { nombre_interno: 'dias_vencido', etiqueta: 'Días', valor: '16' },
+            { nombre_interno: 'monto_deuda', etiqueta: 'Monto', valor: '120.000,00' },
+          ],
+        },
+      ],
+    })
+
+    expect(screen.getByText('Castro · 16 días · $ 120.000,00')).toBeInTheDocument()
   })
 
   it('llama a onVerDetalle con la ejecución', async () => {

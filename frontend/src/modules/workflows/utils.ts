@@ -16,6 +16,7 @@ import {
   REGISTRO_ALUMNO_Y_FAMILIA,
 } from '@/modules/workflows/constants'
 import type {
+  CampoResumen,
   AccionConfig,
   CampoEvento,
   Condicion,
@@ -526,8 +527,29 @@ export const ETIQUETA_ESTADO_EJECUCION: Record<EstadoEjecucion, string> = {
   rechazado: 'Rechazada',
 }
 
-export const VARIANTE_ESTADO_EJECUCION: Record<EstadoEjecucion, 'exito' | 'error' | 'advertencia'> =
-  { exitoso: 'exito', fallido: 'error', pendiente: 'advertencia', rechazado: 'advertencia' }
+export const VARIANTE_ESTADO_EJECUCION: Record<
+  EstadoEjecucion,
+  'exito' | 'error' | 'advertencia' | 'neutro'
+> = { exitoso: 'exito', fallido: 'error', pendiente: 'advertencia', rechazado: 'neutro' }
+
+const COMO_MONTO = (valor: string) => `$ ${valor}`
+
+/** El catálogo de campos no trae unidades: se agregan acá. Lo que no esté se muestra tal cual. */
+export const PRESENTACION_CAMPO: Record<string, (valor: string) => string> = {
+  monto_deuda: COMO_MONTO,
+  dias_vencido: (valor) => `${valor} ${valor === '1' ? 'día' : 'días'}`,
+}
+
+export function presentarCampo({ nombre_interno, valor }: CampoResumen): string {
+  const presentar =
+    PRESENTACION_CAMPO[nombre_interno] ?? (nombre_interno.startsWith('monto_') ? COMO_MONTO : null)
+  return presentar ? presentar(valor) : valor
+}
+
+/** Primeros campos del evento en una sola línea, para la segunda línea de la tabla. */
+export function resumenEnLinea(campos: CampoResumen[], maximo = 3): string {
+  return campos.slice(0, maximo).map(presentarCampo).join(' · ')
+}
 
 export type EstadoEnvioFiltro = (typeof ESTADOS_ENVIO_FILTRO)[number]
 

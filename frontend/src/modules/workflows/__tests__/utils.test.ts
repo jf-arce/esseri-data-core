@@ -20,6 +20,8 @@ import {
   etiquetaEvento,
   filtrarReglas,
   insertarPlaceholder,
+  presentarCampo,
+  resumenEnLinea,
   validarPlaceholders,
   valoresDesdeRegla,
   VALORES_REGLA_VACIOS,
@@ -474,5 +476,26 @@ describe('tareas', () => {
     expect(esEstadoTareaFiltro('inventado')).toBe(false)
     expect(esPrioridadTareaFiltro('alta')).toBe(true)
     expect(esPrioridadTareaFiltro('urgente')).toBe(false)
+  })
+})
+
+describe('presentarCampo', () => {
+  const campo = (nombre_interno: string, valor: string) => ({ nombre_interno, etiqueta: '', valor })
+
+  it('agrega la unidad a montos y días', () => {
+    expect(presentarCampo(campo('monto_deuda', '120.000,00'))).toBe('$ 120.000,00')
+    expect(presentarCampo(campo('monto_pagado', '500,00'))).toBe('$ 500,00')
+    expect(presentarCampo(campo('dias_vencido', '16'))).toBe('16 días')
+    expect(presentarCampo(campo('dias_vencido', '1'))).toBe('1 día')
+  })
+
+  it('deja tal cual lo que no tiene presentación', () => {
+    expect(presentarCampo(campo('nombre_familia', 'Castro'))).toBe('Castro')
+  })
+
+  it('resumenEnLinea une solo los primeros campos', () => {
+    const campos = ['a', 'b', 'c', 'd'].map((n) => campo(n, n.toUpperCase()))
+
+    expect(resumenEnLinea(campos)).toBe('A · B · C')
   })
 })

@@ -6,6 +6,7 @@ import { ApiError } from '@/api/client'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { EjecucionesWorkflowPage } from '@/modules/workflows/pages/ejecuciones-workflow-page'
 import { aprobarEjecucionWorkflow } from '@/modules/workflows/services/aprobar-ejecucion-workflow'
+import { obtenerEjecucionWorkflow } from '@/modules/workflows/services/obtener-ejecucion-workflow'
 import { listarEjecucionesWorkflow } from '@/modules/workflows/services/listar-ejecuciones-workflow'
 import { rechazarEjecucionWorkflow } from '@/modules/workflows/services/rechazar-ejecucion-workflow'
 import { reintentarEjecucionWorkflow } from '@/modules/workflows/services/reintentar-ejecucion-workflow'
@@ -13,12 +14,14 @@ import { useAuthStore } from '@/store/auth-store'
 import type { EjecucionWorkflow, EjecucionWorkflowListado } from '@/modules/workflows/types'
 
 vi.mock('@/modules/workflows/services/listar-ejecuciones-workflow')
+vi.mock('@/modules/workflows/services/obtener-ejecucion-workflow')
 vi.mock('@/modules/workflows/services/reintentar-ejecucion-workflow')
 vi.mock('@/modules/workflows/services/aprobar-ejecucion-workflow')
 vi.mock('@/modules/workflows/services/rechazar-ejecucion-workflow')
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), info: vi.fn(), error: vi.fn() } }))
 
 const mockedListar = vi.mocked(listarEjecucionesWorkflow)
+const mockedObtener = vi.mocked(obtenerEjecucionWorkflow)
 const mockedReintentar = vi.mocked(reintentarEjecucionWorkflow)
 const mockedAprobar = vi.mocked(aprobarEjecucionWorkflow)
 const mockedRechazar = vi.mocked(rechazarEjecucionWorkflow)
@@ -41,6 +44,8 @@ const ejecucionFallida: EjecucionWorkflow = {
   entidad_id: 'f-1',
   reintentable: false,
   aprobable: false,
+  resumen_evento: [],
+  recargo_estimado: null,
 }
 
 const listado: EjecucionWorkflowListado = {
@@ -94,6 +99,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   conPermisos(['workflows.leer', 'workflows.actualizar'])
   mockedListar.mockResolvedValue({ ...listado, items: [reintentable] })
+  mockedObtener.mockRejectedValue(new Error('sin detalle en este test'))
 })
 
 describe('EjecucionesWorkflowPage', () => {

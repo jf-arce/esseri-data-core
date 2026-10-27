@@ -19,6 +19,7 @@ import {
   ETIQUETA_ACCION,
   ETIQUETA_ESTADO_EJECUCION,
   etiquetaEvento,
+  resumenEnLinea,
   VARIANTE_ESTADO_EJECUCION,
 } from '@/modules/workflows/utils'
 
@@ -89,7 +90,14 @@ export function EjecucionesWorkflowTabla({
           ) : (
             items.map((ejecucion) => (
               <TableRow key={ejecucion.id}>
-                <TableCell className="font-medium">{ejecucion.workflow_rule_nombre}</TableCell>
+                <TableCell>
+                  <span className="font-medium">{ejecucion.workflow_rule_nombre}</span>
+                  {ejecucion.resumen_evento.length > 0 && (
+                    <span className="block max-w-[28rem] truncate text-texto-2">
+                      {resumenEnLinea(ejecucion.resumen_evento)}
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell className="text-texto-2">
                   {etiquetaEvento(ejecucion.tipo_evento)}
                 </TableCell>
