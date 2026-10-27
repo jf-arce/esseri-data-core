@@ -884,3 +884,133 @@ def test_reasignar_exige_sesion(client, db_session, usuario_sin_workflows, caso)
     tarea = _tarea(db_session, usuario_sin_workflows, caso)
 
     assert _reasignar(client, tarea, usuario_sin_workflows).status_code == 401
+
+
+# --- Placeholders --------------------------------------------------------------------------
+
+
+def test_crear_tarea_completa_los_placeholders_del_evento(db_session, tipo_factura_vencida):
+    usuario = _usuario(db_session, "uno@esseri.edu.ar")
+    regla = _regla(
+        db_session,
+        tipo_factura_vencida,
+        "crear_tarea",
+        {
+            "titulo": "Reclamar la deuda de {{nombre_familia}}",
+            "descripcion": "Lleva {{dias_vencido}} días, deuda de ${{monto_deuda}}.",
+        },
+        destinatarios=[usuario],
+    )
+    evento = _evento(db_session, tipo_factura_vencida)
+
+    resultado = ejecutar_crear_tarea(
+        db_session, regla, evento, _ejecucion(db_session, regla, evento)
+    )
+
+    assert resultado.error is None
+    tarea = db_session.scalars(select(Tarea)).one()
+    assert tarea.titulo == "Reclamar la deuda de Cabral"
+    assert tarea.descripcion == "Lleva 6 días, deuda de $1.500."
+
+
+def test_crear_tarea_sin_descripcion_deja_la_descripcion_nula(db_session, tipo_factura_vencida):
+    usuario = _usuario(db_session, "uno@esseri.edu.ar")
+    regla = _regla(
+        db_session,
+        tipo_factura_vencida,
+        "crear_tarea",
+        {"titulo": "Llamar a {{nombre_familia}}"},
+        destinatarios=[usuario],
+    )
+    evento = _evento(db_session, tipo_factura_vencida)
+
+    ejecutar_crear_tarea(db_session, regla, evento, _ejecucion(db_session, regla, evento))
+
+    assert db_session.scalars(select(Tarea)).one().descripcion is None
+
+
+def test_crear_tarea_recorta_el_titulo_renderizado_al_maximo(db_session, tipo_factura_vencida):
+    usuario = _usuario(db_session, "uno@esseri.edu.ar")
+    regla = _regla(
+        db_session,
+        tipo_factura_vencida,
+        "crear_tarea",
+        {"titulo": "Reclamar a {{nombre_familia}}"},
+        destinatarios=[usuario],
+    )
+    evento = _evento(db_session, tipo_factura_vencida)
+    evento.payload = {"nombre_familia": "x" * 400}
+    db_session.commit()
+
+    ejecutar_crear_tarea(db_session, regla, evento, _ejecucion(db_session, regla, evento))
+
+    assert len(db_session.scalars(select(Tarea)).one().titulo) == 150
+
+
+def test_crear_tarea_falla_si_el_evento_no_trae_un_campo(db_session, tipo_factura_vencida):
+    usuario = _usuario(db_session, "uno@esseri.edu.ar")
+    regla = _regla(
+        db_session,
+        tipo_factura_vencida,
+        "crear_tarea",
+        {"titulo": "Llamar a {{nombre_familia}}"},
+        destinatarios=[usuario],
+    )
+    evento = _evento(db_session, tipo_factura_vencida)
+    evento.payload = {"dias_vencido": 6}
+    db_session.commit()
+
+    resultado = ejecutar_crear_tarea(
+        db_session, regla, evento, _ejecucion(db_session, regla, evento)
+    )
+
+    assert resultado.error == tareas_service.ERROR_RENDER_TAREA
+    assert db_session.scalars(select(Tarea)).all() == []
+
+
+@pytest.mark.parametrize("con_tarea_previa", [True, False])
+def test_escalar_caso_renderiza_el_motivo_y_conserva_el_titulo(
+    db_session, tipo_factura_vencida, con_tarea_previa
+):
+    responsable = _usuario(db_session, "admin@esseri.edu.ar")
+    director = _usuario(db_session, "director@esseri.edu.ar")
+    evento = _evento(db_session, tipo_factura_vencida)
+    if con_tarea_previa:
+        _tarea(db_session, responsable, evento)
+    regla = _regla(
+        db_session,
+        tipo_factura_vencida,
+        "escalar_caso",
+        {"motivo": "{{nombre_familia}} sigue sin pagar"},
+        destinatarios=[director],
+    )
+
+    resultado = ejecutar_escalar_caso(
+        db_session, regla, evento, _ejecucion(db_session, regla, evento)
+    )
+
+    assert resultado.error is None
+    nueva = db_session.scalars(select(Tarea).where(Tarea.usuario_id == director.id)).one()
+    assert nueva.descripcion == "Cabral sigue sin pagar"
+    assert nueva.titulo == (
+        "Escalada: Reclamar deuda" if con_tarea_previa else "Caso escalado: Regla de tareas"
+    )
+
+
+def test_guardar_una_regla_valida_los_placeholders_de_la_tarea(
+    client_autenticado, db_session, tipo_factura_vencida
+):
+    respuesta = client_autenticado.post(
+        "/workflows/reglas",
+        json={
+            "nombre": "Tarea con campo inexistente",
+            "condicion": {},
+            "tipo_accion": "crear_tarea",
+            "accion_config": {"titulo": "Llamar a {{no_existe}}"},
+            "criticidad": "media",
+            "tipo_evento_id": str(tipo_factura_vencida.id),
+        },
+    )
+
+    assert respuesta.status_code == 422
+    assert "no_existe" in respuesta.text
