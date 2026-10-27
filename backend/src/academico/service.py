@@ -9,7 +9,7 @@ from io import BytesIO, StringIO
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from src.academico.exceptions import (
     AnioConDivisiones,
@@ -1422,8 +1422,14 @@ def listar_materias(db: Session) -> list[Materia]:
 
 
 def listar_materias_por_anio(db: Session, anio_id: uuid.UUID) -> list[Materia]:
-    """Listar las materias de un año específico."""
-    return db.query(Materia).filter(Materia.anio_id == anio_id).order_by(Materia.nombre).all()
+    """Listar las materias de un año específico, con el número del año para mostrar en la UI."""
+    return (
+        db.query(Materia)
+        .options(joinedload(Materia.anio))
+        .filter(Materia.anio_id == anio_id)
+        .order_by(Materia.nombre)
+        .all()
+    )
 
 
 def listar_materias_por_division(db: Session, division_id: uuid.UUID) -> list[Materia]:
@@ -1631,8 +1637,13 @@ def obtener_docente_por_id(db: Session, docente_id: uuid.UUID) -> Docente | None
 
 
 def listar_docentes(db: Session) -> list[Docente]:
-    """Listar todos los docentes ordenados por legajo."""
-    return db.query(Docente).order_by(Docente.legajo).all()
+    """Listar todos los docentes ordenados por legajo, con nombre y apellido de la persona."""
+    return (
+        db.query(Docente)
+        .options(joinedload(Docente.persona))
+        .order_by(Docente.legajo)
+        .all()
+    )
 
 
 def actualizar_docente(

@@ -120,6 +120,8 @@ class DocenteResponse(BaseModel):
     id: uuid.UUID
     legajo: str
     persona_id: uuid.UUID
+    nombre: str | None = None
+    apellido: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -373,6 +375,7 @@ class MateriaResponse(BaseModel):
     nombre: str
     tipo: str
     anio_id: uuid.UUID
+    anio_numero: int | None = None
     division_id: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
