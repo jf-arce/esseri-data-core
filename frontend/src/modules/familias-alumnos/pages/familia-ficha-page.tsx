@@ -328,13 +328,15 @@ export function FamiliaFichaPage() {
                     <p className="text-xl font-semibold tabular-nums">
                       {cargandoFacturacion
                         ? '…'
-                        : formatearMoneda(resumenFacturacion?.deuda_total ?? '0')}
+                        : resumenFacturacion
+                          ? formatearMoneda(resumenFacturacion.deuda_total)
+                          : '—'}
                     </p>
                   </div>
                   <div className="flex-1">
                     <p className="mb-1 text-xs text-texto-2">Facturas pendientes</p>
                     <p className="text-xl font-semibold tabular-nums">
-                      {cargandoFacturacion ? '…' : (resumenFacturacion?.facturas_pendientes ?? 0)}
+                      {cargandoFacturacion ? '…' : (resumenFacturacion?.facturas_pendientes ?? '—')}
                     </p>
                   </div>
                 </div>
@@ -379,7 +381,7 @@ export function FamiliaFichaPage() {
               </div>
             ) : (
               <p className="px-6 py-5 text-sm text-texto-2">
-                Esta familia todavía no tiene movimientos de facturación.
+                No se pudo determinar el estado de facturación de esta familia.
               </p>
             )}
           </Card>

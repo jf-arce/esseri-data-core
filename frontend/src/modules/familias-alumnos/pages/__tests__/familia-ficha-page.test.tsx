@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FamiliaFichaPage } from '@/modules/familias-alumnos/pages/familia-ficha-page'
@@ -44,6 +44,19 @@ function renderizarPagina() {
 }
 
 describe('FamiliaFichaPage', () => {
+  it.each(['error', 'missing'] as const)(
+    'does not display a zero balance for %s data',
+    async (state) => {
+      if (state === 'error') mockedListarDeuda.mockRejectedValue(new Error('Unavailable'))
+      else mockedListarDeuda.mockResolvedValue({ items: [], total: 0, pagina: 1, tamanio: 1 })
+      renderizarPagina()
+      const label = await screen.findByText('Deuda total')
+      await waitFor(() => expect(within(label.parentElement!).getByText('—')).toBeInTheDocument())
+      expect(within(label.parentElement!).queryByText(/\$.*0,00/)).not.toBeInTheDocument()
+      expect(screen.getByText('Facturas pendientes').parentElement).toHaveTextContent('—')
+    },
+  )
+
   beforeEach(() => {
     vi.clearAllMocks()
     mockedObtenerFamilia.mockResolvedValue(familia)
