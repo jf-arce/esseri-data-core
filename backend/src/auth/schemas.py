@@ -1,12 +1,12 @@
 """Modelos Pydantic de Autenticación y Roles."""
 
 import uuid
-from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from src.auth.constants import AccionLiteral, ModuloLiteral
+from src.fechas import InstanteUtc
 
 
 class LoginLocalIn(BaseModel):
@@ -82,7 +82,7 @@ class UsuarioConRoles(BaseModel):
     email: str
     estado: str
     auth_provider: str
-    ultimo_acceso: datetime | None
+    ultimo_acceso: InstanteUtc | None
     roles: list[RolRead]
     # Necesario para el alta de docente "desde una cuenta existente" (usuario-roles-dialog):
     # sin persona la ficha Docente no tiene a qué engancharse.

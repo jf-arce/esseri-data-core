@@ -16,7 +16,7 @@ export type AsignacionConNombres = AsignacionDocente & {
   division_nombre: string
 }
 
-export function useAsignacionesDocentes(filtros?: FiltrosAsignacion) {
+export function useAsignacionesDocentes(filtros?: FiltrosAsignacion, anioIdMaterias?: string) {
   const [asignaciones, setAsignaciones] = useState<AsignacionConNombres[]>([])
   const [docentes, setDocentes] = useState<Docente[]>([])
   const [materias, setMaterias] = useState<Materia[]>([])
@@ -32,7 +32,7 @@ export function useAsignacionesDocentes(filtros?: FiltrosAsignacion) {
       const [asigs, docs, mats, divs] = await Promise.all([
         listarAsignaciones(filtros),
         listarDocentes(),
-        listarMaterias(),
+        listarMaterias(anioIdMaterias),
         listarDivisiones(),
       ])
 
@@ -44,9 +44,13 @@ export function useAsignacionesDocentes(filtros?: FiltrosAsignacion) {
         const docente = docenteMap.get(a.docente_id)
         const materia = materiaMap.get(a.materia_id)
         const division = divisionMap.get(a.division_id)
+        const nombreCompleto =
+          docente?.nombre && docente?.apellido
+            ? `${docente.legajo} - ${docente.nombre} ${docente.apellido}`
+            : (docente?.legajo ?? '—')
         return {
           ...a,
-          docente_nombre: docente?.legajo ?? '—',
+          docente_nombre: nombreCompleto,
           docente_apellido: '',
           materia_nombre: materia?.nombre ?? '—',
           division_nombre: division?.nombre ?? '—',
@@ -67,7 +71,7 @@ export function useAsignacionesDocentes(filtros?: FiltrosAsignacion) {
     } finally {
       setCargando(false)
     }
-  }, [filtros])
+  }, [filtros, anioIdMaterias])
 
   useEffect(() => {
     let cancelled = false

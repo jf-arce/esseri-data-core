@@ -1,7 +1,7 @@
 """JWT y hashing: las dos primitivas sobre las que se apoya todo el módulo."""
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 from jose import jwt
@@ -80,6 +80,40 @@ def test_bloqueado_hasta_trata_igual_fechas_con_y_sin_zona(monkeypatch):
 
     assert hasta is not None
     assert hasta == sesion_service._bloqueado_hasta(con_zona, ahora)
+
+
+def test_bloqueado_hasta_trata_igual_offsets_que_representan_el_mismo_instante(monkeypatch):
+    monkeypatch.setattr(config, "LOGIN_MAX_INTENTOS", 3)
+    ahora = datetime.now(UTC)
+    art = timezone(timedelta(hours=-3))
+    en_utc = [ahora - timedelta(seconds=i) for i in range(3)]
+    en_art = [f.astimezone(art) for f in en_utc]
+
+    assert sesion_service._bloqueado_hasta(en_art, ahora) == sesion_service._bloqueado_hasta(
+        en_utc, ahora
+    )
+    assert sesion_service._bloqueado_hasta(en_art, ahora) is not None
+
+
+def test_bloqueado_hasta_en_el_borde_de_la_ventana_no_bloquea(monkeypatch):
+    monkeypatch.setattr(config, "LOGIN_MAX_INTENTOS", 3)
+    ahora = datetime.now(UTC)
+    ventana = config.LOGIN_VENTANA
+    justo = [ahora, ahora - ventana / 2, ahora - ventana]
+    adentro = [ahora, ahora - ventana / 2, ahora - ventana + timedelta(microseconds=1)]
+
+    assert sesion_service._bloqueado_hasta(justo, ahora) is None
+    assert sesion_service._bloqueado_hasta(adentro, ahora) is not None
+
+
+def test_bloqueado_hasta_cuando_el_bloqueo_vence_exactamente_ahora_no_bloquea(monkeypatch):
+    monkeypatch.setattr(config, "LOGIN_MAX_INTENTOS", 3)
+    ultimo = datetime(2026, 10, 26, 13, 0, tzinfo=UTC)
+    fechas = [ultimo, ultimo - timedelta(seconds=1), ultimo - timedelta(seconds=2)]
+    hasta = ultimo + config.LOGIN_BLOQUEO
+
+    assert sesion_service._bloqueado_hasta(fechas, hasta) is None
+    assert sesion_service._bloqueado_hasta(fechas, hasta - timedelta(microseconds=1)) == hasta
 
 
 def test_bloqueado_hasta_sin_suficientes_fallidos_no_bloquea(monkeypatch):

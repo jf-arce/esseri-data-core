@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/button'
@@ -54,6 +54,17 @@ export function AsignacionDialog({
   const [docenteId, setDocenteId] = useState('')
   const [materiaId, setMateriaId] = useState('')
   const [divisionId, setDivisionId] = useState('')
+
+  // Filtrar materias por el año de la división seleccionada
+  const divisionSeleccionada = useMemo(
+    () => divisiones.find((d) => d.id === divisionId),
+    [divisiones, divisionId],
+  )
+
+  const materiasFiltradas = useMemo(() => {
+    if (!divisionSeleccionada) return materias
+    return materias.filter((m) => m.anio_id === divisionSeleccionada.anio_id)
+  }, [materias, divisionSeleccionada])
 
   function resetForm() {
     setError(null)
@@ -151,24 +162,7 @@ export function AsignacionDialog({
               <SelectContent>
                 {docentes.map((d) => (
                   <SelectItem key={d.id} value={d.id}>
-                    {d.legajo}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-
-          <Field>
-            <FieldLabel>Materia</FieldLabel>
-            <Select value={materiaId} onValueChange={setMateriaId}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Seleccionar materia" />
-              </SelectTrigger>
-              <SelectContent>
-                {materias.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.nombre}
-                    {m.tipo === 'taller' ? ' (taller)' : ''}
+                    {d.nombre && d.apellido ? `${d.legajo} - ${d.nombre} ${d.apellido}` : d.legajo}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -185,6 +179,28 @@ export function AsignacionDialog({
                 {divisiones.map((d) => (
                   <SelectItem key={d.id} value={d.id}>
                     {d.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field>
+            <FieldLabel>Materia</FieldLabel>
+            <Select value={materiaId} onValueChange={setMateriaId} disabled={!divisionId}>
+              <SelectTrigger className="w-full">
+                <SelectValue
+                  placeholder={
+                    !divisionId ? 'Seleccioná primero una división' : 'Seleccionar materia'
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {materiasFiltradas.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.nombre}
+                    {m.tipo === 'taller' ? ' (taller)' : ''}
+                    {m.anio_numero ? ` (${m.anio_numero}° Año)` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>

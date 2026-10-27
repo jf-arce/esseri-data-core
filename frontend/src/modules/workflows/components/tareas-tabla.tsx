@@ -1,3 +1,4 @@
+import { formatearDiaDeInstante } from '@/lib/fechas'
 import { CheckIcon, EyeIcon, PlayIcon } from 'lucide-react'
 import { PaginadorServidor } from '@/components/paginador-servidor'
 import { TableSkeleton, type ColumnaEsqueleto } from '@/components/table-skeleton'
@@ -17,7 +18,6 @@ import {
   estadosSiguientesTarea,
   ETIQUETA_ESTADO_TAREA,
   ETIQUETA_PRIORIDAD_TAREA,
-  formatearFecha,
   VARIANTE_ESTADO_TAREA,
   VARIANTE_PRIORIDAD_TAREA,
 } from '@/modules/workflows/utils'
@@ -119,7 +119,7 @@ export function TareasTabla({
                 <TableCell className="tabular-nums">
                   {tarea.fecha_vencimiento ? (
                     <span className={tarea.vencida ? 'font-medium text-error' : undefined}>
-                      {formatearFecha(tarea.fecha_vencimiento)}
+                      {formatearDiaDeInstante(tarea.fecha_vencimiento)}
                       {tarea.vencida && <span className="block text-xs">Vencida</span>}
                     </span>
                   ) : (

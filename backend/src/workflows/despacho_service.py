@@ -7,12 +7,13 @@ import logging
 import operator
 import uuid
 from collections.abc import Callable
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
+from src.fechas import ahora_utc
 from src.models import EventLog
 from src.workflows import (
     acciones_admision_service,
@@ -295,7 +296,7 @@ def _cumple_condicion(
 def _marcar_fallida(ejecucion: WorkflowExecution, motivo: str) -> None:
     ejecucion.estado = "fallido"
     ejecucion.error_detail = motivo
-    ejecucion.finished_at = datetime.now()
+    ejecucion.finished_at = ahora_utc()
 
 
 def _ejecutar_accion(
@@ -322,7 +323,7 @@ def _ejecutar_accion(
         _marcar_fallida(ejecucion, resultado.error)
         return
     ejecucion.estado = "exitoso"
-    ejecucion.finished_at = datetime.now()
+    ejecucion.finished_at = ahora_utc()
 
 
 def _marcar_evento_fallido(db: Session, evento_id: uuid.UUID) -> None:
