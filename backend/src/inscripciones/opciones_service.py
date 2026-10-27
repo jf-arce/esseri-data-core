@@ -1,10 +1,13 @@
 """Opciones válidas para los formularios de inscripción."""
 
+import uuid
+
 from sqlalchemy import exists, or_, select
 from sqlalchemy.orm import Session
 
 from src.academico.models import Anio, Division, NivelEducativo
-from src.familias_alumnos.models import Alumno, FamiliaAlumno
+from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
+from src.inscripciones import autorizacion_service
 from src.inscripciones.models import Inscripcion, SolicitudInscripcion
 from src.inscripciones.schemas import (
     AlumnoReinscripcionOpcionRead,
@@ -19,6 +22,8 @@ def listar_solicitudes_disponibles(
     *,
     buscar: str | None = None,
     limite: int = 50,
+    usuario_id: uuid.UUID | None = None,
+    familia: Familia | None = None,
 ) -> list[SolicitudInscripcionOpcionRead]:
     """Lista solicitudes confirmadas que todavía cumplen las reglas de una inscripción nueva."""
 
@@ -63,6 +68,12 @@ def listar_solicitudes_disponibles(
                 Persona.apellido.ilike(patron),
                 Alumno.numero_legajo.ilike(patron),
             )
+        )
+    if familia is not None:
+        if usuario_id is None:
+            raise ValueError("usuario_id es obligatorio para acotar solicitudes por familia")
+        statement = statement.where(
+            autorizacion_service.filtro_solicitudes_de_familia(usuario_id, familia)
         )
     statement = statement.limit(limite)
 
@@ -110,6 +121,7 @@ def listar_alumnos_elegibles_reinscripcion(
     *,
     buscar: str | None = None,
     limite: int = 50,
+    familia_id: uuid.UUID | None = None,
 ) -> list[AlumnoReinscripcionOpcionRead]:
     """Lista alumnos que satisfacen las mismas reglas usadas al crear una reinscripción."""
 
@@ -150,6 +162,12 @@ def listar_alumnos_elegibles_reinscripcion(
                 Persona.nombre.ilike(patron),
                 Persona.apellido.ilike(patron),
                 Alumno.numero_legajo.ilike(patron),
+            )
+        )
+    if familia_id is not None:
+        statement = statement.where(
+            Alumno.id.in_(
+                select(FamiliaAlumno.alumno_id).where(FamiliaAlumno.familia_id == familia_id)
             )
         )
     statement = statement.limit(limite)
