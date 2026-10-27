@@ -147,19 +147,22 @@ def envios(monkeypatch):
 
     class Registro:
         enviados: list[tuple[str, str, str]]
+        htmls: list[str | None]
         intentos: list[str]
         fallar: dict[str, Exception]
 
     registro = Registro()
     registro.enviados = []
+    registro.htmls = []
     registro.intentos = []
     registro.fallar = {}
 
-    def enviar(destinatario, asunto, cuerpo, transport=None):
+    def enviar(destinatario, asunto, cuerpo, cuerpo_html=None, transport=None):
         registro.intentos.append(destinatario)
         if destinatario in registro.fallar:
             raise registro.fallar[destinatario]
         registro.enviados.append((destinatario, asunto, cuerpo))
+        registro.htmls.append(cuerpo_html)
 
     monkeypatch.setattr(n8n_client, "enviar_email", enviar)
     return registro

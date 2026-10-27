@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     N8N_WEBHOOK_URL: str = ""
     N8N_WEBHOOK_TOKEN: str = ""
 
+    # Identidad del mail institucional. El logo tiene que ser una URL pública (Gmail no muestra
+    # `data:` ni `localhost`); vacío = el mail lleva solo el nombre de la institución.
+    EMAIL_INSTITUCION_NOMBRE: str = "ESSERI"
+    EMAIL_INSTITUCION_PIE: str = ""
+    EMAIL_LOGO_URL: str = ""
+
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
 
     @model_validator(mode="after")

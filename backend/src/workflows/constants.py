@@ -147,3 +147,12 @@ MAX_DESTINATARIOS_POR_EJECUCION = 50
 CAMPOS_RESERVADOS_RESUMEN: frozenset[tuple[str, str]] = frozenset(
     {("inasistencia.justificada", "motivo")}
 )
+
+# Botón opcional de los mails: clave -> (ruta de la app, texto del botón). El destino sale de acá,
+# nunca de la configuración libre de la regla. Solo pantallas que funcionan hoy.
+EnlaceMail = Literal["familia_justificar", "ejecuciones", "tareas"]
+ENLACES_MAIL: dict[EnlaceMail, tuple[str, str]] = {
+    "familia_justificar": ("/familia/justificar-ausencia", "Justificar la inasistencia"),
+    "ejecuciones": ("/workflows/ejecuciones", "Revisar en ESSERI"),
+    "tareas": ("/workflows/tareas", "Ver mis tareas"),
+}
