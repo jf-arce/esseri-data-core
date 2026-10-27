@@ -27,8 +27,12 @@ from src.facturacion import (
     vencimientos_service,
 )
 from src.facturacion.calendario_facturacion import fecha_operativa_argentina
-from src.facturacion.dependencies import obtener_concepto_cobro_o_404, obtener_factura_o_404
-from src.facturacion.models import ConceptoCobro, Factura
+from src.facturacion.dependencies import (
+    obtener_concepto_cobro_o_404,
+    obtener_factura_o_404,
+    obtener_pago_accesible_o_404,
+)
+from src.facturacion.models import ConceptoCobro, Factura, Pago
 from src.facturacion.schemas import (
     ConceptoCobroCreate,
     ConceptoCobroRead,
@@ -65,7 +69,11 @@ from src.facturacion.schemas import (
     ResponsableEconomicoRead,
     ResumenVencimientos,
 )
-from src.familias_alumnos.dependencies import obtener_alumno_o_404, obtener_familia_o_404
+from src.familias_alumnos.dependencies import (
+    FamiliaActiva,
+    obtener_alumno_o_404,
+    obtener_familia_o_404,
+)
 from src.familias_alumnos.models import Alumno, Familia
 
 router = APIRouter(prefix="/facturacion", tags=["facturacion"])
@@ -79,6 +87,15 @@ ConceptoCobroActual = Annotated[ConceptoCobro, Depends(obtener_concepto_cobro_o_
 FacturaActual = Annotated[Factura, Depends(obtener_factura_o_404)]
 AlumnoActual = Annotated[Alumno, Depends(obtener_alumno_o_404)]
 FamiliaActual = Annotated[Familia, Depends(obtener_familia_o_404)]
+PagoActual = Annotated[Pago, Depends(obtener_pago_accesible_o_404)]
+
+
+def _denegar_consulta_administrativa_familia(familia_activa: Familia | None) -> None:
+    if familia_activa is not None:
+        raise HTTPException(
+            status_code=403,
+            detail="Esta consulta administrativa no está disponible para el rol Familia",
+        )
 
 
 @router.get("/familia/me", response_model=FacturacionFamiliaRead)
@@ -264,6 +281,7 @@ def obtener_cuenta_corriente(
 def listar_deuda_por_familia(
     db: DbSession,
     _: PuedeLeer,
+    familia_activa: FamiliaActiva,
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanio: Annotated[int, Query(ge=1, le=100)] = 20,
     estado: EstadoDeudaFamilia | None = None,
@@ -277,6 +295,7 @@ def listar_deuda_por_familia(
         tamanio=tamanio,
         estado=estado,
         buscar=buscar,
+        familia_id=familia_activa.id if familia_activa is not None else None,
     )
     return DeudaFamiliaListadoRead(
         items=[DeudaFamiliaRead.model_validate(item) for item in items],
@@ -295,6 +314,7 @@ def crear_factura(datos: FacturaCreate, db: DbSession, usuario: PuedeCrear) -> F
 def listar_facturas(
     db: DbSession,
     _: PuedeLeer,
+    familia_activa: FamiliaActiva,
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanio: Annotated[int, Query(ge=1, le=100)] = 20,
     alumno_id: uuid.UUID | None = None,
@@ -309,6 +329,7 @@ def listar_facturas(
         pagina=pagina,
         tamanio=tamanio,
         alumno_id=alumno_id,
+        familia_id=familia_activa.id if familia_activa is not None else None,
         concepto_cobro_id=concepto_cobro_id,
         estado=estado,
         buscar=buscar,
@@ -373,8 +394,8 @@ def registrar_pago(
 
 
 @router.get("/pagos/{pago_id}/comprobante")
-def descargar_comprobante_pago(pago_id: uuid.UUID, db: DbSession, _: PuedeLeer) -> Response:
-    archivo = facturas_service.obtener_comprobante_pago(db, pago_id)
+def descargar_comprobante_pago(db: DbSession, _: PuedeLeer, pago: PagoActual) -> Response:
+    archivo = facturas_service.obtener_comprobante_pago(db, pago.id)
     if archivo is None:
         raise HTTPException(status_code=404, detail="El pago no tiene comprobante adjunto.")
     return Response(
@@ -413,14 +434,21 @@ def crear_regla_facturacion(
 
 
 @router.get("/reglas")
-def listar_reglas_facturacion(db: DbSession, _: PuedeLeer) -> list[ReglaFacturacionRead]:
+def listar_reglas_facturacion(
+    db: DbSession, _: PuedeLeer, familia_activa: FamiliaActiva
+) -> list[ReglaFacturacionRead]:
+    _denegar_consulta_administrativa_familia(familia_activa)
     return reglas_facturacion_service.listar_reglas_facturacion_read(db)
 
 
 @router.post("/reglas/generaciones/previsualizar")
 def previsualizar_generacion_facturacion(
-    datos: GeneracionFacturacionRequest, db: DbSession, _: PuedeLeer
+    datos: GeneracionFacturacionRequest,
+    db: DbSession,
+    _: PuedeLeer,
+    familia_activa: FamiliaActiva,
 ) -> GeneracionFacturacionResumenRead:
+    _denegar_consulta_administrativa_familia(familia_activa)
     plan = reglas_facturacion_service.planificar_generacion_facturacion(db, datos.periodo)
     return reglas_facturacion_service.resumen_plan_generacion(plan)
 
@@ -436,15 +464,21 @@ def generar_facturacion(
 def listar_ejecuciones_facturacion(
     db: DbSession,
     _: PuedeLeer,
+    familia_activa: FamiliaActiva,
     limite: Annotated[int, Query(ge=1, le=500)] = 100,
 ) -> list[EjecucionFacturacionRead]:
+    _denegar_consulta_administrativa_familia(familia_activa)
     return reglas_facturacion_service.listar_ejecuciones_facturacion(db, limite)
 
 
 @router.get("/reglas/{regla_id}")
 def obtener_regla_facturacion(
-    regla_id: uuid.UUID, db: DbSession, _: PuedeLeer
+    regla_id: uuid.UUID,
+    db: DbSession,
+    _: PuedeLeer,
+    familia_activa: FamiliaActiva,
 ) -> ReglaFacturacionRead:
+    _denegar_consulta_administrativa_familia(familia_activa)
     return reglas_facturacion_service.regla_facturacion_read(
         db, reglas_facturacion_service.obtener_regla_o_error(db, regla_id)
     )

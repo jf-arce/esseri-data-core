@@ -1,7 +1,5 @@
 import type { DetalleFactura, EstadoFactura } from '@/modules/facturacion/types'
 
-const ZONA_HORARIA_ARGENTINA = 'America/Argentina/Buenos_Aires'
-
 export function formatearMoneda(valor: string | number) {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
@@ -16,18 +14,6 @@ export function formatearFechaFactura(valor: string) {
     month: '2-digit',
     year: 'numeric',
   }).format(new Date(`${valor}T00:00:00`))
-}
-
-export function formatearFechaHora(valor: string) {
-  return new Intl.DateTimeFormat('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: ZONA_HORARIA_ARGENTINA,
-    timeZoneName: 'short',
-  }).format(new Date(valor))
 }
 
 export function etiquetaEstadoFactura(estado: EstadoFactura) {

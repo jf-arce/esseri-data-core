@@ -18,6 +18,8 @@ from src.auth.exceptions import PermisoDenegado
 from src.auth.models import Usuario
 from src.database import get_db
 from src.exports import respuesta_csv, texto_o_vacio
+from src.familias_alumnos.dependencies import FamiliaActiva
+from src.familias_alumnos.service import familia_tiene_alumno
 from src.inscripciones import admisiones_service, matriculas_service, opciones_service
 from src.inscripciones.schemas import (
     AltaIntegradaAdmisionCreate,
@@ -73,6 +75,7 @@ def listar_inscripciones(
     db: DbSession,
     usuario: PuedeLeer,
     rol_activo: RolActivo,
+    familia_activa: FamiliaActiva,
     ciclo_lectivo: Annotated[str | None, Query(min_length=1, max_length=20)] = None,
     estado: Annotated[Literal["activa", "finalizada", "baja"] | None, Query()] = None,
     tipo: Annotated[
@@ -99,6 +102,7 @@ def listar_inscripciones(
         estado=estado,
         tipo=tipo,
         alumno_id=alumno_id,
+        familia_id=familia_activa.id if familia_activa is not None else None,
         division_id=division_id,
         buscar=buscar,
         ordenar_por=ordenar_por,
@@ -156,23 +160,42 @@ def exportar_inscripciones(
 def obtener_resumen_inscripciones(
     db: DbSession,
     _: PuedeLeer,
+    familia_activa: FamiliaActiva,
     ciclo_lectivo: Annotated[str | None, Query(min_length=4, max_length=4)] = None,
 ) -> InscripcionesResumenRead:
-    return matriculas_service.obtener_resumen_inscripciones(db, ciclo_lectivo)
+    return matriculas_service.obtener_resumen_inscripciones(
+        db,
+        ciclo_lectivo,
+        familia_id=familia_activa.id if familia_activa is not None else None,
+    )
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 def crear_inscripcion(
-    datos: InscripcionNuevaCreate, db: DbSession, usuario: PuedeCrear
+    datos: InscripcionNuevaCreate,
+    db: DbSession,
+    usuario: PuedeCrear,
+    familia_activa: FamiliaActiva,
 ) -> InscripcionRead:
+    if familia_activa is not None and not familia_tiene_alumno(
+        db, familia_activa.id, datos.alumno_id
+    ):
+        raise PermisoDenegado("No tenés acceso a este alumno")
     inscripcion = matriculas_service.crear_inscripcion_nueva(db, datos, usuario.id)
     return InscripcionRead.model_validate(inscripcion)
 
 
 @router.post("/reinscripciones", status_code=status.HTTP_201_CREATED)
 def crear_reinscripcion(
-    datos: ReinscripcionCreate, db: DbSession, usuario: PuedeCrear
+    datos: ReinscripcionCreate,
+    db: DbSession,
+    usuario: PuedeCrear,
+    familia_activa: FamiliaActiva,
 ) -> InscripcionRead:
+    if familia_activa is not None and not familia_tiene_alumno(
+        db, familia_activa.id, datos.alumno_id
+    ):
+        raise PermisoDenegado("No tenés acceso a este alumno")
     inscripcion = matriculas_service.crear_reinscripcion(db, datos, usuario.id)
     return InscripcionRead.model_validate(inscripcion)
 
@@ -189,6 +212,7 @@ def listar_solicitudes_inscripcion(
     db: DbSession,
     usuario: PuedeLeer,
     rol_activo: RolActivo,
+    familia_activa: FamiliaActiva,
     estado: Annotated[
         Literal["en_proceso", "aprobada", "rechazada", "desistida"] | None, Query()
     ] = None,
@@ -217,15 +241,23 @@ def listar_solicitudes_inscripcion(
         buscar=buscar,
         pagina=pagina,
         tamanio_pagina=tamanio_pagina,
+        usuario_id=usuario.id,
+        familia=familia_activa,
     )
 
 
 @router.get("/solicitudes/{solicitud_id}")
 def obtener_solicitud_inscripcion(
-    solicitud_id: uuid.UUID, db: DbSession, usuario: PuedeLeer, rol_activo: RolActivo
+    solicitud_id: uuid.UUID,
+    db: DbSession,
+    usuario: PuedeLeer,
+    rol_activo: RolActivo,
+    familia_activa: FamiliaActiva,
 ) -> SolicitudInscripcionRead:
     _denegar_consulta_administrativa_docente(db, usuario, rol_activo)
-    return admisiones_service.obtener_solicitud_inscripcion(db, solicitud_id)
+    return admisiones_service.obtener_solicitud_inscripcion(
+        db, solicitud_id, usuario_id=usuario.id, familia=familia_activa
+    )
 
 
 @router.put("/solicitudes/{solicitud_id}")
@@ -363,11 +395,16 @@ def obtener_archivo_documento_solicitud(
     solicitud_id: uuid.UUID,
     documento_id: uuid.UUID,
     db: DbSession,
-    _: PuedeLeer,
+    usuario: PuedeLeer,
+    familia_activa: FamiliaActiva,
     descargar: Annotated[bool, Query()] = False,
 ) -> Response:
     documento = admisiones_service.obtener_archivo_documento_solicitud(
-        db, solicitud_id, documento_id
+        db,
+        solicitud_id,
+        documento_id,
+        usuario_id=usuario.id,
+        familia=familia_activa,
     )
     disposition = "attachment" if descargar else "inline"
     return Response(
@@ -427,11 +464,18 @@ def listar_solicitudes_disponibles(
     db: DbSession,
     usuario: PuedeLeer,
     rol_activo: RolActivo,
+    familia_activa: FamiliaActiva,
     buscar: Annotated[str | None, Query(max_length=100)] = None,
     limite: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> list[SolicitudInscripcionOpcionRead]:
     _denegar_consulta_administrativa_docente(db, usuario, rol_activo)
-    return opciones_service.listar_solicitudes_disponibles(db, buscar=buscar, limite=limite)
+    return opciones_service.listar_solicitudes_disponibles(
+        db,
+        buscar=buscar,
+        limite=limite,
+        usuario_id=usuario.id,
+        familia=familia_activa,
+    )
 
 
 @router.get("/opciones/divisiones")
@@ -444,6 +488,7 @@ def listar_alumnos_elegibles_reinscripcion(
     db: DbSession,
     usuario: PuedeLeer,
     rol_activo: RolActivo,
+    familia_activa: FamiliaActiva,
     ciclo_lectivo: Annotated[
         str,
         Query(min_length=4, max_length=4, pattern=r"^[1-9]\d{3}$"),
@@ -457,6 +502,7 @@ def listar_alumnos_elegibles_reinscripcion(
         ciclo_lectivo,
         buscar=buscar,
         limite=limite,
+        familia_id=familia_activa.id if familia_activa is not None else None,
     )
 
 
@@ -466,8 +512,13 @@ def obtener_inscripcion(
     db: DbSession,
     usuario: PuedeLeer,
     rol_activo: RolActivo,
+    familia_activa: FamiliaActiva,
 ) -> InscripcionRead:
     inscripcion = matriculas_service.obtener_inscripcion(db, inscripcion_id)
+    if familia_activa is not None and not familia_tiene_alumno(
+        db, familia_activa.id, inscripcion.alumno_id
+    ):
+        raise PermisoDenegado("No tenés acceso a esta inscripción")
     if _docente_acotado(db, usuario, rol_activo):
         if inscripcion.estado != "activa":
             raise PermisoDenegado("Solo podés consultar alumnos activos de tu división")

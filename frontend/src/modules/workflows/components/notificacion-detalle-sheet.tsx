@@ -1,3 +1,4 @@
+import { formatearFechaHora } from '@/lib/fechas'
 import { Link } from 'react-router'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +16,6 @@ import type { NotificacionEnviada } from '@/modules/workflows/types'
 import {
   ETIQUETA_DESTINATARIO_TIPO,
   ETIQUETA_ESTADO_ENVIO,
-  formatearFechaHora,
   VARIANTE_ESTADO_ENVIO,
 } from '@/modules/workflows/utils'
 

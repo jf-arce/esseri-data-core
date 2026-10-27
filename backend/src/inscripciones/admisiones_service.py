@@ -15,7 +15,7 @@ from src.facturacion.schemas import ResponsableEconomicoCreate
 from src.familias_alumnos import service as familias_alumnos_service
 from src.familias_alumnos.models import Alumno, Familia
 from src.familias_alumnos.schemas import VinculoCreate
-from src.inscripciones import matriculas_service
+from src.inscripciones import autorizacion_service, matriculas_service
 from src.inscripciones.exceptions import (
     ConflictoInscripcion,
     InscripcionInvalida,
@@ -226,6 +226,8 @@ def listar_solicitudes_inscripcion(
     buscar: str | None = None,
     pagina: int = 1,
     tamanio_pagina: int = 20,
+    usuario_id: uuid.UUID | None = None,
+    familia: Familia | None = None,
 ) -> SolicitudInscripcionListadoRead:
     filtros = []
     if estado:
@@ -241,6 +243,10 @@ def listar_solicitudes_inscripcion(
                 Persona.dni.ilike(patron),
             )
         )
+    if familia is not None:
+        if usuario_id is None:
+            raise ValueError("usuario_id es obligatorio para acotar solicitudes por familia")
+        filtros.append(autorizacion_service.filtro_solicitudes_de_familia(usuario_id, familia))
 
     base = (
         select(SolicitudInscripcion, Persona, NivelEducativo)
@@ -283,8 +289,21 @@ def listar_solicitudes_inscripcion(
     )
 
 
-def obtener_solicitud_inscripcion(db: Session, solicitud_id: uuid.UUID) -> SolicitudInscripcionRead:
-    return _respuesta_solicitud(db, _obtener_solicitud(db, solicitud_id))
+def obtener_solicitud_inscripcion(
+    db: Session,
+    solicitud_id: uuid.UUID,
+    *,
+    usuario_id: uuid.UUID | None = None,
+    familia: Familia | None = None,
+) -> SolicitudInscripcionRead:
+    solicitud = _obtener_solicitud(db, solicitud_id)
+    if familia is not None:
+        if usuario_id is None:
+            raise ValueError("usuario_id es obligatorio para acotar solicitudes por familia")
+        autorizacion_service.verificar_acceso_a_solicitud(
+            db, solicitud, usuario_id=usuario_id, familia=familia
+        )
+    return _respuesta_solicitud(db, solicitud)
 
 
 def actualizar_solicitud_inscripcion(
@@ -846,8 +865,22 @@ def registrar_documento_solicitud(
 
 
 def obtener_archivo_documento_solicitud(
-    db: Session, solicitud_id: uuid.UUID, documento_id: uuid.UUID
+    db: Session,
+    solicitud_id: uuid.UUID,
+    documento_id: uuid.UUID,
+    *,
+    usuario_id: uuid.UUID | None = None,
+    familia: Familia | None = None,
 ) -> DocumentoSolicitud:
+    if familia is not None:
+        if usuario_id is None:
+            raise ValueError("usuario_id es obligatorio para acotar solicitudes por familia")
+        autorizacion_service.verificar_acceso_a_solicitud(
+            db,
+            _obtener_solicitud(db, solicitud_id),
+            usuario_id=usuario_id,
+            familia=familia,
+        )
     documento = db.scalar(
         select(DocumentoSolicitud).where(
             DocumentoSolicitud.id == documento_id,

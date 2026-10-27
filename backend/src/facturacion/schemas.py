@@ -1,21 +1,13 @@
 """Modelos Pydantic: forma de los datos que entran y salen por la API de este módulo."""
 
 import uuid
-from datetime import UTC, date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-
-def _normalizar_instante_utc(value: datetime | None) -> datetime | None:
-    """Mantiene compatibilidad con filas históricas sin zona y serializa siempre UTC."""
-
-    if value is None:
-        return None
-    if value.tzinfo is None:
-        return value.replace(tzinfo=UTC)
-    return value.astimezone(UTC)
+from src.fechas import InstanteUtc
 
 
 class ConceptoCobroBase(BaseModel):
@@ -56,10 +48,8 @@ class ConceptoCobroRead(ConceptoCobroBase):
 
     id: uuid.UUID
     activo: bool
-    created_at: datetime
-    updated_at: datetime
-
-    _normalizar_timestamps = field_validator("created_at", "updated_at")(_normalizar_instante_utc)
+    created_at: InstanteUtc
+    updated_at: InstanteUtc
 
 
 class ResponsableEconomicoCreate(BaseModel):
@@ -80,9 +70,7 @@ class ResponsableEconomicoRead(BaseModel):
     fecha_solicitud_cambio: date | None
     alumno_id: uuid.UUID
     familia_id: uuid.UUID
-    updated_at: datetime
-
-    _normalizar_timestamps = field_validator("updated_at")(_normalizar_instante_utc)
+    updated_at: InstanteUtc
 
 
 FacturaEstado = Literal["pendiente", "vencida", "pagada"]
@@ -134,15 +122,13 @@ class FacturaRead(BaseModel):
     fecha_vencimiento: date
     monto_total: Decimal
     estado: FacturaEstado
-    updated_at: datetime
+    updated_at: InstanteUtc
     inscripcion_id: uuid.UUID
     responsable_economico_id: uuid.UUID
     alumno_id: uuid.UUID | None = None
     alumno_nombre: str | None = None
     alumno_apellido: str | None = None
     detalles: list[DetalleFacturaRead]
-
-    _normalizar_timestamps = field_validator("updated_at")(_normalizar_instante_utc)
 
 
 class FacturaListadoRead(BaseModel):
@@ -169,11 +155,9 @@ class PagoRead(BaseModel):
     comprobante: str | None
     estado: Literal["aprobado", "rechazado", "pendiente"]
     referencia_transaccion: str | None
-    fecha_operacion: datetime | None
+    fecha_operacion: InstanteUtc | None
     registrado_por: str | None
     metodo_pago: MetodoPagoRead
-
-    _normalizar_timestamps = field_validator("fecha_operacion")(_normalizar_instante_utc)
 
 
 class FacturaDetalleRead(FacturaRead):
@@ -187,7 +171,7 @@ class MovimientoCuentaCorrienteRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    fecha: datetime
+    fecha: InstanteUtc
     tipo: Literal["debe", "haber"]
     monto: Decimal
     observacion: str | None
@@ -195,8 +179,6 @@ class MovimientoCuentaCorrienteRead(BaseModel):
     concepto_nombre: str | None = None
     factura_id: uuid.UUID | None
     pago_id: uuid.UUID | None
-
-    _normalizar_timestamps = field_validator("fecha")(_normalizar_instante_utc)
 
 
 class CuentaCorrienteRead(BaseModel):
@@ -237,13 +219,11 @@ class FacturaFamiliaRead(BaseModel):
 
 
 class MovimientoFamiliaRead(BaseModel):
-    fecha: datetime
+    fecha: InstanteUtc
     tipo: Literal["debe", "haber"]
     monto: Decimal
     observacion: str | None
     factura_id: uuid.UUID
-
-    _normalizar_fecha = field_validator("fecha")(_normalizar_instante_utc)
 
 
 class FacturacionFamiliaRead(BaseModel):
@@ -361,12 +341,10 @@ class ReglaFacturacionRead(ReglaFacturacionBase):
 
     id: uuid.UUID
     estado: EstadoReglaFacturacion
-    created_at: datetime
-    updated_at: datetime
+    created_at: InstanteUtc
+    updated_at: InstanteUtc
     proxima_generacion: date | None = None
     ultima_ejecucion: "UltimaEjecucionReglaRead | None" = None
-
-    _normalizar_timestamps = field_validator("created_at", "updated_at")(_normalizar_instante_utc)
 
 
 class GeneracionFacturacionRequest(BaseModel):
@@ -392,7 +370,7 @@ class GeneracionFacturacionResumenRead(BaseModel):
 
 class EjecucionFacturacionRead(GeneracionFacturacionResumenRead):
     id: uuid.UUID
-    fecha_ejecucion: datetime
+    fecha_ejecucion: InstanteUtc
     facturas_generadas: int
     cargos_generados: int
     monto_total: Decimal
@@ -401,14 +379,12 @@ class EjecucionFacturacionRead(GeneracionFacturacionResumenRead):
     error_detalle: str | None
     regla_ids: list[uuid.UUID]
 
-    _normalizar_timestamps = field_validator("fecha_ejecucion")(_normalizar_instante_utc)
-
 
 class UltimaEjecucionReglaRead(BaseModel):
     """Último intento ligado a una regla, incluido si terminó parcial o fallido."""
 
     id: uuid.UUID
-    fecha_ejecucion: datetime
+    fecha_ejecucion: InstanteUtc
     periodo: date
     origen: Literal["manual", "automatica"]
     estado: Literal["exitosa", "parcial", "fallida"]
@@ -417,8 +393,6 @@ class UltimaEjecucionReglaRead(BaseModel):
     cargos_omitidos: int
     cargos_bloqueados: int
     error_detalle: str | None
-
-    _normalizar_timestamps = field_validator("fecha_ejecucion")(_normalizar_instante_utc)
 
 
 class ResumenVencimientos(BaseModel):
@@ -460,10 +434,8 @@ class ReglaPenalidadRead(ReglaPenalidadBase):
 
     id: uuid.UUID
     activo: bool
-    created_at: datetime
-    updated_at: datetime
-
-    _normalizar_timestamps = field_validator("created_at", "updated_at")(_normalizar_instante_utc)
+    created_at: InstanteUtc
+    updated_at: InstanteUtc
 
 
 class ExcepcionVencimientoCreate(BaseModel):
@@ -485,9 +457,7 @@ class ExcepcionVencimientoRead(BaseModel):
     familia_id: uuid.UUID
     fecha_vencimiento_excepcional: date
     motivo: str | None
-    created_at: datetime
+    created_at: InstanteUtc
     usuario_id: uuid.UUID
-    anulada_at: datetime | None
+    anulada_at: InstanteUtc | None
     usuario_anulacion_id: uuid.UUID | None
-
-    _normalizar_timestamps = field_validator("created_at", "anulada_at")(_normalizar_instante_utc)

@@ -1,3 +1,4 @@
+import { formatearFechaHora } from '@/lib/fechas'
 import { Link } from 'react-router'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -16,7 +17,6 @@ import {
   ETIQUETA_ESTADO_EJECUCION,
   duracionEjecucion,
   etiquetaEvento,
-  formatearFechaHora,
   VARIANTE_ESTADO_EJECUCION,
 } from '@/modules/workflows/utils'
 

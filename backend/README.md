@@ -28,6 +28,8 @@ pip install -r requirements/dev.txt
 cp .env.example .env            # completar DATABASE_URL, JWT_SECRET, etc.
 ```
 
+La app fija `timezone=UTC` en cada sesión de Postgres (`src/database.py`), así que `func.now()` en columnas `DateTime` sin zona guarda UTC aunque el servidor de base esté en otra zona. No hay variable de entorno para esto.
+
 ## Migraciones (Alembic)
 
 Nunca se escribe SQL a mano en `database/` — todo cambio de esquema se genera con Alembic desde acá:
@@ -68,6 +70,9 @@ Documentado aparte, en `docs/auth-oauth-google.md` — abarca todo el módulo Au
 frontend), no solo cómo levantar el backend. Ahí está el flujo de OAuth, cómo configurar las
 credenciales de Google, y cómo crear el primer usuario administrador
 (`database/seeds/00_bootstrap_admin.py`) para poder loguearse.
+
+`POST /auth/login` bloquea la IP tras demasiados fallidos; se ajusta con `LOGIN_MAX_INTENTOS`,
+`LOGIN_VENTANA_MINUTOS` y `LOGIN_BLOQUEO_MINUTOS` (ver "Bloqueo por intentos" en ese documento).
 
 ## Autorización por permisos (RF-30)
 
@@ -452,6 +457,16 @@ El detalle de una factura permite registrar pagos parciales o totales. Los compr
 que los requieran se guardan junto al pago en la base de datos; se aceptan PDF, JPG y PNG de hasta
 5 MB. La descarga de la factura se genera bajo demanda como PDF, sin almacenar una copia adicional.
 
+## Fechas y horas en la API
+
+En Auth, Workflows y Facturación los instantes salen en ISO 8601 UTC con `Z` (`2026-10-26T13:00:00Z`) y las fechas de solo día como `YYYY-MM-DD`. Los esquemas usan `InstanteUtc` (`src/fechas.py`), que agrega la zona al serializar.
+
+Las columnas `DateTime` sin zona de esos módulos guardan UTC: la sesión de Postgres está fijada en UTC (`func.now()` ya devuelve UTC) y las escrituras desde Python usan `ahora_utc()`, nunca `datetime.now()`.
+
+Todavía no lo cubre `academico`, `inscripciones`, `familias_alumnos`, `proveedores_compras` ni `AUDIT_LOG` (`log_audit` escribe con `datetime.now()` aunque lo llamen Auth y Workflows).
+
+Las filas de `finished_at`, `sent_at` y `fecha_vencimiento` de Workflows grabadas antes de este cambio con el backend corriendo en el host quedaron en hora local, y ahora se ven corridas (las tareas abiertas con esa marca vencen antes de tiempo). No hay migración de datos: si tu base de desarrollo se pobló así, volvé a poblarla.
+
 ## Tests
 
 ```bash
@@ -459,6 +474,22 @@ pytest
 ```
 
 Los tests usan una base SQLite en memoria (ver `tests/conftest.py`), no la base de `DATABASE_URL` — así corren sin depender de Postgres. Si el equipo prefiere testear contra un Postgres real, ajustar `TEST_DATABASE_URL` en `tests/conftest.py`.
+
+### Autorización de altas de Inscripciones
+
+`POST /inscripciones` y `POST /inscripciones/reinscripciones` requieren el permiso de
+creación. Con el rol activo Familia, el backend resuelve la familia desde la sesión y
+exige un vínculo persistido con el `alumno_id` del body antes de realizar escrituras.
+Un alumno no vinculado devuelve 403 (`No tenés acceso a este alumno`) sin crear la
+inscripción, auditorías ni eventos. Los roles administrativos conservan el acceso
+por sus permisos existentes; las validaciones del proceso de admisión y del ciclo
+anterior siguen vigentes.
+
+Para verificar el aislamiento con SQLite en memoria y datos sintéticos:
+
+```bash
+pytest -q tests/inscripciones/test_scoping_familia.py
+```
 
 ## Lint y formato
 

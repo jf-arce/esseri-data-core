@@ -205,8 +205,12 @@ def listar_deuda_por_familia(
     tamanio: int,
     estado: str | None = None,
     buscar: str | None = None,
+    familia_id: uuid.UUID | None = None,
 ) -> tuple[list[dict[str, object]], int]:
-    """Agrupa saldos por responsable económico usando solo movimientos contables."""
+    """Agrupa saldos por responsable económico usando solo movimientos contables.
+
+    `familia_id` acota el resultado a la propia familia (scoping del rol familia).
+    """
 
     debe = func.coalesce(
         func.sum(Movimiento.monto).filter(Movimiento.tipo == "debe"), Decimal("0.00")
@@ -236,8 +240,10 @@ def listar_deuda_por_familia(
             ResponsableEconomico.familia_id,
             Familia.persona_id,
         )
-        .subquery()
     )
+    if familia_id is not None:
+        por_factura = por_factura.where(ResponsableEconomico.familia_id == familia_id)
+    por_factura = por_factura.subquery()
     saldo_factura = por_factura.c.total_debe - por_factura.c.total_haber
     monto_pendiente = func.coalesce(
         func.sum(

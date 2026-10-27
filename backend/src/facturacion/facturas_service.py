@@ -36,7 +36,7 @@ from src.facturacion.models import (
     ResponsableEconomico,
 )
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate, FacturaUpdate
-from src.familias_alumnos.models import Alumno, Familia
+from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
 from src.workflows.eventos_service import emit_event
@@ -288,6 +288,10 @@ def registrar_pago(
     return pago
 
 
+def obtener_pago(db: Session, pago_id: uuid.UUID) -> Pago | None:
+    return db.get(Pago, pago_id)
+
+
 def obtener_comprobante_pago(db: Session, pago_id: uuid.UUID) -> ArchivoComprobantePago | None:
     return db.scalar(
         select(ArchivoComprobantePago).where(ArchivoComprobantePago.pago_id == pago_id)
@@ -377,6 +381,7 @@ def listar_facturas(
     pagina: int,
     tamanio: int,
     alumno_id: uuid.UUID | None = None,
+    familia_id: uuid.UUID | None = None,
     concepto_cobro_id: uuid.UUID | None = None,
     estado: str | None = None,
     buscar: str | None = None,
@@ -397,6 +402,12 @@ def listar_facturas(
     )
     if alumno_id is not None:
         filtros.append(Inscripcion.alumno_id == alumno_id)
+    if familia_id is not None:
+        filtros.append(
+            Inscripcion.alumno_id.in_(
+                select(FamiliaAlumno.alumno_id).where(FamiliaAlumno.familia_id == familia_id)
+            )
+        )
     if concepto_cobro_id is not None:
         filtros.append(Factura.detalles.any(DetalleFactura.concepto_cobro_id == concepto_cobro_id))
     if estado is not None:
