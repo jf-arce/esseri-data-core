@@ -21,9 +21,9 @@ import {
 
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-44', anchoAlt: 'h-4 w-36' },
-  { tipo: 'chip' },
+  { tipo: 'texto', ancho: 'h-4 w-16', clase: 'hidden lg:table-cell' },
   { tipo: 'texto', ancho: 'h-4 w-48', anchoAlt: 'h-4 w-40' },
-  { tipo: 'texto', ancho: 'h-4 w-32', anchoAlt: 'h-4 w-28' },
+  { tipo: 'texto', ancho: 'h-4 w-32', anchoAlt: 'h-4 w-28', clase: 'hidden lg:table-cell' },
   { tipo: 'texto', ancho: 'h-4 w-28' },
   { tipo: 'chip' },
   { tipo: 'accion' },
@@ -52,13 +52,13 @@ export function NotificacionesTabla({
 }: NotificacionesTablaProps) {
   return (
     <div className="overflow-hidden rounded-panel bg-superficie shadow-card">
-      <Table bare minWidth="min-w-[1040px]">
+      <Table bare minWidth="min-w-0">
         <TableHeader>
           <TableRow>
             <TableHead>Destinatario</TableHead>
-            <TableHead>Tipo</TableHead>
+            <TableHead className="hidden lg:table-cell">Tipo</TableHead>
             <TableHead>Asunto</TableHead>
-            <TableHead>Regla</TableHead>
+            <TableHead className="hidden lg:table-cell">Regla</TableHead>
             <TableHead>Enviada el</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead data-align="end">
@@ -72,12 +72,27 @@ export function NotificacionesTabla({
           ) : (
             items.map((notificacion) => (
               <TableRow key={notificacion.id}>
-                <TableCell className="font-medium">{notificacion.destinatario_snapshot}</TableCell>
-                <TableCell>{ETIQUETA_DESTINATARIO_TIPO[notificacion.destinatario_tipo]}</TableCell>
-                <TableCell className="max-w-xs truncate text-texto-2">
+                <TableCell
+                  className="max-w-[12rem] truncate font-medium sm:max-w-xs"
+                  title={notificacion.destinatario_snapshot}
+                >
+                  {notificacion.destinatario_snapshot}
+                </TableCell>
+                <TableCell className="hidden lg:table-cell">
+                  {ETIQUETA_DESTINATARIO_TIPO[notificacion.destinatario_tipo]}
+                </TableCell>
+                <TableCell
+                  className="max-w-[10rem] truncate text-texto-2 md:max-w-xs"
+                  title={notificacion.asunto_snapshot}
+                >
                   {notificacion.asunto_snapshot}
                 </TableCell>
-                <TableCell className="text-texto-2">{notificacion.workflow_rule_nombre}</TableCell>
+                <TableCell
+                  className="hidden max-w-[14rem] truncate text-texto-2 lg:table-cell"
+                  title={notificacion.workflow_rule_nombre}
+                >
+                  {notificacion.workflow_rule_nombre}
+                </TableCell>
                 <TableCell className="tabular-nums">
                   {notificacion.sent_at ? formatearFechaHora(notificacion.sent_at) : '—'}
                 </TableCell>

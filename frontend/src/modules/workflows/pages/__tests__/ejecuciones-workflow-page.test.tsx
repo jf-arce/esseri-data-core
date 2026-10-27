@@ -1,3 +1,4 @@
+import { abrirMenuDeFila, elegirAccion } from '@/modules/workflows/__tests__/menu-acciones'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
@@ -129,7 +130,7 @@ describe('EjecucionesWorkflowPage', () => {
   it('abre el detalle de una ejecución', async () => {
     renderPagina()
 
-    await userEvent.click(await screen.findByRole('button', { name: /Ver detalle/ }))
+    await elegirAccion(/Ver detalle/)
 
     expect(await screen.findByRole('dialog')).toHaveTextContent('La acción no pudo completarse.')
   })
@@ -142,7 +143,7 @@ describe('EjecucionesWorkflowPage', () => {
     mockedReintentar.mockResolvedValue({ ...reintentable, id: 'ej-2', intento: 2, estado })
     renderPagina()
 
-    await userEvent.click(await screen.findByRole('button', { name: /Reintentar/ }))
+    await elegirAccion(/Reintentar/)
 
     await waitFor(() => expect(toast[tipo]).toHaveBeenCalledTimes(1))
     expect(mockedReintentar).toHaveBeenCalledWith('ej-1')
@@ -153,7 +154,7 @@ describe('EjecucionesWorkflowPage', () => {
     mockedReintentar.mockRejectedValue(new ApiError(409, 'La regla fue modificada.'))
     renderPagina()
 
-    await userEvent.click(await screen.findByRole('button', { name: /Reintentar/ }))
+    await elegirAccion(/Reintentar/)
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('La regla fue modificada.'))
     await waitFor(() => expect(mockedListar).toHaveBeenCalledTimes(2))
@@ -164,9 +165,8 @@ describe('EjecucionesWorkflowPage', () => {
     mockedReintentar.mockReturnValue(new Promise((resolve) => (resolver = resolve)))
     renderPagina()
 
-    const boton = await screen.findByRole('button', { name: /Reintentar/ })
-    await userEvent.click(boton)
-    await userEvent.click(boton)
+    await elegirAccion(/Reintentar/)
+    await elegirAccion(/Reintentar/)
 
     expect(mockedReintentar).toHaveBeenCalledTimes(1)
     resolver({ ...reintentable, intento: 2 })
@@ -200,7 +200,7 @@ describe('EjecucionesWorkflowPage', () => {
       mockedAprobar.mockResolvedValue({ ...pendiente, estado: 'exitoso', aprobable: false })
       renderPagina()
 
-      await userEvent.click(await screen.findByRole('button', { name: /Aprobar/ }))
+      await elegirAccion(/Aprobar/)
 
       await waitFor(() => expect(mockedAprobar).toHaveBeenCalledWith('ej-1'))
       expect(toast.success).toHaveBeenCalledWith('La ejecución se aprobó y se completó.')
@@ -211,7 +211,7 @@ describe('EjecucionesWorkflowPage', () => {
       mockedAprobar.mockResolvedValue({ ...pendiente, estado: 'fallido', aprobable: false })
       renderPagina()
 
-      await userEvent.click(await screen.findByRole('button', { name: /Aprobar/ }))
+      await elegirAccion(/Aprobar/)
 
       await waitFor(() =>
         expect(toast.error).toHaveBeenCalledWith('La ejecución se aprobó, pero la acción falló.'),
@@ -224,7 +224,7 @@ describe('EjecucionesWorkflowPage', () => {
       )
       renderPagina()
 
-      await userEvent.click(await screen.findByRole('button', { name: /Aprobar/ }))
+      await elegirAccion(/Aprobar/)
 
       await waitFor(() =>
         expect(toast.error).toHaveBeenCalledWith('La regla cambió desde que quedó pendiente.'),
@@ -236,7 +236,7 @@ describe('EjecucionesWorkflowPage', () => {
       mockedRechazar.mockResolvedValue({ ...pendiente, estado: 'rechazado', aprobable: false })
       renderPagina()
 
-      await userEvent.click(await screen.findByRole('button', { name: /Rechazar/ }))
+      await elegirAccion(/Rechazar/)
       await userEvent.type(await screen.findByLabelText('Motivo'), '  Ya se resolvió  ')
       await userEvent.click(
         within(screen.getByRole('dialog')).getByRole('button', { name: 'Rechazar' }),
@@ -250,7 +250,7 @@ describe('EjecucionesWorkflowPage', () => {
     it('no deja rechazar sin motivo', async () => {
       renderPagina()
 
-      await userEvent.click(await screen.findByRole('button', { name: /Rechazar/ }))
+      await elegirAccion(/Rechazar/)
       const dialogo = await screen.findByRole('dialog')
       await userEvent.type(within(dialogo).getByLabelText('Motivo'), '   ')
 
@@ -261,7 +261,7 @@ describe('EjecucionesWorkflowPage', () => {
     it('cancelar el rechazo no llama al backend', async () => {
       renderPagina()
 
-      await userEvent.click(await screen.findByRole('button', { name: /Rechazar/ }))
+      await elegirAccion(/Rechazar/)
       await userEvent.click(await screen.findByRole('button', { name: 'Cancelar' }))
 
       expect(mockedRechazar).not.toHaveBeenCalled()
@@ -272,7 +272,7 @@ describe('EjecucionesWorkflowPage', () => {
       mockedAprobar.mockResolvedValue({ ...pendiente, estado: 'exitoso', aprobable: false })
       renderPagina()
 
-      await userEvent.click(await screen.findByRole('button', { name: /Ver detalle/ }))
+      await elegirAccion(/Ver detalle/)
       const detalle = await screen.findByRole('dialog')
       await userEvent.click(within(detalle).getByRole('button', { name: /Aprobar/ }))
 
@@ -290,7 +290,8 @@ describe('EjecucionesWorkflowPage', () => {
       renderPagina()
 
       await screen.findByText('Aviso de mora')
-      expect(screen.queryByRole('button', { name: /Aprobar|Rechazar/ })).not.toBeInTheDocument()
+      await abrirMenuDeFila()
+      expect(screen.queryByRole('menuitem', { name: /Aprobar|Rechazar/ })).not.toBeInTheDocument()
     })
 
     it('ignora un segundo clic mientras la decisión sigue pendiente', async () => {
@@ -298,9 +299,8 @@ describe('EjecucionesWorkflowPage', () => {
       mockedAprobar.mockReturnValue(new Promise((resolve) => (resolver = resolve)))
       renderPagina()
 
-      const boton = await screen.findByRole('button', { name: /Aprobar/ })
-      await userEvent.click(boton)
-      await userEvent.click(boton)
+      await elegirAccion(/Aprobar/)
+      await elegirAccion(/Aprobar/)
 
       expect(mockedAprobar).toHaveBeenCalledTimes(1)
       resolver({ ...pendiente, estado: 'exitoso', aprobable: false })
@@ -313,6 +313,7 @@ describe('EjecucionesWorkflowPage', () => {
     renderPagina()
 
     await screen.findByText('Aviso de mora')
-    expect(screen.queryByRole('button', { name: /Reintentar/ })).not.toBeInTheDocument()
+    await abrirMenuDeFila()
+    expect(screen.queryByRole('menuitem', { name: /Reintentar/ })).not.toBeInTheDocument()
   })
 })

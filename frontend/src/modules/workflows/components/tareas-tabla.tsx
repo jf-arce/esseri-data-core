@@ -1,10 +1,16 @@
 import { formatearDiaDeInstante } from '@/lib/fechas'
-import { CheckIcon, EyeIcon, PlayIcon } from 'lucide-react'
+import { CheckIcon, EyeIcon, MoreHorizontalIcon, PlayIcon } from 'lucide-react'
 import { PaginadorServidor } from '@/components/paginador-servidor'
 import { TableSkeleton, type ColumnaEsqueleto } from '@/components/table-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Table,
   TableBody,
@@ -25,9 +31,9 @@ import {
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-48', anchoAlt: 'h-4 w-36' },
   { tipo: 'texto', ancho: 'h-4 w-40', anchoAlt: 'h-4 w-32' },
+  { tipo: 'texto', ancho: 'h-4 w-16', clase: 'hidden lg:table-cell' },
   { tipo: 'chip' },
-  { tipo: 'chip' },
-  { tipo: 'texto', ancho: 'h-4 w-20' },
+  { tipo: 'texto', ancho: 'h-4 w-20', clase: 'hidden md:table-cell' },
   { tipo: 'accion' },
 ]
 
@@ -80,14 +86,14 @@ export function TareasTabla({
 }: TareasTablaProps) {
   return (
     <div className="overflow-hidden rounded-panel bg-superficie shadow-card">
-      <Table bare minWidth="min-w-[960px]">
+      <Table bare minWidth="min-w-0">
         <TableHeader>
           <TableRow>
             <TableHead>Tarea</TableHead>
             <TableHead>Asignada a</TableHead>
-            <TableHead>Prioridad</TableHead>
+            <TableHead className="hidden lg:table-cell">Prioridad</TableHead>
             <TableHead>Estado</TableHead>
-            <TableHead>Vence</TableHead>
+            <TableHead className="hidden md:table-cell">Vence</TableHead>
             <TableHead data-align="end">
               <span className="sr-only">Acciones</span>
             </TableHead>
@@ -100,13 +106,18 @@ export function TareasTabla({
             items.map((tarea) => (
               <TableRow key={tarea.id}>
                 <TableCell>
-                  <span className="font-medium">{tarea.titulo}</span>
+                  <span
+                    className="block max-w-[14rem] truncate font-medium sm:max-w-sm"
+                    title={tarea.titulo}
+                  >
+                    {tarea.titulo}
+                  </span>
                   {tarea.workflow_rule_nombre && (
                     <span className="block text-xs text-texto-3">{tarea.workflow_rule_nombre}</span>
                   )}
                 </TableCell>
                 <TableCell className="text-texto-2">{tarea.usuario_email}</TableCell>
-                <TableCell>
+                <TableCell className="hidden lg:table-cell">
                   <Badge variant={VARIANTE_PRIORIDAD_TAREA[tarea.prioridad]}>
                     {ETIQUETA_PRIORIDAD_TAREA[tarea.prioridad]}
                   </Badge>
@@ -116,7 +127,7 @@ export function TareasTabla({
                     {ETIQUETA_ESTADO_TAREA[tarea.estado]}
                   </Badge>
                 </TableCell>
-                <TableCell className="tabular-nums">
+                <TableCell className="hidden tabular-nums md:table-cell">
                   {tarea.fecha_vencimiento ? (
                     <span className={tarea.vencida ? 'font-medium text-error' : undefined}>
                       {formatearDiaDeInstante(tarea.fecha_vencimiento)}
@@ -127,21 +138,38 @@ export function TareasTabla({
                   )}
                 </TableCell>
                 <TableCell data-align="end">
-                  <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => onVerDetalle(tarea)}>
-                      <EyeIcon data-icon="inline-start" />
-                      Ver detalle
-                    </Button>
-                    {puedeAvanzar(tarea) &&
-                      estadosSiguientesTarea(tarea.estado).map((siguiente) => (
-                        <BotonAvanzar
-                          key={siguiente}
-                          estado={siguiente}
-                          disabled={avanzandoId === tarea.id}
-                          onClick={() => onAvanzar(tarea, siguiente)}
-                        />
-                      ))}
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Acciones para ${tarea.titulo}`}
+                      >
+                        <MoreHorizontalIcon />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onSelect={() => onVerDetalle(tarea)}>
+                        <EyeIcon className="text-petroleo" />
+                        Ver detalle
+                      </DropdownMenuItem>
+                      {puedeAvanzar(tarea) &&
+                        estadosSiguientesTarea(tarea.estado).map((siguiente) => (
+                          <DropdownMenuItem
+                            key={siguiente}
+                            disabled={avanzandoId === tarea.id}
+                            onSelect={() => onAvanzar(tarea, siguiente)}
+                          >
+                            {siguiente === 'completada' ? (
+                              <CheckIcon className="text-exito" />
+                            ) : (
+                              <PlayIcon className="text-petroleo" />
+                            )}
+                            {siguiente === 'completada' ? 'Completar' : 'Iniciar'}
+                          </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))

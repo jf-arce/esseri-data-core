@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { abrirMenuDeFila, elegirAccion } from '@/modules/workflows/__tests__/menu-acciones'
 import { describe, expect, it, vi } from 'vitest'
 import { EjecucionesWorkflowTabla } from '@/modules/workflows/components/ejecuciones-workflow-tabla'
 import type { EjecucionWorkflow } from '@/modules/workflows/types'
@@ -49,7 +50,7 @@ function renderTabla(props: Partial<Parameters<typeof EjecucionesWorkflowTabla>[
 }
 
 describe('EjecucionesWorkflowTabla', () => {
-  it('muestra regla, evento con nombre para el usuario y estado', () => {
+  it('muestra regla, evento con nombre para el usuario y estado', async () => {
     renderTabla()
 
     expect(screen.getByText('Aviso de mora')).toBeInTheDocument()
@@ -57,7 +58,7 @@ describe('EjecucionesWorkflowTabla', () => {
     expect(screen.getByText('Fallida')).toBeInTheDocument()
   })
 
-  it('muestra el resumen del evento debajo del nombre de la regla', () => {
+  it('muestra el resumen del evento debajo del nombre de la regla', async () => {
     renderTabla({
       items: [
         {
@@ -78,9 +79,27 @@ describe('EjecucionesWorkflowTabla', () => {
     const onVerDetalle = vi.fn()
     renderTabla({ onVerDetalle })
 
-    await userEvent.click(screen.getByRole('button', { name: /Ver detalle/ }))
+    await elegirAccion(/Ver detalle/)
 
     expect(onVerDetalle).toHaveBeenCalledWith(ejecucionFallida)
+  })
+
+  it('abre el detalle al hacer click en la fila', async () => {
+    const onVerDetalle = vi.fn()
+    renderTabla({ onVerDetalle })
+
+    await userEvent.click(screen.getByText('Aviso de mora'))
+
+    expect(onVerDetalle).toHaveBeenCalledWith(ejecucionFallida)
+  })
+
+  it('abrir el menú de acciones no abre el detalle', async () => {
+    const onVerDetalle = vi.fn()
+    renderTabla({ onVerDetalle })
+
+    await abrirMenuDeFila()
+
+    expect(onVerDetalle).not.toHaveBeenCalled()
   })
 
   it('cambia de página', async () => {
@@ -97,7 +116,7 @@ describe('EjecucionesWorkflowTabla', () => {
     const reintentable = { ...ejecucionFallida, reintentable: true }
     const { rerender } = renderTabla({ items: [reintentable], onReintentar })
 
-    await userEvent.click(screen.getByRole('button', { name: /Reintentar/ }))
+    await elegirAccion(/Reintentar/)
     expect(onReintentar).toHaveBeenCalledWith(reintentable)
 
     rerender(
@@ -118,19 +137,27 @@ describe('EjecucionesWorkflowTabla', () => {
         onRechazar={vi.fn()}
       />,
     )
-    expect(screen.queryByRole('button', { name: /Reintentar/ })).not.toBeInTheDocument()
+    await abrirMenuDeFila()
+    expect(screen.queryByRole('menuitem', { name: /Reintentar/ })).not.toBeInTheDocument()
   })
 
-  it('no ofrece "Reintentar" si la ejecución no es reintentable', () => {
+  it('no ofrece "Reintentar" si la ejecución no es reintentable', async () => {
     renderTabla()
 
-    expect(screen.queryByRole('button', { name: /Reintentar/ })).not.toBeInTheDocument()
+    await abrirMenuDeFila()
+
+    expect(screen.queryByRole('menuitem', { name: /Reintentar/ })).not.toBeInTheDocument()
   })
 
-  it('deshabilita el botón mientras se reintenta esa ejecución', () => {
+  it('deshabilita el botón mientras se reintenta esa ejecución', async () => {
     renderTabla({ items: [{ ...ejecucionFallida, reintentable: true }], reintentandoId: 'ej-1' })
 
-    expect(screen.getByRole('button', { name: /Reintentar/ })).toBeDisabled()
+    await abrirMenuDeFila()
+
+    expect(screen.getByRole('menuitem', { name: /Reintentar/ })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
   })
 
   describe('aprobación', () => {
@@ -146,30 +173,42 @@ describe('EjecucionesWorkflowTabla', () => {
       const onRechazar = vi.fn()
       renderTabla({ items: [aprobable], onAprobar, onRechazar })
 
-      await userEvent.click(screen.getByRole('button', { name: /Aprobar/ }))
-      await userEvent.click(screen.getByRole('button', { name: /Rechazar/ }))
+      await elegirAccion(/Aprobar/)
+      await elegirAccion(/Rechazar/)
 
       expect(onAprobar).toHaveBeenCalledWith(aprobable)
       expect(onRechazar).toHaveBeenCalledWith(aprobable)
     })
 
-    it('no los ofrece si la ejecución no es aprobable', () => {
+    it('no los ofrece si la ejecución no es aprobable', async () => {
       renderTabla({ items: [{ ...aprobable, aprobable: false }] })
 
-      expect(screen.queryByRole('button', { name: /Aprobar|Rechazar/ })).not.toBeInTheDocument()
+      await abrirMenuDeFila()
+
+      expect(screen.queryByRole('menuitem', { name: /Aprobar|Rechazar/ })).not.toBeInTheDocument()
     })
 
-    it('no los ofrece sin permiso de actualizar', () => {
+    it('no los ofrece sin permiso de actualizar', async () => {
       renderTabla({ items: [aprobable], puedeActualizar: false })
 
-      expect(screen.queryByRole('button', { name: /Aprobar|Rechazar/ })).not.toBeInTheDocument()
+      await abrirMenuDeFila()
+
+      expect(screen.queryByRole('menuitem', { name: /Aprobar|Rechazar/ })).not.toBeInTheDocument()
     })
 
-    it('deshabilita los botones mientras se decide una ejecución', () => {
+    it('deshabilita los botones mientras se decide una ejecución', async () => {
       renderTabla({ items: [aprobable], decidiendoId: 'ej-1' })
 
-      expect(screen.getByRole('button', { name: /Aprobar/ })).toBeDisabled()
-      expect(screen.getByRole('button', { name: /Rechazar/ })).toBeDisabled()
+      await abrirMenuDeFila()
+
+      expect(screen.getByRole('menuitem', { name: /Aprobar/ })).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      )
+      expect(screen.getByRole('menuitem', { name: /Rechazar/ })).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      )
     })
   })
 })
