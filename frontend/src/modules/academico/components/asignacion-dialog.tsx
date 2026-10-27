@@ -23,7 +23,6 @@ import {
   crearAsignacion,
   eliminarAsignacion,
 } from '@/modules/academico/services/asignaciones-docentes'
-import { listarMaterias } from '@/modules/academico/services/materias'
 import type { AsignacionDocente, Division, Docente, Materia } from '@/modules/academico/types'
 
 interface AsignacionDialogProps {
