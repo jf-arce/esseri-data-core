@@ -449,6 +449,22 @@ pytest
 
 Los tests usan una base SQLite en memoria (ver `tests/conftest.py`), no la base de `DATABASE_URL` — así corren sin depender de Postgres. Si el equipo prefiere testear contra un Postgres real, ajustar `TEST_DATABASE_URL` en `tests/conftest.py`.
 
+### Autorización de altas de Inscripciones
+
+`POST /inscripciones` y `POST /inscripciones/reinscripciones` requieren el permiso de
+creación. Con el rol activo Familia, el backend resuelve la familia desde la sesión y
+exige un vínculo persistido con el `alumno_id` del body antes de realizar escrituras.
+Un alumno no vinculado devuelve 403 (`No tenés acceso a este alumno`) sin crear la
+inscripción, auditorías ni eventos. Los roles administrativos conservan el acceso
+por sus permisos existentes; las validaciones del proceso de admisión y del ciclo
+anterior siguen vigentes.
+
+Para verificar el aislamiento con SQLite en memoria y datos sintéticos:
+
+```bash
+pytest -q tests/inscripciones/test_scoping_familia.py
+```
+
 ## Lint y formato
 
 ```bash

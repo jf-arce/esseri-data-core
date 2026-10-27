@@ -34,7 +34,15 @@ No se listan comandos acá porque cambian con el proyecto y este archivo quedar�
 
 Si necesitás correr algo (dev, test, lint, migraciones) leé el archivo correspondiente antes de asumir el comando. Si el comando que hace falta **no está documentado en ninguno de esos archivos**, no lo inventes — decilo explícitamente y agregalo a la fuente que corresponda (no acá, para no duplicar).
 
-Antes de dar por terminada una tarea de código, correr el lint y los tests de la capa que se tocó (según lo que digan esos archivos).
+Antes de dar por terminada una tarea de código, correr el lint y las verificaciones proporcionales de la capa que se tocó (según lo que digan esos archivos).
+
+### Estrategia de testing
+
+- Para cambios acotados, ejecutar primero solo los tests del módulo o archivos afectados. No repetir checks ya exitosos si el cambio posterior no los afecta.
+- Reservar la suite completa de frontend o backend para PR, entrega, cambios transversales o cuando el cambio pueda afectar más de un módulo.
+- No crear tests para cambios puramente visuales o de composición sin lógica. Agregarlos cuando haya reglas de negocio, validaciones, cálculos, estado o riesgo real de regresión.
+- Autenticación, permisos, facturación, migraciones y operaciones críticas requieren cobertura rigurosa y tests de acceso/denegación cuando corresponda.
+- Al cerrar la tarea, informar qué verificaciones se ejecutaron, cuáles se omitieron y por qué.
 
 ---
 
