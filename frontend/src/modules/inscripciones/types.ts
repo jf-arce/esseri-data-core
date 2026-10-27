@@ -156,6 +156,20 @@ export interface EtapaSolicitudAdmisionItem {
   usuario_id: string
 }
 
+export const TIPOS_DOCUMENTO_SOLICITUD_ADMISION = [
+  'DNI del aspirante',
+  'DNI del responsable o tutor',
+  'Partida de nacimiento',
+  'Certificado de vacunas',
+  'Ficha médica o apto físico',
+  'Contrato de matrícula',
+  'Comprobante de domicilio',
+  'Certificado de estudios o pase escolar',
+  'Otro',
+] as const
+
+export type TipoDocumentoSolicitudAdmision = (typeof TIPOS_DOCUMENTO_SOLICITUD_ADMISION)[number]
+
 export interface DocumentoSolicitudAdmision {
   id: string
   tipo_documento: string

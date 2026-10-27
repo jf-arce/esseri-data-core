@@ -12,6 +12,8 @@ Checks: Backend `pytest`, `ruff check src/ tests/`, `ruff format --check src/ te
 
 ## Tasks
 
+- **T6 [S2–S4]** Integrate cached `origin/main` (`4aebd2f`) in isolated branch `integration/portal-familia-facturacion`. Route: inline integration; delegated full-check runner, then independent verification for risk items 2 and 4. Status: checking; commit pending. No remote operation authorized.
+
 - **T1 [S2–S3]** Add the family-scoped billing read API and privacy tests. Route: inline; status: blocked (implementation/tests exist; lint, format, compile, and diff checks pass; user explicitly asked to skip pytest, leaving runtime privacy behavior unverified); commit: `34fad77`.
 - **T2 [S2–S3]** Replace the family billing placeholder with the read-only invoice/account/payment/receipt view and frontend tests. Route: inline; status: done (full Vitest 69 files/454 tests, `npm run lint`, `npm run format:check`, and `npm run build` pass; build reports a >500 KB chunk warning); commit: `34fad77`.
 - **T3 [S1–S3]** Run applicable backend/frontend checks, differential-check existing billing routes, perform browser verification if available, and complete the risk-gated assessment/verification. Route: inline plus required independent verifier; status: done with unavailable proof (manual security/diff review and static checks pass; native review was declined and the required independent verifier failed before producing a result; browser check unavailable); commit: `34fad77`.
@@ -19,6 +21,10 @@ Checks: Backend `pytest`, `ruff check src/ tests/`, `ruff format --check src/ te
 - **T5 [S4]** Repair PostgreSQL locking during integrated admission finalization. Route: inline; status: awaiting user runtime confirmation (Ruff, formatting, compile, PostgreSQL dialect lock-scope checks for `Alumno` and `Familia`, and diff check pass; pytest is not run per L16); commit: corrective work-unit commits.
 
 ## Log
+
+- **L34 (2026-10-27, user request, verbatim):** `tengo pendiente integrar los cambios que hice del portal famlia y la facturacion`. User approved an isolated local integration without publishing with `si` and superseded the pytest exclusion with `autorizo`.
+- **L35 (2026-10-27, integration evidence):** Created isolated worktree from `650a8ee`; merged cached `origin/main` at `4aebd2f` without committing. The sole conflict was `backend/src/inscripciones/matriculas_service.py`; retained origin/main, preserving equivalent entity-scoped locks and newer enrollment event behavior. Copied the original worktree's pending test correction without changing that worktree. `git diff --check` passed. Pytest and Ruff are not on PATH; runner availability is pending. No functional PASS claimed.
+- **L36 (2026-10-27, correction and verification):** Reused `crear_catalogo_evento_pago_registrado` in the billing test scenario after observing three failures caused by the newly integrated payment event prerequisite. Independent verification in external scratch passes all 989 backend tests, focused billing/admissions/lock tests (20), and seven adversarial probes covering financial isolation, denied receipt access, and PostgreSQL lock SQL. Frontend: 474 tests, lint, format, build pass (bundle-size warning only). Backend Ruff and format pass; parent spot check: five billing tests pass. Actual PostgreSQL execution remains unverified; no live database was used. Risk: items 2 and 4. T6 functional checks complete; native review and local commit evidence pending. Engram mirror pending synchronization.
 
 - **L1 (2026-10-24, original request, verbatim):** `como podemos dejar 100 productivo el portal de familia`
 - **L2 (2026-10-24, scope approval, verbatim):** `dale` — accepted the proposed first slice, family billing.

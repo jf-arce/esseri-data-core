@@ -7,6 +7,7 @@ import type {
   FiltrosSolicitudesAdmision,
   SolicitudAdmision,
   SolicitudesAdmisionListado,
+  TipoDocumentoSolicitudAdmision,
 } from '@/modules/inscripciones/types'
 
 export function listarSolicitudesAdmision(
@@ -103,17 +104,32 @@ export function revocarAprobacionSolicitudAdmision(id: string, motivo: string) {
 
 export function registrarDocumentoSolicitudAdmision(
   solicitudId: string,
-  tipoDocumento: string,
-  archivo: string,
+  tipoDocumento: TipoDocumentoSolicitudAdmision,
+  archivo: File,
 ) {
+  const datos = new FormData()
+  datos.append('tipo_documento', tipoDocumento)
+  datos.append('archivo', archivo)
+
   return apiClient<DocumentoSolicitudAdmision>(
-    `/inscripciones/solicitudes/${solicitudId}/documentos`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tipo_documento: tipoDocumento.trim(), archivo: archivo.trim() }),
-    },
+    '/inscripciones/solicitudes/' + solicitudId + '/documentos',
+    { method: 'POST', body: datos },
   )
+}
+
+export function urlArchivoDocumentoSolicitudAdmision(
+  solicitudId: string,
+  documentoId: string,
+  descargar = false,
+) {
+  const path =
+    '/inscripciones/solicitudes/' +
+    encodeURIComponent(solicitudId) +
+    '/documentos/' +
+    encodeURIComponent(documentoId) +
+    '/archivo'
+  const query = descargar ? '?descargar=true' : ''
+  return import.meta.env.VITE_API_URL + path + query
 }
 
 export function actualizarDocumentoSolicitudAdmision(

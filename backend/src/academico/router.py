@@ -4,7 +4,17 @@ import uuid
 from datetime import date
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -63,6 +73,7 @@ from src.academico.schemas import (
     DivisionUpdate,
     DocenteCreate,
     DocenteDesdeUsuarioCreate,
+    DocentePerfilResponse,
     DocenteResponse,
     DocenteUpdate,
     JustificacionFamiliaResponse,
@@ -74,6 +85,7 @@ from src.academico.schemas import (
     NivelEducativoCreate,
     NivelEducativoResponse,
     NivelEducativoUpdate,
+    SeguimientoDivisionItem,
 )
 from src.academico.service import (
     actualizar_anio,
@@ -116,10 +128,13 @@ from src.academico.service import (
     listar_materias_por_anio,
     listar_materias_por_division,
     listar_niveles_educativos,
+    obtener_perfil_docente,
+    obtener_seguimiento_division_docente,
     registrar_asistencia,
     registrar_asistencia_masiva,
     resolver_justificacion,
     verificar_acceso_a_asistencia,
+    verificar_acceso_a_division,
 )
 from src.auth.constants import (
     PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
@@ -134,7 +149,11 @@ from src.auth.dependencies import RolActivo, UsuarioAutenticado, requiere_permis
 from src.auth.models import Usuario
 from src.database import get_db
 from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
+from src.inscripciones.matriculas_service import (
+    listar_inscripciones as listar_inscripciones_service,
+)
 from src.inscripciones.models import Asistencia, Inscripcion
+from src.inscripciones.schemas import InscripcionListadoRead
 from src.models import Persona
 
 router = APIRouter(prefix="/academico", tags=["academico"])
@@ -497,6 +516,7 @@ def crear_docente_desde_usuario_endpoint(
 @router.get("/docentes/me/divisiones", response_model=list[MiDivisionResponse])
 def mis_divisiones_endpoint(
     usuario: UsuarioAutenticado,
+    ciclo_lectivo: Annotated[str | None, Query(min_length=1, max_length=20)] = None,
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[MiDivisionResponse]:
     """Divisiones asignadas al docente autenticado. Dato propio: solo requiere sesión, no
@@ -504,10 +524,73 @@ def mis_divisiones_endpoint(
     para que "me" no matchee como un UUID."""
     if usuario.persona_id is None:
         return []
+    ciclo_consultado = ciclo_lectivo or str(date.today().year)
     return [
-        MiDivisionResponse(division_id=division_id, etiqueta=etiqueta)
-        for division_id, etiqueta in divisiones_de_persona(db, usuario.persona_id)
+        MiDivisionResponse(
+            division_id=division_id,
+            etiqueta=etiqueta,
+            anio_numero=anio_numero,
+            nivel_educativo_nombre=nivel_educativo_nombre,
+        )
+        for division_id, etiqueta, anio_numero, nivel_educativo_nombre in divisiones_de_persona(
+            db, usuario.persona_id, ciclo_consultado
+        )
     ]
+
+
+@router.get("/docentes/me/perfil", response_model=DocentePerfilResponse)
+def perfil_docente_actual_endpoint(
+    usuario: UsuarioAutenticado,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> DocentePerfilResponse:
+    """Devolver el nombre real del perfil docente de la propia cuenta autenticada."""
+    persona = obtener_perfil_docente(db, usuario.id)
+    if persona is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No se encontró el perfil docente autenticado",
+        )
+    return DocentePerfilResponse(nombre=persona.nombre, apellido=persona.apellido)
+
+
+@router.get(
+    "/docentes/me/divisiones/{division_id}/alumnos",
+    response_model=InscripcionListadoRead,
+)
+def alumnos_de_mi_division_endpoint(
+    division_id: uuid.UUID,
+    ciclo_lectivo: Annotated[str, Query(min_length=1, max_length=20)],
+    usuario: UsuarioAutenticado,
+    rol_activo: RolActivo,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> InscripcionListadoRead:
+    """Roster activo de una división del ciclo asignado al usuario autenticado."""
+    verificar_acceso_a_division(db, usuario.id, division_id, rol_activo, ciclo_lectivo)
+    return listar_inscripciones_service(
+        db,
+        ciclo_lectivo=ciclo_lectivo,
+        estado="activa",
+        division_id=division_id,
+        pagina=1,
+        tamanio_pagina=100,
+    )
+
+
+@router.get(
+    "/docentes/me/divisiones/{division_id}/seguimiento",
+    response_model=list[SeguimientoDivisionItem],
+)
+def seguimiento_de_mi_division_endpoint(
+    division_id: uuid.UUID,
+    ciclo_lectivo: Annotated[str, Query(min_length=4, max_length=4, pattern=r"^\d{4}$")],
+    usuario: UsuarioAutenticado,
+    rol_activo: RolActivo,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[dict[str, object]]:
+    """Indicadores de inasistencia calculados con registros reales del ciclo."""
+    return obtener_seguimiento_division_docente(
+        db, usuario.id, rol_activo, division_id, ciclo_lectivo
+    )
 
 
 @router.get("/docentes/{docente_id}", response_model=DocenteResponse)
@@ -651,13 +734,14 @@ def listar_asistencias_endpoint(
     fecha_desde: date | None = None,
     fecha_hasta: date | None = None,
     division_id: uuid.UUID | None = None,
+    ciclo_lectivo: str | None = None,
     db: Session = Depends(get_db),  # noqa: B008
-) -> list[Asistencia]:
+) -> list[AsistenciaResponse]:
     """Listar registros de asistencia con filtros opcionales.
 
     Soporta fecha exacta o rango con fecha_desde/fecha_hasta (inclusive).
     """
-    return listar_asistencias(
+    registros = listar_asistencias(
         db,
         usuario.id,
         rol_activo,
@@ -666,7 +750,23 @@ def listar_asistencias_endpoint(
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
         division_id=division_id,
+        ciclo_lectivo=ciclo_lectivo,
     )
+    if not registros:
+        return []
+    estados = dict(
+        db.query(JustificacionInasistencia.asistencia_id, JustificacionInasistencia.estado)
+        .filter(
+            JustificacionInasistencia.asistencia_id.in_([registro.id for registro in registros])
+        )
+        .all()
+    )
+    return [
+        AsistenciaResponse.model_validate(registro).model_copy(
+            update={"justificacion_estado": estados.get(registro.id)}
+        )
+        for registro in registros
+    ]
 
 
 @router.get(

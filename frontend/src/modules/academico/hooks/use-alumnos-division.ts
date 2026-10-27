@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '@/api/client'
 import { listarInscripciones } from '@/modules/inscripciones/services/listar-inscripciones'
+import { listarAlumnosDivisionDocente } from '@/modules/academico/services/docente-academico'
 import type { InscripcionListadoItem } from '@/modules/inscripciones/types'
 
 // Compartido por "Tomar asistencia" e "Historial de asistencia": el roster de inscripciones
 // activas de una división. `listarInscripciones` no filtra por división en el backend (el
 // filtro real es a nivel de asistencia, vía `verificar_acceso_a_division`), así que se trae
 // una página razonable y se filtra acá.
-export function useAlumnosDivision(divisionId: string | null) {
+export function useAlumnosDivision(
+  divisionId: string | null,
+  opciones?: { cicloLectivo: string; portalDocente: boolean },
+) {
+  const cicloLectivo = opciones?.cicloLectivo
+  const portalDocente = opciones?.portalDocente
   const [alumnos, setAlumnos] = useState<InscripcionListadoItem[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -23,7 +29,10 @@ export function useAlumnosDivision(divisionId: string | null) {
     setCargando(true)
     setError(null)
     try {
-      const respuesta = await listarInscripciones({ pagina: 1, tamanioPagina: 100 })
+      const respuesta =
+        portalDocente && cicloLectivo
+          ? await listarAlumnosDivisionDocente(divisionId, cicloLectivo)
+          : await listarInscripciones({ pagina: 1, tamanioPagina: 100 })
       const delaDivision = respuesta.items.filter(
         (insc) => insc.division_id === divisionId && insc.estado === 'activa',
       )
@@ -38,7 +47,7 @@ export function useAlumnosDivision(divisionId: string | null) {
     } finally {
       setCargando(false)
     }
-  }, [divisionId])
+  }, [divisionId, cicloLectivo, portalDocente])
 
   useEffect(() => {
     let cancelado = false

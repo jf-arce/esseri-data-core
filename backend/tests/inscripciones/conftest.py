@@ -11,8 +11,32 @@ from src.auth.constants import (
     MODULO_INSCRIPCIONES,
 )
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
+from src.workflows.models import CampoEvento, TipoEvento
 
 PASSWORD_VALIDA = "una-contrasenia-larga"
+
+
+def crear_catalogo_evento_cambio_matricula(db_session) -> TipoEvento:
+    """Replica el catálogo de producción requerido por un cambio de matrícula."""
+    tipo = TipoEvento(nombre="inscripcion.cambio_matricula", descripcion="Cambio de matrícula")
+    db_session.add(tipo)
+    db_session.flush()
+    db_session.add_all(
+        [
+            CampoEvento(
+                nombre_interno=nombre,
+                etiqueta=etiqueta,
+                tipo_dato=tipo_dato,
+                tipo_evento_id=tipo.id,
+            )
+            for nombre, etiqueta, tipo_dato in (
+                ("alumno_nombre", "Nombre del alumno", "texto"),
+                ("tipo_cambio", "Tipo de cambio", "texto"),
+                ("fecha", "Fecha del cambio", "fecha"),
+            )
+        ]
+    )
+    return tipo
 
 
 @pytest.fixture()

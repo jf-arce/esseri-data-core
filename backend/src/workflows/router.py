@@ -306,5 +306,8 @@ def reemplazar_destinatarios_regla(
 
 @router.post("/procesar", response_model=ResumenDespacho)
 def procesar_eventos_pendientes(db: DbSession, _: PuedeActualizar):
-    """Corre una pasada del despachador sin esperar al job periódico (útil para probar)."""
-    return despacho_service.procesar_eventos_pendientes(db)
+    """Corre una pasada del despachador sin esperar al job periódico (útil para probar). Incluye
+    los recordatorios que ya cumplieron sus `dias_despues`."""
+    resumen = despacho_service.procesar_eventos_pendientes(db)
+    resumen.recordatorios_ejecutados = despacho_service.procesar_recordatorios_vencidos(db)
+    return resumen

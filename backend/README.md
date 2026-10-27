@@ -204,15 +204,16 @@ instancias del backend, `FOR UPDATE SKIP LOCKED` evita que dos procesen el mismo
 
 Ya emiten: Proveedores y Compras, `orden_compra.emitida` (en `crear_orden_compra`) y
 `recepcion_compra.registrada` (en `crear_recepcion`); Académico, `inasistencia.registrada` e
-`inasistencia.justificada`. El resto lo agrega el módulo dueño del hecho:
+`inasistencia.justificada`; Inscripciones, `inscripcion.cambio_matricula` (en
+`registrar_cambio_matricula`); y Facturación, `pago.registrado` (en `registrar_pago`). El resto lo
+agrega el módulo dueño del hecho:
 
 | Evento | Dónde iría | Payload |
 |---|---|---|
-| `inscripcion.cambio_matricula` | Inscripciones: `registrar_cambio_matricula` | `alumno_nombre`, `tipo_cambio` (`nivel` o `division`), `fecha` |
 | `factura.vencida` | Facturación: `vencimientos_service.py` al entrar la factura en un tramo de mora | `dias_vencido`, `monto_deuda`, `nombre_familia` |
 | `inscripcion.confirmada` | Inscripciones: al crear la `INSCRIPCION` nueva desde la solicitud (`matriculas_service.py`) | `alumno_nombre`, `nivel_educativo`, `fecha` |
 | `solicitud_compra.aprobada` | Compras: `cambiar_estado_solicitud` cuando pasa a `aprobada` | `item`, `cantidad`, `fecha` |
-| `solicitud_inscripcion.aprobada`, `pago.registrado`, `pago.rechazado` | Admisiones y Facturación | ver `grupo-b.yaml` |
+| `solicitud_inscripcion.aprobada`, `pago.rechazado` | Admisiones y Facturación | ver `grupo-b.yaml` |
 
 En `solicitud_compra.aprobada`, `item` es un solo campo que nunca puede ser nulo: el `articulo` o,
 si la solicitud usa `producto_servicio_id`, el nombre del producto. No se agregan `articulo` ni
@@ -259,8 +260,11 @@ por el inicio de la ejecución (la más reciente primero), porque `NOTIFICACION`
 y `sent_at` es `NULL` en las fallidas. Un reintento aparece como filas nuevas con su `intento`.
 
 **Estado actual:** `notificar`, `alerta_interna`, `aplicar_vencimiento`, `cambiar_estado`,
-`aplicar_penalidad`, `crear_tarea` y `escalar_caso` tienen ejecutor real. El resto de `ACCIONES` (`despacho_service.py`) sigue con un stub por dueño
-que devuelve "acción no implementada", así que una regla sin aprobación humana queda `fallido`
+`aplicar_penalidad`, `crear_tarea`, `escalar_caso` y `generar_recordatorio` tienen ejecutor real.
+Facturación además emite `pago.registrado` al confirmar un pago aprobado, antes de confirmar la misma
+transacción que escribe el pago y el movimiento de cuenta corriente. El resto de `ACCIONES`
+(`despacho_service.py`) sigue con un stub por dueño que devuelve "acción no implementada", así que una
+regla sin aprobación humana queda `fallido`
 hasta que su dueño lo reemplace (#199):
 
 | Acción | Archivo | Dueño |
@@ -270,7 +274,24 @@ hasta que su dueño lo reemplace (#199):
 | `generar_cargo` | `acciones_admision_service.py` | Carreon |
 | `registrar_rechazo` | `acciones_pagos_service.py` | Carreon |
 | `generar_orden_compra`, `generar_comunicacion` | `acciones_compras_service.py` | Canu |
-| `generar_recordatorio` | `acciones_recordatorio_service.py` | Arce |
+
+**`generar_recordatorio` (#218):** manda el mismo email que `notificar` (misma plantilla y mismos
+destinatarios, con la config de `generar_recordatorio`) pero `dias_despues` días después del evento, y
+solo si todavía corresponde. Para esperar sin tablas nuevas, el despachador saltea estas reglas al
+llegar el evento (`ACCIONES_DIFERIDAS`) y `procesar_recordatorios_vencidos` las ejecuta cuando se
+cumple el plazo: que la regla no tenga ejecución para un evento significa "todavía no le toca". Corre
+en la misma pasada del job (`despacho_job.py`) y con `POST /workflows/procesar`, que ahora informa
+`recordatorios_ejecutados`. Reglas de la búsqueda:
+
+- Solo se miran eventos `procesado` posteriores a la creación de la regla (como cualquier regla,
+  no actúa sobre lo anterior) y de los últimos `VENTANA_RECORDATORIOS_DIAS` (7) días después del
+  plazo: un evento más viejo (backend caído, regla apagada) ya no se recuerda.
+- La `condicion` se evalúa al vencer el plazo, igual que en el despacho; si no se cumple no queda
+  ejecución. Una regla con aprobación humana queda `pendiente` como cualquier otra, y un envío que
+  falla queda `fallido` y se reintenta desde el historial.
+- En eventos de `asistencia` el ejecutor no manda nada (y la ejecución queda `exitoso` con el motivo
+  en `detalle`) si la asistencia ya no existe, ya no está `ausente_pendiente` o la familia ya cargó una
+  justificación, aunque esté por revisar.
 
 `aplicar_vencimiento` marca la factura `vencida` cuando ya pasó su fecha efectiva: la mayor entre
 su vencimiento y las excepciones de la familia del responsable económico. El día exacto todavía no
@@ -306,6 +327,12 @@ Tres acciones no se implementan y siguen sin ejecutor: `registrar_pago` y
 `actualizar_cuenta_corriente` (el pago y el libro de movimientos los escribe Facturación al
 registrar el pago, el motor no los duplica) y `crear_registro_relacionado` (el alta de alumno y
 familia desde la solicitud ya la hace Admisiones). Una regla con alguna de ellas queda `fallido`.
+
+`pago.rechazado` y su ejecutor `registrar_rechazo` quedan pendientes de la integración de retorno
+del débito automático: el flujo manual actual solo confirma pagos aprobados y no inventa rechazos.
+Cuando el banco devuelva su archivo de resultados, la importación deberá registrar el rechazo con su
+referencia y motivo, emitir `pago.rechazado` y recién entonces resolver si `registrar_rechazo` aporta
+una acción adicional sin duplicar la actualización que ya hace Facturación.
 
 **Reglas y allowlist de `accion_config`**
 

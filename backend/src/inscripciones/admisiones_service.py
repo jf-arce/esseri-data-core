@@ -53,6 +53,12 @@ ETAPAS_ADMISION = (
     "inscripcion_confirmada",
 )
 ZONA_HORARIA_ARGENTINA = ZoneInfo("America/Argentina/Buenos_Aires")
+MAX_TAMANIO_DOCUMENTO_SOLICITUD = 5 * 1024 * 1024
+FIRMAS_DOCUMENTO_SOLICITUD = {
+    "application/pdf": b"%PDF-",
+    "image/jpeg": b"\xff\xd8\xff",
+    "image/png": b"\x89PNG\r\n\x1a\n",
+}
 
 
 def _fecha_actual_argentina() -> date:
@@ -775,12 +781,38 @@ def rechazar_solicitud_inscripcion(
     return _respuesta_solicitud(db, solicitud)
 
 
+def _validar_archivo_documento_solicitud(
+    *, nombre_archivo: str | None, tipo_contenido: str | None, contenido: bytes
+) -> str:
+    nombre = (nombre_archivo or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
+    firma_valida = FIRMAS_DOCUMENTO_SOLICITUD.get(tipo_contenido or "")
+    if (
+        not nombre
+        or len(nombre) > 255
+        or not contenido
+        or len(contenido) > MAX_TAMANIO_DOCUMENTO_SOLICITUD
+        or firma_valida is None
+        or not contenido.startswith(firma_valida)
+    ):
+        raise InscripcionInvalida("El archivo debe ser PDF, JPG o PNG válido y no superar 5 MiB.")
+    return nombre
+
+
 def registrar_documento_solicitud(
     db: Session,
     solicitud_id: uuid.UUID,
     datos: DocumentoSolicitudCreate,
     usuario_id: uuid.UUID,
+    *,
+    nombre_archivo: str | None,
+    tipo_contenido: str | None,
+    contenido: bytes,
 ) -> DocumentoSolicitudRead:
+    nombre = _validar_archivo_documento_solicitud(
+        nombre_archivo=nombre_archivo,
+        tipo_contenido=tipo_contenido,
+        contenido=contenido,
+    )
     solicitud = _obtener_solicitud(db, solicitud_id, bloquear=True)
     if solicitud.estado != "aprobada" or solicitud.etapa != "documentacion_contrato":
         raise InscripcionInvalida(
@@ -789,7 +821,10 @@ def registrar_documento_solicitud(
 
     documento = DocumentoSolicitud(
         tipo_documento=datos.tipo_documento,
-        archivo=datos.archivo,
+        archivo=nombre,
+        tipo_contenido=tipo_contenido,
+        tamanio=len(contenido),
+        contenido=contenido,
         estado="pendiente",
         solicitud_inscripcion_id=solicitud.id,
         usuario_id=usuario_id,
@@ -808,6 +843,22 @@ def registrar_documento_solicitud(
     _guardar_cambios(db)
     db.refresh(documento)
     return DocumentoSolicitudRead.model_validate(documento)
+
+
+def obtener_archivo_documento_solicitud(
+    db: Session, solicitud_id: uuid.UUID, documento_id: uuid.UUID
+) -> DocumentoSolicitud:
+    documento = db.scalar(
+        select(DocumentoSolicitud).where(
+            DocumentoSolicitud.id == documento_id,
+            DocumentoSolicitud.solicitud_inscripcion_id == solicitud_id,
+        )
+    )
+    if documento is None:
+        raise InscripcionNoEncontrada("El documento de solicitud indicado no existe.")
+    if documento.contenido is None or documento.tipo_contenido is None:
+        raise InscripcionNoEncontrada("El documento no tiene un archivo adjunto disponible.")
+    return documento
 
 
 def actualizar_documento_solicitud(

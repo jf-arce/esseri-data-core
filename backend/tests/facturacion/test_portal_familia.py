@@ -20,8 +20,10 @@ from src.facturacion.models import (
 )
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate
 from src.familias_alumnos.models import Familia, FamiliaAlumno
-from src.inscripciones.factories import crear_escenario, crear_inscripcion_previa
+from src.inscripciones.models import SolicitudInscripcion
 from src.models import Persona
+from tests.facturacion.conftest import crear_catalogo_evento_pago_registrado
+from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
 PASSWORD_VALIDA = "una-contrasenia-larga"
 URL_FACTURACION_FAMILIA = "/facturacion/familia/me"
@@ -48,8 +50,12 @@ def _login(client, usuario):
 
 
 def _crear_escenario_facturacion(db_session):
+    crear_catalogo_evento_pago_registrado(db_session)
     escenario = crear_escenario(db_session)
     inscripcion = crear_inscripcion_previa(db_session, escenario, estado="activa")
+    solicitud = db_session.get(SolicitudInscripcion, escenario["solicitud_id"])
+    assert solicitud is not None
+    usuario_registro_id = solicitud.usuario_id
     familia_economica = db_session.get(Familia, escenario["familia_id"])
     usuario_economico = _crear_usuario(
         db_session,
@@ -112,12 +118,12 @@ def _crear_escenario_facturacion(db_session):
                 )
             ],
         ),
-        escenario["usuario_id"],
+        usuario_registro_id,
     )
     pago = registrar_pago(
         db_session,
         factura=factura,
-        usuario_registro_id=escenario["usuario_id"],
+        usuario_registro_id=usuario_registro_id,
         fecha=date(2026, 3, 5),
         monto=Decimal("25.00"),
         metodo_pago_id=metodo.id,

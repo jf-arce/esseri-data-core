@@ -1,9 +1,13 @@
 import { useRoutes } from 'react-router'
 import { AppLayout } from '@/layout/app-layout'
 import { PortalLayout } from '@/layout/portal-layout'
+import { PortalDocenteLayout } from '@/layout/portal-docente-layout'
 import { ElegirPerfilPage } from '@/pages/elegir-perfil-page'
 import { PortalDocentePage } from '@/pages/portal-docente-page'
 import { PortalDocenteAsistenciaPage } from '@/pages/portal-docente-asistencia-page'
+import { PortalDocenteCursoPage } from '@/pages/portal-docente-curso-page'
+import { PortalDocenteAlumnoPage } from '@/pages/portal-docente-alumno-page'
+import { PortalDocenteSeccionPage } from '@/pages/portal-docente-seccion-page'
 import { ProtectedRoute } from '@/router/protected-route'
 import { RolActivoRoute } from '@/router/rol-activo-route'
 import { VistaRoute } from '@/router/vista-route'
@@ -63,12 +67,41 @@ export function AppRouter() {
               element: <VistaRoute vista="docente" />,
               children: [
                 {
-                  element: <PortalLayout />,
+                  element: <PortalDocenteLayout />,
                   children: [
                     { path: 'docente', element: <PortalDocentePage /> },
                     {
+                      path: 'docente/cursos',
+                      element: <PortalDocenteSeccionPage seccion="cursos" />,
+                    },
+                    { path: 'docente/cursos/:divisionId', element: <PortalDocenteCursoPage /> },
+                    {
+                      path: 'docente/cursos/:divisionId/alumnos',
+                      element: <PortalDocenteCursoPage vista="alumnos" />,
+                    },
+                    {
+                      path: 'docente/cursos/:divisionId/seguimiento',
+                      element: <PortalDocenteCursoPage vista="seguimiento" />,
+                    },
+                    {
+                      path: 'docente/cursos/:divisionId/alumnos/:inscripcionId',
+                      element: <PortalDocenteAlumnoPage />,
+                    },
+                    {
+                      path: 'docente/asistencia',
+                      element: <PortalDocenteSeccionPage seccion="asistencia" />,
+                    },
+                    {
                       path: 'docente/asistencia/:divisionId',
                       element: <PortalDocenteAsistenciaPage />,
+                    },
+                    {
+                      path: 'docente/alumnos',
+                      element: <PortalDocenteSeccionPage seccion="alumnos" />,
+                    },
+                    {
+                      path: 'docente/seguimiento',
+                      element: <PortalDocenteSeccionPage seccion="seguimiento" />,
                     },
                   ],
                 },
