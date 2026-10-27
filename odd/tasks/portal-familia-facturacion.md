@@ -12,7 +12,7 @@ Checks: Backend `pytest`, `ruff check src/ tests/`, `ruff format --check src/ te
 
 ## Tasks
 
-- **T6 [S2–S4]** Integrate cached `origin/main` (`4aebd2f`) in isolated branch `integration/portal-familia-facturacion`. Route: inline integration; delegated full-check runner, then independent verification for risk items 2 and 4. Status: checking; commit pending. No remote operation authorized.
+- **T6 [S2–S4]** Integrate cached `origin/main` (`4aebd2f`) in isolated branch `integration/portal-familia-facturacion`. Route: inline integration; delegated full-check runner and independent verification for risk items 2 and 4. Status: done; commits `9bdc3e1`, `cc8a57d`. Native review approved and acknowledged. No remote operation authorized.
 
 - **T1 [S2–S3]** Add the family-scoped billing read API and privacy tests. Route: inline; status: blocked (implementation/tests exist; lint, format, compile, and diff checks pass; user explicitly asked to skip pytest, leaving runtime privacy behavior unverified); commit: `34fad77`.
 - **T2 [S2–S3]** Replace the family billing placeholder with the read-only invoice/account/payment/receipt view and frontend tests. Route: inline; status: done (full Vitest 69 files/454 tests, `npm run lint`, `npm run format:check`, and `npm run build` pass; build reports a >500 KB chunk warning); commit: `34fad77`.
@@ -21,6 +21,8 @@ Checks: Backend `pytest`, `ruff check src/ tests/`, `ruff format --check src/ te
 - **T5 [S4]** Repair PostgreSQL locking during integrated admission finalization. Route: inline; status: awaiting user runtime confirmation (Ruff, formatting, compile, PostgreSQL dialect lock-scope checks for `Alumno` and `Familia`, and diff check pass; pytest is not run per L16); commit: corrective work-unit commits.
 
 ## Log
+
+- **L37 (2026-10-27, closure):** Integrated and committed locally (`9bdc3e1`). Native review corroborated R3-1: failed/missing billing lookup displayed false zero debt. Added two regression cases (observed RED), changed unknown amounts/counts to em dashes and neutral unavailable copy, then observed GREEN: focused 3 tests and full frontend 476 tests, lint, format, build. Correction committed as `cc8a57d`. Native targeted validator approved; exact acknowledgement returned `gentle-ai.review-acknowledged/v1`, action `acknowledged`, authority `burned`, lineage `review-ab717cfc53b1649c`. Four non-blocking advisories remain separate follow-ups; no additional correction authorized. Backend remains 989 passed (unchanged by frontend correction). PostgreSQL runtime/browser smoke not run. No fetch, push, PR or merge into main performed. Engram full-document mirror remains pending.
 
 - **L34 (2026-10-27, user request, verbatim):** `tengo pendiente integrar los cambios que hice del portal famlia y la facturacion`. User approved an isolated local integration without publishing with `si` and superseded the pytest exclusion with `autorizo`.
 - **L35 (2026-10-27, integration evidence):** Created isolated worktree from `650a8ee`; merged cached `origin/main` at `4aebd2f` without committing. The sole conflict was `backend/src/inscripciones/matriculas_service.py`; retained origin/main, preserving equivalent entity-scoped locks and newer enrollment event behavior. Copied the original worktree's pending test correction without changing that worktree. `git diff --check` passed. Pytest and Ruff are not on PATH; runner availability is pending. No functional PASS claimed.
