@@ -65,6 +65,7 @@ from src.auth.schemas import (
     UsuarioUpdate,
 )
 from src.exceptions import AppException
+from src.models import Persona
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -187,11 +188,16 @@ def login_local(datos: LoginLocalIn, request: Request, db: DbSession) -> JSONRes
 def me(usuario: UsuarioAutenticado, db: DbSession, rol_activo: RolActivo) -> UsuarioActual:
     perfiles = autorizacion_service.perfiles_de(db, usuario.id)
     codigos = [rol.codigo for rol, _ in perfiles]
+    persona = db.get(Persona, usuario.persona_id) if usuario.persona_id else None
     return UsuarioActual(
         id=usuario.id,
         email=usuario.email,
         auth_provider=usuario.auth_provider,
         estado=usuario.estado,
+        nombre_google=usuario.nombre_google,
+        avatar_url=usuario.avatar_url,
+        persona_nombre=persona.nombre if persona else None,
+        persona_apellido=persona.apellido if persona else None,
         # Informativo/display: nombres, no códigos.
         roles=[rol.nombre for rol, _ in perfiles],
         permisos=autorizacion_service.permisos_de(db, usuario.id),
