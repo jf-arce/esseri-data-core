@@ -2,15 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ChevronRightIcon,
   ClipboardCheckIcon,
-  FilePlus2Icon,
   FileTextIcon,
-  IdCardIcon,
-  KeyRoundIcon,
   ReceiptTextIcon,
   UserIcon,
-  UserPlusIcon,
 } from 'lucide-react'
 import { useNavigate } from 'react-router'
+import { accionesVisibles } from '@/layout/busqueda-global'
 import { NAV_GROUPS, destinosDe, filtrarNav, type ModuloNav } from '@/layout/nav-items'
 import {
   Command,
@@ -27,12 +24,8 @@ import { listarInscripciones } from '@/modules/inscripciones/services/listar-ins
 import { listarSolicitudesAdmision } from '@/modules/inscripciones/services/solicitudes-admision'
 import {
   PERMISO_AUTENTICACION_ACTUALIZAR,
-  PERMISO_AUTENTICACION_CREAR,
   PERMISO_AUTENTICACION_LEER,
-  PERMISO_FACTURACION_CREAR,
   PERMISO_FACTURACION_LEER,
-  PERMISO_FAMILIAS_ALUMNOS_CREAR,
-  PERMISO_INSCRIPCIONES_CREAR,
   PERMISO_INSCRIPCIONES_LEER,
   tienePermiso,
 } from '@/modules/auth/constants'
@@ -58,58 +51,6 @@ const COLOR_POR_MODULO = {
   paneles: 'text-mod-compras',
   sistema: 'text-mod-compras',
 } as const satisfies Record<ModuloNav, string>
-
-const ACCIONES: Array<{
-  etiqueta: string
-  ruta: string
-  icono: typeof UserPlusIcon
-  permiso: string
-}> = [
-  {
-    etiqueta: 'Nuevo alumno',
-    ruta: '/familias-alumnos/alumnos/nuevo',
-    icono: UserPlusIcon,
-    permiso: PERMISO_FAMILIAS_ALUMNOS_CREAR,
-  },
-  {
-    etiqueta: 'Nueva inscripción',
-    ruta: '/inscripciones/nueva',
-    icono: FilePlus2Icon,
-    permiso: PERMISO_INSCRIPCIONES_CREAR,
-  },
-  {
-    etiqueta: 'Nueva admisión',
-    ruta: '/inscripciones/admisiones/nueva',
-    icono: FilePlus2Icon,
-    permiso: PERMISO_INSCRIPCIONES_CREAR,
-  },
-  {
-    etiqueta: 'Nueva factura',
-    ruta: '/facturacion/nueva',
-    icono: FilePlus2Icon,
-    permiso: PERMISO_FACTURACION_CREAR,
-  },
-  {
-    etiqueta: 'Nuevo usuario',
-    ruta: '/usuarios-roles/usuarios/nuevo',
-    icono: UserPlusIcon,
-    permiso: PERMISO_AUTENTICACION_CREAR,
-  },
-  {
-    // Rol y permiso no tienen ruta de alta propia (se crean con un diálogo desde su listado):
-    // `?crear=1` le pide a la página que lo abra sola — ver roles-page.tsx/permisos-page.tsx.
-    etiqueta: 'Nuevo rol',
-    ruta: '/usuarios-roles/roles?crear=1',
-    icono: IdCardIcon,
-    permiso: PERMISO_AUTENTICACION_CREAR,
-  },
-  {
-    etiqueta: 'Nuevo permiso',
-    ruta: '/usuarios-roles/permisos?crear=1',
-    icono: KeyRoundIcon,
-    permiso: PERMISO_AUTENTICACION_CREAR,
-  },
-]
 
 interface ResultadoBusqueda {
   clave: string | null
@@ -251,7 +192,7 @@ export function GlobalSearchDialog({
   const permisos = useAuthStore(permisosActivos)
   const rolActivo = useAuthStore((estado) => estado.rolActivo)
   const navegacionVisible = destinosDe(filtrarNav(NAV_GROUPS, rolActivo, permisos))
-  const accionesVisibles = ACCIONES.filter((accion) => tienePermiso(permisos, accion.permiso))
+  const acciones = accionesVisibles(permisos)
   const puedeVerInscripciones = tienePermiso(permisos, PERMISO_INSCRIPCIONES_LEER)
   const puedeVerFacturas = tienePermiso(permisos, PERMISO_FACTURACION_LEER)
   const puedeVerUsuarios = tienePermiso(permisos, PERMISO_AUTENTICACION_LEER)
@@ -420,7 +361,7 @@ export function GlobalSearchDialog({
           </CommandGroup>
 
           <CommandGroup heading="Acciones">
-            {accionesVisibles.map((accion) => (
+            {acciones.map((accion) => (
               <CommandItem
                 key={accion.ruta}
                 value={accion.etiqueta}
