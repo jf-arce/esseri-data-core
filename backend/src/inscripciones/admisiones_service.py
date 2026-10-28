@@ -42,6 +42,7 @@ from src.inscripciones.schemas import (
     SolicitudInscripcionRead,
 )
 from src.models import Persona
+from src.workflows.eventos_service import emit_event
 
 ETAPAS_ADMISION = (
     "consulta_lead",
@@ -686,6 +687,21 @@ def finalizar_admision_con_alta_integrada(
             campo="__alta__",
             valor_anterior=None,
             valor_nuevo=f"alumno={inscripcion.alumno_id} tipo={inscripcion.tipo}",
+            usuario_id=usuario_id,
+        )
+        # Antes del commit: el evento existe solo si el alta se confirma (#207). Lo consume el
+        # Loop A de Workflows (cargo de matrícula y bienvenida).
+        nivel = db.get(NivelEducativo, solicitud.nivel_educativo_id)
+        emit_event(
+            db,
+            tipo="inscripcion.confirmada",
+            entidad="inscripcion",
+            entidad_id=inscripcion.id,
+            payload={
+                "alumno_nombre": f"{aspirante.apellido}, {aspirante.nombre}",
+                "nivel_educativo": nivel.nombre if nivel else "",
+                "fecha": fecha_inscripcion,
+            },
             usuario_id=usuario_id,
         )
         db.commit()

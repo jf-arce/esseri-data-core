@@ -39,6 +39,30 @@ def crear_catalogo_evento_cambio_matricula(db_session) -> TipoEvento:
     return tipo
 
 
+@pytest.fixture(autouse=True)
+def catalogo_evento_inscripcion_confirmada(db_session) -> TipoEvento:
+    """Finalizar un alta integrada emite `inscripcion.confirmada` (#207), y `emit_event()` falla
+    si el tipo no está en el catálogo."""
+    tipo = TipoEvento(
+        nombre="inscripcion.confirmada",
+        descripcion="Se confirmó una inscripción nueva a partir de una solicitud aprobada",
+    )
+    db_session.add(tipo)
+    db_session.flush()
+    db_session.add_all(
+        CampoEvento(
+            nombre_interno=nombre, etiqueta=etiqueta, tipo_dato=tipo_dato, tipo_evento_id=tipo.id
+        )
+        for nombre, etiqueta, tipo_dato in (
+            ("alumno_nombre", "Nombre del alumno", "texto"),
+            ("nivel_educativo", "Nivel educativo", "texto"),
+            ("fecha", "Fecha de la confirmación", "fecha"),
+        )
+    )
+    db_session.commit()
+    return tipo
+
+
 @pytest.fixture()
 def client(client, db_session):
     """Sobreescribe el `client` de la raíz: con RF-30, todos los endpoints de Inscripciones
