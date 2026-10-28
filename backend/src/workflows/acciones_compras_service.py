@@ -1,9 +1,11 @@
-"""Ejecutor de generar_orden_compra y stub de generar_comunicacion. Dueño: Canu (ver #199)."""
+"""Ejecutores de generar_orden_compra y generar_comunicacion. Dueño: Canu (ver #199)."""
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.exceptions import AppException
+from src.ia_sugerencias.schemas import BorradorEnvio, DestinatarioBorrador
+from src.ia_sugerencias.service import registrar_comunicacion_en_transaccion
 from src.models import EventLog
 from src.proveedores_compras.models import (
     OrdenCompraSolicitud,
@@ -13,9 +15,9 @@ from src.proveedores_compras.models import (
 )
 from src.proveedores_compras.schemas import OrdenCompraCreate, OrdenCompraDetalleCreate
 from src.proveedores_compras.service import crear_orden_compra_en_transaccion
-from src.workflows.constants import ERROR_ACCION_NO_IMPLEMENTADA
 from src.workflows.models import WorkflowExecution, WorkflowRule
-from src.workflows.schemas import ResultadoAccion
+from src.workflows.notificaciones_service import ComunicacionNoPreparada, preparar_comunicacion
+from src.workflows.schemas import ConfigGenerarComunicacion, ResultadoAccion
 
 
 def ejecutar_generar_orden_compra(
@@ -94,8 +96,33 @@ def ejecutar_generar_orden_compra(
 def ejecutar_generar_comunicacion(
     db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
 ) -> ResultadoAccion:
+    """Arma el mensaje igual que `notificar`, pero no lo envía: lo deja en la bandeja de
+    Sugerencias para que una persona lo lea y lo apruebe o lo descarte (#213)."""
+    destino = ConfigGenerarComunicacion.model_validate(regla.accion_config or {}).destinatario
+    try:
+        asunto, cuerpo, destinatarios = preparar_comunicacion(db, regla, evento, destino)
+    except ComunicacionNoPreparada as error:
+        return _error(error.error)
+    registrar_comunicacion_en_transaccion(
+        db,
+        ejecucion.id,
+        BorradorEnvio(
+            regla=regla.nombre,
+            asunto=asunto,
+            cuerpo=cuerpo,
+            destinatarios=[
+                DestinatarioBorrador(
+                    tipo=d.tipo, email=d.email, usuario_id=d.usuario_id, familia_id=d.familia_id
+                )
+                for d in destinatarios
+            ],
+        ),
+    )
     return ResultadoAccion(
-        error=ERROR_ACCION_NO_IMPLEMENTADA.format(tipo_accion="generar_comunicacion")
+        detalle=(
+            f"Comunicación para {len(destinatarios)} destinatario(s) en revisión "
+            "en Sugerencias de IA."
+        )
     )
 
 

@@ -8,7 +8,7 @@ from src.workflows import despacho_service, ejecuciones_service
 from src.workflows.constants import TIPOS_ACCION
 from src.workflows.despacho_service import procesar_eventos_pendientes
 from src.workflows.eventos_service import emit_event
-from src.workflows.models import WorkflowExecution, WorkflowRule
+from src.workflows.models import TipoEvento, WorkflowExecution, WorkflowRule
 from src.workflows.schemas import ResultadoAccion
 
 
@@ -388,24 +388,21 @@ def test_evento_con_entidad_no_canonica_deja_las_ejecuciones_fallidas(
 
 
 # Sin la fixture `acciones`: usa el registro real, donde esta acción es un stub.
-def test_stub_sin_implementar_queda_fallido_con_mensaje_publico(db_session, tipo_factura_vencida):
-    _regla(
-        db_session,
-        tipo_factura_vencida,
-        tipo_accion="generar_comunicacion",
-        accion_config={"destinatario": "responsable_economico"},
-    )
-    _evento(db_session)
+def test_stub_sin_implementar_queda_fallido_con_mensaje_publico(db_session):
+    tipo = TipoEvento(nombre="pago.rechazado", descripcion="Pago rechazado")
+    db_session.add(tipo)
+    db_session.commit()
+    _regla(db_session, tipo, tipo_accion="registrar_rechazo", accion_config={})
+    emit_event(db_session, tipo="pago.rechazado", entidad="pago", entidad_id=uuid.uuid4())
+    db_session.commit()
 
     procesar_eventos_pendientes(db_session)
 
     ejecucion = db_session.scalars(select(WorkflowExecution)).one()
     assert ejecucion.estado == "fallido"
+    assert ejecucion.error_detail == "La acción 'registrar_rechazo' todavía no está implementada."
     assert (
-        ejecucion.error_detail == "La acción 'generar_comunicacion' todavía no está implementada."
-    )
-    assert (
-        ejecuciones_service._error_detail_publico(ejecucion.error_detail, "generar_comunicacion")
+        ejecuciones_service._error_detail_publico(ejecucion.error_detail, "registrar_rechazo")
         == ejecucion.error_detail
     )
 
