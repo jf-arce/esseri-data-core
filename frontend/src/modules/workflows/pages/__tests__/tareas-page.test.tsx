@@ -1,3 +1,4 @@
+import { elegirAccion } from '@/modules/workflows/__tests__/menu-acciones'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
@@ -183,7 +184,13 @@ describe('TareasPage', () => {
     await screen.findByText('Revisar el legajo')
 
     // Cada tarea pendiente ofrece Iniciar y Completar: solo la propia (u1).
-    expect(screen.getAllByRole('button', { name: /Iniciar/ })).toHaveLength(1)
+    let iniciables = 0
+    for (const disparador of screen.getAllByRole('button', { name: /Acciones para/ })) {
+      await userEvent.click(disparador)
+      iniciables += screen.queryAllByRole('menuitem', { name: /Iniciar/ }).length
+      await userEvent.keyboard('{Escape}')
+    }
+    expect(iniciables).toBe(1)
   })
 
   it('avanza la tarea, avisa y vuelve a pedir el listado', async () => {
@@ -192,7 +199,7 @@ describe('TareasPage', () => {
     await screen.findByText('Llamar a la familia')
     const pedidos = mockedListar.mock.calls.length
 
-    await userEvent.click(screen.getAllByRole('button', { name: /Iniciar/ })[0])
+    await elegirAccion(/Iniciar/, '', 0)
 
     await waitFor(() => expect(mockedCambiar).toHaveBeenCalledWith('t-1', 'en_progreso'))
     expect(toast.success).toHaveBeenCalledWith('La tarea quedó en progreso.')
@@ -206,7 +213,7 @@ describe('TareasPage', () => {
     renderPagina()
     await screen.findByText('Llamar a la familia')
 
-    await userEvent.click(screen.getAllByRole('button', { name: /Iniciar/ })[0])
+    await elegirAccion(/Iniciar/, '', 0)
 
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith(
@@ -241,7 +248,7 @@ describe('TareasPage', () => {
     renderPagina()
     await screen.findByText('Revisar el legajo')
 
-    await userEvent.click(screen.getAllByRole('button', { name: /Ver detalle/ })[0])
+    await elegirAccion(/Ver detalle/, '', 0)
 
     expect(await screen.findByText('Historial de escalamiento')).toBeInTheDocument()
     expect(await screen.findByText(/1\. Llamar a la familia \(original\)/)).toBeInTheDocument()
@@ -252,7 +259,7 @@ describe('TareasPage', () => {
     renderPagina()
     await screen.findByText('Revisar el legajo')
 
-    await userEvent.click(screen.getAllByRole('button', { name: /Ver detalle/ })[0])
+    await elegirAccion(/Ver detalle/, '', 0)
 
     expect(await screen.findByText('Esta tarea no se escaló.')).toBeInTheDocument()
   })
@@ -282,7 +289,7 @@ describe('TareasPage: responsable y reasignación', () => {
 
   async function abrirDetalleDeLaAjena() {
     // La ajena es la segunda fila.
-    await userEvent.click(screen.getAllByRole('button', { name: /Ver detalle/ })[1])
+    await elegirAccion(/Ver detalle/, '', 1)
     return screen.findByRole('dialog')
   }
 

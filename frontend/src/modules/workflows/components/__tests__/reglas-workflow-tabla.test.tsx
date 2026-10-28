@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
+import { abrirMenuDeFila } from '@/modules/workflows/__tests__/menu-acciones'
 import { describe, expect, it, vi } from 'vitest'
 import { ReglasWorkflowTabla } from '@/modules/workflows/components/reglas-workflow-tabla'
 import type { ReglaWorkflow, TipoEvento } from '@/modules/workflows/types'
@@ -38,7 +39,7 @@ function renderizar(puedeActualizar: boolean) {
 }
 
 describe('ReglasWorkflowTabla', () => {
-  it('muestra evento, acción, criticidad y aprobación humana de la regla', () => {
+  it('muestra evento, acción, criticidad y aprobación humana de la regla', async () => {
     renderizar(true)
 
     expect(screen.getByText('Penalidad por mora')).toBeInTheDocument()
@@ -48,21 +49,23 @@ describe('ReglasWorkflowTabla', () => {
     expect(screen.getByText('Sí')).toBeInTheDocument()
   })
 
-  it('con permiso de actualización ofrece editar y desactivar', () => {
+  it('con permiso de actualización ofrece editar y desactivar', async () => {
     renderizar(true)
 
-    expect(screen.getByRole('link', { name: 'Editar' })).toHaveAttribute(
+    await abrirMenuDeFila()
+    expect(screen.getByRole('menuitem', { name: 'Editar' })).toHaveAttribute(
       'href',
       '/workflows/reglas/r-1',
     )
-    expect(screen.getByRole('button', { name: 'Desactivar' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Desactivar' })).toBeInTheDocument()
   })
 
-  it('sin permiso de actualización solo ofrece ver', () => {
+  it('sin permiso de actualización solo ofrece ver', async () => {
     renderizar(false)
 
-    expect(screen.getByRole('link', { name: 'Ver' })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Editar' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Desactivar' })).not.toBeInTheDocument()
+    await abrirMenuDeFila()
+    expect(screen.getByRole('menuitem', { name: 'Ver' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Editar' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Desactivar' })).not.toBeInTheDocument()
   })
 })
