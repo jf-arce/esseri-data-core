@@ -4,19 +4,14 @@ import {
   ClipboardCheckIcon,
   FilePlus2Icon,
   FileTextIcon,
-  Grid3x3Icon,
   IdCardIcon,
   KeyRoundIcon,
-  LandmarkIcon,
   ReceiptTextIcon,
-  PercentIcon,
-  Settings2Icon,
-  ShieldCheckIcon,
   UserIcon,
   UserPlusIcon,
-  UsersRoundIcon,
 } from 'lucide-react'
 import { useNavigate } from 'react-router'
+import { NAV_GROUPS, destinosDe, filtrarNav, type ModuloNav } from '@/layout/nav-items'
 import {
   Command,
   CommandDialog,
@@ -37,7 +32,6 @@ import {
   PERMISO_FACTURACION_CREAR,
   PERMISO_FACTURACION_LEER,
   PERMISO_FAMILIAS_ALUMNOS_CREAR,
-  PERMISO_FAMILIAS_ALUMNOS_LEER,
   PERMISO_INSCRIPCIONES_CREAR,
   PERMISO_INSCRIPCIONES_LEER,
   tienePermiso,
@@ -57,91 +51,13 @@ const COLOR_POR_MODULO = {
   academico: 'text-mod-academico',
   inscripciones: 'text-mod-inscripciones',
   facturacion: 'text-mod-facturacion',
-  // Reutiliza el tono neutro de "compras": "Usuarios y roles" (sección "Sistema" del sidebar)
-  // no es un módulo de negocio y no tiene paleta propia en el diseño.
+  compras: 'text-mod-compras',
+  workflows: 'text-mod-workflows',
+  // Paneles y "Sistema" (sección del sidebar, "Usuarios y roles") no son módulos de negocio y
+  // no tienen paleta propia en el diseño: reutilizan el tono neutro de "compras".
+  paneles: 'text-mod-compras',
   sistema: 'text-mod-compras',
-} as const
-
-type Modulo = keyof typeof COLOR_POR_MODULO
-
-const NAVEGACION: Array<{
-  etiqueta: string
-  ruta: string
-  icono: typeof ShieldCheckIcon
-  modulo: Modulo
-  permiso: string
-}> = [
-  {
-    etiqueta: 'Familias',
-    ruta: '/familias-alumnos',
-    icono: UsersRoundIcon,
-    modulo: 'familias',
-    permiso: PERMISO_FAMILIAS_ALUMNOS_LEER,
-  },
-  {
-    etiqueta: 'Inscripciones',
-    ruta: '/inscripciones',
-    icono: ClipboardCheckIcon,
-    modulo: 'inscripciones',
-    permiso: PERMISO_INSCRIPCIONES_LEER,
-  },
-  {
-    etiqueta: 'Admisiones',
-    ruta: '/inscripciones/admisiones',
-    icono: ClipboardCheckIcon,
-    modulo: 'inscripciones',
-    permiso: PERMISO_INSCRIPCIONES_LEER,
-  },
-  {
-    etiqueta: 'Facturas',
-    ruta: '/facturacion',
-    icono: LandmarkIcon,
-    modulo: 'facturacion',
-    permiso: PERMISO_FACTURACION_LEER,
-  },
-  {
-    etiqueta: 'Reglas de facturación',
-    ruta: '/facturacion/reglas',
-    icono: Settings2Icon,
-    modulo: 'facturacion',
-    permiso: PERMISO_FACTURACION_LEER,
-  },
-  {
-    etiqueta: 'Penalidades por mora',
-    ruta: '/facturacion/penalidades',
-    icono: PercentIcon,
-    modulo: 'facturacion',
-    permiso: PERMISO_FACTURACION_LEER,
-  },
-  {
-    etiqueta: 'Usuarios',
-    ruta: '/usuarios-roles/usuarios',
-    icono: UserIcon,
-    modulo: 'sistema',
-    permiso: PERMISO_AUTENTICACION_LEER,
-  },
-  {
-    etiqueta: 'Roles',
-    ruta: '/usuarios-roles/roles',
-    icono: IdCardIcon,
-    modulo: 'sistema',
-    permiso: PERMISO_AUTENTICACION_LEER,
-  },
-  {
-    etiqueta: 'Permisos',
-    ruta: '/usuarios-roles/permisos',
-    icono: KeyRoundIcon,
-    modulo: 'sistema',
-    permiso: PERMISO_AUTENTICACION_LEER,
-  },
-  {
-    etiqueta: 'Matriz de permisos',
-    ruta: '/usuarios-roles/matriz',
-    icono: Grid3x3Icon,
-    modulo: 'sistema',
-    permiso: PERMISO_AUTENTICACION_LEER,
-  },
-]
+} as const satisfies Record<ModuloNav, string>
 
 const ACCIONES: Array<{
   etiqueta: string
@@ -333,7 +249,8 @@ export function GlobalSearchDialog({
 }) {
   const navigate = useNavigate()
   const permisos = useAuthStore(permisosActivos)
-  const navegacionVisible = NAVEGACION.filter((acceso) => tienePermiso(permisos, acceso.permiso))
+  const rolActivo = useAuthStore((estado) => estado.rolActivo)
+  const navegacionVisible = destinosDe(filtrarNav(NAV_GROUPS, rolActivo, permisos))
   const accionesVisibles = ACCIONES.filter((accion) => tienePermiso(permisos, accion.permiso))
   const puedeVerInscripciones = tienePermiso(permisos, PERMISO_INSCRIPCIONES_LEER)
   const puedeVerFacturas = tienePermiso(permisos, PERMISO_FACTURACION_LEER)

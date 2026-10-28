@@ -22,6 +22,9 @@ const PERMISOS_DE_PRUEBA = [
   'autenticacion.leer',
   'autenticacion.crear',
   'autenticacion.actualizar',
+  'academico.leer',
+  'proveedores_compras.leer',
+  'workflows.leer',
 ].map((codigo, indice) => ({
   id: `p${indice}`,
   codigo,
@@ -135,6 +138,16 @@ describe('GlobalSearchDialog', () => {
     expect(screen.getByText('Permisos')).toBeInTheDocument()
     expect(screen.getByText('Matriz de permisos')).toBeInTheDocument()
     expect(screen.queryByText('Usuarios y roles')).not.toBeInTheDocument()
+  })
+
+  it('"Ir a" sale del menú lateral: suma módulos nuevos y la bandeja de tareas', () => {
+    renderDialogo()
+
+    expect(screen.getByText('Órdenes de compra')).toBeInTheDocument()
+    expect(screen.getByText('Reglas de automatización')).toBeInTheDocument()
+    expect(screen.getByText('Historial de ejecuciones')).toBeInTheDocument()
+    expect(screen.getByText('Estructura académica')).toBeInTheDocument()
+    expect(screen.getByText('Tareas')).toBeInTheDocument()
   })
 
   it('ofrece las acciones de alta de usuarios, roles y permisos', () => {
