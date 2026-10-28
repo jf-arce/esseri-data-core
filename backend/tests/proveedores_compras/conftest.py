@@ -20,7 +20,11 @@ from src.workflows.models import CampoEvento, TipoEvento
 PASSWORD_VALIDA = "una-contrasenia-larga"
 
 SEEDS = Path(__file__).resolve().parents[3] / "database" / "seeds"
-EVENTOS_COMPRAS = ("orden_compra.emitida", "recepcion_compra.registrada")
+EVENTOS_COMPRAS = (
+    "orden_compra.emitida",
+    "recepcion_compra.registrada",
+    "solicitud_compra.aprobada",
+)
 
 
 @pytest.fixture(autouse=True)

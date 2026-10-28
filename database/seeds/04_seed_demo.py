@@ -184,6 +184,62 @@ REGLAS_VENCIMIENTO = [
 
 CUENTAS_PERSONAL = [("administracion", "administración"), ("direccion", "dirección")]
 
+# Reglas de Compras de la demo (#214): aprobar una solicitud arma la orden (con aprobación
+# humana, default de la acción), la orden emitida avisa al área de Compras y la recepción avisa
+# a quien pidió la compra. La cuenta del área la crea `_ensure_reglas_compras`.
+CUENTA_COMPRAS = ("compras", "compras")
+PLANTILLA_ORDEN_EMITIDA = {
+    "nombre": "Alerta de orden de compra emitida",
+    "asunto": "Orden de compra emitida a {{proveedor_nombre}}",
+    "cuerpo": (
+        "Se emitió una orden de compra a {{proveedor_nombre}} con {{cantidad_items}} ítem(s), "
+        "el {{fecha}}.\n\n"
+        "Coordinen la entrega con el proveedor y registren la recepción cuando llegue."
+    ),
+}
+PLANTILLA_RECEPCION = {
+    "nombre": "Aviso de recepción de compra",
+    "asunto": "Llegó tu pedido de {{proveedor_nombre}}",
+    "cuerpo": (
+        "Hola:\n\n"
+        "Se registró la recepción ({{tipo_recepcion}}) de la compra que pediste a "
+        "{{proveedor_nombre}}, el {{fecha}}.\n\n"
+        "Si la recepción es parcial, el resto queda pendiente en la orden de compra.\n\n"
+        "Saludos."
+    ),
+}
+
+REGLAS_COMPRAS = [
+    (
+        "solicitud_compra.aprobada",
+        {
+            "nombre": "Compras 1: generar orden de compra",
+            "tipo_accion": "generar_orden_compra",
+            "criticidad": "media",
+        },
+    ),
+    (
+        "orden_compra.emitida",
+        {
+            "nombre": "Compras 2: alerta al área de Compras",
+            "tipo_accion": "alerta_interna",
+            "criticidad": "media",
+            "plantilla": PLANTILLA_ORDEN_EMITIDA["nombre"],
+            "rol": "compras",
+        },
+    ),
+    (
+        "recepcion_compra.registrada",
+        {
+            "nombre": "Compras 3: aviso al solicitante",
+            "tipo_accion": "notificar",
+            "accion_config": {"destinatario": "solicitante"},
+            "criticidad": "baja",
+            "plantilla": PLANTILLA_RECEPCION["nombre"],
+        },
+    ),
+]
+
 # Reglas de inasistencias de la demo (#218): avisos a los responsables habilitados de la familia y
 # un recordatorio si la inasistencia sigue sin justificar `dias_despues` días después. Cada una
 # usa la plantilla de su clave en PLANTILLAS_INASISTENCIA.
@@ -1007,6 +1063,20 @@ def _ensure_reglas_vencimiento(db, usuario: Usuario):
         _ensure_regla_workflow(db, usuario, tipo_evento, regla)
 
 
+def _ensure_reglas_compras(db, usuario: Usuario):
+    """Reglas de Compras: orden automática, alerta a Compras y aviso al solicitante (#214)."""
+    alias, nombre_rol = CUENTA_COMPRAS
+    _ensure_cuenta_demo(db, None, _email_demo(alias), _require(db, Rol, nombre=nombre_rol))
+    for plantilla in (PLANTILLA_ORDEN_EMITIDA, PLANTILLA_RECEPCION):
+        if not db.scalar(
+            select(NotificacionTemplate).where(NotificacionTemplate.nombre == plantilla["nombre"])
+        ):
+            crear_plantilla(db, NotificacionTemplateCreate(**plantilla), usuario.id)
+    db.flush()
+    for evento, regla in REGLAS_COMPRAS:
+        _ensure_regla_workflow(db, usuario, _require(db, TipoEvento, nombre=evento), regla)
+
+
 def _email_demo(alias: str) -> str:
     if not DEMO_EMAIL_BASE:
         return f"{alias}@esseri.local"
@@ -1437,6 +1507,7 @@ def seed_demo():
         _ensure_reglas_workflow(db, usuario)
         _ensure_reglas_vencimiento(db, usuario)
         _ensure_reglas_inasistencia(db, usuario)
+        _ensure_reglas_compras(db, usuario)
         db.commit()
 
         print("[8/9] Proveedores, solicitudes, órdenes y recepciones")

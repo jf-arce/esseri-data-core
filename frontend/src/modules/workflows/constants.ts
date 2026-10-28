@@ -148,6 +148,8 @@ export const DESTINATARIOS: OpcionSelect[] = [
   { value: 'responsable_economico', label: 'Responsable económico' },
   { value: 'responsables_habilitados', label: 'Responsables habilitados' },
   { value: DESTINATARIO_REGLA, label: 'Destinatarios de la regla' },
+  // Solo en eventos de Compras (solicitud, orden o recepción): el backend rechaza el resto.
+  { value: 'solicitante', label: 'Solicitante de la compra' },
 ]
 // Botón del mail (`EnlaceMail` del backend): la ruta la fija el backend, acá solo se elige la clave.
 export const ENLACES_MAIL: OpcionSelect[] = [
