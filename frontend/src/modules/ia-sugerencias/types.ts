@@ -16,11 +16,28 @@ export interface BorradorComunicacion {
   instrucciones: string
 }
 
+// Una comunicación que armó la regla `generar_comunicacion` de Workflows (#213): el mensaje tal
+// como va a salir si se aprueba, con sus destinatarios ya resueltos.
+export interface DestinatarioBorrador {
+  tipo: 'familia' | 'usuario'
+  email: string
+  usuario_id: string | null
+  familia_id: string | null
+}
+
+export interface BorradorEnvio {
+  regla: string
+  asunto: string
+  cuerpo: string
+  destinatarios: DestinatarioBorrador[]
+}
+
 export interface Sugerencia {
   id: string
   tipo: TipoSugerencia
   // A quién afecta el patrón: 'familia' (morosidad) o 'alumno' (inasistencias). En una
-  // comunicación es 'tipo_evento': el evento para el que se redactó.
+  // comunicación es 'tipo_evento' (el evento para el que se redactó la plantilla) o
+  // 'workflow_execution' (la ejecución de la regla que armó el mensaje a enviar).
   entidad: string | null
   entidad_id: string | null
   contenido_generado: string
@@ -33,6 +50,8 @@ export interface Sugerencia {
   revisor_email: string | null
   // null en los patrones, y en una comunicación cuyo contenido no se pudo leer.
   comunicacion: BorradorComunicacion | null
+  // Solo en una comunicación de un evento: aprobarla la envía.
+  envio: BorradorEnvio | null
   notificacion_template_id: string | null
 }
 

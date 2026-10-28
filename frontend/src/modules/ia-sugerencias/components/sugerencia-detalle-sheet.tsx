@@ -56,7 +56,22 @@ export function SugerenciaDetalleSheet({
             </SheetHeader>
             <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4">
               <dl className="flex flex-col gap-4 text-sm">
-                {sugerencia.comunicacion ? (
+                {sugerencia.envio ? (
+                  <>
+                    <Dato etiqueta="Regla que la armó">{sugerencia.envio.regla}</Dato>
+                    <Dato etiqueta="Asunto">{sugerencia.envio.asunto}</Dato>
+                    <Dato etiqueta="Cuerpo">
+                      <span className="whitespace-pre-wrap">{sugerencia.envio.cuerpo}</span>
+                    </Dato>
+                    <Dato etiqueta="Destinatarios">
+                      <ul>
+                        {sugerencia.envio.destinatarios.map((destinatario) => (
+                          <li key={destinatario.email}>{destinatario.email}</li>
+                        ))}
+                      </ul>
+                    </Dato>
+                  </>
+                ) : sugerencia.comunicacion ? (
                   <>
                     <Dato etiqueta="Nombre de la plantilla">{sugerencia.comunicacion.nombre}</Dato>
                     <Dato etiqueta="Asunto">{sugerencia.comunicacion.asunto}</Dato>
@@ -83,9 +98,11 @@ export function SugerenciaDetalleSheet({
                   )}
                 </Dato>
                 <Dato etiqueta="Control humano">
-                  {sugerencia.requiere_control_humano
-                    ? 'Requiere la decisión de una persona antes de cualquier acción.'
-                    : 'No requiere revisión.'}
+                  {sugerencia.envio
+                    ? 'Aprobarla envía el email a los destinatarios; rechazarla la descarta.'
+                    : sugerencia.requiere_control_humano
+                      ? 'Requiere la decisión de una persona antes de cualquier acción.'
+                      : 'No requiere revisión.'}
                 </Dato>
               </dl>
               {sugerencia.estado === 'pendiente_revision' && puedeRevisar && (

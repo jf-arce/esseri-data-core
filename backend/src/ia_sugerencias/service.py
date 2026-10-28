@@ -27,6 +27,7 @@ from src.facturacion.cuenta_corriente_service import listar_deuda_por_familia
 from src.familias_alumnos.models import Alumno
 from src.ia_sugerencias.constants import (
     ENTIDAD_ALUMNO,
+    ENTIDAD_EJECUCION,
     ENTIDAD_FAMILIA,
     ENTIDAD_TIPO_EVENTO,
     ESTADO_APROBADA,
@@ -45,6 +46,7 @@ from src.ia_sugerencias.openai_client import completar_json
 from src.ia_sugerencias.schemas import (
     BorradorComunicacion,
     BorradorComunicacionCreate,
+    BorradorEnvio,
     DeteccionResponse,
     SugerenciaResponse,
 )
@@ -55,7 +57,13 @@ from src.workflows.exceptions import (
     PlantillaInvalida,
     TipoEventoNoEncontrado,
 )
-from src.workflows.models import CampoEvento, NotificacionTemplate, TipoEvento
+from src.workflows.models import (
+    CampoEvento,
+    NotificacionTemplate,
+    TipoEvento,
+    WorkflowExecution,
+)
+from src.workflows.notificaciones_service import Destinatario, enviar_comunicacion
 from src.workflows.plantillas_service import (
     registrar_plantilla,
     validar_contenido_para_evento,
@@ -130,7 +138,10 @@ def _revisar(
         raise SugerenciaYaRevisada()
 
     if estado_nuevo == ESTADO_APROBADA and sugerencia.tipo == TIPO_COMUNICACION:
-        _crear_plantilla_del_borrador(db, sugerencia, usuario_id)
+        if sugerencia.entidad == ENTIDAD_EJECUCION:
+            _enviar_borrador(db, sugerencia)
+        else:
+            _crear_plantilla_del_borrador(db, sugerencia, usuario_id)
 
     log_audit(
         db,
@@ -159,6 +170,7 @@ def _a_respuesta(sugerencia: IaSugerencia, revisor_email: str | None) -> Sugeren
     respuesta = SugerenciaResponse.model_validate(sugerencia)
     respuesta.revisor_email = revisor_email
     respuesta.comunicacion = _leer_borrador(sugerencia)
+    respuesta.envio = _leer_envio(sugerencia)
     return respuesta
 
 
@@ -266,7 +278,7 @@ def _existe_plantilla_con_nombre(db: Session, nombre: str) -> bool:
 
 def _leer_borrador(sugerencia: IaSugerencia) -> BorradorComunicacion | None:
     """El borrador de una sugerencia de comunicación, o None si el contenido no lo es."""
-    if sugerencia.tipo != TIPO_COMUNICACION:
+    if sugerencia.tipo != TIPO_COMUNICACION or sugerencia.entidad == ENTIDAD_EJECUCION:
         return None
     try:
         return BorradorComunicacion.model_validate_json(sugerencia.contenido_generado)
@@ -293,6 +305,61 @@ def _crear_plantilla_del_borrador(
         usuario_id,
     )
     sugerencia.notificacion_template_id = plantilla.id
+
+
+# --- Comunicaciones de un evento, en revisión antes de salir (issue #213) --------------------
+
+
+def registrar_comunicacion_en_transaccion(
+    db: Session, ejecucion_id: uuid.UUID, borrador: BorradorEnvio
+) -> IaSugerencia:
+    """Deja en revisión el mensaje que armó `generar_comunicacion`.
+
+    No confirma la transacción: lo llama el ejecutor dentro del savepoint del despachador.
+    """
+    sugerencia = IaSugerencia(
+        tipo=TIPO_COMUNICACION,
+        entidad=ENTIDAD_EJECUCION,
+        entidad_id=ejecucion_id,
+        contenido_generado=borrador.model_dump_json(),
+        requiere_control_humano=True,
+        estado=ESTADO_PENDIENTE,
+        fecha_generacion=datetime.now(),
+    )
+    db.add(sugerencia)
+    db.flush()
+    return sugerencia
+
+
+def _leer_envio(sugerencia: IaSugerencia) -> BorradorEnvio | None:
+    if sugerencia.tipo != TIPO_COMUNICACION or sugerencia.entidad != ENTIDAD_EJECUCION:
+        return None
+    try:
+        return BorradorEnvio.model_validate_json(sugerencia.contenido_generado)
+    except ValidationError:
+        return None
+
+
+def _enviar_borrador(db: Session, sugerencia: IaSugerencia) -> None:
+    """Aprobar la comunicación la envía, tal como la vio quien la revisó. Los envíos quedan en la
+    ejecución que la originó, igual que los de `notificar`."""
+    borrador = _leer_envio(sugerencia)
+    ejecucion = db.get(WorkflowExecution, sugerencia.entidad_id)
+    if borrador is None or ejecucion is None:
+        raise SugerenciaIlegible()
+    resultado = enviar_comunicacion(
+        db,
+        ejecucion,
+        borrador.asunto,
+        borrador.cuerpo,
+        [
+            Destinatario(
+                tipo=d.tipo, email=d.email, usuario_id=d.usuario_id, familia_id=d.familia_id
+            )
+            for d in borrador.destinatarios
+        ],
+    )
+    ejecucion.detalle = f"Comunicación aprobada: {resultado.detalle or resultado.error}"
 
 
 # --- Detección de patrones por reglas (issue #51) -------------------------------------------
