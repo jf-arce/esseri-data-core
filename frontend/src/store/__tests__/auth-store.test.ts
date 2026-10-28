@@ -17,6 +17,10 @@ const usuarioUnRol = {
   email: 'a@esseri.edu.ar',
   auth_provider: 'google',
   estado: 'activo',
+  nombre_google: null,
+  avatar_url: null,
+  persona_nombre: null,
+  persona_apellido: null,
   roles: ['admin'],
   permisos: [permisoLeer],
   perfiles: [
@@ -30,6 +34,10 @@ const usuarioDosRoles = {
   email: 'b@esseri.edu.ar',
   auth_provider: 'google',
   estado: 'activo',
+  nombre_google: null,
+  avatar_url: null,
+  persona_nombre: null,
+  persona_apellido: null,
   roles: ['docente', 'familia'],
   permisos: [],
   perfiles: [

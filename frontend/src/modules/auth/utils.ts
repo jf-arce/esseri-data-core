@@ -1,4 +1,4 @@
-import type { Permiso, Rol, UsuarioConRoles } from '@/modules/auth/types'
+import type { Permiso, Rol, UsuarioActual, UsuarioConRoles } from '@/modules/auth/types'
 
 // Colores de avatar/chip de identidad estables por id (§9.3 DESIGN.md: identidad puntual en
 // fila densa). No son la paleta de módulo de dominio (§2.5): un rol como "Docente" o
@@ -42,8 +42,9 @@ export function colorIdentidadSuave(semilla: string): string {
   return PALETA_IDENTIDAD_SUAVE[hashEstable(semilla) % PALETA_IDENTIDAD_SUAVE.length]
 }
 
-// Fallback para cuando no hay persona asociada a la cuenta (ej. `UsuarioActual`, que no la
-// trae): se deriva un nombre de pantalla a partir de la parte local del mail
+type DatosDePersona = Pick<UsuarioConRoles, 'email' | 'persona_nombre' | 'persona_apellido'>
+
+// Fallback para cuando no hay persona asociada a la cuenta: se deriva un nombre de pantalla a partir de la parte local del mail
 // (ej. "mariana.cufre@esseri.edu.ar" → "Cufre, Mariana").
 export function nombreDeUsuario(email: string): string {
   const parteLocal = email.split('@')[0] ?? email
@@ -59,11 +60,19 @@ export function nombreDeUsuario(email: string): string {
 
 // El nombre real de la persona (cargado en el alta) siempre le gana al derivado del email —
 // que queda solo como fallback para cuentas sin persona asociada todavía.
-export function nombreVisibleDeUsuario(usuario: UsuarioConRoles): string {
+export function nombreVisibleDeUsuario(usuario: DatosDePersona): string {
   if (usuario.persona_nombre && usuario.persona_apellido) {
     return `${usuario.persona_apellido}, ${usuario.persona_nombre}`
   }
   return nombreDeUsuario(usuario.email)
+}
+
+// Nombre del encabezado: persona > nombre de Google > derivado del email.
+export function nombreDeSesion(usuario: UsuarioActual): string {
+  if (usuario.persona_nombre && usuario.persona_apellido) {
+    return nombreVisibleDeUsuario(usuario)
+  }
+  return usuario.nombre_google ?? nombreDeUsuario(usuario.email)
 }
 
 // Los nombres de rol llegan en distintas casings según la fuente: el JWT trae los roles de la
@@ -84,7 +93,7 @@ export function inicialesDeUsuario(email: string): string {
   return (partes[0].charAt(0) + partes[1].charAt(0)).toUpperCase()
 }
 
-export function inicialesVisiblesDeUsuario(usuario: UsuarioConRoles): string {
+export function inicialesVisiblesDeUsuario(usuario: DatosDePersona): string {
   if (usuario.persona_nombre && usuario.persona_apellido) {
     return (usuario.persona_nombre.charAt(0) + usuario.persona_apellido.charAt(0)).toUpperCase()
   }

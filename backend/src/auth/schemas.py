@@ -189,6 +189,10 @@ class UsuarioActual(BaseModel):
     email: str
     auth_provider: str
     estado: str
+    nombre_google: str | None
+    avatar_url: str | None
+    persona_nombre: str | None
+    persona_apellido: str | None
     roles: list[str]
     permisos: list[PermisoRead]
     perfiles: list[RolConPermisos]

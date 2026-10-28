@@ -56,6 +56,10 @@ beforeEach(() => {
       email: 'a@esseri.edu.ar',
       auth_provider: 'local',
       estado: 'activo',
+      nombre_google: null,
+      avatar_url: null,
+      persona_nombre: null,
+      persona_apellido: null,
       roles: ['administrador del sistema'],
       permisos: PERMISOS_DE_PRUEBA,
       perfiles: [
@@ -153,6 +157,10 @@ describe('GlobalSearchDialog', () => {
         email: 'a@esseri.edu.ar',
         auth_provider: 'local',
         estado: 'activo',
+        nombre_google: null,
+        avatar_url: null,
+        persona_nombre: null,
+        persona_apellido: null,
         roles: ['secretaría'],
         permisos: sinCrear,
         perfiles: [
@@ -238,6 +246,10 @@ describe('GlobalSearchDialog', () => {
         email: 'a@esseri.edu.ar',
         auth_provider: 'local',
         estado: 'activo',
+        nombre_google: null,
+        avatar_url: null,
+        persona_nombre: null,
+        persona_apellido: null,
         roles: ['secretaría'],
         permisos: permisosSinFacturacion,
         perfiles: [
@@ -273,6 +285,10 @@ describe('GlobalSearchDialog', () => {
         email: 'a@esseri.edu.ar',
         auth_provider: 'local',
         estado: 'activo',
+        nombre_google: null,
+        avatar_url: null,
+        persona_nombre: null,
+        persona_apellido: null,
         roles: ['secretaría'],
         permisos: sinAutenticacion,
         perfiles: [
