@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ApiError } from '@/api/client'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { useAbrirDesdeUrl } from '@/hooks/use-abrir-desde-url'
 import { ConfirmarEliminacion } from '@/components/confirmar-eliminacion'
 import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
 import { FilterChip, FilterChips, FilterDropdown } from '@/components/filter-dropdown'
@@ -63,6 +64,7 @@ export function OrdenesPage() {
   const { datos: productos } = useProductos()
 
   const [dialogoAbierto, setDialogoAbierto] = useState(false)
+  useAbrirDesdeUrl('crear', () => setDialogoAbierto(true))
   const [ordenACancelar, setOrdenACancelar] = useState<OrdenListadoItem | null>(null)
   const [ordenARecibir, setOrdenARecibir] = useState<OrdenListadoItem | null>(null)
   const [errorAccion, setErrorAccion] = useState<string | null>(null)

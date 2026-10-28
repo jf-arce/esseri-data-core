@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { ApiError } from '@/api/client'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { useAbrirDesdeUrl } from '@/hooks/use-abrir-desde-url'
 import { ConfirmarEliminacion } from '@/components/confirmar-eliminacion'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { PageHeader } from '@/components/page-header'
@@ -27,6 +28,10 @@ export function SolicitudesPage() {
   const [dialogoAbierto, setDialogoAbierto] = useState(false)
   const [solicitudEditando, setSolicitudEditando] = useState<SolicitudCompra | null>(null)
   const [solicitudAEliminar, setSolicitudAEliminar] = useState<SolicitudCompra | null>(null)
+  useAbrirDesdeUrl('crear', () => {
+    setSolicitudEditando(null)
+    setDialogoAbierto(true)
+  })
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
 
   const [busqueda, setBusqueda] = useState('')
