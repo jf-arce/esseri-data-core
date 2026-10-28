@@ -463,6 +463,7 @@ describe('sinConceptosDisponibles', () => {
 describe('etiquetaEvento', () => {
   it('nombra el evento en lenguaje de usuario y cae al nombre interno si no lo conoce', () => {
     expect(etiquetaEvento('factura.vencida')).toBe('Vence una factura')
+    expect(etiquetaEvento('solicitud_compra.aprobada')).toBe('Se aprueba una solicitud de compra')
     expect(etiquetaEvento('evento.nuevo')).toBe('evento.nuevo')
   })
 })
