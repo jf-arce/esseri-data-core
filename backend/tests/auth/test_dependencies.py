@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from jose import jwt
 
 from src.auth import config, sesion_service
+from src.models import Persona
 from tests.auth.conftest import PASSWORD_VALIDA
 
 
@@ -98,3 +99,46 @@ def test_logout_borra_la_cookie(client, usuario_local):
     client.post("/auth/logout")
 
     assert client.get("/auth/me").status_code == 401
+
+
+def test_me_sin_datos_de_google_ni_persona_devuelve_null(client, usuario_local):
+    login(client, usuario_local)
+
+    cuerpo = client.get("/auth/me").json()
+
+    assert cuerpo["nombre_google"] is None
+    assert cuerpo["avatar_url"] is None
+    assert cuerpo["persona_nombre"] is None
+    assert cuerpo["persona_apellido"] is None
+
+
+def test_me_devuelve_nombre_y_foto_de_google(
+    client, usuario_google, google_responde, iniciar_flujo_google
+):
+    google_responde(
+        usuario_google.email,
+        usuario_google.provider_subject,
+        nombre="Ana Pérez",
+        foto_url="https://lh3.googleusercontent.com/a",
+    )
+    state = iniciar_flujo_google()
+    client.get(f"/auth/google/callback?code=abc&state={state}", follow_redirects=False)
+
+    cuerpo = client.get("/auth/me").json()
+
+    assert cuerpo["nombre_google"] == "Ana Pérez"
+    assert cuerpo["avatar_url"] == "https://lh3.googleusercontent.com/a"
+
+
+def test_me_con_persona_devuelve_nombre_y_apellido(client, db_session, usuario_local):
+    persona = Persona(nombre="Julieta", apellido="Amaya", dni="40222333")
+    db_session.add(persona)
+    db_session.flush()
+    usuario_local.persona_id = persona.id
+    db_session.commit()
+    login(client, usuario_local)
+
+    cuerpo = client.get("/auth/me").json()
+
+    assert cuerpo["persona_nombre"] == "Julieta"
+    assert cuerpo["persona_apellido"] == "Amaya"

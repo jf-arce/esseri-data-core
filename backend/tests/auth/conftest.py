@@ -82,8 +82,14 @@ def con_rol(db_session, rol_admin):
 def google_responde(monkeypatch):
     """Reemplaza la ida a Google por una identidad fija. El resto del flujo corre de verdad."""
 
-    def _configurar(email, subject, email_verified=True):
-        identidad = GoogleIdentity(subject=subject, email=email, email_verified=email_verified)
+    def _configurar(email, subject, email_verified=True, nombre=None, foto_url=None):
+        identidad = GoogleIdentity(
+            subject=subject,
+            email=email,
+            email_verified=email_verified,
+            nombre=nombre,
+            foto_url=foto_url,
+        )
         monkeypatch.setattr(
             "src.auth.router.google_client.exchange_code",
             lambda code, verifier: "id-token-de-prueba",

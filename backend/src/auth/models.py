@@ -21,6 +21,8 @@ class Usuario(Base):
     password_hash: Mapped[str | None] = mapped_column(sa.String)
     auth_provider: Mapped[str] = mapped_column(sa.String)
     provider_subject: Mapped[str | None] = mapped_column(sa.String)
+    nombre_google: Mapped[str | None] = mapped_column(sa.String)
+    avatar_url: Mapped[str | None] = mapped_column(sa.String)
     estado: Mapped[str] = mapped_column(sa.String, default="activo")
     fecha_creacion: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
     ultimo_acceso: Mapped[datetime | None] = mapped_column(sa.DateTime)

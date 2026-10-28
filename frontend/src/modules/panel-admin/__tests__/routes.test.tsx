@@ -36,6 +36,10 @@ function renderConUsuario(ruta: string, roles: string[], permisos: string[]) {
       email: 'usuario@esseri.edu.ar',
       auth_provider: 'local',
       estado: 'activo',
+      nombre_google: null,
+      avatar_url: null,
+      persona_nombre: null,
+      persona_apellido: null,
       roles,
       permisos: permisosDelRol,
       perfiles: roles.map((codigo) => ({

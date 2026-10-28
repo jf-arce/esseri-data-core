@@ -50,6 +50,8 @@ RF cubiertos: RF-27, RF-28, RF-29, RF-30 · RNF-03, RNF-10
 | password_hash | string |  | `[ACLARACIÓN CLIENTE]` Ya no obligatorio: con Google Identity como login principal, queda como fallback explícito. Nulo en las cuentas que nacieron por Google |
 | auth_provider | string |  | `[ACLARACIÓN CLIENTE]` google / local. **[IMPLEMENTACIÓN RF-27]** Marca el método **principal**, no una exclusión — ver la nota de abajo sobre cuentas vinculadas |
 | provider_subject | string |  | `[ACLARACIÓN CLIENTE]` Identificador estable que devuelve Google Identity. Nulo mientras la cuenta no haya entrado nunca por Google |
+| nombre_google | string |  | Nombre que informa Google en el último login. Se refresca en cada login con Google. No reemplaza a `PERSONA`: en el encabezado manda el nombre de la persona si existe |
+| avatar_url | string |  | URL https de la foto de perfil de Google, refrescada en cada login. Nulo si Google no la informa |
 | estado | string |  | activo / inactivo |
 | fecha_creacion | datetime |  |  |
 | ultimo_acceso | datetime |  |  |
@@ -1143,3 +1145,4 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | — | Definidas las reglas de `PRECIO_PRODUCTO` (issue #114): precios sin solapamiento por par producto + proveedor, cierre automático del anterior, vigente calculado por fecha y corrección auditada. Sin cambios de esquema. |
 | — | Sumados a `TIPO_EVENTO` los dos eventos que emite Proveedores y Compras: `orden_compra.emitida` (entidad `orden_compra`; campos `proveedor_nombre`, `cantidad_items`, `fecha`) y `recepcion_compra.registrada` (entidad `recepcion_compra`; campos `proveedor_nombre`, `tipo_recepcion`, `fecha`). Sin cambios de esquema: son filas de catálogo. |
 | — | Sumados a `TIPO_EVENTO` `inscripcion.confirmada` (entidad `inscripcion`; campos `alumno_nombre`, `nivel_educativo`, `fecha`) y `solicitud_compra.aprobada` (entidad `solicitud_compra`; campos `item`, `cantidad`, `fecha`), y abiertas en la allowlist de `generar_cargo` y `generar_orden_compra` (issue #199). Sin cambios de esquema: son filas de catálogo. |
+| 2026-10-27 | Sumados `nombre_google` y `avatar_url` a `USUARIO` (issue #260): se guardan del id_token en cada login con Google y alimentan el nombre y la foto del encabezado. Prioridad del nombre: persona, Google, email |
