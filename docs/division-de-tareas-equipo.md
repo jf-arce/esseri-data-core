@@ -367,19 +367,19 @@ Antes del alcance nuevo, estas vistas no tenían dueño formal en ningún docume
 **RF cubiertos:** RF-19, RF-20, RF-21, RF-34, RF-35, RF-38
 
 **Backend (`src/proveedores_compras/`):**
-- ABM de `Proveedor` (datos de contacto, categoría, estado) (RF-19).
-- **Nuevo — catálogo `PRODUCTO_SERVICIO`** (cambio 7, cierra la pregunta #7 de fondo): reemplaza el texto libre de `SOLICITUD_COMPRA.articulo` por una referencia controlada, con `PRODUCTO_PROVEEDOR` (M:N con proveedores) y `PRECIO_PRODUCTO` (histórico por proveedor). `articulo` se conserva nullable solo para excepciones fuera de catálogo. **El catálogo inicial normalizado todavía no llegó** (pregunta pendiente #17) — no inventar valores de ejemplo como precarga real, esperar a que el cliente lo entregue.
-- Registrar solicitudes internas de compra, con estado actualizable y referencia a `PRODUCTO_SERVICIO` (RF-20).
-- Generar orden de compra a partir de solicitud(es) aprobada(s) del mismo proveedor, asociada a un proveedor, con `ORDEN_COMPRA_DETALLE` por ítem (RF-21) — el cliente confirmó (respuesta 14) que una orden puede agrupar varias solicitudes, cada una conserva su ID original.
-- **Nuevo — recepción de compras completa** (cambio 17, cierra la pregunta #14): `RECEPCION_COMPRA` + `RECEPCION_COMPRA_DETALLE`, total o parcial — una recepción parcial deja pendiente automáticamente la cantidad restante (`cantidad_pedida - SUM(cantidad_recibida)`, calculado, no columna).
-- Búsqueda de proveedores y órdenes (RF-34, RF-35), exportación CSV/Excel (RF-38).
+- ABM de `Proveedor` (datos de contacto, categoría, estado) (RF-19), **hecho** (#39).
+- **Nuevo — catálogo `PRODUCTO_SERVICIO`** (cambio 7, cierra la pregunta #7 de fondo): reemplaza el texto libre de `SOLICITUD_COMPRA.articulo` por una referencia controlada, con `PRODUCTO_PROVEEDOR` (M:N con proveedores) y `PRECIO_PRODUCTO` (histórico por proveedor). `articulo` se conserva nullable solo para excepciones fuera de catálogo. **El catálogo inicial normalizado todavía no llegó** (pregunta pendiente #17) — no inventar valores de ejemplo como precarga real, esperar a que el cliente lo entregue. ABM del catálogo y precios por proveedor **hechos** (#113, #114).
+- Registrar solicitudes internas de compra, con estado actualizable y referencia a `PRODUCTO_SERVICIO` (RF-20), **hecho** (#41). Al aprobarse emite `solicitud_compra.aprobada` (#211).
+- Generar orden de compra a partir de solicitud(es) aprobada(s) del mismo proveedor, asociada a un proveedor, con `ORDEN_COMPRA_DETALLE` por ítem (RF-21) — el cliente confirmó (respuesta 14) que una orden puede agrupar varias solicitudes, cada una conserva su ID original. **Hecho** (#43).
+- **Nuevo — recepción de compras completa** (cambio 17, cierra la pregunta #14): `RECEPCION_COMPRA` + `RECEPCION_COMPRA_DETALLE`, total o parcial — una recepción parcial deja pendiente automáticamente la cantidad restante (`cantidad_pedida - SUM(cantidad_recibida)`, calculado, no columna). **Hecho** (#87, #111).
+- Búsqueda de proveedores y órdenes (RF-34, RF-35), exportación CSV/Excel (RF-38), **hecho** (#45, #46).
 
 **Frontend (`modules/proveedores-compras/`):**
-- ABM de proveedores.
-- Catálogo de productos/servicios con precios por proveedor.
-- Formulario de solicitud de compra (con selector del catálogo) + listado con estado.
-- Generación de orden de compra desde solicitudes aprobadas, agrupando por proveedor.
-- Registro de recepción (total/parcial) con detalle por ítem.
+- ABM de proveedores, **hecho** (#40).
+- Catálogo de productos/servicios con precios por proveedor, **hecho** (#113, #114).
+- Formulario de solicitud de compra (con selector del catálogo) + listado con estado, **hecho** (#42).
+- Generación de orden de compra desde solicitudes aprobadas, agrupando por proveedor, **hecho** (#44).
+- Registro de recepción (total/parcial) con detalle por ítem, **hecho** (#88).
 
 **Cerrado por el cliente** (antes era la pregunta pendiente #7): una orden de compra sí puede agrupar varias solicitudes al mismo proveedor — el modelo M:N (`ORDEN_COMPRA_SOLICITUD`) ya existente queda validado sin cambios.
 
@@ -391,18 +391,20 @@ Antes del alcance nuevo, estas vistas no tenían dueño formal en ningún docume
 > **Advertencia de cobertura documental:** a diferencia de los demás módulos, este no tiene ningún RF con código en la Matriz de Requerimientos — es interpretación del equipo sobre la descripción de alto nivel del enunciado del alcance. Presentarlo con esa salvedad si el tutor pregunta.
 
 **Backend (`src/ia_sugerencias/`):**
-- Detectar patrón (morosidad, inasistencias) vía OpenAI, guardar en `IA_SUGERENCIA` con `estado = pendiente_revision`.
-- Generar borrador de comunicación institucional vía OpenAI, mismo flujo de revisión.
+- Detectar patrón (morosidad, inasistencias) y guardarlo en `IA_SUGERENCIA` con `estado = pendiente_revision`, **hecho** (#51). Se detecta por reglas y SQL, sin LLM (decisión de equipo en el diccionario de datos).
+- Generar borrador de comunicación institucional vía OpenAI, mismo flujo de revisión: implementado y con tests, **falta probarlo contra un proveedor real** (#50 abierta).
 - Aprobar sugerencia — si es de tipo comunicación, crea la `NOTIFICACION_TEMPLATE` correspondiente.
 - Rechazar sugerencia.
 - Listar sugerencias pendientes de revisión.
 
+Aprobar, rechazar y listar **hechos** (#194). Además, las comunicaciones que arma la regla `generar_comunicacion` de Workflows llegan a esta bandeja y se envían al aprobarlas (#213).
+
 **Regla no negociable, reforzada por el cliente (respuesta 16):** si `requiere_control_humano = true`, la sugerencia **nunca** pasa directo a `ejecutada_automaticamente` sin pasar por `pendiente_revision`. IA acotada: patrones por reglas/SQL, LLM solo para redactar o sugerir — nada de ML entrenado (cambio 11).
 
 **Frontend (`modules/ia-sugerencias/`):**
-- Bandeja de sugerencias pendientes con botones de aprobar/rechazar.
-- Vista de detalle de una sugerencia (contexto + contenido generado).
-- Historial de sugerencias resueltas.
+- Bandeja de sugerencias pendientes con botones de aprobar/rechazar, **hecho** (#195).
+- Vista de detalle de una sugerencia (contexto + contenido generado), **hecho** (#195).
+- Historial de sugerencias resueltas, **hecho** (#195).
 
 **Coordinar con Arce:** una sugerencia de comunicación aprobada genera una `NOTIFICACION_TEMPLATE` — la misma tabla que usa `WORKFLOW_RULE.notificacion_template_id` de Workflows. Acordar el contrato de esa tabla antes de que cada uno la use por su lado.
 
