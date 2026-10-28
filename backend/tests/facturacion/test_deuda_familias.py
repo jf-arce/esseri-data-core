@@ -8,10 +8,12 @@ from src.facturacion.cuenta_corriente_service import listar_deuda_por_familia
 from src.facturacion.facturas_service import crear_factura, registrar_pago
 from src.facturacion.models import ConceptoCobro, MetodoPago, ResponsableEconomico
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate
+from tests.facturacion.conftest import crear_catalogo_evento_pago_registrado
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
 
 def _crear_escenario_con_deuda(db_session):
+    crear_catalogo_evento_pago_registrado(db_session)
     escenario = crear_escenario(db_session)
     inscripcion = crear_inscripcion_previa(db_session, escenario, estado="activa")
     concepto = ConceptoCobro(nombre="Cuota", activo=True)

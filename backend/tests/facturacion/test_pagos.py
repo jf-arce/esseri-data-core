@@ -6,15 +6,26 @@ from decimal import Decimal
 import pytest
 
 from src.auth.models import Usuario
+from src.facturacion import facturas_service
+from src.facturacion.calendario_facturacion import fecha_operativa_argentina
 from src.facturacion.cuenta_corriente_service import obtener_resumen_cuenta
 from src.facturacion.exceptions import ComprobantePagoInvalido, PagoExcedeSaldo
 from src.facturacion.facturas_service import crear_factura, registrar_pago
-from src.facturacion.models import ConceptoCobro, MetodoPago, Movimiento, ResponsableEconomico
+from src.facturacion.models import (
+    ConceptoCobro,
+    MetodoPago,
+    Movimiento,
+    Pago,
+    ResponsableEconomico,
+)
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate
+from src.models import EventLog
+from tests.facturacion.conftest import crear_catalogo_evento_pago_registrado
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
 
 def _crear_factura_pendiente(db_session):
+    crear_catalogo_evento_pago_registrado(db_session)
     escenario = crear_escenario(db_session)
     inscripcion = crear_inscripcion_previa(db_session, escenario, estado="activa")
     concepto = ConceptoCobro(nombre="Cuota", categoria="Escolar", activo=True)
@@ -83,6 +94,61 @@ def test_registrar_pago_total_guarda_comprobante_y_paga_factura(db_session):
         Decimal("100.00"),
         Decimal("0.00"),
     )
+
+
+def test_registrar_pago_emite_evento_en_la_misma_transaccion(db_session):
+    factura, metodo, usuario, _ = _crear_factura_pendiente(db_session)
+
+    pago = registrar_pago(
+        db_session,
+        factura=factura,
+        usuario_registro_id=usuario.id,
+        fecha=date(2027, 3, 5),
+        monto=Decimal("100.00"),
+        metodo_pago_id=metodo.id,
+        referencia_transaccion="TRX-123",
+        comprobante_nombre="transferencia.pdf",
+        comprobante_tipo_contenido="application/pdf",
+        comprobante_contenido=b"%PDF-1.7 comprobante",
+    )
+
+    evento = db_session.query(EventLog).one()
+    assert evento.entidad == "pago"
+    assert evento.entidad_id == pago.id
+    assert evento.usuario_id == usuario.id
+    assert evento.payload == {
+        "monto": 100.0,
+        "metodo_pago": "Transferencia",
+        # La fecha del evento es la de procesamiento, no la de carga (2027-03-05).
+        "fecha_operacion": fecha_operativa_argentina(pago.fecha_operacion).isoformat(),
+    }
+
+
+def test_falla_despues_de_emitir_evento_revierte_pago_y_evento(db_session, monkeypatch):
+    factura, metodo, usuario, _ = _crear_factura_pendiente(db_session)
+
+    def fallar_despues_de_emitir(*args, **kwargs):
+        raise RuntimeError("fallo de prueba")
+
+    monkeypatch.setattr(facturas_service, "log_audit", fallar_despues_de_emitir)
+
+    with pytest.raises(RuntimeError, match="fallo de prueba"):
+        registrar_pago(
+            db_session,
+            factura=factura,
+            usuario_registro_id=usuario.id,
+            fecha=date(2027, 3, 5),
+            monto=Decimal("100.00"),
+            metodo_pago_id=metodo.id,
+            referencia_transaccion=None,
+            comprobante_nombre="transferencia.pdf",
+            comprobante_tipo_contenido="application/pdf",
+            comprobante_contenido=b"%PDF-1.7 comprobante",
+        )
+
+    db_session.rollback()
+    assert db_session.query(EventLog).count() == 0
+    assert db_session.query(Pago).count() == 0
 
 
 def test_no_registra_pago_por_encima_del_saldo(db_session):

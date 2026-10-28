@@ -18,6 +18,7 @@ from src.facturacion.models import (
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate
 from src.facturacion.vencimientos_service import detectar_facturas_vencidas
 from src.models import EventLog
+from tests.facturacion.conftest import crear_catalogo_evento_pago_registrado
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
 VENCIMIENTO = date(2027, 3, 5)
@@ -25,6 +26,7 @@ VENCIMIENTO = date(2027, 3, 5)
 
 @pytest.fixture()
 def escenario(db_session, tipo_factura_vencida):
+    crear_catalogo_evento_pago_registrado(db_session)
     datos = crear_escenario(db_session)
     inscripcion = crear_inscripcion_previa(db_session, datos, estado="activa")
     concepto = ConceptoCobro(nombre="Cuota", activo=True)
@@ -179,7 +181,7 @@ def test_payload_trae_deuda_pendiente_y_nombre_de_familia(db_session, escenario)
 
     detectar_facturas_vencidas(db_session, date(2027, 3, 6))
 
-    (evento,) = _eventos(db_session)
+    evento = next(evento for evento in _eventos(db_session) if evento.entidad == "factura")
     assert Decimal(str(evento.payload["monto_deuda"])) == Decimal("60.00")
     assert evento.payload["nombre_familia"] == "Cabral, Lorena"
 

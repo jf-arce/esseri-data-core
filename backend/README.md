@@ -193,15 +193,16 @@ instancias del backend, `FOR UPDATE SKIP LOCKED` evita que dos procesen el mismo
 
 Ya emiten: Proveedores y Compras, `orden_compra.emitida` (en `crear_orden_compra`) y
 `recepcion_compra.registrada` (en `crear_recepcion`); Académico, `inasistencia.registrada` e
-`inasistencia.justificada`. El resto lo agrega el módulo dueño del hecho:
+`inasistencia.justificada`; Inscripciones, `inscripcion.cambio_matricula` (en
+`registrar_cambio_matricula`); y Facturación, `pago.registrado` (en `registrar_pago`). El resto lo
+agrega el módulo dueño del hecho:
 
 | Evento | Dónde iría | Payload |
 |---|---|---|
-| `inscripcion.cambio_matricula` | Inscripciones: `registrar_cambio_matricula` | `alumno_nombre`, `tipo_cambio` (`nivel` o `division`), `fecha` |
 | `factura.vencida` | Facturación: `vencimientos_service.py` al entrar la factura en un tramo de mora | `dias_vencido`, `monto_deuda`, `nombre_familia` |
 | `inscripcion.confirmada` | Inscripciones: al crear la `INSCRIPCION` nueva desde la solicitud (`matriculas_service.py`) | `alumno_nombre`, `nivel_educativo`, `fecha` |
 | `solicitud_compra.aprobada` | Compras: `cambiar_estado_solicitud` cuando pasa a `aprobada` | `item`, `cantidad`, `fecha` |
-| `solicitud_inscripcion.aprobada`, `pago.registrado`, `pago.rechazado` | Admisiones y Facturación | ver `grupo-b.yaml` |
+| `solicitud_inscripcion.aprobada`, `pago.rechazado` | Admisiones y Facturación | ver `grupo-b.yaml` |
 
 En `solicitud_compra.aprobada`, `item` es un solo campo que nunca puede ser nulo: el `articulo` o,
 si la solicitud usa `producto_servicio_id`, el nombre del producto. No se agregan `articulo` ni
@@ -248,7 +249,9 @@ por el inicio de la ejecución (la más reciente primero), porque `NOTIFICACION`
 y `sent_at` es `NULL` en las fallidas. Un reintento aparece como filas nuevas con su `intento`.
 
 **Estado actual:** `notificar`, `alerta_interna`, `aplicar_vencimiento`, `cambiar_estado`,
-`aplicar_penalidad`, `crear_tarea` y `escalar_caso` tienen ejecutor real. El resto de `ACCIONES` (`despacho_service.py`) sigue con un stub por dueño
+`aplicar_penalidad`, `crear_tarea` y `escalar_caso` tienen ejecutor real. Facturación además emite
+`pago.registrado` al confirmar un pago aprobado, antes de confirmar la misma transacción que escribe
+el pago y el movimiento de cuenta corriente. El resto de `ACCIONES` (`despacho_service.py`) sigue con un stub por dueño
 que devuelve "acción no implementada", así que una regla sin aprobación humana queda `fallido`
 hasta que su dueño lo reemplace (#199):
 
