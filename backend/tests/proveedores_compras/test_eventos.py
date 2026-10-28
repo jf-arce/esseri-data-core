@@ -155,10 +155,11 @@ class TestEventoOrdenEmitida:
 
     def test_cancelar_la_orden_no_emite_otro_evento(self, db_session: Session):
         orden = _orden_de_10(db_session)
+        antes = len(db_session.scalars(select(EventLog)).all())
 
         cancelar_orden_compra(db_session, orden)
 
-        assert len(db_session.scalars(select(EventLog)).all()) == 1
+        assert len(db_session.scalars(select(EventLog)).all()) == antes
 
 
 class TestEventoRecepcionRegistrada:
@@ -246,8 +247,8 @@ def test_una_regla_de_faltante_se_dispara_solo_con_recepcion_parcial(
 
     resumen = procesar_eventos_pendientes(db_session)
 
-    # Dos eventos: la orden emitida (sin reglas) y la recepción.
-    assert resumen.eventos_procesados == 2
+    # Tres eventos: la solicitud aprobada y la orden emitida (sin reglas), y la recepción.
+    assert resumen.eventos_procesados == 3
     assert {evento.estado for evento in db_session.scalars(select(EventLog))} == {"procesado"}
     assert [
         ejecucion.estado for ejecucion in db_session.scalars(select(WorkflowExecution))
@@ -264,3 +265,49 @@ def test_los_payloads_traen_los_campos_que_declara_el_catalogo(db_session: Sessi
         _recibir(db_session, orden, 4, usuario.id)
 
     assert caplog.text == ""
+
+
+class TestEventoSolicitudAprobada:
+    def test_aprobar_emite_el_evento_con_el_item_del_catalogo(self, db_session: Session):
+        usuario = _crear_usuario(db_session)
+        producto = crear_producto_servicio(
+            db_session, ProductoServicioCreate(nombre="Resma A4", tipo="producto")
+        )
+        solicitud = crear_solicitud(
+            db_session,
+            SolicitudCompraCreate(producto_servicio_id=producto.id, cantidad=5),
+            usuario.id,
+        )
+
+        cambiar_estado_solicitud(db_session, solicitud, "aprobada", usuario.id)
+
+        [evento] = _eventos(db_session, "solicitud_compra.aprobada")
+        assert evento.entidad == "solicitud_compra"
+        assert evento.entidad_id == solicitud.id
+        assert evento.usuario_id == usuario.id
+        assert evento.payload == {
+            "item": "Resma A4",
+            "cantidad": 5,
+            "fecha": date.today().isoformat(),
+        }
+
+    def test_un_articulo_fuera_de_catalogo_usa_su_texto(self, db_session: Session):
+        solicitud = crear_solicitud(
+            db_session, SolicitudCompraCreate(articulo="Tóner HP", cantidad=2), uuid.uuid4()
+        )
+
+        cambiar_estado_solicitud(db_session, solicitud, "aprobada")
+
+        assert _eventos(db_session, "solicitud_compra.aprobada")[0].payload["item"] == "Tóner HP"
+
+    def test_reaprobar_o_rechazar_no_emite(self, db_session: Session):
+        solicitud = crear_solicitud(
+            db_session, SolicitudCompraCreate(articulo="Tóner HP", cantidad=2), uuid.uuid4()
+        )
+        cambiar_estado_solicitud(db_session, solicitud, "rechazada")
+        assert _eventos(db_session, "solicitud_compra.aprobada") == []
+
+        cambiar_estado_solicitud(db_session, solicitud, "aprobada")
+        cambiar_estado_solicitud(db_session, solicitud, "aprobada")
+
+        assert len(_eventos(db_session, "solicitud_compra.aprobada")) == 1

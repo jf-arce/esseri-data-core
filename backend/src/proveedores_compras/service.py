@@ -314,10 +314,31 @@ def cambiar_estado_solicitud(
         valor_nuevo=estado,
         usuario_id=usuario_id,
     )
+    # Solo al pasar a aprobada: re-aprobar no vuelve a disparar la orden de compra (#211).
+    if estado == "aprobada" and valor_anterior != "aprobada":
+        emit_event(
+            db,
+            tipo="solicitud_compra.aprobada",
+            entidad="solicitud_compra",
+            entidad_id=solicitud.id,
+            payload={
+                "item": _nombre_item(db, solicitud),
+                "cantidad": solicitud.cantidad,
+                "fecha": date.today(),
+            },
+            usuario_id=usuario_id,
+        )
     db.commit()
     db.refresh(solicitud)
 
     return solicitud
+
+
+def _nombre_item(db: Session, solicitud: SolicitudCompra) -> str:
+    if solicitud.producto_servicio_id is None:
+        return solicitud.articulo or ""
+    producto = db.get(ProductoServicio, solicitud.producto_servicio_id)
+    return producto.nombre if producto else ""
 
 
 def eliminar_solicitud(
@@ -490,6 +511,18 @@ def crear_orden_compra(
         SolicitudYaEnOrden: si alguna ya está incluida en otra orden.
         ProductoServicioInexistente / ProductoServicioInactivo: por cada ítem del detalle.
     """
+    nueva_orden = crear_orden_compra_en_transaccion(db, orden_data, usuario_id)
+    db.commit()
+    db.refresh(nueva_orden)
+
+    return nueva_orden
+
+
+def crear_orden_compra_en_transaccion(
+    db: Session, orden_data: OrdenCompraCreate, usuario_id: uuid.UUID | None = None
+) -> OrdenCompra:
+    """Arma la orden sin confirmar la transacción: la usa también el motor de Workflows, que
+    ejecuta dentro de su propio savepoint (`generar_orden_compra`, #212)."""
     proveedor = db.query(Proveedor).filter(Proveedor.id == orden_data.proveedor_id).first()
     if proveedor is None:
         raise ProveedorInexistente()
@@ -541,9 +574,7 @@ def crear_orden_compra(
         },
         usuario_id=usuario_id,
     )
-    db.commit()
-    db.refresh(nueva_orden)
-
+    db.flush()
     return nueva_orden
 
 
