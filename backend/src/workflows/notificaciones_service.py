@@ -258,6 +258,51 @@ def _familia_responsable_economico(
     )
 
 
+# --- Comunicación en revisión (`generar_comunicacion`, #213) ---------------------------------
+
+
+class ComunicacionNoPreparada(Exception):
+    def __init__(self, error: str) -> None:
+        super().__init__(error)
+        self.error = error
+
+
+def preparar_comunicacion(
+    db: Session, regla: WorkflowRule, evento: EventLog, destino: str
+) -> tuple[str, str, list[Destinatario]]:
+    """Arma lo que enviaría `notificar` (plantilla y destinatarios) sin enviarlo.
+
+    Raises:
+        ComunicacionNoPreparada: con el mismo error controlado que dejaría `notificar`.
+    """
+    try:
+        asunto, cuerpo = _contenido_notificar(db, regla, evento)
+        destinatarios, _ = resolver_destinatarios(db, regla, evento, destino)
+    except _SinContenido as e:
+        raise ComunicacionNoPreparada(e.error) from None
+    except _SinAlumno:
+        raise ComunicacionNoPreparada(ERROR_SIN_ALUMNO) from None
+    except _SinSolicitante:
+        raise ComunicacionNoPreparada(ERROR_SIN_SOLICITANTE) from None
+    if not destinatarios:
+        raise ComunicacionNoPreparada(ERROR_SIN_DESTINATARIOS)
+    if len(destinatarios) > MAX_DESTINATARIOS_POR_EJECUCION:
+        raise ComunicacionNoPreparada(ERROR_TOPE)
+    return asunto, cuerpo, destinatarios
+
+
+def enviar_comunicacion(
+    db: Session,
+    ejecucion: WorkflowExecution,
+    asunto: str,
+    cuerpo: str,
+    destinatarios: list[Destinatario],
+) -> ResultadoAccion:
+    """Envía un mensaje ya revisado; cada `NOTIFICACION` queda en la ejecución que lo originó."""
+    mensajes = [_Mensaje(d, asunto, cuerpo) for d in destinatarios]
+    return _enviar_todos(db, ejecucion, mensajes, total=len(mensajes), sin_email=0, enlace=None)
+
+
 # --- Ejecución -----------------------------------------------------------------------------
 
 

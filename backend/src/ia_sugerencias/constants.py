@@ -20,6 +20,9 @@ ENTIDAD_FAMILIA = "familia"
 ENTIDAD_ALUMNO = "alumno"
 # En una sugerencia de comunicación, la entidad es el evento para el que se redactó.
 ENTIDAD_TIPO_EVENTO = "tipo_evento"
+# En una comunicación armada por `generar_comunicacion` (#213), la ejecución que la originó: al
+# aprobarla, los envíos quedan registrados en esa ejecución.
+ENTIDAD_EJECUCION = "workflow_execution"
 
 # Una ausencia pendiente todavía no fue justificada: cuenta igual que una injustificada.
 TIPOS_AUSENCIA_SIN_JUSTIFICAR = ("ausente_injustificado", "ausente_pendiente")

@@ -21,6 +21,7 @@ function sugerencia(overrides: Partial<Sugerencia>): Sugerencia {
     usuario_id: null,
     revisor_email: null,
     comunicacion: null,
+    envio: null,
     notificacion_template_id: null,
     ...overrides,
   }
@@ -81,6 +82,26 @@ describe('resumenSugerencia', () => {
 
     expect(resumenSugerencia(comunicacion)).toBe('Recordatorio de deuda: Aviso de cuota vencida')
     expect(etiquetaAfectado(comunicacion.entidad)).toBe('Evento')
+  })
+
+  it('en una comunicación de un evento es el asunto con cuántos la van a recibir', () => {
+    const destinatario = { tipo: 'usuario' as const, usuario_id: 'u', familia_id: null }
+    const envio = sugerencia({
+      tipo: 'comunicacion',
+      entidad: 'workflow_execution',
+      envio: {
+        regla: 'Avisar materiales',
+        asunto: 'Llegaron los materiales',
+        cuerpo: 'Hola',
+        destinatarios: [
+          { ...destinatario, email: 'a@esseri.local' },
+          { ...destinatario, email: 'b@esseri.local' },
+        ],
+      },
+    })
+
+    expect(resumenSugerencia(envio)).toBe('Llegaron los materiales (2 destinatarios)')
+    expect(etiquetaAfectado(envio.entidad)).toBe('Regla de Workflows')
   })
 })
 

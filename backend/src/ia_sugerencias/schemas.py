@@ -46,6 +46,28 @@ class BorradorComunicacion(BaseModel):
     instrucciones: str
 
 
+class DestinatarioBorrador(BaseModel):
+    """A quién se le va a mandar una comunicación en revisión, tal como lo resolvió Workflows."""
+
+    tipo: Literal["familia", "usuario"]
+    email: str
+    usuario_id: uuid.UUID | None = None
+    familia_id: uuid.UUID | None = None
+
+
+class BorradorEnvio(BaseModel):
+    """Una comunicación que armó `generar_comunicacion` (#213) y espera aprobación para salir.
+
+    Se guarda en JSON en `IA_SUGERENCIA.contenido_generado`, con `entidad = workflow_execution`.
+    Es una foto: se envía lo que la persona leyó, aunque después cambie la plantilla.
+    """
+
+    regla: str
+    asunto: str
+    cuerpo: str
+    destinatarios: list[DestinatarioBorrador]
+
+
 class SugerenciaResponse(BaseModel):
     """Sugerencia tal como sale por la API.
 
@@ -66,6 +88,8 @@ class SugerenciaResponse(BaseModel):
     revisor_email: str | None = None
     # Solo en las de tipo `comunicacion`: el borrador ya separado en sus partes.
     comunicacion: BorradorComunicacion | None = None
+    # Solo en las comunicaciones de un evento (#213): el mensaje listo para enviar al aprobar.
+    envio: BorradorEnvio | None = None
     notificacion_template_id: uuid.UUID | None
 
     model_config = ConfigDict(from_attributes=True)

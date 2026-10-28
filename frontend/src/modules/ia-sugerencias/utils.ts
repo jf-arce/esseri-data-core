@@ -33,6 +33,7 @@ const ETIQUETA_ENTIDAD: Record<string, string> = {
   familia: 'Familia',
   alumno: 'Alumno',
   tipo_evento: 'Evento',
+  workflow_execution: 'Regla de Workflows',
 }
 
 export function etiquetaAfectado(entidad: string | null): string {
@@ -43,6 +44,10 @@ export function etiquetaAfectado(entidad: string | null): string {
 // El texto que identifica a la sugerencia en una fila o en una confirmación. En una
 // comunicación `contenido_generado` es el borrador serializado, no algo para mostrar.
 export function resumenSugerencia(sugerencia: Sugerencia): string {
+  if (sugerencia.envio !== null) {
+    const { asunto, destinatarios } = sugerencia.envio
+    return `${asunto} (${destinatarios.length} destinatario${destinatarios.length === 1 ? '' : 's'})`
+  }
   if (sugerencia.comunicacion === null) return sugerencia.contenido_generado
   return `${sugerencia.comunicacion.nombre}: ${sugerencia.comunicacion.asunto}`
 }
