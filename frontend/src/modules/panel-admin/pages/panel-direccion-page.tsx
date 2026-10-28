@@ -18,6 +18,7 @@ import {
   tienePermiso,
 } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
+import { DetalleDireccion } from '../components/detalle-direccion'
 
 export function PanelDireccionPage() {
   const { datos, cargando, error } = useIndicadoresDireccion()
@@ -26,6 +27,7 @@ export function PanelDireccionPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader titulo="Panel de Dirección" />
+      <p className="-mt-4 text-sm text-texto-2">Resumen general de la gestión institucional</p>
 
       {error && (
         <Alert variant="error">
@@ -46,7 +48,7 @@ export function PanelDireccionPage() {
           >
             <StatTile
               label="Alumnos activos"
-              value={datos.alumnos_activos}
+              value={error ? 'No disponible' : datos.alumnos_activos}
               icon={UserRoundCheckIcon}
               variant="dark"
               compact
@@ -63,7 +65,7 @@ export function PanelDireccionPage() {
           >
             <StatTile
               label="Deuda pendiente"
-              value={formatearMoneda(datos.deuda_pendiente_total)}
+              value={error ? 'No disponible' : formatearMoneda(datos.deuda_pendiente_total)}
               icon={CircleDollarSignIcon}
               iconClassName="bg-sup-facturacion text-mod-facturacion"
               compact
@@ -80,7 +82,7 @@ export function PanelDireccionPage() {
           >
             <StatTile
               label="Inasistencias de hoy"
-              value={datos.inasistencias_hoy}
+              value={error ? 'No disponible' : datos.inasistencias_hoy}
               icon={UserRoundXIcon}
               iconClassName="bg-sup-academico text-mod-academico"
               compact
@@ -97,7 +99,7 @@ export function PanelDireccionPage() {
           >
             <StatTile
               label="Solicitudes de compra pendientes"
-              value={datos.solicitudes_compra_pendientes}
+              value={error ? 'No disponible' : datos.solicitudes_compra_pendientes}
               icon={ClipboardListIcon}
               iconClassName="bg-sup-compras text-mod-compras"
               compact
@@ -107,6 +109,14 @@ export function PanelDireccionPage() {
           </Link>
         )}
       </section>
+      <DetalleDireccion
+        acceso={{
+          compras: tienePermiso(permisos, PERMISO_PROVEEDORES_COMPRAS_LEER),
+          finanzas: tienePermiso(permisos, PERMISO_FACTURACION_LEER),
+          academico: tienePermiso(permisos, PERMISO_ACADEMICO_LEER),
+          alumnos: tienePermiso(permisos, PERMISO_FAMILIAS_ALUMNOS_LEER),
+        }}
+      />
     </div>
   )
 }

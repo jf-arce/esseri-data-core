@@ -5,7 +5,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   HouseIcon,
-  Menu,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
   Search,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -67,6 +68,7 @@ export function AppLayout() {
   const [moduloSeleccionado, setModuloSeleccionado] = useState<NavItem | null>(() =>
     moduloDeRuta(location.pathname, navGrupos),
   )
+  const mostrarModulo = sidebarOpen && moduloSeleccionado !== null
 
   // El panel de módulo se sincroniza con la ruta (deep link, buscador global, atrás del
   // navegador). Una selección manual (botón "volver", o clickear un módulo sin landing propia
@@ -111,21 +113,24 @@ export function AppLayout() {
           <SidebarContent className="relative overflow-hidden">
             <div
               className={`absolute inset-0 overflow-y-auto transition-opacity duration-150 ease-in-out ${
-                moduloSeleccionado ? 'pointer-events-none opacity-0' : 'opacity-100'
+                mostrarModulo ? 'pointer-events-none opacity-0' : 'opacity-100'
               }`}
-              aria-hidden={moduloSeleccionado !== null}
+              aria-hidden={mostrarModulo}
+              inert={mostrarModulo}
             >
               <SidebarRootView
                 grupos={navGrupos}
                 hrefActivo={hrefActivo}
                 onSeleccionarModulo={setModuloSeleccionado}
+                moduloExpandido={sidebarOpen ? null : moduloSeleccionado}
               />
             </div>
             <div
               className={`absolute inset-0 overflow-y-auto transition-opacity duration-150 ease-in-out ${
-                moduloSeleccionado ? 'opacity-100' : 'pointer-events-none opacity-0'
+                mostrarModulo ? 'opacity-100' : 'pointer-events-none opacity-0'
               }`}
-              aria-hidden={moduloSeleccionado === null}
+              aria-hidden={!mostrarModulo}
+              inert={!mostrarModulo}
             >
               {moduloSeleccionado && (
                 <SidebarModuloView
@@ -146,8 +151,14 @@ export function AppLayout() {
               variant="ghost"
               className="flex cursor-pointer size-9 shrink-0 items-center justify-center"
               aria-label="Mostrar u ocultar la navegación"
+              title={sidebarOpen ? 'Contraer barra lateral' : 'Expandir barra lateral'}
+              aria-expanded={sidebarOpen}
             >
-              <Menu className="size-4.5" />
+              {sidebarOpen ? (
+                <PanelLeftCloseIcon className="size-4.5" />
+              ) : (
+                <PanelLeftOpenIcon className="size-4.5" />
+              )}
             </Button>
 
             <button
@@ -250,17 +261,18 @@ function seccionesDe(item: NavItem): NavItem[] {
   return [...landing, ...(item.children ?? [])]
 }
 
-// Vista raíz: ítems sin hijos navegan directo; los que tienen hijos no se expanden inline, solo
-// seleccionan el módulo — es `SidebarContent` quien decide, vía transición, mostrar el panel de
-// ese módulo (`SidebarModuloView`) en lugar de expandir un acordeón.
+// Expanded navigation uses the module panel; the collapsed rail nests section icons below
+// the selected module without removing the remaining module shortcuts.
 function SidebarRootView({
   grupos,
   hrefActivo,
   onSeleccionarModulo,
+  moduloExpandido,
 }: {
   grupos: NavGroup[]
   hrefActivo: string | null
   onSeleccionarModulo: (item: NavItem) => void
+  moduloExpandido: NavItem | null
 }) {
   return (
     <>
@@ -286,9 +298,30 @@ function SidebarRootView({
                             `span:last-child` del botón no aplica y el label se partía en dos
                             líneas durante la animación de ancho. */}
                         <span className="truncate">{item.label}</span>
-                        <ChevronRightIcon className="ml-auto size-4 text-texto-3" />
+                        <ChevronRightIcon className="ml-auto size-4 text-texto-3 group-data-[collapsible=icon]:hidden" />
                       </Link>
                     </SidebarMenuButton>
+                    {moduloExpandido?.label === item.label && (
+                      <SidebarMenu
+                        aria-label={`Secciones de ${item.label}`}
+                        className="ml-1 mt-1 w-auto border-l border-borde pl-1"
+                      >
+                        {seccionesDe(item).map((seccion) => (
+                          <SidebarMenuItem key={seccion.href}>
+                            <SidebarMenuButton
+                              asChild
+                              isActive={seccion.href === hrefActivo}
+                              tooltip={seccion.label}
+                            >
+                              <Link to={seccion.href ?? '#'}>
+                                <seccion.icon />
+                                <span>{seccion.label}</span>
+                              </Link>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        ))}
+                      </SidebarMenu>
+                    )}
                   </SidebarMenuItem>
                 ) : (
                   <SidebarMenuItem key={item.label}>
