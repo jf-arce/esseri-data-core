@@ -73,11 +73,23 @@ Los tests unitarios/de componentes viven en `__tests__/` dentro de cada subcarpe
 ## Tests end-to-end (Playwright)
 
 ```bash
-npx playwright install   # una sola vez, instala los navegadores
-npm run test:e2e
+npx playwright install chromium firefox webkit   # una sola vez, instala los navegadores
+E2E_BASE_URL=http://localhost:5173 npm run test:e2e
 ```
 
-La configuración (`playwright.config.ts`) ya está lista contra `http://localhost:5173`. Los specs de `e2e/*.spec.ts` se van agregando a medida que cada flujo de usuario tenga pantallas reales — no existen todavía en este setup inicial.
+Necesitan un backend con el seed de demo cargado (`database/seeds/04_seed_demo.py`): `e2e/auth.setup.ts`
+inicia sesión con `demo.admin@esseri.local` (cambiable con `E2E_EMAIL` / `E2E_PASSWORD`) y guarda la
+sesión en `e2e/.auth/` (ignorada por git). Con `E2E_BASE_URL` se apunta a un entorno ya levantado; sin
+ella, Playwright levanta `npm run dev`.
+
+**Cross-browser (RNF-02, #224).** `playwright.config.ts` corre cada spec en cinco perfiles: Chrome y
+Edge (`chromium`, mismo motor), Firefox, Safari (`webkit`, el motor de Safari) y celular (`mobile-chrome`,
+Pixel 7; `mobile-safari`, iPhone 14). `e2e/pantallas-principales.spec.ts` recorre las pantallas del
+menú y verifica que carguen con su título, sin errores de JavaScript y sin ensanchar la página. Las
+fallas conocidas quedan anotadas en `FALLAS_CONOCIDAS` con su motivo. WebKit no es Safari real: un
+detalle propio de Safari en iOS solo se ve en un dispositivo.
+
+Vitest excluye `e2e/`: esos specs corren solo con Playwright.
 
 ## Estructura del proyecto
 

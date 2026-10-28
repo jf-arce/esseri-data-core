@@ -16,6 +16,7 @@ dist-ssr
 .env.local
 test-results/
 playwright-report/
+e2e/.auth/
 coverage/
 
 # Editor directories and files
