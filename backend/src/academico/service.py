@@ -365,7 +365,11 @@ def _tiene_acceso_estructural(db: Session, usuario_id: uuid.UUID, rol_activo: st
 
 
 def verificar_acceso_a_division(
-    db: Session, usuario_id: uuid.UUID, division_id: uuid.UUID, rol_activo: str | None
+    db: Session,
+    usuario_id: uuid.UUID,
+    division_id: uuid.UUID,
+    rol_activo: str | None,
+    ciclo_lectivo: str | None = None,
 ) -> None:
     """RF-06: sin el `academico.actualizar` estructural (o sea, con solo el permiso tipado de
     asistencia — un docente), solo se opera sobre las divisiones con una `AsignacionDocente`
@@ -376,14 +380,14 @@ def verificar_acceso_a_division(
     if _tiene_acceso_estructural(db, usuario_id, rol_activo):
         return
     docente = _docente_de(db, usuario_id)
+    filtros_asignacion = [
+        AsignacionDocente.docente_id == docente.id if docente is not None else False,
+        AsignacionDocente.division_id == division_id,
+    ]
+    if ciclo_lectivo is not None:
+        filtros_asignacion.append(AsignacionDocente.ciclo_lectivo == ciclo_lectivo)
     tiene_asignacion = docente is not None and (
-        db.query(AsignacionDocente)
-        .filter(
-            AsignacionDocente.docente_id == docente.id,
-            AsignacionDocente.division_id == division_id,
-        )
-        .first()
-        is not None
+        db.query(AsignacionDocente).filter(*filtros_asignacion).first() is not None
     )
     if not tiene_asignacion:
         raise PermisoDenegado("No tenés asignada esta división")

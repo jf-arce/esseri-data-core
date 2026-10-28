@@ -33,6 +33,7 @@ from src.academico.exceptions import (
     NivelEducativoConAnios,
     NombreNivelDuplicado,
 )
+from src.academico.historial_router import router as historial_router
 from src.academico.models import (
     Anio,
     ArchivoJustificacionInasistencia,
@@ -138,6 +139,7 @@ from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import Persona
 
 router = APIRouter(prefix="/academico", tags=["academico"])
+router.include_router(historial_router)
 
 
 def _contexto_justificacion(db: Session, justificacion_id: uuid.UUID):

@@ -416,6 +416,27 @@ que los requieran se guardan junto al pago en la base de datos; se aceptan PDF, 
 
 ## Tests
 
+### Consulta filtrada de asistencia
+
+`GET /academico/asistencias/consulta` exige `academico.leer` y un `ciclo_lectivo` de
+cuatro dígitos. Acepta `nivel_educativo_id`, `anio_id`, `division_id`, `inscripcion_id`,
+`fecha_desde`, `fecha_hasta` (inclusivas), `estado`, `orden` (`fecha_desc`, `fecha_asc`,
+`alumno_asc`, `alumno_desc`), `pagina` (desde 1) y `tamanio_pagina` (1–100, por defecto 20).
+Devuelve `items`, `total`, `total_paginas`, `pagina`, `tamanio_pagina` y `resumen` sobre
+todo el resultado filtrado, no solo la página. El porcentaje incluye presentes y tardanzas
+sobre todos los registros; un resultado vacío informa cero. La consulta usa el ciclo y la
+división de la inscripción histórica, incluidas inscripciones finalizadas o dadas de baja.
+
+`GET /academico/asistencias/filtros?ciclo_lectivo=2026` devuelve opciones de inscripción
+históricas para los selectores dependientes, acotadas al rol activo y al ciclo. Los docentes
+deben elegir una división asignada para consultar, y solo reciben opciones de sus asignaciones
+del ciclo. No se suman permisos de otros roles de la cuenta.
+
+`GET /academico/asistencias/consulta/exportar` acepta los mismos filtros y `formato=csv|xlsx|pdf`.
+Reutiliza los generadores existentes y exporta todos los resultados filtrados, sin paginación.
+El PDF usa el rango de fechas aplicado; si no se indicó, lo obtiene de los registros exportados.
+Conserva `academico.exportar`. Los endpoints anteriores de listado y exportación no cambian.
+
 ```bash
 pytest
 ```
