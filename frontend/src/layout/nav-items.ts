@@ -20,6 +20,7 @@ import {
   PercentIcon,
   Settings2Icon,
   ShieldCheck,
+  SparklesIcon,
   Truck,
   UserCog,
   UserIcon,
@@ -53,6 +54,7 @@ import {
   RUTA_REGLAS,
   RUTA_TAREAS,
 } from '@/modules/workflows/constants'
+import { PERMISO_IA_SUGERENCIAS_LEER, RUTA_SUGERENCIAS } from '@/modules/ia-sugerencias/constants'
 import type { Permiso } from '@/modules/auth/types'
 
 /** Dominio al que pertenece un ítem de primer nivel (color en el buscador global, §2.5
@@ -64,6 +66,7 @@ export type ModuloNav =
   | 'facturacion'
   | 'compras'
   | 'workflows'
+  | 'ia'
   | 'paneles'
   | 'sistema'
 
@@ -110,9 +113,9 @@ export function vistaDe(rolActivo: string | null): Vista {
 }
 
 // Cada módulo suma su propia línea acá cuando tenga una página real. No se dibujan ítems
-// muertos: cada href tiene que apuntar a una ruta implementada (§8 DESIGN.md). Auditoría y
-// Sugerencias de IA existen como módulo pero sus routes.tsx todavía están vacíos
-// (`RouteObject[] = []`) — se agregan acá cuando tengan una página real.
+// muertos: cada href tiene que apuntar a una ruta implementada (§8 DESIGN.md). Auditoría
+// existe como módulo pero su routes.tsx todavía está vacío (`RouteObject[] = []`) — se
+// agrega acá cuando tenga una página real.
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Paneles',
@@ -262,6 +265,14 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: ListChecksIcon,
         modulo: 'workflows',
         soloRolActivo: true,
+      },
+      {
+        label: 'Sugerencias de IA',
+        href: RUTA_SUGERENCIAS,
+        tituloLanding: 'Sugerencias de IA',
+        icon: SparklesIcon,
+        modulo: 'ia',
+        permiso: PERMISO_IA_SUGERENCIAS_LEER,
       },
     ],
   },

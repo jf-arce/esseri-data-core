@@ -35,6 +35,7 @@ const COLOR_POR_MODULO = {
   facturacion: 'text-mod-facturacion',
   compras: 'text-mod-compras',
   workflows: 'text-mod-workflows',
+  ia: 'text-mod-ia',
   // Paneles y "Sistema" (sección del sidebar, "Usuarios y roles") no son módulos de negocio y
   // no tienen paleta propia en el diseño: reutilizan el tono neutro de "compras".
   paneles: 'text-mod-compras',
