@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useAbrirDesdeUrl } from '@/hooks/use-abrir-desde-url'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import {
   Table,
@@ -62,6 +63,8 @@ export function PenalidadesPage() {
     setEditando(regla)
     setDialogo(true)
   }
+
+  useAbrirDesdeUrl('crear', () => abrir(), puedeCrear)
 
   if (sinPermiso)
     return (
