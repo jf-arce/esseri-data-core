@@ -62,3 +62,11 @@ export interface ResultadoDeteccion {
 }
 
 export type DecisionRevision = 'aprobar' | 'rechazar'
+
+// Espeja `BorradorComunicacionCreate`: lo que se le pide al proveedor de IA (#50). `nombre` es cómo
+// se va a llamar la plantilla si el borrador se aprueba.
+export interface PedidoBorradorComunicacion {
+  tipo_evento_id: string
+  nombre: string
+  instrucciones: string
+}

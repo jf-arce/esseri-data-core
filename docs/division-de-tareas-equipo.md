@@ -392,7 +392,7 @@ Antes del alcance nuevo, estas vistas no tenían dueño formal en ningún docume
 
 **Backend (`src/ia_sugerencias/`):**
 - Detectar patrón (morosidad, inasistencias) y guardarlo en `IA_SUGERENCIA` con `estado = pendiente_revision`, **hecho** (#51). Se detecta por reglas y SQL, sin LLM (decisión de equipo en el diccionario de datos).
-- Generar borrador de comunicación institucional vía OpenAI, mismo flujo de revisión: implementado y con tests, **falta probarlo contra un proveedor real** (#50 abierta).
+- Generar borrador de comunicación institucional con un proveedor de IA compatible con OpenAI, mismo flujo de revisión, **hecho** (#50): botón "Redactar comunicación" en la bandeja y probado contra Gemini. Cada entorno configura su proveedor en `backend/.env`.
 - Aprobar sugerencia — si es de tipo comunicación, crea la `NOTIFICACION_TEMPLATE` correspondiente.
 - Rechazar sugerencia.
 - Listar sugerencias pendientes de revisión.

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { ShieldAlertIcon, SparklesIcon } from 'lucide-react'
+import { PenLineIcon, ShieldAlertIcon, SparklesIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 import { ConfirmarEliminacion } from '@/components/confirmar-eliminacion'
@@ -10,6 +10,7 @@ import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui
 import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { tienePermiso } from '@/modules/auth/constants'
+import { RedactarComunicacionDialog } from '@/modules/ia-sugerencias/components/redactar-comunicacion-dialog'
 import { SugerenciaDetalleSheet } from '@/modules/ia-sugerencias/components/sugerencia-detalle-sheet'
 import { SugerenciasTabla } from '@/modules/ia-sugerencias/components/sugerencias-tabla'
 import {
@@ -34,14 +35,20 @@ interface RevisionPendiente {
 
 function mensajeRevision(sugerencia: Sugerencia, decision: DecisionRevision): string {
   if (decision === 'rechazar') return 'Sugerencia rechazada.'
+  if (sugerencia.envio !== null) return 'Comunicación aprobada y enviada.'
   if (sugerencia.comunicacion === null) return 'Sugerencia aprobada.'
   return `Sugerencia aprobada. Se creó la plantilla “${sugerencia.comunicacion.nombre}”.`
 }
 
 // Nombra el registro concreto (§11 DESIGN.md), y en una comunicación aclara qué pasa al
-// aprobarla: se crea la plantilla, pero no sale ningún mensaje.
+// aprobarla: un borrador de plantilla solo crea la plantilla; una comunicación de un evento (#213)
+// sí envía el email.
 function descripcionConfirmacion({ sugerencia, decision }: RevisionPendiente): string {
   const base = `“${resumenSugerencia(sugerencia)}” Esta decisión queda registrada a tu nombre y no se puede cambiar después.`
+  if (decision === 'aprobar' && sugerencia.envio !== null) {
+    const cantidad = sugerencia.envio.destinatarios.length
+    return `${base} Al aprobarla se envía el email a ${cantidad} destinatario${cantidad === 1 ? '' : 's'}.`
+  }
   if (decision === 'aprobar' && sugerencia.comunicacion !== null) {
     return `${base} Al aprobarla se crea la plantilla de notificación; no se envía nada.`
   }
@@ -53,6 +60,7 @@ export function SugerenciasPage() {
   const [detalle, setDetalle] = useState<Sugerencia | null>(null)
   const [revision, setRevision] = useState<RevisionPendiente | null>(null)
   const [analizando, setAnalizando] = useState(false)
+  const [redactando, setRedactando] = useState(false)
   // El estado no alcanza para frenar un segundo clic dentro del mismo render.
   const analisisEnCurso = useRef(false)
 
@@ -113,9 +121,20 @@ export function SugerenciasPage() {
     </Button>
   )
 
+  // Pedir un borrador usa el mismo permiso que analizar: los dos crean sugerencias.
+  const acciones = puedeAnalizar && (
+    <div className="flex flex-wrap gap-2">
+      <Button variant="secondary" onClick={() => setRedactando(true)}>
+        <PenLineIcon />
+        Redactar comunicación
+      </Button>
+      {botonAnalizar}
+    </div>
+  )
+
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader titulo="Sugerencias de IA" accion={botonAnalizar} />
+      <PageHeader titulo="Sugerencias de IA" accion={acciones} />
 
       {error && (
         <Alert variant="error">
@@ -193,6 +212,17 @@ export function SugerenciasPage() {
         onCerrar={() => setDetalle(null)}
         onRevisar={(sugerencia, decision) => setRevision({ sugerencia, decision })}
       />
+
+      {redactando && (
+        <RedactarComunicacionDialog
+          onOpenChange={setRedactando}
+          onCreada={async (sugerencia) => {
+            toast.success('Borrador listo para revisar.')
+            await recargar()
+            setDetalle(sugerencia)
+          }}
+        />
+      )}
 
       {revision && (
         <ConfirmarEliminacion
