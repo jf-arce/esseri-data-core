@@ -4,13 +4,13 @@ import { MemoryRouter, useLocation, useNavigate } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { useAbrirDesdeUrl } from '@/hooks/use-abrir-desde-url'
 
-function renderizar(rutaInicial: string, alAbrir: () => void) {
+function renderizar(rutaInicial: string, alAbrir: () => void, habilitado = true) {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <MemoryRouter initialEntries={[rutaInicial]}>{children}</MemoryRouter>
   )
   return renderHook(
     () => {
-      useAbrirDesdeUrl('crear', alAbrir)
+      useAbrirDesdeUrl('crear', alAbrir, habilitado)
       return { location: useLocation(), navigate: useNavigate() }
     },
     { wrapper },
@@ -40,6 +40,14 @@ describe('useAbrirDesdeUrl', () => {
     act(() => result.current.navigate('/proveedores?crear=1'))
 
     expect(alAbrir).toHaveBeenCalledTimes(2)
+    expect(result.current.location.search).toBe('')
+  })
+
+  it('sin permiso no abre pero limpia el parámetro', () => {
+    const alAbrir = vi.fn()
+    const { result } = renderizar('/proveedores?crear=1', alAbrir, false)
+
+    expect(alAbrir).not.toHaveBeenCalled()
     expect(result.current.location.search).toBe('')
   })
 
