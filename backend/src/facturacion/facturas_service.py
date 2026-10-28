@@ -115,7 +115,23 @@ def construir_factura(
 def crear_factura(
     db: Session, datos: FacturaCreate, usuario_id: uuid.UUID | None = None
 ) -> Factura:
-    factura = construir_factura(db, datos)
+    factura = crear_factura_en_transaccion(db, datos, usuario_id)
+    db.commit()
+    creada = obtener_factura(db, factura.id)
+    if creada is None:
+        raise FacturaNoEncontrada()
+    return creada
+
+
+def crear_factura_en_transaccion(
+    db: Session,
+    datos: FacturaCreate,
+    usuario_id: uuid.UUID | None = None,
+    responsable: ResponsableEconomico | None = None,
+) -> Factura:
+    """Emite la factura con sus movimientos sin confirmar la transacción: la usa también el
+    motor de Workflows, que ejecuta dentro de su propio savepoint (`generar_cargo`, #208)."""
+    factura = construir_factura(db, datos, responsable)
     db.add(factura)
     db.flush()
     cuenta_corriente_service.registrar_cargos_factura_en_transaccion(db, factura)
@@ -128,11 +144,7 @@ def crear_factura(
         valor_nuevo=f"inscripcion={factura.inscripcion_id} monto={factura.monto_total}",
         usuario_id=usuario_id,
     )
-    db.commit()
-    creada = obtener_factura(db, factura.id)
-    if creada is None:
-        raise FacturaNoEncontrada()
-    return creada
+    return factura
 
 
 def obtener_factura(db: Session, factura_id: uuid.UUID) -> Factura | None:
