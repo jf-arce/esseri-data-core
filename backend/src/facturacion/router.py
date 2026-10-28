@@ -1,7 +1,9 @@
 import uuid
 from datetime import date
 from decimal import Decimal
+from pathlib import PurePath
 from typing import Annotated, Literal
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from sqlalchemy.orm import Session
@@ -12,13 +14,14 @@ from src.auth.constants import (
     PERMISO_FACTURACION_ELIMINAR,
     PERMISO_FACTURACION_LEER,
 )
-from src.auth.dependencies import requiere_permiso
+from src.auth.dependencies import UsuarioAutenticado, requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
 from src.facturacion import (
     cuenta_corriente_service,
     facturas_service,
     penalidades_service,
+    portal_familia_service,
     reglas_facturacion_service,
     service,
     vencimientos_service,
@@ -42,6 +45,7 @@ from src.facturacion.schemas import (
     EstadoDeudaFamilia,
     ExcepcionVencimientoCreate,
     ExcepcionVencimientoRead,
+    FacturacionFamiliaRead,
     FacturaCreate,
     FacturaDetalleRead,
     FacturaEstado,
@@ -93,6 +97,53 @@ def _denegar_consulta_administrativa_familia(familia_activa: Familia | None) -> 
             status_code=403,
             detail="Esta consulta administrativa no está disponible para el rol Familia",
         )
+
+
+@router.get("/familia/me", response_model=FacturacionFamiliaRead)
+def obtener_facturacion_de_mi_familia(
+    db: DbSession,
+    usuario: UsuarioAutenticado,
+    response: Response,
+) -> FacturacionFamiliaRead:
+    response.headers["Cache-Control"] = "private, no-store"
+    return portal_familia_service.obtener_facturacion_familia(db, usuario.persona_id)
+
+
+@router.get("/familia/me/pagos/{pago_id}/comprobante")
+def descargar_comprobante_pago_familia(
+    pago_id: uuid.UUID,
+    db: DbSession,
+    usuario: UsuarioAutenticado,
+) -> Response:
+    archivo = portal_familia_service.obtener_comprobante_pago_familia(
+        db, usuario.persona_id, pago_id
+    )
+    if archivo is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No se encontró el comprobante de pago.",
+        )
+    nombre = quote(archivo.nombre, safe="")
+    extension = PurePath(archivo.nombre).suffix
+    extension_segura = (
+        extension.startswith(".")
+        and len(extension) <= 10
+        and extension[1:].isascii()
+        and extension[1:].isalnum()
+    )
+    if not extension_segura:
+        extension = ""
+    nombre_fallback = f"comprobante{extension}"
+    return Response(
+        content=archivo.contenido,
+        media_type=archivo.tipo_contenido,
+        headers={
+            "Content-Disposition": (
+                f"attachment; filename=\"{nombre_fallback}\"; filename*=UTF-8''{nombre}"
+            ),
+            "Cache-Control": "private, no-store",
+        },
+    )
 
 
 def _factura_detalle_read(db: Session, factura: Factura) -> FacturaDetalleRead:

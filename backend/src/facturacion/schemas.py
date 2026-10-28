@@ -206,6 +206,47 @@ class CuentaCorrienteRead(BaseModel):
     tamanio: int
 
 
+class DetalleFacturaFamiliaRead(BaseModel):
+    descripcion: str
+    monto: Decimal
+
+
+class PagoFamiliaRead(BaseModel):
+    id: uuid.UUID
+    fecha: date
+    monto: Decimal
+    estado: Literal["aprobado", "rechazado", "pendiente"]
+    metodo_pago: str
+    comprobante_disponible: bool
+
+
+class FacturaFamiliaRead(BaseModel):
+    id: uuid.UUID
+    fecha_emision: date
+    fecha_vencimiento: date
+    monto_total: Decimal
+    estado: FacturaEstado
+    alumno_nombre: str
+    detalles: list[DetalleFacturaFamiliaRead]
+    pagos: list[PagoFamiliaRead]
+
+
+class MovimientoFamiliaRead(BaseModel):
+    fecha: InstanteUtc
+    tipo: Literal["debe", "haber"]
+    monto: Decimal
+    observacion: str | None
+    factura_id: uuid.UUID
+
+
+class FacturacionFamiliaRead(BaseModel):
+    total_debe: Decimal
+    total_haber: Decimal
+    saldo: Decimal
+    facturas: list[FacturaFamiliaRead]
+    movimientos: list[MovimientoFamiliaRead]
+
+
 EstadoDeudaFamilia = Literal["pendiente", "vencida", "pagada"]
 
 

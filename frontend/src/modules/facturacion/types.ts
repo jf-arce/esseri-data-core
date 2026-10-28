@@ -64,6 +64,71 @@ export interface FacturaDetalle extends Factura {
   recargos: RecargoFactura[]
 }
 
+export interface DetalleFacturaFamilia {
+  descripcion: string
+  monto: string
+}
+
+export interface PagoFamilia {
+  id: string
+  fecha: string
+  monto: string
+  estado: PagoFactura['estado']
+  metodo_pago: string
+  comprobante_disponible: boolean
+}
+
+export interface FacturaFamilia {
+  id: string
+  fecha_emision: string
+  fecha_vencimiento: string
+  monto_total: string
+  estado: EstadoFactura
+  alumno_nombre: string
+  detalles: DetalleFacturaFamilia[]
+  pagos: PagoFamilia[]
+}
+
+export interface MovimientoFamilia {
+  fecha: string
+  tipo: 'debe' | 'haber'
+  monto: string
+  observacion: string | null
+  factura_id: string
+}
+
+export interface FacturacionFamilia {
+  total_debe: string
+  total_haber: string
+  saldo: string
+  facturas: FacturaFamilia[]
+  movimientos: MovimientoFamilia[]
+}
+
+export interface MovimientoCuentaCorriente {
+  id: string
+  fecha: string
+  tipo: 'debe' | 'haber'
+  monto: string
+  observacion: string | null
+  concepto_cobro_id: string | null
+  concepto_nombre: string | null
+  factura_id: string | null
+  pago_id: string | null
+}
+
+export interface CuentaCorriente {
+  cuenta_corriente_id: string | null
+  alumno_id: string
+  total_debe: string
+  total_haber: string
+  saldo: string
+  movimientos: MovimientoCuentaCorriente[]
+  total_movimientos: number
+  pagina: number
+  tamanio: number
+}
+
 export interface RegistrarPagoPayload {
   fecha: string
   monto: string

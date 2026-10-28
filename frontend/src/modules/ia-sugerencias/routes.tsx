@@ -1,4 +1,5 @@
 import type { RouteObject } from 'react-router'
+import { PortalFamiliaFacturacionPage } from '@/modules/facturacion/pages/portal-familia-facturacion-page'
 import { PortalFamiliaPage } from '@/pages/portal-familia-page'
 import { PortalFamiliaTramitePage } from '@/pages/portal-familia-tramite-page'
 
@@ -27,13 +28,5 @@ export const iaSugerenciasFamiliaRoutes: RouteObject[] = [
       />
     ),
   },
-  {
-    path: 'familia/facturacion',
-    element: (
-      <PortalFamiliaTramitePage
-        titulo="Facturación"
-        descripcion="Consultá facturas, vencimientos, pagos y el estado de cuenta de tu familia."
-      />
-    ),
-  },
+  { path: 'familia/facturacion', element: <PortalFamiliaFacturacionPage /> },
 ]

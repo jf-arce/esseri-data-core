@@ -5,6 +5,7 @@ from datetime import date
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.dialects import postgresql
 
 from src.academico.models import Anio, Division, NivelEducativo
 from src.auth.models import Usuario
@@ -117,6 +118,27 @@ def _finalizar(db_session, escenario, **cambios):
         AltaIntegradaAdmisionCreate.model_validate(_payload(escenario, **cambios)),
         escenario["usuario"].id,
     )
+
+
+def test_bloquea_solo_la_entidad_alumno_o_familia_con_relacion_eager():
+    """PostgreSQL no admite bloquear el lado nullable del join eager con Persona."""
+
+    class SessionEspia:
+        statement = None
+
+        def scalar(self, statement):
+            self.statement = statement
+            return None
+
+    db = SessionEspia()
+    admisiones_service._bloquear_alumno_por_persona(db, uuid.uuid4())
+    sql_alumno = str(db.statement.compile(dialect=postgresql.dialect()))
+
+    admisiones_service._bloquear_familia(db, uuid.uuid4())
+    sql_familia = str(db.statement.compile(dialect=postgresql.dialect()))
+
+    assert "FOR UPDATE OF alumno" in sql_alumno
+    assert "FOR UPDATE OF familia" in sql_familia
 
 
 def test_finaliza_admision_y_crea_alumno_familia_responsable_e_inscripcion(db_session):
