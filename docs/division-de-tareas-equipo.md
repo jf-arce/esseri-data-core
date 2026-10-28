@@ -417,9 +417,9 @@ Además de los RF, hay 6 RNF de la Matriz de Requerimientos que **no quedan cubi
 | RNF | Qué falta revisar/hacer |
 |---|---|
 | RNF-01 | Testing de performance — confirmar que las consultas administrativas responden en menos de 5 segundos |
-| RNF-02 | Testing cross-browser — Chrome, Edge, Firefox, Safari (desktop y móvil) |
+| RNF-02 | Testing cross-browser — Chrome, Edge, Firefox, Safari (desktop y móvil). **Hecho (Canu, #224):** `frontend/e2e/` corre las pantallas principales en Chromium, Firefox, WebKit y celular; falla conocida de Facturación en celular anotada en el spec |
 | RNF-08 | Estrategia de backup y recuperación de PostgreSQL — hoy no tiene dueño en la división actual |
-| RNF-11 | Que el sistema se mantenga disponible durante las demos (ligado a cómo quede levantado `infra/` en producción) |
+| RNF-11 | Que el sistema se mantenga disponible durante las demos (ligado a cómo quede levantado `infra/` en producción). **Hecho (Canu, #225):** `infra/demo.md` con el paso a paso y `infra/demo/` con los scripts que preparan, verifican y restauran el entorno de la demo |
 | RNF-14 | Logs estructurados de errores — ya existe `logging.ini` en el backend, falta que se use activamente |
 | RNF-15 | Cumplimiento de la Ley 25.326 (datos personales) — restringir datos sensibles en logs, exportaciones (RF-36/37/38) y en el `payload` de `EVENT_LOG`, según rol. El más importante de los pendientes, toca datos de menores de edad — con `JUSTIFICACION_INASISTENCIA` (motivos médicos, cambio 5) se vuelve más concreto todavía. **Dueño confirmado: Botteri**, ya era dueño del módulo Académico donde vive esa tabla |
 
