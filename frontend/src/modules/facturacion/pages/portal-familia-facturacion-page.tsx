@@ -141,7 +141,10 @@ function FacturaFamiliaCard({
                       {formatearMoneda(pago.monto)}
                     </span>
                     <span className="text-xs text-texto-2">
-                      {pago.metodo_pago} · {formatearFecha(pago.fecha)}
+                      {pago.metodo_pago === 'debito_directo'
+                        ? 'Débito automático'
+                        : pago.metodo_pago}{' '}
+                      · {formatearFecha(pago.fecha)}
                     </span>
                     <EstadoPago pago={pago} />
                   </div>

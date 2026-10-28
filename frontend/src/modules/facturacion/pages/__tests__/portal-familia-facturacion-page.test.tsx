@@ -72,6 +72,17 @@ function renderizarPagina() {
 }
 
 describe('PortalFamiliaFacturacionPage', () => {
+  it('shows the automatic debit label without exposing the internal payment code', async () => {
+    const cuenta = structuredClone(facturacion)
+    cuenta.facturas[0].pagos[0].metodo_pago = 'debito_directo'
+    mockedListarFacturacion.mockResolvedValue(cuenta)
+
+    renderizarPagina()
+
+    expect(await screen.findByText(/Débito automático/)).toBeInTheDocument()
+    expect(screen.queryByText(/debito_directo/)).not.toBeInTheDocument()
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
     mockedDescargarComprobante.mockResolvedValue(undefined)
