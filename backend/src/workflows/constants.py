@@ -111,7 +111,9 @@ CAMBIOS_ESTADO_PERMITIDOS: dict[str, frozenset[str]] = {
     "factura": frozenset({"vencida"}),
 }
 
-Destinatario = Literal["responsable_economico", "responsables_habilitados", "destinatarios_regla"]
+Destinatario = Literal[
+    "responsable_economico", "responsables_habilitados", "destinatarios_regla", "solicitante"
+]
 PrioridadTarea = Literal["baja", "media", "alta"]
 EstadoTarea = Literal["pendiente", "en_progreso", "completada", "escalada"]
 ESTADOS_TAREA: tuple[str, ...] = get_args(EstadoTarea)
@@ -138,6 +140,11 @@ ENTIDADES_CON_ALUMNO: frozenset[str] = frozenset(
 )
 DESTINATARIOS_FAMILIARES: frozenset[str] = frozenset(
     {"responsable_economico", "responsables_habilitados"}
+)
+# `solicitante` es el usuario que pidió la compra: se llega a él desde la solicitud, la orden o la
+# recepción (#214).
+ENTIDADES_CON_SOLICITANTE: frozenset[str] = frozenset(
+    {"solicitud_compra", "orden_compra", "recepcion_compra"}
 )
 
 # Los envíos se hacen en serie dentro de la transacción del evento: este tope acota su duración.

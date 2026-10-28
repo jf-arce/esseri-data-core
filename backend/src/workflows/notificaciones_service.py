@@ -22,6 +22,11 @@ from src.familias_alumnos.models import Familia, FamiliaAlumno
 from src.fechas import ahora_utc
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import EventLog
+from src.proveedores_compras.models import (
+    OrdenCompraSolicitud,
+    RecepcionCompra,
+    SolicitudCompra,
+)
 from src.workflows import destinatarios_service, n8n_client, plantillas_service
 from src.workflows.constants import ENLACES_MAIL, MAX_DESTINATARIOS_POR_EJECUCION
 from src.workflows.email_html import armar_html
@@ -56,6 +61,7 @@ ERROR_SIN_MENSAJE = "La regla no tiene mensaje ni plantilla de notificación."
 ERROR_RENDER = "La plantilla no se pudo completar con los datos del evento."
 ERROR_SIN_DESTINATARIOS = "No se encontró ningún destinatario con email."
 ERROR_SIN_ALUMNO = "No se pudo determinar el alumno del evento."
+ERROR_SIN_SOLICITANTE = "No se pudo determinar quién pidió la compra."
 ERROR_TOPE = "La regla supera el máximo de destinatarios por envío."
 ERROR_ENVIO = "No se pudo enviar el email a todos los destinatarios."
 ERRORES_CONTROLADOS = frozenset(
@@ -65,6 +71,7 @@ ERRORES_CONTROLADOS = frozenset(
         ERROR_RENDER,
         ERROR_SIN_DESTINATARIOS,
         ERROR_SIN_ALUMNO,
+        ERROR_SIN_SOLICITANTE,
         ERROR_TOPE,
         ERROR_ENVIO,
     }
@@ -90,6 +97,10 @@ class _SinAlumno(Exception):
     pass
 
 
+class _SinSolicitante(Exception):
+    pass
+
+
 class _SinContenido(Exception):
     def __init__(self, error: str) -> None:
         super().__init__(error)
@@ -105,6 +116,8 @@ def resolver_destinatarios(
     """Devuelve los destinatarios deduplicados y cuántas familias quedaron sin email."""
     if destino == "destinatarios_regla":
         return _deduplicar(_destinatarios_de_regla(db, regla)), 0
+    if destino == "solicitante":
+        return _deduplicar(_solicitantes_del_evento(db, evento)), 0
 
     alumno_id = _alumno_del_evento(db, evento)
     if destino == "responsables_habilitados":
@@ -139,6 +152,36 @@ def _deduplicar(destinatarios: list[Destinatario]) -> list[Destinatario]:
 
 def _destinatarios_de_regla(db: Session, regla: WorkflowRule) -> list[Destinatario]:
     usuarios = destinatarios_service.usuarios_activos_de_regla(db, regla.id)
+    return [Destinatario(tipo="usuario", email=u.email, usuario_id=u.id) for u in usuarios]
+
+
+def _solicitantes_del_evento(db: Session, evento: EventLog) -> list[Destinatario]:
+    """Quienes pidieron la compra: una orden o una recepción pueden venir de varias solicitudes."""
+    solicitudes = select(SolicitudCompra.usuario_id)
+    match evento.entidad:
+        case "solicitud_compra":
+            consulta = solicitudes.where(SolicitudCompra.id == evento.entidad_id)
+        case "orden_compra" | "recepcion_compra":
+            orden_id = evento.entidad_id
+            if evento.entidad == "recepcion_compra":
+                orden_id = db.scalar(
+                    select(RecepcionCompra.orden_compra_id).where(
+                        RecepcionCompra.id == evento.entidad_id
+                    )
+                )
+            consulta = solicitudes.join(
+                OrdenCompraSolicitud,
+                OrdenCompraSolicitud.solicitud_compra_id == SolicitudCompra.id,
+            ).where(OrdenCompraSolicitud.orden_compra_id == orden_id)
+        case _:
+            raise _SinSolicitante()
+    usuarios = db.scalars(
+        select(Usuario)
+        .where(Usuario.id.in_(consulta), Usuario.estado == "activo")
+        .order_by(Usuario.email)
+    ).all()
+    if not usuarios and not db.scalar(consulta.limit(1)):
+        raise _SinSolicitante()
     return [Destinatario(tipo="usuario", email=u.email, usuario_id=u.id) for u in usuarios]
 
 
@@ -317,6 +360,8 @@ def _ejecutar(
         destinatarios, sin_email = resolver_destinatarios(db, regla, evento, destino)
     except _SinAlumno:
         return ResultadoAccion(error=ERROR_SIN_ALUMNO)
+    except _SinSolicitante:
+        return ResultadoAccion(error=ERROR_SIN_SOLICITANTE)
     if not destinatarios:
         detalle = _detalle_sin_email(sin_email)
         return ResultadoAccion(detalle=detalle, error=ERROR_SIN_DESTINATARIOS)
