@@ -49,16 +49,35 @@ def resolver_tramo(db: Session, dias_vencido: int) -> ReglaPenalidad | None:
     )
 
 
+def _movimientos_de_penalidad(factura_id: uuid.UUID):
+    """Criterio contable de un recargo por mora: debe de la factura sin detalle y con el concepto
+    de una regla de penalidad. Lo comparten el cálculo de lo que falta cobrar y el detalle."""
+    return (
+        Movimiento.factura_id == factura_id,
+        Movimiento.tipo == "debe",
+        Movimiento.detalle_factura_id.is_(None),
+        Movimiento.concepto_cobro_id.in_(select(ReglaPenalidad.concepto_cobro_id)),
+    )
+
+
 def penalidades_registradas(db: Session, factura_id: uuid.UUID) -> Decimal:
     """Penalidades ya imputadas a la factura: debe sin detalle, con un concepto de penalidad."""
     return db.scalar(
         select(func.coalesce(func.sum(Movimiento.monto), Decimal("0.00"))).where(
-            Movimiento.factura_id == factura_id,
-            Movimiento.tipo == "debe",
-            Movimiento.detalle_factura_id.is_(None),
-            Movimiento.concepto_cobro_id.in_(select(ReglaPenalidad.concepto_cobro_id)),
+            *_movimientos_de_penalidad(factura_id)
         )
     ) or Decimal("0.00")
+
+
+def recargos_de_factura(db: Session, factura_id: uuid.UUID) -> list[Movimiento]:
+    """Recargos por mora de la factura, del más viejo al más nuevo."""
+    return list(
+        db.scalars(
+            select(Movimiento)
+            .where(*_movimientos_de_penalidad(factura_id))
+            .order_by(Movimiento.fecha, Movimiento.id)
+        )
+    )
 
 
 def calcular_penalidad(db: Session, factura: Factura, regla: ReglaPenalidad) -> Decimal:

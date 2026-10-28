@@ -1,9 +1,11 @@
 """Tests de generación y administración de facturas por alumno."""
 
+import uuid
 from datetime import date
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import select
 
 from src.facturacion.exceptions import (
     ConceptoCobroInvalido,
@@ -23,6 +25,7 @@ from src.facturacion.models import (
     CuentaCorriente,
     DetalleFactura,
     Movimiento,
+    ReglaPenalidad,
     ResponsableEconomico,
 )
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate, FacturaUpdate
@@ -232,3 +235,101 @@ def test_endpoints_exponen_factura_y_cuenta_corriente(client_autenticado, db_ses
     assert cuenta.json()["total_haber"] == "0.00"
     assert cuenta.json()["saldo"] == "125000.50"
     assert cuenta.json()["total_movimientos"] == 1
+
+
+# --- Recargos por mora en el detalle -------------------------------------------------------
+
+
+def _factura_con_cuenta(client, db_session):
+    escenario, inscripcion, concepto, _ = _crear_base_facturable(db_session)
+    payload = {
+        "fecha_emision": "2027-03-01",
+        "fecha_vencimiento": "2027-03-10",
+        "inscripcion_id": str(inscripcion.id),
+        "detalles": [
+            {
+                "descripcion": "Matrícula marzo",
+                "monto": "1000.00",
+                "concepto_cobro_id": str(concepto.id),
+            }
+        ],
+    }
+    factura_id = client.post("/facturacion/facturas", json=payload).json()["id"]
+    return escenario, uuid.UUID(factura_id), concepto
+
+
+def _movimiento(db_session, escenario, factura_id, *, concepto_id, monto, tipo="debe"):
+    cuenta = db_session.scalar(
+        select(CuentaCorriente).where(CuentaCorriente.alumno_id == escenario["alumno_id"])
+    )
+    db_session.add(
+        Movimiento(
+            tipo=tipo,
+            monto=Decimal(monto),
+            observacion=f"Penalidad por mora: tramo 6–15 días ({monto})",
+            cuenta_corriente_id=cuenta.id,
+            concepto_cobro_id=concepto_id,
+            factura_id=factura_id,
+        )
+    )
+    db_session.commit()
+
+
+def test_el_detalle_sin_recargos_los_devuelve_vacios(client_autenticado, db_session):
+    _, factura_id, _ = _factura_con_cuenta(client_autenticado, db_session)
+
+    detalle = client_autenticado.get(f"/facturacion/facturas/{factura_id}").json()
+
+    assert detalle["recargos"] == []
+
+
+def test_el_detalle_lista_los_recargos_sin_cambiar_el_total(client_autenticado, db_session):
+    escenario, factura_id, _ = _factura_con_cuenta(client_autenticado, db_session)
+    concepto_penalidad = ConceptoCobro(nombre="Penalidad por mora", activo=True)
+    db_session.add(concepto_penalidad)
+    db_session.flush()
+    db_session.add(
+        ReglaPenalidad(
+            desde_dia_vencido=6,
+            hasta_dia_vencido=15,
+            porcentaje=20,
+            activo=True,
+            concepto_cobro_id=concepto_penalidad.id,
+        )
+    )
+    db_session.commit()
+    _movimiento(
+        db_session, escenario, factura_id, concepto_id=concepto_penalidad.id, monto="200.00"
+    )
+
+    detalle = client_autenticado.get(f"/facturacion/facturas/{factura_id}").json()
+
+    assert [Decimal(r["monto"]) for r in detalle["recargos"]] == [Decimal("200.00")]
+    assert "Penalidad por mora" in detalle["recargos"][0]["observacion"]
+    assert detalle["monto_total"] == "1000.00"
+
+
+def test_un_movimiento_que_no_es_penalidad_no_aparece_como_recargo(client_autenticado, db_session):
+    escenario, factura_id, concepto = _factura_con_cuenta(client_autenticado, db_session)
+    penalidad = ConceptoCobro(nombre="Penalidad por mora", activo=True)
+    db_session.add(penalidad)
+    db_session.flush()
+    db_session.add(
+        ReglaPenalidad(
+            desde_dia_vencido=6,
+            hasta_dia_vencido=None,
+            porcentaje=20,
+            activo=True,
+            concepto_cobro_id=penalidad.id,
+        )
+    )
+    db_session.commit()
+    # Un debe con otro concepto y un haber con el concepto de penalidad: ninguno es un recargo.
+    _movimiento(db_session, escenario, factura_id, concepto_id=concepto.id, monto="50.00")
+    _movimiento(
+        db_session, escenario, factura_id, concepto_id=penalidad.id, monto="30.00", tipo="haber"
+    )
+
+    detalle = client_autenticado.get(f"/facturacion/facturas/{factura_id}").json()
+
+    assert detalle["recargos"] == []
