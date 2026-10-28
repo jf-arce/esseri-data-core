@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { GlobalSearchDialog } from '@/layout/global-search-dialog'
+import { NAV_GROUPS, filtrarNav } from '@/layout/nav-items'
 import { listarFacturas } from '@/modules/facturacion/services/listar-facturas'
 import { listarInscripciones } from '@/modules/inscripciones/services/listar-inscripciones'
 import { listarSolicitudesAdmision } from '@/modules/inscripciones/services/solicitudes-admision'
@@ -361,4 +362,38 @@ describe('GlobalSearchDialog', () => {
     expect(screen.getByText('Librería Sur · emitida')).toBeInTheDocument()
     expect(mockedListarAlumnos).toHaveBeenCalledWith({ buscar: 'Paz' }, expect.any(AbortSignal))
   })
+
+  it.each(['administrador_del_sistema', 'direccion', 'administracion', 'secretaria'])(
+    'cada destino visible del menú lateral aparece en "Ir a" (%s)',
+    (rol) => {
+      useAuthStore.setState((estado) => {
+        if (!estado.usuario) return estado
+        const perfil = { ...estado.usuario.perfiles[0], codigo: rol, permisos: PERMISOS_DE_PRUEBA }
+        return {
+          usuario: { ...estado.usuario, perfiles: [perfil], rol_activo: rol },
+          rolActivo: rol,
+        }
+      })
+      renderDialogo()
+
+      // Lo que el menú muestra con el mismo rol, con el mismo criterio de landing del sidebar:
+      // un padre que solo redirige a su primer hijo ("Usuarios y roles") no es un destino propio.
+      const etiquetasDelMenu = filtrarNav(NAV_GROUPS, rol, PERMISOS_DE_PRUEBA).flatMap((grupo) =>
+        grupo.items.flatMap((item) => {
+          const landing = item.href && (item.tituloLanding || !item.children?.length)
+          return [
+            ...(landing ? [item.tituloLanding ?? item.label] : []),
+            ...(item.children ?? []).map((hijo) => hijo.label),
+          ]
+        }),
+      )
+
+      expect(etiquetasDelMenu.length).toBeGreaterThan(0)
+      for (const etiqueta of etiquetasDelMenu) {
+        expect(screen.getAllByText(etiqueta).length, `${etiqueta} falta en "Ir a"`).toBeGreaterThan(
+          0,
+        )
+      }
+    },
+  )
 })
