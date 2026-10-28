@@ -26,6 +26,10 @@ function renderConRolActivo(rolActivo: string | null, initialEntry: string) {
       email: 'a@esseri.edu.ar',
       auth_provider: 'local',
       estado: 'activo',
+      nombre_google: null,
+      avatar_url: null,
+      persona_nombre: null,
+      persona_apellido: null,
       roles: ['docente', 'secretaría'],
       permisos: [],
       perfiles: [

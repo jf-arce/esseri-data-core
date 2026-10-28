@@ -13,6 +13,7 @@ import { useMemo, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { BackLink } from '@/components/back-link'
 import { Button } from '@/components/ui/button'
+import { useAbrirDesdeUrl } from '@/hooks/use-abrir-desde-url'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { PageHeader } from '@/components/page-header'
 import { StatTile } from '@/components/stat-tile'
@@ -52,6 +53,8 @@ export function AsignacionesDocentesPage() {
   const [filtroCiclo, setFiltroCiclo] = useState('todos')
   const [filtroDivision, setFiltroDivision] = useState<string[]>([])
   const [dialog, setDialog] = useState<DialogState>({ open: false })
+  // El buscador global linkea con `?crear=1` para abrir el alta directo.
+  useAbrirDesdeUrl('crear', () => setDialog({ open: true, modo: 'crear' }), puedeEditar)
 
   const cicloActual = String(new Date().getFullYear())
 

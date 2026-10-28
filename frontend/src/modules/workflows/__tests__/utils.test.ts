@@ -3,6 +3,7 @@ import type { CampoEvento, ReglaWorkflow, TipoAccionCatalogo } from '@/modules/w
 import {
   accionesDisponibles,
   admiteDestinatarios,
+  asignaTareas,
   armarCondicion,
   armarConfig,
   armarPayloadRegla,
@@ -13,9 +14,14 @@ import {
   defaultsDeConfig,
   duracionEjecucion,
   esEstadoEjecucionFiltro,
+  esEstadoTareaFiltro,
+  esPrioridadTareaFiltro,
+  estadosSiguientesTarea,
   etiquetaEvento,
   filtrarReglas,
   insertarPlaceholder,
+  presentarCampo,
+  resumenEnLinea,
   validarPlaceholders,
   valoresDesdeRegla,
   VALORES_REGLA_VACIOS,
@@ -114,6 +120,38 @@ describe('armarCondicion', () => {
 
   it('manda texto si el valor numérico no es válido, para que el backend lo rechace', () => {
     expect(armarCondicion('dias_vencido', '>', 'abc', 'numero').valor).toBe('abc')
+  })
+})
+
+describe('armarConfig con botón del mail', () => {
+  it('conserva el enlace en notificar, recordatorio y alerta interna', () => {
+    expect(armarConfig('notificar', { destinatario: 'x', enlace: 'tareas' })).toEqual({
+      destinatario: 'x',
+      enlace: 'tareas',
+    })
+    expect(
+      armarConfig('generar_recordatorio', {
+        destinatario: 'x',
+        dias_despues: '2',
+        enlace: 'tareas',
+      }),
+    ).toEqual({ destinatario: 'x', dias_despues: 2, enlace: 'tareas' })
+    expect(armarConfig('alerta_interna', { mensaje: 'm', enlace: 'ejecuciones' })).toEqual({
+      mensaje: 'm',
+      enlace: 'ejecuciones',
+    })
+  })
+
+  it('sin botón (valor vacío) no manda el enlace', () => {
+    expect(armarConfig('notificar', { destinatario: 'x', enlace: '' })).toEqual({
+      destinatario: 'x',
+    })
+  })
+
+  it('generar_comunicacion no lo admite: lo descarta', () => {
+    expect(armarConfig('generar_comunicacion', { destinatario: 'x', enlace: 'tareas' })).toEqual({
+      destinatario: 'x',
+    })
   })
 })
 
@@ -241,8 +279,15 @@ describe('admiteDestinatarios', () => {
     }
   })
 
+  it('crear_tarea y escalar_caso siempre los admiten: son a quienes se asigna el trabajo', () => {
+    expect(admiteDestinatarios('crear_tarea', {})).toBe(true)
+    expect(admiteDestinatarios('escalar_caso', {})).toBe(true)
+  })
+
   it('el resto de las acciones no los admite', () => {
-    expect(admiteDestinatarios('crear_tarea', { destinatario: 'destinatarios_regla' })).toBe(false)
+    expect(admiteDestinatarios('cambiar_estado', { destinatario: 'destinatarios_regla' })).toBe(
+      false,
+    )
     expect(admiteDestinatarios('', {})).toBe(false)
   })
 })
@@ -439,5 +484,50 @@ describe('duracionEjecucion', () => {
     expect(duracionEjecucion('2026-09-01T10:00:00Z', '2026-09-01T10:00:05Z')).toBe('5 s')
     expect(duracionEjecucion('2026-09-01T10:00:00Z', '2026-09-01T10:02:10Z')).toBe('2 min 10 s')
     expect(duracionEjecucion('2026-09-01T10:00:00Z', '2026-09-01T11:05:00Z')).toBe('1 h 5 min')
+  })
+})
+
+describe('tareas', () => {
+  it('asignaTareas distingue las acciones que asignan trabajo', () => {
+    expect(asignaTareas('crear_tarea')).toBe(true)
+    expect(asignaTareas('escalar_caso')).toBe(true)
+    expect(asignaTareas('alerta_interna')).toBe(false)
+    expect(asignaTareas('')).toBe(false)
+  })
+
+  it('una persona solo puede avanzar la tarea, nunca marcarla escalada ni reabrirla', () => {
+    expect(estadosSiguientesTarea('pendiente')).toEqual(['en_progreso', 'completada'])
+    expect(estadosSiguientesTarea('en_progreso')).toEqual(['completada'])
+    expect(estadosSiguientesTarea('completada')).toEqual([])
+    expect(estadosSiguientesTarea('escalada')).toEqual([])
+  })
+
+  it('valida los filtros de estado y prioridad', () => {
+    expect(esEstadoTareaFiltro('escalada')).toBe(true)
+    expect(esEstadoTareaFiltro('todos')).toBe(true)
+    expect(esEstadoTareaFiltro('inventado')).toBe(false)
+    expect(esPrioridadTareaFiltro('alta')).toBe(true)
+    expect(esPrioridadTareaFiltro('urgente')).toBe(false)
+  })
+})
+
+describe('presentarCampo', () => {
+  const campo = (nombre_interno: string, valor: string) => ({ nombre_interno, etiqueta: '', valor })
+
+  it('agrega la unidad a montos y días', () => {
+    expect(presentarCampo(campo('monto_deuda', '120.000,00'))).toBe('$ 120.000,00')
+    expect(presentarCampo(campo('monto_pagado', '500,00'))).toBe('$ 500,00')
+    expect(presentarCampo(campo('dias_vencido', '16'))).toBe('16 días')
+    expect(presentarCampo(campo('dias_vencido', '1'))).toBe('1 día')
+  })
+
+  it('deja tal cual lo que no tiene presentación', () => {
+    expect(presentarCampo(campo('nombre_familia', 'Castro'))).toBe('Castro')
+  })
+
+  it('resumenEnLinea une solo los primeros campos', () => {
+    const campos = ['a', 'b', 'c', 'd'].map((n) => campo(n, n.toUpperCase()))
+
+    expect(resumenEnLinea(campos)).toBe('A · B · C')
   })
 })

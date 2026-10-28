@@ -13,6 +13,7 @@ export function rutaRegla(id: string): string {
 
 export const RUTA_EJECUCIONES = '/workflows/ejecuciones'
 export const RUTA_NOTIFICACIONES = '/workflows/notificaciones'
+export const RUTA_TAREAS = '/workflows/tareas'
 
 // --- Endpoints del backend (`backend/src/workflows/router.py`) -------------------------------
 
@@ -39,6 +40,28 @@ export function apiReintentarEjecucion(id: string): string {
   return `${API_EJECUCIONES}/${id}/reintentar`
 }
 
+export function apiAprobarEjecucion(id: string): string {
+  return `${API_EJECUCIONES}/${id}/aprobar`
+}
+
+export function apiRechazarEjecucion(id: string): string {
+  return `${API_EJECUCIONES}/${id}/rechazar`
+}
+
+export const API_TAREAS = '/workflows/tareas'
+
+export function apiTarea(id: string): string {
+  return `${API_TAREAS}/${id}`
+}
+
+export function apiEstadoTarea(id: string): string {
+  return `${apiTarea(id)}/estado`
+}
+
+export function apiAsignadoTarea(id: string): string {
+  return `${apiTarea(id)}/asignado`
+}
+
 export const API_NOTIFICACIONES = '/workflows/notificaciones'
 
 export function apiNotificacion(id: string): string {
@@ -50,14 +73,32 @@ export function apiNotificacion(id: string): string {
 export const LOCALE = 'es-AR'
 /** Valor del filtro que no restringe nada. */
 export const FILTRO_TODOS = 'todos'
+// Valores del filtro por responsable de la bandeja de tareas; cualquier otro es el id de un usuario.
+export const RESPONSABLE_TODOS = 'todos'
+export const RESPONSABLE_YO = 'yo'
 export const FILTRO_ACTIVAS = 'activas'
 export const FILTRO_INACTIVAS = 'inactivas'
 export const ESTADOS_REGLA_FILTRO = [FILTRO_TODOS, FILTRO_ACTIVAS, FILTRO_INACTIVAS] as const
-export const ESTADOS_EJECUCION_FILTRO = [FILTRO_TODOS, 'exitoso', 'fallido', 'pendiente'] as const
+export const ESTADOS_EJECUCION_FILTRO = [
+  FILTRO_TODOS,
+  'exitoso',
+  'fallido',
+  'pendiente',
+  'rechazado',
+] as const
 export const TAMANIO_PAGINA_EJECUCIONES = 20
 export const ESTADOS_ENVIO_FILTRO = [FILTRO_TODOS, 'enviado', 'fallido', 'pendiente'] as const
 export const DESTINATARIOS_TIPO_FILTRO = [FILTRO_TODOS, 'familia', 'usuario'] as const
 export const TAMANIO_PAGINA_NOTIFICACIONES = 20
+export const ESTADOS_TAREA_FILTRO = [
+  FILTRO_TODOS,
+  'pendiente',
+  'en_progreso',
+  'completada',
+  'escalada',
+] as const
+export const PRIORIDADES_TAREA_FILTRO = [FILTRO_TODOS, 'baja', 'media', 'alta'] as const
+export const TAMANIO_PAGINA_TAREAS = 20
 
 // --- accion_config --------------------------------------------------------------------------
 
@@ -78,6 +119,7 @@ export const CLAVE_CONFIG = {
   campoMonto: 'campo_monto',
   reglaPenalidadId: 'regla_penalidad_id',
   registro: 'registro',
+  enlace: 'enlace',
 } as const
 
 /** Único valor que admite `crear_registro_relacionado.registro`. */
@@ -90,6 +132,7 @@ export const LIMITE_ASUNTO_PLANTILLA = 200
 export const LIMITE_CUERPO_PLANTILLA = 10_000
 export const LIMITE_MENSAJE_ALERTA = 500
 export const LIMITE_TITULO_TAREA = 150
+export const LIMITE_MOTIVO_RECHAZO = 500
 export const RANGO_DIAS_RECORDATORIO = { min: 1, max: 90 }
 export const RANGO_DIAS_TAREA = { min: 1, max: 60 }
 export const RANGO_MONTO = { min: 0.01, step: '0.01' }
@@ -106,6 +149,14 @@ export const DESTINATARIOS: OpcionSelect[] = [
   { value: 'responsables_habilitados', label: 'Responsables habilitados' },
   { value: DESTINATARIO_REGLA, label: 'Destinatarios de la regla' },
 ]
+// Botón del mail (`EnlaceMail` del backend): la ruta la fija el backend, acá solo se elige la clave.
+export const ENLACES_MAIL: OpcionSelect[] = [
+  { value: 'familia_justificar', label: 'Justificar la inasistencia (portal de familias)' },
+  { value: 'ejecuciones', label: 'Revisar en ESSERI (historial de ejecuciones)' },
+  { value: 'tareas', label: 'Ver mis tareas' },
+]
+/** `Select` no admite un valor vacío: esta clave representa "sin botón" y se guarda como ''. */
+export const SIN_ENLACE = 'sin_boton'
 export const PRIORIDADES: OpcionSelect[] = [
   { value: 'baja', label: 'Baja' },
   { value: 'media', label: 'Media' },

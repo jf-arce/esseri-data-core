@@ -123,8 +123,15 @@ export interface DestinatariosReglaPayload {
   usuario_ids: string[]
 }
 
-export const ESTADOS_EJECUCION = ['exitoso', 'fallido', 'pendiente'] as const
+export const ESTADOS_EJECUCION = ['exitoso', 'fallido', 'pendiente', 'rechazado'] as const
 export type EstadoEjecucion = (typeof ESTADOS_EJECUCION)[number]
+
+export interface CampoResumen {
+  nombre_interno: string
+  etiqueta: string
+  /** Ya formateado por el backend (ej. "120.000,00"). */
+  valor: string
+}
 
 export interface EjecucionWorkflow {
   id: string
@@ -145,6 +152,12 @@ export interface EjecucionWorkflow {
   entidad_id: string
   /** Calculado por el backend; el `POST` vuelve a validar al reintentar. */
   reintentable: boolean
+  /** Calculado por el backend; el `POST` vuelve a validar al aprobar. */
+  aprobable: boolean
+  /** Datos del evento en el orden del catálogo, sin nulos ni campos reservados. */
+  resumen_evento: CampoResumen[]
+  /** Solo en el detalle de una penalidad pendiente: lo que se cobraría al aprobar hoy. */
+  recargo_estimado: string | null
 }
 
 export interface EjecucionWorkflowListado {
@@ -203,6 +216,79 @@ export interface FiltrosNotificaciones {
   destinatarioTipo?: DestinatarioTipo
   pagina: number
   tamanioPagina: number
+}
+
+export const ESTADOS_TAREA = ['pendiente', 'en_progreso', 'completada', 'escalada'] as const
+export type EstadoTarea = (typeof ESTADOS_TAREA)[number]
+
+export const PRIORIDADES_TAREA = ['baja', 'media', 'alta'] as const
+export type PrioridadTarea = (typeof PRIORIDADES_TAREA)[number]
+
+export interface Tarea {
+  id: string
+  titulo: string
+  descripcion: string | null
+  estado: EstadoTarea
+  prioridad: PrioridadTarea
+  /** `null` si la tarea no vence. */
+  fecha_vencimiento: string | null
+  /** Calculado por el backend: abierta y con la fecha de vencimiento pasada. */
+  vencida: boolean
+  entidad: string | null
+  entidad_id: string | null
+  usuario_id: string
+  usuario_email: string
+  workflow_execution_id: string | null
+  /** `null` cuando la tarea no la creó una regla. */
+  workflow_rule_nombre: string | null
+  /** La tarea de la que se escaló esta, si la hay. */
+  tarea_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Un eslabón del historial de escalamiento. */
+export interface TareaCadena {
+  id: string
+  titulo: string
+  estado: EstadoTarea
+  prioridad: PrioridadTarea
+  usuario_email: string
+  tarea_id: string | null
+  created_at: string
+}
+
+export interface TareaDetalle extends Tarea {
+  /** De la tarea original a la última escalada; incluye la tarea consultada. */
+  cadena: TareaCadena[]
+}
+
+export interface TareaListado {
+  items: Tarea[]
+  total: number
+  pagina: number
+  tamanio_pagina: number
+  total_paginas: number
+}
+
+export interface FiltrosTareas {
+  estado?: EstadoTarea
+  prioridad?: PrioridadTarea
+  /** Responsable de la tarea; el backend lo ignora sin `workflows.leer` y con `soloMias`. */
+  usuarioId?: string
+  soloMias: boolean
+  pagina: number
+  tamanioPagina: number
+}
+
+/** Opción de una lista de selección única con buscador (`ComboboxBuscable`). */
+export interface OpcionCombo {
+  valor: string
+  etiqueta: string
+  /** Texto secundario (p. ej. el email) que también encuentra el buscador. */
+  detalle?: string
+  /** Las opciones con el mismo grupo se muestran juntas, bajo su título. */
+  grupo?: string
 }
 
 export interface OpcionSelect {

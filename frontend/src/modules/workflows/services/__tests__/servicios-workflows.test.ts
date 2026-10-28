@@ -2,17 +2,23 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { actualizarPlantilla } from '@/modules/workflows/services/actualizar-plantilla'
 import { actualizarReglaWorkflow } from '@/modules/workflows/services/actualizar-regla-workflow'
 import { crearPlantilla } from '@/modules/workflows/services/crear-plantilla'
+import { cambiarEstadoTarea } from '@/modules/workflows/services/cambiar-estado-tarea'
 import { crearReglaWorkflow } from '@/modules/workflows/services/crear-regla-workflow'
 import { listarEjecucionesWorkflow } from '@/modules/workflows/services/listar-ejecuciones-workflow'
 import { listarNotificaciones } from '@/modules/workflows/services/listar-notificaciones'
 import { listarPlantillas } from '@/modules/workflows/services/listar-plantillas'
+import { listarTareas } from '@/modules/workflows/services/listar-tareas'
 import { listarReglasWorkflow } from '@/modules/workflows/services/listar-reglas-workflow'
 import { listarTiposAccion } from '@/modules/workflows/services/listar-tipos-accion'
 import { listarTiposEvento } from '@/modules/workflows/services/listar-tipos-evento'
 import { obtenerDestinatariosRegla } from '@/modules/workflows/services/obtener-destinatarios-regla'
 import { reemplazarDestinatariosRegla } from '@/modules/workflows/services/reemplazar-destinatarios-regla'
+import { aprobarEjecucionWorkflow } from '@/modules/workflows/services/aprobar-ejecucion-workflow'
+import { rechazarEjecucionWorkflow } from '@/modules/workflows/services/rechazar-ejecucion-workflow'
+import { reasignarTarea } from '@/modules/workflows/services/reasignar-tarea'
 import { reintentarEjecucionWorkflow } from '@/modules/workflows/services/reintentar-ejecucion-workflow'
 import { obtenerNotificacion } from '@/modules/workflows/services/obtener-notificacion'
+import { obtenerTarea } from '@/modules/workflows/services/obtener-tarea'
 import { obtenerReglaWorkflow } from '@/modules/workflows/services/obtener-regla-workflow'
 
 const respuestaOk = () =>
@@ -131,6 +137,28 @@ describe('servicios de workflows', () => {
     expect(init?.body).toBeUndefined()
   })
 
+  it('aprueba una ejecución con POST sin body', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await aprobarEjecucionWorkflow('ejec-1')
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toContain('/workflows/ejecuciones/ejec-1/aprobar')
+    expect(init?.method).toBe('POST')
+    expect(init?.body).toBeUndefined()
+  })
+
+  it('rechaza una ejecución con POST y el motivo en el body', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await rechazarEjecucionWorkflow('ejec-1', 'Ya se resolvió por otro medio')
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toContain('/workflows/ejecuciones/ejec-1/rechazar')
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(String(init?.body))).toEqual({ motivo: 'Ya se resolvió por otro medio' })
+  })
+
   it('lista las plantillas compatibles con el evento', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
 
@@ -181,5 +209,58 @@ describe('servicios de workflows', () => {
     expect(url).toContain('/workflows/reglas/regla-1/destinatarios')
     expect(init?.method).toBe('PUT')
     expect(init?.body).toBe(JSON.stringify(payload))
+  })
+
+  it('lista las tareas con sus filtros y pide solo las propias cuando se indica', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await listarTareas({ pagina: 2, tamanioPagina: 20, soloMias: false })
+    await listarTareas({
+      estado: 'escalada',
+      prioridad: 'alta',
+      soloMias: true,
+      pagina: 1,
+      tamanioPagina: 20,
+    })
+
+    const sinFiltros = String(fetchMock.mock.calls[0][0])
+    expect(sinFiltros).toContain('/workflows/tareas?pagina=2&tamanio_pagina=20')
+    expect(sinFiltros).not.toContain('solo_mias')
+    const conFiltros = String(fetchMock.mock.calls[1][0])
+    expect(conFiltros).toContain('estado=escalada')
+    expect(conFiltros).toContain('prioridad=alta')
+    expect(conFiltros).toContain('solo_mias=true')
+  })
+
+  it('filtra las tareas por responsable con usuario_id', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await listarTareas({ usuarioId: 'u-2', soloMias: false, pagina: 1, tamanioPagina: 20 })
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain('usuario_id=u-2')
+  })
+
+  it('reasigna una tarea con PATCH y el usuario en el body', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await reasignarTarea('t-1', 'u-3')
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toContain('/workflows/tareas/t-1/asignado')
+    expect(init?.method).toBe('PATCH')
+    expect(init?.body).toBe(JSON.stringify({ usuario_id: 'u-3' }))
+  })
+
+  it('obtiene el detalle de una tarea y cambia su estado', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await obtenerTarea('t-1')
+    await cambiarEstadoTarea('t-1', 'completada')
+
+    expect(fetchMock.mock.calls[0][0]).toContain('/workflows/tareas/t-1')
+    expect(fetchMock.mock.calls[1][0]).toContain('/workflows/tareas/t-1/estado')
+    const init = fetchMock.mock.calls[1][1]
+    expect(init?.method).toBe('PATCH')
+    expect(init?.body).toBe(JSON.stringify({ estado: 'completada' }))
   })
 })

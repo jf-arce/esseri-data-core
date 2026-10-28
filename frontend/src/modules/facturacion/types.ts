@@ -48,11 +48,85 @@ export interface PagoFactura {
   metodo_pago: MetodoPago
 }
 
+export interface RecargoFactura {
+  id: string
+  fecha: string
+  monto: string
+  observacion: string | null
+}
+
 export interface FacturaDetalle extends Factura {
   alumno_nombre: string
   alumno_legajo: string
   responsable_economico_nombre: string | null
   pagos: PagoFactura[]
+  /** Recargos por mora: van a la cuenta corriente y no cambian el saldo de esta factura. */
+  recargos: RecargoFactura[]
+}
+
+export interface DetalleFacturaFamilia {
+  descripcion: string
+  monto: string
+}
+
+export interface PagoFamilia {
+  id: string
+  fecha: string
+  monto: string
+  estado: PagoFactura['estado']
+  metodo_pago: string
+  comprobante_disponible: boolean
+}
+
+export interface FacturaFamilia {
+  id: string
+  fecha_emision: string
+  fecha_vencimiento: string
+  monto_total: string
+  estado: EstadoFactura
+  alumno_nombre: string
+  detalles: DetalleFacturaFamilia[]
+  pagos: PagoFamilia[]
+}
+
+export interface MovimientoFamilia {
+  fecha: string
+  tipo: 'debe' | 'haber'
+  monto: string
+  observacion: string | null
+  factura_id: string
+}
+
+export interface FacturacionFamilia {
+  total_debe: string
+  total_haber: string
+  saldo: string
+  facturas: FacturaFamilia[]
+  movimientos: MovimientoFamilia[]
+}
+
+export interface MovimientoCuentaCorriente {
+  id: string
+  fecha: string
+  tipo: 'debe' | 'haber'
+  monto: string
+  observacion: string | null
+  concepto_cobro_id: string | null
+  concepto_nombre: string | null
+  factura_id: string | null
+  pago_id: string | null
+}
+
+export interface CuentaCorriente {
+  cuenta_corriente_id: string | null
+  alumno_id: string
+  total_debe: string
+  total_haber: string
+  saldo: string
+  movimientos: MovimientoCuentaCorriente[]
+  total_movimientos: number
+  pagina: number
+  tamanio: number
 }
 
 export interface RegistrarPagoPayload {
@@ -190,4 +264,38 @@ export interface UltimaEjecucionReglaFacturacion {
   cargos_omitidos: number
   cargos_bloqueados: number
   error_detalle: string | null
+}
+
+export interface ReglaPenalidad {
+  id: string
+  desde_dia_vencido: number
+  hasta_dia_vencido: number | null
+  porcentaje: string
+  concepto_cobro_id: string
+  activo: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ReglaPenalidadPayload {
+  desde_dia_vencido: number
+  hasta_dia_vencido: number | null
+  porcentaje: string
+  concepto_cobro_id: string
+}
+
+export interface ExcepcionVencimiento {
+  id: string
+  familia_id: string
+  fecha_vencimiento_excepcional: string
+  motivo: string | null
+  created_at: string
+  usuario_id: string
+  anulada_at: string | null
+  usuario_anulacion_id: string | null
+}
+
+export interface ExcepcionVencimientoPayload {
+  fecha_vencimiento_excepcional: string
+  motivo: string
 }

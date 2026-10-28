@@ -3,10 +3,20 @@ de `academico.leer` — un docente no tiene ese permiso (grupo-b.yaml) pero sí 
 propias divisiones para la pantalla "¿Cómo querés entrar?" del frontend."""
 
 import uuid
+from datetime import date, timedelta
 
-from src.academico.models import Anio, AsignacionDocente, Division, Docente, Materia, NivelEducativo
+from src.academico.models import (
+    Anio,
+    AsignacionDocente,
+    Division,
+    Docente,
+    Materia,
+    NivelEducativo,
+)
+from src.academico.service import calcular_indicadores_inasistencia
 from src.auth import sesion_service
 from src.auth.models import Usuario
+from src.inscripciones.models import Asistencia
 from src.models import Persona
 
 PASSWORD_VALIDA = "una-contrasenia-larga"
@@ -55,18 +65,124 @@ def login(client, usuario):
 
 def test_sin_sesion_rechaza(client):
     assert client.get("/academico/docentes/me/divisiones").status_code == 401
+    assert client.get("/academico/docentes/me/perfil").status_code == 401
 
 
 def test_docente_ve_sus_propias_divisiones(client, db_session):
     usuario = _crear_docente_con_division(db_session)
     login(client, usuario)
 
-    respuesta = client.get("/academico/docentes/me/divisiones")
+    respuesta = client.get("/academico/docentes/me/divisiones?ciclo_lectivo=2027")
 
     assert respuesta.status_code == 200
     assert respuesta.json() == [
-        {"division_id": str(_division_id_de(db_session)), "etiqueta": "4°B"}
+        {
+            "division_id": str(_division_id_de(db_session)),
+            "etiqueta": "4°B",
+            "anio_numero": 4,
+            "nivel_educativo_nombre": "Primario",
+        }
     ]
+
+
+def test_docente_ve_su_nombre_real_en_su_perfil(client, db_session):
+    usuario = _crear_docente_con_division(db_session)
+    login(client, usuario)
+
+    respuesta = client.get("/academico/docentes/me/perfil")
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"nombre": "Julieta", "apellido": "Amaya"}
+
+
+def test_usuario_sin_perfil_docente_no_ve_nombre_docente(client, db_session):
+    usuario = _crear_docente_con_division(db_session)
+    docente = db_session.query(Docente).filter_by(persona_id=usuario.persona_id).one()
+    db_session.delete(docente)
+    db_session.commit()
+    login(client, usuario)
+
+    respuesta = client.get("/academico/docentes/me/perfil")
+
+    assert respuesta.status_code == 404
+
+
+def test_docente_ve_solo_divisiones_del_ciclo_solicitado(client, db_session):
+    usuario = _crear_docente_con_division(db_session)
+    login(client, usuario)
+
+    respuesta_actual = client.get("/academico/docentes/me/divisiones?ciclo_lectivo=2027")
+    respuesta_anterior = client.get("/academico/docentes/me/divisiones?ciclo_lectivo=2026")
+
+    assert respuesta_actual.status_code == 200
+    assert len(respuesta_actual.json()) == 1
+    assert respuesta_anterior.status_code == 200
+    assert respuesta_anterior.json() == []
+
+
+def test_docente_puede_listar_alumnos_activos_de_su_division_y_ciclo(client, db_session):
+    from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
+
+    escenario = crear_escenario(db_session)
+    inscripcion = crear_inscripcion_previa(db_session, escenario, estado="activa", ciclo="2027")
+    crear_inscripcion_previa(db_session, escenario, estado="finalizada", ciclo="2027")
+    usuario = _crear_docente_con_division(db_session)
+    # La fábrica del docente crea una división distinta; se asigna la división del alumno.
+    docente = db_session.query(Docente).filter_by(persona_id=usuario.persona_id).one()
+    division = db_session.get(Division, escenario["division_id"])
+    materia = Materia(nombre="Materia", tipo="materia", anio_id=division.anio_id)
+    db_session.add(materia)
+    db_session.flush()
+    db_session.add(
+        AsignacionDocente(
+            ciclo_lectivo="2027",
+            docente_id=docente.id,
+            materia_id=materia.id,
+            division_id=division.id,
+        )
+    )
+    db_session.commit()
+    login(client, usuario)
+
+    respuesta = client.get(
+        f"/academico/docentes/me/divisiones/{division.id}/alumnos?ciclo_lectivo=2027"
+    )
+
+    assert respuesta.status_code == 200
+    assert [fila["id"] for fila in respuesta.json()["items"]] == [str(inscripcion.id)]
+
+
+def test_docente_no_puede_listar_alumnos_de_una_division_no_asignada(client, db_session):
+    from tests.inscripciones.factories import crear_escenario
+
+    escenario = crear_escenario(db_session)
+    usuario = _crear_docente_con_division(db_session)
+    login(client, usuario)
+
+    respuesta = client.get(
+        f"/academico/docentes/me/divisiones/{escenario['division_id']}/alumnos?ciclo_lectivo=2027"
+    )
+
+    assert respuesta.status_code == 403
+
+
+def test_indicador_cuenta_ausencias_justificadas_y_acumuladas():
+    registros = [
+        Asistencia(fecha=date(2027, 1, 1) + timedelta(days=dia * 2), tipo="ausente_justificado")
+        for dia in range(20)
+    ]
+
+    assert calcular_indicadores_inasistencia(registros) == (20, 20, True)
+
+
+def test_indicador_reconoce_cinco_ausencias_seguidas_con_dias_sin_registro():
+    registros = [
+        Asistencia(fecha=date(2027, 4, 1) + timedelta(days=dia * 2), tipo="ausente_pendiente")
+        for dia in range(5)
+    ]
+    registros.append(Asistencia(fecha=date(2027, 4, 11), tipo="presente"))
+
+    assert calcular_indicadores_inasistencia(registros) == (5, 5, True)
 
 
 def test_usuario_sin_persona_vinculada_devuelve_lista_vacia(client, db_session):
@@ -117,9 +233,16 @@ def test_etiqueta_no_duplica_el_anio_cuando_ya_esta_en_el_nombre(client, db_sess
     db_session.commit()
     login(client, usuario)
 
-    respuesta = client.get("/academico/docentes/me/divisiones")
+    respuesta = client.get("/academico/docentes/me/divisiones?ciclo_lectivo=2027")
 
-    assert respuesta.json() == [{"division_id": str(division_id), "etiqueta": "3°C"}]
+    assert respuesta.json() == [
+        {
+            "division_id": str(division_id),
+            "etiqueta": "3°C",
+            "anio_numero": 1,
+            "nivel_educativo_nombre": "Primario",
+        }
+    ]
 
 
 def _division_id_de(db_session):

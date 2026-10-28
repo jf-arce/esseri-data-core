@@ -95,6 +95,10 @@ src/
 
 Detalle completo de cada carpeta, convenciones de nombres (`kebab-case`) y criterio de testing: ver `ARCHITECTURE.md` en la raíz del repo.
 
+## Fechas y horas
+
+Los instantes llegan de la API en ISO 8601 UTC (`2026-10-26T13:00:00Z`) y se muestran con `formatearFechaHora` (y `formatearDiaDeInstante` cuando solo se quiere el día) de `src/lib/fechas.ts`: siempre en hora de Buenos Aires y formato de 24 h (`28/02/2027, 23:30`), sin importar la zona del navegador. Las fechas de solo día (`YYYY-MM-DD`) no pasan por esas funciones.
+
 ## Sistema de diseño ESSERI
 
 El sistema de diseño completo está documentado en **`DESIGN.md`** (raíz del repo), con cada

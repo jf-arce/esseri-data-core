@@ -50,6 +50,8 @@ RF cubiertos: RF-27, RF-28, RF-29, RF-30 · RNF-03, RNF-10
 | password_hash | string |  | `[ACLARACIÓN CLIENTE]` Ya no obligatorio: con Google Identity como login principal, queda como fallback explícito. Nulo en las cuentas que nacieron por Google |
 | auth_provider | string |  | `[ACLARACIÓN CLIENTE]` google / local. **[IMPLEMENTACIÓN RF-27]** Marca el método **principal**, no una exclusión — ver la nota de abajo sobre cuentas vinculadas |
 | provider_subject | string |  | `[ACLARACIÓN CLIENTE]` Identificador estable que devuelve Google Identity. Nulo mientras la cuenta no haya entrado nunca por Google |
+| nombre_google | string |  | Nombre que informa Google en el último login. Se refresca en cada login con Google. No reemplaza a `PERSONA`: en el encabezado manda el nombre de la persona si existe |
+| avatar_url | string |  | URL https de la foto de perfil de Google, refrescada en cada login. Nulo si Google no la informa |
 | estado | string |  | activo / inactivo |
 | fecha_creacion | datetime |  |  |
 | ultimo_acceso | datetime |  |  |
@@ -113,6 +115,8 @@ La tercera fila aparece cuando una cuenta creada como `local` entra por Google p
 > Cubre RF-27: *"intentos fallidos son registrados"*. Distinto de `AUDIT_LOG` (que registra cambios de campos) y de `EVENT_LOG` (que registra hechos de negocio).
 >
 > **[IMPLEMENTACIÓN RF-27]** `usuario_id` pasa a **nullable**. Un intento de login con un email que no existe en `USUARIO` no tiene a quién apuntar, y es justo uno de los casos que el RF pide registrar — con la FK obligatoria era irrepresentable.
+>
+> **[IMPLEMENTACIÓN #93]** Los `fallido` agrupados por `ip_origen` alimentan el bloqueo de `POST /auth/login`. Los intentos rechazados por el bloqueo no se registran. Ver `docs/auth-oauth-google.md`.
 
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
@@ -463,8 +467,15 @@ RF cubiertos: RF-15, RF-16, RF-17, RF-18 (parcial, ver nota), RF-36
 
 **Precarga confirmada:** 0–5 días vencido: 0% (normal, sin penalidad) · 6–15: 20% · 16–30: 30%.
 
+`[DECISIÓN DE DISEÑO]` (#238) Se configura desde la pantalla *Penalidades por mora*. Dos tramos **activos** no pueden superponerse (el backend rechaza el alta, la edición o la reactivación con 409). La baja es lógica (`activo = false`): un tramo no se borra porque puede haber penalidades cobradas con él.
+
 ### `EXCEPCION_VENCIMIENTO`
 > **[ACLARACIÓN CLIENTE]** (respuesta 5): *"salvo que exista una fecha excepcional previamente autorizada por ESSERI para esa familia"*.
+
+`aplicar_vencimiento` usa la familia del responsable económico de la factura, aunque su vigencia
+haya terminado. La fecha efectiva es la mayor entre el vencimiento de la factura y las fechas
+excepcionales de esa familia, y la factura pasa a `vencida` recién al día siguiente (fecha de
+`America/Argentina/Buenos_Aires`). `cambiar_estado` no aplica esta política.
 
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
@@ -472,8 +483,10 @@ RF cubiertos: RF-15, RF-16, RF-17, RF-18 (parcial, ver nota), RF-36
 | fecha_vencimiento_excepcional | date |  |  |
 | motivo | string |  |  |
 | created_at | datetime |  | Fecha y hora de creación del registro. |
+| anulada_at | datetime |  | `[DECISIÓN DE DISEÑO]` (#238) Nulo = vigente. Una prórroga no se edita ni se borra: se anula y deja de postergar el vencimiento |
 | familia_id | uuid | FK |  |
-| usuario_id | uuid | FK |  |
+| usuario_id | uuid | FK | Quién otorgó la prórroga |
+| usuario_anulacion_id | uuid | FK | Quién la anuló |
 
 ### `CUENTA_CORRIENTE`
 > **[ACLARACIÓN CLIENTE]**. Resuelve la contradicción que traía este documento: `FAMILIA.estado_deuda` existía como columna al mismo tiempo que el diccionario decía que se calculaba navegando facturas — dos fuentes del mismo dato. La respuesta 16 confirma que el cliente asume la cuenta corriente como concepto de negocio propio (*"actualizar cuentas corrientes"* es una de las 15 acciones que debe poder disparar el motor de workflows), no solo un cálculo agregado sobre facturas.
@@ -654,7 +667,9 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 ### `TIPO_EVENTO`
 > `[DECISIÓN DE DISEÑO]` `nombre` es `UNIQUE` (`uq_tipo_evento_nombre`): `emit_event()` resuelve el tipo por nombre, así que no puede haber dos filas con el mismo.
 >
-> [DECISIÓN DE DISEÑO] Catálogo en vez de texto libre en `WORKFLOW_RULE`, mismo patrón que `PERMISO`/`METODO_PAGO` (RNF-06). Acá se cargan valores como "factura.vencida", "inasistencia.registrada", "inscripcion.cambio_matricula", y desde las aclaraciones también "solicitud_inscripcion.aprobada", "inasistencia.justificada", "pago.registrado", "pago.rechazado". Proveedores y Compras suma "orden_compra.emitida" y "recepcion_compra.registrada".
+> `[DECISIÓN DE DISEÑO]` `factura.vencida` se emite desde `backend/src/facturacion/vencimientos_service.py`, una vez por tramo activo de `REGLA_PENALIDAD`. Además de `dias_vencido`, `monto_deuda` y `nombre_familia`, el `payload` lleva `tramo_desde_dia` (el `desde_dia_vencido` del tramo) y `fecha_vencimiento_efectiva` (el vencimiento corrido por la `EXCEPCION_VENCIMIENTO` de la familia, si existe).
+
+> [DECISIÓN DE DISEÑO] Catálogo en vez de texto libre en `WORKFLOW_RULE`, mismo patrón que `PERMISO`/`METODO_PAGO` (RNF-06). Acá se cargan valores como "factura.vencida", "inasistencia.registrada", "inscripcion.cambio_matricula", y desde las aclaraciones también "solicitud_inscripcion.aprobada", "inasistencia.justificada", "pago.registrado", "pago.rechazado". Proveedores y Compras suma "orden_compra.emitida" y "recepcion_compra.registrada", y "solicitud_compra.aprobada". Inscripciones suma "inscripcion.confirmada".
 
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
@@ -673,26 +688,27 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 >
 > **[DECISIÓN DE EQUIPO — cierra la pregunta pendiente #15]** `requiere_aprobacion_humana = true` (por defecto) para las acciones que mueven dinero o escalan un caso: `generar_cargo`, `aplicar_penalidad`, `registrar_pago`, `registrar_rechazo`, `escalar_caso`, `generar_orden_compra`. El resto arranca en `false`: `notificar`, `alerta_interna`, `generar_recordatorio`, `cambiar_estado`, `crear_tarea`, `crear_registro_relacionado`, `aplicar_vencimiento`, `actualizar_cuenta_corriente`, `generar_comunicacion`. Es el valor por defecto por `tipo_accion`, no un hardcode — el campo sigue siendo configurable por regla, así que el equipo puede ajustar caso por caso una vez que el motor esté corriendo.
 >
-> **[DECISIÓN DE EQUIPO — cierra la pregunta pendiente #16]** La allowlist de `accion_config` vive en `backend/src/workflows/` (`constants.py` y `schemas.py`) y el backend la aplica al crear/editar la regla y otra vez al despachar. Reglas generales: la acción opera siempre sobre la entidad del evento, y `accion_config` nunca trae la entidad ni IDs de filas a modificar, solo parámetros y referencias a catálogos (`CONCEPTO_COBRO`, `REGLA_PENALIDAD`). Cada tipo de evento tiene una entidad canónica en `EVENT_LOG.entidad` (`factura.vencida` → `factura`, `pago.registrado`/`pago.rechazado` → `pago`, `inasistencia.registrada` → `asistencia`, `inasistencia.justificada` → `justificacion_inasistencia`, `inscripcion.cambio_matricula` → `inscripcion`, `solicitud_inscripcion.aprobada` → `solicitud_inscripcion`, `orden_compra.emitida` → `orden_compra`, `recepcion_compra.registrada` → `recepcion_compra`) y `emit_event()` rechaza cualquier otra. Por acción:
+> **[DECISIÓN DE EQUIPO — cierra la pregunta pendiente #16]** La allowlist de `accion_config` vive en `backend/src/workflows/` (`constants.py` y `schemas.py`) y el backend la aplica al crear/editar la regla y otra vez al despachar. Reglas generales: la acción opera siempre sobre la entidad del evento, y `accion_config` nunca trae la entidad ni IDs de filas a modificar, solo parámetros y referencias a catálogos (`CONCEPTO_COBRO`, `REGLA_PENALIDAD`). Cada tipo de evento tiene una entidad canónica en `EVENT_LOG.entidad` (`factura.vencida` → `factura`, `pago.registrado`/`pago.rechazado` → `pago`, `inasistencia.registrada` → `asistencia`, `inasistencia.justificada` → `justificacion_inasistencia`, `inscripcion.cambio_matricula` → `inscripcion`, `solicitud_inscripcion.aprobada` → `solicitud_inscripcion`, `orden_compra.emitida` → `orden_compra`, `recepcion_compra.registrada` → `recepcion_compra`, `inscripcion.confirmada` → `inscripcion`, `solicitud_compra.aprobada` → `solicitud_compra`) y `emit_event()` rechaza cualquier otra. Por acción:
 >
 > | `tipo_accion` | `accion_config` | Eventos permitidos |
 > |---|---|---|
-> | `notificar`, `generar_comunicacion` | `destinatario` (`responsable_economico`, `responsables_habilitados`, `destinatarios_regla`) | cualquiera |
-> | `generar_recordatorio` | `destinatario`, `dias_despues` (1 a 90) | cualquiera |
-> | `alerta_interna` | `mensaje` (opcional, hasta 500) | cualquiera |
-> | `crear_tarea` | `titulo`, `descripcion?`, `prioridad`, `dias_para_vencer?` (1 a 60) | cualquiera |
-> | `escalar_caso` | `motivo?`, `prioridad` (default `alta`) | cualquiera |
+> | `notificar` | `destinatario` (`responsable_economico`, `responsables_habilitados`, `destinatarios_regla`), `enlace?` | cualquiera |
+> | `generar_comunicacion` | `destinatario` | cualquiera |
+> | `generar_recordatorio` | `destinatario`, `dias_despues` (1 a 90), `enlace?` | cualquiera |
+> | `alerta_interna` | `mensaje` (opcional, hasta 500), `enlace?` | cualquiera |
+> | `crear_tarea` | `titulo`, `descripcion?`, `prioridad`, `dias_para_vencer?` (1 a 60). `titulo` y `descripcion` admiten `{{campo}}` del evento | cualquiera |
+> | `escalar_caso` | `motivo?` (admite `{{campo}}` del evento), `prioridad` (default `alta`) | cualquiera |
 > | `cambiar_estado` | `estado_nuevo`, solo `factura → vencida` por ahora | `factura.vencida` |
-> | `generar_cargo` | `concepto_cobro_id` (activo), `monto?` (> 0) | `solicitud_inscripcion.aprobada`, `pago.rechazado` |
+> | `generar_cargo` | `concepto_cobro_id` (activo), `monto?` (> 0) | `inscripcion.confirmada`, `pago.rechazado` |
 > | `aplicar_vencimiento`, `registrar_pago`, `registrar_rechazo` | sin parámetros | `factura.vencida`, `pago.registrado`, `pago.rechazado` respectivamente |
 > | `aplicar_penalidad` | `regla_penalidad_id?` (activa; sin valor, tramo según días) | `factura.vencida` |
 > | `actualizar_cuenta_corriente` | `tipo` (`debe`/`haber`), `concepto_cobro_id`, `campo_monto` (campo numérico del evento) | `pago.registrado`, `pago.rechazado`, `factura.vencida` |
 > | `crear_registro_relacionado` | `registro` (`alumno_y_familia_desde_solicitud`) | `solicitud_inscripcion.aprobada` |
-> | `generar_orden_compra` | sin parámetros | ninguno todavía: no se puede configurar hasta que Compras emita un evento |
+> | `generar_orden_compra` | sin parámetros | `solicitud_compra.aprobada` |
 >
 > Solo `notificar`, `alerta_interna`, `generar_recordatorio` y `generar_comunicacion` admiten `notificacion_template_id`. Se amplía acción por acción a medida que se implementa su ejecutor. `condicion` se valida contra los `CAMPO_EVENTO` del evento de la regla (operadores `==`, `!=`, `>`, `>=`, `<`, `<=` para número y fecha; `==`, `!=`, `contiene` para texto).
 >
-> **[NOTA]** `notificar` con `destinatario` `responsable_economico` o `responsables_habilitados` necesita un alumno, que se deduce de la entidad del evento (`factura`, `pago`, `asistencia`, `justificacion_inasistencia`, `inscripcion`). Sobre `solicitud_inscripcion.aprobada`, `orden_compra.emitida` y `recepcion_compra.registrada` solo se acepta `destinatarios_regla`.
+> **[NOTA]** `notificar` con `destinatario` `responsable_economico` o `responsables_habilitados` necesita un alumno, que se deduce de la entidad del evento (`factura`, `pago`, `asistencia`, `justificacion_inasistencia`, `inscripcion`). Sobre `solicitud_inscripcion.aprobada`, `solicitud_compra.aprobada`, `orden_compra.emitida` y `recepcion_compra.registrada` solo se acepta `destinatarios_regla`. `inscripcion.confirmada` sí tiene alumno.
 >
 > **[NOTA — decisión revisada]** Se evaluó agregar `n8nWorkflowId` por fila, pero se descartó: todas las reglas con `tipo_accion = "notificar"` llaman al mismo webhook genérico de n8n (backend ya resuelve destinatario y contenido antes de llamarlo), así que guardarlo por regla sería dato repetido sin necesidad. La URL del webhook es config del sistema, no un atributo de `WORKFLOW_RULE`.
 >
@@ -739,7 +755,7 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 | intento | int |  | Número de reintento (1 = primer intento) |
 | started_at | datetime |  | Reemplaza al campo `fecha` anterior |
 | finished_at | datetime |  | Nulo mientras esté en curso |
-| estado | string |  | exitoso / fallido / pendiente |
+| estado | string |  | exitoso / fallido / pendiente / rechazado |
 | detalle | string |  |  |
 | error_detail | string |  | Detalle del error cuando `estado = fallido` |
 | workflow_rule_id | uuid | FK |  |
@@ -784,6 +800,16 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 | usuario_id | uuid | FK |  |
 | workflow_execution_id | uuid | FK | Si la creó el motor |
 | tarea_id | uuid | FK | Encadena el historial de escalamiento |
+
+> **[DECISIÓN DE DISEÑO]** (#89) `usuario_id` es el responsable y es obligatorio, así que `crear_tarea` y `escalar_caso` crean una `TAREA` por cada usuario activo de `REGLA_DESTINATARIO` (directo o por rol): los destinatarios de la regla son las personas a quienes se asigna el trabajo.
+>
+> **[DECISIÓN DE DISEÑO]** `accion_config.enlace` agrega un botón al mail que lleva a una pantalla de la app. Es una clave de allowlist (`ENLACES_MAIL` en `backend/src/workflows/constants.py`), nunca una URL: `familia_justificar` (`/familia/justificar-ausencia`), `ejecuciones` (`/workflows/ejecuciones`) y `tareas` (`/workflows/tareas`). La URL se arma con `FRONTEND_URL`; la persona tiene que iniciar sesión y, si venía sin sesión, vuelve a esa pantalla. No se puede responder ni aprobar desde el mail. `NOTIFICACION.cuerpo_snapshot` sigue en texto plano; el HTML es solo la presentación del envío.
+
+> **[DECISIÓN DE DISEÑO]** Al renderizar plantillas, tareas y mails, los números del payload se formatean en es-AR: decimales con 2 cifras y coma (`120.000,00`), enteros con separador de miles (`1.500`) y booleanos como `Sí`/`No`. Un `{{campo}}` que el evento no trae falla la ejecución con un error controlado, y al guardar la regla se valida que el campo exista en el evento.
+
+> **[DECISIÓN DE DISEÑO]** `escalar_caso` pasa a `escalada` las tareas abiertas (`pendiente`/`en_progreso`) de la misma `entidad`/`entidad_id` y crea la tarea nueva `pendiente`, con `tarea_id` apuntando a la más reciente de las escaladas. Sin tareas abiertas, crea la tarea sin antecesora. Una persona solo avanza la tarea (`pendiente → en_progreso → completada`); `escalada` la pone el motor y `completada` no se reabre.
+>
+> **[DECISIÓN DE DISEÑO]** La bandeja es de cada persona: ve las tareas que se le asignaron aunque su rol no tenga permisos de Workflows; con `workflows.leer` ve las de todos.
 
 ### `REGLA_DESTINATARIO` (tabla intermedia)
 > **[ACLARACIÓN CLIENTE]** (respuesta 15): *"el nivel de criticidad y los destinatarios deben ser configurables"*. Permite que una `WORKFLOW_RULE` avise a un rol completo, a un usuario puntual, o a ambos.
@@ -958,10 +984,10 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | `PAGO.estado` | aprobado, rechazado, pendiente | `[ACLARACIÓN CLIENTE]` respuesta 4 — **NUEVO** |
 | `MOVIMIENTO.tipo` | debe, haber | [DECISIÓN DE DISEÑO] — **NUEVO** |
 | `LOG_ACCESO.resultado` | exitoso, fallido | RF-27 (textual) |
-| `WORKFLOW_EXECUTION.estado` | exitoso, fallido, pendiente | RF-23 (textual) |
+| `WORKFLOW_EXECUTION.estado` | exitoso, fallido, pendiente, rechazado | RF-23 (textual) |
 | `NOTIFICACION.estado_envio` | enviado, fallido, pendiente | Propuesta del equipo |
 | `NOTIFICACION.destinatario_tipo` | familia, usuario | `[ACLARACIÓN CLIENTE]` respuesta 15 — **NUEVO** |
-| `WORKFLOW_RULE.tipo_accion` | notificar, alerta_interna, cambiar_estado, crear_tarea, generar_cargo, aplicar_vencimiento, aplicar_penalidad, registrar_pago, registrar_rechazo, actualizar_cuenta_corriente, generar_recordatorio, escalar_caso, crear_registro_relacionado, generar_orden_compra, generar_comunicacion | **MODIFICADO — de 2 a 15 valores** — `[ACLARACIÓN CLIENTE]` respuesta 16 |
+| `WORKFLOW_RULE.tipo_accion` | notificar, alerta_interna, cambiar_estado, crear_tarea, generar_cargo, aplicar_vencimiento, aplicar_penalidad, registrar_pago, registrar_rechazo, actualizar_cuenta_corriente, generar_recordatorio, escalar_caso, crear_registro_relacionado, generar_orden_compra, generar_comunicacion | **MODIFICADO — de 2 a 15 valores** — `[ACLARACIÓN CLIENTE]` respuesta 16. `registrar_pago`, `actualizar_cuenta_corriente` y `crear_registro_relacionado` no se implementan en el motor: las reglas con esos tipos quedan `fallido` |
 | `WORKFLOW_RULE.criticidad` | baja, media, alta, critica | [DECISIÓN DE DISEÑO] — `[ACLARACIÓN CLIENTE]` respuesta 15 pide que sea configurable |
 | `TAREA.estado` | pendiente, en_progreso, completada, escalada | [DECISIÓN DE DISEÑO] — **NUEVO** |
 | `TAREA.prioridad` | baja, media, alta | [DECISIÓN DE DISEÑO] — **NUEVO** |
@@ -1040,13 +1066,15 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 |---|---|
 | inasistencia.registrada | Se registró una ausencia |
 | inasistencia.justificada | `[ACLARACIÓN CLIENTE]` Se resolvió una justificación de ausencia |
-| factura.vencida | Una factura pasó a estado vencida |
+| factura.vencida | Una factura impaga superó su fecha de vencimiento |
 | inscripcion.cambio_matricula | Cambio de nivel, división o baja |
 | solicitud_inscripcion.aprobada | `[ACLARACIÓN CLIENTE]` Una solicitud de admisión llegó a etapa aprobada |
 | pago.registrado | `[ACLARACIÓN CLIENTE]` Se confirmó un pago |
 | pago.rechazado | `[ACLARACIÓN CLIENTE]` Un pago fue rechazado (ej. stop debit) |
 | orden_compra.emitida | `[DECISIÓN DE EQUIPO]` Se emitió una orden de compra a un proveedor |
 | recepcion_compra.registrada | `[DECISIÓN DE EQUIPO]` Se registró una recepción de compra, total o parcial |
+| inscripcion.confirmada | `[DECISIÓN DE EQUIPO]` Se confirmó una inscripción nueva a partir de una solicitud aprobada |
+| solicitud_compra.aprobada | `[DECISIÓN DE EQUIPO]` Se aprobó una solicitud interna de compra |
 
 ### Grupo B — Decisión razonable del equipo, pero conviene validar antes de cargar en producción
 
@@ -1095,7 +1123,7 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 **Cerradas por decisión de equipo (no de ESSERI):**
 
 - **#4 — roles con permisos conflictivos:** gana el permiso más permisivo. Si cualquiera de los roles que tiene el usuario habilita la acción, se permite — no hace falta que todos coincidan.
-- **#16 — allowlist de `accion_config`:** definida acción por acción y evento por evento en `backend/src/workflows/` (ver la nota de `WORKFLOW_RULE`). Arranca cerrada y se abre con cada ejecutor; `generar_orden_compra` no se puede configurar hasta que Compras emita un evento.
+- **#16 — allowlist de `accion_config`:** definida acción por acción y evento por evento en `backend/src/workflows/` (ver la nota de `WORKFLOW_RULE`). Arranca cerrada y se abre con cada ejecutor; `generar_orden_compra` se configura solo con `solicitud_compra.aprobada` y `generar_cargo` con `inscripcion.confirmada` o `pago.rechazado`.
 - **#15 — qué acciones requieren `requiere_aprobacion_humana = true`:** las que mueven dinero o escalan un caso — `generar_cargo`, `aplicar_penalidad`, `registrar_pago`, `registrar_rechazo`, `escalar_caso`, `generar_orden_compra`. El resto (`notificar`, `alerta_interna`, `generar_recordatorio`, `cambiar_estado`, `crear_tarea`, `crear_registro_relacionado`, `aplicar_vencimiento`, `actualizar_cuenta_corriente`, `generar_comunicacion`) corre automático. **Es una decisión inicial, no definitiva** — el equipo puede ajustar caso por caso una vez que el motor esté corriendo y se vea el comportamiento real en la demo.
 
 ---
@@ -1122,3 +1150,5 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | — | Definidas las reglas de detección de patrones y el ciclo de revisión de `IA_SUGERENCIA` (issues #51 y #194): morosidad e inasistencias por reglas con umbrales configurables, sin duplicar pendientes. El rol `dirección` suma permisos sobre IA/Sugerencias en `grupo-b.yaml`. Sin cambios de esquema. |
 | — | Definido el flujo de borradores de comunicación de `IA_SUGERENCIA` (issue #50): `contenido_generado` guarda el borrador en JSON y `entidad` apunta al `TIPO_EVENTO`; aprobar crea la `NOTIFICACION_TEMPLATE`. Sin cambios de esquema. |
 | — | Sumados a `TIPO_EVENTO` los dos eventos que emite Proveedores y Compras: `orden_compra.emitida` (entidad `orden_compra`; campos `proveedor_nombre`, `cantidad_items`, `fecha`) y `recepcion_compra.registrada` (entidad `recepcion_compra`; campos `proveedor_nombre`, `tipo_recepcion`, `fecha`). Sin cambios de esquema: son filas de catálogo. |
+| — | Sumados a `TIPO_EVENTO` `inscripcion.confirmada` (entidad `inscripcion`; campos `alumno_nombre`, `nivel_educativo`, `fecha`) y `solicitud_compra.aprobada` (entidad `solicitud_compra`; campos `item`, `cantidad`, `fecha`), y abiertas en la allowlist de `generar_cargo` y `generar_orden_compra` (issue #199). Sin cambios de esquema: son filas de catálogo. |
+| 2026-10-27 | Sumados `nombre_google` y `avatar_url` a `USUARIO` (issue #260): se guardan del id_token en cada login con Google y alimentan el nombre y la foto del encabezado. Prioridad del nombre: persona, Google, email |

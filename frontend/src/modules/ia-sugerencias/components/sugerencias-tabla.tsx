@@ -18,7 +18,7 @@ import {
   resumenSugerencia,
   VARIANTE_ESTADO,
 } from '@/modules/ia-sugerencias/utils'
-import { formatearFechaHora } from '@/modules/workflows/utils'
+import { formatearFechaHora } from '@/lib/fechas'
 
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'chip', ancho: 'w-28' },

@@ -14,6 +14,7 @@ from src.facturacion.models import (
     Factura,
     Movimiento,
     Pago,
+    ReglaPenalidad,
     ResponsableEconomico,
 )
 from src.familias_alumnos.models import Familia
@@ -109,6 +110,33 @@ def registrar_pago_en_transaccion(db: Session, pago: Pago) -> None:
     db.flush()
 
 
+def registrar_penalidad_en_transaccion(
+    db: Session,
+    factura: Factura,
+    regla: ReglaPenalidad,
+    *,
+    monto: Decimal,
+    observacion: str,
+    event_log_id: uuid.UUID,
+) -> Movimiento:
+    """Imputa una penalidad como movimiento de debe, atado al evento que la originó."""
+
+    alumno_id = _alumno_id_de_factura(db, factura.id)
+    cuenta = obtener_o_crear_cuenta_en_transaccion(db, alumno_id)
+    movimiento = Movimiento(
+        tipo="debe",
+        monto=monto,
+        observacion=observacion,
+        cuenta_corriente_id=cuenta.id,
+        concepto_cobro_id=regla.concepto_cobro_id,
+        factura_id=factura.id,
+        event_log_id=event_log_id,
+    )
+    db.add(movimiento)
+    db.flush()
+    return movimiento
+
+
 def obtener_resumen_cuenta(
     db: Session, alumno_id: uuid.UUID
 ) -> tuple[CuentaCorriente | None, Decimal, Decimal, Decimal]:
@@ -177,8 +205,12 @@ def listar_deuda_por_familia(
     tamanio: int,
     estado: str | None = None,
     buscar: str | None = None,
+    familia_id: uuid.UUID | None = None,
 ) -> tuple[list[dict[str, object]], int]:
-    """Agrupa saldos por responsable económico usando solo movimientos contables."""
+    """Agrupa saldos por responsable económico usando solo movimientos contables.
+
+    `familia_id` acota el resultado a la propia familia (scoping del rol familia).
+    """
 
     debe = func.coalesce(
         func.sum(Movimiento.monto).filter(Movimiento.tipo == "debe"), Decimal("0.00")
@@ -208,8 +240,10 @@ def listar_deuda_por_familia(
             ResponsableEconomico.familia_id,
             Familia.persona_id,
         )
-        .subquery()
     )
+    if familia_id is not None:
+        por_factura = por_factura.where(ResponsableEconomico.familia_id == familia_id)
+    por_factura = por_factura.subquery()
     saldo_factura = por_factura.c.total_debe - por_factura.c.total_haber
     monto_pendiente = func.coalesce(
         func.sum(

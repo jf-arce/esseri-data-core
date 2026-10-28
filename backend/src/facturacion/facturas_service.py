@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from src.auditoria.service import log_audit
 from src.facturacion import cuenta_corriente_service
+from src.facturacion.calendario_facturacion import fecha_operativa_argentina
 from src.facturacion.exceptions import (
     ComprobantePagoInvalido,
     ConceptoCobroInvalido,
@@ -35,9 +36,10 @@ from src.facturacion.models import (
     ResponsableEconomico,
 )
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate, FacturaUpdate
-from src.familias_alumnos.models import Alumno, Familia
+from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
+from src.workflows.eventos_service import emit_event
 
 MAX_TAMANIO_COMPROBANTE = 5 * 1024 * 1024
 TIPOS_COMPROBANTE_PERMITIDOS = {"application/pdf", "image/jpeg", "image/png"}
@@ -193,6 +195,14 @@ def _validar_comprobante(
         raise ComprobantePagoInvalido()
 
 
+def total_pagado_factura(db: Session, factura_id: uuid.UUID) -> Decimal:
+    return db.scalar(
+        select(func.coalesce(func.sum(Pago.monto), Decimal("0.00"))).where(
+            Pago.factura_id == factura_id, Pago.estado == "aprobado"
+        )
+    ) or Decimal("0.00")
+
+
 def registrar_pago(
     db: Session,
     *,
@@ -225,11 +235,7 @@ def registrar_pago(
         requerido=metodo_pago.requiere_comprobante,
     )
 
-    total_pagado = db.scalar(
-        select(func.coalesce(func.sum(Pago.monto), Decimal("0.00"))).where(
-            Pago.factura_id == factura.id, Pago.estado == "aprobado"
-        )
-    ) or Decimal("0.00")
+    total_pagado = total_pagado_factura(db, factura.id)
     if monto > factura.monto_total - total_pagado:
         raise PagoExcedeSaldo()
 
@@ -256,6 +262,18 @@ def registrar_pago(
     cuenta_corriente_service.registrar_pago_en_transaccion(db, pago)
     if total_pagado + monto == factura.monto_total:
         factura.estado = "pagada"
+    emit_event(
+        db,
+        tipo="pago.registrado",
+        entidad="pago",
+        entidad_id=pago.id,
+        payload={
+            "monto": pago.monto,
+            "metodo_pago": metodo_pago.nombre,
+            "fecha_operacion": fecha_operativa_argentina(pago.fecha_operacion).isoformat(),
+        },
+        usuario_id=usuario_registro_id,
+    )
     log_audit(
         db,
         entidad="PAGO",
@@ -268,6 +286,10 @@ def registrar_pago(
     db.commit()
     db.refresh(pago)
     return pago
+
+
+def obtener_pago(db: Session, pago_id: uuid.UUID) -> Pago | None:
+    return db.get(Pago, pago_id)
 
 
 def obtener_comprobante_pago(db: Session, pago_id: uuid.UUID) -> ArchivoComprobantePago | None:
@@ -359,6 +381,7 @@ def listar_facturas(
     pagina: int,
     tamanio: int,
     alumno_id: uuid.UUID | None = None,
+    familia_id: uuid.UUID | None = None,
     concepto_cobro_id: uuid.UUID | None = None,
     estado: str | None = None,
     buscar: str | None = None,
@@ -379,6 +402,12 @@ def listar_facturas(
     )
     if alumno_id is not None:
         filtros.append(Inscripcion.alumno_id == alumno_id)
+    if familia_id is not None:
+        filtros.append(
+            Inscripcion.alumno_id.in_(
+                select(FamiliaAlumno.alumno_id).where(FamiliaAlumno.familia_id == familia_id)
+            )
+        )
     if concepto_cobro_id is not None:
         filtros.append(Factura.detalles.any(DetalleFactura.concepto_cobro_id == concepto_cobro_id))
     if estado is not None:

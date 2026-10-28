@@ -1,7 +1,6 @@
 """Modelos Pydantic: forma de los datos que entran y salen por la API de este módulo."""
 
 import uuid
-from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -15,7 +14,16 @@ from pydantic import (
     field_validator,
 )
 
-from src.workflows.constants import Criticidad, Destinatario, Operador, PrioridadTarea, TipoAccion
+from src.fechas import InstanteUtc
+from src.workflows.constants import (
+    Criticidad,
+    Destinatario,
+    EnlaceMail,
+    EstadoTarea,
+    Operador,
+    PrioridadTarea,
+    TipoAccion,
+)
 
 
 class _EntradaEstricta(BaseModel):
@@ -68,16 +76,26 @@ class ConfigSinParametros(_ConfigAccion):
     """Acciones que operan solo sobre el evento y no admiten configuración."""
 
 
-class ConfigNotificar(_ConfigAccion):
+class _ConfigDestinatario(_ConfigAccion):
     destinatario: Destinatario = "responsables_habilitados"
+
+
+class ConfigNotificar(_ConfigDestinatario):
+    # Botón del mail hacia una pantalla de la app (allowlist en `ENLACES_MAIL`).
+    enlace: EnlaceMail | None = None
 
 
 class ConfigRecordatorio(ConfigNotificar):
     dias_despues: int = Field(default=1, ge=1, le=90)
 
 
+class ConfigGenerarComunicacion(_ConfigDestinatario):
+    """Stub de Canu: sin `enlace`, para no heredar el botón de `notificar`."""
+
+
 class ConfigAlertaInterna(_ConfigAccion):
     mensaje: str | None = Field(default=None, min_length=1, max_length=500)
+    enlace: EnlaceMail | None = None
 
 
 class ConfigCrearTarea(_ConfigAccion):
@@ -132,7 +150,7 @@ CONFIG_POR_ACCION: dict[str, type[_ConfigAccion]] = {
     "escalar_caso": ConfigEscalarCaso,
     "crear_registro_relacionado": ConfigCrearRegistroRelacionado,
     "generar_orden_compra": ConfigSinParametros,
-    "generar_comunicacion": ConfigNotificar,
+    "generar_comunicacion": ConfigGenerarComunicacion,
 }
 
 
@@ -201,8 +219,8 @@ class WorkflowRuleRead(BaseModel):
     requiere_aprobacion_humana: bool
     notificacion_template_id: uuid.UUID | None
     activo: bool
-    created_at: datetime
-    updated_at: datetime
+    created_at: InstanteUtc
+    updated_at: InstanteUtc
 
 
 class NotificacionTemplateCreate(_EntradaEstricta):
@@ -258,8 +276,8 @@ class NotificacionTemplateRead(BaseModel):
     nombre: str
     asunto: str
     cuerpo: str
-    created_at: datetime
-    updated_at: datetime
+    created_at: InstanteUtc
+    updated_at: InstanteUtc
 
 
 class ReglaDestinatariosUpdate(_EntradaEstricta):
@@ -292,7 +310,13 @@ class ReglaDestinatariosRead(BaseModel):
     usuarios: list[DestinatarioUsuarioRead]
 
 
-EstadoWorkflowExecution = Literal["exitoso", "fallido", "pendiente"]
+EstadoWorkflowExecution = Literal["exitoso", "fallido", "pendiente", "rechazado"]
+
+
+class CampoResumen(BaseModel):
+    nombre_interno: str
+    etiqueta: str
+    valor: str
 
 
 class WorkflowExecutionRead(BaseModel):
@@ -300,8 +324,8 @@ class WorkflowExecutionRead(BaseModel):
 
     id: uuid.UUID
     intento: int
-    started_at: datetime
-    finished_at: datetime | None
+    started_at: InstanteUtc
+    finished_at: InstanteUtc | None
     estado: EstadoWorkflowExecution
     detalle: str | None
     error_detail: str | None
@@ -310,10 +334,23 @@ class WorkflowExecutionRead(BaseModel):
     tipo_accion: TipoAccion
     event_log_id: uuid.UUID
     tipo_evento: str
-    evento_timestamp: datetime
+    evento_timestamp: InstanteUtc
     entidad: str
     entidad_id: uuid.UUID
     reintentable: bool
+    aprobable: bool
+    resumen_evento: list[CampoResumen] = []
+    # Solo en el detalle de `aplicar_penalidad` pendiente: lo que se cobraría al aprobar hoy.
+    recargo_estimado: Decimal | None = None
+
+
+class EjecucionRechazo(_EntradaEstricta):
+    motivo: str = Field(min_length=1, max_length=500)
+
+    @field_validator("motivo", mode="before")
+    @classmethod
+    def normalizar_motivo(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
 
 
 class WorkflowExecutionListadoRead(BaseModel):
@@ -337,12 +374,12 @@ class NotificacionRead(BaseModel):
     destinatario_snapshot: str
     asunto_snapshot: str
     estado_envio: EstadoEnvioNotificacion
-    sent_at: datetime | None
+    sent_at: InstanteUtc | None
     familia_id: uuid.UUID | None
     usuario_id: uuid.UUID | None
     workflow_execution_id: uuid.UUID
     intento: int
-    ejecucion_started_at: datetime
+    ejecucion_started_at: InstanteUtc
     workflow_rule_id: uuid.UUID
     workflow_rule_nombre: str
 
@@ -365,6 +402,7 @@ class ResumenDespacho(BaseModel):
     eventos_procesados: int = 0
     eventos_fallidos: int = 0
     ejecuciones_creadas: int = 0
+    recordatorios_ejecutados: int = 0
 
 
 class ResultadoAccion(BaseModel):
@@ -373,3 +411,62 @@ class ResultadoAccion(BaseModel):
 
     detalle: str | None = None
     error: str | None = None
+
+
+class TareaRead(BaseModel):
+    """Fila de la bandeja de tareas. `tarea_id` es la tarea de la que se escaló esta (si la hay)."""
+
+    id: uuid.UUID
+    titulo: str
+    descripcion: str | None
+    estado: EstadoTarea
+    prioridad: PrioridadTarea
+    fecha_vencimiento: InstanteUtc | None
+    vencida: bool
+    entidad: str | None
+    entidad_id: uuid.UUID | None
+    usuario_id: uuid.UUID
+    usuario_email: str
+    workflow_execution_id: uuid.UUID | None
+    workflow_rule_nombre: str | None
+    tarea_id: uuid.UUID | None
+    created_at: InstanteUtc
+    updated_at: InstanteUtc
+
+
+class TareaCadenaRead(BaseModel):
+    """Un eslabón del historial de escalamiento."""
+
+    id: uuid.UUID
+    titulo: str
+    estado: EstadoTarea
+    prioridad: PrioridadTarea
+    usuario_email: str
+    tarea_id: uuid.UUID | None
+    created_at: InstanteUtc
+
+
+class TareaDetalleRead(TareaRead):
+    """La cadena va de la tarea original a la última escalada, e incluye a la tarea consultada."""
+
+    cadena: list[TareaCadenaRead]
+
+
+class TareaListadoRead(BaseModel):
+    items: list[TareaRead]
+    total: int
+    pagina: int
+    tamanio_pagina: int
+    total_paginas: int
+
+
+class TareaAsignadoUpdate(_EntradaEstricta):
+    """Nuevo responsable de la tarea: un usuario activo."""
+
+    usuario_id: uuid.UUID
+
+
+class TareaEstadoUpdate(_EntradaEstricta):
+    """Una persona solo puede avanzar la tarea: `escalada` la pone el motor."""
+
+    estado: Literal["en_progreso", "completada"]

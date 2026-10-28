@@ -96,7 +96,8 @@ class WorkflowExecution(Base):
     __tablename__ = "workflow_execution"
     __table_args__ = (
         sa.CheckConstraint(
-            "estado IN ('exitoso', 'fallido', 'pendiente')", name="ck_workflow_execution_estado"
+            "estado IN ('exitoso', 'fallido', 'pendiente', 'rechazado')",
+            name="ck_workflow_execution_estado",
         ),
         sa.UniqueConstraint(
             "workflow_rule_id",

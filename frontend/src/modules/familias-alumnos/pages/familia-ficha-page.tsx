@@ -43,10 +43,13 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Field, FieldLabel } from '@/components/ui/field'
+import { formatearMoneda } from '@/modules/facturacion/utils'
+import { listarDeudaFamilias } from '@/modules/facturacion/services/listar-deuda-familias'
 import { getFamiliaById, deleteFamilia } from '../services/create-familia'
 import { listarVinculosFamilia } from '../services/listar-vinculos-familia'
 import { crearVinculo } from '../services/crear-vinculo'
 import { useAlumnos } from '../hooks/use-alumnos'
+import type { DeudaFamilia } from '@/modules/facturacion/types'
 import type { Familia, Vinculo } from '../types'
 
 export function FamiliaFichaPage() {
@@ -54,6 +57,10 @@ export function FamiliaFichaPage() {
   const navigate = useNavigate()
   const [familia, setFamilia] = useState<Familia>()
   const [vinculos, setVinculos] = useState<Vinculo[]>([])
+  const [resultadoFacturacion, setResultadoFacturacion] = useState<{
+    clave: string
+    resumen: DeudaFamilia | null
+  } | null>(null)
   const [loadError, setLoadError] = useState<string>()
   const [cargando, setCargando] = useState(true)
   const [confirmarBaja, setConfirmarBaja] = useState(false)
@@ -120,6 +127,32 @@ export function FamiliaFichaPage() {
     }
   }, [familiaId])
 
+  const claveFacturacion = familia ? `${familia.id}:${familia.persona_dni}` : null
+  const cargandoFacturacion =
+    claveFacturacion !== null && resultadoFacturacion?.clave !== claveFacturacion
+  const resumenFacturacion =
+    resultadoFacturacion?.clave === claveFacturacion ? resultadoFacturacion.resumen : null
+
+  useEffect(() => {
+    if (!familia || !claveFacturacion) return
+    const controller = new AbortController()
+    listarDeudaFamilias({ pagina: 1, tamanio: 1, buscar: familia.persona_dni }, controller.signal)
+      .then((resultado) => {
+        if (!controller.signal.aborted) {
+          setResultadoFacturacion({
+            clave: claveFacturacion,
+            resumen: resultado.items.find((item) => item.familia_id === familia.id) ?? null,
+          })
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setResultadoFacturacion({ clave: claveFacturacion, resumen: null })
+        }
+      })
+    return () => controller.abort()
+  }, [claveFacturacion, familia])
+
   if (cargando) return <p className="text-texto-2">Cargando familia…</p>
   if (loadError)
     return (
@@ -164,9 +197,7 @@ export function FamiliaFichaPage() {
         <TabsList>
           <TabsTrigger value="datos">Datos</TabsTrigger>
           <TabsTrigger value="alumnos">Alumnos</TabsTrigger>
-          <TabsTrigger value="facturacion" disabled>
-            Facturación
-          </TabsTrigger>
+          <TabsTrigger value="facturacion">Facturación</TabsTrigger>
           <TabsTrigger value="comunicaciones" disabled>
             Comunicaciones
           </TabsTrigger>
@@ -295,21 +326,65 @@ export function FamiliaFichaPage() {
                   <div className="flex-1">
                     <p className="mb-1 text-xs text-texto-2">Deuda total</p>
                     <p className="text-xl font-semibold tabular-nums">
-                      {/* TODO: Conectar con Facturación cuando esté disponible */}
-                      <span className="text-texto-3">—</span>
+                      {cargandoFacturacion
+                        ? '…'
+                        : resumenFacturacion
+                          ? formatearMoneda(resumenFacturacion.deuda_total)
+                          : '—'}
                     </p>
                   </div>
                   <div className="flex-1">
-                    <p className="mb-1 text-xs text-texto-2">Facturas vencidas</p>
+                    <p className="mb-1 text-xs text-texto-2">Facturas pendientes</p>
                     <p className="text-xl font-semibold tabular-nums">
-                      {/* TODO: Conectar con Facturación cuando esté disponible */}
-                      <span className="text-texto-3">—</span>
+                      {cargandoFacturacion ? '…' : (resumenFacturacion?.facturas_pendientes ?? '—')}
                     </p>
                   </div>
                 </div>
               </Card>
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="facturacion">
+          <Card className="p-0">
+            <div className="border-b border-borde px-6 py-4">
+              <h3 className="text-base font-semibold">Resumen de facturación</h3>
+            </div>
+            {cargandoFacturacion ? (
+              <p className="px-6 py-5 text-sm text-texto-2">Cargando estado de cuenta…</p>
+            ) : resumenFacturacion ? (
+              <div className="grid gap-4 px-6 py-5 sm:grid-cols-4">
+                <div>
+                  <p className="text-xs text-texto-2">Pendiente</p>
+                  <p className="mt-1 font-semibold tabular-nums">
+                    {formatearMoneda(resumenFacturacion.monto_pendiente)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-texto-2">Vencido</p>
+                  <p className="mt-1 font-semibold tabular-nums text-error">
+                    {formatearMoneda(resumenFacturacion.monto_vencido)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-texto-2">Pagado</p>
+                  <p className="mt-1 font-semibold tabular-nums text-exito">
+                    {formatearMoneda(resumenFacturacion.monto_pagado)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-texto-2">Deuda total</p>
+                  <p className="mt-1 font-semibold tabular-nums">
+                    {formatearMoneda(resumenFacturacion.deuda_total)}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="px-6 py-5 text-sm text-texto-2">
+                No se pudo determinar el estado de facturación de esta familia.
+              </p>
+            )}
+          </Card>
         </TabsContent>
 
         <TabsContent value="alumnos">

@@ -278,3 +278,25 @@ campo_evento:
     - nombre_interno: fecha
       etiqueta: Fecha de la recepción
       tipo_dato: fecha
+
+  inscripcion.confirmada:
+    - nombre_interno: alumno_nombre
+      etiqueta: Nombre del alumno
+      tipo_dato: texto
+    - nombre_interno: nivel_educativo
+      etiqueta: Nivel educativo
+      tipo_dato: texto
+    - nombre_interno: fecha
+      etiqueta: Fecha de la confirmación
+      tipo_dato: fecha
+
+  solicitud_compra.aprobada:
+    - nombre_interno: item
+      etiqueta: Artículo o producto solicitado
+      tipo_dato: texto
+    - nombre_interno: cantidad
+      etiqueta: Cantidad solicitada
+      tipo_dato: numero
+    - nombre_interno: fecha
+      etiqueta: Fecha de la aprobación
+      tipo_dato: fecha

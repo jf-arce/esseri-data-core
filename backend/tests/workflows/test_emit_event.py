@@ -9,6 +9,7 @@ from sqlalchemy import select
 from src.models import EventLog
 from src.workflows.eventos_service import coaccionar_valor, emit_event
 from src.workflows.exceptions import EntidadDeEventoInvalida, TipoEventoNoRegistrado
+from src.workflows.models import TipoEvento
 
 
 def test_evento_de_sistema_queda_pendiente(db_session, tipo_factura_vencida):
@@ -85,6 +86,33 @@ def test_no_hace_commit(db_session, tipo_factura_vencida):
     db_session.rollback()
 
     assert db_session.scalars(select(EventLog)).all() == []
+
+
+@pytest.mark.parametrize(
+    ("tipo", "entidad", "payload"),
+    [
+        (
+            "inscripcion.confirmada",
+            "inscripcion",
+            {"alumno_nombre": "Ana", "nivel_educativo": "Primario", "fecha": "2026-03-01"},
+        ),
+        (
+            "solicitud_compra.aprobada",
+            "solicitud_compra",
+            {"item": "Resmas", "cantidad": 10, "fecha": "2026-03-01"},
+        ),
+    ],
+)
+def test_eventos_nuevos_se_emiten_con_su_entidad(db_session, tipo, entidad, payload):
+    db_session.add(TipoEvento(nombre=tipo))
+    db_session.flush()
+
+    evento = emit_event(
+        db_session, tipo=tipo, entidad=entidad, entidad_id=uuid.uuid4(), payload=payload
+    )
+
+    assert evento.estado == "pendiente"
+    assert evento.entidad == entidad
 
 
 def test_entidad_distinta_de_la_canonica_falla(db_session, tipo_factura_vencida):

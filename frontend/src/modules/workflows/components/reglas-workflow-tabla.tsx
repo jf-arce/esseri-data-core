@@ -1,8 +1,14 @@
 import { Link } from 'react-router'
-import { EyeIcon, PencilIcon } from 'lucide-react'
+import { EyeIcon, MoreHorizontalIcon, PencilIcon, PowerIcon } from 'lucide-react'
 import { TableSkeleton, type ColumnaEsqueleto } from '@/components/table-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Table,
   TableBody,
@@ -22,10 +28,10 @@ import {
 
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-44', anchoAlt: 'h-4 w-32' },
-  { tipo: 'texto' },
-  { tipo: 'texto', ancho: 'h-4 w-36', anchoAlt: 'h-4 w-28' },
-  { tipo: 'chip' },
-  { tipo: 'texto', ancho: 'h-4 w-10' },
+  { tipo: 'texto', clase: 'hidden xl:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-36', anchoAlt: 'h-4 w-28', clase: 'hidden lg:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-16', clase: 'hidden 2xl:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-10', clase: 'hidden 2xl:table-cell' },
   { tipo: 'chip' },
   { tipo: 'accion' },
 ]
@@ -50,16 +56,18 @@ export function ReglasWorkflowTabla({
 
   return (
     <div className="overflow-hidden rounded-panel bg-superficie shadow-card">
-      <Table bare minWidth="min-w-[960px]">
+      <Table bare minWidth="min-w-0">
         <TableHeader>
           <TableRow>
             <TableHead>Regla</TableHead>
-            <TableHead>Disparador</TableHead>
-            <TableHead>Acción</TableHead>
-            <TableHead>Criticidad</TableHead>
-            <TableHead>Aprob. humana</TableHead>
+            <TableHead className="hidden xl:table-cell">Disparador</TableHead>
+            <TableHead className="hidden lg:table-cell">Acción</TableHead>
+            <TableHead className="hidden 2xl:table-cell">Criticidad</TableHead>
+            <TableHead className="hidden 2xl:table-cell">Aprob. humana</TableHead>
             <TableHead>Estado</TableHead>
-            <TableHead data-align="end">Acciones</TableHead>
+            <TableHead data-align="end">
+              <span className="sr-only">Acciones</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -68,40 +76,61 @@ export function ReglasWorkflowTabla({
           ) : (
             reglas.map((regla) => (
               <TableRow key={regla.id}>
-                <TableCell className="font-medium">{regla.nombre}</TableCell>
-                <TableCell className="text-texto-2">
+                <TableCell
+                  className="whitespace-normal font-medium md:max-w-[12rem] md:truncate md:whitespace-nowrap xl:max-w-xs"
+                  title={regla.nombre}
+                >
+                  {regla.nombre}
+                </TableCell>
+                <TableCell className="hidden text-texto-2 xl:table-cell">
                   {nombreEvento.get(regla.tipo_evento_id) ?? 'Evento desconocido'}
                 </TableCell>
-                <TableCell>{ETIQUETA_ACCION[regla.tipo_accion]}</TableCell>
-                <TableCell>
+                <TableCell className="hidden lg:table-cell">
+                  {ETIQUETA_ACCION[regla.tipo_accion]}
+                </TableCell>
+                <TableCell className="hidden 2xl:table-cell">
                   <Badge variant={VARIANTE_CRITICIDAD[regla.criticidad]}>
                     {ETIQUETA_CRITICIDAD[regla.criticidad]}
                   </Badge>
                 </TableCell>
-                <TableCell>{regla.requiere_aprobacion_humana ? 'Sí' : 'No'}</TableCell>
+                <TableCell className="hidden 2xl:table-cell">
+                  {regla.requiere_aprobacion_humana ? 'Sí' : 'No'}
+                </TableCell>
                 <TableCell>
                   <Badge variant={regla.activo ? 'exito' : 'neutro'}>
                     {regla.activo ? 'Activa' : 'Inactiva'}
                   </Badge>
                 </TableCell>
-                <TableCell data-align="end">
-                  <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to={rutaRegla(regla.id)}>
-                        {puedeActualizar ? (
-                          <PencilIcon data-icon="inline-start" />
-                        ) : (
-                          <EyeIcon data-icon="inline-start" />
-                        )}
-                        {puedeActualizar ? 'Editar' : 'Ver'}
-                      </Link>
-                    </Button>
-                    {puedeActualizar && (
-                      <Button variant="ghost" size="sm" onClick={() => onCambiarActivo(regla)}>
-                        {regla.activo ? 'Desactivar' : 'Activar'}
+                <TableCell data-align="end" className="px-2 sm:px-4">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Acciones para ${regla.nombre}`}
+                      >
+                        <MoreHorizontalIcon />
                       </Button>
-                    )}
-                  </div>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                        <Link to={rutaRegla(regla.id)}>
+                          {puedeActualizar ? (
+                            <PencilIcon className="text-petroleo" />
+                          ) : (
+                            <EyeIcon className="text-petroleo" />
+                          )}
+                          {puedeActualizar ? 'Editar' : 'Ver'}
+                        </Link>
+                      </DropdownMenuItem>
+                      {puedeActualizar && (
+                        <DropdownMenuItem onSelect={() => onCambiarActivo(regla)}>
+                          <PowerIcon />
+                          {regla.activo ? 'Desactivar' : 'Activar'}
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))

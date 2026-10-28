@@ -15,7 +15,9 @@ import {
   KeyRoundIcon,
   Landmark,
   LayoutDashboard,
+  ListChecksIcon,
   ReceiptText,
+  PercentIcon,
   Settings2Icon,
   ShieldCheck,
   SparklesIcon,
@@ -46,9 +48,27 @@ import {
   ROL_FAMILIA,
   tienePermiso,
 } from '@/modules/auth/constants'
+import {
+  RUTA_EJECUCIONES,
+  RUTA_NOTIFICACIONES,
+  RUTA_REGLAS,
+  RUTA_TAREAS,
+} from '@/modules/workflows/constants'
 import { PERMISO_IA_SUGERENCIAS_LEER, RUTA_SUGERENCIAS } from '@/modules/ia-sugerencias/constants'
-import { RUTA_EJECUCIONES, RUTA_NOTIFICACIONES, RUTA_REGLAS } from '@/modules/workflows/constants'
 import type { Permiso } from '@/modules/auth/types'
+
+/** Dominio al que pertenece un ítem de primer nivel (color en el buscador global, §2.5
+ * DESIGN.md). Los hijos heredan el del padre. */
+export type ModuloNav =
+  | 'familias'
+  | 'academico'
+  | 'inscripciones'
+  | 'facturacion'
+  | 'compras'
+  | 'workflows'
+  | 'ia'
+  | 'paneles'
+  | 'sistema'
 
 export interface NavItem {
   label: string
@@ -61,6 +81,8 @@ export interface NavItem {
    * a su primer hijo): en ese caso no se agrega fila sintética, el hijo ya cubre ese lugar. */
   tituloLanding?: string
   icon: LucideIcon
+  /** Solo en ítems de primer nivel: los hijos heredan el módulo del padre. */
+  modulo?: ModuloNav
   children?: NavItem[]
   /** Permiso `.leer` que habilita ver este ítem (mismo código que protege la ruta con
    * `PermisoRoute`). Ausente en ítems que solo agrupan hijos sin landing propia — ahí el
@@ -69,6 +91,9 @@ export interface NavItem {
   /** Además del permiso, restringe el ítem a estos roles (ej. los paneles: mismo permiso,
    * pero cada uno es de un rol distinto). */
   roles?: string[]
+  /** Ítem personal: no exige ningún permiso, solo tener un rol activo (la API ya acota el
+   * contenido a lo de la persona). Con la sesión sin rol elegido no se muestra. */
+  soloRolActivo?: boolean
 }
 
 export interface NavGroup {
@@ -99,6 +124,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: 'Panel de Dirección',
         href: '/panel',
         icon: LayoutDashboard,
+        modulo: 'paneles',
         permiso: PERMISO_PANEL_ADMIN_LEER,
         roles: [ROL_DIRECCION, ROL_ADMINISTRADOR_DEL_SISTEMA],
       },
@@ -106,6 +132,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: 'Panel Administrativo',
         href: '/admin',
         icon: LayoutDashboard,
+        modulo: 'paneles',
         permiso: PERMISO_PANEL_ADMIN_LEER,
         // administrador del sistema = todo (grupo-b.yaml): ve los dos paneles en el sidebar,
         // aunque su pantalla de inicio por default sea /panel (ver rutaInicioDe más abajo).
@@ -123,6 +150,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: '/familias-alumnos',
         tituloLanding: 'Familias',
         icon: UsersRound,
+        modulo: 'familias',
         permiso: PERMISO_FAMILIAS_ALUMNOS_LEER,
         children: [{ label: 'Alumnos', href: '/familias-alumnos/alumnos', icon: GraduationCap }],
       },
@@ -137,6 +165,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: '/academico',
         tituloLanding: 'Estructura académica',
         icon: BookOpenIcon,
+        modulo: 'academico',
         permiso: PERMISO_ACADEMICO_LEER,
         children: [
           { label: 'Asignaciones docentes', href: '/academico/asignaciones', icon: UserCog },
@@ -183,6 +212,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: '/inscripciones',
         tituloLanding: 'Inscripciones',
         icon: ClipboardCheck,
+        modulo: 'inscripciones',
         permiso: PERMISO_INSCRIPCIONES_LEER,
         children: [{ label: 'Admisiones', href: '/inscripciones/admisiones', icon: UserPlusIcon }],
       },
@@ -191,6 +221,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: '/facturacion',
         tituloLanding: 'Facturas',
         icon: Landmark,
+        modulo: 'facturacion',
         permiso: PERMISO_FACTURACION_LEER,
         children: [
           {
@@ -199,11 +230,13 @@ export const NAV_GROUPS: NavGroup[] = [
             icon: HandCoinsIcon,
           },
           { label: 'Reglas de facturación', href: '/facturacion/reglas', icon: Settings2Icon },
+          { label: 'Penalidades por mora', href: '/facturacion/penalidades', icon: PercentIcon },
         ],
       },
       {
         label: 'Proveedores y compras',
         icon: Truck,
+        modulo: 'compras',
         permiso: PERMISO_PROVEEDORES_COMPRAS_LEER,
         children: [
           { label: 'Proveedores', href: '/proveedores', icon: Building2Icon },
@@ -217,6 +250,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: RUTA_REGLAS,
         tituloLanding: 'Reglas de automatización',
         icon: WorkflowIcon,
+        modulo: 'workflows',
         permiso: PERMISO_WORKFLOWS_LEER,
         children: [
           { label: 'Historial de ejecuciones', href: RUTA_EJECUCIONES, icon: HistoryIcon },
@@ -224,10 +258,20 @@ export const NAV_GROUPS: NavGroup[] = [
         ],
       },
       {
+        // Sin `permiso`: la bandeja es de cada persona. Quien tiene una tarea asignada la ve aunque
+        // su rol no tenga permisos de Workflows (el backend limita la lista a sus tareas).
+        label: 'Tareas',
+        href: RUTA_TAREAS,
+        icon: ListChecksIcon,
+        modulo: 'workflows',
+        soloRolActivo: true,
+      },
+      {
         label: 'Sugerencias de IA',
         href: RUTA_SUGERENCIAS,
         tituloLanding: 'Sugerencias de IA',
         icon: SparklesIcon,
+        modulo: 'ia',
         permiso: PERMISO_IA_SUGERENCIAS_LEER,
       },
     ],
@@ -239,6 +283,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: 'Usuarios y roles',
         href: '/usuarios-roles',
         icon: ShieldCheck,
+        modulo: 'sistema',
         permiso: PERMISO_AUTENTICACION_LEER,
         children: [
           { label: 'Usuarios', href: '/usuarios-roles/usuarios', icon: UserIcon },
@@ -259,6 +304,7 @@ export const NAV_GROUPS: NavGroup[] = [
 // "Proveedores y compras" que agrupa hijos sin landing propia, se filtran por sus hijos) y,
 // cuando declara `roles`, si el rol activo está entre ellos.
 function itemVisible(item: NavItem, rolActivo: string | null, permisos: Permiso[]): boolean {
+  if (item.soloRolActivo && rolActivo === null) return false
   if (item.roles && (rolActivo === null || !item.roles.includes(rolActivo))) return false
   if (item.permiso && !tienePermiso(permisos, item.permiso)) return false
   return true
@@ -287,6 +333,40 @@ export function filtrarNav(
     .filter((grupo) => grupo.items.length > 0)
 }
 
+export interface DestinoNav {
+  etiqueta: string
+  ruta: string
+  icono: LucideIcon
+  modulo: ModuloNav
+}
+
+/** Aplana el árbol (ya filtrado con `filtrarNav`) en la lista de destinos navegables, con la
+ * misma regla de landing que el sidebar: el padre entra si tiene `href` y (`tituloLanding` o
+ * ningún hijo), con `tituloLanding` como etiqueta. Así un padre que solo redirige ("Usuarios y
+ * roles") no duplica a su primer hijo. */
+export function destinosDe(grupos: NavGroup[]): DestinoNav[] {
+  return grupos.flatMap((grupo) =>
+    grupo.items.flatMap((item) => {
+      const modulo = item.modulo ?? 'sistema'
+      const landing =
+        item.href && (item.tituloLanding || !item.children?.length)
+          ? [
+              {
+                etiqueta: item.tituloLanding ?? item.label,
+                ruta: item.href,
+                icono: item.icon,
+                modulo,
+              },
+            ]
+          : []
+      const hijos = (item.children ?? []).flatMap((hijo) =>
+        hijo.href ? [{ etiqueta: hijo.label, ruta: hijo.href, icono: hijo.icon, modulo }] : [],
+      )
+      return [...landing, ...hijos]
+    }),
+  )
+}
+
 /** La pantalla principal del rol activo. Para Docente/Familia (Portal, todavía sin pantallas
  * propias — lo construye otro integrante del equipo), directo `/<vista>`: esa ruta es hoy una
  * página en blanco. Para el resto (Consola), el primer href de `NAV_GROUPS` ya filtrado por
@@ -303,6 +383,8 @@ export function rutaInicioDe(rolActivo: string | null, permisos: Permiso[]): str
 
   for (const grupo of filtrado) {
     for (const item of grupo.items) {
+      // Un ítem personal no es una pantalla de inicio: sin otro acceso, queda "sin acceso".
+      if (item.soloRolActivo) continue
       if (item.href) return item.href
       const primerHijo = item.children?.find((hijo) => hijo.href)
       if (primerHijo?.href) return primerHijo.href

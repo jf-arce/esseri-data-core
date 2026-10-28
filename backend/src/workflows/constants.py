@@ -21,6 +21,8 @@ TipoAccion = Literal[
 ]
 TIPOS_ACCION: tuple[str, ...] = get_args(TipoAccion)
 
+ERROR_ACCION_NO_IMPLEMENTADA = "La acción '{tipo_accion}' todavía no está implementada."
+
 Criticidad = Literal["baja", "media", "alta", "critica"]
 CRITICIDADES: tuple[str, ...] = get_args(Criticidad)
 
@@ -36,6 +38,8 @@ TipoEventoNombre = Literal[
     "pago.rechazado",
     "orden_compra.emitida",
     "recepcion_compra.registrada",
+    "inscripcion.confirmada",
+    "solicitud_compra.aprobada",
 ]
 
 # Acciones que mueven dinero o escalan un caso: la regla nace con aprobación humana (Pregunta #15).
@@ -63,12 +67,12 @@ ENTIDAD_POR_EVENTO: dict[TipoEventoNombre, str] = {
     "pago.rechazado": "pago",
     "orden_compra.emitida": "orden_compra",
     "recepcion_compra.registrada": "recepcion_compra",
+    "inscripcion.confirmada": "inscripcion",
+    "solicitud_compra.aprobada": "solicitud_compra",
 }
 
 # Allowlist de eventos por acción (Pregunta #16). `None` = cualquier evento: solo las acciones
-# que crean filas propias del motor (notificaciones, tareas). Vacío = todavía no se puede
-# configurar (los eventos de Compras que existen ocurren después de emitida la orden: ninguno
-# sirve para dispararla).
+# que crean filas propias del motor (notificaciones, tareas).
 EVENTOS_POR_ACCION: dict[str, frozenset[str] | None] = {
     "notificar": None,
     "alerta_interna": None,
@@ -77,7 +81,7 @@ EVENTOS_POR_ACCION: dict[str, frozenset[str] | None] = {
     "crear_tarea": None,
     "escalar_caso": None,
     "cambiar_estado": frozenset({"factura.vencida"}),
-    "generar_cargo": frozenset({"solicitud_inscripcion.aprobada", "pago.rechazado"}),
+    "generar_cargo": frozenset({"inscripcion.confirmada", "pago.rechazado"}),
     "aplicar_vencimiento": frozenset({"factura.vencida"}),
     "aplicar_penalidad": frozenset({"factura.vencida"}),
     "registrar_pago": frozenset({"pago.registrado"}),
@@ -86,8 +90,16 @@ EVENTOS_POR_ACCION: dict[str, frozenset[str] | None] = {
         {"pago.registrado", "pago.rechazado", "factura.vencida"}
     ),
     "crear_registro_relacionado": frozenset({"solicitud_inscripcion.aprobada"}),
-    "generar_orden_compra": frozenset(),
+    "generar_orden_compra": frozenset({"solicitud_compra.aprobada"}),
 }
+
+# Acciones que no corren cuando llega el evento sino `dias_despues` días más tarde: el despachador
+# las saltea y las toma `procesar_recordatorios_vencidos`.
+ACCIONES_DIFERIDAS: frozenset[str] = frozenset({"generar_recordatorio"})
+# Cuántos días después de cumplirse `dias_despues` se sigue buscando eventos sin recordar: un evento
+# más viejo (el backend estuvo caído, la regla estuvo apagada) ya no se recuerda, y la búsqueda
+# de cada pasada queda acotada.
+VENTANA_RECORDATORIOS_DIAS = 7
 
 # Acciones que arman un mensaje: son las únicas que admiten `notificacion_template_id`.
 ACCIONES_CON_PLANTILLA: frozenset[str] = frozenset(
@@ -101,6 +113,16 @@ CAMBIOS_ESTADO_PERMITIDOS: dict[str, frozenset[str]] = {
 
 Destinatario = Literal["responsable_economico", "responsables_habilitados", "destinatarios_regla"]
 PrioridadTarea = Literal["baja", "media", "alta"]
+EstadoTarea = Literal["pendiente", "en_progreso", "completada", "escalada"]
+ESTADOS_TAREA: tuple[str, ...] = get_args(EstadoTarea)
+# Una tarea abierta es la que todavía tiene responsable activo: `escalada` ya pasó a otra persona y
+# `completada` está cerrada, así que solo estas dos se pueden escalar o cambiar de estado.
+ESTADOS_TAREA_ABIERTA: tuple[str, ...] = ("pendiente", "en_progreso")
+# Cambios de estado que puede hacer una persona desde la bandeja. `escalada` solo la pone el motor.
+TRANSICIONES_TAREA: dict[str, frozenset[str]] = {
+    "pendiente": frozenset({"en_progreso", "completada"}),
+    "en_progreso": frozenset({"completada"}),
+}
 
 Operador = Literal["==", "!=", ">", ">=", "<", "<=", "contiene"]
 OPERADORES_POR_TIPO_DATO: dict[str, frozenset[str]] = {
@@ -120,3 +142,17 @@ DESTINATARIOS_FAMILIARES: frozenset[str] = frozenset(
 
 # Los envíos se hacen en serie dentro de la transacción del evento: este tope acota su duración.
 MAX_DESTINATARIOS_POR_EJECUCION = 50
+
+# Campos del payload que no se muestran en el resumen del historial (RNF-15): (evento, campo).
+CAMPOS_RESERVADOS_RESUMEN: frozenset[tuple[str, str]] = frozenset(
+    {("inasistencia.justificada", "motivo")}
+)
+
+# Botón opcional de los mails: clave -> (ruta de la app, texto del botón). El destino sale de acá,
+# nunca de la configuración libre de la regla. Solo pantallas que funcionan hoy.
+EnlaceMail = Literal["familia_justificar", "ejecuciones", "tareas"]
+ENLACES_MAIL: dict[EnlaceMail, tuple[str, str]] = {
+    "familia_justificar": ("/familia/justificar-ausencia", "Justificar la inasistencia"),
+    "ejecuciones": ("/workflows/ejecuciones", "Revisar en ESSERI"),
+    "tareas": ("/workflows/tareas", "Ver mis tareas"),
+}

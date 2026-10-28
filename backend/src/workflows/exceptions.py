@@ -110,6 +110,13 @@ class EjecucionNoReintentable(AppException):
         super().__init__(message)
 
 
+class EjecucionNoDecidible(AppException):
+    status_code = 409
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
 class N8nNoConfigurado(AppException):
     status_code = 503
 
@@ -142,4 +149,32 @@ class CondicionInvalida(AppException):
     status_code = 422
 
     def __init__(self, message: str):
+        super().__init__(message)
+
+
+class TareaNoEncontrada(AppException):
+    status_code = 404
+
+    def __init__(self, message: str = "La tarea indicada no existe."):
+        super().__init__(message)
+
+
+class TransicionTareaInvalida(AppException):
+    status_code = 409
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class TareaNoReasignable(AppException):
+    status_code = 409
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class AsignadoTareaInvalido(AppException):
+    status_code = 422
+
+    def __init__(self, message: str = "El usuario indicado no existe o no está activo."):
         super().__init__(message)

@@ -27,6 +27,7 @@ from src.inscripciones.schemas import (
 )
 from src.models import Persona
 from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
+from src.workflows.eventos_service import emit_event
 
 
 def listar_inscripciones(
@@ -36,6 +37,7 @@ def listar_inscripciones(
     estado: str | None = None,
     tipo: str | None = None,
     alumno_id: uuid.UUID | None = None,
+    familia_id: uuid.UUID | None = None,
     division_id: uuid.UUID | None = None,
     buscar: str | None = None,
     ordenar_por: str = "fecha",
@@ -54,6 +56,12 @@ def listar_inscripciones(
         filtros.append(Inscripcion.tipo == tipo)
     if alumno_id is not None:
         filtros.append(Inscripcion.alumno_id == alumno_id)
+    if familia_id is not None:
+        filtros.append(
+            Inscripcion.alumno_id.in_(
+                select(FamiliaAlumno.alumno_id).where(FamiliaAlumno.familia_id == familia_id)
+            )
+        )
     if division_id is not None:
         filtros.append(Inscripcion.division_id == division_id)
 
@@ -211,11 +219,19 @@ def filas_export_inscripciones(
 
 
 def obtener_resumen_inscripciones(
-    db: Session, ciclo_lectivo: str | None = None
+    db: Session, ciclo_lectivo: str | None = None, familia_id: uuid.UUID | None = None
 ) -> InscripcionesResumenRead:
     """Cuenta las inscripciones del ciclo sin depender de la página visible del listado."""
 
     ciclo = ciclo_lectivo or str(date.today().year)
+    filtros = [Inscripcion.ciclo_lectivo == ciclo]
+    if familia_id is not None:
+        filtros.append(
+            Inscripcion.alumno_id.in_(
+                select(FamiliaAlumno.alumno_id).where(FamiliaAlumno.familia_id == familia_id)
+            )
+        )
+
     resumen = db.execute(
         select(
             func.count(Inscripcion.id)
@@ -226,7 +242,7 @@ def obtener_resumen_inscripciones(
             .filter(Inscripcion.tipo == "reinscripcion")
             .label("reinscripciones"),
             func.count(Inscripcion.id).filter(Inscripcion.tipo == "baja").label("bajas"),
-        ).where(Inscripcion.ciclo_lectivo == ciclo)
+        ).where(*filtros)
     ).one()
 
     return InscripcionesResumenRead(
@@ -241,7 +257,8 @@ def obtener_resumen_inscripciones(
 def _obtener_alumno_y_division(
     db: Session, alumno_id: uuid.UUID, division_id: uuid.UUID
 ) -> tuple[Alumno, Division, Anio]:
-    alumno = db.get(Alumno, alumno_id, with_for_update=True)
+    # Persona se carga con LEFT JOIN: PostgreSQL solo debe bloquear la tabla Alumno.
+    alumno = db.get(Alumno, alumno_id, with_for_update={"of": Alumno})
     if alumno is None:
         raise InscripcionNoEncontrada("El alumno indicado no existe.")
 
@@ -440,7 +457,7 @@ def registrar_cambio_matricula(
     """Traslada una inscripción activa y conserva ambos movimientos en el historial."""
 
     inscripcion_anterior = _obtener_inscripcion_activa_para_movimiento(db, inscripcion_id)
-    alumno, division_destino, _ = _obtener_alumno_y_division(
+    alumno, division_destino, anio_destino = _obtener_alumno_y_division(
         db,
         inscripcion_anterior.alumno_id,
         datos.division_id,
@@ -449,6 +466,15 @@ def registrar_cambio_matricula(
         raise InscripcionInvalida("Solo se puede cambiar la matrícula de un alumno activo.")
     if division_destino.id == inscripcion_anterior.division_id:
         raise InscripcionInvalida("La división de destino debe ser distinta de la actual.")
+
+    division_anterior = db.get(Division, inscripcion_anterior.division_id)
+    if division_anterior is None:
+        raise InscripcionInvalida(
+            "La inscripción no está vinculada a una división académica válida."
+        )
+    anio_anterior = db.get(Anio, division_anterior.anio_id)
+    if anio_anterior is None:
+        raise InscripcionInvalida("La inscripción no está vinculada a un año académico válido.")
 
     inscripcion_anterior.estado = "finalizada"
     cambio_matricula = Inscripcion(
@@ -460,7 +486,45 @@ def registrar_cambio_matricula(
         division_id=division_destino.id,
         solicitud_inscripcion_id=None,
     )
-    return _guardar_inscripcion(db, cambio_matricula, usuario_id)
+    db.add(cambio_matricula)
+    db.flush()
+    persona = db.get(Persona, alumno.persona_id)
+    if persona is None:
+        raise InscripcionInvalida("El alumno no está vinculado a una persona válida.")
+    emit_event(
+        db,
+        tipo="inscripcion.cambio_matricula",
+        entidad="inscripcion",
+        entidad_id=cambio_matricula.id,
+        payload={
+            "alumno_nombre": f"{persona.nombre} {persona.apellido}",
+            "tipo_cambio": (
+                "nivel"
+                if anio_anterior.nivel_educativo_id != anio_destino.nivel_educativo_id
+                else "division"
+            ),
+            "fecha": datos.fecha_cambio.isoformat(),
+        },
+        usuario_id=usuario_id,
+    )
+    log_audit(
+        db,
+        entidad="INSCRIPCION",
+        entidad_id=cambio_matricula.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=f"alumno={cambio_matricula.alumno_id} tipo={cambio_matricula.tipo}",
+        usuario_id=usuario_id,
+    )
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ConflictoInscripcion(
+            "No se pudo registrar la inscripción porque sus datos entran en conflicto."
+        ) from exc
+    db.refresh(cambio_matricula)
+    return cambio_matricula
 
 
 def registrar_baja_inscripcion(
@@ -472,7 +536,8 @@ def registrar_baja_inscripcion(
     """Registra la baja sin borrar la matrícula ni sus movimientos previos."""
 
     inscripcion_anterior = _obtener_inscripcion_activa_para_movimiento(db, inscripcion_id)
-    alumno = db.get(Alumno, inscripcion_anterior.alumno_id, with_for_update=True)
+    # Persona se carga con LEFT JOIN: PostgreSQL solo debe bloquear la tabla Alumno.
+    alumno = db.get(Alumno, inscripcion_anterior.alumno_id, with_for_update={"of": Alumno})
     if alumno is None:
         raise InscripcionNoEncontrada("El alumno indicado no existe.")
 

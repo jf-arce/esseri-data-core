@@ -18,6 +18,7 @@ import { formatearNombreRol, nombreVisibleDeUsuario } from '@/modules/auth/utils
 import { ESTADO_USUARIO_ACTIVO } from '@/modules/workflows/constants'
 import type { useDestinatariosDisponibles } from '@/modules/workflows/hooks/use-destinatarios-disponibles'
 import type { DestinatariosRegla } from '@/modules/workflows/types'
+import { desplazarConRueda } from '@/modules/workflows/utils'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 export interface SeleccionDestinatarios {
@@ -31,6 +32,8 @@ interface Opcion {
   tipo: TipoDestinatario
   id: string
   etiqueta: string
+  /** Solo en usuarios: además del nombre, el buscador también encuentra por el email. */
+  email?: string
   /** Ya configurado pero inactivo: se puede quitar, no volver a agregar. */
   inactivo?: boolean
 }
@@ -40,6 +43,7 @@ interface SelectorDestinatariosProps {
   usuarios: Opcion[]
   seleccionados: Opcion[]
   deshabilitado: boolean
+  etiqueta: string
   onAlternar: (opcion: Opcion) => void
 }
 
@@ -50,6 +54,7 @@ function SelectorDestinatarios({
   usuarios,
   seleccionados,
   deshabilitado,
+  etiqueta,
   onAlternar,
 }: SelectorDestinatariosProps) {
   const [abierto, setAbierto] = useState(false)
@@ -62,7 +67,7 @@ function SelectorDestinatarios({
           <CommandItem
             key={clave(opcion)}
             // cmdk exige valores únicos: dos opciones con la misma etiqueta se pisarían.
-            value={`${opcion.etiqueta} ${clave(opcion)}`}
+            value={`${opcion.etiqueta} ${opcion.email ?? ''} ${clave(opcion)}`}
             data-checked={elegidos.has(clave(opcion))}
             onSelect={() => onAlternar(opcion)}
           >
@@ -75,7 +80,7 @@ function SelectorDestinatarios({
 
   return (
     <Field>
-      <FieldLabel htmlFor="destinatarios-selector">Destinatarios de la regla</FieldLabel>
+      <FieldLabel htmlFor="destinatarios-selector">{etiqueta}</FieldLabel>
       <Popover open={abierto} onOpenChange={setAbierto}>
         <PopoverTrigger asChild>
           <Button
@@ -96,7 +101,7 @@ function SelectorDestinatarios({
         <PopoverContent align="start" className="w-(--radix-popover-trigger-width) p-0">
           <Command>
             <CommandInput placeholder="Buscar" />
-            <CommandList>
+            <CommandList ref={desplazarConRueda}>
               <CommandEmpty>Sin resultados.</CommandEmpty>
               {roles.length > 0 && grupo('Roles', roles)}
               {usuarios.length > 0 && grupo('Usuarios', usuarios)}
@@ -137,6 +142,8 @@ interface DestinatariosCamposProps {
   guardados: DestinatariosRegla
   disponibles: ReturnType<typeof useDestinatariosDisponibles>
   deshabilitado: boolean
+  /** Cómo se rotula el selector: "Destinatarios de la regla" o, si asigna trabajo, "Asignar a". */
+  etiqueta?: string
   onCambiar: (seleccion: SeleccionDestinatarios) => void
 }
 
@@ -145,6 +152,7 @@ export function DestinatariosCampos({
   guardados,
   disponibles,
   deshabilitado,
+  etiqueta = 'Destinatarios de la regla',
   onCambiar,
 }: DestinatariosCamposProps) {
   const permisos = useAuthStore(permisosActivos)
@@ -161,6 +169,7 @@ export function DestinatariosCampos({
     tipo: 'usuario',
     id: usuario.id,
     etiqueta: nombreVisibleDeUsuario(usuario),
+    email: usuario.email,
   }))
 
   const rolesElegidos = seleccion.rolIds.map<Opcion>((id) => ({
@@ -215,6 +224,7 @@ export function DestinatariosCampos({
         usuarios={usuarios}
         seleccionados={[...rolesElegidos, ...usuariosElegidos]}
         deshabilitado={soloLectura}
+        etiqueta={etiqueta}
         onAlternar={alternar}
       />
     </div>

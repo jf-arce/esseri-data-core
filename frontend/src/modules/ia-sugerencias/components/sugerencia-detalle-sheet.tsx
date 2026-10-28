@@ -15,7 +15,7 @@ import {
   etiquetaAfectado,
   VARIANTE_ESTADO,
 } from '@/modules/ia-sugerencias/utils'
-import { formatearFechaHora } from '@/modules/workflows/utils'
+import { formatearFechaHora } from '@/lib/fechas'
 
 function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
   return (

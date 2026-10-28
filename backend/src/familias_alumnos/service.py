@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from src.academico.models import Anio, Division, NivelEducativo
 from src.auditoria.service import log_audit
 from src.auth import usuarios_service as auth_usuarios_service
+from src.auth.models import Usuario
 from src.familias_alumnos.exceptions import (
     AlumnoConVinculos,
     FamiliaConVinculos,
@@ -110,8 +111,6 @@ def crear_familia(
     Returns:
         La familia creada
 
-    TODO: Integración con Auth - obtener usuario_id del contexto de autenticación
-    cuando el módulo auth esté implementado
     TODO: Integración con Persona - validar que persona_id exista
     TODO: Validar que la persona asociada tenga un USUARIO (login obligatorio para Familia)
     según diccionario de datos
@@ -150,14 +149,23 @@ def obtener_familia_por_id(db: Session, familia_id: uuid.UUID) -> Familia | None
     return db.query(Familia).filter(Familia.id == familia_id).first()
 
 
-def listar_familias(db: Session, filtros: FiltrosListarFamilias | None = None) -> list[Familia]:
+def listar_familias(
+    db: Session,
+    filtros: FiltrosListarFamilias | None = None,
+    *,
+    familia_id: uuid.UUID | None = None,
+) -> list[Familia]:
     """Listar familias con filtros opcionales.
 
     Filtros soportados:
     - buscar: búsqueda por nombre, apellido o DNI
     - estado_deuda: estado de deuda (al_dia/con_deuda/en_mora)
+    - familia_id: acota a una sola familia (scoping del rol familia)
     """
     query = db.query(Familia).join(Persona)
+
+    if familia_id is not None:
+        query = query.filter(Familia.id == familia_id)
 
     if filtros:
         # Búsqueda por nombre, apellido o DNI
@@ -195,7 +203,6 @@ def actualizar_familia(
     Returns:
         La familia actualizada
 
-    TODO: Integración con Auth - obtener usuario_id del contexto de autenticación
     TODO: Integración con Persona - validar que persona_id exista si se cambia
     """
     update_data = familia_data.model_dump(exclude_unset=True)
@@ -399,7 +406,12 @@ def obtener_alumno_por_id(db: Session, alumno_id: uuid.UUID) -> Alumno | None:
     return db.query(Alumno).filter(Alumno.id == alumno_id).first()
 
 
-def listar_alumnos(db: Session, filtros: FiltrosListarAlumnos | None = None) -> list[Alumno]:
+def listar_alumnos(
+    db: Session,
+    filtros: FiltrosListarAlumnos | None = None,
+    *,
+    familia_id: uuid.UUID | None = None,
+) -> list[Alumno]:
     """Listar alumnos con filtros opcionales.
 
     Filtros soportados:
@@ -408,8 +420,16 @@ def listar_alumnos(db: Session, filtros: FiltrosListarAlumnos | None = None) -> 
     - nivel_educativo_id: filtrar por nivel educativo
     - estado_deuda: estado de deuda de la familia (al_dia/con_deuda/en_mora)
     - estado_inscripcion: estado de inscripción (activa/finalizada/baja)
+    - familia_id: acota a los alumnos vinculados a esa familia (scoping del rol familia)
     """
     query = db.query(Alumno).join(Persona)
+
+    if familia_id is not None:
+        query = query.filter(
+            Alumno.id.in_(
+                select(FamiliaAlumno.alumno_id).where(FamiliaAlumno.familia_id == familia_id)
+            )
+        )
 
     if filtros:
         # Búsqueda por nombre, apellido o DNI
@@ -661,9 +681,18 @@ def desvincular_alumno_familia(
     db.commit()
 
 
-def listar_vinculos_de_alumno(db: Session, alumno_id: uuid.UUID) -> list[FamiliaAlumno]:
-    """Listar todas las familias vinculadas a un alumno."""
-    return db.query(FamiliaAlumno).filter(FamiliaAlumno.alumno_id == alumno_id).all()
+def listar_vinculos_de_alumno(
+    db: Session, alumno_id: uuid.UUID, *, familia_id: uuid.UUID | None = None
+) -> list[FamiliaAlumno]:
+    """Listar las familias vinculadas a un alumno.
+
+    `familia_id` acota el resultado a la propia familia (scoping del rol familia): un
+    responsable no necesita ver los datos de otros responsables del mismo alumno.
+    """
+    query = db.query(FamiliaAlumno).filter(FamiliaAlumno.alumno_id == alumno_id)
+    if familia_id is not None:
+        query = query.filter(FamiliaAlumno.familia_id == familia_id)
+    return query.all()
 
 
 def listar_vinculos_de_familia(db: Session, familia_id: uuid.UUID) -> list[FamiliaAlumno]:
@@ -710,3 +739,25 @@ def alumnos_a_cargo_de_persona(
         etiqueta = f"{fila[0]} · {fila[1]}" if fila else None
         resultado.append((alumno, etiqueta))
     return resultado
+
+
+def es_rol_familia(rol_activo: str | None) -> bool:
+    """El rol `familia` es el único que se acota por vínculo; el staff conserva acceso general."""
+    return rol_activo == ROL_FAMILIA
+
+
+def obtener_familia_de_usuario(db: Session, usuario: Usuario) -> Familia | None:
+    """Familia propia del usuario (1:1 por persona), o `None` si la cuenta no tiene una."""
+    if usuario.persona_id is None:
+        return None
+    return db.query(Familia).filter(Familia.persona_id == usuario.persona_id).first()
+
+
+def familia_tiene_alumno(db: Session, familia_id: uuid.UUID, alumno_id: uuid.UUID) -> bool:
+    """`True` si el alumno está vinculado a la familia en `FamiliaAlumno`."""
+    return (
+        db.query(FamiliaAlumno.id)
+        .filter(FamiliaAlumno.familia_id == familia_id, FamiliaAlumno.alumno_id == alumno_id)
+        .first()
+        is not None
+    )

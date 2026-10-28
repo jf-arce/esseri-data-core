@@ -1,7 +1,4 @@
-"""Modelos SQLAlchemy propios de Autenticación y Roles. Heredan de `src.models.Base`.
-
-Zona sensible (AGENTS.md): JWT y permisos, cambios en modo plan.
-"""
+"""Modelos SQLAlchemy propios de Autenticación y Roles. Heredan de `src.models.Base`."""
 
 import uuid
 from datetime import datetime
@@ -24,6 +21,8 @@ class Usuario(Base):
     password_hash: Mapped[str | None] = mapped_column(sa.String)
     auth_provider: Mapped[str] = mapped_column(sa.String)
     provider_subject: Mapped[str | None] = mapped_column(sa.String)
+    nombre_google: Mapped[str | None] = mapped_column(sa.String)
+    avatar_url: Mapped[str | None] = mapped_column(sa.String)
     estado: Mapped[str] = mapped_column(sa.String, default="activo")
     fecha_creacion: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
     ultimo_acceso: Mapped[datetime | None] = mapped_column(sa.DateTime)
@@ -34,10 +33,8 @@ class Usuario(Base):
 
 
 class Rol(Base):
-    """`codigo` es la clave de identidad estable (ver `src.auth.constants.slug_ascii`): se deriva
-    de `nombre` una sola vez al crear el rol, en `__init__`, y nunca se vuelve a tocar después
-    (`RolUpdate` no tiene ese campo) — así renombrar un rol no rompe todo lo que hoy lo identifica
-    por ese código (JWT, autorización por rol activo, asignación automática del rol familia)."""
+    """`codigo` se deriva de `nombre` al crear y no cambia: renombrar un rol no rompe JWT ni
+    autorización (ver `src.auth.constants.slug_ascii`)."""
 
     __tablename__ = "rol"
     __table_args__ = (

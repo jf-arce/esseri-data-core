@@ -8,9 +8,16 @@ import { BackLink } from '@/components/back-link'
 import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
 import { FilterDropdown } from '@/components/filter-dropdown'
 import { PageHeader } from '@/components/page-header'
+import {
+  PERMISO_FACTURACION_ACTUALIZAR,
+  PERMISO_FACTURACION_CREAR,
+  tienePermiso,
+} from '@/modules/auth/constants'
 import { DeudaFamiliasTabla } from '@/modules/facturacion/components/deuda-familias-tabla'
+import { ExcepcionesVencimientoDialog } from '@/modules/facturacion/components/excepciones-vencimiento-dialog'
 import { useDeudaFamilias } from '@/modules/facturacion/hooks/use-deuda-familias'
-import type { EstadoDeudaFamilia } from '@/modules/facturacion/types'
+import type { DeudaFamilia, EstadoDeudaFamilia } from '@/modules/facturacion/types'
+import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 const TAMANIO_PAGINA = 10
 const ESTADOS = [
@@ -27,6 +34,8 @@ export function DeudaFamiliasPage() {
     (searchParams.get('estado') as EstadoDeudaFamilia | null) ?? '',
   )
   const [pagina, setPagina] = useState(Number(searchParams.get('pagina')) || 1)
+  const [familiaProrrogas, setFamiliaProrrogas] = useState<DeudaFamilia | null>(null)
+  const permisos = useAuthStore(permisosActivos)
   const filtros = useMemo(
     () => ({
       pagina,
@@ -141,6 +150,16 @@ export function DeudaFamiliasPage() {
           tamanioPagina={TAMANIO_PAGINA}
           total={datos.total}
           onCambiarPagina={setPagina}
+          onVerProrrogas={setFamiliaProrrogas}
+        />
+      )}
+      {familiaProrrogas && (
+        <ExcepcionesVencimientoDialog
+          familiaId={familiaProrrogas.familia_id}
+          familiaNombre={`${familiaProrrogas.familia_apellido}, ${familiaProrrogas.familia_nombre}`}
+          puedeOtorgar={tienePermiso(permisos, PERMISO_FACTURACION_CREAR)}
+          puedeAnular={tienePermiso(permisos, PERMISO_FACTURACION_ACTUALIZAR)}
+          onOpenChange={(abierto) => !abierto && setFamiliaProrrogas(null)}
         />
       )}
     </div>

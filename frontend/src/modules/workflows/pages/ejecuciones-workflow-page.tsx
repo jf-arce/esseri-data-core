@@ -12,7 +12,10 @@ import { PERMISO_WORKFLOWS_ACTUALIZAR, tienePermiso } from '@/modules/auth/const
 import { FILTRO_TODOS, TAMANIO_PAGINA_EJECUCIONES } from '@/modules/workflows/constants'
 import { EjecucionDetalleSheet } from '@/modules/workflows/components/ejecucion-detalle-sheet'
 import { EjecucionesWorkflowTabla } from '@/modules/workflows/components/ejecuciones-workflow-tabla'
+import { RechazoEjecucionDialog } from '@/modules/workflows/components/rechazo-ejecucion-dialog'
 import { useEjecucionesWorkflow } from '@/modules/workflows/hooks/use-ejecuciones-workflow'
+import { aprobarEjecucionWorkflow } from '@/modules/workflows/services/aprobar-ejecucion-workflow'
+import { rechazarEjecucionWorkflow } from '@/modules/workflows/services/rechazar-ejecucion-workflow'
 import { reintentarEjecucionWorkflow } from '@/modules/workflows/services/reintentar-ejecucion-workflow'
 import type { EjecucionWorkflow } from '@/modules/workflows/types'
 import {
@@ -26,7 +29,8 @@ const OPCIONES_ESTADO: { value: EstadoEjecucionFiltro; label: string }[] = [
   { value: FILTRO_TODOS, label: 'Todos' },
   { value: 'exitoso', label: ETIQUETA_ESTADO_EJECUCION.exitoso },
   { value: 'fallido', label: ETIQUETA_ESTADO_EJECUCION.fallido },
-  { value: 'pendiente', label: ETIQUETA_ESTADO_EJECUCION.pendiente },
+  { value: 'pendiente', label: 'Pendientes de aprobación' },
+  { value: 'rechazado', label: ETIQUETA_ESTADO_EJECUCION.rechazado },
 ]
 
 export function EjecucionesWorkflowPage() {
@@ -36,6 +40,9 @@ export function EjecucionesWorkflowPage() {
   const [reintentandoId, setReintentandoId] = useState<string | null>(null)
   // El estado no alcanza para frenar un segundo clic dentro del mismo render.
   const reintentoEnCurso = useRef(false)
+  const [decidiendoId, setDecidiendoId] = useState<string | null>(null)
+  const [porRechazar, setPorRechazar] = useState<EjecucionWorkflow | null>(null)
+  const decisionEnCurso = useRef(false)
   const permisos = useAuthStore(permisosActivos)
   const puedeActualizar = tienePermiso(permisos, PERMISO_WORKFLOWS_ACTUALIZAR)
 
@@ -62,6 +69,53 @@ export function EjecucionesWorkflowPage() {
       setReintentandoId(null)
       recargar()
     }
+  }
+
+  /** Aprobar y rechazar comparten el mismo manejo: un solo clic a la vez, aviso y recarga. */
+  async function decidir(
+    ejecucion: EjecucionWorkflow,
+    pedir: () => Promise<EjecucionWorkflow>,
+    avisar: (resultado: EjecucionWorkflow) => void,
+    mensajeError: string,
+  ) {
+    if (decisionEnCurso.current) return
+    decisionEnCurso.current = true
+    setDecidiendoId(ejecucion.id)
+    try {
+      const resultado = await pedir()
+      avisar(resultado)
+      // Si el detalle está abierto, muestra cómo quedó la ejecución en vez de cerrarse.
+      setDetalle((actual) => (actual?.id === resultado.id ? resultado : actual))
+    } catch (causa) {
+      toast.error(causa instanceof ApiError ? causa.detail : mensajeError)
+    } finally {
+      decisionEnCurso.current = false
+      setDecidiendoId(null)
+      setPorRechazar(null)
+      recargar()
+    }
+  }
+
+  function aprobar(ejecucion: EjecucionWorkflow) {
+    return decidir(
+      ejecucion,
+      () => aprobarEjecucionWorkflow(ejecucion.id),
+      (resultado) => {
+        if (resultado.estado === 'exitoso') toast.success('La ejecución se aprobó y se completó.')
+        else toast.error('La ejecución se aprobó, pero la acción falló.')
+      },
+      'No se pudo aprobar la ejecución.',
+    )
+  }
+
+  function rechazar(motivo: string) {
+    if (porRechazar === null) return
+    return decidir(
+      porRechazar,
+      () => rechazarEjecucionWorkflow(porRechazar.id, motivo),
+      () => toast.success('La ejecución se rechazó.'),
+      'No se pudo rechazar la ejecución.',
+    )
   }
 
   if (sinPermiso)
@@ -130,6 +184,9 @@ export function EjecucionesWorkflowPage() {
               puedeActualizar={puedeActualizar}
               reintentandoId={reintentandoId}
               onReintentar={reintentar}
+              decidiendoId={decidiendoId}
+              onAprobar={aprobar}
+              onRechazar={setPorRechazar}
             />
             {!cargando && datos.total === 0 && (
               <p className="text-center text-sm text-texto-2">
@@ -139,7 +196,20 @@ export function EjecucionesWorkflowPage() {
           </>
         )
       )}
-      <EjecucionDetalleSheet ejecucion={detalle} onCerrar={() => setDetalle(null)} />
+      <EjecucionDetalleSheet
+        ejecucion={detalle}
+        onCerrar={() => setDetalle(null)}
+        puedeActualizar={puedeActualizar}
+        decidiendoId={decidiendoId}
+        onAprobar={aprobar}
+        onRechazar={setPorRechazar}
+      />
+      <RechazoEjecucionDialog
+        ejecucion={porRechazar}
+        enviando={decidiendoId !== null}
+        onConfirmar={rechazar}
+        onCancelar={() => setPorRechazar(null)}
+      />
     </div>
   )
 }

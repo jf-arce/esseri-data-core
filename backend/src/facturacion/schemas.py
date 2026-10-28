@@ -1,21 +1,13 @@
 """Modelos Pydantic: forma de los datos que entran y salen por la API de este módulo."""
 
 import uuid
-from datetime import UTC, date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-
-def _normalizar_instante_utc(value: datetime | None) -> datetime | None:
-    """Mantiene compatibilidad con filas históricas sin zona y serializa siempre UTC."""
-
-    if value is None:
-        return None
-    if value.tzinfo is None:
-        return value.replace(tzinfo=UTC)
-    return value.astimezone(UTC)
+from src.fechas import InstanteUtc
 
 
 class ConceptoCobroBase(BaseModel):
@@ -56,10 +48,8 @@ class ConceptoCobroRead(ConceptoCobroBase):
 
     id: uuid.UUID
     activo: bool
-    created_at: datetime
-    updated_at: datetime
-
-    _normalizar_timestamps = field_validator("created_at", "updated_at")(_normalizar_instante_utc)
+    created_at: InstanteUtc
+    updated_at: InstanteUtc
 
 
 class ResponsableEconomicoCreate(BaseModel):
@@ -80,9 +70,7 @@ class ResponsableEconomicoRead(BaseModel):
     fecha_solicitud_cambio: date | None
     alumno_id: uuid.UUID
     familia_id: uuid.UUID
-    updated_at: datetime
-
-    _normalizar_timestamps = field_validator("updated_at")(_normalizar_instante_utc)
+    updated_at: InstanteUtc
 
 
 FacturaEstado = Literal["pendiente", "vencida", "pagada"]
@@ -134,15 +122,13 @@ class FacturaRead(BaseModel):
     fecha_vencimiento: date
     monto_total: Decimal
     estado: FacturaEstado
-    updated_at: datetime
+    updated_at: InstanteUtc
     inscripcion_id: uuid.UUID
     responsable_economico_id: uuid.UUID
     alumno_id: uuid.UUID | None = None
     alumno_nombre: str | None = None
     alumno_apellido: str | None = None
     detalles: list[DetalleFacturaRead]
-
-    _normalizar_timestamps = field_validator("updated_at")(_normalizar_instante_utc)
 
 
 class FacturaListadoRead(BaseModel):
@@ -169,11 +155,20 @@ class PagoRead(BaseModel):
     comprobante: str | None
     estado: Literal["aprobado", "rechazado", "pendiente"]
     referencia_transaccion: str | None
-    fecha_operacion: datetime | None
+    fecha_operacion: InstanteUtc | None
     registrado_por: str | None
     metodo_pago: MetodoPagoRead
 
-    _normalizar_timestamps = field_validator("fecha_operacion")(_normalizar_instante_utc)
+
+class RecargoRead(BaseModel):
+    """Recargo por mora imputado a la cuenta corriente por una factura vencida."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    fecha: InstanteUtc
+    monto: Decimal
+    observacion: str | None
 
 
 class FacturaDetalleRead(FacturaRead):
@@ -181,13 +176,15 @@ class FacturaDetalleRead(FacturaRead):
     alumno_legajo: str
     responsable_economico_nombre: str | None
     pagos: list[PagoRead]
+    # Van a la cuenta corriente: no cambian `monto_total` ni el saldo de esta factura.
+    recargos: list[RecargoRead] = []
 
 
 class MovimientoCuentaCorrienteRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    fecha: datetime
+    fecha: InstanteUtc
     tipo: Literal["debe", "haber"]
     monto: Decimal
     observacion: str | None
@@ -195,8 +192,6 @@ class MovimientoCuentaCorrienteRead(BaseModel):
     concepto_nombre: str | None = None
     factura_id: uuid.UUID | None
     pago_id: uuid.UUID | None
-
-    _normalizar_timestamps = field_validator("fecha")(_normalizar_instante_utc)
 
 
 class CuentaCorrienteRead(BaseModel):
@@ -209,6 +204,47 @@ class CuentaCorrienteRead(BaseModel):
     total_movimientos: int
     pagina: int
     tamanio: int
+
+
+class DetalleFacturaFamiliaRead(BaseModel):
+    descripcion: str
+    monto: Decimal
+
+
+class PagoFamiliaRead(BaseModel):
+    id: uuid.UUID
+    fecha: date
+    monto: Decimal
+    estado: Literal["aprobado", "rechazado", "pendiente"]
+    metodo_pago: str
+    comprobante_disponible: bool
+
+
+class FacturaFamiliaRead(BaseModel):
+    id: uuid.UUID
+    fecha_emision: date
+    fecha_vencimiento: date
+    monto_total: Decimal
+    estado: FacturaEstado
+    alumno_nombre: str
+    detalles: list[DetalleFacturaFamiliaRead]
+    pagos: list[PagoFamiliaRead]
+
+
+class MovimientoFamiliaRead(BaseModel):
+    fecha: InstanteUtc
+    tipo: Literal["debe", "haber"]
+    monto: Decimal
+    observacion: str | None
+    factura_id: uuid.UUID
+
+
+class FacturacionFamiliaRead(BaseModel):
+    total_debe: Decimal
+    total_haber: Decimal
+    saldo: Decimal
+    facturas: list[FacturaFamiliaRead]
+    movimientos: list[MovimientoFamiliaRead]
 
 
 EstadoDeudaFamilia = Literal["pendiente", "vencida", "pagada"]
@@ -318,12 +354,10 @@ class ReglaFacturacionRead(ReglaFacturacionBase):
 
     id: uuid.UUID
     estado: EstadoReglaFacturacion
-    created_at: datetime
-    updated_at: datetime
+    created_at: InstanteUtc
+    updated_at: InstanteUtc
     proxima_generacion: date | None = None
     ultima_ejecucion: "UltimaEjecucionReglaRead | None" = None
-
-    _normalizar_timestamps = field_validator("created_at", "updated_at")(_normalizar_instante_utc)
 
 
 class GeneracionFacturacionRequest(BaseModel):
@@ -349,7 +383,7 @@ class GeneracionFacturacionResumenRead(BaseModel):
 
 class EjecucionFacturacionRead(GeneracionFacturacionResumenRead):
     id: uuid.UUID
-    fecha_ejecucion: datetime
+    fecha_ejecucion: InstanteUtc
     facturas_generadas: int
     cargos_generados: int
     monto_total: Decimal
@@ -358,14 +392,12 @@ class EjecucionFacturacionRead(GeneracionFacturacionResumenRead):
     error_detalle: str | None
     regla_ids: list[uuid.UUID]
 
-    _normalizar_timestamps = field_validator("fecha_ejecucion")(_normalizar_instante_utc)
-
 
 class UltimaEjecucionReglaRead(BaseModel):
     """Último intento ligado a una regla, incluido si terminó parcial o fallido."""
 
     id: uuid.UUID
-    fecha_ejecucion: datetime
+    fecha_ejecucion: InstanteUtc
     periodo: date
     origen: Literal["manual", "automatica"]
     estado: Literal["exitosa", "parcial", "fallida"]
@@ -375,4 +407,70 @@ class UltimaEjecucionReglaRead(BaseModel):
     cargos_bloqueados: int
     error_detalle: str | None
 
-    _normalizar_timestamps = field_validator("fecha_ejecucion")(_normalizar_instante_utc)
+
+class ResumenVencimientos(BaseModel):
+    """Resultado de una pasada de detección de facturas vencidas."""
+
+    facturas_revisadas: int = 0
+    eventos_emitidos: int = 0
+
+
+class ReglaPenalidadBase(BaseModel):
+    """Tramo de mora: sin `hasta_dia_vencido` no tiene límite superior."""
+
+    desde_dia_vencido: int = Field(ge=0, le=3650)
+    hasta_dia_vencido: int | None = Field(default=None, ge=0, le=3650)
+    porcentaje: Decimal = Field(ge=0, le=100, max_digits=5, decimal_places=2)
+    concepto_cobro_id: uuid.UUID
+
+    @model_validator(mode="after")
+    def validar_rango(self) -> "ReglaPenalidadBase":
+        if self.hasta_dia_vencido is not None and self.hasta_dia_vencido < self.desde_dia_vencido:
+            raise ValueError("El día hasta no puede ser menor que el día desde.")
+        return self
+
+
+class ReglaPenalidadCreate(ReglaPenalidadBase):
+    activo: bool = True
+
+
+class ReglaPenalidadUpdate(ReglaPenalidadBase):
+    pass
+
+
+class ReglaPenalidadEstadoUpdate(BaseModel):
+    activo: bool
+
+
+class ReglaPenalidadRead(ReglaPenalidadBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    activo: bool
+    created_at: InstanteUtc
+    updated_at: InstanteUtc
+
+
+class ExcepcionVencimientoCreate(BaseModel):
+    """Prórroga del vencimiento autorizada para una familia."""
+
+    fecha_vencimiento_excepcional: date
+    motivo: str = Field(min_length=1, max_length=500)
+
+    @field_validator("motivo", mode="before")
+    @classmethod
+    def normalizar_motivo(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+class ExcepcionVencimientoRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    familia_id: uuid.UUID
+    fecha_vencimiento_excepcional: date
+    motivo: str | None
+    created_at: InstanteUtc
+    usuario_id: uuid.UUID
+    anulada_at: InstanteUtc | None
+    usuario_anulacion_id: uuid.UUID | None

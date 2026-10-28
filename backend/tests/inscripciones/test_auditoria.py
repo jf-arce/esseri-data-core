@@ -23,6 +23,7 @@ from src.inscripciones.schemas import (
     SolicitudInscripcionAdministrativaUpdate,
 )
 from src.models import AuditLog
+from tests.inscripciones.conftest import crear_catalogo_evento_cambio_matricula
 from tests.inscripciones.factories import (
     crear_escenario,
     crear_inscripcion_previa,
@@ -154,8 +155,11 @@ class TestAuditoriaSolicitudAdmision:
         documento = admisiones_service.registrar_documento_solicitud(
             db_session,
             solicitud.id,
-            DocumentoSolicitudCreate(tipo_documento="DNI", archivo="dni.pdf"),
+            DocumentoSolicitudCreate(tipo_documento="DNI del aspirante"),
             usuario.id,
+            nombre_archivo="dni.pdf",
+            tipo_contenido="application/pdf",
+            contenido=b"%PDF-1.7\\nDocumento de prueba",
         )
         admisiones_service.actualizar_documento_solicitud(
             db_session,
@@ -168,7 +172,7 @@ class TestAuditoriaSolicitudAdmision:
         registros = {
             r.campo: r for r in _historial(db_session, "DOCUMENTO_SOLICITUD", documento.id)
         }
-        assert registros["__alta__"].valor_nuevo == "DNI"
+        assert registros["__alta__"].valor_nuevo == "DNI del aspirante"
         assert registros["estado"].valor_anterior == "pendiente"
         assert registros["estado"].valor_nuevo == "validado"
 
@@ -223,6 +227,7 @@ class TestAuditoriaInscripcion:
     def test_registrar_cambio_matricula_audita_alta(self, db_session):
         from src.academico.models import Division
 
+        crear_catalogo_evento_cambio_matricula(db_session)
         escenario = crear_escenario(db_session)
         inscripcion_previa = crear_inscripcion_previa(
             db_session, escenario, ciclo="2027", estado="activa"

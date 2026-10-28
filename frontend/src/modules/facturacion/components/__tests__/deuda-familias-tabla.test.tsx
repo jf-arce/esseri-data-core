@@ -30,6 +30,7 @@ describe('DeudaFamiliasTabla', () => {
           tamanioPagina={10}
           total={1}
           onCambiarPagina={vi.fn()}
+          onVerProrrogas={vi.fn()}
         />
       </MemoryRouter>,
     )
@@ -38,7 +39,7 @@ describe('DeudaFamiliasTabla', () => {
       'href',
       '/familias-alumnos/familias/familia-1',
     )
-    expect(screen.getByText('2 pendientes · 1 pagadas')).toBeInTheDocument()
+    expect(screen.getByText('2 impagas · 1 pagadas')).toBeInTheDocument()
     expect(screen.getByText('Vencida')).toBeInTheDocument()
     expect(screen.getByText('1-1 de 1 responsables')).toBeInTheDocument()
   })
@@ -56,6 +57,7 @@ describe('DeudaFamiliasTabla', () => {
           tamanioPagina={10}
           total={21}
           onCambiarPagina={onCambiarPagina}
+          onVerProrrogas={vi.fn()}
         />
       </MemoryRouter>,
     )
@@ -63,5 +65,27 @@ describe('DeudaFamiliasTabla', () => {
     await user.click(screen.getByRole('link', { name: 'Ir a la página siguiente' }))
 
     expect(onCambiarPagina).toHaveBeenCalledWith(2)
+  })
+
+  it('abre las prórrogas de la familia de la fila', async () => {
+    const onVerProrrogas = vi.fn()
+    const user = userEvent.setup()
+
+    render(
+      <MemoryRouter>
+        <DeudaFamiliasTabla
+          items={[deuda]}
+          cargando={false}
+          pagina={1}
+          tamanioPagina={10}
+          total={1}
+          onCambiarPagina={vi.fn()}
+          onVerProrrogas={onVerProrrogas}
+        />
+      </MemoryRouter>,
+    )
+    await user.click(screen.getByRole('button', { name: 'Ver' }))
+
+    expect(onVerProrrogas).toHaveBeenCalledWith(deuda)
   })
 })

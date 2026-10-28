@@ -83,6 +83,9 @@ class DocumentoSolicitud(Base):
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
     tipo_documento: Mapped[str] = mapped_column(sa.String)
     archivo: Mapped[str] = mapped_column(sa.String)
+    tipo_contenido: Mapped[str | None] = mapped_column(sa.String)
+    tamanio: Mapped[int | None] = mapped_column(sa.Integer)
+    contenido: Mapped[bytes | None] = mapped_column(sa.LargeBinary)
     estado: Mapped[str] = mapped_column(sa.String, default="pendiente")
     fecha_carga: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
     updated_at: Mapped[datetime] = mapped_column(

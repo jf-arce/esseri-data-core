@@ -150,10 +150,22 @@ export function AppLayout() {
               <Menu className="size-4.5" />
             </Button>
 
+            {/* En celular el buscador es solo el ícono: el campo entero queda aplastado. */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="ml-auto sm:hidden"
+              aria-label="Buscar"
+              onClick={() => setComandoAbierto(true)}
+            >
+              <Search className="size-4.5" />
+            </Button>
+
             <button
               type="button"
               onClick={() => setComandoAbierto(true)}
-              className="mx-auto flex h-10 w-full max-w-150 min-w-0 cursor-pointer items-center gap-2.5 rounded-lg border border-borde bg-lienzo px-4 text-left text-sm text-texto-3 hover:bg-fila-hover"
+              className="mx-auto hidden h-10 w-full max-w-150 min-w-0 cursor-pointer items-center gap-2.5 rounded-lg border border-borde bg-lienzo px-4 text-left text-sm text-texto-3 hover:bg-fila-hover sm:flex"
             >
               <Search className="size-4 shrink-0" />
               <span className="truncate">Buscar o ir a…</span>

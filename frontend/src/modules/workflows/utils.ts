@@ -1,17 +1,22 @@
+import type { UsuarioConRoles } from '@/modules/auth/types'
+import { nombreVisibleDeUsuario } from '@/modules/auth/utils'
 import {
   CLAVE_CONFIG,
   DESTINATARIO_REGLA,
   DESTINATARIOS_TIPO_FILTRO,
   ESTADOS_EJECUCION_FILTRO,
   ESTADOS_ENVIO_FILTRO,
+  ESTADOS_TAREA_FILTRO,
   ESTADOS_REGLA_FILTRO,
   FILTRO_ACTIVAS,
   FILTRO_INACTIVAS,
   FILTRO_TODOS,
   LOCALE,
+  PRIORIDADES_TAREA_FILTRO,
   REGISTRO_ALUMNO_Y_FAMILIA,
 } from '@/modules/workflows/constants'
 import type {
+  CampoResumen,
   AccionConfig,
   CampoEvento,
   Condicion,
@@ -19,7 +24,10 @@ import type {
   DestinatarioTipo,
   EstadoEjecucion,
   EstadoEnvio,
+  EstadoTarea,
   Operador,
+  OpcionCombo,
+  PrioridadTarea,
   ReglaWorkflow,
   ReglaWorkflowCreatePayload,
   TipoAccion,
@@ -166,13 +174,18 @@ const entero = (nombre: string): CampoConfig => ({ nombre, tipo: 'entero' })
 const decimal = (nombre: string): CampoConfig => ({ nombre, tipo: 'decimal' })
 
 const CAMPOS_DESTINATARIO = [texto(CLAVE_CONFIG.destinatario)]
+const CAMPO_ENLACE = texto(CLAVE_CONFIG.enlace)
 
 /** Campos de `accion_config` por acción (`CONFIG_POR_ACCION` del backend). */
 export const CAMPOS_POR_ACCION: Record<TipoAccion, readonly CampoConfig[]> = {
-  notificar: CAMPOS_DESTINATARIO,
+  notificar: [...CAMPOS_DESTINATARIO, CAMPO_ENLACE],
   generar_comunicacion: CAMPOS_DESTINATARIO,
-  generar_recordatorio: [texto(CLAVE_CONFIG.destinatario), entero(CLAVE_CONFIG.diasDespues)],
-  alerta_interna: [texto(CLAVE_CONFIG.mensaje)],
+  generar_recordatorio: [
+    texto(CLAVE_CONFIG.destinatario),
+    entero(CLAVE_CONFIG.diasDespues),
+    CAMPO_ENLACE,
+  ],
+  alerta_interna: [texto(CLAVE_CONFIG.mensaje), CAMPO_ENLACE],
   crear_tarea: [
     texto(CLAVE_CONFIG.titulo),
     texto(CLAVE_CONFIG.descripcion),
@@ -347,15 +360,29 @@ const ACCIONES_CON_DESTINATARIO_ELEGIBLE: readonly TipoAccion[] = [
   'generar_comunicacion',
 ]
 
-/** Réplica de `config_admite_destinatarios` del backend: `alerta_interna` siempre, y las demás
- * acciones con plantilla solo si el destinatario es "Destinatarios de la regla". */
+/** Acciones que siempre usan los destinatarios de la regla: avisan (`alerta_interna`) o asignan el
+ * trabajo (`crear_tarea`, `escalar_caso`) a esas personas. */
+const ACCIONES_CON_DESTINATARIOS_FIJOS: readonly TipoAccion[] = [
+  'alerta_interna',
+  'crear_tarea',
+  'escalar_caso',
+]
+
+/** Réplica de `config_admite_destinatarios` del backend: las acciones de destinatarios fijos
+ * siempre, y las demás acciones con plantilla solo si el destinatario es "Destinatarios de la
+ * regla". */
 export function admiteDestinatarios(tipoAccion: TipoAccion | '', config: Record<string, string>) {
-  if (tipoAccion === 'alerta_interna') return true
+  if (tipoAccion === '') return false
+  if (ACCIONES_CON_DESTINATARIOS_FIJOS.includes(tipoAccion)) return true
   return (
-    tipoAccion !== '' &&
     ACCIONES_CON_DESTINATARIO_ELEGIBLE.includes(tipoAccion) &&
     config[CLAVE_CONFIG.destinatario] === DESTINATARIO_REGLA
   )
+}
+
+/** A quiénes se asigna el trabajo, para rotular el selector de destinatarios. */
+export function asignaTareas(tipoAccion: TipoAccion | ''): boolean {
+  return tipoAccion === 'crear_tarea' || tipoAccion === 'escalar_caso'
 }
 
 /** Inserta `{{campo}}` en `posicion` y devuelve el texto nuevo y dónde queda el cursor. */
@@ -502,10 +529,32 @@ export const ETIQUETA_ESTADO_EJECUCION: Record<EstadoEjecucion, string> = {
   exitoso: 'Exitosa',
   fallido: 'Fallida',
   pendiente: 'Pendiente',
+  rechazado: 'Rechazada',
 }
 
-export const VARIANTE_ESTADO_EJECUCION: Record<EstadoEjecucion, 'exito' | 'error' | 'advertencia'> =
-  { exitoso: 'exito', fallido: 'error', pendiente: 'advertencia' }
+export const VARIANTE_ESTADO_EJECUCION: Record<
+  EstadoEjecucion,
+  'exito' | 'error' | 'advertencia' | 'neutro'
+> = { exitoso: 'exito', fallido: 'error', pendiente: 'advertencia', rechazado: 'neutro' }
+
+const COMO_MONTO = (valor: string) => `$ ${valor}`
+
+/** El catálogo de campos no trae unidades: se agregan acá. Lo que no esté se muestra tal cual. */
+export const PRESENTACION_CAMPO: Record<string, (valor: string) => string> = {
+  monto_deuda: COMO_MONTO,
+  dias_vencido: (valor) => `${valor} ${valor === '1' ? 'día' : 'días'}`,
+}
+
+export function presentarCampo({ nombre_interno, valor }: CampoResumen): string {
+  const presentar =
+    PRESENTACION_CAMPO[nombre_interno] ?? (nombre_interno.startsWith('monto_') ? COMO_MONTO : null)
+  return presentar ? presentar(valor) : valor
+}
+
+/** Primeros campos del evento en una sola línea, para la segunda línea de la tabla. */
+export function resumenEnLinea(campos: CampoResumen[], maximo = 3): string {
+  return campos.slice(0, maximo).map(presentarCampo).join(' · ')
+}
 
 export type EstadoEnvioFiltro = (typeof ESTADOS_ENVIO_FILTRO)[number]
 
@@ -536,10 +585,6 @@ export const ETIQUETA_DESTINATARIO_TIPO: Record<DestinatarioTipo, string> = {
   usuario: 'Usuario',
 }
 
-export function formatearFechaHora(iso: string): string {
-  return new Date(iso).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' })
-}
-
 /** Duración legible, o `null` si la ejecución todavía no terminó. */
 export function duracionEjecucion(startedAt: string, finishedAt: string | null): string | null {
   if (finishedAt === null) return null
@@ -556,4 +601,77 @@ export function duracionEjecucion(startedAt: string, finishedAt: string | null):
 /** Mismos ids sin importar el orden. */
 export function mismosIds(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((id) => b.includes(id))
+}
+
+// --- Tareas ---------------------------------------------------------------------------------
+
+export type EstadoTareaFiltro = (typeof ESTADOS_TAREA_FILTRO)[number]
+
+export function esEstadoTareaFiltro(valor: string): valor is EstadoTareaFiltro {
+  return ESTADOS_TAREA_FILTRO.some((estado) => estado === valor)
+}
+
+export type PrioridadTareaFiltro = (typeof PRIORIDADES_TAREA_FILTRO)[number]
+
+export function esPrioridadTareaFiltro(valor: string): valor is PrioridadTareaFiltro {
+  return PRIORIDADES_TAREA_FILTRO.some((prioridad) => prioridad === valor)
+}
+
+export const ETIQUETA_ESTADO_TAREA: Record<EstadoTarea, string> = {
+  pendiente: 'Pendiente',
+  en_progreso: 'En progreso',
+  completada: 'Completada',
+  escalada: 'Escalada',
+}
+
+export const VARIANTE_ESTADO_TAREA: Record<
+  EstadoTarea,
+  'advertencia' | 'info' | 'exito' | 'neutro'
+> = { pendiente: 'advertencia', en_progreso: 'info', completada: 'exito', escalada: 'neutro' }
+
+export const ETIQUETA_PRIORIDAD_TAREA: Record<PrioridadTarea, string> = {
+  baja: 'Baja',
+  media: 'Media',
+  alta: 'Alta',
+}
+
+export const VARIANTE_PRIORIDAD_TAREA: Record<PrioridadTarea, 'neutro' | 'info' | 'advertencia'> = {
+  baja: 'neutro',
+  media: 'info',
+  alta: 'advertencia',
+}
+
+/** Réplica de `TRANSICIONES_TAREA` del backend: a qué estados puede pasar una persona la tarea.
+ * `escalada` solo la pone el motor, y `completada` ya no se reabre. */
+export function estadosSiguientesTarea(
+  estado: EstadoTarea,
+): readonly ('en_progreso' | 'completada')[] {
+  if (estado === 'pendiente') return ['en_progreso', 'completada']
+  if (estado === 'en_progreso') return ['completada']
+  return []
+}
+
+export function opcionDeUsuario(usuario: UsuarioConRoles, grupo?: string): OpcionCombo {
+  return {
+    valor: usuario.id,
+    etiqueta: nombreVisibleDeUsuario(usuario),
+    detalle: usuario.email,
+    grupo,
+  }
+}
+
+/** Dentro de un diálogo o panel lateral, su bloqueo de scroll se traga la rueda sobre un popover
+ * que va en un portal: la lista no se desplaza y lo que está más abajo queda fuera de alcance. Se
+ * desplaza a mano, sin pasar por el bloqueo. */
+export function desplazarConRueda(lista: HTMLDivElement | null) {
+  if (lista === null) return
+  lista.addEventListener(
+    'wheel',
+    (evento) => {
+      evento.preventDefault()
+      evento.stopPropagation()
+      lista.scrollTop += evento.deltaY * (evento.deltaMode === 1 ? 16 : 1)
+    },
+    { passive: false },
+  )
 }

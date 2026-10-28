@@ -1,3 +1,4 @@
+import { formatearFechaHora } from '@/lib/fechas'
 import { Link } from 'react-router'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -8,14 +9,17 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { formatearMoneda } from '@/modules/facturacion/utils'
+import { BotonesAprobacion } from '@/modules/workflows/components/botones-aprobacion'
 import { rutaRegla } from '@/modules/workflows/constants'
+import { useEjecucion } from '@/modules/workflows/hooks/use-ejecucion'
 import type { EjecucionWorkflow } from '@/modules/workflows/types'
 import {
   ETIQUETA_ACCION,
   ETIQUETA_ESTADO_EJECUCION,
   duracionEjecucion,
   etiquetaEvento,
-  formatearFechaHora,
+  presentarCampo,
   VARIANTE_ESTADO_EJECUCION,
 } from '@/modules/workflows/utils'
 
@@ -31,9 +35,27 @@ function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactN
 interface EjecucionDetalleSheetProps {
   ejecucion: EjecucionWorkflow | null
   onCerrar: () => void
+  puedeActualizar: boolean
+  decidiendoId: string | null
+  onAprobar: (ejecucion: EjecucionWorkflow) => void
+  onRechazar: (ejecucion: EjecucionWorkflow) => void
 }
 
-export function EjecucionDetalleSheet({ ejecucion, onCerrar }: EjecucionDetalleSheetProps) {
+export function EjecucionDetalleSheet({
+  ejecucion,
+  onCerrar,
+  puedeActualizar,
+  decidiendoId,
+  onAprobar,
+  onRechazar,
+}: EjecucionDetalleSheetProps) {
+  const detalle = useEjecucion(ejecucion?.id ?? null)
+  // Solo cuenta mientras la ejecución espera aprobación: después ya no es una estimación.
+  const recargoEstimado =
+    ejecucion?.estado === 'pendiente'
+      ? (detalle?.recargo_estimado ?? ejecucion.recargo_estimado)
+      : null
+
   return (
     <Sheet open={ejecucion !== null} onOpenChange={(abierto) => !abierto && onCerrar()}>
       <SheetContent className="sm:max-w-md">
@@ -79,6 +101,32 @@ export function EjecucionDetalleSheet({ ejecucion, onCerrar }: EjecucionDetalleS
                 </Dato>
                 {ejecucion.detalle && <Dato etiqueta="Detalle">{ejecucion.detalle}</Dato>}
               </dl>
+              {ejecucion.resumen_evento.length > 0 && (
+                <section className="flex flex-col gap-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-texto-3">
+                    Datos del evento
+                  </h3>
+                  <dl className="flex flex-col gap-3 text-sm">
+                    {ejecucion.resumen_evento.map((campo) => (
+                      <Dato key={campo.nombre_interno} etiqueta={campo.etiqueta}>
+                        {presentarCampo(campo)}
+                      </Dato>
+                    ))}
+                  </dl>
+                </section>
+              )}
+              {recargoEstimado && (
+                <div className="rounded-md bg-lienzo p-3 text-sm">
+                  <dl>
+                    <Dato etiqueta="Recargo a aplicar">
+                      <span className="text-base font-semibold">
+                        {formatearMoneda(recargoEstimado)}
+                      </span>
+                      <span className="block text-xs text-texto-3">estimado al aprobar</span>
+                    </Dato>
+                  </dl>
+                </div>
+              )}
               {ejecucion.error_detail && (
                 <Alert variant="error">
                   <AlertTitle>Error</AlertTitle>
@@ -86,6 +134,17 @@ export function EjecucionDetalleSheet({ ejecucion, onCerrar }: EjecucionDetalleS
                     {ejecucion.error_detail}
                   </AlertDescription>
                 </Alert>
+              )}
+              {ejecucion.aprobable && puedeActualizar && (
+                <div className="flex justify-end gap-1">
+                  <BotonesAprobacion
+                    ejecucion={ejecucion}
+                    puedeActualizar={puedeActualizar}
+                    decidiendoId={decidiendoId}
+                    onAprobar={onAprobar}
+                    onRechazar={onRechazar}
+                  />
+                </div>
               )}
             </div>
           </>

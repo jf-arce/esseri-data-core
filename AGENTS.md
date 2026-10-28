@@ -20,6 +20,7 @@ Si estás generando o modificando código en este repositorio, seguí estas regl
     - `backend/alembic/` o cualquier migración de base de datos — un cambio mal generado puede requerir rehacer el historial de migraciones.
     - `src/auth/` (backend) o `modules/auth/` (frontend) — maneja JWT y permisos; un error ahí es un problema de seguridad, no solo un bug funcional.
     - `docker-compose.yml` / `docker-compose.prod.yml` — cambios ahí afectan a todo el equipo al levantar el entorno local.
+11. **No inventes requisitos ni amplíes el alcance.** “si algo no está claro, revisá el código y lo que conversamos. si seguís con dudas, preguntame. no inventes requisitos ni hagas cambios fuera de lo que te pedí.”
 
 ---
 
@@ -33,7 +34,15 @@ No se listan comandos acá porque cambian con el proyecto y este archivo quedar�
 
 Si necesitás correr algo (dev, test, lint, migraciones) leé el archivo correspondiente antes de asumir el comando. Si el comando que hace falta **no está documentado en ninguno de esos archivos**, no lo inventes — decilo explícitamente y agregalo a la fuente que corresponda (no acá, para no duplicar).
 
-Antes de dar por terminada una tarea de código, correr el lint y los tests de la capa que se tocó (según lo que digan esos archivos).
+Antes de dar por terminada una tarea de código, correr el lint y las verificaciones proporcionales de la capa que se tocó (según lo que digan esos archivos).
+
+### Estrategia de testing
+
+- Para cambios acotados, ejecutar primero solo los tests del módulo o archivos afectados. No repetir checks ya exitosos si el cambio posterior no los afecta.
+- Reservar la suite completa de frontend o backend para PR, entrega, cambios transversales o cuando el cambio pueda afectar más de un módulo.
+- No crear tests para cambios puramente visuales o de composición sin lógica. Agregarlos cuando haya reglas de negocio, validaciones, cálculos, estado o riesgo real de regresión.
+- Autenticación, permisos, facturación, migraciones y operaciones críticas requieren cobertura rigurosa y tests de acceso/denegación cuando corresponda.
+- Al cerrar la tarea, informar qué verificaciones se ejecutaron, cuáles se omitieron y por qué.
 
 ---
 

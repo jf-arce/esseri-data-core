@@ -7,10 +7,12 @@ import {
   RUTA_NUEVA_REGLA,
   RUTA_REGLA_POR_ID,
   RUTA_REGLAS,
+  RUTA_TAREAS,
 } from '@/modules/workflows/constants'
 import { EjecucionesWorkflowPage } from '@/modules/workflows/pages/ejecuciones-workflow-page'
 import { NotificacionesPage } from '@/modules/workflows/pages/notificaciones-page'
 import { ReglasWorkflowPage } from '@/modules/workflows/pages/reglas-workflow-page'
+import { TareasPage } from '@/modules/workflows/pages/tareas-page'
 import { ReglaWorkflowEditorPage } from '@/modules/workflows/pages/regla-workflow-editor-page'
 
 export const workflowsRoutes: RouteObject[] = [
@@ -27,4 +29,7 @@ export const workflowsRoutes: RouteObject[] = [
       { path: RUTA_NOTIFICACIONES, element: <NotificacionesPage /> },
     ],
   },
+  // La bandeja es de cada persona: no pide permisos de Workflows. Sin `workflows.leer` el backend
+  // devuelve solo las tareas asignadas a quien consulta.
+  { path: RUTA_TAREAS, element: <TareasPage /> },
 ]

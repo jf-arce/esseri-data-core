@@ -274,6 +274,9 @@ function DivisionCard({
                   </span>
                 )}
                 {materia.nombre}
+                {materia.anio_numero && (
+                  <span className="text-texto-3">({materia.anio_numero}° Año)</span>
+                )}
                 {materia.division_id === null && <span className="text-texto-3">(común)</span>}
               </span>
               {puedeEditar && (

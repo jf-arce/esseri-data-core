@@ -1,0 +1,513 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body>
+    <x-dc>
+      <helmet>
+        <style>
+          :root {
+            --sup-familias: #f2e9f6;
+            --sup-academico: #e8effb;
+            --sup-inscripciones: #e7f2f3;
+            --sup-facturacion: #f8eee6;
+            --sup-compras: #eeeef2;
+            --sup-workflows: #f2edfc;
+            --sup-auditoria: #ebecee;
+            --sup-ia: #e7f2f3;
+            --lienzo: #f6f5f8;
+            --superficie: #fdfcfe;
+            --fila-hover: #f1eff4;
+            --borde: #e6e2ec;
+            --nav: #241e2e;
+            --violeta: #7c24a3;
+            --violeta-suave: #f6edfb;
+            --violeta-borde: #e7cff2;
+            --exito: #0f7a4d;
+            --exito-suave: #e0ece9;
+            --error: #b42318;
+            --error-suave: #f4e2e2;
+            --advertencia: #b45309;
+            --advertencia-suave: #f4e8e1;
+            --texto: #1b1822;
+            --texto-2: #6b6577;
+            --texto-3: #7c7688;
+            --desactivado: #9a94a6;
+          }
+          * {
+            box-sizing: border-box;
+          }
+          html,
+          body {
+            height: 100%;
+          }
+          body {
+            margin: 0;
+            font-family: 'Geist', system-ui, sans-serif;
+            background: var(--lienzo);
+            color: var(--texto);
+          }
+          ::selection {
+            background: var(--violeta-borde);
+            color: #55206e;
+          }
+          .page {
+            width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+          }
+          .topbar {
+            height: 72px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 0 40px;
+            border-bottom: 1px solid var(--borde);
+            background: var(--superficie);
+          }
+          .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+          }
+          .brand .mark {
+            width: 30px;
+            height: 30px;
+            border-radius: 9px;
+            background: var(--violeta);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+          }
+          .brand .word {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--texto);
+          }
+          .topnav {
+            display: flex;
+            gap: 6px;
+            margin: 0 auto;
+          }
+          .topnav a {
+            padding: 8px 16px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--texto-2);
+          }
+          .topnav a.active {
+            background: var(--violeta-suave);
+            color: var(--violeta);
+          }
+          .ctx-date {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--texto-2);
+            white-space: nowrap;
+          }
+          .bell {
+            width: 38px;
+            height: 38px;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--texto-2);
+            position: relative;
+            flex-shrink: 0;
+          }
+          .bell .ping {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: var(--advertencia);
+          }
+          .avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 999px;
+            background: var(--violeta);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 600;
+            flex-shrink: 0;
+          }
+          .content {
+            flex: 1;
+            max-width: 1280px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 40px 40px 56px;
+          }
+          .crumb {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12.5px;
+            color: var(--texto-2);
+            margin-bottom: 10px;
+          }
+          .crumb .sep {
+            color: var(--desactivado);
+          }
+          .crumb .current {
+            color: var(--texto);
+            font-weight: 600;
+          }
+          .page-header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            margin-bottom: 6px;
+          }
+          .page-title {
+            font-size: 27px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            margin: 0;
+          }
+          .sub {
+            font-size: 14px;
+            color: var(--texto-2);
+            margin: 0 0 22px;
+          }
+          .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            height: 48px;
+            padding: 0 24px;
+            border-radius: 999px;
+            font-size: 15px;
+            font-weight: 600;
+            border: none;
+            background: var(--violeta);
+            color: #fff;
+          }
+          .summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 22px;
+          }
+          .stat-tile {
+            background: var(--superficie);
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 6px 20px rgba(20, 17, 26, 0.06);
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+          }
+          .stat-tile .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            flex-shrink: 0;
+          }
+          .stat-tile .n {
+            font-size: 20px;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+          }
+          .stat-tile .l {
+            font-size: 12.5px;
+            color: var(--texto-2);
+          }
+          .roster {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            background: var(--superficie);
+            border: 1px solid var(--borde);
+            border-radius: 20px;
+            padding: 8px;
+          }
+          .rrow {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 16px;
+            border-radius: 14px;
+            min-height: 64px;
+          }
+          .rrow:hover {
+            background: var(--fila-hover);
+          }
+          .rav {
+            width: 38px;
+            height: 38px;
+            border-radius: 999px;
+            background: var(--violeta-suave);
+            color: var(--violeta);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 600;
+            flex-shrink: 0;
+          }
+          .rinfo {
+            flex: 1;
+            min-width: 0;
+          }
+          .rname {
+            font-size: 14.5px;
+            font-weight: 500;
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .just-info {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--texto-3);
+            margin-top: 2px;
+          }
+          .seg2 {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+            width: 172px;
+            justify-content: flex-end;
+          }
+          .seg2 button {
+            height: 36px;
+            padding: 0 16px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            border: 2px solid var(--borde);
+            background: var(--superficie);
+            color: var(--texto-2);
+          }
+          .seg2 button.presente.sel {
+            background: var(--exito-suave);
+            border-color: var(--exito);
+            color: var(--exito);
+          }
+          .seg2 button.ausente.sel {
+            background: var(--error-suave);
+            border-color: var(--error);
+            color: var(--error);
+          }
+          .seg3 {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+            width: 264px;
+            justify-content: flex-end;
+          }
+          .seg3 button {
+            height: 36px;
+            padding: 0 13px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            border: 2px solid var(--borde);
+            background: var(--superficie);
+            color: var(--texto-2);
+          }
+          .seg3 button.presente.sel {
+            background: var(--exito-suave);
+            border-color: var(--exito);
+            color: var(--exito);
+          }
+          .seg3 button.tardanza.sel {
+            background: var(--advertencia-suave);
+            border-color: var(--advertencia);
+            color: var(--advertencia);
+          }
+          .seg3 button.ausente.sel {
+            background: var(--error-suave);
+            border-color: var(--error);
+            color: var(--error);
+          }
+
+          /* v4-card-text-override */
+
+          .div-card .n {
+            color: #175cd3;
+          }
+          .div-card .doc {
+            color: #124aa9;
+          }
+          .grp-card .div {
+            color: #175cd3;
+          }
+          .grp-card .lvl {
+            color: #124aa9;
+          }
+          .lvl-title {
+            color: #175cd3;
+          }
+          .lvl-sub {
+            color: #124aa9;
+          }
+        </style>
+      </helmet>
+      <div class="page">
+        <div class="topbar">
+          <div class="brand">
+            <div class="mark">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="#fff"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M12 3.5 20 8v8l-8 4.5L4 16V8z" />
+              </svg>
+            </div>
+            <span class="word">ESSERI</span>
+          </div>
+          <div class="topnav">
+            <a>Inicio</a><a class="active">Tomar asistencia</a><a>Historial</a>
+          </div>
+          <div class="ctx-date">Hoy, martes 25 de agosto</div>
+          <div class="bell">
+            <svg
+              viewBox="0 0 24 24"
+              width="19"
+              height="19"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M6 10a6 6 0 0 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 14 6 10Z" /></svg
+            ><span class="ping"></span>
+          </div>
+          <div class="avatar">JA</div>
+        </div>
+        <div class="content">
+          <p class="crumb">
+            Inicio<span class="sep">/</span><span class="current">Tomar asistencia</span>
+          </p>
+          <div class="page-header">
+            <h1 class="page-title">4°B · Matemática</h1>
+            <button class="btn">
+              <svg
+                viewBox="0 0 24 24"
+                width="17"
+                height="17"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="m5 12 5 5 9-10" /></svg
+              >Guardar
+            </button>
+          </div>
+          <p class="sub">
+            25/08/2026 · marcá presente, tardanza o ausente. La justificación la resuelve Secretaría
+            o Dirección, no el docente
+          </p>
+          <div class="summary" style="grid-template-columns: repeat(4, 1fr)">
+            <div class="stat-tile">
+              <span class="dot" style="background: var(--exito)"></span><span class="n">3</span
+              ><span class="l">Presentes</span>
+            </div>
+            <div class="stat-tile">
+              <span class="dot" style="background: var(--advertencia)"></span
+              ><span class="n">1</span><span class="l">Tardanzas</span>
+            </div>
+            <div class="stat-tile">
+              <span class="dot" style="background: var(--error)"></span><span class="n">1</span
+              ><span class="l">Ausentes</span>
+            </div>
+            <div class="stat-tile">
+              <span class="dot" style="background: var(--desactivado)"></span
+              ><span class="n">0</span><span class="l">Sin marcar</span>
+            </div>
+          </div>
+          <div class="roster">
+            <div class="rrow">
+              <div class="rav">MI</div>
+              <div class="rinfo"><span class="rname">Ibáñez Roldán, Martina</span></div>
+              <div class="seg3">
+                <button class="presente sel">Presente</button
+                ><button class="tardanza">Tardanza</button><button class="ausente">Ausente</button>
+              </div>
+            </div>
+            <div class="rrow">
+              <div class="rav">BS</div>
+              <div class="rinfo">
+                <span class="rname">Souto Elizalde, Bautista</span>
+                <div class="just-info">
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="12"
+                    height="12"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.7"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path
+                      d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"
+                    /></svg
+                  >Ausente pendiente · notificado a responsables
+                </div>
+              </div>
+              <div class="seg3">
+                <button class="presente">Presente</button><button class="tardanza">Tardanza</button
+                ><button class="ausente sel">Ausente</button>
+              </div>
+            </div>
+            <div class="rrow">
+              <div class="rav">CP</div>
+              <div class="rinfo"><span class="rname">Perea Villagra, Constanza</span></div>
+              <div class="seg3">
+                <button class="presente sel">Presente</button
+                ><button class="tardanza">Tardanza</button><button class="ausente">Ausente</button>
+              </div>
+            </div>
+            <div class="rrow">
+              <div class="rav">TD</div>
+              <div class="rinfo"><span class="rname">Domínguez Achával, Tomás</span></div>
+              <div class="seg3">
+                <button class="presente">Presente</button
+                ><button class="tardanza sel">Tardanza</button
+                ><button class="ausente">Ausente</button>
+              </div>
+            </div>
+            <div class="rrow">
+              <div class="rav">AF</div>
+              <div class="rinfo"><span class="rname">Ferraro Mansilla, Agustín</span></div>
+              <div class="seg3">
+                <button class="presente sel">Presente</button
+                ><button class="tardanza">Tardanza</button><button class="ausente">Ausente</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </x-dc>
+  </body>
+</html>
