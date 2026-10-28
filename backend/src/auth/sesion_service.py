@@ -197,6 +197,9 @@ def resolver_usuario_google(
         registrar_acceso(db, RESULTADO_FALLIDO, ip_origen, usuario.id)
         raise CredencialesInvalidas()
 
+    # Se refrescan en cada login: son datos de Google, no reemplazan a PERSONA.
+    usuario.nombre_google = identidad.nombre
+    usuario.avatar_url = identidad.foto_url
     return usuario
 
 

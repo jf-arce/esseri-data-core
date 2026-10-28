@@ -192,3 +192,61 @@ def test_verify_id_token_descarta_foto_que_no_es_https(monkeypatch):
     identidad = _verificar_con_claims(monkeypatch, {"picture": "http://ejemplo.com/a.png"})
 
     assert identidad.foto_url is None
+
+
+def _callback(client, iniciar_flujo_google):
+    state = iniciar_flujo_google()
+    return client.get(f"/auth/google/callback?code=abc&state={state}", follow_redirects=False)
+
+
+def test_login_guarda_nombre_y_foto_y_el_siguiente_los_actualiza(
+    client, db_session, usuario_google, google_responde, iniciar_flujo_google
+):
+    google_responde(
+        usuario_google.email,
+        usuario_google.provider_subject,
+        nombre="Ana Pérez",
+        foto_url="https://lh3.googleusercontent.com/a",
+    )
+    _callback(client, iniciar_flujo_google)
+    db_session.refresh(usuario_google)
+    assert usuario_google.nombre_google == "Ana Pérez"
+    assert usuario_google.avatar_url == "https://lh3.googleusercontent.com/a"
+
+    google_responde(
+        usuario_google.email,
+        usuario_google.provider_subject,
+        nombre="Ana P.",
+        foto_url="https://lh3.googleusercontent.com/b",
+    )
+    _callback(client, iniciar_flujo_google)
+    db_session.refresh(usuario_google)
+    assert usuario_google.nombre_google == "Ana P."
+    assert usuario_google.avatar_url == "https://lh3.googleusercontent.com/b"
+
+
+def test_login_rechazado_no_toca_nombre_ni_foto(
+    client,
+    db_session,
+    usuario_google,
+    usuario_local,
+    usuario_inactivo,
+    google_responde,
+    iniciar_flujo_google,
+):
+    datos = {"nombre": "Intruso", "foto_url": "https://lh3.googleusercontent.com/x"}
+
+    # subject distinto
+    google_responde(usuario_google.email, "otro-sub", **datos)
+    _callback(client, iniciar_flujo_google)
+    # email sin verificar sobre una cuenta sin vincular
+    google_responde(usuario_local.email, "sub-local", email_verified=False, **datos)
+    _callback(client, iniciar_flujo_google)
+    # usuario inactivo
+    google_responde(usuario_inactivo.email, usuario_inactivo.provider_subject, **datos)
+    _callback(client, iniciar_flujo_google)
+
+    for usuario in (usuario_google, usuario_local, usuario_inactivo):
+        db_session.refresh(usuario)
+        assert usuario.nombre_google is None
+        assert usuario.avatar_url is None
