@@ -1,0 +1,4 @@
+# Los scripts de shell tienen que tener finales LF aunque se clonen en Windows: con CRLF, bash
+# falla con "command not found" por el retorno de carro (por ejemplo, infra/demo/*.sh en la
+# notebook de la demo).
+*.sh text eol=lf
