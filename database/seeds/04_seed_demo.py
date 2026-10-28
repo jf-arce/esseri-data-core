@@ -45,6 +45,7 @@ from src.auth.sesion_service import hashear_password
 from src.config import settings
 from src.database import SessionLocal
 from src.facturacion.calendario_facturacion import fecha_operativa_argentina
+from src.facturacion.cuenta_corriente_service import registrar_pago_en_transaccion
 from src.facturacion.models import (
     ConceptoCobro,
     Factura,
@@ -891,10 +892,13 @@ def _ensure_facturacion(db, usuario: Usuario, inscripciones: list[Inscripcion], 
                 "usuario_registro_id": usuario.id,
             }
             if pago is None:
-                db.add(Pago(**datos_pago))
+                pago = Pago(**datos_pago)
+                db.add(pago)
             else:
                 for campo, valor in datos_pago.items():
                     setattr(pago, campo, valor)
+            db.flush()
+            registrar_pago_en_transaccion(db, pago)
     db.flush()
 
 

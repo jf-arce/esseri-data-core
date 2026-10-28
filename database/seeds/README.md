@@ -60,6 +60,9 @@ docker compose exec -e ESSERI_DEMO_SEED_ENABLED=true backend python /database/se
 La cuenta creada es `demo.admin@esseri.local`; la contraseña por defecto es
 `EsseriDemo2026!`. Puede reemplazarse solo para la carga con `ESSERI_DEMO_PASSWORD`.
 El script rechaza `ENVIRONMENT=production`/`prod` y es idempotente para sus propias claves demo.
+Cada pago aprobado procesado por el seed registra un único movimiento de haber en la cuenta
+corriente. Repetir la carga no duplica ese crédito; los pagos de períodos anteriores que la
+carga ya no procesa requieren una reparación explícita, limitada a la base demo.
 
 **Reglas de workflow de la demo (#216).** Sobre `factura.vencida` crea dos reglas que usan el
 campo `dias_vencido`: `Mora > 15 días: crear tarea` (`crear_tarea`, tarea para el rol
