@@ -419,6 +419,18 @@ que los requieran se guardan junto al pago en la base de datos; se aceptan PDF, 
 
 ## Tests
 
+### Panel de Dirección
+
+`GET /panel-admin/evolucion-financiera` compara facturación emitida y pagos aprobados
+del año actual, agrupados por mes hasta hoy. Exige lectura del panel y de facturación;
+no representa gastos ni incluye movimientos futuros.
+
+`GET /panel-admin/actividad-reciente?limite=6` devuelve hechos registrados de compras,
+finanzas y alumnos, del más reciente al más antiguo (`limite` entre 1 y 20). Consulta
+eventos de negocio y auditoría sin inventar actividad. Cada categoría exige el permiso
+de lectura de su módulo para el rol activo. Los registros de asistencia no se convierten
+en alertas, porque no hay un criterio de negocio definido para ello.
+
 ### Consulta filtrada de asistencia
 
 `GET /academico/asistencias/consulta` exige `academico.leer` y un `ciclo_lectivo` de
