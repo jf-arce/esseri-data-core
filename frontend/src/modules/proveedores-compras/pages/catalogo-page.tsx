@@ -2,6 +2,7 @@ import { BoxesIcon, PlusIcon, ShieldAlertIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { useAbrirDesdeUrl } from '@/hooks/use-abrir-desde-url'
 import { ConfirmarEliminacion } from '@/components/confirmar-eliminacion'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { PageHeader } from '@/components/page-header'
@@ -26,6 +27,10 @@ export function CatalogoPage() {
   const [dialogoAbierto, setDialogoAbierto] = useState(false)
   const [productoEditando, setProductoEditando] = useState<ProductoServicio | null>(null)
   const [productoAEliminar, setProductoAEliminar] = useState<ProductoServicio | null>(null)
+  useAbrirDesdeUrl('crear', () => {
+    setProductoEditando(null)
+    setDialogoAbierto(true)
+  })
   const [productoConPrecios, setProductoConPrecios] = useState<ProductoServicio | null>(null)
 
   const [busqueda, setBusqueda] = useState('')
