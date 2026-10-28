@@ -182,6 +182,29 @@ REGLAS_VENCIMIENTO = [
     },
 ]
 
+# Loop A de la demo (#209): al confirmar una inscripción se emite la matrícula (con aprobación
+# humana, default de la acción) y se manda la bienvenida a la familia. Las admisiones son del ciclo
+# siguiente y la regla de facturación de matrícula es del ciclo actual, así que la regla de Workflows
+# fija el monto de la matrícula de la demo.
+IMPORTE_MATRICULA = Decimal("120000.00")
+PLANTILLA_BIENVENIDA = {
+    "nombre": "Bienvenida a la familia",
+    "asunto": "¡Bienvenidos a ESSERI, familia de {{alumno_nombre}}!",
+    "cuerpo": (
+        "Estimada familia:\n\n"
+        "Nos alegra confirmar la inscripción de {{alumno_nombre}} en {{nivel_educativo}} desde "
+        "el {{fecha}}.\n\n"
+        "En los próximos días les vamos a enviar la información del inicio de clases. Ante "
+        "cualquier consulta, pueden escribirnos por este medio.\n\n"
+        "¡Bienvenidos!"
+    ),
+}
+
+# Solicitud lista para "Finalizar admisión e inscribir" en vivo: la madre ya tiene cuenta, así la
+# bienvenida le llega. Si la última ya se finalizó, el seed crea otra con el aspirante siguiente.
+CONTACTO_EN_VIVO = ("28555001", "Lorena", "Benítez", "+54 9 221 555-1101", "F")
+NOMBRES_EN_VIVO = ["Lucía", "Bruno", "Emma", "Tomás", "Olivia", "Benjamín"]
+
 CUENTAS_PERSONAL = [("administracion", "administración"), ("direccion", "dirección")]
 
 # Reglas de Compras de la demo (#214): aprobar una solicitud arma la orden (con aprobación
@@ -906,7 +929,7 @@ def _ensure_facturacion(db, usuario: Usuario, inscripciones: list[Inscripcion], 
         nombre="DEMO · Matrícula anual",
         concepto=concepto_matricula,
         ciclo=ciclo,
-        importe=Decimal("120000.00"),
+        importe=IMPORTE_MATRICULA,
         periodicidad="anual",
         vigencia_desde=periodo_actual,
         vigencia_hasta=fin_ciclo,
@@ -1075,6 +1098,94 @@ def _ensure_reglas_compras(db, usuario: Usuario):
     db.flush()
     for evento, regla in REGLAS_COMPRAS:
         _ensure_regla_workflow(db, usuario, _require(db, TipoEvento, nombre=evento), regla)
+
+
+def _ensure_admision_en_vivo(db, usuario: Usuario, niveles: dict[str, NivelEducativo], hoy: date):
+    """Deja siempre una solicitud de Nivel Primario lista para finalizar el alta en vivo (#209)."""
+    dni, nombre, apellido, telefono, sexo = CONTACTO_EN_VIVO
+    contacto = _persona(db, dni, nombre, apellido, telefono, sexo)
+    _ensure_cuenta_demo(db, contacto.id, _email_demo(f"familia-{dni}"), None)
+
+    indice = 0
+    while True:
+        dni_aspirante = f"5092{indice + 1:04d}"
+        aspirante = db.scalar(select(Persona).where(Persona.dni == dni_aspirante).limit(1))
+        if aspirante is None:
+            break
+        finalizada = db.scalar(
+            select(Inscripcion.id)
+            .join(
+                SolicitudInscripcion,
+                SolicitudInscripcion.id == Inscripcion.solicitud_inscripcion_id,
+            )
+            .where(SolicitudInscripcion.aspirante_persona_id == aspirante.id)
+            .limit(1)
+        )
+        if finalizada is None:
+            return
+        indice += 1
+
+    aspirante = _persona(
+        db, dni_aspirante, NOMBRES_EN_VIVO[indice % len(NOMBRES_EN_VIVO)], apellido, sexo=None
+    )
+    solicitud = SolicitudInscripcion(
+        ciclo_lectivo=str(hoy.year + 1),
+        etapa="inscripcion_confirmada",
+        estado="aprobada",
+        fecha_solicitud=hoy - timedelta(days=20),
+        fecha_resolucion=hoy - timedelta(days=1),
+        observaciones="Lista para finalizar el alta en vivo durante la demo.",
+        aspirante_persona_id=aspirante.id,
+        contacto_persona_id=contacto.id,
+        contacto_parentesco="Madre",
+        nivel_educativo_id=niveles["Nivel Primario"].id,
+        usuario_id=usuario.id,
+    )
+    db.add(solicitud)
+    db.flush()
+    db.add(
+        EtapaSolicitud(
+            etapa="inscripcion_confirmada",
+            estado="completada",
+            fecha=datetime.now(UTC) - timedelta(days=1),
+            observaciones="Documentación y contrato completos.",
+            solicitud_inscripcion_id=solicitud.id,
+            usuario_id=usuario.id,
+        )
+    )
+    db.flush()
+
+
+def _ensure_reglas_loop_a(db, usuario: Usuario):
+    """Reglas del Loop A: cargo de matrícula y bienvenida a la familia (#209)."""
+    if not db.scalar(
+        select(NotificacionTemplate).where(
+            NotificacionTemplate.nombre == PLANTILLA_BIENVENIDA["nombre"]
+        )
+    ):
+        crear_plantilla(db, NotificacionTemplateCreate(**PLANTILLA_BIENVENIDA), usuario.id)
+    db.flush()
+    tipo_evento = _require(db, TipoEvento, nombre="inscripcion.confirmada")
+    matricula = _require(db, ConceptoCobro, nombre="Matrícula")
+    for regla in (
+        {
+            "nombre": "Loop A 1: cargo de matrícula",
+            "tipo_accion": "generar_cargo",
+            "accion_config": {
+                "concepto_cobro_id": str(matricula.id),
+                "monto": str(IMPORTE_MATRICULA),
+            },
+            "criticidad": "media",
+        },
+        {
+            "nombre": "Loop A 2: bienvenida a la familia",
+            "tipo_accion": "notificar",
+            "accion_config": {"destinatario": "responsables_habilitados"},
+            "criticidad": "baja",
+            "plantilla": PLANTILLA_BIENVENIDA["nombre"],
+        },
+    ):
+        _ensure_regla_workflow(db, usuario, tipo_evento, regla)
 
 
 def _email_demo(alias: str) -> str:
@@ -1494,6 +1605,7 @@ def seed_demo():
 
         print("[5/9] Admisiones")
         _ensure_admisiones(db, usuario, niveles, hoy)
+        _ensure_admision_en_vivo(db, usuario, niveles, hoy)
         db.commit()
 
         print("[6/9] Reglas, ejecuciones, facturas y pagos")
@@ -1508,6 +1620,7 @@ def seed_demo():
         _ensure_reglas_vencimiento(db, usuario)
         _ensure_reglas_inasistencia(db, usuario)
         _ensure_reglas_compras(db, usuario)
+        _ensure_reglas_loop_a(db, usuario)
         db.commit()
 
         print("[8/9] Proveedores, solicitudes, órdenes y recepciones")

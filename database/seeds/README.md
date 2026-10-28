@@ -97,6 +97,23 @@ Eso genera `equipo+administracion@gmail.com`, `equipo+direccion@gmail.com` y
 `equipo+familia-<dni>@gmail.com`. Hay que sembrar antes de la primera detección de vencidas: el
 detector da por emitido un tramo aunque su evento ya se haya procesado.
 
+**Reglas de Compras (#214).** `Compras 1: generar orden de compra` (`generar_orden_compra` sobre
+`solicitud_compra.aprobada`, con aprobación humana), `Compras 2: alerta al área de Compras`
+(`alerta_interna` al rol `compras`, cuenta `compras@esseri.local`, sobre `orden_compra.emitida`) y
+`Compras 3: aviso al solicitante` (`notificar` al destinatario `solicitante` sobre
+`recepcion_compra.registrada`), con sus plantillas. Las solicitudes pendientes del seed son de
+productos con un solo proveedor, así que al aprobarlas la orden se arma sola.
+
+**Loop A (#206, #209).** Sobre `inscripcion.confirmada`: `Loop A 1: cargo de matrícula`
+(`generar_cargo` con el concepto Matrícula y el monto de la matrícula de la demo, con aprobación
+humana) y `Loop A 2: bienvenida a la familia` (`notificar` a los responsables habilitados con la
+plantilla `Bienvenida a la familia`). El monto va en la regla porque las admisiones son del ciclo
+siguiente y la regla de facturación de matrícula es del actual. Para el alta en vivo, el seed deja
+siempre una solicitud de Nivel Primario lista para "Finalizar admisión e inscribir" (aspirante
+`Benítez`, DNI `5092xxxx`), con la madre como contacto y su cuenta `familia-28555001@esseri.local`
+para que la bienvenida le llegue; al finalizarla hay que elegir "usar el contacto como familia". Si
+ya se finalizó, volver a correr el seed crea otra con el aspirante siguiente.
+
 **Loop de inasistencias (#218).** Además crea 4 plantillas y 4 reglas sobre los eventos de asistencia, todas hacia los responsables habilitados de la familia: `Inasistencia: avisar a la familia` y `Tardanza: avisar a la familia` (`notificar` sobre `inasistencia.registrada`, según `tipo_asistencia`), `Inasistencia justificada: avisar a la familia` (`notificar` sobre `inasistencia.justificada`) e `Inasistencia sin justificar: recordatorio` (`generar_recordatorio` a los 2 días, solo si la inasistencia sigue sin justificar). El aviso de justificación es neutral porque el evento no dice si se aprobó o se rechazó. Los emails salen por n8n (`N8N_WEBHOOK_URL`): sin configurar, las ejecuciones quedan `fallido`.
 
 ### Regenerar la demo

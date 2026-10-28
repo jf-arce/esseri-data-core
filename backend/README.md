@@ -298,7 +298,8 @@ por el inicio de la ejecución (la más reciente primero), porque `NOTIFICACION`
 y `sent_at` es `NULL` en las fallidas. Un reintento aparece como filas nuevas con su `intento`.
 
 **Estado actual:** `notificar`, `alerta_interna`, `aplicar_vencimiento`, `cambiar_estado`,
-`aplicar_penalidad`, `crear_tarea`, `escalar_caso` y `generar_recordatorio` tienen ejecutor real.
+`aplicar_penalidad`, `crear_tarea`, `escalar_caso`, `generar_recordatorio`,
+`generar_orden_compra`, `generar_comunicacion` y `generar_cargo` tienen ejecutor real.
 Facturación además emite `pago.registrado` al confirmar un pago aprobado, antes de confirmar la misma
 transacción que escribe el pago y el movimiento de cuenta corriente. El resto de `ACCIONES`
 (`despacho_service.py`) sigue con un stub por dueño que devuelve "acción no implementada", así que una
@@ -309,9 +310,25 @@ hasta que su dueño lo reemplace (#199):
 |---|---|---|
 | `aplicar_vencimiento`, `cambiar_estado` | `acciones_vencimiento_service.py` | Arce |
 | `aplicar_penalidad` | `acciones_penalidad_service.py` | Canu |
-| `generar_cargo` | `acciones_admision_service.py` | Carreon |
+| `generar_cargo` | `acciones_admision_service.py` | Canu |
 | `registrar_rechazo` | `acciones_pagos_service.py` | Carreon |
 | `generar_orden_compra`, `generar_comunicacion` | `acciones_compras_service.py` | Canu |
+
+**`generar_orden_compra` (#212):** emite la orden de una solicitud aprobada con el único
+proveedor activo de su ítem; con un artículo fuera de catálogo, sin proveedor o con varios falla con
+un motivo claro. Una solicitud que ya está en una orden no genera otra.
+
+**`generar_comunicacion` (#213):** arma el mensaje igual que `notificar` pero no lo envía: lo deja
+como sugerencia de comunicación (`entidad = workflow_execution`) en la bandeja de IA/Sugerencias.
+Aprobarla envía exactamente lo revisado y registra cada `NOTIFICACION` en la ejecución; rechazarla
+la descarta. `notificar` admite además el destinatario `solicitante` (#214): quien pidió la compra,
+solo en eventos de Compras.
+
+**`generar_cargo` (#208):** emite el cargo del concepto de la regla como factura con su movimiento.
+El monto sale de `accion_config` o de la regla de facturación activa del concepto que alcanza a la
+inscripción; el vencimiento, de su día de vencimiento (sin regla, a los 10 días). Idempotente por
+alumno, concepto y período (ciclo lectivo en `inscripcion.confirmada`, mes del pago en
+`pago.rechazado`). En un alta nueva le cobra al responsable ya programado.
 
 **`generar_recordatorio` (#218):** manda el mismo email que `notificar` (misma plantilla y mismos
 destinatarios, con la config de `generar_recordatorio`) pero `dias_despues` días después del evento, y
