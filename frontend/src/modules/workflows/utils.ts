@@ -174,13 +174,18 @@ const entero = (nombre: string): CampoConfig => ({ nombre, tipo: 'entero' })
 const decimal = (nombre: string): CampoConfig => ({ nombre, tipo: 'decimal' })
 
 const CAMPOS_DESTINATARIO = [texto(CLAVE_CONFIG.destinatario)]
+const CAMPO_ENLACE = texto(CLAVE_CONFIG.enlace)
 
 /** Campos de `accion_config` por acción (`CONFIG_POR_ACCION` del backend). */
 export const CAMPOS_POR_ACCION: Record<TipoAccion, readonly CampoConfig[]> = {
-  notificar: CAMPOS_DESTINATARIO,
+  notificar: [...CAMPOS_DESTINATARIO, CAMPO_ENLACE],
   generar_comunicacion: CAMPOS_DESTINATARIO,
-  generar_recordatorio: [texto(CLAVE_CONFIG.destinatario), entero(CLAVE_CONFIG.diasDespues)],
-  alerta_interna: [texto(CLAVE_CONFIG.mensaje)],
+  generar_recordatorio: [
+    texto(CLAVE_CONFIG.destinatario),
+    entero(CLAVE_CONFIG.diasDespues),
+    CAMPO_ENLACE,
+  ],
+  alerta_interna: [texto(CLAVE_CONFIG.mensaje), CAMPO_ENLACE],
   crear_tarea: [
     texto(CLAVE_CONFIG.titulo),
     texto(CLAVE_CONFIG.descripcion),

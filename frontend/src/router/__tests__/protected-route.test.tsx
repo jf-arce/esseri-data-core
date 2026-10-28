@@ -18,6 +18,7 @@ function renderConEstado() {
 }
 
 beforeEach(() => {
+  sessionStorage.clear()
   useAuthStore.setState({ usuario: null, status: 'idle' })
 })
 
@@ -35,6 +36,22 @@ describe('ProtectedRoute', () => {
     renderConEstado()
 
     expect(screen.getByText('Login')).toBeInTheDocument()
+  })
+
+  it('recuerda la pantalla pedida cuando manda a iniciar sesión', () => {
+    useAuthStore.setState({ status: 'unauthenticated' })
+    render(
+      <MemoryRouter initialEntries={['/privado?x=1']}>
+        <Routes>
+          <Route path="/login" element={<p>Login</p>} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/privado" element={<p>Privado</p>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(sessionStorage.getItem('esseri:destino')).toBe('/privado?x=1')
   })
 
   it('renderiza la ruta si hay sesión', () => {

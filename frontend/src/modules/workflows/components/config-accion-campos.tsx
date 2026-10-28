@@ -20,6 +20,8 @@ import {
   RANGO_DIAS_TAREA,
   RANGO_MONTO,
   TIPOS_ASIENTO,
+  ENLACES_MAIL,
+  SIN_ENLACE,
 } from '@/modules/workflows/constants'
 import type { CampoEvento, OpcionSelect, TipoAccion } from '@/modules/workflows/types'
 
@@ -134,6 +136,19 @@ function SinParametros() {
   return <p className="text-sm text-texto-2">Esta acción no tiene parámetros.</p>
 }
 
+// Botón opcional del mail. "Sin botón" se guarda como valor vacío, que `armarConfig` omite.
+const enlace = (p: FormularioProps) => (
+  <CampoSelect
+    {...p}
+    nombre={CLAVE_CONFIG.enlace}
+    etiqueta="Botón en el mail"
+    opciones={[{ value: SIN_ENLACE, label: 'Sin botón' }, ...ENLACES_MAIL]}
+    placeholder="Sin botón"
+    descripcion="Agrega un botón que lleva a esa pantalla de la app. Hay que iniciar sesión para verla."
+    onCambiar={(nombre, valor) => p.onCambiar(nombre, valor === SIN_ENLACE ? '' : valor)}
+  />
+)
+
 const destinatario = (p: FormularioProps) => (
   <CampoSelect
     {...p}
@@ -146,7 +161,12 @@ const destinatario = (p: FormularioProps) => (
 // Un formulario por acción. El `Record` es exhaustivo: sumar un `TipoAccion` sin su formulario
 // no compila. No se renderiza desde el JSON Schema porque los widgets son de dominio.
 const FORMULARIOS: Record<TipoAccion, (props: FormularioProps) => ReactNode> = {
-  notificar: destinatario,
+  notificar: (p) => (
+    <>
+      {destinatario(p)}
+      {enlace(p)}
+    </>
+  ),
   generar_comunicacion: destinatario,
   generar_recordatorio: (p) => (
     <>
@@ -159,16 +179,20 @@ const FORMULARIOS: Record<TipoAccion, (props: FormularioProps) => ReactNode> = {
         limites={RANGO_DIAS_RECORDATORIO}
         descripcion={`Entre ${RANGO_DIAS_RECORDATORIO.min} y ${RANGO_DIAS_RECORDATORIO.max} días.`}
       />
+      {enlace(p)}
     </>
   ),
   alerta_interna: (p) => (
-    <CampoTexto
-      {...p}
-      nombre={CLAVE_CONFIG.mensaje}
-      etiqueta="Mensaje"
-      multilinea
-      maxLength={LIMITE_MENSAJE_ALERTA}
-    />
+    <>
+      <CampoTexto
+        {...p}
+        nombre={CLAVE_CONFIG.mensaje}
+        etiqueta="Mensaje"
+        multilinea
+        maxLength={LIMITE_MENSAJE_ALERTA}
+      />
+      {enlace(p)}
+    </>
   ),
   crear_tarea: (p) => (
     <>

@@ -119,6 +119,7 @@ export const CLAVE_CONFIG = {
   campoMonto: 'campo_monto',
   reglaPenalidadId: 'regla_penalidad_id',
   registro: 'registro',
+  enlace: 'enlace',
 } as const
 
 /** Único valor que admite `crear_registro_relacionado.registro`. */
@@ -148,6 +149,14 @@ export const DESTINATARIOS: OpcionSelect[] = [
   { value: 'responsables_habilitados', label: 'Responsables habilitados' },
   { value: DESTINATARIO_REGLA, label: 'Destinatarios de la regla' },
 ]
+// Botón del mail (`EnlaceMail` del backend): la ruta la fija el backend, acá solo se elige la clave.
+export const ENLACES_MAIL: OpcionSelect[] = [
+  { value: 'familia_justificar', label: 'Justificar la inasistencia (portal de familias)' },
+  { value: 'ejecuciones', label: 'Revisar en ESSERI (historial de ejecuciones)' },
+  { value: 'tareas', label: 'Ver mis tareas' },
+]
+/** `Select` no admite un valor vacío: esta clave representa "sin botón" y se guarda como ''. */
+export const SIN_ENLACE = 'sin_boton'
 export const PRIORIDADES: OpcionSelect[] = [
   { value: 'baja', label: 'Baja' },
   { value: 'media', label: 'Media' },

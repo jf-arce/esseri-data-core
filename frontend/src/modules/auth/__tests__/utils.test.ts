@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  consumirDestino,
   filtrarPermisosDeMatriz,
   filtrarYOrdenarPermisos,
   filtrarYOrdenarRoles,
   filtrarYOrdenarUsuarios,
+  guardarDestino,
   nombreDeUsuario,
   nombreVisibleDeUsuario,
 } from '@/modules/auth/utils'
@@ -241,5 +243,49 @@ describe('filtrarPermisosDeMatriz', () => {
       modulos: ['Familias y Alumnos'],
     })
     expect(resultado.map((p) => p.id)).toEqual(['p1'])
+  })
+})
+
+beforeEach(() => {
+  sessionStorage.clear()
+})
+
+describe('destino post login', () => {
+  it('guarda la ruta con su query y la entrega una sola vez', () => {
+    guardarDestino('/workflows/ejecuciones?estado=pendiente')
+
+    expect(consumirDestino()).toBe('/workflows/ejecuciones?estado=pendiente')
+    expect(consumirDestino()).toBeNull()
+  })
+
+  it('sin destino guardado devuelve null', () => {
+    expect(consumirDestino()).toBeNull()
+  })
+
+  it.each(['//evil.com', 'https://evil.com/x', '/\\evil.com', 'javascript:alert(1)', 'evil'])(
+    'no guarda %s',
+    (ruta) => {
+      guardarDestino(ruta)
+
+      expect(consumirDestino()).toBeNull()
+    },
+  )
+
+  it.each(['//evil.com', 'https://evil.com', '/\\evil.com'])(
+    'descarta un valor externo que ya estuviera en el almacenamiento (%s)',
+    (ruta) => {
+      sessionStorage.setItem('esseri:destino', ruta)
+
+      expect(consumirDestino()).toBeNull()
+      expect(sessionStorage.getItem('esseri:destino')).toBeNull()
+    },
+  )
+
+  it('no guarda la raíz ni las pantallas de acceso', () => {
+    guardarDestino('/')
+    guardarDestino('/login')
+    guardarDestino('/elegir-perfil')
+
+    expect(consumirDestino()).toBeNull()
   })
 })
