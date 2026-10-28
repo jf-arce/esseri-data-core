@@ -36,6 +36,7 @@ export const PERMISO_FACTURACION_CREAR = 'facturacion.crear'
 export const PERMISO_FACTURACION_ACTUALIZAR = 'facturacion.actualizar'
 
 export const PERMISO_PROVEEDORES_COMPRAS_LEER = 'proveedores_compras.leer'
+export const PERMISO_PROVEEDORES_COMPRAS_CREAR = 'proveedores_compras.crear'
 
 export const PERMISO_WORKFLOWS_LEER = 'workflows.leer'
 export const PERMISO_WORKFLOWS_CREAR = 'workflows.crear'
