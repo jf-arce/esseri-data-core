@@ -6,10 +6,11 @@ import {
   filtrarYOrdenarRoles,
   filtrarYOrdenarUsuarios,
   guardarDestino,
+  nombreDeSesion,
   nombreDeUsuario,
   nombreVisibleDeUsuario,
 } from '@/modules/auth/utils'
-import type { Permiso, Rol, UsuarioConRoles } from '@/modules/auth/types'
+import type { Permiso, Rol, UsuarioActual, UsuarioConRoles } from '@/modules/auth/types'
 
 const ROL_DOCENTE = { id: 'r1', codigo: 'docente', nombre: 'Docente', descripcion: null }
 const ROL_FAMILIA = { id: 'r2', codigo: 'familia', nombre: 'Familia', descripcion: null }
@@ -287,5 +288,47 @@ describe('destino post login', () => {
     guardarDestino('/elegir-perfil')
 
     expect(consumirDestino()).toBeNull()
+  })
+})
+
+describe('nombreDeSesion', () => {
+  const sesion: UsuarioActual = {
+    id: 'u1',
+    email: 'julieta.amaya@esseri.edu.ar',
+    auth_provider: 'google',
+    estado: 'activo',
+    nombre_google: null,
+    avatar_url: null,
+    persona_nombre: null,
+    persona_apellido: null,
+    roles: [],
+    permisos: [],
+    perfiles: [],
+    rol_activo: null,
+  }
+
+  it('usa el nombre de la persona si existe', () => {
+    expect(
+      nombreDeSesion({ ...sesion, persona_nombre: 'Julieta', persona_apellido: 'Amaya' }),
+    ).toBe('Amaya, Julieta')
+  })
+
+  it('usa el nombre de Google si no hay persona', () => {
+    expect(nombreDeSesion({ ...sesion, nombre_google: 'Juli Amaya' })).toBe('Juli Amaya')
+  })
+
+  it('deriva el nombre del email si no hay persona ni Google', () => {
+    expect(nombreDeSesion(sesion)).toBe('Amaya, Julieta')
+  })
+
+  it('la persona gana si difiere del nombre de Google', () => {
+    expect(
+      nombreDeSesion({
+        ...sesion,
+        nombre_google: 'Juli Amaya',
+        persona_nombre: 'Julieta',
+        persona_apellido: 'Amaya',
+      }),
+    ).toBe('Amaya, Julieta')
   })
 })

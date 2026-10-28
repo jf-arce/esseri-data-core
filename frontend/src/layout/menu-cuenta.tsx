@@ -10,7 +10,7 @@ import {
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,7 +31,8 @@ import {
   colorIdentidad,
   colorIdentidadSuave,
   formatearNombreRol,
-  nombreDeUsuario,
+  inicialesVisiblesDeUsuario,
+  nombreDeSesion,
 } from '@/modules/auth/utils'
 import { useAuthStore } from '@/store/auth-store'
 import { useUiStore } from '@/store/ui-store'
@@ -49,7 +50,7 @@ export function MenuCuenta() {
   const navigate = useNavigate()
   const [cambiarVistaAbierto, setCambiarVistaAbierto] = useState(false)
 
-  const inicialAvatar = usuario?.email.charAt(0).toUpperCase() ?? '?'
+  const inicialesAvatar = usuario ? inicialesVisiblesDeUsuario(usuario) : '?'
   const rolActual = rolActivo
   const nombreRolActivo = usuario?.perfiles.find((perfil) => perfil.codigo === rolActivo)?.nombre
   const otrosRoles: PerfilRol[] = (usuario?.perfiles ?? []).filter(
@@ -91,8 +92,11 @@ export function MenuCuenta() {
           aria-label="Cuenta"
         >
           <Avatar>
+            {usuario?.avatar_url && (
+              <AvatarImage src={usuario.avatar_url} alt="" referrerPolicy="no-referrer" />
+            )}
             <AvatarFallback className="bg-violeta text-xs font-semibold text-superficie">
-              {inicialAvatar}
+              {inicialesAvatar}
             </AvatarFallback>
           </Avatar>
         </button>
@@ -100,7 +104,7 @@ export function MenuCuenta() {
       <DropdownMenuContent align="end" className="w-72">
         <DropdownMenuLabel className="flex flex-col gap-1 px-2.5 pt-2.5 pb-2 text-sm font-normal normal-case tracking-normal text-texto">
           <span className="text-sm font-semibold text-texto">
-            {usuario ? nombreDeUsuario(usuario.email) : ''}
+            {usuario ? nombreDeSesion(usuario) : ''}
           </span>
           <span className="text-xs text-texto-3">{usuario?.email}</span>
           {rolActual && nombreRolActivo && (
