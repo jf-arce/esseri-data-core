@@ -28,6 +28,19 @@ class GoogleIdentity:
     subject: str
     email: str
     email_verified: bool
+    nombre: str | None = None
+    foto_url: str | None = None
+
+
+def _texto_o_none(valor: object) -> str | None:
+    if isinstance(valor, str) and valor.strip():
+        return valor.strip()
+    return None
+
+
+def _foto_https(valor: object) -> str | None:
+    foto = _texto_o_none(valor)
+    return foto if foto and foto.startswith("https://") else None
 
 
 def build_authorization_url(state: str, code_challenge: str) -> str:
@@ -95,4 +108,6 @@ def verify_id_token(raw_id_token: str) -> GoogleIdentity:
         subject=subject,
         email=email.lower(),
         email_verified=bool(claims.get("email_verified", False)),
+        nombre=_texto_o_none(claims.get("name")),
+        foto_url=_foto_https(claims.get("picture")),
     )

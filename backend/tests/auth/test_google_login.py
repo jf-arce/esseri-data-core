@@ -161,3 +161,34 @@ def test_verify_id_token_exige_el_audience_correcto(monkeypatch):
     google_client.verify_id_token("token")
 
     assert capturado["audience"] == "el-client-id"
+
+
+def _verificar_con_claims(monkeypatch, extra):
+    claims = {"iss": "https://accounts.google.com", "sub": "s", "email": "a@b.c", **extra}
+    monkeypatch.setattr(
+        "src.auth.google_client.google_id_token.verify_oauth2_token",
+        lambda raw, request, audience=None: claims,
+    )
+    return google_client.verify_id_token("token")
+
+
+def test_verify_id_token_lee_nombre_y_foto(monkeypatch):
+    identidad = _verificar_con_claims(
+        monkeypatch, {"name": "Ana Pérez", "picture": "https://lh3.googleusercontent.com/a"}
+    )
+
+    assert identidad.nombre == "Ana Pérez"
+    assert identidad.foto_url == "https://lh3.googleusercontent.com/a"
+
+
+def test_verify_id_token_sin_nombre_ni_foto_queda_en_none(monkeypatch):
+    identidad = _verificar_con_claims(monkeypatch, {"name": "  ", "picture": ""})
+
+    assert identidad.nombre is None
+    assert identidad.foto_url is None
+
+
+def test_verify_id_token_descarta_foto_que_no_es_https(monkeypatch):
+    identidad = _verificar_con_claims(monkeypatch, {"picture": "http://ejemplo.com/a.png"})
+
+    assert identidad.foto_url is None
