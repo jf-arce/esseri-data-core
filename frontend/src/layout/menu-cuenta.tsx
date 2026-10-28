@@ -24,6 +24,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { cn } from '@/lib/utils'
 import { rutaInicioDe } from '@/layout/nav-items'
 import { logout } from '@/modules/auth/services/logout'
 import type { PerfilRol } from '@/modules/auth/types'
@@ -40,7 +41,7 @@ import { useUiStore } from '@/store/ui-store'
 // Menú del avatar (§8.1 DESIGN.md), compartido por los dos shells (Consola y Portal): cabecera
 // con rol activo, "Cambiar vista" (solo si la cuenta tiene más de un rol), "Mi cuenta" y
 // "Cerrar sesión" — el mismo mecanismo sin importar desde qué vista se abre.
-export function MenuCuenta() {
+export function MenuCuenta({ className }: { className?: string }) {
   const usuario = useAuthStore((state) => state.usuario)
   const rolActivo = useAuthStore((state) => state.rolActivo)
   const setRolActivo = useAuthStore((state) => state.setRolActivo)
@@ -88,7 +89,7 @@ export function MenuCuenta() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="cursor-pointer rounded-full p-0.5 hover:bg-fila-hover"
+          className={cn('cursor-pointer rounded-full p-0.5 hover:bg-fila-hover', className)}
           aria-label="Cuenta"
         >
           <Avatar>

@@ -94,9 +94,7 @@ export function PortalDocenteLayout() {
           >
             <BellIcon aria-hidden="true" className="size-4" />
           </button>
-          <div className="rounded-full bg-superficie px-1 text-texto">
-            <MenuCuenta />
-          </div>
+          <MenuCuenta className="hover:bg-nav-hover" />
         </div>
       </header>
 
