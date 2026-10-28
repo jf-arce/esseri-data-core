@@ -1,5 +1,12 @@
-import { describe, expect, it } from 'vitest'
-import { ACCIONES, accionesVisibles } from '@/layout/busqueda-global'
+import { describe, expect, it, vi } from 'vitest'
+import {
+  ACCIONES,
+  FUENTES,
+  accionesVisibles,
+  buscarEnFuentes,
+  fuentesVisibles,
+  type FuenteBusqueda,
+} from '@/layout/busqueda-global'
 import type { Permiso } from '@/modules/auth/types'
 
 function permiso(codigo: string): Permiso {
@@ -54,5 +61,59 @@ describe('accionesVisibles', () => {
   it('no repite rutas', () => {
     const rutas = ACCIONES.map((accion) => accion.ruta)
     expect(new Set(rutas).size).toBe(rutas.length)
+  })
+})
+
+describe('fuentesVisibles', () => {
+  const clavesCon = (...codigos: string[]) =>
+    fuentesVisibles(codigos.map(permiso)).map((fuente) => fuente.clave)
+
+  it('sin permisos no hay fuentes', () => {
+    expect(clavesCon()).toEqual([])
+  })
+
+  it('cada fuente se habilita con el .leer de su módulo', () => {
+    expect(clavesCon('familias_alumnos.leer')).toEqual(['alumnos', 'familias'])
+    expect(clavesCon('facturacion.leer')).toEqual(['facturas', 'deudas'])
+    expect(clavesCon('proveedores_compras.leer')).toEqual(['ordenes'])
+  })
+
+  it('las claves son únicas', () => {
+    const claves = FUENTES.map((fuente) => fuente.clave)
+    expect(new Set(claves).size).toBe(claves.length)
+  })
+})
+
+describe('buscarEnFuentes', () => {
+  const contexto = { obtenerUsuarios: async () => [], puedeEditarUsuarios: false }
+  const fuente = (clave: string, buscar: FuenteBusqueda['buscar']): FuenteBusqueda => ({
+    ...FUENTES[0],
+    clave,
+    buscar,
+  })
+
+  it('una fuente que falla no oculta las demás', async () => {
+    const fuentes = [
+      fuente('rota', async () => {
+        throw new Error('sin permiso')
+      }),
+      fuente('ok', async () => [{ id: '1', etiqueta: 'A', detalle: 'B', ruta: '/a' }]),
+    ]
+
+    const resultado = await buscarEnFuentes(fuentes, 'ab', new AbortController().signal, contexto)
+
+    expect(resultado).toEqual({
+      rota: [],
+      ok: [{ id: '1', etiqueta: 'A', detalle: 'B', ruta: '/a' }],
+    })
+  })
+
+  it('pasa la consulta y la señal a cada fuente', async () => {
+    const buscar = vi.fn(async () => [])
+    const controller = new AbortController()
+
+    await buscarEnFuentes([fuente('x', buscar)], 'paz', controller.signal, contexto)
+
+    expect(buscar).toHaveBeenCalledWith('paz', controller.signal, contexto)
   })
 })

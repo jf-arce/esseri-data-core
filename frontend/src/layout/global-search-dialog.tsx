@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
-import {
-  ChevronRightIcon,
-  ClipboardCheckIcon,
-  FileTextIcon,
-  ReceiptTextIcon,
-  UserIcon,
-} from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronRightIcon } from 'lucide-react'
 import { useNavigate } from 'react-router'
-import { accionesVisibles } from '@/layout/busqueda-global'
+import {
+  MINIMO_CARACTERES,
+  accionesVisibles,
+  buscarEnFuentes,
+  fuentesVisibles,
+  type CoincidenciasPorFuente,
+  type FuenteBusqueda,
+} from '@/layout/busqueda-global'
 import { NAV_GROUPS, destinosDe, filtrarNav, type ModuloNav } from '@/layout/nav-items'
 import {
   Command,
@@ -19,22 +20,10 @@ import {
   CommandList,
   CommandSeparator,
 } from '@/components/ui/command'
-import { listarFacturas } from '@/modules/facturacion/services/listar-facturas'
-import { listarInscripciones } from '@/modules/inscripciones/services/listar-inscripciones'
-import { listarSolicitudesAdmision } from '@/modules/inscripciones/services/solicitudes-admision'
-import {
-  PERMISO_AUTENTICACION_ACTUALIZAR,
-  PERMISO_AUTENTICACION_LEER,
-  PERMISO_FACTURACION_LEER,
-  PERMISO_INSCRIPCIONES_LEER,
-  tienePermiso,
-} from '@/modules/auth/constants'
+import { PERMISO_AUTENTICACION_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
 import { getUsuarios } from '@/modules/auth/services/get-usuarios'
 import type { UsuarioConRoles } from '@/modules/auth/types'
-import { filtrarYOrdenarUsuarios, nombreVisibleDeUsuario } from '@/modules/auth/utils'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
-
-const MINIMO_CARACTERES = 2
 
 // Color por módulo (§2.5 DESIGN.md): identifica de un vistazo a qué dominio pertenece cada
 // resultado o destino. Clases completas como literales (nunca `text-mod-${modulo}`): Tailwind
@@ -54,32 +43,21 @@ const COLOR_POR_MODULO = {
 
 interface ResultadoBusqueda {
   clave: string | null
-  inscripciones: Array<{ id: string; etiqueta: string; detalle: string }>
-  admisiones: Array<{ id: string; etiqueta: string; detalle: string }>
-  facturas: Array<{ id: string; etiqueta: string; detalle: string }>
-  usuarios: Array<{ id: string; etiqueta: string; detalle: string }>
+  coincidencias: CoincidenciasPorFuente
 }
 
-const RESULTADO_INICIAL: ResultadoBusqueda = {
-  clave: null,
-  inscripciones: [],
-  admisiones: [],
-  facturas: [],
-  usuarios: [],
-}
+const RESULTADO_INICIAL: ResultadoBusqueda = { clave: null, coincidencias: {} }
 
 function useBusquedaGlobal(
   consulta: string,
   abierto: boolean,
-  puedeVerInscripciones: boolean,
-  puedeVerFacturas: boolean,
-  puedeVerUsuarios: boolean,
+  fuentes: FuenteBusqueda[],
+  puedeEditarUsuarios: boolean,
 ) {
   const [resultado, setResultado] = useState<ResultadoBusqueda>(RESULTADO_INICIAL)
-  // A diferencia de inscripciones/facturas, GET /auth/usuarios no pagina ni busca en el
-  // backend — trae toda la lista. Como es chica (personal, no alumnos), se trae una sola vez
-  // por apertura del diálogo y se filtra en cliente con la misma función que usa la tabla de
-  // Usuarios, en vez de pegarle a la API en cada tecla.
+  // A diferencia del resto, GET /auth/usuarios no pagina ni busca en el backend: trae toda la
+  // lista. Como es chica (personal, no alumnos), se trae una sola vez por apertura del diálogo
+  // y se filtra en cliente con la misma función que usa la tabla de Usuarios.
   const usuariosCache = useRef<UsuarioConRoles[] | null>(null)
 
   useEffect(() => {
@@ -91,93 +69,28 @@ function useBusquedaGlobal(
     const controller = new AbortController()
     const clave = consulta.toLocaleLowerCase()
 
-    // Cada búsqueda se gatea por el mismo permiso `.leer` que protege su ruta (`PermisoRoute`
-    // en `inscripcionesRoutes`/`facturacionRoutes`/`authPrivateRoutes`): sin esto, un rol sin
-    // acceso a Facturación veía facturas ajenas en el buscador y chocaba con "no tenés acceso"
-    // al hacer click.
-    Promise.allSettled([
-      puedeVerInscripciones
-        ? listarInscripciones(
-            {
-              buscar: consulta,
-              pagina: 1,
-              tamanioPagina: 5,
-              ordenarPor: 'alumno',
-              direccion: 'asc',
-            },
-            controller.signal,
-          )
-        : Promise.resolve({ items: [] }),
-      puedeVerInscripciones
-        ? listarSolicitudesAdmision(
-            { buscar: consulta, pagina: 1, tamanioPagina: 5 },
-            controller.signal,
-          )
-        : Promise.resolve({ items: [] }),
-      puedeVerFacturas
-        ? listarFacturas({ buscar: consulta, pagina: 1, tamanio: 5 }, controller.signal)
-        : Promise.resolve({ items: [] }),
-      puedeVerUsuarios
-        ? usuariosCache.current
-          ? Promise.resolve(usuariosCache.current)
-          : getUsuarios().then((datos) => {
-              usuariosCache.current = datos
-              return datos
-            })
-        : Promise.resolve([]),
-    ]).then(
-      ([resultadoInscripciones, resultadoAdmisiones, resultadoFacturas, resultadoUsuarios]) => {
-        if (controller.signal.aborted) return
-        const inscripciones =
-          resultadoInscripciones.status === 'fulfilled' ? resultadoInscripciones.value.items : []
-        const admisiones =
-          resultadoAdmisiones.status === 'fulfilled' ? resultadoAdmisiones.value.items : []
-        const facturas =
-          resultadoFacturas.status === 'fulfilled' ? resultadoFacturas.value.items : []
-        const usuarios = resultadoUsuarios.status === 'fulfilled' ? resultadoUsuarios.value : []
-        const coincidenciasFactura = facturas.map((factura) => ({
-          id: factura.id,
-          etiqueta: `Factura #${factura.id.slice(0, 8)}`,
-          detalle: `${factura.estado} · ${factura.monto_total}`,
-        }))
-        const coincidenciasUsuario = filtrarYOrdenarUsuarios(usuarios, {
-          busqueda: consulta,
-          estado: 'todos',
-          roles: [],
-          orden: 'nombre-asc',
-        })
-          .slice(0, 5)
-          .map((usuario) => ({
-            id: usuario.id,
-            etiqueta: nombreVisibleDeUsuario(usuario),
-            detalle: usuario.email,
-          }))
-        setResultado({
-          clave,
-          inscripciones: inscripciones.map((inscripcion) => ({
-            id: inscripcion.id,
-            etiqueta: `${inscripcion.alumno_apellido}, ${inscripcion.alumno_nombre}`,
-            detalle: `${inscripcion.numero_legajo} · ${inscripcion.division_nombre}`,
-          })),
-          admisiones: admisiones.map((admision) => ({
-            id: admision.id,
-            etiqueta: `${admision.aspirante_apellido}, ${admision.aspirante_nombre}`,
-            detalle: `${admision.etapa.replaceAll('_', ' ')} · ${admision.ciclo_lectivo}`,
-          })),
-          facturas: coincidenciasFactura,
-          usuarios: coincidenciasUsuario,
-        })
+    // Cada fuente se gatea por el mismo permiso `.leer` que protege su ruta: sin esto, un rol
+    // sin acceso a Facturación veía facturas ajenas y chocaba con "sin acceso" al hacer click.
+    buscarEnFuentes(fuentes, consulta, controller.signal, {
+      puedeEditarUsuarios,
+      obtenerUsuarios: async () => {
+        if (usuariosCache.current) return usuariosCache.current
+        const usuarios = await getUsuarios()
+        usuariosCache.current = usuarios
+        return usuarios
       },
-    )
+    }).then((coincidencias) => {
+      if (controller.signal.aborted) return
+      setResultado({ clave, coincidencias })
+    })
 
     return () => controller.abort()
-  }, [consulta, puedeVerInscripciones, puedeVerFacturas, puedeVerUsuarios])
+  }, [consulta, fuentes, puedeEditarUsuarios])
 
   return {
-    ...resultado,
+    coincidencias: resultado.coincidencias,
     buscando:
       consulta.length >= MINIMO_CARACTERES && resultado.clave !== consulta.toLocaleLowerCase(),
-    consulta,
   }
 }
 
@@ -193,25 +106,16 @@ export function GlobalSearchDialog({
   const rolActivo = useAuthStore((estado) => estado.rolActivo)
   const navegacionVisible = destinosDe(filtrarNav(NAV_GROUPS, rolActivo, permisos))
   const acciones = accionesVisibles(permisos)
-  const puedeVerInscripciones = tienePermiso(permisos, PERMISO_INSCRIPCIONES_LEER)
-  const puedeVerFacturas = tienePermiso(permisos, PERMISO_FACTURACION_LEER)
-  const puedeVerUsuarios = tienePermiso(permisos, PERMISO_AUTENTICACION_LEER)
-  const puedeActualizarUsuarios = tienePermiso(permisos, PERMISO_AUTENTICACION_ACTUALIZAR)
+  const fuentes = useMemo(() => fuentesVisibles(permisos), [permisos])
+  const puedeEditarUsuarios = tienePermiso(permisos, PERMISO_AUTENTICACION_ACTUALIZAR)
   const [termino, setTermino] = useState('')
   const [consultaAplicada, setConsultaAplicada] = useState('')
   const consulta = termino.trim()
-  const {
-    buscando: busquedaEnCurso,
-    inscripciones,
-    admisiones,
-    facturas,
-    usuarios,
-  } = useBusquedaGlobal(
+  const { buscando: busquedaEnCurso, coincidencias } = useBusquedaGlobal(
     consultaAplicada,
     open,
-    puedeVerInscripciones,
-    puedeVerFacturas,
-    puedeVerUsuarios,
+    fuentes,
+    puedeEditarUsuarios,
   )
 
   useEffect(() => {
@@ -224,10 +128,7 @@ export function GlobalSearchDialog({
   const hayResultadosDeBusqueda =
     consulta.length >= MINIMO_CARACTERES &&
     !buscando &&
-    (inscripciones.length > 0 ||
-      admisiones.length > 0 ||
-      facturas.length > 0 ||
-      usuarios.length > 0)
+    fuentes.some((fuente) => (coincidencias[fuente.clave]?.length ?? 0) > 0)
 
   function irA(ruta: string) {
     manejarCambioAbierto(false)
@@ -245,7 +146,7 @@ export function GlobalSearchDialog({
         <CommandInput
           value={termino}
           onValueChange={setTermino}
-          placeholder="Buscar alumno, aspirante, legajo, DNI, factura o usuario…"
+          placeholder="Buscar alumno, familia, legajo, DNI, factura, orden o usuario…"
         />
         <CommandList>
           <CommandEmpty>
@@ -259,82 +160,30 @@ export function GlobalSearchDialog({
                   <CommandItem disabled>Buscando coincidencias…</CommandItem>
                 </CommandGroup>
               ) : (
-                <>
-                  {inscripciones.length > 0 && (
-                    <CommandGroup heading="Inscripciones">
-                      {inscripciones.map((inscripcion) => (
+                fuentes.map((fuente) => {
+                  const items = coincidencias[fuente.clave] ?? []
+                  if (items.length === 0) return null
+                  return (
+                    <CommandGroup key={fuente.clave} heading={fuente.titulo}>
+                      {items.map((item) => (
                         <CommandItem
-                          key={inscripcion.id}
-                          value={`${inscripcion.etiqueta} ${inscripcion.detalle}`}
-                          onSelect={() => irA('/inscripciones')}
+                          key={item.id}
+                          value={`${item.etiqueta} ${item.detalle}`}
+                          // El backend ya filtró (puede haber matcheado por un campo que no se
+                          // ve, como el DNI o el proveedor): cmdk no debe volver a descartarlo.
+                          keywords={[consulta]}
+                          onSelect={() => irA(item.ruta)}
                         >
-                          <ClipboardCheckIcon className={COLOR_POR_MODULO.inscripciones} />
+                          <fuente.icono className={COLOR_POR_MODULO[fuente.modulo]} />
                           <span className="flex min-w-0 flex-col">
-                            <span>{inscripcion.etiqueta}</span>
-                            <span className="text-xs text-texto-3">{inscripcion.detalle}</span>
+                            <span>{item.etiqueta}</span>
+                            <span className="text-xs text-texto-3">{item.detalle}</span>
                           </span>
                         </CommandItem>
                       ))}
                     </CommandGroup>
-                  )}
-                  {admisiones.length > 0 && (
-                    <CommandGroup heading="Admisiones">
-                      {admisiones.map((admision) => (
-                        <CommandItem
-                          key={admision.id}
-                          value={`${admision.etiqueta} ${admision.detalle}`}
-                          onSelect={() => irA(`/inscripciones/admisiones/${admision.id}`)}
-                        >
-                          <FileTextIcon className={COLOR_POR_MODULO.inscripciones} />
-                          <span className="flex min-w-0 flex-col">
-                            <span>{admision.etiqueta}</span>
-                            <span className="text-xs text-texto-3">{admision.detalle}</span>
-                          </span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  )}
-                  {facturas.length > 0 && (
-                    <CommandGroup heading="Facturación">
-                      {facturas.map((factura) => (
-                        <CommandItem
-                          key={factura.id}
-                          value={`${factura.etiqueta} ${factura.detalle}`}
-                          onSelect={() => irA(`/facturacion/${factura.id}`)}
-                        >
-                          <ReceiptTextIcon className={COLOR_POR_MODULO.facturacion} />
-                          <span className="flex min-w-0 flex-col">
-                            <span>{factura.etiqueta}</span>
-                            <span className="text-xs text-texto-3">{factura.detalle}</span>
-                          </span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  )}
-                  {usuarios.length > 0 && (
-                    <CommandGroup heading="Usuarios">
-                      {usuarios.map((usuario) => (
-                        <CommandItem
-                          key={usuario.id}
-                          value={`${usuario.etiqueta} ${usuario.detalle}`}
-                          onSelect={() =>
-                            irA(
-                              puedeActualizarUsuarios
-                                ? `/usuarios-roles/usuarios/${usuario.id}/editar`
-                                : '/usuarios-roles/usuarios',
-                            )
-                          }
-                        >
-                          <UserIcon className={COLOR_POR_MODULO.sistema} />
-                          <span className="flex min-w-0 flex-col">
-                            <span>{usuario.etiqueta}</span>
-                            <span className="text-xs text-texto-3">{usuario.detalle}</span>
-                          </span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  )}
-                </>
+                  )
+                })
               )}
             </>
           )}

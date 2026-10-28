@@ -7,9 +7,13 @@ import { listarFacturas } from '@/modules/facturacion/services/listar-facturas'
 import { listarInscripciones } from '@/modules/inscripciones/services/listar-inscripciones'
 import { listarSolicitudesAdmision } from '@/modules/inscripciones/services/solicitudes-admision'
 import { getUsuarios } from '@/modules/auth/services/get-usuarios'
+import { listarDeudaFamilias } from '@/modules/facturacion/services/listar-deuda-familias'
+import { listarAlumnos } from '@/modules/familias-alumnos/services/listar-alumnos'
+import { listarFamilias } from '@/modules/familias-alumnos/services/listar-familias'
+import { buscarOrdenes } from '@/modules/proveedores-compras/services/buscar-ordenes'
 import { useAuthStore } from '@/store/auth-store'
 
-const PLACEHOLDER = 'Buscar alumno, aspirante, legajo, DNI, factura o usuario…'
+const PLACEHOLDER = 'Buscar alumno, familia, legajo, DNI, factura, orden o usuario…'
 
 // El buscador filtra "Ir a"/"Acciones" por el permiso `.leer`/`.crear` del rol activo — un rol
 // con acceso a todo lo que este archivo prueba (mismo criterio que "administrador del sistema").
@@ -37,11 +41,19 @@ vi.mock('@/modules/facturacion/services/listar-facturas')
 vi.mock('@/modules/inscripciones/services/listar-inscripciones')
 vi.mock('@/modules/inscripciones/services/solicitudes-admision')
 vi.mock('@/modules/auth/services/get-usuarios')
+vi.mock('@/modules/facturacion/services/listar-deuda-familias')
+vi.mock('@/modules/familias-alumnos/services/listar-alumnos')
+vi.mock('@/modules/familias-alumnos/services/listar-familias')
+vi.mock('@/modules/proveedores-compras/services/buscar-ordenes')
 
 const mockedListarFacturas = vi.mocked(listarFacturas)
 const mockedListarInscripciones = vi.mocked(listarInscripciones)
 const mockedListarSolicitudesAdmision = vi.mocked(listarSolicitudesAdmision)
 const mockedGetUsuarios = vi.mocked(getUsuarios)
+const mockedListarAlumnos = vi.mocked(listarAlumnos)
+const mockedListarFamilias = vi.mocked(listarFamilias)
+const mockedListarDeudaFamilias = vi.mocked(listarDeudaFamilias)
+const mockedBuscarOrdenes = vi.mocked(buscarOrdenes)
 
 function renderDialogo() {
   return render(
@@ -105,6 +117,32 @@ beforeEach(() => {
         monto_total: '20000.00',
       },
     ],
+  } as never)
+  mockedListarAlumnos.mockResolvedValue([
+    {
+      id: 'alumno-1',
+      numero_legajo: 'L-77',
+      persona_nombre: 'Lucía',
+      persona_apellido: 'Paz',
+      persona_dni: '40111222',
+    },
+  ] as never)
+  mockedListarFamilias.mockResolvedValue([
+    { id: 'familia-1', persona_nombre: 'Marta', persona_apellido: 'Paz', persona_dni: '20111222' },
+  ] as never)
+  mockedListarDeudaFamilias.mockResolvedValue({
+    items: [
+      {
+        familia_id: 'familia-1',
+        familia_nombre: 'Marta',
+        familia_apellido: 'Paz',
+        estado: 'moroso',
+        deuda_total: '5000.00',
+      },
+    ],
+  } as never)
+  mockedBuscarOrdenes.mockResolvedValue({
+    items: [{ id: 'orden123-0000', proveedor_nombre: 'Librería Sur', estado: 'emitida' }],
   } as never)
   mockedGetUsuarios.mockResolvedValue([
     {
@@ -308,5 +346,19 @@ describe('GlobalSearchDialog', () => {
 
     await waitFor(() => expect(screen.getAllByText('Demo, Sofía').length).toBeGreaterThan(0))
     expect(mockedGetUsuarios).not.toHaveBeenCalled()
+  })
+
+  it('busca alumnos, familias, deuda por familia y órdenes de compra', async () => {
+    const user = userEvent.setup()
+    renderDialogo()
+
+    await user.type(screen.getByPlaceholderText(PLACEHOLDER), 'Paz')
+
+    expect(await screen.findByText('Paz, Lucía')).toBeInTheDocument()
+    expect(screen.getByText('L-77 · DNI 40111222')).toBeInTheDocument()
+    expect(screen.getAllByText('Paz, Marta')).toHaveLength(2)
+    expect(screen.getByText('Orden #orden123')).toBeInTheDocument()
+    expect(screen.getByText('Librería Sur · emitida')).toBeInTheDocument()
+    expect(mockedListarAlumnos).toHaveBeenCalledWith({ buscar: 'Paz' }, expect.any(AbortSignal))
   })
 })
