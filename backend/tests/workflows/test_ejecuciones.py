@@ -305,3 +305,38 @@ def test_servicio_lista_y_reintenta_sin_reescribir_el_intento_anterior(
     assert nueva.event_log_id == evento.id
     db_session.refresh(anterior)
     assert anterior.estado == "fallido"
+
+
+def test_resumen_del_evento_sigue_el_catalogo_y_omite_nulos_y_faltantes(
+    client_autenticado, db_session, tipo_factura_vencida
+):
+    _, evento, ejecucion = crear_ejecucion(db_session, tipo_factura_vencida)
+    evento.payload = {"monto_deuda": 120000.0, "dias_vencido": 16, "nombre_familia": None}
+    db_session.commit()
+
+    detalle = client_autenticado.get(f"/workflows/ejecuciones/{ejecucion.id}").json()
+    listado = client_autenticado.get("/workflows/ejecuciones").json()["items"][0]
+
+    esperado = [
+        {"nombre_interno": "dias_vencido", "etiqueta": "Días", "valor": "16"},
+        {"nombre_interno": "monto_deuda", "etiqueta": "Monto", "valor": "120.000,00"},
+    ]
+    assert detalle["resumen_evento"] == esperado
+    assert listado["resumen_evento"] == esperado
+
+
+def test_resumen_del_evento_no_expone_campos_reservados(
+    client_autenticado, db_session, tipo_factura_vencida, monkeypatch
+):
+    monkeypatch.setattr(
+        ejecuciones_service,
+        "CAMPOS_RESERVADOS_RESUMEN",
+        frozenset({("factura.vencida", "nombre_familia")}),
+    )
+    _, evento, ejecucion = crear_ejecucion(db_session, tipo_factura_vencida)
+    evento.payload = {"dias_vencido": 6, "nombre_familia": "Cabral"}
+    db_session.commit()
+
+    detalle = client_autenticado.get(f"/workflows/ejecuciones/{ejecucion.id}").json()
+
+    assert [c["nombre_interno"] for c in detalle["resumen_evento"]] == ["dias_vencido"]

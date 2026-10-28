@@ -1,11 +1,13 @@
 import uuid
 from datetime import date
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import select
 
 from src.academico.models import JustificacionInasistencia
 from src.auth.models import Rol, Usuario, UsuarioRol
+from src.config import settings
 from src.facturacion.models import Factura, Pago, ResponsableEconomico
 from src.familias_alumnos.models import Familia, FamiliaAlumno
 from src.inscripciones.models import Asistencia
@@ -26,11 +28,12 @@ from src.workflows.models import (
     WorkflowRule,
 )
 from src.workflows.notificaciones_service import (
+    _enlace_de,
     ejecutar_alerta_interna,
     ejecutar_notificar,
     resolver_destinatarios,
 )
-from src.workflows.plantillas_service import renderizar_contenido
+from src.workflows.plantillas_service import formatear_valor, renderizar_contenido
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
 # --- Render --------------------------------------------------------------------------------
@@ -48,7 +51,29 @@ def test_render_reemplaza_placeholders_en_asunto_y_cuerpo():
     )
 
     assert asunto == "Deuda de Cabral"
-    assert cuerpo == "Debe 1500 hace 6 días"
+    assert cuerpo == "Debe 1.500 hace 6 días"
+
+
+@pytest.mark.parametrize(
+    ("valor", "esperado"),
+    [
+        (120000.0, "120.000,00"),
+        (Decimal("1234.5"), "1.234,50"),
+        (16, "16"),
+        (1500, "1.500"),
+        (True, "Sí"),
+        (False, "No"),
+        ("Cabral", "Cabral"),
+    ],
+)
+def test_formatear_valor_por_tipo(valor, esperado):
+    assert formatear_valor(valor) == esperado
+
+
+def test_render_formatea_montos_en_es_ar():
+    _, cuerpo = renderizar_contenido("x", "Deuda de ${{monto_deuda}}", {"monto_deuda": 120000.0})
+
+    assert cuerpo == "Deuda de $120.000,00"
 
 
 @pytest.mark.parametrize("payload", [{}, {"monto_deuda": None}])
@@ -364,7 +389,7 @@ def test_envio_guarda_snapshots_y_marca_enviado(
     assert {f.estado_envio for f in filas} == {"enviado"}
     assert all(f.sent_at is not None for f in filas)
     assert {f.asunto_snapshot for f in filas} == {"Deuda de Cabral"}
-    assert {f.cuerpo_snapshot for f in filas} == {"Debe 1500"}
+    assert {f.cuerpo_snapshot for f in filas} == {"Debe 1.500"}
     assert all(f.workflow_execution_id == ejecucion.id for f in filas)
     assert len(envios.enviados) == 2
 
@@ -457,7 +482,7 @@ def test_alerta_interna_prefiere_la_plantilla_al_mensaje(
     ejecutar_alerta_interna(db_session, regla, evento, _ejecucion(db_session, regla, evento))
 
     filas = db_session.scalars(select(Notificacion)).all()
-    assert {f.cuerpo_snapshot for f in filas} == {"Debe 1500"}
+    assert {f.cuerpo_snapshot for f in filas} == {"Debe 1.500"}
 
 
 def test_alerta_interna_sin_mensaje_ni_plantilla_falla(db_session, tipo_factura_vencida, envios):
@@ -540,7 +565,7 @@ def test_reintento_reenvia_solo_las_fallidas_con_el_snapshot(
     resultado = ejecutar_notificar(db_session, regla, evento, segunda)
 
     assert resultado.error is None
-    assert envios.enviados == [("u00@esseri.edu.ar", "Deuda de Cabral", "Debe 1500")]
+    assert envios.enviados == [("u00@esseri.edu.ar", "Deuda de Cabral", "Debe 1.500")]
     filas = db_session.scalars(
         select(Notificacion).where(Notificacion.workflow_execution_id == segunda.id)
     ).all()
@@ -563,3 +588,76 @@ def test_reintento_con_todo_enviado_no_manda_nada(
 
     assert resultado.error is None
     assert envios.enviados == []
+
+
+# --- HTML y botón --------------------------------------------------------------------------
+
+
+def test_el_envio_manda_el_html_con_el_boton_de_la_regla(
+    db_session, tipo_factura_vencida, plantilla, envios, monkeypatch
+):
+    monkeypatch.setattr(settings, "FRONTEND_URL", "http://app.test/")
+    regla = _preparar_regla_con_usuarios(db_session, tipo_factura_vencida, plantilla)
+    regla.accion_config = {"destinatario": "destinatarios_regla", "enlace": "tareas"}
+    db_session.commit()
+    evento = _evento(db_session, tipo_factura_vencida)
+
+    ejecutar_notificar(db_session, regla, evento, _ejecucion(db_session, regla, evento))
+
+    assert len(envios.htmls) == 2
+    for html in envios.htmls:
+        assert 'href="http://app.test/workflows/tareas"' in html
+        assert "Ver mis tareas" in html
+        assert "Debe 1.500" in html
+
+
+def test_sin_enlace_el_html_no_lleva_boton(db_session, tipo_factura_vencida, plantilla, envios):
+    regla = _preparar_regla_con_usuarios(db_session, tipo_factura_vencida, plantilla)
+    evento = _evento(db_session, tipo_factura_vencida)
+
+    ejecutar_notificar(db_session, regla, evento, _ejecucion(db_session, regla, evento))
+
+    assert envios.htmls and all("Ver mis tareas" not in h and "<a " not in h for h in envios.htmls)
+
+
+def test_un_dato_del_evento_con_html_sale_escapado(
+    db_session, tipo_factura_vencida, plantilla, envios
+):
+    regla = _preparar_regla_con_usuarios(db_session, tipo_factura_vencida, plantilla)
+    evento = _evento(
+        db_session,
+        tipo_factura_vencida,
+        payload={"nombre_familia": "<script>x</script>", "monto_deuda": 1, "dias_vencido": 1},
+    )
+
+    ejecutar_notificar(db_session, regla, evento, _ejecucion(db_session, regla, evento))
+
+    assert all("<script>" not in h and "&lt;script&gt;" in h for h in envios.htmls)
+    # La evidencia (RF-26) queda en texto plano, sin escapar.
+    assert envios.enviados[0][1] == "Deuda de <script>x</script>"
+
+
+def test_el_reintento_vuelve_a_mandar_el_html_con_el_boton(
+    db_session, tipo_factura_vencida, plantilla, envios, monkeypatch
+):
+    monkeypatch.setattr(settings, "FRONTEND_URL", "http://app.test")
+    regla = _preparar_regla_con_usuarios(db_session, tipo_factura_vencida, plantilla)
+    regla.accion_config = {"destinatario": "destinatarios_regla", "enlace": "ejecuciones"}
+    db_session.commit()
+    evento = _evento(db_session, tipo_factura_vencida)
+    envios.fallar["u00@esseri.edu.ar"] = N8nEnvioFallido()
+    ejecutar_notificar(db_session, regla, evento, _ejecucion(db_session, regla, evento))
+    envios.htmls.clear()
+    envios.fallar.clear()
+
+    ejecutar_notificar(db_session, regla, evento, _ejecucion(db_session, regla, evento, intento=2))
+
+    assert len(envios.htmls) == 1
+    assert 'href="http://app.test/workflows/ejecuciones"' in envios.htmls[0]
+
+
+def test_enlace_de_ignora_una_clave_fuera_de_la_allowlist(db_session, tipo_factura_vencida):
+    regla = _regla(db_session, tipo_factura_vencida, None)
+    regla.accion_config = {"destinatario": "responsables_habilitados", "enlace": "https://evil.com"}
+
+    assert _enlace_de(regla) is None

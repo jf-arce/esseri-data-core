@@ -75,6 +75,7 @@ def test_el_seed_crea_las_plantillas_y_las_cuatro_reglas_sin_duplicar(db_session
     assert recordatorio.accion_config == {
         "destinatario": "responsables_habilitados",
         "dias_despues": 2,
+        "enlace": "familia_justificar",
     }
 
 
@@ -90,8 +91,10 @@ def test_una_inasistencia_avisa_a_los_responsables_y_todavia_no_recuerda(
         (
             familia["email"],
             "Inasistencia de Cabral, Ana",
+            "Estimada familia:\n\n"
             "Les informamos que Cabral, Ana no asistió al colegio el 2027-03-03. "
-            "Si corresponde, pueden presentar la justificación.",
+            "Si corresponde, pueden presentar la justificación.\n\n"
+            "Saludos cordiales.",
         )
     ]
 
@@ -163,8 +166,10 @@ def test_si_se_justifica_antes_no_llega_el_recordatorio_pero_si_el_aviso_de_reso
     ]
     cuerpo = envios.enviados[1][2]
     assert cuerpo == (
+        "Estimada familia:\n\n"
         "Se resolvió el 2027-03-04 la justificación de la inasistencia de Cabral, Ana. "
-        "Motivo presentado: Enfermedad."
+        "Motivo presentado: Enfermedad.\n\n"
+        "Saludos cordiales."
     )
     # El recordatorio se evaluó, vio que ya estaba resuelta y lo dejó dicho sin mandar nada.
     detalles = [

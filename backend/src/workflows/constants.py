@@ -142,3 +142,17 @@ DESTINATARIOS_FAMILIARES: frozenset[str] = frozenset(
 
 # Los envíos se hacen en serie dentro de la transacción del evento: este tope acota su duración.
 MAX_DESTINATARIOS_POR_EJECUCION = 50
+
+# Campos del payload que no se muestran en el resumen del historial (RNF-15): (evento, campo).
+CAMPOS_RESERVADOS_RESUMEN: frozenset[tuple[str, str]] = frozenset(
+    {("inasistencia.justificada", "motivo")}
+)
+
+# Botón opcional de los mails: clave -> (ruta de la app, texto del botón). El destino sale de acá,
+# nunca de la configuración libre de la regla. Solo pantallas que funcionan hoy.
+EnlaceMail = Literal["familia_justificar", "ejecuciones", "tareas"]
+ENLACES_MAIL: dict[EnlaceMail, tuple[str, str]] = {
+    "familia_justificar": ("/familia/justificar-ausencia", "Justificar la inasistencia"),
+    "ejecuciones": ("/workflows/ejecuciones", "Revisar en ESSERI"),
+    "tareas": ("/workflows/tareas", "Ver mis tareas"),
+}

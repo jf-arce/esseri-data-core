@@ -66,7 +66,7 @@ carga ya no procesa requieren una reparación explícita, limitada a la base dem
 
 **Reglas de workflow de la demo (#216).** Sobre `factura.vencida` crea dos reglas que usan el
 campo `dias_vencido`: `Mora > 15 días: crear tarea` (`crear_tarea`, tarea para el rol
-Administración) y `Mora > 30 días: escalar caso` (`escalar_caso`, nueva tarea para el rol
+Administración, con el título "Reclamar la deuda de {{nombre_familia}}") y `Mora > 30 días: escalar caso` (`escalar_caso`, nueva tarea para el rol
 Dirección). La segunda nace con aprobación humana: la ejecución queda pendiente hasta que se
 apruebe desde el historial de ejecuciones. Con más de 30 días se disparan las dos, y los nombres
 hacen que `crear_tarea` se evalúe primero (el motor ordena las reglas por nombre). Se buscan por
@@ -74,7 +74,8 @@ nombre: si ya existen, volver a correr el seed no las duplica ni pisa lo editado
 
 **Reglas de vencimiento de la demo (#205).** También sobre `factura.vencida`, sin condición (se
 disparan con cada evento): `Vencimiento 1: marcar factura vencida` (`aplicar_vencimiento`),
-`Vencimiento 2: alerta a Administración` (`alerta_interna`, rol Administración) y
+`Vencimiento 2: alerta a Administración` (`alerta_interna`, rol Administración, con la plantilla
+`Alerta interna de factura vencida`) y
 `Vencimiento 3: aviso a la familia` (`notificar` al responsable económico, con la plantilla
 `Aviso de factura vencida`). Las tres son independientes: si la factura no cambia de estado, los
 avisos salen igual. La cuarta, `Vencimiento 4: aplicar penalidad por mora` (`aplicar_penalidad`,
@@ -97,6 +98,21 @@ Eso genera `equipo+administracion@gmail.com`, `equipo+direccion@gmail.com` y
 detector da por emitido un tramo aunque su evento ya se haya procesado.
 
 **Loop de inasistencias (#218).** Además crea 4 plantillas y 4 reglas sobre los eventos de asistencia, todas hacia los responsables habilitados de la familia: `Inasistencia: avisar a la familia` y `Tardanza: avisar a la familia` (`notificar` sobre `inasistencia.registrada`, según `tipo_asistencia`), `Inasistencia justificada: avisar a la familia` (`notificar` sobre `inasistencia.justificada`) e `Inasistencia sin justificar: recordatorio` (`generar_recordatorio` a los 2 días, solo si la inasistencia sigue sin justificar). El aviso de justificación es neutral porque el evento no dice si se aprobó o se rechazó. Los emails salen por n8n (`N8N_WEBHOOK_URL`): sin configurar, las ejecuciones quedan `fallido`.
+
+### Regenerar la demo
+
+Volver a correr el seed **no** actualiza reglas ni plantillas que ya existen (se buscan por nombre
+y se saltean), y las tareas ya creadas no se vuelven a generar. Para probar con los textos nuevos
+hay que recrear solo la base, sin tocar el volumen de n8n:
+
+```bash
+cd infra
+docker compose stop backend && docker compose rm -sf postgres
+docker volume rm infra_postgres-data   # NO usar `down -v`: borra también el volumen de n8n
+docker compose up -d postgres backend
+```
+
+Después, migraciones y seeds `00` a `05` como se explica arriba (con `ESSERI_DEMO_SEED_ENABLED=true`).
 
 ## `05_seed_demo_docente.py` — datos ficticios para demostrar el Portal Docente
 

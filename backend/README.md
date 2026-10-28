@@ -210,12 +210,11 @@ instancias del backend, `FOR UPDATE SKIP LOCKED` evita que dos procesen el mismo
 Ya emiten: Proveedores y Compras, `orden_compra.emitida` (en `crear_orden_compra`) y
 `recepcion_compra.registrada` (en `crear_recepcion`); Académico, `inasistencia.registrada` e
 `inasistencia.justificada`; Inscripciones, `inscripcion.cambio_matricula` (en
-`registrar_cambio_matricula`); y Facturación, `pago.registrado` (en `registrar_pago`). El resto lo
-agrega el módulo dueño del hecho:
+`registrar_cambio_matricula`); y Facturación, `pago.registrado` (en `registrar_pago`) y
+`factura.vencida` (en `vencimientos_service.py`). El resto lo agrega el módulo dueño del hecho:
 
 | Evento | Dónde iría | Payload |
 |---|---|---|
-| `factura.vencida` | Facturación: `vencimientos_service.py` al entrar la factura en un tramo de mora | `dias_vencido`, `monto_deuda`, `nombre_familia` |
 | `inscripcion.confirmada` | Inscripciones: al crear la `INSCRIPCION` nueva desde la solicitud (`matriculas_service.py`) | `alumno_nombre`, `nivel_educativo`, `fecha` |
 | `solicitud_compra.aprobada` | Compras: `cambiar_estado_solicitud` cuando pasa a `aprobada` | `item`, `cantidad`, `fecha` |
 | `solicitud_inscripcion.aprobada`, `pago.rechazado` | Admisiones y Facturación | ver `grupo-b.yaml` |
@@ -365,6 +364,13 @@ defaults.
 Las reglas se administran en `/workflows/reglas` y el catálogo de eventos con sus campos en
 `/workflows/tipos-evento`. Los emails los envía n8n vía el webhook `N8N_WEBHOOK_URL` (ver
 `infra/n8n/README.md`).
+
+**Mail institucional:** cada envío manda a n8n el texto plano y un `cuerpo_html` con el layout de
+`src/workflows/email_html.py` (encabezado con logo y nombre, cuerpo, firma y pie). Se configura con
+`EMAIL_INSTITUCION_NOMBRE`, `EMAIL_INSTITUCION_PIE` y `EMAIL_LOGO_URL` (ver `.env.example`). El
+logo tiene que ser una URL pública: Gmail no muestra `data:` ni `localhost`. Si una regla de
+`notificar`, `alerta_interna` o `generar_recordatorio` tiene `accion_config.enlace`, el mail lleva un
+botón a esa pantalla de la app (`FRONTEND_URL` + la ruta de `ENLACES_MAIL`).
 
 **Plantillas y destinatarios:** el CRUD de plantillas vive en `/workflows/plantillas`. Una
 plantilla puede reutilizarse entre tipos de evento, pero al asociarla a una regla sus placeholders

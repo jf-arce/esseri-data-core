@@ -47,6 +47,8 @@ from src.workflows.schemas import (
     ConfigActualizarCuentaCorriente,
     ConfigAplicarPenalidad,
     ConfigCambiarEstado,
+    ConfigCrearTarea,
+    ConfigEscalarCaso,
     ConfigGenerarCargo,
     ConfigNotificar,
     TipoAccionRead,
@@ -349,6 +351,18 @@ def validar_accion(
                 f"El evento '{tipo_evento_nombre}' no tiene alumno asociado: "
                 "usá el destinatario 'destinatarios_regla'."
             )
+    if isinstance(config, ConfigCrearTarea | ConfigEscalarCaso):
+        textos = (
+            (config.titulo, config.descripcion)
+            if isinstance(config, ConfigCrearTarea)
+            else ("-", config.motivo)
+        )
+        plantillas_service.validar_contenido_para_campos(
+            asunto=textos[0],
+            cuerpo=textos[1] or "",
+            campos=set(campos),
+            contexto="la tarea",
+        )
     if isinstance(config, ConfigCambiarEstado):
         entidad = ENTIDAD_POR_EVENTO.get(tipo_evento_nombre, "")
         estados = CAMBIOS_ESTADO_PERMITIDOS.get(entidad, frozenset())

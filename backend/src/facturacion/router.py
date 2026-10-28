@@ -57,6 +57,7 @@ from src.facturacion.schemas import (
     MetodoPagoRead,
     MovimientoCuentaCorrienteRead,
     PagoRead,
+    RecargoRead,
     ReglaFacturacionCreate,
     ReglaFacturacionEstadoUpdate,
     ReglaFacturacionRead,
@@ -168,6 +169,10 @@ def _factura_detalle_read(db: Session, factura: Factura) -> FacturaDetalleRead:
             else None
         ),
         pagos=[PagoRead.model_validate(pago) for pago in factura.pagos],
+        recargos=[
+            RecargoRead.model_validate(movimiento)
+            for movimiento in penalidades_service.recargos_de_factura(db, factura.id)
+        ],
     )
 
 

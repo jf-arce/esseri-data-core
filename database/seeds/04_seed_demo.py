@@ -104,8 +104,8 @@ REGLAS_MORA = [
         "dias_vencido_mayor_a": 15,
         "tipo_accion": "crear_tarea",
         "accion_config": {
-            "titulo": "Reclamar la deuda vencida",
-            "descripcion": "La factura lleva más de 15 días vencida: contactar a la familia.",
+            "titulo": "Reclamar la deuda de {{nombre_familia}}",
+            "descripcion": "Lleva {{dias_vencido}} días vencida, deuda de ${{monto_deuda}}.",
             "prioridad": "media",
             "dias_para_vencer": 5,
         },
@@ -117,7 +117,9 @@ REGLAS_MORA = [
         "dias_vencido_mayor_a": 30,
         "tipo_accion": "escalar_caso",
         "accion_config": {
-            "motivo": "La factura lleva más de 30 días vencida sin regularizarse.",
+            "motivo": (
+                "La factura de {{nombre_familia}} lleva más de 30 días vencida sin regularizarse."
+            ),
             "prioridad": "alta",
         },
         "criticidad": "alta",
@@ -132,8 +134,22 @@ PLANTILLA_VENCIDA = {
     "nombre": "Aviso de factura vencida",
     "asunto": "Factura vencida de la familia {{nombre_familia}}",
     "cuerpo": (
-        "Hola, la factura de la familia {{nombre_familia}} lleva {{dias_vencido}} días vencida "
-        "con una deuda de ${{monto_deuda}}. Por favor, regularizá el pago a la brevedad."
+        "Estimada familia {{nombre_familia}}:\n\n"
+        "Les informamos que su factura lleva {{dias_vencido}} días vencida, con una deuda de "
+        "${{monto_deuda}}. Les pedimos regularizar el pago a la brevedad.\n\n"
+        "Si ya lo realizaron, por favor ignoren este aviso.\n\n"
+        "Saludos cordiales."
+    ),
+}
+
+# Sin plantilla, la alerta interna usaría `Alerta interna: <nombre de la regla>` como asunto.
+PLANTILLA_ALERTA_VENCIDA = {
+    "nombre": "Alerta interna de factura vencida",
+    "asunto": "Factura vencida: familia {{nombre_familia}}",
+    "cuerpo": (
+        "Una factura de la familia {{nombre_familia}} lleva {{dias_vencido}} días vencida y la "
+        "familia ya fue notificada.\n\n"
+        "Revisen en el historial de ejecuciones las penalidades pendientes de aprobación."
     ),
 }
 
@@ -146,8 +162,9 @@ REGLAS_VENCIMIENTO = [
     {
         "nombre": "Vencimiento 2: alerta a Administración",
         "tipo_accion": "alerta_interna",
-        "accion_config": {"mensaje": "Una factura venció y la familia ya fue notificada."},
+        "accion_config": {"enlace": "ejecuciones"},
         "criticidad": "media",
+        "plantilla": PLANTILLA_ALERTA_VENCIDA["nombre"],
         "rol": "administración",
     },
     {
@@ -174,25 +191,33 @@ PLANTILLAS_INASISTENCIA = {
     "ausencia": (
         "Inasistencia registrada",
         "Inasistencia de {{alumno_nombre}}",
+        "Estimada familia:\n\n"
         "Les informamos que {{alumno_nombre}} no asistió al colegio el {{fecha}}. "
-        "Si corresponde, pueden presentar la justificación.",
+        "Si corresponde, pueden presentar la justificación.\n\n"
+        "Saludos cordiales.",
     ),
     "tardanza": (
         "Tardanza registrada",
         "Llegada tarde de {{alumno_nombre}}",
-        "Les informamos que {{alumno_nombre}} llegó tarde al colegio el {{fecha}}.",
+        "Estimada familia:\n\n"
+        "Les informamos que {{alumno_nombre}} llegó tarde al colegio el {{fecha}}.\n\n"
+        "Saludos cordiales.",
     ),
     "justificada": (
         "Justificación de inasistencia resuelta",
         "Justificación de {{alumno_nombre}} resuelta",
+        "Estimada familia:\n\n"
         "Se resolvió el {{fecha_resolucion}} la justificación de la inasistencia de "
-        "{{alumno_nombre}}. Motivo presentado: {{motivo}}.",
+        "{{alumno_nombre}}. Motivo presentado: {{motivo}}.\n\n"
+        "Saludos cordiales.",
     ),
     "recordatorio": (
         "Recordatorio de justificación pendiente",
         "Recordatorio: justificación de {{alumno_nombre}}",
+        "Estimada familia:\n\n"
         "Les recordamos que la inasistencia de {{alumno_nombre}} del {{fecha}} todavía no tiene "
-        "justificación. Si corresponde, pueden presentarla.",
+        "justificación. Si corresponde, pueden presentarla.\n\n"
+        "Saludos cordiales.",
     ),
 }
 REGLAS_INASISTENCIA = [
@@ -201,7 +226,10 @@ REGLAS_INASISTENCIA = [
         "evento": "inasistencia.registrada",
         "condicion": {"campo": "tipo_asistencia", "operador": "==", "valor": "ausente_pendiente"},
         "tipo_accion": "notificar",
-        "accion_config": {"destinatario": "responsables_habilitados"},
+        "accion_config": {
+            "destinatario": "responsables_habilitados",
+            "enlace": "familia_justificar",
+        },
         "plantilla": "ausencia",
     },
     {
@@ -225,7 +253,11 @@ REGLAS_INASISTENCIA = [
         "evento": "inasistencia.registrada",
         "condicion": {"campo": "tipo_asistencia", "operador": "==", "valor": "ausente_pendiente"},
         "tipo_accion": "generar_recordatorio",
-        "accion_config": {"destinatario": "responsables_habilitados", "dias_despues": 2},
+        "accion_config": {
+            "destinatario": "responsables_habilitados",
+            "dias_despues": 2,
+            "enlace": "familia_justificar",
+        },
         "plantilla": "recordatorio",
     },
 ]
@@ -957,20 +989,19 @@ def _ensure_reglas_workflow(db, usuario: Usuario):
         )
 
 
-def _ensure_plantilla_vencida(db, usuario: Usuario):
-    if db.scalar(
-        select(NotificacionTemplate).where(
-            NotificacionTemplate.nombre == PLANTILLA_VENCIDA["nombre"]
-        )
-    ):
-        return
-    crear_plantilla(db, NotificacionTemplateCreate(**PLANTILLA_VENCIDA), usuario.id)
+def _ensure_plantillas_vencimiento(db, usuario: Usuario):
+    for plantilla in (PLANTILLA_VENCIDA, PLANTILLA_ALERTA_VENCIDA):
+        if db.scalar(
+            select(NotificacionTemplate).where(NotificacionTemplate.nombre == plantilla["nombre"])
+        ):
+            continue
+        crear_plantilla(db, NotificacionTemplateCreate(**plantilla), usuario.id)
 
 
 def _ensure_reglas_vencimiento(db, usuario: Usuario):
     """Reglas de vencimiento: marcar la factura vencida y avisar a Administración y a la familia."""
     tipo_evento = _require(db, TipoEvento, nombre="factura.vencida")
-    _ensure_plantilla_vencida(db, usuario)
+    _ensure_plantillas_vencimiento(db, usuario)
     db.flush()
     for regla in REGLAS_VENCIMIENTO:
         _ensure_regla_workflow(db, usuario, tipo_evento, regla)

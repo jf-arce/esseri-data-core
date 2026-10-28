@@ -48,11 +48,20 @@ export interface PagoFactura {
   metodo_pago: MetodoPago
 }
 
+export interface RecargoFactura {
+  id: string
+  fecha: string
+  monto: string
+  observacion: string | null
+}
+
 export interface FacturaDetalle extends Factura {
   alumno_nombre: string
   alumno_legajo: string
   responsable_economico_nombre: string | null
   pagos: PagoFactura[]
+  /** Recargos por mora: van a la cuenta corriente y no cambian el saldo de esta factura. */
+  recargos: RecargoFactura[]
 }
 
 export interface DetalleFacturaFamilia {

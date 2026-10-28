@@ -18,6 +18,7 @@ from src.fechas import InstanteUtc
 from src.workflows.constants import (
     Criticidad,
     Destinatario,
+    EnlaceMail,
     EstadoTarea,
     Operador,
     PrioridadTarea,
@@ -75,16 +76,26 @@ class ConfigSinParametros(_ConfigAccion):
     """Acciones que operan solo sobre el evento y no admiten configuración."""
 
 
-class ConfigNotificar(_ConfigAccion):
+class _ConfigDestinatario(_ConfigAccion):
     destinatario: Destinatario = "responsables_habilitados"
+
+
+class ConfigNotificar(_ConfigDestinatario):
+    # Botón del mail hacia una pantalla de la app (allowlist en `ENLACES_MAIL`).
+    enlace: EnlaceMail | None = None
 
 
 class ConfigRecordatorio(ConfigNotificar):
     dias_despues: int = Field(default=1, ge=1, le=90)
 
 
+class ConfigGenerarComunicacion(_ConfigDestinatario):
+    """Stub de Canu: sin `enlace`, para no heredar el botón de `notificar`."""
+
+
 class ConfigAlertaInterna(_ConfigAccion):
     mensaje: str | None = Field(default=None, min_length=1, max_length=500)
+    enlace: EnlaceMail | None = None
 
 
 class ConfigCrearTarea(_ConfigAccion):
@@ -139,7 +150,7 @@ CONFIG_POR_ACCION: dict[str, type[_ConfigAccion]] = {
     "escalar_caso": ConfigEscalarCaso,
     "crear_registro_relacionado": ConfigCrearRegistroRelacionado,
     "generar_orden_compra": ConfigSinParametros,
-    "generar_comunicacion": ConfigNotificar,
+    "generar_comunicacion": ConfigGenerarComunicacion,
 }
 
 
@@ -302,6 +313,12 @@ class ReglaDestinatariosRead(BaseModel):
 EstadoWorkflowExecution = Literal["exitoso", "fallido", "pendiente", "rechazado"]
 
 
+class CampoResumen(BaseModel):
+    nombre_interno: str
+    etiqueta: str
+    valor: str
+
+
 class WorkflowExecutionRead(BaseModel):
     """Ejecución con el contexto necesario para explicar qué regla y evento la originaron."""
 
@@ -322,6 +339,9 @@ class WorkflowExecutionRead(BaseModel):
     entidad_id: uuid.UUID
     reintentable: bool
     aprobable: bool
+    resumen_evento: list[CampoResumen] = []
+    # Solo en el detalle de `aplicar_penalidad` pendiente: lo que se cobraría al aprobar hoy.
+    recargo_estimado: Decimal | None = None
 
 
 class EjecucionRechazo(_EntradaEstricta):

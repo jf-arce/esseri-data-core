@@ -2,7 +2,7 @@
 
 n8n solo ejecuta el envío: el backend ya resolvió destinatario y contenido, y es quien registra
 `WORKFLOW_EXECUTION` y `NOTIFICACION`. El webhook del workflow de n8n recibe un JSON con
-`destinatario`, `asunto` y `cuerpo`.
+`destinatario`, `asunto`, `cuerpo` (texto plano) y, si hay, `cuerpo_html`.
 """
 
 import httpx
@@ -17,6 +17,7 @@ def enviar_email(
     destinatario: str,
     asunto: str,
     cuerpo: str,
+    cuerpo_html: str | None = None,
     transport: httpx.BaseTransport | None = None,
 ) -> None:
     """Pide a n8n que envíe un email. Lanza `N8nNoConfigurado`, `N8nNoDisponible` (sin respuesta) o
@@ -28,11 +29,15 @@ def enviar_email(
     if settings.N8N_WEBHOOK_TOKEN:
         headers["Authorization"] = f"Bearer {settings.N8N_WEBHOOK_TOKEN}"
 
+    datos = {"destinatario": destinatario, "asunto": asunto, "cuerpo": cuerpo}
+    if cuerpo_html is not None:
+        datos["cuerpo_html"] = cuerpo_html
+
     try:
         with httpx.Client(timeout=TIMEOUT_SEGUNDOS, transport=transport) as cliente:
             respuesta = cliente.post(
                 settings.N8N_WEBHOOK_URL,
-                json={"destinatario": destinatario, "asunto": asunto, "cuerpo": cuerpo},
+                json=datos,
                 headers=headers,
             )
             respuesta.raise_for_status()

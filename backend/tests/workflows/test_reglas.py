@@ -205,7 +205,10 @@ def test_config_valida_se_guarda_normalizada_con_defaults(client_autenticado, ti
     respuesta = _crear(client_autenticado, tipo_factura_vencida.id, accion_config={})
 
     assert respuesta.status_code == 201
-    assert respuesta.json()["accion_config"] == {"destinatario": "responsables_habilitados"}
+    assert respuesta.json()["accion_config"] == {
+        "destinatario": "responsables_habilitados",
+        "enlace": None,
+    }
 
 
 def test_accion_config_nulo_equivale_a_vacio(client_autenticado, tipo_factura_vencida):
@@ -438,7 +441,10 @@ def test_patch_de_config_se_valida_contra_la_accion_actual(
     )
 
     assert mala.status_code == 422
-    assert buena.json()["accion_config"] == {"destinatario": "responsable_economico"}
+    assert buena.json()["accion_config"] == {
+        "destinatario": "responsable_economico",
+        "enlace": None,
+    }
 
 
 def test_aplicar_penalidad_valida_la_regla_de_penalidad(
@@ -570,3 +576,49 @@ def test_tipos_accion_lista_las_15_con_su_allowlist(client_autenticado):
 
 def test_tipos_accion_requiere_sesion(client):
     assert client.get("/workflows/tipos-accion").status_code == 401
+
+
+# --- Botón del mail (`enlace`) -------------------------------------------------------------
+
+
+def _crear_con_config(client, tipo, tipo_accion, accion_config):
+    return client.post(
+        "/workflows/reglas",
+        json={
+            "nombre": f"Regla {tipo_accion} con enlace",
+            "condicion": {},
+            "tipo_accion": tipo_accion,
+            "accion_config": accion_config,
+            "criticidad": "media",
+            "tipo_evento_id": str(tipo.id),
+        },
+    )
+
+
+@pytest.mark.parametrize("tipo_accion", ["notificar", "alerta_interna"])
+def test_acepta_enlaces_de_la_allowlist(client_autenticado, tipo_factura_vencida, tipo_accion):
+    config = {"enlace": "tareas"}
+    if tipo_accion == "alerta_interna":
+        config["mensaje"] = "Aviso"
+
+    respuesta = _crear_con_config(client_autenticado, tipo_factura_vencida, tipo_accion, config)
+
+    assert respuesta.status_code == 201, respuesta.text
+    assert respuesta.json()["accion_config"]["enlace"] == "tareas"
+
+
+@pytest.mark.parametrize("enlace", ["https://evil.com", "/familia/facturacion", "inexistente"])
+def test_rechaza_enlaces_fuera_de_la_allowlist(client_autenticado, tipo_factura_vencida, enlace):
+    respuesta = _crear_con_config(
+        client_autenticado, tipo_factura_vencida, "notificar", {"enlace": enlace}
+    )
+
+    assert respuesta.status_code == 422
+
+
+def test_generar_comunicacion_no_admite_enlace(client_autenticado, tipo_factura_vencida):
+    respuesta = _crear_con_config(
+        client_autenticado, tipo_factura_vencida, "generar_comunicacion", {"enlace": "tareas"}
+    )
+
+    assert respuesta.status_code == 422

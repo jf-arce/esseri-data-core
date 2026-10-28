@@ -39,7 +39,7 @@ describe('DeudaFamiliasTabla', () => {
       'href',
       '/familias-alumnos/familias/familia-1',
     )
-    expect(screen.getByText('2 pendientes · 1 pagadas')).toBeInTheDocument()
+    expect(screen.getByText('2 impagas · 1 pagadas')).toBeInTheDocument()
     expect(screen.getByText('Vencida')).toBeInTheDocument()
     expect(screen.getByText('1-1 de 1 responsables')).toBeInTheDocument()
   })

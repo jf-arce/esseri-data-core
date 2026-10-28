@@ -127,6 +127,10 @@ function conPermisos(codigos: string[]) {
       email: 'admin@esseri.edu.ar',
       auth_provider: 'local',
       estado: 'activo',
+      nombre_google: null,
+      avatar_url: null,
+      persona_nombre: null,
+      persona_apellido: null,
       roles: ['admin'],
       permisos,
       perfiles: [{ id: 'admin', codigo: 'admin', nombre: 'admin', descripcion: null, permisos }],
@@ -224,6 +228,67 @@ describe('ReglaWorkflowEditorPage', () => {
         accion_config: { tipo: 'debe', concepto_cobro_id: 'concepto-1' },
       }),
     )
+  })
+
+  describe('botón en el mail', () => {
+    const conBoton = {
+      ...reglaNotificar,
+      accion_config: { destinatario: 'destinatarios_regla', enlace: 'ejecuciones' },
+    }
+
+    it('elegir un botón lo guarda en accion_config junto al destinatario', async () => {
+      const user = userEvent.setup()
+      vi.mocked(obtenerReglaWorkflow).mockResolvedValue(reglaNotificar)
+      abrirEditor()
+
+      await user.click(await screen.findByRole('button', { name: /^Acción/ }))
+      await elegirOpcion(user, 'Botón en el mail', 'Ver mis tareas')
+      await guardarRegla(user)
+
+      await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
+      expect(actualizarReglaWorkflow).toHaveBeenCalledWith(
+        'r-1',
+        expect.objectContaining({
+          accion_config: { destinatario: 'destinatarios_regla', enlace: 'tareas' },
+        }),
+      )
+    })
+
+    it('al editar una regla con botón lo conserva', async () => {
+      const user = userEvent.setup()
+      vi.mocked(obtenerReglaWorkflow).mockResolvedValue(conBoton)
+      abrirEditor()
+
+      await user.click(await screen.findByRole('button', { name: /^Acción/ }))
+      expect(screen.getByRole('combobox', { name: 'Botón en el mail' })).toHaveTextContent(
+        'Revisar en ESSERI',
+      )
+      await guardarRegla(user)
+
+      await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
+      expect(actualizarReglaWorkflow).toHaveBeenCalledWith(
+        'r-1',
+        expect.objectContaining({
+          accion_config: { destinatario: 'destinatarios_regla', enlace: 'ejecuciones' },
+        }),
+      )
+    })
+
+    it('"Sin botón" quita el enlace de la configuración', async () => {
+      const user = userEvent.setup()
+      vi.mocked(obtenerReglaWorkflow).mockResolvedValue(conBoton)
+      abrirEditor()
+
+      await user.click(await screen.findByRole('button', { name: /^Acción/ }))
+      await elegirOpcion(user, 'Botón en el mail', 'Sin botón')
+      await guardarRegla(user)
+
+      await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
+      expect(actualizarReglaWorkflow).toHaveBeenCalledWith(
+        'r-1',
+        expect.objectContaining({ accion_config: { destinatario: 'destinatarios_regla' } }),
+      )
+    })
   })
 
   it('al cambiar de acción reinicia la config y aplica la aprobación por defecto', async () => {

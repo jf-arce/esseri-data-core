@@ -3,6 +3,7 @@ import { AppLayout } from '@/layout/app-layout'
 import { PortalLayout } from '@/layout/portal-layout'
 import { PortalDocenteLayout } from '@/layout/portal-docente-layout'
 import { ElegirPerfilPage } from '@/pages/elegir-perfil-page'
+import { NoEncontradaPage } from '@/pages/no-encontrada-page'
 import { PortalDocentePage } from '@/pages/portal-docente-page'
 import { PortalDocenteAsistenciaPage } from '@/pages/portal-docente-asistencia-page'
 import { PortalDocenteCursoPage } from '@/pages/portal-docente-curso-page'
@@ -116,6 +117,9 @@ export function AppRouter() {
                 },
               ],
             },
+            // Última y sin vista: React Router la prioriza por debajo de toda ruta concreta, así
+            // que no pisa las válidas ni la redirección de `VistaRoute` a la vista del rol.
+            { path: '*', element: <NoEncontradaPage /> },
           ],
         },
       ],

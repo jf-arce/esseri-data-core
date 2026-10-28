@@ -16,13 +16,15 @@ from sqlalchemy.orm import Session
 
 from src.academico.models import JustificacionInasistencia
 from src.auth.models import Usuario
+from src.config import settings
 from src.facturacion.models import Factura, Pago, ResponsableEconomico
 from src.familias_alumnos.models import Familia, FamiliaAlumno
 from src.fechas import ahora_utc
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import EventLog
 from src.workflows import destinatarios_service, n8n_client, plantillas_service
-from src.workflows.constants import MAX_DESTINATARIOS_POR_EJECUCION
+from src.workflows.constants import ENLACES_MAIL, MAX_DESTINATARIOS_POR_EJECUCION
+from src.workflows.email_html import armar_html
 from src.workflows.exceptions import (
     N8nNoConfigurado,
     N8nNoDisponible,
@@ -302,7 +304,9 @@ def _ejecutar(
         ]
         if not pendientes:
             return ResultadoAccion(detalle="Todos los emails ya habían sido enviados.")
-        return _enviar_todos(db, ejecucion, pendientes, total=len(pendientes), sin_email=0)
+        return _enviar_todos(
+            db, ejecucion, pendientes, total=len(pendientes), sin_email=0, enlace=_enlace_de(regla)
+        )
 
     try:
         asunto, cuerpo = obtener_contenido(db, regla, evento)
@@ -320,7 +324,24 @@ def _ejecutar(
         return ResultadoAccion(error=ERROR_TOPE)
 
     mensajes = [_Mensaje(d, asunto, cuerpo) for d in destinatarios]
-    return _enviar_todos(db, ejecucion, mensajes, total=len(mensajes), sin_email=sin_email)
+    return _enviar_todos(
+        db,
+        ejecucion,
+        mensajes,
+        total=len(mensajes),
+        sin_email=sin_email,
+        enlace=_enlace_de(regla),
+    )
+
+
+def _enlace_de(regla: WorkflowRule) -> tuple[str, str] | None:
+    """`(url completa, texto)` del botón de la regla. La ruta sale de `ENLACES_MAIL`: lo único
+    que guarda la regla es la clave."""
+    clave = (regla.accion_config or {}).get("enlace")
+    if clave is None or clave not in ENLACES_MAIL:
+        return None
+    ruta, texto = ENLACES_MAIL[clave]
+    return f"{settings.FRONTEND_URL.rstrip('/')}{ruta}", texto
 
 
 def _detalle_sin_email(sin_email: int) -> str | None:
@@ -359,6 +380,7 @@ def _enviar_todos(
     *,
     total: int,
     sin_email: int,
+    enlace: tuple[str, str] | None,
 ) -> ResultadoAccion:
     enviados = 0
     n8n_caido = False
@@ -379,7 +401,12 @@ def _enviar_todos(
         if n8n_caido:
             continue
         try:
-            n8n_client.enviar_email(mensaje.destinatario.email, mensaje.asunto, mensaje.cuerpo)
+            n8n_client.enviar_email(
+                mensaje.destinatario.email,
+                mensaje.asunto,
+                mensaje.cuerpo,
+                armar_html(mensaje.asunto, mensaje.cuerpo, enlace),
+            )
         except (N8nNoConfigurado, N8nNoDisponible) as error:
             logger.warning(
                 "n8n no está disponible: se corta el envío (tipo=%s)", type(error).__name__
