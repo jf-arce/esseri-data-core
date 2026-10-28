@@ -1,5 +1,6 @@
 import type {
   EstadoSugerencia,
+  PedidoBorradorComunicacion,
   ResultadoDeteccion,
   Sugerencia,
   TipoSugerencia,
@@ -75,4 +76,25 @@ export function mensajeDeteccion({ creadas, ya_pendientes }: ResultadoDeteccion)
     nuevas === 1 ? 'Se generó 1 sugerencia nueva.' : `Se generaron ${nuevas} sugerencias nuevas.`
   if (ya_pendientes === 0) return base
   return `${base} Otros casos ya estaban pendientes: ${ya_pendientes}.`
+}
+
+// Mismos límites que `BorradorComunicacionCreate` en el backend: se validan antes de pedir el
+// borrador porque cada pedido le cuesta una llamada al proveedor de IA.
+export const MIN_INSTRUCCIONES = 10
+export const MAX_INSTRUCCIONES = 1000
+
+export function validarPedidoBorrador({
+  tipo_evento_id,
+  nombre,
+  instrucciones,
+}: PedidoBorradorComunicacion): string | null {
+  if (!tipo_evento_id) return 'Elegí el evento para el que se redacta la comunicación.'
+  if (!nombre.trim()) return 'Poné un nombre para la plantilla.'
+  if (nombre.trim().length > 150) return 'El nombre puede tener hasta 150 caracteres.'
+  const largo = instrucciones.trim().length
+  if (largo < MIN_INSTRUCCIONES)
+    return `Contá qué tiene que decir la comunicación (al menos ${MIN_INSTRUCCIONES} caracteres).`
+  if (largo > MAX_INSTRUCCIONES)
+    return `Las instrucciones pueden tener hasta ${MAX_INSTRUCCIONES} caracteres.`
+  return null
 }

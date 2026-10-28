@@ -5,7 +5,27 @@ import {
   mensajeDeteccion,
   resumenSugerencia,
   separarSugerencias,
+  validarPedidoBorrador,
 } from '@/modules/ia-sugerencias/utils'
+
+describe('validarPedidoBorrador', () => {
+  const valido = {
+    tipo_evento_id: 'evento-1',
+    nombre: 'Aviso de cuota vencida',
+    instrucciones: 'Recordar con tono amable que la cuota venció.',
+  }
+
+  it('acepta un pedido completo', () => {
+    expect(validarPedidoBorrador(valido)).toBeNull()
+  })
+
+  it('exige evento, nombre e instrucciones suficientes antes de llamar a la IA', () => {
+    expect(validarPedidoBorrador({ ...valido, tipo_evento_id: '' })).toMatch(/evento/)
+    expect(validarPedidoBorrador({ ...valido, nombre: '   ' })).toMatch(/nombre/)
+    expect(validarPedidoBorrador({ ...valido, instrucciones: 'corto' })).toMatch(/10 caracteres/)
+    expect(validarPedidoBorrador({ ...valido, instrucciones: 'x'.repeat(1001) })).toMatch(/1000/)
+  })
+})
 
 function sugerencia(overrides: Partial<Sugerencia>): Sugerencia {
   return {
