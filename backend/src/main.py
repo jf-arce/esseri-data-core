@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.academico.router import router as academico_router
 from src.auditoria.router import router as auditoria_router
 from src.auth.router import router as auth_router
+from src.comunicaciones.router import router as comunicaciones_router
 from src.config import settings
 from src.exceptions import AppException, app_exception_handler
 from src.facturacion.facturacion_job import ejecutar_job_facturacion_periodico
@@ -63,6 +64,7 @@ app.add_middleware(
 app.add_exception_handler(AppException, app_exception_handler)
 
 app.include_router(auth_router)
+app.include_router(comunicaciones_router)
 app.include_router(familias_alumnos_router)
 app.include_router(academico_router)
 app.include_router(inscripciones_router)

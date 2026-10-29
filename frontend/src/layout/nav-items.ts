@@ -32,6 +32,7 @@ import {
   PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
   PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES,
   PERMISO_ACADEMICO_LEER,
+  PERMISO_COMUNICACIONES_LEER,
   PERMISO_AUTENTICACION_LEER,
   PERMISO_FACTURACION_LEER,
   PERMISO_FAMILIAS_ALUMNOS_LEER,
@@ -141,6 +142,13 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Gestión',
     items: [
+      {
+        label: 'Comunicaciones',
+        href: '/comunicaciones',
+        icon: MailIcon,
+        modulo: 'familias',
+        permiso: PERMISO_COMUNICACIONES_LEER,
+      },
       {
         // El label es el link a la landing del módulo (§8 DESIGN.md); el desplegable solo
         // suma los destinos DISTINTOS de esa landing — nunca la repite como primer ítem.

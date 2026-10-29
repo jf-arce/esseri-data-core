@@ -18,6 +18,7 @@ from src.facturacion import models as facturacion_models  # noqa: F401
 from src.proveedores_compras import models as proveedores_compras_models  # noqa: F401
 from src.workflows import models as workflows_models  # noqa: F401
 from src.ia_sugerencias import models as ia_sugerencias_models  # noqa: F401
+from src.comunicaciones import models as comunicaciones_models  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

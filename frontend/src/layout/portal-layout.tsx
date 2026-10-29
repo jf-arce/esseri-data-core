@@ -17,7 +17,7 @@ export function PortalLayout() {
 
   return (
     <div className="min-h-svh bg-lienzo">
-      <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-borde bg-superficie px-7">
+      <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center gap-3 border-b border-borde bg-superficie px-4 py-3 sm:flex-nowrap sm:px-7 sm:py-0">
         <div className="flex items-center gap-2.5">
           <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-nav">
             <img src="/esseri-icon.png" alt="" className="size-5 object-contain" />
@@ -28,7 +28,7 @@ export function PortalLayout() {
         {rolActivo === 'familia' && (
           <nav
             aria-label="Navegación del portal de familia"
-            className="mx-auto hidden items-center gap-2 sm:flex"
+            className="order-last mx-auto flex w-full min-w-0 items-center gap-2 overflow-x-auto sm:order-none sm:w-auto"
           >
             <NavLink to="/familia" end className={navItemClass}>
               Inicio
@@ -38,6 +38,9 @@ export function PortalLayout() {
             </NavLink>
             <NavLink to="/familia/facturacion" className={navItemClass}>
               Facturación
+            </NavLink>
+            <NavLink to="/familia/comunicaciones" className={navItemClass}>
+              Comunicaciones
             </NavLink>
           </nav>
         )}
