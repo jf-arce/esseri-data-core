@@ -15,6 +15,7 @@ from src.auth.dependencies import UsuarioAutenticado, requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
 from src.familias_alumnos.dependencies import (
+    FamiliaActiva,
     obtener_alumno_o_404,
     obtener_familia_o_404,
     obtener_vinculo_o_404,
@@ -100,13 +101,16 @@ def crear_familia_endpoint(
 @router.get("/familias", response_model=list[FamiliaResponse])
 def listar_familias_endpoint(
     _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_FAMILIAS_ALUMNOS_LEER))],
+    familia_activa: FamiliaActiva,
     buscar: str | None = None,
     estado_deuda: str | None = None,
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[Familia]:
-    """Listar familias con filtros opcionales."""
+    """Listar familias con filtros opcionales. El rol familia solo ve la propia."""
     filtros = FiltrosListarFamilias(buscar=buscar, estado_deuda=estado_deuda)
-    return listar_familias(db, filtros)
+    return listar_familias(
+        db, filtros, familia_id=familia_activa.id if familia_activa is not None else None
+    )
 
 
 @router.get("/familias/me/alumnos", response_model=list[MiAlumnoResponse])
@@ -204,6 +208,7 @@ def crear_alumno_endpoint(
 @router.get("/alumnos", response_model=list[AlumnoResponse])
 def listar_alumnos_endpoint(
     _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_FAMILIAS_ALUMNOS_LEER))],
+    familia_activa: FamiliaActiva,
     buscar: str | None = None,
     estado: str | None = None,
     nivel_educativo_id: str | None = None,
@@ -211,7 +216,7 @@ def listar_alumnos_endpoint(
     estado_inscripcion: str | None = None,
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[Alumno]:
-    """Listar alumnos con filtros opcionales."""
+    """Listar alumnos con filtros opcionales. El rol familia solo ve los vinculados."""
     filtros = FiltrosListarAlumnos(
         buscar=buscar,
         estado=estado,
@@ -219,7 +224,9 @@ def listar_alumnos_endpoint(
         estado_deuda=estado_deuda,
         estado_inscripcion=estado_inscripcion,
     )
-    return listar_alumnos(db, filtros)
+    return listar_alumnos(
+        db, filtros, familia_id=familia_activa.id if familia_activa is not None else None
+    )
 
 
 @router.get("/alumnos/{alumno_id}", response_model=AlumnoResponse)
@@ -307,11 +314,14 @@ def desvincular_alumno_familia_endpoint(
 @router.get("/alumnos/{alumno_id}/vinculos", response_model=list[VinculoResponse])
 def listar_vinculos_alumno_endpoint(
     _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_FAMILIAS_ALUMNOS_LEER))],
+    familia_activa: FamiliaActiva,
     alumno: Alumno = Depends(obtener_alumno_o_404),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[FamiliaAlumno]:
-    """Listar todas las familias vinculadas a un alumno."""
-    return listar_vinculos_de_alumno(db, alumno.id)
+    """Listar las familias vinculadas a un alumno. El rol familia solo ve su vínculo."""
+    return listar_vinculos_de_alumno(
+        db, alumno.id, familia_id=familia_activa.id if familia_activa is not None else None
+    )
 
 
 @router.get("/familias/{familia_id}/vinculos", response_model=list[VinculoResponse])

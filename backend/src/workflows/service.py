@@ -21,6 +21,7 @@ from src.workflows.constants import (
     DESTINATARIOS_FAMILIARES,
     ENTIDAD_POR_EVENTO,
     ENTIDADES_CON_ALUMNO,
+    ENTIDADES_CON_SOLICITANTE,
     EVENTOS_POR_ACCION,
     OPERADORES_POR_TIPO_DATO,
     TipoAccion,
@@ -47,6 +48,8 @@ from src.workflows.schemas import (
     ConfigActualizarCuentaCorriente,
     ConfigAplicarPenalidad,
     ConfigCambiarEstado,
+    ConfigCrearTarea,
+    ConfigEscalarCaso,
     ConfigGenerarCargo,
     ConfigNotificar,
     TipoAccionRead,
@@ -349,6 +352,25 @@ def validar_accion(
                 f"El evento '{tipo_evento_nombre}' no tiene alumno asociado: "
                 "usá el destinatario 'destinatarios_regla'."
             )
+    if (
+        getattr(config, "destinatario", None) == "solicitante"
+        and ENTIDAD_POR_EVENTO.get(tipo_evento_nombre, "") not in ENTIDADES_CON_SOLICITANTE
+    ):
+        raise AccionConfigInvalida(
+            f"El evento '{tipo_evento_nombre}' no viene de una compra: no tiene solicitante."
+        )
+    if isinstance(config, ConfigCrearTarea | ConfigEscalarCaso):
+        textos = (
+            (config.titulo, config.descripcion)
+            if isinstance(config, ConfigCrearTarea)
+            else ("-", config.motivo)
+        )
+        plantillas_service.validar_contenido_para_campos(
+            asunto=textos[0],
+            cuerpo=textos[1] or "",
+            campos=set(campos),
+            contexto="la tarea",
+        )
     if isinstance(config, ConfigCambiarEstado):
         entidad = ENTIDAD_POR_EVENTO.get(tipo_evento_nombre, "")
         estados = CAMBIOS_ESTADO_PERMITIDOS.get(entidad, frozenset())

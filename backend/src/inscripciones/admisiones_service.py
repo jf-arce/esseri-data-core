@@ -15,7 +15,7 @@ from src.facturacion.schemas import ResponsableEconomicoCreate
 from src.familias_alumnos import service as familias_alumnos_service
 from src.familias_alumnos.models import Alumno, Familia
 from src.familias_alumnos.schemas import VinculoCreate
-from src.inscripciones import matriculas_service
+from src.inscripciones import autorizacion_service, matriculas_service
 from src.inscripciones.exceptions import (
     ConflictoInscripcion,
     InscripcionInvalida,
@@ -42,6 +42,7 @@ from src.inscripciones.schemas import (
     SolicitudInscripcionRead,
 )
 from src.models import Persona
+from src.workflows.eventos_service import emit_event
 
 ETAPAS_ADMISION = (
     "consulta_lead",
@@ -53,6 +54,12 @@ ETAPAS_ADMISION = (
     "inscripcion_confirmada",
 )
 ZONA_HORARIA_ARGENTINA = ZoneInfo("America/Argentina/Buenos_Aires")
+MAX_TAMANIO_DOCUMENTO_SOLICITUD = 5 * 1024 * 1024
+FIRMAS_DOCUMENTO_SOLICITUD = {
+    "application/pdf": b"%PDF-",
+    "image/jpeg": b"\xff\xd8\xff",
+    "image/png": b"\x89PNG\r\n\x1a\n",
+}
 
 
 def _fecha_actual_argentina() -> date:
@@ -220,6 +227,8 @@ def listar_solicitudes_inscripcion(
     buscar: str | None = None,
     pagina: int = 1,
     tamanio_pagina: int = 20,
+    usuario_id: uuid.UUID | None = None,
+    familia: Familia | None = None,
 ) -> SolicitudInscripcionListadoRead:
     filtros = []
     if estado:
@@ -235,6 +244,10 @@ def listar_solicitudes_inscripcion(
                 Persona.dni.ilike(patron),
             )
         )
+    if familia is not None:
+        if usuario_id is None:
+            raise ValueError("usuario_id es obligatorio para acotar solicitudes por familia")
+        filtros.append(autorizacion_service.filtro_solicitudes_de_familia(usuario_id, familia))
 
     base = (
         select(SolicitudInscripcion, Persona, NivelEducativo)
@@ -277,8 +290,21 @@ def listar_solicitudes_inscripcion(
     )
 
 
-def obtener_solicitud_inscripcion(db: Session, solicitud_id: uuid.UUID) -> SolicitudInscripcionRead:
-    return _respuesta_solicitud(db, _obtener_solicitud(db, solicitud_id))
+def obtener_solicitud_inscripcion(
+    db: Session,
+    solicitud_id: uuid.UUID,
+    *,
+    usuario_id: uuid.UUID | None = None,
+    familia: Familia | None = None,
+) -> SolicitudInscripcionRead:
+    solicitud = _obtener_solicitud(db, solicitud_id)
+    if familia is not None:
+        if usuario_id is None:
+            raise ValueError("usuario_id es obligatorio para acotar solicitudes por familia")
+        autorizacion_service.verificar_acceso_a_solicitud(
+            db, solicitud, usuario_id=usuario_id, familia=familia
+        )
+    return _respuesta_solicitud(db, solicitud)
 
 
 def actualizar_solicitud_inscripcion(
@@ -536,7 +562,7 @@ def _resolver_familia_para_alta_integrada(
     usuario_id: uuid.UUID,
 ) -> Familia:
     if datos.familia_id is not None:
-        familia = db.get(Familia, datos.familia_id, with_for_update=True)
+        familia = _bloquear_familia(db, datos.familia_id)
         if familia is None:
             raise InscripcionNoEncontrada("La familia seleccionada no existe.")
         return familia
@@ -559,6 +585,18 @@ def _resolver_familia_para_alta_integrada(
     persona = _obtener_o_crear_persona(db, datos.familia_nueva)
     return familias_alumnos_service.obtener_o_crear_familia_para_persona_en_transaccion(
         db, persona.id, usuario_id
+    )
+
+
+def _bloquear_familia(db: Session, familia_id: uuid.UUID) -> Familia | None:
+    """Bloquea solo ``familia``; su relación eager con Persona usa un outer join."""
+    return db.scalar(select(Familia).where(Familia.id == familia_id).with_for_update(of=Familia))
+
+
+def _bloquear_alumno_por_persona(db: Session, persona_id: uuid.UUID) -> Alumno | None:
+    """Bloquea solo ``alumno``; su relación eager con Persona usa un outer join."""
+    return db.scalar(
+        select(Alumno).where(Alumno.persona_id == persona_id).with_for_update(of=Alumno).limit(1)
     )
 
 
@@ -598,9 +636,7 @@ def finalizar_admision_con_alta_integrada(
             raise InscripcionInvalida("La solicitud no tiene un aspirante válido.")
 
         fecha_inscripcion = datos.fecha_inscripcion or _fecha_actual_argentina()
-        alumno = db.scalar(
-            select(Alumno).where(Alumno.persona_id == aspirante.id).with_for_update().limit(1)
-        )
+        alumno = _bloquear_alumno_por_persona(db, aspirante.id)
         if alumno is None:
             alumno = familias_alumnos_service.crear_alumno_desde_persona_en_transaccion(
                 db, persona_id=aspirante.id, usuario_id=usuario_id
@@ -651,6 +687,21 @@ def finalizar_admision_con_alta_integrada(
             campo="__alta__",
             valor_anterior=None,
             valor_nuevo=f"alumno={inscripcion.alumno_id} tipo={inscripcion.tipo}",
+            usuario_id=usuario_id,
+        )
+        # Antes del commit: el evento existe solo si el alta se confirma (#207). Lo consume el
+        # Loop A de Workflows (cargo de matrícula y bienvenida).
+        nivel = db.get(NivelEducativo, solicitud.nivel_educativo_id)
+        emit_event(
+            db,
+            tipo="inscripcion.confirmada",
+            entidad="inscripcion",
+            entidad_id=inscripcion.id,
+            payload={
+                "alumno_nombre": f"{aspirante.apellido}, {aspirante.nombre}",
+                "nivel_educativo": nivel.nombre if nivel else "",
+                "fecha": fecha_inscripcion,
+            },
             usuario_id=usuario_id,
         )
         db.commit()
@@ -765,12 +816,38 @@ def rechazar_solicitud_inscripcion(
     return _respuesta_solicitud(db, solicitud)
 
 
+def _validar_archivo_documento_solicitud(
+    *, nombre_archivo: str | None, tipo_contenido: str | None, contenido: bytes
+) -> str:
+    nombre = (nombre_archivo or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
+    firma_valida = FIRMAS_DOCUMENTO_SOLICITUD.get(tipo_contenido or "")
+    if (
+        not nombre
+        or len(nombre) > 255
+        or not contenido
+        or len(contenido) > MAX_TAMANIO_DOCUMENTO_SOLICITUD
+        or firma_valida is None
+        or not contenido.startswith(firma_valida)
+    ):
+        raise InscripcionInvalida("El archivo debe ser PDF, JPG o PNG válido y no superar 5 MiB.")
+    return nombre
+
+
 def registrar_documento_solicitud(
     db: Session,
     solicitud_id: uuid.UUID,
     datos: DocumentoSolicitudCreate,
     usuario_id: uuid.UUID,
+    *,
+    nombre_archivo: str | None,
+    tipo_contenido: str | None,
+    contenido: bytes,
 ) -> DocumentoSolicitudRead:
+    nombre = _validar_archivo_documento_solicitud(
+        nombre_archivo=nombre_archivo,
+        tipo_contenido=tipo_contenido,
+        contenido=contenido,
+    )
     solicitud = _obtener_solicitud(db, solicitud_id, bloquear=True)
     if solicitud.estado != "aprobada" or solicitud.etapa != "documentacion_contrato":
         raise InscripcionInvalida(
@@ -779,7 +856,10 @@ def registrar_documento_solicitud(
 
     documento = DocumentoSolicitud(
         tipo_documento=datos.tipo_documento,
-        archivo=datos.archivo,
+        archivo=nombre,
+        tipo_contenido=tipo_contenido,
+        tamanio=len(contenido),
+        contenido=contenido,
         estado="pendiente",
         solicitud_inscripcion_id=solicitud.id,
         usuario_id=usuario_id,
@@ -798,6 +878,36 @@ def registrar_documento_solicitud(
     _guardar_cambios(db)
     db.refresh(documento)
     return DocumentoSolicitudRead.model_validate(documento)
+
+
+def obtener_archivo_documento_solicitud(
+    db: Session,
+    solicitud_id: uuid.UUID,
+    documento_id: uuid.UUID,
+    *,
+    usuario_id: uuid.UUID | None = None,
+    familia: Familia | None = None,
+) -> DocumentoSolicitud:
+    if familia is not None:
+        if usuario_id is None:
+            raise ValueError("usuario_id es obligatorio para acotar solicitudes por familia")
+        autorizacion_service.verificar_acceso_a_solicitud(
+            db,
+            _obtener_solicitud(db, solicitud_id),
+            usuario_id=usuario_id,
+            familia=familia,
+        )
+    documento = db.scalar(
+        select(DocumentoSolicitud).where(
+            DocumentoSolicitud.id == documento_id,
+            DocumentoSolicitud.solicitud_inscripcion_id == solicitud_id,
+        )
+    )
+    if documento is None:
+        raise InscripcionNoEncontrada("El documento de solicitud indicado no existe.")
+    if documento.contenido is None or documento.tipo_contenido is None:
+        raise InscripcionNoEncontrada("El documento no tiene un archivo adjunto disponible.")
+    return documento
 
 
 def actualizar_documento_solicitud(

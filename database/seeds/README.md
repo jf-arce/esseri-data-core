@@ -7,7 +7,7 @@ El diccionario clasifica los catálogos en 3 grupos según qué tan segura es la
 | Grupo | Estado acá | Por qué |
 |---|---|---|
 | **A** — confirmado por RF o por el cliente | **Cargado.** `grupo-a.yaml` + `01_seed_grupo_a.py` | `ROL` (10), `TIPO_EVENTO` (9), `METODO_PAGO` (4), `CONCEPTO_COBRO` (10), `MOTIVO_JUSTIFICACION` (7), `REGLA_PENALIDAD` (3) — corridos contra Postgres local, verificados por conteo. |
-| **B** — propuesta del equipo, validada informalmente (no por ESSERI) | **Cargado.** `grupo-b.yaml` + `03_seed_grupo_b.py` | `PERMISO` (40 filas) + `ROL_PERMISO` (91 vínculos) + `CAMPO_EVENTO` (27). Matriz rol × módulo × acción acotada a propósito — más fácil sumar un permiso después que sacar uno de más. Editable después vía el futuro ABM de roles/permisos, no volviendo a correr el seed. |
+| **B** — propuesta del equipo, validada informalmente (no por ESSERI) | **Cargado.** `grupo-b.yaml` + `03_seed_grupo_b.py` | `PERMISO` (41 filas) + `ROL_PERMISO` (99 vínculos) + `CAMPO_EVENTO` (27). Matriz rol × módulo × acción acotada a propósito — más fácil sumar un permiso después que sacar uno de más. Editable después vía el futuro ABM de roles/permisos, no volviendo a correr el seed. |
 | **C** — dato real de ESSERI | `NIVEL_EDUCATIVO` (3 valores) **cargado** vía `02_seed_grupo_c.py`. El resto (`ANIO`/`DIVISION`/`MATERIA`, `PRODUCTO_SERVICIO`) **sigue bloqueado**. | **Corrección sobre el diccionario**: dice que "el equipo ya recibió la tabla maestra", pero `docs/aclaraciones-cliente-esseri.md` (pregunta 19) lo dice en futuro ("vamos a entregar/preparar") — todavía no llegó. Solo los 3 niveles (Inicial/Primario/Secundario) están confirmados con nombre concreto (pregunta 6); años, divisiones, materias, docentes y catálogo de productos siguen sin entregar — no inventarlos. |
 
 ## Cómo correr los scripts ya disponibles
@@ -60,10 +60,13 @@ docker compose exec -e ESSERI_DEMO_SEED_ENABLED=true backend python /database/se
 La cuenta creada es `demo.admin@esseri.local`; la contraseña por defecto es
 `EsseriDemo2026!`. Puede reemplazarse solo para la carga con `ESSERI_DEMO_PASSWORD`.
 El script rechaza `ENVIRONMENT=production`/`prod` y es idempotente para sus propias claves demo.
+Cada pago aprobado procesado por el seed registra un único movimiento de haber en la cuenta
+corriente. Repetir la carga no duplica ese crédito; los pagos de períodos anteriores que la
+carga ya no procesa requieren una reparación explícita, limitada a la base demo.
 
 **Reglas de workflow de la demo (#216).** Sobre `factura.vencida` crea dos reglas que usan el
 campo `dias_vencido`: `Mora > 15 días: crear tarea` (`crear_tarea`, tarea para el rol
-Administración) y `Mora > 30 días: escalar caso` (`escalar_caso`, nueva tarea para el rol
+Administración, con el título "Reclamar la deuda de {{nombre_familia}}") y `Mora > 30 días: escalar caso` (`escalar_caso`, nueva tarea para el rol
 Dirección). La segunda nace con aprobación humana: la ejecución queda pendiente hasta que se
 apruebe desde el historial de ejecuciones. Con más de 30 días se disparan las dos, y los nombres
 hacen que `crear_tarea` se evalúe primero (el motor ordena las reglas por nombre). Se buscan por
@@ -71,7 +74,8 @@ nombre: si ya existen, volver a correr el seed no las duplica ni pisa lo editado
 
 **Reglas de vencimiento de la demo (#205).** También sobre `factura.vencida`, sin condición (se
 disparan con cada evento): `Vencimiento 1: marcar factura vencida` (`aplicar_vencimiento`),
-`Vencimiento 2: alerta a Administración` (`alerta_interna`, rol Administración) y
+`Vencimiento 2: alerta a Administración` (`alerta_interna`, rol Administración, con la plantilla
+`Alerta interna de factura vencida`) y
 `Vencimiento 3: aviso a la familia` (`notificar` al responsable económico, con la plantilla
 `Aviso de factura vencida`). Las tres son independientes: si la factura no cambia de estado, los
 avisos salen igual. La cuarta, `Vencimiento 4: aplicar penalidad por mora` (`aplicar_penalidad`,
@@ -92,6 +96,40 @@ docker compose exec -e ESSERI_DEMO_EMAIL_BASE=equipo@gmail.com -e ESSERI_DEMO_SE
 Eso genera `equipo+administracion@gmail.com`, `equipo+direccion@gmail.com` y
 `equipo+familia-<dni>@gmail.com`. Hay que sembrar antes de la primera detección de vencidas: el
 detector da por emitido un tramo aunque su evento ya se haya procesado.
+
+**Reglas de Compras (#214).** `Compras 1: generar orden de compra` (`generar_orden_compra` sobre
+`solicitud_compra.aprobada`, con aprobación humana), `Compras 2: alerta al área de Compras`
+(`alerta_interna` al rol `compras`, cuenta `compras@esseri.local`, sobre `orden_compra.emitida`) y
+`Compras 3: aviso al solicitante` (`notificar` al destinatario `solicitante` sobre
+`recepcion_compra.registrada`), con sus plantillas. Las solicitudes pendientes del seed son de
+productos con un solo proveedor, así que al aprobarlas la orden se arma sola.
+
+**Loop A (#206, #209).** Sobre `inscripcion.confirmada`: `Loop A 1: cargo de matrícula`
+(`generar_cargo` con el concepto Matrícula y el monto de la matrícula de la demo, con aprobación
+humana) y `Loop A 2: bienvenida a la familia` (`notificar` a los responsables habilitados con la
+plantilla `Bienvenida a la familia`). El monto va en la regla porque las admisiones son del ciclo
+siguiente y la regla de facturación de matrícula es del actual. Para el alta en vivo, el seed deja
+siempre una solicitud de Nivel Primario lista para "Finalizar admisión e inscribir" (aspirante
+`Benítez`, DNI `5092xxxx`), con la madre como contacto y su cuenta `familia-28555001@esseri.local`
+para que la bienvenida le llegue; al finalizarla hay que elegir "usar el contacto como familia". Si
+ya se finalizó, volver a correr el seed crea otra con el aspirante siguiente.
+
+**Loop de inasistencias (#218).** Además crea 4 plantillas y 4 reglas sobre los eventos de asistencia, todas hacia los responsables habilitados de la familia: `Inasistencia: avisar a la familia` y `Tardanza: avisar a la familia` (`notificar` sobre `inasistencia.registrada`, según `tipo_asistencia`), `Inasistencia justificada: avisar a la familia` (`notificar` sobre `inasistencia.justificada`) e `Inasistencia sin justificar: recordatorio` (`generar_recordatorio` a los 2 días, solo si la inasistencia sigue sin justificar). El aviso de justificación es neutral porque el evento no dice si se aprobó o se rechazó. Los emails salen por n8n (`N8N_WEBHOOK_URL`): sin configurar, las ejecuciones quedan `fallido`.
+
+### Regenerar la demo
+
+Volver a correr el seed **no** actualiza reglas ni plantillas que ya existen (se buscan por nombre
+y se saltean), y las tareas ya creadas no se vuelven a generar. Para probar con los textos nuevos
+hay que recrear solo la base, sin tocar el volumen de n8n:
+
+```bash
+cd infra
+docker compose stop backend && docker compose rm -sf postgres
+docker volume rm infra_postgres-data   # NO usar `down -v`: borra también el volumen de n8n
+docker compose up -d postgres backend
+```
+
+Después, migraciones y seeds `00` a `05` como se explica arriba (con `ESSERI_DEMO_SEED_ENABLED=true`).
 
 ## `05_seed_demo_docente.py` — datos ficticios para demostrar el Portal Docente
 

@@ -20,6 +20,8 @@ import {
   etiquetaEvento,
   filtrarReglas,
   insertarPlaceholder,
+  presentarCampo,
+  resumenEnLinea,
   validarPlaceholders,
   valoresDesdeRegla,
   VALORES_REGLA_VACIOS,
@@ -118,6 +120,38 @@ describe('armarCondicion', () => {
 
   it('manda texto si el valor numérico no es válido, para que el backend lo rechace', () => {
     expect(armarCondicion('dias_vencido', '>', 'abc', 'numero').valor).toBe('abc')
+  })
+})
+
+describe('armarConfig con botón del mail', () => {
+  it('conserva el enlace en notificar, recordatorio y alerta interna', () => {
+    expect(armarConfig('notificar', { destinatario: 'x', enlace: 'tareas' })).toEqual({
+      destinatario: 'x',
+      enlace: 'tareas',
+    })
+    expect(
+      armarConfig('generar_recordatorio', {
+        destinatario: 'x',
+        dias_despues: '2',
+        enlace: 'tareas',
+      }),
+    ).toEqual({ destinatario: 'x', dias_despues: 2, enlace: 'tareas' })
+    expect(armarConfig('alerta_interna', { mensaje: 'm', enlace: 'ejecuciones' })).toEqual({
+      mensaje: 'm',
+      enlace: 'ejecuciones',
+    })
+  })
+
+  it('sin botón (valor vacío) no manda el enlace', () => {
+    expect(armarConfig('notificar', { destinatario: 'x', enlace: '' })).toEqual({
+      destinatario: 'x',
+    })
+  })
+
+  it('generar_comunicacion no lo admite: lo descarta', () => {
+    expect(armarConfig('generar_comunicacion', { destinatario: 'x', enlace: 'tareas' })).toEqual({
+      destinatario: 'x',
+    })
   })
 })
 
@@ -429,6 +463,7 @@ describe('sinConceptosDisponibles', () => {
 describe('etiquetaEvento', () => {
   it('nombra el evento en lenguaje de usuario y cae al nombre interno si no lo conoce', () => {
     expect(etiquetaEvento('factura.vencida')).toBe('Vence una factura')
+    expect(etiquetaEvento('solicitud_compra.aprobada')).toBe('Se aprueba una solicitud de compra')
     expect(etiquetaEvento('evento.nuevo')).toBe('evento.nuevo')
   })
 })
@@ -474,5 +509,26 @@ describe('tareas', () => {
     expect(esEstadoTareaFiltro('inventado')).toBe(false)
     expect(esPrioridadTareaFiltro('alta')).toBe(true)
     expect(esPrioridadTareaFiltro('urgente')).toBe(false)
+  })
+})
+
+describe('presentarCampo', () => {
+  const campo = (nombre_interno: string, valor: string) => ({ nombre_interno, etiqueta: '', valor })
+
+  it('agrega la unidad a montos y días', () => {
+    expect(presentarCampo(campo('monto_deuda', '120.000,00'))).toBe('$ 120.000,00')
+    expect(presentarCampo(campo('monto_pagado', '500,00'))).toBe('$ 500,00')
+    expect(presentarCampo(campo('dias_vencido', '16'))).toBe('16 días')
+    expect(presentarCampo(campo('dias_vencido', '1'))).toBe('1 día')
+  })
+
+  it('deja tal cual lo que no tiene presentación', () => {
+    expect(presentarCampo(campo('nombre_familia', 'Castro'))).toBe('Castro')
+  })
+
+  it('resumenEnLinea une solo los primeros campos', () => {
+    const campos = ['a', 'b', 'c', 'd'].map((n) => campo(n, n.toUpperCase()))
+
+    expect(resumenEnLinea(campos)).toBe('A · B · C')
   })
 })

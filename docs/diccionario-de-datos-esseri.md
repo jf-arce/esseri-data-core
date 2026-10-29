@@ -50,6 +50,8 @@ RF cubiertos: RF-27, RF-28, RF-29, RF-30 · RNF-03, RNF-10
 | password_hash | string |  | `[ACLARACIÓN CLIENTE]` Ya no obligatorio: con Google Identity como login principal, queda como fallback explícito. Nulo en las cuentas que nacieron por Google |
 | auth_provider | string |  | `[ACLARACIÓN CLIENTE]` google / local. **[IMPLEMENTACIÓN RF-27]** Marca el método **principal**, no una exclusión — ver la nota de abajo sobre cuentas vinculadas |
 | provider_subject | string |  | `[ACLARACIÓN CLIENTE]` Identificador estable que devuelve Google Identity. Nulo mientras la cuenta no haya entrado nunca por Google |
+| nombre_google | string |  | Nombre que informa Google en el último login. Se refresca en cada login con Google. No reemplaza a `PERSONA`: en el encabezado manda el nombre de la persona si existe |
+| avatar_url | string |  | URL https de la foto de perfil de Google, refrescada en cada login. Nulo si Google no la informa |
 | estado | string |  | activo / inactivo |
 | fecha_creacion | datetime |  |  |
 | ultimo_acceso | datetime |  |  |
@@ -113,6 +115,8 @@ La tercera fila aparece cuando una cuenta creada como `local` entra por Google p
 > Cubre RF-27: *"intentos fallidos son registrados"*. Distinto de `AUDIT_LOG` (que registra cambios de campos) y de `EVENT_LOG` (que registra hechos de negocio).
 >
 > **[IMPLEMENTACIÓN RF-27]** `usuario_id` pasa a **nullable**. Un intento de login con un email que no existe en `USUARIO` no tiene a quién apuntar, y es justo uno de los casos que el RF pide registrar — con la FK obligatoria era irrepresentable.
+>
+> **[IMPLEMENTACIÓN #93]** Los `fallido` agrupados por `ip_origen` alimentan el bloqueo de `POST /auth/login`. Los intentos rechazados por el bloqueo no se registran. Ver `docs/auth-oauth-google.md`.
 
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
@@ -688,11 +692,12 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 >
 > | `tipo_accion` | `accion_config` | Eventos permitidos |
 > |---|---|---|
-> | `notificar`, `generar_comunicacion` | `destinatario` (`responsable_economico`, `responsables_habilitados`, `destinatarios_regla`) | cualquiera |
-> | `generar_recordatorio` | `destinatario`, `dias_despues` (1 a 90) | cualquiera |
-> | `alerta_interna` | `mensaje` (opcional, hasta 500) | cualquiera |
-> | `crear_tarea` | `titulo`, `descripcion?`, `prioridad`, `dias_para_vencer?` (1 a 60) | cualquiera |
-> | `escalar_caso` | `motivo?`, `prioridad` (default `alta`) | cualquiera |
+> | `notificar` | `destinatario` (`responsable_economico`, `responsables_habilitados`, `destinatarios_regla`), `enlace?` | cualquiera |
+> | `generar_comunicacion` | `destinatario` | cualquiera |
+> | `generar_recordatorio` | `destinatario`, `dias_despues` (1 a 90), `enlace?` | cualquiera |
+> | `alerta_interna` | `mensaje` (opcional, hasta 500), `enlace?` | cualquiera |
+> | `crear_tarea` | `titulo`, `descripcion?`, `prioridad`, `dias_para_vencer?` (1 a 60). `titulo` y `descripcion` admiten `{{campo}}` del evento | cualquiera |
+> | `escalar_caso` | `motivo?` (admite `{{campo}}` del evento), `prioridad` (default `alta`) | cualquiera |
 > | `cambiar_estado` | `estado_nuevo`, solo `factura → vencida` por ahora | `factura.vencida` |
 > | `generar_cargo` | `concepto_cobro_id` (activo), `monto?` (> 0) | `inscripcion.confirmada`, `pago.rechazado` |
 > | `aplicar_vencimiento`, `registrar_pago`, `registrar_rechazo` | sin parámetros | `factura.vencida`, `pago.registrado`, `pago.rechazado` respectivamente |
@@ -798,6 +803,10 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 
 > **[DECISIÓN DE DISEÑO]** (#89) `usuario_id` es el responsable y es obligatorio, así que `crear_tarea` y `escalar_caso` crean una `TAREA` por cada usuario activo de `REGLA_DESTINATARIO` (directo o por rol): los destinatarios de la regla son las personas a quienes se asigna el trabajo.
 >
+> **[DECISIÓN DE DISEÑO]** `accion_config.enlace` agrega un botón al mail que lleva a una pantalla de la app. Es una clave de allowlist (`ENLACES_MAIL` en `backend/src/workflows/constants.py`), nunca una URL: `familia_justificar` (`/familia/justificar-ausencia`), `ejecuciones` (`/workflows/ejecuciones`) y `tareas` (`/workflows/tareas`). La URL se arma con `FRONTEND_URL`; la persona tiene que iniciar sesión y, si venía sin sesión, vuelve a esa pantalla. No se puede responder ni aprobar desde el mail. `NOTIFICACION.cuerpo_snapshot` sigue en texto plano; el HTML es solo la presentación del envío.
+
+> **[DECISIÓN DE DISEÑO]** Al renderizar plantillas, tareas y mails, los números del payload se formatean en es-AR: decimales con 2 cifras y coma (`120.000,00`), enteros con separador de miles (`1.500`) y booleanos como `Sí`/`No`. Un `{{campo}}` que el evento no trae falla la ejecución con un error controlado, y al guardar la regla se valida que el campo exista en el evento.
+
 > **[DECISIÓN DE DISEÑO]** `escalar_caso` pasa a `escalada` las tareas abiertas (`pendiente`/`en_progreso`) de la misma `entidad`/`entidad_id` y crea la tarea nueva `pendiente`, con `tarea_id` apuntando a la más reciente de las escaladas. Sin tareas abiertas, crea la tarea sin antecesora. Una persona solo avanza la tarea (`pendiente → en_progreso → completada`); `escalada` la pone el motor y `completada` no se reabre.
 >
 > **[DECISIÓN DE DISEÑO]** La bandeja es de cada persona: ve las tareas que se le asignaron aunque su rol no tenga permisos de Workflows; con `workflows.leer` ve las de todos.
@@ -931,14 +940,18 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | id | uuid | PK |  |
 | tipo | string |  | "patron_detectado" / "comunicacion" |
 | entidad | string |  | Sin FK real, mismo criterio que `EVENT_LOG` |
-| entidad_id | uuid |  | Familia/alumno afectado por el patrón detectado |
-| contenido_generado | string |  | Texto generado por OpenAI (descripción del patrón o borrador de mensaje) |
+| entidad_id | uuid |  | Familia/alumno afectado por el patrón detectado; en una comunicación, el `TIPO_EVENTO` para el que se redactó (`entidad = "tipo_evento"`) |
+| contenido_generado | string |  | En `patron_detectado`, la descripción del patrón (armada por reglas, sin LLM). En `comunicacion`, el borrador en JSON: `nombre`, `asunto`, `cuerpo` e `instrucciones` |
 | requiere_control_humano | boolean |  | Si true, queda en "pendiente_revision" hasta aprobación manual — nunca se ejecuta sola |
 | estado | string |  | pendiente_revision / aprobada / rechazada / ejecutada_automaticamente |
 | fecha_generacion | datetime |  |  |
 | fecha_revision | datetime |  |  |
 | usuario_id | uuid | FK | Quién aprobó/rechazó |
 | notificacion_template_id | uuid | FK | Solo se completa si `tipo = "comunicacion"` y `estado = "aprobada"` — la sugerencia se convirtió en plantilla reutilizable |
+
+> **[DECISIÓN DE EQUIPO]** (issues #51 y #194) Los patrones se detectan a pedido (`POST /ia-sugerencias/patrones/detectar`), con reglas y SQL, sin LLM. **Morosidad**: familia con deuda vencida hace más de 30 días (`entidad = "familia"`). **Inasistencias**: alumno con al menos 3 ausencias sin justificar (`ausente_injustificado` o `ausente_pendiente`) en los últimos 30 días, en inscripciones activas (`entidad = "alumno"`). Los tres umbrales son variables de entorno (`IA_MOROSIDAD_DIAS_VENCIDO`, `IA_INASISTENCIAS_CANTIDAD`, `IA_INASISTENCIAS_VENTANA_DIAS`). Toda sugerencia nace en `pendiente_revision` con `requiere_control_humano = true`; un caso que ya tiene una sugerencia pendiente no se duplica, y uno ya revisado se vuelve a sugerir si el patrón sigue vigente. Aprobar o rechazar es una sola decisión: una sugerencia revisada no se modifica. `usuario_id` es quien revisó, no quien ejecutó la detección (eso queda en `AUDIT_LOG`). **Quién revisa:** además del administrador del sistema, el rol `dirección` (crear, leer, actualizar) — ningún documento del cliente lo define; se sigue el mismo criterio que la bandeja de justificaciones (respuesta 9: decide un rol institucional) y dirección ya lee los datos de Facturación y Académico de los que salen los patrones.
+>
+> **[DECISIÓN DE EQUIPO]** (issue #50) Un borrador de comunicación se pide para un `TIPO_EVENTO` (`POST /ia-sugerencias/comunicaciones`). El proveedor de IA solo redacta: recibe la descripción del evento, sus `CAMPO_EVENTO` y las instrucciones de quien lo pide, nunca datos personales. La respuesta se valida como una plantilla (longitudes, formato `{{campo}}` y que cada marcador exista en el evento) antes de guardarse en `contenido_generado` como JSON; el esquema no cambia. Aprobar crea la `NOTIFICACION_TEMPLATE` con `plantillas_service.registrar_plantilla()` y la enlaza en `notificacion_template_id`, todo en una transacción. Aprobar no envía nada: la plantilla queda disponible para las reglas de Workflows.
 
 ---
 
@@ -1134,5 +1147,8 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | — | **Modelo v1.0 congelado.** Decisiones de equipo que cerraban las últimas preguntas pendientes de esquema/lógica: pregunta #4 (roles conflictivos → gana el permiso más permisivo), pregunta #15 (`requiere_aprobacion_humana` decidido por acción: `generar_cargo`/`aplicar_penalidad`/`registrar_pago`/`registrar_rechazo`/`escalar_caso`/`generar_orden_compra` requieren aprobación, el resto es automático). Vistas del MVP confirmadas y RNF-15 con dueño (Botteri) en `docs/division-de-tareas-equipo.md`. Quedan abiertas solo #16 (allowlist campo por campo, no bloquea) y #17 (catálogo de productos, bloquea solo precarga). |
 | — | **Cerrada la pregunta #16** (allowlist de `accion_config`): definida por acción con su lista cerrada de eventos, entidad canónica por tipo de evento (`emit_event()` la exige) y validación de `condicion` contra `CAMPO_EVENTO`. Solo queda abierta #17. |
 | — | Definidas las reglas de `PRECIO_PRODUCTO` (issue #114): precios sin solapamiento por par producto + proveedor, cierre automático del anterior, vigente calculado por fecha y corrección auditada. Sin cambios de esquema. |
+| — | Definidas las reglas de detección de patrones y el ciclo de revisión de `IA_SUGERENCIA` (issues #51 y #194): morosidad e inasistencias por reglas con umbrales configurables, sin duplicar pendientes. El rol `dirección` suma permisos sobre IA/Sugerencias en `grupo-b.yaml`. Sin cambios de esquema. |
+| — | Definido el flujo de borradores de comunicación de `IA_SUGERENCIA` (issue #50): `contenido_generado` guarda el borrador en JSON y `entidad` apunta al `TIPO_EVENTO`; aprobar crea la `NOTIFICACION_TEMPLATE`. Sin cambios de esquema. |
 | — | Sumados a `TIPO_EVENTO` los dos eventos que emite Proveedores y Compras: `orden_compra.emitida` (entidad `orden_compra`; campos `proveedor_nombre`, `cantidad_items`, `fecha`) y `recepcion_compra.registrada` (entidad `recepcion_compra`; campos `proveedor_nombre`, `tipo_recepcion`, `fecha`). Sin cambios de esquema: son filas de catálogo. |
 | — | Sumados a `TIPO_EVENTO` `inscripcion.confirmada` (entidad `inscripcion`; campos `alumno_nombre`, `nivel_educativo`, `fecha`) y `solicitud_compra.aprobada` (entidad `solicitud_compra`; campos `item`, `cantidad`, `fecha`), y abiertas en la allowlist de `generar_cargo` y `generar_orden_compra` (issue #199). Sin cambios de esquema: son filas de catálogo. |
+| 2026-10-27 | Sumados `nombre_google` y `avatar_url` a `USUARIO` (issue #260): se guardan del id_token en cada login con Google y alimentan el nombre y la foto del encabezado. Prioridad del nombre: persona, Google, email |

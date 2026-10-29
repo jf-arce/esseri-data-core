@@ -1,4 +1,4 @@
-import { defineConfig, mergeConfig } from 'vitest/config'
+import { configDefaults, defineConfig, mergeConfig } from 'vitest/config'
 import viteConfig from './vite.config.ts'
 
 export default mergeConfig(
@@ -9,6 +9,8 @@ export default mergeConfig(
       setupFiles: ['./src/test/setup.ts'],
       globals: true,
       passWithNoTests: true,
+      // `e2e/` son specs de Playwright: corren con `npm run test:e2e`, no con Vitest.
+      exclude: [...configDefaults.exclude, 'e2e/**'],
     },
   }),
 )

@@ -1,6 +1,9 @@
+from contextlib import contextmanager
 from datetime import date
 
 import pytest
+from sqlalchemy import event
+from sqlalchemy.dialects import postgresql
 
 from src.academico.models import Anio, Division, NivelEducativo
 from src.familias_alumnos.models import Alumno
@@ -14,6 +17,20 @@ from tests.inscripciones.factories import (
     crear_escenario,
     crear_inscripcion_previa,
 )
+
+
+@contextmanager
+def _capturar_consultas(db_session):
+    consultas = []
+
+    def capturar(estado):
+        consultas.append(str(estado.statement.compile(dialect=postgresql.dialect())))
+
+    event.listen(db_session, "do_orm_execute", capturar)
+    try:
+        yield consultas
+    finally:
+        event.remove(db_session, "do_orm_execute", capturar)
 
 
 def _crear_division_de_otro_nivel(db_session):
@@ -35,11 +52,15 @@ def test_registrar_cambio_matricula_conserva_el_historial(client, db_session):
     inscripcion_actual = crear_inscripcion_previa(db_session, escenario, estado="activa")
     division_destino_id = crear_division_destino(db_session, escenario)
 
-    response = client.post(
-        f"/inscripciones/{inscripcion_actual.id}/cambios-matricula",
-        json={"division_id": str(division_destino_id), "fecha_cambio": "2027-03-10"},
-    )
+    with _capturar_consultas(db_session) as consultas:
+        response = client.post(
+            f"/inscripciones/{inscripcion_actual.id}/cambios-matricula",
+            json={"division_id": str(division_destino_id), "fecha_cambio": "2027-03-10"},
+        )
 
+    bloqueos_alumno = [sql for sql in consultas if "FROM alumno LEFT OUTER JOIN" in sql]
+    assert any("FOR UPDATE OF alumno" in sql for sql in bloqueos_alumno)
+    assert not any(sql.endswith("FOR UPDATE") for sql in bloqueos_alumno)
     assert response.status_code == 201
     body = response.json()
     assert body["tipo"] == "cambio_matricula"
@@ -146,6 +167,22 @@ def test_registrar_baja_conserva_el_historial_y_actualiza_alumno(client, db_sess
     assert db_session.get(Inscripcion, inscripcion_actual.id).estado == "finalizada"
     assert db_session.get(Alumno, escenario["alumno_id"]).estado == "inactivo"
     assert db_session.query(Inscripcion).count() == 2
+
+
+def test_registrar_baja_bloquea_solo_la_tabla_alumno(client, db_session):
+    escenario = crear_escenario(db_session)
+    inscripcion_actual = crear_inscripcion_previa(db_session, escenario, estado="activa")
+
+    with _capturar_consultas(db_session) as consultas:
+        response = client.post(
+            f"/inscripciones/{inscripcion_actual.id}/bajas",
+            json={"fecha_baja": "2027-05-15"},
+        )
+
+    bloqueos_alumno = [sql for sql in consultas if "FROM alumno LEFT OUTER JOIN" in sql]
+    assert any("FOR UPDATE OF alumno" in sql for sql in bloqueos_alumno)
+    assert not any(sql.endswith("FOR UPDATE") for sql in bloqueos_alumno)
+    assert response.status_code == 201
 
 
 def test_rechaza_movimiento_sobre_inscripcion_no_activa(client, db_session):

@@ -4,7 +4,7 @@ import type { MiDivision } from '@/modules/academico/types'
 
 /** Divisiones del docente autenticado, para la card de "¿Cómo querés entrar?". Lista vacía en
  * error o sin vínculo docente: no es un dato crítico, no vale la pena bloquear la pantalla. */
-export function useMisDivisiones(habilitado: boolean) {
+export function useMisDivisiones(habilitado: boolean, cicloLectivo?: string) {
   const [estado, setEstado] = useState<{ divisiones: MiDivision[]; cargando: boolean }>({
     divisiones: [],
     cargando: habilitado,
@@ -14,7 +14,7 @@ export function useMisDivisiones(habilitado: boolean) {
     if (!habilitado) return
     const controller = new AbortController()
 
-    getMisDivisiones(controller.signal)
+    getMisDivisiones(controller.signal, cicloLectivo)
       .then((divisiones) => setEstado({ divisiones, cargando: false }))
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') return
@@ -22,7 +22,7 @@ export function useMisDivisiones(habilitado: boolean) {
       })
 
     return () => controller.abort()
-  }, [habilitado])
+  }, [habilitado, cicloLectivo])
 
   return estado
 }

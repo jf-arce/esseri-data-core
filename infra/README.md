@@ -24,6 +24,9 @@ Levanta 4 servicios en la misma red interna:
 | `frontend` | `http://localhost:5173` | Corre `npm run dev` sobre la imagen `node:26-alpine`, con `frontend/` montado como volumen para hot-reload. |
 | `n8n` | `http://localhost:5678` | Sin autenticación en local. Los workflows se exportan a `infra/n8n/` (ver el README de esa carpeta). |
 
+**Demo del 10/11:** el paso a paso para dejarla andando en una notebook, con los scripts que
+preparan, verifican y restauran el entorno, está en [`infra/demo.md`](demo.md).
+
 Para bajar el stack sin perder los datos locales: `docker compose down`. **No usar** `docker compose down -v` salvo que se quiera borrar deliberadamente los volúmenes de Postgres y n8n.
 
 ## Backup y recuperación de PostgreSQL

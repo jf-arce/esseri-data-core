@@ -1,6 +1,7 @@
 import { DownloadIcon, ShieldAlertIcon } from 'lucide-react'
 import { useParams } from 'react-router'
 import { descargarExport } from '@/lib/descargar-export'
+import { formatearFechaHora } from '@/lib/fechas'
 import { BackLink } from '@/components/back-link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -134,6 +135,38 @@ export function FacturaDetallePage() {
               </div>
             </CardContent>
           </Card>
+
+          {factura.recargos.length > 0 && (
+            <Card>
+              <CardHeader className="border-b border-borde">
+                <CardTitle>Recargos por mora</CardTitle>
+              </CardHeader>
+              <CardContent className="px-0">
+                <div className="flex flex-col divide-y divide-borde">
+                  {factura.recargos.map((recargo) => (
+                    <div
+                      key={recargo.id}
+                      className="flex items-center justify-between gap-4 px-5 py-3 text-sm"
+                    >
+                      <div>
+                        <p className="font-medium text-texto">
+                          {recargo.observacion ?? 'Recargo por mora'}
+                        </p>
+                        <p className="text-xs text-texto-3">{formatearFechaHora(recargo.fecha)}</p>
+                      </div>
+                      <strong className="tabular-nums text-error">
+                        {formatearMoneda(recargo.monto)}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+                <p className="px-5 pt-3 text-xs text-texto-3">
+                  Los recargos se suman a la cuenta corriente del alumno: no modifican el total ni
+                  el saldo de esta factura.
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader className="border-b border-borde">

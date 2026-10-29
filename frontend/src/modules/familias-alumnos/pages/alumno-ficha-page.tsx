@@ -26,9 +26,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { HistorialCambios } from '@/modules/auditoria/components/historial-cambios'
+import { formatearMoneda } from '@/modules/facturacion/utils'
+import { obtenerCuentaCorriente } from '@/modules/facturacion/services/obtener-cuenta-corriente'
 import { obtenerAlumno } from '../services/obtener-alumno'
 import { eliminarAlumno } from '../services/eliminar-alumno'
 import { listarVinculosAlumno } from '../services/listar-vinculos-alumno'
+import type { CuentaCorriente } from '@/modules/facturacion/types'
 import type { Alumno, Vinculo, EstadoAlumno } from '../types'
 
 function BadgeEstado({ estado }: { estado: EstadoAlumno }) {
@@ -42,6 +45,7 @@ export function AlumnoFichaPage() {
   const navigate = useNavigate()
   const [alumno, setAlumno] = useState<Alumno>()
   const [vinculos, setVinculos] = useState<Vinculo[]>([])
+  const [cuentaCorriente, setCuentaCorriente] = useState<CuentaCorriente | null>(null)
   const [loadError, setLoadError] = useState<string>()
   const [cargando, setCargando] = useState(true)
   const [confirmarBaja, setConfirmarBaja] = useState(false)
@@ -52,11 +56,13 @@ export function AlumnoFichaPage() {
     Promise.all([
       obtenerAlumno(alumnoId),
       listarVinculosAlumno(alumnoId).catch(() => [] as Vinculo[]),
+      obtenerCuentaCorriente(alumnoId).catch(() => null),
     ])
-      .then(([data, vnc]) => {
+      .then(([data, vnc, cuenta]) => {
         if (!active) return
         setAlumno(data)
         setVinculos(vnc)
+        setCuentaCorriente(cuenta)
       })
       .catch((error: unknown) => {
         if (active)
@@ -159,7 +165,39 @@ export function AlumnoFichaPage() {
               </Card>
             </div>
 
-            <div>
+            <div className="flex flex-col gap-5">
+              <Card className="p-0">
+                <div className="border-b border-borde px-6 py-4">
+                  <h3 className="text-base font-semibold">Estado de cuenta</h3>
+                </div>
+                {cuentaCorriente ? (
+                  <div className="grid grid-cols-3 gap-3 px-6 py-5">
+                    <div>
+                      <p className="text-xs text-texto-2">Cargos</p>
+                      <p className="mt-1 font-semibold tabular-nums">
+                        {formatearMoneda(cuentaCorriente.total_debe)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-texto-2">Pagos</p>
+                      <p className="mt-1 font-semibold tabular-nums">
+                        {formatearMoneda(cuentaCorriente.total_haber)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-texto-2">Saldo</p>
+                      <p className="mt-1 font-semibold tabular-nums">
+                        {formatearMoneda(cuentaCorriente.saldo)}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="px-6 py-5 text-sm text-texto-2">
+                    No hay una cuenta corriente disponible para este alumno.
+                  </div>
+                )}
+              </Card>
+
               <Card className="p-0">
                 <div className="border-b border-borde px-6 py-4">
                   <h3 className="text-base font-semibold">Familia responsable</h3>

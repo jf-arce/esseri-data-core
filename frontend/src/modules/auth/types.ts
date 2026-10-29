@@ -81,6 +81,11 @@ export interface UsuarioActual {
   email: string
   auth_provider: string
   estado: string
+  /** Nombre y foto que informó Google en el último login. `null` si nunca entró por Google. */
+  nombre_google: string | null
+  avatar_url: string | null
+  persona_nombre: string | null
+  persona_apellido: string | null
   /** Suma de todos los roles de la cuenta — informativo, ya no es lo que autoriza el backend. */
   roles: string[]
   permisos: Permiso[]

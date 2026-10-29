@@ -7,12 +7,13 @@ import logging
 import operator
 import uuid
 from collections.abc import Callable
-from datetime import date, datetime
+from datetime import date, timedelta
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
+from src.fechas import ahora_utc
 from src.models import EventLog
 from src.workflows import (
     acciones_admision_service,
@@ -24,7 +25,12 @@ from src.workflows import (
     notificaciones_service,
     tareas_service,
 )
-from src.workflows.constants import ENTIDAD_POR_EVENTO, ERROR_ACCION_NO_IMPLEMENTADA
+from src.workflows.constants import (
+    ACCIONES_DIFERIDAS,
+    ENTIDAD_POR_EVENTO,
+    ERROR_ACCION_NO_IMPLEMENTADA,
+    VENTANA_RECORDATORIOS_DIAS,
+)
 from src.workflows.eventos_service import coaccionar_valor
 from src.workflows.exceptions import (
     EntidadDeEventoInvalida,
@@ -32,6 +38,7 @@ from src.workflows.exceptions import (
 )
 from src.workflows.models import TipoEvento, WorkflowExecution, WorkflowRule
 from src.workflows.schemas import (
+    ConfigRecordatorio,
     ResultadoAccion,
     ResumenDespacho,
 )
@@ -97,6 +104,69 @@ def procesar_eventos_pendientes(db: Session, limite: int = 100) -> ResumenDespac
     return resumen
 
 
+def procesar_recordatorios_vencidos(db: Session, limite: int = 100) -> int:
+    """Ejecuta las reglas diferidas (`generar_recordatorio`) de los eventos que ya cumplieron sus
+    `dias_despues`. Devuelve cuántas ejecuciones creó.
+
+    El despachador saltea esas reglas al llegar el evento, así que "la regla no tiene ejecución
+    para el evento" significa "todavía no le tocaba" y no hace falta ninguna tabla nueva. Solo se
+    miran los eventos posteriores a la creación de la regla (como cualquier otra regla, no actúa
+    sobre lo anterior) y de los últimos `VENTANA_RECORDATORIOS_DIAS` días después del plazo.
+    Cada evento se confirma por separado, igual que en el despacho."""
+    # La hora de la base, que es la que guarda `EventLog.timestamp` y `WorkflowRule.created_at`.
+    ahora = db.scalar(select(func.localtimestamp()))
+    ejecutadas = 0
+    reglas = db.scalars(
+        select(WorkflowRule)
+        .where(WorkflowRule.tipo_accion.in_(ACCIONES_DIFERIDAS), WorkflowRule.activo.is_(True))
+        .order_by(WorkflowRule.nombre)
+    ).all()
+    for regla in reglas:
+        if ejecutadas >= limite:
+            break
+        try:
+            dias = ConfigRecordatorio.model_validate(regla.accion_config or {}).dias_despues
+        except Exception:
+            logger.warning("La configuración de la regla %s no es válida", regla.id, exc_info=True)
+            continue
+        vencido = ahora - timedelta(days=dias)
+        desde = max(regla.created_at, vencido - timedelta(days=VENTANA_RECORDATORIOS_DIAS))
+        eventos = db.scalars(
+            select(EventLog)
+            .where(
+                EventLog.tipo_evento_id == regla.tipo_evento_id,
+                EventLog.estado == "procesado",
+                EventLog.timestamp >= desde,
+                EventLog.timestamp <= vencido,
+                ~exists().where(
+                    WorkflowExecution.workflow_rule_id == regla.id,
+                    WorkflowExecution.event_log_id == EventLog.id,
+                ),
+            )
+            .order_by(EventLog.timestamp)
+            .with_for_update(skip_locked=True)
+        ).all()
+        if not eventos:
+            continue
+        tipo_evento = db.get(TipoEvento, regla.tipo_evento_id)
+        if tipo_evento is None:
+            continue
+        campos = tipos_de_campos(db, tipo_evento.id)
+        for evento in eventos:
+            if ejecutadas >= limite:
+                break
+            try:
+                ejecucion = _procesar_regla(db, regla, evento, tipo_evento, campos, intento=1)
+                db.commit()
+            except Exception:
+                db.rollback()
+                logger.exception("Falló el recordatorio %s del evento %s", regla.id, evento.id)
+                continue
+            if ejecucion is not None:
+                ejecutadas += 1
+    return ejecutadas
+
+
 def _despachar_evento(db: Session, evento: EventLog) -> int:
     tipo_evento = db.get(TipoEvento, evento.tipo_evento_id)
     if tipo_evento is None:
@@ -110,6 +180,9 @@ def _despachar_evento(db: Session, evento: EventLog) -> int:
 
     creadas = 0
     for regla in reglas:
+        if regla.tipo_accion in ACCIONES_DIFERIDAS:
+            # Sin ejecución todavía: le toca a `procesar_recordatorios_vencidos`.
+            continue
         ejecucion = _procesar_regla(db, regla, evento, tipo_evento, campos, intento=1)
         if ejecucion is not None:
             creadas += 1
@@ -223,7 +296,7 @@ def _cumple_condicion(
 def _marcar_fallida(ejecucion: WorkflowExecution, motivo: str) -> None:
     ejecucion.estado = "fallido"
     ejecucion.error_detail = motivo
-    ejecucion.finished_at = datetime.now()
+    ejecucion.finished_at = ahora_utc()
 
 
 def _ejecutar_accion(
@@ -250,7 +323,7 @@ def _ejecutar_accion(
         _marcar_fallida(ejecucion, resultado.error)
         return
     ejecucion.estado = "exitoso"
-    ejecucion.finished_at = datetime.now()
+    ejecucion.finished_at = ahora_utc()
 
 
 def _marcar_evento_fallido(db: Session, evento_id: uuid.UUID) -> None:

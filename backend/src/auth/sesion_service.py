@@ -15,12 +15,14 @@ from src.auth.autorizacion_service import roles_de
 from src.auth.constants import ESTADO_ACTIVO, PROVIDER_GOOGLE
 from src.auth.exceptions import (
     CredencialesInvalidas,
+    DemasiadosIntentos,
     TokenInvalido,
     UsuarioInactivo,
     UsuarioNoHabilitado,
 )
 from src.auth.google_client import GoogleIdentity
 from src.auth.models import LogAcceso, Usuario
+from src.fechas import a_utc, ahora_utc
 
 # bcrypt solo mira los primeros 72 bytes y falla si le pasás más; truncar en los dos sentidos
 # mantiene hash y verificación consistentes.
@@ -103,6 +105,35 @@ def registrar_acceso(
     db.commit()
 
 
+# --- Bloqueo por intentos ----------------------------------------------------------------
+
+
+def _bloqueado_hasta(fechas: list[datetime], ahora: datetime) -> datetime | None:
+    """`fechas`: los fallidos más recientes de la IP, del más nuevo al más viejo."""
+    if len(fechas) < config.LOGIN_MAX_INTENTOS:
+        return None
+    utc = [a_utc(f) for f in fechas]
+    if utc[0] - utc[-1] >= config.LOGIN_VENTANA:
+        return None
+    hasta = utc[0] + config.LOGIN_BLOQUEO
+    return hasta if hasta > ahora else None
+
+
+def _verificar_bloqueo_ip(db: Session, ip_origen: str | None) -> None:
+    if ip_origen is None:
+        return
+    fechas = list(
+        db.scalars(
+            select(LogAcceso.fecha)
+            .where(LogAcceso.ip_origen == ip_origen, LogAcceso.resultado == RESULTADO_FALLIDO)
+            .order_by(LogAcceso.fecha.desc())
+            .limit(config.LOGIN_MAX_INTENTOS)
+        )
+    )
+    if _bloqueado_hasta(fechas, datetime.now(UTC)) is not None:
+        raise DemasiadosIntentos()
+
+
 # --- Login ------------------------------------------------------------------------------
 
 
@@ -112,6 +143,8 @@ def autenticar_local(db: Session, email: str, password: str, ip_origen: str | No
     Los tres motivos de rechazo (email inexistente, usuario sin contraseña, contraseña incorrecta)
     devuelven el mismo error a propósito: distinguirlos permitiría averiguar qué emails existen.
     """
+    # Antes de buscar al usuario: la respuesta no depende de si el email existe.
+    _verificar_bloqueo_ip(db, ip_origen)
     usuario = buscar_por_email(db, email)
 
     hash_a_comparar = (
@@ -164,6 +197,9 @@ def resolver_usuario_google(
         registrar_acceso(db, RESULTADO_FALLIDO, ip_origen, usuario.id)
         raise CredencialesInvalidas()
 
+    # Se refrescan en cada login: son datos de Google, no reemplazan a PERSONA.
+    usuario.nombre_google = identidad.nombre
+    usuario.avatar_url = identidad.foto_url
     return usuario
 
 
@@ -173,7 +209,7 @@ def finalizar_login(db: Session, usuario: Usuario, ip_origen: str | None) -> str
     Con un solo rol, ese rol se embebe como rol activo de entrada — nadie nota el cambio.
     Con 0 o 2+ roles arranca en `None`: `requiere_permiso` deniega hasta `POST /auth/rol-activo`.
     """
-    usuario.ultimo_acceso = datetime.now(UTC).replace(tzinfo=None)
+    usuario.ultimo_acceso = ahora_utc()
     db.add(usuario)
     db.commit()
     db.refresh(usuario)

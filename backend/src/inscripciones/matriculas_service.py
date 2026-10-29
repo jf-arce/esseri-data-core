@@ -37,6 +37,7 @@ def listar_inscripciones(
     estado: str | None = None,
     tipo: str | None = None,
     alumno_id: uuid.UUID | None = None,
+    familia_id: uuid.UUID | None = None,
     division_id: uuid.UUID | None = None,
     buscar: str | None = None,
     ordenar_por: str = "fecha",
@@ -55,6 +56,12 @@ def listar_inscripciones(
         filtros.append(Inscripcion.tipo == tipo)
     if alumno_id is not None:
         filtros.append(Inscripcion.alumno_id == alumno_id)
+    if familia_id is not None:
+        filtros.append(
+            Inscripcion.alumno_id.in_(
+                select(FamiliaAlumno.alumno_id).where(FamiliaAlumno.familia_id == familia_id)
+            )
+        )
     if division_id is not None:
         filtros.append(Inscripcion.division_id == division_id)
 
@@ -212,11 +219,19 @@ def filas_export_inscripciones(
 
 
 def obtener_resumen_inscripciones(
-    db: Session, ciclo_lectivo: str | None = None
+    db: Session, ciclo_lectivo: str | None = None, familia_id: uuid.UUID | None = None
 ) -> InscripcionesResumenRead:
     """Cuenta las inscripciones del ciclo sin depender de la página visible del listado."""
 
     ciclo = ciclo_lectivo or str(date.today().year)
+    filtros = [Inscripcion.ciclo_lectivo == ciclo]
+    if familia_id is not None:
+        filtros.append(
+            Inscripcion.alumno_id.in_(
+                select(FamiliaAlumno.alumno_id).where(FamiliaAlumno.familia_id == familia_id)
+            )
+        )
+
     resumen = db.execute(
         select(
             func.count(Inscripcion.id)
@@ -227,7 +242,7 @@ def obtener_resumen_inscripciones(
             .filter(Inscripcion.tipo == "reinscripcion")
             .label("reinscripciones"),
             func.count(Inscripcion.id).filter(Inscripcion.tipo == "baja").label("bajas"),
-        ).where(Inscripcion.ciclo_lectivo == ciclo)
+        ).where(*filtros)
     ).one()
 
     return InscripcionesResumenRead(
@@ -242,7 +257,8 @@ def obtener_resumen_inscripciones(
 def _obtener_alumno_y_division(
     db: Session, alumno_id: uuid.UUID, division_id: uuid.UUID
 ) -> tuple[Alumno, Division, Anio]:
-    alumno = db.get(Alumno, alumno_id, with_for_update=True)
+    # Persona se carga con LEFT JOIN: PostgreSQL solo debe bloquear la tabla Alumno.
+    alumno = db.get(Alumno, alumno_id, with_for_update={"of": Alumno})
     if alumno is None:
         raise InscripcionNoEncontrada("El alumno indicado no existe.")
 
@@ -520,7 +536,8 @@ def registrar_baja_inscripcion(
     """Registra la baja sin borrar la matrícula ni sus movimientos previos."""
 
     inscripcion_anterior = _obtener_inscripcion_activa_para_movimiento(db, inscripcion_id)
-    alumno = db.get(Alumno, inscripcion_anterior.alumno_id, with_for_update=True)
+    # Persona se carga con LEFT JOIN: PostgreSQL solo debe bloquear la tabla Alumno.
+    alumno = db.get(Alumno, inscripcion_anterior.alumno_id, with_for_update={"of": Alumno})
     if alumno is None:
         raise InscripcionNoEncontrada("El alumno indicado no existe.")
 

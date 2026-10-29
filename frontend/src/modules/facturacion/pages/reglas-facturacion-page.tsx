@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useAbrirDesdeUrl } from '@/hooks/use-abrir-desde-url'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import {
   Table,
@@ -17,6 +18,7 @@ import {
 import { actualizarEstadoReglaFacturacion } from '@/modules/facturacion/services/actualizar-estado-regla-facturacion'
 import { GenerarFacturacionDialog } from '@/modules/facturacion/components/generar-facturacion-dialog'
 import { ReglaFacturacionDialog } from '@/modules/facturacion/components/regla-facturacion-dialog'
+import { formatearFechaHora } from '@/lib/fechas'
 import { useEjecucionesFacturacion } from '@/modules/facturacion/hooks/use-ejecuciones-facturacion'
 import { useReglasFacturacion } from '@/modules/facturacion/hooks/use-reglas-facturacion'
 import type {
@@ -24,11 +26,7 @@ import type {
   EstadoReglaFacturacion,
   ReglaFacturacion,
 } from '@/modules/facturacion/types'
-import {
-  formatearFechaFactura,
-  formatearFechaHora,
-  formatearMoneda,
-} from '@/modules/facturacion/utils'
+import { formatearFechaFactura, formatearMoneda } from '@/modules/facturacion/utils'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 
@@ -63,6 +61,12 @@ export function ReglasFacturacionPage() {
   const [dialogoRegla, setDialogoRegla] = useState(false)
   const [reglaEditando, setReglaEditando] = useState<ReglaFacturacion | undefined>()
   const [dialogoGenerar, setDialogoGenerar] = useState(false)
+  // El buscador global linkea con `?crear=1` (nueva regla) y `?generar=1` (generar facturación).
+  useAbrirDesdeUrl('crear', () => {
+    setReglaEditando(undefined)
+    setDialogoRegla(true)
+  })
+  useAbrirDesdeUrl('generar', () => setDialogoGenerar(true))
   const ciclos = useMemo(
     () =>
       [...new Set(reglas.map((regla) => regla.ciclo_lectivo))].sort((a, b) => b.localeCompare(a)),

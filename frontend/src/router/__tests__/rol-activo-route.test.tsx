@@ -13,6 +13,7 @@ function renderConRolActivo(rolActivo: string | null) {
         <Route path="/elegir-perfil" element={<p>Elegir perfil</p>} />
         <Route element={<RolActivoRoute />}>
           <Route path="/panel" element={<p>Panel</p>} />
+          <Route path="/workflows/ejecuciones" element={<p>Ejecuciones</p>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -20,6 +21,7 @@ function renderConRolActivo(rolActivo: string | null) {
 }
 
 beforeEach(() => {
+  sessionStorage.clear()
   useAuthStore.setState({ rolActivo: null })
 })
 
@@ -34,5 +36,28 @@ describe('RolActivoRoute', () => {
     renderConRolActivo('dirección')
 
     expect(screen.getByText('Panel')).toBeInTheDocument()
+  })
+
+  it('con un destino guardado, lleva a esa pantalla y lo borra', async () => {
+    sessionStorage.setItem('esseri:destino', '/workflows/ejecuciones')
+    renderConRolActivo('dirección')
+
+    expect(await screen.findByText('Ejecuciones')).toBeInTheDocument()
+    expect(sessionStorage.getItem('esseri:destino')).toBeNull()
+  })
+
+  it('ignora un destino externo', () => {
+    sessionStorage.setItem('esseri:destino', '//evil.com')
+    renderConRolActivo('dirección')
+
+    expect(screen.getByText('Panel')).toBeInTheDocument()
+  })
+
+  it('sin rol activo conserva el destino hasta que se elija el perfil', () => {
+    sessionStorage.setItem('esseri:destino', '/workflows/ejecuciones')
+    renderConRolActivo(null)
+
+    expect(screen.getByText('Elegir perfil')).toBeInTheDocument()
+    expect(sessionStorage.getItem('esseri:destino')).toBe('/workflows/ejecuciones')
   })
 })

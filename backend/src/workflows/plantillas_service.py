@@ -2,6 +2,7 @@
 
 import re
 import uuid
+from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -40,6 +41,18 @@ def extraer_placeholders(*textos: str) -> set[str]:
     return encontrados
 
 
+def formatear_valor(valor: object) -> str:
+    """Formatea un valor del payload para mostrarlo: números en es-AR, booleanos en Sí/No."""
+    # `bool` va antes que `int` porque `isinstance(True, int)` es verdadero.
+    if isinstance(valor, bool):
+        return "Sí" if valor else "No"
+    if isinstance(valor, float | Decimal):
+        return f"{valor:,.2f}".replace(",", "\0").replace(".", ",").replace("\0", ".")
+    if isinstance(valor, int):
+        return f"{valor:,}".replace(",", ".")
+    return str(valor)
+
+
 def renderizar_contenido(asunto: str, cuerpo: str, payload: dict[str, object]) -> tuple[str, str]:
     """Reemplaza los placeholders con el payload del evento. Falla si falta un campo o es `None`."""
 
@@ -48,7 +61,7 @@ def renderizar_contenido(asunto: str, cuerpo: str, payload: dict[str, object]) -
         valor = payload.get(campo)
         if valor is None:
             raise PlantillaInvalida(f"El evento no trae el campo '{campo}' de la plantilla.")
-        return str(valor)
+        return formatear_valor(valor)
 
     asunto_final = _CARACTERES_DE_CONTROL.sub(" ", _PLACEHOLDER.sub(reemplazar, asunto)).strip()
     return asunto_final, _PLACEHOLDER.sub(reemplazar, cuerpo)

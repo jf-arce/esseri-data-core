@@ -11,6 +11,10 @@ function renderConRolActivo(roles: string[], rolActivo: string | null) {
       email: 'a@esseri.edu.ar',
       auth_provider: 'local',
       estado: 'activo',
+      nombre_google: null,
+      avatar_url: null,
+      persona_nombre: null,
+      persona_apellido: null,
       roles,
       permisos: [],
       perfiles: roles.map((codigo) => ({

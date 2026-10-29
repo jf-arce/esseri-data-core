@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { abrirMenuDeFila, elegirAccion } from '@/modules/workflows/__tests__/menu-acciones'
 import { describe, expect, it, vi } from 'vitest'
 import { TareasTabla } from '@/modules/workflows/components/tareas-tabla'
 import type { Tarea } from '@/modules/workflows/types'
@@ -43,7 +44,7 @@ function renderTabla(props: Partial<Parameters<typeof TareasTabla>[0]> = {}) {
 }
 
 describe('TareasTabla', () => {
-  it('muestra la tarea, su responsable, su regla, su prioridad y su estado', () => {
+  it('muestra la tarea, su responsable, su regla, su prioridad y su estado', async () => {
     renderTabla()
 
     expect(screen.getByText('Llamar a la familia')).toBeInTheDocument()
@@ -53,16 +54,17 @@ describe('TareasTabla', () => {
     expect(screen.getByText('Pendiente')).toBeInTheDocument()
   })
 
-  it('marca como vencida la tarea abierta con la fecha pasada', () => {
+  it('marca como vencida la tarea abierta con la fecha pasada', async () => {
     renderTabla()
 
     expect(screen.getByText('Vencida')).toBeInTheDocument()
   })
 
-  it('ofrece iniciar y completar una tarea pendiente, y solo completar una en progreso', () => {
+  it('ofrece iniciar y completar una tarea pendiente, y solo completar una en progreso', async () => {
     const { rerender } = renderTabla()
-    expect(screen.getByRole('button', { name: /Iniciar/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Completar/ })).toBeInTheDocument()
+    await abrirMenuDeFila()
+    expect(screen.getByRole('menuitem', { name: /Iniciar/ })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /Completar/ })).toBeInTheDocument()
 
     rerender(
       <TareasTabla
@@ -79,11 +81,11 @@ describe('TareasTabla', () => {
         onAvanzar={vi.fn()}
       />,
     )
-    expect(screen.queryByRole('button', { name: /Iniciar/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Completar/ })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /Iniciar/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /Completar/ })).toBeInTheDocument()
   })
 
-  it('no ofrece avanzar las tareas cerradas ni las escaladas', () => {
+  it('no ofrece avanzar las tareas cerradas ni las escaladas', async () => {
     renderTabla({
       items: [
         { ...tarea, id: 't-2', estado: 'completada', vencida: false },
@@ -91,21 +93,27 @@ describe('TareasTabla', () => {
       ],
     })
 
-    expect(screen.queryByRole('button', { name: /Iniciar|Completar/ })).not.toBeInTheDocument()
+    for (const disparador of screen.getAllByRole('button', { name: /Acciones para/ })) {
+      await userEvent.click(disparador)
+      expect(screen.queryByRole('menuitem', { name: /Iniciar|Completar/ })).not.toBeInTheDocument()
+      await userEvent.keyboard('{Escape}')
+    }
   })
 
-  it('no ofrece avanzar las tareas ajenas si la persona no puede gestionarlas', () => {
+  it('no ofrece avanzar las tareas ajenas si la persona no puede gestionarlas', async () => {
     renderTabla({ puedeAvanzar: () => false })
 
-    expect(screen.queryByRole('button', { name: /Iniciar|Completar/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Ver detalle/ })).toBeInTheDocument()
+    await abrirMenuDeFila()
+
+    expect(screen.queryByRole('menuitem', { name: /Iniciar|Completar/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /Ver detalle/ })).toBeInTheDocument()
   })
 
   it('avisa qué tarea y a qué estado se quiere avanzar', async () => {
     const onAvanzar = vi.fn()
     renderTabla({ onAvanzar })
 
-    await userEvent.click(screen.getByRole('button', { name: /Iniciar/ }))
+    await elegirAccion(/Iniciar/)
 
     expect(onAvanzar).toHaveBeenCalledWith(tarea, 'en_progreso')
   })
@@ -114,7 +122,7 @@ describe('TareasTabla', () => {
     const onVerDetalle = vi.fn()
     renderTabla({ onVerDetalle })
 
-    await userEvent.click(screen.getByRole('button', { name: /Ver detalle/ }))
+    await elegirAccion(/Ver detalle/)
 
     expect(onVerDetalle).toHaveBeenCalledWith(tarea)
   })

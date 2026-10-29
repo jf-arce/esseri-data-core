@@ -3,13 +3,18 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { GlobalSearchDialog } from '@/layout/global-search-dialog'
+import { NAV_GROUPS, filtrarNav } from '@/layout/nav-items'
 import { listarFacturas } from '@/modules/facturacion/services/listar-facturas'
 import { listarInscripciones } from '@/modules/inscripciones/services/listar-inscripciones'
 import { listarSolicitudesAdmision } from '@/modules/inscripciones/services/solicitudes-admision'
 import { getUsuarios } from '@/modules/auth/services/get-usuarios'
+import { listarDeudaFamilias } from '@/modules/facturacion/services/listar-deuda-familias'
+import { listarAlumnos } from '@/modules/familias-alumnos/services/listar-alumnos'
+import { listarFamilias } from '@/modules/familias-alumnos/services/listar-familias'
+import { buscarOrdenes } from '@/modules/proveedores-compras/services/buscar-ordenes'
 import { useAuthStore } from '@/store/auth-store'
 
-const PLACEHOLDER = 'Buscar alumno, aspirante, legajo, DNI, factura o usuario…'
+const PLACEHOLDER = 'Buscar alumno, familia, legajo, DNI, factura, orden o usuario…'
 
 // El buscador filtra "Ir a"/"Acciones" por el permiso `.leer`/`.crear` del rol activo — un rol
 // con acceso a todo lo que este archivo prueba (mismo criterio que "administrador del sistema").
@@ -22,6 +27,9 @@ const PERMISOS_DE_PRUEBA = [
   'autenticacion.leer',
   'autenticacion.crear',
   'autenticacion.actualizar',
+  'academico.leer',
+  'proveedores_compras.leer',
+  'workflows.leer',
 ].map((codigo, indice) => ({
   id: `p${indice}`,
   codigo,
@@ -34,11 +42,19 @@ vi.mock('@/modules/facturacion/services/listar-facturas')
 vi.mock('@/modules/inscripciones/services/listar-inscripciones')
 vi.mock('@/modules/inscripciones/services/solicitudes-admision')
 vi.mock('@/modules/auth/services/get-usuarios')
+vi.mock('@/modules/facturacion/services/listar-deuda-familias')
+vi.mock('@/modules/familias-alumnos/services/listar-alumnos')
+vi.mock('@/modules/familias-alumnos/services/listar-familias')
+vi.mock('@/modules/proveedores-compras/services/buscar-ordenes')
 
 const mockedListarFacturas = vi.mocked(listarFacturas)
 const mockedListarInscripciones = vi.mocked(listarInscripciones)
 const mockedListarSolicitudesAdmision = vi.mocked(listarSolicitudesAdmision)
 const mockedGetUsuarios = vi.mocked(getUsuarios)
+const mockedListarAlumnos = vi.mocked(listarAlumnos)
+const mockedListarFamilias = vi.mocked(listarFamilias)
+const mockedListarDeudaFamilias = vi.mocked(listarDeudaFamilias)
+const mockedBuscarOrdenes = vi.mocked(buscarOrdenes)
 
 function renderDialogo() {
   return render(
@@ -56,6 +72,10 @@ beforeEach(() => {
       email: 'a@esseri.edu.ar',
       auth_provider: 'local',
       estado: 'activo',
+      nombre_google: null,
+      avatar_url: null,
+      persona_nombre: null,
+      persona_apellido: null,
       roles: ['administrador del sistema'],
       permisos: PERMISOS_DE_PRUEBA,
       perfiles: [
@@ -103,6 +123,32 @@ beforeEach(() => {
       },
     ],
   } as never)
+  mockedListarAlumnos.mockResolvedValue([
+    {
+      id: 'alumno-1',
+      numero_legajo: 'L-77',
+      persona_nombre: 'Lucía',
+      persona_apellido: 'Paz',
+      persona_dni: '40111222',
+    },
+  ] as never)
+  mockedListarFamilias.mockResolvedValue([
+    { id: 'familia-1', persona_nombre: 'Marta', persona_apellido: 'Paz', persona_dni: '20111222' },
+  ] as never)
+  mockedListarDeudaFamilias.mockResolvedValue({
+    items: [
+      {
+        familia_id: 'familia-1',
+        familia_nombre: 'Marta',
+        familia_apellido: 'Paz',
+        estado: 'moroso',
+        deuda_total: '5000.00',
+      },
+    ],
+  } as never)
+  mockedBuscarOrdenes.mockResolvedValue({
+    items: [{ id: 'orden123-0000', proveedor_nombre: 'Librería Sur', estado: 'emitida' }],
+  } as never)
   mockedGetUsuarios.mockResolvedValue([
     {
       id: 'usuario-1',
@@ -137,6 +183,16 @@ describe('GlobalSearchDialog', () => {
     expect(screen.queryByText('Usuarios y roles')).not.toBeInTheDocument()
   })
 
+  it('"Ir a" sale del menú lateral: suma módulos nuevos y la bandeja de tareas', () => {
+    renderDialogo()
+
+    expect(screen.getByText('Órdenes de compra')).toBeInTheDocument()
+    expect(screen.getByText('Reglas de automatización')).toBeInTheDocument()
+    expect(screen.getByText('Historial de ejecuciones')).toBeInTheDocument()
+    expect(screen.getByText('Estructura académica')).toBeInTheDocument()
+    expect(screen.getByText('Tareas')).toBeInTheDocument()
+  })
+
   it('ofrece las acciones de alta de usuarios, roles y permisos', () => {
     renderDialogo()
 
@@ -153,6 +209,10 @@ describe('GlobalSearchDialog', () => {
         email: 'a@esseri.edu.ar',
         auth_provider: 'local',
         estado: 'activo',
+        nombre_google: null,
+        avatar_url: null,
+        persona_nombre: null,
+        persona_apellido: null,
         roles: ['secretaría'],
         permisos: sinCrear,
         perfiles: [
@@ -238,6 +298,10 @@ describe('GlobalSearchDialog', () => {
         email: 'a@esseri.edu.ar',
         auth_provider: 'local',
         estado: 'activo',
+        nombre_google: null,
+        avatar_url: null,
+        persona_nombre: null,
+        persona_apellido: null,
         roles: ['secretaría'],
         permisos: permisosSinFacturacion,
         perfiles: [
@@ -273,6 +337,10 @@ describe('GlobalSearchDialog', () => {
         email: 'a@esseri.edu.ar',
         auth_provider: 'local',
         estado: 'activo',
+        nombre_google: null,
+        avatar_url: null,
+        persona_nombre: null,
+        persona_apellido: null,
         roles: ['secretaría'],
         permisos: sinAutenticacion,
         perfiles: [
@@ -296,4 +364,52 @@ describe('GlobalSearchDialog', () => {
     await waitFor(() => expect(screen.getAllByText('Demo, Sofía').length).toBeGreaterThan(0))
     expect(mockedGetUsuarios).not.toHaveBeenCalled()
   })
+
+  it('busca alumnos, familias, deuda por familia y órdenes de compra', async () => {
+    const user = userEvent.setup()
+    renderDialogo()
+
+    await user.type(screen.getByPlaceholderText(PLACEHOLDER), 'Paz')
+
+    expect(await screen.findByText('Paz, Lucía')).toBeInTheDocument()
+    expect(screen.getByText('L-77 · DNI 40111222')).toBeInTheDocument()
+    expect(screen.getAllByText('Paz, Marta')).toHaveLength(2)
+    expect(screen.getByText('Orden #orden123')).toBeInTheDocument()
+    expect(screen.getByText('Librería Sur · emitida')).toBeInTheDocument()
+    expect(mockedListarAlumnos).toHaveBeenCalledWith({ buscar: 'Paz' }, expect.any(AbortSignal))
+  })
+
+  it.each(['administrador_del_sistema', 'direccion', 'administracion', 'secretaria'])(
+    'cada destino visible del menú lateral aparece en "Ir a" (%s)',
+    (rol) => {
+      useAuthStore.setState((estado) => {
+        if (!estado.usuario) return estado
+        const perfil = { ...estado.usuario.perfiles[0], codigo: rol, permisos: PERMISOS_DE_PRUEBA }
+        return {
+          usuario: { ...estado.usuario, perfiles: [perfil], rol_activo: rol },
+          rolActivo: rol,
+        }
+      })
+      renderDialogo()
+
+      // Lo que el menú muestra con el mismo rol, con el mismo criterio de landing del sidebar:
+      // un padre que solo redirige a su primer hijo ("Usuarios y roles") no es un destino propio.
+      const etiquetasDelMenu = filtrarNav(NAV_GROUPS, rol, PERMISOS_DE_PRUEBA).flatMap((grupo) =>
+        grupo.items.flatMap((item) => {
+          const landing = item.href && (item.tituloLanding || !item.children?.length)
+          return [
+            ...(landing ? [item.tituloLanding ?? item.label] : []),
+            ...(item.children ?? []).map((hijo) => hijo.label),
+          ]
+        }),
+      )
+
+      expect(etiquetasDelMenu.length).toBeGreaterThan(0)
+      for (const etiqueta of etiquetasDelMenu) {
+        expect(screen.getAllByText(etiqueta).length, `${etiqueta} falta en "Ir a"`).toBeGreaterThan(
+          0,
+        )
+      }
+    },
+  )
 })

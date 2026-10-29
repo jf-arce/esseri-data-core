@@ -3,11 +3,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '@/api/client'
 import { useAlumnosDivision } from '@/modules/academico/hooks/use-alumnos-division'
 import { listarInscripciones } from '@/modules/inscripciones/services/listar-inscripciones'
+import { listarAlumnosDivisionDocente } from '@/modules/academico/services/docente-academico'
 import type { InscripcionListadoItem } from '@/modules/inscripciones/types'
 
 vi.mock('@/modules/inscripciones/services/listar-inscripciones')
+vi.mock('@/modules/academico/services/docente-academico', () => ({
+  listarAlumnosDivisionDocente: vi.fn(),
+  obtenerSeguimientoDivisionDocente: vi.fn(),
+}))
 
 const mockedListarInscripciones = vi.mocked(listarInscripciones)
+const mockedListarAlumnosDivisionDocente = vi.mocked(listarAlumnosDivisionDocente)
 
 function inscripcion(overrides: Partial<InscripcionListadoItem>): InscripcionListadoItem {
   return {
@@ -72,5 +78,25 @@ describe('useAlumnosDivision', () => {
 
     expect(result.current.sinPermiso).toBe(true)
     expect(result.current.error).toBeNull()
+  })
+
+  it('usa el endpoint docente con el ciclo seleccionado', async () => {
+    mockedListarAlumnosDivisionDocente.mockResolvedValue({
+      items: [inscripcion({ division_id: 'division-1' })],
+      total: 1,
+      pagina: 1,
+      tamanio_pagina: 100,
+      total_paginas: 1,
+    })
+
+    const { result } = renderHook(() =>
+      useAlumnosDivision('division-1', { cicloLectivo: '2027', portalDocente: true }),
+    )
+
+    await waitFor(() => expect(result.current.cargando).toBe(false))
+
+    expect(mockedListarAlumnosDivisionDocente).toHaveBeenCalledWith('division-1', '2027')
+    expect(mockedListarInscripciones).not.toHaveBeenCalled()
+    expect(result.current.alumnos).toHaveLength(1)
   })
 })

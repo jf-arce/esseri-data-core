@@ -8,6 +8,16 @@ class CredencialesInvalidas(AppException):
         super().__init__(message)
 
 
+class DemasiadosIntentos(AppException):
+    status_code = 429
+
+    def __init__(
+        self,
+        message: str = "Demasiados intentos de inicio de sesión. Probá de nuevo en unos minutos.",
+    ):
+        super().__init__(message)
+
+
 class TokenInvalido(AppException):
     status_code = 401
 

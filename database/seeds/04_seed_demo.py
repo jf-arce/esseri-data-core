@@ -45,6 +45,7 @@ from src.auth.sesion_service import hashear_password
 from src.config import settings
 from src.database import SessionLocal
 from src.facturacion.calendario_facturacion import fecha_operativa_argentina
+from src.facturacion.cuenta_corriente_service import registrar_pago_en_transaccion
 from src.facturacion.models import (
     ConceptoCobro,
     Factura,
@@ -79,7 +80,7 @@ from src.proveedores_compras.models import (
 )
 from src.workflows.destinatarios_service import reemplazar_destinatarios_regla
 from src.workflows.models import NotificacionTemplate, TipoEvento, WorkflowRule
-from src.workflows.plantillas_service import registrar_plantilla
+from src.workflows.plantillas_service import crear_plantilla
 from src.workflows.schemas import (
     NotificacionTemplateCreate,
     ReglaDestinatariosUpdate,
@@ -103,8 +104,8 @@ REGLAS_MORA = [
         "dias_vencido_mayor_a": 15,
         "tipo_accion": "crear_tarea",
         "accion_config": {
-            "titulo": "Reclamar la deuda vencida",
-            "descripcion": "La factura lleva más de 15 días vencida: contactar a la familia.",
+            "titulo": "Reclamar la deuda de {{nombre_familia}}",
+            "descripcion": "Lleva {{dias_vencido}} días vencida, deuda de ${{monto_deuda}}.",
             "prioridad": "media",
             "dias_para_vencer": 5,
         },
@@ -116,7 +117,9 @@ REGLAS_MORA = [
         "dias_vencido_mayor_a": 30,
         "tipo_accion": "escalar_caso",
         "accion_config": {
-            "motivo": "La factura lleva más de 30 días vencida sin regularizarse.",
+            "motivo": (
+                "La factura de {{nombre_familia}} lleva más de 30 días vencida sin regularizarse."
+            ),
             "prioridad": "alta",
         },
         "criticidad": "alta",
@@ -131,8 +134,22 @@ PLANTILLA_VENCIDA = {
     "nombre": "Aviso de factura vencida",
     "asunto": "Factura vencida de la familia {{nombre_familia}}",
     "cuerpo": (
-        "Hola, la factura de la familia {{nombre_familia}} lleva {{dias_vencido}} días vencida "
-        "con una deuda de ${{monto_deuda}}. Por favor, regularizá el pago a la brevedad."
+        "Estimada familia {{nombre_familia}}:\n\n"
+        "Les informamos que su factura lleva {{dias_vencido}} días vencida, con una deuda de "
+        "${{monto_deuda}}. Les pedimos regularizar el pago a la brevedad.\n\n"
+        "Si ya lo realizaron, por favor ignoren este aviso.\n\n"
+        "Saludos cordiales."
+    ),
+}
+
+# Sin plantilla, la alerta interna usaría `Alerta interna: <nombre de la regla>` como asunto.
+PLANTILLA_ALERTA_VENCIDA = {
+    "nombre": "Alerta interna de factura vencida",
+    "asunto": "Factura vencida: familia {{nombre_familia}}",
+    "cuerpo": (
+        "Una factura de la familia {{nombre_familia}} lleva {{dias_vencido}} días vencida y la "
+        "familia ya fue notificada.\n\n"
+        "Revisen en el historial de ejecuciones las penalidades pendientes de aprobación."
     ),
 }
 
@@ -145,8 +162,9 @@ REGLAS_VENCIMIENTO = [
     {
         "nombre": "Vencimiento 2: alerta a Administración",
         "tipo_accion": "alerta_interna",
-        "accion_config": {"mensaje": "Una factura venció y la familia ya fue notificada."},
+        "accion_config": {"enlace": "ejecuciones"},
         "criticidad": "media",
+        "plantilla": PLANTILLA_ALERTA_VENCIDA["nombre"],
         "rol": "administración",
     },
     {
@@ -164,8 +182,164 @@ REGLAS_VENCIMIENTO = [
     },
 ]
 
+# Loop A de la demo (#209): al confirmar una inscripción se emite la matrícula (con aprobación
+# humana, default de la acción) y se manda la bienvenida a la familia. Las admisiones son del ciclo
+# siguiente y la regla de facturación de matrícula es del ciclo actual, así que la regla de Workflows
+# fija el monto de la matrícula de la demo.
+IMPORTE_MATRICULA = Decimal("120000.00")
+PLANTILLA_BIENVENIDA = {
+    "nombre": "Bienvenida a la familia",
+    "asunto": "¡Bienvenidos a ESSERI, familia de {{alumno_nombre}}!",
+    "cuerpo": (
+        "Estimada familia:\n\n"
+        "Nos alegra confirmar la inscripción de {{alumno_nombre}} en {{nivel_educativo}} desde "
+        "el {{fecha}}.\n\n"
+        "En los próximos días les vamos a enviar la información del inicio de clases. Ante "
+        "cualquier consulta, pueden escribirnos por este medio.\n\n"
+        "¡Bienvenidos!"
+    ),
+}
+
+# Solicitud lista para "Finalizar admisión e inscribir" en vivo: la madre ya tiene cuenta, así la
+# bienvenida le llega. Si la última ya se finalizó, el seed crea otra con el aspirante siguiente.
+CONTACTO_EN_VIVO = ("28555001", "Lorena", "Benítez", "+54 9 221 555-1101", "F")
+NOMBRES_EN_VIVO = ["Lucía", "Bruno", "Emma", "Tomás", "Olivia", "Benjamín"]
+
 CUENTAS_PERSONAL = [("administracion", "administración"), ("direccion", "dirección")]
 
+# Reglas de Compras de la demo (#214): aprobar una solicitud arma la orden (con aprobación
+# humana, default de la acción), la orden emitida avisa al área de Compras y la recepción avisa
+# a quien pidió la compra. La cuenta del área la crea `_ensure_reglas_compras`.
+CUENTA_COMPRAS = ("compras", "compras")
+PLANTILLA_ORDEN_EMITIDA = {
+    "nombre": "Alerta de orden de compra emitida",
+    "asunto": "Orden de compra emitida a {{proveedor_nombre}}",
+    "cuerpo": (
+        "Se emitió una orden de compra a {{proveedor_nombre}} con {{cantidad_items}} ítem(s), "
+        "el {{fecha}}.\n\n"
+        "Coordinen la entrega con el proveedor y registren la recepción cuando llegue."
+    ),
+}
+PLANTILLA_RECEPCION = {
+    "nombre": "Aviso de recepción de compra",
+    "asunto": "Llegó tu pedido de {{proveedor_nombre}}",
+    "cuerpo": (
+        "Hola:\n\n"
+        "Se registró la recepción ({{tipo_recepcion}}) de la compra que pediste a "
+        "{{proveedor_nombre}}, el {{fecha}}.\n\n"
+        "Si la recepción es parcial, el resto queda pendiente en la orden de compra.\n\n"
+        "Saludos."
+    ),
+}
+
+REGLAS_COMPRAS = [
+    (
+        "solicitud_compra.aprobada",
+        {
+            "nombre": "Compras 1: generar orden de compra",
+            "tipo_accion": "generar_orden_compra",
+            "criticidad": "media",
+        },
+    ),
+    (
+        "orden_compra.emitida",
+        {
+            "nombre": "Compras 2: alerta al área de Compras",
+            "tipo_accion": "alerta_interna",
+            "criticidad": "media",
+            "plantilla": PLANTILLA_ORDEN_EMITIDA["nombre"],
+            "rol": "compras",
+        },
+    ),
+    (
+        "recepcion_compra.registrada",
+        {
+            "nombre": "Compras 3: aviso al solicitante",
+            "tipo_accion": "notificar",
+            "accion_config": {"destinatario": "solicitante"},
+            "criticidad": "baja",
+            "plantilla": PLANTILLA_RECEPCION["nombre"],
+        },
+    ),
+]
+
+# Reglas de inasistencias de la demo (#218): avisos a los responsables habilitados de la familia y
+# un recordatorio si la inasistencia sigue sin justificar `dias_despues` días después. Cada una
+# usa la plantilla de su clave en PLANTILLAS_INASISTENCIA.
+PLANTILLAS_INASISTENCIA = {
+    "ausencia": (
+        "Inasistencia registrada",
+        "Inasistencia de {{alumno_nombre}}",
+        "Estimada familia:\n\n"
+        "Les informamos que {{alumno_nombre}} no asistió al colegio el {{fecha}}. "
+        "Si corresponde, pueden presentar la justificación.\n\n"
+        "Saludos cordiales.",
+    ),
+    "tardanza": (
+        "Tardanza registrada",
+        "Llegada tarde de {{alumno_nombre}}",
+        "Estimada familia:\n\n"
+        "Les informamos que {{alumno_nombre}} llegó tarde al colegio el {{fecha}}.\n\n"
+        "Saludos cordiales.",
+    ),
+    "justificada": (
+        "Justificación de inasistencia resuelta",
+        "Justificación de {{alumno_nombre}} resuelta",
+        "Estimada familia:\n\n"
+        "Se resolvió el {{fecha_resolucion}} la justificación de la inasistencia de "
+        "{{alumno_nombre}}. Motivo presentado: {{motivo}}.\n\n"
+        "Saludos cordiales.",
+    ),
+    "recordatorio": (
+        "Recordatorio de justificación pendiente",
+        "Recordatorio: justificación de {{alumno_nombre}}",
+        "Estimada familia:\n\n"
+        "Les recordamos que la inasistencia de {{alumno_nombre}} del {{fecha}} todavía no tiene "
+        "justificación. Si corresponde, pueden presentarla.\n\n"
+        "Saludos cordiales.",
+    ),
+}
+REGLAS_INASISTENCIA = [
+    {
+        "nombre": "Inasistencia: avisar a la familia",
+        "evento": "inasistencia.registrada",
+        "condicion": {"campo": "tipo_asistencia", "operador": "==", "valor": "ausente_pendiente"},
+        "tipo_accion": "notificar",
+        "accion_config": {
+            "destinatario": "responsables_habilitados",
+            "enlace": "familia_justificar",
+        },
+        "plantilla": "ausencia",
+    },
+    {
+        "nombre": "Tardanza: avisar a la familia",
+        "evento": "inasistencia.registrada",
+        "condicion": {"campo": "tipo_asistencia", "operador": "==", "valor": "tardanza"},
+        "tipo_accion": "notificar",
+        "accion_config": {"destinatario": "responsables_habilitados"},
+        "plantilla": "tardanza",
+    },
+    {
+        "nombre": "Inasistencia justificada: avisar a la familia",
+        "evento": "inasistencia.justificada",
+        "condicion": {},
+        "tipo_accion": "notificar",
+        "accion_config": {"destinatario": "responsables_habilitados"},
+        "plantilla": "justificada",
+    },
+    {
+        "nombre": "Inasistencia sin justificar: recordatorio",
+        "evento": "inasistencia.registrada",
+        "condicion": {"campo": "tipo_asistencia", "operador": "==", "valor": "ausente_pendiente"},
+        "tipo_accion": "generar_recordatorio",
+        "accion_config": {
+            "destinatario": "responsables_habilitados",
+            "dias_despues": 2,
+            "enlace": "familia_justificar",
+        },
+        "plantilla": "recordatorio",
+    },
+]
 
 FAMILIAS = [
     ("30111001", "Mariana", "Gómez", "+54 9 221 555-1001", "F"),
@@ -755,7 +929,7 @@ def _ensure_facturacion(db, usuario: Usuario, inscripciones: list[Inscripcion], 
         nombre="DEMO · Matrícula anual",
         concepto=concepto_matricula,
         ciclo=ciclo,
-        importe=Decimal("120000.00"),
+        importe=IMPORTE_MATRICULA,
         periodicidad="anual",
         vigencia_desde=periodo_actual,
         vigencia_hasta=fin_ciclo,
@@ -829,10 +1003,13 @@ def _ensure_facturacion(db, usuario: Usuario, inscripciones: list[Inscripcion], 
                 "usuario_registro_id": usuario.id,
             }
             if pago is None:
-                db.add(Pago(**datos_pago))
+                pago = Pago(**datos_pago)
+                db.add(pago)
             else:
                 for campo, valor in datos_pago.items():
                     setattr(pago, campo, valor)
+            db.flush()
+            registrar_pago_en_transaccion(db, pago)
     db.flush()
 
 
@@ -891,22 +1068,123 @@ def _ensure_reglas_workflow(db, usuario: Usuario):
         )
 
 
-def _ensure_plantilla_vencida(db, usuario: Usuario):
-    if db.scalar(
-        select(NotificacionTemplate).where(
-            NotificacionTemplate.nombre == PLANTILLA_VENCIDA["nombre"]
-        )
-    ):
-        return
-    registrar_plantilla(db, NotificacionTemplateCreate(**PLANTILLA_VENCIDA), usuario.id)
+def _ensure_plantillas_vencimiento(db, usuario: Usuario):
+    for plantilla in (PLANTILLA_VENCIDA, PLANTILLA_ALERTA_VENCIDA):
+        if db.scalar(
+            select(NotificacionTemplate).where(NotificacionTemplate.nombre == plantilla["nombre"])
+        ):
+            continue
+        crear_plantilla(db, NotificacionTemplateCreate(**plantilla), usuario.id)
 
 
 def _ensure_reglas_vencimiento(db, usuario: Usuario):
     """Reglas de vencimiento: marcar la factura vencida y avisar a Administración y a la familia."""
     tipo_evento = _require(db, TipoEvento, nombre="factura.vencida")
-    _ensure_plantilla_vencida(db, usuario)
+    _ensure_plantillas_vencimiento(db, usuario)
     db.flush()
     for regla in REGLAS_VENCIMIENTO:
+        _ensure_regla_workflow(db, usuario, tipo_evento, regla)
+
+
+def _ensure_reglas_compras(db, usuario: Usuario):
+    """Reglas de Compras: orden automática, alerta a Compras y aviso al solicitante (#214)."""
+    alias, nombre_rol = CUENTA_COMPRAS
+    _ensure_cuenta_demo(db, None, _email_demo(alias), _require(db, Rol, nombre=nombre_rol))
+    for plantilla in (PLANTILLA_ORDEN_EMITIDA, PLANTILLA_RECEPCION):
+        if not db.scalar(
+            select(NotificacionTemplate).where(NotificacionTemplate.nombre == plantilla["nombre"])
+        ):
+            crear_plantilla(db, NotificacionTemplateCreate(**plantilla), usuario.id)
+    db.flush()
+    for evento, regla in REGLAS_COMPRAS:
+        _ensure_regla_workflow(db, usuario, _require(db, TipoEvento, nombre=evento), regla)
+
+
+def _ensure_admision_en_vivo(db, usuario: Usuario, niveles: dict[str, NivelEducativo], hoy: date):
+    """Deja siempre una solicitud de Nivel Primario lista para finalizar el alta en vivo (#209)."""
+    dni, nombre, apellido, telefono, sexo = CONTACTO_EN_VIVO
+    contacto = _persona(db, dni, nombre, apellido, telefono, sexo)
+    _ensure_cuenta_demo(db, contacto.id, _email_demo(f"familia-{dni}"), None)
+
+    indice = 0
+    while True:
+        dni_aspirante = f"5092{indice + 1:04d}"
+        aspirante = db.scalar(select(Persona).where(Persona.dni == dni_aspirante).limit(1))
+        if aspirante is None:
+            break
+        finalizada = db.scalar(
+            select(Inscripcion.id)
+            .join(
+                SolicitudInscripcion,
+                SolicitudInscripcion.id == Inscripcion.solicitud_inscripcion_id,
+            )
+            .where(SolicitudInscripcion.aspirante_persona_id == aspirante.id)
+            .limit(1)
+        )
+        if finalizada is None:
+            return
+        indice += 1
+
+    aspirante = _persona(
+        db, dni_aspirante, NOMBRES_EN_VIVO[indice % len(NOMBRES_EN_VIVO)], apellido, sexo=None
+    )
+    solicitud = SolicitudInscripcion(
+        ciclo_lectivo=str(hoy.year + 1),
+        etapa="inscripcion_confirmada",
+        estado="aprobada",
+        fecha_solicitud=hoy - timedelta(days=20),
+        fecha_resolucion=hoy - timedelta(days=1),
+        observaciones="Lista para finalizar el alta en vivo durante la demo.",
+        aspirante_persona_id=aspirante.id,
+        contacto_persona_id=contacto.id,
+        contacto_parentesco="Madre",
+        nivel_educativo_id=niveles["Nivel Primario"].id,
+        usuario_id=usuario.id,
+    )
+    db.add(solicitud)
+    db.flush()
+    db.add(
+        EtapaSolicitud(
+            etapa="inscripcion_confirmada",
+            estado="completada",
+            fecha=datetime.now(UTC) - timedelta(days=1),
+            observaciones="Documentación y contrato completos.",
+            solicitud_inscripcion_id=solicitud.id,
+            usuario_id=usuario.id,
+        )
+    )
+    db.flush()
+
+
+def _ensure_reglas_loop_a(db, usuario: Usuario):
+    """Reglas del Loop A: cargo de matrícula y bienvenida a la familia (#209)."""
+    if not db.scalar(
+        select(NotificacionTemplate).where(
+            NotificacionTemplate.nombre == PLANTILLA_BIENVENIDA["nombre"]
+        )
+    ):
+        crear_plantilla(db, NotificacionTemplateCreate(**PLANTILLA_BIENVENIDA), usuario.id)
+    db.flush()
+    tipo_evento = _require(db, TipoEvento, nombre="inscripcion.confirmada")
+    matricula = _require(db, ConceptoCobro, nombre="Matrícula")
+    for regla in (
+        {
+            "nombre": "Loop A 1: cargo de matrícula",
+            "tipo_accion": "generar_cargo",
+            "accion_config": {
+                "concepto_cobro_id": str(matricula.id),
+                "monto": str(IMPORTE_MATRICULA),
+            },
+            "criticidad": "media",
+        },
+        {
+            "nombre": "Loop A 2: bienvenida a la familia",
+            "tipo_accion": "notificar",
+            "accion_config": {"destinatario": "responsables_habilitados"},
+            "criticidad": "baja",
+            "plantilla": PLANTILLA_BIENVENIDA["nombre"],
+        },
+    ):
         _ensure_regla_workflow(db, usuario, tipo_evento, regla)
 
 
@@ -969,6 +1247,40 @@ def _ensure_cuentas_familias(db, familias: list[Familia]):
         vistas.add(familia.persona_id)
         persona = db.get(Persona, familia.persona_id)
         _ensure_cuenta_demo(db, persona.id, _email_demo(f"familia-{persona.dni}"), None)
+
+
+def _ensure_reglas_inasistencia(db, usuario: Usuario):
+    """Plantillas y reglas del loop de inasistencias. Se buscan por nombre y, si ya existen, no se
+    tocan: volver a correr el seed no las duplica ni pisa lo editado desde la pantalla."""
+    plantillas = {}
+    for clave, (nombre, asunto, cuerpo) in PLANTILLAS_INASISTENCIA.items():
+        plantilla = db.scalar(
+            select(NotificacionTemplate).where(NotificacionTemplate.nombre == nombre)
+        )
+        if plantilla is None:
+            plantilla = crear_plantilla(
+                db,
+                NotificacionTemplateCreate(nombre=nombre, asunto=asunto, cuerpo=cuerpo),
+                usuario.id,
+            )
+        plantillas[clave] = plantilla
+    for regla in REGLAS_INASISTENCIA:
+        if db.scalar(select(WorkflowRule).where(WorkflowRule.nombre == regla["nombre"])):
+            continue
+        tipo_evento = _require(db, TipoEvento, nombre=regla["evento"])
+        crear_regla(
+            db,
+            WorkflowRuleCreate(
+                nombre=regla["nombre"],
+                tipo_evento_id=tipo_evento.id,
+                condicion=regla["condicion"],
+                tipo_accion=regla["tipo_accion"],
+                accion_config=regla["accion_config"],
+                criticidad="baja",
+                notificacion_template_id=plantillas[regla["plantilla"]].id,
+            ),
+            usuario.id,
+        )
 
 
 def _ensure_compras(db, usuario: Usuario, hoy: date):
@@ -1293,6 +1605,7 @@ def seed_demo():
 
         print("[5/9] Admisiones")
         _ensure_admisiones(db, usuario, niveles, hoy)
+        _ensure_admision_en_vivo(db, usuario, niveles, hoy)
         db.commit()
 
         print("[6/9] Reglas, ejecuciones, facturas y pagos")
@@ -1305,6 +1618,9 @@ def seed_demo():
         _ensure_cuentas_familias(db, familias)
         _ensure_reglas_workflow(db, usuario)
         _ensure_reglas_vencimiento(db, usuario)
+        _ensure_reglas_inasistencia(db, usuario)
+        _ensure_reglas_compras(db, usuario)
+        _ensure_reglas_loop_a(db, usuario)
         db.commit()
 
         print("[8/9] Proveedores, solicitudes, órdenes y recepciones")

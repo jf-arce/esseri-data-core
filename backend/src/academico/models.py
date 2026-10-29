@@ -6,7 +6,7 @@ from datetime import datetime
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.models import Base
+from src.models import Base, Persona
 
 
 class NivelEducativo(Base):
@@ -59,6 +59,11 @@ class Materia(Base):
     )
     anio_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("anio.id"))
     division_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("division.id"))
+    anio: Mapped["Anio"] = relationship("Anio")
+
+    @property
+    def anio_numero(self) -> int | None:
+        return self.anio.numero if self.anio else None
 
 
 class Docente(Base):
@@ -71,6 +76,15 @@ class Docente(Base):
         sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
     )
     persona_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("persona.id"))
+    persona: Mapped["Persona"] = relationship("Persona")
+
+    @property
+    def nombre(self) -> str | None:
+        return self.persona.nombre if self.persona else None
+
+    @property
+    def apellido(self) -> str | None:
+        return self.persona.apellido if self.persona else None
 
 
 class AsignacionDocente(Base):

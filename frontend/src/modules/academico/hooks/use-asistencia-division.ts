@@ -10,8 +10,14 @@ export type AlumnoConAsistencia = InscripcionListadoItem & {
   estadoAsistencia?: TipoAsistencia
 }
 
-export function useAsistenciaDivision(divisionId: string | null, fecha: string) {
-  const roster = useAlumnosDivision(divisionId)
+export function useAsistenciaDivision(
+  divisionId: string | null,
+  fecha: string,
+  opciones?: { cicloLectivo: string; portalDocente: boolean },
+) {
+  const cicloLectivo = opciones?.cicloLectivo
+  const portalDocente = opciones?.portalDocente
+  const roster = useAlumnosDivision(divisionId, opciones)
   const [asistencias, setAsistencias] = useState<Asistencia[]>([])
   const [cargandoAsistencias, setCargandoAsistencias] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -26,7 +32,11 @@ export function useAsistenciaDivision(divisionId: string | null, fecha: string) 
 
     setCargandoAsistencias(true)
     setError(null)
-    return listarAsistencias({ fecha, division_id: divisionId })
+    return listarAsistencias({
+      fecha,
+      division_id: divisionId,
+      ciclo_lectivo: portalDocente ? cicloLectivo : undefined,
+    })
       .then((data) => {
         setAsistencias(data)
         setSinPermiso(false)
@@ -41,7 +51,7 @@ export function useAsistenciaDivision(divisionId: string | null, fecha: string) 
         }
       })
       .finally(() => setCargandoAsistencias(false))
-  }, [divisionId, fecha])
+  }, [divisionId, fecha, cicloLectivo, portalDocente])
 
   useEffect(() => {
     let cancelado = false

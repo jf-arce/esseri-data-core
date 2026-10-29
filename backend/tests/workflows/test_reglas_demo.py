@@ -1,9 +1,7 @@
 """Reglas de mora del seed de demo (#216): `crear_tarea` para Administración a partir de los 15
 días vencida y `escalar_caso` (con aprobación humana) a partir de los 30."""
 
-import importlib.util
 import uuid
-from pathlib import Path
 
 import pytest
 from sqlalchemy import select
@@ -12,17 +10,6 @@ from src.auth.models import Rol, Usuario, UsuarioRol
 from src.workflows import despacho_service, ejecuciones_service
 from src.workflows.eventos_service import emit_event
 from src.workflows.models import ReglaDestinatario, Tarea, WorkflowExecution, WorkflowRule
-
-SEED = Path(__file__).resolve().parents[3] / "database" / "seeds" / "04_seed_demo.py"
-
-
-@pytest.fixture(scope="module")
-def seed_demo():
-    """El seed no es un paquete (su nombre empieza con un número): se carga por ruta."""
-    spec = importlib.util.spec_from_file_location("seed_demo", SEED)
-    modulo = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(modulo)
-    return modulo
 
 
 def _usuario_con_rol(db, email, rol):

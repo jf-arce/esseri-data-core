@@ -205,3 +205,56 @@ def test_con_aprobacion_queda_pendiente_y_al_aprobar_registra(client_autenticado
     assert respuesta.status_code == 200
     assert respuesta.json()["estado"] == "exitoso"
     assert [m.monto for m in _penalidades(db_session, factura)] == [Decimal("300.00")]
+
+
+def _pendiente(db, factura, regla, dias):
+    evento = _evento(db, factura.id, dias)
+    ejecucion = WorkflowExecution(
+        workflow_rule_id=regla.id, event_log_id=evento.id, estado="pendiente"
+    )
+    db.add(ejecucion)
+    db.commit()
+    return ejecucion
+
+
+def test_recargo_estimado_usa_el_tramo_de_los_dias_de_atraso(client_autenticado, db_session, caso):
+    factura, regla = caso
+    ejecucion = _pendiente(db_session, factura, regla, dias=10)
+
+    detalle = client_autenticado.get(f"/workflows/ejecuciones/{ejecucion.id}").json()
+    listado = client_autenticado.get("/workflows/ejecuciones").json()["items"][0]
+
+    assert Decimal(detalle["recargo_estimado"]) == Decimal("300.00")
+    assert listado["recargo_estimado"] is None
+
+
+def test_recargo_estimado_descuenta_la_penalidad_previa(client_autenticado, db_session, caso):
+    factura, regla = caso
+    _ejecutar(db_session, factura, regla, dias=10)
+    ejecucion = _pendiente(db_session, factura, regla, dias=20)
+
+    detalle = client_autenticado.get(f"/workflows/ejecuciones/{ejecucion.id}").json()
+
+    assert Decimal(detalle["recargo_estimado"]) == Decimal("150.00")
+
+
+def test_recargo_estimado_es_nulo_sin_tramo_o_si_el_tramo_no_cobra(
+    client_autenticado, db_session, caso
+):
+    factura, regla = caso
+    sin_cobro = _pendiente(db_session, factura, regla, dias=3)
+
+    assert (
+        client_autenticado.get(f"/workflows/ejecuciones/{sin_cobro.id}").json()["recargo_estimado"]
+        is None
+    )
+
+    for tramo in db_session.scalars(select(ReglaPenalidad)):
+        tramo.activo = False
+    db_session.commit()
+    sin_tramo = _pendiente(db_session, factura, regla, dias=10)
+
+    assert (
+        client_autenticado.get(f"/workflows/ejecuciones/{sin_tramo.id}").json()["recargo_estimado"]
+        is None
+    )

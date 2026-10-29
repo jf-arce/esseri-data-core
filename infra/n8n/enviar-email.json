@@ -29,10 +29,11 @@
       "parameters": {
         "sendTo": "={{ $json.body.destinatario }}",
         "subject": "={{ $json.body.asunto }}",
-        "emailType": "text",
-        "message": "={{ $json.body.cuerpo }}",
+        "emailType": "html",
+        "message": "={{ $json.body.cuerpo_html || $json.body.cuerpo }}",
         "options": {
-          "appendAttribution": false
+          "appendAttribution": false,
+          "senderName": "ESSERI"
         }
       },
       "id": "1e87d08f-bc11-478d-9bed-fbd7ce36628b",

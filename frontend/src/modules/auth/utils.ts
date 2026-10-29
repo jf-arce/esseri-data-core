@@ -1,4 +1,4 @@
-import type { Permiso, Rol, UsuarioConRoles } from '@/modules/auth/types'
+import type { Permiso, Rol, UsuarioActual, UsuarioConRoles } from '@/modules/auth/types'
 
 // Colores de avatar/chip de identidad estables por id (§9.3 DESIGN.md: identidad puntual en
 // fila densa). No son la paleta de módulo de dominio (§2.5): un rol como "Docente" o
@@ -42,8 +42,9 @@ export function colorIdentidadSuave(semilla: string): string {
   return PALETA_IDENTIDAD_SUAVE[hashEstable(semilla) % PALETA_IDENTIDAD_SUAVE.length]
 }
 
-// Fallback para cuando no hay persona asociada a la cuenta (ej. `UsuarioActual`, que no la
-// trae): se deriva un nombre de pantalla a partir de la parte local del mail
+type DatosDePersona = Pick<UsuarioConRoles, 'email' | 'persona_nombre' | 'persona_apellido'>
+
+// Fallback para cuando no hay persona asociada a la cuenta: se deriva un nombre de pantalla a partir de la parte local del mail
 // (ej. "mariana.cufre@esseri.edu.ar" → "Cufre, Mariana").
 export function nombreDeUsuario(email: string): string {
   const parteLocal = email.split('@')[0] ?? email
@@ -59,11 +60,19 @@ export function nombreDeUsuario(email: string): string {
 
 // El nombre real de la persona (cargado en el alta) siempre le gana al derivado del email —
 // que queda solo como fallback para cuentas sin persona asociada todavía.
-export function nombreVisibleDeUsuario(usuario: UsuarioConRoles): string {
+export function nombreVisibleDeUsuario(usuario: DatosDePersona): string {
   if (usuario.persona_nombre && usuario.persona_apellido) {
     return `${usuario.persona_apellido}, ${usuario.persona_nombre}`
   }
   return nombreDeUsuario(usuario.email)
+}
+
+// Nombre del encabezado: persona > nombre de Google > derivado del email.
+export function nombreDeSesion(usuario: UsuarioActual): string {
+  if (usuario.persona_nombre && usuario.persona_apellido) {
+    return nombreVisibleDeUsuario(usuario)
+  }
+  return usuario.nombre_google ?? nombreDeUsuario(usuario.email)
 }
 
 // Los nombres de rol llegan en distintas casings según la fuente: el JWT trae los roles de la
@@ -84,23 +93,11 @@ export function inicialesDeUsuario(email: string): string {
   return (partes[0].charAt(0) + partes[1].charAt(0)).toUpperCase()
 }
 
-export function inicialesVisiblesDeUsuario(usuario: UsuarioConRoles): string {
+export function inicialesVisiblesDeUsuario(usuario: DatosDePersona): string {
   if (usuario.persona_nombre && usuario.persona_apellido) {
     return (usuario.persona_nombre.charAt(0) + usuario.persona_apellido.charAt(0)).toUpperCase()
   }
   return inicialesDeUsuario(usuario.email)
-}
-
-export function formatearFechaHora(iso: string | null): string {
-  if (!iso) return '—'
-  const fecha = new Date(iso)
-  if (Number.isNaN(fecha.getTime())) return '—'
-  const dd = String(fecha.getDate()).padStart(2, '0')
-  const mm = String(fecha.getMonth() + 1).padStart(2, '0')
-  const yyyy = fecha.getFullYear()
-  const hh = String(fecha.getHours()).padStart(2, '0')
-  const min = String(fecha.getMinutes()).padStart(2, '0')
-  return `${dd}/${mm}/${yyyy} ${hh}:${min}`
 }
 
 export type OrdenUsuarios = 'nombre-asc' | 'nombre-desc' | 'acceso-reciente' | 'acceso-antiguo'
@@ -111,6 +108,13 @@ interface FiltrosUsuarios {
   estado: EstadoUsuarioFiltro
   roles: string[]
   orden: OrdenUsuarios
+}
+
+// Sin acceso (o fecha inválida) cuenta como el más antiguo. Se compara el instante y no el texto
+// ISO: `...13:00:00Z` y `...13:00:00.1Z` no ordenan bien como strings.
+function instanteDeAcceso(usuario: UsuarioConRoles): number {
+  const tiempo = usuario.ultimo_acceso ? new Date(usuario.ultimo_acceso).getTime() : 0
+  return Number.isNaN(tiempo) ? 0 : tiempo
 }
 
 // Filtro + orden de la tabla de usuarios, extraído del componente para poder testearlo sin
@@ -146,9 +150,9 @@ export function filtrarYOrdenarUsuarios(
       case 'nombre-desc':
         return nombreVisibleDeUsuario(b).localeCompare(nombreVisibleDeUsuario(a), 'es')
       case 'acceso-reciente':
-        return (b.ultimo_acceso ?? '').localeCompare(a.ultimo_acceso ?? '')
+        return instanteDeAcceso(b) - instanteDeAcceso(a)
       case 'acceso-antiguo':
-        return (a.ultimo_acceso ?? '').localeCompare(b.ultimo_acceso ?? '')
+        return instanteDeAcceso(a) - instanteDeAcceso(b)
       default:
         return 0
     }
@@ -242,4 +246,39 @@ export function filtrarPermisosDeMatriz(
     }
     return true
   })
+}
+
+// --- Destino después del login ---
+
+const CLAVE_DESTINO = 'esseri:destino'
+const RUTAS_EXCLUIDAS = ['/login', '/elegir-perfil']
+
+/** Solo rutas internas: evita que un link armado lleve a otro sitio después del login. */
+function esRutaInterna(ruta: string): boolean {
+  if (!ruta.startsWith('/') || ruta.startsWith('//')) return false
+  if (ruta.includes('\\') || ruta.includes(':')) return false
+  const camino = ruta.split(/[?#]/)[0]
+  return !RUTAS_EXCLUIDAS.includes(camino)
+}
+
+/** Recuerda a dónde quería ir la persona antes de que la manden a iniciar sesión. */
+export function guardarDestino(ruta: string) {
+  if (ruta === '/' || !esRutaInterna(ruta)) return
+  try {
+    sessionStorage.setItem(CLAVE_DESTINO, ruta)
+  } catch {
+    // Sin almacenamiento (ventana privada, sitio bloqueado): se entra a la página de inicio.
+  }
+}
+
+/** Devuelve el destino guardado y lo borra. `null` si no hay o no es una ruta interna válida. */
+export function consumirDestino(): string | null {
+  try {
+    const ruta = sessionStorage.getItem(CLAVE_DESTINO)
+    if (ruta === null) return null
+    sessionStorage.removeItem(CLAVE_DESTINO)
+    return esRutaInterna(ruta) ? ruta : null
+  } catch {
+    return null
+  }
 }

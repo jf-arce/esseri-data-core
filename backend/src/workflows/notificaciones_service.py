@@ -16,12 +16,20 @@ from sqlalchemy.orm import Session
 
 from src.academico.models import JustificacionInasistencia
 from src.auth.models import Usuario
+from src.config import settings
 from src.facturacion.models import Factura, Pago, ResponsableEconomico
 from src.familias_alumnos.models import Familia, FamiliaAlumno
+from src.fechas import ahora_utc
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import EventLog
+from src.proveedores_compras.models import (
+    OrdenCompraSolicitud,
+    RecepcionCompra,
+    SolicitudCompra,
+)
 from src.workflows import destinatarios_service, n8n_client, plantillas_service
-from src.workflows.constants import MAX_DESTINATARIOS_POR_EJECUCION
+from src.workflows.constants import ENLACES_MAIL, MAX_DESTINATARIOS_POR_EJECUCION
+from src.workflows.email_html import armar_html
 from src.workflows.exceptions import (
     N8nNoConfigurado,
     N8nNoDisponible,
@@ -37,6 +45,7 @@ from src.workflows.models import (
 from src.workflows.schemas import (
     ConfigAlertaInterna,
     ConfigNotificar,
+    ConfigRecordatorio,
     DestinatarioTipo,
     EstadoEnvioNotificacion,
     NotificacionDetalleRead,
@@ -52,6 +61,7 @@ ERROR_SIN_MENSAJE = "La regla no tiene mensaje ni plantilla de notificación."
 ERROR_RENDER = "La plantilla no se pudo completar con los datos del evento."
 ERROR_SIN_DESTINATARIOS = "No se encontró ningún destinatario con email."
 ERROR_SIN_ALUMNO = "No se pudo determinar el alumno del evento."
+ERROR_SIN_SOLICITANTE = "No se pudo determinar quién pidió la compra."
 ERROR_TOPE = "La regla supera el máximo de destinatarios por envío."
 ERROR_ENVIO = "No se pudo enviar el email a todos los destinatarios."
 ERRORES_CONTROLADOS = frozenset(
@@ -61,6 +71,7 @@ ERRORES_CONTROLADOS = frozenset(
         ERROR_RENDER,
         ERROR_SIN_DESTINATARIOS,
         ERROR_SIN_ALUMNO,
+        ERROR_SIN_SOLICITANTE,
         ERROR_TOPE,
         ERROR_ENVIO,
     }
@@ -86,6 +97,10 @@ class _SinAlumno(Exception):
     pass
 
 
+class _SinSolicitante(Exception):
+    pass
+
+
 class _SinContenido(Exception):
     def __init__(self, error: str) -> None:
         super().__init__(error)
@@ -101,6 +116,8 @@ def resolver_destinatarios(
     """Devuelve los destinatarios deduplicados y cuántas familias quedaron sin email."""
     if destino == "destinatarios_regla":
         return _deduplicar(_destinatarios_de_regla(db, regla)), 0
+    if destino == "solicitante":
+        return _deduplicar(_solicitantes_del_evento(db, evento)), 0
 
     alumno_id = _alumno_del_evento(db, evento)
     if destino == "responsables_habilitados":
@@ -135,6 +152,36 @@ def _deduplicar(destinatarios: list[Destinatario]) -> list[Destinatario]:
 
 def _destinatarios_de_regla(db: Session, regla: WorkflowRule) -> list[Destinatario]:
     usuarios = destinatarios_service.usuarios_activos_de_regla(db, regla.id)
+    return [Destinatario(tipo="usuario", email=u.email, usuario_id=u.id) for u in usuarios]
+
+
+def _solicitantes_del_evento(db: Session, evento: EventLog) -> list[Destinatario]:
+    """Quienes pidieron la compra: una orden o una recepción pueden venir de varias solicitudes."""
+    solicitudes = select(SolicitudCompra.usuario_id)
+    match evento.entidad:
+        case "solicitud_compra":
+            consulta = solicitudes.where(SolicitudCompra.id == evento.entidad_id)
+        case "orden_compra" | "recepcion_compra":
+            orden_id = evento.entidad_id
+            if evento.entidad == "recepcion_compra":
+                orden_id = db.scalar(
+                    select(RecepcionCompra.orden_compra_id).where(
+                        RecepcionCompra.id == evento.entidad_id
+                    )
+                )
+            consulta = solicitudes.join(
+                OrdenCompraSolicitud,
+                OrdenCompraSolicitud.solicitud_compra_id == SolicitudCompra.id,
+            ).where(OrdenCompraSolicitud.orden_compra_id == orden_id)
+        case _:
+            raise _SinSolicitante()
+    usuarios = db.scalars(
+        select(Usuario)
+        .where(Usuario.id.in_(consulta), Usuario.estado == "activo")
+        .order_by(Usuario.email)
+    ).all()
+    if not usuarios and not db.scalar(consulta.limit(1)):
+        raise _SinSolicitante()
     return [Destinatario(tipo="usuario", email=u.email, usuario_id=u.id) for u in usuarios]
 
 
@@ -211,6 +258,51 @@ def _familia_responsable_economico(
     )
 
 
+# --- Comunicación en revisión (`generar_comunicacion`, #213) ---------------------------------
+
+
+class ComunicacionNoPreparada(Exception):
+    def __init__(self, error: str) -> None:
+        super().__init__(error)
+        self.error = error
+
+
+def preparar_comunicacion(
+    db: Session, regla: WorkflowRule, evento: EventLog, destino: str
+) -> tuple[str, str, list[Destinatario]]:
+    """Arma lo que enviaría `notificar` (plantilla y destinatarios) sin enviarlo.
+
+    Raises:
+        ComunicacionNoPreparada: con el mismo error controlado que dejaría `notificar`.
+    """
+    try:
+        asunto, cuerpo = _contenido_notificar(db, regla, evento)
+        destinatarios, _ = resolver_destinatarios(db, regla, evento, destino)
+    except _SinContenido as e:
+        raise ComunicacionNoPreparada(e.error) from None
+    except _SinAlumno:
+        raise ComunicacionNoPreparada(ERROR_SIN_ALUMNO) from None
+    except _SinSolicitante:
+        raise ComunicacionNoPreparada(ERROR_SIN_SOLICITANTE) from None
+    if not destinatarios:
+        raise ComunicacionNoPreparada(ERROR_SIN_DESTINATARIOS)
+    if len(destinatarios) > MAX_DESTINATARIOS_POR_EJECUCION:
+        raise ComunicacionNoPreparada(ERROR_TOPE)
+    return asunto, cuerpo, destinatarios
+
+
+def enviar_comunicacion(
+    db: Session,
+    ejecucion: WorkflowExecution,
+    asunto: str,
+    cuerpo: str,
+    destinatarios: list[Destinatario],
+) -> ResultadoAccion:
+    """Envía un mensaje ya revisado; cada `NOTIFICACION` queda en la ejecución que lo originó."""
+    mensajes = [_Mensaje(d, asunto, cuerpo) for d in destinatarios]
+    return _enviar_todos(db, ejecucion, mensajes, total=len(mensajes), sin_email=0, enlace=None)
+
+
 # --- Ejecución -----------------------------------------------------------------------------
 
 
@@ -218,6 +310,15 @@ def ejecutar_notificar(
     db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
 ) -> ResultadoAccion:
     destino = ConfigNotificar.model_validate(regla.accion_config or {}).destinatario
+    return _ejecutar(db, regla, evento, ejecucion, destino, _contenido_notificar)
+
+
+def ejecutar_recordatorio(
+    db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
+) -> ResultadoAccion:
+    """El mismo envío que `notificar`, con la config de `generar_recordatorio`. Los `dias_despues`
+    ya los esperó el despachador: acá solo se manda."""
+    destino = ConfigRecordatorio.model_validate(regla.accion_config or {}).destinatario
     return _ejecutar(db, regla, evento, ejecucion, destino, _contenido_notificar)
 
 
@@ -291,7 +392,9 @@ def _ejecutar(
         ]
         if not pendientes:
             return ResultadoAccion(detalle="Todos los emails ya habían sido enviados.")
-        return _enviar_todos(db, ejecucion, pendientes, total=len(pendientes), sin_email=0)
+        return _enviar_todos(
+            db, ejecucion, pendientes, total=len(pendientes), sin_email=0, enlace=_enlace_de(regla)
+        )
 
     try:
         asunto, cuerpo = obtener_contenido(db, regla, evento)
@@ -302,6 +405,8 @@ def _ejecutar(
         destinatarios, sin_email = resolver_destinatarios(db, regla, evento, destino)
     except _SinAlumno:
         return ResultadoAccion(error=ERROR_SIN_ALUMNO)
+    except _SinSolicitante:
+        return ResultadoAccion(error=ERROR_SIN_SOLICITANTE)
     if not destinatarios:
         detalle = _detalle_sin_email(sin_email)
         return ResultadoAccion(detalle=detalle, error=ERROR_SIN_DESTINATARIOS)
@@ -309,7 +414,24 @@ def _ejecutar(
         return ResultadoAccion(error=ERROR_TOPE)
 
     mensajes = [_Mensaje(d, asunto, cuerpo) for d in destinatarios]
-    return _enviar_todos(db, ejecucion, mensajes, total=len(mensajes), sin_email=sin_email)
+    return _enviar_todos(
+        db,
+        ejecucion,
+        mensajes,
+        total=len(mensajes),
+        sin_email=sin_email,
+        enlace=_enlace_de(regla),
+    )
+
+
+def _enlace_de(regla: WorkflowRule) -> tuple[str, str] | None:
+    """`(url completa, texto)` del botón de la regla. La ruta sale de `ENLACES_MAIL`: lo único
+    que guarda la regla es la clave."""
+    clave = (regla.accion_config or {}).get("enlace")
+    if clave is None or clave not in ENLACES_MAIL:
+        return None
+    ruta, texto = ENLACES_MAIL[clave]
+    return f"{settings.FRONTEND_URL.rstrip('/')}{ruta}", texto
 
 
 def _detalle_sin_email(sin_email: int) -> str | None:
@@ -348,6 +470,7 @@ def _enviar_todos(
     *,
     total: int,
     sin_email: int,
+    enlace: tuple[str, str] | None,
 ) -> ResultadoAccion:
     enviados = 0
     n8n_caido = False
@@ -368,7 +491,12 @@ def _enviar_todos(
         if n8n_caido:
             continue
         try:
-            n8n_client.enviar_email(mensaje.destinatario.email, mensaje.asunto, mensaje.cuerpo)
+            n8n_client.enviar_email(
+                mensaje.destinatario.email,
+                mensaje.asunto,
+                mensaje.cuerpo,
+                armar_html(mensaje.asunto, mensaje.cuerpo, enlace),
+            )
         except (N8nNoConfigurado, N8nNoDisponible) as error:
             logger.warning(
                 "n8n no está disponible: se corta el envío (tipo=%s)", type(error).__name__
@@ -379,7 +507,7 @@ def _enviar_todos(
             logger.warning("Falló el envío de una notificación (tipo=%s)", type(error).__name__)
             continue
         notificacion.estado_envio = "enviado"
-        notificacion.sent_at = datetime.now()
+        notificacion.sent_at = ahora_utc()
         enviados += 1
 
     detalle = f"{enviados} de {total} emails enviados"

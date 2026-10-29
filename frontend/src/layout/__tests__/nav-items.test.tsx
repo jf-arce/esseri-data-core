@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { NAV_GROUPS, calcularHrefActivo, filtrarNav, rutaInicioDe } from '@/layout/nav-items'
+import {
+  NAV_GROUPS,
+  calcularHrefActivo,
+  destinosDe,
+  filtrarNav,
+  rutaInicioDe,
+} from '@/layout/nav-items'
 import type { Permiso } from '@/modules/auth/types'
 
 function permiso(codigo: string): Permiso {
@@ -216,5 +222,61 @@ describe('rutaInicioDe', () => {
     // `permiso` solo exige el código.
     expect(rutaInicioDe(null, [permiso('panel_administrativo.leer')])).toBeNull()
     expect(rutaInicioDe(null, [permiso('academico.leer')])).toBe('/academico')
+  })
+})
+
+describe('destinosDe', () => {
+  const rutasDe = (rol: string | null, codigos: string[]) =>
+    destinosDe(filtrarNav(NAV_GROUPS, rol, codigos.map(permiso))).map((d) => d.ruta)
+
+  it('sin rol ni permisos no hay destinos', () => {
+    expect(rutasDe(null, [])).toEqual([])
+  })
+
+  it('usa tituloLanding como etiqueta de la landing del módulo y suma los hijos', () => {
+    const destinos = destinosDe(
+      filtrarNav(NAV_GROUPS, 'secretaría', [permiso('familias_alumnos.leer')]),
+    )
+
+    expect(destinos.filter((d) => d.modulo === 'familias').map((d) => d.etiqueta)).toEqual([
+      'Familias',
+      'Alumnos',
+    ])
+  })
+
+  it('un padre que solo redirige ("Usuarios y roles") no duplica a su primer hijo', () => {
+    const rutas = rutasDe('administrador_del_sistema', ['autenticacion.leer'])
+
+    expect(rutas).not.toContain('/usuarios-roles')
+    expect(rutas).toContain('/usuarios-roles/usuarios')
+  })
+
+  it('un padre sin href ("Proveedores y compras") aporta solo sus hijos visibles', () => {
+    const rutas = rutasDe('secretaría', ['proveedores_compras.leer'])
+
+    expect(rutas).toEqual([
+      '/proveedores',
+      '/solicitudes-compra',
+      '/ordenes-compra',
+      '/catalogo-compras',
+      '/workflows/tareas',
+    ])
+  })
+
+  it('incluye Tareas sin permisos pero solo con un rol activo', () => {
+    expect(rutasDe('secretaría', [])).toEqual(['/workflows/tareas'])
+    expect(rutasDe(null, [])).not.toContain('/workflows/tareas')
+  })
+
+  it('Tareas hereda el color del módulo Workflows', () => {
+    const tareas = destinosDe(filtrarNav(NAV_GROUPS, 'secretaría', [])).find(
+      (d) => d.ruta === '/workflows/tareas',
+    )
+
+    expect(tareas?.modulo).toBe('workflows')
+  })
+
+  it('todo ítem de primer nivel declara su módulo', () => {
+    expect(NAV_GROUPS.flatMap((g) => g.items).filter((i) => !i.modulo)).toEqual([])
   })
 })

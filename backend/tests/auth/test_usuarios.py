@@ -1,5 +1,7 @@
 """GET /auth/usuarios: el listado que faltaba para el selector de rol(es) por usuario (RF-29)."""
 
+from datetime import datetime
+
 from src.auth.models import Usuario
 from src.models import Persona
 from tests.auth.conftest import PASSWORD_VALIDA
@@ -34,6 +36,19 @@ class TestListarUsuarios:
 
         sin_rol = next(u for u in cuerpo if u["email"] == usuario_google.email)
         assert sin_rol["roles"] == []
+
+    def test_ultimo_acceso_sale_en_utc_con_z_o_nulo(
+        self, client_admin, db_session, usuario_local, usuario_google
+    ):
+        usuario_local.ultimo_acceso = datetime(2026, 10, 26, 13, 0, 0, 123456)
+        db_session.commit()
+
+        cuerpo = client_admin.get("/auth/usuarios").json()
+
+        con_acceso = next(u for u in cuerpo if u["email"] == usuario_local.email)
+        sin_acceso = next(u for u in cuerpo if u["email"] == usuario_google.email)
+        assert con_acceso["ultimo_acceso"] == "2026-10-26T13:00:00.123456Z"
+        assert sin_acceso["ultimo_acceso"] is None
 
     def test_incluye_nombre_y_apellido_de_la_persona(self, client_admin, db_session):
         """El nombre visible en la UI tiene que ser el de la persona, no uno inventado a partir

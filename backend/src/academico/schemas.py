@@ -120,6 +120,8 @@ class DocenteResponse(BaseModel):
     id: uuid.UUID
     legajo: str
     persona_id: uuid.UUID
+    nombre: str | None = None
+    apellido: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -151,6 +153,22 @@ class MiDivisionResponse(BaseModel):
 
     division_id: uuid.UUID
     etiqueta: str
+    anio_numero: int
+    nivel_educativo_nombre: str
+
+
+class DocentePerfilResponse(BaseModel):
+    """Nombre real del docente autenticado, sin información adicional de la persona."""
+
+    nombre: str
+    apellido: str
+
+
+class SeguimientoDivisionItem(BaseModel):
+    inscripcion_id: uuid.UUID
+    total_ausencias: int
+    ausencias_consecutivas: int
+    inasistencia_reiterada: bool
 
 
 # --- AsignacionDocente -------------------------------------------------------------------
@@ -210,6 +228,9 @@ class AsistenciaBulkCreate(BaseModel):
 
     fecha: date = Field(..., description="Fecha del registro de asistencia")
     division_id: uuid.UUID = Field(..., description="ID de la división")
+    ciclo_lectivo: str | None = Field(
+        default=None, min_length=1, max_length=20, description="Ciclo lectivo del listado"
+    )
     registros: list[AsistenciaRegistroBulk] = Field(
         ..., min_length=1, description="Lista de registros de asistencia"
     )
@@ -234,6 +255,7 @@ class AsistenciaResponse(BaseModel):
     tipo: str
     inscripcion_id: uuid.UUID
     updated_at: datetime
+    justificacion_estado: Literal["pendiente", "aprobada", "rechazada"] | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -353,6 +375,7 @@ class MateriaResponse(BaseModel):
     nombre: str
     tipo: str
     anio_id: uuid.UUID
+    anio_numero: int | None = None
     division_id: uuid.UUID | None
     created_at: datetime
     updated_at: datetime

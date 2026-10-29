@@ -20,6 +20,7 @@ import {
 } from '@/modules/academico/hooks/use-asistencia-division'
 import { registrarAsistenciaMasiva } from '@/modules/academico/services/asistencias'
 import type { TipoAsistencia, TipoAsistenciaDocente } from '@/modules/academico/types'
+import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 
 // El roster que devuelve el hook solo trae el tipo PERSISTIDO (`TipoAsistencia`); en pantalla
 // se combina con `seleccionLocal` (vocabulario de entrada del docente, `TipoAsistenciaDocente`)
@@ -34,6 +35,8 @@ interface AsistenciaDivisionPageProps {
   divisionIdFijo?: string
   nombreDivisionFijo?: string
   fechaInicial?: string
+  portalDocente?: boolean
+  onAsistenciaGuardada?: () => void
 }
 
 const BOTONES_ACCION: {
@@ -66,9 +69,17 @@ export function AsistenciaDivisionPage({
   divisionIdFijo,
   nombreDivisionFijo,
   fechaInicial,
+  portalDocente = false,
+  onAsistenciaGuardada,
 }: AsistenciaDivisionPageProps = {}) {
+  const cicloLectivo = useCicloLectivoStore((state) => state.cicloLectivo)
   const [divisionId, setDivisionId] = useState<string | null>(divisionIdFijo ?? null)
-  const [fecha, setFecha] = useState(() => fechaInicial ?? new Date().toISOString().split('T')[0])
+  const [fecha, setFecha] = useState(() => {
+    const solicitada = fechaInicial ?? new Date().toISOString().split('T')[0]
+    return portalDocente && !solicitada.startsWith(`${cicloLectivo}-`)
+      ? `${cicloLectivo}-01-01`
+      : solicitada
+  })
   const [guardando, setGuardando] = useState(false)
   const [seleccionLocal, setSeleccionLocal] = useState<Record<string, TipoAsistenciaDocente>>({})
   // "asistente": de a un alumno por vez, avanza solo al marcar. "revision": grilla con todos,
@@ -76,9 +87,18 @@ export function AsistenciaDivisionPage({
   const [modo, setModo] = useState<'asistente' | 'revision'>('asistente')
   const [indice, setIndice] = useState(0)
 
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (portalDocente && !fecha.startsWith(`${cicloLectivo}-`)) {
+      setFecha(`${cicloLectivo}-01-01`)
+    }
+  }, [portalDocente, cicloLectivo, fecha])
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   const { alumnos, cargando, error, sinPermiso, recargar } = useAsistenciaDivision(
     divisionId,
     fecha,
+    portalDocente ? { cicloLectivo, portalDocente: true } : undefined,
   )
 
   // Resetear selección y volver al modo asistente cuando cambia la división o fecha
@@ -140,11 +160,13 @@ export function AsistenciaDivisionPage({
       await registrarAsistenciaMasiva({
         fecha,
         division_id: divisionId,
+        ciclo_lectivo: portalDocente ? cicloLectivo : undefined,
         registros,
       })
 
       toast.success('Asistencia guardada correctamente.')
       recargar()
+      if (portalDocente) onAsistenciaGuardada?.()
     } catch {
       toast.error('No se pudo guardar la asistencia. Intentá de nuevo.')
     } finally {
@@ -231,6 +253,8 @@ export function AsistenciaDivisionPage({
           <input
             type="date"
             value={fecha}
+            min={portalDocente ? `${cicloLectivo}-01-01` : undefined}
+            max={portalDocente ? `${cicloLectivo}-12-31` : undefined}
             onChange={(e) => setFecha(e.target.value)}
             className="h-10 rounded-lg border border-borde bg-superficie px-3 text-sm"
           />

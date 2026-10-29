@@ -1,3 +1,4 @@
+import { formatearDiaDeInstante, formatearFechaHora } from '@/lib/fechas'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -17,8 +18,6 @@ import {
   estadosSiguientesTarea,
   ETIQUETA_ESTADO_TAREA,
   ETIQUETA_PRIORIDAD_TAREA,
-  formatearFecha,
-  formatearFechaHora,
   VARIANTE_ESTADO_TAREA,
   VARIANTE_PRIORIDAD_TAREA,
 } from '@/modules/workflows/utils'
@@ -87,7 +86,9 @@ export function TareaDetalleSheet({
                 {actual.descripcion && <Dato etiqueta="Descripción">{actual.descripcion}</Dato>}
                 <Dato etiqueta="Asignada a">{actual.usuario_email}</Dato>
                 <Dato etiqueta="Vence">
-                  {actual.fecha_vencimiento ? formatearFecha(actual.fecha_vencimiento) : '—'}
+                  {actual.fecha_vencimiento
+                    ? formatearDiaDeInstante(actual.fecha_vencimiento)
+                    : '—'}
                   {actual.vencida && (
                     <span className="block text-xs font-medium text-error">Vencida</span>
                   )}
@@ -151,7 +152,7 @@ export function TareaDetalleSheet({
                           {indice + 1}. {eslabon.titulo}
                         </span>
                         <span className="text-xs text-texto-3">
-                          {eslabon.usuario_email} · {formatearFecha(eslabon.created_at)}
+                          {eslabon.usuario_email} · {formatearDiaDeInstante(eslabon.created_at)}
                         </span>
                         <span className="flex gap-2">
                           <Badge variant={VARIANTE_ESTADO_TAREA[eslabon.estado]}>

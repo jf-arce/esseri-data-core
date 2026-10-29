@@ -36,7 +36,7 @@ from src.facturacion.models import (
     ResponsableEconomico,
 )
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate, FacturaUpdate
-from src.familias_alumnos.models import Alumno, Familia
+from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
 from src.workflows.eventos_service import emit_event
@@ -115,7 +115,23 @@ def construir_factura(
 def crear_factura(
     db: Session, datos: FacturaCreate, usuario_id: uuid.UUID | None = None
 ) -> Factura:
-    factura = construir_factura(db, datos)
+    factura = crear_factura_en_transaccion(db, datos, usuario_id)
+    db.commit()
+    creada = obtener_factura(db, factura.id)
+    if creada is None:
+        raise FacturaNoEncontrada()
+    return creada
+
+
+def crear_factura_en_transaccion(
+    db: Session,
+    datos: FacturaCreate,
+    usuario_id: uuid.UUID | None = None,
+    responsable: ResponsableEconomico | None = None,
+) -> Factura:
+    """Emite la factura con sus movimientos sin confirmar la transacción: la usa también el
+    motor de Workflows, que ejecuta dentro de su propio savepoint (`generar_cargo`, #208)."""
+    factura = construir_factura(db, datos, responsable)
     db.add(factura)
     db.flush()
     cuenta_corriente_service.registrar_cargos_factura_en_transaccion(db, factura)
@@ -128,11 +144,7 @@ def crear_factura(
         valor_nuevo=f"inscripcion={factura.inscripcion_id} monto={factura.monto_total}",
         usuario_id=usuario_id,
     )
-    db.commit()
-    creada = obtener_factura(db, factura.id)
-    if creada is None:
-        raise FacturaNoEncontrada()
-    return creada
+    return factura
 
 
 def obtener_factura(db: Session, factura_id: uuid.UUID) -> Factura | None:
@@ -288,6 +300,10 @@ def registrar_pago(
     return pago
 
 
+def obtener_pago(db: Session, pago_id: uuid.UUID) -> Pago | None:
+    return db.get(Pago, pago_id)
+
+
 def obtener_comprobante_pago(db: Session, pago_id: uuid.UUID) -> ArchivoComprobantePago | None:
     return db.scalar(
         select(ArchivoComprobantePago).where(ArchivoComprobantePago.pago_id == pago_id)
@@ -377,6 +393,7 @@ def listar_facturas(
     pagina: int,
     tamanio: int,
     alumno_id: uuid.UUID | None = None,
+    familia_id: uuid.UUID | None = None,
     concepto_cobro_id: uuid.UUID | None = None,
     estado: str | None = None,
     buscar: str | None = None,
@@ -397,6 +414,12 @@ def listar_facturas(
     )
     if alumno_id is not None:
         filtros.append(Inscripcion.alumno_id == alumno_id)
+    if familia_id is not None:
+        filtros.append(
+            Inscripcion.alumno_id.in_(
+                select(FamiliaAlumno.alumno_id).where(FamiliaAlumno.familia_id == familia_id)
+            )
+        )
     if concepto_cobro_id is not None:
         filtros.append(Factura.detalles.any(DetalleFactura.concepto_cobro_id == concepto_cobro_id))
     if estado is not None:

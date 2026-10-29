@@ -1,9 +1,13 @@
 """Fixtures de Workflows: catálogo de eventos y usuario autenticado con permisos del módulo."""
 
+import importlib.util
+import sys
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 
 import pytest
+from sqlalchemy import func, select
 
 from src.auth import sesion_service
 from src.auth.constants import (
@@ -15,10 +19,15 @@ from src.auth.constants import (
 )
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
 from src.facturacion.models import ConceptoCobro, ReglaPenalidad
+from src.familias_alumnos.models import Familia
+from src.inscripciones.models import Asistencia
+from src.workflows import n8n_client
 from src.workflows.eventos_service import emit_event
 from src.workflows.models import CampoEvento, TipoEvento, WorkflowExecution, WorkflowRule
+from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
 PASSWORD_VALIDA = "una-contrasenia-larga"
+SEED_DEMO = Path(__file__).resolve().parents[3] / "database" / "seeds" / "04_seed_demo.py"
 
 
 @pytest.fixture()
@@ -52,6 +61,111 @@ def tipo_factura_vencida(db_session):
     )
     db_session.commit()
     return tipo
+
+
+def _ahora(db):
+    """La hora de la base, la misma con la que se guardan los eventos y las reglas."""
+    return db.scalar(select(func.localtimestamp()))
+
+
+@pytest.fixture()
+def familia(db_session):
+    """Un alumno con inscripción activa y una familia con cuenta (el email al que se avisa)."""
+    datos = crear_escenario(db_session)
+    inscripcion = crear_inscripcion_previa(db_session, datos, estado="activa")
+
+    persona_id = db_session.get(Familia, datos["familia_id"]).persona_id
+    usuario = Usuario(
+        email="madre@mail.com", auth_provider="local", password_hash="x", persona_id=persona_id
+    )
+    db_session.add(usuario)
+    db_session.commit()
+    return {"inscripcion_id": inscripcion.id, "email": usuario.email, "datos": datos}
+
+
+def _asistencia(db, familia, tipo="ausente_pendiente"):
+    asistencia = Asistencia(
+        fecha=date(2027, 3, 3), tipo=tipo, inscripcion_id=familia["inscripcion_id"]
+    )
+    db.add(asistencia)
+    db.commit()
+    return asistencia
+
+
+@pytest.fixture(scope="module")
+def seed_demo():
+    """El seed de demo no es un paquete (su nombre empieza con un número): se carga por ruta, sin
+    escribir bytecode para no ensuciar `database/seeds/` con un `__pycache__`."""
+    spec = importlib.util.spec_from_file_location("seed_demo", SEED_DEMO)
+    modulo = importlib.util.module_from_spec(spec)
+    previo = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        spec.loader.exec_module(modulo)
+    finally:
+        sys.dont_write_bytecode = previo
+    return modulo
+
+
+@pytest.fixture()
+def tipos_inasistencia(db_session):
+    """Los dos eventos de asistencia de Académico, con los campos del catálogo real."""
+    registrada = TipoEvento(
+        nombre="inasistencia.registrada", descripcion="Se registró una inasistencia o tardanza"
+    )
+    justificada = TipoEvento(
+        nombre="inasistencia.justificada", descripcion="Se resolvió la justificación"
+    )
+    db_session.add_all([registrada, justificada])
+    db_session.flush()
+    campos = {
+        registrada: [
+            ("alumno_nombre", "texto"),
+            ("fecha", "fecha"),
+            ("tipo_asistencia", "texto"),
+        ],
+        justificada: [
+            ("alumno_nombre", "texto"),
+            ("fecha_resolucion", "fecha"),
+            ("motivo", "texto"),
+        ],
+    }
+    for tipo, definiciones in campos.items():
+        db_session.add_all(
+            CampoEvento(
+                nombre_interno=nombre, etiqueta=nombre, tipo_dato=tipo_dato, tipo_evento_id=tipo.id
+            )
+            for nombre, tipo_dato in definiciones
+        )
+    db_session.commit()
+    return {"registrada": registrada, "justificada": justificada}
+
+
+@pytest.fixture()
+def envios(monkeypatch):
+    """Registra los emails enviados; `fallar` lista los destinatarios cuyo envío lanza."""
+
+    class Registro:
+        enviados: list[tuple[str, str, str]]
+        htmls: list[str | None]
+        intentos: list[str]
+        fallar: dict[str, Exception]
+
+    registro = Registro()
+    registro.enviados = []
+    registro.htmls = []
+    registro.intentos = []
+    registro.fallar = {}
+
+    def enviar(destinatario, asunto, cuerpo, cuerpo_html=None, transport=None):
+        registro.intentos.append(destinatario)
+        if destinatario in registro.fallar:
+            raise registro.fallar[destinatario]
+        registro.enviados.append((destinatario, asunto, cuerpo))
+        registro.htmls.append(cuerpo_html)
+
+    monkeypatch.setattr(n8n_client, "enviar_email", enviar)
+    return registro
 
 
 @pytest.fixture()

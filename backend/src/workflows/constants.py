@@ -93,6 +93,14 @@ EVENTOS_POR_ACCION: dict[str, frozenset[str] | None] = {
     "generar_orden_compra": frozenset({"solicitud_compra.aprobada"}),
 }
 
+# Acciones que no corren cuando llega el evento sino `dias_despues` días más tarde: el despachador
+# las saltea y las toma `procesar_recordatorios_vencidos`.
+ACCIONES_DIFERIDAS: frozenset[str] = frozenset({"generar_recordatorio"})
+# Cuántos días después de cumplirse `dias_despues` se sigue buscando eventos sin recordar: un evento
+# más viejo (el backend estuvo caído, la regla estuvo apagada) ya no se recuerda, y la búsqueda
+# de cada pasada queda acotada.
+VENTANA_RECORDATORIOS_DIAS = 7
+
 # Acciones que arman un mensaje: son las únicas que admiten `notificacion_template_id`.
 ACCIONES_CON_PLANTILLA: frozenset[str] = frozenset(
     {"notificar", "alerta_interna", "generar_recordatorio", "generar_comunicacion"}
@@ -103,7 +111,9 @@ CAMBIOS_ESTADO_PERMITIDOS: dict[str, frozenset[str]] = {
     "factura": frozenset({"vencida"}),
 }
 
-Destinatario = Literal["responsable_economico", "responsables_habilitados", "destinatarios_regla"]
+Destinatario = Literal[
+    "responsable_economico", "responsables_habilitados", "destinatarios_regla", "solicitante"
+]
 PrioridadTarea = Literal["baja", "media", "alta"]
 EstadoTarea = Literal["pendiente", "en_progreso", "completada", "escalada"]
 ESTADOS_TAREA: tuple[str, ...] = get_args(EstadoTarea)
@@ -131,6 +141,25 @@ ENTIDADES_CON_ALUMNO: frozenset[str] = frozenset(
 DESTINATARIOS_FAMILIARES: frozenset[str] = frozenset(
     {"responsable_economico", "responsables_habilitados"}
 )
+# `solicitante` es el usuario que pidió la compra: se llega a él desde la solicitud, la orden o la
+# recepción (#214).
+ENTIDADES_CON_SOLICITANTE: frozenset[str] = frozenset(
+    {"solicitud_compra", "orden_compra", "recepcion_compra"}
+)
 
 # Los envíos se hacen en serie dentro de la transacción del evento: este tope acota su duración.
 MAX_DESTINATARIOS_POR_EJECUCION = 50
+
+# Campos del payload que no se muestran en el resumen del historial (RNF-15): (evento, campo).
+CAMPOS_RESERVADOS_RESUMEN: frozenset[tuple[str, str]] = frozenset(
+    {("inasistencia.justificada", "motivo")}
+)
+
+# Botón opcional de los mails: clave -> (ruta de la app, texto del botón). El destino sale de acá,
+# nunca de la configuración libre de la regla. Solo pantallas que funcionan hoy.
+EnlaceMail = Literal["familia_justificar", "ejecuciones", "tareas"]
+ENLACES_MAIL: dict[EnlaceMail, tuple[str, str]] = {
+    "familia_justificar": ("/familia/justificar-ausencia", "Justificar la inasistencia"),
+    "ejecuciones": ("/workflows/ejecuciones", "Revisar en ESSERI"),
+    "tareas": ("/workflows/tareas", "Ver mis tareas"),
+}

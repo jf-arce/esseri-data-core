@@ -28,6 +28,8 @@ pip install -r requirements/dev.txt
 cp .env.example .env            # completar DATABASE_URL, JWT_SECRET, etc.
 ```
 
+La app fija `timezone=UTC` en cada sesión de Postgres (`src/database.py`), así que `func.now()` en columnas `DateTime` sin zona guarda UTC aunque el servidor de base esté en otra zona. No hay variable de entorno para esto.
+
 ## Migraciones (Alembic)
 
 Nunca se escribe SQL a mano en `database/` — todo cambio de esquema se genera con Alembic desde acá:
@@ -69,6 +71,9 @@ frontend), no solo cómo levantar el backend. Ahí está el flujo de OAuth, cóm
 credenciales de Google, y cómo crear el primer usuario administrador
 (`database/seeds/00_bootstrap_admin.py`) para poder loguearse.
 
+`POST /auth/login` bloquea la IP tras demasiados fallidos; se ajusta con `LOGIN_MAX_INTENTOS`,
+`LOGIN_VENTANA_MINUTOS` y `LOGIN_BLOQUEO_MINUTOS` (ver "Bloqueo por intentos" en ese documento).
+
 ## Autorización por permisos (RF-30)
 
 Para proteger un endpoint según módulo y acción, usar `requiere_permiso(...)` de
@@ -105,6 +110,17 @@ uvicorn src.main:app --reload
 
 Docs interactivas en `http://localhost:8000/docs`.
 
+### Consulta de facturación para familias
+
+El portal consulta `GET /facturacion/familia/me` para mostrar facturas, vencimientos, movimientos,
+pagos registrados y el saldo de la familia autenticada. No registra ni inicia pagos. Los datos se
+limitan en el backend a las facturas cuyo responsable económico persistido corresponde a esa
+familia; una familia vinculada al alumno pero no responsable económica recibe una cuenta vacía.
+
+El comprobante de un pago disponible se descarga desde
+`GET /facturacion/familia/me/pagos/{pago_id}/comprobante`. Ambas respuestas se entregan con
+`Cache-Control: private, no-store` y no aceptan un `familia_id` desde el cliente.
+
 ### Facturación recurrente automática
 
 El backend recupera períodos pendientes al arrancar y luego corre diariamente a
@@ -124,6 +140,40 @@ días de mora, y lo emitido así cuenta como ya emitido cuando llegue la fecha r
 Para deshabilitar temporalmente el job, configurar
 `FACTURACION_AUTOMATICA_HABILITADA=false`. El flujo manual “Generar ahora” permanece disponible
 como respaldo con previsualización.
+
+### IA/Sugerencias: detección de patrones
+
+`POST /ia-sugerencias/patrones/detectar` busca patrones con reglas y SQL (sin OpenAI) y deja una
+`IA_SUGERENCIA` en `pendiente_revision` por cada caso. No hay job: se ejecuta a pedido desde la
+bandeja, y se puede repetir porque un caso que ya tiene una sugerencia sin revisar no se duplica.
+
+| Patrón | Regla | Variables (`.env`) |
+|---|---|---|
+| Morosidad | Familia con deuda vencida hace más de N días | `IA_MOROSIDAD_DIAS_VENCIDO` (30) |
+| Inasistencias | Alumno con al menos N ausencias sin justificar (`ausente_injustificado` o `ausente_pendiente`) en los últimos M días, en inscripciones activas | `IA_INASISTENCIAS_CANTIDAD` (3), `IA_INASISTENCIAS_VENTANA_DIAS` (30) |
+
+Las sugerencias se listan en `GET /ia-sugerencias/sugerencias` (filtros `estado` y `tipo`) y se
+revisan con `POST /ia-sugerencias/sugerencias/{id}/aprobar` o `/rechazar`. Una sugerencia revisada
+no se puede volver a decidir (409).
+
+### IA/Sugerencias: borradores de comunicación
+
+`POST /ia-sugerencias/comunicaciones` le pide al proveedor de IA que redacte una comunicación
+para un tipo de evento y la deja como `IA_SUGERENCIA` de tipo `comunicacion` en
+`pendiente_revision`. Recibe `tipo_evento_id`, `nombre` (cómo se va a llamar la plantilla) e
+`instrucciones`. Aprobarla crea la `NOTIFICACION_TEMPLATE` con `registrar_plantilla()` de
+Workflows, en la misma transacción; no envía nada.
+
+- El proveedor solo redacta. Recibe la descripción del evento, sus marcadores y las
+  instrucciones; nunca datos de familias o alumnos (RNF-15).
+- Lo que devuelve se valida como una plantilla antes de guardarse: longitudes, formato de los
+  marcadores y que cada uno exista en el evento. Si no pasa, responde 502 y no se guarda.
+- Sin `OPENAI_API_KEY` responde 503; el resto del módulo sigue funcionando.
+- `src/ia_sugerencias/openai_client.py` habla el protocolo de Chat Completions de OpenAI por
+  `httpx`, sin SDK. `OPENAI_BASE_URL` y `OPENAI_MODEL` permiten apuntarlo a otro proveedor
+  compatible con ese protocolo sin cambiar código.
+- Los tests simulan al proveedor con `httpx.MockTransport`: ninguno sale a la red. La
+  integración contra un proveedor real se verifica a mano, con una clave.
 
 ### Workflows: eventos y despacho
 
@@ -194,12 +244,11 @@ instancias del backend, `FOR UPDATE SKIP LOCKED` evita que dos procesen el mismo
 Ya emiten: Proveedores y Compras, `orden_compra.emitida` (en `crear_orden_compra`) y
 `recepcion_compra.registrada` (en `crear_recepcion`); Académico, `inasistencia.registrada` e
 `inasistencia.justificada`; Inscripciones, `inscripcion.cambio_matricula` (en
-`registrar_cambio_matricula`); y Facturación, `pago.registrado` (en `registrar_pago`). El resto lo
-agrega el módulo dueño del hecho:
+`registrar_cambio_matricula`); y Facturación, `pago.registrado` (en `registrar_pago`) y
+`factura.vencida` (en `vencimientos_service.py`). El resto lo agrega el módulo dueño del hecho:
 
 | Evento | Dónde iría | Payload |
 |---|---|---|
-| `factura.vencida` | Facturación: `vencimientos_service.py` al entrar la factura en un tramo de mora | `dias_vencido`, `monto_deuda`, `nombre_familia` |
 | `inscripcion.confirmada` | Inscripciones: al crear la `INSCRIPCION` nueva desde la solicitud (`matriculas_service.py`) | `alumno_nombre`, `nivel_educativo`, `fecha` |
 | `solicitud_compra.aprobada` | Compras: `cambiar_estado_solicitud` cuando pasa a `aprobada` | `item`, `cantidad`, `fecha` |
 | `solicitud_inscripcion.aprobada`, `pago.rechazado` | Admisiones y Facturación | ver `grupo-b.yaml` |
@@ -249,20 +298,55 @@ por el inicio de la ejecución (la más reciente primero), porque `NOTIFICACION`
 y `sent_at` es `NULL` en las fallidas. Un reintento aparece como filas nuevas con su `intento`.
 
 **Estado actual:** `notificar`, `alerta_interna`, `aplicar_vencimiento`, `cambiar_estado`,
-`aplicar_penalidad`, `crear_tarea` y `escalar_caso` tienen ejecutor real. Facturación además emite
-`pago.registrado` al confirmar un pago aprobado, antes de confirmar la misma transacción que escribe
-el pago y el movimiento de cuenta corriente. El resto de `ACCIONES` (`despacho_service.py`) sigue con un stub por dueño
-que devuelve "acción no implementada", así que una regla sin aprobación humana queda `fallido`
+`aplicar_penalidad`, `crear_tarea`, `escalar_caso`, `generar_recordatorio`,
+`generar_orden_compra`, `generar_comunicacion` y `generar_cargo` tienen ejecutor real.
+Facturación además emite `pago.registrado` al confirmar un pago aprobado, antes de confirmar la misma
+transacción que escribe el pago y el movimiento de cuenta corriente. El resto de `ACCIONES`
+(`despacho_service.py`) sigue con un stub por dueño que devuelve "acción no implementada", así que una
+regla sin aprobación humana queda `fallido`
 hasta que su dueño lo reemplace (#199):
 
 | Acción | Archivo | Dueño |
 |---|---|---|
 | `aplicar_vencimiento`, `cambiar_estado` | `acciones_vencimiento_service.py` | Arce |
 | `aplicar_penalidad` | `acciones_penalidad_service.py` | Canu |
-| `generar_cargo` | `acciones_admision_service.py` | Carreon |
+| `generar_cargo` | `acciones_admision_service.py` | Canu |
 | `registrar_rechazo` | `acciones_pagos_service.py` | Carreon |
 | `generar_orden_compra`, `generar_comunicacion` | `acciones_compras_service.py` | Canu |
-| `generar_recordatorio` | `acciones_recordatorio_service.py` | Arce |
+
+**`generar_orden_compra` (#212):** emite la orden de una solicitud aprobada con el único
+proveedor activo de su ítem; con un artículo fuera de catálogo, sin proveedor o con varios falla con
+un motivo claro. Una solicitud que ya está en una orden no genera otra.
+
+**`generar_comunicacion` (#213):** arma el mensaje igual que `notificar` pero no lo envía: lo deja
+como sugerencia de comunicación (`entidad = workflow_execution`) en la bandeja de IA/Sugerencias.
+Aprobarla envía exactamente lo revisado y registra cada `NOTIFICACION` en la ejecución; rechazarla
+la descarta. `notificar` admite además el destinatario `solicitante` (#214): quien pidió la compra,
+solo en eventos de Compras.
+
+**`generar_cargo` (#208):** emite el cargo del concepto de la regla como factura con su movimiento.
+El monto sale de `accion_config` o de la regla de facturación activa del concepto que alcanza a la
+inscripción; el vencimiento, de su día de vencimiento (sin regla, a los 10 días). Idempotente por
+alumno, concepto y período (ciclo lectivo en `inscripcion.confirmada`, mes del pago en
+`pago.rechazado`). En un alta nueva le cobra al responsable ya programado.
+
+**`generar_recordatorio` (#218):** manda el mismo email que `notificar` (misma plantilla y mismos
+destinatarios, con la config de `generar_recordatorio`) pero `dias_despues` días después del evento, y
+solo si todavía corresponde. Para esperar sin tablas nuevas, el despachador saltea estas reglas al
+llegar el evento (`ACCIONES_DIFERIDAS`) y `procesar_recordatorios_vencidos` las ejecuta cuando se
+cumple el plazo: que la regla no tenga ejecución para un evento significa "todavía no le toca". Corre
+en la misma pasada del job (`despacho_job.py`) y con `POST /workflows/procesar`, que ahora informa
+`recordatorios_ejecutados`. Reglas de la búsqueda:
+
+- Solo se miran eventos `procesado` posteriores a la creación de la regla (como cualquier regla,
+  no actúa sobre lo anterior) y de los últimos `VENTANA_RECORDATORIOS_DIAS` (7) días después del
+  plazo: un evento más viejo (backend caído, regla apagada) ya no se recuerda.
+- La `condicion` se evalúa al vencer el plazo, igual que en el despacho; si no se cumple no queda
+  ejecución. Una regla con aprobación humana queda `pendiente` como cualquier otra, y un envío que
+  falla queda `fallido` y se reintenta desde el historial.
+- En eventos de `asistencia` el ejecutor no manda nada (y la ejecución queda `exitoso` con el motivo
+  en `detalle`) si la asistencia ya no existe, ya no está `ausente_pendiente` o la familia ya cargó una
+  justificación, aunque esté por revisar.
 
 `aplicar_vencimiento` marca la factura `vencida` cuando ya pasó su fecha efectiva: la mayor entre
 su vencimiento y las excepciones de la familia del responsable económico. El día exacto todavía no
@@ -299,6 +383,12 @@ Tres acciones no se implementan y siguen sin ejecutor: `registrar_pago` y
 registrar el pago, el motor no los duplica) y `crear_registro_relacionado` (el alta de alumno y
 familia desde la solicitud ya la hace Admisiones). Una regla con alguna de ellas queda `fallido`.
 
+`pago.rechazado` y su ejecutor `registrar_rechazo` quedan pendientes de la integración de retorno
+del débito automático: el flujo manual actual solo confirma pagos aprobados y no inventa rechazos.
+Cuando el banco devuelva su archivo de resultados, la importación deberá registrar el rechazo con su
+referencia y motivo, emitir `pago.rechazado` y recién entonces resolver si `registrar_rechazo` aporta
+una acción adicional sin duplicar la actualización que ya hace Facturación.
+
 **Reglas y allowlist de `accion_config`**
 
 `condicion` y `accion_config` son datos, nunca código. Al crear o editar una regla (y de nuevo al
@@ -325,6 +415,13 @@ defaults.
 Las reglas se administran en `/workflows/reglas` y el catálogo de eventos con sus campos en
 `/workflows/tipos-evento`. Los emails los envía n8n vía el webhook `N8N_WEBHOOK_URL` (ver
 `infra/n8n/README.md`).
+
+**Mail institucional:** cada envío manda a n8n el texto plano y un `cuerpo_html` con el layout de
+`src/workflows/email_html.py` (encabezado con logo y nombre, cuerpo, firma y pie). Se configura con
+`EMAIL_INSTITUCION_NOMBRE`, `EMAIL_INSTITUCION_PIE` y `EMAIL_LOGO_URL` (ver `.env.example`). El
+logo tiene que ser una URL pública: Gmail no muestra `data:` ni `localhost`. Si una regla de
+`notificar`, `alerta_interna` o `generar_recordatorio` tiene `accion_config.enlace`, el mail lleva un
+botón a esa pantalla de la app (`FRONTEND_URL` + la ruta de `ENLACES_MAIL`).
 
 **Plantillas y destinatarios:** el CRUD de plantillas vive en `/workflows/plantillas`. Una
 plantilla puede reutilizarse entre tipos de evento, pero al asociarla a una regla sus placeholders
@@ -417,6 +514,16 @@ El detalle de una factura permite registrar pagos parciales o totales. Los compr
 que los requieran se guardan junto al pago en la base de datos; se aceptan PDF, JPG y PNG de hasta
 5 MB. La descarga de la factura se genera bajo demanda como PDF, sin almacenar una copia adicional.
 
+## Fechas y horas en la API
+
+En Auth, Workflows y Facturación los instantes salen en ISO 8601 UTC con `Z` (`2026-10-26T13:00:00Z`) y las fechas de solo día como `YYYY-MM-DD`. Los esquemas usan `InstanteUtc` (`src/fechas.py`), que agrega la zona al serializar.
+
+Las columnas `DateTime` sin zona de esos módulos guardan UTC: la sesión de Postgres está fijada en UTC (`func.now()` ya devuelve UTC) y las escrituras desde Python usan `ahora_utc()`, nunca `datetime.now()`.
+
+Todavía no lo cubre `academico`, `inscripciones`, `familias_alumnos`, `proveedores_compras` ni `AUDIT_LOG` (`log_audit` escribe con `datetime.now()` aunque lo llamen Auth y Workflows).
+
+Las filas de `finished_at`, `sent_at` y `fecha_vencimiento` de Workflows grabadas antes de este cambio con el backend corriendo en el host quedaron en hora local, y ahora se ven corridas (las tareas abiertas con esa marca vencen antes de tiempo). No hay migración de datos: si tu base de desarrollo se pobló así, volvé a poblarla.
+
 ## Tests
 
 ### Panel de Dirección
@@ -457,6 +564,22 @@ pytest
 ```
 
 Los tests usan una base SQLite en memoria (ver `tests/conftest.py`), no la base de `DATABASE_URL` — así corren sin depender de Postgres. Si el equipo prefiere testear contra un Postgres real, ajustar `TEST_DATABASE_URL` en `tests/conftest.py`.
+
+### Autorización de altas de Inscripciones
+
+`POST /inscripciones` y `POST /inscripciones/reinscripciones` requieren el permiso de
+creación. Con el rol activo Familia, el backend resuelve la familia desde la sesión y
+exige un vínculo persistido con el `alumno_id` del body antes de realizar escrituras.
+Un alumno no vinculado devuelve 403 (`No tenés acceso a este alumno`) sin crear la
+inscripción, auditorías ni eventos. Los roles administrativos conservan el acceso
+por sus permisos existentes; las validaciones del proceso de admisión y del ciclo
+anterior siguen vigentes.
+
+Para verificar el aislamiento con SQLite en memoria y datos sintéticos:
+
+```bash
+pytest -q tests/inscripciones/test_scoping_familia.py
+```
 
 ## Lint y formato
 

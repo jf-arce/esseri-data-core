@@ -367,19 +367,19 @@ Antes del alcance nuevo, estas vistas no tenían dueño formal en ningún docume
 **RF cubiertos:** RF-19, RF-20, RF-21, RF-34, RF-35, RF-38
 
 **Backend (`src/proveedores_compras/`):**
-- ABM de `Proveedor` (datos de contacto, categoría, estado) (RF-19).
-- **Nuevo — catálogo `PRODUCTO_SERVICIO`** (cambio 7, cierra la pregunta #7 de fondo): reemplaza el texto libre de `SOLICITUD_COMPRA.articulo` por una referencia controlada, con `PRODUCTO_PROVEEDOR` (M:N con proveedores) y `PRECIO_PRODUCTO` (histórico por proveedor). `articulo` se conserva nullable solo para excepciones fuera de catálogo. **El catálogo inicial normalizado todavía no llegó** (pregunta pendiente #17) — no inventar valores de ejemplo como precarga real, esperar a que el cliente lo entregue.
-- Registrar solicitudes internas de compra, con estado actualizable y referencia a `PRODUCTO_SERVICIO` (RF-20).
-- Generar orden de compra a partir de solicitud(es) aprobada(s) del mismo proveedor, asociada a un proveedor, con `ORDEN_COMPRA_DETALLE` por ítem (RF-21) — el cliente confirmó (respuesta 14) que una orden puede agrupar varias solicitudes, cada una conserva su ID original.
-- **Nuevo — recepción de compras completa** (cambio 17, cierra la pregunta #14): `RECEPCION_COMPRA` + `RECEPCION_COMPRA_DETALLE`, total o parcial — una recepción parcial deja pendiente automáticamente la cantidad restante (`cantidad_pedida - SUM(cantidad_recibida)`, calculado, no columna).
-- Búsqueda de proveedores y órdenes (RF-34, RF-35), exportación CSV/Excel (RF-38).
+- ABM de `Proveedor` (datos de contacto, categoría, estado) (RF-19), **hecho** (#39).
+- **Nuevo — catálogo `PRODUCTO_SERVICIO`** (cambio 7, cierra la pregunta #7 de fondo): reemplaza el texto libre de `SOLICITUD_COMPRA.articulo` por una referencia controlada, con `PRODUCTO_PROVEEDOR` (M:N con proveedores) y `PRECIO_PRODUCTO` (histórico por proveedor). `articulo` se conserva nullable solo para excepciones fuera de catálogo. **El catálogo inicial normalizado todavía no llegó** (pregunta pendiente #17) — no inventar valores de ejemplo como precarga real, esperar a que el cliente lo entregue. ABM del catálogo y precios por proveedor **hechos** (#113, #114).
+- Registrar solicitudes internas de compra, con estado actualizable y referencia a `PRODUCTO_SERVICIO` (RF-20), **hecho** (#41). Al aprobarse emite `solicitud_compra.aprobada` (#211).
+- Generar orden de compra a partir de solicitud(es) aprobada(s) del mismo proveedor, asociada a un proveedor, con `ORDEN_COMPRA_DETALLE` por ítem (RF-21) — el cliente confirmó (respuesta 14) que una orden puede agrupar varias solicitudes, cada una conserva su ID original. **Hecho** (#43).
+- **Nuevo — recepción de compras completa** (cambio 17, cierra la pregunta #14): `RECEPCION_COMPRA` + `RECEPCION_COMPRA_DETALLE`, total o parcial — una recepción parcial deja pendiente automáticamente la cantidad restante (`cantidad_pedida - SUM(cantidad_recibida)`, calculado, no columna). **Hecho** (#87, #111).
+- Búsqueda de proveedores y órdenes (RF-34, RF-35), exportación CSV/Excel (RF-38), **hecho** (#45, #46).
 
 **Frontend (`modules/proveedores-compras/`):**
-- ABM de proveedores.
-- Catálogo de productos/servicios con precios por proveedor.
-- Formulario de solicitud de compra (con selector del catálogo) + listado con estado.
-- Generación de orden de compra desde solicitudes aprobadas, agrupando por proveedor.
-- Registro de recepción (total/parcial) con detalle por ítem.
+- ABM de proveedores, **hecho** (#40).
+- Catálogo de productos/servicios con precios por proveedor, **hecho** (#113, #114).
+- Formulario de solicitud de compra (con selector del catálogo) + listado con estado, **hecho** (#42).
+- Generación de orden de compra desde solicitudes aprobadas, agrupando por proveedor, **hecho** (#44).
+- Registro de recepción (total/parcial) con detalle por ítem, **hecho** (#88).
 
 **Cerrado por el cliente** (antes era la pregunta pendiente #7): una orden de compra sí puede agrupar varias solicitudes al mismo proveedor — el modelo M:N (`ORDEN_COMPRA_SOLICITUD`) ya existente queda validado sin cambios.
 
@@ -391,18 +391,20 @@ Antes del alcance nuevo, estas vistas no tenían dueño formal en ningún docume
 > **Advertencia de cobertura documental:** a diferencia de los demás módulos, este no tiene ningún RF con código en la Matriz de Requerimientos — es interpretación del equipo sobre la descripción de alto nivel del enunciado del alcance. Presentarlo con esa salvedad si el tutor pregunta.
 
 **Backend (`src/ia_sugerencias/`):**
-- Detectar patrón (morosidad, inasistencias) vía OpenAI, guardar en `IA_SUGERENCIA` con `estado = pendiente_revision`.
-- Generar borrador de comunicación institucional vía OpenAI, mismo flujo de revisión.
+- Detectar patrón (morosidad, inasistencias) y guardarlo en `IA_SUGERENCIA` con `estado = pendiente_revision`, **hecho** (#51). Se detecta por reglas y SQL, sin LLM (decisión de equipo en el diccionario de datos).
+- Generar borrador de comunicación institucional con un proveedor de IA compatible con OpenAI, mismo flujo de revisión, **hecho** (#50): botón "Redactar comunicación" en la bandeja y probado contra Gemini. Cada entorno configura su proveedor en `backend/.env`.
 - Aprobar sugerencia — si es de tipo comunicación, crea la `NOTIFICACION_TEMPLATE` correspondiente.
 - Rechazar sugerencia.
 - Listar sugerencias pendientes de revisión.
 
+Aprobar, rechazar y listar **hechos** (#194). Además, las comunicaciones que arma la regla `generar_comunicacion` de Workflows llegan a esta bandeja y se envían al aprobarlas (#213).
+
 **Regla no negociable, reforzada por el cliente (respuesta 16):** si `requiere_control_humano = true`, la sugerencia **nunca** pasa directo a `ejecutada_automaticamente` sin pasar por `pendiente_revision`. IA acotada: patrones por reglas/SQL, LLM solo para redactar o sugerir — nada de ML entrenado (cambio 11).
 
 **Frontend (`modules/ia-sugerencias/`):**
-- Bandeja de sugerencias pendientes con botones de aprobar/rechazar.
-- Vista de detalle de una sugerencia (contexto + contenido generado).
-- Historial de sugerencias resueltas.
+- Bandeja de sugerencias pendientes con botones de aprobar/rechazar, **hecho** (#195).
+- Vista de detalle de una sugerencia (contexto + contenido generado), **hecho** (#195).
+- Historial de sugerencias resueltas, **hecho** (#195).
 
 **Coordinar con Arce:** una sugerencia de comunicación aprobada genera una `NOTIFICACION_TEMPLATE` — la misma tabla que usa `WORKFLOW_RULE.notificacion_template_id` de Workflows. Acordar el contrato de esa tabla antes de que cada uno la use por su lado.
 
@@ -415,9 +417,9 @@ Además de los RF, hay 6 RNF de la Matriz de Requerimientos que **no quedan cubi
 | RNF | Qué falta revisar/hacer |
 |---|---|
 | RNF-01 | Testing de performance — confirmar que las consultas administrativas responden en menos de 5 segundos |
-| RNF-02 | Testing cross-browser — Chrome, Edge, Firefox, Safari (desktop y móvil) |
+| RNF-02 | Testing cross-browser — Chrome, Edge, Firefox, Safari (desktop y móvil). **Hecho (Canu, #224):** `frontend/e2e/` corre las pantallas principales en Chromium, Firefox, WebKit y celular; falla conocida de Facturación en celular anotada en el spec |
 | RNF-08 | Estrategia de backup y recuperación de PostgreSQL — hoy no tiene dueño en la división actual |
-| RNF-11 | Que el sistema se mantenga disponible durante las demos (ligado a cómo quede levantado `infra/` en producción) |
+| RNF-11 | Que el sistema se mantenga disponible durante las demos (ligado a cómo quede levantado `infra/` en producción). **Hecho (Canu, #225):** `infra/demo.md` con el paso a paso y `infra/demo/` con los scripts que preparan, verifican y restauran el entorno de la demo |
 | RNF-14 | Logs estructurados de errores — ya existe `logging.ini` en el backend, falta que se use activamente |
 | RNF-15 | Cumplimiento de la Ley 25.326 (datos personales) — restringir datos sensibles en logs, exportaciones (RF-36/37/38) y en el `payload` de `EVENT_LOG`, según rol. El más importante de los pendientes, toca datos de menores de edad — con `JUSTIFICACION_INASISTENCIA` (motivos médicos, cambio 5) se vuelve más concreto todavía. **Dueño confirmado: Botteri**, ya era dueño del módulo Académico donde vive esa tabla |
 

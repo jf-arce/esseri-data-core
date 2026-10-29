@@ -19,6 +19,7 @@ import {
   PercentIcon,
   Settings2Icon,
   ShieldCheck,
+  SparklesIcon,
   Truck,
   UserCog,
   UserIcon,
@@ -51,7 +52,21 @@ import {
   RUTA_REGLAS,
   RUTA_TAREAS,
 } from '@/modules/workflows/constants'
+import { PERMISO_IA_SUGERENCIAS_LEER, RUTA_SUGERENCIAS } from '@/modules/ia-sugerencias/constants'
 import type { Permiso } from '@/modules/auth/types'
+
+/** Dominio al que pertenece un ítem de primer nivel (color en el buscador global, §2.5
+ * DESIGN.md). Los hijos heredan el del padre. */
+export type ModuloNav =
+  | 'familias'
+  | 'academico'
+  | 'inscripciones'
+  | 'facturacion'
+  | 'compras'
+  | 'workflows'
+  | 'ia'
+  | 'paneles'
+  | 'sistema'
 
 export interface NavItem {
   label: string
@@ -64,6 +79,8 @@ export interface NavItem {
    * a su primer hijo): en ese caso no se agrega fila sintética, el hijo ya cubre ese lugar. */
   tituloLanding?: string
   icon: LucideIcon
+  /** Solo en ítems de primer nivel: los hijos heredan el módulo del padre. */
+  modulo?: ModuloNav
   children?: NavItem[]
   /** Permiso `.leer` que habilita ver este ítem (mismo código que protege la ruta con
    * `PermisoRoute`). Ausente en ítems que solo agrupan hijos sin landing propia — ahí el
@@ -94,9 +111,9 @@ export function vistaDe(rolActivo: string | null): Vista {
 }
 
 // Cada módulo suma su propia línea acá cuando tenga una página real. No se dibujan ítems
-// muertos: cada href tiene que apuntar a una ruta implementada (§8 DESIGN.md). Auditoría y
-// Sugerencias de IA existen como módulo pero sus routes.tsx todavía están vacíos
-// (`RouteObject[] = []`) — se agregan acá cuando tengan una página real.
+// muertos: cada href tiene que apuntar a una ruta implementada (§8 DESIGN.md). Auditoría
+// existe como módulo pero su routes.tsx todavía está vacío (`RouteObject[] = []`) — se
+// agrega acá cuando tenga una página real.
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Paneles',
@@ -105,6 +122,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: 'Panel de Dirección',
         href: '/panel',
         icon: LayoutDashboard,
+        modulo: 'paneles',
         permiso: PERMISO_PANEL_ADMIN_LEER,
         roles: [ROL_DIRECCION, ROL_ADMINISTRADOR_DEL_SISTEMA],
       },
@@ -112,6 +130,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: 'Panel Administrativo',
         href: '/admin',
         icon: LayoutDashboard,
+        modulo: 'paneles',
         permiso: PERMISO_PANEL_ADMIN_LEER,
         // administrador del sistema = todo (grupo-b.yaml): ve los dos paneles en el sidebar,
         // aunque su pantalla de inicio por default sea /panel (ver rutaInicioDe más abajo).
@@ -129,6 +148,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: '/familias-alumnos',
         tituloLanding: 'Familias',
         icon: UsersRound,
+        modulo: 'familias',
         permiso: PERMISO_FAMILIAS_ALUMNOS_LEER,
         children: [{ label: 'Alumnos', href: '/familias-alumnos/alumnos', icon: GraduationCap }],
       },
@@ -143,6 +163,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: '/academico',
         tituloLanding: 'Estructura académica',
         icon: BookOpenIcon,
+        modulo: 'academico',
         permiso: PERMISO_ACADEMICO_LEER,
         children: [
           { label: 'Asignaciones docentes', href: '/academico/asignaciones', icon: UserCog },
@@ -181,6 +202,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: '/inscripciones',
         tituloLanding: 'Inscripciones',
         icon: ClipboardCheck,
+        modulo: 'inscripciones',
         permiso: PERMISO_INSCRIPCIONES_LEER,
         children: [{ label: 'Admisiones', href: '/inscripciones/admisiones', icon: UserPlusIcon }],
       },
@@ -189,6 +211,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: '/facturacion',
         tituloLanding: 'Facturas',
         icon: Landmark,
+        modulo: 'facturacion',
         permiso: PERMISO_FACTURACION_LEER,
         children: [
           {
@@ -203,6 +226,7 @@ export const NAV_GROUPS: NavGroup[] = [
       {
         label: 'Proveedores y compras',
         icon: Truck,
+        modulo: 'compras',
         permiso: PERMISO_PROVEEDORES_COMPRAS_LEER,
         children: [
           { label: 'Proveedores', href: '/proveedores', icon: Building2Icon },
@@ -216,6 +240,7 @@ export const NAV_GROUPS: NavGroup[] = [
         href: RUTA_REGLAS,
         tituloLanding: 'Reglas de automatización',
         icon: WorkflowIcon,
+        modulo: 'workflows',
         permiso: PERMISO_WORKFLOWS_LEER,
         children: [
           { label: 'Historial de ejecuciones', href: RUTA_EJECUCIONES, icon: HistoryIcon },
@@ -228,7 +253,16 @@ export const NAV_GROUPS: NavGroup[] = [
         label: 'Tareas',
         href: RUTA_TAREAS,
         icon: ListChecksIcon,
+        modulo: 'workflows',
         soloRolActivo: true,
+      },
+      {
+        label: 'Sugerencias de IA',
+        href: RUTA_SUGERENCIAS,
+        tituloLanding: 'Sugerencias de IA',
+        icon: SparklesIcon,
+        modulo: 'ia',
+        permiso: PERMISO_IA_SUGERENCIAS_LEER,
       },
     ],
   },
@@ -239,6 +273,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: 'Usuarios y roles',
         href: '/usuarios-roles',
         icon: ShieldCheck,
+        modulo: 'sistema',
         permiso: PERMISO_AUTENTICACION_LEER,
         children: [
           { label: 'Usuarios', href: '/usuarios-roles/usuarios', icon: UserIcon },
@@ -286,6 +321,40 @@ export function filtrarNav(
         .filter((item) => item.href || (item.children && item.children.length > 0)),
     }))
     .filter((grupo) => grupo.items.length > 0)
+}
+
+export interface DestinoNav {
+  etiqueta: string
+  ruta: string
+  icono: LucideIcon
+  modulo: ModuloNav
+}
+
+/** Aplana el árbol (ya filtrado con `filtrarNav`) en la lista de destinos navegables, con la
+ * misma regla de landing que el sidebar: el padre entra si tiene `href` y (`tituloLanding` o
+ * ningún hijo), con `tituloLanding` como etiqueta. Así un padre que solo redirige ("Usuarios y
+ * roles") no duplica a su primer hijo. */
+export function destinosDe(grupos: NavGroup[]): DestinoNav[] {
+  return grupos.flatMap((grupo) =>
+    grupo.items.flatMap((item) => {
+      const modulo = item.modulo ?? 'sistema'
+      const landing =
+        item.href && (item.tituloLanding || !item.children?.length)
+          ? [
+              {
+                etiqueta: item.tituloLanding ?? item.label,
+                ruta: item.href,
+                icono: item.icon,
+                modulo,
+              },
+            ]
+          : []
+      const hijos = (item.children ?? []).flatMap((hijo) =>
+        hijo.href ? [{ etiqueta: hijo.label, ruta: hijo.href, icono: hijo.icon, modulo }] : [],
+      )
+      return [...landing, ...hijos]
+    }),
+  )
 }
 
 /** La pantalla principal del rol activo. Para Docente/Familia (Portal, todavía sin pantallas
