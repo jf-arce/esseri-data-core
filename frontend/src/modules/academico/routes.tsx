@@ -1,4 +1,4 @@
-import type { RouteObject } from 'react-router'
+import { Navigate, type RouteObject } from 'react-router'
 import { PermisoRoute } from '@/router/permiso-route'
 import {
   PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
@@ -9,7 +9,6 @@ import {
 import { EstructuraAcademicaPage } from './pages/estructura-academica-page'
 import { AsignacionesDocentesPage } from './pages/asignaciones-docentes-page'
 import { AsistenciaDivisionPage } from './pages/asistencia-division-page'
-import { ExportarAsistenciasPage } from './pages/exportar-asistencias-page'
 import { HistorialAsistenciaPage } from './pages/historial-asistencia-page'
 import { JustificacionesPage } from './pages/justificaciones-page'
 
@@ -72,6 +71,11 @@ export const academicoRoutes: RouteObject[] = [
     // `actualizar` de ningún tipo), no un docente ni secretaría/coordinación (que operan el
     // día a día pero no exportan reportes institucionales).
     element: <PermisoRoute codigo={PERMISO_ACADEMICO_EXPORTAR} label="Académico · Exportar" />,
-    children: [{ path: 'academico/exportar-asistencias', element: <ExportarAsistenciasPage /> }],
+    children: [
+      {
+        path: 'academico/exportar-asistencias',
+        element: <Navigate to="/academico/historial-asistencia" replace />,
+      },
+    ],
   },
 ]

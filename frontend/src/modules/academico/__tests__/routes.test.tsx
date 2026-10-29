@@ -7,12 +7,15 @@ import { useAuthStore } from '@/store/auth-store'
 vi.mock('@/modules/academico/pages/justificaciones-page', () => ({
   JustificacionesPage: () => <p>Bandeja de justificaciones</p>,
 }))
+vi.mock('@/modules/academico/pages/historial-asistencia-page', () => ({
+  HistorialAsistenciaPage: () => <p>Historial integrado</p>,
+}))
 
 function RutasAcademico() {
   return useRoutes([...academicoRoutes, { path: '*', element: <p>Inicio</p> }])
 }
 
-function renderConPermisos(permisos: string[]) {
+function renderConPermisos(permisos: string[], ruta = '/academico/justificaciones') {
   const permisosDelRol = permisos.map((codigo, indice) => ({
     id: `p${indice}`,
     codigo,
@@ -45,7 +48,7 @@ function renderConPermisos(permisos: string[]) {
   })
 
   return render(
-    <MemoryRouter initialEntries={['/academico/justificaciones']}>
+    <MemoryRouter initialEntries={[ruta]}>
       <RutasAcademico />
     </MemoryRouter>,
   )
@@ -56,6 +59,14 @@ beforeEach(() => {
 })
 
 describe('rutas institucionales de justificaciones', () => {
+  it('redirects the old export URL to history without removing export authorization', () => {
+    renderConPermisos(['academico.leer', 'academico.exportar'], '/academico/exportar-asistencias')
+    expect(screen.getByText('Historial integrado')).toBeInTheDocument()
+  })
+  it('preserves the old export URL permission guard', () => {
+    renderConPermisos(['academico.leer'], '/academico/exportar-asistencias')
+    expect(screen.getByText('No tenés acceso a esta sección')).toBeInTheDocument()
+  })
   it('requiere el permiso específico aunque exista academico.leer', () => {
     renderConPermisos(['academico.leer'])
 

@@ -4,7 +4,6 @@ import {
   CalendarCheck,
   ClipboardCheck,
   ClipboardList,
-  DownloadIcon,
   Grid3x3Icon,
   GraduationCap,
   BookOpenIcon,
@@ -31,7 +30,6 @@ import {
 import {
   PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
   PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES,
-  PERMISO_ACADEMICO_EXPORTAR,
   PERMISO_ACADEMICO_LEER,
   PERMISO_AUTENTICACION_LEER,
   PERMISO_FACTURACION_LEER,
@@ -175,14 +173,6 @@ export const NAV_GROUPS: NavGroup[] = [
             href: '/academico/justificaciones',
             icon: ClipboardList,
             permiso: PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES,
-          },
-          {
-            // RF-37: permiso propio (`academico.exportar`), lo tiene dirección — no depende de
-            // `actualizar` de ningún tipo, así que ni secretaría ni un docente ven este ítem.
-            label: 'Exportar asistencias',
-            href: '/academico/exportar-asistencias',
-            icon: DownloadIcon,
-            permiso: PERMISO_ACADEMICO_EXPORTAR,
           },
         ],
       },
