@@ -19,6 +19,17 @@ function permiso(codigo: string): Permiso {
 }
 
 describe('filtrarNav', () => {
+  it('keeps attendance history as the single navigation destination for exports', () => {
+    const grupos = filtrarNav(NAV_GROUPS, 'direccion', [
+      permiso('academico.leer'),
+      permiso('academico.exportar'),
+    ])
+    const hijos =
+      grupos.flatMap((grupo) => grupo.items).find((item) => item.label === 'Académico')?.children ??
+      []
+    expect(hijos.some((item) => item.href === '/academico/historial-asistencia')).toBe(true)
+    expect(hijos.some((item) => item.href === '/academico/exportar-asistencias')).toBe(false)
+  })
   it('sin rol activo ni permisos, no muestra nada', () => {
     const grupos = filtrarNav(NAV_GROUPS, null, [])
 

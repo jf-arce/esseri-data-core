@@ -6,7 +6,7 @@ from sqlalchemy import select
 from src.auth.models import Usuario
 from src.facturacion.models import Factura, MetodoPago, Pago, ResponsableEconomico
 from src.inscripciones.models import Asistencia
-from src.panel_admin.service import obtener_indicadores_direccion
+from src.panel_admin.service import obtener_evolucion_financiera, obtener_indicadores_direccion
 from src.proveedores_compras.models import SolicitudCompra
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
@@ -73,3 +73,17 @@ def test_indicadores_calculan_deuda_con_pagos_parciales_y_solo_aprobados(db_sess
         "inasistencias_hoy": 1,
         "solicitudes_compra_pendientes": 1,
     }
+    evolucion = obtener_evolucion_financiera(db_session, fecha_hoy=date(2026, 9, 1))
+    assert len(evolucion) == 9
+    assert evolucion[-1] == {
+        "mes": "2026-09",
+        "facturado": Decimal("100.00"),
+        "cobrado": Decimal("40.00"),
+    }
+    assert evolucion[0] == {"mes": "2026-01", "facturado": Decimal("0"), "cobrado": Decimal("0")}
+
+
+def test_solo_compras_no_puede_leer_evolucion_financiera(client_solo_compras):
+    respuesta = client_solo_compras.get("/panel-admin/evolucion-financiera")
+
+    assert respuesta.status_code == 403

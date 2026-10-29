@@ -63,6 +63,52 @@ npm run format:check   # solo verifica, no modifica archivos
 
 ## Tests unitarios (Vitest)
 
+### Panel de Dirección
+
+La ruta `/panel` conserva los colores, componentes y la preferencia de tema del sistema.
+En la Consola, el botón de contraer/expandir de la cabecera reduce la navegación lateral
+a sus íconos o vuelve a mostrar los nombres. El atajo existente `Ctrl+B` o `Cmd+B` conserva esa función.
+Con la barra contraída, abrir un módulo muestra sus submódulos debajo de su ícono,
+sin expandir la barra ni ocultar los otros módulos.
+Además de los cuatro indicadores existentes, muestra solicitudes de compra pendientes,
+cuentas por familia con deuda vencida, evolución financiera, asistencia de los últimos
+30 días y actividad reciente de compras, finanzas y alumnos. Cada bloque respeta el permiso de lectura de su módulo.
+Las secciones se cargan de forma independiente; un error no se representa como cero.
+
+La evolución usa `GET /panel-admin/evolucion-financiera`, que exige lectura del panel
+y de facturación. Compara facturas emitidas con pagos aprobados desde enero hasta la
+fecha actual. No compara ingresos y gastos, ni incluye movimientos futuros. Los días
+sin asistencia registrada no se consideran ausencias. La actividad reciente muestra los
+seis hechos registrados más recientes que el rol puede consultar; no pretende ser una auditoría institucional completa.
+
+Los bloques del panel ajustan su altura al contenido y mantienen columnas independientes
+en escritorio. Los gráficos muestran sus escalas y referencias de período sin desplegar
+el detalle; conservan los tooltips y las lecturas por teclado. La pestaña de compras
+cuenta solamente solicitudes pendientes cargadas correctamente. La tabla muestra el
+estado real de cada solicitud, pero no una columna de monto: ese dato no forma parte
+de la solicitud de compra y no se estima a partir de los precios de proveedores.
+
+### Historial de asistencia
+
+El botón «Ver asistencias» del Panel de Dirección abre el historial con los registros
+de hoy (fecha local) y respeta el ciclo lectivo del encabezado. El selector de ciclo de
+la pantalla actualiza ese mismo estado global. Los filtros dependientes de nivel, año,
+división y alumno usan inscripciones históricas, incluidas las finalizadas. Cambiar un
+filtro superior limpia sus dependientes. Se puede filtrar también por estado y rango de
+fechas; «Limpiar filtros» conserva el ciclo del sistema y vuelve al día actual.
+
+Los indicadores muestran el total filtrado, presentes, ausencias justificadas e
+injustificadas y porcentaje de asistencia (presentes más tardanzas sobre registros).
+No dependen de la página visible. La tabla ordena inicialmente por fecha descendente,
+permite ordenar por alumno y fecha y usa paginación del servidor con cantidad de resultados.
+El botón «Exportar» abre un menú con CSV, Excel y PDF. Exporta todos los registros
+filtrados, no solo la página, y solo se ofrece con `academico.exportar`. El acceso
+separado «Exportar asistencias» ya no aparece en el menú; su URL anterior redirige al
+historial y conserva el control de permiso de exportación. Un docente consulta una división asignada a su ciclo;
+la pantalla no amplía sus permisos. Los errores no se muestran como indicadores en cero.
+
+### Ejecución
+
 ```bash
 npm run test         # corre una vez
 npm run test:watch   # modo watch
