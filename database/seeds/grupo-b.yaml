@@ -19,6 +19,16 @@
 # mismo mecanismo para separar "tomar asistencia" de "editar la estructura curricular",
 # ambos con acción `actualizar` sobre Académico. Ver comentario en la entrada de docente.
 permiso:
+  # Institutional communications: explicitly authorized stage-one grants.
+  - rol: administración
+    modulo: Comunicaciones
+    acciones: [crear, leer, actualizar]
+  - rol: dirección
+    modulo: Comunicaciones
+    acciones: [crear, leer, actualizar]
+  - rol: familia
+    modulo: Comunicaciones
+    acciones: [leer] # own inbox and individual read receipt, never management
   # administrador del sistema — CRUD completo en todos los módulos
   - rol: administrador del sistema
     modulo: Autenticación

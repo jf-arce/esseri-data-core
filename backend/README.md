@@ -526,6 +526,65 @@ Las filas de `finished_at`, `sent_at` y `fecha_vencimiento` de Workflows grabada
 
 ## Tests
 
+### Institutional communications — stage 1
+
+`/comunicaciones` owns basic drafts and publication, independent of Workflows and email.
+Administration and Direction receive `comunicaciones.crear`, `.leer` and `.actualizar`;
+Family receives `.leer` only. The migration provisions existing roles by their stable codes;
+the group-B seed provisions fresh installations. Teacher publication is not enabled.
+
+Administrative endpoints:
+
+- `POST /comunicaciones`: create a draft with a UUID `clave`, `asunto`, `cuerpo`, and `audiencia`.
+  Retries with the same author/key and original request return the existing draft; a different
+  request with that key returns 409. This does not create recipient receipts.
+- `PUT /comunicaciones/{id}`: edit an author's own draft, retaining its `clave`.
+- `POST /comunicaciones/vista-previa`: validate and count unique enabled responsible recipients.
+- `GET /comunicaciones/opciones`: permitted audience options, including enrollment cycles.
+- `POST /comunicaciones/{id}/publicar`: lock the draft, resolve the audience again, and commit
+  publication, individual receipts and audit together. No recipients returns 422 with no changes.
+  Repeated publication returns the existing publication; published content cannot be edited.
+- `GET /comunicaciones` and `GET /comunicaciones/{id}`: authorized listing/detail; another
+  author's drafts are not visible. Lists accept `pagina` (20 per page) and `buscar`.
+
+Audience `tipo` is `todos`, `nivel`, `division`, `alumnos` or `responsables`, with UUID `ids`.
+Level/division additionally require a four-digit `ciclo_lectivo` and use active enrollments in
+that cycle. Every audience requires active students and `FamiliaAlumno.recibe_comunicaciones`.
+`todos` covers enabled links to active students, not a guessed current enrollment year.
+
+Family endpoints require the active Family role and resolve the responsible using the existing
+Usuario → Persona → Familia helper, never a supplied responsible identity:
+
+- `GET /comunicaciones/familia`: paginated own inbox; `no_leidas=true` and `buscar` are optional.
+- `GET /comunicaciones/familia/{id}`: published authorized detail, without a read side effect.
+- `PUT /comunicaciones/familia/{id}/lectura`: atomically preserve the first individual read time.
+
+Family responses are private/no-store. Access requires both a frozen receipt and a currently
+enabled original student link. New links do not grant old publications. Multiple links/siblings
+produce one receipt per responsible. Body content is plain text, never executable HTML.
+Draft create/edit, publication and first reading use the existing audit helper; message contents
+are not duplicated in the audit log. No external service is called by these operations.
+
+Focused tests (SQLite by default):
+
+```bash
+pytest -q tests/comunicaciones
+```
+
+For PostgreSQL, first apply `alembic upgrade head` against an **isolated disposable database**,
+then explicitly supply that URL (never a shared or production database):
+
+```bash
+COMUNICACIONES_TEST_DATABASE_URL="$ISOLATED_TEST_DATABASE_URL" pytest -q tests/comunicaciones
+```
+
+Each PostgreSQL test runs inside a rolled-back outer transaction; application commits are
+savepoints. The same public API tests run against real PostgreSQL constraints.
+The PostgreSQL-only concurrency test creates a unique temporary schema inside that isolated
+database and uses independent request sessions for simultaneous draft creation, publication
+and first reading. It removes only that generated schema afterward. Without the explicit URL,
+that test is skipped rather than claiming SQLite proves PostgreSQL locking.
+
 ### Panel de Dirección
 
 `GET /panel-admin/evolucion-financiera` compara facturación emitida y pagos aprobados

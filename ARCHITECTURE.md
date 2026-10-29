@@ -12,6 +12,21 @@ Este documento describe **estructura y convenciones**, no decisiones de negocio 
 
 ## Decisiones de base
 
+### Communications domain (stage 1)
+
+Institutional communications are owned by `backend/src/comunicaciones/` and
+`frontend/src/modules/comunicaciones/`, an additional domain alongside the original EDT modules.
+It owns drafts, publication, recipient resolution and individual responsible read receipts.
+It is not part of the administrative dashboard or the Workflows transport log.
+Stage 1 has only `comunicacion` and `recibo_comunicacion`: audience selection lives on the
+communication, while each receipt freezes the relevant student identifiers and its first read.
+No separate version, publication, read, approval or transport entities are introduced yet.
+`Familia` represents one responsible, resolved with the existing Usuario → Persona → Familia
+helper. The unique responsible/publication receipt deduplicates sibling and multiple links.
+Existing active-role permissions protect every operation; family endpoints only expose owned
+published receipts with a still-enabled original student link. Workflows and `NOTIFICACION`
+retain their existing semantics. Frontend filenames remain kebab-case and backend snake_case.
+
 - **Monorepo** (un solo repositorio para todo el sistema), no un repo por módulo. No lo exige ningún RF/RNF explícitamente — es una decisión del equipo para simplificar la coordinación entre los 4 integrantes y la transferencia final a ESSERI.
 - **Separación por capas en la raíz** (`frontend/`, `backend/`, `database/`, `infra/`) para cumplir RNF-09 (separación entre frontend, backend y base de datos).
 - **Dentro de cada capa, separación por dominio/módulo** (los 10 módulos del EDT: Autenticación, Familias y Alumnos, Académico, Inscripciones, Facturación, Proveedores y Compras, Workflows, Auditoría, Panel Administrativo, IA/Sugerencias), no por tipo de archivo. Esto refleja la arquitectura orientada a eventos: cada módulo puede evolucionar y publicar/escuchar eventos sin acoplarse a los demás.
@@ -50,6 +65,7 @@ frontend/
 │   │   ├── auth/
 │   │   ├── familias-alumnos/
 │   │   ├── academico/
+│   │   ├── comunicaciones/
 │   │   ├── inscripciones/
 │   │   ├── facturacion/
 │   │   ├── proveedores-compras/

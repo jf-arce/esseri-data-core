@@ -10,6 +10,43 @@ Para la estructura completa de carpetas y las convenciones del proyecto, ver **`
 
 ## Requisitos
 
+### Institutional communications — stage 1
+
+Administration/Direction open `/comunicaciones` to create or resume their own drafts.
+The four steps are content, recipient selection, preview and publication result. Saving a draft
+does not publish it. Published content is immutable. Recipient counts are responsible people,
+not households or student links. Email and attachments are not enabled in this stage.
+
+Family uses `/familia/comunicaciones` in its existing portal. Opening an authorized detail
+records that responsible's first read; a failed read request offers retry without hiding the
+message. Plain-text content is rendered as text, never HTML. Search, unread filtering and
+server pagination use the real API.
+
+Focused component tests:
+
+```bash
+npm run test -- src/modules/comunicaciones/pages/__tests__/comunicaciones.test.tsx
+```
+
+Real end-to-end test (no frontend responses mocked): start the backend and frontend against an
+isolated migrated PostgreSQL database. Supply an Administration account with the stage-one
+permissions and a Family account linked to an active student with communications enabled.
+Both accounts must have a single active role for this test login. Supply their addresses and
+the shared **test-only** password through environment variables, never source files:
+
+```bash
+E2E_COMUNICACIONES_REAL=true \
+E2E_BASE_URL=http://localhost:5173 E2E_API_URL=http://localhost:8000 \
+E2E_COMUNICACIONES_ADMIN="$TEST_ADMIN_EMAIL" \
+E2E_COMUNICACIONES_FAMILIA="$TEST_FAMILY_EMAIL" \
+E2E_COMUNICACIONES_PASSWORD="$TEST_PASSWORD" \
+npm run test:e2e -- --config playwright-comunicaciones.config.ts
+```
+
+The dedicated configuration runs Chromium desktop and mobile against real persisted data.
+It creates publications and preserves them in the isolated database for inspection. Without
+explicit opt-in it skips. Do not point it at shared or production environments.
+
 - Node.js 20+ (probado con Node 26)
 - npm 10+
 

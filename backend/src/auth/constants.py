@@ -24,6 +24,7 @@ MODULO_WORKFLOWS = "Workflows"
 MODULO_AUDITORIA = "Auditoría"
 MODULO_PANEL_ADMIN = "Panel Administrativo"
 MODULO_IA_SUGERENCIAS = "IA/Sugerencias"
+MODULO_COMUNICACIONES = "Comunicaciones"
 
 MODULOS = (
     MODULO_AUTENTICACION,
@@ -36,6 +37,7 @@ MODULOS = (
     MODULO_AUDITORIA,
     MODULO_PANEL_ADMIN,
     MODULO_IA_SUGERENCIAS,
+    MODULO_COMUNICACIONES,
 )
 
 ACCION_CREAR = "crear"
@@ -63,6 +65,7 @@ ModuloLiteral = Literal[
     "Auditoría",
     "Panel Administrativo",
     "IA/Sugerencias",
+    "Comunicaciones",
 ]
 
 AccionLiteral = Literal["crear", "leer", "actualizar", "eliminar", "exportar"]
@@ -81,6 +84,7 @@ SLUG_POR_MODULO: dict[str, str] = {
     MODULO_AUDITORIA: "auditoria",
     MODULO_PANEL_ADMIN: "panel_administrativo",
     MODULO_IA_SUGERENCIAS: "ia_sugerencias",
+    MODULO_COMUNICACIONES: "comunicaciones",
 }
 
 
@@ -175,6 +179,9 @@ PERMISO_WORKFLOWS_ELIMINAR = codigo_de(MODULO_WORKFLOWS, ACCION_ELIMINAR)
 PERMISO_AUDITORIA_LEER = codigo_de(MODULO_AUDITORIA, ACCION_LEER)
 
 PERMISO_PANEL_ADMIN_LEER = codigo_de(MODULO_PANEL_ADMIN, ACCION_LEER)
+PERMISO_COMUNICACIONES_CREAR = codigo_de(MODULO_COMUNICACIONES, ACCION_CREAR)
+PERMISO_COMUNICACIONES_LEER = codigo_de(MODULO_COMUNICACIONES, ACCION_LEER)
+PERMISO_COMUNICACIONES_ACTUALIZAR = codigo_de(MODULO_COMUNICACIONES, ACCION_ACTUALIZAR)
 
 # --- Estado de cuenta y proveedor de acceso ----------------------------------------------
 # Usados por varios de los servicios de auth (sesion/usuarios) y por `dependencies.py`.

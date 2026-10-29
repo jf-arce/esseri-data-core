@@ -23,6 +23,7 @@ import { workflowsRoutes } from '@/modules/workflows/routes'
 import { auditoriaRoutes } from '@/modules/auditoria/routes'
 import { panelAdminRoutes } from '@/modules/panel-admin/routes'
 import { iaSugerenciasFamiliaRoutes, iaSugerenciasRoutes } from '@/modules/ia-sugerencias/routes'
+import { comunicacionesRoutes, comunicacionesFamiliaRoutes } from '@/modules/comunicaciones/routes'
 
 const moduleRoutes = [
   ...authPrivateRoutes,
@@ -35,6 +36,7 @@ const moduleRoutes = [
   ...auditoriaRoutes,
   ...panelAdminRoutes,
   ...iaSugerenciasRoutes,
+  ...comunicacionesRoutes,
 ]
 
 export function AppRouter() {
@@ -113,7 +115,7 @@ export function AppRouter() {
               children: [
                 {
                   element: <PortalLayout />,
-                  children: iaSugerenciasFamiliaRoutes,
+                  children: [...iaSugerenciasFamiliaRoutes, ...comunicacionesFamiliaRoutes],
                 },
               ],
             },
