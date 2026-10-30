@@ -110,7 +110,25 @@ it('family inbox shows individual unread status without management actions', asy
     </MemoryRouter>,
   )
   expect(await screen.findByText('No leída')).toBeInTheDocument()
+  expect(screen.getByText('Institucional')).toBeInTheDocument()
+  expect(screen.queryByText('Colegio ESSERI')).toBeNull()
   expect(screen.queryByRole('link', { name: 'Nueva comunicación' })).toBeNull()
+})
+
+it('family inbox identifies the teacher for course communications', async () => {
+  api.mockResolvedValue({
+    items: [{ ...comunicacion, tipo: 'curso', emisor: 'Laura Díaz' }],
+    total: 1,
+    pagina: 1,
+    total_paginas: 1,
+  })
+  render(
+    <MemoryRouter>
+      <ComunicacionesPage familia />
+    </MemoryRouter>,
+  )
+  expect(await screen.findByText('Laura Díaz')).toBeInTheDocument()
+  expect(screen.queryByText('Institucional')).toBeNull()
 })
 
 it('teacher form only offers assigned courses and publishes through teacher endpoints', async () => {

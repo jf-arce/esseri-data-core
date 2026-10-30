@@ -123,7 +123,9 @@ export function ComunicacionesPage({
               >
                 <span className="min-w-0">
                   <span className="block font-semibold break-words">{c.asunto}</span>
-                  <span className="text-sm text-texto-2">{c.emisor ?? 'Colegio ESSERI'}</span>
+                  <span className="text-sm text-texto-2">
+                    {c.tipo === 'curso' ? (c.emisor ?? 'Colegio ESSERI') : 'Institucional'}
+                  </span>
                 </span>
                 <Badge variant={c.leida_at ? 'neutro' : 'info'}>
                   {c.leida_at ? 'Leída' : 'No leída'}
