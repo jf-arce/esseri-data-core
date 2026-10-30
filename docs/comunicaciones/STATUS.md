@@ -30,9 +30,12 @@ Read [PLAN.md](PLAN.md) for approved scope. No managed prompt or model config ch
 - **Live email blocker:** local n8n read-only CLI export returned no workflows. Gmail
   submission cannot be verified until workflow import/publication, real credentials and
   a controlled recipient are available. Do not equate mocks/HTTP acknowledgment to delivery.
-- All functional stage-3 work is currently uncommitted. Documentation-only commit4e93b7b
-  remains in `docs/comunicaciones-etapa-3-preparacion`; the stage-3 checkout carries its
-  evolved documents. Delivery slicing/native review disposition are not yet closed.
+- Stage-3 work is committed locally on `feat/comunicaciones-etapa-3` in seven work units:
+  `c3befc7` (schema+migration), `41fb000` (attachments), `4981f08` (transport), `60853c4`
+  (n8n workflow), `4606b47` (integration+UI), `4e0d7ce` (isolated infra/browser proof),
+  `2b67e5c` (docs). No push or PR. Native RDD assessment over the range returned `medium`
+  risk, `review_due=false` (`under_budget`); focused reviews were already completed
+  (native verifier S1–S5, transport review, PG/scanner/browser suites).
 
 ### Final verification additions
 
