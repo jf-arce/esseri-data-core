@@ -5,8 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from src.auth.constants import (
     PERMISO_COMUNICACIONES_ACTUALIZAR,
+    PERMISO_COMUNICACIONES_ACTUALIZAR_DOCENTE,
     PERMISO_COMUNICACIONES_CREAR,
+    PERMISO_COMUNICACIONES_CREAR_DOCENTE,
     PERMISO_COMUNICACIONES_LEER,
+    PERMISO_COMUNICACIONES_LEER_DOCENTE,
 )
 from src.auth.dependencies import DbSession, RolActivo, requiere_permiso
 from src.auth.models import Usuario
@@ -17,11 +20,23 @@ router = APIRouter(prefix="/comunicaciones", tags=["Comunicaciones"])
 Crear = Annotated[Usuario, Depends(requiere_permiso(PERMISO_COMUNICACIONES_CREAR))]
 Editar = Annotated[Usuario, Depends(requiere_permiso(PERMISO_COMUNICACIONES_ACTUALIZAR))]
 Leer = Annotated[Usuario, Depends(requiere_permiso(PERMISO_COMUNICACIONES_LEER))]
+CrearDocente = Annotated[Usuario, Depends(requiere_permiso(PERMISO_COMUNICACIONES_CREAR_DOCENTE))]
+EditarDocente = Annotated[
+    Usuario, Depends(requiere_permiso(PERMISO_COMUNICACIONES_ACTUALIZAR_DOCENTE))
+]
+LeerDocente = Annotated[Usuario, Depends(requiere_permiso(PERMISO_COMUNICACIONES_LEER_DOCENTE))]
 
 
 def gestion(rol: str | None):
     if rol == "familia":
         raise HTTPException(403, "Usá tu bandeja familiar")
+    if rol == "docente" or (rol or "").startswith("docente_"):
+        raise HTTPException(403, "Usá el portal correspondiente")
+
+
+def solo_docente(rol: str | None):
+    if rol != "docente" and not (rol or "").startswith("docente_"):
+        raise HTTPException(403, "Esta operación requiere el rol Docente")
 
 
 def familiar(rol: str | None, response: Response):
@@ -60,6 +75,72 @@ def lectura(
     return service.detalle_familia(db, id, usuario, leer=True)
 
 
+@router.get("/docente/opciones")
+def opciones_docente(
+    db: DbSession,
+    usuario: LeerDocente,
+    rol: RolActivo,
+    ciclo_lectivo: Annotated[str, Query(pattern=r"^\d{4}$")],
+):
+    solo_docente(rol)
+    return service.opciones_docente(db, usuario, ciclo_lectivo)
+
+
+@router.post("/docente/vista-previa")
+def vista_previa_docente(data: BorradorInput, db: DbSession, usuario: CrearDocente, rol: RolActivo):
+    solo_docente(rol)
+    service.validar_curso(db, usuario, data.audiencia)
+    return {"destinatarios": len(service.resolver(db, data.audiencia))}
+
+
+@router.get("/docente")
+def listado_docente(
+    db: DbSession,
+    usuario: LeerDocente,
+    rol: RolActivo,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    buscar: Annotated[str, Query(max_length=200)] = "",
+) -> Listado:
+    solo_docente(rol)
+    return service.listar(db, usuario, pagina, buscar, False, tipo="curso", autor_id=usuario.id)
+
+
+@router.post("/docente", status_code=201)
+def crear_docente(
+    data: BorradorInput, db: DbSession, usuario: CrearDocente, rol: RolActivo
+) -> ComunicacionRead:
+    solo_docente(rol)
+    return service.crear(db, data, usuario, tipo="curso")
+
+
+@router.get("/docente/{id}")
+def obtener_docente(
+    id: uuid.UUID, db: DbSession, usuario: LeerDocente, rol: RolActivo
+) -> ComunicacionRead:
+    solo_docente(rol)
+    return service.respuesta(db, service.obtener(db, id, usuario, tipo="curso"))
+
+
+@router.put("/docente/{id}")
+def editar_docente(
+    id: uuid.UUID,
+    data: BorradorInput,
+    db: DbSession,
+    usuario: EditarDocente,
+    rol: RolActivo,
+) -> ComunicacionRead:
+    solo_docente(rol)
+    return service.editar(db, id, data, usuario, tipo="curso")
+
+
+@router.post("/docente/{id}/publicar")
+def publicar_docente(
+    id: uuid.UUID, db: DbSession, usuario: CrearDocente, rol: RolActivo
+) -> ComunicacionRead:
+    solo_docente(rol)
+    return service.publicar(db, id, usuario, tipo="curso")
+
+
 @router.get("/opciones")
 def opciones(db: DbSession, _: Crear, rol: RolActivo):
     gestion(rol)
@@ -87,7 +168,7 @@ def listado(
 @router.post("", status_code=201)
 def crear(data: BorradorInput, db: DbSession, usuario: Crear, rol: RolActivo) -> ComunicacionRead:
     gestion(rol)
-    return service.crear(db, data, usuario)
+    return service.crear(db, data, usuario, tipo="institucional")
 
 
 @router.get("/{id}")
@@ -101,10 +182,10 @@ def editar(
     id: uuid.UUID, data: BorradorInput, db: DbSession, usuario: Editar, rol: RolActivo
 ) -> ComunicacionRead:
     gestion(rol)
-    return service.editar(db, id, data, usuario)
+    return service.editar(db, id, data, usuario, tipo="institucional")
 
 
 @router.post("/{id}/publicar")
 def publicar(id: uuid.UUID, db: DbSession, usuario: Crear, rol: RolActivo) -> ComunicacionRead:
     gestion(rol)
-    return service.publicar(db, id, usuario)
+    return service.publicar(db, id, usuario, tipo="institucional")

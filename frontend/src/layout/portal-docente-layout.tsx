@@ -3,6 +3,7 @@ import {
   BookOpenCheckIcon,
   CalendarIcon,
   GraduationCapIcon,
+  MailIcon,
   UserRoundIcon,
 } from 'lucide-react'
 import { Link, Outlet, useLocation } from 'react-router'
@@ -14,6 +15,12 @@ const navegacionDocente = [
   { id: 'cursos', href: '/docente/cursos', label: 'Mis cursos', icon: BookOpenCheckIcon },
   { id: 'asistencia', href: '/docente/asistencia', label: 'Asistencia', icon: CalendarIcon },
   { id: 'alumnos', href: '/docente/alumnos', label: 'Alumnos', icon: UserRoundIcon },
+  {
+    id: 'comunicaciones',
+    href: '/docente/comunicaciones',
+    label: 'Comunicaciones',
+    icon: MailIcon,
+  },
   {
     id: 'seguimiento',
     href: '/docente/seguimiento',
@@ -33,6 +40,7 @@ function esSeccionActiva(seccion: SeccionDocente, pathname: string, hash: string
   if (seccion === 'alumnos') {
     return pathname === '/docente/alumnos' || pathname.includes('/alumnos') || hash === '#alumnos'
   }
+  if (seccion === 'comunicaciones') return pathname.startsWith('/docente/comunicaciones')
   return (
     pathname === '/docente/seguimiento' ||
     pathname.includes('/seguimiento') ||
@@ -72,46 +80,39 @@ export function PortalDocenteLayout() {
 
   return (
     <div className="min-h-svh bg-lienzo">
-      <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-nav-hover bg-nav px-4 text-texto-sobre-oscuro sm:px-7">
-        <Link
-          to="/docente"
-          className="flex shrink-0 items-center gap-2.5 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lila-claro"
-        >
-          <span className="flex size-7 items-center justify-center rounded-lg bg-nav-hover">
-            <img src="/esseri-icon.png" alt="" className="size-5 object-contain" />
-          </span>
-          <span className="text-sm font-semibold">ESSERI</span>
-        </Link>
-        <span aria-hidden="true" className="h-6 w-px bg-texto-2-sobre-oscuro/40" />
-        <span className="text-sm font-medium text-texto-sobre-oscuro">Portal Docente</span>
-
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            className="flex size-9 items-center justify-center rounded-full text-texto-sobre-oscuro transition-colors hover:bg-nav-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lila-claro"
-            aria-label="Notificaciones no disponibles"
-            disabled
+      <header className="sticky top-0 z-20">
+        <div className="flex h-16 items-center gap-4 border-b border-nav-hover bg-nav px-4 text-texto-sobre-oscuro sm:px-7">
+          <Link
+            to="/docente"
+            className="flex shrink-0 items-center gap-2.5 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lila-claro"
           >
-            <BellIcon aria-hidden="true" className="size-4" />
-          </button>
-          <MenuCuenta className="hover:bg-nav-hover" />
+            <span className="flex size-7 items-center justify-center rounded-lg bg-nav-hover">
+              <img src="/esseri-icon.png" alt="" className="size-5 object-contain" />
+            </span>
+            <span className="text-sm font-semibold">ESSERI</span>
+          </Link>
+          <span aria-hidden="true" className="h-6 w-px bg-texto-2-sobre-oscuro/40" />
+          <span className="text-sm font-medium text-texto-sobre-oscuro">Portal Docente</span>
+
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              className="flex size-9 items-center justify-center rounded-full text-texto-sobre-oscuro transition-colors hover:bg-nav-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lila-claro"
+              aria-label="Notificaciones no disponibles"
+              disabled
+            >
+              <BellIcon aria-hidden="true" className="size-4" />
+            </button>
+            <MenuCuenta className="hover:bg-nav-hover" />
+          </div>
+        </div>
+        <div className="border-b border-borde bg-superficie px-4 sm:px-7">
+          {renderNavegacion('flex gap-1 overflow-x-auto py-2')}
         </div>
       </header>
-
-      <div className="flex min-h-[calc(100svh-4rem)]">
-        <aside className="sticky top-16 hidden min-h-[calc(100svh-4rem)] w-60 shrink-0 self-start border-r border-borde bg-superficie px-3 py-5 md:block">
-          {renderNavegacion('flex flex-col gap-1')}
-        </aside>
-
-        <div className="min-w-0 flex-1">
-          <div className="sticky top-16 z-10 border-b border-borde bg-superficie px-2 md:hidden">
-            {renderNavegacion('flex gap-1 overflow-x-auto py-2')}
-          </div>
-          <main className="min-w-0 px-4 py-6 sm:px-8">
-            <Outlet />
-          </main>
-        </div>
-      </div>
+      <main className="min-w-0 px-4 py-6 sm:px-8">
+        <Outlet />
+      </main>
     </div>
   )
 }

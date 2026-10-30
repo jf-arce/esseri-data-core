@@ -10,12 +10,16 @@ Para la estructura completa de carpetas y las convenciones del proyecto, ver **`
 
 ## Requisitos
 
-### Institutional communications — stage 1
+### Communications — stages 1 and 2
 
 Administration/Direction open `/comunicaciones` to create or resume their own drafts.
-The four steps are content, recipient selection, preview and publication result. Saving a draft
-does not publish it. Published content is immutable. Recipient counts are responsible people,
-not households or student links. Email and attachments are not enabled in this stage.
+Teachers use `/docente/comunicaciones` inside the existing Portal Docente; the same four-step
+form is reused with only their assigned courses/students and an explicit cycle. The teacher
+history shows only their own course drafts and publications. Saving a draft does not publish it.
+Changing the cycle while editing reloads the available courses/students without reopening the
+persisted draft or discarding unsaved content; select the audience again for the new cycle.
+Published content is immutable. Recipient counts are responsible people, not households or
+student links. Email and attachments are not enabled in these stages.
 
 Family uses `/familia/comunicaciones` in its existing portal. Opening an authorized detail
 records that responsible's first read; a failed read request offers retry without hiding the

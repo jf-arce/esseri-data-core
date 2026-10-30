@@ -21,7 +21,13 @@ import {
 import { listarComunicaciones } from '../services/listar-comunicaciones'
 import type { Listado } from '../types'
 
-export function ComunicacionesPage({ familia = false }: { familia?: boolean }) {
+export function ComunicacionesPage({
+  familia = false,
+  docente = false,
+}: {
+  familia?: boolean
+  docente?: boolean
+}) {
   const [datos, setDatos] = useState<Listado | null>(null)
   const [buscar, setBuscar] = useState('')
   const [pagina, setPagina] = useState(1)
@@ -30,7 +36,7 @@ export function ComunicacionesPage({ familia = false }: { familia?: boolean }) {
   const [revision, setRevision] = useState(0)
   useEffect(() => {
     const controller = new AbortController()
-    listarComunicaciones(familia, pagina, buscar, noLeidas, controller.signal)
+    listarComunicaciones(familia, pagina, buscar, noLeidas, controller.signal, docente)
       .then((data) => {
         if (!controller.signal.aborted) {
           setDatos(data)
@@ -41,8 +47,12 @@ export function ComunicacionesPage({ familia = false }: { familia?: boolean }) {
         if (!controller.signal.aborted) setError(true)
       })
     return () => controller.abort()
-  }, [familia, pagina, buscar, noLeidas, revision])
-  const base = familia ? '/familia/comunicaciones' : '/comunicaciones'
+  }, [familia, docente, pagina, buscar, noLeidas, revision])
+  const base = familia
+    ? '/familia/comunicaciones'
+    : docente
+      ? '/docente/comunicaciones'
+      : '/comunicaciones'
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-5">
       <PageHeader
@@ -50,15 +60,17 @@ export function ComunicacionesPage({ familia = false }: { familia?: boolean }) {
         accion={
           !familia && (
             <Button asChild>
-              <Link to="/comunicaciones/nueva">Nueva comunicación</Link>
+              <Link to={`${base}/nueva`}>Nueva comunicación</Link>
             </Button>
           )
         }
       />
       <p className="text-sm text-texto-2">
         {familia
-          ? 'Avisos institucionales para los responsables de tus alumnos a cargo.'
-          : 'Publicaciones institucionales y borradores propios.'}
+          ? 'Avisos institucionales y de curso para los responsables de tus alumnos a cargo.'
+          : docente
+            ? 'Comunicados para tus cursos asignados y borradores propios.'
+            : 'Publicaciones institucionales y borradores propios.'}
       </p>
       <div className="flex flex-wrap items-center gap-4">
         <div className="relative min-w-0 flex-1">
@@ -111,7 +123,9 @@ export function ComunicacionesPage({ familia = false }: { familia?: boolean }) {
               >
                 <span className="min-w-0">
                   <span className="block font-semibold break-words">{c.asunto}</span>
-                  <span className="text-sm text-texto-2">Institucional</span>
+                  <span className="text-sm text-texto-2">
+                    {c.tipo === 'curso' ? (c.emisor ?? 'Colegio ESSERI') : 'Institucional'}
+                  </span>
                 </span>
                 <Badge variant={c.leida_at ? 'neutro' : 'info'}>
                   {c.leida_at ? 'Leída' : 'No leída'}
@@ -135,7 +149,7 @@ export function ComunicacionesPage({ familia = false }: { familia?: boolean }) {
                 <TableRow key={c.id}>
                   <TableCell>
                     <Link
-                      className="font-medium text-violeta underline"
+                      className="font-medium text-violeta hover:text-violeta-esseri focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
                       to={c.estado === 'borrador' ? `${base}/${c.id}/editar` : `${base}/${c.id}`}
                     >
                       {c.asunto}

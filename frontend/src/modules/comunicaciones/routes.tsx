@@ -23,6 +23,13 @@ export const comunicacionesRoutes: RouteObject[] = [
     ],
   },
 ]
+export const comunicacionesDocenteRoutes: RouteObject[] = [
+  { path: 'docente/comunicaciones', element: <ComunicacionesPage docente /> },
+  { path: 'docente/comunicaciones/nueva', element: <ComunicacionFormPage docente /> },
+  { path: 'docente/comunicaciones/:id', element: <ComunicacionDetallePage docente /> },
+  { path: 'docente/comunicaciones/:id/editar', element: <ComunicacionFormPage docente /> },
+]
+
 export const comunicacionesFamiliaRoutes: RouteObject[] = [
   {
     element: <PermisoRoute codigo={PERMISO_COMUNICACIONES_LEER} label="Comunicaciones · Leer" />,

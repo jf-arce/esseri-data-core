@@ -12,15 +12,20 @@ Este documento describe **estructura y convenciones**, no decisiones de negocio 
 
 ## Decisiones de base
 
-### Communications domain (stage 1)
+### Communications domain (stages 1 and 2)
 
-Institutional communications are owned by `backend/src/comunicaciones/` and
+Institutional and course communications are owned by `backend/src/comunicaciones/` and
 `frontend/src/modules/comunicaciones/`, an additional domain alongside the original EDT modules.
 It owns drafts, publication, recipient resolution and individual responsible read receipts.
 It is not part of the administrative dashboard or the Workflows transport log.
-Stage 1 has only `comunicacion` and `recibo_comunicacion`: audience selection lives on the
+Stages 1–2 have only `comunicacion` and `recibo_comunicacion`: audience selection lives on the
 communication, while each receipt freezes the relevant student identifiers and its first read.
+A `tipo` column distinguishes institutional from course authoring without adding a table.
 No separate version, publication, read, approval or transport entities are introduced yet.
+Course authoring is restricted to teachers acting with the Docente active role and to their
+own `AsignacionDocente` divisions/students in the selected cycle; scope is revalidated on edit
+and publication. Administrative routes reject teacher roles explicitly, because typed code
+matching alone would let a typed teacher grant satisfy a base permission request.
 `Familia` represents one responsible, resolved with the existing Usuario → Persona → Familia
 helper. The unique responsible/publication receipt deduplicates sibling and multiple links.
 Existing active-role permissions protect every operation; family endpoints only expose owned

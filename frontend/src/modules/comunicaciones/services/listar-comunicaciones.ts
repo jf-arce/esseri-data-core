@@ -6,11 +6,17 @@ export function listarComunicaciones(
   buscar: string,
   noLeidas: boolean,
   signal: AbortSignal,
+  docente = false,
 ) {
+  const prefijo = docente
+    ? '/comunicaciones/docente'
+    : familia
+      ? '/comunicaciones/familia'
+      : '/comunicaciones'
   const query = new URLSearchParams({
     pagina: String(pagina),
     buscar,
     ...(familia ? { no_leidas: String(noLeidas) } : {}),
   })
-  return apiClient<Listado>(`/comunicaciones${familia ? '/familia' : ''}?${query}`, { signal })
+  return apiClient<Listado>(`${prefijo}?${query}`, { signal })
 }

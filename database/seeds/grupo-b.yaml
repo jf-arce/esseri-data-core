@@ -31,6 +31,9 @@ permiso:
     acciones: [leer] # own inbox and individual read receipt, never management
   # administrador del sistema — CRUD completo en todos los módulos
   - rol: administrador del sistema
+    modulo: Comunicaciones
+    acciones: [crear, leer, actualizar]
+  - rol: administrador del sistema
     modulo: Autenticación
     acciones: [crear, leer, actualizar, eliminar]
   - rol: administrador del sistema
@@ -133,6 +136,12 @@ permiso:
   - rol: docente
     modulo: Inscripciones
     acciones: [leer] # necesita el listado de inscriptos para tomar asistencia
+  # Comunicaciones de curso: el `tipo_informacion` acota la concesión a las rutas docentes.
+  # Sin él, `comunicaciones.crear`/`actualizar` habilitaría el flujo institucional completo.
+  - rol: docente
+    modulo: Comunicaciones
+    acciones: [crear, leer, actualizar]
+    tipo_informacion: docente
 
   # familia — solo lectura de lo propio + alta de solicitudes/justificaciones
   - rol: familia

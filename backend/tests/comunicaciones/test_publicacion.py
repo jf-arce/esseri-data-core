@@ -217,3 +217,51 @@ def test_validacion_no_persiste_datos(client, escenario, db_session, cambio):
 def test_usuario_sin_sesion_no_accede(client):
     assert client.get("/comunicaciones").status_code == 401
     assert client.get("/comunicaciones/familia").status_code == 401
+
+
+def test_mensaje_de_familia_en_endpoints_administrativos_no_cambia(client, escenario):
+    ids, entrar = escenario
+    entrar(ids["usuario_a"], "familia")
+    respuesta = client.get("/comunicaciones")
+    assert respuesta.status_code == 403
+    assert respuesta.json()["detail"] == "Usá tu bandeja familiar"
+
+
+def test_administrador_del_sistema_cubre_todos_los_modulos_y_publica(client, escenario, db_session):
+    import runpy
+    from pathlib import Path
+
+    import yaml
+
+    ids, entrar = escenario
+    seeds = Path(__file__).resolve().parents[3] / "database" / "seeds"
+    entries = yaml.safe_load((seeds / "grupo-b.yaml").read_text())["permiso"]
+    system_entries = [e for e in entries if e["rol"] == "administrador del sistema"]
+    assert {e["modulo"] for e in entries} <= {e["modulo"] for e in system_entries}
+    role = Rol(nombre="administrador del sistema")
+    db_session.add(role)
+    db_session.flush()
+    db_session.add(UsuarioRol(usuario_id=ids["usuario_otro"], rol_id=role.id))
+    seed = runpy.run_path(str(seeds / "03_seed_grupo_b.py"))["seed_permiso"]
+    seed(db_session, {"permiso": system_entries})
+    db_session.flush()
+    count = len(db_session.scalars(select(RolPermiso).where(RolPermiso.rol_id == role.id)).all())
+    seed(db_session, {"permiso": system_entries})
+    db_session.commit()
+    assert (
+        len(db_session.scalars(select(RolPermiso).where(RolPermiso.rol_id == role.id)).all())
+        == count
+    )
+    entrar(ids["usuario_otro"], "administrador_del_sistema")
+    assert client.get("/comunicaciones").status_code == 200
+    assert client.get("/comunicaciones/opciones").status_code == 200
+    draft = crear(client, ids)
+    assert client.get(f"/comunicaciones/{draft['id']}").status_code == 200
+    assert (
+        client.put(
+            f"/comunicaciones/{draft['id']}", json=datos(ids, clave=draft["clave"])
+        ).status_code
+        == 200
+    )
+    assert client.post("/comunicaciones/vista-previa", json=datos(ids)).status_code == 200
+    assert client.post(f"/comunicaciones/{draft['id']}/publicar").status_code == 200
