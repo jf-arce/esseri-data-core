@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     # Webhook de n8n que envía los emails de Workflows. Vacío = integración sin configurar.
     N8N_WEBHOOK_URL: str = ""
     N8N_WEBHOOK_TOKEN: str = ""
+    # Enable only after the correlated claim/result workflow has been published.
+    N8N_MANUAL_HABILITADO: bool = False
+    N8N_CALLBACK_BASE_URL: str = "http://backend:8000"
+    COMUNICACIONES_ADJUNTOS_HABILITADOS: bool = False
+    CLAMAV_HOST: str = ""
+    CLAMAV_PORT: int = 3310
+    CLAMAV_TIMEOUT_SEGUNDOS: float = 10.0
 
     # Identidad del mail institucional. El logo tiene que ser una URL pública (Gmail no muestra
     # `data:` ni `localhost`); vacío = el mail lleva solo el nombre de la institución.

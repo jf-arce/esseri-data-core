@@ -30,6 +30,7 @@ class BorradorInput(BaseModel):
     asunto: Texto = Field(max_length=200)
     cuerpo: Texto = Field(max_length=20000)
     audiencia: Audiencia
+    canal: Literal["portal", "email", "ambos"] = "portal"
 
 
 class ComunicacionRead(BaseModel):
@@ -46,6 +47,8 @@ class ComunicacionRead(BaseModel):
     audiencia: Audiencia | None = None
     clave: uuid.UUID | None = None
     leida_at: datetime | None = None
+    canal: str = "portal"
+    adjuntos: list[dict] = Field(default_factory=list)
 
 
 class Listado(BaseModel):
