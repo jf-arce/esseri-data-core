@@ -217,3 +217,11 @@ def test_validacion_no_persiste_datos(client, escenario, db_session, cambio):
 def test_usuario_sin_sesion_no_accede(client):
     assert client.get("/comunicaciones").status_code == 401
     assert client.get("/comunicaciones/familia").status_code == 401
+
+
+def test_mensaje_de_familia_en_endpoints_administrativos_no_cambia(client, escenario):
+    ids, entrar = escenario
+    entrar(ids["usuario_a"], "familia")
+    respuesta = client.get("/comunicaciones")
+    assert respuesta.status_code == 403
+    assert respuesta.json()["detail"] == "Usá tu bandeja familiar"

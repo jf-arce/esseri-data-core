@@ -12,6 +12,7 @@ class Comunicacion(Base):
     __table_args__ = (
         sa.UniqueConstraint("autor_id", "clave", name="uq_comunicacion_autor_clave"),
         sa.CheckConstraint("estado IN ('borrador', 'publicada')", name="ck_comunicacion_estado"),
+        sa.CheckConstraint("tipo IN ('institucional', 'curso')", name="ck_comunicacion_tipo"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
@@ -21,6 +22,9 @@ class Comunicacion(Base):
     asunto: Mapped[str] = mapped_column(sa.String(200))
     cuerpo: Mapped[str] = mapped_column(sa.Text)
     audiencia: Mapped[dict] = mapped_column(sa.JSON)
+    tipo: Mapped[str] = mapped_column(
+        sa.String, default="institucional", server_default="institucional", index=True
+    )
     estado: Mapped[str] = mapped_column(sa.String, default="borrador", index=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
     publicada_at: Mapped[datetime | None] = mapped_column(sa.DateTime)

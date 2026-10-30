@@ -182,6 +182,13 @@ PERMISO_PANEL_ADMIN_LEER = codigo_de(MODULO_PANEL_ADMIN, ACCION_LEER)
 PERMISO_COMUNICACIONES_CREAR = codigo_de(MODULO_COMUNICACIONES, ACCION_CREAR)
 PERMISO_COMUNICACIONES_LEER = codigo_de(MODULO_COMUNICACIONES, ACCION_LEER)
 PERMISO_COMUNICACIONES_ACTUALIZAR = codigo_de(MODULO_COMUNICACIONES, ACCION_ACTUALIZAR)
+# Docentes sólo publican a cursos asignados; el tipo impide que la concesión amplíe los
+# endpoints institucionales (ver `_condicion_codigo` en `autorizacion_service`).
+PERMISO_COMUNICACIONES_CREAR_DOCENTE = codigo_de(MODULO_COMUNICACIONES, ACCION_CREAR, "docente")
+PERMISO_COMUNICACIONES_LEER_DOCENTE = codigo_de(MODULO_COMUNICACIONES, ACCION_LEER, "docente")
+PERMISO_COMUNICACIONES_ACTUALIZAR_DOCENTE = codigo_de(
+    MODULO_COMUNICACIONES, ACCION_ACTUALIZAR, "docente"
+)
 
 # --- Estado de cuenta y proveedor de acceso ----------------------------------------------
 # Usados por varios de los servicios de auth (sesion/usuarios) y por `dependencies.py`.

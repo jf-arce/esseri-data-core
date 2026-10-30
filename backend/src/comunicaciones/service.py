@@ -8,7 +8,8 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from src.academico.models import Anio, Division, NivelEducativo
+from src.academico.models import Anio, AsignacionDocente, Division, Docente, NivelEducativo
+from src.academico.service import divisiones_de_persona
 from src.auditoria.service import log_audit
 from src.auth.models import Usuario
 from src.comunicaciones.models import Comunicacion, ReciboComunicacion
@@ -16,6 +17,7 @@ from src.comunicaciones.schemas import Audiencia, BorradorInput, ComunicacionRea
 from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
 from src.familias_alumnos.service import obtener_familia_de_usuario
 from src.inscripciones.models import Inscripcion
+from src.models import Persona
 
 
 def auditar(db, comunicacion, usuario, campo, anterior, nuevo):
@@ -28,6 +30,46 @@ def auditar(db, comunicacion, usuario, campo, anterior, nuevo):
         valor_nuevo=nuevo,
         usuario_id=usuario.id,
     )
+
+
+def _divisiones_docente(db: Session, usuario: Usuario, ciclo_lectivo: str) -> set[uuid.UUID]:
+    """Divisiones asignadas al docente para el ciclo, sin acceso estructural."""
+    if usuario.persona_id is None:
+        return set()
+    return {fila[0] for fila in divisiones_de_persona(db, usuario.persona_id, ciclo_lectivo)}
+
+
+def validar_curso(db: Session, usuario: Usuario, audiencia: Audiencia) -> None:
+    """Un docente sólo puede publicar a divisiones/alumnos que tenga asignados en el ciclo.
+
+    Se evalúa en crear, editar, previsualizar y publicar: la asignación puede revocarse
+    después de guardar el borrador. No hay bypass por permisos estructurales: una cuenta
+    multirol actuando como docente queda acotada igual que un docente puro.
+    """
+    if audiencia.tipo not in ("division", "alumnos") or not audiencia.ciclo_lectivo:
+        raise HTTPException(403, "Elegí un curso o alumnos de un curso asignado")
+    asignadas = _divisiones_docente(db, usuario, audiencia.ciclo_lectivo)
+    if not asignadas:
+        raise HTTPException(403, "No tenés cursos asignados en este ciclo")
+    if audiencia.tipo == "division":
+        if not set(audiencia.ids).issubset(asignadas):
+            raise HTTPException(403, "No tenés asignado ese curso")
+        return
+    validos = set(
+        db.scalars(
+            select(Inscripcion.alumno_id)
+            .join(Alumno, Alumno.id == Inscripcion.alumno_id)
+            .where(
+                Inscripcion.estado == "activa",
+                Inscripcion.ciclo_lectivo == audiencia.ciclo_lectivo,
+                Inscripcion.division_id.in_(asignadas),
+                Inscripcion.alumno_id.in_(audiencia.ids),
+                Alumno.estado == "activo",
+            )
+        )
+    )
+    if validos != set(audiencia.ids):
+        raise HTTPException(403, "Hay alumnos fuera de tus cursos asignados")
 
 
 def resolver(db: Session, audiencia: Audiencia) -> dict[uuid.UUID, list[str]]:
@@ -59,16 +101,32 @@ def resolver(db: Session, audiencia: Audiencia) -> dict[uuid.UUID, list[str]]:
     return {familia: sorted(alumnos) for familia, alumnos in resultado.items()}
 
 
-def obtener(db: Session, id: uuid.UUID, usuario: Usuario, *, bloquear=False) -> Comunicacion:
+def obtener(
+    db: Session, id: uuid.UUID, usuario: Usuario, *, bloquear=False, tipo: str | None = None
+) -> Comunicacion:
     consulta = select(Comunicacion).where(Comunicacion.id == id)
     if bloquear:
         consulta = consulta.with_for_update()
     comunicacion = db.scalar(consulta.execution_options(populate_existing=True))
-    if comunicacion is None or (
-        comunicacion.estado == "borrador" and comunicacion.autor_id != usuario.id
+    if (
+        comunicacion is None
+        or (tipo is not None and comunicacion.tipo != tipo)
+        or (comunicacion.estado == "borrador" and comunicacion.autor_id != usuario.id)
+        or (tipo == "curso" and comunicacion.autor_id != usuario.id)
     ):
         raise HTTPException(404, "Comunicación no encontrada")
     return comunicacion
+
+
+def _emisor(db: Session, c: Comunicacion) -> str:
+    if c.tipo != "curso":
+        return "Colegio ESSERI"
+    fila = db.execute(
+        select(Persona.nombre, Persona.apellido)
+        .join(Usuario, Usuario.persona_id == Persona.id)
+        .where(Usuario.id == c.autor_id)
+    ).first()
+    return f"{fila[0]} {fila[1]}" if fila else "Docente"
 
 
 def respuesta(db: Session, c: Comunicacion, *, recibo=None) -> ComunicacionRead:
@@ -81,6 +139,8 @@ def respuesta(db: Session, c: Comunicacion, *, recibo=None) -> ComunicacionRead:
         id=c.id,
         asunto=c.asunto,
         cuerpo=c.cuerpo,
+        tipo=c.tipo,
+        emisor=_emisor(db, c),
         estado=c.estado,
         autor_id=c.autor_id,
         created_at=c.created_at,
@@ -92,7 +152,9 @@ def respuesta(db: Session, c: Comunicacion, *, recibo=None) -> ComunicacionRead:
     )
 
 
-def crear(db: Session, data: BorradorInput, usuario: Usuario):
+def crear(db: Session, data: BorradorInput, usuario: Usuario, *, tipo="institucional"):
+    if tipo == "curso":
+        validar_curso(db, usuario, data.audiencia)
     contenido = data.model_dump(mode="json")
     digest = hashlib.sha256(json.dumps(contenido, sort_keys=True).encode()).hexdigest()
     existente = db.scalar(
@@ -101,7 +163,7 @@ def crear(db: Session, data: BorradorInput, usuario: Usuario):
         )
     )
     if existente:
-        if existente.solicitud_hash != digest:
+        if existente.solicitud_hash != digest or existente.tipo != tipo:
             raise HTTPException(409, "La clave ya se usó para otro contenido")
         return respuesta(db, existente)
     c = Comunicacion(
@@ -111,6 +173,7 @@ def crear(db: Session, data: BorradorInput, usuario: Usuario):
         asunto=data.asunto,
         cuerpo=data.cuerpo,
         audiencia=data.audiencia.model_dump(mode="json"),
+        tipo=tipo,
     )
     try:
         db.add(c)
@@ -127,14 +190,18 @@ def crear(db: Session, data: BorradorInput, usuario: Usuario):
         )
         if existente is None:
             raise
-        if existente.solicitud_hash != digest:
+        if existente.solicitud_hash != digest or existente.tipo != tipo:
             raise HTTPException(409, "La clave ya se usó para otro contenido") from None
         c = existente
     return respuesta(db, c)
 
 
-def editar(db: Session, id: uuid.UUID, data: BorradorInput, usuario: Usuario):
-    c = obtener(db, id, usuario, bloquear=True)
+def editar(
+    db: Session, id: uuid.UUID, data: BorradorInput, usuario: Usuario, *, tipo="institucional"
+):
+    c = obtener(db, id, usuario, bloquear=True, tipo=tipo)
+    if tipo == "curso":
+        validar_curso(db, usuario, data.audiencia)
     if c.estado != "borrador":
         raise HTTPException(409, "Una comunicación publicada no puede editarse")
     if c.clave != data.clave:
@@ -153,11 +220,14 @@ def editar(db: Session, id: uuid.UUID, data: BorradorInput, usuario: Usuario):
     return respuesta(db, c)
 
 
-def publicar(db: Session, id: uuid.UUID, usuario: Usuario):
-    c = obtener(db, id, usuario, bloquear=True)
+def publicar(db: Session, id: uuid.UUID, usuario: Usuario, *, tipo="institucional"):
+    c = obtener(db, id, usuario, bloquear=True, tipo=tipo)
     if c.estado == "publicada":
         return respuesta(db, c)
-    destinatarios = resolver(db, Audiencia.model_validate(c.audiencia))
+    audiencia = Audiencia.model_validate(c.audiencia)
+    if tipo == "curso":
+        validar_curso(db, usuario, audiencia)
+    destinatarios = resolver(db, audiencia)
     if not destinatarios:
         raise HTTPException(422, "La audiencia no tiene responsables habilitados")
     c.estado = "publicada"
@@ -210,7 +280,17 @@ def detalle_familia(db: Session, id: uuid.UUID, usuario: Usuario, *, leer=False)
     return respuesta(db, c, recibo=recibo)
 
 
-def listar(db: Session, usuario: Usuario, pagina: int, buscar: str, no_leidas: bool, familia=False):
+def listar(
+    db: Session,
+    usuario: Usuario,
+    pagina: int,
+    buscar: str,
+    no_leidas: bool,
+    familia=False,
+    *,
+    tipo: str | None = None,
+    autor_id: uuid.UUID | None = None,
+):
     consulta = select(Comunicacion)
     recibos = {}
     if familia:
@@ -224,6 +304,10 @@ def listar(db: Session, usuario: Usuario, pagina: int, buscar: str, no_leidas: b
         consulta = consulta.where(
             or_(Comunicacion.estado == "publicada", Comunicacion.autor_id == usuario.id)
         )
+        if tipo is not None:
+            consulta = consulta.where(Comunicacion.tipo == tipo)
+        if autor_id is not None:
+            consulta = consulta.where(Comunicacion.autor_id == autor_id)
     if buscar:
         consulta = consulta.where(Comunicacion.asunto.ilike(f"%{buscar}%"))
     total = db.scalar(select(func.count()).select_from(consulta.subquery()))
@@ -261,4 +345,46 @@ def opciones(db: Session):
                 .order_by(Inscripcion.ciclo_lectivo.desc())
             )
         ),
+    }
+
+
+def opciones_docente(db: Session, usuario: Usuario, ciclo_lectivo: str):
+    """Sólo cursos/alumnos/ciclos propios; nunca la audiencia institucional completa."""
+    if usuario.persona_id is None:
+        return {"divisiones": [], "alumnos": [], "ciclos": [], "responsables": [], "niveles": []}
+    divisiones = divisiones_de_persona(db, usuario.persona_id, ciclo_lectivo)
+    ids_divisiones = [fila[0] for fila in divisiones]
+    alumnos = []
+    if ids_divisiones:
+        alumnos = list(
+            db.scalars(
+                select(Alumno)
+                .join(Inscripcion, Inscripcion.alumno_id == Alumno.id)
+                .where(
+                    Inscripcion.estado == "activa",
+                    Inscripcion.ciclo_lectivo == ciclo_lectivo,
+                    Inscripcion.division_id.in_(ids_divisiones),
+                    Alumno.estado == "activo",
+                )
+                .distinct()
+                .order_by(Alumno.numero_legajo)
+            )
+        )
+    ciclos = list(
+        db.scalars(
+            select(AsignacionDocente.ciclo_lectivo)
+            .join(Docente, Docente.id == AsignacionDocente.docente_id)
+            .where(Docente.persona_id == usuario.persona_id)
+            .distinct()
+            .order_by(AsignacionDocente.ciclo_lectivo.desc())
+        )
+    )
+    return {
+        "divisiones": [{"id": d[0], "nombre": d[1]} for d in divisiones],
+        "alumnos": [
+            {"id": a.id, "nombre": f"{a.persona_nombre} {a.persona_apellido}"} for a in alumnos
+        ],
+        "ciclos": ciclos,
+        "responsables": [],
+        "niveles": [],
     }

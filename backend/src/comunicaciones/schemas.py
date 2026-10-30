@@ -36,6 +36,8 @@ class ComunicacionRead(BaseModel):
     id: uuid.UUID
     asunto: str
     cuerpo: str
+    tipo: str
+    emisor: str | None = None
     estado: str
     autor_id: uuid.UUID
     created_at: datetime

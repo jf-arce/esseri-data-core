@@ -526,12 +526,18 @@ Las filas de `finished_at`, `sent_at` y `fecha_vencimiento` de Workflows grabada
 
 ## Tests
 
-### Institutional communications — stage 1
+### Communications — stages 1 and 2
 
 `/comunicaciones` owns basic drafts and publication, independent of Workflows and email.
 Administration and Direction receive `comunicaciones.crear`, `.leer` and `.actualizar`;
-Family receives `.leer` only. The migration provisions existing roles by their stable codes;
-the group-B seed provisions fresh installations. Teacher publication is not enabled.
+Family receives `.leer` only. Teachers receive the typed
+`comunicaciones.crear:docente`, `.leer:docente` and `.actualizar:docente` grants. The migration
+provisions existing roles by their stable codes; the group-B seed provisions fresh installations.
+
+Teacher publication is limited to their own assigned courses. Because a typed grant also
+satisfies a request for the base code, the administrative routes explicitly reject teacher
+roles; the teacher routes explicitly require the Docente active role. Switching a multirole
+account to administration does not expose or publish its course drafts.
 
 Administrative endpoints:
 
@@ -546,6 +552,20 @@ Administrative endpoints:
   Repeated publication returns the existing publication; published content cannot be edited.
 - `GET /comunicaciones` and `GET /comunicaciones/{id}`: authorized listing/detail; another
   author's drafts are not visible. Lists accept `pagina` (20 per page) and `buscar`.
+
+Teacher endpoints require the active Docente role and only accept `division` or `alumnos`
+audiences with an explicit four-digit cycle. They reuse the same publication, receipt and
+reading pipeline after validating every selected division/student against the teacher's
+`AsignacionDocente` for that cycle:
+
+- `GET /comunicaciones/docente/opciones?ciclo_lectivo=YYYY`: only the teacher's assigned
+  divisions, their active students and their assignment cycles.
+- `POST /comunicaciones/docente/vista-previa`: validates scope and counts unique enabled
+  responsible recipients.
+- `GET /comunicaciones/docente`: only the teacher's own course drafts and publications.
+- `POST /comunicaciones/docente`, `GET/PUT /comunicaciones/docente/{id}` and
+  `POST /comunicaciones/docente/{id}/publicar`: create, read, edit and publish course messages.
+  Scope is revalidated on edit and publication, so a revoked assignment blocks the operation.
 
 Audience `tipo` is `todos`, `nivel`, `division`, `alumnos` or `responsables`, with UUID `ids`.
 Level/division additionally require a four-digit `ciclo_lectivo` and use active enrollments in
@@ -562,6 +582,7 @@ Usuario → Persona → Familia helper, never a supplied responsible identity:
 Family responses are private/no-store. Access requires both a frozen receipt and a currently
 enabled original student link. New links do not grant old publications. Multiple links/siblings
 produce one receipt per responsible. Body content is plain text, never executable HTML.
+Family presentation includes `tipo` and the author name (`emisor`) for course messages.
 Draft create/edit, publication and first reading use the existing audit helper; message contents
 are not duplicated in the audit log. No external service is called by these operations.
 
