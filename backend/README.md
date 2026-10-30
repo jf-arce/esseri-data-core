@@ -529,10 +529,12 @@ Las filas de `finished_at`, `sent_at` y `fecha_vencimiento` de Workflows grabada
 ### Communications — stages 1 and 2
 
 `/comunicaciones` owns basic drafts and publication, independent of Workflows and email.
-Administration and Direction receive `comunicaciones.crear`, `.leer` and `.actualizar`;
+Administration, Direction and System Administrator receive `comunicaciones.crear`, `.leer` and `.actualizar`;
 Family receives `.leer` only. Teachers receive the typed
 `comunicaciones.crear:docente`, `.leer:docente` and `.actualizar:docente` grants. The migration
 provisions existing roles by their stable codes; the group-B seed provisions fresh installations.
+Migration `98d809a30507` adds the previously omitted System Administrator links on existing
+installations. Its rollback removes only links it created, preserving pre-existing grants.
 
 Teacher publication is limited to their own assigned courses. Because a typed grant also
 satisfies a request for the base code, the administrative routes explicitly reject teacher

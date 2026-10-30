@@ -31,6 +31,9 @@ permiso:
     acciones: [leer] # own inbox and individual read receipt, never management
   # administrador del sistema — CRUD completo en todos los módulos
   - rol: administrador del sistema
+    modulo: Comunicaciones
+    acciones: [crear, leer, actualizar]
+  - rol: administrador del sistema
     modulo: Autenticación
     acciones: [crear, leer, actualizar, eliminar]
   - rol: administrador del sistema
