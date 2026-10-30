@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
+import { ArrowLeftIcon, CheckCircle2Icon } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -173,12 +174,12 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
           : opciones?.responsables
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-      <Link
-        to={base}
-        className="text-sm text-violeta hover:text-violeta-esseri focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
-      >
-        Volver a comunicaciones
-      </Link>
+      <Button variant="ghost" size="sm" asChild className="-ml-2 w-fit">
+        <Link to={base}>
+          <ArrowLeftIcon data-icon="inline-start" />
+          Volver a comunicaciones
+        </Link>
+      </Button>
       <PageHeader titulo={docente ? 'Nueva comunicación de curso' : 'Nueva comunicación'} />
       <ol
         aria-label="Pasos de publicación"
@@ -207,9 +208,13 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
         </Alert>
       )}
       {mensaje && (
-        <p role="status" className="text-sm text-exito">
-          {mensaje}
-        </p>
+        <Alert variant="success" role="status">
+          <CheckCircle2Icon />
+          <AlertTitle>{mensaje}</AlertTitle>
+          <AlertDescription>
+            Los cambios quedaron guardados; podés seguir editando o avanzar a la vista previa.
+          </AlertDescription>
+        </Alert>
       )}
       <div
         className="space-y-5 rounded-panel bg-superficie p-5 shadow-card sm:p-8"

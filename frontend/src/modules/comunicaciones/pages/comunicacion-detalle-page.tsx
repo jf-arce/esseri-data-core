@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
+import { ArrowLeftIcon } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -74,12 +75,12 @@ export function ComunicacionDetallePage({
     )
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-      <Link
-        to={base}
-        className="text-sm text-violeta hover:text-violeta-esseri focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
-      >
-        Volver a comunicaciones
-      </Link>
+      <Button variant="ghost" size="sm" asChild className="-ml-2 w-fit">
+        <Link to={base}>
+          <ArrowLeftIcon data-icon="inline-start" />
+          Volver a comunicaciones
+        </Link>
+      </Button>
       {error ? (
         <Alert variant="error">
           <AlertDescription>

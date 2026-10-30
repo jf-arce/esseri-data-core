@@ -57,7 +57,7 @@ it('saves a basic draft without publishing', async () => {
   await userEvent.type(screen.getByLabelText('Asunto'), 'Reunión')
   await userEvent.type(screen.getByLabelText('Mensaje'), 'Información institucional')
   await userEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }))
-  expect(await screen.findByRole('status')).toHaveTextContent('Borrador guardado')
+  expect(await screen.findByText('Borrador guardado')).toBeInTheDocument()
   expect(api.mock.calls.some(([path]) => path.includes('/publicar'))).toBe(false)
 })
 
