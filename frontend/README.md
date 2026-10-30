@@ -16,6 +16,8 @@ Administration/Direction open `/comunicaciones` to create or resume their own dr
 Teachers use `/docente/comunicaciones` inside the existing Portal Docente; the same four-step
 form is reused with only their assigned courses/students and an explicit cycle. The teacher
 history shows only their own course drafts and publications. Saving a draft does not publish it.
+Changing the cycle while editing reloads the available courses/students without reopening the
+persisted draft or discarding unsaved content; select the audience again for the new cycle.
 Published content is immutable. Recipient counts are responsible people, not households or
 student links. Email and attachments are not enabled in these stages.
 

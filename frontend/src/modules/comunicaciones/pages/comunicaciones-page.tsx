@@ -149,7 +149,7 @@ export function ComunicacionesPage({
                 <TableRow key={c.id}>
                   <TableCell>
                     <Link
-                      className="font-medium text-violeta underline"
+                      className="font-medium text-violeta hover:text-violeta-esseri focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
                       to={c.estado === 'borrador' ? `${base}/${c.id}/editar` : `${base}/${c.id}`}
                     >
                       {c.asunto}

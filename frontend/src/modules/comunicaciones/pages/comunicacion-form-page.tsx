@@ -34,7 +34,6 @@ const etiquetas = {
 export function ComunicacionFormPage({ docente = false }: { docente?: boolean }) {
   const { id } = useParams()
   const cicloStore = useCicloLectivoStore((s) => s.cicloLectivo)
-  const [ciclo, setCiclo] = useState(cicloStore)
   const [datos, setDatos] = useState<Borrador>(() => ({
     clave: crypto.randomUUID(),
     asunto: '',
@@ -43,6 +42,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
       ? { tipo: 'division', ids: [], ciclo_lectivo: cicloStore }
       : { tipo: 'todos', ids: [] },
   }))
+  const ciclo = datos.audiencia.ciclo_lectivo ?? cicloStore
   const [persistido, setPersistido] = useState<string | undefined>(id)
   const guardado = useRef('')
   const [paso, setPaso] = useState(1)
@@ -63,6 +63,10 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
       .catch(() => {
         if (!controller.signal.aborted) setError('No se pudieron cargar los destinatarios.')
       })
+    return () => controller.abort()
+  }, [docente, ciclo, revision])
+  useEffect(() => {
+    const controller = new AbortController()
     if (id)
       obtenerComunicacion(id, false, controller.signal, docente)
         .then((c) => {
@@ -78,7 +82,6 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
             audiencia: c.audiencia,
           }
           setDatos(borrador)
-          if (borrador.audiencia.ciclo_lectivo) setCiclo(borrador.audiencia.ciclo_lectivo)
           guardado.current = JSON.stringify(borrador)
           setCargando(false)
         })
@@ -86,7 +89,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
           if (!controller.signal.aborted) setError('No se pudo abrir el borrador.')
         })
     return () => controller.abort()
-  }, [id, docente, ciclo, revision])
+  }, [id, docente, revision])
   async function guardar() {
     if (persistido && guardado.current === JSON.stringify(datos)) return persistido
     const c = await guardarBorrador(datos, persistido, docente)
@@ -147,7 +150,10 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
           : opciones?.responsables
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-      <Link to={base} className="text-sm text-violeta underline">
+      <Link
+        to={base}
+        className="text-sm text-violeta hover:text-violeta-esseri focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
+      >
         Volver a comunicaciones
       </Link>
       <PageHeader titulo={docente ? 'Nueva comunicación de curso' : 'Nueva comunicación'} />
@@ -243,7 +249,6 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
                 <Select
                   value={datos.audiencia.ciclo_lectivo ?? ''}
                   onValueChange={(v) => {
-                    if (docente) setCiclo(v)
                     setDatos({
                       ...datos,
                       audiencia: { ...datos.audiencia, ciclo_lectivo: v, ids: [] },

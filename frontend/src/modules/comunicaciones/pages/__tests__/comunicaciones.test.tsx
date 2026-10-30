@@ -165,6 +165,64 @@ it('teacher form only offers assigned courses and publishes through teacher endp
   expect(api.mock.calls.some(([path]) => path === '/comunicaciones/docente/c1/publicar')).toBe(true)
 })
 
+it('changing an edited teacher draft cycle preserves unsaved content and reloads only options', async () => {
+  const draft = {
+    ...comunicacion,
+    tipo: 'curso',
+    cuerpo: 'Original message',
+    audiencia: { tipo: 'division', ids: ['d1'], ciclo_lectivo: '2027' },
+  }
+  api.mockImplementation(async (path) => {
+    if (path.includes('/opciones'))
+      return {
+        responsables: [],
+        alumnos: [],
+        niveles: [],
+        divisiones: [
+          {
+            id: path.includes('2028') ? 'd2' : 'd1',
+            nombre: path.includes('2028') ? 'New course' : 'Old course',
+          },
+        ],
+        ciclos: ['2027', '2028'],
+      }
+    return draft
+  })
+  render(
+    <MemoryRouter initialEntries={['/docente/comunicaciones/c1/editar']}>
+      <Routes>
+        <Route
+          path="/docente/comunicaciones/:id/editar"
+          element={<ComunicacionFormPage docente />}
+        />
+      </Routes>
+    </MemoryRouter>,
+  )
+  await screen.findByDisplayValue('Reunión')
+  await userEvent.type(screen.getByLabelText('Asunto'), ' updated')
+  await userEvent.type(screen.getByLabelText('Mensaje'), ' updated')
+  await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
+  screen.getByRole('combobox', { name: 'Ciclo lectivo' }).focus()
+  await userEvent.keyboard('[ArrowDown]')
+  await userEvent.keyboard('[End][Enter]')
+  await userEvent.click(await screen.findByLabelText('New course'))
+  expect(screen.getByRole('combobox', { name: 'Ciclo lectivo' })).toHaveTextContent('2028')
+  expect(api.mock.calls.filter(([path]) => path === '/comunicaciones/docente/c1')).toHaveLength(1)
+  await userEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }))
+  await screen.findByText('Borrador guardado')
+  const saved = api.mock.calls.find(
+    ([path, options]) => path === '/comunicaciones/docente/c1' && options?.method === 'PUT',
+  )
+  expect(saved).toBeDefined()
+  expect(JSON.parse(saved![1]!.body as string)).toEqual(
+    expect.objectContaining({
+      asunto: 'Reunión updated',
+      cuerpo: 'Original message updated',
+      audiencia: { tipo: 'division', ids: ['d2'], ciclo_lectivo: '2028' },
+    }),
+  )
+})
+
 it('teacher history asks the teacher endpoint and hides management creation for family', async () => {
   api.mockResolvedValue({
     items: [{ ...comunicacion, tipo: 'curso', emisor: 'Laura Díaz' }],

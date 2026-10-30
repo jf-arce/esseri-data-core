@@ -8,7 +8,7 @@ vi.mock('@/layout/menu-cuenta', () => ({
 }))
 
 describe('PortalDocenteLayout', () => {
-  it('muestra los cinco destinos docentes y marca el seguimiento del curso como activo', () => {
+  it('muestra una navegación superior única y marca el seguimiento del curso como activo', () => {
     render(
       <MemoryRouter initialEntries={['/docente/cursos/division-1/seguimiento']}>
         <Routes>
@@ -20,11 +20,14 @@ describe('PortalDocenteLayout', () => {
     )
 
     expect(screen.getByText('Indicadores de asistencia')).toBeInTheDocument()
-    expect(screen.getAllByRole('link', { name: 'Inicio' })).toHaveLength(2)
-    expect(screen.getAllByRole('link', { name: 'Mis cursos' })).toHaveLength(2)
-    expect(screen.getAllByRole('link', { name: 'Asistencia' })).toHaveLength(2)
-    expect(screen.getAllByRole('link', { name: 'Alumnos' })).toHaveLength(2)
-    expect(screen.getAllByRole('link', { name: 'Comunicaciones' })).toHaveLength(2)
+    expect(screen.getAllByRole('link', { name: 'Inicio' })).toHaveLength(1)
+    expect(screen.getAllByRole('link', { name: 'Mis cursos' })).toHaveLength(1)
+    expect(screen.getAllByRole('link', { name: 'Asistencia' })).toHaveLength(1)
+    expect(screen.getAllByRole('link', { name: 'Alumnos' })).toHaveLength(1)
+    expect(screen.getAllByRole('link', { name: 'Comunicaciones' })).toHaveLength(1)
+    const navigation = screen.getByRole('navigation', { name: 'Navegación del Portal Docente' })
+    expect(navigation.closest('header')).not.toBeNull()
+    expect(document.querySelector('aside')).toBeNull()
     expect(
       screen
         .getAllByRole('link', { name: 'Seguimiento' })

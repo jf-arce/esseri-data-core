@@ -53,7 +53,10 @@ export function ComunicacionDetallePage({
       : '/comunicaciones'
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-      <Link to={base} className="text-sm text-violeta underline">
+      <Link
+        to={base}
+        className="text-sm text-violeta hover:text-violeta-esseri focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
+      >
         Volver a comunicaciones
       </Link>
       {error ? (
