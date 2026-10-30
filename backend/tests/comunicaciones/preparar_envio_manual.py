@@ -111,9 +111,7 @@ def main() -> None:
 
         envios = list(
             db.scalars(
-                select(EnvioNotificacion).where(
-                    EnvioNotificacion.comunicacion_id == publicada.id
-                )
+                select(EnvioNotificacion).where(EnvioNotificacion.comunicacion_id == publicada.id)
             )
         )
         envio = envios[0] if envios else None
