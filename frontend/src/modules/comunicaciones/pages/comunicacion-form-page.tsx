@@ -216,8 +216,8 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
       {mensaje && (
         <Alert variant="success" role="status">
           <CheckCircle2Icon />
-          <AlertTitle>{mensaje}</AlertTitle>
-          <AlertDescription>
+          <AlertTitle className="text-texto">{mensaje}</AlertTitle>
+          <AlertDescription className="text-texto-2 opacity-100">
             Los cambios quedaron guardados; podés seguir editando o avanzar a la vista previa.
           </AlertDescription>
         </Alert>
