@@ -6,7 +6,7 @@ Workflows exportados de n8n. Vive acá y no en `backend/` porque n8n no tiene l�
 
 | Archivo | Qué hace |
 |---|---|
-| `enviar-email.json` | Webhook `POST /enviar-email` (Header Auth) → Gmail → responde 200. Si Gmail falla, la salida de error responde 500. |
+| `enviar-email.json` | Webhook `POST /enviar-email` (Header Auth). Sin `envio_id` mantiene el contrato legacy → Gmail → 200/500. Con `envio_id` reclama el intento en el backend, envía por Gmail y registra el resultado correlacionado antes de responder. |
 
 > Exportado de una instancia local donde se probó un envío correcto y un fallo de Gmail. Los IDs de credenciales están como `COMPLETAR`: al importar hay que asignar las propias (ver abajo).
 
@@ -53,6 +53,46 @@ El backend (`backend/src/workflows/n8n_client.py`) hace un `POST` a `N8N_WEBHOOK
 - Dentro de `docker-compose` el backend llega a n8n por `http://n8n:5678/webhook/<ruta>`; fuera de Docker, por `http://localhost:5678/webhook/<ruta>`.
 
 `enviar_email()` lo llama la acción `notificar` (`backend/src/workflows/notificaciones_service.py`).
+
+## Contrato manual correlacionado (Comunicaciones → email)
+
+Los emails manuales usan el mismo webhook con campos adicionales. El backend sólo despacha si
+`N8N_MANUAL_HABILITADO=true`, `N8N_WEBHOOK_URL` y `N8N_WEBHOOK_TOKEN` no están vacíos y
+`N8N_CALLBACK_BASE_URL` apunta a este backend. Sin todo eso, las intenciones quedan `pendiente`
+y no se llama a n8n.
+
+```json
+{
+  "destinatario": "familia@mail.com",
+  "asunto": "Aviso",
+  "cuerpo": "Hola ...",
+  "cuerpo_html": "<!DOCTYPE html>...",
+  "envio_id": "uuid estable de la intención",
+  "intento_id": "uuid del intento durable",
+  "callback_base_url": "http://backend:8000"
+}
+```
+
+Flujo del workflow cuando viene `envio_id`:
+
+1. `POST {callback_base_url}/workflows/envios/{envio_id}/reclamar` con `{intento_id}`. El backend
+   exige `Authorization: Bearer <N8N_WEBHOOK_TOKEN>` y responde `{reclamado, estado, ...}`.
+   Sólo el intento activo y sin claim previo recibe `reclamado: true`. Un duplicado responde
+   `reclamado: false` y **no** ejecuta Gmail.
+2. Si fue reclamado, Gmail envía. Un error de Gmail registra `incierto`; nunca se reintenta a ciegas.
+3. `POST {callback_base_url}/workflows/envios/{envio_id}/resultado` con
+   `{intento_id, estado, referencia_proveedor | error_codigo}`. `presentado` exige el id que
+   devuelve Gmail; el backend lo guarda como referencia del proveedor. Un 200 sin ese id no
+   prueba envío.
+4. Recién entonces responde al backend con el mismo `envio_id`/`intento_id` y `estado`. El cliente
+   manual valida ese ack; un HTTP 200 vacío, `{ "enviado": true }` o ids distintos queda `incierto`.
+
+Los nodos HTTP salientes **Reclamar envío**, **Registrar resultado** y **Registrar fallo** usan una
+credencial *Header Auth* con nombre `Authorization` y valor `Bearer <N8N_WEBHOOK_TOKEN>`. Es la
+misma credencial que puede usarse en el Webhook entrante. Asignarla a los tres nodos al importar.
+
+`N8N_CALLBACK_BASE_URL` debe ser alcanzable desde el contenedor de n8n (`http://backend:8000`
+dentro de Docker). Si cambia la URL o el token, hay que reasignar credenciales y volver a publicar.
 
 ## Exportar workflows
 
