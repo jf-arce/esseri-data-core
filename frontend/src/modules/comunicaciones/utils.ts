@@ -26,8 +26,8 @@ export const DESCRIPCIONES_CANAL: Record<Canal, string> = {
 }
 
 export const ETIQUETAS_ESTADO_ADJUNTO: Record<EstadoAdjunto, string> = {
-  cuarentena: 'En cuarentena',
-  limpio: 'Limpio',
+  cuarentena: 'Analizando',
+  limpio: 'Verificado',
   rechazado: 'Rechazado',
   error: 'Error de análisis',
 }
@@ -79,10 +79,8 @@ export function estadoEnvio(estado: string): EstadoEnvio {
   const clave = estado.toLowerCase()
   if (['pendiente', 'encolado', 'en_cola', 'programado'].includes(clave))
     return { etiqueta: 'En cola', variante: 'advertencia', incierto: false }
-  if (['enviado', 'aceptado'].includes(clave))
+  if (['enviado', 'aceptado', 'presentado'].includes(clave))
     return { etiqueta: 'Enviado', variante: 'info', incierto: false }
-  if (clave === 'presentado')
-    return { etiqueta: 'Presentado al proveedor', variante: 'info', incierto: false }
   if (clave === 'procesando') return { etiqueta: 'En proceso', variante: 'info', incierto: false }
   if (clave === 'sin_email') return { etiqueta: 'Sin email', variante: 'error', incierto: false }
   if (['fallido', 'error'].includes(clave))

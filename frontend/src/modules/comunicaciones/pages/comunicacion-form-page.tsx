@@ -129,7 +129,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
       if (docente && (!datos.audiencia.ciclo_lectivo || datos.audiencia.ids.length === 0))
         throw new Error('Elegí un curso o alumnos del ciclo lectivo.')
       if (accion === 'publicar' && !puedePublicar(adjuntos))
-        throw new Error('Todos los archivos adjuntos deben estar limpios antes de publicar.')
+        throw new Error('Todos los archivos adjuntos deben estar verificados antes de publicar.')
       if (accion === 'preview') {
         const p = await previsualizarComunicacion(datos, docente)
         if (p.destinatarios === 0)
@@ -374,7 +374,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
             {!puedePublicar(adjuntos) && (
               <Alert variant="error">
                 <AlertDescription>
-                  Todos los archivos adjuntos deben estar limpios para publicar.
+                  Todos los archivos adjuntos deben estar verificados para publicar.
                 </AlertDescription>
               </Alert>
             )}

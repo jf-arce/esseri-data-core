@@ -307,7 +307,7 @@ it('requires a saved draft before upload and blocks publishing while a file is q
 
   const input = document.querySelector('input[type="file"]') as HTMLInputElement
   await userEvent.upload(input, new File(['contenido'], 'acta.pdf', { type: 'application/pdf' }))
-  expect(await screen.findByText('En cuarentena')).toBeInTheDocument()
+  expect(await screen.findByText('Analizando')).toBeInTheDocument()
   expect(
     screen.getByText('Archivo agregado. Queda en cuarentena hasta completar el análisis.'),
   ).toBeInTheDocument()
@@ -316,7 +316,7 @@ it('requires a saved draft before upload and blocks publishing while a file is q
   await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
   await userEvent.click(screen.getByRole('button', { name: 'Vista previa' }))
   expect(
-    await screen.findByText('Todos los archivos adjuntos deben estar limpios para publicar.'),
+    await screen.findByText('Todos los archivos adjuntos deben estar verificados para publicar.'),
   ).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Publicar' })).toBeDisabled()
 })
@@ -352,7 +352,7 @@ it('lets a clean file be published and keeps its state after changing the cycle'
       </Routes>
     </MemoryRouter>,
   )
-  expect(await screen.findByText('Limpio')).toBeInTheDocument()
+  expect(await screen.findByText('Verificado')).toBeInTheDocument()
   await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
   screen.getByRole('combobox', { name: 'Ciclo lectivo' }).focus()
   await userEvent.keyboard('[ArrowDown]')
@@ -362,7 +362,7 @@ it('lets a clean file be published and keeps its state after changing the cycle'
   // El panel de archivos vive en el paso 1: volver atrás comprueba que el estado se conserve
   // sin volver a pedir el borrador ni la lista de adjuntos.
   await userEvent.click(screen.getByRole('button', { name: 'Anterior' }))
-  expect(screen.getByText('Limpio')).toBeInTheDocument()
+  expect(screen.getByText('Verificado')).toBeInTheDocument()
   expect(
     api.mock.calls.filter(([path]) => path === '/comunicaciones/docente/c1/adjuntos'),
   ).toHaveLength(1)

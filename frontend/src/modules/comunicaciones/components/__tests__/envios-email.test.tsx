@@ -13,7 +13,7 @@ vi.mock('../../services/listar-envios', () => ({
 beforeEach(() => vi.clearAllMocks())
 
 it('labels provider submission and missing email without claiming delivery', () => {
-  expect(estadoEnvio('presentado').etiqueta).toBe('Presentado al proveedor')
+  expect(estadoEnvio('presentado').etiqueta).toBe('Enviado')
   expect(estadoEnvio('sin_email').etiqueta).toBe('Sin email')
   expect(estadoEnvio('procesando').etiqueta).toBe('En proceso')
 })

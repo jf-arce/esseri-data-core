@@ -15,7 +15,7 @@ interface Props {
   onActualizar?: (adjunto: Adjunto) => void
 }
 
-/** Lista de archivos de una comunicación. La familia solo ve los que ya están limpios. */
+/** Lista de archivos de una comunicación. La familia solo ve los que ya están verificados. */
 export function AdjuntosComunicacion({
   comunicacionId,
   adjuntos,
@@ -109,7 +109,7 @@ export function AdjuntosComunicacion({
       </ul>
       {!familia && visibles.some((adjunto) => adjunto.estado !== 'limpio') && (
         <p className="text-sm text-texto-2">
-          Solo los archivos limpios se pueden descargar y habilitan la publicación.
+          Solo los archivos verificados se pueden descargar y habilitan la publicación.
         </p>
       )}
     </section>

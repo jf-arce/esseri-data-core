@@ -106,6 +106,10 @@ export function AdjuntosBorrador({
           Archivos adjuntos
         </h2>
         <p className="text-sm text-texto-2">{AYUDA_ADJUNTOS}</p>
+        <p className="text-sm text-texto-2">
+          Cada archivo se analiza por seguridad; cuando termina, queda verificado y habilita la
+          publicación.
+        </p>
       </div>
       {!comunicacionId ? (
         <p role="status" className="text-sm text-texto-2">
@@ -177,7 +181,7 @@ export function AdjuntosBorrador({
         (adjunto) => adjunto.estado !== 'limpio' && adjunto.estado !== 'rechazado',
       ) && (
         <p className="text-sm text-texto-2">
-          La publicación queda bloqueada hasta que todos los archivos estén limpios.
+          La publicación queda bloqueada hasta que todos los archivos estén verificados.
         </p>
       )}
     </section>
