@@ -178,6 +178,38 @@ detalle propio de Safari en iOS solo se ve en un dispositivo.
 
 Vitest excluye `e2e/`: esos specs corren solo con Playwright.
 
+### Comunicaciones etapa 3 — prueba real de navegador
+
+`e2e/comunicaciones-etapa-3.spec.ts` prueba canales, adjuntos privados con ClamAV real y
+autorización sin mocks, contra un backend/PostgreSQL aislados. No usa `auth.setup.ts` ni el seed
+de demo. La configuración dedicada es `playwright.comunicaciones.config.ts` (Chromium de
+escritorio y Pixel 7) y apunta por defecto a `http://localhost:5179`; el backend se indica con
+`E2E_API_URL` (por defecto `http://localhost:8019`).
+
+1. Cargar las cuentas sintéticas en la base aislada `communications_stage3_e2e` (desde
+   `backend/`, con el intérprete del proyecto). El seed es idempotente, exige una contraseña
+   explícita y nunca la imprime:
+
+   ```bash
+   DATABASE_URL=postgresql+psycopg://communications:communications-test-only@127.0.0.1:54389/communications_stage3_e2e \
+   JWT_SECRET=stage3-test-only STAGE3_E2E_PASSWORD=<synthetic-password> \
+   python tests/comunicaciones/seed_e2e.py
+   ```
+
+2. Correr el spec con esa misma contraseña (sin ella, los tests se saltean con un motivo
+   explícito):
+
+   ```bash
+   E2E_API_URL=http://localhost:8019 STAGE3_E2E_PASSWORD=<synthetic-password> \
+   npx playwright test --config=playwright.comunicaciones.config.ts
+   ```
+
+Cuentas/escenario que imprime el seed: `stage3.admin@esseri.test`,
+`stage3.docente@esseri.test` (Laura Díaz), `stage3.familia@esseri.test`,
+`stage3.otra-familia@esseri.test`; división `4° B`, ciclo `2027`. El backend debe tener
+`COMUNICACIONES_ADJUNTOS_HABILITADOS=true` y ClamAV real configurado: si el escáner no responde,
+la subida queda en cuarentena y el test falla a propósito.
+
 ## Estructura del proyecto
 
 ```
