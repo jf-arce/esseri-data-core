@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ArrowLeftIcon, CheckCircle2Icon } from 'lucide-react'
+import { toast } from 'sonner'
 import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -142,7 +143,12 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
         if (accion === 'publicar') {
           setPublicada(await publicarComunicacion(guardadoId, docente))
           setPaso(4)
-        } else setMensaje('Borrador guardado')
+        } else {
+          setMensaje('Borrador guardado')
+          toast.success('Borrador guardado', {
+            description: 'Los cambios quedaron guardados.',
+          })
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo completar la operación.')
