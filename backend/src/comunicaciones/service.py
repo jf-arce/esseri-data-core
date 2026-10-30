@@ -131,6 +131,8 @@ def _emisor(db: Session, c: Comunicacion) -> str:
 
 
 def respuesta(db: Session, c: Comunicacion, *, recibo=None) -> ComunicacionRead:
+    from src.comunicaciones.adjuntos_service import listar_metadata
+
     total = db.scalar(
         select(func.count())
         .select_from(ReciboComunicacion)
@@ -150,13 +152,18 @@ def respuesta(db: Session, c: Comunicacion, *, recibo=None) -> ComunicacionRead:
         audiencia=c.audiencia if recibo is None else None,
         clave=c.clave if recibo is None else None,
         leida_at=recibo.leida_at if recibo is not None else None,
+        canal=c.canal,
+        adjuntos=listar_metadata(db, c.id),
     )
 
 
 def crear(db: Session, data: BorradorInput, usuario: Usuario, *, tipo="institucional"):
     if tipo == "curso":
         validar_curso(db, usuario, data.audiencia)
-    contenido = data.model_dump(mode="json")
+    # Preserve stage-1/2 idempotency hashes for the original portal-only contract.
+    contenido = data.model_dump(mode="json", exclude={"canal"})
+    if data.canal != "portal":
+        contenido["canal"] = data.canal
     digest = hashlib.sha256(json.dumps(contenido, sort_keys=True).encode()).hexdigest()
     existente = db.scalar(
         select(Comunicacion).where(
@@ -175,6 +182,7 @@ def crear(db: Session, data: BorradorInput, usuario: Usuario, *, tipo="instituci
         cuerpo=data.cuerpo,
         audiencia=data.audiencia.model_dump(mode="json"),
         tipo=tipo,
+        canal=data.canal,
     )
     try:
         db.add(c)
@@ -211,6 +219,7 @@ def editar(
         ("asunto", data.asunto),
         ("cuerpo", data.cuerpo),
         ("audiencia", data.audiencia.model_dump(mode="json")),
+        ("canal", data.canal),
     ):
         anterior = getattr(c, campo)
         if anterior != nuevo:
@@ -231,10 +240,17 @@ def publicar(db: Session, id: uuid.UUID, usuario: Usuario, *, tipo="instituciona
     destinatarios = resolver(db, audiencia)
     if not destinatarios:
         raise HTTPException(422, "La audiencia no tiene responsables habilitados")
+    from src.comunicaciones.adjuntos_service import validar_publicacion
+
+    validar_publicacion(db, c.id)
     c.estado = "publicada"
     c.publicada_at = datetime.now(UTC).replace(tzinfo=None)
     for familia_id, alumnos in destinatarios.items():
         db.add(ReciboComunicacion(comunicacion_id=c.id, familia_id=familia_id, alumnos=alumnos))
+    if c.canal in ("email", "ambos"):
+        from src.workflows.manuales_service import preparar_envios
+
+        preparar_envios(db, c, destinatarios)
     auditar(db, c, usuario, "estado", "borrador", "publicada")
     db.commit()
     return respuesta(db, c)
@@ -268,7 +284,8 @@ def detalle_familia(db: Session, id: uuid.UUID, usuario: Usuario, *, leer=False)
     c = db.get(Comunicacion, id) if recibo is not None else None
     if c is None or c.estado != "publicada":
         raise HTTPException(404, "Comunicación no encontrada")
-    if leer:
+    # Email-link access does not fabricate a portal read for an email-only message.
+    if leer and c.canal != "email":
         cambio = db.execute(
             update(ReciboComunicacion)
             .where(ReciboComunicacion.id == recibo.id, ReciboComunicacion.leida_at.is_(None))
@@ -300,7 +317,11 @@ def listar(
             for r in recibos_propios(db, usuario)
             if not no_leidas or r.leida_at is None
         }
-        consulta = consulta.where(Comunicacion.estado == "publicada", Comunicacion.id.in_(recibos))
+        consulta = consulta.where(
+            Comunicacion.estado == "publicada",
+            Comunicacion.canal.in_(("portal", "ambos")),
+            Comunicacion.id.in_(recibos),
+        )
     else:
         consulta = consulta.where(
             or_(Comunicacion.estado == "publicada", Comunicacion.autor_id == usuario.id)

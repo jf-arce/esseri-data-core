@@ -1,3 +1,30 @@
+export type Canal = 'portal' | 'email' | 'ambos'
+
+export type EstadoAdjunto = 'cuarentena' | 'limpio' | 'rechazado' | 'error'
+
+export interface Adjunto {
+  id: string
+  nombre: string
+  tipo_contenido: string
+  tamanio: number
+  estado: EstadoAdjunto
+}
+
+export interface IntentoEnvio {
+  id: string
+  estado: string
+  error_codigo: string | null
+  started_at: string | null
+  finished_at: string | null
+}
+
+export interface Envio {
+  id: string
+  email: string | null
+  estado: string
+  intentos: IntentoEnvio[]
+}
+
 export interface Audiencia {
   tipo: 'todos' | 'nivel' | 'division' | 'alumnos' | 'responsables'
   ids: string[]
@@ -8,6 +35,7 @@ export interface Borrador {
   asunto: string
   cuerpo: string
   audiencia: Audiencia
+  canal?: Canal
 }
 export interface Comunicacion {
   id: string
@@ -23,6 +51,8 @@ export interface Comunicacion {
   publicada_at: string | null
   destinatarios: number
   leida_at: string | null
+  canal: Canal
+  adjuntos?: Adjunto[]
 }
 export interface Listado {
   items: Comunicacion[]

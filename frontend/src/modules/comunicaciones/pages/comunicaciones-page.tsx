@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/table'
 import { listarComunicaciones } from '../services/listar-comunicaciones'
 import type { Listado } from '../types'
+import { ETIQUETAS_CANAL } from '../utils'
 
 export function ComunicacionesPage({
   familia = false,
@@ -141,6 +142,7 @@ export function ComunicacionesPage({
               <TableRow>
                 <TableHead>Asunto</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead>Canal</TableHead>
                 <TableHead>Responsables</TableHead>
               </TableRow>
             </TableHeader>
@@ -158,6 +160,11 @@ export function ComunicacionesPage({
                   <TableCell>
                     <Badge variant={c.estado === 'publicada' ? 'exito' : 'neutro'}>
                       {c.estado === 'publicada' ? 'Publicada' : 'Borrador'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={(c.canal ?? 'portal') === 'portal' ? 'neutro' : 'info'}>
+                      {ETIQUETAS_CANAL[c.canal ?? 'portal']}
                     </Badge>
                   </TableCell>
                   <TableCell>

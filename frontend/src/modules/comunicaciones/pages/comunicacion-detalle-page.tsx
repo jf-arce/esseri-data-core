@@ -4,9 +4,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { AdjuntosComunicacion } from '../components/adjuntos-comunicacion'
+import { EnviosEmail } from '../components/envios-email'
 import { obtenerComunicacion } from '../services/obtener-comunicacion'
 import { registrarLectura } from '../services/registrar-lectura'
-import type { Comunicacion } from '../types'
+import type { Adjunto, Comunicacion } from '../types'
+import { ETIQUETAS_CANAL } from '../utils'
 
 export function ComunicacionDetallePage({
   familia = false,
@@ -28,11 +31,17 @@ export function ComunicacionDetallePage({
           if (controller.signal.aborted) return
           setDatos(data)
           setError('')
-          if (familia && !data.leida_at) {
+          // Una comunicación solo email no se publica en la bandeja del portal: abrir el enlace
+          // no equivale a una lectura en el portal.
+          if (familia && !data.leida_at && (data.canal ?? 'portal') !== 'email') {
             try {
               const leida = await registrarLectura(id)
               if (!controller.signal.aborted) {
-                setDatos(leida)
+                setDatos((actual) =>
+                  actual
+                    ? { ...actual, ...leida, adjuntos: leida.adjuntos ?? actual.adjuntos }
+                    : leida,
+                )
                 setErrorLectura(false)
               }
             } catch {
@@ -51,6 +60,18 @@ export function ComunicacionDetallePage({
     : docente
       ? '/docente/comunicaciones'
       : '/comunicaciones'
+  const canal = datos?.canal ?? 'portal'
+  const actualizarAdjunto = (adjunto: Adjunto) =>
+    setDatos((actual) =>
+      actual
+        ? {
+            ...actual,
+            adjuntos: (actual.adjuntos ?? []).map((item) =>
+              item.id === adjunto.id ? adjunto : item,
+            ),
+          }
+        : actual,
+    )
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-col gap-5">
       <Link
@@ -72,9 +93,12 @@ export function ComunicacionDetallePage({
         <Skeleton className="h-40 w-full" aria-label="Cargando comunicación" />
       ) : (
         <article className="space-y-6 rounded-panel bg-superficie p-5 shadow-card sm:p-8">
-          <Badge variant="neutro">
-            {datos.tipo === 'curso' ? 'Comunicación de curso' : 'Institucional'}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="neutro">
+              {datos.tipo === 'curso' ? 'Comunicación de curso' : 'Institucional'}
+            </Badge>
+            <Badge variant={canal === 'portal' ? 'neutro' : 'info'}>{ETIQUETAS_CANAL[canal]}</Badge>
+          </div>
           <h1 className="text-2xl font-semibold break-words text-texto">{datos.asunto}</h1>
           <p className="text-sm text-texto-2">De: {datos.emisor ?? 'Colegio ESSERI'}</p>
           <p className="text-sm text-texto-2">
@@ -86,7 +110,12 @@ export function ComunicacionDetallePage({
           <div className="text-sm leading-relaxed whitespace-pre-wrap break-words text-texto">
             {datos.cuerpo}
           </div>
-          {familia && datos.leida_at && (
+          {familia && canal === 'email' && (
+            <p role="status" className="text-sm text-texto-2">
+              Esta comunicación se envía por email y no aparece en la bandeja del portal.
+            </p>
+          )}
+          {familia && canal !== 'email' && datos.leida_at && (
             <p role="status" className="text-sm text-texto-2">
               Lectura registrada para tu cuenta.
             </p>
@@ -94,8 +123,23 @@ export function ComunicacionDetallePage({
           {!familia && (
             <p className="text-sm text-texto-2">
               {docente ? 'Comunicación de curso' : 'Disponible'} para {datos.destinatarios}{' '}
-              responsables. El email no está habilitado en esta etapa.
+              responsables.
+              {canal === 'email'
+                ? ' Solo email: no aparece en la bandeja del portal familiar.'
+                : canal === 'ambos'
+                  ? ' Portal y email: el email queda en cola y su resultado puede ser incierto.'
+                  : ' Sin envío de email.'}
             </p>
+          )}
+          <AdjuntosComunicacion
+            comunicacionId={datos.id}
+            adjuntos={datos.adjuntos ?? []}
+            familia={familia}
+            docente={docente}
+            onActualizar={actualizarAdjunto}
+          />
+          {!familia && canal !== 'portal' && (
+            <EnviosEmail comunicacionId={datos.id} docente={docente} />
           )}
         </article>
       )}

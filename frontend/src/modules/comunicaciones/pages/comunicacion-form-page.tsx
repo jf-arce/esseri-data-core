@@ -16,12 +16,15 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
+import { AdjuntosBorrador } from '../components/adjuntos-borrador'
+import { listarAdjuntos } from '../services/adjuntos'
 import { guardarBorrador } from '../services/guardar-borrador'
 import { obtenerComunicacion } from '../services/obtener-comunicacion'
 import { obtenerOpciones } from '../services/obtener-opciones'
 import { previsualizarComunicacion } from '../services/previsualizar-comunicacion'
 import { publicarComunicacion } from '../services/publicar-comunicacion'
-import type { Audiencia, Borrador, Comunicacion, Opciones } from '../types'
+import type { Adjunto, Audiencia, Borrador, Canal, Comunicacion, Opciones } from '../types'
+import { DESCRIPCIONES_CANAL, ETIQUETAS_CANAL, adjuntosPendientes, puedePublicar } from '../utils'
 
 const etiquetas = {
   todos: 'Todos los responsables habilitados',
@@ -38,10 +41,13 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
     clave: crypto.randomUUID(),
     asunto: '',
     cuerpo: '',
+    canal: 'portal',
     audiencia: docente
       ? { tipo: 'division', ids: [], ciclo_lectivo: cicloStore }
       : { tipo: 'todos', ids: [] },
   }))
+  const [adjuntos, setAdjuntos] = useState<Adjunto[]>([])
+  const canal = datos.canal ?? 'portal'
   const ciclo = datos.audiencia.ciclo_lectivo ?? cicloStore
   const [persistido, setPersistido] = useState<string | undefined>(id)
   const guardado = useRef('')
@@ -80,8 +86,10 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
             asunto: c.asunto,
             cuerpo: c.cuerpo,
             audiencia: c.audiencia,
+            canal: c.canal ?? 'portal',
           }
           setDatos(borrador)
+          setAdjuntos(c.adjuntos ?? [])
           guardado.current = JSON.stringify(borrador)
           setCargando(false)
         })
@@ -90,10 +98,23 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
         })
     return () => controller.abort()
   }, [id, docente, revision])
+  useEffect(() => {
+    const controller = new AbortController()
+    if (id)
+      listarAdjuntos(id, docente, controller.signal)
+        .then((datos) => {
+          if (!controller.signal.aborted) setAdjuntos(Array.isArray(datos) ? datos : [])
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setError('No se pudieron cargar los archivos adjuntos.')
+        })
+    return () => controller.abort()
+  }, [id, docente])
   async function guardar() {
     if (persistido && guardado.current === JSON.stringify(datos)) return persistido
     const c = await guardarBorrador(datos, persistido, docente)
     setPersistido(c.id)
+    if (c.adjuntos) setAdjuntos(c.adjuntos)
     guardado.current = JSON.stringify(datos)
     return c.id
   }
@@ -107,6 +128,8 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
         throw new Error('Completá el asunto y el mensaje.')
       if (docente && (!datos.audiencia.ciclo_lectivo || datos.audiencia.ids.length === 0))
         throw new Error('Elegí un curso o alumnos del ciclo lectivo.')
+      if (accion === 'publicar' && !puedePublicar(adjuntos))
+        throw new Error('Todos los archivos adjuntos deben estar limpios antes de publicar.')
       if (accion === 'preview') {
         const p = await previsualizarComunicacion(datos, docente)
         if (p.destinatarios === 0)
@@ -222,6 +245,37 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
                 onChange={(e) => setDatos({ ...datos, cuerpo: e.target.value })}
               />
             </div>
+            <fieldset className="space-y-3">
+              <legend className="mb-1 font-semibold">Canal de envío</legend>
+              <RadioGroup
+                value={canal}
+                onValueChange={(v) => setDatos({ ...datos, canal: v as Canal })}
+                disabled={ocupado}
+              >
+                {(Object.keys(ETIQUETAS_CANAL) as Canal[]).map((opcion) => (
+                  <Label
+                    key={opcion}
+                    className="flex items-start gap-3 rounded-lg border border-borde p-3"
+                  >
+                    <RadioGroupItem value={opcion} className="mt-0.5" />
+                    <span>
+                      <span className="block">{ETIQUETAS_CANAL[opcion]}</span>
+                      <span className="block text-xs text-texto-2">
+                        {DESCRIPCIONES_CANAL[opcion]}
+                      </span>
+                    </span>
+                  </Label>
+                ))}
+              </RadioGroup>
+            </fieldset>
+            <AdjuntosBorrador
+              comunicacionId={persistido}
+              adjuntos={adjuntos}
+              docente={docente}
+              bloqueado={ocupado}
+              onCambio={setAdjuntos}
+              onAviso={setMensaje}
+            />
           </>
         ) : paso === 2 ? (
           <>
@@ -300,21 +354,48 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
         ) : paso === 3 ? (
           <>
             <p className="text-sm text-texto-2">
-              {docente ? 'Comunicación de curso' : 'Institucional'} · {total} responsables
+              {docente ? 'Comunicación de curso' : 'Institucional'} · {total} responsables ·{' '}
+              {ETIQUETAS_CANAL[canal]}
             </p>
             <h2 className="text-xl font-semibold break-words">{datos.asunto}</h2>
             <p className="text-sm whitespace-pre-wrap break-words">{datos.cuerpo}</p>
+            {adjuntos.length > 0 && (
+              <p className="text-sm text-texto-2">
+                {adjuntos.length} archivo{adjuntos.length === 1 ? '' : 's'} adjunto
+                {adjuntos.length === 1 ? '' : 's'}.
+              </p>
+            )}
             <p className="text-sm text-texto-2">
-              Los destinatarios se volverán a validar al publicar. No se enviarán emails en esta
-              etapa.
+              Los destinatarios se volverán a validar al publicar.
+              {canal === 'portal'
+                ? ' No se enviarán emails.'
+                : ' El email queda en cola: no se confirma la entrega hasta que el servidor de correo responda.'}
             </p>
+            {!puedePublicar(adjuntos) && (
+              <Alert variant="error">
+                <AlertDescription>
+                  Todos los archivos adjuntos deben estar limpios para publicar.
+                </AlertDescription>
+              </Alert>
+            )}
           </>
         ) : (
           <>
             <h2 className="text-xl font-semibold">Comunicación publicada</h2>
-            <p role="status">
-              Disponible en el portal para {publicada?.destinatarios} responsables.
-            </p>
+            {canal !== 'email' ? (
+              <p role="status">
+                Disponible en el portal para {publicada?.destinatarios} responsables.
+              </p>
+            ) : (
+              <p role="status">Los responsables reciben esta comunicación por email.</p>
+            )}
+            {canal !== 'portal' && (
+              <p className="text-sm text-texto-2">
+                El envío por email quedó en cola para {publicada?.destinatarios} responsables. El
+                resultado puede quedar incierto hasta que se confirme; nunca se muestra como
+                entregado sin evidencia.
+              </p>
+            )}
             <Button asChild>
               <Link to={`${base}/${publicada?.id}`}>Ver comunicación</Link>
             </Button>
@@ -322,41 +403,58 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
         )}
       </div>
       {paso < 4 && !cargando && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Button variant="secondary" disabled={ocupado} onClick={() => void ejecutar('guardar')}>
-            Guardar borrador
-          </Button>
-          <div className="flex gap-3">
-            {paso > 1 && (
-              <Button variant="secondary" disabled={ocupado} onClick={() => setPaso(paso - 1)}>
-                Anterior
-              </Button>
-            )}
-            {paso === 1 ? (
-              <Button
-                disabled={ocupado || !datos.asunto.trim() || !datos.cuerpo.trim()}
-                onClick={() => setPaso(2)}
-              >
-                Siguiente
-              </Button>
-            ) : paso === 2 ? (
-              <Button
-                disabled={
-                  ocupado ||
-                  !opciones ||
-                  (docente && (!datos.audiencia.ciclo_lectivo || datos.audiencia.ids.length === 0))
-                }
-                onClick={() => void ejecutar('preview')}
-              >
-                Vista previa
-              </Button>
-            ) : (
-              <Button disabled={ocupado} onClick={() => void ejecutar('publicar')}>
-                {ocupado ? 'Publicando…' : 'Publicar'}
-              </Button>
-            )}
+        <>
+          {paso === 3 && !puedePublicar(adjuntos) && (
+            <p className="text-sm text-texto-2">
+              {adjuntosPendientes(adjuntos).length} archivo
+              {adjuntosPendientes(adjuntos).length === 1 ? '' : 's'} pendiente
+              {adjuntosPendientes(adjuntos).length === 1 ? '' : 's'} de análisis limpio.
+            </p>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Button variant="secondary" disabled={ocupado} onClick={() => void ejecutar('guardar')}>
+              Guardar borrador
+            </Button>
+            <div className="flex gap-3">
+              {paso > 1 && (
+                <Button variant="secondary" disabled={ocupado} onClick={() => setPaso(paso - 1)}>
+                  Anterior
+                </Button>
+              )}
+              {paso === 1 ? (
+                <Button
+                  disabled={ocupado || !datos.asunto.trim() || !datos.cuerpo.trim()}
+                  onClick={() => setPaso(2)}
+                >
+                  Siguiente
+                </Button>
+              ) : paso === 2 ? (
+                <Button
+                  disabled={
+                    ocupado ||
+                    !opciones ||
+                    (docente &&
+                      (!datos.audiencia.ciclo_lectivo || datos.audiencia.ids.length === 0))
+                  }
+                  onClick={() => void ejecutar('preview')}
+                >
+                  Vista previa
+                </Button>
+              ) : (
+                <Button
+                  disabled={ocupado || !puedePublicar(adjuntos)}
+                  onClick={() => void ejecutar('publicar')}
+                >
+                  {ocupado
+                    ? 'Publicando…'
+                    : canal === 'portal'
+                      ? 'Publicar'
+                      : 'Publicar y encolar email'}
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </section>
   )

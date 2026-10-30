@@ -189,3 +189,42 @@ def editar(
 def publicar(id: uuid.UUID, db: DbSession, usuario: Crear, rol: RolActivo) -> ComunicacionRead:
     gestion(rol)
     return service.publicar(db, id, usuario, tipo="institucional")
+
+
+@router.get("/docente/{id}/envios")
+def envios_docente(id: uuid.UUID, db: DbSession, usuario: LeerDocente, rol: RolActivo):
+    from src.workflows.manuales_service import historial
+
+    solo_docente(rol)
+    service.obtener(db, id, usuario, tipo="curso")
+    return historial(db, id)
+
+
+@router.get("/{id}/envios")
+def envios(id: uuid.UUID, db: DbSession, usuario: Leer, rol: RolActivo):
+    from src.workflows.manuales_service import historial
+
+    gestion(rol)
+    service.obtener(db, id, usuario)
+    return historial(db, id)
+
+
+@router.post("/docente/{id}/envios/{envio_id}/reintentar")
+def reintento_docente(
+    id: uuid.UUID, envio_id: uuid.UUID, db: DbSession, usuario: CrearDocente, rol: RolActivo
+):
+    from src.workflows.manuales_service import reintentar
+
+    solo_docente(rol)
+    c = service.obtener(db, id, usuario, tipo="curso")
+    service.validar_curso(db, usuario, service.Audiencia.model_validate(c.audiencia))
+    return reintentar(db, id, envio_id)
+
+
+@router.post("/{id}/envios/{envio_id}/reintentar")
+def reintento(id: uuid.UUID, envio_id: uuid.UUID, db: DbSession, usuario: Crear, rol: RolActivo):
+    from src.workflows.manuales_service import reintentar
+
+    gestion(rol)
+    service.obtener(db, id, usuario)
+    return reintentar(db, id, envio_id)
