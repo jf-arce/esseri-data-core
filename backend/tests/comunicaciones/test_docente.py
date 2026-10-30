@@ -204,8 +204,22 @@ def test_historial_y_cambio_de_rol_no_exponen_borradores(client, docente, db_ses
     id = creada.json()["id"]
     entrar("administracion")
     antes = estado(db_session)
+    historial = client.get("/comunicaciones")
+    assert historial.status_code == 200
+    assert [c["id"] for c in historial.json()["items"]] == [institucional.json()["id"]]
+    assert client.get(f"/comunicaciones/{id}").status_code == 404
+    assert client.put(f"/comunicaciones/{id}", json=body).status_code == 404
     assert client.post(f"/comunicaciones/{id}/publicar").status_code == 404
     assert estado(db_session) == antes
+    entrar()
+    assert client.get(f"/comunicaciones/docente/{id}").status_code == 200
+    assert client.post(f"/comunicaciones/docente/{id}/publicar").status_code == 200
+    entrar("administracion")
+    assert client.get(f"/comunicaciones/{id}").status_code == 200
+    assert {c["id"] for c in client.get("/comunicaciones").json()["items"]} == {
+        institucional.json()["id"],
+        id,
+    }
     entrar("docente", ids["usuario_otro"])
     assert client.get("/comunicaciones/docente").json()["total"] == 0
     assert client.get(f"/comunicaciones/docente/{id}").status_code == 404

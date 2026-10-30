@@ -113,6 +113,7 @@ def obtener(
         or (tipo is not None and comunicacion.tipo != tipo)
         or (comunicacion.estado == "borrador" and comunicacion.autor_id != usuario.id)
         or (tipo == "curso" and comunicacion.autor_id != usuario.id)
+        or (tipo is None and comunicacion.tipo == "curso" and comunicacion.estado == "borrador")
     ):
         raise HTTPException(404, "Comunicación no encontrada")
     return comunicacion
@@ -306,6 +307,10 @@ def listar(
         )
         if tipo is not None:
             consulta = consulta.where(Comunicacion.tipo == tipo)
+        else:
+            consulta = consulta.where(
+                or_(Comunicacion.estado == "publicada", Comunicacion.tipo == "institucional")
+            )
         if autor_id is not None:
             consulta = consulta.where(Comunicacion.autor_id == autor_id)
     if buscar:

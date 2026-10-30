@@ -538,6 +538,8 @@ Teacher publication is limited to their own assigned courses. Because a typed gr
 satisfies a request for the base code, the administrative routes explicitly reject teacher
 roles; the teacher routes explicitly require the Docente active role. Switching a multirole
 account to administration does not expose or publish its course drafts.
+Administrative history, search and detail exclude course drafts, including the active user's own;
+published course communications remain visible to authorized administrative accounts.
 
 Administrative endpoints:
 
