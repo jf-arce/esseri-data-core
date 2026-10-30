@@ -610,6 +610,45 @@ database and uses independent request sessions for simultaneous draft creation, 
 and first reading. It removes only that generated schema afterward. Without the explicit URL,
 that test is skipped rather than claiming SQLite proves PostgreSQL locking.
 
+### Communications stage 3: operational gates
+
+Manual emails commit durable intentions with publication and are drained after commit by
+the existing Workflows dispatcher. Set `N8N_MANUAL_HABILITADO=true` only after importing,
+credentialing and publishing the correlated n8n export. `N8N_WEBHOOK_TOKEN` must be a strong
+nonempty shared secret; `N8N_CALLBACK_BASE_URL` is the backend address reachable by n8n.
+Keep this URL on a trusted deployment network (HTTPS if crossing hosts). A missing/manual
+transport configuration leaves email intentions durable; it never rolls back a publication.
+Email-only publications do not appear in the family inbox; authenticated links still require
+their persisted responsible context and a currently enabled original student link.
+Transport submission is not mailbox delivery. Uncertain outcomes cannot be blindly retried.
+
+Attachments are independently disabled by default. Enable
+`COMUNICACIONES_ADJUNTOS_HABILITADOS` only after verifying structural inspection and a real
+ClamAV scanner configured by `CLAMAV_HOST`, `CLAMAV_PORT`, `CLAMAV_TIMEOUT_SEGUNDOS`.
+The optional isolated scanner/test database commands live in `infra/README.md`.
+No paid scanner service is required. Keep clamd private: its TCP protocol has no authentication.
+Pillow and pypdf perform structural/content checks, not malware scanning; ClamAV is also
+required. Failed/unavailable inspection is never a clean verdict.
+
+Limits: five PDF/JPEG/PNG files, 5 MiB each, 25 MiB aggregate. Metadata and binary content
+are separate private PostgreSQL tables; ordinary list/detail queries must not fetch blobs.
+At the maximum, each communication adds up to 25 MiB before database/TOAST/WAL overhead.
+Do not assume JPEG/PDF compress further. Budget disk, WAL, replicas, backup transfer and
+restore duration accordingly; monitor table/TOAST growth and time a dump/restore with
+representative files before production. Existing full-database backups include quarantined
+and clean bytes; store/encrypt/restrict backups as sensitive data. No binary is sent through n8n.
+
+Stage-3 verification (from `backend/`, with dependencies installed):
+
+```bash
+pytest -q tests/comunicaciones tests/workflows/test_envios_manuales.py
+# Isolated test stack URL from infra/README.md, never the shared database:
+DATABASE_URL="$ISOLATED_TEST_DATABASE_URL" alembic upgrade head
+COMUNICACIONES_TEST_DATABASE_URL="$ISOLATED_TEST_DATABASE_URL" pytest -q tests/comunicaciones
+```
+
+The scanner profile is not a prerequisite for unrelated portal-only/email-only transport tests.
+
 ### Panel de Dirección
 
 `GET /panel-admin/evolucion-financiera` compara facturación emitida y pagos aprobados

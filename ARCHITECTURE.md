@@ -12,7 +12,7 @@ Este documento describe **estructura y convenciones**, no decisiones de negocio 
 
 ## Decisiones de base
 
-### Communications domain (stages 1 and 2)
+### Communications domain (stages 1–3)
 
 Institutional and course communications are owned by `backend/src/comunicaciones/` and
 `frontend/src/modules/comunicaciones/`, an additional domain alongside the original EDT modules.
@@ -21,7 +21,7 @@ It is not part of the administrative dashboard or the Workflows transport log.
 Stages 1–2 have only `comunicacion` and `recibo_comunicacion`: audience selection lives on the
 communication, while each receipt freezes the relevant student identifiers and its first read.
 A `tipo` column distinguishes institutional from course authoring without adding a table.
-No separate version, publication, read, approval or transport entities are introduced yet.
+No separate version, publication, read or approval entities are introduced in stages 1–3.
 Course authoring is restricted to teachers acting with the Docente active role and to their
 own `AsignacionDocente` divisions/students in the selected cycle; scope is revalidated on edit
 and publication. Administrative routes reject teacher roles explicitly, because typed code
@@ -29,8 +29,27 @@ matching alone would let a typed teacher grant satisfy a base permission request
 `Familia` represents one responsible, resolved with the existing Usuario → Persona → Familia
 helper. The unique responsible/publication receipt deduplicates sibling and multiple links.
 Existing active-role permissions protect every operation; family endpoints only expose owned
-published receipts with a still-enabled original student link. Workflows and `NOTIFICACION`
-retain their existing semantics. Frontend filenames remain kebab-case and backend snake_case.
+published receipts with a still-enabled original student link. Stage 3 adds explicit
+`portal`/`email`/`ambos` channel selection; email-only receipts authorize authenticated links
+but are never visible in the family inbox and do not record portal reads.
+
+The existing Workflows notification infrastructure owns `envio_notificacion`, a durable
+manual-email intention committed atomically with publication. `NOTIFICACION` remains the
+snapshot/attempt log: an exactly-one-origin constraint selects a real Workflow execution
+or a manual intention, never a fabricated execution. Legacy Workflow logs retain their
+execution-scoped projections. The existing dispatcher drains manual intentions after commit;
+stable send IDs, per-attempt IDs and authenticated n8n claim/result callbacks prevent duplicate
+provider invocation. Uncertain side effects remain uncertain; HTTP acceptance/provider
+submission is never recipient delivery. Email transport is independent of antivirus readiness.
+
+Private attachment metadata (`comunicacion_adjunto`) and bytes
+(`comunicacion_adjunto_contenido`) are separate domain tables, keeping blobs out of ordinary
+queries. Uploads atomically associate both with an author-owned draft; publication freezes
+the set. Structural image/PDF inspection and a clean ClamAV verdict are mandatory before
+publication/download, with fail-closed quarantine on scanner failure. Email carries only
+authenticated portal links. This first-version storage choice trades simple atomic cleanup
+for increased database/WAL/backup size; see backend README operational limits and controls.
+Frontend filenames remain kebab-case and backend snake_case.
 
 - **Monorepo** (un solo repositorio para todo el sistema), no un repo por módulo. No lo exige ningún RF/RNF explícitamente — es una decisión del equipo para simplificar la coordinación entre los 4 integrantes y la transferencia final a ESSERI.
 - **Separación por capas en la raíz** (`frontend/`, `backend/`, `database/`, `infra/`) para cumplir RNF-09 (separación entre frontend, backend y base de datos).
