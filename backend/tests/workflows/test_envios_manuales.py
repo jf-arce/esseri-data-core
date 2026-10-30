@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from src.comunicaciones.models import Comunicacion, ReciboComunicacion
+from src.comunicaciones.models import Comunicacion, ComunicacionAdjunto, ReciboComunicacion
 from src.config import settings
 from src.database import get_db
 from src.familias_alumnos.models import FamiliaAlumno
@@ -148,6 +148,30 @@ def test_preparar_envios_es_idempotente_y_marca_sin_email(
     sin_email = next(envio for envio in envios if envio.familia_id == familia_c)
     assert sin_email.email == ""
     assert sin_email.estado == "sin_email"
+
+
+def test_preparar_envios_avisa_cuando_hay_adjuntos(
+    db_session, comunicacion, escenario_dos_familias
+):
+    familia = escenario_dos_familias["familia_a"]
+    alumno = escenario_dos_familias["alumno_a"]
+    _recibo(db_session, comunicacion, familia, [alumno])
+    db_session.add(
+        ComunicacionAdjunto(
+            comunicacion_id=comunicacion.id,
+            nombre="documento.pdf",
+            tipo_contenido="application/pdf",
+            tamanio=123,
+            checksum="a" * 64,
+            estado="limpio",
+        )
+    )
+    db_session.commit()
+
+    envio = manuales_service.preparar_envios(db_session, comunicacion, {familia: [str(alumno)]})[0]
+
+    assert "archivo adjunto" in envio.cuerpo
+    assert "Portal Familia" in envio.cuerpo
 
 
 def test_presentado_exige_referencia_y_no_se_marca_entregado(

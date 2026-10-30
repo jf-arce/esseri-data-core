@@ -21,10 +21,10 @@ import uuid
 from dataclasses import dataclass
 from datetime import timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from src.comunicaciones.models import Comunicacion, ReciboComunicacion
+from src.comunicaciones.models import Comunicacion, ComunicacionAdjunto, ReciboComunicacion
 from src.config import settings
 from src.exceptions import AppException
 from src.familias_alumnos.models import FamiliaAlumno
@@ -87,6 +87,22 @@ def preparar_envios(
     Las intenciones ya existentes conservan su snapshot (publicación idempotente).
     """
 
+    adjuntos = (
+        db.scalar(
+            select(func.count())
+            .select_from(ComunicacionAdjunto)
+            .where(ComunicacionAdjunto.comunicacion_id == comunicacion.id)
+        )
+        or 0
+    )
+    cuerpo = comunicacion.cuerpo
+    if adjuntos:
+        plural = "s" if adjuntos != 1 else ""
+        cuerpo = (
+            f"{cuerpo}\n\nEsta comunicación incluye {adjuntos} archivo{plural} adjunto{plural}. "
+            f"Podés descargar{'los' if adjuntos != 1 else 'lo'} desde el Portal Familia."
+        )
+
     envios: list[EnvioNotificacion] = []
     for familia_id in destinatarios:
         emails = sorted(
@@ -97,13 +113,13 @@ def preparar_envios(
             }
         )
         for email in emails or [""]:
-            envio = _crear_intento_si_falta(db, comunicacion, familia_id, email)
+            envio = _crear_intento_si_falta(db, comunicacion, familia_id, email, cuerpo)
             envios.append(envio)
     return envios
 
 
 def _crear_intento_si_falta(
-    db: Session, comunicacion: Comunicacion, familia_id: uuid.UUID, email: str
+    db: Session, comunicacion: Comunicacion, familia_id: uuid.UUID, email: str, cuerpo: str
 ) -> EnvioNotificacion:
     consulta = select(EnvioNotificacion).where(
         EnvioNotificacion.comunicacion_id == comunicacion.id,
@@ -119,7 +135,7 @@ def _crear_intento_si_falta(
         familia_id=familia_id,
         email=email,
         asunto=comunicacion.asunto,
-        cuerpo=comunicacion.cuerpo,
+        cuerpo=cuerpo,
         estado="sin_email" if not email else "pendiente",
         intentos=0,
         reintentos_ciclo=0,
