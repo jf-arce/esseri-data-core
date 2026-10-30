@@ -24,6 +24,7 @@ describe('PortalDocenteLayout', () => {
     expect(screen.getAllByRole('link', { name: 'Mis cursos' })).toHaveLength(2)
     expect(screen.getAllByRole('link', { name: 'Asistencia' })).toHaveLength(2)
     expect(screen.getAllByRole('link', { name: 'Alumnos' })).toHaveLength(2)
+    expect(screen.getAllByRole('link', { name: 'Comunicaciones' })).toHaveLength(2)
     expect(
       screen
         .getAllByRole('link', { name: 'Seguimiento' })

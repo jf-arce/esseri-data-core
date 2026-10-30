@@ -23,7 +23,11 @@ import { workflowsRoutes } from '@/modules/workflows/routes'
 import { auditoriaRoutes } from '@/modules/auditoria/routes'
 import { panelAdminRoutes } from '@/modules/panel-admin/routes'
 import { iaSugerenciasFamiliaRoutes, iaSugerenciasRoutes } from '@/modules/ia-sugerencias/routes'
-import { comunicacionesRoutes, comunicacionesFamiliaRoutes } from '@/modules/comunicaciones/routes'
+import {
+  comunicacionesRoutes,
+  comunicacionesFamiliaRoutes,
+  comunicacionesDocenteRoutes,
+} from '@/modules/comunicaciones/routes'
 
 const moduleRoutes = [
   ...authPrivateRoutes,
@@ -106,6 +110,7 @@ export function AppRouter() {
                       path: 'docente/seguimiento',
                       element: <PortalDocenteSeccionPage seccion="seguimiento" />,
                     },
+                    ...comunicacionesDocenteRoutes,
                   ],
                 },
               ],

@@ -14,6 +14,8 @@ const comunicacion = {
   clave: 'key1',
   asunto: 'Reunión',
   cuerpo: '<script>secreto</script>',
+  tipo: 'institucional',
+  emisor: 'Colegio ESSERI',
   estado: 'borrador',
   audiencia: { tipo: 'todos', ids: [] },
   destinatarios: 0,
@@ -109,4 +111,60 @@ it('family inbox shows individual unread status without management actions', asy
   )
   expect(await screen.findByText('No leída')).toBeInTheDocument()
   expect(screen.queryByRole('link', { name: 'Nueva comunicación' })).toBeNull()
+})
+
+it('teacher form only offers assigned courses and publishes through teacher endpoints', async () => {
+  api.mockImplementation(async (path) => {
+    if (path.includes('/docente/opciones'))
+      return {
+        responsables: [],
+        alumnos: [{ id: 'a1', nombre: 'Alumno Uno' }],
+        niveles: [],
+        divisiones: [{ id: 'd1', nombre: '4° B' }],
+        ciclos: ['2026'],
+      }
+    if (path.includes('/docente/vista-previa')) return { destinatarios: 1 }
+    if (path.includes('/docente/c1/publicar'))
+      return { ...comunicacion, tipo: 'curso', estado: 'publicada', destinatarios: 1 }
+    if (path === '/comunicaciones/docente') return { ...comunicacion, tipo: 'curso' }
+    return comunicacion
+  })
+  render(
+    <MemoryRouter>
+      <ComunicacionFormPage docente />
+    </MemoryRouter>,
+  )
+  await userEvent.type(screen.getByLabelText('Asunto'), 'Materiales')
+  await userEvent.type(screen.getByLabelText('Mensaje'), 'Traer una botella')
+  await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
+  expect(screen.queryByText('Todos los responsables habilitados')).toBeNull()
+  await userEvent.click(await screen.findByLabelText('4° B'))
+  await userEvent.click(screen.getByRole('button', { name: 'Vista previa' }))
+  expect(await screen.findByText('Comunicación de curso · 1 responsables')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Publicar' }))
+  expect(await screen.findByRole('heading', { name: 'Comunicación publicada' })).toBeInTheDocument()
+  expect(api.mock.calls.some(([path]) => path === '/comunicaciones/docente')).toBe(true)
+  expect(api.mock.calls.some(([path]) => path === '/comunicaciones/docente/c1/publicar')).toBe(true)
+})
+
+it('teacher history asks the teacher endpoint and hides management creation for family', async () => {
+  api.mockResolvedValue({
+    items: [{ ...comunicacion, tipo: 'curso', emisor: 'Laura Díaz' }],
+    total: 1,
+    pagina: 1,
+    total_paginas: 1,
+  })
+  render(
+    <MemoryRouter>
+      <ComunicacionesPage docente />
+    </MemoryRouter>,
+  )
+  expect(await screen.findByText('Reunión')).toBeInTheDocument()
+  expect(api.mock.calls.some(([path]) => String(path).startsWith('/comunicaciones/docente?'))).toBe(
+    true,
+  )
+  expect(screen.getByRole('link', { name: 'Nueva comunicación' })).toHaveAttribute(
+    'href',
+    '/docente/comunicaciones/nueva',
+  )
 })

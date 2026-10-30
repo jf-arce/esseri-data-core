@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 import { guardarBorrador } from '../services/guardar-borrador'
 import { obtenerComunicacion } from '../services/obtener-comunicacion'
 import { obtenerOpciones } from '../services/obtener-opciones'
@@ -30,13 +31,17 @@ const etiquetas = {
   responsables: 'Responsables seleccionados',
 }
 
-export function ComunicacionFormPage() {
+export function ComunicacionFormPage({ docente = false }: { docente?: boolean }) {
   const { id } = useParams()
+  const cicloStore = useCicloLectivoStore((s) => s.cicloLectivo)
+  const [ciclo, setCiclo] = useState(cicloStore)
   const [datos, setDatos] = useState<Borrador>(() => ({
     clave: crypto.randomUUID(),
     asunto: '',
     cuerpo: '',
-    audiencia: { tipo: 'todos', ids: [] },
+    audiencia: docente
+      ? { tipo: 'division', ids: [], ciclo_lectivo: cicloStore }
+      : { tipo: 'todos', ids: [] },
   }))
   const [persistido, setPersistido] = useState<string | undefined>(id)
   const guardado = useRef('')
@@ -51,7 +56,7 @@ export function ComunicacionFormPage() {
   const [revision, setRevision] = useState(0)
   useEffect(() => {
     const controller = new AbortController()
-    obtenerOpciones(controller.signal)
+    obtenerOpciones(controller.signal, docente, ciclo)
       .then((v) => {
         if (!controller.signal.aborted) setOpciones(v)
       })
@@ -59,7 +64,7 @@ export function ComunicacionFormPage() {
         if (!controller.signal.aborted) setError('No se pudieron cargar los destinatarios.')
       })
     if (id)
-      obtenerComunicacion(id, false, controller.signal)
+      obtenerComunicacion(id, false, controller.signal, docente)
         .then((c) => {
           if (controller.signal.aborted) return
           if (c.estado !== 'borrador' || !c.clave || !c.audiencia) {
@@ -73,6 +78,7 @@ export function ComunicacionFormPage() {
             audiencia: c.audiencia,
           }
           setDatos(borrador)
+          if (borrador.audiencia.ciclo_lectivo) setCiclo(borrador.audiencia.ciclo_lectivo)
           guardado.current = JSON.stringify(borrador)
           setCargando(false)
         })
@@ -80,10 +86,10 @@ export function ComunicacionFormPage() {
           if (!controller.signal.aborted) setError('No se pudo abrir el borrador.')
         })
     return () => controller.abort()
-  }, [id, revision])
+  }, [id, docente, ciclo, revision])
   async function guardar() {
     if (persistido && guardado.current === JSON.stringify(datos)) return persistido
-    const c = await guardarBorrador(datos, persistido)
+    const c = await guardarBorrador(datos, persistido, docente)
     setPersistido(c.id)
     guardado.current = JSON.stringify(datos)
     return c.id
@@ -96,8 +102,10 @@ export function ComunicacionFormPage() {
     try {
       if (!datos.asunto.trim() || !datos.cuerpo.trim())
         throw new Error('Completá el asunto y el mensaje.')
+      if (docente && (!datos.audiencia.ciclo_lectivo || datos.audiencia.ids.length === 0))
+        throw new Error('Elegí un curso o alumnos del ciclo lectivo.')
       if (accion === 'preview') {
-        const p = await previsualizarComunicacion(datos)
+        const p = await previsualizarComunicacion(datos, docente)
         if (p.destinatarios === 0)
           throw new Error('No hay responsables habilitados en esta selección.')
         setTotal(p.destinatarios)
@@ -105,7 +113,7 @@ export function ComunicacionFormPage() {
       } else {
         const guardadoId = await guardar()
         if (accion === 'publicar') {
-          setPublicada(await publicarComunicacion(guardadoId))
+          setPublicada(await publicarComunicacion(guardadoId, docente))
           setPaso(4)
         } else setMensaje('Borrador guardado')
       }
@@ -116,8 +124,19 @@ export function ComunicacionFormPage() {
     }
   }
   function audiencia(tipo: Audiencia['tipo']) {
-    setDatos({ ...datos, audiencia: { tipo, ids: [] } })
+    setDatos({
+      ...datos,
+      audiencia: {
+        tipo,
+        ids: [],
+        ciclo_lectivo: docente ? (datos.audiencia.ciclo_lectivo ?? ciclo) : undefined,
+      },
+    })
   }
+  const tipos: (keyof typeof etiquetas)[] = docente
+    ? ['division', 'alumnos']
+    : (Object.keys(etiquetas) as (keyof typeof etiquetas)[])
+  const base = docente ? '/docente/comunicaciones' : '/comunicaciones'
   const seleccion =
     datos.audiencia.tipo === 'nivel'
       ? opciones?.niveles
@@ -128,10 +147,10 @@ export function ComunicacionFormPage() {
           : opciones?.responsables
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-      <Link to="/comunicaciones" className="text-sm text-violeta underline">
+      <Link to={base} className="text-sm text-violeta underline">
         Volver a comunicaciones
       </Link>
-      <PageHeader titulo="Nueva comunicación" />
+      <PageHeader titulo={docente ? 'Nueva comunicación de curso' : 'Nueva comunicación'} />
       <ol
         aria-label="Pasos de publicación"
         className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4"
@@ -172,7 +191,9 @@ export function ComunicacionFormPage() {
         ) : paso === 1 ? (
           <>
             <p className="text-sm text-texto-2">
-              Comunicación institucional. El contenido se publica como texto, sin HTML.
+              {docente
+                ? 'Comunicación para tus cursos asignados. El contenido se publica como texto, sin HTML.'
+                : 'Comunicación institucional. El contenido se publica como texto, sin HTML.'}
             </p>
             <div className="space-y-2">
               <Label htmlFor="asunto">Asunto</Label>
@@ -198,30 +219,36 @@ export function ComunicacionFormPage() {
           </>
         ) : paso === 2 ? (
           <>
-            <h2 className="font-semibold">Seleccioná destinatarios</h2>
+            <h2 className="font-semibold">
+              {docente ? 'Seleccioná el curso o alumnos' : 'Seleccioná destinatarios'}
+            </h2>
             <RadioGroup
               value={datos.audiencia.tipo}
               onValueChange={(v) => audiencia(v as Audiencia['tipo'])}
               disabled={ocupado}
             >
-              {Object.entries(etiquetas).map(([tipo, etiqueta]) => (
+              {tipos.map((tipo) => (
                 <Label
                   key={tipo}
                   className="flex items-center gap-3 rounded-lg border border-borde p-3"
                 >
                   <RadioGroupItem value={tipo} />
-                  {etiqueta}
+                  {etiquetas[tipo]}
                 </Label>
               ))}
             </RadioGroup>
-            {['nivel', 'division'].includes(datos.audiencia.tipo) && (
+            {(docente || ['nivel', 'division'].includes(datos.audiencia.tipo)) && (
               <div className="space-y-2">
                 <Label>Ciclo lectivo</Label>
                 <Select
                   value={datos.audiencia.ciclo_lectivo ?? ''}
-                  onValueChange={(v) =>
-                    setDatos({ ...datos, audiencia: { ...datos.audiencia, ciclo_lectivo: v } })
-                  }
+                  onValueChange={(v) => {
+                    if (docente) setCiclo(v)
+                    setDatos({
+                      ...datos,
+                      audiencia: { ...datos.audiencia, ciclo_lectivo: v, ids: [] },
+                    })
+                  }}
                 >
                   <SelectTrigger aria-label="Ciclo lectivo">
                     <SelectValue placeholder="Seleccionar ciclo" />
@@ -267,7 +294,9 @@ export function ComunicacionFormPage() {
           </>
         ) : paso === 3 ? (
           <>
-            <p className="text-sm text-texto-2">Institucional · {total} responsables</p>
+            <p className="text-sm text-texto-2">
+              {docente ? 'Comunicación de curso' : 'Institucional'} · {total} responsables
+            </p>
             <h2 className="text-xl font-semibold break-words">{datos.asunto}</h2>
             <p className="text-sm whitespace-pre-wrap break-words">{datos.cuerpo}</p>
             <p className="text-sm text-texto-2">
@@ -282,7 +311,7 @@ export function ComunicacionFormPage() {
               Disponible en el portal para {publicada?.destinatarios} responsables.
             </p>
             <Button asChild>
-              <Link to={`/comunicaciones/${publicada?.id}`}>Ver comunicación</Link>
+              <Link to={`${base}/${publicada?.id}`}>Ver comunicación</Link>
             </Button>
           </>
         )}
@@ -306,7 +335,14 @@ export function ComunicacionFormPage() {
                 Siguiente
               </Button>
             ) : paso === 2 ? (
-              <Button disabled={ocupado || !opciones} onClick={() => void ejecutar('preview')}>
+              <Button
+                disabled={
+                  ocupado ||
+                  !opciones ||
+                  (docente && (!datos.audiencia.ciclo_lectivo || datos.audiencia.ids.length === 0))
+                }
+                onClick={() => void ejecutar('preview')}
+              >
                 Vista previa
               </Button>
             ) : (

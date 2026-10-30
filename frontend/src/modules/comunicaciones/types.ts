@@ -14,6 +14,8 @@ export interface Comunicacion {
   clave: string | null
   asunto: string
   cuerpo: string
+  tipo: 'institucional' | 'curso'
+  emisor: string | null
   estado: 'borrador' | 'publicada'
   audiencia: Audiencia | null
   autor_id: string

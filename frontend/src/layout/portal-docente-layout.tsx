@@ -3,6 +3,7 @@ import {
   BookOpenCheckIcon,
   CalendarIcon,
   GraduationCapIcon,
+  MailIcon,
   UserRoundIcon,
 } from 'lucide-react'
 import { Link, Outlet, useLocation } from 'react-router'
@@ -14,6 +15,12 @@ const navegacionDocente = [
   { id: 'cursos', href: '/docente/cursos', label: 'Mis cursos', icon: BookOpenCheckIcon },
   { id: 'asistencia', href: '/docente/asistencia', label: 'Asistencia', icon: CalendarIcon },
   { id: 'alumnos', href: '/docente/alumnos', label: 'Alumnos', icon: UserRoundIcon },
+  {
+    id: 'comunicaciones',
+    href: '/docente/comunicaciones',
+    label: 'Comunicaciones',
+    icon: MailIcon,
+  },
   {
     id: 'seguimiento',
     href: '/docente/seguimiento',
@@ -33,6 +40,7 @@ function esSeccionActiva(seccion: SeccionDocente, pathname: string, hash: string
   if (seccion === 'alumnos') {
     return pathname === '/docente/alumnos' || pathname.includes('/alumnos') || hash === '#alumnos'
   }
+  if (seccion === 'comunicaciones') return pathname.startsWith('/docente/comunicaciones')
   return (
     pathname === '/docente/seguimiento' ||
     pathname.includes('/seguimiento') ||

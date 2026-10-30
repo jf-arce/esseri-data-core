@@ -8,7 +8,13 @@ import { obtenerComunicacion } from '../services/obtener-comunicacion'
 import { registrarLectura } from '../services/registrar-lectura'
 import type { Comunicacion } from '../types'
 
-export function ComunicacionDetallePage({ familia = false }: { familia?: boolean }) {
+export function ComunicacionDetallePage({
+  familia = false,
+  docente = false,
+}: {
+  familia?: boolean
+  docente?: boolean
+}) {
   const { id } = useParams()
   const [datos, setDatos] = useState<Comunicacion | null>(null)
   const [error, setError] = useState('')
@@ -17,7 +23,7 @@ export function ComunicacionDetallePage({ familia = false }: { familia?: boolean
   useEffect(() => {
     const controller = new AbortController()
     if (id)
-      obtenerComunicacion(id, familia, controller.signal)
+      obtenerComunicacion(id, familia, controller.signal, docente)
         .then(async (data) => {
           if (controller.signal.aborted) return
           setDatos(data)
@@ -39,13 +45,15 @@ export function ComunicacionDetallePage({ familia = false }: { familia?: boolean
             setError('No se pudo abrir la comunicación o no tenés acceso.')
         })
     return () => controller.abort()
-  }, [id, familia, revision])
+  }, [id, familia, docente, revision])
+  const base = familia
+    ? '/familia/comunicaciones'
+    : docente
+      ? '/docente/comunicaciones'
+      : '/comunicaciones'
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-      <Link
-        to={familia ? '/familia/comunicaciones' : '/comunicaciones'}
-        className="text-sm text-violeta underline"
-      >
+      <Link to={base} className="text-sm text-violeta underline">
         Volver a comunicaciones
       </Link>
       {error ? (
@@ -61,9 +69,11 @@ export function ComunicacionDetallePage({ familia = false }: { familia?: boolean
         <Skeleton className="h-40 w-full" aria-label="Cargando comunicación" />
       ) : (
         <article className="space-y-6 rounded-panel bg-superficie p-5 shadow-card sm:p-8">
-          <Badge variant="neutro">Institucional</Badge>
+          <Badge variant="neutro">
+            {datos.tipo === 'curso' ? 'Comunicación de curso' : 'Institucional'}
+          </Badge>
           <h1 className="text-2xl font-semibold break-words text-texto">{datos.asunto}</h1>
-          <p className="text-sm text-texto-2">De: Colegio ESSERI</p>
+          <p className="text-sm text-texto-2">De: {datos.emisor ?? 'Colegio ESSERI'}</p>
           <p className="text-sm text-texto-2">
             Publicada:{' '}
             {datos.publicada_at
@@ -80,8 +90,8 @@ export function ComunicacionDetallePage({ familia = false }: { familia?: boolean
           )}
           {!familia && (
             <p className="text-sm text-texto-2">
-              Disponible para {datos.destinatarios} responsables. El email no está habilitado en
-              esta etapa.
+              {docente ? 'Comunicación de curso' : 'Disponible'} para {datos.destinatarios}{' '}
+              responsables. El email no está habilitado en esta etapa.
             </p>
           )}
         </article>

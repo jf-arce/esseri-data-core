@@ -72,3 +72,53 @@ test('administration publishes and family reads persisted communication', async 
     await familia.close()
   }
 })
+
+test('teacher publishes to an assigned course and family reads it', async ({
+  browser,
+  page,
+}, testInfo) => {
+  test.skip(
+    process.env.E2E_COMUNICACIONES_DOCENTE_REAL !== 'true',
+    'Requires an explicitly selected isolated real backend and teacher account.',
+  )
+  const api = process.env.E2E_API_URL!
+  const password = process.env.E2E_COMUNICACIONES_PASSWORD!
+  expect(api).toBeTruthy()
+  const login = await page.request.post(`${api}/auth/login`, {
+    data: { email: process.env.E2E_COMUNICACIONES_DOCENTE, password },
+  })
+  expect(login.status()).toBe(200)
+  const asunto = `Comunicación de curso E2E ${testInfo.project.name} ${Date.now()}`
+  await page.goto('/docente/comunicaciones/nueva')
+  await page.getByLabel('Asunto', { exact: true }).fill(asunto)
+  await page.getByLabel('Mensaje', { exact: true }).fill('Materiales para la próxima clase.')
+  await page.getByRole('button', { name: 'Siguiente' }).click()
+  await expect(page.getByText('Todos los responsables habilitados')).toHaveCount(0)
+  await page.getByRole('combobox', { name: 'Ciclo lectivo' }).click()
+  await page.getByRole('option', { name: '2027' }).click()
+  await page.getByRole('checkbox', { name: '4° B' }).click()
+  await page.getByRole('button', { name: 'Vista previa', exact: true }).click()
+  await expect(page.getByText(/Comunicación de curso · \d+ responsables/)).toBeVisible()
+  const publicacion = page.waitForResponse(
+    (r) => r.url().includes('/comunicaciones/docente/') && r.url().endsWith('/publicar'),
+  )
+  await page.getByRole('button', { name: 'Publicar', exact: true }).click()
+  expect((await publicacion).status()).toBe(200)
+  await expect(page.getByRole('heading', { name: 'Comunicación publicada' })).toBeVisible()
+
+  const familia = await browser.newContext({ ...testInfo.project.use, storageState: undefined })
+  try {
+    const familiar = await familia.newPage()
+    const sesion = await familia.request.post(`${api}/auth/login`, {
+      data: { email: process.env.E2E_COMUNICACIONES_FAMILIA, password },
+    })
+    expect(sesion.status()).toBe(200)
+    await familiar.goto(`${testInfo.project.use.baseURL}/familia/comunicaciones`)
+    await familiar.getByRole('link', { name: new RegExp(asunto) }).click()
+    await expect(familiar.getByRole('heading', { name: asunto })).toBeVisible()
+    await expect(familiar.getByText('De: Laura Díaz')).toBeVisible()
+    await expect(familiar.getByText('Lectura registrada para tu cuenta.')).toBeVisible()
+  } finally {
+    await familia.close()
+  }
+})
