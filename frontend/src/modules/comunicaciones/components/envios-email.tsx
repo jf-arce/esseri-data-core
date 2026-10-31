@@ -84,8 +84,8 @@ export function EnviosEmail({
         Envíos por email
       </h2>
       <p className="text-sm text-texto-2">
-        Enviado indica que el servicio de correo aceptó el mensaje; no confirma que haya llegado a la
-        bandeja del destinatario.
+        Enviado indica que el servicio de correo aceptó el mensaje; no confirma que haya llegado a
+        la bandeja del destinatario.
       </p>
       {errorReintento && (
         <p role="alert">No se pudo reintentar el envío. Actualizá el historial.</p>
