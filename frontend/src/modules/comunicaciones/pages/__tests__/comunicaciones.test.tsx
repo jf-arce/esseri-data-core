@@ -61,6 +61,32 @@ it('saves a basic draft without publishing', async () => {
   expect(api.mock.calls.some(([path]) => path.includes('/publicar'))).toBe(false)
 })
 
+it.each([
+  ['Administrativa', 'administrativa'],
+  ['Otro', 'otro'],
+])('persists the selected %s type and retains it between steps', async (label, tipo) => {
+  render(
+    <MemoryRouter>
+      <ComunicacionFormPage />
+    </MemoryRouter>,
+  )
+  expect(screen.queryByRole('radio', { name: 'Curso' })).not.toBeInTheDocument()
+  await userEvent.click(screen.getByRole('radio', { name: label }))
+  await userEvent.type(screen.getByLabelText('Asunto'), 'Aviso')
+  await userEvent.type(screen.getByLabelText('Mensaje'), 'Contenido')
+  await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Anterior' }))
+  expect(screen.getByRole('radio', { name: label })).toBeChecked()
+  await userEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }))
+  await screen.findByText('Borrador guardado')
+  expect(api).toHaveBeenCalledWith(
+    '/comunicaciones',
+    expect.objectContaining({
+      body: expect.stringContaining(`"tipo":"${tipo}"`),
+    }),
+  )
+})
+
 it('previews recipients and publishes once with a persisted draft ID', async () => {
   render(
     <MemoryRouter>
@@ -76,6 +102,64 @@ it('previews recipients and publishes once with a persisted draft ID', async () 
   await userEvent.click(screen.getByRole('button', { name: 'Publicar' }))
   expect(await screen.findByRole('heading', { name: 'Comunicación publicada' })).toBeInTheDocument()
   expect(api.mock.calls.filter(([path]) => path === '/comunicaciones/c1/publicar')).toHaveLength(1)
+})
+
+it.each([
+  ['Alumnos seleccionados', 'Buscar alumnos', 'alumnos'],
+  ['Responsables seleccionados', 'Buscar responsables', 'responsables'],
+])('expands %s and preserves selections when searching', async (label, searchLabel, tipo) => {
+  const original = api.getMockImplementation()!
+  api.mockImplementation(async (path, options) =>
+    path.includes('/opciones')
+      ? {
+          responsables: [
+            { id: 'r1', nombre: 'Ana Martín' },
+            { id: 'r2', nombre: 'Lucía Pérez' },
+          ],
+          alumnos: [
+            { id: 'a1', nombre: 'Ana Martín' },
+            { id: 'a2', nombre: 'Lucía Pérez' },
+          ],
+          niveles: [{ id: 'n1', nombre: 'Primaria' }],
+          divisiones: [],
+          ciclos: ['2026'],
+        }
+      : original(path, options),
+  )
+  render(
+    <MemoryRouter>
+      <ComunicacionFormPage />
+    </MemoryRouter>,
+  )
+  await userEvent.type(screen.getByLabelText('Asunto'), 'Aviso')
+  await userEvent.type(screen.getByLabelText('Mensaje'), 'Contenido')
+  await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
+  expect(screen.queryByRole('region', { name: label })).not.toBeInTheDocument()
+  await userEvent.click(screen.getByRole('radio', { name: label }))
+  expect(screen.getByRole('region', { name: label })).toBeInTheDocument()
+  await userEvent.click(await screen.findByRole('checkbox', { name: 'Ana Martín' }))
+  await userEvent.type(screen.getByRole('searchbox', { name: searchLabel }), 'perez')
+  expect(screen.queryByRole('checkbox', { name: 'Ana Martín' })).not.toBeInTheDocument()
+  expect(screen.getByRole('checkbox', { name: 'Lucía Pérez' })).toBeInTheDocument()
+  expect(screen.getByText('1 seleccionado')).toBeInTheDocument()
+  await userEvent.clear(screen.getByRole('searchbox', { name: searchLabel }))
+  expect(screen.getByRole('checkbox', { name: 'Ana Martín' })).toBeChecked()
+  await userEvent.type(screen.getByRole('searchbox', { name: searchLabel }), 'inexistente')
+  expect(screen.getByText('No hay coincidencias para esta búsqueda.')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }))
+  await screen.findByText('Borrador guardado')
+  const saved = api.mock.calls.find(([path]) => path === '/comunicaciones')!
+  expect(JSON.parse(saved[1]!.body as string).audiencia).toMatchObject({
+    tipo,
+    ids: [tipo === 'alumnos' ? 'a1' : 'r1'],
+  })
+  await userEvent.click(screen.getByRole('radio', { name: 'Nivel educativo' }))
+  expect(screen.queryByRole('region', { name: label })).not.toBeInTheDocument()
+  expect(screen.getByRole('region', { name: 'Nivel educativo' })).toBeInTheDocument()
+  expect(screen.getByRole('combobox', { name: 'Ciclo lectivo' })).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('radio', { name: 'Todos los responsables habilitados' }))
+  expect(screen.queryByRole('region', { name: 'Nivel educativo' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('searchbox')).not.toBeInTheDocument()
 })
 
 it('records reading only after the detail is available and renders content as text', async () => {
