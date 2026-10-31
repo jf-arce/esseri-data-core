@@ -1,10 +1,11 @@
 import hashlib
 import json
+import unicodedata
 import uuid
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import func, literal, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -377,6 +378,58 @@ def listar(
         pagina=pagina,
         total_paginas=(total + 9) // 10,
     )
+
+
+def listar_destinatarios(
+    db: Session, comunicacion_id: uuid.UUID, pagina: int, buscar: str, vista: str
+):
+    """Paginated staff projection; the router must authorize communication access first."""
+    from src.workflows.models import EnvioNotificacion
+
+    nombre = Persona.nombre + " " + Persona.apellido
+    if vista == "destinatarios":
+        origen = ReciboComunicacion
+        consulta = select(
+            origen.id,
+            nombre.label("nombre"),
+            literal(None).label("email"),
+            literal(None).label("estado"),
+        )
+    else:
+        origen = EnvioNotificacion
+        consulta = select(origen.id, nombre.label("nombre"), origen.email, origen.estado)
+        if vista == "enviados":
+            consulta = consulta.where(origen.estado == "presentado")
+    consulta = (
+        consulta.select_from(origen)
+        .join(Familia, Familia.id == origen.familia_id)
+        .join(Persona, Persona.id == Familia.persona_id)
+        .where(origen.comunicacion_id == comunicacion_id)
+    )
+    if buscar.strip():
+        nombre_busqueda = nombre
+        for letra, base in zip("áéíóúüñÁÉÍÓÚÜÑ", "aeiouunAEIOUUN", strict=True):
+            nombre_busqueda = func.replace(nombre_busqueda, letra, base)
+        texto = "".join(
+            letra
+            for letra in unicodedata.normalize("NFD", buscar.strip().casefold())
+            if not unicodedata.combining(letra)
+        )
+        criterio = nombre_busqueda.ilike(f"%{texto}%")
+        if vista != "destinatarios":
+            criterio = or_(criterio, EnvioNotificacion.email.ilike(f"%{buscar.strip()}%"))
+        consulta = consulta.where(criterio)
+    total = db.scalar(select(func.count()).select_from(consulta.subquery())) or 0
+    filas = (
+        db.execute(
+            consulta.order_by(Persona.apellido, Persona.nombre, origen.id)
+            .offset((pagina - 1) * 10)
+            .limit(10)
+        )
+        .mappings()
+        .all()
+    )
+    return {"items": filas, "total": total, "pagina": pagina, "total_paginas": (total + 9) // 10}
 
 
 def opciones(db: Session):

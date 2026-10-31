@@ -26,6 +26,22 @@ records that responsible's first read; a failed read request offers retry withou
 message. Plain-text content is rendered as text, never HTML. Search, unread filtering and
 server pagination use the real API.
 
+### Communications — stage 3 interface
+
+Management can select Institutional, Administrative or Other content types, then select the
+audience independently. Audience cards expand inline; student/responsible searches preserve
+checked entries. Attaching the first file saves the valid draft automatically without publishing.
+
+Verified PNG/JPG/PDF files open through one **Ver adjunto** / **Ver adjuntos** action. The
+authenticated viewer lets users switch files and download from inside the dialog; downloads
+are not separate list actions. PDF display depends on browser support, with download as fallback.
+Temporary blob URLs are revoked when switching files, closing or unmounting.
+
+Staff recipient and sent counts open searchable dialogs with 10 rows per page. Search covers
+the full server-side list; dialog height follows the current row count, capped for small screens.
+The email attachment notice freezes filenames at publication and links to the authenticated portal,
+never to public files or email binaries. Already-created email snapshots are not rewritten.
+
 Focused component tests:
 
 ```bash

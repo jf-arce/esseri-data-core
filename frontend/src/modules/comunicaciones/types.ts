@@ -63,6 +63,13 @@ export interface Listado {
   pagina: number
   total_paginas: number
 }
+export type VistaDestinatarios = 'destinatarios' | 'envios' | 'enviados'
+export interface ListadoDestinatarios {
+  items: { id: string; nombre: string; email: string | null; estado: string | null }[]
+  total: number
+  pagina: number
+  total_paginas: number
+}
 export interface Opcion {
   id: string
   nombre: string

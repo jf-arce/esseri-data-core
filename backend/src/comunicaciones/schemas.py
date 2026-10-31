@@ -58,3 +58,17 @@ class Listado(BaseModel):
     total: int
     pagina: int
     total_paginas: int
+
+
+class DestinatarioRead(BaseModel):
+    id: uuid.UUID
+    nombre: str
+    email: str | None = None
+    estado: str | None = None
+
+
+class ListadoDestinatarios(BaseModel):
+    items: list[DestinatarioRead]
+    total: int
+    pagina: int
+    total_paginas: int

@@ -555,7 +555,13 @@ Administrative endpoints:
   publication, individual receipts and audit together. No recipients returns 422 with no changes.
   Repeated publication returns the existing publication; published content cannot be edited.
 - `GET /comunicaciones` and `GET /comunicaciones/{id}`: authorized listing/detail; another
-  author's drafts are not visible. Lists accept `pagina` (20 per page) and `buscar`.
+  author's drafts are not visible. Lists accept `pagina` (10 per page) and `buscar`.
+- `GET /comunicaciones/{id}/destinatarios` and the corresponding
+  `/comunicaciones/docente/{id}/destinatarios`: staff-only searchable lists, 10 rows per page.
+  `vista=destinatarios` lists frozen responsible receipts; `envios` lists email intentions;
+  `enviados` includes only provider-accepted (`presentado`) intentions, not confirmed delivery.
+  They accept `buscar` and `pagina`, enforce the existing communication/author scope, and
+  return `Cache-Control: private, no-store`. Families cannot enumerate these lists.
 
 Teacher endpoints require the active Docente role and only accept `division` or `alumnos`
 audiences with an explicit four-digit cycle. They reuse the same publication, receipt and

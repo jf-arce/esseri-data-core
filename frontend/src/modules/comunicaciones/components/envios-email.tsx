@@ -6,6 +6,7 @@ import { formatearFechaHora } from '@/lib/fechas'
 import { listarEnvios, reintentarEnvio } from '../services/listar-envios'
 import type { Envio } from '../types'
 import { estadoEnvio } from '../utils'
+import { DestinatariosDialog } from './destinatarios-dialog'
 
 const ESTADOS_EXITOSOS = ['enviado', 'aceptado', 'presentado']
 const ESTADOS_PENDIENTES = ['pendiente', 'encolado', 'en_cola', 'programado', 'procesando']
@@ -66,8 +67,6 @@ export function EnviosEmail({
     envios === null
       ? ''
       : [
-          `${envios.length} destinatario${envios.length === 1 ? '' : 's'}`,
-          `${exitosos.length} enviado${exitosos.length === 1 ? '' : 's'}`,
           fallidos.length ? `${fallidos.length} fallido${fallidos.length === 1 ? '' : 's'}` : null,
           inciertos.length
             ? `${inciertos.length} incierto${inciertos.length === 1 ? '' : 's'}`
@@ -110,7 +109,20 @@ export function EnviosEmail({
       ) : (
         <>
           <p role="status" className="text-sm font-medium text-texto-1">
-            {resumen}
+            <DestinatariosDialog
+              comunicacionId={comunicacionId}
+              docente={docente}
+              vista="envios"
+              etiqueta={`${envios.length} destinatario${envios.length === 1 ? '' : 's'}`}
+            />
+            {' · '}
+            <DestinatariosDialog
+              comunicacionId={comunicacionId}
+              docente={docente}
+              vista="enviados"
+              etiqueta={`${exitosos.length} enviado${exitosos.length === 1 ? '' : 's'}`}
+            />
+            {resumen && ` · ${resumen}`}
           </p>
           {conProblema.length === 0 ? (
             <p className="text-sm text-exito">Todos los envíos fueron aceptados.</p>

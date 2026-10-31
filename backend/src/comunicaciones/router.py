@@ -1,5 +1,5 @@
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
@@ -14,7 +14,12 @@ from src.auth.constants import (
 from src.auth.dependencies import DbSession, RolActivo, requiere_permiso
 from src.auth.models import Usuario
 from src.comunicaciones import service
-from src.comunicaciones.schemas import BorradorInput, ComunicacionRead, Listado
+from src.comunicaciones.schemas import (
+    BorradorInput,
+    ComunicacionRead,
+    Listado,
+    ListadoDestinatarios,
+)
 
 router = APIRouter(prefix="/comunicaciones", tags=["Comunicaciones"])
 Crear = Annotated[Usuario, Depends(requiere_permiso(PERMISO_COMUNICACIONES_CREAR))]
@@ -202,6 +207,40 @@ def envios_docente(id: uuid.UUID, db: DbSession, usuario: LeerDocente, rol: RolA
     solo_docente(rol)
     service.obtener(db, id, usuario, tipo="curso")
     return historial(db, id)
+
+
+@router.get("/docente/{id}/destinatarios")
+def destinatarios_docente(
+    id: uuid.UUID,
+    db: DbSession,
+    usuario: LeerDocente,
+    rol: RolActivo,
+    response: Response,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    buscar: Annotated[str, Query(max_length=200)] = "",
+    vista: Literal["destinatarios", "envios", "enviados"] = "destinatarios",
+) -> ListadoDestinatarios:
+    solo_docente(rol)
+    service.obtener(db, id, usuario, tipo="curso")
+    response.headers["Cache-Control"] = "private, no-store"
+    return service.listar_destinatarios(db, id, pagina, buscar, vista)
+
+
+@router.get("/{id}/destinatarios")
+def destinatarios(
+    id: uuid.UUID,
+    db: DbSession,
+    usuario: Leer,
+    rol: RolActivo,
+    response: Response,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    buscar: Annotated[str, Query(max_length=200)] = "",
+    vista: Literal["destinatarios", "envios", "enviados"] = "destinatarios",
+) -> ListadoDestinatarios:
+    gestion(rol)
+    service.obtener(db, id, usuario)
+    response.headers["Cache-Control"] = "private, no-store"
+    return service.listar_destinatarios(db, id, pagina, buscar, vista)
 
 
 @router.get("/{id}/envios")

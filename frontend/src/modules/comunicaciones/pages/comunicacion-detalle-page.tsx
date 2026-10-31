@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AdjuntosComunicacion } from '../components/adjuntos-comunicacion'
 import { EnviosEmail } from '../components/envios-email'
+import { DestinatariosDialog } from '../components/destinatarios-dialog'
 import { obtenerComunicacion } from '../services/obtener-comunicacion'
 import { registrarLectura } from '../services/registrar-lectura'
 import type { Adjunto, Comunicacion } from '../types'
@@ -120,15 +121,13 @@ export function ComunicacionDetallePage({
             </p>
           )}
           {!familia && (
-            <p className="text-sm text-texto-2">
-              {docente ? 'Comunicación de curso' : 'Disponible'} para {datos.destinatarios}{' '}
-              responsables.
-              {canal === 'email'
-                ? ' Solo email: no aparece en la bandeja del portal familiar.'
-                : canal === 'ambos'
-                  ? ' Portal y email: el email queda en cola y su resultado puede ser incierto.'
-                  : ' Sin envío de email.'}
-            </p>
+            <div className="text-sm text-texto-2">
+              <DestinatariosDialog
+                comunicacionId={datos.id}
+                docente={docente}
+                etiqueta={`${datos.destinatarios} destinatario${datos.destinatarios === 1 ? '' : 's'}`}
+              />
+            </div>
           )}
           <AdjuntosComunicacion
             comunicacionId={datos.id}
