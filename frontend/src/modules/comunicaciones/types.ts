@@ -47,6 +47,7 @@ export interface Comunicacion {
   estado: 'borrador' | 'publicada'
   audiencia: Audiencia | null
   autor_id: string
+  autor_nombre?: string | null
   created_at: string
   publicada_at: string | null
   destinatarios: number

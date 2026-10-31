@@ -130,6 +130,18 @@ def _emisor(db: Session, c: Comunicacion) -> str:
     return f"{fila[0]} {fila[1]}" if fila else "Docente"
 
 
+def _autor_nombre(db: Session, c: Comunicacion) -> str:
+    fila = db.execute(
+        select(Persona.nombre, Persona.apellido)
+        .join(Usuario, Usuario.persona_id == Persona.id)
+        .where(Usuario.id == c.autor_id)
+    ).first()
+    if fila is not None:
+        return f"{fila[0]} {fila[1]}"
+    email = db.scalar(select(Usuario.email).where(Usuario.id == c.autor_id))
+    return email or "—"
+
+
 def respuesta(db: Session, c: Comunicacion, *, recibo=None) -> ComunicacionRead:
     from src.comunicaciones.adjuntos_service import listar_metadata
 
@@ -144,6 +156,7 @@ def respuesta(db: Session, c: Comunicacion, *, recibo=None) -> ComunicacionRead:
         cuerpo=c.cuerpo,
         tipo=c.tipo,
         emisor=_emisor(db, c),
+        autor_nombre=_autor_nombre(db, c),
         estado=c.estado,
         autor_id=c.autor_id,
         created_at=c.created_at,
@@ -308,6 +321,7 @@ def listar(
     *,
     tipo: str | None = None,
     autor_id: uuid.UUID | None = None,
+    estado: str | None = None,
 ):
     consulta = select(Comunicacion)
     recibos = {}
@@ -334,6 +348,8 @@ def listar(
             )
         if autor_id is not None:
             consulta = consulta.where(Comunicacion.autor_id == autor_id)
+    if estado is not None:
+        consulta = consulta.where(Comunicacion.estado == estado)
     if buscar:
         consulta = consulta.where(Comunicacion.asunto.ilike(f"%{buscar}%"))
     total = db.scalar(select(func.count()).select_from(consulta.subquery()))

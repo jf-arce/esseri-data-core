@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -18,9 +19,29 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { formatearDiaDeInstante } from '@/lib/fechas'
 import { listarComunicaciones } from '../services/listar-comunicaciones'
-import type { Listado } from '../types'
+import type { Comunicacion, Listado } from '../types'
 import { ETIQUETAS_CANAL } from '../utils'
+
+type FiltroEstado = 'todas' | 'publicada' | 'borrador'
+
+function etiquetaAudiencia(c: Comunicacion): string {
+  switch (c.audiencia?.tipo) {
+    case 'todos':
+      return 'Todo el colegio'
+    case 'nivel':
+      return 'Nivel'
+    case 'division':
+      return 'División'
+    case 'alumnos':
+      return 'Alumnos'
+    case 'responsables':
+      return 'Responsables'
+    default:
+      return '—'
+  }
+}
 
 export function ComunicacionesPage({
   familia = false,
@@ -33,11 +54,13 @@ export function ComunicacionesPage({
   const [buscar, setBuscar] = useState('')
   const [pagina, setPagina] = useState(1)
   const [noLeidas, setNoLeidas] = useState(false)
+  const [filtro, setFiltro] = useState<FiltroEstado>('todas')
   const [error, setError] = useState(false)
   const [revision, setRevision] = useState(0)
   useEffect(() => {
     const controller = new AbortController()
-    listarComunicaciones(familia, pagina, buscar, noLeidas, controller.signal, docente)
+    const estado = filtro === 'todas' ? undefined : filtro
+    listarComunicaciones(familia, pagina, buscar, noLeidas, controller.signal, docente, estado)
       .then((data) => {
         if (!controller.signal.aborted) {
           setDatos(data)
@@ -48,7 +71,7 @@ export function ComunicacionesPage({
         if (!controller.signal.aborted) setError(true)
       })
     return () => controller.abort()
-  }, [familia, docente, pagina, buscar, noLeidas, revision])
+  }, [familia, docente, pagina, buscar, noLeidas, filtro, revision])
   const base = familia
     ? '/familia/comunicaciones'
     : docente
@@ -71,8 +94,23 @@ export function ComunicacionesPage({
           ? 'Avisos institucionales y de curso para los responsables de tus alumnos a cargo.'
           : docente
             ? 'Comunicados para tus cursos asignados y borradores propios.'
-            : 'Publicaciones institucionales y borradores propios.'}
+            : 'Creá y gestioná las comunicaciones del colegio.'}
       </p>
+      {!familia && (
+        <Tabs
+          value={filtro}
+          onValueChange={(valor) => {
+            setFiltro(valor as FiltroEstado)
+            setPagina(1)
+          }}
+        >
+          <TabsList>
+            <TabsTrigger value="todas">Todas</TabsTrigger>
+            <TabsTrigger value="publicada">Publicadas</TabsTrigger>
+            <TabsTrigger value="borrador">Borradores</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
       <div className="flex flex-wrap items-center gap-4">
         <div className="relative min-w-0 flex-1">
           <SearchIcon aria-hidden className="absolute top-2.5 left-3 size-4 text-texto-3" />
@@ -137,13 +175,16 @@ export function ComunicacionesPage({
         </ul>
       ) : (
         <div className="overflow-x-auto rounded-panel bg-superficie shadow-card">
-          <Table>
+          <Table minWidth="min-w-[1080px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Asunto</TableHead>
-                <TableHead>Estado</TableHead>
+                <TableHead>Tipo</TableHead>
                 <TableHead>Canal</TableHead>
-                <TableHead>Responsables</TableHead>
+                <TableHead>Destinatarios</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Autor</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -157,18 +198,27 @@ export function ComunicacionesPage({
                       {c.asunto}
                     </Link>
                   </TableCell>
-                  <TableCell>
-                    <Badge variant={c.estado === 'publicada' ? 'exito' : 'neutro'}>
-                      {c.estado === 'publicada' ? 'Publicada' : 'Borrador'}
-                    </Badge>
-                  </TableCell>
+                  <TableCell>{c.tipo === 'curso' ? 'Curso' : 'Institucional'}</TableCell>
                   <TableCell>
                     <Badge variant={(c.canal ?? 'portal') === 'portal' ? 'neutro' : 'info'}>
                       {ETIQUETAS_CANAL[c.canal ?? 'portal']}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {c.estado === 'publicada' ? c.destinatarios : 'Por confirmar'}
+                    {c.estado === 'borrador'
+                      ? 'Por confirmar'
+                      : `${etiquetaAudiencia(c)} · ${c.destinatarios}`}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={c.estado === 'publicada' ? 'exito' : 'neutro'}>
+                      {c.estado === 'publicada' ? 'Publicada' : 'Borrador'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="tabular-nums">
+                    {formatearDiaDeInstante(c.publicada_at ?? c.created_at)}
+                  </TableCell>
+                  <TableCell className="text-texto-2">
+                    {c.autor_nombre ?? c.emisor ?? '—'}
                   </TableCell>
                 </TableRow>
               ))}
@@ -177,14 +227,19 @@ export function ComunicacionesPage({
         </div>
       )}
       {datos && !error && (
-        <PaginadorServidor
-          pagina={pagina}
-          tamanioPagina={20}
-          total={datos.total}
-          totalPaginas={datos.total_paginas}
-          onCambiarPagina={setPagina}
-          etiqueta="comunicaciones"
-        />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-texto-2">
+            Mostrando {datos.items.length} de {datos.total}
+          </p>
+          <PaginadorServidor
+            pagina={pagina}
+            tamanioPagina={20}
+            total={datos.total}
+            totalPaginas={datos.total_paginas}
+            onCambiarPagina={setPagina}
+            etiqueta="comunicaciones"
+          />
+        </div>
       )}
     </section>
   )

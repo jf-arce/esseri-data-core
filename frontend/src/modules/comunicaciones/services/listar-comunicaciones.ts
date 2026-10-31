@@ -7,6 +7,7 @@ export function listarComunicaciones(
   noLeidas: boolean,
   signal: AbortSignal,
   docente = false,
+  estado?: 'publicada' | 'borrador',
 ) {
   const prefijo = docente
     ? '/comunicaciones/docente'
@@ -17,6 +18,7 @@ export function listarComunicaciones(
     pagina: String(pagina),
     buscar,
     ...(familia ? { no_leidas: String(noLeidas) } : {}),
+    ...(!familia && estado ? { estado } : {}),
   })
   return apiClient<Listado>(`${prefijo}?${query}`, { signal })
 }

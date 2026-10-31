@@ -100,9 +100,12 @@ def listado_docente(
     rol: RolActivo,
     pagina: Annotated[int, Query(ge=1)] = 1,
     buscar: Annotated[str, Query(max_length=200)] = "",
+    estado: Annotated[str | None, Query(pattern="^(publicada|borrador)$")] = None,
 ) -> Listado:
     solo_docente(rol)
-    return service.listar(db, usuario, pagina, buscar, False, tipo="curso", autor_id=usuario.id)
+    return service.listar(
+        db, usuario, pagina, buscar, False, tipo="curso", autor_id=usuario.id, estado=estado
+    )
 
 
 @router.post("/docente", status_code=201)
@@ -160,9 +163,10 @@ def listado(
     rol: RolActivo,
     pagina: Annotated[int, Query(ge=1)] = 1,
     buscar: Annotated[str, Query(max_length=200)] = "",
+    estado: Annotated[str | None, Query(pattern="^(publicada|borrador)$")] = None,
 ) -> Listado:
     gestion(rol)
-    return service.listar(db, usuario, pagina, buscar, False)
+    return service.listar(db, usuario, pagina, buscar, False, estado=estado)
 
 
 @router.post("", status_code=201)
