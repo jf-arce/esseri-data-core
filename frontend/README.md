@@ -26,6 +26,22 @@ records that responsible's first read; a failed read request offers retry withou
 message. Plain-text content is rendered as text, never HTML. Search, unread filtering and
 server pagination use the real API.
 
+### Communications — stage 3 interface
+
+Management can select Institutional, Administrative or Other content types, then select the
+audience independently. Audience cards expand inline; student/responsible searches preserve
+checked entries. Attaching the first file saves the valid draft automatically without publishing.
+
+Verified PNG/JPG/PDF files open through one **Ver adjunto** / **Ver adjuntos** action. The
+authenticated viewer lets users switch files and download from inside the dialog; downloads
+are not separate list actions. PDF display depends on browser support, with download as fallback.
+Temporary blob URLs are revoked when switching files, closing or unmounting.
+
+The email summary's recipient and sent counts open searchable dialogs with 10 rows per page. Search covers
+the full server-side list; dialog height follows the current row count, capped for small screens.
+The email attachment notice freezes filenames at publication and links to the authenticated portal,
+never to public files or email binaries. Already-created email snapshots are not rewritten.
+
 Focused component tests:
 
 ```bash
@@ -177,6 +193,38 @@ fallas conocidas quedan anotadas en `FALLAS_CONOCIDAS` con su motivo. WebKit no 
 detalle propio de Safari en iOS solo se ve en un dispositivo.
 
 Vitest excluye `e2e/`: esos specs corren solo con Playwright.
+
+### Comunicaciones etapa 3 — prueba real de navegador
+
+`e2e/comunicaciones-etapa-3.spec.ts` prueba canales, adjuntos privados con ClamAV real y
+autorización sin mocks, contra un backend/PostgreSQL aislados. No usa `auth.setup.ts` ni el seed
+de demo. La configuración dedicada es `playwright.comunicaciones.config.ts` (Chromium de
+escritorio y Pixel 7) y apunta por defecto a `http://localhost:5179`; el backend se indica con
+`E2E_API_URL` (por defecto `http://localhost:8019`).
+
+1. Cargar las cuentas sintéticas en la base aislada `communications_stage3_e2e` (desde
+   `backend/`, con el intérprete del proyecto). El seed es idempotente, exige una contraseña
+   explícita y nunca la imprime:
+
+   ```bash
+   DATABASE_URL=postgresql+psycopg://communications:communications-test-only@127.0.0.1:54389/communications_stage3_e2e \
+   JWT_SECRET=stage3-test-only STAGE3_E2E_PASSWORD=<synthetic-password> \
+   python tests/comunicaciones/seed_e2e.py
+   ```
+
+2. Correr el spec con esa misma contraseña (sin ella, los tests se saltean con un motivo
+   explícito):
+
+   ```bash
+   E2E_API_URL=http://localhost:8019 STAGE3_E2E_PASSWORD=<synthetic-password> \
+   npx playwright test --config=playwright.comunicaciones.config.ts
+   ```
+
+Cuentas/escenario que imprime el seed: `stage3.admin@esseri.test`,
+`stage3.docente@esseri.test` (Laura Díaz), `stage3.familia@esseri.test`,
+`stage3.otra-familia@esseri.test`; división `4° B`, ciclo `2027`. El backend debe tener
+`COMUNICACIONES_ADJUNTOS_HABILITADOS=true` y ClamAV real configurado: si el escáner no responde,
+la subida queda en cuarentena y el test falla a propósito.
 
 ## Estructura del proyecto
 

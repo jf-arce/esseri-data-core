@@ -67,6 +67,100 @@ def snapshot(db):
     }
 
 
+@pytest.mark.parametrize("tipo", ["administrativa", "otro"])
+def test_nuevos_tipos_se_guardan_editan_publican_y_leen(client, escenario, tipo):
+    ids, entrar = escenario
+    payload = datos(ids, tipo=tipo)
+    response = client.post("/comunicaciones", json=payload)
+    assert response.status_code == 201, response.text
+    c = response.json()
+    assert c["tipo"] == tipo
+    assert client.post("/comunicaciones", json=payload).json()["id"] == c["id"]
+    assert c["id"] in [i["id"] for i in client.get("/comunicaciones").json()["items"]]
+    edited = client.put(f"/comunicaciones/{c['id']}", json={**payload, "asunto": "Actualizado"})
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["tipo"] == tipo
+    published = client.post(f"/comunicaciones/{c['id']}/publicar")
+    assert published.status_code == 200, published.text
+    entrar(ids["usuario_a"], "familia")
+    assert client.get(f"/comunicaciones/familia/{c['id']}").json()["tipo"] == tipo
+
+
+def test_gestion_no_puede_crear_curso_ni_tipo_desconocido(client, escenario):
+    ids, _ = escenario
+    for tipo in ("curso", "desconocido"):
+        assert client.post("/comunicaciones", json=datos(ids, tipo=tipo)).status_code == 422
+
+
+def test_listas_destinatarios_paginan_buscan_y_filtran_enviados(client, escenario, db_session):
+    from src.comunicaciones.models import ReciboComunicacion
+    from src.familias_alumnos.models import Familia
+    from src.models import Persona
+    from src.workflows.models import EnvioNotificacion
+
+    ids, entrar = escenario
+    c = crear(client, ids)
+    assert client.post(f"/comunicaciones/{c['id']}/publicar").status_code == 200
+    for indice in range(11):
+        persona = Persona(nombre=f"Persona{indice:02}", apellido="Prueba", dni=f"9500{indice:04}")
+        db_session.add(persona)
+        db_session.flush()
+        familia = Familia(persona_id=persona.id)
+        db_session.add(familia)
+        db_session.flush()
+        db_session.add(
+            ReciboComunicacion(
+                comunicacion_id=uuid.UUID(c["id"]), familia_id=familia.id, alumnos=[]
+            )
+        )
+        db_session.add(
+            EnvioNotificacion(
+                comunicacion_id=uuid.UUID(c["id"]),
+                familia_id=familia.id,
+                email=f"p{indice}@example.test",
+                asunto="Prueba",
+                cuerpo="Prueba",
+                estado="presentado" if indice < 10 else "fallido",
+            )
+        )
+    persona = Persona(nombre="Ana", apellido="Gómez", dni="96000000")
+    db_session.add(persona)
+    db_session.flush()
+    familia = Familia(persona_id=persona.id)
+    db_session.add(familia)
+    db_session.flush()
+    db_session.add(
+        ReciboComunicacion(comunicacion_id=uuid.UUID(c["id"]), familia_id=familia.id, alumnos=[])
+    )
+    db_session.commit()
+    ruta = f"/comunicaciones/{c['id']}/destinatarios"
+    primera = client.get(ruta)
+    assert primera.status_code == 200
+    assert primera.headers["cache-control"] == "private, no-store"
+    assert primera.json()["total"] == 13
+    assert primera.json()["total_paginas"] == 2
+    assert len(primera.json()["items"]) == 10
+    segunda = client.get(ruta, params={"pagina": 2}).json()
+    assert len(segunda["items"]) == 3
+    assert {r["id"] for r in primera.json()["items"]}.isdisjoint(r["id"] for r in segunda["items"])
+    assert client.get(ruta, params={"buscar": "Persona10"}).json()["total"] == 1
+    for buscar in ("gomez", "GÓMEZ"):
+        encontrados = client.get(ruta, params={"buscar": buscar}).json()
+        assert encontrados["total"] == 1
+        assert encontrados["items"][0]["nombre"] == "Ana Gómez"
+    enviados = client.get(ruta, params={"vista": "enviados"}).json()
+    assert enviados["total"] == 10
+    assert all(r["estado"] == "presentado" for r in enviados["items"])
+    assert client.get(ruta, params={"vista": "envios"}).json()["total"] == 11
+    assert (
+        client.get(ruta, params={"vista": "enviados", "buscar": "Persona10"}).json()["total"] == 0
+    )
+    assert client.get(ruta, params={"pagina": 0}).status_code == 422
+    assert client.get(ruta, params={"vista": "desconocida"}).status_code == 422
+    entrar(ids["usuario_a"], "familia")
+    assert client.get(ruta).status_code == 403
+
+
 def test_borrador_publicacion_y_lectura_persistida(client, escenario, db_session):
     ids, entrar = escenario
     borrador = crear(client, ids)

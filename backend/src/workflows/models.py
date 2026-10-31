@@ -127,9 +127,15 @@ class Notificacion(Base):
             "destinatario_tipo IN ('familia', 'usuario')", name="ck_notificacion_destinatario_tipo"
         ),
         sa.CheckConstraint(
-            "estado_envio IN ('enviado', 'fallido', 'pendiente')",
+            "estado_envio IN ('enviado', 'fallido', 'pendiente', 'presentado', 'incierto')",
             name="ck_notificacion_estado_envio",
         ),
+        sa.CheckConstraint(
+            "(workflow_execution_id IS NOT NULL AND envio_id IS NULL) OR "
+            "(workflow_execution_id IS NULL AND envio_id IS NOT NULL)",
+            name="ck_notificacion_origen",
+        ),
+        sa.UniqueConstraint("envio_id", "numero_intento", name="uq_notificacion_envio_intento"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
@@ -140,9 +146,49 @@ class Notificacion(Base):
     cuerpo_snapshot: Mapped[str] = mapped_column(sa.String)
     estado_envio: Mapped[str] = mapped_column(sa.String, default="pendiente")
     sent_at: Mapped[datetime | None] = mapped_column(sa.DateTime)
-    workflow_execution_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("workflow_execution.id"))
+    workflow_execution_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.ForeignKey("workflow_execution.id")
+    )
+    envio_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.ForeignKey("envio_notificacion.id", name="fk_notificacion_envio")
+    )
+    numero_intento: Mapped[int | None] = mapped_column(sa.Integer)
+    started_at: Mapped[datetime | None] = mapped_column(sa.DateTime)
+    finished_at: Mapped[datetime | None] = mapped_column(sa.DateTime)
+    proveedor_iniciado: Mapped[bool] = mapped_column(
+        sa.Boolean, default=False, server_default=sa.false()
+    )
+    referencia_proveedor: Mapped[str | None] = mapped_column(sa.String(200))
+    error_codigo: Mapped[str | None] = mapped_column(sa.String(50))
     familia_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("familia.id"))
     usuario_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("usuario.id"))
+
+
+class EnvioNotificacion(Base):
+    """Durable manual-origin transport intention, drained by the existing dispatcher."""
+
+    __tablename__ = "envio_notificacion"
+    __table_args__ = (
+        sa.UniqueConstraint("comunicacion_id", "familia_id", "email", name="uq_envio_destino"),
+        sa.CheckConstraint(
+            "estado IN ('pendiente','procesando','presentado','fallido','incierto','sin_email')",
+            name="ck_envio_estado",
+        ),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    comunicacion_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("comunicacion.id"))
+    familia_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("familia.id"))
+    email: Mapped[str] = mapped_column(sa.String(320))
+    asunto: Mapped[str] = mapped_column(sa.String(200))
+    cuerpo: Mapped[str] = mapped_column(sa.Text)
+    estado: Mapped[str] = mapped_column(sa.String(20), default="pendiente", index=True)
+    # `intentos` es el total histórico: numera los intentos y nunca se reutiliza. El tope de
+    # reintentos automáticos se cuenta por ciclo; un reintento autorizado abre un ciclo nuevo.
+    intentos: Mapped[int] = mapped_column(sa.Integer, default=0)
+    reintentos_ciclo: Mapped[int] = mapped_column(sa.Integer, default=0)
+    disponible_at: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
+    lease_at: Mapped[datetime | None] = mapped_column(sa.DateTime)
+    intento_actual_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid)
 
 
 class Tarea(Base):

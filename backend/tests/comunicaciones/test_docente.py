@@ -85,6 +85,24 @@ def datos(ids, tipo="division", seleccion=None, ciclo="2027"):
     }
 
 
+@pytest.mark.parametrize("tipo", ["institucional", "administrativa", "otro"])
+def test_docente_no_puede_elegir_tipos_de_gestion(client, docente, tipo):
+    ids, _ = docente
+    payload = {**datos(ids), "tipo": tipo}
+    assert client.post("/comunicaciones/docente", json=payload).status_code == 422
+
+
+def test_listas_docentes_solo_permiten_comunicaciones_propias(client, docente):
+    ids, entrar = docente
+    c = client.post("/comunicaciones/docente", json=datos(ids)).json()
+    ruta = f"/comunicaciones/docente/{c['id']}/destinatarios"
+    assert client.get(ruta).status_code == 200
+    entrar(usuario_id=ids["usuario_otro"])
+    assert client.get(ruta).status_code == 404
+    entrar(rol="familia", usuario_id=ids["usuario_a"])
+    assert client.get(ruta).status_code == 403
+
+
 def estado(db):
     return {
         t.name: sorted(repr(tuple(r)) for r in db.execute(select(t)))

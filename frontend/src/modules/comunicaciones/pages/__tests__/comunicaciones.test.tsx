@@ -22,14 +22,24 @@ const comunicacion = {
   created_at: '2026-10-29T12:00:00',
   publicada_at: null,
   leida_at: null,
+  canal: 'portal',
+}
+const adjunto = {
+  id: 'a1',
+  nombre: 'acta.pdf',
+  tipo_contenido: 'application/pdf',
+  tamanio: 1024,
+  estado: 'cuarentena' as const,
 }
 
 beforeEach(() => {
   vi.resetAllMocks()
-  api.mockImplementation(async (path) => {
+  api.mockImplementation(async (path, options) => {
     if (path.includes('/opciones'))
       return { responsables: [], alumnos: [], niveles: [], divisiones: [], ciclos: [] }
     if (path.includes('/vista-previa')) return { destinatarios: 2 }
+    if (path.endsWith('/adjuntos')) return options?.method === 'POST' ? adjunto : []
+    if (path.includes('/envios')) return []
     if (path.includes('/publicar'))
       return { ...comunicacion, estado: 'publicada', destinatarios: 2 }
     if (path.includes('/lectura')) return { ...comunicacion, leida_at: '2026-10-29T12:01:00' }
@@ -47,8 +57,34 @@ it('saves a basic draft without publishing', async () => {
   await userEvent.type(screen.getByLabelText('Asunto'), 'Reunión')
   await userEvent.type(screen.getByLabelText('Mensaje'), 'Información institucional')
   await userEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }))
-  expect(await screen.findByRole('status')).toHaveTextContent('Borrador guardado')
+  expect(await screen.findByText('Borrador guardado')).toBeInTheDocument()
   expect(api.mock.calls.some(([path]) => path.includes('/publicar'))).toBe(false)
+})
+
+it.each([
+  ['Administrativa', 'administrativa'],
+  ['Otro', 'otro'],
+])('persists the selected %s type and retains it between steps', async (label, tipo) => {
+  render(
+    <MemoryRouter>
+      <ComunicacionFormPage />
+    </MemoryRouter>,
+  )
+  expect(screen.queryByRole('radio', { name: 'Curso' })).not.toBeInTheDocument()
+  await userEvent.click(screen.getByRole('radio', { name: label }))
+  await userEvent.type(screen.getByLabelText('Asunto'), 'Aviso')
+  await userEvent.type(screen.getByLabelText('Mensaje'), 'Contenido')
+  await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Anterior' }))
+  expect(screen.getByRole('radio', { name: label })).toBeChecked()
+  await userEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }))
+  await screen.findByText('Borrador guardado')
+  expect(api).toHaveBeenCalledWith(
+    '/comunicaciones',
+    expect.objectContaining({
+      body: expect.stringContaining(`"tipo":"${tipo}"`),
+    }),
+  )
 })
 
 it('previews recipients and publishes once with a persisted draft ID', async () => {
@@ -62,10 +98,68 @@ it('previews recipients and publishes once with a persisted draft ID', async () 
   await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
   await screen.findByText('Todos los responsables habilitados')
   await userEvent.click(screen.getByRole('button', { name: 'Vista previa' }))
-  expect(await screen.findByText('Institucional · 2 responsables')).toBeInTheDocument()
+  expect(await screen.findByText(/Institucional · 2 responsables/)).toBeInTheDocument()
   await userEvent.click(screen.getByRole('button', { name: 'Publicar' }))
   expect(await screen.findByRole('heading', { name: 'Comunicación publicada' })).toBeInTheDocument()
   expect(api.mock.calls.filter(([path]) => path === '/comunicaciones/c1/publicar')).toHaveLength(1)
+})
+
+it.each([
+  ['Alumnos seleccionados', 'Buscar alumnos', 'alumnos'],
+  ['Responsables seleccionados', 'Buscar responsables', 'responsables'],
+])('expands %s and preserves selections when searching', async (label, searchLabel, tipo) => {
+  const original = api.getMockImplementation()!
+  api.mockImplementation(async (path, options) =>
+    path.includes('/opciones')
+      ? {
+          responsables: [
+            { id: 'r1', nombre: 'Ana Martín' },
+            { id: 'r2', nombre: 'Lucía Pérez' },
+          ],
+          alumnos: [
+            { id: 'a1', nombre: 'Ana Martín' },
+            { id: 'a2', nombre: 'Lucía Pérez' },
+          ],
+          niveles: [{ id: 'n1', nombre: 'Primaria' }],
+          divisiones: [],
+          ciclos: ['2026'],
+        }
+      : original(path, options),
+  )
+  render(
+    <MemoryRouter>
+      <ComunicacionFormPage />
+    </MemoryRouter>,
+  )
+  await userEvent.type(screen.getByLabelText('Asunto'), 'Aviso')
+  await userEvent.type(screen.getByLabelText('Mensaje'), 'Contenido')
+  await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
+  expect(screen.queryByRole('region', { name: label })).not.toBeInTheDocument()
+  await userEvent.click(screen.getByRole('radio', { name: label }))
+  expect(screen.getByRole('region', { name: label })).toBeInTheDocument()
+  await userEvent.click(await screen.findByRole('checkbox', { name: 'Ana Martín' }))
+  await userEvent.type(screen.getByRole('searchbox', { name: searchLabel }), 'perez')
+  expect(screen.queryByRole('checkbox', { name: 'Ana Martín' })).not.toBeInTheDocument()
+  expect(screen.getByRole('checkbox', { name: 'Lucía Pérez' })).toBeInTheDocument()
+  expect(screen.getByText('1 seleccionado')).toBeInTheDocument()
+  await userEvent.clear(screen.getByRole('searchbox', { name: searchLabel }))
+  expect(screen.getByRole('checkbox', { name: 'Ana Martín' })).toBeChecked()
+  await userEvent.type(screen.getByRole('searchbox', { name: searchLabel }), 'inexistente')
+  expect(screen.getByText('No hay coincidencias para esta búsqueda.')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }))
+  await screen.findByText('Borrador guardado')
+  const saved = api.mock.calls.find(([path]) => path === '/comunicaciones')!
+  expect(JSON.parse(saved[1]!.body as string).audiencia).toMatchObject({
+    tipo,
+    ids: [tipo === 'alumnos' ? 'a1' : 'r1'],
+  })
+  await userEvent.click(screen.getByRole('radio', { name: 'Nivel educativo' }))
+  expect(screen.queryByRole('region', { name: label })).not.toBeInTheDocument()
+  expect(screen.getByRole('region', { name: 'Nivel educativo' })).toBeInTheDocument()
+  expect(screen.getByRole('combobox', { name: 'Ciclo lectivo' })).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('radio', { name: 'Todos los responsables habilitados' }))
+  expect(screen.queryByRole('region', { name: 'Nivel educativo' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('searchbox')).not.toBeInTheDocument()
 })
 
 it('records reading only after the detail is available and renders content as text', async () => {
@@ -158,7 +252,7 @@ it('teacher form only offers assigned courses and publishes through teacher endp
   expect(screen.queryByText('Todos los responsables habilitados')).toBeNull()
   await userEvent.click(await screen.findByLabelText('4° B'))
   await userEvent.click(screen.getByRole('button', { name: 'Vista previa' }))
-  expect(await screen.findByText('Comunicación de curso · 1 responsables')).toBeInTheDocument()
+  expect(await screen.findByText(/Comunicación de curso · 1 responsables/)).toBeInTheDocument()
   await userEvent.click(screen.getByRole('button', { name: 'Publicar' }))
   expect(await screen.findByRole('heading', { name: 'Comunicación publicada' })).toBeInTheDocument()
   expect(api.mock.calls.some(([path]) => path === '/comunicaciones/docente')).toBe(true)
@@ -243,4 +337,253 @@ it('teacher history asks the teacher endpoint and hides management creation for 
     'href',
     '/docente/comunicaciones/nueva',
   )
+})
+
+it('persists the email-only channel and never claims portal availability', async () => {
+  api.mockImplementation(async (path, options) => {
+    if (path.endsWith('/adjuntos')) return options?.method === 'POST' ? adjunto : []
+    if (path.includes('/vista-previa')) return { destinatarios: 2 }
+    if (path.includes('/publicar'))
+      return { ...comunicacion, canal: 'email', estado: 'publicada', destinatarios: 2 }
+    if (path.includes('?')) return { items: [], total: 0, pagina: 1, total_paginas: 0 }
+    if (path.includes('/envios')) return []
+    return comunicacion
+  })
+  render(
+    <MemoryRouter>
+      <ComunicacionFormPage />
+    </MemoryRouter>,
+  )
+  await userEvent.type(screen.getByLabelText('Asunto'), 'Aviso')
+  await userEvent.type(screen.getByLabelText('Mensaje'), 'Solo por correo')
+  await userEvent.click(screen.getByRole('radio', { name: /Solo email/ }))
+  expect(screen.getByText(/No aparece en la bandeja del portal/)).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }))
+  await screen.findByText('Borrador guardado')
+  const guardado = api.mock.calls.find(
+    ([path, options]) => path === '/comunicaciones' && options?.method === 'POST',
+  )
+  expect(JSON.parse(guardado![1]!.body as string).canal).toBe('email')
+
+  await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Vista previa' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Publicar y encolar email' }))
+  expect(
+    await screen.findByText('Los responsables reciben esta comunicación por email.'),
+  ).toBeInTheDocument()
+  expect(screen.getByText(/quedó en cola para 2 responsables/)).toBeInTheDocument()
+  expect(screen.queryByText(/Disponible en el portal/)).toBeNull()
+})
+
+it('automatically saves before uploading and blocks publishing while a file is quarantined', async () => {
+  render(
+    <MemoryRouter>
+      <ComunicacionFormPage />
+    </MemoryRouter>,
+  )
+  expect(document.querySelector('input[type="file"]')).not.toBeNull()
+
+  await userEvent.type(screen.getByLabelText('Asunto'), 'Con adjunto')
+  await userEvent.type(screen.getByLabelText('Mensaje'), 'Acta adjunta')
+
+  const input = document.querySelector('input[type="file"]') as HTMLInputElement
+  await userEvent.upload(input, new File(['contenido'], 'acta.pdf', { type: 'application/pdf' }))
+  expect(await screen.findByText('Analizando')).toBeInTheDocument()
+  expect(
+    screen.getByText('Archivo agregado. Queda en cuarentena hasta completar el análisis.'),
+  ).toBeInTheDocument()
+  expect(api.mock.calls.some(([path]) => path === '/comunicaciones/c1/adjuntos')).toBe(true)
+  const paths = api.mock.calls.map(([path]) => path)
+  expect(paths.indexOf('/comunicaciones')).toBeLessThan(
+    paths.indexOf('/comunicaciones/c1/adjuntos'),
+  )
+  expect(paths.some((path) => path.includes('/publicar'))).toBe(false)
+
+  await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Vista previa' }))
+  expect(
+    await screen.findByText('Todos los archivos adjuntos deben estar verificados para publicar.'),
+  ).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Publicar' })).toBeDisabled()
+})
+
+it('does not save or upload when required content is missing', async () => {
+  render(
+    <MemoryRouter>
+      <ComunicacionFormPage />
+    </MemoryRouter>,
+  )
+  const input = document.querySelector('input[type="file"]') as HTMLInputElement
+  await userEvent.upload(input, new File(['contenido'], 'acta.pdf', { type: 'application/pdf' }))
+  expect(
+    await screen.findByText('Completá el asunto y el mensaje antes de adjuntar archivos.'),
+  ).toBeInTheDocument()
+  expect(
+    api.mock.calls.some(([path]) => path === '/comunicaciones' || path.endsWith('/adjuntos')),
+  ).toBe(false)
+  expect(screen.getByRole('button', { name: 'Guardar borrador' })).not.toBeDisabled()
+})
+
+it('keeps successfully uploaded files visible when a later upload fails', async () => {
+  const original = api.getMockImplementation()!
+  let uploads = 0
+  api.mockImplementation(async (path, options) => {
+    if (path.endsWith('/adjuntos') && options?.method === 'POST' && ++uploads === 2)
+      throw new Error('Upload failed')
+    return original(path, options)
+  })
+  render(
+    <MemoryRouter>
+      <ComunicacionFormPage />
+    </MemoryRouter>,
+  )
+  await userEvent.type(screen.getByLabelText('Asunto'), 'Aviso')
+  await userEvent.type(screen.getByLabelText('Mensaje'), 'Contenido')
+  const input = document.querySelector('input[type="file"]') as HTMLInputElement
+  await userEvent.upload(input, [
+    new File(['contenido'], 'acta.pdf', { type: 'application/pdf' }),
+    new File(['contenido'], 'otro.pdf', { type: 'application/pdf' }),
+  ])
+  expect(
+    await screen.findByText('No se pudo subir el archivo. Intentá de nuevo.'),
+  ).toBeInTheDocument()
+  expect(screen.getByText('acta.pdf')).toBeInTheDocument()
+  expect(screen.getByText('Analizando')).toBeInTheDocument()
+})
+
+it('does not upload if automatic draft saving fails', async () => {
+  render(
+    <MemoryRouter>
+      <ComunicacionFormPage />
+    </MemoryRouter>,
+  )
+  await userEvent.type(screen.getByLabelText('Asunto'), 'Aviso')
+  await userEvent.type(screen.getByLabelText('Mensaje'), 'Contenido')
+  api.mockRejectedValueOnce(new Error('No se pudo guardar el borrador. Intentá de nuevo.'))
+  const input = document.querySelector('input[type="file"]') as HTMLInputElement
+  await userEvent.upload(input, new File(['contenido'], 'acta.pdf', { type: 'application/pdf' }))
+  expect(
+    await screen.findByText('No se pudo guardar el borrador. Intentá de nuevo.'),
+  ).toBeInTheDocument()
+  expect(api.mock.calls.some(([path]) => path.endsWith('/adjuntos'))).toBe(false)
+  expect(screen.getByRole('button', { name: 'Guardar borrador' })).not.toBeDisabled()
+})
+
+it('lets a clean file be published and keeps its state after changing the cycle', async () => {
+  const limpio = { ...adjunto, estado: 'limpio' as const }
+  const draft = {
+    ...comunicacion,
+    tipo: 'curso' as const,
+    audiencia: { tipo: 'division' as const, ids: ['d1'], ciclo_lectivo: '2027' },
+    adjuntos: [limpio],
+  }
+  api.mockImplementation(async (path, options) => {
+    if (path.endsWith('/adjuntos')) return options?.method === 'POST' ? limpio : [limpio]
+    if (path.includes('/opciones'))
+      return {
+        responsables: [],
+        alumnos: [],
+        niveles: [],
+        divisiones: [{ id: 'd2', nombre: 'Otro curso' }],
+        ciclos: ['2027', '2028'],
+      }
+    if (path.includes('/vista-previa')) return { destinatarios: 1 }
+    return draft
+  })
+  render(
+    <MemoryRouter initialEntries={['/docente/comunicaciones/c1/editar']}>
+      <Routes>
+        <Route
+          path="/docente/comunicaciones/:id/editar"
+          element={<ComunicacionFormPage docente />}
+        />
+      </Routes>
+    </MemoryRouter>,
+  )
+  expect(await screen.findByText('acta.pdf')).toBeInTheDocument()
+  expect(screen.queryByText('Verificado')).not.toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
+  screen.getByRole('combobox', { name: 'Ciclo lectivo' }).focus()
+  await userEvent.keyboard('[ArrowDown]')
+  await userEvent.keyboard('[End][Enter]')
+  await userEvent.click(await screen.findByLabelText('Otro curso'))
+  expect(screen.getByRole('combobox', { name: 'Ciclo lectivo' })).toHaveTextContent('2028')
+  // El panel de archivos vive en el paso 1: volver atrás comprueba que el estado se conserve
+  // sin volver a pedir el borrador ni la lista de adjuntos.
+  await userEvent.click(screen.getByRole('button', { name: 'Anterior' }))
+  expect(screen.getByText('acta.pdf')).toBeInTheDocument()
+  expect(screen.queryByText('Verificado')).not.toBeInTheDocument()
+  expect(
+    api.mock.calls.filter(([path]) => path === '/comunicaciones/docente/c1/adjuntos'),
+  ).toHaveLength(1)
+  await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Vista previa' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Publicar' }))
+  expect(await screen.findByRole('heading', { name: 'Comunicación publicada' })).toBeInTheDocument()
+  expect(api.mock.calls.some(([path]) => path === '/comunicaciones/docente/c1/publicar')).toBe(true)
+})
+
+it('does not register portal reading for an email-only communication', async () => {
+  api.mockImplementation(async (path) => {
+    if (path.includes('/envios')) return []
+    return {
+      ...comunicacion,
+      canal: 'email',
+      estado: 'publicada',
+      publicada_at: '2026-10-29T12:00:00',
+    }
+  })
+  render(
+    <MemoryRouter initialEntries={['/familia/comunicaciones/c1']}>
+      <Routes>
+        <Route path="/familia/comunicaciones/:id" element={<ComunicacionDetallePage familia />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+  expect(
+    await screen.findByText(
+      'Esta comunicación se envía por email y no aparece en la bandeja del portal.',
+    ),
+  ).toBeInTheDocument()
+  expect(api.mock.calls.some(([path]) => path.includes('/lectura'))).toBe(false)
+})
+
+it('shows email attempts and marks uncertain outcomes without claiming delivery', async () => {
+  api.mockImplementation(async (path) => {
+    if (path.includes('/envios'))
+      return [
+        {
+          id: 'e1',
+          email: 'responsable@ejemplo.com',
+          estado: 'incierto',
+          intentos: [
+            {
+              id: 'i1',
+              estado: 'incierto',
+              error_codigo: 'timeout',
+              started_at: '2026-10-29T12:00:00',
+              finished_at: null,
+            },
+          ],
+        },
+      ]
+    return {
+      ...comunicacion,
+      canal: 'ambos',
+      estado: 'publicada',
+      publicada_at: '2026-10-29T12:00:00',
+    }
+  })
+  render(
+    <MemoryRouter initialEntries={['/comunicaciones/c1']}>
+      <Routes>
+        <Route path="/comunicaciones/:id" element={<ComunicacionDetallePage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+  expect(await screen.findByText('responsable@ejemplo.com')).toBeInTheDocument()
+  expect(screen.getByText('Resultado incierto')).toBeInTheDocument()
+  expect(screen.getByText(/no se confirma que el mensaje haya sido entregado/)).toBeInTheDocument()
+  expect(screen.queryByText('Entregado')).toBeNull()
+  expect(api.mock.calls.some(([path]) => path === '/comunicaciones/c1/envios')).toBe(true)
 })

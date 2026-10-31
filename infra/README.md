@@ -31,6 +31,43 @@ Para bajar el stack sin perder los datos locales: `docker compose down`. **No us
 
 ## Backup y recuperación de PostgreSQL
 
+### Isolated Communications verification
+
+The stage-3 test stack never mounts the shared application database. From the repository root:
+
+```bash
+docker compose -p esseri-comunicaciones-etapa3 -f infra/docker-compose.comunicaciones-test.yml up -d --wait postgres-test
+# Optional antivirus: allow up to 4 GiB RAM and time for signature updates.
+docker compose -p esseri-comunicaciones-etapa3 -f infra/docker-compose.comunicaciones-test.yml --profile adjuntos up -d clamav
+```
+
+Test PostgreSQL URL: `postgresql+psycopg://communications:communications-test-only@127.0.0.1:54389/communications_stage3_tests`.
+For a separate persistent browser fixture database inside that isolated container:
+
+```bash
+docker compose -p esseri-comunicaciones-etapa3 -f infra/docker-compose.comunicaciones-test.yml exec -T postgres-test psql -U communications -d postgres -c 'CREATE DATABASE communications_stage3_e2e;'
+```
+
+Use the same isolated URL with database name `communications_stage3_e2e` for its migration
+and seed; never point browser fixtures at the shared application database.
+Migrate only that explicit URL, then use `COMUNICACIONES_TEST_DATABASE_URL` as documented
+in the backend README. ClamAV is free, local, and reachable from the host at
+`127.0.0.1:13310`; its port is loopback-only because clamd has no transport authentication.
+Inside a deployment network keep clamd private. Do not publish it to the internet.
+The pinned feature-series image follows official ClamAV recommendations; signatures are
+persisted and refreshed, but image/security updates still need operator maintenance.
+Its verified manifest is amd64-only; this optional profile explicitly uses amd64 and
+requires emulation on Apple Silicon (slower startup/scanning). The email path is unaffected.
+See https://docs.clamav.net/manual/Installing/Docker.html for RAM/signature requirements.
+Do not enable attachments until the real scanner and content controls pass verification.
+Email transport does not depend on starting this optional profile.
+
+```bash
+docker compose -p esseri-comunicaciones-etapa3 -f infra/docker-compose.comunicaciones-test.yml down
+```
+
+This stops only the isolated test services; it does not delete signature volumes or shared data.
+
 Los datos de PostgreSQL viven en el volumen Docker `postgres-data`. Un backup lógico en formato
 PostgreSQL (`pg_dump -Fc`) permite recuperarlos incluso si ese volumen se pierde. Ejecutar estos
 comandos desde la raíz del repositorio, con el stack levantado:

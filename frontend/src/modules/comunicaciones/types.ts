@@ -1,3 +1,31 @@
+export type Canal = 'portal' | 'email' | 'ambos'
+export type TipoComunicacion = 'institucional' | 'curso' | 'administrativa' | 'otro'
+
+export type EstadoAdjunto = 'cuarentena' | 'limpio' | 'rechazado' | 'error'
+
+export interface Adjunto {
+  id: string
+  nombre: string
+  tipo_contenido: string
+  tamanio: number
+  estado: EstadoAdjunto
+}
+
+export interface IntentoEnvio {
+  id: string
+  estado: string
+  error_codigo: string | null
+  started_at: string | null
+  finished_at: string | null
+}
+
+export interface Envio {
+  id: string
+  email: string | null
+  estado: string
+  intentos: IntentoEnvio[]
+}
+
 export interface Audiencia {
   tipo: 'todos' | 'nivel' | 'division' | 'alumnos' | 'responsables'
   ids: string[]
@@ -8,24 +36,36 @@ export interface Borrador {
   asunto: string
   cuerpo: string
   audiencia: Audiencia
+  canal?: Canal
+  tipo?: TipoComunicacion
 }
 export interface Comunicacion {
   id: string
   clave: string | null
   asunto: string
   cuerpo: string
-  tipo: 'institucional' | 'curso'
+  tipo: TipoComunicacion
   emisor: string | null
   estado: 'borrador' | 'publicada'
   audiencia: Audiencia | null
   autor_id: string
+  autor_nombre?: string | null
   created_at: string
   publicada_at: string | null
   destinatarios: number
   leida_at: string | null
+  canal: Canal
+  adjuntos?: Adjunto[]
 }
 export interface Listado {
   items: Comunicacion[]
+  total: number
+  pagina: number
+  total_paginas: number
+}
+export type VistaDestinatarios = 'destinatarios' | 'envios' | 'enviados'
+export interface ListadoDestinatarios {
+  items: { id: string; nombre: string; email: string | null; estado: string | null }[]
   total: number
   pagina: number
   total_paginas: number

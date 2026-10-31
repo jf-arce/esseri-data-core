@@ -5,6 +5,7 @@ import logging
 
 from src.config import settings
 from src.database import SessionLocal
+from src.workflows import manuales_service
 from src.workflows.despacho_service import (
     procesar_eventos_pendientes,
     procesar_recordatorios_vencidos,
@@ -17,8 +18,23 @@ def _despachar_con_sesion() -> None:
     with SessionLocal() as db:
         resumen = procesar_eventos_pendientes(db)
         resumen.recordatorios_ejecutados = procesar_recordatorios_vencidos(db)
+        envios = manuales_service.procesar_envios_pendientes(db)
     if resumen.eventos_procesados or resumen.eventos_fallidos or resumen.recordatorios_ejecutados:
         logger.info("Despacho de workflows: %s", resumen.model_dump())
+    if (
+        envios.procesados
+        or envios.recuperados
+        or envios.presentados
+        or envios.fallidos
+        or envios.inciertos
+    ):
+        logger.info(
+            "Envíos manuales: procesados=%s presentados=%s fallidos=%s inciertos=%s",
+            envios.procesados,
+            envios.presentados,
+            envios.fallidos,
+            envios.inciertos,
+        )
 
 
 async def ejecutar_job_despacho_periodico() -> None:

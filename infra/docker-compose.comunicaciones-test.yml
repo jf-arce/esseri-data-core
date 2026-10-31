@@ -1,0 +1,27 @@
+# Isolated verification only; never mounts or migrates the shared application database.
+services:
+  postgres-test:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: communications
+      POSTGRES_PASSWORD: communications-test-only
+      POSTGRES_DB: communications_stage3_tests
+    ports:
+      - "127.0.0.1:54389:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U communications -d communications_stage3_tests"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  clamav:
+    image: clamav/clamav:1.4
+    # The official 1.4 manifest is amd64-only; Docker Desktop emulates on Apple Silicon.
+    platform: linux/amd64
+    profiles: ["adjuntos"]
+    mem_limit: 4g
+    ports:
+      - "127.0.0.1:13310:3310"
+    volumes:
+      - clamav-signatures:/var/lib/clamav
+volumes:
+  clamav-signatures:

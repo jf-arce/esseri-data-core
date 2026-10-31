@@ -1,5 +1,5 @@
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
@@ -14,7 +14,12 @@ from src.auth.constants import (
 from src.auth.dependencies import DbSession, RolActivo, requiere_permiso
 from src.auth.models import Usuario
 from src.comunicaciones import service
-from src.comunicaciones.schemas import BorradorInput, ComunicacionRead, Listado
+from src.comunicaciones.schemas import (
+    BorradorInput,
+    ComunicacionRead,
+    Listado,
+    ListadoDestinatarios,
+)
 
 router = APIRouter(prefix="/comunicaciones", tags=["Comunicaciones"])
 Crear = Annotated[Usuario, Depends(requiere_permiso(PERMISO_COMUNICACIONES_CREAR))]
@@ -100,9 +105,12 @@ def listado_docente(
     rol: RolActivo,
     pagina: Annotated[int, Query(ge=1)] = 1,
     buscar: Annotated[str, Query(max_length=200)] = "",
+    estado: Annotated[str | None, Query(pattern="^(publicada|borrador)$")] = None,
 ) -> Listado:
     solo_docente(rol)
-    return service.listar(db, usuario, pagina, buscar, False, tipo="curso", autor_id=usuario.id)
+    return service.listar(
+        db, usuario, pagina, buscar, False, tipo="curso", autor_id=usuario.id, estado=estado
+    )
 
 
 @router.post("/docente", status_code=201)
@@ -160,9 +168,10 @@ def listado(
     rol: RolActivo,
     pagina: Annotated[int, Query(ge=1)] = 1,
     buscar: Annotated[str, Query(max_length=200)] = "",
+    estado: Annotated[str | None, Query(pattern="^(publicada|borrador)$")] = None,
 ) -> Listado:
     gestion(rol)
-    return service.listar(db, usuario, pagina, buscar, False)
+    return service.listar(db, usuario, pagina, buscar, False, estado=estado)
 
 
 @router.post("", status_code=201)
@@ -189,3 +198,76 @@ def editar(
 def publicar(id: uuid.UUID, db: DbSession, usuario: Crear, rol: RolActivo) -> ComunicacionRead:
     gestion(rol)
     return service.publicar(db, id, usuario, tipo="institucional")
+
+
+@router.get("/docente/{id}/envios")
+def envios_docente(id: uuid.UUID, db: DbSession, usuario: LeerDocente, rol: RolActivo):
+    from src.workflows.manuales_service import historial
+
+    solo_docente(rol)
+    service.obtener(db, id, usuario, tipo="curso")
+    return historial(db, id)
+
+
+@router.get("/docente/{id}/destinatarios")
+def destinatarios_docente(
+    id: uuid.UUID,
+    db: DbSession,
+    usuario: LeerDocente,
+    rol: RolActivo,
+    response: Response,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    buscar: Annotated[str, Query(max_length=200)] = "",
+    vista: Literal["destinatarios", "envios", "enviados"] = "destinatarios",
+) -> ListadoDestinatarios:
+    solo_docente(rol)
+    service.obtener(db, id, usuario, tipo="curso")
+    response.headers["Cache-Control"] = "private, no-store"
+    return service.listar_destinatarios(db, id, pagina, buscar, vista)
+
+
+@router.get("/{id}/destinatarios")
+def destinatarios(
+    id: uuid.UUID,
+    db: DbSession,
+    usuario: Leer,
+    rol: RolActivo,
+    response: Response,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    buscar: Annotated[str, Query(max_length=200)] = "",
+    vista: Literal["destinatarios", "envios", "enviados"] = "destinatarios",
+) -> ListadoDestinatarios:
+    gestion(rol)
+    service.obtener(db, id, usuario)
+    response.headers["Cache-Control"] = "private, no-store"
+    return service.listar_destinatarios(db, id, pagina, buscar, vista)
+
+
+@router.get("/{id}/envios")
+def envios(id: uuid.UUID, db: DbSession, usuario: Leer, rol: RolActivo):
+    from src.workflows.manuales_service import historial
+
+    gestion(rol)
+    service.obtener(db, id, usuario)
+    return historial(db, id)
+
+
+@router.post("/docente/{id}/envios/{envio_id}/reintentar")
+def reintento_docente(
+    id: uuid.UUID, envio_id: uuid.UUID, db: DbSession, usuario: CrearDocente, rol: RolActivo
+):
+    from src.workflows.manuales_service import reintentar
+
+    solo_docente(rol)
+    c = service.obtener(db, id, usuario, tipo="curso")
+    service.validar_curso(db, usuario, service.Audiencia.model_validate(c.audiencia))
+    return reintentar(db, id, envio_id)
+
+
+@router.post("/{id}/envios/{envio_id}/reintentar")
+def reintento(id: uuid.UUID, envio_id: uuid.UUID, db: DbSession, usuario: Crear, rol: RolActivo):
+    from src.workflows.manuales_service import reintentar
+
+    gestion(rol)
+    service.obtener(db, id, usuario)
+    return reintentar(db, id, envio_id)

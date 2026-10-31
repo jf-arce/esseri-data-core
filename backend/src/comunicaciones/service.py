@@ -1,10 +1,11 @@
 import hashlib
 import json
+import unicodedata
 import uuid
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import func, literal, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -110,7 +111,13 @@ def obtener(
     comunicacion = db.scalar(consulta.execution_options(populate_existing=True))
     if (
         comunicacion is None
-        or (tipo is not None and comunicacion.tipo != tipo)
+        or (
+            tipo is not None
+            and (
+                (tipo == "institucional" and comunicacion.tipo == "curso")
+                or (tipo != "institucional" and comunicacion.tipo != tipo)
+            )
+        )
         or (comunicacion.estado == "borrador" and comunicacion.autor_id != usuario.id)
         or (tipo == "curso" and comunicacion.autor_id != usuario.id)
         or (tipo is None and comunicacion.tipo == "curso" and comunicacion.estado == "borrador")
@@ -130,7 +137,21 @@ def _emisor(db: Session, c: Comunicacion) -> str:
     return f"{fila[0]} {fila[1]}" if fila else "Docente"
 
 
+def _autor_nombre(db: Session, c: Comunicacion) -> str:
+    fila = db.execute(
+        select(Persona.nombre, Persona.apellido)
+        .join(Usuario, Usuario.persona_id == Persona.id)
+        .where(Usuario.id == c.autor_id)
+    ).first()
+    if fila is not None:
+        return f"{fila[0]} {fila[1]}"
+    email = db.scalar(select(Usuario.email).where(Usuario.id == c.autor_id))
+    return email or "—"
+
+
 def respuesta(db: Session, c: Comunicacion, *, recibo=None) -> ComunicacionRead:
+    from src.comunicaciones.adjuntos_service import listar_metadata
+
     total = db.scalar(
         select(func.count())
         .select_from(ReciboComunicacion)
@@ -142,6 +163,7 @@ def respuesta(db: Session, c: Comunicacion, *, recibo=None) -> ComunicacionRead:
         cuerpo=c.cuerpo,
         tipo=c.tipo,
         emisor=_emisor(db, c),
+        autor_nombre=_autor_nombre(db, c),
         estado=c.estado,
         autor_id=c.autor_id,
         created_at=c.created_at,
@@ -150,13 +172,22 @@ def respuesta(db: Session, c: Comunicacion, *, recibo=None) -> ComunicacionRead:
         audiencia=c.audiencia if recibo is None else None,
         clave=c.clave if recibo is None else None,
         leida_at=recibo.leida_at if recibo is not None else None,
+        canal=c.canal,
+        adjuntos=listar_metadata(db, c.id),
     )
 
 
 def crear(db: Session, data: BorradorInput, usuario: Usuario, *, tipo="institucional"):
+    if data.tipo is not None:
+        if (tipo == "curso") != (data.tipo == "curso"):
+            raise HTTPException(422, "El tipo no corresponde al portal de creación")
+        tipo = data.tipo
     if tipo == "curso":
         validar_curso(db, usuario, data.audiencia)
-    contenido = data.model_dump(mode="json")
+    # Preserve stage-1/2 idempotency hashes for the original portal-only contract.
+    contenido = data.model_dump(mode="json", exclude={"canal", "tipo"})
+    if data.canal != "portal":
+        contenido["canal"] = data.canal
     digest = hashlib.sha256(json.dumps(contenido, sort_keys=True).encode()).hexdigest()
     existente = db.scalar(
         select(Comunicacion).where(
@@ -175,6 +206,7 @@ def crear(db: Session, data: BorradorInput, usuario: Usuario, *, tipo="instituci
         cuerpo=data.cuerpo,
         audiencia=data.audiencia.model_dump(mode="json"),
         tipo=tipo,
+        canal=data.canal,
     )
     try:
         db.add(c)
@@ -201,6 +233,8 @@ def editar(
     db: Session, id: uuid.UUID, data: BorradorInput, usuario: Usuario, *, tipo="institucional"
 ):
     c = obtener(db, id, usuario, bloquear=True, tipo=tipo)
+    if data.tipo is not None and (tipo == "curso") != (data.tipo == "curso"):
+        raise HTTPException(422, "El tipo no corresponde al portal de creación")
     if tipo == "curso":
         validar_curso(db, usuario, data.audiencia)
     if c.estado != "borrador":
@@ -211,6 +245,8 @@ def editar(
         ("asunto", data.asunto),
         ("cuerpo", data.cuerpo),
         ("audiencia", data.audiencia.model_dump(mode="json")),
+        ("canal", data.canal),
+        ("tipo", data.tipo or c.tipo),
     ):
         anterior = getattr(c, campo)
         if anterior != nuevo:
@@ -231,10 +267,17 @@ def publicar(db: Session, id: uuid.UUID, usuario: Usuario, *, tipo="instituciona
     destinatarios = resolver(db, audiencia)
     if not destinatarios:
         raise HTTPException(422, "La audiencia no tiene responsables habilitados")
+    from src.comunicaciones.adjuntos_service import validar_publicacion
+
+    validar_publicacion(db, c.id)
     c.estado = "publicada"
     c.publicada_at = datetime.now(UTC).replace(tzinfo=None)
     for familia_id, alumnos in destinatarios.items():
         db.add(ReciboComunicacion(comunicacion_id=c.id, familia_id=familia_id, alumnos=alumnos))
+    if c.canal in ("email", "ambos"):
+        from src.workflows.manuales_service import preparar_envios
+
+        preparar_envios(db, c, destinatarios)
     auditar(db, c, usuario, "estado", "borrador", "publicada")
     db.commit()
     return respuesta(db, c)
@@ -268,7 +311,8 @@ def detalle_familia(db: Session, id: uuid.UUID, usuario: Usuario, *, leer=False)
     c = db.get(Comunicacion, id) if recibo is not None else None
     if c is None or c.estado != "publicada":
         raise HTTPException(404, "Comunicación no encontrada")
-    if leer:
+    # Email-link access does not fabricate a portal read for an email-only message.
+    if leer and c.canal != "email":
         cambio = db.execute(
             update(ReciboComunicacion)
             .where(ReciboComunicacion.id == recibo.id, ReciboComunicacion.leida_at.is_(None))
@@ -291,6 +335,7 @@ def listar(
     *,
     tipo: str | None = None,
     autor_id: uuid.UUID | None = None,
+    estado: str | None = None,
 ):
     consulta = select(Comunicacion)
     recibos = {}
@@ -300,7 +345,11 @@ def listar(
             for r in recibos_propios(db, usuario)
             if not no_leidas or r.leida_at is None
         }
-        consulta = consulta.where(Comunicacion.estado == "publicada", Comunicacion.id.in_(recibos))
+        consulta = consulta.where(
+            Comunicacion.estado == "publicada",
+            Comunicacion.canal.in_(("portal", "ambos")),
+            Comunicacion.id.in_(recibos),
+        )
     else:
         consulta = consulta.where(
             or_(Comunicacion.estado == "publicada", Comunicacion.autor_id == usuario.id)
@@ -309,24 +358,78 @@ def listar(
             consulta = consulta.where(Comunicacion.tipo == tipo)
         else:
             consulta = consulta.where(
-                or_(Comunicacion.estado == "publicada", Comunicacion.tipo == "institucional")
+                or_(Comunicacion.estado == "publicada", Comunicacion.tipo != "curso")
             )
         if autor_id is not None:
             consulta = consulta.where(Comunicacion.autor_id == autor_id)
+    if estado is not None:
+        consulta = consulta.where(Comunicacion.estado == estado)
     if buscar:
         consulta = consulta.where(Comunicacion.asunto.ilike(f"%{buscar}%"))
     total = db.scalar(select(func.count()).select_from(consulta.subquery()))
     filas = db.scalars(
         consulta.order_by(Comunicacion.created_at.desc(), Comunicacion.id)
-        .offset((pagina - 1) * 20)
-        .limit(20)
+        .offset((pagina - 1) * 10)
+        .limit(10)
     )
     return Listado(
         items=[respuesta(db, c, recibo=recibos.get(c.id)) for c in filas],
         total=total,
         pagina=pagina,
-        total_paginas=(total + 19) // 20,
+        total_paginas=(total + 9) // 10,
     )
+
+
+def listar_destinatarios(
+    db: Session, comunicacion_id: uuid.UUID, pagina: int, buscar: str, vista: str
+):
+    """Paginated staff projection; the router must authorize communication access first."""
+    from src.workflows.models import EnvioNotificacion
+
+    nombre = Persona.nombre + " " + Persona.apellido
+    if vista == "destinatarios":
+        origen = ReciboComunicacion
+        consulta = select(
+            origen.id,
+            nombre.label("nombre"),
+            literal(None).label("email"),
+            literal(None).label("estado"),
+        )
+    else:
+        origen = EnvioNotificacion
+        consulta = select(origen.id, nombre.label("nombre"), origen.email, origen.estado)
+        if vista == "enviados":
+            consulta = consulta.where(origen.estado == "presentado")
+    consulta = (
+        consulta.select_from(origen)
+        .join(Familia, Familia.id == origen.familia_id)
+        .join(Persona, Persona.id == Familia.persona_id)
+        .where(origen.comunicacion_id == comunicacion_id)
+    )
+    if buscar.strip():
+        nombre_busqueda = nombre
+        for letra, base in zip("áéíóúüñÁÉÍÓÚÜÑ", "aeiouunAEIOUUN", strict=True):
+            nombre_busqueda = func.replace(nombre_busqueda, letra, base)
+        texto = "".join(
+            letra
+            for letra in unicodedata.normalize("NFD", buscar.strip().casefold())
+            if not unicodedata.combining(letra)
+        )
+        criterio = nombre_busqueda.ilike(f"%{texto}%")
+        if vista != "destinatarios":
+            criterio = or_(criterio, EnvioNotificacion.email.ilike(f"%{buscar.strip()}%"))
+        consulta = consulta.where(criterio)
+    total = db.scalar(select(func.count()).select_from(consulta.subquery())) or 0
+    filas = (
+        db.execute(
+            consulta.order_by(Persona.apellido, Persona.nombre, origen.id)
+            .offset((pagina - 1) * 10)
+            .limit(10)
+        )
+        .mappings()
+        .all()
+    )
+    return {"items": filas, "total": total, "pagina": pagina, "total_paginas": (total + 9) // 10}
 
 
 def opciones(db: Session):

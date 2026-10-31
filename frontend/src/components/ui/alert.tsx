@@ -13,6 +13,7 @@ const alertVariants = cva(
         error: 'border-error/30 bg-error-suave text-error',
         advertencia: 'border-advertencia/30 bg-advertencia-suave text-advertencia',
         info: 'border-info/30 bg-info-suave text-info',
+        success: 'border-exito/30 bg-exito-suave text-exito',
       },
     },
     defaultVariants: {

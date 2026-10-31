@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.academico.router import router as academico_router
 from src.auditoria.router import router as auditoria_router
 from src.auth.router import router as auth_router
+from src.comunicaciones.adjuntos_router import router as adjuntos_router
 from src.comunicaciones.router import router as comunicaciones_router
 from src.config import settings
 from src.exceptions import AppException, app_exception_handler
@@ -21,6 +22,7 @@ from src.inscripciones.router import router as inscripciones_router
 from src.panel_admin.router import router as panel_admin_router
 from src.proveedores_compras.router import router as proveedores_compras_router
 from src.workflows.despacho_job import ejecutar_job_despacho_periodico
+from src.workflows.manuales_router import router as envios_router
 from src.workflows.router import router as workflows_router
 
 logging.config.fileConfig(
@@ -65,12 +67,14 @@ app.add_exception_handler(AppException, app_exception_handler)
 
 app.include_router(auth_router)
 app.include_router(comunicaciones_router)
+app.include_router(adjuntos_router)
 app.include_router(familias_alumnos_router)
 app.include_router(academico_router)
 app.include_router(inscripciones_router)
 app.include_router(facturacion_router)
 app.include_router(proveedores_compras_router)
 app.include_router(workflows_router)
+app.include_router(envios_router)
 app.include_router(auditoria_router)
 app.include_router(panel_admin_router)
 app.include_router(ia_sugerencias_router)
