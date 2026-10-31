@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { FileRejection } from 'react-dropzone'
 import { Dropzone } from '@/components/dropzone'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -23,6 +23,8 @@ interface Props {
   bloqueado?: boolean
   onCambio: (adjuntos: Adjunto[]) => void
   onAviso: (mensaje: string) => void
+  onPreparar?: () => Promise<string>
+  onSubiendo?: (subiendo: boolean) => void
 }
 
 /** Archivos del borrador: subir, reintentar análisis y quitar mientras siga siendo borrador. */
@@ -33,12 +35,15 @@ export function AdjuntosBorrador({
   bloqueado = false,
   onCambio,
   onAviso,
+  onPreparar,
+  onSubiendo,
 }: Props) {
   const [ocupado, setOcupado] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const subiendo = useRef(false)
 
   async function adjuntar(archivos: File[], rechazos: FileRejection[]) {
-    if (!comunicacionId) return
+    if (bloqueado || subiendo.current || (archivos.length === 0 && rechazos.length === 0)) return
     if (rechazos.length > 0) {
       setError(AYUDA_ADJUNTOS)
       return
@@ -49,12 +54,30 @@ export function AdjuntosBorrador({
       return
     }
     setError('')
+    subiendo.current = true
     setOcupado('subida')
+    onSubiendo?.(true)
     try {
+      let id = comunicacionId
+      if (!id) {
+        try {
+          id = await onPreparar?.()
+        } catch (e) {
+          setError(
+            e instanceof Error ? e.message : 'No se pudo guardar el borrador. Intentá de nuevo.',
+          )
+          return
+        }
+      }
+      if (!id) {
+        setError('No se pudo guardar el borrador. Intentá de nuevo.')
+        return
+      }
       const subidos: Adjunto[] = []
-      for (const archivo of archivos)
-        subidos.push(await subirAdjunto(comunicacionId, archivo, docente))
-      onCambio([...adjuntos, ...subidos])
+      for (const archivo of archivos) {
+        subidos.push(await subirAdjunto(id, archivo, docente))
+        onCambio([...adjuntos, ...subidos])
+      }
       onAviso(
         subidos.length === 1
           ? 'Archivo agregado. Queda en cuarentena hasta completar el análisis.'
@@ -63,7 +86,9 @@ export function AdjuntosBorrador({
     } catch {
       setError('No se pudo subir el archivo. Intentá de nuevo.')
     } finally {
+      subiendo.current = false
       setOcupado(null)
+      onSubiendo?.(false)
     }
   }
 
@@ -111,23 +136,30 @@ export function AdjuntosBorrador({
           publicación.
         </p>
       </div>
-      {!comunicacionId ? (
+      {!comunicacionId && !onPreparar ? (
         <p role="status" className="text-sm text-texto-2">
           Guardá el borrador para adjuntar archivos.
         </p>
       ) : (
-        <Dropzone
-          onDrop={(archivos, rechazos) => void adjuntar(archivos, rechazos)}
-          accept={TIPOS_ADJUNTO}
-          maxSize={5 * 1024 * 1024}
-          multiple
-          disabled={deshabilitado || adjuntos.length >= MAX_ADJUNTOS}
-          hint={
-            adjuntos.length >= MAX_ADJUNTOS
-              ? `Ya adjuntaste el máximo de ${MAX_ADJUNTOS} archivos.`
-              : AYUDA_ADJUNTOS
-          }
-        />
+        <>
+          {!comunicacionId && (
+            <p className="text-sm text-texto-2">
+              Al adjuntar, se guarda el borrador automáticamente. No se publica.
+            </p>
+          )}
+          <Dropzone
+            onDrop={(archivos, rechazos) => void adjuntar(archivos, rechazos)}
+            accept={TIPOS_ADJUNTO}
+            maxSize={5 * 1024 * 1024}
+            multiple
+            disabled={deshabilitado || adjuntos.length >= MAX_ADJUNTOS}
+            hint={
+              adjuntos.length >= MAX_ADJUNTOS
+                ? `Ya adjuntaste el máximo de ${MAX_ADJUNTOS} archivos.`
+                : AYUDA_ADJUNTOS
+            }
+          />
+        </>
       )}
       {ocupado === 'subida' && (
         <p role="status" className="text-sm text-texto-2">

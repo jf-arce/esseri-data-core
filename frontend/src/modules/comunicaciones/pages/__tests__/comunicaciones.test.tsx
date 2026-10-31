@@ -291,19 +291,16 @@ it('persists the email-only channel and never claims portal availability', async
   expect(screen.queryByText(/Disponible en el portal/)).toBeNull()
 })
 
-it('requires a saved draft before upload and blocks publishing while a file is quarantined', async () => {
+it('automatically saves before uploading and blocks publishing while a file is quarantined', async () => {
   render(
     <MemoryRouter>
       <ComunicacionFormPage />
     </MemoryRouter>,
   )
-  expect(await screen.findByText('Guardá el borrador para adjuntar archivos.')).toBeInTheDocument()
-  expect(document.querySelector('input[type="file"]')).toBeNull()
+  expect(document.querySelector('input[type="file"]')).not.toBeNull()
 
   await userEvent.type(screen.getByLabelText('Asunto'), 'Con adjunto')
   await userEvent.type(screen.getByLabelText('Mensaje'), 'Acta adjunta')
-  await userEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }))
-  await screen.findByText('Borrador guardado')
 
   const input = document.querySelector('input[type="file"]') as HTMLInputElement
   await userEvent.upload(input, new File(['contenido'], 'acta.pdf', { type: 'application/pdf' }))
@@ -312,6 +309,11 @@ it('requires a saved draft before upload and blocks publishing while a file is q
     screen.getByText('Archivo agregado. Queda en cuarentena hasta completar el análisis.'),
   ).toBeInTheDocument()
   expect(api.mock.calls.some(([path]) => path === '/comunicaciones/c1/adjuntos')).toBe(true)
+  const paths = api.mock.calls.map(([path]) => path)
+  expect(paths.indexOf('/comunicaciones')).toBeLessThan(
+    paths.indexOf('/comunicaciones/c1/adjuntos'),
+  )
+  expect(paths.some((path) => path.includes('/publicar'))).toBe(false)
 
   await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
   await userEvent.click(screen.getByRole('button', { name: 'Vista previa' }))
@@ -319,6 +321,68 @@ it('requires a saved draft before upload and blocks publishing while a file is q
     await screen.findByText('Todos los archivos adjuntos deben estar verificados para publicar.'),
   ).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Publicar' })).toBeDisabled()
+})
+
+it('does not save or upload when required content is missing', async () => {
+  render(
+    <MemoryRouter>
+      <ComunicacionFormPage />
+    </MemoryRouter>,
+  )
+  const input = document.querySelector('input[type="file"]') as HTMLInputElement
+  await userEvent.upload(input, new File(['contenido'], 'acta.pdf', { type: 'application/pdf' }))
+  expect(
+    await screen.findByText('Completá el asunto y el mensaje antes de adjuntar archivos.'),
+  ).toBeInTheDocument()
+  expect(
+    api.mock.calls.some(([path]) => path === '/comunicaciones' || path.endsWith('/adjuntos')),
+  ).toBe(false)
+  expect(screen.getByRole('button', { name: 'Guardar borrador' })).not.toBeDisabled()
+})
+
+it('keeps successfully uploaded files visible when a later upload fails', async () => {
+  const original = api.getMockImplementation()!
+  let uploads = 0
+  api.mockImplementation(async (path, options) => {
+    if (path.endsWith('/adjuntos') && options?.method === 'POST' && ++uploads === 2)
+      throw new Error('Upload failed')
+    return original(path, options)
+  })
+  render(
+    <MemoryRouter>
+      <ComunicacionFormPage />
+    </MemoryRouter>,
+  )
+  await userEvent.type(screen.getByLabelText('Asunto'), 'Aviso')
+  await userEvent.type(screen.getByLabelText('Mensaje'), 'Contenido')
+  const input = document.querySelector('input[type="file"]') as HTMLInputElement
+  await userEvent.upload(input, [
+    new File(['contenido'], 'acta.pdf', { type: 'application/pdf' }),
+    new File(['contenido'], 'otro.pdf', { type: 'application/pdf' }),
+  ])
+  expect(
+    await screen.findByText('No se pudo subir el archivo. Intentá de nuevo.'),
+  ).toBeInTheDocument()
+  expect(screen.getByText('acta.pdf')).toBeInTheDocument()
+  expect(screen.getByText('Analizando')).toBeInTheDocument()
+})
+
+it('does not upload if automatic draft saving fails', async () => {
+  render(
+    <MemoryRouter>
+      <ComunicacionFormPage />
+    </MemoryRouter>,
+  )
+  await userEvent.type(screen.getByLabelText('Asunto'), 'Aviso')
+  await userEvent.type(screen.getByLabelText('Mensaje'), 'Contenido')
+  api.mockRejectedValueOnce(new Error('No se pudo guardar el borrador. Intentá de nuevo.'))
+  const input = document.querySelector('input[type="file"]') as HTMLInputElement
+  await userEvent.upload(input, new File(['contenido'], 'acta.pdf', { type: 'application/pdf' }))
+  expect(
+    await screen.findByText('No se pudo guardar el borrador. Intentá de nuevo.'),
+  ).toBeInTheDocument()
+  expect(api.mock.calls.some(([path]) => path.endsWith('/adjuntos'))).toBe(false)
+  expect(screen.getByRole('button', { name: 'Guardar borrador' })).not.toBeDisabled()
 })
 
 it('lets a clean file be published and keeps its state after changing the cycle', async () => {

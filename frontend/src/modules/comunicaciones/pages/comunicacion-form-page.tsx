@@ -286,6 +286,14 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
               bloqueado={ocupado}
               onCambio={setAdjuntos}
               onAviso={setMensaje}
+              onPreparar={async () => {
+                if (!datos.asunto.trim() || !datos.cuerpo.trim())
+                  throw new Error('Completá el asunto y el mensaje antes de adjuntar archivos.')
+                if (docente && (!datos.audiencia.ciclo_lectivo || datos.audiencia.ids.length === 0))
+                  throw new Error('Elegí los destinatarios antes de adjuntar archivos.')
+                return guardar()
+              }}
+              onSubiendo={setOcupado}
             />
           </>
         ) : paso === 2 ? (
