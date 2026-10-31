@@ -28,18 +28,27 @@ export function nombreArchivoSeguro(nombre: string, porDefecto = 'adjunto'): str
   return limpio || porDefecto
 }
 
+export async function obtenerArchivoAdjunto(
+  comunicacionId: string,
+  adjunto: Adjunto,
+  opciones: { familia?: boolean; docente?: boolean; signal?: AbortSignal } = {},
+): Promise<Blob> {
+  const res = await fetch(`${API_URL}${rutaArchivoAdjunto(comunicacionId, adjunto.id, opciones)}`, {
+    credentials: 'include',
+    signal: opciones.signal,
+    cache: 'no-store',
+  })
+  if (!res.ok) throw new ApiError(res.status, null)
+
+  return res.blob()
+}
+
 export async function descargarAdjunto(
   comunicacionId: string,
   adjunto: Adjunto,
   opciones: { familia?: boolean; docente?: boolean; signal?: AbortSignal } = {},
 ): Promise<void> {
-  const res = await fetch(`${API_URL}${rutaArchivoAdjunto(comunicacionId, adjunto.id, opciones)}`, {
-    credentials: 'include',
-    signal: opciones.signal,
-  })
-  if (!res.ok) throw new ApiError(res.status, null)
-
-  const blob = await res.blob()
+  const blob = await obtenerArchivoAdjunto(comunicacionId, adjunto, opciones)
   const url = URL.createObjectURL(blob)
   const enlace = document.createElement('a')
   enlace.href = url

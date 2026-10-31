@@ -500,7 +500,8 @@ it('lets a clean file be published and keeps its state after changing the cycle'
       </Routes>
     </MemoryRouter>,
   )
-  expect(await screen.findByText('Verificado')).toBeInTheDocument()
+  expect(await screen.findByText('acta.pdf')).toBeInTheDocument()
+  expect(screen.queryByText('Verificado')).not.toBeInTheDocument()
   await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
   screen.getByRole('combobox', { name: 'Ciclo lectivo' }).focus()
   await userEvent.keyboard('[ArrowDown]')
@@ -510,7 +511,8 @@ it('lets a clean file be published and keeps its state after changing the cycle'
   // El panel de archivos vive en el paso 1: volver atrás comprueba que el estado se conserve
   // sin volver a pedir el borrador ni la lista de adjuntos.
   await userEvent.click(screen.getByRole('button', { name: 'Anterior' }))
-  expect(screen.getByText('Verificado')).toBeInTheDocument()
+  expect(screen.getByText('acta.pdf')).toBeInTheDocument()
+  expect(screen.queryByText('Verificado')).not.toBeInTheDocument()
   expect(
     api.mock.calls.filter(([path]) => path === '/comunicaciones/docente/c1/adjuntos'),
   ).toHaveLength(1)

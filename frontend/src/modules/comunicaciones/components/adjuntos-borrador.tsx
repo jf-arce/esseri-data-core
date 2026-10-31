@@ -132,8 +132,7 @@ export function AdjuntosBorrador({
         </h2>
         <p className="text-sm text-texto-2">{AYUDA_ADJUNTOS}</p>
         <p className="text-sm text-texto-2">
-          Cada archivo se analiza por seguridad; cuando termina, queda verificado y habilita la
-          publicación.
+          Cada archivo se analiza por seguridad; cuando termina, habilita la publicación.
         </p>
       </div>
       {!comunicacionId && !onPreparar ? (
@@ -179,9 +178,11 @@ export function AdjuntosBorrador({
                 <span className="block truncate text-sm font-medium">{adjunto.nombre}</span>
                 <span className="text-xs text-texto-2">{formatearTamanio(adjunto.tamanio)}</span>
               </span>
-              <Badge variant={badgeEstadoAdjunto(adjunto.estado)}>
-                {ETIQUETAS_ESTADO_ADJUNTO[adjunto.estado]}
-              </Badge>
+              {adjunto.estado !== 'limpio' && (
+                <Badge variant={badgeEstadoAdjunto(adjunto.estado)}>
+                  {ETIQUETAS_ESTADO_ADJUNTO[adjunto.estado]}
+                </Badge>
+              )}
               {(adjunto.estado === 'cuarentena' || adjunto.estado === 'error') && (
                 <Button
                   variant="secondary"
