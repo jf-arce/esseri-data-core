@@ -47,6 +47,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast: 'cn-toast',
+          // Sonner fija el subtítulo en #3f3f3f; sobre el fondo oscuro del toast no se lee.
+          description: 'text-inherit! opacity-90',
         },
       }}
       {...props}
