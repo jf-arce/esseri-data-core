@@ -37,7 +37,7 @@ authenticated viewer lets users switch files and download from inside the dialog
 are not separate list actions. PDF display depends on browser support, with download as fallback.
 Temporary blob URLs are revoked when switching files, closing or unmounting.
 
-Staff recipient and sent counts open searchable dialogs with 10 rows per page. Search covers
+The email summary's recipient and sent counts open searchable dialogs with 10 rows per page. Search covers
 the full server-side list; dialog height follows the current row count, capped for small screens.
 The email attachment notice freezes filenames at publication and links to the authenticated portal,
 never to public files or email binaries. Already-created email snapshots are not rewritten.

@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AdjuntosComunicacion } from '../components/adjuntos-comunicacion'
 import { EnviosEmail } from '../components/envios-email'
-import { DestinatariosDialog } from '../components/destinatarios-dialog'
 import { obtenerComunicacion } from '../services/obtener-comunicacion'
 import { registrarLectura } from '../services/registrar-lectura'
 import type { Adjunto, Comunicacion } from '../types'
@@ -119,15 +118,6 @@ export function ComunicacionDetallePage({
             <p role="status" className="text-sm text-texto-2">
               Lectura registrada para tu cuenta.
             </p>
-          )}
-          {!familia && (
-            <div className="text-sm text-texto-2">
-              <DestinatariosDialog
-                comunicacionId={datos.id}
-                docente={docente}
-                etiqueta={`${datos.destinatarios} destinatario${datos.destinatarios === 1 ? '' : 's'}`}
-              />
-            </div>
           )}
           <AdjuntosComunicacion
             comunicacionId={datos.id}
