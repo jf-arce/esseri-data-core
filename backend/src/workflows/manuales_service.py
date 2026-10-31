@@ -87,20 +87,22 @@ def preparar_envios(
     Las intenciones ya existentes conservan su snapshot (publicación idempotente).
     """
 
-    adjuntos = (
-        db.scalar(
-            select(func.count())
-            .select_from(ComunicacionAdjunto)
+    adjuntos = list(
+        db.scalars(
+            select(ComunicacionAdjunto.nombre)
             .where(ComunicacionAdjunto.comunicacion_id == comunicacion.id)
+            .order_by(ComunicacionAdjunto.created_at, ComunicacionAdjunto.id)
         )
-        or 0
     )
     cuerpo = comunicacion.cuerpo
     if adjuntos:
-        plural = "s" if adjuntos != 1 else ""
+        plural = "s" if len(adjuntos) != 1 else ""
+        nombres = "\n".join(f"- {' '.join(nombre.splitlines())}" for nombre in adjuntos)
         cuerpo = (
-            f"{cuerpo}\n\nEsta comunicación incluye {adjuntos} archivo{plural} adjunto{plural}. "
-            f"Podés descargar{'los' if adjuntos != 1 else 'lo'} desde el Portal Familia."
+            f"{cuerpo}\n\nEsta comunicación incluye {len(adjuntos)} "
+            f"archivo{plural} adjunto{plural}."
+            f"\n{nombres}\n\nPodés ver{'los' if plural else 'lo'} en el Portal Familia "
+            "o descargar una copia. Para acceder, iniciá sesión con tu cuenta."
         )
 
     envios: list[EnvioNotificacion] = []
@@ -402,11 +404,23 @@ def _procesar_uno(db: Session, envio_id: uuid.UUID, intento_id: uuid.UUID) -> st
     if envio is None or envio.intento_actual_id != intento_id:
         return "omitido"
     try:
+        cantidad_adjuntos = (
+            db.scalar(
+                select(func.count())
+                .select_from(ComunicacionAdjunto)
+                .where(ComunicacionAdjunto.comunicacion_id == envio.comunicacion_id)
+            )
+            or 0
+        )
         resultado = n8n_client.enviar_email_manual(
             envio.email,
             envio.asunto,
             envio.cuerpo,
-            armar_html(envio.asunto, envio.cuerpo, _enlace_portal(envio)),
+            armar_html(
+                envio.asunto,
+                envio.cuerpo,
+                _enlace_portal(envio, cantidad_adjuntos=cantidad_adjuntos),
+            ),
             envio_id=envio.id,
             intento_id=intento_id,
             callback_base_url=settings.N8N_CALLBACK_BASE_URL,
@@ -417,9 +431,14 @@ def _procesar_uno(db: Session, envio_id: uuid.UUID, intento_id: uuid.UUID) -> st
     return _finalizar(db, envio_id, intento_id, resultado)
 
 
-def _enlace_portal(envio: EnvioNotificacion) -> tuple[str, str]:
+def _enlace_portal(envio: EnvioNotificacion, *, cantidad_adjuntos: int = 0) -> tuple[str, str]:
     url = f"{settings.FRONTEND_URL.rstrip('/')}/familia/comunicaciones/{envio.comunicacion_id}"
-    return url, TEXTO_ENLACE_PORTAL
+    texto = TEXTO_ENLACE_PORTAL
+    if cantidad_adjuntos:
+        texto = (
+            "Ver adjunto en el portal" if cantidad_adjuntos == 1 else "Ver adjuntos en el portal"
+        )
+    return url, texto
 
 
 def _finalizar(

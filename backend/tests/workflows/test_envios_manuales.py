@@ -143,6 +143,7 @@ def test_preparar_envios_es_idempotente_y_marca_sin_email(
     db_session.commit()
 
     assert [envio.id for envio in primeros] == [envio.id for envio in segundos]
+    assert all(envio.cuerpo == comunicacion.cuerpo for envio in segundos)
     envios = _envios(db_session, comunicacion)
     assert len(envios) == 2
     sin_email = next(envio for envio in envios if envio.familia_id == familia_c)
@@ -150,28 +151,61 @@ def test_preparar_envios_es_idempotente_y_marca_sin_email(
     assert sin_email.estado == "sin_email"
 
 
+@pytest.mark.parametrize("nombres", [["documento.pdf"], ["documento.pdf", "<imagen>.png"]])
 def test_preparar_envios_avisa_cuando_hay_adjuntos(
-    db_session, comunicacion, escenario_dos_familias
+    db_session, comunicacion, escenario_dos_familias, manual_habilitado, monkeypatch, nombres
 ):
     familia = escenario_dos_familias["familia_a"]
     alumno = escenario_dos_familias["alumno_a"]
     _recibo(db_session, comunicacion, familia, [alumno])
-    db_session.add(
+    adjuntos = [
         ComunicacionAdjunto(
             comunicacion_id=comunicacion.id,
-            nombre="documento.pdf",
+            nombre=nombre,
             tipo_contenido="application/pdf",
             tamanio=123,
             checksum="a" * 64,
             estado="limpio",
         )
-    )
+        for nombre in nombres
+    ]
+    db_session.add_all(adjuntos)
     db_session.commit()
 
     envio = manuales_service.preparar_envios(db_session, comunicacion, {familia: [str(alumno)]})[0]
 
-    assert "archivo adjunto" in envio.cuerpo
+    assert f"{len(nombres)} archivo" in envio.cuerpo
     assert "Portal Familia" in envio.cuerpo
+    assert "iniciá sesión" in envio.cuerpo
+    for nombre in nombres:
+        assert nombre in envio.cuerpo
+    snapshot = envio.cuerpo
+    db_session.commit()
+    adjuntos[0].nombre = "renombrado.pdf"
+    db_session.commit()
+    assert (
+        manuales_service.preparar_envios(db_session, comunicacion, {familia: [str(alumno)]})[
+            0
+        ].cuerpo
+        == snapshot
+    )
+    db_session.commit()
+    enviados = []
+
+    def enviar(*args, **kwargs):
+        enviados.append(args)
+        return _ack("presentado", referencia="gmail-test")
+
+    monkeypatch.setattr(n8n_client, "enviar_email_manual", enviar)
+    manuales_service.procesar_envios_pendientes(db_session)
+    html = enviados[0][3]
+    assert (
+        "Ver adjunto en el portal" if len(nombres) == 1 else "Ver adjuntos en el portal"
+    ) in html
+    assert "/familia/comunicaciones/" in html
+    assert "<imagen>.png" not in html
+    if len(nombres) > 1:
+        assert "&lt;imagen&gt;.png" in html
 
 
 def test_presentado_exige_referencia_y_no_se_marca_entregado(
