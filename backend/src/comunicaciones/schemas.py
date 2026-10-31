@@ -31,6 +31,7 @@ class BorradorInput(BaseModel):
     cuerpo: Texto = Field(max_length=20000)
     audiencia: Audiencia
     canal: Literal["portal", "email", "ambos"] = "portal"
+    tipo: Literal["institucional", "curso", "administrativa", "otro"] | None = None
 
 
 class ComunicacionRead(BaseModel):

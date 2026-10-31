@@ -110,7 +110,13 @@ def obtener(
     comunicacion = db.scalar(consulta.execution_options(populate_existing=True))
     if (
         comunicacion is None
-        or (tipo is not None and comunicacion.tipo != tipo)
+        or (
+            tipo is not None
+            and (
+                (tipo == "institucional" and comunicacion.tipo == "curso")
+                or (tipo != "institucional" and comunicacion.tipo != tipo)
+            )
+        )
         or (comunicacion.estado == "borrador" and comunicacion.autor_id != usuario.id)
         or (tipo == "curso" and comunicacion.autor_id != usuario.id)
         or (tipo is None and comunicacion.tipo == "curso" and comunicacion.estado == "borrador")
@@ -171,10 +177,14 @@ def respuesta(db: Session, c: Comunicacion, *, recibo=None) -> ComunicacionRead:
 
 
 def crear(db: Session, data: BorradorInput, usuario: Usuario, *, tipo="institucional"):
+    if data.tipo is not None:
+        if (tipo == "curso") != (data.tipo == "curso"):
+            raise HTTPException(422, "El tipo no corresponde al portal de creación")
+        tipo = data.tipo
     if tipo == "curso":
         validar_curso(db, usuario, data.audiencia)
     # Preserve stage-1/2 idempotency hashes for the original portal-only contract.
-    contenido = data.model_dump(mode="json", exclude={"canal"})
+    contenido = data.model_dump(mode="json", exclude={"canal", "tipo"})
     if data.canal != "portal":
         contenido["canal"] = data.canal
     digest = hashlib.sha256(json.dumps(contenido, sort_keys=True).encode()).hexdigest()
@@ -222,6 +232,8 @@ def editar(
     db: Session, id: uuid.UUID, data: BorradorInput, usuario: Usuario, *, tipo="institucional"
 ):
     c = obtener(db, id, usuario, bloquear=True, tipo=tipo)
+    if data.tipo is not None and (tipo == "curso") != (data.tipo == "curso"):
+        raise HTTPException(422, "El tipo no corresponde al portal de creación")
     if tipo == "curso":
         validar_curso(db, usuario, data.audiencia)
     if c.estado != "borrador":
@@ -233,6 +245,7 @@ def editar(
         ("cuerpo", data.cuerpo),
         ("audiencia", data.audiencia.model_dump(mode="json")),
         ("canal", data.canal),
+        ("tipo", data.tipo or c.tipo),
     ):
         anterior = getattr(c, campo)
         if anterior != nuevo:
@@ -344,7 +357,7 @@ def listar(
             consulta = consulta.where(Comunicacion.tipo == tipo)
         else:
             consulta = consulta.where(
-                or_(Comunicacion.estado == "publicada", Comunicacion.tipo == "institucional")
+                or_(Comunicacion.estado == "publicada", Comunicacion.tipo != "curso")
             )
         if autor_id is not None:
             consulta = consulta.where(Comunicacion.autor_id == autor_id)
@@ -355,14 +368,14 @@ def listar(
     total = db.scalar(select(func.count()).select_from(consulta.subquery()))
     filas = db.scalars(
         consulta.order_by(Comunicacion.created_at.desc(), Comunicacion.id)
-        .offset((pagina - 1) * 20)
-        .limit(20)
+        .offset((pagina - 1) * 10)
+        .limit(10)
     )
     return Listado(
         items=[respuesta(db, c, recibo=recibos.get(c.id)) for c in filas],
         total=total,
         pagina=pagina,
-        total_paginas=(total + 19) // 20,
+        total_paginas=(total + 9) // 10,
     )
 
 

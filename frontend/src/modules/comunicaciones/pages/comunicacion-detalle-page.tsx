@@ -10,7 +10,7 @@ import { EnviosEmail } from '../components/envios-email'
 import { obtenerComunicacion } from '../services/obtener-comunicacion'
 import { registrarLectura } from '../services/registrar-lectura'
 import type { Adjunto, Comunicacion } from '../types'
-import { ETIQUETAS_CANAL } from '../utils'
+import { ETIQUETAS_CANAL, ETIQUETAS_TIPO } from '../utils'
 
 export function ComunicacionDetallePage({
   familia = false,
@@ -95,9 +95,7 @@ export function ComunicacionDetallePage({
       ) : (
         <article className="space-y-6 rounded-panel bg-superficie p-5 shadow-card sm:p-8">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="neutro">
-              {datos.tipo === 'curso' ? 'Comunicación de curso' : 'Institucional'}
-            </Badge>
+            <Badge variant="neutro">{ETIQUETAS_TIPO[datos.tipo]}</Badge>
             <Badge variant={canal === 'portal' ? 'neutro' : 'info'}>{ETIQUETAS_CANAL[canal]}</Badge>
           </div>
           <h1 className="text-2xl font-semibold break-words text-texto">{datos.asunto}</h1>

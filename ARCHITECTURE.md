@@ -20,7 +20,10 @@ It owns drafts, publication, recipient resolution and individual responsible rea
 It is not part of the administrative dashboard or the Workflows transport log.
 Stages 1–2 have only `comunicacion` and `recibo_comunicacion`: audience selection lives on the
 communication, while each receipt freezes the relevant student identifiers and its first read.
-A `tipo` column distinguishes institutional from course authoring without adding a table.
+A `tipo` column distinguishes institutional, administrative, other and course communications
+without adding a table. Administrative and other communications share the institutional
+authoring permissions, audience resolution and private attachment lifecycle. Course authoring
+remains exclusive to the Docente portal; selecting a content type never grants that scope.
 No separate version, publication, read or approval entities are introduced in stages 1–3.
 Course authoring is restricted to teachers acting with the Docente active role and to their
 own `AsignacionDocente` divisions/students in the selected cycle; scope is revalidated on edit

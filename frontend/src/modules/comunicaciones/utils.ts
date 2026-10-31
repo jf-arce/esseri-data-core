@@ -1,4 +1,18 @@
-import type { Adjunto, Canal, EstadoAdjunto } from './types'
+import type { Adjunto, Canal, EstadoAdjunto, TipoComunicacion } from './types'
+
+export const ETIQUETAS_TIPO: Record<TipoComunicacion, string> = {
+  institucional: 'Institucional',
+  curso: 'Curso',
+  administrativa: 'Administrativa',
+  otro: 'Otro',
+}
+
+export const DESCRIPCIONES_TIPO: Record<TipoComunicacion, string> = {
+  institucional: 'Novedades y avisos del colegio',
+  curso: 'Información para un curso o división',
+  administrativa: 'Información de gestión',
+  otro: 'Otro tipo de comunicación',
+}
 
 export const MAX_ADJUNTOS = 5
 export const MAX_TAMANIO_ADJUNTO = 5 * 1024 * 1024

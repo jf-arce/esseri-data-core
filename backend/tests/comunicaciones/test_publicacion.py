@@ -67,6 +67,31 @@ def snapshot(db):
     }
 
 
+@pytest.mark.parametrize("tipo", ["administrativa", "otro"])
+def test_nuevos_tipos_se_guardan_editan_publican_y_leen(client, escenario, tipo):
+    ids, entrar = escenario
+    payload = datos(ids, tipo=tipo)
+    response = client.post("/comunicaciones", json=payload)
+    assert response.status_code == 201, response.text
+    c = response.json()
+    assert c["tipo"] == tipo
+    assert client.post("/comunicaciones", json=payload).json()["id"] == c["id"]
+    assert c["id"] in [i["id"] for i in client.get("/comunicaciones").json()["items"]]
+    edited = client.put(f"/comunicaciones/{c['id']}", json={**payload, "asunto": "Actualizado"})
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["tipo"] == tipo
+    published = client.post(f"/comunicaciones/{c['id']}/publicar")
+    assert published.status_code == 200, published.text
+    entrar(ids["usuario_a"], "familia")
+    assert client.get(f"/comunicaciones/familia/{c['id']}").json()["tipo"] == tipo
+
+
+def test_gestion_no_puede_crear_curso_ni_tipo_desconocido(client, escenario):
+    ids, _ = escenario
+    for tipo in ("curso", "desconocido"):
+        assert client.post("/comunicaciones", json=datos(ids, tipo=tipo)).status_code == 422
+
+
 def test_borrador_publicacion_y_lectura_persistida(client, escenario, db_session):
     ids, entrar = escenario
     borrador = crear(client, ids)

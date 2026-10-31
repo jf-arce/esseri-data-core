@@ -1,4 +1,5 @@
 export type Canal = 'portal' | 'email' | 'ambos'
+export type TipoComunicacion = 'institucional' | 'curso' | 'administrativa' | 'otro'
 
 export type EstadoAdjunto = 'cuarentena' | 'limpio' | 'rechazado' | 'error'
 
@@ -36,13 +37,14 @@ export interface Borrador {
   cuerpo: string
   audiencia: Audiencia
   canal?: Canal
+  tipo?: TipoComunicacion
 }
 export interface Comunicacion {
   id: string
   clave: string | null
   asunto: string
   cuerpo: string
-  tipo: 'institucional' | 'curso'
+  tipo: TipoComunicacion
   emisor: string | null
   estado: 'borrador' | 'publicada'
   audiencia: Audiencia | null

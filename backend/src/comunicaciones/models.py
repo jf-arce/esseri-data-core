@@ -12,7 +12,10 @@ class Comunicacion(Base):
     __table_args__ = (
         sa.UniqueConstraint("autor_id", "clave", name="uq_comunicacion_autor_clave"),
         sa.CheckConstraint("estado IN ('borrador', 'publicada')", name="ck_comunicacion_estado"),
-        sa.CheckConstraint("tipo IN ('institucional', 'curso')", name="ck_comunicacion_tipo"),
+        sa.CheckConstraint(
+            "tipo IN ('institucional', 'curso', 'administrativa', 'otro')",
+            name="ck_comunicacion_tipo",
+        ),
         sa.CheckConstraint("canal IN ('portal', 'email', 'ambos')", name="ck_comunicacion_canal"),
     )
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import { SearchIcon } from 'lucide-react'
+import { PlusIcon, SearchIcon } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
 import { PaginadorServidor } from '@/components/paginador-servidor'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -22,7 +22,7 @@ import {
 import { formatearDiaDeInstante } from '@/lib/fechas'
 import { listarComunicaciones } from '../services/listar-comunicaciones'
 import type { Comunicacion, Listado } from '../types'
-import { ETIQUETAS_CANAL } from '../utils'
+import { ETIQUETAS_CANAL, ETIQUETAS_TIPO } from '../utils'
 
 type FiltroEstado = 'todas' | 'publicada' | 'borrador'
 
@@ -84,7 +84,10 @@ export function ComunicacionesPage({
         accion={
           !familia && (
             <Button asChild>
-              <Link to={`${base}/nueva`}>Nueva comunicación</Link>
+              <Link to={`${base}/nueva`}>
+                <PlusIcon aria-hidden className="size-4" />
+                Nueva comunicación
+              </Link>
             </Button>
           )
         }
@@ -163,7 +166,7 @@ export function ComunicacionesPage({
                 <span className="min-w-0">
                   <span className="block font-semibold break-words">{c.asunto}</span>
                   <span className="text-sm text-texto-2">
-                    {c.tipo === 'curso' ? (c.emisor ?? 'Colegio ESSERI') : 'Institucional'}
+                    {c.tipo === 'curso' ? (c.emisor ?? 'Colegio ESSERI') : ETIQUETAS_TIPO[c.tipo]}
                   </span>
                 </span>
                 <Badge variant={c.leida_at ? 'neutro' : 'info'}>
@@ -187,7 +190,7 @@ export function ComunicacionesPage({
                 <TableHead>Autor</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="font-medium [&_td]:py-3">
               {datos.items.map((c) => (
                 <TableRow key={c.id}>
                   <TableCell>
@@ -198,11 +201,9 @@ export function ComunicacionesPage({
                       {c.asunto}
                     </Link>
                   </TableCell>
-                  <TableCell>{c.tipo === 'curso' ? 'Curso' : 'Institucional'}</TableCell>
+                  <TableCell>{ETIQUETAS_TIPO[c.tipo]}</TableCell>
                   <TableCell>
-                    <Badge variant={(c.canal ?? 'portal') === 'portal' ? 'neutro' : 'info'}>
-                      {ETIQUETAS_CANAL[c.canal ?? 'portal']}
-                    </Badge>
+                    <span className="text-texto-2">{ETIQUETAS_CANAL[c.canal ?? 'portal']}</span>
                   </TableCell>
                   <TableCell>
                     {c.estado === 'borrador'
@@ -210,9 +211,15 @@ export function ComunicacionesPage({
                       : `${etiquetaAudiencia(c)} · ${c.destinatarios}`}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={c.estado === 'publicada' ? 'exito' : 'neutro'}>
+                    <span
+                      className={`inline-flex items-center gap-2 ${c.estado === 'publicada' ? 'text-exito' : 'text-texto-2'}`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="size-1.5 shrink-0 rounded-full bg-current"
+                      />
                       {c.estado === 'publicada' ? 'Publicada' : 'Borrador'}
-                    </Badge>
+                    </span>
                   </TableCell>
                   <TableCell className="tabular-nums">
                     {formatearDiaDeInstante(c.publicada_at ?? c.created_at)}
@@ -227,19 +234,14 @@ export function ComunicacionesPage({
         </div>
       )}
       {datos && !error && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-texto-2">
-            Mostrando {datos.items.length} de {datos.total}
-          </p>
-          <PaginadorServidor
-            pagina={pagina}
-            tamanioPagina={20}
-            total={datos.total}
-            totalPaginas={datos.total_paginas}
-            onCambiarPagina={setPagina}
-            etiqueta="comunicaciones"
-          />
-        </div>
+        <PaginadorServidor
+          pagina={pagina}
+          tamanioPagina={10}
+          total={datos.total}
+          totalPaginas={datos.total_paginas}
+          onCambiarPagina={setPagina}
+          etiqueta="comunicaciones"
+        />
       )}
     </section>
   )

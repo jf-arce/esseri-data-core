@@ -85,6 +85,13 @@ def datos(ids, tipo="division", seleccion=None, ciclo="2027"):
     }
 
 
+@pytest.mark.parametrize("tipo", ["institucional", "administrativa", "otro"])
+def test_docente_no_puede_elegir_tipos_de_gestion(client, docente, tipo):
+    ids, _ = docente
+    payload = {**datos(ids), "tipo": tipo}
+    assert client.post("/comunicaciones/docente", json=payload).status_code == 422
+
+
 def estado(db):
     return {
         t.name: sorted(repr(tuple(r)) for r in db.execute(select(t)))
