@@ -81,10 +81,13 @@ def _encabezado(institucion: str) -> str:
     imagen = ""
     # Solo http(s): una URL con otro esquema no es un logo que Gmail pueda mostrar.
     if logo.lower().startswith(("https://", "http://")):
+        # Fondo blanco: el logo es violeta y sobre el encabezado oscuro casi no se ve.
         imagen = (
-            f'<td width="44" style="padding-right:12px;"><img src="{escape(logo)}" '
-            f'alt="{institucion}" width="40" height="40" '
-            'style="display:block;border:0;border-radius:8px;"></td>'
+            '<td width="44" style="padding-right:12px;"><table role="presentation" '
+            'cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#ffffff" '
+            'style="background-color:#ffffff;border-radius:8px;padding:4px;">'
+            f'<img src="{escape(logo)}" alt="{institucion}" width="40" height="40" '
+            'style="display:block;border:0;"></td></tr></table></td>'
         )
     return (
         f'<tr><td bgcolor="{COLOR_ENCABEZADO}" style="background-color:{COLOR_ENCABEZADO};'
