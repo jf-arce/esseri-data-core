@@ -103,6 +103,21 @@ def test_listas_docentes_solo_permiten_comunicaciones_propias(client, docente):
     assert client.get(ruta).status_code == 403
 
 
+def test_entrega_docente_exige_ser_el_autor_del_curso(client, docente):
+    ids, entrar = docente
+    c = client.post("/comunicaciones/docente", json=datos(ids)).json()
+    assert client.post(f"/comunicaciones/docente/{c['id']}/publicar").status_code == 200
+    ruta = f"/comunicaciones/docente/{c['id']}/entrega"
+    respuesta = client.get(ruta)
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.headers["cache-control"] == "private, no-store"
+    assert respuesta.json()["resumen"]["responsables"] == 1
+    entrar(usuario_id=ids["usuario_otro"])
+    assert client.get(ruta).status_code == 404
+    entrar(rol="familia", usuario_id=ids["usuario_a"])
+    assert client.get(ruta).status_code == 403
+
+
 def estado(db):
     return {
         t.name: sorted(repr(tuple(r)) for r in db.execute(select(t)))
