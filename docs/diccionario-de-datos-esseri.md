@@ -742,7 +742,7 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 | id | uuid | PK |  |
 | nombre | string |  |  |
 | asunto | string |  |  |
-| cuerpo | string |  | Texto plano con placeholders tipo `{{nombre_familia}}`, `{{monto_deuda}}`, `{{mes_cuota}}`. El backend los reemplaza por datos reales al momento de generar la `NOTIFICACION` — no es código, solo texto con marcadores a sustituir |
+| cuerpo | string |  | Texto plano con placeholders tipo `{{nombre_familia}}`, `{{monto_deuda}}`, `{{mes_cuota}}`. El backend los reemplaza por datos reales al momento de generar la `NOTIFICACION` — no es código, solo texto con marcadores a sustituir. `**texto**` sale en negrita en el email de Workflows y un párrafo que es solo `**texto**` se muestra como dato destacado; en `cuerpo_snapshot` y en el texto plano del envío las marcas se quitan |
 | created_at | datetime |  | Fecha y hora de creación del registro. |
 | updated_at | datetime |  | Fecha y hora de la última modificación del registro. |
 
