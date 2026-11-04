@@ -4,15 +4,15 @@ Todo lo que no es código de aplicación pero hace falta para correr el sistema 
 
 ## Entorno local
 
-Antes de levantar el stack por primera vez:
+Desde la raíz del repositorio, antes de levantar el stack por primera vez:
 
 ```bash
-cp ../backend/.env.example ../backend/.env   # completar lo que haga falta
+cp backend/.env.example backend/.env   # completar lo que haga falta
 ```
 
 ```bash
 cd infra
-docker-compose up
+docker compose up
 ```
 
 Levanta 4 servicios en la misma red interna:
@@ -22,7 +22,7 @@ Levanta 4 servicios en la misma red interna:
 | `postgres` | `localhost:5432` | Usuario/clave/DB: `esseri`/`esseri`/`esseri_data_core` (coincide con `backend/.env.example`). |
 | `backend` | `http://localhost:8000` | Antes de levantar `uvicorn --reload` corre `alembic upgrade head` y los 3 scripts de `database/seeds/` (idempotentes, no rompen nada si ya corrieron). `backend/src` está montado como volumen para hot-reload. Lee `backend/.env`. |
 | `frontend` | `http://localhost:5173` | Corre `npm run dev` sobre la imagen `node:26-alpine`, con `frontend/` montado como volumen para hot-reload. |
-| `n8n` | `http://localhost:5678` | Sin autenticación en local. Los workflows se exportan a `infra/n8n/` (ver el README de esa carpeta). |
+| `n8n` | `http://localhost:5678` | En el primer acceso se configura la cuenta propietaria de n8n. Los workflows se exportan a `infra/n8n/` (ver el README de esa carpeta). |
 
 **Demo del 10/11:** el paso a paso para dejarla andando en una notebook, con los scripts que
 preparan, verifican y restauran el entorno, está en [`infra/demo.md`](demo.md).
@@ -152,13 +152,13 @@ los datos críticos.
 ```bash
 cd infra
 cp env/.env.example env/.env      # completar con valores reales, nunca commitear env/.env
-export $(grep -v '^#' env/.env | xargs)   # o definir VITE_API_URL en infra/.env, ver nota abajo
-docker-compose -f docker-compose.prod.yml up -d --build
+# Crear .env en este directorio con VITE_API_URL=<URL pública de la API>, ver nota abajo
+docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 Diferencias con el entorno local:
-- Sin hot-reload ni volúmenes de código — cada servicio corre la imagen buildeada desde su propio `Dockerfile`.
-- El frontend sirve el build estático de `vite build` vía Nginx (mismo `frontend/Dockerfile` que en local, pero sin overridear el `CMD`).
+- Sin hot-reload ni volúmenes de código: backend y frontend usan sus Dockerfiles; PostgreSQL y n8n usan imágenes publicadas.
+- El frontend sirve el build estático de `vite build` vía Nginx (en desarrollo se usa directamente `node:26-alpine` con Vite).
 - Las variables se toman de `infra/env/.env`, no de los `.env` de cada capa.
 
 **Nota sobre `VITE_API_URL`:** Vite incrusta esa variable en el bundle en tiempo de build, no en runtime — por eso el frontend la recibe como build arg (`args: VITE_API_URL` en `docker-compose.prod.yml`) en vez de `env_file`. Docker Compose resuelve `${VITE_API_URL}` desde variables de shell o desde un `infra/.env` (que Compose carga automáticamente, distinto de `infra/env/.env`) — asegurarse de que esté definida en uno de los dos antes de buildear.
@@ -170,3 +170,32 @@ Los workflows exportados en `infra/n8n/*.json` se importan desde la UI de n8n (`
 ## Variables de entorno
 
 `infra/env/.env.example` documenta todas las variables que necesita el stack completo en producción. Para desarrollo local sin Docker, cada capa tiene su propio `.env.example` (`backend/.env.example`, `frontend/.env.example`) — ver los README de esa capa.
+
+## Migraciones y primer administrador con Docker
+
+Tanto desarrollo como producción ejecutan `alembic upgrade head` y los seeds de catálogos
+`01`, `02` y `03` antes de iniciar la API. En producción lo define `backend/Dockerfile`.
+El bootstrap del administrador no forma parte de ese arranque. Después de que la API arranque,
+con `BOOTSTRAP_ADMIN_EMAIL` configurado en el archivo de entorno correspondiente:
+
+```bash
+cd infra   # desde la raíz del repositorio
+# Desarrollo (pide contraseña si BOOTSTRAP_ADMIN_PASSWORD está vacía):
+docker compose exec backend python /database/seeds/00_bootstrap_admin.py
+# Producción:
+docker compose -f docker-compose.prod.yml exec backend python /database/seeds/00_bootstrap_admin.py
+```
+
+Ejecutar solo la variante del entorno elegido. La cuenta existente no se modifica.
+
+## Límites del despliegue de producción
+
+El Compose publica HTTP, pero no instala certificados ni configura HTTPS. El backend usa cookies
+`Secure` fuera de desarrollo: completar HTTPS antes de considerar operativo el login de producción.
+La configuración de dominios, certificados y proxy está **a completar**. No desactivar esa protección
+para resolverlo. ClamAV solo tiene un Compose de pruebas aisladas; su despliegue operativo está
+**a completar** y los adjuntos deben permanecer deshabilitados hasta verificarlo.
+La versión de n8n validada por el proyecto también está **a completar**: la imagen no está fijada.
+
+El procedimiento integrado y las variables están en el
+[manual de instalación](../docs/manuales/manual-instalacion.md).

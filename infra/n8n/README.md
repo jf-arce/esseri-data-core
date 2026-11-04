@@ -2,6 +2,15 @@
 
 Workflows exportados de n8n. Vive acá y no en `backend/` porque n8n no tiene lógica de aplicación propia: es solo el **ejecutor de envíos** (Gmail/Google Workspace). El motor de workflows, `EVENT_LOG`, `WORKFLOW_EXECUTION` y `NOTIFICACION` viven en el backend (PostgreSQL es la fuente de verdad); el backend resuelve destinatario y contenido antes de llamar a n8n. Ver `ARCHITECTURE.md` y `docs/diccionario-de-datos-esseri.md`.
 
+## Acceso a la instancia
+
+En el primer acceso, completar la creación de la cuenta propietaria en la interfaz de n8n;
+en instancias existentes, ingresar con su cuenta. Esto es independiente de la credencial
+Header Auth del webhook. Las variables `N8N_BASIC_AUTH_*` ya no configuran el acceso:
+n8n retiró Basic Auth en la versión 1.0, según su
+[documentación oficial](https://github.com/n8n-io/n8n-docs/blob/main/docs/deploy/host-n8n/configure-n8n/user-management.md).
+Los Compose usan una imagen sin versión fijada; la versión validada del proyecto está **a completar**.
+
 ## Workflows
 
 | Archivo | Qué hace |
