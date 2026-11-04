@@ -196,7 +196,7 @@ El **rol activo** es una decisión puramente de UI, guardada en `store/auth-stor
 | `.gitignore` | Ignora lo específico de esta capa: `node_modules/`, `dist/`, `.env` local. |
 | `eslint.config.js` | Reglas de lint para TypeScript/React — es lo que corre `ci.yml` en el paso de lint. |
 | `.prettierrc` | Reglas de formateo automático (comillas, punto y coma, ancho de línea) — evita discusiones de estilo en los PRs. |
-| `Dockerfile` | Build multi-stage: una etapa instala dependencias y compila con `vite build`, otra sirve el resultado estático (ej. con Nginx). La misma imagen se usa en local (vía `docker-compose` de `infra/`) y en producción. |
+| `Dockerfile` | Build multi-stage: una etapa instala dependencias y compila con `vite build`, otra sirve el resultado estático (ej. con Nginx). Esta imagen sirve el frontend compilado en producción; el Compose local usa `node:26-alpine` con Vite. |
 | `.dockerignore` | Evita copiar `node_modules/`, `dist/` y `.env` dentro de la imagen al buildear — mismo espíritu que `.gitignore` pero para Docker. |
 | `README.md` | Cómo instalar dependencias, levantar el frontend en local (con o sin Docker) y correr sus tests — para que cualquiera pueda levantar **solo** esta capa sin depender del resto del monorepo. |
 
@@ -427,7 +427,7 @@ infra/
 |---|---|
 | `n8n/` | Workflows exportados del motor de automatización (vive acá y no en `backend/` porque la ejecución de los workflows se resuelve vía n8n, sin lógica de aplicación propia). |
 | `env/` | Plantillas de variables de entorno por ambiente (desarrollo, testing, producción) — nunca credenciales reales, solo la lista de variables que hacen falta. |
-| `docker-compose.yml` | Orquesta el ambiente **local** (tarea 1.3.1 del cronograma): levanta un contenedor por cada pieza — PostgreSQL, backend (usando `backend/Dockerfile`), frontend (usando `frontend/Dockerfile`) y n8n — todos conectados en la misma red interna, con hot-reload para desarrollo. |
+| `docker-compose.yml` | Orquesta el ambiente **local** (tarea 1.3.1 del cronograma): levanta un contenedor por cada pieza — PostgreSQL, backend (usando `backend/Dockerfile`), frontend (usando `node:26-alpine` con Vite) y n8n — todos conectados en la misma red interna, con hot-reload para desarrollo. |
 | `docker-compose.prod.yml` | Variante para producción: mismas imágenes, pero sin hot-reload, con el frontend sirviendo el build estático y variables tomadas de `env/` en vez de `.env` locales. |
 | `README.md` | Cómo levantar el ambiente completo con `docker-compose up`, cómo importar los workflows de `n8n/` y qué variables de `env/` hay que completar — para que alguien pueda levantar el sistema entero sin tener que leer `frontend/README.md` y `backend/README.md` por separado. |
 
@@ -473,7 +473,7 @@ Con esto, cada capa queda autocontenida: alguien puede clonar el repo, entrar so
 
 ## Decisiones acordadas con el equipo (no vienen de la guía ni del cliente)
 
-- **Dockerizar también producción**, no solo el entorno local — se usa la misma imagen de `frontend/Dockerfile` y `backend/Dockerfile` en ambos casos, cambiando solo la configuración vía `docker-compose.prod.yml`. Recomendado por simplicidad de mantenimiento para un equipo chico de DevOps y para facilitar la transferencia final a ESSERI (RNF-13). El cronograma solo exige Docker explícitamente para el entorno local (tarea 1.3.1); para producción se recomienda un servicio tipo Railway/Render que reciba las imágenes directamente, dado el tiempo acotado que tiene la tarea 1.6.1 (2 días).
+- **Dockerizar también producción**, no solo el entorno local — producción usa `frontend/Dockerfile` y `backend/Dockerfile`; en desarrollo el frontend corre Vite sobre `node:26-alpine`. Recomendado por simplicidad de mantenimiento para un equipo chico de DevOps y para facilitar la transferencia final a ESSERI (RNF-13). El cronograma solo exige Docker explícitamente para el entorno local (tarea 1.3.1); para producción se recomienda un servicio tipo Railway/Render que reciba las imágenes directamente, dado el tiempo acotado que tiene la tarea 1.6.1 (2 días).
 - **Flujo de trabajo: feature-branch (GitHub Flow)** — `main` es la única rama larga y queda protegida. Cada tarea se trabaja en una rama corta desde `main` (`feature/<algo>` o `fix/<algo>`), se abre un Pull Request, y hace falta CI en verde (`ci-frontend.yml`/`ci-backend.yml` según la capa) más al menos una review antes de mergear; la rama se borra al mergear. Se eligió por ser el modelo más liviano de los tres estándar (GitHub Flow, Git Flow, trunk-based), acorde a un equipo chico de 4 personas sin necesidad de manejar releases versionados en paralelo. Documentado en el `README.md` de la raíz, sección "Flujo de trabajo".
 
 ---
@@ -481,3 +481,12 @@ Con esto, cada capa queda autocontenida: alguien puede clonar el repo, entrar so
 ## Instrucciones accionables para asistentes de IA
 
 Las reglas imperativas para IA (checklist de decisión, qué hacer y qué no al generar código, comandos de build/test, zonas sensibles) viven en **`AGENTS.md`** en la raíz del repo — formato genérico que leen herramientas como Cursor o GitHub Copilot. **Claude Code no lee `AGENTS.md` directamente**: para eso está **`CLAUDE.md`**, que importa `AGENTS.md` con `@AGENTS.md` y agrega únicamente lo que es específico de esa herramienta (usar modo plan en las zonas sensibles). Este documento (`ARCHITECTURE.md`) es la explicación larga del *por qué* de cada decisión; `AGENTS.md` es el resumen accionable del *qué hacer*; `CLAUDE.md` es solo un puntero fino, sin duplicar contenido entre los tres.
+
+## Despliegue previsto en Railway
+
+Producción usa contenedores separados en Railway. Sin dominio propio, el frontend publica la
+interfaz y `/api` bajo un único dominio gratuito HTTPS; Nginx reenvía la API a la red privada.
+Backend, PostgreSQL y ClamAV no tienen acceso público; n8n tiene su propio dominio para el editor
+y OAuth de Gmail. Esto conserva las cookies `SameSite=Lax` sin habilitar sesiones entre sitios.
+La configuración se selecciona con `NGINX_CONFIG=nginx-railway.conf`; el Compose local conserva
+Vite y su conexión directa a la API. Detalle operativo: [infra/railway.md](infra/railway.md).

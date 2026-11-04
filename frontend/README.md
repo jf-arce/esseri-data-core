@@ -307,3 +307,15 @@ Los primitivos de `components/ui/` ya tienen la identidad ESSERI horneada adentr
 pantallas nuevas combinando estos primitivos; si una composición se repite en 2+ módulos (card de
 indicador, barra de filtros, riel de eventos), sube a `src/components/` como componente propio,
 nunca copiada entre módulos.
+
+## Contenedor en Railway sin dominio propio
+
+Configurar `VITE_API_URL=/api` y `NGINX_CONFIG=nginx-railway.conf` durante el build. En runtime,
+`BACKEND_UPSTREAM` contiene el host privado y puerto del backend (`host:8000`, sin protocolo).
+El entrypoint de la imagen oficial genera Nginx desde la plantilla y usa los resolvers del contenedor.
+La configuración predeterminada `nginx.conf` sigue sirviendo solo archivos estáticos.
+
+Railway publica el frontend por HTTPS; `/api/` se reenvía al backend privado y la cookie OAuth
+se ajusta a `/api/auth`. El procedimiento y las variables del backend están en
+[Railway](../infra/railway.md). Para verificar este proxy sin Docker, seguir
+[las pruebas de Infra](../infra/README.md#verificar-el-proxy-de-railway-sin-docker).
