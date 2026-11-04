@@ -58,11 +58,19 @@ export function EntregaComunicacion({
     const controller = new AbortController()
     listarEntrega(comunicacionId, pagina, buscar, filtro, docente, controller.signal)
       .then((resultado) => {
-        if (!controller.signal.aborted) {
-          setDatos(resultado)
-          setError(false)
-          setCargando(false)
+        if (controller.signal.aborted) return
+        if (resultado.total_paginas === 0) {
+          if (pagina !== 1) {
+            setPagina(1)
+            return
+          }
+        } else if (pagina > resultado.total_paginas) {
+          setPagina(resultado.total_paginas)
+          return
         }
+        setDatos(resultado)
+        setError(false)
+        setCargando(false)
       })
       .catch(() => {
         if (!controller.signal.aborted) {
@@ -90,6 +98,7 @@ export function EntregaComunicacion({
   function recargar() {
     setCargando(true)
     setError(false)
+    setErrorReintento(false)
     setRevision((valor) => valor + 1)
   }
 

@@ -42,10 +42,12 @@ individual metric cards: **Destinatarios**, plus **Enviados**/**Rechazados** whe
 and **Leídos**/**Sin leer** when portal applies (3 cards for one channel, 5 for both). All cards
 share the same size and typography. Portal-only rows show the responsible's contact email; the
 summary clarifies that no emails were sent. Search and state filters run over the complete result
-(accent-insensitive, including email addresses); pagination shows 10 responsible people per
-page. Summary counts keep responsible people and email intentions separate and never claim
-delivery or bounce. Send-status tooltips expose the attempt history; retries are offered only
-for definite failures. Staff metadata
+(accent-insensitive, including email addresses; `%` and `_` are literal); pagination shows 10
+responsible people per page. If the current page becomes out of range after a retry or filter
+change, the table clamps to the last valid page and refetches instead of showing a dead-end empty
+state. Retry errors clear when the delivery is reloaded. Summary counts keep responsible people
+and email intentions separate and never claim delivery or bounce. Send-status tooltips expose the
+attempt history; retries are offered only for definite failures. Staff metadata
 uses the subject as title, plain category/channel labels, publication state and a compact
 Buenos Aires date/time without seconds. No new backend delivery states are inferred.
 

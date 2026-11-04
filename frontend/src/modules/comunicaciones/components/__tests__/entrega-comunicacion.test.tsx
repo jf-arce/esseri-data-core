@@ -289,3 +289,62 @@ it('shows contact emails without send filters for portal-only communications', a
   expect(screen.queryByText('Emails')).not.toBeInTheDocument()
   expect(screen.queryByRole('option', { name: 'Sin email' })).not.toBeInTheDocument()
 })
+
+it('recovers from an out-of-range page when the total shrinks', async () => {
+  let pageTwoSeen = false
+  let pageOneAfterTwo = false
+  api.mockImplementation(async (path) => {
+    const pagina = Number(new URL(path, 'http://localhost').searchParams.get('pagina') ?? '1')
+    if (pagina === 2) {
+      pageTwoSeen = true
+      return respuesta({ items: [], total: 10, pagina: 2, total_paginas: 1 })
+    }
+    if (pageTwoSeen) pageOneAfterTwo = true
+    return respuesta({
+      items: [{ id: 'r1', nombre: 'Familia Prueba', leida_at: null, emails: [] }],
+      total: pageTwoSeen ? 10 : 11,
+      pagina: 1,
+      total_paginas: pageTwoSeen ? 1 : 2,
+    })
+  })
+  render(<EntregaComunicacion comunicacionId="c1" canal="ambos" />)
+  expect(await screen.findByText('Familia Prueba')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('link', { name: '2' }))
+  await waitFor(() => expect(pageTwoSeen).toBe(true))
+  await waitFor(() => expect(pageOneAfterTwo).toBe(true))
+  expect(await screen.findByText('Familia Prueba')).toBeInTheDocument()
+  expect(screen.queryByText('No hay destinatarios para mostrar.')).not.toBeInTheDocument()
+})
+
+it('clears the retry error when the delivery is reloaded', async () => {
+  api.mockImplementation(async (path) => {
+    if (path.includes('/reintentar')) throw new Error('falló')
+    return respuesta({
+      items: [
+        {
+          id: 'r1',
+          nombre: 'Familia Prueba',
+          leida_at: null,
+          emails: [{ id: 'e1', email: 'familia@example.test', estado: 'fallido', intentos: [] }],
+        },
+      ],
+      resumen: {
+        ...resumenBase,
+        responsables: 1,
+        responsables_con_email: 1,
+        emails: 1,
+        emails_fallidos: 1,
+      },
+      total: 1,
+      total_paginas: 1,
+    })
+  })
+  render(<EntregaComunicacion comunicacionId="c1" canal="ambos" />)
+  expect(await screen.findByText('familia@example.test')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: /Reintentar envío a/ }))
+  expect(await screen.findByText('No se pudo reintentar el envío.')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Actualizar entrega' }))
+  await waitFor(() =>
+    expect(screen.queryByText('No se pudo reintentar el envío.')).not.toBeInTheDocument(),
+  )
+})
