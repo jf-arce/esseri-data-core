@@ -9,7 +9,8 @@ en instancias existentes, ingresar con su cuenta. Esto es independiente de la cr
 Header Auth del webhook. Las variables `N8N_BASIC_AUTH_*` ya no configuran el acceso:
 n8n retiró Basic Auth en la versión 1.0, según su
 [documentación oficial](https://github.com/n8n-io/n8n-docs/blob/main/docs/deploy/host-n8n/configure-n8n/user-management.md).
-Los Compose usan una imagen sin versión fijada; la versión validada del proyecto está **a completar**.
+Los Compose usan una imagen sin versión fijada. Para producción en Railway, elegir una etiqueta
+estable exacta y registrar su validación con las pruebas de envío, según la [guía](../railway.md).
 
 ## Workflows
 
@@ -106,3 +107,10 @@ dentro de Docker). Si cambia la URL o el token, hay que reasignar credenciales y
 ## Exportar workflows
 
 Cuando se cree o modifique un workflow en la instancia de n8n (`http://localhost:5678` en local, vía `infra/docker-compose.yml`), exportarlo acá como JSON (`n8n export:workflow --id=<id> --output=infra/n8n/<nombre>.json`) para que quede versionado.
+
+## Variables en Railway
+
+Usar [.env.example](.env.example) como referencia exclusiva para el servicio n8n.
+No importar el entorno del backend: su `N8N_WEBHOOK_URL` es el endpoint privado de envío,
+mientras que en n8n 2.35+ esa variable contiene la base pública. La [guía de Railway](../railway.md)
+explica dominio gratuito, volumen, permisos, versión e importación de credenciales.

@@ -188,14 +188,38 @@ docker compose -f docker-compose.prod.yml exec backend python /database/seeds/00
 
 Ejecutar solo la variante del entorno elegido. La cuenta existente no se modifica.
 
-## Límites del despliegue de producción
+## Producción en Railway
 
-El Compose publica HTTP, pero no instala certificados ni configura HTTPS. El backend usa cookies
-`Secure` fuera de desarrollo: completar HTTPS antes de considerar operativo el login de producción.
-La configuración de dominios, certificados y proxy está **a completar**. No desactivar esa protección
-para resolverlo. ClamAV solo tiene un Compose de pruebas aisladas; su despliegue operativo está
-**a completar** y los adjuntos deben permanecer deshabilitados hasta verificarlo.
-La versión de n8n validada por el proyecto también está **a completar**: la imagen no está fijada.
+El destino previsto es Railway con contenedores separados. La [guía de Railway](railway.md)
+describe contextos de build, variables por servicio, HTTPS administrado, volúmenes, callbacks,
+ClamAV privado y pruebas de aceptación. El frontend usa un dominio gratuito y reenvía `/api` al backend privado, conservando el login
+con cookies sin necesitar un dominio propio.
+
+El Compose productivo sigue disponible para un servidor propio, pero no configura TLS.
+No desactivar cookies `Secure`: en Railway usar sus dominios HTTPS. La versión de n8n solo
+puede declararse validada después de probar el workflow exportado en el ambiente elegido.
 
 El procedimiento integrado y las variables están en el
 [manual de instalación](../docs/manuales/manual-instalacion.md).
+
+## Verificar el proxy de Railway sin Docker
+
+Requiere Python 3 y un binario local de Nginx. Desde la raíz:
+
+```bash
+python -m unittest discover -s infra/tests -v
+# Si Nginx no está en PATH:
+NGINX_BINARY=/ruta/al/nginx python -m unittest discover -s infra/tests -v
+```
+
+La prueba inicia Nginx y una API sintética en puertos libres de loopback, verifica rutas, cookies
+OAuth/sesión, encabezados, subida mayor a 1 MiB y errores de autorización. No usa la base real
+ni valida Google/Gmail. Sus procesos y archivos temporales se eliminan al terminar.
+
+Lint de estas pruebas (con las dependencias de desarrollo del backend ya instaladas):
+
+```bash
+backend/venv/bin/ruff check infra/tests
+backend/venv/bin/ruff format --check infra/tests
+# Para aplicar formato: backend/venv/bin/ruff format infra/tests
+```

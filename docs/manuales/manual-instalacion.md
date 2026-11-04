@@ -4,16 +4,17 @@ Este manual corresponde al issue #74. Está dirigido a quien instala y administr
 Los comandos indican su directorio de ejecución. Las credenciales, dominios y claves deben
 completarse para cada instalación; no se deben guardar archivos `.env` con secretos en Git.
 
-La instalación de desarrollo está definida en el repositorio. El Compose de producción permite
-arrancar los servicios, pero faltan procedimientos de HTTPS y ClamAV para completar un despliegue
-operativo. Esos pendientes se detallan al final. Los comandos de este manual fueron revisados
+La instalación de desarrollo usa Compose. El destino previsto de producción es Railway, con
+servicios de contenedores separados: seguir la [guía de Railway](../../infra/railway.md).
+El Compose de producción queda como alternativa para un servidor administrado por el equipo. Los comandos de este manual fueron revisados
 contra las fuentes, pero no ejecutados como parte de esta entrega.
 
 ## 1. Requisitos y clonado
 
 - Git y acceso al repositorio.
-- Docker con Docker Compose, usando el comando `docker compose`. La versión mínima compatible
-  está **a completar**. En Windows, los scripts de demo documentados requieren Git Bash.
+- Docker Engine con el plugin Docker Compose v2, o Docker Desktop que los incluya. Para seguir
+  también el override de puertos de la demo, usar Compose 2.24.4 o posterior, requerido por
+  [`!override`](https://docs.docker.com/reference/compose-file/merge/#replace-value). En Windows, los scripts de demo documentados requieren Git Bash.
 - Puertos disponibles en desarrollo: PostgreSQL `5432`, API `8000`, frontend `5173` y n8n `5678`.
   Producción publica frontend en `80`, API en `8000` y n8n en `5678`; no publica PostgreSQL.
 - Acceso a internet para descargar dependencias e imágenes y usar Google/Gmail o el proveedor de IA.
@@ -23,7 +24,8 @@ contra las fuentes, pero no ejecutados como parte de esta entrega.
 Docker instala las dependencias dentro de sus imágenes. Solo para ejecutar las capas fuera de
 Docker, las fuentes requieren Python 3.14 o compatible, PostgreSQL, Node.js 20+ y npm 10+;
 el frontend está probado con Node 26 y el Compose usa PostgreSQL 16.
-El dimensionamiento general de hardware está **a completar**.
+La guía de Railway incluye un presupuesto inicial de recursos, separado de los mínimos
+comprobados del antivirus. Ajustarlo después de medir el uso real.
 
 Desde el directorio donde se guardará el proyecto:
 
@@ -69,7 +71,7 @@ no son credenciales para producción. Las claves y tokens deben ser propios de l
 | `LOGIN_MAX_INTENTOS` | Cantidad de fallos de login por IP que dispara el bloqueo. |
 | `LOGIN_VENTANA_MINUTOS` | Ventana en minutos para contar fallos. |
 | `LOGIN_BLOQUEO_MINUTOS` | Duración del bloqueo; debe ser mayor o igual que la ventana. |
-| `VITE_API_URL` | URL del backend accesible desde el navegador, nunca el nombre interno `backend`. Se incorpora al frontend al compilar; cambiarla en producción exige reconstruirlo. |
+| `VITE_API_URL` | URL del backend accesible desde el navegador, o `/api` con el proxy de Railway; nunca el nombre interno `backend`. Se incorpora al frontend al compilar; cambiarla en producción exige reconstruirlo. |
 
 El frontend no necesita `VITE_GOOGLE_CLIENT_ID`: Google se configura en el backend.
 
@@ -146,7 +148,17 @@ Para detener este entorno conservando sus volúmenes, desde `infra/`: `docker co
 No agregar `-v` salvo que se busque borrar deliberadamente los datos. PostgreSQL y n8n conservan
 sus datos en volúmenes separados.
 
-## 4. Producción con Docker
+## 4. Producción con contenedores
+
+### Railway, destino previsto
+
+Seguir [Despliegue en Railway](../../infra/railway.md): contextos de build, variables por servicio,
+red privada, volúmenes, HTTPS, OAuth, bootstrap, ClamAV y pruebas de aceptación.
+En Railway no se ejecuta el Compose ni se importa el mismo `.env` en todos los servicios.
+Se usa un dominio gratuito del frontend para la aplicación y `/api`, con el backend privado.
+No hace falta dominio propio y se conservan las cookies de sesión actuales.
+
+### Compose en un servidor propio
 
 Desde la raíz:
 
@@ -174,7 +186,8 @@ Crear el administrador con las variables de bootstrap configuradas:
 docker compose -f docker-compose.prod.yml exec backend python /database/seeds/00_bootstrap_admin.py
 ```
 
-**HTTPS está a completar.** Este Compose expone HTTP y no configura certificados ni proxy.
+**Este Compose no incluye HTTPS.** Para el destino previsto, Railway gestiona los certificados
+según la guía enlazada. Un servidor propio requiere un proxy y certificados fuera de este Compose.
 Las cookies de producción requieren HTTPS: arrancar contenedores no basta para considerar listo
 el login público. No cambiar `ENVIRONMENT` a desarrollo para eludirlo.
 La guía OAuth describe la consideración de encabezados de proxy si se incorpora uno, pero no
@@ -236,7 +249,8 @@ Detalle: [autenticación con Google](../auth-oauth-google.md).
 1. Abrir n8n y configurar la cuenta propietaria en el primer acceso, o ingresar con la existente.
 2. En Google Cloud, habilitar Gmail API. Crear un cliente OAuth web, o reutilizar el del login
    agregando el callback de n8n: `http://localhost:5678/rest/oauth2-credential/callback` en local.
-   El procedimiento para la URL pública de producción está **a completar** junto con HTTPS.
+   En Railway usar la URL HTTPS de n8n seguida de `/rest/oauth2-credential/callback`,
+   como indica la [guía de despliegue](../../infra/railway.md).
 3. Configurar el consentimiento con datos de usuarios, scope
    `https://www.googleapis.com/auth/gmail.send` y la cuenta remitente como usuario de prueba.
    Para la credencial Gmail, la fuente indica dejar vacíos los orígenes JavaScript.
@@ -277,14 +291,15 @@ Sin clave la redacción responde 503; un resultado que no cumple el formato de p
 El backend necesita inspección estructural y un escáner ClamAV real. Pillow y pypdf no sustituyen
 al antivirus. Mantener `COMUNICACIONES_ADJUNTOS_HABILITADOS=false` hasta verificar ambos controles.
 
-El único despliegue disponible está en el Compose de **pruebas aisladas**, descrito en
+El Compose de **pruebas aisladas** está descrito en
 [Infra](../../infra/README.md#isolated-communications-verification). Usa el perfil `adjuntos`, imagen
 ClamAV 1.4 para amd64, límite de 4 GiB y persistencia de firmas. En Apple Silicon requiere emulación.
 Publica clamd solo en `127.0.0.1:13310`; ese host sirve para un backend ejecutado en la máquina,
 no para apuntar desde otro contenedor a su propio `localhost`.
 
-El despliegue de ClamAV dentro de la red de desarrollo o producción está **a completar**.
-Configurar `CLAMAV_HOST`, `CLAMAV_PORT` y `CLAMAV_TIMEOUT_SEGUNDOS` según ese despliegue.
+En Railway crear el servicio privado y el volumen de firmas siguiendo la
+[guía de despliegue](../../infra/railway.md#clamav-y-recursos). Los Compose normales no incluyen
+escáner; para pruebas locales usar el entorno aislado documentado. Configurar `CLAMAV_HOST`, `CLAMAV_PORT` y `CLAMAV_TIMEOUT_SEGUNDOS` según ese despliegue.
 Mantener clamd privado: su protocolo TCP no autentica conexiones.
 
 Una inspección fallida o no disponible no declara limpio un archivo. Los límites actuales son
@@ -318,9 +333,9 @@ en producción añadir `-f docker-compose.prod.yml` inmediatamente después de `
 
 ## 11. Pendientes y fuentes
 
-Quedan **a completar**: versiones mínimas de Docker/Compose, dimensionamiento general, versión
-validada de n8n, despliegue HTTPS con dominios y callbacks públicos de n8n, y despliegue operativo
-de ClamAV. No se verificó la ejecución del sistema en esta tarea.
+Los procedimientos de producción se desarrollan en la [guía de Railway](../../infra/railway.md).
+Se utilizan dominios gratuitos de Railway. Resta ejecutar la aceptación en el ambiente
+real, registrando las versiones verificadas. No se verificó la ejecución del sistema en esta tarea.
 
 Se corrigieron en las fuentes la descripción de la imagen local del frontend, directorios de
 preparación, variables faltantes de producción, variable OAuth innecesaria del frontend,
