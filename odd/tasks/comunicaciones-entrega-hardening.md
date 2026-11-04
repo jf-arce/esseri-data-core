@@ -16,13 +16,13 @@ Branch: `feat/comunicaciones-detalle-ux`; base: `8c36123`. Delivery: ask-on-risk
 ## Tasks
 
 - T0 [S6]: done; baseline commit `7b64f22`; focused baseline 65 passed, 10 skipped (backend), 31 passed (frontend).
-- T1 [S1]: done; commit `62efeb1`; RED 200 → GREEN 404; independent verification pending.
-- T2 [S2]: done; commit `62efeb1`; RED missing header → GREEN private/no-store; independent verification pending.
+- T1 [S1]: done; commit `62efeb1`; RED 200 → GREEN 404; independent verifier confirmed; non-author staff regression in `3be1ac8`.
+- T2 [S2]: done; commit `62efeb1`; RED missing header → GREEN private/no-store; independent verifier confirmed.
 - T3 [S3]: done; commit `f87deb0`; RED dead-end → GREEN clamp/refetch.
 - T4 [S4]: done; commit `f87deb0`; RED alert persisted → GREEN clears on reload.
-- T5 [S5]: done; commit `62efeb1`; RED `%`/`_` matched all → GREEN literal wildcards.
+- T5 [S5]: done; commit `62efeb1`; RED `%`/`_` matched all → GREEN literal wildcards; recipient lists covered in `3be1ac8`.
 - T6 [S7]: done; backend README in `62efeb1`, frontend README in `f87deb0`.
-- T7 [S1-S6]: in progress; full backend 1348 passed, 10 skipped; full frontend 649 passed; lint/build passed; independent verifier and native review pending.
+- T7 [S1-S6]: in progress; independent verifier confirmed S1/S2/S6 with no blockers; full backend 1348 passed, 10 skipped and full frontend 649 passed before the final follow-up; lint/build passed; full rerun and native review pending.
 
 ## Log
 
@@ -48,3 +48,5 @@ No necesito otra auditoría general de Gentle AI; quiero utilizarlo para avanzar
 - L4: T1/T2 implemented in `62efeb1`: generic `GET /{id}/entrega` now calls `obtener(tipo="institucional")`; `/envios` and `/docente/{id}/envios` set `Cache-Control: private, no-store`. T5 applied literal LIKE escaping through `_patron_busqueda`. backend/tests added RED→GREEN coverage.
 - L5: T3/T4 implemented in `f87deb0`: out-of-range delivery pages clamp to a valid page before rendering, and `recargar` clears `errorReintento`. Component regressions added.
 - L6: Verification so far: focused backend 66 passed/10 skipped; focused frontend 33 passed; full backend 1348 passed/10 skipped; full frontend 649 passed; `ruff check`/`format --check`, frontend `lint` and `build` passed. Native review and independent verification remain.
+- L7: Independent `gentle-ai-verify` (DeepSeek Go max, scratch copy) confirmed S1, S2 and S6 with no blockers: S1 404/200/404, S2 exact private/no-store on both `/envios` endpoints with identical bodies, S6 ordering/pagination/retry preserved. Advisories: generic course surface remains reachable through sibling endpoints (`/{id}`, `/destinatarios`, `/envios`, retry) — pre-existing and outside the confirmed P0 scope; `/destinatarios` search wildcards were still unescaped — fixed in `3be1ac8`; the original S1 test used the author acting as staff — non-author staff regression added in `3be1ac8`.
+- L8: Follow-ups kept out of this close: metrics global vs. filtered, `sin_email` counter semantics, C1/C4 hardening, search debounce, and the pre-existing generic course surface through sibling endpoints.
