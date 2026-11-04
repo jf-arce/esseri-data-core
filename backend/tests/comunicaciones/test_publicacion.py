@@ -224,6 +224,10 @@ def test_entrega_separa_responsables_de_emails_y_muestra_lectura(client, escenar
     respuesta = client.get(ruta)
     assert respuesta.status_code == 200, respuesta.text
     assert respuesta.headers["cache-control"] == "private, no-store"
+    assert (
+        client.get(f"/comunicaciones/{c['id']}/envios").headers["cache-control"]
+        == "private, no-store"
+    )
     datos = respuesta.json()
     assert datos["total"] == 3
     assert datos["resumen"] == {
@@ -308,6 +312,10 @@ def test_entrega_pagina_y_busca_en_todo_el_resultado(client, escenario, db_sessi
         encontrados = client.get(ruta, params={"buscar": buscar}).json()
         assert encontrados["total"] == 1
         assert encontrados["items"][0]["nombre"] == "Ana Gómez"
+    assert client.get(ruta, params={"buscar": "%"}).json()["total"] == 0
+    guion_bajo = client.get(ruta, params={"buscar": "_"}).json()
+    assert guion_bajo["total"] == 1, guion_bajo
+    assert "_" in guion_bajo["items"][0]["nombre"]
     assert client.get(ruta, params={"filtro": "no_leidos"}).json()["total"] == 13
     recibo = db_session.scalar(
         select(ReciboComunicacion).where(

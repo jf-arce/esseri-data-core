@@ -213,11 +213,18 @@ def publicar(id: uuid.UUID, db: DbSession, usuario: Crear, rol: RolActivo) -> Co
 
 
 @router.get("/docente/{id}/envios")
-def envios_docente(id: uuid.UUID, db: DbSession, usuario: LeerDocente, rol: RolActivo):
+def envios_docente(
+    id: uuid.UUID,
+    db: DbSession,
+    usuario: LeerDocente,
+    rol: RolActivo,
+    response: Response,
+):
     from src.workflows.manuales_service import historial
 
     solo_docente(rol)
     service.obtener(db, id, usuario, tipo="curso")
+    response.headers["Cache-Control"] = "private, no-store"
     return historial(db, id)
 
 
@@ -284,17 +291,24 @@ def entrega(
     filtro: FiltroEntrega = "todos",
 ) -> ListadoEntrega:
     gestion(rol)
-    comunicacion = service.obtener(db, id, usuario)
+    comunicacion = service.obtener(db, id, usuario, tipo="institucional")
     response.headers["Cache-Control"] = "private, no-store"
     return service.listar_entrega(db, comunicacion, pagina, buscar, filtro)
 
 
 @router.get("/{id}/envios")
-def envios(id: uuid.UUID, db: DbSession, usuario: Leer, rol: RolActivo):
+def envios(
+    id: uuid.UUID,
+    db: DbSession,
+    usuario: Leer,
+    rol: RolActivo,
+    response: Response,
+):
     from src.workflows.manuales_service import historial
 
     gestion(rol)
     service.obtener(db, id, usuario)
+    response.headers["Cache-Control"] = "private, no-store"
     return historial(db, id)
 
 

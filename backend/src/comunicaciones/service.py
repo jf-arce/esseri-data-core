@@ -411,6 +411,12 @@ def _columna_sin_acentos(columna):
     return columna
 
 
+def _patron_busqueda(texto: str) -> str:
+    """Literal substring pattern for LIKE/ILIKE; user wildcards stay literal."""
+    escapado = texto.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escapado}%"
+
+
 def _existe_envio(comunicacion_id: uuid.UUID, *condiciones):
     """Correlated EXISTS so filtering by an email never duplicates a responsible."""
     from src.workflows.models import EnvioNotificacion
@@ -434,7 +440,7 @@ def _existe_contacto(texto: str):
         .where(
             Usuario.persona_id == Familia.persona_id,
             Usuario.estado == "activo",
-            Usuario.email.ilike(f"%{texto}%"),
+            Usuario.email.ilike(_patron_busqueda(texto), escape="\\"),
         )
         .correlate(Familia)
         .exists()
@@ -634,11 +640,14 @@ def listar_entrega(
     )
     if buscar.strip():
         texto = _texto_normalizado(buscar)
-        criterio = _columna_sin_acentos(nombre).ilike(f"%{texto}%")
+        criterio = _columna_sin_acentos(nombre).ilike(_patron_busqueda(texto), escape="\\")
         if email_aplica:
             criterio = or_(
                 criterio,
-                _existe_envio(comunicacion.id, EnvioNotificacion.email.ilike(f"%{texto}%")),
+                _existe_envio(
+                    comunicacion.id,
+                    EnvioNotificacion.email.ilike(_patron_busqueda(texto), escape="\\"),
+                ),
             )
         else:
             criterio = or_(criterio, _existe_contacto(texto))
