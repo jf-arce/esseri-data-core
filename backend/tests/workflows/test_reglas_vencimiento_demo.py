@@ -107,7 +107,9 @@ def test_el_seed_crea_las_reglas_con_su_accion_y_destinatarios(db_session, escen
     plantilla = db_session.get(NotificacionTemplate, aviso.notificacion_template_id)
     assert plantilla.nombre == "Aviso de factura vencida"
     plantilla_alerta = db_session.get(NotificacionTemplate, alerta.notificacion_template_id)
-    assert plantilla_alerta.asunto == "Factura vencida: familia {{nombre_familia}}"
+    assert plantilla_alerta.asunto == (
+        "La factura de {{alumno_nombre}} lleva {{dias_vencido_texto}} vencida"
+    )
     por_regla = {
         r.id: db_session.get(Rol, d.rol_id).nombre
         for r in (marcar, alerta, aviso)
@@ -149,6 +151,12 @@ def _verificar_cadena(db, escenario, envios):
     assert destinatarios[1].startswith("familia-")
     aviso = next(e for e in envios if e[0].startswith("familia-"))
     assert "{{" not in aviso[1] + aviso[2]
+    assert "**" not in aviso[1] + aviso[2]
+    assert aviso[1] == "Pago pendiente de la factura de Tiziano Cabral"
+    assert "Hola, familia Cabral:" in aviso[2]
+    assert "venció hace 3 días" in aviso[2]
+    assert "la factura de Tiziano Cabral" in aviso[2]
+    assert "$1.500" in aviso[2] and "$1.500," not in aviso[2]
 
 
 def test_con_un_evento_emitido_a_mano_se_marca_vencida_y_salen_los_dos_mails(
@@ -162,7 +170,14 @@ def test_con_un_evento_emitido_a_mano_se_marca_vencida_y_salen_los_dos_mails(
         tipo="factura.vencida",
         entidad="factura",
         entidad_id=escenario["factura"].id,
-        payload={"dias_vencido": 3, "monto_deuda": 1500, "nombre_familia": "Cabral"},
+        payload={
+            "dias_vencido": 3,
+            "dias_vencido_texto": "3 días",
+            "monto_deuda": 1500,
+            "nombre_familia": "Cabral, Lorena",
+            "apellido_familia": "Cabral",
+            "alumno_nombre": "Tiziano Cabral",
+        },
     )
     db_session.commit()
 

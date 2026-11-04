@@ -17,8 +17,9 @@ from src.facturacion.models import (
     ResponsableEconomico,
 )
 from src.facturacion.schemas import ResumenVencimientos
-from src.familias_alumnos.models import Familia
-from src.models import EventLog
+from src.familias_alumnos.models import Alumno, Familia
+from src.inscripciones.models import Inscripcion
+from src.models import EventLog, Persona
 from src.workflows.eventos_service import emit_event
 from src.workflows.models import TipoEvento
 
@@ -37,6 +38,11 @@ def _fecha_efectiva(factura: Factura, excepciones: list[ExcepcionVencimiento]) -
         == (original.year, original.month)
     ]
     return max(del_mes, default=original)
+
+
+def _dias_en_texto(dias: int) -> str:
+    """Para las plantillas: "1 día", "55 días"."""
+    return f"{dias} día" if dias == 1 else f"{dias} días"
 
 
 def _tramo_aplicable(tramos_desde: list[int], dias_vencido: int) -> int | None:
@@ -92,6 +98,16 @@ def detectar_facturas_vencidas(
         familia.id: familia
         for familia in db.scalars(select(Familia).where(Familia.id.in_(familia_ids))).all()
     }
+    alumno_por_factura = {
+        factura_id: f"{nombre} {apellido}"
+        for factura_id, nombre, apellido in db.execute(
+            select(Factura.id, Persona.nombre, Persona.apellido)
+            .join(Inscripcion, Inscripcion.id == Factura.inscripcion_id)
+            .join(Alumno, Alumno.id == Inscripcion.alumno_id)
+            .join(Persona, Persona.id == Alumno.persona_id)
+            .where(Factura.id.in_([factura.id for factura in facturas]))
+        ).all()
+    }
 
     tramos = sorted(
         {
@@ -124,10 +140,13 @@ def detectar_facturas_vencidas(
             entidad_id=factura.id,
             payload={
                 "dias_vencido": dias_vencido,
+                "dias_vencido_texto": _dias_en_texto(dias_vencido),
                 "monto_deuda": monto_deuda,
                 "nombre_familia": (
                     f"{familia.persona.apellido}, {familia.persona.nombre}" if familia else ""
                 ),
+                "apellido_familia": familia.persona.apellido if familia else "",
+                "alumno_nombre": alumno_por_factura.get(factura.id, ""),
                 "tramo_desde_dia": tramo,
                 "fecha_vencimiento_efectiva": fecha_efectiva,
             },

@@ -77,7 +77,7 @@ disparan con cada evento): `Vencimiento 1: marcar factura vencida` (`aplicar_ven
 `Vencimiento 2: alerta a Administración` (`alerta_interna`, rol Administración, con la plantilla
 `Alerta interna de factura vencida`) y
 `Vencimiento 3: aviso a la familia` (`notificar` al responsable económico, con la plantilla
-`Aviso de factura vencida`). Las tres son independientes: si la factura no cambia de estado, los
+`Aviso de factura vencida`, que saluda a la familia por el apellido, nombra al alumno y destaca la deuda). Las tres son independientes: si la factura no cambia de estado, los
 avisos salen igual. La cuarta, `Vencimiento 4: aplicar penalidad por mora` (`aplicar_penalidad`,
 #204), registra la penalidad del tramo en la cuenta corriente; nace con aprobación humana, así que
 queda pendiente hasta que se apruebe desde el historial de ejecuciones.

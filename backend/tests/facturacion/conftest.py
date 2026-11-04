@@ -108,8 +108,11 @@ def tipo_factura_vencida(db_session):
     db_session.flush()
     campos = [
         ("dias_vencido", "Días de mora", "numero"),
+        ("dias_vencido_texto", "Días de mora en texto", "texto"),
         ("monto_deuda", "Monto adeudado", "numero"),
         ("nombre_familia", "Familia", "texto"),
+        ("apellido_familia", "Apellido de la familia", "texto"),
+        ("alumno_nombre", "Nombre del alumno", "texto"),
     ]
     db_session.add_all(
         [
