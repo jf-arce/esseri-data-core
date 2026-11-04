@@ -17,6 +17,8 @@ esseri-data-core/
 
 ## Por dónde empezar
 
+- **Instalación y configuración paso a paso**: [manual de instalación](./docs/manuales/manual-instalacion.md).
+
 - **Levantar el sistema completo** (Postgres + backend + frontend + n8n con un solo comando): [`infra/README.md`](./infra/README.md).
 - **Solo el frontend**: [`frontend/README.md`](./frontend/README.md).
 - **Solo el backend**: [`backend/README.md`](./backend/README.md).
