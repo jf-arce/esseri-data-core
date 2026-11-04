@@ -475,9 +475,12 @@ def listar_destinatarios(
     )
     if buscar.strip():
         texto = _texto_normalizado(buscar)
-        criterio = _columna_sin_acentos(nombre).ilike(f"%{texto}%")
+        criterio = _columna_sin_acentos(nombre).ilike(_patron_busqueda(texto), escape="\\")
         if vista != "destinatarios":
-            criterio = or_(criterio, EnvioNotificacion.email.ilike(f"%{texto}%"))
+            criterio = or_(
+                criterio,
+                EnvioNotificacion.email.ilike(_patron_busqueda(texto), escape="\\"),
+            )
         consulta = consulta.where(criterio)
     total = db.scalar(select(func.count()).select_from(consulta.subquery())) or 0
     filas = (

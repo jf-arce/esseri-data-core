@@ -316,6 +316,9 @@ def test_entrega_pagina_y_busca_en_todo_el_resultado(client, escenario, db_sessi
     guion_bajo = client.get(ruta, params={"buscar": "_"}).json()
     assert guion_bajo["total"] == 1, guion_bajo
     assert "_" in guion_bajo["items"][0]["nombre"]
+    destinatarios = f"/comunicaciones/{c['id']}/destinatarios"
+    assert client.get(destinatarios, params={"buscar": "%"}).json()["total"] == 0
+    assert client.get(destinatarios, params={"buscar": "_"}).json()["total"] == 1
     assert client.get(ruta, params={"filtro": "no_leidos"}).json()["total"] == 13
     recibo = db_session.scalar(
         select(ReciboComunicacion).where(
