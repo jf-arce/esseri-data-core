@@ -15,14 +15,14 @@ Branch: `feat/comunicaciones-detalle-ux`; base: `8c36123`. Delivery: ask-on-risk
 
 ## Tasks
 
-- T0 [S6]: baseline commit of the current delivery-table worktree (excluding `.atl/` and `.playwright-mcp/` scratch); focused baseline tests.
-- T1 [S1]: backend P0 authorization; inline; tests; independent verification.
-- T2 [S2]: backend P1 cache headers; inline; tests; independent verification.
-- T3 [S3]: frontend page clamp; inline; component regression test.
-- T4 [S4]: frontend retry error clear; inline; component regression test.
-- T5 [S5]: backend LIKE escaping; inline; tests.
-- T6 [S7]: README updates; inline.
-- T7 [S1-S6]: focused/full verification, independent verifier for T1/T2, native review for high-risk commits.
+- T0 [S6]: done; baseline commit `7b64f22`; focused baseline 65 passed, 10 skipped (backend), 31 passed (frontend).
+- T1 [S1]: done; commit `62efeb1`; RED 200 → GREEN 404; independent verification pending.
+- T2 [S2]: done; commit `62efeb1`; RED missing header → GREEN private/no-store; independent verification pending.
+- T3 [S3]: done; commit `f87deb0`; RED dead-end → GREEN clamp/refetch.
+- T4 [S4]: done; commit `f87deb0`; RED alert persisted → GREEN clears on reload.
+- T5 [S5]: done; commit `62efeb1`; RED `%`/`_` matched all → GREEN literal wildcards.
+- T6 [S7]: done; backend README in `62efeb1`, frontend README in `f87deb0`.
+- T7 [S1-S6]: in progress; full backend 1348 passed, 10 skipped; full frontend 649 passed; lint/build passed; independent verifier and native review pending.
 
 ## Log
 
@@ -45,3 +45,6 @@ No modifiques código todavía. Entregá un plan priorizado con hallazgos confir
 No necesito otra auditoría general de Gentle AI; quiero utilizarlo para avanzar con ESSERI."
 - L2: User: "sigamos con el cierra de la etapa"
 - L3: User: "dake" — confirmed the secure P0 default and the P0/P1/P2-quick close scope. Follow-ups: metrics global vs. filtered, `sin_email` counter, C1/C4 hardening, search debounce.
+- L4: T1/T2 implemented in `62efeb1`: generic `GET /{id}/entrega` now calls `obtener(tipo="institucional")`; `/envios` and `/docente/{id}/envios` set `Cache-Control: private, no-store`. T5 applied literal LIKE escaping through `_patron_busqueda`. backend/tests added RED→GREEN coverage.
+- L5: T3/T4 implemented in `f87deb0`: out-of-range delivery pages clamp to a valid page before rendering, and `recargar` clears `errorReintento`. Component regressions added.
+- L6: Verification so far: focused backend 66 passed/10 skipped; focused frontend 33 passed; full backend 1348 passed/10 skipped; full frontend 649 passed; `ruff check`/`format --check`, frontend `lint` and `build` passed. Native review and independent verification remain.
