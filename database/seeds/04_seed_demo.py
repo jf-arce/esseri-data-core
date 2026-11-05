@@ -14,7 +14,8 @@ Uso (desde backend/, con el venv activado):
 Credenciales de la cuenta demo (solo no-producción):
     demo.admin@esseri.local / EsseriDemo2026!
 
-La contraseña puede sobreescribirse con ESSERI_DEMO_PASSWORD.
+La contraseña puede sobreescribirse con ESSERI_DEMO_PASSWORD. Las cuentas de familia
+(familia-<dni>@...) usan la misma.
 """
 
 from __future__ import annotations
@@ -1231,8 +1232,24 @@ def _ensure_cuentas_personal(db):
         _ensure_cuenta_demo(db, None, _email_demo(alias), rol)
 
 
+def _habilitar_portal_familia(db, usuario: Usuario, email: str, rol: Rol):
+    """Le da rol y contraseña demo a la cuenta que creó el seed, para entrar al portal. Una cuenta
+    con otro email o con contraseña propia no la creó el seed y no se toca."""
+    if usuario.email != email or usuario.password_hash is not None:
+        return
+    usuario.password_hash = hashear_password(DEMO_PASSWORD)
+    vinculo = db.scalar(
+        select(UsuarioRol).where(UsuarioRol.usuario_id == usuario.id, UsuarioRol.rol_id == rol.id)
+    )
+    if vinculo is None:
+        db.add(UsuarioRol(usuario_id=usuario.id, rol_id=rol.id))
+    db.flush()
+
+
 def _ensure_cuentas_familias(db, familias: list[Familia]):
-    """Una cuenta por familia responsable de alguna factura impaga, para que reciba el aviso."""
+    """Una cuenta por familia responsable de alguna factura impaga, para que reciba el aviso y
+    pueda ver sus facturas en el portal."""
+    rol = _require(db, Rol, codigo="familia")
     familia_ids = set(
         db.scalars(
             select(ResponsableEconomico.familia_id)
@@ -1246,7 +1263,9 @@ def _ensure_cuentas_familias(db, familias: list[Familia]):
             continue
         vistas.add(familia.persona_id)
         persona = db.get(Persona, familia.persona_id)
-        _ensure_cuenta_demo(db, persona.id, _email_demo(f"familia-{persona.dni}"), None)
+        email = _email_demo(f"familia-{persona.dni}")
+        usuario = _ensure_cuenta_demo(db, persona.id, email, None)
+        _habilitar_portal_familia(db, usuario, email, rol)
 
 
 def _ensure_reglas_inasistencia(db, usuario: Usuario):
