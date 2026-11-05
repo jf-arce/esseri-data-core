@@ -989,7 +989,9 @@ def _ensure_facturacion(db, usuario: Usuario, inscripciones: list[Inscripcion], 
             factura.estado = "pagada"
         elif idx < 12:
             monto_pago = min(Decimal("80000.00"), factura.monto_total)
-            factura.estado = "pendiente"
+            # Si el flujo de mora ya la venció, el detector no reemite ese tramo: no se pisa.
+            if factura.estado != "vencida":
+                factura.estado = "pendiente"
         else:
             monto_pago = None
             factura.estado = "vencida"

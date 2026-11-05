@@ -1,10 +1,11 @@
 """Ejecutores de vencimiento y cambio de estado. Dueño: Arce (ver #203)."""
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.facturacion.calendario_facturacion import fecha_operativa_argentina
 from src.facturacion.models import ExcepcionVencimiento, Factura, ResponsableEconomico
+from src.facturacion.vencimientos_service import fecha_vencimiento_efectiva
 from src.models import EventLog
 from src.workflows.constants import CAMBIOS_ESTADO_PERMITIDOS
 from src.workflows.models import WorkflowExecution, WorkflowRule
@@ -57,15 +58,14 @@ def _vencer_factura(db: Session, evento: EventLog, *, respetar_fecha: bool) -> R
         responsable = db.get(ResponsableEconomico, factura.responsable_economico_id)
         if responsable is None:
             return _error("La factura no tiene un responsable económico válido.")
-        excepcion = db.scalar(
-            select(func.max(ExcepcionVencimiento.fecha_vencimiento_excepcional)).where(
+        excepciones = db.scalars(
+            select(ExcepcionVencimiento).where(
                 ExcepcionVencimiento.familia_id == responsable.familia_id,
                 ExcepcionVencimiento.anulada_at.is_(None),
             )
-        )
-        vencimiento = factura.fecha_vencimiento
-        if excepcion is not None:
-            vencimiento = max(vencimiento, excepcion)
+        ).all()
+        # Mismo criterio que el detector, para que no emita un evento que acá se descarta.
+        vencimiento = fecha_vencimiento_efectiva(factura, list(excepciones))
         if fecha_operativa_argentina() <= vencimiento:
             return ResultadoAccion(
                 detalle=f"Sin cambios: el vencimiento efectivo es {vencimiento.isoformat()}."

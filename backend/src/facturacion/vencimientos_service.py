@@ -26,7 +26,7 @@ from src.workflows.models import TipoEvento
 EVENTO_FACTURA_VENCIDA = "factura.vencida"
 
 
-def _fecha_efectiva(factura: Factura, excepciones: list[ExcepcionVencimiento]) -> date:
+def fecha_vencimiento_efectiva(factura: Factura, excepciones: list[ExcepcionVencimiento]) -> date:
     """Vencimiento corrido por la excepción más tardía del mismo mes, si la hay."""
 
     original = factura.fecha_vencimiento
@@ -122,7 +122,9 @@ def detectar_facturas_vencidas(
     eventos_emitidos = 0
     for factura in facturas:
         familia_id = familia_por_factura.get(factura.id)
-        fecha_efectiva = _fecha_efectiva(factura, excepciones_por_familia.get(familia_id, []))
+        fecha_efectiva = fecha_vencimiento_efectiva(
+            factura, excepciones_por_familia.get(familia_id, [])
+        )
         dias_vencido = (hoy - fecha_efectiva).days
         if dias_vencido <= 0:
             continue
