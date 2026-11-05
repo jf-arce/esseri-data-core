@@ -319,7 +319,7 @@ def test_resumen_del_evento_sigue_el_catalogo_y_omite_nulos_y_faltantes(
 
     esperado = [
         {"nombre_interno": "dias_vencido", "etiqueta": "Días", "valor": "16"},
-        {"nombre_interno": "monto_deuda", "etiqueta": "Monto", "valor": "120.000,00"},
+        {"nombre_interno": "monto_deuda", "etiqueta": "Monto", "valor": "120.000"},
     ]
     assert detalle["resumen_evento"] == esperado
     assert listado["resumen_evento"] == esperado

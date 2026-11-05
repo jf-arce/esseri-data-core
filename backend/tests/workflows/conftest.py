@@ -46,6 +46,12 @@ def tipo_factura_vencida(db_session):
                 tipo_evento_id=tipo.id,
             ),
             CampoEvento(
+                nombre_interno="dias_vencido_texto",
+                etiqueta="Días en texto",
+                tipo_dato="texto",
+                tipo_evento_id=tipo.id,
+            ),
+            CampoEvento(
                 nombre_interno="monto_deuda",
                 etiqueta="Monto",
                 tipo_dato="numero",
@@ -54,6 +60,18 @@ def tipo_factura_vencida(db_session):
             CampoEvento(
                 nombre_interno="nombre_familia",
                 etiqueta="Familia",
+                tipo_dato="texto",
+                tipo_evento_id=tipo.id,
+            ),
+            CampoEvento(
+                nombre_interno="apellido_familia",
+                etiqueta="Apellido de la familia",
+                tipo_dato="texto",
+                tipo_evento_id=tipo.id,
+            ),
+            CampoEvento(
+                nombre_interno="alumno_nombre",
+                etiqueta="Alumno",
                 tipo_dato="texto",
                 tipo_evento_id=tipo.id,
             ),

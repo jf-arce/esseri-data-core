@@ -47,7 +47,10 @@ def formatear_valor(valor: object) -> str:
     if isinstance(valor, bool):
         return "Sí" if valor else "No"
     if isinstance(valor, float | Decimal):
-        return f"{valor:,.2f}".replace(",", "\0").replace(".", ",").replace("\0", ".")
+        # Sin decimales cuando el monto es redondo: "$180.000", no "$180.000,00".
+        redondeado = round(valor, 2)
+        formato = ",.0f" if redondeado == int(redondeado) else ",.2f"
+        return f"{redondeado:{formato}}".replace(",", "\0").replace(".", ",").replace("\0", ".")
     if isinstance(valor, int):
         return f"{valor:,}".replace(",", ".")
     return str(valor)

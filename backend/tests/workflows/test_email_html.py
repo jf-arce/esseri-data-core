@@ -7,7 +7,7 @@ import pytest
 
 from src.config import settings
 from src.workflows import n8n_client
-from src.workflows.email_html import armar_html
+from src.workflows.email_html import armar_html, quitar_marcas
 
 
 @pytest.fixture(autouse=True)
@@ -80,3 +80,34 @@ def test_n8n_recibe_el_html_junto_al_texto_plano(monkeypatch):
         "cuerpo": "Texto",
         "cuerpo_html": "<p>Texto</p>",
     }
+
+
+def test_con_resaltados_hay_negrita_y_dato_destacado():
+    html = armar_html(
+        "**Aviso**",
+        "La factura lleva **55 días vencida**.\n\n**$180.000**",
+        resaltados=True,
+    )
+
+    assert "<strong>55 días vencida</strong>" in html
+    assert "font-size:28px" in html and ">$180.000</td>" in html
+    assert "**" not in html
+
+
+def test_sin_resaltados_las_marcas_quedan_como_texto():
+    html = armar_html("Asunto", "Texto con **asteriscos**.")
+
+    assert "<strong>" not in html
+    assert "**asteriscos**" in html
+
+
+def test_los_resaltados_escapan_su_contenido():
+    html = armar_html("A", "**<script>x</script>**\n\nHola **<b>y</b>**", resaltados=True)
+
+    assert "<script>" not in html and "<b>" not in html
+    assert "&lt;script&gt;x&lt;/script&gt;" in html
+    assert "<strong>&lt;b&gt;y&lt;/b&gt;</strong>" in html
+
+
+def test_quitar_marcas_deja_el_texto_plano():
+    assert quitar_marcas("Deuda de **$180.000**, **ya**.") == "Deuda de $180.000, ya."

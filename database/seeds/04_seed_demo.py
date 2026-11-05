@@ -132,24 +132,28 @@ REGLAS_MORA = [
 # numérico las ordena entre sí (el motor ordena por nombre); no hay dependencia entre ellas.
 PLANTILLA_VENCIDA = {
     "nombre": "Aviso de factura vencida",
-    "asunto": "Factura vencida de la familia {{nombre_familia}}",
+    "asunto": "Pago pendiente de la factura de {{alumno_nombre}}",
     "cuerpo": (
-        "Estimada familia {{nombre_familia}}:\n\n"
-        "Les informamos que su factura lleva {{dias_vencido}} días vencida, con una deuda de "
-        "${{monto_deuda}}. Les pedimos regularizar el pago a la brevedad.\n\n"
-        "Si ya lo realizaron, por favor ignoren este aviso.\n\n"
-        "Saludos cordiales."
+        "Hola, familia {{apellido_familia}}:\n\n"
+        "Les escribimos porque la factura de {{alumno_nombre}} venció hace "
+        "**{{dias_vencido_texto}}** y todavía no registramos el pago. El saldo pendiente es:\n\n"
+        "**${{monto_deuda}}**\n\n"
+        "Les pedimos que lo regularicen lo antes posible. Si ya pagaron, pueden ignorar este "
+        "mensaje.\n\n"
+        "Muchas gracias."
     ),
 }
 
 # Sin plantilla, la alerta interna usaría `Alerta interna: <nombre de la regla>` como asunto.
 PLANTILLA_ALERTA_VENCIDA = {
     "nombre": "Alerta interna de factura vencida",
-    "asunto": "Factura vencida: familia {{nombre_familia}}",
+    "asunto": "La factura de {{alumno_nombre}} lleva {{dias_vencido_texto}} vencida",
     "cuerpo": (
-        "Una factura de la familia {{nombre_familia}} lleva {{dias_vencido}} días vencida y la "
-        "familia ya fue notificada.\n\n"
-        "Revisen en el historial de ejecuciones las penalidades pendientes de aprobación."
+        "La factura de {{alumno_nombre}} venció hace **{{dias_vencido_texto}}** y sigue sin "
+        "pagarse. La deuda es de:\n\n"
+        "**${{monto_deuda}}**\n\n"
+        "Ya le avisamos a la familia por mail. La penalidad por mora quedó **pendiente de "
+        "aprobación**: pueden revisarla desde el historial de ejecuciones."
     ),
 }
 
