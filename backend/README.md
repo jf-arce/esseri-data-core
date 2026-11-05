@@ -753,3 +753,15 @@ docker run --env-file backend/.env -p 8000:8000 esseri-backend
 ## Estructura
 
 Un paquete por módulo en `src/<modulo>/` (`router.py`, `schemas.py`, `models.py`, `service.py`, y lo que cada módulo necesite — ver la tabla de "Notas por módulo específico" en `ARCHITECTURE.md`). Lo compartido entre 2+ módulos vive en `src/config.py`, `src/database.py`, `src/models.py` y `src/exceptions.py`.
+
+## Instalación integrada
+
+El [manual de instalación](../docs/manuales/manual-instalacion.md) reúne la configuración completa.
+En Docker, tanto desarrollo como producción migran y cargan los tres catálogos al arrancar;
+ninguno ejecuta automáticamente `00_bootstrap_admin.py`. Los comandos para crear el primer
+administrador dentro del contenedor están en [Infra](../infra/README.md#migraciones-y-primer-administrador-con-docker).
+
+En Railway el backend permanece privado, con `UVICORN_ROOT_PATH=/api` y
+`FORWARDED_ALLOW_IPS=*` únicamente dentro de la red de servicios de confianza. El frontend
+publica la API por `/api` y reenvía la IP que informa la entrada HTTP de Railway.
+Ver [configuración y aceptación de Railway](../infra/railway.md).
