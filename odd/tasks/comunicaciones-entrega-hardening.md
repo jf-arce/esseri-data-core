@@ -22,7 +22,7 @@ Branch: `feat/comunicaciones-detalle-ux`; base: `8c36123`. Delivery: ask-on-risk
 - T4 [S4]: done; commit `f87deb0`; RED alert persisted → GREEN clears on reload.
 - T5 [S5]: done; commit `62efeb1`; RED `%`/`_` matched all → GREEN literal wildcards; recipient lists covered in `3be1ac8`.
 - T6 [S7]: done; backend README in `62efeb1`, frontend README in `f87deb0`.
-- T7 [S1-S6]: in progress; independent verifier confirmed S1/S2/S6 with no blockers; full backend 1348 passed, 10 skipped and full frontend 649 passed before the final follow-up; lint/build passed; full rerun and native review pending.
+- T7 [S1-S6]: done; independent verifier confirmed S1/S2/S6 with no blockers; full backend 1349 passed, 10 skipped; full frontend 649 passed; lint/build/ruff passed; native review approved and acknowledged (lineage `review-ee23b3952997fe0d`, authority burned).
 
 ## Log
 
@@ -50,3 +50,4 @@ No necesito otra auditoría general de Gentle AI; quiero utilizarlo para avanzar
 - L6: Verification so far: focused backend 66 passed/10 skipped; focused frontend 33 passed; full backend 1348 passed/10 skipped; full frontend 649 passed; `ruff check`/`format --check`, frontend `lint` and `build` passed. Native review and independent verification remain.
 - L7: Independent `gentle-ai-verify` (DeepSeek Go max, scratch copy) confirmed S1, S2 and S6 with no blockers: S1 404/200/404, S2 exact private/no-store on both `/envios` endpoints with identical bodies, S6 ordering/pagination/retry preserved. Advisories: generic course surface remains reachable through sibling endpoints (`/{id}`, `/destinatarios`, `/envios`, retry) — pre-existing and outside the confirmed P0 scope; `/destinatarios` search wildcards were still unescaped — fixed in `3be1ac8`; the original S1 test used the author acting as staff — non-author staff regression added in `3be1ac8`.
 - L8: Follow-ups kept out of this close: metrics global vs. filtered, `sin_email` counter semantics, C1/C4 hardening, search debounce, and the pre-existing generic course surface through sibling endpoints.
+- L9: Native review started with candidate consent, lineage `review-ee23b3952997fe0d`, lens `review-reliability`, risk medium. The provider refuter refuted the CRITICAL R3-1 claim about administrative/other types (the `tipo="institucional"` guard rejects only `curso`). Review approved and exact acknowledgement burned authority (`gentle-ai.review-acknowledged/v1`, consumed revision `sha256:187e1fa9...`). Non-blocking advisories: R3-2 retry-gating test coverage, R3-3 retry alert clears only through `recargar`, R3-4 global-vs-filtered summary semantics. No correction was opened. Final verification: backend 1349 passed/10 skipped; frontend 649 passed; `ruff`, frontend lint and build passed.
