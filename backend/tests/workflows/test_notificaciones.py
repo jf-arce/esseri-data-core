@@ -614,6 +614,23 @@ def test_el_envio_manda_el_html_con_el_boton_de_la_regla(
         assert "Debe 1.500" in html
 
 
+def test_el_boton_de_facturacion_lleva_al_portal_de_la_familia(
+    db_session, tipo_factura_vencida, plantilla, envios, monkeypatch
+):
+    monkeypatch.setattr(settings, "FRONTEND_URL", "http://app.test")
+    regla = _preparar_regla_con_usuarios(db_session, tipo_factura_vencida, plantilla)
+    regla.accion_config = {"destinatario": "destinatarios_regla", "enlace": "familia_facturacion"}
+    db_session.commit()
+    evento = _evento(db_session, tipo_factura_vencida)
+
+    ejecutar_notificar(db_session, regla, evento, _ejecucion(db_session, regla, evento))
+
+    assert envios.htmls
+    for html in envios.htmls:
+        assert 'href="http://app.test/familia/facturacion"' in html
+        assert "Ver mis facturas" in html
+
+
 def test_sin_enlace_el_html_no_lleva_boton(db_session, tipo_factura_vencida, plantilla, envios):
     regla = _preparar_regla_con_usuarios(db_session, tipo_factura_vencida, plantilla)
     evento = _evento(db_session, tipo_factura_vencida)

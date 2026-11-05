@@ -174,7 +174,7 @@ REGLAS_VENCIMIENTO = [
     {
         "nombre": "Vencimiento 3: aviso a la familia",
         "tipo_accion": "notificar",
-        "accion_config": {"destinatario": "responsable_economico"},
+        "accion_config": {"destinatario": "responsable_economico", "enlace": "familia_facturacion"},
         "criticidad": "media",
         "plantilla": PLANTILLA_VENCIDA["nombre"],
     },

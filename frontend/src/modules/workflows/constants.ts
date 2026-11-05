@@ -154,6 +154,7 @@ export const DESTINATARIOS: OpcionSelect[] = [
 // Botón del mail (`EnlaceMail` del backend): la ruta la fija el backend, acá solo se elige la clave.
 export const ENLACES_MAIL: OpcionSelect[] = [
   { value: 'familia_justificar', label: 'Justificar la inasistencia (portal de familias)' },
+  { value: 'familia_facturacion', label: 'Ver mis facturas (portal de familias)' },
   { value: 'ejecuciones', label: 'Revisar en ESSERI (historial de ejecuciones)' },
   { value: 'tareas', label: 'Ver mis tareas' },
 ]
