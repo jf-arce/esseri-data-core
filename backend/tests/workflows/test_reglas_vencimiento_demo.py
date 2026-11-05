@@ -3,13 +3,23 @@ Administración y avisar a la familia."""
 
 import importlib.util
 from datetime import date, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
 from sqlalchemy import select
 
-from src.auth.models import Rol, Usuario, UsuarioRol
-from src.facturacion.models import Factura, ResponsableEconomico
+from src.auth.constants import ACCION_LEER, MODULO_FACTURACION
+from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
+from src.facturacion.cuenta_corriente_service import registrar_cargos_factura_en_transaccion
+from src.facturacion.models import (
+    ConceptoCobro,
+    DetalleFactura,
+    Factura,
+    Movimiento,
+    ReglaPenalidad,
+    ResponsableEconomico,
+)
 from src.facturacion.vencimientos_service import detectar_facturas_vencidas
 from src.familias_alumnos.models import Familia
 from src.workflows import despacho_service, n8n_client
@@ -104,12 +114,17 @@ def test_el_seed_crea_las_reglas_con_su_accion_y_destinatarios(db_session, escen
         "notificar",
     ]
     assert all(r.condicion == {} for r in (marcar, alerta, aviso))
-    assert aviso.accion_config == {"destinatario": "responsable_economico", "enlace": None}
+    assert aviso.accion_config == {
+        "destinatario": "responsable_economico",
+        "enlace": "familia_facturacion",
+    }
     assert alerta.accion_config["enlace"] == "ejecuciones"
     plantilla = db_session.get(NotificacionTemplate, aviso.notificacion_template_id)
     assert plantilla.nombre == "Aviso de factura vencida"
     plantilla_alerta = db_session.get(NotificacionTemplate, alerta.notificacion_template_id)
-    assert plantilla_alerta.asunto == "Factura vencida: familia {{nombre_familia}}"
+    assert plantilla_alerta.asunto == (
+        "La factura de {{alumno_nombre}} lleva {{dias_vencido_texto}} vencida"
+    )
     por_regla = {
         r.id: db_session.get(Rol, d.rol_id).nombre
         for r in (marcar, alerta, aviso)
@@ -151,6 +166,12 @@ def _verificar_cadena(db, escenario, envios):
     assert destinatarios[1].startswith("familia-")
     aviso = next(e for e in envios if e[0].startswith("familia-"))
     assert "{{" not in aviso[1] + aviso[2]
+    assert "**" not in aviso[1] + aviso[2]
+    assert aviso[1] == "Pago pendiente de la factura de Tiziano Cabral"
+    assert "Hola, familia Cabral:" in aviso[2]
+    assert "venció hace 3 días" in aviso[2]
+    assert "la factura de Tiziano Cabral" in aviso[2]
+    assert "$1.500" in aviso[2] and "$1.500," not in aviso[2]
 
 
 def test_con_un_evento_emitido_a_mano_se_marca_vencida_y_salen_los_dos_mails(
@@ -164,7 +185,14 @@ def test_con_un_evento_emitido_a_mano_se_marca_vencida_y_salen_los_dos_mails(
         tipo="factura.vencida",
         entidad="factura",
         entidad_id=escenario["factura"].id,
-        payload={"dias_vencido": 3, "monto_deuda": 1500, "nombre_familia": "Cabral"},
+        payload={
+            "dias_vencido": 3,
+            "dias_vencido_texto": "3 días",
+            "monto_deuda": 1500,
+            "nombre_familia": "Cabral, Lorena",
+            "apellido_familia": "Cabral",
+            "alumno_nombre": "Tiziano Cabral",
+        },
     )
     db_session.commit()
 
@@ -267,3 +295,79 @@ def test_no_toca_las_cuentas_que_ya_existen(db_session, escenario, seed_demo, ca
         len(db_session.scalars(select(Usuario).where(Usuario.persona_id == persona_id)).all()) == 1
     )
     assert "Aviso" in capsys.readouterr().out
+
+
+def _con_permiso_de_facturacion(db, usuario):
+    rol_id = db.scalar(select(UsuarioRol.rol_id).where(UsuarioRol.usuario_id == usuario.id))
+    permiso = Permiso(modulo=MODULO_FACTURACION, accion=ACCION_LEER)
+    db.add(permiso)
+    db.flush()
+    db.add(RolPermiso(rol_id=rol_id, permiso_id=permiso.id))
+    db.commit()
+
+
+def test_flujo_completo_hasta_aprobar_la_penalidad(
+    client_autenticado, usuario_workflows, db_session, escenario, seed_demo, envios
+):
+    _sembrar(seed_demo, db_session, escenario)
+    _con_permiso_de_facturacion(db_session, usuario_workflows)
+    concepto = ConceptoCobro(nombre="Penalidad por mora", activo=True)
+    db_session.add(concepto)
+    db_session.flush()
+    # Los tramos de grupo-a.yaml.
+    for desde, hasta, porcentaje in ((0, 5, 0), (6, 15, 20), (16, 30, 30)):
+        db_session.add(
+            ReglaPenalidad(
+                desde_dia_vencido=desde,
+                hasta_dia_vencido=hasta,
+                porcentaje=porcentaje,
+                activo=True,
+                concepto_cobro_id=concepto.id,
+            )
+        )
+    hoy = date.today()
+    factura = escenario["factura"]
+    factura.fecha_vencimiento = hoy - timedelta(days=20)
+    db_session.add(
+        DetalleFactura(
+            descripcion="Cuota", monto=1500, factura_id=factura.id, concepto_cobro_id=concepto.id
+        )
+    )
+    db_session.flush()
+    db_session.refresh(factura)
+    registrar_cargos_factura_en_transaccion(db_session, factura)
+    db_session.commit()
+
+    assert detectar_facturas_vencidas(db_session, fecha_actual=hoy).eventos_emitidos == 1
+    despacho_service.procesar_eventos_pendientes(db_session)
+    penalidad = _regla(db_session, "Vencimiento 4: aplicar penalidad por mora")
+    ejecucion = db_session.scalars(
+        select(WorkflowExecution).where(WorkflowExecution.workflow_rule_id == penalidad.id)
+    ).one()
+    assert ejecucion.estado == "pendiente"
+
+    respuesta = client_autenticado.post(f"/workflows/ejecuciones/{ejecucion.id}/aprobar")
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["estado"] == "exitoso"
+    db_session.refresh(factura)
+    assert factura.estado == "vencida"
+    recargos = db_session.scalars(
+        select(Movimiento).where(
+            Movimiento.factura_id == factura.id,
+            Movimiento.tipo == "debe",
+            Movimiento.detalle_factura_id.is_(None),
+        )
+    ).all()
+    assert [(m.monto, m.event_log_id) for m in recargos] == [
+        (Decimal("450.00"), ejecucion.event_log_id)
+    ]
+    detalle = client_autenticado.get(f"/facturacion/facturas/{factura.id}")
+    assert detalle.status_code == 200
+    assert [Decimal(r["monto"]) for r in detalle.json()["recargos"]] == [Decimal("450.00")]
+    deudas = client_autenticado.get("/facturacion/deudas/familias")
+    assert deudas.status_code == 200
+    (deuda,) = [
+        d for d in deudas.json()["items"] if d["familia_id"] == str(escenario["familia"].id)
+    ]
+    assert Decimal(deuda["monto_vencido"]) == Decimal("1950.00")

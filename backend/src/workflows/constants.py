@@ -157,9 +157,10 @@ CAMPOS_RESERVADOS_RESUMEN: frozenset[tuple[str, str]] = frozenset(
 
 # Botón opcional de los mails: clave -> (ruta de la app, texto del botón). El destino sale de acá,
 # nunca de la configuración libre de la regla. Solo pantallas que funcionan hoy.
-EnlaceMail = Literal["familia_justificar", "ejecuciones", "tareas"]
+EnlaceMail = Literal["familia_justificar", "familia_facturacion", "ejecuciones", "tareas"]
 ENLACES_MAIL: dict[EnlaceMail, tuple[str, str]] = {
     "familia_justificar": ("/familia/justificar-ausencia", "Justificar la inasistencia"),
+    "familia_facturacion": ("/familia/facturacion", "Ver mis facturas"),
     "ejecuciones": ("/workflows/ejecuciones", "Revisar en ESSERI"),
     "tareas": ("/workflows/tareas", "Ver mis tareas"),
 }
