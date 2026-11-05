@@ -19,9 +19,21 @@ from src.comunicaciones.schemas import (
     ComunicacionRead,
     Listado,
     ListadoDestinatarios,
+    ListadoEntrega,
 )
 
 router = APIRouter(prefix="/comunicaciones", tags=["Comunicaciones"])
+FiltroEntrega = Literal[
+    "todos",
+    "con_email",
+    "sin_email",
+    "enviados",
+    "pendientes",
+    "fallidos",
+    "inciertos",
+    "leidos",
+    "no_leidos",
+]
 Crear = Annotated[Usuario, Depends(requiere_permiso(PERMISO_COMUNICACIONES_CREAR))]
 Editar = Annotated[Usuario, Depends(requiere_permiso(PERMISO_COMUNICACIONES_ACTUALIZAR))]
 Leer = Annotated[Usuario, Depends(requiere_permiso(PERMISO_COMUNICACIONES_LEER))]
@@ -201,11 +213,18 @@ def publicar(id: uuid.UUID, db: DbSession, usuario: Crear, rol: RolActivo) -> Co
 
 
 @router.get("/docente/{id}/envios")
-def envios_docente(id: uuid.UUID, db: DbSession, usuario: LeerDocente, rol: RolActivo):
+def envios_docente(
+    id: uuid.UUID,
+    db: DbSession,
+    usuario: LeerDocente,
+    rol: RolActivo,
+    response: Response,
+):
     from src.workflows.manuales_service import historial
 
     solo_docente(rol)
     service.obtener(db, id, usuario, tipo="curso")
+    response.headers["Cache-Control"] = "private, no-store"
     return historial(db, id)
 
 
@@ -226,6 +245,23 @@ def destinatarios_docente(
     return service.listar_destinatarios(db, id, pagina, buscar, vista)
 
 
+@router.get("/docente/{id}/entrega")
+def entrega_docente(
+    id: uuid.UUID,
+    db: DbSession,
+    usuario: LeerDocente,
+    rol: RolActivo,
+    response: Response,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    buscar: Annotated[str, Query(max_length=200)] = "",
+    filtro: FiltroEntrega = "todos",
+) -> ListadoEntrega:
+    solo_docente(rol)
+    comunicacion = service.obtener(db, id, usuario, tipo="curso")
+    response.headers["Cache-Control"] = "private, no-store"
+    return service.listar_entrega(db, comunicacion, pagina, buscar, filtro)
+
+
 @router.get("/{id}/destinatarios")
 def destinatarios(
     id: uuid.UUID,
@@ -243,12 +279,36 @@ def destinatarios(
     return service.listar_destinatarios(db, id, pagina, buscar, vista)
 
 
+@router.get("/{id}/entrega")
+def entrega(
+    id: uuid.UUID,
+    db: DbSession,
+    usuario: Leer,
+    rol: RolActivo,
+    response: Response,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    buscar: Annotated[str, Query(max_length=200)] = "",
+    filtro: FiltroEntrega = "todos",
+) -> ListadoEntrega:
+    gestion(rol)
+    comunicacion = service.obtener(db, id, usuario, tipo="institucional")
+    response.headers["Cache-Control"] = "private, no-store"
+    return service.listar_entrega(db, comunicacion, pagina, buscar, filtro)
+
+
 @router.get("/{id}/envios")
-def envios(id: uuid.UUID, db: DbSession, usuario: Leer, rol: RolActivo):
+def envios(
+    id: uuid.UUID,
+    db: DbSession,
+    usuario: Leer,
+    rol: RolActivo,
+    response: Response,
+):
     from src.workflows.manuales_service import historial
 
     gestion(rol)
     service.obtener(db, id, usuario)
+    response.headers["Cache-Control"] = "private, no-store"
     return historial(db, id)
 
 
