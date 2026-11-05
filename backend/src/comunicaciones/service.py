@@ -5,7 +5,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
-from sqlalchemy import func, literal, or_, select, update
+from sqlalchemy import case, func, literal, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -14,7 +14,18 @@ from src.academico.service import divisiones_de_persona
 from src.auditoria.service import log_audit
 from src.auth.models import Usuario
 from src.comunicaciones.models import Comunicacion, ReciboComunicacion
-from src.comunicaciones.schemas import Audiencia, BorradorInput, ComunicacionRead, Listado
+from src.comunicaciones.schemas import (
+    Audiencia,
+    BorradorInput,
+    ComunicacionRead,
+    ContactoEntregaRead,
+    EnvioEntregaRead,
+    IntentoEntregaRead,
+    Listado,
+    ListadoEntrega,
+    ResponsableEntregaRead,
+    ResumenEntrega,
+)
 from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
 from src.familias_alumnos.service import obtener_familia_de_usuario
 from src.inscripciones.models import Inscripcion
@@ -380,6 +391,62 @@ def listar(
     )
 
 
+def _texto_normalizado(valor: str) -> str:
+    """Case- and accent-insensitive comparison text for names and emails."""
+    return "".join(
+        letra
+        for letra in unicodedata.normalize("NFD", valor.strip().casefold())
+        if not unicodedata.combining(letra)
+    )
+
+
+def _utc(valor: datetime | None) -> datetime | None:
+    """Persisted datetimes are naive UTC; make that explicit in API responses."""
+    return valor.replace(tzinfo=UTC) if valor is not None else None
+
+
+def _columna_sin_acentos(columna):
+    for letra, base in zip("áéíóúüñÁÉÍÓÚÜÑ", "aeiouunAEIOUUN", strict=True):
+        columna = func.replace(columna, letra, base)
+    return columna
+
+
+def _patron_busqueda(texto: str) -> str:
+    """Literal substring pattern for LIKE/ILIKE; user wildcards stay literal."""
+    escapado = texto.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escapado}%"
+
+
+def _existe_envio(comunicacion_id: uuid.UUID, *condiciones):
+    """Correlated EXISTS so filtering by an email never duplicates a responsible."""
+    from src.workflows.models import EnvioNotificacion
+
+    return (
+        select(EnvioNotificacion.id)
+        .where(
+            EnvioNotificacion.comunicacion_id == comunicacion_id,
+            EnvioNotificacion.familia_id == ReciboComunicacion.familia_id,
+            *condiciones,
+        )
+        .correlate(ReciboComunicacion)
+        .exists()
+    )
+
+
+def _existe_contacto(texto: str):
+    """Correlated EXISTS over the responsible's active accounts for portal-only messages."""
+    return (
+        select(Usuario.id)
+        .where(
+            Usuario.persona_id == Familia.persona_id,
+            Usuario.estado == "activo",
+            Usuario.email.ilike(_patron_busqueda(texto), escape="\\"),
+        )
+        .correlate(Familia)
+        .exists()
+    )
+
+
 def listar_destinatarios(
     db: Session, comunicacion_id: uuid.UUID, pagina: int, buscar: str, vista: str
 ):
@@ -407,17 +474,13 @@ def listar_destinatarios(
         .where(origen.comunicacion_id == comunicacion_id)
     )
     if buscar.strip():
-        nombre_busqueda = nombre
-        for letra, base in zip("áéíóúüñÁÉÍÓÚÜÑ", "aeiouunAEIOUUN", strict=True):
-            nombre_busqueda = func.replace(nombre_busqueda, letra, base)
-        texto = "".join(
-            letra
-            for letra in unicodedata.normalize("NFD", buscar.strip().casefold())
-            if not unicodedata.combining(letra)
-        )
-        criterio = nombre_busqueda.ilike(f"%{texto}%")
+        texto = _texto_normalizado(buscar)
+        criterio = _columna_sin_acentos(nombre).ilike(_patron_busqueda(texto), escape="\\")
         if vista != "destinatarios":
-            criterio = or_(criterio, EnvioNotificacion.email.ilike(f"%{buscar.strip()}%"))
+            criterio = or_(
+                criterio,
+                EnvioNotificacion.email.ilike(_patron_busqueda(texto), escape="\\"),
+            )
         consulta = consulta.where(criterio)
     total = db.scalar(select(func.count()).select_from(consulta.subquery())) or 0
     filas = (
@@ -430,6 +493,266 @@ def listar_destinatarios(
         .all()
     )
     return {"items": filas, "total": total, "pagina": pagina, "total_paginas": (total + 9) // 10}
+
+
+def _filtro_entrega(comunicacion_id: uuid.UUID, filtro: str):
+    from src.workflows.models import EnvioNotificacion
+
+    if filtro == "leidos":
+        return ReciboComunicacion.leida_at.is_not(None)
+    if filtro == "no_leidos":
+        return ReciboComunicacion.leida_at.is_(None)
+    if filtro == "con_email":
+        return _existe_envio(comunicacion_id, EnvioNotificacion.email != "")
+    if filtro == "sin_email":
+        return ~_existe_envio(comunicacion_id, EnvioNotificacion.email != "")
+    if filtro == "enviados":
+        return _existe_envio(comunicacion_id, EnvioNotificacion.estado == "presentado")
+    if filtro == "pendientes":
+        return _existe_envio(
+            comunicacion_id, EnvioNotificacion.estado.in_(("pendiente", "procesando"))
+        )
+    if filtro == "fallidos":
+        return _existe_envio(comunicacion_id, EnvioNotificacion.estado == "fallido")
+    if filtro == "inciertos":
+        return _existe_envio(comunicacion_id, EnvioNotificacion.estado == "incierto")
+    return None
+
+
+def _resumen_entrega(
+    db: Session, comunicacion_id: uuid.UUID, *, email_aplica: bool, lectura_aplica: bool
+) -> ResumenEntrega:
+    from src.workflows.models import EnvioNotificacion
+
+    responsables = (
+        db.scalar(
+            select(func.count())
+            .select_from(ReciboComunicacion)
+            .where(ReciboComunicacion.comunicacion_id == comunicacion_id)
+        )
+        or 0
+    )
+    leidos = 0
+    if lectura_aplica:
+        leidos = (
+            db.scalar(
+                select(func.count())
+                .select_from(ReciboComunicacion)
+                .where(
+                    ReciboComunicacion.comunicacion_id == comunicacion_id,
+                    ReciboComunicacion.leida_at.is_not(None),
+                )
+            )
+            or 0
+        )
+
+    con_email = 0
+    emails = aceptados = pendientes = fallidos = inciertos = 0
+    if email_aplica:
+        con_email = (
+            db.scalar(
+                select(func.count(func.distinct(EnvioNotificacion.familia_id))).where(
+                    EnvioNotificacion.comunicacion_id == comunicacion_id,
+                    EnvioNotificacion.email != "",
+                )
+            )
+            or 0
+        )
+        conteos = db.execute(
+            select(
+                func.count().label("emails"),
+                func.count(case((EnvioNotificacion.estado == "presentado", 1))).label("aceptados"),
+                func.count(
+                    case((EnvioNotificacion.estado.in_(("pendiente", "procesando")), 1))
+                ).label("pendientes"),
+                func.count(case((EnvioNotificacion.estado == "fallido", 1))).label("fallidos"),
+                func.count(case((EnvioNotificacion.estado == "incierto", 1))).label("inciertos"),
+            )
+            .select_from(EnvioNotificacion)
+            .where(
+                EnvioNotificacion.comunicacion_id == comunicacion_id,
+                EnvioNotificacion.email != "",
+            )
+        ).one()
+        emails = conteos.emails
+        aceptados = conteos.aceptados
+        pendientes = conteos.pendientes
+        fallidos = conteos.fallidos
+        inciertos = conteos.inciertos
+
+    return ResumenEntrega(
+        responsables=responsables,
+        responsables_con_email=con_email,
+        responsables_sin_email=responsables - con_email if email_aplica else 0,
+        responsables_leidos=leidos,
+        responsables_no_leidos=responsables - leidos if lectura_aplica else 0,
+        emails=emails,
+        emails_aceptados=aceptados,
+        emails_pendientes=pendientes,
+        emails_fallidos=fallidos,
+        emails_inciertos=inciertos,
+        email_aplica=email_aplica,
+        lectura_aplica=lectura_aplica,
+    )
+
+
+def listar_entrega(
+    db: Session,
+    comunicacion: Comunicacion,
+    pagina: int,
+    buscar: str,
+    filtro: str,
+) -> ListadoEntrega:
+    """One row per responsible, with every email outcome and the first portal read.
+
+    The router authorizes access before calling this projection. A responsible with two
+    addresses still counts once; email totals count intentions, not people. Filters and search
+    run over the complete server-side result and paginate 10 responsible rows at a time.
+    """
+    from src.workflows.models import EnvioNotificacion, Notificacion
+
+    email_aplica = comunicacion.canal in ("email", "ambos")
+    lectura_aplica = comunicacion.canal in ("portal", "ambos")
+    resumen = _resumen_entrega(
+        db, comunicacion.id, email_aplica=email_aplica, lectura_aplica=lectura_aplica
+    )
+    filtros_de_email = {"con_email", "sin_email", "enviados", "pendientes", "fallidos", "inciertos"}
+    if (filtro in filtros_de_email and not email_aplica) or (
+        filtro in {"leidos", "no_leidos"} and not lectura_aplica
+    ):
+        return ListadoEntrega(
+            items=[],
+            resumen=resumen,
+            total=0,
+            pagina=pagina,
+            total_paginas=0,
+        )
+
+    nombre = Persona.nombre + " " + Persona.apellido
+    consulta = (
+        select(
+            ReciboComunicacion.id,
+            ReciboComunicacion.familia_id,
+            nombre.label("nombre"),
+            ReciboComunicacion.leida_at,
+        )
+        .select_from(ReciboComunicacion)
+        .join(Familia, Familia.id == ReciboComunicacion.familia_id)
+        .join(Persona, Persona.id == Familia.persona_id)
+        .where(ReciboComunicacion.comunicacion_id == comunicacion.id)
+    )
+    if buscar.strip():
+        texto = _texto_normalizado(buscar)
+        criterio = _columna_sin_acentos(nombre).ilike(_patron_busqueda(texto), escape="\\")
+        if email_aplica:
+            criterio = or_(
+                criterio,
+                _existe_envio(
+                    comunicacion.id,
+                    EnvioNotificacion.email.ilike(_patron_busqueda(texto), escape="\\"),
+                ),
+            )
+        else:
+            criterio = or_(criterio, _existe_contacto(texto))
+        consulta = consulta.where(criterio)
+    condicion = _filtro_entrega(comunicacion.id, filtro)
+    if condicion is not None:
+        consulta = consulta.where(condicion)
+
+    total = db.scalar(select(func.count()).select_from(consulta.subquery())) or 0
+    filas = (
+        db.execute(
+            consulta.order_by(Persona.apellido, Persona.nombre, ReciboComunicacion.id)
+            .offset((pagina - 1) * 10)
+            .limit(10)
+        )
+        .mappings()
+        .all()
+    )
+    familia_ids = [fila.familia_id for fila in filas]
+    envios = (
+        db.execute(
+            select(
+                EnvioNotificacion.familia_id,
+                EnvioNotificacion.id,
+                EnvioNotificacion.email,
+                EnvioNotificacion.estado,
+            )
+            .where(
+                EnvioNotificacion.comunicacion_id == comunicacion.id,
+                EnvioNotificacion.familia_id.in_(familia_ids),
+            )
+            .order_by(EnvioNotificacion.familia_id, EnvioNotificacion.email, EnvioNotificacion.id)
+        )
+        .mappings()
+        .all()
+        if familia_ids and email_aplica
+        else []
+    )
+    intentos = {}
+    if envios:
+        filas_intentos = db.scalars(
+            select(Notificacion)
+            .where(Notificacion.envio_id.in_([envio.id for envio in envios]))
+            .order_by(Notificacion.envio_id, Notificacion.numero_intento)
+        ).all()
+        for intento in filas_intentos:
+            intentos.setdefault(intento.envio_id, []).append(
+                IntentoEntregaRead(
+                    id=intento.id,
+                    estado=intento.estado_envio,
+                    error_codigo=intento.error_codigo,
+                    started_at=_utc(intento.started_at),
+                    finished_at=_utc(intento.finished_at),
+                )
+            )
+    envios_por_familia = {}
+    for envio in envios:
+        envios_por_familia.setdefault(envio.familia_id, []).append(
+            EnvioEntregaRead(
+                id=envio.id,
+                email=envio.email or None,
+                estado=envio.estado,
+                intentos=intentos.get(envio.id, []),
+            )
+        )
+
+    contactos_por_familia: dict[uuid.UUID, list[ContactoEntregaRead]] = {}
+    if familia_ids and not email_aplica:
+        filas_contacto = (
+            db.execute(
+                select(Familia.id.label("familia_id"), Usuario.id, Usuario.email)
+                .select_from(Familia)
+                .join(Persona, Persona.id == Familia.persona_id)
+                .join(Usuario, Usuario.persona_id == Persona.id)
+                .where(Familia.id.in_(familia_ids), Usuario.estado == "activo")
+                .order_by(Familia.id, Usuario.email)
+            )
+            .mappings()
+            .all()
+        )
+        for contacto in filas_contacto:
+            contactos_por_familia.setdefault(contacto.familia_id, []).append(
+                ContactoEntregaRead(id=contacto.id, email=contacto.email)
+            )
+
+    items = [
+        ResponsableEntregaRead(
+            id=fila.id,
+            nombre=fila.nombre,
+            emails=envios_por_familia.get(fila.familia_id, []),
+            contactos=contactos_por_familia.get(fila.familia_id, []),
+            leida_at=_utc(fila.leida_at) if lectura_aplica else None,
+        )
+        for fila in filas
+    ]
+    return ListadoEntrega(
+        items=items,
+        resumen=resumen,
+        total=total,
+        pagina=pagina,
+        total_paginas=(total + 9) // 10,
+    )
 
 
 def opciones(db: Session):

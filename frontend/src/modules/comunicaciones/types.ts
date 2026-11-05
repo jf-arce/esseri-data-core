@@ -26,6 +26,53 @@ export interface Envio {
   intentos: IntentoEnvio[]
 }
 
+export type FiltroEntrega =
+  | 'todos'
+  | 'con_email'
+  | 'sin_email'
+  | 'enviados'
+  | 'pendientes'
+  | 'fallidos'
+  | 'inciertos'
+  | 'leidos'
+  | 'no_leidos'
+
+export interface ContactoEntrega {
+  id: string
+  email: string
+}
+
+export interface ResponsableEntrega {
+  id: string
+  nombre: string
+  emails: Envio[]
+  contactos?: ContactoEntrega[]
+  leida_at: string | null
+}
+
+export interface ResumenEntrega {
+  responsables: number
+  responsables_con_email: number
+  responsables_sin_email: number
+  responsables_leidos: number
+  responsables_no_leidos: number
+  emails: number
+  emails_aceptados: number
+  emails_pendientes: number
+  emails_fallidos: number
+  emails_inciertos: number
+  email_aplica: boolean
+  lectura_aplica: boolean
+}
+
+export interface ListadoEntrega {
+  items: ResponsableEntrega[]
+  resumen: ResumenEntrega
+  total: number
+  pagina: number
+  total_paginas: number
+}
+
 export interface Audiencia {
   tipo: 'todos' | 'nivel' | 'division' | 'alumnos' | 'responsables'
   ids: string[]
@@ -59,13 +106,6 @@ export interface Comunicacion {
 }
 export interface Listado {
   items: Comunicacion[]
-  total: number
-  pagina: number
-  total_paginas: number
-}
-export type VistaDestinatarios = 'destinatarios' | 'envios' | 'enviados'
-export interface ListadoDestinatarios {
-  items: { id: string; nombre: string; email: string | null; estado: string | null }[]
   total: number
   pagina: number
   total_paginas: number

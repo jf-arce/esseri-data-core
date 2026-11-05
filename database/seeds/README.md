@@ -63,6 +63,9 @@ El script rechaza `ENVIRONMENT=production`/`prod` y es idempotente para sus prop
 Cada pago aprobado procesado por el seed registra un único movimiento de haber en la cuenta
 corriente. Repetir la carga no duplica ese crédito; los pagos de períodos anteriores que la
 carga ya no procesa requieren una reparación explícita, limitada a la base demo.
+Las facturas del período anterior con pago parcial nacen `pendiente`; si el flujo de mora ya las
+marcó `vencida`, repetir la carga no las vuelve a `pendiente` (el detector no reemite un tramo ya
+emitido, así que quedarían pendientes para siempre).
 
 **Reglas de workflow de la demo (#216).** Sobre `factura.vencida` crea dos reglas que usan el
 campo `dias_vencido`: `Mora > 15 días: crear tarea` (`crear_tarea`, tarea para el rol
@@ -77,15 +80,18 @@ disparan con cada evento): `Vencimiento 1: marcar factura vencida` (`aplicar_ven
 `Vencimiento 2: alerta a Administración` (`alerta_interna`, rol Administración, con la plantilla
 `Alerta interna de factura vencida`) y
 `Vencimiento 3: aviso a la familia` (`notificar` al responsable económico, con la plantilla
-`Aviso de factura vencida`). Las tres son independientes: si la factura no cambia de estado, los
+`Aviso de factura vencida`, que saluda a la familia por el apellido, nombra al alumno y destaca la deuda). Las tres son independientes: si la factura no cambia de estado, los
 avisos salen igual. La cuarta, `Vencimiento 4: aplicar penalidad por mora` (`aplicar_penalidad`,
 #204), registra la penalidad del tramo en la cuenta corriente; nace con aprobación humana, así que
 queda pendiente hasta que se apruebe desde el historial de ejecuciones.
 
 Como `notificar` y `alerta_interna` mandan email a cuentas activas, el seed también crea cuentas
-de la demo sin contraseña (el login local las rechaza): una para el rol Administración, otra para
-Dirección y una por cada familia responsable de una factura impaga. Si la persona o el email ya
-tienen cuenta, no se toca; si queda inactiva o con otro email, el seed imprime un aviso. Los
+de la demo: una para el rol Administración, otra para Dirección y una por cada familia responsable
+de una factura impaga. Las de Administración y Dirección no tienen contraseña (el login local las
+rechaza). Las de familia tienen el rol `familia` y la contraseña demo (`ESSERI_DEMO_PASSWORD`), para
+entrar al portal y ver las facturas; si una carga anterior las dejó sin contraseña, el seed se la
+pone. Si la persona o el email ya tienen otra cuenta, no se toca; si queda inactiva o con otro
+email, el seed imprime un aviso. Los
 emails son `<alias>@esseri.local`; para que lleguen a una casilla real, definir la base:
 
 ```bash
@@ -111,8 +117,10 @@ plantilla `Bienvenida a la familia`). El monto va en la regla porque las admisio
 siguiente y la regla de facturación de matrícula es del actual. Para el alta en vivo, el seed deja
 siempre una solicitud de Nivel Primario lista para "Finalizar admisión e inscribir" (aspirante
 `Benítez`, DNI `5092xxxx`), con la madre como contacto y su cuenta `familia-28555001@esseri.local`
-para que la bienvenida le llegue; al finalizarla hay que elegir "usar el contacto como familia". Si
-ya se finalizó, volver a correr el seed crea otra con el aspirante siguiente.
+para que la bienvenida le llegue; al finalizarla hay que elegir "usar el contacto como familia". La
+cuenta ya tiene el rol `familia` y la contraseña demo, porque el alta la convierte en familia pero
+no toca su cuenta; antes del alta el portal la muestra vacía. Si ya se finalizó, volver a correr el
+seed crea otra con el aspirante siguiente.
 
 **Loop de inasistencias (#218).** Además crea 4 plantillas y 4 reglas sobre los eventos de asistencia, todas hacia los responsables habilitados de la familia: `Inasistencia: avisar a la familia` y `Tardanza: avisar a la familia` (`notificar` sobre `inasistencia.registrada`, según `tipo_asistencia`), `Inasistencia justificada: avisar a la familia` (`notificar` sobre `inasistencia.justificada`) e `Inasistencia sin justificar: recordatorio` (`generar_recordatorio` a los 2 días, solo si la inasistencia sigue sin justificar). El aviso de justificación es neutral porque el evento no dice si se aprobó o se rechazó. Los emails salen por n8n (`N8N_WEBHOOK_URL`): sin configurar, las ejecuciones quedan `fallido`.
 

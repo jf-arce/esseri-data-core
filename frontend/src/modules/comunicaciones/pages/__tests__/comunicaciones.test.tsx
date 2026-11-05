@@ -31,6 +31,26 @@ const adjunto = {
   tamanio: 1024,
   estado: 'cuarentena' as const,
 }
+const entregaBase = {
+  items: [],
+  resumen: {
+    responsables: 0,
+    responsables_con_email: 0,
+    responsables_sin_email: 0,
+    responsables_leidos: 0,
+    responsables_no_leidos: 0,
+    emails: 0,
+    emails_aceptados: 0,
+    emails_pendientes: 0,
+    emails_fallidos: 0,
+    emails_inciertos: 0,
+    email_aplica: true,
+    lectura_aplica: true,
+  },
+  total: 0,
+  pagina: 1,
+  total_paginas: 0,
+}
 
 beforeEach(() => {
   vi.resetAllMocks()
@@ -39,6 +59,7 @@ beforeEach(() => {
       return { responsables: [], alumnos: [], niveles: [], divisiones: [], ciclos: [] }
     if (path.includes('/vista-previa')) return { destinatarios: 2 }
     if (path.endsWith('/adjuntos')) return options?.method === 'POST' ? adjunto : []
+    if (path.includes('/entrega')) return entregaBase
     if (path.includes('/envios')) return []
     if (path.includes('/publicar'))
       return { ...comunicacion, estado: 'publicada', destinatarios: 2 }
@@ -550,23 +571,43 @@ it('does not register portal reading for an email-only communication', async () 
 
 it('shows email attempts and marks uncertain outcomes without claiming delivery', async () => {
   api.mockImplementation(async (path) => {
-    if (path.includes('/envios'))
-      return [
-        {
-          id: 'e1',
-          email: 'responsable@ejemplo.com',
-          estado: 'incierto',
-          intentos: [
-            {
-              id: 'i1',
-              estado: 'incierto',
-              error_codigo: 'timeout',
-              started_at: '2026-10-29T12:00:00',
-              finished_at: null,
-            },
-          ],
+    if (path.includes('/entrega'))
+      return {
+        ...entregaBase,
+        items: [
+          {
+            id: 'r1',
+            nombre: 'Familia Prueba',
+            leida_at: null,
+            emails: [
+              {
+                id: 'e1',
+                email: 'responsable@ejemplo.com',
+                estado: 'incierto',
+                intentos: [
+                  {
+                    id: 'i1',
+                    estado: 'incierto',
+                    error_codigo: 'timeout',
+                    started_at: '2026-10-29T12:00:00Z',
+                    finished_at: null,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        resumen: {
+          ...entregaBase.resumen,
+          responsables: 1,
+          responsables_con_email: 1,
+          responsables_no_leidos: 1,
+          emails: 1,
+          emails_inciertos: 1,
         },
-      ]
+        total: 1,
+        total_paginas: 1,
+      }
     return {
       ...comunicacion,
       canal: 'ambos',
@@ -581,9 +622,118 @@ it('shows email attempts and marks uncertain outcomes without claiming delivery'
       </Routes>
     </MemoryRouter>,
   )
+  await userEvent.click(await screen.findByRole('tab', { name: /Entrega/ }))
   expect(await screen.findByText('responsable@ejemplo.com')).toBeInTheDocument()
   expect(screen.getByText('Resultado incierto')).toBeInTheDocument()
   expect(screen.getByText(/no se confirma que el mensaje haya sido entregado/)).toBeInTheDocument()
   expect(screen.queryByText('Entregado')).toBeNull()
-  expect(api.mock.calls.some(([path]) => path === '/comunicaciones/c1/envios')).toBe(true)
+  expect(api.mock.calls.some(([path]) => path.includes('/entrega'))).toBe(true)
+})
+
+it('keeps staff message separate from delivery and uses compact Buenos Aires metadata', async () => {
+  api.mockImplementation(async (path) =>
+    path.includes('/entrega')
+      ? entregaBase
+      : {
+          ...comunicacion,
+          asunto: 'Acto de fin de año',
+          estado: 'publicada',
+          canal: 'ambos',
+          publicada_at: '2026-10-30T22:04:59Z',
+          destinatarios: 2,
+        },
+  )
+  render(
+    <MemoryRouter initialEntries={['/comunicaciones/c1']}>
+      <Routes>
+        <Route path="/comunicaciones/:id" element={<ComunicacionDetallePage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+  expect(await screen.findByRole('heading', { name: 'Acto de fin de año' })).toBeInTheDocument()
+  expect(screen.getByRole('tab', { name: 'Mensaje' })).toHaveAttribute('aria-selected', 'true')
+  expect(screen.getByText(/30 oct.*2026.*19:04/)).toBeInTheDocument()
+  expect(screen.queryByText(/19:04:59/)).not.toBeInTheDocument()
+  expect(screen.getByText('Publicada')).toBeInTheDocument()
+  expect(api.mock.calls.some(([path]) => path.includes('/entrega'))).toBe(false)
+  expect(document.querySelector('[data-slot="badge"]')).toBeNull()
+  await userEvent.click(screen.getByRole('button', { name: 'Ver entrega' }))
+  expect(await screen.findByText('No hay destinatarios para mostrar.')).toBeInTheDocument()
+  expect(screen.getByText('Destinatarios')).toBeInTheDocument()
+  expect(screen.getByRole('tab', { name: 'Entrega (2)' })).toHaveFocus()
+  expect(screen.queryByText('<script>secreto</script>')).not.toBeInTheDocument()
+  await userEvent.click(screen.getByRole('tab', { name: 'Mensaje' }))
+  expect(await screen.findByText('<script>secreto</script>')).toBeInTheDocument()
+  expect(api.mock.calls.some(([path]) => path.includes('/lectura'))).toBe(false)
+})
+
+it('supports delivery deep links and portal-only communications without email requests', async () => {
+  api.mockImplementation(async (path) => {
+    if (path.includes('/entrega'))
+      return {
+        ...entregaBase,
+        items: [
+          {
+            id: 'r1',
+            nombre: 'Familia Prueba',
+            emails: [],
+            contactos: [{ id: 'u1', email: 'familia@example.test' }],
+            leida_at: null,
+          },
+        ],
+        resumen: {
+          ...entregaBase.resumen,
+          responsables: 1,
+          responsables_no_leidos: 1,
+          email_aplica: false,
+        },
+        total: 1,
+        total_paginas: 1,
+      }
+    return { ...comunicacion, estado: 'publicada', canal: 'portal', destinatarios: 2 }
+  })
+  render(
+    <MemoryRouter initialEntries={['/comunicaciones/c1?vista=entrega']}>
+      <Routes>
+        <Route path="/comunicaciones/:id" element={<ComunicacionDetallePage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+  expect(await screen.findByRole('heading', { name: 'Entrega' })).toBeInTheDocument()
+  expect(screen.getByRole('tab', { name: 'Entrega (2)' })).toHaveAttribute('aria-selected', 'true')
+  expect(screen.getByText('Familia Prueba')).toBeInTheDocument()
+  expect(screen.getByRole('cell', { name: 'No leído' })).toBeInTheDocument()
+  expect(screen.getByRole('columnheader', { name: 'Email' })).toBeInTheDocument()
+  expect(screen.getByText('familia@example.test')).toBeInTheDocument()
+  expect(screen.queryByText('Sin envío')).not.toBeInTheDocument()
+  expect(screen.queryByText('Emails')).not.toBeInTheDocument()
+  expect(api.mock.calls.some(([path]) => path.includes('/entrega'))).toBe(true)
+  expect(api.mock.calls.some(([path]) => path.includes('/envios'))).toBe(false)
+})
+
+it('supports keyboard tab navigation and never shows staff delivery to families', async () => {
+  const { unmount } = render(
+    <MemoryRouter initialEntries={['/comunicaciones/c1']}>
+      <Routes>
+        <Route path="/comunicaciones/:id" element={<ComunicacionDetallePage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+  const mensaje = await screen.findByRole('tab', { name: 'Mensaje' })
+  mensaje.focus()
+  await userEvent.keyboard('[ArrowRight]')
+  expect(
+    await screen.findByText('La entrega se genera al publicar la comunicación.'),
+  ).toBeInTheDocument()
+  unmount()
+  render(
+    <MemoryRouter initialEntries={['/familia/comunicaciones/c1?vista=entrega']}>
+      <Routes>
+        <Route path="/familia/comunicaciones/:id" element={<ComunicacionDetallePage familia />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+  expect(await screen.findByText('<script>secreto</script>')).toBeInTheDocument()
+  expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+  expect(api.mock.calls.some(([path]) => path.includes('/entrega'))).toBe(false)
 })

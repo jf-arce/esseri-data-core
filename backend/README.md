@@ -133,6 +133,10 @@ Después de facturar, la misma corrida detecta las facturas vencidas (`vencimien
 emite `factura.vencida` una vez por tramo activo de `REGLA_PENALIDAD` (con el seed, días 1, 6 y 16
 de mora). Solo emite el evento: el cambio de estado y la penalidad los hacen las acciones del
 workflow. Una `EXCEPCION_VENCIMIENTO` del mismo mes corre la fecha desde la que se cuentan los días.
+`aplicar_vencimiento` usa el mismo cálculo (`fecha_vencimiento_efectiva`), así que no descarta un
+evento que el detector emitió. Límite conocido: como la prórroga es por familia y no por factura,
+no se puede prorrogar una factura al mes siguiente (la de octubre que vence el 10/10 hasta el 5/11:
+esa prórroga es de noviembre y se ignora). La mejora está en #282.
 
 Para forzar una pasada: `POST /facturacion/vencimientos/procesar`. Con `fecha_referencia` simula
 días de mora, y lo emitido así cuenta como ya emitido cuando llegue la fecha real.
@@ -419,7 +423,11 @@ Las reglas se administran en `/workflows/reglas` y el catálogo de eventos con s
 **Mail institucional:** cada envío manda a n8n el texto plano y un `cuerpo_html` con el layout de
 `src/workflows/email_html.py` (encabezado con logo y nombre, cuerpo, firma y pie). Se configura con
 `EMAIL_INSTITUCION_NOMBRE`, `EMAIL_INSTITUCION_PIE` y `EMAIL_LOGO_URL` (ver `.env.example`). El
-logo tiene que ser una URL pública: Gmail no muestra `data:` ni `localhost`. Si una regla de
+logo tiene que ser una URL pública: Gmail no muestra `data:` ni `localhost` (el `.env.example` usa
+`frontend/public/esseri-icon.png` servido desde GitHub). En las plantillas, `**texto**` sale en
+negrita y un párrafo que es solo `**texto**` (por ejemplo `**${{monto_deuda}}**`) se muestra como dato
+destacado; el texto plano y `cuerpo_snapshot` van sin las marcas. Los montos redondos se muestran
+sin decimales (`$180.000`), y con decimales solo si los tienen (`$1.234,50`). Si una regla de
 `notificar`, `alerta_interna` o `generar_recordatorio` tiene `accion_config.enlace`, el mail lleva un
 botón a esa pantalla de la app (`FRONTEND_URL` + la ruta de `ENLACES_MAIL`).
 
@@ -562,6 +570,20 @@ Administrative endpoints:
   `enviados` includes only provider-accepted (`presentado`) intentions, not confirmed delivery.
   They accept `buscar` and `pagina`, enforce the existing communication/author scope, and
   return `Cache-Control: private, no-store`. Families cannot enumerate these lists.
+- `GET /comunicaciones/{id}/envios` and `/comunicaciones/docente/{id}/envios`: email history for
+  the authorized communication; both return `Cache-Control: private, no-store`.
+- `GET /comunicaciones/{id}/entrega` and `/comunicaciones/docente/{id}/entrega`: one row per
+  responsible with every associated email intention, its attempts and the first portal read.
+  `resumen` keeps responsible and email counts separate; `email_aplica`/`lectura_aplica` mark
+  channels that do not apply instead of inventing “sin leer” or email states. Portal-only rows
+  carry `contactos` (active account addresses) while `emails` stays empty, so the UI can show the
+  contact address without pretending an email was sent. `buscar` is accent- and case-insensitive
+  over responsible names and email addresses, and treats `%` and `_` literally; `filtro` accepts
+  `todos`, `con_email`, `sin_email`, `enviados`, `pendientes`, `fallidos`, `inciertos`, `leidos`
+  and `no_leidos`; `pagina` returns 10 responsible rows from the complete result. Filters for a
+  channel that does not apply return an empty page, never a misleading match. The generic
+  `/comunicaciones/{id}/entrega` endpoint rejects course communications; only the author teacher
+  can read course delivery through `/comunicaciones/docente/{id}/entrega`.
 
 Teacher endpoints require the active Docente role and only accept `division` or `alumnos`
 audiences with an explicit four-digit cycle. They reuse the same publication, receipt and
