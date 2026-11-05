@@ -57,8 +57,11 @@ def test_render_reemplaza_placeholders_en_asunto_y_cuerpo():
 @pytest.mark.parametrize(
     ("valor", "esperado"),
     [
-        (120000.0, "120.000,00"),
+        (120000.0, "120.000"),
+        (Decimal("180000.00"), "180.000"),
         (Decimal("1234.5"), "1.234,50"),
+        (0.1 + 0.2, "0,30"),
+        (1999.999, "2.000"),
         (16, "16"),
         (1500, "1.500"),
         (True, "Sí"),
@@ -73,7 +76,7 @@ def test_formatear_valor_por_tipo(valor, esperado):
 def test_render_formatea_montos_en_es_ar():
     _, cuerpo = renderizar_contenido("x", "Deuda de ${{monto_deuda}}", {"monto_deuda": 120000.0})
 
-    assert cuerpo == "Deuda de $120.000,00"
+    assert cuerpo == "Deuda de $120.000"
 
 
 @pytest.mark.parametrize("payload", [{}, {"monto_deuda": None}])

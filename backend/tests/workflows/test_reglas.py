@@ -166,8 +166,11 @@ def test_tipos_evento_incluye_sus_campos(client_autenticado, tipo_factura_vencid
     assert [t["nombre"] for t in tipos] == ["factura.vencida"]
     assert {c["nombre_interno"] for c in tipos[0]["campos"]} == {
         "dias_vencido",
+        "dias_vencido_texto",
         "monto_deuda",
         "nombre_familia",
+        "apellido_familia",
+        "alumno_nombre",
     }
 
 
