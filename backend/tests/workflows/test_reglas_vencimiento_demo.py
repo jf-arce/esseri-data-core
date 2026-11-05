@@ -102,7 +102,10 @@ def test_el_seed_crea_las_reglas_con_su_accion_y_destinatarios(db_session, escen
         "notificar",
     ]
     assert all(r.condicion == {} for r in (marcar, alerta, aviso))
-    assert aviso.accion_config == {"destinatario": "responsable_economico", "enlace": None}
+    assert aviso.accion_config == {
+        "destinatario": "responsable_economico",
+        "enlace": "familia_facturacion",
+    }
     assert alerta.accion_config["enlace"] == "ejecuciones"
     plantilla = db_session.get(NotificacionTemplate, aviso.notificacion_template_id)
     assert plantilla.nombre == "Aviso de factura vencida"
