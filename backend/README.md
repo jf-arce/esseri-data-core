@@ -562,6 +562,20 @@ Administrative endpoints:
   `enviados` includes only provider-accepted (`presentado`) intentions, not confirmed delivery.
   They accept `buscar` and `pagina`, enforce the existing communication/author scope, and
   return `Cache-Control: private, no-store`. Families cannot enumerate these lists.
+- `GET /comunicaciones/{id}/envios` and `/comunicaciones/docente/{id}/envios`: email history for
+  the authorized communication; both return `Cache-Control: private, no-store`.
+- `GET /comunicaciones/{id}/entrega` and `/comunicaciones/docente/{id}/entrega`: one row per
+  responsible with every associated email intention, its attempts and the first portal read.
+  `resumen` keeps responsible and email counts separate; `email_aplica`/`lectura_aplica` mark
+  channels that do not apply instead of inventing “sin leer” or email states. Portal-only rows
+  carry `contactos` (active account addresses) while `emails` stays empty, so the UI can show the
+  contact address without pretending an email was sent. `buscar` is accent- and case-insensitive
+  over responsible names and email addresses, and treats `%` and `_` literally; `filtro` accepts
+  `todos`, `con_email`, `sin_email`, `enviados`, `pendientes`, `fallidos`, `inciertos`, `leidos`
+  and `no_leidos`; `pagina` returns 10 responsible rows from the complete result. Filters for a
+  channel that does not apply return an empty page, never a misleading match. The generic
+  `/comunicaciones/{id}/entrega` endpoint rejects course communications; only the author teacher
+  can read course delivery through `/comunicaciones/docente/{id}/entrega`.
 
 Teacher endpoints require the active Docente role and only accept `division` or `alumnos`
 audiences with an explicit four-digit cycle. They reuse the same publication, receipt and
