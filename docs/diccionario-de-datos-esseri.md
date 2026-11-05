@@ -473,9 +473,15 @@ RF cubiertos: RF-15, RF-16, RF-17, RF-18 (parcial, ver nota), RF-36
 > **[ACLARACIÓN CLIENTE]** (respuesta 5): *"salvo que exista una fecha excepcional previamente autorizada por ESSERI para esa familia"*.
 
 `aplicar_vencimiento` usa la familia del responsable económico de la factura, aunque su vigencia
-haya terminado. La fecha efectiva es la mayor entre el vencimiento de la factura y las fechas
-excepcionales de esa familia, y la factura pasa a `vencida` recién al día siguiente (fecha de
-`America/Argentina/Buenos_Aires`). `cambiar_estado` no aplica esta política.
+haya terminado. Como la prórroga es por familia, se infiere a qué factura aplica: la fecha efectiva
+es la mayor entre el vencimiento de la factura y las fechas excepcionales de esa familia **del mismo
+mes** que ese vencimiento, y la factura pasa a `vencida` recién al día siguiente (fecha de
+`America/Argentina/Buenos_Aires`). El detector de vencidas usa el mismo cálculo.
+`cambiar_estado` no aplica esta política.
+
+Límite conocido: no se puede prorrogar una factura al mes siguiente (la de octubre que vence el
+10/10 hasta el 5/11: esa prórroga es de noviembre y se ignora). La prórroga por factura queda para
+#282.
 
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|

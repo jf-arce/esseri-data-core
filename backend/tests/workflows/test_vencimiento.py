@@ -1,13 +1,12 @@
 """Vencimiento y cambio explícito de estado desde eventos de facturación."""
 
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 from sqlalchemy import select
 
 from src.auth.models import Usuario
-from src.facturacion.calendario_facturacion import fecha_operativa_argentina
 from src.facturacion.models import ExcepcionVencimiento, Factura, ResponsableEconomico
 from src.familias_alumnos.models import Familia
 from src.models import Persona
@@ -21,7 +20,8 @@ from src.workflows.eventos_service import emit_event
 from src.workflows.models import WorkflowExecution, WorkflowRule
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
-HOY = fecha_operativa_argentina()
+# Fecha fija: la prórroga solo cuenta en el mismo mes, y los casos usan hoy ± días.
+HOY = date(2026, 11, 20)
 
 
 def _hoy():
@@ -110,7 +110,7 @@ def test_aplicar_vencimiento_respeta_dia_exacto(db_session, caso, dias):
     assert factura.estado == ("vencida" if dias < 0 else "pendiente")
 
 
-def test_excepcion_mas_lejana_de_la_familia_posterga_vencimiento(db_session, caso):
+def test_excepcion_mas_tardia_del_mismo_mes_posterga_vencimiento(db_session, caso):
     factura, responsable, regla = caso
     _excepcion(db_session, responsable.familia_id, _hoy() - timedelta(days=1))
     _excepcion(db_session, responsable.familia_id, _hoy() + timedelta(days=5))
@@ -119,6 +119,21 @@ def test_excepcion_mas_lejana_de_la_familia_posterga_vencimiento(db_session, cas
 
     assert factura.estado == "pendiente"
     assert (_hoy() + timedelta(days=5)).isoformat() in resultado.detalle
+
+
+def test_excepcion_de_otro_mes_no_posterga_vencimiento(db_session, caso, monkeypatch):
+    # La prórroga al 20/11 es de la factura de noviembre: no salva la de octubre.
+    factura, responsable, regla = caso
+    monkeypatch.setattr(
+        acciones_vencimiento_service, "fecha_operativa_argentina", lambda: date(2026, 11, 4)
+    )
+    factura.fecha_vencimiento = date(2026, 10, 10)
+    _excepcion(db_session, responsable.familia_id, date(2026, 11, 20))
+
+    resultado = _ejecutar(db_session, factura, regla)
+
+    assert resultado.error is None
+    assert factura.estado == "vencida"
 
 
 def test_excepcion_vencida_y_otra_familia_no_impiden_vencimiento(db_session, caso):

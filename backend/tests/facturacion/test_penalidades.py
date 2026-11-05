@@ -16,6 +16,7 @@ from src.facturacion.models import (
 )
 from src.facturacion.vencimientos_service import detectar_facturas_vencidas
 from src.models import AuditLog
+from src.workflows import acciones_vencimiento_service
 from src.workflows.acciones_vencimiento_service import ejecutar_aplicar_vencimiento
 from src.workflows.eventos_service import emit_event
 from src.workflows.models import WorkflowExecution, WorkflowRule
@@ -256,10 +257,20 @@ def _vencer(db, factura, tipo_factura_vencida):
 
 @pytest.mark.parametrize("anulada", [False, True])
 def test_aplicar_vencimiento_ignora_prorrogas_anuladas(
-    client_autenticado, db_session, factura_vencida, tipo_factura_vencida, anulada
+    client_autenticado, db_session, factura_vencida, tipo_factura_vencida, anulada, monkeypatch
 ):
     factura, familia_id = factura_vencida
-    excepcion_id = _otorgar(client_autenticado, familia_id).json()["id"]
+    # Fechas fijas: la prórroga solo cuenta en el mismo mes que el vencimiento.
+    monkeypatch.setattr(
+        acciones_vencimiento_service, "fecha_operativa_argentina", lambda: date(2027, 3, 10)
+    )
+    factura.fecha_emision = date(2027, 2, 25)
+    factura.fecha_vencimiento = date(2027, 3, 5)
+    db_session.commit()
+    excepcion_id = client_autenticado.post(
+        _url_familia(familia_id),
+        json={"fecha_vencimiento_excepcional": "2027-03-20", "motivo": "Acuerdo"},
+    ).json()["id"]
     if anulada:
         client_autenticado.post(f"/facturacion/excepciones-vencimiento/{excepcion_id}/anular")
 

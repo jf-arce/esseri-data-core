@@ -3,13 +3,23 @@ Administración y avisar a la familia."""
 
 import importlib.util
 from datetime import date, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
 from sqlalchemy import select
 
-from src.auth.models import Rol, Usuario, UsuarioRol
-from src.facturacion.models import Factura, ResponsableEconomico
+from src.auth.constants import ACCION_LEER, MODULO_FACTURACION
+from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
+from src.facturacion.cuenta_corriente_service import registrar_cargos_factura_en_transaccion
+from src.facturacion.models import (
+    ConceptoCobro,
+    DetalleFactura,
+    Factura,
+    Movimiento,
+    ReglaPenalidad,
+    ResponsableEconomico,
+)
 from src.facturacion.vencimientos_service import detectar_facturas_vencidas
 from src.familias_alumnos.models import Familia
 from src.workflows import despacho_service, n8n_client
@@ -227,3 +237,79 @@ def test_no_toca_las_cuentas_que_ya_existen(db_session, escenario, seed_demo, ca
         len(db_session.scalars(select(Usuario).where(Usuario.persona_id == persona_id)).all()) == 1
     )
     assert "Aviso" in capsys.readouterr().out
+
+
+def _con_permiso_de_facturacion(db, usuario):
+    rol_id = db.scalar(select(UsuarioRol.rol_id).where(UsuarioRol.usuario_id == usuario.id))
+    permiso = Permiso(modulo=MODULO_FACTURACION, accion=ACCION_LEER)
+    db.add(permiso)
+    db.flush()
+    db.add(RolPermiso(rol_id=rol_id, permiso_id=permiso.id))
+    db.commit()
+
+
+def test_flujo_completo_hasta_aprobar_la_penalidad(
+    client_autenticado, usuario_workflows, db_session, escenario, seed_demo, envios
+):
+    _sembrar(seed_demo, db_session, escenario)
+    _con_permiso_de_facturacion(db_session, usuario_workflows)
+    concepto = ConceptoCobro(nombre="Penalidad por mora", activo=True)
+    db_session.add(concepto)
+    db_session.flush()
+    # Los tramos de grupo-a.yaml.
+    for desde, hasta, porcentaje in ((0, 5, 0), (6, 15, 20), (16, 30, 30)):
+        db_session.add(
+            ReglaPenalidad(
+                desde_dia_vencido=desde,
+                hasta_dia_vencido=hasta,
+                porcentaje=porcentaje,
+                activo=True,
+                concepto_cobro_id=concepto.id,
+            )
+        )
+    hoy = date.today()
+    factura = escenario["factura"]
+    factura.fecha_vencimiento = hoy - timedelta(days=20)
+    db_session.add(
+        DetalleFactura(
+            descripcion="Cuota", monto=1500, factura_id=factura.id, concepto_cobro_id=concepto.id
+        )
+    )
+    db_session.flush()
+    db_session.refresh(factura)
+    registrar_cargos_factura_en_transaccion(db_session, factura)
+    db_session.commit()
+
+    assert detectar_facturas_vencidas(db_session, fecha_actual=hoy).eventos_emitidos == 1
+    despacho_service.procesar_eventos_pendientes(db_session)
+    penalidad = _regla(db_session, "Vencimiento 4: aplicar penalidad por mora")
+    ejecucion = db_session.scalars(
+        select(WorkflowExecution).where(WorkflowExecution.workflow_rule_id == penalidad.id)
+    ).one()
+    assert ejecucion.estado == "pendiente"
+
+    respuesta = client_autenticado.post(f"/workflows/ejecuciones/{ejecucion.id}/aprobar")
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["estado"] == "exitoso"
+    db_session.refresh(factura)
+    assert factura.estado == "vencida"
+    recargos = db_session.scalars(
+        select(Movimiento).where(
+            Movimiento.factura_id == factura.id,
+            Movimiento.tipo == "debe",
+            Movimiento.detalle_factura_id.is_(None),
+        )
+    ).all()
+    assert [(m.monto, m.event_log_id) for m in recargos] == [
+        (Decimal("450.00"), ejecucion.event_log_id)
+    ]
+    detalle = client_autenticado.get(f"/facturacion/facturas/{factura.id}")
+    assert detalle.status_code == 200
+    assert [Decimal(r["monto"]) for r in detalle.json()["recargos"]] == [Decimal("450.00")]
+    deudas = client_autenticado.get("/facturacion/deudas/familias")
+    assert deudas.status_code == 200
+    (deuda,) = [
+        d for d in deudas.json()["items"] if d["familia_id"] == str(escenario["familia"].id)
+    ]
+    assert Decimal(deuda["monto_vencido"]) == Decimal("1950.00")
