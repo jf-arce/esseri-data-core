@@ -1105,7 +1105,10 @@ def _ensure_admision_en_vivo(db, usuario: Usuario, niveles: dict[str, NivelEduca
     """Deja siempre una solicitud de Nivel Primario lista para finalizar el alta en vivo (#209)."""
     dni, nombre, apellido, telefono, sexo = CONTACTO_EN_VIVO
     contacto = _persona(db, dni, nombre, apellido, telefono, sexo)
-    _ensure_cuenta_demo(db, contacto.id, _email_demo(f"familia-{dni}"), None)
+    email = _email_demo(f"familia-{dni}")
+    cuenta = _ensure_cuenta_demo(db, contacto.id, email, None)
+    # El alta en vivo la convierte en familia pero no toca su cuenta: el rol va desde ahora.
+    _habilitar_portal_familia(db, cuenta, email, _require(db, Rol, codigo="familia"))
 
     indice = 0
     while True:
