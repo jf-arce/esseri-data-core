@@ -103,6 +103,64 @@ def test_listas_docentes_solo_permiten_comunicaciones_propias(client, docente):
     assert client.get(ruta).status_code == 403
 
 
+def test_entrega_docente_exige_ser_el_autor_del_curso(client, docente):
+    ids, entrar = docente
+    c = client.post("/comunicaciones/docente", json=datos(ids)).json()
+    assert client.post(f"/comunicaciones/docente/{c['id']}/publicar").status_code == 200
+    ruta = f"/comunicaciones/docente/{c['id']}/entrega"
+    respuesta = client.get(ruta)
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.headers["cache-control"] == "private, no-store"
+    assert respuesta.json()["resumen"]["responsables"] == 1
+    assert (
+        client.get(f"/comunicaciones/docente/{c['id']}/envios").headers["cache-control"]
+        == "private, no-store"
+    )
+    entrar(usuario_id=ids["usuario_otro"])
+    assert client.get(ruta).status_code == 404
+    entrar(rol="familia", usuario_id=ids["usuario_a"])
+    assert client.get(ruta).status_code == 403
+
+
+def test_entrega_generica_no_expone_comunicaciones_de_curso(client, docente):
+    ids, entrar = docente
+    c = client.post("/comunicaciones/docente", json=datos(ids)).json()
+    assert client.post(f"/comunicaciones/docente/{c['id']}/publicar").status_code == 200
+    ruta = f"/comunicaciones/{c['id']}/entrega"
+
+    entrar(rol="administracion")
+    respuesta = client.get(ruta)
+    assert respuesta.status_code == 404, respuesta.text
+
+    entrar(rol="docente")
+    respuesta = client.get(f"/comunicaciones/docente/{c['id']}/entrega")
+    assert respuesta.status_code == 200, respuesta.text
+
+
+def test_entrega_generica_rechaza_staff_ajeno(client, docente, db_session):
+    ids, entrar = docente
+    c = client.post("/comunicaciones/docente", json=datos(ids)).json()
+    assert client.post(f"/comunicaciones/docente/{c['id']}/publicar").status_code == 200
+
+    rol = db_session.scalar(select(Rol).where(Rol.codigo == "administracion"))
+    persona = Persona(nombre="Marta", apellido="Staff", dni="90000666")
+    db_session.add(persona)
+    db_session.flush()
+    staff = Usuario(
+        email="staff-ajeno@example.test",
+        estado="activo",
+        auth_provider="local",
+        persona_id=persona.id,
+    )
+    db_session.add(staff)
+    db_session.flush()
+    db_session.add(UsuarioRol(usuario_id=staff.id, rol_id=rol.id))
+    db_session.commit()
+
+    entrar(rol="administracion", usuario_id=staff.id)
+    assert client.get(f"/comunicaciones/{c['id']}/entrega").status_code == 404
+
+
 def estado(db):
     return {
         t.name: sorted(repr(tuple(r)) for r in db.execute(select(t)))
