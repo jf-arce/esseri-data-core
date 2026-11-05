@@ -58,7 +58,9 @@ def envios(monkeypatch):
 @pytest.fixture()
 def escenario(db_session, tipo_factura_vencida, seed_demo, monkeypatch):
     monkeypatch.setattr(seed_demo, "DEMO_EMAIL_BASE", "")
-    db_session.add_all([Rol(nombre="administración"), Rol(nombre="dirección")])
+    db_session.add_all(
+        [Rol(nombre="administración"), Rol(nombre="dirección"), Rol(nombre="familia")]
+    )
     demo = Usuario(
         email="demo@esseri.edu.ar", auth_provider="local", password_hash="x", estado="activo"
     )
@@ -233,6 +235,44 @@ def test_cuentas_con_alias_de_la_variable_o_esseri_local(
     } <= emails
     roles = {db_session.get(Rol, ur.rol_id).nombre for ur in db_session.scalars(select(UsuarioRol))}
     assert {"administración", "dirección"} <= roles
+
+
+def _entrar(client, email, password):
+    return client.post("/auth/login", json={"email": email, "password": password})
+
+
+def test_la_cuenta_de_la_familia_entra_al_portal_con_la_contrasena_demo(
+    client, db_session, escenario, seed_demo
+):
+    _sembrar(seed_demo, db_session, escenario)
+    dni = db_session.get(Familia, escenario["familia"].id).persona.dni
+
+    assert (
+        _entrar(client, f"familia-{dni}@esseri.local", seed_demo.DEMO_PASSWORD).status_code == 200
+    )
+    assert [p["codigo"] for p in client.get("/auth/me").json()["perfiles"]] == ["familia"]
+    facturas = client.get("/facturacion/familia/me").json()["facturas"]
+    assert [f["id"] for f in facturas] == [str(escenario["factura"].id)]
+
+
+def test_habilita_la_cuenta_que_dejo_una_carga_anterior_sin_contrasena(
+    client, db_session, escenario, seed_demo
+):
+    persona = db_session.get(Familia, escenario["familia"].id).persona
+    email = f"familia-{persona.dni}@esseri.local"
+    # Así quedaban las cuentas de familia antes: sin contraseña ni rol.
+    previa = Usuario(email=email, auth_provider="local", estado="activo", persona_id=persona.id)
+    db_session.add(previa)
+    db_session.commit()
+
+    _sembrar(seed_demo, db_session, escenario)
+    _sembrar(seed_demo, db_session, escenario)
+
+    assert (
+        len(db_session.scalars(select(UsuarioRol).where(UsuarioRol.usuario_id == previa.id)).all())
+        == 1
+    )
+    assert _entrar(client, email, seed_demo.DEMO_PASSWORD).status_code == 200
 
 
 def test_no_toca_las_cuentas_que_ya_existen(db_session, escenario, seed_demo, capsys):
