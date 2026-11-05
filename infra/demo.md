@@ -28,6 +28,11 @@ Login: `demo.admin@esseri.local` / `EsseriDemo2026!` en http://localhost:5173.
   - `N8N_WEBHOOK_URL=http://n8n:5678/webhook/enviar-email` y `N8N_WEBHOOK_TOKEN` (el mismo que en n8n).
   - La clave del proveedor de IA (`OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`; el
     `.env.example` trae el ejemplo de Gemini). El `.env` no se versiona: cada uno pone la suya.
+  - `ESSERI_DEMO_EMAIL_BASE` con la casilla del equipo (ej. `equipo@gmail.com`). Las cuentas de la
+    demo quedan como `equipo+administracion@gmail.com`, `equipo+familia-<dni>@gmail.com`, etc.
+    Sin la variable quedan con `@esseri.local` y los mails rebotan. Tiene que estar **antes de la
+    primera carga**: el seed no cambia el email de cuentas que ya existen
+    (`database/seeds/README.md`).
 - n8n: importar `infra/n8n/enviar-email.json` y cargar sus credenciales (`infra/n8n/README.md`).
 - **Ensayo completo:** `CON_N8N=1 infra/demo/preparar-demo.sh` y recorrer el guion de abajo.
   Después del ensayo, `infra/demo/restaurar-demo.sh` deja todo como antes de empezar.
