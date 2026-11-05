@@ -81,7 +81,9 @@ sola y conserva la contraseña como fallback.
 Límites conocidos:
 
 - **NAT:** el personal del colegio puede compartir IP pública. Por eso el máximo es 10.
-- **Proxy:** hoy no hay uno delante del backend. Si se agrega, hay que levantar uvicorn con
+- **Proxy:** en desarrollo no hay uno delante del backend. En Railway, el Nginx del frontend
+  reenvía `/api` al backend privado y `FORWARDED_ALLOW_IPS` hace que uvicorn tome la IP del
+  cliente ([guía de Railway](../infra/railway.md)). Con otro proxy, levantar uvicorn con
   `--proxy-headers --forwarded-allow-ips=<ip del proxy>` (nunca leer `X-Forwarded-For` a mano); si
   no, todos los usuarios compartirían la IP del proxy.
 - **IPv6:** se puede rotar de dirección dentro de un /64.

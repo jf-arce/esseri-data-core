@@ -1,13 +1,12 @@
 # Manual de instalación y configuración de ESSERI Data Core
 
-Este manual corresponde al issue #74. Está dirigido a quien instala y administra el sistema.
-Los comandos indican su directorio de ejecución. Las credenciales, dominios y claves deben
-completarse para cada instalación; no se deben guardar archivos `.env` con secretos en Git.
+Está dirigido a quien instala y administra el sistema. Cada comando indica desde qué directorio
+se ejecuta. Las credenciales, dominios y claves se completan para cada instalación; no guardar
+archivos `.env` con secretos en Git.
 
-La instalación de desarrollo usa Compose. El destino previsto de producción es Railway, con
+La instalación de desarrollo usa Compose. Para producción, el destino previsto es Railway, con
 servicios de contenedores separados: seguir la [guía de Railway](../../infra/railway.md).
-El Compose de producción queda como alternativa para un servidor administrado por el equipo. Los comandos de este manual fueron revisados
-contra las fuentes, pero no ejecutados como parte de esta entrega.
+El Compose de producción queda como alternativa para un servidor administrado por el equipo.
 
 ## 1. Requisitos y clonado
 
@@ -190,8 +189,9 @@ docker compose -f docker-compose.prod.yml exec backend python /database/seeds/00
 según la guía enlazada. Un servidor propio requiere un proxy y certificados fuera de este Compose.
 Las cookies de producción requieren HTTPS: arrancar contenedores no basta para considerar listo
 el login público. No cambiar `ENVIRONMENT` a desarrollo para eludirlo.
-La guía OAuth describe la consideración de encabezados de proxy si se incorpora uno, pero no
-hay un despliegue completo definido en el repositorio.
+Con un proxy delante del backend, Uvicorn tiene que confiar en sus encabezados para registrar la
+IP real de cada usuario; si no, todos comparten el bloqueo de login. Ver la
+[guía de OAuth](../auth-oauth-google.md) y cómo lo resuelve la [de Railway](../../infra/railway.md).
 
 No ejecutar simultáneamente las variantes local y productiva como si fueran entornos aislados:
 comparten nombres de servicios y volúmenes de Compose dentro del mismo proyecto.
@@ -253,7 +253,7 @@ Detalle: [autenticación con Google](../auth-oauth-google.md).
    como indica la [guía de despliegue](../../infra/railway.md).
 3. Configurar el consentimiento con datos de usuarios, scope
    `https://www.googleapis.com/auth/gmail.send` y la cuenta remitente como usuario de prueba.
-   Para la credencial Gmail, la fuente indica dejar vacíos los orígenes JavaScript.
+   En el cliente de Gmail, dejar vacíos los orígenes autorizados de JavaScript.
 4. Importar `infra/n8n/enviar-email.json` desde Workflows → Import from file.
 5. Crear Header Auth con nombre `Authorization` y valor `Bearer <token>`; usar el mismo secreto
    que `N8N_WEBHOOK_TOKEN`. Asignarlo al Webhook y a los nodos **Reclamar envío**,
@@ -271,9 +271,9 @@ Detalle: [autenticación con Google](../auth-oauth-google.md).
 intenciones quedan pendientes. Un resultado incierto no se debe reintentar a ciegas; aceptación
 por el proveedor no prueba llegada a la bandeja del destinatario.
 
-Mientras Google mantiene la aplicación en modo prueba, la guía del proyecto indica reautorizar
-Gmail cada siete días. El nombre del remitente en el nodo Gmail se configura por separado del
-nombre institucional del backend. Ver [n8n](../../infra/n8n/README.md).
+Mientras la aplicación de Google esté en modo prueba, el token de Gmail vence a los siete días y
+hay que volver a autorizar la credencial. El nombre del remitente se configura en el nodo Gmail,
+aparte del nombre institucional del backend. Ver [n8n](../../infra/n8n/README.md).
 
 ## 8. Proveedor de IA
 
@@ -333,13 +333,9 @@ en producción añadir `-f docker-compose.prod.yml` inmediatamente después de `
 
 ## 11. Pendientes y fuentes
 
-Los procedimientos de producción se desarrollan en la [guía de Railway](../../infra/railway.md).
-Se utilizan dominios gratuitos de Railway. Resta ejecutar la aceptación en el ambiente
-real, registrando las versiones verificadas. No se verificó la ejecución del sistema en esta tarea.
-
-Se corrigieron en las fuentes la descripción de la imagen local del frontend, directorios de
-preparación, variables faltantes de producción, variable OAuth innecesaria del frontend,
-autenticación obsoleta de n8n y distinción entre catálogos automáticos y bootstrap manual.
+Los procedimientos de producción están en la [guía de Railway](../../infra/railway.md), que usa
+los dominios gratuitos de Railway. Falta ejecutar la aceptación en el ambiente real y registrar
+las versiones verificadas.
 
 Fuentes: [README principal](../../README.md), [backend](../../backend/README.md),
 [frontend](../../frontend/README.md), [infraestructura](../../infra/README.md),
