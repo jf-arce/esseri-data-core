@@ -63,6 +63,9 @@ El script rechaza `ENVIRONMENT=production`/`prod` y es idempotente para sus prop
 Cada pago aprobado procesado por el seed registra un único movimiento de haber en la cuenta
 corriente. Repetir la carga no duplica ese crédito; los pagos de períodos anteriores que la
 carga ya no procesa requieren una reparación explícita, limitada a la base demo.
+Las facturas del período anterior con pago parcial nacen `pendiente`; si el flujo de mora ya las
+marcó `vencida`, repetir la carga no las vuelve a `pendiente` (el detector no reemite un tramo ya
+emitido, así que quedarían pendientes para siempre).
 
 **Reglas de workflow de la demo (#216).** Sobre `factura.vencida` crea dos reglas que usan el
 campo `dias_vencido`: `Mora > 15 días: crear tarea` (`crear_tarea`, tarea para el rol
