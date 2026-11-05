@@ -105,6 +105,7 @@ def test_dia_uno_emite_con_tramo_cero(db_session, escenario):
     (evento,) = _eventos(db_session)
     assert evento.entidad_id == escenario["factura"].id
     assert evento.payload["dias_vencido"] == 1
+    assert evento.payload["dias_vencido_texto"] == "1 día"
     assert evento.payload["tramo_desde_dia"] == 0
 
 
@@ -174,6 +175,7 @@ def test_excepcion_de_otro_mes_se_ignora(db_session, escenario):
 
     (evento,) = _eventos(db_session)
     assert evento.payload["dias_vencido"] == 7
+    assert evento.payload["dias_vencido_texto"] == "7 días"
 
 
 def test_payload_trae_deuda_pendiente_y_nombre_de_familia(db_session, escenario):
@@ -184,6 +186,8 @@ def test_payload_trae_deuda_pendiente_y_nombre_de_familia(db_session, escenario)
     evento = next(evento for evento in _eventos(db_session) if evento.entidad == "factura")
     assert Decimal(str(evento.payload["monto_deuda"])) == Decimal("60.00")
     assert evento.payload["nombre_familia"] == "Cabral, Lorena"
+    assert evento.payload["apellido_familia"] == "Cabral"
+    assert evento.payload["alumno_nombre"] == "Tiziano Cabral"
 
 
 def test_endpoint_procesa_con_permiso_y_respeta_fecha_referencia(

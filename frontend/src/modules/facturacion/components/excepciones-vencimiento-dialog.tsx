@@ -82,8 +82,9 @@ export function ExcepcionesVencimientoDialog({
         <DialogHeader>
           <DialogTitle>Prórrogas de vencimiento</DialogTitle>
           <DialogDescription>
-            {familiaNombre}. Mientras una prórroga esté vigente, las facturas de la familia vencen
-            recién después de esa fecha.
+            {familiaNombre}. La prórroga corre el vencimiento de las facturas de la familia que
+            vencen en el mismo mes que la nueva fecha. No sirve para pasar una factura al mes
+            siguiente.
           </DialogDescription>
         </DialogHeader>
 

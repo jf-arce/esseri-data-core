@@ -5,6 +5,7 @@ texto plano (`cuerpo`) sigue siendo lo que se guarda como evidencia en `NOTIFICA
 solo la presentación del envío.
 """
 
+import re
 from html import escape
 
 from src.config import settings
@@ -16,16 +17,35 @@ COLOR_BOTON = "#7c24a3"
 COLOR_TEXTO = "#1f1b24"
 COLOR_TEXTO_SUAVE = "#6b6672"
 COLOR_PIE = "#f4f3f6"
+COLOR_DESTACADO = "#f5eefa"
 FUENTE = "-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
+
+MARCA = "**"
+_NEGRITA = re.compile(r"\*\*(.+?)\*\*")
+_DESTACADO = re.compile(r"\*\*([^*]+)\*\*")
 
 AVISO_AUTOMATICO = (
     "Mensaje automático, no respondas a este correo. Ante dudas, comunicate con la secretaría."
 )
 
 
-def armar_html(asunto: str, cuerpo: str, enlace: tuple[str, str] | None = None) -> str:
+def quitar_marcas(texto: str) -> str:
+    """Versión de texto plano de un contenido con `**resaltados**`."""
+    return texto.replace(MARCA, "")
+
+
+def armar_html(
+    asunto: str,
+    cuerpo: str,
+    enlace: tuple[str, str] | None = None,
+    *,
+    resaltados: bool = False,
+) -> str:
     """`enlace` es `(url completa, texto del botón)`. Todo lo que viene de datos del evento o de
-    la configuración se escapa."""
+    la configuración se escapa. Con `resaltados`, `**texto**` va en negrita y un párrafo que es
+    solo `**texto**` se muestra como dato destacado."""
+    if resaltados:
+        asunto = quitar_marcas(asunto)
     institucion = escape(settings.EMAIL_INSTITUCION_NOMBRE)
     pie = escape(settings.EMAIL_INSTITUCION_PIE)
     return (
@@ -44,7 +64,7 @@ def armar_html(asunto: str, cuerpo: str, enlace: tuple[str, str] | None = None) 
         f'<tr><td style="padding:32px 32px 8px 32px;color:{COLOR_TEXTO};">'
         f'<h1 style="margin:0 0 16px 0;font-size:20px;line-height:1.3;color:{COLOR_TEXTO};">'
         f"{escape(asunto)}</h1>"
-        f"{_parrafos(cuerpo)}"
+        f"{_parrafos(cuerpo, resaltados=resaltados)}"
         f"{_boton(enlace)}"
         f'<p style="margin:24px 0 0 0;font-size:15px;line-height:1.5;color:{COLOR_TEXTO};">'
         f"Administración · {institucion}</p>"
@@ -61,10 +81,13 @@ def _encabezado(institucion: str) -> str:
     imagen = ""
     # Solo http(s): una URL con otro esquema no es un logo que Gmail pueda mostrar.
     if logo.lower().startswith(("https://", "http://")):
+        # Fondo blanco: el logo es violeta y sobre el encabezado oscuro casi no se ve.
         imagen = (
-            f'<td width="44" style="padding-right:12px;"><img src="{escape(logo)}" '
-            f'alt="{institucion}" width="40" height="40" '
-            'style="display:block;border:0;border-radius:8px;"></td>'
+            '<td width="44" style="padding-right:12px;"><table role="presentation" '
+            'cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#ffffff" '
+            'style="background-color:#ffffff;border-radius:8px;padding:4px;">'
+            f'<img src="{escape(logo)}" alt="{institucion}" width="40" height="40" '
+            'style="display:block;border:0;"></td></tr></table></td>'
         )
     return (
         f'<tr><td bgcolor="{COLOR_ENCABEZADO}" style="background-color:{COLOR_ENCABEZADO};'
@@ -75,13 +98,32 @@ def _encabezado(institucion: str) -> str:
     )
 
 
-def _parrafos(cuerpo: str) -> str:
+def _parrafos(cuerpo: str, *, resaltados: bool) -> str:
     """Un párrafo por bloque separado por línea vacía; un salto simple queda como `<br>`."""
     bloques = [b.strip() for b in cuerpo.replace("\r\n", "\n").split("\n\n") if b.strip()]
-    return "".join(
+    return "".join(_bloque(bloque, resaltados=resaltados) for bloque in bloques)
+
+
+def _bloque(bloque: str, *, resaltados: bool) -> str:
+    if not resaltados:
+        return _parrafo(escape(bloque))
+    if destacado := _DESTACADO.fullmatch(bloque):
+        return (
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            'style="margin:0 0 16px 0;"><tr>'
+            f'<td bgcolor="{COLOR_DESTACADO}" style="background-color:{COLOR_DESTACADO};'
+            f"border-left:4px solid {COLOR_BOTON};border-radius:6px;padding:16px 20px;"
+            f"font-size:28px;line-height:1.2;font-weight:700;color:{COLOR_BOTON};"
+            f'font-family:{FUENTE};">{escape(destacado.group(1).strip())}</td>'
+            "</tr></table>"
+        )
+    return _parrafo(_NEGRITA.sub(r"<strong>\1</strong>", escape(bloque)))
+
+
+def _parrafo(contenido: str) -> str:
+    return (
         f'<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:{COLOR_TEXTO};">'
-        f"{escape(bloque).replace(chr(10), '<br>')}</p>"
-        for bloque in bloques
+        f"{contenido.replace(chr(10), '<br>')}</p>"
     )
 
 

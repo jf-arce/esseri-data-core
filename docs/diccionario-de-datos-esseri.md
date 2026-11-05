@@ -473,9 +473,15 @@ RF cubiertos: RF-15, RF-16, RF-17, RF-18 (parcial, ver nota), RF-36
 > **[ACLARACIÓN CLIENTE]** (respuesta 5): *"salvo que exista una fecha excepcional previamente autorizada por ESSERI para esa familia"*.
 
 `aplicar_vencimiento` usa la familia del responsable económico de la factura, aunque su vigencia
-haya terminado. La fecha efectiva es la mayor entre el vencimiento de la factura y las fechas
-excepcionales de esa familia, y la factura pasa a `vencida` recién al día siguiente (fecha de
-`America/Argentina/Buenos_Aires`). `cambiar_estado` no aplica esta política.
+haya terminado. Como la prórroga es por familia, se infiere a qué factura aplica: la fecha efectiva
+es la mayor entre el vencimiento de la factura y las fechas excepcionales de esa familia **del mismo
+mes** que ese vencimiento, y la factura pasa a `vencida` recién al día siguiente (fecha de
+`America/Argentina/Buenos_Aires`). El detector de vencidas usa el mismo cálculo.
+`cambiar_estado` no aplica esta política.
+
+Límite conocido: no se puede prorrogar una factura al mes siguiente (la de octubre que vence el
+10/10 hasta el 5/11: esa prórroga es de noviembre y se ignora). La prórroga por factura queda para
+#282.
 
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
@@ -667,7 +673,7 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 ### `TIPO_EVENTO`
 > `[DECISIÓN DE DISEÑO]` `nombre` es `UNIQUE` (`uq_tipo_evento_nombre`): `emit_event()` resuelve el tipo por nombre, así que no puede haber dos filas con el mismo.
 >
-> `[DECISIÓN DE DISEÑO]` `factura.vencida` se emite desde `backend/src/facturacion/vencimientos_service.py`, una vez por tramo activo de `REGLA_PENALIDAD`. Además de `dias_vencido`, `monto_deuda` y `nombre_familia`, el `payload` lleva `tramo_desde_dia` (el `desde_dia_vencido` del tramo) y `fecha_vencimiento_efectiva` (el vencimiento corrido por la `EXCEPCION_VENCIMIENTO` de la familia, si existe).
+> `[DECISIÓN DE DISEÑO]` `factura.vencida` se emite desde `backend/src/facturacion/vencimientos_service.py`, una vez por tramo activo de `REGLA_PENALIDAD`. Además de `dias_vencido` (número, el que usan las condiciones), `dias_vencido_texto` ("1 día", "55 días", para las plantillas), `monto_deuda`, `nombre_familia` ("Apellido, Nombre" del responsable), `apellido_familia` (solo el apellido, para el saludo) y `alumno_nombre` ("Nombre Apellido" del alumno de la factura), el `payload` lleva `tramo_desde_dia` (el `desde_dia_vencido` del tramo) y `fecha_vencimiento_efectiva` (el vencimiento corrido por la `EXCEPCION_VENCIMIENTO` de la familia, si existe).
 
 > [DECISIÓN DE DISEÑO] Catálogo en vez de texto libre en `WORKFLOW_RULE`, mismo patrón que `PERMISO`/`METODO_PAGO` (RNF-06). Acá se cargan valores como "factura.vencida", "inasistencia.registrada", "inscripcion.cambio_matricula", y desde las aclaraciones también "solicitud_inscripcion.aprobada", "inasistencia.justificada", "pago.registrado", "pago.rechazado". Proveedores y Compras suma "orden_compra.emitida" y "recepcion_compra.registrada", y "solicitud_compra.aprobada". Inscripciones suma "inscripcion.confirmada".
 
@@ -742,7 +748,7 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 | id | uuid | PK |  |
 | nombre | string |  |  |
 | asunto | string |  |  |
-| cuerpo | string |  | Texto plano con placeholders tipo `{{nombre_familia}}`, `{{monto_deuda}}`, `{{mes_cuota}}`. El backend los reemplaza por datos reales al momento de generar la `NOTIFICACION` — no es código, solo texto con marcadores a sustituir |
+| cuerpo | string |  | Texto plano con placeholders tipo `{{nombre_familia}}`, `{{monto_deuda}}`, `{{mes_cuota}}`. El backend los reemplaza por datos reales al momento de generar la `NOTIFICACION` — no es código, solo texto con marcadores a sustituir. `**texto**` sale en negrita en el email de Workflows y un párrafo que es solo `**texto**` se muestra como dato destacado; en `cuerpo_snapshot` y en el texto plano del envío las marcas se quitan |
 | created_at | datetime |  | Fecha y hora de creación del registro. |
 | updated_at | datetime |  | Fecha y hora de la última modificación del registro. |
 
@@ -803,7 +809,7 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 
 > **[DECISIÓN DE DISEÑO]** (#89) `usuario_id` es el responsable y es obligatorio, así que `crear_tarea` y `escalar_caso` crean una `TAREA` por cada usuario activo de `REGLA_DESTINATARIO` (directo o por rol): los destinatarios de la regla son las personas a quienes se asigna el trabajo.
 >
-> **[DECISIÓN DE DISEÑO]** `accion_config.enlace` agrega un botón al mail que lleva a una pantalla de la app. Es una clave de allowlist (`ENLACES_MAIL` en `backend/src/workflows/constants.py`), nunca una URL: `familia_justificar` (`/familia/justificar-ausencia`), `ejecuciones` (`/workflows/ejecuciones`) y `tareas` (`/workflows/tareas`). La URL se arma con `FRONTEND_URL`; la persona tiene que iniciar sesión y, si venía sin sesión, vuelve a esa pantalla. No se puede responder ni aprobar desde el mail. `NOTIFICACION.cuerpo_snapshot` sigue en texto plano; el HTML es solo la presentación del envío.
+> **[DECISIÓN DE DISEÑO]** `accion_config.enlace` agrega un botón al mail que lleva a una pantalla de la app. Es una clave de allowlist (`ENLACES_MAIL` en `backend/src/workflows/constants.py`), nunca una URL: `familia_justificar` (`/familia/justificar-ausencia`), `familia_facturacion` (`/familia/facturacion`, la deuda y las facturas de la familia), `ejecuciones` (`/workflows/ejecuciones`) y `tareas` (`/workflows/tareas`). La URL se arma con `FRONTEND_URL`; la persona tiene que iniciar sesión y, si venía sin sesión, vuelve a esa pantalla. No se puede responder ni aprobar desde el mail. `NOTIFICACION.cuerpo_snapshot` sigue en texto plano; el HTML es solo la presentación del envío.
 
 > **[DECISIÓN DE DISEÑO]** Al renderizar plantillas, tareas y mails, los números del payload se formatean en es-AR: decimales con 2 cifras y coma (`120.000,00`), enteros con separador de miles (`1.500`) y booleanos como `Sí`/`No`. Un `{{campo}}` que el evento no trae falla la ejecución con un error controlado, y al guardar la regla se valida que el campo exista en el evento.
 

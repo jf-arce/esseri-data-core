@@ -96,7 +96,8 @@ export function estadoEnvio(estado: string): EstadoEnvio {
   if (['enviado', 'aceptado', 'presentado'].includes(clave))
     return { etiqueta: 'Enviado', variante: 'info', incierto: false }
   if (clave === 'procesando') return { etiqueta: 'En proceso', variante: 'info', incierto: false }
-  if (clave === 'sin_email') return { etiqueta: 'Sin email', variante: 'error', incierto: false }
+  if (clave === 'sin_email')
+    return { etiqueta: 'Sin email', variante: 'advertencia', incierto: false }
   if (['fallido', 'error'].includes(clave))
     return { etiqueta: 'Falló', variante: 'error', incierto: false }
   if (['incierto', 'desconocido'].includes(clave))

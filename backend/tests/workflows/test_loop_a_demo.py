@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy import select
 
 from src.academico.models import Anio, Division, NivelEducativo
-from src.auth.models import Usuario
+from src.auth.models import Rol, Usuario
 from src.facturacion.models import ConceptoCobro, Factura
 from src.inscripciones import admisiones_service
 from src.inscripciones.models import SolicitudInscripcion
@@ -40,7 +40,9 @@ def demo(db_session, seed_demo, monkeypatch):
     monkeypatch.setattr(seed_demo, "DEMO_EMAIL_BASE", "")
     monkeypatch.setattr(acciones_admision_service, "fecha_operativa_argentina", lambda: HOY)
     nivel = NivelEducativo(nombre="Nivel Primario")
-    db_session.add_all([nivel, ConceptoCobro(nombre="Matrícula", activo=True)])
+    db_session.add_all(
+        [nivel, ConceptoCobro(nombre="Matrícula", activo=True), Rol(nombre="familia")]
+    )
     db_session.flush()
     anio = Anio(numero=1, nivel_educativo_id=nivel.id)
     db_session.add(anio)
@@ -133,6 +135,27 @@ def test_alta_en_vivo_bienvenida_y_cargo_con_aprobacion(db_session, demo, envios
     [factura] = db_session.scalars(select(Factura)).all()
     assert factura.monto_total == Decimal("120000.00")
     assert factura.fecha_vencimiento == date(2026, 11, 7)
+
+
+def test_despues_del_alta_en_vivo_la_madre_entra_al_portal_y_ve_la_matricula(
+    client, db_session, demo, envios, seed_demo
+):
+    [solicitud] = _lista(db_session)
+    _finalizar(db_session, demo, solicitud)
+    procesar_eventos_pendientes(db_session)
+    pendiente = db_session.scalars(
+        select(WorkflowExecution).where(WorkflowExecution.estado == "pendiente")
+    ).one()
+    aprobar_ejecucion(db_session, pendiente.id, demo["usuario"].id)
+
+    login = client.post(
+        "/auth/login",
+        json={"email": "familia-28555001@esseri.local", "password": seed_demo.DEMO_PASSWORD},
+    )
+    assert login.status_code == 200
+    assert [p["codigo"] for p in client.get("/auth/me").json()["perfiles"]] == ["familia"]
+    [factura] = client.get("/facturacion/familia/me").json()["facturas"]
+    assert factura["monto_total"] == "120000.00"
 
 
 def test_despues_de_la_demo_el_seed_deja_otra_solicitud_lista(db_session, demo, envios):
