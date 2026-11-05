@@ -133,6 +133,10 @@ Después de facturar, la misma corrida detecta las facturas vencidas (`vencimien
 emite `factura.vencida` una vez por tramo activo de `REGLA_PENALIDAD` (con el seed, días 1, 6 y 16
 de mora). Solo emite el evento: el cambio de estado y la penalidad los hacen las acciones del
 workflow. Una `EXCEPCION_VENCIMIENTO` del mismo mes corre la fecha desde la que se cuentan los días.
+`aplicar_vencimiento` usa el mismo cálculo (`fecha_vencimiento_efectiva`), así que no descarta un
+evento que el detector emitió. Límite conocido: como la prórroga es por familia y no por factura,
+no se puede prorrogar una factura al mes siguiente (la de octubre que vence el 10/10 hasta el 5/11:
+esa prórroga es de noviembre y se ignora). La mejora está en #282.
 
 Para forzar una pasada: `POST /facturacion/vencimientos/procesar`. Con `fecha_referencia` simula
 días de mora, y lo emitido así cuenta como ya emitido cuando llegue la fecha real.
