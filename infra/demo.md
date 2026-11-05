@@ -65,7 +65,9 @@ desde http://localhost:8000/docs → `POST /workflows/procesar`.
    la orden aparece en Órdenes de compra y "Compras 2" avisa al área. Registrar la recepción →
    "Compras 3" avisa a quien la pidió.
 3. **Mora.** Facturación → Deuda por familia; en el historial, las reglas "Vencimiento 1 a 4":
-   factura vencida, avisos y penalidad por tramo pendiente de aprobación.
+   factura vencida, avisos y penalidad por tramo pendiente de aprobación. Para mostrar lo que ve
+   la familia, entrar con su cuenta (`familia-<dni>@...`, la que recibió el aviso) y la contraseña
+   demo: en Facturación están la factura vencida, el recargo y el saldo.
 4. **IA.** Sugerencias de IA → *Analizar ahora* (patrones de morosidad e inasistencias) y
    *Redactar comunicación* (borrador con IA, se revisa antes de convertirse en plantilla).
 

@@ -83,9 +83,12 @@ avisos salen igual. La cuarta, `Vencimiento 4: aplicar penalidad por mora` (`apl
 queda pendiente hasta que se apruebe desde el historial de ejecuciones.
 
 Como `notificar` y `alerta_interna` mandan email a cuentas activas, el seed también crea cuentas
-de la demo sin contraseña (el login local las rechaza): una para el rol Administración, otra para
-Dirección y una por cada familia responsable de una factura impaga. Si la persona o el email ya
-tienen cuenta, no se toca; si queda inactiva o con otro email, el seed imprime un aviso. Los
+de la demo: una para el rol Administración, otra para Dirección y una por cada familia responsable
+de una factura impaga. Las de Administración y Dirección no tienen contraseña (el login local las
+rechaza). Las de familia tienen el rol `familia` y la contraseña demo (`ESSERI_DEMO_PASSWORD`), para
+entrar al portal y ver las facturas; si una carga anterior las dejó sin contraseña, el seed se la
+pone. Si la persona o el email ya tienen otra cuenta, no se toca; si queda inactiva o con otro
+email, el seed imprime un aviso. Los
 emails son `<alias>@esseri.local`; para que lleguen a una casilla real, definir la base:
 
 ```bash
