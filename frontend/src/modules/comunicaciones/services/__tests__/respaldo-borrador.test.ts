@@ -61,3 +61,22 @@ it('keeps independent local copies of the same server draft', () => {
     'Other edit',
   ])
 })
+
+it('expires a synchronized cache but never an unsynchronized copy', () => {
+  const old = Date.now() - 48 * 60 * 60 * 1000
+  const original = vi.spyOn(Date, 'now').mockReturnValue(old)
+  guardarRespaldo('user-a', false, datos, { localId: 'cache', id: 'remoto', pendiente: false })
+  guardarRespaldo(
+    'user-a',
+    false,
+    { ...datos, clave: 'sin-sincronizar' },
+    {
+      localId: 'pendiente',
+      pendiente: true,
+    },
+  )
+  original.mockRestore()
+
+  expect(leerRespaldos('user-a', false).map((item) => item.localId)).toEqual(['pendiente'])
+  expect(window.localStorage.length).toBe(1)
+})
