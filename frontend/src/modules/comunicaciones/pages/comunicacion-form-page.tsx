@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ArrowLeftIcon, CheckCircle2Icon, ChevronDownIcon, SearchIcon } from 'lucide-react'
 import { toast } from 'sonner'
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
+import { useAuthStore } from '@/store/auth-store'
 import { AdjuntosBorrador } from '../components/adjuntos-borrador'
 import { listarAdjuntos } from '../services/adjuntos'
 import { guardarBorrador } from '../services/guardar-borrador'
@@ -25,6 +26,17 @@ import { obtenerComunicacion } from '../services/obtener-comunicacion'
 import { obtenerOpciones } from '../services/obtener-opciones'
 import { previsualizarComunicacion } from '../services/previsualizar-comunicacion'
 import { publicarComunicacion } from '../services/publicar-comunicacion'
+import {
+  guardarRespaldo,
+  leerRespaldos,
+  olvidarRespaldo,
+  type RespaldoBorrador,
+} from '../services/respaldo-borrador'
+import {
+  ConflictoBorradorError,
+  SincronizadorBorrador,
+  type EstadoSincronizacion,
+} from '../services/sincronizador-borrador'
 import type {
   Adjunto,
   Audiencia,
@@ -51,6 +63,16 @@ const etiquetas = {
   responsables: 'Responsables seleccionados',
 }
 
+const MENSAJES_SINCRONIZACION: Record<EstadoSincronizacion, string> = {
+  inactivo: '',
+  pendiente: 'Guardado en este dispositivo. Sincronizando con el servidor…',
+  guardando: 'Guardando en el servidor…',
+  guardado: 'Borrador guardado en el servidor.',
+  'sin-conexion': 'Sin conexión. Los cambios quedan guardados en este dispositivo.',
+  error: 'No se pudo guardar en el servidor. La copia local se conserva.',
+  conflicto: 'Conflicto de edición.',
+}
+
 function normalizarBusqueda(valor: string) {
   return valor.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('es').trim()
 }
@@ -58,6 +80,7 @@ function normalizarBusqueda(valor: string) {
 export function ComunicacionFormPage({ docente = false }: { docente?: boolean }) {
   const { id } = useParams()
   const cicloStore = useCicloLectivoStore((s) => s.cicloLectivo)
+  const usuarioId = useAuthStore((s) => s.usuario?.id)
   const [datos, setDatos] = useState<Borrador>(() => ({
     clave: crypto.randomUUID(),
     asunto: '',
@@ -69,10 +92,13 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
       : { tipo: 'todos', ids: [] },
   }))
   const [adjuntos, setAdjuntos] = useState<Adjunto[]>([])
+  const datosActuales = useRef(datos)
+  const respaldoId = useRef<string>(crypto.randomUUID())
   const canal = datos.canal ?? 'portal'
   const ciclo = datos.audiencia.ciclo_lectivo ?? cicloStore
   const [persistido, setPersistido] = useState<string | undefined>(id)
   const guardado = useRef('')
+  const version = useRef<number | undefined>(undefined)
   const [paso, setPaso] = useState(1)
   const [opciones, setOpciones] = useState<Opciones | null>(null)
   const [ocupado, setOcupado] = useState(false)
@@ -83,6 +109,78 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
   const [publicada, setPublicada] = useState<Comunicacion | null>(null)
   const [cargando, setCargando] = useState(Boolean(id))
   const [revision, setRevision] = useState(0)
+  const [estadoSync, setEstadoSync] = useState<EstadoSincronizacion>('inactivo')
+  const [recuperadoLocal, setRecuperadoLocal] = useState(false)
+  const [resolviendoConflicto, setResolviendoConflicto] = useState(false)
+  const [revisionRespaldos, setRevisionRespaldos] = useState(0)
+  const idRef = useRef<string | undefined>(id)
+  const sincronizadorRef = useRef<SincronizadorBorrador | null>(null)
+  useEffect(() => {
+    const sincronizador = new SincronizadorBorrador({
+      guardar: async (snapshot) => {
+        const c = await guardarBorrador(snapshot.datos, snapshot.id, docente, snapshot.version)
+        return { id: c.id, version: c.version }
+      },
+      onEstado: setEstadoSync,
+      onConfirmado: (confirmacion) => {
+        idRef.current = confirmacion.id
+        version.current = confirmacion.version
+        setPersistido(confirmacion.id)
+        if (usuarioId) {
+          try {
+            guardarRespaldo(usuarioId, docente, datosActuales.current, {
+              localId: respaldoId.current,
+              id: confirmacion.id,
+              version: confirmacion.version,
+            })
+          } catch {
+            setError('No se pudo actualizar la copia local del borrador.')
+          }
+        }
+      },
+    })
+    sincronizadorRef.current = sincronizador
+    if (idRef.current && version.current !== undefined) {
+      sincronizador.inicializar(idRef.current, version.current)
+    }
+    sincronizador.reanudar()
+    const alVolver = () => sincronizador.reintentar()
+    window.addEventListener('online', alVolver)
+    return () => {
+      window.removeEventListener('online', alVolver)
+      sincronizador.detener()
+      sincronizadorRef.current = null
+    }
+  }, [docente, usuarioId])
+  const respaldosLocales = useMemo(() => {
+    // Escanea el almacenamiento del navegador; la revisión se incrementa al recuperar o descartar.
+    void revisionRespaldos
+    if (!usuarioId || id) return []
+    try {
+      return leerRespaldos(usuarioId, docente).filter((item) => !item.id)
+    } catch {
+      return []
+    }
+  }, [usuarioId, docente, id, revisionRespaldos])
+  const respaldos =
+    respaldosLocales.length && !datos.asunto && !datos.cuerpo ? respaldosLocales : []
+  function actualizarDatos(cambio: Borrador | ((actual: Borrador) => Borrador)) {
+    const siguiente = typeof cambio === 'function' ? cambio(datosActuales.current) : cambio
+    datosActuales.current = siguiente
+    if (usuarioId) {
+      try {
+        guardarRespaldo(usuarioId, docente, siguiente, {
+          localId: respaldoId.current,
+          id: idRef.current,
+          version: version.current,
+        })
+      } catch {
+        setError('No se pudo guardar una copia en este dispositivo. No cierres la página.')
+      }
+    }
+    setDatos(siguiente)
+    sincronizadorRef.current?.encolar(siguiente)
+  }
   useEffect(() => {
     const controller = new AbortController()
     obtenerOpciones(controller.signal, docente, ciclo)
@@ -112,7 +210,21 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
             canal: c.canal ?? 'portal',
             tipo: c.tipo,
           }
-          setDatos(borrador)
+          let respaldo: RespaldoBorrador | undefined
+          try {
+            respaldo = usuarioId
+              ? leerRespaldos(usuarioId, docente).find((item) => item.id === c.id)
+              : undefined
+          } catch {
+            respaldo = undefined
+          }
+          const elegido = respaldo?.datos ?? borrador
+          idRef.current = c.id
+          version.current = respaldo?.version ?? c.version
+          sincronizadorRef.current?.inicializar(c.id, version.current)
+          setDatos(elegido)
+          datosActuales.current = elegido
+          if (respaldo) setRecuperadoLocal(true)
           setAdjuntos(c.adjuntos ?? [])
           guardado.current = JSON.stringify(borrador)
           setCargando(false)
@@ -121,7 +233,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
           if (!controller.signal.aborted) setError('No se pudo abrir el borrador.')
         })
     return () => controller.abort()
-  }, [id, docente, revision])
+  }, [id, docente, revision, usuarioId])
   useEffect(() => {
     const controller = new AbortController()
     if (id)
@@ -135,12 +247,57 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
     return () => controller.abort()
   }, [id, docente])
   async function guardar() {
-    if (persistido && guardado.current === JSON.stringify(datos)) return persistido
-    const c = await guardarBorrador(datos, persistido, docente)
-    setPersistido(c.id)
-    if (c.adjuntos) setAdjuntos(c.adjuntos)
-    guardado.current = JSON.stringify(datos)
-    return c.id
+    const sincronizador = sincronizadorRef.current
+    if (!sincronizador) throw new Error('No se pudo guardar el borrador. Intentá de nuevo.')
+    try {
+      if (!idRef.current) sincronizador.encolar(datosActuales.current)
+      const confirmacion = await sincronizador.enviarAhora()
+      idRef.current = confirmacion.id
+      version.current = confirmacion.version
+      setPersistido(confirmacion.id)
+      guardado.current = JSON.stringify(datosActuales.current)
+      return confirmacion.id
+    } catch (error) {
+      if (error instanceof ConflictoBorradorError) throw error
+      throw new Error('No se pudo guardar el borrador. Intentá de nuevo.', { cause: error })
+    }
+  }
+  async function resolverConflicto(conservar: 'local' | 'servidor') {
+    if (!idRef.current || resolviendoConflicto) return
+    setResolviendoConflicto(true)
+    try {
+      const remoto = await obtenerComunicacion(idRef.current, false, undefined, docente)
+      if (conservar === 'servidor') {
+        if (!remoto.clave || !remoto.audiencia) throw new Error('sin datos')
+        const datosRemotos: Borrador = {
+          clave: remoto.clave,
+          asunto: remoto.asunto,
+          cuerpo: remoto.cuerpo,
+          audiencia: remoto.audiencia,
+          canal: remoto.canal ?? 'portal',
+          tipo: remoto.tipo,
+        }
+        datosActuales.current = datosRemotos
+        setDatos(datosRemotos)
+        version.current = remoto.version
+        sincronizadorRef.current?.inicializar(remoto.id, remoto.version)
+        sincronizadorRef.current?.descartarPendiente()
+        if (usuarioId) {
+          try {
+            olvidarRespaldo(usuarioId, docente, respaldoId.current)
+          } catch {
+            // A blocked storage must not hide the resolved server version.
+          }
+        }
+        setRecuperadoLocal(false)
+      } else {
+        sincronizadorRef.current?.resolverCon(remoto.version)
+      }
+    } catch {
+      setError('No se pudo comparar con la versión guardada en el servidor.')
+    } finally {
+      setResolviendoConflicto(false)
+    }
   }
   async function ejecutar(accion: 'guardar' | 'preview' | 'publicar') {
     if (ocupado) return
@@ -163,8 +320,16 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
       } else {
         const guardadoId = await guardar()
         if (accion === 'publicar') {
-          setPublicada(await publicarComunicacion(guardadoId, docente))
+          if (version.current === undefined) throw new Error('No se pudo confirmar la versión.')
+          setPublicada(await publicarComunicacion(guardadoId, version.current, docente))
           setPaso(4)
+          if (usuarioId) {
+            try {
+              olvidarRespaldo(usuarioId, docente, respaldoId.current)
+            } catch {
+              // A blocked storage must not hide a successful publication.
+            }
+          }
         } else {
           setMensaje('Borrador guardado')
           toast.success('Borrador guardado', {
@@ -173,14 +338,20 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
         }
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo completar la operación.')
+      setError(
+        e instanceof ConflictoBorradorError
+          ? 'Otra sesión modificó este borrador. Elegí qué versión conservar.'
+          : e instanceof Error
+            ? e.message
+            : 'No se pudo completar la operación.',
+      )
     } finally {
       setOcupado(false)
     }
   }
   function audiencia(tipo: Audiencia['tipo']) {
     setBuscarDestinatario('')
-    setDatos({
+    actualizarDatos({
       ...datos,
       audiencia: {
         tipo,
@@ -216,6 +387,73 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
         </Link>
       </Button>
       <PageHeader titulo={docente ? 'Nueva comunicación de curso' : 'Nueva comunicación'} />
+      {estadoSync !== 'inactivo' && (
+        <p role="status" aria-live="polite" className="text-sm text-texto-2">
+          {MENSAJES_SINCRONIZACION[estadoSync]}
+        </p>
+      )}
+      {recuperadoLocal && (
+        <Alert variant="info">
+          <AlertDescription className="flex flex-wrap items-center gap-3">
+            Se recuperaron cambios guardados en este dispositivo que todavía no estaban en el
+            servidor.
+            <Button
+              variant="secondary"
+              disabled={resolviendoConflicto}
+              onClick={() => void resolverConflicto('servidor')}
+            >
+              Usar la versión del servidor
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+      {estadoSync === 'conflicto' && (
+        <Alert variant="error">
+          <AlertTitle className="text-texto">Otra sesión modificó este borrador</AlertTitle>
+          <AlertDescription className="space-y-3 text-texto-2">
+            <p>
+              Tu texto sigue guardado en este dispositivo. Elegí qué versión conservar antes de
+              seguir editando.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                variant="secondary"
+                disabled={resolviendoConflicto}
+                onClick={() => void resolverConflicto('servidor')}
+              >
+                Usar la versión del servidor
+              </Button>
+              <Button
+                disabled={resolviendoConflicto}
+                onClick={() => void resolverConflicto('local')}
+              >
+                Conservar mi versión
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+      {respaldos.length > 0 && (
+        <section aria-label="Borradores en este dispositivo" className="space-y-2">
+          <p className="text-sm text-texto-2">Borradores guardados en este dispositivo</p>
+          {respaldos.map((respaldo) => (
+            <Button
+              key={respaldo.localId}
+              variant="secondary"
+              aria-label={`Recuperar borrador: ${respaldo.datos.asunto || 'Sin asunto'}`}
+              onClick={() => {
+                respaldoId.current = respaldo.localId
+                datosActuales.current = respaldo.datos
+                setDatos(respaldo.datos)
+                sincronizadorRef.current?.encolar(respaldo.datos)
+                setRevisionRespaldos((valor) => valor + 1)
+              }}
+            >
+              {respaldo.datos.asunto || 'Sin asunto'}
+            </Button>
+          ))}
+        </section>
+      )}
       <p className="text-sm text-texto-2">Paso {paso} de 4</p>
       <ol
         aria-label="Pasos de publicación"
@@ -270,7 +508,9 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
               <legend className="sr-only">Tipo de comunicación</legend>
               <RadioGroup
                 value={datos.tipo ?? (docente ? 'curso' : 'institucional')}
-                onValueChange={(tipo) => setDatos({ ...datos, tipo: tipo as TipoComunicacion })}
+                onValueChange={(tipo) =>
+                  actualizarDatos({ ...datos, tipo: tipo as TipoComunicacion })
+                }
                 disabled={ocupado}
                 className={`grid grid-cols-1 gap-3 ${docente ? '' : 'sm:grid-cols-3'}`}
               >
@@ -309,7 +549,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
                 maxLength={200}
                 value={datos.asunto}
                 disabled={ocupado}
-                onChange={(e) => setDatos({ ...datos, asunto: e.target.value })}
+                onChange={(e) => actualizarDatos({ ...datos, asunto: e.target.value })}
               />
             </div>
             <div className="space-y-2">
@@ -320,14 +560,14 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
                 className="min-h-48"
                 value={datos.cuerpo}
                 disabled={ocupado}
-                onChange={(e) => setDatos({ ...datos, cuerpo: e.target.value })}
+                onChange={(e) => actualizarDatos({ ...datos, cuerpo: e.target.value })}
               />
             </div>
             <fieldset className="space-y-3">
               <legend className="mb-1 font-semibold">Canal de envío</legend>
               <RadioGroup
                 value={canal}
-                onValueChange={(v) => setDatos({ ...datos, canal: v as Canal })}
+                onValueChange={(v) => actualizarDatos({ ...datos, canal: v as Canal })}
                 disabled={ocupado}
               >
                 {(Object.keys(ETIQUETAS_CANAL) as Canal[]).map((opcion) => (
@@ -409,7 +649,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
                             value={datos.audiencia.ciclo_lectivo ?? ''}
                             disabled={ocupado}
                             onValueChange={(v) => {
-                              setDatos({
+                              actualizarDatos({
                                 ...datos,
                                 audiencia: { ...datos.audiencia, ciclo_lectivo: v, ids: [] },
                               })
@@ -464,7 +704,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
                                 disabled={ocupado}
                                 checked={datos.audiencia.ids.includes(o.id)}
                                 onCheckedChange={(v) =>
-                                  setDatos((actual) => ({
+                                  actualizarDatos((actual) => ({
                                     ...actual,
                                     audiencia: {
                                       ...actual.audiencia,

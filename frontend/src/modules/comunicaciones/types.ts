@@ -94,6 +94,7 @@ export interface Comunicacion {
   tipo: TipoComunicacion
   emisor: string | null
   estado: 'borrador' | 'publicada'
+  version: number
   audiencia: Audiencia | null
   autor_id: string
   autor_nombre?: string | null

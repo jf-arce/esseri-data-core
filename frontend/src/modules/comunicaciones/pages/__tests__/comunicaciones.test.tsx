@@ -17,6 +17,7 @@ const comunicacion = {
   tipo: 'institucional',
   emisor: 'Colegio ESSERI',
   estado: 'borrador',
+  version: 1,
   audiencia: { tipo: 'todos', ids: [] },
   destinatarios: 0,
   created_at: '2026-10-29T12:00:00',
@@ -278,6 +279,8 @@ it('teacher form only offers assigned courses and publishes through teacher endp
   expect(await screen.findByRole('heading', { name: 'Comunicación publicada' })).toBeInTheDocument()
   expect(api.mock.calls.some(([path]) => path === '/comunicaciones/docente')).toBe(true)
   expect(api.mock.calls.some(([path]) => path === '/comunicaciones/docente/c1/publicar')).toBe(true)
+  const publicacion = api.mock.calls.find(([path]) => path === '/comunicaciones/docente/c1/publicar')
+  expect(JSON.parse(publicacion![1]!.body as string)).toEqual({ version: 1 })
 })
 
 it('changing an edited teacher draft cycle preserves unsaved content and reloads only options', async () => {
