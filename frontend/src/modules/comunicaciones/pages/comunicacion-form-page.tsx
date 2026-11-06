@@ -157,7 +157,10 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
     void revisionRespaldos
     if (!usuarioId || id) return []
     try {
-      return leerRespaldos(usuarioId, docente).filter((item) => !item.id)
+      return leerRespaldos(usuarioId, docente)
+        .filter((item) => item.datos.asunto.trim() || item.datos.cuerpo.trim())
+        .sort((a, b) => b.actualizado - a.actualizado)
+        .slice(0, 5)
     } catch {
       return []
     }
@@ -439,22 +442,33 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
       {respaldos.length > 0 && (
         <section aria-label="Borradores en este dispositivo" className="space-y-2">
           <p className="text-sm text-texto-2">Borradores guardados en este dispositivo</p>
-          {respaldos.map((respaldo) => (
-            <Button
-              key={respaldo.localId}
-              variant="secondary"
-              aria-label={`Recuperar borrador: ${respaldo.datos.asunto || 'Sin asunto'}`}
-              onClick={() => {
-                respaldoId.current = respaldo.localId
-                datosActuales.current = respaldo.datos
-                setDatos(respaldo.datos)
-                sincronizadorRef.current?.encolar(respaldo.datos)
-                setRevisionRespaldos((valor) => valor + 1)
-              }}
-            >
-              {respaldo.datos.asunto || 'Sin asunto'}
-            </Button>
-          ))}
+          {respaldos.map((respaldo) =>
+            respaldo.id ? (
+              <Button key={respaldo.localId} variant="secondary" asChild>
+                <Link
+                  to={`${base}/${respaldo.id}/editar`}
+                  aria-label={`Continuar borrador: ${respaldo.datos.asunto || 'Sin asunto'}`}
+                >
+                  Continuar: {respaldo.datos.asunto || 'Sin asunto'}
+                </Link>
+              </Button>
+            ) : (
+              <Button
+                key={respaldo.localId}
+                variant="secondary"
+                aria-label={`Recuperar borrador: ${respaldo.datos.asunto || 'Sin asunto'}`}
+                onClick={() => {
+                  respaldoId.current = respaldo.localId
+                  datosActuales.current = respaldo.datos
+                  setDatos(respaldo.datos)
+                  sincronizadorRef.current?.encolar(respaldo.datos)
+                  setRevisionRespaldos((valor) => valor + 1)
+                }}
+              >
+                Recuperar: {respaldo.datos.asunto || 'Sin asunto'}
+              </Button>
+            ),
+          )}
         </section>
       )}
       <p className="text-sm text-texto-2">Paso {paso} de 4</p>

@@ -5,7 +5,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import { apiClient } from '@/api/client'
 import type { UsuarioActual } from '@/modules/auth/types'
 import { useAuthStore } from '@/store/auth-store'
-import { leerRespaldos } from '../../services/respaldo-borrador'
+import { guardarRespaldo, leerRespaldos } from '../../services/respaldo-borrador'
 import { ComunicacionFormPage } from '../comunicacion-form-page'
 
 vi.mock('@/api/client')
@@ -61,4 +61,26 @@ it('offers recovery of an unsynchronized draft when the form is opened again', a
   )
   await userEvent.click(screen.getByRole('button', { name: 'Recuperar borrador: Recuperar esto' }))
   expect(screen.getByLabelText('Asunto')).toHaveValue('Recuperar esto')
+})
+
+it('offers to continue a synchronized draft from the new form', async () => {
+  guardarRespaldo(
+    'user-a',
+    false,
+    {
+      clave: 'clave-local',
+      asunto: 'Ya guardado',
+      cuerpo: '',
+      audiencia: { tipo: 'todos', ids: [] },
+    },
+    { localId: 'pestana-1', id: 'remoto-1', version: 3 },
+  )
+  render(
+    <MemoryRouter>
+      <ComunicacionFormPage />
+    </MemoryRouter>,
+  )
+  expect(
+    await screen.findByRole('link', { name: 'Continuar borrador: Ya guardado' }),
+  ).toHaveAttribute('href', '/comunicaciones/remoto-1/editar')
 })
