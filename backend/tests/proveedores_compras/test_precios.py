@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from src.auth.models import Usuario
 from src.models import AuditLog
+from src.proveedores_compras import precios_service
 from src.proveedores_compras.exceptions import (
     AsociacionConPrecios,
     AsociacionInexistente,
@@ -44,10 +45,22 @@ from src.proveedores_compras.service import (
     eliminar_proveedor,
 )
 
-HOY = date.today()
+HOY = date(2026, 11, 4)
 ENERO = date(2026, 1, 1)
 MARZO = date(2026, 3, 1)
 JUNIO = date(2026, 6, 1)
+
+
+@pytest.fixture(autouse=True)
+def fecha_fija(monkeypatch: pytest.MonkeyPatch):
+    """El alta y la consulta de vigencias usan el mismo día, incluso al cruzar medianoche."""
+
+    class FechaFija(date):
+        @classmethod
+        def today(cls):
+            return HOY
+
+    monkeypatch.setattr(precios_service, "date", FechaFija)
 
 
 def _resma(db: Session):

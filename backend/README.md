@@ -133,6 +133,10 @@ Después de facturar, la misma corrida detecta las facturas vencidas (`vencimien
 emite `factura.vencida` una vez por tramo activo de `REGLA_PENALIDAD` (con el seed, días 1, 6 y 16
 de mora). Solo emite el evento: el cambio de estado y la penalidad los hacen las acciones del
 workflow. Una `EXCEPCION_VENCIMIENTO` del mismo mes corre la fecha desde la que se cuentan los días.
+`aplicar_vencimiento` usa el mismo cálculo (`fecha_vencimiento_efectiva`), así que no descarta un
+evento que el detector emitió. Límite conocido: como la prórroga es por familia y no por factura,
+no se puede prorrogar una factura al mes siguiente (la de octubre que vence el 10/10 hasta el 5/11:
+esa prórroga es de noviembre y se ignora). La mejora está en #282.
 
 Para forzar una pasada: `POST /facturacion/vencimientos/procesar`. Con `fecha_referencia` simula
 días de mora, y lo emitido así cuenta como ya emitido cuando llegue la fecha real.
@@ -419,7 +423,11 @@ Las reglas se administran en `/workflows/reglas` y el catálogo de eventos con s
 **Mail institucional:** cada envío manda a n8n el texto plano y un `cuerpo_html` con el layout de
 `src/workflows/email_html.py` (encabezado con logo y nombre, cuerpo, firma y pie). Se configura con
 `EMAIL_INSTITUCION_NOMBRE`, `EMAIL_INSTITUCION_PIE` y `EMAIL_LOGO_URL` (ver `.env.example`). El
-logo tiene que ser una URL pública: Gmail no muestra `data:` ni `localhost`. Si una regla de
+logo tiene que ser una URL pública: Gmail no muestra `data:` ni `localhost` (el `.env.example` usa
+`frontend/public/esseri-icon.png` servido desde GitHub). En las plantillas, `**texto**` sale en
+negrita y un párrafo que es solo `**texto**` (por ejemplo `**${{monto_deuda}}**`) se muestra como dato
+destacado; el texto plano y `cuerpo_snapshot` van sin las marcas. Los montos redondos se muestran
+sin decimales (`$180.000`), y con decimales solo si los tienen (`$1.234,50`). Si una regla de
 `notificar`, `alerta_interna` o `generar_recordatorio` tiene `accion_config.enlace`, el mail lleva un
 botón a esa pantalla de la app (`FRONTEND_URL` + la ruta de `ENLACES_MAIL`).
 
@@ -758,3 +766,15 @@ docker run --env-file backend/.env -p 8000:8000 esseri-backend
 ## Estructura
 
 Un paquete por módulo en `src/<modulo>/` (`router.py`, `schemas.py`, `models.py`, `service.py`, y lo que cada módulo necesite — ver la tabla de "Notas por módulo específico" en `ARCHITECTURE.md`). Lo compartido entre 2+ módulos vive en `src/config.py`, `src/database.py`, `src/models.py` y `src/exceptions.py`.
+
+## Instalación integrada
+
+El [manual de instalación](../docs/manuales/manual-instalacion.md) reúne la configuración completa.
+En Docker, tanto desarrollo como producción migran y cargan los tres catálogos al arrancar;
+ninguno ejecuta automáticamente `00_bootstrap_admin.py`. Los comandos para crear el primer
+administrador dentro del contenedor están en [Infra](../infra/README.md#migraciones-y-primer-administrador-con-docker).
+
+En Railway el backend permanece privado, con `UVICORN_ROOT_PATH=/api` y
+`FORWARDED_ALLOW_IPS=*` únicamente dentro de la red de servicios de confianza. El frontend
+publica la API por `/api` y reenvía la IP que informa la entrada HTTP de Railway.
+Ver [configuración y aceptación de Railway](../infra/railway.md).

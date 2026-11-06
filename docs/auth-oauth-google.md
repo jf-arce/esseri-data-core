@@ -48,7 +48,7 @@ source venv/bin/activate
 python ../database/seeds/00_bootstrap_admin.py tu-email@ejemplo.com
 ```
 
-Pide la contraseña por consola. Para entornos no interactivos (Docker, CI) se puede usar
+Pide la contraseña por consola. Para entornos no interactivos se puede usar
 `BOOTSTRAP_ADMIN_EMAIL` y `BOOTSTRAP_ADMIN_PASSWORD` en `.env`. Requiere haber corrido antes
 `01_seed_grupo_a.py`, que es el que precarga el rol *administrador del sistema* — ver
 `database/seeds/README.md`.
@@ -81,7 +81,9 @@ sola y conserva la contraseña como fallback.
 Límites conocidos:
 
 - **NAT:** el personal del colegio puede compartir IP pública. Por eso el máximo es 10.
-- **Proxy:** hoy no hay uno delante del backend. Si se agrega, hay que levantar uvicorn con
+- **Proxy:** en desarrollo no hay uno delante del backend. En Railway, el Nginx del frontend
+  reenvía `/api` al backend privado y `FORWARDED_ALLOW_IPS` hace que uvicorn tome la IP del
+  cliente ([guía de Railway](../infra/railway.md)). Con otro proxy, levantar uvicorn con
   `--proxy-headers --forwarded-allow-ips=<ip del proxy>` (nunca leer `X-Forwarded-For` a mano); si
   no, todos los usuarios compartirían la IP del proxy.
 - **IPv6:** se puede rotar de dirección dentro de un /64.
@@ -90,3 +92,10 @@ Límites conocidos:
 - **`ip_origen` nula:** se deja pasar (con uvicorn sin proxy no ocurre).
 - Las fechas se normalizan a UTC en `sesion_service._a_utc`; la #188 puede subirlo a un helper
   compartido.
+
+## Bootstrap dentro de Docker
+
+Docker carga los catálogos, pero no ejecuta el bootstrap automáticamente. Configurar las variables
+en `backend/.env` para desarrollo o `infra/env/.env` para producción y ejecutar la variante indicada
+en [Infra](../infra/README.md#migraciones-y-primer-administrador-con-docker).
+Fuera de desarrollo las cookies son `Secure`; el despliegue debe ofrecer HTTPS para el login.

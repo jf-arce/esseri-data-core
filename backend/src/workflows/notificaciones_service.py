@@ -29,7 +29,7 @@ from src.proveedores_compras.models import (
 )
 from src.workflows import destinatarios_service, n8n_client, plantillas_service
 from src.workflows.constants import ENLACES_MAIL, MAX_DESTINATARIOS_POR_EJECUCION
-from src.workflows.email_html import armar_html
+from src.workflows.email_html import armar_html, quitar_marcas
 from src.workflows.exceptions import (
     N8nNoConfigurado,
     N8nNoDisponible,
@@ -475,12 +475,13 @@ def _enviar_todos(
     enviados = 0
     n8n_caido = False
     for mensaje in mensajes:
+        asunto, cuerpo = quitar_marcas(mensaje.asunto), quitar_marcas(mensaje.cuerpo)
         notificacion = Notificacion(
             destinatario_tipo=mensaje.destinatario.tipo,
             canal="email",
             destinatario_snapshot=mensaje.destinatario.email,
-            asunto_snapshot=mensaje.asunto,
-            cuerpo_snapshot=mensaje.cuerpo,
+            asunto_snapshot=asunto,
+            cuerpo_snapshot=cuerpo,
             estado_envio="fallido",
             workflow_execution_id=ejecucion.id,
             familia_id=mensaje.destinatario.familia_id,
@@ -493,9 +494,9 @@ def _enviar_todos(
         try:
             n8n_client.enviar_email(
                 mensaje.destinatario.email,
-                mensaje.asunto,
-                mensaje.cuerpo,
-                armar_html(mensaje.asunto, mensaje.cuerpo, enlace),
+                asunto,
+                cuerpo,
+                armar_html(mensaje.asunto, mensaje.cuerpo, enlace, resaltados=True),
             )
         except (N8nNoConfigurado, N8nNoDisponible) as error:
             logger.warning(
