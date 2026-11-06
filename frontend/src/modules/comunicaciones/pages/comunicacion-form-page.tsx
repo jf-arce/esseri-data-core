@@ -363,6 +363,9 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
   const tipos: (keyof typeof etiquetas)[] = docente
     ? ['division', 'alumnos']
     : (Object.keys(etiquetas) as (keyof typeof etiquetas)[])
+  const pasos = docente
+    ? ['Contenido', 'Destinatarios', 'Vista previa', 'Confirmación']
+    : ['Tipo y contenido', 'Destinatarios', 'Vista previa', 'Confirmación']
   const base = docente ? '/docente/comunicaciones' : '/comunicaciones'
   const seleccion =
     datos.audiencia.tipo === 'nivel'
@@ -459,7 +462,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
         aria-label="Pasos de publicación"
         className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4"
       >
-        {['Tipo y contenido', 'Destinatarios', 'Vista previa', 'Confirmación'].map((p, i) => (
+        {pasos.map((p, i) => (
           <li
             key={p}
             aria-current={paso === i + 1 ? 'step' : undefined}
@@ -504,44 +507,44 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
           <p role="status">Cargando borrador…</p>
         ) : paso === 1 ? (
           <>
-            <fieldset>
-              <legend className="sr-only">Tipo de comunicación</legend>
-              <RadioGroup
-                value={datos.tipo ?? (docente ? 'curso' : 'institucional')}
-                onValueChange={(tipo) =>
-                  actualizarDatos({ ...datos, tipo: tipo as TipoComunicacion })
-                }
-                disabled={ocupado}
-                className={`grid grid-cols-1 gap-3 ${docente ? '' : 'sm:grid-cols-3'}`}
-              >
-                {(Object.keys(ETIQUETAS_TIPO) as TipoComunicacion[])
-                  .filter((tipo) => (docente ? tipo === 'curso' : tipo !== 'curso'))
-                  .map((tipo) => (
-                    <Label
-                      key={tipo}
-                      className="flex h-full items-start gap-2 rounded-lg border border-borde p-4 has-[[data-state=checked]]:border-violeta has-[[data-state=checked]]:bg-violeta-suave has-[:disabled]:opacity-60"
-                    >
-                      <RadioGroupItem
-                        value={tipo}
-                        aria-label={ETIQUETAS_TIPO[tipo]}
-                        className="mt-0.5"
-                        disabled={docente ? tipo !== 'curso' : tipo === 'curso'}
-                      />
-                      <span className="space-y-1">
-                        <span className="block font-semibold">{ETIQUETAS_TIPO[tipo]}</span>
-                        <span className="block text-xs text-texto-2">
-                          {DESCRIPCIONES_TIPO[tipo]}
+            {!docente && (
+              <fieldset>
+                <legend className="sr-only">Tipo de comunicación</legend>
+                <RadioGroup
+                  value={datos.tipo ?? (docente ? 'curso' : 'institucional')}
+                  onValueChange={(tipo) =>
+                    actualizarDatos({ ...datos, tipo: tipo as TipoComunicacion })
+                  }
+                  disabled={ocupado}
+                  className={`grid grid-cols-1 gap-3 ${docente ? '' : 'sm:grid-cols-3'}`}
+                >
+                  {(Object.keys(ETIQUETAS_TIPO) as TipoComunicacion[])
+                    .filter((tipo) => (docente ? tipo === 'curso' : tipo !== 'curso'))
+                    .map((tipo) => (
+                      <Label
+                        key={tipo}
+                        className="flex h-full items-start gap-2 rounded-lg border border-borde p-4 has-[[data-state=checked]]:border-violeta has-[[data-state=checked]]:bg-violeta-suave has-[:disabled]:opacity-60"
+                      >
+                        <RadioGroupItem
+                          value={tipo}
+                          aria-label={ETIQUETAS_TIPO[tipo]}
+                          className="mt-0.5"
+                          disabled={docente ? tipo !== 'curso' : tipo === 'curso'}
+                        />
+                        <span className="space-y-1">
+                          <span className="block font-semibold">{ETIQUETAS_TIPO[tipo]}</span>
+                          <span className="block text-xs text-texto-2">
+                            {DESCRIPCIONES_TIPO[tipo]}
+                          </span>
                         </span>
-                      </span>
-                    </Label>
-                  ))}
-              </RadioGroup>
-              <p className="mt-2 text-xs text-texto-2">
-                {docente
-                  ? 'Los docentes crean comunicaciones de curso.'
-                  : 'En Destinatarios podés elegir todo el colegio, un nivel o un curso.'}
-              </p>
-            </fieldset>
+                      </Label>
+                    ))}
+                </RadioGroup>
+                <p className="mt-2 text-xs text-texto-2">
+                  En Destinatarios podés elegir todo el colegio, un nivel o un curso.
+                </p>
+              </fieldset>
+            )}
             <div className="space-y-2">
               <Label htmlFor="asunto">Asunto</Label>
               <Input

@@ -279,7 +279,9 @@ it('teacher form only offers assigned courses and publishes through teacher endp
   expect(await screen.findByRole('heading', { name: 'Comunicación publicada' })).toBeInTheDocument()
   expect(api.mock.calls.some(([path]) => path === '/comunicaciones/docente')).toBe(true)
   expect(api.mock.calls.some(([path]) => path === '/comunicaciones/docente/c1/publicar')).toBe(true)
-  const publicacion = api.mock.calls.find(([path]) => path === '/comunicaciones/docente/c1/publicar')
+  const publicacion = api.mock.calls.find(
+    ([path]) => path === '/comunicaciones/docente/c1/publicar',
+  )
   expect(JSON.parse(publicacion![1]!.body as string)).toEqual({ version: 1 })
 })
 
@@ -702,7 +704,9 @@ it('supports delivery deep links and portal-only communications without email re
       </Routes>
     </MemoryRouter>,
   )
-  expect(await screen.findByRole('heading', { name: 'Entrega' })).toBeInTheDocument()
+  expect(await screen.findByRole('region', { name: 'Entrega' })).toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: 'Entrega' })).not.toBeInTheDocument()
+  expect(screen.queryByText(/Seguimiento por destinatario/)).not.toBeInTheDocument()
   expect(screen.getByRole('tab', { name: 'Entrega (2)' })).toHaveAttribute('aria-selected', 'true')
   expect(screen.getByText('Familia Prueba')).toBeInTheDocument()
   expect(screen.getByRole('cell', { name: 'No leído' })).toBeInTheDocument()
