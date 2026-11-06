@@ -708,8 +708,9 @@ it('supports delivery deep links and portal-only communications without email re
   expect(screen.queryByRole('heading', { name: 'Entrega' })).not.toBeInTheDocument()
   expect(screen.queryByText(/Seguimiento por destinatario/)).not.toBeInTheDocument()
   expect(screen.getByRole('tab', { name: 'Entrega (2)' })).toHaveAttribute('aria-selected', 'true')
-  expect(screen.getByText('Familia Prueba')).toBeInTheDocument()
-  expect(screen.getByRole('cell', { name: 'No leído' })).toBeInTheDocument()
+  // The section mounts before its delivery data; await the rows instead of racing them.
+  expect(await screen.findByText('Familia Prueba')).toBeInTheDocument()
+  expect(await screen.findByRole('cell', { name: 'No leído' })).toBeInTheDocument()
   expect(screen.getByRole('columnheader', { name: 'Email' })).toBeInTheDocument()
   expect(screen.getByText('familia@example.test')).toBeInTheDocument()
   expect(screen.queryByText('Sin envío')).not.toBeInTheDocument()
