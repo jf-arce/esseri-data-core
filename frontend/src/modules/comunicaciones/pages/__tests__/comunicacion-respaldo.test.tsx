@@ -1,11 +1,15 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { apiClient } from '@/api/client'
 import type { UsuarioActual } from '@/modules/auth/types'
 import { useAuthStore } from '@/store/auth-store'
-import { guardarRespaldo, leerRespaldos } from '../../services/respaldo-borrador'
+import {
+  guardarRespaldo,
+  leerRespaldos,
+  type RespaldoBorrador,
+} from '../../services/respaldo-borrador'
 import { ComunicacionFormPage } from '../comunicacion-form-page'
 
 vi.mock('@/api/client')
@@ -83,4 +87,68 @@ it('offers to continue a synchronized draft from the new form', async () => {
   expect(
     await screen.findByRole('link', { name: 'Continuar borrador: Ya guardado' }),
   ).toHaveAttribute('href', '/comunicaciones/remoto-1/editar')
+})
+
+const remoto = {
+  id: 'c1',
+  clave: 'clave-remota',
+  asunto: 'Asunto del servidor',
+  cuerpo: 'Contenido del servidor',
+  tipo: 'institucional',
+  estado: 'borrador',
+  version: 4,
+  audiencia: { tipo: 'todos', ids: [] },
+  canal: 'portal',
+  destinatarios: 0,
+  autor_id: 'user-a',
+  created_at: '2026-11-05T00:00:00',
+  publicada_at: null,
+  leida_at: null,
+  adjuntos: [],
+}
+
+function editarBorrador() {
+  vi.mocked(apiClient).mockImplementation(async (path) => {
+    const ruta = String(path)
+    if (ruta.includes('/opciones'))
+      return { responsables: [], alumnos: [], niveles: [], divisiones: [], ciclos: ['2026'] }
+    if (ruta.endsWith('/adjuntos')) return []
+    if (ruta === '/comunicaciones/c1') return remoto
+    return {}
+  })
+  return render(
+    <MemoryRouter initialEntries={['/comunicaciones/c1/editar']}>
+      <Routes>
+        <Route path="/comunicaciones/:id/editar" element={<ComunicacionFormPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
+function copia(datos: Partial<RespaldoBorrador['datos']> = {}, pendiente?: boolean) {
+  guardarRespaldo(
+    'user-a',
+    false,
+    {
+      clave: 'clave-remota',
+      asunto: 'Asunto del servidor',
+      cuerpo: 'Contenido del servidor',
+      audiencia: { tipo: 'todos', ids: [] },
+      ...datos,
+    },
+    { localId: 'pestana-1', id: 'c1', version: 1, pendiente },
+  )
+}
+
+it('never lets a synchronized local cache hide newer server content', async () => {
+  copia()
+  editarBorrador()
+  expect(await screen.findByLabelText('Mensaje')).toHaveValue('Contenido del servidor')
+  expect(leerRespaldos('user-a', false)).toHaveLength(0)
+})
+
+it('still prefers a local copy with unsynchronized edits', async () => {
+  copia({ cuerpo: 'Texto local sin sincronizar' }, true)
+  editarBorrador()
+  expect(await screen.findByLabelText('Mensaje')).toHaveValue('Texto local sin sincronizar')
 })

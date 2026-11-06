@@ -110,7 +110,6 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
   const [cargando, setCargando] = useState(Boolean(id))
   const [revision, setRevision] = useState(0)
   const [estadoSync, setEstadoSync] = useState<EstadoSincronizacion>('inactivo')
-  const [recuperadoLocal, setRecuperadoLocal] = useState(false)
   const [resolviendoConflicto, setResolviendoConflicto] = useState(false)
   const [revisionRespaldos, setRevisionRespaldos] = useState(0)
   const idRef = useRef<string | undefined>(id)
@@ -122,7 +121,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
         return { id: c.id, version: c.version }
       },
       onEstado: setEstadoSync,
-      onConfirmado: (confirmacion) => {
+      onConfirmado: (confirmacion, confirmado) => {
         idRef.current = confirmacion.id
         version.current = confirmacion.version
         setPersistido(confirmacion.id)
@@ -132,6 +131,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
               localId: respaldoId.current,
               id: confirmacion.id,
               version: confirmacion.version,
+              pendiente: JSON.stringify(datosActuales.current) !== JSON.stringify(confirmado),
             })
           } catch {
             setError('No se pudo actualizar la copia local del borrador.')
@@ -176,6 +176,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
           localId: respaldoId.current,
           id: idRef.current,
           version: version.current,
+          pendiente: true,
         })
       } catch {
         setError('No se pudo guardar una copia en este dispositivo. No cierres la página.')
@@ -214,12 +215,28 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
             tipo: c.tipo,
           }
           let respaldo: RespaldoBorrador | undefined
+          let copiasLocales: RespaldoBorrador[] = []
           try {
-            respaldo = usuarioId
-              ? leerRespaldos(usuarioId, docente).find((item) => item.id === c.id)
-              : undefined
+            copiasLocales = usuarioId
+              ? leerRespaldos(usuarioId, docente).filter((item) => item.id === c.id)
+              : []
+            // Only unsynchronized copies may override the server; a synchronized copy is
+            // just a cache and a stale one must never hide newer server content.
+            respaldo = copiasLocales
+              .filter((item) => item.pendiente)
+              .sort((a, b) => b.actualizado - a.actualizado)[0]
           } catch {
             respaldo = undefined
+          }
+          if (usuarioId && !respaldo) {
+            // The server is authoritative here; drop cache copies that hold no pending edits.
+            for (const copia of copiasLocales) {
+              try {
+                olvidarRespaldo(usuarioId, docente, copia.localId)
+              } catch {
+                // A blocked storage must not prevent opening the server draft.
+              }
+            }
           }
           const elegido = respaldo?.datos ?? borrador
           idRef.current = c.id
@@ -227,7 +244,6 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
           sincronizadorRef.current?.inicializar(c.id, version.current)
           setDatos(elegido)
           datosActuales.current = elegido
-          if (respaldo) setRecuperadoLocal(true)
           setAdjuntos(c.adjuntos ?? [])
           guardado.current = JSON.stringify(borrador)
           setCargando(false)
@@ -292,7 +308,6 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
             // A blocked storage must not hide the resolved server version.
           }
         }
-        setRecuperadoLocal(false)
       } else {
         sincronizadorRef.current?.resolverCon(remoto.version)
       }
@@ -397,21 +412,6 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
         <p role="status" aria-live="polite" className="text-sm text-texto-2">
           {MENSAJES_SINCRONIZACION[estadoSync]}
         </p>
-      )}
-      {recuperadoLocal && (
-        <Alert variant="info">
-          <AlertDescription className="flex flex-wrap items-center gap-3">
-            Se recuperaron cambios guardados en este dispositivo que todavía no estaban en el
-            servidor.
-            <Button
-              variant="secondary"
-              disabled={resolviendoConflicto}
-              onClick={() => void resolverConflicto('servidor')}
-            >
-              Usar la versión del servidor
-            </Button>
-          </AlertDescription>
-        </Alert>
       )}
       {estadoSync === 'conflicto' && (
         <Alert variant="error">

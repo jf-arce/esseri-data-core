@@ -6,6 +6,8 @@ export interface RespaldoBorrador {
   localId: string
   id?: string
   version?: number
+  /** True when the stored copy has edits the server has not confirmed yet. */
+  pendiente?: boolean
   creacionPendiente?: Borrador
 }
 
@@ -18,7 +20,13 @@ export function guardarRespaldo(
   usuario: string,
   docente: boolean,
   datos: Borrador,
-  metadata: { localId?: string; id?: string; version?: number; creacionPendiente?: Borrador } = {},
+  metadata: {
+    localId?: string
+    id?: string
+    version?: number
+    pendiente?: boolean
+    creacionPendiente?: Borrador
+  } = {},
 ) {
   const localId = metadata.localId ?? datos.clave
   const respaldo: RespaldoBorrador = { ...metadata, datos, localId, actualizado: Date.now() }

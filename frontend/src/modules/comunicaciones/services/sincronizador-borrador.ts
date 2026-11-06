@@ -27,7 +27,7 @@ type Guardar = (snapshot: SnapshotBorrador) => Promise<ConfirmacionBorrador>
 interface Opciones {
   guardar: Guardar
   onEstado?: (estado: EstadoSincronizacion) => void
-  onConfirmado?: (confirmacion: ConfirmacionBorrador) => void
+  onConfirmado?: (confirmacion: ConfirmacionBorrador, datos: Borrador) => void
   debounceMs?: number
   reintentosMaximos?: number
   baseReintentoMs?: number
@@ -169,7 +169,7 @@ export class SincronizadorBorrador {
             this.version = confirmacion.version
             this.creacion = undefined
             this.reintentos = 0
-            this.opciones.onConfirmado?.(confirmacion)
+            this.opciones.onConfirmado?.(confirmacion, datos)
           } catch (error) {
             // Keep the newest local edits; never discard them on a failed write.
             this.pendiente ??= datos
