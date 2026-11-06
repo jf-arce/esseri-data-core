@@ -5,6 +5,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import case, func, literal, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -16,6 +17,8 @@ from src.auth.models import Usuario
 from src.comunicaciones.models import Comunicacion, ReciboComunicacion
 from src.comunicaciones.schemas import (
     Audiencia,
+    AudienciaBorrador,
+    BorradorEdicionInput,
     BorradorInput,
     ComunicacionRead,
     ContactoEntregaRead,
@@ -23,6 +26,7 @@ from src.comunicaciones.schemas import (
     IntentoEntregaRead,
     Listado,
     ListadoEntrega,
+    PublicableInput,
     ResponsableEntregaRead,
     ResumenEntrega,
 )
@@ -82,6 +86,15 @@ def validar_curso(db: Session, usuario: Usuario, audiencia: Audiencia) -> None:
     )
     if validos != set(audiencia.ids):
         raise HTTPException(403, "Hay alumnos fuera de tus cursos asignados")
+
+
+def validar_curso_borrador(db: Session, usuario: Usuario, audiencia: AudienciaBorrador) -> None:
+    if audiencia.tipo not in ("division", "alumnos"):
+        raise HTTPException(403, "Elegí un curso o alumnos de un curso asignado")
+    if audiencia.ids:
+        if not audiencia.ciclo_lectivo:
+            raise HTTPException(422, "Seleccioná el ciclo lectivo")
+        validar_curso(db, usuario, Audiencia.model_validate(audiencia.model_dump()))
 
 
 def resolver(db: Session, audiencia: Audiencia) -> dict[uuid.UUID, list[str]]:
@@ -176,6 +189,7 @@ def respuesta(db: Session, c: Comunicacion, *, recibo=None) -> ComunicacionRead:
         emisor=_emisor(db, c),
         autor_nombre=_autor_nombre(db, c),
         estado=c.estado,
+        version=c.version,
         autor_id=c.autor_id,
         created_at=c.created_at,
         publicada_at=c.publicada_at,
@@ -194,7 +208,7 @@ def crear(db: Session, data: BorradorInput, usuario: Usuario, *, tipo="instituci
             raise HTTPException(422, "El tipo no corresponde al portal de creación")
         tipo = data.tipo
     if tipo == "curso":
-        validar_curso(db, usuario, data.audiencia)
+        validar_curso_borrador(db, usuario, data.audiencia)
     # Preserve stage-1/2 idempotency hashes for the original portal-only contract.
     contenido = data.model_dump(mode="json", exclude={"canal", "tipo"})
     if data.canal != "portal":
@@ -241,17 +255,25 @@ def crear(db: Session, data: BorradorInput, usuario: Usuario, *, tipo="instituci
 
 
 def editar(
-    db: Session, id: uuid.UUID, data: BorradorInput, usuario: Usuario, *, tipo="institucional"
+    db: Session,
+    id: uuid.UUID,
+    data: BorradorEdicionInput,
+    usuario: Usuario,
+    *,
+    tipo="institucional",
 ):
     c = obtener(db, id, usuario, bloquear=True, tipo=tipo)
     if data.tipo is not None and (tipo == "curso") != (data.tipo == "curso"):
         raise HTTPException(422, "El tipo no corresponde al portal de creación")
     if tipo == "curso":
-        validar_curso(db, usuario, data.audiencia)
+        validar_curso_borrador(db, usuario, data.audiencia)
     if c.estado != "borrador":
         raise HTTPException(409, "Una comunicación publicada no puede editarse")
+    if data.version is not None and c.version != data.version:
+        raise HTTPException(409, "El borrador fue modificado en otra sesión")
     if c.clave != data.clave:
         raise HTTPException(409, "La clave del borrador no puede modificarse")
+    modificado = False
     for campo, nuevo in (
         ("asunto", data.asunto),
         ("cuerpo", data.cuerpo),
@@ -264,15 +286,37 @@ def editar(
             # Audit the operation without copying personal message content into the log.
             auditar(db, c, usuario, campo, "anterior", "actualizado")
             setattr(c, campo, nuevo)
+            modificado = True
+    if modificado:
+        c.version += 1
     db.commit()
     return respuesta(db, c)
 
 
-def publicar(db: Session, id: uuid.UUID, usuario: Usuario, *, tipo="institucional"):
+def publicar(
+    db: Session, id: uuid.UUID, usuario: Usuario, version: int | None, *, tipo="institucional"
+):
     c = obtener(db, id, usuario, bloquear=True, tipo=tipo)
     if c.estado == "publicada":
+        if version is not None and c.version != version:
+            raise HTTPException(409, "La versión publicada no coincide con la confirmada")
         return respuesta(db, c)
-    audiencia = Audiencia.model_validate(c.audiencia)
+    if version is not None and c.version != version:
+        raise HTTPException(409, "El borrador fue modificado en otra sesión")
+    try:
+        publicable = PublicableInput.model_validate(
+            {
+                "clave": c.clave,
+                "asunto": c.asunto,
+                "cuerpo": c.cuerpo,
+                "audiencia": c.audiencia,
+                "tipo": c.tipo,
+                "canal": c.canal,
+            }
+        )
+    except ValidationError as exc:
+        raise HTTPException(422, "Completá el asunto, el mensaje y los destinatarios") from exc
+    audiencia = publicable.audiencia
     if tipo == "curso":
         validar_curso(db, usuario, audiencia)
     destinatarios = resolver(db, audiencia)

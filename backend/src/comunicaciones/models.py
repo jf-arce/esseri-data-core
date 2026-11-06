@@ -22,6 +22,7 @@ class Comunicacion(Base):
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
     clave: Mapped[uuid.UUID] = mapped_column(sa.Uuid)
     solicitud_hash: Mapped[str] = mapped_column(sa.String(64))
+    version: Mapped[int] = mapped_column(sa.Integer, nullable=False, server_default="1", default=1)
     autor_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("usuario.id"))
     asunto: Mapped[str] = mapped_column(sa.String(200))
     cuerpo: Mapped[str] = mapped_column(sa.Text)

@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 Texto = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
-class Audiencia(BaseModel):
+class AudienciaBorrador(BaseModel):
     model_config = ConfigDict(extra="forbid")
     tipo: Literal["todos", "nivel", "division", "alumnos", "responsables"]
     ids: list[uuid.UUID] = Field(default_factory=list, max_length=1000)
@@ -17,6 +17,14 @@ class Audiencia(BaseModel):
     def coherencia(self):
         if self.tipo == "todos" and self.ids:
             raise ValueError("La audiencia general no admite identificadores")
+        if self.ids and self.tipo in ("nivel", "division") and not self.ciclo_lectivo:
+            raise ValueError("Seleccioná el ciclo lectivo")
+        return self
+
+
+class Audiencia(AudienciaBorrador):
+    @model_validator(mode="after")
+    def completa(self):
         if self.tipo != "todos" and not self.ids:
             raise ValueError("Seleccioná al menos un destinatario")
         if self.tipo in ("nivel", "division") and not self.ciclo_lectivo:
@@ -27,11 +35,28 @@ class Audiencia(BaseModel):
 class BorradorInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     clave: uuid.UUID
+    asunto: str = Field(max_length=200)
+    cuerpo: str = Field(max_length=20000)
+    audiencia: AudienciaBorrador
+    canal: Literal["portal", "email", "ambos"] = "portal"
+    tipo: Literal["institucional", "curso", "administrativa", "otro"] | None = None
+
+
+class PublicableInput(BorradorInput):
     asunto: Texto = Field(max_length=200)
     cuerpo: Texto = Field(max_length=20000)
     audiencia: Audiencia
-    canal: Literal["portal", "email", "ambos"] = "portal"
-    tipo: Literal["institucional", "curso", "administrativa", "otro"] | None = None
+
+
+class BorradorEdicionInput(BorradorInput):
+    # Optional only for pre-version clients; the web client always sends it so two
+    # sessions cannot overwrite each other silently.
+    version: int | None = Field(default=None, ge=1)
+
+
+class PublicacionInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    version: int | None = Field(default=None, ge=1)
 
 
 class ComunicacionRead(BaseModel):
@@ -42,11 +67,12 @@ class ComunicacionRead(BaseModel):
     emisor: str | None = None
     autor_nombre: str | None = None
     estado: str
+    version: int
     autor_id: uuid.UUID
     created_at: datetime
     publicada_at: datetime | None
     destinatarios: int
-    audiencia: Audiencia | None = None
+    audiencia: AudienciaBorrador | None = None
     clave: uuid.UUID | None = None
     leida_at: datetime | None = None
     canal: str = "portal"

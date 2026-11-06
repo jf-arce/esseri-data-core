@@ -251,6 +251,20 @@ def test_seleccion_alumnos_y_revalidacion_al_publicar(client, docente, db_sessio
     assert estado(db_session) == antes
 
 
+def test_borrador_docente_sin_destinatarios_se_guarda_y_no_se_publica(client, docente):
+    ids, _ = docente
+    body = {
+        **datos(ids, "division", []),
+        "asunto": "",
+        "cuerpo": "",
+    }
+    creado = client.post("/comunicaciones/docente", json=body)
+    assert creado.status_code == 201, creado.text
+    assert creado.json()["audiencia"]["ids"] == []
+    assert creado.json()["estado"] == "borrador"
+    assert client.post(f"/comunicaciones/docente/{creado.json()['id']}/publicar").status_code == 422
+
+
 def test_permiso_tipado_no_abre_endpoints_administrativos(client, docente, db_session):
     ids, _ = docente
     antes = estado(db_session)

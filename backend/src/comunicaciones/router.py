@@ -15,11 +15,14 @@ from src.auth.dependencies import DbSession, RolActivo, requiere_permiso
 from src.auth.models import Usuario
 from src.comunicaciones import service
 from src.comunicaciones.schemas import (
+    BorradorEdicionInput,
     BorradorInput,
     ComunicacionRead,
     Listado,
     ListadoDestinatarios,
     ListadoEntrega,
+    PublicableInput,
+    PublicacionInput,
 )
 
 router = APIRouter(prefix="/comunicaciones", tags=["Comunicaciones"])
@@ -104,7 +107,9 @@ def opciones_docente(
 
 
 @router.post("/docente/vista-previa")
-def vista_previa_docente(data: BorradorInput, db: DbSession, usuario: CrearDocente, rol: RolActivo):
+def vista_previa_docente(
+    data: PublicableInput, db: DbSession, usuario: CrearDocente, rol: RolActivo
+):
     solo_docente(rol)
     service.validar_curso(db, usuario, data.audiencia)
     return {"destinatarios": len(service.resolver(db, data.audiencia))}
@@ -144,7 +149,7 @@ def obtener_docente(
 @router.put("/docente/{id}")
 def editar_docente(
     id: uuid.UUID,
-    data: BorradorInput,
+    data: BorradorEdicionInput,
     db: DbSession,
     usuario: EditarDocente,
     rol: RolActivo,
@@ -155,10 +160,14 @@ def editar_docente(
 
 @router.post("/docente/{id}/publicar")
 def publicar_docente(
-    id: uuid.UUID, db: DbSession, usuario: CrearDocente, rol: RolActivo
+    id: uuid.UUID,
+    db: DbSession,
+    usuario: CrearDocente,
+    rol: RolActivo,
+    data: PublicacionInput | None = None,
 ) -> ComunicacionRead:
     solo_docente(rol)
-    return service.publicar(db, id, usuario, tipo="curso")
+    return service.publicar(db, id, usuario, data.version if data else None, tipo="curso")
 
 
 @router.get("/opciones")
@@ -168,7 +177,7 @@ def opciones(db: DbSession, _: Crear, rol: RolActivo):
 
 
 @router.post("/vista-previa")
-def vista_previa(data: BorradorInput, db: DbSession, _: Crear, rol: RolActivo):
+def vista_previa(data: PublicableInput, db: DbSession, _: Crear, rol: RolActivo):
     gestion(rol)
     return {"destinatarios": len(service.resolver(db, data.audiencia))}
 
@@ -200,16 +209,22 @@ def obtener(id: uuid.UUID, db: DbSession, usuario: Leer, rol: RolActivo) -> Comu
 
 @router.put("/{id}")
 def editar(
-    id: uuid.UUID, data: BorradorInput, db: DbSession, usuario: Editar, rol: RolActivo
+    id: uuid.UUID, data: BorradorEdicionInput, db: DbSession, usuario: Editar, rol: RolActivo
 ) -> ComunicacionRead:
     gestion(rol)
     return service.editar(db, id, data, usuario, tipo="institucional")
 
 
 @router.post("/{id}/publicar")
-def publicar(id: uuid.UUID, db: DbSession, usuario: Crear, rol: RolActivo) -> ComunicacionRead:
+def publicar(
+    id: uuid.UUID,
+    db: DbSession,
+    usuario: Crear,
+    rol: RolActivo,
+    data: PublicacionInput | None = None,
+) -> ComunicacionRead:
     gestion(rol)
-    return service.publicar(db, id, usuario, tipo="institucional")
+    return service.publicar(db, id, usuario, data.version if data else None, tipo="institucional")
 
 
 @router.get("/docente/{id}/envios")
