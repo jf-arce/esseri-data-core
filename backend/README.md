@@ -601,8 +601,21 @@ reading pipeline after validating every selected division/student against the te
 
 Audience `tipo` is `todos`, `nivel`, `division`, `alumnos` or `responsables`, with UUID `ids`.
 Level/division additionally require a four-digit `ciclo_lectivo` and use active enrollments in
-that cycle. Every audience requires active students and `FamiliaAlumno.recibe_comunicaciones`.
-`todos` covers enabled links to active students, not a guessed current enrollment year.
+that cycle. `todos` covers enabled links to active students, not a guessed current enrollment year.
+
+Draft create and edit accept incomplete content: empty subject or body, and an audience without
+selected IDs, because the web client autosaves while the author is still writing. Present IDs
+are still validated, and course drafts remain restricted to the teacher's assigned divisions and
+students. Publication validates completeness again on the server: non-empty subject and body,
+a complete audience with resolvable enabled recipients, and clean attachments. An incomplete
+draft can never be published, even through a direct API call.
+
+`comunicacion.version` is an optimistic-concurrency counter: every accepted edit increments it,
+an edit or publication carrying an older `version` returns 409, and neither queued recipients
+nor email intentions are created by draft saves. The `version` field is optional in the request
+for pre-version callers, but the web client always sends it, so two open sessions cannot
+overwrite each other silently. Autosave writes drafts only; it never publishes, creates receipts,
+generates email intentions or invokes n8n.
 
 Family endpoints require the active Family role and resolve the responsible using the existing
 Usuario → Persona → Familia helper, never a supplied responsible identity:

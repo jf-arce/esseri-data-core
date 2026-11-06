@@ -130,19 +130,10 @@ export function EntregaComunicacion({
 
   return (
     <TooltipProvider>
-      <section className="space-y-4" aria-labelledby="entrega-titulo" aria-busy={cargando}>
+      <section className="space-y-4" aria-label="Entrega" aria-busy={cargando}>
         <span role="status" className="sr-only">
           {cargando ? 'Actualizando entrega' : ''}
         </span>
-        <div className="space-y-1">
-          <h2 id="entrega-titulo" className="font-semibold">
-            Entrega
-          </h2>
-          <p className="text-sm text-texto-2">
-            Seguimiento por destinatario. La aceptación del correo no confirma que el mensaje haya
-            llegado a la bandeja.
-          </p>
-        </div>
 
         {resumen && (
           <div

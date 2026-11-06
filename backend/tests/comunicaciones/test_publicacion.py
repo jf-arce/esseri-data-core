@@ -70,6 +70,60 @@ def snapshot(db):
     }
 
 
+@pytest.mark.parametrize(
+    ("asunto", "cuerpo", "audiencia"),
+    [
+        ("Solo asunto", "", {"tipo": "division", "ids": [], "ciclo_lectivo": "2027"}),
+        ("", "Mensaje parcial", {"tipo": "alumnos", "ids": [], "ciclo_lectivo": None}),
+    ],
+)
+def test_borrador_incompleto_se_recupera_pero_no_se_publica(
+    client, escenario, db_session, asunto, cuerpo, audiencia
+):
+    ids, _ = escenario
+    payload = datos(ids, asunto=asunto, cuerpo=cuerpo, audiencia=audiencia)
+    response = client.post("/comunicaciones", json=payload)
+    assert response.status_code == 201, response.text
+    draft = response.json()
+    assert draft["asunto"] == asunto
+    assert draft["cuerpo"] == cuerpo
+    assert client.get(f"/comunicaciones/{draft['id']}").json()["audiencia"] == audiencia
+    assert client.post(f"/comunicaciones/{draft['id']}/publicar").status_code == 422
+    assert not db_session.scalars(select(ReciboComunicacion)).all()
+    assert not db_session.scalars(select(EnvioNotificacion)).all()
+
+
+@pytest.mark.parametrize("cambio", [{"asunto": "  "}, {"cuerpo": ""}])
+def test_publicar_rechaza_texto_incompleto_con_audiencia_valida(client, escenario, cambio):
+    ids, _ = escenario
+    response = client.post("/comunicaciones", json=datos(ids, **cambio))
+    assert response.status_code == 201, response.text
+    assert client.post(f"/comunicaciones/{response.json()['id']}/publicar").status_code == 422
+
+
+def test_version_obsoleta_no_sobrescribe_ni_publica(client, escenario):
+    ids, _ = escenario
+    payload = datos(ids)
+    creado = client.post("/comunicaciones", json=payload).json()
+    version = creado["version"]
+    primero = client.put(
+        f"/comunicaciones/{creado['id']}",
+        json={**payload, "asunto": "Versión nueva", "version": version},
+    )
+    assert primero.status_code == 200
+    assert primero.json()["version"] == version + 1
+    obsoleto = client.put(
+        f"/comunicaciones/{creado['id']}",
+        json={**payload, "asunto": "Versión obsoleta", "version": version},
+    )
+    assert obsoleto.status_code == 409
+    publicacion = client.post(f"/comunicaciones/{creado['id']}/publicar", json={"version": version})
+    assert publicacion.status_code == 409
+    actual = client.get(f"/comunicaciones/{creado['id']}").json()
+    assert actual["estado"] == "borrador"
+    assert actual["asunto"] == "Versión nueva"
+
+
 @pytest.mark.parametrize("tipo", ["administrativa", "otro"])
 def test_nuevos_tipos_se_guardan_editan_publican_y_leen(client, escenario, tipo):
     ids, entrar = escenario
@@ -512,9 +566,9 @@ def test_otro_autor_no_puede_editar_ni_publicar_borrador(client, escenario, db_s
 @pytest.mark.parametrize(
     "cambio",
     [
-        {"asunto": "  "},
-        {"cuerpo": ""},
-        {"audiencia": {"tipo": "alumnos", "ids": []}},
+        {"asunto": "a" * 201},
+        {"cuerpo": "a" * 20001},
+        {"audiencia": {"tipo": "alumnos", "ids": ["not-a-uuid"]}},
         {"audiencia": {"tipo": "division", "ids": [str(uuid.uuid4())]}},
     ],
 )

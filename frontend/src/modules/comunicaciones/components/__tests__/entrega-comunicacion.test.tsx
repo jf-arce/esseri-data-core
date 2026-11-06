@@ -89,7 +89,7 @@ it('separates responsible counts from email outcomes and shows portal reading', 
     }),
   )
   render(<EntregaComunicacion comunicacionId="c1" canal="ambos" />)
-  expect(await screen.findByRole('heading', { name: 'Entrega' })).toBeInTheDocument()
+  expect(await screen.findByRole('region', { name: 'Entrega' })).toBeInTheDocument()
   expect(tarjeta('Destinatarios')).toHaveTextContent('2')
   expect(tarjeta('Enviados')).toHaveTextContent('1')
   expect(tarjeta('Rechazados')).toHaveTextContent('1')
@@ -145,7 +145,7 @@ it('shows the portal read time only on hover', async () => {
 it('searches and filters on the server, resetting to the first page', async () => {
   api.mockResolvedValue(respuesta({ total: 12, total_paginas: 2 }))
   render(<EntregaComunicacion comunicacionId="c1" canal="ambos" />)
-  await screen.findByRole('heading', { name: 'Entrega' })
+  await screen.findByRole('region', { name: 'Entrega' })
   await userEvent.type(
     screen.getByRole('searchbox', { name: 'Buscar destinatario o email' }),
     'Gómez',

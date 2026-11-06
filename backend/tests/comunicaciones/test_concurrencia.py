@@ -54,3 +54,35 @@ def test_creacion_publicacion_y_lectura_concurrentes(escenario_concurrente):
         assert len([a for a in auditorias if a.campo == "lectura"]) == 1
         assert len([a for a in auditorias if a.valor_nuevo == "publicada"]) == 1
         assert len([a for a in auditorias if a.valor_nuevo == "borrador"]) == 1
+
+
+def test_ediciones_simultaneas_rechazan_la_version_obsoleta(escenario_concurrente):
+    client, engine, ids = escenario_concurrente
+    staff = sesion_service.crear_access_token(ids["staff"], "administracion")
+    payload = {
+        "clave": str(uuid.uuid4()),
+        "asunto": "Aviso concurrente",
+        "cuerpo": "Información",
+        "audiencia": {"tipo": "alumnos", "ids": [str(ids["alumno_a"])]},
+    }
+    headers = {"Cookie": f"{config.COOKIE_SESION}={staff}"}
+    created = client.post("/comunicaciones", headers=headers, json=payload).json()
+    version = created["version"]
+    updated = simultaneas(
+        client,
+        "PUT",
+        f"/comunicaciones/{created['id']}",
+        staff,
+        json={**payload, "asunto": "Editado", "version": version},
+    )
+    assert sorted(response.status_code for response in updated) == [200, 409]
+    stale_publish = client.post(
+        f"/comunicaciones/{created['id']}/publicar", headers=headers, json={"version": version}
+    )
+    assert stale_publish.status_code == 409
+    with Session(engine) as db:
+        communication = db.get(Comunicacion, uuid.UUID(created["id"]))
+        assert communication.asunto == "Editado"
+        assert communication.version == version + 1
+        assert communication.estado == "borrador"
+        assert db.scalar(select(func.count()).select_from(ReciboComunicacion)) == 0

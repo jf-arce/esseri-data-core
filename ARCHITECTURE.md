@@ -24,7 +24,16 @@ A `tipo` column distinguishes institutional, administrative, other and course co
 without adding a table. Administrative and other communications share the institutional
 authoring permissions, audience resolution and private attachment lifecycle. Course authoring
 remains exclusive to the Docente portal; selecting a content type never grants that scope.
-No separate version, publication, read or approval entities are introduced in stages 1–3.
+No separate publication, read or approval entities are introduced in stages 1–3.
+
+Stage 4 adds autosave without a new module or table. `comunicacion.version` is an optimistic
+counter: every accepted draft edit increments it and a stale edit or publication is rejected so
+two sessions cannot overwrite each other silently. Draft writes accept incomplete content
+(empty subject or body, audience without IDs) because the author is still writing; publication
+revalidates completeness, recipient resolution and attachment readiness on the server. The
+browser keeps a per-user local backup so an interrupted tab can be recovered, but PostgreSQL
+remains the source of truth for synchronized drafts. Autosave never publishes, creates receipts,
+prepares email intentions or calls n8n.
 Course authoring is restricted to teachers acting with the Docente active role and to their
 own `AsignacionDocente` divisions/students in the selected cycle; scope is revalidated on edit
 and publication. Administrative routes reject teacher roles explicitly, because typed code
