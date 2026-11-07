@@ -31,6 +31,17 @@ export interface PaginaHistorial {
   }
 }
 
+export interface PuntoTendencia {
+  fecha: string
+  presentes: number
+  ausentes: number
+  porcentaje_presencia: number
+}
+
+export interface TendenciaHistorial {
+  puntos: PuntoTendencia[]
+}
+
 export interface OpcionHistorial {
   inscripcion_id: string
   alumno: string
@@ -53,6 +64,10 @@ function parametros(filtros: FiltrosHistorial, exportacion = false) {
 
 export function consultarHistorial(filtros: FiltrosHistorial) {
   return apiClient<PaginaHistorial>(`/academico/asistencias/consulta?${parametros(filtros)}`)
+}
+
+export function obtenerTendenciaHistorial(filtros: FiltrosHistorial) {
+  return apiClient<TendenciaHistorial>(`/academico/asistencias/tendencia?${parametros(filtros)}`)
 }
 
 export function obtenerOpcionesHistorial(cicloLectivo: string) {

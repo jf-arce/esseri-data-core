@@ -1,5 +1,11 @@
 import { apiClient } from '@/api/client'
-import type { AsignacionDocente, AsignacionDocenteCreate } from '../types'
+import type {
+  AsignacionDocente,
+  AsignacionDocenteBulkCreate,
+  AsignacionDocenteBulkResponse,
+  AsignacionDocenteCreate,
+  AsignacionDocenteUpdate,
+} from '../types'
 
 export interface FiltrosAsignacion {
   ciclo_lectivo?: string
@@ -20,6 +26,22 @@ export function listarAsignaciones(filtros?: FiltrosAsignacion) {
 
 export function crearAsignacion(datos: AsignacionDocenteCreate) {
   return apiClient<AsignacionDocente>('/academico/asignaciones-docentes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datos),
+  })
+}
+
+export function actualizarAsignacion(id: string, datos: AsignacionDocenteUpdate) {
+  return apiClient<AsignacionDocente>(`/academico/asignaciones-docentes/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datos),
+  })
+}
+
+export function crearAsignacionesBulk(datos: AsignacionDocenteBulkCreate) {
+  return apiClient<AsignacionDocenteBulkResponse>('/academico/asignaciones-docentes/bulk', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(datos),

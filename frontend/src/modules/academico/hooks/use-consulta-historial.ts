@@ -4,6 +4,7 @@ import {
   consultarHistorial,
   obtenerCiclosHistorial,
   obtenerOpcionesHistorial,
+  obtenerTendenciaHistorial,
   type FiltrosHistorial,
 } from '../services/consultar-historial'
 
@@ -51,9 +52,15 @@ function useRecurso<T>(clave: string, cargar: (clave: string) => Promise<T>) {
 }
 
 const consultarClave = (clave: string) => consultarHistorial(JSON.parse(clave) as FiltrosHistorial)
+const tendenciaClave = (clave: string) =>
+  obtenerTendenciaHistorial(JSON.parse(clave) as FiltrosHistorial)
 
 export function useConsultaHistorial(filtros: FiltrosHistorial) {
   return useRecurso(JSON.stringify(filtros), consultarClave)
+}
+
+export function useTendenciaHistorial(filtros: FiltrosHistorial) {
+  return useRecurso(JSON.stringify(filtros), tendenciaClave)
 }
 
 export function useOpcionesHistorial(ciclo: string) {

@@ -4,12 +4,18 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
-from src.academico.historial_schemas import FiltrosHistorial, OpcionHistorial, PaginaHistorial
+from src.academico.historial_schemas import (
+    FiltrosHistorial,
+    OpcionHistorial,
+    PaginaHistorial,
+    TendenciaHistorial,
+)
 from src.academico.historial_service import (
     ciclos_historial,
     opciones_historial,
     pagina_historial,
     reporte_historial,
+    tendencia_historial,
 )
 from src.academico.service import (
     generar_csv_reporte_asistencias,
@@ -46,6 +52,13 @@ def obtener_opciones_historial(
 @router.get("/ciclos")
 def obtener_ciclos_historial(usuario: Lector, rol_activo: RolActivo, db: Db) -> list[str]:
     return ciclos_historial(db, usuario.id, rol_activo)
+
+
+@router.get("/tendencia")
+def obtener_tendencia_historial(
+    usuario: Lector, rol_activo: RolActivo, db: Db, filtros: Annotated[FiltrosHistorial, Query()]
+) -> TendenciaHistorial:
+    return tendencia_historial(db, usuario.id, rol_activo, filtros)
 
 
 @router.get("/consulta/exportar")

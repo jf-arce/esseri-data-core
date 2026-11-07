@@ -8,23 +8,27 @@ from datetime import date, datetime
 from io import BytesIO, StringIO
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from src.academico.exceptions import (
     AnioConDivisiones,
+    AnioConMaterias,
     AnioDuplicado,
     AsignacionDocenteDuplicada,
     AsistenciaDuplicada,
     AsistenciaYaJustificada,
     CuentaSinPersona,
     DivisionConAsignaciones,
+    DivisionConInscripciones,
+    DivisionConMaterias,
     DivisionDuplicada,
     DocenteConAsignaciones,
     InscripcionNoActiva,
     LegajoDuplicado,
     MateriaConAsignaciones,
     MateriaDuplicada,
+    MateriaNoCorrespondeADivision,
     NivelEducativoConAnios,
     NombreNivelDuplicado,
 )
@@ -42,21 +46,30 @@ from src.academico.models import (
 from src.academico.schemas import (
     AltaDocenteCreate,
     AnioCreate,
+    AnioResponse,
     AnioUpdate,
+    AsignacionDocenteBulkCreate,
+    AsignacionDocenteBulkItem,
+    AsignacionDocenteBulkResponse,
     AsignacionDocenteCreate,
+    AsignacionDocenteResponse,
+    AsignacionDocenteUpdate,
     AsistenciaBulkCreate,
     AsistenciaBulkResponse,
     AsistenciaCreate,
     AsistenciaResumen,
     AsistenciaUpdate,
     DivisionCreate,
+    DivisionResponse,
     DivisionUpdate,
     DocenteCreate,
     DocenteDesdeUsuarioCreate,
     DocenteUpdate,
     MateriaCreate,
+    MateriaResponse,
     MateriaUpdate,
     NivelEducativoCreate,
+    NivelEducativoResponse,
     NivelEducativoUpdate,
 )
 from src.auditoria.service import log_audit
@@ -1054,9 +1067,21 @@ def obtener_nivel_educativo_por_id(db: Session, nivel_id: uuid.UUID) -> NivelEdu
     return db.query(NivelEducativo).filter(NivelEducativo.id == nivel_id).first()
 
 
-def listar_niveles_educativos(db: Session) -> list[NivelEducativo]:
-    """Listar todos los niveles educativos ordenados por nombre."""
-    return db.query(NivelEducativo).order_by(NivelEducativo.nombre).all()
+def listar_niveles_educativos(db: Session) -> list[NivelEducativoResponse]:
+    """Listar todos los niveles educativos con la cantidad de años de cada uno."""
+    filas = (
+        db.query(NivelEducativo, func.count(Anio.id).label("cantidad_anios"))
+        .outerjoin(Anio, Anio.nivel_educativo_id == NivelEducativo.id)
+        .group_by(NivelEducativo.id)
+        .order_by(NivelEducativo.nombre)
+        .all()
+    )
+    return [
+        NivelEducativoResponse.model_validate(nivel).model_copy(
+            update={"cantidad_anios": cantidad_anios}
+        )
+        for nivel, cantidad_anios in filas
+    ]
 
 
 def actualizar_nivel_educativo(
@@ -1163,19 +1188,41 @@ def obtener_anio_por_id(db: Session, anio_id: uuid.UUID) -> Anio | None:
     return db.query(Anio).filter(Anio.id == anio_id).first()
 
 
-def listar_anios(db: Session) -> list[Anio]:
-    """Listar todos los años ordenados por número."""
-    return db.query(Anio).order_by(Anio.numero).all()
-
-
-def listar_anios_por_nivel(db: Session, nivel_educativo_id: uuid.UUID) -> list[Anio]:
-    """Listar los años de un nivel educativo específico."""
+def _query_anios_con_conteos(db: Session):
+    """Años con cantidad de divisiones y materias, sin multiplicar filas por el join."""
     return (
-        db.query(Anio)
-        .filter(Anio.nivel_educativo_id == nivel_educativo_id)
-        .order_by(Anio.numero)
-        .all()
+        db.query(
+            Anio,
+            func.count(func.distinct(Division.id)).label("cantidad_divisiones"),
+            func.count(func.distinct(Materia.id)).label("cantidad_materias"),
+        )
+        .outerjoin(Division, Division.anio_id == Anio.id)
+        .outerjoin(Materia, Materia.anio_id == Anio.id)
+        .group_by(Anio.id)
     )
+
+
+def _anios_con_conteos(db: Session, query) -> list[AnioResponse]:
+    return [
+        AnioResponse.model_validate(anio).model_copy(
+            update={
+                "cantidad_divisiones": cantidad_divisiones,
+                "cantidad_materias": cantidad_materias,
+            }
+        )
+        for anio, cantidad_divisiones, cantidad_materias in query.order_by(Anio.numero).all()
+    ]
+
+
+def listar_anios(db: Session) -> list[AnioResponse]:
+    """Listar todos los años con sus cantidades de divisiones y materias."""
+    return _anios_con_conteos(db, _query_anios_con_conteos(db))
+
+
+def listar_anios_por_nivel(db: Session, nivel_educativo_id: uuid.UUID) -> list[AnioResponse]:
+    """Listar los años de un nivel educativo con sus cantidades de divisiones y materias."""
+    query = _query_anios_con_conteos(db).filter(Anio.nivel_educativo_id == nivel_educativo_id)
+    return _anios_con_conteos(db, query)
 
 
 def actualizar_anio(
@@ -1224,10 +1271,14 @@ def actualizar_anio(
 
 
 def eliminar_anio(db: Session, anio: Anio, usuario_id: uuid.UUID | None = None) -> None:
-    """Eliminar un año. Valida que no tenga divisiones asociadas."""
+    """Eliminar un año. Valida que no tenga divisiones ni materias asociadas."""
     tiene_divisiones = db.query(Division).filter(Division.anio_id == anio.id).first() is not None
     if tiene_divisiones:
         raise AnioConDivisiones()
+
+    tiene_materias = db.query(Materia).filter(Materia.anio_id == anio.id).first() is not None
+    if tiene_materias:
+        raise AnioConMaterias()
 
     anio_id = anio.id
     numero = anio.numero
@@ -1284,14 +1335,46 @@ def obtener_division_por_id(db: Session, division_id: uuid.UUID) -> Division | N
     return db.query(Division).filter(Division.id == division_id).first()
 
 
-def listar_divisiones(db: Session) -> list[Division]:
-    """Listar todas las divisiones."""
-    return db.query(Division).order_by(Division.nombre).all()
+def _query_divisiones_con_conteos(db: Session):
+    """Divisiones con cantidad de materias propias, inscriptos y asignaciones."""
+    return (
+        db.query(
+            Division,
+            func.count(func.distinct(Materia.id)).label("cantidad_materias"),
+            func.count(func.distinct(Inscripcion.id)).label("cantidad_inscripciones"),
+            func.count(func.distinct(AsignacionDocente.id)).label("cantidad_asignaciones"),
+        )
+        .outerjoin(Materia, Materia.division_id == Division.id)
+        .outerjoin(Inscripcion, Inscripcion.division_id == Division.id)
+        .outerjoin(AsignacionDocente, AsignacionDocente.division_id == Division.id)
+        .group_by(Division.id)
+    )
 
 
-def listar_divisiones_por_anio(db: Session, anio_id: uuid.UUID) -> list[Division]:
-    """Listar las divisiones de un año específico."""
-    return db.query(Division).filter(Division.anio_id == anio_id).order_by(Division.nombre).all()
+def _divisiones_con_conteos(query) -> list[DivisionResponse]:
+    return [
+        DivisionResponse.model_validate(division).model_copy(
+            update={
+                "cantidad_materias": cantidad_materias,
+                "cantidad_inscripciones": cantidad_inscripciones,
+                "cantidad_asignaciones": cantidad_asignaciones,
+            }
+        )
+        for division, cantidad_materias, cantidad_inscripciones, cantidad_asignaciones in (
+            query.order_by(Division.nombre).all()
+        )
+    ]
+
+
+def listar_divisiones(db: Session) -> list[DivisionResponse]:
+    """Listar todas las divisiones con sus conteos de dependencias."""
+    return _divisiones_con_conteos(_query_divisiones_con_conteos(db))
+
+
+def listar_divisiones_por_anio(db: Session, anio_id: uuid.UUID) -> list[DivisionResponse]:
+    """Listar las divisiones de un año específico con sus conteos de dependencias."""
+    query = _query_divisiones_con_conteos(db).filter(Division.anio_id == anio_id)
+    return _divisiones_con_conteos(query)
 
 
 def actualizar_division(
@@ -1343,7 +1426,23 @@ def actualizar_division(
 
 
 def eliminar_division(db: Session, division: Division, usuario_id: uuid.UUID | None = None) -> None:
-    """Eliminar una división. Valida que no tenga asignaciones docentes."""
+    """Eliminar una división.
+
+    Valida que no tenga materias propias, inscriptos ni asignaciones docentes: cualquiera de
+    esas dependencias quedaría apuntando a una división inexistente.
+    """
+    tiene_materias = (
+        db.query(Materia).filter(Materia.division_id == division.id).first() is not None
+    )
+    if tiene_materias:
+        raise DivisionConMaterias()
+
+    tiene_inscripciones = (
+        db.query(Inscripcion).filter(Inscripcion.division_id == division.id).first() is not None
+    )
+    if tiene_inscripciones:
+        raise DivisionConInscripciones()
+
     tiene_asignaciones = (
         db.query(AsignacionDocente).filter(AsignacionDocente.division_id == division.id).first()
         is not None
@@ -1416,27 +1515,43 @@ def obtener_materia_por_id(db: Session, materia_id: uuid.UUID) -> Materia | None
     return db.query(Materia).filter(Materia.id == materia_id).first()
 
 
-def listar_materias(db: Session) -> list[Materia]:
-    """Listar todas las materias ordenadas por nombre."""
-    return db.query(Materia).order_by(Materia.nombre).all()
-
-
-def listar_materias_por_anio(db: Session, anio_id: uuid.UUID) -> list[Materia]:
-    """Listar las materias de un año específico, con el número del año para mostrar en la UI."""
+def _query_materias_con_conteos(db: Session):
+    """Materias con la cantidad de asignaciones docentes de cada una."""
     return (
-        db.query(Materia)
+        db.query(
+            Materia,
+            func.count(func.distinct(AsignacionDocente.id)).label("cantidad_asignaciones"),
+        )
         .options(joinedload(Materia.anio))
-        .filter(Materia.anio_id == anio_id)
-        .order_by(Materia.nombre)
-        .all()
+        .outerjoin(AsignacionDocente, AsignacionDocente.materia_id == Materia.id)
+        .group_by(Materia.id)
     )
 
 
-def listar_materias_por_division(db: Session, division_id: uuid.UUID) -> list[Materia]:
-    """Listar las materias de una división específica."""
-    return (
-        db.query(Materia).filter(Materia.division_id == division_id).order_by(Materia.nombre).all()
-    )
+def _materias_con_conteos(query) -> list[MateriaResponse]:
+    return [
+        MateriaResponse.model_validate(materia).model_copy(
+            update={"cantidad_asignaciones": cantidad_asignaciones}
+        )
+        for materia, cantidad_asignaciones in query.order_by(Materia.nombre).all()
+    ]
+
+
+def listar_materias(db: Session) -> list[MateriaResponse]:
+    """Listar todas las materias con su cantidad de asignaciones."""
+    return _materias_con_conteos(_query_materias_con_conteos(db))
+
+
+def listar_materias_por_anio(db: Session, anio_id: uuid.UUID) -> list[MateriaResponse]:
+    """Listar las materias de un año específico, con conteos y número del año."""
+    query = _query_materias_con_conteos(db).filter(Materia.anio_id == anio_id)
+    return _materias_con_conteos(query)
+
+
+def listar_materias_por_division(db: Session, division_id: uuid.UUID) -> list[MateriaResponse]:
+    """Listar las materias de una división específica con su cantidad de asignaciones."""
+    query = _query_materias_con_conteos(db).filter(Materia.division_id == division_id)
+    return _materias_con_conteos(query)
 
 
 def actualizar_materia(
@@ -1711,24 +1826,59 @@ def eliminar_docente(db: Session, docente: Docente, usuario_id: uuid.UUID | None
 # --- AsignacionDocente -------------------------------------------------------------------
 
 
+def _validar_materia_corresponde_a_division(
+    db: Session, materia_id: uuid.UUID, division_id: uuid.UUID
+) -> None:
+    """Una materia solo puede asignarse a divisiones de su mismo año.
+
+    Si la materia es específica de una división (`division_id` no nulo), además tiene que ser
+    esa misma división. Las materias comunes al año (`division_id` nulo) aplican a cualquiera.
+    """
+    materia = db.get(Materia, materia_id)
+    division = db.get(Division, division_id)
+    if materia is None or division is None:
+        return
+    if materia.anio_id != division.anio_id:
+        raise MateriaNoCorrespondeADivision()
+    if materia.division_id is not None and materia.division_id != division.id:
+        raise MateriaNoCorrespondeADivision()
+
+
+def _asignacion_docente_existente(
+    db: Session,
+    docente_id: uuid.UUID,
+    materia_id: uuid.UUID,
+    division_id: uuid.UUID,
+    ciclo_lectivo: str,
+    excluir_id: uuid.UUID | None = None,
+) -> bool:
+    query = select(AsignacionDocente.id).where(
+        AsignacionDocente.docente_id == docente_id,
+        AsignacionDocente.materia_id == materia_id,
+        AsignacionDocente.division_id == division_id,
+        AsignacionDocente.ciclo_lectivo == ciclo_lectivo,
+    )
+    if excluir_id is not None:
+        query = query.where(AsignacionDocente.id != excluir_id)
+    return db.scalar(query) is not None
+
+
 def crear_asignacion_docente(
     db: Session, datos: AsignacionDocenteCreate, usuario_id: uuid.UUID | None = None
 ) -> AsignacionDocente:
     """Asignar un docente a materia+división por ciclo lectivo.
 
-    Valida que no exista ya una asignación para el mismo docente,
-    materia, división y ciclo lectivo.
+    Valida que la materia corresponda al año (y división) y que no exista ya una asignación
+    para el mismo docente, materia, división y ciclo lectivo.
     """
-    if (
-        db.scalar(
-            select(AsignacionDocente.id).where(
-                AsignacionDocente.docente_id == datos.docente_id,
-                AsignacionDocente.materia_id == datos.materia_id,
-                AsignacionDocente.division_id == datos.division_id,
-                AsignacionDocente.ciclo_lectivo == datos.ciclo_lectivo.strip(),
-            )
-        )
-        is not None
+    _validar_materia_corresponde_a_division(db, datos.materia_id, datos.division_id)
+
+    if _asignacion_docente_existente(
+        db,
+        datos.docente_id,
+        datos.materia_id,
+        datos.division_id,
+        datos.ciclo_lectivo.strip(),
     ):
         raise AsignacionDocenteDuplicada()
 
@@ -1783,15 +1933,126 @@ def listar_asignaciones_docentes(
     return query.order_by(AsignacionDocente.ciclo_lectivo).all()
 
 
+def actualizar_asignacion_docente(
+    db: Session,
+    asignacion: AsignacionDocente,
+    datos: AsignacionDocenteUpdate,
+    usuario_id: uuid.UUID | None = None,
+) -> AsignacionDocente:
+    """Actualizar una asignación docente existente.
+
+    Revalida la combinación materia/división y que no quede duplicada contra otra asignación
+    del mismo docente en el mismo ciclo.
+    """
+    update_data = datos.model_dump(exclude_unset=True)
+    if not update_data:
+        return asignacion
+
+    if "ciclo_lectivo" in update_data and update_data["ciclo_lectivo"] is not None:
+        update_data["ciclo_lectivo"] = update_data["ciclo_lectivo"].strip()
+
+    materia_id = update_data.get("materia_id", asignacion.materia_id)
+    division_id = update_data.get("division_id", asignacion.division_id)
+    docente_id = update_data.get("docente_id", asignacion.docente_id)
+    ciclo_lectivo = update_data.get("ciclo_lectivo", asignacion.ciclo_lectivo)
+
+    _validar_materia_corresponde_a_division(db, materia_id, division_id)
+    if _asignacion_docente_existente(
+        db, docente_id, materia_id, division_id, ciclo_lectivo, excluir_id=asignacion.id
+    ):
+        raise AsignacionDocenteDuplicada()
+
+    valores_anteriores = {campo: getattr(asignacion, campo) for campo in update_data}
+    for campo, valor in update_data.items():
+        setattr(asignacion, campo, valor)
+
+    for campo, valor_nuevo in update_data.items():
+        log_audit(
+            db,
+            entidad="ASIGNACION_DOCENTE",
+            entidad_id=asignacion.id,
+            campo=campo,
+            valor_anterior=(
+                str(valores_anteriores[campo]) if valores_anteriores[campo] is not None else None
+            ),
+            valor_nuevo=str(valor_nuevo) if valor_nuevo is not None else None,
+            usuario_id=usuario_id,
+        )
+
+    db.commit()
+    db.refresh(asignacion)
+    return asignacion
+
+
+def crear_asignaciones_docentes_bulk(
+    db: Session, datos: AsignacionDocenteBulkCreate, usuario_id: uuid.UUID | None = None
+) -> AsignacionDocenteBulkResponse:
+    """Asignar un docente a varias combinaciones materia+división en un solo alta.
+
+    Las combinaciones ya existentes se omiten (no rompen el alta completa) y se devuelven en
+    `omitidas` para que la UI pueda avisar qué quedó sin crear.
+    """
+    ciclo_lectivo = datos.ciclo_lectivo.strip()
+    creadas: list[AsignacionDocente] = []
+    omitidas: list[AsignacionDocenteBulkItem] = []
+    vistas: set[tuple[uuid.UUID, uuid.UUID]] = set()
+
+    for item in datos.items:
+        clave = (item.materia_id, item.division_id)
+        if clave in vistas:
+            omitidas.append(item)
+            continue
+        vistas.add(clave)
+
+        _validar_materia_corresponde_a_division(db, item.materia_id, item.division_id)
+        if _asignacion_docente_existente(
+            db, datos.docente_id, item.materia_id, item.division_id, ciclo_lectivo
+        ):
+            omitidas.append(item)
+            continue
+
+        nueva = AsignacionDocente(
+            ciclo_lectivo=ciclo_lectivo,
+            docente_id=datos.docente_id,
+            materia_id=item.materia_id,
+            division_id=item.division_id,
+        )
+        db.add(nueva)
+        db.flush()
+        log_audit(
+            db,
+            entidad="ASIGNACION_DOCENTE",
+            entidad_id=nueva.id,
+            campo="__alta__",
+            valor_anterior=None,
+            valor_nuevo=(
+                f"docente={nueva.docente_id} materia={nueva.materia_id} "
+                f"division={nueva.division_id}"
+            ),
+            usuario_id=usuario_id,
+        )
+        creadas.append(nueva)
+
+    db.commit()
+    for asignacion in creadas:
+        db.refresh(asignacion)
+
+    return AsignacionDocenteBulkResponse(
+        creadas=[AsignacionDocenteResponse.model_validate(a) for a in creadas],
+        omitidas=omitidas,
+    )
+
+
 def divisiones_de_persona(
     db: Session, persona_id: uuid.UUID, ciclo_lectivo: str | None = None
-) -> list[tuple[uuid.UUID, str, int, str]]:
+) -> list[tuple[uuid.UUID, str, int, str, int]]:
     """Divisiones donde el docente ligado a `persona_id` tiene una asignación vigente.
 
     Usado por GET /academico/docentes/me/divisiones (usuario autenticado, sin depender de
     `academico.leer`: es un dato propio, no una consulta al módulo). Sin `relationship()` en
     los modelos: resuelve Docente → AsignacionDocente → Division/Anio con joins explícitos,
-    distinct por división para no repetir una división con varias materias asignadas.
+    agrupando por división para no repetirla con varias materias asignadas y contando esas
+    materias (`cantidad_materias`) para mostrarlas en el portal docente.
 
     `Division.nombre` ya es la etiqueta completa ("1°A", "3°C" — ver `nivel-seccion.tsx` y sus
     tests), no un sufijo suelto: anteponerle `Anio.numero` duplicaba el año ("1°3°C"). `numero`
@@ -1802,7 +2063,13 @@ def divisiones_de_persona(
         return []
 
     query = (
-        db.query(Division.id, Anio.numero, Division.nombre, NivelEducativo.nombre)
+        db.query(
+            Division.id,
+            Anio.numero,
+            Division.nombre,
+            NivelEducativo.nombre,
+            func.count(func.distinct(AsignacionDocente.materia_id)).label("cantidad_materias"),
+        )
         .join(AsignacionDocente, AsignacionDocente.division_id == Division.id)
         .join(Anio, Anio.id == Division.anio_id)
         .join(NivelEducativo, NivelEducativo.id == Anio.nivel_educativo_id)
@@ -1810,8 +2077,33 @@ def divisiones_de_persona(
     )
     if ciclo_lectivo is not None:
         query = query.filter(AsignacionDocente.ciclo_lectivo == ciclo_lectivo)
-    filas = query.distinct().order_by(Anio.numero, Division.nombre).all()
-    return [(division_id, nombre, numero, nivel) for division_id, numero, nombre, nivel in filas]
+    filas = (
+        query.group_by(Division.id, Anio.numero, Division.nombre, NivelEducativo.nombre)
+        .order_by(Anio.numero, Division.nombre)
+        .all()
+    )
+    return [
+        (division_id, nombre, numero, nivel, cantidad_materias)
+        for division_id, numero, nombre, nivel, cantidad_materias in filas
+    ]
+
+
+def ultima_fecha_con_asistencias(
+    db: Session, division_id: uuid.UUID, ciclo_lectivo: str | None = None
+) -> date | None:
+    """Última fecha con asistencias registradas en una división.
+
+    Sirve para que la pantalla de asistencia pueda ofrecer "copiar la clase anterior" sin que
+    el usuario tenga que recordar qué día se tomó lista por última vez.
+    """
+    query = (
+        db.query(func.max(Asistencia.fecha))
+        .join(Inscripcion, Inscripcion.id == Asistencia.inscripcion_id)
+        .filter(Inscripcion.division_id == division_id)
+    )
+    if ciclo_lectivo is not None:
+        query = query.filter(Inscripcion.ciclo_lectivo == ciclo_lectivo)
+    return query.scalar()
 
 
 def eliminar_asignacion_docente(

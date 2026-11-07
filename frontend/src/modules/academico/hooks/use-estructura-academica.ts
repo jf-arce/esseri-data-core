@@ -8,7 +8,10 @@ import type { Anio, Division, Materia, NivelEducativo } from '@/modules/academic
 
 export type NivelConEstructura = NivelEducativo & {
   anios: (Anio & {
+    /** Materias comunes al año (sin división): se dictan en todas sus divisiones. */
+    materias: Materia[]
     divisiones: (Division & {
+      /** Solo las materias propias de esta división; las comunes viven en el año. */
       materias: Materia[]
     })[]
   })[]
@@ -39,12 +42,12 @@ export function useEstructuraAcademica() {
 
               const divisionesConMaterias = divisiones.map((division) => ({
                 ...division,
-                materias: materias.filter(
-                  (m) => m.division_id === division.id || m.division_id === null,
-                ),
+                materias: materias.filter((m) => m.division_id === division.id),
               }))
 
-              return { ...anio, divisiones: divisionesConMaterias }
+              const materiasComunes = materias.filter((m) => m.division_id === null)
+
+              return { ...anio, materias: materiasComunes, divisiones: divisionesConMaterias }
             }),
           )
 

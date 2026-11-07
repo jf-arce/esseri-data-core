@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   Select,
   SelectContent,
@@ -136,15 +137,80 @@ export function AbmDialog({
     materia: { crear: 'Nueva materia', editar: 'Editar materia', eliminar: 'Dar de baja materia' },
   }
 
-  const descripcionesEliminacion: Record<Entidad, string> = {
-    nivel:
-      'Esta acción no se puede deshacer. Si el nivel tiene años asociados, el sistema no va a permitir borrarlo.',
-    anio: 'Esta acción no se puede deshacer. Si el año tiene divisiones asociadas, el sistema no va a permitir borrarlo.',
-    division:
-      'Esta acción no se puede deshacer. Si la división tiene asignaciones docentes, el sistema no va a permitir borrarla.',
-    materia:
-      'Esta acción no se puede deshacer. Si la materia tiene asignaciones docentes, el sistema no va a permitir borrarla.',
+  function nombreDe(registro: ItemExistente): string {
+    switch (registro.tipo) {
+      case 'nivel':
+        return `el nivel ${registro.data.nombre}`
+      case 'anio':
+        return `el año ${registro.data.numero}°`
+      case 'division':
+        return `la división ${registro.data.nombre}`
+      case 'materia':
+        return `la materia ${registro.data.nombre}`
+    }
   }
+
+  // Dependencias que el backend rechaza: se muestran antes de intentar borrar, para que el
+  // usuario sepa qué tiene que mover primero en vez de chocar con un error del servidor.
+  function bloqueosDe(registro: ItemExistente): string[] {
+    const bloqueos: string[] = []
+    if (registro.tipo === 'nivel' && registro.data.cantidad_anios > 0) {
+      bloqueos.push(
+        `${registro.data.cantidad_anios} ${registro.data.cantidad_anios === 1 ? 'año' : 'años'}`,
+      )
+    }
+    if (registro.tipo === 'anio') {
+      if (registro.data.cantidad_divisiones > 0) {
+        bloqueos.push(
+          `${registro.data.cantidad_divisiones} ${
+            registro.data.cantidad_divisiones === 1 ? 'división' : 'divisiones'
+          }`,
+        )
+      }
+      if (registro.data.cantidad_materias > 0) {
+        bloqueos.push(
+          `${registro.data.cantidad_materias} ${
+            registro.data.cantidad_materias === 1 ? 'materia' : 'materias'
+          }`,
+        )
+      }
+    }
+    if (registro.tipo === 'division') {
+      if (registro.data.cantidad_materias > 0) {
+        bloqueos.push(
+          `${registro.data.cantidad_materias} ${
+            registro.data.cantidad_materias === 1 ? 'materia propia' : 'materias propias'
+          }`,
+        )
+      }
+      if (registro.data.cantidad_inscripciones > 0) {
+        bloqueos.push(
+          `${registro.data.cantidad_inscripciones} ${
+            registro.data.cantidad_inscripciones === 1 ? 'inscripción' : 'inscripciones'
+          }`,
+        )
+      }
+      if (registro.data.cantidad_asignaciones > 0) {
+        bloqueos.push(
+          `${registro.data.cantidad_asignaciones} ${
+            registro.data.cantidad_asignaciones === 1
+              ? 'asignación docente'
+              : 'asignaciones docentes'
+          }`,
+        )
+      }
+    }
+    if (registro.tipo === 'materia' && registro.data.cantidad_asignaciones > 0) {
+      bloqueos.push(
+        `${registro.data.cantidad_asignaciones} ${
+          registro.data.cantidad_asignaciones === 1 ? 'asignación docente' : 'asignaciones docentes'
+        }`,
+      )
+    }
+    return bloqueos
+  }
+
+  const bloqueos = item ? bloqueosDe(item) : []
 
   async function handleSubmit() {
     setEnviando(true)
@@ -216,18 +282,37 @@ export function AbmDialog({
   const divisionesFiltradas = anioId ? divisiones.filter((d) => d.anio_id === anioId) : divisiones
 
   if (modo === 'eliminar') {
+    const bloqueado = bloqueos.length > 0
     return (
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{titulos[entidad].eliminar}</DialogTitle>
-            <DialogDescription>{error ?? descripcionesEliminacion[entidad]}</DialogDescription>
+            <DialogDescription>
+              {error ??
+                (item
+                  ? `Vas a dar de baja ${nombreDe(item)}.`
+                  : 'Vas a dar de baja este registro.')}
+            </DialogDescription>
           </DialogHeader>
+
+          {bloqueado ? (
+            <Alert variant="advertencia">
+              <AlertTitle>No se puede eliminar todavía</AlertTitle>
+              <AlertDescription>
+                Tiene registros asociados: {bloqueos.join(', ')}. Eliminá o reasigná primero esos
+                registros.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <p className="text-sm text-texto-2">Esta acción no se puede deshacer.</p>
+          )}
+
           <DialogFooter>
             <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={enviando}>
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={handleSubmit} disabled={enviando}>
+            <Button variant="destructive" onClick={handleSubmit} disabled={enviando || bloqueado}>
               {enviando ? 'Eliminando…' : 'Confirmar'}
             </Button>
           </DialogFooter>
