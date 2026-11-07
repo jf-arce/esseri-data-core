@@ -3,8 +3,10 @@ import { toast } from 'sonner'
 import {
   ArrowLeftIcon,
   CalendarIcon,
+  CheckCheckIcon,
   CheckIcon,
   ClockIcon,
+  CopyIcon,
   ShieldAlertIcon,
   XIcon,
 } from 'lucide-react'
@@ -18,7 +20,11 @@ import {
   useAsistenciaDivision,
   type AlumnoConAsistencia,
 } from '@/modules/academico/hooks/use-asistencia-division'
-import { registrarAsistenciaMasiva } from '@/modules/academico/services/asistencias'
+import {
+  listarAsistencias,
+  obtenerUltimaFechaAsistencias,
+  registrarAsistenciaMasiva,
+} from '@/modules/academico/services/asistencias'
 import type { TipoAsistencia, TipoAsistenciaDocente } from '@/modules/academico/types'
 import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 
@@ -86,6 +92,7 @@ export function AsistenciaDivisionPage({
   // para corregir antes de guardar.
   const [modo, setModo] = useState<'asistente' | 'revision'>('asistente')
   const [indice, setIndice] = useState(0)
+  const [copiando, setCopiando] = useState(false)
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -136,6 +143,7 @@ export function AsistenciaDivisionPage({
     ausentes: alumnosConSeleccion.filter((a) => a.estadoAsistencia?.startsWith('ausente')).length,
     sinMarcar: alumnosConSeleccion.filter((a) => !a.estadoAsistencia).length,
   }
+  const conRegistro = alumnosConSeleccion.length - stats.sinMarcar
 
   async function handleGuardar() {
     if (!divisionId || guardando) return
@@ -212,6 +220,59 @@ export function AsistenciaDivisionPage({
     return estado === tipo
   }
 
+  // Copia la última clase registrada de la división como punto de partida, para no volver a
+  // marcar a mano un curso casi idéntico al día anterior.
+  async function copiarClaseAnterior() {
+    if (!divisionId || copiando) return
+    setCopiando(true)
+    try {
+      const { fecha: ultimaFecha } = await obtenerUltimaFechaAsistencias(
+        divisionId,
+        portalDocente ? cicloLectivo : undefined,
+      )
+      if (!ultimaFecha) {
+        toast.info('No hay una clase anterior registrada para esta división.')
+        return
+      }
+      const asistencias = await listarAsistencias({
+        fecha: ultimaFecha,
+        division_id: divisionId,
+        ciclo_lectivo: portalDocente ? cicloLectivo : undefined,
+      })
+      const seleccion: Record<string, TipoAsistenciaDocente> = {}
+      for (const asistencia of asistencias) {
+        seleccion[asistencia.inscripcion_id] = asistencia.tipo.startsWith('ausente')
+          ? 'ausente'
+          : asistencia.tipo === 'tardanza'
+            ? 'tardanza'
+            : 'presente'
+      }
+      if (Object.keys(seleccion).length === 0) {
+        toast.info('La clase anterior no tiene asistencias registradas.')
+        return
+      }
+      setSeleccionLocal(seleccion)
+      setModo('revision')
+      toast.success(
+        `Se copió la clase del ${new Intl.DateTimeFormat('es-AR').format(
+          new Date(`${ultimaFecha}T00:00:00`),
+        )}.`,
+      )
+    } catch {
+      toast.error('No se pudo copiar la clase anterior. Intentá de nuevo.')
+    } finally {
+      setCopiando(false)
+    }
+  }
+
+  function marcarTodosPresentes() {
+    const seleccion: Record<string, TipoAsistenciaDocente> = {}
+    for (const alumno of alumnosConSeleccion) {
+      seleccion[alumno.id] = 'presente'
+    }
+    setSeleccionLocal(seleccion)
+  }
+
   if (sinPermiso) {
     return (
       <Empty className="min-h-[420px] rounded-panel bg-superficie shadow-card">
@@ -261,6 +322,18 @@ export function AsistenciaDivisionPage({
         </div>
 
         {!divisionIdFijo && <DivisionSelector value={divisionId} onChange={setDivisionId} />}
+
+        {divisionId && (
+          <Button
+            variant="secondary"
+            className="self-end"
+            onClick={() => void copiarClaseAnterior()}
+            disabled={copiando || cargando}
+          >
+            <CopyIcon />
+            {copiando ? 'Copiando…' : 'Copiar clase anterior'}
+          </Button>
+        )}
       </div>
 
       {divisionId && (
@@ -297,6 +370,15 @@ export function AsistenciaDivisionPage({
             />
           </div>
 
+          {!cargando && conRegistro > 0 && stats.sinMarcar > 0 && (
+            <Alert variant="info">
+              <AlertTitle>Faltan {stats.sinMarcar} alumnos por marcar</AlertTitle>
+              <AlertDescription>
+                Podés guardar igual y completar esos registros después.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {cargando ? (
             <div className="rounded-panel bg-superficie p-6 shadow-card">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -326,6 +408,21 @@ export function AsistenciaDivisionPage({
             />
           ) : (
             <>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-texto-2">
+                  {alumnosConSeleccion.length} alumnos en la división
+                </p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={marcarTodosPresentes}
+                  disabled={guardando}
+                >
+                  <CheckCheckIcon />
+                  Marcar todos presentes
+                </Button>
+              </div>
+
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {alumnosConSeleccion.map((alumno) => (
                   <div

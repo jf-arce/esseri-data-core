@@ -44,15 +44,17 @@ const COLORES_NIVEL = [
   },
 ]
 
+function plural(cantidad: number, singular: string, pluralForma: string) {
+  return `${cantidad} ${cantidad === 1 ? singular : pluralForma}`
+}
+
 export function NivelSeccion(props: NivelSeccionProps) {
   const { nivel, puedeEditar } = props
   const colorIdx = 0
 
-  const totalDivisiones = nivel.anios.reduce((acc, a) => acc + a.divisiones.length, 0)
-  const totalMaterias = nivel.anios.reduce(
-    (acc, a) => acc + a.divisiones.reduce((acc2, d) => acc2 + d.materias.length, 0),
-    0,
-  )
+  // Los conteos vienen del backend para no depender de lo que se haya cargado en el árbol.
+  const totalDivisiones = nivel.anios.reduce((acc, a) => acc + a.cantidad_divisiones, 0)
+  const totalMaterias = nivel.anios.reduce((acc, a) => acc + a.cantidad_materias, 0)
 
   return (
     <div className="mb-7 last:mb-0">
@@ -65,8 +67,9 @@ export function NivelSeccion(props: NivelSeccionProps) {
         <div className="flex-1">
           <p className={`text-sm.5 font-semibold ${COLORES_NIVEL[colorIdx].sat}`}>{nivel.nombre}</p>
           <p className={`text-xs ${COLORES_NIVEL[colorIdx].dark}`}>
-            {totalDivisiones} {totalDivisiones === 1 ? 'división' : 'divisiones'} · {totalMaterias}{' '}
-            {totalMaterias === 1 ? 'materia' : 'materias'}
+            {plural(nivel.cantidad_anios, 'año', 'años')} ·{' '}
+            {plural(totalDivisiones, 'división', 'divisiones')} ·{' '}
+            {plural(totalMaterias, 'materia', 'materias')}
           </p>
         </div>
         {puedeEditar && (
@@ -136,11 +139,12 @@ function AnioGrupo({
 }: NivelSeccionProps & { anio: NivelConEstructura['anios'][number] }) {
   return (
     <div className="rounded-card bg-superficie p-5 shadow-card">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-base font-semibold text-texto">{anio.numero}°</span>
           <span className="text-xs text-texto-3">
-            {anio.divisiones.length} {anio.divisiones.length === 1 ? 'división' : 'divisiones'}
+            {plural(anio.cantidad_divisiones, 'división', 'divisiones')} ·{' '}
+            {plural(anio.cantidad_materias, 'materia', 'materias')}
           </span>
         </div>
         {puedeEditar && (
@@ -175,6 +179,25 @@ function AnioGrupo({
         )}
       </div>
 
+      {anio.materias.length > 0 && (
+        <div className="mb-3 rounded-lg border border-borde bg-fila-hover/40 p-2">
+          <p className="mb-1 px-1 text-xs font-semibold text-texto-2">
+            Materias comunes al año (se dictan en todas las divisiones)
+          </p>
+          <div className="flex flex-col gap-1">
+            {anio.materias.map((materia) => (
+              <MateriaFila
+                key={materia.id}
+                materia={materia}
+                puedeEditar={puedeEditar}
+                onEditar={onEditarMateria}
+                onEliminar={onEliminarMateria}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {anio.divisiones.length === 0 ? (
         <div className="rounded-lg border border-dashed border-borde p-4 text-center text-sm text-texto-3">
           {puedeEditar ? (
@@ -197,6 +220,7 @@ function AnioGrupo({
             <DivisionCard
               key={division.id}
               division={division}
+              materiasComunes={anio.materias.length}
               puedeEditar={puedeEditar}
               onEditar={() => onEditarDivision(division)}
               onEliminar={() => onEliminarDivision(division)}
@@ -210,8 +234,59 @@ function AnioGrupo({
   )
 }
 
+function MateriaFila({
+  materia,
+  puedeEditar,
+  onEditar,
+  onEliminar,
+}: {
+  materia: Materia
+  puedeEditar: boolean
+  onEditar: (materia: Materia) => void
+  onEliminar: (materia: Materia) => void
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-fila-hover">
+      <span className="flex flex-wrap items-center gap-1.5 text-texto">
+        {materia.tipo === 'taller' ? (
+          <span className="rounded bg-sup-workflows px-1.5 py-0.5 text-xs font-semibold text-violeta">
+            Taller
+          </span>
+        ) : (
+          <span className="rounded bg-sup-academico px-1.5 py-0.5 text-xs font-semibold text-info">
+            Materia
+          </span>
+        )}
+        {materia.nombre}
+        {materia.cantidad_asignaciones === 0 && (
+          <span className="text-texto-3">· sin docente</span>
+        )}
+      </span>
+      {puedeEditar && (
+        <div className="flex items-center gap-0.5">
+          <button
+            className="rounded p-1 text-texto-3 hover:bg-superficie hover:text-texto"
+            onClick={() => onEditar(materia)}
+            aria-label="Editar materia"
+          >
+            <PencilIcon className="size-3" />
+          </button>
+          <button
+            className="rounded p-1 text-texto-3 hover:bg-superficie hover:text-error"
+            onClick={() => onEliminar(materia)}
+            aria-label="Eliminar materia"
+          >
+            <Trash2Icon className="size-3" />
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function DivisionCard({
   division,
+  materiasComunes,
   puedeEditar,
   onEditar,
   onEliminar,
@@ -219,6 +294,7 @@ function DivisionCard({
   onEliminarMateria,
 }: {
   division: NivelConEstructura['anios'][number]['divisiones'][number]
+  materiasComunes: number
   puedeEditar: boolean
   onEditar: () => void
   onEliminar: () => void
@@ -231,7 +307,10 @@ function DivisionCard({
         <div>
           <p className="text-base font-semibold text-texto">{division.nombre}</p>
           <p className="mt-0.5 text-xs text-texto-2">
-            {division.materias.length} {division.materias.length === 1 ? 'materia' : 'materias'}
+            {plural(division.materias.length, 'materia propia', 'materias propias')}
+            {materiasComunes > 0 &&
+              ` · ${plural(materiasComunes, 'común', 'comunes')}`}{' '}
+            · {plural(division.cantidad_inscripciones, 'alumno', 'alumnos')}
           </p>
         </div>
         {puedeEditar && (
@@ -259,45 +338,13 @@ function DivisionCard({
       {division.materias.length > 0 && (
         <div className="mt-3 flex flex-col gap-1">
           {division.materias.map((materia) => (
-            <div
+            <MateriaFila
               key={materia.id}
-              className="flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-fila-hover"
-            >
-              <span className="flex items-center gap-1.5 text-texto">
-                {materia.tipo === 'taller' ? (
-                  <span className="rounded bg-sup-workflows px-1.5 py-0.5 text-xs font-semibold text-violeta">
-                    Taller
-                  </span>
-                ) : (
-                  <span className="rounded bg-sup-academico px-1.5 py-0.5 text-xs font-semibold text-info">
-                    Materia
-                  </span>
-                )}
-                {materia.nombre}
-                {materia.anio_numero && (
-                  <span className="text-texto-3">({materia.anio_numero}° Año)</span>
-                )}
-                {materia.division_id === null && <span className="text-texto-3">(común)</span>}
-              </span>
-              {puedeEditar && (
-                <div className="flex items-center gap-0.5">
-                  <button
-                    className="rounded p-1 text-texto-3 hover:bg-superficie hover:text-texto"
-                    onClick={() => onEditarMateria(materia)}
-                    aria-label="Editar materia"
-                  >
-                    <PencilIcon className="size-3" />
-                  </button>
-                  <button
-                    className="rounded p-1 text-texto-3 hover:bg-superficie hover:text-error"
-                    onClick={() => onEliminarMateria(materia)}
-                    aria-label="Eliminar materia"
-                  >
-                    <Trash2Icon className="size-3" />
-                  </button>
-                </div>
-              )}
-            </div>
+              materia={materia}
+              puedeEditar={puedeEditar}
+              onEditar={onEditarMateria}
+              onEliminar={onEliminarMateria}
+            />
           ))}
         </div>
       )}

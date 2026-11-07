@@ -3,6 +3,7 @@ import type { AccesoCreate, PersonaCreate } from '@/modules/auth/types'
 export type NivelEducativo = {
   id: string
   nombre: string
+  cantidad_anios: number
   created_at: string
   updated_at: string
 }
@@ -19,6 +20,8 @@ export type Anio = {
   id: string
   numero: number
   nivel_educativo_id: string
+  cantidad_divisiones: number
+  cantidad_materias: number
   created_at: string
   updated_at: string
 }
@@ -37,6 +40,9 @@ export type Division = {
   id: string
   nombre: string
   anio_id: string
+  cantidad_materias: number
+  cantidad_inscripciones: number
+  cantidad_asignaciones: number
   created_at: string
   updated_at: string
 }
@@ -60,6 +66,7 @@ export type Materia = {
   anio_id: string
   anio_numero?: number
   division_id: string | null
+  cantidad_asignaciones: number
   created_at: string
   updated_at: string
 }
@@ -117,6 +124,7 @@ export type MiDivision = {
   etiqueta: string
   anio_numero: number
   nivel_educativo_nombre: string
+  cantidad_materias: number
 }
 
 export type AsignacionDocente = {
@@ -134,6 +142,29 @@ export type AsignacionDocenteCreate = {
   docente_id: string
   materia_id: string
   division_id: string
+}
+
+export type AsignacionDocenteUpdate = {
+  ciclo_lectivo?: string
+  docente_id?: string
+  materia_id?: string
+  division_id?: string
+}
+
+export type AsignacionDocenteBulkItem = {
+  materia_id: string
+  division_id: string
+}
+
+export type AsignacionDocenteBulkCreate = {
+  ciclo_lectivo: string
+  docente_id: string
+  items: AsignacionDocenteBulkItem[]
+}
+
+export type AsignacionDocenteBulkResponse = {
+  creadas: AsignacionDocente[]
+  omitidas: AsignacionDocenteBulkItem[]
 }
 
 export type TipoAsistencia =
@@ -161,14 +192,53 @@ export type AsistenciaFamilia = Asistencia & {
   justificacion_archivo_nombre: string | null
 }
 
+export type EstadoJustificacion = 'pendiente' | 'aprobada' | 'rechazada'
+
 export type JustificacionFamilia = {
   id: string
   asistencia_id: string
-  estado: 'pendiente' | 'aprobada' | 'rechazada'
+  estado: EstadoJustificacion
   motivo: string
   observacion: string | null
   archivo_nombre: string | null
   fecha_carga: string
+  fecha_asistencia: string
+  alumno_nombre: string
+  alumno_id?: string
+  nivel_educativo_id?: string
+  nivel_educativo_nombre?: string
+  anio_id?: string
+  anio_numero?: number
+  division_id?: string
+  division_nombre?: string
+  fecha_resolucion?: string | null
+}
+
+export type JustificacionesResumen = {
+  pendientes: number
+  aprobadas: number
+  rechazadas: number
+  total: number
+}
+
+export type JustificacionesPaginadas = {
+  items: JustificacionFamilia[]
+  total: number
+  pagina: number
+  tamanio_pagina: number
+  total_paginas: number
+  resumen: JustificacionesResumen
+}
+
+export type OpcionJustificacion = {
+  nivel_educativo_id: string
+  nivel_educativo_nombre: string
+  anio_id: string
+  anio_numero: number
+  division_id: string
+  division_nombre: string
+  alumno_id: string
+  alumno_nombre: string
 }
 
 export type AsistenciaCreate = {
