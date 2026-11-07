@@ -613,7 +613,7 @@ students. Publication validates completeness again on the server: non-empty subj
 a complete audience with resolvable enabled recipients, and clean attachments. An incomplete
 draft can never be published, even through a direct API call.
 
-`comunicacion.version` is an optimistic-concurrency counter: every accepted edit increments it,
+`comunicacion.version` is an optimistic-concurrency counter: every accepted change increments it,
 an edit or publication carrying an older `version` returns 409, and neither queued recipients
 nor email intentions are created by draft saves. The `version` field is optional in the request
 for pre-version callers, but the web client always sends it, so two open sessions cannot
