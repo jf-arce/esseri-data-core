@@ -278,7 +278,7 @@ table for drafts, and no change to n8n or the email transport.
   author is still writing. Present IDs keep their teacher scope validation.
 - Publication revalidates completeness, recipient resolution and attachment readiness on the
   server, so an incomplete draft cannot be published through a direct API call.
-- `comunicacion.version` is an optimistic counter: every accepted edit increments it, and a
+- `comunicacion.version` is an optimistic counter: every accepted change increments it, and a
   stale edit or publication returns 409. The field stays optional for pre-version callers;
   the web client always sends it.
 - The browser keeps a per-user, per-draft copy. Only a copy with unsynchronized edits may
