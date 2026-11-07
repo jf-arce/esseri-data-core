@@ -16,12 +16,10 @@ it('downloads the selected invoice through the family endpoint', async () => {
 it('shares the selected PDF file without exposing a link', async () => {
   const share = vi.fn().mockResolvedValue(undefined)
   const canShare = vi.fn().mockReturnValue(true)
-  const fetch = vi
-    .fn()
-    .mockResolvedValue({
-      ok: true,
-      blob: async () => new Blob(['pdf'], { type: 'application/pdf' }),
-    })
+  const fetch = vi.fn().mockResolvedValue({
+    ok: true,
+    blob: async () => new Blob(['pdf'], { type: 'application/pdf' }),
+  })
   vi.stubGlobal('fetch', fetch)
   vi.stubGlobal('navigator', { share, canShare })
   await compartirFacturaFamilia('abc')
