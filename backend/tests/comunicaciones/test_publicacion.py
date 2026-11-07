@@ -1,14 +1,17 @@
 """Persistent public API tests for institutional publication and individual reading."""
 
 import uuid
+from datetime import datetime
 
 import pytest
 from sqlalchemy import select
 
 from src.auth import config, sesion_service
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
-from src.familias_alumnos.models import FamiliaAlumno
-from src.models import AuditLog, Base
+from src.comunicaciones.models import ReciboComunicacion
+from src.familias_alumnos.models import Familia, FamiliaAlumno
+from src.models import AuditLog, Base, Persona
+from src.workflows.models import EnvioNotificacion, Notificacion
 
 
 @pytest.fixture()
@@ -65,6 +68,60 @@ def snapshot(db):
         t.name: sorted(repr(tuple(r)) for r in db.execute(select(t)))
         for t in Base.metadata.sorted_tables
     }
+
+
+@pytest.mark.parametrize(
+    ("asunto", "cuerpo", "audiencia"),
+    [
+        ("Solo asunto", "", {"tipo": "division", "ids": [], "ciclo_lectivo": "2027"}),
+        ("", "Mensaje parcial", {"tipo": "alumnos", "ids": [], "ciclo_lectivo": None}),
+    ],
+)
+def test_borrador_incompleto_se_recupera_pero_no_se_publica(
+    client, escenario, db_session, asunto, cuerpo, audiencia
+):
+    ids, _ = escenario
+    payload = datos(ids, asunto=asunto, cuerpo=cuerpo, audiencia=audiencia)
+    response = client.post("/comunicaciones", json=payload)
+    assert response.status_code == 201, response.text
+    draft = response.json()
+    assert draft["asunto"] == asunto
+    assert draft["cuerpo"] == cuerpo
+    assert client.get(f"/comunicaciones/{draft['id']}").json()["audiencia"] == audiencia
+    assert client.post(f"/comunicaciones/{draft['id']}/publicar").status_code == 422
+    assert not db_session.scalars(select(ReciboComunicacion)).all()
+    assert not db_session.scalars(select(EnvioNotificacion)).all()
+
+
+@pytest.mark.parametrize("cambio", [{"asunto": "  "}, {"cuerpo": ""}])
+def test_publicar_rechaza_texto_incompleto_con_audiencia_valida(client, escenario, cambio):
+    ids, _ = escenario
+    response = client.post("/comunicaciones", json=datos(ids, **cambio))
+    assert response.status_code == 201, response.text
+    assert client.post(f"/comunicaciones/{response.json()['id']}/publicar").status_code == 422
+
+
+def test_version_obsoleta_no_sobrescribe_ni_publica(client, escenario):
+    ids, _ = escenario
+    payload = datos(ids)
+    creado = client.post("/comunicaciones", json=payload).json()
+    version = creado["version"]
+    primero = client.put(
+        f"/comunicaciones/{creado['id']}",
+        json={**payload, "asunto": "Versión nueva", "version": version},
+    )
+    assert primero.status_code == 200
+    assert primero.json()["version"] == version + 1
+    obsoleto = client.put(
+        f"/comunicaciones/{creado['id']}",
+        json={**payload, "asunto": "Versión obsoleta", "version": version},
+    )
+    assert obsoleto.status_code == 409
+    publicacion = client.post(f"/comunicaciones/{creado['id']}/publicar", json={"version": version})
+    assert publicacion.status_code == 409
+    actual = client.get(f"/comunicaciones/{creado['id']}").json()
+    assert actual["estado"] == "borrador"
+    assert actual["asunto"] == "Versión nueva"
 
 
 @pytest.mark.parametrize("tipo", ["administrativa", "otro"])
@@ -159,6 +216,220 @@ def test_listas_destinatarios_paginan_buscan_y_filtran_enviados(client, escenari
     assert client.get(ruta, params={"vista": "desconocida"}).status_code == 422
     entrar(ids["usuario_a"], "familia")
     assert client.get(ruta).status_code == 403
+
+
+def test_entrega_separa_responsables_de_emails_y_muestra_lectura(client, escenario, db_session):
+    ids, _ = escenario
+    vinculo_c = db_session.get(FamiliaAlumno, ids["vinculo_c"])
+    vinculo_c.recibe_comunicaciones = True
+    familia_a = db_session.get(Familia, ids["familia_a"])
+    persona_a = db_session.get(Persona, familia_a.persona_id)
+    persona_a.nombre, persona_a.apellido = "Ana", "Gómez"
+    db_session.add(
+        Usuario(
+            email="responsable.a2@example.test",
+            estado="activo",
+            auth_provider="local",
+            persona_id=persona_a.id,
+        )
+    )
+    db_session.commit()
+
+    c = crear(client, ids, audiencia={"tipo": "todos", "ids": []}, canal="ambos")
+    assert client.post(f"/comunicaciones/{c['id']}/publicar").status_code == 200
+    envios = db_session.scalars(
+        select(EnvioNotificacion).where(EnvioNotificacion.comunicacion_id == uuid.UUID(c["id"]))
+    ).all()
+    assert len(envios) == 4
+    for envio in envios:
+        if envio.email:
+            envio.estado = "presentado"
+    fallido = next(
+        envio
+        for envio in envios
+        if envio.familia_id == ids["familia_a"] and envio.email == "responsable.a@example.test"
+    )
+    fallido.estado = "fallido"
+    db_session.add(
+        Notificacion(
+            destinatario_tipo="familia",
+            canal="email",
+            destinatario_snapshot=fallido.email,
+            asunto_snapshot=c["asunto"],
+            cuerpo_snapshot="Prueba",
+            estado_envio="fallido",
+            envio_id=fallido.id,
+            numero_intento=1,
+            started_at=datetime(2026, 10, 30, 12, 0),
+            finished_at=datetime(2026, 10, 30, 12, 1),
+            error_codigo="timeout",
+        )
+    )
+    recibo_a = db_session.scalar(
+        select(ReciboComunicacion).where(
+            ReciboComunicacion.comunicacion_id == uuid.UUID(c["id"]),
+            ReciboComunicacion.familia_id == ids["familia_a"],
+        )
+    )
+    recibo_a.leida_at = datetime(2026, 10, 30, 12, 5)
+    db_session.commit()
+
+    ruta = f"/comunicaciones/{c['id']}/entrega"
+    respuesta = client.get(ruta)
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.headers["cache-control"] == "private, no-store"
+    assert (
+        client.get(f"/comunicaciones/{c['id']}/envios").headers["cache-control"]
+        == "private, no-store"
+    )
+    datos = respuesta.json()
+    assert datos["total"] == 3
+    assert datos["resumen"] == {
+        "responsables": 3,
+        "responsables_con_email": 2,
+        "responsables_sin_email": 1,
+        "responsables_leidos": 1,
+        "responsables_no_leidos": 2,
+        "emails": 3,
+        "emails_aceptados": 2,
+        "emails_pendientes": 0,
+        "emails_fallidos": 1,
+        "emails_inciertos": 0,
+        "email_aplica": True,
+        "lectura_aplica": True,
+    }
+    ana = next(item for item in datos["items"] if item["nombre"] == "Ana Gómez")
+    assert {envio["email"] for envio in ana["emails"]} == {
+        "responsable.a@example.test",
+        "responsable.a2@example.test",
+    }
+    assert ana["leida_at"].startswith("2026-10-30T12:05")
+    fallido_leido = next(
+        envio for envio in ana["emails"] if envio["email"] == "responsable.a@example.test"
+    )
+    assert fallido_leido["estado"] == "fallido"
+    assert fallido_leido["intentos"][0]["error_codigo"] == "timeout"
+    sin_email = next(item for item in datos["items"] if item["nombre"].startswith("familia_c"))
+    assert sin_email["emails"] == [
+        {
+            "id": sin_email["emails"][0]["id"],
+            "email": None,
+            "estado": "sin_email",
+            "intentos": [],
+        }
+    ]
+    assert sin_email["leida_at"] is None
+
+    assert client.get(ruta, params={"buscar": "GOMEZ"}).json()["total"] == 1
+    assert client.get(ruta, params={"buscar": "responsable.b"}).json()["total"] == 1
+    assert client.get(ruta, params={"filtro": "con_email"}).json()["total"] == 2
+    assert client.get(ruta, params={"filtro": "sin_email"}).json()["total"] == 1
+    assert client.get(ruta, params={"filtro": "enviados"}).json()["total"] == 2
+    assert client.get(ruta, params={"filtro": "pendientes"}).json()["total"] == 0
+    assert client.get(ruta, params={"filtro": "fallidos"}).json()["total"] == 1
+    assert client.get(ruta, params={"filtro": "inciertos"}).json()["total"] == 0
+    assert client.get(ruta, params={"filtro": "leidos"}).json()["total"] == 1
+    assert client.get(ruta, params={"filtro": "no_leidos"}).json()["total"] == 2
+    assert client.get(ruta, params={"filtro": "desconocido"}).status_code == 422
+    assert client.get(ruta, params={"pagina": 0}).status_code == 422
+
+
+def test_entrega_pagina_y_busca_en_todo_el_resultado(client, escenario, db_session):
+    ids, entrar = escenario
+    c = crear(client, ids, audiencia={"tipo": "alumnos", "ids": [str(ids["alumno_a"])]})
+    assert client.post(f"/comunicaciones/{c['id']}/publicar").status_code == 200
+    for indice in range(12):
+        nombre, apellido = ("Ana", "Gómez") if indice == 0 else (f"Persona{indice:02}", "Prueba")
+        persona = Persona(nombre=nombre, apellido=apellido, dni=f"9700{indice:04}")
+        db_session.add(persona)
+        db_session.flush()
+        familia = Familia(persona_id=persona.id)
+        db_session.add(familia)
+        db_session.flush()
+        db_session.add(
+            ReciboComunicacion(
+                comunicacion_id=uuid.UUID(c["id"]), familia_id=familia.id, alumnos=[]
+            )
+        )
+    db_session.commit()
+    ruta = f"/comunicaciones/{c['id']}/entrega"
+    primera = client.get(ruta).json()
+    assert primera["total"] == 13
+    assert primera["total_paginas"] == 2
+    assert len(primera["items"]) == 10
+    segunda = client.get(ruta, params={"pagina": 2}).json()
+    assert len(segunda["items"]) == 3
+    assert {fila["id"] for fila in primera["items"]}.isdisjoint(
+        fila["id"] for fila in segunda["items"]
+    )
+    for buscar in ("gomez", "GÓMEZ"):
+        encontrados = client.get(ruta, params={"buscar": buscar}).json()
+        assert encontrados["total"] == 1
+        assert encontrados["items"][0]["nombre"] == "Ana Gómez"
+    assert client.get(ruta, params={"buscar": "%"}).json()["total"] == 0
+    guion_bajo = client.get(ruta, params={"buscar": "_"}).json()
+    assert guion_bajo["total"] == 1, guion_bajo
+    assert "_" in guion_bajo["items"][0]["nombre"]
+    destinatarios = f"/comunicaciones/{c['id']}/destinatarios"
+    assert client.get(destinatarios, params={"buscar": "%"}).json()["total"] == 0
+    assert client.get(destinatarios, params={"buscar": "_"}).json()["total"] == 1
+    assert client.get(ruta, params={"filtro": "no_leidos"}).json()["total"] == 13
+    recibo = db_session.scalar(
+        select(ReciboComunicacion).where(
+            ReciboComunicacion.comunicacion_id == uuid.UUID(c["id"]),
+            ReciboComunicacion.familia_id == ids["familia_a"],
+        )
+    )
+    recibo.leida_at = datetime(2026, 10, 30, 12, 0)
+    db_session.commit()
+    assert client.get(ruta, params={"filtro": "leidos"}).json()["total"] == 1
+    assert client.get(ruta, params={"filtro": "no_leidos"}).json()["total"] == 12
+    assert client.get(ruta, params={"filtro": "sin_email"}).json()["total"] == 0
+    entrar(ids["usuario_a"], "familia")
+    assert client.get(ruta).status_code == 403
+
+
+@pytest.mark.parametrize(
+    ("canal", "email_aplica", "lectura_aplica"),
+    [("email", True, False), ("portal", False, True)],
+)
+def test_entrega_no_inventa_estados_del_canal_que_no_aplica(
+    client, escenario, canal, email_aplica, lectura_aplica
+):
+    ids, _ = escenario
+    c = crear(
+        client,
+        ids,
+        audiencia={"tipo": "alumnos", "ids": [str(ids["alumno_a"])]},
+        canal=canal,
+    )
+    assert client.post(f"/comunicaciones/{c['id']}/publicar").status_code == 200
+    ruta = f"/comunicaciones/{c['id']}/entrega"
+    datos = client.get(ruta).json()
+    resumen = datos["resumen"]
+    assert resumen["email_aplica"] is email_aplica
+    assert resumen["lectura_aplica"] is lectura_aplica
+    assert all(item["leida_at"] is None for item in datos["items"])
+    if email_aplica:
+        assert resumen["emails"] == 1
+        assert resumen["responsables_con_email"] == 1
+        assert resumen["responsables_sin_email"] == 0
+        assert datos["items"][0]["contactos"] == []
+        assert client.get(ruta, params={"filtro": "con_email"}).json()["total"] == 1
+        assert client.get(ruta, params={"filtro": "leidos"}).json()["total"] == 0
+        assert client.get(ruta, params={"filtro": "no_leidos"}).json()["total"] == 0
+    else:
+        assert resumen["emails"] == 0
+        assert resumen["responsables_con_email"] == 0
+        assert resumen["responsables_sin_email"] == 0
+        assert resumen["responsables_no_leidos"] == 1
+        assert datos["items"][0]["emails"] == []
+        assert [contacto["email"] for contacto in datos["items"][0]["contactos"]] == [
+            "responsable.a@example.test"
+        ]
+        assert client.get(ruta, params={"buscar": "responsable.a"}).json()["total"] == 1
+        assert client.get(ruta, params={"filtro": "sin_email"}).json()["total"] == 0
+        assert client.get(ruta, params={"filtro": "no_leidos"}).json()["total"] == 1
 
 
 def test_borrador_publicacion_y_lectura_persistida(client, escenario, db_session):
@@ -295,9 +566,9 @@ def test_otro_autor_no_puede_editar_ni_publicar_borrador(client, escenario, db_s
 @pytest.mark.parametrize(
     "cambio",
     [
-        {"asunto": "  "},
-        {"cuerpo": ""},
-        {"audiencia": {"tipo": "alumnos", "ids": []}},
+        {"asunto": "a" * 201},
+        {"cuerpo": "a" * 20001},
+        {"audiencia": {"tipo": "alumnos", "ids": ["not-a-uuid"]}},
         {"audiencia": {"tipo": "division", "ids": [str(uuid.uuid4())]}},
     ],
 )

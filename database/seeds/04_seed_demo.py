@@ -14,7 +14,8 @@ Uso (desde backend/, con el venv activado):
 Credenciales de la cuenta demo (solo no-producción):
     demo.admin@esseri.local / EsseriDemo2026!
 
-La contraseña puede sobreescribirse con ESSERI_DEMO_PASSWORD.
+La contraseña puede sobreescribirse con ESSERI_DEMO_PASSWORD. Las cuentas de familia
+(familia-<dni>@...) usan la misma.
 """
 
 from __future__ import annotations
@@ -132,24 +133,28 @@ REGLAS_MORA = [
 # numérico las ordena entre sí (el motor ordena por nombre); no hay dependencia entre ellas.
 PLANTILLA_VENCIDA = {
     "nombre": "Aviso de factura vencida",
-    "asunto": "Factura vencida de la familia {{nombre_familia}}",
+    "asunto": "Pago pendiente de la factura de {{alumno_nombre}}",
     "cuerpo": (
-        "Estimada familia {{nombre_familia}}:\n\n"
-        "Les informamos que su factura lleva {{dias_vencido}} días vencida, con una deuda de "
-        "${{monto_deuda}}. Les pedimos regularizar el pago a la brevedad.\n\n"
-        "Si ya lo realizaron, por favor ignoren este aviso.\n\n"
-        "Saludos cordiales."
+        "Hola, familia {{apellido_familia}}:\n\n"
+        "Les escribimos porque la factura de {{alumno_nombre}} venció hace "
+        "**{{dias_vencido_texto}}** y todavía no registramos el pago. El saldo pendiente es:\n\n"
+        "**${{monto_deuda}}**\n\n"
+        "Les pedimos que lo regularicen lo antes posible. Si ya pagaron, pueden ignorar este "
+        "mensaje.\n\n"
+        "Muchas gracias."
     ),
 }
 
 # Sin plantilla, la alerta interna usaría `Alerta interna: <nombre de la regla>` como asunto.
 PLANTILLA_ALERTA_VENCIDA = {
     "nombre": "Alerta interna de factura vencida",
-    "asunto": "Factura vencida: familia {{nombre_familia}}",
+    "asunto": "La factura de {{alumno_nombre}} lleva {{dias_vencido_texto}} vencida",
     "cuerpo": (
-        "Una factura de la familia {{nombre_familia}} lleva {{dias_vencido}} días vencida y la "
-        "familia ya fue notificada.\n\n"
-        "Revisen en el historial de ejecuciones las penalidades pendientes de aprobación."
+        "La factura de {{alumno_nombre}} venció hace **{{dias_vencido_texto}}** y sigue sin "
+        "pagarse. La deuda es de:\n\n"
+        "**${{monto_deuda}}**\n\n"
+        "Ya le avisamos a la familia por mail. La penalidad por mora quedó **pendiente de "
+        "aprobación**: pueden revisarla desde el historial de ejecuciones."
     ),
 }
 
@@ -170,7 +175,7 @@ REGLAS_VENCIMIENTO = [
     {
         "nombre": "Vencimiento 3: aviso a la familia",
         "tipo_accion": "notificar",
-        "accion_config": {"destinatario": "responsable_economico"},
+        "accion_config": {"destinatario": "responsable_economico", "enlace": "familia_facturacion"},
         "criticidad": "media",
         "plantilla": PLANTILLA_VENCIDA["nombre"],
     },
@@ -985,7 +990,9 @@ def _ensure_facturacion(db, usuario: Usuario, inscripciones: list[Inscripcion], 
             factura.estado = "pagada"
         elif idx < 12:
             monto_pago = min(Decimal("80000.00"), factura.monto_total)
-            factura.estado = "pendiente"
+            # Si el flujo de mora ya la venció, el detector no reemite ese tramo: no se pisa.
+            if factura.estado != "vencida":
+                factura.estado = "pendiente"
         else:
             monto_pago = None
             factura.estado = "vencida"
@@ -1104,7 +1111,10 @@ def _ensure_admision_en_vivo(db, usuario: Usuario, niveles: dict[str, NivelEduca
     """Deja siempre una solicitud de Nivel Primario lista para finalizar el alta en vivo (#209)."""
     dni, nombre, apellido, telefono, sexo = CONTACTO_EN_VIVO
     contacto = _persona(db, dni, nombre, apellido, telefono, sexo)
-    _ensure_cuenta_demo(db, contacto.id, _email_demo(f"familia-{dni}"), None)
+    email = _email_demo(f"familia-{dni}")
+    cuenta = _ensure_cuenta_demo(db, contacto.id, email, None)
+    # El alta en vivo la convierte en familia pero no toca su cuenta: el rol va desde ahora.
+    _habilitar_portal_familia(db, cuenta, email, _require(db, Rol, codigo="familia"))
 
     indice = 0
     while True:
@@ -1231,8 +1241,24 @@ def _ensure_cuentas_personal(db):
         _ensure_cuenta_demo(db, None, _email_demo(alias), rol)
 
 
+def _habilitar_portal_familia(db, usuario: Usuario, email: str, rol: Rol):
+    """Le da rol y contraseña demo a la cuenta que creó el seed, para entrar al portal. Una cuenta
+    con otro email o con contraseña propia no la creó el seed y no se toca."""
+    if usuario.email != email or usuario.password_hash is not None:
+        return
+    usuario.password_hash = hashear_password(DEMO_PASSWORD)
+    vinculo = db.scalar(
+        select(UsuarioRol).where(UsuarioRol.usuario_id == usuario.id, UsuarioRol.rol_id == rol.id)
+    )
+    if vinculo is None:
+        db.add(UsuarioRol(usuario_id=usuario.id, rol_id=rol.id))
+    db.flush()
+
+
 def _ensure_cuentas_familias(db, familias: list[Familia]):
-    """Una cuenta por familia responsable de alguna factura impaga, para que reciba el aviso."""
+    """Una cuenta por familia responsable de alguna factura impaga, para que reciba el aviso y
+    pueda ver sus facturas en el portal."""
+    rol = _require(db, Rol, codigo="familia")
     familia_ids = set(
         db.scalars(
             select(ResponsableEconomico.familia_id)
@@ -1246,7 +1272,9 @@ def _ensure_cuentas_familias(db, familias: list[Familia]):
             continue
         vistas.add(familia.persona_id)
         persona = db.get(Persona, familia.persona_id)
-        _ensure_cuenta_demo(db, persona.id, _email_demo(f"familia-{persona.dni}"), None)
+        email = _email_demo(f"familia-{persona.dni}")
+        usuario = _ensure_cuenta_demo(db, persona.id, email, None)
+        _habilitar_portal_familia(db, usuario, email, rol)
 
 
 def _ensure_reglas_inasistencia(db, usuario: Usuario):

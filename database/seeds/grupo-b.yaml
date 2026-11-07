@@ -225,11 +225,20 @@ campo_evento:
     - nombre_interno: dias_vencido
       etiqueta: Días de deuda
       tipo_dato: numero
+    - nombre_interno: dias_vencido_texto
+      etiqueta: Días de deuda en texto ("1 día", "55 días")
+      tipo_dato: texto
     - nombre_interno: monto_deuda
       etiqueta: Monto adeudado
       tipo_dato: numero
     - nombre_interno: nombre_familia
       etiqueta: Nombre del responsable económico
+      tipo_dato: texto
+    - nombre_interno: apellido_familia
+      etiqueta: Apellido de la familia
+      tipo_dato: texto
+    - nombre_interno: alumno_nombre
+      etiqueta: Nombre del alumno
       tipo_dato: texto
 
   inscripcion.cambio_matricula:

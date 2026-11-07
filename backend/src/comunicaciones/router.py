@@ -15,13 +15,28 @@ from src.auth.dependencies import DbSession, RolActivo, requiere_permiso
 from src.auth.models import Usuario
 from src.comunicaciones import service
 from src.comunicaciones.schemas import (
+    BorradorEdicionInput,
     BorradorInput,
     ComunicacionRead,
     Listado,
     ListadoDestinatarios,
+    ListadoEntrega,
+    PublicableInput,
+    PublicacionInput,
 )
 
 router = APIRouter(prefix="/comunicaciones", tags=["Comunicaciones"])
+FiltroEntrega = Literal[
+    "todos",
+    "con_email",
+    "sin_email",
+    "enviados",
+    "pendientes",
+    "fallidos",
+    "inciertos",
+    "leidos",
+    "no_leidos",
+]
 Crear = Annotated[Usuario, Depends(requiere_permiso(PERMISO_COMUNICACIONES_CREAR))]
 Editar = Annotated[Usuario, Depends(requiere_permiso(PERMISO_COMUNICACIONES_ACTUALIZAR))]
 Leer = Annotated[Usuario, Depends(requiere_permiso(PERMISO_COMUNICACIONES_LEER))]
@@ -92,7 +107,9 @@ def opciones_docente(
 
 
 @router.post("/docente/vista-previa")
-def vista_previa_docente(data: BorradorInput, db: DbSession, usuario: CrearDocente, rol: RolActivo):
+def vista_previa_docente(
+    data: PublicableInput, db: DbSession, usuario: CrearDocente, rol: RolActivo
+):
     solo_docente(rol)
     service.validar_curso(db, usuario, data.audiencia)
     return {"destinatarios": len(service.resolver(db, data.audiencia))}
@@ -132,7 +149,7 @@ def obtener_docente(
 @router.put("/docente/{id}")
 def editar_docente(
     id: uuid.UUID,
-    data: BorradorInput,
+    data: BorradorEdicionInput,
     db: DbSession,
     usuario: EditarDocente,
     rol: RolActivo,
@@ -143,10 +160,14 @@ def editar_docente(
 
 @router.post("/docente/{id}/publicar")
 def publicar_docente(
-    id: uuid.UUID, db: DbSession, usuario: CrearDocente, rol: RolActivo
+    id: uuid.UUID,
+    db: DbSession,
+    usuario: CrearDocente,
+    rol: RolActivo,
+    data: PublicacionInput | None = None,
 ) -> ComunicacionRead:
     solo_docente(rol)
-    return service.publicar(db, id, usuario, tipo="curso")
+    return service.publicar(db, id, usuario, data.version if data else None, tipo="curso")
 
 
 @router.get("/opciones")
@@ -156,7 +177,7 @@ def opciones(db: DbSession, _: Crear, rol: RolActivo):
 
 
 @router.post("/vista-previa")
-def vista_previa(data: BorradorInput, db: DbSession, _: Crear, rol: RolActivo):
+def vista_previa(data: PublicableInput, db: DbSession, _: Crear, rol: RolActivo):
     gestion(rol)
     return {"destinatarios": len(service.resolver(db, data.audiencia))}
 
@@ -188,24 +209,37 @@ def obtener(id: uuid.UUID, db: DbSession, usuario: Leer, rol: RolActivo) -> Comu
 
 @router.put("/{id}")
 def editar(
-    id: uuid.UUID, data: BorradorInput, db: DbSession, usuario: Editar, rol: RolActivo
+    id: uuid.UUID, data: BorradorEdicionInput, db: DbSession, usuario: Editar, rol: RolActivo
 ) -> ComunicacionRead:
     gestion(rol)
     return service.editar(db, id, data, usuario, tipo="institucional")
 
 
 @router.post("/{id}/publicar")
-def publicar(id: uuid.UUID, db: DbSession, usuario: Crear, rol: RolActivo) -> ComunicacionRead:
+def publicar(
+    id: uuid.UUID,
+    db: DbSession,
+    usuario: Crear,
+    rol: RolActivo,
+    data: PublicacionInput | None = None,
+) -> ComunicacionRead:
     gestion(rol)
-    return service.publicar(db, id, usuario, tipo="institucional")
+    return service.publicar(db, id, usuario, data.version if data else None, tipo="institucional")
 
 
 @router.get("/docente/{id}/envios")
-def envios_docente(id: uuid.UUID, db: DbSession, usuario: LeerDocente, rol: RolActivo):
+def envios_docente(
+    id: uuid.UUID,
+    db: DbSession,
+    usuario: LeerDocente,
+    rol: RolActivo,
+    response: Response,
+):
     from src.workflows.manuales_service import historial
 
     solo_docente(rol)
     service.obtener(db, id, usuario, tipo="curso")
+    response.headers["Cache-Control"] = "private, no-store"
     return historial(db, id)
 
 
@@ -226,6 +260,23 @@ def destinatarios_docente(
     return service.listar_destinatarios(db, id, pagina, buscar, vista)
 
 
+@router.get("/docente/{id}/entrega")
+def entrega_docente(
+    id: uuid.UUID,
+    db: DbSession,
+    usuario: LeerDocente,
+    rol: RolActivo,
+    response: Response,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    buscar: Annotated[str, Query(max_length=200)] = "",
+    filtro: FiltroEntrega = "todos",
+) -> ListadoEntrega:
+    solo_docente(rol)
+    comunicacion = service.obtener(db, id, usuario, tipo="curso")
+    response.headers["Cache-Control"] = "private, no-store"
+    return service.listar_entrega(db, comunicacion, pagina, buscar, filtro)
+
+
 @router.get("/{id}/destinatarios")
 def destinatarios(
     id: uuid.UUID,
@@ -243,12 +294,36 @@ def destinatarios(
     return service.listar_destinatarios(db, id, pagina, buscar, vista)
 
 
+@router.get("/{id}/entrega")
+def entrega(
+    id: uuid.UUID,
+    db: DbSession,
+    usuario: Leer,
+    rol: RolActivo,
+    response: Response,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    buscar: Annotated[str, Query(max_length=200)] = "",
+    filtro: FiltroEntrega = "todos",
+) -> ListadoEntrega:
+    gestion(rol)
+    comunicacion = service.obtener(db, id, usuario, tipo="institucional")
+    response.headers["Cache-Control"] = "private, no-store"
+    return service.listar_entrega(db, comunicacion, pagina, buscar, filtro)
+
+
 @router.get("/{id}/envios")
-def envios(id: uuid.UUID, db: DbSession, usuario: Leer, rol: RolActivo):
+def envios(
+    id: uuid.UUID,
+    db: DbSession,
+    usuario: Leer,
+    rol: RolActivo,
+    response: Response,
+):
     from src.workflows.manuales_service import historial
 
     gestion(rol)
     service.obtener(db, id, usuario)
+    response.headers["Cache-Control"] = "private, no-store"
     return historial(db, id)
 
 

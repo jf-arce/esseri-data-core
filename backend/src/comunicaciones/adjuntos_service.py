@@ -294,7 +294,9 @@ def _auditar(db: Session, adjunto: ComunicacionAdjunto, usuario: Usuario, anteri
 def _validar_alcance(db: Session, usuario: Usuario, comunicacion: Comunicacion, tipo: str) -> None:
     """Course messages revalidate the current assignment before any attachment mutation."""
     if tipo == "curso":
-        service.validar_curso(db, usuario, service.Audiencia.model_validate(comunicacion.audiencia))
+        service.validar_curso_borrador(
+            db, usuario, service.AudienciaBorrador.model_validate(comunicacion.audiencia)
+        )
 
 
 def _totales(db: Session, comunicacion_id: uuid.UUID) -> tuple[int, int]:

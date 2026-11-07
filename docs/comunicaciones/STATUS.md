@@ -5,6 +5,7 @@ implemented locally with verification still in progress, not declared complete.*
 Current worktree: `../esseri-data-core-worktrees/comunicaciones-etapa-3`, branch
 `feat/comunicaciones-etapa-3`, based on `c6c2615`. No push/PR or stage 4 is authorized.
 Read [PLAN.md](PLAN.md) for approved scope. No managed prompt or model config changed.
+Stage 4, draft autosave, is merged; see the dated section at the end.
 
 ## Current implementation checkpoint
 
@@ -266,3 +267,38 @@ mechanism, not a literal test with a second model or a promise of cross-machine 
   `git diff --cached --check` must pass; repository-relative links must resolve.
   Rollback boundary: remove/revert only these two new documents on this docs branch.
   Root dirty checkout and all other worktrees remain unchanged.
+
+## Stage 4 — draft autosave (merged 2026-11-06)
+
+PR [#286](https://github.com/jf-arce/esseri-data-core/pull/286) merged into `main` as
+`c130072`. Scope: automatic saving and recovery of incomplete drafts. No new module, no
+table for drafts, and no change to n8n or the email transport.
+
+- Drafts accept an empty subject or body and an audience without selected IDs, because the
+  author is still writing. Present IDs keep their teacher scope validation.
+- Publication revalidates completeness, recipient resolution and attachment readiness on the
+  server, so an incomplete draft cannot be published through a direct API call.
+- `comunicacion.version` is an optimistic counter: every accepted change increments it, and a
+  stale edit or publication returns 409. The field stays optional for pre-version callers;
+  the web client always sends it.
+- The browser keeps a per-user, per-draft copy. Only a copy with unsynchronized edits may
+  override the server version on load; synchronized caches are discarded.
+- Synchronization waits 2.5 s after the last edit, keeps one write in flight per draft, queues
+  edits made meanwhile, retries with backoff when offline and resumes on `online`. Creation
+  retries the exact original snapshot so a lost response cannot create a second draft.
+- A version conflict offers the server version or the local one. Neither is discarded silently.
+- Autosave never publishes, creates receipts, prepares email intentions or calls n8n.
+
+Migration `05c0cafefee6` adds `version` as `integer NOT NULL DEFAULT 1`; upgrade and downgrade
+were verified on disposable PostgreSQL.
+
+Evidence at merge time: full backend 1354 passed, 11 skipped; communications 73 passed, 11
+skipped on SQLite and 82 passed, 2 skipped on isolated PostgreSQL, including two simultaneous
+edits returning 200 and 409; frontend 662 passed with lint and build clean; real-browser E2E
+4 of 4 (immediate reload, tab close and reopen, debounced save, offline resync); PR checks
+passed for backend and frontend.
+
+Limits: independent backend verification was not obtained because the reviewer subagent had
+shell access denied by the sandbox; browser copies are not encrypted and live in the browser
+profile, which matters on shared devices; the E2E suite intercepts the API instead of
+exercising the real backend.

@@ -28,6 +28,29 @@ server pagination use the real API.
 
 ### Communications — stage 3 interface
 
+The staff detail separates **Mensaje** from **Entrega (N)**, where N counts responsible
+people (not email addresses). The active tab is preserved in `?vista=entrega`. Message content
+and attachments remain on the first tab, with a short delivery link; delivery data is loaded
+only when opening it. Portal-only publications and drafts have explicit delivery states without
+calling email endpoints. Families do not receive staff delivery tabs or recipient lists.
+
+**Entrega** is a server-side projection with one row per responsible. The **Email** column shows
+only the address(es). Communications with email get **Estado mail**; communications with portal
+get **Estado** (portal-only) or **Estado portal** (when both channels apply), carrying the first
+portal read (“Leído” with its date/time on hover, “No leído”). The summary uses compact
+individual metric cards: **Destinatarios**, plus **Enviados**/**Rechazados** when email applies
+and **Leídos**/**Sin leer** when portal applies (3 cards for one channel, 5 for both). All cards
+share the same size and typography. Portal-only rows show the responsible's contact email; the
+summary clarifies that no emails were sent. Search and state filters run over the complete result
+(accent-insensitive, including email addresses; `%` and `_` are literal); pagination shows 10
+responsible people per page. If the current page becomes out of range after a retry or filter
+change, the table clamps to the last valid page and refetches instead of showing a dead-end empty
+state. Retry errors clear when the delivery is reloaded. Summary counts keep responsible people
+and email intentions separate and never claim delivery or bounce. Send-status tooltips expose the
+attempt history; retries are offered only for definite failures. Staff metadata
+uses the subject as title, plain category/channel labels, publication state and a compact
+Buenos Aires date/time without seconds. No new backend delivery states are inferred.
+
 Management can select Institutional, Administrative or Other content types, then select the
 audience independently. Audience cards expand inline; student/responsible searches preserve
 checked entries. Attaching the first file saves the valid draft automatically without publishing.
@@ -307,3 +330,15 @@ Los primitivos de `components/ui/` ya tienen la identidad ESSERI horneada adentr
 pantallas nuevas combinando estos primitivos; si una composición se repite en 2+ módulos (card de
 indicador, barra de filtros, riel de eventos), sube a `src/components/` como componente propio,
 nunca copiada entre módulos.
+
+## Contenedor en Railway sin dominio propio
+
+Configurar `VITE_API_URL=/api` y `NGINX_CONFIG=nginx-railway.conf` durante el build. En runtime,
+`BACKEND_UPSTREAM` contiene el host privado y puerto del backend (`host:8000`, sin protocolo).
+El entrypoint de la imagen oficial genera Nginx desde la plantilla y usa los resolvers del contenedor.
+La configuración predeterminada `nginx.conf` sigue sirviendo solo archivos estáticos.
+
+Railway publica el frontend por HTTPS; `/api/` se reenvía al backend privado y la cookie OAuth
+se ajusta a `/api/auth`. El procedimiento y las variables del backend están en
+[Railway](../infra/railway.md). Para verificar este proxy sin Docker, seguir
+[las pruebas de Infra](../infra/README.md#verificar-el-proxy-de-railway-sin-docker).
