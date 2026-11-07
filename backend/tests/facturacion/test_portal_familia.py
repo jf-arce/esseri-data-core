@@ -12,6 +12,7 @@ from src.facturacion.facturas_service import crear_factura, registrar_pago
 from src.facturacion.models import (
     ArchivoComprobantePago,
     ConceptoCobro,
+    ExcepcionVencimiento,
     Factura,
     MetodoPago,
     Movimiento,
@@ -20,7 +21,7 @@ from src.facturacion.models import (
 )
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate
 from src.familias_alumnos.models import Familia, FamiliaAlumno
-from src.inscripciones.models import SolicitudInscripcion
+from src.inscripciones.models import Inscripcion, SolicitudInscripcion
 from src.models import Persona
 from tests.facturacion.conftest import crear_catalogo_evento_pago_registrado
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
@@ -169,6 +170,10 @@ def test_responsable_economico_ve_sus_facturas_pagos_y_movimientos(client, db_se
             "id": str(escenario["factura"].id),
             "fecha_emision": "2026-03-01",
             "fecha_vencimiento": "2026-03-10",
+            "fecha_vencimiento_efectiva": "2026-03-10",
+            "alumno_id": str(
+                db_session.get(Inscripcion, escenario["factura"].inscripcion_id).alumno_id
+            ),
             "monto_total": "125.00",
             "estado": "pendiente",
             "alumno_nombre": "Tiziano Cabral",
@@ -206,6 +211,24 @@ def test_responsable_economico_ve_sus_facturas_pagos_y_movimientos(client, db_se
     assert cuerpo["total_haber"] == "25.00"
     assert cuerpo["saldo"] == "100.00"
     assert _conteos(db_session) == antes
+
+
+def test_factura_familiar_incluye_vencimiento_efectivo_vigente(client, db_session):
+    escenario = _crear_escenario_facturacion(db_session)
+    factura = escenario["factura"]
+    responsable = db_session.get(ResponsableEconomico, factura.responsable_economico_id)
+    db_session.add(
+        ExcepcionVencimiento(
+            familia_id=responsable.familia_id,
+            usuario_id=escenario["usuario_economico"].id,
+            fecha_vencimiento_excepcional=date(2026, 3, 20),
+        )
+    )
+    db_session.commit()
+    _login(client, escenario["usuario_economico"])
+    respuesta = client.get(URL_FACTURACION_FAMILIA)
+    assert respuesta.status_code == 200
+    assert respuesta.json()["facturas"][0]["fecha_vencimiento_efectiva"] == "2026-03-20"
 
 
 def test_familia_vinculada_no_economica_no_ve_facturas_ni_comprobantes(client, db_session):
@@ -247,6 +270,26 @@ def test_responsable_economico_descarga_su_comprobante(client, db_session):
     assert respuesta.headers["cache-control"] == "private, no-store"
     assert 'filename="comprobante.pdf"' in respuesta.headers["content-disposition"]
     assert "filename*=UTF-8''comprobante.pdf" in respuesta.headers["content-disposition"]
+    assert _conteos(db_session) == antes
+
+
+def test_factura_pdf_solo_accesible_al_responsable_economico(client, db_session):
+    escenario = _crear_escenario_facturacion(db_session)
+    url = f"{URL_FACTURACION_FAMILIA}/facturas/{escenario['factura'].id}/pdf"
+    assert client.get(url).status_code == 401
+    _login(client, escenario["usuario_no_economico"])
+    denegada = client.get(url)
+    inexistente = client.get(f"{URL_FACTURACION_FAMILIA}/facturas/{uuid.uuid4()}/pdf")
+    assert denegada.status_code == inexistente.status_code == 404
+    assert denegada.json() == inexistente.json()
+    _login(client, escenario["usuario_economico"])
+    antes = _conteos(db_session)
+    respuesta = client.get(url)
+    assert respuesta.status_code == 200
+    assert respuesta.content.startswith(b"%PDF-")
+    assert respuesta.headers["content-type"] == "application/pdf"
+    assert respuesta.headers["cache-control"] == "private, no-store"
+    assert "attachment" in respuesta.headers["content-disposition"]
     assert _conteos(db_session) == antes
 
 
