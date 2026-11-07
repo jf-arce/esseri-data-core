@@ -80,8 +80,10 @@ export interface PagoFamilia {
 
 export interface FacturaFamilia {
   id: string
+  alumno_id: string
   fecha_emision: string
   fecha_vencimiento: string
+  fecha_vencimiento_efectiva: string
   monto_total: string
   estado: EstadoFactura
   alumno_nombre: string
