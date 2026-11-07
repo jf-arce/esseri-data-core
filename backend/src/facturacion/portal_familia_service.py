@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from src.facturacion.models import (
     ArchivoComprobantePago,
+    ExcepcionVencimiento,
     Factura,
     Movimiento,
     Pago,
@@ -20,6 +21,7 @@ from src.facturacion.schemas import (
     MovimientoFamiliaRead,
     PagoFamiliaRead,
 )
+from src.facturacion.vencimientos_service import fecha_vencimiento_efectiva
 from src.familias_alumnos.models import Alumno, Familia
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
@@ -48,7 +50,7 @@ def obtener_facturacion_familia(
         return _cuenta_vacia()
 
     filas = db.execute(
-        select(Factura, Persona.nombre, Persona.apellido)
+        select(Factura, Alumno.id, Persona.nombre, Persona.apellido)
         .join(
             ResponsableEconomico,
             ResponsableEconomico.id == Factura.responsable_economico_id,
@@ -65,11 +67,22 @@ def obtener_facturacion_familia(
         .order_by(Factura.fecha_vencimiento, Factura.id)
     ).all()
 
+    excepciones = list(
+        db.scalars(
+            select(ExcepcionVencimiento).where(
+                ExcepcionVencimiento.familia_id == familia_id,
+                ExcepcionVencimiento.anulada_at.is_(None),
+            )
+        ).all()
+    )
+
     facturas = [
         FacturaFamiliaRead(
             id=factura.id,
+            alumno_id=alumno_id,
             fecha_emision=factura.fecha_emision,
             fecha_vencimiento=factura.fecha_vencimiento,
+            fecha_vencimiento_efectiva=fecha_vencimiento_efectiva(factura, excepciones),
             monto_total=factura.monto_total,
             estado=factura.estado,
             alumno_nombre=f"{nombre} {apellido}",
@@ -92,9 +105,9 @@ def obtener_facturacion_familia(
                 for pago in sorted(factura.pagos, key=lambda item: (item.fecha, item.id))
             ],
         )
-        for factura, nombre, apellido in filas
+        for factura, alumno_id, nombre, apellido in filas
     ]
-    factura_ids = [factura.id for factura, _, _ in filas]
+    factura_ids = [factura.id for factura, _, _, _ in filas]
     if not factura_ids:
         return _cuenta_vacia()
 
@@ -130,6 +143,20 @@ def obtener_facturacion_familia(
         saldo=debe - haber,
         facturas=facturas,
         movimientos=movimientos_read,
+    )
+
+
+def obtener_factura_familia(
+    db: Session, persona_id: uuid.UUID | None, factura_id: uuid.UUID
+) -> Factura | None:
+    """Return only invoices assigned to the authenticated economic-responsible family."""
+    if persona_id is None:
+        return None
+    return db.scalar(
+        select(Factura)
+        .join(ResponsableEconomico, ResponsableEconomico.id == Factura.responsable_economico_id)
+        .join(Familia, Familia.id == ResponsableEconomico.familia_id)
+        .where(Factura.id == factura_id, Familia.persona_id == persona_id)
     )
 
 
