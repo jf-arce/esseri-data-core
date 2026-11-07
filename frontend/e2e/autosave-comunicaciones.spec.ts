@@ -128,8 +128,8 @@ test('autosaves to the server after the debounce without pressing Guardar', asyn
   await prepararApi(page, estado)
   await page.goto('/comunicaciones/nueva')
   await page.getByLabel('Asunto').fill('Guardado automático')
-  await expect(page.getByText('Borrador guardado en el servidor.')).toBeVisible({ timeout: 10_000 })
-  expect(estado.guardados).toBe(1)
+  await expect.poll(() => estado.guardados, { timeout: 10_000 }).toBe(1)
+  await expect(page.getByText('Borrador guardado en el servidor.')).toHaveCount(0)
 })
 
 test('keeps offline edits and syncs when the connection returns', async ({ page }) => {
@@ -142,6 +142,6 @@ test('keeps offline edits and syncs when the connection returns', async ({ page 
   await expect(page.getByText(/Sin conexión/)).toBeVisible({ timeout: 15_000 })
   estado.fallarRed = false
   await page.evaluate(() => window.dispatchEvent(new Event('online')))
-  await expect(page.getByText('Borrador guardado en el servidor.')).toBeVisible({ timeout: 20_000 })
-  expect(estado.guardados).toBe(1)
+  await expect.poll(() => estado.guardados, { timeout: 20_000 }).toBe(1)
+  await expect(page.getByText('Borrador guardado en el servidor.')).toHaveCount(0)
 })

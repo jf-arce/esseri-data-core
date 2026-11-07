@@ -67,7 +67,7 @@ const MENSAJES_SINCRONIZACION: Record<EstadoSincronizacion, string> = {
   inactivo: '',
   pendiente: 'Guardado en este dispositivo. Sincronizando con el servidor…',
   guardando: 'Guardando en el servidor…',
-  guardado: 'Borrador guardado en el servidor.',
+  guardado: '',
   'sin-conexion': 'Sin conexión. Los cambios quedan guardados en este dispositivo.',
   error: 'No se pudo guardar en el servidor. La copia local se conserva.',
   conflicto: 'Conflicto de edición.',
@@ -408,7 +408,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
         </Link>
       </Button>
       <PageHeader titulo={docente ? 'Nueva comunicación de curso' : 'Nueva comunicación'} />
-      {estadoSync !== 'inactivo' && (
+      {MENSAJES_SINCRONIZACION[estadoSync] && (
         <p role="status" aria-live="polite" className="text-sm text-texto-2">
           {MENSAJES_SINCRONIZACION[estadoSync]}
         </p>
