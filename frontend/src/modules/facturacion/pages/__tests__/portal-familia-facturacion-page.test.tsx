@@ -4,10 +4,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PortalFamiliaFacturacionPage } from '@/modules/facturacion/pages/portal-familia-facturacion-page'
 import { descargarComprobantePagoFamilia } from '@/modules/facturacion/services/descargar-comprobante-pago-familia'
 import { listarFacturacionFamilia } from '@/modules/facturacion/services/listar-facturacion-familia'
+import {
+  compartirFacturaFamilia,
+  descargarFacturaFamilia,
+} from '@/modules/facturacion/services/factura-pdf-familia'
 import type { FacturacionFamilia } from '@/modules/facturacion/types'
 
 vi.mock('@/modules/facturacion/services/descargar-comprobante-pago-familia')
 vi.mock('@/modules/facturacion/services/listar-facturacion-familia')
+vi.mock('@/modules/facturacion/services/factura-pdf-familia')
 
 const mockedDescargarComprobante = vi.mocked(descargarComprobantePagoFamilia)
 const mockedListarFacturacion = vi.mocked(listarFacturacionFamilia)
@@ -19,8 +24,10 @@ const facturacion: FacturacionFamilia = {
   facturas: [
     {
       id: 'factura-1',
+      alumno_id: 'alumno-1',
       fecha_emision: '2026-03-01',
       fecha_vencimiento: '2026-03-10',
+      fecha_vencimiento_efectiva: '2026-03-10',
       monto_total: '125.00',
       estado: 'pendiente',
       alumno_nombre: 'Tiziano Cabral',
@@ -103,6 +110,20 @@ describe('PortalFamiliaFacturacionPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Descargar comprobante' }))
 
     await waitFor(() => expect(mockedDescargarComprobante).toHaveBeenCalledWith('pago-1'))
+  })
+
+  it('permite descargar y compartir el PDF de cada factura', async () => {
+    mockedListarFacturacion.mockResolvedValue(facturacion)
+    vi.mocked(descargarFacturaFamilia).mockResolvedValue(undefined)
+    vi.mocked(compartirFacturaFamilia).mockResolvedValue(undefined)
+
+    renderizarPagina()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Descargar factura' }))
+    await waitFor(() => expect(descargarFacturaFamilia).toHaveBeenCalledWith('factura-1'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Compartir factura' }))
+    await waitFor(() => expect(compartirFacturaFamilia).toHaveBeenCalledWith('factura-1'))
   })
 
   it('muestra un estado vacío cuando la familia no tiene facturas', async () => {
