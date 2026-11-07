@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { DownloadIcon, ReceiptTextIcon } from 'lucide-react'
+import { DownloadIcon, ReceiptTextIcon, Share2Icon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -7,6 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { descargarComprobantePagoFamilia } from '@/modules/facturacion/services/descargar-comprobante-pago-familia'
+import {
+  compartirFacturaFamilia,
+  descargarFacturaFamilia,
+} from '@/modules/facturacion/services/factura-pdf-familia'
 import { listarFacturacionFamilia } from '@/modules/facturacion/services/listar-facturacion-familia'
 import type { EstadoFactura, FacturacionFamilia, PagoFamilia } from '@/modules/facturacion/types'
 
@@ -125,6 +129,36 @@ function FacturaFamiliaCard({
         <div className="flex items-center justify-between border-t border-borde pt-4 text-sm">
           <span className="font-semibold text-texto">Total de la factura</span>
           <span className="font-semibold text-texto">{formatearMoneda(factura.monto_total)}</span>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            aria-label="Descargar factura"
+            onClick={() => {
+              void descargarFacturaFamilia(factura.id).catch(() =>
+                toast.error('No se pudo descargar la factura. Intentá de nuevo.'),
+              )
+            }}
+          >
+            <DownloadIcon aria-hidden="true" /> Descargar factura
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            aria-label="Compartir factura"
+            onClick={() => {
+              void compartirFacturaFamilia(factura.id).catch((error: unknown) => {
+                if (error instanceof DOMException && error.name === 'AbortError') return
+                toast.error(
+                  error instanceof Error ? error.message : 'No se pudo compartir la factura.',
+                )
+              })
+            }}
+          >
+            <Share2Icon aria-hidden="true" /> Compartir factura
+          </Button>
         </div>
 
         {factura.pagos.length > 0 && (
