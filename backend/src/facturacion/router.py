@@ -109,6 +109,26 @@ def obtener_facturacion_de_mi_familia(
     return portal_familia_service.obtener_facturacion_familia(db, usuario.persona_id)
 
 
+@router.get("/familia/me/facturas/{factura_id}/pdf")
+def descargar_factura_pdf_familia(
+    factura_id: uuid.UUID, db: DbSession, usuario: UsuarioAutenticado
+) -> Response:
+    factura = portal_familia_service.obtener_factura_familia(db, usuario.persona_id, factura_id)
+    if factura is None:
+        raise HTTPException(status_code=404, detail="No se encontró la factura.")
+    alumno = facturas_service.obtener_alumno_factura(db, factura)
+    if alumno is None:
+        raise HTTPException(status_code=409, detail="La factura no tiene un alumno asociado.")
+    return Response(
+        content=facturas_service.generar_pdf_factura(factura, alumno),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="factura-{str(factura.id)[:8]}.pdf"',
+            "Cache-Control": "private, no-store",
+        },
+    )
+
+
 @router.get("/familia/me/pagos/{pago_id}/comprobante")
 def descargar_comprobante_pago_familia(
     pago_id: uuid.UUID,

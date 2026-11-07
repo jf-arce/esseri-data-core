@@ -116,9 +116,12 @@ El portal consulta `GET /facturacion/familia/me` para mostrar facturas, vencimie
 pagos registrados y el saldo de la familia autenticada. No registra ni inicia pagos. Los datos se
 limitan en el backend a las facturas cuyo responsable económico persistido corresponde a esa
 familia; una familia vinculada al alumno pero no responsable económica recibe una cuenta vacía.
+Cada factura incluye `alumno_id` y `fecha_vencimiento_efectiva`, calculada con las prórrogas
+vigentes de la familia mediante la misma regla utilizada por la detección de vencimientos.
 
 El comprobante de un pago disponible se descarga desde
-`GET /facturacion/familia/me/pagos/{pago_id}/comprobante`. Ambas respuestas se entregan con
+`GET /facturacion/familia/me/pagos/{pago_id}/comprobante` y el PDF de la factura desde
+`GET /facturacion/familia/me/facturas/{factura_id}/pdf`. Estas respuestas se entregan con
 `Cache-Control: private, no-store` y no aceptan un `familia_id` desde el cliente.
 
 ### Facturación recurrente automática
