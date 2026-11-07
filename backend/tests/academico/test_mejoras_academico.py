@@ -213,9 +213,7 @@ def test_alta_masiva_omite_asignaciones_ya_existentes(db_session):
 
 def _crear_justificacion(db, alumno_id, *, estado="pendiente", fecha=date(2027, 4, 1)):
     inscripcion = db.query(Inscripcion).filter_by(alumno_id=alumno_id).one()
-    asistencia = Asistencia(
-        fecha=fecha, tipo="ausente_pendiente", inscripcion_id=inscripcion.id
-    )
+    asistencia = Asistencia(fecha=fecha, tipo="ausente_pendiente", inscripcion_id=inscripcion.id)
     db.add(asistencia)
     db.flush()
     motivo = MotivoJustificacion(nombre="Salud")
@@ -258,15 +256,11 @@ def test_bandeja_filtra_por_estado_y_busqueda(client_secretaria, db_session):
     _crear_justificacion(db_session, alumno_uno, estado="aprobada", fecha=date(2027, 4, 1))
     _crear_justificacion(db_session, alumno_uno, estado="rechazada", fecha=date(2027, 4, 2))
 
-    aprobadas = client_secretaria.get(
-        "/academico/justificaciones?estado=aprobada"
-    ).json()
+    aprobadas = client_secretaria.get("/academico/justificaciones?estado=aprobada").json()
     assert aprobadas["total"] == 1
     assert aprobadas["items"][0]["estado"] == "aprobada"
 
-    sin_resultados = client_secretaria.get(
-        "/academico/justificaciones?busqueda=NoExiste"
-    ).json()
+    sin_resultados = client_secretaria.get("/academico/justificaciones?busqueda=NoExiste").json()
     assert sin_resultados["total"] == 0
 
 

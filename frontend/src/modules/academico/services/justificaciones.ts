@@ -29,9 +29,7 @@ function parametros(filtros: FiltrosJustificaciones) {
 
 export function listarJustificaciones(filtros: FiltrosJustificaciones = {}) {
   const qs = parametros(filtros).toString()
-  return apiClient<JustificacionesPaginadas>(
-    `/academico/justificaciones${qs ? `?${qs}` : ''}`,
-  )
+  return apiClient<JustificacionesPaginadas>(`/academico/justificaciones${qs ? `?${qs}` : ''}`)
 }
 
 export function obtenerOpcionesJustificaciones() {

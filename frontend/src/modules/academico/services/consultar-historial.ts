@@ -67,9 +67,7 @@ export function consultarHistorial(filtros: FiltrosHistorial) {
 }
 
 export function obtenerTendenciaHistorial(filtros: FiltrosHistorial) {
-  return apiClient<TendenciaHistorial>(
-    `/academico/asistencias/tendencia?${parametros(filtros)}`,
-  )
+  return apiClient<TendenciaHistorial>(`/academico/asistencias/tendencia?${parametros(filtros)}`)
 }
 
 export function obtenerOpcionesHistorial(cicloLectivo: string) {

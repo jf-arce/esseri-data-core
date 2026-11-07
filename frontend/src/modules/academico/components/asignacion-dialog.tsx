@@ -205,7 +205,9 @@ export function AsignacionDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{esEdicion ? 'Editar asignación docente' : 'Nueva asignación docente'}</DialogTitle>
+          <DialogTitle>
+            {esEdicion ? 'Editar asignación docente' : 'Nueva asignación docente'}
+          </DialogTitle>
           {error ? (
             <DialogDescription className="text-error">{error}</DialogDescription>
           ) : (

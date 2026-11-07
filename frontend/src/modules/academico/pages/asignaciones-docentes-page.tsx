@@ -41,8 +41,7 @@ import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/const
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 type DialogState =
-  | { open: false }
-  | { open: true; modo: 'crear' | 'editar' | 'eliminar'; item?: AsignacionDocente }
+  { open: false } | { open: true; modo: 'crear' | 'editar' | 'eliminar'; item?: AsignacionDocente }
 
 export function AsignacionesDocentesPage() {
   const { asignaciones, docentes, materias, divisiones, cargando, error, sinPermiso, recargar } =

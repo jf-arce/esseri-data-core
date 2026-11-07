@@ -107,8 +107,7 @@ export function EstructuraAcademicaPage() {
   )
 
   const nivelesFiltrados = useMemo(() => {
-    const porNivel =
-      filtroNivel === 'todos' ? niveles : niveles.filter((n) => n.id === filtroNivel)
+    const porNivel = filtroNivel === 'todos' ? niveles : niveles.filter((n) => n.id === filtroNivel)
     return filtrarEstructura(porNivel, busqueda)
   }, [niveles, filtroNivel, busqueda])
 
@@ -188,12 +187,7 @@ export function EstructuraAcademicaPage() {
             icon={BookOpenIcon}
             cargando={cargando}
           />
-          <StatTile
-            label="Años"
-            value={totales.anios}
-            icon={LayersIcon}
-            cargando={cargando}
-          />
+          <StatTile label="Años" value={totales.anios} icon={LayersIcon} cargando={cargando} />
           <StatTile
             label="Divisiones"
             value={totales.divisiones}
@@ -278,9 +272,7 @@ export function EstructuraAcademicaPage() {
             <BookOpenIcon />
           </EmptyMedia>
           <EmptyTitle>No hay resultados para la búsqueda.</EmptyTitle>
-          <EmptyDescription>
-            Probá con otro término o quitá el filtro de nivel.
-          </EmptyDescription>
+          <EmptyDescription>Probá con otro término o quitá el filtro de nivel.</EmptyDescription>
           <Button
             variant="secondary"
             onClick={() => {

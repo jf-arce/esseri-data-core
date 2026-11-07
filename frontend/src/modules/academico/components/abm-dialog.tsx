@@ -193,7 +193,9 @@ export function AbmDialog({
       if (registro.data.cantidad_asignaciones > 0) {
         bloqueos.push(
           `${registro.data.cantidad_asignaciones} ${
-            registro.data.cantidad_asignaciones === 1 ? 'asignación docente' : 'asignaciones docentes'
+            registro.data.cantidad_asignaciones === 1
+              ? 'asignación docente'
+              : 'asignaciones docentes'
           }`,
         )
       }
@@ -310,11 +312,7 @@ export function AbmDialog({
             <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={enviando}>
               Cancelar
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleSubmit}
-              disabled={enviando || bloqueado}
-            >
+            <Button variant="destructive" onClick={handleSubmit} disabled={enviando || bloqueado}>
               {enviando ? 'Eliminando…' : 'Confirmar'}
             </Button>
           </DialogFooter>

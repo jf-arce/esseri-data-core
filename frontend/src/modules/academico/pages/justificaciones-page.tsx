@@ -196,9 +196,7 @@ export function JustificacionesPage() {
       toast.success('Justificación aprobada.')
       recargar()
     } catch (fallo) {
-      toast.error(
-        fallo instanceof Error ? fallo.message : 'No se pudo aprobar la justificación.',
-      )
+      toast.error(fallo instanceof Error ? fallo.message : 'No se pudo aprobar la justificación.')
     } finally {
       setResolviendo(false)
     }
@@ -216,9 +214,7 @@ export function JustificacionesPage() {
       setObservacionRechazo('')
       recargar()
     } catch (fallo) {
-      toast.error(
-        fallo instanceof Error ? fallo.message : 'No se pudo rechazar la justificación.',
-      )
+      toast.error(fallo instanceof Error ? fallo.message : 'No se pudo rechazar la justificación.')
     } finally {
       setResolviendo(false)
     }
@@ -431,9 +427,7 @@ export function JustificacionesPage() {
                     {formatearFecha(item.fecha_asistencia)}
                   </TableCell>
                   <TableCell>
-                    <span className="font-medium">
-                      {etiquetaMotivoJustificacion(item.motivo)}
-                    </span>
+                    <span className="font-medium">{etiquetaMotivoJustificacion(item.motivo)}</span>
                     <span className="block max-w-[280px] truncate text-xs text-texto-2">
                       {item.observacion?.trim() || 'Sin observación de la familia'}
                     </span>
@@ -472,11 +466,7 @@ export function JustificacionesPage() {
                         >
                           Rechazar
                         </Button>
-                        <Button
-                          size="sm"
-                          disabled={resolviendo}
-                          onClick={() => void aprobar(item)}
-                        >
+                        <Button size="sm" disabled={resolviendo} onClick={() => void aprobar(item)}>
                           Aprobar
                         </Button>
                       </div>
@@ -500,9 +490,7 @@ export function JustificacionesPage() {
               total={datos.total}
               totalPaginas={datos.total_paginas}
               etiqueta="justificaciones"
-              onCambiarPagina={(pagina) =>
-                setFiltros((previo) => ({ ...previo, pagina }))
-              }
+              onCambiarPagina={(pagina) => setFiltros((previo) => ({ ...previo, pagina }))}
             />
           )}
         </>
@@ -521,8 +509,8 @@ export function JustificacionesPage() {
           <DialogHeader>
             <DialogTitle>Rechazar justificación</DialogTitle>
             <DialogDescription>
-              Vas a rechazar la justificación de {rechazo?.alumno_nombre}. La familia va a ver
-              el motivo del rechazo.
+              Vas a rechazar la justificación de {rechazo?.alumno_nombre}. La familia va a ver el
+              motivo del rechazo.
             </DialogDescription>
           </DialogHeader>
 

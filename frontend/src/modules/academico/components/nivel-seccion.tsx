@@ -258,9 +258,7 @@ function MateriaFila({
           </span>
         )}
         {materia.nombre}
-        {materia.cantidad_asignaciones === 0 && (
-          <span className="text-texto-3">· sin docente</span>
-        )}
+        {materia.cantidad_asignaciones === 0 && <span className="text-texto-3">· sin docente</span>}
       </span>
       {puedeEditar && (
         <div className="flex items-center gap-0.5">
@@ -308,9 +306,8 @@ function DivisionCard({
           <p className="text-base font-semibold text-texto">{division.nombre}</p>
           <p className="mt-0.5 text-xs text-texto-2">
             {plural(division.materias.length, 'materia propia', 'materias propias')}
-            {materiasComunes > 0 &&
-              ` · ${plural(materiasComunes, 'común', 'comunes')}`}{' '}
-            · {plural(division.cantidad_inscripciones, 'alumno', 'alumnos')}
+            {materiasComunes > 0 && ` · ${plural(materiasComunes, 'común', 'comunes')}`} ·{' '}
+            {plural(division.cantidad_inscripciones, 'alumno', 'alumnos')}
           </p>
         </div>
         {puedeEditar && (
