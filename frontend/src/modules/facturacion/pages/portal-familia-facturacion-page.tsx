@@ -97,16 +97,21 @@ function diasParaVencer(fecha: string) {
   return Math.round((Date.parse(`${fecha}T00:00:00Z`) - Date.parse(`${hoy}T00:00:00Z`)) / 86400000)
 }
 
+/** Fallback for a payload from an older backend that omits the effective due date. */
+function vencimiento(factura: FacturaFamilia): string {
+  return factura.fecha_vencimiento_efectiva || factura.fecha_vencimiento || ''
+}
+
 function estadoVisible(factura: FacturaFamilia): EstadoFactura {
   if (factura.estado === 'pagada') return 'pagada'
-  return diasParaVencer(factura.fecha_vencimiento_efectiva) < 0 ? 'vencida' : 'pendiente'
+  return diasParaVencer(vencimiento(factura)) < 0 ? 'vencida' : 'pendiente'
 }
 
 function ResumenCuenta({ cuenta }: { cuenta: FacturacionFamilia }) {
   const saldo = Number(cuenta.saldo)
   const pendientes = cuenta.facturas
     .filter((factura) => estadoVisible(factura) === 'pendiente')
-    .sort((a, b) => a.fecha_vencimiento_efectiva.localeCompare(b.fecha_vencimiento_efectiva))
+    .sort((a, b) => vencimiento(a).localeCompare(vencimiento(b)))
   const proxima = pendientes[0]
   const vencidas = cuenta.facturas.filter((factura) => estadoVisible(factura) === 'vencida')
   const totalVencido = vencidas.reduce(
@@ -144,11 +149,11 @@ function ResumenCuenta({ cuenta }: { cuenta: FacturacionFamilia }) {
           {proxima && (
             <p className="text-[13px] text-texto-2">
               Próximo débito:{' '}
-              {diasParaVencer(proxima.fecha_vencimiento_efectiva) === 0
+              {diasParaVencer(vencimiento(proxima)) === 0
                 ? 'hoy'
-                : diasParaVencer(proxima.fecha_vencimiento_efectiva) === 1
+                : diasParaVencer(vencimiento(proxima)) === 1
                   ? 'mañana'
-                  : formatearFecha(proxima.fecha_vencimiento_efectiva)}{' '}
+                  : formatearFecha(vencimiento(proxima))}{' '}
               · {formatearMoneda(proxima.monto_total)}
             </p>
           )}
@@ -190,7 +195,7 @@ function FacturaFamiliaCard({
   const [abierta, setAbierta] = useState(false)
   const estadoActual = estadoVisible(factura)
   const estado = ESTADOS_FACTURA[estadoActual]
-  const dias = diasParaVencer(factura.fecha_vencimiento_efectiva)
+  const dias = diasParaVencer(vencimiento(factura))
   const ultimoDebito = factura.pagos
     .filter((pago) => pago.metodo_pago === 'debito_directo')
     .slice()
@@ -198,7 +203,7 @@ function FacturaFamiliaCard({
   const rechazado = estadoActual !== 'pagada' && ultimoDebito?.estado === 'rechazado'
   const concepto =
     factura.detalles[0]?.descripcion?.trim() ||
-    `Cuota ${formatearFecha(factura.fecha_vencimiento_efectiva).split(' ').slice(1).join(' ')}`
+    `Cuota ${formatearFecha(vencimiento(factura)).split(' ').slice(1).join(' ')}`
   return (
     <Card className="py-0">
       <details onToggle={(evento) => setAbierta(evento.currentTarget.open)}>
@@ -212,8 +217,8 @@ function FacturaFamiliaCard({
               <CardDescription>
                 {factura.alumno_nombre} ·{' '}
                 {estadoActual === 'pendiente'
-                  ? TEXTOS_DEBITO.programado(dias, factura.fecha_vencimiento_efectiva)
-                  : `Vence ${formatearFecha(factura.fecha_vencimiento_efectiva)}`}
+                  ? TEXTOS_DEBITO.programado(dias, vencimiento(factura))
+                  : `Vence ${formatearFecha(vencimiento(factura))}`}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -364,7 +369,7 @@ export function PortalFamiliaFacturacionPage() {
   const ordenadas = [...(cuenta?.facturas ?? [])].sort(
     (a, b) =>
       prioridad[estadoVisible(a)] - prioridad[estadoVisible(b)] ||
-      a.fecha_vencimiento_efectiva.localeCompare(b.fecha_vencimiento_efectiva) ||
+      vencimiento(a).localeCompare(vencimiento(b)) ||
       a.id.localeCompare(b.id),
   )
   const filtradas = ordenadas.filter((factura) => {
@@ -378,8 +383,8 @@ export function PortalFamiliaFacturacionPage() {
     return (
       (filtro === 'todas' || estadoVisible(factura) === filtro) &&
       (alumno === 'todos' || factura.alumno_id === alumno) &&
-      (!desde || factura.fecha_vencimiento_efectiva >= desde) &&
-      (!hasta || factura.fecha_vencimiento_efectiva <= hasta) &&
+      (!desde || vencimiento(factura) >= desde) &&
+      (!hasta || vencimiento(factura) <= hasta) &&
       texto.includes(busqueda.trim().toLocaleLowerCase('es-AR'))
     )
   })

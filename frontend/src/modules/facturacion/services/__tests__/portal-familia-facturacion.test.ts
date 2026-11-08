@@ -37,3 +37,34 @@ describe('servicios de facturación del portal de familia', () => {
     )
   })
 })
+
+it('completa el vencimiento efectivo cuando el backend no lo envía', async () => {
+  const factura = {
+    id: 'factura-1',
+    alumno_id: 'alumno-1',
+    fecha_emision: '2026-03-01',
+    fecha_vencimiento: '2026-03-10',
+    monto_total: '125.00',
+    estado: 'pendiente',
+    alumno_nombre: 'Tiziano Cabral',
+  }
+  vi.spyOn(globalThis, 'fetch').mockImplementation(
+    async () =>
+      new Response(
+        JSON.stringify({
+          total_debe: '125.00',
+          total_haber: '0.00',
+          saldo: '125.00',
+          facturas: [factura],
+          movimientos: [],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+  )
+
+  const cuenta = await listarFacturacionFamilia()
+
+  expect(cuenta.facturas[0].fecha_vencimiento_efectiva).toBe('2026-03-10')
+  expect(cuenta.facturas[0].detalles).toEqual([])
+  expect(cuenta.facturas[0].pagos).toEqual([])
+})
