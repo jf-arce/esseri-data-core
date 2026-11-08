@@ -70,6 +70,22 @@ beforeEach(() => {
   })
 })
 
+it('links the steps with a line that fills instead of a step counter', async () => {
+  render(
+    <MemoryRouter>
+      <ComunicacionFormPage />
+    </MemoryRouter>,
+  )
+  expect(screen.queryByText(/Paso 1 de 4/)).not.toBeInTheDocument()
+  const conectores = () => [...document.querySelectorAll('[data-completado]')]
+  expect(conectores()).toHaveLength(3)
+  expect(conectores().map((c) => c.getAttribute('data-completado'))).toEqual(['no', 'no', 'no'])
+  await userEvent.type(screen.getByLabelText('Asunto'), 'Aviso')
+  await userEvent.type(screen.getByLabelText('Mensaje'), 'Contenido')
+  await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
+  expect(conectores().map((c) => c.getAttribute('data-completado'))).toEqual(['si', 'no', 'no'])
+})
+
 it('saves a basic draft without publishing', async () => {
   render(
     <MemoryRouter>

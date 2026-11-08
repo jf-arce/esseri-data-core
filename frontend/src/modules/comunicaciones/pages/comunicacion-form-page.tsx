@@ -67,7 +67,7 @@ const MENSAJES_SINCRONIZACION: Record<EstadoSincronizacion, string> = {
   inactivo: '',
   pendiente: 'Guardado en este dispositivo. Sincronizando con el servidor…',
   guardando: 'Guardando en el servidor…',
-  guardado: 'Borrador guardado en el servidor.',
+  guardado: '',
   'sin-conexion': 'Sin conexión. Los cambios quedan guardados en este dispositivo.',
   error: 'No se pudo guardar en el servidor. La copia local se conserva.',
   conflicto: 'Conflicto de edición.',
@@ -401,14 +401,14 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
     : seleccion
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-      <Button variant="ghost" size="sm" asChild className="-ml-2 w-fit">
+      <Button variant="ghost" asChild className="-ml-2 w-fit">
         <Link to={base}>
           <ArrowLeftIcon data-icon="inline-start" />
           Volver a comunicaciones
         </Link>
       </Button>
       <PageHeader titulo={docente ? 'Nueva comunicación de curso' : 'Nueva comunicación'} />
-      {estadoSync !== 'inactivo' && (
+      {MENSAJES_SINCRONIZACION[estadoSync] && (
         <p role="status" aria-live="polite" className="text-sm text-texto-2">
           {MENSAJES_SINCRONIZACION[estadoSync]}
         </p>
@@ -471,26 +471,40 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
           )}
         </section>
       )}
-      <p className="text-sm text-texto-2">Paso {paso} de 4</p>
       <ol
         aria-label="Pasos de publicación"
-        className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4"
+        className="grid grid-cols-4 gap-1 text-center text-xs sm:gap-3 sm:text-sm"
       >
-        {pasos.map((p, i) => (
-          <li
-            key={p}
-            aria-current={paso === i + 1 ? 'step' : undefined}
-            className={`flex flex-col items-center gap-2 text-center ${paso === i + 1 ? 'font-semibold text-texto' : 'text-texto-2'}`}
-          >
-            <span
-              aria-hidden="true"
-              className={`flex size-7 items-center justify-center rounded-full ${paso === i + 1 ? 'bg-violeta text-superficie' : 'border border-borde bg-fila-hover'}`}
+        {pasos.map((p, i) => {
+          const activo = paso === i + 1
+          const completado = paso > i + 1
+          return (
+            <li
+              key={p}
+              aria-current={activo ? 'step' : undefined}
+              className={`relative flex min-w-0 flex-col items-center gap-2 ${activo ? 'font-semibold text-texto' : 'text-texto-2'}`}
             >
-              {i + 1}
-            </span>
-            {p}
-          </li>
-        ))}
+              {i > 0 && (
+                <span
+                  aria-hidden="true"
+                  data-completado={paso >= i + 1 ? 'si' : 'no'}
+                  className={`absolute top-3.5 right-1/2 -left-1/2 h-0.5 ${paso >= i + 1 ? 'bg-violeta' : 'bg-borde'}`}
+                />
+              )}
+              <span
+                aria-hidden="true"
+                className={`relative z-10 flex size-7 shrink-0 items-center justify-center rounded-full ${
+                  activo || completado
+                    ? 'bg-violeta text-superficie'
+                    : 'border border-borde bg-fila-hover'
+                }`}
+              >
+                {i + 1}
+              </span>
+              <span className="min-w-0 leading-tight">{p}</span>
+            </li>
+          )
+        })}
       </ol>
       {error && (
         <Alert variant="error">
