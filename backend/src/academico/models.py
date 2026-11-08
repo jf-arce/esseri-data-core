@@ -1,7 +1,7 @@
 """Modelos SQLAlchemy propios de Académico. Heredan de `src.models.Base`."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -111,6 +111,38 @@ class MotivoJustificacion(Base):
     updated_at: Mapped[datetime] = mapped_column(
         sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
     )
+
+
+class SolicitudAusenciaPeriodo(Base):
+    """A single administrative decision covering an inclusive date range."""
+
+    __tablename__ = "solicitud_ausencia_periodo"
+    __table_args__ = (
+        sa.CheckConstraint("fecha_inicio <= fecha_fin", name="ck_solicitud_ausencia_fechas"),
+        sa.CheckConstraint(
+            "estado IN ('pendiente', 'aprobada', 'rechazada', 'cancelada')",
+            name="ck_solicitud_ausencia_estado",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    fecha_inicio: Mapped[date] = mapped_column(sa.Date)
+    fecha_fin: Mapped[date] = mapped_column(sa.Date)
+    estado: Mapped[str] = mapped_column(sa.String, default="pendiente")
+    observacion: Mapped[str | None] = mapped_column(sa.String)
+    observacion_resolucion: Mapped[str | None] = mapped_column(sa.String)
+    archivo_nombre: Mapped[str | None] = mapped_column(sa.String)
+    archivo_tipo: Mapped[str | None] = mapped_column(sa.String)
+    archivo_contenido: Mapped[bytes | None] = mapped_column(sa.LargeBinary)
+    fecha_carga: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
+    fecha_resolucion: Mapped[datetime | None] = mapped_column(sa.DateTime)
+    alumno_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("alumno.id"))
+    familia_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("familia.id"))
+    motivo_justificacion_id: Mapped[uuid.UUID] = mapped_column(
+        sa.ForeignKey("motivo_justificacion.id")
+    )
+    usuario_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("usuario.id"))
+    usuario_resolucion_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("usuario.id"))
 
 
 class JustificacionInasistencia(Base):
