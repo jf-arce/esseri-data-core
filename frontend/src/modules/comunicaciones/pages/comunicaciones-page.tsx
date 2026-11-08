@@ -156,16 +156,30 @@ export function ComunicacionesPage({
           No hay comunicaciones para mostrar.
         </p>
       ) : familia ? (
-        <ul className="divide-y divide-borde rounded-panel bg-superficie shadow-card">
+        <ul className="divide-y divide-borde overflow-hidden rounded-panel bg-superficie shadow-card">
           {datos.items.map((c) => (
             <li key={c.id}>
               <Link
                 to={`${base}/${c.id}`}
-                className="flex flex-wrap items-center justify-between gap-3 p-5 hover:bg-fila-hover focus-visible:outline-2 focus-visible:outline-violeta"
+                className={`flex flex-wrap items-center justify-between gap-3 p-5 focus-visible:outline-2 focus-visible:outline-violeta ${
+                  c.leida_at ? 'hover:bg-fila-hover' : 'bg-violeta-suave/60 hover:bg-violeta-suave'
+                }`}
               >
                 <span className="min-w-0">
-                  <span className="block font-semibold break-words">{c.asunto}</span>
-                  <span className="text-sm text-texto-2">
+                  <span className="flex items-start gap-2">
+                    {!c.leida_at && (
+                      <span
+                        aria-hidden="true"
+                        className="mt-1.5 size-1.5 shrink-0 rounded-full bg-violeta"
+                      />
+                    )}
+                    <span
+                      className={`block font-semibold break-words ${c.leida_at ? 'text-texto-2' : 'text-texto'}`}
+                    >
+                      {c.asunto}
+                    </span>
+                  </span>
+                  <span className={`text-sm text-texto-2 ${c.leida_at ? '' : 'pl-3.5'}`}>
                     {c.tipo === 'curso' ? (c.emisor ?? 'Colegio ESSERI') : ETIQUETAS_TIPO[c.tipo]}
                   </span>
                 </span>
