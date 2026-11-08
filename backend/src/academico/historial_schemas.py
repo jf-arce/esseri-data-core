@@ -63,3 +63,16 @@ class OpcionHistorial(BaseModel):
     anio: int
     nivel_educativo_id: uuid.UUID
     nivel: str
+
+
+class PuntoTendencia(BaseModel):
+    """Un día del período consultado, con su presencia agregada."""
+
+    fecha: date
+    presentes: int
+    ausentes: int
+    porcentaje_presencia: float
+
+
+class TendenciaHistorial(BaseModel):
+    puntos: list[PuntoTendencia]

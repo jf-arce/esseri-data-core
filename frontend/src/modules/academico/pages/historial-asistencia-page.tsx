@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   ArrowDownIcon,
   ArrowUpIcon,
+  BookmarkIcon,
   CalendarIcon,
   CheckIcon,
   ChevronDownIcon,
@@ -9,6 +10,7 @@ import {
   DownloadIcon,
   RotateCcwIcon,
   ShieldAlertIcon,
+  Trash2Icon,
   TrendingUpIcon,
   XIcon,
 } from 'lucide-react'
@@ -18,6 +20,14 @@ import { PaginadorServidor } from '@/components/paginador-servidor'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,6 +60,7 @@ import {
   useCiclosHistorial,
   useConsultaHistorial,
   useOpcionesHistorial,
+  useTendenciaHistorial,
 } from '../hooks/use-consulta-historial'
 import { exportarHistorial, type FiltrosHistorial } from '../services/consultar-historial'
 import type { TipoAsistencia } from '../types'
@@ -105,6 +116,13 @@ function Selector({
   )
 }
 
+function fechaCorta(iso: string) {
+  return new Date(`${iso}T12:00:00`).toLocaleDateString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+  })
+}
+
 function hoyIso() {
   const hoy = new Date()
   return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
@@ -125,6 +143,30 @@ function unicas(opciones: Opcion[]) {
   return [...new Map(opciones.map((opcion) => [opcion.valor, opcion])).values()]
 }
 
+type FiltroGuardado = { nombre: string; filtros: FiltrosHistorial }
+
+const CLAVE_FILTROS_GUARDADOS = 'academico.historial.filtros-guardados'
+
+function leerFiltrosGuardados(): FiltroGuardado[] {
+  try {
+    const crudo = localStorage.getItem(CLAVE_FILTROS_GUARDADOS)
+    if (!crudo) return []
+    const parseado = JSON.parse(crudo) as unknown
+    return Array.isArray(parseado) ? (parseado as FiltroGuardado[]) : []
+  } catch {
+    return []
+  }
+}
+
+function persistirFiltrosGuardados(filtros: FiltroGuardado[]) {
+  try {
+    localStorage.setItem(CLAVE_FILTROS_GUARDADOS, JSON.stringify(filtros))
+  } catch {
+    // Si el almacenamiento no está disponible (modo privado, cuota llena), la pantalla sigue
+    // funcionando: solo no persiste entre sesiones.
+  }
+}
+
 export function HistorialAsistenciaPage() {
   const ciclo = useCicloLectivoStore((state) => state.cicloLectivo)
   const setCiclo = useCicloLectivoStore((state) => state.setCicloLectivo)
@@ -134,19 +176,23 @@ export function HistorialAsistenciaPage() {
   const filtros = seleccion.ciclo_lectivo === ciclo ? seleccion : filtrosIniciales(ciclo)
   if (seleccion.ciclo_lectivo !== ciclo) setSeleccion(filtros)
   const recurso = useConsultaHistorial(filtros)
+  const tendencia = useTendenciaHistorial({
+    ...filtros,
+    pagina: undefined,
+    tamanio_pagina: undefined,
+  })
   const catalogo = useOpcionesHistorial(ciclo)
   const ciclosRecurso = useCiclosHistorial()
   const [exportando, setExportando] = useState(false)
   const [errorExportacion, setErrorExportacion] = useState<string | null>(null)
+  const [gestionFiltros, setGestionFiltros] = useState(false)
+  const [nombreFiltro, setNombreFiltro] = useState('')
+  const [guardados, setGuardados] = useState<FiltroGuardado[]>(leerFiltrosGuardados)
   const opciones = catalogo.datos ?? []
-  const porNivel = opciones.filter(
-    (item) => !filtros.nivel_educativo_id || item.nivel_educativo_id === filtros.nivel_educativo_id,
-  )
-  const porAnio = porNivel.filter((item) => !filtros.anio_id || item.anio_id === filtros.anio_id)
-  const porDivision = porAnio.filter(
-    (item) => !filtros.division_id || item.division_id === filtros.division_id,
-  )
   const datos = recurso.datos
+  const alumnoSeleccionado = filtros.inscripcion_id
+    ? opciones.find((item) => item.inscripcion_id === filtros.inscripcion_id)?.alumno
+    : undefined
   const resumen = datos?.resumen
   const error =
     ciclosRecurso.error ||
@@ -180,6 +226,31 @@ export function HistorialAsistenciaPage() {
     }
   }
 
+  function guardarFiltroActual() {
+    const nombre = nombreFiltro.trim()
+    if (!nombre) return
+    const nuevo: FiltroGuardado = { nombre, filtros: { ...filtros, pagina: 1 } }
+    const siguientes = [...guardados.filter((guardado) => guardado.nombre !== nombre), nuevo]
+    setGuardados(siguientes)
+    persistirFiltrosGuardados(siguientes)
+    setNombreFiltro('')
+  }
+
+  function aplicarFiltroGuardado(guardado: FiltroGuardado) {
+    if (guardado.filtros.ciclo_lectivo !== ciclo) {
+      setCiclo(guardado.filtros.ciclo_lectivo)
+    }
+    setSeleccion({ ...guardado.filtros, pagina: 1 })
+    setErrorExportacion(null)
+    setGestionFiltros(false)
+  }
+
+  function eliminarFiltroGuardado(nombre: string) {
+    const siguientes = guardados.filter((guardado) => guardado.nombre !== nombre)
+    setGuardados(siguientes)
+    persistirFiltrosGuardados(siguientes)
+  }
+
   const ciclos = [...new Set([ciclo, ...(ciclosRecurso.datos ?? [])])].sort().reverse()
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -197,6 +268,7 @@ export function HistorialAsistenciaPage() {
               size="sm"
               onClick={() => {
                 recurso.recargar()
+                tendencia.recargar()
                 catalogo.recargar()
                 ciclosRecurso.recargar()
               }}
@@ -232,27 +304,21 @@ export function HistorialAsistenciaPage() {
             opciones={unicas(
               opciones.map((item) => ({ valor: item.nivel_educativo_id, etiqueta: item.nivel })),
             )}
-            onChange={(valor) =>
-              aplicar({
-                nivel_educativo_id: valor,
-                anio_id: undefined,
-                division_id: undefined,
-                inscripcion_id: undefined,
-              })
-            }
+            onChange={(valor) => aplicar({ nivel_educativo_id: valor })}
           />
           <Selector
             id="historial-anio"
             titulo="Año"
             valor={filtros.anio_id}
             todos="Todos los años"
-            disabled={catalogo.cargando || !filtros.nivel_educativo_id}
+            disabled={catalogo.cargando}
             opciones={unicas(
-              porNivel.map((item) => ({ valor: item.anio_id, etiqueta: `${item.anio}° año` })),
+              opciones.map((item) => ({
+                valor: item.anio_id,
+                etiqueta: `${item.anio}° año · ${item.nivel}`,
+              })),
             )}
-            onChange={(valor) =>
-              aplicar({ anio_id: valor, division_id: undefined, inscripcion_id: undefined })
-            }
+            onChange={(valor) => aplicar({ anio_id: valor })}
           />
           <Selector
             id="historial-division"
@@ -261,23 +327,25 @@ export function HistorialAsistenciaPage() {
             todos="Todas las divisiones"
             disabled={catalogo.cargando}
             opciones={unicas(
-              porAnio.map((item) => ({
+              opciones.map((item) => ({
                 valor: item.division_id,
                 etiqueta: `${item.division} · ${item.nivel}`,
               })),
             )}
-            onChange={(valor) => aplicar({ division_id: valor, inscripcion_id: undefined })}
+            onChange={(valor) => aplicar({ division_id: valor })}
           />
           <Selector
             id="historial-alumno"
             titulo="Alumno"
             valor={filtros.inscripcion_id}
             todos="Todos los alumnos"
-            disabled={catalogo.cargando || !filtros.division_id}
-            opciones={porDivision.map((item) => ({
-              valor: item.inscripcion_id,
-              etiqueta: item.alumno,
-            }))}
+            disabled={catalogo.cargando}
+            opciones={unicas(
+              opciones.map((item) => ({
+                valor: item.inscripcion_id,
+                etiqueta: item.alumno,
+              })),
+            )}
             onChange={(valor) => aplicar({ inscripcion_id: valor })}
           />
           <Selector
@@ -310,16 +378,27 @@ export function HistorialAsistenciaPage() {
           </Field>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-borde pt-3">
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setSeleccion(filtrosIniciales(ciclo))
-              setErrorExportacion(null)
-            }}
-          >
-            <RotateCcwIcon data-icon="inline-start" />
-            Limpiar filtros
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSeleccion(filtrosIniciales(ciclo))
+                setErrorExportacion(null)
+              }}
+            >
+              <RotateCcwIcon data-icon="inline-start" />
+              Limpiar filtros
+            </Button>
+            <Button variant="secondary" onClick={() => setGestionFiltros(true)}>
+              <BookmarkIcon data-icon="inline-start" />
+              Filtros guardados
+              {guardados.length > 0 && (
+                <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-violeta px-1 text-xs font-bold text-superficie">
+                  {guardados.length}
+                </span>
+              )}
+            </Button>
+          </div>
           {puedeExportar && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -390,6 +469,63 @@ export function HistorialAsistenciaPage() {
             }
           />
         ))}
+      </section>
+      <section
+        aria-label="Tendencia de asistencia"
+        className="rounded-panel bg-superficie p-4 shadow-card"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-texto">
+            Tendencia de asistencia
+            {alumnoSeleccionado ? ` · ${alumnoSeleccionado}` : ''}
+          </h2>
+          <span className="text-xs text-texto-3">
+            {alumnoSeleccionado
+              ? 'Porcentaje de presentes del alumno por día'
+              : 'Porcentaje de presentes por día'}
+          </span>
+        </div>
+        {tendencia.cargando ? (
+          <Skeleton className="mt-4 h-32 w-full" />
+        ) : (tendencia.datos?.puntos.length ?? 0) === 0 ? (
+          <p className="mt-4 text-sm text-texto-3">
+            No hay datos suficientes para graficar la tendencia.
+          </p>
+        ) : (
+          (() => {
+            const puntos = tendencia.datos?.puntos ?? []
+            const puntosRecientes = puntos.slice(-30)
+            return (
+              <>
+                <div className="mt-4 flex h-32 items-end gap-1">
+                  {puntosRecientes.map((punto) => (
+                    <div
+                      key={punto.fecha}
+                      className="group flex h-full flex-1 items-end"
+                      title={`${fechaCorta(punto.fecha)}: ${punto.porcentaje_presencia.toLocaleString(
+                        'es-AR',
+                      )}% de presencia`}
+                    >
+                      <div
+                        className="w-full rounded-t bg-violeta/70 transition-colors group-hover:bg-violeta"
+                        style={{ height: `${Math.max(punto.porcentaje_presencia, 2)}%` }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex justify-between text-xs text-texto-3">
+                  <span>{fechaCorta(puntosRecientes[0].fecha)}</span>
+                  <span>{fechaCorta(puntosRecientes[puntosRecientes.length - 1].fecha)}</span>
+                </div>
+                {puntos.length > puntosRecientes.length && (
+                  <p className="mt-1 text-xs text-texto-3">
+                    Se muestran los últimos 30 días del período.
+                  </p>
+                )}
+              </>
+            )
+          })()
+        )}
       </section>
       {recurso.sinPermiso ? (
         <Empty className="rounded-panel bg-superficie py-8">
@@ -482,6 +618,74 @@ export function HistorialAsistenciaPage() {
           </div>
         )
       )}
+
+      <Dialog open={gestionFiltros} onOpenChange={setGestionFiltros}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Filtros guardados</DialogTitle>
+            <DialogDescription>
+              Guardá combinaciones de filtros para reutilizarlas sin volver a armarlas.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3">
+            {guardados.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-borde p-4 text-center text-sm text-texto-3">
+                Todavía no guardaste ningún filtro.
+              </p>
+            ) : (
+              <ul className="flex flex-col divide-y divide-borde rounded-lg border border-borde">
+                {guardados.map((guardado) => (
+                  <li
+                    key={guardado.nombre}
+                    className="flex items-center justify-between gap-2 p-2.5"
+                  >
+                    <span className="text-sm font-medium">{guardado.nombre}</span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => aplicarFiltroGuardado(guardado)}
+                      >
+                        Aplicar
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Eliminar ${guardado.nombre}`}
+                        onClick={() => eliminarFiltroGuardado(guardado.nombre)}
+                      >
+                        <Trash2Icon />
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="flex items-end gap-2 border-t border-borde pt-3">
+              <Field className="flex-1">
+                <FieldLabel htmlFor="nombre-filtro">Nombre del filtro</FieldLabel>
+                <Input
+                  id="nombre-filtro"
+                  value={nombreFiltro}
+                  onChange={(event) => setNombreFiltro(event.target.value)}
+                  placeholder="Ej: 4°B marzo"
+                />
+              </Field>
+              <Button onClick={guardarFiltroActual} disabled={!nombreFiltro.trim()}>
+                Guardar actual
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setGestionFiltros(false)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

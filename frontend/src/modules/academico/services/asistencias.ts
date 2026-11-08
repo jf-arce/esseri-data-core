@@ -60,6 +60,14 @@ export function registrarAsistenciaMasiva(datos: AsistenciaBulkCreate) {
   })
 }
 
+export function obtenerUltimaFechaAsistencias(divisionId: string, cicloLectivo?: string) {
+  const params = new URLSearchParams({ division_id: divisionId })
+  if (cicloLectivo) params.set('ciclo_lectivo', cicloLectivo)
+  return apiClient<{ fecha: string | null }>(
+    `/academico/asistencias/ultima-fecha?${params.toString()}`,
+  )
+}
+
 export interface FiltrosResumenAsistencia {
   inscripcion_id: string
   fecha_desde: string

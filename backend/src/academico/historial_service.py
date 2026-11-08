@@ -11,7 +11,9 @@ from src.academico.historial_schemas import (
     FiltrosHistorial,
     OpcionHistorial,
     PaginaHistorial,
+    PuntoTendencia,
     ResumenHistorial,
+    TendenciaHistorial,
 )
 from src.academico.models import Anio, AsignacionDocente, Division, NivelEducativo
 from src.academico.service import (
@@ -193,6 +195,36 @@ def pagina_historial(
         tamanio_pagina=filtros.tamanio_pagina,
         total_paginas=math.ceil(total / filtros.tamanio_pagina),
     )
+
+
+def tendencia_historial(
+    db: Session, usuario_id: uuid.UUID, rol: str, filtros: FiltrosHistorial
+) -> TendenciaHistorial:
+    """Presencia agregada por día para el período y filtros consultados."""
+    filas = (
+        consulta_historial(db, usuario_id, rol, filtros)
+        .with_entities(
+            Asistencia.fecha,
+            func.count(Asistencia.id),
+            func.coalesce(
+                func.sum(case((Asistencia.tipo.in_(("presente", "tardanza")), 1), else_=0)),
+                0,
+            ),
+        )
+        .group_by(Asistencia.fecha)
+        .order_by(Asistencia.fecha)
+        .all()
+    )
+    puntos = [
+        PuntoTendencia(
+            fecha=fecha,
+            presentes=presentes,
+            ausentes=total - presentes,
+            porcentaje_presencia=round(presentes / total * 100, 2) if total else 0,
+        )
+        for fecha, total, presentes in filas
+    ]
+    return TendenciaHistorial(puntos=puntos)
 
 
 def reporte_historial(

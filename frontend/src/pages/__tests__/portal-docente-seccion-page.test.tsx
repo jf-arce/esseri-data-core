@@ -24,6 +24,7 @@ beforeEach(() => {
         etiqueta: '4°B',
         anio_numero: 4,
         nivel_educativo_nombre: 'Primario',
+        cantidad_materias: 6,
       },
     ],
     cargando: false,

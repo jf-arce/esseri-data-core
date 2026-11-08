@@ -13,7 +13,17 @@ const mockedApiClient = vi.mocked(apiClient)
 describe('JustificacionesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockedApiClient.mockResolvedValue([])
+    mockedApiClient.mockImplementation(((ruta: string) => {
+      if (ruta.includes('/justificaciones/opciones')) return Promise.resolve([])
+      return Promise.resolve({
+        items: [],
+        total: 0,
+        pagina: 1,
+        tamanio_pagina: 20,
+        total_paginas: 0,
+        resumen: { pendientes: 0, aprobadas: 0, rechazadas: 0, total: 0 },
+      })
+    }) as never)
   })
 
   it('informa cuando no hay justificaciones pendientes', async () => {

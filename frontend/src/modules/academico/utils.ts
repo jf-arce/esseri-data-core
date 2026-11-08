@@ -19,6 +19,18 @@ export function etiquetaMotivoJustificacion(motivo: string | null): string {
   return ETIQUETAS_MOTIVO_JUSTIFICACION[motivo] ?? motivo
 }
 
+// Normaliza un texto para comparar búsquedas sin depender de mayúsculas, acentos ni del signo
+// de grado: así "3c" encuentra "3°C" y "jose" encuentra "José".
+export function normalizarTexto(valor: string): string {
+  return valor
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[°º]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 const ETIQUETAS_TIPO_ASISTENCIA: Record<TipoAsistencia, string> = {
   presente: 'Presente',
   tardanza: 'Tardanza',
