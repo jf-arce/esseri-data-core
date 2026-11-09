@@ -68,6 +68,13 @@ vi.mock('../../hooks/use-consulta-historial', () => ({
     error: null,
     recargar: vi.fn(),
   }),
+  useTendenciaHistorial: () => ({
+    datos: { puntos: [] },
+    cargando: false,
+    error: null,
+    sinPermiso: false,
+    recargar: vi.fn(),
+  }),
 }))
 vi.mock('../../services/consultar-historial', () => ({
   exportarHistorial: vi.fn().mockResolvedValue(undefined),
@@ -133,10 +140,10 @@ it('opens today in the global cycle and shows full-result indicators and result 
   expect(screen.getByRole('columnheader', { name: 'División' })).toBeInTheDocument()
 })
 
-it('applies dependent selectors, state and date filters and resets descendants', async () => {
+it('applies independent selectors, state and date filters without cascading resets', async () => {
   render(<HistorialAsistenciaPage />)
   await elegir('Nivel educativo', 'Primario')
-  await elegir('Año', '4° año')
+  await elegir('Año', '4° año · Primario')
   await elegir('División', '4°B · Primario')
   await elegir('Alumno', 'Cabral, Tiziano')
   await elegir('Estado de asistencia', 'Ausente justificado')
@@ -153,13 +160,14 @@ it('applies dependent selectors, state and date filters and resets descendants',
       fecha_hasta: '2026-03-31',
     }),
   )
+  // Cambiar de nivel no borra el año/división/alumno ya elegidos: los filtros son independientes.
   await elegir('Nivel educativo', 'Secundario')
   expect(useConsultaHistorial).toHaveBeenLastCalledWith(
     expect.objectContaining({
       nivel_educativo_id: 'nivel-2',
-      anio_id: undefined,
-      division_id: undefined,
-      inscripcion_id: undefined,
+      anio_id: 'anio-1',
+      division_id: 'division-1',
+      inscripcion_id: 'inscripcion-1',
       pagina: 1,
     }),
   )

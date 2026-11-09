@@ -6,6 +6,7 @@ import type { NivelConEstructura } from '@/modules/academico/hooks/use-estructur
 const nivel: NivelConEstructura = {
   id: 'n1',
   nombre: 'Primario',
+  cantidad_anios: 1,
   created_at: '',
   updated_at: '',
   anios: [
@@ -13,13 +14,30 @@ const nivel: NivelConEstructura = {
       id: 'a1',
       numero: 1,
       nivel_educativo_id: 'n1',
+      cantidad_divisiones: 1,
+      cantidad_materias: 2,
       created_at: '',
       updated_at: '',
+      materias: [
+        {
+          id: 'm2',
+          nombre: 'Educación Física',
+          tipo: 'materia',
+          anio_id: 'a1',
+          division_id: null,
+          cantidad_asignaciones: 1,
+          created_at: '',
+          updated_at: '',
+        },
+      ],
       divisiones: [
         {
           id: 'd1',
           nombre: '1°A',
           anio_id: 'a1',
+          cantidad_materias: 1,
+          cantidad_inscripciones: 12,
+          cantidad_asignaciones: 1,
           created_at: '',
           updated_at: '',
           materias: [
@@ -29,6 +47,7 @@ const nivel: NivelConEstructura = {
               tipo: 'materia',
               anio_id: 'a1',
               division_id: 'd1',
+              cantidad_asignaciones: 1,
               created_at: '',
               updated_at: '',
             },
@@ -68,6 +87,7 @@ describe('NivelSeccion', () => {
     expect(screen.getByText('Primario')).toBeInTheDocument()
     expect(screen.getByText('1°A')).toBeInTheDocument()
     expect(screen.getByText('Matemática')).toBeInTheDocument()
+    expect(screen.getByText('Educación Física')).toBeInTheDocument()
   })
 
   it('con `puedeEditar`, muestra los triggers de escritura', () => {
@@ -78,7 +98,8 @@ describe('NivelSeccion', () => {
     expect(screen.getByRole('button', { name: 'Materia' })).toBeInTheDocument()
     expect(screen.getByLabelText('Acciones del año')).toBeInTheDocument()
     expect(screen.getByLabelText('Acciones de la división')).toBeInTheDocument()
-    expect(screen.getByLabelText('Editar materia')).toBeInTheDocument()
-    expect(screen.getByLabelText('Eliminar materia')).toBeInTheDocument()
+    // Una materia común al año y una propia de la división: dos filas editables.
+    expect(screen.getAllByLabelText('Editar materia')).toHaveLength(2)
+    expect(screen.getAllByLabelText('Eliminar materia')).toHaveLength(2)
   })
 })

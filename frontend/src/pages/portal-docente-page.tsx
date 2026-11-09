@@ -154,12 +154,12 @@ export function PortalDocentePage() {
               Elegí una división para abrir su espacio académico.
             </p>
           </div>
-          {!cargando && divisiones.length > 0 && (
+          {!cargando && divisiones.length > cursosVisibles.length && (
             <Link
               to="/docente/cursos"
               className="shrink-0 text-sm font-medium text-violeta hover:text-violeta-esseri"
             >
-              Ver todos
+              Ver todos ({divisiones.length})
             </Link>
           )}
         </div>
@@ -203,7 +203,9 @@ export function PortalDocentePage() {
                     {division.etiqueta}
                   </span>
                   <span className="mt-0.5 block truncate text-sm text-texto-2">
-                    {division.anio_numero}° año · {division.nivel_educativo_nombre}
+                    {division.anio_numero}° año · {division.nivel_educativo_nombre} ·{' '}
+                    {division.cantidad_materias}{' '}
+                    {division.cantidad_materias === 1 ? 'materia' : 'materias'}
                   </span>
                 </span>
                 <span className="hidden items-center gap-1.5 text-xs text-texto-2 sm:flex">

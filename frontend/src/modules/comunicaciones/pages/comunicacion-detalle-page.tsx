@@ -132,7 +132,7 @@ export function ComunicacionDetallePage({
       : 'Sin publicar'
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-      <Button variant="ghost" size="sm" asChild className="-ml-2 w-fit">
+      <Button variant="ghost" asChild className="-ml-2 w-fit">
         <Link to={base}>
           <ArrowLeftIcon data-icon="inline-start" />
           Volver a comunicaciones

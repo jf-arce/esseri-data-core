@@ -11,6 +11,7 @@ import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { FilterSearch } from '@/components/filter-bar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { PageHeader } from '@/components/page-header'
 import {
@@ -126,6 +127,16 @@ export function PortalDocenteCursoPage({ vista = 'resumen' }: { vista?: VistaCur
   const asistencias = useMemo(() => estadoAsistencias?.items ?? [], [estadoAsistencias?.items])
   const errorAsistencias = estadoAsistencias?.error
   const cargandoAsistencias = estadoAsistencias === null
+  const [busquedaAlumnos, setBusquedaAlumnos] = useState('')
+  const alumnosFiltrados = useMemo(() => {
+    const consulta = busquedaAlumnos.trim().toLowerCase()
+    if (!consulta) return alumnos
+    return alumnos.filter((alumno) =>
+      `${alumno.alumno_apellido} ${alumno.alumno_nombre} ${alumno.numero_legajo}`
+        .toLowerCase()
+        .includes(consulta),
+    )
+  }, [alumnos, busquedaAlumnos])
 
   useEffect(() => {
     if (!divisionId) return
@@ -265,7 +276,9 @@ export function PortalDocenteCursoPage({ vista = 'resumen' }: { vista?: VistaCur
       <PageHeader titulo={titulo} />
       <p className="-mt-4 text-sm text-texto-2">
         {curso
-          ? `${curso.etiqueta} · ${curso.anio_numero}° año · ${curso.nivel_educativo_nombre} · Ciclo ${cicloLectivo}`
+          ? `${curso.etiqueta} · ${curso.anio_numero}° año · ${curso.nivel_educativo_nombre} · ${curso.cantidad_materias} ${
+              curso.cantidad_materias === 1 ? 'materia' : 'materias'
+            } · Ciclo ${cicloLectivo}`
           : `Ciclo lectivo ${cicloLectivo}`}
       </p>
 
@@ -481,60 +494,82 @@ export function PortalDocenteCursoPage({ vista = 'resumen' }: { vista?: VistaCur
               </EmptyDescription>
             </Empty>
           ) : (
-            <div className="overflow-x-auto rounded-panel bg-superficie shadow-card">
-              <Table className="min-w-[620px]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>Alumno</TableHead>
-                    <TableHead>Legajo</TableHead>
-                    <TableHead>Asistencia</TableHead>
-                    <TableHead>Ausencias</TableHead>
-                    <TableHead />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {alumnos.map((alumno, index) => {
-                    const indicador = seguimientoPorInscripcion.get(alumno.id)
-                    return (
-                      <TableRow key={alumno.id}>
-                        <TableCell>{index + 1}</TableCell>
-                        <TableCell className="font-medium">
-                          {alumno.alumno_apellido}, {alumno.alumno_nombre}
-                        </TableCell>
-                        <TableCell>{alumno.numero_legajo}</TableCell>
-                        <TableCell>
-                          {cargandoAsistencias
-                            ? 'Consultando…'
-                            : errorAsistencias
-                              ? 'No disponible'
-                              : asistenciaPorInscripcion.has(alumno.id)
-                                ? `${asistenciaPorInscripcion.get(alumno.id)}%`
-                                : 'Sin registros'}
-                        </TableCell>
-                        <TableCell>
-                          {cargandoSeguimiento
-                            ? 'Consultando…'
-                            : errorSeguimiento
-                              ? 'No disponible'
-                              : indicador
-                                ? `${indicador.total_ausencias} · ${indicador.ausencias_consecutivas} consecutivas`
-                                : 'Sin registros'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button asChild variant="link" size="sm">
-                            <Link
-                              to={`/docente/cursos/${divisionId}/alumnos/${alumno.id}?ciclo_lectivo=${encodeURIComponent(cicloLectivo)}`}
-                            >
-                              Ficha académica
-                            </Link>
-                          </Button>
-                        </TableCell>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <FilterSearch
+                  value={busquedaAlumnos}
+                  onChange={setBusquedaAlumnos}
+                  placeholder="Buscar alumno o legajo"
+                />
+                <p className="text-sm text-texto-2">
+                  {alumnosFiltrados.length} de {alumnos.length} alumnos
+                </p>
+              </div>
+
+              {alumnosFiltrados.length === 0 ? (
+                <Empty className="min-h-[160px] rounded-panel bg-superficie shadow-card">
+                  <EmptyTitle>No hay alumnos que coincidan con la búsqueda.</EmptyTitle>
+                  <Button variant="secondary" onClick={() => setBusquedaAlumnos('')}>
+                    Limpiar búsqueda
+                  </Button>
+                </Empty>
+              ) : (
+                <div className="overflow-x-auto rounded-panel bg-superficie shadow-card">
+                  <Table className="min-w-[620px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>#</TableHead>
+                        <TableHead>Alumno</TableHead>
+                        <TableHead>Legajo</TableHead>
+                        <TableHead>Asistencia</TableHead>
+                        <TableHead>Ausencias</TableHead>
+                        <TableHead />
                       </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {alumnosFiltrados.map((alumno, index) => {
+                        const indicador = seguimientoPorInscripcion.get(alumno.id)
+                        return (
+                          <TableRow key={alumno.id}>
+                            <TableCell>{index + 1}</TableCell>
+                            <TableCell className="font-medium">
+                              {alumno.alumno_apellido}, {alumno.alumno_nombre}
+                            </TableCell>
+                            <TableCell>{alumno.numero_legajo}</TableCell>
+                            <TableCell>
+                              {cargandoAsistencias
+                                ? 'Consultando…'
+                                : errorAsistencias
+                                  ? 'No disponible'
+                                  : asistenciaPorInscripcion.has(alumno.id)
+                                    ? `${asistenciaPorInscripcion.get(alumno.id)}%`
+                                    : 'Sin registros'}
+                            </TableCell>
+                            <TableCell>
+                              {cargandoSeguimiento
+                                ? 'Consultando…'
+                                : errorSeguimiento
+                                  ? 'No disponible'
+                                  : indicador
+                                    ? `${indicador.total_ausencias} · ${indicador.ausencias_consecutivas} consecutivas`
+                                    : 'Sin registros'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button asChild variant="link" size="sm">
+                                <Link
+                                  to={`/docente/cursos/${divisionId}/alumnos/${alumno.id}?ciclo_lectivo=${encodeURIComponent(cicloLectivo)}`}
+                                >
+                                  Ficha académica
+                                </Link>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </div>
           )}
         </section>

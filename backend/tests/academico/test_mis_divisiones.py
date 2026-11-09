@@ -81,6 +81,7 @@ def test_docente_ve_sus_propias_divisiones(client, db_session):
             "etiqueta": "4°B",
             "anio_numero": 4,
             "nivel_educativo_nombre": "Primario",
+            "cantidad_materias": 1,
         }
     ]
 
@@ -241,6 +242,7 @@ def test_etiqueta_no_duplica_el_anio_cuando_ya_esta_en_el_nombre(client, db_sess
             "etiqueta": "3°C",
             "anio_numero": 1,
             "nivel_educativo_nombre": "Primario",
+            "cantidad_materias": 1,
         }
     ]
 

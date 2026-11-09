@@ -31,6 +31,7 @@ class NivelEducativoResponse(BaseModel):
 
     id: uuid.UUID
     nombre: str
+    cantidad_anios: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -62,6 +63,8 @@ class AnioResponse(BaseModel):
     id: uuid.UUID
     numero: int
     nivel_educativo_id: uuid.UUID
+    cantidad_divisiones: int = 0
+    cantidad_materias: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -91,6 +94,9 @@ class DivisionResponse(BaseModel):
     id: uuid.UUID
     nombre: str
     anio_id: uuid.UUID
+    cantidad_materias: int = 0
+    cantidad_inscripciones: int = 0
+    cantidad_asignaciones: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -155,6 +161,7 @@ class MiDivisionResponse(BaseModel):
     etiqueta: str
     anio_numero: int
     nivel_educativo_nombre: str
+    cantidad_materias: int = 0
 
 
 class DocentePerfilResponse(BaseModel):
@@ -183,6 +190,32 @@ class AsignacionDocenteCreate(BaseModel):
     division_id: uuid.UUID = Field(..., description="ID de la división")
 
 
+class AsignacionDocenteUpdate(BaseModel):
+    """Schema para actualizar una asignación docente existente."""
+
+    ciclo_lectivo: str | None = Field(None, min_length=1, description="Ciclo lectivo (ej: '2025')")
+    docente_id: uuid.UUID | None = Field(None, description="ID del docente")
+    materia_id: uuid.UUID | None = Field(None, description="ID de la materia")
+    division_id: uuid.UUID | None = Field(None, description="ID de la división")
+
+
+class AsignacionDocenteBulkItem(BaseModel):
+    """Una combinación materia + división para asignar en bloque."""
+
+    materia_id: uuid.UUID = Field(..., description="ID de la materia")
+    division_id: uuid.UUID = Field(..., description="ID de la división")
+
+
+class AsignacionDocenteBulkCreate(BaseModel):
+    """Asignar un docente a varias combinaciones materia + división en un solo alta."""
+
+    ciclo_lectivo: str = Field(..., min_length=1, description="Ciclo lectivo (ej: '2025')")
+    docente_id: uuid.UUID = Field(..., description="ID del docente")
+    items: list[AsignacionDocenteBulkItem] = Field(
+        ..., min_length=1, description="Combinaciones materia + división a asignar"
+    )
+
+
 class AsignacionDocenteResponse(BaseModel):
     """Schema para responder con datos de AsignacionDocente."""
 
@@ -195,6 +228,15 @@ class AsignacionDocenteResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AsignacionDocenteBulkResponse(BaseModel):
+    """Resultado de un alta masiva de asignaciones."""
+
+    creadas: list[AsignacionDocenteResponse] = Field(default_factory=list)
+    omitidas: list[AsignacionDocenteBulkItem] = Field(
+        default_factory=list, description="Combinaciones que ya existían y no se duplicaron"
+    )
 
 
 # --- Asistencia --------------------------------------------------------------------------
@@ -285,6 +327,15 @@ class JustificacionFamiliaResponse(BaseModel):
     observacion: str | None
     archivo_nombre: str | None
     fecha_carga: datetime
+    # Contexto adicional para la bandeja institucional (la familia no lo necesita).
+    alumno_id: uuid.UUID | None = None
+    nivel_educativo_id: uuid.UUID | None = None
+    nivel_educativo_nombre: str | None = None
+    anio_id: uuid.UUID | None = None
+    anio_numero: int | None = None
+    division_id: uuid.UUID | None = None
+    division_nombre: str | None = None
+    fecha_resolucion: datetime | None = None
 
 
 class JustificacionResolucion(BaseModel):
@@ -298,6 +349,58 @@ class JustificacionResolucion(BaseModel):
         return self
 
 
+class FiltrosJustificaciones(BaseModel):
+    """Filtros para listar justificaciones."""
+
+    nivel_id: uuid.UUID | None = Field(None, description="ID del nivel educativo")
+    anio_id: uuid.UUID | None = Field(None, description="ID del año")
+    division_id: uuid.UUID | None = Field(None, description="ID de la división")
+    alumno_id: uuid.UUID | None = Field(None, description="ID del alumno")
+    estado: Literal["pendiente", "aprobada", "rechazada"] | None = Field(
+        None, description="Estado de la justificación"
+    )
+    busqueda: str | None = Field(
+        None, max_length=120, description="Texto libre para buscar por alumno"
+    )
+    fecha_desde: date | None = Field(None, description="Fecha desde (inclusive)")
+    fecha_hasta: date | None = Field(None, description="Fecha hasta (inclusive)")
+    pagina: int = Field(1, ge=1, description="Número de página")
+    tamanio_pagina: int = Field(50, ge=1, le=200, description="Tamaño de página")
+
+
+class JustificacionesResumen(BaseModel):
+    """Conteos globales de la bandeja, independientes de la página pedida."""
+
+    pendientes: int = 0
+    aprobadas: int = 0
+    rechazadas: int = 0
+    total: int = 0
+
+
+class JustificacionesPaginadasResponse(BaseModel):
+    """Respuesta paginada de justificaciones."""
+
+    items: list[JustificacionFamiliaResponse]
+    total: int
+    pagina: int
+    tamanio_pagina: int
+    total_paginas: int
+    resumen: JustificacionesResumen = Field(default_factory=JustificacionesResumen)
+
+
+class OpcionJustificacion(BaseModel):
+    """Combinación nivel/año/división/alumno presente en las justificaciones."""
+
+    nivel_educativo_id: uuid.UUID
+    nivel_educativo_nombre: str
+    anio_id: uuid.UUID
+    anio_numero: int
+    division_id: uuid.UUID
+    division_nombre: str
+    alumno_id: uuid.UUID
+    alumno_nombre: str
+
+
 class AsistenciaBulkResponse(BaseModel):
     """Schema para responder al registro masivo de asistencia."""
 
@@ -306,6 +409,12 @@ class AsistenciaBulkResponse(BaseModel):
     notificaciones_disparadas: int = Field(
         ..., description="Cantidad de notificaciones de ausencia disparadas"
     )
+
+
+class UltimaFechaAsistenciaResponse(BaseModel):
+    """Última fecha con asistencias registradas en una división (o `null` si no hay)."""
+
+    fecha: date | None = None
 
 
 class AsistenciaResumen(BaseModel):
@@ -377,6 +486,7 @@ class MateriaResponse(BaseModel):
     anio_id: uuid.UUID
     anio_numero: int | None = None
     division_id: uuid.UUID | None
+    cantidad_asignaciones: int = 0
     created_at: datetime
     updated_at: datetime
 

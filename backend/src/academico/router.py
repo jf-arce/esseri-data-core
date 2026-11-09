@@ -29,21 +29,30 @@ from src.academico.dependencies import (
 )
 from src.academico.exceptions import (
     AnioConDivisiones,
+    AnioConMaterias,
     AnioDuplicado,
     AsignacionDocenteDuplicada,
     AsistenciaDuplicada,
     AsistenciaYaJustificada,
     DivisionConAsignaciones,
+    DivisionConInscripciones,
+    DivisionConMaterias,
     DivisionDuplicada,
     DocenteConAsignaciones,
     InscripcionNoActiva,
     LegajoDuplicado,
     MateriaConAsignaciones,
     MateriaDuplicada,
+    MateriaNoCorrespondeADivision,
     NivelEducativoConAnios,
     NombreNivelDuplicado,
 )
 from src.academico.historial_router import router as historial_router
+from src.academico.justificaciones_service import (
+    opciones_justificaciones,
+    pagina_justificaciones,
+    respuesta_justificacion,
+)
 from src.academico.models import (
     Anio,
     ArchivoJustificacionInasistencia,
@@ -60,8 +69,11 @@ from src.academico.schemas import (
     AnioCreate,
     AnioResponse,
     AnioUpdate,
+    AsignacionDocenteBulkCreate,
+    AsignacionDocenteBulkResponse,
     AsignacionDocenteCreate,
     AsignacionDocenteResponse,
+    AsignacionDocenteUpdate,
     AsistenciaBulkCreate,
     AsistenciaBulkResponse,
     AsistenciaCreate,
@@ -77,6 +89,8 @@ from src.academico.schemas import (
     DocentePerfilResponse,
     DocenteResponse,
     DocenteUpdate,
+    FiltrosJustificaciones,
+    JustificacionesPaginadasResponse,
     JustificacionFamiliaResponse,
     JustificacionResolucion,
     MateriaCreate,
@@ -86,10 +100,13 @@ from src.academico.schemas import (
     NivelEducativoCreate,
     NivelEducativoResponse,
     NivelEducativoUpdate,
+    OpcionJustificacion,
     SeguimientoDivisionItem,
+    UltimaFechaAsistenciaResponse,
 )
 from src.academico.service import (
     actualizar_anio,
+    actualizar_asignacion_docente,
     actualizar_asistencia,
     actualizar_division,
     actualizar_docente,
@@ -100,6 +117,7 @@ from src.academico.service import (
     crear_alta_docente,
     crear_anio,
     crear_asignacion_docente,
+    crear_asignaciones_docentes_bulk,
     crear_division,
     crear_docente,
     crear_docente_desde_usuario,
@@ -134,6 +152,7 @@ from src.academico.service import (
     registrar_asistencia,
     registrar_asistencia_masiva,
     resolver_justificacion,
+    ultima_fecha_con_asistencias,
     verificar_acceso_a_asistencia,
     verificar_acceso_a_division,
 )
@@ -149,54 +168,27 @@ from src.auth.constants import (
 from src.auth.dependencies import RolActivo, UsuarioAutenticado, requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
-from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
+from src.familias_alumnos.models import Familia, FamiliaAlumno
 from src.inscripciones.matriculas_service import (
     listar_inscripciones as listar_inscripciones_service,
 )
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.inscripciones.schemas import InscripcionListadoRead
-from src.models import Persona
 
 router = APIRouter(prefix="/academico", tags=["academico"])
 router.include_router(historial_router)
 
 
-def _contexto_justificacion(db: Session, justificacion_id: uuid.UUID):
-    return (
-        db.query(Asistencia.fecha, Persona.nombre, Persona.apellido)
-        .join(
-            JustificacionInasistencia,
-            JustificacionInasistencia.asistencia_id == Asistencia.id,
-        )
-        .join(Inscripcion, Inscripcion.id == Asistencia.inscripcion_id)
-        .join(Alumno, Alumno.id == Inscripcion.alumno_id)
-        .join(Persona, Persona.id == Alumno.persona_id)
-        .filter(JustificacionInasistencia.id == justificacion_id)
-        .first()
-    )
-
-
 def _respuesta_justificacion(
-    db: Session, justificacion: JustificacionInasistencia, contexto=None
+    db: Session, justificacion: JustificacionInasistencia
 ) -> JustificacionFamiliaResponse:
-    contexto = contexto or _contexto_justificacion(db, justificacion.id)
-    if contexto is None:
+    try:
+        return respuesta_justificacion(db, justificacion)
+    except LookupError as exc:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
             "Asistencia de justificación no encontrada",
-        )
-    motivo = db.get(MotivoJustificacion, justificacion.motivo_justificacion_id)
-    return JustificacionFamiliaResponse(
-        id=justificacion.id,
-        asistencia_id=justificacion.asistencia_id,
-        fecha_asistencia=contexto[0],
-        alumno_nombre=f"{contexto[1]} {contexto[2]}",
-        estado=justificacion.estado,
-        motivo=motivo.nombre if motivo is not None else "Otro",
-        observacion=justificacion.observacion,
-        archivo_nombre=justificacion.archivo,
-        fecha_carga=justificacion.fecha_carga,
-    )
+        ) from exc
 
 
 # --- NivelEducativo ----------------------------------------------------------------------
@@ -320,7 +312,7 @@ def eliminar_anio_endpoint(
     """Eliminar un año."""
     try:
         eliminar_anio(db, anio, usuario.id)
-    except AnioConDivisiones as exc:
+    except (AnioConDivisiones, AnioConMaterias) as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 
 
@@ -345,7 +337,7 @@ def listar_divisiones_endpoint(
     _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
     anio_id: uuid.UUID | None = None,
     db: Session = Depends(get_db),  # noqa: B008
-) -> list[Division]:
+) -> list[DivisionResponse]:
     """Listar divisiones. Opcionalmente filtrar por año con ?anio_id="""
     if anio_id is not None:
         return listar_divisiones_por_anio(db, anio_id)
@@ -384,7 +376,7 @@ def eliminar_division_endpoint(
     """Eliminar una división."""
     try:
         eliminar_division(db, division, usuario.id)
-    except DivisionConAsignaciones as exc:
+    except (DivisionConMaterias, DivisionConInscripciones, DivisionConAsignaciones) as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 
 
@@ -414,7 +406,7 @@ def listar_materias_endpoint(
     anio_id: uuid.UUID | None = None,
     division_id: uuid.UUID | None = None,
     db: Session = Depends(get_db),  # noqa: B008
-) -> list[Materia]:
+) -> list[MateriaResponse]:
     """Listar materias. Opcionalmente filtrar por ?anio_id= o ?division_id="""
     if division_id is not None:
         return listar_materias_por_division(db, division_id)
@@ -533,10 +525,15 @@ def mis_divisiones_endpoint(
             etiqueta=etiqueta,
             anio_numero=anio_numero,
             nivel_educativo_nombre=nivel_educativo_nombre,
+            cantidad_materias=cantidad_materias,
         )
-        for division_id, etiqueta, anio_numero, nivel_educativo_nombre in divisiones_de_persona(
-            db, usuario.persona_id, ciclo_consultado
-        )
+        for (
+            division_id,
+            etiqueta,
+            anio_numero,
+            nivel_educativo_nombre,
+            cantidad_materias,
+        ) in divisiones_de_persona(db, usuario.persona_id, ciclo_consultado)
     ]
 
 
@@ -643,7 +640,46 @@ def crear_asignacion_docente_endpoint(
     """Asignar un docente a materia+división por ciclo lectivo."""
     try:
         return crear_asignacion_docente(db, datos, usuario.id)
-    except AsignacionDocenteDuplicada as exc:
+    except (AsignacionDocenteDuplicada, MateriaNoCorrespondeADivision) as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+
+
+@router.post(
+    "/asignaciones-docentes/bulk",
+    response_model=AsignacionDocenteBulkResponse,
+    status_code=201,
+)
+def crear_asignaciones_docentes_bulk_endpoint(
+    datos: AsignacionDocenteBulkCreate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_CREAR))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> AsignacionDocenteBulkResponse:
+    """Asignar un docente a varias materias y divisiones en un solo alta.
+
+    Las combinaciones que ya existían se omiten y se informan en la respuesta.
+    """
+    try:
+        return crear_asignaciones_docentes_bulk(db, datos, usuario.id)
+    except MateriaNoCorrespondeADivision as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+
+
+@router.put(
+    "/asignaciones-docentes/{asignacion_id}",
+    response_model=AsignacionDocenteResponse,
+)
+def actualizar_asignacion_docente_endpoint(
+    datos: AsignacionDocenteUpdate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_CREAR))],
+    asignacion: AsignacionDocente = Depends(obtener_asignacion_docente_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> AsignacionDocente:
+    """Actualizar una asignación docente existente."""
+    try:
+        return actualizar_asignacion_docente(db, asignacion, datos, usuario.id)
+    except (AsignacionDocenteDuplicada, MateriaNoCorrespondeADivision) as exc:
+        db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 
 
@@ -725,6 +761,19 @@ def registrar_asistencia_masiva_endpoint(
     notificación automática a los responsables.
     """
     return registrar_asistencia_masiva(db, datos, usuario.id, rol_activo)
+
+
+@router.get("/asistencias/ultima-fecha", response_model=UltimaFechaAsistenciaResponse)
+def ultima_fecha_asistencias_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    division_id: uuid.UUID,
+    ciclo_lectivo: str | None = None,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> UltimaFechaAsistenciaResponse:
+    """Última fecha con lista tomada en la división, para "copiar la clase anterior"."""
+    return UltimaFechaAsistenciaResponse(
+        fecha=ultima_fecha_con_asistencias(db, division_id, ciclo_lectivo)
+    )
 
 
 @router.get("/asistencias", response_model=list[AsistenciaResponse])
@@ -833,30 +882,23 @@ def justificar_asistencia_familia(
     return _respuesta_justificacion(db, justificacion)
 
 
-@router.get("/justificaciones", response_model=list[JustificacionFamiliaResponse])
+@router.get("/justificaciones", response_model=JustificacionesPaginadasResponse)
 def listar_justificaciones_endpoint(
     _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES))],
+    filtros: Annotated[FiltrosJustificaciones, Query()],
     db: Session = Depends(get_db),  # noqa: B008
-) -> list[JustificacionFamiliaResponse]:
-    filas = (
-        db.query(
-            JustificacionInasistencia,
-            Asistencia.fecha,
-            Persona.nombre,
-            Persona.apellido,
-        )
-        .join(Asistencia, JustificacionInasistencia.asistencia_id == Asistencia.id)
-        .join(Inscripcion, Inscripcion.id == Asistencia.inscripcion_id)
-        .join(Alumno, Alumno.id == Inscripcion.alumno_id)
-        .join(Persona, Persona.id == Alumno.persona_id)
-        .filter(JustificacionInasistencia.estado == "pendiente")
-        .order_by(JustificacionInasistencia.fecha_carga.asc())
-        .all()
-    )
-    return [
-        _respuesta_justificacion(db, item, (fecha, nombre, apellido))
-        for item, fecha, nombre, apellido in filas
-    ]
+) -> JustificacionesPaginadasResponse:
+    """Bandeja institucional de justificaciones, con filtros, búsqueda y paginación."""
+    return pagina_justificaciones(db, filtros)
+
+
+@router.get("/justificaciones/opciones", response_model=list[OpcionJustificacion])
+def opciones_justificaciones_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[OpcionJustificacion]:
+    """Niveles, años, divisiones y alumnos que tienen justificaciones registradas."""
+    return opciones_justificaciones(db)
 
 
 @router.patch(

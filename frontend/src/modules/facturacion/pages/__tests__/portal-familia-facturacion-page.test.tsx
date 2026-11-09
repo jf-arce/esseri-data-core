@@ -362,3 +362,16 @@ describe('PortalFamiliaFacturacionPage', () => {
     expect(mockedListarFacturacion).toHaveBeenCalledTimes(2)
   })
 })
+
+it('muestra las facturas aunque el backend omita el vencimiento efectivo', async () => {
+  const incompleta = structuredClone(facturacion) as unknown as {
+    facturas: Record<string, unknown>[]
+  }
+  delete incompleta.facturas[0].fecha_vencimiento_efectiva
+  mockedListarFacturacion.mockResolvedValue(incompleta as unknown as FacturacionFamilia)
+
+  renderizarPagina()
+
+  expect(await screen.findByText(/Tiziano Cabral/)).toBeInTheDocument()
+  expect(screen.getAllByText('Cuota de marzo').length).toBeGreaterThan(0)
+})

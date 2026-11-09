@@ -1,5 +1,6 @@
 import {
   MoreHorizontalIcon,
+  PencilIcon,
   PlusIcon,
   SearchIcon,
   ShieldAlertIcon,
@@ -40,7 +41,7 @@ import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/const
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 type DialogState =
-  { open: false } | { open: true; modo: 'crear' | 'eliminar'; item?: AsignacionDocente }
+  { open: false } | { open: true; modo: 'crear' | 'editar' | 'eliminar'; item?: AsignacionDocente }
 
 export function AsignacionesDocentesPage() {
   const { asignaciones, docentes, materias, divisiones, cargando, error, sinPermiso, recargar } =
@@ -101,8 +102,9 @@ export function AsignacionesDocentesPage() {
       activas: asignaciones.length,
       docentes: docentesActivos.size,
       divisiones: divisionesCubiertas.size,
+      materiasSinDocente: materias.filter((materia) => materia.cantidad_asignaciones === 0).length,
     }
-  }, [asignaciones])
+  }, [asignaciones, materias])
 
   if (sinPermiso) {
     return (
@@ -155,7 +157,7 @@ export function AsignacionesDocentesPage() {
         />
         <StatTile
           label="Materias sin docente"
-          value="—"
+          value={stats.materiasSinDocente}
           icon={AlertTriangleIcon}
           iconClassName="bg-error-suave text-error"
         />
@@ -271,6 +273,14 @@ export function AsignacionesDocentesPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onSelect={() =>
+                            setDialog({ open: true, modo: 'editar', item: asignacion })
+                          }
+                        >
+                          <PencilIcon />
+                          Editar asignación
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           variant="destructive"
                           onSelect={() =>

@@ -95,7 +95,13 @@ describe('ElegirPerfilPage', () => {
 
   it('trae las divisiones del docente para su card', async () => {
     mockedGetMisDivisiones.mockResolvedValue([
-      { division_id: 'd1', etiqueta: '4°B', anio_numero: 4, nivel_educativo_nombre: 'Primario' },
+      {
+        division_id: 'd1',
+        etiqueta: '4°B',
+        anio_numero: 4,
+        nivel_educativo_nombre: 'Primario',
+        cantidad_materias: 6,
+      },
     ])
     renderPagina()
 

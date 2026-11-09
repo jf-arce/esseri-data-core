@@ -138,6 +138,37 @@ def test_ordenamiento(client_direccion, historial, orden, primera):
     assert respuesta.json()["items"][0]["fecha"] == primera
 
 
+def test_tendencia_agrega_presencia_por_dia(client_direccion, historial):
+    respuesta = client_direccion.get(
+        "/academico/asistencias/tendencia", params={"ciclo_lectivo": "2026"}
+    )
+
+    assert respuesta.status_code == 200
+    puntos = respuesta.json()["puntos"]
+    assert [punto["fecha"] for punto in puntos] == [
+        "2026-03-01",
+        "2026-03-02",
+        "2026-03-03",
+        "2026-03-04",
+        "2026-03-05",
+    ]
+    assert [punto["presentes"] for punto in puntos] == [1, 1, 0, 0, 0]
+    assert [punto["ausentes"] for punto in puntos] == [0, 0, 1, 1, 1]
+    assert puntos[0]["porcentaje_presencia"] == 100.0
+
+
+def test_ultima_fecha_con_asistencias(client_direccion, historial):
+    escenario, _, _ = historial
+
+    respuesta = client_direccion.get(
+        "/academico/asistencias/ultima-fecha",
+        params={"division_id": str(escenario["division_id"]), "ciclo_lectivo": "2026"},
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"fecha": "2026-03-05"}
+
+
 def test_opciones_no_excluyen_inscripciones_finalizadas(client_direccion, historial):
     escenario, anterior, _ = historial
     respuesta = client_direccion.get(

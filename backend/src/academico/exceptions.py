@@ -25,6 +25,57 @@ class AnioConDivisiones(AppException):
         super().__init__(message)
 
 
+class AnioConMaterias(AppException):
+    """El año tiene materias asociadas: borrarlo dejaría MATERIA apuntando a nada."""
+
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = "No se puede eliminar: el año tiene materias asociadas",
+    ):
+        super().__init__(message)
+
+
+class DivisionConMaterias(AppException):
+    """La división tiene materias propias: borrarla dejaría MATERIA apuntando a nada."""
+
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = "No se puede eliminar: la división tiene materias propias asociadas",
+    ):
+        super().__init__(message)
+
+
+class DivisionConInscripciones(AppException):
+    """La división tiene alumnos inscriptos: borrarla dejaría INSCRIPCION apuntando a nada."""
+
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = "No se puede eliminar: la división tiene alumnos inscriptos",
+    ):
+        super().__init__(message)
+
+
+class MateriaNoCorrespondeADivision(AppException):
+    """La materia elegida no pertenece al año (o a la división) indicados."""
+
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = (
+            "La materia no pertenece al año de la división seleccionada. "
+            "Elegí una materia del mismo año."
+        ),
+    ):
+        super().__init__(message)
+
+
 class DivisionConAsignaciones(AppException):
     """La división tiene asignaciones docentes: borrarla dejaría referencias colgando."""
 
