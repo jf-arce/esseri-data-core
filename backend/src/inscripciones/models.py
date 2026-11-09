@@ -145,3 +145,8 @@ class Asistencia(Base):
         sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
     )
     inscripcion_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("inscripcion.id"))
+    solicitud_ausencia_periodo_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.ForeignKey(
+            "solicitud_ausencia_periodo.id", name="fk_asistencia_solicitud_ausencia_periodo"
+        )
+    )
