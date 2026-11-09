@@ -5,7 +5,7 @@ import uuid
 import pytest
 from sqlalchemy import func, select
 
-from src.academico.models import AsignacionDocente, Division, Docente, Materia
+from src.academico.models import AsignacionDocente, Division, Docente, Materia, MateriaCurso
 from src.auth import config, sesion_service
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
 from src.comunicaciones.models import ReciboComunicacion
@@ -25,13 +25,15 @@ def docente(client, db_session, escenario_dos_familias):
     )
     perfil = Docente(persona_id=persona.id, legajo="DOC-COM")
     ajena = Division(nombre="Otra división", anio_id=ids["anio"])
-    materia = Materia(nombre="Lengua", tipo="materia", anio_id=ids["anio"])
+    materia = Materia(nombre="Lengua", tipo="materia")
     db_session.add_all([usuario, perfil, ajena, materia])
+    db_session.flush()
+    materia_curso = MateriaCurso(materia_id=materia.id, division_id=ids["division"])
+    db_session.add(materia_curso)
     db_session.flush()
     asignacion = AsignacionDocente(
         docente_id=perfil.id,
-        materia_id=materia.id,
-        division_id=ids["division"],
+        materia_curso_id=materia_curso.id,
         ciclo_lectivo="2027",
     )
     db_session.add(asignacion)

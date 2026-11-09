@@ -13,7 +13,6 @@ from src.academico.exceptions import (
     AnioConMaterias,
     DivisionConInscripciones,
     DivisionConMaterias,
-    MateriaNoCorrespondeADivision,
 )
 from src.academico.models import (
     Anio,
@@ -22,6 +21,7 @@ from src.academico.models import (
     Docente,
     JustificacionInasistencia,
     Materia,
+    MateriaCurso,
     MotivoJustificacion,
     NivelEducativo,
 )
@@ -94,13 +94,11 @@ def _inscripcion(db, division):
 
 
 def test_no_elimina_anio_con_materias(db_session):
-    nivel = NivelEducativo(nombre="Primario")
-    db_session.add(nivel)
+    _, anio, division = _estructura(db_session)
+    materia = Materia(nombre="Matemática", tipo="materia")
+    db_session.add(materia)
     db_session.flush()
-    anio = Anio(numero=4, nivel_educativo_id=nivel.id)
-    db_session.add(anio)
-    db_session.flush()
-    db_session.add(Materia(nombre="Matemática", tipo="materia", anio_id=anio.id))
+    db_session.add(MateriaCurso(materia_id=materia.id, division_id=division.id))
     db_session.commit()
 
     with pytest.raises(AnioConMaterias):
@@ -108,10 +106,11 @@ def test_no_elimina_anio_con_materias(db_session):
 
 
 def test_no_elimina_division_con_materias_propias(db_session):
-    _, anio, division = _estructura(db_session)
-    db_session.add(
-        Materia(nombre="Taller de arte", tipo="taller", anio_id=anio.id, division_id=division.id)
-    )
+    _, _, division = _estructura(db_session)
+    materia = Materia(nombre="Taller de arte", tipo="taller")
+    db_session.add(materia)
+    db_session.flush()
+    db_session.add(MateriaCurso(materia_id=materia.id, division_id=division.id))
     db_session.commit()
 
     with pytest.raises(DivisionConMaterias):
@@ -130,64 +129,51 @@ def test_no_elimina_division_con_inscripciones(db_session):
 # --- Asignaciones docentes ---------------------------------------------------------------
 
 
-def test_crear_asignacion_rechaza_materia_de_otro_anio(db_session):
-    _, _, division = _estructura(db_session, nivel="Primario", numero=4, division="4°A")
-    _, anio_secundario, _ = _estructura(db_session, nivel="Secundario", numero=1, division="1°A")
-    materia = Materia(nombre="Historia", tipo="materia", anio_id=anio_secundario.id)
-    db_session.add(materia)
-    docente = _docente(db_session)
-    db_session.commit()
-
-    with pytest.raises(MateriaNoCorrespondeADivision):
-        crear_asignacion_docente(
-            db_session,
-            AsignacionDocenteCreate(
-                ciclo_lectivo="2027",
-                docente_id=docente.id,
-                materia_id=materia.id,
-                division_id=division.id,
-            ),
-        )
-
-
 def test_actualizar_asignacion_cambia_materia(db_session):
-    _, anio, division = _estructura(db_session)
-    materia_uno = Materia(nombre="Lengua", tipo="materia", anio_id=anio.id)
-    materia_dos = Materia(nombre="Matemática", tipo="materia", anio_id=anio.id)
+    _, _, division = _estructura(db_session)
+    materia_uno = Materia(nombre="Lengua", tipo="materia")
+    materia_dos = Materia(nombre="Matemática", tipo="materia")
     docente = _docente(db_session)
     db_session.add_all([materia_uno, materia_dos])
+    db_session.flush()
+    curso_uno = MateriaCurso(materia_id=materia_uno.id, division_id=division.id)
+    curso_dos = MateriaCurso(materia_id=materia_dos.id, division_id=division.id)
+    db_session.add_all([curso_uno, curso_dos])
     db_session.commit()
     asignacion = crear_asignacion_docente(
         db_session,
         AsignacionDocenteCreate(
             ciclo_lectivo="2027",
             docente_id=docente.id,
-            materia_id=materia_uno.id,
-            division_id=division.id,
+            materia_curso_id=curso_uno.id,
         ),
     )
 
     actualizada = actualizar_asignacion_docente(
-        db_session, asignacion, AsignacionDocenteUpdate(materia_id=materia_dos.id)
+        db_session, asignacion, AsignacionDocenteUpdate(materia_curso_id=curso_dos.id)
     )
 
+    assert actualizada.materia_curso_id == curso_dos.id
     assert actualizada.materia_id == materia_dos.id
 
 
 def test_alta_masiva_omite_asignaciones_ya_existentes(db_session):
-    _, anio, division = _estructura(db_session)
-    materia_uno = Materia(nombre="Lengua", tipo="materia", anio_id=anio.id)
-    materia_dos = Materia(nombre="Matemática", tipo="materia", anio_id=anio.id)
+    _, _, division = _estructura(db_session)
+    materia_uno = Materia(nombre="Lengua", tipo="materia")
+    materia_dos = Materia(nombre="Matemática", tipo="materia")
     docente = _docente(db_session)
     db_session.add_all([materia_uno, materia_dos])
+    db_session.flush()
+    curso_uno = MateriaCurso(materia_id=materia_uno.id, division_id=division.id)
+    curso_dos = MateriaCurso(materia_id=materia_dos.id, division_id=division.id)
+    db_session.add_all([curso_uno, curso_dos])
     db_session.commit()
     crear_asignacion_docente(
         db_session,
         AsignacionDocenteCreate(
             ciclo_lectivo="2027",
             docente_id=docente.id,
-            materia_id=materia_uno.id,
-            division_id=division.id,
+            materia_curso_id=curso_uno.id,
         ),
     )
 
@@ -197,8 +183,8 @@ def test_alta_masiva_omite_asignaciones_ya_existentes(db_session):
             ciclo_lectivo="2027",
             docente_id=docente.id,
             items=[
-                AsignacionDocenteBulkItem(materia_id=materia_uno.id, division_id=division.id),
-                AsignacionDocenteBulkItem(materia_id=materia_dos.id, division_id=division.id),
+                AsignacionDocenteBulkItem(materia_curso_id=curso_uno.id),
+                AsignacionDocenteBulkItem(materia_curso_id=curso_dos.id),
             ],
         ),
     )

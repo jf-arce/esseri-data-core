@@ -46,6 +46,7 @@ from src.academico.models import (
     Division,
     Docente,
     Materia,
+    MateriaCurso,
     NivelEducativo,
 )
 from src.auth.constants import codigo_de
@@ -271,21 +272,29 @@ def _division(db, anio_id) -> Division:
     return division
 
 
-def _materia(db, anio_id, division_id) -> Materia:
-    materia = db.scalar(
-        select(Materia)
-        .where(
-            Materia.anio_id == anio_id,
-            Materia.division_id == division_id,
-            Materia.nombre == "Lengua",
-        )
-        .limit(1)
-    )
+def _materia(db) -> Materia:
+    materia = db.scalar(select(Materia).where(Materia.nombre_normalizado == "lengua").limit(1))
     if materia is None:
-        materia = Materia(nombre="Lengua", tipo="materia", anio_id=anio_id, division_id=division_id)
+        materia = Materia(nombre="Lengua", tipo="materia")
         db.add(materia)
         db.flush()
     return materia
+
+
+def _materia_curso(db, materia_id, division_id) -> MateriaCurso:
+    fila = db.scalar(
+        select(MateriaCurso)
+        .where(
+            MateriaCurso.materia_id == materia_id,
+            MateriaCurso.division_id == division_id,
+        )
+        .limit(1)
+    )
+    if fila is None:
+        fila = MateriaCurso(materia_id=materia_id, division_id=division_id)
+        db.add(fila)
+        db.flush()
+    return fila
 
 
 def _alumno(db, datos: dict) -> Alumno:
@@ -356,13 +365,12 @@ def _inscripcion(db, alumno_id, division_id) -> Inscripcion:
     return fila
 
 
-def _asignacion(db, docente_id, materia_id, division_id) -> None:
+def _asignacion(db, docente_id, materia_curso_id) -> None:
     existe = db.scalar(
         select(AsignacionDocente.id).where(
             AsignacionDocente.ciclo_lectivo == CICLO_LECTIVO,
             AsignacionDocente.docente_id == docente_id,
-            AsignacionDocente.materia_id == materia_id,
-            AsignacionDocente.division_id == division_id,
+            AsignacionDocente.materia_curso_id == materia_curso_id,
         )
     )
     if existe is None:
@@ -370,8 +378,7 @@ def _asignacion(db, docente_id, materia_id, division_id) -> None:
             AsignacionDocente(
                 ciclo_lectivo=CICLO_LECTIVO,
                 docente_id=docente_id,
-                materia_id=materia_id,
-                division_id=division_id,
+                materia_curso_id=materia_curso_id,
             )
         )
 
@@ -397,11 +404,12 @@ def sembrar() -> dict:
         nivel = _nivel_primario(db)
         anio = _anio(db, nivel.id)
         division = _division(db, anio.id)
-        materia = _materia(db, anio.id, division.id)
+        materia = _materia(db)
+        materia_curso = _materia_curso(db, materia.id, division.id)
 
         persona_docente = _persona(db, DOCENTE)
         docente = _docente(db, persona_docente.id)
-        _asignacion(db, docente.id, materia.id, division.id)
+        _asignacion(db, docente.id, materia_curso.id)
 
         alumno = _alumno(db, ALUMNO)
         alumno_ajeno = _alumno(db, ALUMNO_AJENO)

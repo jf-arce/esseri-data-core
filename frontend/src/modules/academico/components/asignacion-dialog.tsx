@@ -26,7 +26,8 @@ import {
   crearAsignacionesBulk,
   eliminarAsignacion,
 } from '@/modules/academico/services/asignaciones-docentes'
-import type { AsignacionDocente, Division, Docente, Materia } from '@/modules/academico/types'
+import type { AsignacionDocente, Division, Docente, MateriaCurso } from '@/modules/academico/types'
+import { formatearHorarios } from '@/modules/academico/utils'
 
 type ModoAsignacion = 'crear' | 'editar' | 'eliminar'
 
@@ -36,7 +37,7 @@ interface AsignacionDialogProps {
   modo: ModoAsignacion
   item?: AsignacionDocente
   docentes: Docente[]
-  materias: Materia[]
+  materiasCurso: MateriaCurso[]
   divisiones: Division[]
   cicloActual: string
   onExito: () => void
@@ -49,13 +50,18 @@ function nombreDocente(docente: Docente | undefined): string {
     : docente.legajo
 }
 
+function etiquetaMateriaCurso(materiaCurso: MateriaCurso): string {
+  const tipo = materiaCurso.materia_tipo === 'taller' ? ' (taller)' : ''
+  return `${materiaCurso.materia_nombre ?? '—'}${tipo}`
+}
+
 export function AsignacionDialog({
   open,
   onOpenChange,
   modo,
   item,
   docentes,
-  materias,
+  materiasCurso,
   divisiones,
   cicloActual,
   onExito,
@@ -65,30 +71,21 @@ export function AsignacionDialog({
   const [error, setError] = useState<string | null>(null)
   const [cicloLectivo, setCicloLectivo] = useState(item?.ciclo_lectivo ?? cicloActual)
   const [docenteId, setDocenteId] = useState(item?.docente_id ?? '')
-  const [materiaId, setMateriaId] = useState(item?.materia_id ?? '')
+  const [materiaCursoId, setMateriaCursoId] = useState(item?.materia_curso_id ?? '')
   const [divisionId, setDivisionId] = useState(item?.division_id ?? '')
   const [materiasSeleccionadas, setMateriasSeleccionadas] = useState<string[]>([])
 
-  const divisionSeleccionada = useMemo(
-    () => divisiones.find((division) => division.id === divisionId),
-    [divisiones, divisionId],
-  )
-
-  // Solo materias del mismo año que la división, y o comunes al año o propias de esa división.
+  // Las materias-curso ya traen su división; se filtra por la división elegida.
   const materiasFiltradas = useMemo(() => {
-    if (!divisionSeleccionada) return []
-    return materias.filter(
-      (materia) =>
-        materia.anio_id === divisionSeleccionada.anio_id &&
-        (materia.division_id === null || materia.division_id === divisionSeleccionada.id),
-    )
-  }, [materias, divisionSeleccionada])
+    if (!divisionId) return []
+    return materiasCurso.filter((materiaCurso) => materiaCurso.division_id === divisionId)
+  }, [materiasCurso, divisionId])
 
   function resetForm() {
     setError(null)
     setCicloLectivo(item?.ciclo_lectivo ?? cicloActual)
     setDocenteId(item?.docente_id ?? '')
-    setMateriaId(item?.materia_id ?? '')
+    setMateriaCursoId(item?.materia_curso_id ?? '')
     setDivisionId(item?.division_id ?? '')
     setMateriasSeleccionadas([])
   }
@@ -100,7 +97,7 @@ export function AsignacionDialog({
 
   function cambiarDivision(valor: string) {
     setDivisionId(valor)
-    setMateriaId('')
+    setMateriaCursoId('')
     setMateriasSeleccionadas([])
   }
 
@@ -126,8 +123,7 @@ export function AsignacionDialog({
         await actualizarAsignacion(item.id, {
           ciclo_lectivo: cicloLectivo,
           docente_id: docenteId,
-          materia_id: materiaId,
-          division_id: divisionId,
+          materia_curso_id: materiaCursoId,
         })
         toast.success('Asignación actualizada correctamente.')
         onExito()
@@ -139,9 +135,8 @@ export function AsignacionDialog({
         const resultado = await crearAsignacionesBulk({
           ciclo_lectivo: cicloLectivo,
           docente_id: docenteId,
-          items: materiasSeleccionadas.map((materia) => ({
-            materia_id: materia,
-            division_id: divisionId,
+          items: materiasSeleccionadas.map((materiaCurso) => ({
+            materia_curso_id: materiaCurso,
           })),
         })
         const creadas = resultado.creadas.length
@@ -168,8 +163,6 @@ export function AsignacionDialog({
 
   if (modo === 'eliminar') {
     const docente = docentes.find((d) => d.id === item?.docente_id)
-    const materia = materias.find((m) => m.id === item?.materia_id)
-    const division = divisiones.find((d) => d.id === item?.division_id)
     return (
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent>
@@ -178,8 +171,8 @@ export function AsignacionDialog({
             <DialogDescription>
               {error ??
                 `Vas a quitar la asignación de ${nombreDocente(docente)} a ${
-                  materia?.nombre ?? 'la materia'
-                } en ${division?.nombre ?? 'la división'} (ciclo ${
+                  item?.materia_nombre ?? 'la materia'
+                } en ${item?.division_nombre ?? 'la división'} (ciclo ${
                   item?.ciclo_lectivo ?? cicloActual
                 }). Esta acción no se puede deshacer.`}
             </DialogDescription>
@@ -198,7 +191,7 @@ export function AsignacionDialog({
   }
 
   const puedeGuardar = esEdicion
-    ? Boolean(cicloLectivo.trim() && docenteId && materiaId && divisionId)
+    ? Boolean(cicloLectivo.trim() && docenteId && materiaCursoId)
     : Boolean(cicloLectivo.trim() && docenteId && divisionId && materiasSeleccionadas.length > 0)
 
   return (
@@ -213,7 +206,8 @@ export function AsignacionDialog({
           ) : (
             !esEdicion && (
               <DialogDescription>
-                Elegí un docente, una división y una o más materias para asignarle en el ciclo.
+                Elegí un docente, una división y una o más materias de ese curso para asignarle en
+                el ciclo.
               </DialogDescription>
             )
           )}
@@ -265,7 +259,11 @@ export function AsignacionDialog({
           {esEdicion ? (
             <Field>
               <FieldLabel>Materia</FieldLabel>
-              <Select value={materiaId} onValueChange={setMateriaId} disabled={!divisionId}>
+              <Select
+                value={materiaCursoId}
+                onValueChange={setMateriaCursoId}
+                disabled={!divisionId}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue
                     placeholder={
@@ -274,10 +272,10 @@ export function AsignacionDialog({
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  {materiasFiltradas.map((materia) => (
-                    <SelectItem key={materia.id} value={materia.id}>
-                      {materia.nombre}
-                      {materia.tipo === 'taller' ? ' (taller)' : ''}
+                  {materiasFiltradas.map((materiaCurso) => (
+                    <SelectItem key={materiaCurso.id} value={materiaCurso.id}>
+                      {etiquetaMateriaCurso(materiaCurso)} ·{' '}
+                      {formatearHorarios(materiaCurso.horarios)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -290,31 +288,35 @@ export function AsignacionDialog({
                 <p className="text-sm text-texto-3">Seleccioná primero una división.</p>
               ) : materiasFiltradas.length === 0 ? (
                 <p className="text-sm text-texto-3">
-                  Esta división todavía no tiene materias cargadas.
+                  Esta división todavía no tiene materias asignadas.
                 </p>
               ) : (
                 <div className="max-h-48 overflow-y-auto rounded-lg border border-borde p-2">
                   <div className="flex flex-col gap-2">
-                    {materiasFiltradas.map((materia) => {
-                      const id = `materia-${materia.id}`
+                    {materiasFiltradas.map((materiaCurso) => {
+                      const id = `materia-curso-${materiaCurso.id}`
                       return (
                         <Label
-                          key={materia.id}
+                          key={materiaCurso.id}
                           htmlFor={id}
                           className="gap-2.5 font-normal text-texto"
                         >
                           <Checkbox
                             id={id}
-                            checked={materiasSeleccionadas.includes(materia.id)}
+                            checked={materiasSeleccionadas.includes(materiaCurso.id)}
                             onCheckedChange={(marcada) =>
-                              alternarMateria(materia.id, marcada === true)
+                              alternarMateria(materiaCurso.id, marcada === true)
                             }
                           />
-                          {materia.nombre}
-                          {materia.tipo === 'taller' ? ' (taller)' : ''}
-                          {materia.cantidad_asignaciones === 0 && (
-                            <span className="text-xs text-texto-3">· sin docente</span>
-                          )}
+                          <span className="flex flex-wrap items-center gap-1.5">
+                            {etiquetaMateriaCurso(materiaCurso)}
+                            <span className="text-xs text-texto-3">
+                              {formatearHorarios(materiaCurso.horarios)}
+                            </span>
+                            {materiaCurso.cantidad_asignaciones === 0 && (
+                              <span className="text-xs text-texto-3">· sin docente</span>
+                            )}
+                          </span>
                         </Label>
                       )
                     })}

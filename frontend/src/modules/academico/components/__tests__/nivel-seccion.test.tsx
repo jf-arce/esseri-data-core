@@ -18,36 +18,53 @@ const nivel: NivelConEstructura = {
       cantidad_materias: 2,
       created_at: '',
       updated_at: '',
-      materias: [
-        {
-          id: 'm2',
-          nombre: 'Educación Física',
-          tipo: 'materia',
-          anio_id: 'a1',
-          division_id: null,
-          cantidad_asignaciones: 1,
-          created_at: '',
-          updated_at: '',
-        },
-      ],
       divisiones: [
         {
           id: 'd1',
           nombre: '1°A',
           anio_id: 'a1',
-          cantidad_materias: 1,
+          cantidad_materias: 2,
           cantidad_inscripciones: 12,
-          cantidad_asignaciones: 1,
+          cantidad_asignaciones: 2,
           created_at: '',
           updated_at: '',
           materias: [
             {
-              id: 'm1',
-              nombre: 'Matemática',
-              tipo: 'materia',
-              anio_id: 'a1',
+              id: 'mc1',
+              materia_id: 'm1',
+              materia_nombre: 'Matemática',
+              materia_tipo: 'materia',
               division_id: 'd1',
+              division_nombre: '1°A',
+              anio_id: 'a1',
+              anio_numero: 1,
+              nivel_educativo_id: 'n1',
+              nivel_educativo_nombre: 'Primario',
+              horarios: [
+                {
+                  id: 'h1',
+                  dia_semana: 1,
+                  hora_inicio: '08:00:00',
+                  hora_fin: '09:00:00',
+                },
+              ],
               cantidad_asignaciones: 1,
+              created_at: '',
+              updated_at: '',
+            },
+            {
+              id: 'mc2',
+              materia_id: 'm2',
+              materia_nombre: 'Educación Física',
+              materia_tipo: 'materia',
+              division_id: 'd1',
+              division_nombre: '1°A',
+              anio_id: 'a1',
+              anio_numero: 1,
+              nivel_educativo_id: 'n1',
+              nivel_educativo_nombre: 'Primario',
+              horarios: [],
+              cantidad_asignaciones: 0,
               created_at: '',
               updated_at: '',
             },
@@ -67,9 +84,9 @@ const handlers = {
   onAgregarDivision: vi.fn(),
   onEditarDivision: vi.fn(),
   onEliminarDivision: vi.fn(),
-  onAgregarMateria: vi.fn(),
-  onEditarMateria: vi.fn(),
-  onEliminarMateria: vi.fn(),
+  onAgregarMateriaCurso: vi.fn(),
+  onEditarMateriaCurso: vi.fn(),
+  onEliminarMateriaCurso: vi.fn(),
 }
 
 describe('NivelSeccion', () => {
@@ -78,7 +95,6 @@ describe('NivelSeccion', () => {
 
     expect(screen.queryByLabelText('Acciones del nivel')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'División' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Materia' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Acciones del año')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Acciones de la división')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Editar materia')).not.toBeInTheDocument()
@@ -95,11 +111,18 @@ describe('NivelSeccion', () => {
 
     expect(screen.getByLabelText('Acciones del nivel')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'División' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Materia' })).toBeInTheDocument()
     expect(screen.getByLabelText('Acciones del año')).toBeInTheDocument()
     expect(screen.getByLabelText('Acciones de la división')).toBeInTheDocument()
-    // Una materia común al año y una propia de la división: dos filas editables.
+    // Dos materias-curso en la división: dos filas editables.
     expect(screen.getAllByLabelText('Editar materia')).toHaveLength(2)
     expect(screen.getAllByLabelText('Eliminar materia')).toHaveLength(2)
+  })
+
+  it('muestra el horario de cada materia y avisa cuando no tiene docente', () => {
+    render(<NivelSeccion nivel={nivel} puedeEditar={false} {...handlers} />)
+
+    expect(screen.getByText(/Lun 08:00–09:00/)).toBeInTheDocument()
+    expect(screen.getByText(/Sin horario/)).toBeInTheDocument()
+    expect(screen.getByText(/sin docente/)).toBeInTheDocument()
   })
 })

@@ -9,7 +9,7 @@ from io import BytesIO, StringIO
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from src.academico.exceptions import (
     AnioConDivisiones,
@@ -24,11 +24,13 @@ from src.academico.exceptions import (
     DivisionConMaterias,
     DivisionDuplicada,
     DocenteConAsignaciones,
+    HorarioDuplicado,
     InscripcionNoActiva,
     LegajoDuplicado,
-    MateriaConAsignaciones,
+    MateriaConCursos,
+    MateriaCursoConAsignaciones,
+    MateriaCursoDuplicada,
     MateriaDuplicada,
-    MateriaNoCorrespondeADivision,
     NivelEducativoConAnios,
     NombreNivelDuplicado,
 )
@@ -38,8 +40,10 @@ from src.academico.models import (
     AsignacionDocente,
     Division,
     Docente,
+    HorarioMateriaCurso,
     JustificacionInasistencia,
     Materia,
+    MateriaCurso,
     MotivoJustificacion,
     NivelEducativo,
 )
@@ -66,6 +70,9 @@ from src.academico.schemas import (
     DocenteDesdeUsuarioCreate,
     DocenteUpdate,
     MateriaCreate,
+    MateriaCursoCreate,
+    MateriaCursoResponse,
+    MateriaCursoUpdate,
     MateriaResponse,
     MateriaUpdate,
     NivelEducativoCreate,
@@ -84,6 +91,7 @@ from src.auth.models import Rol, Usuario, UsuarioRol
 from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import Persona
+from src.search import normalizar_texto_busqueda
 from src.workflows.eventos_service import emit_event
 
 ROL_DOCENTE = "docente"
@@ -403,12 +411,16 @@ def verificar_acceso_a_division(
     docente = _docente_de(db, usuario_id)
     filtros_asignacion = [
         AsignacionDocente.docente_id == docente.id if docente is not None else False,
-        AsignacionDocente.division_id == division_id,
+        MateriaCurso.division_id == division_id,
     ]
     if ciclo_lectivo is not None:
         filtros_asignacion.append(AsignacionDocente.ciclo_lectivo == ciclo_lectivo)
     tiene_asignacion = docente is not None and (
-        db.query(AsignacionDocente).filter(*filtros_asignacion).first() is not None
+        db.query(AsignacionDocente)
+        .join(MateriaCurso, MateriaCurso.id == AsignacionDocente.materia_curso_id)
+        .filter(*filtros_asignacion)
+        .first()
+        is not None
     )
     if not tiene_asignacion:
         raise PermisoDenegado("No tenés asignada esta división")
@@ -1189,15 +1201,15 @@ def obtener_anio_por_id(db: Session, anio_id: uuid.UUID) -> Anio | None:
 
 
 def _query_anios_con_conteos(db: Session):
-    """Años con cantidad de divisiones y materias, sin multiplicar filas por el join."""
+    """Años con cantidad de divisiones y materias asignadas a sus cursos."""
     return (
         db.query(
             Anio,
             func.count(func.distinct(Division.id)).label("cantidad_divisiones"),
-            func.count(func.distinct(Materia.id)).label("cantidad_materias"),
+            func.count(func.distinct(MateriaCurso.id)).label("cantidad_materias"),
         )
         .outerjoin(Division, Division.anio_id == Anio.id)
-        .outerjoin(Materia, Materia.anio_id == Anio.id)
+        .outerjoin(MateriaCurso, MateriaCurso.division_id == Division.id)
         .group_by(Anio.id)
     )
 
@@ -1271,14 +1283,20 @@ def actualizar_anio(
 
 
 def eliminar_anio(db: Session, anio: Anio, usuario_id: uuid.UUID | None = None) -> None:
-    """Eliminar un año. Valida que no tenga divisiones ni materias asociadas."""
+    """Eliminar un año. Valida que no tenga materias asignadas a sus divisiones ni divisiones."""
+    tiene_materias = (
+        db.query(MateriaCurso)
+        .join(Division, Division.id == MateriaCurso.division_id)
+        .filter(Division.anio_id == anio.id)
+        .first()
+        is not None
+    )
+    if tiene_materias:
+        raise AnioConMaterias()
+
     tiene_divisiones = db.query(Division).filter(Division.anio_id == anio.id).first() is not None
     if tiene_divisiones:
         raise AnioConDivisiones()
-
-    tiene_materias = db.query(Materia).filter(Materia.anio_id == anio.id).first() is not None
-    if tiene_materias:
-        raise AnioConMaterias()
 
     anio_id = anio.id
     numero = anio.numero
@@ -1336,17 +1354,17 @@ def obtener_division_por_id(db: Session, division_id: uuid.UUID) -> Division | N
 
 
 def _query_divisiones_con_conteos(db: Session):
-    """Divisiones con cantidad de materias propias, inscriptos y asignaciones."""
+    """Divisiones con cantidad de materias, inscriptos y asignaciones docentes."""
     return (
         db.query(
             Division,
-            func.count(func.distinct(Materia.id)).label("cantidad_materias"),
+            func.count(func.distinct(MateriaCurso.id)).label("cantidad_materias"),
             func.count(func.distinct(Inscripcion.id)).label("cantidad_inscripciones"),
             func.count(func.distinct(AsignacionDocente.id)).label("cantidad_asignaciones"),
         )
-        .outerjoin(Materia, Materia.division_id == Division.id)
+        .outerjoin(MateriaCurso, MateriaCurso.division_id == Division.id)
         .outerjoin(Inscripcion, Inscripcion.division_id == Division.id)
-        .outerjoin(AsignacionDocente, AsignacionDocente.division_id == Division.id)
+        .outerjoin(AsignacionDocente, AsignacionDocente.materia_curso_id == MateriaCurso.id)
         .group_by(Division.id)
     )
 
@@ -1432,7 +1450,7 @@ def eliminar_division(db: Session, division: Division, usuario_id: uuid.UUID | N
     esas dependencias quedaría apuntando a una división inexistente.
     """
     tiene_materias = (
-        db.query(Materia).filter(Materia.division_id == division.id).first() is not None
+        db.query(MateriaCurso).filter(MateriaCurso.division_id == division.id).first() is not None
     )
     if tiene_materias:
         raise DivisionConMaterias()
@@ -1444,7 +1462,10 @@ def eliminar_division(db: Session, division: Division, usuario_id: uuid.UUID | N
         raise DivisionConInscripciones()
 
     tiene_asignaciones = (
-        db.query(AsignacionDocente).filter(AsignacionDocente.division_id == division.id).first()
+        db.query(AsignacionDocente)
+        .join(MateriaCurso, MateriaCurso.id == AsignacionDocente.materia_curso_id)
+        .filter(MateriaCurso.division_id == division.id)
+        .first()
         is not None
     )
     if tiene_asignaciones:
@@ -1465,35 +1486,31 @@ def eliminar_division(db: Session, division: Division, usuario_id: uuid.UUID | N
     db.commit()
 
 
-# --- Materia -----------------------------------------------------------------------------
+# --- Materia (catálogo global) -----------------------------------------------------------
+
+
+def _materia_duplicada(db: Session, nombre: str, excluir_id: uuid.UUID | None = None) -> bool:
+    query = select(Materia.id).where(
+        Materia.nombre_normalizado == normalizar_texto_busqueda(nombre.strip())
+    )
+    if excluir_id is not None:
+        query = query.where(Materia.id != excluir_id)
+    return db.scalar(query) is not None
 
 
 def crear_materia(
     db: Session, datos: MateriaCreate, usuario_id: uuid.UUID | None = None
 ) -> Materia:
-    """Crear una nueva materia.
+    """Crear una materia en el catálogo global.
 
-    Valida que no exista otra materia con el mismo nombre para el mismo año
-    y la misma división (incluyendo division_id = None).
+    El duplicado se valida por nombre normalizado (sin mayúsculas ni acentos), porque la
+    materia se crea una sola vez y después se reutiliza en todos los cursos.
     """
-    if (
-        db.scalar(
-            select(Materia.id).where(
-                Materia.nombre == datos.nombre.strip(),
-                Materia.anio_id == datos.anio_id,
-                Materia.division_id == datos.division_id,
-            )
-        )
-        is not None
-    ):
+    nombre = datos.nombre.strip()
+    if _materia_duplicada(db, nombre):
         raise MateriaDuplicada()
 
-    nuevo = Materia(
-        nombre=datos.nombre.strip(),
-        tipo=datos.tipo,
-        anio_id=datos.anio_id,
-        division_id=datos.division_id,
-    )
+    nuevo = Materia(nombre=nombre, tipo=datos.tipo)
     db.add(nuevo)
     db.flush()
     log_audit(
@@ -1511,47 +1528,33 @@ def crear_materia(
 
 
 def obtener_materia_por_id(db: Session, materia_id: uuid.UUID) -> Materia | None:
-    """Obtener una materia por su ID."""
+    """Obtener una materia del catálogo por su ID."""
     return db.query(Materia).filter(Materia.id == materia_id).first()
 
 
 def _query_materias_con_conteos(db: Session):
-    """Materias con la cantidad de asignaciones docentes de cada una."""
-    return (
-        db.query(
-            Materia,
-            func.count(func.distinct(AsignacionDocente.id)).label("cantidad_asignaciones"),
-        )
-        .options(joinedload(Materia.anio))
-        .outerjoin(AsignacionDocente, AsignacionDocente.materia_id == Materia.id)
-        .group_by(Materia.id)
+    """Materias del catálogo con la cantidad de cursos a los que están asignadas."""
+    cantidad_cursos = (
+        select(func.count(MateriaCurso.id))
+        .where(MateriaCurso.materia_id == Materia.id)
+        .correlate(Materia)
+        .scalar_subquery()
     )
+    return db.query(Materia, cantidad_cursos.label("cantidad_cursos"))
 
 
 def _materias_con_conteos(query) -> list[MateriaResponse]:
     return [
         MateriaResponse.model_validate(materia).model_copy(
-            update={"cantidad_asignaciones": cantidad_asignaciones}
+            update={"cantidad_cursos": cantidad_cursos}
         )
-        for materia, cantidad_asignaciones in query.order_by(Materia.nombre).all()
+        for materia, cantidad_cursos in query.order_by(Materia.nombre).all()
     ]
 
 
 def listar_materias(db: Session) -> list[MateriaResponse]:
-    """Listar todas las materias con su cantidad de asignaciones."""
+    """Listar el catálogo completo con la cantidad de cursos de cada materia."""
     return _materias_con_conteos(_query_materias_con_conteos(db))
-
-
-def listar_materias_por_anio(db: Session, anio_id: uuid.UUID) -> list[MateriaResponse]:
-    """Listar las materias de un año específico, con conteos y número del año."""
-    query = _query_materias_con_conteos(db).filter(Materia.anio_id == anio_id)
-    return _materias_con_conteos(query)
-
-
-def listar_materias_por_division(db: Session, division_id: uuid.UUID) -> list[MateriaResponse]:
-    """Listar las materias de una división específica con su cantidad de asignaciones."""
-    query = _query_materias_con_conteos(db).filter(Materia.division_id == division_id)
-    return _materias_con_conteos(query)
 
 
 def actualizar_materia(
@@ -1560,29 +1563,13 @@ def actualizar_materia(
     datos: MateriaUpdate,
     usuario_id: uuid.UUID | None = None,
 ) -> Materia:
-    """Actualizar una materia existente."""
+    """Actualizar una materia del catálogo."""
     update_data = datos.model_dump(exclude_unset=True)
 
-    if "nombre" in update_data or "anio_id" in update_data or "division_id" in update_data:
-        nombre_check = update_data.get("nombre", materia.nombre)
-        anio_check = update_data.get("anio_id", materia.anio_id)
-        division_check = update_data.get("division_id", materia.division_id)
-        if isinstance(nombre_check, str):
-            nombre_check = nombre_check.strip()
-        if (
-            db.scalar(
-                select(Materia.id).where(
-                    Materia.nombre == nombre_check,
-                    Materia.anio_id == anio_check,
-                    Materia.division_id == division_check,
-                    Materia.id != materia.id,
-                )
-            )
-            is not None
-        ):
+    if update_data.get("nombre") is not None:
+        update_data["nombre"] = update_data["nombre"].strip()
+        if _materia_duplicada(db, update_data["nombre"], excluir_id=materia.id):
             raise MateriaDuplicada()
-        if isinstance(update_data.get("nombre"), str):
-            update_data["nombre"] = update_data["nombre"].strip()
 
     valores_anteriores = {campo: getattr(materia, campo) for campo in update_data}
 
@@ -1606,13 +1593,12 @@ def actualizar_materia(
 
 
 def eliminar_materia(db: Session, materia: Materia, usuario_id: uuid.UUID | None = None) -> None:
-    """Eliminar una materia. Valida que no tenga asignaciones docentes."""
-    tiene_asignaciones = (
-        db.query(AsignacionDocente).filter(AsignacionDocente.materia_id == materia.id).first()
-        is not None
+    """Eliminar una materia del catálogo. Valida que no esté asignada a cursos."""
+    tiene_cursos = (
+        db.query(MateriaCurso).filter(MateriaCurso.materia_id == materia.id).first() is not None
     )
-    if tiene_asignaciones:
-        raise MateriaConAsignaciones()
+    if tiene_cursos:
+        raise MateriaConCursos()
 
     materia_id = materia.id
     nombre = materia.nombre
@@ -1623,6 +1609,226 @@ def eliminar_materia(db: Session, materia: Materia, usuario_id: uuid.UUID | None
         entidad_id=materia_id,
         campo="__eliminacion__",
         valor_anterior=nombre,
+        valor_nuevo=None,
+        usuario_id=usuario_id,
+    )
+    db.commit()
+
+
+# --- MateriaCurso (materia asignada a un curso) ------------------------------------------
+
+
+def _validar_franjas(datos) -> None:
+    """Rechazar dos franjas idénticas (mismo día y hora de inicio) en la misma materia-curso."""
+    vistas: set[tuple[int, object]] = set()
+    for horario in datos:
+        clave = (horario.dia_semana, horario.hora_inicio)
+        if clave in vistas:
+            raise HorarioDuplicado()
+        vistas.add(clave)
+
+
+def _crear_horarios(materia_curso: MateriaCurso, horarios) -> None:
+    for horario in horarios:
+        materia_curso.horarios.append(
+            HorarioMateriaCurso(
+                dia_semana=horario.dia_semana,
+                hora_inicio=horario.hora_inicio,
+                hora_fin=horario.hora_fin,
+            )
+        )
+
+
+def crear_materia_curso(
+    db: Session, datos: MateriaCursoCreate, usuario_id: uuid.UUID | None = None
+) -> MateriaCurso:
+    """Asignar una materia del catálogo a un curso, con una o más franjas horarias.
+
+    Acepta una materia existente (`materia_id`) o crear una nueva en el momento
+    (`materia_nombre`); en ese último caso valida que el nombre no exista ya en el catálogo.
+    """
+    division = db.get(Division, datos.division_id)
+    if division is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"División con ID {datos.division_id} no encontrada",
+        )
+
+    if datos.materia_id is not None:
+        materia = db.get(Materia, datos.materia_id)
+        if materia is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Materia con ID {datos.materia_id} no encontrada",
+            )
+    else:
+        nombre = datos.materia_nombre.strip()
+        if _materia_duplicada(db, nombre):
+            raise MateriaDuplicada()
+        materia = Materia(nombre=nombre, tipo=datos.materia_tipo)
+        db.add(materia)
+        db.flush()
+
+    if (
+        db.scalar(
+            select(MateriaCurso.id).where(
+                MateriaCurso.materia_id == materia.id,
+                MateriaCurso.division_id == division.id,
+            )
+        )
+        is not None
+    ):
+        raise MateriaCursoDuplicada()
+
+    _validar_franjas(datos.horarios)
+
+    nuevo = MateriaCurso(materia_id=materia.id, division_id=division.id)
+    db.add(nuevo)
+    _crear_horarios(nuevo, datos.horarios)
+    db.flush()
+    log_audit(
+        db,
+        entidad="MATERIA_CURSO",
+        entidad_id=nuevo.id,
+        campo="__alta__",
+        valor_anterior=None,
+        valor_nuevo=f"{materia.nombre} en {division.nombre}",
+        usuario_id=usuario_id,
+    )
+    db.commit()
+    db.refresh(nuevo)
+    return nuevo
+
+
+def obtener_materia_curso_por_id(db: Session, materia_curso_id: uuid.UUID) -> MateriaCurso | None:
+    """Obtener una materia asignada a un curso por su ID."""
+    return db.query(MateriaCurso).filter(MateriaCurso.id == materia_curso_id).first()
+
+
+def _query_materias_curso_con_conteos(db: Session):
+    """Materias de curso con sus horarios y la cantidad de docentes asignados."""
+    cantidad_asignaciones = (
+        select(func.count(AsignacionDocente.id))
+        .where(AsignacionDocente.materia_curso_id == MateriaCurso.id)
+        .correlate(MateriaCurso)
+        .scalar_subquery()
+    )
+    return db.query(
+        MateriaCurso,
+        cantidad_asignaciones.label("cantidad_asignaciones"),
+    ).options(
+        joinedload(MateriaCurso.materia),
+        joinedload(MateriaCurso.division)
+        .joinedload(Division.anio)
+        .joinedload(Anio.nivel_educativo),
+        selectinload(MateriaCurso.horarios),
+    )
+
+
+def _materias_curso_con_conteos(query) -> list[MateriaCursoResponse]:
+    return [
+        MateriaCursoResponse.model_validate(materia_curso).model_copy(
+            update={"cantidad_asignaciones": cantidad_asignaciones}
+        )
+        for materia_curso, cantidad_asignaciones in query.order_by(MateriaCurso.id).all()
+    ]
+
+
+def listar_materias_curso(
+    db: Session,
+    division_id: uuid.UUID | None = None,
+    anio_id: uuid.UUID | None = None,
+    materia_id: uuid.UUID | None = None,
+    nivel_educativo_id: uuid.UUID | None = None,
+) -> list[MateriaCursoResponse]:
+    """Listar las materias asignadas a cursos, con filtros opcionales."""
+    query = _query_materias_curso_con_conteos(db)
+    if division_id is not None:
+        query = query.filter(MateriaCurso.division_id == division_id)
+    if materia_id is not None:
+        query = query.filter(MateriaCurso.materia_id == materia_id)
+    if anio_id is not None or nivel_educativo_id is not None:
+        query = query.join(Division, Division.id == MateriaCurso.division_id)
+        if anio_id is not None:
+            query = query.filter(Division.anio_id == anio_id)
+        if nivel_educativo_id is not None:
+            query = query.join(Anio, Anio.id == Division.anio_id).filter(
+                Anio.nivel_educativo_id == nivel_educativo_id
+            )
+    return _materias_curso_con_conteos(query)
+
+
+def actualizar_materia_curso(
+    db: Session,
+    materia_curso: MateriaCurso,
+    datos: MateriaCursoUpdate,
+    usuario_id: uuid.UUID | None = None,
+) -> MateriaCurso:
+    """Actualizar la materia o los horarios de una materia ya asignada a un curso."""
+    update_data = datos.model_dump(exclude_unset=True)
+
+    if update_data.get("materia_id") is not None:
+        nueva_materia = db.get(Materia, update_data["materia_id"])
+        if nueva_materia is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Materia con ID {update_data['materia_id']} no encontrada",
+            )
+        if (
+            db.scalar(
+                select(MateriaCurso.id).where(
+                    MateriaCurso.materia_id == nueva_materia.id,
+                    MateriaCurso.division_id == materia_curso.division_id,
+                    MateriaCurso.id != materia_curso.id,
+                )
+            )
+            is not None
+        ):
+            raise MateriaCursoDuplicada()
+        log_audit(
+            db,
+            entidad="MATERIA_CURSO",
+            entidad_id=materia_curso.id,
+            campo="materia_id",
+            valor_anterior=str(materia_curso.materia_id),
+            valor_nuevo=str(nueva_materia.id),
+            usuario_id=usuario_id,
+        )
+        materia_curso.materia_id = nueva_materia.id
+
+    if datos.horarios is not None:
+        _validar_franjas(datos.horarios)
+        materia_curso.horarios.clear()
+        db.flush()
+        _crear_horarios(materia_curso, datos.horarios)
+
+    db.commit()
+    db.refresh(materia_curso)
+    return materia_curso
+
+
+def eliminar_materia_curso(
+    db: Session, materia_curso: MateriaCurso, usuario_id: uuid.UUID | None = None
+) -> None:
+    """Quitar una materia de un curso. Valida que no tenga docentes asignados."""
+    tiene_asignaciones = (
+        db.query(AsignacionDocente)
+        .filter(AsignacionDocente.materia_curso_id == materia_curso.id)
+        .first()
+        is not None
+    )
+    if tiene_asignaciones:
+        raise MateriaCursoConAsignaciones()
+
+    materia_curso_id = materia_curso.id
+    descripcion = f"{materia_curso.materia_nombre} en {materia_curso.division_nombre}"
+    db.delete(materia_curso)
+    log_audit(
+        db,
+        entidad="MATERIA_CURSO",
+        entidad_id=materia_curso_id,
+        campo="__eliminacion__",
+        valor_anterior=descripcion,
         valor_nuevo=None,
         usuario_id=usuario_id,
     )
@@ -1826,36 +2032,16 @@ def eliminar_docente(db: Session, docente: Docente, usuario_id: uuid.UUID | None
 # --- AsignacionDocente -------------------------------------------------------------------
 
 
-def _validar_materia_corresponde_a_division(
-    db: Session, materia_id: uuid.UUID, division_id: uuid.UUID
-) -> None:
-    """Una materia solo puede asignarse a divisiones de su mismo año.
-
-    Si la materia es específica de una división (`division_id` no nulo), además tiene que ser
-    esa misma división. Las materias comunes al año (`division_id` nulo) aplican a cualquiera.
-    """
-    materia = db.get(Materia, materia_id)
-    division = db.get(Division, division_id)
-    if materia is None or division is None:
-        return
-    if materia.anio_id != division.anio_id:
-        raise MateriaNoCorrespondeADivision()
-    if materia.division_id is not None and materia.division_id != division.id:
-        raise MateriaNoCorrespondeADivision()
-
-
 def _asignacion_docente_existente(
     db: Session,
     docente_id: uuid.UUID,
-    materia_id: uuid.UUID,
-    division_id: uuid.UUID,
+    materia_curso_id: uuid.UUID,
     ciclo_lectivo: str,
     excluir_id: uuid.UUID | None = None,
 ) -> bool:
     query = select(AsignacionDocente.id).where(
         AsignacionDocente.docente_id == docente_id,
-        AsignacionDocente.materia_id == materia_id,
-        AsignacionDocente.division_id == division_id,
+        AsignacionDocente.materia_curso_id == materia_curso_id,
         AsignacionDocente.ciclo_lectivo == ciclo_lectivo,
     )
     if excluir_id is not None:
@@ -1863,21 +2049,30 @@ def _asignacion_docente_existente(
     return db.scalar(query) is not None
 
 
+def _obtener_materia_curso_o_404(db: Session, materia_curso_id: uuid.UUID) -> MateriaCurso:
+    materia_curso = db.get(MateriaCurso, materia_curso_id)
+    if materia_curso is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Materia del curso con ID {materia_curso_id} no encontrada",
+        )
+    return materia_curso
+
+
 def crear_asignacion_docente(
     db: Session, datos: AsignacionDocenteCreate, usuario_id: uuid.UUID | None = None
 ) -> AsignacionDocente:
-    """Asignar un docente a materia+división por ciclo lectivo.
+    """Asignar un docente a una materia de curso por ciclo lectivo.
 
-    Valida que la materia corresponda al año (y división) y que no exista ya una asignación
-    para el mismo docente, materia, división y ciclo lectivo.
+    El docente hereda materia, división y horario de la materia-curso; no se duplica esa
+    información en la asignación.
     """
-    _validar_materia_corresponde_a_division(db, datos.materia_id, datos.division_id)
+    _obtener_materia_curso_o_404(db, datos.materia_curso_id)
 
     if _asignacion_docente_existente(
         db,
         datos.docente_id,
-        datos.materia_id,
-        datos.division_id,
+        datos.materia_curso_id,
         datos.ciclo_lectivo.strip(),
     ):
         raise AsignacionDocenteDuplicada()
@@ -1885,8 +2080,7 @@ def crear_asignacion_docente(
     nuevo = AsignacionDocente(
         ciclo_lectivo=datos.ciclo_lectivo.strip(),
         docente_id=datos.docente_id,
-        materia_id=datos.materia_id,
-        division_id=datos.division_id,
+        materia_curso_id=datos.materia_curso_id,
     )
     db.add(nuevo)
     db.flush()
@@ -1896,9 +2090,7 @@ def crear_asignacion_docente(
         entidad_id=nuevo.id,
         campo="__alta__",
         valor_anterior=None,
-        valor_nuevo=(
-            f"docente={nuevo.docente_id} materia={nuevo.materia_id} division={nuevo.division_id}"
-        ),
+        valor_nuevo=(f"docente={nuevo.docente_id} materia_curso={nuevo.materia_curso_id}"),
         usuario_id=usuario_id,
     )
     db.commit()
@@ -1920,16 +2112,29 @@ def listar_asignaciones_docentes(
     materia_id: uuid.UUID | None = None,
     division_id: uuid.UUID | None = None,
 ) -> list[AsignacionDocente]:
-    """Listar asignaciones docentes con filtros opcionales."""
-    query = db.query(AsignacionDocente)
+    """Listar asignaciones docentes con filtros opcionales.
+
+    `materia_id` y `division_id` filtran a través de la materia-curso, que es la fuente de
+    verdad de la relación materia + curso.
+    """
+    query = db.query(AsignacionDocente).options(
+        joinedload(AsignacionDocente.materia_curso).joinedload(MateriaCurso.materia),
+        joinedload(AsignacionDocente.materia_curso)
+        .joinedload(MateriaCurso.division)
+        .joinedload(Division.anio)
+        .joinedload(Anio.nivel_educativo),
+        joinedload(AsignacionDocente.materia_curso).selectinload(MateriaCurso.horarios),
+    )
     if ciclo_lectivo is not None:
         query = query.filter(AsignacionDocente.ciclo_lectivo == ciclo_lectivo)
     if docente_id is not None:
         query = query.filter(AsignacionDocente.docente_id == docente_id)
-    if materia_id is not None:
-        query = query.filter(AsignacionDocente.materia_id == materia_id)
-    if division_id is not None:
-        query = query.filter(AsignacionDocente.division_id == division_id)
+    if materia_id is not None or division_id is not None:
+        query = query.join(MateriaCurso, MateriaCurso.id == AsignacionDocente.materia_curso_id)
+        if materia_id is not None:
+            query = query.filter(MateriaCurso.materia_id == materia_id)
+        if division_id is not None:
+            query = query.filter(MateriaCurso.division_id == division_id)
     return query.order_by(AsignacionDocente.ciclo_lectivo).all()
 
 
@@ -1941,8 +2146,8 @@ def actualizar_asignacion_docente(
 ) -> AsignacionDocente:
     """Actualizar una asignación docente existente.
 
-    Revalida la combinación materia/división y que no quede duplicada contra otra asignación
-    del mismo docente en el mismo ciclo.
+    Revalida la materia-curso y que no quede duplicada contra otra asignación del mismo
+    docente en el mismo ciclo.
     """
     update_data = datos.model_dump(exclude_unset=True)
     if not update_data:
@@ -1951,14 +2156,15 @@ def actualizar_asignacion_docente(
     if "ciclo_lectivo" in update_data and update_data["ciclo_lectivo"] is not None:
         update_data["ciclo_lectivo"] = update_data["ciclo_lectivo"].strip()
 
-    materia_id = update_data.get("materia_id", asignacion.materia_id)
-    division_id = update_data.get("division_id", asignacion.division_id)
+    if update_data.get("materia_curso_id") is not None:
+        _obtener_materia_curso_o_404(db, update_data["materia_curso_id"])
+
+    materia_curso_id = update_data.get("materia_curso_id", asignacion.materia_curso_id)
     docente_id = update_data.get("docente_id", asignacion.docente_id)
     ciclo_lectivo = update_data.get("ciclo_lectivo", asignacion.ciclo_lectivo)
 
-    _validar_materia_corresponde_a_division(db, materia_id, division_id)
     if _asignacion_docente_existente(
-        db, docente_id, materia_id, division_id, ciclo_lectivo, excluir_id=asignacion.id
+        db, docente_id, materia_curso_id, ciclo_lectivo, excluir_id=asignacion.id
     ):
         raise AsignacionDocenteDuplicada()
 
@@ -1987,7 +2193,7 @@ def actualizar_asignacion_docente(
 def crear_asignaciones_docentes_bulk(
     db: Session, datos: AsignacionDocenteBulkCreate, usuario_id: uuid.UUID | None = None
 ) -> AsignacionDocenteBulkResponse:
-    """Asignar un docente a varias combinaciones materia+división en un solo alta.
+    """Asignar un docente a varias materias de curso en un solo alta.
 
     Las combinaciones ya existentes se omiten (no rompen el alta completa) y se devuelven en
     `omitidas` para que la UI pueda avisar qué quedó sin crear.
@@ -1995,18 +2201,17 @@ def crear_asignaciones_docentes_bulk(
     ciclo_lectivo = datos.ciclo_lectivo.strip()
     creadas: list[AsignacionDocente] = []
     omitidas: list[AsignacionDocenteBulkItem] = []
-    vistas: set[tuple[uuid.UUID, uuid.UUID]] = set()
+    vistas: set[uuid.UUID] = set()
 
     for item in datos.items:
-        clave = (item.materia_id, item.division_id)
-        if clave in vistas:
+        if item.materia_curso_id in vistas:
             omitidas.append(item)
             continue
-        vistas.add(clave)
+        vistas.add(item.materia_curso_id)
 
-        _validar_materia_corresponde_a_division(db, item.materia_id, item.division_id)
+        _obtener_materia_curso_o_404(db, item.materia_curso_id)
         if _asignacion_docente_existente(
-            db, datos.docente_id, item.materia_id, item.division_id, ciclo_lectivo
+            db, datos.docente_id, item.materia_curso_id, ciclo_lectivo
         ):
             omitidas.append(item)
             continue
@@ -2014,8 +2219,7 @@ def crear_asignaciones_docentes_bulk(
         nueva = AsignacionDocente(
             ciclo_lectivo=ciclo_lectivo,
             docente_id=datos.docente_id,
-            materia_id=item.materia_id,
-            division_id=item.division_id,
+            materia_curso_id=item.materia_curso_id,
         )
         db.add(nueva)
         db.flush()
@@ -2025,10 +2229,7 @@ def crear_asignaciones_docentes_bulk(
             entidad_id=nueva.id,
             campo="__alta__",
             valor_anterior=None,
-            valor_nuevo=(
-                f"docente={nueva.docente_id} materia={nueva.materia_id} "
-                f"division={nueva.division_id}"
-            ),
+            valor_nuevo=(f"docente={nueva.docente_id} materia_curso={nueva.materia_curso_id}"),
             usuario_id=usuario_id,
         )
         creadas.append(nueva)
@@ -2068,9 +2269,10 @@ def divisiones_de_persona(
             Anio.numero,
             Division.nombre,
             NivelEducativo.nombre,
-            func.count(func.distinct(AsignacionDocente.materia_id)).label("cantidad_materias"),
+            func.count(func.distinct(MateriaCurso.materia_id)).label("cantidad_materias"),
         )
-        .join(AsignacionDocente, AsignacionDocente.division_id == Division.id)
+        .join(AsignacionDocente, AsignacionDocente.materia_curso_id == MateriaCurso.id)
+        .join(Division, Division.id == MateriaCurso.division_id)
         .join(Anio, Anio.id == Division.anio_id)
         .join(NivelEducativo, NivelEducativo.id == Anio.nivel_educativo_id)
         .filter(AsignacionDocente.docente_id == docente.id)

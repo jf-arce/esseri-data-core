@@ -11,6 +11,7 @@ from src.academico.models import (
     Division,
     Docente,
     Materia,
+    MateriaCurso,
     NivelEducativo,
 )
 from src.academico.service import calcular_indicadores_inasistencia
@@ -28,6 +29,7 @@ def _crear_docente_con_division(db_session, *, con_usuario=True):
     anio_id = uuid.uuid4()
     division_id = uuid.uuid4()
     materia_id = uuid.uuid4()
+    materia_curso_id = uuid.uuid4()
     docente_id = uuid.uuid4()
 
     persona = Persona(id=persona_id, nombre="Julieta", apellido="Amaya", dni="40222333")
@@ -45,13 +47,13 @@ def _crear_docente_con_division(db_session, *, con_usuario=True):
             NivelEducativo(id=nivel_id, nombre="Primario"),
             Anio(id=anio_id, numero=4, nivel_educativo_id=nivel_id),
             Division(id=division_id, nombre="4°B", anio_id=anio_id),
-            Materia(id=materia_id, nombre="Matemática", tipo="materia", anio_id=anio_id),
+            Materia(id=materia_id, nombre="Matemática", tipo="materia"),
+            MateriaCurso(id=materia_curso_id, materia_id=materia_id, division_id=division_id),
             Docente(id=docente_id, legajo="D-001", persona_id=persona_id),
             AsignacionDocente(
                 ciclo_lectivo="2027",
                 docente_id=docente_id,
-                materia_id=materia_id,
-                division_id=division_id,
+                materia_curso_id=materia_curso_id,
             ),
         ]
     )
@@ -131,15 +133,17 @@ def test_docente_puede_listar_alumnos_activos_de_su_division_y_ciclo(client, db_
     # La fábrica del docente crea una división distinta; se asigna la división del alumno.
     docente = db_session.query(Docente).filter_by(persona_id=usuario.persona_id).one()
     division = db_session.get(Division, escenario["division_id"])
-    materia = Materia(nombre="Materia", tipo="materia", anio_id=division.anio_id)
+    materia = Materia(nombre="Materia", tipo="materia")
     db_session.add(materia)
+    db_session.flush()
+    materia_curso = MateriaCurso(materia_id=materia.id, division_id=division.id)
+    db_session.add(materia_curso)
     db_session.flush()
     db_session.add(
         AsignacionDocente(
             ciclo_lectivo="2027",
             docente_id=docente.id,
-            materia_id=materia.id,
-            division_id=division.id,
+            materia_curso_id=materia_curso.id,
         )
     )
     db_session.commit()
@@ -204,6 +208,7 @@ def test_etiqueta_no_duplica_el_anio_cuando_ya_esta_en_el_nombre(client, db_sess
     anio_id = uuid.uuid4()
     division_id = uuid.uuid4()
     materia_id = uuid.uuid4()
+    materia_curso_id = uuid.uuid4()
     docente_id = uuid.uuid4()
 
     persona = Persona(id=persona_id, nombre="Jorgelina", apellido="Moralejo", dni="40333444")
@@ -221,13 +226,13 @@ def test_etiqueta_no_duplica_el_anio_cuando_ya_esta_en_el_nombre(client, db_sess
             NivelEducativo(id=nivel_id, nombre="Primario"),
             Anio(id=anio_id, numero=1, nivel_educativo_id=nivel_id),
             Division(id=division_id, nombre="3°C", anio_id=anio_id),
-            Materia(id=materia_id, nombre="Matemática", tipo="materia", anio_id=anio_id),
+            Materia(id=materia_id, nombre="Matemática", tipo="materia"),
+            MateriaCurso(id=materia_curso_id, materia_id=materia_id, division_id=division_id),
             Docente(id=docente_id, legajo="D-002", persona_id=persona_id),
             AsignacionDocente(
                 ciclo_lectivo="2027",
                 docente_id=docente_id,
-                materia_id=materia_id,
-                division_id=division_id,
+                materia_curso_id=materia_curso_id,
             ),
         ]
     )

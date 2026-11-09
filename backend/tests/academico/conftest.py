@@ -4,7 +4,13 @@ import uuid
 
 import pytest
 
-from src.academico.models import AsignacionDocente, Division, Docente, Materia
+from src.academico.models import (
+    AsignacionDocente,
+    Division,
+    Docente,
+    Materia,
+    MateriaCurso,
+)
 from src.auth import sesion_service
 from src.auth.constants import (
     ACCION_ACTUALIZAR,
@@ -275,20 +281,34 @@ def asignar_division_a_docente(db_session, persona_docente):
             db_session.flush()
 
         division = db_session.get(Division, division_id)
-        materia = Materia(
-            nombre="Materia de prueba",
-            tipo="materia",
-            anio_id=division.anio_id,
+        materia = (
+            db_session.query(Materia)
+            .filter(Materia.nombre_normalizado == "materia de prueba")
+            .first()
         )
-        db_session.add(materia)
-        db_session.flush()
+        if materia is None:
+            materia = Materia(nombre="Materia de prueba", tipo="materia")
+            db_session.add(materia)
+            db_session.flush()
+
+        materia_curso = (
+            db_session.query(MateriaCurso)
+            .filter(
+                MateriaCurso.materia_id == materia.id,
+                MateriaCurso.division_id == division.id,
+            )
+            .first()
+        )
+        if materia_curso is None:
+            materia_curso = MateriaCurso(materia_id=materia.id, division_id=division.id)
+            db_session.add(materia_curso)
+            db_session.flush()
 
         db_session.add(
             AsignacionDocente(
                 ciclo_lectivo=ciclo_lectivo,
                 docente_id=docente.id,
-                materia_id=materia.id,
-                division_id=division_id,
+                materia_curso_id=materia_curso.id,
             )
         )
         db_session.commit()
