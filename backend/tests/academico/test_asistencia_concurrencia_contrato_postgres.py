@@ -3,18 +3,24 @@
 import os
 import threading
 import uuid
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from datetime import date
 
 import pytest
-from sqlalchemy import create_engine, event, text
+from fastapi import HTTPException
+from sqlalchemy import create_engine, event, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
 from src.academico import service
 from src.academico.exceptions import AsistenciaDuplicada
+from src.academico.models import JustificacionInasistencia, MotivoJustificacion
 from src.academico.schemas import AsistenciaBulkCreate, AsistenciaCreate
 from src.auth.exceptions import PermisoDenegado
+from src.familias_alumnos.models import Familia
+from src.inscripciones.models import Asistencia
+from src.models import Persona
+from src.workflows.models import TipoEvento
 
 
 def _engine():
@@ -198,4 +204,162 @@ def test_permission_denied_before_student_lock():
         assert count == 0
     finally:
         event.remove(engine, "before_cursor_execute", record)
+        engine.dispose()
+
+
+def test_bulk_and_historical_approval_do_not_overwrite_each_other(monkeypatch):
+    engine = _engine()
+    ids, inscripciones = _scenario(engine, students=1)
+    monkeypatch.setattr(service, "verificar_acceso_a_division", lambda *args: None)
+    with Session(engine) as db:
+        persona = Persona(nombre="Test", apellido="Familia", dni=str(uuid.uuid4()))
+        db.add(persona)
+        db.flush()
+        familia = Familia(persona_id=persona.id)
+        motivo = MotivoJustificacion(nombre="Test", activo=True)
+        asistencia = Asistencia(
+            inscripcion_id=inscripciones[0], fecha=date(2026, 9, 1), tipo="ausente_pendiente"
+        )
+        db.add_all([familia, motivo, asistencia])
+        if (
+            db.scalar(select(TipoEvento).where(TipoEvento.nombre == "inasistencia.justificada"))
+            is None
+        ):
+            db.add(TipoEvento(nombre="inasistencia.justificada"))
+        db.flush()
+        justificacion = JustificacionInasistencia(
+            asistencia_id=asistencia.id,
+            familia_id=familia.id,
+            motivo_justificacion_id=motivo.id,
+            usuario_id=ids["usuario"],
+            estado="pendiente",
+        )
+        db.add(justificacion)
+        db.commit()
+        asistencia_id, justificacion_id = asistencia.id, justificacion.id
+
+    read, release = threading.Event(), threading.Event()
+
+    def pause_bulk(conn, cursor, statement, parameters, context, executemany):
+        if (
+            threading.current_thread().name.startswith("bulk-race")
+            and "FROM asistencia" in statement
+        ):
+            if not read.is_set():
+                read.set()
+                release.wait(5)
+
+    def bulk():
+        with Session(engine) as db:
+            return service.registrar_asistencia_masiva(
+                db,
+                AsistenciaBulkCreate(
+                    division_id=ids["division"],
+                    fecha=date(2026, 9, 1),
+                    registros=[{"inscripcion_id": inscripciones[0], "tipo": "presente"}],
+                ),
+                ids["usuario"],
+                "docente",
+            )
+
+    def approve():
+        with Session(engine) as db:
+            try:
+                service.resolver_justificacion(
+                    db,
+                    db.get(JustificacionInasistencia, justificacion_id),
+                    True,
+                    usuario_id=ids["usuario"],
+                )
+                return "approved"
+            except HTTPException as exc:
+                db.rollback()
+                return exc.status_code
+
+    event.listen(engine, "after_cursor_execute", pause_bulk)
+    try:
+        with (
+            ThreadPoolExecutor(max_workers=1, thread_name_prefix="bulk-race") as b,
+            ThreadPoolExecutor(max_workers=1) as a,
+        ):
+            bulk_result = b.submit(bulk)
+            assert read.wait(5)
+            approval = a.submit(approve)
+            try:
+                with pytest.raises(TimeoutError):
+                    approval.result(timeout=0.5)
+            finally:
+                release.set()
+            assert bulk_result.result(timeout=10).actualizadas == 1
+            assert approval.result(timeout=10) == 409
+        with Session(engine) as db:
+            assert db.get(Asistencia, asistencia_id).tipo == "presente"
+            assert db.get(JustificacionInasistencia, justificacion_id).estado == "pendiente"
+            service.resolver_justificacion(
+                db,
+                db.get(JustificacionInasistencia, justificacion_id),
+                False,
+                observacion="No longer absent",
+                usuario_id=ids["usuario"],
+            )
+            assert db.get(Asistencia, asistencia_id).tipo == "presente"
+            assert db.get(JustificacionInasistencia, justificacion_id).estado == "rechazada"
+    finally:
+        release.set()
+        event.remove(engine, "after_cursor_execute", pause_bulk)
+        engine.dispose()
+
+
+@pytest.mark.parametrize(
+    "tipo", ["presente", "tardanza", "ausente_justificado", "ausente_injustificado"]
+)
+@pytest.mark.parametrize("aprobar", [True, False])
+def test_historical_resolution_preserves_nonpending_attendance(tipo, aprobar):
+    engine = _engine()
+    ids, inscripciones = _scenario(engine, students=1)
+    try:
+        with Session(engine) as db:
+            persona = Persona(nombre="Test", apellido="Familia", dni=str(uuid.uuid4()))
+            db.add(persona)
+            db.flush()
+            familia = Familia(persona_id=persona.id)
+            motivo = MotivoJustificacion(nombre="Test", activo=True)
+            asistencia = Asistencia(
+                inscripcion_id=inscripciones[0], fecha=date(2026, 9, 2), tipo=tipo
+            )
+            db.add_all([familia, motivo, asistencia])
+            if (
+                db.scalar(select(TipoEvento).where(TipoEvento.nombre == "inasistencia.justificada"))
+                is None
+            ):
+                db.add(TipoEvento(nombre="inasistencia.justificada"))
+            db.flush()
+            justificacion = JustificacionInasistencia(
+                asistencia_id=asistencia.id,
+                familia_id=familia.id,
+                motivo_justificacion_id=motivo.id,
+                usuario_id=ids["usuario"],
+                estado="pendiente",
+            )
+            db.add(justificacion)
+            db.commit()
+            if aprobar:
+                with pytest.raises(HTTPException) as exc:
+                    service.resolver_justificacion(
+                        db, justificacion, True, usuario_id=ids["usuario"]
+                    )
+                assert exc.value.status_code == 409
+                db.rollback()
+                assert justificacion.estado == "pendiente"
+            else:
+                result = service.resolver_justificacion(
+                    db,
+                    justificacion,
+                    False,
+                    observacion="No longer absent",
+                    usuario_id=ids["usuario"],
+                )
+                assert result.estado == "rechazada"
+            assert db.get(Asistencia, asistencia.id).tipo == tipo
+    finally:
         engine.dispose()

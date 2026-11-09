@@ -267,15 +267,25 @@ def resolver_justificacion(
     observacion: str | None = None,
     usuario_id: uuid.UUID | None = None,
 ) -> JustificacionInasistencia:
+    asistencia = db.get(Asistencia, justificacion.asistencia_id)
+    if asistencia is not None:
+        inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
+        if inscripcion is not None:
+            db.scalar(select(Alumno.id).where(Alumno.id == inscripcion.alumno_id).with_for_update())
+            db.refresh(justificacion)
+            db.refresh(asistencia)
     if justificacion.estado != "pendiente":
         raise HTTPException(status.HTTP_409_CONFLICT, "La justificación ya fue resuelta")
+    if aprobar and asistencia is not None and asistencia.tipo != "ausente_pendiente":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "La asistencia ya no es una ausencia pendiente"
+        )
     estado_nuevo = "aprobada" if aprobar else "rechazada"
     justificacion.estado = estado_nuevo
     if not aprobar:
         justificacion.observacion = observacion
     justificacion.fecha_resolucion = datetime.now()
-    asistencia = db.get(Asistencia, justificacion.asistencia_id)
-    if asistencia is not None:
+    if asistencia is not None and asistencia.tipo == "ausente_pendiente":
         asistencia.tipo = "ausente_justificado" if aprobar else "ausente_injustificado"
     log_audit(
         db,
@@ -520,6 +530,16 @@ def registrar_asistencia_masiva(
     # deadlocks when two bulk submissions contain the same students in different orders.
     inscripcion_ids = [registro.inscripcion_id for registro in datos.registros]
     if inscripcion_ids:
+        consulta_ajena = (
+            select(Inscripcion.id)
+            .where(
+                Inscripcion.id.in_(inscripcion_ids),
+                Inscripcion.division_id != datos.division_id,
+            )
+            .limit(1)
+        )
+        if db.scalar(consulta_ajena) is not None:
+            raise PermisoDenegado("La inscripción no pertenece a la división indicada")
         db.scalars(
             select(Alumno.id)
             .join(Inscripcion, Inscripcion.alumno_id == Alumno.id)
@@ -527,6 +547,8 @@ def registrar_asistencia_masiva(
             .order_by(Alumno.id)
             .with_for_update(of=Alumno)
         ).all()
+        if db.scalar(consulta_ajena) is not None:
+            raise PermisoDenegado("La inscripción no pertenece a la división indicada")
 
     creadas = 0
     actualizadas = 0
@@ -534,6 +556,8 @@ def registrar_asistencia_masiva(
 
     for registro in datos.registros:
         inscripcion = db.get(Inscripcion, registro.inscripcion_id)
+        if inscripcion is not None:
+            db.refresh(inscripcion)
         if inscripcion is None or inscripcion.estado != "activa":
             continue
         if ciclo_lectivo is not None and inscripcion.ciclo_lectivo != ciclo_lectivo:
@@ -687,6 +711,10 @@ def actualizar_asistencia(
     No puede modificar un registro ya justificado.
     """
     verificar_acceso_a_asistencia(db, asistencia, usuario_id, rol_activo)
+    inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
+    if inscripcion is not None:
+        db.scalar(select(Alumno.id).where(Alumno.id == inscripcion.alumno_id).with_for_update())
+        db.refresh(asistencia)
     if asistencia.tipo in _TIPOS_JUSTIFICADOS:
         raise AsistenciaYaJustificada()
 
@@ -703,7 +731,6 @@ def actualizar_asistencia(
         usuario_id=usuario_id,
     )
 
-    inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
     emite_evento = tipo_db in _TIPOS_CON_EVENTO and tipo_anterior != tipo_db
     if emite_evento and inscripcion is not None:
         emit_event(
