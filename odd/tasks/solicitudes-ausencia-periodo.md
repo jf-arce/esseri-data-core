@@ -182,4 +182,6 @@ L28 — PR slicing plan, commits remain local and unpushed:
 - PR 2, `feat/ausencias-pr2-concurrencia`: `c6212c4` — attendance serialization, bulk scope correction and their regression tests, separated from period services.
 - PR 3, `feat/ausencias-pr3-servicios`: `b3b4e42` after splitting the out-of-scope attendance corrections, containing only period creation/cancellation and tests; its native review is due and not yet granted.
 - Later slices `feat/ausencias-pr4-api`, `pr5-bandeja`, `pr6-aplicacion`, `pr7-avisos`, `pr8-frontend`: not implemented.
-Every branch chains on the previous one. No push, PR creation, merge or review consent was given; remote publication remains pending authorization. Historical-snapshot and deployment checks remain open.
+Every branch chains on the previous one. Historical-snapshot and deployment checks remain open.
+
+L29 — PR 1 published with explicit user authorization: branch `feat/ausencias-pr1-modelo` (commit `ad33435`) pushed to `jf-arce/esseri-data-core`; pull request https://github.com/jf-arce/esseri-data-core/pull/298 targets `main`. Pre-publication checks: 29 focused tests passed, Ruff passed, and `git merge-tree` reported no conflict with `origin/main`. No merge performed and no later slice published. PR 2 and PR 3 remain local and unpublished.
