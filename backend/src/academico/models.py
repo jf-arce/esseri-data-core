@@ -1,12 +1,13 @@
 """Modelos SQLAlchemy propios de Académico. Heredan de `src.models.Base`."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, time
 
 import sqlalchemy as sa
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from src.models import Base, Persona
+from src.search import normalizar_texto_busqueda
 
 
 class NivelEducativo(Base):
@@ -30,6 +31,7 @@ class Anio(Base):
         sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
     )
     nivel_educativo_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("nivel_educativo.id"))
+    nivel_educativo: Mapped["NivelEducativo"] = relationship("NivelEducativo")
 
 
 class Division(Base):
@@ -42,28 +44,122 @@ class Division(Base):
         sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
     )
     anio_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("anio.id"))
+    anio: Mapped["Anio"] = relationship("Anio")
 
 
 class Materia(Base):
-    """`division_id` nulo = común al año; con valor = específica de la división."""
+    """Catálogo global de materias.
+
+    Se crea una sola vez ("Inglés") y se asigna a distintos cursos mediante `MateriaCurso`.
+    `nombre_normalizado` se mantiene sincronizado para validar duplicados sin depender de
+    mayúsculas ni acentos.
+    """
 
     __tablename__ = "materia"
-    __table_args__ = (sa.CheckConstraint("tipo IN ('materia', 'taller')", name="ck_materia_tipo"),)
+    __table_args__ = (
+        sa.CheckConstraint("tipo IN ('materia', 'taller')", name="ck_materia_tipo"),
+        sa.UniqueConstraint("nombre_normalizado", name="uq_materia_nombre_normalizado"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
     nombre: Mapped[str] = mapped_column(sa.String)
+    nombre_normalizado: Mapped[str] = mapped_column(sa.String)
     tipo: Mapped[str] = mapped_column(sa.String)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
     updated_at: Mapped[datetime] = mapped_column(
         sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
     )
-    anio_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("anio.id"))
-    division_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("division.id"))
-    anio: Mapped["Anio"] = relationship("Anio")
+    cursos: Mapped[list["MateriaCurso"]] = relationship("MateriaCurso", back_populates="materia")
+
+    @validates("nombre")
+    def _sincronizar_nombre_normalizado(self, _campo: str, valor: str) -> str:
+        limpio = valor.strip()
+        self.nombre_normalizado = normalizar_texto_busqueda(limpio)
+        return limpio
+
+
+class MateriaCurso(Base):
+    """Materia del catálogo asignada a un curso (división), con su horario."""
+
+    __tablename__ = "materia_curso"
+    __table_args__ = (
+        sa.UniqueConstraint("materia_id", "division_id", name="uq_materia_curso_materia_division"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
+    )
+    materia_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("materia.id"))
+    division_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("division.id"))
+    materia: Mapped["Materia"] = relationship("Materia", back_populates="cursos")
+    division: Mapped["Division"] = relationship("Division")
+    horarios: Mapped[list["HorarioMateriaCurso"]] = relationship(
+        "HorarioMateriaCurso",
+        back_populates="materia_curso",
+        cascade="all, delete-orphan",
+        order_by="HorarioMateriaCurso.dia_semana, HorarioMateriaCurso.hora_inicio",
+    )
+    asignaciones: Mapped[list["AsignacionDocente"]] = relationship(
+        "AsignacionDocente", back_populates="materia_curso"
+    )
+
+    @property
+    def materia_nombre(self) -> str | None:
+        return self.materia.nombre if self.materia else None
+
+    @property
+    def materia_tipo(self) -> str | None:
+        return self.materia.tipo if self.materia else None
+
+    @property
+    def division_nombre(self) -> str | None:
+        return self.division.nombre if self.division else None
+
+    @property
+    def anio_id(self) -> uuid.UUID | None:
+        return self.division.anio_id if self.division else None
 
     @property
     def anio_numero(self) -> int | None:
-        return self.anio.numero if self.anio else None
+        if self.division and self.division.anio:
+            return self.division.anio.numero
+        return None
+
+    @property
+    def nivel_educativo_id(self) -> uuid.UUID | None:
+        if self.division and self.division.anio:
+            return self.division.anio.nivel_educativo_id
+        return None
+
+    @property
+    def nivel_educativo_nombre(self) -> str | None:
+        if self.division and self.division.anio and self.division.anio.nivel_educativo:
+            return self.division.anio.nivel_educativo.nombre
+        return None
+
+
+class HorarioMateriaCurso(Base):
+    """Franja horaria semanal de una materia en un curso."""
+
+    __tablename__ = "horario_materia_curso"
+    __table_args__ = (
+        sa.CheckConstraint("dia_semana BETWEEN 1 AND 7", name="ck_horario_materia_curso_dia"),
+        sa.UniqueConstraint(
+            "materia_curso_id",
+            "dia_semana",
+            "hora_inicio",
+            name="uq_horario_materia_curso_franja",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    dia_semana: Mapped[int] = mapped_column(sa.Integer)
+    hora_inicio: Mapped[time] = mapped_column(sa.Time)
+    hora_fin: Mapped[time] = mapped_column(sa.Time)
+    materia_curso_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("materia_curso.id"))
+    materia_curso: Mapped["MateriaCurso"] = relationship("MateriaCurso", back_populates="horarios")
 
 
 class Docente(Base):
@@ -89,6 +185,14 @@ class Docente(Base):
 
 class AsignacionDocente(Base):
     __tablename__ = "asignacion_docente"
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "docente_id",
+            "materia_curso_id",
+            "ciclo_lectivo",
+            name="uq_asignacion_docente_docente_materia_ciclo",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
     ciclo_lectivo: Mapped[str] = mapped_column(sa.String)
@@ -97,8 +201,30 @@ class AsignacionDocente(Base):
         sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
     )
     docente_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("docente.id"))
-    materia_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("materia.id"))
-    division_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("division.id"))
+    materia_curso_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("materia_curso.id"))
+    materia_curso: Mapped["MateriaCurso"] = relationship(
+        "MateriaCurso", back_populates="asignaciones"
+    )
+
+    @property
+    def materia_id(self) -> uuid.UUID | None:
+        return self.materia_curso.materia_id if self.materia_curso else None
+
+    @property
+    def division_id(self) -> uuid.UUID | None:
+        return self.materia_curso.division_id if self.materia_curso else None
+
+    @property
+    def materia_nombre(self) -> str | None:
+        return self.materia_curso.materia_nombre if self.materia_curso else None
+
+    @property
+    def division_nombre(self) -> str | None:
+        return self.materia_curso.division_nombre if self.materia_curso else None
+
+    @property
+    def horarios(self) -> list[HorarioMateriaCurso]:
+        return self.materia_curso.horarios if self.materia_curso else []
 
 
 class MotivoJustificacion(Base):

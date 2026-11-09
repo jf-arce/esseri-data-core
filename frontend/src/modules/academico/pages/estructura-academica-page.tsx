@@ -1,4 +1,12 @@
-import { BookOpenIcon, Building2Icon, LayersIcon, PlusIcon, ShieldAlertIcon } from 'lucide-react'
+import {
+  BookOpenIcon,
+  Building2Icon,
+  LayersIcon,
+  PencilIcon,
+  PlusIcon,
+  ShieldAlertIcon,
+  Trash2Icon,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -14,9 +22,15 @@ import {
 } from '@/modules/academico/hooks/use-estructura-academica'
 import { NivelSeccion } from '@/modules/academico/components/nivel-seccion'
 import { AbmDialog } from '@/modules/academico/components/abm-dialog'
+import { MateriaCursoDialog } from '@/modules/academico/components/materia-curso-dialog'
 import { listarAnios } from '@/modules/academico/services/anios'
-import { listarDivisiones } from '@/modules/academico/services/divisiones'
-import type { Anio, Division, Materia, NivelEducativo } from '@/modules/academico/types'
+import type {
+  Anio,
+  Division,
+  Materia,
+  MateriaCurso,
+  NivelEducativo,
+} from '@/modules/academico/types'
 import { normalizarTexto } from '@/modules/academico/utils'
 import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
@@ -36,8 +50,20 @@ type DialogState =
       anioPreseleccionadoId?: string
     }
 
+type MateriaCursoDialogState =
+  | { open: false }
+  | {
+      open: true
+      modo: 'crear' | 'editar' | 'eliminar'
+      item?: MateriaCurso
+      divisionId?: string
+      divisionNombre?: string
+      materiasExcluidas?: string[]
+    }
+
 // Búsqueda libre sobre el árbol: si coincide el nivel se muestra entero; si coincide un año se
-// muestran todas sus divisiones; si coincide una división o materia se recorta el resto.
+// muestran todas sus divisiones; si coincide una división o una materia del curso se recorta el
+// resto.
 function filtrarEstructura(niveles: NivelConEstructura[], termino: string): NivelConEstructura[] {
   const consulta = normalizarTexto(termino)
   if (!consulta) return niveles
@@ -50,19 +76,16 @@ function filtrarEstructura(niveles: NivelConEstructura[], termino: string): Nive
         return [anio]
       }
 
-      const materias = anio.materias.filter((materia) =>
-        normalizarTexto(materia.nombre).includes(consulta),
-      )
       const divisiones = anio.divisiones.flatMap((division) => {
         if (normalizarTexto(division.nombre).includes(consulta)) return [division]
         const propias = division.materias.filter((materia) =>
-          normalizarTexto(materia.nombre).includes(consulta),
+          normalizarTexto(materia.materia_nombre ?? '').includes(consulta),
         )
         return propias.length > 0 ? [{ ...division, materias: propias }] : []
       })
 
-      if (materias.length === 0 && divisiones.length === 0) return []
-      return [{ ...anio, materias, divisiones }]
+      if (divisiones.length === 0) return []
+      return [{ ...anio, divisiones }]
     })
 
     return anios.length > 0 ? [{ ...nivel, anios }] : []
@@ -70,7 +93,14 @@ function filtrarEstructura(niveles: NivelConEstructura[], termino: string): Nive
 }
 
 export function EstructuraAcademicaPage() {
-  const { datos: niveles, cargando, error, sinPermiso, recargar } = useEstructuraAcademica()
+  const {
+    datos: niveles,
+    catalogo,
+    cargando,
+    error,
+    sinPermiso,
+    recargar,
+  } = useEstructuraAcademica()
   // Entrar a esta página solo pide `academico.leer` (dirección la mira sin operarla, ver
   // nav-items.ts); crear/editar/eliminar sigue pidiendo el `actualizar` de escritura — mismo
   // patrón que `asistencia-division-page.tsx` para "acceso estructural".
@@ -79,8 +109,10 @@ export function EstructuraAcademicaPage() {
   const [filtroNivel, setFiltroNivel] = useState('todos')
   const [busqueda, setBusqueda] = useState('')
   const [dialog, setDialog] = useState<DialogState>({ open: false })
+  const [dialogMateriaCurso, setDialogMateriaCurso] = useState<MateriaCursoDialogState>({
+    open: false,
+  })
   const [allAnios, setAllAnios] = useState<Anio[]>([])
-  const [allDivisiones, setAllDivisiones] = useState<Division[]>([])
 
   const nivelOptions: FilterDropdownOption[] = useMemo(
     () => [
@@ -98,12 +130,9 @@ export function EstructuraAcademicaPage() {
         (acc, n) => acc + n.anios.reduce((acc2, a) => acc2 + a.cantidad_divisiones, 0),
         0,
       ),
-      materias: niveles.reduce(
-        (acc, n) => acc + n.anios.reduce((acc2, a) => acc2 + a.cantidad_materias, 0),
-        0,
-      ),
+      materias: catalogo.length,
     }),
-    [niveles],
+    [niveles, catalogo],
   )
 
   const nivelesFiltrados = useMemo(() => {
@@ -113,10 +142,8 @@ export function EstructuraAcademicaPage() {
 
   const hayFiltros = filtroNivel !== 'todos' || busqueda.trim().length > 0
 
-  async function cargarDatosAuxiliares() {
-    const [anios, divisiones] = await Promise.all([listarAnios(), listarDivisiones()])
-    setAllAnios(anios)
-    setAllDivisiones(divisiones)
+  async function cargarAnios() {
+    setAllAnios(await listarAnios())
   }
 
   function abrirDialog(
@@ -130,7 +157,7 @@ export function EstructuraAcademicaPage() {
     nivelPreseleccionadoId?: string,
     anioPreseleccionadoId?: string,
   ) {
-    void cargarDatosAuxiliares()
+    void cargarAnios()
     setDialog({
       open: true,
       entidad,
@@ -174,8 +201,8 @@ export function EstructuraAcademicaPage() {
       />
 
       <p className="-mt-3 max-w-2xl text-sm text-texto-2">
-        Las materias pueden ser comunes al año o propias de una división/orientación (materia o
-        taller). El detalle está en la ficha de cada división.
+        Las materias viven en un catálogo global y se asignan a cada curso con su día y horario. Una
+        misma materia puede dictarse en varias divisiones.
       </p>
 
       {niveles.length > 0 && (
@@ -195,7 +222,7 @@ export function EstructuraAcademicaPage() {
             cargando={cargando}
           />
           <StatTile
-            label="Materias"
+            label="Materias en catálogo"
             value={totales.materias}
             icon={BookOpenIcon}
             iconClassName="bg-sup-inscripciones text-petroleo"
@@ -215,6 +242,65 @@ export function EstructuraAcademicaPage() {
           </AlertDescription>
         </Alert>
       )}
+
+      <Card className="p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold text-texto">Catálogo de materias</h2>
+            <p className="text-xs text-texto-3">
+              Se crean una sola vez y después se asignan a los cursos que las dictan.
+            </p>
+          </div>
+          {puedeEditar && (
+            <Button variant="secondary" size="sm" onClick={() => abrirDialog('materia', 'crear')}>
+              <PlusIcon className="size-3.5" />
+              Nueva materia
+            </Button>
+          )}
+        </div>
+
+        {catalogo.length === 0 ? (
+          <p className="text-sm text-texto-3">
+            Todavía no hay materias en el catálogo. Creá la primera para poder asignarla a un curso.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {catalogo.map((materia) => (
+              <div
+                key={materia.id}
+                className="flex items-center gap-2 rounded-lg border border-borde bg-fila-hover/40 px-3 py-1.5 text-sm text-texto"
+              >
+                <span className="font-medium">{materia.nombre}</span>
+                <span className="text-xs text-texto-3">
+                  {materia.cantidad_cursos} {materia.cantidad_cursos === 1 ? 'curso' : 'cursos'}
+                </span>
+                {puedeEditar && (
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      className="rounded p-1 text-texto-3 hover:bg-superficie hover:text-texto"
+                      onClick={() =>
+                        abrirDialog('materia', 'editar', { tipo: 'materia', data: materia })
+                      }
+                      aria-label="Editar materia del catálogo"
+                    >
+                      <PencilIcon className="size-3" />
+                    </button>
+                    <button
+                      className="rounded p-1 text-texto-3 hover:bg-superficie hover:text-error"
+                      onClick={() =>
+                        abrirDialog('materia', 'eliminar', { tipo: 'materia', data: materia })
+                      }
+                      aria-label="Eliminar materia del catálogo"
+                    >
+                      <Trash2Icon className="size-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       {niveles.length > 0 && (
         <FilterBar>
@@ -304,14 +390,20 @@ export function EstructuraAcademicaPage() {
               onEliminarDivision={(d) =>
                 abrirDialog('division', 'eliminar', { tipo: 'division', data: d })
               }
-              onAgregarMateria={(anioId) =>
-                abrirDialog('materia', 'crear', undefined, undefined, anioId)
+              onAgregarMateriaCurso={(division) =>
+                setDialogMateriaCurso({
+                  open: true,
+                  modo: 'crear',
+                  divisionId: division.id,
+                  divisionNombre: division.nombre,
+                  materiasExcluidas: division.materias.map((materia) => materia.materia_id),
+                })
               }
-              onEditarMateria={(m) =>
-                abrirDialog('materia', 'editar', { tipo: 'materia', data: m })
+              onEditarMateriaCurso={(materiaCurso) =>
+                setDialogMateriaCurso({ open: true, modo: 'editar', item: materiaCurso })
               }
-              onEliminarMateria={(m) =>
-                abrirDialog('materia', 'eliminar', { tipo: 'materia', data: m })
+              onEliminarMateriaCurso={(materiaCurso) =>
+                setDialogMateriaCurso({ open: true, modo: 'eliminar', item: materiaCurso })
               }
             />
           ))}
@@ -327,9 +419,22 @@ export function EstructuraAcademicaPage() {
           item={dialog.item}
           niveles={niveles}
           anios={allAnios}
-          divisiones={allDivisiones}
           nivelPreseleccionadoId={dialog.nivelPreseleccionadoId}
           anioPreseleccionadoId={dialog.anioPreseleccionadoId}
+          onExito={handleExito}
+        />
+      )}
+
+      {dialogMateriaCurso.open && (
+        <MateriaCursoDialog
+          open={dialogMateriaCurso.open}
+          onOpenChange={(open) => !open && setDialogMateriaCurso({ open: false })}
+          modo={dialogMateriaCurso.modo}
+          item={dialogMateriaCurso.item}
+          divisionId={dialogMateriaCurso.divisionId}
+          divisionNombre={dialogMateriaCurso.divisionNombre}
+          materiasExcluidas={dialogMateriaCurso.materiasExcluidas}
+          catalogo={catalogo}
           onExito={handleExito}
         />
       )}

@@ -59,14 +59,12 @@ export type DivisionUpdate = {
 
 export type TipoMateria = 'materia' | 'taller'
 
+/** Catálogo global de materias: se crea una sola vez y se asigna a distintos cursos. */
 export type Materia = {
   id: string
   nombre: string
   tipo: TipoMateria
-  anio_id: string
-  anio_numero?: number
-  division_id: string | null
-  cantidad_asignaciones: number
+  cantidad_cursos: number
   created_at: string
   updated_at: string
 }
@@ -74,15 +72,57 @@ export type Materia = {
 export type MateriaCreate = {
   nombre: string
   tipo: TipoMateria
-  anio_id: string
-  division_id?: string | null
 }
 
 export type MateriaUpdate = {
   nombre?: string
   tipo?: TipoMateria
-  anio_id?: string
-  division_id?: string | null
+}
+
+/** Franja horaria semanal de una materia en un curso. 1 = lunes, 7 = domingo. */
+export type HorarioMateriaCurso = {
+  id: string
+  dia_semana: number
+  hora_inicio: string
+  hora_fin: string
+}
+
+export type HorarioMateriaCursoCreate = {
+  dia_semana: number
+  hora_inicio: string
+  hora_fin: string
+}
+
+/** Materia del catálogo asignada a un curso (división), con sus franjas horarias. */
+export type MateriaCurso = {
+  id: string
+  materia_id: string
+  materia_nombre: string | null
+  materia_tipo: TipoMateria | null
+  division_id: string
+  division_nombre: string | null
+  anio_id: string | null
+  anio_numero: number | null
+  nivel_educativo_id: string | null
+  nivel_educativo_nombre: string | null
+  horarios: HorarioMateriaCurso[]
+  cantidad_asignaciones: number
+  created_at: string
+  updated_at: string
+}
+
+export type MateriaCursoCreate = {
+  /** Materia existente del catálogo, o `materia_nombre` para crearla en el momento. */
+  materia_id?: string
+  materia_nombre?: string
+  materia_tipo?: TipoMateria
+  division_id: string
+  horarios: HorarioMateriaCursoCreate[]
+}
+
+export type MateriaCursoUpdate = {
+  materia_id?: string
+  horarios?: HorarioMateriaCursoCreate[]
 }
 
 export type Docente = {
@@ -131,8 +171,12 @@ export type AsignacionDocente = {
   id: string
   ciclo_lectivo: string
   docente_id: string
-  materia_id: string
-  division_id: string
+  materia_curso_id: string
+  materia_id?: string | null
+  materia_nombre?: string | null
+  division_id?: string | null
+  division_nombre?: string | null
+  horarios: HorarioMateriaCurso[]
   created_at: string
   updated_at: string
 }
@@ -140,20 +184,17 @@ export type AsignacionDocente = {
 export type AsignacionDocenteCreate = {
   ciclo_lectivo: string
   docente_id: string
-  materia_id: string
-  division_id: string
+  materia_curso_id: string
 }
 
 export type AsignacionDocenteUpdate = {
   ciclo_lectivo?: string
   docente_id?: string
-  materia_id?: string
-  division_id?: string
+  materia_curso_id?: string
 }
 
 export type AsignacionDocenteBulkItem = {
-  materia_id: string
-  division_id: string
+  materia_curso_id: string
 }
 
 export type AsignacionDocenteBulkCreate = {

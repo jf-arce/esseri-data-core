@@ -31,6 +31,25 @@ export function normalizarTexto(valor: string): string {
     .trim()
 }
 
+const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+
+/** Formatea una franja como "Lun 08:00–09:00" (día 1 = lunes). */
+export function formatearHorario(horario: {
+  dia_semana: number
+  hora_inicio: string
+  hora_fin: string
+}): string {
+  const dia = DIAS_SEMANA[horario.dia_semana - 1] ?? `Día ${horario.dia_semana}`
+  return `${dia} ${horario.hora_inicio.slice(0, 5)}–${horario.hora_fin.slice(0, 5)}`
+}
+
+export function formatearHorarios(
+  horarios: { dia_semana: number; hora_inicio: string; hora_fin: string }[],
+): string {
+  if (horarios.length === 0) return 'Sin horario'
+  return horarios.map(formatearHorario).join(' · ')
+}
+
 const ETIQUETAS_TIPO_ASISTENCIA: Record<TipoAsistencia, string> = {
   presente: 'Presente',
   tardanza: 'Tardanza',

@@ -1,12 +1,8 @@
 import { apiClient } from '@/api/client'
 import type { Materia, MateriaCreate, MateriaUpdate } from '../types'
 
-export function listarMaterias(anioId?: string, divisionId?: string) {
-  const params = new URLSearchParams()
-  if (divisionId) params.set('division_id', divisionId)
-  if (anioId) params.set('anio_id', anioId)
-  const qs = params.toString() ? `?${params.toString()}` : ''
-  return apiClient<Materia[]>(`/academico/materias${qs}`)
+export function listarMaterias() {
+  return apiClient<Materia[]>('/academico/materias')
 }
 
 export function obtenerMateria(id: string) {

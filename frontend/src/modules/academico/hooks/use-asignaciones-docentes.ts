@@ -5,9 +5,9 @@ import {
   type FiltrosAsignacion,
 } from '@/modules/academico/services/asignaciones-docentes'
 import { listarDocentes } from '@/modules/academico/services/docentes'
-import { listarMaterias } from '@/modules/academico/services/materias'
+import { listarMateriasCurso } from '@/modules/academico/services/materias-curso'
 import { listarDivisiones } from '@/modules/academico/services/divisiones'
-import type { AsignacionDocente, Division, Docente, Materia } from '@/modules/academico/types'
+import type { AsignacionDocente, Division, Docente, MateriaCurso } from '@/modules/academico/types'
 
 export type AsignacionConNombres = AsignacionDocente & {
   docente_nombre: string
@@ -16,10 +16,10 @@ export type AsignacionConNombres = AsignacionDocente & {
   division_nombre: string
 }
 
-export function useAsignacionesDocentes(filtros?: FiltrosAsignacion, anioIdMaterias?: string) {
+export function useAsignacionesDocentes(filtros?: FiltrosAsignacion) {
   const [asignaciones, setAsignaciones] = useState<AsignacionConNombres[]>([])
   const [docentes, setDocentes] = useState<Docente[]>([])
-  const [materias, setMaterias] = useState<Materia[]>([])
+  const [materiasCurso, setMateriasCurso] = useState<MateriaCurso[]>([])
   const [divisiones, setDivisiones] = useState<Division[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -29,21 +29,17 @@ export function useAsignacionesDocentes(filtros?: FiltrosAsignacion, anioIdMater
     setCargando(true)
     setError(null)
     try {
-      const [asigs, docs, mats, divs] = await Promise.all([
+      const [asigs, docs, cursos, divs] = await Promise.all([
         listarAsignaciones(filtros),
         listarDocentes(),
-        listarMaterias(anioIdMaterias),
+        listarMateriasCurso(),
         listarDivisiones(),
       ])
 
       const docenteMap = new Map(docs.map((d) => [d.id, d]))
-      const materiaMap = new Map(mats.map((m) => [m.id, m]))
-      const divisionMap = new Map(divs.map((d) => [d.id, d]))
 
       const enriquecidas: AsignacionConNombres[] = asigs.map((a) => {
         const docente = docenteMap.get(a.docente_id)
-        const materia = materiaMap.get(a.materia_id)
-        const division = divisionMap.get(a.division_id)
         const nombreCompleto =
           docente?.nombre && docente?.apellido
             ? `${docente.legajo} - ${docente.nombre} ${docente.apellido}`
@@ -52,14 +48,14 @@ export function useAsignacionesDocentes(filtros?: FiltrosAsignacion, anioIdMater
           ...a,
           docente_nombre: nombreCompleto,
           docente_apellido: '',
-          materia_nombre: materia?.nombre ?? '—',
-          division_nombre: division?.nombre ?? '—',
+          materia_nombre: a.materia_nombre ?? '—',
+          division_nombre: a.division_nombre ?? '—',
         }
       })
 
       setAsignaciones(enriquecidas)
       setDocentes(docs)
-      setMaterias(mats)
+      setMateriasCurso(cursos)
       setDivisiones(divs)
       setSinPermiso(false)
     } catch (err: unknown) {
@@ -71,7 +67,7 @@ export function useAsignacionesDocentes(filtros?: FiltrosAsignacion, anioIdMater
     } finally {
       setCargando(false)
     }
-  }, [filtros, anioIdMaterias])
+  }, [filtros])
 
   useEffect(() => {
     let cancelled = false
@@ -88,5 +84,14 @@ export function useAsignacionesDocentes(filtros?: FiltrosAsignacion, anioIdMater
     return cargar()
   }, [cargar])
 
-  return { asignaciones, docentes, materias, divisiones, cargando, error, sinPermiso, recargar }
+  return {
+    asignaciones,
+    docentes,
+    materiasCurso,
+    divisiones,
+    cargando,
+    error,
+    sinPermiso,
+    recargar,
+  }
 }

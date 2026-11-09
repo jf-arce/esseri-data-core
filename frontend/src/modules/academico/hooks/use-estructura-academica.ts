@@ -4,21 +4,27 @@ import { listarNiveles } from '@/modules/academico/services/niveles-educativos'
 import { listarAnios } from '@/modules/academico/services/anios'
 import { listarDivisiones } from '@/modules/academico/services/divisiones'
 import { listarMaterias } from '@/modules/academico/services/materias'
-import type { Anio, Division, Materia, NivelEducativo } from '@/modules/academico/types'
+import { listarMateriasCurso } from '@/modules/academico/services/materias-curso'
+import type {
+  Anio,
+  Division,
+  Materia,
+  MateriaCurso,
+  NivelEducativo,
+} from '@/modules/academico/types'
 
 export type NivelConEstructura = NivelEducativo & {
   anios: (Anio & {
-    /** Materias comunes al año (sin división): se dictan en todas sus divisiones. */
-    materias: Materia[]
     divisiones: (Division & {
-      /** Solo las materias propias de esta división; las comunes viven en el año. */
-      materias: Materia[]
+      /** Materias del catálogo asignadas a esta división, con su horario. */
+      materias: MateriaCurso[]
     })[]
   })[]
 }
 
 export function useEstructuraAcademica() {
   const [datos, setDatos] = useState<NivelConEstructura[]>([])
+  const [catalogo, setCatalogo] = useState<Materia[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sinPermiso, setSinPermiso] = useState(false)
@@ -27,7 +33,7 @@ export function useEstructuraAcademica() {
     setCargando(true)
     setError(null)
     try {
-      const niveles = await listarNiveles()
+      const [niveles, materias] = await Promise.all([listarNiveles(), listarMaterias()])
 
       const nivelesConEstructura: NivelConEstructura[] = await Promise.all(
         niveles.map(async (nivel) => {
@@ -35,19 +41,17 @@ export function useEstructuraAcademica() {
 
           const aniosConDivisiones = await Promise.all(
             anios.map(async (anio) => {
-              const [divisiones, materias] = await Promise.all([
+              const [divisiones, materiasCurso] = await Promise.all([
                 listarDivisiones(anio.id),
-                listarMaterias(anio.id),
+                listarMateriasCurso({ anio_id: anio.id }),
               ])
 
               const divisionesConMaterias = divisiones.map((division) => ({
                 ...division,
-                materias: materias.filter((m) => m.division_id === division.id),
+                materias: materiasCurso.filter((materia) => materia.division_id === division.id),
               }))
 
-              const materiasComunes = materias.filter((m) => m.division_id === null)
-
-              return { ...anio, materias: materiasComunes, divisiones: divisionesConMaterias }
+              return { ...anio, divisiones: divisionesConMaterias }
             }),
           )
 
@@ -56,6 +60,7 @@ export function useEstructuraAcademica() {
       )
 
       setDatos(nivelesConEstructura)
+      setCatalogo(materias)
       setSinPermiso(false)
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 403) {
@@ -85,5 +90,5 @@ export function useEstructuraAcademica() {
     return cargar()
   }, [cargar])
 
-  return { datos, cargando, error, sinPermiso, recargar }
+  return { datos, catalogo, cargando, error, sinPermiso, recargar }
 }

@@ -8,7 +8,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import type { NivelConEstructura } from '@/modules/academico/hooks/use-estructura-academica'
-import type { Anio, Division, Materia, NivelEducativo } from '@/modules/academico/types'
+import type { Anio, Division, MateriaCurso, NivelEducativo } from '@/modules/academico/types'
+import { formatearHorarios } from '@/modules/academico/utils'
+
+/** División tal como viene en el árbol, con sus materias-curso cargadas. */
+type DivisionConMaterias = NivelConEstructura['anios'][number]['divisiones'][number]
 
 interface NivelSeccionProps {
   nivel: NivelConEstructura
@@ -23,9 +27,9 @@ interface NivelSeccionProps {
   onAgregarDivision: (anioId: string) => void
   onEditarDivision: (division: Division) => void
   onEliminarDivision: (division: Division) => void
-  onAgregarMateria: (anioId: string) => void
-  onEditarMateria: (materia: Materia) => void
-  onEliminarMateria: (materia: Materia) => void
+  onAgregarMateriaCurso: (division: DivisionConMaterias) => void
+  onEditarMateriaCurso: (materiaCurso: MateriaCurso) => void
+  onEliminarMateriaCurso: (materiaCurso: MateriaCurso) => void
 }
 
 const COLORES_NIVEL = [
@@ -133,9 +137,9 @@ function AnioGrupo({
   onAgregarDivision,
   onEditarDivision,
   onEliminarDivision,
-  onAgregarMateria,
-  onEditarMateria,
-  onEliminarMateria,
+  onAgregarMateriaCurso,
+  onEditarMateriaCurso,
+  onEliminarMateriaCurso,
 }: NivelSeccionProps & { anio: NivelConEstructura['anios'][number] }) {
   return (
     <div className="rounded-card bg-superficie p-5 shadow-card">
@@ -152,10 +156,6 @@ function AnioGrupo({
             <Button variant="ghost" size="sm" onClick={() => onAgregarDivision(anio.id)}>
               <PlusIcon className="size-3.5" />
               División
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => onAgregarMateria(anio.id)}>
-              <PlusIcon className="size-3.5" />
-              Materia
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -179,25 +179,6 @@ function AnioGrupo({
         )}
       </div>
 
-      {anio.materias.length > 0 && (
-        <div className="mb-3 rounded-lg border border-borde bg-fila-hover/40 p-2">
-          <p className="mb-1 px-1 text-xs font-semibold text-texto-2">
-            Materias comunes al año (se dictan en todas las divisiones)
-          </p>
-          <div className="flex flex-col gap-1">
-            {anio.materias.map((materia) => (
-              <MateriaFila
-                key={materia.id}
-                materia={materia}
-                puedeEditar={puedeEditar}
-                onEditar={onEditarMateria}
-                onEliminar={onEliminarMateria}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
       {anio.divisiones.length === 0 ? (
         <div className="rounded-lg border border-dashed border-borde p-4 text-center text-sm text-texto-3">
           {puedeEditar ? (
@@ -220,12 +201,12 @@ function AnioGrupo({
             <DivisionCard
               key={division.id}
               division={division}
-              materiasComunes={anio.materias.length}
               puedeEditar={puedeEditar}
               onEditar={() => onEditarDivision(division)}
               onEliminar={() => onEliminarDivision(division)}
-              onEditarMateria={onEditarMateria}
-              onEliminarMateria={onEliminarMateria}
+              onAgregarMateriaCurso={() => onAgregarMateriaCurso(division)}
+              onEditarMateriaCurso={onEditarMateriaCurso}
+              onEliminarMateriaCurso={onEliminarMateriaCurso}
             />
           ))}
         </div>
@@ -235,20 +216,20 @@ function AnioGrupo({
 }
 
 function MateriaFila({
-  materia,
+  materiaCurso,
   puedeEditar,
   onEditar,
   onEliminar,
 }: {
-  materia: Materia
+  materiaCurso: MateriaCurso
   puedeEditar: boolean
-  onEditar: (materia: Materia) => void
-  onEliminar: (materia: Materia) => void
+  onEditar: (materiaCurso: MateriaCurso) => void
+  onEliminar: (materiaCurso: MateriaCurso) => void
 }) {
   return (
-    <div className="flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-fila-hover">
+    <div className="flex items-start justify-between gap-2 rounded-md px-2 py-1 text-xs hover:bg-fila-hover">
       <span className="flex flex-wrap items-center gap-1.5 text-texto">
-        {materia.tipo === 'taller' ? (
+        {materiaCurso.materia_tipo === 'taller' ? (
           <span className="rounded bg-sup-workflows px-1.5 py-0.5 text-xs font-semibold text-violeta">
             Taller
           </span>
@@ -257,21 +238,24 @@ function MateriaFila({
             Materia
           </span>
         )}
-        {materia.nombre}
-        {materia.cantidad_asignaciones === 0 && <span className="text-texto-3">· sin docente</span>}
+        {materiaCurso.materia_nombre ?? '—'}
+        <span className="text-texto-3">· {formatearHorarios(materiaCurso.horarios)}</span>
+        {materiaCurso.cantidad_asignaciones === 0 && (
+          <span className="text-texto-3">· sin docente</span>
+        )}
       </span>
       {puedeEditar && (
         <div className="flex items-center gap-0.5">
           <button
             className="rounded p-1 text-texto-3 hover:bg-superficie hover:text-texto"
-            onClick={() => onEditar(materia)}
+            onClick={() => onEditar(materiaCurso)}
             aria-label="Editar materia"
           >
             <PencilIcon className="size-3" />
           </button>
           <button
             className="rounded p-1 text-texto-3 hover:bg-superficie hover:text-error"
-            onClick={() => onEliminar(materia)}
+            onClick={() => onEliminar(materiaCurso)}
             aria-label="Eliminar materia"
           >
             <Trash2Icon className="size-3" />
@@ -284,20 +268,20 @@ function MateriaFila({
 
 function DivisionCard({
   division,
-  materiasComunes,
   puedeEditar,
   onEditar,
   onEliminar,
-  onEditarMateria,
-  onEliminarMateria,
+  onAgregarMateriaCurso,
+  onEditarMateriaCurso,
+  onEliminarMateriaCurso,
 }: {
   division: NivelConEstructura['anios'][number]['divisiones'][number]
-  materiasComunes: number
   puedeEditar: boolean
   onEditar: () => void
   onEliminar: () => void
-  onEditarMateria: (materia: Materia) => void
-  onEliminarMateria: (materia: Materia) => void
+  onAgregarMateriaCurso: () => void
+  onEditarMateriaCurso: (materiaCurso: MateriaCurso) => void
+  onEliminarMateriaCurso: (materiaCurso: MateriaCurso) => void
 }) {
   return (
     <div className="rounded-card-sm border-l-3 border-l-info bg-superficie p-4 shadow-card">
@@ -305,8 +289,7 @@ function DivisionCard({
         <div>
           <p className="text-base font-semibold text-texto">{division.nombre}</p>
           <p className="mt-0.5 text-xs text-texto-2">
-            {plural(division.materias.length, 'materia propia', 'materias propias')}
-            {materiasComunes > 0 && ` · ${plural(materiasComunes, 'común', 'comunes')}`} ·{' '}
+            {plural(division.materias.length, 'materia', 'materias')} ·{' '}
             {plural(division.cantidad_inscripciones, 'alumno', 'alumnos')}
           </p>
         </div>
@@ -318,6 +301,10 @@ function DivisionCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={onAgregarMateriaCurso}>
+                <PlusIcon className="text-petroleo" />
+                Agregar materia
+              </DropdownMenuItem>
               <DropdownMenuItem onSelect={onEditar}>
                 <PencilIcon className="text-petroleo" />
                 Editar división
@@ -332,18 +319,20 @@ function DivisionCard({
         )}
       </div>
 
-      {division.materias.length > 0 && (
+      {division.materias.length > 0 ? (
         <div className="mt-3 flex flex-col gap-1">
-          {division.materias.map((materia) => (
+          {division.materias.map((materiaCurso) => (
             <MateriaFila
-              key={materia.id}
-              materia={materia}
+              key={materiaCurso.id}
+              materiaCurso={materiaCurso}
               puedeEditar={puedeEditar}
-              onEditar={onEditarMateria}
-              onEliminar={onEliminarMateria}
+              onEditar={onEditarMateriaCurso}
+              onEliminar={onEliminarMateriaCurso}
             />
           ))}
         </div>
+      ) : (
+        <p className="mt-3 text-xs text-texto-3">Sin materias asignadas.</p>
       )}
     </div>
   )

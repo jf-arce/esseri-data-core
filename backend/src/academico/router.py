@@ -24,6 +24,7 @@ from src.academico.dependencies import (
     obtener_asistencia_o_404,
     obtener_division_o_404,
     obtener_docente_o_404,
+    obtener_materia_curso_o_404,
     obtener_materia_o_404,
     obtener_nivel_educativo_o_404,
 )
@@ -39,11 +40,13 @@ from src.academico.exceptions import (
     DivisionConMaterias,
     DivisionDuplicada,
     DocenteConAsignaciones,
+    HorarioDuplicado,
     InscripcionNoActiva,
     LegajoDuplicado,
-    MateriaConAsignaciones,
+    MateriaConCursos,
+    MateriaCursoConAsignaciones,
+    MateriaCursoDuplicada,
     MateriaDuplicada,
-    MateriaNoCorrespondeADivision,
     NivelEducativoConAnios,
     NombreNivelDuplicado,
 )
@@ -61,6 +64,7 @@ from src.academico.models import (
     Docente,
     JustificacionInasistencia,
     Materia,
+    MateriaCurso,
     MotivoJustificacion,
     NivelEducativo,
 )
@@ -94,6 +98,9 @@ from src.academico.schemas import (
     JustificacionFamiliaResponse,
     JustificacionResolucion,
     MateriaCreate,
+    MateriaCursoCreate,
+    MateriaCursoResponse,
+    MateriaCursoUpdate,
     MateriaResponse,
     MateriaUpdate,
     MiDivisionResponse,
@@ -111,6 +118,7 @@ from src.academico.service import (
     actualizar_division,
     actualizar_docente,
     actualizar_materia,
+    actualizar_materia_curso,
     actualizar_nivel_educativo,
     asistencias_de_familia,
     calcular_resumen_asistencia,
@@ -122,6 +130,7 @@ from src.academico.service import (
     crear_docente,
     crear_docente_desde_usuario,
     crear_materia,
+    crear_materia_curso,
     crear_nivel_educativo,
     divisiones_de_persona,
     eliminar_anio,
@@ -130,6 +139,7 @@ from src.academico.service import (
     eliminar_division,
     eliminar_docente,
     eliminar_materia,
+    eliminar_materia_curso,
     eliminar_nivel_educativo,
     generar_csv_reporte_asistencias,
     generar_pdf_reporte_asistencias,
@@ -144,8 +154,7 @@ from src.academico.service import (
     listar_divisiones_por_anio,
     listar_docentes,
     listar_materias,
-    listar_materias_por_anio,
-    listar_materias_por_division,
+    listar_materias_curso,
     listar_niveles_educativos,
     obtener_perfil_docente,
     obtener_seguimiento_division_docente,
@@ -380,7 +389,7 @@ def eliminar_division_endpoint(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 
 
-# --- Materia -----------------------------------------------------------------------------
+# --- Materia (catálogo) ------------------------------------------------------------------
 
 
 @router.post("/materias", response_model=MateriaResponse, status_code=201)
@@ -389,10 +398,9 @@ def crear_materia_endpoint(
     usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_CREAR))],
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Materia:
-    """Crear una nueva materia.
+    """Crear una materia en el catálogo global.
 
-    `division_id` nulo = materia común a todo el año;
-    con valor = específica de esa división/orientación.
+    La materia se crea una sola vez y después se asigna a los cursos que la dictan.
     """
     try:
         return crear_materia(db, datos, usuario.id)
@@ -403,15 +411,9 @@ def crear_materia_endpoint(
 @router.get("/materias", response_model=list[MateriaResponse])
 def listar_materias_endpoint(
     _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
-    anio_id: uuid.UUID | None = None,
-    division_id: uuid.UUID | None = None,
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[MateriaResponse]:
-    """Listar materias. Opcionalmente filtrar por ?anio_id= o ?division_id="""
-    if division_id is not None:
-        return listar_materias_por_division(db, division_id)
-    if anio_id is not None:
-        return listar_materias_por_anio(db, anio_id)
+    """Listar el catálogo completo de materias con la cantidad de cursos de cada una."""
     return listar_materias(db)
 
 
@@ -420,7 +422,7 @@ def obtener_materia_endpoint(
     _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
     materia: Materia = Depends(obtener_materia_o_404),  # noqa: B008
 ) -> Materia:
-    """Obtener una materia por su ID."""
+    """Obtener una materia del catálogo por su ID."""
     return materia
 
 
@@ -431,7 +433,7 @@ def actualizar_materia_endpoint(
     materia: Materia = Depends(obtener_materia_o_404),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Materia:
-    """Actualizar una materia existente."""
+    """Actualizar una materia del catálogo."""
     try:
         return actualizar_materia(db, materia, datos, usuario.id)
     except MateriaDuplicada as exc:
@@ -444,10 +446,85 @@ def eliminar_materia_endpoint(
     materia: Materia = Depends(obtener_materia_o_404),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> None:
-    """Eliminar una materia."""
+    """Eliminar una materia del catálogo."""
     try:
         eliminar_materia(db, materia, usuario.id)
-    except MateriaConAsignaciones as exc:
+    except MateriaConCursos as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+
+
+# --- MateriaCurso (materia asignada a un curso) ------------------------------------------
+
+
+@router.post("/materias-curso", response_model=MateriaCursoResponse, status_code=201)
+def crear_materia_curso_endpoint(
+    datos: MateriaCursoCreate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_CREAR))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> MateriaCurso:
+    """Asignar una materia del catálogo a un curso con día y horario.
+
+    Acepta `materia_id` (materia existente) o `materia_nombre` (crear una nueva en el
+    momento), pero no ambos. La misma materia puede asignarse a distintos cursos.
+    """
+    try:
+        return crear_materia_curso(db, datos, usuario.id)
+    except (MateriaDuplicada, MateriaCursoDuplicada, HorarioDuplicado) as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+
+
+@router.get("/materias-curso", response_model=list[MateriaCursoResponse])
+def listar_materias_curso_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    division_id: uuid.UUID | None = None,
+    anio_id: uuid.UUID | None = None,
+    materia_id: uuid.UUID | None = None,
+    nivel_educativo_id: uuid.UUID | None = None,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[MateriaCursoResponse]:
+    """Listar materias asignadas a cursos. Filtros: división, año, materia o nivel."""
+    return listar_materias_curso(
+        db,
+        division_id=division_id,
+        anio_id=anio_id,
+        materia_id=materia_id,
+        nivel_educativo_id=nivel_educativo_id,
+    )
+
+
+@router.get("/materias-curso/{materia_curso_id}", response_model=MateriaCursoResponse)
+def obtener_materia_curso_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    materia_curso: MateriaCurso = Depends(obtener_materia_curso_o_404),  # noqa: B008
+) -> MateriaCurso:
+    """Obtener una materia de curso por su ID."""
+    return materia_curso
+
+
+@router.put("/materias-curso/{materia_curso_id}", response_model=MateriaCursoResponse)
+def actualizar_materia_curso_endpoint(
+    datos: MateriaCursoUpdate,
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA))],
+    materia_curso: MateriaCurso = Depends(obtener_materia_curso_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> MateriaCurso:
+    """Actualizar la materia o los horarios de una materia ya asignada a un curso."""
+    try:
+        return actualizar_materia_curso(db, materia_curso, datos, usuario.id)
+    except (MateriaCursoDuplicada, HorarioDuplicado) as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+
+
+@router.delete("/materias-curso/{materia_curso_id}", status_code=204)
+def eliminar_materia_curso_endpoint(
+    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ELIMINAR))],
+    materia_curso: MateriaCurso = Depends(obtener_materia_curso_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> None:
+    """Quitar una materia de un curso."""
+    try:
+        eliminar_materia_curso(db, materia_curso, usuario.id)
+    except MateriaCursoConAsignaciones as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 
 
@@ -637,10 +714,10 @@ def crear_asignacion_docente_endpoint(
     usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_CREAR))],
     db: Session = Depends(get_db),  # noqa: B008
 ) -> AsignacionDocente:
-    """Asignar un docente a materia+división por ciclo lectivo."""
+    """Asignar un docente a una materia de curso por ciclo lectivo."""
     try:
         return crear_asignacion_docente(db, datos, usuario.id)
-    except (AsignacionDocenteDuplicada, MateriaNoCorrespondeADivision) as exc:
+    except AsignacionDocenteDuplicada as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 
 
@@ -654,15 +731,11 @@ def crear_asignaciones_docentes_bulk_endpoint(
     usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_CREAR))],
     db: Session = Depends(get_db),  # noqa: B008
 ) -> AsignacionDocenteBulkResponse:
-    """Asignar un docente a varias materias y divisiones en un solo alta.
+    """Asignar un docente a varias materias de curso en un solo alta.
 
     Las combinaciones que ya existían se omiten y se informan en la respuesta.
     """
-    try:
-        return crear_asignaciones_docentes_bulk(db, datos, usuario.id)
-    except MateriaNoCorrespondeADivision as exc:
-        db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+    return crear_asignaciones_docentes_bulk(db, datos, usuario.id)
 
 
 @router.put(
@@ -678,7 +751,7 @@ def actualizar_asignacion_docente_endpoint(
     """Actualizar una asignación docente existente."""
     try:
         return actualizar_asignacion_docente(db, asignacion, datos, usuario.id)
-    except (AsignacionDocenteDuplicada, MateriaNoCorrespondeADivision) as exc:
+    except AsignacionDocenteDuplicada as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 
