@@ -8,7 +8,15 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.academico.models import Anio, AsignacionDocente, Division, Docente, Materia, NivelEducativo
+from src.academico.models import (
+    Anio,
+    AsignacionDocente,
+    Division,
+    Docente,
+    Materia,
+    MateriaCurso,
+    NivelEducativo,
+)
 from src.academico.schemas import (
     AnioCreate,
     AsignacionDocenteCreate,
@@ -120,16 +128,10 @@ class TestAuditoriaEstructuraCurricular:
 
     def test_crear_materia_audita_alta(self, db_session: Session):
         usuario = _crear_usuario(db_session)
-        nivel = NivelEducativo(nombre="Primario")
-        db_session.add(nivel)
-        db_session.commit()
-        anio = Anio(numero=4, nivel_educativo_id=nivel.id)
-        db_session.add(anio)
-        db_session.commit()
 
         materia = crear_materia(
             db_session,
-            MateriaCreate(nombre="Matemática", tipo="materia", anio_id=anio.id),
+            MateriaCreate(nombre="Matemática", tipo="materia"),
             usuario.id,
         )
 
@@ -200,8 +202,11 @@ class TestAuditoriaAsignacionDocente:
         division = Division(nombre="4°B", anio_id=anio.id)
         db_session.add(division)
         db_session.commit()
-        materia = Materia(nombre="Matemática", tipo="materia", anio_id=anio.id)
+        materia = Materia(nombre="Matemática", tipo="materia")
         db_session.add(materia)
+        db_session.flush()
+        materia_curso = MateriaCurso(materia_id=materia.id, division_id=division.id)
+        db_session.add(materia_curso)
         db_session.commit()
 
         asignacion = crear_asignacion_docente(
@@ -209,8 +214,7 @@ class TestAuditoriaAsignacionDocente:
             AsignacionDocenteCreate(
                 ciclo_lectivo="2027",
                 docente_id=docente.id,
-                materia_id=materia.id,
-                division_id=division.id,
+                materia_curso_id=materia_curso.id,
             ),
             usuario.id,
         )
@@ -242,15 +246,17 @@ class TestAuditoriaAsistencia:
         docente = Docente(legajo="D-TEST-AUD", persona_id=persona_docente.id)
         db_session.add(docente)
         db_session.commit()
-        materia = Materia(nombre="Materia de prueba", tipo="materia", anio_id=division.anio_id)
+        materia = Materia(nombre="Materia de prueba", tipo="materia")
         db_session.add(materia)
-        db_session.commit()
+        db_session.flush()
+        materia_curso = MateriaCurso(materia_id=materia.id, division_id=division.id)
+        db_session.add(materia_curso)
+        db_session.flush()
         db_session.add(
             AsignacionDocente(
                 ciclo_lectivo="2027",
                 docente_id=docente.id,
-                materia_id=materia.id,
-                division_id=division.id,
+                materia_curso_id=materia_curso.id,
             )
         )
         db_session.commit()

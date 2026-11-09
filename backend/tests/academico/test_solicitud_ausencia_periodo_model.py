@@ -1,16 +1,40 @@
 import importlib.util
 import uuid
-from datetime import date
+from datetime import date, time
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 import sqlalchemy as sa
+from alembic.script import ScriptDirectory
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 
-from src.academico.models import SolicitudAusenciaPeriodo
+from src.academico.models import (
+    HorarioMateriaCurso,
+    Materia,
+    MateriaCurso,
+    SolicitudAusenciaPeriodo,
+)
 from src.inscripciones.models import Asistencia
+
+
+def test_migration_graph_has_one_head_and_preserves_both_branches():
+    scripts = ScriptDirectory(str(Path(__file__).parents[2] / "alembic"))
+    head = scripts.get_current_head()
+    revisions = {revision.revision for revision in scripts.walk_revisions()}
+    merge = scripts.get_revision("38ea2e285478")
+    assert head is not None
+    assert {"5ff26cba86c4", "9f2c4b7a1e63"} <= revisions
+    assert set(merge.down_revision) == {"5ff26cba86c4", "9f2c4b7a1e63"}
+
+
+def test_models_from_both_integrated_changes_coexist():
+    assert SolicitudAusenciaPeriodo.__table__.c.fecha_inicio.type.python_type is date
+    assert HorarioMateriaCurso.__table__.c.hora_inicio.type.python_type is time
+    assert "nombre_normalizado" in Materia.__table__.c
+    assert {"materia_id", "division_id"} <= set(MateriaCurso.__table__.c.keys())
+    assert "solicitud_ausencia_periodo_id" in Asistencia.__table__.c
 
 
 def test_period_request_has_one_decision_and_reuses_existing_references():

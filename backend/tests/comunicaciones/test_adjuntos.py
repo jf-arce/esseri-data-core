@@ -14,7 +14,7 @@ from pypdf import PdfWriter
 from pypdf.generic import ArrayObject, DictionaryObject, NameObject, TextStringObject
 from sqlalchemy import delete, select
 
-from src.academico.models import AsignacionDocente, Docente, Materia
+from src.academico.models import AsignacionDocente, Docente, Materia, MateriaCurso
 from src.auth import config, sesion_service
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
 from src.comunicaciones import adjuntos_escaner, adjuntos_service
@@ -102,13 +102,15 @@ def escenario(client, db_session, escenario_dos_familias, monkeypatch):
         email="adjuntos.docente2@example.test", estado="activo", auth_provider="local"
     )
     perfil_docente = Docente(persona_id=persona_docente.id, legajo="DOC-ADJ")
-    materia = Materia(nombre="Matemática", tipo="materia", anio_id=ids["anio"])
+    materia = Materia(nombre="Matemática", tipo="materia")
     db_session.add_all([staff, otro_staff, docente, otro_docente, perfil_docente, materia])
+    db_session.flush()
+    materia_curso = MateriaCurso(materia_id=materia.id, division_id=ids["division"])
+    db_session.add(materia_curso)
     db_session.flush()
     asignacion = AsignacionDocente(
         docente_id=perfil_docente.id,
-        materia_id=materia.id,
-        division_id=ids["division"],
+        materia_curso_id=materia_curso.id,
         ciclo_lectivo="2027",
     )
     db_session.add(asignacion)

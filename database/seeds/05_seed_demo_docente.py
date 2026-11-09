@@ -49,6 +49,7 @@ from src.academico.models import (
     Division,
     Docente,
     Materia,
+    MateriaCurso,
     NivelEducativo,
 )
 from src.auth.models import Rol, Usuario, UsuarioRol
@@ -58,6 +59,7 @@ from src.database import SessionLocal
 from src.familias_alumnos.models import Alumno
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
+from src.search import normalizar_texto_busqueda
 
 ROL_DOCENTE = "docente"
 DOCENTE_EMAIL = "docente.prueba@esseri.edu.ar"
@@ -184,31 +186,42 @@ def _ensure_division_2b(db) -> Division:
     return division
 
 
-def _ensure_materia(db, anio_id, division_id, nombre: str) -> Materia:
+def _ensure_materia(db, nombre: str) -> Materia:
+    """Materia del catálogo global (se crea una sola vez)."""
+    normalizado = normalizar_texto_busqueda(nombre)
     row = db.scalar(
-        select(Materia)
-        .where(
-            Materia.anio_id == anio_id,
-            Materia.division_id == division_id,
-            Materia.nombre == nombre,
-        )
-        .limit(1)
+        select(Materia).where(Materia.nombre_normalizado == normalizado).limit(1)
     )
     if row is None:
-        row = Materia(nombre=nombre, tipo="materia", anio_id=anio_id, division_id=division_id)
+        row = Materia(nombre=nombre, tipo="materia")
         db.add(row)
         db.flush()
     return row
 
 
-def _ensure_asignacion(db, docente_id, materia_id, division_id) -> None:
+def _ensure_materia_curso(db, materia_id, division_id) -> MateriaCurso:
+    row = db.scalar(
+        select(MateriaCurso)
+        .where(
+            MateriaCurso.materia_id == materia_id,
+            MateriaCurso.division_id == division_id,
+        )
+        .limit(1)
+    )
+    if row is None:
+        row = MateriaCurso(materia_id=materia_id, division_id=division_id)
+        db.add(row)
+        db.flush()
+    return row
+
+
+def _ensure_asignacion(db, docente_id, materia_curso_id) -> None:
     existente = db.scalar(
         select(AsignacionDocente)
         .where(
             AsignacionDocente.ciclo_lectivo == CICLO_LECTIVO,
             AsignacionDocente.docente_id == docente_id,
-            AsignacionDocente.materia_id == materia_id,
-            AsignacionDocente.division_id == division_id,
+            AsignacionDocente.materia_curso_id == materia_curso_id,
         )
         .limit(1)
     )
@@ -217,8 +230,7 @@ def _ensure_asignacion(db, docente_id, materia_id, division_id) -> None:
             AsignacionDocente(
                 ciclo_lectivo=CICLO_LECTIVO,
                 docente_id=docente_id,
-                materia_id=materia_id,
-                division_id=division_id,
+                materia_curso_id=materia_curso_id,
             )
         )
         db.flush()
@@ -284,8 +296,9 @@ def seed_demo_docente() -> None:
 
         print("[3/3] División 2°B (nueva) asignada a Jorgelina")
         division_2b = _ensure_division_2b(db)
-        materia_2b = _ensure_materia(db, division_2b.anio_id, division_2b.id, "Lengua")
-        _ensure_asignacion(db, docente.id, materia_2b.id, division_2b.id)
+        materia_2b = _ensure_materia(db, "Lengua")
+        materia_curso_2b = _ensure_materia_curso(db, materia_2b.id, division_2b.id)
+        _ensure_asignacion(db, docente.id, materia_curso_2b.id)
         db.commit()
 
         total_3c = db.scalar(

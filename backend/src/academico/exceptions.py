@@ -26,25 +26,25 @@ class AnioConDivisiones(AppException):
 
 
 class AnioConMaterias(AppException):
-    """El año tiene materias asociadas: borrarlo dejaría MATERIA apuntando a nada."""
+    """El año tiene materias asignadas a sus divisiones: borrarlo dejaría referencias colgando."""
 
     status_code = 409
 
     def __init__(
         self,
-        message: str = "No se puede eliminar: el año tiene materias asociadas",
+        message: str = "No se puede eliminar: el año tiene materias asignadas a sus divisiones",
     ):
         super().__init__(message)
 
 
 class DivisionConMaterias(AppException):
-    """La división tiene materias propias: borrarla dejaría MATERIA apuntando a nada."""
+    """La división tiene materias asignadas: borrarla dejaría referencias colgando."""
 
     status_code = 409
 
     def __init__(
         self,
-        message: str = "No se puede eliminar: la división tiene materias propias asociadas",
+        message: str = "No se puede eliminar: la división tiene materias asignadas",
     ):
         super().__init__(message)
 
@@ -61,17 +61,14 @@ class DivisionConInscripciones(AppException):
         super().__init__(message)
 
 
-class MateriaNoCorrespondeADivision(AppException):
-    """La materia elegida no pertenece al año (o a la división) indicados."""
+class MateriaCursoDuplicada(AppException):
+    """La materia ya está asignada a ese curso."""
 
     status_code = 409
 
     def __init__(
         self,
-        message: str = (
-            "La materia no pertenece al año de la división seleccionada. "
-            "Elegí una materia del mismo año."
-        ),
+        message: str = "Esa materia ya está asignada a este curso",
     ):
         super().__init__(message)
 
@@ -119,25 +116,49 @@ class DivisionDuplicada(AppException):
 
 
 class MateriaDuplicada(AppException):
-    """Ya existe una materia con ese nombre para ese año y división."""
+    """Ya existe una materia con ese nombre en el catálogo."""
 
     status_code = 409
 
     def __init__(
         self,
-        message: str = "Ya existe una materia con ese nombre para ese año y división",
+        message: str = "Ya existe una materia con ese nombre",
     ):
         super().__init__(message)
 
 
-class MateriaConAsignaciones(AppException):
-    """La materia tiene asignaciones docentes asociadas."""
+class MateriaConCursos(AppException):
+    """La materia del catálogo está asignada a uno o más cursos."""
 
     status_code = 409
 
     def __init__(
         self,
-        message: str = "No se puede eliminar: la materia tiene asignaciones docentes",
+        message: str = "No se puede eliminar: la materia está asignada a uno o más cursos",
+    ):
+        super().__init__(message)
+
+
+class MateriaCursoConAsignaciones(AppException):
+    """La materia del curso tiene docentes asignados."""
+
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = "No se puede quitar: la materia del curso tiene docentes asignados",
+    ):
+        super().__init__(message)
+
+
+class HorarioDuplicado(AppException):
+    """Hay dos franjas horarias iguales para la misma materia del curso."""
+
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = "Hay dos franjas horarias iguales para esta materia en el curso",
     ):
         super().__init__(message)
 
@@ -173,14 +194,14 @@ class DocenteConAsignaciones(AppException):
 
 
 class AsignacionDocenteDuplicada(AppException):
-    """Ya existe una asignación para ese docente, materia, división y ciclo lectivo."""
+    """Ya existe una asignación para ese docente, materia de curso y ciclo lectivo."""
 
     status_code = 409
 
     def __init__(
         self,
         message: str = (
-            "Ya existe una asignación para ese docente, materia, división y ciclo lectivo"
+            "Ya existe una asignación para ese docente, materia de curso y ciclo lectivo"
         ),
     ):
         super().__init__(message)

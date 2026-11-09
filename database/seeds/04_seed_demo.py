@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import os
 import sys
+import uuid
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -39,6 +40,7 @@ from src.academico.models import (
     Division,
     Docente,
     Materia,
+    MateriaCurso,
     NivelEducativo,
 )
 from src.auth.models import Rol, Usuario, UsuarioRol
@@ -79,6 +81,7 @@ from src.proveedores_compras.models import (
     RecepcionCompraDetalle,
     SolicitudCompra,
 )
+from src.search import normalizar_texto_busqueda
 from src.workflows.destinatarios_service import reemplazar_destinatarios_regla
 from src.workflows.models import NotificacionTemplate, TipoEvento, WorkflowRule
 from src.workflows.plantillas_service import crear_plantilla
@@ -564,25 +567,32 @@ def _ensure_academico(db, ciclo: str):
         divisiones[clave] = row
         return row
 
-    def materia(
-        anio_row: Anio,
-        nombre: str,
-        tipo: str = "materia",
-        division_row: Division | None = None,
-    ):
-        filtros = [Materia.anio_id == anio_row.id, Materia.nombre == nombre]
-        if division_row is None:
-            filtros.append(Materia.division_id.is_(None))
-        else:
-            filtros.append(Materia.division_id == division_row.id)
-        row = db.scalar(select(Materia).where(*filtros).limit(1))
+    def materia(nombre: str, tipo: str = "materia") -> Materia:
+        """Materia del catálogo global (se crea una sola vez)."""
+        normalizado = normalizar_texto_busqueda(nombre)
+        row = db.scalar(
+            select(Materia)
+            .where(Materia.nombre_normalizado == normalizado)
+            .limit(1)
+        )
         if row is None:
-            row = Materia(
-                nombre=nombre,
-                tipo=tipo,
-                anio_id=anio_row.id,
-                division_id=division_row.id if division_row else None,
+            row = Materia(nombre=nombre, tipo=tipo)
+            db.add(row)
+            db.flush()
+        return row
+
+    def materia_curso(materia_row: Materia, division_row: Division) -> MateriaCurso:
+        """Materia del catálogo asignada a un curso."""
+        row = db.scalar(
+            select(MateriaCurso)
+            .where(
+                MateriaCurso.materia_id == materia_row.id,
+                MateriaCurso.division_id == division_row.id,
             )
+            .limit(1)
+        )
+        if row is None:
+            row = MateriaCurso(materia_id=materia_row.id, division_id=division_row.id)
             db.add(row)
             db.flush()
         return row
@@ -598,21 +608,38 @@ def _ensure_academico(db, ciclo: str):
     s1a = division("S1A", s1, "A")
 
     materias = {
-        "P1_Lengua": materia(p1, "Lengua"),
-        "P1_Matematica": materia(p1, "Matemática"),
-        "P1_Ingles": materia(p1, "Inglés"),
-        "P1_EF": materia(p1, "Educación Física"),
-        "P2_Lengua": materia(p2, "Lengua"),
-        "P2_Matematica": materia(p2, "Matemática"),
-        "P2_Ciencias": materia(p2, "Ciencias Naturales"),
-        "P2_Ingles": materia(p2, "Inglés"),
-        "S1_Lengua": materia(s1, "Lengua y Literatura"),
-        "S1_Matematica": materia(s1, "Matemática"),
-        "S1_Ingles": materia(s1, "Inglés"),
-        "S1_Biologia": materia(s1, "Biología"),
-        "S1_Tecnologia": materia(s1, "Tecnología"),
-        "S1_Taller": materia(s1, "Taller de Proyecto", "taller", s1a),
+        "Lengua": materia("Lengua"),
+        "Matematica": materia("Matemática"),
+        "Ingles": materia("Inglés"),
+        "EF": materia("Educación Física"),
+        "Ciencias": materia("Ciencias Naturales"),
+        "LenguaLiteratura": materia("Lengua y Literatura"),
+        "Biologia": materia("Biología"),
+        "Tecnologia": materia("Tecnología"),
+        "Taller": materia("Taller de Proyecto", "taller"),
     }
+
+    cursos: dict[tuple[str, uuid.UUID], MateriaCurso] = {}
+
+    def curso(materia_key: str, division_row: Division) -> MateriaCurso:
+        row = materia_curso(materias[materia_key], division_row)
+        cursos[(materia_key, division_row.id)] = row
+        return row
+
+    for division_row in (p1a, p1b):
+        for materia_key in ("Lengua", "Matematica", "Ingles", "EF"):
+            curso(materia_key, division_row)
+    for materia_key in ("Lengua", "Matematica", "Ciencias", "Ingles"):
+        curso(materia_key, p2a)
+    for materia_key in (
+        "LenguaLiteratura",
+        "Matematica",
+        "Ingles",
+        "Biologia",
+        "Tecnologia",
+        "Taller",
+    ):
+        curso(materia_key, s1a)
 
     docentes: list[Docente] = []
     for dni, nombre, apellido, legajo in DOCENTES:
@@ -627,27 +654,26 @@ def _ensure_academico(db, ciclo: str):
         docentes.append(docente)
 
     asignaciones = [
-        (0, "P1_Lengua", p1a),
-        (0, "P1_Lengua", p1b),
-        (1, "P1_Matematica", p1a),
-        (1, "P1_Matematica", p1b),
-        (2, "P2_Lengua", p2a),
-        (3, "P2_Ciencias", p2a),
-        (4, "S1_Lengua", s1a),
-        (1, "S1_Matematica", s1a),
-        (3, "S1_Tecnologia", s1a),
-        (4, "S1_Taller", s1a),
+        (0, "Lengua", p1a),
+        (0, "Lengua", p1b),
+        (1, "Matematica", p1a),
+        (1, "Matematica", p1b),
+        (2, "Lengua", p2a),
+        (3, "Ciencias", p2a),
+        (4, "LenguaLiteratura", s1a),
+        (1, "Matematica", s1a),
+        (3, "Tecnologia", s1a),
+        (4, "Taller", s1a),
     ]
     for docente_idx, materia_key, division_row in asignaciones:
         docente = docentes[docente_idx]
-        materia_row = materias[materia_key]
+        materia_curso_row = cursos[(materia_key, division_row.id)]
         existe = db.scalar(
             select(AsignacionDocente)
             .where(
                 AsignacionDocente.ciclo_lectivo == ciclo,
                 AsignacionDocente.docente_id == docente.id,
-                AsignacionDocente.materia_id == materia_row.id,
-                AsignacionDocente.division_id == division_row.id,
+                AsignacionDocente.materia_curso_id == materia_curso_row.id,
             )
             .limit(1)
         )
@@ -656,8 +682,7 @@ def _ensure_academico(db, ciclo: str):
                 AsignacionDocente(
                     ciclo_lectivo=ciclo,
                     docente_id=docente.id,
-                    materia_id=materia_row.id,
-                    division_id=division_row.id,
+                    materia_curso_id=materia_curso_row.id,
                 )
             )
     db.flush()

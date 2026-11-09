@@ -37,6 +37,7 @@ import {
 import { useAsignacionesDocentes } from '@/modules/academico/hooks/use-asignaciones-docentes'
 import { AsignacionDialog } from '@/modules/academico/components/asignacion-dialog'
 import type { AsignacionDocente } from '@/modules/academico/types'
+import { formatearHorarios } from '@/modules/academico/utils'
 import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
@@ -44,8 +45,16 @@ type DialogState =
   { open: false } | { open: true; modo: 'crear' | 'editar' | 'eliminar'; item?: AsignacionDocente }
 
 export function AsignacionesDocentesPage() {
-  const { asignaciones, docentes, materias, divisiones, cargando, error, sinPermiso, recargar } =
-    useAsignacionesDocentes()
+  const {
+    asignaciones,
+    docentes,
+    materiasCurso,
+    divisiones,
+    cargando,
+    error,
+    sinPermiso,
+    recargar,
+  } = useAsignacionesDocentes()
   // Entrar acá solo pide `academico.leer` (ver routes.tsx); crear/quitar una asignación sigue
   // pidiendo el `actualizar` de escritura — mismo patrón que `estructura-academica-page.tsx`.
   const permisos = useAuthStore(permisosActivos)
@@ -83,7 +92,7 @@ export function AsignacionesDocentesPage() {
       result = result.filter((a) => a.ciclo_lectivo === filtroCiclo)
     }
     if (filtroDivision.length > 0) {
-      result = result.filter((a) => filtroDivision.includes(a.division_id))
+      result = result.filter((a) => filtroDivision.includes(a.division_id ?? ''))
     }
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase()
@@ -102,9 +111,10 @@ export function AsignacionesDocentesPage() {
       activas: asignaciones.length,
       docentes: docentesActivos.size,
       divisiones: divisionesCubiertas.size,
-      materiasSinDocente: materias.filter((materia) => materia.cantidad_asignaciones === 0).length,
+      materiasSinDocente: materiasCurso.filter((materia) => materia.cantidad_asignaciones === 0)
+        .length,
     }
-  }, [asignaciones, materias])
+  }, [asignaciones, materiasCurso])
 
   if (sinPermiso) {
     return (
@@ -242,6 +252,7 @@ export function AsignacionesDocentesPage() {
               <TableHead>Docente</TableHead>
               <TableHead>Materia</TableHead>
               <TableHead>División</TableHead>
+              <TableHead>Horario</TableHead>
               <TableHead>Ciclo</TableHead>
               <TableHead data-align="end" />
             </TableRow>
@@ -259,6 +270,9 @@ export function AsignacionesDocentesPage() {
                 </TableCell>
                 <TableCell>{asignacion.materia_nombre}</TableCell>
                 <TableCell>{asignacion.division_nombre}</TableCell>
+                <TableCell className="text-xs text-texto-2">
+                  {formatearHorarios(asignacion.horarios)}
+                </TableCell>
                 <TableCell className="tabular-nums">{asignacion.ciclo_lectivo}</TableCell>
                 <TableCell data-align="end">
                   {puedeEditar && (
@@ -307,7 +321,7 @@ export function AsignacionesDocentesPage() {
           modo={dialog.modo}
           item={dialog.item}
           docentes={docentes}
-          materias={materias}
+          materiasCurso={materiasCurso}
           divisiones={divisiones}
           cicloActual={cicloActual}
           onExito={recargar}

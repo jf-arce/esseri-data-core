@@ -15,7 +15,7 @@ from src.academico.historial_schemas import (
     ResumenHistorial,
     TendenciaHistorial,
 )
-from src.academico.models import Anio, AsignacionDocente, Division, NivelEducativo
+from src.academico.models import Anio, AsignacionDocente, Division, MateriaCurso, NivelEducativo
 from src.academico.service import (
     _ETIQUETA_TIPO_ASISTENCIA,
     FilaReporteAsistencia,
@@ -56,9 +56,10 @@ def _inscripciones_autorizadas(db: Session, usuario_id: uuid.UUID, rol: str):
         # EXISTS prevents duplicate enrollment options for teachers with several subjects.
         query = query.filter(
             db.query(AsignacionDocente.id)
+            .join(MateriaCurso, MateriaCurso.id == AsignacionDocente.materia_curso_id)
             .filter(
                 AsignacionDocente.docente_id == docente.id,
-                AsignacionDocente.division_id == Inscripcion.division_id,
+                MateriaCurso.division_id == Inscripcion.division_id,
                 AsignacionDocente.ciclo_lectivo == Inscripcion.ciclo_lectivo,
             )
             .exists()

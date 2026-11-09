@@ -4,7 +4,7 @@ Forma de los datos que entran y salen por la API del módulo.
 """
 
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, time
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -182,12 +182,13 @@ class SeguimientoDivisionItem(BaseModel):
 
 
 class AsignacionDocenteCreate(BaseModel):
-    """Schema para asignar un docente a materia+división por ciclo lectivo."""
+    """Schema para asignar un docente a una materia de un curso por ciclo lectivo."""
 
     ciclo_lectivo: str = Field(..., min_length=1, description="Ciclo lectivo (ej: '2025')")
     docente_id: uuid.UUID = Field(..., description="ID del docente")
-    materia_id: uuid.UUID = Field(..., description="ID de la materia")
-    division_id: uuid.UUID = Field(..., description="ID de la división")
+    materia_curso_id: uuid.UUID = Field(
+        ..., description="ID de la materia asignada al curso (materia + división + horario)"
+    )
 
 
 class AsignacionDocenteUpdate(BaseModel):
@@ -195,25 +196,34 @@ class AsignacionDocenteUpdate(BaseModel):
 
     ciclo_lectivo: str | None = Field(None, min_length=1, description="Ciclo lectivo (ej: '2025')")
     docente_id: uuid.UUID | None = Field(None, description="ID del docente")
-    materia_id: uuid.UUID | None = Field(None, description="ID de la materia")
-    division_id: uuid.UUID | None = Field(None, description="ID de la división")
+    materia_curso_id: uuid.UUID | None = Field(None, description="ID de la materia del curso")
 
 
 class AsignacionDocenteBulkItem(BaseModel):
-    """Una combinación materia + división para asignar en bloque."""
+    """Una materia de curso para asignar en bloque."""
 
-    materia_id: uuid.UUID = Field(..., description="ID de la materia")
-    division_id: uuid.UUID = Field(..., description="ID de la división")
+    materia_curso_id: uuid.UUID = Field(..., description="ID de la materia asignada al curso")
 
 
 class AsignacionDocenteBulkCreate(BaseModel):
-    """Asignar un docente a varias combinaciones materia + división en un solo alta."""
+    """Asignar un docente a varias materias de curso en un solo alta."""
 
     ciclo_lectivo: str = Field(..., min_length=1, description="Ciclo lectivo (ej: '2025')")
     docente_id: uuid.UUID = Field(..., description="ID del docente")
     items: list[AsignacionDocenteBulkItem] = Field(
-        ..., min_length=1, description="Combinaciones materia + división a asignar"
+        ..., min_length=1, description="Materias de curso a asignar"
     )
+
+
+class HorarioMateriaCursoResponse(BaseModel):
+    """Franja horaria de una materia en un curso."""
+
+    id: uuid.UUID
+    dia_semana: int
+    hora_inicio: time
+    hora_fin: time
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AsignacionDocenteResponse(BaseModel):
@@ -222,8 +232,12 @@ class AsignacionDocenteResponse(BaseModel):
     id: uuid.UUID
     ciclo_lectivo: str
     docente_id: uuid.UUID
-    materia_id: uuid.UUID
-    division_id: uuid.UUID
+    materia_curso_id: uuid.UUID
+    materia_id: uuid.UUID | None = None
+    materia_nombre: str | None = None
+    division_id: uuid.UUID | None = None
+    division_nombre: str | None = None
+    horarios: list[HorarioMateriaCursoResponse] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
@@ -235,7 +249,7 @@ class AsignacionDocenteBulkResponse(BaseModel):
 
     creadas: list[AsignacionDocenteResponse] = Field(default_factory=list)
     omitidas: list[AsignacionDocenteBulkItem] = Field(
-        default_factory=list, description="Combinaciones que ya existían y no se duplicaron"
+        default_factory=list, description="Materias de curso que ya existían y no se duplicaron"
     )
 
 
@@ -450,42 +464,97 @@ class AsistenciaResumen(BaseModel):
 
 
 class MateriaCreate(BaseModel):
-    """Schema para crear una nueva Materia.
-
-    `division_id` nulo = materia común a todo el año;
-    con valor = específica de esa división/orientación.
-    """
+    """Schema para crear una materia del catálogo global."""
 
     nombre: str = Field(..., min_length=1, description="Nombre de la materia")
     tipo: Literal["materia", "taller"] = Field(..., description="Tipo: 'materia' o 'taller'")
-    anio_id: uuid.UUID = Field(..., description="ID del año al que pertenece")
-    division_id: uuid.UUID | None = Field(
-        None, description="ID de la división (nulo = común a todo el año)"
-    )
 
 
 class MateriaUpdate(BaseModel):
-    """Schema para actualizar una Materia existente."""
+    """Schema para actualizar una materia del catálogo."""
 
     nombre: str | None = Field(None, min_length=1, description="Nombre de la materia")
     tipo: Literal["materia", "taller"] | None = Field(
         None, description="Tipo: 'materia' o 'taller'"
     )
-    anio_id: uuid.UUID | None = Field(None, description="ID del año")
-    division_id: uuid.UUID | None = Field(
-        None, description="ID de la división (nulo = común a todo el año)"
-    )
 
 
 class MateriaResponse(BaseModel):
-    """Schema para responder con datos de Materia."""
+    """Schema para responder con datos de Materia del catálogo."""
 
     id: uuid.UUID
     nombre: str
     tipo: str
-    anio_id: uuid.UUID
+    cantidad_cursos: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HorarioMateriaCursoCreate(BaseModel):
+    """Franja horaria semanal de una materia en un curso."""
+
+    dia_semana: int = Field(..., ge=1, le=7, description="1 = lunes, 7 = domingo")
+    hora_inicio: time = Field(..., description="Hora de inicio de la clase")
+    hora_fin: time = Field(..., description="Hora de fin de la clase")
+
+    @model_validator(mode="after")
+    def _validar_rango(self):
+        if self.hora_fin <= self.hora_inicio:
+            raise ValueError("La hora de fin debe ser posterior a la hora de inicio")
+        return self
+
+
+class MateriaCursoCreate(BaseModel):
+    """Asignar una materia del catálogo a un curso.
+
+    Se puede indicar una materia existente (`materia_id`) o crear una nueva en el momento
+    (`materia_nombre` + `materia_tipo`), pero no ambas.
+    """
+
+    materia_id: uuid.UUID | None = Field(None, description="ID de una materia existente")
+    materia_nombre: str | None = Field(
+        None, min_length=1, description="Nombre de la materia si se crea en el momento"
+    )
+    materia_tipo: Literal["materia", "taller"] = Field(
+        "materia", description="Tipo de la materia nueva"
+    )
+    division_id: uuid.UUID = Field(..., description="ID de la división/curso")
+    horarios: list[HorarioMateriaCursoCreate] = Field(
+        ..., min_length=1, description="Franjas horarias de la materia en ese curso"
+    )
+
+    @model_validator(mode="after")
+    def _validar_materia(self):
+        if (self.materia_id is None) == (self.materia_nombre is None):
+            raise ValueError("Indicá materia_id o materia_nombre, pero no ambos")
+        return self
+
+
+class MateriaCursoUpdate(BaseModel):
+    """Actualizar la materia o los horarios de una materia ya asignada a un curso."""
+
+    materia_id: uuid.UUID | None = Field(None, description="Nueva materia del catálogo")
+    horarios: list[HorarioMateriaCursoCreate] | None = Field(
+        None, min_length=1, description="Reemplaza las franjas horarias actuales"
+    )
+
+
+class MateriaCursoResponse(BaseModel):
+    """Materia del catálogo asignada a un curso, con sus horarios y conteos."""
+
+    id: uuid.UUID
+    materia_id: uuid.UUID
+    materia_nombre: str | None = None
+    materia_tipo: str | None = None
+    division_id: uuid.UUID
+    division_nombre: str | None = None
+    anio_id: uuid.UUID | None = None
     anio_numero: int | None = None
-    division_id: uuid.UUID | None
+    nivel_educativo_id: uuid.UUID | None = None
+    nivel_educativo_nombre: str | None = None
+    horarios: list[HorarioMateriaCursoResponse] = Field(default_factory=list)
     cantidad_asignaciones: int = 0
     created_at: datetime
     updated_at: datetime
