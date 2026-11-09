@@ -452,6 +452,7 @@ def registrar_asistencia(
     verificar_acceso_a_division(
         db, usuario_id, inscripcion.division_id, rol_activo, inscripcion.ciclo_lectivo
     )
+    db.scalar(select(Alumno.id).where(Alumno.id == inscripcion.alumno_id).with_for_update())
 
     existente = db.scalar(
         select(Asistencia.id).where(
@@ -514,6 +515,18 @@ def registrar_asistencia_masiva(
         inscripcion_referencia = db.get(Inscripcion, datos.registros[0].inscripcion_id)
         ciclo_lectivo = inscripcion_referencia.ciclo_lectivo if inscripcion_referencia else None
     verificar_acceso_a_division(db, usuario_id, datos.division_id, rol_activo, ciclo_lectivo)
+
+    # Use the same student lock as individual attendance registration; stable ordering avoids
+    # deadlocks when two bulk submissions contain the same students in different orders.
+    inscripcion_ids = [registro.inscripcion_id for registro in datos.registros]
+    if inscripcion_ids:
+        db.scalars(
+            select(Alumno.id)
+            .join(Inscripcion, Inscripcion.alumno_id == Alumno.id)
+            .where(Inscripcion.id.in_(inscripcion_ids))
+            .order_by(Alumno.id)
+            .with_for_update(of=Alumno)
+        ).all()
 
     creadas = 0
     actualizadas = 0
