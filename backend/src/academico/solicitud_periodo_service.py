@@ -322,9 +322,7 @@ def respuesta_admin_solicitud(
     return _respuesta_admin(fila)
 
 
-def archivo_solicitud_periodo_admin(
-    db: Session, solicitud_id: uuid.UUID
-) -> tuple[bytes, str, str]:
+def archivo_solicitud_periodo_admin(db: Session, solicitud_id: uuid.UUID) -> tuple[bytes, str, str]:
     """Comprobante para la bandeja administrativa, sin filtro de familia."""
     solicitud = db.get(SolicitudAusenciaPeriodo, solicitud_id)
     if solicitud is None:

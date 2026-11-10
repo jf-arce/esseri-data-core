@@ -186,9 +186,7 @@ def test_revocar_con_notificacion_emite_evento(client_secretaria, db_session, so
     )
 
 
-def test_bandeja_descarga_comprobante(
-    client_secretaria, db_session, escenario_dos_familias
-):
+def test_bandeja_descarga_comprobante(client_secretaria, db_session, escenario_dos_familias):
     ids = escenario_dos_familias
     motivo = MotivoJustificacion(nombre="enfermedad-archivo", activo=True)
     db_session.add(motivo)
@@ -207,9 +205,7 @@ def test_bandeja_descarga_comprobante(
         b"%PDF-1.4",
     )
 
-    respuesta = client_secretaria.get(
-        f"/academico/solicitudes-ausencia/{solicitud.id}/archivo"
-    )
+    respuesta = client_secretaria.get(f"/academico/solicitudes-ausencia/{solicitud.id}/archivo")
 
     assert respuesta.status_code == 200
     assert respuesta.content == b"%PDF-1.4"
@@ -237,9 +233,7 @@ def test_docente_no_descarga_comprobante_de_bandeja(
         b"%PDF-1.4",
     )
 
-    respuesta = client_docente.get(
-        f"/academico/solicitudes-ausencia/{solicitud.id}/archivo"
-    )
+    respuesta = client_docente.get(f"/academico/solicitudes-ausencia/{solicitud.id}/archivo")
 
     assert respuesta.status_code == 403
 
