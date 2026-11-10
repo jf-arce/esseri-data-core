@@ -206,27 +206,35 @@ export function calcularGrilla<T extends FranjaHoraria>(franjas: T[]): Grilla<T>
 }
 
 export type ColorMateria = {
-  fondo: string
-  texto: string
-  borde: string
-  /** Solo con color elegido a mano: fondo y texto legible. */
-  estilo?: CSSProperties
-  /** Solo con color elegido a mano: franja izquierda de las tarjetas. */
-  estiloBorde?: CSSProperties
+  /** Fondo del bloque y texto con buen contraste. */
+  estilo: CSSProperties
+  /** Franja izquierda de las tarjetas. */
+  estiloBorde: CSSProperties
 }
 
 // Sin rojo: queda reservado para marcar horarios superpuestos.
-const COLORES_MATERIA: ColorMateria[] = [
-  { fondo: 'bg-info-suave', texto: 'text-info', borde: 'border-l-info' },
-  { fondo: 'bg-exito-suave', texto: 'text-exito', borde: 'border-l-exito' },
-  { fondo: 'bg-petroleo-suave', texto: 'text-petroleo', borde: 'border-l-petroleo' },
-  { fondo: 'bg-mod-familias-suave', texto: 'text-mod-familias', borde: 'border-l-mod-familias' },
-  { fondo: 'bg-advertencia-suave', texto: 'text-advertencia', borde: 'border-l-advertencia' },
-  { fondo: 'bg-mod-workflows-suave', texto: 'text-mod-workflows', borde: 'border-l-mod-workflows' },
-  { fondo: 'bg-mod-compras-suave', texto: 'text-mod-compras', borde: 'border-l-mod-compras' },
+export const COLORES_SUGERIDOS = [
+  '#2563eb',
+  '#0d9488',
+  '#16a34a',
+  '#ca8a04',
+  '#ea580c',
+  '#9333ea',
+  '#db2777',
+  '#0891b2',
+  '#4f46e5',
+  '#65a30d',
+  '#7c3aed',
+  '#0284c7',
 ]
 
 const HEX_COMPLETO = /^#[0-9a-f]{6}$/
+const COLOR_NEUTRO = '#64748b'
+
+/** Uno de los colores sugeridos, al azar: es el valor inicial al crear una materia. */
+export function colorAleatorio(): string {
+  return COLORES_SUGERIDOS[Math.floor(Math.random() * COLORES_SUGERIDOS.length)]
+}
 
 /** "#abc" o "#AABBCC" a "#aabbcc"; null si no es un color de 3 o 6 dígitos. */
 export function normalizarHex(valor: string): string | null {
@@ -251,21 +259,11 @@ export function colorTextoLegible(hex: string): string {
   return contrasteConBlanco >= contrasteConNegro ? '#ffffff' : '#000000'
 }
 
-/**
- * Color de una materia: el elegido a mano si lo tiene; si no, uno estable que sale de su id,
- * así es el mismo en todas las vistas.
- */
-export function colorMateria(materiaId: string, color?: string | null): ColorMateria {
-  if (color && HEX_COMPLETO.test(color)) {
-    return {
-      fondo: '',
-      texto: '',
-      borde: '',
-      estilo: { backgroundColor: color, color: colorTextoLegible(color) },
-      estiloBorde: { borderLeftColor: color },
-    }
+/** Estilos de una materia a partir de su color; un valor inválido cae a un gris neutro. */
+export function colorMateria(color: string | null | undefined): ColorMateria {
+  const hex = color && HEX_COMPLETO.test(color) ? color : COLOR_NEUTRO
+  return {
+    estilo: { backgroundColor: hex, color: colorTextoLegible(hex) },
+    estiloBorde: { borderLeftColor: hex },
   }
-  let hash = 0
-  for (const caracter of materiaId) hash = (hash * 31 + caracter.charCodeAt(0)) >>> 0
-  return COLORES_MATERIA[hash % COLORES_MATERIA.length]
 }

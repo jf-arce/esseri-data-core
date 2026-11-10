@@ -56,8 +56,8 @@ export type Materia = {
   id: string
   nombre: string
   tipo: TipoMateria
-  /** Color elegido a mano (#rrggbb); nulo = automático. */
-  color: string | null
+  /** Color #rrggbb de la materia. */
+  color: string
   cantidad_cursos: number
   created_at: string
   updated_at: string
@@ -66,13 +66,13 @@ export type Materia = {
 export type MateriaCreate = {
   nombre: string
   tipo: TipoMateria
-  color?: string | null
+  color?: string
 }
 
 export type MateriaUpdate = {
   nombre?: string
   tipo?: TipoMateria
-  color?: string | null
+  color?: string
 }
 
 /** Franja horaria semanal de una materia en un curso. 1 = lunes, 7 = domingo. */

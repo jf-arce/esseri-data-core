@@ -444,8 +444,12 @@ def test_materia_guarda_color_en_minusculas(db_session):
     assert materia.color == "#1e90ff"
 
 
-def test_materia_sin_color_es_automatica(db_session):
-    assert crear_materia(db_session, MateriaCreate(nombre="Arte", tipo="taller")).color is None
+def test_materia_sin_color_recibe_uno_sorteado(db_session):
+    from src.academico.models import COLORES_MATERIA
+
+    materia = crear_materia(db_session, MateriaCreate(nombre="Arte", tipo="taller"))
+
+    assert materia.color in COLORES_MATERIA
 
 
 @pytest.mark.parametrize("invalido", ["rojo", "#12345", "#12345g", "123456", "#1234567"])
@@ -454,14 +458,17 @@ def test_materia_rechaza_color_invalido(invalido):
         MateriaCreate(nombre="Arte", tipo="taller", color=invalido)
 
 
-def test_actualizar_color_y_volver_a_automatico(db_session):
+def test_actualizar_color(db_session):
     materia = crear_materia(db_session, MateriaCreate(nombre="Arte", tipo="taller"))
 
-    actualizar_materia(db_session, materia, MateriaUpdate(color="#00ff00"))
+    actualizar_materia(db_session, materia, MateriaUpdate(color="#00FF00"))
+
     assert materia.color == "#00ff00"
 
-    actualizar_materia(db_session, materia, MateriaUpdate(color=None))
-    assert materia.color is None
+
+def test_actualizar_rechaza_dejar_el_color_vacio():
+    with pytest.raises(ValueError):
+        MateriaUpdate(color=None)
 
 
 def test_actualizar_otro_campo_no_toca_el_color(db_session):

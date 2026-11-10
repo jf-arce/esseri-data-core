@@ -4,7 +4,6 @@ import { ApiError } from '@/api/client'
 import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { colorMateria } from '@/modules/academico/utils'
 import { BotonIcono } from '@/modules/academico/components/boton-icono'
 import { Card } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -150,8 +149,8 @@ export function CatalogoMateriasPage() {
                     <span className="flex items-center gap-2">
                       <span
                         aria-hidden="true"
-                        className={`size-3 shrink-0 rounded-full bg-current ${colorMateria(materia.id).texto}`}
-                        style={materia.color ? { backgroundColor: materia.color } : undefined}
+                        className="size-3 shrink-0 rounded-full"
+                        style={{ backgroundColor: materia.color }}
                       />
                       {materia.nombre}
                     </span>

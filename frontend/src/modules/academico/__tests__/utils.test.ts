@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   aMinutos,
   buscarConflictos,
+  COLORES_SUGERIDOS,
+  colorAleatorio,
   colorMateria,
   colorTextoLegible,
   normalizarHex,
@@ -169,32 +171,21 @@ describe('formatearFranjaLegible', () => {
   })
 })
 
-describe('colorMateria', () => {
-  it('devuelve siempre el mismo color para la misma materia', () => {
-    expect(colorMateria('materia-1')).toEqual(colorMateria('materia-1'))
-  })
-
-  it('nunca usa rojo, reservado para los horarios superpuestos', () => {
-    const ids = Array.from({ length: 50 }, (_, i) => `materia-${i}`)
-    for (const id of ids) expect(colorMateria(id).fondo).not.toContain('error')
-  })
-
-  it('reparte las materias en más de un color', () => {
-    const fondos = new Set(Array.from({ length: 20 }, (_, i) => colorMateria(`m-${i}`).fondo))
-    expect(fondos.size).toBeGreaterThan(3)
-  })
-})
-
-describe('color elegido a mano', () => {
-  it('usa el color propio de la materia con texto legible', () => {
-    const color = colorMateria('m-1', '#1e3a8a')
+describe('colorMateria y colores sugeridos', () => {
+  it('usa el color de la materia con texto legible', () => {
+    const color = colorMateria('#1e3a8a')
     expect(color.estilo).toEqual({ backgroundColor: '#1e3a8a', color: '#ffffff' })
     expect(color.estiloBorde).toEqual({ borderLeftColor: '#1e3a8a' })
   })
 
-  it('con un color inválido o sin color vuelve al automático', () => {
-    expect(colorMateria('m-1', 'rojo').estilo).toBeUndefined()
-    expect(colorMateria('m-1', null)).toEqual(colorMateria('m-1'))
+  it('con un color inválido o ausente usa un gris neutro', () => {
+    expect(colorMateria('rojo').estiloBorde).toEqual({ borderLeftColor: '#64748b' })
+    expect(colorMateria(null)).toEqual(colorMateria(undefined))
+  })
+
+  it('sortea siempre uno de los colores sugeridos, sin rojo', () => {
+    for (let i = 0; i < 50; i++) expect(COLORES_SUGERIDOS).toContain(colorAleatorio())
+    expect(COLORES_SUGERIDOS.every((hex) => normalizarHex(hex) === hex)).toBe(true)
   })
 
   it('elige texto negro sobre colores claros y blanco sobre oscuros', () => {

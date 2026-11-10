@@ -23,13 +23,9 @@ export function MateriaCursoCard({
   onQuitar,
 }: MateriaCursoCardProps) {
   const nombre = materiaCurso.materia_nombre ?? '—'
-  const color = colorMateria(materiaCurso.materia_id, materiaCurso.materia_color)
+  const color = colorMateria(materiaCurso.materia_color)
   return (
-    <Card
-      size="sm"
-      className={`justify-between gap-3 border-l-4 ${color.borde}`}
-      style={color.estiloBorde}
-    >
+    <Card size="sm" className="justify-between gap-3 border-l-4" style={color.estiloBorde}>
       <div className="flex flex-col gap-1.5 px-(--card-spacing)">
         <div className="flex items-start justify-between gap-2">
           <h3 className="text-base font-semibold text-texto">{nombre}</h3>

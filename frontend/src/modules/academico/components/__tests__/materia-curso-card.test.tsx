@@ -35,11 +35,11 @@ function montar(color: string | null) {
 }
 
 describe('MateriaCursoCard', () => {
-  it('pinta la franja con el color elegido a mano', () => {
+  it('pinta la franja con el color de la materia', () => {
     expect(montar('#1e90ff')).toHaveStyle({ borderLeftColor: '#1e90ff' })
   })
 
-  it('sin color elegido usa la franja de la paleta automática', () => {
-    expect(montar(null)?.getAttribute('style')).toBeNull()
+  it('sin color válido usa un gris neutro', () => {
+    expect(montar(null)).toHaveStyle({ borderLeftColor: '#64748b' })
   })
 })

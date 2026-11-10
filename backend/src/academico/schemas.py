@@ -458,13 +458,19 @@ def _color_en_minusculas(valor: str | None) -> str | None:
     return valor.lower() if valor is not None else None
 
 
+def _color_obligatorio(valor: str | None) -> str:
+    if valor is None:
+        raise ValueError("El color no puede quedar vacío")
+    return valor.lower()
+
+
 class MateriaCreate(BaseModel):
     """Schema para crear una materia del catálogo global."""
 
     nombre: str = Field(..., min_length=1, description="Nombre de la materia")
     tipo: Literal["materia", "taller"] = Field(..., description="Tipo: 'materia' o 'taller'")
     color: str | None = Field(
-        None, pattern=COLOR_HEX, description="Color #rrggbb; nulo = automático"
+        None, pattern=COLOR_HEX, description="Color #rrggbb"
     )
 
     _normalizar_color = field_validator("color")(_color_en_minusculas)
@@ -478,10 +484,10 @@ class MateriaUpdate(BaseModel):
         None, description="Tipo: 'materia' o 'taller'"
     )
     color: str | None = Field(
-        None, pattern=COLOR_HEX, description="Color #rrggbb; nulo = automático"
+        None, pattern=COLOR_HEX, description="Color #rrggbb"
     )
 
-    _normalizar_color = field_validator("color")(_color_en_minusculas)
+    _normalizar_color = field_validator("color")(_color_obligatorio)
 
 
 class MateriaResponse(BaseModel):
@@ -490,7 +496,7 @@ class MateriaResponse(BaseModel):
     id: uuid.UUID
     nombre: str
     tipo: str
-    color: str | None = None
+    color: str
     cantidad_cursos: int = 0
     created_at: datetime
     updated_at: datetime

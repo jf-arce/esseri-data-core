@@ -110,12 +110,10 @@ export function HorarioSemanal({
           {grilla.bloques.map((bloque) => {
             const { materiaCurso } = bloque.origen
             const nombre = materiaCurso.materia_nombre ?? 'Materia'
-            const color = colorMateria(materiaCurso.materia_id, materiaCurso.materia_color)
+            const color = colorMateria(materiaCurso.materia_color)
             const rango = `${bloque.origen.hora_inicio.slice(0, 5)} a ${bloque.origen.hora_fin.slice(0, 5)}`
             const clases = `z-10 flex min-w-0 flex-col overflow-hidden border px-2 py-1 text-left text-xs ${
-              bloque.superpuesto
-                ? 'border-error bg-error-suave text-error'
-                : `border-transparent ${color.fondo} ${color.texto}`
+              bloque.superpuesto ? 'border-error bg-error-suave text-error' : 'border-transparent'
             }`
             const estilo = {
               ...(bloque.superpuesto ? undefined : color.estilo),

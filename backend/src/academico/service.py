@@ -1417,7 +1417,9 @@ def crear_materia(
     if _materia_duplicada(db, nombre):
         raise MateriaDuplicada()
 
-    nuevo = Materia(nombre=nombre, tipo=datos.tipo, color=datos.color)
+    # Sin color elegido, la columna sortea uno (default del modelo).
+    extra = {"color": datos.color} if datos.color else {}
+    nuevo = Materia(nombre=nombre, tipo=datos.tipo, **extra)
     db.add(nuevo)
     db.flush()
     log_audit(
