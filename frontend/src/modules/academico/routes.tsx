@@ -7,6 +7,7 @@ import {
   PERMISO_ACADEMICO_LEER,
 } from '@/modules/auth/constants'
 import { EstructuraAcademicaPage } from './pages/estructura-academica-page'
+import { CatalogoMateriasPage } from './pages/catalogo-materias-page'
 import { AsignacionesDocentesPage } from './pages/asignaciones-docentes-page'
 import { AsistenciaDivisionPage } from './pages/asistencia-division-page'
 import { HistorialAsistenciaPage } from './pages/historial-asistencia-page'
@@ -27,6 +28,10 @@ export const academicoRoutes: RouteObject[] = [
           {
             index: true,
             element: <EstructuraAcademicaPage />,
+          },
+          {
+            path: 'materias',
+            element: <CatalogoMateriasPage />,
           },
           {
             path: 'asignaciones',
