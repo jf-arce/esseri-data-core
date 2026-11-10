@@ -4,10 +4,12 @@ import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 import { Dropzone } from '@/components/dropzone'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -22,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { Spinner } from '@/components/ui/spinner'
 import { crearSolicitudAusenciaPeriodo } from '@/modules/academico/services/solicitudes-ausencia-familia'
 import { MOTIVOS_JUSTIFICACION } from '@/modules/academico/utils'
 
@@ -114,7 +117,6 @@ export function FormularioAusencia({
     } catch (causa) {
       const mensaje = mensajeDeError(causa)
       setErrorEnvio(mensaje)
-      toast.error(mensaje)
     } finally {
       setGuardando(false)
     }
@@ -133,6 +135,12 @@ export function FormularioAusencia({
               : 'Informá una fecha o un período, pasado, presente o futuro.'}
           </DialogDescription>
         </DialogHeader>
+        {errorEnvio && (
+          <Alert variant="error">
+            <AlertTitle>No se pudo enviar la solicitud</AlertTitle>
+            <AlertDescription>{errorEnvio}</AlertDescription>
+          </Alert>
+        )}
         <FieldGroup className="gap-3">
           <Field>
             <FieldLabel htmlFor="ausencia-desde">
@@ -215,16 +223,16 @@ export function FormularioAusencia({
             />
             {errorComprobante && <FieldError>{errorComprobante}</FieldError>}
           </Field>
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button disabled={!puedeEnviar} onClick={() => void enviar()}>
-              {modo === 'justificar' ? 'Enviar justificación' : 'Informar ausencia'}
-            </Button>
-          </div>
-          {errorEnvio && <FieldError>{errorEnvio}</FieldError>}
         </FieldGroup>
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button disabled={!puedeEnviar} onClick={() => void enviar()}>
+            {guardando && <Spinner data-icon="inline-start" aria-label="Enviando solicitud" />}
+            {modo === 'justificar' ? 'Enviar justificación' : 'Informar ausencia'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

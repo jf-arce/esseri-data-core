@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import {
   Select,
   SelectContent,
@@ -41,7 +42,10 @@ import type {
   EstadoSolicitudPeriodo,
   SolicitudAusenciaPeriodo,
 } from '@/modules/academico/types'
-import { etiquetaMotivoJustificacion } from '@/modules/academico/utils'
+import {
+  etiquetaMotivoJustificacion,
+  VARIANTE_ESTADO_SOLICITUD_PERIODO,
+} from '@/modules/academico/utils'
 const HISTORIAL_REGISTROS_POR_PAGINA = 5
 
 function etiquetaAsistencia(asistencia: AsistenciaFamilia) {
@@ -472,9 +476,9 @@ export function PortalFamiliaTramitePage({
                                 ? ` — ${formatearFecha(solicitud.fecha_fin)}`
                                 : ''}
                             </span>
-                            <span className="rounded-full border border-borde px-2 py-0.5 text-xs font-semibold text-texto-2">
+                            <Badge variant={VARIANTE_ESTADO_SOLICITUD_PERIODO[solicitud.estado]}>
                               {etiquetaEstadoSolicitud(solicitud.estado)}
-                            </span>
+                            </Badge>
                             {solicitud.estado === 'pendiente' && (
                               <Button
                                 size="sm"
