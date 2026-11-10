@@ -21,6 +21,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PageHeader } from '@/components/page-header'
+import { PuntosCargando } from '@/modules/academico/components/puntos-cargando'
 import { BotonIcono } from '@/modules/academico/components/boton-icono'
 import { AbmDialog } from '@/modules/academico/components/abm-dialog'
 import { HorarioSemanal, type HuecoHorario } from '@/modules/academico/components/horario-semanal'
@@ -90,7 +91,7 @@ function VistaTabs({ vista, onChange }: { vista: Vista; onChange: (vista: Vista)
 type OpcionSelector = { value: string; label: string }
 
 // Desplegable con etiqueta y botones al lado. Mientras carga se queda en su lugar, deshabilitado
-// y con un loader en vez del valor, así solo cambia la información dinámica.
+// y con tres puntos animados en vez del valor, así solo cambia la información dinámica.
 function Selector({
   etiqueta,
   valor,
@@ -115,7 +116,7 @@ function Selector({
       <div className="flex items-center gap-1">
         <Select value={cargando ? '' : valor} onValueChange={onCambio} disabled={cargando}>
           <SelectTrigger className="w-28" aria-labelledby={id} aria-busy={cargando}>
-            <SelectValue placeholder={<Skeleton className="h-3.5 w-10" />} />
+            <SelectValue placeholder={<PuntosCargando />} />
           </SelectTrigger>
           <SelectContent>
             {opciones.map((opcion) => (
