@@ -61,12 +61,19 @@ export function MateriaCursoCard({
   )
 }
 
-export function AgregarMateriaCard({ onAgregar }: { onAgregar: () => void }) {
+export function AgregarMateriaCard({
+  onAgregar,
+  disabled = false,
+}: {
+  onAgregar: () => void
+  disabled?: boolean
+}) {
   return (
     <button
       type="button"
       onClick={onAgregar}
-      className="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-card border-2 border-dashed border-borde text-sm font-semibold text-texto-2 transition-colors hover:bg-fila-hover hover:text-texto focus-visible:outline-2 focus-visible:outline-violeta"
+      disabled={disabled}
+      className="flex min-h-28 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 flex-col items-center justify-center gap-1.5 rounded-card border-2 border-dashed border-borde text-sm font-semibold text-texto-2 transition-colors hover:bg-fila-hover hover:text-texto focus-visible:outline-2 focus-visible:outline-violeta"
     >
       <PlusIcon className="size-5" />
       Agregar materia

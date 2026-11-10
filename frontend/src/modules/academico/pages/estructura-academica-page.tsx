@@ -6,7 +6,7 @@ import {
   PlusIcon,
   ShieldAlertIcon,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -87,29 +87,70 @@ function VistaTabs({ vista, onChange }: { vista: Vista; onChange: (vista: Vista)
 
 // Los skeletons repiten las medidas del contenido real (etiqueta, desplegable, botones, título,
 // pestañas y tarjetas) para que al terminar de cargar no salte nada.
-function SelectorSkeleton({ etiqueta, conAcciones }: { etiqueta: string; conAcciones: boolean }) {
+type OpcionSelector = { value: string; label: string }
+
+// Desplegable con etiqueta y botones al lado. Mientras carga se queda en su lugar, deshabilitado
+// y con un loader en vez del valor, así solo cambia la información dinámica.
+function Selector({
+  etiqueta,
+  valor,
+  opciones,
+  cargando,
+  onCambio,
+  children,
+}: {
+  etiqueta: string
+  valor?: string
+  opciones: OpcionSelector[]
+  cargando: boolean
+  onCambio: (valor: string) => void
+  children?: ReactNode
+}) {
+  const id = `etiqueta-${etiqueta.toLowerCase()}`
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-semibold text-texto-2">{etiqueta}</span>
+      <span id={id} className="text-xs font-semibold text-texto-2">
+        {etiqueta}
+      </span>
       <div className="flex items-center gap-1">
-        <Skeleton className="h-9 w-28" />
-        {conAcciones && (
-          <>
-            <Skeleton className="size-8" />
-            <Skeleton className="size-8" />
-          </>
-        )}
+        <Select value={cargando ? '' : valor} onValueChange={onCambio} disabled={cargando}>
+          <SelectTrigger className="w-28" aria-labelledby={id} aria-busy={cargando}>
+            <SelectValue placeholder={<Skeleton className="h-3.5 w-10" />} />
+          </SelectTrigger>
+          <SelectContent>
+            {opciones.map((opcion) => (
+              <SelectItem key={opcion.value} value={opcion.value}>
+                {opcion.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {children}
       </div>
     </div>
   )
 }
 
-function BarraSkeleton({ conAcciones }: { conAcciones: boolean }) {
+function AccionesSelector({
+  nombre,
+  deshabilitado,
+  onAgregar,
+  onEditar,
+}: {
+  nombre: 'año' | 'división'
+  deshabilitado: boolean
+  onAgregar: () => void
+  onEditar: () => void
+}) {
   return (
-    <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
-      <SelectorSkeleton etiqueta="Año" conAcciones={conAcciones} />
-      <SelectorSkeleton etiqueta="División" conAcciones={conAcciones} />
-    </div>
+    <>
+      <BotonIcono etiqueta={`Agregar ${nombre}`} disabled={deshabilitado} onClick={onAgregar}>
+        <PlusIcon />
+      </BotonIcono>
+      <BotonIcono etiqueta={`Editar ${nombre}`} disabled={deshabilitado} onClick={onEditar}>
+        <PencilIcon />
+      </BotonIcono>
+    </>
   )
 }
 
@@ -130,12 +171,21 @@ function ContenidoSkeleton({
       </div>
       <VistaTabs vista={vista} onChange={onVista} />
       {vista === 'horario' ? (
-        <Skeleton className="h-[26rem] w-full" />
+        <div className="flex flex-col gap-3">
+          {conAcciones && (
+            <Button variant="secondary" size="sm" className="self-start" disabled>
+              <PlusIcon />
+              Agregar materia
+            </Button>
+          )}
+          <Skeleton className="h-[26rem] w-full" />
+        </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className={conAcciones ? 'h-[9.5rem]' : 'h-28'} />
           ))}
+          {conAcciones && <AgregarMateriaCard disabled onAgregar={() => {}} />}
         </div>
       )}
     </div>
@@ -354,7 +404,17 @@ export function EstructuraAcademicaPage() {
             <Skeleton className="h-5 w-24" />
             <Skeleton className="h-5 w-24" />
           </div>
-          <BarraSkeleton conAcciones={puedeEditar} />
+          <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+            {['Año', 'División'].map((etiqueta) => (
+              <Selector
+                key={etiqueta}
+                etiqueta={etiqueta}
+                opciones={[]}
+                cargando
+                onCambio={() => {}}
+              />
+            ))}
+          </div>
           <Card className="gap-5 p-6">
             <ContenidoSkeleton vista={vista} onVista={setVista} conAcciones={puedeEditar} />
           </Card>
@@ -371,100 +431,50 @@ export function EstructuraAcademicaPage() {
             </TabsList>
           </Tabs>
 
-          {cambiandoNivel && <BarraSkeleton conAcciones={puedeEditar} />}
-          {!cambiandoNivel && nivel && anio && (
+          {nivel && (cambiandoNivel || anio) && (
             <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
-              <div className="flex flex-col gap-1.5">
-                <span id="etiqueta-anio" className="text-xs font-semibold text-texto-2">
-                  Año
-                </span>
-                <div className="flex items-center gap-1">
-                  <Select
-                    value={anio.id}
-                    onValueChange={(id) => elegir({ nivel: nivel.id, anio: id })}
-                  >
-                    <SelectTrigger className="w-28" aria-labelledby="etiqueta-anio">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {estructura.anios.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>
-                          {a.numero}°
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {puedeEditar && (
-                    <>
-                      <BotonIcono
-                        etiqueta="Agregar año"
-                        onClick={() => setDialogAbm({ entidad: 'anio', modo: 'crear' })}
-                      >
-                        <PlusIcon />
-                      </BotonIcono>
-                      <BotonIcono
-                        etiqueta="Editar año"
-                        onClick={() =>
-                          setDialogAbm({ entidad: 'anio', modo: 'editar', item: anio })
-                        }
-                      >
-                        <PencilIcon />
-                      </BotonIcono>
-                    </>
-                  )}
-                </div>
-              </div>
+              <Selector
+                etiqueta="Año"
+                valor={anio?.id}
+                opciones={estructura.anios.map((a) => ({ value: a.id, label: `${a.numero}°` }))}
+                cargando={cambiandoNivel}
+                onCambio={(id) => elegir({ nivel: nivel.id, anio: id })}
+              >
+                {puedeEditar && (
+                  <AccionesSelector
+                    nombre="año"
+                    deshabilitado={cambiandoNivel || !anio}
+                    onAgregar={() => setDialogAbm({ entidad: 'anio', modo: 'crear' })}
+                    onEditar={() =>
+                      anio && setDialogAbm({ entidad: 'anio', modo: 'editar', item: anio })
+                    }
+                  />
+                )}
+              </Selector>
 
-              {estructura.cargandoAnio && (
-                <SelectorSkeleton etiqueta="División" conAcciones={puedeEditar} />
-              )}
-              {!estructura.cargandoAnio && division && (
-                <div className="flex flex-col gap-1.5">
-                  <span id="etiqueta-division" className="text-xs font-semibold text-texto-2">
-                    División
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <Select
-                      value={division.id}
-                      onValueChange={(id) =>
-                        elegir({ nivel: nivel.id, anio: anio.id, division: id })
+              {anio && (division || cambiandoNivel || estructura.cargandoAnio) && (
+                <Selector
+                  etiqueta="División"
+                  valor={division?.id}
+                  opciones={estructura.divisiones.map((d) => ({
+                    value: d.id,
+                    label: letraDivision(anio, d),
+                  }))}
+                  cargando={cambiandoNivel || estructura.cargandoAnio}
+                  onCambio={(id) => elegir({ nivel: nivel.id, anio: anio.id, division: id })}
+                >
+                  {puedeEditar && (
+                    <AccionesSelector
+                      nombre="división"
+                      deshabilitado={cambiandoNivel || estructura.cargandoAnio || !division}
+                      onAgregar={() => setDialogAbm({ entidad: 'division', modo: 'crear' })}
+                      onEditar={() =>
+                        division &&
+                        setDialogAbm({ entidad: 'division', modo: 'editar', item: division })
                       }
-                    >
-                      <SelectTrigger className="w-28" aria-labelledby="etiqueta-division">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {estructura.divisiones.map((d) => (
-                          <SelectItem key={d.id} value={d.id}>
-                            {letraDivision(anio, d)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {puedeEditar && (
-                      <>
-                        <BotonIcono
-                          etiqueta="Agregar división"
-                          onClick={() => setDialogAbm({ entidad: 'division', modo: 'crear' })}
-                        >
-                          <PlusIcon />
-                        </BotonIcono>
-                        <BotonIcono
-                          etiqueta="Editar división"
-                          onClick={() =>
-                            setDialogAbm({
-                              entidad: 'division',
-                              modo: 'editar',
-                              item: division,
-                            })
-                          }
-                        >
-                          <PencilIcon />
-                        </BotonIcono>
-                      </>
-                    )}
-                  </div>
-                </div>
+                    />
+                  )}
+                </Selector>
               )}
             </div>
           )}
