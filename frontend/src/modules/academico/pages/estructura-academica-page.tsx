@@ -59,6 +59,14 @@ function etiquetaDivision(anio: Anio, division: Division): string {
   return division.nombre.startsWith(prefijo) ? division.nombre : `${prefijo}${division.nombre}`
 }
 
+// Solo la letra ("A"), para el desplegable que ya tiene el año al lado.
+function letraDivision(anio: Anio, division: Division): string {
+  const prefijo = `${anio.numero}°`
+  return division.nombre.startsWith(prefijo)
+    ? division.nombre.slice(prefijo.length)
+    : division.nombre
+}
+
 function textoAlumnos(cantidad: number): string {
   return `${cantidad} ${cantidad === 1 ? 'alumno' : 'alumnos'}`
 }
@@ -368,77 +376,91 @@ export function EstructuraAcademicaPage() {
             ) : (
               <>
                 {nivel && anio && (
-                  <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-                    <div className="flex items-center gap-1">
-                      <Select
-                        value={anio.id}
-                        onValueChange={(id) => elegir({ nivel: nivel.id, anio: id })}
-                      >
-                        <SelectTrigger className="w-40" aria-label="Año">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {estructura.anios.map((a) => (
-                            <SelectItem key={a.id} value={a.id}>
-                              {a.numero}° año
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {puedeEditar && (
-                        <AccionesMenu
-                          etiqueta="Acciones del año"
-                          textoAgregar="Agregar año"
-                          onAgregar={() => setDialogAbm({ entidad: 'anio', modo: 'crear' })}
-                          onEditar={() =>
-                            setDialogAbm({ entidad: 'anio', modo: 'editar', item: anio })
-                          }
-                          onEliminar={() =>
-                            setDialogAbm({ entidad: 'anio', modo: 'eliminar', item: anio })
-                          }
-                        />
-                      )}
-                    </div>
-
-                    {estructura.cargandoAnio && <Skeleton className="h-9 w-40" />}
-                    {!estructura.cargandoAnio && division && (
+                  <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+                    <div className="flex flex-col gap-1.5">
+                      <span id="etiqueta-anio" className="text-xs font-semibold text-texto-2">
+                        Año
+                      </span>
                       <div className="flex items-center gap-1">
                         <Select
-                          value={division.id}
-                          onValueChange={(id) =>
-                            elegir({ nivel: nivel.id, anio: anio.id, division: id })
-                          }
+                          value={anio.id}
+                          onValueChange={(id) => elegir({ nivel: nivel.id, anio: id })}
                         >
-                          <SelectTrigger className="w-40" aria-label="División">
+                          <SelectTrigger className="w-28" aria-labelledby="etiqueta-anio">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {estructura.divisiones.map((d) => (
-                              <SelectItem key={d.id} value={d.id}>
-                                {etiquetaDivision(anio, d)}
+                            {estructura.anios.map((a) => (
+                              <SelectItem key={a.id} value={a.id}>
+                                {a.numero}°
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                         {puedeEditar && (
                           <AccionesMenu
-                            etiqueta="Acciones de la división"
-                            textoAgregar="Agregar división"
-                            textoEditar="Editar división"
-                            textoEliminar="Dar de baja división"
-                            onAgregar={() => setDialogAbm({ entidad: 'division', modo: 'crear' })}
+                            etiqueta="Acciones del año"
+                            textoAgregar="Agregar año"
+                            onAgregar={() => setDialogAbm({ entidad: 'anio', modo: 'crear' })}
                             onEditar={() =>
-                              setDialogAbm({ entidad: 'division', modo: 'editar', item: division })
+                              setDialogAbm({ entidad: 'anio', modo: 'editar', item: anio })
                             }
                             onEliminar={() =>
-                              setDialogAbm({
-                                entidad: 'division',
-                                modo: 'eliminar',
-                                item: division,
-                              })
+                              setDialogAbm({ entidad: 'anio', modo: 'eliminar', item: anio })
                             }
                           />
                         )}
+                      </div>
+                    </div>
+
+                    {estructura.cargandoAnio && <Skeleton className="h-[3.25rem] w-28" />}
+                    {!estructura.cargandoAnio && division && (
+                      <div className="flex flex-col gap-1.5">
+                        <span id="etiqueta-division" className="text-xs font-semibold text-texto-2">
+                          División
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <Select
+                            value={division.id}
+                            onValueChange={(id) =>
+                              elegir({ nivel: nivel.id, anio: anio.id, division: id })
+                            }
+                          >
+                            <SelectTrigger className="w-28" aria-labelledby="etiqueta-division">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {estructura.divisiones.map((d) => (
+                                <SelectItem key={d.id} value={d.id}>
+                                  {letraDivision(anio, d)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {puedeEditar && (
+                            <AccionesMenu
+                              etiqueta="Acciones de la división"
+                              textoAgregar="Agregar división"
+                              textoEditar="Editar división"
+                              textoEliminar="Dar de baja división"
+                              onAgregar={() => setDialogAbm({ entidad: 'division', modo: 'crear' })}
+                              onEditar={() =>
+                                setDialogAbm({
+                                  entidad: 'division',
+                                  modo: 'editar',
+                                  item: division,
+                                })
+                              }
+                              onEliminar={() =>
+                                setDialogAbm({
+                                  entidad: 'division',
+                                  modo: 'eliminar',
+                                  item: division,
+                                })
+                              }
+                            />
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
