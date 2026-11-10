@@ -132,58 +132,56 @@ export function CatalogoMateriasPage() {
           )}
         </Empty>
       ) : (
-        <Card className="p-2">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Cursos</TableHead>
-                {puedeEditar && <TableHead className="text-right">Acciones</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {materias.map((materia) => (
-                <TableRow key={materia.id}>
-                  <TableCell className="font-medium">
-                    <span className="flex items-center gap-2">
-                      <span
-                        aria-hidden="true"
-                        className="size-3 shrink-0 rounded-full"
-                        style={{ backgroundColor: materia.color }}
-                      />
-                      {materia.nombre}
-                    </span>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Tipo</TableHead>
+              <TableHead>Cursos</TableHead>
+              {puedeEditar && <TableHead className="text-right">Acciones</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {materias.map((materia) => (
+              <TableRow key={materia.id}>
+                <TableCell className="font-medium">
+                  <span className="flex items-center gap-2">
+                    <span
+                      aria-hidden="true"
+                      className="size-3 shrink-0 rounded-full"
+                      style={{ backgroundColor: materia.color }}
+                    />
+                    {materia.nombre}
+                  </span>
+                </TableCell>
+                <TableCell>{materia.tipo === 'taller' ? 'Taller' : 'Materia'}</TableCell>
+                <TableCell>{materia.cantidad_cursos}</TableCell>
+                {puedeEditar && (
+                  <TableCell>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="secondary"
+                        className="min-h-8 text-sm"
+                        onClick={() => setDialog({ open: true, modo: 'editar', item: materia })}
+                      >
+                        <PencilIcon />
+                        Editar
+                      </Button>
+                      <BotonIcono
+                        etiqueta="Eliminar"
+                        variant="secondary"
+                        className="text-error"
+                        onClick={() => setDialog({ open: true, modo: 'eliminar', item: materia })}
+                      >
+                        <Trash2Icon />
+                      </BotonIcono>
+                    </div>
                   </TableCell>
-                  <TableCell>{materia.tipo === 'taller' ? 'Taller' : 'Materia'}</TableCell>
-                  <TableCell>{materia.cantidad_cursos}</TableCell>
-                  {puedeEditar && (
-                    <TableCell>
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="secondary"
-                          className="min-h-8 text-sm"
-                          onClick={() => setDialog({ open: true, modo: 'editar', item: materia })}
-                        >
-                          <PencilIcon />
-                          Editar
-                        </Button>
-                        <BotonIcono
-                          etiqueta="Eliminar"
-                          variant="secondary"
-                          className="text-error"
-                          onClick={() => setDialog({ open: true, modo: 'eliminar', item: materia })}
-                        >
-                          <Trash2Icon />
-                        </BotonIcono>
-                      </div>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
 
       {dialog.open && (
