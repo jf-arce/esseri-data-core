@@ -97,19 +97,26 @@ class TestAuditoriaFamilia:
         eliminar_familia(db_session, familia, usuario.id)
 
         registros = _historial(db_session, "FAMILIA", familia_id)
-        assert len(registros) == 1
-        assert registros[0].campo == "__eliminacion__"
-        assert registros[0].valor_anterior == str(persona.id)
-        assert registros[0].valor_nuevo is None
+        alta = next(registro for registro in registros if registro.campo == "__alta__")
+        baja = next(registro for registro in registros if registro.campo == "__eliminacion__")
+        assert len(registros) == 2
+        assert alta.usuario_id is None
+        assert alta.actor_tipo == "sistema"
+        assert baja.valor_anterior == str(persona.id)
+        assert baja.valor_nuevo is None
+        assert baja.usuario_id == usuario.id
 
-    def test_sin_usuario_id_no_audita(self, db_session: Session):
-        """Coherente con el resto del ABM: sin usuario autenticado real (tests, scripts),
-        log_audit() se omite en silencio en vez de fallar por la FK NOT NULL."""
+    def test_sin_usuario_id_audita_como_sistema(self, db_session: Session):
+        """Una operación sin usuario autenticado se audita como sistema, no se omite."""
         persona = _crear_persona(db_session)
 
         familia = crear_familia(db_session, FamiliaCreate(persona_id=persona.id))
 
-        assert _historial(db_session, "FAMILIA", familia.id) == []
+        registros = _historial(db_session, "FAMILIA", familia.id)
+        assert len(registros) == 1
+        assert registros[0].campo == "__alta__"
+        assert registros[0].usuario_id is None
+        assert registros[0].actor_tipo == "sistema"
 
 
 class TestAuditoriaAlumno:
@@ -178,9 +185,13 @@ class TestAuditoriaAlumno:
         eliminar_alumno(db_session, alumno, usuario.id)
 
         registros = _historial(db_session, "ALUMNO", alumno_id)
-        assert len(registros) == 1
-        assert registros[0].campo == "__eliminacion__"
-        assert registros[0].valor_anterior == "AUD-003"
+        alta = next(registro for registro in registros if registro.campo == "__alta__")
+        baja = next(registro for registro in registros if registro.campo == "__eliminacion__")
+        assert len(registros) == 2
+        assert alta.usuario_id is None
+        assert alta.actor_tipo == "sistema"
+        assert baja.valor_anterior == "AUD-003"
+        assert baja.usuario_id == usuario.id
 
 
 class TestAuditoriaVinculo:
@@ -236,5 +247,9 @@ class TestAuditoriaVinculo:
         desvincular_alumno_familia(db_session, vinculo, usuario.id)
 
         registros = _historial(db_session, "FAMILIA_ALUMNO", vinculo_id)
-        assert len(registros) == 1
-        assert registros[0].campo == "__eliminacion__"
+        alta = next(registro for registro in registros if registro.campo == "__alta__")
+        baja = next(registro for registro in registros if registro.campo == "__eliminacion__")
+        assert len(registros) == 2
+        assert alta.usuario_id is None
+        assert alta.actor_tipo == "sistema"
+        assert baja.usuario_id == usuario.id
