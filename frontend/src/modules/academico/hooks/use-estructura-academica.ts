@@ -71,13 +71,18 @@ const SIN_ELEMENTOS: never[] = []
  * materias del año elegido, y asignaciones docentes de la división elegida.
  */
 export function useEstructuraAcademica(pedida: SeleccionEstructura) {
-  const cargarNiveles = useCallback(
-    () => Promise.all([listarNiveles(), listarMaterias(), listarDocentes().catch(() => [])]),
+  const cargarNiveles = useCallback(() => listarNiveles(), [])
+  const nivelesCarga = useCarga<NivelEducativo[]>('niveles', cargarNiveles)
+  const niveles = nivelesCarga.datos ?? SIN_ELEMENTOS
+  const nivel = elegirPorId(niveles, pedida.nivel)
+
+  // El catálogo y los docentes se usan recién al editar o al mostrar docentes: se cargan aparte
+  // para que no demoren la primera pantalla.
+  const cargarAuxiliares = useCallback(
+    () => Promise.all([listarMaterias(), listarDocentes().catch(() => [])]),
     [],
   )
-  const base = useCarga<[NivelEducativo[], Materia[], Docente[]]>('base', cargarNiveles)
-  const niveles = base.datos?.[0] ?? SIN_ELEMENTOS
-  const nivel = elegirPorId(niveles, pedida.nivel)
+  const auxiliares = useCarga<[Materia[], Docente[]]>('auxiliares', cargarAuxiliares)
 
   const cargarAnios = useCallback(
     () => (nivel ? listarAnios(nivel.id) : Promise.resolve<Anio[]>([])),
@@ -111,13 +116,19 @@ export function useEstructuraAcademica(pedida: SeleccionEstructura) {
     (materiaCurso) => materiaCurso.division_id === division?.id,
   )
 
-  const errores = [base.error, anios.error, contenidoAnio.error, asignaciones.error]
+  const errores = [
+    nivelesCarga.error,
+    auxiliares.error,
+    anios.error,
+    contenidoAnio.error,
+    asignaciones.error,
+  ]
   const primerError = errores.find((error) => error !== undefined)
 
   return {
     niveles,
-    catalogo: base.datos?.[1] ?? SIN_ELEMENTOS,
-    docentes: base.datos?.[2] ?? SIN_ELEMENTOS,
+    catalogo: auxiliares.datos?.[0] ?? SIN_ELEMENTOS,
+    docentes: auxiliares.datos?.[1] ?? SIN_ELEMENTOS,
     nivel,
     anios: listaAnios,
     anio,
@@ -125,7 +136,7 @@ export function useEstructuraAcademica(pedida: SeleccionEstructura) {
     division,
     materiasCurso,
     asignaciones: asignaciones.datos ?? SIN_ELEMENTOS,
-    cargandoNiveles: base.cargando,
+    cargandoNiveles: nivelesCarga.cargando,
     cargandoAnios: anios.cargando,
     cargandoAnio: contenidoAnio.cargando,
     cargandoDivision: asignaciones.cargando,

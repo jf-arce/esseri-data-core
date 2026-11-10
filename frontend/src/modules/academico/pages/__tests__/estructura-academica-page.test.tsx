@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
+import { ApiError } from '@/api/client'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { listarAnios } from '@/modules/academico/services/anios'
 import { listarAsignaciones } from '@/modules/academico/services/asignaciones-docentes'
@@ -141,5 +142,40 @@ describe('EstructuraAcademicaPage', () => {
     expect(screen.getByText('24 alumnos')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Agregar materia' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Editar división' })).not.toBeInTheDocument()
+  })
+
+  describe('primera carga', () => {
+    it('muestra las etiquetas y los botones fijos mientras carga, sin avisos de vacío', async () => {
+      conPermisos(['academico.leer', 'academico.actualizar'])
+      vi.mocked(listarNiveles).mockReturnValue(new Promise(() => {}))
+
+      montar()
+
+      expect(screen.getByText('Año')).toBeInTheDocument()
+      expect(screen.getByText('División')).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Materias' })).toBeInTheDocument()
+      expect(screen.queryByText(/No se encontraron niveles/)).not.toBeInTheDocument()
+    })
+
+    it('mientras cargan los años mantiene los dos selectores en pantalla', async () => {
+      conPermisos(['academico.leer'])
+      vi.mocked(listarAnios).mockReturnValue(new Promise(() => {}))
+
+      montar()
+
+      expect(await screen.findByRole('tab', { name: 'Primario' })).toBeInTheDocument()
+      expect(screen.getByText('Año')).toBeInTheDocument()
+      expect(screen.getByText('División')).toBeInTheDocument()
+    })
+
+    it('si falla solo muestra el error, sin el aviso de que no hay niveles', async () => {
+      conPermisos(['academico.leer'])
+      vi.mocked(listarNiveles).mockRejectedValue(new ApiError(500, 'Falló la base'))
+
+      montar()
+
+      expect(await screen.findByText('Falló la base')).toBeInTheDocument()
+      expect(screen.queryByText(/No se encontraron niveles/)).not.toBeInTheDocument()
+    })
   })
 })

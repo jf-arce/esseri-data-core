@@ -48,10 +48,14 @@ type DialogMateria = {
 
 type Vista = 'materias' | 'horario'
 
-// "1°A": la división ya puede venir con el año ("1°A") o solo con la letra ("A").
+// "1°A": la división ya puede venir con el año ("1°A"), solo con la letra ("A") o con un
+// nombre propio ("Sala A", que queda "1° Sala A").
 function etiquetaDivision(anio: Anio, division: Division): string {
   const prefijo = `${anio.numero}°`
-  return division.nombre.startsWith(prefijo) ? division.nombre : `${prefijo}${division.nombre}`
+  if (division.nombre.startsWith(prefijo)) return division.nombre
+  return division.nombre.length <= 2
+    ? `${prefijo}${division.nombre}`
+    : `${prefijo} ${division.nombre}`
 }
 
 // Solo la letra ("A"), para el desplegable que ya tiene el año al lado.
@@ -184,7 +188,7 @@ function ContenidoSkeleton({
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {[0, 1, 2].map((i) => (
+          {Array.from({ length: conAcciones ? 2 : 3 }, (_, i) => i).map((i) => (
             <Skeleton key={i} className={conAcciones ? 'h-[9.5rem]' : 'h-28'} />
           ))}
           {conAcciones && <AgregarMateriaCard disabled onAgregar={() => {}} />}
@@ -402,7 +406,7 @@ export function EstructuraAcademicaPage() {
 
       {estructura.cargandoNiveles ? (
         <>
-          <div className="flex gap-5 border-b border-borde pb-2.5" aria-hidden="true">
+          <div className="flex h-9 items-center gap-5 border-b border-borde" aria-hidden="true">
             <Skeleton className="h-5 w-24" />
             <Skeleton className="h-5 w-24" />
             <Skeleton className="h-5 w-24" />
@@ -415,7 +419,16 @@ export function EstructuraAcademicaPage() {
                 opciones={[]}
                 cargando
                 onCambio={() => {}}
-              />
+              >
+                {puedeEditar && (
+                  <AccionesSelector
+                    nombre={etiqueta === 'Año' ? 'año' : 'división'}
+                    deshabilitado
+                    onAgregar={() => {}}
+                    onEditar={() => {}}
+                  />
+                )}
+              </Selector>
             ))}
           </div>
           <Card className="gap-5 p-6">
@@ -455,16 +468,16 @@ export function EstructuraAcademicaPage() {
                 )}
               </Selector>
 
-              {anio && (division || cambiandoNivel || estructura.cargandoAnio) && (
+              {(division || cambiandoNivel || estructura.cargandoAnio) && (
                 <Selector
                   etiqueta="División"
                   valor={division?.id}
                   opciones={estructura.divisiones.map((d) => ({
                     value: d.id,
-                    label: letraDivision(anio, d),
+                    label: anio ? letraDivision(anio, d) : d.nombre,
                   }))}
                   cargando={cambiandoNivel || estructura.cargandoAnio}
-                  onCambio={(id) => elegir({ nivel: nivel.id, anio: anio.id, division: id })}
+                  onCambio={(id) => elegir({ nivel: nivel.id, anio: anio?.id, division: id })}
                 >
                   {puedeEditar && (
                     <AccionesSelector
@@ -482,13 +495,15 @@ export function EstructuraAcademicaPage() {
             </div>
           )}
 
-          <Card className="gap-5 p-6">
-            {cambiandoNivel || cambiandoContenido ? (
-              <ContenidoSkeleton vista={vista} onVista={setVista} conAcciones={puedeEditar} />
-            ) : (
-              contenido()
-            )}
-          </Card>
+          {(nivel || !estructura.error) && (
+            <Card className="gap-5 p-6">
+              {cambiandoNivel || cambiandoContenido ? (
+                <ContenidoSkeleton vista={vista} onVista={setVista} conAcciones={puedeEditar} />
+              ) : (
+                contenido()
+              )}
+            </Card>
+          )}
         </>
       )}
 
