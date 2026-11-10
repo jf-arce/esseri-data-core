@@ -186,6 +186,64 @@ def test_revocar_con_notificacion_emite_evento(client_secretaria, db_session, so
     )
 
 
+def test_bandeja_descarga_comprobante(
+    client_secretaria, db_session, escenario_dos_familias
+):
+    ids = escenario_dos_familias
+    motivo = MotivoJustificacion(nombre="enfermedad-archivo", activo=True)
+    db_session.add(motivo)
+    db_session.commit()
+    usuario = db_session.get(Usuario, ids["usuario_a"])
+    solicitud = crear_solicitud_periodo(
+        db_session,
+        usuario,
+        ids["alumno_a"],
+        date(2027, 12, 1),
+        date(2027, 12, 1),
+        "enfermedad-archivo",
+        None,
+        "reposo.pdf",
+        "application/pdf",
+        b"%PDF-1.4",
+    )
+
+    respuesta = client_secretaria.get(
+        f"/academico/solicitudes-ausencia/{solicitud.id}/archivo"
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.content == b"%PDF-1.4"
+    assert "reposo.pdf" in respuesta.headers["content-disposition"]
+
+
+def test_docente_no_descarga_comprobante_de_bandeja(
+    client_docente, db_session, escenario_dos_familias
+):
+    ids = escenario_dos_familias
+    motivo = MotivoJustificacion(nombre="enfermedad-archivo-docente", activo=True)
+    db_session.add(motivo)
+    db_session.commit()
+    usuario = db_session.get(Usuario, ids["usuario_a"])
+    solicitud = crear_solicitud_periodo(
+        db_session,
+        usuario,
+        ids["alumno_a"],
+        date(2027, 12, 2),
+        date(2027, 12, 2),
+        "enfermedad-archivo-docente",
+        None,
+        "reposo.pdf",
+        "application/pdf",
+        b"%PDF-1.4",
+    )
+
+    respuesta = client_docente.get(
+        f"/academico/solicitudes-ausencia/{solicitud.id}/archivo"
+    )
+
+    assert respuesta.status_code == 403
+
+
 def test_revocar_sin_motivo_devuelve_422(client_secretaria, solicitud):
     creada, _ = solicitud
     assert _aprobar(client_secretaria, creada).status_code == 200

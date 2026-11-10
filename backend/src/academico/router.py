@@ -174,6 +174,7 @@ from src.academico.service import (
     verificar_acceso_a_division,
 )
 from src.academico.solicitud_periodo_service import (
+    archivo_solicitud_periodo_admin,
     archivo_solicitud_periodo_familia,
     cancelar_solicitud_periodo,
     crear_solicitud_periodo,
@@ -1083,6 +1084,24 @@ def listar_solicitudes_ausencia_endpoint(
 ) -> SolicitudesPeriodoPaginadasResponse:
     """Bandeja administrativa de solicitudes de ausencia por período."""
     return pagina_solicitudes_periodo(db, filtros)
+
+
+@router.get("/solicitudes-ausencia/{solicitud_id}/archivo")
+def descargar_archivo_solicitud_ausencia_admin(
+    solicitud_id: uuid.UUID,
+    _: Annotated[
+        Usuario,
+        Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES)),
+    ],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Response:
+    """Descargar el comprobante de una solicitud desde la bandeja administrativa."""
+    contenido, tipo_contenido, nombre = archivo_solicitud_periodo_admin(db, solicitud_id)
+    return Response(
+        content=contenido,
+        media_type=tipo_contenido,
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
+    )
 
 
 @router.patch(

@@ -322,6 +322,22 @@ def respuesta_admin_solicitud(
     return _respuesta_admin(fila)
 
 
+def archivo_solicitud_periodo_admin(
+    db: Session, solicitud_id: uuid.UUID
+) -> tuple[bytes, str, str]:
+    """Comprobante para la bandeja administrativa, sin filtro de familia."""
+    solicitud = db.get(SolicitudAusenciaPeriodo, solicitud_id)
+    if solicitud is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Solicitud no encontrada")
+    if solicitud.archivo_contenido is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "La solicitud no tiene comprobante")
+    return (
+        solicitud.archivo_contenido,
+        solicitud.archivo_tipo or "application/octet-stream",
+        solicitud.archivo_nombre or "comprobante",
+    )
+
+
 def cancelar_solicitud_periodo(
     db: Session, usuario: Usuario | None, solicitud_id: uuid.UUID
 ) -> SolicitudAusenciaPeriodo:
