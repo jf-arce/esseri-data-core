@@ -95,6 +95,7 @@ from src.academico.schemas import (
     DocenteResponse,
     DocenteUpdate,
     FiltrosJustificaciones,
+    FiltrosSolicitudesPeriodo,
     JustificacionesPaginadasResponse,
     JustificacionFamiliaResponse,
     JustificacionResolucion,
@@ -111,6 +112,7 @@ from src.academico.schemas import (
     OpcionJustificacion,
     SeguimientoDivisionItem,
     SolicitudAusenciaPeriodoResponse,
+    SolicitudesPeriodoPaginadasResponse,
     UltimaFechaAsistenciaResponse,
 )
 from src.academico.service import (
@@ -172,6 +174,7 @@ from src.academico.solicitud_periodo_service import (
     cancelar_solicitud_periodo,
     crear_solicitud_periodo,
     listar_solicitudes_periodo_familia,
+    pagina_solicitudes_periodo,
 )
 from src.auth.constants import (
     PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
@@ -1056,6 +1059,22 @@ def descargar_archivo_solicitud_ausencia_familia(
         media_type=tipo_contenido,
         headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
     )
+
+
+@router.get(
+    "/solicitudes-ausencia",
+    response_model=SolicitudesPeriodoPaginadasResponse,
+)
+def listar_solicitudes_ausencia_endpoint(
+    _: Annotated[
+        Usuario,
+        Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES)),
+    ],
+    filtros: Annotated[FiltrosSolicitudesPeriodo, Query()],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> SolicitudesPeriodoPaginadasResponse:
+    """Bandeja administrativa de solicitudes de ausencia por período."""
+    return pagina_solicitudes_periodo(db, filtros)
 
 
 @router.get("/justificaciones", response_model=JustificacionesPaginadasResponse)

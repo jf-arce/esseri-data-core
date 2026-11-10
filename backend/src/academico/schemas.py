@@ -368,6 +368,50 @@ class SolicitudAusenciaPeriodoResponse(BaseModel):
     fecha_resolucion: datetime | None = None
 
 
+class SolicitudAusenciaPeriodoAdminResponse(SolicitudAusenciaPeriodoResponse):
+    """Solicitud de período con el contexto que necesita la bandeja administrativa."""
+
+    alumno_nombre: str
+    familia_id: uuid.UUID
+
+
+class FiltrosSolicitudesPeriodo(BaseModel):
+    """Filtros de la bandeja administrativa de solicitudes por período."""
+
+    alumno_id: uuid.UUID | None = Field(None, description="ID del alumno")
+    estado: Literal["pendiente", "aprobada", "rechazada", "cancelada"] | None = Field(
+        None, description="Estado de la solicitud"
+    )
+    busqueda: str | None = Field(
+        None, max_length=120, description="Texto libre para buscar por alumno"
+    )
+    fecha_desde: date | None = Field(None, description="Fecha desde (inclusive)")
+    fecha_hasta: date | None = Field(None, description="Fecha hasta (inclusive)")
+    pagina: int = Field(1, ge=1, description="Número de página")
+    tamanio_pagina: int = Field(50, ge=1, le=200, description="Tamaño de página")
+
+
+class SolicitudesPeriodoResumen(BaseModel):
+    """Conteos globales de la bandeja, independientes de la página pedida."""
+
+    pendientes: int = 0
+    aprobadas: int = 0
+    rechazadas: int = 0
+    canceladas: int = 0
+    total: int = 0
+
+
+class SolicitudesPeriodoPaginadasResponse(BaseModel):
+    """Respuesta paginada de solicitudes de ausencia por período."""
+
+    items: list[SolicitudAusenciaPeriodoAdminResponse]
+    total: int
+    pagina: int
+    tamanio_pagina: int
+    total_paginas: int
+    resumen: SolicitudesPeriodoResumen = Field(default_factory=SolicitudesPeriodoResumen)
+
+
 class JustificacionResolucion(BaseModel):
     aprobar: bool
     observacion: str | None = Field(None, max_length=500)
