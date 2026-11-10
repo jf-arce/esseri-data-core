@@ -95,6 +95,8 @@ export function MateriaCursoDialog({
   onExito,
 }: MateriaCursoDialogProps) {
   const esEdicion = modo === 'editar'
+  // Año y división juntos ("1°A"), que la página ya arma.
+  const curso = divisionNombre ?? item?.division_nombre ?? 'el curso'
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [materiaId, setMateriaId] = useState(item?.materia_id ?? '')
@@ -278,7 +280,9 @@ export function MateriaCursoDialog({
       <DialogContent className="sm:max-w-2xl" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>
-            {esEdicion ? 'Editar materia del curso' : 'Asignar materia al curso'}
+            {esEdicion
+              ? `Editar materia y franja horaria de ${curso}`
+              : `Agregar materia y franja horaria a ${curso}`}
           </DialogTitle>
           {error && <DialogDescription className="text-error">{error}</DialogDescription>}
         </DialogHeader>

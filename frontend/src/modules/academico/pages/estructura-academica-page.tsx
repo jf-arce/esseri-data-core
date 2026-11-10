@@ -520,7 +520,7 @@ export function EstructuraAcademicaPage() {
           modo={dialogMateria.modo}
           item={dialogMateria.item}
           divisionId={division.id}
-          divisionNombre={division.nombre}
+          divisionNombre={anio ? etiquetaDivision(anio, division) : division.nombre}
           materiasExcluidas={estructura.materiasCurso.map(
             (materiaCurso) => materiaCurso.materia_id,
           )}
