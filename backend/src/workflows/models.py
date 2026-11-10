@@ -154,6 +154,7 @@ class Notificacion(Base):
     )
     numero_intento: Mapped[int | None] = mapped_column(sa.Integer)
     started_at: Mapped[datetime | None] = mapped_column(sa.DateTime)
+    lease_until: Mapped[datetime | None] = mapped_column(sa.DateTime)
     finished_at: Mapped[datetime | None] = mapped_column(sa.DateTime)
     proveedor_iniciado: Mapped[bool] = mapped_column(
         sa.Boolean, default=False, server_default=sa.false()

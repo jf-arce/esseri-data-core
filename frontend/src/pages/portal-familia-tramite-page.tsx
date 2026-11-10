@@ -286,20 +286,23 @@ export function PortalFamiliaTramitePage({
           </div>
           {esJustificacion && alumnos.length > 0 && (
             <div className="flex w-full flex-wrap items-end gap-2 sm:w-auto">
-              <label className="w-full text-sm font-semibold sm:w-56">
-                Alumno
-                <select
-                  className="mt-1 block w-full rounded-lg border border-borde bg-superficie p-2"
-                  value={alumnoSeleccionado}
-                  onChange={(e) => setAlumnoId(e.target.value)}
-                >
-                  {alumnos.map((alumno) => (
-                    <option key={alumno.alumno_id} value={alumno.alumno_id}>
-                      {alumno.nombre} {alumno.apellido}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="w-full sm:w-56">
+                <Field>
+                  <FieldLabel htmlFor="familia-alumno">Alumno</FieldLabel>
+                  <Select value={alumnoSeleccionado} onValueChange={setAlumnoId}>
+                    <SelectTrigger id="familia-alumno" className="w-full">
+                      <SelectValue placeholder="Seleccioná un alumno" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {alumnos.map((alumno) => (
+                        <SelectItem key={alumno.alumno_id} value={alumno.alumno_id}>
+                          {alumno.nombre} {alumno.apellido}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
               <Button variant="secondary" onClick={() => abrirFormulario('informar')}>
                 Informar ausencia
               </Button>

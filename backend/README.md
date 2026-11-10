@@ -449,9 +449,12 @@ pero no se pueden agregar como destinatarios nuevos.
 
 **Envío de `notificar` (RF-24):** `notificaciones_service.ejecutar_notificar` renderiza la
 plantilla de la regla con el payload del evento, resuelve los destinatarios según
-`accion_config.destinatario`, crea una fila `NOTIFICACION` por destinatario (con snapshot de
-destinatario, asunto y cuerpo) y le pide a n8n el envío (`n8n_client.enviar_email`). La fila queda
-`enviado` con `sent_at`, o `fallido` si ese envío falla.
+`accion_config.destinatario` y crea una fila `NOTIFICACION` por destinatario (con snapshot de
+destinatario, asunto y cuerpo). La reserva se confirma en una transacción corta **antes** de
+llamar a n8n; el evento y la ejecución también quedan confirmados ahí. Después se envía fuera
+de la transacción y el resultado se registra en otra transacción corta: `enviado` con `sent_at`,
+`fallido` o `incierto`. Una reserva vencida (lease de 30 minutos) o una respuesta perdida queda
+`incierto` y no se reenvía automáticamente.
 
 **`alerta_interna`:** `notificaciones_service.ejecutar_alerta_interna` reutiliza el mismo envío, pero
 siempre a los `destinatarios_regla`. El cuerpo sale de la plantilla de la regla si tiene una y, si
@@ -509,15 +512,18 @@ falla. Al reintentar desde el historial (#67) se reenvían solo las filas `falli
 anterior, con los snapshots originales: editar la plantilla o el email entre intentos no cambia lo
 que se manda.
 
-Limitaciones conocidas:
+Garantías y límites de la reserva:
 
-- **Sin idempotencia:** si n8n envía el email pero la respuesta se pierde (timeout), la notificación
-  queda `fallido` y un reintento lo manda otra vez.
-- **HTTP dentro de la transacción:** los envíos van en serie dentro de la transacción del evento
-  (timeout de 10 s cada uno). Si n8n no está configurado o no responde, el resto de las
-  notificaciones se registra `fallido` sin intentar el envío. Un despachador separado (filas
-  `pendiente` + job de envío) queda para `generar_comunicacion`, donde aparecen los envíos masivos;
-  no requiere cambios de esquema.
+- **Sin locks durante HTTP:** la reserva y el evento se confirman antes de la llamada a n8n; los
+  locks de PostgreSQL no se mantienen durante la red.
+- **Resultados explícitos:** cada fila termina `enviado`, `fallido` o `incierto`. Un timeout, una
+  respuesta perdida o una reserva vencida quedan `incierto` y no se reintentan automáticamente.
+- **Recuperación:** antes de cada despacho se recuperan las reservas vencidas; se marcan inciertas
+  y la ejecución queda `fallido` con el motivo. No se reenvían a ciegas.
+- **Sin entrega exactamente una vez:** si el proceso se cae después de que n8n inició el envío, el
+  resultado puede quedar incierto. Tampoco se puede cancelar un envío ya iniciado.
+- Si n8n no está configurado o no responde, el resto de las notificaciones se registra `fallido`
+  sin intentar el envío.
 
 ### Comprobantes y PDF de factura
 

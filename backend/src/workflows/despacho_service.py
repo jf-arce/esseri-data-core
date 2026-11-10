@@ -48,8 +48,10 @@ logger = logging.getLogger(__name__)
 
 
 # Una acción recibe la sesión (dentro de un savepoint), la regla, el evento y la ejecución en
-# curso, y devuelve el detalle y, si falló sin perder lo ya escrito, el motivo. Nunca hace commit.
-# Las acciones sin ejecutor real apuntan a un stub por dueño (ver README del backend).
+# curso, y devuelve el detalle y, si falló sin perder lo ya escrito, el motivo. Las acciones de
+# notificación confirman su reserva antes del HTTP y por eso pueden hacer commit; el despachador
+# no las envuelve en un savepoint. Las acciones sin ejecutor real apuntan a un stub por dueño
+# (ver README del backend).
 AccionHandler = Callable[[Session, WorkflowRule, EventLog, WorkflowExecution], ResultadoAccion]
 ACCIONES: dict[str, AccionHandler] = {
     "notificar": notificaciones_service.ejecutar_notificar,
@@ -69,6 +71,9 @@ ACCIONES: dict[str, AccionHandler] = {
 ERROR_EVALUACION = "No se pudo evaluar la regla con los datos del evento."
 ERROR_CONFIGURACION = "La configuración de la acción no es válida."
 ERROR_ACCION = "La acción no pudo completarse."
+ACCIONES_CON_RESERVA = frozenset(
+    {"notificar", "alerta_interna", "generar_recordatorio", "generar_comunicacion"}
+)
 
 
 def procesar_eventos_pendientes(db: Session, limite: int = 100) -> ResumenDespacho:
@@ -78,6 +83,7 @@ def procesar_eventos_pendientes(db: Session, limite: int = 100) -> ResumenDespac
     despachadores a la vez (el job y el endpoint manual) no pisan el mismo evento, y una falla
     en uno no revierte los ya procesados.
     """
+    notificaciones_service.recuperar_reservas_notificacion(db)
     resumen = ResumenDespacho()
     for _ in range(limite):
         evento = db.scalars(
@@ -114,6 +120,7 @@ def procesar_recordatorios_vencidos(db: Session, limite: int = 100) -> int:
     sobre lo anterior) y de los últimos `VENTANA_RECORDATORIOS_DIAS` días después del plazo.
     Cada evento se confirma por separado, igual que en el despacho."""
     # La hora de la base, que es la que guarda `EventLog.timestamp` y `WorkflowRule.created_at`.
+    notificaciones_service.recuperar_reservas_notificacion(db)
     ahora = db.scalar(select(func.localtimestamp()))
     ejecutadas = 0
     reglas = db.scalars(
@@ -310,10 +317,15 @@ def _ejecutar_accion(
         )
         return
     try:
-        # Savepoint: si la acción falla a mitad de camino, sus escrituras se revierten sin
-        # perder la ejecución ni las de otras reglas del mismo evento.
-        with db.begin_nested():
+        if regla.tipo_accion in ACCIONES_CON_RESERVA:
+            # La reserva de notificación confirma evento, ejecución y filas antes del HTTP;
+            # no puede vivir dentro de un savepoint que se cerraría con ese commit.
             resultado = handler(db, regla, evento, ejecucion)
+        else:
+            # Savepoint: si la acción falla a mitad de camino, sus escrituras se revierten sin
+            # perder la ejecución ni las de otras reglas del mismo evento.
+            with db.begin_nested():
+                resultado = handler(db, regla, evento, ejecucion)
     except Exception as error:
         logger.error("Falló la ejecución de una acción de workflow (tipo=%s)", type(error).__name__)
         _marcar_fallida(ejecucion, ERROR_ACCION)
