@@ -65,24 +65,54 @@ function textoAlumnos(cantidad: number): string {
   return `${cantidad} ${cantidad === 1 ? 'alumno' : 'alumnos'}`
 }
 
-function ContenidoSkeleton() {
+// Los skeletons repiten las medidas del contenido real (etiqueta, desplegable, botones, título,
+// pestañas y tarjetas) para que al terminar de cargar no salte nada.
+function SelectorSkeleton({ conAcciones }: { conAcciones: boolean }) {
   return (
-    <div className="flex flex-col gap-4" aria-busy="true" aria-label="Cargando">
-      <Skeleton className="h-7 w-56" />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-28 w-full" />
-        ))}
+    <div className="flex flex-col gap-1.5">
+      <Skeleton className="h-4 w-10" />
+      <div className="flex items-center gap-1">
+        <Skeleton className="h-9 w-28" />
+        {conAcciones && (
+          <>
+            <Skeleton className="size-8" />
+            <Skeleton className="size-8" />
+          </>
+        )}
       </div>
     </div>
   )
 }
 
-function BarraSkeleton() {
+function BarraSkeleton({ conAcciones }: { conAcciones: boolean }) {
   return (
-    <div className="flex flex-wrap gap-x-6 gap-y-3">
-      <Skeleton className="h-[3.25rem] w-36" />
-      <Skeleton className="h-[3.25rem] w-36" />
+    <div className="flex flex-wrap items-end gap-x-6 gap-y-3" aria-hidden="true">
+      <SelectorSkeleton conAcciones={conAcciones} />
+      <SelectorSkeleton conAcciones={conAcciones} />
+    </div>
+  )
+}
+
+function ContenidoSkeleton({ vista, conAcciones }: { vista: Vista; conAcciones: boolean }) {
+  return (
+    <div className="flex flex-col gap-4" role="status" aria-label="Cargando">
+      <div className="flex items-baseline gap-3">
+        <Skeleton className="h-7 w-16" />
+        <Skeleton className="h-5 w-20" />
+      </div>
+      <div className="flex gap-5 border-b border-borde pb-2.5">
+        <Skeleton className="h-5 w-24" />
+        <Skeleton className="h-5 w-20" />
+      </div>
+      {vista === 'horario' ? (
+        <Skeleton className="h-[26rem] w-full" />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className={conAcciones ? 'h-[9.5rem]' : 'h-28'} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -307,10 +337,17 @@ export function EstructuraAcademicaPage() {
       )}
 
       {estructura.cargandoNiveles ? (
-        <Card className="p-6">
-          <Skeleton className="h-8 w-72" />
-          <Skeleton className="h-40 w-full" />
-        </Card>
+        <>
+          <div className="flex gap-5 border-b border-borde pb-2.5" aria-hidden="true">
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-5 w-24" />
+          </div>
+          <BarraSkeleton conAcciones={puedeEditar} />
+          <Card className="gap-5 p-6">
+            <ContenidoSkeleton vista="materias" conAcciones={puedeEditar} />
+          </Card>
+        </>
       ) : (
         <>
           <Tabs value={nivel?.id ?? ''} onValueChange={(id) => elegir({ nivel: id })}>
@@ -323,7 +360,7 @@ export function EstructuraAcademicaPage() {
             </TabsList>
           </Tabs>
 
-          {cambiandoNivel && <BarraSkeleton />}
+          {cambiandoNivel && <BarraSkeleton conAcciones={puedeEditar} />}
           {!cambiandoNivel && nivel && anio && (
             <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
               <div className="flex flex-col gap-1.5">
@@ -367,7 +404,7 @@ export function EstructuraAcademicaPage() {
                 </div>
               </div>
 
-              {estructura.cargandoAnio && <Skeleton className="h-[3.25rem] w-28" />}
+              {estructura.cargandoAnio && <SelectorSkeleton conAcciones={puedeEditar} />}
               {!estructura.cargandoAnio && division && (
                 <div className="flex flex-col gap-1.5">
                   <span id="etiqueta-division" className="text-xs font-semibold text-texto-2">
@@ -420,7 +457,11 @@ export function EstructuraAcademicaPage() {
           )}
 
           <Card className="gap-5 p-6">
-            {cambiandoNivel || cambiandoContenido ? <ContenidoSkeleton /> : contenido()}
+            {cambiandoNivel || cambiandoContenido ? (
+              <ContenidoSkeleton vista={vista} conAcciones={puedeEditar} />
+            ) : (
+              contenido()
+            )}
           </Card>
         </>
       )}
