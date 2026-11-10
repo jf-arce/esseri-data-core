@@ -6,7 +6,7 @@ import {
   ShieldAlertIcon,
   Trash2Icon,
 } from 'lucide-react'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -68,11 +68,15 @@ function textoAlumnos(cantidad: number): string {
 function AccionesMenu({
   etiqueta,
   textoAgregar,
+  textoEditar = 'Editar',
+  textoEliminar = 'Dar de baja',
   onAgregar,
   onEditar,
   onEliminar,
 }: {
   etiqueta: string
+  textoEditar?: string
+  textoEliminar?: string
   textoAgregar?: string
   onAgregar?: () => void
   onEditar: () => void
@@ -94,12 +98,12 @@ function AccionesMenu({
         )}
         <DropdownMenuItem onSelect={onEditar}>
           <PencilIcon className="text-petroleo" />
-          Editar
+          {textoEditar}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={onEliminar}>
           <Trash2Icon />
-          Dar de baja
+          {textoEliminar}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -283,33 +287,6 @@ export function EstructuraAcademicaPage() {
             <span className="text-sm text-texto-3">
               {textoAlumnos(division.cantidad_inscripciones)}
             </span>
-            {puedeEditar && (
-              <span className="flex items-center gap-1 self-center">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Editar división ${etiquetaDivision(anio, division)}`}
-                  title="Editar división"
-                  onClick={() =>
-                    setDialogAbm({ entidad: 'division', modo: 'editar', item: division })
-                  }
-                >
-                  <PencilIcon />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="text-error hover:text-error"
-                  aria-label={`Dar de baja división ${etiquetaDivision(anio, division)}`}
-                  title="Dar de baja división"
-                  onClick={() =>
-                    setDialogAbm({ entidad: 'division', modo: 'eliminar', item: division })
-                  }
-                >
-                  <Trash2Icon />
-                </Button>
-              </span>
-            )}
           </div>
           <Tabs
             value={vista}
@@ -438,9 +415,22 @@ export function EstructuraAcademicaPage() {
                       >
                         <TabsList className="overflow-x-auto">
                           {estructura.divisiones.map((d) => (
-                            <TabsTrigger key={d.id} value={d.id}>
-                              {d.nombre}
-                            </TabsTrigger>
+                            <Fragment key={d.id}>
+                              <TabsTrigger value={d.id}>{d.nombre}</TabsTrigger>
+                              {puedeEditar && d.id === division?.id && (
+                                <AccionesMenu
+                                  etiqueta={`Acciones de la división ${etiquetaDivision(anio, d)}`}
+                                  textoEditar="Editar división"
+                                  textoEliminar="Dar de baja división"
+                                  onEditar={() =>
+                                    setDialogAbm({ entidad: 'division', modo: 'editar', item: d })
+                                  }
+                                  onEliminar={() =>
+                                    setDialogAbm({ entidad: 'division', modo: 'eliminar', item: d })
+                                  }
+                                />
+                              )}
+                            </Fragment>
                           ))}
                           {puedeEditar && (
                             <TabsTrigger value={NUEVO} aria-label="Agregar división">
