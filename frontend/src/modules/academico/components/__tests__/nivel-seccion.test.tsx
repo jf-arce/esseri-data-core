@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { NivelSeccion } from '@/modules/academico/components/nivel-seccion'
 import type { NivelConEstructura } from '@/modules/academico/hooks/use-estructura-academica'
@@ -49,6 +50,7 @@ const nivel: NivelConEstructura = {
                 },
               ],
               cantidad_asignaciones: 1,
+              docentes: ['Pérez, Ana'],
               created_at: '',
               updated_at: '',
             },
@@ -65,6 +67,7 @@ const nivel: NivelConEstructura = {
               nivel_educativo_nombre: 'Primario',
               horarios: [],
               cantidad_asignaciones: 0,
+              docentes: [],
               created_at: '',
               updated_at: '',
             },
@@ -89,40 +92,58 @@ const handlers = {
   onEliminarMateriaCurso: vi.fn(),
 }
 
+function abrirDetalleCurso() {
+  return userEvent.click(screen.getByRole('button', { name: 'Ver detalle del curso 1°A' }))
+}
+
 describe('NivelSeccion', () => {
-  it('sin `puedeEditar`, no muestra ningún trigger de escritura (dirección: mira, no opera)', () => {
+  it('sin `puedeEditar`, no muestra ningún trigger de escritura (dirección: mira, no opera)', async () => {
     render(<NivelSeccion nivel={nivel} puedeEditar={false} {...handlers} />)
 
     expect(screen.queryByLabelText('Acciones del nivel')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'División' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Acciones del año')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Acciones de la división')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Editar materia')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Eliminar materia')).not.toBeInTheDocument()
     // Los datos siguen visibles: solo se ocultan los triggers de escritura, no el contenido.
     expect(screen.getByText('Primario')).toBeInTheDocument()
     expect(screen.getByText('1°A')).toBeInTheDocument()
+
+    await abrirDetalleCurso()
+
     expect(screen.getByText('Matemática')).toBeInTheDocument()
     expect(screen.getByText('Educación Física')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Editar materia')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Eliminar materia')).not.toBeInTheDocument()
   })
 
-  it('con `puedeEditar`, muestra los triggers de escritura', () => {
+  it('con `puedeEditar`, muestra los triggers de escritura', async () => {
     render(<NivelSeccion nivel={nivel} puedeEditar {...handlers} />)
 
     expect(screen.getByLabelText('Acciones del nivel')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'División' })).toBeInTheDocument()
     expect(screen.getByLabelText('Acciones del año')).toBeInTheDocument()
     expect(screen.getByLabelText('Acciones de la división')).toBeInTheDocument()
-    // Dos materias-curso en la división: dos filas editables.
+
+    // Las materias ya no se listan en la tarjeta: sus acciones viven en el detalle del curso.
+    expect(screen.queryByLabelText('Editar materia')).not.toBeInTheDocument()
+
+    await abrirDetalleCurso()
+
+    // Dos materias-curso en la división: dos filas editables dentro del diálogo.
     expect(screen.getAllByLabelText('Editar materia')).toHaveLength(2)
     expect(screen.getAllByLabelText('Eliminar materia')).toHaveLength(2)
   })
 
-  it('muestra el horario de cada materia y avisa cuando no tiene docente', () => {
+  it('muestra horario y docentes al abrir el detalle del curso', async () => {
     render(<NivelSeccion nivel={nivel} puedeEditar={false} {...handlers} />)
+
+    expect(screen.queryByText(/Lun 08:00–09:00/)).not.toBeInTheDocument()
+
+    await abrirDetalleCurso()
 
     expect(screen.getByText(/Lun 08:00–09:00/)).toBeInTheDocument()
     expect(screen.getByText(/Sin horario/)).toBeInTheDocument()
-    expect(screen.getByText(/sin docente/)).toBeInTheDocument()
+    expect(screen.getByText('Pérez, Ana')).toBeInTheDocument()
+    expect(screen.getByText(/sin docente/i)).toBeInTheDocument()
   })
 })

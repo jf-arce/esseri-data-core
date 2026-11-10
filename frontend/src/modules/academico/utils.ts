@@ -58,6 +58,11 @@ export function formatearHorarios(
   return horarios.map(formatearHorario).join(' · ')
 }
 
+/** "1 materia" / "2 materias" — conteos de las tarjetas de estructura académica. */
+export function pluralizar(cantidad: number, singular: string, pluralForma: string): string {
+  return `${cantidad} ${cantidad === 1 ? singular : pluralForma}`
+}
+
 const ETIQUETAS_TIPO_ASISTENCIA: Record<TipoAsistencia, string> = {
   presente: 'Presente',
   tardanza: 'Tardanza',
