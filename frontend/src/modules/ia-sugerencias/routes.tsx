@@ -24,6 +24,7 @@ export const iaSugerenciasFamiliaRoutes: RouteObject[] = [
       <PortalFamiliaTramitePage
         titulo="Asistencias"
         descripcion="Consultá el resumen, justificá ausencias y revisá el historial de asistencia."
+        modo="asistencias"
       />
     ),
   },
@@ -34,6 +35,18 @@ export const iaSugerenciasFamiliaRoutes: RouteObject[] = [
         titulo="Asistencias"
         descripcion="Informá el motivo de la ausencia y adjuntá el comprobante correspondiente."
         seccionInicial="pendientes"
+      />
+    ),
+  },
+  {
+    path: 'familia/informar-ausencia',
+    element: (
+      <PortalFamiliaTramitePage
+        titulo="Informar ausencia"
+        descripcion="Informá una ausencia para una fecha o un período, pasado, presente o futuro."
+        modo="informar"
+        seccionInicial="solicitudes"
+        abrirFormularioInicial
       />
     ),
   },

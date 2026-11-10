@@ -3,13 +3,20 @@ import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PortalFamiliaTramitePage } from '@/pages/portal-familia-tramite-page'
 import { listarAsistenciasFamilia } from '@/modules/academico/services/listar-asistencias-familia'
+import {
+  cancelarSolicitudAusencia,
+  listarSolicitudesAusenciaFamilia,
+} from '@/modules/academico/services/solicitudes-ausencia-familia'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
 import type { AsistenciaFamilia } from '@/modules/academico/types'
 
 vi.mock('@/modules/academico/services/listar-asistencias-familia')
+vi.mock('@/modules/academico/services/solicitudes-ausencia-familia')
 vi.mock('@/modules/familias-alumnos/hooks/use-mis-alumnos')
 
 const mockedListarAsistenciasFamilia = vi.mocked(listarAsistenciasFamilia)
+const mockedListarSolicitudesFamilia = vi.mocked(listarSolicitudesAusenciaFamilia)
+const mockedCancelarSolicitud = vi.mocked(cancelarSolicitudAusencia)
 const mockedUseMisAlumnos = vi.mocked(useMisAlumnos)
 
 function crearAsistencia(overrides: Partial<AsistenciaFamilia>): AsistenciaFamilia {
@@ -31,6 +38,8 @@ function crearAsistencia(overrides: Partial<AsistenciaFamilia>): AsistenciaFamil
 describe('PortalFamiliaTramitePage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockedListarSolicitudesFamilia.mockResolvedValue([])
+    mockedCancelarSolicitud.mockResolvedValue({} as never)
     mockedUseMisAlumnos.mockReturnValue({
       alumnos: [
         {
@@ -316,5 +325,62 @@ describe('PortalFamiliaTramitePage', () => {
     expect(screen.getByRole('combobox', { name: 'Ordenar por fecha' })).toHaveTextContent(
       'Ascendente',
     )
+  })
+
+  it('oculta Justificar si una solicitud cubre la fecha y permite cancelarla', async () => {
+    mockedListarAsistenciasFamilia.mockResolvedValue([
+      crearAsistencia({
+        id: 'asistencia-cubierta',
+        fecha: '2027-03-15',
+        tipo: 'ausente_pendiente',
+      }),
+    ])
+    mockedListarSolicitudesFamilia.mockResolvedValue([
+      {
+        id: 'solicitud-1',
+        alumno_id: 'alumno-1',
+        fecha_inicio: '2027-03-15',
+        fecha_fin: '2027-03-15',
+        estado: 'pendiente',
+        motivo: 'enfermedad',
+        observacion: null,
+        observacion_resolucion: null,
+        archivo_nombre: null,
+        fecha_carga: '2027-03-15T08:00:00',
+        fecha_resolucion: null,
+      },
+    ])
+    render(
+      <MemoryRouter>
+        <PortalFamiliaTramitePage titulo="Asistencias" descripcion="Consultá tus asistencias." />
+      </MemoryRouter>,
+    )
+
+    await screen.findByRole('heading', { name: 'Resumen de asistencia' })
+    fireEvent.click(screen.getByRole('tab', { name: 'Justificar asistencia' }))
+    expect(await screen.findByText('Cubierta por solicitud')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Justificar' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Solicitudes' }))
+    expect(screen.getByText('Pendiente')).toBeInTheDocument()
+    const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    await vi.waitFor(() => expect(mockedCancelarSolicitud).toHaveBeenCalledWith('solicitud-1'))
+    confirmar.mockRestore()
+  })
+
+  it('abre el formulario compartido desde Informar ausencia', async () => {
+    mockedListarAsistenciasFamilia.mockResolvedValue([])
+    render(
+      <MemoryRouter>
+        <PortalFamiliaTramitePage titulo="Asistencias" descripcion="Consultá tus asistencias." />
+      </MemoryRouter>,
+    )
+
+    await screen.findByRole('heading', { name: 'Resumen de asistencia' })
+    fireEvent.click(screen.getByRole('button', { name: 'Informar ausencia' }))
+
+    expect(screen.getByRole('heading', { name: 'Informar ausencia' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Desde')).toBeInTheDocument()
   })
 })

@@ -255,6 +255,23 @@ export type JustificacionFamilia = {
   fecha_resolucion?: string | null
 }
 
+export type EstadoSolicitudPeriodo =
+  'pendiente' | 'aprobada' | 'rechazada' | 'cancelada' | 'revocada'
+
+export type SolicitudAusenciaPeriodo = {
+  id: string
+  alumno_id: string
+  fecha_inicio: string
+  fecha_fin: string
+  estado: EstadoSolicitudPeriodo
+  motivo: string
+  observacion: string | null
+  observacion_resolucion: string | null
+  archivo_nombre: string | null
+  fecha_carga: string
+  fecha_resolucion: string | null
+}
+
 export type JustificacionesResumen = {
   pendientes: number
   aprobadas: number
