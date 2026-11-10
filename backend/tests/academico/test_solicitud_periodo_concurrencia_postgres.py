@@ -14,6 +14,7 @@ from src.academico.models import MotivoJustificacion, SolicitudAusenciaPeriodo
 from src.academico.solicitud_periodo_service import (
     cancelar_solicitud_periodo,
     crear_solicitud_periodo,
+    resolver_solicitud_periodo,
 )
 from src.auth.exceptions import PermisoDenegado
 from src.auth.models import Usuario
@@ -258,4 +259,72 @@ def test_period_request_rechecks_family_link_after_student_lock(operation):
             transaction.rollback()
         blocker.close()
         event.remove(engine, "before_cursor_execute", observe_lock)
+        engine.dispose()
+
+
+def test_concurrent_approval_and_cancellation_record_one_transition():
+    """Aprobación y cancelación compiten por el mismo bloqueo de alumno."""
+    engine = _engine()
+    ids, inscripciones = _scenario(engine, students=1)
+    try:
+        with Session(engine) as db:
+            from src.inscripciones.models import Inscripcion
+
+            alumno_id = db.get(Inscripcion, inscripciones[0]).alumno_id
+            persona = Persona(nombre="Test", apellido="Family", dni=str(uuid.uuid4()))
+            db.add(persona)
+            db.flush()
+            familia = Familia(persona_id=persona.id)
+            usuario = db.get(Usuario, ids["usuario"])
+            usuario.persona_id = persona.id
+            db.add_all([familia, MotivoJustificacion(nombre="resolve-race", activo=True)])
+            db.flush()
+            db.add(FamiliaAlumno(familia_id=familia.id, alumno_id=alumno_id))
+            db.commit()
+            solicitud = crear_solicitud_periodo(
+                db,
+                usuario,
+                alumno_id,
+                date(2027, 7, 1),
+                date(2027, 7, 2),
+                "resolve-race",
+                None,
+            )
+            solicitud_id = solicitud.id
+
+        def decide(operation):
+            with Session(engine) as db:
+                try:
+                    if operation == "approve":
+                        resolver_solicitud_periodo(
+                            db, db.get(Usuario, ids["usuario"]), solicitud_id, True, None
+                        )
+                        return "approved"
+                    cancelar_solicitud_periodo(db, db.get(Usuario, ids["usuario"]), solicitud_id)
+                    return "cancelled"
+                except HTTPException as exc:
+                    db.rollback()
+                    return exc.status_code
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(decide, ["approve", "cancel"]))
+
+        assert results.count(409) == 1
+        winner = next(result for result in results if result != 409)
+        assert winner in {"approved", "cancelled"}
+        with Session(engine) as db:
+            solicitud = db.get(SolicitudAusenciaPeriodo, solicitud_id)
+            assert solicitud.estado == ("aprobada" if winner == "approved" else "cancelada")
+            assert (
+                db.query(AuditLog)
+                .filter(
+                    AuditLog.entidad == "SOLICITUD_AUSENCIA_PERIODO",
+                    AuditLog.entidad_id == solicitud_id,
+                    AuditLog.campo == "estado",
+                    AuditLog.valor_nuevo.in_(("aprobada", "cancelada")),
+                )
+                .count()
+                == 1
+            )
+    finally:
         engine.dispose()
