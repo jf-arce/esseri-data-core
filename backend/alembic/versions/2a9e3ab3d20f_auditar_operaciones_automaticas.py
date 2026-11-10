@@ -30,9 +30,11 @@ def upgrade() -> None:
         batch.add_column(sa.Column("motivo", sa.String(), nullable=True))
         batch.add_column(sa.Column("referencia_entidad", sa.String(), nullable=True))
         batch.add_column(sa.Column("referencia_id", sa.Uuid(), nullable=True))
-        batch.create_check_constraint(
-            "ck_audit_log_actor_tipo", "actor_tipo IN ('usuario', 'sistema')"
-        )
+    op.execute(
+        "ALTER TABLE audit_log ADD CONSTRAINT ck_audit_log_actor_tipo "
+        "CHECK (actor_tipo IN ('usuario', 'sistema')) NOT VALID"
+    )
+    op.execute("ALTER TABLE audit_log VALIDATE CONSTRAINT ck_audit_log_actor_tipo")
 
 
 def downgrade() -> None:

@@ -8,7 +8,7 @@ from datetime import date, datetime
 from io import BytesIO, StringIO
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, inspect, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from src.academico.exceptions import (
@@ -437,12 +437,28 @@ def verificar_acceso_a_division(
         raise PermisoDenegado("No tenés asignada esta división")
 
 
+def _asistencia_id(asistencia: Asistencia) -> uuid.UUID | None:
+    """PK sin lazy-load: un objeto puede estar expirado y su fila ya borrada."""
+    identidad = inspect(asistencia).identity
+    if identidad:
+        return identidad[0]
+    return asistencia.id if asistencia.id is not None else None
+
+
 def verificar_acceso_a_asistencia(
     db: Session, asistencia: Asistencia, usuario_id: uuid.UUID, rol_activo: str | None
 ) -> None:
     """Variante de `verificar_acceso_a_division` a partir de un registro ya cargado (GET por id,
     actualizar, eliminar): resuelve la división vía su inscripción."""
-    inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
+    asistencia_id = _asistencia_id(asistencia)
+    if asistencia_id is None:
+        return
+    inscripcion_id = db.scalar(
+        select(Asistencia.inscripcion_id).where(Asistencia.id == asistencia_id)
+    )
+    if inscripcion_id is None:
+        return
+    inscripcion = db.get(Inscripcion, inscripcion_id)
     if inscripcion is not None:
         verificar_acceso_a_division(
             db, usuario_id, inscripcion.division_id, rol_activo, inscripcion.ciclo_lectivo
@@ -844,12 +860,20 @@ def eliminar_asistencia(
     db: Session, asistencia: Asistencia, usuario_id: uuid.UUID, rol_activo: str | None
 ) -> None:
     """Eliminar un registro de asistencia."""
+    asistencia_id = _asistencia_id(asistencia)
+    if asistencia_id is None:
+        return
     verificar_acceso_a_asistencia(db, asistencia, usuario_id, rol_activo)
-    inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
+    inscripcion_id = db.scalar(
+        select(Asistencia.inscripcion_id).where(Asistencia.id == asistencia_id)
+    )
+    inscripcion = db.get(Inscripcion, inscripcion_id) if inscripcion_id is not None else None
     if inscripcion is not None:
         db.scalar(select(Alumno.id).where(Alumno.id == inscripcion.alumno_id).with_for_update())
-        db.refresh(asistencia)
-    asistencia_id = asistencia.id
+    existe = db.scalar(select(Asistencia.id).where(Asistencia.id == asistencia_id))
+    if existe is None:
+        return
+    db.refresh(asistencia)
     tipo_anterior = asistencia.tipo
     vinculo_periodo = asistencia.solicitud_ausencia_periodo_id
     if vinculo_periodo is not None:

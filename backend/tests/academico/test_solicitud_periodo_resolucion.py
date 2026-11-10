@@ -520,6 +520,47 @@ def test_aplicar_cobertura_registra_auditoria_de_sistema(db_session, contexto):
     assert auditoria.referencia_id == referencia
 
 
+def _admin_estructura(db, email="admin-eliminar@example.test"):
+    rol = Rol(codigo="admin-eliminar", nombre="admin-eliminar")
+    permiso = Permiso(
+        modulo=MODULO_ACADEMICO,
+        accion=ACCION_ACTUALIZAR,
+        tipo_informacion="estructura",
+    )
+    usuario = Usuario(
+        email=email,
+        auth_provider="local",
+        estado="activo",
+    )
+    db.add_all([rol, permiso, usuario])
+    db.flush()
+    db.add_all(
+        [
+            RolPermiso(rol_id=rol.id, permiso_id=permiso.id),
+            UsuarioRol(usuario_id=usuario.id, rol_id=rol.id),
+        ]
+    )
+    db.commit()
+    return usuario, rol.codigo
+
+
+def test_eliminar_asistencia_borrada_antes_es_idempotente(db_session, contexto):
+    ids, _ = contexto
+    asistencia = _asistencia(ids, date(2027, 3, 1), "presente")
+    db_session.add(asistencia)
+    db_session.commit()
+    asistencia_id = asistencia.id
+    usuario, rol_codigo = _admin_estructura(db_session)
+
+    db_session.delete(asistencia)
+    db_session.commit()
+
+    eliminar_asistencia(db_session, asistencia, usuario.id, rol_codigo)
+
+    db_session.expire_all()
+    assert db_session.get(Asistencia, asistencia_id) is None
+
+
 def test_eliminar_asistencia_vinculada_audita_el_retiro(db_session, contexto):
     ids, _ = contexto
     asistencia = _asistencia(ids, date(2027, 3, 1), "ausente_pendiente")

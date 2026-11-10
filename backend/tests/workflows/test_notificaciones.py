@@ -477,6 +477,32 @@ def test_resultado_incierto_no_se_marca_enviado_ni_fallido(
     assert len(envios.intentos) == 2
 
 
+def test_reintento_mixto_conserva_la_incertidumbre(
+    db_session, tipo_factura_vencida, plantilla, envios
+):
+    regla = _preparar_regla_con_usuarios(db_session, tipo_factura_vencida, plantilla)
+    evento = _evento(db_session, tipo_factura_vencida)
+    primera = _ejecucion(db_session, regla, evento)
+    envios.fallar["u00@esseri.edu.ar"] = N8nEnvioFallido()
+    envios.fallar["u01@esseri.edu.ar"] = N8nResultadoIncierto()
+    ejecutar_notificar(db_session, regla, evento, primera)
+    envios.fallar.clear()
+
+    segunda = _ejecucion(db_session, regla, evento, intento=2)
+    resultado = ejecutar_notificar(db_session, regla, evento, segunda)
+
+    assert resultado.error == notificaciones_service.ERROR_ENVIO
+    assert "1 de 1 emails enviados" in resultado.detalle
+    assert "incierto" in resultado.detalle
+    estado_incierto = db_session.scalar(
+        select(Notificacion.estado_envio).where(
+            Notificacion.workflow_execution_id == primera.id,
+            Notificacion.destinatario_snapshot == "u01@esseri.edu.ar",
+        )
+    )
+    assert estado_incierto == "incierto"
+
+
 def test_regla_sin_plantilla_falla_sin_notificaciones(db_session, tipo_factura_vencida, envios):
     regla = _preparar_regla_con_usuarios(db_session, tipo_factura_vencida, None)
     evento = _evento(db_session, tipo_factura_vencida)

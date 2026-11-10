@@ -3,7 +3,12 @@ import pytest
 
 from src.config import settings
 from src.workflows import n8n_client
-from src.workflows.exceptions import N8nEnvioFallido, N8nNoConfigurado, N8nNoDisponible
+from src.workflows.exceptions import (
+    N8nEnvioFallido,
+    N8nNoConfigurado,
+    N8nNoDisponible,
+    N8nResultadoIncierto,
+)
 
 
 @pytest.fixture()
@@ -64,3 +69,22 @@ def test_n8n_inalcanzable(webhook):
 
     with pytest.raises(N8nNoDisponible, match="contactar"):
         n8n_client.enviar_email("a@b.c", "x", "y", transport=httpx.MockTransport(caido))
+
+
+@pytest.mark.parametrize(
+    ("error", "esperada"),
+    [
+        (httpx.PoolTimeout("pool"), N8nNoDisponible),
+        (httpx.LocalProtocolError("local"), N8nNoDisponible),
+        (httpx.ProxyError("proxy"), N8nNoDisponible),
+        (httpx.InvalidURL("url"), N8nNoConfigurado),
+        (httpx.UnsupportedProtocol("protocolo"), N8nNoConfigurado),
+        (httpx.ReadTimeout("timeout de lectura"), N8nResultadoIncierto),
+    ],
+)
+def test_clasifica_errores_locales_y_de_transporte(webhook, error, esperada):
+    def fallar(request: httpx.Request) -> httpx.Response:
+        raise error
+
+    with pytest.raises(esperada):
+        n8n_client.enviar_email("a@b.c", "x", "y", transport=httpx.MockTransport(fallar))

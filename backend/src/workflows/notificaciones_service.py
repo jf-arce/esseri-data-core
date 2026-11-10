@@ -450,9 +450,19 @@ def _ejecutar(
                     error=ERROR_ENVIO,
                 )
             return ResultadoAccion(detalle="Todos los emails ya habían sido enviados.")
-        return _enviar_todos(
+        resultado = _enviar_todos(
             db, ejecucion, pendientes, total=len(pendientes), sin_email=0, enlace=_enlace_de(regla)
         )
+        inciertos = sum(1 for notificacion in previas if notificacion.estado_envio == "incierto")
+        if inciertos:
+            return ResultadoAccion(
+                detalle=(
+                    f"{resultado.detalle}; {inciertos} envío(s) con resultado "
+                    "incierto sin reintentar"
+                ),
+                error=ERROR_ENVIO,
+            )
+        return resultado
 
     try:
         asunto, cuerpo = obtener_contenido(db, regla, evento)

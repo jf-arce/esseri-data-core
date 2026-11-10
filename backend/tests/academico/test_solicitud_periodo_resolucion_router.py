@@ -108,6 +108,29 @@ def test_solicitud_inexistente_devuelve_404(client_secretaria):
     assert respuesta.status_code == 404
 
 
+def _crear_solicitud_aprobada(db_session, ids, fecha):
+    motivo = MotivoJustificacion(nombre=f"enfermedad-{fecha.isoformat()}", activo=True)
+    admin = Usuario(
+        email=f"admin-{fecha.isoformat()}@example.test",
+        auth_provider="local",
+        estado="activo",
+    )
+    db_session.add_all([motivo, admin])
+    db_session.commit()
+    usuario_a = db_session.get(Usuario, ids["usuario_a"])
+    solicitud = crear_solicitud_periodo(
+        db_session,
+        usuario_a,
+        ids["alumno_a"],
+        fecha,
+        fecha,
+        motivo.nombre,
+        None,
+    )
+    resolver_solicitud_periodo(db_session, admin, solicitud.id, True, None)
+    return solicitud
+
+
 def _aprobar(client, solicitud):
     return client.patch(
         f"/academico/solicitudes-ausencia/{solicitud.id}/resolver",
@@ -284,3 +307,58 @@ def test_registrar_asistencia_aplica_cobertura_y_conserva_evento(
         db_session.query(EventLog).filter_by(entidad="asistencia", entidad_id=asistencia.id).one()
     )
     assert evento.payload["tipo_asistencia"] == "ausente_pendiente"
+
+
+def test_bulk_aplica_cobertura_de_periodo(
+    client_secretaria,
+    db_session,
+    escenario_dos_familias,
+    tipo_inasistencia_registrada,
+):
+    ids = escenario_dos_familias
+    solicitud = _crear_solicitud_aprobada(db_session, ids, date(2027, 9, 1))
+
+    respuesta = client_secretaria.post(
+        "/academico/asistencias/bulk",
+        json={
+            "fecha": "2027-09-01",
+            "division_id": str(ids["division"]),
+            "registros": [{"inscripcion_id": str(ids["inscripcion_a"]), "tipo": "ausente"}],
+        },
+    )
+
+    assert respuesta.status_code == 200
+    asistencia = (
+        db_session.query(Asistencia)
+        .filter_by(inscripcion_id=ids["inscripcion_a"], fecha=date(2027, 9, 1))
+        .one()
+    )
+    assert asistencia.tipo == "ausente_justificado"
+    assert asistencia.solicitud_ausencia_periodo_id == solicitud.id
+
+
+def test_actualizar_asistencia_a_ausente_aplica_cobertura(
+    client_secretaria,
+    db_session,
+    escenario_dos_familias,
+    tipo_inasistencia_registrada,
+):
+    ids = escenario_dos_familias
+    solicitud = _crear_solicitud_aprobada(db_session, ids, date(2027, 10, 1))
+    asistencia = Asistencia(
+        inscripcion_id=ids["inscripcion_a"],
+        fecha=date(2027, 10, 1),
+        tipo="presente",
+    )
+    db_session.add(asistencia)
+    db_session.commit()
+
+    respuesta = client_secretaria.put(
+        f"/academico/asistencias/{asistencia.id}",
+        json={"tipo": "ausente"},
+    )
+
+    assert respuesta.status_code == 200
+    db_session.refresh(asistencia)
+    assert asistencia.tipo == "ausente_justificado"
+    assert asistencia.solicitud_ausencia_periodo_id == solicitud.id
