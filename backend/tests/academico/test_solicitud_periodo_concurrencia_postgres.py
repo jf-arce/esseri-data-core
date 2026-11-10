@@ -423,3 +423,121 @@ def test_concurrent_revocations_record_one_transition():
             )
     finally:
         engine.dispose()
+
+
+def test_concurrent_legacy_justification_and_period_creation_serialize():
+    """La justificación individual y la solicitud por período no pueden cubrir la misma fecha."""
+    engine = _engine()
+    ids, inscripciones = _scenario(engine, students=1)
+    fecha = date(2027, 9, 1)
+    try:
+        with Session(engine) as db:
+            from src.inscripciones.models import Inscripcion
+
+            alumno_id = db.get(Inscripcion, inscripciones[0]).alumno_id
+            persona = Persona(nombre="Test", apellido="Family", dni=str(uuid.uuid4()))
+            db.add(persona)
+            db.flush()
+            familia = Familia(persona_id=persona.id)
+            usuario = db.get(Usuario, ids["usuario"])
+            usuario.persona_id = persona.id
+            db.add_all([familia, MotivoJustificacion(nombre="legacy-race", activo=True)])
+            db.flush()
+            db.add(FamiliaAlumno(familia_id=familia.id, alumno_id=alumno_id))
+            db.commit()
+            from src.inscripciones.models import Asistencia
+
+            asistencia = Asistencia(
+                inscripcion_id=inscripciones[0], fecha=fecha, tipo="ausente_pendiente"
+            )
+            db.add(asistencia)
+            db.commit()
+            asistencia_id = asistencia.id
+
+        barrier = threading.Barrier(2)
+        waited = set()
+
+        def pause(conn, cursor, statement, parameters, context, executemany):
+            if "FROM solicitud_ausencia_periodo" in statement or (
+                "FROM justificacion_inasistencia" in statement
+            ):
+                name = threading.current_thread().name
+                if name not in waited:
+                    waited.add(name)
+                    try:
+                        barrier.wait(timeout=1)
+                    except threading.BrokenBarrierError:
+                        pass
+
+        event.listen(engine, "after_cursor_execute", pause)
+
+        def justificar(_):
+            from src.academico import service
+            from src.inscripciones.models import Asistencia
+
+            with Session(engine) as db:
+                try:
+                    service.justificar_asistencia_de_familia(
+                        db,
+                        db.get(Usuario, ids["usuario"]),
+                        db.get(Asistencia, asistencia_id),
+                        "legacy-race",
+                        None,
+                    )
+                    return "legacy"
+                except HTTPException as exc:
+                    db.rollback()
+                    return (exc.status_code, exc.detail)
+
+        def solicitar(_):
+            with Session(engine) as db:
+                try:
+                    crear_solicitud_periodo(
+                        db,
+                        db.get(Usuario, ids["usuario"]),
+                        alumno_id,
+                        fecha,
+                        fecha,
+                        "legacy-race",
+                        None,
+                    )
+                    return "period"
+                except HTTPException as exc:
+                    db.rollback()
+                    return (exc.status_code, exc.detail)
+
+        try:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                results = list(pool.map(lambda fn: fn(None), [justificar, solicitar]))
+        finally:
+            event.remove(engine, "after_cursor_execute", pause)
+
+        assert len(results) == 2
+        exitos = [resultado for resultado in results if isinstance(resultado, str)]
+        conflictos = [resultado for resultado in results if isinstance(resultado, tuple)]
+        assert len(exitos) == 1 and exitos[0] in {"legacy", "period"}
+        assert len(conflictos) == 1 and conflictos[0][0] == 409
+        conflict = conflictos[0]
+
+        with Session(engine) as db:
+            from src.academico.models import JustificacionInasistencia
+            from src.inscripciones.models import Asistencia
+
+            justificaciones = db.scalars(
+                select(JustificacionInasistencia).where(
+                    JustificacionInasistencia.asistencia_id == asistencia_id
+                )
+            ).all()
+            periodos = db.scalars(
+                select(SolicitudAusenciaPeriodo).where(
+                    SolicitudAusenciaPeriodo.alumno_id == alumno_id
+                )
+            ).all()
+            assert (len(justificaciones), len(periodos)) in {(1, 0), (0, 1)}
+            if justificaciones:
+                assert conflict[1]["origen"] == "individual"
+            else:
+                assert conflict[1]["origen"] == "periodo"
+                assert db.get(Asistencia, asistencia_id).tipo == "ausente_pendiente"
+    finally:
+        engine.dispose()

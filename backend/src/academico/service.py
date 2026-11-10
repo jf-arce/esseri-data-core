@@ -9,6 +9,7 @@ from io import BytesIO, StringIO
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, inspect, select
+from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from src.academico.exceptions import (
@@ -177,9 +178,20 @@ def justificar_asistencia_de_familia(
     inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
     if inscripcion is None:
         raise PermisoDenegado()
-    asistencias_propias = asistencias_de_familia(db, usuario, inscripcion.alumno_id)
-    if not any(registro.asistencia.id == asistencia.id for registro in asistencias_propias):
-        raise PermisoDenegado("No tenés acceso a esta ausencia")
+    # Mismo orden de locks que la creación/resolución por período: alumno y luego vínculo.
+    # Así la cobertura individual y la del período no pueden confirmarse a la vez.
+    db.scalar(select(Alumno.id).where(Alumno.id == inscripcion.alumno_id).with_for_update())
+    familia = _familia_del_usuario(db, usuario)
+    vinculo = select(FamiliaAlumno.id).where(
+        FamiliaAlumno.familia_id == familia.id,
+        FamiliaAlumno.alumno_id == inscripcion.alumno_id,
+    )
+    if db.scalar(vinculo.with_for_update()) is None:
+        raise PermisoDenegado("No tenés acceso a este alumno")
+    try:
+        db.refresh(asistencia)
+    except InvalidRequestError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Asistencia no encontrada") from None
     if asistencia.tipo != "ausente_pendiente":
         raise HTTPException(status.HTTP_409_CONFLICT, "Solo podés justificar ausencias pendientes")
     existe_justificacion = (
@@ -228,7 +240,7 @@ def justificar_asistencia_de_familia(
         )
     justificacion = JustificacionInasistencia(
         asistencia_id=asistencia.id,
-        familia_id=_familia_del_usuario(db, usuario).id,
+        familia_id=familia.id,
         motivo_justificacion_id=motivo_db.id,
         usuario_id=usuario.id,
         observacion=observacion,
