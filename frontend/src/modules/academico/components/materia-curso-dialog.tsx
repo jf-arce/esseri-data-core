@@ -31,7 +31,12 @@ import type {
   MateriaCurso,
   TipoMateria,
 } from '@/modules/academico/types'
-import { normalizarTexto } from '@/modules/academico/utils'
+import {
+  buscarConflictos,
+  describirConflicto,
+  normalizarTexto,
+  type FranjaOcupada,
+} from '@/modules/academico/utils'
 
 type ModoMateriaCurso = 'crear' | 'editar' | 'eliminar'
 
@@ -45,6 +50,8 @@ interface MateriaCursoDialogProps {
   catalogo: Materia[]
   /** Materias que ya están asignadas a este curso: no se ofrecen de nuevo al crear. */
   materiasExcluidas?: string[]
+  /** Franjas de las otras materias de la división, para avisar de superposiciones. */
+  horariosOcupados?: FranjaOcupada[]
   onExito: () => void
 }
 
@@ -79,6 +86,7 @@ export function MateriaCursoDialog({
   divisionNombre,
   catalogo,
   materiasExcluidas = [],
+  horariosOcupados = [],
   onExito,
 }: MateriaCursoDialogProps) {
   const esEdicion = modo === 'editar'
@@ -152,15 +160,7 @@ export function MateriaCursoDialog({
     )
   }
 
-  function hayFranjaDuplicada(): boolean {
-    const vistas = new Set<string>()
-    for (const franja of franjas) {
-      const clave = `${franja.dia_semana}-${franja.hora_inicio}`
-      if (vistas.has(clave)) return true
-      vistas.add(clave)
-    }
-    return false
-  }
+  const conflictos = buscarConflictos(franjas, horariosOcupados)
 
   // Al crear, no se ofrecen materias que el curso ya tiene asignadas.
   const catalogoDisponible = esEdicion
@@ -188,11 +188,6 @@ export function MateriaCursoDialog({
 
       if (crearNueva && nuevaMateriaDuplicada) {
         setError('Ya existe una materia con ese nombre en el catálogo.')
-        return
-      }
-
-      if (hayFranjaDuplicada()) {
-        setError('Hay dos franjas con el mismo día y hora de inicio.')
         return
       }
 
@@ -271,7 +266,7 @@ export function MateriaCursoDialog({
   const materiaSeleccionadaValida = crearNueva
     ? nuevaMateriaNombre.trim().length > 0 && !nuevaMateriaDuplicada
     : materiaId.length > 0
-  const puedeGuardar = materiaSeleccionadaValida && franjasValidas()
+  const puedeGuardar = materiaSeleccionadaValida && franjasValidas() && conflictos.length === 0
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -406,6 +401,18 @@ export function MateriaCursoDialog({
               <Button variant="secondary" size="sm" onClick={agregarFranja} className="self-start">
                 Agregar franja
               </Button>
+              {conflictos.length > 0 && (
+                <Alert variant="advertencia">
+                  <AlertTitle>Horario superpuesto</AlertTitle>
+                  <AlertDescription>
+                    {conflictos.map((conflicto) => (
+                      <span key={conflicto.indice} className="block">
+                        {describirConflicto(conflicto)}
+                      </span>
+                    ))}
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           </Field>
         </div>

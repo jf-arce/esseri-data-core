@@ -24,7 +24,6 @@ from src.academico.exceptions import (
     DivisionConMaterias,
     DivisionDuplicada,
     DocenteConAsignaciones,
-    HorarioDuplicado,
     InscripcionNoActiva,
     LegajoDuplicado,
     MateriaConCursos,
@@ -32,6 +31,7 @@ from src.academico.exceptions import (
     MateriaCursoDuplicada,
     MateriaDuplicada,
 )
+from src.academico.horarios_service import validar_franjas_propias, validar_horarios_division
 from src.academico.models import (
     Anio,
     ArchivoJustificacionInasistencia,
@@ -1521,16 +1521,6 @@ def eliminar_materia(db: Session, materia: Materia, usuario_id: uuid.UUID | None
 # --- MateriaCurso (materia asignada a un curso) ------------------------------------------
 
 
-def _validar_franjas(datos) -> None:
-    """Rechazar dos franjas idénticas (mismo día y hora de inicio) en la misma materia-curso."""
-    vistas: set[tuple[int, object]] = set()
-    for horario in datos:
-        clave = (horario.dia_semana, horario.hora_inicio)
-        if clave in vistas:
-            raise HorarioDuplicado()
-        vistas.add(clave)
-
-
 def _crear_horarios(materia_curso: MateriaCurso, horarios) -> None:
     for horario in horarios:
         materia_curso.horarios.append(
@@ -1583,7 +1573,8 @@ def crear_materia_curso(
     ):
         raise MateriaCursoDuplicada()
 
-    _validar_franjas(datos.horarios)
+    validar_franjas_propias(datos.horarios)
+    validar_horarios_division(db, division.id, datos.horarios)
 
     nuevo = MateriaCurso(materia_id=materia.id, division_id=division.id)
     db.add(nuevo)
@@ -1670,6 +1661,12 @@ def actualizar_materia_curso(
     """Actualizar la materia o los horarios de una materia ya asignada a un curso."""
     update_data = datos.model_dump(exclude_unset=True)
 
+    if datos.horarios is not None:
+        validar_franjas_propias(datos.horarios)
+        validar_horarios_division(
+            db, materia_curso.division_id, datos.horarios, excluir_materia_curso_id=materia_curso.id
+        )
+
     if update_data.get("materia_id") is not None:
         nueva_materia = db.get(Materia, update_data["materia_id"])
         if nueva_materia is None:
@@ -1700,7 +1697,6 @@ def actualizar_materia_curso(
         materia_curso.materia_id = nueva_materia.id
 
     if datos.horarios is not None:
-        _validar_franjas(datos.horarios)
         materia_curso.horarios.clear()
         db.flush()
         _crear_horarios(materia_curso, datos.horarios)

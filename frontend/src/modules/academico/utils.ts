@@ -75,3 +75,53 @@ const VARIANTE_TIPO_ASISTENCIA: Record<TipoAsistencia, 'exito' | 'advertencia' |
 export function variantePorTipoAsistencia(tipo: TipoAsistencia): 'exito' | 'advertencia' | 'error' {
   return VARIANTE_TIPO_ASISTENCIA[tipo]
 }
+
+export type FranjaHoraria = {
+  dia_semana: number
+  hora_inicio: string
+  hora_fin: string
+}
+
+export type FranjaOcupada = FranjaHoraria & { materia: string }
+
+export type ConflictoHorario = {
+  /** Posición de la franja en conflicto dentro de la lista que se está cargando. */
+  indice: number
+  /** Materia con la que se pisa; `null` si es otra franja de la misma materia. */
+  materia: string | null
+  franja: FranjaHoraria
+}
+
+/** Mismo día y rangos que se pisan. Franjas contiguas (8–9 y 9–10) no se superponen. */
+export function franjasSeSuperponen(a: FranjaHoraria, b: FranjaHoraria): boolean {
+  return (
+    a.dia_semana === b.dia_semana &&
+    a.hora_inicio.slice(0, 5) < b.hora_fin.slice(0, 5) &&
+    a.hora_fin.slice(0, 5) > b.hora_inicio.slice(0, 5)
+  )
+}
+
+/** Franjas que se pisan entre sí o con las de otras materias de la división. */
+export function buscarConflictos(
+  franjas: FranjaHoraria[],
+  ocupadas: FranjaOcupada[],
+): ConflictoHorario[] {
+  const conflictos: ConflictoHorario[] = []
+  franjas.forEach((franja, indice) => {
+    const otraMateria = ocupadas.find((ocupada) => franjasSeSuperponen(franja, ocupada))
+    if (otraMateria) {
+      conflictos.push({ indice, materia: otraMateria.materia, franja: otraMateria })
+      return
+    }
+    const propia = franjas.findIndex((otra, i) => i < indice && franjasSeSuperponen(franja, otra))
+    if (propia !== -1) conflictos.push({ indice, materia: null, franja: franjas[propia] })
+  })
+  return conflictos
+}
+
+export function describirConflicto(conflicto: ConflictoHorario): string {
+  const franja = formatearHorario(conflicto.franja)
+  return conflicto.materia
+    ? `La franja ${conflicto.indice + 1} se superpone con ${conflicto.materia} (${franja}).`
+    : `La franja ${conflicto.indice + 1} se superpone con otra franja de esta materia (${franja}).`
+}

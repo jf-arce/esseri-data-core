@@ -25,7 +25,7 @@ import { AbmDialog } from '@/modules/academico/components/abm-dialog'
 import { MateriaCursoDialog } from '@/modules/academico/components/materia-curso-dialog'
 import { listarAnios } from '@/modules/academico/services/anios'
 import type { Anio, Division, Materia, MateriaCurso } from '@/modules/academico/types'
-import { normalizarTexto } from '@/modules/academico/utils'
+import { normalizarTexto, type FranjaOcupada } from '@/modules/academico/utils'
 import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
@@ -158,6 +158,26 @@ export function EstructuraAcademicaPage() {
       nivelPreseleccionadoId,
       anioPreseleccionadoId,
     })
+  }
+
+  // Franjas de las otras materias de la división del diálogo abierto (ya están en el árbol).
+  function horariosOcupadosDelDialog(): FranjaOcupada[] {
+    if (!dialogMateriaCurso.open) return []
+    const divisionId = dialogMateriaCurso.divisionId ?? dialogMateriaCurso.item?.division_id
+    const division = niveles
+      .flatMap((nivel) => nivel.anios)
+      .flatMap((anio) => anio.divisiones)
+      .find((d) => d.id === divisionId)
+    return (division?.materias ?? [])
+      .filter((materia) => materia.id !== dialogMateriaCurso.item?.id)
+      .flatMap((materia) =>
+        materia.horarios.map((horario) => ({
+          materia: materia.materia_nombre ?? 'otra materia',
+          dia_semana: horario.dia_semana,
+          hora_inicio: horario.hora_inicio,
+          hora_fin: horario.hora_fin,
+        })),
+      )
   }
 
   function handleExito() {
@@ -407,6 +427,7 @@ export function EstructuraAcademicaPage() {
           divisionId={dialogMateriaCurso.divisionId}
           divisionNombre={dialogMateriaCurso.divisionNombre}
           materiasExcluidas={dialogMateriaCurso.materiasExcluidas}
+          horariosOcupados={horariosOcupadosDelDialog()}
           catalogo={catalogo}
           onExito={handleExito}
         />

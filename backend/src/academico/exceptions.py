@@ -131,14 +131,23 @@ class MateriaCursoConAsignaciones(AppException):
 
 
 class HorarioDuplicado(AppException):
-    """Hay dos franjas horarias iguales para la misma materia del curso."""
+    """Hay dos franjas horarias que se pisan dentro de la misma materia del curso."""
 
     status_code = 409
 
     def __init__(
         self,
-        message: str = "Hay dos franjas horarias iguales para esta materia en el curso",
+        message: str = "Hay franjas horarias superpuestas para esta materia en el curso",
     ):
+        super().__init__(message)
+
+
+class HorarioSuperpuestoEnDivision(AppException):
+    """Otra materia de la misma división ya ocupa parte de esa franja."""
+
+    status_code = 409
+
+    def __init__(self, message: str):
         super().__init__(message)
 
 
