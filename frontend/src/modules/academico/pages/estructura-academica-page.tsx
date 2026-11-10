@@ -1,4 +1,11 @@
-import { BookOpenIcon, PencilIcon, PlusIcon, ShieldAlertIcon } from 'lucide-react'
+import {
+  BookOpenIcon,
+  CalendarDaysIcon,
+  LayoutGridIcon,
+  PencilIcon,
+  PlusIcon,
+  ShieldAlertIcon,
+} from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -13,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { PageHeader } from '@/components/page-header'
 import { AbmDialog } from '@/modules/academico/components/abm-dialog'
 import { HorarioSemanal, type HuecoHorario } from '@/modules/academico/components/horario-semanal'
@@ -251,15 +259,26 @@ export function EstructuraAcademicaPage() {
               {textoAlumnos(division.cantidad_inscripciones)}
             </span>
           </div>
-          <Tabs
+          <ToggleGroup
+            type="single"
             value={vista}
-            onValueChange={(valor) => setVista(valor === 'horario' ? 'horario' : 'materias')}
+            // Radix manda '' al volver a tocar la opción activa: se ignora para no quedar sin vista.
+            onValueChange={(valor) =>
+              valor && setVista(valor === 'horario' ? 'horario' : 'materias')
+            }
+            aria-label="Vista de la división"
+            variant="outline"
+            spacing={0}
           >
-            <TabsList variant="default">
-              <TabsTrigger value="materias">Materias</TabsTrigger>
-              <TabsTrigger value="horario">Horario</TabsTrigger>
-            </TabsList>
-          </Tabs>
+            <ToggleGroupItem value="materias">
+              <LayoutGridIcon />
+              Materias
+            </ToggleGroupItem>
+            <ToggleGroupItem value="horario">
+              <CalendarDaysIcon />
+              Horario
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
 
         {estructura.materiasCurso.length === 0 ? (
