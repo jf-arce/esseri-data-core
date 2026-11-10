@@ -11,7 +11,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Field, FieldError, FieldGroup, FieldLabel, FieldTitle } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { crearSolicitudAusenciaPeriodo } from '@/modules/academico/services/solicitudes-ausencia-familia'
 import { MOTIVOS_JUSTIFICACION } from '@/modules/academico/utils'
 
@@ -123,70 +133,77 @@ export function FormularioAusencia({
               : 'Informá una fecha o un período, pasado, presente o futuro.'}
           </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-3">
-          <label className="block text-sm">
-            {modo === 'justificar' ? 'Fecha de la ausencia' : 'Desde'}
+        <FieldGroup className="gap-3">
+          <Field>
+            <FieldLabel htmlFor="ausencia-desde">
+              {modo === 'justificar' ? 'Fecha de la ausencia' : 'Desde'}
+            </FieldLabel>
             <Input
+              id="ausencia-desde"
               type="date"
-              className="mt-1"
               value={fechaInicio}
               onChange={(event) => setFechaInicio(event.target.value)}
               required
             />
-          </label>
-          <label className="block text-sm">
-            Hasta <span className="text-texto-3">(opcional)</span>
+          </Field>
+          <Field data-invalid={rangoInvalido}>
+            <FieldLabel htmlFor="ausencia-hasta">
+              Hasta <span className="text-texto-3">(opcional)</span>
+            </FieldLabel>
             <Input
+              id="ausencia-hasta"
               type="date"
-              className="mt-1"
               min={fechaInicio || undefined}
               value={fechaFin}
               onChange={(event) => setFechaFin(event.target.value)}
+              aria-invalid={rangoInvalido}
             />
-          </label>
-          {rangoInvalido && (
-            <p className="text-sm text-error" role="alert">
-              La fecha final no puede ser anterior a la inicial.
-            </p>
-          )}
-          <label className="block text-sm">
-            Motivo
-            <select
-              className="mt-1 w-full rounded-lg border border-borde bg-superficie p-2"
-              value={motivo}
-              onChange={(event) => setMotivo(event.target.value)}
-            >
-              <option value="" disabled>
-                Seleccioná un motivo
-              </option>
-              {MOTIVOS_JUSTIFICACION.map((opcion) => (
-                <option key={opcion.value} value={opcion.value}>
-                  {opcion.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            {rangoInvalido && (
+              <FieldError>La fecha final no puede ser anterior a la inicial.</FieldError>
+            )}
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="ausencia-motivo">Motivo</FieldLabel>
+            <Select value={motivo} onValueChange={setMotivo}>
+              <SelectTrigger id="ausencia-motivo" className="w-full">
+                <SelectValue placeholder="Seleccioná un motivo" />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                <SelectGroup>
+                  {MOTIVOS_JUSTIFICACION.map((opcion) => (
+                    <SelectItem key={opcion.value} value={opcion.value}>
+                      {opcion.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
           {motivo === 'otro' && (
-            <label className="block text-sm">
-              Especificá el motivo
+            <Field>
+              <FieldLabel htmlFor="ausencia-motivo-otro">Especificá el motivo</FieldLabel>
               <Input
-                className="mt-1"
+                id="ausencia-motivo-otro"
                 value={motivoOtro}
                 onChange={(event) => setMotivoOtro(event.target.value)}
               />
-            </label>
+            </Field>
           )}
-          <label className="block text-sm">
-            Observación <span className="text-texto-3">(opcional)</span>
-            <textarea
-              className="mt-1 w-full rounded-lg border border-borde bg-superficie p-2"
+          <Field>
+            <FieldLabel htmlFor="ausencia-observacion">
+              Observación <span className="text-texto-3">(opcional)</span>
+            </FieldLabel>
+            <Textarea
+              id="ausencia-observacion"
               value={observacion}
               onChange={(event) => setObservacion(event.target.value)}
               maxLength={500}
             />
-          </label>
-          <div>
-            <p className="text-sm">Adjuntar comprobante (opcional)</p>
+          </Field>
+          <Field>
+            <FieldTitle>
+              Adjuntar comprobante <span className="text-texto-3">(opcional)</span>
+            </FieldTitle>
             <Dropzone
               accept={TIPOS_COMPROBANTE}
               maxSize={MAX_TAMANIO_COMPROBANTE}
@@ -195,11 +212,10 @@ export function FormularioAusencia({
                 comprobante ? comprobante.name : 'Arrastrá el comprobante o hacé clic para adjuntar'
               }
               hint="PDF, JPG o PNG · Máximo 5 MB"
-              className="mt-1"
             />
-            {errorComprobante && <p className="mt-2 text-xs text-error">{errorComprobante}</p>}
-          </div>
-          <div className="mt-2 flex gap-2">
+            {errorComprobante && <FieldError>{errorComprobante}</FieldError>}
+          </Field>
+          <div className="flex gap-2">
             <Button variant="secondary" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
@@ -207,12 +223,8 @@ export function FormularioAusencia({
               {modo === 'justificar' ? 'Enviar justificación' : 'Informar ausencia'}
             </Button>
           </div>
-          {errorEnvio && (
-            <p className="text-sm text-error" role="alert">
-              {errorEnvio}
-            </p>
-          )}
-        </div>
+          {errorEnvio && <FieldError>{errorEnvio}</FieldError>}
+        </FieldGroup>
       </DialogContent>
     </Dialog>
   )

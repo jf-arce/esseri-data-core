@@ -226,8 +226,9 @@ describe('PortalFamiliaTramitePage', () => {
       await screen.findByRole('heading', { name: 'Resumen de asistencia' }),
     ).toBeInTheDocument()
     expect(screen.queryByText('Consultá tus asistencias.')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Alumno')).toHaveValue('alumno-1')
-    expect(screen.getByLabelText('Alumno').closest('header')).toBeInTheDocument()
+    const selectorAlumno = screen.getByLabelText('Alumno')
+    expect(selectorAlumno).toHaveTextContent('Juan Gómez')
+    expect(selectorAlumno.closest('header')).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Resumen' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('tab', { name: 'Justificar asistencia' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Historial' })).toBeInTheDocument()
