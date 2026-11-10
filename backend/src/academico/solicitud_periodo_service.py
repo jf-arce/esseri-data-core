@@ -303,6 +303,18 @@ def pagina_solicitudes_periodo(
     )
 
 
+def respuesta_admin_solicitud(
+    db: Session, solicitud: SolicitudAusenciaPeriodo
+) -> SolicitudAusenciaPeriodoAdminResponse:
+    """Respuesta con contexto para la bandeja después de una decisión."""
+    fila = (
+        _query_solicitudes_periodo(db).filter(SolicitudAusenciaPeriodo.id == solicitud.id).first()
+    )
+    if fila is None:
+        raise LookupError("Solicitud no encontrada")
+    return _respuesta_admin(fila)
+
+
 def cancelar_solicitud_periodo(
     db: Session, usuario: Usuario | None, solicitud_id: uuid.UUID
 ) -> SolicitudAusenciaPeriodo:
@@ -334,6 +346,81 @@ def cancelar_solicitud_periodo(
         campo="estado",
         valor_anterior="pendiente",
         valor_nuevo="cancelada",
+        usuario_id=usuario.id,
+    )
+    db.commit()
+    db.refresh(solicitud)
+    return solicitud
+
+
+def resolver_solicitud_periodo(
+    db: Session,
+    usuario: Usuario | None,
+    solicitud_id: uuid.UUID,
+    aprobar: bool,
+    observacion: str | None,
+) -> SolicitudAusenciaPeriodo:
+    """Aprueba o rechaza una solicitud pendiente.
+
+    La aprobación solo transforma asistencias reales que siguen pendientes
+    (`ausente_pendiente`). No crea asistencias futuras ni toca presencias,
+    tardanzas o decisiones históricas ya resueltas. Cada aplicación queda auditada.
+    """
+    if usuario is None or usuario.id is None:
+        raise PermisoDenegado("La solicitud requiere un usuario autenticado")
+    solicitud = db.get(SolicitudAusenciaPeriodo, solicitud_id)
+    if solicitud is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Solicitud no encontrada")
+    db.scalar(select(Alumno.id).where(Alumno.id == solicitud.alumno_id).with_for_update())
+    db.refresh(solicitud)
+    if solicitud.estado != "pendiente":
+        raise HTTPException(status.HTTP_409_CONFLICT, "La solicitud ya fue resuelta")
+
+    estado_nuevo = "aprobada" if aprobar else "rechazada"
+    if aprobar:
+        asistencias = db.scalars(
+            select(Asistencia)
+            .join(Inscripcion, Inscripcion.id == Asistencia.inscripcion_id)
+            .where(
+                Inscripcion.alumno_id == solicitud.alumno_id,
+                Asistencia.fecha.between(solicitud.fecha_inicio, solicitud.fecha_fin),
+                Asistencia.tipo == "ausente_pendiente",
+            )
+            .order_by(Asistencia.fecha)
+        ).all()
+        for asistencia in asistencias:
+            asistencia.tipo = "ausente_justificado"
+            asistencia.solicitud_ausencia_periodo_id = solicitud.id
+            log_audit(
+                db,
+                entidad="ASISTENCIA",
+                entidad_id=asistencia.id,
+                campo="tipo",
+                valor_anterior="ausente_pendiente",
+                valor_nuevo="ausente_justificado",
+                usuario_id=usuario.id,
+            )
+            log_audit(
+                db,
+                entidad="ASISTENCIA",
+                entidad_id=asistencia.id,
+                campo="solicitud_ausencia_periodo_id",
+                valor_anterior=None,
+                valor_nuevo=str(solicitud.id),
+                usuario_id=usuario.id,
+            )
+
+    solicitud.estado = estado_nuevo
+    solicitud.observacion_resolucion = observacion
+    solicitud.fecha_resolucion = datetime.now()
+    solicitud.usuario_resolucion_id = usuario.id
+    log_audit(
+        db,
+        entidad="SOLICITUD_AUSENCIA_PERIODO",
+        entidad_id=solicitud.id,
+        campo="estado",
+        valor_anterior="pendiente",
+        valor_nuevo=estado_nuevo,
         usuario_id=usuario.id,
     )
     db.commit()

@@ -391,6 +391,19 @@ class FiltrosSolicitudesPeriodo(BaseModel):
     tamanio_pagina: int = Field(50, ge=1, le=200, description="Tamaño de página")
 
 
+class SolicitudPeriodoResolucion(BaseModel):
+    """Decisión administrativa sobre una solicitud de ausencia por período."""
+
+    aprobar: bool
+    observacion: str | None = Field(None, max_length=500)
+
+    @model_validator(mode="after")
+    def validar_observacion_rechazo(self):
+        if not self.aprobar and (not self.observacion or not self.observacion.strip()):
+            raise ValueError("La observación es obligatoria al rechazar una solicitud")
+        return self
+
+
 class SolicitudesPeriodoResumen(BaseModel):
     """Conteos globales de la bandeja, independientes de la página pedida."""
 

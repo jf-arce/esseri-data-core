@@ -111,8 +111,10 @@ from src.academico.schemas import (
     NivelEducativoUpdate,
     OpcionJustificacion,
     SeguimientoDivisionItem,
+    SolicitudAusenciaPeriodoAdminResponse,
     SolicitudAusenciaPeriodoResponse,
     SolicitudesPeriodoPaginadasResponse,
+    SolicitudPeriodoResolucion,
     UltimaFechaAsistenciaResponse,
 )
 from src.academico.service import (
@@ -175,6 +177,8 @@ from src.academico.solicitud_periodo_service import (
     crear_solicitud_periodo,
     listar_solicitudes_periodo_familia,
     pagina_solicitudes_periodo,
+    resolver_solicitud_periodo,
+    respuesta_admin_solicitud,
 )
 from src.auth.constants import (
     PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
@@ -1075,6 +1079,26 @@ def listar_solicitudes_ausencia_endpoint(
 ) -> SolicitudesPeriodoPaginadasResponse:
     """Bandeja administrativa de solicitudes de ausencia por período."""
     return pagina_solicitudes_periodo(db, filtros)
+
+
+@router.patch(
+    "/solicitudes-ausencia/{solicitud_id}/resolver",
+    response_model=SolicitudAusenciaPeriodoAdminResponse,
+)
+def resolver_solicitud_ausencia_endpoint(
+    solicitud_id: uuid.UUID,
+    datos: SolicitudPeriodoResolucion,
+    usuario: Annotated[
+        Usuario,
+        Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES)),
+    ],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> SolicitudAusenciaPeriodoAdminResponse:
+    """Aprobar o rechazar una solicitud de ausencia por período."""
+    solicitud = resolver_solicitud_periodo(
+        db, usuario, solicitud_id, datos.aprobar, datos.observacion
+    )
+    return respuesta_admin_solicitud(db, solicitud)
 
 
 @router.get("/justificaciones", response_model=JustificacionesPaginadasResponse)
