@@ -52,11 +52,16 @@ describe('MateriaDialog', () => {
     expect(crearMateria).toHaveBeenCalledWith({ nombre: 'Arte', tipo: 'materia', color: propuesto })
   })
 
-  it('no ofrece una opción automática', async () => {
+  it('el botón de azar cambia el color a otro hexadecimal', async () => {
+    vi.mocked(actualizarMateria).mockResolvedValue(materia)
     abrir('editar', materia)
 
     await userEvent.click(screen.getByRole('button', { name: 'Elegir color' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Color al azar' }))
 
-    expect(screen.queryByRole('button', { name: 'Automático' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Elegir color' })).not.toHaveTextContent('#1e90ff')
+    expect(screen.getByRole('button', { name: 'Elegir color' }).textContent).toMatch(
+      /^#[0-9a-f]{6}$/,
+    )
   })
 })

@@ -5,6 +5,7 @@ import {
   COLORES_SUGERIDOS,
   colorAleatorio,
   colorMateria,
+  hexAleatorio,
   colorTextoLegible,
   normalizarHex,
   calcularGrilla,
@@ -181,6 +182,13 @@ describe('colorMateria y colores sugeridos', () => {
   it('con un color inválido o ausente usa un gris neutro', () => {
     expect(colorMateria('rojo').estiloBorde).toEqual({ borderLeftColor: '#64748b' })
     expect(colorMateria(null)).toEqual(colorMateria(undefined))
+  })
+
+  it('genera hexadecimales válidos al azar', () => {
+    for (let i = 0; i < 100; i++) {
+      const hex = hexAleatorio()
+      expect(normalizarHex(hex)).toBe(hex)
+    }
   })
 
   it('sortea siempre uno de los colores sugeridos, sin rojo', () => {

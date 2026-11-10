@@ -231,6 +231,22 @@ export const COLORES_SUGERIDOS = [
 const HEX_COMPLETO = /^#[0-9a-f]{6}$/
 const COLOR_NEUTRO = '#64748b'
 
+/** Hexadecimal al azar con tono, saturación y luminosidad agradables y sin rojo. */
+export function hexAleatorio(): string {
+  const tono = 20 + Math.random() * 320
+  const saturacion = 0.65 + Math.random() * 0.2
+  const luminosidad = 0.42 + Math.random() * 0.1
+  const canal = (n: number) => {
+    const k = (n + tono / 30) % 12
+    const a = saturacion * Math.min(luminosidad, 1 - luminosidad)
+    const valor = luminosidad - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))
+    return Math.round(valor * 255)
+      .toString(16)
+      .padStart(2, '0')
+  }
+  return `#${canal(0)}${canal(8)}${canal(4)}`
+}
+
 /** Uno de los colores sugeridos, al azar: es el valor inicial al crear una materia. */
 export function colorAleatorio(): string {
   return COLORES_SUGERIDOS[Math.floor(Math.random() * COLORES_SUGERIDOS.length)]
