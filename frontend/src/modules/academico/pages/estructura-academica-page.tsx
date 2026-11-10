@@ -20,7 +20,6 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { PageHeader } from '@/components/page-header'
 import { AbmDialog } from '@/modules/academico/components/abm-dialog'
 import { HorarioSemanal, type HuecoHorario } from '@/modules/academico/components/horario-semanal'
@@ -259,27 +258,23 @@ export function EstructuraAcademicaPage() {
               {textoAlumnos(division.cantidad_inscripciones)}
             </span>
           </div>
-          <ToggleGroup
-            type="single"
-            value={vista}
-            // Radix manda '' al volver a tocar la opción activa: se ignora para no quedar sin vista.
-            onValueChange={(valor) =>
-              valor && setVista(valor === 'horario' ? 'horario' : 'materias')
-            }
-            aria-label="Vista de la división"
-            variant="outline"
-            spacing={0}
-          >
-            <ToggleGroupItem value="materias">
+        </div>
+
+        <Tabs
+          value={vista}
+          onValueChange={(valor) => setVista(valor === 'horario' ? 'horario' : 'materias')}
+        >
+          <TabsList aria-label="Vista de la división">
+            <TabsTrigger value="materias">
               <LayoutGridIcon />
               Materias
-            </ToggleGroupItem>
-            <ToggleGroupItem value="horario">
+            </TabsTrigger>
+            <TabsTrigger value="horario">
               <CalendarDaysIcon />
               Horario
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         {estructura.materiasCurso.length === 0 ? (
           <Vacio
