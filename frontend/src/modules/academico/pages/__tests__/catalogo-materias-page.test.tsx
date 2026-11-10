@@ -13,6 +13,7 @@ const materia: Materia = {
   id: 'm1',
   nombre: 'Matemática',
   tipo: 'materia',
+  color: null,
   cantidad_cursos: 2,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',

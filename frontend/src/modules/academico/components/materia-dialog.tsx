@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { SelectorColor } from '@/modules/academico/components/selector-color'
 import {
   actualizarMateria,
   crearMateria,
@@ -50,6 +51,7 @@ export function MateriaDialog({ open, onOpenChange, modo, item, onExito }: Mater
   const [error, setError] = useState<string | null>(null)
   const [nombre, setNombre] = useState(item?.nombre ?? '')
   const [tipoMateria, setTipoMateria] = useState<TipoMateria>(item?.tipo ?? 'materia')
+  const [color, setColor] = useState<string | null>(item?.color ?? null)
 
   // Un curso que dicta la materia bloquea la baja: se muestra antes de intentar borrar.
   const cantidadCursos = item?.cantidad_cursos ?? 0
@@ -64,10 +66,10 @@ export function MateriaDialog({ open, onOpenChange, modo, item, onExito }: Mater
         await eliminarMateria(item.id)
         toast.success('Materia eliminada correctamente.')
       } else if (modo === 'crear') {
-        await crearMateria({ nombre, tipo: tipoMateria })
+        await crearMateria({ nombre, tipo: tipoMateria, color })
         toast.success('Materia creada correctamente.')
       } else if (modo === 'editar' && item) {
-        await actualizarMateria(item.id, { nombre, tipo: tipoMateria })
+        await actualizarMateria(item.id, { nombre, tipo: tipoMateria, color })
         toast.success('Materia actualizada correctamente.')
       }
       onExito()
@@ -153,6 +155,13 @@ export function MateriaDialog({ open, onOpenChange, modo, item, onExito }: Mater
                 <SelectItem value="taller">Taller</SelectItem>
               </SelectContent>
             </Select>
+          </Field>
+          <Field>
+            <FieldLabel>Color</FieldLabel>
+            <SelectorColor valor={color} onChange={setColor} />
+            <p className="text-xs text-texto-3">
+              Identifica la materia en el horario y en las tarjetas. En automático se elige uno.
+            </p>
           </Field>
           <p className="text-xs text-texto-3">
             La materia se crea una sola vez en el catálogo y después se asigna a los cursos que la

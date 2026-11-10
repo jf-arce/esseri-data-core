@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import type { TipoAsistencia } from '@/modules/academico/types'
 
 export const MOTIVOS_JUSTIFICACION = [
@@ -204,7 +205,15 @@ export function calcularGrilla<T extends FranjaHoraria>(franjas: T[]): Grilla<T>
   return { dias, inicio, filas: (fin - inicio) / MINUTOS_POR_FILA, bloques }
 }
 
-export type ColorMateria = { fondo: string; texto: string; borde: string }
+export type ColorMateria = {
+  fondo: string
+  texto: string
+  borde: string
+  /** Solo con color elegido a mano: fondo y texto legible. */
+  estilo?: CSSProperties
+  /** Solo con color elegido a mano: franja izquierda de las tarjetas. */
+  estiloBorde?: CSSProperties
+}
 
 // Sin rojo: queda reservado para marcar horarios superpuestos.
 const COLORES_MATERIA: ColorMateria[] = [
@@ -217,8 +226,45 @@ const COLORES_MATERIA: ColorMateria[] = [
   { fondo: 'bg-mod-compras-suave', texto: 'text-mod-compras', borde: 'border-l-mod-compras' },
 ]
 
-/** Color estable de una materia: sale de su id, así es el mismo en todas las vistas. */
-export function colorMateria(materiaId: string): ColorMateria {
+const HEX_COMPLETO = /^#[0-9a-f]{6}$/
+
+/** "#abc" o "#AABBCC" a "#aabbcc"; null si no es un color de 3 o 6 dígitos. */
+export function normalizarHex(valor: string): string | null {
+  const limpio = valor.trim().toLowerCase()
+  const conAlmohadilla = limpio.startsWith('#') ? limpio : `#${limpio}`
+  if (/^#[0-9a-f]{3}$/.test(conAlmohadilla)) {
+    const [, r, g, b] = conAlmohadilla
+    return `#${r}${r}${g}${g}${b}${b}`
+  }
+  return HEX_COMPLETO.test(conAlmohadilla) ? conAlmohadilla : null
+}
+
+/** Texto blanco o negro, el que mejor contraste (WCAG) tenga sobre el color de fondo. */
+export function colorTextoLegible(hex: string): string {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const canal = parseInt(hex.slice(i, i + 2), 16) / 255
+    return canal <= 0.03928 ? canal / 12.92 : ((canal + 0.055) / 1.055) ** 2.4
+  })
+  const luminancia = 0.2126 * r + 0.7152 * g + 0.0722 * b
+  const contrasteConBlanco = 1.05 / (luminancia + 0.05)
+  const contrasteConNegro = (luminancia + 0.05) / 0.05
+  return contrasteConBlanco >= contrasteConNegro ? '#ffffff' : '#000000'
+}
+
+/**
+ * Color de una materia: el elegido a mano si lo tiene; si no, uno estable que sale de su id,
+ * así es el mismo en todas las vistas.
+ */
+export function colorMateria(materiaId: string, color?: string | null): ColorMateria {
+  if (color && HEX_COMPLETO.test(color)) {
+    return {
+      fondo: '',
+      texto: '',
+      borde: '',
+      estilo: { backgroundColor: color, color: colorTextoLegible(color) },
+      estiloBorde: { borderLeftColor: color },
+    }
+  }
   let hash = 0
   for (const caracter of materiaId) hash = (hash * 31 + caracter.charCodeAt(0)) >>> 0
   return COLORES_MATERIA[hash % COLORES_MATERIA.length]

@@ -3,6 +3,8 @@ import {
   aMinutos,
   buscarConflictos,
   colorMateria,
+  colorTextoLegible,
+  normalizarHex,
   calcularGrilla,
   deMinutos,
   elegirPorId,
@@ -180,5 +182,32 @@ describe('colorMateria', () => {
   it('reparte las materias en más de un color', () => {
     const fondos = new Set(Array.from({ length: 20 }, (_, i) => colorMateria(`m-${i}`).fondo))
     expect(fondos.size).toBeGreaterThan(3)
+  })
+})
+
+describe('color elegido a mano', () => {
+  it('usa el color propio de la materia con texto legible', () => {
+    const color = colorMateria('m-1', '#1e3a8a')
+    expect(color.estilo).toEqual({ backgroundColor: '#1e3a8a', color: '#ffffff' })
+    expect(color.estiloBorde).toEqual({ borderLeftColor: '#1e3a8a' })
+  })
+
+  it('con un color inválido o sin color vuelve al automático', () => {
+    expect(colorMateria('m-1', 'rojo').estilo).toBeUndefined()
+    expect(colorMateria('m-1', null)).toEqual(colorMateria('m-1'))
+  })
+
+  it('elige texto negro sobre colores claros y blanco sobre oscuros', () => {
+    expect(colorTextoLegible('#fde047')).toBe('#000000')
+    expect(colorTextoLegible('#ffffff')).toBe('#000000')
+    expect(colorTextoLegible('#000000')).toBe('#ffffff')
+    expect(colorTextoLegible('#1e3a8a')).toBe('#ffffff')
+  })
+
+  it('normaliza el hex a #rrggbb en minúsculas', () => {
+    expect(normalizarHex('#ABC')).toBe('#aabbcc')
+    expect(normalizarHex('1E90FF')).toBe('#1e90ff')
+    expect(normalizarHex('#12345')).toBeNull()
+    expect(normalizarHex('rojo')).toBeNull()
   })
 })

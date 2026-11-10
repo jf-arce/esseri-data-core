@@ -265,6 +265,10 @@ src/
 
 Detalle completo de cada carpeta, convenciones de nombres (`kebab-case`) y criterio de testing: ver `ARCHITECTURE.md` en la raíz del repo.
 
+## Selector de color
+
+El color de las materias (Académico) se elige con [`react-colorful`](https://github.com/omgovich/react-colorful) (`HexColorPicker` y `HexColorInput`), dentro del `Popover` de shadcn: shadcn/ui no trae un color picker propio. Está fijado en una versión exacta en `package.json` y solo lo usa `modules/academico/components/selector-color.tsx`.
+
 ## Fechas y horas
 
 Los instantes llegan de la API en ISO 8601 UTC (`2026-10-26T13:00:00Z`) y se muestran con `formatearFechaHora` (y `formatearDiaDeInstante` cuando solo se quiere el día) de `src/lib/fechas.ts`: siempre en hora de Buenos Aires y formato de 24 h (`28/02/2027, 23:30`), sin importar la zona del navegador. Las fechas de solo día (`YYYY-MM-DD`) no pasan por esas funciones.

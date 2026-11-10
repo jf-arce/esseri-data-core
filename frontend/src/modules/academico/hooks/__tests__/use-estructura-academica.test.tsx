@@ -69,6 +69,7 @@ function materiaCurso(id: string, divisionId: string): MateriaCurso {
     materia_id: `m-${id}`,
     materia_nombre: 'Lengua',
     materia_tipo: 'materia',
+    materia_color: null,
     division_id: divisionId,
     division_nombre: null,
     anio_id: 'a1',

@@ -9,6 +9,7 @@ const catalogo: Materia[] = [
     id: 'm1',
     nombre: 'Lengua',
     tipo: 'materia',
+    color: null,
     cantidad_cursos: 0,
     created_at: '',
     updated_at: '',
