@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { BotonIcono } from '@/modules/academico/components/boton-icono'
 import type { MateriaCurso } from '@/modules/academico/types'
-import { formatearFranjaLegible } from '@/modules/academico/utils'
+import { colorMateria, formatearFranjaLegible } from '@/modules/academico/utils'
 
 interface MateriaCursoCardProps {
   materiaCurso: MateriaCurso
@@ -24,7 +24,10 @@ export function MateriaCursoCard({
 }: MateriaCursoCardProps) {
   const nombre = materiaCurso.materia_nombre ?? '—'
   return (
-    <Card size="sm" className="justify-between gap-3">
+    <Card
+      size="sm"
+      className={`justify-between gap-3 border-l-4 ${colorMateria(materiaCurso.materia_id).borde}`}
+    >
       <div className="flex flex-col gap-1.5 px-(--card-spacing)">
         <div className="flex items-start justify-between gap-2">
           <h3 className="text-base font-semibold text-texto">{nombre}</h3>

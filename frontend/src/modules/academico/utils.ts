@@ -203,3 +203,23 @@ export function calcularGrilla<T extends FranjaHoraria>(franjas: T[]): Grilla<T>
 
   return { dias, inicio, filas: (fin - inicio) / MINUTOS_POR_FILA, bloques }
 }
+
+export type ColorMateria = { fondo: string; texto: string; borde: string }
+
+// Sin rojo: queda reservado para marcar horarios superpuestos.
+const COLORES_MATERIA: ColorMateria[] = [
+  { fondo: 'bg-info-suave', texto: 'text-info', borde: 'border-l-info' },
+  { fondo: 'bg-exito-suave', texto: 'text-exito', borde: 'border-l-exito' },
+  { fondo: 'bg-petroleo-suave', texto: 'text-petroleo', borde: 'border-l-petroleo' },
+  { fondo: 'bg-mod-familias-suave', texto: 'text-mod-familias', borde: 'border-l-mod-familias' },
+  { fondo: 'bg-advertencia-suave', texto: 'text-advertencia', borde: 'border-l-advertencia' },
+  { fondo: 'bg-mod-workflows-suave', texto: 'text-mod-workflows', borde: 'border-l-mod-workflows' },
+  { fondo: 'bg-mod-compras-suave', texto: 'text-mod-compras', borde: 'border-l-mod-compras' },
+]
+
+/** Color estable de una materia: sale de su id, así es el mismo en todas las vistas. */
+export function colorMateria(materiaId: string): ColorMateria {
+  let hash = 0
+  for (const caracter of materiaId) hash = (hash * 31 + caracter.charCodeAt(0)) >>> 0
+  return COLORES_MATERIA[hash % COLORES_MATERIA.length]
+}

@@ -1,7 +1,7 @@
 import { PlusIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { MateriaCurso } from '@/modules/academico/types'
-import { calcularGrilla, deMinutos } from '@/modules/academico/utils'
+import { calcularGrilla, colorMateria, deMinutos } from '@/modules/academico/utils'
 
 const DIAS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
 
@@ -110,11 +110,12 @@ export function HorarioSemanal({
           {grilla.bloques.map((bloque) => {
             const { materiaCurso } = bloque.origen
             const nombre = materiaCurso.materia_nombre ?? 'Materia'
+            const color = colorMateria(materiaCurso.materia_id)
             const rango = `${bloque.origen.hora_inicio.slice(0, 5)} a ${bloque.origen.hora_fin.slice(0, 5)}`
             const clases = `z-10 flex min-w-0 flex-col overflow-hidden border px-2 py-1 text-left text-xs ${
               bloque.superpuesto
                 ? 'border-error bg-error-suave text-error'
-                : 'border-transparent bg-info-suave text-info'
+                : `border-transparent ${color.fondo} ${color.texto}`
             }`
             const estilo = {
               gridColumn: bloque.columna,

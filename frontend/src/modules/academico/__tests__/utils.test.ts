@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   aMinutos,
   buscarConflictos,
+  colorMateria,
   calcularGrilla,
   deMinutos,
   elegirPorId,
@@ -163,5 +164,21 @@ describe('formatearFranjaLegible', () => {
     expect(
       formatearFranjaLegible({ dia_semana: 3, hora_inicio: '10:00:00', hora_fin: '11:30:00' }),
     ).toBe('Mié 10:00 a 11:30')
+  })
+})
+
+describe('colorMateria', () => {
+  it('devuelve siempre el mismo color para la misma materia', () => {
+    expect(colorMateria('materia-1')).toEqual(colorMateria('materia-1'))
+  })
+
+  it('nunca usa rojo, reservado para los horarios superpuestos', () => {
+    const ids = Array.from({ length: 50 }, (_, i) => `materia-${i}`)
+    for (const id of ids) expect(colorMateria(id).fondo).not.toContain('error')
+  })
+
+  it('reparte las materias en más de un color', () => {
+    const fondos = new Set(Array.from({ length: 20 }, (_, i) => colorMateria(`m-${i}`).fondo))
+    expect(fondos.size).toBeGreaterThan(3)
   })
 })
