@@ -221,6 +221,20 @@ campo_evento:
       etiqueta: Fecha de resolución
       tipo_dato: fecha
 
+  solicitud_ausencia_periodo.revocada:
+    - nombre_interno: alumno_nombre
+      etiqueta: Nombre del alumno
+      tipo_dato: texto
+    - nombre_interno: motivo
+      etiqueta: Motivo de la revocación
+      tipo_dato: texto
+    - nombre_interno: fecha_inicio
+      etiqueta: Fecha inicial del período
+      tipo_dato: fecha
+    - nombre_interno: fecha_fin
+      etiqueta: Fecha final del período
+      tipo_dato: fecha
+
   factura.vencida:
     - nombre_interno: dias_vencido
       etiqueta: Días de deuda
