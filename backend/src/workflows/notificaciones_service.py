@@ -1,15 +1,17 @@
 """Ejecución de la acción `notificar`: resuelve destinatarios, renderiza la plantilla, registra
 `NOTIFICACION` y pide el envío a n8n (RF-24).
 
-El envío corre dentro de la transacción del evento y en serie. Un envío que falla deja su fila
-en `fallido` sin lanzar, para no revertir las filas ya registradas. Si la respuesta se pierde,
-la fila queda en `incierto` y no se reintenta automáticamente."""
+La reserva de cada `NOTIFICACION` se confirma antes del HTTP; el evento y la ejecución se
+confirman en esa misma transacción corta. Después se envía fuera de la transacción y el
+resultado se cierra en otra transacción corta. Un envío fallido queda `fallido`; una respuesta
+perdida o una reserva vencida queda `incierto` y no se reintenta automáticamente. No hay
+garantía de entrega exactamente una vez ni cancelación de un envío ya iniciado."""
 
 import logging
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -531,6 +533,108 @@ def _notificaciones_del_ultimo_intento(
     )
 
 
+LEASE_NOTIFICACION_MINUTOS = 30
+
+
+def _cerrar_reserva(
+    db: Session,
+    notificacion_id: uuid.UUID,
+    estado: str,
+    motivo: str,
+    ejecucion_id: uuid.UUID,
+) -> None:
+    """Cierra una reserva durable y registra su resultado en una transacción corta."""
+    notificacion = db.get(Notificacion, notificacion_id)
+    if notificacion is None or notificacion.estado_envio != "pendiente":
+        return
+    notificacion.estado_envio = estado
+    notificacion.lease_until = None
+    notificacion.finished_at = ahora_utc()
+    if estado == "enviado":
+        notificacion.sent_at = notificacion.finished_at
+    log_audit(
+        db,
+        entidad="NOTIFICACION",
+        entidad_id=notificacion.id,
+        campo="estado_envio",
+        valor_anterior="pendiente",
+        valor_nuevo=estado,
+        usuario_id=None,
+        actor_tipo="sistema",
+        origen="workflow",
+        motivo=motivo,
+        referencia_entidad="WORKFLOW_EXECUTION",
+        referencia_id=ejecucion_id,
+    )
+    db.commit()
+
+
+def recuperar_reservas_notificacion(db: Session, limite: int = 100) -> int:
+    """Marca inciertas las reservas vencidas y cierra ejecuciones ya finalizadas.
+
+    No reenvía: una reserva vencida no prueba que n8n no haya iniciado el envío.
+    """
+    ahora = ahora_utc()
+    vencidas = list(
+        db.scalars(
+            select(Notificacion)
+            .where(
+                Notificacion.estado_envio == "pendiente",
+                Notificacion.workflow_execution_id.is_not(None),
+                Notificacion.lease_until.is_not(None),
+                Notificacion.lease_until < ahora,
+            )
+            .order_by(Notificacion.started_at)
+            .limit(limite)
+            .with_for_update(skip_locked=True)
+        )
+    )
+    for notificacion in vencidas:
+        notificacion.estado_envio = "incierto"
+        notificacion.lease_until = None
+        notificacion.finished_at = ahora
+        log_audit(
+            db,
+            entidad="NOTIFICACION",
+            entidad_id=notificacion.id,
+            campo="estado_envio",
+            valor_anterior="pendiente",
+            valor_nuevo="incierto",
+            usuario_id=None,
+            actor_tipo="sistema",
+            origen="workflow",
+            motivo="reserva vencida sin resultado confirmado; no se reenvía",
+            referencia_entidad="WORKFLOW_EXECUTION",
+            referencia_id=notificacion.workflow_execution_id,
+        )
+    db.commit()
+
+    ejecuciones = list(
+        db.scalars(
+            select(WorkflowExecution)
+            .where(WorkflowExecution.estado == "pendiente")
+            .with_for_update(skip_locked=True)
+        )
+    )
+    for ejecucion in ejecuciones:
+        filas = list(
+            db.scalars(
+                select(Notificacion).where(Notificacion.workflow_execution_id == ejecucion.id)
+            )
+        )
+        if not filas or any(fila.estado_envio == "pendiente" for fila in filas):
+            continue
+        if all(fila.estado_envio == "enviado" for fila in filas):
+            ejecucion.estado = "exitoso"
+            ejecucion.detalle = f"{len(filas)} de {len(filas)} emails enviados"
+        else:
+            ejecucion.estado = "fallido"
+            ejecucion.error_detail = "Reserva de notificación vencida sin resultado confirmado."
+        ejecucion.finished_at = ahora
+    db.commit()
+    return len(vencidas)
+
+
 def _enviar_todos(
     db: Session,
     ejecucion: WorkflowExecution,
@@ -540,8 +644,15 @@ def _enviar_todos(
     sin_email: int,
     enlace: tuple[str, str] | None,
 ) -> ResultadoAccion:
-    enviados = 0
-    n8n_caido = False
+    inicio = ahora_utc()
+    ejecucion_id = ejecucion.id
+    evento = db.get(EventLog, ejecucion.event_log_id)
+    if evento is not None:
+        evento.estado = "procesado"
+
+    # Primera transacción corta: reservar cada envío y confirmar el evento/ejecución antes
+    # de cualquier llamada HTTP. Los locks no se mantienen durante la red.
+    reservas: list[tuple[uuid.UUID, _Mensaje]] = []
     for mensaje in mensajes:
         asunto, cuerpo = quitar_marcas(mensaje.asunto), quitar_marcas(mensaje.cuerpo)
         notificacion = Notificacion(
@@ -551,9 +662,12 @@ def _enviar_todos(
             asunto_snapshot=asunto,
             cuerpo_snapshot=cuerpo,
             estado_envio="pendiente",
-            workflow_execution_id=ejecucion.id,
+            workflow_execution_id=ejecucion_id,
             familia_id=mensaje.destinatario.familia_id,
             usuario_id=mensaje.destinatario.usuario_id,
+            started_at=inicio,
+            lease_until=inicio + timedelta(minutes=LEASE_NOTIFICACION_MINUTOS),
+            proveedor_iniciado=True,
         )
         db.add(notificacion)
         db.flush()
@@ -567,32 +681,30 @@ def _enviar_todos(
             usuario_id=None,
             actor_tipo="sistema",
             origen="workflow",
-            motivo="intento de envío",
+            motivo="reserva de envío confirmada antes del HTTP",
             referencia_entidad="WORKFLOW_EXECUTION",
-            referencia_id=ejecucion.id,
+            referencia_id=ejecucion_id,
         )
+        reservas.append((notificacion.id, mensaje))
+    db.commit()
+
+    enviados = 0
+    n8n_caido = False
+    for notificacion_id, mensaje in reservas:
         if n8n_caido:
-            notificacion.estado_envio = "fallido"
-            log_audit(
+            _cerrar_reserva(
                 db,
-                entidad="NOTIFICACION",
-                entidad_id=notificacion.id,
-                campo="estado_envio",
-                valor_anterior="pendiente",
-                valor_nuevo="fallido",
-                usuario_id=None,
-                actor_tipo="sistema",
-                origen="workflow",
-                motivo="n8n no disponible; no se intentó el envío",
-                referencia_entidad="WORKFLOW_EXECUTION",
-                referencia_id=ejecucion.id,
+                notificacion_id,
+                "fallido",
+                "n8n no disponible; no se intentó el envío",
+                ejecucion_id,
             )
             continue
         try:
             n8n_client.enviar_email(
                 mensaje.destinatario.email,
-                asunto,
-                cuerpo,
+                quitar_marcas(mensaje.asunto),
+                quitar_marcas(mensaje.cuerpo),
                 armar_html(mensaje.asunto, mensaje.cuerpo, enlace, resaltados=True),
             )
         except (N8nNoConfigurado, N8nNoDisponible) as error:
@@ -600,20 +712,12 @@ def _enviar_todos(
                 "n8n no está disponible: se corta el envío (tipo=%s)", type(error).__name__
             )
             n8n_caido = True
-            notificacion.estado_envio = "fallido"
-            log_audit(
+            _cerrar_reserva(
                 db,
-                entidad="NOTIFICACION",
-                entidad_id=notificacion.id,
-                campo="estado_envio",
-                valor_anterior="pendiente",
-                valor_nuevo="fallido",
-                usuario_id=None,
-                actor_tipo="sistema",
-                origen="workflow",
-                motivo=f"n8n no disponible: {type(error).__name__}",
-                referencia_entidad="WORKFLOW_EXECUTION",
-                referencia_id=ejecucion.id,
+                notificacion_id,
+                "fallido",
+                f"n8n no disponible: {type(error).__name__}",
+                ejecucion_id,
             )
             continue
         except N8nResultadoIncierto as error:
@@ -621,73 +725,40 @@ def _enviar_todos(
                 "Resultado incierto del envío de una notificación (tipo=%s)",
                 type(error).__name__,
             )
-            notificacion.estado_envio = "incierto"
-            log_audit(
+            _cerrar_reserva(
                 db,
-                entidad="NOTIFICACION",
-                entidad_id=notificacion.id,
-                campo="estado_envio",
-                valor_anterior="pendiente",
-                valor_nuevo="incierto",
-                usuario_id=None,
-                actor_tipo="sistema",
-                origen="workflow",
-                motivo=f"resultado incierto: {type(error).__name__}",
-                referencia_entidad="WORKFLOW_EXECUTION",
-                referencia_id=ejecucion.id,
+                notificacion_id,
+                "incierto",
+                f"resultado incierto: {type(error).__name__}",
+                ejecucion_id,
             )
             continue
         except N8nEnvioFallido as error:
             logger.warning("Falló el envío de una notificación (tipo=%s)", type(error).__name__)
-            notificacion.estado_envio = "fallido"
-            log_audit(
+            _cerrar_reserva(
                 db,
-                entidad="NOTIFICACION",
-                entidad_id=notificacion.id,
-                campo="estado_envio",
-                valor_anterior="pendiente",
-                valor_nuevo="fallido",
-                usuario_id=None,
-                actor_tipo="sistema",
-                origen="workflow",
-                motivo=f"fallo de envío: {type(error).__name__}",
-                referencia_entidad="WORKFLOW_EXECUTION",
-                referencia_id=ejecucion.id,
+                notificacion_id,
+                "fallido",
+                f"fallo de envío: {type(error).__name__}",
+                ejecucion_id,
             )
             continue
         except Exception as error:
             logger.warning("Falló el envío de una notificación (tipo=%s)", type(error).__name__)
-            notificacion.estado_envio = "incierto"
-            log_audit(
+            _cerrar_reserva(
                 db,
-                entidad="NOTIFICACION",
-                entidad_id=notificacion.id,
-                campo="estado_envio",
-                valor_anterior="pendiente",
-                valor_nuevo="incierto",
-                usuario_id=None,
-                actor_tipo="sistema",
-                origen="workflow",
-                motivo=f"error no clasificado: {type(error).__name__}",
-                referencia_entidad="WORKFLOW_EXECUTION",
-                referencia_id=ejecucion.id,
+                notificacion_id,
+                "incierto",
+                f"error no clasificado: {type(error).__name__}",
+                ejecucion_id,
             )
             continue
-        notificacion.estado_envio = "enviado"
-        notificacion.sent_at = ahora_utc()
-        log_audit(
+        _cerrar_reserva(
             db,
-            entidad="NOTIFICACION",
-            entidad_id=notificacion.id,
-            campo="estado_envio",
-            valor_anterior="pendiente",
-            valor_nuevo="enviado",
-            usuario_id=None,
-            actor_tipo="sistema",
-            origen="workflow",
-            motivo="envío confirmado por n8n",
-            referencia_entidad="WORKFLOW_EXECUTION",
-            referencia_id=ejecucion.id,
+            notificacion_id,
+            "enviado",
+            "envío confirmado por n8n",
+            ejecucion_id,
         )
         enviados += 1
 

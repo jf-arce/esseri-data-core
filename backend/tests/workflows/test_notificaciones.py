@@ -1,18 +1,20 @@
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from src.academico.models import JustificacionInasistencia
 from src.auth.models import Rol, Usuario, UsuarioRol
 from src.config import settings
 from src.facturacion.models import Factura, Pago, ResponsableEconomico
 from src.familias_alumnos.models import Familia, FamiliaAlumno
+from src.fechas import ahora_utc
 from src.inscripciones.models import Asistencia
 from src.models import AuditLog, EventLog, Persona
-from src.workflows import despacho_service, notificaciones_service
+from src.workflows import despacho_service, n8n_client, notificaciones_service
 from src.workflows.constants import MAX_DESTINATARIOS_POR_EJECUCION
 from src.workflows.exceptions import (
     N8nEnvioFallido,
@@ -501,6 +503,77 @@ def test_reintento_mixto_conserva_la_incertidumbre(
         )
     )
     assert estado_incierto == "incierto"
+
+
+def test_la_reserva_esta_confirmada_antes_del_http(
+    db_session, tipo_factura_vencida, plantilla, monkeypatch
+):
+    regla = _preparar_regla_con_usuarios(db_session, tipo_factura_vencida, plantilla)
+    evento = _evento(db_session, tipo_factura_vencida)
+    ejecucion = _ejecucion(db_session, regla, evento)
+    observado: list[tuple[str, bool, bool, str]] = []
+
+    def enviar(destinatario, asunto, cuerpo, cuerpo_html=None, transport=None):
+        with Session(bind=db_session.get_bind()) as otra:
+            fila = otra.scalar(
+                select(Notificacion).where(Notificacion.workflow_execution_id == ejecucion.id)
+            )
+            evento_db = otra.get(EventLog, evento.id)
+            observado.append(
+                (
+                    fila.estado_envio,
+                    fila.lease_until is not None,
+                    fila.proveedor_iniciado,
+                    evento_db.estado,
+                )
+            )
+
+    monkeypatch.setattr(n8n_client, "enviar_email", enviar)
+
+    ejecutar_notificar(db_session, regla, evento, ejecucion)
+
+    assert observado
+    assert observado[0] == ("pendiente", True, True, "procesado")
+
+
+def test_recuperar_reserva_vencida_la_marca_incierta(db_session, tipo_factura_vencida, plantilla):
+    regla = _preparar_regla_con_usuarios(db_session, tipo_factura_vencida, plantilla)
+    evento = _evento(db_session, tipo_factura_vencida)
+    ejecucion = _ejecucion(db_session, regla, evento)
+    notificacion = Notificacion(
+        destinatario_tipo="usuario",
+        destinatario_snapshot="u00@esseri.edu.ar",
+        asunto_snapshot="A",
+        cuerpo_snapshot="B",
+        estado_envio="pendiente",
+        workflow_execution_id=ejecucion.id,
+        proveedor_iniciado=True,
+        started_at=ahora_utc() - timedelta(minutes=5),
+        lease_until=ahora_utc() - timedelta(minutes=1),
+    )
+    db_session.add(notificacion)
+    db_session.commit()
+
+    recuperadas = notificaciones_service.recuperar_reservas_notificacion(db_session)
+
+    assert recuperadas == 1
+    db_session.refresh(notificacion)
+    db_session.refresh(ejecucion)
+    assert notificacion.estado_envio == "incierto"
+    assert notificacion.lease_until is None
+    assert ejecucion.estado == "fallido"
+    assert ejecucion.error_detail == "Reserva de notificación vencida sin resultado confirmado."
+    assert (
+        db_session.query(AuditLog)
+        .filter_by(
+            entidad="NOTIFICACION",
+            entidad_id=notificacion.id,
+            campo="estado_envio",
+            valor_nuevo="incierto",
+        )
+        .count()
+        == 1
+    )
 
 
 def test_regla_sin_plantilla_falla_sin_notificaciones(db_session, tipo_factura_vencida, envios):
