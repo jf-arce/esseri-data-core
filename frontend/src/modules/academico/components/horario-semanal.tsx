@@ -108,7 +108,7 @@ export function HorarioSemanal({
             const { materiaCurso } = bloque.origen
             const nombre = materiaCurso.materia_nombre ?? 'Materia'
             const rango = `${bloque.origen.hora_inicio.slice(0, 5)} a ${bloque.origen.hora_fin.slice(0, 5)}`
-            const clases = `z-10 flex min-w-0 flex-col overflow-hidden rounded-md border px-2 py-1 text-left text-xs ${
+            const clases = `z-10 flex min-w-0 flex-col overflow-hidden border px-2 py-1 text-left text-xs ${
               bloque.superpuesto
                 ? 'border-error bg-error-suave text-error'
                 : 'border-transparent bg-info-suave text-info'

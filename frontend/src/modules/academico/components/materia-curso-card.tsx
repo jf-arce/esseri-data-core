@@ -49,12 +49,13 @@ export function MateriaCursoCard({
           </Button>
           <Button
             variant="ghost"
-            size="sm"
+            size="icon-sm"
+            className="text-error hover:text-error"
             onClick={() => onQuitar(materiaCurso)}
             aria-label={`Quitar ${nombre}`}
+            title="Quitar del curso"
           >
             <Trash2Icon />
-            Quitar
           </Button>
         </div>
       )}

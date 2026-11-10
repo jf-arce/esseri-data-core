@@ -55,16 +55,26 @@ type DialogMateria = {
 
 type Vista = 'materias' | 'horario'
 
+// "1°A": la división ya puede venir con el año ("1°A") o solo con la letra ("A").
+function etiquetaDivision(anio: Anio, division: Division): string {
+  const prefijo = `${anio.numero}°`
+  return division.nombre.startsWith(prefijo) ? division.nombre : `${prefijo}${division.nombre}`
+}
+
 function textoAlumnos(cantidad: number): string {
   return `${cantidad} ${cantidad === 1 ? 'alumno' : 'alumnos'}`
 }
 
 function AccionesMenu({
   etiqueta,
+  textoAgregar,
+  onAgregar,
   onEditar,
   onEliminar,
 }: {
   etiqueta: string
+  textoAgregar?: string
+  onAgregar?: () => void
   onEditar: () => void
   onEliminar: () => void
 }) {
@@ -76,6 +86,12 @@ function AccionesMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {onAgregar && (
+          <DropdownMenuItem onSelect={onAgregar}>
+            <PlusIcon className="text-petroleo" />
+            {textoAgregar}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onSelect={onEditar}>
           <PencilIcon className="text-petroleo" />
           Editar
@@ -87,6 +103,23 @@ function AccionesMenu({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+function EstructuraSkeleton() {
+  return (
+    <div className="flex flex-col gap-5" aria-busy="true" aria-label="Cargando">
+      <div className="flex flex-wrap gap-4">
+        <Skeleton className="h-9 w-40" />
+        <Skeleton className="h-9 w-64" />
+      </div>
+      <Skeleton className="h-7 w-56" />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} className="h-28 w-full" />
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -180,6 +213,11 @@ export function EstructuraAcademicaPage() {
     )
   }
 
+  // Un solo estado de carga para todo el tramo (años, divisiones, materias y docentes), así
+  // no se ve aparecer de a poco al alternar entre niveles.
+  const cambiandoSeleccion =
+    estructura.cargandoAnios || estructura.cargandoAnio || estructura.cargandoDivision
+
   const horariosOcupados = estructura.materiasCurso
     .filter((materiaCurso) => materiaCurso.id !== dialogMateria?.item?.id)
     .flatMap((materiaCurso) =>
@@ -200,7 +238,6 @@ export function EstructuraAcademicaPage() {
         />
       )
     }
-    if (estructura.cargandoAnios) return <Skeleton className="h-40 w-full" />
     if (!anio) {
       return (
         <Vacio
@@ -215,7 +252,6 @@ export function EstructuraAcademicaPage() {
         />
       )
     }
-    if (estructura.cargandoAnio) return <Skeleton className="h-40 w-full" />
     if (!division) {
       return (
         <Vacio
@@ -234,20 +270,37 @@ export function EstructuraAcademicaPage() {
     return (
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-1">
-            <h2 className="text-lg font-semibold text-texto">
-              {division.nombre} · {nivel.nombre} · {textoAlumnos(division.cantidad_inscripciones)}
-            </h2>
+          <div className="flex flex-wrap items-baseline gap-x-3">
+            <h2 className="text-lg font-semibold text-texto">{etiquetaDivision(anio, division)}</h2>
+            <span className="text-sm text-texto-3">
+              {textoAlumnos(division.cantidad_inscripciones)}
+            </span>
             {puedeEditar && (
-              <AccionesMenu
-                etiqueta="Acciones de la división"
-                onEditar={() =>
-                  setDialogAbm({ entidad: 'division', modo: 'editar', item: division })
-                }
-                onEliminar={() =>
-                  setDialogAbm({ entidad: 'division', modo: 'eliminar', item: division })
-                }
-              />
+              <span className="flex items-center gap-1 self-center">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Editar división ${etiquetaDivision(anio, division)}`}
+                  title="Editar división"
+                  onClick={() =>
+                    setDialogAbm({ entidad: 'division', modo: 'editar', item: division })
+                  }
+                >
+                  <PencilIcon />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-error hover:text-error"
+                  aria-label={`Dar de baja división ${etiquetaDivision(anio, division)}`}
+                  title="Dar de baja división"
+                  onClick={() =>
+                    setDialogAbm({ entidad: 'division', modo: 'eliminar', item: division })
+                  }
+                >
+                  <Trash2Icon />
+                </Button>
+              </span>
             )}
           </div>
           <Tabs
@@ -261,11 +314,9 @@ export function EstructuraAcademicaPage() {
           </Tabs>
         </div>
 
-        {estructura.cargandoDivision ? (
-          <Skeleton className="h-40 w-full" />
-        ) : estructura.materiasCurso.length === 0 ? (
+        {estructura.materiasCurso.length === 0 ? (
           <Vacio
-            titulo={`${division.nombre} todavía no tiene materias.`}
+            titulo={`${etiquetaDivision(anio, division)} todavía no tiene materias.`}
             descripcion={
               puedeEditar
                 ? 'Asigná materias del catálogo con su día y horario.'
@@ -329,68 +380,73 @@ export function EstructuraAcademicaPage() {
           </Tabs>
 
           <Card className="gap-5 p-6">
-            {nivel && anio && (
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-                <div className="flex items-center gap-1">
-                  <Select
-                    value={anio.id}
-                    onValueChange={(id) =>
-                      id === NUEVO
-                        ? setDialogAbm({ entidad: 'anio', modo: 'crear' })
-                        : elegir({ nivel: nivel.id, anio: id })
-                    }
-                  >
-                    <SelectTrigger className="w-40" aria-label="Año">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {estructura.anios.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>
-                          {a.numero}° año
-                        </SelectItem>
-                      ))}
-                      {puedeEditar && <SelectItem value={NUEVO}>+ Agregar año</SelectItem>}
-                    </SelectContent>
-                  </Select>
-                  {puedeEditar && (
-                    <AccionesMenu
-                      etiqueta="Acciones del año"
-                      onEditar={() => setDialogAbm({ entidad: 'anio', modo: 'editar', item: anio })}
-                      onEliminar={() =>
-                        setDialogAbm({ entidad: 'anio', modo: 'eliminar', item: anio })
-                      }
-                    />
-                  )}
-                </div>
-
-                {estructura.divisiones.length > 0 && (
-                  <Tabs
-                    className="min-w-0 flex-1"
-                    value={division?.id ?? ''}
-                    onValueChange={(id) =>
-                      id === NUEVO
-                        ? setDialogAbm({ entidad: 'division', modo: 'crear' })
-                        : elegir({ nivel: nivel.id, anio: anio.id, division: id })
-                    }
-                  >
-                    <TabsList className="overflow-x-auto">
-                      {estructura.divisiones.map((d) => (
-                        <TabsTrigger key={d.id} value={d.id}>
-                          {d.nombre}
-                        </TabsTrigger>
-                      ))}
+            {cambiandoSeleccion ? (
+              <EstructuraSkeleton />
+            ) : (
+              <>
+                {nivel && anio && (
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+                    <div className="flex items-center gap-1">
+                      <Select
+                        value={anio.id}
+                        onValueChange={(id) => elegir({ nivel: nivel.id, anio: id })}
+                      >
+                        <SelectTrigger className="w-40" aria-label="Año">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {estructura.anios.map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.numero}° año
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       {puedeEditar && (
-                        <TabsTrigger value={NUEVO} aria-label="Agregar división">
-                          <PlusIcon />
-                        </TabsTrigger>
+                        <AccionesMenu
+                          etiqueta="Acciones del año"
+                          textoAgregar="Agregar año"
+                          onAgregar={() => setDialogAbm({ entidad: 'anio', modo: 'crear' })}
+                          onEditar={() =>
+                            setDialogAbm({ entidad: 'anio', modo: 'editar', item: anio })
+                          }
+                          onEliminar={() =>
+                            setDialogAbm({ entidad: 'anio', modo: 'eliminar', item: anio })
+                          }
+                        />
                       )}
-                    </TabsList>
-                  </Tabs>
-                )}
-              </div>
-            )}
+                    </div>
 
-            {contenido()}
+                    {estructura.divisiones.length > 0 && (
+                      <Tabs
+                        className="min-w-0 flex-1"
+                        value={division?.id ?? ''}
+                        onValueChange={(id) =>
+                          id === NUEVO
+                            ? setDialogAbm({ entidad: 'division', modo: 'crear' })
+                            : elegir({ nivel: nivel.id, anio: anio.id, division: id })
+                        }
+                      >
+                        <TabsList className="overflow-x-auto">
+                          {estructura.divisiones.map((d) => (
+                            <TabsTrigger key={d.id} value={d.id}>
+                              {d.nombre}
+                            </TabsTrigger>
+                          ))}
+                          {puedeEditar && (
+                            <TabsTrigger value={NUEVO} aria-label="Agregar división">
+                              <PlusIcon />
+                            </TabsTrigger>
+                          )}
+                        </TabsList>
+                      </Tabs>
+                    )}
+                  </div>
+                )}
+
+                {contenido()}
+              </>
+            )}
           </Card>
         </>
       )}

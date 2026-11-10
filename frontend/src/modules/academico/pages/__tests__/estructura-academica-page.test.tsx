@@ -137,10 +137,9 @@ describe('EstructuraAcademicaPage', () => {
     montar()
 
     expect(await screen.findByText('1°A todavía no tiene materias.')).toBeInTheDocument()
-    expect(screen.getByText('1°A · Primario · 24 alumnos')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '1°A' })).toBeInTheDocument()
+    expect(screen.getByText('24 alumnos')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Agregar materia' })).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'Acciones de la división' }),
-    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Editar división/ })).not.toBeInTheDocument()
   })
 })

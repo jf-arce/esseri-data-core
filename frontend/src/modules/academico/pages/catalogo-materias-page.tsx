@@ -160,11 +160,13 @@ export function CatalogoMateriasPage() {
                         </Button>
                         <Button
                           variant="secondary"
-                          className="min-h-8 text-sm text-error"
+                          size="icon-sm"
+                          className="text-error"
+                          aria-label="Eliminar"
+                          title="Eliminar"
                           onClick={() => setDialog({ open: true, modo: 'eliminar', item: materia })}
                         >
                           <Trash2Icon />
-                          Eliminar
                         </Button>
                       </div>
                     </TableCell>
