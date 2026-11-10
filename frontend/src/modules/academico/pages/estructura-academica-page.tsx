@@ -379,6 +379,7 @@ export function EstructuraAcademicaPage() {
         ) : (
           <HorarioSemanal
             materiasCurso={estructura.materiasCurso}
+            docentesDe={docentesDe}
             puedeEditar={puedeEditar}
             onEditar={(item) => setDialogMateria({ modo: 'editar', item })}
             onAgregar={abrirMateria}

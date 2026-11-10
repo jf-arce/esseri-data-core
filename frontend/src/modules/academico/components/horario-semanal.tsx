@@ -9,6 +9,8 @@ export type HuecoHorario = { dia_semana: number; hora_inicio: string; hora_fin: 
 
 interface HorarioSemanalProps {
   materiasCurso: MateriaCurso[]
+  /** Nombres de los docentes asignados a la materia en el ciclo actual. */
+  docentesDe: (materiaCurso: MateriaCurso) => string[]
   puedeEditar: boolean
   onEditar: (materiaCurso: MateriaCurso) => void
   onAgregar: (hueco?: HuecoHorario) => void
@@ -23,6 +25,7 @@ type FranjaConMateria = {
 
 export function HorarioSemanal({
   materiasCurso,
+  docentesDe,
   puedeEditar,
   onEditar,
   onAgregar,
@@ -51,7 +54,7 @@ export function HorarioSemanal({
           className="grid min-w-[640px] gap-px rounded-card-sm bg-borde text-sm"
           style={{
             gridTemplateColumns: `3.5rem repeat(${grilla.dias.length}, minmax(0, 1fr))`,
-            gridTemplateRows: `2rem repeat(${grilla.filas}, 1.75rem)`,
+            gridTemplateRows: `2rem repeat(${grilla.filas}, 2rem)`,
           }}
         >
           <div className="bg-superficie" style={{ gridRow: 1, gridColumn: 1 }} />
@@ -117,13 +120,16 @@ export function HorarioSemanal({
               gridColumn: bloque.columna,
               gridRow: `${bloque.filaInicio} / ${bloque.filaFin}`,
             }
+            const docentes = docentesDe(materiaCurso)
+            const textoDocentes = docentes.length > 0 ? docentes.join(', ') : 'Sin docente asignado'
             const contenido = (
               <>
                 <span className="truncate font-semibold">{nombre}</span>
                 <span className="truncate">{rango}</span>
+                <span className="truncate opacity-80">{textoDocentes}</span>
               </>
             )
-            const etiqueta = `${nombre}, ${DIAS[bloque.origen.dia_semana - 1]} de ${rango}${
+            const etiqueta = `${nombre}, ${DIAS[bloque.origen.dia_semana - 1]} de ${rango}, ${textoDocentes}${
               bloque.superpuesto ? ' (horario superpuesto)' : ''
             }`
             return puedeEditar ? (
