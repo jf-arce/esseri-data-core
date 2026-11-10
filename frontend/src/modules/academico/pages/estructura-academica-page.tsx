@@ -106,19 +106,27 @@ function AccionesMenu({
   )
 }
 
-function EstructuraSkeleton() {
+function ContenidoSkeleton() {
   return (
-    <div className="flex flex-col gap-5" aria-busy="true" aria-label="Cargando">
-      <div className="flex flex-wrap gap-4">
-        <Skeleton className="h-9 w-40" />
-        <Skeleton className="h-9 w-64" />
-      </div>
+    <div className="flex flex-col gap-4" aria-busy="true" aria-label="Cargando">
       <Skeleton className="h-7 w-56" />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {[0, 1, 2].map((i) => (
           <Skeleton key={i} className="h-28 w-full" />
         ))}
       </div>
+    </div>
+  )
+}
+
+function EstructuraSkeleton() {
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap gap-4">
+        <Skeleton className="h-9 w-40" />
+        <Skeleton className="h-9 w-64" />
+      </div>
+      <ContenidoSkeleton />
     </div>
   )
 }
@@ -213,10 +221,10 @@ export function EstructuraAcademicaPage() {
     )
   }
 
-  // Un solo estado de carga para todo el tramo (años, divisiones, materias y docentes), así
-  // no se ve aparecer de a poco al alternar entre niveles.
-  const cambiandoSeleccion =
-    estructura.cargandoAnios || estructura.cargandoAnio || estructura.cargandoDivision
+  // El skeleton cubre solo lo que cambia: al cambiar de nivel, toda la tarjeta; al cambiar de
+  // año, las pestañas de división y el contenido; al cambiar de división, solo el contenido.
+  const cambiandoNivel = estructura.cargandoAnios
+  const cambiandoContenido = estructura.cargandoAnio || estructura.cargandoDivision
 
   const horariosOcupados = estructura.materiasCurso
     .filter((materiaCurso) => materiaCurso.id !== dialogMateria?.item?.id)
@@ -380,7 +388,7 @@ export function EstructuraAcademicaPage() {
           </Tabs>
 
           <Card className="gap-5 p-6">
-            {cambiandoSeleccion ? (
+            {cambiandoNivel ? (
               <EstructuraSkeleton />
             ) : (
               <>
@@ -417,7 +425,8 @@ export function EstructuraAcademicaPage() {
                       )}
                     </div>
 
-                    {estructura.divisiones.length > 0 && (
+                    {estructura.cargandoAnio && <Skeleton className="h-9 w-64" />}
+                    {!estructura.cargandoAnio && estructura.divisiones.length > 0 && (
                       <Tabs
                         className="min-w-0 flex-1"
                         value={division?.id ?? ''}
@@ -444,7 +453,7 @@ export function EstructuraAcademicaPage() {
                   </div>
                 )}
 
-                {contenido()}
+                {cambiandoContenido ? <ContenidoSkeleton /> : contenido()}
               </>
             )}
           </Card>
