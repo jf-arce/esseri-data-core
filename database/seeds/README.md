@@ -20,9 +20,10 @@ source venv/bin/activate
 python ../database/seeds/01_seed_grupo_a.py
 python ../database/seeds/02_seed_grupo_c.py
 python ../database/seeds/03_seed_grupo_b.py   # requiere que 01 ya haya corrido
+python ../database/seeds/06_seed_aviso_revocacion.py   # requiere 01 y 03
 ```
 
-Los tres son idempotentes — correrlos de nuevo no duplica filas. Después de editar `grupo-b.yaml`
+Los cuatro son idempotentes — correrlos de nuevo no duplica filas. Después de editar `grupo-b.yaml`
 (sumar una acción a un rol, por ejemplo) alcanza con volver a correr `03_seed_grupo_b.py`: no
 toca los permisos existentes, solo agrega los `Permiso`/`RolPermiso` nuevos.
 
@@ -33,6 +34,38 @@ sembrada con el YAML viejo se queda con el vínculo de más — volver a correr 
 corrige. Esa corrección va en una migración de datos de Alembic (ver
 `backend/alembic/versions/58d7c7ac8e3c_corrige_permiso_de_asistencia_del_rol_.py` como
 ejemplo), no en el seed ni a mano en cada base.
+
+## `06_seed_aviso_revocacion.py` — aviso de revocación de ausencias por período
+
+Crea la plantilla y la regla de workflow que usan el evento
+`solicitud_ausencia_periodo.revocada` cuando administración revoca una solicitud con
+`notificar_familia=true`. Sin esta configuración el evento queda registrado pero no se envía
+ningún email; es el único paso que hace que «Notificar a la familia» funcione.
+
+Requiere `01_seed_grupo_a.py` (tipo de evento) y `03_seed_grupo_b.py` (campos del evento). Es
+idempotente por nombre: si la plantilla o la regla ya existen, no las modifica ni pisa lo
+editado desde la pantalla de Workflows. Corre en el arranque estándar de Docker y producción
+junto a los seeds 01, 02 y 03.
+
+```bash
+cd backend
+source venv/bin/activate
+python ../database/seeds/06_seed_aviso_revocacion.py
+```
+
+Con Docker:
+
+```bash
+cd infra
+docker compose exec backend python /database/seeds/06_seed_aviso_revocacion.py
+```
+
+En la demo, `04_seed_demo.py` crea la misma plantilla y regla por nombre; si este seed corrió
+antes, el demo las reutiliza en vez de duplicarlas.
+
+El arranque está pensado para una sola réplica del backend. Si se escalan réplicas que ejecutan
+este seed a la vez, `workflow_rule.nombre` no tiene restricción única y podrían crearse dos
+reglas equivalentes; la plantilla sí queda protegida por su nombre único.
 
 ## `04_seed_demo.py` — datos ficticios para una demo local
 

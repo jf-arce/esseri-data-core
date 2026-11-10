@@ -204,7 +204,8 @@ En ambos Compose, el orden de arranque del backend es:
 2. `01_seed_grupo_a.py`.
 3. `02_seed_grupo_c.py`.
 4. `03_seed_grupo_b.py`.
-5. Inicio de la API.
+5. `06_seed_aviso_revocacion.py` (regla y plantilla del aviso de revocación de ausencias por período).
+6. Inicio de la API.
 
 No generar una migración nueva para instalar el sistema. Los seeds de catálogos son idempotentes;
 no eliminan permisos existentes. El bootstrap del administrador es un paso separado.

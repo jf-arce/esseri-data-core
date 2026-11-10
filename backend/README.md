@@ -49,6 +49,7 @@ Después de migrar, la base queda vacía — algunos módulos no funcionan sin c
 python ../database/seeds/01_seed_grupo_a.py
 python ../database/seeds/02_seed_grupo_c.py
 python ../database/seeds/03_seed_grupo_b.py
+python ../database/seeds/06_seed_aviso_revocacion.py
 ```
 
 Para cargar datos ficticios de recorrido completo en una demo local, ejecutar manualmente:
