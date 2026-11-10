@@ -79,3 +79,23 @@ def test_falla_con_un_mensaje_claro_si_falta_el_tipo_de_evento(db_session, seed_
         seed_aviso.seed(db_session)
 
     assert "01_seed_grupo_a.py" in str(error.value)
+
+
+def test_segunda_corrida_cambia_ids_ni_pisa_lo_editado(db_session, seed_aviso):
+    _tipo_evento(db_session)
+    seed_aviso.seed(db_session)
+    plantilla = db_session.scalar(select(NotificacionTemplate))
+    regla = db_session.scalar(select(WorkflowRule))
+    ids = (plantilla.id, regla.id)
+
+    plantilla.asunto = "Editado a mano"
+    regla.criticidad = "alta"
+    db_session.commit()
+
+    seed_aviso.seed(db_session)
+
+    plantilla = db_session.scalar(select(NotificacionTemplate))
+    regla = db_session.scalar(select(WorkflowRule))
+    assert (plantilla.id, regla.id) == ids
+    assert plantilla.asunto == "Editado a mano"
+    assert regla.criticidad == "alta"

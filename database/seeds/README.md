@@ -20,9 +20,10 @@ source venv/bin/activate
 python ../database/seeds/01_seed_grupo_a.py
 python ../database/seeds/02_seed_grupo_c.py
 python ../database/seeds/03_seed_grupo_b.py   # requiere que 01 ya haya corrido
+python ../database/seeds/06_seed_aviso_revocacion.py   # requiere 01 y 03
 ```
 
-Los tres son idempotentes — correrlos de nuevo no duplica filas. Después de editar `grupo-b.yaml`
+Los cuatro son idempotentes — correrlos de nuevo no duplica filas. Después de editar `grupo-b.yaml`
 (sumar una acción a un rol, por ejemplo) alcanza con volver a correr `03_seed_grupo_b.py`: no
 toca los permisos existentes, solo agrega los `Permiso`/`RolPermiso` nuevos.
 
@@ -61,6 +62,10 @@ docker compose exec backend python /database/seeds/06_seed_aviso_revocacion.py
 
 En la demo, `04_seed_demo.py` crea la misma plantilla y regla por nombre; si este seed corrió
 antes, el demo las reutiliza en vez de duplicarlas.
+
+El arranque está pensado para una sola réplica del backend. Si se escalan réplicas que ejecutan
+este seed a la vez, `workflow_rule.nombre` no tiene restricción única y podrían crearse dos
+reglas equivalentes; la plantilla sí queda protegida por su nombre único.
 
 ## `04_seed_demo.py` — datos ficticios para una demo local
 
