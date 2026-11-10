@@ -125,3 +125,71 @@ export function describirConflicto(conflicto: ConflictoHorario): string {
     ? `La franja ${conflicto.indice + 1} se superpone con ${conflicto.materia} (${franja}).`
     : `La franja ${conflicto.indice + 1} se superpone con otra franja de esta materia (${franja}).`
 }
+
+/** El elemento con ese id, o el primero si el id falta o ya no existe. */
+export function elegirPorId<T extends { id: string }>(
+  items: T[],
+  id: string | null | undefined,
+): T | undefined {
+  return items.find((item) => item.id === id) ?? items[0]
+}
+
+const MINUTOS_POR_FILA = 30
+const HORA_MINIMA = 7 * 60
+const HORA_MAXIMA = 14 * 60
+
+export function aMinutos(hora: string): number {
+  const [horas, minutos] = hora.split(':')
+  return Number(horas) * 60 + Number(minutos)
+}
+
+export function deMinutos(minutos: number): string {
+  const horas = String(Math.floor(minutos / 60)).padStart(2, '0')
+  return `${horas}:${String(minutos % 60).padStart(2, '0')}`
+}
+
+export type BloqueHorario<T extends FranjaHoraria> = {
+  clave: string
+  origen: T
+  /** Columna de la grilla (1 es la de las horas). */
+  columna: number
+  /** Líneas de la grilla (1 es el encabezado de días). */
+  filaInicio: number
+  filaFin: number
+  superpuesto: boolean
+}
+
+export type Grilla<T extends FranjaHoraria> = {
+  dias: number[]
+  /** Hora de la primera fila, en minutos. */
+  inicio: number
+  /** Cantidad de filas de 30 minutos. */
+  filas: number
+  bloques: BloqueHorario<T>[]
+}
+
+/**
+ * Posiciona franjas en una grilla semanal: lunes a viernes (más sábado y domingo solo si hay
+ * franjas), filas de 30 minutos entre 07:00 y 14:00 como mínimo, ampliadas a la hora completa
+ * más cercana si alguna franja queda afuera.
+ */
+export function calcularGrilla<T extends FranjaHoraria>(franjas: T[]): Grilla<T> {
+  const diasConFranjas = franjas.map((franja) => franja.dia_semana)
+  const dias = [1, 2, 3, 4, 5, 6, 7].filter((dia) => dia <= 5 || diasConFranjas.includes(dia))
+
+  const comienzos = franjas.map((franja) => aMinutos(franja.hora_inicio))
+  const finales = franjas.map((franja) => aMinutos(franja.hora_fin))
+  const inicio = Math.floor(Math.min(HORA_MINIMA, ...comienzos) / 60) * 60
+  const fin = Math.ceil(Math.max(HORA_MAXIMA, ...finales) / 60) * 60
+
+  const bloques = franjas.map((franja, indice) => ({
+    clave: `${indice}-${franja.dia_semana}-${franja.hora_inicio}`,
+    origen: franja,
+    columna: 2 + dias.indexOf(franja.dia_semana),
+    filaInicio: 2 + (aMinutos(franja.hora_inicio) - inicio) / MINUTOS_POR_FILA,
+    filaFin: 2 + (aMinutos(franja.hora_fin) - inicio) / MINUTOS_POR_FILA,
+    superpuesto: franjas.some((otra, i) => i !== indice && franjasSeSuperponen(franja, otra)),
+  }))
+
+  return { dias, inicio, filas: (fin - inicio) / MINUTOS_POR_FILA, bloques }
+}

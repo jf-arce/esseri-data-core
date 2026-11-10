@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  aMinutos,
   buscarConflictos,
+  calcularGrilla,
+  deMinutos,
+  elegirPorId,
   describirConflicto,
   formatearHorario,
   formatearHorarios,
@@ -98,5 +102,57 @@ describe('buscarConflictos', () => {
     expect(
       buscarConflictos([{ dia_semana: 1, hora_inicio: '09:00', hora_fin: '10:00' }], ocupadas),
     ).toEqual([])
+  })
+})
+
+describe('elegirPorId', () => {
+  const items = [{ id: 'a' }, { id: 'b' }]
+
+  it('devuelve el elemento pedido o el primero si no existe', () => {
+    expect(elegirPorId(items, 'b')).toEqual({ id: 'b' })
+    expect(elegirPorId(items, 'zzz')).toEqual({ id: 'a' })
+    expect(elegirPorId(items, null)).toEqual({ id: 'a' })
+    expect(elegirPorId([], 'a')).toBeUndefined()
+  })
+})
+
+describe('aMinutos y deMinutos', () => {
+  it('convierten entre HH:MM y minutos', () => {
+    expect(aMinutos('08:30:00')).toBe(510)
+    expect(deMinutos(510)).toBe('08:30')
+    expect(deMinutos(420)).toBe('07:00')
+  })
+})
+
+describe('calcularGrilla', () => {
+  it('sin franjas muestra lunes a viernes de 07:00 a 14:00 en filas de 30 minutos', () => {
+    const grilla = calcularGrilla([])
+    expect(grilla.dias).toEqual([1, 2, 3, 4, 5])
+    expect(grilla.inicio).toBe(7 * 60)
+    expect(grilla.filas).toBe(14)
+  })
+
+  it('posiciona un bloque según día y horario', () => {
+    const { bloques } = calcularGrilla([{ dia_semana: 2, hora_inicio: '08:00', hora_fin: '09:30' }])
+    expect(bloques[0]).toMatchObject({ columna: 3, filaInicio: 4, filaFin: 7, superpuesto: false })
+  })
+
+  it('agrega sábado solo si hay franjas y amplía el rango horario', () => {
+    const grilla = calcularGrilla([
+      { dia_semana: 6, hora_inicio: '06:30:00', hora_fin: '15:15:00' },
+    ])
+    expect(grilla.dias).toEqual([1, 2, 3, 4, 5, 6])
+    expect(grilla.inicio).toBe(6 * 60)
+    expect(grilla.filas).toBe(20)
+    expect(grilla.bloques[0].columna).toBe(7)
+  })
+
+  it('marca los bloques que se superponen', () => {
+    const { bloques } = calcularGrilla([
+      { dia_semana: 1, hora_inicio: '08:00', hora_fin: '09:00' },
+      { dia_semana: 1, hora_inicio: '08:30', hora_fin: '09:30' },
+      { dia_semana: 1, hora_inicio: '10:00', hora_fin: '11:00' },
+    ])
+    expect(bloques.map((bloque) => bloque.superpuesto)).toEqual([true, true, false])
   })
 })

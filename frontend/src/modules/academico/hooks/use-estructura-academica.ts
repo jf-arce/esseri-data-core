@@ -1,94 +1,138 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '@/api/client'
-import { listarNiveles } from '@/modules/academico/services/niveles-educativos'
 import { listarAnios } from '@/modules/academico/services/anios'
+import { listarAsignaciones } from '@/modules/academico/services/asignaciones-docentes'
 import { listarDivisiones } from '@/modules/academico/services/divisiones'
+import { listarDocentes } from '@/modules/academico/services/docentes'
 import { listarMaterias } from '@/modules/academico/services/materias'
 import { listarMateriasCurso } from '@/modules/academico/services/materias-curso'
+import { listarNiveles } from '@/modules/academico/services/niveles-educativos'
 import type {
   Anio,
+  AsignacionDocente,
   Division,
+  Docente,
   Materia,
   MateriaCurso,
   NivelEducativo,
 } from '@/modules/academico/types'
+import { elegirPorId } from '@/modules/academico/utils'
 
-export type NivelConEstructura = NivelEducativo & {
-  anios: (Anio & {
-    divisiones: (Division & {
-      /** Materias del catálogo asignadas a esta división, con su horario. */
-      materias: MateriaCurso[]
-    })[]
-  })[]
+/** Selección pedida (normalmente la de la URL): si falta o ya no existe, se elige la primera. */
+export type SeleccionEstructura = {
+  nivel: string | null
+  anio: string | null
+  division: string | null
 }
 
-export function useEstructuraAcademica() {
-  const [datos, setDatos] = useState<NivelConEstructura[]>([])
-  const [catalogo, setCatalogo] = useState<Materia[]>([])
-  const [cargando, setCargando] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [sinPermiso, setSinPermiso] = useState(false)
+type Estado<T> = { clave?: string; datos?: T; error?: unknown }
 
-  const cargar = useCallback(async () => {
-    setCargando(true)
-    setError(null)
-    try {
-      const [niveles, materias] = await Promise.all([listarNiveles(), listarMaterias()])
-
-      const nivelesConEstructura: NivelConEstructura[] = await Promise.all(
-        niveles.map(async (nivel) => {
-          const anios = await listarAnios(nivel.id)
-
-          const aniosConDivisiones = await Promise.all(
-            anios.map(async (anio) => {
-              const [divisiones, materiasCurso] = await Promise.all([
-                listarDivisiones(anio.id),
-                listarMateriasCurso({ anio_id: anio.id }),
-              ])
-
-              const divisionesConMaterias = divisiones.map((division) => ({
-                ...division,
-                materias: materiasCurso.filter((materia) => materia.division_id === division.id),
-              }))
-
-              return { ...anio, divisiones: divisionesConMaterias }
-            }),
-          )
-
-          return { ...nivel, anios: aniosConDivisiones }
-        }),
-      )
-
-      setDatos(nivelesConEstructura)
-      setCatalogo(materias)
-      setSinPermiso(false)
-    } catch (err: unknown) {
-      if (err instanceof ApiError && err.status === 403) {
-        setSinPermiso(true)
-      } else {
-        setError(
-          err instanceof ApiError ? err.detail : 'No se pudo cargar la estructura académica.',
-        )
-      }
-    } finally {
-      setCargando(false)
-    }
-  }, [])
+// Carga `cargar` cuando cambia `clave` (sin clave no carga nada). Mientras la clave nueva no
+// termina, no se devuelven los datos de la anterior. `cargar` tiene que estar memoizada.
+function useCarga<T>(clave: string | undefined, cargar: () => Promise<T>) {
+  const [estado, setEstado] = useState<Estado<T>>({})
+  const [version, setVersion] = useState(0)
 
   useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      await cargar()
-      if (cancelled) return
-    })()
+    if (clave === undefined) return
+    let cancelado = false
+    cargar()
+      .then((datos) => !cancelado && setEstado({ clave, datos }))
+      .catch((error: unknown) => !cancelado && setEstado({ clave, error }))
     return () => {
-      cancelled = true
+      cancelado = true
     }
-  }, [cargar])
+  }, [clave, cargar, version])
 
-  const recargar = useCallback(() => {
-    return cargar()
-  }, [cargar])
+  const vigente = estado.clave === clave
+  return {
+    datos: vigente ? estado.datos : undefined,
+    error: vigente ? estado.error : undefined,
+    cargando: clave !== undefined && !vigente,
+    recargar: useCallback(() => setVersion((v) => v + 1), []),
+  }
+}
 
-  return { datos, catalogo, cargando, error, sinPermiso, recargar }
+function mensajeDe(error: unknown): string | null {
+  if (error === undefined) return null
+  return error instanceof ApiError && error.detail
+    ? error.detail
+    : 'No se pudo cargar la estructura académica.'
+}
+
+function esSinPermiso(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 403
+}
+
+const SIN_ELEMENTOS: never[] = []
+
+/**
+ * Carga la estructura por tramos: niveles al entrar, años del nivel elegido, divisiones y
+ * materias del año elegido, y asignaciones docentes de la división elegida.
+ */
+export function useEstructuraAcademica(pedida: SeleccionEstructura) {
+  const cargarNiveles = useCallback(
+    () => Promise.all([listarNiveles(), listarMaterias(), listarDocentes().catch(() => [])]),
+    [],
+  )
+  const base = useCarga<[NivelEducativo[], Materia[], Docente[]]>('base', cargarNiveles)
+  const niveles = base.datos?.[0] ?? SIN_ELEMENTOS
+  const nivel = elegirPorId(niveles, pedida.nivel)
+
+  const cargarAnios = useCallback(
+    () => (nivel ? listarAnios(nivel.id) : Promise.resolve<Anio[]>([])),
+    [nivel],
+  )
+  const anios = useCarga<Anio[]>(nivel?.id, cargarAnios)
+  const listaAnios = anios.datos ?? SIN_ELEMENTOS
+  const anio = elegirPorId(listaAnios, pedida.anio)
+
+  const cargarAnio = useCallback(
+    () =>
+      anio
+        ? Promise.all([listarDivisiones(anio.id), listarMateriasCurso({ anio_id: anio.id })])
+        : Promise.resolve<[Division[], MateriaCurso[]]>([[], []]),
+    [anio],
+  )
+  const contenidoAnio = useCarga<[Division[], MateriaCurso[]]>(anio?.id, cargarAnio)
+  const divisiones = contenidoAnio.datos?.[0] ?? SIN_ELEMENTOS
+  const division = elegirPorId(divisiones, pedida.division)
+
+  const cargarAsignaciones = useCallback(
+    () =>
+      division
+        ? listarAsignaciones({ division_id: division.id })
+        : Promise.resolve<AsignacionDocente[]>([]),
+    [division],
+  )
+  const asignaciones = useCarga<AsignacionDocente[]>(division?.id, cargarAsignaciones)
+
+  const materiasCurso = (contenidoAnio.datos?.[1] ?? SIN_ELEMENTOS).filter(
+    (materiaCurso) => materiaCurso.division_id === division?.id,
+  )
+
+  const errores = [base.error, anios.error, contenidoAnio.error, asignaciones.error]
+  const primerError = errores.find((error) => error !== undefined)
+
+  return {
+    niveles,
+    catalogo: base.datos?.[1] ?? SIN_ELEMENTOS,
+    docentes: base.datos?.[2] ?? SIN_ELEMENTOS,
+    nivel,
+    anios: listaAnios,
+    anio,
+    divisiones,
+    division,
+    materiasCurso,
+    asignaciones: asignaciones.datos ?? SIN_ELEMENTOS,
+    cargandoNiveles: base.cargando,
+    cargandoAnios: anios.cargando,
+    cargandoAnio: contenidoAnio.cargando,
+    cargandoDivision: asignaciones.cargando,
+    error: mensajeDe(primerError),
+    sinPermiso: errores.some(esSinPermiso),
+    recargarAnios: anios.recargar,
+    recargarAnio: contenidoAnio.recargar,
+    recargarDivision: asignaciones.recargar,
+  }
 }

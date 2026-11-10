@@ -52,10 +52,12 @@ interface MateriaCursoDialogProps {
   materiasExcluidas?: string[]
   /** Franjas de las otras materias de la división, para avisar de superposiciones. */
   horariosOcupados?: FranjaOcupada[]
+  /** Franja precargada al crear (por ejemplo, desde un hueco de la grilla semanal). */
+  franjaInicial?: FranjaForm
   onExito: () => void
 }
 
-type FranjaForm = {
+export type FranjaForm = {
   dia_semana: number
   hora_inicio: string
   hora_fin: string
@@ -87,6 +89,7 @@ export function MateriaCursoDialog({
   catalogo,
   materiasExcluidas = [],
   horariosOcupados = [],
+  franjaInicial = FRANJA_INICIAL,
   onExito,
 }: MateriaCursoDialogProps) {
   const esEdicion = modo === 'editar'
@@ -103,7 +106,7 @@ export function MateriaCursoDialog({
           hora_inicio: aHoraCorta(horario.hora_inicio),
           hora_fin: aHoraCorta(horario.hora_fin),
         }))
-      : [FRANJA_INICIAL],
+      : [franjaInicial],
   )
 
   function resetForm() {
@@ -119,7 +122,7 @@ export function MateriaCursoDialog({
             hora_inicio: aHoraCorta(horario.hora_inicio),
             hora_fin: aHoraCorta(horario.hora_fin),
           }))
-        : [FRANJA_INICIAL],
+        : [franjaInicial],
     )
   }
 
@@ -270,7 +273,7 @@ export function MateriaCursoDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>
             {esEdicion ? 'Editar materia del curso' : 'Asignar materia al curso'}
@@ -349,7 +352,7 @@ export function MateriaCursoDialog({
             <FieldLabel>Día y horario</FieldLabel>
             <div className="flex flex-col gap-2">
               {franjas.map((franja, indice) => (
-                <div key={indice} className="flex items-center gap-2">
+                <div key={indice} className="flex flex-wrap items-center gap-2">
                   <Select
                     value={String(franja.dia_semana)}
                     onValueChange={(valor) =>
@@ -374,7 +377,7 @@ export function MateriaCursoDialog({
                     onChange={(evento) =>
                       actualizarFranja(indice, { hora_inicio: evento.target.value })
                     }
-                    className="w-28"
+                    className="w-36"
                   />
                   <span className="text-sm text-texto-3">a</span>
                   <Input
@@ -384,7 +387,7 @@ export function MateriaCursoDialog({
                     onChange={(evento) =>
                       actualizarFranja(indice, { hora_fin: evento.target.value })
                     }
-                    className="w-28"
+                    className="w-36"
                   />
                   {franjas.length > 1 && (
                     <Button
