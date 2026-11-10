@@ -1,8 +1,32 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MateriaCursoDialog } from '@/modules/academico/components/materia-curso-dialog'
-import type { Materia } from '@/modules/academico/types'
+import { crearMateriaCurso } from '@/modules/academico/services/materias-curso'
+import { COLORES_SUGERIDOS } from '@/modules/academico/utils'
+import type { Materia, MateriaCurso } from '@/modules/academico/types'
+
+vi.mock('@/modules/academico/services/materias-curso')
+
+beforeEach(() => vi.resetAllMocks())
+
+const materiaCursoCreada: MateriaCurso = {
+  id: 'mc1',
+  materia_id: 'm2',
+  materia_nombre: 'Arte',
+  materia_tipo: 'materia',
+  materia_color: '#2563eb',
+  division_id: 'd1',
+  division_nombre: '1°A',
+  anio_id: 'a1',
+  anio_numero: 1,
+  nivel_educativo_id: 'n1',
+  nivel_educativo_nombre: 'Primario',
+  horarios: [],
+  cantidad_asignaciones: 0,
+  created_at: '',
+  updated_at: '',
+}
 
 const catalogo: Materia[] = [
   {
@@ -56,5 +80,30 @@ describe('MateriaCursoDialog', () => {
       franjaInicial: { dia_semana: 1, hora_inicio: '08:30', hora_fin: '09:30' },
     })
     expect(screen.getByText('Horario superpuesto')).toBeInTheDocument()
+  })
+
+  it('al crear una materia nueva pide nombre, tipo y color, y envía el color', async () => {
+    vi.mocked(crearMateriaCurso).mockResolvedValue(materiaCursoCreada)
+    const usuario = userEvent.setup()
+    abrir()
+
+    await usuario.click(screen.getByRole('combobox', { name: 'Materia' }))
+    await usuario.click(screen.getByRole('option', { name: 'Crear nueva materia' }))
+
+    expect(screen.getByLabelText('Nombre de la nueva materia')).toBeInTheDocument()
+    const botonColor = screen.getByRole('button', { name: 'Elegir color' })
+    const color = botonColor.textContent
+    expect(COLORES_SUGERIDOS).toContain(color)
+
+    await usuario.type(screen.getByLabelText('Nombre de la nueva materia'), 'Arte')
+    await usuario.click(screen.getByRole('button', { name: 'Asignar materia' }))
+
+    expect(crearMateriaCurso).toHaveBeenCalledWith(
+      expect.objectContaining({
+        materia_nombre: 'Arte',
+        materia_tipo: 'materia',
+        materia_color: color,
+      }),
+    )
   })
 })

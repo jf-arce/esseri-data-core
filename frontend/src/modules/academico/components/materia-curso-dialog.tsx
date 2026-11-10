@@ -33,8 +33,10 @@ import type {
   MateriaCurso,
   TipoMateria,
 } from '@/modules/academico/types'
+import { SelectorColor } from '@/modules/academico/components/selector-color'
 import {
   buscarConflictos,
+  colorAleatorio,
   describirConflicto,
   normalizarTexto,
   type FranjaOcupada,
@@ -77,6 +79,10 @@ const DIAS_SEMANA = [
 
 const FRANJA_INICIAL: FranjaForm = { dia_semana: 1, hora_inicio: '08:00', hora_fin: '09:00' }
 
+function esTipoMateria(valor: string): valor is TipoMateria {
+  return valor === 'materia' || valor === 'taller'
+}
+
 function aHoraCorta(valor: string): string {
   return valor.slice(0, 5)
 }
@@ -103,6 +109,7 @@ export function MateriaCursoDialog({
   const [crearNueva, setCrearNueva] = useState(false)
   const [nuevaMateriaNombre, setNuevaMateriaNombre] = useState('')
   const [nuevaMateriaTipo, setNuevaMateriaTipo] = useState<TipoMateria>('materia')
+  const [nuevaMateriaColor, setNuevaMateriaColor] = useState(colorAleatorio)
   const [franjas, setFranjas] = useState<FranjaForm[]>(
     item?.horarios.length
       ? item.horarios.map((horario) => ({
@@ -119,6 +126,7 @@ export function MateriaCursoDialog({
     setCrearNueva(false)
     setNuevaMateriaNombre('')
     setNuevaMateriaTipo('materia')
+    setNuevaMateriaColor(colorAleatorio())
     setFranjas(
       item?.horarios.length
         ? item.horarios.map((horario) => ({
@@ -215,7 +223,11 @@ export function MateriaCursoDialog({
           division_id: divisionId,
           horarios,
           ...(crearNueva
-            ? { materia_nombre: nuevaMateriaNombre, materia_tipo: nuevaMateriaTipo }
+            ? {
+                materia_nombre: nuevaMateriaNombre,
+                materia_tipo: nuevaMateriaTipo,
+                materia_color: nuevaMateriaColor,
+              }
             : { materia_id: materiaId }),
         })
         toast.success('Materia asignada al curso correctamente.')
@@ -291,7 +303,7 @@ export function MateriaCursoDialog({
           <Field>
             <FieldLabel>Materia</FieldLabel>
             <Select value={crearNueva ? '__nueva__' : materiaId} onValueChange={cambiarMateria}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full" aria-label="Materia">
                 <SelectValue placeholder="Seleccionar materia del catálogo" />
               </SelectTrigger>
               <SelectContent>
@@ -338,7 +350,9 @@ export function MateriaCursoDialog({
                 <FieldLabel>Tipo</FieldLabel>
                 <Select
                   value={nuevaMateriaTipo}
-                  onValueChange={(valor) => setNuevaMateriaTipo(valor as TipoMateria)}
+                  onValueChange={(valor) => {
+                    if (esTipoMateria(valor)) setNuevaMateriaTipo(valor)
+                  }}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue />
@@ -348,6 +362,13 @@ export function MateriaCursoDialog({
                     <SelectItem value="taller">Taller</SelectItem>
                   </SelectContent>
                 </Select>
+              </Field>
+              <Field>
+                <FieldLabel>Color</FieldLabel>
+                <SelectorColor valor={nuevaMateriaColor} onChange={setNuevaMateriaColor} />
+                <p className="text-xs text-texto-3">
+                  Identifica la materia en el horario y en las tarjetas.
+                </p>
               </Field>
             </>
           )}

@@ -469,9 +469,7 @@ class MateriaCreate(BaseModel):
 
     nombre: str = Field(..., min_length=1, description="Nombre de la materia")
     tipo: Literal["materia", "taller"] = Field(..., description="Tipo: 'materia' o 'taller'")
-    color: str | None = Field(
-        None, pattern=COLOR_HEX, description="Color #rrggbb"
-    )
+    color: str | None = Field(None, pattern=COLOR_HEX, description="Color #rrggbb")
 
     _normalizar_color = field_validator("color")(_color_en_minusculas)
 
@@ -483,9 +481,7 @@ class MateriaUpdate(BaseModel):
     tipo: Literal["materia", "taller"] | None = Field(
         None, description="Tipo: 'materia' o 'taller'"
     )
-    color: str | None = Field(
-        None, pattern=COLOR_HEX, description="Color #rrggbb"
-    )
+    color: str | None = Field(None, pattern=COLOR_HEX, description="Color #rrggbb")
 
     _normalizar_color = field_validator("color")(_color_obligatorio)
 
@@ -534,6 +530,9 @@ class MateriaCursoCreate(BaseModel):
     materia_tipo: Literal["materia", "taller"] = Field(
         "materia", description="Tipo de la materia nueva"
     )
+    materia_color: str | None = Field(
+        None, pattern=COLOR_HEX, description="Color #rrggbb de la materia nueva; si falta se sortea"
+    )
     division_id: uuid.UUID = Field(..., description="ID de la división/curso")
     horarios: list[HorarioMateriaCursoCreate] = Field(
         ..., min_length=1, description="Franjas horarias de la materia en ese curso"
@@ -543,7 +542,11 @@ class MateriaCursoCreate(BaseModel):
     def _validar_materia(self):
         if (self.materia_id is None) == (self.materia_nombre is None):
             raise ValueError("Indicá materia_id o materia_nombre, pero no ambos")
+        if self.materia_id is not None and self.materia_color is not None:
+            raise ValueError("materia_color solo aplica al crear una materia nueva")
         return self
+
+    _normalizar_color = field_validator("materia_color")(_color_en_minusculas)
 
 
 class MateriaCursoUpdate(BaseModel):

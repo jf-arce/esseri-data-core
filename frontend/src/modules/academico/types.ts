@@ -113,6 +113,8 @@ export type MateriaCursoCreate = {
   materia_id?: string
   materia_nombre?: string
   materia_tipo?: TipoMateria
+  /** Color de la materia nueva (#rrggbb); si falta, el backend sortea uno. */
+  materia_color?: string
   division_id: string
   horarios: HorarioMateriaCursoCreate[]
 }

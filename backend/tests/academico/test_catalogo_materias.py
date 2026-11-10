@@ -492,3 +492,46 @@ def test_materia_curso_expone_el_color_de_la_materia(db_session):
     )
 
     assert MateriaCursoResponse.model_validate(materia_curso).materia_color == "#00ff00"
+
+
+def test_materia_curso_crea_la_materia_nueva_con_el_color_elegido(db_session):
+    _, division = _estructura(db_session)
+
+    materia_curso = crear_materia_curso(
+        db_session,
+        MateriaCursoCreate(
+            materia_nombre="Arte",
+            materia_tipo="taller",
+            materia_color="#AA00FF",
+            division_id=division.id,
+            horarios=[_franja()],
+        ),
+    )
+
+    assert materia_curso.materia.color == "#aa00ff"
+
+
+def test_materia_curso_sortea_color_si_no_se_elige(db_session):
+    from src.academico.models import COLORES_MATERIA
+
+    _, division = _estructura(db_session)
+
+    materia_curso = crear_materia_curso(
+        db_session,
+        MateriaCursoCreate(materia_nombre="Arte", division_id=division.id, horarios=[_franja()]),
+    )
+
+    assert materia_curso.materia.color in COLORES_MATERIA
+
+
+def test_materia_curso_rechaza_color_con_materia_existente(db_session):
+    _, division = _estructura(db_session)
+    materia = crear_materia(db_session, MateriaCreate(nombre="Arte", tipo="taller"))
+
+    with pytest.raises(ValueError):
+        MateriaCursoCreate(
+            materia_id=materia.id,
+            materia_color="#aa00ff",
+            division_id=division.id,
+            horarios=[_franja()],
+        )
