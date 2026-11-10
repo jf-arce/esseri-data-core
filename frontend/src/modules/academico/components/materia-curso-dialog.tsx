@@ -1,7 +1,8 @@
-import { PlusIcon } from 'lucide-react'
+import { PlusIcon, Trash2Icon } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
+import { BotonIcono } from '@/modules/academico/components/boton-icono'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -274,19 +275,12 @@ export function MateriaCursoDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-2xl" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>
             {esEdicion ? 'Editar materia del curso' : 'Asignar materia al curso'}
           </DialogTitle>
-          {error ? (
-            <DialogDescription className="text-error">{error}</DialogDescription>
-          ) : (
-            <DialogDescription>
-              {item?.division_nombre ?? divisionNombre ?? 'Curso'}: elegí una materia del catálogo
-              (o creá una nueva) y cargá su día y horario.
-            </DialogDescription>
-          )}
+          {error && <DialogDescription className="text-error">{error}</DialogDescription>}
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
@@ -354,76 +348,102 @@ export function MateriaCursoDialog({
             </>
           )}
 
-          <Field>
-            <FieldLabel>Día y horario</FieldLabel>
-            <div className="flex flex-col gap-2">
-              {franjas.map((franja, indice) => (
-                <div key={indice} className="flex flex-wrap items-center gap-2">
-                  <Select
-                    value={String(franja.dia_semana)}
-                    onValueChange={(valor) =>
-                      actualizarFranja(indice, { dia_semana: Number(valor) })
-                    }
-                  >
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DIAS_SEMANA.map((dia) => (
-                        <SelectItem key={dia.value} value={String(dia.value)}>
-                          {dia.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="time"
-                    aria-label={`Hora de inicio de la franja ${indice + 1}`}
-                    value={franja.hora_inicio}
-                    onChange={(evento) =>
-                      actualizarFranja(indice, { hora_inicio: evento.target.value })
-                    }
-                    className="w-36"
-                  />
-                  <span className="text-sm text-texto-3">a</span>
-                  <Input
-                    type="time"
-                    aria-label={`Hora de fin de la franja ${indice + 1}`}
-                    value={franja.hora_fin}
-                    onChange={(evento) =>
-                      actualizarFranja(indice, { hora_fin: evento.target.value })
-                    }
-                    className="w-36"
-                  />
-                  {franjas.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => quitarFranja(indice)}
-                      aria-label={`Quitar franja ${indice + 1}`}
-                    >
-                      Quitar
-                    </Button>
-                  )}
+          <section className="flex flex-col gap-3" aria-labelledby="franjas-titulo">
+            <h3 id="franjas-titulo" className="text-sm font-semibold text-texto">
+              Días y horarios
+            </h3>
+
+            {franjas.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-borde p-4 text-center text-sm text-texto-3">
+                Todavía no hay franjas. Agregá al menos una con el botón +.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2 text-xs font-semibold text-texto-2">
+                  <span>Día</span>
+                  <span>Desde</span>
+                  <span>Hasta</span>
+                  <span />
                 </div>
-              ))}
-              <Button variant="secondary" size="sm" onClick={agregarFranja} className="self-start">
-                Agregar franja
-              </Button>
-              {conflictos.length > 0 && (
-                <Alert variant="advertencia">
-                  <AlertTitle>Horario superpuesto</AlertTitle>
-                  <AlertDescription>
-                    {conflictos.map((conflicto) => (
-                      <span key={conflicto.indice} className="block">
-                        {describirConflicto(conflicto)}
-                      </span>
-                    ))}
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-          </Field>
+                {franjas.map((franja, indice) => {
+                  const enConflicto = conflictos.some((conflicto) => conflicto.indice === indice)
+                  return (
+                    <div
+                      key={indice}
+                      className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_2rem] items-center gap-2"
+                    >
+                      <Select
+                        value={String(franja.dia_semana)}
+                        onValueChange={(valor) =>
+                          actualizarFranja(indice, { dia_semana: Number(valor) })
+                        }
+                      >
+                        <SelectTrigger
+                          className="w-full"
+                          aria-label={`Día de la franja ${indice + 1}`}
+                          aria-invalid={enConflicto}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DIAS_SEMANA.map((dia) => (
+                            <SelectItem key={dia.value} value={String(dia.value)}>
+                              {dia.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="time"
+                        className="[&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                        aria-label={`Hora de inicio de la franja ${indice + 1}`}
+                        aria-invalid={enConflicto}
+                        value={franja.hora_inicio}
+                        onChange={(evento) =>
+                          actualizarFranja(indice, { hora_inicio: evento.target.value })
+                        }
+                      />
+                      <Input
+                        type="time"
+                        className="[&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                        aria-label={`Hora de fin de la franja ${indice + 1}`}
+                        aria-invalid={enConflicto}
+                        value={franja.hora_fin}
+                        onChange={(evento) =>
+                          actualizarFranja(indice, { hora_fin: evento.target.value })
+                        }
+                      />
+                      <BotonIcono
+                        etiqueta={`Eliminar franja ${indice + 1}`}
+                        className="text-error hover:text-error"
+                        onClick={() => quitarFranja(indice)}
+                      >
+                        <Trash2Icon />
+                      </BotonIcono>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            <Button variant="secondary" size="sm" onClick={agregarFranja} className="self-start">
+              <PlusIcon />
+              Agregar franja
+            </Button>
+
+            {conflictos.length > 0 && (
+              <Alert variant="advertencia">
+                <AlertTitle>Horario superpuesto</AlertTitle>
+                <AlertDescription>
+                  {conflictos.map((conflicto) => (
+                    <span key={conflicto.indice} className="block">
+                      {describirConflicto(conflicto)}
+                    </span>
+                  ))}
+                </AlertDescription>
+              </Alert>
+            )}
+          </section>
         </div>
 
         <DialogFooter>
