@@ -24,13 +24,7 @@ import { NivelSeccion } from '@/modules/academico/components/nivel-seccion'
 import { AbmDialog } from '@/modules/academico/components/abm-dialog'
 import { MateriaCursoDialog } from '@/modules/academico/components/materia-curso-dialog'
 import { listarAnios } from '@/modules/academico/services/anios'
-import type {
-  Anio,
-  Division,
-  Materia,
-  MateriaCurso,
-  NivelEducativo,
-} from '@/modules/academico/types'
+import type { Anio, Division, Materia, MateriaCurso } from '@/modules/academico/types'
 import { normalizarTexto } from '@/modules/academico/utils'
 import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
@@ -39,10 +33,9 @@ type DialogState =
   | { open: false }
   | {
       open: true
-      entidad: 'nivel' | 'anio' | 'division' | 'materia'
+      entidad: 'anio' | 'division' | 'materia'
       modo: 'crear' | 'editar' | 'eliminar'
       item?:
-        | { tipo: 'nivel'; data: NivelEducativo }
         | { tipo: 'anio'; data: Anio }
         | { tipo: 'division'; data: Division }
         | { tipo: 'materia'; data: Materia }
@@ -147,10 +140,9 @@ export function EstructuraAcademicaPage() {
   }
 
   function abrirDialog(
-    entidad: 'nivel' | 'anio' | 'division' | 'materia',
+    entidad: 'anio' | 'division' | 'materia',
     modo: 'crear' | 'editar' | 'eliminar',
     item?:
-      | { tipo: 'nivel'; data: NivelEducativo }
       | { tipo: 'anio'; data: Anio }
       | { tipo: 'division'; data: Division }
       | { tipo: 'materia'; data: Materia },
@@ -188,17 +180,7 @@ export function EstructuraAcademicaPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader
-        titulo="Estructura académica"
-        accion={
-          puedeEditar && (
-            <Button onClick={() => abrirDialog('nivel', 'crear')}>
-              <PlusIcon />
-              Agregar nivel
-            </Button>
-          )
-        }
-      />
+      <PageHeader titulo="Estructura académica" />
 
       <p className="-mt-3 max-w-2xl text-sm text-texto-2">
         Las materias viven en un catálogo global y se asignan a cada curso con su día y horario. Una
@@ -339,18 +321,11 @@ export function EstructuraAcademicaPage() {
           <EmptyMedia variant="icon" className="bg-sup-academico text-info">
             <BookOpenIcon />
           </EmptyMedia>
-          <EmptyTitle>Todavía no hay niveles cargados.</EmptyTitle>
+          <EmptyTitle>No se encontraron niveles educativos.</EmptyTitle>
           <EmptyDescription>
-            {puedeEditar
-              ? 'Acción sugerida: crear el primer nivel educativo para poder agregar años, divisiones y materias.'
-              : 'Todavía no se cargó ningún nivel educativo.'}
+            Los niveles (Inicial, Primario y Secundario) se cargan al migrar la base. Si faltan,
+            avisá al equipo técnico.
           </EmptyDescription>
-          {puedeEditar && (
-            <Button onClick={() => abrirDialog('nivel', 'crear')}>
-              <PlusIcon />
-              Agregar nivel
-            </Button>
-          )}
         </Empty>
       ) : nivelesFiltrados.length === 0 && hayFiltros ? (
         <Empty className="min-h-[240px] rounded-panel bg-superficie shadow-card">
@@ -376,8 +351,6 @@ export function EstructuraAcademicaPage() {
               key={nivel.id}
               nivel={nivel}
               puedeEditar={puedeEditar}
-              onEditarNivel={(n) => abrirDialog('nivel', 'editar', { tipo: 'nivel', data: n })}
-              onEliminarNivel={(n) => abrirDialog('nivel', 'eliminar', { tipo: 'nivel', data: n })}
               onAgregarAnio={(nivelId) => abrirDialog('anio', 'crear', undefined, nivelId)}
               onEditarAnio={(a) => abrirDialog('anio', 'editar', { tipo: 'anio', data: a })}
               onEliminarAnio={(a) => abrirDialog('anio', 'eliminar', { tipo: 'anio', data: a })}

@@ -25,7 +25,6 @@ from src.academico.schemas import (
     DocenteCreate,
     DocenteUpdate,
     MateriaCreate,
-    NivelEducativoCreate,
 )
 from src.academico.service import (
     actualizar_docente,
@@ -34,10 +33,8 @@ from src.academico.service import (
     crear_division,
     crear_docente,
     crear_materia,
-    crear_nivel_educativo,
     eliminar_asignacion_docente,
     eliminar_docente,
-    eliminar_nivel_educativo,
     justificar_asistencia_de_familia,
     registrar_asistencia,
     resolver_justificacion,
@@ -69,31 +66,8 @@ def _historial(db_session, entidad: str, entidad_id: uuid.UUID) -> list[AuditLog
 
 
 class TestAuditoriaEstructuraCurricular:
-    """Nivel/Año/División/Materia comparten el mismo patrón de auditoría -- alta y baja se
-    prueban en cada uno, la actualización (idéntica en los cuatro) se prueba una sola vez."""
-
-    def test_crear_nivel_educativo_audita_alta(self, db_session: Session):
-        usuario = _crear_usuario(db_session)
-
-        nivel = crear_nivel_educativo(
-            db_session, NivelEducativoCreate(nombre="Primario"), usuario.id
-        )
-
-        registros = _historial(db_session, "NIVEL_EDUCATIVO", nivel.id)
-        assert len(registros) == 1
-        assert registros[0].campo == "__alta__"
-        assert registros[0].valor_nuevo == "Primario"
-
-    def test_eliminar_nivel_educativo_audita_baja(self, db_session: Session):
-        usuario = _crear_usuario(db_session)
-        nivel = crear_nivel_educativo(db_session, NivelEducativoCreate(nombre="Primario"))
-        nivel_id = nivel.id
-
-        eliminar_nivel_educativo(db_session, nivel, usuario.id)
-
-        registros = _historial(db_session, "NIVEL_EDUCATIVO", nivel_id)
-        assert len(registros) == 1
-        assert registros[0].campo == "__eliminacion__"
+    """Año/División/Materia comparten el mismo patrón de auditoría -- alta y baja se
+    prueban en cada uno, la actualización (idéntica en los tres) se prueba una sola vez."""
 
     def test_crear_anio_audita_alta(self, db_session: Session):
         usuario = _crear_usuario(db_session)

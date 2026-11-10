@@ -1092,6 +1092,8 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 
 **`NIVEL_EDUCATIVO`, `ANIO`, `DIVISION`, `MATERIA`** — la estructura curricular real del colegio. **[ACLARACIÓN CLIENTE]** (respuesta 6) confirma 3 niveles (Inicial/Primario/Secundario) y la jerarquía `Nivel → Año/Sala → División/Orientación → Materias → Docentes`, y el equipo ya recibió del cliente la tabla maestra con los valores concretos (ver `docs/aclaraciones-cliente-esseri.md`) — la precarga puede transcribirse a partir de esa tabla, no hace falta seguir tratándola como bloqueada.
 
+**`NIVEL_EDUCATIVO` es un dato maestro fijo.** Siempre son Inicial, Primario y Secundario: la API solo permite consultarlos (`GET /academico/niveles`) y una migración inserta los que falten. No hay alta, edición ni baja.
+
 **`PRODUCTO_SERVICIO`** — catálogo de compras. **[ACLARACIÓN CLIENTE]** (respuesta 12): el cliente va a entregar información de proveedores y compras para construir el catálogo inicial. **Sigue bloqueado** hasta recibir y normalizar esa información (pregunta pendiente #17) — no inventar valores de ejemplo como precarga real.
 
 ---

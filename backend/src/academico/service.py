@@ -31,8 +31,6 @@ from src.academico.exceptions import (
     MateriaCursoConAsignaciones,
     MateriaCursoDuplicada,
     MateriaDuplicada,
-    NivelEducativoConAnios,
-    NombreNivelDuplicado,
 )
 from src.academico.models import (
     Anio,
@@ -75,9 +73,7 @@ from src.academico.schemas import (
     MateriaCursoUpdate,
     MateriaResponse,
     MateriaUpdate,
-    NivelEducativoCreate,
     NivelEducativoResponse,
-    NivelEducativoUpdate,
 )
 from src.auditoria.service import log_audit
 from src.auth import autorizacion_service
@@ -1047,33 +1043,6 @@ def generar_pdf_reporte_asistencias(
 # --- NivelEducativo ----------------------------------------------------------------------
 
 
-def crear_nivel_educativo(
-    db: Session, datos: NivelEducativoCreate, usuario_id: uuid.UUID | None = None
-) -> NivelEducativo:
-    """Crear un nuevo nivel educativo. Valida nombre único."""
-    if (
-        db.scalar(select(NivelEducativo.id).where(NivelEducativo.nombre == datos.nombre.strip()))
-        is not None
-    ):
-        raise NombreNivelDuplicado()
-
-    nuevo = NivelEducativo(nombre=datos.nombre.strip())
-    db.add(nuevo)
-    db.flush()
-    log_audit(
-        db,
-        entidad="NIVEL_EDUCATIVO",
-        entidad_id=nuevo.id,
-        campo="__alta__",
-        valor_anterior=None,
-        valor_nuevo=nuevo.nombre,
-        usuario_id=usuario_id,
-    )
-    db.commit()
-    db.refresh(nuevo)
-    return nuevo
-
-
 def obtener_nivel_educativo_por_id(db: Session, nivel_id: uuid.UUID) -> NivelEducativo | None:
     """Obtener un nivel educativo por su ID."""
     return db.query(NivelEducativo).filter(NivelEducativo.id == nivel_id).first()
@@ -1094,72 +1063,6 @@ def listar_niveles_educativos(db: Session) -> list[NivelEducativoResponse]:
         )
         for nivel, cantidad_anios in filas
     ]
-
-
-def actualizar_nivel_educativo(
-    db: Session,
-    nivel: NivelEducativo,
-    datos: NivelEducativoUpdate,
-    usuario_id: uuid.UUID | None = None,
-) -> NivelEducativo:
-    """Actualizar un nivel educativo existente."""
-    update_data = datos.model_dump(exclude_unset=True)
-
-    if "nombre" in update_data and update_data["nombre"] != nivel.nombre:
-        if (
-            db.scalar(
-                select(NivelEducativo.id).where(
-                    NivelEducativo.nombre == update_data["nombre"].strip(),
-                    NivelEducativo.id != nivel.id,
-                )
-            )
-            is not None
-        ):
-            raise NombreNivelDuplicado()
-        update_data["nombre"] = update_data["nombre"].strip()
-
-    valores_anteriores = {campo: getattr(nivel, campo) for campo in update_data}
-
-    for field, value in update_data.items():
-        setattr(nivel, field, value)
-
-    for campo, valor_nuevo in update_data.items():
-        log_audit(
-            db,
-            entidad="NIVEL_EDUCATIVO",
-            entidad_id=nivel.id,
-            campo=campo,
-            valor_anterior=str(valores_anteriores[campo]) if valores_anteriores[campo] else None,
-            valor_nuevo=str(valor_nuevo) if valor_nuevo is not None else None,
-            usuario_id=usuario_id,
-        )
-
-    db.commit()
-    db.refresh(nivel)
-    return nivel
-
-
-def eliminar_nivel_educativo(
-    db: Session, nivel: NivelEducativo, usuario_id: uuid.UUID | None = None
-) -> None:
-    """Eliminar un nivel educativo. Valida que no tenga años asociados."""
-    tiene_anios = db.query(Anio).filter(Anio.nivel_educativo_id == nivel.id).first() is not None
-    if tiene_anios:
-        raise NivelEducativoConAnios()
-
-    nivel_id = nivel.id
-    nombre = nivel.nombre
-    db.delete(nivel)
-    log_audit(
-        db,
-        entidad="NIVEL_EDUCATIVO",
-        entidad_id=nivel_id,
-        campo="__eliminacion__",
-        valor_anterior=nombre,
-        valor_nuevo=None,
-        usuario_id=usuario_id,
-    )
-    db.commit()
 
 
 # --- Anio --------------------------------------------------------------------------------

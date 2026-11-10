@@ -76,8 +76,6 @@ const nivel: NivelConEstructura = {
 }
 
 const handlers = {
-  onEditarNivel: vi.fn(),
-  onEliminarNivel: vi.fn(),
   onAgregarAnio: vi.fn(),
   onEditarAnio: vi.fn(),
   onEliminarAnio: vi.fn(),

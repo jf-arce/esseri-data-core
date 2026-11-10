@@ -14,18 +14,6 @@ from src.auth.schemas import AccesoCreate, PersonaCreate
 # --- NivelEducativo ----------------------------------------------------------------------
 
 
-class NivelEducativoCreate(BaseModel):
-    """Schema para crear un nuevo NivelEducativo."""
-
-    nombre: str = Field(..., min_length=1, description="Nombre del nivel educativo")
-
-
-class NivelEducativoUpdate(BaseModel):
-    """Schema para actualizar un NivelEducativo existente."""
-
-    nombre: str | None = Field(None, min_length=1, description="Nombre del nivel educativo")
-
-
 class NivelEducativoResponse(BaseModel):
     """Schema para responder con datos de NivelEducativo."""
 

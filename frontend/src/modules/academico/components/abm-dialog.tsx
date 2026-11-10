@@ -20,11 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  crearNivel,
-  actualizarNivel,
-  eliminarNivel,
-} from '@/modules/academico/services/niveles-educativos'
 import { crearAnio, actualizarAnio, eliminarAnio } from '@/modules/academico/services/anios'
 import {
   crearDivision,
@@ -44,10 +39,9 @@ import type {
   TipoMateria,
 } from '@/modules/academico/types'
 
-type Entidad = 'nivel' | 'anio' | 'division' | 'materia'
+type Entidad = 'anio' | 'division' | 'materia'
 
 type ItemExistente =
-  | { tipo: 'nivel'; data: NivelEducativo }
   | { tipo: 'anio'; data: Anio }
   | { tipo: 'division'; data: Division }
   | { tipo: 'materia'; data: Materia }
@@ -89,7 +83,6 @@ export function AbmDialog({
   function resetForm() {
     setError(null)
     if (item) {
-      if (item.tipo === 'nivel') setNombre(item.data.nombre)
       if (item.tipo === 'anio') {
         setNumero(String(item.data.numero))
         setNivelId(item.data.nivel_educativo_id)
@@ -117,11 +110,6 @@ export function AbmDialog({
   }
 
   const titulos: Record<Entidad, { crear: string; editar: string; eliminar: string }> = {
-    nivel: {
-      crear: 'Nuevo nivel educativo',
-      editar: 'Editar nivel',
-      eliminar: 'Dar de baja nivel',
-    },
     anio: { crear: 'Nuevo año', editar: 'Editar año', eliminar: 'Dar de baja año' },
     division: {
       crear: 'Nueva división',
@@ -133,8 +121,6 @@ export function AbmDialog({
 
   function nombreDe(registro: ItemExistente): string {
     switch (registro.tipo) {
-      case 'nivel':
-        return `el nivel ${registro.data.nombre}`
       case 'anio':
         return `el año ${registro.data.numero}°`
       case 'division':
@@ -148,11 +134,6 @@ export function AbmDialog({
   // usuario sepa qué tiene que mover primero en vez de chocar con un error del servidor.
   function bloqueosDe(registro: ItemExistente): string[] {
     const bloqueos: string[] = []
-    if (registro.tipo === 'nivel' && registro.data.cantidad_anios > 0) {
-      bloqueos.push(
-        `${registro.data.cantidad_anios} ${registro.data.cantidad_anios === 1 ? 'año' : 'años'}`,
-      )
-    }
     if (registro.tipo === 'anio') {
       if (registro.data.cantidad_divisiones > 0) {
         bloqueos.push(
@@ -211,7 +192,6 @@ export function AbmDialog({
     setError(null)
     try {
       if (modo === 'eliminar' && item) {
-        if (item.tipo === 'nivel') await eliminarNivel(item.data.id)
         if (item.tipo === 'anio') await eliminarAnio(item.data.id)
         if (item.tipo === 'division') await eliminarDivision(item.data.id)
         if (item.tipo === 'materia') await eliminarMateria(item.data.id)
@@ -224,9 +204,7 @@ export function AbmDialog({
       }
 
       if (modo === 'crear') {
-        if (entidad === 'nivel') {
-          await crearNivel({ nombre })
-        } else if (entidad === 'anio') {
+        if (entidad === 'anio') {
           await crearAnio({ numero: parseInt(numero, 10), nivel_educativo_id: nivelId })
         } else if (entidad === 'division') {
           await crearDivision({ nombre, anio_id: anioId })
@@ -240,9 +218,7 @@ export function AbmDialog({
           `${titulos[entidad].crear.replace('Nuevo ', '').replace('Nueva ', '').replace('Nueva ', '')} cread${entidad === 'materia' || entidad === 'division' ? 'a' : 'o'} correctamente.`,
         )
       } else if (modo === 'editar' && item) {
-        if (item.tipo === 'nivel') {
-          await actualizarNivel(item.data.id, { nombre })
-        } else if (item.tipo === 'anio') {
+        if (item.tipo === 'anio') {
           await actualizarAnio(item.data.id, {
             numero: parseInt(numero, 10),
             nivel_educativo_id: nivelId,
@@ -318,18 +294,6 @@ export function AbmDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
-          {entidad === 'nivel' && (
-            <Field>
-              <FieldLabel htmlFor="abm-nombre">Nombre del nivel</FieldLabel>
-              <Input
-                id="abm-nombre"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                placeholder="Ej: Inicial, Primario, Secundario"
-              />
-            </Field>
-          )}
-
           {entidad === 'anio' && (
             <>
               <Field>
@@ -435,7 +399,6 @@ export function AbmDialog({
   )
 
   function isFormValid() {
-    if (entidad === 'nivel') return nombre.trim().length > 0
     if (entidad === 'anio') return numero.trim().length > 0 && nivelId
     if (entidad === 'division') return nombre.trim().length > 0 && anioId
     if (entidad === 'materia') return nombre.trim().length > 0

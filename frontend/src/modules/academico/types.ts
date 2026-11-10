@@ -8,14 +8,6 @@ export type NivelEducativo = {
   updated_at: string
 }
 
-export type NivelEducativoCreate = {
-  nombre: string
-}
-
-export type NivelEducativoUpdate = {
-  nombre?: string
-}
-
 export type Anio = {
   id: string
   numero: number

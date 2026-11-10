@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import type { NivelConEstructura } from '@/modules/academico/hooks/use-estructura-academica'
-import type { Anio, Division, MateriaCurso, NivelEducativo } from '@/modules/academico/types'
+import type { Anio, Division, MateriaCurso } from '@/modules/academico/types'
 import { formatearHorarios } from '@/modules/academico/utils'
 
 /** División tal como viene en el árbol, con sus materias-curso cargadas. */
@@ -19,8 +19,6 @@ interface NivelSeccionProps {
   /** Sin esto (ej. dirección, que solo mira la estructura), se ocultan todos los triggers de
    * escritura de esta sección y sus hijos — no solo se deshabilitan. */
   puedeEditar: boolean
-  onEditarNivel: (nivel: NivelEducativo) => void
-  onEliminarNivel: (nivel: NivelEducativo) => void
   onAgregarAnio: (nivelId: string) => void
   onEditarAnio: (anio: Anio) => void
   onEliminarAnio: (anio: Anio) => void
@@ -87,15 +85,6 @@ export function NivelSeccion(props: NivelSeccionProps) {
               <DropdownMenuItem onSelect={() => props.onAgregarAnio(nivel.id)}>
                 <PlusIcon className="text-petroleo" />
                 Agregar año
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => props.onEditarNivel(nivel)}>
-                <PencilIcon className="text-petroleo" />
-                Editar nivel
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onSelect={() => props.onEliminarNivel(nivel)}>
-                <Trash2Icon />
-                Dar de baja
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
