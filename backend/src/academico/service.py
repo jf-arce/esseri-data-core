@@ -845,6 +845,10 @@ def eliminar_asistencia(
 ) -> None:
     """Eliminar un registro de asistencia."""
     verificar_acceso_a_asistencia(db, asistencia, usuario_id, rol_activo)
+    inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
+    if inscripcion is not None:
+        db.scalar(select(Alumno.id).where(Alumno.id == inscripcion.alumno_id).with_for_update())
+        db.refresh(asistencia)
     asistencia_id = asistencia.id
     tipo_anterior = asistencia.tipo
     vinculo_periodo = asistencia.solicitud_ausencia_periodo_id

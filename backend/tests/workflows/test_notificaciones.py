@@ -470,6 +470,12 @@ def test_resultado_incierto_no_se_marca_enviado_ni_fallido(
     assert auditoria.referencia_entidad == "WORKFLOW_EXECUTION"
     assert auditoria.referencia_id == ejecucion.id
 
+    segunda = _ejecucion(db_session, regla, evento, intento=2)
+    reintento = ejecutar_notificar(db_session, regla, evento, segunda)
+    assert reintento.error == notificaciones_service.ERROR_ENVIO
+    assert "incierto" in reintento.detalle
+    assert len(envios.intentos) == 2
+
 
 def test_regla_sin_plantilla_falla_sin_notificaciones(db_session, tipo_factura_vencida, envios):
     regla = _preparar_regla_con_usuarios(db_session, tipo_factura_vencida, None)

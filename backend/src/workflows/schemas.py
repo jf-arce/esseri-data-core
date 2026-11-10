@@ -361,7 +361,7 @@ class WorkflowExecutionListadoRead(BaseModel):
     total_paginas: int
 
 
-EstadoEnvioNotificacion = Literal["enviado", "fallido", "pendiente"]
+EstadoEnvioNotificacion = Literal["enviado", "fallido", "incierto", "pendiente"]
 DestinatarioTipo = Literal["familia", "usuario"]
 
 

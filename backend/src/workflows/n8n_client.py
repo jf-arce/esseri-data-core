@@ -53,6 +53,8 @@ def enviar_email(
             respuesta.raise_for_status()
     except httpx.HTTPStatusError as error:
         raise N8nEnvioFallido(f"n8n respondió {error.response.status_code}.") from error
+    except httpx.UnsupportedProtocol as error:
+        raise N8nNoConfigurado() from error
     except (httpx.ConnectError, httpx.ConnectTimeout) as error:
         raise N8nNoDisponible() from error
     except (httpx.TimeoutException, httpx.TransportError) as error:

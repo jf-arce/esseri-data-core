@@ -2,8 +2,8 @@
 `NOTIFICACION` y pide el envío a n8n (RF-24).
 
 El envío corre dentro de la transacción del evento y en serie. Un envío que falla deja su fila
-en `fallido` sin lanzar, para no revertir las filas ya registradas. No es idempotente: si n8n
-envía y la respuesta se pierde, un reintento manda el email otra vez."""
+en `fallido` sin lanzar, para no revertir las filas ya registradas. Si la respuesta se pierde,
+la fila queda en `incierto` y no se reintenta automáticamente."""
 
 import logging
 import uuid
@@ -435,6 +435,11 @@ def _ejecutar(
             if n.estado_envio == "fallido"
         ]
         if not pendientes:
+            if any(notificacion.estado_envio == "incierto" for notificacion in previas):
+                return ResultadoAccion(
+                    detalle="No se reintenta: hay envíos con resultado incierto.",
+                    error=ERROR_ENVIO,
+                )
             return ResultadoAccion(detalle="Todos los emails ya habían sido enviados.")
         return _enviar_todos(
             db, ejecucion, pendientes, total=len(pendientes), sin_email=0, enlace=_enlace_de(regla)
