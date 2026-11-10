@@ -6,7 +6,6 @@ import { BotonIcono } from '@/modules/academico/components/boton-icono'
 import { hexAleatorio, normalizarHex } from '@/modules/academico/utils'
 
 interface SelectorColorProps {
-  /** Color #rrggbb. */
   valor: string
   onChange: (valor: string) => void
 }

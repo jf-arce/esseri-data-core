@@ -125,7 +125,6 @@ export function AbmDialog({
         }
         toast.success(`${entidad === 'anio' ? 'Año' : 'División'} cread${femenino ? 'a' : 'o'}.`)
       } else if (modo === 'editar' && item) {
-        // Al editar solo cambia el nombre o número: un año o división no se mueve de lugar.
         if (item.tipo === 'anio')
           await actualizarAnio(item.data.id, { numero: parseInt(numero, 10) })
         else await actualizarDivision(item.data.id, { nombre })

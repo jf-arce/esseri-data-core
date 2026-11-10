@@ -101,7 +101,6 @@ export function MateriaCursoDialog({
   onExito,
 }: MateriaCursoDialogProps) {
   const esEdicion = modo === 'editar'
-  // Año y división juntos ("1°A"), que la página ya arma.
   const curso = divisionNombre ?? item?.division_nombre ?? 'el curso'
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)

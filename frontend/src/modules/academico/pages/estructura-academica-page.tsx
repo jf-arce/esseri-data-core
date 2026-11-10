@@ -90,12 +90,9 @@ function VistaTabs({ vista, onChange }: { vista: Vista; onChange: (vista: Vista)
   )
 }
 
-// Los skeletons repiten las medidas del contenido real (etiqueta, desplegable, botones, título,
-// pestañas y tarjetas) para que al terminar de cargar no salte nada.
 type OpcionSelector = { value: string; label: string }
 
-// Desplegable con etiqueta y botones al lado. Mientras carga se queda en su lugar, deshabilitado
-// y con un loader en vez del valor, así solo cambia la información dinámica.
+// Desplegable con etiqueta y botones al lado; mientras carga se queda en su lugar.
 function Selector({
   etiqueta,
   valor,

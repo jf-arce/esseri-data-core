@@ -56,7 +56,6 @@ export type Materia = {
   id: string
   nombre: string
   tipo: TipoMateria
-  /** Color #rrggbb de la materia. */
   color: string
   cantidad_cursos: number
   created_at: string
