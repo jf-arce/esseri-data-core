@@ -129,6 +129,57 @@ def crear_solicitud_periodo(
     return solicitud
 
 
+def listar_solicitudes_periodo_familia(
+    db: Session, usuario: Usuario | None, alumno_id: uuid.UUID
+) -> list[SolicitudAusenciaPeriodo]:
+    """Lista las solicitudes de un alumno vinculado a la familia autenticada."""
+    if usuario is None or usuario.id is None:
+        raise PermisoDenegado("La solicitud requiere un usuario autenticado")
+    familia = _familia_del_usuario(db, usuario)
+    consulta_vinculo = select(FamiliaAlumno.id).where(
+        FamiliaAlumno.familia_id == familia.id, FamiliaAlumno.alumno_id == alumno_id
+    )
+    if db.scalar(consulta_vinculo) is None:
+        raise PermisoDenegado("No tenés acceso a este alumno")
+    return list(
+        db.scalars(
+            select(SolicitudAusenciaPeriodo)
+            .where(SolicitudAusenciaPeriodo.alumno_id == alumno_id)
+            .order_by(
+                SolicitudAusenciaPeriodo.fecha_inicio.desc(),
+                SolicitudAusenciaPeriodo.fecha_carga.desc(),
+            )
+        ).all()
+    )
+
+
+def archivo_solicitud_periodo_familia(
+    db: Session, usuario: Usuario | None, solicitud_id: uuid.UUID
+) -> tuple[bytes, str, str]:
+    """Devuelve el comprobante de una solicitud propia, si existe."""
+    if usuario is None or usuario.id is None:
+        raise PermisoDenegado("La solicitud requiere un usuario autenticado")
+    familia = _familia_del_usuario(db, usuario)
+    solicitud = db.get(SolicitudAusenciaPeriodo, solicitud_id)
+    if solicitud is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Solicitud no encontrada")
+    if solicitud.familia_id != familia.id:
+        raise PermisoDenegado("No tenés acceso a esta solicitud")
+    consulta_vinculo = select(FamiliaAlumno.id).where(
+        FamiliaAlumno.familia_id == familia.id,
+        FamiliaAlumno.alumno_id == solicitud.alumno_id,
+    )
+    if db.scalar(consulta_vinculo) is None:
+        raise PermisoDenegado("No tenés acceso a esta solicitud")
+    if solicitud.archivo_contenido is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "La solicitud no tiene comprobante")
+    return (
+        solicitud.archivo_contenido,
+        solicitud.archivo_tipo or "application/octet-stream",
+        solicitud.archivo_nombre or "comprobante",
+    )
+
+
 def cancelar_solicitud_periodo(
     db: Session, usuario: Usuario | None, solicitud_id: uuid.UUID
 ) -> SolicitudAusenciaPeriodo:

@@ -10,12 +10,13 @@ Branch: `feat/solicitudes-ausencia-periodo` · Delivery: ask-on-risk; user chose
 - S6: «antes de aplicar migraciones o cambios que puedan afectar datos existentes, verificá sus precondiciones.» «No modifiques datos históricos para hacer pasar las pruebas».
 
 ## Tasks
-- [ ] T0 (S1–S6): inline; compatibility and read-only data preconditions, baseline checks; commit pending.
-- [ ] T1 (S1, S3, S5, S6): inline; period requests, historical compatibility, atomic conflicts, migration and tests; commit pending.
-- [ ] T2 (S1, S2, S5): inline; apply to real attendance and administrative rectification with audit; commit pending.
-- [ ] T3 (S4): inline; notification start coordination without PostgreSQL locks during HTTP, existing workflows and tests; commit pending.
-- [ ] T4 (S1–S3): inline; family and unified admin interfaces, attachments and tests; commit pending.
-- [ ] T5 (S1–S6): inline; PostgreSQL concurrency and end-to-end regression verification; commit pending.
+- [x] T0 (S1–S6): isolated development compatibility and baseline checks complete (L2, L5, L9, L10). Deployment preconditions remain open: authorized representative snapshot, duplicate/integrity and client-compatibility checks.
+- [ ] T1 (S1, S3, S5, S6): model and additive migration merged in PR #298 (`5952087`); creation/cancellation services, per-student locks and concurrency tests committed locally (`02f1279`, `09202f9`, `fca72dd`). Pending: adapt/coordinate the historical creation endpoint for cross-origin concurrency; native review of the concurrency/services slice.
+- [ ] T6 (S1–S3): family API create/list/cancel/download implemented (L31); pending administrative tray and decision endpoints, plus the frontend switch of the "Justificar" entry. Historical individual endpoints remain unchanged for compatibility.
+- [ ] T2 (S1, S2, S5): apply to real attendance and administrative rectification with audit; not implemented.
+- [ ] T3 (S4): notification start coordination without PostgreSQL locks during HTTP, existing workflows and tests; design recorded in L6/L19, implementation pending.
+- [ ] T4 (S1–S3): family and unified admin interfaces, attachments and tests; not implemented.
+- [ ] T5 (S1–S6): PostgreSQL concurrency and end-to-end regression verification; partial evidence only.
 
 ## Log
 L1 — User request, verbatim:
@@ -185,3 +186,7 @@ L28 — PR slicing plan, commits remain local and unpushed:
 Every branch chains on the previous one. Historical-snapshot and deployment checks remain open.
 
 L29 — PR 1 published with explicit user authorization: branch `feat/ausencias-pr1-modelo` (commit `ad33435`) pushed to `jf-arce/esseri-data-core`; pull request https://github.com/jf-arce/esseri-data-core/pull/298 targets `main`. Pre-publication checks: 29 focused tests passed, Ruff passed, and `git merge-tree` reported no conflict with `origin/main`. No merge performed and no later slice published. PR 2 and PR 3 remain local and unpublished.
+
+L30 — User authorization, 2026-11-09: continuar la implementación completa sobre `feat/solicitudes-ausencia-periodo`, en cortes pequeños y verificables, con la cadena de ramas/PRs acordada y sin merge automático. Reconciliación previa: PR #298 quedó mergeada en `main` como `5952087`; la revisión nativa `review-bc586dd7e09e3a57` fue aprobada y su acknowledgement se consumió, por lo que no se reingresa ni se inicia otra revisión. La rama se rebasó sobre `5952087` y quedó 5 commits adelante (`02f1279`, `09202f9`, `fca72dd`, `5cfb4ae`, `e9e2571`), sin conflictos. Próximos cortes: compatibilidad del endpoint histórico y APIs, bandeja administrativa, aplicación/rectificación auditadas, avisos y frontend. La publicación de PR 2 en adelante requiere autorización explícita; no se mergea nada. Siguen abiertas las precondiciones de despliegue: copia histórica autorizada y representativa, duplicados e integridad, preservación de datos, compatibilidad de clientes y costo de bloqueo/validación de la migración. No se accedió a bases compartidas o reales.
+
+L31 — Family API slice implemented: added `SolicitudAusenciaPeriodoResponse` and family endpoints under `/academico/familia/solicitudes-ausencia` for creation (single day or range, optional attachment), listing by student, cancellation of pending requests and attachment download. They reuse `crear_solicitud_periodo`/`cancelar_solicitud_periodo`, the existing motive catalog, attachment validation, per-student locks and audit; the historical individual-justification endpoints remain unchanged for contract compatibility. Tests: new router suite 9 passed; focused academic/inscripciones suite 261 passed, 20 PostgreSQL tests skipped by configuration; Ruff check and format passed. Pending: administrative tray and decision/application endpoints (T2), notification coordination (T3), frontend switch of "Justificar"/"Informar ausencia" to the new endpoint (T4), native review and publication of this slice. No migration or real/shared database change.

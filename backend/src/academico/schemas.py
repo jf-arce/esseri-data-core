@@ -352,6 +352,22 @@ class JustificacionFamiliaResponse(BaseModel):
     fecha_resolucion: datetime | None = None
 
 
+class SolicitudAusenciaPeriodoResponse(BaseModel):
+    """Solicitud familiar de ausencia por período, con su estado administrativo."""
+
+    id: uuid.UUID
+    alumno_id: uuid.UUID
+    fecha_inicio: date
+    fecha_fin: date
+    estado: str
+    motivo: str
+    observacion: str | None = None
+    observacion_resolucion: str | None = None
+    archivo_nombre: str | None = None
+    fecha_carga: datetime
+    fecha_resolucion: datetime | None = None
+
+
 class JustificacionResolucion(BaseModel):
     aprobar: bool
     observacion: str | None = Field(None, max_length=500)

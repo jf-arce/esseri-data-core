@@ -67,6 +67,7 @@ from src.academico.models import (
     MateriaCurso,
     MotivoJustificacion,
     NivelEducativo,
+    SolicitudAusenciaPeriodo,
 )
 from src.academico.schemas import (
     AltaDocenteCreate,
@@ -109,6 +110,7 @@ from src.academico.schemas import (
     NivelEducativoUpdate,
     OpcionJustificacion,
     SeguimientoDivisionItem,
+    SolicitudAusenciaPeriodoResponse,
     UltimaFechaAsistenciaResponse,
 )
 from src.academico.service import (
@@ -165,6 +167,12 @@ from src.academico.service import (
     verificar_acceso_a_asistencia,
     verificar_acceso_a_division,
 )
+from src.academico.solicitud_periodo_service import (
+    archivo_solicitud_periodo_familia,
+    cancelar_solicitud_periodo,
+    crear_solicitud_periodo,
+    listar_solicitudes_periodo_familia,
+)
 from src.auth.constants import (
     PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
     PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA,
@@ -198,6 +206,25 @@ def _respuesta_justificacion(
             status.HTTP_404_NOT_FOUND,
             "Asistencia de justificación no encontrada",
         ) from exc
+
+
+def _respuesta_solicitud_periodo(
+    db: Session, solicitud: SolicitudAusenciaPeriodo
+) -> SolicitudAusenciaPeriodoResponse:
+    motivo = db.get(MotivoJustificacion, solicitud.motivo_justificacion_id)
+    return SolicitudAusenciaPeriodoResponse(
+        id=solicitud.id,
+        alumno_id=solicitud.alumno_id,
+        fecha_inicio=solicitud.fecha_inicio,
+        fecha_fin=solicitud.fecha_fin,
+        estado=solicitud.estado,
+        motivo=motivo.nombre if motivo is not None else "",
+        observacion=solicitud.observacion,
+        observacion_resolucion=solicitud.observacion_resolucion,
+        archivo_nombre=solicitud.archivo_nombre,
+        fecha_carga=solicitud.fecha_carga,
+        fecha_resolucion=solicitud.fecha_resolucion,
+    )
 
 
 # --- NivelEducativo ----------------------------------------------------------------------
@@ -953,6 +980,82 @@ def justificar_asistencia_familia(
         contenido,
     )
     return _respuesta_justificacion(db, justificacion)
+
+
+@router.post(
+    "/familia/solicitudes-ausencia",
+    response_model=SolicitudAusenciaPeriodoResponse,
+    status_code=201,
+)
+def crear_solicitud_ausencia_periodo(
+    alumno_id: Annotated[uuid.UUID, Form()],
+    fecha_inicio: Annotated[date, Form()],
+    motivo: Annotated[str, Form(min_length=1, max_length=120)],
+    usuario: UsuarioAutenticado,
+    fecha_fin: Annotated[date | None, Form()] = None,
+    observacion: Annotated[str | None, Form(max_length=500)] = None,
+    comprobante: Annotated[UploadFile | None, File()] = None,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> SolicitudAusenciaPeriodoResponse:
+    """Crear una solicitud familiar de ausencia para una fecha o un período."""
+    contenido = comprobante.file.read() if comprobante is not None else None
+    solicitud = crear_solicitud_periodo(
+        db,
+        usuario,
+        alumno_id,
+        fecha_inicio,
+        fecha_fin or fecha_inicio,
+        motivo,
+        observacion,
+        comprobante.filename if comprobante is not None else None,
+        comprobante.content_type if comprobante is not None else None,
+        contenido,
+    )
+    return _respuesta_solicitud_periodo(db, solicitud)
+
+
+@router.get(
+    "/familia/alumnos/{alumno_id}/solicitudes-ausencia",
+    response_model=list[SolicitudAusenciaPeriodoResponse],
+)
+def listar_solicitudes_ausencia_familia(
+    alumno_id: uuid.UUID,
+    usuario: UsuarioAutenticado,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[SolicitudAusenciaPeriodoResponse]:
+    """Solicitudes de ausencia por período de un alumno vinculado."""
+    return [
+        _respuesta_solicitud_periodo(db, solicitud)
+        for solicitud in listar_solicitudes_periodo_familia(db, usuario, alumno_id)
+    ]
+
+
+@router.post(
+    "/familia/solicitudes-ausencia/{solicitud_id}/cancelar",
+    response_model=SolicitudAusenciaPeriodoResponse,
+)
+def cancelar_solicitud_ausencia_familia(
+    solicitud_id: uuid.UUID,
+    usuario: UsuarioAutenticado,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> SolicitudAusenciaPeriodoResponse:
+    """Cancelar una solicitud propia que todavía está pendiente."""
+    return _respuesta_solicitud_periodo(db, cancelar_solicitud_periodo(db, usuario, solicitud_id))
+
+
+@router.get("/familia/solicitudes-ausencia/{solicitud_id}/archivo")
+def descargar_archivo_solicitud_ausencia_familia(
+    solicitud_id: uuid.UUID,
+    usuario: UsuarioAutenticado,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Response:
+    """Descargar el comprobante de una solicitud propia."""
+    contenido, tipo_contenido, nombre = archivo_solicitud_periodo_familia(db, usuario, solicitud_id)
+    return Response(
+        content=contenido,
+        media_type=tipo_contenido,
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
+    )
 
 
 @router.get("/justificaciones", response_model=JustificacionesPaginadasResponse)
