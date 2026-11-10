@@ -8,8 +8,8 @@ El despachador no la ejecuta al llegar el evento: la toma
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.academico.models import JustificacionInasistencia
-from src.inscripciones.models import Asistencia
+from src.academico.models import JustificacionInasistencia, SolicitudAusenciaPeriodo
+from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import EventLog
 from src.workflows import notificaciones_service
 from src.workflows.models import WorkflowExecution, WorkflowRule
@@ -28,8 +28,8 @@ def ejecutar_generar_recordatorio(
 
 def _motivo_para_no_recordar(db: Session, evento: EventLog) -> str | None:
     """Una inasistencia sin justificar deja de necesitar el recordatorio si se borró, si la familia
-    ya cargó una justificación (aunque esté por revisar) o si ya se resolvió. Los demás eventos
-    siempre se recuerdan."""
+    ya cargó una justificación (aunque esté por revisar), si informó una ausencia por período que
+    cubre la fecha o si ya se resolvió. Los demás eventos siempre se recuerdan."""
     if evento.entidad != "asistencia":
         return None
     asistencia = db.get(Asistencia, evento.entidad_id)
@@ -44,4 +44,18 @@ def _motivo_para_no_recordar(db: Session, evento: EventLog) -> str | None:
     )
     if justificada is not None:
         return "la familia ya cargó una justificación."
+    inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
+    if inscripcion is not None:
+        periodo = db.scalar(
+            select(SolicitudAusenciaPeriodo.id)
+            .where(
+                SolicitudAusenciaPeriodo.alumno_id == inscripcion.alumno_id,
+                SolicitudAusenciaPeriodo.estado.in_(("pendiente", "aprobada")),
+                SolicitudAusenciaPeriodo.fecha_inicio <= asistencia.fecha,
+                SolicitudAusenciaPeriodo.fecha_fin >= asistencia.fecha,
+            )
+            .limit(1)
+        )
+        if periodo is not None:
+            return "la familia ya informó una ausencia por período."
     return None

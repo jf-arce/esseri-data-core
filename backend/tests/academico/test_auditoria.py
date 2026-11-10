@@ -92,8 +92,9 @@ class TestAuditoriaEstructuraCurricular:
         eliminar_nivel_educativo(db_session, nivel, usuario.id)
 
         registros = _historial(db_session, "NIVEL_EDUCATIVO", nivel_id)
-        assert len(registros) == 1
-        assert registros[0].campo == "__eliminacion__"
+        bajas = [registro for registro in registros if registro.campo == "__eliminacion__"]
+        assert len(bajas) == 1
+        assert bajas[0].valor_anterior == "Primario"
 
     def test_crear_anio_audita_alta(self, db_session: Session):
         usuario = _crear_usuario(db_session)
@@ -181,9 +182,9 @@ class TestAuditoriaDocente:
         eliminar_docente(db_session, docente, usuario.id)
 
         registros = _historial(db_session, "DOCENTE", docente_id)
-        assert len(registros) == 1
-        assert registros[0].campo == "__eliminacion__"
-        assert registros[0].valor_anterior == "D-001"
+        bajas = [registro for registro in registros if registro.campo == "__eliminacion__"]
+        assert len(bajas) == 1
+        assert bajas[0].valor_anterior == "D-001"
 
 
 class TestAuditoriaAsignacionDocente:

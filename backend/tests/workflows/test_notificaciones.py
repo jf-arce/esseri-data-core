@@ -11,13 +11,14 @@ from src.config import settings
 from src.facturacion.models import Factura, Pago, ResponsableEconomico
 from src.familias_alumnos.models import Familia, FamiliaAlumno
 from src.inscripciones.models import Asistencia
-from src.models import EventLog, Persona
+from src.models import AuditLog, EventLog, Persona
 from src.workflows import despacho_service, notificaciones_service
 from src.workflows.constants import MAX_DESTINATARIOS_POR_EJECUCION
 from src.workflows.exceptions import (
     N8nEnvioFallido,
     N8nNoConfigurado,
     N8nNoDisponible,
+    N8nResultadoIncierto,
     PlantillaInvalida,
 )
 from src.workflows.models import (
@@ -438,6 +439,68 @@ def test_corte_temprano_si_n8n_no_responde(db_session, tipo_factura_vencida, pla
     assert envios.intentos == ["u00@esseri.edu.ar"]
     assert len(db_session.scalars(select(Notificacion)).all()) == 3
     assert {f.estado_envio for f in db_session.scalars(select(Notificacion))} == {"fallido"}
+
+
+def test_resultado_incierto_no_se_marca_enviado_ni_fallido(
+    db_session, tipo_factura_vencida, plantilla, envios
+):
+    regla = _preparar_regla_con_usuarios(db_session, tipo_factura_vencida, plantilla)
+    evento = _evento(db_session, tipo_factura_vencida)
+    ejecucion = _ejecucion(db_session, regla, evento)
+    envios.fallar["u00@esseri.edu.ar"] = N8nResultadoIncierto()
+
+    resultado = ejecutar_notificar(db_session, regla, evento, ejecucion)
+
+    assert resultado.error == notificaciones_service.ERROR_ENVIO
+    estados = {
+        fila.destinatario_snapshot: fila.estado_envio
+        for fila in db_session.scalars(select(Notificacion))
+    }
+    assert estados == {"u00@esseri.edu.ar": "incierto", "u01@esseri.edu.ar": "enviado"}
+    auditoria = db_session.scalar(
+        select(AuditLog).where(
+            AuditLog.entidad == "NOTIFICACION",
+            AuditLog.campo == "estado_envio",
+            AuditLog.valor_nuevo == "incierto",
+        )
+    )
+    assert auditoria is not None
+    assert auditoria.actor_tipo == "sistema"
+    assert auditoria.origen == "workflow"
+    assert auditoria.referencia_entidad == "WORKFLOW_EXECUTION"
+    assert auditoria.referencia_id == ejecucion.id
+
+    segunda = _ejecucion(db_session, regla, evento, intento=2)
+    reintento = ejecutar_notificar(db_session, regla, evento, segunda)
+    assert reintento.error == notificaciones_service.ERROR_ENVIO
+    assert "incierto" in reintento.detalle
+    assert len(envios.intentos) == 2
+
+
+def test_reintento_mixto_conserva_la_incertidumbre(
+    db_session, tipo_factura_vencida, plantilla, envios
+):
+    regla = _preparar_regla_con_usuarios(db_session, tipo_factura_vencida, plantilla)
+    evento = _evento(db_session, tipo_factura_vencida)
+    primera = _ejecucion(db_session, regla, evento)
+    envios.fallar["u00@esseri.edu.ar"] = N8nEnvioFallido()
+    envios.fallar["u01@esseri.edu.ar"] = N8nResultadoIncierto()
+    ejecutar_notificar(db_session, regla, evento, primera)
+    envios.fallar.clear()
+
+    segunda = _ejecucion(db_session, regla, evento, intento=2)
+    resultado = ejecutar_notificar(db_session, regla, evento, segunda)
+
+    assert resultado.error == notificaciones_service.ERROR_ENVIO
+    assert "1 de 1 emails enviados" in resultado.detalle
+    assert "incierto" in resultado.detalle
+    estado_incierto = db_session.scalar(
+        select(Notificacion.estado_envio).where(
+            Notificacion.workflow_execution_id == primera.id,
+            Notificacion.destinatario_snapshot == "u01@esseri.edu.ar",
+        )
+    )
+    assert estado_incierto == "incierto"
 
 
 def test_regla_sin_plantilla_falla_sin_notificaciones(db_session, tipo_factura_vencida, envios):

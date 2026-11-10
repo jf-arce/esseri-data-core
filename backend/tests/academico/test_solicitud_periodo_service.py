@@ -45,14 +45,17 @@ def test_creates_single_day_period_and_audits_without_attendance(db_session, con
     assert solicitud.fecha_inicio == solicitud.fecha_fin == date(2027, 3, 1)
     assert solicitud.estado == "pendiente"
     assert db_session.query(SolicitudAusenciaPeriodo).count() == 1
-    assert (
+    auditoria = (
         db_session.query(AuditLog)
         .filter_by(
             entidad="SOLICITUD_AUSENCIA_PERIODO", entidad_id=solicitud.id, usuario_id=usuario.id
         )
-        .count()
-        == 1
+        .one()
     )
+    assert auditoria.actor_tipo == "usuario"
+    assert auditoria.origen == "familia"
+    assert auditoria.motivo == "enfermedad"
+    assert auditoria.referencia_id == solicitud.id
 
 
 def test_rejects_overlapping_active_period_without_partial_write(db_session, contexto):

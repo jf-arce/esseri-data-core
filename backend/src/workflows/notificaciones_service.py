@@ -2,8 +2,8 @@
 `NOTIFICACION` y pide el envío a n8n (RF-24).
 
 El envío corre dentro de la transacción del evento y en serie. Un envío que falla deja su fila
-en `fallido` sin lanzar, para no revertir las filas ya registradas. No es idempotente: si n8n
-envía y la respuesta se pierde, un reintento manda el email otra vez."""
+en `fallido` sin lanzar, para no revertir las filas ya registradas. Si la respuesta se pierde,
+la fila queda en `incierto` y no se reintenta automáticamente."""
 
 import logging
 import uuid
@@ -14,7 +14,8 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from src.academico.models import JustificacionInasistencia
+from src.academico.models import JustificacionInasistencia, SolicitudAusenciaPeriodo
+from src.auditoria.service import log_audit
 from src.auth.models import Usuario
 from src.config import settings
 from src.facturacion.models import Factura, Pago, ResponsableEconomico
@@ -31,8 +32,10 @@ from src.workflows import destinatarios_service, n8n_client, plantillas_service
 from src.workflows.constants import ENLACES_MAIL, MAX_DESTINATARIOS_POR_EJECUCION
 from src.workflows.email_html import armar_html, quitar_marcas
 from src.workflows.exceptions import (
+    N8nEnvioFallido,
     N8nNoConfigurado,
     N8nNoDisponible,
+    N8nResultadoIncierto,
     NotificacionNoEncontrada,
     PlantillaInvalida,
 )
@@ -201,6 +204,15 @@ def _emails_de_familia(db: Session, familia_id: uuid.UUID) -> list[str]:
 
 def _alumno_del_evento(db: Session, evento: EventLog) -> uuid.UUID:
     entidad_id = evento.entidad_id
+    if evento.entidad == "solicitud_ausencia_periodo":
+        alumno_id = db.scalar(
+            select(SolicitudAusenciaPeriodo.alumno_id).where(
+                SolicitudAusenciaPeriodo.id == entidad_id
+            )
+        )
+        if alumno_id is None:
+            raise _SinAlumno()
+        return alumno_id
     match evento.entidad:
         case "inscripcion":
             inscripcion_id: uuid.UUID | None = entidad_id
@@ -365,6 +377,28 @@ def _renderizar(
         raise _SinContenido(ERROR_RENDER) from None
 
 
+def _cobertura_periodo(db: Session, evento: EventLog) -> uuid.UUID | None:
+    """Solicitud pendiente/aprobada que cubre la fecha de la ausencia, si existe."""
+    if evento.entidad != "asistencia":
+        return None
+    asistencia = db.get(Asistencia, evento.entidad_id)
+    if asistencia is None:
+        return None
+    inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
+    if inscripcion is None:
+        return None
+    return db.scalar(
+        select(SolicitudAusenciaPeriodo.id)
+        .where(
+            SolicitudAusenciaPeriodo.alumno_id == inscripcion.alumno_id,
+            SolicitudAusenciaPeriodo.estado.in_(("pendiente", "aprobada")),
+            SolicitudAusenciaPeriodo.fecha_inicio <= asistencia.fecha,
+            SolicitudAusenciaPeriodo.fecha_fin >= asistencia.fecha,
+        )
+        .limit(1)
+    )
+
+
 def _ejecutar(
     db: Session,
     regla: WorkflowRule,
@@ -373,6 +407,25 @@ def _ejecutar(
     destino: str,
     obtener_contenido: Callable[[Session, WorkflowRule, EventLog], tuple[str, str]],
 ) -> ResultadoAccion:
+    cobertura = _cobertura_periodo(db, evento)
+    if cobertura is not None and destino == "responsables_habilitados":
+        detalle = "No se envió: la ausencia está cubierta por una solicitud de período."
+        log_audit(
+            db,
+            entidad="WORKFLOW_EXECUTION",
+            entidad_id=ejecucion.id,
+            campo="suspension",
+            valor_anterior=None,
+            valor_nuevo=detalle,
+            usuario_id=None,
+            actor_tipo="sistema",
+            origen="workflow",
+            motivo=detalle,
+            referencia_entidad="SOLICITUD_AUSENCIA_PERIODO",
+            referencia_id=cobertura,
+        )
+        return ResultadoAccion(detalle=detalle)
+
     previas = _notificaciones_del_ultimo_intento(db, regla, evento, ejecucion)
     if previas:
         # Reintento: se reenvía solo lo que falló, tal como se registró.
@@ -391,10 +444,25 @@ def _ejecutar(
             if n.estado_envio == "fallido"
         ]
         if not pendientes:
+            if any(notificacion.estado_envio == "incierto" for notificacion in previas):
+                return ResultadoAccion(
+                    detalle="No se reintenta: hay envíos con resultado incierto.",
+                    error=ERROR_ENVIO,
+                )
             return ResultadoAccion(detalle="Todos los emails ya habían sido enviados.")
-        return _enviar_todos(
+        resultado = _enviar_todos(
             db, ejecucion, pendientes, total=len(pendientes), sin_email=0, enlace=_enlace_de(regla)
         )
+        inciertos = sum(1 for notificacion in previas if notificacion.estado_envio == "incierto")
+        if inciertos:
+            return ResultadoAccion(
+                detalle=(
+                    f"{resultado.detalle}; {inciertos} envío(s) con resultado "
+                    "incierto sin reintentar"
+                ),
+                error=ERROR_ENVIO,
+            )
+        return resultado
 
     try:
         asunto, cuerpo = obtener_contenido(db, regla, evento)
@@ -482,14 +550,43 @@ def _enviar_todos(
             destinatario_snapshot=mensaje.destinatario.email,
             asunto_snapshot=asunto,
             cuerpo_snapshot=cuerpo,
-            estado_envio="fallido",
+            estado_envio="pendiente",
             workflow_execution_id=ejecucion.id,
             familia_id=mensaje.destinatario.familia_id,
             usuario_id=mensaje.destinatario.usuario_id,
         )
         db.add(notificacion)
         db.flush()
+        log_audit(
+            db,
+            entidad="NOTIFICACION",
+            entidad_id=notificacion.id,
+            campo="estado_envio",
+            valor_anterior=None,
+            valor_nuevo="pendiente",
+            usuario_id=None,
+            actor_tipo="sistema",
+            origen="workflow",
+            motivo="intento de envío",
+            referencia_entidad="WORKFLOW_EXECUTION",
+            referencia_id=ejecucion.id,
+        )
         if n8n_caido:
+            notificacion.estado_envio = "fallido"
+            log_audit(
+                db,
+                entidad="NOTIFICACION",
+                entidad_id=notificacion.id,
+                campo="estado_envio",
+                valor_anterior="pendiente",
+                valor_nuevo="fallido",
+                usuario_id=None,
+                actor_tipo="sistema",
+                origen="workflow",
+                motivo="n8n no disponible; no se intentó el envío",
+                referencia_entidad="WORKFLOW_EXECUTION",
+                referencia_id=ejecucion.id,
+            )
             continue
         try:
             n8n_client.enviar_email(
@@ -503,12 +600,95 @@ def _enviar_todos(
                 "n8n no está disponible: se corta el envío (tipo=%s)", type(error).__name__
             )
             n8n_caido = True
+            notificacion.estado_envio = "fallido"
+            log_audit(
+                db,
+                entidad="NOTIFICACION",
+                entidad_id=notificacion.id,
+                campo="estado_envio",
+                valor_anterior="pendiente",
+                valor_nuevo="fallido",
+                usuario_id=None,
+                actor_tipo="sistema",
+                origen="workflow",
+                motivo=f"n8n no disponible: {type(error).__name__}",
+                referencia_entidad="WORKFLOW_EXECUTION",
+                referencia_id=ejecucion.id,
+            )
+            continue
+        except N8nResultadoIncierto as error:
+            logger.warning(
+                "Resultado incierto del envío de una notificación (tipo=%s)",
+                type(error).__name__,
+            )
+            notificacion.estado_envio = "incierto"
+            log_audit(
+                db,
+                entidad="NOTIFICACION",
+                entidad_id=notificacion.id,
+                campo="estado_envio",
+                valor_anterior="pendiente",
+                valor_nuevo="incierto",
+                usuario_id=None,
+                actor_tipo="sistema",
+                origen="workflow",
+                motivo=f"resultado incierto: {type(error).__name__}",
+                referencia_entidad="WORKFLOW_EXECUTION",
+                referencia_id=ejecucion.id,
+            )
+            continue
+        except N8nEnvioFallido as error:
+            logger.warning("Falló el envío de una notificación (tipo=%s)", type(error).__name__)
+            notificacion.estado_envio = "fallido"
+            log_audit(
+                db,
+                entidad="NOTIFICACION",
+                entidad_id=notificacion.id,
+                campo="estado_envio",
+                valor_anterior="pendiente",
+                valor_nuevo="fallido",
+                usuario_id=None,
+                actor_tipo="sistema",
+                origen="workflow",
+                motivo=f"fallo de envío: {type(error).__name__}",
+                referencia_entidad="WORKFLOW_EXECUTION",
+                referencia_id=ejecucion.id,
+            )
             continue
         except Exception as error:
             logger.warning("Falló el envío de una notificación (tipo=%s)", type(error).__name__)
+            notificacion.estado_envio = "incierto"
+            log_audit(
+                db,
+                entidad="NOTIFICACION",
+                entidad_id=notificacion.id,
+                campo="estado_envio",
+                valor_anterior="pendiente",
+                valor_nuevo="incierto",
+                usuario_id=None,
+                actor_tipo="sistema",
+                origen="workflow",
+                motivo=f"error no clasificado: {type(error).__name__}",
+                referencia_entidad="WORKFLOW_EXECUTION",
+                referencia_id=ejecucion.id,
+            )
             continue
         notificacion.estado_envio = "enviado"
         notificacion.sent_at = ahora_utc()
+        log_audit(
+            db,
+            entidad="NOTIFICACION",
+            entidad_id=notificacion.id,
+            campo="estado_envio",
+            valor_anterior="pendiente",
+            valor_nuevo="enviado",
+            usuario_id=None,
+            actor_tipo="sistema",
+            origen="workflow",
+            motivo="envío confirmado por n8n",
+            referencia_entidad="WORKFLOW_EXECUTION",
+            referencia_id=ejecucion.id,
+        )
         enviados += 1
 
     detalle = f"{enviados} de {total} emails enviados"

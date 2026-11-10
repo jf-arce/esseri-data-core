@@ -6,6 +6,8 @@ from src.academico.models import MotivoJustificacion, SolicitudAusenciaPeriodo
 from src.academico.solicitud_periodo_service import (
     cancelar_solicitud_periodo,
     crear_solicitud_periodo,
+    resolver_solicitud_periodo,
+    revocar_solicitud_periodo,
 )
 from src.auth.models import Usuario
 from src.familias_alumnos.models import Alumno
@@ -110,6 +112,38 @@ def test_bandeja_pagina(client_secretaria, solicitudes):
     assert cuerpo["total"] == 2
     assert cuerpo["total_paginas"] == 2
     assert len(cuerpo["items"]) == 1
+
+
+def test_bandeja_filtra_y_resume_revocadas(client_secretaria, db_session, escenario_dos_familias):
+    ids = escenario_dos_familias
+    motivo = MotivoJustificacion(nombre="revocada-tray", activo=True)
+    admin = Usuario(
+        email="admin-revocada-tray@example.test",
+        auth_provider="local",
+        estado="activo",
+    )
+    db_session.add_all([motivo, admin])
+    db_session.commit()
+    usuario = db_session.get(Usuario, ids["usuario_a"])
+    solicitud = crear_solicitud_periodo(
+        db_session,
+        usuario,
+        ids["alumno_a"],
+        date(2027, 11, 1),
+        date(2027, 11, 1),
+        "revocada-tray",
+        None,
+    )
+    resolver_solicitud_periodo(db_session, admin, solicitud.id, True, None)
+    revocar_solicitud_periodo(db_session, admin, solicitud.id, "Error", False)
+
+    respuesta = client_secretaria.get(RUTA_BANDEJA, params={"estado": "revocada"})
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["total"] == 1
+    assert cuerpo["resumen"]["revocadas"] == 1
+    assert cuerpo["items"][0]["estado"] == "revocada"
 
 
 def test_docente_sin_permiso_no_accede_a_la_bandeja(client_docente, solicitudes):

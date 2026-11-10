@@ -4,12 +4,17 @@ Una inasistencia avisa a los responsables, un recordatorio sale `dias_despues` d
 sigue sin justificar, y la resolución de la justificación vuelve a avisar."""
 
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 from sqlalchemy import select
 
-from src.academico.models import JustificacionInasistencia
+from src.academico.models import JustificacionInasistencia, MotivoJustificacion
+from src.academico.solicitud_periodo_service import (
+    crear_solicitud_periodo,
+    resolver_solicitud_periodo,
+    revocar_solicitud_periodo,
+)
 from src.auth.models import Usuario
 from src.models import EventLog
 from src.workflows import despacho_service
@@ -58,7 +63,7 @@ def _asuntos(envios):
     return [asunto for _, asunto, _ in envios.enviados]
 
 
-def test_el_seed_crea_las_plantillas_y_las_cuatro_reglas_sin_duplicar(db_session, demo, seed_demo):
+def test_el_seed_crea_las_plantillas_y_las_cinco_reglas_sin_duplicar(db_session, demo, seed_demo):
     seed_demo._ensure_reglas_inasistencia(db_session, demo)
 
     reglas = {r.nombre: r for r in db_session.scalars(select(WorkflowRule))}
@@ -66,9 +71,10 @@ def test_el_seed_crea_las_plantillas_y_las_cuatro_reglas_sin_duplicar(db_session
         "Inasistencia justificada: avisar a la familia",
         "Inasistencia sin justificar: recordatorio",
         "Inasistencia: avisar a la familia",
+        "Solicitud de ausencia revocada: avisar a la familia",
         "Tardanza: avisar a la familia",
     ]
-    assert len(db_session.scalars(select(NotificacionTemplate)).all()) == 4
+    assert len(db_session.scalars(select(NotificacionTemplate)).all()) == 5
     assert {r.tipo_accion for r in reglas.values()} == {"notificar", "generar_recordatorio"}
     assert all(r.requiere_aprobacion_humana is False for r in reglas.values())
     recordatorio = reglas["Inasistencia sin justificar: recordatorio"]
@@ -77,6 +83,33 @@ def test_el_seed_crea_las_plantillas_y_las_cuatro_reglas_sin_duplicar(db_session
         "dias_despues": 2,
         "enlace": "familia_justificar",
     }
+
+
+def test_la_revocacion_avisa_a_la_familia_si_se_pide(db_session, demo, familia, envios):
+    usuario = db_session.scalar(select(Usuario).where(Usuario.email == familia["email"]))
+    admin = Usuario(email="admin-revocacion@example.test", auth_provider="local", estado="activo")
+    motivo = MotivoJustificacion(nombre="revocacion-demo", activo=True)
+    db_session.add_all([admin, motivo])
+    db_session.commit()
+    solicitud = crear_solicitud_periodo(
+        db_session,
+        usuario,
+        familia["datos"]["alumno_id"],
+        date(2027, 3, 1),
+        date(2027, 3, 5),
+        "revocacion-demo",
+        None,
+    )
+    resolver_solicitud_periodo(db_session, admin, solicitud.id, True, None)
+
+    revocar_solicitud_periodo(db_session, admin, solicitud.id, "Se cargó mal el período", True)
+    despacho_service.procesar_eventos_pendientes(db_session)
+
+    assert len(envios.enviados) == 1
+    destinatario, asunto, cuerpo = envios.enviados[0]
+    assert destinatario == familia["email"]
+    assert "revocada" in asunto
+    assert "Se cargó mal el período" in cuerpo
 
 
 def test_una_inasistencia_avisa_a_los_responsables_y_todavia_no_recuerda(

@@ -8,7 +8,7 @@ from datetime import date, datetime
 from io import BytesIO, StringIO
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, inspect, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from src.academico.exceptions import (
@@ -46,6 +46,7 @@ from src.academico.models import (
     MateriaCurso,
     MotivoJustificacion,
     NivelEducativo,
+    SolicitudAusenciaPeriodo,
 )
 from src.academico.schemas import (
     AltaDocenteCreate,
@@ -436,16 +437,97 @@ def verificar_acceso_a_division(
         raise PermisoDenegado("No tenés asignada esta división")
 
 
+def _asistencia_id(asistencia: Asistencia) -> uuid.UUID | None:
+    """PK sin lazy-load: un objeto puede estar expirado y su fila ya borrada."""
+    identidad = inspect(asistencia).identity
+    if identidad:
+        return identidad[0]
+    return asistencia.id if asistencia.id is not None else None
+
+
 def verificar_acceso_a_asistencia(
     db: Session, asistencia: Asistencia, usuario_id: uuid.UUID, rol_activo: str | None
 ) -> None:
     """Variante de `verificar_acceso_a_division` a partir de un registro ya cargado (GET por id,
     actualizar, eliminar): resuelve la división vía su inscripción."""
-    inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
+    asistencia_id = _asistencia_id(asistencia)
+    if asistencia_id is None:
+        return
+    inscripcion_id = db.scalar(
+        select(Asistencia.inscripcion_id).where(Asistencia.id == asistencia_id)
+    )
+    if inscripcion_id is None:
+        return
+    inscripcion = db.get(Inscripcion, inscripcion_id)
     if inscripcion is not None:
         verificar_acceso_a_division(
             db, usuario_id, inscripcion.division_id, rol_activo, inscripcion.ciclo_lectivo
         )
+
+
+def aplicar_cobertura_periodo(
+    db: Session,
+    asistencia: Asistencia,
+    *,
+    referencia_id: uuid.UUID | None = None,
+) -> SolicitudAusenciaPeriodo | None:
+    """Aplica una solicitud aprobada a una ausencia pendiente.
+
+    El llamador debe sostener el bloqueo por alumno. No hace commit. La aplicación queda
+    auditada como acción del sistema y referencia la auditoría humana que la disparó.
+    """
+    if asistencia.tipo != "ausente_pendiente":
+        return None
+    inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
+    if inscripcion is None:
+        return None
+    solicitud = db.scalar(
+        select(SolicitudAusenciaPeriodo)
+        .where(
+            SolicitudAusenciaPeriodo.alumno_id == inscripcion.alumno_id,
+            SolicitudAusenciaPeriodo.estado == "aprobada",
+            SolicitudAusenciaPeriodo.fecha_inicio <= asistencia.fecha,
+            SolicitudAusenciaPeriodo.fecha_fin >= asistencia.fecha,
+        )
+        .order_by(SolicitudAusenciaPeriodo.fecha_inicio.desc())
+        .limit(1)
+    )
+    if solicitud is None:
+        return None
+    vinculo_anterior = asistencia.solicitud_ausencia_periodo_id
+    asistencia.tipo = "ausente_justificado"
+    asistencia.solicitud_ausencia_periodo_id = solicitud.id
+    referencia_entidad = "AUDIT_LOG" if referencia_id is not None else "SOLICITUD_AUSENCIA_PERIODO"
+    referencia = referencia_id if referencia_id is not None else solicitud.id
+    log_audit(
+        db,
+        entidad="ASISTENCIA",
+        entidad_id=asistencia.id,
+        campo="tipo",
+        valor_anterior="ausente_pendiente",
+        valor_nuevo="ausente_justificado",
+        usuario_id=None,
+        actor_tipo="sistema",
+        origen="aplicacion_automatica",
+        motivo="cobertura por solicitud aprobada",
+        referencia_entidad=referencia_entidad,
+        referencia_id=referencia,
+    )
+    log_audit(
+        db,
+        entidad="ASISTENCIA",
+        entidad_id=asistencia.id,
+        campo="solicitud_ausencia_periodo_id",
+        valor_anterior=str(vinculo_anterior) if vinculo_anterior is not None else None,
+        valor_nuevo=str(solicitud.id),
+        usuario_id=None,
+        actor_tipo="sistema",
+        origen="aplicacion_automatica",
+        motivo="cobertura por solicitud aprobada",
+        referencia_entidad=referencia_entidad,
+        referencia_id=referencia,
+    )
+    return solicitud
 
 
 def registrar_asistencia(
@@ -481,7 +563,7 @@ def registrar_asistencia(
     )
     db.add(nuevo)
     db.flush()
-    log_audit(
+    auditoria_alta = log_audit(
         db,
         entidad="ASISTENCIA",
         entidad_id=nuevo.id,
@@ -489,7 +571,11 @@ def registrar_asistencia(
         valor_anterior=None,
         valor_nuevo=tipo_db,
         usuario_id=usuario_id,
+        origen="registro_asistencia",
+        referencia_entidad="ASISTENCIA",
+        referencia_id=nuevo.id,
     )
+    aplicar_cobertura_periodo(db, nuevo, referencia_id=auditoria_alta.id)
     if tipo_db in _TIPOS_CON_EVENTO:
         emit_event(
             db,
@@ -579,7 +665,7 @@ def registrar_asistencia_masiva(
                 continue
             tipo_anterior = existente.tipo
             existente.tipo = tipo_db
-            log_audit(
+            auditoria_tipo = log_audit(
                 db,
                 entidad="ASISTENCIA",
                 entidad_id=existente.id,
@@ -587,7 +673,12 @@ def registrar_asistencia_masiva(
                 valor_anterior=tipo_anterior,
                 valor_nuevo=tipo_db,
                 usuario_id=usuario_id,
+                origen="registro_asistencia_masiva",
+                referencia_entidad="ASISTENCIA",
+                referencia_id=existente.id,
             )
+            if tipo_db == "ausente_pendiente":
+                aplicar_cobertura_periodo(db, existente, referencia_id=auditoria_tipo.id)
             actualizadas += 1
             asistencia_id = existente.id
             # Solo en la transición real: resubir el mismo bulk no debe volver a emitir el
@@ -601,7 +692,7 @@ def registrar_asistencia_masiva(
             )
             db.add(nuevo)
             db.flush()
-            log_audit(
+            auditoria_alta = log_audit(
                 db,
                 entidad="ASISTENCIA",
                 entidad_id=nuevo.id,
@@ -609,7 +700,12 @@ def registrar_asistencia_masiva(
                 valor_anterior=None,
                 valor_nuevo=tipo_db,
                 usuario_id=usuario_id,
+                origen="registro_asistencia_masiva",
+                referencia_entidad="ASISTENCIA",
+                referencia_id=nuevo.id,
             )
+            if tipo_db == "ausente_pendiente":
+                aplicar_cobertura_periodo(db, nuevo, referencia_id=auditoria_alta.id)
             creadas += 1
             asistencia_id = nuevo.id
             emite_evento = tipo_db in _TIPOS_CON_EVENTO
@@ -721,7 +817,7 @@ def actualizar_asistencia(
     tipo_db = _TIPO_DOCENTE_A_DB[datos.tipo]
     tipo_anterior = asistencia.tipo
     asistencia.tipo = tipo_db
-    log_audit(
+    auditoria_tipo = log_audit(
         db,
         entidad="ASISTENCIA",
         entidad_id=asistencia.id,
@@ -729,7 +825,12 @@ def actualizar_asistencia(
         valor_anterior=tipo_anterior,
         valor_nuevo=tipo_db,
         usuario_id=usuario_id,
+        origen="actualizacion_asistencia",
+        referencia_entidad="ASISTENCIA",
+        referencia_id=asistencia.id,
     )
+    if tipo_db == "ausente_pendiente":
+        aplicar_cobertura_periodo(db, asistencia, referencia_id=auditoria_tipo.id)
 
     emite_evento = tipo_db in _TIPOS_CON_EVENTO and tipo_anterior != tipo_db
     if emite_evento and inscripcion is not None:
@@ -759,9 +860,36 @@ def eliminar_asistencia(
     db: Session, asistencia: Asistencia, usuario_id: uuid.UUID, rol_activo: str | None
 ) -> None:
     """Eliminar un registro de asistencia."""
+    asistencia_id = _asistencia_id(asistencia)
+    if asistencia_id is None:
+        return
     verificar_acceso_a_asistencia(db, asistencia, usuario_id, rol_activo)
-    asistencia_id = asistencia.id
+    inscripcion_id = db.scalar(
+        select(Asistencia.inscripcion_id).where(Asistencia.id == asistencia_id)
+    )
+    inscripcion = db.get(Inscripcion, inscripcion_id) if inscripcion_id is not None else None
+    if inscripcion is not None:
+        db.scalar(select(Alumno.id).where(Alumno.id == inscripcion.alumno_id).with_for_update())
+    existe = db.scalar(select(Asistencia.id).where(Asistencia.id == asistencia_id))
+    if existe is None:
+        return
+    db.refresh(asistencia)
     tipo_anterior = asistencia.tipo
+    vinculo_periodo = asistencia.solicitud_ausencia_periodo_id
+    if vinculo_periodo is not None:
+        log_audit(
+            db,
+            entidad="ASISTENCIA",
+            entidad_id=asistencia_id,
+            campo="solicitud_ausencia_periodo_id",
+            valor_anterior=str(vinculo_periodo),
+            valor_nuevo=None,
+            usuario_id=usuario_id,
+            origen="eliminacion_asistencia",
+            motivo="eliminación autorizada de una asistencia aplicada por período",
+            referencia_entidad="SOLICITUD_AUSENCIA_PERIODO",
+            referencia_id=vinculo_periodo,
+        )
     db.delete(asistencia)
     log_audit(
         db,

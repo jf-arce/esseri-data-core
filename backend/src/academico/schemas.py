@@ -379,7 +379,7 @@ class FiltrosSolicitudesPeriodo(BaseModel):
     """Filtros de la bandeja administrativa de solicitudes por período."""
 
     alumno_id: uuid.UUID | None = Field(None, description="ID del alumno")
-    estado: Literal["pendiente", "aprobada", "rechazada", "cancelada"] | None = Field(
+    estado: Literal["pendiente", "aprobada", "rechazada", "cancelada", "revocada"] | None = Field(
         None, description="Estado de la solicitud"
     )
     busqueda: str | None = Field(
@@ -389,6 +389,23 @@ class FiltrosSolicitudesPeriodo(BaseModel):
     fecha_hasta: date | None = Field(None, description="Fecha hasta (inclusive)")
     pagina: int = Field(1, ge=1, description="Número de página")
     tamanio_pagina: int = Field(50, ge=1, le=200, description="Tamaño de página")
+
+
+class AsistenciaRectificacion(BaseModel):
+    """Rectificación administrativa de una asistencia aplicada por período."""
+
+    tipo: Literal["presente", "tardanza"]
+    motivo: str = Field(..., min_length=1, max_length=500)
+
+
+class SolicitudPeriodoRevocacion(BaseModel):
+    """Revocación administrativa de una solicitud aprobada."""
+
+    motivo: str = Field(..., min_length=1, max_length=500)
+    notificar_familia: bool = Field(
+        False,
+        description="Enviar a la familia un aviso de la revocación con el motivo indicado",
+    )
 
 
 class SolicitudPeriodoResolucion(BaseModel):
@@ -411,6 +428,7 @@ class SolicitudesPeriodoResumen(BaseModel):
     aprobadas: int = 0
     rechazadas: int = 0
     canceladas: int = 0
+    revocadas: int = 0
     total: int = 0
 
 

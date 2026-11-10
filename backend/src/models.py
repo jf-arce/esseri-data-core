@@ -41,6 +41,7 @@ class AuditLog(Base):
 
     __tablename__ = "audit_log"
     __table_args__ = (
+        sa.CheckConstraint("actor_tipo IN ('usuario', 'sistema')", name="ck_audit_log_actor_tipo"),
         sa.Index("ix_audit_log_entidad_entidad_id_fecha", "entidad", "entidad_id", "fecha"),
     )
 
@@ -51,7 +52,12 @@ class AuditLog(Base):
     valor_anterior: Mapped[str | None] = mapped_column(sa.String)
     valor_nuevo: Mapped[str | None] = mapped_column(sa.String)
     fecha: Mapped[datetime] = mapped_column(sa.DateTime)
-    usuario_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("usuario.id"))
+    usuario_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("usuario.id"))
+    actor_tipo: Mapped[str] = mapped_column(sa.String, default="usuario")
+    origen: Mapped[str | None] = mapped_column(sa.String)
+    motivo: Mapped[str | None] = mapped_column(sa.String)
+    referencia_entidad: Mapped[str | None] = mapped_column(sa.String)
+    referencia_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid)
 
 
 class EventLog(Base):
