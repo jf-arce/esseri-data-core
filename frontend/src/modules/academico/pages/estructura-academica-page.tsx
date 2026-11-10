@@ -6,7 +6,7 @@ import {
   PlusIcon,
   ShieldAlertIcon,
 } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -21,6 +21,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PageHeader } from '@/components/page-header'
+import { BotonIcono } from '@/modules/academico/components/boton-icono'
 import { AbmDialog } from '@/modules/academico/components/abm-dialog'
 import { HorarioSemanal, type HuecoHorario } from '@/modules/academico/components/horario-semanal'
 import {
@@ -62,22 +63,6 @@ function letraDivision(anio: Anio, division: Division): string {
 
 function textoAlumnos(cantidad: number): string {
   return `${cantidad} ${cantidad === 1 ? 'alumno' : 'alumnos'}`
-}
-
-function BotonIcono({
-  etiqueta,
-  onClick,
-  children,
-}: {
-  etiqueta: string
-  onClick: () => void
-  children: ReactNode
-}) {
-  return (
-    <Button variant="ghost" size="icon-sm" aria-label={etiqueta} title={etiqueta} onClick={onClick}>
-      {children}
-    </Button>
-  )
 }
 
 function ContenidoSkeleton() {

@@ -2,6 +2,7 @@ import { PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { BotonIcono } from '@/modules/academico/components/boton-icono'
 import type { MateriaCurso } from '@/modules/academico/types'
 import { formatearHorarios } from '@/modules/academico/utils'
 
@@ -47,16 +48,13 @@ export function MateriaCursoCard({
             <PencilIcon />
             Editar
           </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
+          <BotonIcono
+            etiqueta={`Quitar ${nombre} del curso`}
             className="text-error hover:text-error"
             onClick={() => onQuitar(materiaCurso)}
-            aria-label={`Quitar ${nombre}`}
-            title="Quitar del curso"
           >
             <Trash2Icon />
-          </Button>
+          </BotonIcono>
         </div>
       )}
     </Card>

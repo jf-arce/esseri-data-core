@@ -4,6 +4,7 @@ import { ApiError } from '@/api/client'
 import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { BotonIcono } from '@/modules/academico/components/boton-icono'
 import { Card } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import {
@@ -158,16 +159,14 @@ export function CatalogoMateriasPage() {
                           <PencilIcon />
                           Editar
                         </Button>
-                        <Button
+                        <BotonIcono
+                          etiqueta="Eliminar"
                           variant="secondary"
-                          size="icon-sm"
                           className="text-error"
-                          aria-label="Eliminar"
-                          title="Eliminar"
                           onClick={() => setDialog({ open: true, modo: 'eliminar', item: materia })}
                         >
                           <Trash2Icon />
-                        </Button>
+                        </BotonIcono>
                       </div>
                     </TableCell>
                   )}
