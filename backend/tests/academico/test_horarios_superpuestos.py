@@ -124,3 +124,20 @@ def test_editar_rechaza_pisar_otra_materia_y_conserva_las_franjas(db_session):
 
     db_session.refresh(lengua)
     assert lengua.horarios[0].hora_inicio == time(9, 0)
+
+
+def test_rechaza_horas_con_zona_horaria(client_secretaria, db_session):
+    division = _division(db_session)
+    materia = crear_materia(db_session, MateriaCreate(nombre="Lengua", tipo="materia"))
+    db_session.commit()
+
+    respuesta = client_secretaria.post(
+        "/academico/materias-curso",
+        json={
+            "materia_id": str(materia.id),
+            "division_id": str(division.id),
+            "horarios": [{"dia_semana": 1, "hora_inicio": "08:30:00Z", "hora_fin": "09:30:00Z"}],
+        },
+    )
+
+    assert respuesta.status_code == 422

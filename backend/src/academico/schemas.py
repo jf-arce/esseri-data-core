@@ -489,6 +489,8 @@ class HorarioMateriaCursoCreate(BaseModel):
 
     @model_validator(mode="after")
     def _validar_rango(self):
+        if self.hora_inicio.tzinfo is not None or self.hora_fin.tzinfo is not None:
+            raise ValueError("Las horas no deben incluir zona horaria")
         if self.hora_fin <= self.hora_inicio:
             raise ValueError("La hora de fin debe ser posterior a la hora de inicio")
         return self
