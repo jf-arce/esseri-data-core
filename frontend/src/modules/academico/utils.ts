@@ -43,6 +43,16 @@ export function formatearHorario(horario: {
   return `${dia} ${horario.hora_inicio.slice(0, 5)}–${horario.hora_fin.slice(0, 5)}`
 }
 
+/** Formatea una franja como "Lun 08:00 a 09:00", sin guiones. */
+export function formatearFranjaLegible(horario: {
+  dia_semana: number
+  hora_inicio: string
+  hora_fin: string
+}): string {
+  const dia = DIAS_SEMANA[horario.dia_semana - 1] ?? `Día ${horario.dia_semana}`
+  return `${dia} ${horario.hora_inicio.slice(0, 5)} a ${horario.hora_fin.slice(0, 5)}`
+}
+
 export function formatearHorarios(
   horarios: { dia_semana: number; hora_inicio: string; hora_fin: string }[],
 ): string {

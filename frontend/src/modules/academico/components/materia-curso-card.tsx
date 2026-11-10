@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { BotonIcono } from '@/modules/academico/components/boton-icono'
 import type { MateriaCurso } from '@/modules/academico/types'
-import { formatearHorarios } from '@/modules/academico/utils'
+import { formatearFranjaLegible } from '@/modules/academico/utils'
 
 interface MateriaCursoCardProps {
   materiaCurso: MateriaCurso
@@ -32,7 +32,15 @@ export function MateriaCursoCard({
             {materiaCurso.materia_tipo === 'taller' ? 'Taller' : 'Materia'}
           </Badge>
         </div>
-        <p className="text-sm text-texto-2">{formatearHorarios(materiaCurso.horarios)}</p>
+        {materiaCurso.horarios.length > 0 ? (
+          <ul className="text-sm text-texto-2">
+            {materiaCurso.horarios.map((horario) => (
+              <li key={horario.id}>{formatearFranjaLegible(horario)}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-texto-2">Sin horario</p>
+        )}
         <p className="text-sm text-texto-3">
           {docentes.length > 0 ? docentes.join(', ') : 'Sin docente asignado'}
         </p>

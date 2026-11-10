@@ -6,6 +6,7 @@ import {
   deMinutos,
   elegirPorId,
   describirConflicto,
+  formatearFranjaLegible,
   formatearHorario,
   formatearHorarios,
   franjasSeSuperponen,
@@ -154,5 +155,13 @@ describe('calcularGrilla', () => {
       { dia_semana: 1, hora_inicio: '10:00', hora_fin: '11:00' },
     ])
     expect(bloques.map((bloque) => bloque.superpuesto)).toEqual([true, true, false])
+  })
+})
+
+describe('formatearFranjaLegible', () => {
+  it('separa las horas con "a" en vez de guion', () => {
+    expect(
+      formatearFranjaLegible({ dia_semana: 3, hora_inicio: '10:00:00', hora_fin: '11:30:00' }),
+    ).toBe('Mié 10:00 a 11:30')
   })
 })
