@@ -238,6 +238,13 @@ RF cubiertos: RF-04, RF-05, RF-06, RF-07, RF-08, RF-09
 | materia_id | uuid | FK |  |
 | division_id | uuid | FK |  |
 
+### Reglas de no superposición de horarios (Académico)
+> Las franjas son semanales (`dia_semana` 1 a 7, `hora_inicio`, `hora_fin`) y se comparan con `inicio < fin_otra y fin > inicio_otra`: franjas contiguas (8 a 9 y 9 a 10) no se superponen. Las horas no llevan zona horaria.
+
+- **En una división:** dos materias del mismo curso no pueden ocupar la misma franja, ni siquiera parcialmente (8 a 9 y 8:30 a 9:30). Tampoco dos franjas de la misma materia entre sí. Otra división sí puede usar la misma franja. Error 409.
+- **Para un docente:** en un mismo ciclo lectivo no puede tener asignadas dos materias-curso distintas con franjas que se pisan. Dos docentes en la misma materia-curso (pareja pedagógica) no es conflicto, y otro ciclo lectivo tampoco. Se valida al asignar (individual y masivo), al mover una asignación y al cambiar los horarios de la materia-curso. Error 409.
+- Los datos anteriores a estas reglas no se corrigen solos: si hay superposiciones viejas, la grilla de horario las marca en rojo.
+
 ### `MOTIVO_JUSTIFICACION`
 > **[ACLARACIÓN CLIENTE]** (respuesta 10). Catálogo configurable de motivos de ausencia — antes el modelo no distinguía motivos, o los dejaba como texto libre. Mismo patrón que `METODO_PAGO`/`CONCEPTO_COBRO`: alta y baja sin tocar código (RNF-06).
 
