@@ -65,12 +65,32 @@ function textoAlumnos(cantidad: number): string {
   return `${cantidad} ${cantidad === 1 ? 'alumno' : 'alumnos'}`
 }
 
+function VistaTabs({ vista, onChange }: { vista: Vista; onChange: (vista: Vista) => void }) {
+  return (
+    <Tabs
+      value={vista}
+      onValueChange={(valor) => onChange(valor === 'horario' ? 'horario' : 'materias')}
+    >
+      <TabsList aria-label="Vista de la división">
+        <TabsTrigger value="materias">
+          <LayoutGridIcon />
+          Materias
+        </TabsTrigger>
+        <TabsTrigger value="horario">
+          <CalendarDaysIcon />
+          Horario
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
+  )
+}
+
 // Los skeletons repiten las medidas del contenido real (etiqueta, desplegable, botones, título,
 // pestañas y tarjetas) para que al terminar de cargar no salte nada.
-function SelectorSkeleton({ conAcciones }: { conAcciones: boolean }) {
+function SelectorSkeleton({ etiqueta, conAcciones }: { etiqueta: string; conAcciones: boolean }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Skeleton className="h-4 w-10" />
+      <span className="text-xs font-semibold text-texto-2">{etiqueta}</span>
       <div className="flex items-center gap-1">
         <Skeleton className="h-9 w-28" />
         {conAcciones && (
@@ -86,24 +106,29 @@ function SelectorSkeleton({ conAcciones }: { conAcciones: boolean }) {
 
 function BarraSkeleton({ conAcciones }: { conAcciones: boolean }) {
   return (
-    <div className="flex flex-wrap items-end gap-x-6 gap-y-3" aria-hidden="true">
-      <SelectorSkeleton conAcciones={conAcciones} />
-      <SelectorSkeleton conAcciones={conAcciones} />
+    <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+      <SelectorSkeleton etiqueta="Año" conAcciones={conAcciones} />
+      <SelectorSkeleton etiqueta="División" conAcciones={conAcciones} />
     </div>
   )
 }
 
-function ContenidoSkeleton({ vista, conAcciones }: { vista: Vista; conAcciones: boolean }) {
+function ContenidoSkeleton({
+  vista,
+  onVista,
+  conAcciones,
+}: {
+  vista: Vista
+  onVista: (vista: Vista) => void
+  conAcciones: boolean
+}) {
   return (
     <div className="flex flex-col gap-4" role="status" aria-label="Cargando">
       <div className="flex items-baseline gap-3">
         <Skeleton className="h-7 w-16" />
         <Skeleton className="h-5 w-20" />
       </div>
-      <div className="flex gap-5 border-b border-borde pb-2.5">
-        <Skeleton className="h-5 w-24" />
-        <Skeleton className="h-5 w-20" />
-      </div>
+      <VistaTabs vista={vista} onChange={onVista} />
       {vista === 'horario' ? (
         <Skeleton className="h-[26rem] w-full" />
       ) : (
@@ -272,21 +297,7 @@ export function EstructuraAcademicaPage() {
           </div>
         </div>
 
-        <Tabs
-          value={vista}
-          onValueChange={(valor) => setVista(valor === 'horario' ? 'horario' : 'materias')}
-        >
-          <TabsList aria-label="Vista de la división">
-            <TabsTrigger value="materias">
-              <LayoutGridIcon />
-              Materias
-            </TabsTrigger>
-            <TabsTrigger value="horario">
-              <CalendarDaysIcon />
-              Horario
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <VistaTabs vista={vista} onChange={setVista} />
 
         {estructura.materiasCurso.length === 0 ? (
           <Vacio
@@ -345,7 +356,7 @@ export function EstructuraAcademicaPage() {
           </div>
           <BarraSkeleton conAcciones={puedeEditar} />
           <Card className="gap-5 p-6">
-            <ContenidoSkeleton vista="materias" conAcciones={puedeEditar} />
+            <ContenidoSkeleton vista={vista} onVista={setVista} conAcciones={puedeEditar} />
           </Card>
         </>
       ) : (
@@ -404,7 +415,9 @@ export function EstructuraAcademicaPage() {
                 </div>
               </div>
 
-              {estructura.cargandoAnio && <SelectorSkeleton conAcciones={puedeEditar} />}
+              {estructura.cargandoAnio && (
+                <SelectorSkeleton etiqueta="División" conAcciones={puedeEditar} />
+              )}
               {!estructura.cargandoAnio && division && (
                 <div className="flex flex-col gap-1.5">
                   <span id="etiqueta-division" className="text-xs font-semibold text-texto-2">
@@ -458,7 +471,7 @@ export function EstructuraAcademicaPage() {
 
           <Card className="gap-5 p-6">
             {cambiandoNivel || cambiandoContenido ? (
-              <ContenidoSkeleton vista={vista} conAcciones={puedeEditar} />
+              <ContenidoSkeleton vista={vista} onVista={setVista} conAcciones={puedeEditar} />
             ) : (
               contenido()
             )}
