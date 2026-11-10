@@ -13,6 +13,9 @@ backups/
 # Configuración local de Claude Code
 .claude/settings.local.json
 
+# Si alguien corre una herramienta de Node desde la raíz, deja acá su caché.
+node_modules/
+
 # Cachés de Python
 __pycache__/
 *.pyc
