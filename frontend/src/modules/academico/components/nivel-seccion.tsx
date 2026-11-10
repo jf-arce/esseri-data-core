@@ -1,4 +1,12 @@
-import { BookOpenIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react'
+import {
+  BookOpenIcon,
+  ChevronRightIcon,
+  MoreHorizontalIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+} from 'lucide-react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -7,12 +15,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import type { NivelConEstructura } from '@/modules/academico/hooks/use-estructura-academica'
+import { CursoDetalleDialog } from '@/modules/academico/components/curso-detalle-dialog'
+import type {
+  AnioConDivisiones,
+  DivisionConMaterias,
+  NivelConEstructura,
+} from '@/modules/academico/hooks/use-estructura-academica'
 import type { Anio, Division, MateriaCurso, NivelEducativo } from '@/modules/academico/types'
-import { formatearHorarios } from '@/modules/academico/utils'
-
-/** División tal como viene en el árbol, con sus materias-curso cargadas. */
-type DivisionConMaterias = NivelConEstructura['anios'][number]['divisiones'][number]
+import { pluralizar } from '@/modules/academico/utils'
 
 interface NivelSeccionProps {
   nivel: NivelConEstructura
@@ -48,21 +58,25 @@ const COLORES_NIVEL = [
   },
 ]
 
-function plural(cantidad: number, singular: string, pluralForma: string) {
-  return `${cantidad} ${cantidad === 1 ? singular : pluralForma}`
-}
-
 export function NivelSeccion(props: NivelSeccionProps) {
   const { nivel, puedeEditar } = props
   const colorIdx = 0
+  const [divisionDetalleId, setDivisionDetalleId] = useState<string | null>(null)
 
   // Los conteos vienen del backend para no depender de lo que se haya cargado en el árbol.
   const totalDivisiones = nivel.anios.reduce((acc, a) => acc + a.cantidad_divisiones, 0)
   const totalMaterias = nivel.anios.reduce((acc, a) => acc + a.cantidad_materias, 0)
 
+  const anioDetalle = nivel.anios.find((anio) =>
+    anio.divisiones.some((division) => division.id === divisionDetalleId),
+  )
+  const divisionDetalle = anioDetalle?.divisiones.find(
+    (division) => division.id === divisionDetalleId,
+  )
+
   return (
-    <div className="mb-7 last:mb-0">
-      <div className="mb-3.5 flex items-center gap-3.5">
+    <div>
+      <div className="mb-4 flex flex-wrap items-center gap-3.5">
         <div
           className={`flex size-10.5 shrink-0 items-center justify-center rounded-xl ${COLORES_NIVEL[colorIdx].sup} ${COLORES_NIVEL[colorIdx].sat}`}
         >
@@ -71,9 +85,9 @@ export function NivelSeccion(props: NivelSeccionProps) {
         <div className="flex-1">
           <p className={`text-sm.5 font-semibold ${COLORES_NIVEL[colorIdx].sat}`}>{nivel.nombre}</p>
           <p className={`text-xs ${COLORES_NIVEL[colorIdx].dark}`}>
-            {plural(nivel.cantidad_anios, 'año', 'años')} ·{' '}
-            {plural(totalDivisiones, 'división', 'divisiones')} ·{' '}
-            {plural(totalMaterias, 'materia', 'materias')}
+            {pluralizar(nivel.cantidad_anios, 'año', 'años')} ·{' '}
+            {pluralizar(totalDivisiones, 'división', 'divisiones')} ·{' '}
+            {pluralizar(totalMaterias, 'materia', 'materias')}
           </p>
         </div>
         {puedeEditar && (
@@ -121,10 +135,46 @@ export function NivelSeccion(props: NivelSeccionProps) {
       ) : (
         <div className="flex flex-col gap-4">
           {nivel.anios.map((anio) => (
-            <AnioGrupo key={anio.id} anio={anio} {...props} />
+            <AnioGrupo
+              key={anio.id}
+              anio={anio}
+              puedeEditar={puedeEditar}
+              onEditarAnio={props.onEditarAnio}
+              onEliminarAnio={props.onEliminarAnio}
+              onAgregarDivision={props.onAgregarDivision}
+              onEditarDivision={props.onEditarDivision}
+              onEliminarDivision={props.onEliminarDivision}
+              onAgregarMateriaCurso={props.onAgregarMateriaCurso}
+              onAbrirDetalle={(division) => setDivisionDetalleId(division.id)}
+            />
           ))}
         </div>
       )}
+
+      <CursoDetalleDialog
+        open={Boolean(divisionDetalle && anioDetalle)}
+        onOpenChange={(abierto) => {
+          if (!abierto) setDivisionDetalleId(null)
+        }}
+        division={divisionDetalle ?? null}
+        nivelNombre={nivel.nombre}
+        anioNumero={anioDetalle?.numero ?? 0}
+        puedeEditar={puedeEditar}
+        // Cerrar el detalle antes de abrir el ABM evita apilar dos diálogos con foco atrapado;
+        // al guardar, la recarga de la página actualiza los datos de la tarjeta.
+        onAgregarMateriaCurso={(division) => {
+          setDivisionDetalleId(null)
+          props.onAgregarMateriaCurso(division)
+        }}
+        onEditarMateriaCurso={(materiaCurso) => {
+          setDivisionDetalleId(null)
+          props.onEditarMateriaCurso(materiaCurso)
+        }}
+        onEliminarMateriaCurso={(materiaCurso) => {
+          setDivisionDetalleId(null)
+          props.onEliminarMateriaCurso(materiaCurso)
+        }}
+      />
     </div>
   )
 }
@@ -138,17 +188,26 @@ function AnioGrupo({
   onEditarDivision,
   onEliminarDivision,
   onAgregarMateriaCurso,
-  onEditarMateriaCurso,
-  onEliminarMateriaCurso,
-}: NivelSeccionProps & { anio: NivelConEstructura['anios'][number] }) {
+  onAbrirDetalle,
+}: {
+  anio: AnioConDivisiones
+  puedeEditar: boolean
+  onEditarAnio: (anio: Anio) => void
+  onEliminarAnio: (anio: Anio) => void
+  onAgregarDivision: (anioId: string) => void
+  onEditarDivision: (division: Division) => void
+  onEliminarDivision: (division: Division) => void
+  onAgregarMateriaCurso: (division: DivisionConMaterias) => void
+  onAbrirDetalle: (division: DivisionConMaterias) => void
+}) {
   return (
     <div className="rounded-card bg-superficie p-5 shadow-card">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-base font-semibold text-texto">{anio.numero}°</span>
           <span className="text-xs text-texto-3">
-            {plural(anio.cantidad_divisiones, 'división', 'divisiones')} ·{' '}
-            {plural(anio.cantidad_materias, 'materia', 'materias')}
+            {pluralizar(anio.cantidad_divisiones, 'división', 'divisiones')} ·{' '}
+            {pluralizar(anio.cantidad_materias, 'materia', 'materias')}
           </span>
         </div>
         {puedeEditar && (
@@ -202,64 +261,12 @@ function AnioGrupo({
               key={division.id}
               division={division}
               puedeEditar={puedeEditar}
+              onAbrirDetalle={() => onAbrirDetalle(division)}
               onEditar={() => onEditarDivision(division)}
               onEliminar={() => onEliminarDivision(division)}
               onAgregarMateriaCurso={() => onAgregarMateriaCurso(division)}
-              onEditarMateriaCurso={onEditarMateriaCurso}
-              onEliminarMateriaCurso={onEliminarMateriaCurso}
             />
           ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function MateriaFila({
-  materiaCurso,
-  puedeEditar,
-  onEditar,
-  onEliminar,
-}: {
-  materiaCurso: MateriaCurso
-  puedeEditar: boolean
-  onEditar: (materiaCurso: MateriaCurso) => void
-  onEliminar: (materiaCurso: MateriaCurso) => void
-}) {
-  return (
-    <div className="flex items-start justify-between gap-2 rounded-md px-2 py-1 text-xs hover:bg-fila-hover">
-      <span className="flex flex-wrap items-center gap-1.5 text-texto">
-        {materiaCurso.materia_tipo === 'taller' ? (
-          <span className="rounded bg-sup-workflows px-1.5 py-0.5 text-xs font-semibold text-violeta">
-            Taller
-          </span>
-        ) : (
-          <span className="rounded bg-sup-academico px-1.5 py-0.5 text-xs font-semibold text-info">
-            Materia
-          </span>
-        )}
-        {materiaCurso.materia_nombre ?? '—'}
-        <span className="text-texto-3">· {formatearHorarios(materiaCurso.horarios)}</span>
-        {materiaCurso.cantidad_asignaciones === 0 && (
-          <span className="text-texto-3">· sin docente</span>
-        )}
-      </span>
-      {puedeEditar && (
-        <div className="flex items-center gap-0.5">
-          <button
-            className="rounded p-1 text-texto-3 hover:bg-superficie hover:text-texto"
-            onClick={() => onEditar(materiaCurso)}
-            aria-label="Editar materia"
-          >
-            <PencilIcon className="size-3" />
-          </button>
-          <button
-            className="rounded p-1 text-texto-3 hover:bg-superficie hover:text-error"
-            onClick={() => onEliminar(materiaCurso)}
-            aria-label="Eliminar materia"
-          >
-            <Trash2Icon className="size-3" />
-          </button>
         </div>
       )}
     </div>
@@ -269,31 +276,45 @@ function MateriaFila({
 function DivisionCard({
   division,
   puedeEditar,
+  onAbrirDetalle,
   onEditar,
   onEliminar,
   onAgregarMateriaCurso,
-  onEditarMateriaCurso,
-  onEliminarMateriaCurso,
 }: {
-  division: NivelConEstructura['anios'][number]['divisiones'][number]
+  division: DivisionConMaterias
   puedeEditar: boolean
+  onAbrirDetalle: () => void
   onEditar: () => void
   onEliminar: () => void
   onAgregarMateriaCurso: () => void
-  onEditarMateriaCurso: (materiaCurso: MateriaCurso) => void
-  onEliminarMateriaCurso: (materiaCurso: MateriaCurso) => void
 }) {
   return (
-    <div className="rounded-card-sm border-l-3 border-l-info bg-superficie p-4 shadow-card">
-      <div className="flex items-start justify-between">
-        <div>
+    <div className="group relative rounded-card-sm border border-borde border-l-3 border-l-info bg-superficie shadow-card transition-colors hover:bg-fila-hover/40">
+      <button
+        type="button"
+        onClick={onAbrirDetalle}
+        aria-label={`Ver detalle del curso ${division.nombre}`}
+        className="block w-full cursor-pointer rounded-card-sm p-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
+      >
+        <div className={puedeEditar ? 'pr-9' : undefined}>
           <p className="text-base font-semibold text-texto">{division.nombre}</p>
           <p className="mt-0.5 text-xs text-texto-2">
-            {plural(division.materias.length, 'materia', 'materias')} ·{' '}
-            {plural(division.cantidad_inscripciones, 'alumno', 'alumnos')}
+            {pluralizar(division.materias.length, 'materia', 'materias')} ·{' '}
+            {pluralizar(division.cantidad_inscripciones, 'alumno', 'alumnos')}
           </p>
         </div>
-        {puedeEditar && (
+
+        <div className="mt-4 flex items-center justify-between gap-2 text-xs font-semibold text-violeta">
+          <span>Ver horarios y docentes</span>
+          <ChevronRightIcon
+            className="size-4 transition-transform group-hover:translate-x-0.5"
+            aria-hidden="true"
+          />
+        </div>
+      </button>
+
+      {puedeEditar && (
+        <div className="absolute top-2 right-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon-sm" aria-label="Acciones de la división">
@@ -316,23 +337,7 @@ function DivisionCard({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        )}
-      </div>
-
-      {division.materias.length > 0 ? (
-        <div className="mt-3 flex flex-col gap-1">
-          {division.materias.map((materiaCurso) => (
-            <MateriaFila
-              key={materiaCurso.id}
-              materiaCurso={materiaCurso}
-              puedeEditar={puedeEditar}
-              onEditar={onEditarMateriaCurso}
-              onEliminar={onEliminarMateriaCurso}
-            />
-          ))}
         </div>
-      ) : (
-        <p className="mt-3 text-xs text-texto-3">Sin materias asignadas.</p>
       )}
     </div>
   )
