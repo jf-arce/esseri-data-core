@@ -15,7 +15,7 @@ import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui
 import { PageHeader } from '@/components/page-header'
 import { StatTile } from '@/components/stat-tile'
 import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
-import { FilterDropdown, type FilterDropdownOption } from '@/components/filter-dropdown'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   useEstructuraAcademica,
   type NivelConEstructura,
@@ -106,21 +106,13 @@ export function EstructuraAcademicaPage() {
   // patrón que `asistencia-division-page.tsx` para "acceso estructural".
   const permisos = useAuthStore(permisosActivos)
   const puedeEditar = tienePermiso(permisos, PERMISO_ACADEMICO_ACTUALIZAR)
-  const [filtroNivel, setFiltroNivel] = useState('todos')
+  const [nivelSeleccionadoId, setNivelSeleccionadoId] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState('')
   const [dialog, setDialog] = useState<DialogState>({ open: false })
   const [dialogMateriaCurso, setDialogMateriaCurso] = useState<MateriaCursoDialogState>({
     open: false,
   })
   const [allAnios, setAllAnios] = useState<Anio[]>([])
-
-  const nivelOptions: FilterDropdownOption[] = useMemo(
-    () => [
-      { value: 'todos', label: 'Todos' },
-      ...niveles.map((n) => ({ value: n.id, label: n.nombre })),
-    ],
-    [niveles],
-  )
 
   const totales = useMemo(
     () => ({
@@ -135,12 +127,22 @@ export function EstructuraAcademicaPage() {
     [niveles, catalogo],
   )
 
-  const nivelesFiltrados = useMemo(() => {
-    const porNivel = filtroNivel === 'todos' ? niveles : niveles.filter((n) => n.id === filtroNivel)
-    return filtrarEstructura(porNivel, busqueda)
-  }, [niveles, filtroNivel, busqueda])
+  // El tablero muestra un nivel por vez: si el nivel elegido ya no existe (se dio de baja), cae
+  // al primero de la lista sin quedar en un estado vacío.
+  const nivelSeleccionado = useMemo(
+    () => niveles.find((nivel) => nivel.id === nivelSeleccionadoId) ?? niveles[0] ?? null,
+    [niveles, nivelSeleccionadoId],
+  )
 
-  const hayFiltros = filtroNivel !== 'todos' || busqueda.trim().length > 0
+  // La búsqueda se limita al nivel visible: no tiene sentido traer cursos de un nivel que no se
+  // está mostrando.
+  const nivelFiltrado = useMemo(
+    () =>
+      nivelSeleccionado ? (filtrarEstructura([nivelSeleccionado], busqueda)[0] ?? null) : null,
+    [nivelSeleccionado, busqueda],
+  )
+
+  const hayBusqueda = busqueda.trim().length > 0
 
   async function cargarAnios() {
     setAllAnios(await listarAnios())
@@ -303,21 +305,25 @@ export function EstructuraAcademicaPage() {
       </Card>
 
       {niveles.length > 0 && (
-        <FilterBar>
-          <FilterSearch
-            value={busqueda}
-            onChange={setBusqueda}
-            placeholder="Buscar nivel, año, división o materia"
-          />
-          <FilterDropdown
-            label="Nivel"
-            options={nivelOptions}
-            value={filtroNivel}
-            onChange={setFiltroNivel}
-            active={filtroNivel !== 'todos'}
-          />
-          <FilterBarSpacer />
-        </FilterBar>
+        <div className="flex flex-col gap-3">
+          <Tabs value={nivelSeleccionado?.id ?? ''} onValueChange={setNivelSeleccionadoId}>
+            <TabsList aria-label="Nivel educativo">
+              {niveles.map((nivel) => (
+                <TabsTrigger key={nivel.id} value={nivel.id}>
+                  {nivel.nombre}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          <FilterBar>
+            <FilterSearch
+              value={busqueda}
+              onChange={setBusqueda}
+              placeholder={`Buscar año, división o materia en ${nivelSeleccionado?.nombre ?? 'el nivel'}`}
+            />
+            <FilterBarSpacer />
+          </FilterBar>
+        </div>
       )}
 
       {cargando ? (
@@ -352,63 +358,57 @@ export function EstructuraAcademicaPage() {
             </Button>
           )}
         </Empty>
-      ) : nivelesFiltrados.length === 0 && hayFiltros ? (
+      ) : !nivelFiltrado && hayBusqueda ? (
         <Empty className="min-h-[240px] rounded-panel bg-superficie shadow-card">
           <EmptyMedia variant="icon" className="bg-sup-academico text-info">
             <BookOpenIcon />
           </EmptyMedia>
           <EmptyTitle>No hay resultados para la búsqueda.</EmptyTitle>
-          <EmptyDescription>Probá con otro término o quitá el filtro de nivel.</EmptyDescription>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setBusqueda('')
-              setFiltroNivel('todos')
-            }}
-          >
-            Limpiar filtros
+          <EmptyDescription>
+            Probá con otro término o cambiá de nivel en el selector.
+          </EmptyDescription>
+          <Button variant="secondary" onClick={() => setBusqueda('')}>
+            Limpiar búsqueda
           </Button>
         </Empty>
-      ) : (
+      ) : nivelFiltrado ? (
         <Card className="p-6">
-          {nivelesFiltrados.map((nivel) => (
-            <NivelSeccion
-              key={nivel.id}
-              nivel={nivel}
-              puedeEditar={puedeEditar}
-              onEditarNivel={(n) => abrirDialog('nivel', 'editar', { tipo: 'nivel', data: n })}
-              onEliminarNivel={(n) => abrirDialog('nivel', 'eliminar', { tipo: 'nivel', data: n })}
-              onAgregarAnio={(nivelId) => abrirDialog('anio', 'crear', undefined, nivelId)}
-              onEditarAnio={(a) => abrirDialog('anio', 'editar', { tipo: 'anio', data: a })}
-              onEliminarAnio={(a) => abrirDialog('anio', 'eliminar', { tipo: 'anio', data: a })}
-              onAgregarDivision={(anioId) =>
-                abrirDialog('division', 'crear', undefined, undefined, anioId)
-              }
-              onEditarDivision={(d) =>
-                abrirDialog('division', 'editar', { tipo: 'division', data: d })
-              }
-              onEliminarDivision={(d) =>
-                abrirDialog('division', 'eliminar', { tipo: 'division', data: d })
-              }
-              onAgregarMateriaCurso={(division) =>
-                setDialogMateriaCurso({
-                  open: true,
-                  modo: 'crear',
-                  divisionId: division.id,
-                  divisionNombre: division.nombre,
-                  materiasExcluidas: division.materias.map((materia) => materia.materia_id),
-                })
-              }
-              onEditarMateriaCurso={(materiaCurso) =>
-                setDialogMateriaCurso({ open: true, modo: 'editar', item: materiaCurso })
-              }
-              onEliminarMateriaCurso={(materiaCurso) =>
-                setDialogMateriaCurso({ open: true, modo: 'eliminar', item: materiaCurso })
-              }
-            />
-          ))}
+          <NivelSeccion
+            key={nivelFiltrado.id}
+            nivel={nivelFiltrado}
+            puedeEditar={puedeEditar}
+            onEditarNivel={(n) => abrirDialog('nivel', 'editar', { tipo: 'nivel', data: n })}
+            onEliminarNivel={(n) => abrirDialog('nivel', 'eliminar', { tipo: 'nivel', data: n })}
+            onAgregarAnio={(nivelId) => abrirDialog('anio', 'crear', undefined, nivelId)}
+            onEditarAnio={(a) => abrirDialog('anio', 'editar', { tipo: 'anio', data: a })}
+            onEliminarAnio={(a) => abrirDialog('anio', 'eliminar', { tipo: 'anio', data: a })}
+            onAgregarDivision={(anioId) =>
+              abrirDialog('division', 'crear', undefined, undefined, anioId)
+            }
+            onEditarDivision={(d) =>
+              abrirDialog('division', 'editar', { tipo: 'division', data: d })
+            }
+            onEliminarDivision={(d) =>
+              abrirDialog('division', 'eliminar', { tipo: 'division', data: d })
+            }
+            onAgregarMateriaCurso={(division) =>
+              setDialogMateriaCurso({
+                open: true,
+                modo: 'crear',
+                divisionId: division.id,
+                divisionNombre: division.nombre,
+                materiasExcluidas: division.materias.map((materia) => materia.materia_id),
+              })
+            }
+            onEditarMateriaCurso={(materiaCurso) =>
+              setDialogMateriaCurso({ open: true, modo: 'editar', item: materiaCurso })
+            }
+            onEliminarMateriaCurso={(materiaCurso) =>
+              setDialogMateriaCurso({ open: true, modo: 'eliminar', item: materiaCurso })
+            }
+          />
         </Card>
-      )}
+      ) : null}
 
       {dialog.open && (
         <AbmDialog
