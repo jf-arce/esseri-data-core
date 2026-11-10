@@ -142,6 +142,15 @@ class HorarioDuplicado(AppException):
         super().__init__(message)
 
 
+class DocenteConHorarioSuperpuesto(AppException):
+    """El docente ya dicta otra materia en una franja que se pisa con la nueva."""
+
+    status_code = 409
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
 class HorarioSuperpuestoEnDivision(AppException):
     """Otra materia de la misma división ya ocupa parte de esa franja."""
 

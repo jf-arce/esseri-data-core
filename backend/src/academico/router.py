@@ -40,6 +40,7 @@ from src.academico.exceptions import (
     DivisionConMaterias,
     DivisionDuplicada,
     DocenteConAsignaciones,
+    DocenteConHorarioSuperpuesto,
     HorarioDuplicado,
     HorarioSuperpuestoEnDivision,
     InscripcionNoActiva,
@@ -428,6 +429,7 @@ def crear_materia_curso_endpoint(
         MateriaCursoDuplicada,
         HorarioDuplicado,
         HorarioSuperpuestoEnDivision,
+        DocenteConHorarioSuperpuesto,
     ) as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 
@@ -474,6 +476,7 @@ def actualizar_materia_curso_endpoint(
         MateriaCursoDuplicada,
         HorarioDuplicado,
         HorarioSuperpuestoEnDivision,
+        DocenteConHorarioSuperpuesto,
     ) as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 
@@ -680,7 +683,7 @@ def crear_asignacion_docente_endpoint(
     """Asignar un docente a una materia de curso por ciclo lectivo."""
     try:
         return crear_asignacion_docente(db, datos, usuario.id)
-    except AsignacionDocenteDuplicada as exc:
+    except (AsignacionDocenteDuplicada, DocenteConHorarioSuperpuesto) as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 
 
@@ -714,7 +717,7 @@ def actualizar_asignacion_docente_endpoint(
     """Actualizar una asignación docente existente."""
     try:
         return actualizar_asignacion_docente(db, asignacion, datos, usuario.id)
-    except AsignacionDocenteDuplicada as exc:
+    except (AsignacionDocenteDuplicada, DocenteConHorarioSuperpuesto) as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 

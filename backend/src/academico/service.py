@@ -31,7 +31,11 @@ from src.academico.exceptions import (
     MateriaCursoDuplicada,
     MateriaDuplicada,
 )
-from src.academico.horarios_service import validar_franjas_propias, validar_horarios_division
+from src.academico.horarios_service import (
+    validar_franjas_propias,
+    validar_horarios_division,
+    validar_horarios_docente,
+)
 from src.academico.models import (
     Anio,
     ArchivoJustificacionInasistencia,
@@ -1666,6 +1670,14 @@ def actualizar_materia_curso(
         validar_horarios_division(
             db, materia_curso.division_id, datos.horarios, excluir_materia_curso_id=materia_curso.id
         )
+        for asignacion in materia_curso.asignaciones:
+            validar_horarios_docente(
+                db,
+                asignacion.docente_id,
+                asignacion.ciclo_lectivo,
+                datos.horarios,
+                excluir_materia_curso_id=materia_curso.id,
+            )
 
     if update_data.get("materia_id") is not None:
         nueva_materia = db.get(Materia, update_data["materia_id"])
@@ -1966,7 +1978,7 @@ def crear_asignacion_docente(
     El docente hereda materia, división y horario de la materia-curso; no se duplica esa
     información en la asignación.
     """
-    _obtener_materia_curso_o_404(db, datos.materia_curso_id)
+    materia_curso = _obtener_materia_curso_o_404(db, datos.materia_curso_id)
 
     if _asignacion_docente_existente(
         db,
@@ -1975,6 +1987,14 @@ def crear_asignacion_docente(
         datos.ciclo_lectivo.strip(),
     ):
         raise AsignacionDocenteDuplicada()
+
+    validar_horarios_docente(
+        db,
+        datos.docente_id,
+        datos.ciclo_lectivo.strip(),
+        materia_curso.horarios,
+        excluir_materia_curso_id=materia_curso.id,
+    )
 
     nuevo = AsignacionDocente(
         ciclo_lectivo=datos.ciclo_lectivo.strip(),
@@ -2067,6 +2087,15 @@ def actualizar_asignacion_docente(
     ):
         raise AsignacionDocenteDuplicada()
 
+    validar_horarios_docente(
+        db,
+        docente_id,
+        ciclo_lectivo,
+        _obtener_materia_curso_o_404(db, materia_curso_id).horarios,
+        excluir_materia_curso_id=materia_curso_id,
+        excluir_asignacion_id=asignacion.id,
+    )
+
     valores_anteriores = {campo: getattr(asignacion, campo) for campo in update_data}
     for campo, valor in update_data.items():
         setattr(asignacion, campo, valor)
@@ -2108,12 +2137,20 @@ def crear_asignaciones_docentes_bulk(
             continue
         vistas.add(item.materia_curso_id)
 
-        _obtener_materia_curso_o_404(db, item.materia_curso_id)
+        materia_curso = _obtener_materia_curso_o_404(db, item.materia_curso_id)
         if _asignacion_docente_existente(
             db, datos.docente_id, item.materia_curso_id, ciclo_lectivo
         ):
             omitidas.append(item)
             continue
+
+        validar_horarios_docente(
+            db,
+            datos.docente_id,
+            ciclo_lectivo,
+            materia_curso.horarios,
+            excluir_materia_curso_id=materia_curso.id,
+        )
 
         nueva = AsignacionDocente(
             ciclo_lectivo=ciclo_lectivo,

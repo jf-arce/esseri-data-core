@@ -8,8 +8,18 @@ from typing import Protocol
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.academico.exceptions import HorarioDuplicado, HorarioSuperpuestoEnDivision
-from src.academico.models import HorarioMateriaCurso, Materia, MateriaCurso
+from src.academico.exceptions import (
+    DocenteConHorarioSuperpuesto,
+    HorarioDuplicado,
+    HorarioSuperpuestoEnDivision,
+)
+from src.academico.models import (
+    AsignacionDocente,
+    Division,
+    HorarioMateriaCurso,
+    Materia,
+    MateriaCurso,
+)
 
 DIAS_SEMANA = {
     1: "lunes",
@@ -82,4 +92,46 @@ def validar_horarios_division(
             if franjas_se_superponen(nueva, existente):
                 raise HorarioSuperpuestoEnDivision(
                     f"Se superpone con {materia_nombre}, {describir_franja(existente)}"
+                )
+
+
+def validar_horarios_docente(
+    db: Session,
+    docente_id: uuid.UUID,
+    ciclo_lectivo: str,
+    horarios: Iterable[Franja],
+    excluir_materia_curso_id: uuid.UUID | None = None,
+    excluir_asignacion_id: uuid.UUID | None = None,
+) -> None:
+    """Rechazar franjas que se pisan con otra materia-curso que el docente dicta en el ciclo.
+
+    Dos docentes en la misma materia-curso (pareja pedagógica) no es conflicto: solo se
+    comparan las asignaciones del propio docente.
+    """
+    nuevas = list(horarios)
+    if not nuevas:
+        return
+
+    consulta = (
+        select(HorarioMateriaCurso, Materia.nombre, Division.nombre)
+        .join(MateriaCurso, HorarioMateriaCurso.materia_curso_id == MateriaCurso.id)
+        .join(Materia, MateriaCurso.materia_id == Materia.id)
+        .join(Division, MateriaCurso.division_id == Division.id)
+        .join(AsignacionDocente, AsignacionDocente.materia_curso_id == MateriaCurso.id)
+        .where(
+            AsignacionDocente.docente_id == docente_id,
+            AsignacionDocente.ciclo_lectivo == ciclo_lectivo,
+        )
+    )
+    if excluir_materia_curso_id is not None:
+        consulta = consulta.where(MateriaCurso.id != excluir_materia_curso_id)
+    if excluir_asignacion_id is not None:
+        consulta = consulta.where(AsignacionDocente.id != excluir_asignacion_id)
+
+    for existente, materia_nombre, division_nombre in db.execute(consulta):
+        for nueva in nuevas:
+            if franjas_se_superponen(nueva, existente):
+                franja = describir_franja(existente)
+                raise DocenteConHorarioSuperpuesto(
+                    f"Ya dicta {materia_nombre} en {division_nombre} el {franja}"
                 )
