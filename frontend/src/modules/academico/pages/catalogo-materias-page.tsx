@@ -144,7 +144,7 @@ export function CatalogoMateriasPage() {
           <TableBody>
             {materias.map((materia) => (
               <TableRow key={materia.id}>
-                <TableCell className="font-medium">
+                <TableCell className="h-14 font-medium">
                   <span className="flex items-center gap-2">
                     <span
                       aria-hidden="true"
@@ -154,19 +154,20 @@ export function CatalogoMateriasPage() {
                     {materia.nombre}
                   </span>
                 </TableCell>
-                <TableCell>{materia.tipo === 'taller' ? 'Taller' : 'Materia'}</TableCell>
-                <TableCell>{materia.cantidad_cursos}</TableCell>
+                <TableCell className="h-14">
+                  {materia.tipo === 'taller' ? 'Taller' : 'Materia'}
+                </TableCell>
+                <TableCell className="h-14">{materia.cantidad_cursos}</TableCell>
                 {puedeEditar && (
-                  <TableCell>
+                  <TableCell className="h-14">
                     <div className="flex justify-end gap-2">
-                      <Button
+                      <BotonIcono
+                        etiqueta="Editar"
                         variant="secondary"
-                        className="min-h-8 text-sm"
                         onClick={() => setDialog({ open: true, modo: 'editar', item: materia })}
                       >
                         <PencilIcon />
-                        Editar
-                      </Button>
+                      </BotonIcono>
                       <BotonIcono
                         etiqueta="Eliminar"
                         variant="secondary"

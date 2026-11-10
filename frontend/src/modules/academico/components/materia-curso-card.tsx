@@ -1,6 +1,5 @@
 import { PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { BotonIcono } from '@/modules/academico/components/boton-icono'
 import type { MateriaCurso } from '@/modules/academico/types'
@@ -25,7 +24,7 @@ export function MateriaCursoCard({
   const nombre = materiaCurso.materia_nombre ?? '—'
   const color = colorMateria(materiaCurso.materia_color)
   return (
-    <Card size="sm" className="justify-between gap-3 border-l-4" style={color.estiloBorde}>
+    <Card size="sm" className="justify-between gap-4 border-l-4" style={color.estiloBorde}>
       <div className="flex flex-col gap-1.5 px-(--card-spacing)">
         <div className="flex items-start justify-between gap-2">
           <h3 className="text-base font-semibold text-texto">{nombre}</h3>
@@ -44,15 +43,13 @@ export function MateriaCursoCard({
       </div>
       {puedeEditar && (
         <div className="flex gap-2 px-(--card-spacing)">
-          <Button
+          <BotonIcono
+            etiqueta={`Editar ${nombre}`}
             variant="secondary"
-            size="sm"
             onClick={() => onEditar(materiaCurso)}
-            aria-label={`Editar ${nombre}`}
           >
             <PencilIcon />
-            Editar
-          </Button>
+          </BotonIcono>
           <BotonIcono
             etiqueta={`Quitar ${nombre} del curso`}
             className="text-error hover:text-error"
