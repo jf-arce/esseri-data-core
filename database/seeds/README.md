@@ -34,6 +34,34 @@ corrige. Esa corrección va en una migración de datos de Alembic (ver
 `backend/alembic/versions/58d7c7ac8e3c_corrige_permiso_de_asistencia_del_rol_.py` como
 ejemplo), no en el seed ni a mano en cada base.
 
+## `06_seed_aviso_revocacion.py` — aviso de revocación de ausencias por período
+
+Crea la plantilla y la regla de workflow que usan el evento
+`solicitud_ausencia_periodo.revocada` cuando administración revoca una solicitud con
+`notificar_familia=true`. Sin esta configuración el evento queda registrado pero no se envía
+ningún email; es el único paso que hace que «Notificar a la familia» funcione.
+
+Requiere `01_seed_grupo_a.py` (tipo de evento) y `03_seed_grupo_b.py` (campos del evento). Es
+idempotente por nombre: si la plantilla o la regla ya existen, no las modifica ni pisa lo
+editado desde la pantalla de Workflows. Corre en el arranque estándar de Docker y producción
+junto a los seeds 01, 02 y 03.
+
+```bash
+cd backend
+source venv/bin/activate
+python ../database/seeds/06_seed_aviso_revocacion.py
+```
+
+Con Docker:
+
+```bash
+cd infra
+docker compose exec backend python /database/seeds/06_seed_aviso_revocacion.py
+```
+
+En la demo, `04_seed_demo.py` crea la misma plantilla y regla por nombre; si este seed corrió
+antes, el demo las reutiliza en vez de duplicarlas.
+
 ## `04_seed_demo.py` — datos ficticios para una demo local
 
 Este seed es opcional y manual: crea familias, alumnos, estructura académica, asistencias,
