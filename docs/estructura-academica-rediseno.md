@@ -52,11 +52,13 @@ Además se corrigió un 500 que encontró la revisión: una hora con zona horari
 
 - Backend: `ruff check` y `ruff format --check` sobre `src/` y `tests/`, y `pytest tests/academico/` (139 tests). Tests nuevos: niveles de solo lectura (405), superposición en división (total, parcial, contigua, otra división, editar excluyéndose), superposición de docentes (ciclo, pareja pedagógica, bulk, cambio de horario, mover asignación) y hora con zona.
 - Migración: `upgrade`, `downgrade` y `upgrade` en la base local (ya tenía los tres niveles, así que no insertó nada) y el `INSERT` probado en una transacción con rollback.
-- Frontend: `tsc -b`, `eslint` y `vitest` del módulo académico (selección por URL, carga por tramos, grilla, conflictos, estados vacíos y permisos).
+- Frontend: `tsc -b`, `eslint .`, `prettier --check` y `vitest` del módulo académico (selección por URL, carga por tramos, grilla, conflictos, estados vacíos y permisos).
+- Suite completa de backend: 1354 tests pasan, sin `tests/comunicaciones/` (no se pudo importar por dependencias que faltan en el venv local, como `pypdf`, ajenas a este cambio).
+- Suite completa de frontend: 707 de 710 pasan. Los fallos fueron timeouts de 5 s en `historial-asistencia-page` y `usuario-alta-page` bajo carga; corridos solos pasan.
 - Revisión de los commits de backend por una segunda IA; el único hallazgo (hora con zona) está corregido.
 
 ## Qué no se verificó
 
 - No se recorrió la pantalla a mano en el navegador (por ejemplo, el AM/PM con el navegador en inglés, el click en bloques y huecos de la grilla, o la vista con un usuario de dirección). Hay que probarlo antes de sacar el PR de borrador.
-- No se ejecutó la suite completa de backend ni de frontend, solo la del módulo académico.
+- `tests/comunicaciones/` no se corrió (faltan dependencias en el entorno local).
 - No se probó la migración sobre una base con niveles de más o con otros nombres.
