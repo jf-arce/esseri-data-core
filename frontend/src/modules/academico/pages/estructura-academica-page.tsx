@@ -1,22 +1,8 @@
-import {
-  BookOpenIcon,
-  MoreHorizontalIcon,
-  PencilIcon,
-  PlusIcon,
-  ShieldAlertIcon,
-  Trash2Icon,
-} from 'lucide-react'
-import { useState } from 'react'
+import { BookOpenIcon, PencilIcon, PlusIcon, ShieldAlertIcon } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import {
   Select,
@@ -71,48 +57,19 @@ function textoAlumnos(cantidad: number): string {
   return `${cantidad} ${cantidad === 1 ? 'alumno' : 'alumnos'}`
 }
 
-function AccionesMenu({
+function BotonIcono({
   etiqueta,
-  textoAgregar,
-  textoEditar = 'Editar',
-  textoEliminar = 'Dar de baja',
-  onAgregar,
-  onEditar,
-  onEliminar,
+  onClick,
+  children,
 }: {
   etiqueta: string
-  textoEditar?: string
-  textoEliminar?: string
-  textoAgregar?: string
-  onAgregar?: () => void
-  onEditar: () => void
-  onEliminar: () => void
+  onClick: () => void
+  children: ReactNode
 }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={etiqueta}>
-          <MoreHorizontalIcon />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {onAgregar && (
-          <DropdownMenuItem onSelect={onAgregar}>
-            <PlusIcon className="text-petroleo" />
-            {textoAgregar}
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuItem onSelect={onEditar}>
-          <PencilIcon className="text-petroleo" />
-          {textoEditar}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onSelect={onEliminar}>
-          <Trash2Icon />
-          {textoEliminar}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button variant="ghost" size="icon-sm" aria-label={etiqueta} title={etiqueta} onClick={onClick}>
+      {children}
+    </Button>
   )
 }
 
@@ -398,17 +355,22 @@ export function EstructuraAcademicaPage() {
                           </SelectContent>
                         </Select>
                         {puedeEditar && (
-                          <AccionesMenu
-                            etiqueta="Acciones del año"
-                            textoAgregar="Agregar año"
-                            onAgregar={() => setDialogAbm({ entidad: 'anio', modo: 'crear' })}
-                            onEditar={() =>
-                              setDialogAbm({ entidad: 'anio', modo: 'editar', item: anio })
-                            }
-                            onEliminar={() =>
-                              setDialogAbm({ entidad: 'anio', modo: 'eliminar', item: anio })
-                            }
-                          />
+                          <>
+                            <BotonIcono
+                              etiqueta="Agregar año"
+                              onClick={() => setDialogAbm({ entidad: 'anio', modo: 'crear' })}
+                            >
+                              <PlusIcon />
+                            </BotonIcono>
+                            <BotonIcono
+                              etiqueta="Editar año"
+                              onClick={() =>
+                                setDialogAbm({ entidad: 'anio', modo: 'editar', item: anio })
+                              }
+                            >
+                              <PencilIcon />
+                            </BotonIcono>
+                          </>
                         )}
                       </div>
                     </div>
@@ -438,27 +400,26 @@ export function EstructuraAcademicaPage() {
                             </SelectContent>
                           </Select>
                           {puedeEditar && (
-                            <AccionesMenu
-                              etiqueta="Acciones de la división"
-                              textoAgregar="Agregar división"
-                              textoEditar="Editar división"
-                              textoEliminar="Dar de baja división"
-                              onAgregar={() => setDialogAbm({ entidad: 'division', modo: 'crear' })}
-                              onEditar={() =>
-                                setDialogAbm({
-                                  entidad: 'division',
-                                  modo: 'editar',
-                                  item: division,
-                                })
-                              }
-                              onEliminar={() =>
-                                setDialogAbm({
-                                  entidad: 'division',
-                                  modo: 'eliminar',
-                                  item: division,
-                                })
-                              }
-                            />
+                            <>
+                              <BotonIcono
+                                etiqueta="Agregar división"
+                                onClick={() => setDialogAbm({ entidad: 'division', modo: 'crear' })}
+                              >
+                                <PlusIcon />
+                              </BotonIcono>
+                              <BotonIcono
+                                etiqueta="Editar división"
+                                onClick={() =>
+                                  setDialogAbm({
+                                    entidad: 'division',
+                                    modo: 'editar',
+                                    item: division,
+                                  })
+                                }
+                              >
+                                <PencilIcon />
+                              </BotonIcono>
+                            </>
                           )}
                         </div>
                       </div>
@@ -488,6 +449,9 @@ export function EstructuraAcademicaPage() {
           }
           nivel={nivel}
           anio={anio}
+          onDarDeBaja={() =>
+            setDialogAbm((actual) => (actual ? { ...actual, modo: 'eliminar' } : actual))
+          }
           onExito={dialogAbm.entidad === 'anio' ? alGuardarAnio : alGuardarDivision}
         />
       )}

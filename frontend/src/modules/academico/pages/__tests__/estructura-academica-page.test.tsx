@@ -140,8 +140,6 @@ describe('EstructuraAcademicaPage', () => {
     expect(screen.getByRole('heading', { name: '1°A' })).toBeInTheDocument()
     expect(screen.getByText('24 alumnos')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Agregar materia' })).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: /Acciones de la división/ }),
-    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Editar división' })).not.toBeInTheDocument()
   })
 })

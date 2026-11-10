@@ -1,3 +1,4 @@
+import { Trash2Icon } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
@@ -33,6 +34,8 @@ interface AbmDialogProps {
   nivel: NivelEducativo
   /** Año en el que se trabaja (solo para divisiones). */
   anio?: Anio
+  /** Al editar, ofrece pasar a la baja del mismo registro. */
+  onDarDeBaja?: () => void
   onExito: () => void
 }
 
@@ -84,6 +87,7 @@ export function AbmDialog({
   item,
   nivel,
   anio,
+  onDarDeBaja,
   onExito,
 }: AbmDialogProps) {
   const [enviando, setEnviando] = useState(false)
@@ -223,6 +227,17 @@ export function AbmDialog({
         </div>
 
         <DialogFooter>
+          {modo === 'editar' && onDarDeBaja && (
+            <Button
+              variant="destructive"
+              className="sm:mr-auto"
+              onClick={onDarDeBaja}
+              disabled={enviando}
+            >
+              <Trash2Icon />
+              Dar de baja
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={enviando}>
             Cancelar
           </Button>
