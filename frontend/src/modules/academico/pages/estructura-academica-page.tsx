@@ -21,6 +21,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PageHeader } from '@/components/page-header'
+import { useIndicadorCarga } from '@/modules/academico/hooks/use-indicador-carga'
 import { BotonIcono } from '@/modules/academico/components/boton-icono'
 import { AbmDialog } from '@/modules/academico/components/abm-dialog'
 import { HorarioSemanal, type HuecoHorario } from '@/modules/academico/components/horario-semanal'
@@ -107,6 +108,7 @@ function Selector({
   children?: ReactNode
 }) {
   const id = `etiqueta-${etiqueta.toLowerCase()}`
+  const mostrarCarga = useIndicadorCarga(cargando)
   return (
     <div className="flex flex-col gap-1.5">
       <span id={id} className="text-xs font-semibold text-texto-2">
@@ -115,7 +117,7 @@ function Selector({
       <div className="flex items-center gap-1">
         <Select value={cargando ? '' : valor} onValueChange={onCambio} disabled={cargando}>
           <SelectTrigger className="w-28" aria-labelledby={id} aria-busy={cargando}>
-            <SelectValue placeholder={<Skeleton className="h-3.5 w-10" />} />
+            <SelectValue placeholder={mostrarCarga ? <Skeleton className="h-3.5 w-10" /> : ''} />
           </SelectTrigger>
           <SelectContent>
             {opciones.map((opcion) => (
