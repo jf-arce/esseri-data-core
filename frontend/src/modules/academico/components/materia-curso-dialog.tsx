@@ -1,3 +1,4 @@
+import { PlusIcon } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
@@ -302,7 +303,12 @@ export function MateriaCursoDialog({
                     {materia.tipo === 'taller' ? ' (taller)' : ''}
                   </SelectItem>
                 ))}
-                {!esEdicion && <SelectItem value="__nueva__">➕ Crear nueva materia</SelectItem>}
+                {!esEdicion && (
+                  <SelectItem value="__nueva__">
+                    <PlusIcon />
+                    Crear nueva materia
+                  </SelectItem>
+                )}
               </SelectContent>
             </Select>
             {!esEdicion && catalogoDisponible.length === 0 && (
