@@ -2,12 +2,13 @@
 cumplen sus `dias_despues`, y solo manda el aviso si la inasistencia sigue sin justificar."""
 
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 from sqlalchemy import select
 
-from src.academico.models import JustificacionInasistencia
+from src.academico.models import JustificacionInasistencia, MotivoJustificacion
+from src.academico.solicitud_periodo_service import crear_solicitud_periodo
 from src.auth.models import Usuario
 from src.models import EventLog
 from src.workflows import despacho_service, ejecuciones_service
@@ -179,6 +180,22 @@ def _con_justificacion_cargada(db, familia, asistencia):
     db.commit()
 
 
+def _con_solicitud_periodo(db, familia, asistencia):
+    usuario = db.scalar(select(Usuario).where(Usuario.email == familia["email"]))
+    motivo = MotivoJustificacion(nombre="enfermedad-periodo", activo=True)
+    db.add(motivo)
+    db.commit()
+    crear_solicitud_periodo(
+        db,
+        usuario,
+        familia["datos"]["alumno_id"],
+        date(2027, 3, 1),
+        date(2027, 3, 5),
+        "enfermedad-periodo",
+        None,
+    )
+
+
 def _resuelta_como_justificada(db, familia, asistencia):
     asistencia.tipo = "ausente_justificado"
     db.commit()
@@ -198,6 +215,7 @@ def _borrada(db, familia, asistencia):
     ("cambio", "motivo"),
     [
         (_con_justificacion_cargada, "la familia ya cargó una justificación"),
+        (_con_solicitud_periodo, "la familia ya informó una ausencia por período"),
         (_resuelta_como_justificada, "la inasistencia ya está resuelta"),
         (_resuelta_como_injustificada, "la inasistencia ya está resuelta"),
         (_borrada, "la asistencia ya no existe"),
