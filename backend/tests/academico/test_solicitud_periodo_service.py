@@ -8,6 +8,7 @@ from src.academico.models import (
     MotivoJustificacion,
     SolicitudAusenciaPeriodo,
 )
+from src.academico.service import justificar_asistencia_de_familia
 from src.academico.solicitud_periodo_service import (
     cancelar_solicitud_periodo,
     crear_solicitud_periodo,
@@ -34,6 +35,34 @@ def contexto(db_session):
     db_session.add_all([usuario, motivo])
     db_session.commit()
     return usuario, escenario
+
+
+def test_legacy_individual_justification_rejects_period_covered_date(db_session, contexto):
+    usuario, escenario = contexto
+    inscripcion = crear_inscripcion_previa(db_session, escenario, estado="activa")
+    asistencia = Asistencia(
+        inscripcion_id=inscripcion.id,
+        fecha=date(2027, 3, 3),
+        tipo="ausente_pendiente",
+    )
+    db_session.add(asistencia)
+    db_session.commit()
+    crear_solicitud_periodo(
+        db_session,
+        usuario,
+        escenario["alumno_id"],
+        date(2027, 3, 1),
+        date(2027, 3, 5),
+        "enfermedad",
+        None,
+    )
+
+    with pytest.raises(HTTPException) as error:
+        justificar_asistencia_de_familia(db_session, usuario, asistencia, "enfermedad", None)
+
+    assert error.value.status_code == 409
+    assert error.value.detail["origen"] == "periodo"
+    assert db_session.query(JustificacionInasistencia).count() == 0
 
 
 def test_creates_single_day_period_and_audits_without_attendance(db_session, contexto):

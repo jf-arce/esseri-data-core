@@ -189,6 +189,25 @@ def justificar_asistencia_de_familia(
     )
     if existe_justificacion:
         raise HTTPException(status.HTTP_409_CONFLICT, "Esta ausencia ya tiene una justificación")
+    periodo = db.scalar(
+        select(SolicitudAusenciaPeriodo.id)
+        .where(
+            SolicitudAusenciaPeriodo.alumno_id == inscripcion.alumno_id,
+            SolicitudAusenciaPeriodo.estado.in_(("pendiente", "aprobada")),
+            SolicitudAusenciaPeriodo.fecha_inicio <= asistencia.fecha,
+            SolicitudAusenciaPeriodo.fecha_fin >= asistencia.fecha,
+        )
+        .limit(1)
+    )
+    if periodo is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            {
+                "mensaje": "Ya existe una solicitud por período para esta fecha",
+                "origen": "periodo",
+                "id": str(periodo),
+            },
+        )
     _validar_comprobante_justificacion(
         nombre=comprobante_nombre,
         tipo_contenido=comprobante_tipo_contenido,
