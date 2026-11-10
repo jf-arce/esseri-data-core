@@ -31,6 +31,7 @@ CRITICIDADES: tuple[str, ...] = get_args(Criticidad)
 TipoEventoNombre = Literal[
     "inasistencia.registrada",
     "inasistencia.justificada",
+    "solicitud_ausencia_periodo.revocada",
     "factura.vencida",
     "inscripcion.cambio_matricula",
     "solicitud_inscripcion.aprobada",
@@ -60,6 +61,7 @@ ACCIONES_CON_APROBACION_POR_DEFECTO: frozenset[str] = frozenset(
 ENTIDAD_POR_EVENTO: dict[TipoEventoNombre, str] = {
     "inasistencia.registrada": "asistencia",
     "inasistencia.justificada": "justificacion_inasistencia",
+    "solicitud_ausencia_periodo.revocada": "solicitud_ausencia_periodo",
     "factura.vencida": "factura",
     "inscripcion.cambio_matricula": "inscripcion",
     "solicitud_inscripcion.aprobada": "solicitud_inscripcion",
@@ -136,7 +138,14 @@ OPERADORES_POR_TIPO_DATO: dict[str, frozenset[str]] = {
 # Entidades de evento de las que se puede llegar a un alumno, necesario para los destinatarios
 # `responsable_economico` y `responsables_habilitados`.
 ENTIDADES_CON_ALUMNO: frozenset[str] = frozenset(
-    {"factura", "pago", "asistencia", "justificacion_inasistencia", "inscripcion"}
+    {
+        "factura",
+        "pago",
+        "asistencia",
+        "justificacion_inasistencia",
+        "inscripcion",
+        "solicitud_ausencia_periodo",
+    }
 )
 DESTINATARIOS_FAMILIARES: frozenset[str] = frozenset(
     {"responsable_economico", "responsables_habilitados"}

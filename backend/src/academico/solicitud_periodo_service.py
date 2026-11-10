@@ -27,6 +27,7 @@ from src.familias_alumnos.models import Alumno, FamiliaAlumno
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import AuditLog, Persona
 from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
+from src.workflows.eventos_service import emit_event
 
 
 def crear_solicitud_periodo(
@@ -458,11 +459,14 @@ def revocar_solicitud_periodo(
     usuario: Usuario | None,
     solicitud_id: uuid.UUID,
     motivo: str,
+    notificar_familia: bool = False,
 ) -> SolicitudAusenciaPeriodo:
     """Revoca una solicitud aprobada y retira solo sus aplicaciones.
 
     Es idempotente: una solicitud ya revocada se devuelve sin nuevas auditorías.
     No toca presencias, tardanzas ni decisiones históricas independientes.
+    Si `notificar_familia` es verdadero, emite el evento de revocación con el motivo
+    obligatorio; el aviso sale por la regla de workflow configurada para ese evento.
     """
     if usuario is None or usuario.id is None:
         raise PermisoDenegado("La solicitud requiere un usuario autenticado")
@@ -495,6 +499,19 @@ def revocar_solicitud_periodo(
         campo="estado",
         valor_anterior="aprobada",
         valor_nuevo="revocada",
+        usuario_id=usuario.id,
+        origen="revocacion_administrativa",
+        motivo=motivo,
+        referencia_entidad="SOLICITUD_AUSENCIA_PERIODO",
+        referencia_id=solicitud.id,
+    )
+    log_audit(
+        db,
+        entidad="SOLICITUD_AUSENCIA_PERIODO",
+        entidad_id=solicitud.id,
+        campo="notificacion_familia",
+        valor_anterior=None,
+        valor_nuevo="solicitada" if notificar_familia else "no_solicitada",
         usuario_id=usuario.id,
         origen="revocacion_administrativa",
         motivo=motivo,
@@ -539,6 +556,27 @@ def revocar_solicitud_periodo(
                 referencia_entidad="AUDIT_LOG",
                 referencia_id=decision.id,
             )
+
+    if notificar_familia:
+        fila = db.execute(
+            select(Persona.nombre, Persona.apellido)
+            .join(Alumno, Alumno.persona_id == Persona.id)
+            .where(Alumno.id == solicitud.alumno_id)
+        ).first()
+        alumno_nombre = f"{fila.apellido}, {fila.nombre}" if fila is not None else ""
+        emit_event(
+            db,
+            tipo="solicitud_ausencia_periodo.revocada",
+            entidad="solicitud_ausencia_periodo",
+            entidad_id=solicitud.id,
+            payload={
+                "alumno_nombre": alumno_nombre,
+                "motivo": motivo,
+                "fecha_inicio": solicitud.fecha_inicio.isoformat(),
+                "fecha_fin": solicitud.fecha_fin.isoformat(),
+            },
+            usuario_id=usuario.id,
+        )
 
     db.commit()
     db.refresh(solicitud)

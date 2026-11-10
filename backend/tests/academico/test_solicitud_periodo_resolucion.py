@@ -15,7 +15,8 @@ from src.academico.solicitud_periodo_service import (
 from src.auth.constants import ACCION_ACTUALIZAR, MODULO_ACADEMICO
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
 from src.inscripciones.models import Asistencia
-from src.models import AuditLog
+from src.models import AuditLog, EventLog
+from src.workflows.models import TipoEvento
 
 
 @pytest.fixture()
@@ -188,6 +189,16 @@ def test_no_resuelve_dos_veces(db_session, contexto):
     assert db_session.get(SolicitudAusenciaPeriodo, solicitud.id).estado == "aprobada"
 
 
+def _tipo_revocacion(db_session):
+    tipo = TipoEvento(
+        nombre="solicitud_ausencia_periodo.revocada",
+        descripcion="Se revocó una solicitud de ausencia por período",
+    )
+    db_session.add(tipo)
+    db_session.commit()
+    return tipo
+
+
 def _solicitud_aprobada(db_session, ids, admin, inicio=None, fin=None):
     solicitud = crear_solicitud_periodo(
         db_session,
@@ -284,6 +295,71 @@ def test_revocar_es_idempotente(db_session, contexto):
         .count()
         == 1
     )
+
+
+def test_revocar_sin_notificacion_no_emite_evento(db_session, contexto):
+    ids, admin = contexto
+    solicitud = _solicitud_aprobada(db_session, ids, admin)
+
+    revocar_solicitud_periodo(db_session, admin, solicitud.id, "Error administrativo")
+
+    assert (
+        db_session.query(EventLog)
+        .filter_by(
+            entidad="solicitud_ausencia_periodo",
+            entidad_id=solicitud.id,
+        )
+        .count()
+        == 0
+    )
+    decision = (
+        db_session.query(AuditLog)
+        .filter_by(
+            entidad="SOLICITUD_AUSENCIA_PERIODO",
+            entidad_id=solicitud.id,
+            campo="notificacion_familia",
+        )
+        .one()
+    )
+    assert decision.valor_nuevo == "no_solicitada"
+    assert decision.origen == "revocacion_administrativa"
+    assert decision.motivo == "Error administrativo"
+
+
+def test_revocar_con_notificacion_emite_evento_con_motivo(db_session, contexto):
+    ids, admin = contexto
+    tipo = _tipo_revocacion(db_session)
+    solicitud = _solicitud_aprobada(db_session, ids, admin)
+
+    revocar_solicitud_periodo(
+        db_session, admin, solicitud.id, "Error de carga administrativa", True
+    )
+
+    evento = (
+        db_session.query(EventLog)
+        .filter_by(
+            entidad="solicitud_ausencia_periodo",
+            entidad_id=solicitud.id,
+        )
+        .one()
+    )
+    assert evento.tipo_evento_id == tipo.id
+    assert evento.payload["motivo"] == "Error de carga administrativa"
+    assert evento.payload["fecha_inicio"] == "2027-03-01"
+    assert evento.payload["fecha_fin"] == "2027-03-05"
+    assert evento.payload["alumno_nombre"]
+    decision = (
+        db_session.query(AuditLog)
+        .filter_by(
+            entidad="SOLICITUD_AUSENCIA_PERIODO",
+            entidad_id=solicitud.id,
+            campo="notificacion_familia",
+        )
+        .one()
+    )
+    assert decision.valor_nuevo == "solicitada"
+    assert decision.origen == "revocacion_administrativa"
+    assert decision.motivo == "Error de carga administrativa"
 
 
 def test_revocar_solo_permite_aprobadas(db_session, contexto):

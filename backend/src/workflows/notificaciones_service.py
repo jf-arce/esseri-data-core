@@ -204,6 +204,15 @@ def _emails_de_familia(db: Session, familia_id: uuid.UUID) -> list[str]:
 
 def _alumno_del_evento(db: Session, evento: EventLog) -> uuid.UUID:
     entidad_id = evento.entidad_id
+    if evento.entidad == "solicitud_ausencia_periodo":
+        alumno_id = db.scalar(
+            select(SolicitudAusenciaPeriodo.alumno_id).where(
+                SolicitudAusenciaPeriodo.id == entidad_id
+            )
+        )
+        if alumno_id is None:
+            raise _SinAlumno()
+        return alumno_id
     match evento.entidad:
         case "inscripcion":
             inscripcion_id: uuid.UUID | None = entidad_id

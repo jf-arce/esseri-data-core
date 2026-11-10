@@ -402,6 +402,10 @@ class SolicitudPeriodoRevocacion(BaseModel):
     """Revocación administrativa de una solicitud aprobada."""
 
     motivo: str = Field(..., min_length=1, max_length=500)
+    notificar_familia: bool = Field(
+        False,
+        description="Enviar a la familia un aviso de la revocación con el motivo indicado",
+    )
 
 
 class SolicitudPeriodoResolucion(BaseModel):

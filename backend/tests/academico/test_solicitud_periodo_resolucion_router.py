@@ -11,6 +11,7 @@ from src.academico.solicitud_periodo_service import (
 from src.auth.models import Usuario
 from src.inscripciones.models import Asistencia
 from src.models import EventLog
+from src.workflows.models import TipoEvento
 
 
 @pytest.fixture()
@@ -132,6 +133,34 @@ def test_revocar_solicitud_aprobada(client_secretaria, db_session, solicitud):
     )
     assert asistencia.tipo == "ausente_pendiente"
     assert asistencia.solicitud_ausencia_periodo_id is None
+
+
+def test_revocar_con_notificacion_emite_evento(client_secretaria, db_session, solicitud):
+    db_session.add(
+        TipoEvento(
+            nombre="solicitud_ausencia_periodo.revocada",
+            descripcion="Se revocó una solicitud de ausencia por período",
+        )
+    )
+    db_session.commit()
+    creada, _ = solicitud
+    assert _aprobar(client_secretaria, creada).status_code == 200
+
+    respuesta = client_secretaria.patch(
+        f"/academico/solicitudes-ausencia/{creada.id}/revocar",
+        json={"motivo": "Error administrativo", "notificar_familia": True},
+    )
+
+    assert respuesta.status_code == 200
+    assert (
+        db_session.query(EventLog)
+        .filter_by(
+            entidad="solicitud_ausencia_periodo",
+            entidad_id=creada.id,
+        )
+        .count()
+        == 1
+    )
 
 
 def test_revocar_sin_motivo_devuelve_422(client_secretaria, solicitud):

@@ -1119,7 +1119,9 @@ def revocar_solicitud_ausencia_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> SolicitudAusenciaPeriodoAdminResponse:
     """Revocar una solicitud aprobada y retirar sus aplicaciones."""
-    solicitud = revocar_solicitud_periodo(db, usuario, solicitud_id, datos.motivo)
+    solicitud = revocar_solicitud_periodo(
+        db, usuario, solicitud_id, datos.motivo, datos.notificar_familia
+    )
     return respuesta_admin_solicitud(db, solicitud)
 
 
