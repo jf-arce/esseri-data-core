@@ -1,10 +1,11 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PortalFamiliaTramitePage } from '@/pages/portal-familia-tramite-page'
 import { listarAsistenciasFamilia } from '@/modules/academico/services/listar-asistencias-familia'
 import {
   cancelarSolicitudAusencia,
+  crearSolicitudAusenciaPeriodo,
   listarSolicitudesAusenciaFamilia,
 } from '@/modules/academico/services/solicitudes-ausencia-familia'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
@@ -17,6 +18,7 @@ vi.mock('@/modules/familias-alumnos/hooks/use-mis-alumnos')
 const mockedListarAsistenciasFamilia = vi.mocked(listarAsistenciasFamilia)
 const mockedListarSolicitudesFamilia = vi.mocked(listarSolicitudesAusenciaFamilia)
 const mockedCancelarSolicitud = vi.mocked(cancelarSolicitudAusencia)
+const mockedCrearSolicitud = vi.mocked(crearSolicitudAusenciaPeriodo)
 const mockedUseMisAlumnos = vi.mocked(useMisAlumnos)
 
 function crearAsistencia(overrides: Partial<AsistenciaFamilia>): AsistenciaFamilia {
@@ -383,5 +385,48 @@ describe('PortalFamiliaTramitePage', () => {
 
     expect(screen.getByRole('heading', { name: 'Informar ausencia' })).toBeInTheDocument()
     expect(screen.getByLabelText('Desde')).toBeInTheDocument()
+  })
+
+  it('indica el envío pendiente y conserva el formulario con un error visible si falla', async () => {
+    mockedListarAsistenciasFamilia.mockResolvedValue([])
+    let rechazar!: (error: Error) => void
+    mockedCrearSolicitud.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rechazar = reject
+        }),
+    )
+    render(
+      <MemoryRouter>
+        <PortalFamiliaTramitePage titulo="Asistencias" descripcion="Consultá tus asistencias." />
+      </MemoryRouter>,
+    )
+    await screen.findByRole('heading', { name: 'Resumen de asistencia' })
+    fireEvent.click(screen.getByRole('button', { name: 'Informar ausencia' }))
+    const dialogo = within(screen.getByRole('dialog'))
+    fireEvent.change(dialogo.getByLabelText('Desde'), { target: { value: '2027-03-15' } })
+    fireEvent.click(dialogo.getByRole('combobox', { name: 'Motivo' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'Enfermedad' }))
+    fireEvent.click(dialogo.getByRole('button', { name: 'Informar ausencia' }))
+
+    expect(dialogo.getByRole('status', { name: 'Enviando solicitud' })).toBeInTheDocument()
+    expect(dialogo.getByRole('button', { name: /Informar ausencia/ })).toBeDisabled()
+    expect(mockedCrearSolicitud).toHaveBeenCalledWith({
+      alumno_id: 'alumno-1',
+      fecha_inicio: '2027-03-15',
+      fecha_fin: undefined,
+      motivo: 'enfermedad',
+      observacion: undefined,
+      comprobante: undefined,
+    })
+    await act(async () => {
+      rechazar(new Error('Network unavailable'))
+    })
+    expect(dialogo.getByRole('alert')).toHaveTextContent(
+      'No se pudo enviar la solicitud. Intentá de nuevo.',
+    )
+    expect(dialogo.getByLabelText('Desde')).toHaveValue('2027-03-15')
+    expect(dialogo.getByRole('button', { name: 'Informar ausencia' })).toBeEnabled()
+    expect(dialogo.queryByRole('status')).not.toBeInTheDocument()
   })
 })

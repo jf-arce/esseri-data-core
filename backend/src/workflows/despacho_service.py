@@ -71,9 +71,7 @@ ACCIONES: dict[str, AccionHandler] = {
 ERROR_EVALUACION = "No se pudo evaluar la regla con los datos del evento."
 ERROR_CONFIGURACION = "La configuración de la acción no es válida."
 ERROR_ACCION = "La acción no pudo completarse."
-ACCIONES_CON_RESERVA = frozenset(
-    {"notificar", "alerta_interna", "generar_recordatorio", "generar_comunicacion"}
-)
+ACCIONES_CON_RESERVA = frozenset({"notificar", "alerta_interna", "generar_recordatorio"})
 
 
 def procesar_eventos_pendientes(db: Session, limite: int = 100) -> ResumenDespacho:

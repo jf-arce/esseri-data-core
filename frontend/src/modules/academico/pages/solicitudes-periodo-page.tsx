@@ -19,6 +19,7 @@ import { StatTile } from '@/components/stat-tile'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,7 @@ import {
 } from '@/components/ui/dialog'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
@@ -51,20 +53,12 @@ import type {
   SolicitudAusenciaPeriodoAdmin,
   SolicitudesPeriodoPaginadas,
 } from '@/modules/academico/types'
-import { etiquetaMotivoJustificacion } from '@/modules/academico/utils'
+import {
+  etiquetaMotivoJustificacion,
+  VARIANTE_ESTADO_SOLICITUD_PERIODO,
+} from '@/modules/academico/utils'
 
 const TAMANIO_PAGINA = 20
-
-const VARIANTE_ESTADO: Record<
-  EstadoSolicitudPeriodo,
-  'advertencia' | 'exito' | 'error' | 'neutro'
-> = {
-  pendiente: 'advertencia',
-  aprobada: 'exito',
-  rechazada: 'error',
-  cancelada: 'neutro',
-  revocada: 'neutro',
-}
 
 const ETIQUETA_ESTADO: Record<EstadoSolicitudPeriodo, string> = {
   pendiente: 'Pendiente',
@@ -433,7 +427,7 @@ export function SolicitudesPeriodoPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={VARIANTE_ESTADO[item.estado]}>
+                    <Badge variant={VARIANTE_ESTADO_SOLICITUD_PERIODO[item.estado]}>
                       {ETIQUETA_ESTADO[item.estado]}
                     </Badge>
                   </TableCell>
@@ -527,16 +521,20 @@ export function SolicitudesPeriodoPage() {
             </div>
           )}
 
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Motivo del rechazo (obligatorio)
+          <Field>
+            <FieldLabel htmlFor="solicitud-periodo-rechazo">
+              Motivo del rechazo (obligatorio)
+            </FieldLabel>
             <Textarea
+              id="solicitud-periodo-rechazo"
+              required
               value={observacionRechazo}
               onChange={(evento) => setObservacionRechazo(evento.target.value)}
               maxLength={500}
               autoFocus
               placeholder="Explicá por qué no se acepta la solicitud."
             />
-          </label>
+          </Field>
 
           <DialogFooter>
             <Button
@@ -577,25 +575,33 @@ export function SolicitudesPeriodoPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Motivo de la revocación (obligatorio)
-            <Textarea
-              value={motivoRevocacion}
-              onChange={(evento) => setMotivoRevocacion(evento.target.value)}
-              maxLength={500}
-              autoFocus
-              placeholder="Explicá por qué se revoca la solicitud."
-            />
-          </label>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="solicitud-periodo-revocacion">
+                Motivo de la revocación (obligatorio)
+              </FieldLabel>
+              <Textarea
+                id="solicitud-periodo-revocacion"
+                required
+                value={motivoRevocacion}
+                onChange={(evento) => setMotivoRevocacion(evento.target.value)}
+                maxLength={500}
+                autoFocus
+                placeholder="Explicá por qué se revoca la solicitud."
+              />
+            </Field>
 
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={notificarFamilia}
-              onChange={(evento) => setNotificarFamilia(evento.target.checked)}
-            />
-            Notificar a la familia con este motivo
-          </label>
+            <Field orientation="horizontal">
+              <Checkbox
+                id="solicitud-periodo-notificar-familia"
+                checked={notificarFamilia}
+                onCheckedChange={(valor) => setNotificarFamilia(valor === true)}
+              />
+              <FieldLabel htmlFor="solicitud-periodo-notificar-familia">
+                Notificar a la familia con este motivo
+              </FieldLabel>
+            </Field>
+          </FieldGroup>
 
           <DialogFooter>
             <Button
