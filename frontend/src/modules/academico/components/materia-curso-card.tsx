@@ -32,15 +32,11 @@ export function MateriaCursoCard({
             {materiaCurso.materia_tipo === 'taller' ? 'Taller' : 'Materia'}
           </Badge>
         </div>
-        {materiaCurso.horarios.length > 0 ? (
-          <ul className="text-sm text-texto-2">
-            {materiaCurso.horarios.map((horario) => (
-              <li key={horario.id}>{formatearFranjaLegible(horario)}</li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-texto-2">Sin horario</p>
-        )}
+        <p className="text-sm text-texto-2">
+          {materiaCurso.horarios.length > 0
+            ? materiaCurso.horarios.map(formatearFranjaLegible).join(' · ')
+            : 'Sin horario'}
+        </p>
         <p className="text-sm text-texto-3">
           {docentes.length > 0 ? docentes.join(', ') : 'Sin docente asignado'}
         </p>
