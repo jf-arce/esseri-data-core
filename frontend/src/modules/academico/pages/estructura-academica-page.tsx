@@ -6,7 +6,7 @@ import {
   ShieldAlertIcon,
   Trash2Icon,
 } from 'lucide-react'
-import { Fragment, useState } from 'react'
+import { useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -40,8 +40,6 @@ import { useSeleccionEstructura } from '@/modules/academico/hooks/use-seleccion-
 import type { Anio, Division, MateriaCurso } from '@/modules/academico/types'
 import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
-
-const NUEVO = '__nuevo__'
 
 type DialogAbm =
   | { entidad: 'anio'; modo: 'crear' | 'editar' | 'eliminar'; item?: Anio }
@@ -402,43 +400,46 @@ export function EstructuraAcademicaPage() {
                       )}
                     </div>
 
-                    {estructura.cargandoAnio && <Skeleton className="h-9 w-64" />}
-                    {!estructura.cargandoAnio && estructura.divisiones.length > 0 && (
-                      <Tabs
-                        className="min-w-0 flex-1"
-                        value={division?.id ?? ''}
-                        onValueChange={(id) =>
-                          id === NUEVO
-                            ? setDialogAbm({ entidad: 'division', modo: 'crear' })
-                            : elegir({ nivel: nivel.id, anio: anio.id, division: id })
-                        }
-                      >
-                        <TabsList className="overflow-x-auto">
-                          {estructura.divisiones.map((d) => (
-                            <Fragment key={d.id}>
-                              <TabsTrigger value={d.id}>{d.nombre}</TabsTrigger>
-                              {puedeEditar && d.id === division?.id && (
-                                <AccionesMenu
-                                  etiqueta={`Acciones de la división ${etiquetaDivision(anio, d)}`}
-                                  textoEditar="Editar división"
-                                  textoEliminar="Dar de baja división"
-                                  onEditar={() =>
-                                    setDialogAbm({ entidad: 'division', modo: 'editar', item: d })
-                                  }
-                                  onEliminar={() =>
-                                    setDialogAbm({ entidad: 'division', modo: 'eliminar', item: d })
-                                  }
-                                />
-                              )}
-                            </Fragment>
-                          ))}
-                          {puedeEditar && (
-                            <TabsTrigger value={NUEVO} aria-label="Agregar división">
-                              <PlusIcon />
-                            </TabsTrigger>
-                          )}
-                        </TabsList>
-                      </Tabs>
+                    {estructura.cargandoAnio && <Skeleton className="h-9 w-40" />}
+                    {!estructura.cargandoAnio && division && (
+                      <div className="flex items-center gap-1">
+                        <Select
+                          value={division.id}
+                          onValueChange={(id) =>
+                            elegir({ nivel: nivel.id, anio: anio.id, division: id })
+                          }
+                        >
+                          <SelectTrigger className="w-40" aria-label="División">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {estructura.divisiones.map((d) => (
+                              <SelectItem key={d.id} value={d.id}>
+                                {etiquetaDivision(anio, d)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {puedeEditar && (
+                          <AccionesMenu
+                            etiqueta="Acciones de la división"
+                            textoAgregar="Agregar división"
+                            textoEditar="Editar división"
+                            textoEliminar="Dar de baja división"
+                            onAgregar={() => setDialogAbm({ entidad: 'division', modo: 'crear' })}
+                            onEditar={() =>
+                              setDialogAbm({ entidad: 'division', modo: 'editar', item: division })
+                            }
+                            onEliminar={() =>
+                              setDialogAbm({
+                                entidad: 'division',
+                                modo: 'eliminar',
+                                item: division,
+                              })
+                            }
+                          />
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
