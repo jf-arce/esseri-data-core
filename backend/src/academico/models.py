@@ -246,7 +246,7 @@ class SolicitudAusenciaPeriodo(Base):
     __table_args__ = (
         sa.CheckConstraint("fecha_inicio <= fecha_fin", name="ck_solicitud_ausencia_fechas"),
         sa.CheckConstraint(
-            "estado IN ('pendiente', 'aprobada', 'rechazada', 'cancelada')",
+            "estado IN ('pendiente', 'aprobada', 'rechazada', 'cancelada', 'revocada')",
             name="ck_solicitud_ausencia_estado",
         ),
     )

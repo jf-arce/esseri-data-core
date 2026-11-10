@@ -83,6 +83,7 @@ from src.academico.schemas import (
     AsistenciaBulkResponse,
     AsistenciaCreate,
     AsistenciaFamiliaResponse,
+    AsistenciaRectificacion,
     AsistenciaResponse,
     AsistenciaResumen,
     AsistenciaUpdate,
@@ -115,6 +116,7 @@ from src.academico.schemas import (
     SolicitudAusenciaPeriodoResponse,
     SolicitudesPeriodoPaginadasResponse,
     SolicitudPeriodoResolucion,
+    SolicitudPeriodoRevocacion,
     UltimaFechaAsistenciaResponse,
 )
 from src.academico.service import (
@@ -177,8 +179,10 @@ from src.academico.solicitud_periodo_service import (
     crear_solicitud_periodo,
     listar_solicitudes_periodo_familia,
     pagina_solicitudes_periodo,
+    rectificar_asistencia_administrativa,
     resolver_solicitud_periodo,
     respuesta_admin_solicitud,
+    revocar_solicitud_periodo,
 )
 from src.auth.constants import (
     PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
@@ -1101,6 +1105,24 @@ def resolver_solicitud_ausencia_endpoint(
     return respuesta_admin_solicitud(db, solicitud)
 
 
+@router.patch(
+    "/solicitudes-ausencia/{solicitud_id}/revocar",
+    response_model=SolicitudAusenciaPeriodoAdminResponse,
+)
+def revocar_solicitud_ausencia_endpoint(
+    solicitud_id: uuid.UUID,
+    datos: SolicitudPeriodoRevocacion,
+    usuario: Annotated[
+        Usuario,
+        Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES)),
+    ],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> SolicitudAusenciaPeriodoAdminResponse:
+    """Revocar una solicitud aprobada y retirar sus aplicaciones."""
+    solicitud = revocar_solicitud_periodo(db, usuario, solicitud_id, datos.motivo)
+    return respuesta_admin_solicitud(db, solicitud)
+
+
 @router.get("/justificaciones", response_model=JustificacionesPaginadasResponse)
 def listar_justificaciones_endpoint(
     _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES))],
@@ -1282,6 +1304,23 @@ def actualizar_asistencia_endpoint(
         return actualizar_asistencia(db, asistencia, datos, usuario.id, rol_activo)
     except AsistenciaYaJustificada as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+
+
+@router.patch(
+    "/asistencias/{asistencia_id}/rectificar",
+    response_model=AsistenciaResponse,
+)
+def rectificar_asistencia_endpoint(
+    datos: AsistenciaRectificacion,
+    usuario: Annotated[
+        Usuario,
+        Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES)),
+    ],
+    asistencia: Asistencia = Depends(obtener_asistencia_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Asistencia:
+    """Rectificar una asistencia aplicada por una solicitud por período."""
+    return rectificar_asistencia_administrativa(db, usuario, asistencia, datos.tipo, datos.motivo)
 
 
 @router.delete("/asistencias/{asistencia_id}", status_code=204)

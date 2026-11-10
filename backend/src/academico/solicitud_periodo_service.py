@@ -25,7 +25,7 @@ from src.auth.exceptions import PermisoDenegado
 from src.auth.models import Usuario
 from src.familias_alumnos.models import Alumno, FamiliaAlumno
 from src.inscripciones.models import Asistencia, Inscripcion
-from src.models import Persona
+from src.models import AuditLog, Persona
 from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
 
 
@@ -132,6 +132,10 @@ def crear_solicitud_periodo(
         valor_anterior=None,
         valor_nuevo=motivo_db.nombre,
         usuario_id=usuario.id,
+        origen="familia",
+        motivo=motivo_db.nombre,
+        referencia_entidad="SOLICITUD_AUSENCIA_PERIODO",
+        referencia_id=solicitud.id,
     )
     db.commit()
     db.refresh(solicitud)
@@ -271,12 +275,14 @@ def resumen_solicitudes_periodo(
     aprobadas = conteos.get("aprobada", 0)
     rechazadas = conteos.get("rechazada", 0)
     canceladas = conteos.get("cancelada", 0)
+    revocadas = conteos.get("revocada", 0)
     return SolicitudesPeriodoResumen(
         pendientes=pendientes,
         aprobadas=aprobadas,
         rechazadas=rechazadas,
         canceladas=canceladas,
-        total=pendientes + aprobadas + rechazadas + canceladas,
+        revocadas=revocadas,
+        total=pendientes + aprobadas + rechazadas + canceladas + revocadas,
     )
 
 
@@ -347,6 +353,10 @@ def cancelar_solicitud_periodo(
         valor_anterior="pendiente",
         valor_nuevo="cancelada",
         usuario_id=usuario.id,
+        origen="familia",
+        motivo="cancelación familiar",
+        referencia_entidad="SOLICITUD_AUSENCIA_PERIODO",
+        referencia_id=solicitud.id,
     )
     db.commit()
     db.refresh(solicitud)
@@ -377,6 +387,24 @@ def resolver_solicitud_periodo(
         raise HTTPException(status.HTTP_409_CONFLICT, "La solicitud ya fue resuelta")
 
     estado_nuevo = "aprobada" if aprobar else "rechazada"
+    solicitud.estado = estado_nuevo
+    solicitud.observacion_resolucion = observacion
+    solicitud.fecha_resolucion = datetime.now()
+    solicitud.usuario_resolucion_id = usuario.id
+    decision = log_audit(
+        db,
+        entidad="SOLICITUD_AUSENCIA_PERIODO",
+        entidad_id=solicitud.id,
+        campo="estado",
+        valor_anterior="pendiente",
+        valor_nuevo=estado_nuevo,
+        usuario_id=usuario.id,
+        origen="administracion",
+        motivo=observacion
+        or ("aprobación administrativa" if aprobar else "rechazo administrativo"),
+        referencia_entidad="SOLICITUD_AUSENCIA_PERIODO",
+        referencia_id=solicitud.id,
+    )
     if aprobar:
         asistencias = db.scalars(
             select(Asistencia)
@@ -398,7 +426,12 @@ def resolver_solicitud_periodo(
                 campo="tipo",
                 valor_anterior="ausente_pendiente",
                 valor_nuevo="ausente_justificado",
-                usuario_id=usuario.id,
+                usuario_id=None,
+                actor_tipo="sistema",
+                origen="aplicacion_automatica",
+                motivo="cobertura por solicitud aprobada",
+                referencia_entidad="AUDIT_LOG",
+                referencia_id=decision.id,
             )
             log_audit(
                 db,
@@ -407,22 +440,196 @@ def resolver_solicitud_periodo(
                 campo="solicitud_ausencia_periodo_id",
                 valor_anterior=None,
                 valor_nuevo=str(solicitud.id),
-                usuario_id=usuario.id,
+                usuario_id=None,
+                actor_tipo="sistema",
+                origen="aplicacion_automatica",
+                motivo="cobertura por solicitud aprobada",
+                referencia_entidad="AUDIT_LOG",
+                referencia_id=decision.id,
             )
 
-    solicitud.estado = estado_nuevo
-    solicitud.observacion_resolucion = observacion
+    db.commit()
+    db.refresh(solicitud)
+    return solicitud
+
+
+def revocar_solicitud_periodo(
+    db: Session,
+    usuario: Usuario | None,
+    solicitud_id: uuid.UUID,
+    motivo: str,
+) -> SolicitudAusenciaPeriodo:
+    """Revoca una solicitud aprobada y retira solo sus aplicaciones.
+
+    Es idempotente: una solicitud ya revocada se devuelve sin nuevas auditorías.
+    No toca presencias, tardanzas ni decisiones históricas independientes.
+    """
+    if usuario is None or usuario.id is None:
+        raise PermisoDenegado("La solicitud requiere un usuario autenticado")
+    if not motivo or not motivo.strip():
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "El motivo de la revocación es obligatorio",
+        )
+    solicitud = db.get(SolicitudAusenciaPeriodo, solicitud_id)
+    if solicitud is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Solicitud no encontrada")
+    db.scalar(select(Alumno.id).where(Alumno.id == solicitud.alumno_id).with_for_update())
+    db.refresh(solicitud)
+    if solicitud.estado == "revocada":
+        return solicitud
+    if solicitud.estado != "aprobada":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Solo se puede revocar una solicitud aprobada",
+        )
+
+    solicitud.estado = "revocada"
+    solicitud.observacion_resolucion = motivo
     solicitud.fecha_resolucion = datetime.now()
     solicitud.usuario_resolucion_id = usuario.id
-    log_audit(
+    decision = log_audit(
         db,
         entidad="SOLICITUD_AUSENCIA_PERIODO",
         entidad_id=solicitud.id,
         campo="estado",
-        valor_anterior="pendiente",
-        valor_nuevo=estado_nuevo,
+        valor_anterior="aprobada",
+        valor_nuevo="revocada",
         usuario_id=usuario.id,
+        origen="revocacion_administrativa",
+        motivo=motivo,
+        referencia_entidad="SOLICITUD_AUSENCIA_PERIODO",
+        referencia_id=solicitud.id,
     )
+    asistencias = db.scalars(
+        select(Asistencia)
+        .where(Asistencia.solicitud_ausencia_periodo_id == solicitud.id)
+        .order_by(Asistencia.fecha)
+    ).all()
+    for asistencia in asistencias:
+        tipo_anterior = asistencia.tipo
+        log_audit(
+            db,
+            entidad="ASISTENCIA",
+            entidad_id=asistencia.id,
+            campo="solicitud_ausencia_periodo_id",
+            valor_anterior=str(solicitud.id),
+            valor_nuevo=None,
+            usuario_id=None,
+            actor_tipo="sistema",
+            origen="revocacion_administrativa",
+            motivo=motivo,
+            referencia_entidad="AUDIT_LOG",
+            referencia_id=decision.id,
+        )
+        asistencia.solicitud_ausencia_periodo_id = None
+        if tipo_anterior == "ausente_justificado":
+            asistencia.tipo = "ausente_pendiente"
+            log_audit(
+                db,
+                entidad="ASISTENCIA",
+                entidad_id=asistencia.id,
+                campo="tipo",
+                valor_anterior="ausente_justificado",
+                valor_nuevo="ausente_pendiente",
+                usuario_id=None,
+                actor_tipo="sistema",
+                origen="revocacion_administrativa",
+                motivo=motivo,
+                referencia_entidad="AUDIT_LOG",
+                referencia_id=decision.id,
+            )
+
     db.commit()
     db.refresh(solicitud)
     return solicitud
+
+
+def rectificar_asistencia_administrativa(
+    db: Session,
+    usuario: Usuario | None,
+    asistencia: Asistencia,
+    tipo: str,
+    motivo: str,
+) -> Asistencia:
+    """Corrige una asistencia aplicada por una solicitud por período.
+
+    Solo admite presente/tardanza. Retira el vínculo y conserva la solicitud aprobada.
+    Si la asistencia ya fue rectificada al mismo tipo, el reintento es idempotente.
+    """
+    if usuario is None or usuario.id is None:
+        raise PermisoDenegado("La rectificación requiere un usuario autenticado")
+    if tipo not in {"presente", "tardanza"}:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "La rectificación administrativa solo admite presente o tardanza",
+        )
+    if not motivo or not motivo.strip():
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "El motivo de la rectificación es obligatorio",
+        )
+    inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
+    if inscripcion is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Asistencia no encontrada")
+    db.scalar(select(Alumno.id).where(Alumno.id == inscripcion.alumno_id).with_for_update())
+    db.refresh(asistencia)
+
+    if asistencia.solicitud_ausencia_periodo_id is None:
+        previa = db.scalar(
+            select(AuditLog.id)
+            .where(
+                AuditLog.entidad == "ASISTENCIA",
+                AuditLog.entidad_id == asistencia.id,
+                AuditLog.campo == "tipo",
+                AuditLog.valor_nuevo == tipo,
+                AuditLog.origen == "rectificacion_administrativa",
+            )
+            .limit(1)
+        )
+        if previa is not None and asistencia.tipo == tipo:
+            return asistencia
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "La asistencia no fue aplicada por una solicitud por período",
+        )
+
+    solicitud = db.get(SolicitudAusenciaPeriodo, asistencia.solicitud_ausencia_periodo_id)
+    if solicitud is None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "La solicitud asociada a la asistencia no existe",
+        )
+    tipo_anterior = asistencia.tipo
+    vinculo_anterior = asistencia.solicitud_ausencia_periodo_id
+    asistencia.tipo = tipo
+    asistencia.solicitud_ausencia_periodo_id = None
+    log_audit(
+        db,
+        entidad="ASISTENCIA",
+        entidad_id=asistencia.id,
+        campo="tipo",
+        valor_anterior=tipo_anterior,
+        valor_nuevo=tipo,
+        usuario_id=usuario.id,
+        origen="rectificacion_administrativa",
+        motivo=motivo,
+        referencia_entidad="SOLICITUD_AUSENCIA_PERIODO",
+        referencia_id=solicitud.id,
+    )
+    log_audit(
+        db,
+        entidad="ASISTENCIA",
+        entidad_id=asistencia.id,
+        campo="solicitud_ausencia_periodo_id",
+        valor_anterior=str(vinculo_anterior),
+        valor_nuevo=None,
+        usuario_id=usuario.id,
+        origen="rectificacion_administrativa",
+        motivo=motivo,
+        referencia_entidad="SOLICITUD_AUSENCIA_PERIODO",
+        referencia_id=solicitud.id,
+    )
+    db.commit()
+    db.refresh(asistencia)
+    return asistencia

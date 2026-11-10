@@ -3,10 +3,14 @@ from datetime import date
 
 import pytest
 
-from src.academico.models import MotivoJustificacion
-from src.academico.solicitud_periodo_service import crear_solicitud_periodo
+from src.academico.models import MotivoJustificacion, SolicitudAusenciaPeriodo
+from src.academico.solicitud_periodo_service import (
+    crear_solicitud_periodo,
+    resolver_solicitud_periodo,
+)
 from src.auth.models import Usuario
 from src.inscripciones.models import Asistencia
+from src.models import EventLog
 
 
 @pytest.fixture()
@@ -101,3 +105,153 @@ def test_solicitud_inexistente_devuelve_404(client_secretaria):
     )
 
     assert respuesta.status_code == 404
+
+
+def _aprobar(client, solicitud):
+    return client.patch(
+        f"/academico/solicitudes-ausencia/{solicitud.id}/resolver",
+        json={"aprobar": True},
+    )
+
+
+def test_revocar_solicitud_aprobada(client_secretaria, db_session, solicitud):
+    creada, ids = solicitud
+    assert _aprobar(client_secretaria, creada).status_code == 200
+
+    respuesta = client_secretaria.patch(
+        f"/academico/solicitudes-ausencia/{creada.id}/revocar",
+        json={"motivo": "Error administrativo"},
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["estado"] == "revocada"
+    asistencia = (
+        db_session.query(Asistencia)
+        .filter_by(inscripcion_id=ids["inscripcion_a"], fecha=date(2027, 3, 1))
+        .one()
+    )
+    assert asistencia.tipo == "ausente_pendiente"
+    assert asistencia.solicitud_ausencia_periodo_id is None
+
+
+def test_revocar_sin_motivo_devuelve_422(client_secretaria, solicitud):
+    creada, _ = solicitud
+    assert _aprobar(client_secretaria, creada).status_code == 200
+
+    respuesta = client_secretaria.patch(
+        f"/academico/solicitudes-ausencia/{creada.id}/revocar",
+        json={"motivo": ""},
+    )
+
+    assert respuesta.status_code == 422
+
+
+def test_docente_no_puede_revocar(client_docente, solicitud):
+    creada, _ = solicitud
+
+    respuesta = client_docente.patch(
+        f"/academico/solicitudes-ausencia/{creada.id}/revocar",
+        json={"motivo": "No autorizado"},
+    )
+
+    assert respuesta.status_code == 403
+
+
+def test_rectificar_asistencia_aplicada(client_secretaria, db_session, solicitud):
+    creada, ids = solicitud
+    assert _aprobar(client_secretaria, creada).status_code == 200
+    asistencia = (
+        db_session.query(Asistencia)
+        .filter_by(inscripcion_id=ids["inscripcion_a"], fecha=date(2027, 3, 1))
+        .one()
+    )
+
+    respuesta = client_secretaria.patch(
+        f"/academico/asistencias/{asistencia.id}/rectificar",
+        json={"tipo": "presente", "motivo": "Corrección administrativa"},
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["tipo"] == "presente"
+    db_session.refresh(asistencia)
+    assert asistencia.solicitud_ausencia_periodo_id is None
+    assert db_session.get(SolicitudAusenciaPeriodo, creada.id).estado == "aprobada"
+
+
+def test_rectificar_no_admite_ausente_pendiente(client_secretaria, db_session, solicitud):
+    creada, ids = solicitud
+    assert _aprobar(client_secretaria, creada).status_code == 200
+    asistencia = (
+        db_session.query(Asistencia)
+        .filter_by(inscripcion_id=ids["inscripcion_a"], fecha=date(2027, 3, 1))
+        .one()
+    )
+
+    respuesta = client_secretaria.patch(
+        f"/academico/asistencias/{asistencia.id}/rectificar",
+        json={"tipo": "ausente_pendiente", "motivo": "No permitido"},
+    )
+
+    assert respuesta.status_code == 422
+
+
+def test_docente_no_puede_rectificar(client_docente, db_session, solicitud):
+    creada, ids = solicitud
+    asistencia = (
+        db_session.query(Asistencia)
+        .filter_by(inscripcion_id=ids["inscripcion_a"], fecha=date(2027, 3, 1))
+        .one()
+    )
+
+    respuesta = client_docente.patch(
+        f"/academico/asistencias/{asistencia.id}/rectificar",
+        json={"tipo": "presente", "motivo": "No autorizado"},
+    )
+
+    assert respuesta.status_code == 403
+
+
+def test_registrar_asistencia_aplica_cobertura_y_conserva_evento(
+    client_secretaria,
+    db_session,
+    escenario_dos_familias,
+    tipo_inasistencia_registrada,
+):
+    ids = escenario_dos_familias
+    motivo = MotivoJustificacion(nombre="enfermedad-auto", activo=True)
+    admin = Usuario(email="admin-auto@example.test", auth_provider="local", estado="activo")
+    db_session.add_all([motivo, admin])
+    db_session.commit()
+    usuario_a = db_session.get(Usuario, ids["usuario_a"])
+    solicitud = crear_solicitud_periodo(
+        db_session,
+        usuario_a,
+        ids["alumno_a"],
+        date(2027, 8, 1),
+        date(2027, 8, 1),
+        "enfermedad-auto",
+        None,
+    )
+    resolver_solicitud_periodo(db_session, admin, solicitud.id, True, None)
+
+    respuesta = client_secretaria.post(
+        "/academico/asistencias",
+        json={
+            "inscripcion_id": str(ids["inscripcion_a"]),
+            "fecha": "2027-08-01",
+            "tipo": "ausente",
+        },
+    )
+
+    assert respuesta.status_code == 201
+    asistencia = (
+        db_session.query(Asistencia)
+        .filter_by(inscripcion_id=ids["inscripcion_a"], fecha=date(2027, 8, 1))
+        .one()
+    )
+    assert asistencia.tipo == "ausente_justificado"
+    assert asistencia.solicitud_ausencia_periodo_id == solicitud.id
+    evento = (
+        db_session.query(EventLog).filter_by(entidad="asistencia", entidad_id=asistencia.id).one()
+    )
+    assert evento.payload["tipo_asistencia"] == "ausente_pendiente"

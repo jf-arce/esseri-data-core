@@ -15,6 +15,7 @@ from src.academico.solicitud_periodo_service import (
     cancelar_solicitud_periodo,
     crear_solicitud_periodo,
     resolver_solicitud_periodo,
+    revocar_solicitud_periodo,
 )
 from src.auth.exceptions import PermisoDenegado
 from src.auth.models import Usuario
@@ -322,6 +323,100 @@ def test_concurrent_approval_and_cancellation_record_one_transition():
                     AuditLog.entidad_id == solicitud_id,
                     AuditLog.campo == "estado",
                     AuditLog.valor_nuevo.in_(("aprobada", "cancelada")),
+                )
+                .count()
+                == 1
+            )
+    finally:
+        engine.dispose()
+
+
+def test_concurrent_revocations_record_one_transition():
+    """Dos revocaciones simultáneas: una transición real y una idempotente."""
+    engine = _engine()
+    ids, inscripciones = _scenario(engine, students=1)
+    try:
+        with Session(engine) as db:
+            from src.inscripciones.models import Asistencia, Inscripcion
+
+            alumno_id = db.get(Inscripcion, inscripciones[0]).alumno_id
+            persona = Persona(nombre="Test", apellido="Family", dni=str(uuid.uuid4()))
+            db.add(persona)
+            db.flush()
+            familia = Familia(persona_id=persona.id)
+            usuario = db.get(Usuario, ids["usuario"])
+            usuario.persona_id = persona.id
+            db.add_all([familia, MotivoJustificacion(nombre="revoke-race", activo=True)])
+            db.flush()
+            db.add(FamiliaAlumno(familia_id=familia.id, alumno_id=alumno_id))
+            db.commit()
+            asistencia = Asistencia(
+                inscripcion_id=inscripciones[0],
+                fecha=date(2027, 8, 1),
+                tipo="ausente_pendiente",
+            )
+            db.add(asistencia)
+            db.commit()
+            solicitud = crear_solicitud_periodo(
+                db,
+                usuario,
+                alumno_id,
+                date(2027, 8, 1),
+                date(2027, 8, 2),
+                "revoke-race",
+                None,
+            )
+            solicitud_id, asistencia_id = solicitud.id, asistencia.id
+            resolver_solicitud_periodo(
+                db, db.get(Usuario, ids["usuario"]), solicitud_id, True, None
+            )
+
+        def revoke(_):
+            with Session(engine) as db:
+                revocar_solicitud_periodo(db, db.get(Usuario, ids["usuario"]), solicitud_id, "race")
+                return "revoked"
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(revoke, range(2)))
+
+        assert results == ["revoked", "revoked"]
+        with Session(engine) as db:
+            from src.inscripciones.models import Asistencia
+
+            solicitud = db.get(SolicitudAusenciaPeriodo, solicitud_id)
+            asistencia = db.get(Asistencia, asistencia_id)
+            assert solicitud.estado == "revocada"
+            assert asistencia.tipo == "ausente_pendiente"
+            assert asistencia.solicitud_ausencia_periodo_id is None
+            assert (
+                db.query(AuditLog)
+                .filter(
+                    AuditLog.entidad == "SOLICITUD_AUSENCIA_PERIODO",
+                    AuditLog.entidad_id == solicitud_id,
+                    AuditLog.campo == "estado",
+                    AuditLog.valor_nuevo == "revocada",
+                )
+                .count()
+                == 1
+            )
+            assert (
+                db.query(AuditLog)
+                .filter(
+                    AuditLog.entidad == "ASISTENCIA",
+                    AuditLog.entidad_id == asistencia_id,
+                    AuditLog.campo == "tipo",
+                    AuditLog.valor_nuevo == "ausente_pendiente",
+                )
+                .count()
+                == 1
+            )
+            assert (
+                db.query(AuditLog)
+                .filter(
+                    AuditLog.entidad == "ASISTENCIA",
+                    AuditLog.entidad_id == asistencia_id,
+                    AuditLog.campo == "solicitud_ausencia_periodo_id",
+                    AuditLog.valor_nuevo.is_(None),
                 )
                 .count()
                 == 1

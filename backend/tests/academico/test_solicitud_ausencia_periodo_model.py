@@ -100,6 +100,14 @@ def test_period_request_rejects_invalid_values(db_session, changes):
     db_session.rollback()
 
 
+def test_period_request_accepts_revoked_state(db_session):
+    request = _request(estado="revocada")
+    db_session.add(request)
+    db_session.flush()
+
+    assert request.estado == "revocada"
+
+
 def test_generated_upgrade_matches_model_and_adds_nullable_reference():
     path = Path(__file__).parents[2] / "alembic/versions/5ff26cba86c4_add_absence_period_request.py"
     spec = importlib.util.spec_from_file_location("rev_solicitud_ausencia", path)

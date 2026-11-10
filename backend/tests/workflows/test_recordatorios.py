@@ -8,9 +8,12 @@ import pytest
 from sqlalchemy import select
 
 from src.academico.models import JustificacionInasistencia, MotivoJustificacion
-from src.academico.solicitud_periodo_service import crear_solicitud_periodo
+from src.academico.solicitud_periodo_service import (
+    crear_solicitud_periodo,
+    resolver_solicitud_periodo,
+)
 from src.auth.models import Usuario
-from src.models import EventLog
+from src.models import AuditLog, EventLog
 from src.workflows import despacho_service, ejecuciones_service
 from src.workflows.constants import VENTANA_RECORDATORIOS_DIAS
 from src.workflows.exceptions import N8nEnvioFallido
@@ -135,6 +138,54 @@ def test_al_cumplirse_los_dias_manda_el_recordatorio_a_los_responsables(
     assert (ejecucion.workflow_rule_id, ejecucion.event_log_id) == (regla.id, evento.id)
     assert ejecucion.estado == "exitoso"
     assert len(db_session.scalars(select(Notificacion)).all()) == 1
+
+
+def test_ausencia_cubierta_por_periodo_no_envia_aviso_y_audita_suspension(
+    db_session, tipos_inasistencia, familia, plantilla, envios
+):
+    _regla(
+        db_session,
+        tipos_inasistencia,
+        plantilla,
+        tipo_accion="notificar",
+        config={"destinatario": "responsables_habilitados"},
+    )
+    asistencia = _asistencia(db_session, familia)
+    evento = _evento(db_session, tipos_inasistencia, asistencia, hace_dias=0)
+    evento.estado = "pendiente"
+    db_session.commit()
+    usuario = db_session.scalar(select(Usuario).where(Usuario.email == familia["email"]))
+    motivo = MotivoJustificacion(nombre="enfermedad-cobertura", activo=True)
+    admin = Usuario(email="admin-cobertura@example.test", auth_provider="local", estado="activo")
+    db_session.add_all([motivo, admin])
+    db_session.commit()
+    solicitud = crear_solicitud_periodo(
+        db_session,
+        usuario,
+        familia["datos"]["alumno_id"],
+        date(2027, 3, 3),
+        date(2027, 3, 3),
+        "enfermedad-cobertura",
+        None,
+    )
+    resolver_solicitud_periodo(db_session, admin, solicitud.id, True, None)
+
+    despacho_service.procesar_eventos_pendientes(db_session)
+
+    assert envios.enviados == []
+    ejecucion = db_session.scalars(select(WorkflowExecution)).one()
+    assert "cubierta por una solicitud de período" in ejecucion.detalle
+    auditoria = db_session.scalar(
+        select(AuditLog).where(
+            AuditLog.entidad == "WORKFLOW_EXECUTION",
+            AuditLog.entidad_id == ejecucion.id,
+            AuditLog.campo == "suspension",
+        )
+    )
+    assert auditoria is not None
+    assert auditoria.actor_tipo == "sistema"
+    assert auditoria.origen == "workflow"
+    assert auditoria.referencia_id == solicitud.id
 
 
 def test_el_recordatorio_se_manda_una_sola_vez(
