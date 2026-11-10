@@ -33,6 +33,7 @@ from src.academico.schemas import (
     HorarioMateriaCursoCreate,
     MateriaCreate,
     MateriaCursoCreate,
+    MateriaCursoResponse,
     MateriaCursoUpdate,
     MateriaUpdate,
 )
@@ -430,3 +431,57 @@ def test_asignacion_docente_puede_repetirse_en_otro_ciclo(db_session):
     )
 
     assert db_session.query(AsignacionDocente).count() == 2
+
+
+# --- Color de la materia ------------------------------------------------------------------
+
+
+def test_materia_guarda_color_en_minusculas(db_session):
+    materia = crear_materia(
+        db_session, MateriaCreate(nombre="Arte", tipo="taller", color="#1E90FF")
+    )
+
+    assert materia.color == "#1e90ff"
+
+
+def test_materia_sin_color_es_automatica(db_session):
+    assert crear_materia(db_session, MateriaCreate(nombre="Arte", tipo="taller")).color is None
+
+
+@pytest.mark.parametrize("invalido", ["rojo", "#12345", "#12345g", "123456", "#1234567"])
+def test_materia_rechaza_color_invalido(invalido):
+    with pytest.raises(ValueError):
+        MateriaCreate(nombre="Arte", tipo="taller", color=invalido)
+
+
+def test_actualizar_color_y_volver_a_automatico(db_session):
+    materia = crear_materia(db_session, MateriaCreate(nombre="Arte", tipo="taller"))
+
+    actualizar_materia(db_session, materia, MateriaUpdate(color="#00ff00"))
+    assert materia.color == "#00ff00"
+
+    actualizar_materia(db_session, materia, MateriaUpdate(color=None))
+    assert materia.color is None
+
+
+def test_actualizar_otro_campo_no_toca_el_color(db_session):
+    materia = crear_materia(
+        db_session, MateriaCreate(nombre="Arte", tipo="taller", color="#00ff00")
+    )
+
+    actualizar_materia(db_session, materia, MateriaUpdate(nombre="Arte y Música"))
+
+    assert materia.color == "#00ff00"
+
+
+def test_materia_curso_expone_el_color_de_la_materia(db_session):
+    _, division = _estructura(db_session)
+    materia = crear_materia(
+        db_session, MateriaCreate(nombre="Arte", tipo="taller", color="#00ff00")
+    )
+    materia_curso = crear_materia_curso(
+        db_session,
+        MateriaCursoCreate(materia_id=materia.id, division_id=division.id, horarios=[_franja()]),
+    )
+
+    assert MateriaCursoResponse.model_validate(materia_curso).materia_color == "#00ff00"

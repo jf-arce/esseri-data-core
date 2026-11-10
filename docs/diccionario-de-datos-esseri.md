@@ -211,6 +211,7 @@ RF cubiertos: RF-04, RF-05, RF-06, RF-07, RF-08, RF-09
 | id | uuid | PK |  |
 | nombre | string |  |  |
 | tipo | string |  | `[ACLARACIÓN CLIENTE]` respuesta 2 — materia / taller |
+| color | string(7) |  | Opcional. Color elegido a mano en formato `#rrggbb` (minúsculas) para identificar la materia en el horario y las tarjetas. Nulo = color automático. |
 | created_at | datetime |  | Fecha y hora de creación del registro. |
 | updated_at | datetime |  | Fecha y hora de la última modificación del registro. |
 | anio_id | uuid | FK |  |

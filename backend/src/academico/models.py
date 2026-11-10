@@ -65,6 +65,8 @@ class Materia(Base):
     nombre: Mapped[str] = mapped_column(sa.String)
     nombre_normalizado: Mapped[str] = mapped_column(sa.String)
     tipo: Mapped[str] = mapped_column(sa.String)
+    # Color elegido a mano (#rrggbb); nulo = automático.
+    color: Mapped[str | None] = mapped_column(sa.String(7), nullable=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
     updated_at: Mapped[datetime] = mapped_column(
         sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
@@ -112,6 +114,10 @@ class MateriaCurso(Base):
     @property
     def materia_tipo(self) -> str | None:
         return self.materia.tipo if self.materia else None
+
+    @property
+    def materia_color(self) -> str | None:
+        return self.materia.color if self.materia else None
 
     @property
     def division_nombre(self) -> str | None:

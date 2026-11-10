@@ -7,7 +7,7 @@ import uuid
 from datetime import date, datetime, time
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from src.auth.schemas import AccesoCreate, PersonaCreate
 
@@ -451,11 +451,23 @@ class AsistenciaResumen(BaseModel):
 # --- Materia -----------------------------------------------------------------------------
 
 
+COLOR_HEX = r"^#[0-9a-fA-F]{6}$"
+
+
+def _color_en_minusculas(valor: str | None) -> str | None:
+    return valor.lower() if valor is not None else None
+
+
 class MateriaCreate(BaseModel):
     """Schema para crear una materia del catálogo global."""
 
     nombre: str = Field(..., min_length=1, description="Nombre de la materia")
     tipo: Literal["materia", "taller"] = Field(..., description="Tipo: 'materia' o 'taller'")
+    color: str | None = Field(
+        None, pattern=COLOR_HEX, description="Color #rrggbb; nulo = automático"
+    )
+
+    _normalizar_color = field_validator("color")(_color_en_minusculas)
 
 
 class MateriaUpdate(BaseModel):
@@ -465,6 +477,11 @@ class MateriaUpdate(BaseModel):
     tipo: Literal["materia", "taller"] | None = Field(
         None, description="Tipo: 'materia' o 'taller'"
     )
+    color: str | None = Field(
+        None, pattern=COLOR_HEX, description="Color #rrggbb; nulo = automático"
+    )
+
+    _normalizar_color = field_validator("color")(_color_en_minusculas)
 
 
 class MateriaResponse(BaseModel):
@@ -473,6 +490,7 @@ class MateriaResponse(BaseModel):
     id: uuid.UUID
     nombre: str
     tipo: str
+    color: str | None = None
     cantidad_cursos: int = 0
     created_at: datetime
     updated_at: datetime
@@ -538,6 +556,7 @@ class MateriaCursoResponse(BaseModel):
     materia_id: uuid.UUID
     materia_nombre: str | None = None
     materia_tipo: str | None = None
+    materia_color: str | None = None
     division_id: uuid.UUID
     division_nombre: str | None = None
     anio_id: uuid.UUID | None = None

@@ -1417,7 +1417,7 @@ def crear_materia(
     if _materia_duplicada(db, nombre):
         raise MateriaDuplicada()
 
-    nuevo = Materia(nombre=nombre, tipo=datos.tipo)
+    nuevo = Materia(nombre=nombre, tipo=datos.tipo, color=datos.color)
     db.add(nuevo)
     db.flush()
     log_audit(
