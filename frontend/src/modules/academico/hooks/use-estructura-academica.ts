@@ -116,6 +116,26 @@ export function useEstructuraAcademica(pedida: SeleccionEstructura) {
     (materiaCurso) => materiaCurso.division_id === division?.id,
   )
 
+  const cicloActual = String(new Date().getFullYear())
+  const docentes = auxiliares.datos?.[1] ?? SIN_ELEMENTOS
+  const asignacionesDivision = asignaciones.datos ?? SIN_ELEMENTOS
+
+  /** Docentes de la materia en el ciclo actual, como "Apellido, Nombre" (o el legajo). */
+  function docentesDe(materiaCurso: MateriaCurso): string[] {
+    return asignacionesDivision
+      .filter(
+        (asignacion) =>
+          asignacion.materia_curso_id === materiaCurso.id &&
+          asignacion.ciclo_lectivo === cicloActual,
+      )
+      .map((asignacion) => {
+        const docente = docentes.find((candidato) => candidato.id === asignacion.docente_id)
+        return docente?.apellido && docente.nombre
+          ? `${docente.apellido}, ${docente.nombre}`
+          : (docente?.legajo ?? '—')
+      })
+  }
+
   const errores = [
     nivelesCarga.error,
     auxiliares.error,
@@ -128,14 +148,16 @@ export function useEstructuraAcademica(pedida: SeleccionEstructura) {
   return {
     niveles,
     catalogo: auxiliares.datos?.[0] ?? SIN_ELEMENTOS,
-    docentes: auxiliares.datos?.[1] ?? SIN_ELEMENTOS,
+    docentes,
     nivel,
     anios: listaAnios,
     anio,
     divisiones,
     division,
     materiasCurso,
-    asignaciones: asignaciones.datos ?? SIN_ELEMENTOS,
+    asignaciones: asignacionesDivision,
+    cicloActual,
+    docentesDe,
     cargandoNiveles: nivelesCarga.cargando,
     cargandoAnios: anios.cargando,
     cargandoAnio: contenidoAnio.cargando,

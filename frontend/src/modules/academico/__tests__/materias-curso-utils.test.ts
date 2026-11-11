@@ -3,6 +3,7 @@ import type { MateriaCurso } from '@/modules/academico/types'
 import {
   FILTRO_MATERIAS_INICIAL,
   filtrarYOrdenarMaterias,
+  franjasOcupadas,
   materiasEnConflicto,
 } from '@/modules/academico/utils'
 
@@ -103,5 +104,20 @@ describe('filtrarYOrdenarMaterias', () => {
     )
     expect(nombres(resultado)[0]).toBe('Matemática')
     expect(nombres(resultado).slice(1)).toEqual(['Arte', 'Biología', 'Lengua'])
+  })
+})
+
+describe('franjasOcupadas', () => {
+  it('junta las franjas de todas las materias con su nombre', () => {
+    expect(franjasOcupadas([lengua, arte])).toEqual([
+      { materia: 'Lengua', dia_semana: 2, hora_inicio: '09:00', hora_fin: '10:00' },
+      { materia: 'Arte', dia_semana: 1, hora_inicio: '08:00', hora_fin: '09:00' },
+    ])
+  })
+
+  it('deja afuera la materia que se está editando', () => {
+    expect(franjasOcupadas([lengua, arte], lengua.id).map((franja) => franja.materia)).toEqual([
+      'Arte',
+    ])
   })
 })

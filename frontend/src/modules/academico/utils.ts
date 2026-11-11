@@ -465,6 +465,23 @@ export function textoAlumnos(cantidad: number): string {
   return `${cantidad} ${cantidad === 1 ? 'alumno' : 'alumnos'}`
 }
 
+/** Franjas de las materias de la división, salvo la de `excluirId` (la que se está editando). */
+export function franjasOcupadas(
+  materiasCurso: MateriaCurso[],
+  excluirId?: string,
+): FranjaOcupada[] {
+  return materiasCurso
+    .filter((materiaCurso) => materiaCurso.id !== excluirId)
+    .flatMap((materiaCurso) =>
+      materiaCurso.horarios.map((horario) => ({
+        materia: materiaCurso.materia_nombre ?? 'otra materia',
+        dia_semana: horario.dia_semana,
+        hora_inicio: horario.hora_inicio,
+        hora_fin: horario.hora_fin,
+      })),
+    )
+}
+
 /** Nombres de las otras materias de la división cuyas franjas se pisan con las de esta. */
 export function materiasEnConflicto(
   materiaCurso: MateriaCurso,
