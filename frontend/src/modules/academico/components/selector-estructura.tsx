@@ -68,17 +68,10 @@ export function AccionesSelector({
 }) {
   return (
     <>
-      <BotonIcono 
-        etiqueta={`Agregar ${nombre}`} 
-        disabled={deshabilitado} 
-        onClick={onAgregar}
-      >
+      <BotonIcono etiqueta={`Agregar ${nombre}`} disabled={deshabilitado} onClick={onAgregar}>
         <PlusIcon />
       </BotonIcono>
-      <BotonIcono 
-        etiqueta={`Editar ${nombre}`} 
-        disabled={deshabilitado} 
-        onClick={onEditar}>
+      <BotonIcono etiqueta={`Editar ${nombre}`} disabled={deshabilitado} onClick={onEditar}>
         <PencilIcon />
       </BotonIcono>
     </>

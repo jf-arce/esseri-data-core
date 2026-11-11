@@ -3,13 +3,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 export type Vista = 'materias' | 'horario'
 
-export function VistaTabs({
-  vista,
-  onChange,
-}: {
-  vista: Vista
-  onChange: (vista: Vista) => void
-}) {
+export function VistaTabs({ vista, onChange }: { vista: Vista; onChange: (vista: Vista) => void }) {
   return (
     <Tabs
       value={vista}
