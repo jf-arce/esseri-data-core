@@ -2,10 +2,15 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MateriaCursoDialog } from '@/modules/academico/components/materia-curso-dialog'
-import { crearMateriaCurso } from '@/modules/academico/services/materias-curso'
+import { actualizarMateria } from '@/modules/academico/services/materias'
+import {
+  actualizarMateriaCurso,
+  crearMateriaCurso,
+} from '@/modules/academico/services/materias-curso'
 import { COLORES_SUGERIDOS } from '@/modules/academico/utils'
 import type { Materia, MateriaCurso } from '@/modules/academico/types'
 
+vi.mock('@/modules/academico/services/materias')
 vi.mock('@/modules/academico/services/materias-curso')
 
 beforeEach(() => vi.resetAllMocks())
@@ -105,5 +110,40 @@ describe('MateriaCursoDialog', () => {
         materia_color: color,
       }),
     )
+  })
+
+  describe('color al editar', () => {
+    const item: MateriaCurso = {
+      ...materiaCursoCreada,
+      materia_id: 'm1',
+      materia_nombre: 'Lengua',
+      horarios: [{ id: 'h1', dia_semana: 1, hora_inicio: '08:00:00', hora_fin: '09:00:00' }],
+    }
+
+    it('cambia el color de la materia y guarda', async () => {
+      vi.mocked(actualizarMateria).mockResolvedValue(catalogo[0])
+      vi.mocked(actualizarMateriaCurso).mockResolvedValue(item)
+      const usuario = userEvent.setup()
+      abrir({ modo: 'editar', item })
+
+      await usuario.click(screen.getByRole('button', { name: 'Elegir color' }))
+      const campo = screen.getByRole('textbox', { name: 'Color en hexadecimal' })
+      await usuario.tripleClick(campo)
+      await usuario.paste('#16a34a')
+      await usuario.click(screen.getByRole('button', { name: /guardar/i }))
+
+      expect(actualizarMateria).toHaveBeenCalledWith('m1', { color: '#16a34a' })
+      expect(actualizarMateriaCurso).toHaveBeenCalled()
+    })
+
+    it('no toca la materia si no se cambió el color', async () => {
+      vi.mocked(actualizarMateriaCurso).mockResolvedValue(item)
+      const usuario = userEvent.setup()
+      abrir({ modo: 'editar', item })
+
+      await usuario.click(screen.getByRole('button', { name: /guardar/i }))
+
+      expect(actualizarMateria).not.toHaveBeenCalled()
+    })
   })
 })

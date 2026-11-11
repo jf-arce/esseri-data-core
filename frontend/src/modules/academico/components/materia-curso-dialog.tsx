@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { actualizarMateria } from '@/modules/academico/services/materias'
 import {
   actualizarMateriaCurso,
   crearMateriaCurso,
@@ -109,6 +110,8 @@ export function MateriaCursoDialog({
   const [nuevaMateriaNombre, setNuevaMateriaNombre] = useState('')
   const [nuevaMateriaTipo, setNuevaMateriaTipo] = useState<TipoMateria>('materia')
   const [nuevaMateriaColor, setNuevaMateriaColor] = useState(colorAleatorio)
+  // Color elegido al editar; null mientras no se toque (se conserva el de la materia).
+  const [colorEditado, setColorEditado] = useState<string | null>(null)
   // Sin un hueco elegido en la grilla, propone la primera hora libre de la división.
   const franjaPorDefecto = () => franjaInicial ?? primeraFranjaLibre(horariosOcupados)
   const [franjas, setFranjas] = useState<FranjaForm[]>(
@@ -128,6 +131,7 @@ export function MateriaCursoDialog({
     setNuevaMateriaNombre('')
     setNuevaMateriaTipo('materia')
     setNuevaMateriaColor(colorAleatorio())
+    setColorEditado(null)
     setFranjas(
       item?.horarios.length
         ? item.horarios.map((horario) => ({
@@ -203,7 +207,7 @@ export function MateriaCursoDialog({
       }
 
       if (crearNueva && nuevaMateriaDuplicada) {
-        setError('Ya existe una materia con ese nombre en el catálogo.')
+        setError('Ya existe una materia con ese nombre.')
         return
       }
 
@@ -214,6 +218,9 @@ export function MateriaCursoDialog({
       }))
 
       if (esEdicion && item) {
+        if (colorEditado && colorEditado !== item.materia_color && materiaId === item.materia_id) {
+          await actualizarMateria(item.materia_id, { color: colorEditado })
+        }
         await actualizarMateriaCurso(item.id, {
           materia_id: materiaId || undefined,
           horarios,
@@ -303,7 +310,7 @@ export function MateriaCursoDialog({
             <FieldLabel>Materia</FieldLabel>
             <Select value={crearNueva ? '__nueva__' : materiaId} onValueChange={cambiarMateria}>
               <SelectTrigger className="w-full" aria-label="Materia">
-                <SelectValue placeholder="Seleccionar materia del catálogo" />
+                <SelectValue placeholder="Seleccionar materia" />
               </SelectTrigger>
               <SelectContent>
                 {catalogoDisponible.map((materia) => (
@@ -329,10 +336,23 @@ export function MateriaCursoDialog({
             </Select>
             {!esEdicion && catalogoDisponible.length === 0 && (
               <p className="text-xs text-texto-3">
-                Esta división ya tiene todas las materias del catálogo. Podés crear una nueva.
+                Esta división ya tiene todas las materias. Podés crear una nueva.
               </p>
             )}
           </Field>
+
+          {esEdicion && item && materiaId === item.materia_id && (
+            <Field>
+              <FieldLabel>Color</FieldLabel>
+              <SelectorColor
+                valor={colorEditado ?? item.materia_color ?? ''}
+                onChange={setColorEditado}
+              />
+              <p className="text-xs text-texto-3">
+                Se cambia en todas las divisiones donde está esta materia.
+              </p>
+            </Field>
+          )}
 
           {crearNueva && (
             <>
@@ -346,9 +366,7 @@ export function MateriaCursoDialog({
                   aria-invalid={nuevaMateriaDuplicada}
                 />
                 {nuevaMateriaDuplicada && (
-                  <p className="text-xs text-error">
-                    Ya existe una materia con ese nombre en el catálogo.
-                  </p>
+                  <p className="text-xs text-error">Ya existe una materia con ese nombre.</p>
                 )}
               </Field>
               <Field>
@@ -395,7 +413,7 @@ export function MateriaCursoDialog({
               </p>
             ) : (
               <div className="flex flex-col gap-2">
-                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2 text-xs font-semibold text-texto-2">
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_2.25rem] gap-2 text-xs font-semibold text-texto-2">
                   <span>Día</span>
                   <span>Desde</span>
                   <span>Hasta</span>
@@ -406,7 +424,7 @@ export function MateriaCursoDialog({
                   return (
                     <div
                       key={indice}
-                      className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_2rem] items-center gap-2"
+                      className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_2.25rem] items-center gap-2"
                     >
                       <Select
                         value={String(franja.dia_semana)}
@@ -457,7 +475,7 @@ export function MateriaCursoDialog({
                       />
                       <BotonIcono
                         etiqueta={`Eliminar franja ${indice + 1}`}
-                        className="text-error hover:text-error"
+                        className="size-9 text-error hover:text-error"
                         onClick={() => quitarFranja(indice)}
                       >
                         <Trash2Icon />
@@ -468,7 +486,7 @@ export function MateriaCursoDialog({
               </div>
             )}
 
-            <Button variant="secondary" size="sm" onClick={agregarFranja} className="self-start">
+            <Button variant="secondary" onClick={agregarFranja} className="self-start">
               <PlusIcon />
               Agregar franja
             </Button>
