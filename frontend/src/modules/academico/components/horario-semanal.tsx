@@ -1,6 +1,7 @@
 import { PlusIcon, PrinterIcon, XIcon } from 'lucide-react'
 import { useRef, useState, type PointerEvent } from 'react'
 import { Button } from '@/components/ui/button'
+import { ExportarHorario } from '@/modules/academico/components/exportar-horario'
 import { BloqueHorario } from '@/modules/academico/components/bloque-horario'
 import { FantasmaHorario } from '@/modules/academico/components/fantasma-horario'
 import {
@@ -36,6 +37,8 @@ interface HorarioSemanalProps {
   puedeEditar: boolean
   /** Título que aparece solo al imprimir. */
   tituloImpresion?: string
+  /** División del horario; habilita exportar y compartir el Excel. */
+  divisionId?: string
   onEditar: (materiaCurso: MateriaCurso) => void
   onEliminar: (materiaCurso: MateriaCurso) => void
   onAsignarDocente?: (materiaCurso: MateriaCurso) => void
@@ -55,6 +58,7 @@ export function HorarioSemanal({
   docentesDe,
   puedeEditar,
   tituloImpresion,
+  divisionId,
   onEditar,
   onEliminar,
   onAsignarDocente,
@@ -196,6 +200,9 @@ export function HorarioSemanal({
           </Button>
         )}
         <div className="ml-auto flex items-center gap-2">
+          {divisionId && (
+            <ExportarHorario divisionId={divisionId} titulo={tituloImpresion ?? 'Horario'} />
+          )}
           <Button variant="secondary" size="sm" onClick={() => window.print()}>
             <PrinterIcon />
             Imprimir

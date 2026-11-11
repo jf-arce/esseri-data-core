@@ -77,6 +77,7 @@ export function DivisionContenido({
           docentesDe={docentesDe}
           puedeEditar={puedeEditar}
           tituloImpresion={`Horario de ${nombre}`}
+          divisionId={division.id}
           onEditar={acciones.editarMateria}
           onEliminar={acciones.eliminarMateria}
           onAsignarDocente={acciones.asignarDocente}
