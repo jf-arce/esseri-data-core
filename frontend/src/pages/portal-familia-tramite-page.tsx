@@ -7,27 +7,17 @@ import {
   ClockIcon,
   ConstructionIcon,
   DownloadIcon,
-  PaperclipIcon,
   XIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import type { FileRejection } from 'react-dropzone'
 import { toast } from 'sonner'
-import { ApiError } from '@/api/client'
-import { Dropzone } from '@/components/dropzone'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
 import {
   Select,
   SelectContent,
@@ -36,17 +26,26 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
+import {
+  FormularioAusencia,
+  type ModoFormularioAusencia,
+} from '@/modules/academico/components/formulario-ausencia'
 import { listarAsistenciasFamilia } from '@/modules/academico/services/listar-asistencias-familia'
-import { justificarAsistenciaFamilia } from '@/modules/academico/services/justificar-asistencia-familia'
+import {
+  cancelarSolicitudAusencia,
+  descargarComprobanteSolicitudAusencia,
+  listarSolicitudesAusenciaFamilia,
+} from '@/modules/academico/services/solicitudes-ausencia-familia'
 import { descargarComprobanteJustificacionFamilia } from '@/modules/academico/services/descargar-comprobante-justificacion-familia'
-import type { AsistenciaFamilia } from '@/modules/academico/types'
-import { etiquetaMotivoJustificacion, MOTIVOS_JUSTIFICACION } from '@/modules/academico/utils'
-const TIPOS_COMPROBANTE = {
-  'application/pdf': ['.pdf'],
-  'image/jpeg': ['.jpg', '.jpeg'],
-  'image/png': ['.png'],
-}
-const MAX_TAMANIO_COMPROBANTE = 5 * 1024 * 1024
+import type {
+  AsistenciaFamilia,
+  EstadoSolicitudPeriodo,
+  SolicitudAusenciaPeriodo,
+} from '@/modules/academico/types'
+import {
+  etiquetaMotivoJustificacion,
+  VARIANTE_ESTADO_SOLICITUD_PERIODO,
+} from '@/modules/academico/utils'
 const HISTORIAL_REGISTROS_POR_PAGINA = 5
 
 function etiquetaAsistencia(asistencia: AsistenciaFamilia) {
@@ -93,9 +92,26 @@ type PortalFamiliaTramitePageProps = {
   titulo: string
   descripcion: string
   seccionInicial?: SeccionAsistencia
+  modo?: ModoFormularioAusencia | 'asistencias'
+  abrirFormularioInicial?: boolean
 }
 
-type SeccionAsistencia = 'resumen' | 'pendientes' | 'historial'
+type SeccionAsistencia = 'resumen' | 'pendientes' | 'historial' | 'solicitudes'
+
+function etiquetaEstadoSolicitud(estado: EstadoSolicitudPeriodo): string {
+  const etiquetas: Record<EstadoSolicitudPeriodo, string> = {
+    pendiente: 'Pendiente',
+    aprobada: 'Aprobada',
+    rechazada: 'Rechazada',
+    cancelada: 'Cancelada',
+    revocada: 'Revocada',
+  }
+  return etiquetas[estado]
+}
+
+function formatearFecha(fecha: string): string {
+  return new Date(`${fecha}T00:00:00`).toLocaleDateString('es-AR')
+}
 
 type FiltroHistorial = 'todas' | 'inasistencias' | 'asistencias' | 'tardanzas'
 type OrdenHistorial = 'fecha-desc' | 'fecha-asc'
@@ -141,20 +157,24 @@ export function PortalFamiliaTramitePage({
   titulo,
   descripcion,
   seccionInicial,
+  modo,
+  abrirFormularioInicial = false,
 }: PortalFamiliaTramitePageProps) {
-  const esAsistencias = titulo === 'Asistencias'
-  const esJustificacion = esAsistencias || titulo === 'Justificar una ausencia'
+  const modoEfectivo = modo ?? (titulo === 'Asistencias' ? 'asistencias' : 'justificar')
+  const esAsistencias = modoEfectivo === 'asistencias'
+  const esJustificacion = true
   const { alumnos } = useMisAlumnos(esJustificacion)
   const [asistencias, setAsistencias] = useState<AsistenciaFamilia[]>([])
+  const [solicitudes, setSolicitudes] = useState<SolicitudAusenciaPeriodo[]>([])
   const [alumnoId, setAlumnoId] = useState('')
-  const [asistenciaAJustificar, setAsistenciaAJustificar] = useState<string | null>(null)
-  const [motivoSeleccionado, setMotivoSeleccionado] = useState('')
-  const [motivoOtro, setMotivoOtro] = useState('')
-  const [observacion, setObservacion] = useState('')
-  const [comprobante, setComprobante] = useState<File | undefined>()
-  const [errorComprobante, setErrorComprobante] = useState<string | null>(null)
-  const [errorEnvio, setErrorEnvio] = useState<string | null>(null)
-  const [guardando, setGuardando] = useState(false)
+  const [formularioAbierto, setFormularioAbierto] = useState(
+    modoEfectivo === 'informar' || abrirFormularioInicial,
+  )
+  const [formularioModo, setFormularioModo] = useState<ModoFormularioAusencia>(
+    modoEfectivo === 'informar' ? 'informar' : 'justificar',
+  )
+  const [fechaInicial, setFechaInicial] = useState<string | undefined>()
+  const [revision, setRevision] = useState(0)
   const [detalleExpandido, setDetalleExpandido] = useState<string | null>(null)
   const [historialFechaDesde, setHistorialFechaDesde] = useState('')
   const [historialFechaHasta, setHistorialFechaHasta] = useState('')
@@ -165,6 +185,18 @@ export function PortalFamiliaTramitePage({
     seccionInicial ?? (esAsistencias ? 'resumen' : 'pendientes'),
   )
   const alumnoSeleccionado = alumnoId || alumnos[0]?.alumno_id || ''
+  const solicitudesActivas = useMemo(
+    () =>
+      solicitudes.filter(
+        (solicitud) => solicitud.estado === 'pendiente' || solicitud.estado === 'aprobada',
+      ),
+    [solicitudes],
+  )
+  function cubiertaPorPeriodo(fecha: string) {
+    return solicitudesActivas.some(
+      (solicitud) => solicitud.fecha_inicio <= fecha && solicitud.fecha_fin >= fecha,
+    )
+  }
   const asistenciasPendientes = asistencias.filter(esPendiente)
   const asistenciasHistorial = asistencias.filter((asistencia) => !esPendiente(asistencia))
   const resumenAsistencias = resumirAsistencias(asistencias)
@@ -200,86 +232,44 @@ export function PortalFamiliaTramitePage({
         { clave: 'resumen', etiqueta: 'Resumen' },
         { clave: 'pendientes', etiqueta: 'Justificar asistencia' },
         { clave: 'historial', etiqueta: 'Historial' },
+        { clave: 'solicitudes', etiqueta: 'Solicitudes' },
       ]
     : [
         { clave: 'pendientes', etiqueta: 'Pendientes' },
         { clave: 'historial', etiqueta: 'Historial' },
+        { clave: 'solicitudes', etiqueta: 'Solicitudes' },
       ]
   useEffect(() => {
-    if (alumnoSeleccionado)
-      listarAsistenciasFamilia(alumnoSeleccionado)
-        .then(setAsistencias)
-        .catch(() => setAsistencias([]))
-  }, [alumnoSeleccionado])
-  async function enviarJustificacion() {
-    const detalleOtro = motivoSeleccionado === 'otro' ? motivoOtro.trim() : ''
-    if (
-      !asistenciaAJustificar ||
-      !motivoSeleccionado ||
-      (motivoSeleccionado === 'otro' && !detalleOtro)
-    ) {
-      return
+    if (!alumnoSeleccionado) return
+    let activo = true
+    void Promise.all([
+      listarAsistenciasFamilia(alumnoSeleccionado).catch(() => [] as AsistenciaFamilia[]),
+      listarSolicitudesAusenciaFamilia(alumnoSeleccionado).catch(
+        () => [] as SolicitudAusenciaPeriodo[],
+      ),
+    ]).then(([asistenciasCargadas, solicitudesCargadas]) => {
+      if (!activo) return
+      setAsistencias(asistenciasCargadas)
+      setSolicitudes(solicitudesCargadas)
+    })
+    return () => {
+      activo = false
     }
-    const observacionFinal = [
-      detalleOtro ? `Detalle del motivo: ${detalleOtro}` : '',
-      observacion.trim(),
-    ]
-      .filter(Boolean)
-      .join('\n')
-    setGuardando(true)
-    setErrorEnvio(null)
+  }, [alumnoSeleccionado, revision])
+  async function cancelarSolicitud(solicitud: SolicitudAusenciaPeriodo) {
+    if (!window.confirm('¿Cancelar esta solicitud de ausencia?')) return
     try {
-      const justificacion = await justificarAsistenciaFamilia(
-        asistenciaAJustificar,
-        motivoSeleccionado,
-        observacionFinal,
-        comprobante,
-      )
-      setAsistencias((actuales) =>
-        actuales.map((asistencia) =>
-          asistencia.id === justificacion.asistencia_id
-            ? {
-                ...asistencia,
-                justificacion_id: justificacion.id,
-                justificacion_estado: justificacion.estado,
-              }
-            : asistencia,
-        ),
-      )
-      cerrarFormulario()
-      toast.success('Justificación enviada. Quedará en revisión.')
-      if (alumnoSeleccionado) {
-        listarAsistenciasFamilia(alumnoSeleccionado)
-          .then(setAsistencias)
-          .catch(() => undefined)
-      }
-    } catch (causa) {
-      const mensaje =
-        causa instanceof ApiError
-          ? (causa.detail ?? 'No se pudo enviar la justificación.')
-          : 'No se pudo enviar la justificación. Intentá de nuevo.'
-      setErrorEnvio(mensaje)
-      toast.error(mensaje)
-    } finally {
-      setGuardando(false)
+      await cancelarSolicitudAusencia(solicitud.id)
+      toast.success('Solicitud cancelada.')
+      setRevision((valor) => valor + 1)
+    } catch {
+      toast.error('No se pudo cancelar la solicitud.')
     }
   }
-  function adjuntarComprobante(archivos: File[], rechazos: FileRejection[]) {
-    if (rechazos.length > 0) {
-      setErrorComprobante('El comprobante debe ser PDF, JPG o PNG y pesar como máximo 5 MB.')
-      return
-    }
-    setComprobante(archivos[0])
-    setErrorComprobante(null)
-  }
-  function cerrarFormulario() {
-    setAsistenciaAJustificar(null)
-    setMotivoSeleccionado('')
-    setMotivoOtro('')
-    setObservacion('')
-    setComprobante(undefined)
-    setErrorComprobante(null)
-    setErrorEnvio(null)
+  function abrirFormulario(nuevoModo: ModoFormularioAusencia, fecha?: string) {
+    setFormularioModo(nuevoModo)
+    setFechaInicial(fecha)
+    setFormularioAbierto(true)
   }
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-col gap-5">
@@ -299,20 +289,28 @@ export function PortalFamiliaTramitePage({
             <h1 className="mt-1 font-heading text-2xl font-semibold text-texto">{titulo}</h1>
           </div>
           {esJustificacion && alumnos.length > 0 && (
-            <label className="w-full text-sm font-semibold sm:w-56">
-              Alumno
-              <select
-                className="mt-1 block w-full rounded-lg border border-borde bg-superficie p-2"
-                value={alumnoSeleccionado}
-                onChange={(e) => setAlumnoId(e.target.value)}
-              >
-                {alumnos.map((alumno) => (
-                  <option key={alumno.alumno_id} value={alumno.alumno_id}>
-                    {alumno.nombre} {alumno.apellido}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="flex w-full flex-wrap items-end gap-2 sm:w-auto">
+              <div className="w-full sm:w-56">
+                <Field>
+                  <FieldLabel htmlFor="familia-alumno">Alumno</FieldLabel>
+                  <Select value={alumnoSeleccionado} onValueChange={setAlumnoId}>
+                    <SelectTrigger id="familia-alumno" className="w-full">
+                      <SelectValue placeholder="Seleccioná un alumno" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {alumnos.map((alumno) => (
+                        <SelectItem key={alumno.alumno_id} value={alumno.alumno_id}>
+                          {alumno.nombre} {alumno.apellido}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+              <Button variant="secondary" onClick={() => abrirFormulario('informar')}>
+                Informar ausencia
+              </Button>
+            </div>
           )}
         </div>
       </header>
@@ -329,7 +327,9 @@ export function PortalFamiliaTramitePage({
               <div
                 role="tablist"
                 aria-label="Sección de asistencias"
-                className={`grid gap-1 rounded-lg bg-fila-hover p-1 ${opcionesSeccion.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}
+                className={`grid gap-1 rounded-lg bg-fila-hover p-1 ${
+                  opcionesSeccion.length === 4 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'
+                }`}
               >
                 {opcionesSeccion.map(({ clave, etiqueta }) => {
                   const seleccionada = seccionAsistencia === clave
@@ -428,17 +428,17 @@ export function PortalFamiliaTramitePage({
                             </span>
                             <span className="text-texto-2">{etiquetaAsistencia(asistencia)}</span>
                             {iconoEstadoJustificacion(asistencia.justificacion_estado)}
-                            {!asistencia.justificacion_estado && (
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  setAsistenciaAJustificar(asistencia.id)
-                                  setErrorEnvio(null)
-                                }}
-                              >
-                                Justificar
-                              </Button>
-                            )}
+                            {!asistencia.justificacion_estado &&
+                              (cubiertaPorPeriodo(asistencia.fecha) ? (
+                                <span className="text-xs text-texto-3">Cubierta por solicitud</span>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  onClick={() => abrirFormulario('justificar', asistencia.fecha)}
+                                >
+                                  Justificar
+                                </Button>
+                              ))}
                           </div>
                         </div>
                       ))}
@@ -446,6 +446,81 @@ export function PortalFamiliaTramitePage({
                   ) : (
                     <p className="rounded-lg border border-dashed border-borde p-4 text-sm text-texto-2">
                       No tenés ausencias pendientes de justificar.
+                    </p>
+                  )}
+                </section>
+              ) : seccionAsistencia === 'solicitudes' ? (
+                <section
+                  id="asistencias-panel-solicitudes"
+                  role="tabpanel"
+                  aria-labelledby="asistencias-tab-solicitudes"
+                  tabIndex={0}
+                >
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-sm font-semibold text-texto">Solicitudes de ausencia</h2>
+                    <Button size="sm" onClick={() => abrirFormulario('informar')}>
+                      Informar ausencia
+                    </Button>
+                  </div>
+                  {solicitudes.length > 0 ? (
+                    <div className="divide-y divide-borde rounded-lg border border-borde">
+                      {solicitudes.map((solicitud) => (
+                        <div
+                          key={solicitud.id}
+                          className="p-3 text-sm first:rounded-t-lg last:rounded-b-lg"
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="flex-1">
+                              {formatearFecha(solicitud.fecha_inicio)}
+                              {solicitud.fecha_fin !== solicitud.fecha_inicio
+                                ? ` — ${formatearFecha(solicitud.fecha_fin)}`
+                                : ''}
+                            </span>
+                            <Badge variant={VARIANTE_ESTADO_SOLICITUD_PERIODO[solicitud.estado]}>
+                              {etiquetaEstadoSolicitud(solicitud.estado)}
+                            </Badge>
+                            {solicitud.estado === 'pendiente' && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => void cancelarSolicitud(solicitud)}
+                              >
+                                Cancelar
+                              </Button>
+                            )}
+                          </div>
+                          <p className="mt-1 text-texto-2">
+                            Motivo: {etiquetaMotivoJustificacion(solicitud.motivo)}
+                          </p>
+                          {solicitud.observacion && (
+                            <p className="text-texto-2">Observación: {solicitud.observacion}</p>
+                          )}
+                          {solicitud.observacion_resolucion && (
+                            <p className="text-texto-2">
+                              Resolución: {solicitud.observacion_resolucion}
+                            </p>
+                          )}
+                          {solicitud.archivo_nombre && (
+                            <Button
+                              variant="link"
+                              className="mt-1 h-auto p-0 text-sm"
+                              onClick={() =>
+                                void descargarComprobanteSolicitudAusencia(
+                                  solicitud.id,
+                                  solicitud.archivo_nombre ?? 'comprobante',
+                                )
+                              }
+                            >
+                              <DownloadIcon data-icon="inline-start" />
+                              {solicitud.archivo_nombre}
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="rounded-lg border border-dashed border-borde p-4 text-sm text-texto-2">
+                      Todavía no informaste ausencias por período.
                     </p>
                   )}
                 </section>
@@ -666,100 +741,15 @@ export function PortalFamiliaTramitePage({
           )}
         </CardContent>
       </Card>
-      <Dialog
-        open={Boolean(asistenciaAJustificar)}
-        onOpenChange={(abierto) => {
-          if (!abierto) cerrarFormulario()
-        }}
-      >
-        <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Justificar ausencia</DialogTitle>
-            <DialogDescription>
-              Informá el motivo y adjuntá el comprobante correspondiente.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3">
-            <label className="block text-sm">
-              Motivo
-              <select
-                className="mt-1 w-full rounded-lg border border-borde bg-superficie p-2"
-                value={motivoSeleccionado}
-                onChange={(e) => setMotivoSeleccionado(e.target.value)}
-              >
-                <option value="" disabled>
-                  Seleccioná un motivo
-                </option>
-                {MOTIVOS_JUSTIFICACION.map((opcion) => (
-                  <option key={opcion.value} value={opcion.value}>
-                    {opcion.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {motivoSeleccionado === 'otro' && (
-              <label className="mt-3 block text-sm">
-                Especificá el motivo
-                <input
-                  className="mt-1 w-full rounded-lg border border-borde bg-superficie p-2"
-                  value={motivoOtro}
-                  onChange={(e) => setMotivoOtro(e.target.value)}
-                />
-              </label>
-            )}
-            <label className="mt-3 block text-sm">
-              Observación
-              <textarea
-                className="mt-1 w-full rounded-lg border border-borde bg-superficie p-2"
-                value={observacion}
-                onChange={(e) => setObservacion(e.target.value)}
-              />
-            </label>
-            <div className="mt-3">
-              <p className="text-sm">Adjuntar comprobante (opcional)</p>
-              <Dropzone
-                accept={TIPOS_COMPROBANTE}
-                maxSize={MAX_TAMANIO_COMPROBANTE}
-                onDrop={adjuntarComprobante}
-                label={
-                  comprobante
-                    ? comprobante.name
-                    : 'Arrastrá el comprobante o hacé clic para adjuntar'
-                }
-                hint="PDF, JPG o PNG · Máximo 5 MB"
-                className="mt-1"
-              />
-              {comprobante && (
-                <p className="mt-2 flex items-center gap-1.5 text-xs text-texto-2">
-                  <PaperclipIcon className="size-3.5" aria-hidden="true" />
-                  {comprobante.name}
-                </p>
-              )}
-              {errorComprobante && <p className="mt-2 text-xs text-error">{errorComprobante}</p>}
-            </div>
-            <div className="mt-3 flex gap-2">
-              <Button variant="secondary" onClick={cerrarFormulario}>
-                Cancelar
-              </Button>
-              <Button
-                disabled={
-                  !motivoSeleccionado ||
-                  (motivoSeleccionado === 'otro' && !motivoOtro.trim()) ||
-                  guardando
-                }
-                onClick={() => void enviarJustificacion()}
-              >
-                Enviar justificación
-              </Button>
-            </div>
-            {errorEnvio && (
-              <p className="mt-3 text-sm text-error" role="alert">
-                {errorEnvio}
-              </p>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <FormularioAusencia
+        key={`${formularioModo}-${fechaInicial ?? 'sin-fecha'}-${formularioAbierto ? 'abierto' : 'cerrado'}`}
+        abierto={formularioAbierto}
+        modo={formularioModo}
+        alumnoId={alumnoSeleccionado}
+        fechaInicial={fechaInicial}
+        onOpenChange={setFormularioAbierto}
+        onEnviado={() => setRevision((valor) => valor + 1)}
+      />
     </section>
   )
 }

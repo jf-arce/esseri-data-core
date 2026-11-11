@@ -12,7 +12,12 @@ from dataclasses import dataclass
 import httpx
 
 from src.config import settings
-from src.workflows.exceptions import N8nEnvioFallido, N8nNoConfigurado, N8nNoDisponible
+from src.workflows.exceptions import (
+    N8nEnvioFallido,
+    N8nNoConfigurado,
+    N8nNoDisponible,
+    N8nResultadoIncierto,
+)
 
 TIMEOUT_SEGUNDOS = 10.0
 _ESTADOS_MANUALES = frozenset({"presentado", "fallido", "incierto"})
@@ -48,8 +53,18 @@ def enviar_email(
             respuesta.raise_for_status()
     except httpx.HTTPStatusError as error:
         raise N8nEnvioFallido(f"n8n respondió {error.response.status_code}.") from error
-    except httpx.HTTPError as error:
+    except (httpx.InvalidURL, httpx.UnsupportedProtocol) as error:
+        raise N8nNoConfigurado() from error
+    except (
+        httpx.LocalProtocolError,
+        httpx.PoolTimeout,
+        httpx.ProxyError,
+        httpx.ConnectError,
+        httpx.ConnectTimeout,
+    ) as error:
         raise N8nNoDisponible() from error
+    except (httpx.TimeoutException, httpx.TransportError) as error:
+        raise N8nResultadoIncierto() from error
 
 
 @dataclass(frozen=True)

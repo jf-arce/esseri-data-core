@@ -256,6 +256,56 @@ export type JustificacionFamilia = {
   fecha_resolucion?: string | null
 }
 
+export type EstadoSolicitudPeriodo =
+  'pendiente' | 'aprobada' | 'rechazada' | 'cancelada' | 'revocada'
+
+export type SolicitudAusenciaPeriodo = {
+  id: string
+  alumno_id: string
+  fecha_inicio: string
+  fecha_fin: string
+  estado: EstadoSolicitudPeriodo
+  motivo: string
+  observacion: string | null
+  observacion_resolucion: string | null
+  archivo_nombre: string | null
+  fecha_carga: string
+  fecha_resolucion: string | null
+}
+
+export type SolicitudAusenciaPeriodoAdmin = SolicitudAusenciaPeriodo & {
+  alumno_nombre: string
+  familia_id: string
+}
+
+export type SolicitudesPeriodoResumen = {
+  pendientes: number
+  aprobadas: number
+  rechazadas: number
+  canceladas: number
+  revocadas: number
+  total: number
+}
+
+export type SolicitudesPeriodoPaginadas = {
+  items: SolicitudAusenciaPeriodoAdmin[]
+  total: number
+  pagina: number
+  tamanio_pagina: number
+  total_paginas: number
+  resumen: SolicitudesPeriodoResumen
+}
+
+export type FiltrosSolicitudesPeriodo = {
+  alumno_id?: string
+  estado?: EstadoSolicitudPeriodo
+  busqueda?: string
+  fecha_desde?: string
+  fecha_hasta?: string
+  pagina?: number
+  tamanio_pagina?: number
+}
+
 export type JustificacionesResumen = {
   pendientes: number
   aprobadas: number

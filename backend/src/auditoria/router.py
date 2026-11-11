@@ -24,8 +24,13 @@ class HistorialEntradaRead(BaseModel):
     valor_anterior: str | None
     valor_nuevo: str | None
     fecha: datetime
-    usuario_id: uuid.UUID
+    usuario_id: uuid.UUID | None
     usuario_email: str | None
+    actor_tipo: str
+    origen: str | None
+    motivo: str | None
+    referencia_entidad: str | None
+    referencia_id: uuid.UUID | None
 
 
 @router.get("/{entidad}/{entidad_id}", response_model=list[HistorialEntradaRead])

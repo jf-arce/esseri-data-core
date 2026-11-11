@@ -306,6 +306,14 @@ PLANTILLAS_INASISTENCIA = {
         "justificación. Si corresponde, pueden presentarla.\n\n"
         "Saludos cordiales.",
     ),
+    "revocacion": (
+        "Solicitud de ausencia revocada",
+        "Solicitud de ausencia de {{alumno_nombre}} revocada",
+        "Estimada familia:\n\n"
+        "Les informamos que se revocó la solicitud de ausencia de {{alumno_nombre}} para el "
+        "período {{fecha_inicio}} a {{fecha_fin}}. Motivo: {{motivo}}.\n\n"
+        "Saludos cordiales.",
+    ),
 }
 REGLAS_INASISTENCIA = [
     {
@@ -346,6 +354,14 @@ REGLAS_INASISTENCIA = [
             "enlace": "familia_justificar",
         },
         "plantilla": "recordatorio",
+    },
+    {
+        "nombre": "Solicitud de ausencia revocada: avisar a la familia",
+        "evento": "solicitud_ausencia_periodo.revocada",
+        "condicion": {},
+        "tipo_accion": "notificar",
+        "accion_config": {"destinatario": "responsables_habilitados"},
+        "plantilla": "revocacion",
     },
 ]
 
@@ -570,11 +586,7 @@ def _ensure_academico(db, ciclo: str):
     def materia(nombre: str, tipo: str = "materia") -> Materia:
         """Materia del catálogo global (se crea una sola vez)."""
         normalizado = normalizar_texto_busqueda(nombre)
-        row = db.scalar(
-            select(Materia)
-            .where(Materia.nombre_normalizado == normalizado)
-            .limit(1)
-        )
+        row = db.scalar(select(Materia).where(Materia.nombre_normalizado == normalizado).limit(1))
         if row is None:
             row = Materia(nombre=nombre, tipo=tipo)
             db.add(row)

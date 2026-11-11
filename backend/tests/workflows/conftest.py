@@ -127,14 +127,18 @@ def seed_demo():
 
 @pytest.fixture()
 def tipos_inasistencia(db_session):
-    """Los dos eventos de asistencia de Académico, con los campos del catálogo real."""
+    """Eventos de asistencia y revocación de período, con los campos del catálogo real."""
     registrada = TipoEvento(
         nombre="inasistencia.registrada", descripcion="Se registró una inasistencia o tardanza"
     )
     justificada = TipoEvento(
         nombre="inasistencia.justificada", descripcion="Se resolvió la justificación"
     )
-    db_session.add_all([registrada, justificada])
+    revocacion = TipoEvento(
+        nombre="solicitud_ausencia_periodo.revocada",
+        descripcion="Se revocó una solicitud de ausencia por período",
+    )
+    db_session.add_all([registrada, justificada, revocacion])
     db_session.flush()
     campos = {
         registrada: [
@@ -147,6 +151,12 @@ def tipos_inasistencia(db_session):
             ("fecha_resolucion", "fecha"),
             ("motivo", "texto"),
         ],
+        revocacion: [
+            ("alumno_nombre", "texto"),
+            ("motivo", "texto"),
+            ("fecha_inicio", "fecha"),
+            ("fecha_fin", "fecha"),
+        ],
     }
     for tipo, definiciones in campos.items():
         db_session.add_all(
@@ -156,7 +166,7 @@ def tipos_inasistencia(db_session):
             for nombre, tipo_dato in definiciones
         )
     db_session.commit()
-    return {"registrada": registrada, "justificada": justificada}
+    return {"registrada": registrada, "justificada": justificada, "revocacion": revocacion}
 
 
 @pytest.fixture()

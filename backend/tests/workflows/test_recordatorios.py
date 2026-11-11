@@ -2,14 +2,18 @@
 cumplen sus `dias_despues`, y solo manda el aviso si la inasistencia sigue sin justificar."""
 
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 from sqlalchemy import select
 
-from src.academico.models import JustificacionInasistencia
+from src.academico.models import JustificacionInasistencia, MotivoJustificacion
+from src.academico.solicitud_periodo_service import (
+    crear_solicitud_periodo,
+    resolver_solicitud_periodo,
+)
 from src.auth.models import Usuario
-from src.models import EventLog
+from src.models import AuditLog, EventLog
 from src.workflows import despacho_service, ejecuciones_service
 from src.workflows.constants import VENTANA_RECORDATORIOS_DIAS
 from src.workflows.exceptions import N8nEnvioFallido
@@ -136,6 +140,155 @@ def test_al_cumplirse_los_dias_manda_el_recordatorio_a_los_responsables(
     assert len(db_session.scalars(select(Notificacion)).all()) == 1
 
 
+def test_ausencia_cubierta_por_periodo_no_envia_aviso_y_audita_suspension(
+    db_session, tipos_inasistencia, familia, plantilla, envios
+):
+    _regla(
+        db_session,
+        tipos_inasistencia,
+        plantilla,
+        tipo_accion="notificar",
+        config={"destinatario": "responsables_habilitados"},
+    )
+    asistencia = _asistencia(db_session, familia)
+    evento = _evento(db_session, tipos_inasistencia, asistencia, hace_dias=0)
+    evento.estado = "pendiente"
+    db_session.commit()
+    usuario = db_session.scalar(select(Usuario).where(Usuario.email == familia["email"]))
+    motivo = MotivoJustificacion(nombre="enfermedad-cobertura", activo=True)
+    admin = Usuario(email="admin-cobertura@example.test", auth_provider="local", estado="activo")
+    db_session.add_all([motivo, admin])
+    db_session.commit()
+    solicitud = crear_solicitud_periodo(
+        db_session,
+        usuario,
+        familia["datos"]["alumno_id"],
+        date(2027, 3, 3),
+        date(2027, 3, 3),
+        "enfermedad-cobertura",
+        None,
+    )
+    resolver_solicitud_periodo(db_session, admin, solicitud.id, True, None)
+
+    despacho_service.procesar_eventos_pendientes(db_session)
+
+    assert envios.enviados == []
+    ejecucion = db_session.scalars(select(WorkflowExecution)).one()
+    assert "cubierta por una solicitud de período" in ejecucion.detalle
+    auditoria = db_session.scalar(
+        select(AuditLog).where(
+            AuditLog.entidad == "WORKFLOW_EXECUTION",
+            AuditLog.entidad_id == ejecucion.id,
+            AuditLog.campo == "suspension",
+        )
+    )
+    assert auditoria is not None
+    assert auditoria.actor_tipo == "sistema"
+    assert auditoria.origen == "workflow"
+    assert auditoria.referencia_id == solicitud.id
+
+
+def test_solicitud_pendiente_tambien_suspende_el_aviso(
+    db_session, tipos_inasistencia, familia, plantilla, envios
+):
+    _regla(
+        db_session,
+        tipos_inasistencia,
+        plantilla,
+        tipo_accion="notificar",
+        config={"destinatario": "responsables_habilitados"},
+    )
+    asistencia = _asistencia(db_session, familia)
+    evento = _evento(db_session, tipos_inasistencia, asistencia, hace_dias=0)
+    evento.estado = "pendiente"
+    db_session.commit()
+    usuario = db_session.scalar(select(Usuario).where(Usuario.email == familia["email"]))
+    motivo = MotivoJustificacion(nombre="enfermedad-pendiente", activo=True)
+    db_session.add(motivo)
+    db_session.commit()
+    solicitud = crear_solicitud_periodo(
+        db_session,
+        usuario,
+        familia["datos"]["alumno_id"],
+        date(2027, 3, 3),
+        date(2027, 3, 3),
+        "enfermedad-pendiente",
+        None,
+    )
+
+    despacho_service.procesar_eventos_pendientes(db_session)
+
+    assert envios.enviados == []
+    ejecucion = db_session.scalars(select(WorkflowExecution)).one()
+    assert "cubierta por una solicitud de período" in ejecucion.detalle
+    auditoria = db_session.scalar(
+        select(AuditLog).where(
+            AuditLog.entidad == "WORKFLOW_EXECUTION",
+            AuditLog.entidad_id == ejecucion.id,
+            AuditLog.campo == "suspension",
+        )
+    )
+    assert auditoria is not None
+    assert auditoria.referencia_id == solicitud.id
+
+
+def test_alerta_interna_no_se_suspende_por_cobertura(
+    db_session, tipos_inasistencia, familia, plantilla, envios
+):
+    regla = _regla(
+        db_session,
+        tipos_inasistencia,
+        plantilla,
+        tipo_accion="notificar",
+        config={"destinatario": "destinatarios_regla"},
+    )
+    interno = Usuario(email="interno@esseri.test", auth_provider="local", estado="activo")
+    db_session.add(interno)
+    db_session.flush()
+    db_session.add(
+        ReglaDestinatario(
+            destinatario_tipo="usuario",
+            workflow_rule_id=regla.id,
+            usuario_id=interno.id,
+        )
+    )
+    asistencia = _asistencia(db_session, familia)
+    evento = _evento(db_session, tipos_inasistencia, asistencia, hace_dias=0)
+    evento.estado = "pendiente"
+    db_session.commit()
+    usuario = db_session.scalar(select(Usuario).where(Usuario.email == familia["email"]))
+    motivo = MotivoJustificacion(nombre="enfermedad-interna", activo=True)
+    admin = Usuario(email="admin-interna@example.test", auth_provider="local", estado="activo")
+    db_session.add_all([motivo, admin])
+    db_session.commit()
+    solicitud = crear_solicitud_periodo(
+        db_session,
+        usuario,
+        familia["datos"]["alumno_id"],
+        date(2027, 3, 3),
+        date(2027, 3, 3),
+        "enfermedad-interna",
+        None,
+    )
+    resolver_solicitud_periodo(db_session, admin, solicitud.id, True, None)
+
+    despacho_service.procesar_eventos_pendientes(db_session)
+
+    assert len(envios.enviados) == 1
+    assert envios.enviados[0][0] == interno.email
+    ejecucion = db_session.scalars(select(WorkflowExecution)).one()
+    assert (
+        db_session.query(AuditLog)
+        .filter_by(
+            entidad="WORKFLOW_EXECUTION",
+            entidad_id=ejecucion.id,
+            campo="suspension",
+        )
+        .count()
+        == 0
+    )
+
+
 def test_el_recordatorio_se_manda_una_sola_vez(
     db_session, tipos_inasistencia, familia, plantilla, envios
 ):
@@ -179,6 +332,22 @@ def _con_justificacion_cargada(db, familia, asistencia):
     db.commit()
 
 
+def _con_solicitud_periodo(db, familia, asistencia):
+    usuario = db.scalar(select(Usuario).where(Usuario.email == familia["email"]))
+    motivo = MotivoJustificacion(nombre="enfermedad-periodo", activo=True)
+    db.add(motivo)
+    db.commit()
+    crear_solicitud_periodo(
+        db,
+        usuario,
+        familia["datos"]["alumno_id"],
+        date(2027, 3, 1),
+        date(2027, 3, 5),
+        "enfermedad-periodo",
+        None,
+    )
+
+
 def _resuelta_como_justificada(db, familia, asistencia):
     asistencia.tipo = "ausente_justificado"
     db.commit()
@@ -198,6 +367,7 @@ def _borrada(db, familia, asistencia):
     ("cambio", "motivo"),
     [
         (_con_justificacion_cargada, "la familia ya cargó una justificación"),
+        (_con_solicitud_periodo, "la familia ya informó una ausencia por período"),
         (_resuelta_como_justificada, "la inasistencia ya está resuelta"),
         (_resuelta_como_injustificada, "la inasistencia ya está resuelta"),
         (_borrada, "la asistencia ya no existe"),

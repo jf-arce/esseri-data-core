@@ -155,9 +155,9 @@ class TestAuditoriaDocente:
         eliminar_docente(db_session, docente, usuario.id)
 
         registros = _historial(db_session, "DOCENTE", docente_id)
-        assert len(registros) == 1
-        assert registros[0].campo == "__eliminacion__"
-        assert registros[0].valor_anterior == "D-001"
+        bajas = [registro for registro in registros if registro.campo == "__eliminacion__"]
+        assert len(bajas) == 1
+        assert bajas[0].valor_anterior == "D-001"
 
 
 class TestAuditoriaAsignacionDocente:

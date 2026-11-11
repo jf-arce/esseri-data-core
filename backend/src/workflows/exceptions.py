@@ -132,9 +132,16 @@ class N8nEnvioFallido(AppException):
 
 
 class N8nNoDisponible(N8nEnvioFallido):
-    """No hubo respuesta de n8n (conexión o timeout), a diferencia de un 4xx/5xx."""
+    """No hubo respuesta de n8n (conexión), a diferencia de un 4xx/5xx."""
 
     def __init__(self, message: str = "No se pudo contactar a n8n."):
+        super().__init__(message)
+
+
+class N8nResultadoIncierto(N8nEnvioFallido):
+    """La conexión llegó a n8n pero no se pudo confirmar si el envío se procesó."""
+
+    def __init__(self, message: str = "No se pudo confirmar el resultado del envío."):
         super().__init__(message)
 
 

@@ -1,5 +1,19 @@
 import type { CSSProperties } from 'react'
-import type { Anio, Division, MateriaCurso, TipoAsistencia } from '@/modules/academico/types'
+import type {
+  Anio,
+  Division,
+  EstadoSolicitudPeriodo,
+  MateriaCurso,
+  TipoAsistencia,
+} from '@/modules/academico/types'
+
+export const VARIANTE_ESTADO_SOLICITUD_PERIODO = {
+  pendiente: 'advertencia',
+  aprobada: 'exito',
+  rechazada: 'error',
+  cancelada: 'neutro',
+  revocada: 'neutro',
+} as const satisfies Record<EstadoSolicitudPeriodo, 'advertencia' | 'exito' | 'error' | 'neutro'>
 
 export const MOTIVOS_JUSTIFICACION = [
   { value: 'enfermedad', label: 'Enfermedad' },

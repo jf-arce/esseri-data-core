@@ -7,6 +7,7 @@ import {
   XIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 import { BackLink } from '@/components/back-link'
@@ -239,6 +240,11 @@ export function JustificacionesPage() {
     <div className="flex flex-col gap-5">
       <BackLink to="/academico" label="Volver a Académico" />
       <PageHeader titulo="Justificaciones" />
+      <div className="flex justify-end">
+        <Button variant="secondary" size="sm" asChild>
+          <Link to="/academico/solicitudes-ausencia">Solicitudes por período</Link>
+        </Button>
+      </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatTile
