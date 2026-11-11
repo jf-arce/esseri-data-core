@@ -32,6 +32,21 @@ export function normalizarTexto(valor: string): string {
     .trim()
 }
 
+export const DIAS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
+
+/** "08:00 a 09:00" a partir de una franja. */
+export function rangoLegible(franja: { hora_inicio: string; hora_fin: string }): string {
+  return `${franja.hora_inicio.slice(0, 5)} a ${franja.hora_fin.slice(0, 5)}`
+}
+
+/** "Pérez, Ana" a "A. Pérez"; con varios docentes, "A. Pérez +1". Sin docentes, `null`. */
+export function abreviarDocentes(docentes: string[]): string | null {
+  if (docentes.length === 0) return null
+  const [apellido, nombre] = docentes[0].split(', ')
+  const primero = nombre ? `${nombre.charAt(0)}. ${apellido}` : docentes[0]
+  return docentes.length > 1 ? `${primero} +${docentes.length - 1}` : primero
+}
+
 const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
 /** Formatea una franja como "Lun 08:00–09:00" (día 1 = lunes). */
@@ -112,6 +127,15 @@ export function franjasSeSuperponen(a: FranjaHoraria, b: FranjaHoraria): boolean
   )
 }
 
+/** Si el destino se pisa con alguna franja visible, ignorando la propia (`idPropio`). */
+export function franjaChoca(
+  franjas: (FranjaHoraria & { id: string })[],
+  destino: FranjaHoraria,
+  idPropio?: string,
+): boolean {
+  return franjas.some((otra) => otra.id !== idPropio && franjasSeSuperponen(destino, otra))
+}
+
 /** Franjas que se pisan entre sí o con las de otras materias de la división. */
 export function buscarConflictos(
   franjas: FranjaHoraria[],
@@ -162,18 +186,25 @@ export function deMinutos(minutos: number): string {
 export type BloqueHorario<T extends FranjaHoraria> = {
   clave: string
   origen: T
-  /** Columna de la grilla (1 es la de las horas). */
-  columna: number
-  /** Líneas de la grilla (1 es el encabezado de días). */
-  filaInicio: number
-  filaFin: number
+  /** Día de la semana (1 = lunes). */
+  dia: number
   superpuesto: boolean
+}
+
+export type RangoGrilla = {
+  dias: number[]
+  /** Hora de la primera fila, en minutos. */
+  inicio: number
+  /** Fin de la última fila, en minutos. */
+  fin: number
 }
 
 export type Grilla<T extends FranjaHoraria> = {
   dias: number[]
   /** Hora de la primera fila, en minutos. */
   inicio: number
+  /** Fin de la última fila, en minutos. */
+  fin: number
   /** Cantidad de filas de 30 minutos. */
   filas: number
   bloques: BloqueHorario<T>[]
@@ -182,27 +213,155 @@ export type Grilla<T extends FranjaHoraria> = {
 /**
  * Posiciona franjas en una grilla semanal: lunes a viernes (más sábado y domingo solo si hay
  * franjas), filas de 30 minutos entre 07:00 y 14:00 como mínimo, ampliadas a la hora completa
- * más cercana si alguna franja queda afuera.
+ * más cercana si alguna franja queda afuera. `rangoMinimo` se une al rango calculado, nunca
+ * lo achica: sirve para que la grilla no cambie de escala mientras se arrastra un bloque.
  */
-export function calcularGrilla<T extends FranjaHoraria>(franjas: T[]): Grilla<T> {
+export function calcularGrilla<T extends FranjaHoraria>(
+  franjas: T[],
+  rangoMinimo?: RangoGrilla,
+): Grilla<T> {
   const diasConFranjas = franjas.map((franja) => franja.dia_semana)
-  const dias = [1, 2, 3, 4, 5, 6, 7].filter((dia) => dia <= 5 || diasConFranjas.includes(dia))
+  const dias = [1, 2, 3, 4, 5, 6, 7].filter(
+    (dia) => dia <= 5 || diasConFranjas.includes(dia) || rangoMinimo?.dias.includes(dia),
+  )
 
   const comienzos = franjas.map((franja) => aMinutos(franja.hora_inicio))
   const finales = franjas.map((franja) => aMinutos(franja.hora_fin))
-  const inicio = Math.floor(Math.min(HORA_MINIMA, ...comienzos) / 60) * 60
-  const fin = Math.ceil(Math.max(HORA_MAXIMA, ...finales) / 60) * 60
+  const inicio =
+    Math.floor(Math.min(HORA_MINIMA, rangoMinimo?.inicio ?? HORA_MINIMA, ...comienzos) / 60) * 60
+  const fin =
+    Math.ceil(Math.max(HORA_MAXIMA, rangoMinimo?.fin ?? HORA_MAXIMA, ...finales) / 60) * 60
 
   const bloques = franjas.map((franja, indice) => ({
     clave: `${indice}-${franja.dia_semana}-${franja.hora_inicio}`,
     origen: franja,
-    columna: 2 + dias.indexOf(franja.dia_semana),
-    filaInicio: 2 + (aMinutos(franja.hora_inicio) - inicio) / MINUTOS_POR_FILA,
-    filaFin: 2 + (aMinutos(franja.hora_fin) - inicio) / MINUTOS_POR_FILA,
+    dia: franja.dia_semana,
     superpuesto: franjas.some((otra, i) => i !== indice && franjasSeSuperponen(franja, otra)),
   }))
 
-  return { dias, inicio, filas: (fin - inicio) / MINUTOS_POR_FILA, bloques }
+  return { dias, inicio, fin, filas: (fin - inicio) / MINUTOS_POR_FILA, bloques }
+}
+
+/** Posición vertical de una franja dentro de la columna del día, en porcentaje. */
+export function posicionBloque(
+  franja: Pick<FranjaHoraria, 'hora_inicio' | 'hora_fin'>,
+  grilla: Pick<RangoGrilla, 'inicio' | 'fin'>,
+): { top: number; alto: number } {
+  const total = grilla.fin - grilla.inicio
+  const desde = aMinutos(franja.hora_inicio)
+  const hasta = aMinutos(franja.hora_fin)
+  return { top: ((desde - grilla.inicio) / total) * 100, alto: ((hasta - desde) / total) * 100 }
+}
+
+export type CarrilBloque = { carril: number; carriles: number }
+
+/**
+ * Reparte en carriles las franjas de un día que se pisan, para dibujarlas lado a lado. Cada
+ * grupo de solapamiento transitivo (A pisa a B y B pisa a C) comparte la misma cantidad de
+ * carriles; las franjas contiguas (8–9 y 9–10) no se consideran solapadas.
+ */
+export function particionarSolapados(franjas: FranjaHoraria[]): CarrilBloque[] {
+  const orden = franjas
+    .map((franja, indice) => ({
+      indice,
+      inicio: aMinutos(franja.hora_inicio),
+      fin: aMinutos(franja.hora_fin),
+    }))
+    .sort((a, b) => a.inicio - b.inicio || a.fin - b.fin)
+  const resultado: CarrilBloque[] = franjas.map(() => ({ carril: 0, carriles: 1 }))
+
+  let grupo: number[] = []
+  let finDelGrupo = -1
+  let finPorCarril: number[] = []
+
+  function cerrarGrupo() {
+    for (const indice of grupo) resultado[indice].carriles = finPorCarril.length
+    grupo = []
+    finPorCarril = []
+  }
+
+  for (const franja of orden) {
+    if (grupo.length > 0 && franja.inicio >= finDelGrupo) cerrarGrupo()
+    let carril = finPorCarril.findIndex((fin) => fin <= franja.inicio)
+    if (carril === -1) carril = finPorCarril.length
+    finPorCarril[carril] = franja.fin
+    resultado[franja.indice].carril = carril
+    grupo.push(franja.indice)
+    finDelGrupo = Math.max(finDelGrupo, franja.fin)
+  }
+  cerrarGrupo()
+  return resultado
+}
+
+/** Minutos (ajustados a la fila de 30 de abajo) que corresponden a un punto de la columna. */
+export function minutosEnPosicion(
+  y: number,
+  altoColumna: number,
+  grilla: Pick<RangoGrilla, 'inicio' | 'fin'>,
+): number {
+  const total = grilla.fin - grilla.inicio
+  const crudo = grilla.inicio + (y / altoColumna) * total
+  const ajustado = Math.floor(crudo / MINUTOS_POR_FILA) * MINUTOS_POR_FILA
+  return Math.min(Math.max(ajustado, grilla.inicio), grilla.fin - MINUTOS_POR_FILA)
+}
+
+/** Desplazamiento en píxeles a minutos, redondeado a filas de 30. */
+export function desplazamientoEnMinutos(
+  pixeles: number,
+  altoColumna: number,
+  grilla: Pick<RangoGrilla, 'inicio' | 'fin'>,
+): number {
+  const minutos = (pixeles / altoColumna) * (grilla.fin - grilla.inicio)
+  return Math.round(minutos / MINUTOS_POR_FILA) * MINUTOS_POR_FILA || 0
+}
+
+/**
+ * Mueve una franja a otro día y/o desplaza su horario de a 30 minutos, conservando la duración
+ * y el desfase (08:40–09:20 pasa a 09:10–09:50). Se detiene en los bordes de la grilla.
+ */
+export function moverFranja(
+  franja: FranjaHoraria,
+  desplazamiento: number,
+  dia: number,
+  grilla: Pick<RangoGrilla, 'inicio' | 'fin'>,
+): FranjaHoraria {
+  const inicio = aMinutos(franja.hora_inicio)
+  const fin = aMinutos(franja.hora_fin)
+  const minimo = Math.ceil((grilla.inicio - inicio) / MINUTOS_POR_FILA) * MINUTOS_POR_FILA
+  const maximo = Math.floor((grilla.fin - fin) / MINUTOS_POR_FILA) * MINUTOS_POR_FILA
+  const delta = Math.min(Math.max(desplazamiento, minimo), Math.max(minimo, maximo))
+  return {
+    dia_semana: dia,
+    hora_inicio: deMinutos(inicio + delta),
+    hora_fin: deMinutos(fin + delta),
+  }
+}
+
+/** Corre el fin de la franja de a 30 minutos: dura 30 minutos como mínimo y llega hasta el fin de la grilla. */
+export function estirarFranja(
+  franja: FranjaHoraria,
+  desplazamiento: number,
+  grilla: Pick<RangoGrilla, 'inicio' | 'fin'>,
+): FranjaHoraria {
+  const inicio = aMinutos(franja.hora_inicio)
+  const fin = aMinutos(franja.hora_fin)
+  const minimo = Math.ceil((inicio + MINUTOS_POR_FILA - fin) / MINUTOS_POR_FILA) * MINUTOS_POR_FILA
+  const maximo = Math.floor((grilla.fin - fin) / MINUTOS_POR_FILA) * MINUTOS_POR_FILA
+  const delta = Math.min(Math.max(desplazamiento, minimo), Math.max(minimo, maximo))
+  return {
+    dia_semana: franja.dia_semana,
+    hora_inicio: deMinutos(inicio),
+    hora_fin: deMinutos(fin + delta),
+  }
+}
+
+/** Misma lista de franjas con la de ese id reemplazada: las demás quedan idénticas y en orden. */
+export function reemplazarFranja<T extends FranjaHoraria & { id: string }>(
+  horarios: T[],
+  idFranja: string,
+  nueva: FranjaHoraria,
+): T[] {
+  return horarios.map((horario) => (horario.id === idFranja ? { ...horario, ...nueva } : horario))
 }
 
 export type ColorMateria = {

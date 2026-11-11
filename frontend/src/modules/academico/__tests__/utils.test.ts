@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  abreviarDocentes,
   aMinutos,
   buscarConflictos,
   COLORES_SUGERIDOS,
@@ -9,12 +10,20 @@ import {
   colorTextoLegible,
   normalizarHex,
   calcularGrilla,
+  desplazamientoEnMinutos,
+  estirarFranja,
+  minutosEnPosicion,
+  moverFranja,
+  particionarSolapados,
+  posicionBloque,
+  reemplazarFranja,
   deMinutos,
   elegirPorId,
   describirConflicto,
   formatearFranjaLegible,
   formatearHorario,
   formatearHorarios,
+  franjaChoca,
   franjasSeSuperponen,
   normalizarTexto,
 } from '../utils'
@@ -139,9 +148,9 @@ describe('calcularGrilla', () => {
     expect(grilla.filas).toBe(14)
   })
 
-  it('posiciona un bloque según día y horario', () => {
+  it('asigna cada bloque a su día', () => {
     const { bloques } = calcularGrilla([{ dia_semana: 2, hora_inicio: '08:00', hora_fin: '09:30' }])
-    expect(bloques[0]).toMatchObject({ columna: 3, filaInicio: 4, filaFin: 7, superpuesto: false })
+    expect(bloques[0]).toMatchObject({ dia: 2, superpuesto: false })
   })
 
   it('agrega sábado solo si hay franjas y amplía el rango horario', () => {
@@ -151,7 +160,29 @@ describe('calcularGrilla', () => {
     expect(grilla.dias).toEqual([1, 2, 3, 4, 5, 6])
     expect(grilla.inicio).toBe(6 * 60)
     expect(grilla.filas).toBe(20)
-    expect(grilla.bloques[0].columna).toBe(7)
+    expect(grilla.fin).toBe(16 * 60)
+    expect(grilla.bloques[0].dia).toBe(6)
+  })
+
+  it('con rango mínimo no achica los días ni las horas', () => {
+    const grilla = calcularGrilla([{ dia_semana: 1, hora_inicio: '08:00', hora_fin: '09:00' }], {
+      dias: [1, 2, 3, 4, 5, 6],
+      inicio: 6 * 60,
+      fin: 16 * 60,
+    })
+    expect(grilla.dias).toEqual([1, 2, 3, 4, 5, 6])
+    expect(grilla.inicio).toBe(6 * 60)
+    expect(grilla.fin).toBe(16 * 60)
+  })
+
+  it('el rango mínimo también puede ampliar la grilla calculada', () => {
+    const grilla = calcularGrilla([{ dia_semana: 7, hora_inicio: '20:00', hora_fin: '21:00' }], {
+      dias: [1, 2, 3, 4, 5],
+      inicio: 7 * 60,
+      fin: 14 * 60,
+    })
+    expect(grilla.dias).toEqual([1, 2, 3, 4, 5, 7])
+    expect(grilla.fin).toBe(21 * 60)
   })
 
   it('marca los bloques que se superponen', () => {
@@ -208,5 +239,170 @@ describe('colorMateria y colores sugeridos', () => {
     expect(normalizarHex('1E90FF')).toBe('#1e90ff')
     expect(normalizarHex('#12345')).toBeNull()
     expect(normalizarHex('rojo')).toBeNull()
+  })
+})
+
+const GRILLA = { dias: [1, 2, 3, 4, 5], inicio: 7 * 60, fin: 14 * 60 }
+const franja = (dia_semana: number, hora_inicio: string, hora_fin: string) => ({
+  dia_semana,
+  hora_inicio,
+  hora_fin,
+})
+
+describe('posicionBloque', () => {
+  it('calcula top y alto en porcentaje de la columna', () => {
+    const { top, alto } = posicionBloque(franja(1, '08:00', '09:00'), GRILLA)
+    expect(top).toBeCloseTo((60 / 420) * 100)
+    expect(alto).toBeCloseTo((60 / 420) * 100)
+  })
+
+  it('respeta los minutos que no son múltiplos de 30', () => {
+    const { top, alto } = posicionBloque(franja(1, '08:40', '09:20'), GRILLA)
+    expect(top).toBeCloseTo((100 / 420) * 100)
+    expect(alto).toBeCloseTo((40 / 420) * 100)
+  })
+})
+
+describe('particionarSolapados', () => {
+  it('sin solape, todo en un carril', () => {
+    expect(
+      particionarSolapados([franja(1, '08:00', '09:00'), franja(1, '10:00', '11:00')]),
+    ).toEqual([
+      { carril: 0, carriles: 1 },
+      { carril: 0, carriles: 1 },
+    ])
+  })
+
+  it('dos franjas que se pisan quedan lado a lado', () => {
+    expect(
+      particionarSolapados([franja(1, '08:00', '09:00'), franja(1, '08:30', '09:30')]),
+    ).toEqual([
+      { carril: 0, carriles: 2 },
+      { carril: 1, carriles: 2 },
+    ])
+  })
+
+  it('tres encadenadas comparten el grupo y reutilizan carriles', () => {
+    const resultado = particionarSolapados([
+      franja(1, '08:00', '09:00'),
+      franja(1, '08:30', '09:30'),
+      franja(1, '09:00', '10:00'),
+    ])
+    expect(resultado.map((r) => r.carriles)).toEqual([2, 2, 2])
+    expect(resultado.map((r) => r.carril)).toEqual([0, 1, 0])
+  })
+
+  it('las contiguas no se consideran solapadas', () => {
+    expect(
+      particionarSolapados([franja(1, '08:00', '09:00'), franja(1, '09:00', '10:00')]),
+    ).toEqual([
+      { carril: 0, carriles: 1 },
+      { carril: 0, carriles: 1 },
+    ])
+  })
+})
+
+describe('minutosEnPosicion y desplazamientoEnMinutos', () => {
+  it('convierte un punto de la columna a minutos ajustados a 30', () => {
+    // Columna de 420 px para 420 minutos: 1 px = 1 minuto.
+    expect(minutosEnPosicion(0, 420, GRILLA)).toBe(7 * 60)
+    expect(minutosEnPosicion(90, 420, GRILLA)).toBe(8 * 60 + 30)
+    expect(minutosEnPosicion(-20, 420, GRILLA)).toBe(7 * 60)
+    expect(minutosEnPosicion(999, 420, GRILLA)).toBe(13 * 60 + 30)
+  })
+
+  it('redondea el desplazamiento a filas de 30', () => {
+    expect(desplazamientoEnMinutos(44, 420, GRILLA)).toBe(30)
+    expect(desplazamientoEnMinutos(46, 420, GRILLA)).toBe(60)
+    expect(desplazamientoEnMinutos(-14, 420, GRILLA)).toBe(0)
+  })
+})
+
+describe('moverFranja', () => {
+  it('conserva el desfase y la duración', () => {
+    expect(moverFranja(franja(1, '08:40', '09:20'), 30, 1, GRILLA)).toEqual(
+      franja(1, '09:10', '09:50'),
+    )
+  })
+
+  it('cambia de día', () => {
+    expect(moverFranja(franja(1, '08:00', '09:00'), 0, 3, GRILLA)).toEqual(
+      franja(3, '08:00', '09:00'),
+    )
+  })
+
+  it('se detiene en los bordes de la grilla', () => {
+    expect(moverFranja(franja(1, '07:30', '08:30'), -120, 1, GRILLA)).toEqual(
+      franja(1, '07:00', '08:00'),
+    )
+    expect(moverFranja(franja(1, '12:30', '13:30'), 120, 1, GRILLA)).toEqual(
+      franja(1, '13:00', '14:00'),
+    )
+  })
+})
+
+describe('estirarFranja', () => {
+  it('corre el fin de a 30 minutos', () => {
+    expect(estirarFranja(franja(2, '08:00', '09:00'), 60, GRILLA)).toEqual(
+      franja(2, '08:00', '10:00'),
+    )
+  })
+
+  it('dura 30 minutos como mínimo', () => {
+    expect(estirarFranja(franja(2, '08:00', '09:00'), -240, GRILLA)).toEqual(
+      franja(2, '08:00', '08:30'),
+    )
+  })
+
+  it('no pasa del fin de la grilla', () => {
+    expect(estirarFranja(franja(2, '12:00', '13:00'), 240, GRILLA)).toEqual(
+      franja(2, '12:00', '14:00'),
+    )
+  })
+})
+
+describe('reemplazarFranja', () => {
+  it('reemplaza solo la franja con ese id y deja las demás en orden', () => {
+    const horarios = [
+      { id: 'a', ...franja(1, '08:00', '09:00') },
+      { id: 'b', ...franja(3, '10:00', '11:00') },
+      { id: 'c', ...franja(5, '12:00', '13:00') },
+    ]
+    const resultado = reemplazarFranja(horarios, 'b', franja(4, '10:30', '11:30'))
+    expect(resultado).toEqual([
+      horarios[0],
+      { id: 'b', ...franja(4, '10:30', '11:30') },
+      horarios[2],
+    ])
+    expect(resultado[0]).toBe(horarios[0])
+  })
+})
+
+describe('franjaChoca', () => {
+  const visibles = [
+    { id: 'a', ...franja(1, '09:00', '10:00') },
+    { id: 'b', ...franja(2, '09:00', '10:00') },
+  ]
+
+  it('detecta el choque con una franja de otra materia', () => {
+    expect(franjaChoca(visibles, franja(1, '09:30', '10:30'), 'x')).toBe(true)
+  })
+
+  it('las franjas contiguas o de otro día no chocan', () => {
+    expect(franjaChoca(visibles, franja(1, '10:00', '11:00'), 'x')).toBe(false)
+    expect(franjaChoca(visibles, franja(3, '09:00', '10:00'), 'x')).toBe(false)
+  })
+
+  it('ignora la franja propia', () => {
+    expect(franjaChoca(visibles, franja(1, '09:30', '10:30'), 'a')).toBe(false)
+  })
+})
+
+describe('abreviarDocentes', () => {
+  it('abrevia el nombre y cuenta los demás docentes', () => {
+    expect(abreviarDocentes([])).toBeNull()
+    expect(abreviarDocentes(['Pérez, Ana'])).toBe('A. Pérez')
+    expect(abreviarDocentes(['Pérez, Ana', 'Gómez, Luis'])).toBe('A. Pérez +1')
+    expect(abreviarDocentes(['L123'])).toBe('L123')
   })
 })

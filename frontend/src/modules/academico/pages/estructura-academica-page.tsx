@@ -197,7 +197,9 @@ export function EstructuraAcademicaPage() {
             docentesDe={docentesDe}
             puedeEditar={puedeEditar}
             onEditar={(item) => setDialogMateria({ modo: 'editar', item })}
+            onEliminar={(item) => setDialogMateria({ modo: 'eliminar', item })}
             onAgregar={abrirMateria}
+            onGuardado={estructura.recargarAnio}
           />
         )}
       </div>
