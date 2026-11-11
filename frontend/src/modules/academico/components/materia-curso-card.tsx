@@ -44,14 +44,14 @@ export function MateriaCursoCard({
       {puedeEditar && (
         <div className="flex gap-2 px-(--card-spacing)">
           <BotonIcono
-            etiqueta={`Editar ${nombre}`}
+            etiqueta={`Editar materia`}
             variant="secondary"
             onClick={() => onEditar(materiaCurso)}
           >
             <PencilIcon />
           </BotonIcono>
           <BotonIcono
-            etiqueta={`Quitar ${nombre} del curso`}
+            etiqueta={`Eliminar materia`}
             className="text-error hover:text-error"
             onClick={() => onQuitar(materiaCurso)}
           >
