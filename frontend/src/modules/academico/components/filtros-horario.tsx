@@ -70,7 +70,7 @@ export function FiltrosHorario({
         </SelectContent>
       </Select>
       <Select value={filtro.docente} onValueChange={(docente) => onFiltro({ ...filtro, docente })}>
-        <SelectTrigger className="w-44" aria-label="Filtrar por docente">
+        <SelectTrigger className="w-52" aria-label="Filtrar por docente">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
