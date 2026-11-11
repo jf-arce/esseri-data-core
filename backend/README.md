@@ -32,6 +32,72 @@ La app fija `timezone=UTC` en cada sesión de Postgres (`src/database.py`), así
 
 ## Migraciones (Alembic)
 
+### Demo de cobranzas por archivo
+
+El recorrido de débitos automáticos es una demostración operativa: los archivos tienen marca
+propia (`ESSERI_SIMULADO`), no son compatibles con Payway, Banco Galicia ni ningún banco real y
+no acreditan fondos. El formato y el recorrido están documentados en
+[Cobranzas por archivo](../docs/cobranzas-simuladas.md). La API vive en
+`/facturacion/cobranzas-simuladas` y requiere `facturacion.crear` en todos sus endpoints,
+incluidas las consultas y descargas; no se expone al portal de familias.
+
+Esquema (aplicar `alembic upgrade head` antes del recorrido):
+
+| Revisión | Efecto |
+|---|---|
+| `fb836637c05a` | Solicitudes/débitos iniciales y método “Débito por archivo”. |
+| `91553e2163be` | Metadatos visibles por factura, revisión durable de respuestas, reservas activas e historial de liberaciones. |
+
+Flujo y endpoints principales:
+
+1. **Selección**: `GET /opciones`, `GET /facturas-elegibles` (25 filas por defecto) y
+   `POST /resumen-seleccion`. La selección usa `{modo:"pagina"|"filtrados", factura_ids,
+   filtros, excluir_ids}`; `filtrados` se resuelve en el backend.
+2. **Exportación**: `POST /` con `{seleccion, periodo}` crea el lote, un código humano
+   `LD-AAAA-MM-NNN` y reserva cada factura. `GET /`, `GET /{id}` y `POST /{id}/respuesta`
+   permiten historial, detalle y descarga de la solicitud simulada.
+3. **Revisión**: `POST /previsualizar` persiste la revisión por lote y hash, con detalle crudo
+   y resuelto, incluidas filas inválidas. No registra pagos. Una vista previa aceptada deja el
+   lote `en_revision` y bloquea su liberación.
+4. **Confirmación**: `POST /confirmar` con `{importacion_id, revision_confirmada:true}`.
+   Revalida todas las filas bajo bloqueo antes de escribir. Cualquier error estructural o
+   semántico bloquea la totalidad: no se aplican pagos parciales. Los cobros usan
+   `registrar_pago(..., confirmar=False)` y confirman pago, factura, movimiento, auditoría y
+   `pago.registrado` en una sola transacción; los rechazos no generan pago y liberan su reserva.
+5. **Incidencias e historial**: `GET /importaciones/{id}` pagina y filtra el detalle,
+   `GET /importaciones/{id}/incidencias` descarga un CSV demo de rechazos/errores y
+   `GET /liberaciones` lista las liberaciones auditadas. `POST /{id}/liberar` exige motivo y
+   confirmación explícita, solo para lotes exportados sin revisión persistida.
+
+Reimportar el mismo archivo recupera la revisión o confirmación existente sin duplicar pagos.
+La reserva activa de facturas está reforzada por un índice único parcial en base; los bloqueos
+de fila de PostgreSQL y el reclamo condicional por referencia completan la idempotencia ante
+reintentos y concurrencia. Una falla inesperada revierte toda la confirmación. Los emails no
+forman parte de esta transacción: se configuran con `pago.registrado` en Workflows.
+
+Seed opcional e idempotente para la demo (crea 500 alumnos/facturas sintéticas, 438 elegibles
+del período actual, 12 reservadas en un lote exportado y un lote histórico liberado; no borra
+datos ajenos ni incluye CBU, cuentas o tarjetas):
+
+```bash
+python ../database/seeds/07_seed_debitos_demo.py
+```
+
+Verificación focalizada (con el venv activado):
+
+```bash
+pytest -q tests/facturacion/test_formato_cobranza_simulada.py \
+  tests/facturacion/test_cobranzas_lotes.py tests/facturacion/test_cobranzas_importacion.py \
+  tests/facturacion/test_cobranzas_concurrencia.py tests/facturacion/test_debitos_demo_seed.py \
+  tests/facturacion/test_cobranzas_simuladas.py
+```
+
+La revisión `91553e2163be` fue autogenerada contra un esquema de referencia aislado en SQLite y
+revisada para que sea aditiva (tablas nuevas, columnas nullable o con default, constraints e
+índices nombrados). Se verificó `upgrade`/`downgrade` en ese esquema aislado. Eso no sustituye
+la comprobación de migración y bloqueos concurrentes con PostgreSQL. No apuntar pruebas
+destructivas a una base compartida ni reutilizar credenciales/conexiones remotas sin autorización.
+
 Nunca se escribe SQL a mano en `database/` — todo cambio de esquema se genera con Alembic desde acá:
 
 ```bash

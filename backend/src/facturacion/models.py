@@ -222,6 +222,164 @@ class Pago(Base):
         return self.usuario_registro.email if self.usuario_registro is not None else None
 
 
+class LoteCobranza(Base):
+    """Immutable request snapshot for the proprietary demo file adapter."""
+
+    __tablename__ = "lote_cobranza"
+    __table_args__ = (
+        sa.UniqueConstraint("codigo", name="uq_lote_cobranza_codigo"),
+        sa.CheckConstraint(
+            "estado IN ('exportado', 'en_revision', 'pagos_registrados', 'liberado')",
+            name="ck_lote_cobranza_estado",
+        ),
+        sa.Index("ix_lote_cobranza_periodo_estado", "periodo", "estado"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    codigo: Mapped[str | None] = mapped_column(sa.String(20))
+    periodo: Mapped[str | None] = mapped_column(sa.String(7))
+    fecha: Mapped[date] = mapped_column(sa.Date)
+    estado: Mapped[str] = mapped_column(
+        sa.String(20), default="exportado", server_default="exportado"
+    )
+    usuario_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("usuario.id"))
+    liberado_por_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.ForeignKey("usuario.id", name="fk_lote_cobranza_liberado_por")
+    )
+    liberado_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    motivo_liberacion: Mapped[str | None] = mapped_column(sa.String(500))
+    items: Mapped[list["DebitoCobranza"]] = relationship(
+        back_populates="lote", order_by="DebitoCobranza.id"
+    )
+    importaciones: Mapped[list["ImportacionCobranza"]] = relationship(
+        back_populates="lote", order_by="ImportacionCobranza.created_at"
+    )
+
+
+class DebitoCobranza(Base):
+    """One terminal result per debit; its claim and payment commit atomically."""
+
+    __tablename__ = "debito_cobranza"
+    __table_args__ = (
+        sa.UniqueConstraint("lote_id", "factura_id", name="uq_debito_lote_factura"),
+        sa.CheckConstraint("importe > 0", name="ck_debito_importe"),
+        sa.CheckConstraint(
+            "resultado IS NULL OR resultado IN ('COBRADO_SIM', 'RECHAZADO_SIM')",
+            name="ck_debito_resultado",
+        ),
+        sa.Index(
+            "uq_debito_reserva_activa_factura",
+            "factura_id",
+            unique=True,
+            sqlite_where=sa.text("reserva_activa"),
+            postgresql_where=sa.text("reserva_activa"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    lote_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("lote_cobranza.id"))
+    factura_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("factura.id"))
+    importe: Mapped[decimal.Decimal] = mapped_column(sa.Numeric(12, 2))
+    vencimiento: Mapped[date] = mapped_column(sa.Date)
+    concepto: Mapped[str] = mapped_column(sa.String(250))
+    resultado: Mapped[str | None] = mapped_column(sa.String(30))
+    resultado_hash: Mapped[str | None] = mapped_column(sa.String(64))
+    pago_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("pago.id"), unique=True)
+    reserva_activa: Mapped[bool] = mapped_column(
+        sa.Boolean, default=True, server_default=sa.true()
+    )
+    lote: Mapped[LoteCobranza] = relationship(back_populates="items")
+
+
+class FacturaCobranzaDemo(Base):
+    """Visible demo metadata per invoice; real invoice columns remain untouched."""
+
+    __tablename__ = "factura_cobranza_demo"
+    __table_args__ = (
+        sa.UniqueConstraint("factura_id", name="uq_factura_cobranza_demo_factura"),
+        sa.UniqueConstraint("numero", name="uq_factura_cobranza_demo_numero"),
+        sa.CheckConstraint(
+            "medio IN ('cbu', 'tarjeta')", name="ck_factura_cobranza_demo_medio"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    factura_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("factura.id"))
+    numero: Mapped[str] = mapped_column(sa.String(40))
+    periodo: Mapped[str] = mapped_column(sa.String(7))
+    medio: Mapped[str] = mapped_column(sa.String(10))
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
+
+
+class ImportacionCobranza(Base):
+    """Durable review for one uploaded response file, keyed by batch and file hash."""
+
+    __tablename__ = "importacion_cobranza"
+    __table_args__ = (
+        sa.UniqueConstraint("lote_id", "archivo_hash", name="uq_importacion_lote_hash"),
+        sa.CheckConstraint(
+            "estado IN ('en_revision', 'confirmada')", name="ck_importacion_estado"
+        ),
+        sa.Index("ix_importacion_cobranza_lote", "lote_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    lote_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("lote_cobranza.id"))
+    archivo_hash: Mapped[str] = mapped_column(sa.String(64))
+    estado: Mapped[str] = mapped_column(
+        sa.String(20), default="en_revision", server_default="en_revision"
+    )
+    usuario_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("usuario.id"))
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
+    confirmada_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    lote: Mapped[LoteCobranza] = relationship(back_populates="importaciones")
+    detalles: Mapped[list["ImportacionCobranzaDetalle"]] = relationship(
+        back_populates="importacion",
+        order_by="ImportacionCobranzaDetalle.linea",
+        cascade="all, delete-orphan",
+    )
+
+
+class ImportacionCobranzaDetalle(Base):
+    """Raw response row plus its resolved invoice state; invalid rows are retained."""
+
+    __tablename__ = "importacion_cobranza_detalle"
+    __table_args__ = (
+        sa.UniqueConstraint("importacion_id", "linea", name="uq_importacion_detalle_linea"),
+        sa.CheckConstraint(
+            "estado IN ('listo', 'aplicado', 'rechazado', 'duplicado', 'error')",
+            name="ck_importacion_detalle_estado",
+        ),
+        sa.Index("ix_importacion_detalle_estado", "importacion_id", "estado"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    importacion_id: Mapped[uuid.UUID] = mapped_column(
+        sa.ForeignKey("importacion_cobranza.id")
+    )
+    linea: Mapped[int] = mapped_column(sa.Integer)
+    referencia: Mapped[str | None] = mapped_column(sa.String(36))
+    resultado: Mapped[str | None] = mapped_column(sa.String(30))
+    importe: Mapped[decimal.Decimal | None] = mapped_column(sa.Numeric(12, 2))
+    fecha_procesamiento: Mapped[date | None] = mapped_column(sa.Date)
+    codigo: Mapped[str | None] = mapped_column(sa.String(30))
+    descripcion: Mapped[str | None] = mapped_column(sa.String(250))
+    factura_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("factura.id"))
+    numero_factura: Mapped[str | None] = mapped_column(sa.String(40))
+    alumno_nombre: Mapped[str | None] = mapped_column(sa.String(160))
+    debito_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("debito_cobranza.id"))
+    resultado_hash: Mapped[str | None] = mapped_column(sa.String(64))
+    estado: Mapped[str] = mapped_column(sa.String(20))
+    mensaje: Mapped[str] = mapped_column(sa.Text, default="")
+    pago_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("pago.id"))
+    importacion: Mapped[ImportacionCobranza] = relationship(back_populates="detalles")
+
+
+
 class ArchivoComprobantePago(Base):
     """Comprobante binario asociado a un pago; evita depender de un almacenamiento externo."""
 
