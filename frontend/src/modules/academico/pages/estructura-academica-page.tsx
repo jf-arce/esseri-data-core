@@ -1,38 +1,29 @@
-import {
-  BookOpenIcon,
-  CalendarDaysIcon,
-  LayoutGridIcon,
-  PencilIcon,
-  PlusIcon,
-  ShieldAlertIcon,
-} from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { ShieldAlertIcon } from 'lucide-react'
+import { useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PageHeader } from '@/components/page-header'
-import { useIndicadorCarga } from '@/modules/academico/hooks/use-indicador-carga'
-import { BotonIcono } from '@/modules/academico/components/boton-icono'
 import { AbmDialog } from '@/modules/academico/components/abm-dialog'
+import { ContenidoSkeleton } from '@/modules/academico/components/contenido-skeleton'
+import { EstadoVacio } from '@/modules/academico/components/estado-vacio'
 import { HorarioSemanal, type HuecoHorario } from '@/modules/academico/components/horario-semanal'
 import {
   AgregarMateriaCard,
   MateriaCursoCard,
 } from '@/modules/academico/components/materia-curso-card'
 import { MateriaCursoDialog } from '@/modules/academico/components/materia-curso-dialog'
+import {
+  AccionesSelector,
+  SelectorEstructura,
+} from '@/modules/academico/components/selector-estructura'
+import { VistaTabs, type Vista } from '@/modules/academico/components/vista-tabs'
 import { useEstructuraAcademica } from '@/modules/academico/hooks/use-estructura-academica'
 import { useSeleccionEstructura } from '@/modules/academico/hooks/use-seleccion-estructura'
 import type { Anio, Division, MateriaCurso } from '@/modules/academico/types'
+import { etiquetaDivision, letraDivision, textoAlumnos } from '@/modules/academico/utils'
 import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
@@ -44,183 +35,6 @@ type DialogMateria = {
   modo: 'crear' | 'editar' | 'eliminar'
   item?: MateriaCurso
   hueco?: HuecoHorario
-}
-
-type Vista = 'materias' | 'horario'
-
-// "1°A": la división ya puede venir con el año ("1°A"), solo con la letra ("A") o con un
-// nombre propio ("Sala A", que queda "1° Sala A").
-function etiquetaDivision(anio: Anio, division: Division): string {
-  const prefijo = `${anio.numero}°`
-  if (division.nombre.startsWith(prefijo)) return division.nombre
-  return division.nombre.length <= 2
-    ? `${prefijo}${division.nombre}`
-    : `${prefijo} ${division.nombre}`
-}
-
-// Solo la letra ("A"), para el desplegable que ya tiene el año al lado.
-function letraDivision(anio: Anio, division: Division): string {
-  const prefijo = `${anio.numero}°`
-  return division.nombre.startsWith(prefijo)
-    ? division.nombre.slice(prefijo.length)
-    : division.nombre
-}
-
-function textoAlumnos(cantidad: number): string {
-  return `${cantidad} ${cantidad === 1 ? 'alumno' : 'alumnos'}`
-}
-
-function VistaTabs({ vista, onChange }: { vista: Vista; onChange: (vista: Vista) => void }) {
-  return (
-    <Tabs
-      value={vista}
-      onValueChange={(valor) => onChange(valor === 'horario' ? 'horario' : 'materias')}
-    >
-      <TabsList aria-label="Vista de la división">
-        <TabsTrigger value="materias">
-          <LayoutGridIcon />
-          Materias
-        </TabsTrigger>
-        <TabsTrigger value="horario">
-          <CalendarDaysIcon />
-          Horario
-        </TabsTrigger>
-      </TabsList>
-    </Tabs>
-  )
-}
-
-type OpcionSelector = { value: string; label: string }
-
-// Desplegable con etiqueta y botones al lado; mientras carga se queda en su lugar.
-function Selector({
-  etiqueta,
-  valor,
-  opciones,
-  cargando,
-  onCambio,
-  children,
-}: {
-  etiqueta: string
-  valor?: string
-  opciones: OpcionSelector[]
-  cargando: boolean
-  onCambio: (valor: string) => void
-  children?: ReactNode
-}) {
-  const id = `etiqueta-${etiqueta.toLowerCase()}`
-  const mostrarCarga = useIndicadorCarga(cargando)
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span id={id} className="text-xs font-semibold text-texto-2">
-        {etiqueta}
-      </span>
-      <div className="flex items-center gap-1">
-        <Select value={cargando ? '' : valor} onValueChange={onCambio} disabled={cargando}>
-          <SelectTrigger className="w-28" aria-labelledby={id} aria-busy={cargando}>
-            <SelectValue placeholder={mostrarCarga ? <Skeleton className="h-3.5 w-10" /> : ''} />
-          </SelectTrigger>
-          <SelectContent>
-            {opciones.map((opcion) => (
-              <SelectItem key={opcion.value} value={opcion.value}>
-                {opcion.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function AccionesSelector({
-  nombre,
-  deshabilitado,
-  onAgregar,
-  onEditar,
-}: {
-  nombre: 'año' | 'división'
-  deshabilitado: boolean
-  onAgregar: () => void
-  onEditar: () => void
-}) {
-  return (
-    <>
-      <BotonIcono etiqueta={`Agregar ${nombre}`} disabled={deshabilitado} onClick={onAgregar}>
-        <PlusIcon />
-      </BotonIcono>
-      <BotonIcono etiqueta={`Editar ${nombre}`} disabled={deshabilitado} onClick={onEditar}>
-        <PencilIcon />
-      </BotonIcono>
-    </>
-  )
-}
-
-function ContenidoSkeleton({
-  vista,
-  onVista,
-  conAcciones,
-}: {
-  vista: Vista
-  onVista: (vista: Vista) => void
-  conAcciones: boolean
-}) {
-  return (
-    <div className="flex flex-col gap-4" role="status" aria-label="Cargando">
-      <div className="flex items-baseline gap-3">
-        <Skeleton className="h-7 w-16" />
-        <Skeleton className="h-5 w-20" />
-      </div>
-      <VistaTabs vista={vista} onChange={onVista} />
-      {vista === 'horario' ? (
-        <div className="flex flex-col gap-3">
-          {conAcciones && (
-            <Button variant="secondary" size="sm" className="self-start" disabled>
-              <PlusIcon />
-              Agregar materia
-            </Button>
-          )}
-          <Skeleton className="h-[26rem] w-full" />
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: conAcciones ? 2 : 3 }, (_, i) => i).map((i) => (
-            <Skeleton key={i} className={conAcciones ? 'h-[9.5rem]' : 'h-28'} />
-          ))}
-          {conAcciones && <AgregarMateriaCard disabled onAgregar={() => {}} />}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function Vacio({
-  titulo,
-  descripcion,
-  accion,
-  onAccion,
-}: {
-  titulo: string
-  descripcion: string
-  accion?: string
-  onAccion?: () => void
-}) {
-  return (
-    <Empty className="min-h-[240px]">
-      <EmptyMedia variant="icon" className="bg-sup-academico text-info">
-        <BookOpenIcon />
-      </EmptyMedia>
-      <EmptyTitle>{titulo}</EmptyTitle>
-      <EmptyDescription>{descripcion}</EmptyDescription>
-      {accion && onAccion && (
-        <Button onClick={onAccion}>
-          <PlusIcon />
-          {accion}
-        </Button>
-      )}
-    </Empty>
-  )
 }
 
 export function EstructuraAcademicaPage() {
@@ -304,7 +118,7 @@ export function EstructuraAcademicaPage() {
   function contenido() {
     if (!nivel) {
       return (
-        <Vacio
+        <EstadoVacio
           titulo="No se encontraron niveles educativos."
           descripcion="Los niveles (Inicial, Primario y Secundario) se cargan al migrar la base. Si faltan, avisá al equipo técnico."
         />
@@ -312,7 +126,7 @@ export function EstructuraAcademicaPage() {
     }
     if (!anio) {
       return (
-        <Vacio
+        <EstadoVacio
           titulo={`${nivel.nombre} todavía no tiene años.`}
           descripcion={
             puedeEditar
@@ -326,7 +140,7 @@ export function EstructuraAcademicaPage() {
     }
     if (!division) {
       return (
-        <Vacio
+        <EstadoVacio
           titulo={`El año ${anio.numero}° todavía no tiene divisiones.`}
           descripcion={
             puedeEditar
@@ -353,7 +167,7 @@ export function EstructuraAcademicaPage() {
         <VistaTabs vista={vista} onChange={setVista} />
 
         {estructura.materiasCurso.length === 0 ? (
-          <Vacio
+          <EstadoVacio
             titulo={`${etiquetaDivision(anio, division)} todavía no tiene materias.`}
             descripcion={
               puedeEditar
@@ -410,7 +224,7 @@ export function EstructuraAcademicaPage() {
           </div>
           <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
             {['Año', 'División'].map((etiqueta) => (
-              <Selector
+              <SelectorEstructura
                 key={etiqueta}
                 etiqueta={etiqueta}
                 opciones={[]}
@@ -425,7 +239,7 @@ export function EstructuraAcademicaPage() {
                     onEditar={() => {}}
                   />
                 )}
-              </Selector>
+              </SelectorEstructura>
             ))}
           </div>
           <Card className="gap-5 p-6">
@@ -446,7 +260,7 @@ export function EstructuraAcademicaPage() {
 
           {nivel && (cambiandoNivel || anio) && (
             <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
-              <Selector
+              <SelectorEstructura
                 etiqueta="Año"
                 valor={anio?.id}
                 opciones={estructura.anios.map((a) => ({ value: a.id, label: `${a.numero}°` }))}
@@ -463,10 +277,10 @@ export function EstructuraAcademicaPage() {
                     }
                   />
                 )}
-              </Selector>
+              </SelectorEstructura>
 
               {(division || cambiandoNivel || estructura.cargandoAnio) && (
-                <Selector
+                <SelectorEstructura
                   etiqueta="División"
                   valor={division?.id}
                   opciones={estructura.divisiones.map((d) => ({
@@ -487,7 +301,7 @@ export function EstructuraAcademicaPage() {
                       }
                     />
                   )}
-                </Selector>
+                </SelectorEstructura>
               )}
             </div>
           )}

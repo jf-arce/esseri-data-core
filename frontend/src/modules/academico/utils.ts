@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import type { TipoAsistencia } from '@/modules/academico/types'
+import type { Anio, Division, TipoAsistencia } from '@/modules/academico/types'
 
 export const MOTIVOS_JUSTIFICACION = [
   { value: 'enfermedad', label: 'Enfermedad' },
@@ -282,4 +282,26 @@ export function colorMateria(color: string | null | undefined): ColorMateria {
     estilo: { backgroundColor: hex, color: colorTextoLegible(hex) },
     estiloBorde: { borderLeftColor: hex },
   }
+}
+
+// "1°A": la división ya puede venir con el año ("1°A"), solo con la letra ("A") o con un
+// nombre propio ("Sala A", que queda "1° Sala A").
+export function etiquetaDivision(anio: Anio, division: Division): string {
+  const prefijo = `${anio.numero}°`
+  if (division.nombre.startsWith(prefijo)) return division.nombre
+  return division.nombre.length <= 2
+    ? `${prefijo}${division.nombre}`
+    : `${prefijo} ${division.nombre}`
+}
+
+// Solo la letra ("A"), para el desplegable que ya tiene el año al lado.
+export function letraDivision(anio: Anio, division: Division): string {
+  const prefijo = `${anio.numero}°`
+  return division.nombre.startsWith(prefijo)
+    ? division.nombre.slice(prefijo.length)
+    : division.nombre
+}
+
+export function textoAlumnos(cantidad: number): string {
+  return `${cantidad} ${cantidad === 1 ? 'alumno' : 'alumnos'}`
 }
