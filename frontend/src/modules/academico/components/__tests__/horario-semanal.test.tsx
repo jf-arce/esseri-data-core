@@ -36,6 +36,9 @@ describe('HorarioSemanal', () => {
         onEliminar={vi.fn()}
         onAgregar={vi.fn()}
         onGuardado={onGuardado}
+        resaltadas={[]}
+        onAlternarResaltada={vi.fn()}
+        onQuitarResaltado={vi.fn()}
       />,
     )
     const bloque = screen.getByRole('button', { name: /^Lengua, martes de 08:00 a 09:00/ })
@@ -63,9 +66,12 @@ describe('HorarioSemanal', () => {
         onEliminar={vi.fn()}
         onAgregar={vi.fn()}
         onGuardado={vi.fn()}
+        resaltadas={[]}
+        onAlternarResaltada={vi.fn()}
+        onQuitarResaltado={vi.fn()}
       />,
     )
-    const bloque = screen.getByRole('button', { name: /^Lengua/ })
+    const bloque = screen.getByRole('button', { name: /^Lengua, / })
     fireEvent.keyDown(bloque, { key: 'ArrowDown' })
     fireEvent.keyDown(bloque, { key: 'Escape' })
     await act(async () => {

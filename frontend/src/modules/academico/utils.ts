@@ -550,3 +550,43 @@ export function filtrarYOrdenarMaterias(
       return porNombre(a, b)
     })
 }
+
+export const SIN_DOCENTE = 'sin-docente'
+
+export type FiltroHorario = {
+  texto: string
+  tipo: FiltroTipoMateria
+  /** `'todos'`, `SIN_DOCENTE` o el nombre de un docente. */
+  docente: string
+}
+
+export const FILTRO_HORARIO_INICIAL: FiltroHorario = { texto: '', tipo: 'todos', docente: 'todos' }
+
+export function hayFiltroHorario(filtro: FiltroHorario): boolean {
+  return filtro.texto !== '' || filtro.tipo !== 'todos' || filtro.docente !== 'todos'
+}
+
+/** `true` si la materia pasa el filtro de texto, tipo y docente del horario. */
+export function coincideFiltroHorario(
+  materiaCurso: MateriaCurso,
+  filtro: FiltroHorario,
+  docentes: string[],
+): boolean {
+  const docenteOk =
+    filtro.docente === 'todos' ||
+    (filtro.docente === SIN_DOCENTE ? docentes.length === 0 : docentes.includes(filtro.docente))
+  return (
+    docenteOk &&
+    (filtro.tipo === 'todos' || materiaCurso.materia_tipo === filtro.tipo) &&
+    normalizarTexto(nombreMateria(materiaCurso)).includes(normalizarTexto(filtro.texto))
+  )
+}
+
+/** Ids de las materias que tienen alguna franja pisada con otra materia de la división. */
+export function idsEnConflicto(materiasCurso: MateriaCurso[]): Set<string> {
+  return new Set(
+    materiasCurso
+      .filter((materiaCurso) => materiasEnConflicto(materiaCurso, materiasCurso).length > 0)
+      .map((materiaCurso) => materiaCurso.id),
+  )
+}

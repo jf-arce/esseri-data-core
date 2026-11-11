@@ -3,14 +3,20 @@ import { useRef, useState, type PointerEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { BloqueHorario } from '@/modules/academico/components/bloque-horario'
 import { FantasmaHorario } from '@/modules/academico/components/fantasma-horario'
+import { FiltrosHorario } from '@/modules/academico/components/filtros-horario'
+import { ResaltadoHorario } from '@/modules/academico/components/resaltado-horario'
 import { useArrastreHorario } from '@/modules/academico/hooks/use-arrastre-horario'
 import { useGuardarFranjas } from '@/modules/academico/hooks/use-guardar-franjas'
 import { useTecladoHorario } from '@/modules/academico/hooks/use-teclado-horario'
 import type { FranjaConMateria, MateriaCurso } from '@/modules/academico/types'
 import {
   calcularGrilla,
+  coincideFiltroHorario,
   deMinutos,
   DIAS,
+  FILTRO_HORARIO_INICIAL,
+  hayFiltroHorario,
+  idsEnConflicto,
   particionarSolapados,
   posicionBloque,
   rangoLegible,
@@ -31,9 +37,10 @@ interface HorarioSemanalProps {
   onAgregar: (hueco?: HuecoHorario) => void
   /** Se llama después de guardar un cambio de horario, para recargar los datos. */
   onGuardado: () => void
-  /** Materia que se pidió ver en el horario: el resto de los bloques se atenúa. */
-  resaltada?: MateriaCurso
-  onQuitarResaltado?: () => void
+  /** Materias marcadas en el selector: el resto de los bloques se atenúa. */
+  resaltadas: string[]
+  onAlternarResaltada: (materiaCursoId: string) => void
+  onQuitarResaltado: () => void
 }
 
 const ID_AYUDA = 'horario-semanal-ayuda'
@@ -47,7 +54,8 @@ export function HorarioSemanal({
   onAsignarDocente,
   onAgregar,
   onGuardado,
-  resaltada,
+  resaltadas,
+  onAlternarResaltada,
   onQuitarResaltado,
 }: HorarioSemanalProps) {
   const guardado = useGuardarFranjas(materiasCurso, onGuardado)
@@ -55,9 +63,30 @@ export function HorarioSemanal({
   const [rangoFijo, setRangoFijo] = useState<RangoGrilla | null>(null)
   const [gestoActivo, setGestoActivo] = useState(false)
   const [anuncio, setAnuncio] = useState('')
-  const materiaResaltada = materiaHover ?? resaltada?.id ?? null
+  const [filtro, setFiltro] = useState(FILTRO_HORARIO_INICIAL)
+  const [soloConflictos, setSoloConflictos] = useState(false)
   const contenedor = useRef<HTMLDivElement>(null)
   const capas = useRef(new Map<number, HTMLElement>())
+
+  const enConflicto = idsEnConflicto(guardado.materiasCurso)
+  const docentes = [...new Set(guardado.materiasCurso.flatMap(docentesDe))].sort((a, b) =>
+    a.localeCompare(b, 'es'),
+  )
+  const filtrando = hayFiltroHorario(filtro) || (soloConflictos && enConflicto.size > 0)
+  const fueraDeFiltro = (materiaCurso: MateriaCurso) =>
+    filtrando &&
+    (!coincideFiltroHorario(materiaCurso, filtro, docentesDe(materiaCurso)) ||
+      (soloConflictos && !enConflicto.has(materiaCurso.id)))
+
+  const hayResaltadoActivo =
+    hayFiltroHorario(filtro) || (soloConflictos && enConflicto.size > 0) || resaltadas.length > 0
+
+  // Filtros, superposiciones y materias marcadas son el mismo resaltado: se quitan juntos.
+  function quitarTodoResaltado() {
+    setFiltro(FILTRO_HORARIO_INICIAL)
+    setSoloConflictos(false)
+    onQuitarResaltado()
+  }
 
   const franjas: FranjaConMateria[] = guardado.materiasCurso.flatMap((materiaCurso) =>
     materiaCurso.horarios.map((horario) => ({ ...horario, materiaCurso })),
@@ -110,6 +139,13 @@ export function HorarioSemanal({
 
   const vista = arrastre.vistaPrevia ?? teclado.previa
   const franjaTocada = vista?.franja?.id
+  // Lo transitorio (mouse apretado, arrastre, teclado) manda sobre las materias marcadas, que
+  // vuelven a resaltarse al soltar.
+  const materiaActiva = materiaHover ?? vista?.franja?.materiaCurso.id ?? null
+  const fueraDelResaltado = (id: string) =>
+    materiaActiva !== null
+      ? materiaActiva !== id
+      : resaltadas.length > 0 && !resaltadas.includes(id)
 
   const porDia = new Map<number, { franja: FranjaConMateria; superpuesto: boolean }[]>()
   grilla.bloques.forEach((bloque, i) => {
@@ -121,16 +157,30 @@ export function HorarioSemanal({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        {puedeEditar && (
-          <Button variant="secondary" size="sm" onClick={() => onAgregar()}>
-            <PlusIcon />
-            Agregar materia
+        <FiltrosHorario
+          filtro={filtro}
+          onFiltro={setFiltro}
+          docentes={docentes}
+          conflictos={enConflicto.size}
+          soloConflictos={soloConflictos && enConflicto.size > 0}
+          onSoloConflictos={setSoloConflictos}
+        />
+        <ResaltadoHorario
+          materiasCurso={guardado.materiasCurso}
+          marcadas={resaltadas}
+          onResaltar={setMateriaResaltada}
+          onAlternar={onAlternarResaltada}
+        />
+        {hayResaltadoActivo && (
+          <Button variant="secondary" size="sm" onClick={quitarTodoResaltado}>
+            <XIcon />
+            Eliminar resaltado
           </Button>
         )}
-        {resaltada && onQuitarResaltado && (
-          <Button variant="secondary" size="sm" onClick={onQuitarResaltado}>
-            <XIcon />
-            Eliminar resaltado de {resaltada.materia_nombre ?? 'la materia'}
+        {puedeEditar && (
+          <Button variant="secondary" size="sm" className="ml-auto" onClick={() => onAgregar()}>
+            <PlusIcon />
+            Agregar materia
           </Button>
         )}
       </div>
@@ -214,7 +264,8 @@ export function HorarioSemanal({
                     guardando={guardado.estaGuardando(franja.materiaCurso.id)}
                     atenuado={
                       franja.id === franjaTocada ||
-                      (materiaResaltada !== null && materiaResaltada !== franja.materiaCurso.id)
+                      fueraDeFiltro(franja.materiaCurso) ||
+                      fueraDelResaltado(franja.materiaCurso.id)
                     }
                     descripcionId={ID_AYUDA}
                     onEditar={() => onEditar(franja.materiaCurso)}

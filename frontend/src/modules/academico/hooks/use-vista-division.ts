@@ -4,23 +4,23 @@ import type { MateriaCurso } from '@/modules/academico/types'
 import { FILTRO_MATERIAS_INICIAL, type FiltroMaterias } from '@/modules/academico/utils'
 
 /**
- * Cómo se está mirando la división: pestaña, filtro de materias y materia resaltada en el
+ * Cómo se está mirando la división: pestaña, filtro de materias y materias resaltadas en el
  * horario. Vive fuera del contenido porque al recargar la división este se reemplaza por el
  * skeleton y perdería el estado.
  */
 export function useVistaDivision() {
   const [vista, setVista] = useState<Vista>('materias')
   const [filtro, setFiltro] = useState<FiltroMaterias>(FILTRO_MATERIAS_INICIAL)
-  const [resaltadaId, setResaltadaId] = useState<string | null>(null)
+  const [resaltadasIds, setResaltadasIds] = useState<string[]>([])
 
   // Al volver a la lista, el resaltado no queda escondido esperando en el horario.
   function cambiarVista(nueva: Vista) {
-    if (nueva !== 'horario') setResaltadaId(null)
+    if (nueva !== 'horario') setResaltadasIds([])
     setVista(nueva)
   }
 
   function verEnHorario(materiaCurso: MateriaCurso) {
-    setResaltadaId(materiaCurso.id)
+    setResaltadasIds([materiaCurso.id])
     setVista('horario')
   }
 
@@ -29,9 +29,13 @@ export function useVistaDivision() {
     cambiarVista,
     filtro,
     setFiltro,
-    resaltadaId,
+    resaltadasIds,
     verEnHorario,
-    quitarResaltado: () => setResaltadaId(null),
+    alternarResaltada: (id: string) =>
+      setResaltadasIds((ids) =>
+        ids.includes(id) ? ids.filter((otro) => otro !== id) : [...ids, id],
+      ),
+    quitarResaltado: () => setResaltadasIds([]),
   }
 }
 

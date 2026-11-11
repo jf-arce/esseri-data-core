@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { MateriaCurso } from '@/modules/academico/types'
 import {
+  coincideFiltroHorario,
+  FILTRO_HORARIO_INICIAL,
   FILTRO_MATERIAS_INICIAL,
   filtrarYOrdenarMaterias,
   franjasOcupadas,
+  idsEnConflicto,
   materiasEnConflicto,
+  SIN_DOCENTE,
 } from '@/modules/academico/utils'
 
 function materia(
@@ -119,5 +123,35 @@ describe('franjasOcupadas', () => {
     expect(franjasOcupadas([lengua, arte], lengua.id).map((franja) => franja.materia)).toEqual([
       'Arte',
     ])
+  })
+})
+
+describe('coincideFiltroHorario', () => {
+  it('sin filtro deja pasar todo', () => {
+    expect(coincideFiltroHorario(lengua, FILTRO_HORARIO_INICIAL, [])).toBe(true)
+  })
+
+  it('filtra por texto sin tildes ni mayúsculas y por tipo', () => {
+    expect(
+      coincideFiltroHorario(mate, { ...FILTRO_HORARIO_INICIAL, texto: 'matematica' }, []),
+    ).toBe(true)
+    expect(coincideFiltroHorario(arte, { ...FILTRO_HORARIO_INICIAL, tipo: 'materia' }, [])).toBe(
+      false,
+    )
+  })
+
+  it('filtra por docente y por "sin docente"', () => {
+    const conAna = { ...FILTRO_HORARIO_INICIAL, docente: 'Ana Pérez' }
+    expect(coincideFiltroHorario(lengua, conAna, ['Ana Pérez'])).toBe(true)
+    expect(coincideFiltroHorario(lengua, conAna, ['Luis Gómez'])).toBe(false)
+    const sinDocente = { ...FILTRO_HORARIO_INICIAL, docente: SIN_DOCENTE }
+    expect(coincideFiltroHorario(lengua, sinDocente, [])).toBe(true)
+    expect(coincideFiltroHorario(lengua, sinDocente, ['Ana Pérez'])).toBe(false)
+  })
+})
+
+describe('idsEnConflicto', () => {
+  it('devuelve las materias que se pisan entre sí', () => {
+    expect(idsEnConflicto(todas)).toEqual(new Set(['1', '3']))
   })
 })

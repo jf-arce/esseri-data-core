@@ -25,21 +25,32 @@ describe('useVistaDivision', () => {
   it('arranca en la lista de materias, sin resaltado', () => {
     const { result } = renderHook(() => useVistaDivision())
     expect(result.current.vista).toBe('materias')
-    expect(result.current.resaltadaId).toBeNull()
+    expect(result.current.resaltadasIds).toEqual([])
   })
 
   it('ver en el horario cambia la pestaña y resalta la materia', () => {
     const { result } = renderHook(() => useVistaDivision())
     act(() => result.current.verEnHorario(materiaCurso))
     expect(result.current.vista).toBe('horario')
-    expect(result.current.resaltadaId).toBe('mc1')
+    expect(result.current.resaltadasIds).toEqual(['mc1'])
   })
 
   it('volver a la lista elimina el resaltado', () => {
     const { result } = renderHook(() => useVistaDivision())
     act(() => result.current.verEnHorario(materiaCurso))
     act(() => result.current.cambiarVista('materias'))
-    expect(result.current.resaltadaId).toBeNull()
+    expect(result.current.resaltadasIds).toEqual([])
+  })
+
+  it('se pueden resaltar varias materias y quitarlas juntas', () => {
+    const { result } = renderHook(() => useVistaDivision())
+    act(() => result.current.alternarResaltada('mc1'))
+    act(() => result.current.alternarResaltada('mc2'))
+    expect(result.current.resaltadasIds).toEqual(['mc1', 'mc2'])
+    act(() => result.current.alternarResaltada('mc1'))
+    expect(result.current.resaltadasIds).toEqual(['mc2'])
+    act(() => result.current.quitarResaltado())
+    expect(result.current.resaltadasIds).toEqual([])
   })
 
   it('el filtro se conserva al cambiar de pestaña', () => {

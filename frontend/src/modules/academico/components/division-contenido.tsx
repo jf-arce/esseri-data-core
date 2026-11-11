@@ -81,7 +81,8 @@ export function DivisionContenido({
           onAsignarDocente={acciones.asignarDocente}
           onAgregar={acciones.agregarMateria}
           onGuardado={acciones.horarioGuardado}
-          resaltada={materiasCurso.find((materiaCurso) => materiaCurso.id === vista.resaltadaId)}
+          resaltadas={vista.resaltadasIds}
+          onAlternarResaltada={vista.alternarResaltada}
           onQuitarResaltado={vista.quitarResaltado}
         />
       )}
