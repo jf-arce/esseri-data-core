@@ -45,9 +45,7 @@ export function CatalogoMateriasPage() {
       if (err instanceof ApiError && err.status === 403) {
         setSinPermiso(true)
       } else {
-        setError(
-          err instanceof ApiError ? err.detail : 'No se pudo cargar el catálogo de materias.',
-        )
+        setError(err instanceof ApiError ? err.detail : 'No se pudieron cargar las materias.')
       }
     } finally {
       setCargando(false)
@@ -66,7 +64,7 @@ export function CatalogoMateriasPage() {
         <EmptyMedia variant="neutral">
           <ShieldAlertIcon />
         </EmptyMedia>
-        <EmptyTitle>No tenés permiso para ver el catálogo de materias.</EmptyTitle>
+        <EmptyTitle>No tenés permiso para ver las materias.</EmptyTitle>
         <EmptyDescription>
           Solicitá acceso al módulo Académico a una persona administradora.
         </EmptyDescription>
@@ -88,14 +86,13 @@ export function CatalogoMateriasPage() {
         }
       />
 
-      <p className="-mt-3 max-w-2xl text-sm text-texto-2">
-        Las materias se crean una sola vez en este catálogo y después se asignan a los cursos que
-        las dictan, con su día y horario.
+      <p className="-mt-3 max-w-3xl text-sm text-texto-2">
+        Creá cada materia una sola vez y asignala a los cursos que la dictan.
       </p>
 
       {error && (
         <Alert variant="error">
-          <AlertTitle>No se pudo cargar el catálogo de materias</AlertTitle>
+          <AlertTitle>No se pudieron cargar las materias</AlertTitle>
           <AlertDescription className="flex items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={() => void cargar()}>
@@ -118,7 +115,7 @@ export function CatalogoMateriasPage() {
           <EmptyMedia variant="icon" className="bg-sup-academico text-info">
             <BookOpenIcon />
           </EmptyMedia>
-          <EmptyTitle>Todavía no hay materias en el catálogo.</EmptyTitle>
+          <EmptyTitle>Todavía no hay materias.</EmptyTitle>
           <EmptyDescription>
             {puedeEditar
               ? 'Acción sugerida: crear la primera materia para poder asignarla a un curso.'

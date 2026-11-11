@@ -52,7 +52,7 @@ export function DivisionContenido({
           titulo={`${nombre} todavía no tiene materias.`}
           descripcion={
             puedeEditar
-              ? 'Asigná materias del catálogo con su día y horario.'
+              ? 'Asigná materias con su día y horario.'
               : 'Todavía no se cargó ninguna materia en esta división.'
           }
           accion={puedeEditar ? 'Agregar materia' : undefined}
