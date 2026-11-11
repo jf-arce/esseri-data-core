@@ -1,13 +1,13 @@
 import {
-  CalendarDaysIcon,
+  ClockIcon,
   PencilIcon,
   PlusIcon,
   Trash2Icon,
   TriangleAlertIcon,
+  UserIcon,
   UserPlusIcon,
 } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -56,14 +56,35 @@ export function MateriaCursoCard({
   const nombre = materiaCurso.materia_nombre ?? '—'
   const tipo = materiaCurso.materia_tipo === 'taller' ? 'taller' : 'materia'
   const color = colorMateria(materiaCurso.materia_color)
+  const franjas = (
+    <span className="flex flex-col">
+      {materiaCurso.horarios.map((horario) => (
+        <span key={horario.id}>{formatearFranjaLegible(horario)}</span>
+      ))}
+    </span>
+  )
   return (
-    <Card size="sm" className="justify-between gap-4 border-l-4" style={color.estiloBorde}>
-      <div className="flex flex-col gap-1.5 px-(--card-spacing)">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="text-base font-semibold text-texto">{nombre}</h3>
-          <Badge variant={tipo === 'taller' ? 'info' : 'neutro'}>
-            {tipo === 'taller' ? 'Taller' : 'Materia'}
-          </Badge>
+    <Card size="sm" className="justify-between gap-3 border-l-4" style={color.estiloBorde}>
+      <div className="flex flex-col gap-2 px-(--card-spacing)">
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-base leading-snug font-semibold text-texto">{nombre}</h3>
+            <p className="text-sm text-texto-3">{tipo === 'taller' ? 'Taller' : 'Materia'}</p>
+          </div>
+          {puedeEditar && (
+            <div className="-mt-1 -mr-1.5 flex shrink-0 items-center">
+              <BotonIcono etiqueta={`Editar ${tipo}`} onClick={() => onEditar(materiaCurso)}>
+                <PencilIcon />
+              </BotonIcono>
+              <BotonIcono
+                etiqueta={`Eliminar ${tipo}`}
+                className="hover:text-error"
+                onClick={() => onQuitar(materiaCurso)}
+              >
+                <Trash2Icon />
+              </BotonIcono>
+            </div>
+          )}
         </div>
         {materiaCurso.horarios.length === 0 ? (
           <Aviso tono="advertencia">Sin horario</Aviso>
@@ -73,14 +94,14 @@ export function MateriaCursoCard({
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="flex w-fit max-w-full cursor-pointer items-start gap-1.5 text-left text-sm text-texto-2 hover:text-texto hover:underline focus-visible:outline-2 focus-visible:outline-violeta"
+                  className="flex w-fit max-w-full cursor-pointer items-start gap-2 text-left text-sm text-texto-2 hover:text-texto hover:underline focus-visible:outline-2 focus-visible:outline-violeta"
                   onClick={() => {
                     setVerHorarioAbierto(false)
                     onVerHorario(materiaCurso)
                   }}
                 >
-                  <CalendarDaysIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                  {materiaCurso.horarios.map(formatearFranjaLegible).join(' · ')}
+                  <ClockIcon className="mt-0.5 size-4 shrink-0 text-texto-3" aria-hidden="true" />
+                  {franjas}
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={8}>
@@ -89,46 +110,34 @@ export function MateriaCursoCard({
             </Tooltip>
           </TooltipProvider>
         ) : (
-          <p className="text-sm text-texto-2">
-            {materiaCurso.horarios.map(formatearFranjaLegible).join(' · ')}
-          </p>
+          <div className="flex items-start gap-2 text-sm text-texto-2">
+            <ClockIcon className="mt-0.5 size-4 shrink-0 text-texto-3" aria-hidden="true" />
+            {franjas}
+          </div>
         )}
         {conflictos.length > 0 && (
           <Aviso tono="error">Se superpone con {conflictos.join(', ')}</Aviso>
         )}
         {docentes.length > 0 ? (
-          <p className="text-sm text-texto-3">{docentes.join(', ')}</p>
+          <div className="flex items-start gap-2 text-sm text-texto-2">
+            <UserIcon className="mt-0.5 size-4 shrink-0 text-texto-3" aria-hidden="true" />
+            <p>{docentes.join(', ')}</p>
+          </div>
         ) : (
           <Aviso tono="advertencia">Sin docente asignado</Aviso>
         )}
       </div>
-      {puedeEditar && (
-        <div className="flex items-center gap-2 px-(--card-spacing)">
-          {docentes.length === 0 && onAsignarDocente && (
-            <Button
-              variant="secondary"
-              size="sm"
-              aria-label={`Asignar docente a ${nombre}`}
-              onClick={() => onAsignarDocente(materiaCurso)}
-            >
-              <UserPlusIcon />
-              Asignar
-            </Button>
-          )}
-          <BotonIcono
-            etiqueta={`Editar ${tipo}`}
+      {puedeEditar && docentes.length === 0 && onAsignarDocente && (
+        <div className="px-(--card-spacing)">
+          <Button
             variant="secondary"
-            onClick={() => onEditar(materiaCurso)}
+            size="sm"
+            aria-label={`Asignar docente a ${nombre}`}
+            onClick={() => onAsignarDocente(materiaCurso)}
           >
-            <PencilIcon />
-          </BotonIcono>
-          <BotonIcono
-            etiqueta={`Eliminar ${tipo}`}
-            className="text-error hover:text-error"
-            onClick={() => onQuitar(materiaCurso)}
-          >
-            <Trash2Icon />
-          </BotonIcono>
+            <UserPlusIcon />
+            Asignar
+          </Button>
         </div>
       )}
     </Card>
