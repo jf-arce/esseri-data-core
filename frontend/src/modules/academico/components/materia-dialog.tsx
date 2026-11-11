@@ -57,7 +57,9 @@ export function MateriaDialog({ open, onOpenChange, modo, item, onExito }: Mater
   // Un curso que dicta la materia bloquea la baja: se muestra antes de intentar borrar.
   const cantidadCursos = item?.cantidad_cursos ?? 0
   const bloqueos =
-    cantidadCursos > 0 ? [`${cantidadCursos} ${cantidadCursos === 1 ? 'curso' : 'cursos'}`] : []
+    cantidadCursos > 0
+      ? [`${cantidadCursos} ${cantidadCursos === 1 ? 'división' : 'divisiones'}`]
+      : []
 
   async function handleSubmit() {
     setEnviando(true)

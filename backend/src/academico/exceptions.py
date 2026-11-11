@@ -56,7 +56,7 @@ class MateriaCursoDuplicada(AppException):
 
     def __init__(
         self,
-        message: str = "Esa materia ya está asignada a este curso",
+        message: str = "Esa materia ya está asignada a esta división",
     ):
         super().__init__(message)
 
@@ -113,7 +113,7 @@ class MateriaConCursos(AppException):
 
     def __init__(
         self,
-        message: str = "No se puede eliminar: la materia está asignada a uno o más cursos",
+        message: str = "No se puede eliminar: la materia está asignada a una o más divisiones",
     ):
         super().__init__(message)
 
@@ -125,7 +125,7 @@ class MateriaCursoConAsignaciones(AppException):
 
     def __init__(
         self,
-        message: str = "No se puede quitar: la materia del curso tiene docentes asignados",
+        message: str = "No se puede eliminar: la materia tiene docentes asignados",
     ):
         super().__init__(message)
 
@@ -137,7 +137,7 @@ class HorarioDuplicado(AppException):
 
     def __init__(
         self,
-        message: str = "Hay franjas horarias superpuestas para esta materia en el curso",
+        message: str = "Hay franjas horarias superpuestas para esta materia",
     ):
         super().__init__(message)
 

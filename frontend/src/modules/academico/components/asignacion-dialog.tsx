@@ -217,7 +217,7 @@ export function AsignacionDialog({
               <DialogDescription>
                 {preseleccion
                   ? `Elegí el docente de ${materiaPreseleccionada ? etiquetaMateriaCurso(materiaPreseleccionada) : 'la materia'} para el ciclo.`
-                  : 'Elegí un docente, una división y una o más materias de ese curso para asignarle en el ciclo.'}
+                  : 'Elegí un docente, una división y una o más materias para asignarle en el ciclo.'}
               </DialogDescription>
             )
           )}

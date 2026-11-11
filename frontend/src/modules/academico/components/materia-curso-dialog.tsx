@@ -101,7 +101,7 @@ export function MateriaCursoDialog({
   onExito,
 }: MateriaCursoDialogProps) {
   const esEdicion = modo === 'editar'
-  const curso = divisionNombre ?? item?.division_nombre ?? 'el curso'
+  const curso = divisionNombre ?? item?.division_nombre ?? 'la división'
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [materiaId, setMateriaId] = useState(item?.materia_id ?? '')
@@ -194,7 +194,7 @@ export function MateriaCursoDialog({
     try {
       if (modo === 'eliminar' && item) {
         await eliminarMateriaCurso(item.id)
-        toast.success('Materia quitada del curso correctamente.')
+        toast.success('Materia eliminada correctamente.')
         onExito()
         onOpenChange(false)
         return
@@ -216,7 +216,7 @@ export function MateriaCursoDialog({
           materia_id: materiaId || undefined,
           horarios,
         })
-        toast.success('Materia del curso actualizada correctamente.')
+        toast.success('Materia actualizada correctamente.')
       } else if (divisionId) {
         await crearMateriaCurso({
           division_id: divisionId,
@@ -229,7 +229,7 @@ export function MateriaCursoDialog({
               }
             : { materia_id: materiaId }),
         })
-        toast.success('Materia asignada al curso correctamente.')
+        toast.success('Materia asignada correctamente.')
       }
 
       onExito()
@@ -248,22 +248,22 @@ export function MateriaCursoDialog({
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Quitar materia del curso</DialogTitle>
+            <DialogTitle>Eliminar materia</DialogTitle>
             <DialogDescription>
               {error ??
-                `Vas a quitar ${item?.materia_nombre ?? 'la materia'} de ${
-                  item?.division_nombre ?? divisionNombre ?? 'el curso'
+                `Vas a eliminar ${item?.materia_nombre ?? 'la materia'} de ${
+                  item?.division_nombre ?? divisionNombre ?? 'la división'
                 }. Esta acción no se puede deshacer.`}
             </DialogDescription>
           </DialogHeader>
 
           {bloqueado ? (
             <Alert variant="advertencia">
-              <AlertTitle>No se puede quitar todavía</AlertTitle>
+              <AlertTitle>No se puede eliminar todavía</AlertTitle>
               <AlertDescription>
                 Tiene {item?.cantidad_asignaciones}{' '}
                 {item?.cantidad_asignaciones === 1 ? 'docente asignado' : 'docentes asignados'}.
-                Quitá primero esas asignaciones docentes.
+                Eliminá primero esas asignaciones.
               </AlertDescription>
             </Alert>
           ) : null}
@@ -273,7 +273,7 @@ export function MateriaCursoDialog({
               Cancelar
             </Button>
             <Button variant="destructive" onClick={handleSubmit} disabled={enviando || bloqueado}>
-              {enviando ? 'Quitando…' : 'Quitar materia'}
+              {enviando ? 'Eliminando…' : 'Eliminar materia'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -292,8 +292,8 @@ export function MateriaCursoDialog({
         <DialogHeader>
           <DialogTitle>
             {esEdicion
-              ? `Editar materia y franja horaria de ${curso}`
-              : `Agregar materia y franja horaria a ${curso}`}
+              ? `Editar materia de ${curso}`
+              : `Agregar materia a ${curso}`}
           </DialogTitle>
           {error && <DialogDescription className="text-error">{error}</DialogDescription>}
         </DialogHeader>
@@ -322,7 +322,7 @@ export function MateriaCursoDialog({
             </Select>
             {!esEdicion && catalogoDisponible.length === 0 && (
               <p className="text-xs text-texto-3">
-                Este curso ya tiene asignadas todas las materias del catálogo. Podés crear una
+                Esta división ya tiene todas las materias del catálogo. Podés crear una
                 nueva.
               </p>
             )}
