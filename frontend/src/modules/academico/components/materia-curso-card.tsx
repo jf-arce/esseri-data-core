@@ -126,19 +126,20 @@ export function MateriaCursoCard({
         ) : (
           <Aviso tono="advertencia">Sin docente asignado</Aviso>
         )}
-        {puedeEditar && docentes.length === 0 && onAsignarDocente && (
+      </div>
+      {puedeEditar && docentes.length === 0 && onAsignarDocente && (
+        <div className="px-(--card-spacing)">
           <Button
             variant="secondary"
             size="sm"
             aria-label={`Asignar docente a ${nombre}`}
-            className="self-start"
             onClick={() => onAsignarDocente(materiaCurso)}
           >
             <UserPlusIcon />
             Asignar
           </Button>
-        )}
-      </div>
+        </div>
+      )}
     </Card>
   )
 }
