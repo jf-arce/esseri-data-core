@@ -14,20 +14,18 @@ import type { HuecoHorario } from '@/modules/academico/components/horario-semana
 import { AsignacionDialog } from '@/modules/academico/components/asignacion-dialog'
 import { MateriaCursoDialog } from '@/modules/academico/components/materia-curso-dialog'
 import {
-  AccionesSelector,
+  AccionesDivision,
   SelectorEstructura,
 } from '@/modules/academico/components/selector-estructura'
 import { useEstructuraAcademica } from '@/modules/academico/hooks/use-estructura-academica'
 import { useSeleccionEstructura } from '@/modules/academico/hooks/use-seleccion-estructura'
 import { useVistaDivision } from '@/modules/academico/hooks/use-vista-division'
-import type { Anio, AsignacionDocente, Division, MateriaCurso } from '@/modules/academico/types'
+import type { AsignacionDocente, Division, MateriaCurso } from '@/modules/academico/types'
 import { etiquetaDivision, franjasOcupadas, letraDivision } from '@/modules/academico/utils'
 import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
-type DialogAbm =
-  | { entidad: 'anio'; modo: 'crear' | 'editar' | 'eliminar'; item?: Anio }
-  | { entidad: 'division'; modo: 'crear' | 'editar' | 'eliminar'; item?: Division }
+type DialogAbm = { modo: 'crear' | 'editar' | 'eliminar'; item?: Division }
 
 type DialogMateria = {
   modo: 'crear' | 'editar' | 'eliminar'
@@ -53,9 +51,6 @@ export function EstructuraAcademicaPage() {
 
   // Cada cambio recarga solo lo que puede haber cambiado: los años traen conteos que usan las
   // bajas, las divisiones y sus materias son del año, y los docentes son de la división.
-  function alGuardarAnio() {
-    estructura.recargarAnios()
-  }
   function alGuardarDivision() {
     estructura.recargarAnios()
     estructura.recargarAnio()
@@ -120,12 +115,8 @@ export function EstructuraAcademicaPage() {
         <EstadoVacio
           titulo={`${nivel.nombre} todavía no tiene años.`}
           descripcion={
-            puedeEditar
-              ? 'Agregá el primer año para poder cargar divisiones y materias.'
-              : 'Todavía no se cargó ningún año en este nivel.'
+            'Los años se cargan desde la base de datos. Si faltan, avisá al equipo técnico.'
           }
-          accion={puedeEditar ? 'Agregar año' : undefined}
-          onAccion={() => setDialogAbm({ entidad: 'anio', modo: 'crear' })}
         />
       )
     }
@@ -139,7 +130,7 @@ export function EstructuraAcademicaPage() {
               : 'Todavía no se cargó ninguna división en este año.'
           }
           accion={puedeEditar ? 'Agregar división' : undefined}
-          onAccion={() => setDialogAbm({ entidad: 'division', modo: 'crear' })}
+          onAccion={() => setDialogAbm({ modo: 'crear' })}
         />
       )
     }
@@ -194,12 +185,12 @@ export function EstructuraAcademicaPage() {
                 cargando
                 onCambio={() => {}}
               >
-                {puedeEditar && (
-                  <AccionesSelector
-                    nombre={etiqueta === 'Año' ? 'año' : 'división'}
+                {puedeEditar && etiqueta === 'División' && (
+                  <AccionesDivision
                     deshabilitado
+                    puedeModificar={false}
                     onAgregar={() => {}}
-                    onEditar={() => {}}
+                    onModificar={() => {}}
                   />
                 )}
               </SelectorEstructura>
@@ -233,18 +224,7 @@ export function EstructuraAcademicaPage() {
                 opciones={estructura.anios.map((a) => ({ value: a.id, label: `${a.numero}°` }))}
                 cargando={cambiandoNivel}
                 onCambio={(id) => elegir({ nivel: nivel.id, anio: id })}
-              >
-                {puedeEditar && (
-                  <AccionesSelector
-                    nombre="año"
-                    deshabilitado={cambiandoNivel || !anio}
-                    onAgregar={() => setDialogAbm({ entidad: 'anio', modo: 'crear' })}
-                    onEditar={() =>
-                      anio && setDialogAbm({ entidad: 'anio', modo: 'editar', item: anio })
-                    }
-                  />
-                )}
-              </SelectorEstructura>
+              />
 
               {(division || cambiandoNivel || estructura.cargandoAnio) && (
                 <SelectorEstructura
@@ -258,13 +238,12 @@ export function EstructuraAcademicaPage() {
                   onCambio={(id) => elegir({ nivel: nivel.id, anio: anio?.id, division: id })}
                 >
                   {puedeEditar && (
-                    <AccionesSelector
-                      nombre="división"
-                      deshabilitado={cambiandoNivel || estructura.cargandoAnio || !division}
-                      onAgregar={() => setDialogAbm({ entidad: 'division', modo: 'crear' })}
-                      onEditar={() =>
-                        division &&
-                        setDialogAbm({ entidad: 'division', modo: 'editar', item: division })
+                    <AccionesDivision
+                      deshabilitado={cambiandoNivel || estructura.cargandoAnio}
+                      puedeModificar={!!division}
+                      onAgregar={() => setDialogAbm({ modo: 'crear' })}
+                      onModificar={() =>
+                        division && setDialogAbm({ modo: 'editar', item: division })
                       }
                     />
                   )}
@@ -293,21 +272,15 @@ export function EstructuraAcademicaPage() {
         <AbmDialog
           open
           onOpenChange={(open) => !open && setDialogAbm(null)}
-          entidad={dialogAbm.entidad}
+          entidad="division"
           modo={dialogAbm.modo}
-          item={
-            dialogAbm.item && dialogAbm.entidad === 'anio'
-              ? { tipo: 'anio', data: dialogAbm.item }
-              : dialogAbm.item && dialogAbm.entidad === 'division'
-                ? { tipo: 'division', data: dialogAbm.item }
-                : undefined
-          }
+          item={dialogAbm.item && { tipo: 'division', data: dialogAbm.item }}
           nivel={nivel}
           anio={anio}
           onDarDeBaja={() =>
             setDialogAbm((actual) => (actual ? { ...actual, modo: 'eliminar' } : actual))
           }
-          onExito={dialogAbm.entidad === 'anio' ? alGuardarAnio : alGuardarDivision}
+          onExito={alGuardarDivision}
         />
       )}
 

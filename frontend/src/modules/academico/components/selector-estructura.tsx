@@ -1,4 +1,4 @@
-import { PencilIcon, PlusIcon } from 'lucide-react'
+import { EllipsisVerticalIcon, PencilIcon, PlusIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import {
   Select,
@@ -7,8 +7,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
-import { BotonIcono } from '@/modules/academico/components/boton-icono'
 import { useIndicadorCarga } from '@/modules/academico/hooks/use-indicador-carga'
 
 export type OpcionSelector = { value: string; label: string }
@@ -38,10 +44,10 @@ export function SelectorEstructura({
       </span>
       <div className="flex items-center gap-1">
         <Select value={cargando ? '' : valor} onValueChange={onCambio} disabled={cargando}>
-          <SelectTrigger className="w-20" aria-labelledby={id} aria-busy={cargando}>
+          <SelectTrigger className="w-24" aria-labelledby={id} aria-busy={cargando}>
             <SelectValue placeholder={mostrarCarga ? <Skeleton className="h-3.5 w-10" /> : ''} />
           </SelectTrigger>
-          <SelectContent className="min-w-20 p-1">
+          <SelectContent className="min-w-24 p-1">
             {opciones.map((opcion) => (
               <SelectItem key={opcion.value} value={opcion.value} className="py-1.5 pr-6">
                 {opcion.label}
@@ -55,25 +61,39 @@ export function SelectorEstructura({
   )
 }
 
-export function AccionesSelector({
-  nombre,
+export function AccionesDivision({
   deshabilitado,
+  puedeModificar,
   onAgregar,
-  onEditar,
+  onModificar,
 }: {
-  nombre: 'año' | 'división'
   deshabilitado: boolean
+  puedeModificar: boolean
   onAgregar: () => void
-  onEditar: () => void
+  onModificar: () => void
 }) {
   return (
-    <>
-      <BotonIcono etiqueta={`Agregar ${nombre}`} disabled={deshabilitado} onClick={onAgregar}>
-        <PlusIcon />
-      </BotonIcono>
-      <BotonIcono etiqueta={`Editar ${nombre}`} disabled={deshabilitado} onClick={onEditar}>
-        <PencilIcon />
-      </BotonIcono>
-    </>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Acciones de la división"
+          disabled={deshabilitado}
+        >
+          <EllipsisVerticalIcon />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuItem onSelect={onAgregar}>
+          <PlusIcon />
+          Agregar división
+        </DropdownMenuItem>
+        <DropdownMenuItem disabled={!puedeModificar} onSelect={onModificar}>
+          <PencilIcon />
+          Modificar división actual
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

@@ -71,14 +71,14 @@ beforeEach(() => {
 })
 
 describe('EstructuraAcademicaPage', () => {
-  it('un nivel sin años ofrece agregar el primero a quien puede editar', async () => {
+  it('un nivel sin años no ofrece agregar años', async () => {
     conPermisos(['academico.leer', 'academico.actualizar'])
     vi.mocked(listarAnios).mockResolvedValue([])
 
     montar()
 
     expect(await screen.findByText('Primario todavía no tiene años.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Agregar año' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Agregar año' })).not.toBeInTheDocument()
   })
 
   it('en solo lectura no hay acciones de edición', async () => {
