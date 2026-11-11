@@ -40,6 +40,8 @@ interface AsignacionDialogProps {
   materiasCurso: MateriaCurso[]
   divisiones: Division[]
   cicloActual: string
+  /** Materia ya elegida (al asignar desde su card): no se vuelve a pedir división ni materias. */
+  preseleccion?: { divisionId: string; materiaCursoId: string }
   onExito: () => void
 }
 
@@ -64,6 +66,7 @@ export function AsignacionDialog({
   materiasCurso,
   divisiones,
   cicloActual,
+  preseleccion,
   onExito,
 }: AsignacionDialogProps) {
   const esEdicion = modo === 'editar'
@@ -72,8 +75,10 @@ export function AsignacionDialog({
   const [cicloLectivo, setCicloLectivo] = useState(item?.ciclo_lectivo ?? cicloActual)
   const [docenteId, setDocenteId] = useState(item?.docente_id ?? '')
   const [materiaCursoId, setMateriaCursoId] = useState(item?.materia_curso_id ?? '')
-  const [divisionId, setDivisionId] = useState(item?.division_id ?? '')
-  const [materiasSeleccionadas, setMateriasSeleccionadas] = useState<string[]>([])
+  const [divisionId, setDivisionId] = useState(item?.division_id ?? preseleccion?.divisionId ?? '')
+  const [materiasSeleccionadas, setMateriasSeleccionadas] = useState<string[]>(
+    preseleccion ? [preseleccion.materiaCursoId] : [],
+  )
 
   // Las materias-curso ya traen su división; se filtra por la división elegida.
   const materiasFiltradas = useMemo(() => {
@@ -86,8 +91,8 @@ export function AsignacionDialog({
     setCicloLectivo(item?.ciclo_lectivo ?? cicloActual)
     setDocenteId(item?.docente_id ?? '')
     setMateriaCursoId(item?.materia_curso_id ?? '')
-    setDivisionId(item?.division_id ?? '')
-    setMateriasSeleccionadas([])
+    setDivisionId(item?.division_id ?? preseleccion?.divisionId ?? '')
+    setMateriasSeleccionadas(preseleccion ? [preseleccion.materiaCursoId] : [])
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -190,6 +195,10 @@ export function AsignacionDialog({
     )
   }
 
+  const materiaPreseleccionada = preseleccion
+    ? materiasCurso.find((materiaCurso) => materiaCurso.id === preseleccion.materiaCursoId)
+    : undefined
+
   const puedeGuardar = esEdicion
     ? Boolean(cicloLectivo.trim() && docenteId && materiaCursoId)
     : Boolean(cicloLectivo.trim() && docenteId && divisionId && materiasSeleccionadas.length > 0)
@@ -206,8 +215,9 @@ export function AsignacionDialog({
           ) : (
             !esEdicion && (
               <DialogDescription>
-                Elegí un docente, una división y una o más materias de ese curso para asignarle en
-                el ciclo.
+                {preseleccion
+                  ? `Elegí el docente de ${materiaPreseleccionada ? etiquetaMateriaCurso(materiaPreseleccionada) : 'la materia'} para el ciclo.`
+                  : 'Elegí un docente, una división y una o más materias de ese curso para asignarle en el ciclo.'}
               </DialogDescription>
             )
           )}
@@ -240,23 +250,25 @@ export function AsignacionDialog({
             </Select>
           </Field>
 
-          <Field>
-            <FieldLabel>División</FieldLabel>
-            <Select value={divisionId} onValueChange={cambiarDivision}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Seleccionar división" />
-              </SelectTrigger>
-              <SelectContent>
-                {divisiones.map((division) => (
-                  <SelectItem key={division.id} value={division.id}>
-                    {division.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
+          {!preseleccion && (
+            <Field>
+              <FieldLabel>División</FieldLabel>
+              <Select value={divisionId} onValueChange={cambiarDivision}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Seleccionar división" />
+                </SelectTrigger>
+                <SelectContent>
+                  {divisiones.map((division) => (
+                    <SelectItem key={division.id} value={division.id}>
+                      {division.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
 
-          {esEdicion ? (
+          {preseleccion ? null : esEdicion ? (
             <Field>
               <FieldLabel>Materia</FieldLabel>
               <Select
