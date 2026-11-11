@@ -238,6 +238,21 @@ export function BloqueHorario({
               </>
             )}
           </div>
+          {docentes.length === 0 && puedeEditar && onAsignarDocente && (
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-label="Asignar docente"
+              className="self-start"
+              onClick={() => {
+                setAbierto(false)
+                onAsignarDocente()
+              }}
+            >
+              <UserPlusIcon />
+              Asignar
+            </Button>
+          )}
           {puedeEditar && onDuplicar && (
             <div className="flex items-start gap-2">
               <CopyIcon className="mt-1.5 size-4 shrink-0 text-texto-3" aria-hidden="true" />
@@ -269,21 +284,6 @@ export function BloqueHorario({
                 </div>
               </div>
             </div>
-          )}
-          {docentes.length === 0 && puedeEditar && onAsignarDocente && (
-            <Button
-              variant="secondary"
-              size="sm"
-              aria-label="Asignar docente"
-              className="self-start"
-              onClick={() => {
-                setAbierto(false)
-                onAsignarDocente()
-              }}
-            >
-              <UserPlusIcon />
-              Asignar
-            </Button>
           )}
         </PopoverContent>
       </Popover>
