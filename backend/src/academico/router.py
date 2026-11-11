@@ -51,6 +51,10 @@ from src.academico.exceptions import (
     MateriaDuplicada,
 )
 from src.academico.historial_router import router as historial_router
+from src.academico.horario_export_service import (
+    generar_xlsx_horario_division,
+    nombre_archivo_horario,
+)
 from src.academico.justificaciones_service import (
     opciones_justificaciones,
     pagina_justificaciones,
@@ -315,6 +319,26 @@ def obtener_division_endpoint(
 ) -> Division:
     """Obtener una división por su ID."""
     return division
+
+
+@router.get("/divisiones/{division_id}/horario/exportar")
+def exportar_horario_division_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    ciclo_lectivo: str | None = None,
+    division: Division = Depends(obtener_division_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Response:
+    """Exportar a Excel el horario semanal de la división. Pide `leer` y no `exportar`: es la
+    misma información que ya ve quien abre la pestaña Horario. Sin `ciclo_lectivo`, usa el año
+    en curso para los docentes."""
+    ciclo = ciclo_lectivo or str(date.today().year)
+    contenido = generar_xlsx_horario_division(db, division, ciclo)
+    nombre = nombre_archivo_horario(division, ciclo)
+    return Response(
+        content=contenido,
+        media_type=_MEDIA_TYPE_POR_FORMATO["xlsx"],
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
+    )
 
 
 @router.put("/divisiones/{division_id}", response_model=DivisionResponse)
