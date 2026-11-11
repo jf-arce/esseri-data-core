@@ -12,7 +12,7 @@ MARCA = "ESSERI_SIMULADO"
 VERSION = "1"
 ENTIDAD = "ENTIDAD_FICTICIA"
 MAX_BYTES = 1024 * 1024
-MAX_REGISTROS = 100
+MAX_REGISTROS = 500
 COBRADO = "COBRADO_SIM"
 RECHAZADO = "RECHAZADO_SIM"
 
@@ -81,8 +81,8 @@ def generar_respuesta(lote_id: uuid.UUID, fecha: date, filas: list[RespuestaDeta
 
 
 def _importe(valor: str, *, cero: bool = False) -> Decimal:
-    # Control totals can sum up to 100 individual Numeric(12, 2) amounts.
-    enteros = 12 if cero else 10
+    # Control totals can sum up to 500 individual Numeric(12, 2) amounts.
+    enteros = 13 if cero else 10
     if not re.fullmatch(rf"\d{{1,{enteros}}}\.\d{{2}}", valor):
         raise FormatoInvalido("Importe inválido: revisar el límite de enteros y los dos decimales.")
     importe = Decimal(valor)
@@ -98,7 +98,9 @@ def leer_respuesta(texto: str) -> tuple[uuid.UUID, list[RespuestaDetalle]]:
     try:
         registros = list(csv.reader(StringIO(texto, newline=""), delimiter=";", strict=True))
         if not 3 <= len(registros) <= MAX_REGISTROS + 2:
-            raise FormatoInvalido("Se requieren cabecera, entre 1 y 100 detalles y cierre.")
+            raise FormatoInvalido(
+                f"Se requieren cabecera, entre 1 y {MAX_REGISTROS} detalles y cierre."
+            )
         cabecera, *detalles, cierre = registros
         if (
             len(cabecera) != 7

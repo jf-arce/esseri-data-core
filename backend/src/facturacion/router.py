@@ -27,6 +27,7 @@ from src.facturacion import (
     vencimientos_service,
 )
 from src.facturacion.calendario_facturacion import fecha_operativa_argentina
+from src.facturacion.cobranzas_router import router as cobranzas_router
 from src.facturacion.dependencies import (
     obtener_concepto_cobro_o_404,
     obtener_factura_o_404,
@@ -78,6 +79,7 @@ from src.familias_alumnos.dependencies import (
 from src.familias_alumnos.models import Alumno, Familia
 
 router = APIRouter(prefix="/facturacion", tags=["facturacion"])
+router.include_router(cobranzas_router)
 
 DbSession = Annotated[Session, Depends(get_db)]
 PuedeCrear = Annotated[Usuario, Depends(requiere_permiso(PERMISO_FACTURACION_CREAR))]

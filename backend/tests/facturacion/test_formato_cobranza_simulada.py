@@ -93,3 +93,27 @@ def test_total_admite_la_suma_de_cien_importes_validos():
     lote = uuid.uuid4()
     texto = formato.generar_respuesta(lote, date(2026, 11, 11), filas)
     assert formato.leer_respuesta(texto) == (lote, filas)
+
+
+def test_respuesta_admite_quinientos_registros_para_el_dataset_autorizado():
+    filas = [
+        formato.RespuestaDetalle(
+            uuid.uuid4(), formato.COBRADO, Decimal("172000.00"), date(2026, 11, 11), "", ""
+        )
+        for _ in range(500)
+    ]
+    lote = uuid.uuid4()
+    texto = formato.generar_respuesta(lote, date(2026, 11, 11), filas)
+    assert formato.leer_respuesta(texto) == (lote, filas)
+
+
+def test_respuesta_rechaza_mas_de_quinientos_registros():
+    filas = [
+        formato.RespuestaDetalle(
+            uuid.uuid4(), formato.COBRADO, Decimal("10.00"), date(2026, 11, 11), "", ""
+        )
+        for _ in range(501)
+    ]
+    texto = formato.generar_respuesta(uuid.uuid4(), date(2026, 11, 11), filas)
+    with pytest.raises(formato.FormatoInvalido, match="500"):
+        formato.leer_respuesta(texto)
