@@ -3,7 +3,10 @@ import { useRef, useState, type PointerEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { BloqueHorario } from '@/modules/academico/components/bloque-horario'
 import { FantasmaHorario } from '@/modules/academico/components/fantasma-horario'
-import { FiltrosHorario } from '@/modules/academico/components/filtros-horario'
+import {
+  AvisoSuperposiciones,
+  FiltrosHorario,
+} from '@/modules/academico/components/filtros-horario'
 import { ResaltadoHorario } from '@/modules/academico/components/resaltado-horario'
 import { useArrastreHorario } from '@/modules/academico/hooks/use-arrastre-horario'
 import { useGuardarFranjas } from '@/modules/academico/hooks/use-guardar-franjas'
@@ -174,19 +177,17 @@ export function HorarioSemanal({
         <h2 className="hidden text-lg font-semibold text-texto print:block">{tituloImpresion}</h2>
       )}
       <div className="flex flex-wrap items-center gap-2 print:hidden">
-        <FiltrosHorario
-          filtro={filtro}
-          onFiltro={setFiltro}
-          docentes={docentes}
-          conflictos={enConflicto.size}
-          soloConflictos={soloConflictos && enConflicto.size > 0}
-          onSoloConflictos={setSoloConflictos}
-        />
+        <FiltrosHorario filtro={filtro} onFiltro={setFiltro} docentes={docentes} />
         <ResaltadoHorario
           materiasCurso={guardado.materiasCurso}
           marcadas={resaltadas}
           onResaltar={setMateriaResaltada}
           onAlternar={onAlternarResaltada}
+        />
+        <AvisoSuperposiciones
+          conflictos={enConflicto.size}
+          soloConflictos={soloConflictos && enConflicto.size > 0}
+          onSoloConflictos={setSoloConflictos}
         />
         {hayResaltadoActivo && (
           <Button variant="secondary" size="sm" onClick={quitarTodoResaltado}>

@@ -1,4 +1,4 @@
-import { SearchIcon, TriangleAlertIcon } from 'lucide-react'
+import { CheckIcon, SearchIcon, TriangleAlertIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -24,20 +24,9 @@ interface FiltrosHorarioProps {
   filtro: FiltroHorario
   onFiltro: (filtro: FiltroHorario) => void
   docentes: string[]
-  /** Cantidad de materias con franjas superpuestas. */
-  conflictos: number
-  soloConflictos: boolean
-  onSoloConflictos: (activo: boolean) => void
 }
 
-export function FiltrosHorario({
-  filtro,
-  onFiltro,
-  docentes,
-  conflictos,
-  soloConflictos,
-  onSoloConflictos,
-}: FiltrosHorarioProps) {
+export function FiltrosHorario({ filtro, onFiltro, docentes }: FiltrosHorarioProps) {
   return (
     <>
       <div className="relative w-full sm:w-56">
@@ -83,18 +72,40 @@ export function FiltrosHorario({
           ))}
         </SelectContent>
       </Select>
-      {conflictos > 0 && (
-        <Button
-          variant={soloConflictos ? 'secondary' : 'ghost'}
-          size="sm"
-          aria-pressed={soloConflictos}
-          className="text-error"
-          onClick={() => onSoloConflictos(!soloConflictos)}
-        >
-          <TriangleAlertIcon />
-          {conflictos === 1 ? '1 materia superpuesta' : `${conflictos} materias superpuestas`}
-        </Button>
-      )}
     </>
+  )
+}
+
+interface AvisoSuperposicionesProps {
+  /** Cantidad de materias con franjas superpuestas. */
+  conflictos: number
+  soloConflictos: boolean
+  onSoloConflictos: (activo: boolean) => void
+}
+
+export function AvisoSuperposiciones({
+  conflictos,
+  soloConflictos,
+  onSoloConflictos,
+}: AvisoSuperposicionesProps) {
+  if (conflictos === 0) {
+    return (
+      <span className="flex h-8 items-center gap-1.5 px-2.5 text-sm text-texto-3">
+        <CheckIcon className="size-4" aria-hidden="true" />
+        Sin superposiciones
+      </span>
+    )
+  }
+  return (
+    <Button
+      variant={soloConflictos ? 'secondary' : 'ghost'}
+      size="sm"
+      aria-pressed={soloConflictos}
+      className="text-error"
+      onClick={() => onSoloConflictos(!soloConflictos)}
+    >
+      <TriangleAlertIcon />
+      {conflictos === 1 ? '1 materia superpuesta' : `${conflictos} materias superpuestas`}
+    </Button>
   )
 }
