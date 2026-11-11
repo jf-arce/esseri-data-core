@@ -1,4 +1,4 @@
-import { PlusIcon, XIcon } from 'lucide-react'
+import { PlusIcon, PrinterIcon, XIcon } from 'lucide-react'
 import { useRef, useState, type PointerEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { BloqueHorario } from '@/modules/academico/components/bloque-horario'
@@ -31,6 +31,8 @@ interface HorarioSemanalProps {
   /** Nombres de los docentes asignados a la materia en el ciclo actual. */
   docentesDe: (materiaCurso: MateriaCurso) => string[]
   puedeEditar: boolean
+  /** Título que aparece solo al imprimir. */
+  tituloImpresion?: string
   onEditar: (materiaCurso: MateriaCurso) => void
   onEliminar: (materiaCurso: MateriaCurso) => void
   onAsignarDocente?: (materiaCurso: MateriaCurso) => void
@@ -49,6 +51,7 @@ export function HorarioSemanal({
   materiasCurso,
   docentesDe,
   puedeEditar,
+  tituloImpresion,
   onEditar,
   onEliminar,
   onAsignarDocente,
@@ -161,8 +164,11 @@ export function HorarioSemanal({
   })
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="zona-impresion flex flex-col gap-3 [-webkit-print-color-adjust:exact] [print-color-adjust:exact]">
+      {tituloImpresion && (
+        <h2 className="hidden text-lg font-semibold text-texto print:block">{tituloImpresion}</h2>
+      )}
+      <div className="flex flex-wrap items-center gap-2 print:hidden">
         <FiltrosHorario
           filtro={filtro}
           onFiltro={setFiltro}
@@ -183,12 +189,18 @@ export function HorarioSemanal({
             Eliminar resaltado
           </Button>
         )}
-        {puedeEditar && (
-          <Button variant="secondary" size="sm" className="ml-auto" onClick={() => onAgregar()}>
-            <PlusIcon />
-            Agregar materia
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={() => window.print()}>
+            <PrinterIcon />
+            Imprimir
           </Button>
-        )}
+          {puedeEditar && (
+            <Button variant="secondary" size="sm" onClick={() => onAgregar()}>
+              <PlusIcon />
+              Agregar materia
+            </Button>
+          )}
+        </div>
       </div>
       {puedeEditar && (
         <p id={ID_AYUDA} className="sr-only">

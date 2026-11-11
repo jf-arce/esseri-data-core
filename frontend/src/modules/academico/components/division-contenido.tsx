@@ -76,6 +76,7 @@ export function DivisionContenido({
           materiasCurso={materiasCurso}
           docentesDe={docentesDe}
           puedeEditar={puedeEditar}
+          tituloImpresion={`Horario de ${nombre}`}
           onEditar={acciones.editarMateria}
           onEliminar={acciones.eliminarMateria}
           onAsignarDocente={acciones.asignarDocente}
