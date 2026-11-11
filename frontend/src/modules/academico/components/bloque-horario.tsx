@@ -1,12 +1,18 @@
 import { useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react'
-import { PencilIcon, Trash2Icon, TriangleAlertIcon, UserPlusIcon } from 'lucide-react'
+import {
+  ClockIcon,
+  PencilIcon,
+  Trash2Icon,
+  TriangleAlertIcon,
+  UserIcon,
+  UserPlusIcon,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BotonIcono } from '@/modules/academico/components/boton-icono'
 import {
   Popover,
   PopoverContent,
   PopoverDescription,
-  PopoverHeader,
   PopoverTitle,
   PopoverTrigger,
 } from '@/components/ui/popover'
@@ -19,6 +25,8 @@ import {
   DIAS,
   rangoLegible,
 } from '@/modules/academico/utils'
+
+const ESPERA_RESALTADO_MS = 120
 
 interface BloqueHorarioProps {
   franja: FranjaConMateria
@@ -81,6 +89,19 @@ export function BloqueHorario({
   const docenteCorto = abreviarDocentes(docentes)
   const sinDocenteAviso = minutos < 60 && !docenteCorto
   const arrastrable = puedeEditar && !guardando
+  // Con el mouse, el resto se atenúa solo si se mantiene el clic un momento (un clic corto abre
+  // el popover sin atenuar nada).
+  function resaltarMientrasSePresiona() {
+    const espera = window.setTimeout(() => onResaltar(materiaCurso.id), ESPERA_RESALTADO_MS)
+    const soltar = () => {
+      window.clearTimeout(espera)
+      onResaltar(null)
+      window.removeEventListener('pointerup', soltar)
+      window.removeEventListener('pointercancel', soltar)
+    }
+    window.addEventListener('pointerup', soltar)
+    window.addEventListener('pointercancel', soltar)
+  }
   const etiqueta = `${nombre}, ${DIAS[franja.dia_semana - 1]} de ${rango}, ${textoDocentes}${
     superpuesto ? ' (horario superpuesto)' : ''
   }`
@@ -95,8 +116,6 @@ export function BloqueHorario({
         left: `${(carril / carriles) * 100}%`,
         width: `${100 / carriles}%`,
       }}
-      onMouseEnter={() => onResaltar(materiaCurso.id)}
-      onMouseLeave={() => onResaltar(null)}
     >
       <Popover open={abierto} onOpenChange={setAbierto}>
         <PopoverTrigger asChild>
@@ -104,13 +123,18 @@ export function BloqueHorario({
             type="button"
             aria-label={etiqueta}
             aria-describedby={puedeEditar ? descripcionId : undefined}
-            className={`flex size-full min-w-0 flex-col items-start overflow-hidden border py-1 pl-2 ${sinDocenteAviso ? 'pr-5' : 'pr-2'} text-left text-xs leading-tight select-none [-webkit-touch-callout:none] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-violeta ${
+            className={`flex size-full min-w-0 flex-col items-start overflow-hidden border py-1 pl-2 ${sinDocenteAviso ? 'pr-5' : 'pr-2'} text-left text-xs leading-tight select-none [-webkit-touch-callout:none] hover:brightness-90 hover:shadow-md focus-visible:outline-2 focus-visible:outline-violeta ${
               superpuesto ? 'border-error bg-error-suave text-error' : 'border-transparent'
             } ${arrastrable ? 'cursor-grab' : 'cursor-pointer'}`}
             style={superpuesto ? undefined : color.estilo}
-            onFocus={() => onResaltar(materiaCurso.id)}
+            onFocus={(evento) => {
+              if (evento.currentTarget.matches(':focus-visible')) onResaltar(materiaCurso.id)
+            }}
             onBlur={() => onResaltar(null)}
-            onPointerDown={arrastrable ? onIniciarMover : undefined}
+            onPointerDown={(evento) => {
+              resaltarMientrasSePresiona()
+              if (arrastrable) onIniciarMover(evento)
+            }}
             onKeyDown={arrastrable ? onTecla : undefined}
             onContextMenu={onContextMenu}
             onClick={(evento) => {
@@ -141,62 +165,82 @@ export function BloqueHorario({
             )}
           </button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-64">
-          <PopoverHeader>
-            <PopoverTitle>{nombre}</PopoverTitle>
-            <PopoverDescription>
-              {materiaCurso.materia_tipo === 'taller' ? 'Taller' : 'Materia'}
-            </PopoverDescription>
-          </PopoverHeader>
-          <div className="flex flex-col gap-0.5">
-            <span className="capitalize">{DIAS[franja.dia_semana - 1]}</span>
-            <span className="text-texto-2">{rango}</span>
-          </div>
-          {docentes.length > 0 ? (
-            <p className="text-texto-2">{textoDocentes}</p>
-          ) : (
-            <p className="flex items-center gap-1.5 font-medium text-advertencia">
-              <TriangleAlertIcon className="size-4 shrink-0" aria-hidden="true" />
-              Sin docente asignado
-            </p>
-          )}
-          {puedeEditar && (
-            <div className="flex items-center gap-2">
-              {docentes.length === 0 && onAsignarDocente && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  aria-label="Asignar docente"
+        <PopoverContent
+          align="start"
+          className="w-72 gap-3"
+          // Sin esto el foco salta al botón de editar y se abre su tooltip solo.
+          onOpenAutoFocus={(evento) => evento.preventDefault()}
+        >
+          <div className="flex items-start gap-2">
+            <span
+              aria-hidden="true"
+              className="mt-1 size-3 shrink-0 rounded-sm"
+              style={{ backgroundColor: color.estilo.backgroundColor }}
+            />
+            <div className="min-w-0 flex-1">
+              <PopoverTitle className="leading-snug">{nombre}</PopoverTitle>
+              <PopoverDescription>{tipo === 'taller' ? 'Taller' : 'Materia'}</PopoverDescription>
+            </div>
+            {puedeEditar && (
+              <div className="-mt-1 -mr-1 flex shrink-0 items-center">
+                <BotonIcono
+                  etiqueta={`Editar ${tipo}`}
                   onClick={() => {
                     setAbierto(false)
-                    onAsignarDocente()
+                    onEditar()
                   }}
                 >
-                  <UserPlusIcon />
-                  Asignar
-                </Button>
-              )}
-              <BotonIcono
-                variant="secondary"
-                etiqueta={`Editar ${tipo}`}
-                onClick={() => {
-                  setAbierto(false)
-                  onEditar()
-                }}
-              >
-                <PencilIcon />
-              </BotonIcono>
-              <BotonIcono
-                etiqueta={`Eliminar ${tipo}`}
-                className="text-error hover:text-error"
-                onClick={() => {
-                  setAbierto(false)
-                  onEliminar()
-                }}
-              >
-                <Trash2Icon />
-              </BotonIcono>
-            </div>
+                  <PencilIcon />
+                </BotonIcono>
+                <BotonIcono
+                  etiqueta={`Eliminar ${tipo}`}
+                  className="hover:text-error"
+                  onClick={() => {
+                    setAbierto(false)
+                    onEliminar()
+                  }}
+                >
+                  <Trash2Icon />
+                </BotonIcono>
+              </div>
+            )}
+          </div>
+          <div className="flex items-start gap-2 text-texto-2">
+            <ClockIcon className="mt-0.5 size-4 shrink-0 text-texto-3" aria-hidden="true" />
+            <p>
+              <span className="capitalize">{DIAS[franja.dia_semana - 1]}</span>, {rango}
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            {docentes.length > 0 ? (
+              <>
+                <UserIcon className="mt-0.5 size-4 shrink-0 text-texto-3" aria-hidden="true" />
+                <p className="text-texto-2">{textoDocentes}</p>
+              </>
+            ) : (
+              <>
+                <TriangleAlertIcon
+                  className="mt-0.5 size-4 shrink-0 text-advertencia"
+                  aria-hidden="true"
+                />
+                <p className="flex-1 font-medium text-advertencia">Sin docente asignado</p>
+              </>
+            )}
+          </div>
+          {docentes.length === 0 && puedeEditar && onAsignarDocente && (
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-label="Asignar docente"
+              className="self-start"
+              onClick={() => {
+                setAbierto(false)
+                onAsignarDocente()
+              }}
+            >
+              <UserPlusIcon />
+              Asignar
+            </Button>
           )}
         </PopoverContent>
       </Popover>
