@@ -211,6 +211,7 @@ RF cubiertos: RF-04, RF-05, RF-06, RF-07, RF-08, RF-09
 | id | uuid | PK |  |
 | nombre | string |  |  |
 | tipo | string |  | `[ACLARACIÓN CLIENTE]` respuesta 2 — materia / taller |
+| color | string(7) |  | Color en formato `#rrggbb` (minúsculas) para identificar la materia en el horario y las tarjetas. Si no se elige uno al crearla, se sortea de una lista sugerida. Obligatorio: las materias existentes recibieron uno en la migración. |
 | created_at | datetime |  | Fecha y hora de creación del registro. |
 | updated_at | datetime |  | Fecha y hora de la última modificación del registro. |
 | anio_id | uuid | FK |  |
@@ -237,6 +238,13 @@ RF cubiertos: RF-04, RF-05, RF-06, RF-07, RF-08, RF-09
 | docente_id | uuid | FK |  |
 | materia_id | uuid | FK |  |
 | division_id | uuid | FK |  |
+
+### Reglas de no superposición de horarios (Académico)
+> Las franjas son semanales (`dia_semana` 1 a 7, `hora_inicio`, `hora_fin`) y se comparan con `inicio < fin_otra y fin > inicio_otra`: franjas contiguas (8 a 9 y 9 a 10) no se superponen. Las horas no llevan zona horaria.
+
+- **En una división:** dos materias del mismo curso no pueden ocupar la misma franja, ni siquiera parcialmente (8 a 9 y 8:30 a 9:30). Tampoco dos franjas de la misma materia entre sí. Otra división sí puede usar la misma franja. Error 409.
+- **Para un docente:** en un mismo ciclo lectivo no puede tener asignadas dos materias-curso distintas con franjas que se pisan. Dos docentes en la misma materia-curso (pareja pedagógica) no es conflicto, y otro ciclo lectivo tampoco. Se valida al asignar (individual y masivo), al mover una asignación y al cambiar los horarios de la materia-curso. Error 409.
+- Los datos anteriores a estas reglas no se corrigen solos: si hay superposiciones viejas, la grilla de horario las marca en rojo.
 
 ### `MOTIVO_JUSTIFICACION`
 > **[ACLARACIÓN CLIENTE]** (respuesta 10). Catálogo configurable de motivos de ausencia — antes el modelo no distinguía motivos, o los dejaba como texto libre. Mismo patrón que `METODO_PAGO`/`CONCEPTO_COBRO`: alta y baja sin tocar código (RNF-06).
@@ -1091,6 +1099,8 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 ### Grupo C — Dato operativo real de ESSERI, NO inventar
 
 **`NIVEL_EDUCATIVO`, `ANIO`, `DIVISION`, `MATERIA`** — la estructura curricular real del colegio. **[ACLARACIÓN CLIENTE]** (respuesta 6) confirma 3 niveles (Inicial/Primario/Secundario) y la jerarquía `Nivel → Año/Sala → División/Orientación → Materias → Docentes`, y el equipo ya recibió del cliente la tabla maestra con los valores concretos (ver `docs/aclaraciones-cliente-esseri.md`) — la precarga puede transcribirse a partir de esa tabla, no hace falta seguir tratándola como bloqueada.
+
+**`NIVEL_EDUCATIVO` es un dato maestro fijo.** Siempre son Inicial, Primario y Secundario: la API solo permite consultarlos (`GET /academico/niveles`) y una migración inserta los que falten. No hay alta, edición ni baja.
 
 **`PRODUCTO_SERVICIO`** — catálogo de compras. **[ACLARACIÓN CLIENTE]** (respuesta 12): el cliente va a entregar información de proveedores y compras para construir el catálogo inicial. **Sigue bloqueado** hasta recibir y normalizar esa información (pregunta pendiente #17) — no inventar valores de ejemplo como precarga real.
 

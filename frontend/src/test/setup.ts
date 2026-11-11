@@ -17,3 +17,12 @@ Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
   writable: true,
   value: () => {},
 })
+
+// JSDOM no implementa la captura de puntero que Radix Select usa al abrirse con el mouse.
+for (const metodo of ['hasPointerCapture', 'setPointerCapture', 'releasePointerCapture']) {
+  Object.defineProperty(HTMLElement.prototype, metodo, {
+    configurable: true,
+    writable: true,
+    value: () => false,
+  })
+}

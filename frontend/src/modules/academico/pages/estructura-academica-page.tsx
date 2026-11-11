@@ -1,180 +1,88 @@
-import {
-  BookOpenIcon,
-  Building2Icon,
-  LayersIcon,
-  PencilIcon,
-  PlusIcon,
-  ShieldAlertIcon,
-  Trash2Icon,
-} from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { ShieldAlertIcon } from 'lucide-react'
+import { useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { PageHeader } from '@/components/page-header'
-import { StatTile } from '@/components/stat-tile'
-import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  useEstructuraAcademica,
-  type NivelConEstructura,
-} from '@/modules/academico/hooks/use-estructura-academica'
-import { NivelSeccion } from '@/modules/academico/components/nivel-seccion'
+import { PageHeader } from '@/components/page-header'
 import { AbmDialog } from '@/modules/academico/components/abm-dialog'
+import { ContenidoSkeleton } from '@/modules/academico/components/contenido-skeleton'
+import { DivisionContenido } from '@/modules/academico/components/division-contenido'
+import { EstadoVacio } from '@/modules/academico/components/estado-vacio'
+import type { HuecoHorario } from '@/modules/academico/components/horario-semanal'
+import { AsignacionDialog } from '@/modules/academico/components/asignacion-dialog'
 import { MateriaCursoDialog } from '@/modules/academico/components/materia-curso-dialog'
-import { listarAnios } from '@/modules/academico/services/anios'
-import type {
-  Anio,
-  Division,
-  Materia,
-  MateriaCurso,
-  NivelEducativo,
-} from '@/modules/academico/types'
-import { normalizarTexto } from '@/modules/academico/utils'
+import {
+  AccionesDivision,
+  SelectorEstructura,
+} from '@/modules/academico/components/selector-estructura'
+import { useEstructuraAcademica } from '@/modules/academico/hooks/use-estructura-academica'
+import { useSeleccionEstructura } from '@/modules/academico/hooks/use-seleccion-estructura'
+import { useVistaDivision } from '@/modules/academico/hooks/use-vista-division'
+import type { AsignacionDocente, Division, MateriaCurso } from '@/modules/academico/types'
+import { etiquetaDivision, franjasOcupadas, letraDivision } from '@/modules/academico/utils'
 import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
-type DialogState =
-  | { open: false }
-  | {
-      open: true
-      entidad: 'nivel' | 'anio' | 'division' | 'materia'
-      modo: 'crear' | 'editar' | 'eliminar'
-      item?:
-        | { tipo: 'nivel'; data: NivelEducativo }
-        | { tipo: 'anio'; data: Anio }
-        | { tipo: 'division'; data: Division }
-        | { tipo: 'materia'; data: Materia }
-      nivelPreseleccionadoId?: string
-      anioPreseleccionadoId?: string
-    }
+type DialogAbm = { modo: 'crear' | 'editar' | 'eliminar'; item?: Division }
 
-type MateriaCursoDialogState =
-  | { open: false }
-  | {
-      open: true
-      modo: 'crear' | 'editar' | 'eliminar'
-      item?: MateriaCurso
-      divisionId?: string
-      divisionNombre?: string
-      materiasExcluidas?: string[]
-    }
-
-// Búsqueda libre sobre el árbol: si coincide el nivel se muestra entero; si coincide un año se
-// muestran todas sus divisiones; si coincide una división o una materia del curso se recorta el
-// resto.
-function filtrarEstructura(niveles: NivelConEstructura[], termino: string): NivelConEstructura[] {
-  const consulta = normalizarTexto(termino)
-  if (!consulta) return niveles
-
-  return niveles.flatMap((nivel) => {
-    if (normalizarTexto(nivel.nombre).includes(consulta)) return [nivel]
-
-    const anios = nivel.anios.flatMap((anio) => {
-      if (normalizarTexto(String(anio.numero)) === consulta) {
-        return [anio]
-      }
-
-      const divisiones = anio.divisiones.flatMap((division) => {
-        if (normalizarTexto(division.nombre).includes(consulta)) return [division]
-        const propias = division.materias.filter((materia) =>
-          normalizarTexto(materia.materia_nombre ?? '').includes(consulta),
-        )
-        return propias.length > 0 ? [{ ...division, materias: propias }] : []
-      })
-
-      if (divisiones.length === 0) return []
-      return [{ ...anio, divisiones }]
-    })
-
-    return anios.length > 0 ? [{ ...nivel, anios }] : []
-  })
+type DialogMateria = {
+  modo: 'crear' | 'editar' | 'eliminar'
+  item?: MateriaCurso
+  hueco?: HuecoHorario
 }
 
+type DialogAsignacion =
+  | { modo: 'crear'; materiaCurso: MateriaCurso }
+  | { modo: 'editar' | 'eliminar'; item: AsignacionDocente }
+
 export function EstructuraAcademicaPage() {
-  const {
-    datos: niveles,
-    catalogo,
-    cargando,
-    error,
-    sinPermiso,
-    recargar,
-  } = useEstructuraAcademica()
-  // Entrar a esta página solo pide `academico.leer` (dirección la mira sin operarla, ver
-  // nav-items.ts); crear/editar/eliminar sigue pidiendo el `actualizar` de escritura — mismo
-  // patrón que `asistencia-division-page.tsx` para "acceso estructural".
   const permisos = useAuthStore(permisosActivos)
   const puedeEditar = tienePermiso(permisos, PERMISO_ACADEMICO_ACTUALIZAR)
-  const [nivelSeleccionadoId, setNivelSeleccionadoId] = useState<string | null>(null)
-  const [busqueda, setBusqueda] = useState('')
-  const [dialog, setDialog] = useState<DialogState>({ open: false })
-  const [dialogMateriaCurso, setDialogMateriaCurso] = useState<MateriaCursoDialogState>({
-    open: false,
-  })
-  const [allAnios, setAllAnios] = useState<Anio[]>([])
+  const { pedida, elegir } = useSeleccionEstructura()
+  const estructura = useEstructuraAcademica(pedida)
+  const { nivel, anio, division } = estructura
 
-  const totales = useMemo(
-    () => ({
-      niveles: niveles.length,
-      anios: niveles.reduce((acc, n) => acc + n.cantidad_anios, 0),
-      divisiones: niveles.reduce(
-        (acc, n) => acc + n.anios.reduce((acc2, a) => acc2 + a.cantidad_divisiones, 0),
-        0,
-      ),
-      materias: catalogo.length,
-    }),
-    [niveles, catalogo],
-  )
+  const vista = useVistaDivision()
+  const [dialogAbm, setDialogAbm] = useState<DialogAbm | null>(null)
+  const [dialogMateria, setDialogMateria] = useState<DialogMateria | null>(null)
+  const [dialogAsignacion, setDialogAsignacion] = useState<DialogAsignacion | null>(null)
 
-  // El tablero muestra un nivel por vez: si el nivel elegido ya no existe (se dio de baja), cae
-  // al primero de la lista sin quedar en un estado vacío.
-  const nivelSeleccionado = useMemo(
-    () => niveles.find((nivel) => nivel.id === nivelSeleccionadoId) ?? niveles[0] ?? null,
-    [niveles, nivelSeleccionadoId],
-  )
-
-  // La búsqueda se limita al nivel visible: no tiene sentido traer cursos de un nivel que no se
-  // está mostrando.
-  const nivelFiltrado = useMemo(
-    () =>
-      nivelSeleccionado ? (filtrarEstructura([nivelSeleccionado], busqueda)[0] ?? null) : null,
-    [nivelSeleccionado, busqueda],
-  )
-
-  const hayBusqueda = busqueda.trim().length > 0
-
-  async function cargarAnios() {
-    setAllAnios(await listarAnios())
+  // Cada cambio recarga solo lo que puede haber cambiado: los años traen conteos que usan las
+  // bajas, las divisiones y sus materias son del año, y los docentes son de la división.
+  function alGuardarDivision() {
+    estructura.recargarAnios()
+    estructura.recargarAnio()
+  }
+  function alGuardarMateria() {
+    estructura.recargarAnios()
+    estructura.recargarAnio()
+    estructura.recargarDivision()
   }
 
-  function abrirDialog(
-    entidad: 'nivel' | 'anio' | 'division' | 'materia',
-    modo: 'crear' | 'editar' | 'eliminar',
-    item?:
-      | { tipo: 'nivel'; data: NivelEducativo }
-      | { tipo: 'anio'; data: Anio }
-      | { tipo: 'division'; data: Division }
-      | { tipo: 'materia'; data: Materia },
-    nivelPreseleccionadoId?: string,
-    anioPreseleccionadoId?: string,
-  ) {
-    void cargarAnios()
-    setDialog({
-      open: true,
-      entidad,
-      modo,
-      item,
-      nivelPreseleccionadoId,
-      anioPreseleccionadoId,
-    })
+  function alAsignarDocente() {
+    estructura.recargarAnio()
+    estructura.recargarDivision()
   }
 
-  function handleExito() {
-    recargar()
+  const materiaCursoIdAsignacion = dialogAsignacion
+    ? dialogAsignacion.modo === 'crear'
+      ? dialogAsignacion.materiaCurso.id
+      : dialogAsignacion.item.materia_curso_id
+    : undefined
+  const materiaAsignacion = estructura.materiasCurso.find(
+    (materiaCurso) => materiaCurso.id === materiaCursoIdAsignacion,
+  )
+  const docentesAsignados = materiaAsignacion
+    ? estructura.asignacionesDe(materiaAsignacion).map(({ asignacion }) => asignacion.docente_id)
+    : []
+
+  function abrirMateria(hueco?: HuecoHorario) {
+    setDialogMateria({ modo: 'crear', hueco })
   }
 
-  if (sinPermiso) {
+  if (estructura.sinPermiso) {
     return (
       <Empty className="min-h-[420px] rounded-panel bg-superficie shadow-card">
         <EmptyMedia variant="neutral">
@@ -188,254 +96,231 @@ export function EstructuraAcademicaPage() {
     )
   }
 
+  // El skeleton cubre solo lo que cambia: al cambiar de nivel, toda la tarjeta; al cambiar de
+  // año, las pestañas de división y el contenido; al cambiar de división, solo el contenido.
+  const cambiandoNivel = estructura.cargandoAnios
+  const cambiandoContenido = estructura.cargandoAnio || estructura.cargandoDivision
+
+  function contenido() {
+    if (!nivel) {
+      return (
+        <EstadoVacio
+          titulo="No se encontraron niveles educativos."
+          descripcion="Los niveles (Inicial, Primario y Secundario) se cargan al migrar la base. Si faltan, avisá al equipo técnico."
+        />
+      )
+    }
+    if (!anio) {
+      return (
+        <EstadoVacio
+          titulo={`${nivel.nombre} todavía no tiene años.`}
+          descripcion={
+            'Los años se cargan desde la base de datos. Si faltan, avisá al equipo técnico.'
+          }
+        />
+      )
+    }
+    if (!division) {
+      return (
+        <EstadoVacio
+          titulo={`El año ${anio.numero}° todavía no tiene divisiones.`}
+          descripcion={
+            puedeEditar
+              ? 'Agregá una división para cargar sus materias.'
+              : 'Todavía no se cargó ninguna división en este año.'
+          }
+          accion={puedeEditar ? 'Agregar división' : undefined}
+          onAccion={() => setDialogAbm({ modo: 'crear' })}
+        />
+      )
+    }
+
+    return (
+      <DivisionContenido
+        nivel={nivel}
+        anio={anio}
+        division={division}
+        ciclo={estructura.cicloActual}
+        materiasCurso={estructura.materiasCurso}
+        asignacionesDe={estructura.asignacionesDe}
+        puedeEditar={puedeEditar}
+        vista={vista}
+        acciones={{
+          agregarMateria: abrirMateria,
+          editarMateria: (item) => setDialogMateria({ modo: 'editar', item }),
+          eliminarMateria: (item) => setDialogMateria({ modo: 'eliminar', item }),
+          asignarDocente: (materiaCurso) => setDialogAsignacion({ modo: 'crear', materiaCurso }),
+          editarAsignacion: (item) => setDialogAsignacion({ modo: 'editar', item }),
+          quitarAsignacion: (item) => setDialogAsignacion({ modo: 'eliminar', item }),
+          horarioGuardado: estructura.recargarAnio,
+        }}
+      />
+    )
+  }
+
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader
-        titulo="Estructura académica"
-        accion={
-          puedeEditar && (
-            <Button onClick={() => abrirDialog('nivel', 'crear')}>
-              <PlusIcon />
-              Agregar nivel
-            </Button>
-          )
-        }
-      />
+      <PageHeader titulo="Estructura académica" />
 
-      <p className="-mt-3 max-w-2xl text-sm text-texto-2">
-        Las materias viven en un catálogo global y se asignan a cada curso con su día y horario. Una
-        misma materia puede dictarse en varias divisiones.
-      </p>
-
-      {niveles.length > 0 && (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatTile
-            variant="dark"
-            label="Niveles"
-            value={totales.niveles}
-            icon={BookOpenIcon}
-            cargando={cargando}
-          />
-          <StatTile label="Años" value={totales.anios} icon={LayersIcon} cargando={cargando} />
-          <StatTile
-            label="Divisiones"
-            value={totales.divisiones}
-            icon={Building2Icon}
-            cargando={cargando}
-          />
-          <StatTile
-            label="Materias en catálogo"
-            value={totales.materias}
-            icon={BookOpenIcon}
-            iconClassName="bg-sup-inscripciones text-petroleo"
-            cargando={cargando}
-          />
-        </div>
-      )}
-
-      {error && (
+      {estructura.error && (
         <Alert variant="error">
-          <AlertTitle>No se pudo cargar la estructura académica</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
-            {error}
-            <Button variant="secondary" size="sm" onClick={recargar}>
-              Reintentar
-            </Button>
-          </AlertDescription>
+          <AlertTitle>No se pudo cargar</AlertTitle>
+          <AlertDescription>{estructura.error}</AlertDescription>
         </Alert>
       )}
 
-      <Card className="p-5">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-sm font-semibold text-texto">Catálogo de materias</h2>
-            <p className="text-xs text-texto-3">
-              Se crean una sola vez y después se asignan a los cursos que las dictan.
-            </p>
+      {estructura.cargandoNiveles ? (
+        <>
+          <div className="flex h-9 items-center gap-5 border-b border-borde" aria-hidden="true">
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-5 w-24" />
           </div>
-          {puedeEditar && (
-            <Button variant="secondary" size="sm" onClick={() => abrirDialog('materia', 'crear')}>
-              <PlusIcon className="size-3.5" />
-              Nueva materia
-            </Button>
-          )}
-        </div>
-
-        {catalogo.length === 0 ? (
-          <p className="text-sm text-texto-3">
-            Todavía no hay materias en el catálogo. Creá la primera para poder asignarla a un curso.
-          </p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {catalogo.map((materia) => (
-              <div
-                key={materia.id}
-                className="flex items-center gap-2 rounded-lg border border-borde bg-fila-hover/40 px-3 py-1.5 text-sm text-texto"
+          <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+            {['Año', 'División'].map((etiqueta) => (
+              <SelectorEstructura
+                key={etiqueta}
+                etiqueta={etiqueta}
+                opciones={[]}
+                cargando
+                onCambio={() => {}}
               >
-                <span className="font-medium">{materia.nombre}</span>
-                <span className="text-xs text-texto-3">
-                  {materia.cantidad_cursos} {materia.cantidad_cursos === 1 ? 'curso' : 'cursos'}
-                </span>
-                {puedeEditar && (
-                  <div className="flex items-center gap-0.5">
-                    <button
-                      className="rounded p-1 text-texto-3 hover:bg-superficie hover:text-texto"
-                      onClick={() =>
-                        abrirDialog('materia', 'editar', { tipo: 'materia', data: materia })
-                      }
-                      aria-label="Editar materia del catálogo"
-                    >
-                      <PencilIcon className="size-3" />
-                    </button>
-                    <button
-                      className="rounded p-1 text-texto-3 hover:bg-superficie hover:text-error"
-                      onClick={() =>
-                        abrirDialog('materia', 'eliminar', { tipo: 'materia', data: materia })
-                      }
-                      aria-label="Eliminar materia del catálogo"
-                    >
-                      <Trash2Icon className="size-3" />
-                    </button>
-                  </div>
+                {puedeEditar && etiqueta === 'División' && (
+                  <AccionesDivision
+                    deshabilitado
+                    puedeModificar={false}
+                    onAgregar={() => {}}
+                    onModificar={() => {}}
+                  />
                 )}
-              </div>
+              </SelectorEstructura>
             ))}
           </div>
-        )}
-      </Card>
-
-      {niveles.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <Tabs value={nivelSeleccionado?.id ?? ''} onValueChange={setNivelSeleccionadoId}>
-            <TabsList aria-label="Nivel educativo">
-              {niveles.map((nivel) => (
-                <TabsTrigger key={nivel.id} value={nivel.id}>
-                  {nivel.nombre}
+          <Card className="gap-5 p-6">
+            <ContenidoSkeleton
+              vista={vista.vista}
+              onVista={vista.cambiarVista}
+              conAcciones={puedeEditar}
+            />
+          </Card>
+        </>
+      ) : (
+        <>
+          <Tabs value={nivel?.id ?? ''} onValueChange={(id) => elegir({ nivel: id })}>
+            <TabsList>
+              {estructura.niveles.map((n) => (
+                <TabsTrigger key={n.id} value={n.id}>
+                  {n.nombre}
                 </TabsTrigger>
               ))}
             </TabsList>
           </Tabs>
-          <FilterBar>
-            <FilterSearch
-              value={busqueda}
-              onChange={setBusqueda}
-              placeholder={`Buscar año, división o materia en ${nivelSeleccionado?.nombre ?? 'el nivel'}`}
-            />
-            <FilterBarSpacer />
-          </FilterBar>
-        </div>
+
+          {nivel && (cambiandoNivel || anio) && (
+            <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+              <SelectorEstructura
+                etiqueta="Año"
+                valor={anio?.id}
+                opciones={estructura.anios.map((a) => ({ value: a.id, label: `${a.numero}°` }))}
+                cargando={cambiandoNivel}
+                onCambio={(id) => elegir({ nivel: nivel.id, anio: id })}
+              />
+
+              {(division || cambiandoNivel || estructura.cargandoAnio) && (
+                <SelectorEstructura
+                  etiqueta="División"
+                  valor={division?.id}
+                  opciones={estructura.divisiones.map((d) => ({
+                    value: d.id,
+                    label: anio ? letraDivision(anio, d) : d.nombre,
+                  }))}
+                  cargando={cambiandoNivel || estructura.cargandoAnio}
+                  onCambio={(id) => elegir({ nivel: nivel.id, anio: anio?.id, division: id })}
+                >
+                  {puedeEditar && (
+                    <AccionesDivision
+                      deshabilitado={cambiandoNivel || estructura.cargandoAnio}
+                      puedeModificar={!!division}
+                      onAgregar={() => setDialogAbm({ modo: 'crear' })}
+                      onModificar={() =>
+                        division && setDialogAbm({ modo: 'editar', item: division })
+                      }
+                    />
+                  )}
+                </SelectorEstructura>
+              )}
+            </div>
+          )}
+
+          {(nivel || !estructura.error) && (
+            <Card className="gap-5 p-6">
+              {cambiandoNivel || cambiandoContenido ? (
+                <ContenidoSkeleton
+                  vista={vista.vista}
+                  onVista={vista.cambiarVista}
+                  conAcciones={puedeEditar}
+                />
+              ) : (
+                contenido()
+              )}
+            </Card>
+          )}
+        </>
       )}
 
-      {cargando ? (
-        <Card className="p-6">
-          <div className="flex flex-col gap-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-3.5">
-                <div className="size-10.5 shrink-0 animate-pulse rounded-xl bg-fila-hover" />
-                <div className="flex flex-col gap-2">
-                  <div className="h-4 w-32 animate-pulse rounded bg-fila-hover" />
-                  <div className="h-3 w-48 animate-pulse rounded bg-fila-hover" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      ) : !cargando && niveles.length === 0 ? (
-        <Empty className="min-h-[280px] rounded-panel bg-superficie shadow-card">
-          <EmptyMedia variant="icon" className="bg-sup-academico text-info">
-            <BookOpenIcon />
-          </EmptyMedia>
-          <EmptyTitle>Todavía no hay niveles cargados.</EmptyTitle>
-          <EmptyDescription>
-            {puedeEditar
-              ? 'Acción sugerida: crear el primer nivel educativo para poder agregar años, divisiones y materias.'
-              : 'Todavía no se cargó ningún nivel educativo.'}
-          </EmptyDescription>
-          {puedeEditar && (
-            <Button onClick={() => abrirDialog('nivel', 'crear')}>
-              <PlusIcon />
-              Agregar nivel
-            </Button>
-          )}
-        </Empty>
-      ) : !nivelFiltrado && hayBusqueda ? (
-        <Empty className="min-h-[240px] rounded-panel bg-superficie shadow-card">
-          <EmptyMedia variant="icon" className="bg-sup-academico text-info">
-            <BookOpenIcon />
-          </EmptyMedia>
-          <EmptyTitle>No hay resultados para la búsqueda.</EmptyTitle>
-          <EmptyDescription>
-            Probá con otro término o cambiá de nivel en el selector.
-          </EmptyDescription>
-          <Button variant="secondary" onClick={() => setBusqueda('')}>
-            Limpiar búsqueda
-          </Button>
-        </Empty>
-      ) : nivelFiltrado ? (
-        <Card className="p-6">
-          <NivelSeccion
-            key={nivelFiltrado.id}
-            nivel={nivelFiltrado}
-            puedeEditar={puedeEditar}
-            onEditarNivel={(n) => abrirDialog('nivel', 'editar', { tipo: 'nivel', data: n })}
-            onEliminarNivel={(n) => abrirDialog('nivel', 'eliminar', { tipo: 'nivel', data: n })}
-            onAgregarAnio={(nivelId) => abrirDialog('anio', 'crear', undefined, nivelId)}
-            onEditarAnio={(a) => abrirDialog('anio', 'editar', { tipo: 'anio', data: a })}
-            onEliminarAnio={(a) => abrirDialog('anio', 'eliminar', { tipo: 'anio', data: a })}
-            onAgregarDivision={(anioId) =>
-              abrirDialog('division', 'crear', undefined, undefined, anioId)
-            }
-            onEditarDivision={(d) =>
-              abrirDialog('division', 'editar', { tipo: 'division', data: d })
-            }
-            onEliminarDivision={(d) =>
-              abrirDialog('division', 'eliminar', { tipo: 'division', data: d })
-            }
-            onAgregarMateriaCurso={(division) =>
-              setDialogMateriaCurso({
-                open: true,
-                modo: 'crear',
-                divisionId: division.id,
-                divisionNombre: division.nombre,
-                materiasExcluidas: division.materias.map((materia) => materia.materia_id),
-              })
-            }
-            onEditarMateriaCurso={(materiaCurso) =>
-              setDialogMateriaCurso({ open: true, modo: 'editar', item: materiaCurso })
-            }
-            onEliminarMateriaCurso={(materiaCurso) =>
-              setDialogMateriaCurso({ open: true, modo: 'eliminar', item: materiaCurso })
-            }
-          />
-        </Card>
-      ) : null}
-
-      {dialog.open && (
+      {dialogAbm && nivel && (
         <AbmDialog
-          open={dialog.open}
-          onOpenChange={(open) => !open && setDialog({ open: false })}
-          entidad={dialog.entidad}
-          modo={dialog.modo}
-          item={dialog.item}
-          niveles={niveles}
-          anios={allAnios}
-          nivelPreseleccionadoId={dialog.nivelPreseleccionadoId}
-          anioPreseleccionadoId={dialog.anioPreseleccionadoId}
-          onExito={handleExito}
+          open
+          onOpenChange={(open) => !open && setDialogAbm(null)}
+          entidad="division"
+          modo={dialogAbm.modo}
+          item={dialogAbm.item && { tipo: 'division', data: dialogAbm.item }}
+          nivel={nivel}
+          anio={anio}
+          onDarDeBaja={() =>
+            setDialogAbm((actual) => (actual ? { ...actual, modo: 'eliminar' } : actual))
+          }
+          onExito={alGuardarDivision}
         />
       )}
 
-      {dialogMateriaCurso.open && (
+      {dialogAsignacion && division && (
+        <AsignacionDialog
+          open
+          onOpenChange={(open) => !open && setDialogAsignacion(null)}
+          modo={dialogAsignacion.modo}
+          item={dialogAsignacion.modo === 'crear' ? undefined : dialogAsignacion.item}
+          docentes={estructura.docentes}
+          materiasCurso={estructura.materiasCurso}
+          divisiones={estructura.divisiones}
+          cicloActual={estructura.cicloActual}
+          preseleccion={{
+            divisionId: division.id,
+            materiaCursoId:
+              dialogAsignacion.modo === 'crear'
+                ? dialogAsignacion.materiaCurso.id
+                : dialogAsignacion.item.materia_curso_id,
+          }}
+          docentesExcluidos={docentesAsignados}
+          onExito={alAsignarDocente}
+        />
+      )}
+
+      {dialogMateria && division && (
         <MateriaCursoDialog
-          open={dialogMateriaCurso.open}
-          onOpenChange={(open) => !open && setDialogMateriaCurso({ open: false })}
-          modo={dialogMateriaCurso.modo}
-          item={dialogMateriaCurso.item}
-          divisionId={dialogMateriaCurso.divisionId}
-          divisionNombre={dialogMateriaCurso.divisionNombre}
-          materiasExcluidas={dialogMateriaCurso.materiasExcluidas}
-          catalogo={catalogo}
-          onExito={handleExito}
+          open
+          onOpenChange={(open) => !open && setDialogMateria(null)}
+          modo={dialogMateria.modo}
+          item={dialogMateria.item}
+          divisionId={division.id}
+          divisionNombre={anio ? etiquetaDivision(anio, division) : division.nombre}
+          materiasExcluidas={estructura.materiasCurso.map(
+            (materiaCurso) => materiaCurso.materia_id,
+          )}
+          horariosOcupados={franjasOcupadas(estructura.materiasCurso, dialogMateria.item?.id)}
+          franjaInicial={dialogMateria.hueco}
+          catalogo={estructura.catalogo}
+          onExito={alGuardarMateria}
         />
       )}
     </div>

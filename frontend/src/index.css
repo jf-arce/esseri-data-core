@@ -390,3 +390,46 @@
   background-size: 400% 100%;
   animation: skeleton-shimmer 1.6s ease-in-out infinite;
 }
+
+@page {
+  size: A4 landscape;
+  margin: 12mm;
+}
+
+/* Al imprimir solo sale el horario semanal (`.zona-impresion`), sin menú ni controles. Todo lo
+   que no es el horario ni lo contiene se oculta con `display: none` (con `visibility` seguía
+   ocupando alto y el horario se repetía en cada hoja). Los contenedores que lo contienen pierden
+   alto fijo y scroll para que fluya en una sola hoja. */
+@media print {
+  body *:not(:has(.zona-impresion)):not(.zona-impresion):not(.zona-impresion *) {
+    display: none !important;
+  }
+  html,
+  body,
+  :has(> .zona-impresion),
+  :has(.zona-impresion) {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: static !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  .zona-impresion {
+    break-inside: avoid;
+    break-after: avoid;
+    /* Siempre en claro sobre papel blanco, aunque la app esté en modo oscuro. */
+    --superficie: #fff;
+    --borde: #b9b2c4;
+    --texto: #1b1822;
+    --texto-2: #3f3a49;
+    --texto-3: #4f4a5a;
+    --error: #b42318;
+    --error-suave: #f0d5d5;
+    background: #fff;
+    color: #1b1822;
+  }
+}

@@ -1,5 +1,6 @@
 """Modelos SQLAlchemy propios de Académico. Heredan de `src.models.Base`."""
 
+import random
 import uuid
 from datetime import date, datetime, time
 
@@ -8,6 +9,22 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from src.models import Base, Persona
 from src.search import normalizar_texto_busqueda
+
+# Colores sugeridos para las materias (sin rojo, reservado para los horarios superpuestos).
+COLORES_MATERIA = [
+    "#2563eb",
+    "#0d9488",
+    "#16a34a",
+    "#ca8a04",
+    "#ea580c",
+    "#9333ea",
+    "#db2777",
+    "#0891b2",
+    "#4f46e5",
+    "#65a30d",
+    "#7c3aed",
+    "#0284c7",
+]
 
 
 class NivelEducativo(Base):
@@ -65,6 +82,8 @@ class Materia(Base):
     nombre: Mapped[str] = mapped_column(sa.String)
     nombre_normalizado: Mapped[str] = mapped_column(sa.String)
     tipo: Mapped[str] = mapped_column(sa.String)
+    # #rrggbb. Si no se elige uno al crearla, se sortea de COLORES_MATERIA.
+    color: Mapped[str] = mapped_column(sa.String(7), default=lambda: random.choice(COLORES_MATERIA))
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
     updated_at: Mapped[datetime] = mapped_column(
         sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
@@ -112,6 +131,10 @@ class MateriaCurso(Base):
     @property
     def materia_tipo(self) -> str | None:
         return self.materia.tipo if self.materia else None
+
+    @property
+    def materia_color(self) -> str | None:
+        return self.materia.color if self.materia else None
 
     @property
     def division_nombre(self) -> str | None:

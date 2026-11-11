@@ -25,15 +25,17 @@ from src.academico.exceptions import (
     DivisionConMaterias,
     DivisionDuplicada,
     DocenteConAsignaciones,
-    HorarioDuplicado,
     InscripcionNoActiva,
     LegajoDuplicado,
     MateriaConCursos,
     MateriaCursoConAsignaciones,
     MateriaCursoDuplicada,
     MateriaDuplicada,
-    NivelEducativoConAnios,
-    NombreNivelDuplicado,
+)
+from src.academico.horarios_service import (
+    validar_franjas_propias,
+    validar_horarios_division,
+    validar_horarios_docente,
 )
 from src.academico.models import (
     Anio,
@@ -77,9 +79,7 @@ from src.academico.schemas import (
     MateriaCursoUpdate,
     MateriaResponse,
     MateriaUpdate,
-    NivelEducativoCreate,
     NivelEducativoResponse,
-    NivelEducativoUpdate,
 )
 from src.auditoria.service import log_audit
 from src.auth import autorizacion_service
@@ -1246,33 +1246,6 @@ def generar_pdf_reporte_asistencias(
 # --- NivelEducativo ----------------------------------------------------------------------
 
 
-def crear_nivel_educativo(
-    db: Session, datos: NivelEducativoCreate, usuario_id: uuid.UUID | None = None
-) -> NivelEducativo:
-    """Crear un nuevo nivel educativo. Valida nombre único."""
-    if (
-        db.scalar(select(NivelEducativo.id).where(NivelEducativo.nombre == datos.nombre.strip()))
-        is not None
-    ):
-        raise NombreNivelDuplicado()
-
-    nuevo = NivelEducativo(nombre=datos.nombre.strip())
-    db.add(nuevo)
-    db.flush()
-    log_audit(
-        db,
-        entidad="NIVEL_EDUCATIVO",
-        entidad_id=nuevo.id,
-        campo="__alta__",
-        valor_anterior=None,
-        valor_nuevo=nuevo.nombre,
-        usuario_id=usuario_id,
-    )
-    db.commit()
-    db.refresh(nuevo)
-    return nuevo
-
-
 def obtener_nivel_educativo_por_id(db: Session, nivel_id: uuid.UUID) -> NivelEducativo | None:
     """Obtener un nivel educativo por su ID."""
     return db.query(NivelEducativo).filter(NivelEducativo.id == nivel_id).first()
@@ -1293,72 +1266,6 @@ def listar_niveles_educativos(db: Session) -> list[NivelEducativoResponse]:
         )
         for nivel, cantidad_anios in filas
     ]
-
-
-def actualizar_nivel_educativo(
-    db: Session,
-    nivel: NivelEducativo,
-    datos: NivelEducativoUpdate,
-    usuario_id: uuid.UUID | None = None,
-) -> NivelEducativo:
-    """Actualizar un nivel educativo existente."""
-    update_data = datos.model_dump(exclude_unset=True)
-
-    if "nombre" in update_data and update_data["nombre"] != nivel.nombre:
-        if (
-            db.scalar(
-                select(NivelEducativo.id).where(
-                    NivelEducativo.nombre == update_data["nombre"].strip(),
-                    NivelEducativo.id != nivel.id,
-                )
-            )
-            is not None
-        ):
-            raise NombreNivelDuplicado()
-        update_data["nombre"] = update_data["nombre"].strip()
-
-    valores_anteriores = {campo: getattr(nivel, campo) for campo in update_data}
-
-    for field, value in update_data.items():
-        setattr(nivel, field, value)
-
-    for campo, valor_nuevo in update_data.items():
-        log_audit(
-            db,
-            entidad="NIVEL_EDUCATIVO",
-            entidad_id=nivel.id,
-            campo=campo,
-            valor_anterior=str(valores_anteriores[campo]) if valores_anteriores[campo] else None,
-            valor_nuevo=str(valor_nuevo) if valor_nuevo is not None else None,
-            usuario_id=usuario_id,
-        )
-
-    db.commit()
-    db.refresh(nivel)
-    return nivel
-
-
-def eliminar_nivel_educativo(
-    db: Session, nivel: NivelEducativo, usuario_id: uuid.UUID | None = None
-) -> None:
-    """Eliminar un nivel educativo. Valida que no tenga años asociados."""
-    tiene_anios = db.query(Anio).filter(Anio.nivel_educativo_id == nivel.id).first() is not None
-    if tiene_anios:
-        raise NivelEducativoConAnios()
-
-    nivel_id = nivel.id
-    nombre = nivel.nombre
-    db.delete(nivel)
-    log_audit(
-        db,
-        entidad="NIVEL_EDUCATIVO",
-        entidad_id=nivel_id,
-        campo="__eliminacion__",
-        valor_anterior=nombre,
-        valor_nuevo=None,
-        usuario_id=usuario_id,
-    )
-    db.commit()
 
 
 # --- Anio --------------------------------------------------------------------------------
@@ -1709,7 +1616,8 @@ def crear_materia(
     if _materia_duplicada(db, nombre):
         raise MateriaDuplicada()
 
-    nuevo = Materia(nombre=nombre, tipo=datos.tipo)
+    extra = {"color": datos.color} if datos.color else {}
+    nuevo = Materia(nombre=nombre, tipo=datos.tipo, **extra)
     db.add(nuevo)
     db.flush()
     log_audit(
@@ -1817,16 +1725,6 @@ def eliminar_materia(db: Session, materia: Materia, usuario_id: uuid.UUID | None
 # --- MateriaCurso (materia asignada a un curso) ------------------------------------------
 
 
-def _validar_franjas(datos) -> None:
-    """Rechazar dos franjas idénticas (mismo día y hora de inicio) en la misma materia-curso."""
-    vistas: set[tuple[int, object]] = set()
-    for horario in datos:
-        clave = (horario.dia_semana, horario.hora_inicio)
-        if clave in vistas:
-            raise HorarioDuplicado()
-        vistas.add(clave)
-
-
 def _crear_horarios(materia_curso: MateriaCurso, horarios) -> None:
     for horario in horarios:
         materia_curso.horarios.append(
@@ -1864,7 +1762,8 @@ def crear_materia_curso(
         nombre = datos.materia_nombre.strip()
         if _materia_duplicada(db, nombre):
             raise MateriaDuplicada()
-        materia = Materia(nombre=nombre, tipo=datos.materia_tipo)
+        extra = {"color": datos.materia_color} if datos.materia_color else {}
+        materia = Materia(nombre=nombre, tipo=datos.materia_tipo, **extra)
         db.add(materia)
         db.flush()
 
@@ -1879,7 +1778,8 @@ def crear_materia_curso(
     ):
         raise MateriaCursoDuplicada()
 
-    _validar_franjas(datos.horarios)
+    validar_franjas_propias(datos.horarios)
+    validar_horarios_division(db, division.id, datos.horarios)
 
     nuevo = MateriaCurso(materia_id=materia.id, division_id=division.id)
     db.add(nuevo)
@@ -1966,6 +1866,20 @@ def actualizar_materia_curso(
     """Actualizar la materia o los horarios de una materia ya asignada a un curso."""
     update_data = datos.model_dump(exclude_unset=True)
 
+    if datos.horarios is not None:
+        validar_franjas_propias(datos.horarios)
+        validar_horarios_division(
+            db, materia_curso.division_id, datos.horarios, excluir_materia_curso_id=materia_curso.id
+        )
+        for asignacion in materia_curso.asignaciones:
+            validar_horarios_docente(
+                db,
+                asignacion.docente_id,
+                asignacion.ciclo_lectivo,
+                datos.horarios,
+                excluir_materia_curso_id=materia_curso.id,
+            )
+
     if update_data.get("materia_id") is not None:
         nueva_materia = db.get(Materia, update_data["materia_id"])
         if nueva_materia is None:
@@ -1996,7 +1910,6 @@ def actualizar_materia_curso(
         materia_curso.materia_id = nueva_materia.id
 
     if datos.horarios is not None:
-        _validar_franjas(datos.horarios)
         materia_curso.horarios.clear()
         db.flush()
         _crear_horarios(materia_curso, datos.horarios)
@@ -2266,7 +2179,7 @@ def crear_asignacion_docente(
     El docente hereda materia, división y horario de la materia-curso; no se duplica esa
     información en la asignación.
     """
-    _obtener_materia_curso_o_404(db, datos.materia_curso_id)
+    materia_curso = _obtener_materia_curso_o_404(db, datos.materia_curso_id)
 
     if _asignacion_docente_existente(
         db,
@@ -2275,6 +2188,14 @@ def crear_asignacion_docente(
         datos.ciclo_lectivo.strip(),
     ):
         raise AsignacionDocenteDuplicada()
+
+    validar_horarios_docente(
+        db,
+        datos.docente_id,
+        datos.ciclo_lectivo.strip(),
+        materia_curso.horarios,
+        excluir_materia_curso_id=materia_curso.id,
+    )
 
     nuevo = AsignacionDocente(
         ciclo_lectivo=datos.ciclo_lectivo.strip(),
@@ -2367,6 +2288,15 @@ def actualizar_asignacion_docente(
     ):
         raise AsignacionDocenteDuplicada()
 
+    validar_horarios_docente(
+        db,
+        docente_id,
+        ciclo_lectivo,
+        _obtener_materia_curso_o_404(db, materia_curso_id).horarios,
+        excluir_materia_curso_id=materia_curso_id,
+        excluir_asignacion_id=asignacion.id,
+    )
+
     valores_anteriores = {campo: getattr(asignacion, campo) for campo in update_data}
     for campo, valor in update_data.items():
         setattr(asignacion, campo, valor)
@@ -2408,12 +2338,20 @@ def crear_asignaciones_docentes_bulk(
             continue
         vistas.add(item.materia_curso_id)
 
-        _obtener_materia_curso_o_404(db, item.materia_curso_id)
+        materia_curso = _obtener_materia_curso_o_404(db, item.materia_curso_id)
         if _asignacion_docente_existente(
             db, datos.docente_id, item.materia_curso_id, ciclo_lectivo
         ):
             omitidas.append(item)
             continue
+
+        validar_horarios_docente(
+            db,
+            datos.docente_id,
+            ciclo_lectivo,
+            materia_curso.horarios,
+            excluir_materia_curso_id=materia_curso.id,
+        )
 
         nueva = AsignacionDocente(
             ciclo_lectivo=ciclo_lectivo,

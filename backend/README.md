@@ -733,6 +733,8 @@ Reutiliza los generadores existentes y exporta todos los resultados filtrados, s
 El PDF usa el rango de fechas aplicado; si no se indicó, lo obtiene de los registros exportados.
 Conserva `academico.exportar`. Los endpoints anteriores de listado y exportación no cambian.
 
+`GET /academico/divisiones/{division_id}/horario/exportar` devuelve un `.xlsx` con el horario semanal de la división (hoja "Horario" en grilla y hoja "Listado"). Los docentes son los asignados en `ciclo_lectivo` (por defecto, el año en curso). Pide `academico.leer`, no `exportar`: es la información que ya ve quien abre el horario.
+
 ```bash
 pytest
 ```

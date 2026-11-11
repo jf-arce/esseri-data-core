@@ -7,23 +7,11 @@ import uuid
 from datetime import date, datetime, time
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from src.auth.schemas import AccesoCreate, PersonaCreate
 
 # --- NivelEducativo ----------------------------------------------------------------------
-
-
-class NivelEducativoCreate(BaseModel):
-    """Schema para crear un nuevo NivelEducativo."""
-
-    nombre: str = Field(..., min_length=1, description="Nombre del nivel educativo")
-
-
-class NivelEducativoUpdate(BaseModel):
-    """Schema para actualizar un NivelEducativo existente."""
-
-    nombre: str | None = Field(None, min_length=1, description="Nombre del nivel educativo")
 
 
 class NivelEducativoResponse(BaseModel):
@@ -554,11 +542,27 @@ class AsistenciaResumen(BaseModel):
 # --- Materia -----------------------------------------------------------------------------
 
 
+COLOR_HEX = r"^#[0-9a-fA-F]{6}$"
+
+
+def _color_en_minusculas(valor: str | None) -> str | None:
+    return valor.lower() if valor is not None else None
+
+
+def _color_obligatorio(valor: str | None) -> str:
+    if valor is None:
+        raise ValueError("El color no puede quedar vacío")
+    return valor.lower()
+
+
 class MateriaCreate(BaseModel):
     """Schema para crear una materia del catálogo global."""
 
     nombre: str = Field(..., min_length=1, description="Nombre de la materia")
     tipo: Literal["materia", "taller"] = Field(..., description="Tipo: 'materia' o 'taller'")
+    color: str | None = Field(None, pattern=COLOR_HEX, description="Color #rrggbb")
+
+    _normalizar_color = field_validator("color")(_color_en_minusculas)
 
 
 class MateriaUpdate(BaseModel):
@@ -568,6 +572,9 @@ class MateriaUpdate(BaseModel):
     tipo: Literal["materia", "taller"] | None = Field(
         None, description="Tipo: 'materia' o 'taller'"
     )
+    color: str | None = Field(None, pattern=COLOR_HEX, description="Color #rrggbb")
+
+    _normalizar_color = field_validator("color")(_color_obligatorio)
 
 
 class MateriaResponse(BaseModel):
@@ -576,6 +583,7 @@ class MateriaResponse(BaseModel):
     id: uuid.UUID
     nombre: str
     tipo: str
+    color: str
     cantidad_cursos: int = 0
     created_at: datetime
     updated_at: datetime
@@ -592,6 +600,8 @@ class HorarioMateriaCursoCreate(BaseModel):
 
     @model_validator(mode="after")
     def _validar_rango(self):
+        if self.hora_inicio.tzinfo is not None or self.hora_fin.tzinfo is not None:
+            raise ValueError("Las horas no deben incluir zona horaria")
         if self.hora_fin <= self.hora_inicio:
             raise ValueError("La hora de fin debe ser posterior a la hora de inicio")
         return self
@@ -611,6 +621,9 @@ class MateriaCursoCreate(BaseModel):
     materia_tipo: Literal["materia", "taller"] = Field(
         "materia", description="Tipo de la materia nueva"
     )
+    materia_color: str | None = Field(
+        None, pattern=COLOR_HEX, description="Color #rrggbb de la materia nueva; si falta se sortea"
+    )
     division_id: uuid.UUID = Field(..., description="ID de la división/curso")
     horarios: list[HorarioMateriaCursoCreate] = Field(
         ..., min_length=1, description="Franjas horarias de la materia en ese curso"
@@ -620,7 +633,11 @@ class MateriaCursoCreate(BaseModel):
     def _validar_materia(self):
         if (self.materia_id is None) == (self.materia_nombre is None):
             raise ValueError("Indicá materia_id o materia_nombre, pero no ambos")
+        if self.materia_id is not None and self.materia_color is not None:
+            raise ValueError("materia_color solo aplica al crear una materia nueva")
         return self
+
+    _normalizar_color = field_validator("materia_color")(_color_en_minusculas)
 
 
 class MateriaCursoUpdate(BaseModel):
@@ -639,6 +656,7 @@ class MateriaCursoResponse(BaseModel):
     materia_id: uuid.UUID
     materia_nombre: str | None = None
     materia_tipo: str | None = None
+    materia_color: str | None = None
     division_id: uuid.UUID
     division_nombre: str | None = None
     anio_id: uuid.UUID | None = None

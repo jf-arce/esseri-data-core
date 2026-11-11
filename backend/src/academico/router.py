@@ -40,17 +40,21 @@ from src.academico.exceptions import (
     DivisionConMaterias,
     DivisionDuplicada,
     DocenteConAsignaciones,
+    DocenteConHorarioSuperpuesto,
     HorarioDuplicado,
+    HorarioSuperpuestoEnDivision,
     InscripcionNoActiva,
     LegajoDuplicado,
     MateriaConCursos,
     MateriaCursoConAsignaciones,
     MateriaCursoDuplicada,
     MateriaDuplicada,
-    NivelEducativoConAnios,
-    NombreNivelDuplicado,
 )
 from src.academico.historial_router import router as historial_router
+from src.academico.horario_export_service import (
+    generar_xlsx_horario_division,
+    nombre_archivo_horario,
+)
 from src.academico.justificaciones_service import (
     opciones_justificaciones,
     pagina_justificaciones,
@@ -107,9 +111,7 @@ from src.academico.schemas import (
     MateriaResponse,
     MateriaUpdate,
     MiDivisionResponse,
-    NivelEducativoCreate,
     NivelEducativoResponse,
-    NivelEducativoUpdate,
     OpcionJustificacion,
     SeguimientoDivisionItem,
     SolicitudAusenciaPeriodoAdminResponse,
@@ -127,7 +129,6 @@ from src.academico.service import (
     actualizar_docente,
     actualizar_materia,
     actualizar_materia_curso,
-    actualizar_nivel_educativo,
     asistencias_de_familia,
     calcular_resumen_asistencia,
     crear_alta_docente,
@@ -139,7 +140,6 @@ from src.academico.service import (
     crear_docente_desde_usuario,
     crear_materia,
     crear_materia_curso,
-    crear_nivel_educativo,
     divisiones_de_persona,
     eliminar_anio,
     eliminar_asignacion_docente,
@@ -148,7 +148,6 @@ from src.academico.service import (
     eliminar_docente,
     eliminar_materia,
     eliminar_materia_curso,
-    eliminar_nivel_educativo,
     generar_csv_reporte_asistencias,
     generar_pdf_reporte_asistencias,
     generar_xlsx_reporte_asistencias,
@@ -242,19 +241,6 @@ def _respuesta_solicitud_periodo(
 # --- NivelEducativo ----------------------------------------------------------------------
 
 
-@router.post("/niveles", response_model=NivelEducativoResponse, status_code=201)
-def crear_nivel_educativo_endpoint(
-    datos: NivelEducativoCreate,
-    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_CREAR))],
-    db: Session = Depends(get_db),  # noqa: B008
-) -> NivelEducativo:
-    """Crear un nuevo nivel educativo."""
-    try:
-        return crear_nivel_educativo(db, datos, usuario.id)
-    except NombreNivelDuplicado as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
-
-
 @router.get("/niveles", response_model=list[NivelEducativoResponse])
 def listar_niveles_educativos_endpoint(
     _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
@@ -271,33 +257,6 @@ def obtener_nivel_educativo_endpoint(
 ) -> NivelEducativo:
     """Obtener un nivel educativo por su ID."""
     return nivel
-
-
-@router.put("/niveles/{nivel_educativo_id}", response_model=NivelEducativoResponse)
-def actualizar_nivel_educativo_endpoint(
-    datos: NivelEducativoUpdate,
-    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_ESTRUCTURA))],
-    nivel: NivelEducativo = Depends(obtener_nivel_educativo_o_404),  # noqa: B008
-    db: Session = Depends(get_db),  # noqa: B008
-) -> NivelEducativo:
-    """Actualizar un nivel educativo existente."""
-    try:
-        return actualizar_nivel_educativo(db, nivel, datos, usuario.id)
-    except NombreNivelDuplicado as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
-
-
-@router.delete("/niveles/{nivel_educativo_id}", status_code=204)
-def eliminar_nivel_educativo_endpoint(
-    usuario: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_ELIMINAR))],
-    nivel: NivelEducativo = Depends(obtener_nivel_educativo_o_404),  # noqa: B008
-    db: Session = Depends(get_db),  # noqa: B008
-) -> None:
-    """Eliminar un nivel educativo."""
-    try:
-        eliminar_nivel_educativo(db, nivel, usuario.id)
-    except NivelEducativoConAnios as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 
 
 # --- Anio --------------------------------------------------------------------------------
@@ -399,6 +358,26 @@ def obtener_division_endpoint(
 ) -> Division:
     """Obtener una división por su ID."""
     return division
+
+
+@router.get("/divisiones/{division_id}/horario/exportar")
+def exportar_horario_division_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    ciclo_lectivo: str | None = None,
+    division: Division = Depends(obtener_division_o_404),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Response:
+    """Exportar a Excel el horario semanal de la división. Pide `leer` y no `exportar`: es la
+    misma información que ya ve quien abre la pestaña Horario. Sin `ciclo_lectivo`, usa el año
+    en curso para los docentes."""
+    ciclo = ciclo_lectivo or str(date.today().year)
+    contenido = generar_xlsx_horario_division(db, division, ciclo)
+    nombre = nombre_archivo_horario(division, ciclo)
+    return Response(
+        content=contenido,
+        media_type=_MEDIA_TYPE_POR_FORMATO["xlsx"],
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
+    )
 
 
 @router.put("/divisiones/{division_id}", response_model=DivisionResponse)
@@ -508,7 +487,13 @@ def crear_materia_curso_endpoint(
     """
     try:
         return crear_materia_curso(db, datos, usuario.id)
-    except (MateriaDuplicada, MateriaCursoDuplicada, HorarioDuplicado) as exc:
+    except (
+        MateriaDuplicada,
+        MateriaCursoDuplicada,
+        HorarioDuplicado,
+        HorarioSuperpuestoEnDivision,
+        DocenteConHorarioSuperpuesto,
+    ) as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 
 
@@ -550,7 +535,12 @@ def actualizar_materia_curso_endpoint(
     """Actualizar la materia o los horarios de una materia ya asignada a un curso."""
     try:
         return actualizar_materia_curso(db, materia_curso, datos, usuario.id)
-    except (MateriaCursoDuplicada, HorarioDuplicado) as exc:
+    except (
+        MateriaCursoDuplicada,
+        HorarioDuplicado,
+        HorarioSuperpuestoEnDivision,
+        DocenteConHorarioSuperpuesto,
+    ) as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 
 
@@ -756,7 +746,7 @@ def crear_asignacion_docente_endpoint(
     """Asignar un docente a una materia de curso por ciclo lectivo."""
     try:
         return crear_asignacion_docente(db, datos, usuario.id)
-    except AsignacionDocenteDuplicada as exc:
+    except (AsignacionDocenteDuplicada, DocenteConHorarioSuperpuesto) as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 
 
@@ -790,7 +780,7 @@ def actualizar_asignacion_docente_endpoint(
     """Actualizar una asignación docente existente."""
     try:
         return actualizar_asignacion_docente(db, asignacion, datos, usuario.id)
-    except AsignacionDocenteDuplicada as exc:
+    except (AsignacionDocenteDuplicada, DocenteConHorarioSuperpuesto) as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 

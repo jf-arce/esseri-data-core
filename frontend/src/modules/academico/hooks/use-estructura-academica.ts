@@ -1,129 +1,174 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '@/api/client'
-import { listarNiveles } from '@/modules/academico/services/niveles-educativos'
 import { listarAnios } from '@/modules/academico/services/anios'
+import { listarAsignaciones } from '@/modules/academico/services/asignaciones-docentes'
 import { listarDivisiones } from '@/modules/academico/services/divisiones'
+import { listarDocentes } from '@/modules/academico/services/docentes'
 import { listarMaterias } from '@/modules/academico/services/materias'
 import { listarMateriasCurso } from '@/modules/academico/services/materias-curso'
-import { listarAsignaciones } from '@/modules/academico/services/asignaciones-docentes'
-import { listarDocentes } from '@/modules/academico/services/docentes'
+import { listarNiveles } from '@/modules/academico/services/niveles-educativos'
 import type {
   Anio,
+  AsignacionDocente,
   Division,
+  Docente,
+  DocenteDeMateria,
   Materia,
   MateriaCurso,
   NivelEducativo,
 } from '@/modules/academico/types'
+import { elegirPorId } from '@/modules/academico/utils'
 
-/** Materia-curso con los nombres de sus docentes ya resueltos para mostrar en la tarjeta. */
-export type MateriaCursoConDocentes = MateriaCurso & {
-  docentes: string[]
+/** Selección pedida (normalmente la de la URL): si falta o ya no existe, se elige la primera. */
+export type SeleccionEstructura = {
+  nivel: string | null
+  anio: string | null
+  division: string | null
 }
 
-export type DivisionConMaterias = Division & {
-  /** Materias del catálogo asignadas a esta división, con su horario y docentes. */
-  materias: MateriaCursoConDocentes[]
-}
+type Estado<T> = { clave?: string; datos?: T; error?: unknown }
 
-export type AnioConDivisiones = Anio & {
-  divisiones: DivisionConMaterias[]
-}
-
-export type NivelConEstructura = NivelEducativo & {
-  anios: AnioConDivisiones[]
-}
-
-export function useEstructuraAcademica() {
-  const [datos, setDatos] = useState<NivelConEstructura[]>([])
-  const [catalogo, setCatalogo] = useState<Materia[]>([])
-  const [cargando, setCargando] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [sinPermiso, setSinPermiso] = useState(false)
-
-  const cargar = useCallback(async () => {
-    setCargando(true)
-    setError(null)
-    try {
-      // Las asignaciones y los docentes son datos secundarios para el detalle de la tarjeta:
-      // si fallan, la estructura se muestra igual, solo sin nombres de docentes.
-      const [niveles, materias, asignaciones, docentes] = await Promise.all([
-        listarNiveles(),
-        listarMaterias(),
-        listarAsignaciones().catch(() => []),
-        listarDocentes().catch(() => []),
-      ])
-
-      const docentePorId = new Map(docentes.map((docente) => [docente.id, docente]))
-      const docentesPorMateriaCurso = new Map<string, string[]>()
-      for (const asignacion of asignaciones) {
-        const docente = docentePorId.get(asignacion.docente_id)
-        if (!docente) continue
-        const nombre =
-          [docente.apellido, docente.nombre].filter(Boolean).join(', ') || docente.legajo
-        const nombres = docentesPorMateriaCurso.get(asignacion.materia_curso_id) ?? []
-        if (!nombres.includes(nombre)) nombres.push(nombre)
-        docentesPorMateriaCurso.set(asignacion.materia_curso_id, nombres)
-      }
-
-      const nivelesConEstructura: NivelConEstructura[] = await Promise.all(
-        niveles.map(async (nivel) => {
-          const anios = await listarAnios(nivel.id)
-
-          const aniosConDivisiones = await Promise.all(
-            anios.map(async (anio) => {
-              const [divisiones, materiasCurso] = await Promise.all([
-                listarDivisiones(anio.id),
-                listarMateriasCurso({ anio_id: anio.id }),
-              ])
-
-              const divisionesConMaterias = divisiones.map((division) => ({
-                ...division,
-                materias: materiasCurso
-                  .filter((materia) => materia.division_id === division.id)
-                  .map((materia) => ({
-                    ...materia,
-                    docentes: docentesPorMateriaCurso.get(materia.id) ?? [],
-                  })),
-              }))
-
-              return { ...anio, divisiones: divisionesConMaterias }
-            }),
-          )
-
-          return { ...nivel, anios: aniosConDivisiones }
-        }),
-      )
-
-      setDatos(nivelesConEstructura)
-      setCatalogo(materias)
-      setSinPermiso(false)
-    } catch (err: unknown) {
-      if (err instanceof ApiError && err.status === 403) {
-        setSinPermiso(true)
-      } else {
-        setError(
-          err instanceof ApiError ? err.detail : 'No se pudo cargar la estructura académica.',
-        )
-      }
-    } finally {
-      setCargando(false)
-    }
-  }, [])
+// Carga `cargar` cuando cambia `clave` (sin clave no carga nada). Mientras la clave nueva no
+// termina, no se devuelven los datos de la anterior. `cargar` tiene que estar memoizada.
+function useCarga<T>(clave: string | undefined, cargar: () => Promise<T>) {
+  const [estado, setEstado] = useState<Estado<T>>({})
+  const [version, setVersion] = useState(0)
 
   useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      await cargar()
-      if (cancelled) return
-    })()
+    if (clave === undefined) return
+    let cancelado = false
+    cargar()
+      .then((datos) => !cancelado && setEstado({ clave, datos }))
+      .catch((error: unknown) => !cancelado && setEstado({ clave, error }))
     return () => {
-      cancelled = true
+      cancelado = true
     }
-  }, [cargar])
+  }, [clave, cargar, version])
 
-  const recargar = useCallback(() => {
-    return cargar()
-  }, [cargar])
+  const vigente = estado.clave === clave
+  return {
+    datos: vigente ? estado.datos : undefined,
+    error: vigente ? estado.error : undefined,
+    cargando: clave !== undefined && !vigente,
+    recargar: useCallback(() => setVersion((v) => v + 1), []),
+  }
+}
 
-  return { datos, catalogo, cargando, error, sinPermiso, recargar }
+function mensajeDe(error: unknown): string | null {
+  if (error === undefined) return null
+  return error instanceof ApiError && error.detail
+    ? error.detail
+    : 'No se pudo cargar la estructura académica.'
+}
+
+function esSinPermiso(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 403
+}
+
+const SIN_ELEMENTOS: never[] = []
+
+/**
+ * Carga la estructura por tramos: niveles al entrar, años del nivel elegido, divisiones y
+ * materias del año elegido, y asignaciones docentes de la división elegida.
+ */
+export function useEstructuraAcademica(pedida: SeleccionEstructura) {
+  const cargarNiveles = useCallback(() => listarNiveles(), [])
+  const nivelesCarga = useCarga<NivelEducativo[]>('niveles', cargarNiveles)
+  const niveles = nivelesCarga.datos ?? SIN_ELEMENTOS
+  const nivel = elegirPorId(niveles, pedida.nivel)
+
+  // El catálogo y los docentes se usan recién al editar o al mostrar docentes: se cargan aparte
+  // para que no demoren la primera pantalla.
+  const cargarAuxiliares = useCallback(
+    () => Promise.all([listarMaterias(), listarDocentes().catch(() => [])]),
+    [],
+  )
+  const auxiliares = useCarga<[Materia[], Docente[]]>('auxiliares', cargarAuxiliares)
+
+  const cargarAnios = useCallback(
+    () => (nivel ? listarAnios(nivel.id) : Promise.resolve<Anio[]>([])),
+    [nivel],
+  )
+  const anios = useCarga<Anio[]>(nivel?.id, cargarAnios)
+  const listaAnios = anios.datos ?? SIN_ELEMENTOS
+  const anio = elegirPorId(listaAnios, pedida.anio)
+
+  const cargarAnio = useCallback(
+    () =>
+      anio
+        ? Promise.all([listarDivisiones(anio.id), listarMateriasCurso({ anio_id: anio.id })])
+        : Promise.resolve<[Division[], MateriaCurso[]]>([[], []]),
+    [anio],
+  )
+  const contenidoAnio = useCarga<[Division[], MateriaCurso[]]>(anio?.id, cargarAnio)
+  const divisiones = contenidoAnio.datos?.[0] ?? SIN_ELEMENTOS
+  const division = elegirPorId(divisiones, pedida.division)
+
+  const cargarAsignaciones = useCallback(
+    () =>
+      division
+        ? listarAsignaciones({ division_id: division.id })
+        : Promise.resolve<AsignacionDocente[]>([]),
+    [division],
+  )
+  const asignaciones = useCarga<AsignacionDocente[]>(division?.id, cargarAsignaciones)
+
+  const materiasCurso = (contenidoAnio.datos?.[1] ?? SIN_ELEMENTOS).filter(
+    (materiaCurso) => materiaCurso.division_id === division?.id,
+  )
+
+  const cicloActual = String(new Date().getFullYear())
+  const docentes = auxiliares.datos?.[1] ?? SIN_ELEMENTOS
+  const asignacionesDivision = asignaciones.datos ?? SIN_ELEMENTOS
+
+  /** Asignaciones de la materia en el ciclo actual, con el nombre "Apellido, Nombre" (o el legajo). */
+  function asignacionesDe(materiaCurso: MateriaCurso): DocenteDeMateria[] {
+    return asignacionesDivision
+      .filter(
+        (asignacion) =>
+          asignacion.materia_curso_id === materiaCurso.id &&
+          asignacion.ciclo_lectivo === cicloActual,
+      )
+      .map((asignacion) => {
+        const docente = docentes.find((candidato) => candidato.id === asignacion.docente_id)
+        const nombre =
+          docente?.apellido && docente.nombre
+            ? `${docente.apellido}, ${docente.nombre}`
+            : (docente?.legajo ?? '—')
+        return { asignacion, nombre }
+      })
+  }
+
+  const errores = [
+    nivelesCarga.error,
+    auxiliares.error,
+    anios.error,
+    contenidoAnio.error,
+    asignaciones.error,
+  ]
+  const primerError = errores.find((error) => error !== undefined)
+
+  return {
+    niveles,
+    catalogo: auxiliares.datos?.[0] ?? SIN_ELEMENTOS,
+    docentes,
+    nivel,
+    anios: listaAnios,
+    anio,
+    divisiones,
+    division,
+    materiasCurso,
+    asignaciones: asignacionesDivision,
+    cicloActual,
+    asignacionesDe,
+    cargandoNiveles: nivelesCarga.cargando,
+    cargandoAnios: anios.cargando,
+    cargandoAnio: contenidoAnio.cargando,
+    cargandoDivision: asignaciones.cargando,
+    error: mensajeDe(primerError),
+    sinPermiso: errores.some(esSinPermiso),
+    recargarAnios: anios.recargar,
+    recargarAnio: contenidoAnio.recargar,
+    recargarDivision: asignaciones.recargar,
+  }
 }

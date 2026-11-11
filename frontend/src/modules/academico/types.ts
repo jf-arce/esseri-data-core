@@ -8,14 +8,6 @@ export type NivelEducativo = {
   updated_at: string
 }
 
-export type NivelEducativoCreate = {
-  nombre: string
-}
-
-export type NivelEducativoUpdate = {
-  nombre?: string
-}
-
 export type Anio = {
   id: string
   numero: number
@@ -64,6 +56,7 @@ export type Materia = {
   id: string
   nombre: string
   tipo: TipoMateria
+  color: string
   cantidad_cursos: number
   created_at: string
   updated_at: string
@@ -72,11 +65,13 @@ export type Materia = {
 export type MateriaCreate = {
   nombre: string
   tipo: TipoMateria
+  color?: string
 }
 
 export type MateriaUpdate = {
   nombre?: string
   tipo?: TipoMateria
+  color?: string
 }
 
 /** Franja horaria semanal de una materia en un curso. 1 = lunes, 7 = domingo. */
@@ -99,6 +94,7 @@ export type MateriaCurso = {
   materia_id: string
   materia_nombre: string | null
   materia_tipo: TipoMateria | null
+  materia_color: string | null
   division_id: string
   division_nombre: string | null
   anio_id: string | null
@@ -111,11 +107,16 @@ export type MateriaCurso = {
   updated_at: string
 }
 
+/** Una franja de la grilla con la materia a la que pertenece. */
+export type FranjaConMateria = HorarioMateriaCurso & { materiaCurso: MateriaCurso }
+
 export type MateriaCursoCreate = {
   /** Materia existente del catálogo, o `materia_nombre` para crearla en el momento. */
   materia_id?: string
   materia_nombre?: string
   materia_tipo?: TipoMateria
+  /** Color de la materia nueva (#rrggbb); si falta, el backend sortea uno. */
+  materia_color?: string
   division_id: string
   horarios: HorarioMateriaCursoCreate[]
 }
@@ -383,4 +384,10 @@ export type AsistenciaResumen = {
   porcentaje_presencia: number
   porcentaje_justificadas: number
   porcentaje_injustificadas: number
+}
+
+/** Asignación de un docente a una materia, con el nombre listo para mostrar. */
+export interface DocenteDeMateria {
+  asignacion: AsignacionDocente
+  nombre: string
 }

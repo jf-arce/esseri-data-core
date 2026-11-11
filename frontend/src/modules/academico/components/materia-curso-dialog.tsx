@@ -1,6 +1,8 @@
+import { BookOpenIcon, CalendarDaysIcon, PlusIcon, Trash2Icon, WrenchIcon } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
+import { BotonIcono } from '@/modules/academico/components/boton-icono'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { actualizarMateria } from '@/modules/academico/services/materias'
 import {
   actualizarMateriaCurso,
   crearMateriaCurso,
@@ -31,7 +34,16 @@ import type {
   MateriaCurso,
   TipoMateria,
 } from '@/modules/academico/types'
-import { normalizarTexto } from '@/modules/academico/utils'
+import { SelectorColor } from '@/modules/academico/components/selector-color'
+import {
+  buscarConflictos,
+  colorAleatorio,
+  colorMateria,
+  describirConflicto,
+  normalizarTexto,
+  primeraFranjaLibre,
+  type FranjaOcupada,
+} from '@/modules/academico/utils'
 
 type ModoMateriaCurso = 'crear' | 'editar' | 'eliminar'
 
@@ -45,10 +57,14 @@ interface MateriaCursoDialogProps {
   catalogo: Materia[]
   /** Materias que ya están asignadas a este curso: no se ofrecen de nuevo al crear. */
   materiasExcluidas?: string[]
+  /** Franjas de las otras materias de la división, para avisar de superposiciones. */
+  horariosOcupados?: FranjaOcupada[]
+  /** Franja precargada al crear (por ejemplo, desde un hueco de la grilla semanal). */
+  franjaInicial?: FranjaForm
   onExito: () => void
 }
 
-type FranjaForm = {
+export type FranjaForm = {
   dia_semana: number
   hora_inicio: string
   hora_fin: string
@@ -64,7 +80,9 @@ const DIAS_SEMANA = [
   { value: 7, label: 'Domingo' },
 ]
 
-const FRANJA_INICIAL: FranjaForm = { dia_semana: 1, hora_inicio: '08:00', hora_fin: '09:00' }
+function esTipoMateria(valor: string): valor is TipoMateria {
+  return valor === 'materia' || valor === 'taller'
+}
 
 function aHoraCorta(valor: string): string {
   return valor.slice(0, 5)
@@ -79,15 +97,23 @@ export function MateriaCursoDialog({
   divisionNombre,
   catalogo,
   materiasExcluidas = [],
+  horariosOcupados = [],
+  franjaInicial,
   onExito,
 }: MateriaCursoDialogProps) {
   const esEdicion = modo === 'editar'
+  const curso = divisionNombre ?? item?.division_nombre ?? 'la división'
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [materiaId, setMateriaId] = useState(item?.materia_id ?? '')
   const [crearNueva, setCrearNueva] = useState(false)
   const [nuevaMateriaNombre, setNuevaMateriaNombre] = useState('')
   const [nuevaMateriaTipo, setNuevaMateriaTipo] = useState<TipoMateria>('materia')
+  const [nuevaMateriaColor, setNuevaMateriaColor] = useState(colorAleatorio)
+  // Color elegido al editar; null mientras no se toque (se conserva el de la materia).
+  const [colorEditado, setColorEditado] = useState<string | null>(null)
+  // Sin un hueco elegido en la grilla, propone la primera hora libre de la división.
+  const franjaPorDefecto = () => franjaInicial ?? primeraFranjaLibre(horariosOcupados)
   const [franjas, setFranjas] = useState<FranjaForm[]>(
     item?.horarios.length
       ? item.horarios.map((horario) => ({
@@ -95,7 +121,7 @@ export function MateriaCursoDialog({
           hora_inicio: aHoraCorta(horario.hora_inicio),
           hora_fin: aHoraCorta(horario.hora_fin),
         }))
-      : [FRANJA_INICIAL],
+      : [franjaPorDefecto()],
   )
 
   function resetForm() {
@@ -104,6 +130,8 @@ export function MateriaCursoDialog({
     setCrearNueva(false)
     setNuevaMateriaNombre('')
     setNuevaMateriaTipo('materia')
+    setNuevaMateriaColor(colorAleatorio())
+    setColorEditado(null)
     setFranjas(
       item?.horarios.length
         ? item.horarios.map((horario) => ({
@@ -111,7 +139,7 @@ export function MateriaCursoDialog({
             hora_inicio: aHoraCorta(horario.hora_inicio),
             hora_fin: aHoraCorta(horario.hora_fin),
           }))
-        : [FRANJA_INICIAL],
+        : [franjaPorDefecto()],
     )
   }
 
@@ -137,7 +165,7 @@ export function MateriaCursoDialog({
   }
 
   function agregarFranja() {
-    setFranjas((previas) => [...previas, FRANJA_INICIAL])
+    setFranjas((previas) => [...previas, primeraFranjaLibre([...horariosOcupados, ...previas])])
   }
 
   function quitarFranja(indice: number) {
@@ -152,15 +180,7 @@ export function MateriaCursoDialog({
     )
   }
 
-  function hayFranjaDuplicada(): boolean {
-    const vistas = new Set<string>()
-    for (const franja of franjas) {
-      const clave = `${franja.dia_semana}-${franja.hora_inicio}`
-      if (vistas.has(clave)) return true
-      vistas.add(clave)
-    }
-    return false
-  }
+  const conflictos = buscarConflictos(franjas, horariosOcupados)
 
   // Al crear, no se ofrecen materias que el curso ya tiene asignadas.
   const catalogoDisponible = esEdicion
@@ -180,19 +200,14 @@ export function MateriaCursoDialog({
     try {
       if (modo === 'eliminar' && item) {
         await eliminarMateriaCurso(item.id)
-        toast.success('Materia quitada del curso correctamente.')
+        toast.success('Materia eliminada correctamente.')
         onExito()
         onOpenChange(false)
         return
       }
 
       if (crearNueva && nuevaMateriaDuplicada) {
-        setError('Ya existe una materia con ese nombre en el catálogo.')
-        return
-      }
-
-      if (hayFranjaDuplicada()) {
-        setError('Hay dos franjas con el mismo día y hora de inicio.')
+        setError('Ya existe una materia con ese nombre.')
         return
       }
 
@@ -203,20 +218,27 @@ export function MateriaCursoDialog({
       }))
 
       if (esEdicion && item) {
+        if (colorEditado && colorEditado !== item.materia_color && materiaId === item.materia_id) {
+          await actualizarMateria(item.materia_id, { color: colorEditado })
+        }
         await actualizarMateriaCurso(item.id, {
           materia_id: materiaId || undefined,
           horarios,
         })
-        toast.success('Materia del curso actualizada correctamente.')
+        toast.success('Materia actualizada correctamente.')
       } else if (divisionId) {
         await crearMateriaCurso({
           division_id: divisionId,
           horarios,
           ...(crearNueva
-            ? { materia_nombre: nuevaMateriaNombre, materia_tipo: nuevaMateriaTipo }
+            ? {
+                materia_nombre: nuevaMateriaNombre,
+                materia_tipo: nuevaMateriaTipo,
+                materia_color: nuevaMateriaColor,
+              }
             : { materia_id: materiaId }),
         })
-        toast.success('Materia asignada al curso correctamente.')
+        toast.success('Materia asignada correctamente.')
       }
 
       onExito()
@@ -235,22 +257,22 @@ export function MateriaCursoDialog({
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Quitar materia del curso</DialogTitle>
+            <DialogTitle>Eliminar materia</DialogTitle>
             <DialogDescription>
               {error ??
-                `Vas a quitar ${item?.materia_nombre ?? 'la materia'} de ${
-                  item?.division_nombre ?? divisionNombre ?? 'el curso'
+                `Vas a eliminar ${item?.materia_nombre ?? 'la materia'} de ${
+                  item?.division_nombre ?? divisionNombre ?? 'la división'
                 }. Esta acción no se puede deshacer.`}
             </DialogDescription>
           </DialogHeader>
 
           {bloqueado ? (
             <Alert variant="advertencia">
-              <AlertTitle>No se puede quitar todavía</AlertTitle>
+              <AlertTitle>No se puede eliminar todavía</AlertTitle>
               <AlertDescription>
                 Tiene {item?.cantidad_asignaciones}{' '}
                 {item?.cantidad_asignaciones === 1 ? 'docente asignado' : 'docentes asignados'}.
-                Quitá primero esas asignaciones docentes.
+                Eliminá primero esas asignaciones.
               </AlertDescription>
             </Alert>
           ) : null}
@@ -260,7 +282,7 @@ export function MateriaCursoDialog({
               Cancelar
             </Button>
             <Button variant="destructive" onClick={handleSubmit} disabled={enviando || bloqueado}>
-              {enviando ? 'Quitando…' : 'Quitar materia'}
+              {enviando ? 'Eliminando…' : 'Eliminar materia'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -271,49 +293,66 @@ export function MateriaCursoDialog({
   const materiaSeleccionadaValida = crearNueva
     ? nuevaMateriaNombre.trim().length > 0 && !nuevaMateriaDuplicada
     : materiaId.length > 0
-  const puedeGuardar = materiaSeleccionadaValida && franjasValidas()
+  const puedeGuardar = materiaSeleccionadaValida && franjasValidas() && conflictos.length === 0
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>
-            {esEdicion ? 'Editar materia del curso' : 'Asignar materia al curso'}
+            {esEdicion ? `Editar materia de ${curso}` : `Agregar materia a ${curso}`}
           </DialogTitle>
-          {error ? (
-            <DialogDescription className="text-error">{error}</DialogDescription>
-          ) : (
-            <DialogDescription>
-              {item?.division_nombre ?? divisionNombre ?? 'Curso'}: elegí una materia del catálogo
-              (o creá una nueva) y cargá su día y horario.
-            </DialogDescription>
-          )}
+          {error && <DialogDescription className="text-error">{error}</DialogDescription>}
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
           <Field>
             <FieldLabel>Materia</FieldLabel>
             <Select value={crearNueva ? '__nueva__' : materiaId} onValueChange={cambiarMateria}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Seleccionar materia del catálogo" />
+              <SelectTrigger className="w-full" aria-label="Materia">
+                <SelectValue placeholder="Seleccionar materia" />
               </SelectTrigger>
               <SelectContent>
                 {catalogoDisponible.map((materia) => (
                   <SelectItem key={materia.id} value={materia.id}>
+                    <span
+                      aria-hidden="true"
+                      className="size-2.5 shrink-0 rounded-full"
+                      style={{
+                        backgroundColor: colorMateria(materia.color).estilo.backgroundColor,
+                      }}
+                    />
                     {materia.nombre}
                     {materia.tipo === 'taller' ? ' (taller)' : ''}
                   </SelectItem>
                 ))}
-                {!esEdicion && <SelectItem value="__nueva__">➕ Crear nueva materia</SelectItem>}
+                {!esEdicion && (
+                  <SelectItem value="__nueva__">
+                    <PlusIcon />
+                    Crear nueva materia
+                  </SelectItem>
+                )}
               </SelectContent>
             </Select>
             {!esEdicion && catalogoDisponible.length === 0 && (
               <p className="text-xs text-texto-3">
-                Este curso ya tiene asignadas todas las materias del catálogo. Podés crear una
-                nueva.
+                Esta división ya tiene todas las materias. Podés crear una nueva.
               </p>
             )}
           </Field>
+
+          {esEdicion && item && materiaId === item.materia_id && (
+            <Field>
+              <FieldLabel>Color</FieldLabel>
+              <SelectorColor
+                valor={colorEditado ?? item.materia_color ?? ''}
+                onChange={setColorEditado}
+              />
+              <p className="text-xs text-texto-3">
+                Se cambia en todas las divisiones donde está esta materia.
+              </p>
+            </Field>
+          )}
 
           {crearNueva && (
             <>
@@ -327,87 +366,144 @@ export function MateriaCursoDialog({
                   aria-invalid={nuevaMateriaDuplicada}
                 />
                 {nuevaMateriaDuplicada && (
-                  <p className="text-xs text-error">
-                    Ya existe una materia con ese nombre en el catálogo.
-                  </p>
+                  <p className="text-xs text-error">Ya existe una materia con ese nombre.</p>
                 )}
               </Field>
               <Field>
                 <FieldLabel>Tipo</FieldLabel>
                 <Select
                   value={nuevaMateriaTipo}
-                  onValueChange={(valor) => setNuevaMateriaTipo(valor as TipoMateria)}
+                  onValueChange={(valor) => {
+                    if (esTipoMateria(valor)) setNuevaMateriaTipo(valor)
+                  }}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="materia">Materia</SelectItem>
-                    <SelectItem value="taller">Taller</SelectItem>
+                    <SelectItem value="materia">
+                      <BookOpenIcon />
+                      Materia
+                    </SelectItem>
+                    <SelectItem value="taller">
+                      <WrenchIcon />
+                      Taller
+                    </SelectItem>
                   </SelectContent>
                 </Select>
+              </Field>
+              <Field>
+                <FieldLabel>Color</FieldLabel>
+                <SelectorColor valor={nuevaMateriaColor} onChange={setNuevaMateriaColor} />
+                <p className="text-xs text-texto-3">
+                  Identifica la materia en el horario y en las tarjetas.
+                </p>
               </Field>
             </>
           )}
 
-          <Field>
-            <FieldLabel>Día y horario</FieldLabel>
-            <div className="flex flex-col gap-2">
-              {franjas.map((franja, indice) => (
-                <div key={indice} className="flex items-center gap-2">
-                  <Select
-                    value={String(franja.dia_semana)}
-                    onValueChange={(valor) =>
-                      actualizarFranja(indice, { dia_semana: Number(valor) })
-                    }
-                  >
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DIAS_SEMANA.map((dia) => (
-                        <SelectItem key={dia.value} value={String(dia.value)}>
-                          {dia.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="time"
-                    aria-label={`Hora de inicio de la franja ${indice + 1}`}
-                    value={franja.hora_inicio}
-                    onChange={(evento) =>
-                      actualizarFranja(indice, { hora_inicio: evento.target.value })
-                    }
-                    className="w-28"
-                  />
-                  <span className="text-sm text-texto-3">a</span>
-                  <Input
-                    type="time"
-                    aria-label={`Hora de fin de la franja ${indice + 1}`}
-                    value={franja.hora_fin}
-                    onChange={(evento) =>
-                      actualizarFranja(indice, { hora_fin: evento.target.value })
-                    }
-                    className="w-28"
-                  />
-                  {franjas.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => quitarFranja(indice)}
-                      aria-label={`Quitar franja ${indice + 1}`}
-                    >
-                      Quitar
-                    </Button>
-                  )}
+          <section className="flex flex-col gap-3" aria-labelledby="franjas-titulo">
+            <h3 id="franjas-titulo" className="text-sm font-semibold text-texto">
+              Días y horarios
+            </h3>
+
+            {franjas.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-borde p-4 text-center text-sm text-texto-3">
+                Todavía no hay franjas. Agregá al menos una con el botón +.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_2.25rem] gap-2 text-xs font-semibold text-texto-2">
+                  <span>Día</span>
+                  <span>Desde</span>
+                  <span>Hasta</span>
+                  <span />
                 </div>
-              ))}
-              <Button variant="secondary" size="sm" onClick={agregarFranja} className="self-start">
-                Agregar franja
-              </Button>
-            </div>
-          </Field>
+                {franjas.map((franja, indice) => {
+                  const enConflicto = conflictos.some((conflicto) => conflicto.indice === indice)
+                  return (
+                    <div
+                      key={indice}
+                      className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_2.25rem] items-center gap-2"
+                    >
+                      <Select
+                        value={String(franja.dia_semana)}
+                        onValueChange={(valor) =>
+                          actualizarFranja(indice, { dia_semana: Number(valor) })
+                        }
+                      >
+                        <SelectTrigger
+                          className="w-full"
+                          aria-label={`Día de la franja ${indice + 1}`}
+                          aria-invalid={enConflicto}
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <CalendarDaysIcon
+                              className={enConflicto ? 'text-error' : 'text-texto-3'}
+                              aria-hidden="true"
+                            />
+                            <SelectValue />
+                          </span>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DIAS_SEMANA.map((dia) => (
+                            <SelectItem key={dia.value} value={String(dia.value)}>
+                              {dia.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="time"
+                        className="[&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                        aria-label={`Hora de inicio de la franja ${indice + 1}`}
+                        aria-invalid={enConflicto}
+                        value={franja.hora_inicio}
+                        onChange={(evento) =>
+                          actualizarFranja(indice, { hora_inicio: evento.target.value })
+                        }
+                      />
+                      <Input
+                        type="time"
+                        className="[&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                        aria-label={`Hora de fin de la franja ${indice + 1}`}
+                        aria-invalid={enConflicto}
+                        value={franja.hora_fin}
+                        onChange={(evento) =>
+                          actualizarFranja(indice, { hora_fin: evento.target.value })
+                        }
+                      />
+                      <BotonIcono
+                        etiqueta={`Eliminar franja ${indice + 1}`}
+                        className="size-9 text-error hover:text-error"
+                        onClick={() => quitarFranja(indice)}
+                      >
+                        <Trash2Icon />
+                      </BotonIcono>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            <Button variant="secondary" onClick={agregarFranja} className="self-start">
+              <PlusIcon />
+              Agregar franja
+            </Button>
+
+            {conflictos.length > 0 && (
+              <Alert variant="advertencia">
+                <AlertTitle>Horario superpuesto</AlertTitle>
+                <AlertDescription>
+                  {conflictos.map((conflicto) => (
+                    <span key={conflicto.indice} className="block">
+                      {describirConflicto(conflicto)}
+                    </span>
+                  ))}
+                </AlertDescription>
+              </Alert>
+            )}
+          </section>
         </div>
 
         <DialogFooter>

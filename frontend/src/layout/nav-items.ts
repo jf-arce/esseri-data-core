@@ -13,6 +13,7 @@ import {
   IdCardIcon,
   KeyRoundIcon,
   Landmark,
+  LibraryIcon,
   LayoutDashboard,
   ListChecksIcon,
   ReceiptText,
@@ -174,6 +175,12 @@ export const NAV_GROUPS: NavGroup[] = [
         modulo: 'academico',
         permiso: PERMISO_ACADEMICO_LEER,
         children: [
+          {
+            label: 'Materias',
+            href: '/academico/materias',
+            icon: LibraryIcon,
+            permiso: PERMISO_ACADEMICO_LEER,
+          },
           { label: 'Asignaciones docentes', href: '/academico/asignaciones', icon: UserCog },
           {
             // Solo para roles de consola que también toman asistencia (secretaría, coordinación

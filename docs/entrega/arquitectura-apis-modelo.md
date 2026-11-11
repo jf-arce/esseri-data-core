@@ -116,11 +116,8 @@ Estas reglas están en los routers enlazados y en [dependencias de familias](../
 
 | Método | Ruta | Permiso o autenticación | Descripción |
 |---|---|---|---|
-| POST | `/academico/niveles` | `academico.crear` | Crear un nuevo nivel educativo. |
 | GET | `/academico/niveles` | `academico.leer` | Listar todos los niveles educativos. |
 | GET | `/academico/niveles/{nivel_educativo_id}` | `academico.leer` | Obtener un nivel educativo por su ID. |
-| PUT | `/academico/niveles/{nivel_educativo_id}` | `academico.actualizar:estructura` | Actualizar un nivel educativo existente. |
-| DELETE | `/academico/niveles/{nivel_educativo_id}` | `academico.eliminar` | Eliminar un nivel educativo. |
 | POST | `/academico/anios` | `academico.crear` | Crear un nuevo año. |
 | GET | `/academico/anios` | `academico.leer` | Listar años. |
 | GET | `/academico/anios/{anio_id}` | `academico.leer` | Obtener un año por su ID. |

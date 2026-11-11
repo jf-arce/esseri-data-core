@@ -1,18 +1,6 @@
 from src.exceptions import AppException
 
 
-class NivelEducativoConAnios(AppException):
-    """El nivel educativo tiene años asociados: borrarlo dejaría ANIO apuntando a nada."""
-
-    status_code = 409
-
-    def __init__(
-        self,
-        message: str = "No se puede eliminar: el nivel educativo tiene años asociados",
-    ):
-        super().__init__(message)
-
-
 class AnioConDivisiones(AppException):
     """El año tiene divisiones asociadas: borrarlo dejaría DIVISION apuntando a nada."""
 
@@ -68,7 +56,7 @@ class MateriaCursoDuplicada(AppException):
 
     def __init__(
         self,
-        message: str = "Esa materia ya está asignada a este curso",
+        message: str = "Esa materia ya está asignada a esta división",
     ):
         super().__init__(message)
 
@@ -82,15 +70,6 @@ class DivisionConAsignaciones(AppException):
         self,
         message: str = "No se puede eliminar: la división tiene asignaciones docentes",
     ):
-        super().__init__(message)
-
-
-class NombreNivelDuplicado(AppException):
-    """Ya existe un nivel educativo con ese nombre."""
-
-    status_code = 409
-
-    def __init__(self, message: str = "Ya existe un nivel educativo con ese nombre"):
         super().__init__(message)
 
 
@@ -134,7 +113,7 @@ class MateriaConCursos(AppException):
 
     def __init__(
         self,
-        message: str = "No se puede eliminar: la materia está asignada a uno o más cursos",
+        message: str = "No se puede eliminar: la materia está asignada a una o más divisiones",
     ):
         super().__init__(message)
 
@@ -146,20 +125,38 @@ class MateriaCursoConAsignaciones(AppException):
 
     def __init__(
         self,
-        message: str = "No se puede quitar: la materia del curso tiene docentes asignados",
+        message: str = "No se puede eliminar: la materia tiene docentes asignados",
     ):
         super().__init__(message)
 
 
 class HorarioDuplicado(AppException):
-    """Hay dos franjas horarias iguales para la misma materia del curso."""
+    """Hay dos franjas horarias que se pisan dentro de la misma materia del curso."""
 
     status_code = 409
 
     def __init__(
         self,
-        message: str = "Hay dos franjas horarias iguales para esta materia en el curso",
+        message: str = "Hay franjas horarias superpuestas para esta materia",
     ):
+        super().__init__(message)
+
+
+class DocenteConHorarioSuperpuesto(AppException):
+    """El docente ya dicta otra materia en una franja que se pisa con la nueva."""
+
+    status_code = 409
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class HorarioSuperpuestoEnDivision(AppException):
+    """Otra materia de la misma división ya ocupa parte de esa franja."""
+
+    status_code = 409
+
+    def __init__(self, message: str):
         super().__init__(message)
 
 

@@ -61,6 +61,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Sin esto el navegador oculta el nombre de archivo de las descargas al frontend.
+    expose_headers=["Content-Disposition"],
 )
 
 app.add_exception_handler(AppException, app_exception_handler)
