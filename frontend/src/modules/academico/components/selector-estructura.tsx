@@ -41,7 +41,7 @@ export function SelectorEstructura({
           <SelectTrigger className="w-20" aria-labelledby={id} aria-busy={cargando}>
             <SelectValue placeholder={mostrarCarga ? <Skeleton className="h-3.5 w-10" /> : ''} />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="min-w-20">
             {opciones.map((opcion) => (
               <SelectItem key={opcion.value} value={opcion.value}>
                 {opcion.label}
