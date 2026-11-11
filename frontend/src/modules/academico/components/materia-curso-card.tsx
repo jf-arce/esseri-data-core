@@ -6,10 +6,11 @@ import {
   TriangleAlertIcon,
   UserPlusIcon,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { BotonIcono } from '@/modules/academico/components/boton-icono'
 import type { MateriaCurso } from '@/modules/academico/types'
 import { colorMateria, formatearFranjaLegible } from '@/modules/academico/utils'
@@ -50,6 +51,8 @@ export function MateriaCursoCard({
   onAsignarDocente,
   onVerHorario,
 }: MateriaCursoCardProps) {
+  // Controlado: al ir al horario la tarjeta se desmonta y el tooltip abierto quedaba flotando.
+  const [verHorarioAbierto, setVerHorarioAbierto] = useState(false)
   const nombre = materiaCurso.materia_nombre ?? '—'
   const tipo = materiaCurso.materia_tipo === 'taller' ? 'taller' : 'materia'
   const color = colorMateria(materiaCurso.materia_color)
@@ -65,15 +68,26 @@ export function MateriaCursoCard({
         {materiaCurso.horarios.length === 0 ? (
           <Aviso tono="advertencia">Sin horario</Aviso>
         ) : onVerHorario ? (
-          <button
-            type="button"
-            title="Ver en el horario"
-            className="flex cursor-pointer items-start gap-1.5 text-left text-sm text-texto-2 hover:text-texto hover:underline focus-visible:outline-2 focus-visible:outline-violeta"
-            onClick={() => onVerHorario(materiaCurso)}
-          >
-            <CalendarDaysIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            {materiaCurso.horarios.map(formatearFranjaLegible).join(' · ')}
-          </button>
+          <TooltipProvider>
+            <Tooltip open={verHorarioAbierto} onOpenChange={setVerHorarioAbierto}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="flex w-fit max-w-full cursor-pointer items-start gap-1.5 text-left text-sm text-texto-2 hover:text-texto hover:underline focus-visible:outline-2 focus-visible:outline-violeta"
+                  onClick={() => {
+                    setVerHorarioAbierto(false)
+                    onVerHorario(materiaCurso)
+                  }}
+                >
+                  <CalendarDaysIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                  {materiaCurso.horarios.map(formatearFranjaLegible).join(' · ')}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={8}>
+                Ver en el horario
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         ) : (
           <p className="text-sm text-texto-2">
             {materiaCurso.horarios.map(formatearFranjaLegible).join(' · ')}
