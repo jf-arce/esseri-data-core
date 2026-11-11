@@ -136,6 +136,21 @@ export function franjaChoca(
   return franjas.some((otra) => otra.id !== idPropio && franjasSeSuperponen(destino, otra))
 }
 
+/**
+ * Primera franja de una hora (lunes a sábado, de 08:00 a 22:00) que no se pisa con `ocupadas`.
+ * Si no queda ninguna libre, devuelve la primera hora del lunes.
+ */
+export function primeraFranjaLibre(ocupadas: FranjaHoraria[]): FranjaHoraria {
+  const aHora = (hora: number) => `${String(hora).padStart(2, '0')}:00`
+  for (let dia = 1; dia <= 6; dia++) {
+    for (let hora = 8; hora < 22; hora++) {
+      const candidata = { dia_semana: dia, hora_inicio: aHora(hora), hora_fin: aHora(hora + 1) }
+      if (!ocupadas.some((ocupada) => franjasSeSuperponen(candidata, ocupada))) return candidata
+    }
+  }
+  return { dia_semana: 1, hora_inicio: '08:00', hora_fin: '09:00' }
+}
+
 /** Franjas que se pisan entre sí o con las de otras materias de la división. */
 export function buscarConflictos(
   franjas: FranjaHoraria[],

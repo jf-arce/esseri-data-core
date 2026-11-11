@@ -40,6 +40,7 @@ import {
   colorMateria,
   describirConflicto,
   normalizarTexto,
+  primeraFranjaLibre,
   type FranjaOcupada,
 } from '@/modules/academico/utils'
 
@@ -78,8 +79,6 @@ const DIAS_SEMANA = [
   { value: 7, label: 'Domingo' },
 ]
 
-const FRANJA_INICIAL: FranjaForm = { dia_semana: 1, hora_inicio: '08:00', hora_fin: '09:00' }
-
 function esTipoMateria(valor: string): valor is TipoMateria {
   return valor === 'materia' || valor === 'taller'
 }
@@ -98,7 +97,7 @@ export function MateriaCursoDialog({
   catalogo,
   materiasExcluidas = [],
   horariosOcupados = [],
-  franjaInicial = FRANJA_INICIAL,
+  franjaInicial,
   onExito,
 }: MateriaCursoDialogProps) {
   const esEdicion = modo === 'editar'
@@ -110,6 +109,8 @@ export function MateriaCursoDialog({
   const [nuevaMateriaNombre, setNuevaMateriaNombre] = useState('')
   const [nuevaMateriaTipo, setNuevaMateriaTipo] = useState<TipoMateria>('materia')
   const [nuevaMateriaColor, setNuevaMateriaColor] = useState(colorAleatorio)
+  // Sin un hueco elegido en la grilla, propone la primera hora libre de la división.
+  const franjaPorDefecto = () => franjaInicial ?? primeraFranjaLibre(horariosOcupados)
   const [franjas, setFranjas] = useState<FranjaForm[]>(
     item?.horarios.length
       ? item.horarios.map((horario) => ({
@@ -117,7 +118,7 @@ export function MateriaCursoDialog({
           hora_inicio: aHoraCorta(horario.hora_inicio),
           hora_fin: aHoraCorta(horario.hora_fin),
         }))
-      : [franjaInicial],
+      : [franjaPorDefecto()],
   )
 
   function resetForm() {
@@ -134,7 +135,7 @@ export function MateriaCursoDialog({
             hora_inicio: aHoraCorta(horario.hora_inicio),
             hora_fin: aHoraCorta(horario.hora_fin),
           }))
-        : [franjaInicial],
+        : [franjaPorDefecto()],
     )
   }
 
@@ -160,7 +161,7 @@ export function MateriaCursoDialog({
   }
 
   function agregarFranja() {
-    setFranjas((previas) => [...previas, FRANJA_INICIAL])
+    setFranjas((previas) => [...previas, primeraFranjaLibre([...horariosOcupados, ...previas])])
   }
 
   function quitarFranja(indice: number) {

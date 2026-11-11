@@ -26,6 +26,7 @@ import {
   franjaChoca,
   franjasSeSuperponen,
   normalizarTexto,
+  primeraFranjaLibre,
 } from '../utils'
 
 describe('normalizarTexto', () => {
@@ -404,5 +405,34 @@ describe('abreviarDocentes', () => {
     expect(abreviarDocentes(['Pérez, Ana'])).toBe('A. Pérez')
     expect(abreviarDocentes(['Pérez, Ana', 'Gómez, Luis'])).toBe('A. Pérez +1')
     expect(abreviarDocentes(['L123'])).toBe('L123')
+  })
+})
+
+describe('primeraFranjaLibre', () => {
+  const franja = (dia_semana: number, hora_inicio: string, hora_fin: string) => ({
+    dia_semana,
+    hora_inicio,
+    hora_fin,
+  })
+
+  it('propone el lunes de 08:00 a 09:00 si no hay nada cargado', () => {
+    expect(primeraFranjaLibre([])).toEqual(franja(1, '08:00', '09:00'))
+  })
+
+  it('salta las horas ocupadas, aunque vengan con segundos', () => {
+    const ocupadas = [franja(1, '08:00:00', '09:30:00')]
+
+    expect(primeraFranjaLibre(ocupadas)).toEqual(franja(1, '10:00', '11:00'))
+  })
+
+  it('pasa al día siguiente cuando el día está completo', () => {
+    expect(primeraFranjaLibre([franja(1, '08:00', '22:00')])).toEqual(franja(2, '08:00', '09:00'))
+  })
+
+  it('nunca devuelve una franja que se pise con las ocupadas', () => {
+    const ocupadas = [franja(1, '08:00', '10:00'), franja(1, '10:30', '12:00')]
+    const libre = primeraFranjaLibre(ocupadas)
+
+    expect(ocupadas.some((otra) => franjasSeSuperponen(libre, otra))).toBe(false)
   })
 })
