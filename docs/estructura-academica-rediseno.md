@@ -26,8 +26,16 @@ Resumen para el equipo de los cambios de la rama `feat/estructura-academica-redi
 | 7 | Pestañas de nivel, desplegables de año y división (con botones para agregar y editar, la baja va dentro del diálogo de edición) y pestañas "Materias" y "Horario". Estado en la URL (`?nivel=&anio=&division=`). Los datos se cargan por tramo, con skeletons que mantienen las medidas. |
 | 8 | El catálogo pasa a `academico/materias`, con entrada propia en el menú. |
 | 9 | Cada materia tiene un color (`#rrggbb`) que se elige con un selector y se ve igual en todas las divisiones: tarjetas, horario semanal y catálogo. Si no se elige, se sortea de una lista sugerida (también al crear la materia desde el curso). |
+| 10 | El horario semanal se lee mejor: abre un popover al hacer clic en un bloque (con Editar y Eliminar), resalta la materia al pasar el mouse y dibuja lado a lado las franjas que se pisan (datos anteriores a la validación). Los bloques van en una capa por columna con posición en porcentaje, lo que también corrige las franjas con minutos que no son múltiplos de 30. |
+| 11 | El horario semanal se edita directo: arrastrar un bloque lo mueve, el borde inferior lo estira, barrer un hueco crea una materia, y con el teclado las flechas mueven (Mayús estira, Escape cancela). Todo va de a 30 minutos conservando el desfase. Con el dedo, el gesto empieza con una pulsación larga (si no, es scroll). Se guarda al soltar: el backend reemplaza todas las franjas de la materia en cada PUT, así que se reenvían todas y, si el backend responde 409 (por ejemplo, un docente con clase en otra división), el bloque vuelve y se muestra el mensaje. La grilla no cambia de escala mientras dura un gesto o un guardado. |
 
 Además se corrigió un 500 que encontró la revisión: una hora con zona horaria rompía la comparación de superposición. Ahora el schema la rechaza con 422.
+
+### Horario semanal: verificado y pendiente de prueba manual
+
+- Verificado con tests: helpers de posición, solapados, mover y estirar (`utils.test.ts`), guardado optimista con reversión (`use-guardar-franjas.test.ts`) y teclado (`horario-semanal.test.tsx`).
+- Pendiente de probar a mano: franja 08:40 bien ubicada, arrastre con mouse, pulsación larga en celular o con emulación táctil, y un choque de docente en otra división para ver la reversión con el mensaje del 409.
+- En pantallas angostas, al arrastrar un bloque cerca del borde la grilla se desplaza sola (probado con mouse en un viewport de 500 px).
 
 ## Cambios que rompen compatibilidad
 
