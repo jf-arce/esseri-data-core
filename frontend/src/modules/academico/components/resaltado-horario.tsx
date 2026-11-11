@@ -29,7 +29,7 @@ export function ResaltadoHorario({
         <button
           type="button"
           aria-label="Resaltar materias"
-          className="flex h-9 w-36 cursor-pointer items-center justify-between gap-1.5 rounded-lg border border-borde bg-superficie px-3 text-sm whitespace-nowrap text-texto transition-colors outline-none select-none focus-visible:outline-2 focus-visible:outline-violeta"
+          className="flex h-9 w-32 cursor-pointer items-center justify-between gap-1.5 rounded-lg border border-borde bg-superficie px-3 text-sm whitespace-nowrap text-texto transition-colors outline-none select-none focus-visible:outline-2 focus-visible:outline-violeta"
         >
           <span className="truncate">Materias{marcadas.length > 0 && ` · ${marcadas.length}`}</span>
           <ChevronDownIcon className="pointer-events-none size-4 shrink-0 text-texto-3" />

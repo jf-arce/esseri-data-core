@@ -58,7 +58,7 @@ export function FiltrosHorario({
         value={filtro.tipo}
         onValueChange={(valor) => onFiltro({ ...filtro, tipo: tipoValido(valor) })}
       >
-        <SelectTrigger className="w-32" aria-label="Filtrar por tipo">
+        <SelectTrigger className="w-28" aria-label="Filtrar por tipo">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
