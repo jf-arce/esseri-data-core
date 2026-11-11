@@ -1,4 +1,4 @@
-import { PlusIcon, Trash2Icon } from 'lucide-react'
+import { BookOpenIcon, CalendarDaysIcon, PlusIcon, Trash2Icon, WrenchIcon } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
@@ -362,8 +362,14 @@ export function MateriaCursoDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="materia">Materia</SelectItem>
-                    <SelectItem value="taller">Taller</SelectItem>
+                    <SelectItem value="materia">
+                      <BookOpenIcon />
+                      Materia
+                    </SelectItem>
+                    <SelectItem value="taller">
+                      <WrenchIcon />
+                      Taller
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </Field>
@@ -412,7 +418,13 @@ export function MateriaCursoDialog({
                           aria-label={`Día de la franja ${indice + 1}`}
                           aria-invalid={enConflicto}
                         >
-                          <SelectValue />
+                          <span className="flex min-w-0 items-center gap-2">
+                            <CalendarDaysIcon
+                              className={enConflicto ? 'text-error' : 'text-texto-3'}
+                              aria-hidden="true"
+                            />
+                            <SelectValue />
+                          </span>
                         </SelectTrigger>
                         <SelectContent>
                           {DIAS_SEMANA.map((dia) => (
