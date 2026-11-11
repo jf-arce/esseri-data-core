@@ -40,7 +40,7 @@ interface HorarioSemanalProps {
   /** Docentes asignados a la materia en el ciclo actual. */
   asignacionesDe: (materiaCurso: MateriaCurso) => DocenteDeMateria[]
   puedeEditar: boolean
-  /** Título que aparece solo al imprimir. */
+  /** Título del horario: se imprime arriba y nombra el archivo al compartir. */
   tituloImpresion?: string
   /** División del horario; habilita exportar y compartir el Excel. */
   divisionId?: string
@@ -189,7 +189,9 @@ export function HorarioSemanal({
   return (
     <div className="zona-impresion flex flex-col gap-3 [-webkit-print-color-adjust:exact] [print-color-adjust:exact]">
       {tituloImpresion && (
-        <h2 className="hidden text-lg font-semibold text-texto print:block">{tituloImpresion}</h2>
+        <h1 className="hidden border-b border-borde pb-2 text-xl font-semibold text-texto print:block">
+          {tituloImpresion}
+        </h1>
       )}
       <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
         <div className="flex flex-wrap items-center gap-2">
@@ -231,7 +233,7 @@ export function HorarioSemanal({
       <div aria-live="polite" className="sr-only">
         {anuncio}
       </div>
-      <div ref={contenedor} className="overflow-x-auto">
+      <div ref={contenedor} className="overflow-x-auto print:overflow-visible">
         <div
           className={`grid min-w-[640px] gap-x-px rounded-card-sm bg-borde text-sm ${
             puedeEditar ? 'select-none' : ''

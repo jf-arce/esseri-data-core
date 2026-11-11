@@ -9,6 +9,7 @@ import type {
   Division,
   DocenteDeMateria,
   MateriaCurso,
+  NivelEducativo,
 } from '@/modules/academico/types'
 import { etiquetaDivision, textoAlumnos } from '@/modules/academico/utils'
 
@@ -24,8 +25,11 @@ export type AccionesDivision = {
 }
 
 interface DivisionContenidoProps {
+  nivel?: NivelEducativo
   anio: Anio
   division: Division
+  /** Ciclo lectivo del horario (por ejemplo "2026"). */
+  ciclo?: string
   materiasCurso: MateriaCurso[]
   asignacionesDe: (materiaCurso: MateriaCurso) => DocenteDeMateria[]
   puedeEditar: boolean
@@ -34,8 +38,10 @@ interface DivisionContenidoProps {
 }
 
 export function DivisionContenido({
+  nivel,
   anio,
   division,
+  ciclo,
   materiasCurso,
   asignacionesDe,
   puedeEditar,
@@ -43,6 +49,14 @@ export function DivisionContenido({
   acciones,
 }: DivisionContenidoProps) {
   const nombre = etiquetaDivision(anio, division)
+  const tituloHorario = [
+    'Horario semanal',
+    nivel?.nombre,
+    nombre,
+    ciclo && `Ciclo lectivo ${ciclo}`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   return (
     <div className="flex flex-col gap-4">
@@ -86,7 +100,7 @@ export function DivisionContenido({
           materiasCurso={materiasCurso}
           asignacionesDe={asignacionesDe}
           puedeEditar={puedeEditar}
-          tituloImpresion={`Horario de ${nombre}`}
+          tituloImpresion={tituloHorario}
           divisionId={division.id}
           onEditar={acciones.editarMateria}
           onEliminar={acciones.eliminarMateria}

@@ -146,8 +146,10 @@ export function EstructuraAcademicaPage() {
 
     return (
       <DivisionContenido
+        nivel={nivel}
         anio={anio}
         division={division}
+        ciclo={estructura.cicloActual}
         materiasCurso={estructura.materiasCurso}
         asignacionesDe={estructura.asignacionesDe}
         puedeEditar={puedeEditar}
