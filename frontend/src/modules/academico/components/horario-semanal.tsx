@@ -1,22 +1,16 @@
 import { PlusIcon, XIcon } from 'lucide-react'
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
-import { toast } from 'sonner'
+import { useRef, useState, type PointerEvent } from 'react'
 import { Button } from '@/components/ui/button'
-import { BloqueHorario, type FranjaConMateria } from '@/modules/academico/components/bloque-horario'
-import {
-  useArrastreHorario,
-  type VistaPrevia,
-} from '@/modules/academico/hooks/use-arrastre-horario'
+import { BloqueHorario } from '@/modules/academico/components/bloque-horario'
+import { FantasmaHorario } from '@/modules/academico/components/fantasma-horario'
+import { useArrastreHorario } from '@/modules/academico/hooks/use-arrastre-horario'
 import { useGuardarFranjas } from '@/modules/academico/hooks/use-guardar-franjas'
-import type { MateriaCurso } from '@/modules/academico/types'
+import { useTecladoHorario } from '@/modules/academico/hooks/use-teclado-horario'
+import type { FranjaConMateria, MateriaCurso } from '@/modules/academico/types'
 import {
   calcularGrilla,
-  colorMateria,
   deMinutos,
   DIAS,
-  estirarFranja,
-  franjaChoca,
-  moverFranja,
   particionarSolapados,
   posicionBloque,
   rangoLegible,
@@ -24,7 +18,7 @@ import {
   type RangoGrilla,
 } from '@/modules/academico/utils'
 
-export type HuecoHorario = { dia_semana: number; hora_inicio: string; hora_fin: string }
+export type HuecoHorario = FranjaHoraria
 
 interface HorarioSemanalProps {
   materiasCurso: MateriaCurso[]
@@ -42,10 +36,7 @@ interface HorarioSemanalProps {
   onQuitarResaltado?: () => void
 }
 
-const ESPERA_TECLADO_MS = 700
 const ID_AYUDA = 'horario-semanal-ayuda'
-
-type PreviaTeclado = { franja: FranjaConMateria; destino: FranjaHoraria; choca: boolean }
 
 export function HorarioSemanal({
   materiasCurso,
@@ -62,33 +53,29 @@ export function HorarioSemanal({
   const guardado = useGuardarFranjas(materiasCurso, onGuardado)
   const [materiaHover, setMateriaResaltada] = useState<string | null>(null)
   const [rangoFijo, setRangoFijo] = useState<RangoGrilla | null>(null)
-  const [previaTeclado, setPreviaTeclado] = useState<PreviaTeclado | null>(null)
+  const [gestoActivo, setGestoActivo] = useState(false)
   const [anuncio, setAnuncio] = useState('')
   const materiaResaltada = materiaHover ?? resaltada?.id ?? null
   const contenedor = useRef<HTMLDivElement>(null)
   const capas = useRef(new Map<number, HTMLElement>())
-  const temporizadorTeclado = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const previaTecladoRef = useRef<PreviaTeclado | null>(null)
 
   const franjas: FranjaConMateria[] = guardado.materiasCurso.flatMap((materiaCurso) =>
-    materiaCurso.horarios.map((horario) => ({
-      id: horario.id,
-      dia_semana: horario.dia_semana,
-      hora_inicio: horario.hora_inicio,
-      hora_fin: horario.hora_fin,
-      materiaCurso,
-    })),
+    materiaCurso.horarios.map((horario) => ({ ...horario, materiaCurso })),
   )
 
-  const [gestoActivo, setGestoActivo] = useState(false)
   // El rango queda fijo mientras hay un gesto o un guardado en curso, para que la escala de la
   // grilla no cambie debajo del puntero (nunca se achica, solo se une con el calculado).
-  const congelado = gestoActivo || previaTeclado !== null || guardado.hayPendientes
+  const congelado = gestoActivo || guardado.hayPendientes
   const grilla = calcularGrilla(franjas, congelado && rangoFijo ? rangoFijo : undefined)
   const filas = Array.from({ length: grilla.filas }, (_, i) => grilla.inicio + i * 30)
 
   function congelar() {
     setRangoFijo({ dias: grilla.dias, inicio: grilla.inicio, fin: grilla.fin })
+  }
+
+  function alCambiarGesto(activo: boolean) {
+    if (activo) congelar()
+    setGestoActivo(activo)
   }
 
   function guardarFranja(franja: FranjaConMateria, destino: FranjaHoraria) {
@@ -101,67 +88,18 @@ export function HorarioSemanal({
     capas,
     contenedor,
     franjas,
-    onCongelar: congelar,
-    onActivo: setGestoActivo,
+    onActivo: alCambiarGesto,
     onMover: guardarFranja,
     onCrear: onAgregar,
   })
 
-  useEffect(() => () => clearTimeout(temporizadorTeclado.current), [])
-
-  function cancelarPreviaTeclado() {
-    clearTimeout(temporizadorTeclado.current)
-    previaTecladoRef.current = null
-    setPreviaTeclado(null)
-  }
-
-  function confirmarPreviaTeclado() {
-    const previa = previaTecladoRef.current
-    cancelarPreviaTeclado()
-    if (!previa) return
-    if (previa.choca) {
-      toast.error('Ese horario se superpone con otra materia de la división.')
-      return
-    }
-    guardarFranja(previa.franja, previa.destino)
-  }
-
-  function alTeclaBloque(evento: KeyboardEvent<HTMLElement>, franja: FranjaConMateria) {
-    if (evento.key === 'Escape') {
-      if (previaTecladoRef.current) {
-        evento.preventDefault()
-        evento.stopPropagation()
-        cancelarPreviaTeclado()
-      }
-      return
-    }
-    const actual =
-      previaTecladoRef.current?.franja.id === franja.id ? previaTecladoRef.current.destino : franja
-    let destino: FranjaHoraria
-    if (evento.key === 'ArrowUp' || evento.key === 'ArrowDown') {
-      const paso = evento.key === 'ArrowUp' ? -30 : 30
-      destino = evento.shiftKey
-        ? estirarFranja(actual, paso, grilla)
-        : moverFranja(actual, paso, actual.dia_semana, grilla)
-    } else if ((evento.key === 'ArrowLeft' || evento.key === 'ArrowRight') && !evento.shiftKey) {
-      const indice = grilla.dias.indexOf(actual.dia_semana) + (evento.key === 'ArrowLeft' ? -1 : 1)
-      destino = moverFranja(actual, 0, grilla.dias[indice] ?? actual.dia_semana, grilla)
-    } else {
-      return
-    }
-    evento.preventDefault()
-    if (!previaTecladoRef.current) congelar()
-    const previa = {
-      franja,
-      destino,
-      choca: franjaChoca(franjas, destino, franja.id),
-    }
-    previaTecladoRef.current = previa
-    setPreviaTeclado(previa)
-    setAnuncio(descripcion(franja, destino))
-    clearTimeout(temporizadorTeclado.current)
-    temporizadorTeclado.current = setTimeout(confirmarPreviaTeclado, ESPERA_TECLADO_MS)
-  }
+  const teclado = useTecladoHorario({
+    grilla,
+    franjas,
+    onActivo: alCambiarGesto,
+    onCambio: (franja, destino) => setAnuncio(descripcion(franja, destino)),
+    onConfirmar: guardarFranja,
+  })
 
   function alPresionarFondo(evento: PointerEvent<HTMLElement>) {
     if (!puedeEditar) return
@@ -170,11 +108,7 @@ export function HorarioSemanal({
     arrastre.iniciarCrear(evento, Number(celda.dataset.dia))
   }
 
-  const vista: VistaPrevia | PreviaTecladoVista | null = arrastre.vistaPrevia
-    ? arrastre.vistaPrevia
-    : previaTeclado
-      ? { modo: 'mover', ...previaTeclado }
-      : null
+  const vista = arrastre.vistaPrevia ?? teclado.previa
   const franjaTocada = vista?.franja?.id
 
   const porDia = new Map<number, { franja: FranjaConMateria; superpuesto: boolean }[]>()
@@ -291,7 +225,7 @@ export function HorarioSemanal({
                     onResaltar={setMateriaResaltada}
                     onIniciarMover={(evento) => arrastre.iniciarMover(evento, franja)}
                     onIniciarEstirar={(evento) => arrastre.iniciarEstirar(evento, franja)}
-                    onTecla={(evento) => alTeclaBloque(evento, franja)}
+                    onTecla={(evento) => teclado.alTecla(evento, franja)}
                     esFinDeArrastre={arrastre.esFinDeArrastre}
                     onContextMenu={arrastre.alMenuContextual}
                   />
@@ -309,43 +243,6 @@ export function HorarioSemanal({
   )
 }
 
-type PreviaTecladoVista = {
-  modo: 'mover'
-  franja: FranjaConMateria
-  destino: FranjaHoraria
-  choca: boolean
-}
-
 function descripcion(franja: FranjaConMateria, destino: FranjaHoraria): string {
   return `${franja.materiaCurso.materia_nombre ?? 'Materia'}, ${DIAS[destino.dia_semana - 1]} ${rangoLegible(destino)}`
-}
-
-function FantasmaHorario({
-  vista,
-  grilla,
-}: {
-  vista: { modo: string; franja?: FranjaConMateria; destino: FranjaHoraria; choca: boolean }
-  grilla: Pick<RangoGrilla, 'inicio' | 'fin'>
-}) {
-  const { top, alto } = posicionBloque(vista.destino, grilla)
-  const color = colorMateria(vista.franja?.materiaCurso.materia_color)
-  const estilo = vista.choca ? undefined : vista.franja ? color.estilo : undefined
-  return (
-    <div
-      aria-hidden="true"
-      className={`absolute inset-x-0 z-30 flex flex-col overflow-hidden border-2 px-2 py-1 text-xs shadow-card ${
-        vista.choca
-          ? 'border-error bg-error-suave text-error'
-          : vista.franja
-            ? 'border-violeta'
-            : 'border-violeta bg-violeta-suave text-violeta'
-      }`}
-      style={{ top: `${top}%`, height: `${alto}%`, ...estilo }}
-    >
-      <span className="truncate font-semibold">
-        {vista.franja?.materiaCurso.materia_nombre ?? 'Nueva materia'}
-      </span>
-      <span className="truncate">{rangoLegible(vista.destino)}</span>
-    </div>
-  )
 }

@@ -107,6 +107,9 @@ export type MateriaCurso = {
   updated_at: string
 }
 
+/** Una franja de la grilla con la materia a la que pertenece. */
+export type FranjaConMateria = HorarioMateriaCurso & { materiaCurso: MateriaCurso }
+
 export type MateriaCursoCreate = {
   /** Materia existente del catálogo, o `materia_nombre` para crearla en el momento. */
   materia_id?: string

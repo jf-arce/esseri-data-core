@@ -10,7 +10,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Spinner } from '@/components/ui/spinner'
-import type { MateriaCurso } from '@/modules/academico/types'
+import type { FranjaConMateria } from '@/modules/academico/types'
 import {
   abreviarDocentes,
   aMinutos,
@@ -18,14 +18,6 @@ import {
   DIAS,
   rangoLegible,
 } from '@/modules/academico/utils'
-
-export type FranjaConMateria = {
-  id: string
-  dia_semana: number
-  hora_inicio: string
-  hora_fin: string
-  materiaCurso: MateriaCurso
-}
 
 interface BloqueHorarioProps {
   franja: FranjaConMateria

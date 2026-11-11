@@ -7,7 +7,7 @@ import {
   type RefObject,
 } from 'react'
 import { toast } from 'sonner'
-import type { FranjaConMateria } from '@/modules/academico/components/bloque-horario'
+import type { FranjaConMateria } from '@/modules/academico/types'
 import {
   aMinutos,
   deMinutos,
@@ -27,8 +27,6 @@ export type VistaPrevia = {
   destino: FranjaHoraria
   choca: boolean
 }
-
-export type Hueco = { dia_semana: number; hora_inicio: string; hora_fin: string }
 
 const PULSACION_LARGA_MS = 400
 const TOLERANCIA_TACTIL_PX = 8
@@ -59,10 +57,10 @@ interface Opciones {
   /** Contenedor con scroll horizontal: se desplaza solo al arrastrar cerca de sus bordes. */
   contenedor: RefObject<HTMLElement | null>
   franjas: FranjaConMateria[]
-  onCongelar: () => void
+  /** Avisa cuando empieza (`true`) y termina (`false`) un gesto, para congelar la grilla. */
   onActivo: (activo: boolean) => void
   onMover: (franja: FranjaConMateria, destino: FranjaHoraria) => void
-  onCrear: (hueco: Hueco) => void
+  onCrear: (hueco: FranjaHoraria) => void
 }
 
 const MENSAJE_CHOQUE = 'Ese horario se superpone con otra materia de la división.'
@@ -77,20 +75,18 @@ export function useArrastreHorario({
   capas,
   contenedor,
   franjas,
-  onCongelar,
   onActivo,
   onMover,
   onCrear,
 }: Opciones) {
   const [vistaPrevia, setVistaPrevia] = useState<VistaPrevia | null>(null)
-  const [activo, setActivo] = useState(false)
   const limpiarRef = useRef<(() => void) | null>(null)
   const finDeArrastreRef = useRef(false)
   const tactilRef = useRef(false)
   // Los callbacks se leen al soltar, no al empezar: la grilla pudo recargarse en el medio.
-  const opcionesRef = useRef({ franjas, onMover, onCrear, onCongelar, onActivo })
+  const opcionesRef = useRef({ franjas, onMover, onCrear, onActivo })
   useEffect(() => {
-    opcionesRef.current = { franjas, onMover, onCrear, onCongelar, onActivo }
+    opcionesRef.current = { franjas, onMover, onCrear, onActivo }
   })
 
   useEffect(() => () => limpiarRef.current?.(), [])
@@ -151,8 +147,6 @@ export function useArrastreHorario({
 
     function habilitar() {
       habilitado = true
-      opcionesRef.current.onCongelar()
-      setActivo(true)
       opcionesRef.current.onActivo(true)
       if (tactil) navigator.vibrate?.(10)
     }
@@ -166,7 +160,6 @@ export function useArrastreHorario({
       window.removeEventListener('keydown', alTeclear)
       window.removeEventListener('touchmove', alMoverTactil)
       limpiarRef.current = null
-      setActivo(false)
       opcionesRef.current.onActivo(false)
       setVistaPrevia(null)
     }
@@ -230,16 +223,21 @@ export function useArrastreHorario({
     return columna.dia
   }
 
-  function iniciarMover(evento: PointerEvent<HTMLElement>, franja: FranjaConMateria) {
+  function iniciarCambio(
+    evento: PointerEvent<HTMLElement>,
+    franja: FranjaConMateria,
+    modo: 'mover' | 'estirar',
+    destinoEn: (x: number, desplazamiento: number, geometria: Geometria) => FranjaHoraria,
+  ) {
     const y0 = evento.clientY
     empezar(evento, {
       esClicValido: false,
-      autoscroll: true,
+      autoscroll: modo === 'mover',
       calcular: (x, y, geometria) => {
         const desplazamiento = desplazamientoEnMinutos(y - y0, geometria.alto, geometria.rango)
-        const destino = moverFranja(franja, desplazamiento, diaEn(x, geometria), geometria.rango)
+        const destino = destinoEn(x, desplazamiento, geometria)
         return {
-          modo: 'mover',
+          modo,
           franja,
           destino,
           choca: franjaChoca(opcionesRef.current.franjas, destino, franja.id),
@@ -257,30 +255,16 @@ export function useArrastreHorario({
     })
   }
 
+  function iniciarMover(evento: PointerEvent<HTMLElement>, franja: FranjaConMateria) {
+    iniciarCambio(evento, franja, 'mover', (x, desplazamiento, g) =>
+      moverFranja(franja, desplazamiento, diaEn(x, g), g.rango),
+    )
+  }
+
   function iniciarEstirar(evento: PointerEvent<HTMLElement>, franja: FranjaConMateria) {
-    const y0 = evento.clientY
-    empezar(evento, {
-      esClicValido: false,
-      calcular: (_x, y, geometria) => {
-        const desplazamiento = desplazamientoEnMinutos(y - y0, geometria.alto, geometria.rango)
-        const destino = estirarFranja(franja, desplazamiento, geometria.rango)
-        return {
-          modo: 'estirar',
-          franja,
-          destino,
-          choca: franjaChoca(opcionesRef.current.franjas, destino, franja.id),
-        }
-      },
-      alSoltar: (vista) => {
-        if (!vista) return
-        if (vista.choca) {
-          toast.error(MENSAJE_CHOQUE)
-          return
-        }
-        if (!igualesFranjas(vista.destino, franja))
-          opcionesRef.current.onMover(franja, vista.destino)
-      },
-    })
+    iniciarCambio(evento, franja, 'estirar', (_x, desplazamiento, g) =>
+      estirarFranja(franja, desplazamiento, g.rango),
+    )
   }
 
   function iniciarCrear(evento: PointerEvent<HTMLElement>, dia: number) {
@@ -328,7 +312,6 @@ export function useArrastreHorario({
 
   return {
     vistaPrevia,
-    activo,
     iniciarMover,
     iniciarEstirar,
     iniciarCrear,
