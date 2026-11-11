@@ -38,7 +38,7 @@ export function SelectorEstructura({
       </span>
       <div className="flex items-center gap-1">
         <Select value={cargando ? '' : valor} onValueChange={onCambio} disabled={cargando}>
-          <SelectTrigger className="w-28" aria-labelledby={id} aria-busy={cargando}>
+          <SelectTrigger className="w-24" aria-labelledby={id} aria-busy={cargando}>
             <SelectValue placeholder={mostrarCarga ? <Skeleton className="h-3.5 w-10" /> : ''} />
           </SelectTrigger>
           <SelectContent>
