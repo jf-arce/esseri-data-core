@@ -30,7 +30,7 @@ describe('HorarioSemanal', () => {
     render(
       <HorarioSemanal
         materiasCurso={[lengua]}
-        docentesDe={() => []}
+        asignacionesDe={() => []}
         puedeEditar
         onEditar={vi.fn()}
         onEliminar={vi.fn()}
@@ -60,7 +60,7 @@ describe('HorarioSemanal', () => {
     render(
       <HorarioSemanal
         materiasCurso={[lengua]}
-        docentesDe={() => []}
+        asignacionesDe={() => []}
         puedeEditar
         onEditar={vi.fn()}
         onEliminar={vi.fn()}

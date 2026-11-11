@@ -20,7 +20,7 @@ import {
 import { useEstructuraAcademica } from '@/modules/academico/hooks/use-estructura-academica'
 import { useSeleccionEstructura } from '@/modules/academico/hooks/use-seleccion-estructura'
 import { useVistaDivision } from '@/modules/academico/hooks/use-vista-division'
-import type { Anio, Division, MateriaCurso } from '@/modules/academico/types'
+import type { Anio, AsignacionDocente, Division, MateriaCurso } from '@/modules/academico/types'
 import { etiquetaDivision, franjasOcupadas, letraDivision } from '@/modules/academico/utils'
 import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
@@ -35,6 +35,10 @@ type DialogMateria = {
   hueco?: HuecoHorario
 }
 
+type DialogAsignacion =
+  | { modo: 'crear'; materiaCurso: MateriaCurso }
+  | { modo: 'editar' | 'eliminar'; item: AsignacionDocente }
+
 export function EstructuraAcademicaPage() {
   const permisos = useAuthStore(permisosActivos)
   const puedeEditar = tienePermiso(permisos, PERMISO_ACADEMICO_ACTUALIZAR)
@@ -45,7 +49,7 @@ export function EstructuraAcademicaPage() {
   const vista = useVistaDivision()
   const [dialogAbm, setDialogAbm] = useState<DialogAbm | null>(null)
   const [dialogMateria, setDialogMateria] = useState<DialogMateria | null>(null)
-  const [asignandoA, setAsignandoA] = useState<MateriaCurso | null>(null)
+  const [dialogAsignacion, setDialogAsignacion] = useState<DialogAsignacion | null>(null)
 
   // Cada cambio recarga solo lo que puede haber cambiado: los años traen conteos que usan las
   // bajas, las divisiones y sus materias son del año, y los docentes son de la división.
@@ -66,6 +70,18 @@ export function EstructuraAcademicaPage() {
     estructura.recargarAnio()
     estructura.recargarDivision()
   }
+
+  const materiaCursoIdAsignacion = dialogAsignacion
+    ? dialogAsignacion.modo === 'crear'
+      ? dialogAsignacion.materiaCurso.id
+      : dialogAsignacion.item.materia_curso_id
+    : undefined
+  const materiaAsignacion = estructura.materiasCurso.find(
+    (materiaCurso) => materiaCurso.id === materiaCursoIdAsignacion,
+  )
+  const docentesAsignados = materiaAsignacion
+    ? estructura.asignacionesDe(materiaAsignacion).map(({ asignacion }) => asignacion.docente_id)
+    : []
 
   function abrirMateria(hueco?: HuecoHorario) {
     setDialogMateria({ modo: 'crear', hueco })
@@ -133,14 +149,16 @@ export function EstructuraAcademicaPage() {
         anio={anio}
         division={division}
         materiasCurso={estructura.materiasCurso}
-        docentesDe={estructura.docentesDe}
+        asignacionesDe={estructura.asignacionesDe}
         puedeEditar={puedeEditar}
         vista={vista}
         acciones={{
           agregarMateria: abrirMateria,
           editarMateria: (item) => setDialogMateria({ modo: 'editar', item }),
           eliminarMateria: (item) => setDialogMateria({ modo: 'eliminar', item }),
-          asignarDocente: setAsignandoA,
+          asignarDocente: (materiaCurso) => setDialogAsignacion({ modo: 'crear', materiaCurso }),
+          editarAsignacion: (item) => setDialogAsignacion({ modo: 'editar', item }),
+          quitarAsignacion: (item) => setDialogAsignacion({ modo: 'eliminar', item }),
           horarioGuardado: estructura.recargarAnio,
         }}
       />
@@ -291,16 +309,24 @@ export function EstructuraAcademicaPage() {
         />
       )}
 
-      {asignandoA && division && (
+      {dialogAsignacion && division && (
         <AsignacionDialog
           open
-          onOpenChange={(open) => !open && setAsignandoA(null)}
-          modo="crear"
+          onOpenChange={(open) => !open && setDialogAsignacion(null)}
+          modo={dialogAsignacion.modo}
+          item={dialogAsignacion.modo === 'crear' ? undefined : dialogAsignacion.item}
           docentes={estructura.docentes}
           materiasCurso={estructura.materiasCurso}
           divisiones={estructura.divisiones}
           cicloActual={estructura.cicloActual}
-          preseleccion={{ divisionId: division.id, materiaCursoId: asignandoA.id }}
+          preseleccion={{
+            divisionId: division.id,
+            materiaCursoId:
+              dialogAsignacion.modo === 'crear'
+                ? dialogAsignacion.materiaCurso.id
+                : dialogAsignacion.item.materia_curso_id,
+          }}
+          docentesExcluidos={docentesAsignados}
           onExito={alAsignarDocente}
         />
       )}

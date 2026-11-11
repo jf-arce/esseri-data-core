@@ -12,7 +12,12 @@ import { ResaltadoHorario } from '@/modules/academico/components/resaltado-horar
 import { useArrastreHorario } from '@/modules/academico/hooks/use-arrastre-horario'
 import { useGuardarFranjas } from '@/modules/academico/hooks/use-guardar-franjas'
 import { useTecladoHorario } from '@/modules/academico/hooks/use-teclado-horario'
-import type { FranjaConMateria, MateriaCurso } from '@/modules/academico/types'
+import type {
+  AsignacionDocente,
+  DocenteDeMateria,
+  FranjaConMateria,
+  MateriaCurso,
+} from '@/modules/academico/types'
 import {
   calcularGrilla,
   coincideFiltroHorario,
@@ -32,8 +37,8 @@ export type HuecoHorario = FranjaHoraria
 
 interface HorarioSemanalProps {
   materiasCurso: MateriaCurso[]
-  /** Nombres de los docentes asignados a la materia en el ciclo actual. */
-  docentesDe: (materiaCurso: MateriaCurso) => string[]
+  /** Docentes asignados a la materia en el ciclo actual. */
+  asignacionesDe: (materiaCurso: MateriaCurso) => DocenteDeMateria[]
   puedeEditar: boolean
   /** Título que aparece solo al imprimir. */
   tituloImpresion?: string
@@ -42,6 +47,8 @@ interface HorarioSemanalProps {
   onEditar: (materiaCurso: MateriaCurso) => void
   onEliminar: (materiaCurso: MateriaCurso) => void
   onAsignarDocente?: (materiaCurso: MateriaCurso) => void
+  onEditarAsignacion?: (asignacion: AsignacionDocente) => void
+  onQuitarAsignacion?: (asignacion: AsignacionDocente) => void
   onAgregar: (hueco?: HuecoHorario) => void
   /** Se llama después de guardar un cambio de horario, para recargar los datos. */
   onGuardado: () => void
@@ -55,13 +62,15 @@ const ID_AYUDA = 'horario-semanal-ayuda'
 
 export function HorarioSemanal({
   materiasCurso,
-  docentesDe,
+  asignacionesDe,
   puedeEditar,
   tituloImpresion,
   divisionId,
   onEditar,
   onEliminar,
   onAsignarDocente,
+  onEditarAsignacion,
+  onQuitarAsignacion,
   onAgregar,
   onGuardado,
   resaltadas,
@@ -78,6 +87,8 @@ export function HorarioSemanal({
   const contenedor = useRef<HTMLDivElement>(null)
   const capas = useRef(new Map<number, HTMLElement>())
 
+  const docentesDe = (materiaCurso: MateriaCurso) =>
+    asignacionesDe(materiaCurso).map(({ nombre }) => nombre)
   const enConflicto = idsEnConflicto(guardado.materiasCurso)
   const docentes = [...new Set(guardado.materiasCurso.flatMap(docentesDe))].sort((a, b) =>
     a.localeCompare(b, 'es'),
@@ -289,7 +300,7 @@ export function HorarioSemanal({
                   <BloqueHorario
                     key={`${franja.materiaCurso.id}-${franja.id}`}
                     franja={franja}
-                    docentes={docentesDe(franja.materiaCurso)}
+                    docentes={asignacionesDe(franja.materiaCurso)}
                     superpuesto={superpuesto}
                     {...posicionBloque(franja, grilla)}
                     carril={carriles[i].carril}
@@ -307,6 +318,8 @@ export function HorarioSemanal({
                     onAsignarDocente={
                       onAsignarDocente && (() => onAsignarDocente(franja.materiaCurso))
                     }
+                    onEditarAsignacion={onEditarAsignacion}
+                    onQuitarAsignacion={onQuitarAsignacion}
                     onDuplicar={(dia) => duplicarFranja(franja, dia)}
                     onEliminarFranja={() => eliminarFranja(franja)}
                     onResaltar={setMateriaResaltada}

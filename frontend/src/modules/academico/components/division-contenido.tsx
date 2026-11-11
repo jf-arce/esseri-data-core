@@ -3,7 +3,13 @@ import { HorarioSemanal, type HuecoHorario } from '@/modules/academico/component
 import { MateriasVista } from '@/modules/academico/components/materias-vista'
 import { VistaTabs } from '@/modules/academico/components/vista-tabs'
 import type { VistaDivision } from '@/modules/academico/hooks/use-vista-division'
-import type { Anio, Division, MateriaCurso } from '@/modules/academico/types'
+import type {
+  Anio,
+  AsignacionDocente,
+  Division,
+  DocenteDeMateria,
+  MateriaCurso,
+} from '@/modules/academico/types'
 import { etiquetaDivision, textoAlumnos } from '@/modules/academico/utils'
 
 export type AccionesDivision = {
@@ -11,6 +17,8 @@ export type AccionesDivision = {
   editarMateria: (materiaCurso: MateriaCurso) => void
   eliminarMateria: (materiaCurso: MateriaCurso) => void
   asignarDocente: (materiaCurso: MateriaCurso) => void
+  editarAsignacion: (asignacion: AsignacionDocente) => void
+  quitarAsignacion: (asignacion: AsignacionDocente) => void
   /** Se llama después de guardar un cambio de horario, para recargar los datos. */
   horarioGuardado: () => void
 }
@@ -19,7 +27,7 @@ interface DivisionContenidoProps {
   anio: Anio
   division: Division
   materiasCurso: MateriaCurso[]
-  docentesDe: (materiaCurso: MateriaCurso) => string[]
+  asignacionesDe: (materiaCurso: MateriaCurso) => DocenteDeMateria[]
   puedeEditar: boolean
   vista: VistaDivision
   acciones: AccionesDivision
@@ -29,7 +37,7 @@ export function DivisionContenido({
   anio,
   division,
   materiasCurso,
-  docentesDe,
+  asignacionesDe,
   puedeEditar,
   vista,
   acciones,
@@ -61,26 +69,30 @@ export function DivisionContenido({
       ) : vista.vista === 'materias' ? (
         <MateriasVista
           materiasCurso={materiasCurso}
-          docentesDe={docentesDe}
+          asignacionesDe={asignacionesDe}
           puedeEditar={puedeEditar}
           filtro={vista.filtro}
           onFiltro={vista.setFiltro}
           onEditar={acciones.editarMateria}
           onQuitar={acciones.eliminarMateria}
           onAsignarDocente={acciones.asignarDocente}
+          onEditarAsignacion={acciones.editarAsignacion}
+          onQuitarAsignacion={acciones.quitarAsignacion}
           onVerHorario={vista.verEnHorario}
           onAgregar={() => acciones.agregarMateria()}
         />
       ) : (
         <HorarioSemanal
           materiasCurso={materiasCurso}
-          docentesDe={docentesDe}
+          asignacionesDe={asignacionesDe}
           puedeEditar={puedeEditar}
           tituloImpresion={`Horario de ${nombre}`}
           divisionId={division.id}
           onEditar={acciones.editarMateria}
           onEliminar={acciones.eliminarMateria}
           onAsignarDocente={acciones.asignarDocente}
+          onEditarAsignacion={acciones.editarAsignacion}
+          onQuitarAsignacion={acciones.quitarAsignacion}
           onAgregar={acciones.agregarMateria}
           onGuardado={acciones.horarioGuardado}
           resaltadas={vista.resaltadasIds}

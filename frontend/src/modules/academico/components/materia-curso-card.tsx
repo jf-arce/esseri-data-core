@@ -4,27 +4,29 @@ import {
   PlusIcon,
   Trash2Icon,
   TriangleAlertIcon,
-  UserIcon,
   UserPlusIcon,
 } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { DocentesMateria } from '@/modules/academico/components/docentes-materia'
 import { BotonIcono } from '@/modules/academico/components/boton-icono'
-import type { MateriaCurso } from '@/modules/academico/types'
+import type { AsignacionDocente, DocenteDeMateria, MateriaCurso } from '@/modules/academico/types'
 import { colorMateria, formatearFranjaLegible } from '@/modules/academico/utils'
 
 interface MateriaCursoCardProps {
   materiaCurso: MateriaCurso
-  /** Nombres de los docentes asignados en el ciclo actual. */
-  docentes: string[]
+  /** Docentes asignados en el ciclo actual. */
+  docentes: DocenteDeMateria[]
   /** Nombres de las otras materias de la división con las que se pisa el horario. */
   conflictos?: string[]
   puedeEditar: boolean
   onEditar: (materiaCurso: MateriaCurso) => void
   onQuitar: (materiaCurso: MateriaCurso) => void
   onAsignarDocente?: (materiaCurso: MateriaCurso) => void
+  onEditarAsignacion?: (asignacion: AsignacionDocente) => void
+  onQuitarAsignacion?: (asignacion: AsignacionDocente) => void
   onVerHorario?: (materiaCurso: MateriaCurso) => void
 }
 
@@ -49,6 +51,8 @@ export function MateriaCursoCard({
   onEditar,
   onQuitar,
   onAsignarDocente,
+  onEditarAsignacion,
+  onQuitarAsignacion,
   onVerHorario,
 }: MateriaCursoCardProps) {
   // Controlado: al ir al horario la tarjeta se desmonta y el tooltip abierto quedaba flotando.
@@ -56,6 +60,14 @@ export function MateriaCursoCard({
   const nombre = materiaCurso.materia_nombre ?? '—'
   const tipo = materiaCurso.materia_tipo === 'taller' ? 'taller' : 'materia'
   const color = colorMateria(materiaCurso.materia_color)
+  const accionesDocentes =
+    puedeEditar && onAsignarDocente && onEditarAsignacion && onQuitarAsignacion
+      ? {
+          onAgregar: () => onAsignarDocente(materiaCurso),
+          onEditar: onEditarAsignacion,
+          onQuitar: onQuitarAsignacion,
+        }
+      : undefined
   const franjas = (
     <span className="flex flex-col">
       {materiaCurso.horarios.map((horario) => (
@@ -73,7 +85,10 @@ export function MateriaCursoCard({
           </div>
           {puedeEditar && (
             <div className="-mt-1 -mr-1.5 flex shrink-0 items-center">
-              <BotonIcono etiqueta={`Editar ${tipo}`} onClick={() => onEditar(materiaCurso)}>
+              <BotonIcono
+                etiqueta={`Editar ${tipo} y horario`}
+                onClick={() => onEditar(materiaCurso)}
+              >
                 <PencilIcon />
               </BotonIcono>
               <BotonIcono
@@ -119,10 +134,7 @@ export function MateriaCursoCard({
           <Aviso tono="error">Se superpone con {conflictos.join(', ')}</Aviso>
         )}
         {docentes.length > 0 ? (
-          <div className="flex items-start gap-2 text-sm text-texto-2">
-            <UserIcon className="mt-0.5 size-4 shrink-0 text-texto-3" aria-hidden="true" />
-            <p>{docentes.join(', ')}</p>
-          </div>
+          <DocentesMateria docentes={docentes} materia={nombre} acciones={accionesDocentes} />
         ) : (
           <Aviso tono="advertencia">Sin docente asignado</Aviso>
         )}

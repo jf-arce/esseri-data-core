@@ -335,3 +335,9 @@ export type AsistenciaResumen = {
   porcentaje_justificadas: number
   porcentaje_injustificadas: number
 }
+
+/** Asignación de un docente a una materia, con el nombre listo para mostrar. */
+export interface DocenteDeMateria {
+  asignacion: AsignacionDocente
+  nombre: string
+}

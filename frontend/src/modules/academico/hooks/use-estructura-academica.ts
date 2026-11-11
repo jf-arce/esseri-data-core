@@ -12,6 +12,7 @@ import type {
   AsignacionDocente,
   Division,
   Docente,
+  DocenteDeMateria,
   Materia,
   MateriaCurso,
   NivelEducativo,
@@ -120,8 +121,8 @@ export function useEstructuraAcademica(pedida: SeleccionEstructura) {
   const docentes = auxiliares.datos?.[1] ?? SIN_ELEMENTOS
   const asignacionesDivision = asignaciones.datos ?? SIN_ELEMENTOS
 
-  /** Docentes de la materia en el ciclo actual, como "Apellido, Nombre" (o el legajo). */
-  function docentesDe(materiaCurso: MateriaCurso): string[] {
+  /** Asignaciones de la materia en el ciclo actual, con el nombre "Apellido, Nombre" (o el legajo). */
+  function asignacionesDe(materiaCurso: MateriaCurso): DocenteDeMateria[] {
     return asignacionesDivision
       .filter(
         (asignacion) =>
@@ -130,9 +131,11 @@ export function useEstructuraAcademica(pedida: SeleccionEstructura) {
       )
       .map((asignacion) => {
         const docente = docentes.find((candidato) => candidato.id === asignacion.docente_id)
-        return docente?.apellido && docente.nombre
-          ? `${docente.apellido}, ${docente.nombre}`
-          : (docente?.legajo ?? '—')
+        const nombre =
+          docente?.apellido && docente.nombre
+            ? `${docente.apellido}, ${docente.nombre}`
+            : (docente?.legajo ?? '—')
+        return { asignacion, nombre }
       })
   }
 
@@ -157,7 +160,7 @@ export function useEstructuraAcademica(pedida: SeleccionEstructura) {
     materiasCurso,
     asignaciones: asignacionesDivision,
     cicloActual,
-    docentesDe,
+    asignacionesDe,
     cargandoNiveles: nivelesCarga.cargando,
     cargandoAnios: anios.cargando,
     cargandoAnio: contenidoAnio.cargando,

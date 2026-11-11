@@ -5,7 +5,6 @@ import {
   PencilIcon,
   Trash2Icon,
   TriangleAlertIcon,
-  UserIcon,
   UserPlusIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -26,7 +25,12 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Spinner } from '@/components/ui/spinner'
-import type { FranjaConMateria } from '@/modules/academico/types'
+import { DocentesMateria } from '@/modules/academico/components/docentes-materia'
+import type {
+  AsignacionDocente,
+  DocenteDeMateria,
+  FranjaConMateria,
+} from '@/modules/academico/types'
 import {
   abreviarDocentes,
   aMinutos,
@@ -40,7 +44,7 @@ const ESPERA_RESALTADO_MS = 120
 
 interface BloqueHorarioProps {
   franja: FranjaConMateria
-  docentes: string[]
+  docentes: DocenteDeMateria[]
   superpuesto: boolean
   /** Posición vertical dentro de la columna del día, en porcentaje. */
   top: number
@@ -55,6 +59,8 @@ interface BloqueHorarioProps {
   onEditar: () => void
   onEliminar: () => void
   onAsignarDocente?: () => void
+  onEditarAsignacion?: (asignacion: AsignacionDocente) => void
+  onQuitarAsignacion?: (asignacion: AsignacionDocente) => void
   /** Copia esta franja al día indicado (1 = lunes). */
   onDuplicar?: (dia: number) => void
   /** Elimina solo esta franja; `onEliminar` borra la materia entera. */
@@ -83,6 +89,8 @@ export function BloqueHorario({
   onEditar,
   onEliminar,
   onAsignarDocente,
+  onEditarAsignacion,
+  onQuitarAsignacion,
   onDuplicar,
   onEliminarFranja,
   onResaltar,
@@ -99,11 +107,12 @@ export function BloqueHorario({
   const color = colorMateria(materiaCurso.materia_color)
   const rango = rangoLegible(franja)
   const tipo = materiaCurso.materia_tipo === 'taller' ? 'taller' : 'materia'
-  const textoDocentes = docentes.length > 0 ? docentes.join(', ') : 'Sin docente asignado'
+  const nombresDocentes = docentes.map((docente) => docente.nombre)
+  const textoDocentes = docentes.length > 0 ? nombresDocentes.join(', ') : 'Sin docente asignado'
   const minutos = aMinutos(franja.hora_fin) - aMinutos(franja.hora_inicio)
   const inicio = franja.hora_inicio.slice(0, 5)
   const fin = franja.hora_fin.slice(0, 5)
-  const docenteCorto = abreviarDocentes(docentes)
+  const docenteCorto = abreviarDocentes(nombresDocentes)
   const sinDocenteAviso = minutos < 60 && !docenteCorto
   const arrastrable = puedeEditar && !guardando
   // La materia necesita al menos un horario: con uno solo, eliminarlo es eliminar la materia.
@@ -244,7 +253,7 @@ export function BloqueHorario({
                   </DropdownMenu>
                 )}
                 <BotonIcono
-                  etiqueta={`Editar ${tipo}`}
+                  etiqueta={`Editar ${tipo} y horario`}
                   onClick={() => {
                     cerrar()
                     onEditar()
@@ -274,10 +283,20 @@ export function BloqueHorario({
           </div>
           <div className="flex items-start gap-2">
             {docentes.length > 0 ? (
-              <>
-                <UserIcon className="mt-0.5 size-4 shrink-0 text-texto-3" aria-hidden="true" />
-                <p className="text-texto-2">{textoDocentes}</p>
-              </>
+              <DocentesMateria
+                docentes={docentes}
+                materia={nombre}
+                alElegir={cerrar}
+                acciones={
+                  puedeEditar && onAsignarDocente && onEditarAsignacion && onQuitarAsignacion
+                    ? {
+                        onAgregar: onAsignarDocente,
+                        onEditar: onEditarAsignacion,
+                        onQuitar: onQuitarAsignacion,
+                      }
+                    : undefined
+                }
+              />
             ) : (
               <>
                 <TriangleAlertIcon

@@ -12,7 +12,7 @@ import {
   AgregarMateriaCard,
   MateriaCursoCard,
 } from '@/modules/academico/components/materia-curso-card'
-import type { MateriaCurso } from '@/modules/academico/types'
+import type { AsignacionDocente, DocenteDeMateria, MateriaCurso } from '@/modules/academico/types'
 import {
   FILTRO_MATERIAS_INICIAL,
   filtrarYOrdenarMaterias,
@@ -44,33 +44,37 @@ function ordenValido(valor: string): OrdenMaterias {
 
 interface MateriasVistaProps {
   materiasCurso: MateriaCurso[]
-  docentesDe: (materiaCurso: MateriaCurso) => string[]
+  asignacionesDe: (materiaCurso: MateriaCurso) => DocenteDeMateria[]
   puedeEditar: boolean
   filtro: FiltroMaterias
   onFiltro: (filtro: FiltroMaterias) => void
   onEditar: (materiaCurso: MateriaCurso) => void
   onQuitar: (materiaCurso: MateriaCurso) => void
   onAsignarDocente: (materiaCurso: MateriaCurso) => void
+  onEditarAsignacion: (asignacion: AsignacionDocente) => void
+  onQuitarAsignacion: (asignacion: AsignacionDocente) => void
   onVerHorario: (materiaCurso: MateriaCurso) => void
   onAgregar: () => void
 }
 
 export function MateriasVista({
   materiasCurso,
-  docentesDe,
+  asignacionesDe,
   puedeEditar,
   filtro,
   onFiltro,
   onEditar,
   onQuitar,
   onAsignarDocente,
+  onEditarAsignacion,
+  onQuitarAsignacion,
   onVerHorario,
   onAgregar,
 }: MateriasVistaProps) {
   const visibles = filtrarYOrdenarMaterias(
     materiasCurso,
     filtro,
-    (materiaCurso) => docentesDe(materiaCurso).length,
+    (materiaCurso) => asignacionesDe(materiaCurso).length,
   )
   const hayFiltro = filtro.texto !== '' || filtro.tipo !== 'todos'
 
@@ -143,12 +147,14 @@ export function MateriasVista({
             <MateriaCursoCard
               key={materiaCurso.id}
               materiaCurso={materiaCurso}
-              docentes={docentesDe(materiaCurso)}
+              docentes={asignacionesDe(materiaCurso)}
               conflictos={materiasEnConflicto(materiaCurso, materiasCurso)}
               puedeEditar={puedeEditar}
               onEditar={onEditar}
               onQuitar={onQuitar}
               onAsignarDocente={onAsignarDocente}
+              onEditarAsignacion={onEditarAsignacion}
+              onQuitarAsignacion={onQuitarAsignacion}
               onVerHorario={onVerHorario}
             />
           ))}

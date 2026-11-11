@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { MateriaCursoCard } from '@/modules/academico/components/materia-curso-card'
-import type { MateriaCurso } from '@/modules/academico/types'
+import type { DocenteDeMateria, MateriaCurso } from '@/modules/academico/types'
 
 const materiaCurso: MateriaCurso = {
   id: 'mc1',
@@ -20,6 +20,19 @@ const materiaCurso: MateriaCurso = {
   cantidad_asignaciones: 0,
   created_at: '',
   updated_at: '',
+}
+
+const docentePerez: DocenteDeMateria = {
+  nombre: 'Pérez, Ana',
+  asignacion: {
+    id: 'as1',
+    ciclo_lectivo: '2026',
+    docente_id: 'doc1',
+    materia_curso_id: 'mc1',
+    horarios: [],
+    created_at: '',
+    updated_at: '',
+  },
 }
 
 function montar(color: string | null) {
@@ -65,7 +78,7 @@ describe('MateriaCursoCard', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Asignar docente a Lengua' }))
     expect(onAsignarDocente).toHaveBeenCalledWith(materiaCurso)
 
-    rerender(<MateriaCursoCard {...props} docentes={['Pérez, Ana']} puedeEditar />)
+    rerender(<MateriaCursoCard {...props} docentes={[docentePerez]} puedeEditar />)
     expect(screen.queryByRole('button', { name: /asignar docente/i })).not.toBeInTheDocument()
   })
 
@@ -73,7 +86,7 @@ describe('MateriaCursoCard', () => {
     render(
       <MateriaCursoCard
         materiaCurso={materiaCurso}
-        docentes={['Pérez, Ana']}
+        docentes={[docentePerez]}
         conflictos={['Matemática', 'Arte']}
         puedeEditar={false}
         onEditar={vi.fn()}
@@ -92,7 +105,7 @@ describe('MateriaCursoCard', () => {
     render(
       <MateriaCursoCard
         materiaCurso={conHorario}
-        docentes={['Pérez, Ana']}
+        docentes={[docentePerez]}
         puedeEditar={false}
         onEditar={vi.fn()}
         onQuitar={vi.fn()}
@@ -105,19 +118,49 @@ describe('MateriaCursoCard', () => {
 
   it('los botones de editar y eliminar nombran el tipo de la card', () => {
     const props = {
-      docentes: ['Pérez, Ana'],
+      docentes: [docentePerez],
       puedeEditar: true,
       onEditar: vi.fn(),
       onQuitar: vi.fn(),
     }
     const { rerender } = render(<MateriaCursoCard materiaCurso={materiaCurso} {...props} />)
-    expect(screen.getByRole('button', { name: 'Editar materia' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Editar materia y horario' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Eliminar materia' })).toBeInTheDocument()
 
     rerender(
       <MateriaCursoCard materiaCurso={{ ...materiaCurso, materia_tipo: 'taller' }} {...props} />,
     )
-    expect(screen.getByRole('button', { name: 'Editar taller' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Editar taller y horario' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Eliminar taller' })).toBeInTheDocument()
+  })
+
+  it('los docentes abren un menú para cambiar, quitar o agregar', async () => {
+    const onEditarAsignacion = vi.fn()
+    const onQuitarAsignacion = vi.fn()
+    const onAsignarDocente = vi.fn()
+    render(
+      <MateriaCursoCard
+        materiaCurso={materiaCurso}
+        docentes={[docentePerez]}
+        puedeEditar
+        onEditar={vi.fn()}
+        onQuitar={vi.fn()}
+        onAsignarDocente={onAsignarDocente}
+        onEditarAsignacion={onEditarAsignacion}
+        onQuitarAsignacion={onQuitarAsignacion}
+      />,
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Docentes de Lengua' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar' }))
+    expect(onEditarAsignacion).toHaveBeenCalledWith(docentePerez.asignacion)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Docentes de Lengua' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Eliminar' }))
+    expect(onQuitarAsignacion).toHaveBeenCalledWith(docentePerez.asignacion)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Docentes de Lengua' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Agregar docente' }))
+    expect(onAsignarDocente).toHaveBeenCalledWith(materiaCurso)
   })
 })
