@@ -85,24 +85,22 @@ export function MateriaCursoCard({
         {docentes.length > 0 ? (
           <p className="text-sm text-texto-3">{docentes.join(', ')}</p>
         ) : (
-          <div className="flex items-center gap-2">
-            <Aviso tono="advertencia">Sin docente asignado</Aviso>
-            {puedeEditar && onAsignarDocente && (
-              <Button
-                variant="secondary"
-                size="sm"
-                aria-label={`Asignar docente a ${nombre}`}
-                onClick={() => onAsignarDocente(materiaCurso)}
-              >
-                <UserPlusIcon />
-                Asignar
-              </Button>
-            )}
-          </div>
+          <Aviso tono="advertencia">Sin docente asignado</Aviso>
         )}
       </div>
       {puedeEditar && (
-        <div className="flex gap-2 px-(--card-spacing)">
+        <div className="flex items-center gap-2 px-(--card-spacing)">
+          {docentes.length === 0 && onAsignarDocente && (
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-label={`Asignar docente a ${nombre}`}
+              onClick={() => onAsignarDocente(materiaCurso)}
+            >
+              <UserPlusIcon />
+              Asignar
+            </Button>
+          )}
           <BotonIcono
             etiqueta={`Editar ${tipo}`}
             variant="secondary"

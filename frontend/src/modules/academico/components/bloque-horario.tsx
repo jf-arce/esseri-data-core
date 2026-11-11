@@ -1,5 +1,6 @@
 import { useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react'
 import { PencilIcon, Trash2Icon, TriangleAlertIcon, UserPlusIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { BotonIcono } from '@/modules/academico/components/boton-icono'
 import {
   Popover,
@@ -160,18 +161,20 @@ export function BloqueHorario({
             </p>
           )}
           {puedeEditar && (
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               {docentes.length === 0 && onAsignarDocente && (
-                <BotonIcono
+                <Button
                   variant="secondary"
-                  etiqueta="Asignar docente"
+                  size="sm"
+                  aria-label="Asignar docente"
                   onClick={() => {
                     setAbierto(false)
                     onAsignarDocente()
                   }}
                 >
                   <UserPlusIcon />
-                </BotonIcono>
+                  Asignar
+                </Button>
               )}
               <BotonIcono
                 variant="secondary"
