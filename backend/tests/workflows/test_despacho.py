@@ -3,7 +3,8 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-from src.models import EventLog
+from src.auditoria.service import log_audit
+from src.models import AuditLog, EventLog
 from src.workflows import despacho_service, ejecuciones_service
 from src.workflows.constants import TIPOS_ACCION
 from src.workflows.despacho_service import procesar_eventos_pendientes
@@ -120,6 +121,35 @@ def test_accion_que_lanza_queda_fallida_y_no_corta_las_demas(
     assert set(estados) == {"fallido", "exitoso"}
     assert estados["fallido"].error_detail == despacho_service.ERROR_ACCION
     assert "n8n no responde" not in estados["fallido"].error_detail
+
+
+def test_accion_sin_reserva_conserva_el_savepoint(db_session, tipo_factura_vencida, acciones):
+    """Solo las acciones que envían por HTTP confirman antes; el resto conserva el savepoint."""
+
+    def falla_a_mitad(db, regla, evento, ejecucion):
+        log_audit(db, entidad="PRUEBA", entidad_id=uuid.uuid4(), campo="x", valor_nuevo="y")
+        raise RuntimeError("falla después de escribir")
+
+    acciones["crear_tarea"] = falla_a_mitad
+    regla = _regla(db_session, tipo_factura_vencida, tipo_accion="crear_tarea")
+    evento = _evento(db_session)
+    ejecucion = WorkflowExecution(workflow_rule_id=regla.id, event_log_id=evento.id, intento=1)
+    db_session.add(ejecucion)
+    db_session.commit()
+
+    despacho_service._ejecutar_accion(db_session, regla, evento, ejecucion)
+    db_session.commit()
+
+    assert db_session.query(AuditLog).filter(AuditLog.entidad == "PRUEBA").count() == 0
+    db_session.refresh(ejecucion)
+    assert ejecucion.estado == "fallido"
+    assert ejecucion.error_detail == despacho_service.ERROR_ACCION
+
+
+def test_solo_las_acciones_que_envian_confirman_su_reserva():
+    assert despacho_service.ACCIONES_CON_RESERVA == frozenset(
+        {"notificar", "alerta_interna", "generar_recordatorio"}
+    )
 
 
 def test_aprobacion_humana_deja_la_ejecucion_pendiente_sin_ejecutar(

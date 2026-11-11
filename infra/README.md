@@ -20,7 +20,7 @@ Levanta 4 servicios en la misma red interna:
 | Servicio | URL local | Notas |
 |---|---|---|
 | `postgres` | `localhost:5432` | Usuario/clave/DB: `esseri`/`esseri`/`esseri_data_core` (coincide con `backend/.env.example`). |
-| `backend` | `http://localhost:8000` | Antes de levantar `uvicorn --reload` corre `alembic upgrade head` y los 3 scripts de `database/seeds/` (idempotentes, no rompen nada si ya corrieron). `backend/src` está montado como volumen para hot-reload. Lee `backend/.env`. |
+| `backend` | `http://localhost:8000` | Antes de levantar `uvicorn --reload` corre `alembic upgrade head` y los seeds de `database/seeds/` (01, 02, 03 y 06; idempotentes, no rompen nada si ya corrieron). `backend/src` está montado como volumen para hot-reload. Lee `backend/.env`. |
 | `frontend` | `http://localhost:5173` | Corre `npm run dev` sobre la imagen `node:26-alpine`, con `frontend/` montado como volumen para hot-reload. |
 | `n8n` | `http://localhost:5678` | En el primer acceso se configura la cuenta propietaria de n8n. Los workflows se exportan a `infra/n8n/` (ver el README de esa carpeta). |
 
@@ -174,7 +174,7 @@ Los workflows exportados en `infra/n8n/*.json` se importan desde la UI de n8n (`
 ## Migraciones y primer administrador con Docker
 
 Tanto desarrollo como producción ejecutan `alembic upgrade head` y los seeds de catálogos
-`01`, `02` y `03` antes de iniciar la API. En producción lo define `backend/Dockerfile`.
+`01`, `02`, `03` y `06` antes de iniciar la API. En producción lo define `backend/Dockerfile`.
 El bootstrap del administrador no forma parte de ese arranque. Después de que la API arranque,
 con `BOOTSTRAP_ADMIN_EMAIL` configurado en el archivo de entorno correspondiente:
 

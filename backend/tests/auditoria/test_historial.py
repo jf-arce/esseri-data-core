@@ -9,7 +9,9 @@ otros módulos con el mismo TODO pendiente (ej. `proveedores_compras`) todavía 
 import uuid
 from datetime import datetime
 
-from src.auditoria.service import listar_historial_entidad
+import pytest
+
+from src.auditoria.service import listar_historial_entidad, log_audit
 from src.auth.models import Usuario
 from src.models import AuditLog
 
@@ -103,6 +105,54 @@ def test_listar_historial_no_mezcla_otras_entidades(db_session):
 
 def test_listar_historial_entidad_sin_registros_devuelve_lista_vacia(db_session):
     assert listar_historial_entidad(db_session, "alumno", uuid.uuid4()) == []
+
+
+def test_log_audit_registra_automatizacion_sin_usuario(db_session):
+    entidad_id = uuid.uuid4()
+    referencia_id = uuid.uuid4()
+
+    registro = log_audit(
+        db_session,
+        entidad="ASISTENCIA",
+        entidad_id=entidad_id,
+        campo="tipo",
+        valor_anterior="ausente_pendiente",
+        valor_nuevo="ausente_justificado",
+        usuario_id=None,
+        actor_tipo="sistema",
+        origen="aplicacion_automatica",
+        motivo="cobertura por solicitud aprobada",
+        referencia_entidad="AUDIT_LOG",
+        referencia_id=referencia_id,
+    )
+    db_session.commit()
+
+    assert registro.usuario_id is None
+    assert registro.actor_tipo == "sistema"
+    historial = listar_historial_entidad(db_session, "ASISTENCIA", entidad_id)
+    assert historial[0]["usuario_id"] is None
+    assert historial[0]["usuario_email"] is None
+    assert historial[0]["actor_tipo"] == "sistema"
+    assert historial[0]["origen"] == "aplicacion_automatica"
+    assert historial[0]["motivo"] == "cobertura por solicitud aprobada"
+    assert historial[0]["referencia_entidad"] == "AUDIT_LOG"
+    assert historial[0]["referencia_id"] == referencia_id
+
+
+def test_log_audit_rechaza_sistema_atribuido_a_usuario(db_session):
+    usuario = _crear_usuario(db_session)
+
+    with pytest.raises(ValueError):
+        log_audit(
+            db_session,
+            entidad="ASISTENCIA",
+            entidad_id=uuid.uuid4(),
+            campo="tipo",
+            valor_anterior="ausente_pendiente",
+            valor_nuevo="ausente_justificado",
+            usuario_id=usuario.id,
+            actor_tipo="sistema",
+        )
 
 
 def test_endpoint_expone_historial_y_exige_permiso(client_autenticado, db_session):

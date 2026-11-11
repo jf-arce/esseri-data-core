@@ -92,9 +92,13 @@ class TestAuditoriaProveedor:
         eliminar_proveedor(db_session, proveedor, usuario.id)
 
         registros = _historial(db_session, "PROVEEDOR", proveedor_id)
-        assert len(registros) == 1
-        assert registros[0].campo == "__eliminacion__"
-        assert registros[0].valor_anterior == "Papelera del Sur"
+        alta = next(registro for registro in registros if registro.campo == "__alta__")
+        baja = next(registro for registro in registros if registro.campo == "__eliminacion__")
+        assert len(registros) == 2
+        assert alta.usuario_id is None
+        assert alta.actor_tipo == "sistema"
+        assert baja.valor_anterior == "Papelera del Sur"
+        assert baja.usuario_id == usuario.id
 
 
 class TestAuditoriaSolicitudCompra:
@@ -186,8 +190,12 @@ class TestAuditoriaProductoServicio:
         eliminar_producto_servicio(db_session, producto, usuario.id)
 
         registros = _historial(db_session, "PRODUCTO_SERVICIO", producto_id)
-        assert len(registros) == 1
-        assert registros[0].campo == "__eliminacion__"
+        alta = next(registro for registro in registros if registro.campo == "__alta__")
+        baja = next(registro for registro in registros if registro.campo == "__eliminacion__")
+        assert len(registros) == 2
+        assert alta.usuario_id is None
+        assert alta.actor_tipo == "sistema"
+        assert baja.usuario_id == usuario.id
 
 
 class TestAuditoriaOrdenYRecepcion:

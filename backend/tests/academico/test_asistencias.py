@@ -387,6 +387,37 @@ def test_familia_rechaza_un_motivo_fuera_del_catalogo(db_session):
     )
 
 
+def test_familia_no_puede_justificar_una_asistencia_eliminada(db_session):
+    usuario, alumno_id = _crear_familia_con_alumno(db_session)
+    inscripcion = db_session.query(Inscripcion).filter(Inscripcion.alumno_id == alumno_id).one()
+    asistencia = Asistencia(
+        fecha=date(2027, 3, 16),
+        tipo="ausente_pendiente",
+        inscripcion_id=inscripcion.id,
+    )
+    db_session.add(asistencia)
+    db_session.commit()
+    db_session.delete(asistencia)
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as error:
+        justificar_asistencia_de_familia(
+            db_session,
+            usuario,
+            asistencia,
+            "enfermedad",
+            None,
+        )
+
+    assert error.value.status_code == 404
+    assert (
+        db_session.query(JustificacionInasistencia)
+        .filter(JustificacionInasistencia.asistencia_id == asistencia.id)
+        .count()
+        == 0
+    )
+
+
 def test_familia_ve_una_justificacion_pendiente_en_el_historial(client, db_session):
     """Una justificación presentada no puede volver a aparecer como justificable.
 

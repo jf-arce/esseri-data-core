@@ -18,6 +18,8 @@ tipo_evento: # RF-24 (3 ejemplos originales) + eventos nuevos de las aclaracione
     descripcion: Se registró una ausencia
   - nombre: inasistencia.justificada
     descripcion: Se resolvió una justificación de ausencia
+  - nombre: solicitud_ausencia_periodo.revocada
+    descripcion: Se revocó una solicitud de ausencia por período
   - nombre: factura.vencida
     descripcion: Una factura impaga superó su fecha de vencimiento
   - nombre: inscripcion.cambio_matricula

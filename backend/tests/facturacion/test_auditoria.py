@@ -95,9 +95,13 @@ class TestAuditoriaConceptoCobro:
         eliminar_concepto_cobro(db_session, concepto, usuario.id)
 
         registros = _historial(db_session, "CONCEPTO_COBRO", concepto_id)
-        assert len(registros) == 1
-        assert registros[0].campo == "__eliminacion__"
-        assert registros[0].valor_anterior == "Matrícula"
+        alta = next(registro for registro in registros if registro.campo == "__alta__")
+        baja = next(registro for registro in registros if registro.campo == "__eliminacion__")
+        assert len(registros) == 2
+        assert alta.usuario_id is None
+        assert alta.actor_tipo == "sistema"
+        assert baja.valor_anterior == "Matrícula"
+        assert baja.usuario_id == usuario.id
 
 
 class TestAuditoriaFactura:

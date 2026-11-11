@@ -128,6 +128,21 @@ def test_listado_vacio(client_autenticado):
     assert datos["total_paginas"] == 0
 
 
+def test_listado_y_detalle_exponen_estado_incierto(
+    client_autenticado, db_session, tipo_factura_vencida
+):
+    _, ejecucion = _escenario(db_session, tipo_factura_vencida)
+    notificacion = _notificacion(db_session, ejecucion, "dudoso@esseri.edu.ar", estado="incierto")
+
+    listado = client_autenticado.get(URL, params={"estado_envio": "incierto"})
+    detalle = client_autenticado.get(f"{URL}/{notificacion.id}")
+
+    assert listado.status_code == 200
+    assert listado.json()["items"][0]["estado_envio"] == "incierto"
+    assert detalle.status_code == 200
+    assert detalle.json()["estado_envio"] == "incierto"
+
+
 def test_filtra_por_estado_tipo_y_ejecucion(client_autenticado, db_session, tipo_factura_vencida):
     _, primera = _escenario(db_session, tipo_factura_vencida)
     _, segunda = _escenario(
