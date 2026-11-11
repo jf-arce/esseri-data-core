@@ -17,6 +17,14 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Spinner } from '@/components/ui/spinner'
 import type { FranjaConMateria } from '@/modules/academico/types'
 import {
@@ -85,16 +93,7 @@ export function BloqueHorario({
   onContextMenu,
 }: BloqueHorarioProps) {
   const [abierto, setAbierto] = useState(false)
-  const [duplicando, setDuplicando] = useState(false)
-
-  function cambiarAbierto(valor: boolean) {
-    setAbierto(valor)
-    if (!valor) setDuplicando(false)
-  }
-
-  function cerrar() {
-    cambiarAbierto(false)
-  }
+  const cerrar = () => setAbierto(false)
   const { materiaCurso } = franja
   const nombre = materiaCurso.materia_nombre ?? 'Materia'
   const color = colorMateria(materiaCurso.materia_color)
@@ -137,7 +136,7 @@ export function BloqueHorario({
         width: `${100 / carriles}%`,
       }}
     >
-      <Popover open={abierto} onOpenChange={cambiarAbierto}>
+      <Popover open={abierto} onOpenChange={setAbierto}>
         <PopoverTrigger asChild>
           <button
             type="button"
@@ -204,13 +203,42 @@ export function BloqueHorario({
             {puedeEditar && (
               <div className="-mt-1 -mr-1 flex shrink-0 items-center">
                 {onDuplicar && (
-                  <BotonIcono
-                    etiqueta="Duplicar horario"
-                    aria-expanded={duplicando}
-                    onClick={() => setDuplicando((actual) => !actual)}
-                  >
-                    <CopyIcon />
-                  </BotonIcono>
+                  <DropdownMenu>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon-sm" aria-label="Duplicar horario">
+                              <CopyIcon />
+                            </Button>
+                          </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent sideOffset={6}>Duplicar horario</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Duplicar en</DropdownMenuLabel>
+                      {DIAS.slice(0, 5).map((nombreDia, i) => {
+                        const dia = i + 1
+                        const ocupado = materiaCurso.horarios.some((otra) =>
+                          franjasSeSuperponen(otra, { ...franja, dia_semana: dia }),
+                        )
+                        return (
+                          <DropdownMenuItem
+                            key={dia}
+                            disabled={ocupado}
+                            className="capitalize"
+                            onSelect={() => {
+                              cerrar()
+                              onDuplicar(dia)
+                            }}
+                          >
+                            {nombreDia}
+                          </DropdownMenuItem>
+                        )
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
                 <BotonIcono
                   etiqueta={`Editar ${tipo}`}
@@ -271,35 +299,6 @@ export function BloqueHorario({
               <UserPlusIcon />
               Asignar
             </Button>
-          )}
-          {duplicando && onDuplicar && (
-            <div className="flex flex-col gap-1">
-              <span className="text-texto-2">Duplicar en</span>
-              <div className="flex flex-wrap gap-1">
-                {DIAS.slice(0, 5).map((nombreDia, i) => {
-                  const dia = i + 1
-                  const ocupado = materiaCurso.horarios.some((otra) =>
-                    franjasSeSuperponen(otra, { ...franja, dia_semana: dia }),
-                  )
-                  return (
-                    <Button
-                      key={dia}
-                      variant="secondary"
-                      size="sm"
-                      disabled={ocupado}
-                      aria-label={`Duplicar el ${nombreDia}`}
-                      className="capitalize"
-                      onClick={() => {
-                        cerrar()
-                        onDuplicar(dia)
-                      }}
-                    >
-                      {nombreDia.slice(0, 3)}
-                    </Button>
-                  )
-                })}
-              </div>
-            </div>
           )}
         </PopoverContent>
       </Popover>
