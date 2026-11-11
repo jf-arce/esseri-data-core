@@ -61,4 +61,21 @@ describe('useGuardarFranjas', () => {
     expect(toastError).toHaveBeenCalledWith('El docente ya tiene clase en ese horario.')
     expect(onGuardado).not.toHaveBeenCalled()
   })
+
+  it('agrega una franja nueva conservando las existentes', async () => {
+    actualizar.mockResolvedValue(materia)
+    const { result } = renderHook(() => useGuardarFranjas([materia], vi.fn()))
+
+    await act(async () => {
+      await result.current.agregar('mc1', destino)
+    })
+    expect(actualizar).toHaveBeenCalledWith('mc1', {
+      horarios: [
+        { dia_semana: 1, hora_inicio: '08:00', hora_fin: '09:00' },
+        { dia_semana: 3, hora_inicio: '10:00', hora_fin: '11:00' },
+        destino,
+      ],
+    })
+    expect(result.current.materiasCurso[0].horarios).toHaveLength(3)
+  })
 })

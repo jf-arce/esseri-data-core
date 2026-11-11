@@ -107,6 +107,12 @@ export function HorarioSemanal({
     setGestoActivo(activo)
   }
 
+  function duplicarFranja(franja: FranjaConMateria, dia: number) {
+    const destino = { dia_semana: dia, hora_inicio: franja.hora_inicio, hora_fin: franja.hora_fin }
+    setAnuncio(`Copia: ${descripcion(franja, destino)}`)
+    void guardado.agregar(franja.materiaCurso.id, destino)
+  }
+
   function guardarFranja(franja: FranjaConMateria, destino: FranjaHoraria) {
     setAnuncio(descripcion(franja, destino))
     void guardado.guardar(franja.materiaCurso.id, franja.id, destino)
@@ -273,6 +279,7 @@ export function HorarioSemanal({
                     onAsignarDocente={
                       onAsignarDocente && (() => onAsignarDocente(franja.materiaCurso))
                     }
+                    onDuplicar={(dia) => duplicarFranja(franja, dia)}
                     onResaltar={setMateriaResaltada}
                     onIniciarMover={(evento) => arrastre.iniciarMover(evento, franja)}
                     onIniciarEstirar={(evento) => arrastre.iniciarEstirar(evento, franja)}

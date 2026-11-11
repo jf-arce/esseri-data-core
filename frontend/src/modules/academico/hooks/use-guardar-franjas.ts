@@ -38,11 +38,7 @@ export function useGuardarFranjas(materiasCurso: MateriaCurso[], onGuardado: () 
     return pendientes[materiaCursoId]?.guardando ?? false
   }
 
-  async function guardar(materiaCursoId: string, idFranja: string, nueva: FranjaHoraria) {
-    const materiaCurso = materiasCurso.find((item) => item.id === materiaCursoId)
-    if (!materiaCurso) return
-    const actuales = pendienteVigente(materiaCurso)?.horarios ?? materiaCurso.horarios
-    const horarios = reemplazarFranja(actuales, idFranja, nueva)
+  async function enviar(materiaCurso: MateriaCurso, horarios: HorarioMateriaCurso[]) {
     setPendientes((estado) => ({
       ...estado,
       [materiaCurso.id]: { horarios, base: materiaCurso, guardando: true },
@@ -70,5 +66,21 @@ export function useGuardarFranjas(materiasCurso: MateriaCurso[], onGuardado: () 
     }
   }
 
-  return { materiasCurso: efectivas, hayPendientes, estaGuardando, guardar }
+  async function guardar(materiaCursoId: string, idFranja: string, nueva: FranjaHoraria) {
+    const materiaCurso = materiasCurso.find((item) => item.id === materiaCursoId)
+    if (!materiaCurso) return
+    const actuales = pendienteVigente(materiaCurso)?.horarios ?? materiaCurso.horarios
+    await enviar(materiaCurso, reemplazarFranja(actuales, idFranja, nueva))
+  }
+
+  /** Suma una franja nueva a la materia (por ejemplo, la copia de otra en otro día). */
+  async function agregar(materiaCursoId: string, nueva: FranjaHoraria) {
+    const materiaCurso = materiasCurso.find((item) => item.id === materiaCursoId)
+    if (!materiaCurso) return
+    const actuales = pendienteVigente(materiaCurso)?.horarios ?? materiaCurso.horarios
+    // El id es provisorio: al recargar el servidor devuelve los definitivos.
+    await enviar(materiaCurso, [...actuales, { ...nueva, id: crypto.randomUUID() }])
+  }
+
+  return { materiasCurso: efectivas, hayPendientes, estaGuardando, guardar, agregar }
 }

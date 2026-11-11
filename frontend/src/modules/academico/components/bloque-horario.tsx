@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react'
 import {
   ClockIcon,
+  CopyIcon,
   PencilIcon,
   Trash2Icon,
   TriangleAlertIcon,
@@ -23,6 +24,7 @@ import {
   aMinutos,
   colorMateria,
   DIAS,
+  franjasSeSuperponen,
   rangoLegible,
 } from '@/modules/academico/utils'
 
@@ -45,6 +47,8 @@ interface BloqueHorarioProps {
   onEditar: () => void
   onEliminar: () => void
   onAsignarDocente?: () => void
+  /** Copia esta franja al día indicado (1 = lunes). */
+  onDuplicar?: (dia: number) => void
   onResaltar: (materiaCursoId: string | null) => void
   onIniciarMover: (evento: PointerEvent<HTMLElement>) => void
   onIniciarEstirar: (evento: PointerEvent<HTMLElement>) => void
@@ -69,6 +73,7 @@ export function BloqueHorario({
   onEditar,
   onEliminar,
   onAsignarDocente,
+  onDuplicar,
   onResaltar,
   onIniciarMover,
   onIniciarEstirar,
@@ -227,6 +232,38 @@ export function BloqueHorario({
               </>
             )}
           </div>
+          {puedeEditar && onDuplicar && (
+            <div className="flex items-start gap-2">
+              <CopyIcon className="mt-1.5 size-4 shrink-0 text-texto-3" aria-hidden="true" />
+              <div className="flex flex-col gap-1">
+                <span className="text-texto-2">Duplicar en</span>
+                <div className="flex flex-wrap gap-1">
+                  {DIAS.slice(0, 5).map((nombreDia, i) => {
+                    const dia = i + 1
+                    const ocupado = materiaCurso.horarios.some((otra) =>
+                      franjasSeSuperponen(otra, { ...franja, dia_semana: dia }),
+                    )
+                    return (
+                      <Button
+                        key={dia}
+                        variant="secondary"
+                        size="sm"
+                        disabled={ocupado}
+                        aria-label={`Duplicar el ${nombreDia}`}
+                        className="capitalize"
+                        onClick={() => {
+                          setAbierto(false)
+                          onDuplicar(dia)
+                        }}
+                      >
+                        {nombreDia.slice(0, 3)}
+                      </Button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
           {docentes.length === 0 && puedeEditar && onAsignarDocente && (
             <Button
               variant="secondary"
