@@ -81,3 +81,15 @@ def test_archivo_invalido_se_rechaza_completo(cambio):
     }
     with pytest.raises(formato.FormatoInvalido):
         formato.leer_respuesta(texto.replace(*cambios[cambio]))
+
+
+def test_total_admite_la_suma_de_cien_importes_validos():
+    filas = [
+        formato.RespuestaDetalle(
+            uuid.uuid4(), formato.COBRADO, Decimal("9999999999.99"), date(2026, 11, 11), "", ""
+        )
+        for _ in range(100)
+    ]
+    lote = uuid.uuid4()
+    texto = formato.generar_respuesta(lote, date(2026, 11, 11), filas)
+    assert formato.leer_respuesta(texto) == (lote, filas)

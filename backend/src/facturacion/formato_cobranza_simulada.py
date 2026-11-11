@@ -81,8 +81,10 @@ def generar_respuesta(lote_id: uuid.UUID, fecha: date, filas: list[RespuestaDeta
 
 
 def _importe(valor: str, *, cero: bool = False) -> Decimal:
-    if not re.fullmatch(r"\d{1,10}\.\d{2}", valor):
-        raise FormatoInvalido("Importe inválido: se requieren hasta diez enteros y dos decimales.")
+    # Control totals can sum up to 100 individual Numeric(12, 2) amounts.
+    enteros = 12 if cero else 10
+    if not re.fullmatch(rf"\d{{1,{enteros}}}\.\d{{2}}", valor):
+        raise FormatoInvalido("Importe inválido: revisar el límite de enteros y los dos decimales.")
     importe = Decimal(valor)
     if importe <= 0 and not cero:
         raise FormatoInvalido("El importe informado debe ser positivo.")
