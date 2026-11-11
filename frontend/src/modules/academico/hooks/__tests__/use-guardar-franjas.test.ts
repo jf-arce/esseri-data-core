@@ -78,4 +78,26 @@ describe('useGuardarFranjas', () => {
     })
     expect(result.current.materiasCurso[0].horarios).toHaveLength(3)
   })
+
+  it('elimina solo una franja y reenvía las demás', async () => {
+    actualizar.mockResolvedValue(materia)
+    const { result } = renderHook(() => useGuardarFranjas([materia], vi.fn()))
+
+    await act(async () => {
+      await result.current.quitar('mc1', 'h1')
+    })
+    expect(actualizar).toHaveBeenCalledWith('mc1', {
+      horarios: [{ dia_semana: 3, hora_inicio: '10:00', hora_fin: '11:00' }],
+    })
+  })
+
+  it('no elimina la única franja de la materia', async () => {
+    const unica = { ...materia, horarios: [materia.horarios[0]] }
+    const { result } = renderHook(() => useGuardarFranjas([unica], vi.fn()))
+
+    await act(async () => {
+      await result.current.quitar('mc1', 'h1')
+    })
+    expect(actualizar).not.toHaveBeenCalled()
+  })
 })

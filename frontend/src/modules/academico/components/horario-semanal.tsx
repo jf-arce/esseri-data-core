@@ -116,6 +116,11 @@ export function HorarioSemanal({
     void guardado.agregar(franja.materiaCurso.id, destino)
   }
 
+  function eliminarFranja(franja: FranjaConMateria) {
+    setAnuncio(`Horario eliminado: ${descripcion(franja, franja)}`)
+    void guardado.quitar(franja.materiaCurso.id, franja.id)
+  }
+
   function guardarFranja(franja: FranjaConMateria, destino: FranjaHoraria) {
     setAnuncio(descripcion(franja, destino))
     void guardado.guardar(franja.materiaCurso.id, franja.id, destino)
@@ -292,6 +297,7 @@ export function HorarioSemanal({
                       onAsignarDocente && (() => onAsignarDocente(franja.materiaCurso))
                     }
                     onDuplicar={(dia) => duplicarFranja(franja, dia)}
+                    onEliminarFranja={() => eliminarFranja(franja)}
                     onResaltar={setMateriaResaltada}
                     onIniciarMover={(evento) => arrastre.iniciarMover(evento, franja)}
                     onIniciarEstirar={(evento) => arrastre.iniciarEstirar(evento, franja)}

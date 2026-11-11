@@ -49,6 +49,8 @@ interface BloqueHorarioProps {
   onAsignarDocente?: () => void
   /** Copia esta franja al día indicado (1 = lunes). */
   onDuplicar?: (dia: number) => void
+  /** Elimina solo esta franja; `onEliminar` borra la materia entera. */
+  onEliminarFranja?: () => void
   onResaltar: (materiaCursoId: string | null) => void
   onIniciarMover: (evento: PointerEvent<HTMLElement>) => void
   onIniciarEstirar: (evento: PointerEvent<HTMLElement>) => void
@@ -74,6 +76,7 @@ export function BloqueHorario({
   onEliminar,
   onAsignarDocente,
   onDuplicar,
+  onEliminarFranja,
   onResaltar,
   onIniciarMover,
   onIniciarEstirar,
@@ -94,6 +97,8 @@ export function BloqueHorario({
   const docenteCorto = abreviarDocentes(docentes)
   const sinDocenteAviso = minutos < 60 && !docenteCorto
   const arrastrable = puedeEditar && !guardando
+  // La materia necesita al menos un horario: con uno solo, eliminarlo es eliminar la materia.
+  const eliminaSoloFranja = onEliminarFranja !== undefined && materiaCurso.horarios.length > 1
   // Con el mouse, el resto se atenúa solo si se mantiene el clic un momento (un clic corto abre
   // el popover sin atenuar nada).
   function resaltarMientrasSePresiona() {
@@ -198,11 +203,12 @@ export function BloqueHorario({
                   <PencilIcon />
                 </BotonIcono>
                 <BotonIcono
-                  etiqueta={`Eliminar ${tipo}`}
+                  etiqueta={eliminaSoloFranja ? 'Eliminar horario' : `Eliminar ${tipo}`}
                   className="hover:text-error"
                   onClick={() => {
                     setAbierto(false)
-                    onEliminar()
+                    if (eliminaSoloFranja) onEliminarFranja()
+                    else onEliminar()
                   }}
                 >
                   <Trash2Icon />
