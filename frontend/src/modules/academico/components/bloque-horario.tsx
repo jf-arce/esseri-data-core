@@ -163,7 +163,10 @@ export function BloqueHorario({
             {minutos < 45 ? (
               <span className="truncate">
                 <span className="font-semibold">{nombre}</span>
-                <span className="opacity-75"> · {inicio}</span>
+                <span className="opacity-75">
+                  {' '}
+                  · {inicio} a {fin}
+                </span>
               </span>
             ) : (
               <>

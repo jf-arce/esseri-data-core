@@ -1,4 +1,4 @@
-import { PlusIcon, PrinterIcon, XIcon } from 'lucide-react'
+import { PlusIcon, XIcon } from 'lucide-react'
 import { useRef, useState, type PointerEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { ExportarHorario } from '@/modules/academico/components/exportar-horario'
@@ -180,39 +180,35 @@ export function HorarioSemanal({
       {tituloImpresion && (
         <h2 className="hidden text-lg font-semibold text-texto print:block">{tituloImpresion}</h2>
       )}
-      <div className="flex flex-wrap items-center gap-2 print:hidden">
-        <FiltrosHorario filtro={filtro} onFiltro={setFiltro} docentes={docentes} />
-        <ResaltadoHorario
-          materiasCurso={guardado.materiasCurso}
-          marcadas={resaltadas}
-          onResaltar={setMateriaResaltada}
-          onAlternar={onAlternarResaltada}
-        />
-        <AvisoSuperposiciones
-          conflictos={enConflicto.size}
-          soloConflictos={soloConflictos && enConflicto.size > 0}
-          onSoloConflictos={setSoloConflictos}
-        />
-        {hayResaltadoActivo && (
-          <Button variant="secondary" size="sm" onClick={quitarTodoResaltado}>
-            <XIcon />
-            Eliminar resaltado
-          </Button>
-        )}
-        <div className="ml-auto flex items-center gap-2">
-          {divisionId && (
-            <ExportarHorario divisionId={divisionId} titulo={tituloImpresion ?? 'Horario'} />
+      <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
+        <div className="flex flex-wrap items-center gap-2">
+          <FiltrosHorario filtro={filtro} onFiltro={setFiltro} docentes={docentes} />
+          <ResaltadoHorario
+            materiasCurso={guardado.materiasCurso}
+            marcadas={resaltadas}
+            onResaltar={setMateriaResaltada}
+            onAlternar={onAlternarResaltada}
+          />
+          <AvisoSuperposiciones
+            conflictos={enConflicto.size}
+            soloConflictos={soloConflictos && enConflicto.size > 0}
+            onSoloConflictos={setSoloConflictos}
+          />
+          {hayResaltadoActivo && (
+            <Button variant="secondary" size="sm" onClick={quitarTodoResaltado}>
+              <XIcon />
+              Eliminar resaltado
+            </Button>
           )}
-          <Button variant="secondary" size="sm" onClick={() => window.print()}>
-            <PrinterIcon />
-            Imprimir
-          </Button>
+        </div>
+        <div className="flex items-center gap-2">
           {puedeEditar && (
-            <Button variant="secondary" size="sm" onClick={() => onAgregar()}>
+            <Button variant="secondary" onClick={() => onAgregar()}>
               <PlusIcon />
               Agregar materia
             </Button>
           )}
+          <ExportarHorario divisionId={divisionId} titulo={tituloImpresion ?? 'Horario'} />
         </div>
       </div>
       {puedeEditar && (
@@ -249,10 +245,17 @@ export function HorarioSemanal({
           {filas.map((minutos, i) => (
             <div
               key={minutos}
-              className="border-t border-borde bg-superficie pr-2 text-right text-xs text-texto-3"
+              className="relative bg-superficie"
               style={{ gridRow: i + 2, gridColumn: 1 }}
             >
-              {minutos % 60 === 0 ? deMinutos(minutos) : ''}
+              <span aria-hidden="true" className="absolute top-0 right-0 h-px w-1.5 bg-borde" />
+              <span
+                className={`absolute top-0 right-3.5 -translate-y-1/2 text-xs leading-none ${
+                  minutos % 60 === 0 ? 'text-texto-2' : 'text-texto-3/70'
+                }`}
+              >
+                {deMinutos(minutos)}
+              </span>
             </div>
           ))}
 

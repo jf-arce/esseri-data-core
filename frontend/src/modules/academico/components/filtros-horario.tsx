@@ -1,4 +1,4 @@
-import { CheckIcon, SearchIcon, TriangleAlertIcon } from 'lucide-react'
+import { SearchIcon, TriangleAlertIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -88,14 +88,7 @@ export function AvisoSuperposiciones({
   soloConflictos,
   onSoloConflictos,
 }: AvisoSuperposicionesProps) {
-  if (conflictos === 0) {
-    return (
-      <span className="flex h-8 items-center gap-1.5 px-2.5 text-sm text-texto-3">
-        <CheckIcon className="size-4" aria-hidden="true" />
-        Sin superposiciones
-      </span>
-    )
-  }
+  if (conflictos === 0) return null
   return (
     <Button
       variant={soloConflictos ? 'secondary' : 'ghost'}

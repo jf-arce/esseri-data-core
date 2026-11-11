@@ -1,7 +1,13 @@
-import { FileSpreadsheetIcon, Share2Icon } from 'lucide-react'
+import { EllipsisVerticalIcon, FileSpreadsheetIcon, PrinterIcon, Share2Icon } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   compartirHorarioDivision,
   descargarHorarioDivision,
@@ -9,7 +15,8 @@ import {
 } from '@/modules/academico/services/exportar-horario'
 
 interface ExportarHorarioProps {
-  divisionId: string
+  /** Si falta, el menú solo ofrece imprimir. */
+  divisionId?: string
   titulo: string
 }
 
@@ -28,27 +35,39 @@ export function ExportarHorario({ divisionId, titulo }: ExportarHorarioProps) {
   }
 
   return (
-    <>
-      <Button
-        variant="secondary"
-        size="sm"
-        disabled={ocupado}
-        onClick={() => void ejecutar(() => descargarHorarioDivision(divisionId))}
-      >
-        <FileSpreadsheetIcon />
-        Exportar a Excel
-      </Button>
-      {puedeCompartirArchivos() && (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
         <Button
           variant="secondary"
-          size="sm"
+          size="icon"
           disabled={ocupado}
-          onClick={() => void ejecutar(() => compartirHorarioDivision(divisionId, titulo))}
+          aria-label="Exportar o imprimir el horario"
         >
-          <Share2Icon />
-          Compartir
+          <EllipsisVerticalIcon />
         </Button>
-      )}
-    </>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {divisionId && (
+          <DropdownMenuItem
+            onSelect={() => void ejecutar(() => descargarHorarioDivision(divisionId))}
+          >
+            <FileSpreadsheetIcon />
+            Exportar a Excel
+          </DropdownMenuItem>
+        )}
+        {divisionId && puedeCompartirArchivos() && (
+          <DropdownMenuItem
+            onSelect={() => void ejecutar(() => compartirHorarioDivision(divisionId, titulo))}
+          >
+            <Share2Icon />
+            Compartir
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onSelect={() => window.print()}>
+          <PrinterIcon />
+          Imprimir
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
