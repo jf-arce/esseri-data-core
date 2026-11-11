@@ -37,6 +37,7 @@ import { SelectorColor } from '@/modules/academico/components/selector-color'
 import {
   buscarConflictos,
   colorAleatorio,
+  colorMateria,
   describirConflicto,
   normalizarTexto,
   type FranjaOcupada,
@@ -291,9 +292,7 @@ export function MateriaCursoDialog({
       <DialogContent className="sm:max-w-2xl" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>
-            {esEdicion
-              ? `Editar materia de ${curso}`
-              : `Agregar materia a ${curso}`}
+            {esEdicion ? `Editar materia de ${curso}` : `Agregar materia a ${curso}`}
           </DialogTitle>
           {error && <DialogDescription className="text-error">{error}</DialogDescription>}
         </DialogHeader>
@@ -308,6 +307,13 @@ export function MateriaCursoDialog({
               <SelectContent>
                 {catalogoDisponible.map((materia) => (
                   <SelectItem key={materia.id} value={materia.id}>
+                    <span
+                      aria-hidden="true"
+                      className="size-2.5 shrink-0 rounded-full"
+                      style={{
+                        backgroundColor: colorMateria(materia.color).estilo.backgroundColor,
+                      }}
+                    />
                     {materia.nombre}
                     {materia.tipo === 'taller' ? ' (taller)' : ''}
                   </SelectItem>
@@ -322,8 +328,7 @@ export function MateriaCursoDialog({
             </Select>
             {!esEdicion && catalogoDisponible.length === 0 && (
               <p className="text-xs text-texto-3">
-                Esta división ya tiene todas las materias del catálogo. Podés crear una
-                nueva.
+                Esta división ya tiene todas las materias del catálogo. Podés crear una nueva.
               </p>
             )}
           </Field>
