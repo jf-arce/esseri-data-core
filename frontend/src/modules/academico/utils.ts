@@ -39,12 +39,15 @@ export function rangoLegible(franja: { hora_inicio: string; hora_fin: string }):
   return `${franja.hora_inicio.slice(0, 5)} a ${franja.hora_fin.slice(0, 5)}`
 }
 
-/** "Pérez, Ana" a "A. Pérez"; con varios docentes, "A. Pérez +1". Sin docentes, `null`. */
+/** "Pérez, Ana" a "A. Pérez"; con varios docentes, "A. Pérez · L. Gómez". Sin docentes, `null`. */
 export function abreviarDocentes(docentes: string[]): string | null {
   if (docentes.length === 0) return null
-  const [apellido, nombre] = docentes[0].split(', ')
-  const primero = nombre ? `${nombre.charAt(0)}. ${apellido}` : docentes[0]
-  return docentes.length > 1 ? `${primero} +${docentes.length - 1}` : primero
+  return docentes
+    .map((docente) => {
+      const [apellido, nombre] = docente.split(', ')
+      return nombre ? `${nombre.charAt(0)}. ${apellido}` : docente
+    })
+    .join(' · ')
 }
 
 const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']

@@ -403,7 +403,7 @@ describe('abreviarDocentes', () => {
   it('abrevia el nombre y cuenta los demás docentes', () => {
     expect(abreviarDocentes([])).toBeNull()
     expect(abreviarDocentes(['Pérez, Ana'])).toBe('A. Pérez')
-    expect(abreviarDocentes(['Pérez, Ana', 'Gómez, Luis'])).toBe('A. Pérez +1')
+    expect(abreviarDocentes(['Pérez, Ana', 'Gómez, Luis'])).toBe('A. Pérez · L. Gómez')
     expect(abreviarDocentes(['L123'])).toBe('L123')
   })
 })

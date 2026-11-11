@@ -63,7 +63,6 @@ export function MateriaCursoCard({
   const accionesDocentes =
     puedeEditar && onAsignarDocente && onEditarAsignacion && onQuitarAsignacion
       ? {
-          onAgregar: () => onAsignarDocente(materiaCurso),
           onEditar: onEditarAsignacion,
           onQuitar: onQuitarAsignacion,
         }
@@ -85,6 +84,14 @@ export function MateriaCursoCard({
           </div>
           {puedeEditar && (
             <div className="-mt-1 -mr-1.5 flex shrink-0 items-center">
+              {docentes.length > 0 && onAsignarDocente && (
+                <BotonIcono
+                  etiqueta="Agregar docente"
+                  onClick={() => onAsignarDocente(materiaCurso)}
+                >
+                  <UserPlusIcon />
+                </BotonIcono>
+              )}
               <BotonIcono
                 etiqueta={`Editar ${tipo} y horario`}
                 onClick={() => onEditar(materiaCurso)}

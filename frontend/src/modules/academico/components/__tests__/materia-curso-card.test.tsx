@@ -134,7 +134,7 @@ describe('MateriaCursoCard', () => {
     expect(screen.getByRole('button', { name: 'Eliminar taller' })).toBeInTheDocument()
   })
 
-  it('los docentes abren un menú para cambiar, quitar o agregar', async () => {
+  it('los docentes abren un menú para cambiar o quitar, y un botón aparte agrega', async () => {
     const onEditarAsignacion = vi.fn()
     const onQuitarAsignacion = vi.fn()
     const onAsignarDocente = vi.fn()
@@ -159,8 +159,7 @@ describe('MateriaCursoCard', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Eliminar' }))
     expect(onQuitarAsignacion).toHaveBeenCalledWith(docentePerez.asignacion)
 
-    await userEvent.click(screen.getByRole('button', { name: 'Docentes de Lengua' }))
-    await userEvent.click(await screen.findByRole('button', { name: 'Agregar docente' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar docente' }))
     expect(onAsignarDocente).toHaveBeenCalledWith(materiaCurso)
   })
 })

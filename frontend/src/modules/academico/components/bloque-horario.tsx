@@ -108,7 +108,7 @@ export function BloqueHorario({
   const rango = rangoLegible(franja)
   const tipo = materiaCurso.materia_tipo === 'taller' ? 'taller' : 'materia'
   const nombresDocentes = docentes.map((docente) => docente.nombre)
-  const textoDocentes = docentes.length > 0 ? nombresDocentes.join(', ') : 'Sin docente asignado'
+  const textoDocentes = docentes.length > 0 ? nombresDocentes.join('; ') : 'Sin docente asignado'
   const minutos = aMinutos(franja.hora_fin) - aMinutos(franja.hora_inicio)
   const inicio = franja.hora_inicio.slice(0, 5)
   const fin = franja.hora_fin.slice(0, 5)
@@ -252,6 +252,17 @@ export function BloqueHorario({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
+                {docentes.length > 0 && onAsignarDocente && (
+                  <BotonIcono
+                    etiqueta="Agregar docente"
+                    onClick={() => {
+                      cerrar()
+                      onAsignarDocente()
+                    }}
+                  >
+                    <UserPlusIcon />
+                  </BotonIcono>
+                )}
                 <BotonIcono
                   etiqueta={`Editar ${tipo} y horario`}
                   onClick={() => {
@@ -290,7 +301,6 @@ export function BloqueHorario({
                 acciones={
                   puedeEditar && onAsignarDocente && onEditarAsignacion && onQuitarAsignacion
                     ? {
-                        onAgregar: onAsignarDocente,
                         onEditar: onEditarAsignacion,
                         onQuitar: onQuitarAsignacion,
                       }

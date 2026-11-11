@@ -1,4 +1,4 @@
-import { EllipsisVerticalIcon, PencilIcon, Trash2Icon, UserIcon, UserPlusIcon } from 'lucide-react'
+import { EllipsisVerticalIcon, PencilIcon, Trash2Icon, UserIcon } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -30,7 +30,6 @@ function ItemMenu({
 }
 
 export interface AccionesDocentes {
-  onAgregar: () => void
   onEditar: (asignacion: AsignacionDocente) => void
   onQuitar: (asignacion: AsignacionDocente) => void
 }
@@ -45,19 +44,38 @@ interface DocentesMateriaProps {
   alElegir?: () => void
 }
 
-/** Nombres de los docentes de una materia, con un menú para agregar, editar o eliminar. */
+/** Un docente por línea (su nombre ya lleva coma), cada uno con su menú para editar o eliminar. */
 export function DocentesMateria({ docentes, materia, acciones, alElegir }: DocentesMateriaProps) {
-  const [abierto, setAbierto] = useState(false)
-  const nombres = docentes.map((docente) => docente.nombre).join(', ')
+  return (
+    <ul className="grid w-fit max-w-full grid-cols-[auto_minmax(0,auto)_auto] gap-x-2 gap-y-1">
+      {docentes.map((docente) => (
+        <DocenteFila
+          key={docente.asignacion.id}
+          docente={docente}
+          etiqueta={
+            docentes.length > 1 ? `Opciones de ${docente.nombre}` : `Docentes de ${materia}`
+          }
+          acciones={acciones}
+          alElegir={alElegir}
+        />
+      ))}
+    </ul>
+  )
+}
 
-  if (!acciones) {
-    return (
-      <div className="flex items-start gap-2 text-sm text-texto-2">
-        <UserIcon className="mt-0.5 size-4 shrink-0 text-texto-3" aria-hidden="true" />
-        <p>{nombres}</p>
-      </div>
-    )
-  }
+function DocenteFila({
+  docente,
+  etiqueta,
+  acciones,
+  alElegir,
+}: {
+  docente: DocenteDeMateria
+  etiqueta: string
+  acciones?: AccionesDocentes
+  alElegir?: () => void
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const { asignacion, nombre } = docente
 
   function elegir(accion: () => void) {
     setAbierto(false)
@@ -66,45 +84,42 @@ export function DocentesMateria({ docentes, materia, acciones, alElegir }: Docen
   }
 
   return (
-    <Popover open={abierto} onOpenChange={setAbierto}>
-      <div className="flex items-start gap-2 text-sm text-texto-2">
-        <UserIcon className="mt-0.5 size-4 shrink-0 text-texto-3" aria-hidden="true" />
-        <p className="min-w-0">{nombres}</p>
-        <PopoverTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="-my-1 shrink-0"
-            aria-label={`Docentes de ${materia}`}
-          >
-            <EllipsisVerticalIcon />
-          </Button>
-        </PopoverTrigger>
-      </div>
-      <PopoverContent align="start" className="w-56 gap-0.5 p-1.5">
-        <ItemMenu icono={<UserPlusIcon />} onClick={() => elegir(acciones.onAgregar)}>
-          Agregar docente
-        </ItemMenu>
-        {docentes.map(({ asignacion, nombre }) => (
-          <ItemMenu
-            key={asignacion.id}
-            icono={<PencilIcon />}
-            onClick={() => elegir(() => acciones.onEditar(asignacion))}
-          >
-            {docentes.length > 1 ? `Editar a ${nombre}` : 'Editar'}
-          </ItemMenu>
-        ))}
-        {docentes.map(({ asignacion, nombre }) => (
-          <ItemMenu
-            key={asignacion.id}
-            icono={<Trash2Icon />}
-            peligro
-            onClick={() => elegir(() => acciones.onQuitar(asignacion))}
-          >
-            {docentes.length > 1 ? `Eliminar a ${nombre}` : 'Eliminar'}
-          </ItemMenu>
-        ))}
-      </PopoverContent>
-    </Popover>
+    <li className="contents">
+      <Popover open={abierto} onOpenChange={setAbierto}>
+        <div className="contents text-sm text-texto-2">
+          <UserIcon className="mt-0.5 size-4 shrink-0 text-texto-3" aria-hidden="true" />
+          <span className="min-w-0 text-sm text-texto-2">{nombre}</span>
+          {acciones && (
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="-my-1 shrink-0"
+                aria-label={etiqueta}
+              >
+                <EllipsisVerticalIcon />
+              </Button>
+            </PopoverTrigger>
+          )}
+        </div>
+        {acciones && (
+          <PopoverContent align="start" className="w-44 gap-0.5 p-1.5">
+            <ItemMenu
+              icono={<PencilIcon />}
+              onClick={() => elegir(() => acciones.onEditar(asignacion))}
+            >
+              Editar
+            </ItemMenu>
+            <ItemMenu
+              icono={<Trash2Icon />}
+              peligro
+              onClick={() => elegir(() => acciones.onQuitar(asignacion))}
+            >
+              Eliminar
+            </ItemMenu>
+          </PopoverContent>
+        )}
+      </Popover>
+    </li>
   )
 }
