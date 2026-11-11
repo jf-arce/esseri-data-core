@@ -68,7 +68,7 @@ describe('AsignacionDialog con la materia ya elegida', () => {
     expect(screen.queryByText('División')).not.toBeInTheDocument()
     expect(screen.queryByText('Materias')).not.toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('combobox'))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Docente' }))
     await userEvent.click(await screen.findByRole('option', { name: /Ana Pérez/ }))
     await userEvent.click(screen.getByRole('button', { name: 'Asignar materias' }))
 

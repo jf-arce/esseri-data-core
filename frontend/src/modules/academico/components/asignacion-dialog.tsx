@@ -1,8 +1,17 @@
+import { BookOpen, CalendarDays, Check, ChevronDown, User, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import {
   Dialog,
   DialogContent,
@@ -12,8 +21,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Field, FieldLabel } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -28,6 +37,7 @@ import {
 } from '@/modules/academico/services/asignaciones-docentes'
 import type { AsignacionDocente, Division, Docente, MateriaCurso } from '@/modules/academico/types'
 import { formatearHorarios } from '@/modules/academico/utils'
+import { cn } from '@/lib/utils'
 
 type ModoAsignacion = 'crear' | 'editar' | 'eliminar'
 
@@ -42,6 +52,8 @@ interface AsignacionDialogProps {
   cicloActual: string
   /** Materia ya elegida (al asignar desde su card): no se vuelve a pedir división ni materias. */
   preseleccion?: { divisionId: string; materiaCursoId: string }
+  /** Docentes que no se ofrecen (ya asignados a la materia); el actual se mantiene al editar. */
+  docentesExcluidos?: string[]
   onExito: () => void
 }
 
@@ -57,6 +69,60 @@ function etiquetaMateriaCurso(materiaCurso: MateriaCurso): string {
   return `${materiaCurso.materia_nombre ?? '—'}${tipo}`
 }
 
+interface DocenteComboboxProps {
+  docentes: Docente[]
+  value: string
+  onChange: (id: string) => void
+}
+
+function DocenteCombobox({ docentes, value, onChange }: DocenteComboboxProps) {
+  const [abierto, setAbierto] = useState(false)
+  const seleccionado = docentes.find((docente) => docente.id === value)
+
+  return (
+    <Popover open={abierto} onOpenChange={setAbierto}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          role="combobox"
+          aria-label="Docente"
+          aria-expanded={abierto}
+          className="flex h-9 w-full cursor-pointer items-center gap-1.5 rounded-lg border border-borde bg-superficie px-3 text-sm whitespace-nowrap transition-colors outline-none"
+        >
+          <User className="size-4 shrink-0 text-texto-3" />
+          <span className={cn('mr-auto truncate', !seleccionado && 'text-desactivado')}>
+            {seleccionado ? nombreDocente(seleccionado) : 'Seleccionar docente'}
+          </span>
+          <ChevronDown className="size-4 shrink-0 text-texto-3" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-(--radix-popover-trigger-width) p-0">
+        <Command>
+          <CommandInput placeholder="Buscar docente…" />
+          <CommandList>
+            <CommandEmpty>No se encontraron docentes.</CommandEmpty>
+            <CommandGroup>
+              {docentes.map((docente) => (
+                <CommandItem
+                  key={docente.id}
+                  value={nombreDocente(docente)}
+                  onSelect={() => {
+                    onChange(docente.id)
+                    setAbierto(false)
+                  }}
+                >
+                  <span className="truncate">{nombreDocente(docente)}</span>
+                  {docente.id === value && <Check className="ml-auto size-4" />}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 export function AsignacionDialog({
   open,
   onOpenChange,
@@ -67,6 +133,7 @@ export function AsignacionDialog({
   divisiones,
   cicloActual,
   preseleccion,
+  docentesExcluidos = [],
   onExito,
 }: AsignacionDialogProps) {
   const esEdicion = modo === 'editar'
@@ -199,6 +266,11 @@ export function AsignacionDialog({
     ? materiasCurso.find((materiaCurso) => materiaCurso.id === preseleccion.materiaCursoId)
     : undefined
 
+  const anioBase = Number(cicloActual)
+  const ciclosDisponibles = Array.from(new Set([cicloActual, String(anioBase + 1), cicloLectivo]))
+    .filter(Boolean)
+    .sort()
+
   const puedeGuardar = esEdicion
     ? Boolean(cicloLectivo.trim() && docenteId && materiaCursoId)
     : Boolean(cicloLectivo.trim() && docenteId && divisionId && materiasSeleccionadas.length > 0)
@@ -216,7 +288,7 @@ export function AsignacionDialog({
             !esEdicion && (
               <DialogDescription>
                 {preseleccion
-                  ? `Elegí el docente de ${materiaPreseleccionada ? etiquetaMateriaCurso(materiaPreseleccionada) : 'la materia'} para el ciclo.`
+                  ? `Elegí el docente de ${materiaPreseleccionada ? etiquetaMateriaCurso(materiaPreseleccionada) : 'la materia'} para el ciclo ${cicloActual}.`
                   : 'Elegí un docente, una división y una o más materias para asignarle en el ciclo.'}
               </DialogDescription>
             )
@@ -224,40 +296,56 @@ export function AsignacionDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
-          <Field>
-            <FieldLabel htmlFor="asignacion-ciclo">Ciclo lectivo</FieldLabel>
-            <Input
-              id="asignacion-ciclo"
-              value={cicloLectivo}
-              onChange={(evento) => setCicloLectivo(evento.target.value)}
-              placeholder="Ej: 2026"
-            />
-          </Field>
+          {!preseleccion && (
+            <Field>
+              <FieldLabel>Ciclo lectivo</FieldLabel>
+              <Select value={cicloLectivo} onValueChange={setCicloLectivo}>
+                <SelectTrigger
+                  aria-label="Ciclo lectivo"
+                  className="w-full *:data-[slot=select-value]:mr-auto"
+                >
+                  <CalendarDays className="size-4 text-texto-3" />
+                  <SelectValue placeholder="Seleccionar ciclo" />
+                </SelectTrigger>
+                <SelectContent
+                  position="popper"
+                  align="start"
+                  className="w-(--radix-select-trigger-width)"
+                >
+                  {ciclosDisponibles.map((ciclo) => (
+                    <SelectItem key={ciclo} value={ciclo}>
+                      {ciclo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
 
           <Field>
             <FieldLabel>Docente</FieldLabel>
-            <Select value={docenteId} onValueChange={setDocenteId}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Seleccionar docente" />
-              </SelectTrigger>
-              <SelectContent>
-                {docentes.map((docente) => (
-                  <SelectItem key={docente.id} value={docente.id}>
-                    {nombreDocente(docente)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <DocenteCombobox
+              docentes={docentes.filter(
+                (docente) => docente.id === docenteId || !docentesExcluidos.includes(docente.id),
+              )}
+              value={docenteId}
+              onChange={setDocenteId}
+            />
           </Field>
 
           {!preseleccion && (
             <Field>
               <FieldLabel>División</FieldLabel>
               <Select value={divisionId} onValueChange={cambiarDivision}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full *:data-[slot=select-value]:mr-auto">
+                  <Users className="size-4 text-texto-3" />
                   <SelectValue placeholder="Seleccionar división" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent
+                  position="popper"
+                  align="start"
+                  className="w-(--radix-select-trigger-width)"
+                >
                   {divisiones.map((division) => (
                     <SelectItem key={division.id} value={division.id}>
                       {division.nombre}
@@ -276,14 +364,19 @@ export function AsignacionDialog({
                 onValueChange={setMateriaCursoId}
                 disabled={!divisionId}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full *:data-[slot=select-value]:mr-auto">
+                  <BookOpen className="size-4 text-texto-3" />
                   <SelectValue
                     placeholder={
                       !divisionId ? 'Seleccioná primero una división' : 'Seleccionar materia'
                     }
                   />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent
+                  position="popper"
+                  align="start"
+                  className="w-(--radix-select-trigger-width)"
+                >
                   {materiasFiltradas.map((materiaCurso) => (
                     <SelectItem key={materiaCurso.id} value={materiaCurso.id}>
                       {etiquetaMateriaCurso(materiaCurso)} ·{' '}
