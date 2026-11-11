@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import type { Anio, Division, TipoAsistencia } from '@/modules/academico/types'
+import type { Anio, Division, MateriaCurso, TipoAsistencia } from '@/modules/academico/types'
 
 export const MOTIVOS_JUSTIFICACION = [
   { value: 'enfermedad', label: 'Enfermedad' },
@@ -463,4 +463,73 @@ export function letraDivision(anio: Anio, division: Division): string {
 
 export function textoAlumnos(cantidad: number): string {
   return `${cantidad} ${cantidad === 1 ? 'alumno' : 'alumnos'}`
+}
+
+/** Nombres de las otras materias de la división cuyas franjas se pisan con las de esta. */
+export function materiasEnConflicto(
+  materiaCurso: MateriaCurso,
+  materiasCurso: MateriaCurso[],
+): string[] {
+  const nombres = materiasCurso
+    .filter(
+      (otra) =>
+        otra.id !== materiaCurso.id &&
+        materiaCurso.horarios.some((franja) =>
+          otra.horarios.some((franjaOtra) => franjasSeSuperponen(franja, franjaOtra)),
+        ),
+    )
+    .map((otra) => otra.materia_nombre ?? 'otra materia')
+  return [...new Set(nombres)]
+}
+
+export type FiltroTipoMateria = 'todos' | 'materia' | 'taller'
+export type OrdenMaterias = 'nombre' | 'dia' | 'sin-docente'
+
+export type FiltroMaterias = {
+  texto: string
+  tipo: FiltroTipoMateria
+  orden: OrdenMaterias
+}
+
+export const FILTRO_MATERIAS_INICIAL: FiltroMaterias = { texto: '', tipo: 'todos', orden: 'nombre' }
+
+function nombreMateria(materiaCurso: MateriaCurso): string {
+  return materiaCurso.materia_nombre ?? ''
+}
+
+// Primera franja de la semana como minutos desde el lunes 00:00; sin horario va al final.
+function primeraFranja(materiaCurso: MateriaCurso): number {
+  const minutos = materiaCurso.horarios.map(
+    (horario) => horario.dia_semana * 24 * 60 + aMinutos(horario.hora_inicio),
+  )
+  return minutos.length > 0 ? Math.min(...minutos) : Number.POSITIVE_INFINITY
+}
+
+/** Filtra por texto y tipo, y ordena por nombre, primer día de clase o sin docente primero. */
+export function filtrarYOrdenarMaterias(
+  materiasCurso: MateriaCurso[],
+  filtro: FiltroMaterias,
+  cantidadDocentes: (materiaCurso: MateriaCurso) => number,
+): MateriaCurso[] {
+  const texto = normalizarTexto(filtro.texto)
+  const porNombre = (a: MateriaCurso, b: MateriaCurso) =>
+    nombreMateria(a).localeCompare(nombreMateria(b), 'es')
+
+  return materiasCurso
+    .filter(
+      (materiaCurso) =>
+        (filtro.tipo === 'todos' || materiaCurso.materia_tipo === filtro.tipo) &&
+        normalizarTexto(nombreMateria(materiaCurso)).includes(texto),
+    )
+    .sort((a, b) => {
+      if (filtro.orden === 'dia') {
+        const diferencia = primeraFranja(a) - primeraFranja(b)
+        if (diferencia !== 0 && !Number.isNaN(diferencia)) return diferencia
+      }
+      if (filtro.orden === 'sin-docente') {
+        const diferencia = Number(cantidadDocentes(a) > 0) - Number(cantidadDocentes(b) > 0)
+        if (diferencia !== 0) return diferencia
+      }
+      return porNombre(a, b)
+    })
 }

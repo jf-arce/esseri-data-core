@@ -10,11 +10,9 @@ import { AbmDialog } from '@/modules/academico/components/abm-dialog'
 import { ContenidoSkeleton } from '@/modules/academico/components/contenido-skeleton'
 import { EstadoVacio } from '@/modules/academico/components/estado-vacio'
 import { HorarioSemanal, type HuecoHorario } from '@/modules/academico/components/horario-semanal'
-import {
-  AgregarMateriaCard,
-  MateriaCursoCard,
-} from '@/modules/academico/components/materia-curso-card'
+import { AsignacionDialog } from '@/modules/academico/components/asignacion-dialog'
 import { MateriaCursoDialog } from '@/modules/academico/components/materia-curso-dialog'
+import { MateriasVista } from '@/modules/academico/components/materias-vista'
 import {
   AccionesSelector,
   SelectorEstructura,
@@ -23,7 +21,13 @@ import { VistaTabs, type Vista } from '@/modules/academico/components/vista-tabs
 import { useEstructuraAcademica } from '@/modules/academico/hooks/use-estructura-academica'
 import { useSeleccionEstructura } from '@/modules/academico/hooks/use-seleccion-estructura'
 import type { Anio, Division, MateriaCurso } from '@/modules/academico/types'
-import { etiquetaDivision, letraDivision, textoAlumnos } from '@/modules/academico/utils'
+import {
+  etiquetaDivision,
+  FILTRO_MATERIAS_INICIAL,
+  letraDivision,
+  textoAlumnos,
+  type FiltroMaterias,
+} from '@/modules/academico/utils'
 import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
@@ -47,6 +51,10 @@ export function EstructuraAcademicaPage() {
   const [vista, setVista] = useState<Vista>('materias')
   const [dialogAbm, setDialogAbm] = useState<DialogAbm | null>(null)
   const [dialogMateria, setDialogMateria] = useState<DialogMateria | null>(null)
+  const [asignandoA, setAsignandoA] = useState<MateriaCurso | null>(null)
+  const [resaltadaId, setResaltadaId] = useState<string | null>(null)
+  // Vive acá y no en la vista: al recargar la división el contenido se reemplaza por el skeleton.
+  const [filtroMaterias, setFiltroMaterias] = useState<FiltroMaterias>(FILTRO_MATERIAS_INICIAL)
 
   const cicloActual = String(new Date().getFullYear())
   const docentesPorId = new Map(estructura.docentes.map((docente) => [docente.id, docente]))
@@ -79,6 +87,22 @@ export function EstructuraAcademicaPage() {
     estructura.recargarAnios()
     estructura.recargarAnio()
     estructura.recargarDivision()
+  }
+
+  function alAsignarDocente() {
+    estructura.recargarAnio()
+    estructura.recargarDivision()
+  }
+
+  // Al volver a la lista, el resaltado no tiene que quedar escondido esperando en el horario.
+  function cambiarVista(nueva: Vista) {
+    if (nueva !== 'horario') setResaltadaId(null)
+    setVista(nueva)
+  }
+
+  function verEnHorario(materiaCurso: MateriaCurso) {
+    setResaltadaId(materiaCurso.id)
+    setVista('horario')
   }
 
   function abrirMateria(hueco?: HuecoHorario) {
@@ -164,7 +188,7 @@ export function EstructuraAcademicaPage() {
           </div>
         </div>
 
-        <VistaTabs vista={vista} onChange={setVista} />
+        <VistaTabs vista={vista} onChange={cambiarVista} />
 
         {estructura.materiasCurso.length === 0 ? (
           <EstadoVacio
@@ -178,19 +202,18 @@ export function EstructuraAcademicaPage() {
             onAccion={() => abrirMateria()}
           />
         ) : vista === 'materias' ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {estructura.materiasCurso.map((materiaCurso) => (
-              <MateriaCursoCard
-                key={materiaCurso.id}
-                materiaCurso={materiaCurso}
-                docentes={docentesDe(materiaCurso)}
-                puedeEditar={puedeEditar}
-                onEditar={(item) => setDialogMateria({ modo: 'editar', item })}
-                onQuitar={(item) => setDialogMateria({ modo: 'eliminar', item })}
-              />
-            ))}
-            {puedeEditar && <AgregarMateriaCard onAgregar={() => abrirMateria()} />}
-          </div>
+          <MateriasVista
+            materiasCurso={estructura.materiasCurso}
+            docentesDe={docentesDe}
+            puedeEditar={puedeEditar}
+            filtro={filtroMaterias}
+            onFiltro={setFiltroMaterias}
+            onEditar={(item) => setDialogMateria({ modo: 'editar', item })}
+            onQuitar={(item) => setDialogMateria({ modo: 'eliminar', item })}
+            onAsignarDocente={setAsignandoA}
+            onVerHorario={verEnHorario}
+            onAgregar={() => abrirMateria()}
+          />
         ) : (
           <HorarioSemanal
             materiasCurso={estructura.materiasCurso}
@@ -198,8 +221,11 @@ export function EstructuraAcademicaPage() {
             puedeEditar={puedeEditar}
             onEditar={(item) => setDialogMateria({ modo: 'editar', item })}
             onEliminar={(item) => setDialogMateria({ modo: 'eliminar', item })}
+            onAsignarDocente={setAsignandoA}
             onAgregar={abrirMateria}
             onGuardado={estructura.recargarAnio}
+            resaltada={estructura.materiasCurso.find((m) => m.id === resaltadaId)}
+            onQuitarResaltado={() => setResaltadaId(null)}
           />
         )}
       </div>
@@ -339,6 +365,20 @@ export function EstructuraAcademicaPage() {
             setDialogAbm((actual) => (actual ? { ...actual, modo: 'eliminar' } : actual))
           }
           onExito={dialogAbm.entidad === 'anio' ? alGuardarAnio : alGuardarDivision}
+        />
+      )}
+
+      {asignandoA && division && (
+        <AsignacionDialog
+          open
+          onOpenChange={(open) => !open && setAsignandoA(null)}
+          modo="crear"
+          docentes={estructura.docentes}
+          materiasCurso={estructura.materiasCurso}
+          divisiones={estructura.divisiones}
+          cicloActual={cicloActual}
+          preseleccion={{ divisionId: division.id, materiaCursoId: asignandoA.id }}
+          onExito={alAsignarDocente}
         />
       )}
 
