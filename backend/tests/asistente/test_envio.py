@@ -23,7 +23,7 @@ from tests.asistente.conftest import (
 class TestFlujo:
     def test_herramienta_y_respuesta_final_por_sse(self, direccion, proveedor, personas):
         proveedor.respuestas = [
-            respuesta_herramientas(("indicadores_generales", {})),
+            respuesta_herramientas(("indicadores_generales", {"indicadores": ["alumnos_activos"]})),
             respuesta_texto("Hay 3 alumnos activos."),
         ]
         conversacion = nueva_conversacion(direccion)
@@ -33,7 +33,7 @@ class TestFlujo:
         assert respuesta.status_code == 200
         assert respuesta.headers["content-type"].startswith("text/event-stream")
         lista = eventos(respuesta)
-        assert nombres(lista) == ["herramienta", "tarjeta", "tarjeta", "tarjeta", "texto", "fin"]
+        assert nombres(lista) == ["herramienta", "tarjeta", "texto", "fin"]
         assert all("solicitud_id" in datos for _, datos in lista)
         assert lista[0][1]["nombre"] == "indicadores_generales"
         assert lista[-2][1]["texto"] == "Hay 3 alumnos activos."
@@ -54,7 +54,9 @@ class TestFlujo:
         assert titulo == "Hola"
 
     def test_la_firma_del_proveedor_vuelve_en_el_historial(self, direccion, proveedor):
-        primera = respuesta_herramientas(("indicadores_generales", {}))
+        primera = respuesta_herramientas(
+            ("indicadores_generales", {"indicadores": ["alumnos_activos"]})
+        )
         primera["choices"][0]["message"]["tool_calls"][0]["extra_content"] = {
             "google": {"thought_signature": "firma"}
         }
@@ -89,8 +91,8 @@ class TestFlujo:
     def test_tope_de_pasos_obliga_a_cerrar_con_texto(self, direccion, proveedor, monkeypatch):
         monkeypatch.setattr(settings, "ASISTENTE_MAX_PASOS", 2)
         proveedor.respuestas = [
-            respuesta_herramientas(("indicadores_generales", {})),
-            respuesta_herramientas(("indicadores_generales", {})),
+            respuesta_herramientas(("indicadores_generales", {"indicadores": ["alumnos_activos"]})),
+            respuesta_herramientas(("indicadores_generales", {"indicadores": ["alumnos_activos"]})),
             respuesta_texto("Cierro con lo que tengo."),
         ]
         lista = eventos(enviar(direccion, nueva_conversacion(direccion), "dame todo"))
@@ -102,7 +104,7 @@ class TestFlujo:
         monkeypatch.setattr(settings, "ASISTENTE_MAX_HERRAMIENTAS_POR_PASO", 2)
         proveedor.respuestas = [
             respuesta_herramientas(
-                ("indicadores_generales", {}),
+                ("indicadores_generales", {"indicadores": ["alumnos_activos"]}),
                 ("tareas_y_ejecuciones_pendientes", {}),
                 ("evolucion_financiera", {}),
             ),
@@ -216,7 +218,7 @@ class TestConcurrencia:
         self, db_session, direccion, proveedor, personas
     ):
         proveedor.respuestas = [
-            respuesta_herramientas(("indicadores_generales", {})),
+            respuesta_herramientas(("indicadores_generales", {"indicadores": ["alumnos_activos"]})),
             respuesta_texto("Hay alumnos."),
         ]
         usuario = db_session.scalar(select(Usuario))

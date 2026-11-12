@@ -79,13 +79,15 @@ class TestHerramientasPorRol:
         crear_cuenta(db_session, "adm@esseri.test", [MODULO_ASISTENTE, MODULO_PANEL_ADMIN])
         cliente = iniciar_sesion("adm@esseri.test")
         proveedor.respuestas = [
-            respuesta_herramientas(("indicadores_generales", {})),
+            respuesta_herramientas(
+                ("indicadores_generales", {"indicadores": ["solicitudes_compra_pendientes"]})
+            ),
             respuesta_texto("ok"),
         ]
         enviar(cliente, nueva_conversacion(cliente), "indicadores")
         resultado = json.loads(proveedor.peticiones[1]["messages"][-1]["content"])
         assert "solicitudes_compra_pendientes" not in resultado
-        assert resultado["secciones_sin_permiso"] == ["solicitudes_compra"]
+        assert resultado["secciones_sin_permiso"] == ["solicitudes_compra_pendientes"]
 
     def test_ir_a_respeta_el_permiso_de_la_pantalla(self, client, db_session, proveedor):
         crear_cuenta(db_session, "adm@esseri.test", [MODULO_ASISTENTE, MODULO_PANEL_ADMIN])

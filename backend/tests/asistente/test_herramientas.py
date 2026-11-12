@@ -143,7 +143,7 @@ class TestOtrasHerramientas:
         assert "titulo" not in json.dumps(resultado)
 
     def test_indicadores_no_usan_la_deuda_provisoria(self, direccion, proveedor, personas):
-        correr(direccion, proveedor, "indicadores_generales", {})
+        correr(direccion, proveedor, "indicadores_generales", {"indicadores": ["alumnos_activos"]})
         resultado = resultado_de_herramienta(proveedor)
         assert resultado["alumnos_activos"] == 3
         assert "deuda" not in json.dumps(resultado)
@@ -152,3 +152,19 @@ class TestOtrasHerramientas:
         # Dirección de prueba no tiene inscripciones.leer: la herramienta ni se ofrece.
         correr(direccion, proveedor, "resumen_inscripciones", {})
         assert "no tiene permiso" in resultado_de_herramienta(proveedor)["error"]
+
+    def test_indicadores_devuelve_solo_los_pedidos(self, direccion, proveedor, personas):
+        lista = correr(
+            direccion,
+            proveedor,
+            "indicadores_generales",
+            {"indicadores": ["alumnos_activos", "inasistencias_del_dia"]},
+        )
+        titulos = [d["bloque"]["titulo"] for n, d in lista if n == "tarjeta"]
+        assert titulos == ["Alumnos activos", "Inasistencias del día"]
+        resultado = resultado_de_herramienta(proveedor)
+        assert "tareas_abiertas" not in resultado
+
+    def test_indicadores_exige_al_menos_uno(self, direccion, proveedor):
+        correr(direccion, proveedor, "indicadores_generales", {"indicadores": []})
+        assert "Argumentos inválidos" in resultado_de_herramienta(proveedor)["error"]

@@ -1,8 +1,9 @@
 """Indicadores del panel y evolución financiera."""
 
 from datetime import date
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.asistente.herramientas_base import (
     ContextoHerramienta,
@@ -24,50 +25,77 @@ from src.panel_admin.service import obtener_evolucion_financiera, obtener_indica
 _FUENTE_PANEL = "Panel administrativo"
 
 
-def _indicadores_generales(contexto: ContextoHerramienta, _: BaseModel) -> ResultadoHerramienta:
+Indicador = Literal[
+    "alumnos_activos", "inasistencias_del_dia", "solicitudes_compra_pendientes", "tareas_abiertas"
+]
+
+
+class ParametrosIndicadores(BaseModel):
+    indicadores: list[Indicador] = Field(
+        min_length=1,
+        description="Solo los indicadores que pidió la persona; no pidas los que no necesites.",
+    )
+
+
+def _indicadores_generales(
+    contexto: ContextoHerramienta, parametros: ParametrosIndicadores
+) -> ResultadoHerramienta:
     # No se expone `deuda_pendiente_total`: es una cifra provisoria del panel. La deuda sale de
     # la cuenta corriente (`deuda_por_familias`).
     base = obtener_indicadores_direccion(contexto.db, fecha_hoy=contexto.hoy)
     hoy = contexto.hoy.isoformat()
-    datos: dict[str, object] = {
-        "fecha": hoy,
-        "alumnos_activos": base["alumnos_activos"],
-        "inasistencias_del_dia": base["inasistencias_hoy"],
-    }
-    bloques = [
-        bloque_kpi(
-            "Alumnos activos", base["alumnos_activos"], periodo=f"al {hoy}", fuente=_FUENTE_PANEL
-        ),
-        bloque_kpi(
-            "Inasistencias del día",
-            base["inasistencias_hoy"],
-            periodo=hoy,
-            fuente=_FUENTE_PANEL,
-        ),
-    ]
-    if contexto.tiene_permiso(PERMISO_PROVEEDORES_COMPRAS_LEER):
-        datos["solicitudes_compra_pendientes"] = base["solicitudes_compra_pendientes"]
+    pedidos = set(parametros.indicadores)
+    datos: dict[str, object] = {"fecha": hoy}
+    bloques: list[dict[str, object]] = []
+    sin_permiso: list[str] = []
+
+    if "alumnos_activos" in pedidos:
+        datos["alumnos_activos"] = base["alumnos_activos"]
         bloques.append(
             bloque_kpi(
-                "Solicitudes de compra pendientes",
-                base["solicitudes_compra_pendientes"],
+                "Alumnos activos",
+                base["alumnos_activos"],
                 periodo=f"al {hoy}",
-                fuente="Proveedores y compras",
+                fuente=_FUENTE_PANEL,
             )
         )
-    else:
-        datos["secciones_sin_permiso"] = ["solicitudes_compra"]
-    tareas = contar_tareas(contexto)
-    datos["tareas_abiertas"] = tareas.abiertas
-    datos["tareas_alcance"] = tareas.alcance
-    bloques.append(
-        bloque_kpi(
-            "Tareas abiertas" + (" (todas)" if tareas.alcance == "todas" else " (propias)"),
-            tareas.abiertas,
-            periodo=f"al {hoy}",
-            fuente="Workflows",
+    if "inasistencias_del_dia" in pedidos:
+        datos["inasistencias_del_dia"] = base["inasistencias_hoy"]
+        bloques.append(
+            bloque_kpi(
+                "Inasistencias del día",
+                base["inasistencias_hoy"],
+                periodo=hoy,
+                fuente=_FUENTE_PANEL,
+            )
         )
-    )
+    if "solicitudes_compra_pendientes" in pedidos:
+        if contexto.tiene_permiso(PERMISO_PROVEEDORES_COMPRAS_LEER):
+            datos["solicitudes_compra_pendientes"] = base["solicitudes_compra_pendientes"]
+            bloques.append(
+                bloque_kpi(
+                    "Solicitudes de compra pendientes",
+                    base["solicitudes_compra_pendientes"],
+                    periodo=f"al {hoy}",
+                    fuente="Proveedores y compras",
+                )
+            )
+        else:
+            sin_permiso.append("solicitudes_compra_pendientes")
+    if "tareas_abiertas" in pedidos:
+        tareas = contar_tareas(contexto)
+        datos["tareas_abiertas"] = tareas.abiertas
+        datos["tareas_alcance"] = tareas.alcance
+        bloques.append(
+            bloque_kpi(
+                "Tareas abiertas" + (" (todas)" if tareas.alcance == "todas" else " (propias)"),
+                tareas.abiertas,
+                periodo=f"al {hoy}",
+                fuente="Workflows",
+            )
+        )
+    if sin_permiso:
+        datos["secciones_sin_permiso"] = sin_permiso
     return ResultadoHerramienta(para_llm=datos, bloques=bloques)
 
 
@@ -103,10 +131,11 @@ HERRAMIENTAS = [
     Herramienta(
         nombre="indicadores_generales",
         descripcion=(
-            "Alumnos activos, inasistencias del día, solicitudes de compra pendientes y tareas "
-            "abiertas. No incluye deuda: para eso usá deuda_por_familias."
+            "Indicadores puntuales: alumnos activos, inasistencias del día, solicitudes de compra "
+            "pendientes y tareas abiertas. Pedí solo los que la persona preguntó. No incluye "
+            "deuda: para eso usá deuda_por_familias."
         ),
-        parametros=SinParametros,
+        parametros=ParametrosIndicadores,
         permisos=(PERMISO_PANEL_ADMIN_LEER,),
         ejecutar=_indicadores_generales,
     ),

@@ -94,6 +94,7 @@ la que devolvió la herramienta. Si no hay una herramienta para lo que piden, de
 alias que aparezcan en la conversación o en resultados de herramientas, tal cual. Nunca intentes \
 adivinar nombres, DNI, emails ni teléfonos.
 - Si una sección no vino por falta de permiso, no la completes con suposiciones.
+- Pedí a las herramientas solo lo que la pregunta necesita: cada resultado se muestra al usuario.
 - Para llevar a la persona a una pantalla o a una ficha usá la herramienta ir_a.
 
 Estilo:
