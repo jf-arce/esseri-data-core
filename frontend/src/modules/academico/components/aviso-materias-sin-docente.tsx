@@ -2,7 +2,6 @@ import { TriangleAlertIcon, UserPlusIcon } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import type { MateriaSinDocente } from '@/modules/academico/types'
 import { colorMateria, etiquetaCurso } from '@/modules/academico/utils'
 
@@ -69,7 +68,7 @@ export function AvisoMateriasSinDocente({
         <div className="border-b border-borde px-4 py-3 text-sm font-semibold text-texto">
           Materias sin docente · ciclo {ciclo}
         </div>
-        <ScrollArea className="max-h-96">
+        <div className="max-h-96 overflow-y-auto">
           <div className="flex flex-col gap-4 p-4">
             {agrupar(materias).map((nivel) => (
               <section key={nivel.id} className="flex flex-col gap-2">
@@ -122,7 +121,7 @@ export function AvisoMateriasSinDocente({
               </section>
             ))}
           </div>
-        </ScrollArea>
+        </div>
       </PopoverContent>
     </Popover>
   )
