@@ -14,6 +14,7 @@ import {
   desplazamientoEnMinutos,
   estirarFranja,
   franjaChoca,
+  mensajeChoque,
   minutosEnPosicion,
   moverFranja,
   type FranjaHoraria,
@@ -62,8 +63,6 @@ interface Opciones {
   onMover: (franja: FranjaConMateria, destino: FranjaHoraria) => void
   onCrear: (hueco: FranjaHoraria) => void
 }
-
-const MENSAJE_CHOQUE = 'Ese horario se superpone con otra materia de la división.'
 
 /**
  * Gestos de mouse y táctiles sobre la grilla: mover un bloque, estirarlo y crear uno barriendo
@@ -246,7 +245,7 @@ export function useArrastreHorario({
       alSoltar: (vista) => {
         if (!vista) return
         if (vista.choca) {
-          toast.error(MENSAJE_CHOQUE)
+          toast.error(mensajeChoque(opcionesRef.current.franjas, vista.destino, franja.id))
           return
         }
         if (!igualesFranjas(vista.destino, franja))
@@ -302,7 +301,7 @@ export function useArrastreHorario({
           return
         }
         if (vista.choca) {
-          toast.error(MENSAJE_CHOQUE)
+          toast.error(mensajeChoque(opcionesRef.current.franjas, vista.destino))
           return
         }
         opcionesRef.current.onCrear(vista.destino)

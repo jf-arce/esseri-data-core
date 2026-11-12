@@ -15,7 +15,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from src.academico.horarios_service import DIAS_SEMANA
+from src.academico.horarios_service import DIAS_SEMANA, etiqueta_division
 from src.academico.models import Division, Docente, MateriaCurso
 
 PASO_MINUTOS = 30
@@ -128,15 +128,6 @@ def _cargar_franjas(db: Session, division_id: uuid.UUID, ciclo_lectivo: str) -> 
         for horario in materia_curso.horarios
     ]
     return sorted(franjas, key=lambda f: (f.dia, f.inicio, f.materia))
-
-
-def _etiqueta_division(division: Division) -> str:
-    """Igual que `etiquetaDivision` del front: "4°B", o "4° Primera" si el nombre es largo."""
-    prefijo = f"{division.anio.numero}°"
-    if division.nombre.startswith(prefijo):
-        return division.nombre
-    separador = "" if len(division.nombre) <= 2 else " "
-    return f"{prefijo}{separador}{division.nombre}"
 
 
 def _titulo(hoja: Worksheet, etiqueta: str, ciclo_lectivo: str, columnas: int) -> None:
@@ -311,7 +302,7 @@ def generar_xlsx_horario_division(db: Session, division: Division, ciclo_lectivo
     Los docentes son los asignados en `ciclo_lectivo`, igual que en la pantalla.
     """
     franjas = _cargar_franjas(db, division.id, ciclo_lectivo)
-    etiqueta = _etiqueta_division(division)
+    etiqueta = etiqueta_division(division)
     libro = Workbook()
     _armar_grilla(libro.worksheets[0], franjas, etiqueta, ciclo_lectivo)
     _armar_listado(libro.create_sheet(), franjas, etiqueta)
@@ -333,5 +324,5 @@ def nombre_archivo_horario(division: Division, ciclo_lectivo: str) -> str:
     # Algunos niveles ya se llaman "Nivel Primario": no repetir la palabra.
     if nivel != "nivel" and not nivel.startswith("nivel_"):
         nivel = f"nivel_{nivel}"
-    partes = [nivel, _slug(_etiqueta_division(division)), _slug(ciclo_lectivo)]
+    partes = [nivel, _slug(etiqueta_division(division)), _slug(ciclo_lectivo)]
     return f"horario_semanal_{'_'.join(partes)}.xlsx"

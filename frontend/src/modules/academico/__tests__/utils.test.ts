@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { MateriaCurso } from '@/modules/academico/types'
 import {
   abreviarDocentes,
   aMinutos,
@@ -24,6 +25,7 @@ import {
   formatearHorario,
   formatearHorarios,
   franjaChoca,
+  mensajeChoque,
   franjasSeSuperponen,
   normalizarTexto,
   primeraFranjaLibre,
@@ -100,7 +102,7 @@ describe('buscarConflictos', () => {
     )
     expect(conflictos).toHaveLength(1)
     expect(describirConflicto(conflictos[0])).toBe(
-      'La franja 1 se superpone con Matemática (Lun 08:00–09:00).',
+      'El horario 1 se pisa con Matemática (Lun 08:00–09:00) en este curso.',
     )
   })
 
@@ -396,6 +398,33 @@ describe('franjaChoca', () => {
 
   it('ignora la franja propia', () => {
     expect(franjaChoca(visibles, franja(1, '09:30', '10:30'), 'a')).toBe(false)
+  })
+})
+
+describe('mensajeChoque', () => {
+  const lengua: MateriaCurso = {
+    id: 'mc1',
+    materia_id: 'm1',
+    materia_nombre: 'Lengua',
+    materia_tipo: 'materia',
+    materia_color: '#2563eb',
+    division_id: 'd1',
+    division_nombre: '1°A',
+    anio_id: 'a1',
+    anio_numero: 1,
+    nivel_educativo_id: 'n1',
+    nivel_educativo_nombre: 'Primario',
+    horarios: [],
+    cantidad_asignaciones: 0,
+    created_at: '',
+    updated_at: '',
+  }
+  const visibles = [{ id: 'a', ...franja(1, '09:00', '10:00'), materiaCurso: lengua }]
+
+  it('nombra la materia con la que se pisa', () => {
+    expect(mensajeChoque(visibles, franja(1, '09:30', '10:30'), 'x')).toBe(
+      'Ese horario se pisa con Lengua (Lun 09:00–10:00) en este curso.',
+    )
   })
 })
 

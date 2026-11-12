@@ -30,10 +30,7 @@ class DivisionConMaterias(AppException):
 
     status_code = 409
 
-    def __init__(
-        self,
-        message: str = "No se puede eliminar: la división tiene materias asignadas",
-    ):
+    def __init__(self, message: str):
         super().__init__(message)
 
 
@@ -42,10 +39,7 @@ class DivisionConInscripciones(AppException):
 
     status_code = 409
 
-    def __init__(
-        self,
-        message: str = "No se puede eliminar: la división tiene alumnos inscriptos",
-    ):
+    def __init__(self, message: str):
         super().__init__(message)
 
 
@@ -54,10 +48,7 @@ class MateriaCursoDuplicada(AppException):
 
     status_code = 409
 
-    def __init__(
-        self,
-        message: str = "Esa materia ya está asignada a esta división",
-    ):
+    def __init__(self, message: str):
         super().__init__(message)
 
 
@@ -66,10 +57,7 @@ class DivisionConAsignaciones(AppException):
 
     status_code = 409
 
-    def __init__(
-        self,
-        message: str = "No se puede eliminar: la división tiene asignaciones docentes",
-    ):
+    def __init__(self, message: str):
         super().__init__(message)
 
 
@@ -111,10 +99,7 @@ class MateriaConCursos(AppException):
 
     status_code = 409
 
-    def __init__(
-        self,
-        message: str = "No se puede eliminar: la materia está asignada a una o más divisiones",
-    ):
+    def __init__(self, message: str):
         super().__init__(message)
 
 
@@ -123,10 +108,7 @@ class HorarioDuplicado(AppException):
 
     status_code = 409
 
-    def __init__(
-        self,
-        message: str = "Hay franjas horarias superpuestas para esta materia",
-    ):
+    def __init__(self, message: str):
         super().__init__(message)
 
 
@@ -171,10 +153,7 @@ class DocenteConAsignaciones(AppException):
 
     status_code = 409
 
-    def __init__(
-        self,
-        message: str = "No se puede eliminar: el docente tiene asignaciones docentes",
-    ):
+    def __init__(self, message: str):
         super().__init__(message)
 
 
@@ -183,12 +162,7 @@ class AsignacionDocenteDuplicada(AppException):
 
     status_code = 409
 
-    def __init__(
-        self,
-        message: str = (
-            "Ya existe una asignación para ese docente, materia de curso y ciclo lectivo"
-        ),
-    ):
+    def __init__(self, message: str):
         super().__init__(message)
 
 

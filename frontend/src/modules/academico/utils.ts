@@ -3,6 +3,7 @@ import type {
   Anio,
   Division,
   EstadoSolicitudPeriodo,
+  FranjaConMateria,
   MateriaCurso,
   TipoAsistencia,
 } from '@/modules/academico/types'
@@ -153,6 +154,18 @@ export function franjaChoca(
   return franjas.some((otra) => otra.id !== idPropio && franjasSeSuperponen(destino, otra))
 }
 
+/** Aviso de choque que nombra la materia del curso con la que se pisa el destino. */
+export function mensajeChoque(
+  franjas: FranjaConMateria[],
+  destino: FranjaHoraria,
+  idPropio?: string,
+): string {
+  const otra = franjas.find((f) => f.id !== idPropio && franjasSeSuperponen(destino, f))
+  return otra
+    ? `Ese horario se pisa con ${otra.materiaCurso.materia_nombre} (${formatearHorario(otra)}) en este curso.`
+    : 'Ese horario se pisa con otra materia de este curso.'
+}
+
 /**
  * Primera franja de una hora (lunes a sábado, de 08:00 a 22:00) que no se pisa con `ocupadas`.
  * Si no queda ninguna libre, devuelve la primera hora del lunes.
@@ -189,8 +202,8 @@ export function buscarConflictos(
 export function describirConflicto(conflicto: ConflictoHorario): string {
   const franja = formatearHorario(conflicto.franja)
   return conflicto.materia
-    ? `La franja ${conflicto.indice + 1} se superpone con ${conflicto.materia} (${franja}).`
-    : `La franja ${conflicto.indice + 1} se superpone con otra franja de esta materia (${franja}).`
+    ? `El horario ${conflicto.indice + 1} se pisa con ${conflicto.materia} (${franja}) en este curso.`
+    : `El horario ${conflicto.indice + 1} se pisa con otro horario de esta materia (${franja}).`
 }
 
 /** El elemento con ese id, o el primero si el id falta o ya no existe. */

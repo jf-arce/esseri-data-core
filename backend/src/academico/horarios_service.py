@@ -16,6 +16,7 @@ from src.academico.exceptions import (
 from src.academico.models import (
     AsignacionDocente,
     Division,
+    Docente,
     HorarioMateriaCurso,
     Materia,
     MateriaCurso,
@@ -52,6 +53,24 @@ def franjas_se_superponen(a: Franja, b: Franja) -> bool:
     )
 
 
+def etiqueta_division(division: Division) -> str:
+    """Igual que `etiquetaDivision` del front: "4°B", o "4° Primera" si el nombre es largo."""
+    prefijo = f"{division.anio.numero}°"
+    if division.nombre.startswith(prefijo):
+        return division.nombre
+    separador = "" if len(division.nombre) <= 2 else " "
+    return f"{prefijo}{separador}{division.nombre}"
+
+
+def describir_curso(division: Division) -> str:
+    """Curso con su nivel, para que el mensaje se entienda solo: "4°B de Primario"."""
+    return f"{etiqueta_division(division)} de {division.anio.nivel_educativo.nombre}"
+
+
+def describir_docente(docente: Docente) -> str:
+    return f"{docente.persona.nombre} {docente.persona.apellido}"
+
+
 def describir_franja(franja: Franja) -> str:
     return (
         f"{DIAS_SEMANA[franja.dia_semana]} de {franja.hora_inicio:%H:%M} a {franja.hora_fin:%H:%M}"
@@ -64,7 +83,10 @@ def validar_franjas_propias(horarios: Iterable[Franja]) -> None:
     for i, franja in enumerate(lista):
         for otra in lista[i + 1 :]:
             if franjas_se_superponen(franja, otra):
-                raise HorarioDuplicado()
+                raise HorarioDuplicado(
+                    "Dos horarios de esta materia se pisan: "
+                    f"{describir_franja(franja)} y {describir_franja(otra)}"
+                )
 
 
 def validar_horarios_division(
@@ -79,19 +101,21 @@ def validar_horarios_division(
         return
 
     consulta = (
-        select(HorarioMateriaCurso, Materia.nombre)
+        select(HorarioMateriaCurso, Materia.nombre, Division)
         .join(MateriaCurso, HorarioMateriaCurso.materia_curso_id == MateriaCurso.id)
         .join(Materia, MateriaCurso.materia_id == Materia.id)
+        .join(Division, MateriaCurso.division_id == Division.id)
         .where(MateriaCurso.division_id == division_id)
     )
     if excluir_materia_curso_id is not None:
         consulta = consulta.where(MateriaCurso.id != excluir_materia_curso_id)
 
-    for existente, materia_nombre in db.execute(consulta):
+    for existente, materia_nombre, division in db.execute(consulta):
         for nueva in nuevas:
             if franjas_se_superponen(nueva, existente):
                 raise HorarioSuperpuestoEnDivision(
-                    f"Se superpone con {materia_nombre}, {describir_franja(existente)}"
+                    f"En {describir_curso(division)} ya está {materia_nombre} "
+                    f"el {describir_franja(existente)}"
                 )
 
 
@@ -113,7 +137,7 @@ def validar_horarios_docente(
         return
 
     consulta = (
-        select(HorarioMateriaCurso, Materia.nombre, Division.nombre)
+        select(HorarioMateriaCurso, Materia.nombre, Division)
         .join(MateriaCurso, HorarioMateriaCurso.materia_curso_id == MateriaCurso.id)
         .join(Materia, MateriaCurso.materia_id == Materia.id)
         .join(Division, MateriaCurso.division_id == Division.id)
@@ -128,10 +152,12 @@ def validar_horarios_docente(
     if excluir_asignacion_id is not None:
         consulta = consulta.where(AsignacionDocente.id != excluir_asignacion_id)
 
-    for existente, materia_nombre, division_nombre in db.execute(consulta):
+    for existente, materia_nombre, division in db.execute(consulta):
         for nueva in nuevas:
             if franjas_se_superponen(nueva, existente):
-                franja = describir_franja(existente)
+                docente = db.get(Docente, docente_id)
+                quien = describir_docente(docente) if docente else "El docente"
                 raise DocenteConHorarioSuperpuesto(
-                    f"Ya dicta {materia_nombre} en {division_nombre} el {franja}"
+                    f"{quien} ya dicta {materia_nombre} en {describir_curso(division)} "
+                    f"el {describir_franja(existente)}, en el ciclo {ciclo_lectivo}"
                 )
