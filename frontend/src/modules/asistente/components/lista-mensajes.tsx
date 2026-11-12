@@ -8,6 +8,7 @@ import { BloqueKpiVista } from './bloque-kpi'
 import { BloqueTablaVista } from './bloque-tabla'
 import { TarjetaRecurso } from './tarjeta-recurso'
 import { TextoConAlias } from './texto-con-alias'
+import { TextoMarkdown } from './texto-markdown'
 
 const ETIQUETA_HERRAMIENTA: Record<string, string> = {
   indicadores_generales: 'Consultando indicadores',
@@ -99,7 +100,7 @@ function MensajeDelAsistente({
         alElegir={alElegir}
         alIr={alIr}
       />
-      {mensaje.contenido !== '' && <TextoConAlias texto={mensaje.contenido} porAlias={porAlias} />}
+      {mensaje.contenido !== '' && <TextoMarkdown texto={mensaje.contenido} porAlias={porAlias} />}
       {mensaje.estado === 'parcial' && (
         <p className="text-xs text-texto-3">La respuesta quedó incompleta. Probá de nuevo.</p>
       )}

@@ -9,6 +9,7 @@ import {
   RUTAS_DE_DESTINO,
   rutaDeDestino,
   rutaDeEntidad,
+  sustituirAlias,
 } from '../utils'
 
 function permiso(codigo: string): Permiso {
@@ -165,5 +166,38 @@ describe('aliasDeMensajes', () => {
       },
     ]
     expect(aliasDeMensajes(mensajes).sort()).toEqual(['[ALUMNO:1]', '[FAMILIA:1]', '[FAMILIA:2]'])
+  })
+})
+
+describe('sustituirAlias', () => {
+  const resuelto = {
+    '[ALUMNO:1]': {
+      alias: '[ALUMNO:1]',
+      tipo: 'ALUMNO' as const,
+      entidad_id: 'abc',
+      nombre: 'Quintero, Mariana',
+    },
+  }
+
+  it('reemplaza los alias resueltos por un link a su ficha', () => {
+    expect(sustituirAlias('Mirá a [ALUMNO:1].', resuelto)).toBe(
+      'Mirá a [Quintero, Mariana](/familias-alumnos/alumnos/abc).',
+    )
+  })
+
+  it('deja una etiqueta genérica en negrita si no se resolvió', () => {
+    expect(sustituirAlias('Mirá a [FAMILIA:2].', {})).toBe('Mirá a **Familia 2**.')
+  })
+
+  it('escapa los caracteres de markdown del nombre', () => {
+    const raro = {
+      '[ALUMNO:1]': { ...resuelto['[ALUMNO:1]'], nombre: 'O]pen [x](http://evil.test)' },
+    }
+    expect(sustituirAlias('[ALUMNO:1]', raro)).toBe(
+      '[O\\]pen \\[x\\]\\(http://evil\\.test\\)](/familias-alumnos/alumnos/abc)'.replace(
+        '\\.',
+        '.',
+      ),
+    )
   })
 })

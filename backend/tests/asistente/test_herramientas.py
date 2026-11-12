@@ -168,3 +168,13 @@ class TestOtrasHerramientas:
     def test_indicadores_exige_al_menos_uno(self, direccion, proveedor):
         correr(direccion, proveedor, "indicadores_generales", {"indicadores": []})
         assert "Argumentos inválidos" in resultado_de_herramienta(proveedor)["error"]
+
+
+class TestDeudaPorFamilias:
+    def test_informa_cuantas_familias_tienen_deuda_vencida_y_el_alcance(
+        self, direccion, proveedor, personas
+    ):
+        correr(direccion, proveedor, "deuda_por_familias", {"limite": 5})
+        resultado = resultado_de_herramienta(proveedor)
+        assert resultado["familias_con_deuda_vencida"] == 0
+        assert "mes" in resultado["alcance"]

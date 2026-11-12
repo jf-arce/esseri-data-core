@@ -6,7 +6,7 @@ import {
   RUTA_REGLAS,
   RUTA_TAREAS,
 } from '@/modules/workflows/constants'
-import type { EventoSse, MensajeVisible, TipoAlias } from './types'
+import type { AliasResuelto, EventoSse, MensajeVisible, TipoAlias } from './types'
 
 // Claves de destino que el backend le ofrece al modelo (`DESTINOS` en
 // `backend/src/asistente/herramientas_navegacion.py`) y la ruta de cada una. El modelo elige una
@@ -173,4 +173,27 @@ export function aliasDeMensajes(mensajes: MensajeVisible[]): string[] {
     }
   }
   return Array.from(encontrados)
+}
+
+// --- Markdown ----------------------------------------------------------------------------------
+
+function escaparMarkdown(texto: string): string {
+  return texto.replace(/[\\`*_{}[\]()#+!|<>~-]/g, '\\$&')
+}
+
+/**
+ * Reemplaza cada alias por un link a su ficha (si ya se resolvió) o por una etiqueta genérica en
+ * negrita, listo para pasar por un renderizador de markdown. El nombre se escapa para que un
+ * apellido con caracteres especiales no rompa el formato.
+ */
+export function sustituirAlias(texto: string, porAlias: Record<string, AliasResuelto>): string {
+  return partirTextoConAlias(texto)
+    .map((trozo) => {
+      if (trozo.tipo === 'texto') return trozo.valor
+      const resuelto = porAlias[trozo.alias]
+      if (resuelto === undefined) return `**${etiquetaGenerica(trozo.alias)}**`
+      const ruta = rutaDeEntidad(resuelto.tipo, resuelto.entidad_id)
+      return `[${escaparMarkdown(resuelto.nombre)}](${ruta})`
+    })
+    .join('')
 }

@@ -53,6 +53,10 @@ def _deuda_por_familias(
         }
         for item in items
     ]
+    # Cantidad real de familias por estado de deuda: el total del filtro no lo reemplaza.
+    _, con_deuda_vencida = listar_deuda_por_familia(
+        contexto.db, fecha_referencia=contexto.hoy, pagina=1, tamanio=1, estado="vencida"
+    )
     periodo = f"al {contexto.hoy.isoformat()}"
     tabla = bloque_tabla(
         "Deuda por familia",
@@ -72,6 +76,8 @@ def _deuda_por_familias(
             "periodo": periodo,
             "fuente": _FUENTE,
             "orden": "monto vencido y, a igualdad, deuda total, de mayor a menor",
+            "alcance": "deuda acumulada a la fecha; no se puede filtrar por mes de la cuota",
+            "familias_con_deuda_vencida": con_deuda_vencida,
             "familias_con_el_filtro": total,
             "familias_devueltas": len(filas),
             "familias": filas,
