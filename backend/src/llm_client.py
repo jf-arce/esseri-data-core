@@ -63,6 +63,9 @@ class LlamadaHerramienta:
     argumentos: dict[str, Any]
     # Si el modelo mandó argumentos que no son un JSON objeto, la herramienta los rechaza.
     argumentos_validos: bool = True
+    # Datos propios del proveedor que hay que devolverle tal cual en el historial (Gemini 3
+    # exige el `thought_signature` de cada llamada, y responde 400 si falta).
+    extra_content: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -193,8 +196,13 @@ def _parsear_llamada(cruda: object) -> LlamadaHerramienta:
                 argumentos = parseado
             else:
                 validos = False
+    extra = cruda.get("extra_content")
     return LlamadaHerramienta(
-        id=llamada_id, nombre=nombre, argumentos=argumentos, argumentos_validos=validos
+        id=llamada_id,
+        nombre=nombre,
+        argumentos=argumentos,
+        argumentos_validos=validos,
+        extra_content=extra if isinstance(extra, dict) else None,
     )
 
 

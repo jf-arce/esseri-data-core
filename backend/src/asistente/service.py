@@ -58,7 +58,12 @@ from src.auth.models import Usuario
 from src.config import settings
 from src.facturacion.calendario_facturacion import fecha_operativa_argentina
 from src.fechas import ahora_utc
-from src.llm_client import IaNoConfigurada, IaNoDisponible, IaRespuestaInvalida
+from src.llm_client import (
+    IaNoConfigurada,
+    IaNoDisponible,
+    IaRespuestaInvalida,
+    LlamadaHerramienta,
+)
 
 MENSAJE_AMBIGUEDAD = (
     "Lo que escribiste coincide con más de una persona. Elegí a cuál te referís (tocá la "
@@ -486,17 +491,7 @@ def _loop_con_herramientas(
             {
                 "role": "assistant",
                 "content": respuesta.contenido or None,
-                "tool_calls": [
-                    {
-                        "id": llamada.id,
-                        "type": "function",
-                        "function": {
-                            "name": llamada.nombre,
-                            "arguments": json.dumps(llamada.argumentos, ensure_ascii=False),
-                        },
-                    }
-                    for llamada in llamadas
-                ],
+                "tool_calls": [_llamada_para_historial(llamada) for llamada in llamadas],
             }
         )
         for llamada in llamadas:
@@ -531,6 +526,20 @@ def _loop_con_herramientas(
     db.commit()
     yield _evento(solicitud_id, EVENTO_TEXTO, texto=texto)
     yield _evento(solicitud_id, EVENTO_FIN, mensaje_id=str(mensaje.id))
+
+
+def _llamada_para_historial(llamada: LlamadaHerramienta) -> dict[str, Any]:
+    entrada: dict[str, Any] = {
+        "id": llamada.id,
+        "type": "function",
+        "function": {
+            "name": llamada.nombre,
+            "arguments": json.dumps(llamada.argumentos, ensure_ascii=False),
+        },
+    }
+    if llamada.extra_content is not None:
+        entrada["extra_content"] = llamada.extra_content
+    return entrada
 
 
 def _emitir_resultado(

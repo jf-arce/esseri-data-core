@@ -41,6 +41,15 @@ class TestCompletarConHerramientas:
         assert [llamada.nombre for llamada in resultado.llamadas] == ["a", "b", "c"]
         assert "tools" not in falso.peticiones[0]
 
+    def test_conserva_extra_content_del_proveedor(self, clave_ia):
+        respuesta = respuesta_herramientas(("a", {}))
+        respuesta["choices"][0]["message"]["tool_calls"][0]["extra_content"] = {
+            "google": {"thought_signature": "firma"}
+        }
+        falso = ProveedorFalso(respuestas=[respuesta])
+        resultado = llm_client.completar_con_herramientas([], [], transport=falso.transport())
+        assert resultado.llamadas[0].extra_content == {"google": {"thought_signature": "firma"}}
+
     def test_argumentos_que_no_son_json_se_marcan_invalidos(self, clave_ia):
         falso = ProveedorFalso(respuestas=[respuesta_herramientas(("a", "no es json"))])
         resultado = llm_client.completar_con_herramientas(

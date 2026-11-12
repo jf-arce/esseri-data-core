@@ -53,6 +53,17 @@ class TestFlujo:
         titulo = direccion.get("/asistente/conversaciones").json()["items"][0]["titulo"]
         assert titulo == "Hola"
 
+    def test_la_firma_del_proveedor_vuelve_en_el_historial(self, direccion, proveedor):
+        primera = respuesta_herramientas(("indicadores_generales", {}))
+        primera["choices"][0]["message"]["tool_calls"][0]["extra_content"] = {
+            "google": {"thought_signature": "firma"}
+        }
+        proveedor.respuestas = [primera, respuesta_texto("ok")]
+        enviar(direccion, nueva_conversacion(direccion), "indicadores")
+
+        llamada = proveedor.peticiones[1]["messages"][-2]["tool_calls"][0]
+        assert llamada["extra_content"] == {"google": {"thought_signature": "firma"}}
+
     def test_argumentos_invalidos_vuelven_al_modelo_como_error(
         self, direccion, proveedor, personas
     ):
