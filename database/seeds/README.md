@@ -25,7 +25,7 @@ python ../database/seeds/06_seed_aviso_revocacion.py   # requiere 01 y 03
 
 Los cuatro son idempotentes — correrlos de nuevo no duplica filas. Después de editar `grupo-b.yaml`
 (sumar una acción a un rol, por ejemplo) alcanza con volver a correr `03_seed_grupo_b.py`: no
-toca los permisos existentes, solo agrega los `Permiso`/`RolPermiso` nuevos.
+toca los permisos existentes, solo agrega los `Permiso`/`RolPermiso` nuevos. Así se aplica, por ejemplo, `asistente.leer` (Asistente de IA) en una base ya sembrada.
 
 **Ojo:** el seed nunca *saca* un vínculo `RolPermiso`, solo agrega. Si `grupo-b.yaml` cambia
 para que un rol pierda una acción (o la cambie por una variante tipada, como pasó con

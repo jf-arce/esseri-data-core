@@ -265,6 +265,22 @@ src/
 
 Detalle completo de cada carpeta, convenciones de nombres (`kebab-case`) y criterio de testing: ver `ARCHITECTURE.md` en la raíz del repo.
 
+## Asistente de IA
+
+El asistente es un panel acoplado a la derecha, dentro de `layout/app-layout.tsx` (módulo
+`modules/asistente/`). Angosta el contenido en vez de taparlo, se abre y se cierra desde el botón
+del header o con `Ctrl/⌘ + I`, y su ancho se cambia arrastrando el borde izquierdo. El estado
+(abierto y ancho) se recuerda en `localStorage`. Solo aparece con el permiso `asistente.leer` y si
+el backend no responde 503 (`ASISTENTE_HABILITADO=false`).
+
+- Las respuestas llegan por SSE (`services/enviar-mensaje.ts`, `fetch` + `ReadableStream`).
+- El backend manda alias (`[ALUMNO:3]`) en vez de nombres; `hooks/use-alias.ts` los resuelve con
+  `POST /asistente/resolver` y `components/texto-con-alias.tsx` los muestra.
+- El modelo elige una clave de destino (`ir_a`) y `utils.ts` la convierte en una ruta validada contra
+  el menú del rol activo. Nunca se navega a una URL generada por el modelo.
+- El panel se remonta al cambiar de cuenta o de rol, lo que descarta la conversación visible, la
+  caché de alias y el stream en curso.
+
 ## Selector de color
 
 El color de las materias (Académico) se elige con [`react-colorful`](https://github.com/omgovich/react-colorful) (`HexColorPicker` y `HexColorInput`), dentro del `Popover` de shadcn: shadcn/ui no trae un color picker propio. Está fijado en una versión exacta en `package.json` y solo lo usa `modules/academico/components/selector-color.tsx`.
