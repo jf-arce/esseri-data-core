@@ -5,7 +5,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Card } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PageHeader } from '@/components/page-header'
 import { AvisoMateriasSinDocente } from '@/modules/academico/components/aviso-materias-sin-docente'
@@ -122,14 +121,6 @@ export function EstructuraAcademicaPage() {
     } catch {
       toast.error('No se pudo abrir la asignación. Intentá de nuevo.')
     }
-  }
-
-  const sinDocentePorNivel = new Map<string, number>()
-  for (const materia of sinDocente.materias) {
-    sinDocentePorNivel.set(
-      materia.nivel_educativo_id,
-      (sinDocentePorNivel.get(materia.nivel_educativo_id) ?? 0) + 1,
-    )
   }
 
   const materiaCursoIdAsignacion = dialogAsignacion
@@ -288,14 +279,6 @@ export function EstructuraAcademicaPage() {
               {estructura.niveles.map((n) => (
                 <TabsTrigger key={n.id} value={n.id}>
                   {n.nombre}
-                  {(sinDocentePorNivel.get(n.id) ?? 0) > 0 && (
-                    <Badge
-                      variant="advertencia"
-                      aria-label={`${sinDocentePorNivel.get(n.id)} materias sin docente`}
-                    >
-                      {sinDocentePorNivel.get(n.id)}
-                    </Badge>
-                  )}
                 </TabsTrigger>
               ))}
             </TabsList>
