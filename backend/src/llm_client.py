@@ -34,8 +34,14 @@ class IaNoDisponible(AppException):
 
     status_code = 502
 
-    def __init__(self, message: str = "No se pudo contactar al proveedor de IA."):
+    def __init__(
+        self,
+        message: str = "No se pudo contactar al proveedor de IA.",
+        status_proveedor: int | None = None,
+    ):
         super().__init__(message)
+        # Código HTTP con el que respondió el proveedor; `None` si ni siquiera hubo respuesta.
+        self.status_proveedor = status_proveedor
 
 
 class IaRespuestaInvalida(AppException):
@@ -117,7 +123,8 @@ def _post_chat(cuerpo: dict[str, Any], transport: httpx.BaseTransport | None) ->
     except httpx.HTTPStatusError as error:
         # Solo el código: el cuerpo del error puede traer detalles de la cuenta del proveedor.
         raise IaNoDisponible(
-            f"El proveedor de IA respondió {error.response.status_code}."
+            f"El proveedor de IA respondió {error.response.status_code}.",
+            status_proveedor=error.response.status_code,
         ) from error
 
     try:

@@ -55,8 +55,18 @@ export function AsistentePanel() {
     [navegar, permisos, rolActivo],
   )
 
-  const { conversacionId, mensajes, generando, cargando, error, enviar, nueva, abrir, cortar } =
-    useConversacion({ ruta: ubicacion.pathname, cicloLectivo: ciclo, alNavegar })
+  const {
+    conversacionId,
+    mensajes,
+    generando,
+    cargando,
+    error,
+    enviar,
+    reintentar,
+    nueva,
+    abrir,
+    cortar,
+  } = useConversacion({ ruta: ubicacion.pathname, cicloLectivo: ciclo, alNavegar })
   const { porAlias, resolver } = useAlias(conversacionId)
 
   // Rehidrata los nombres solo cuando la respuesta terminó, y solo si el rol puede ver personas.
@@ -130,7 +140,13 @@ export function AsistentePanel() {
       {cargando ? (
         <p className="flex-1 p-4 text-sm text-texto-3">Cargando la conversación…</p>
       ) : (
-        <ListaMensajes mensajes={mensajes} porAlias={porAlias} alElegir={alElegir} alIr={alIr} />
+        <ListaMensajes
+          mensajes={mensajes}
+          porAlias={porAlias}
+          alElegir={alElegir}
+          alIr={alIr}
+          alReintentar={generando ? null : reintentar}
+        />
       )}
 
       {error !== null && (

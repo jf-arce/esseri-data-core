@@ -108,4 +108,6 @@ export type MensajeVisible = {
   estado: EstadoMensaje | 'generando'
   /** Herramienta que se está consultando mientras se genera. */
   herramienta: string | null
+  /** Qué pasó y qué hacer, en lenguaje claro, si la respuesta no se pudo generar. */
+  error?: string
 }

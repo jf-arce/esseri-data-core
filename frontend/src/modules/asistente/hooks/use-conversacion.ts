@@ -26,9 +26,9 @@ export function mensajeDeError(error: unknown): string {
     if (error.status === 409) return 'El asistente todavía está respondiendo en esta conversación.'
     if (error.status === 429) return 'Llegaste al máximo de mensajes de hoy.'
     if (error.status === 503) return 'El asistente no está disponible en este momento.'
-    return error.detail ?? 'No se pudo enviar el mensaje.'
+    return error.detail ?? 'No se pudo enviar el mensaje. Probá de nuevo.'
   }
-  return 'No se pudo enviar el mensaje.'
+  return 'No pude comunicarme con el servidor. Revisá tu conexión y probá de nuevo.'
 }
 
 interface Opciones {
@@ -94,8 +94,12 @@ export function useConversacion({ ruta, cicloLectivo, alNavegar }: Opciones) {
           actualizarUltimo((m) => ({ ...m, estado: 'completo', herramienta: null }))
           break
         case 'error':
-          actualizarUltimo((m) => ({ ...m, estado: 'error', herramienta: null }))
-          setError(evento.datos.detalle)
+          actualizarUltimo((m) => ({
+            ...m,
+            estado: 'error',
+            herramienta: null,
+            error: evento.datos.detalle,
+          }))
           break
       }
     },
@@ -145,8 +149,12 @@ export function useConversacion({ ruta, cicloLectivo, alNavegar }: Opciones) {
         actualizarUltimo((m) => (m.estado === 'generando' ? { ...m, estado: 'parcial' } : m))
       } catch (causa) {
         if (abortar.signal.aborted) return
-        setError(mensajeDeError(causa))
-        actualizarUltimo((m) => ({ ...m, estado: 'error', herramienta: null }))
+        actualizarUltimo((m) => ({
+          ...m,
+          estado: 'error',
+          herramienta: null,
+          error: mensajeDeError(causa),
+        }))
       } finally {
         if (controlador.current === abortar) controlador.current = null
         setGenerando(false)
@@ -154,6 +162,14 @@ export function useConversacion({ ruta, cicloLectivo, alNavegar }: Opciones) {
     },
     [actualizarUltimo, aplicarEvento, cicloLectivo, conversacionId, generando, ruta],
   )
+
+  // Vuelve a mandar la última pregunta: el intento fallido se descarta de la pantalla.
+  const reintentar = useCallback(() => {
+    const ultimaPregunta = [...mensajes].reverse().find((m) => m.autor === 'usuario')
+    if (ultimaPregunta === undefined || generando) return
+    setMensajes((actuales) => actuales.slice(0, -2))
+    void enviar(ultimaPregunta.contenido, [])
+  }, [enviar, generando, mensajes])
 
   const nueva = useCallback(() => {
     cortar()
@@ -183,5 +199,16 @@ export function useConversacion({ ruta, cicloLectivo, alNavegar }: Opciones) {
     [cortar],
   )
 
-  return { conversacionId, mensajes, generando, cargando, error, enviar, nueva, abrir, cortar }
+  return {
+    conversacionId,
+    mensajes,
+    generando,
+    cargando,
+    error,
+    enviar,
+    reintentar,
+    nueva,
+    abrir,
+    cortar,
+  }
 }

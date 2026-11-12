@@ -111,8 +111,10 @@ it('muestra un mensaje claro cuando se llegó a la cuota', async () => {
     await result.current.enviar('hola', [])
   })
 
-  expect(result.current.error).toBe('Llegaste al máximo de mensajes de hoy.')
-  expect(result.current.mensajes[1].estado).toBe('error')
+  expect(result.current.mensajes[1]).toMatchObject({
+    estado: 'error',
+    error: 'Llegaste al máximo de mensajes de hoy.',
+  })
 })
 
 it('al abrir una conversación carga sus mensajes del servidor', async () => {
@@ -140,4 +142,33 @@ it('al abrir una conversación carga sus mensajes del servidor', async () => {
 
   expect(result.current.conversacionId).toBe('c9')
   expect(result.current.mensajes).toHaveLength(1)
+})
+
+it('reintentar vuelve a mandar la última pregunta y descarta el intento fallido', async () => {
+  const { ApiError } = await import('@/api/client')
+  enviarMensaje.mockRejectedValueOnce(new ApiError(503, null))
+  enviarMensaje.mockImplementationOnce(
+    async (
+      _id: string,
+      _pedido: unknown,
+      _signal: AbortSignal,
+      alEvento: (e: EventoSse) => void,
+    ) => {
+      alEvento({ evento: 'texto', datos: { solicitud_id: 's', texto: 'Ahora sí.' } })
+      alEvento({ evento: 'fin', datos: { solicitud_id: 's', mensaje_id: 'm' } })
+    },
+  )
+  const { result } = renderHook(() => useConversacion(opciones))
+  await act(async () => {
+    await result.current.enviar('hola', [])
+  })
+  expect(result.current.mensajes[1].estado).toBe('error')
+
+  await act(async () => {
+    result.current.reintentar()
+  })
+
+  expect(result.current.mensajes).toHaveLength(2)
+  expect(result.current.mensajes[1]).toMatchObject({ contenido: 'Ahora sí.', estado: 'completo' })
+  expect(enviarMensaje.mock.calls[1][1]).toMatchObject({ contenido: 'hola' })
 })

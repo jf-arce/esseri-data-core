@@ -1,4 +1,4 @@
-import { ArrowRightIcon, SparklesIcon } from 'lucide-react'
+import { ArrowRightIcon, RotateCcwIcon, SparklesIcon, TriangleAlertIcon } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -28,9 +28,17 @@ interface ListaMensajesProps {
   alElegir: (resuelto: AliasResuelto) => void
   /** Etiqueta y acción para un bloque de navegación, o `null` si el rol no puede ir ahí. */
   alIr: (bloque: BloqueNavegar) => (() => void) | null
+  /** Vuelve a mandar la última pregunta; `null` mientras se está generando. */
+  alReintentar: (() => void) | null
 }
 
-export function ListaMensajes({ mensajes, porAlias, alElegir, alIr }: ListaMensajesProps) {
+export function ListaMensajes({
+  mensajes,
+  porAlias,
+  alElegir,
+  alIr,
+  alReintentar,
+}: ListaMensajesProps) {
   const fin = useRef<HTMLDivElement>(null)
   useEffect(() => {
     fin.current?.scrollIntoView?.({ block: 'end' })
@@ -68,6 +76,8 @@ export function ListaMensajes({ mensajes, porAlias, alElegir, alIr }: ListaMensa
               porAlias={porAlias}
               alElegir={alElegir}
               alIr={alIr}
+              // Solo el último mensaje se puede reintentar.
+              alReintentar={mensaje === mensajes[mensajes.length - 1] ? alReintentar : null}
             />
           )}
         </li>
@@ -82,6 +92,7 @@ function MensajeDelAsistente({
   porAlias,
   alElegir,
   alIr,
+  alReintentar,
 }: Omit<ListaMensajesProps, 'mensajes'> & { mensaje: MensajeVisible }) {
   const generando = mensaje.estado === 'generando'
   return (
@@ -105,7 +116,21 @@ function MensajeDelAsistente({
         <p className="text-xs text-texto-3">La respuesta quedó incompleta. Probá de nuevo.</p>
       )}
       {mensaje.estado === 'error' && mensaje.contenido === '' && (
-        <p className="text-xs text-error">No se pudo generar la respuesta.</p>
+        <div
+          role="alert"
+          className="flex flex-col items-start gap-2 rounded-lg border border-borde bg-error-suave p-3"
+        >
+          <p className="flex items-start gap-2 text-sm text-error">
+            <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
+            <span>{mensaje.error ?? 'No se pudo generar la respuesta. Probá de nuevo.'}</span>
+          </p>
+          {alReintentar !== null && (
+            <Button type="button" size="sm" variant="secondary" onClick={alReintentar}>
+              <RotateCcwIcon data-icon="inline-start" />
+              Reintentar
+            </Button>
+          )}
+        </div>
       )}
     </div>
   )

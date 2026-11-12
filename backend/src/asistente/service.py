@@ -78,6 +78,35 @@ MENSAJE_ERROR_INESPERADO = "Ocurrió un error al generar la respuesta. Probá de
 
 logger = logging.getLogger(__name__)
 
+
+def mensaje_para_usuario(error: Exception) -> str:
+    """Texto claro para quien usa el asistente: dice qué pasó y qué hacer, sin códigos."""
+    if isinstance(error, IaNoConfigurada):
+        return "El asistente todavía no está configurado. Avisale a un administrador."
+    if isinstance(error, IaRespuestaInvalida):
+        return "No pude armar una respuesta. Probá reformular la pregunta."
+    if isinstance(error, IaNoDisponible):
+        codigo = error.status_proveedor
+        if codigo == 429:
+            return (
+                "El asistente alcanzó el límite de consultas del proveedor de IA. "
+                "Esperá un minuto y volvé a intentar."
+            )
+        if codigo == 503:
+            return (
+                "El proveedor de IA está saturado en este momento. Probá de nuevo en unos segundos."
+            )
+        if codigo in (401, 403):
+            return (
+                "El proveedor de IA rechazó las credenciales del asistente. "
+                "Avisale a un administrador."
+            )
+        if codigo is None:
+            return "No pude comunicarme con el proveedor de IA. Probá de nuevo en un momento."
+        return "El proveedor de IA no pudo responder. Probá de nuevo en un momento."
+    return MENSAJE_ERROR_INESPERADO
+
+
 _SISTEMA = """Sos el asistente de Dirección y Administración de ESSERI, una institución educativa. \
 Respondés en español rioplatense sobre los datos del sistema, usando las herramientas.
 
@@ -424,7 +453,7 @@ def generar_respuesta(
         yield from _loop_con_herramientas(db, envio, contexto, mensaje, solicitud_id, transport)
     except (IaNoConfigurada, IaNoDisponible, IaRespuestaInvalida) as error:
         _marcar_error(db, envio)
-        yield _evento(solicitud_id, EVENTO_ERROR, detalle=error.message)
+        yield _evento(solicitud_id, EVENTO_ERROR, detalle=mensaje_para_usuario(error))
     except Exception as error:
         logger.error("Falló la generación del asistente (tipo=%s)", type(error).__name__)
         _marcar_error(db, envio)

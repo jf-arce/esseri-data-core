@@ -3,6 +3,7 @@
 import uuid
 from datetime import timedelta
 
+import pytest
 from sqlalchemy import select
 
 from src.asistente import service
@@ -149,6 +150,25 @@ class TestErroresDelProveedor:
         estados = list(db_session.scalars(select(MensajeAsistente.estado)))
         assert estados == ["error", "error"]
         assert db_session.scalar(select(Conversacion.estado)) == "libre"
+
+    @pytest.mark.parametrize(
+        ("codigo", "texto"),
+        [
+            (429, "alcanzó el límite"),
+            (503, "saturado"),
+            (401, "rechazó las credenciales"),
+            (500, "no pudo responder"),
+        ],
+    )
+    def test_el_error_llega_al_usuario_en_lenguaje_claro(
+        self, direccion, proveedor, monkeypatch, codigo, texto
+    ):
+        monkeypatch.setattr(settings, "OPENAI_REINTENTOS", 0)
+        proveedor.status = codigo
+        lista = eventos(enviar(direccion, nueva_conversacion(direccion), "hola"))
+        detalle = lista[0][1]["detalle"]
+        assert texto in detalle
+        assert str(codigo) not in detalle
 
     def test_el_error_del_proveedor_no_cuenta_para_la_cuota(
         self, direccion, proveedor, monkeypatch
