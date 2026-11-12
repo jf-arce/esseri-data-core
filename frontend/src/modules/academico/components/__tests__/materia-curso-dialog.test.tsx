@@ -61,6 +61,22 @@ function abrir(props: Partial<Parameters<typeof MateriaCursoDialog>[0]> = {}) {
 }
 
 describe('MateriaCursoDialog', () => {
+  describe('eliminar', () => {
+    it('avisa cuántos docentes se desasignan y deja confirmar', () => {
+      abrir({ modo: 'eliminar', item: { ...materiaCursoCreada, cantidad_asignaciones: 2 } })
+
+      expect(screen.getByText(/van a desasignar 2 docentes/)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Eliminar materia' })).toBeEnabled()
+    })
+
+    it('no muestra el aviso si no hay docentes asignados', () => {
+      abrir({ modo: 'eliminar', item: materiaCursoCreada })
+
+      expect(screen.queryByText(/desasignar/)).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Eliminar materia' })).toBeEnabled()
+    })
+  })
+
   it('permite eliminar una franja aunque sea la única', () => {
     abrir()
     expect(screen.getByRole('button', { name: 'Eliminar franja 1' })).toBeInTheDocument()

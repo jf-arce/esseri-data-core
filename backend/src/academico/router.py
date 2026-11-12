@@ -46,7 +46,6 @@ from src.academico.exceptions import (
     InscripcionNoActiva,
     LegajoDuplicado,
     MateriaConCursos,
-    MateriaCursoConAsignaciones,
     MateriaCursoDuplicada,
     MateriaDuplicada,
 )
@@ -550,11 +549,8 @@ def eliminar_materia_curso_endpoint(
     materia_curso: MateriaCurso = Depends(obtener_materia_curso_o_404),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> None:
-    """Quitar una materia de un curso."""
-    try:
-        eliminar_materia_curso(db, materia_curso, usuario.id)
-    except MateriaCursoConAsignaciones as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+    """Quitar una materia de un curso con sus asignaciones docentes."""
+    eliminar_materia_curso(db, materia_curso, usuario.id)
 
 
 # --- Docente -----------------------------------------------------------------------------

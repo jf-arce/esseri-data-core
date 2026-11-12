@@ -28,7 +28,6 @@ from src.academico.exceptions import (
     InscripcionNoActiva,
     LegajoDuplicado,
     MateriaConCursos,
-    MateriaCursoConAsignaciones,
     MateriaCursoDuplicada,
     MateriaDuplicada,
 )
@@ -1922,15 +1921,25 @@ def actualizar_materia_curso(
 def eliminar_materia_curso(
     db: Session, materia_curso: MateriaCurso, usuario_id: uuid.UUID | None = None
 ) -> None:
-    """Quitar una materia de un curso. Valida que no tenga docentes asignados."""
-    tiene_asignaciones = (
-        db.query(AsignacionDocente)
-        .filter(AsignacionDocente.materia_curso_id == materia_curso.id)
-        .first()
-        is not None
-    )
-    if tiene_asignaciones:
-        raise MateriaCursoConAsignaciones()
+    """Quitar una materia de un curso junto con sus asignaciones docentes de todos los ciclos."""
+    asignaciones = db.scalars(
+        select(AsignacionDocente).where(AsignacionDocente.materia_curso_id == materia_curso.id)
+    ).all()
+    for asignacion in asignaciones:
+        valor_anterior = (
+            f"docente={asignacion.docente_id} materia={asignacion.materia_id} "
+            f"division={asignacion.division_id} ciclo={asignacion.ciclo_lectivo}"
+        )
+        log_audit(
+            db,
+            entidad="ASIGNACION_DOCENTE",
+            entidad_id=asignacion.id,
+            campo="__eliminacion__",
+            valor_anterior=valor_anterior,
+            valor_nuevo=None,
+            usuario_id=usuario_id,
+        )
+        db.delete(asignacion)
 
     materia_curso_id = materia_curso.id
     descripcion = f"{materia_curso.materia_nombre} en {materia_curso.division_nombre}"

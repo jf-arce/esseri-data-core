@@ -118,18 +118,6 @@ class MateriaConCursos(AppException):
         super().__init__(message)
 
 
-class MateriaCursoConAsignaciones(AppException):
-    """La materia del curso tiene docentes asignados."""
-
-    status_code = 409
-
-    def __init__(
-        self,
-        message: str = "No se puede eliminar: la materia tiene docentes asignados",
-    ):
-        super().__init__(message)
-
-
 class HorarioDuplicado(AppException):
     """Hay dos franjas horarias que se pisan dentro de la misma materia del curso."""
 

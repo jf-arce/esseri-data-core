@@ -252,7 +252,7 @@ export function MateriaCursoDialog({
   }
 
   if (modo === 'eliminar') {
-    const bloqueado = (item?.cantidad_asignaciones ?? 0) > 0
+    const asignaciones = item?.cantidad_asignaciones ?? 0
     return (
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent>
@@ -266,22 +266,24 @@ export function MateriaCursoDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {bloqueado ? (
+          {asignaciones > 0 && (
             <Alert variant="advertencia">
-              <AlertTitle>No se puede eliminar todavía</AlertTitle>
+              <AlertTitle>También se desasignan docentes</AlertTitle>
               <AlertDescription>
-                Tiene {item?.cantidad_asignaciones}{' '}
-                {item?.cantidad_asignaciones === 1 ? 'docente asignado' : 'docentes asignados'}.
-                Eliminá primero esas asignaciones.
+                Se{' '}
+                {asignaciones === 1
+                  ? 'va a desasignar 1 docente'
+                  : `van a desasignar ${asignaciones} docentes`}{' '}
+                de esta materia, incluidos los de ciclos anteriores. Queda registrado en auditoría.
               </AlertDescription>
             </Alert>
-          ) : null}
+          )}
 
           <DialogFooter>
             <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={enviando}>
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={handleSubmit} disabled={enviando || bloqueado}>
+            <Button variant="destructive" onClick={handleSubmit} disabled={enviando}>
               {enviando ? 'Eliminando…' : 'Eliminar materia'}
             </Button>
           </DialogFooter>

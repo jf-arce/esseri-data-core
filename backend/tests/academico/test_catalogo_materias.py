@@ -10,12 +10,12 @@ from datetime import time
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import select
 
 from src.academico.exceptions import (
     AsignacionDocenteDuplicada,
     HorarioDuplicado,
     MateriaConCursos,
-    MateriaCursoConAsignaciones,
     MateriaCursoDuplicada,
     MateriaDuplicada,
 )
@@ -48,7 +48,7 @@ from src.academico.service import (
     listar_materias,
     listar_materias_curso,
 )
-from src.models import Persona
+from src.models import AuditLog, Persona
 
 
 def _estructura(db, *, numero=4, division="4°B"):
@@ -310,23 +310,45 @@ def test_listar_materias_curso_filtra_por_division(db_session):
     assert listado[0].division_id == division_uno.id
 
 
-def test_no_quita_materia_curso_con_docentes_asignados(db_session):
+def test_quita_materia_curso_con_sus_asignaciones_de_todos_los_ciclos(db_session):
     _, division = _estructura(db_session)
-    materia = crear_materia(db_session, MateriaCreate(nombre="Inglés", tipo="materia"))
+    ingles = crear_materia(db_session, MateriaCreate(nombre="Inglés", tipo="materia"))
+    arte = crear_materia(db_session, MateriaCreate(nombre="Arte", tipo="materia"))
     curso = crear_materia_curso(
         db_session,
-        MateriaCursoCreate(materia_id=materia.id, division_id=division.id, horarios=[_franja()]),
+        MateriaCursoCreate(materia_id=ingles.id, division_id=division.id, horarios=[_franja()]),
+    )
+    otra = crear_materia_curso(
+        db_session,
+        MateriaCursoCreate(materia_id=arte.id, division_id=division.id, horarios=[_franja(dia=2)]),
     )
     docente = _docente(db_session)
+    for ciclo in ("2026", "2027"):
+        crear_asignacion_docente(
+            db_session,
+            AsignacionDocenteCreate(
+                ciclo_lectivo=ciclo, docente_id=docente.id, materia_curso_id=curso.id
+            ),
+        )
     crear_asignacion_docente(
         db_session,
         AsignacionDocenteCreate(
-            ciclo_lectivo="2027", docente_id=docente.id, materia_curso_id=curso.id
+            ciclo_lectivo="2027", docente_id=docente.id, materia_curso_id=otra.id
         ),
     )
+    curso_id = curso.id
 
-    with pytest.raises(MateriaCursoConAsignaciones):
-        eliminar_materia_curso(db_session, curso)
+    eliminar_materia_curso(db_session, curso)
+
+    assert db_session.get(MateriaCurso, curso_id) is None
+    restantes = db_session.scalars(select(AsignacionDocente)).all()
+    assert [a.materia_curso_id for a in restantes] == [otra.id]
+    auditadas = db_session.scalars(
+        select(AuditLog).where(
+            AuditLog.entidad == "ASIGNACION_DOCENTE", AuditLog.campo == "__eliminacion__"
+        )
+    ).all()
+    assert len(auditadas) == 2
 
 
 def test_quita_materia_curso_sin_docentes(db_session):
