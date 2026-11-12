@@ -1,5 +1,5 @@
 import { apiClient } from '@/api/client'
-import type { Division, DivisionCreate, DivisionUpdate } from '../types'
+import type { Division, DivisionCreate } from '../types'
 
 export function listarDivisiones(anioId?: string) {
   const params = anioId ? `?anio_id=${anioId}` : ''
@@ -13,14 +13,6 @@ export function obtenerDivision(id: string) {
 export function crearDivision(datos: DivisionCreate) {
   return apiClient<Division>('/academico/divisiones', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(datos),
-  })
-}
-
-export function actualizarDivision(id: string, datos: DivisionUpdate) {
-  return apiClient<Division>(`/academico/divisiones/${id}`, {
-    method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(datos),
   })

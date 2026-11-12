@@ -41,4 +41,10 @@ describe('useSeleccionEstructura', () => {
     act(() => result.current.seleccion.elegir({ nivel: 'n1', anio: 'a1', division: 'd2' }))
     expect(result.current.ubicacion.search).toBe('?nivel=n1&anio=a1&division=d2')
   })
+
+  it('ir a un curso arma la selección completa y pide resaltar la materia', () => {
+    const { result } = montar('/academico?nivel=n1&anio=a1&division=d1')
+    act(() => result.current.seleccion.irA({ nivel: 'n2', anio: 'a2', division: 'd2' }, 'mc9'))
+    expect(result.current.ubicacion.search).toBe('?nivel=n2&anio=a2&division=d2&resaltar=mc9')
+  })
 })

@@ -1,4 +1,5 @@
 import { SearchIcon, XIcon } from 'lucide-react'
+import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -48,6 +49,9 @@ interface MateriasVistaProps {
   puedeEditar: boolean
   filtro: FiltroMaterias
   onFiltro: (filtro: FiltroMaterias) => void
+  /** Materia a resaltar y mostrar al entrar; `onDestacadaVista` avisa cuando ya se vio. */
+  destacadaId?: string | null
+  onDestacadaVista?: () => void
   onEditar: (materiaCurso: MateriaCurso) => void
   onQuitar: (materiaCurso: MateriaCurso) => void
   onAsignarDocente: (materiaCurso: MateriaCurso) => void
@@ -63,6 +67,8 @@ export function MateriasVista({
   puedeEditar,
   filtro,
   onFiltro,
+  destacadaId,
+  onDestacadaVista,
   onEditar,
   onQuitar,
   onAsignarDocente,
@@ -76,6 +82,17 @@ export function MateriasVista({
     filtro,
     (materiaCurso) => asignacionesDe(materiaCurso).length,
   )
+  const hayDestacada = materiasCurso.some((materiaCurso) => materiaCurso.id === destacadaId)
+
+  useEffect(() => {
+    if (!destacadaId || !hayDestacada) return
+    document
+      .getElementById(`materia-curso-${destacadaId}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const temporizador = setTimeout(() => onDestacadaVista?.(), 4000)
+    return () => clearTimeout(temporizador)
+  }, [destacadaId, hayDestacada, onDestacadaVista])
+
   const hayFiltro = filtro.texto !== '' || filtro.tipo !== 'todos'
 
   return (
@@ -150,6 +167,7 @@ export function MateriasVista({
               docentes={asignacionesDe(materiaCurso)}
               conflictos={materiasEnConflicto(materiaCurso, materiasCurso)}
               puedeEditar={puedeEditar}
+              destacada={materiaCurso.id === destacadaId}
               onEditar={onEditar}
               onQuitar={onQuitar}
               onAsignarDocente={onAsignarDocente}

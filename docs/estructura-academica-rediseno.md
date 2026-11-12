@@ -49,6 +49,20 @@ Además se corrigió un 500 que encontró la revisión: una hora con zona horari
 - `Materia.color` es obligatorio. La migración `bbaa88d6e3ea` completa las existentes con colores de una lista fija, por orden de nombre. Se agrega `react-colorful` al frontend: hace falta `npm install`.
 - La migración `e0483c8d9e9c` no tiene `downgrade` real (datos maestros: no se borran). Si en algún entorno hay niveles de más o con otro nombre, la migración los deja como están.
 
+## Ajustes posteriores
+
+Cambios pedidos por el cliente después del rediseño.
+
+- **Divisiones sin edición.** Solo se agregan y se dan de baja. El menú de la división ofrece "Agregar división" y "Dar de baja división actual", y el diálogo (`abm-dialog.tsx`) quedó solo para divisiones. `PUT /academico/divisiones/{id}` y `POST/PUT /academico/anios` siguen existiendo en el backend pero el frontend ya no los usa; falta decidir aparte si se eliminan como se hizo con niveles.
+- **Eliminar una materia del curso borra sus asignaciones.** Se eliminan la materia del curso, sus horarios y las asignaciones docentes de todos los ciclos, y cada asignación queda en auditoría (`ASIGNACION_DOCENTE`, `__eliminacion__`). El diálogo avisa cuántos docentes se desasignan. Las asistencias no se ven afectadas: son por inscripción y día.
+- **Mensajes de conflicto explícitos.** Los 409 nombran materia, curso con nivel (`4°B de Primario`) y, según el caso, docente, franja o ciclo. Se reescribieron `DocenteConHorarioSuperpuesto`, `HorarioSuperpuestoEnDivision`, `HorarioDuplicado`, `MateriaCursoDuplicada`, `AsignacionDocenteDuplicada`, `MateriaConCursos`, `DivisionCon*` y `DocenteConAsignaciones`. Ahora reciben el texto armado y no tienen mensaje por defecto. `etiqueta_division` y `describir_curso` están en `horarios_service.py` (la etiqueta del Excel usa la misma función). Las excepciones de año no se tocaron porque el frontend ya no las dispara.
+- **Aviso de materias sin docente.** Botón en el encabezado de Estructura académica con la cantidad de todo el colegio. Una materia está "sin docente" si no tiene asignaciones en el ciclo en curso (mismo criterio que la tarjeta). El popover lista por nivel y curso, lleva a la materia (`?resaltar=<materiaCursoId>`) o abre la asignación sin salir de la página. Endpoint nuevo: `GET /academico/materias-curso/sin-docente?ciclo_lectivo=` (permiso `academico.leer`). La tarjeta "Materias sin docente" de Asignaciones docentes usa el mismo dato.
+
+### Cambios de contrato
+
+- `DELETE /academico/materias-curso/{id}` ya no devuelve 409 por asignaciones: las borra. Se elimina `MateriaCursoConAsignaciones`.
+- Los textos de los 409 listados arriba cambiaron; quien compare mensajes literales tiene que actualizarse.
+
 ## Pendiente de confirmar con la escuela (no implementado)
 
 | Tema | Problema | Posible solución | Falta confirmar |

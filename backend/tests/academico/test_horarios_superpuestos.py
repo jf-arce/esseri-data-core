@@ -51,7 +51,7 @@ def test_rechaza_superposicion_total_con_otra_materia(db_session):
     with pytest.raises(HorarioSuperpuestoEnDivision) as error:
         _asignar(db_session, division, "Lengua", _franja())
 
-    assert error.value.message == "Se superpone con Matemática, lunes de 08:00 a 09:00"
+    assert error.value.message == "En 4°B de Primario ya está Matemática el lunes de 08:00 a 09:00"
 
 
 def test_rechaza_superposicion_parcial(db_session):

@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import type { Vista } from '@/modules/academico/components/vista-tabs'
 import type { MateriaCurso } from '@/modules/academico/types'
 import { FILTRO_MATERIAS_INICIAL, type FiltroMaterias } from '@/modules/academico/utils'
@@ -12,6 +13,22 @@ export function useVistaDivision() {
   const [vista, setVista] = useState<Vista>('materias')
   const [filtro, setFiltro] = useState<FiltroMaterias>(FILTRO_MATERIAS_INICIAL)
   const [resaltadasIds, setResaltadasIds] = useState<string[]>([])
+  const [params, setParams] = useSearchParams()
+
+  // Materia pedida en la URL (`?resaltar=`), por ejemplo desde el aviso de materias sin docente.
+  const destacadaId = params.get('resaltar')
+  const quitarDestacada = useCallback(
+    () =>
+      setParams(
+        (previos) => {
+          const siguientes = new URLSearchParams(previos)
+          siguientes.delete('resaltar')
+          return siguientes
+        },
+        { replace: true },
+      ),
+    [setParams],
+  )
 
   // Al volver a la lista, el resaltado no queda escondido esperando en el horario.
   function cambiarVista(nueva: Vista) {
@@ -36,6 +53,8 @@ export function useVistaDivision() {
         ids.includes(id) ? ids.filter((otro) => otro !== id) : [...ids, id],
       ),
     quitarResaltado: () => setResaltadasIds([]),
+    destacadaId,
+    quitarDestacada,
   }
 }
 

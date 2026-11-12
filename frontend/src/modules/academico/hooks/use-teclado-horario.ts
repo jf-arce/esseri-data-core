@@ -5,6 +5,7 @@ import type { FranjaConMateria } from '@/modules/academico/types'
 import {
   estirarFranja,
   franjaChoca,
+  mensajeChoque,
   moverFranja,
   type FranjaHoraria,
   type RangoGrilla,
@@ -45,7 +46,7 @@ export function useTecladoHorario({ grilla, franjas, onActivo, onCambio, onConfi
     cancelar()
     if (!actual?.franja) return
     if (actual.choca) {
-      toast.error('Ese horario se superpone con otra materia de la división.')
+      toast.error(mensajeChoque(franjas, actual.destino, actual.franja.id))
       return
     }
     onConfirmar(actual.franja, actual.destino)

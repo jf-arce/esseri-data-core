@@ -94,7 +94,9 @@ def test_bloquea_el_mismo_ciclo_con_mensaje_claro(db_session, escenario):
     with pytest.raises(DocenteConHorarioSuperpuesto) as error:
         _asignar(db_session, escenario["docente"], escenario["ingles_b"])
 
-    assert error.value.message == "Ya dicta Lengua en 2°A el lunes de 08:00 a 09:00"
+    assert error.value.message == (
+        "Julia Sosa ya dicta Lengua en 2°A de Primario el lunes de 08:00 a 09:00, en el ciclo 2026"
+    )
 
 
 def test_permite_otro_ciclo(db_session, escenario):

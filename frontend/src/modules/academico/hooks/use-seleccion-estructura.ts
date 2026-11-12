@@ -19,6 +19,7 @@ export function useSeleccionEstructura() {
     (cambios: Partial<SeleccionEstructura>) => {
       setParams((previos) => {
         const siguientes = new URLSearchParams(previos)
+        siguientes.delete('resaltar')
         const orden: (keyof SeleccionEstructura)[] = ['nivel', 'anio', 'division']
         const desde = orden.findIndex((clave) => clave in cambios)
         orden.slice(desde + 1).forEach((clave) => siguientes.delete(clave))
@@ -33,5 +34,18 @@ export function useSeleccionEstructura() {
     [setParams],
   )
 
-  return { pedida, elegir }
+  /** Va a un curso y pide resaltar una de sus materias (`?resaltar=`). */
+  const irA = useCallback(
+    (seleccion: SeleccionEstructura, materiaCursoId: string) => {
+      const siguientes = new URLSearchParams()
+      if (seleccion.nivel) siguientes.set('nivel', seleccion.nivel)
+      if (seleccion.anio) siguientes.set('anio', seleccion.anio)
+      if (seleccion.division) siguientes.set('division', seleccion.division)
+      siguientes.set('resaltar', materiaCursoId)
+      setParams(siguientes)
+    },
+    [setParams],
+  )
+
+  return { pedida, elegir, irA }
 }
