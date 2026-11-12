@@ -50,6 +50,7 @@ PASSWORD_VALIDA = "una-contrasenia-larga"
 
 app.state.facturacion_job_habilitado = False
 app.state.workflows_despacho_habilitado = False
+app.state.asistente_habilitado = False
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
 

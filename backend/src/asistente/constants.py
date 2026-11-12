@@ -20,6 +20,7 @@ BLOQUE_TEXTO = "texto"
 BLOQUE_KPI = "kpi"
 BLOQUE_TABLA = "tabla"
 BLOQUE_TARJETA = "tarjeta"
+BLOQUE_NAVEGAR = "navegar"
 
 EVENTO_HERRAMIENTA = "herramienta"
 EVENTO_TEXTO = "texto"
