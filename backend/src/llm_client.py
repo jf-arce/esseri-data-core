@@ -10,6 +10,7 @@ familias ni de alumnos, RNF-15) y el Asistente solo manda texto seudonimizado (v
 """
 
 import json
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -76,25 +77,48 @@ class RespuestaConHerramientas:
     llamadas: list[LlamadaHerramienta]
 
 
+_CODIGOS_REINTENTABLES = {429, 503}
+
+
+def _espera_de(respuesta: httpx.Response, intento: int) -> float:
+    """Respeta `Retry-After` si el proveedor lo manda; si no, espera 1x, 2x, 4x la base."""
+    base = settings.OPENAI_ESPERA_REINTENTO_SEGUNDOS * (2**intento)
+    try:
+        pedida = float(respuesta.headers.get("Retry-After", ""))
+    except ValueError:
+        return base
+    return min(max(pedida, 0.0), 30.0)
+
+
 def _post_chat(cuerpo: dict[str, Any], transport: httpx.BaseTransport | None) -> dict[str, Any]:
     if not settings.OPENAI_API_KEY:
         raise IaNoConfigurada()
 
+    respuesta: httpx.Response | None = None
+    for intento in range(settings.OPENAI_REINTENTOS + 1):
+        try:
+            with httpx.Client(
+                timeout=settings.OPENAI_TIMEOUT_SEGUNDOS, transport=transport
+            ) as cliente:
+                respuesta = cliente.post(
+                    f"{settings.OPENAI_BASE_URL.rstrip('/')}/chat/completions",
+                    json={"model": settings.OPENAI_MODEL, **cuerpo},
+                    headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+                )
+        except httpx.HTTPError as error:
+            raise IaNoDisponible() from error
+        if respuesta.status_code in _CODIGOS_REINTENTABLES and intento < settings.OPENAI_REINTENTOS:
+            time.sleep(_espera_de(respuesta, intento))
+            continue
+        break
+
     try:
-        with httpx.Client(timeout=settings.OPENAI_TIMEOUT_SEGUNDOS, transport=transport) as cliente:
-            respuesta = cliente.post(
-                f"{settings.OPENAI_BASE_URL.rstrip('/')}/chat/completions",
-                json={"model": settings.OPENAI_MODEL, **cuerpo},
-                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
-            )
-            respuesta.raise_for_status()
+        respuesta.raise_for_status()
     except httpx.HTTPStatusError as error:
         # Solo el código: el cuerpo del error puede traer detalles de la cuenta del proveedor.
         raise IaNoDisponible(
             f"El proveedor de IA respondió {error.response.status_code}."
         ) from error
-    except httpx.HTTPError as error:
-        raise IaNoDisponible() from error
 
     try:
         datos = respuesta.json()

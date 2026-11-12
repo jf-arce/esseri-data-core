@@ -94,3 +94,47 @@ def test_el_cuerpo_enviado_es_json_serializable(clave_ia):
         [{"role": "user", "content": "ñandú"}], [], transport=falso.transport()
     )
     assert json.loads(falso.texto_enviado())[0]["messages"][0]["content"] == "ñandú"
+
+
+class TestReintentos:
+    @pytest.fixture(autouse=True)
+    def sin_esperas(self, monkeypatch):
+        self.esperas: list[float] = []
+        monkeypatch.setattr(llm_client.time, "sleep", self.esperas.append)
+
+    def _transporte(self, codigos: list[int]):
+        llamadas = {"n": 0}
+
+        def manejar(request: httpx.Request) -> httpx.Response:
+            codigo = codigos[min(llamadas["n"], len(codigos) - 1)]
+            llamadas["n"] += 1
+            if codigo == 200:
+                return httpx.Response(200, json=respuesta_texto("ok"))
+            return httpx.Response(codigo, json={"error": "x"})
+
+        return httpx.MockTransport(manejar), llamadas
+
+    def test_un_429_pasajero_se_reintenta(self, clave_ia):
+        transporte, llamadas = self._transporte([429, 200])
+        resultado = llm_client.completar_con_herramientas([], [], transport=transporte)
+        assert resultado.contenido == "ok"
+        assert llamadas["n"] == 2
+        assert len(self.esperas) == 1
+
+    def test_503_tambien_se_reintenta(self, clave_ia):
+        transporte, _ = self._transporte([503, 503, 200])
+        assert llm_client.completar_con_herramientas([], [], transport=transporte).contenido == "ok"
+
+    def test_si_sigue_fallando_se_rinde_con_el_codigo(self, clave_ia):
+        transporte, llamadas = self._transporte([429])
+        with pytest.raises(IaNoDisponible) as error:
+            llm_client.completar_con_herramientas([], [], transport=transporte)
+        assert "429" in error.value.message
+        assert llamadas["n"] == llm_client.settings.OPENAI_REINTENTOS + 1
+
+    def test_un_400_no_se_reintenta(self, clave_ia):
+        transporte, llamadas = self._transporte([400])
+        with pytest.raises(IaNoDisponible):
+            llm_client.completar_con_herramientas([], [], transport=transporte)
+        assert llamadas["n"] == 1
+        assert self.esperas == []

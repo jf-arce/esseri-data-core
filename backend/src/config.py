@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     OPENAI_BASE_URL: str = "https://api.openai.com/v1"
     OPENAI_MODEL: str = "gpt-4o-mini"
     OPENAI_TIMEOUT_SEGUNDOS: float = 30.0
+    # Reintentos ante 429 (cuota) y 503 (saturación), con espera creciente.
+    OPENAI_REINTENTOS: int = 2
+    OPENAI_ESPERA_REINTENTO_SEGUNDOS: float = 4.0
 
     # IA/Sugerencias: umbrales de la detección de patrones por reglas.
     IA_MOROSIDAD_DIAS_VENCIDO: int = 30
