@@ -34,6 +34,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useMateriasSinDocente } from '@/modules/academico/hooks/use-materias-sin-docente'
 import { useAsignacionesDocentes } from '@/modules/academico/hooks/use-asignaciones-docentes'
 import { AsignacionDialog } from '@/modules/academico/components/asignacion-dialog'
 import type { AsignacionDocente } from '@/modules/academico/types'
@@ -67,6 +68,11 @@ export function AsignacionesDocentesPage() {
   useAbrirDesdeUrl('crear', () => setDialog({ open: true, modo: 'crear' }), puedeEditar)
 
   const cicloActual = String(new Date().getFullYear())
+  const sinDocente = useMateriasSinDocente(cicloActual)
+  function recargarTodo() {
+    recargar()
+    sinDocente.recargar()
+  }
 
   const ciclosDisponibles = useMemo(() => {
     const ciclos = new Set(asignaciones.map((a) => a.ciclo_lectivo))
@@ -111,10 +117,9 @@ export function AsignacionesDocentesPage() {
       activas: asignaciones.length,
       docentes: docentesActivos.size,
       divisiones: divisionesCubiertas.size,
-      materiasSinDocente: materiasCurso.filter((materia) => materia.cantidad_asignaciones === 0)
-        .length,
+      materiasSinDocente: sinDocente.materias.length,
     }
-  }, [asignaciones, materiasCurso])
+  }, [asignaciones, sinDocente.materias])
 
   if (sinPermiso) {
     return (
@@ -178,7 +183,7 @@ export function AsignacionesDocentesPage() {
           <AlertTitle>No se pudieron cargar las asignaciones</AlertTitle>
           <AlertDescription className="flex items-center justify-between gap-3">
             {error}
-            <Button variant="secondary" size="sm" onClick={recargar}>
+            <Button variant="secondary" size="sm" onClick={recargarTodo}>
               Reintentar
             </Button>
           </AlertDescription>
@@ -324,7 +329,7 @@ export function AsignacionesDocentesPage() {
           materiasCurso={materiasCurso}
           divisiones={divisiones}
           cicloActual={cicloActual}
-          onExito={recargar}
+          onExito={recargarTodo}
         />
       )}
     </div>

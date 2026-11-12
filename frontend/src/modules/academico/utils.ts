@@ -491,11 +491,13 @@ export function colorMateria(color: string | null | undefined): ColorMateria {
 // "1°A": la división ya puede venir con el año ("1°A"), solo con la letra ("A") o con un
 // nombre propio ("Sala A", que queda "1° Sala A").
 export function etiquetaDivision(anio: Anio, division: Division): string {
-  const prefijo = `${anio.numero}°`
-  if (division.nombre.startsWith(prefijo)) return division.nombre
-  return division.nombre.length <= 2
-    ? `${prefijo}${division.nombre}`
-    : `${prefijo} ${division.nombre}`
+  return etiquetaCurso(anio.numero, division.nombre)
+}
+
+export function etiquetaCurso(anioNumero: number, divisionNombre: string): string {
+  const prefijo = `${anioNumero}°`
+  if (divisionNombre.startsWith(prefijo)) return divisionNombre
+  return divisionNombre.length <= 2 ? `${prefijo}${divisionNombre}` : `${prefijo} ${divisionNombre}`
 }
 
 // Solo la letra ("A"), para el desplegable que ya tiene el año al lado.

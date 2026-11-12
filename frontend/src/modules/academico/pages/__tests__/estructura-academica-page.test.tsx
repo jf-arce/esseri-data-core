@@ -7,7 +7,10 @@ import { listarAsignaciones } from '@/modules/academico/services/asignaciones-do
 import { listarDivisiones } from '@/modules/academico/services/divisiones'
 import { listarDocentes } from '@/modules/academico/services/docentes'
 import { listarMaterias } from '@/modules/academico/services/materias'
-import { listarMateriasCurso } from '@/modules/academico/services/materias-curso'
+import {
+  listarMateriasCurso,
+  listarMateriasSinDocente,
+} from '@/modules/academico/services/materias-curso'
 import { listarNiveles } from '@/modules/academico/services/niveles-educativos'
 import { useAuthStore } from '@/store/auth-store'
 import { EstructuraAcademicaPage } from '../estructura-academica-page'
@@ -68,6 +71,7 @@ beforeEach(() => {
   vi.mocked(listarDocentes).mockResolvedValue([])
   vi.mocked(listarAsignaciones).mockResolvedValue([])
   vi.mocked(listarMateriasCurso).mockResolvedValue([])
+  vi.mocked(listarMateriasSinDocente).mockResolvedValue([])
 })
 
 describe('EstructuraAcademicaPage', () => {

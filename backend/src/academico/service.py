@@ -79,6 +79,7 @@ from src.academico.schemas import (
     MateriaCursoResponse,
     MateriaCursoUpdate,
     MateriaResponse,
+    MateriaSinDocenteResponse,
     MateriaUpdate,
     NivelEducativoResponse,
 )
@@ -1847,6 +1848,64 @@ def _query_materias_curso_con_conteos(db: Session):
         .joinedload(Anio.nivel_educativo),
         selectinload(MateriaCurso.horarios),
     )
+
+
+def listar_materias_sin_docente(db: Session, ciclo_lectivo: str) -> list[MateriaSinDocenteResponse]:
+    """Materias de curso sin ninguna asignación docente en el ciclo, de todo el colegio."""
+    con_docente = (
+        select(AsignacionDocente.id)
+        .where(
+            AsignacionDocente.materia_curso_id == MateriaCurso.id,
+            AsignacionDocente.ciclo_lectivo == ciclo_lectivo,
+        )
+        .exists()
+    )
+    filas = db.execute(
+        select(
+            MateriaCurso.id,
+            Materia.id,
+            Materia.nombre,
+            Materia.color,
+            Division.id,
+            Division.nombre,
+            Anio.id,
+            Anio.numero,
+            NivelEducativo.id,
+            NivelEducativo.nombre,
+        )
+        .join(Materia, Materia.id == MateriaCurso.materia_id)
+        .join(Division, Division.id == MateriaCurso.division_id)
+        .join(Anio, Anio.id == Division.anio_id)
+        .join(NivelEducativo, NivelEducativo.id == Anio.nivel_educativo_id)
+        .where(~con_docente)
+        .order_by(NivelEducativo.nombre, Anio.numero, Division.nombre, Materia.nombre)
+    ).all()
+    return [
+        MateriaSinDocenteResponse(
+            materia_curso_id=materia_curso_id,
+            materia_id=materia_id,
+            materia_nombre=materia_nombre,
+            materia_color=materia_color,
+            division_id=division_id,
+            division_nombre=division_nombre,
+            anio_id=anio_id,
+            anio_numero=anio_numero,
+            nivel_educativo_id=nivel_id,
+            nivel_educativo_nombre=nivel_nombre,
+        )
+        for (
+            materia_curso_id,
+            materia_id,
+            materia_nombre,
+            materia_color,
+            division_id,
+            division_nombre,
+            anio_id,
+            anio_numero,
+            nivel_id,
+            nivel_nombre,
+        ) in filas
+    ]
 
 
 def _materias_curso_con_conteos(query) -> list[MateriaCursoResponse]:

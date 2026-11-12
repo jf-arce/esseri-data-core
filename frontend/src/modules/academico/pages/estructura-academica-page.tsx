@@ -1,11 +1,14 @@
 import { ShieldAlertIcon } from 'lucide-react'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Card } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PageHeader } from '@/components/page-header'
+import { AvisoMateriasSinDocente } from '@/modules/academico/components/aviso-materias-sin-docente'
 import { AbmDialog } from '@/modules/academico/components/abm-dialog'
 import { ContenidoSkeleton } from '@/modules/academico/components/contenido-skeleton'
 import { DivisionContenido } from '@/modules/academico/components/division-contenido'
@@ -17,11 +20,24 @@ import {
   AccionesDivision,
   SelectorEstructura,
 } from '@/modules/academico/components/selector-estructura'
+import { useMateriasSinDocente } from '@/modules/academico/hooks/use-materias-sin-docente'
 import { useEstructuraAcademica } from '@/modules/academico/hooks/use-estructura-academica'
 import { useSeleccionEstructura } from '@/modules/academico/hooks/use-seleccion-estructura'
 import { useVistaDivision } from '@/modules/academico/hooks/use-vista-division'
-import type { AsignacionDocente, Division, MateriaCurso } from '@/modules/academico/types'
-import { etiquetaDivision, franjasOcupadas, letraDivision } from '@/modules/academico/utils'
+import { listarDivisiones } from '@/modules/academico/services/divisiones'
+import { listarMateriasCurso } from '@/modules/academico/services/materias-curso'
+import type {
+  AsignacionDocente,
+  Division,
+  MateriaCurso,
+  MateriaSinDocente,
+} from '@/modules/academico/types'
+import {
+  etiquetaDivision,
+  FILTRO_MATERIAS_INICIAL,
+  franjasOcupadas,
+  letraDivision,
+} from '@/modules/academico/utils'
 import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
@@ -37,17 +53,27 @@ type DialogAsignacion =
   | { modo: 'crear'; materiaCurso: MateriaCurso }
   | { modo: 'editar' | 'eliminar'; item: AsignacionDocente }
 
+// Asignación abierta desde el aviso: puede ser de un curso distinto al que se está viendo.
+type AsignacionDesdeAviso = {
+  materiaCursoId: string
+  divisionId: string
+  materiasCurso: MateriaCurso[]
+  divisiones: Division[]
+}
+
 export function EstructuraAcademicaPage() {
   const permisos = useAuthStore(permisosActivos)
   const puedeEditar = tienePermiso(permisos, PERMISO_ACADEMICO_ACTUALIZAR)
-  const { pedida, elegir } = useSeleccionEstructura()
+  const { pedida, elegir, irA } = useSeleccionEstructura()
   const estructura = useEstructuraAcademica(pedida)
   const { nivel, anio, division } = estructura
 
   const vista = useVistaDivision()
+  const sinDocente = useMateriasSinDocente(estructura.cicloActual)
   const [dialogAbm, setDialogAbm] = useState<DialogAbm | null>(null)
   const [dialogMateria, setDialogMateria] = useState<DialogMateria | null>(null)
   const [dialogAsignacion, setDialogAsignacion] = useState<DialogAsignacion | null>(null)
+  const [asignacionAviso, setAsignacionAviso] = useState<AsignacionDesdeAviso | null>(null)
 
   // Cada cambio recarga solo lo que puede haber cambiado: los años traen conteos que usan las
   // bajas, las divisiones y sus materias son del año, y los docentes son de la división.
@@ -59,11 +85,51 @@ export function EstructuraAcademicaPage() {
     estructura.recargarAnios()
     estructura.recargarAnio()
     estructura.recargarDivision()
+    sinDocente.recargar()
   }
 
   function alAsignarDocente() {
     estructura.recargarAnio()
     estructura.recargarDivision()
+    sinDocente.recargar()
+  }
+
+  function irAMateriaSinDocente(materia: MateriaSinDocente) {
+    vista.cambiarVista('materias')
+    vista.setFiltro(FILTRO_MATERIAS_INICIAL)
+    irA(
+      {
+        nivel: materia.nivel_educativo_id,
+        anio: materia.anio_id,
+        division: materia.division_id,
+      },
+      materia.materia_curso_id,
+    )
+  }
+
+  async function asignarMateriaSinDocente(materia: MateriaSinDocente) {
+    try {
+      const [materiasCurso, divisiones] = await Promise.all([
+        listarMateriasCurso({ division_id: materia.division_id }),
+        listarDivisiones(materia.anio_id),
+      ])
+      setAsignacionAviso({
+        materiaCursoId: materia.materia_curso_id,
+        divisionId: materia.division_id,
+        materiasCurso,
+        divisiones,
+      })
+    } catch {
+      toast.error('No se pudo abrir la asignación. Intentá de nuevo.')
+    }
+  }
+
+  const sinDocentePorNivel = new Map<string, number>()
+  for (const materia of sinDocente.materias) {
+    sinDocentePorNivel.set(
+      materia.nivel_educativo_id,
+      (sinDocentePorNivel.get(materia.nivel_educativo_id) ?? 0) + 1,
+    )
   }
 
   const materiaCursoIdAsignacion = dialogAsignacion
@@ -160,7 +226,18 @@ export function EstructuraAcademicaPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader titulo="Estructura académica" />
+      <PageHeader
+        titulo="Estructura académica"
+        accion={
+          <AvisoMateriasSinDocente
+            materias={sinDocente.materias}
+            ciclo={estructura.cicloActual}
+            puedeEditar={puedeEditar}
+            onIrA={irAMateriaSinDocente}
+            onAsignar={(materia) => void asignarMateriaSinDocente(materia)}
+          />
+        }
+      />
 
       {estructura.error && (
         <Alert variant="error">
@@ -211,6 +288,14 @@ export function EstructuraAcademicaPage() {
               {estructura.niveles.map((n) => (
                 <TabsTrigger key={n.id} value={n.id}>
                   {n.nombre}
+                  {(sinDocentePorNivel.get(n.id) ?? 0) > 0 && (
+                    <Badge
+                      variant="advertencia"
+                      aria-label={`${sinDocentePorNivel.get(n.id)} materias sin docente`}
+                    >
+                      {sinDocentePorNivel.get(n.id)}
+                    </Badge>
+                  )}
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -298,6 +383,23 @@ export function EstructuraAcademicaPage() {
                 : dialogAsignacion.item.materia_curso_id,
           }}
           docentesExcluidos={docentesAsignados}
+          onExito={alAsignarDocente}
+        />
+      )}
+
+      {asignacionAviso && (
+        <AsignacionDialog
+          open
+          onOpenChange={(open) => !open && setAsignacionAviso(null)}
+          modo="crear"
+          docentes={estructura.docentes}
+          materiasCurso={asignacionAviso.materiasCurso}
+          divisiones={asignacionAviso.divisiones}
+          cicloActual={estructura.cicloActual}
+          preseleccion={{
+            divisionId: asignacionAviso.divisionId,
+            materiaCursoId: asignacionAviso.materiaCursoId,
+          }}
           onExito={alAsignarDocente}
         />
       )}

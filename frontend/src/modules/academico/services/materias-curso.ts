@@ -1,5 +1,10 @@
 import { apiClient } from '@/api/client'
-import type { MateriaCurso, MateriaCursoCreate, MateriaCursoUpdate } from '../types'
+import type {
+  MateriaCurso,
+  MateriaCursoCreate,
+  MateriaCursoUpdate,
+  MateriaSinDocente,
+} from '../types'
 
 export interface FiltrosMateriaCurso {
   division_id?: string
@@ -16,6 +21,12 @@ export function listarMateriasCurso(filtros?: FiltrosMateriaCurso) {
   if (filtros?.nivel_educativo_id) params.set('nivel_educativo_id', filtros.nivel_educativo_id)
   const qs = params.toString() ? `?${params.toString()}` : ''
   return apiClient<MateriaCurso[]>(`/academico/materias-curso${qs}`)
+}
+
+export function listarMateriasSinDocente(cicloLectivo: string) {
+  return apiClient<MateriaSinDocente[]>(
+    `/academico/materias-curso/sin-docente?ciclo_lectivo=${encodeURIComponent(cicloLectivo)}`,
+  )
 }
 
 export function obtenerMateriaCurso(id: string) {

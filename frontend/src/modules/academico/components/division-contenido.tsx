@@ -87,6 +87,8 @@ export function DivisionContenido({
           puedeEditar={puedeEditar}
           filtro={vista.filtro}
           onFiltro={vista.setFiltro}
+          destacadaId={vista.destacadaId}
+          onDestacadaVista={vista.quitarDestacada}
           onEditar={acciones.editarMateria}
           onQuitar={acciones.eliminarMateria}
           onAsignarDocente={acciones.asignarDocente}

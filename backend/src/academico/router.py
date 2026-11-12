@@ -108,6 +108,7 @@ from src.academico.schemas import (
     MateriaCursoResponse,
     MateriaCursoUpdate,
     MateriaResponse,
+    MateriaSinDocenteResponse,
     MateriaUpdate,
     MiDivisionResponse,
     NivelEducativoResponse,
@@ -161,6 +162,7 @@ from src.academico.service import (
     listar_docentes,
     listar_materias,
     listar_materias_curso,
+    listar_materias_sin_docente,
     listar_niveles_educativos,
     obtener_perfil_docente,
     obtener_seguimiento_division_docente,
@@ -513,6 +515,16 @@ def listar_materias_curso_endpoint(
         materia_id=materia_id,
         nivel_educativo_id=nivel_educativo_id,
     )
+
+
+@router.get("/materias-curso/sin-docente", response_model=list[MateriaSinDocenteResponse])
+def listar_materias_sin_docente_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_ACADEMICO_LEER))],
+    ciclo_lectivo: Annotated[str | None, Query(min_length=1, max_length=20)] = None,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[MateriaSinDocenteResponse]:
+    """Materias de curso sin docente en el ciclo (por defecto, el año en curso)."""
+    return listar_materias_sin_docente(db, ciclo_lectivo or str(date.today().year))
 
 
 @router.get("/materias-curso/{materia_curso_id}", response_model=MateriaCursoResponse)

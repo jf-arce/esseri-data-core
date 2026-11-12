@@ -9,6 +9,7 @@ import {
 import { type ReactNode, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { DocentesMateria } from '@/modules/academico/components/docentes-materia'
 import { BotonIcono } from '@/modules/academico/components/boton-icono'
@@ -22,6 +23,8 @@ interface MateriaCursoCardProps {
   /** Nombres de las otras materias de la división con las que se pisa el horario. */
   conflictos?: string[]
   puedeEditar: boolean
+  /** Resalta la tarjeta (llegada desde el aviso de materias sin docente). */
+  destacada?: boolean
   onEditar: (materiaCurso: MateriaCurso) => void
   onQuitar: (materiaCurso: MateriaCurso) => void
   onAsignarDocente?: (materiaCurso: MateriaCurso) => void
@@ -48,6 +51,7 @@ export function MateriaCursoCard({
   docentes,
   conflictos = [],
   puedeEditar,
+  destacada = false,
   onEditar,
   onQuitar,
   onAsignarDocente,
@@ -75,7 +79,15 @@ export function MateriaCursoCard({
     </span>
   )
   return (
-    <Card size="sm" className="justify-between gap-3 border-l-4" style={color.estiloBorde}>
+    <Card
+      id={`materia-curso-${materiaCurso.id}`}
+      size="sm"
+      className={cn(
+        'justify-between gap-3 border-l-4 transition-shadow',
+        destacada && 'ring-2 ring-advertencia',
+      )}
+      style={color.estiloBorde}
+    >
       <div className="flex flex-col gap-2 px-(--card-spacing)">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">

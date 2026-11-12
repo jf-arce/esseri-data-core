@@ -649,6 +649,21 @@ class MateriaCursoUpdate(BaseModel):
     )
 
 
+class MateriaSinDocenteResponse(BaseModel):
+    """Materia de un curso sin docentes asignados en el ciclo consultado."""
+
+    materia_curso_id: uuid.UUID
+    materia_id: uuid.UUID
+    materia_nombre: str
+    materia_color: str
+    division_id: uuid.UUID
+    division_nombre: str
+    anio_id: uuid.UUID
+    anio_numero: int
+    nivel_educativo_id: uuid.UUID
+    nivel_educativo_nombre: str
+
+
 class MateriaCursoResponse(BaseModel):
     """Materia del catálogo asignada a un curso, con sus horarios y conteos."""
 

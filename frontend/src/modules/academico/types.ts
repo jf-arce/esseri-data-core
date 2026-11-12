@@ -93,6 +93,20 @@ export type MateriaCurso = {
 }
 
 /** Una franja de la grilla con la materia a la que pertenece. */
+/** Materia de un curso sin docente en el ciclo consultado (aviso de la estructura académica). */
+export type MateriaSinDocente = {
+  materia_curso_id: string
+  materia_id: string
+  materia_nombre: string
+  materia_color: string
+  division_id: string
+  division_nombre: string
+  anio_id: string
+  anio_numero: number
+  nivel_educativo_id: string
+  nivel_educativo_nombre: string
+}
+
 export type FranjaConMateria = HorarioMateriaCurso & { materiaCurso: MateriaCurso }
 
 export type MateriaCursoCreate = {
