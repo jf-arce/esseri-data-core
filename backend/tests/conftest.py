@@ -12,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 # cruzan módulos (ej. event_log.tipo_evento_id -> workflows). Mismo bloque que alembic/env.py.
 from src.academico import models as academico_models  # noqa: F401
 from src.academico.models import Anio, Division, NivelEducativo
+from src.asistente import models as asistente_models  # noqa: F401
 from src.auth import models as auth_models  # noqa: F401
 from src.auth import sesion_service
 from src.auth.constants import (

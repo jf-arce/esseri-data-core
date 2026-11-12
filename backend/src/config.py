@@ -42,6 +42,19 @@ class Settings(BaseSettings):
     IA_INASISTENCIAS_CANTIDAD: int = 3
     IA_INASISTENCIAS_VENTANA_DIAS: int = 30
 
+    # Asistente de IA (módulo `asistente`). Los topes acotan costo y abuso por conversación.
+    ASISTENTE_HABILITADO: bool = True
+    ASISTENTE_MAX_PASOS: PositiveInt = 6
+    ASISTENTE_MAX_HERRAMIENTAS_POR_PASO: PositiveInt = 4
+    ASISTENTE_MENSAJES_POR_DIA: PositiveInt = 100
+    ASISTENTE_MAX_CARACTERES_ENTRADA: PositiveInt = 2000
+    ASISTENTE_VENTANA_HISTORIAL: PositiveInt = 12
+    ASISTENTE_MAX_FILAS_RESULTADO: PositiveInt = 20
+    ASISTENTE_RETENCION_DIAS: PositiveInt = 90
+    # Una generación que no terminó en este tiempo se considera caída y libera la conversación.
+    ASISTENTE_GENERACION_TIMEOUT_SEGUNDOS: PositiveInt = 180
+    ASISTENTE_RETENCION_INTERVALO_HORAS: PositiveInt = 24
+
     # El job solo decide cuándo ejecutar; cada regla define su propio día de generación.
     FACTURACION_AUTOMATICA_HABILITADA: bool = True
     FACTURACION_HORA_EJECUCION: time = time(hour=0, minute=5)
