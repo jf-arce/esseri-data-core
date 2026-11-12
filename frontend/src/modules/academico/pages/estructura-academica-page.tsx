@@ -25,7 +25,7 @@ import { etiquetaDivision, franjasOcupadas, letraDivision } from '@/modules/acad
 import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
-type DialogAbm = { modo: 'crear' | 'editar' | 'eliminar'; item?: Division }
+type DialogAbm = { modo: 'crear' | 'eliminar'; item?: Division }
 
 type DialogMateria = {
   modo: 'crear' | 'editar' | 'eliminar'
@@ -188,9 +188,9 @@ export function EstructuraAcademicaPage() {
                 {puedeEditar && etiqueta === 'División' && (
                   <AccionesDivision
                     deshabilitado
-                    puedeModificar={false}
+                    puedeDarDeBaja={false}
                     onAgregar={() => {}}
-                    onModificar={() => {}}
+                    onDarDeBaja={() => {}}
                   />
                 )}
               </SelectorEstructura>
@@ -240,10 +240,10 @@ export function EstructuraAcademicaPage() {
                   {puedeEditar && (
                     <AccionesDivision
                       deshabilitado={cambiandoNivel || estructura.cargandoAnio}
-                      puedeModificar={!!division}
+                      puedeDarDeBaja={!!division}
                       onAgregar={() => setDialogAbm({ modo: 'crear' })}
-                      onModificar={() =>
-                        division && setDialogAbm({ modo: 'editar', item: division })
+                      onDarDeBaja={() =>
+                        division && setDialogAbm({ modo: 'eliminar', item: division })
                       }
                     />
                   )}
@@ -272,14 +272,10 @@ export function EstructuraAcademicaPage() {
         <AbmDialog
           open
           onOpenChange={(open) => !open && setDialogAbm(null)}
-          entidad="division"
           modo={dialogAbm.modo}
-          item={dialogAbm.item && { tipo: 'division', data: dialogAbm.item }}
+          item={dialogAbm.item}
           nivel={nivel}
           anio={anio}
-          onDarDeBaja={() =>
-            setDialogAbm((actual) => (actual ? { ...actual, modo: 'eliminar' } : actual))
-          }
           onExito={alGuardarDivision}
         />
       )}

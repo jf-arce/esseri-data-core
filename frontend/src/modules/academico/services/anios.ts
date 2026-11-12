@@ -1,5 +1,5 @@
 import { apiClient } from '@/api/client'
-import type { Anio, AnioCreate, AnioUpdate } from '../types'
+import type { Anio } from '../types'
 
 export function listarAnios(nivelEducativoId?: string) {
   const params = nivelEducativoId ? `?nivel_educativo_id=${nivelEducativoId}` : ''
@@ -8,22 +8,6 @@ export function listarAnios(nivelEducativoId?: string) {
 
 export function obtenerAnio(id: string) {
   return apiClient<Anio>(`/academico/anios/${id}`)
-}
-
-export function crearAnio(datos: AnioCreate) {
-  return apiClient<Anio>('/academico/anios', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(datos),
-  })
-}
-
-export function actualizarAnio(id: string, datos: AnioUpdate) {
-  return apiClient<Anio>(`/academico/anios/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(datos),
-  })
 }
 
 export function eliminarAnio(id: string) {

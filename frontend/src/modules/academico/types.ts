@@ -18,16 +18,6 @@ export type Anio = {
   updated_at: string
 }
 
-export type AnioCreate = {
-  numero: number
-  nivel_educativo_id: string
-}
-
-export type AnioUpdate = {
-  numero?: number
-  nivel_educativo_id?: string
-}
-
 export type Division = {
   id: string
   nombre: string
@@ -42,11 +32,6 @@ export type Division = {
 export type DivisionCreate = {
   nombre: string
   anio_id: string
-}
-
-export type DivisionUpdate = {
-  nombre?: string
-  anio_id?: string
 }
 
 export type TipoMateria = 'materia' | 'taller'

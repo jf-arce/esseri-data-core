@@ -1,4 +1,4 @@
-import { EllipsisVerticalIcon, PencilIcon, PlusIcon } from 'lucide-react'
+import { EllipsisVerticalIcon, PlusIcon, Trash2Icon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import {
   Select,
@@ -63,14 +63,14 @@ export function SelectorEstructura({
 
 export function AccionesDivision({
   deshabilitado,
-  puedeModificar,
+  puedeDarDeBaja,
   onAgregar,
-  onModificar,
+  onDarDeBaja,
 }: {
   deshabilitado: boolean
-  puedeModificar: boolean
+  puedeDarDeBaja: boolean
   onAgregar: () => void
-  onModificar: () => void
+  onDarDeBaja: () => void
 }) {
   return (
     <DropdownMenu>
@@ -89,9 +89,9 @@ export function AccionesDivision({
           <PlusIcon />
           Agregar división
         </DropdownMenuItem>
-        <DropdownMenuItem disabled={!puedeModificar} onSelect={onModificar}>
-          <PencilIcon />
-          Modificar división actual
+        <DropdownMenuItem disabled={!puedeDarDeBaja} onSelect={onDarDeBaja}>
+          <Trash2Icon />
+          Dar de baja división actual
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
