@@ -177,7 +177,7 @@ Workflows, en la misma transacción; no envía nada.
 - Lo que devuelve se valida como una plantilla antes de guardarse: longitudes, formato de los
   marcadores y que cada uno exista en el evento. Si no pasa, responde 502 y no se guarda.
 - Sin `OPENAI_API_KEY` responde 503; el resto del módulo sigue funcionando.
-- `src/ia_sugerencias/openai_client.py` habla el protocolo de Chat Completions de OpenAI por
+- `src/llm_client.py` (compartido con el Asistente) habla el protocolo de Chat Completions de OpenAI por
   `httpx`, sin SDK. `OPENAI_BASE_URL` y `OPENAI_MODEL` permiten apuntarlo a otro proveedor
   compatible con ese protocolo sin cambiar código.
 - Los tests simulan al proveedor con `httpx.MockTransport`: ninguno sale a la red. La
