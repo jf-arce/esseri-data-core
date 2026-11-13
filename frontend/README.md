@@ -279,7 +279,8 @@ arranca cerrado y solo se recuerda su ancho en `localStorage`. Solo aparece con 
 - El backend manda alias (`[ALUMNO:3]`) en vez de nombres; `hooks/use-alias.ts` los resuelve con
   `POST /asistente/resolver` y `components/texto-con-alias.tsx` los muestra.
 - El modelo elige una clave de destino (`ir_a`) y `utils.ts` la convierte en una ruta validada contra
-  el menú del rol activo. Nunca se navega a una URL generada por el modelo.
+  el menú del rol activo. Nunca se navega a una URL generada por el modelo ni se navega sola: el
+  asistente deja un botón "Ir ahí" y la persona decide.
 - Las respuestas se muestran con formato markdown (`react-markdown` + `remark-gfm`, sin HTML crudo). Los alias se reemplazan por links antes de renderizar y solo se aceptan links a rutas internas.
 - El panel se remonta al cambiar de cuenta o de rol, lo que descarta la conversación visible, la
   caché de alias y el stream en curso.

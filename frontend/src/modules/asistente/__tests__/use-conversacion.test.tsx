@@ -16,7 +16,7 @@ vi.mock('../services/conversaciones', () => ({
 
 import { useConversacion } from '../hooks/use-conversacion'
 
-const opciones = { ruta: '/panel', cicloLectivo: '2026', alNavegar: vi.fn() }
+const opciones = { ruta: '/panel', cicloLectivo: '2026' }
 
 beforeEach(() => {
   vi.clearAllMocks()

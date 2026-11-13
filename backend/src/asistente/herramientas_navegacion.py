@@ -104,7 +104,7 @@ def _ir_a(contexto: ContextoHerramienta, parametros: ParametrosIrA) -> Resultado
             return ResultadoHerramienta(para_llm={"error": "Alias no navegable."})
         entidad = "alumno" if fila.tipo == TIPO_ALIAS_ALUMNO else "familia"
         return ResultadoHerramienta(
-            para_llm={"navegando_a": f"ficha de {entidad} {fila.alias}"},
+            para_llm={"boton_ir_listo": f"ficha de {entidad} {fila.alias}"},
             navegar={"entidad": entidad, "alias": fila.alias},
         )
 
@@ -112,7 +112,7 @@ def _ir_a(contexto: ContextoHerramienta, parametros: ParametrosIrA) -> Resultado
     if permiso is not None and not contexto.tiene_permiso(permiso):
         return ResultadoHerramienta(para_llm={"error": "El rol no tiene acceso a esa pantalla."})
     return ResultadoHerramienta(
-        para_llm={"navegando_a": parametros.destino},
+        para_llm={"boton_ir_listo": parametros.destino},
         navegar={"destino": parametros.destino or ""},
     )
 
@@ -121,8 +121,10 @@ HERRAMIENTAS = [
     Herramienta(
         nombre="ir_a",
         descripcion=(
-            "Lleva a la persona a una pantalla del sistema (destino) o a la ficha de un alumno o "
-            "familia (alias). Usala cuando pida 'llevame', 'abrí' o 'mostrame la pantalla de'."
+            "Deja un botón 'Ir ahí' hacia una pantalla del sistema (destino) o la ficha de un "
+            "alumno o familia (alias); no navega sola. Usala solo si la persona pide 'llevame', "
+            "'abrí' o 'mostrame la pantalla de'. Nunca como alternativa cuando no tenés una "
+            "herramienta para responder."
         ),
         parametros=ParametrosIrA,
         permisos=(),

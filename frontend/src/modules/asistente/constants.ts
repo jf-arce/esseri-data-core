@@ -24,10 +24,11 @@ export const ETIQUETA_HERRAMIENTA: Record<string, string> = {
   resumen_inscripciones: 'Consultando inscripciones',
   tendencia_asistencias: 'Consultando asistencias',
   ausentes_del_dia: 'Consultando los ausentes del día',
+  horario_del_curso: 'Consultando los horarios del curso',
   ficha_alumno: 'Consultando la ficha del alumno',
   tareas_y_ejecuciones_pendientes: 'Consultando tareas y ejecuciones',
   buscar_recurso: 'Buscando',
-  ir_a: 'Preparando la navegación',
+  ir_a: 'Preparando el acceso',
 }
 
 /** Preguntas de arranque del estado vacío; cada una se ofrece solo a quien puede ver esos datos. */

@@ -32,8 +32,6 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
 
   const sugerencias = useMemo(() => sugerenciasPermitidas(permisos), [permisos])
   const puedeVerPersonas = tienePermiso(permisos, PERMISO_FAMILIAS_ALUMNOS_LEER)
-  // Ir a la ficha de un alias necesita su id real: se resuelve con el backend antes de navegar.
-  const [porNavegarAlias, setPorNavegarAlias] = useState<string | null>(null)
 
   const rutaDeBloque = useCallback(
     (bloque: BloqueNavegar, resueltos: Record<string, AliasResuelto>): string | null => {
@@ -43,19 +41,6 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
       return resuelto === undefined ? null : rutaDeEntidad(resuelto.tipo, resuelto.entidad_id)
     },
     [permisos, rolActivo],
-  )
-
-  const alNavegar = useCallback(
-    (bloque: BloqueNavegar) => {
-      if (bloque.destino !== undefined) {
-        const ruta = rutaDeDestino(bloque.destino, rolActivo, permisos)
-        if (ruta !== null) navegar(ruta)
-        return
-      }
-      if (bloque.alias === undefined) return
-      setPorNavegarAlias(bloque.alias)
-    },
-    [navegar, permisos, rolActivo],
   )
 
   const {
@@ -69,7 +54,7 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
     nueva,
     abrir,
     cortar,
-  } = useConversacion({ ruta: ubicacion.pathname, cicloLectivo: ciclo, alNavegar })
+  } = useConversacion({ ruta: ubicacion.pathname, cicloLectivo: ciclo })
   const { porAlias, resolver } = useAlias(conversacionId)
 
   // Rehidrata los nombres solo cuando la respuesta terminó, y solo si el rol puede ver personas.
@@ -78,16 +63,6 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
     if (!puedeVerPersonas || generando || aliases.length === 0) return
     void resolver(aliases)
   }, [aliases, generando, puedeVerPersonas, resolver])
-
-  useEffect(() => {
-    if (porNavegarAlias === null) return
-    const resuelto = porAlias[porNavegarAlias]
-    if (resuelto === undefined) return
-    navegar(rutaDeEntidad(resuelto.tipo, resuelto.entidad_id))
-    /* eslint-disable react-hooks/set-state-in-effect */
-    setPorNavegarAlias(null)
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [navegar, porAlias, porNavegarAlias])
 
   const alIr = useCallback(
     (bloque: BloqueNavegar) => {
