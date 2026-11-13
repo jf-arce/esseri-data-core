@@ -1,12 +1,12 @@
-import { DotWave } from 'ldrs/react'
-import 'ldrs/react/DotWave.css'
+import { Trio } from 'ldrs/react'
+import 'ldrs/react/Trio.css'
 import { motion } from 'motion/react'
 
-/** Loader de `ldrs` (ondas de puntos) mientras el asistente arma la respuesta. */
+/** Loader de `ldrs` (tres puntos) mientras el asistente arma la respuesta. */
 export function PuntosPensando() {
   return (
     <span className="flex items-center" aria-hidden="true">
-      <DotWave size={32} speed={1.1} color="var(--violeta)" />
+      <Trio size={22} speed={1.3} color="var(--violeta)" />
     </span>
   )
 }
