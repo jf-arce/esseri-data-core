@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/message-scroller'
 import type { AliasResuelto, Bloque, BloqueNavegar, MensajeVisible } from '../types'
 import { BloqueKpiVista } from './bloque-kpi'
+import { AccionesDelMensaje } from './acciones-del-mensaje'
 import { BloqueTablaVista } from './bloque-tabla'
 import { PasosDelMensaje } from './pasos-del-mensaje'
 import { TarjetaRecurso } from './tarjeta-recurso'
@@ -136,6 +137,13 @@ function MensajeDelAsistente({
         />
         {mensaje.contenido !== '' && (
           <TextoMarkdown texto={mensaje.contenido} porAlias={porAlias} />
+        )}
+        {!generando && mensaje.contenido !== '' && (
+          <AccionesDelMensaje
+            contenido={mensaje.contenido}
+            porAlias={porAlias}
+            alReintentar={alReintentar}
+          />
         )}
         {mensaje.estado === 'parcial' && (
           <p className="text-xs text-texto-3">La respuesta quedó incompleta. Probá de nuevo.</p>
