@@ -8,7 +8,17 @@ import {
   RUTA_TAREAS,
 } from '@/modules/workflows/constants'
 import { SUGERENCIAS } from './constants'
-import type { AliasResuelto, EventoSse, MensajeVisible, TipoAlias } from './types'
+import type {
+  AliasResuelto,
+  Bloque,
+  BloqueKpi,
+  BloqueTabla,
+  ColumnaTabla,
+  EventoSse,
+  MensajeVisible,
+  TipoAlias,
+  ValorCelda,
+} from './types'
 
 // Claves de destino que el backend le ofrece al modelo (`DESTINOS` en
 // `backend/src/asistente/herramientas_navegacion.py`) y la ruta de cada una. El modelo elige una
@@ -218,4 +228,83 @@ export function cortarSeguro(texto: string, largo: number): string {
   }
   const negritas = corte.split('**').length - 1
   return negritas % 2 === 1 ? `${corte.trimEnd()}**` : corte
+}
+
+// --- Copia de la respuesta completa ---------------------------------------------------------------
+
+export function formatearKpi(bloque: BloqueKpi): string {
+  if (bloque.valor === null) return 'Sin registros'
+  if (typeof bloque.valor === 'string') return bloque.valor
+  const numero = bloque.valor.toLocaleString('es-AR')
+  if (bloque.unidad === '$') return `$ ${numero}`
+  return bloque.unidad === '' ? numero : `${numero} ${bloque.unidad}`
+}
+
+/** Texto de una celda, con el nombre real en las columnas de alias. */
+export function textoDeCelda(
+  columna: ColumnaTabla,
+  valor: ValorCelda,
+  porAlias: Record<string, AliasResuelto>,
+): string {
+  if (columna.tipo === 'alias' && typeof valor === 'string') {
+    return porAlias[valor]?.nombre ?? etiquetaGenerica(valor)
+  }
+  return formatearCelda(valor, columna.tipo)
+}
+
+function escaparHtml(texto: string): string {
+  return texto.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function tablaEnTexto(bloque: BloqueTabla, porAlias: Record<string, AliasResuelto>): string {
+  const encabezado = bloque.columnas.map((c) => c.etiqueta).join('\t')
+  const filas = bloque.filas.map((fila) =>
+    bloque.columnas.map((c) => textoDeCelda(c, fila[c.clave] ?? null, porAlias)).join('\t'),
+  )
+  return [bloque.titulo, encabezado, ...filas, `${bloque.periodo} · ${bloque.fuente}`].join('\n')
+}
+
+function tablaEnHtml(bloque: BloqueTabla, porAlias: Record<string, AliasResuelto>): string {
+  const celdas = (etiquetas: string[], etiqueta: 'th' | 'td') =>
+    `<tr>${etiquetas.map((e) => `<${etiqueta}>${escaparHtml(e)}</${etiqueta}>`).join('')}</tr>`
+  const filas = bloque.filas.map((fila) =>
+    celdas(
+      bloque.columnas.map((c) => textoDeCelda(c, fila[c.clave] ?? null, porAlias)),
+      'td',
+    ),
+  )
+  return (
+    `<p><strong>${escaparHtml(bloque.titulo)}</strong></p>` +
+    `<table>${celdas(
+      bloque.columnas.map((c) => c.etiqueta),
+      'th',
+    )}${filas.join('')}</table>` +
+    `<p>${escaparHtml(`${bloque.periodo} · ${bloque.fuente}`)}</p>`
+  )
+}
+
+/**
+ * Lo que se copia de una respuesta: el texto y, debajo, sus indicadores y tablas. Va en dos
+ * formatos: texto plano (las tablas con tabuladores, que Excel y Sheets separan en celdas) y HTML
+ * (una tabla real al pegar en Word, Docs o un mail).
+ */
+export function armarCopia(
+  contenido: string,
+  bloques: Bloque[],
+  porAlias: Record<string, AliasResuelto>,
+): { texto: string; html: string } {
+  const texto = sustituirAlias(contenido, porAlias)
+  const partesTexto = [texto]
+  const partesHtml = [`<p>${escaparHtml(texto).replace(/\n/g, '<br>')}</p>`]
+  for (const bloque of bloques) {
+    if (bloque.tipo === 'kpi') {
+      const linea = `${bloque.titulo}: ${formatearKpi(bloque)} (${bloque.periodo} · ${bloque.fuente})`
+      partesTexto.push(linea)
+      partesHtml.push(`<p>${escaparHtml(linea)}</p>`)
+    } else if (bloque.tipo === 'tabla') {
+      partesTexto.push(tablaEnTexto(bloque, porAlias))
+      partesHtml.push(tablaEnHtml(bloque, porAlias))
+    }
+  }
+  return { texto: partesTexto.join('\n\n'), html: partesHtml.join('') }
 }

@@ -3,19 +3,25 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { MessageFooter } from '@/components/ui/message'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import type { AliasResuelto } from '../types'
-import { sustituirAlias } from '../utils'
+import type { AliasResuelto, Bloque } from '../types'
+import { armarCopia } from '../utils'
 
 const MS_FEEDBACK_COPIA = 1500
 
 interface AccionesDelMensajeProps {
   contenido: string
+  bloques: Bloque[]
   porAlias: Record<string, AliasResuelto>
   /** Solo el último mensaje se puede reintentar. */
   alReintentar: (() => void) | null
 }
 
-export function AccionesDelMensaje({ contenido, porAlias, alReintentar }: AccionesDelMensajeProps) {
+export function AccionesDelMensaje({
+  contenido,
+  bloques,
+  porAlias,
+  alReintentar,
+}: AccionesDelMensajeProps) {
   const [copiado, setCopiado] = useState(false)
 
   useEffect(() => {
@@ -26,7 +32,17 @@ export function AccionesDelMensaje({ contenido, porAlias, alReintentar }: Accion
 
   async function copiar() {
     try {
-      await navigator.clipboard.writeText(sustituirAlias(contenido, porAlias))
+      const { texto, html } = armarCopia(contenido, bloques, porAlias)
+      if (typeof ClipboardItem === 'undefined') {
+        await navigator.clipboard.writeText(texto)
+      } else {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/plain': new Blob([texto], { type: 'text/plain' }),
+            'text/html': new Blob([html], { type: 'text/html' }),
+          }),
+        ])
+      }
       setCopiado(true)
     } catch {
       // Sin permiso de portapapeles no hay nada que mostrar: el botón queda como estaba.

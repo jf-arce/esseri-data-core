@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import type { AliasResuelto, BloqueTabla } from '../types'
-import { etiquetaGenerica, formatearCelda } from '../utils'
+import { textoDeCelda } from '../utils'
 
 interface BloqueTablaProps {
   bloque: BloqueTabla
@@ -42,10 +42,7 @@ export function BloqueTablaVista({ bloque, porAlias }: BloqueTablaProps) {
               <TableRow key={indice}>
                 {bloque.columnas.map((columna) => {
                   const valor = fila[columna.clave] ?? null
-                  const texto =
-                    columna.tipo === 'alias' && typeof valor === 'string'
-                      ? (porAlias[valor]?.nombre ?? etiquetaGenerica(valor))
-                      : formatearCelda(valor, columna.tipo)
+                  const texto = textoDeCelda(columna, valor, porAlias)
                   return (
                     <TableCell
                       key={columna.clave}

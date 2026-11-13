@@ -176,6 +176,7 @@ function MensajeDelAsistente({
         {!escribiendo && mensaje.contenido !== '' && (
           <AccionesDelMensaje
             contenido={mensaje.contenido}
+            bloques={mensaje.bloques}
             porAlias={porAlias}
             alReintentar={alReintentar}
           />
