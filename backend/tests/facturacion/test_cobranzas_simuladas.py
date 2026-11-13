@@ -73,8 +73,11 @@ def respuesta_demo(client, lote, *, rechazar=False):
 def test_generar_previsualizar_confirmar_y_reintentar(client_autenticado, db_session, factura_demo):
     factura, _ = factura_demo
     lote = crear_lote(client_autenticado, factura)
-    assert lote["solicitud"]["nombre"].startswith("ESSERI_SIMULADO")
-    assert str(factura.id) in lote["solicitud"]["contenido"]
+    assert len(lote["solicitudes"]) == 1
+    archivo_solicitud = lote["solicitudes"][0]
+    assert archivo_solicitud["nombre"].startswith("ESSERI_")
+    assert lote["items"][0]["referencia"] in archivo_solicitud["contenido"]
+    assert archivo_solicitud["contenido"].startswith("referencia;factura;alumno;")
     texto = respuesta_demo(client_autenticado, lote)
     previo_pagos = db_session.query(Pago).count()
     previo_eventos = db_session.query(EventLog).count()

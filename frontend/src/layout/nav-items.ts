@@ -4,6 +4,7 @@ import {
   CalendarCheck,
   ClipboardCheck,
   ClipboardList,
+  CreditCardIcon,
   Grid3x3Icon,
   GraduationCap,
   BookOpenIcon,
@@ -35,6 +36,7 @@ import {
   PERMISO_ACADEMICO_LEER,
   PERMISO_COMUNICACIONES_LEER,
   PERMISO_AUTENTICACION_LEER,
+  PERMISO_FACTURACION_CREAR,
   PERMISO_FACTURACION_LEER,
   PERMISO_FAMILIAS_ALUMNOS_LEER,
   PERMISO_INSCRIPCIONES_LEER,
@@ -229,6 +231,12 @@ export const NAV_GROUPS: NavGroup[] = [
         modulo: 'facturacion',
         permiso: PERMISO_FACTURACION_LEER,
         children: [
+          {
+            label: 'Débitos automáticos',
+            href: '/facturacion/cobranzas',
+            icon: CreditCardIcon,
+            permiso: PERMISO_FACTURACION_CREAR,
+          },
           {
             label: 'Deuda por familia',
             href: '/facturacion/deudas/familias',

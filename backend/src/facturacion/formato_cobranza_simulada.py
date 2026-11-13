@@ -1,6 +1,7 @@
 """Proprietary demo codec. No bank layouts or official result codes are implemented."""
 
 import csv
+import hashlib
 import re
 import uuid
 from dataclasses import dataclass
@@ -16,18 +17,48 @@ MAX_REGISTROS = 500
 COBRADO = "COBRADO_SIM"
 RECHAZADO = "RECHAZADO_SIM"
 
+# Realistic generic rejection reasons for the simulated response file.
+MOTIVOS_RECHAZO_SIMULADOS: tuple[tuple[str, str], ...] = (
+    ("SALDO_INSUF", "Saldo insuficiente"),
+    ("CBU_INEXISTENTE", "CBU no encontrado"),
+    ("CUENTA_INHABIL", "Cuenta inhabilitada para débitos"),
+    ("CUENTA_CERRADA", "Cuenta cerrada o inactiva"),
+    ("DEBITO_CUESTIONADO", "Débito cuestionado por el titular"),
+    ("CONVENIO_VENCIDO", "Convenio de débito vencido"),
+)
+
 
 class FormatoInvalido(ValueError):
     pass
 
 
 @dataclass(frozen=True)
-class SolicitudDetalle:
+class SolicitudFila:
+    """One invoice row of a flat per-platform request file."""
+
     referencia: uuid.UUID
-    factura_id: uuid.UUID
-    vencimiento: date
+    factura: str
+    alumno: str
+    periodo: str
     concepto: str
     importe: Decimal
+    vencimiento: date
+    medio_dato: str
+
+
+def _digitos(seed: bytes, cantidad: int) -> str:
+    valor = int.from_bytes(hashlib.sha256(seed).digest(), "big") % (10**cantidad)
+    return f"{valor:0{cantidad}d}"
+
+
+def cbu_sintetico(factura_id: uuid.UUID) -> str:
+    """Deterministic 22-digit fictional CBU; it is never a real account number."""
+    return f"00799999{_digitos(factura_id.bytes, 14)}"
+
+
+def token_tarjeta_sintetico(factura_id: uuid.UUID) -> str:
+    """Deterministic 16-digit fictional card token; it is never a real card."""
+    return _digitos(b"esseri-token-" + factura_id.bytes, 16)
 
 
 @dataclass(frozen=True)
@@ -49,18 +80,53 @@ def _escribir(lote_id, fecha, tipo, detalles, cierre) -> str:
     return salida.getvalue()
 
 
-def generar_solicitud(lote_id: uuid.UUID, fecha: date, filas: list[SolicitudDetalle]) -> str:
-    detalles = [
-        ["D", f.referencia, f.factura_id, f.vencimiento, f.concepto, f"{f.importe:.2f}"]
-        for f in filas
-    ]
-    return _escribir(
-        lote_id,
-        fecha,
-        "SOLICITUD",
-        detalles,
-        ["T", len(filas), f"{sum((f.importe for f in filas), Decimal(0)):.2f}"],
-    )
+def generar_solicitud(filas: list[SolicitudFila], medio: str) -> str:
+    """Flat per-platform request file: one named header row plus one row per invoice."""
+    if medio == "cbu":
+        columnas = [
+            "referencia",
+            "factura",
+            "alumno",
+            "periodo",
+            "concepto",
+            "importe",
+            "vencimiento",
+            "cbu",
+        ]
+    elif medio == "tarjeta":
+        columnas = [
+            "referencia",
+            "factura",
+            "alumno",
+            "periodo",
+            "concepto",
+            "importe",
+            "vencimiento",
+            "token_tarjeta",
+        ]
+    else:
+        raise FormatoInvalido("Medio desconocido: se espera cbu o tarjeta.")
+    if not filas:
+        raise FormatoInvalido("La solicitud requiere al menos un registro.")
+    if len(filas) > MAX_REGISTROS:
+        raise FormatoInvalido(f"La solicitud admite hasta {MAX_REGISTROS} registros.")
+    salida = StringIO(newline="")
+    escritor = csv.writer(salida, delimiter=";", lineterminator="\n")
+    escritor.writerow(columnas)
+    for fila in filas:
+        escritor.writerow(
+            [
+                fila.referencia,
+                fila.factura,
+                fila.alumno,
+                fila.periodo,
+                fila.concepto,
+                f"{fila.importe:.2f}",
+                fila.vencimiento,
+                fila.medio_dato,
+            ]
+        )
+    return salida.getvalue()
 
 
 def generar_respuesta(lote_id: uuid.UUID, fecha: date, filas: list[RespuestaDetalle]) -> str:
