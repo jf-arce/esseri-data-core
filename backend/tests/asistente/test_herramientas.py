@@ -1,6 +1,9 @@
 import json
 from datetime import date, timedelta
 
+import pytest
+from sqlalchemy import select
+
 from tests.asistente.conftest import (
     APELLIDO_ALUMNA,
     NOMBRE_ALUMNA,
@@ -236,6 +239,86 @@ class TestOtrasHerramientas:
     def test_indicadores_exige_al_menos_uno(self, direccion, proveedor):
         correr(direccion, proveedor, "indicadores_generales", {"indicadores": []})
         assert "Argumentos inválidos" in resultado_de_herramienta(proveedor)["error"]
+
+
+@pytest.fixture()
+def horarios(db_session, personas):
+    """5°A con Matemática (lunes y miércoles) y Lengua (miércoles); 5°B con Inglés (miércoles)."""
+    from datetime import time
+
+    from src.academico.models import (
+        Anio,
+        Division,
+        HorarioMateriaCurso,
+        Materia,
+        MateriaCurso,
+    )
+
+    anio = db_session.scalar(select(Anio).where(Anio.numero == 5))
+    division_a = db_session.scalar(select(Division).where(Division.nombre == "A"))
+    division_b = Division(nombre="B", anio_id=anio.id)
+    db_session.add(division_b)
+    db_session.flush()
+
+    def asignar(nombre, division, franjas):
+        materia = Materia(nombre=nombre, tipo="materia")
+        db_session.add(materia)
+        db_session.flush()
+        curso = MateriaCurso(materia_id=materia.id, division_id=division.id)
+        db_session.add(curso)
+        db_session.flush()
+        for dia, inicio, fin in franjas:
+            db_session.add(
+                HorarioMateriaCurso(
+                    dia_semana=dia,
+                    hora_inicio=time(inicio),
+                    hora_fin=time(fin),
+                    materia_curso_id=curso.id,
+                )
+            )
+
+    asignar("Matemática", division_a, [(1, 8, 9), (3, 8, 9)])
+    asignar("Lengua", division_a, [(3, 9, 10)])
+    asignar("Inglés", division_b, [(3, 10, 11)])
+    db_session.commit()
+
+
+class TestHorarioDelCurso:
+    def test_materias_de_un_curso_un_dia(self, direccion, proveedor, horarios):
+        lista = correr(
+            direccion,
+            proveedor,
+            "horario_del_curso",
+            {"nivel": "primaria", "anio": 5, "division": "A", "dia": "miércoles"},
+        )
+        franjas = resultado_de_herramienta(proveedor)["franjas"]
+        assert [(f["materia"], f["desde"], f["hasta"]) for f in franjas] == [
+            ("Matemática", "08:00", "09:00"),
+            ("Lengua", "09:00", "10:00"),
+        ]
+        assert {f["curso"] for f in franjas} == {"5°A"}
+        assert [d["bloque"]["titulo"] for n, d in lista if n == "tarjeta"] == ["Horario por curso"]
+
+    def test_sin_division_trae_todas_las_del_año(self, direccion, proveedor, horarios):
+        correr(direccion, proveedor, "horario_del_curso", {"anio": 5, "dia": "miercoles"})
+        cursos = {f["curso"] for f in resultado_de_herramienta(proveedor)["franjas"]}
+        assert cursos == {"5°A", "5°B"}
+
+    def test_sin_horarios_informa_que_no_hay(self, direccion, proveedor, horarios):
+        correr(direccion, proveedor, "horario_del_curso", {"anio": 5, "dia": "domingo"})
+        assert "No hay horarios" in resultado_de_herramienta(proveedor)["error"]
+
+    def test_exige_nivel_o_anio(self, direccion, proveedor, horarios):
+        correr(direccion, proveedor, "horario_del_curso", {"dia": "lunes"})
+        assert "nivel o el año" in resultado_de_herramienta(proveedor)["error"]
+
+    def test_dia_invalido(self, direccion, proveedor, horarios):
+        correr(direccion, proveedor, "horario_del_curso", {"anio": 5, "dia": "feriado"})
+        assert "Día inválido" in resultado_de_herramienta(proveedor)["error"]
+
+    def test_no_expone_docentes(self, direccion, proveedor, horarios):
+        correr(direccion, proveedor, "horario_del_curso", {"anio": 5})
+        assert "docente" not in json.dumps(resultado_de_herramienta(proveedor)).lower()
 
 
 class TestDeudaPorFamilias:
