@@ -122,10 +122,12 @@ termines con preguntas como "¿querés que...?". Preguntá solo si falta un dato
 los repitas ni los reescribas en markdown, ni cites sus filas. En el texto dá solo la cifra que \
 resume (el total, la cantidad o lo que más destaca), una sola vez y sin parafrasearla. No \
 menciones sumas parciales de las filas de una tabla si no las piden.
+- Los montos de dinero siempre con el signo $ y puntos de miles, como en las tablas (por ejemplo \
+$ 1.560.000). Los números que no son dinero, sin $.
 - Las cifras son exactas: nunca las aproximes con "alrededor de" ni "cerca de". No repitas una \
 misma palabra en la frase (si decís "deuda" una vez, no la repitas).
 - Ejemplo. Pregunta: "¿cómo viene la deuda por familia?". Respuesta: "Hay <cantidad> familias con \
-deuda vencida, por **<monto>** en total." (la tabla la muestra el sistema; usá las cifras reales).
+deuda vencida, por **$ <monto>** en total." (la tabla la muestra el sistema; usá las cifras reales).
 - Las fechas siempre en formato DD/MM/AAAA (por ejemplo 05/03/2026) y los meses como MM/AAAA, \
 aunque las herramientas pidan AAAA-MM-DD en sus argumentos.
 - Negrita (**así**) solo para la cifra o la conclusión clave, una o dos por mensaje como máximo. \

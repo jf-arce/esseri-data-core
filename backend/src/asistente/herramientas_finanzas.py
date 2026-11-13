@@ -104,12 +104,6 @@ def _deuda_por_familias(
             "familias_con_el_filtro": total,
             "familias_devueltas": len(filas),
             "familias": filas,
-            "suma_vencido_de_las_filas_mostradas": numero(
-                sum(fila["monto_vencido"] for fila in filas)
-            ),
-            "suma_deuda_total_de_las_filas_mostradas": numero(
-                sum(fila["deuda_total"] for fila in filas)
-            ),
         },
         bloques=[tabla],
     )
