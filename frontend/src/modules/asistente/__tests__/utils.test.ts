@@ -152,6 +152,7 @@ describe('aliasDeMensajes', () => {
         contenido: 'Mirá a [ALUMNO:1]',
         estado: 'completo',
         herramienta: null,
+        pasos: [],
         bloques: [
           { tipo: 'tarjeta', entidad: 'alumno', alias: '[ALUMNO:1]' },
           {

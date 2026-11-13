@@ -53,6 +53,7 @@ it('arma el mensaje del asistente a partir de los eventos', async () => {
   expect(usuario).toMatchObject({ autor: 'usuario', contenido: 'hola' })
   expect(asistente).toMatchObject({ autor: 'asistente', contenido: 'Listo.', estado: 'completo' })
   expect(asistente.bloques).toHaveLength(1)
+  expect(asistente.pasos).toEqual(['ficha_alumno'])
   expect(enviarMensaje.mock.calls[0][1]).toMatchObject({
     contenido: 'hola',
     ruta: '/panel',
@@ -171,4 +172,29 @@ it('reintentar vuelve a mandar la última pregunta y descarta el intento fallido
   expect(result.current.mensajes).toHaveLength(2)
   expect(result.current.mensajes[1]).toMatchObject({ contenido: 'Ahora sí.', estado: 'completo' })
   expect(enviarMensaje.mock.calls[1][1]).toMatchObject({ contenido: 'hola' })
+})
+
+it('acumula en orden cada herramienta que se consulta', async () => {
+  enviarMensaje.mockImplementation(
+    async (
+      _id: string,
+      _pedido: unknown,
+      _signal: AbortSignal,
+      alEvento: (e: EventoSse) => void,
+    ) => {
+      alEvento({ evento: 'herramienta', datos: { solicitud_id: 's', nombre: 'buscar_recurso' } })
+      alEvento({ evento: 'herramienta', datos: { solicitud_id: 's', nombre: 'ficha_alumno' } })
+      alEvento({ evento: 'fin', datos: { solicitud_id: 's', mensaje_id: 'm' } })
+    },
+  )
+  const { result } = renderHook(() => useConversacion(opciones))
+
+  await act(async () => {
+    await result.current.enviar('hola', [])
+  })
+
+  expect(result.current.mensajes[1]).toMatchObject({
+    pasos: ['buscar_recurso', 'ficha_alumno'],
+    herramienta: null,
+  })
 })

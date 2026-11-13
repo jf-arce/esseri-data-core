@@ -10,10 +10,10 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from '@/components/ui/message-scroller'
-import { ETIQUETA_HERRAMIENTA } from '../constants'
 import type { AliasResuelto, Bloque, BloqueNavegar, MensajeVisible } from '../types'
 import { BloqueKpiVista } from './bloque-kpi'
 import { BloqueTablaVista } from './bloque-tabla'
+import { PasosDelMensaje } from './pasos-del-mensaje'
 import { TarjetaRecurso } from './tarjeta-recurso'
 import { TextoConAlias } from './texto-con-alias'
 import { TextoMarkdown } from './texto-markdown'
@@ -124,12 +124,9 @@ function MensajeDelAsistente({
         <SparklesIcon className="size-3.5" />
       </MessageAvatar>
       <MessageContent>
-        {generando && mensaje.contenido === '' && (
-          <p className="shimmer text-sm text-texto-3">
-            {mensaje.herramienta === null
-              ? 'Pensando…'
-              : `${ETIQUETA_HERRAMIENTA[mensaje.herramienta] ?? 'Consultando'}…`}
-          </p>
+        <PasosDelMensaje pasos={mensaje.pasos} herramienta={mensaje.herramienta} />
+        {generando && mensaje.contenido === '' && mensaje.herramienta === null && (
+          <p className="shimmer text-sm text-texto-3">Pensando…</p>
         )}
         <BloquesDelMensaje
           bloques={mensaje.bloques}

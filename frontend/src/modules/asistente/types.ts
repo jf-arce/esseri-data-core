@@ -108,6 +108,8 @@ export type MensajeVisible = {
   estado: EstadoMensaje | 'generando'
   /** Herramienta que se está consultando mientras se genera. */
   herramienta: string | null
+  /** Herramientas consultadas en esta sesión, en orden. El historial del servidor no las trae. */
+  pasos: string[]
   /** Qué pasó y qué hacer, en lenguaje claro, si la respuesta no se pudo generar. */
   error?: string
 }

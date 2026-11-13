@@ -18,6 +18,7 @@ function desdeServidor(mensaje: MensajeAsistente): MensajeVisible {
     bloques: mensaje.tarjetas ?? [],
     estado: mensaje.estado,
     herramienta: null,
+    pasos: [],
   }
 }
 
@@ -74,7 +75,11 @@ export function useConversacion({ ruta, cicloLectivo, alNavegar }: Opciones) {
     (evento: EventoSse) => {
       switch (evento.evento) {
         case 'herramienta':
-          actualizarUltimo((m) => ({ ...m, herramienta: evento.datos.nombre }))
+          actualizarUltimo((m) => ({
+            ...m,
+            herramienta: evento.datos.nombre,
+            pasos: [...m.pasos, evento.datos.nombre],
+          }))
           break
         case 'texto':
           actualizarUltimo((m) => ({ ...m, contenido: evento.datos.texto }))
@@ -123,6 +128,7 @@ export function useConversacion({ ruta, cicloLectivo, alNavegar }: Opciones) {
           bloques: [],
           estado: 'completo',
           herramienta: null,
+          pasos: [],
         },
         {
           id: idLocal(),
@@ -131,6 +137,7 @@ export function useConversacion({ ruta, cicloLectivo, alNavegar }: Opciones) {
           bloques: [],
           estado: 'generando',
           herramienta: null,
+          pasos: [],
         },
       ])
       try {
