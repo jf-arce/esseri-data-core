@@ -1,7 +1,7 @@
 import { ArrowRightIcon, RotateCcwIcon, SparklesIcon, TriangleAlertIcon } from 'lucide-react'
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import { Button } from '@/components/ui/button'
-import { Message, MessageAvatar, MessageContent } from '@/components/ui/message'
+import { Message, MessageContent } from '@/components/ui/message'
 import {
   MessageScroller,
   MessageScrollerButton,
@@ -121,9 +121,6 @@ function MensajeDelAsistente({
   const generando = mensaje.estado === 'generando'
   return (
     <Message>
-      <MessageAvatar className="size-6 min-w-6 self-start bg-lienzo text-violeta">
-        <SparklesIcon className="size-3.5" />
-      </MessageAvatar>
       <MessageContent>
         <PasosDelMensaje pasos={mensaje.pasos} herramienta={mensaje.herramienta} />
         {generando && mensaje.contenido === '' && mensaje.herramienta === null && (
