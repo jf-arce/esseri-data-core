@@ -108,7 +108,7 @@ Cada herramienta declara parámetros (con esquema validado), permisos acumulativ
 | `estructura_academica` | `academico.leer` | Niveles, años y divisiones con cantidad de alumnos y de materias. | Académico |
 | `horario_del_curso` | `academico.leer` | Materias y franjas horarias por curso y día. Sin docentes. | Académico |
 | `alumnos_del_curso` | `academico.leer`, `familias_alumnos.leer` | Alumnos inscriptos activos de un curso (alias). | Académico |
-| `docentes_del_curso` | `academico.leer` | Docentes asignados por curso o materia (alias). | Asignaciones docentes |
+| `docentes_del_curso` | `academico.leer` | Docentes asignados por curso, materia o día de la semana (alias). | Asignaciones docentes |
 | `ficha_alumno` | `familias_alumnos.leer` | Inscripción del ciclo, asistencia y cuenta corriente de un alumno (por alias), según lo que el rol pueda ver. | Tarjeta propia |
 | `buscar_recurso` | `familias_alumnos.leer` | Busca un alumno por número de legajo y devuelve su alias y una tarjeta. Los nombres no se buscan acá: las personas mencionadas llegan ya como alias. | Tarjeta propia |
 | `tareas_y_ejecuciones_pendientes` | (ninguno) | Solo conteos de tareas y ejecuciones. | Tareas |
