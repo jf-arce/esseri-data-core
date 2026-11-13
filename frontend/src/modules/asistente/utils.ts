@@ -204,3 +204,18 @@ export function sustituirAlias(texto: string, porAlias: Record<string, AliasResu
 export function sugerenciasPermitidas(permisos: Permiso[]): string[] {
   return SUGERENCIAS.filter((s) => tienePermiso(permisos, s.permiso)).map((s) => s.texto)
 }
+
+/**
+ * Primeros `largo` caracteres del texto, sin dejar a la vista un alias a medio escribir ni una
+ * negrita sin cerrar (el markdown se vuelve a armar con cada corte).
+ */
+export function cortarSeguro(texto: string, largo: number): string {
+  if (largo >= texto.length) return texto
+  let corte = texto.slice(0, largo)
+  const apertura = corte.lastIndexOf('[')
+  if (apertura >= 0 && !corte.includes(']', apertura) && texto.includes(']', apertura)) {
+    corte = corte.slice(0, apertura)
+  }
+  const negritas = corte.split('**').length - 1
+  return negritas % 2 === 1 ? `${corte.trimEnd()}**` : corte
+}

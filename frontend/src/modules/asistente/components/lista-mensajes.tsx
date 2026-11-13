@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { motion, MotionConfig } from 'motion/react'
 import { ArrowRightIcon, RotateCcwIcon, SparklesIcon, TriangleAlertIcon } from 'lucide-react'
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
@@ -11,6 +12,7 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from '@/components/ui/message-scroller'
+import { useTextoGradual } from '../hooks/use-texto-gradual'
 import type { AliasResuelto, Bloque, BloqueNavegar, MensajeVisible } from '../types'
 import { BloqueKpiVista } from './bloque-kpi'
 import { AccionesDelMensaje } from './acciones-del-mensaje'
@@ -144,6 +146,10 @@ function MensajeDelAsistente({
   mensaje: MensajeVisible
 }) {
   const generando = mensaje.estado === 'generando'
+  // Solo se anima lo que llega en vivo; las conversaciones guardadas se muestran enteras.
+  const [animar] = useState(generando)
+  const { visible, revelando } = useTextoGradual(mensaje.contenido, animar)
+  const escribiendo = generando || revelando
   return (
     <Message>
       <MessageContent>
@@ -156,12 +162,10 @@ function MensajeDelAsistente({
             </span>
           </p>
         )}
-        {mensaje.contenido !== '' && (
-          <TextoMarkdown texto={mensaje.contenido} porAlias={porAlias} />
-        )}
-        {generando && mensaje.contenido !== '' && <CursorEscritura />}
-        {/* Los datos van debajo del texto; mientras no hay texto se retienen para no reacomodar. */}
-        {(!generando || mensaje.contenido !== '') && (
+        {visible !== '' && <TextoMarkdown texto={visible} porAlias={porAlias} />}
+        {escribiendo && visible !== '' && <CursorEscritura />}
+        {/* Los datos van debajo y entran cuando el texto terminó de escribirse. */}
+        {!escribiendo && (
           <BloquesDelMensaje
             bloques={mensaje.bloques}
             porAlias={porAlias}
@@ -169,7 +173,7 @@ function MensajeDelAsistente({
             alIr={alIr}
           />
         )}
-        {!generando && mensaje.contenido !== '' && (
+        {!escribiendo && mensaje.contenido !== '' && (
           <AccionesDelMensaje
             contenido={mensaje.contenido}
             porAlias={porAlias}
@@ -213,8 +217,14 @@ function BloquesDelMensaje({
   alIr: (bloque: BloqueNavegar) => (() => void) | null
 }) {
   const kpis = bloques.flatMap((b) => (b.tipo === 'kpi' ? [b] : []))
+  if (bloques.length === 0) return null
   return (
-    <>
+    <motion.div
+      className="flex flex-col gap-2"
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+    >
       {kpis.length > 0 && (
         <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
           {kpis.map((kpi, indice) => (
@@ -255,6 +265,6 @@ function BloquesDelMensaje({
         }
         return null
       })}
-    </>
+    </motion.div>
   )
 }
