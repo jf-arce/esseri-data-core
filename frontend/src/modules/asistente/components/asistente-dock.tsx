@@ -66,7 +66,7 @@ export function AsistenteDock({ abierto }: { abierto: boolean }) {
         className="absolute inset-y-0 -left-1 z-10 hidden w-2 cursor-col-resize hover:bg-violeta/20 focus-visible:bg-violeta/30 focus-visible:outline-none md:block"
       />
       {/* La `key` descarta todo el estado al cambiar de cuenta o de rol. */}
-      <AsistentePanel key={`${usuarioId}:${rolActivo}`} />
+      <AsistentePanel key={`${usuarioId}:${rolActivo}`} abierto={abierto} />
     </aside>
   )
 }

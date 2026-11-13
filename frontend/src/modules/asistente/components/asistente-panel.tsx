@@ -19,7 +19,7 @@ import { ListaMensajes } from './lista-mensajes'
  * cuenta se remonta, y con él se descartan la conversación visible, la caché de alias y el
  * stream en curso.
  */
-export function AsistentePanel() {
+export function AsistentePanel({ abierto }: { abierto: boolean }) {
   const cerrar = useAsistenteStore((estado) => estado.setAbierto)
   const rolActivo = useAuthStore((estado) => estado.rolActivo)
   const permisos = useAuthStore(permisosActivos)
@@ -158,6 +158,7 @@ export function AsistentePanel() {
         </p>
       )}
       <EntradaMensaje
+        abierto={abierto}
         generando={generando}
         puedeMencionar={puedeVerPersonas}
         onEnviar={(contenido, menciones) => void enviar(contenido, menciones)}
