@@ -370,27 +370,35 @@ se ajusta a `/api/auth`. El procedimiento y las variables del backend están en
 
 ## Prueba de EvilCharts en Dirección
 
-Los gráficos de `/panel` usan [EvilCharts](https://evilcharts.com/docs/recharts/bar-chart/static)
-sobre `recharts`, incorporados con la CLI de shadcn:
+Los gráficos de `/panel` usan [EvilCharts para Apache ECharts](https://evilcharts.com/docs/echarts/bar-chart/static), incorporados con la CLI de shadcn:
 
 ```bash
-npx shadcn@latest add https://evilcharts.com/r/recharts-bar-chart.json https://evilcharts.com/r/recharts-line-chart.json --dry-run
+npx shadcn@latest add @evilcharts/echarts-bar-chart @evilcharts/echarts-line-chart --dry-run
 # Para incorporarlos por primera vez, quitar --dry-run. No usar --overwrite.
 ```
 
-Los primitivos generados se adaptaron en `src/components/ui/recharts-{chart,bar-chart,line-chart}.tsx`.
-Se conserva el contenedor responsive y la composición de Recharts; se eliminaron zoom,
-selección de series, datos de carga ficticios, gradientes y variantes decorativas. No regenerar
-estos archivos sin revisar el diff y conservar las adaptaciones locales.
-Los datos, escalas y tooltips permanecen en `panel-admin/components/graficos-direccion.tsx`.
-Finanzas compara facturado y cobrado en ARS; asistencia usa un eje temporal numérico y
-escala fija de 0 a 100 %. Los días sin registros no se representan como ausencias.
-Las barras crecen desde la base y la línea se revela de izquierda a derecha mediante
-la máscara de Motion de EvilCharts. Cada entrada dura 400 ms y arranca una sola vez al
-entrar el gráfico en pantalla; se desactiva con `prefers-reduced-motion`.
-Al consultar un mes, se atenúan las demás barras. El día activo resalta su punto y muestra
-una guía vertical, también al acceder con teclado o toque.
-Los valores completos se consultan con foco de teclado, cursor o toque; Escape cierra el tooltip.
+Los primitivos generados están en `src/components/ui/echarts-*.tsx`. Se conservan las
+variantes, la leyenda seleccionable, los tooltips, el resaltado y el brush nativo.
+Las adaptaciones locales incorporan controles accesibles, etiquetas de carga en español,
+escala configurable, soporte para React y movimiento reducido. No regenerar sin revisar el diff.
+La dependencia `echarts` sustituye a `recharts`; Motion se reutiliza para las transiciones.
+
+La composición de datos y los controles pertenecen a `panel-admin/components/graficos-direccion.tsx`:
+
+- Finanzas: barras duotono de facturado/cobrado, importes ARS completos y resumen del último mes.
+- Asistencia: escala fija 0–100 %, puntos con borde y eje diario. Los días sin registros se
+  representan con `null`, nunca como ausencias. La línea conecta las observaciones reales.
+- La miniatura permite ajustar el intervalo y desplazarlo. Los selectores Desde/Hasta hacen
+  lo mismo con teclado o toque; Restablecer recupera toda la serie cargada.
+- El resumen de asistencia pondera presentes sobre registros del intervalo. Finanzas muestra
+  las sumas del intervalo cuando se reduce, conservando el resumen del último mes.
+- La leyenda permite destacar una serie. Los detalles desplegables permiten consultar todos
+  los valores con teclado y lector de pantalla, sin depender del canvas.
+- Los esqueletos representan carga, no datos; las animaciones respetan movimiento reducido.
+
+Comparación visual de esta prueba: `/panel` muestra duotono; `/panel?graficos=expresivos`
+activa barras expansibles de facturado y revelado de la línea al pasar el cursor. Se mantiene
+cobrado en duotono para distinguir ambas series. El parámetro solo afecta a estos gráficos.
 No requiere variables de entorno adicionales ni cambios de API.
 
 Verificación focalizada: `npm run test -- src/modules/panel-admin`. Antes de entregar,

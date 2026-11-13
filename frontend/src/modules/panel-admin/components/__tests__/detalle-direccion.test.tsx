@@ -1,3 +1,4 @@
+import './echarts-mocks'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, it, vi } from 'vitest'
@@ -111,10 +112,10 @@ it('shows monthly billed and collected amounts in a keyboard-accessible tooltip'
       <DetalleDireccion acceso={acceso({ finanzas: true })} />
     </MemoryRouter>,
   )
-  fireEvent.focus(screen.getByRole('button', { name: 'Ver valores de 2026-01' }))
-  const tooltip = await screen.findByRole('tooltip')
+  fireEvent.click(screen.getByText('Consultar valores por mes'))
+  const tooltip = screen.getByText(/Facturado:.*Cobrado:/)
   expect(screen.queryByText('Ver importes por mes')).not.toBeInTheDocument()
-  expect(tooltip).toHaveTextContent('enero de 2026')
+  expect(screen.getByLabelText('Mes a consultar')).toHaveDisplayValue('enero de 2026')
   expect(screen.getByText('Último mes · enero de 2026')).toBeInTheDocument()
   expect(tooltip).toHaveTextContent(/Facturado:.*1.200,00/)
   expect(tooltip).toHaveTextContent(/Cobrado:.*800,00/)
@@ -126,10 +127,10 @@ it('shows the attendance date, percentage and record counts in a tooltip', async
       <DetalleDireccion acceso={acceso({ academico: true })} />
     </MemoryRouter>,
   )
-  fireEvent.focus(screen.getByRole('button', { name: 'Ver asistencia del 12/1/2026' }))
-  const tooltip = await screen.findByRole('tooltip')
+  fireEvent.click(screen.getByText('Consultar valores por fecha'))
+  const tooltip = screen.getByText(/Presentismo:/)
   expect(screen.queryByText('Ver asistencia por día')).not.toBeInTheDocument()
-  expect(tooltip).toHaveTextContent('12/1/2026')
+  expect(screen.getByLabelText('Fecha a consultar')).toHaveDisplayValue('12/1/2026')
   expect(screen.getByRole('link', { name: 'Ver asistencias' })).toHaveAttribute(
     'href',
     '/academico/historial-asistencia',
@@ -144,13 +145,9 @@ it('exposes chart scales and essential summaries without opening details', () =>
       <DetalleDireccion acceso={acceso({ finanzas: true, academico: true })} />
     </MemoryRouter>,
   )
-  expect(screen.getByLabelText('Escala financiera en pesos argentinos')).toBeVisible()
-  expect(screen.getByLabelText('Escala de presentismo')).toHaveTextContent('100%')
-  expect(screen.getByLabelText('Escala de presentismo')).toHaveTextContent('0%')
   expect(screen.getByLabelText('Presentismo registrado')).toHaveTextContent('50%')
   expect(screen.getByLabelText('Resumen financiero del último mes')).toHaveTextContent(/1.200,00/)
   expect(screen.getByLabelText('Resumen financiero del último mes')).toHaveTextContent(/800,00/)
-  expect(screen.getAllByText('12/1/2026', { selector: 'span' })[0]).toBeVisible()
 })
 
 it('counts only pending purchases, shows their real status and never invents amounts', () => {

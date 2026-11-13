@@ -50,17 +50,21 @@ function Estado<T>({
   recurso,
   vacio,
   children,
+  carga,
 }: {
+  carga?: ReactNode
   recurso: Recurso<T>
   vacio: boolean
   children: ReactNode
 }) {
   if (recurso.cargando)
     return (
-      <div role="status" aria-label="Cargando sección" className="space-y-3">
-        <Skeleton className="h-5 w-2/3" />
-        <Skeleton className="h-20 w-full" />
-      </div>
+      carga ?? (
+        <div role="status" aria-label="Cargando sección" className="space-y-3">
+          <Skeleton className="h-5 w-2/3" />
+          <Skeleton className="h-20 w-full" />
+        </div>
+      )
     )
   if (recurso.error)
     return (
@@ -303,7 +307,11 @@ export function DetalleDireccion({
         )}
         {acceso.academico && (
           <Panel titulo="Asistencia" detalle="Últimos 30 días · registros cargados">
-            <Estado recurso={datos.asistencia} vacio={!serie.length}>
+            <Estado
+              recurso={datos.asistencia}
+              vacio={!serie.length}
+              carga={<GraficoAsistencia serie={[]} cargando />}
+            >
               {serie.length > 0 && <GraficoAsistencia serie={serie} />}
             </Estado>
             <div className="border-t border-borde pt-1">
@@ -320,7 +328,8 @@ export function DetalleDireccion({
           >
             <Estado
               recurso={datos.finanzas}
-              vacio={!meses.some((mes) => Number(mes.facturado) || Number(mes.cobrado))}
+              vacio={!meses.length}
+              carga={<GraficoFinanciero meses={[]} cargando />}
             >
               <GraficoFinanciero meses={meses} />
             </Estado>
