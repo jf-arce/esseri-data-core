@@ -5,6 +5,7 @@ import pytest
 from src.asistente.exceptions import AliasInvalido
 from src.asistente.models import Conversacion
 from src.asistente.seudonimos_service import (
+    FiltroAlias,
     Mencion,
     neutralizar_alias_no_emitidos,
     obtener_o_crear_alias,
@@ -118,3 +119,24 @@ class TestEntrada:
     def test_alias_escrito_a_mano_que_no_existe_se_descarta(self, db_session, conversacion):
         resultado = preparar(db_session, conversacion, "ficha de [ALUMNO:5]")
         assert "[ALUMNO:5]" not in resultado.texto
+
+
+class TestFiltroAlias:
+    def _correr(self, trozos: list[str], emitidos: set[str]) -> str:
+        filtro = FiltroAlias(emitidos)
+        return "".join(filtro.alimentar(t) for t in trozos) + filtro.vaciar()
+
+    def test_un_alias_emitido_partido_en_trozos_se_conserva(self):
+        salida = self._correr(["Ver [ALU", "MNO:", "1] ya"], {"[ALUMNO:1]"})
+        assert salida == "Ver [ALUMNO:1] ya"
+
+    def test_un_alias_no_emitido_se_descarta_aunque_llegue_partido(self):
+        salida = self._correr(["Ver [ALUM", "NO:9", "9] ya"], {"[ALUMNO:1]"})
+        assert salida == "Ver [alias desconocido] ya"
+
+    def test_un_corchete_que_no_es_alias_no_se_retiene(self):
+        salida = self._correr(["Ver [1", "] y [", "ok]"], set())
+        assert salida == "Ver [1] y [ok]"
+
+    def test_un_inicio_de_alias_sin_cerrar_sale_al_vaciar(self):
+        assert self._correr(["Texto [ALUMNO:"], set()) == "Texto [ALUMNO:"

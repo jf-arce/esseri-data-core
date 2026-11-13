@@ -11,6 +11,7 @@ familias ni de alumnos, RNF-15) y el Asistente solo manda texto seudonimizado (v
 
 import json
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -209,6 +210,104 @@ def completar_con_herramientas(
     return RespuestaConHerramientas(
         contenido=contenido if isinstance(contenido, str) else "", llamadas=llamadas
     )
+
+
+def transmitir_con_herramientas(
+    mensajes: list[dict[str, Any]],
+    herramientas: list[dict[str, Any]],
+    transport: httpx.BaseTransport | None = None,
+) -> Iterator[tuple[str, str | RespuestaConHerramientas]]:
+    """Igual que `completar_con_herramientas`, pero con streaming del proveedor.
+
+    Emite `("texto", trozo)` a medida que llega el texto y, al terminar, un único
+    `("fin", RespuestaConHerramientas)` con el texto completo y las llamadas ya armadas. Los 429 y
+    503 solo se reintentan mientras no empezó el stream.
+    """
+    if not settings.OPENAI_API_KEY:
+        raise IaNoConfigurada()
+    cuerpo: dict[str, Any] = {"messages": mensajes, "stream": True}
+    if herramientas:
+        cuerpo["tools"] = herramientas
+        cuerpo["tool_choice"] = "auto"
+
+    for intento in range(settings.OPENAI_REINTENTOS + 1):
+        espera: float | None = None
+        try:
+            with httpx.Client(
+                timeout=settings.OPENAI_TIMEOUT_SEGUNDOS, transport=transport
+            ) as cliente:
+                with cliente.stream(
+                    "POST",
+                    f"{settings.OPENAI_BASE_URL.rstrip('/')}/chat/completions",
+                    json={"model": settings.OPENAI_MODEL, **cuerpo},
+                    headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+                ) as respuesta:
+                    codigo = respuesta.status_code
+                    if codigo in _CODIGOS_REINTENTABLES and intento < settings.OPENAI_REINTENTOS:
+                        espera = _espera_de(respuesta, intento)
+                    elif codigo >= 400:
+                        # Solo el código: el cuerpo del error puede traer datos de la cuenta.
+                        raise IaNoDisponible(
+                            f"El proveedor de IA respondió {codigo}.", status_proveedor=codigo
+                        )
+                    else:
+                        yield from _leer_stream(respuesta)
+                        return
+        except httpx.HTTPError as error:
+            raise IaNoDisponible() from error
+        if espera is not None:
+            time.sleep(espera)
+
+
+def _leer_stream(respuesta: httpx.Response) -> Iterator[tuple[str, str | RespuestaConHerramientas]]:
+    contenido = ""
+    crudas: dict[int, dict[str, Any]] = {}
+    for linea in respuesta.iter_lines():
+        if not linea.startswith("data:"):
+            continue
+        dato = linea.removeprefix("data:").strip()
+        if dato == "[DONE]":
+            break
+        try:
+            trozo = json.loads(dato)
+        except ValueError as error:
+            raise IaRespuestaInvalida() from error
+        if not isinstance(trozo, dict):
+            raise IaRespuestaInvalida()
+        if "error" in trozo:
+            raise IaNoDisponible()
+        opciones = trozo.get("choices")
+        if not isinstance(opciones, list) or not opciones or not isinstance(opciones[0], dict):
+            continue
+        delta = opciones[0].get("delta")
+        if not isinstance(delta, dict):
+            continue
+        texto = delta.get("content")
+        if isinstance(texto, str) and texto:
+            contenido += texto
+            yield ("texto", texto)
+        for pedazo in delta.get("tool_calls") or []:
+            _acumular_llamada(crudas, pedazo)
+
+    llamadas = [_parsear_llamada(crudas[indice]) for indice in sorted(crudas)]
+    yield ("fin", RespuestaConHerramientas(contenido=contenido, llamadas=llamadas))
+
+
+def _acumular_llamada(crudas: dict[int, dict[str, Any]], pedazo: object) -> None:
+    """Junta los pedazos de una `tool_call` que llegan repartidos por `index`."""
+    if not isinstance(pedazo, dict) or not isinstance(pedazo.get("index"), int):
+        raise IaRespuestaInvalida("El proveedor de IA devolvió una respuesta inutilizable.")
+    actual = crudas.setdefault(pedazo["index"], {"function": {"name": "", "arguments": ""}})
+    if isinstance(pedazo.get("id"), str):
+        actual["id"] = pedazo["id"]
+    if isinstance(pedazo.get("extra_content"), dict):
+        actual["extra_content"] = pedazo["extra_content"]
+    funcion = pedazo.get("function")
+    if isinstance(funcion, dict):
+        if isinstance(funcion.get("name"), str):
+            actual["function"]["name"] += funcion["name"]
+        if isinstance(funcion.get("arguments"), str):
+            actual["function"]["arguments"] += funcion["arguments"]
 
 
 def _parsear_llamada(cruda: object) -> LlamadaHerramienta:

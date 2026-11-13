@@ -107,6 +107,43 @@ def neutralizar_alias_no_emitidos(db: Session, conversacion_id: uuid.UUID, texto
     )
 
 
+class FiltroAlias:
+    """Neutraliza los alias no emitidos en un texto que llega por trozos.
+
+    Un alias puede quedar partido entre dos trozos: se retiene el final que podría ser el inicio
+    de uno hasta saber cómo sigue.
+    """
+
+    def __init__(self, emitidos: set[str]):
+        self._emitidos = emitidos
+        self._pendiente = ""
+
+    def alimentar(self, trozo: str) -> str:
+        texto = self._pendiente + trozo
+        inicio = texto.rfind("[")
+        if inicio >= 0 and _puede_ser_alias(texto[inicio:]):
+            self._pendiente = texto[inicio:]
+            texto = texto[:inicio]
+        else:
+            self._pendiente = ""
+        return self._neutralizar(texto)
+
+    def vaciar(self) -> str:
+        texto, self._pendiente = self._pendiente, ""
+        return self._neutralizar(texto)
+
+    def _neutralizar(self, texto: str) -> str:
+        return PATRON_ALIAS.sub(
+            lambda c: c.group(0) if c.group(0) in self._emitidos else "[alias desconocido]", texto
+        )
+
+
+def _puede_ser_alias(cola: str) -> bool:
+    if any(prefijo.startswith(cola) for prefijo in ("[ALUMNO:", "[FAMILIA:")):
+        return True
+    return re.fullmatch(r"\[(?:ALUMNO|FAMILIA):\d*", cola) is not None
+
+
 # --- Entrada ------------------------------------------------------------------------------
 
 

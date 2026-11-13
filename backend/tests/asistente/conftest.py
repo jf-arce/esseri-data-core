@@ -97,13 +97,47 @@ class ProveedorFalso:
             if self.status != 200:
                 return httpx.Response(self.status, json={"error": "x"})
             indice = min(len(self.peticiones) - 1, len(self.respuestas) - 1)
-            return httpx.Response(200, json=self.respuestas[indice])
+            respuesta = self.respuestas[indice]
+            if self.peticiones[-1].get("stream"):
+                return httpx.Response(
+                    200,
+                    content=_como_stream(respuesta),
+                    headers={"content-type": "text/event-stream"},
+                )
+            return httpx.Response(200, json=respuesta)
 
         return httpx.MockTransport(manejar)
 
     def texto_enviado(self) -> str:
         """Todo lo que salió hacia el proveedor, como un único texto."""
         return json.dumps(self.peticiones, ensure_ascii=False)
+
+
+def _como_stream(respuesta: dict[str, Any]) -> bytes:
+    """Convierte una respuesta programada en el SSE que mandaría el proveedor, en trozos chicos."""
+    mensaje = respuesta["choices"][0]["message"]
+    deltas: list[dict[str, Any]] = []
+    contenido = mensaje.get("content") or ""
+    for inicio in range(0, len(contenido), 4):
+        deltas.append({"content": contenido[inicio : inicio + 4]})
+    for indice, llamada in enumerate(mensaje.get("tool_calls") or []):
+        argumentos = llamada["function"]["arguments"]
+        mitad = len(argumentos) // 2
+        primera = {
+            "index": indice,
+            "id": llamada["id"],
+            "type": "function",
+            "function": {"name": llamada["function"]["name"], "arguments": argumentos[:mitad]},
+        }
+        if "extra_content" in llamada:
+            primera["extra_content"] = llamada["extra_content"]
+        deltas.append({"tool_calls": [primera]})
+        deltas.append(
+            {"tool_calls": [{"index": indice, "function": {"arguments": argumentos[mitad:]}}]}
+        )
+    lineas = [f"data: {json.dumps({'choices': [{'delta': d}]})}\n\n" for d in deltas]
+    lineas.append("data: [DONE]\n\n")
+    return "".join(lineas).encode()
 
 
 def respuesta_texto(texto: str) -> dict[str, Any]:
@@ -241,4 +275,5 @@ def eventos(respuesta: httpx.Response) -> list[tuple[str, dict[str, Any]]]:
 
 
 def nombres(lista: list[tuple[str, dict[str, Any]]]) -> list[str]:
-    return [nombre for nombre, _ in lista]
+    """Nombres de los eventos, sin los `delta` (los trozos de texto se prueban aparte)."""
+    return [nombre for nombre, _ in lista if nombre != "delta"]

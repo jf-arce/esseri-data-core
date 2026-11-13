@@ -24,6 +24,7 @@ BLOQUE_NAVEGAR = "navegar"
 
 EVENTO_HERRAMIENTA = "herramienta"
 EVENTO_TEXTO = "texto"
+EVENTO_DELTA = "delta"
 EVENTO_TARJETA = "tarjeta"
 EVENTO_NAVEGAR = "navegar"
 EVENTO_FIN = "fin"

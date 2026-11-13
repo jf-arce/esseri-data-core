@@ -148,3 +148,80 @@ class TestReintentos:
             llm_client.completar_con_herramientas([], [], transport=transporte)
         assert llamadas["n"] == 1
         assert self.esperas == []
+
+
+def _transmitir(falso: ProveedorFalso):
+    return list(llm_client.transmitir_con_herramientas([], [], transport=falso.transport()))
+
+
+class TestTransmitir:
+    def test_junta_el_texto_y_lo_entrega_por_trozos(self, clave_ia):
+        falso = ProveedorFalso(respuestas=[respuesta_texto("Hola, ¿cómo va?")])
+        salida = _transmitir(falso)
+
+        trozos = [valor for tipo, valor in salida if tipo == "texto"]
+        assert len(trozos) > 1
+        tipo, final = salida[-1]
+        assert tipo == "fin"
+        assert final.contenido == "Hola, ¿cómo va?" == "".join(trozos)
+        assert final.llamadas == []
+        assert falso.peticiones[0]["stream"] is True
+
+    def test_arma_las_llamadas_aunque_los_argumentos_lleguen_partidos(self, clave_ia):
+        falso = ProveedorFalso(
+            respuestas=[
+                respuesta_herramientas(
+                    ("ficha_alumno", {"alias": "[ALUMNO:1]"}), ("deuda", {"mes": "2026-03"})
+                )
+            ]
+        )
+        final = _transmitir(falso)[-1][1]
+
+        assert [(c.nombre, c.argumentos) for c in final.llamadas] == [
+            ("ficha_alumno", {"alias": "[ALUMNO:1]"}),
+            ("deuda", {"mes": "2026-03"}),
+        ]
+        assert [c.id for c in final.llamadas] == ["call_0", "call_1"]
+
+    def test_sin_clave_falla_antes_de_llamar(self, monkeypatch):
+        monkeypatch.setattr(llm_client.settings, "OPENAI_API_KEY", "")
+        with pytest.raises(IaNoConfigurada):
+            _transmitir(ProveedorFalso())
+
+    def test_un_error_del_proveedor_informa_solo_el_codigo(self, clave_ia):
+        with pytest.raises(IaNoDisponible) as error:
+            _transmitir(ProveedorFalso(status=400))
+        assert error.value.status_proveedor == 400
+
+    def test_un_trozo_ilegible_es_respuesta_invalida(self, clave_ia):
+        transporte = httpx.MockTransport(
+            lambda _: httpx.Response(200, content=b"data: {no es json\n\n")
+        )
+        with pytest.raises(IaRespuestaInvalida):
+            list(llm_client.transmitir_con_herramientas([], [], transport=transporte))
+
+    def test_un_error_dentro_del_stream_es_no_disponible(self, clave_ia):
+        transporte = httpx.MockTransport(
+            lambda _: httpx.Response(200, content=b'data: {"error": {"message": "x"}}\n\n')
+        )
+        with pytest.raises(IaNoDisponible):
+            list(llm_client.transmitir_con_herramientas([], [], transport=transporte))
+
+    def test_reintenta_un_429_antes_de_que_empiece_el_stream(self, clave_ia, monkeypatch):
+        esperas: list[float] = []
+        monkeypatch.setattr(llm_client.time, "sleep", esperas.append)
+        cuerpo = b'data: {"choices": [{"delta": {"content": "ok"}}]}\n\ndata: [DONE]\n\n'
+        llamadas = {"n": 0}
+
+        def manejar(request: httpx.Request) -> httpx.Response:
+            llamadas["n"] += 1
+            if llamadas["n"] == 1:
+                return httpx.Response(429, json={"error": "x"})
+            return httpx.Response(200, content=cuerpo)
+
+        salida = list(
+            llm_client.transmitir_con_herramientas([], [], transport=httpx.MockTransport(manejar))
+        )
+        assert salida[-1][1].contenido == "ok"
+        assert llamadas["n"] == 2
+        assert len(esperas) == 1

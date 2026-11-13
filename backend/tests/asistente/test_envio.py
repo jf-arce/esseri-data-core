@@ -39,6 +39,27 @@ class TestFlujo:
         assert lista[0][1]["nombre"] == "indicadores_generales"
         assert lista[-2][1]["texto"] == "Hay 3 alumnos activos."
 
+    def test_el_texto_llega_en_trozos_que_suman_la_respuesta(self, direccion, proveedor):
+        proveedor.respuestas = [respuesta_texto("Hay 3 alumnos activos hoy.")]
+        conversacion = nueva_conversacion(direccion)
+
+        lista = eventos(enviar(direccion, conversacion, "¿Cuántos alumnos hay?"))
+
+        trozos = [datos["texto"] for nombre, datos in lista if nombre == "delta"]
+        assert len(trozos) > 1
+        assert "".join(trozos) == "Hay 3 alumnos activos hoy."
+        assert [n for n, _ in lista][-2:] == ["texto", "fin"]
+
+    def test_un_alias_desconocido_se_neutraliza_aunque_llegue_partido(self, direccion, proveedor):
+        proveedor.respuestas = [respuesta_texto("Mirá a [ALUMNO:99] por favor.")]
+        conversacion = nueva_conversacion(direccion)
+
+        lista = eventos(enviar(direccion, conversacion, "Hola"))
+
+        emitido = "".join(d["texto"] for n, d in lista if n == "delta")
+        assert "ALUMNO:99" not in emitido
+        assert "[alias desconocido]" in emitido
+
     def test_los_mensajes_quedan_guardados_y_la_conversacion_libre(
         self, direccion, proveedor, personas, db_session
     ):

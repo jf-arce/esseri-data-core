@@ -28,6 +28,7 @@ from src.asistente.constants import (
     ESTADO_MENSAJE_COMPLETO,
     ESTADO_MENSAJE_ERROR,
     ESTADO_MENSAJE_PARCIAL,
+    EVENTO_DELTA,
     EVENTO_ERROR,
     EVENTO_FIN,
     EVENTO_HERRAMIENTA,
@@ -48,7 +49,9 @@ from src.asistente.schemas import MensajeCreate
 from src.asistente.seudonimos_service import (
     PATRON_ALIAS,
     Ambiguedad,
+    FiltroAlias,
     Mencion,
+    alias_emitidos,
     neutralizar_alias_no_emitidos,
     preparar_entrada,
 )
@@ -500,13 +503,33 @@ def _loop_con_herramientas(
     # Un paso extra sin herramientas obliga al modelo a cerrar con texto si agotó los pasos.
     for paso in range(settings.ASISTENTE_MAX_PASOS + 1):
         con_herramientas = paso < settings.ASISTENTE_MAX_PASOS
-        respuesta = llm_client.completar_con_herramientas(
+        # Los alias válidos se leen por paso: las herramientas del paso anterior pueden emitir más.
+        filtro = FiltroAlias(alias_emitidos(db, envio.conversacion_id))
+        respuesta: llm_client.RespuestaConHerramientas | None = None
+        hubo_texto = False
+        for tipo, valor in llm_client.transmitir_con_herramientas(
             conversacion, definiciones if con_herramientas else [], transport
-        )
+        ):
+            if isinstance(valor, llm_client.RespuestaConHerramientas):
+                respuesta = valor
+            elif tipo == "texto":
+                seguro = filtro.alimentar(valor)
+                if seguro:
+                    hubo_texto = True
+                    yield _evento(solicitud_id, EVENTO_DELTA, texto=seguro)
+        resto = filtro.vaciar()
+        if resto:
+            hubo_texto = True
+            yield _evento(solicitud_id, EVENTO_DELTA, texto=resto)
+        if respuesta is None:
+            raise llm_client.IaRespuestaInvalida()
         llamadas = respuesta.llamadas[: settings.ASISTENTE_MAX_HERRAMIENTAS_POR_PASO]
         if not llamadas or not con_herramientas:
             texto_final = respuesta.contenido
             break
+        if hubo_texto:
+            # El texto previo a una herramienta no es la respuesta: se descarta de la pantalla.
+            yield _evento(solicitud_id, EVENTO_TEXTO, texto="")
 
         conversacion.append(
             {
