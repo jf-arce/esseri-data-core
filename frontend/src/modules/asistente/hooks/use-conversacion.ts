@@ -81,7 +81,15 @@ export function useConversacion({ ruta, cicloLectivo, alNavegar }: Opciones) {
             pasos: [...m.pasos, evento.datos.nombre],
           }))
           break
+        case 'delta':
+          actualizarUltimo((m) => ({
+            ...m,
+            herramienta: null,
+            contenido: m.contenido + evento.datos.texto,
+          }))
+          break
         case 'texto':
+          // Reemplaza lo acumulado: es el texto final ya validado (o vacío si fue un preámbulo).
           actualizarUltimo((m) => ({ ...m, contenido: evento.datos.texto }))
           break
         case 'tarjeta':

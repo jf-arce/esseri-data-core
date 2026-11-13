@@ -61,6 +61,28 @@ it('arma el mensaje del asistente a partir de los eventos', async () => {
   })
 })
 
+it('acumula los trozos de texto', async () => {
+  enviarMensaje.mockImplementation(
+    async (
+      _id: string,
+      _pedido: unknown,
+      _signal: AbortSignal,
+      alEvento: (e: EventoSse) => void,
+    ) => {
+      alEvento({ evento: 'delta', datos: { solicitud_id: 's', texto: 'Hay ' } })
+      alEvento({ evento: 'delta', datos: { solicitud_id: 's', texto: '3 alumnos.' } })
+      alEvento({ evento: 'fin', datos: { solicitud_id: 's', mensaje_id: 'm' } })
+    },
+  )
+  const { result } = renderHook(() => useConversacion(opciones))
+
+  await act(async () => {
+    await result.current.enviar('hola', [])
+  })
+
+  expect(result.current.mensajes[1].contenido).toBe('Hay 3 alumnos.')
+})
+
 it('al desmontarse corta el stream en curso', async () => {
   let senal: AbortSignal | undefined
   enviarMensaje.mockImplementation(

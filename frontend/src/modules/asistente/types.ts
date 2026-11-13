@@ -85,6 +85,7 @@ export type PedidoMensaje = {
 // Eventos SSE del backend. Todos traen el `solicitud_id` del envío.
 export type EventoSse =
   | { evento: 'herramienta'; datos: { solicitud_id: string; nombre: string } }
+  | { evento: 'delta'; datos: { solicitud_id: string; texto: string } }
   | { evento: 'texto'; datos: { solicitud_id: string; texto: string } }
   | { evento: 'tarjeta'; datos: { solicitud_id: string; bloque: Bloque } }
   | {

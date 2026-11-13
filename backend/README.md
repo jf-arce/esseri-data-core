@@ -193,8 +193,8 @@ Reutiliza el proveedor configurado con `OPENAI_BASE_URL` / `OPENAI_MODEL` (que t
 
 - Endpoints, bajo `/asistente` y con `asistente.leer`: `POST/GET /conversaciones`,
   `GET /conversaciones/{id}/mensajes`, `DELETE /conversaciones/{id}`,
-  `POST /conversaciones/{id}/mensajes` (SSE con los eventos `herramienta`, `texto`, `tarjeta`,
-  `navegar`, `fin` y `error`) y `POST /resolver`. Con `ASISTENTE_HABILITADO=false` todo responde 503.
+  `POST /conversaciones/{id}/mensajes` (SSE con los eventos `herramienta`, `delta` (trozo de
+  texto), `texto` (respuesta final), `tarjeta`, `navegar`, `fin` y `error`) y `POST /resolver`. Con `ASISTENTE_HABILITADO=false` todo responde 503.
 - Al proveedor solo salen alias (`[ALUMNO:3]`), nunca nombres, DNI ni contacto. El detalle de la
   regla está en `ARCHITECTURE.md` ("Asistente: privacidad y aislamiento").
 - Una conversación genera una respuesta a la vez (409 si se envía otro mensaje mientras tanto). La
