@@ -24,9 +24,6 @@ import { TarjetaRecurso } from './tarjeta-recurso'
 import { TextoConAlias } from './texto-con-alias'
 import { TextoMarkdown } from './texto-markdown'
 
-// Cuánto texto puede faltar por escribirse para que los datos empiecen a entrar.
-const UMBRAL_ENTRADA_DATOS = 40
-
 // Los datos entran de a uno, con un fundido y un leve ascenso.
 const ENTRADA_DE_DATOS: Variants = {
   oculto: {},
@@ -174,10 +171,8 @@ function MensajeDelAsistente({
   const generando = mensaje.estado === 'generando'
   // Solo se anima lo que llega en vivo; las conversaciones guardadas se muestran enteras.
   const [animar] = useState(generando)
-  const { visible, revelando, faltan } = useTextoGradual(mensaje.contenido, animar)
+  const { visible, revelando } = useTextoGradual(mensaje.contenido, animar)
   const escribiendo = generando || revelando
-  // Los datos empiezan a entrar sobre el final del texto, así no aparecen de golpe al terminar.
-  const mostrarDatos = !generando && faltan <= UMBRAL_ENTRADA_DATOS
   return (
     <Message>
       <MessageContent>
@@ -207,7 +202,7 @@ function MensajeDelAsistente({
         )}
         {escribiendo && visible !== '' && <CursorEscritura />}
         {/* Los datos van debajo del texto y entran de a uno. */}
-        {mostrarDatos && (
+        {!escribiendo && (
           <BloquesDelMensaje
             bloques={mensaje.bloques}
             porAlias={porAlias}
