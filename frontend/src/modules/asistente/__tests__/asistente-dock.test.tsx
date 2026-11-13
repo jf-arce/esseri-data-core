@@ -26,7 +26,7 @@ beforeEach(() => {
 it('remonta el panel (y descarta su estado) al cambiar de rol', () => {
   render(
     <MemoryRouter>
-      <AsistenteDock />
+      <AsistenteDock abierto />
     </MemoryRouter>,
   )
   expect(screen.getByText('panel')).toBeInTheDocument()
@@ -35,4 +35,28 @@ it('remonta el panel (y descarta su estado) al cambiar de rol', () => {
   act(() => useAuthStore.setState({ rolActivo: 'administracion' }))
 
   expect(montajes).toHaveBeenCalledTimes(2)
+})
+
+it('cerrado no desmonta el panel: conserva su estado', () => {
+  const { rerender, container } = render(
+    <MemoryRouter>
+      <AsistenteDock abierto />
+    </MemoryRouter>,
+  )
+  expect(montajes).toHaveBeenCalledTimes(1)
+
+  rerender(
+    <MemoryRouter>
+      <AsistenteDock abierto={false} />
+    </MemoryRouter>,
+  )
+
+  expect(container.querySelector('aside')).toHaveAttribute('hidden')
+  expect(montajes).toHaveBeenCalledTimes(1)
+  rerender(
+    <MemoryRouter>
+      <AsistenteDock abierto />
+    </MemoryRouter>,
+  )
+  expect(montajes).toHaveBeenCalledTimes(1)
 })

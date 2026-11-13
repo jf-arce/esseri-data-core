@@ -7,9 +7,10 @@ import { AsistentePanel } from './asistente-panel'
 /**
  * Panel acoplado a la derecha, dentro del layout: angosta el contenido en vez de taparlo. En
  * pantallas angostas ocupa todo el ancho. El ancho se cambia arrastrando el borde izquierdo
- * (o con las flechas, con el borde enfocado).
+ * (o con las flechas, con el borde enfocado). Cerrado queda montado pero oculto, para conservar la
+ * conversación en curso.
  */
-export function AsistenteDock() {
+export function AsistenteDock({ abierto }: { abierto: boolean }) {
   const ancho = useAsistenteStore((estado) => estado.ancho)
   const setAncho = useAsistenteStore((estado) => estado.setAncho)
   const usuarioId = useAuthStore((estado) => estado.usuario?.id ?? null)
@@ -46,6 +47,7 @@ export function AsistenteDock() {
     <aside
       aria-label="Asistente"
       style={{ '--ancho-asistente': `${ancho}px` } as React.CSSProperties}
+      hidden={!abierto}
       className="fixed inset-0 z-40 bg-superficie md:sticky md:inset-auto md:top-0 md:z-auto md:h-svh md:w-(--ancho-asistente) md:shrink-0 md:border-l md:border-borde"
     >
       <div

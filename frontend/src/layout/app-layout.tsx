@@ -282,7 +282,8 @@ export function AppLayout() {
           </main>
         </SidebarInset>
 
-        {asistenteDisponible && asistenteAbierto && <AsistenteDock />}
+        {/* Montado aunque esté cerrado: así no se pierde la conversación al cerrarlo. */}
+        {asistenteDisponible && <AsistenteDock abierto={asistenteAbierto} />}
       </SidebarProvider>
 
       <GlobalSearchDialog open={comandoAbierto} onOpenChange={setComandoAbierto} />
