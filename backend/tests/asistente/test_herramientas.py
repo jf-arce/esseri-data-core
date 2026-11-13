@@ -72,7 +72,7 @@ class TestAsistencias:
             {"agrupar_por": "dia", "desde": ayer.isoformat(), "hasta": ayer.isoformat()},
         )
         (fila,) = resultado_de_herramienta(proveedor)["periodos"]
-        assert fila["periodo"] == ayer.isoformat()
+        assert fila["periodo"] == ayer.strftime("%d/%m/%Y")
         assert fila["registros"] == 1
 
     def test_por_dia_rechaza_periodos_largos(self, direccion, proveedor, personas):
@@ -126,7 +126,7 @@ class TestEvolucionFinanciera:
         )
 
         meses = resultado_de_herramienta(proveedor)["meses"]
-        assert [m["mes"] for m in meses] == ["2025-11", "2025-12", "2026-01", "2026-02"]
+        assert [m["mes"] for m in meses] == ["11/2025", "12/2025", "01/2026", "02/2026"]
 
     def test_rechaza_rangos_de_mas_de_24_meses(self, direccion, proveedor):
         correr(
@@ -256,4 +256,4 @@ class TestDeudaPorFamilias:
     def test_con_fecha_pasada_informa_el_corte(self, direccion, proveedor):
         correr(direccion, proveedor, "deuda_por_familias", {"al": "2026-10-31"})
 
-        assert resultado_de_herramienta(proveedor)["periodo"] == "al 2026-10-31"
+        assert resultado_de_herramienta(proveedor)["periodo"] == "al 31/10/2026"

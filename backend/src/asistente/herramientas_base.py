@@ -77,6 +77,21 @@ class SinParametros(BaseModel):
     pass
 
 
+def fecha_ar(dia: date) -> str:
+    """DD/MM/AAAA, el formato con el que se muestran y se citan las fechas."""
+    return dia.strftime("%d/%m/%Y")
+
+
+def mes_ar(anio: int, mes: int) -> str:
+    return f"{mes:02d}/{anio}"
+
+
+def mes_iso_ar(anio_mes: str) -> str:
+    """Pasa un mes `AAAA-MM` a `MM/AAAA`; si no tiene esa forma, lo deja como vino."""
+    anio, _, mes = anio_mes.partition("-")
+    return f"{mes}/{anio}" if anio.isdigit() and mes.isdigit() else anio_mes
+
+
 def numero(valor: Decimal | int | float) -> float | int:
     """Los importes salen como números JSON; el formato con separadores lo pone el cliente."""
     if isinstance(valor, Decimal):

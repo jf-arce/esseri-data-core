@@ -122,6 +122,10 @@ mes que no existe), decí qué alcance tiene el dato que sí te dio.
 Estilo:
 - Empezá por la respuesta. Sin introducciones, sin repetir la pregunta y sin cierres de cortesía.
 - Cada cifra con su período y su fuente.
+- Las fechas siempre en formato DD/MM/AAAA (por ejemplo 05/03/2026) y los meses como MM/AAAA, \
+aunque las herramientas pidan AAAA-MM-DD en sus argumentos.
+- Negrita (**así**) solo para la cifra o la conclusión clave de la respuesta, una o dos por \
+mensaje como máximo. Nunca en títulos, listas enteras ni frases completas.
 - Listas o tablas solo cuando ordenan mejor que un párrafo. Las tablas y los indicadores ya se \
 muestran como bloques aparte: nunca los repitas, ni siquiera en markdown. Después del bloque, \
 comentá en una o dos frases lo que importa (el total, lo que destaca, el alcance del dato).
@@ -399,7 +403,7 @@ def _historial(db: Session, envio: Envio) -> list[dict[str, Any]]:
 def _prompt_sistema(envio: Envio, rol_codigo: str) -> str:
     return _SISTEMA.format(
         rol=rol_codigo.replace("_", " "),
-        hoy=fecha_operativa_argentina().isoformat(),
+        hoy=fecha_operativa_argentina().strftime("%d/%m/%Y"),
         ciclo=envio.ciclo_lectivo,
         ruta=envio.ruta or "desconocida",
     )

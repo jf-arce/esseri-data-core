@@ -11,6 +11,7 @@ from src.asistente.herramientas_base import (
     Herramienta,
     ResultadoHerramienta,
     bloque_tabla,
+    fecha_ar,
     numero,
 )
 from src.asistente.seudonimos_service import obtener_o_crear_alias
@@ -68,7 +69,7 @@ def _deuda_por_familias(
     _, con_deuda_vencida = listar_deuda_por_familia(
         contexto.db, fecha_referencia=corte, pagina=1, tamanio=1, estado="vencida", al=al
     )
-    periodo = f"al {corte.isoformat()}"
+    periodo = f"al {fecha_ar(corte)}"
     tabla = bloque_tabla(
         "Deuda por familia",
         [

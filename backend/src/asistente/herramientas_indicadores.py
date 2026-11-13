@@ -11,6 +11,8 @@ from src.asistente.herramientas_base import (
     ResultadoHerramienta,
     bloque_kpi,
     bloque_tabla,
+    fecha_ar,
+    mes_iso_ar,
     numero,
 )
 from src.asistente.herramientas_workflows import contar_tareas
@@ -43,7 +45,7 @@ def _indicadores_generales(
     # No se expone `deuda_pendiente_total`: es una cifra provisoria del panel. La deuda sale de
     # la cuenta corriente (`deuda_por_familias`).
     base = obtener_indicadores_direccion(contexto.db, fecha_hoy=contexto.hoy)
-    hoy = contexto.hoy.isoformat()
+    hoy = fecha_ar(contexto.hoy)
     pedidos = set(parametros.indicadores)
     datos: dict[str, object] = {"fecha": hoy}
     bloques: list[dict[str, object]] = []
@@ -120,13 +122,13 @@ def _evolucion_financiera(
     )
     filas = [
         {
-            "mes": mes["mes"],
+            "mes": mes_iso_ar(mes["mes"]),
             "facturado": numero(mes["facturado"]),
             "cobrado": numero(mes["cobrado"]),
         }
         for mes in meses
     ]
-    periodo = f"{desde.isoformat()} a {hasta.isoformat()}"
+    periodo = f"{fecha_ar(desde)} a {fecha_ar(hasta)}"
     fuente = "Panel administrativo: facturas emitidas y pagos aprobados"
     tabla = bloque_tabla(
         "Facturado y cobrado por mes",

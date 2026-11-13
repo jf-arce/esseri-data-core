@@ -15,6 +15,8 @@ from src.asistente.herramientas_base import (
     bloque_kpi,
     bloque_tabla,
     bloque_tarjeta,
+    fecha_ar,
+    mes_ar,
     numero,
     porcentaje,
 )
@@ -114,11 +116,11 @@ class ParametrosTendencia(BaseModel):
 
 def _clave_periodo(dia: date, agrupar_por: str) -> str:
     if agrupar_por == "dia":
-        return dia.isoformat()
+        return fecha_ar(dia)
     if agrupar_por == "mes":
-        return f"{dia.year}-{dia.month:02d}"
+        return mes_ar(dia.year, dia.month)
     lunes = dia - timedelta(days=dia.weekday())
-    return f"semana del {lunes.isoformat()}"
+    return f"semana del {fecha_ar(lunes)}"
 
 
 def _tendencia_asistencias(
@@ -177,7 +179,7 @@ def _tendencia_asistencias(
         }
         for clave, valores in periodos.items()
     ]
-    periodo = f"{desde.isoformat()} a {hasta.isoformat()}, ciclo {ciclo}"
+    periodo = f"{fecha_ar(desde)} a {fecha_ar(hasta)}, ciclo {ciclo}"
     fuente = "Asistencias (Inscripciones)"
     return ResultadoHerramienta(
         para_llm={
@@ -251,7 +253,7 @@ def _ausentes_del_dia(
         }
         for alumno_id, tipo, nivel, anio, division in registros
     ]
-    periodo = dia.isoformat()
+    periodo = fecha_ar(dia)
     fuente = "Asistencias (Inscripciones)"
     return ResultadoHerramienta(
         para_llm={
@@ -358,7 +360,7 @@ def _ficha_alumno(
                 "Saldo de cuenta corriente",
                 numero(saldo),
                 unidad="$",
-                periodo=f"al {contexto.hoy.isoformat()}",
+                periodo=f"al {fecha_ar(contexto.hoy)}",
                 fuente="Cuenta corriente",
             )
         )
