@@ -100,12 +100,16 @@ def _deuda_por_familias(
             "fuente": _FUENTE,
             "alcance": "deuda acumulada al corte; no se puede filtrar por mes de la cuota",
             "familias_con_deuda_vencida": con_deuda_vencida,
-            "total_vencido_de_esas_familias": total_vencido,
+            "total_vencido_todas_las_familias": total_vencido,
             "familias_con_el_filtro": total,
             "familias_devueltas": len(filas),
             "familias": filas,
-            "suma_vencido_de_las_devueltas": numero(sum(fila["monto_vencido"] for fila in filas)),
-            "suma_deuda_total_de_las_devueltas": numero(sum(fila["deuda_total"] for fila in filas)),
+            "suma_vencido_de_las_filas_mostradas": numero(
+                sum(fila["monto_vencido"] for fila in filas)
+            ),
+            "suma_deuda_total_de_las_filas_mostradas": numero(
+                sum(fila["deuda_total"] for fila in filas)
+            ),
         },
         bloques=[tabla],
     )

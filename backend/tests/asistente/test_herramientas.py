@@ -245,7 +245,7 @@ class TestDeudaPorFamilias:
         correr(direccion, proveedor, "deuda_por_familias", {"limite": 5})
         resultado = resultado_de_herramienta(proveedor)
         assert resultado["familias_con_deuda_vencida"] == 0
-        assert resultado["total_vencido_de_esas_familias"] == 0
+        assert resultado["total_vencido_todas_las_familias"] == 0
         assert "mes" in resultado["alcance"]
 
     def test_rechaza_una_fecha_de_corte_futura(self, direccion, proveedor):
