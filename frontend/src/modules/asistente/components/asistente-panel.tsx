@@ -3,18 +3,28 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { PERMISO_FAMILIAS_ALUMNOS_LEER, tienePermiso } from '@/modules/auth/constants'
+import {
+  PERMISO_ACADEMICO_LEER,
+  PERMISO_FAMILIAS_ALUMNOS_LEER,
+  tienePermiso,
+} from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 import { useAlias } from '../hooks/use-alias'
 import { useConversacion } from '../hooks/use-conversacion'
 import { useAsistenteStore } from '../store'
 import type { AliasResuelto, BloqueNavegar } from '../types'
-import { aliasDeMensajes, rutaDeDestino, rutaDeEntidad, sugerenciasPermitidas } from '../utils'
+import {
+  aliasDeMensajes,
+  etiquetaDeDestino,
+  rutaDeDestino,
+  rutaDeEntidad,
+  sugerenciasPermitidas,
+} from '../utils'
 import { EntradaMensaje, type Sugerencia } from './entrada-mensaje'
 import { PuntosPensando } from './indicadores-de-carga'
 import { HistorialConversaciones } from './historial-conversaciones'
-import { ListaMensajes } from './lista-mensajes'
+import { ListaMensajes, type AccionIr } from './lista-mensajes'
 
 /**
  * Contenido del panel. El layout lo monta con `key` del rol activo: al cambiar de rol o de
@@ -32,6 +42,8 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
 
   const sugerencias = useMemo(() => sugerenciasPermitidas(permisos), [permisos])
   const puedeVerPersonas = tienePermiso(permisos, PERMISO_FAMILIAS_ALUMNOS_LEER)
+  // Los nombres de docentes se resuelven con `academico.leer`; el backend filtra cada tipo.
+  const puedeResolverNombres = puedeVerPersonas || tienePermiso(permisos, PERMISO_ACADEMICO_LEER)
 
   const rutaDeBloque = useCallback(
     (bloque: BloqueNavegar, resueltos: Record<string, AliasResuelto>): string | null => {
@@ -60,17 +72,22 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
   // Rehidrata los nombres solo cuando la respuesta terminó, y solo si el rol puede ver personas.
   const aliases = useMemo(() => aliasDeMensajes(mensajes), [mensajes])
   useEffect(() => {
-    if (!puedeVerPersonas || generando || aliases.length === 0) return
+    if (!puedeResolverNombres || generando || aliases.length === 0) return
     void resolver(aliases)
-  }, [aliases, generando, puedeVerPersonas, resolver])
+  }, [aliases, generando, puedeResolverNombres, resolver])
 
   const alIr = useCallback(
-    (bloque: BloqueNavegar) => {
+    (bloque: BloqueNavegar): AccionIr | null => {
       const ruta = rutaDeBloque(bloque, porAlias)
       if (ruta === null) return null
-      return () => navegar(ruta)
+      const nombre =
+        bloque.destino === undefined ? null : etiquetaDeDestino(bloque.destino, rolActivo, permisos)
+      return {
+        etiqueta: nombre === null ? 'Ir ahí' : `Ir a ${nombre}`,
+        ir: () => navegar(ruta),
+      }
     },
-    [navegar, porAlias, rutaDeBloque],
+    [navegar, permisos, porAlias, rolActivo, rutaDeBloque],
   )
 
   const alElegir = useCallback((resuelto: AliasResuelto) => {

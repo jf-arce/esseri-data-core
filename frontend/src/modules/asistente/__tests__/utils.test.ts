@@ -3,6 +3,8 @@ import type { Permiso } from '@/modules/auth/types'
 import type { MensajeVisible } from '../types'
 import {
   aliasDeMensajes,
+  etiquetaDeDestino,
+  etiquetaGenerica,
   armarCopia,
   cortarSeguro,
   formatearCelda,
@@ -283,5 +285,38 @@ describe('armarCopia', () => {
     expect(armarCopia('Listo.', [kpi], {}).texto).toContain(
       'Alumnos activos: 320 (al 13/11/2026 · Inscripciones)',
     )
+  })
+})
+
+describe('alias de docentes', () => {
+  it('no tienen ficha: la ruta es nula', () => {
+    expect(rutaDeEntidad('DOCENTE', 'd1')).toBeNull()
+  })
+
+  it('se reconocen en el texto y tienen etiqueta propia', () => {
+    expect(partirTextoConAlias('Da [DOCENTE:2] hoy')).toEqual([
+      { tipo: 'texto', valor: 'Da ' },
+      { tipo: 'alias', alias: '[DOCENTE:2]' },
+      { tipo: 'texto', valor: ' hoy' },
+    ])
+    expect(etiquetaGenerica('[DOCENTE:2]')).toBe('Docente 2')
+  })
+
+  it('se muestran en negrita y sin link una vez resueltos', () => {
+    const resuelto = {
+      alias: '[DOCENTE:2]',
+      tipo: 'DOCENTE' as const,
+      entidad_id: 'd1',
+      nombre: 'Ferrero, Graciela',
+    }
+    expect(sustituirAlias('Da [DOCENTE:2]', { '[DOCENTE:2]': resuelto })).toBe(
+      'Da **Ferrero, Graciela**',
+    )
+  })
+})
+
+describe('etiquetaDeDestino', () => {
+  it('una clave desconocida no tiene etiqueta', () => {
+    expect(etiquetaDeDestino('no_existe', null, [])).toBeNull()
   })
 })

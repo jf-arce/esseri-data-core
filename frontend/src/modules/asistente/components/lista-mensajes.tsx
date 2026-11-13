@@ -34,12 +34,15 @@ const ELEMENTO_DE_DATOS: Variants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } },
 }
 
+/** Botón de navegación: su texto y lo que hace al tocarlo. */
+export type AccionIr = { etiqueta: string; ir: () => void }
+
 interface ListaMensajesProps {
   mensajes: MensajeVisible[]
   porAlias: Record<string, AliasResuelto>
   alElegir: (resuelto: AliasResuelto) => void
-  /** Etiqueta y acción para un bloque de navegación, o `null` si el rol no puede ir ahí. */
-  alIr: (bloque: BloqueNavegar) => (() => void) | null
+  /** Botón para un bloque de navegación, o `null` si el rol no puede ir ahí. */
+  alIr: (bloque: BloqueNavegar) => AccionIr | null
   /** Vuelve a mandar la última pregunta; `null` mientras se está generando. */
   alReintentar: (() => void) | null
   /** Preguntas de arranque para el estado vacío. */
@@ -252,7 +255,7 @@ function BloquesDelMensaje({
   bloques: Bloque[]
   porAlias: Record<string, AliasResuelto>
   alElegir: (resuelto: AliasResuelto) => void
-  alIr: (bloque: BloqueNavegar) => (() => void) | null
+  alIr: (bloque: BloqueNavegar) => AccionIr | null
 }) {
   const kpis = bloques.flatMap((b) => (b.tipo === 'kpi' ? [b] : []))
   if (bloques.length === 0) return null
@@ -293,12 +296,12 @@ function BloquesDelMensaje({
           )
         }
         if (bloque.tipo === 'navegar') {
-          const ir = alIr(bloque)
-          if (ir === null) return null
+          const accion = alIr(bloque)
+          if (accion === null) return null
           return (
             <motion.div key={indice} variants={ELEMENTO_DE_DATOS} className="self-start">
-              <Button type="button" variant="secondary" size="sm" onClick={ir}>
-                Ir ahí
+              <Button type="button" variant="secondary" size="sm" onClick={accion.ir}>
+                {accion.etiqueta}
                 <ArrowRightIcon data-icon="inline-end" />
               </Button>
             </motion.div>

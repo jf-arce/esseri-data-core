@@ -49,9 +49,17 @@ export function TarjetaRecurso({ bloque, resuelto, alElegir }: TarjetaRecursoPro
       </div>
     )
   }
+  const ruta = rutaDeEntidad(resuelto.tipo, resuelto.entidad_id)
+  if (ruta === null) {
+    return (
+      <div className="flex items-center gap-2.5 rounded-xl border border-borde bg-superficie p-2">
+        {contenido}
+      </div>
+    )
+  }
   return (
     <Link
-      to={rutaDeEntidad(resuelto.tipo, resuelto.entidad_id)}
+      to={ruta}
       className="flex items-center gap-2.5 rounded-xl border border-borde bg-superficie p-2 hover:bg-fila-hover"
     >
       {contenido}

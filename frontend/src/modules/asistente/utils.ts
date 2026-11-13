@@ -63,15 +63,30 @@ export function rutaDeDestino(
   return permitidas.some((destino) => destino.ruta === ruta) ? ruta : null
 }
 
-// Mismas rutas que `busqueda-global.ts` para alumnos y familias.
-export function rutaDeEntidad(tipo: TipoAlias, id: string): string {
+// Mismas rutas que `busqueda-global.ts` para alumnos y familias. Los docentes no tienen ficha.
+export function rutaDeEntidad(tipo: TipoAlias, id: string): string | null {
+  if (tipo === 'DOCENTE') return null
   const segmento = tipo === 'ALUMNO' ? 'alumnos' : 'familias'
   return `/familias-alumnos/${segmento}/${encodeURIComponent(id)}`
 }
 
+/** Nombre de la pantalla de una clave de destino, tal como figura en el menú del rol activo. */
+export function etiquetaDeDestino(
+  clave: string,
+  rolActivo: string | null,
+  permisos: Permiso[],
+): string | null {
+  const ruta = RUTAS_DE_DESTINO[clave]
+  if (ruta === undefined) return null
+  const destino = destinosDe(filtrarNav(NAV_GROUPS, rolActivo, permisos)).find(
+    (candidato) => candidato.ruta === ruta,
+  )
+  return destino?.etiqueta ?? null
+}
+
 // --- Alias -----------------------------------------------------------------------------------
 
-const PATRON_ALIAS = /\[(ALUMNO|FAMILIA):(\d+)\]/g
+const PATRON_ALIAS = /\[(ALUMNO|FAMILIA|DOCENTE):(\d+)\]/g
 
 export type TrozoDeTexto = { tipo: 'texto'; valor: string } | { tipo: 'alias'; alias: string }
 
@@ -96,6 +111,7 @@ export function aliasEnTexto(texto: string): string[] {
 export function tipoDeAlias(alias: string): TipoAlias | null {
   if (alias.startsWith('[ALUMNO:')) return 'ALUMNO'
   if (alias.startsWith('[FAMILIA:')) return 'FAMILIA'
+  if (alias.startsWith('[DOCENTE:')) return 'DOCENTE'
   return null
 }
 
@@ -103,7 +119,7 @@ export function tipoDeAlias(alias: string): TipoAlias | null {
 export function etiquetaGenerica(alias: string): string {
   const tipo = tipoDeAlias(alias)
   const numero = alias.match(/:(\d+)\]/)?.[1] ?? ''
-  const base = tipo === 'FAMILIA' ? 'Familia' : 'Alumno'
+  const base = tipo === 'FAMILIA' ? 'Familia' : tipo === 'DOCENTE' ? 'Docente' : 'Alumno'
   return `${base} ${numero}`.trim()
 }
 
@@ -205,7 +221,8 @@ export function sustituirAlias(texto: string, porAlias: Record<string, AliasResu
       const resuelto = porAlias[trozo.alias]
       if (resuelto === undefined) return `**${etiquetaGenerica(trozo.alias)}**`
       const ruta = rutaDeEntidad(resuelto.tipo, resuelto.entidad_id)
-      return `[${escaparMarkdown(resuelto.nombre)}](${ruta})`
+      const nombre = escaparMarkdown(resuelto.nombre)
+      return ruta === null ? `**${nombre}**` : `[${nombre}](${ruta})`
     })
     .join('')
 }

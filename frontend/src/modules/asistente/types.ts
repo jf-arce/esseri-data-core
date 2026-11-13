@@ -1,4 +1,4 @@
-export type TipoAlias = 'ALUMNO' | 'FAMILIA'
+export type TipoAlias = 'ALUMNO' | 'FAMILIA' | 'DOCENTE'
 
 export type TipoColumna = 'texto' | 'numero' | 'moneda' | 'porcentaje' | 'alias'
 

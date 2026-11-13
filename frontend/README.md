@@ -280,7 +280,7 @@ arranca cerrado y solo se recuerda su ancho en `localStorage`. Solo aparece con 
   `POST /asistente/resolver` y `components/texto-con-alias.tsx` los muestra.
 - El modelo elige una clave de destino (`ir_a`) y `utils.ts` la convierte en una ruta validada contra
   el menú del rol activo. Nunca se navega a una URL generada por el modelo ni se navega sola: el
-  asistente deja un botón "Ir ahí" y la persona decide.
+  asistente deja un botón ("Ir a Deuda por familia", por ejemplo) y la persona decide. Al terminar una respuesta, el backend sugiere la pantalla del dato consultado y el botón aparece solo si el rol puede entrar. Los nombres de docentes se muestran sin link porque no tienen ficha.
 - Las respuestas se muestran con formato markdown (`react-markdown` + `remark-gfm`, sin HTML crudo). Los alias se reemplazan por links antes de renderizar y solo se aceptan links a rutas internas.
 - El panel se remonta al cambiar de cuenta o de rol, lo que descarta la conversación visible, la
   caché de alias y el stream en curso.

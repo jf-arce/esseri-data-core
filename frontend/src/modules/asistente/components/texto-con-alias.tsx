@@ -23,10 +23,18 @@ export function TextoConAlias({ texto, porAlias }: TextoConAliasProps) {
             </span>
           )
         }
+        const ruta = rutaDeEntidad(resuelto.tipo, resuelto.entidad_id)
+        if (ruta === null) {
+          return (
+            <span key={indice} className="font-medium text-texto">
+              {resuelto.nombre}
+            </span>
+          )
+        }
         return (
           <Link
             key={indice}
-            to={rutaDeEntidad(resuelto.tipo, resuelto.entidad_id)}
+            to={ruta}
             className="font-medium text-violeta underline-offset-2 hover:underline"
           >
             {resuelto.nombre}

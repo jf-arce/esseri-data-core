@@ -191,11 +191,12 @@ elige herramientas (consultas a los services existentes) y el backend produce to
 Reutiliza el proveedor configurado con `OPENAI_BASE_URL` / `OPENAI_MODEL` (que tiene que soportar
 `tools` y `tool_calls`) a través de `src/llm_client.py`.
 
+- Herramientas de consulta (solo lectura): indicadores, evolución financiera, deuda por familia, inscripciones, asistencias, ausentes del día, ficha de alumno, tareas y ejecuciones, búsqueda de recursos, navegación (`ir_a`) y, en `herramientas_cursos.py`, estructura académica (cursos con cantidad de alumnos y materias), horario del curso, alumnos del curso y docentes del curso. Cada herramienta exige los permisos del dominio y puede declarar la pantalla relacionada (`destino`), que se ofrece como botón al terminar la respuesta.
 - Endpoints, bajo `/asistente` y con `asistente.leer`: `POST/GET /conversaciones`,
   `GET /conversaciones/{id}/mensajes`, `DELETE /conversaciones/{id}`,
   `POST /conversaciones/{id}/mensajes` (SSE con los eventos `herramienta`, `delta` (trozo de
   texto), `texto` (respuesta final), `tarjeta`, `navegar`, `fin` y `error`) y `POST /resolver`. Con `ASISTENTE_HABILITADO=false` todo responde 503.
-- Al proveedor solo salen alias (`[ALUMNO:3]`), nunca nombres, DNI ni contacto. El detalle de la
+- Al proveedor solo salen alias (`[ALUMNO:3]`, `[FAMILIA:1]`, `[DOCENTE:2]`), nunca nombres, DNI ni contacto. El detalle de la
   regla está en `ARCHITECTURE.md` ("Asistente: privacidad y aislamiento").
 - Una conversación genera una respuesta a la vez (409 si se envía otro mensaje mientras tanto). La
   cuota diaria (`ASISTENTE_MENSAJES_POR_DIA`) cuenta mensajes del usuario; los que terminan en
