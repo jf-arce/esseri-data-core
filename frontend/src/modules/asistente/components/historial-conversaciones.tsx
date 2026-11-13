@@ -1,6 +1,7 @@
 import { HistoryIcon, Trash2Icon } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Spinner } from '@/components/ui/spinner'
 import { eliminarConversacion, listarConversaciones } from '../services/conversaciones'
@@ -53,12 +54,17 @@ export function HistorialConversaciones({
 
   return (
     <Popover open={abierto} onOpenChange={setAbierto}>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="icon-sm" title="Historial">
-          <HistoryIcon />
-          <span className="sr-only">Historial de conversaciones</span>
-        </Button>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button type="button" variant="ghost" size="icon-sm">
+              <HistoryIcon />
+              <span className="sr-only">Historial de conversaciones</span>
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Historial</TooltipContent>
+      </Tooltip>
       <PopoverContent align="end" className="w-72 p-1">
         {items === null && !error && (
           <p className="flex items-center gap-2 p-3 text-sm text-texto-3">

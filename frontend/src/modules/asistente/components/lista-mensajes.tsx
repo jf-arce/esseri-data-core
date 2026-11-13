@@ -1,26 +1,22 @@
 import { ArrowRightIcon, RotateCcwIcon, SparklesIcon, TriangleAlertIcon } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import { Button } from '@/components/ui/button'
-import { Spinner } from '@/components/ui/spinner'
-import { cn } from '@/lib/utils'
+import { Message, MessageAvatar, MessageContent } from '@/components/ui/message'
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from '@/components/ui/message-scroller'
+import { ETIQUETA_HERRAMIENTA } from '../constants'
 import type { AliasResuelto, Bloque, BloqueNavegar, MensajeVisible } from '../types'
 import { BloqueKpiVista } from './bloque-kpi'
 import { BloqueTablaVista } from './bloque-tabla'
 import { TarjetaRecurso } from './tarjeta-recurso'
 import { TextoConAlias } from './texto-con-alias'
 import { TextoMarkdown } from './texto-markdown'
-
-const ETIQUETA_HERRAMIENTA: Record<string, string> = {
-  indicadores_generales: 'Consultando indicadores',
-  evolucion_financiera: 'Consultando la evolución financiera',
-  deuda_por_familias: 'Consultando la deuda por familia',
-  resumen_inscripciones: 'Consultando inscripciones',
-  tendencia_asistencias: 'Consultando asistencias',
-  ficha_alumno: 'Consultando la ficha del alumno',
-  tareas_y_ejecuciones_pendientes: 'Consultando tareas y ejecuciones',
-  buscar_recurso: 'Buscando',
-  ir_a: 'Preparando la navegación',
-}
 
 interface ListaMensajesProps {
   mensajes: MensajeVisible[]
@@ -39,11 +35,6 @@ export function ListaMensajes({
   alIr,
   alReintentar,
 }: ListaMensajesProps) {
-  const fin = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    fin.current?.scrollIntoView?.({ block: 'end' })
-  }, [mensajes])
-
   if (mensajes.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
@@ -60,30 +51,39 @@ export function ListaMensajes({
   }
 
   return (
-    <ol className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4" aria-live="polite">
-      {mensajes.map((mensaje) => (
-        <li
-          key={mensaje.id}
-          className={cn('flex flex-col gap-2', mensaje.autor === 'usuario' && 'items-end')}
-        >
-          {mensaje.autor === 'usuario' ? (
-            <div className="max-w-[85%] rounded-xl bg-lienzo px-3 py-2">
-              <TextoConAlias texto={mensaje.contenido} porAlias={porAlias} />
-            </div>
-          ) : (
-            <MensajeDelAsistente
-              mensaje={mensaje}
-              porAlias={porAlias}
-              alElegir={alElegir}
-              alIr={alIr}
-              // Solo el último mensaje se puede reintentar.
-              alReintentar={mensaje === mensajes[mensajes.length - 1] ? alReintentar : null}
-            />
-          )}
-        </li>
-      ))}
-      <div ref={fin} />
-    </ol>
+    <MessageScrollerProvider>
+      <MessageScroller className="flex-1" aria-live="polite">
+        <MessageScrollerViewport>
+          <MessageScrollerContent className="gap-5 px-4 py-4">
+            {mensajes.map((mensaje) => (
+              <MessageScrollerItem key={mensaje.id} messageId={mensaje.id}>
+                {mensaje.autor === 'usuario' ? (
+                  <Message align="end">
+                    <MessageContent>
+                      <Bubble variant="muted" align="end">
+                        <BubbleContent>
+                          <TextoConAlias texto={mensaje.contenido} porAlias={porAlias} />
+                        </BubbleContent>
+                      </Bubble>
+                    </MessageContent>
+                  </Message>
+                ) : (
+                  <MensajeDelAsistente
+                    mensaje={mensaje}
+                    porAlias={porAlias}
+                    alElegir={alElegir}
+                    alIr={alIr}
+                    // Solo el último mensaje se puede reintentar.
+                    alReintentar={mensaje === mensajes[mensajes.length - 1] ? alReintentar : null}
+                  />
+                )}
+              </MessageScrollerItem>
+            ))}
+          </MessageScrollerContent>
+        </MessageScrollerViewport>
+        <MessageScrollerButton />
+      </MessageScroller>
+    </MessageScrollerProvider>
   )
 }
 
@@ -96,43 +96,49 @@ function MensajeDelAsistente({
 }: Omit<ListaMensajesProps, 'mensajes'> & { mensaje: MensajeVisible }) {
   const generando = mensaje.estado === 'generando'
   return (
-    <div className="flex w-full flex-col gap-2">
-      {generando && mensaje.contenido === '' && (
-        <p className="flex items-center gap-2 text-sm text-texto-3">
-          <Spinner />
-          {mensaje.herramienta === null
-            ? 'Pensando…'
-            : `${ETIQUETA_HERRAMIENTA[mensaje.herramienta] ?? 'Consultando'}…`}
-        </p>
-      )}
-      <BloquesDelMensaje
-        bloques={mensaje.bloques}
-        porAlias={porAlias}
-        alElegir={alElegir}
-        alIr={alIr}
-      />
-      {mensaje.contenido !== '' && <TextoMarkdown texto={mensaje.contenido} porAlias={porAlias} />}
-      {mensaje.estado === 'parcial' && (
-        <p className="text-xs text-texto-3">La respuesta quedó incompleta. Probá de nuevo.</p>
-      )}
-      {mensaje.estado === 'error' && mensaje.contenido === '' && (
-        <div
-          role="alert"
-          className="flex flex-col items-start gap-2 rounded-lg border border-borde bg-error-suave p-3"
-        >
-          <p className="flex items-start gap-2 text-sm text-error">
-            <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
-            <span>{mensaje.error ?? 'No se pudo generar la respuesta. Probá de nuevo.'}</span>
+    <Message>
+      <MessageAvatar className="size-6 min-w-6 self-start bg-lienzo text-violeta">
+        <SparklesIcon className="size-3.5" />
+      </MessageAvatar>
+      <MessageContent>
+        {generando && mensaje.contenido === '' && (
+          <p className="shimmer text-sm text-texto-3">
+            {mensaje.herramienta === null
+              ? 'Pensando…'
+              : `${ETIQUETA_HERRAMIENTA[mensaje.herramienta] ?? 'Consultando'}…`}
           </p>
-          {alReintentar !== null && (
-            <Button type="button" size="sm" variant="secondary" onClick={alReintentar}>
-              <RotateCcwIcon data-icon="inline-start" />
-              Reintentar
-            </Button>
-          )}
-        </div>
-      )}
-    </div>
+        )}
+        <BloquesDelMensaje
+          bloques={mensaje.bloques}
+          porAlias={porAlias}
+          alElegir={alElegir}
+          alIr={alIr}
+        />
+        {mensaje.contenido !== '' && (
+          <TextoMarkdown texto={mensaje.contenido} porAlias={porAlias} />
+        )}
+        {mensaje.estado === 'parcial' && (
+          <p className="text-xs text-texto-3">La respuesta quedó incompleta. Probá de nuevo.</p>
+        )}
+        {mensaje.estado === 'error' && mensaje.contenido === '' && (
+          <div
+            role="alert"
+            className="flex flex-col items-start gap-2 rounded-lg border border-borde bg-error-suave p-3"
+          >
+            <p className="flex items-start gap-2 text-sm text-error">
+              <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
+              <span>{mensaje.error ?? 'No se pudo generar la respuesta. Probá de nuevo.'}</span>
+            </p>
+            {alReintentar !== null && (
+              <Button type="button" size="sm" variant="secondary" onClick={alReintentar}>
+                <RotateCcwIcon data-icon="inline-start" />
+                Reintentar
+              </Button>
+            )}
+          </div>
+        )}
+      </MessageContent>
+    </Message>
   )
 }
 

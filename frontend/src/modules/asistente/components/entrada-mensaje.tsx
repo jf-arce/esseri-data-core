@@ -1,8 +1,13 @@
 import { SendIcon, SquareIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Button } from '@/components/ui/button'
 import { Command, CommandEmpty, CommandItem, CommandList } from '@/components/ui/command'
-import { Textarea } from '@/components/ui/textarea'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupText,
+  InputGroupTextarea,
+} from '@/components/ui/input-group'
 import { listarAlumnos } from '@/modules/familias-alumnos/services/listar-alumnos'
 import { listarFamilias } from '@/modules/familias-alumnos/services/listar-familias'
 import type { Mencion, TipoAlias } from '../types'
@@ -188,33 +193,51 @@ export function EntradaMensaje({
           </CommandList>
         </Command>
       )}
-      <div className="flex items-end gap-2">
-        <Textarea
+      <InputGroup className="h-auto">
+        <InputGroupTextarea
           ref={campo}
           value={texto}
-          rows={2}
+          rows={1}
           maxLength={MAX_CARACTERES}
-          placeholder="Preguntá algo… (@ para mencionar)"
+          placeholder="Preguntá algo…"
           aria-label="Mensaje para el asistente"
-          className="max-h-40 min-h-12 resize-none"
+          className="max-h-40 min-h-12 resize-none [field-sizing:content]"
           onChange={(evento) => {
             setTexto(evento.target.value)
             setConsulta(consultaDeMencion(evento.target.value, evento.target.selectionStart))
           }}
           onKeyDown={alTeclear}
         />
-        {generando ? (
-          <Button type="button" size="icon" variant="secondary" onClick={onCancelar}>
-            <SquareIcon />
-            <span className="sr-only">Detener</span>
-          </Button>
-        ) : (
-          <Button type="button" size="icon" disabled={texto.trim() === ''} onClick={enviar}>
-            <SendIcon />
-            <span className="sr-only">Enviar</span>
-          </Button>
-        )}
-      </div>
+        <InputGroupAddon align="block-end">
+          <InputGroupText className="text-xs text-texto-3">
+            {puedeMencionar ? '@ para mencionar' : 'Enter para enviar'}
+          </InputGroupText>
+          {generando ? (
+            <InputGroupButton
+              type="button"
+              size="icon-sm"
+              variant="secondary"
+              className="ml-auto"
+              onClick={onCancelar}
+            >
+              <SquareIcon />
+              <span className="sr-only">Detener</span>
+            </InputGroupButton>
+          ) : (
+            <InputGroupButton
+              type="button"
+              size="icon-sm"
+              variant="default"
+              className="ml-auto"
+              disabled={texto.trim() === ''}
+              onClick={enviar}
+            >
+              <SendIcon />
+              <span className="sr-only">Enviar</span>
+            </InputGroupButton>
+          )}
+        </InputGroupAddon>
+      </InputGroup>
     </div>
   )
 }

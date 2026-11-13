@@ -11,7 +11,7 @@ function formatearValor(bloque: BloqueKpi): string {
 /** Indicador con su período y su fuente: sin ellos una cifra no se puede auditar. */
 export function BloqueKpiVista({ bloque }: { bloque: BloqueKpi }) {
   return (
-    <div className="rounded-lg border border-borde bg-superficie p-3">
+    <div className="rounded-xl border border-borde bg-superficie p-3">
       <p className="text-xs text-texto-3">{bloque.titulo}</p>
       <p className="mt-0.5 text-xl font-semibold tabular-nums text-texto">
         {formatearValor(bloque)}

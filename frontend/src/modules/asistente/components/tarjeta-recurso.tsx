@@ -27,7 +27,7 @@ export function TarjetaRecurso({ bloque, resuelto, alElegir }: TarjetaRecursoPro
 
   if (bloque.elegir === true) {
     return (
-      <div className="flex items-center gap-2.5 rounded-lg border border-borde bg-superficie p-2">
+      <div className="flex items-center gap-2.5 rounded-xl border border-borde bg-superficie p-2">
         {contenido}
         <Button
           type="button"
@@ -44,7 +44,7 @@ export function TarjetaRecurso({ bloque, resuelto, alElegir }: TarjetaRecursoPro
 
   if (resuelto === undefined) {
     return (
-      <div className="flex items-center gap-2.5 rounded-lg border border-borde bg-superficie p-2">
+      <div className="flex items-center gap-2.5 rounded-xl border border-borde bg-superficie p-2">
         {contenido}
       </div>
     )
@@ -52,7 +52,7 @@ export function TarjetaRecurso({ bloque, resuelto, alElegir }: TarjetaRecursoPro
   return (
     <Link
       to={rutaDeEntidad(resuelto.tipo, resuelto.entidad_id)}
-      className="flex items-center gap-2.5 rounded-lg border border-borde bg-superficie p-2 hover:bg-fila-hover"
+      className="flex items-center gap-2.5 rounded-xl border border-borde bg-superficie p-2 hover:bg-fila-hover"
     >
       {contenido}
     </Link>

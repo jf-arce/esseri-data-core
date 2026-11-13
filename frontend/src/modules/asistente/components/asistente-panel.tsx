@@ -2,6 +2,7 @@ import { PlusIcon, SparklesIcon, XIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { PERMISO_FAMILIAS_ALUMNOS_LEER, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
@@ -110,31 +111,29 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
       <header className="flex h-16 shrink-0 items-center gap-2 border-b border-borde px-4">
         <SparklesIcon className="size-4.5 text-violeta" />
         <h2 className="flex-1 truncate text-sm font-semibold text-texto">Asistente</h2>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          title="Nueva conversación"
-          onClick={nueva}
-        >
-          <PlusIcon />
-          <span className="sr-only">Nueva conversación</span>
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button type="button" variant="ghost" size="icon-sm" onClick={nueva}>
+              <PlusIcon />
+              <span className="sr-only">Nueva conversación</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Nueva conversación</TooltipContent>
+        </Tooltip>
         <HistorialConversaciones
           conversacionActual={conversacionId}
           onAbrir={(id) => void abrir(id)}
           onBorradaActual={nueva}
         />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          title="Cerrar"
-          onClick={() => cerrar(false)}
-        >
-          <XIcon />
-          <span className="sr-only">Cerrar el asistente</span>
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button type="button" variant="ghost" size="icon-sm" onClick={() => cerrar(false)}>
+              <XIcon />
+              <span className="sr-only">Cerrar el asistente</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Cerrar</TooltipContent>
+        </Tooltip>
       </header>
 
       {cargando ? (

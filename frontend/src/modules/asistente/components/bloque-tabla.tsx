@@ -17,7 +17,7 @@ interface BloqueTablaProps {
 
 export function BloqueTablaVista({ bloque, porAlias }: BloqueTablaProps) {
   return (
-    <figure className="rounded-lg border border-borde bg-superficie">
+    <figure className="rounded-xl border border-borde bg-superficie">
       <figcaption className="px-3 pt-3 text-sm font-medium text-texto">{bloque.titulo}</figcaption>
       {bloque.filas.length === 0 ? (
         <p className="px-3 py-4 text-sm text-texto-3">Sin registros en este período.</p>
