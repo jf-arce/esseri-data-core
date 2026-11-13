@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { cortarSeguro } from '../utils'
 
+// Caracteres por segundo: ritmo de lectura cómodo y tope al ponerse al día.
+const RITMO_BASE = 45
+const MAX_CARACTERES_POR_SEGUNDO = 500
+
 function prefiereMenosMovimiento(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
@@ -21,11 +25,17 @@ export function useTextoGradual(
     if (!animar || prefiereMenosMovimiento()) return
     avance.current = Math.min(avance.current, texto.length)
     let marco = 0
-    const paso = () => {
-      if (avance.current >= texto.length) return
+    let anterior: number | null = null
+    const paso = (ahora: number) => {
       const falta = texto.length - avance.current
-      avance.current = Math.min(texto.length, avance.current + Math.max(1, Math.ceil(falta / 14)))
-      setMostrados(avance.current)
+      if (falta <= 0) return
+      // Tiempo real entre cuadros: el ritmo no depende de los Hz de la pantalla.
+      const segundos = anterior === null ? 1 / 60 : Math.min((ahora - anterior) / 1000, 0.1)
+      anterior = ahora
+      // Ritmo parejo y pausado; solo acelera si se acumuló mucho texto sin mostrar.
+      const ritmo = Math.min(MAX_CARACTERES_POR_SEGUNDO, Math.max(RITMO_BASE, falta * 1.2))
+      avance.current = Math.min(texto.length, avance.current + ritmo * segundos)
+      setMostrados(Math.floor(avance.current))
       marco = requestAnimationFrame(paso)
     }
     marco = requestAnimationFrame(paso)

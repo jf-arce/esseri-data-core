@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion, MotionConfig, type Variants } from 'motion/react'
 import { ArrowRightIcon, RotateCcwIcon, SparklesIcon, TriangleAlertIcon } from 'lucide-react'
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
@@ -11,6 +11,7 @@ import {
   MessageScrollerItem,
   MessageScrollerProvider,
   MessageScrollerViewport,
+  useMessageScroller,
 } from '@/components/ui/message-scroller'
 import { useTextoGradual } from '../hooks/use-texto-gradual'
 import type { AliasResuelto, Bloque, BloqueNavegar, MensajeVisible } from '../types'
@@ -105,6 +106,9 @@ export function ListaMensajes({
   return (
     <MotionConfig reducedMotion="user">
       <MessageScrollerProvider>
+        <DesplazarAlEnviar
+          enviados={mensajes.filter((mensaje) => mensaje.autor === 'usuario').length}
+        />
         <MessageScroller className="flex-1" aria-live="polite">
           <MessageScrollerViewport>
             <MessageScrollerContent className="gap-5 px-4 py-4">
@@ -147,6 +151,15 @@ export function ListaMensajes({
       </MessageScrollerProvider>
     </MotionConfig>
   )
+}
+
+/** Al mandar un mensaje (o abrir una conversación) baja hasta lo último. */
+function DesplazarAlEnviar({ enviados }: { enviados: number }) {
+  const { scrollToEnd } = useMessageScroller()
+  useEffect(() => {
+    if (enviados > 0) scrollToEnd({ behavior: 'smooth' })
+  }, [enviados, scrollToEnd])
+  return null
 }
 
 function MensajeDelAsistente({
