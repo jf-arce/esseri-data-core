@@ -6,6 +6,7 @@ import {
   crearSolicitudAusenciaPeriodo,
   descargarComprobanteSolicitudAusencia,
   listarSolicitudesAusenciaFamilia,
+  obtenerConfiguracionAusencias,
 } from '@/modules/academico/services/solicitudes-ausencia-familia'
 
 vi.mock('@/api/client', () => ({ apiClient: vi.fn() }))
@@ -67,5 +68,14 @@ describe('solicitudes de ausencia por período', () => {
       '/academico/familia/solicitudes-ausencia/solicitud-1/archivo',
       'reposo.pdf',
     )
+  })
+
+  it('consulta la ventana configurada de justificación', async () => {
+    mockedApiClient.mockResolvedValueOnce({ dias_limite_justificacion: 30 } as never)
+
+    const configuracion = await obtenerConfiguracionAusencias()
+
+    expect(mockedApiClient).toHaveBeenCalledWith('/academico/familia/configuracion-ausencias')
+    expect(configuracion.dias_limite_justificacion).toBe(30)
   })
 })

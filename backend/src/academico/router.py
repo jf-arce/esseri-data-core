@@ -87,6 +87,7 @@ from src.academico.schemas import (
     AsistenciaResponse,
     AsistenciaResumen,
     AsistenciaUpdate,
+    ConfiguracionAusenciasFamiliaResponse,
     DivisionCreate,
     DivisionResponse,
     DivisionUpdate,
@@ -196,6 +197,7 @@ from src.auth.constants import (
 )
 from src.auth.dependencies import RolActivo, UsuarioAutenticado, requiere_permiso
 from src.auth.models import Usuario
+from src.config import settings
 from src.database import get_db
 from src.familias_alumnos.models import Familia, FamiliaAlumno
 from src.inscripciones.matriculas_service import (
@@ -930,6 +932,19 @@ def listar_asistencias_endpoint(
         )
         for registro in registros
     ]
+
+
+@router.get(
+    "/familia/configuracion-ausencias",
+    response_model=ConfiguracionAusenciasFamiliaResponse,
+)
+def configuracion_ausencias_familia(
+    _: UsuarioAutenticado,
+) -> ConfiguracionAusenciasFamiliaResponse:
+    """Ventana de justificación vigente para el formulario de ausencias del portal familia."""
+    return ConfiguracionAusenciasFamiliaResponse(
+        dias_limite_justificacion=settings.ACADEMICO_DIAS_LIMITE_JUSTIFICACION
+    )
 
 
 @router.get(

@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     IA_INASISTENCIAS_CANTIDAD: int = 3
     IA_INASISTENCIAS_VENTANA_DIAS: int = 30
 
+    # Portal familia: cuántos días hacia atrás se puede justificar una ausencia. La validación del
+    # backend y el formulario del portal leen el mismo valor.
+    ACADEMICO_DIAS_LIMITE_JUSTIFICACION: PositiveInt = 45
+
     # El job solo decide cuándo ejecutar; cada regla define su propio día de generación.
     FACTURACION_AUTOMATICA_HABILITADA: bool = True
     FACTURACION_HORA_EJECUCION: time = time(hour=0, minute=5)
