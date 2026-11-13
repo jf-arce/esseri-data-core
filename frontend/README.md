@@ -275,6 +275,7 @@ arranca cerrado y solo se recuerda su ancho en `localStorage`. Solo aparece con 
 
 - Las respuestas llegan por SSE (`services/enviar-mensaje.ts`, `fetch` + `ReadableStream`).
 - El texto llega en trozos (`delta`) y `hooks/use-texto-gradual.ts` lo revela de a poco, como una escritura continua. Solo anima lo que llega en vivo (no los mensajes guardados) y respeta `prefers-reduced-motion`. Las cards y las acciones entran cuando termina de escribirse.
+- Los indicadores de carga vienen de la librería `ldrs` (`DotWave` en `components/indicadores-de-carga.tsx`), con su CSS importado junto al componente.
 - El backend manda alias (`[ALUMNO:3]`) en vez de nombres; `hooks/use-alias.ts` los resuelve con
   `POST /asistente/resolver` y `components/texto-con-alias.tsx` los muestra.
 - El modelo elige una clave de destino (`ir_a`) y `utils.ts` la convierte en una ruta validada contra

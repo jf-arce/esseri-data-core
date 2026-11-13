@@ -12,6 +12,7 @@ import { useAsistenteStore } from '../store'
 import type { AliasResuelto, BloqueNavegar } from '../types'
 import { aliasDeMensajes, rutaDeDestino, rutaDeEntidad, sugerenciasPermitidas } from '../utils'
 import { EntradaMensaje, type Sugerencia } from './entrada-mensaje'
+import { PuntosPensando } from './indicadores-de-carga'
 import { HistorialConversaciones } from './historial-conversaciones'
 import { ListaMensajes } from './lista-mensajes'
 
@@ -138,7 +139,10 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
       </header>
 
       {cargando ? (
-        <p className="flex-1 p-4 text-sm text-texto-3">Cargando la conversación…</p>
+        <p className="flex flex-1 items-start gap-2 p-4 text-sm text-texto-3">
+          <PuntosPensando />
+          Cargando la conversación…
+        </p>
       ) : (
         <ListaMensajes
           mensajes={mensajes}
