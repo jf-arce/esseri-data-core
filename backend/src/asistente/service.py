@@ -80,30 +80,18 @@ logger = logging.getLogger(__name__)
 
 
 def mensaje_para_usuario(error: Exception) -> str:
-    """Texto claro para quien usa el asistente: dice qué pasó y qué hacer, sin códigos."""
+    """Texto claro para quien usa el asistente: dice qué pasó y qué hacer, sin códigos ni
+    referencias a la tecnología o al proveedor que hay detrás."""
     if isinstance(error, IaNoConfigurada):
-        return "El asistente todavía no está configurado. Avisale a un administrador."
+        return "El asistente no está disponible por el momento. Avisale a un administrador."
     if isinstance(error, IaRespuestaInvalida):
         return "No pude armar una respuesta. Probá reformular la pregunta."
     if isinstance(error, IaNoDisponible):
-        codigo = error.status_proveedor
-        if codigo == 429:
-            return (
-                "El asistente alcanzó el límite de consultas del proveedor de IA. "
-                "Esperá un minuto y volvé a intentar."
-            )
-        if codigo == 503:
-            return (
-                "El proveedor de IA está saturado en este momento. Probá de nuevo en unos segundos."
-            )
-        if codigo in (401, 403):
-            return (
-                "El proveedor de IA rechazó las credenciales del asistente. "
-                "Avisale a un administrador."
-            )
-        if codigo is None:
-            return "No pude comunicarme con el proveedor de IA. Probá de nuevo en un momento."
-        return "El proveedor de IA no pudo responder. Probá de nuevo en un momento."
+        if error.status_proveedor == 429:
+            return "Alcanzaste el límite de consultas de IA. Esperá un minuto y volvé a intentar."
+        if error.status_proveedor in (401, 403):
+            return "El asistente no está disponible por el momento. Avisale a un administrador."
+        return "El asistente no está disponible en este momento. Probá de nuevo en unos segundos."
     return MENSAJE_ERROR_INESPERADO
 
 

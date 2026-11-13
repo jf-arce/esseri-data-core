@@ -154,10 +154,10 @@ class TestErroresDelProveedor:
     @pytest.mark.parametrize(
         ("codigo", "texto"),
         [
-            (429, "alcanzó el límite"),
-            (503, "saturado"),
-            (401, "rechazó las credenciales"),
-            (500, "no pudo responder"),
+            (429, "Alcanzaste el límite de consultas de IA"),
+            (503, "no está disponible en este momento"),
+            (401, "Avisale a un administrador"),
+            (500, "no está disponible en este momento"),
         ],
     )
     def test_el_error_llega_al_usuario_en_lenguaje_claro(
@@ -168,7 +168,10 @@ class TestErroresDelProveedor:
         lista = eventos(enviar(direccion, nueva_conversacion(direccion), "hola"))
         detalle = lista[0][1]["detalle"]
         assert texto in detalle
+        # Nada de códigos ni de la tecnología que hay detrás.
         assert str(codigo) not in detalle
+        for palabra in ("proveedor", "OpenAI", "Gemini", "API", "modelo", "herramienta"):
+            assert palabra.lower() not in detalle.lower()
 
     def test_el_error_del_proveedor_no_cuenta_para_la_cuota(
         self, direccion, proveedor, monkeypatch
