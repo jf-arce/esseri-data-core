@@ -130,8 +130,19 @@ def test_seed_permite_exportar_las_438_facturas_del_periodo(client_autenticado, 
     cuerpo = lote.json()
     assert cuerpo["cantidad_facturas"] == 438
     assert len(cuerpo["items"]) == 438
-    lineas = cuerpo["solicitud"]["contenido"].splitlines()
-    assert sum(linea.startswith("D;") for linea in lineas) == 438
+    contenidos = {archivo["nombre"]: archivo["contenido"] for archivo in cuerpo["solicitudes"]}
+    debitos = next((v for k, v in contenidos.items() if "DEBITOS" in k), None)
+    creditos = next((v for k, v in contenidos.items() if "CREDITOS" in k), None)
+    assert debitos is not None and creditos is not None
+    assert all("SIMULADO" not in nombre for nombre in contenidos)
+    assert debitos.startswith(
+        "referencia;factura;alumno;periodo;concepto;importe;vencimiento;cbu"
+    )
+    assert creditos.startswith(
+        "referencia;factura;alumno;periodo;concepto;importe;vencimiento;token_tarjeta"
+    )
+    filas = (debitos.splitlines() + creditos.splitlines())[2:]
+    assert len(filas) == 438
 
     respuesta = client_autenticado.post(
         f"{BASE}/{cuerpo['id']}/respuesta", json={"rechazos_cantidad": 0}

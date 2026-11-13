@@ -67,7 +67,7 @@ describe('FacturaDetallePage: recargos por mora', () => {
 
     expect(await screen.findByText('Recargos por mora')).toBeInTheDocument()
     expect(screen.getByText('Penalidad por mora: tramo 16–30 días (30 %)')).toBeInTheDocument()
-    expect(screen.getByText(/36\.000,00/)).toBeInTheDocument()
+    expect(screen.getByText(/36\.000/)).toBeInTheDocument()
     expect(screen.getByText(/no modifican el total ni el saldo/)).toBeInTheDocument()
   })
 })

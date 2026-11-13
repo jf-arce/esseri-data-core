@@ -98,7 +98,11 @@ export function AppLayout() {
 
   return (
     <TooltipProvider>
-      <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
+      <SidebarProvider
+        open={sidebarOpen}
+        onOpenChange={setSidebarOpen}
+        className="h-dvh overflow-hidden"
+      >
         <Sidebar collapsible="icon">
           <SidebarHeader>
             <div className="flex items-center gap-2.5 px-1.5 py-1">
@@ -143,7 +147,7 @@ export function AppLayout() {
           </SidebarContent>
         </Sidebar>
 
-        <SidebarInset>
+        <SidebarInset className="min-h-0">
           <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-4 border-b border-borde bg-superficie px-7">
             <Button
               type="button"
@@ -240,7 +244,7 @@ export function AppLayout() {
             <MenuCuenta />
           </header>
 
-          <main className="min-w-0 flex-1 px-8 py-6">
+          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-8 py-6 [scrollbar-gutter:stable]">
             <Outlet />
           </main>
         </SidebarInset>

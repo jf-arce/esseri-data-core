@@ -39,9 +39,17 @@ from src.facturacion.models import (
 from src.familias_alumnos.models import Alumno
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
+from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
 
 METODO_ID = uuid.UUID("e55e2100-0000-4000-8000-000000000001")
 TAMANIO_DETALLE = 25
+
+
+def _mensaje_rechazo(codigo: str, descripcion: str) -> str:
+    motivo = (descripcion or "").strip() or "sin descripción informada"
+    codigo_txt = (codigo or "").strip()
+    sufijo = f" (código {codigo_txt})" if codigo_txt else ""
+    return f"Motivo informado: {motivo}{sufijo}. No se registra pago."
 
 
 def _huella(fila: formato.RespuestaDetalle) -> str:
@@ -123,13 +131,17 @@ def _leer_importacion(
     if filtro is not None:
         consulta = consulta.where(filtro)
     if buscar:
-        patron = f"%{buscar.strip()}%"
+        patron = f"%{normalizar_texto_busqueda(buscar.strip())}%"
         consulta = consulta.where(
             or_(
-                ImportacionCobranzaDetalle.referencia.ilike(patron),
-                ImportacionCobranzaDetalle.numero_factura.ilike(patron),
-                ImportacionCobranzaDetalle.alumno_nombre.ilike(patron),
-                ImportacionCobranzaDetalle.mensaje.ilike(patron),
+                normalizar_columna_busqueda(ImportacionCobranzaDetalle.referencia).like(patron),
+                normalizar_columna_busqueda(ImportacionCobranzaDetalle.numero_factura).like(
+                    patron
+                ),
+                normalizar_columna_busqueda(ImportacionCobranzaDetalle.alumno_nombre).like(
+                    patron
+                ),
+                normalizar_columna_busqueda(ImportacionCobranzaDetalle.mensaje).like(patron),
             )
         )
     total = int(db.scalar(select(func.count()).select_from(consulta.subquery())) or 0)
@@ -302,7 +314,7 @@ def _resolver_filas(
         detalle.mensaje = (
             "Cobro listo para registrar al confirmar."
             if fila.resultado == formato.COBRADO
-            else f"Rechazo informado: {fila.codigo} — {fila.descripcion}. No genera pago."
+            else _mensaje_rechazo(fila.codigo, fila.descripcion)
         )
         resultado.append(detalle)
     return resultado
@@ -494,7 +506,7 @@ def incidencias(db: Session, importacion_id: uuid.UUID) -> ArchivoRead:
         )
     return ArchivoRead(
         nombre=(
-            f"ESSERI_SIMULADO_INCIDENCIAS_"
+            f"ESSERI_INCIDENCIAS_"
             f"{importacion.lote.codigo or importacion.lote_id}_{str(importacion.id)[:8]}.csv"
         ),
         contenido=salida.getvalue(),
@@ -584,7 +596,7 @@ def _revalidar(
         detalle.mensaje = (
             "Cobro listo para registrar al confirmar."
             if detalle.resultado == formato.COBRADO
-            else f"Rechazo informado: {detalle.codigo} — {detalle.descripcion}. No genera pago."
+            else _mensaje_rechazo(detalle.codigo, detalle.descripcion)
         )
     return hay_error
 
@@ -726,10 +738,7 @@ def confirmar(
                 detalle.mensaje = "Pago registrado."
             else:
                 detalle.estado = "rechazado"
-                detalle.mensaje = (
-                    f"Rechazo informado: {detalle.codigo} — {detalle.descripcion}. "
-                    "No genera pago."
-                )
+                detalle.mensaje = _mensaje_rechazo(detalle.codigo, detalle.descripcion)
             log_audit(
                 db,
                 entidad="DEBITO_COBRANZA",

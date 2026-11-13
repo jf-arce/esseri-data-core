@@ -48,6 +48,7 @@ from src.facturacion.models import (
 from src.familias_alumnos.models import Alumno
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
+from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
 
 MAX_FACTURAS_LOTE = 500
 
@@ -148,12 +149,12 @@ def _consulta_elegibles(
         consulta = consulta.where(_medio_expr() == filtros.medio)
     if filtros.buscar:
         for termino in filtros.buscar.split():
-            patron = f"%{termino.strip()}%"
+            patron = f"%{normalizar_texto_busqueda(termino.strip())}%"
             consulta = consulta.where(
                 or_(
-                    Persona.nombre.ilike(patron),
-                    Persona.apellido.ilike(patron),
-                    FacturaCobranzaDemo.numero.ilike(patron),
+                    normalizar_columna_busqueda(Persona.nombre).like(patron),
+                    normalizar_columna_busqueda(Persona.apellido).like(patron),
+                    normalizar_columna_busqueda(FacturaCobranzaDemo.numero).like(patron),
                     cast(Factura.id, String).ilike(patron),
                 )
             )
@@ -373,15 +374,89 @@ def _bloquear_escritura_sqlite(db: Session) -> None:
         db.execute(text("BEGIN IMMEDIATE"))
 
 
-def _solicitud(lote: LoteCobranza, codigo: str) -> ArchivoRead:
-    filas = [
-        formato.SolicitudDetalle(d.id, d.factura_id, d.vencimiento, d.concepto, d.importe)
-        for d in lote.items
-    ]
-    return ArchivoRead(
-        nombre=f"ESSERI_SIMULADO_SOLICITUD_{codigo}.csv",
-        contenido=formato.generar_solicitud(lote.id, lote.fecha, filas),
-    )
+def _filas_lote(db: Session, lote_id: uuid.UUID):
+    return db.execute(
+        select(
+            DebitoCobranza.id,
+            DebitoCobranza.factura_id,
+            FacturaCobranzaDemo.numero,
+            FacturaCobranzaDemo.periodo,
+            FacturaCobranzaDemo.medio,
+            Persona.nombre,
+            Persona.apellido,
+            DebitoCobranza.vencimiento,
+            DebitoCobranza.concepto,
+            DebitoCobranza.importe,
+            DebitoCobranza.resultado,
+            DebitoCobranza.pago_id,
+        )
+        .select_from(DebitoCobranza)
+        .join(Factura, DebitoCobranza.factura_id == Factura.id)
+        .join(Inscripcion, Factura.inscripcion_id == Inscripcion.id)
+        .join(Alumno, Inscripcion.alumno_id == Alumno.id)
+        .join(Persona, Alumno.persona_id == Persona.id)
+        .outerjoin(FacturaCobranzaDemo, FacturaCobranzaDemo.factura_id == DebitoCobranza.factura_id)
+        .where(DebitoCobranza.lote_id == lote_id)
+        .order_by(DebitoCobranza.id)
+    ).all()
+
+
+def _solicitudes(db: Session, lote: LoteCobranza, codigo: str) -> list[ArchivoRead]:
+    filas = _filas_lote(db, lote.id)
+
+    def _fila(fila) -> formato.SolicitudFila:
+        (
+            referencia,
+            factura_id,
+            numero,
+            periodo,
+            medio,
+            nombre,
+            apellido,
+            vencimiento,
+            concepto,
+            importe,
+            _resultado,
+            _pago_id,
+        ) = fila
+        alumno = f"{apellido}, {nombre}".strip(", ")
+        return formato.SolicitudFila(
+            referencia=referencia,
+            factura=numero or str(factura_id),
+            alumno=alumno,
+            periodo=periodo or "",
+            concepto=concepto,
+            importe=importe,
+            vencimiento=vencimiento,
+            medio_dato=(
+                formato.token_tarjeta_sintetico(factura_id)
+                if medio == "tarjeta"
+                else formato.cbu_sintetico(factura_id)
+            ),
+        )
+
+    archivos = []
+    por_medio: dict[str, list[formato.SolicitudFila]] = {}
+    for fila in filas:
+        medio = "tarjeta" if isinstance(fila.medio, str) and fila.medio == "tarjeta" else "cbu"
+        por_medio.setdefault(medio, []).append(_fila(fila))
+    if por_medio.get("cbu"):
+        archivos.append(
+            ArchivoRead(
+                nombre=f"ESSERI_DEBITOS_{codigo}.csv",
+                contenido=formato.generar_solicitud(por_medio["cbu"], "cbu"),
+            )
+        )
+    if por_medio.get("tarjeta"):
+        archivos.append(
+            ArchivoRead(
+                nombre=f"ESSERI_CREDITOS_{codigo}.csv",
+                contenido=formato.generar_solicitud(por_medio["tarjeta"], "tarjeta"),
+            )
+        )
+    if not archivos:
+        raise SolicitudCobranzaInvalida("El lote no contiene facturas exportables.")
+    return archivos
 
 
 def obtener_lote(db: Session, lote_id: uuid.UUID) -> LoteCobranza:
@@ -407,7 +482,7 @@ def _nombre_usuario(db: Session, usuario_id: uuid.UUID | None) -> str:
     if fila is None:
         return "Sistema"
     email, nombre, apellido = fila
-    return f"{nombre} {apellido}".strip() or email
+    return f"{nombre or ''} {apellido or ''}".strip() or email
 
 
 def _codigo(lote: LoteCobranza) -> str:
@@ -462,21 +537,39 @@ def resumen_lote(db: Session, lote: LoteCobranza) -> BatchSummaryRead:
 
 def leer_lote(db: Session, lote: LoteCobranza) -> LoteDetailRead:
     resumen = resumen_lote(db, lote)
+    items = []
+    for fila in _filas_lote(db, lote.id):
+        (
+            referencia,
+            factura_id,
+            numero,
+            _periodo_fila,
+            _medio,
+            nombre,
+            apellido,
+            vencimiento,
+            concepto,
+            importe,
+            resultado,
+            pago_id,
+        ) = fila
+        items.append(
+            DebitoRead(
+                referencia=referencia,
+                factura_id=factura_id,
+                numero=numero,
+                alumno_nombre=f"{apellido}, {nombre}".strip(", ") or None,
+                importe=importe,
+                vencimiento=vencimiento,
+                concepto=concepto,
+                resultado=resultado,
+                pago_id=pago_id,
+            )
+        )
     return LoteDetailRead(
         **resumen.model_dump(),
-        items=[
-            DebitoRead(
-                referencia=item.id,
-                factura_id=item.factura_id,
-                importe=item.importe,
-                vencimiento=item.vencimiento,
-                concepto=item.concepto,
-                resultado=item.resultado,
-                pago_id=item.pago_id,
-            )
-            for item in lote.items
-        ],
-        solicitud=_solicitud(lote, resumen.codigo),
+        items=items,
+        solicitudes=_solicitudes(db, lote, resumen.codigo),
     )
 
 
@@ -591,10 +684,10 @@ def listar_lotes(
     if estado:
         filtros.append(LoteCobranza.estado == estado)
     if buscar:
-        patron = f"%{buscar.strip()}%"
+        patron = f"%{normalizar_texto_busqueda(buscar.strip())}%"
         filtros.append(
             or_(
-                LoteCobranza.codigo.ilike(patron),
+                normalizar_columna_busqueda(LoteCobranza.codigo).like(patron),
                 cast(LoteCobranza.id, String).ilike(patron),
             )
         )
@@ -637,20 +730,24 @@ def generar_respuesta(
         raise SolicitudCobranzaInvalida("La cantidad de rechazos supera los registros del lote.")
     rechazos_set = set(rechazos)
     fecha = fecha_operativa_argentina()
+    rechazados = [item for item in lote.items if item.id in rechazos_set]
+    motivos = {
+        item.id: formato.MOTIVOS_RECHAZO_SIMULADOS[indice % len(formato.MOTIVOS_RECHAZO_SIMULADOS)]
+        for indice, item in enumerate(rechazados)
+    }
     filas = [
         formato.RespuestaDetalle(
             item.id,
             formato.RECHAZADO if item.id in rechazos_set else formato.COBRADO,
             item.importe,
             fecha,
-            "SIM01" if item.id in rechazos_set else "",
-            "Rechazo ficticio para demostración" if item.id in rechazos_set else "",
+            *(motivos[item.id] if item.id in rechazos_set else ("", "")),
         )
         for item in lote.items
     ]
     codigo = _codigo(lote)
     return ArchivoRead(
-        nombre=f"ESSERI_SIMULADO_RESPUESTA_{codigo}.csv",
+        nombre=f"ESSERI_RESPUESTA_{codigo}.csv",
         contenido=formato.generar_respuesta(lote.id, fecha, filas),
     )
 

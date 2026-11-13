@@ -1,11 +1,14 @@
 import type { DetalleFactura, EstadoFactura } from '@/modules/facturacion/types'
 
 export function formatearMoneda(valor: string | number) {
+  const numero = Number(valor)
+  const decimales = Number.isInteger(numero) ? 0 : 2
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
     currency: 'ARS',
-    minimumFractionDigits: 2,
-  }).format(Number(valor))
+    minimumFractionDigits: decimales,
+    maximumFractionDigits: decimales,
+  }).format(numero)
 }
 
 export function formatearFechaFactura(valor: string) {

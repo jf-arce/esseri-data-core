@@ -7,22 +7,79 @@ import pytest
 from src.facturacion import formato_cobranza_simulada as formato
 
 
-def test_solicitud_tiene_cabecera_detalle_y_totales():
-    lote, referencia, factura = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
-    contenido = formato.generar_solicitud(
-        lote,
-        date(2026, 11, 11),
-        [
-            formato.SolicitudDetalle(
-                referencia, factura, date(2026, 12, 1), "Cuota; demo", Decimal("100.50")
-            )
-        ],
+def test_solicitud_plana_cbu_tiene_columnas_y_filas_uniformes():
+    referencia, factura_id = uuid.uuid4(), uuid.uuid4()
+    fila = formato.SolicitudFila(
+        referencia=referencia,
+        factura="F-202611-0001",
+        alumno="Demo, Alumno 1",
+        periodo="2026-11",
+        concepto="Cuota; demo",
+        importe=Decimal("100.50"),
+        vencimiento=date(2026, 12, 1),
+        medio_dato=formato.cbu_sintetico(factura_id),
     )
-    assert contenido.startswith(
-        f"H;ESSERI_SIMULADO;1;SOLICITUD;{lote};ENTIDAD_FICTICIA;2026-11-11\n"
+    contenido = formato.generar_solicitud([fila], "cbu")
+    lineas = contenido.splitlines()
+    assert lineas[0] == "referencia;factura;alumno;periodo;concepto;importe;vencimiento;cbu"
+    assert lineas[1] == (
+        f'{referencia};F-202611-0001;Demo, Alumno 1;2026-11;"Cuota; demo";100.50;'
+        f"2026-12-01;{formato.cbu_sintetico(factura_id)}"
     )
-    assert f'D;{referencia};{factura};2026-12-01;"Cuota; demo";100.50' in contenido
-    assert contenido.endswith("T;1;100.50\n")
+    assert len(lineas) == 2
+
+
+def test_solicitud_plana_tarjeta_usa_token_y_sin_cambios_de_columnas():
+    fila = formato.SolicitudFila(
+        referencia=uuid.uuid4(),
+        factura="F-202611-0002",
+        alumno="Demo, Alumno 2",
+        periodo="2026-11",
+        concepto="Cuota",
+        importe=Decimal("60.00"),
+        vencimiento=date(2026, 12, 1),
+        medio_dato=formato.token_tarjeta_sintetico(uuid.uuid4()),
+    )
+    contenido = formato.generar_solicitud([fila], "tarjeta")
+    lineas = contenido.splitlines()
+    assert lineas[0].endswith(";token_tarjeta")
+    assert "cbu" not in lineas[0]
+    assert len(lineas) == 2
+
+
+def test_datos_sinteticos_son_deterministas_y_ficticios():
+    factura_id = uuid.uuid4()
+    cbu = formato.cbu_sintetico(factura_id)
+    token = formato.token_tarjeta_sintetico(factura_id)
+    assert cbu == formato.cbu_sintetico(factura_id)
+    assert token == formato.token_tarjeta_sintetico(factura_id)
+    assert len(cbu) == 22 and cbu.isdigit()
+    assert len(token) == 16 and token.isdigit()
+    assert cbu != formato.cbu_sintetico(uuid.uuid4()) or cbu.startswith("00799999")
+    assert formato.MOTIVOS_RECHAZO_SIMULADOS, "debe haber motivos de rechazo"
+    for codigo, descripcion in formato.MOTIVOS_RECHAZO_SIMULADOS:
+        assert 0 < len(codigo) <= 30
+        assert 0 < len(descripcion) <= 250
+
+
+def test_solicitud_plana_rechaza_vacia_y_mas_de_quinientos_registros():
+    with pytest.raises(formato.FormatoInvalido):
+        formato.generar_solicitud([], "cbu")
+    filas = [
+        formato.SolicitudFila(
+            referencia=uuid.uuid4(),
+            factura="F",
+            alumno="A",
+            periodo="2026-11",
+            concepto="C",
+            importe=Decimal("1.00"),
+            vencimiento=date(2026, 12, 1),
+            medio_dato=formato.cbu_sintetico(uuid.uuid4()),
+        )
+        for _ in range(501)
+    ]
+    with pytest.raises(formato.FormatoInvalido, match="500"):
+        formato.generar_solicitud(filas, "cbu")
 
 
 def test_respuesta_con_cobro_y_rechazo_se_lee_sin_perder_importes():

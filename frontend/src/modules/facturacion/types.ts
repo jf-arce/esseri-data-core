@@ -30,6 +30,218 @@ export interface Factura {
   detalles: DetalleFactura[]
 }
 
+export interface ArchivoDebitos {
+  nombre: string
+  contenido: string
+}
+
+export interface LoteDebitos {
+  id: string
+  fecha: string
+  solicitud: ArchivoDebitos
+  items: {
+    referencia: string
+    factura_id: string
+    vencimiento: string
+    concepto: string
+    importe: string
+    resultado: string | null
+    pago_id: string | null
+  }[]
+}
+
+export interface ImportacionDebitos {
+  lote_id: string | null
+  errores: string[]
+  items: {
+    referencia: string
+    factura_id: string | null
+    resultado: string
+    importe: string
+    estado: 'listo' | 'aplicado' | 'rechazado' | 'duplicado' | 'error'
+    mensaje: string
+    pago_id: string | null
+  }[]
+}
+
+export type EstadoSeleccionDebitos = 'pendientes_sin_lote' | 'en_lote' | 'todas'
+export type MedioDebito = 'cbu' | 'tarjeta'
+export type EstadoLoteDebitos = 'exportado' | 'en_revision' | 'pagos_registrados' | 'liberado'
+export type EstadoDetalleImportacion = 'listo' | 'aplicado' | 'rechazado' | 'duplicado' | 'error'
+export type ResultadoImportacionFiltro =
+  'revision' | 'cobrados' | 'rechazados' | 'errores' | 'todos'
+
+export interface FiltrosFacturasDebitos {
+  periodo?: string
+  medio?: MedioDebito
+  estado?: EstadoSeleccionDebitos
+  buscar?: string
+  pagina: number
+  tamanio: number
+}
+
+export interface OpcionesDebitos {
+  periodos: string[]
+  medios: string[]
+}
+
+export interface FacturaElegibleDebito {
+  id: string
+  numero: string
+  alumno_nombre: string
+  curso: string
+  periodo: string
+  medio: string
+  fecha_vencimiento: string
+  importe: string
+  estado: string
+  en_lote: boolean
+}
+
+export interface FacturasElegiblesDebitos {
+  items: FacturaElegibleDebito[]
+  total: number
+  pagina: number
+  tamanio: number
+  total_pagina: number
+  ocultas_en_lote: number
+}
+
+export interface FiltrosSeleccionDebitos {
+  periodo?: string
+  medio?: MedioDebito
+  estado?: EstadoSeleccionDebitos
+  buscar?: string
+}
+
+export interface SeleccionDebitos {
+  modo: 'pagina' | 'filtrados'
+  factura_ids: string[]
+  filtros: FiltrosSeleccionDebitos
+  excluir_ids: string[]
+}
+
+export interface ResumenMedioDebito {
+  cantidad: number
+  importe: string
+}
+
+export interface ResumenSeleccionDebitos {
+  cantidad: number
+  importe_total: string
+  por_medio: Record<string, ResumenMedioDebito>
+  alcance: 'pagina' | 'filtrados'
+  ocultas_en_lote: number
+}
+
+export interface LiberacionDebito {
+  usuario_id: string
+  usuario_nombre: string
+  fecha: string
+  motivo: string
+}
+
+export interface LoteDebitoResumen {
+  id: string
+  codigo: string
+  fecha_exportacion: string
+  periodo: string
+  cantidad_facturas: number
+  importe_total: string
+  estado: EstadoLoteDebitos
+  resultados_importados: boolean
+  importacion_id: string | null
+  liberacion: LiberacionDebito | null
+}
+
+export interface DebitoLoteItem {
+  referencia: string
+  factura_id: string
+  numero?: string | null
+  alumno_nombre?: string | null
+  importe: string
+  vencimiento: string
+  concepto: string
+  resultado: string | null
+  pago_id: string | null
+}
+
+export interface LoteDebitoDetalle extends LoteDebitoResumen {
+  items: DebitoLoteItem[]
+  solicitudes: ArchivoDebitos[]
+}
+
+export interface HistorialLotesDebitos {
+  items: LoteDebitoResumen[]
+  total: number
+  pagina: number
+  tamanio: number
+}
+
+export interface LiberacionLoteDebitoItem {
+  lote_id: string
+  codigo: string
+  cantidad_facturas: number
+  usuario_id: string
+  usuario_nombre: string
+  fecha: string
+  motivo: string
+}
+
+export interface LiberacionesDebitos {
+  items: LiberacionLoteDebitoItem[]
+  total: number
+  pagina: number
+  tamanio: number
+}
+
+export interface ImportacionResumenGrupo {
+  cantidad: number
+  importe: string
+}
+
+export interface ImportacionResumenDebitos {
+  procesados: ImportacionResumenGrupo
+  cobrados: ImportacionResumenGrupo
+  rechazados: ImportacionResumenGrupo
+  errores: ImportacionResumenGrupo
+}
+
+export interface ImportacionDetalleDebito {
+  linea: number
+  referencia: string | null
+  factura_id: string | null
+  numero_factura: string | null
+  alumno_nombre: string | null
+  resultado: string | null
+  importe: string | null
+  estado: EstadoDetalleImportacion
+  mensaje: string
+  pago_id: string | null
+}
+
+export interface ImportacionDebitosRead {
+  id: string | null
+  lote_id: string | null
+  lote_codigo: string | null
+  estado: 'en_revision' | 'confirmada' | null
+  archivo_hash: string | null
+  errores: string[]
+  puede_confirmar: boolean
+  resumen: ImportacionResumenDebitos
+  items: ImportacionDetalleDebito[]
+  total: number
+  pagina: number
+  tamanio: number
+}
+
+export interface FiltrosImportacionDebitos {
+  resultado: ResultadoImportacionFiltro
+  buscar: string
+  pagina: number
+  tamanio: number
+}
+
 export interface MetodoPago {
   id: string
   nombre: string
@@ -86,6 +298,7 @@ export interface FacturaFamilia {
   fecha_vencimiento_efectiva: string
   monto_total: string
   estado: EstadoFactura
+  medio?: 'cbu' | 'tarjeta' | null
   alumno_nombre: string
   detalles: DetalleFacturaFamilia[]
   pagos: PagoFamilia[]

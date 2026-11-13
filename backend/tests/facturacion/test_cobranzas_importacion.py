@@ -349,6 +349,8 @@ def test_detalle_paginado_y_filtros_no_alteran_el_resumen(client_autenticado, db
         f"{BASE}/importaciones/{revision['id']}", params={"resultado": "rechazados"}
     ).json()
     assert rechazados["total"] == 1
+    assert rechazados["items"][0]["mensaje"].startswith("Motivo informado:")
+    assert "No se registra pago." in rechazados["items"][0]["mensaje"]
     todos = client_autenticado.get(
         f"{BASE}/importaciones/{revision['id']}", params={"resultado": "todos"}
     ).json()
@@ -379,7 +381,7 @@ def test_incidencias_descarga_rechazados_y_errores_completos(client_autenticado,
 
     assert incidencias.status_code == 200
     archivo = incidencias.json()
-    assert archivo["nombre"].startswith("ESSERI_SIMULADO")
+    assert archivo["nombre"].startswith("ESSERI_INCIDENCIAS")
     lineas = archivo["contenido"].strip().splitlines()
     assert lineas[0].startswith("linea;")
     assert len(lineas) == 3

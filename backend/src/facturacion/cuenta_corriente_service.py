@@ -20,6 +20,7 @@ from src.facturacion.models import (
 from src.familias_alumnos.models import Familia
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
+from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
 
 ZONA_ARGENTINA = ZoneInfo("America/Argentina/Buenos_Aires")
 
@@ -305,12 +306,12 @@ def listar_deuda_por_familia(
     if estado is not None:
         filtros.append(estado_calculado == estado)
     if buscar:
-        termino = f"%{buscar.strip()}%"
+        termino = f"%{normalizar_texto_busqueda(buscar.strip())}%"
         filtros.append(
             or_(
-                resumen.c.familia_nombre.ilike(termino),
-                resumen.c.familia_apellido.ilike(termino),
-                resumen.c.familia_dni.ilike(termino),
+                normalizar_columna_busqueda(resumen.c.familia_nombre).like(termino),
+                normalizar_columna_busqueda(resumen.c.familia_apellido).like(termino),
+                normalizar_columna_busqueda(resumen.c.familia_dni).like(termino),
             )
         )
     if filtros:

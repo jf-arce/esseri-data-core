@@ -64,6 +64,8 @@ class ArchivoRead(BaseModel):
 class DebitoRead(BaseModel):
     referencia: uuid.UUID
     factura_id: uuid.UUID
+    numero: str | None = None
+    alumno_nombre: str | None = None
     importe: Decimal
     vencimiento: date
     concepto: str
@@ -128,7 +130,7 @@ class BatchSummaryRead(BaseModel):
 
 class LoteDetailRead(BatchSummaryRead):
     items: list[DebitoRead]
-    solicitud: ArchivoRead
+    solicitudes: list[ArchivoRead]
 
 
 class HistorialLotesRead(BaseModel):

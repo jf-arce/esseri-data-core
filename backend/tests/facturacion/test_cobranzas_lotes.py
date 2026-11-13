@@ -298,8 +298,16 @@ def test_exportar_crea_codigo_humano_y_reserva_factura(client_autenticado, db_se
     assert lote["resultados_importados"] is False
     assert lote["importacion_id"] is None
     assert lote["items"][0]["factura_id"] == str(factura.id)
+    assert lote["items"][0]["numero"] == "F-0001"
+    assert lote["items"][0]["alumno_nombre"]
     assert lote["items"][0]["importe"] == "80.00"
-    assert lote["solicitud"]["contenido"].startswith("H;ESSERI_SIMULADO")
+    assert len(lote["solicitudes"]) == 1
+    archivo = lote["solicitudes"][0]
+    assert archivo["nombre"].startswith(("ESSERI_DEBITOS", "ESSERI_CREDITOS"))
+    assert "SIMULADO" not in archivo["nombre"]
+    assert archivo["contenido"].startswith(
+        "referencia;factura;alumno;periodo;concepto;importe;vencimiento;"
+    )
 
     debito = db_session.scalar(select(DebitoCobranza))
     assert debito.reserva_activa is True
@@ -440,3 +448,22 @@ def test_historial_pagina_y_filtra_por_estado(client_autenticado, db_session):
     assert detalle.status_code == 200
     assert detalle.json()["codigo"] == lote_uno["codigo"]
     assert detalle.json()["items"][0]["factura_id"] == str(primero.id)
+
+
+def test_busqueda_elegibles_ignora_tildes_y_mayusculas(client_autenticado, db_session):
+    factura = crear_factura_demo(db_session, 11, numero="F-0011")
+    inscripcion = db_session.get(Inscripcion, factura.inscripcion_id)
+    alumno = db_session.get(Alumno, inscripcion.alumno_id)
+    persona = db_session.get(Persona, alumno.persona_id)
+    persona.nombre, persona.apellido = "María", "García"
+    db_session.commit()
+
+    for termino in ("garcia", "GARCÍA", "García"):
+        respuesta = client_autenticado.get(
+            BASE + "/facturas-elegibles", params={"buscar": termino}
+        )
+        assert respuesta.status_code == 200
+        cuerpo = respuesta.json()
+        assert cuerpo["total"] == 1
+        assert [item["numero"] for item in cuerpo["items"]] == ["F-0011"]
+        assert cuerpo["items"][0]["alumno_nombre"] == "García, María"

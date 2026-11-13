@@ -12,7 +12,9 @@ import {
 describe('utilidades de facturación', () => {
   it('formatea fechas, importes y estados para la interfaz', () => {
     expect(formatearFechaFactura('2027-03-01')).toBe('01/03/2027')
-    expect(formatearMoneda('120000')).toContain('120.000,00')
+    expect(formatearMoneda('120000')).toContain('120.000')
+    expect(formatearMoneda('120000')).not.toContain(',00')
+    expect(formatearMoneda('120000.5')).toContain('120.000,50')
     expect(etiquetaEstadoFactura('pendiente')).toBe('Pendiente')
     expect(etiquetaMetodoPago('debito_directo')).toBe('Débito directo')
     expect(etiquetaMetodoPago('tarjeta_credito')).toBe('Tarjeta de crédito')

@@ -68,7 +68,7 @@ describe('EjecucionDetalleSheet', () => {
     renderSheet(pendiente)
 
     expect(await screen.findByText('Recargo a aplicar')).toBeInTheDocument()
-    expect(screen.getByText(/36\.000,00/)).toBeInTheDocument()
+    expect(screen.getByText(/36\.000/)).toBeInTheDocument()
     expect(screen.getByText('estimado al aprobar')).toBeInTheDocument()
     expect(mockedObtener).toHaveBeenCalledWith('ej-1', expect.any(AbortSignal))
   })

@@ -116,8 +116,8 @@ it('shows monthly billed and collected amounts in a keyboard-accessible tooltip'
   expect(screen.queryByText('Ver importes por mes')).not.toBeInTheDocument()
   expect(tooltip).toHaveTextContent('enero de 2026')
   expect(screen.getByText('Último mes · enero de 2026')).toBeInTheDocument()
-  expect(tooltip).toHaveTextContent(/Facturado:.*1.200,00/)
-  expect(tooltip).toHaveTextContent(/Cobrado:.*800,00/)
+  expect(tooltip).toHaveTextContent(/Facturado:.*1\.200/)
+  expect(tooltip).toHaveTextContent(/Cobrado:.*800/)
 })
 
 it('shows the attendance date, percentage and record counts in a tooltip', async () => {
@@ -148,8 +148,8 @@ it('exposes chart scales and essential summaries without opening details', () =>
   expect(screen.getByLabelText('Escala de presentismo')).toHaveTextContent('100%')
   expect(screen.getByLabelText('Escala de presentismo')).toHaveTextContent('0%')
   expect(screen.getByLabelText('Presentismo registrado')).toHaveTextContent('50%')
-  expect(screen.getByLabelText('Resumen financiero del último mes')).toHaveTextContent(/1.200,00/)
-  expect(screen.getByLabelText('Resumen financiero del último mes')).toHaveTextContent(/800,00/)
+  expect(screen.getByLabelText('Resumen financiero del último mes')).toHaveTextContent(/1\.200/)
+  expect(screen.getByLabelText('Resumen financiero del último mes')).toHaveTextContent(/800/)
   expect(screen.getAllByText('12/1/2026', { selector: 'span' })[0]).toBeVisible()
 })
 
@@ -232,7 +232,7 @@ it('renders cross-module activity with its icon, state and reference', () => {
   const lista = screen.getByRole('list', { name: 'Actividad reciente' })
   expect(within(lista).getAllByRole('listitem')).toHaveLength(2)
   expect(within(lista).getByText('Pago registrado')).toBeVisible()
-  expect(within(lista).getByText('Cabral, Lorena · Transferencia · $ 2.000,00')).toBeVisible()
+  expect(within(lista).getByText('Cabral, Lorena · Transferencia · $ 2.000')).toBeVisible()
   expect(within(lista).getByText('Registrado')).toBeVisible()
   expect(within(lista).getByText('Baja de matrícula')).toBeVisible()
   expect(within(lista).getByText('Baja')).toBeVisible()

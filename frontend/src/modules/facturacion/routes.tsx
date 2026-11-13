@@ -7,6 +7,7 @@ import { DeudaFamiliasPage } from '@/modules/facturacion/pages/deuda-familias-pa
 import { NuevaFacturaPage } from '@/modules/facturacion/pages/nueva-factura-page'
 import { ReglasFacturacionPage } from '@/modules/facturacion/pages/reglas-facturacion-page'
 import { PenalidadesPage } from '@/modules/facturacion/pages/penalidades-page'
+import { CobranzasPage } from '@/modules/facturacion/pages/cobranzas-page'
 
 export const facturacionRoutes: RouteObject[] = [
   {
@@ -19,7 +20,10 @@ export const facturacionRoutes: RouteObject[] = [
       { path: '/facturacion/:facturaId', element: <FacturaDetallePage /> },
       {
         element: <PermisoRoute codigo={PERMISO_FACTURACION_CREAR} label="Facturación · Crear" />,
-        children: [{ path: '/facturacion/nueva', element: <NuevaFacturaPage /> }],
+        children: [
+          { path: '/facturacion/nueva', element: <NuevaFacturaPage /> },
+          { path: '/facturacion/cobranzas', element: <CobranzasPage /> },
+        ],
       },
     ],
   },

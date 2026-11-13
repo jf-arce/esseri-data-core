@@ -110,7 +110,10 @@ export function FacturasPage() {
         <PageHeader
           titulo="Facturas"
           accion={
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" asChild>
+                <Link to="/facturacion/cobranzas">Débitos automáticos</Link>
+              </Button>
               <Button variant="secondary" asChild>
                 <Link to="/facturacion/deudas/familias">
                   <WalletCardsIcon data-icon="inline-start" />
