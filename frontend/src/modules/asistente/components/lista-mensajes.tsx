@@ -151,19 +151,24 @@ function MensajeDelAsistente({
         {generando && mensaje.contenido === '' && mensaje.herramienta === null && (
           <p className="flex items-center gap-2.5 text-sm text-texto-3">
             <PuntosPensando />
-            <span className="shimmer motion-reduce:shimmer-none">Pensando…</span>
+            <span className="shimmer motion-reduce:shimmer-none">
+              {mensaje.pasos.length > 0 ? 'Redactando…' : 'Pensando…'}
+            </span>
           </p>
         )}
-        <BloquesDelMensaje
-          bloques={mensaje.bloques}
-          porAlias={porAlias}
-          alElegir={alElegir}
-          alIr={alIr}
-        />
         {mensaje.contenido !== '' && (
           <TextoMarkdown texto={mensaje.contenido} porAlias={porAlias} />
         )}
         {generando && mensaje.contenido !== '' && <CursorEscritura />}
+        {/* Los datos van debajo del texto; mientras no hay texto se retienen para no reacomodar. */}
+        {(!generando || mensaje.contenido !== '') && (
+          <BloquesDelMensaje
+            bloques={mensaje.bloques}
+            porAlias={porAlias}
+            alElegir={alElegir}
+            alIr={alIr}
+          />
+        )}
         {!generando && mensaje.contenido !== '' && (
           <AccionesDelMensaje
             contenido={mensaje.contenido}
