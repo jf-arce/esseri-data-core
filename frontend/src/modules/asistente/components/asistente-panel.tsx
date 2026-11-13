@@ -10,7 +10,7 @@ import { useAlias } from '../hooks/use-alias'
 import { useConversacion } from '../hooks/use-conversacion'
 import { useAsistenteStore } from '../store'
 import type { AliasResuelto, BloqueNavegar } from '../types'
-import { aliasDeMensajes, rutaDeDestino, rutaDeEntidad } from '../utils'
+import { aliasDeMensajes, rutaDeDestino, rutaDeEntidad, sugerenciasPermitidas } from '../utils'
 import { EntradaMensaje, type Sugerencia } from './entrada-mensaje'
 import { HistorialConversaciones } from './historial-conversaciones'
 import { ListaMensajes } from './lista-mensajes'
@@ -29,6 +29,7 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
   const navegar = useNavigate()
   const [mencionPendiente, setMencionPendiente] = useState<Sugerencia | null>(null)
 
+  const sugerencias = useMemo(() => sugerenciasPermitidas(permisos), [permisos])
   const puedeVerPersonas = tienePermiso(permisos, PERMISO_FAMILIAS_ALUMNOS_LEER)
   // Ir a la ficha de un alias necesita su id real: se resuelve con el backend antes de navegar.
   const [porNavegarAlias, setPorNavegarAlias] = useState<string | null>(null)
@@ -145,6 +146,8 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
           alElegir={alElegir}
           alIr={alIr}
           alReintentar={generando ? null : reintentar}
+          sugerencias={sugerencias}
+          alSugerir={(texto) => void enviar(texto, [])}
         />
       )}
 

@@ -1,3 +1,4 @@
+import { tienePermiso } from '@/modules/auth/constants'
 import { destinosDe, filtrarNav, NAV_GROUPS } from '@/layout/nav-items'
 import type { Permiso } from '@/modules/auth/types'
 import {
@@ -6,6 +7,7 @@ import {
   RUTA_REGLAS,
   RUTA_TAREAS,
 } from '@/modules/workflows/constants'
+import { SUGERENCIAS } from './constants'
 import type { AliasResuelto, EventoSse, MensajeVisible, TipoAlias } from './types'
 
 // Claves de destino que el backend le ofrece al modelo (`DESTINOS` en
@@ -196,4 +198,9 @@ export function sustituirAlias(texto: string, porAlias: Record<string, AliasResu
       return `[${escaparMarkdown(resuelto.nombre)}](${ruta})`
     })
     .join('')
+}
+
+/** Preguntas de arranque que el rol activo puede hacer. */
+export function sugerenciasPermitidas(permisos: Permiso[]): string[] {
+  return SUGERENCIAS.filter((s) => tienePermiso(permisos, s.permiso)).map((s) => s.texto)
 }

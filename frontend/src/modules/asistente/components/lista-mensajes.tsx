@@ -26,6 +26,9 @@ interface ListaMensajesProps {
   alIr: (bloque: BloqueNavegar) => (() => void) | null
   /** Vuelve a mandar la última pregunta; `null` mientras se está generando. */
   alReintentar: (() => void) | null
+  /** Preguntas de arranque para el estado vacío. */
+  sugerencias: string[]
+  alSugerir: (texto: string) => void
 }
 
 export function ListaMensajes({
@@ -34,6 +37,8 @@ export function ListaMensajes({
   alElegir,
   alIr,
   alReintentar,
+  sugerencias,
+  alSugerir,
 }: ListaMensajesProps) {
   if (mensajes.length === 0) {
     return (
@@ -46,6 +51,22 @@ export function ListaMensajes({
           Preguntá por indicadores, deuda, asistencias o inscripciones, o pedime que te lleve a una
           pantalla. Con @ mencionás a un alumno o una familia.
         </p>
+        {sugerencias.length > 0 && (
+          <div className="mt-2 flex flex-wrap justify-center gap-2">
+            {sugerencias.map((texto) => (
+              <Button
+                key={texto}
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="rounded-full"
+                onClick={() => alSugerir(texto)}
+              >
+                {texto}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
     )
   }
@@ -93,7 +114,9 @@ function MensajeDelAsistente({
   alElegir,
   alIr,
   alReintentar,
-}: Omit<ListaMensajesProps, 'mensajes'> & { mensaje: MensajeVisible }) {
+}: Omit<ListaMensajesProps, 'mensajes' | 'sugerencias' | 'alSugerir'> & {
+  mensaje: MensajeVisible
+}) {
   const generando = mensaje.estado === 'generando'
   return (
     <Message>

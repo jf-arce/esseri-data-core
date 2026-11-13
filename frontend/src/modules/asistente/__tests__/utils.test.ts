@@ -9,6 +9,7 @@ import {
   RUTAS_DE_DESTINO,
   rutaDeDestino,
   rutaDeEntidad,
+  sugerenciasPermitidas,
   sustituirAlias,
 } from '../utils'
 
@@ -199,5 +200,17 @@ describe('sustituirAlias', () => {
         '.',
       ),
     )
+  })
+})
+
+describe('sugerenciasPermitidas', () => {
+  it('ofrece solo las preguntas de los datos que el rol puede leer', () => {
+    const textos = sugerenciasPermitidas([permiso('facturacion.leer')])
+    expect(textos).toHaveLength(1)
+    expect(textos[0]).toContain('deuda')
+  })
+
+  it('no ofrece nada sin permisos', () => {
+    expect(sugerenciasPermitidas([])).toEqual([])
   })
 })
