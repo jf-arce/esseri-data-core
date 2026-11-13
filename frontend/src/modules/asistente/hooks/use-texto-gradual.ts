@@ -13,7 +13,7 @@ function prefiereMenosMovimiento(): boolean {
 export function useTextoGradual(
   texto: string,
   animar: boolean,
-): { visible: string; revelando: boolean } {
+): { visible: string; revelando: boolean; faltan: number } {
   const [mostrados, setMostrados] = useState(0)
   const avance = useRef(0)
 
@@ -32,7 +32,11 @@ export function useTextoGradual(
     return () => cancelAnimationFrame(marco)
   }, [texto, animar])
 
-  if (!animar || prefiereMenosMovimiento()) return { visible: texto, revelando: false }
+  if (!animar || prefiereMenosMovimiento()) return { visible: texto, revelando: false, faltan: 0 }
   const hasta = Math.min(mostrados, texto.length)
-  return { visible: cortarSeguro(texto, hasta), revelando: hasta < texto.length }
+  return {
+    visible: cortarSeguro(texto, hasta),
+    revelando: hasta < texto.length,
+    faltan: texto.length - hasta,
+  }
 }

@@ -15,7 +15,7 @@ afterEach(() => {
 describe('useTextoGradual', () => {
   it('sin animar devuelve el texto entero', () => {
     const { result } = renderHook(() => useTextoGradual('Hola mundo', false))
-    expect(result.current).toEqual({ visible: 'Hola mundo', revelando: false })
+    expect(result.current).toEqual({ visible: 'Hola mundo', revelando: false, faltan: 0 })
   })
 
   it('animando revela el texto de a poco hasta completarlo', () => {
@@ -32,12 +32,16 @@ describe('useTextoGradual', () => {
     act(() => {
       vi.advanceTimersByTime(2000)
     })
-    expect(result.current).toEqual({ visible: 'Hay 3 alumnos activos hoy.', revelando: false })
+    expect(result.current).toEqual({
+      visible: 'Hay 3 alumnos activos hoy.',
+      revelando: false,
+      faltan: 0,
+    })
   })
 
   it('con movimiento reducido muestra todo de una vez', () => {
     vi.stubGlobal('matchMedia', () => ({ matches: true }))
     const { result } = renderHook(() => useTextoGradual('Hola', true))
-    expect(result.current).toEqual({ visible: 'Hola', revelando: false })
+    expect(result.current).toEqual({ visible: 'Hola', revelando: false, faltan: 0 })
   })
 })

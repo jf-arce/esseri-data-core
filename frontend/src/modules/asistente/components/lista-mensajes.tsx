@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { motion, MotionConfig } from 'motion/react'
+import { AnimatePresence, motion, MotionConfig, type Variants } from 'motion/react'
 import { ArrowRightIcon, RotateCcwIcon, SparklesIcon, TriangleAlertIcon } from 'lucide-react'
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,19 @@ import { PasosDelMensaje } from './pasos-del-mensaje'
 import { TarjetaRecurso } from './tarjeta-recurso'
 import { TextoConAlias } from './texto-con-alias'
 import { TextoMarkdown } from './texto-markdown'
+
+// Cuánto texto puede faltar por escribirse para que los datos empiecen a entrar.
+const UMBRAL_ENTRADA_DATOS = 40
+
+// Los datos entran de a uno, con un fundido y un leve ascenso.
+const ENTRADA_DE_DATOS: Variants = {
+  oculto: {},
+  visible: { transition: { staggerChildren: 0.14 } },
+}
+const ELEMENTO_DE_DATOS: Variants = {
+  oculto: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } },
+}
 
 interface ListaMensajesProps {
   mensajes: MensajeVisible[]
@@ -148,24 +161,40 @@ function MensajeDelAsistente({
   const generando = mensaje.estado === 'generando'
   // Solo se anima lo que llega en vivo; las conversaciones guardadas se muestran enteras.
   const [animar] = useState(generando)
-  const { visible, revelando } = useTextoGradual(mensaje.contenido, animar)
+  const { visible, revelando, faltan } = useTextoGradual(mensaje.contenido, animar)
   const escribiendo = generando || revelando
+  // Los datos empiezan a entrar sobre el final del texto, así no aparecen de golpe al terminar.
+  const mostrarDatos = !generando && faltan <= UMBRAL_ENTRADA_DATOS
   return (
     <Message>
       <MessageContent>
         <PasosDelMensaje pasos={mensaje.pasos} herramienta={mensaje.herramienta} />
-        {generando && mensaje.contenido === '' && mensaje.herramienta === null && (
-          <p className="flex items-center gap-2.5 text-sm text-texto-3">
-            <PuntosPensando />
-            <span className="shimmer motion-reduce:shimmer-none">
-              {mensaje.pasos.length > 0 ? 'Redactando…' : 'Pensando…'}
-            </span>
-          </p>
+        <AnimatePresence>
+          {generando && mensaje.contenido === '' && mensaje.herramienta === null && (
+            <motion.p
+              key="espera"
+              className="flex items-center gap-2.5 text-sm text-texto-3"
+              exit={{ opacity: 0, transition: { duration: 0.15 } }}
+            >
+              <PuntosPensando />
+              <span className="shimmer motion-reduce:shimmer-none">
+                {mensaje.pasos.length > 0 ? 'Redactando…' : 'Pensando…'}
+              </span>
+            </motion.p>
+          )}
+        </AnimatePresence>
+        {visible !== '' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <TextoMarkdown texto={visible} porAlias={porAlias} />
+          </motion.div>
         )}
-        {visible !== '' && <TextoMarkdown texto={visible} porAlias={porAlias} />}
         {escribiendo && visible !== '' && <CursorEscritura />}
-        {/* Los datos van debajo y entran cuando el texto terminó de escribirse. */}
-        {!escribiendo && (
+        {/* Los datos van debajo del texto y entran de a uno. */}
+        {mostrarDatos && (
           <BloquesDelMensaje
             bloques={mensaje.bloques}
             porAlias={porAlias}
@@ -222,46 +251,49 @@ function BloquesDelMensaje({
   return (
     <motion.div
       className="flex flex-col gap-2"
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
+      variants={ENTRADA_DE_DATOS}
+      initial="oculto"
+      animate="visible"
     >
       {kpis.length > 0 && (
-        <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
+        <motion.div
+          variants={ELEMENTO_DE_DATOS}
+          className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2"
+        >
           {kpis.map((kpi, indice) => (
             <BloqueKpiVista key={indice} bloque={kpi} />
           ))}
-        </div>
+        </motion.div>
       )}
       {bloques.map((bloque, indice) => {
         if (bloque.tipo === 'tabla') {
-          return <BloqueTablaVista key={bloque.tabla_id} bloque={bloque} porAlias={porAlias} />
+          return (
+            <motion.div key={bloque.tabla_id} variants={ELEMENTO_DE_DATOS}>
+              <BloqueTablaVista bloque={bloque} porAlias={porAlias} />
+            </motion.div>
+          )
         }
         if (bloque.tipo === 'tarjeta') {
           return (
-            <TarjetaRecurso
-              key={indice}
-              bloque={bloque}
-              resuelto={porAlias[bloque.alias]}
-              alElegir={alElegir}
-            />
+            <motion.div key={indice} variants={ELEMENTO_DE_DATOS}>
+              <TarjetaRecurso
+                bloque={bloque}
+                resuelto={porAlias[bloque.alias]}
+                alElegir={alElegir}
+              />
+            </motion.div>
           )
         }
         if (bloque.tipo === 'navegar') {
           const ir = alIr(bloque)
           if (ir === null) return null
           return (
-            <Button
-              key={indice}
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="self-start"
-              onClick={ir}
-            >
-              Ir ahí
-              <ArrowRightIcon data-icon="inline-end" />
-            </Button>
+            <motion.div key={indice} variants={ELEMENTO_DE_DATOS} className="self-start">
+              <Button type="button" variant="secondary" size="sm" onClick={ir}>
+                Ir ahí
+                <ArrowRightIcon data-icon="inline-end" />
+              </Button>
+            </motion.div>
           )
         }
         return null
