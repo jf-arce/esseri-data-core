@@ -7,17 +7,29 @@ import type { MesFinanciero } from '../services/obtener-evolucion-financiera'
 
 export type DiaAsistencia = [string, { presentes: number; total: number }]
 
-function TooltipGrafico({ texto, children }: { texto: ReactNode; children: ReactNode }) {
+function TooltipGrafico({
+  texto,
+  children,
+  onOpenChange,
+}: {
+  texto: ReactNode
+  children: ReactNode
+  onOpenChange?: (open: boolean) => void
+}) {
   const [open, setOpen] = useState(false)
+  const cambiarAbierto = (abierto: boolean) => {
+    setOpen(abierto)
+    onOpenChange?.(abierto)
+  }
   return (
     <TooltipProvider>
-      <Tooltip open={open} onOpenChange={setOpen}>
+      <Tooltip open={open} onOpenChange={cambiarAbierto}>
         <TooltipTrigger
           asChild
           onClick={(event) => {
             // Radix cierra los tooltips al hacer clic; el gráfico también debe abrirse al tocar.
             event.preventDefault()
-            setOpen(true)
+            cambiarAbierto(true)
           }}
         >
           {children}
@@ -39,6 +51,7 @@ const monedaCompacta = new Intl.NumberFormat('es-AR', {
 })
 
 export function GraficoFinanciero({ meses }: { meses: MesFinanciero[] }) {
+  const [mesActivo, setMesActivo] = useState<string | null>(null)
   if (!meses.length) return <p className="text-xs text-texto-2">No hay registros para mostrar.</p>
   const datos = meses.map((mes) => ({
     ...mes,
@@ -106,20 +119,35 @@ export function GraficoFinanciero({ meses }: { meses: MesFinanciero[] }) {
                 fill="var(--violeta)"
                 radius={[2, 2, 0, 0]}
                 maxBarSize={16}
-                isAnimationActive={false}
-              />
+              >
+                {meses.map((mes) => (
+                  <EvilBarChart.Cell
+                    key={mes.mes}
+                    fillOpacity={mesActivo && mesActivo !== mes.mes ? 0.25 : 1}
+                  />
+                ))}
+              </EvilBarChart.Bar>
               <EvilBarChart.Bar
                 dataKey="cobrado"
                 fill="var(--petroleo)"
                 radius={[2, 2, 0, 0]}
                 maxBarSize={16}
-                isAnimationActive={false}
-              />
+              >
+                {meses.map((mes) => (
+                  <EvilBarChart.Cell
+                    key={mes.mes}
+                    fillOpacity={mesActivo && mesActivo !== mes.mes ? 0.25 : 1}
+                  />
+                ))}
+              </EvilBarChart.Bar>
             </EvilBarChart>
           </div>
           {meses.map((mes) => (
             <TooltipGrafico
               key={mes.mes}
+              onOpenChange={(open) =>
+                setMesActivo((actual) => (open ? mes.mes : actual === mes.mes ? null : actual))
+              }
               texto={
                 <span className="flex flex-col gap-1">
                   <strong className="block">{mesLargo(mes.mes)}</strong>
@@ -172,6 +200,7 @@ export function GraficoFinanciero({ meses }: { meses: MesFinanciero[] }) {
 }
 
 export function GraficoAsistencia({ serie }: { serie: DiaAsistencia[] }) {
+  const [diaActivo, setDiaActivo] = useState<string | null>(null)
   const dias = serie.filter(([, dia]) => dia.total > 0)
   const total = dias.reduce((suma, [, dia]) => suma + dia.total, 0)
   const presentes = dias.reduce((suma, [, dia]) => suma + dia.presentes, 0)
@@ -229,6 +258,14 @@ export function GraficoAsistencia({ serie }: { serie: DiaAsistencia[] }) {
                 domain={inicio === fin ? [inicio - 86400000, fin + 86400000] : [inicio, fin]}
               />
               <EvilLineChart.YAxis hide domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} />
+              {diaActivo && (
+                <EvilLineChart.ReferenceLine
+                  x={Date.parse(`${diaActivo}T00:00:00Z`)}
+                  stroke="var(--violeta)"
+                  strokeOpacity={0.35}
+                  strokeDasharray="3 3"
+                />
+              )}
               <EvilLineChart.Line
                 dataKey="porcentaje"
                 type="linear"
@@ -248,6 +285,9 @@ export function GraficoAsistencia({ serie }: { serie: DiaAsistencia[] }) {
             {dias.map(([dia, valor]) => (
               <TooltipGrafico
                 key={dia}
+                onOpenChange={(open) =>
+                  setDiaActivo((actual) => (open ? dia : actual === dia ? null : actual))
+                }
                 texto={
                   <span>
                     <strong className="block">{fecha(dia)}</strong>
@@ -269,7 +309,7 @@ export function GraficoAsistencia({ serie }: { serie: DiaAsistencia[] }) {
                     top: `${100 - (valor.presentes / valor.total) * 100}%`,
                   }}
                 >
-                  <span className="size-1.5 rounded-full bg-violeta ring-superficie group-hover:ring-4 group-focus:ring-4 group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-violeta group-data-[state=instant-open]:ring-4" />
+                  <span className="size-1.5 rounded-full bg-violeta ring-superficie group-hover:scale-150 group-focus:scale-150 group-hover:ring-4 group-focus:ring-4 motion-safe:transition-transform motion-safe:duration-150 group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-violeta group-data-[state=instant-open]:ring-4 group-data-[state=instant-open]:scale-150" />
                 </button>
               </TooltipGrafico>
             ))}

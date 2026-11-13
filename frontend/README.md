@@ -385,7 +385,11 @@ estos archivos sin revisar el diff y conservar las adaptaciones locales.
 Los datos, escalas y tooltips permanecen en `panel-admin/components/graficos-direccion.tsx`.
 Finanzas compara facturado y cobrado en ARS; asistencia usa un eje temporal numérico y
 escala fija de 0 a 100 %. Los días sin registros no se representan como ausencias.
-La entrada dura 400 ms con Motion y se desactiva con `prefers-reduced-motion`.
+Las barras crecen desde la base y la línea se revela de izquierda a derecha mediante
+la máscara de Motion de EvilCharts. Cada entrada dura 400 ms y arranca una sola vez al
+entrar el gráfico en pantalla; se desactiva con `prefers-reduced-motion`.
+Al consultar un mes, se atenúan las demás barras. El día activo resalta su punto y muestra
+una guía vertical, también al acceder con teclado o toque.
 Los valores completos se consultan con foco de teclado, cursor o toque; Escape cierra el tooltip.
 No requiere variables de entorno adicionales ni cambios de API.
 

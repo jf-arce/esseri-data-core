@@ -26,3 +26,14 @@ for (const metodo of ['hasPointerCapture', 'setPointerCapture', 'releasePointerC
     value: () => false,
   })
 }
+
+// Motion observa cuándo entran los gráficos en pantalla. JSDOM no tiene viewport real;
+// las entradas animadas se verifican en navegador, los datos/tooltips en los tests del módulo.
+Object.defineProperty(globalThis, 'IntersectionObserver', {
+  writable: true,
+  value: class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  },
+})
