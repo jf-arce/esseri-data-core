@@ -127,6 +127,7 @@ Cada cifra viaja con su período y su fuente: sin ellos no se puede auditar.
 
 - El modelo elige una **clave de destino** (`panel_direccion`, `deuda_por_familia`, `academico`, ...). La lista y el permiso de cada una están en `herramientas_navegacion.py` (`DESTINOS`), y las rutas en `frontend/.../utils.ts` (`RUTAS_DE_DESTINO`).
 - La ruta la arma el frontend y la valida contra el menú del rol activo (`destinosDe(filtrarNav(...))`). Nunca se navega a una URL generada por el modelo.
+- **Con los filtros de la conversación.** Si se habla de un curso, el botón abre Académico en ese nivel, año y división (`?nivel=&anio=&division=`). El backend manda los ids de la consulta y el frontend solo acepta, por pantalla, los filtros que esa pantalla entiende (hoy Académico) y que tengan forma de id. Si la consulta abarca varias divisiones, se filtra solo por lo que tienen en común (el nivel, o el nivel y el año).
 - **No se navega sola.** `ir_a` y la pantalla sugerida dejan un botón ("Ir a Deuda por familia") que la persona decide usar.
 - **Pantalla sugerida.** Cada herramienta puede declarar `destino`. Al terminar la respuesta se agrega el botón si todas las herramientas usadas apuntan a la misma pantalla, no hubo errores, la persona no pidió ir a otra con `ir_a` y el rol puede entrar. Si no se cumple algo, no se ofrece.
 
@@ -153,7 +154,7 @@ El historial del servidor no guarda los resultados crudos de las herramientas ni
 ## 10. Frontend: experiencia de uso
 
 - **Orden de una respuesta:** progreso ("Consultando…", "Redactando…"), texto que se va escribiendo, y recién cuando termina entran las tablas e indicadores (de a uno, con fundido) y después los botones de copiar y reintentar.
-- **Texto gradual.** `use-texto-gradual.ts` revela el texto a ritmo parejo (unos 45 caracteres por segundo, acelera si se acumula) para que no aparezca a saltos. Solo anima lo que llega en vivo, no los mensajes guardados. No deja alias ni negritas a medio escribir. Respeta `prefers-reduced-motion`.
+- **Texto gradual.** `use-texto-gradual.ts` revela el texto a ritmo parejo (unos 85 caracteres por segundo, acelera si se acumula) para que no aparezca a saltos. Solo anima lo que llega en vivo, no los mensajes guardados. No deja alias ni negritas a medio escribir. Respeta `prefers-reduced-motion`.
 - **Scroll.** Al enviar un mensaje, o abrir una conversación, baja hasta lo último.
 - **Copiar.** Copia el texto y, debajo, los indicadores y las tablas, en dos formatos a la vez: texto plano (tablas con tabuladores, que Excel y Sheets separan en celdas) y HTML (una tabla real al pegar en Word, Docs o un mail).
 - **Errores.** Se muestran dentro de la burbuja con un botón "Reintentar". Los mensajes en error no cuentan para la cuota.

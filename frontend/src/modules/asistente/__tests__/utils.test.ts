@@ -111,6 +111,30 @@ describe('rutaDeDestino', () => {
     expect(rutaDeDestino('deuda_por_familia', 'direccion', [])).toBeNull()
   })
 
+  it('abre Académico filtrado por nivel, año y división', () => {
+    const ids = {
+      nivel: '11111111-1111-4111-8111-111111111111',
+      anio: '22222222-2222-4222-8222-222222222222',
+      division: '33333333-3333-4333-8333-333333333333',
+    }
+    const permisos = [...direccion, permiso('academico.leer')]
+    expect(rutaDeDestino('academico', 'direccion', permisos, ids)).toBe(
+      `/academico?nivel=${ids.nivel}&anio=${ids.anio}&division=${ids.division}`,
+    )
+  })
+
+  it('descarta filtros que no son ids o que la pantalla no usa', () => {
+    const permisos = [...direccion, permiso('academico.leer')]
+    expect(
+      rutaDeDestino('academico', 'direccion', permisos, { nivel: 'primario', otro: 'x' }),
+    ).toBe('/academico')
+    expect(
+      rutaDeDestino('deuda_por_familia', 'direccion', direccion, {
+        nivel: '11111111-1111-4111-8111-111111111111',
+      }),
+    ).toBe('/facturacion/deudas/familias')
+  })
+
   it('rechaza claves desconocidas y URLs armadas por el modelo', () => {
     expect(rutaDeDestino('https://evil.test', 'direccion', direccion)).toBeNull()
     expect(rutaDeDestino('/facturacion', 'direccion', direccion)).toBeNull()

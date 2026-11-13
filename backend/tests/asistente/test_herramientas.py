@@ -358,6 +358,32 @@ class TestCursos:
         }
         assert resultado["total_alumnos"] == 1
 
+    def test_la_pantalla_sugerida_se_abre_filtrada_por_el_curso(
+        self, direccion, proveedor, horarios, db_session
+    ):
+        from src.academico.models import Anio, Division
+
+        lista = correr(
+            direccion,
+            proveedor,
+            "estructura_academica",
+            {"nivel": "primaria", "anio": 5, "division": "A"},
+        )
+        (navegar,) = [d for n, d in lista if n == "navegar"]
+        division = db_session.scalar(select(Division).where(Division.nombre == "A"))
+        anio = db_session.get(Anio, division.anio_id)
+        assert navegar["destino"] == "academico"
+        assert navegar["filtros"] == {
+            "nivel": str(anio.nivel_educativo_id),
+            "anio": str(anio.id),
+            "division": str(division.id),
+        }
+
+    def test_con_varias_divisiones_no_filtra_por_division(self, direccion, proveedor, horarios):
+        lista = correr(direccion, proveedor, "estructura_academica", {"anio": 5})
+        (navegar,) = [d for n, d in lista if n == "navegar"]
+        assert set(navegar["filtros"]) == {"nivel", "anio"}
+
     def test_estructura_sin_curso_informa_que_no_hay(self, direccion, proveedor, horarios):
         correr(direccion, proveedor, "estructura_academica", {"anio": 9})
         assert "error" in resultado_de_herramienta(proveedor)

@@ -77,6 +77,20 @@ def _divisiones(db: Session, parametros: ParametrosCurso) -> list[Division]:
     ]
 
 
+def _filtros_academico(divisiones: list[Division]) -> dict[str, str]:
+    """Nivel, año y división con los que abrir Académico, solo los que son únicos en la consulta."""
+    filtros: dict[str, str] = {}
+    niveles = {d.anio.nivel_educativo_id for d in divisiones}
+    if len(niveles) == 1:
+        filtros["nivel"] = str(next(iter(niveles)))
+    anios = {d.anio_id for d in divisiones}
+    if len(anios) == 1:
+        filtros["anio"] = str(next(iter(anios)))
+    if len(divisiones) == 1:
+        filtros["division"] = str(divisiones[0].id)
+    return filtros
+
+
 def _sin_curso(
     mensaje: str = "No hay un curso que coincida con ese filtro.",
 ) -> ResultadoHerramienta:
@@ -151,6 +165,7 @@ def _estructura_academica(
             "truncado": len(divisiones) > _MAX_FILAS,
         },
         bloques=[tabla],
+        filtros_destino=_filtros_academico(divisiones),
     )
 
 
@@ -226,6 +241,7 @@ def _horario_del_curso(
     return ResultadoHerramienta(
         para_llm={"fuente": fuente, "franjas": filas, "truncado": len(franjas) > _MAX_FILAS},
         bloques=[tabla],
+        filtros_destino=_filtros_academico(list(divisiones.values())),
     )
 
 
@@ -291,6 +307,7 @@ def _alumnos_del_curso(
             "truncado": len(inscriptos) > tope,
         },
         bloques=[tabla],
+        filtros_destino=_filtros_academico(list(divisiones.values())),
     )
 
 

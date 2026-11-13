@@ -512,6 +512,7 @@ def _loop_con_herramientas(
     llamadas_hechas: list[dict[str, Any]] = []
     bloques_hechos: list[dict[str, Any]] = []
     destinos_sugeridos: set[str] = set()
+    filtros_sugeridos: list[dict[str, str]] = []
     texto_final = ""
 
     # Un paso extra sin herramientas obliga al modelo a cerrar con texto si agotó los pasos.
@@ -563,6 +564,7 @@ def _loop_con_herramientas(
             llamadas_hechas.append({"nombre": llamada.nombre, "argumentos": llamada.argumentos})
             if resultado.destino_sugerido is not None:
                 destinos_sugeridos.add(resultado.destino_sugerido)
+                filtros_sugeridos.append(resultado.filtros_destino)
             conversacion.append(
                 {
                     "role": "tool",
@@ -580,8 +582,17 @@ def _loop_con_herramientas(
     pidio_ir = any(b.get("tipo") == BLOQUE_NAVEGAR for b in bloques_hechos)
     if len(destinos_sugeridos) == 1 and not pidio_ir:
         (destino,) = destinos_sugeridos
+        # Solo los filtros en los que coinciden todas las consultas de la respuesta.
+        filtros = {
+            clave: valor
+            for clave, valor in filtros_sugeridos[0].items()
+            if all(f.get(clave) == valor for f in filtros_sugeridos)
+        }
+        navegar: dict[str, Any] = {"destino": destino}
+        if filtros:
+            navegar["filtros"] = filtros
         yield from _emitir_resultado(
-            ResultadoHerramienta(para_llm={}, navegar={"destino": destino}),
+            ResultadoHerramienta(para_llm={}, navegar=navegar),
             bloques_hechos,
             solicitud_id,
         )

@@ -52,15 +52,30 @@ export const RUTAS_DE_DESTINO: Record<string, string> = {
 }
 
 /** Ruta de una clave de destino, solo si el menú del rol activo la muestra. */
+// Filtros que cada pantalla entiende en su URL. El resto se descarta.
+const FILTROS_DE_DESTINO: Record<string, string[]> = {
+  academico: ['nivel', 'anio', 'division'],
+}
+const PATRON_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export function rutaDeDestino(
   clave: string,
   rolActivo: string | null,
   permisos: Permiso[],
+  filtros?: Record<string, string>,
 ): string | null {
   const ruta = RUTAS_DE_DESTINO[clave]
   if (ruta === undefined) return null
   const permitidas = destinosDe(filtrarNav(NAV_GROUPS, rolActivo, permisos))
-  return permitidas.some((destino) => destino.ruta === ruta) ? ruta : null
+  if (!permitidas.some((destino) => destino.ruta === ruta)) return null
+
+  const consulta = new URLSearchParams()
+  for (const nombre of FILTROS_DE_DESTINO[clave] ?? []) {
+    const valor = filtros?.[nombre]
+    if (valor !== undefined && PATRON_ID.test(valor)) consulta.set(nombre, valor)
+  }
+  const texto = consulta.toString()
+  return texto === '' ? ruta : `${ruta}?${texto}`
 }
 
 // Mismas rutas que `busqueda-global.ts` para alumnos y familias. Los docentes no tienen ficha.

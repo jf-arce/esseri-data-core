@@ -47,7 +47,9 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
 
   const rutaDeBloque = useCallback(
     (bloque: BloqueNavegar, resueltos: Record<string, AliasResuelto>): string | null => {
-      if (bloque.destino !== undefined) return rutaDeDestino(bloque.destino, rolActivo, permisos)
+      if (bloque.destino !== undefined) {
+        return rutaDeDestino(bloque.destino, rolActivo, permisos, bloque.filtros)
+      }
       if (bloque.alias === undefined) return null
       const resuelto = resueltos[bloque.alias]
       return resuelto === undefined ? null : rutaDeEntidad(resuelto.tipo, resuelto.entidad_id)
