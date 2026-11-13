@@ -286,7 +286,7 @@ arranca cerrado y solo se recuerda su ancho en `localStorage`. Solo aparece con 
 
 El panel del asistente usa [`@shadcn/react`](https://www.npmjs.com/package/@shadcn/react) (`message-scroller`): mantiene el scroll pegado al final mientras llega la respuesta y trae el botón de "ir al final". Lo usa `components/ui/message-scroller.tsx`, generado con la CLI de shadcn (AI Elements).
 
-Las transiciones del panel del asistente (entrada de mensajes, sugerencias, puntos de "Pensando…") usan [`motion`](https://motion.dev) con `MotionConfig reducedMotion="user"`, así que se apagan si el sistema pide reducir movimiento. Solo lo usa `modules/asistente/`.
+Las transiciones del panel del asistente (entrada de mensajes, sugerencias, puntos de "Pensando…") usan [`motion`](https://motion.dev) con `MotionConfig reducedMotion="user"`, así que se apagan si el sistema pide reducir movimiento. También se reutiliza en los gráficos de `modules/panel-admin/`.
 
 El color de las materias (Académico) se elige con [`react-colorful`](https://github.com/omgovich/react-colorful) (`HexColorPicker` y `HexColorInput`), dentro del `Popover` de shadcn: shadcn/ui no trae un color picker propio. Está fijado en una versión exacta en `package.json` y solo lo usa `modules/academico/components/selector-color.tsx`.
 
@@ -367,3 +367,32 @@ Railway publica el frontend por HTTPS; `/api/` se reenvía al backend privado y 
 se ajusta a `/api/auth`. El procedimiento y las variables del backend están en
 [Railway](../infra/railway.md). Para verificar este proxy sin Docker, seguir
 [las pruebas de Infra](../infra/README.md#verificar-el-proxy-de-railway-sin-docker).
+
+## Prueba de EvilCharts en Dirección
+
+Los gráficos de `/panel` usan [EvilCharts](https://evilcharts.com/docs/recharts/bar-chart/static)
+sobre `recharts`, incorporados con la CLI de shadcn:
+
+```bash
+npx shadcn@latest add https://evilcharts.com/r/recharts-bar-chart.json https://evilcharts.com/r/recharts-line-chart.json --dry-run
+# Para incorporarlos por primera vez, quitar --dry-run. No usar --overwrite.
+```
+
+Los primitivos generados se adaptaron en `src/components/ui/recharts-{chart,bar-chart,line-chart}.tsx`.
+Se conserva el contenedor responsive y la composición de Recharts; se eliminaron zoom,
+selección de series, datos de carga ficticios, gradientes y variantes decorativas. No regenerar
+estos archivos sin revisar el diff y conservar las adaptaciones locales.
+Los datos, escalas y tooltips permanecen en `panel-admin/components/graficos-direccion.tsx`.
+Finanzas compara facturado y cobrado en ARS; asistencia usa un eje temporal numérico y
+escala fija de 0 a 100 %. Los días sin registros no se representan como ausencias.
+La entrada dura 400 ms con Motion y se desactiva con `prefers-reduced-motion`.
+Los valores completos se consultan con foco de teclado, cursor o toque; Escape cierra el tooltip.
+No requiere variables de entorno adicionales ni cambios de API.
+
+Verificación focalizada: `npm run test -- src/modules/panel-admin`. Antes de entregar,
+correr `npm run test`, `npm run lint` y `npm run build`. Revisar `/panel` en escritorio y
+móvil, con navegación expandida/contraída y movimiento reducido.
+
+Si la concurrencia por defecto provoca timeouts en equipos ocupados, usar
+`npm run test -- --maxWorkers=2`: ejecuta la misma suite con dos workers, sin ampliar
+los tiempos límite ni omitir tests.

@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { EvilBarChart } from '@/components/ui/recharts-bar-chart'
+import { EvilLineChart } from '@/components/ui/recharts-line-chart'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatearMoneda } from '@/modules/facturacion/utils'
 import type { MesFinanciero } from '../services/obtener-evolucion-financiera'
@@ -6,10 +8,20 @@ import type { MesFinanciero } from '../services/obtener-evolucion-financiera'
 export type DiaAsistencia = [string, { presentes: number; total: number }]
 
 function TooltipGrafico({ texto, children }: { texto: ReactNode; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
   return (
     <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <Tooltip open={open} onOpenChange={setOpen}>
+        <TooltipTrigger
+          asChild
+          onClick={(event) => {
+            // Radix cierra los tooltips al hacer clic; el gráfico también debe abrirse al tocar.
+            event.preventDefault()
+            setOpen(true)
+          }}
+        >
+          {children}
+        </TooltipTrigger>
         <TooltipContent sideOffset={8}>{texto}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -26,20 +38,13 @@ const monedaCompacta = new Intl.NumberFormat('es-AR', {
   maximumFractionDigits: 1,
 })
 
-function Rejilla() {
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-0 flex flex-col justify-between"
-    >
-      {[0, 1, 2, 3, 4].map((n) => (
-        <div key={n} className="w-full border-t border-dashed border-borde" />
-      ))}
-    </div>
-  )
-}
-
 export function GraficoFinanciero({ meses }: { meses: MesFinanciero[] }) {
+  if (!meses.length) return <p className="text-xs text-texto-2">No hay registros para mostrar.</p>
+  const datos = meses.map((mes) => ({
+    ...mes,
+    facturado: Number(mes.facturado),
+    cobrado: Number(mes.cobrado),
+  }))
   const maximo = Math.max(
     1,
     ...meses.flatMap((mes) => [Number(mes.facturado), Number(mes.cobrado)]),
@@ -48,7 +53,7 @@ export function GraficoFinanciero({ meses }: { meses: MesFinanciero[] }) {
   const tope = Math.ceil(maximo / magnitud) * magnitud
   const ultimo = meses.at(-1)
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-texto-2">
         <div className="flex gap-4">
           <span className="inline-flex items-center gap-2">
@@ -82,12 +87,41 @@ export function GraficoFinanciero({ meses }: { meses: MesFinanciero[] }) {
           aria-label="Comparación mensual de facturación emitida y cobros aprobados"
           className="relative flex h-40 min-w-0 items-end gap-1"
         >
-          <Rejilla />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+            <EvilBarChart
+              data={datos}
+              margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+              barCategoryGap="20%"
+              barGap={4}
+            >
+              <EvilBarChart.Grid vertical={false} stroke="var(--borde)" strokeDasharray="3 3" />
+              <EvilBarChart.XAxis hide dataKey="mes" />
+              <EvilBarChart.YAxis
+                hide
+                domain={[0, tope]}
+                ticks={[0, tope / 4, tope / 2, tope * 0.75, tope]}
+              />
+              <EvilBarChart.Bar
+                dataKey="facturado"
+                fill="var(--violeta)"
+                radius={[2, 2, 0, 0]}
+                maxBarSize={16}
+                isAnimationActive={false}
+              />
+              <EvilBarChart.Bar
+                dataKey="cobrado"
+                fill="var(--petroleo)"
+                radius={[2, 2, 0, 0]}
+                maxBarSize={16}
+                isAnimationActive={false}
+              />
+            </EvilBarChart>
+          </div>
           {meses.map((mes) => (
             <TooltipGrafico
               key={mes.mes}
               texto={
-                <span className="space-y-1">
+                <span className="flex flex-col gap-1">
                   <strong className="block">{mesLargo(mes.mes)}</strong>
                   <span className="block">Facturado: {formatearMoneda(mes.facturado)}</span>
                   <span className="block">Cobrado: {formatearMoneda(mes.cobrado)}</span>
@@ -97,17 +131,8 @@ export function GraficoFinanciero({ meses }: { meses: MesFinanciero[] }) {
               <button
                 type="button"
                 aria-label={`Ver valores de ${mes.mes}`}
-                className="relative flex h-full min-w-0 flex-1 cursor-help items-end justify-center gap-1 rounded-sm hover:bg-fila-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
-              >
-                <span
-                  className="block w-full max-w-4 rounded-t-sm bg-violeta"
-                  style={{ height: `${(Number(mes.facturado) / tope) * 100}%` }}
-                />
-                <span
-                  className="block w-full max-w-4 rounded-t-sm bg-petroleo"
-                  style={{ height: `${(Number(mes.cobrado) / tope) * 100}%` }}
-                />
-              </button>
+                className="relative flex h-full min-w-0 flex-1 cursor-help items-end justify-center gap-1 rounded-sm hover:bg-fila-hover/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
+              />
             </TooltipGrafico>
           ))}
         </div>
@@ -147,14 +172,23 @@ export function GraficoFinanciero({ meses }: { meses: MesFinanciero[] }) {
 }
 
 export function GraficoAsistencia({ serie }: { serie: DiaAsistencia[] }) {
-  const total = serie.reduce((suma, [, dia]) => suma + dia.total, 0)
-  const presentes = serie.reduce((suma, [, dia]) => suma + dia.presentes, 0)
-  const inicio = Date.parse(`${serie[0][0]}T00:00:00Z`)
-  const fin = Date.parse(`${serie.at(-1)![0]}T00:00:00Z`)
+  const dias = serie.filter(([, dia]) => dia.total > 0)
+  const total = dias.reduce((suma, [, dia]) => suma + dia.total, 0)
+  const presentes = dias.reduce((suma, [, dia]) => suma + dia.presentes, 0)
+  const primero = dias[0]
+  const ultimo = dias.at(-1)
+  if (!primero || !ultimo)
+    return <p className="text-xs text-texto-2">No hay registros para mostrar.</p>
+  const inicio = Date.parse(`${primero[0]}T00:00:00Z`)
+  const fin = Date.parse(`${ultimo[0]}T00:00:00Z`)
+  const datos = dias.map(([dia, valor]) => ({
+    instante: Date.parse(`${dia}T00:00:00Z`),
+    porcentaje: (valor.presentes / valor.total) * 100,
+  }))
   const x = (dia: string) =>
-    fin === inicio ? 300 : 8 + ((Date.parse(`${dia}T00:00:00Z`) - inicio) / (fin - inicio)) * 584
+    fin === inicio ? 50 : ((Date.parse(`${dia}T00:00:00Z`) - inicio) / (fin - inicio)) * 100
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-64 text-xs text-texto-2">
           Presentes y tardanzas sobre asistencias registradas.
@@ -184,24 +218,34 @@ export function GraficoAsistencia({ serie }: { serie: DiaAsistencia[] }) {
           ))}
         </div>
         <div className="relative h-36 min-w-0">
-          <Rejilla />
-          <svg
-            viewBox="0 0 600 100"
-            preserveAspectRatio="none"
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+            <EvilLineChart data={datos} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+              <EvilLineChart.Grid vertical={false} stroke="var(--borde)" strokeDasharray="3 3" />
+              <EvilLineChart.XAxis
+                hide
+                dataKey="instante"
+                type="number"
+                scale="time"
+                domain={inicio === fin ? [inicio - 86400000, fin + 86400000] : [inicio, fin]}
+              />
+              <EvilLineChart.YAxis hide domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} />
+              <EvilLineChart.Line
+                dataKey="porcentaje"
+                type="linear"
+                stroke="var(--violeta)"
+                strokeWidth={1.5}
+                dot={false}
+                activeDot={false}
+                isAnimationActive={false}
+              />
+            </EvilLineChart>
+          </div>
+          <div
             role="group"
             aria-label="Presentismo diario de los últimos 30 días"
-            className="relative h-full w-full overflow-visible text-violeta"
+            className="absolute inset-0"
           >
-            <polyline
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              vectorEffect="non-scaling-stroke"
-              points={serie
-                .map(([dia, valor]) => `${x(dia)},${100 - (valor.presentes / valor.total) * 100}`)
-                .join(' ')}
-            />
-            {serie.map(([dia, valor]) => (
+            {dias.map(([dia, valor]) => (
               <TooltipGrafico
                 key={dia}
                 texto={
@@ -216,29 +260,30 @@ export function GraficoAsistencia({ serie }: { serie: DiaAsistencia[] }) {
                   </span>
                 }
               >
-                <circle
-                  tabIndex={0}
-                  role="button"
+                <button
+                  type="button"
                   aria-label={`Ver asistencia del ${fecha(dia)}`}
-                  className="cursor-help focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
-                  cx={x(dia)}
-                  cy={100 - (valor.presentes / valor.total) * 100}
-                  r="3.5"
-                  fill="currentColor"
-                />
+                  className="group absolute flex size-10 -translate-x-1/2 -translate-y-1/2 cursor-help items-center justify-center rounded-full focus-visible:shadow-none focus-visible:outline-none"
+                  style={{
+                    left: `${x(dia)}%`,
+                    top: `${100 - (valor.presentes / valor.total) * 100}%`,
+                  }}
+                >
+                  <span className="size-1.5 rounded-full bg-violeta ring-superficie group-hover:ring-4 group-focus:ring-4 group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-violeta group-data-[state=instant-open]:ring-4" />
+                </button>
               </TooltipGrafico>
             ))}
-          </svg>
+          </div>
         </div>
         <span className="sr-only">Fecha</span>
         <div className="col-start-2 flex justify-between gap-2 text-xs tabular-nums text-texto-2">
-          <span>{fecha(serie[0][0])}</span>
-          {serie.length > 2 && (
+          <span>{fecha(primero[0])}</span>
+          {dias.length > 2 && (
             <span className="hidden sm:inline">
-              {fecha(serie[Math.floor((serie.length - 1) / 2)][0])}
+              {fecha(new Date((inicio + fin) / 2).toISOString().slice(0, 10))}
             </span>
           )}
-          {serie.length > 1 && <span>{fecha(serie.at(-1)![0])}</span>}
+          {dias.length > 1 && <span>{fecha(ultimo[0])}</span>}
         </div>
       </div>
       <p className="text-xs text-texto-2">Los días sin registros no se consideran ausencias.</p>
