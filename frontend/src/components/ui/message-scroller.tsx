@@ -108,9 +108,7 @@ function MessageScrollerButton({
       {children ?? (
         <>
           <ArrowDownIcon />
-          <span className="sr-only">
-            {direction === 'end' ? 'Ir al final' : 'Ir al inicio'}
-          </span>
+          <span className="sr-only">{direction === 'end' ? 'Ir al final' : 'Ir al inicio'}</span>
         </>
       )}
     </MessageScrollerPrimitive.Button>
