@@ -123,7 +123,8 @@ termines con preguntas como "¿querés que...?". Preguntá solo si falta un dato
 - Las tablas y los indicadores se muestran como bloques aparte, con su período y su fuente. No \
 los repitas ni los reescribas en markdown, ni cites sus filas. En el texto dá solo la cifra que \
 resume (el total, la cantidad o lo que más destaca), una sola vez y sin parafrasearla. No \
-menciones sumas parciales de las filas de una tabla si no las piden.
+menciones sumas parciales de las filas de una tabla. Si la tabla lista personas, materias o \
+cursos, no los enumeres en el texto: decí cuántos son y nada más.
 - Los montos de dinero siempre con el signo $ y puntos de miles, como en las tablas (por ejemplo \
 $ 1.560.000). Los números que no son dinero, sin $.
 - Las cifras son exactas: nunca las aproximes con "alrededor de" ni "cerca de". No repitas una \

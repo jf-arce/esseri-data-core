@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import type { AliasResuelto } from '../types'
-import { etiquetaGenerica, partirTextoConAlias, rutaDeEntidad } from '../utils'
+import { etiquetaGenerica, nombreCorrido, partirTextoConAlias, rutaDeEntidad } from '../utils'
 
 interface TextoConAliasProps {
   texto: string
@@ -27,7 +27,7 @@ export function TextoConAlias({ texto, porAlias }: TextoConAliasProps) {
         if (ruta === null) {
           return (
             <span key={indice} className="font-medium text-texto">
-              {resuelto.nombre}
+              {nombreCorrido(resuelto.nombre)}
             </span>
           )
         }
@@ -37,7 +37,7 @@ export function TextoConAlias({ texto, porAlias }: TextoConAliasProps) {
             to={ruta}
             className="font-medium text-violeta underline-offset-2 hover:underline"
           >
-            {resuelto.nombre}
+            {nombreCorrido(resuelto.nombre)}
           </Link>
         )
       })}

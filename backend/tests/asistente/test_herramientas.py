@@ -409,6 +409,22 @@ class TestCursos:
         assert "Ferrero" not in proveedor.texto_enviado()
         assert "Graciela" not in proveedor.texto_enviado()
 
+    def test_docentes_de_un_dia_solo_incluye_las_materias_de_ese_dia(
+        self, direccion, proveedor, docente
+    ):
+        # Matemática se dicta lunes y miércoles; el jueves no hay clases de ella.
+        correr(direccion, proveedor, "docentes_del_curso", {"anio": 5, "dia": "lunes"})
+        assert [d["materia"] for d in resultado_de_herramienta(proveedor)["docentes"]] == [
+            "Matemática"
+        ]
+        proveedor.peticiones.clear()
+        correr(direccion, proveedor, "docentes_del_curso", {"anio": 5, "dia": "jueves"})
+        assert "No hay docentes" in resultado_de_herramienta(proveedor)["error"]
+
+    def test_docentes_con_dia_invalido(self, direccion, proveedor, docente):
+        correr(direccion, proveedor, "docentes_del_curso", {"anio": 5, "dia": "feriado"})
+        assert "Día inválido" in resultado_de_herramienta(proveedor)["error"]
+
     def test_docentes_de_una_materia(self, direccion, proveedor, docente):
         correr(direccion, proveedor, "docentes_del_curso", {"anio": 5, "materia": "lengua"})
         assert "No hay docentes" in resultado_de_herramienta(proveedor)["error"]

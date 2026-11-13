@@ -3,6 +3,7 @@ import type { Permiso } from '@/modules/auth/types'
 import type { MensajeVisible } from '../types'
 import {
   aliasDeMensajes,
+  nombreCorrido,
   etiquetaDeDestino,
   etiquetaGenerica,
   armarCopia,
@@ -211,7 +212,7 @@ describe('sustituirAlias', () => {
 
   it('reemplaza los alias resueltos por un link a su ficha', () => {
     expect(sustituirAlias('Mirá a [ALUMNO:1].', resuelto)).toBe(
-      'Mirá a [Quintero, Mariana](/familias-alumnos/alumnos/abc).',
+      'Mirá a [Mariana Quintero](/familias-alumnos/alumnos/abc).',
     )
   })
 
@@ -334,7 +335,7 @@ describe('alias de docentes', () => {
       nombre: 'Ferrero, Graciela',
     }
     expect(sustituirAlias('Da [DOCENTE:2]', { '[DOCENTE:2]': resuelto })).toBe(
-      'Da **Ferrero, Graciela**',
+      'Da **Graciela Ferrero**',
     )
   })
 })
@@ -342,5 +343,35 @@ describe('alias de docentes', () => {
 describe('etiquetaDeDestino', () => {
   it('una clave desconocida no tiene etiqueta', () => {
     expect(etiquetaDeDestino('no_existe', null, [])).toBeNull()
+  })
+})
+
+describe('nombreCorrido', () => {
+  it('pasa "Apellido, Nombre" a "Nombre Apellido"', () => {
+    expect(nombreCorrido('Navarro, Camila')).toBe('Camila Navarro')
+  })
+
+  it('deja igual un nombre sin coma', () => {
+    expect(nombreCorrido('Camila Navarro')).toBe('Camila Navarro')
+  })
+
+  it('en el texto, una lista de personas no se confunde con las comas del apellido', () => {
+    const porAlias = {
+      '[DOCENTE:1]': {
+        alias: '[DOCENTE:1]',
+        tipo: 'DOCENTE' as const,
+        entidad_id: 'a',
+        nombre: 'Navarro, Camila',
+      },
+      '[DOCENTE:2]': {
+        alias: '[DOCENTE:2]',
+        tipo: 'DOCENTE' as const,
+        entidad_id: 'b',
+        nombre: 'Méndez, Pablo',
+      },
+    }
+    expect(sustituirAlias('[DOCENTE:1], [DOCENTE:2]', porAlias)).toBe(
+      '**Camila Navarro**, **Pablo Méndez**',
+    )
   })
 })

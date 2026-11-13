@@ -229,6 +229,13 @@ function escaparMarkdown(texto: string): string {
  * negrita, listo para pasar por un renderizador de markdown. El nombre se escapa para que un
  * apellido con caracteres especiales no rompa el formato.
  */
+/** "Navarro, Camila" pasa a "Camila Navarro": dentro de una frase, la coma de "Apellido, Nombre"
+ * se confunde con la que separa a las personas de una lista. */
+export function nombreCorrido(nombre: string): string {
+  const [apellido, ...resto] = nombre.split(', ')
+  return resto.length === 0 ? nombre : `${resto.join(', ')} ${apellido}`
+}
+
 export function sustituirAlias(texto: string, porAlias: Record<string, AliasResuelto>): string {
   return partirTextoConAlias(texto)
     .map((trozo) => {
@@ -236,7 +243,7 @@ export function sustituirAlias(texto: string, porAlias: Record<string, AliasResu
       const resuelto = porAlias[trozo.alias]
       if (resuelto === undefined) return `**${etiquetaGenerica(trozo.alias)}**`
       const ruta = rutaDeEntidad(resuelto.tipo, resuelto.entidad_id)
-      const nombre = escaparMarkdown(resuelto.nombre)
+      const nombre = escaparMarkdown(nombreCorrido(resuelto.nombre))
       return ruta === null ? `**${nombre}**` : `[${nombre}](${ruta})`
     })
     .join('')

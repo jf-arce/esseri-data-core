@@ -318,6 +318,10 @@ class ParametrosDocentesDelCurso(ParametrosEstructura):
     materia: str | None = Field(
         default=None, description="Nombre de la materia, si se pregunta por una en particular."
     )
+    dia: str | None = Field(
+        default=None,
+        description="Día (lunes a domingo): solo docentes de materias que se dictan ese día.",
+    )
 
 
 def _docentes_del_curso(
@@ -326,6 +330,11 @@ def _docentes_del_curso(
     if parametros.nivel is None and parametros.anio is None and parametros.materia is None:
         return _sin_curso("Indicá al menos el nivel, el año o la materia.")
     ciclo = parametros.ciclo_lectivo or contexto.ciclo_lectivo
+    dia = None
+    if parametros.dia is not None:
+        dia = _NUMERO_DE_DIA.get(normalizar_texto_busqueda(parametros.dia))
+        if dia is None:
+            return _sin_curso("Día inválido: usá lunes a domingo.")
     divisiones = {d.id: d for d in _divisiones(contexto.db, parametros)}
     if not divisiones:
         return _sin_curso()
@@ -344,6 +353,15 @@ def _docentes_del_curso(
     )
     if parametros.materia is not None:
         consulta = consulta.where(Materia.nombre.icontains(parametros.materia, autoescape=True))
+    if dia is not None:
+        consulta = consulta.where(
+            select(HorarioMateriaCurso.id)
+            .where(
+                HorarioMateriaCurso.materia_curso_id == MateriaCurso.id,
+                HorarioMateriaCurso.dia_semana == dia,
+            )
+            .exists()
+        )
     asignaciones = contexto.db.execute(consulta).all()
     if not asignaciones:
         return _sin_curso("No hay docentes asignados a ese curso o materia.")
