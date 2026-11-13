@@ -96,6 +96,14 @@ def _espera_de(respuesta: httpx.Response, intento: int) -> float:
     return min(max(pedida, 0.0), 30.0)
 
 
+def _ajustes_del_modelo() -> dict[str, str]:
+    # Los modelos de razonamiento (GPT-6) exigen `none` para usar herramientas en Chat Completions;
+    # los demás no aceptan el parámetro, por eso es opcional.
+    if not settings.OPENAI_REASONING_EFFORT:
+        return {}
+    return {"reasoning_effort": settings.OPENAI_REASONING_EFFORT}
+
+
 def _post_chat(cuerpo: dict[str, Any], transport: httpx.BaseTransport | None) -> dict[str, Any]:
     if not settings.OPENAI_API_KEY:
         raise IaNoConfigurada()
@@ -108,7 +116,7 @@ def _post_chat(cuerpo: dict[str, Any], transport: httpx.BaseTransport | None) ->
             ) as cliente:
                 respuesta = cliente.post(
                     f"{settings.OPENAI_BASE_URL.rstrip('/')}/chat/completions",
-                    json={"model": settings.OPENAI_MODEL, **cuerpo},
+                    json={"model": settings.OPENAI_MODEL, **_ajustes_del_modelo(), **cuerpo},
                     headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
                 )
         except httpx.HTTPError as error:

@@ -31,6 +31,16 @@ class TestCompletarConHerramientas:
         assert cuerpo["tool_choice"] == "auto"
         assert cuerpo["tools"][0]["function"]["name"] == "ficha_alumno"
 
+    def test_manda_reasoning_effort_solo_si_esta_configurado(self, clave_ia, monkeypatch):
+        falso = ProveedorFalso(respuestas=[respuesta_texto("a"), respuesta_texto("b")])
+        monkeypatch.setattr(llm_client.settings, "OPENAI_REASONING_EFFORT", "")
+        llm_client.completar_con_herramientas([], [], transport=falso.transport())
+        monkeypatch.setattr(llm_client.settings, "OPENAI_REASONING_EFFORT", "none")
+        llm_client.completar_con_herramientas([], [], transport=falso.transport())
+
+        assert "reasoning_effort" not in falso.peticiones[0]
+        assert falso.peticiones[1]["reasoning_effort"] == "none"
+
     def test_varias_llamadas_en_un_mismo_paso(self, clave_ia):
         falso = ProveedorFalso(
             respuestas=[respuesta_herramientas(("a", {}), ("b", {"x": 1}), ("c", {}))]

@@ -179,7 +179,8 @@ Workflows, en la misma transacción; no envía nada.
 - Sin `OPENAI_API_KEY` responde 503; el resto del módulo sigue funcionando.
 - `src/llm_client.py` (compartido con el Asistente) habla el protocolo de Chat Completions de OpenAI por
   `httpx`, sin SDK. `OPENAI_BASE_URL` y `OPENAI_MODEL` permiten apuntarlo a otro proveedor
-  compatible con ese protocolo sin cambiar código.
+  compatible con ese protocolo sin cambiar código. `OPENAI_REASONING_EFFORT` es opcional: con
+  `gpt-6-luna` hay que ponerlo en `none` (sin eso OpenAI rechaza las herramientas con un 400).
 - Los tests simulan al proveedor con `httpx.MockTransport`: ninguno sale a la red. La
   integración contra un proveedor real se verifica a mano, con una clave.
 

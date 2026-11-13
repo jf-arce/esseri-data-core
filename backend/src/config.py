@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     # Cualquier proveedor que hable el protocolo de Chat Completions de OpenAI.
     OPENAI_BASE_URL: str = "https://api.openai.com/v1"
     OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_REASONING_EFFORT: str = ""
     OPENAI_TIMEOUT_SEGUNDOS: float = 30.0
     # Reintentos ante 429 (cuota) y 503 (saturación), con espera creciente.
     OPENAI_REINTENTOS: int = 2
