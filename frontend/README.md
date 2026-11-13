@@ -284,6 +284,8 @@ el backend no responde 503 (`ASISTENTE_HABILITADO=false`).
 
 ## Selector de color
 
+El panel del asistente usa [`@shadcn/react`](https://www.npmjs.com/package/@shadcn/react) (`message-scroller`): mantiene el scroll pegado al final mientras llega la respuesta y trae el botón de "ir al final". Lo usa `components/ui/message-scroller.tsx`, generado con la CLI de shadcn (AI Elements).
+
 El color de las materias (Académico) se elige con [`react-colorful`](https://github.com/omgovich/react-colorful) (`HexColorPicker` y `HexColorInput`), dentro del `Popover` de shadcn: shadcn/ui no trae un color picker propio. Está fijado en una versión exacta en `package.json` y solo lo usa `modules/academico/components/selector-color.tsx`.
 
 ## Fechas y horas
