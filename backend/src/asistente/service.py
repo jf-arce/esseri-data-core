@@ -511,6 +511,7 @@ def _loop_con_herramientas(
     ]
     llamadas_hechas: list[dict[str, Any]] = []
     bloques_hechos: list[dict[str, Any]] = []
+    destinos_sugeridos: set[str] = set()
     texto_final = ""
 
     # Un paso extra sin herramientas obliga al modelo a cerrar con texto si agotó los pasos.
@@ -560,6 +561,8 @@ def _loop_con_herramientas(
                 argumentos_validos=llamada.argumentos_validos,
             )
             llamadas_hechas.append({"nombre": llamada.nombre, "argumentos": llamada.argumentos})
+            if resultado.destino_sugerido is not None:
+                destinos_sugeridos.add(resultado.destino_sugerido)
             conversacion.append(
                 {
                     "role": "tool",
@@ -572,6 +575,16 @@ def _loop_con_herramientas(
         mensaje.tool_calls = list(llamadas_hechas)
         mensaje.tarjetas = list(bloques_hechos)
         db.commit()
+
+    # Si la respuesta salió de datos de una sola pantalla y no se pidió ir a otra, se ofrece ir ahí.
+    pidio_ir = any(b.get("tipo") == BLOQUE_NAVEGAR for b in bloques_hechos)
+    if len(destinos_sugeridos) == 1 and not pidio_ir:
+        (destino,) = destinos_sugeridos
+        yield from _emitir_resultado(
+            ResultadoHerramienta(para_llm={}, navegar={"destino": destino}),
+            bloques_hechos,
+            solicitud_id,
+        )
 
     texto = neutralizar_alias_no_emitidos(db, envio.conversacion_id, texto_final.strip())
     if not texto:

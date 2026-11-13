@@ -95,5 +95,6 @@ HERRAMIENTAS = [
         parametros=SinParametros,
         permisos=(),
         ejecutar=_tareas_y_ejecuciones,
+        destino="tareas",
     )
 ]

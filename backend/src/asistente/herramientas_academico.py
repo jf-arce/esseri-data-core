@@ -6,15 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
-from src.academico.horarios_service import DIAS_SEMANA, etiqueta_division
-from src.academico.models import (
-    Anio,
-    Division,
-    HorarioMateriaCurso,
-    Materia,
-    MateriaCurso,
-    NivelEducativo,
-)
+from src.academico.models import Anio, Division, NivelEducativo
 from src.asistente.constants import TIPO_ALIAS_ALUMNO
 from src.asistente.herramientas_base import (
     ContextoHerramienta,
@@ -38,14 +30,9 @@ from src.auth.constants import (
 from src.facturacion.cuenta_corriente_service import obtener_resumen_cuenta
 from src.familias_alumnos.models import Alumno
 from src.inscripciones.models import Asistencia, Inscripcion, SolicitudInscripcion
-from src.search import normalizar_texto_busqueda
 
 _MAX_DIAS_TENDENCIA = 366
 _MAX_DIAS_POR_DIA = 62
-_MAX_FRANJAS_HORARIO = 80
-_NUMERO_DE_DIA = {
-    normalizar_texto_busqueda(nombre): numero_dia for numero_dia, nombre in DIAS_SEMANA.items()
-}
 
 
 class ParametrosCiclo(BaseModel):
@@ -408,104 +395,6 @@ def _buscar_recurso(
     )
 
 
-class ParametrosHorario(BaseModel):
-    nivel: str | None = Field(
-        default=None, description="Nivel educativo, por ejemplo Inicial, Primario o Secundario."
-    )
-    anio: int | None = Field(default=None, ge=1, le=12, description="Año o grado (1, 2, 3...).")
-    division: str | None = Field(
-        default=None, description="División, por ejemplo A o B. Si falta, todas las del año."
-    )
-    dia: str | None = Field(
-        default=None, description="Día de la semana (lunes a domingo). Si falta, toda la semana."
-    )
-
-
-def _horario_del_curso(
-    contexto: ContextoHerramienta, parametros: ParametrosHorario
-) -> ResultadoHerramienta:
-    if parametros.nivel is None and parametros.anio is None:
-        return ResultadoHerramienta(para_llm={"error": "Indicá al menos el nivel o el año."})
-    dia = None
-    if parametros.dia is not None:
-        dia = _NUMERO_DE_DIA.get(normalizar_texto_busqueda(parametros.dia))
-        if dia is None:
-            return ResultadoHerramienta(para_llm={"error": "Día inválido: usá lunes a domingo."})
-
-    consulta = (
-        select(
-            Division,
-            Materia.nombre,
-            HorarioMateriaCurso.dia_semana,
-            HorarioMateriaCurso.hora_inicio,
-            HorarioMateriaCurso.hora_fin,
-        )
-        .join(MateriaCurso, MateriaCurso.division_id == Division.id)
-        .join(Materia, Materia.id == MateriaCurso.materia_id)
-        .join(HorarioMateriaCurso, HorarioMateriaCurso.materia_curso_id == MateriaCurso.id)
-        .join(Anio, Anio.id == Division.anio_id)
-        .join(NivelEducativo, NivelEducativo.id == Anio.nivel_educativo_id)
-    )
-    if parametros.nivel is not None:
-        consulta = consulta.where(
-            NivelEducativo.nombre.icontains(parametros.nivel, autoescape=True)
-        )
-    if parametros.anio is not None:
-        consulta = consulta.where(Anio.numero == parametros.anio)
-    if dia is not None:
-        consulta = consulta.where(HorarioMateriaCurso.dia_semana == dia)
-
-    pedida = normalizar_texto_busqueda(parametros.division) if parametros.division else None
-    franjas = []
-    for division, materia, dia_semana, desde, hasta in contexto.db.execute(consulta):
-        etiqueta = etiqueta_division(division)
-        if pedida is not None and pedida not in {
-            normalizar_texto_busqueda(division.nombre),
-            normalizar_texto_busqueda(etiqueta).replace(" ", ""),
-        }:
-            continue
-        franjas.append((etiqueta, dia_semana, desde, materia, hasta))
-    franjas.sort(key=lambda f: (f[0], f[1], f[2]))
-    if not franjas:
-        return ResultadoHerramienta(
-            para_llm={"error": "No hay horarios cargados para ese curso o día."}
-        )
-
-    truncado = len(franjas) > _MAX_FRANJAS_HORARIO
-    filas = [
-        {
-            "curso": etiqueta,
-            "dia": DIAS_SEMANA[dia_semana].capitalize(),
-            "desde": f"{desde:%H:%M}",
-            "hasta": f"{hasta:%H:%M}",
-            "materia": materia,
-        }
-        for etiqueta, dia_semana, desde, materia, hasta in franjas[:_MAX_FRANJAS_HORARIO]
-    ]
-    fuente = "Horarios por curso (Académico)"
-    tabla = bloque_tabla(
-        "Horario por curso",
-        [
-            {"clave": "curso", "etiqueta": "Curso", "tipo": "texto"},
-            {"clave": "dia", "etiqueta": "Día", "tipo": "texto"},
-            {"clave": "desde", "etiqueta": "Desde", "tipo": "texto"},
-            {"clave": "hasta", "etiqueta": "Hasta", "tipo": "texto"},
-            {"clave": "materia", "etiqueta": "Materia", "tipo": "texto"},
-        ],
-        filas,
-        periodo="Horario semanal",
-        fuente=fuente,
-    )
-    return ResultadoHerramienta(
-        para_llm={
-            "fuente": fuente,
-            "franjas": filas,
-            "truncado": truncado,
-        },
-        bloques=[tabla],
-    )
-
-
 HERRAMIENTAS = [
     Herramienta(
         nombre="resumen_inscripciones",
@@ -513,6 +402,7 @@ HERRAMIENTAS = [
         parametros=ParametrosCiclo,
         permisos=(PERMISO_INSCRIPCIONES_LEER,),
         ejecutar=_resumen_inscripciones,
+        destino="inscripciones",
     ),
     Herramienta(
         nombre="tendencia_asistencias",
@@ -524,6 +414,7 @@ HERRAMIENTAS = [
         parametros=ParametrosTendencia,
         permisos=(PERMISO_ACADEMICO_LEER,),
         ejecutar=_tendencia_asistencias,
+        destino="historial_asistencia",
     ),
     Herramienta(
         nombre="ausentes_del_dia",
@@ -535,16 +426,7 @@ HERRAMIENTAS = [
         parametros=ParametrosAusentes,
         permisos=(PERMISO_ACADEMICO_LEER, PERMISO_FAMILIAS_ALUMNOS_LEER),
         ejecutar=_ausentes_del_dia,
-    ),
-    Herramienta(
-        nombre="horario_del_curso",
-        descripcion=(
-            "Materias y horarios semanales de un curso: por nivel, año, división y día. Sirve "
-            "para '¿qué materias tiene 1° A los miércoles?'. Sin docentes."
-        ),
-        parametros=ParametrosHorario,
-        permisos=(PERMISO_ACADEMICO_LEER,),
-        ejecutar=_horario_del_curso,
+        destino="historial_asistencia",
     ),
     Herramienta(
         nombre="ficha_alumno",

@@ -321,6 +321,92 @@ class TestHorarioDelCurso:
         assert "docente" not in json.dumps(resultado_de_herramienta(proveedor)).lower()
 
 
+@pytest.fixture()
+def docente(db_session, horarios):
+    """Graciela Ferrero dicta Matemática en 5°A durante 2026."""
+    from src.academico.models import AsignacionDocente, Docente, Materia, MateriaCurso
+    from src.models import Persona
+
+    persona = Persona(nombre="Graciela", apellido="Ferrero", dni="25999888")
+    db_session.add(persona)
+    db_session.flush()
+    fila = Docente(legajo="D-001", persona_id=persona.id)
+    db_session.add(fila)
+    db_session.flush()
+    curso = db_session.scalar(
+        select(MateriaCurso).join(Materia).where(Materia.nombre == "Matemática")
+    )
+    db_session.add(
+        AsignacionDocente(docente_id=fila.id, materia_curso_id=curso.id, ciclo_lectivo="2026")
+    )
+    db_session.commit()
+    return fila
+
+
+class TestCursos:
+    def test_estructura_con_alumnos_y_materias_por_curso(self, direccion, proveedor, horarios):
+        correr(direccion, proveedor, "estructura_academica", {"anio": 5})
+        resultado = resultado_de_herramienta(proveedor)
+        por_curso = {c["curso"]: c for c in resultado["cursos"]}
+        assert por_curso["5°A"]["alumnos"] == 1
+        assert por_curso["5°A"]["materias"] == 2
+        assert por_curso["5°B"] == {
+            "nivel": "Primaria",
+            "curso": "5°B",
+            "alumnos": 0,
+            "materias": 1,
+        }
+        assert resultado["total_alumnos"] == 1
+
+    def test_estructura_sin_curso_informa_que_no_hay(self, direccion, proveedor, horarios):
+        correr(direccion, proveedor, "estructura_academica", {"anio": 9})
+        assert "error" in resultado_de_herramienta(proveedor)
+
+    def test_alumnos_del_curso_van_como_alias_sin_nombres(self, direccion, proveedor, horarios):
+        lista = correr(direccion, proveedor, "alumnos_del_curso", {"anio": 5, "division": "A"})
+        resultado = resultado_de_herramienta(proveedor)
+        assert resultado["total_alumnos"] == 1
+        assert resultado["alumnos"] == [{"alumno": "[ALUMNO:1]", "curso": "5°A"}]
+        assert APELLIDO_ALUMNA not in proveedor.texto_enviado()
+        assert any(n == "tarjeta" for n, _ in lista)
+
+    def test_alumnos_del_curso_exige_nivel_o_anio(self, direccion, proveedor, horarios):
+        correr(direccion, proveedor, "alumnos_del_curso", {"division": "A"})
+        assert "nivel o el año" in resultado_de_herramienta(proveedor)["error"]
+
+    def test_docentes_del_curso_van_como_alias_sin_nombres(self, direccion, proveedor, docente):
+        correr(direccion, proveedor, "docentes_del_curso", {"anio": 5, "division": "A"})
+        resultado = resultado_de_herramienta(proveedor)
+        assert resultado["docentes"] == [
+            {"docente": "[DOCENTE:1]", "materia": "Matemática", "curso": "5°A"}
+        ]
+        assert "Ferrero" not in proveedor.texto_enviado()
+        assert "Graciela" not in proveedor.texto_enviado()
+
+    def test_docentes_de_una_materia(self, direccion, proveedor, docente):
+        correr(direccion, proveedor, "docentes_del_curso", {"anio": 5, "materia": "lengua"})
+        assert "No hay docentes" in resultado_de_herramienta(proveedor)["error"]
+
+    def test_el_alias_de_docente_se_resuelve_con_academico_leer(
+        self, direccion, proveedor, docente
+    ):
+        proveedor.respuestas = [
+            respuesta_herramientas(("docentes_del_curso", {"anio": 5})),
+            respuesta_texto("Lo dicta [DOCENTE:1]."),
+        ]
+        conversacion = nueva_conversacion(direccion)
+        enviar(direccion, conversacion, "¿quién da Matemática?")
+
+        respuesta = direccion.post(
+            "/asistente/resolver",
+            json={"conversacion_id": conversacion, "aliases": ["[DOCENTE:1]"]},
+        )
+        assert respuesta.status_code == 200
+        (item,) = respuesta.json()["items"]
+        assert item["tipo"] == "DOCENTE"
+        assert item["nombre"] == "Ferrero, Graciela"
+
+
 class TestDeudaPorFamilias:
     def test_informa_cuantas_familias_tienen_deuda_vencida_y_el_alcance(
         self, direccion, proveedor, personas

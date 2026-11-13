@@ -34,7 +34,7 @@ class TestFlujo:
         assert respuesta.status_code == 200
         assert respuesta.headers["content-type"].startswith("text/event-stream")
         lista = eventos(respuesta)
-        assert nombres(lista) == ["herramienta", "tarjeta", "texto", "fin"]
+        assert nombres(lista) == ["herramienta", "tarjeta", "navegar", "texto", "fin"]
         assert all("solicitud_id" in datos for _, datos in lista)
         assert lista[0][1]["nombre"] == "indicadores_generales"
         assert lista[-2][1]["texto"] == "Hay 3 alumnos activos."
@@ -309,3 +309,44 @@ class TestRetencion:
         assert restantes == [uuid.UUID(reciente)]
         assert db_session.scalar(select(MensajeAsistente.id)) is None
         assert db_session.scalar(select(AliasConversacion.id)) is None
+
+
+class TestDestinoSugerido:
+    def _navegaciones(self, lista):
+        return [datos for nombre, datos in lista if nombre == "navegar"]
+
+    def test_se_ofrece_la_pantalla_del_dato_consultado(self, direccion, proveedor):
+        proveedor.respuestas = [
+            respuesta_herramientas(("deuda_por_familias", {"limite": 3})),
+            respuesta_texto("Hay deuda."),
+        ]
+        lista = eventos(enviar(direccion, nueva_conversacion(direccion), "¿cómo viene la deuda?"))
+        assert [n["destino"] for n in self._navegaciones(lista)] == ["deuda_por_familia"]
+
+    def test_con_datos_de_pantallas_distintas_no_se_ofrece_ninguna(self, direccion, proveedor):
+        proveedor.respuestas = [
+            respuesta_herramientas(
+                ("deuda_por_familias", {"limite": 3}), ("tendencia_asistencias", {})
+            ),
+            respuesta_texto("Listo."),
+        ]
+        lista = eventos(enviar(direccion, nueva_conversacion(direccion), "deuda y asistencias"))
+        assert self._navegaciones(lista) == []
+
+    def test_si_pidio_ir_no_se_agrega_otra(self, direccion, proveedor):
+        proveedor.respuestas = [
+            respuesta_herramientas(
+                ("deuda_por_familias", {"limite": 3}), ("ir_a", {"destino": "facturas"})
+            ),
+            respuesta_texto("Listo."),
+        ]
+        lista = eventos(enviar(direccion, nueva_conversacion(direccion), "llevame a facturas"))
+        assert [n["destino"] for n in self._navegaciones(lista)] == ["facturas"]
+
+    def test_una_consulta_con_error_no_ofrece_pantalla(self, direccion, proveedor):
+        proveedor.respuestas = [
+            respuesta_herramientas(("deuda_por_familias", {"al": "2999-01-01"})),
+            respuesta_texto("No se puede."),
+        ]
+        lista = eventos(enviar(direccion, nueva_conversacion(direccion), "deuda del futuro"))
+        assert self._navegaciones(lista) == []

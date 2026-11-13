@@ -157,6 +157,7 @@ HERRAMIENTAS = [
         parametros=ParametrosIndicadores,
         permisos=(PERMISO_PANEL_ADMIN_LEER,),
         ejecutar=_indicadores_generales,
+        destino="panel",
     ),
     Herramienta(
         nombre="evolucion_financiera",
@@ -167,5 +168,6 @@ HERRAMIENTAS = [
         parametros=ParametrosEvolucion,
         permisos=(PERMISO_PANEL_ADMIN_LEER, PERMISO_FACTURACION_LEER),
         ejecutar=_evolucion_financiera,
+        destino="facturas",
     ),
 ]

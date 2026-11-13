@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from src.asistente import (
     herramientas_academico,
+    herramientas_cursos,
     herramientas_finanzas,
     herramientas_indicadores,
     herramientas_navegacion,
@@ -18,6 +19,7 @@ from src.asistente import (
 )
 from src.asistente.exceptions import AliasInvalido
 from src.asistente.herramientas_base import ContextoHerramienta, Herramienta, ResultadoHerramienta
+from src.asistente.herramientas_navegacion import DESTINOS
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,7 @@ REGISTRO: dict[str, Herramienta] = {
         herramientas_indicadores,
         herramientas_finanzas,
         herramientas_academico,
+        herramientas_cursos,
         herramientas_workflows,
         herramientas_navegacion,
     )
@@ -40,6 +43,19 @@ def disponibles(contexto: ContextoHerramienta) -> list[Herramienta]:
 
 def definiciones(contexto: ContextoHerramienta) -> list[dict[str, Any]]:
     return [h.definicion() for h in disponibles(contexto)]
+
+
+def _destino_ofrecible(contexto: ContextoHerramienta, clave: str | None) -> str | None:
+    """La pantalla sugerida, solo si el rol puede entrar."""
+    if clave == "panel":
+        administra = contexto.rol_codigo in ("administración", "administracion")
+        clave = "panel_administrativo" if administra else "panel_direccion"
+    if clave is None or clave not in DESTINOS:
+        return None
+    permiso = DESTINOS[clave]
+    if permiso is not None and not contexto.tiene_permiso(permiso):
+        return None
+    return clave
 
 
 def _error(mensaje: str) -> ResultadoHerramienta:
@@ -72,7 +88,10 @@ def ejecutar(
 
     try:
         with contexto.db.begin_nested():
-            return herramienta.ejecutar(contexto, parametros)
+            resultado = herramienta.ejecutar(contexto, parametros)
+        if "error" not in resultado.para_llm and resultado.navegar is None:
+            resultado.destino_sugerido = _destino_ofrecible(contexto, herramienta.destino)
+        return resultado
     except AliasInvalido as error:
         return _error(error.message)
     except Exception as error:

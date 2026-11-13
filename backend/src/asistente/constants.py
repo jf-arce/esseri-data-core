@@ -13,7 +13,8 @@ ESTADO_MENSAJE_ERROR = "error"
 # Tipos de persona que viajan como alias. El alias tiene la forma `[ALUMNO:3]`.
 TIPO_ALIAS_ALUMNO = "ALUMNO"
 TIPO_ALIAS_FAMILIA = "FAMILIA"
-TIPOS_ALIAS = (TIPO_ALIAS_ALUMNO, TIPO_ALIAS_FAMILIA)
+TIPO_ALIAS_DOCENTE = "DOCENTE"
+TIPOS_ALIAS = (TIPO_ALIAS_ALUMNO, TIPO_ALIAS_FAMILIA, TIPO_ALIAS_DOCENTE)
 
 # Bloques tipados de la respuesta del asistente (punto 8 del diseño).
 BLOQUE_TEXTO = "texto"

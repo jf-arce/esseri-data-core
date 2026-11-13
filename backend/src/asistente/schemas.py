@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class MencionCreate(BaseModel):
     """Persona elegida con `@`: `texto` es lo que se vio en el mensaje y se cambia por su alias."""
 
-    tipo: Literal["ALUMNO", "FAMILIA"]
+    tipo: Literal["ALUMNO", "FAMILIA", "DOCENTE"]
     entidad_id: uuid.UUID
     texto: str = Field(min_length=1, max_length=120)
 
@@ -64,7 +64,7 @@ class ResolverCreate(BaseModel):
 
 class AliasResueltoRead(BaseModel):
     alias: str
-    tipo: Literal["ALUMNO", "FAMILIA"]
+    tipo: Literal["ALUMNO", "FAMILIA", "DOCENTE"]
     entidad_id: uuid.UUID
     nombre: str
 

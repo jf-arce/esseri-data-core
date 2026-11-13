@@ -121,6 +121,23 @@ class TestEntrada:
         assert "[ALUMNO:5]" not in resultado.texto
 
 
+class TestNombresDeDocentes:
+    def test_el_nombre_escrito_de_un_docente_sale_como_alias(self, db_session, conversacion):
+        from src.academico.models import Docente
+        from src.models import Persona
+
+        persona = Persona(nombre="Graciela", apellido="Ferrero", dni="25999888")
+        db_session.add(persona)
+        db_session.flush()
+        db_session.add(Docente(legajo="D-9", persona_id=persona.id))
+        db_session.commit()
+
+        entrada = preparar(db_session, conversacion, "¿Qué da Graciela Ferrero?")
+
+        assert entrada.texto == "¿Qué da [DOCENTE:1]?"
+        assert "Ferrero" not in entrada.texto
+
+
 class TestFiltroAlias:
     def _correr(self, trozos: list[str], emitidos: set[str]) -> str:
         filtro = FiltroAlias(emitidos)
@@ -140,3 +157,7 @@ class TestFiltroAlias:
 
     def test_un_inicio_de_alias_sin_cerrar_sale_al_vaciar(self):
         assert self._correr(["Texto [ALUMNO:"], set()) == "Texto [ALUMNO:"
+
+    def test_un_alias_de_docente_partido_en_trozos_se_conserva(self):
+        salida = self._correr(["Da [DOC", "ENTE:", "2] hoy"], {"[DOCENTE:2]"})
+        assert salida == "Da [DOCENTE:2] hoy"

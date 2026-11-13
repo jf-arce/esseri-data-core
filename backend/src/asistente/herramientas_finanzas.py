@@ -120,5 +120,6 @@ HERRAMIENTAS = [
         parametros=ParametrosDeudaPorFamilias,
         permisos=(PERMISO_FACTURACION_LEER,),
         ejecutar=_deuda_por_familias,
+        destino="deuda_por_familia",
     )
 ]

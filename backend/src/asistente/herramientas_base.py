@@ -46,6 +46,8 @@ class ResultadoHerramienta:
     para_llm: dict[str, Any]
     bloques: list[dict[str, Any]] = field(default_factory=list)
     navegar: dict[str, str] | None = None
+    # Pantalla relacionada con el resultado: se ofrece como botón al final de la respuesta.
+    destino_sugerido: str | None = None
 
 
 @dataclass(frozen=True)
@@ -55,6 +57,8 @@ class Herramienta:
     parametros: type[BaseModel]
     permisos: tuple[str, ...]
     ejecutar: Callable[[ContextoHerramienta, Any], ResultadoHerramienta]
+    # Clave de `DESTINOS` de la pantalla donde se ve este dato (`panel` según el rol).
+    destino: str | None = None
 
     def disponible_para(self, contexto: ContextoHerramienta) -> bool:
         """Todos los permisos son necesarios, como en el router del dominio."""
