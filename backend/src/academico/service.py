@@ -167,6 +167,34 @@ def asistencias_de_familia(
     ]
 
 
+def horario_de_familia(
+    db: Session, usuario: Usuario, alumno_id: uuid.UUID
+) -> list[MateriaCursoResponse]:
+    """Materias y franjas del curso activo de un alumno vinculado a la familia autenticada.
+
+    Es la vista de solo lectura que usa el Portal Familia: no expone el ABM de estructura
+    académica ni permite editar nada. Sin inscripción activa devuelve una lista vacía.
+    """
+    familia = _familia_del_usuario(db, usuario)
+    vinculo = (
+        db.query(FamiliaAlumno)
+        .filter(FamiliaAlumno.familia_id == familia.id, FamiliaAlumno.alumno_id == alumno_id)
+        .first()
+    )
+    if vinculo is None:
+        raise PermisoDenegado("No tenés acceso a este alumno")
+
+    inscripcion = (
+        db.query(Inscripcion)
+        .filter(Inscripcion.alumno_id == alumno_id, Inscripcion.estado == "activa")
+        .first()
+    )
+    if inscripcion is None:
+        return []
+
+    return listar_materias_curso(db, division_id=inscripcion.division_id)
+
+
 def justificar_asistencia_de_familia(
     db: Session,
     usuario: Usuario,

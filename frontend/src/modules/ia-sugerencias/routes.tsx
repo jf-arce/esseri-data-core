@@ -3,6 +3,7 @@ import { PortalFamiliaFacturacionPage } from '@/modules/facturacion/pages/portal
 import { PERMISO_IA_SUGERENCIAS_LEER, RUTA_SUGERENCIAS } from '@/modules/ia-sugerencias/constants'
 import { SugerenciasPage } from '@/modules/ia-sugerencias/pages/sugerencias-page'
 import { PortalFamiliaPage } from '@/pages/portal-familia-page'
+import { PortalFamiliaCalendarioPage } from '@/pages/portal-familia-calendario-page'
 import { PortalFamiliaTramitePage } from '@/pages/portal-familia-tramite-page'
 import { PermisoRoute } from '@/router/permiso-route'
 
@@ -18,6 +19,7 @@ export const iaSugerenciasRoutes: RouteObject[] = [
 
 export const iaSugerenciasFamiliaRoutes: RouteObject[] = [
   { path: 'familia', element: <PortalFamiliaPage /> },
+  { path: 'familia/calendario', element: <PortalFamiliaCalendarioPage /> },
   {
     path: 'familia/asistencias',
     element: (
