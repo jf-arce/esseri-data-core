@@ -9,7 +9,6 @@ from src.asistente.herramientas_base import (
     ContextoHerramienta,
     Herramienta,
     ResultadoHerramienta,
-    SinParametros,
     bloque_kpi,
     bloque_tabla,
     numero,
@@ -23,6 +22,7 @@ from src.auth.constants import (
 from src.panel_admin.service import obtener_evolucion_financiera, obtener_indicadores_direccion
 
 _FUENTE_PANEL = "Panel administrativo"
+_MAX_MESES = 24
 
 
 Indicador = Literal[
@@ -99,8 +99,25 @@ def _indicadores_generales(
     return ResultadoHerramienta(para_llm=datos, bloques=bloques)
 
 
-def _evolucion_financiera(contexto: ContextoHerramienta, _: BaseModel) -> ResultadoHerramienta:
-    meses = obtener_evolucion_financiera(contexto.db, fecha_hoy=contexto.hoy)
+class ParametrosEvolucion(BaseModel):
+    desde: date | None = Field(
+        default=None, description="Inicio, AAAA-MM-DD. Por defecto, el 1 de enero del año."
+    )
+    hasta: date | None = Field(default=None, description="Fin, AAAA-MM-DD. Por defecto, hoy.")
+
+
+def _evolucion_financiera(
+    contexto: ContextoHerramienta, parametros: ParametrosEvolucion
+) -> ResultadoHerramienta:
+    hasta = parametros.hasta or contexto.hoy
+    desde = parametros.desde or date(hasta.year, 1, 1)
+    if desde > hasta or (hasta.year - desde.year) * 12 + hasta.month - desde.month >= _MAX_MESES:
+        return ResultadoHerramienta(
+            para_llm={"error": "El período es inválido o supera 24 meses. Pedí uno más corto."}
+        )
+    meses = obtener_evolucion_financiera(
+        contexto.db, fecha_hoy=contexto.hoy, desde=desde, hasta=hasta
+    )
     filas = [
         {
             "mes": mes["mes"],
@@ -109,7 +126,7 @@ def _evolucion_financiera(contexto: ContextoHerramienta, _: BaseModel) -> Result
         }
         for mes in meses
     ]
-    periodo = f"{date(contexto.hoy.year, 1, 1).isoformat()} a {contexto.hoy.isoformat()}"
+    periodo = f"{desde.isoformat()} a {hasta.isoformat()}"
     fuente = "Panel administrativo: facturas emitidas y pagos aprobados"
     tabla = bloque_tabla(
         "Facturado y cobrado por mes",
@@ -141,8 +158,11 @@ HERRAMIENTAS = [
     ),
     Herramienta(
         nombre="evolucion_financiera",
-        descripcion="Facturado y cobrado mes a mes en el año en curso.",
-        parametros=SinParametros,
+        descripcion=(
+            "Facturado y cobrado mes a mes. Sin fechas, el año en curso; con desde y hasta, "
+            "cualquier período pasado (hasta 24 meses)."
+        ),
+        parametros=ParametrosEvolucion,
         permisos=(PERMISO_PANEL_ADMIN_LEER, PERMISO_FACTURACION_LEER),
         ejecutar=_evolucion_financiera,
     ),

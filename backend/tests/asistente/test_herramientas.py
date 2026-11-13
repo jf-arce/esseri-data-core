@@ -92,6 +92,29 @@ class TestAsistencias:
         assert "error" in resultado_de_herramienta(proveedor)
 
 
+class TestEvolucionFinanciera:
+    def test_con_rango_devuelve_los_meses_pedidos(self, direccion, proveedor):
+        correr(
+            direccion,
+            proveedor,
+            "evolucion_financiera",
+            {"desde": "2025-11-10", "hasta": "2026-02-01"},
+        )
+
+        meses = resultado_de_herramienta(proveedor)["meses"]
+        assert [m["mes"] for m in meses] == ["2025-11", "2025-12", "2026-01", "2026-02"]
+
+    def test_rechaza_rangos_de_mas_de_24_meses(self, direccion, proveedor):
+        correr(
+            direccion,
+            proveedor,
+            "evolucion_financiera",
+            {"desde": "2023-01-01", "hasta": "2026-01-01"},
+        )
+
+        assert "error" in resultado_de_herramienta(proveedor)
+
+
 class TestFichaDeAlumno:
     def test_trae_inscripcion_y_asistencia(self, direccion, proveedor, personas, asistencias):
         correr(

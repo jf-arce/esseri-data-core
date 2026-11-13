@@ -83,6 +83,14 @@ def test_indicadores_calculan_deuda_con_pagos_parciales_y_solo_aprobados(db_sess
     assert evolucion[0] == {"mes": "2026-01", "facturado": Decimal("0"), "cobrado": Decimal("0")}
 
 
+def test_evolucion_financiera_con_rango_cruza_de_anio(db_session):
+    evolucion = obtener_evolucion_financiera(
+        db_session, fecha_hoy=date(2026, 9, 1), desde=date(2025, 11, 10), hasta=date(2026, 2, 1)
+    )
+
+    assert [mes["mes"] for mes in evolucion] == ["2025-11", "2025-12", "2026-01", "2026-02"]
+
+
 def test_solo_compras_no_puede_leer_evolucion_financiera(client_solo_compras):
     respuesta = client_solo_compras.get("/panel-admin/evolucion-financiera")
 
