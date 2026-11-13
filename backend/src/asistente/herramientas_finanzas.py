@@ -1,5 +1,6 @@
 """Deuda por familia, desde la fuente contable."""
 
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -26,18 +27,28 @@ class ParametrosDeudaPorFamilias(BaseModel):
     estado: Literal["vencida", "pendiente", "pagada"] | None = Field(
         default=None, description="Filtra por estado de la deuda de la familia."
     )
+    al: date | None = Field(
+        default=None,
+        description="Deuda al cierre de este día, AAAA-MM-DD. Si falta, la deuda de hoy.",
+    )
 
 
 def _deuda_por_familias(
     contexto: ContextoHerramienta, parametros: ParametrosDeudaPorFamilias
 ) -> ResultadoHerramienta:
     limite = min(parametros.limite, contexto.max_filas)
+    corte = parametros.al or contexto.hoy
+    if corte > contexto.hoy:
+        return ResultadoHerramienta(para_llm={"error": "La fecha de corte no puede ser futura."})
+    # Con una fecha pasada, la deuda se reconstruye con lo registrado hasta ese día.
+    al = parametros.al
     items, total = listar_deuda_por_familia(
         contexto.db,
-        fecha_referencia=contexto.hoy,
+        fecha_referencia=corte,
         pagina=1,
         tamanio=limite,
         estado=parametros.estado,
+        al=al,
     )
     # Orden de la fuente: primero el monto vencido y después la deuda total.
     filas = [
@@ -55,9 +66,9 @@ def _deuda_por_familias(
     ]
     # Cantidad real de familias por estado de deuda: el total del filtro no lo reemplaza.
     _, con_deuda_vencida = listar_deuda_por_familia(
-        contexto.db, fecha_referencia=contexto.hoy, pagina=1, tamanio=1, estado="vencida"
+        contexto.db, fecha_referencia=corte, pagina=1, tamanio=1, estado="vencida", al=al
     )
-    periodo = f"al {contexto.hoy.isoformat()}"
+    periodo = f"al {corte.isoformat()}"
     tabla = bloque_tabla(
         "Deuda por familia",
         [
@@ -76,7 +87,7 @@ def _deuda_por_familias(
             "periodo": periodo,
             "fuente": _FUENTE,
             "orden": "monto vencido y, a igualdad, deuda total, de mayor a menor",
-            "alcance": "deuda acumulada a la fecha; no se puede filtrar por mes de la cuota",
+            "alcance": "deuda acumulada al corte; no se puede filtrar por mes de la cuota",
             "familias_con_deuda_vencida": con_deuda_vencida,
             "familias_con_el_filtro": total,
             "familias_devueltas": len(filas),
@@ -92,8 +103,9 @@ HERRAMIENTAS = [
     Herramienta(
         nombre="deuda_por_familias",
         descripcion=(
-            "Familias con mayor deuda (vencida y total) según la cuenta corriente. Cada familia "
-            "viene como alias, sin nombre ni DNI."
+            "Familias con mayor deuda (vencida y total) según la cuenta corriente, hoy o al "
+            "cierre de cualquier día pasado (parámetro al). Cada familia viene como alias, sin "
+            "nombre ni DNI."
         ),
         parametros=ParametrosDeudaPorFamilias,
         permisos=(PERMISO_FACTURACION_LEER,),

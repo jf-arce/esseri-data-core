@@ -1,7 +1,7 @@
 """Libro inmutable de cargos y pagos por alumno."""
 
 import uuid
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -197,6 +197,12 @@ def listar_movimientos(
     return movimientos, total
 
 
+def _movimientos_hasta(al: date | None) -> list:
+    if al is None:
+        return []
+    return [Movimiento.fecha < _instante_operativo(al + timedelta(days=1))]
+
+
 def listar_deuda_por_familia(
     db: Session,
     *,
@@ -206,10 +212,13 @@ def listar_deuda_por_familia(
     estado: str | None = None,
     buscar: str | None = None,
     familia_id: uuid.UUID | None = None,
+    al: date | None = None,
 ) -> tuple[list[dict[str, object]], int]:
     """Agrupa saldos por responsable económico usando solo movimientos contables.
 
-    `familia_id` acota el resultado a la propia familia (scoping del rol familia).
+    `familia_id` acota el resultado a la propia familia (scoping del rol familia). Con `al`, la
+    deuda se calcula como estaba al cierre de ese día: solo facturas emitidas y movimientos
+    registrados hasta esa fecha (inclusive). `fecha_referencia` sigue decidiendo qué está vencido.
     """
 
     debe = func.coalesce(
@@ -233,7 +242,10 @@ def listar_deuda_por_familia(
             ResponsableEconomico.id == Factura.responsable_economico_id,
         )
         .join(Familia, Familia.id == ResponsableEconomico.familia_id)
-        .outerjoin(Movimiento, Movimiento.factura_id == Factura.id)
+        .outerjoin(
+            Movimiento,
+            and_(Movimiento.factura_id == Factura.id, *_movimientos_hasta(al)),
+        )
         .group_by(
             Factura.id,
             Factura.fecha_vencimiento,
@@ -241,6 +253,8 @@ def listar_deuda_por_familia(
             Familia.persona_id,
         )
     )
+    if al is not None:
+        por_factura = por_factura.where(Factura.fecha_emision <= al)
     if familia_id is not None:
         por_factura = por_factura.where(ResponsableEconomico.familia_id == familia_id)
     por_factura = por_factura.subquery()

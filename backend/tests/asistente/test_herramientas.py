@@ -246,3 +246,14 @@ class TestDeudaPorFamilias:
         resultado = resultado_de_herramienta(proveedor)
         assert resultado["familias_con_deuda_vencida"] == 0
         assert "mes" in resultado["alcance"]
+
+    def test_rechaza_una_fecha_de_corte_futura(self, direccion, proveedor):
+        manana = date.today() + timedelta(days=1)
+        correr(direccion, proveedor, "deuda_por_familias", {"al": manana.isoformat()})
+
+        assert "error" in resultado_de_herramienta(proveedor)
+
+    def test_con_fecha_pasada_informa_el_corte(self, direccion, proveedor):
+        correr(direccion, proveedor, "deuda_por_familias", {"al": "2026-10-31"})
+
+        assert resultado_de_herramienta(proveedor)["periodo"] == "al 2026-10-31"
