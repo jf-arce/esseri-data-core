@@ -273,6 +273,7 @@ del header o con `Ctrl/⌘ + I`, y su ancho se cambia arrastrando el borde izqui
 arranca cerrado y solo se recuerda su ancho en `localStorage`. Solo aparece con el permiso
 `asistente.leer` y si el backend no responde 503 (`ASISTENTE_HABILITADO=false`).
 
+- Explicación completa del asistente: `docs/asistente.md`.
 - Las respuestas llegan por SSE (`services/enviar-mensaje.ts`, `fetch` + `ReadableStream`).
 - El texto llega en trozos (`delta`) y `hooks/use-texto-gradual.ts` lo revela de a poco, como una escritura continua. Solo anima lo que llega en vivo (no los mensajes guardados) y respeta `prefers-reduced-motion`. Las cards y las acciones entran cuando termina de escribirse.
 - Los indicadores de carga vienen de la librería `ldrs` (`Trio` en `components/indicadores-de-carga.tsx`), con su CSS importado junto al componente.

@@ -384,6 +384,8 @@ Así lo resuelve directamente el repo de referencia: unos pocos archivos a nivel
 
 ### Asistente: privacidad y aislamiento
 
+La explicación completa del asistente (qué hace, cómo funciona, herramientas, flujo y cómo extenderlo) está en `docs/asistente.md`, que es la fuente central. Acá solo van las decisiones de arquitectura que hay que respetar al tocar `asistente/`.
+
 Decisiones de `asistente/` que no se deducen del código y que hay que respetar al tocarlo:
 
 - **Seudonimización completa.** El proveedor de IA nunca ve nombres, DNI ni datos de contacto. Las personas viajan como alias por conversación (`[ALUMNO:3]`, `[FAMILIA:1]`, `[DOCENTE:2]`), una fila de `ALIAS_CONVERSACION` cada uno. El navegador los rehidrata con `POST /asistente/resolver`, que valida que la conversación sea de quien pregunta y que su rol activo tenga el permiso de cada tipo en ese momento: `familias_alumnos.leer` para alumnos y familias, `academico.leer` para docentes. Los alias de un tipo sin permiso quedan sin nombre.
