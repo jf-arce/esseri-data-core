@@ -42,6 +42,7 @@ from src.inscripciones.schemas import (
     SolicitudInscripcionRead,
 )
 from src.models import Persona
+from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
 from src.workflows.eventos_service import emit_event
 
 ETAPAS_ADMISION = (
@@ -236,12 +237,12 @@ def listar_solicitudes_inscripcion(
     if etapa:
         filtros.append(SolicitudInscripcion.etapa == etapa)
     if buscar:
-        patron = f"%{buscar.strip()}%"
+        patron = f"%{normalizar_texto_busqueda(buscar.strip())}%"
         filtros.append(
             or_(
-                Persona.nombre.ilike(patron),
-                Persona.apellido.ilike(patron),
-                Persona.dni.ilike(patron),
+                normalizar_columna_busqueda(Persona.nombre).like(patron),
+                normalizar_columna_busqueda(Persona.apellido).like(patron),
+                normalizar_columna_busqueda(Persona.dni).like(patron),
             )
         )
     if familia is not None:

@@ -1,9 +1,10 @@
 """Normalización de términos de búsqueda, compartida entre módulos.
 
-Vive en `src/` y no dentro de un módulo porque la usan Inscripciones (búsqueda de alumnos) y
-Proveedores y Compras (búsqueda de órdenes por proveedor). Nació en `inscripciones/service.py`
-a partir del fix de búsqueda sin tildes (commit 1f8bf3a) y subió acá cuando la necesitó el
-segundo módulo, según el criterio de `AGENTS.md`.
+Vive en `src/` y no dentro de un módulo porque la usan todas las búsquedas visibles al
+usuario: Inscripciones, Proveedores y Compras, Académico, Facturación, Familias y Alumnos,
+Comunicaciones y Portal de Familia. Nació en `inscripciones/service.py` a partir del fix de
+búsqueda sin tildes (commit 1f8bf3a) y subió acá cuando la necesitó el segundo módulo, según
+el criterio de `AGENTS.md`.
 """
 
 import unicodedata

@@ -10,6 +10,7 @@ import {
   type FuenteBusqueda,
 } from '@/layout/busqueda-global'
 import { NAV_GROUPS, destinosDe, filtrarNav, type ModuloNav } from '@/layout/nav-items'
+import { normalizarTexto } from '@/lib/texto'
 import {
   Command,
   CommandDialog,
@@ -68,7 +69,7 @@ function useBusquedaGlobal(
   useEffect(() => {
     if (consulta.length < MINIMO_CARACTERES) return
     const controller = new AbortController()
-    const clave = consulta.toLocaleLowerCase()
+    const clave = normalizarTexto(consulta)
 
     // Cada fuente se gatea por el mismo permiso `.leer` que protege su ruta: sin esto, un rol
     // sin acceso a Facturación veía facturas ajenas y chocaba con "sin acceso" al hacer click.
@@ -91,7 +92,7 @@ function useBusquedaGlobal(
   return {
     coincidencias: resultado.coincidencias,
     buscando:
-      consulta.length >= MINIMO_CARACTERES && resultado.clave !== consulta.toLocaleLowerCase(),
+      consulta.length >= MINIMO_CARACTERES && resultado.clave !== normalizarTexto(consulta),
   }
 }
 

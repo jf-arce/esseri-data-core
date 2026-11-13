@@ -38,6 +38,7 @@ import { useAsignacionesDocentes } from '@/modules/academico/hooks/use-asignacio
 import { AsignacionDialog } from '@/modules/academico/components/asignacion-dialog'
 import type { AsignacionDocente } from '@/modules/academico/types'
 import { formatearHorarios } from '@/modules/academico/utils'
+import { normalizarTexto } from '@/lib/texto'
 import { PERMISO_ACADEMICO_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
@@ -95,10 +96,11 @@ export function AsignacionesDocentesPage() {
       result = result.filter((a) => filtroDivision.includes(a.division_id ?? ''))
     }
     if (busqueda.trim()) {
-      const q = busqueda.toLowerCase()
+      const q = normalizarTexto(busqueda)
       result = result.filter(
         (a) =>
-          a.docente_nombre.toLowerCase().includes(q) || a.materia_nombre.toLowerCase().includes(q),
+          normalizarTexto(a.docente_nombre).includes(q) ||
+          normalizarTexto(a.materia_nombre).includes(q),
       )
     }
     return result

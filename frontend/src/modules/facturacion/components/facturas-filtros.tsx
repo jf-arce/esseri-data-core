@@ -12,6 +12,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { normalizarTexto } from '@/lib/texto'
 import { listarAlumnos } from '@/modules/familias-alumnos/services/listar-alumnos'
 import type { Alumno } from '@/modules/familias-alumnos/types'
 import { listarConceptosCobro } from '@/modules/facturacion/services/listar-conceptos-cobro'
@@ -58,13 +59,17 @@ export function FacturasFiltros(props: FacturasFiltrosProps) {
   const alumnoSeleccionado = alumnos.find((alumno) => alumno.id === alumnoId)
   const conceptoSeleccionado = conceptos.find((concepto) => concepto.id === conceptoCobroId)
   const alumnosFiltrados = useMemo(() => {
-    const termino = busqueda.trim().toLocaleLowerCase('es-AR')
+    const termino = normalizarTexto(busqueda)
     if (!termino) return alumnos
     return alumnos.filter((alumno) =>
-      [alumno.persona_nombre, alumno.persona_apellido, alumno.persona_dni, alumno.numero_legajo]
-        .join(' ')
-        .toLocaleLowerCase('es-AR')
-        .includes(termino),
+      normalizarTexto(
+        [
+          alumno.persona_nombre,
+          alumno.persona_apellido,
+          alumno.persona_dni,
+          alumno.numero_legajo,
+        ].join(' '),
+      ).includes(termino),
     )
   }, [alumnos, busqueda])
 

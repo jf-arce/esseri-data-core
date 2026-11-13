@@ -27,17 +27,10 @@ export function etiquetaMotivoJustificacion(motivo: string | null): string {
   return ETIQUETAS_MOTIVO_JUSTIFICACION[motivo] ?? motivo
 }
 
-// Normaliza un texto para comparar búsquedas sin depender de mayúsculas, acentos ni del signo
-// de grado: así "3c" encuentra "3°C" y "jose" encuentra "José".
-export function normalizarTexto(valor: string): string {
-  return valor
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[°º]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
+// La lógica vive en `lib/texto.ts` porque la comparten varios módulos (Facturación, portal de
+// familia y el buscador global). Se reexporta desde acá para no romper a los consumidores de
+// Académico, que la importan de `@/modules/academico/utils`.
+export { normalizarTexto } from '@/lib/texto'
 
 const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
@@ -61,6 +54,17 @@ export function formatearHorarios(
 /** "1 materia" / "2 materias" — conteos de las tarjetas de estructura académica. */
 export function pluralizar(cantidad: number, singular: string, pluralForma: string): string {
   return `${cantidad} ${cantidad === 1 ? singular : pluralForma}`
+}
+
+/** Ausencia aún no justificada, o con justificación todavía en revisión. */
+export function esAusenciaPendienteDeJustificar(asistencia: {
+  tipo: string
+  justificacion_estado?: string | null
+}): boolean {
+  return (
+    asistencia.tipo === 'ausente_pendiente' &&
+    (!asistencia.justificacion_estado || asistencia.justificacion_estado === 'pendiente')
+  )
 }
 
 const ETIQUETAS_TIPO_ASISTENCIA: Record<TipoAsistencia, string> = {

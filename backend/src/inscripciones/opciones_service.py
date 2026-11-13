@@ -15,6 +15,7 @@ from src.inscripciones.schemas import (
     SolicitudInscripcionOpcionRead,
 )
 from src.models import Persona
+from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
 
 
 def listar_solicitudes_disponibles(
@@ -61,12 +62,12 @@ def listar_solicitudes_disponibles(
     )
     termino = buscar.strip() if buscar else ""
     if termino:
-        patron = f"%{termino}%"
+        patron = f"%{normalizar_texto_busqueda(termino)}%"
         statement = statement.where(
             or_(
-                Persona.nombre.ilike(patron),
-                Persona.apellido.ilike(patron),
-                Alumno.numero_legajo.ilike(patron),
+                normalizar_columna_busqueda(Persona.nombre).like(patron),
+                normalizar_columna_busqueda(Persona.apellido).like(patron),
+                normalizar_columna_busqueda(Alumno.numero_legajo).like(patron),
             )
         )
     if familia is not None:
@@ -156,12 +157,12 @@ def listar_alumnos_elegibles_reinscripcion(
     )
     termino = buscar.strip() if buscar else ""
     if termino:
-        patron = f"%{termino}%"
+        patron = f"%{normalizar_texto_busqueda(termino)}%"
         statement = statement.where(
             or_(
-                Persona.nombre.ilike(patron),
-                Persona.apellido.ilike(patron),
-                Alumno.numero_legajo.ilike(patron),
+                normalizar_columna_busqueda(Persona.nombre).like(patron),
+                normalizar_columna_busqueda(Persona.apellido).like(patron),
+                normalizar_columna_busqueda(Alumno.numero_legajo).like(patron),
             )
         )
     if familia_id is not None:

@@ -31,6 +31,7 @@ from src.familias_alumnos.schemas import (
 )
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
+from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
 
 ROL_FAMILIA = "familia"
 PREFIJO_LEGAJO_AUTOMATICO = "ALU-"
@@ -170,12 +171,12 @@ def listar_familias(
     if filtros:
         # Búsqueda por nombre, apellido o DNI
         if filtros.buscar:
-            busqueda = f"%{filtros.buscar}%"
+            busqueda = f"%{normalizar_texto_busqueda(filtros.buscar)}%"
             query = query.filter(
                 or_(
-                    Persona.nombre.ilike(busqueda),
-                    Persona.apellido.ilike(busqueda),
-                    Persona.dni.ilike(busqueda),
+                    normalizar_columna_busqueda(Persona.nombre).like(busqueda),
+                    normalizar_columna_busqueda(Persona.apellido).like(busqueda),
+                    normalizar_columna_busqueda(Persona.dni).like(busqueda),
                 )
             )
 
@@ -434,12 +435,12 @@ def listar_alumnos(
     if filtros:
         # Búsqueda por nombre, apellido o DNI
         if filtros.buscar:
-            busqueda = f"%{filtros.buscar}%"
+            busqueda = f"%{normalizar_texto_busqueda(filtros.buscar)}%"
             query = query.filter(
                 or_(
-                    Persona.nombre.ilike(busqueda),
-                    Persona.apellido.ilike(busqueda),
-                    Persona.dni.ilike(busqueda),
+                    normalizar_columna_busqueda(Persona.nombre).like(busqueda),
+                    normalizar_columna_busqueda(Persona.apellido).like(busqueda),
+                    normalizar_columna_busqueda(Persona.dni).like(busqueda),
                 )
             )
 
