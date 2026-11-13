@@ -19,6 +19,7 @@ from src.auth.constants import PERMISO_FACTURACION_LEER
 from src.facturacion.cuenta_corriente_service import listar_deuda_por_familia
 
 _FUENTE = "Cuenta corriente (movimientos contables)"
+_MAX_FAMILIAS_PARA_TOTAL = 2000
 
 
 class ParametrosDeudaPorFamilias(BaseModel):
@@ -61,7 +62,6 @@ def _deuda_por_familias(
             "monto_pendiente": numero(item["monto_pendiente"]),
             "deuda_total": numero(item["deuda_total"]),
             "facturas_pendientes": int(item["facturas_pendientes"]),
-            "estado": item["estado"],
         }
         for item in items
     ]
@@ -69,6 +69,17 @@ def _deuda_por_familias(
     _, con_deuda_vencida = listar_deuda_por_familia(
         contexto.db, fecha_referencia=corte, pagina=1, tamanio=1, estado="vencida", al=al
     )
+    # El total vencido de todas las familias: es la cifra que suele pedirse y la tabla (las de
+    # mayor deuda) no la da.
+    vencidas, _ = listar_deuda_por_familia(
+        contexto.db,
+        fecha_referencia=corte,
+        pagina=1,
+        tamanio=max(1, min(con_deuda_vencida, _MAX_FAMILIAS_PARA_TOTAL)),
+        estado="vencida",
+        al=al,
+    )
+    total_vencido = numero(sum(item["monto_vencido"] for item in vencidas))
     periodo = f"al {fecha_ar(corte)}"
     tabla = bloque_tabla(
         "Deuda por familia",
@@ -87,9 +98,9 @@ def _deuda_por_familias(
         para_llm={
             "periodo": periodo,
             "fuente": _FUENTE,
-            "orden": "monto vencido y, a igualdad, deuda total, de mayor a menor",
             "alcance": "deuda acumulada al corte; no se puede filtrar por mes de la cuota",
             "familias_con_deuda_vencida": con_deuda_vencida,
+            "total_vencido_de_esas_familias": total_vencido,
             "familias_con_el_filtro": total,
             "familias_devueltas": len(filas),
             "familias": filas,
