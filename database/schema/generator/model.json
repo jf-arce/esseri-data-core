@@ -1,0 +1,6271 @@
+{
+ "entities": [
+  {
+   "table": "alumno",
+   "class": "Alumno",
+   "module": "familias_alumnos",
+   "module_name": "Familias y Alumnos",
+   "color": "#82B366",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "numero_legajo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "persona_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "persona"
+    }
+   ],
+   "operations": [
+    "persona_nombre",
+    "persona_apellido",
+    "persona_dni",
+    "persona_telefono",
+    "persona_sexo"
+   ]
+  },
+  {
+   "table": "anio",
+   "class": "Anio",
+   "module": "academico",
+   "module_name": "Académico",
+   "color": "#D5B655",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "numero",
+     "type": "integer",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nivel_educativo_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "nivel_educativo"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "archivo_comprobante_pago",
+   "class": "ArchivoComprobantePago",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo_contenido",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tamanio",
+     "type": "integer",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "contenido",
+     "type": "bytea",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "pago_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": true,
+     "fk": "pago"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "archivo_justificacion_inasistencia",
+   "class": "ArchivoJustificacionInasistencia",
+   "module": "academico",
+   "module_name": "Académico",
+   "color": "#D5B655",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo_contenido",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tamanio",
+     "type": "integer",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "contenido",
+     "type": "bytea",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "justificacion_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": true,
+     "fk": "justificacion_inasistencia"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "asignacion_docente",
+   "class": "AsignacionDocente",
+   "module": "academico",
+   "module_name": "Académico",
+   "color": "#D5B655",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "ciclo_lectivo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "docente_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "docente"
+    },
+    {
+     "name": "materia_curso_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "materia_curso"
+    }
+   ],
+   "operations": [
+    "materia_id",
+    "division_id",
+    "materia_nombre",
+    "division_nombre",
+    "horarios"
+   ]
+  },
+  {
+   "table": "asistencia",
+   "class": "Asistencia",
+   "module": "inscripciones",
+   "module_name": "Inscripciones",
+   "color": "#B85350",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "inscripcion_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "inscripcion"
+    },
+    {
+     "name": "solicitud_ausencia_periodo_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "solicitud_ausencia_periodo"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "audit_log",
+   "class": "AuditLog",
+   "module": "core",
+   "module_name": "Núcleo compartido e IA",
+   "color": "#666666",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "entidad",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "entidad_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "campo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "valor_anterior",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "valor_nuevo",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    },
+    {
+     "name": "actor_tipo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "origen",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "motivo",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "referencia_entidad",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "referencia_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "campo_evento",
+   "class": "CampoEvento",
+   "module": "workflows",
+   "module_name": "Motor de Workflows y Notificaciones",
+   "color": "#6699CC",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre_interno",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "etiqueta",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo_dato",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo_evento_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "tipo_evento"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "cargo_facturacion_generado",
+   "class": "CargoFacturacionGenerado",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "periodo",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_vencimiento",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "importe",
+     "type": "decimal",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "regla_facturacion_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "regla_facturacion"
+    },
+    {
+     "name": "ejecucion_facturacion_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "ejecucion_facturacion"
+    },
+    {
+     "name": "factura_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "factura"
+    },
+    {
+     "name": "inscripcion_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "inscripcion"
+    },
+    {
+     "name": "concepto_cobro_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "concepto_cobro"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "comunicacion",
+   "class": "Comunicacion",
+   "module": "comunicaciones",
+   "module_name": "Comunicaciones",
+   "color": "#4E9A8F",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "clave",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "solicitud_hash",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "version",
+     "type": "integer",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "autor_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    },
+    {
+     "name": "asunto",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "cuerpo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "audiencia",
+     "type": "jsonb",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "canal",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "publicada_at",
+     "type": "datetime",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "comunicacion_adjunto",
+   "class": "ComunicacionAdjunto",
+   "module": "comunicaciones",
+   "module_name": "Comunicaciones",
+   "color": "#4E9A8F",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "comunicacion_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "comunicacion"
+    },
+    {
+     "name": "nombre",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo_contenido",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tamanio",
+     "type": "integer",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "checksum",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "motivo",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "escaneado_at",
+     "type": "datetime",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "comunicacion_adjunto_contenido",
+   "class": "ComunicacionAdjuntoContenido",
+   "module": "comunicaciones",
+   "module_name": "Comunicaciones",
+   "color": "#4E9A8F",
+   "columns": [
+    {
+     "name": "adjunto_id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": "comunicacion_adjunto"
+    },
+    {
+     "name": "contenido",
+     "type": "bytea",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "concepto_cobro",
+   "class": "ConceptoCobro",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "categoria",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "activo",
+     "type": "boolean",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "cuenta_corriente",
+   "class": "CuentaCorriente",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "alumno_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": true,
+     "fk": "alumno"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "debito_cobranza",
+   "class": "DebitoCobranza",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "lote_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "lote_cobranza"
+    },
+    {
+     "name": "factura_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "factura"
+    },
+    {
+     "name": "importe",
+     "type": "decimal",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "vencimiento",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "concepto",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "resultado",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "resultado_hash",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "pago_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": true,
+     "fk": "pago"
+    },
+    {
+     "name": "reserva_activa",
+     "type": "boolean",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "detalle_factura",
+   "class": "DetalleFactura",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "descripcion",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "monto",
+     "type": "decimal",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "factura_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "factura"
+    },
+    {
+     "name": "concepto_cobro_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "concepto_cobro"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "division",
+   "class": "Division",
+   "module": "academico",
+   "module_name": "Académico",
+   "color": "#D5B655",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "anio_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "anio"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "docente",
+   "class": "Docente",
+   "module": "academico",
+   "module_name": "Académico",
+   "color": "#D5B655",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "legajo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "persona_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "persona"
+    }
+   ],
+   "operations": [
+    "nombre",
+    "apellido"
+   ]
+  },
+  {
+   "table": "documento_solicitud",
+   "class": "DocumentoSolicitud",
+   "module": "inscripciones",
+   "module_name": "Inscripciones",
+   "color": "#B85350",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo_documento",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "archivo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo_contenido",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tamanio",
+     "type": "integer",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "contenido",
+     "type": "bytea",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_carga",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "solicitud_inscripcion_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "solicitud_inscripcion"
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "ejecucion_facturacion",
+   "class": "EjecucionFacturacion",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "periodo",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_ejecucion",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "facturas_generadas",
+     "type": "integer",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "cargos_generados",
+     "type": "integer",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "cargos_omitidos",
+     "type": "integer",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "cargos_bloqueados",
+     "type": "integer",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "monto_total",
+     "type": "decimal",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "origen",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "error_detalle",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "ejecucion_facturacion_regla",
+   "class": "EjecucionFacturacionRegla",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "ejecucion_facturacion_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "ejecucion_facturacion"
+    },
+    {
+     "name": "regla_facturacion_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "regla_facturacion"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "envio_notificacion",
+   "class": "EnvioNotificacion",
+   "module": "workflows",
+   "module_name": "Motor de Workflows y Notificaciones",
+   "color": "#6699CC",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "comunicacion_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "comunicacion"
+    },
+    {
+     "name": "familia_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "familia"
+    },
+    {
+     "name": "email",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "asunto",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "cuerpo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "intentos",
+     "type": "integer",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "reintentos_ciclo",
+     "type": "integer",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "disponible_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "lease_at",
+     "type": "datetime",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "intento_actual_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "etapa_solicitud",
+   "class": "EtapaSolicitud",
+   "module": "inscripciones",
+   "module_name": "Inscripciones",
+   "color": "#B85350",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "etapa",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "observaciones",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "solicitud_inscripcion_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "solicitud_inscripcion"
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "event_log",
+   "class": "EventLog",
+   "module": "core",
+   "module_name": "Núcleo compartido e IA",
+   "color": "#666666",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "actor_tipo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "timestamp",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "payload",
+     "type": "jsonb",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "entidad",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "entidad_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo_evento_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "tipo_evento"
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "excepcion_vencimiento",
+   "class": "ExcepcionVencimiento",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_vencimiento_excepcional",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "motivo",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "anulada_at",
+     "type": "datetime",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "familia_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "familia"
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    },
+    {
+     "name": "usuario_anulacion_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "factura",
+   "class": "Factura",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_emision",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_vencimiento",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "monto_total",
+     "type": "decimal",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "inscripcion_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "inscripcion"
+    },
+    {
+     "name": "responsable_economico_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "responsable_economico"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "factura_cobranza_demo",
+   "class": "FacturaCobranzaDemo",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "factura_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "factura"
+    },
+    {
+     "name": "numero",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "periodo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "medio",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "familia",
+   "class": "Familia",
+   "module": "familias_alumnos",
+   "module_name": "Familias y Alumnos",
+   "color": "#82B366",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado_deuda",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "persona_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "persona"
+    }
+   ],
+   "operations": [
+    "persona_nombre",
+    "persona_apellido",
+    "persona_dni",
+    "persona_telefono",
+    "persona_sexo"
+   ]
+  },
+  {
+   "table": "familia_alumno",
+   "class": "FamiliaAlumno",
+   "module": "familias_alumnos",
+   "module_name": "Familias y Alumnos",
+   "color": "#82B366",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "parentesco",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "responsable_principal",
+     "type": "boolean",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "recibe_comunicaciones",
+     "type": "boolean",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "familia_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "familia"
+    },
+    {
+     "name": "alumno_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "alumno"
+    }
+   ],
+   "operations": [
+    "alumno_nombre",
+    "alumno_legajo",
+    "familia_nombre"
+   ]
+  },
+  {
+   "table": "horario_materia_curso",
+   "class": "HorarioMateriaCurso",
+   "module": "academico",
+   "module_name": "Académico",
+   "color": "#D5B655",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "dia_semana",
+     "type": "integer",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "hora_inicio",
+     "type": "time",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "hora_fin",
+     "type": "time",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "materia_curso_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "materia_curso"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "ia_sugerencia",
+   "class": "IaSugerencia",
+   "module": "ia_sugerencias",
+   "module_name": "Núcleo compartido e IA",
+   "color": "#666666",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "entidad",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "entidad_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "contenido_generado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "requiere_control_humano",
+     "type": "boolean",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_generacion",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_revision",
+     "type": "datetime",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    },
+    {
+     "name": "notificacion_template_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "notificacion_template"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "importacion_cobranza",
+   "class": "ImportacionCobranza",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "lote_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "lote_cobranza"
+    },
+    {
+     "name": "archivo_hash",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "confirmada_at",
+     "type": "datetime",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "importacion_cobranza_detalle",
+   "class": "ImportacionCobranzaDetalle",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "importacion_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "importacion_cobranza"
+    },
+    {
+     "name": "linea",
+     "type": "integer",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "referencia",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "resultado",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "importe",
+     "type": "decimal",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_procesamiento",
+     "type": "date",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "codigo",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "descripcion",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "factura_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "factura"
+    },
+    {
+     "name": "numero_factura",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "alumno_nombre",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "debito_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "debito_cobranza"
+    },
+    {
+     "name": "resultado_hash",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "mensaje",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "pago_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "pago"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "inscripcion",
+   "class": "Inscripcion",
+   "module": "inscripciones",
+   "module_name": "Inscripciones",
+   "color": "#B85350",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "ciclo_lectivo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_inscripcion",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "alumno_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "alumno"
+    },
+    {
+     "name": "division_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "division"
+    },
+    {
+     "name": "solicitud_inscripcion_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "solicitud_inscripcion"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "justificacion_inasistencia",
+   "class": "JustificacionInasistencia",
+   "module": "academico",
+   "module_name": "Académico",
+   "color": "#D5B655",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "observacion",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "archivo",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_carga",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_resolucion",
+     "type": "datetime",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "asistencia_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "asistencia"
+    },
+    {
+     "name": "familia_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "familia"
+    },
+    {
+     "name": "motivo_justificacion_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "motivo_justificacion"
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "log_acceso",
+   "class": "LogAcceso",
+   "module": "auth",
+   "module_name": "Autenticación y Roles",
+   "color": "#5D7E99",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "resultado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "ip_origen",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "lote_cobranza",
+   "class": "LoteCobranza",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "codigo",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "periodo",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    },
+    {
+     "name": "liberado_por_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    },
+    {
+     "name": "liberado_at",
+     "type": "datetime",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "motivo_liberacion",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "materia",
+   "class": "Materia",
+   "module": "academico",
+   "module_name": "Académico",
+   "color": "#D5B655",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre_normalizado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "materia_curso",
+   "class": "MateriaCurso",
+   "module": "academico",
+   "module_name": "Académico",
+   "color": "#D5B655",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "materia_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "materia"
+    },
+    {
+     "name": "division_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "division"
+    }
+   ],
+   "operations": [
+    "materia_nombre",
+    "materia_tipo",
+    "division_nombre",
+    "anio_id",
+    "anio_numero",
+    "nivel_educativo_id",
+    "nivel_educativo_nombre"
+   ]
+  },
+  {
+   "table": "metodo_pago",
+   "class": "MetodoPago",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "activo",
+     "type": "boolean",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "requiere_comprobante",
+     "type": "boolean",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "motivo_justificacion",
+   "class": "MotivoJustificacion",
+   "module": "academico",
+   "module_name": "Académico",
+   "color": "#D5B655",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "activo",
+     "type": "boolean",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "movimiento",
+   "class": "Movimiento",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "monto",
+     "type": "decimal",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "observacion",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "cuenta_corriente_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "cuenta_corriente"
+    },
+    {
+     "name": "concepto_cobro_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "concepto_cobro"
+    },
+    {
+     "name": "detalle_factura_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "detalle_factura"
+    },
+    {
+     "name": "factura_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "factura"
+    },
+    {
+     "name": "pago_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "pago"
+    },
+    {
+     "name": "event_log_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "event_log"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "nivel_educativo",
+   "class": "NivelEducativo",
+   "module": "academico",
+   "module_name": "Académico",
+   "color": "#D5B655",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "notificacion",
+   "class": "Notificacion",
+   "module": "workflows",
+   "module_name": "Motor de Workflows y Notificaciones",
+   "color": "#6699CC",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "destinatario_tipo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "canal",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "destinatario_snapshot",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "asunto_snapshot",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "cuerpo_snapshot",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado_envio",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "sent_at",
+     "type": "datetime",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "workflow_execution_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "workflow_execution"
+    },
+    {
+     "name": "envio_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "envio_notificacion"
+    },
+    {
+     "name": "numero_intento",
+     "type": "integer",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "started_at",
+     "type": "datetime",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "lease_until",
+     "type": "datetime",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "finished_at",
+     "type": "datetime",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "proveedor_iniciado",
+     "type": "boolean",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "referencia_proveedor",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "error_codigo",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "familia_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "familia"
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "notificacion_template",
+   "class": "NotificacionTemplate",
+   "module": "workflows",
+   "module_name": "Motor de Workflows y Notificaciones",
+   "color": "#6699CC",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "asunto",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "cuerpo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "orden_compra",
+   "class": "OrdenCompra",
+   "module": "proveedores_compras",
+   "module_name": "Proveedores y Compras",
+   "color": "#D69B00",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "proveedor_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "proveedor"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "orden_compra_detalle",
+   "class": "OrdenCompraDetalle",
+   "module": "proveedores_compras",
+   "module_name": "Proveedores y Compras",
+   "color": "#D69B00",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "cantidad_pedida",
+     "type": "decimal",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "orden_compra_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "orden_compra"
+    },
+    {
+     "name": "producto_servicio_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "producto_servicio"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "orden_compra_solicitud",
+   "class": "OrdenCompraSolicitud",
+   "module": "proveedores_compras",
+   "module_name": "Proveedores y Compras",
+   "color": "#D69B00",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "orden_compra_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "orden_compra"
+    },
+    {
+     "name": "solicitud_compra_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "solicitud_compra"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "pago",
+   "class": "Pago",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "monto",
+     "type": "decimal",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "comprobante",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "referencia_transaccion",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_operacion",
+     "type": "datetime",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "factura_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "factura"
+    },
+    {
+     "name": "metodo_pago_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "metodo_pago"
+    },
+    {
+     "name": "usuario_registro_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    }
+   ],
+   "operations": [
+    "registrado_por"
+   ]
+  },
+  {
+   "table": "permiso",
+   "class": "Permiso",
+   "module": "auth",
+   "module_name": "Autenticación y Roles",
+   "color": "#5D7E99",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "codigo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "modulo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "accion",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo_informacion",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "persona",
+   "class": "Persona",
+   "module": "core",
+   "module_name": "Núcleo compartido e IA",
+   "color": "#666666",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "apellido",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "dni",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "telefono",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "sexo",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "precio_producto",
+   "class": "PrecioProducto",
+   "module": "proveedores_compras",
+   "module_name": "Proveedores y Compras",
+   "color": "#D69B00",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "precio",
+     "type": "decimal",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "vigencia_desde",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "vigencia_hasta",
+     "type": "date",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "producto_servicio_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "producto_servicio"
+    },
+    {
+     "name": "proveedor_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "proveedor"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "producto_proveedor",
+   "class": "ProductoProveedor",
+   "module": "proveedores_compras",
+   "module_name": "Proveedores y Compras",
+   "color": "#D69B00",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "producto_servicio_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "producto_servicio"
+    },
+    {
+     "name": "proveedor_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "proveedor"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "producto_servicio",
+   "class": "ProductoServicio",
+   "module": "proveedores_compras",
+   "module_name": "Proveedores y Compras",
+   "color": "#D69B00",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "categoria",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "unidad",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "activo",
+     "type": "boolean",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "proveedor",
+   "class": "Proveedor",
+   "module": "proveedores_compras",
+   "module_name": "Proveedores y Compras",
+   "color": "#D69B00",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "categoria",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "telefono",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "email",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "recepcion_compra",
+   "class": "RecepcionCompra",
+   "module": "proveedores_compras",
+   "module_name": "Proveedores y Compras",
+   "color": "#D69B00",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "observaciones",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "remito",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "orden_compra_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "orden_compra"
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "recepcion_compra_detalle",
+   "class": "RecepcionCompraDetalle",
+   "module": "proveedores_compras",
+   "module_name": "Proveedores y Compras",
+   "color": "#D69B00",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "cantidad_recibida",
+     "type": "decimal",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "recepcion_compra_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "recepcion_compra"
+    },
+    {
+     "name": "orden_compra_detalle_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "orden_compra_detalle"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "recibo_comunicacion",
+   "class": "ReciboComunicacion",
+   "module": "comunicaciones",
+   "module_name": "Comunicaciones",
+   "color": "#4E9A8F",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "comunicacion_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "comunicacion"
+    },
+    {
+     "name": "familia_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "familia"
+    },
+    {
+     "name": "alumnos",
+     "type": "jsonb",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "leida_at",
+     "type": "datetime",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "regla_destinatario",
+   "class": "ReglaDestinatario",
+   "module": "workflows",
+   "module_name": "Motor de Workflows y Notificaciones",
+   "color": "#6699CC",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "destinatario_tipo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "workflow_rule_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "workflow_rule"
+    },
+    {
+     "name": "rol_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "rol"
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "regla_facturacion",
+   "class": "ReglaFacturacion",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "descripcion",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "ciclo_lectivo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "importe",
+     "type": "decimal",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "periodicidad",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "vigencia_desde",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "vigencia_hasta",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "mes_aplicacion",
+     "type": "integer",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "modo_generacion",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "dia_generacion",
+     "type": "integer",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "dia_vencimiento",
+     "type": "integer",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "criterio_aplicacion",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "concepto_cobro_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "concepto_cobro"
+    },
+    {
+     "name": "nivel_educativo_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "nivel_educativo"
+    },
+    {
+     "name": "anio_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "anio"
+    },
+    {
+     "name": "division_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "division"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "regla_penalidad",
+   "class": "ReglaPenalidad",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "desde_dia_vencido",
+     "type": "integer",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "hasta_dia_vencido",
+     "type": "integer",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "porcentaje",
+     "type": "decimal",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "activo",
+     "type": "boolean",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "concepto_cobro_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "concepto_cobro"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "responsable_economico",
+   "class": "ResponsableEconomico",
+   "module": "facturacion",
+   "module_name": "Facturación y Cobranza",
+   "color": "#9573A6",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "vigencia_desde",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "vigencia_hasta",
+     "type": "date",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_solicitud_cambio",
+     "type": "date",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "alumno_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "alumno"
+    },
+    {
+     "name": "familia_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "familia"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "rol",
+   "class": "Rol",
+   "module": "auth",
+   "module_name": "Autenticación y Roles",
+   "color": "#5D7E99",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "codigo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "descripcion",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "rol_permiso",
+   "class": "RolPermiso",
+   "module": "auth",
+   "module_name": "Autenticación y Roles",
+   "color": "#5D7E99",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "rol_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "rol"
+    },
+    {
+     "name": "permiso_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "permiso"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "solicitud_ausencia_periodo",
+   "class": "SolicitudAusenciaPeriodo",
+   "module": "academico",
+   "module_name": "Académico",
+   "color": "#D5B655",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_inicio",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_fin",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "observacion",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "observacion_resolucion",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "archivo_nombre",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "archivo_tipo",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "archivo_contenido",
+     "type": "bytea",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_carga",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_resolucion",
+     "type": "datetime",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "alumno_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "alumno"
+    },
+    {
+     "name": "familia_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "familia"
+    },
+    {
+     "name": "motivo_justificacion_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "motivo_justificacion"
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    },
+    {
+     "name": "usuario_resolucion_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "solicitud_compra",
+   "class": "SolicitudCompra",
+   "module": "proveedores_compras",
+   "module_name": "Proveedores y Compras",
+   "color": "#D69B00",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "articulo",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "cantidad",
+     "type": "integer",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "area_solicitante",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    },
+    {
+     "name": "producto_servicio_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "producto_servicio"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "solicitud_inscripcion",
+   "class": "SolicitudInscripcion",
+   "module": "inscripciones",
+   "module_name": "Inscripciones",
+   "color": "#B85350",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "ciclo_lectivo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "etapa",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_solicitud",
+     "type": "date",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_resolucion",
+     "type": "date",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "observaciones",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "aspirante_persona_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "persona"
+    },
+    {
+     "name": "contacto_persona_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "persona"
+    },
+    {
+     "name": "contacto_parentesco",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nivel_educativo_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "nivel_educativo"
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "tarea",
+   "class": "Tarea",
+   "module": "workflows",
+   "module_name": "Motor de Workflows y Notificaciones",
+   "color": "#6699CC",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "entidad",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "entidad_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "titulo",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "descripcion",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "prioridad",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_vencimiento",
+     "type": "datetime",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    },
+    {
+     "name": "workflow_execution_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "workflow_execution"
+    },
+    {
+     "name": "tarea_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "tarea"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "tipo_evento",
+   "class": "TipoEvento",
+   "module": "workflows",
+   "module_name": "Motor de Workflows y Notificaciones",
+   "color": "#6699CC",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "descripcion",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "usuario",
+   "class": "Usuario",
+   "module": "auth",
+   "module_name": "Autenticación y Roles",
+   "color": "#5D7E99",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "email",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": true,
+     "fk": null
+    },
+    {
+     "name": "password_hash",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "auth_provider",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "provider_subject",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre_google",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "avatar_url",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "fecha_creacion",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "ultimo_acceso",
+     "type": "datetime",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "persona_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "persona"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "usuario_rol",
+   "class": "UsuarioRol",
+   "module": "auth",
+   "module_name": "Autenticación y Roles",
+   "color": "#5D7E99",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "usuario_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "usuario"
+    },
+    {
+     "name": "rol_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "rol"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "workflow_execution",
+   "class": "WorkflowExecution",
+   "module": "workflows",
+   "module_name": "Motor de Workflows y Notificaciones",
+   "color": "#6699CC",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "intento",
+     "type": "integer",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "started_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "finished_at",
+     "type": "datetime",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "estado",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "detalle",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "error_detail",
+     "type": "string",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "workflow_rule_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "workflow_rule"
+    },
+    {
+     "name": "event_log_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "event_log"
+    }
+   ],
+   "operations": []
+  },
+  {
+   "table": "workflow_rule",
+   "class": "WorkflowRule",
+   "module": "workflows",
+   "module_name": "Motor de Workflows y Notificaciones",
+   "color": "#6699CC",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "null": false,
+     "pk": true,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "nombre",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "condicion",
+     "type": "jsonb",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo_accion",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "accion_config",
+     "type": "jsonb",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "criticidad",
+     "type": "string",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "requiere_aprobacion_humana",
+     "type": "boolean",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "activo",
+     "type": "boolean",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "created_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "updated_at",
+     "type": "datetime",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": null
+    },
+    {
+     "name": "tipo_evento_id",
+     "type": "uuid",
+     "null": false,
+     "pk": false,
+     "unique": false,
+     "fk": "tipo_evento"
+    },
+    {
+     "name": "notificacion_template_id",
+     "type": "uuid",
+     "null": true,
+     "pk": false,
+     "unique": false,
+     "fk": "notificacion_template"
+    }
+   ],
+   "operations": []
+  }
+ ],
+ "relations": [
+  {
+   "child": "alumno",
+   "parent": "persona",
+   "column": "persona_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "anio",
+   "parent": "nivel_educativo",
+   "column": "nivel_educativo_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "archivo_comprobante_pago",
+   "parent": "pago",
+   "column": "pago_id",
+   "parent_mult": "1",
+   "child_mult": "0..1"
+  },
+  {
+   "child": "archivo_justificacion_inasistencia",
+   "parent": "justificacion_inasistencia",
+   "column": "justificacion_id",
+   "parent_mult": "1",
+   "child_mult": "0..1"
+  },
+  {
+   "child": "asignacion_docente",
+   "parent": "docente",
+   "column": "docente_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "asignacion_docente",
+   "parent": "materia_curso",
+   "column": "materia_curso_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "asistencia",
+   "parent": "inscripcion",
+   "column": "inscripcion_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "asistencia",
+   "parent": "solicitud_ausencia_periodo",
+   "column": "solicitud_ausencia_periodo_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "audit_log",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "campo_evento",
+   "parent": "tipo_evento",
+   "column": "tipo_evento_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "cargo_facturacion_generado",
+   "parent": "regla_facturacion",
+   "column": "regla_facturacion_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "cargo_facturacion_generado",
+   "parent": "ejecucion_facturacion",
+   "column": "ejecucion_facturacion_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "cargo_facturacion_generado",
+   "parent": "factura",
+   "column": "factura_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "cargo_facturacion_generado",
+   "parent": "inscripcion",
+   "column": "inscripcion_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "cargo_facturacion_generado",
+   "parent": "concepto_cobro",
+   "column": "concepto_cobro_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "comunicacion",
+   "parent": "usuario",
+   "column": "autor_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "comunicacion_adjunto",
+   "parent": "comunicacion",
+   "column": "comunicacion_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "comunicacion_adjunto_contenido",
+   "parent": "comunicacion_adjunto",
+   "column": "adjunto_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "cuenta_corriente",
+   "parent": "alumno",
+   "column": "alumno_id",
+   "parent_mult": "1",
+   "child_mult": "0..1"
+  },
+  {
+   "child": "debito_cobranza",
+   "parent": "lote_cobranza",
+   "column": "lote_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "debito_cobranza",
+   "parent": "factura",
+   "column": "factura_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "debito_cobranza",
+   "parent": "pago",
+   "column": "pago_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..1"
+  },
+  {
+   "child": "detalle_factura",
+   "parent": "factura",
+   "column": "factura_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "detalle_factura",
+   "parent": "concepto_cobro",
+   "column": "concepto_cobro_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "division",
+   "parent": "anio",
+   "column": "anio_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "docente",
+   "parent": "persona",
+   "column": "persona_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "documento_solicitud",
+   "parent": "solicitud_inscripcion",
+   "column": "solicitud_inscripcion_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "documento_solicitud",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "ejecucion_facturacion",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "ejecucion_facturacion_regla",
+   "parent": "ejecucion_facturacion",
+   "column": "ejecucion_facturacion_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "ejecucion_facturacion_regla",
+   "parent": "regla_facturacion",
+   "column": "regla_facturacion_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "envio_notificacion",
+   "parent": "comunicacion",
+   "column": "comunicacion_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "envio_notificacion",
+   "parent": "familia",
+   "column": "familia_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "etapa_solicitud",
+   "parent": "solicitud_inscripcion",
+   "column": "solicitud_inscripcion_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "etapa_solicitud",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "event_log",
+   "parent": "tipo_evento",
+   "column": "tipo_evento_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "event_log",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "excepcion_vencimiento",
+   "parent": "familia",
+   "column": "familia_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "excepcion_vencimiento",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "excepcion_vencimiento",
+   "parent": "usuario",
+   "column": "usuario_anulacion_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "factura",
+   "parent": "inscripcion",
+   "column": "inscripcion_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "factura",
+   "parent": "responsable_economico",
+   "column": "responsable_economico_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "factura_cobranza_demo",
+   "parent": "factura",
+   "column": "factura_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "familia",
+   "parent": "persona",
+   "column": "persona_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "familia_alumno",
+   "parent": "familia",
+   "column": "familia_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "familia_alumno",
+   "parent": "alumno",
+   "column": "alumno_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "horario_materia_curso",
+   "parent": "materia_curso",
+   "column": "materia_curso_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "ia_sugerencia",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "ia_sugerencia",
+   "parent": "notificacion_template",
+   "column": "notificacion_template_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "importacion_cobranza",
+   "parent": "lote_cobranza",
+   "column": "lote_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "importacion_cobranza",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "importacion_cobranza_detalle",
+   "parent": "importacion_cobranza",
+   "column": "importacion_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "importacion_cobranza_detalle",
+   "parent": "factura",
+   "column": "factura_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "importacion_cobranza_detalle",
+   "parent": "debito_cobranza",
+   "column": "debito_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "importacion_cobranza_detalle",
+   "parent": "pago",
+   "column": "pago_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "inscripcion",
+   "parent": "alumno",
+   "column": "alumno_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "inscripcion",
+   "parent": "division",
+   "column": "division_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "inscripcion",
+   "parent": "solicitud_inscripcion",
+   "column": "solicitud_inscripcion_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "justificacion_inasistencia",
+   "parent": "asistencia",
+   "column": "asistencia_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "justificacion_inasistencia",
+   "parent": "familia",
+   "column": "familia_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "justificacion_inasistencia",
+   "parent": "motivo_justificacion",
+   "column": "motivo_justificacion_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "justificacion_inasistencia",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "log_acceso",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "lote_cobranza",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "lote_cobranza",
+   "parent": "usuario",
+   "column": "liberado_por_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "materia_curso",
+   "parent": "materia",
+   "column": "materia_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "materia_curso",
+   "parent": "division",
+   "column": "division_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "movimiento",
+   "parent": "cuenta_corriente",
+   "column": "cuenta_corriente_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "movimiento",
+   "parent": "concepto_cobro",
+   "column": "concepto_cobro_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "movimiento",
+   "parent": "detalle_factura",
+   "column": "detalle_factura_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "movimiento",
+   "parent": "factura",
+   "column": "factura_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "movimiento",
+   "parent": "pago",
+   "column": "pago_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "movimiento",
+   "parent": "event_log",
+   "column": "event_log_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "notificacion",
+   "parent": "workflow_execution",
+   "column": "workflow_execution_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "notificacion",
+   "parent": "envio_notificacion",
+   "column": "envio_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "notificacion",
+   "parent": "familia",
+   "column": "familia_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "notificacion",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "orden_compra",
+   "parent": "proveedor",
+   "column": "proveedor_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "orden_compra_detalle",
+   "parent": "orden_compra",
+   "column": "orden_compra_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "orden_compra_detalle",
+   "parent": "producto_servicio",
+   "column": "producto_servicio_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "orden_compra_solicitud",
+   "parent": "orden_compra",
+   "column": "orden_compra_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "orden_compra_solicitud",
+   "parent": "solicitud_compra",
+   "column": "solicitud_compra_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "pago",
+   "parent": "factura",
+   "column": "factura_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "pago",
+   "parent": "metodo_pago",
+   "column": "metodo_pago_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "pago",
+   "parent": "usuario",
+   "column": "usuario_registro_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "precio_producto",
+   "parent": "producto_servicio",
+   "column": "producto_servicio_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "precio_producto",
+   "parent": "proveedor",
+   "column": "proveedor_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "producto_proveedor",
+   "parent": "producto_servicio",
+   "column": "producto_servicio_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "producto_proveedor",
+   "parent": "proveedor",
+   "column": "proveedor_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "recepcion_compra",
+   "parent": "orden_compra",
+   "column": "orden_compra_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "recepcion_compra",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "recepcion_compra_detalle",
+   "parent": "recepcion_compra",
+   "column": "recepcion_compra_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "recepcion_compra_detalle",
+   "parent": "orden_compra_detalle",
+   "column": "orden_compra_detalle_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "recibo_comunicacion",
+   "parent": "comunicacion",
+   "column": "comunicacion_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "recibo_comunicacion",
+   "parent": "familia",
+   "column": "familia_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "regla_destinatario",
+   "parent": "workflow_rule",
+   "column": "workflow_rule_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "regla_destinatario",
+   "parent": "rol",
+   "column": "rol_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "regla_destinatario",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "regla_facturacion",
+   "parent": "concepto_cobro",
+   "column": "concepto_cobro_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "regla_facturacion",
+   "parent": "nivel_educativo",
+   "column": "nivel_educativo_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "regla_facturacion",
+   "parent": "anio",
+   "column": "anio_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "regla_facturacion",
+   "parent": "division",
+   "column": "division_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "regla_penalidad",
+   "parent": "concepto_cobro",
+   "column": "concepto_cobro_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "responsable_economico",
+   "parent": "alumno",
+   "column": "alumno_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "responsable_economico",
+   "parent": "familia",
+   "column": "familia_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "rol_permiso",
+   "parent": "rol",
+   "column": "rol_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "rol_permiso",
+   "parent": "permiso",
+   "column": "permiso_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "solicitud_ausencia_periodo",
+   "parent": "alumno",
+   "column": "alumno_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "solicitud_ausencia_periodo",
+   "parent": "familia",
+   "column": "familia_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "solicitud_ausencia_periodo",
+   "parent": "motivo_justificacion",
+   "column": "motivo_justificacion_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "solicitud_ausencia_periodo",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "solicitud_ausencia_periodo",
+   "parent": "usuario",
+   "column": "usuario_resolucion_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "solicitud_compra",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "solicitud_compra",
+   "parent": "producto_servicio",
+   "column": "producto_servicio_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "solicitud_inscripcion",
+   "parent": "persona",
+   "column": "aspirante_persona_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "solicitud_inscripcion",
+   "parent": "persona",
+   "column": "contacto_persona_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "solicitud_inscripcion",
+   "parent": "nivel_educativo",
+   "column": "nivel_educativo_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "solicitud_inscripcion",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "tarea",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "tarea",
+   "parent": "workflow_execution",
+   "column": "workflow_execution_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "tarea",
+   "parent": "tarea",
+   "column": "tarea_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "usuario",
+   "parent": "persona",
+   "column": "persona_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "usuario_rol",
+   "parent": "usuario",
+   "column": "usuario_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "usuario_rol",
+   "parent": "rol",
+   "column": "rol_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "workflow_execution",
+   "parent": "workflow_rule",
+   "column": "workflow_rule_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "workflow_execution",
+   "parent": "event_log",
+   "column": "event_log_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "workflow_rule",
+   "parent": "tipo_evento",
+   "column": "tipo_evento_id",
+   "parent_mult": "1",
+   "child_mult": "0..*"
+  },
+  {
+   "child": "workflow_rule",
+   "parent": "notificacion_template",
+   "column": "notificacion_template_id",
+   "parent_mult": "0..1",
+   "child_mult": "0..*"
+  }
+ ],
+ "modules": [
+  {
+   "key": "auth",
+   "name": "Autenticación y Roles",
+   "color": "#5D7E99"
+  },
+  {
+   "key": "familias_alumnos",
+   "name": "Familias y Alumnos",
+   "color": "#82B366"
+  },
+  {
+   "key": "academico",
+   "name": "Académico",
+   "color": "#D5B655"
+  },
+  {
+   "key": "inscripciones",
+   "name": "Inscripciones",
+   "color": "#B85350"
+  },
+  {
+   "key": "facturacion",
+   "name": "Facturación y Cobranza",
+   "color": "#9573A6"
+  },
+  {
+   "key": "proveedores_compras",
+   "name": "Proveedores y Compras",
+   "color": "#D69B00"
+  },
+  {
+   "key": "workflows",
+   "name": "Motor de Workflows y Notificaciones",
+   "color": "#6699CC"
+  },
+  {
+   "key": "comunicaciones",
+   "name": "Comunicaciones",
+   "color": "#4E9A8F"
+  },
+  {
+   "key": "ia_sugerencias",
+   "name": "Núcleo compartido e IA",
+   "color": "#666666"
+  },
+  {
+   "key": "core",
+   "name": "Núcleo compartido e IA",
+   "color": "#666666"
+  }
+ ]
+}
