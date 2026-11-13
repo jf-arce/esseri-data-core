@@ -12,7 +12,6 @@ import { ETIQUETA_HERRAMIENTA } from '../constants'
 
 interface PasosDelMensajeProps {
   pasos: string[]
-  /** Herramienta en curso mientras se genera la respuesta. */
   herramienta: string | null
 }
 

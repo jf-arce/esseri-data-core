@@ -97,9 +97,6 @@ def _sin_curso(
     return ResultadoHerramienta(para_llm={"error": mensaje})
 
 
-# --- Estructura -----------------------------------------------------------------------------
-
-
 class ParametrosEstructura(ParametrosCurso):
     ciclo_lectivo: str | None = Field(
         default=None, description="Año del ciclo lectivo. Si falta, el seleccionado en pantalla."
@@ -167,9 +164,6 @@ def _estructura_academica(
         bloques=[tabla],
         filtros_destino=_filtros_academico(divisiones),
     )
-
-
-# --- Horarios ---------------------------------------------------------------------------------
 
 
 class ParametrosHorario(ParametrosCurso):
@@ -245,9 +239,6 @@ def _horario_del_curso(
     )
 
 
-# --- Alumnos del curso -----------------------------------------------------------------------
-
-
 class ParametrosAlumnosDelCurso(ParametrosEstructura):
     pass
 
@@ -309,9 +300,6 @@ def _alumnos_del_curso(
         bloques=[tabla],
         filtros_destino=_filtros_academico(list(divisiones.values())),
     )
-
-
-# --- Docentes del curso ----------------------------------------------------------------------
 
 
 class ParametrosDocentesDelCurso(ParametrosEstructura):

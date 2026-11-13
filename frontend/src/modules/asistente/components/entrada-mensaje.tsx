@@ -19,7 +19,6 @@ const ESPERA_BUSQUEDA_MS = 250
 type Sugerencia = { clave: string; tipo: TipoAlias; id: string; nombre: string }
 
 interface EntradaMensajeProps {
-  /** Al pasar a visible, el cursor va directo al cuadro de texto. */
   abierto: boolean
   generando: boolean
   /** Con `familias_alumnos.leer`: sin él no se ofrece la lista de personas. */

@@ -45,7 +45,6 @@ interface ListaMensajesProps {
   alIr: (bloque: BloqueNavegar) => AccionIr | null
   /** Vuelve a mandar la última pregunta; `null` mientras se está generando. */
   alReintentar: (() => void) | null
-  /** Preguntas de arranque para el estado vacío. */
   sugerencias: string[]
   alSugerir: (texto: string) => void
 }
@@ -204,7 +203,6 @@ function MensajeDelAsistente({
           </motion.div>
         )}
         {escribiendo && visible !== '' && <CursorEscritura />}
-        {/* Los datos van debajo del texto y entran de a uno. */}
         {!escribiendo && (
           <BloquesDelMensaje
             bloques={mensaje.bloques}

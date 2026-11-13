@@ -10,7 +10,6 @@ import type { Conversacion } from '../types'
 interface HistorialConversacionesProps {
   conversacionActual: string | null
   onAbrir: (id: string) => void
-  /** Se llama cuando se borra la conversación que estaba abierta. */
   onBorradaActual: () => void
 }
 

@@ -11,12 +11,10 @@ export const ANCHO_INICIAL_PANEL = 400
 export const PASO_TECLADO_ANCHO = 24
 export const CLAVE_ALMACENAMIENTO = 'esseri.asistente'
 
-/** Atajo para abrir y cerrar el panel (Ctrl o ⌘ + I). */
 export const TECLA_ATAJO = 'i'
 
 export const PREFIJO_API = '/asistente'
 
-/** Qué se está consultando mientras corre cada herramienta del backend. */
 export const ETIQUETA_HERRAMIENTA: Record<string, string> = {
   indicadores_generales: 'Consultando indicadores',
   evolucion_financiera: 'Consultando la evolución financiera',

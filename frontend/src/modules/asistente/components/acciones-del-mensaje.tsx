@@ -12,7 +12,6 @@ interface AccionesDelMensajeProps {
   contenido: string
   bloques: Bloque[]
   porAlias: Record<string, AliasResuelto>
-  /** Solo el último mensaje se puede reintentar. */
   alReintentar: (() => void) | null
 }
 
