@@ -178,8 +178,13 @@ export function EntradaMensaje({
         <Command
           shouldFilter={false}
           value={sugerencias[activa]?.clave ?? ''}
-          className="absolute right-3 bottom-full left-3 mb-1 h-auto rounded-lg border border-borde shadow-card"
+          className="absolute right-3 bottom-full left-3 mb-1 h-auto w-auto rounded-lg border border-borde shadow-card"
         >
+          <p className="border-b border-borde px-3 py-2 text-xs text-texto-3">
+            {consulta === ''
+              ? 'Mencioná a un alumno o una familia para que el asistente consulte sus datos. Escribí un nombre o apellido para buscar.'
+              : 'Elegí a quién mencionar con ↑ ↓ y Enter. Esc cierra la lista.'}
+          </p>
           <CommandList>
             {sugerencias.length === 0 && <CommandEmpty>Sin coincidencias.</CommandEmpty>}
             {sugerencias.map((s) => (
@@ -199,7 +204,7 @@ export function EntradaMensaje({
           value={texto}
           rows={1}
           maxLength={MAX_CARACTERES}
-          placeholder="Preguntá algo…"
+          placeholder="Preguntá algo… o mencioná con @"
           aria-label="Mensaje para el asistente"
           className="max-h-40 min-h-12 resize-none [field-sizing:content]"
           onChange={(evento) => {
@@ -210,7 +215,7 @@ export function EntradaMensaje({
         />
         <InputGroupAddon align="block-end">
           <InputGroupText className="text-xs text-texto-3">
-            {puedeMencionar ? '@ para mencionar' : 'Enter para enviar'}
+            {puedeMencionar ? '@ menciona un alumno o una familia' : 'Enter para enviar'}
           </InputGroupText>
           {generando ? (
             <InputGroupButton
