@@ -265,7 +265,32 @@ src/
 
 Detalle completo de cada carpeta, convenciones de nombres (`kebab-case`) y criterio de testing: ver `ARCHITECTURE.md` en la raíz del repo.
 
+## Asistente de IA
+
+El asistente es un panel acoplado a la derecha, dentro de `layout/app-layout.tsx` (módulo
+`modules/asistente/`). Angosta el contenido en vez de taparlo, se abre y se cierra desde el botón
+del header o con `Ctrl/⌘ + I`, y su ancho se cambia arrastrando el borde izquierdo. Siempre
+arranca cerrado y solo se recuerda su ancho en `localStorage`. Solo aparece con el permiso
+`asistente.leer` y si el backend no responde 503 (`ASISTENTE_HABILITADO=false`).
+
+- Explicación completa del asistente: `docs/asistente.md`.
+- Las respuestas llegan por SSE (`services/enviar-mensaje.ts`, `fetch` + `ReadableStream`).
+- El texto llega en trozos (`delta`) y `hooks/use-texto-gradual.ts` lo revela de a poco, como una escritura continua. Solo anima lo que llega en vivo (no los mensajes guardados) y respeta `prefers-reduced-motion`. Las cards y las acciones entran cuando termina de escribirse.
+- Los indicadores de carga vienen de la librería `ldrs` (`Trio` en `components/indicadores-de-carga.tsx`), con su CSS importado junto al componente.
+- El backend manda alias (`[ALUMNO:3]`) en vez de nombres; `hooks/use-alias.ts` los resuelve con
+  `POST /asistente/resolver` y `components/texto-con-alias.tsx` los muestra.
+- El modelo elige una clave de destino (`ir_a`) y `utils.ts` la convierte en una ruta validada contra
+  el menú del rol activo. Nunca se navega a una URL generada por el modelo ni se navega sola: el
+  asistente deja un botón ("Ir a Deuda por familia", por ejemplo) y la persona decide. Al terminar una respuesta, el backend sugiere la pantalla del dato consultado y el botón aparece solo si el rol puede entrar. Los nombres de docentes se muestran sin link porque no tienen ficha.
+- Las respuestas se muestran con formato markdown (`react-markdown` + `remark-gfm`, sin HTML crudo). Los alias se reemplazan por links antes de renderizar y solo se aceptan links a rutas internas.
+- El panel se remonta al cambiar de cuenta o de rol, lo que descarta la conversación visible, la
+  caché de alias y el stream en curso.
+
 ## Selector de color
+
+El panel del asistente usa [`@shadcn/react`](https://www.npmjs.com/package/@shadcn/react) (`message-scroller`): mantiene el scroll pegado al final mientras llega la respuesta y trae el botón de "ir al final". Lo usa `components/ui/message-scroller.tsx`, generado con la CLI de shadcn (AI Elements).
+
+Las transiciones del panel del asistente (entrada de mensajes, sugerencias, puntos de "Pensando…") usan [`motion`](https://motion.dev) con `MotionConfig reducedMotion="user"`, así que se apagan si el sistema pide reducir movimiento. Solo lo usa `modules/asistente/`.
 
 El color de las materias (Académico) se elige con [`react-colorful`](https://github.com/omgovich/react-colorful) (`HexColorPicker` y `HexColorInput`), dentro del `Popover` de shadcn: shadcn/ui no trae un color picker propio. Está fijado en una versión exacta en `package.json` y solo lo usa `modules/academico/components/selector-color.tsx`.
 

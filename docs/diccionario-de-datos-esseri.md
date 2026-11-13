@@ -967,6 +967,47 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 >
 > **[DECISIÓN DE EQUIPO]** (issue #50) Un borrador de comunicación se pide para un `TIPO_EVENTO` (`POST /ia-sugerencias/comunicaciones`). El proveedor de IA solo redacta: recibe la descripción del evento, sus `CAMPO_EVENTO` y las instrucciones de quien lo pide, nunca datos personales. La respuesta se valida como una plantilla (longitudes, formato `{{campo}}` y que cada marcador exista en el evento) antes de guardarse en `contenido_generado` como JSON; el esquema no cambia. Aprobar crea la `NOTIFICACION_TEMPLATE` con `plantillas_service.registrar_plantilla()` y la enlaza en `notificacion_template_id`, todo en una transacción. Aprobar no envía nada: la plantilla queda disponible para las reglas de Workflows.
 
+### `CONVERSACION_ASISTENTE`
+> Conversación de un usuario con el Asistente. Es del usuario **y del rol con el que la abrió**: cada rol activo tiene su propio historial.
+
+| Campo | Tipo | Clave | Descripción |
+|---|---|---|---|
+| id | uuid | PK |  |
+| usuario_id | uuid | FK | Dueño de la conversación |
+| rol_codigo | string |  | `ROL.codigo` activo al crearla; solo se lee con ese mismo rol |
+| titulo | string |  | Primer mensaje ya seudonimizado (los alias se muestran como "alumno" / "familia"), recortado |
+| estado | string |  | libre / generando. Una sola generación activa por conversación (lock de fila) |
+| generando_desde | datetime |  | Para liberar una generación caída pasado `ASISTENTE_GENERACION_TIMEOUT_SEGUNDOS` |
+| creada_en / actualizada_en | datetime |  | `actualizada_en` define la retención (`ASISTENTE_RETENCION_DIAS`) |
+
+Índice por (`usuario_id`, `rol_codigo`, `actualizada_en`).
+
+### `MENSAJE_ASISTENTE`
+
+| Campo | Tipo | Clave | Descripción |
+|---|---|---|---|
+| id | uuid | PK |  |
+| conversacion_id | uuid | FK | `ON DELETE CASCADE`. Única junto con `orden` |
+| orden | int |  | Posición en la conversación |
+| autor | string |  | usuario / asistente |
+| contenido | text |  | Texto **seudonimizado**: es lo mismo que ve el proveedor |
+| tool_calls | json |  | Herramientas ejecutadas y sus argumentos (solo alias) |
+| tarjetas | json |  | Bloques tipados para el navegador (`kpi`, `tabla`, `tarjeta`, `navegar`); los alias se rehidratan al mostrarlos |
+| estado | string |  | completo / parcial (se cortó el stream) / error (falló el proveedor; un mensaje de usuario en error no consume cuota) |
+| creado_en | datetime |  |  |
+
+### `ALIAS_CONVERSACION`
+
+| Campo | Tipo | Clave | Descripción |
+|---|---|---|---|
+| id | uuid | PK |  |
+| conversacion_id | uuid | FK | `ON DELETE CASCADE`. Única junto con `alias` y junto con (`tipo`, `entidad_id`) |
+| alias | string |  | `[ALUMNO:3]`, `[FAMILIA:1]`, `[DOCENTE:2]` |
+| tipo | string |  | ALUMNO / FAMILIA / DOCENTE |
+| entidad_id | uuid |  | `ALUMNO.id`, `FAMILIA.id` o `DOCENTE.id`, sin FK (depende de `tipo`) |
+
+> **[DECISIÓN DE EQUIPO]** **Regla de seudonimización del Asistente.** Al proveedor de IA nunca le llegan nombres, DNI ni datos de contacto, ni en lo que escribe el usuario (menciones `@`, nombres a mano, DNI, emails y teléfonos se reemplazan o tapan antes de enviar), ni en lo que devuelven las herramientas (solo agregados y alias; sin textos libres), ni en el historial reenviado. La tabla de alias es la única que relaciona un alias con una persona, y solo vale dentro de su conversación. Permiso `asistente.leer` para dirección, administración y administrador del sistema; las herramientas revalidan el permiso `.leer` de cada módulo que consultan. La retención borra las conversaciones sin actividad pasados `ASISTENTE_RETENCION_DIAS` días (90 por defecto).
+
 ---
 
 ## Enumeraciones (valores fijos por campo)
@@ -1008,6 +1049,10 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | `EVENT_LOG.actor_tipo` | usuario, sistema | [DECISIÓN DE DISEÑO] — **NUEVO** |
 | `EVENT_LOG.estado` | pendiente, procesado, fallido | [DECISIÓN DE DISEÑO] — **NUEVO** |
 | `CAMPO_EVENTO.tipo_dato` | numero, texto, fecha | [DECISIÓN DE DISEÑO] |
+| `CONVERSACION_ASISTENTE.estado` | libre, generando | [DECISIÓN DE DISEÑO] |
+| `MENSAJE_ASISTENTE.autor` | usuario, asistente | [DECISIÓN DE DISEÑO] |
+| `MENSAJE_ASISTENTE.estado` | completo, parcial, error | [DECISIÓN DE DISEÑO] |
+| `ALIAS_CONVERSACION.tipo` | ALUMNO, FAMILIA, DOCENTE | [DECISIÓN DE DISEÑO] |
 | `IA_SUGERENCIA.tipo` | patron_detectado, comunicacion | [DECISIÓN DE DISEÑO] |
 | `IA_SUGERENCIA.estado` | pendiente_revision, aprobada, rechazada, ejecutada_automaticamente | [DECISIÓN DE DISEÑO] |
 
@@ -1168,3 +1213,4 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | — | Sumados a `TIPO_EVENTO` los dos eventos que emite Proveedores y Compras: `orden_compra.emitida` (entidad `orden_compra`; campos `proveedor_nombre`, `cantidad_items`, `fecha`) y `recepcion_compra.registrada` (entidad `recepcion_compra`; campos `proveedor_nombre`, `tipo_recepcion`, `fecha`). Sin cambios de esquema: son filas de catálogo. |
 | — | Sumados a `TIPO_EVENTO` `inscripcion.confirmada` (entidad `inscripcion`; campos `alumno_nombre`, `nivel_educativo`, `fecha`) y `solicitud_compra.aprobada` (entidad `solicitud_compra`; campos `item`, `cantidad`, `fecha`), y abiertas en la allowlist de `generar_cargo` y `generar_orden_compra` (issue #199). Sin cambios de esquema: son filas de catálogo. |
 | 2026-10-27 | Sumados `nombre_google` y `avatar_url` a `USUARIO` (issue #260): se guardan del id_token en cada login con Google y alimentan el nombre y la foto del encabezado. Prioridad del nombre: persona, Google, email |
+| 2026-11-12 | Agregadas `CONVERSACION_ASISTENTE`, `MENSAJE_ASISTENTE` y `ALIAS_CONVERSACION` (Asistente de IA, Fase 1) y la regla de seudonimización. Permiso `Asistente`/`leer` para dirección, administración y administrador del sistema en `grupo-b.yaml` |

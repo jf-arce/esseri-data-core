@@ -35,12 +35,29 @@ class Settings(BaseSettings):
     # Cualquier proveedor que hable el protocolo de Chat Completions de OpenAI.
     OPENAI_BASE_URL: str = "https://api.openai.com/v1"
     OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_REASONING_EFFORT: str = ""
     OPENAI_TIMEOUT_SEGUNDOS: float = 30.0
+    # Reintentos ante 429 (cuota) y 503 (saturación), con espera creciente.
+    OPENAI_REINTENTOS: int = 2
+    OPENAI_ESPERA_REINTENTO_SEGUNDOS: float = 4.0
 
     # IA/Sugerencias: umbrales de la detección de patrones por reglas.
     IA_MOROSIDAD_DIAS_VENCIDO: int = 30
     IA_INASISTENCIAS_CANTIDAD: int = 3
     IA_INASISTENCIAS_VENTANA_DIAS: int = 30
+
+    # Asistente de IA (módulo `asistente`). Los topes acotan costo y abuso por conversación.
+    ASISTENTE_HABILITADO: bool = True
+    ASISTENTE_MAX_PASOS: PositiveInt = 6
+    ASISTENTE_MAX_HERRAMIENTAS_POR_PASO: PositiveInt = 4
+    ASISTENTE_MENSAJES_POR_DIA: PositiveInt = 100
+    ASISTENTE_MAX_CARACTERES_ENTRADA: PositiveInt = 2000
+    ASISTENTE_VENTANA_HISTORIAL: PositiveInt = 12
+    ASISTENTE_MAX_FILAS_RESULTADO: PositiveInt = 20
+    ASISTENTE_RETENCION_DIAS: PositiveInt = 90
+    # Una generación que no terminó en este tiempo se considera caída y libera la conversación.
+    ASISTENTE_GENERACION_TIMEOUT_SEGUNDOS: PositiveInt = 180
+    ASISTENTE_RETENCION_INTERVALO_HORAS: PositiveInt = 24
 
     # El job solo decide cuándo ejecutar; cada regla define su propio día de generación.
     FACTURACION_AUTOMATICA_HABILITADA: bool = True

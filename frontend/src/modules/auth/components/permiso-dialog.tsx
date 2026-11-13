@@ -35,6 +35,7 @@ const MODULOS = [
   'Auditoría',
   'Panel Administrativo',
   'IA/Sugerencias',
+  'Asistente',
 ]
 
 const ACCIONES = ['crear', 'leer', 'actualizar', 'eliminar', 'exportar']
