@@ -31,12 +31,11 @@ describe('limitarAncho', () => {
 })
 
 describe('useAsistenteStore', () => {
-  it('guarda abierto y ancho en localStorage', () => {
+  it('guarda solo el ancho en localStorage', () => {
     useAsistenteStore.getState().setAbierto(true)
     useAsistenteStore.getState().setAncho(500)
 
     expect(JSON.parse(localStorage.getItem(CLAVE_ALMACENAMIENTO) ?? '{}')).toEqual({
-      abierto: true,
       ancho: 500,
     })
   })

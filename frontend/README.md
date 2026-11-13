@@ -269,9 +269,9 @@ Detalle completo de cada carpeta, convenciones de nombres (`kebab-case`) y crite
 
 El asistente es un panel acoplado a la derecha, dentro de `layout/app-layout.tsx` (módulo
 `modules/asistente/`). Angosta el contenido en vez de taparlo, se abre y se cierra desde el botón
-del header o con `Ctrl/⌘ + I`, y su ancho se cambia arrastrando el borde izquierdo. El estado
-(abierto y ancho) se recuerda en `localStorage`. Solo aparece con el permiso `asistente.leer` y si
-el backend no responde 503 (`ASISTENTE_HABILITADO=false`).
+del header o con `Ctrl/⌘ + I`, y su ancho se cambia arrastrando el borde izquierdo. Siempre
+arranca cerrado y solo se recuerda su ancho en `localStorage`. Solo aparece con el permiso
+`asistente.leer` y si el backend no responde 503 (`ASISTENTE_HABILITADO=false`).
 
 - Las respuestas llegan por SSE (`services/enviar-mensaje.ts`, `fetch` + `ReadableStream`).
 - El backend manda alias (`[ALUMNO:3]`) en vez de nombres; `hooks/use-alias.ts` los resuelve con

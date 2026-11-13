@@ -18,23 +18,22 @@ export function limitarAncho(ancho: number): number {
   return Math.min(ANCHO_MAXIMO_PANEL, Math.max(ANCHO_MINIMO_PANEL, Math.round(ancho)))
 }
 
-type Guardado = { abierto: boolean; ancho: number }
+type Guardado = { ancho: number }
 
-// Solo una comodidad: si el almacenamiento falla (ventana privada, datos bloqueados) el panel
-// funciona igual con sus valores por defecto.
+// Solo se recuerda el ancho: el panel siempre arranca cerrado. Si el almacenamiento falla
+// (ventana privada, datos bloqueados) el panel funciona igual con sus valores por defecto.
 function leerGuardado(): Guardado {
-  const porDefecto = { abierto: false, ancho: ANCHO_INICIAL_PANEL }
+  const porDefecto = { ancho: ANCHO_INICIAL_PANEL }
   try {
     const crudo = window.localStorage.getItem(CLAVE_ALMACENAMIENTO)
     if (crudo === null) return porDefecto
     const dato: unknown = JSON.parse(crudo)
     if (typeof dato !== 'object' || dato === null) return porDefecto
-    const abierto = 'abierto' in dato && dato.abierto === true
     const ancho =
       'ancho' in dato && typeof dato.ancho === 'number'
         ? limitarAncho(dato.ancho)
         : ANCHO_INICIAL_PANEL
-    return { abierto, ancho }
+    return { ancho }
   } catch {
     return porDefecto
   }
@@ -49,15 +48,13 @@ function guardar(estado: Guardado) {
 }
 
 export const useAsistenteStore = create<AsistenteState>((set, get) => ({
+  abierto: false,
   ...leerGuardado(),
-  setAbierto: (abierto) => {
-    set({ abierto })
-    guardar({ abierto, ancho: get().ancho })
-  },
+  setAbierto: (abierto) => set({ abierto }),
   alternar: () => get().setAbierto(!get().abierto),
   setAncho: (ancho) => {
     const limitado = limitarAncho(ancho)
     set({ ancho: limitado })
-    guardar({ abierto: get().abierto, ancho: limitado })
+    guardar({ ancho: limitado })
   },
 }))
