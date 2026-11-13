@@ -151,6 +151,7 @@ from src.academico.service import (
     generar_csv_reporte_asistencias,
     generar_pdf_reporte_asistencias,
     generar_xlsx_reporte_asistencias,
+    horario_de_familia,
     justificar_asistencia_de_familia,
     listar_anios,
     listar_anios_por_nivel,
@@ -928,6 +929,19 @@ def listar_asistencias_endpoint(
         )
         for registro in registros
     ]
+
+
+@router.get(
+    "/familia/alumnos/{alumno_id}/horario",
+    response_model=list[MateriaCursoResponse],
+)
+def listar_horario_familia(
+    alumno_id: uuid.UUID,
+    usuario: UsuarioAutenticado,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[MateriaCursoResponse]:
+    """Horario semanal del curso activo del alumno, limitado a la familia autenticada."""
+    return horario_de_familia(db, usuario, alumno_id)
 
 
 @router.get(
