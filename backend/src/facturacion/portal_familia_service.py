@@ -10,6 +10,7 @@ from src.facturacion.models import (
     ArchivoComprobantePago,
     ExcepcionVencimiento,
     Factura,
+    FacturaCobranzaDemo,
     Movimiento,
     Pago,
     ResponsableEconomico,
@@ -50,7 +51,8 @@ def obtener_facturacion_familia(
         return _cuenta_vacia()
 
     filas = db.execute(
-        select(Factura, Alumno.id, Persona.nombre, Persona.apellido)
+        select(Factura, Alumno.id, Persona.nombre, Persona.apellido, FacturaCobranzaDemo.medio)
+        .outerjoin(FacturaCobranzaDemo, FacturaCobranzaDemo.factura_id == Factura.id)
         .join(
             ResponsableEconomico,
             ResponsableEconomico.id == Factura.responsable_economico_id,
@@ -85,6 +87,7 @@ def obtener_facturacion_familia(
             fecha_vencimiento_efectiva=fecha_vencimiento_efectiva(factura, excepciones),
             monto_total=factura.monto_total,
             estado=factura.estado,
+            medio=medio,
             alumno_nombre=f"{nombre} {apellido}",
             detalles=[
                 DetalleFacturaFamiliaRead(
@@ -105,9 +108,9 @@ def obtener_facturacion_familia(
                 for pago in sorted(factura.pagos, key=lambda item: (item.fecha, item.id))
             ],
         )
-        for factura, alumno_id, nombre, apellido in filas
+        for factura, alumno_id, nombre, apellido, medio in filas
     ]
-    factura_ids = [factura.id for factura, _, _, _ in filas]
+    factura_ids = [factura.id for factura, *_ in filas]
     if not factura_ids:
         return _cuenta_vacia()
 

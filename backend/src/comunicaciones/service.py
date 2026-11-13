@@ -1,6 +1,5 @@
 import hashlib
 import json
-import unicodedata
 import uuid
 from datetime import UTC, datetime
 
@@ -34,6 +33,7 @@ from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
 from src.familias_alumnos.service import obtener_familia_de_usuario
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
+from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
 
 
 def auditar(db, comunicacion, usuario, campo, anterior, nuevo):
@@ -391,6 +391,7 @@ def listar(
     tipo: str | None = None,
     autor_id: uuid.UUID | None = None,
     estado: str | None = None,
+    tamanio: int = 10,
 ):
     consulta = select(Comunicacion)
     recibos = {}
@@ -420,39 +421,28 @@ def listar(
     if estado is not None:
         consulta = consulta.where(Comunicacion.estado == estado)
     if buscar:
-        consulta = consulta.where(Comunicacion.asunto.ilike(f"%{buscar}%"))
+        consulta = consulta.where(
+            normalizar_columna_busqueda(Comunicacion.asunto).like(
+                f"%{normalizar_texto_busqueda(buscar)}%"
+            )
+        )
     total = db.scalar(select(func.count()).select_from(consulta.subquery()))
     filas = db.scalars(
         consulta.order_by(Comunicacion.created_at.desc(), Comunicacion.id)
-        .offset((pagina - 1) * 10)
-        .limit(10)
+        .offset((pagina - 1) * tamanio)
+        .limit(tamanio)
     )
     return Listado(
         items=[respuesta(db, c, recibo=recibos.get(c.id)) for c in filas],
         total=total,
         pagina=pagina,
-        total_paginas=(total + 9) // 10,
-    )
-
-
-def _texto_normalizado(valor: str) -> str:
-    """Case- and accent-insensitive comparison text for names and emails."""
-    return "".join(
-        letra
-        for letra in unicodedata.normalize("NFD", valor.strip().casefold())
-        if not unicodedata.combining(letra)
+        total_paginas=max(1, (total + tamanio - 1) // tamanio),
     )
 
 
 def _utc(valor: datetime | None) -> datetime | None:
     """Persisted datetimes are naive UTC; make that explicit in API responses."""
     return valor.replace(tzinfo=UTC) if valor is not None else None
-
-
-def _columna_sin_acentos(columna):
-    for letra, base in zip("áéíóúüñÁÉÍÓÚÜÑ", "aeiouunAEIOUUN", strict=True):
-        columna = func.replace(columna, letra, base)
-    return columna
 
 
 def _patron_busqueda(texto: str) -> str:
@@ -518,8 +508,10 @@ def listar_destinatarios(
         .where(origen.comunicacion_id == comunicacion_id)
     )
     if buscar.strip():
-        texto = _texto_normalizado(buscar)
-        criterio = _columna_sin_acentos(nombre).ilike(_patron_busqueda(texto), escape="\\")
+        texto = normalizar_texto_busqueda(buscar.strip())
+        criterio = normalizar_columna_busqueda(nombre).like(
+            _patron_busqueda(texto), escape="\\"
+        )
         if vista != "destinatarios":
             criterio = or_(
                 criterio,
@@ -686,8 +678,10 @@ def listar_entrega(
         .where(ReciboComunicacion.comunicacion_id == comunicacion.id)
     )
     if buscar.strip():
-        texto = _texto_normalizado(buscar)
-        criterio = _columna_sin_acentos(nombre).ilike(_patron_busqueda(texto), escape="\\")
+        texto = normalizar_texto_busqueda(buscar.strip())
+        criterio = normalizar_columna_busqueda(nombre).like(
+            _patron_busqueda(texto), escape="\\"
+        )
         if email_aplica:
             criterio = or_(
                 criterio,

@@ -10,6 +10,52 @@ Para la estructura completa de carpetas y las convenciones del proyecto, ver **`
 
 ## Requisitos
 
+### Débitos automáticos
+
+Desde Facturas, abrir **Débitos automáticos** (`/facturacion/cobranzas`). Requiere permisos
+de lectura y creación de Facturación y las migraciones de cobranzas simuladas
+(`fb836637c05a` y `91553e2163be`) aplicadas.
+
+La pantalla tiene tres pestañas y conserva la pestaña y la revisión durable en la URL
+(`?pestana=importar&importacion=<id>`), para que **Continuar revisión** retome el mismo
+detalle.
+
+1. **Generar lote.** Filtrar facturas pendientes por período, medio, estado y búsqueda.
+   El checkbox de cabecera selecciona solo la página visible (25 filas); el enlace de la
+   barra selecciona todas las facturas que coinciden con los filtros mediante el predicado
+   del servidor, sin representar cientos de filas. La selección global sobrevive el cambio
+   de página y se limpia al cambiar filtros o búsqueda. El resumen muestra cantidad,
+   importe, desglose CBU/tarjeta y facturas ocultas en otros lotes. Exportar descarga la
+   solicitud y reserva las facturas; no registra pagos. La acción **Preparar respuesta de
+   ejemplo** genera una respuesta mixta sin listar cada débito y abre la pestaña de
+   importación.
+2. **Importar resultados.** Subir o reemplazar el archivo, revisar la vista previa durable
+   y confirmar con el checkbox **Revisé el resumen y el detalle de rechazados y errores**.
+   El detalle se pagina y se filtra en el servidor; por defecto muestra rechazados y
+   errores. Cualquier error bloquea toda la confirmación, aunque existan cobros válidos.
+   El servidor revalida el estado de cada factura antes de escribir: si algo cambió, no se
+   registra ningún pago y vuelven a mostrarse las incidencias. Reimportar un archivo ya
+   confirmado recupera el registro existente y no duplica pagos.
+3. **Historial de lotes.** Filtros por período, estado y búsqueda con paginación del
+   servidor. Las acciones dependen del estado: **Importar resultados** (exportado),
+   **Continuar revisión** (con importación durable) y **Ver detalle** (pagos registrados o
+   liberado). **Liberar lote** solo se ofrece para lotes exportados sin resultados
+   importados; exige motivo y la confirmación de que el banco no procesó el lote, y queda
+   auditado en el registro de liberaciones.
+
+El archivo preparado representa la respuesta entregada por el banco durante la demo; es un
+formato propio, **no compatible con Payway ni Galicia** y no demuestra acreditación
+bancaria. No se realizan conexiones a bancos. Los archivos conservan identificadores de
+simulación; la operación usa etiquetas neutrales como **Pago registrado**. Ver los
+[campos, supuestos y límites](../docs/cobranzas-simuladas.md). El envío de emails depende de
+reglas de Workflows y de su transporte configurado.
+
+```bash
+npm test -- src/modules/facturacion
+npm run lint
+npm run build
+```
+
 ### Communications — stages 1 and 2
 
 Administration/Direction open `/comunicaciones` to create or resume their own drafts.

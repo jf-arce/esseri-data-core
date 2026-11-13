@@ -223,6 +223,7 @@ class PagoFamiliaRead(BaseModel):
 class FacturaFamiliaRead(BaseModel):
     id: uuid.UUID
     alumno_id: uuid.UUID
+    medio: str | None = None
     fecha_emision: date
     fecha_vencimiento: date
     fecha_vencimiento_efectiva: date

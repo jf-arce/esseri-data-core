@@ -176,6 +176,7 @@ def test_responsable_economico_ve_sus_facturas_pagos_y_movimientos(client, db_se
             ),
             "monto_total": "125.00",
             "estado": "pendiente",
+            "medio": None,
             "alumno_nombre": "Tiziano Cabral",
             "detalles": [{"descripcion": "Cuota de marzo", "monto": "125.00"}],
             "pagos": [
