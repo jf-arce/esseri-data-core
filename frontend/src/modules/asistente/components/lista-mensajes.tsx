@@ -124,7 +124,10 @@ function MensajeDelAsistente({
       <MessageContent>
         <PasosDelMensaje pasos={mensaje.pasos} herramienta={mensaje.herramienta} />
         {generando && mensaje.contenido === '' && mensaje.herramienta === null && (
-          <p className="shimmer text-sm text-texto-3">Pensando…</p>
+          <p className="flex items-center gap-2 text-sm text-texto-3">
+            <SparklesIcon className="size-4 animate-pulse text-violeta motion-reduce:animate-none" />
+            <span className="shimmer motion-reduce:shimmer-none">Pensando…</span>
+          </p>
         )}
         <BloquesDelMensaje
           bloques={mensaje.bloques}
