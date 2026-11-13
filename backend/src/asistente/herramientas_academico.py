@@ -30,6 +30,7 @@ from src.familias_alumnos.models import Alumno
 from src.inscripciones.models import Asistencia, Inscripcion, SolicitudInscripcion
 
 _MAX_DIAS_TENDENCIA = 366
+_MAX_DIAS_POR_DIA = 62
 
 
 class ParametrosCiclo(BaseModel):
@@ -105,10 +106,15 @@ class ParametrosTendencia(BaseModel):
         default=None, description="Inicio, AAAA-MM-DD. Por defecto, 30 días atrás."
     )
     hasta: date | None = Field(default=None, description="Fin, AAAA-MM-DD. Por defecto, hoy.")
-    agrupar_por: Literal["semana", "mes"] = "semana"
+    agrupar_por: Literal["dia", "semana", "mes"] = Field(
+        default="semana",
+        description="`dia` para un día puntual o pocos días (hasta 62 días de período).",
+    )
 
 
 def _clave_periodo(dia: date, agrupar_por: str) -> str:
+    if agrupar_por == "dia":
+        return dia.isoformat()
     if agrupar_por == "mes":
         return f"{dia.year}-{dia.month:02d}"
     lunes = dia - timedelta(days=dia.weekday())
@@ -124,6 +130,12 @@ def _tendencia_asistencias(
     if desde > hasta or (hasta - desde).days > _MAX_DIAS_TENDENCIA:
         return ResultadoHerramienta(
             para_llm={"error": "El período es inválido o supera un año. Pedí uno más corto."}
+        )
+    if parametros.agrupar_por == "dia" and (hasta - desde).days >= _MAX_DIAS_POR_DIA:
+        return ResultadoHerramienta(
+            para_llm={
+                "error": "Por día solo se pueden pedir hasta 62 días. Agrupá por semana o mes."
+            }
         )
     registros = contexto.db.execute(
         select(Asistencia.fecha, Asistencia.tipo, func.count(Asistencia.id))
@@ -324,8 +336,9 @@ HERRAMIENTAS = [
     Herramienta(
         nombre="tendencia_asistencias",
         descripcion=(
-            "Asistencia de toda la institución agrupada por semana o mes. Distingue períodos sin "
-            "registros de un 0 % de presencia."
+            "Asistencia de toda la institución agrupada por día, semana o mes, de cualquier "
+            "período pasado (también 'ayer'). Distingue períodos sin registros de un 0 % de "
+            "presencia."
         ),
         parametros=ParametrosTendencia,
         permisos=(PERMISO_ACADEMICO_LEER,),

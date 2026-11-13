@@ -61,6 +61,27 @@ class TestAsistencias:
         porcentajes = [p["porcentaje_presencia"] for p in resultado["periodos"] if p["registros"]]
         assert porcentajes == [0.0]
 
+    def test_agrupa_por_dia_un_dia_pasado(self, direccion, proveedor, personas, asistencias):
+        ayer = date.today() - timedelta(days=1)
+        correr(
+            direccion,
+            proveedor,
+            "tendencia_asistencias",
+            {"agrupar_por": "dia", "desde": ayer.isoformat(), "hasta": ayer.isoformat()},
+        )
+        (fila,) = resultado_de_herramienta(proveedor)["periodos"]
+        assert fila["periodo"] == ayer.isoformat()
+        assert fila["registros"] == 1
+
+    def test_por_dia_rechaza_periodos_largos(self, direccion, proveedor, personas):
+        correr(
+            direccion,
+            proveedor,
+            "tendencia_asistencias",
+            {"agrupar_por": "dia", "desde": "2026-01-01", "hasta": "2026-06-01"},
+        )
+        assert "error" in resultado_de_herramienta(proveedor)
+
     def test_periodo_invertido_devuelve_error(self, direccion, proveedor, personas):
         correr(
             direccion,
