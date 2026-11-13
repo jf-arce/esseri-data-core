@@ -2,6 +2,8 @@ import json
 from datetime import date, timedelta
 
 from tests.asistente.conftest import (
+    APELLIDO_ALUMNA,
+    NOMBRE_ALUMNA,
     enviar,
     eventos,
     nueva_conversacion,
@@ -90,6 +92,28 @@ class TestAsistencias:
             {"desde": "2026-05-01", "hasta": "2026-04-01"},
         )
         assert "error" in resultado_de_herramienta(proveedor)
+
+
+class TestAusentesDelDia:
+    def test_devuelve_alias_y_curso_sin_nombres(self, direccion, proveedor, personas, asistencias):
+        ayer = date.today() - timedelta(days=1)
+        correr(direccion, proveedor, "ausentes_del_dia", {"fecha": ayer.isoformat()})
+
+        resultado = resultado_de_herramienta(proveedor)
+        assert resultado["ausentes_en_total"] == 1
+        (fila,) = resultado["ausentes"]
+        assert fila["alumno"] == "[ALUMNO:1]"
+        assert fila["tipo"] == "injustificado"
+        assert fila["curso"] == "Primaria 5A"
+        assert NOMBRE_ALUMNA not in json.dumps(resultado)
+        assert APELLIDO_ALUMNA not in json.dumps(resultado)
+
+    def test_un_dia_sin_ausentes_devuelve_cero(self, direccion, proveedor, personas, asistencias):
+        correr(direccion, proveedor, "ausentes_del_dia", {"fecha": "2020-01-01"})
+
+        resultado = resultado_de_herramienta(proveedor)
+        assert resultado["ausentes_en_total"] == 0
+        assert resultado["ausentes"] == []
 
 
 class TestEvolucionFinanciera:

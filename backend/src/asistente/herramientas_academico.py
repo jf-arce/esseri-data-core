@@ -209,6 +209,74 @@ def _tendencia_asistencias(
     )
 
 
+_TIPOS_AUSENTE = ("ausente_pendiente", "ausente_justificado", "ausente_injustificado")
+
+
+class ParametrosAusentes(BaseModel):
+    fecha: date | None = Field(default=None, description="Día, AAAA-MM-DD. Por defecto, hoy.")
+    limite: int = Field(default=20, ge=1, le=100, description="Cuántos alumnos devolver.")
+
+
+def _ausentes_del_dia(
+    contexto: ContextoHerramienta, parametros: ParametrosAusentes
+) -> ResultadoHerramienta:
+    dia = parametros.fecha or contexto.hoy
+    limite = min(parametros.limite, contexto.max_filas)
+    condiciones = (Asistencia.fecha == dia, Asistencia.tipo.in_(_TIPOS_AUSENTE))
+    total = contexto.db.execute(select(func.count(Asistencia.id)).where(*condiciones)).scalar_one()
+    registros = contexto.db.execute(
+        select(
+            Inscripcion.alumno_id,
+            Asistencia.tipo,
+            NivelEducativo.nombre,
+            Anio.numero,
+            Division.nombre,
+        )
+        .select_from(Asistencia)
+        .join(Inscripcion, Inscripcion.id == Asistencia.inscripcion_id)
+        .join(Division, Division.id == Inscripcion.division_id)
+        .join(Anio, Anio.id == Division.anio_id)
+        .join(NivelEducativo, NivelEducativo.id == Anio.nivel_educativo_id)
+        .where(*condiciones)
+        .order_by(NivelEducativo.nombre, Anio.numero, Division.nombre, Inscripcion.alumno_id)
+        .limit(limite)
+    ).all()
+    filas = [
+        {
+            "alumno": obtener_o_crear_alias(
+                contexto.db, contexto.conversacion_id, TIPO_ALIAS_ALUMNO, alumno_id
+            ),
+            "tipo": tipo.removeprefix("ausente_"),
+            "curso": f"{nivel} {anio}{division}",
+        }
+        for alumno_id, tipo, nivel, anio, division in registros
+    ]
+    periodo = dia.isoformat()
+    fuente = "Asistencias (Inscripciones)"
+    return ResultadoHerramienta(
+        para_llm={
+            "periodo": periodo,
+            "fuente": fuente,
+            "ausentes_en_total": total,
+            "alumnos_devueltos": len(filas),
+            "ausentes": filas,
+        },
+        bloques=[
+            bloque_tabla(
+                "Ausentes del día",
+                [
+                    {"clave": "alumno", "etiqueta": "Alumno", "tipo": "alias"},
+                    {"clave": "curso", "etiqueta": "Curso", "tipo": "texto"},
+                    {"clave": "tipo", "etiqueta": "Tipo", "tipo": "texto"},
+                ],
+                filas,
+                periodo=periodo,
+                fuente=fuente,
+            )
+        ],
+    )
+
+
 class ParametrosFichaAlumno(BaseModel):
     alias: str = Field(description="Alias del alumno, por ejemplo [ALUMNO:1].")
 
@@ -343,6 +411,17 @@ HERRAMIENTAS = [
         parametros=ParametrosTendencia,
         permisos=(PERMISO_ACADEMICO_LEER,),
         ejecutar=_tendencia_asistencias,
+    ),
+    Herramienta(
+        nombre="ausentes_del_dia",
+        descripcion=(
+            "Alumnos ausentes en un día puntual, hoy o pasado (también 'ayer'), con curso y "
+            "tipo de ausencia. Cada alumno viene como alias, sin nombre ni DNI. Para solo la "
+            "cantidad usá tendencia_asistencias."
+        ),
+        parametros=ParametrosAusentes,
+        permisos=(PERMISO_ACADEMICO_LEER, PERMISO_FAMILIAS_ALUMNOS_LEER),
+        ejecutar=_ausentes_del_dia,
     ),
     Herramienta(
         nombre="ficha_alumno",

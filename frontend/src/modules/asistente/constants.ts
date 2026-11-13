@@ -23,6 +23,7 @@ export const ETIQUETA_HERRAMIENTA: Record<string, string> = {
   deuda_por_familias: 'Consultando la deuda por familia',
   resumen_inscripciones: 'Consultando inscripciones',
   tendencia_asistencias: 'Consultando asistencias',
+  ausentes_del_dia: 'Consultando los ausentes del día',
   ficha_alumno: 'Consultando la ficha del alumno',
   tareas_y_ejecuciones_pendientes: 'Consultando tareas y ejecuciones',
   buscar_recurso: 'Buscando',
