@@ -1,3 +1,4 @@
+import { motion, MotionConfig } from 'motion/react'
 import { ArrowRightIcon, RotateCcwIcon, SparklesIcon, TriangleAlertIcon } from 'lucide-react'
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import { Button } from '@/components/ui/button'
@@ -14,6 +15,7 @@ import type { AliasResuelto, Bloque, BloqueNavegar, MensajeVisible } from '../ty
 import { BloqueKpiVista } from './bloque-kpi'
 import { AccionesDelMensaje } from './acciones-del-mensaje'
 import { BloqueTablaVista } from './bloque-tabla'
+import { CursorEscritura, PuntosPensando } from './indicadores-de-carga'
 import { PasosDelMensaje } from './pasos-del-mensaje'
 import { TarjetaRecurso } from './tarjeta-recurso'
 import { TextoConAlias } from './texto-con-alias'
@@ -43,69 +45,92 @@ export function ListaMensajes({
 }: ListaMensajesProps) {
   if (mensajes.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-        <span className="flex size-10 items-center justify-center rounded-full bg-lienzo text-violeta">
-          <SparklesIcon className="size-5" />
-        </span>
-        <p className="text-sm font-medium text-texto">¿En qué te ayudo?</p>
-        <p className="text-sm text-texto-3">
-          Preguntá por indicadores, deuda, asistencias o inscripciones, o pedime que te lleve a una
-          pantalla. Con @ mencionás a un alumno o una familia.
-        </p>
-        {sugerencias.length > 0 && (
-          <div className="mt-2 flex flex-wrap justify-center gap-2">
-            {sugerencias.map((texto) => (
-              <Button
-                key={texto}
-                type="button"
-                size="sm"
-                variant="secondary"
-                className="rounded-full"
-                onClick={() => alSugerir(texto)}
-              >
-                {texto}
-              </Button>
-            ))}
-          </div>
-        )}
-      </div>
+      <MotionConfig reducedMotion="user">
+        <motion.div
+          className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+        >
+          <span className="flex size-10 items-center justify-center rounded-full bg-lienzo text-violeta">
+            <SparklesIcon className="size-5" />
+          </span>
+          <p className="text-sm font-medium text-texto">¿En qué te ayudo?</p>
+          <p className="text-sm text-texto-3">
+            Preguntá por indicadores, deuda, asistencias o inscripciones, o pedime que te lleve a
+            una pantalla. Con @ mencionás a un alumno o una familia.
+          </p>
+          {sugerencias.length > 0 && (
+            <div className="mt-2 flex flex-wrap justify-center gap-2">
+              {sugerencias.map((texto, indice) => (
+                <motion.div
+                  key={texto}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, delay: 0.1 + indice * 0.06, ease: 'easeOut' }}
+                >
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="rounded-full"
+                    onClick={() => alSugerir(texto)}
+                  >
+                    {texto}
+                  </Button>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </motion.div>
+      </MotionConfig>
     )
   }
 
   return (
-    <MessageScrollerProvider>
-      <MessageScroller className="flex-1" aria-live="polite">
-        <MessageScrollerViewport>
-          <MessageScrollerContent className="gap-5 px-4 py-4">
-            {mensajes.map((mensaje) => (
-              <MessageScrollerItem key={mensaje.id} messageId={mensaje.id}>
-                {mensaje.autor === 'usuario' ? (
-                  <Message align="end">
-                    <MessageContent>
-                      <Bubble variant="muted" align="end">
-                        <BubbleContent>
-                          <TextoConAlias texto={mensaje.contenido} porAlias={porAlias} />
-                        </BubbleContent>
-                      </Bubble>
-                    </MessageContent>
-                  </Message>
-                ) : (
-                  <MensajeDelAsistente
-                    mensaje={mensaje}
-                    porAlias={porAlias}
-                    alElegir={alElegir}
-                    alIr={alIr}
-                    // Solo el último mensaje se puede reintentar.
-                    alReintentar={mensaje === mensajes[mensajes.length - 1] ? alReintentar : null}
-                  />
-                )}
-              </MessageScrollerItem>
-            ))}
-          </MessageScrollerContent>
-        </MessageScrollerViewport>
-        <MessageScrollerButton />
-      </MessageScroller>
-    </MessageScrollerProvider>
+    <MotionConfig reducedMotion="user">
+      <MessageScrollerProvider>
+        <MessageScroller className="flex-1" aria-live="polite">
+          <MessageScrollerViewport>
+            <MessageScrollerContent className="gap-5 px-4 py-4">
+              {mensajes.map((mensaje) => (
+                <MessageScrollerItem key={mensaje.id} messageId={mensaje.id}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                  >
+                    {mensaje.autor === 'usuario' ? (
+                      <Message align="end">
+                        <MessageContent>
+                          <Bubble variant="muted" align="end">
+                            <BubbleContent>
+                              <TextoConAlias texto={mensaje.contenido} porAlias={porAlias} />
+                            </BubbleContent>
+                          </Bubble>
+                        </MessageContent>
+                      </Message>
+                    ) : (
+                      <MensajeDelAsistente
+                        mensaje={mensaje}
+                        porAlias={porAlias}
+                        alElegir={alElegir}
+                        alIr={alIr}
+                        // Solo el último mensaje se puede reintentar.
+                        alReintentar={
+                          mensaje === mensajes[mensajes.length - 1] ? alReintentar : null
+                        }
+                      />
+                    )}
+                  </motion.div>
+                </MessageScrollerItem>
+              ))}
+            </MessageScrollerContent>
+          </MessageScrollerViewport>
+          <MessageScrollerButton />
+        </MessageScroller>
+      </MessageScrollerProvider>
+    </MotionConfig>
   )
 }
 
@@ -124,8 +149,8 @@ function MensajeDelAsistente({
       <MessageContent>
         <PasosDelMensaje pasos={mensaje.pasos} herramienta={mensaje.herramienta} />
         {generando && mensaje.contenido === '' && mensaje.herramienta === null && (
-          <p className="flex items-center gap-2 text-sm text-texto-3">
-            <SparklesIcon className="size-4 animate-pulse text-violeta motion-reduce:animate-none" />
+          <p className="flex items-center gap-2.5 text-sm text-texto-3">
+            <PuntosPensando />
             <span className="shimmer motion-reduce:shimmer-none">Pensando…</span>
           </p>
         )}
@@ -138,6 +163,7 @@ function MensajeDelAsistente({
         {mensaje.contenido !== '' && (
           <TextoMarkdown texto={mensaje.contenido} porAlias={porAlias} />
         )}
+        {generando && mensaje.contenido !== '' && <CursorEscritura />}
         {!generando && mensaje.contenido !== '' && (
           <AccionesDelMensaje
             contenido={mensaje.contenido}
