@@ -28,9 +28,10 @@ Qué puede responder hoy: indicadores generales, evolución de facturado y cobra
 |---|---|
 | `router.py` | API bajo `/asistente`. El envío de un mensaje responde por SSE. |
 | `service.py` | El prompt del sistema, el loop de herramientas, la persistencia por paso, la cuota, los errores para el usuario. |
-| `seudonimos_service.py` | Privacidad: alias, limpieza de la entrada, filtro de alias en el texto que vuelve, resolución de nombres. |
+| `seudonimos_service.py` | Privacidad: alias, limpieza de la entrada (menciones de alumno, familia, docente y curso), alias del contexto de pantalla, filtro de alias en el texto que vuelve, resolución de nombres. |
+| `exportar_tabla_service.py` | Descarga de una tabla de la conversación en CSV o Excel, con los alias resueltos según el permiso. |
 | `herramientas.py` | Registro de herramientas, ejecución con validación de permisos y de argumentos, pantalla sugerida. |
-| `herramientas_base.py` | Contrato de una herramienta, bloques de salida (`kpi`, `tabla`, `tarjeta`) y formatos (`fecha_ar`, `numero`, ...). |
+| `herramientas_base.py` | Contrato de una herramienta, bloques de salida (`kpi`, `tabla`, `grafico`, `tarjeta`) y formatos (`fecha_ar`, `numero`, ...). |
 | `herramientas_indicadores.py`, `_finanzas.py`, `_academico.py`, `_cursos.py`, `_workflows.py`, `_navegacion.py` | Las herramientas, agrupadas por dominio. |
 | `models.py`, `schemas.py`, `constants.py`, `exceptions.py`, `dependencies.py` | Modelos, esquemas, constantes (eventos, tipos de alias, estados), excepciones y dependencias de FastAPI. |
 | `retencion_job.py` | Borra conversaciones sin actividad. |
@@ -44,11 +45,13 @@ Qué puede responder hoy: indicadores generales, evolución de facturado y cobra
 | `components/asistente-panel.tsx` | Contenido del panel: encabezado, lista de mensajes, entrada. Resuelve alias y arma los botones de navegación. |
 | `components/lista-mensajes.tsx` | Renderiza los mensajes, la animación de entrada, el scroll y el orden texto, datos y acciones. |
 | `components/texto-markdown.tsx`, `texto-con-alias.tsx` | Texto con formato markdown y alias reemplazados por nombres. |
-| `components/bloque-kpi.tsx`, `bloque-tabla.tsx`, `tarjeta-recurso.tsx` | Indicadores, tablas y tarjetas de personas. |
+| `components/bloque-kpi.tsx`, `bloque-tabla.tsx`, `bloque-grafico.tsx`, `tarjeta-recurso.tsx` | Indicadores (con variación), tablas (ordenables, con descarga), gráficos y tarjetas de personas. |
 | `components/pasos-del-mensaje.tsx`, `indicadores-de-carga.tsx`, `acciones-del-mensaje.tsx` | Pasos consultados, loaders, copiar y reintentar. |
-| `components/entrada-mensaje.tsx`, `historial-conversaciones.tsx` | Caja de texto con menciones `@` y listado de conversaciones. |
+| `components/entrada-mensaje.tsx`, `historial-conversaciones.tsx` | Caja de texto con menciones `@` y atajos `/`, y listado de conversaciones. |
 | `hooks/use-conversacion.ts` | Estado de la conversación visible y su stream. |
 | `hooks/use-alias.ts` | Resolución de alias a nombres con caché. |
+| `hooks/use-contexto-pantalla.ts` | Ficha abierta (alumno o familia) según la URL, con su nombre para el chip "Viendo". |
+| `hooks/use-sugerencias-mencion.ts` | Sugerencias del `@`: alumnos y familias (búsqueda en el servidor), docentes y cursos (catálogo filtrado en el navegador). |
 | `hooks/use-texto-gradual.ts` | Revelado progresivo del texto mientras llega. |
 | `hooks/use-asistente-disponible.ts` | Si el backend responde 503, el botón no aparece. |
 | `services/` | Llamadas HTTP y lector del stream SSE. |
@@ -58,7 +61,7 @@ Los componentes de chat (`message`, `bubble`, `message-scroller`, `trace`, entre
 
 ## 4. Cómo se procesa un mensaje
 
-1. **Envío.** El frontend hace `POST /asistente/conversaciones/{id}/mensajes` con el texto, las menciones `@`, la ruta actual y el ciclo lectivo seleccionado.
+1. **Envío.** El frontend hace `POST /asistente/conversaciones/{id}/mensajes` con el texto, las menciones `@`, el atajo `/` elegido (`comando`), la ficha abierta (`contexto`), la ruta actual y el ciclo lectivo seleccionado.
 2. **Chequeos.** Es de quien pregunta y con su rol activo, no hay otra generación en curso (si la hay, 409), no se pasó la cuota diaria y el texto no supera el máximo.
 3. **Limpieza de la entrada.** Se aplica `preparar_entrada` (sección 5). Si un nombre escrito a mano es ambiguo, no se llama al modelo: se devuelven tarjetas para elegir.
 4. **Loop del modelo.** Se arma el contexto: el prompt del sistema, los últimos mensajes de la conversación (solo texto, nunca resultados de herramientas) y el pedido. En cada paso:
@@ -100,8 +103,8 @@ Cada herramienta declara parámetros (con esquema validado), permisos acumulativ
 | Herramienta | Permisos | Qué devuelve | Pantalla sugerida |
 |---|---|---|---|
 | `indicadores_generales` | `panel_administrativo.leer` | Solo los indicadores pedidos (alumnos activos, inasistencias del día, tareas, ...). | Panel del rol |
-| `evolucion_financiera` | `panel_administrativo.leer`, `facturacion.leer` | Facturado y cobrado mes a mes. | Facturas |
-| `deuda_por_familias` | `facturacion.leer` | Familias con mayor deuda, con el total vencido de todas y la cantidad con deuda vencida. Hoy o al cierre de un día pasado. | Deuda por familia |
+| `evolucion_financiera` | `panel_administrativo.leer`, `facturacion.leer` | Facturado y cobrado mes a mes. Opcionales: `grafico` (barras, líneas o áreas; se ignora con menos de 3 períodos) y `comparar_con_anterior` (suma el período anterior de igual duración, la variación y dos indicadores con los totales). | Facturas |
+| `deuda_por_familias` | `facturacion.leer` | Familias con mayor deuda, con el total vencido de todas y la cantidad con deuda vencida. Hoy o al cierre de un día pasado; con `comparar_al`, agrega un indicador con la variación del total vencido contra esa fecha. | Deuda por familia |
 | `resumen_inscripciones` | `inscripciones.leer` | Inscripciones por tipo y estado, y admisiones en proceso. | Inscripciones |
 | `tendencia_asistencias` | `academico.leer` | Asistencia por día, semana o mes. Distingue "sin registros" de 0 %. | Historial de asistencia |
 | `ausentes_del_dia` | `academico.leer`, `familias_alumnos.leer` | Alumnos ausentes de un día (alias) con curso y tipo. | Historial de asistencia |
@@ -117,7 +120,10 @@ Cada herramienta declara parámetros (con esquema validado), permisos acumulativ
 ### Bloques de salida
 
 - **`kpi`**: un número con su unidad, período y fuente.
-- **`tabla`**: título, columnas tipadas (`texto`, `numero`, `moneda`, `porcentaje`, `alias`), filas, período y fuente. Tope de filas por `ASISTENTE_MAX_FILAS_RESULTADO` (algunas herramientas usan su propio tope y avisan si truncan).
+- **`tabla`**: título, columnas tipadas (`texto`, `numero`, `moneda`, `porcentaje`, `alias`), filas, período y fuente. Tope de filas por `ASISTENTE_MAX_FILAS_RESULTADO` (algunas herramientas usan su propio tope y avisan si truncan). En pantalla se ordena con un clic en el encabezado y se descarga en CSV o Excel (`GET /asistente/conversaciones/{id}/tablas/{tabla_id}/export?formato=csv|xlsx`): el backend busca la tabla en el mensaje, valida que la conversación sea de quien la pide y resuelve los alias con la regla de `/resolver`; sin permiso, el alias queda como texto.
+- **`grafico`**: `tabla_id`, `forma` (barras, líneas o áreas), `eje_x` y `series`. Referencia una tabla ya emitida y no repite filas (no suma tokens). Si la tabla no está entre los bloques del mensaje, no se dibuja. Hoy la forma `areas` se dibuja como líneas: `ui/echarts-line-chart.tsx` no tiene variante de área.
+- **Cuándo se usan.** Los bloques visuales no acompañan todas las respuestas: el prompt (`_SISTEMA`) pide usarlos solo cuando el dato se entiende mejor así (evolución, comparación o pedido explícito). Un test fija el tamaño máximo del prompt.
+- **`kpi` con variación.** `bloque_kpi` acepta `variacion` y `periodo_comparado`; el indicador muestra flecha y color. `variacion` en `null` significa que no había base de comparación. El modelo no calcula: la variación sale del backend y va resuelta en `para_llm`.
 - **`tarjeta`**: una persona (alumno o familia) con link a su ficha, o para elegir cuando un nombre es ambiguo.
 - **`navegar`**: botón hacia una pantalla (`destino`) o una ficha (`alias`).
 
@@ -159,7 +165,9 @@ El historial del servidor no guarda los resultados crudos de las herramientas ni
 - **Copiar.** Copia el texto y, debajo, los indicadores y las tablas, en dos formatos a la vez: texto plano (tablas con tabuladores, que Excel y Sheets separan en celdas) y HTML (una tabla real al pegar en Word, Docs o un mail).
 - **Errores.** Se muestran dentro de la burbuja con un botón "Reintentar". Los mensajes en error no cuentan para la cuota.
 - **Loaders.** Los de `ldrs` (`Trio`), con su CSS importado junto al componente.
-- **Menciones.** Con `@` se elige un alumno o una familia; el texto se cambia por su alias antes de salir.
+- **Menciones.** Con `@` se elige un alumno, una familia, un docente o un curso, agrupados por tipo. Alumnos y familias piden `familias_alumnos.leer`; docentes y cursos, `academico.leer`. Las personas se cambian por su alias antes de salir; un curso no es un dato personal y viaja como `{tipo: "CURSO", entidad_id}`, que el backend reemplaza por su nombre ("5°A de Primaria"). Sin el permiso del tipo, la mención no se resuelve.
+- **Atajos `/`.** Si el mensaje empieza con `/` se abre la lista de atajos (definidos en `constants.ts`, con permisos y plantilla): `/deuda`, `/asistencia`, `/horario @curso`, `/evolucion`, `/comparar`, `/ir` y `/nueva` (limpia y abre una conversación nueva, sin llamar al modelo). Los que el rol no puede usar no se listan. Al elegir uno se inserta la plantilla y el pedido viaja con `comando`; el backend lo traduce a una herramienta (`COMANDOS_HERRAMIENTA`) y la fuerza con `tool_choice` solo en el primer paso, si el rol la tiene (si no, se ignora). Si la persona reescribe el mensaje, viaja sin atajo. La detección está en `utils.ts` (`consultaDeMencion`, `consultaDeComando`).
+- **Contexto de pantalla.** Si la URL es `familias-alumnos/alumnos/:id` o `familias/:id` y el rol tiene `familias_alumnos.leer`, el panel muestra el chip "Viendo: Juan Pérez" (se puede descartar) y envía `contexto: {tipo, entidad_id}`. El backend lo convierte en alias y lo agrega al bloque de contexto del prompt ("está viendo la ficha [ALUMNO:3]"), así "este alumno" se resuelve sin mandar el nombre. Sin permiso o con una entidad inexistente, se ignora.
 
 ## 11. Límites, cuotas y retención
 
@@ -211,7 +219,7 @@ Importante: son instrucciones al modelo, no garantías. Lo que sí está garanti
 ## 15. Fases del asistente
 
 - **Fase 1 (hecha):** consulta, análisis básico y navegación, todo de solo lectura.
-- **Fase 2 (pendiente):** motor de análisis sobre tablas de resultado, gráficos (barras, líneas, áreas), tablas ordenables con descarga en CSV o Excel, comparaciones contra el período anterior, resumen al abrir y contexto de la pantalla en que está la persona ("este alumno").
+- **Fase 2 (en curso, rama `feat/asistente-fase-2`):** hechos los gráficos (barras y líneas; las áreas se dibujan como líneas), las tablas ordenables con descarga en CSV o Excel, las comparaciones contra el período anterior (evolución financiera y deuda), el contexto de la pantalla ("este alumno") y, en el campo de texto, las menciones de docentes y cursos y los atajos `/`. Queda pendiente el resumen al abrir.
 - **Fase 3 (pendiente):** escrituras con confirmación (el asistente propone, la persona confirma con un botón, y queda auditado con `origen="asistente"`) y borradores de comunicaciones. Nunca envíos masivos directos.
 - **Fase 4 (pendiente):** administración de reglas de workflows (que nacen inactivas), ejecuciones y tareas, y revisión de sugerencias de IA.
 
