@@ -369,6 +369,7 @@ describe('PortalFamiliaTramitePage', () => {
     )
 
     await screen.findByRole('heading', { name: 'Resumen de asistencia' })
+    expect(screen.queryByText('Tenés una ausencia pendiente')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('tab', { name: 'Justificar asistencia' }))
     expect(await screen.findByText('Cubierta por solicitud')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Justificar' })).not.toBeInTheDocument()

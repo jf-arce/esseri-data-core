@@ -5,6 +5,7 @@ import { PortalLayout } from '@/layout/portal-layout'
 import { PortalFamiliaPage } from '@/pages/portal-familia-page'
 import type { AsistenciaFamilia } from '@/modules/academico/types'
 import { listarAsistenciasFamilia } from '@/modules/academico/services/listar-asistencias-familia'
+import { listarSolicitudesAusenciaFamilia } from '@/modules/academico/services/solicitudes-ausencia-familia'
 import type { UsuarioActual } from '@/modules/auth/types'
 import type { Listado } from '@/modules/comunicaciones/types'
 import { listarComunicaciones } from '@/modules/comunicaciones/services/listar-comunicaciones'
@@ -17,11 +18,13 @@ import { useAuthStore } from '@/store/auth-store'
 vi.mock('@/modules/familias-alumnos/hooks/use-mis-alumnos')
 vi.mock('@/modules/comunicaciones/services/listar-comunicaciones')
 vi.mock('@/modules/academico/services/listar-asistencias-familia')
+vi.mock('@/modules/academico/services/solicitudes-ausencia-familia')
 vi.mock('@/modules/facturacion/services/listar-facturacion-familia')
 
 const mockedUseMisAlumnos = vi.mocked(useMisAlumnos)
 const mockedListarComunicaciones = vi.mocked(listarComunicaciones)
 const mockedListarAsistencias = vi.mocked(listarAsistenciasFamilia)
+const mockedListarSolicitudes = vi.mocked(listarSolicitudesAusenciaFamilia)
 const mockedListarFacturacion = vi.mocked(listarFacturacionFamilia)
 
 const ALUMNOS = [
@@ -133,6 +136,7 @@ describe('PortalFamiliaPage', () => {
       ),
     )
     mockedListarFacturacion.mockResolvedValue(crearFacturacion())
+    mockedListarSolicitudes.mockResolvedValue([])
     useAuthStore.setState({
       usuario: crearUsuario(),
       status: 'authenticated',
@@ -173,6 +177,29 @@ describe('PortalFamiliaPage', () => {
 
   it('no muestra el aviso cuando no hay ausencias pendientes', async () => {
     mockedListarAsistencias.mockResolvedValue([])
+    renderPage()
+
+    const indicador = screen.getByRole('group', { name: 'Asistencias sin justificar' })
+    expect(await within(indicador).findByText('0')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Justificar ausencia/ })).not.toBeInTheDocument()
+  })
+
+  it('no cuenta una ausencia ya cubierta por una solicitud', async () => {
+    mockedListarSolicitudes.mockResolvedValue([
+      {
+        id: 'solicitud-1',
+        alumno_id: 'alumno-1',
+        fecha_inicio: '2027-03-15',
+        fecha_fin: '2027-03-15',
+        estado: 'pendiente',
+        motivo: 'enfermedad',
+        observacion: null,
+        observacion_resolucion: null,
+        archivo_nombre: null,
+        fecha_carga: '2027-03-15T10:00:00',
+        fecha_resolucion: null,
+      },
+    ])
     renderPage()
 
     const indicador = screen.getByRole('group', { name: 'Asistencias sin justificar' })

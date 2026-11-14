@@ -35,7 +35,7 @@ import {
   type ModoFormularioAusencia,
 } from '@/modules/academico/components/formulario-ausencia'
 import { listarAsistenciasFamilia } from '@/modules/academico/services/listar-asistencias-familia'
-import { esAusenciaPendienteDeJustificar } from '@/modules/academico/utils'
+import { esAusenciaPendienteDeJustificar, esAusenciaSinJustificar } from '@/modules/academico/utils'
 import {
   cancelarSolicitudAusencia,
   descargarComprobanteSolicitudAusencia,
@@ -200,6 +200,9 @@ export function PortalFamiliaTramitePage({
     )
   }
   const asistenciasPendientes = asistencias.filter(esPendiente)
+  const asistenciasSinJustificar = asistencias.filter(
+    (asistencia) => esAusenciaSinJustificar(asistencia) && !cubiertaPorPeriodo(asistencia.fecha),
+  )
   const asistenciasHistorial = asistencias.filter((asistencia) => !esPendiente(asistencia))
   const resumenAsistencias = resumirAsistencias(asistencias)
   const asistenciasHistorialFiltradas = useMemo(() => {
@@ -323,12 +326,12 @@ export function PortalFamiliaTramitePage({
         <PortalCard contentClassName="p-5 sm:p-6">
           {esJustificacion && alumnos.length > 0 ? (
             <div className="flex flex-col gap-4">
-              {esAsistencias && asistenciasPendientes.length > 0 && (
+              {esAsistencias && asistenciasSinJustificar.length > 0 && (
                 <PortalAlertBanner
                   titulo={
-                    asistenciasPendientes.length === 1
+                    asistenciasSinJustificar.length === 1
                       ? 'Tenés una ausencia pendiente'
-                      : `Tenés ${asistenciasPendientes.length} ausencias pendientes`
+                      : `Tenés ${asistenciasSinJustificar.length} ausencias pendientes`
                   }
                   descripcion="Podés informar el motivo de la ausencia desde el portal."
                   accion={
