@@ -1,15 +1,17 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PortalFamiliaTramitePage } from '@/pages/portal-familia-tramite-page'
 import { listarAsistenciasFamilia } from '@/modules/academico/services/listar-asistencias-familia'
 import {
   cancelarSolicitudAusencia,
   crearSolicitudAusenciaPeriodo,
   listarSolicitudesAusenciaFamilia,
+  obtenerConfiguracionAusencias,
 } from '@/modules/academico/services/solicitudes-ausencia-familia'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
 import type { AsistenciaFamilia } from '@/modules/academico/types'
+import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 
 vi.mock('@/modules/academico/services/listar-asistencias-familia')
 vi.mock('@/modules/academico/services/solicitudes-ausencia-familia')
@@ -19,6 +21,7 @@ const mockedListarAsistenciasFamilia = vi.mocked(listarAsistenciasFamilia)
 const mockedListarSolicitudesFamilia = vi.mocked(listarSolicitudesAusenciaFamilia)
 const mockedCancelarSolicitud = vi.mocked(cancelarSolicitudAusencia)
 const mockedCrearSolicitud = vi.mocked(crearSolicitudAusenciaPeriodo)
+const mockedObtenerConfiguracion = vi.mocked(obtenerConfiguracionAusencias)
 const mockedUseMisAlumnos = vi.mocked(useMisAlumnos)
 
 function crearAsistencia(overrides: Partial<AsistenciaFamilia>): AsistenciaFamilia {
@@ -42,6 +45,7 @@ describe('PortalFamiliaTramitePage', () => {
     vi.clearAllMocks()
     mockedListarSolicitudesFamilia.mockResolvedValue([])
     mockedCancelarSolicitud.mockResolvedValue({} as never)
+    mockedObtenerConfiguracion.mockResolvedValue({ dias_limite_justificacion: 45 })
     mockedUseMisAlumnos.mockReturnValue({
       alumnos: [
         {
@@ -230,7 +234,7 @@ describe('PortalFamiliaTramitePage', () => {
     expect(screen.queryByText('Consultá tus asistencias.')).not.toBeInTheDocument()
     const selectorAlumno = screen.getByLabelText('Alumno')
     expect(selectorAlumno).toHaveTextContent('Juan Gómez')
-    expect(selectorAlumno.closest('header')).toBeInTheDocument()
+    expect(selectorAlumno.closest('[data-slot="portal-familia-shell"]')).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Resumen' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('tab', { name: 'Justificar asistencia' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Historial' })).toBeInTheDocument()
@@ -404,7 +408,7 @@ describe('PortalFamiliaTramitePage', () => {
     await screen.findByRole('heading', { name: 'Resumen de asistencia' })
     fireEvent.click(screen.getByRole('button', { name: 'Informar ausencia' }))
     const dialogo = within(screen.getByRole('dialog'))
-    fireEvent.change(dialogo.getByLabelText('Desde'), { target: { value: '2027-03-15' } })
+    fireEvent.change(dialogo.getByLabelText('Desde'), { target: { value: '2026-12-05' } })
     fireEvent.click(dialogo.getByRole('combobox', { name: 'Motivo' }))
     fireEvent.click(await screen.findByRole('option', { name: 'Enfermedad' }))
     fireEvent.click(dialogo.getByRole('button', { name: 'Informar ausencia' }))
@@ -413,7 +417,7 @@ describe('PortalFamiliaTramitePage', () => {
     expect(dialogo.getByRole('button', { name: /Informar ausencia/ })).toBeDisabled()
     expect(mockedCrearSolicitud).toHaveBeenCalledWith({
       alumno_id: 'alumno-1',
-      fecha_inicio: '2027-03-15',
+      fecha_inicio: '2026-12-05',
       fecha_fin: undefined,
       motivo: 'enfermedad',
       observacion: undefined,
@@ -425,8 +429,264 @@ describe('PortalFamiliaTramitePage', () => {
     expect(dialogo.getByRole('alert')).toHaveTextContent(
       'No se pudo enviar la solicitud. Intentá de nuevo.',
     )
-    expect(dialogo.getByLabelText('Desde')).toHaveValue('2027-03-15')
+    expect(dialogo.getByLabelText('Desde')).toHaveValue('2026-12-05')
     expect(dialogo.getByRole('button', { name: 'Informar ausencia' })).toBeEnabled()
     expect(dialogo.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  describe('ventana de justificación de 45 días', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      // Mediodía en Buenos Aires: el día operativo argentino es el 13/11/2026.
+      vi.setSystemTime(new Date('2026-11-13T15:00:00Z'))
+      useCicloLectivoStore.setState({ cicloLectivo: '2026' })
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('limita la justificación a los últimos 45 días y bloquea una ausencia vieja', async () => {
+      mockedListarAsistenciasFamilia.mockResolvedValue([
+        crearAsistencia({
+          id: 'asistencia-vieja',
+          fecha: '2026-09-28',
+          tipo: 'ausente_pendiente',
+        }),
+      ])
+
+      render(
+        <MemoryRouter>
+          <PortalFamiliaTramitePage
+            titulo="Justificar una ausencia"
+            descripcion="Informá el motivo de la ausencia."
+          />
+        </MemoryRouter>,
+      )
+
+      await screen.findByRole('heading', { name: 'Pendientes' })
+      fireEvent.click(screen.getByRole('button', { name: 'Justificar' }))
+
+      const dialogo = within(screen.getByRole('dialog'))
+      expect(
+        dialogo.getByText('Solo podés justificar ausencias de los últimos 45 días.'),
+      ).toBeInTheDocument()
+      expect(
+        dialogo.getByText('La fecha debe estar dentro de los últimos 45 días.'),
+      ).toBeInTheDocument()
+      const desde = dialogo.getByLabelText('Fecha de la ausencia')
+      expect(desde).toHaveValue('2026-09-28')
+      expect(desde).toHaveAttribute('min', '2026-09-29')
+      expect(desde).toHaveAttribute('max', '2026-11-13')
+      expect(dialogo.getByRole('button', { name: 'Enviar justificación' })).toBeDisabled()
+    })
+
+    it('usa el límite configurado en el rango de fechas y el texto de ayuda', async () => {
+      mockedObtenerConfiguracion.mockResolvedValue({ dias_limite_justificacion: 10 })
+      mockedListarAsistenciasFamilia.mockResolvedValue([
+        crearAsistencia({
+          id: 'asistencia-fuera-del-limite-configurado',
+          fecha: '2026-10-30',
+          tipo: 'ausente_pendiente',
+        }),
+      ])
+
+      render(
+        <MemoryRouter>
+          <PortalFamiliaTramitePage
+            titulo="Justificar una ausencia"
+            descripcion="Informá el motivo de la ausencia."
+          />
+        </MemoryRouter>,
+      )
+
+      await screen.findByRole('heading', { name: 'Pendientes' })
+      fireEvent.click(screen.getByRole('button', { name: 'Justificar' }))
+
+      const dialogo = within(screen.getByRole('dialog'))
+      expect(
+        await dialogo.findByText('Solo podés justificar ausencias de los últimos 10 días.'),
+      ).toBeInTheDocument()
+      expect(dialogo.getByLabelText('Fecha de la ausencia')).toHaveAttribute('min', '2026-11-03')
+      expect(
+        dialogo.getByText('La fecha debe estar dentro de los últimos 10 días.'),
+      ).toBeInTheDocument()
+      expect(dialogo.getByRole('button', { name: 'Enviar justificación' })).toBeDisabled()
+    })
+
+    it('bloquea una justificación con fecha futura', async () => {
+      mockedListarAsistenciasFamilia.mockResolvedValue([
+        crearAsistencia({
+          id: 'asistencia-futura',
+          fecha: '2026-11-20',
+          tipo: 'ausente_pendiente',
+        }),
+      ])
+
+      render(
+        <MemoryRouter>
+          <PortalFamiliaTramitePage
+            titulo="Justificar una ausencia"
+            descripcion="Informá el motivo de la ausencia."
+          />
+        </MemoryRouter>,
+      )
+
+      await screen.findByRole('heading', { name: 'Pendientes' })
+      fireEvent.click(screen.getByRole('button', { name: 'Justificar' }))
+
+      const dialogo = within(screen.getByRole('dialog'))
+      expect(
+        dialogo.getByText('La fecha debe estar dentro de los últimos 45 días.'),
+      ).toBeInTheDocument()
+      expect(dialogo.getByLabelText('Fecha de la ausencia')).toHaveAttribute('max', '2026-11-13')
+      expect(dialogo.getByRole('button', { name: 'Enviar justificación' })).toBeDisabled()
+    })
+
+    it('permite justificar una ausencia dentro de los últimos 45 días', async () => {
+      mockedListarAsistenciasFamilia.mockResolvedValue([
+        crearAsistencia({
+          id: 'asistencia-reciente',
+          fecha: '2026-10-30',
+          tipo: 'ausente_pendiente',
+        }),
+      ])
+      mockedCrearSolicitud.mockResolvedValue({} as never)
+
+      render(
+        <MemoryRouter>
+          <PortalFamiliaTramitePage
+            titulo="Justificar una ausencia"
+            descripcion="Informá el motivo de la ausencia."
+          />
+        </MemoryRouter>,
+      )
+
+      await screen.findByRole('heading', { name: 'Pendientes' })
+      fireEvent.click(screen.getByRole('button', { name: 'Justificar' }))
+
+      const dialogo = within(screen.getByRole('dialog'))
+      expect(
+        dialogo.queryByText('La fecha debe estar dentro de los últimos 45 días.'),
+      ).not.toBeInTheDocument()
+      fireEvent.click(dialogo.getByRole('combobox', { name: 'Motivo' }))
+      fireEvent.click(await screen.findByRole('option', { name: 'Enfermedad' }))
+      const enviar = dialogo.getByRole('button', { name: 'Enviar justificación' })
+      expect(enviar).toBeEnabled()
+      fireEvent.click(enviar)
+
+      await vi.waitFor(() =>
+        expect(mockedCrearSolicitud).toHaveBeenCalledWith(
+          expect.objectContaining({ fecha_inicio: '2026-10-30', motivo: 'enfermedad' }),
+        ),
+      )
+    })
+
+    it('mantiene la validación de fecha final anterior a la inicial', async () => {
+      mockedListarAsistenciasFamilia.mockResolvedValue([
+        crearAsistencia({
+          id: 'asistencia-rango',
+          fecha: '2026-11-10',
+          tipo: 'ausente_pendiente',
+        }),
+      ])
+
+      render(
+        <MemoryRouter>
+          <PortalFamiliaTramitePage
+            titulo="Justificar una ausencia"
+            descripcion="Informá el motivo de la ausencia."
+          />
+        </MemoryRouter>,
+      )
+
+      await screen.findByRole('heading', { name: 'Pendientes' })
+      fireEvent.click(screen.getByRole('button', { name: 'Justificar' }))
+
+      const dialogo = within(screen.getByRole('dialog'))
+      fireEvent.change(dialogo.getByLabelText(/^Hasta/), { target: { value: '2026-11-05' } })
+      expect(
+        dialogo.getByText('La fecha final no puede ser anterior a la inicial.'),
+      ).toBeInTheDocument()
+      fireEvent.click(dialogo.getByRole('combobox', { name: 'Motivo' }))
+      fireEvent.click(await screen.findByRole('option', { name: 'Enfermedad' }))
+      expect(dialogo.getByRole('button', { name: 'Enviar justificación' })).toBeDisabled()
+    })
+
+    it('mantiene el aviso de ausencia dentro del ciclo lectivo', async () => {
+      mockedListarAsistenciasFamilia.mockResolvedValue([])
+      mockedCrearSolicitud.mockResolvedValue({} as never)
+
+      render(
+        <MemoryRouter>
+          <PortalFamiliaTramitePage titulo="Asistencias" descripcion="Consultá tus asistencias." />
+        </MemoryRouter>,
+      )
+
+      await screen.findByRole('heading', { name: 'Resumen de asistencia' })
+      fireEvent.click(screen.getByRole('button', { name: 'Informar ausencia' }))
+
+      const dialogo = within(screen.getByRole('dialog'))
+      expect(
+        dialogo.getByText('Informá una fecha o un período desde hoy y dentro del ciclo lectivo.'),
+      ).toBeInTheDocument()
+      const desde = dialogo.getByLabelText('Desde')
+      expect(desde).toHaveAttribute('min', '2026-11-13')
+      expect(desde).toHaveAttribute('max', '2026-12-31')
+      expect(dialogo.getByLabelText(/^Hasta/)).toHaveAttribute('max', '2026-12-31')
+      expect(dialogo.queryByText('La fecha debe estar dentro de los últimos 45 días.')).toBeNull()
+
+      fireEvent.change(desde, { target: { value: '2026-12-01' } })
+      fireEvent.click(dialogo.getByRole('combobox', { name: 'Motivo' }))
+      fireEvent.click(await screen.findByRole('option', { name: 'Enfermedad' }))
+      fireEvent.click(dialogo.getByRole('button', { name: 'Informar ausencia' }))
+
+      await vi.waitFor(() =>
+        expect(mockedCrearSolicitud).toHaveBeenCalledWith(
+          expect.objectContaining({ fecha_inicio: '2026-12-01' }),
+        ),
+      )
+    })
+
+    it('bloquea un aviso de ausencia con fecha del ciclo siguiente', async () => {
+      mockedListarAsistenciasFamilia.mockResolvedValue([])
+
+      render(
+        <MemoryRouter>
+          <PortalFamiliaTramitePage titulo="Asistencias" descripcion="Consultá tus asistencias." />
+        </MemoryRouter>,
+      )
+
+      await screen.findByRole('heading', { name: 'Resumen de asistencia' })
+      fireEvent.click(screen.getByRole('button', { name: 'Informar ausencia' }))
+
+      const dialogo = within(screen.getByRole('dialog'))
+      fireEvent.change(dialogo.getByLabelText('Desde'), { target: { value: '2027-01-10' } })
+      expect(
+        dialogo.getByText('La fecha debe pertenecer al ciclo lectivo actual.'),
+      ).toBeInTheDocument()
+      fireEvent.click(dialogo.getByRole('combobox', { name: 'Motivo' }))
+      fireEvent.click(await screen.findByRole('option', { name: 'Enfermedad' }))
+      expect(dialogo.getByRole('button', { name: 'Informar ausencia' })).toBeDisabled()
+      expect(mockedCrearSolicitud).not.toHaveBeenCalled()
+    })
+
+    it('toma el cierre del ciclo lectivo desde el store compartido', async () => {
+      useCicloLectivoStore.setState({ cicloLectivo: '2027' })
+      mockedListarAsistenciasFamilia.mockResolvedValue([])
+
+      render(
+        <MemoryRouter>
+          <PortalFamiliaTramitePage titulo="Asistencias" descripcion="Consultá tus asistencias." />
+        </MemoryRouter>,
+      )
+
+      await screen.findByRole('heading', { name: 'Resumen de asistencia' })
+      fireEvent.click(screen.getByRole('button', { name: 'Informar ausencia' }))
+
+      const dialogo = within(screen.getByRole('dialog'))
+      expect(dialogo.getByLabelText('Desde')).toHaveAttribute('max', '2027-12-31')
+      expect(dialogo.getByLabelText(/^Hasta/)).toHaveAttribute('max', '2027-12-31')
+    })
   })
 })

@@ -630,3 +630,14 @@ def test_administrador_del_sistema_cubre_todos_los_modulos_y_publica(client, esc
     )
     assert client.post("/comunicaciones/vista-previa", json=datos(ids)).status_code == 200
     assert client.post(f"/comunicaciones/{draft['id']}/publicar").status_code == 200
+
+
+def test_listado_busca_asunto_ignorando_tildes_y_mayusculas(client, escenario):
+    ids, _ = escenario
+    propia = crear(client, ids, asunto="Reunión de familias")
+    crear(client, ids, asunto="Boletines de mayo")
+
+    for termino in ("reunion", "REUNIÓN", "Reunión"):
+        listado = client.get("/comunicaciones", params={"buscar": termino}).json()
+        assert listado["total"] == 1
+        assert [item["id"] for item in listado["items"]] == [propia["id"]]

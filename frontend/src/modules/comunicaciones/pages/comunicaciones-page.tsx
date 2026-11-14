@@ -3,6 +3,8 @@ import { Link } from 'react-router'
 import { PlusIcon, SearchIcon } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
 import { PaginadorServidor } from '@/components/paginador-servidor'
+import { PortalFamiliaShell } from '@/components/portal-familia/portal-familia-shell'
+import { PortalCard } from '@/components/portal-familia/portal-familia-ui'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -60,7 +62,7 @@ export function ComunicacionesPage({
   useEffect(() => {
     const controller = new AbortController()
     const estado = filtro === 'todas' ? undefined : filtro
-    listarComunicaciones(familia, pagina, buscar, noLeidas, controller.signal, docente, estado)
+    listarComunicaciones(familia, pagina, buscar, noLeidas, controller.signal, docente, estado, familia ? 5 : undefined)
       .then((data) => {
         if (!controller.signal.aborted) {
           setDatos(data)
@@ -77,28 +79,9 @@ export function ComunicacionesPage({
     : docente
       ? '/docente/comunicaciones'
       : '/comunicaciones'
-  return (
-    <section className="mx-auto flex w-full max-w-6xl flex-col gap-5">
-      <PageHeader
-        titulo="Comunicaciones"
-        accion={
-          !familia && (
-            <Button asChild>
-              <Link to={`${base}/nueva`}>
-                <PlusIcon aria-hidden className="size-4" />
-                Nueva comunicación
-              </Link>
-            </Button>
-          )
-        }
-      />
-      <p className="text-sm text-texto-2">
-        {familia
-          ? 'Avisos institucionales y de curso para los responsables de tus alumnos a cargo.'
-          : docente
-            ? 'Comunicados para tus cursos asignados y borradores propios.'
-            : 'Creá y gestioná las comunicaciones del colegio.'}
-      </p>
+
+  const contenido = (
+    <>
       {!familia && (
         <Tabs
           value={filtro}
@@ -114,12 +97,25 @@ export function ComunicacionesPage({
           </TabsList>
         </Tabs>
       )}
-      <div className="flex flex-wrap items-center gap-4">
+      <div
+        className={
+          familia
+            ? 'flex flex-wrap items-center gap-4 rounded-[20px] bg-white p-4 shadow-[0_10px_26px_rgba(24,16,40,0.08)]'
+            : 'flex flex-wrap items-center gap-4'
+        }
+      >
         <div className="relative min-w-0 flex-1">
-          <SearchIcon aria-hidden className="absolute top-2.5 left-3 size-4 text-texto-3" />
+          <SearchIcon
+            aria-hidden
+            className={`absolute top-2.5 left-3 size-4 ${familia ? 'text-[#8C8599]' : 'text-texto-3'}`}
+          />
           <Input
             aria-label="Buscar comunicaciones"
-            className="pl-9"
+            className={
+              familia
+                ? 'rounded-xl border-[#E7DDF1] bg-[#FBF9FE] pl-9 text-[#2B2338]'
+                : 'pl-9'
+            }
             value={buscar}
             onChange={(e) => {
               setBuscar(e.target.value)
@@ -128,7 +124,7 @@ export function ComunicacionesPage({
           />
         </div>
         {familia && (
-          <Label className="flex items-center gap-2">
+          <Label className="flex items-center gap-2 text-[#2B2338]">
             <Checkbox
               checked={noLeidas}
               onCheckedChange={(v) => {
@@ -144,52 +140,74 @@ export function ComunicacionesPage({
         <Alert variant="error">
           <AlertDescription>
             No se pudieron cargar las comunicaciones.{' '}
-            <Button variant="secondary" onClick={() => setRevision((v) => v + 1)}>
+            <Button
+              variant="secondary"
+              className={familia ? 'rounded-full' : undefined}
+              onClick={() => setRevision((v) => v + 1)}
+            >
               Reintentar
             </Button>
           </AlertDescription>
         </Alert>
       ) : !datos ? (
-        <Skeleton className="h-40 w-full" aria-label="Cargando comunicaciones" />
+        <Skeleton
+          className={familia ? 'h-40 w-full rounded-[24px]' : 'h-40 w-full'}
+          aria-label="Cargando comunicaciones"
+        />
       ) : datos.items.length === 0 ? (
-        <p role="status" className="rounded-panel bg-superficie p-8 text-texto-2 shadow-card">
+        <p
+          role="status"
+          className={
+            familia
+              ? 'rounded-[24px] bg-white p-8 text-[#6B6478] shadow-[0_14px_34px_rgba(24,16,40,0.12)]'
+              : 'rounded-panel bg-superficie p-8 text-texto-2 shadow-card'
+          }
+        >
           No hay comunicaciones para mostrar.
         </p>
       ) : familia ? (
-        <ul className="divide-y divide-borde overflow-hidden rounded-panel bg-superficie shadow-card">
-          {datos.items.map((c) => (
-            <li key={c.id}>
-              <Link
-                to={`${base}/${c.id}`}
-                className={`flex flex-wrap items-center justify-between gap-3 p-5 focus-visible:outline-2 focus-visible:outline-violeta ${
-                  c.leida_at ? 'hover:bg-fila-hover' : 'bg-violeta-suave/60 hover:bg-violeta-suave'
-                }`}
-              >
-                <span className="min-w-0">
-                  <span className="flex items-start gap-2">
-                    {!c.leida_at && (
+        <PortalCard contentClassName="p-0">
+          <ul className="divide-y divide-[#F0EAF6]">
+            {datos.items.map((c) => (
+              <li key={c.id}>
+                <Link
+                  to={`${base}/${c.id}`}
+                  className={`flex flex-wrap items-center justify-between gap-3 px-5 py-4 transition-colors focus-visible:outline-2 focus-visible:outline-[#7A2FA8] ${
+                    c.leida_at ? 'hover:bg-[#F7F2FC]' : 'bg-[#F5E9FD] hover:bg-[#EFDFFB]'
+                  }`}
+                >
+                  <span className="min-w-0">
+                    <span className="flex items-start gap-2">
+                      {!c.leida_at && (
+                        <span
+                          aria-hidden="true"
+                          className="mt-1.5 size-2 shrink-0 rounded-full bg-[#7A2FA8]"
+                        />
+                      )}
                       <span
-                        aria-hidden="true"
-                        className="mt-1.5 size-1.5 shrink-0 rounded-full bg-violeta"
-                      />
-                    )}
+                        className={`block break-words ${
+                          c.leida_at
+                            ? 'font-medium text-[#6B6478]'
+                            : 'font-bold text-[#241A33]'
+                        }`}
+                      >
+                        {c.asunto}
+                      </span>
+                    </span>
                     <span
-                      className={`block font-semibold break-words ${c.leida_at ? 'text-texto-2' : 'text-texto'}`}
+                      className={`text-sm text-[#6B6478] ${c.leida_at ? '' : 'pl-3.5'}`}
                     >
-                      {c.asunto}
+                      {c.tipo === 'curso' ? (c.emisor ?? 'Colegio ESSERI') : ETIQUETAS_TIPO[c.tipo]}
                     </span>
                   </span>
-                  <span className={`text-sm text-texto-2 ${c.leida_at ? '' : 'pl-3.5'}`}>
-                    {c.tipo === 'curso' ? (c.emisor ?? 'Colegio ESSERI') : ETIQUETAS_TIPO[c.tipo]}
-                  </span>
-                </span>
-                <Badge variant={c.leida_at ? 'neutro' : 'info'}>
-                  {c.leida_at ? 'Leída' : 'No leída'}
-                </Badge>
-              </Link>
-            </li>
-          ))}
-        </ul>
+                  <Badge variant={c.leida_at ? 'neutro' : 'info'}>
+                    {c.leida_at ? 'Leída' : 'No leída'}
+                  </Badge>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </PortalCard>
       ) : (
         <div className="overflow-x-auto rounded-panel bg-superficie shadow-card">
           <Table minWidth="min-w-[1080px]">
@@ -248,15 +266,66 @@ export function ComunicacionesPage({
         </div>
       )}
       {datos && !error && (
-        <PaginadorServidor
-          pagina={pagina}
-          tamanioPagina={10}
-          total={datos.total}
-          totalPaginas={datos.total_paginas}
-          onCambiarPagina={setPagina}
-          etiqueta="comunicaciones"
-        />
+        familia ? (
+          <div className="rounded-[16px] bg-white px-4 py-2 shadow-[0_10px_26px_rgba(24,16,40,0.08)]">
+            <PaginadorServidor
+              pagina={pagina}
+              tamanioPagina={5}
+              total={datos.total}
+              totalPaginas={datos.total_paginas}
+              onCambiarPagina={setPagina}
+              etiqueta="comunicaciones"
+            />
+          </div>
+        ) : (
+          <PaginadorServidor
+            pagina={pagina}
+            tamanioPagina={10}
+            total={datos.total}
+            totalPaginas={datos.total_paginas}
+            onCambiarPagina={setPagina}
+            etiqueta="comunicaciones"
+          />
+        )
       )}
+    </>
+  )
+
+  if (familia) {
+    return (
+      <section className="flex w-full flex-col">
+        <PortalFamiliaShell
+          titulo="Comunicaciones"
+          descripcion="Avisos institucionales y de curso"
+          etiqueta="Portal de familia"
+          anchoMaximo="max-w-6xl"
+        />
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 pt-6">{contenido}</div>
+      </section>
+    )
+  }
+
+  return (
+    <section className="mx-auto flex w-full max-w-6xl flex-col gap-5">
+      <PageHeader
+        titulo="Comunicaciones"
+        accion={
+          !familia && (
+            <Button asChild>
+              <Link to={`${base}/nueva`}>
+                <PlusIcon aria-hidden className="size-4" />
+                Nueva comunicación
+              </Link>
+            </Button>
+          )
+        }
+      />
+      <p className="text-sm text-texto-2">
+        {docente
+          ? 'Comunicados para tus cursos asignados y borradores propios.'
+          : 'Creá y gestioná las comunicaciones del colegio.'}
+      </p>
+      {contenido}
     </section>
   )
 }

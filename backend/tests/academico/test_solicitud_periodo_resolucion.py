@@ -4,6 +4,7 @@ from datetime import date
 import pytest
 from fastapi import HTTPException
 
+from src.academico import solicitud_periodo_service
 from src.academico.models import MotivoJustificacion, SolicitudAusenciaPeriodo
 from src.academico.service import aplicar_cobertura_periodo, eliminar_asistencia
 from src.academico.solicitud_periodo_service import (
@@ -17,6 +18,14 @@ from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
 from src.inscripciones.models import Asistencia
 from src.models import AuditLog, EventLog
 from src.workflows.models import TipoEvento
+
+
+@pytest.fixture(autouse=True)
+def fijar_dia_operativo(monkeypatch):
+    """Los tests usan 2027 como año futuro: se fija el día operativo en ese ciclo."""
+    monkeypatch.setattr(
+        solicitud_periodo_service, "fecha_operativa_argentina", lambda: date(2027, 1, 1)
+    )
 
 
 @pytest.fixture()

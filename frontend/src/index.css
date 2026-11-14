@@ -246,6 +246,57 @@
   --sidebar-ring: var(--violeta);
 }
 
+/* Portal Familia: mundo visual propio y claro. Fija la paleta clara dentro de su subárbol aunque
+   la aplicación esté en tema oscuro, porque sus tarjetas y héroes usan colores claros fijos. */
+.portal-familia {
+  color-scheme: light;
+
+  --lienzo: #f6f5f8;
+  --superficie: #fdfcfe;
+  --fila-hover: #f1eff4;
+  --borde: #dad3e2;
+
+  --texto: #1b1822;
+  --texto-2: #6b6577;
+  --texto-3: #6b6577;
+  --desactivado: #9a94a6;
+
+  --violeta: #7c24a3;
+  --violeta-esseri: #6e2a8d;
+  --violeta-pressed: #55206e;
+  --violeta-suave: #f6edfb;
+  --violeta-borde: #e7cff2;
+
+  --petroleo: #0e7c86;
+  --exito: #0a5f3c;
+  --advertencia: #b45309;
+  --error: #b42318;
+  --info: #0f4ba8;
+  --exito-suave: #d2e5de;
+  --advertencia-suave: #f0ded2;
+  --error-suave: #f0d5d5;
+  --info-suave: #d4dff6;
+  --petroleo-suave: #d2e5e8;
+
+  --background: var(--lienzo);
+  --foreground: var(--texto);
+  --card: var(--superficie);
+  --card-foreground: var(--texto);
+  --popover: var(--superficie);
+  --popover-foreground: var(--texto);
+  --primary: var(--violeta);
+  --primary-foreground: var(--superficie);
+  --secondary: var(--superficie);
+  --secondary-foreground: var(--texto);
+  --muted: var(--fila-hover);
+  --muted-foreground: var(--texto-2);
+  --accent: var(--fila-hover);
+  --accent-foreground: var(--texto);
+  --destructive: var(--error);
+  --border: var(--borde);
+  --input: var(--borde);
+}
+
 /* Tema oscuro: conserva la jerarquía violeta de ESSERI sin invertir colores de forma mecánica. */
 :root.dark {
   color-scheme: dark;

@@ -53,6 +53,24 @@ const entregaBase = {
   total_paginas: 0,
 }
 
+const publicadaDetalle = {
+  ...comunicacion,
+  asunto: 'Actualización de datos del alumno',
+  estado: 'publicada',
+  publicada_at: '2026-11-13T18:26:00Z',
+  leida_at: '2026-11-13T18:30:00Z',
+}
+
+function renderDetalleFamilia(id = 'c1') {
+  render(
+    <MemoryRouter initialEntries={[`/familia/comunicaciones/${id}`]}>
+      <Routes>
+        <Route path="/familia/comunicaciones/:id" element={<ComunicacionDetallePage familia />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
 beforeEach(() => {
   vi.resetAllMocks()
   api.mockImplementation(async (path, options) => {
@@ -233,6 +251,126 @@ it('keeps the detail usable and offers retry when reading could not be recorded'
   expect(await screen.findByText('No se pudo registrar la lectura.')).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: 'Reunión' })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Reintentar lectura' })).toBeInTheDocument()
+})
+
+it('renders the family detail hero with type, title and long Buenos Aires date', async () => {
+  api.mockImplementation(async (path) => {
+    if (path.startsWith('/comunicaciones/familia?'))
+      return { items: [publicadaDetalle], total: 1, pagina: 1, total_paginas: 1 }
+    return publicadaDetalle
+  })
+
+  renderDetalleFamilia()
+
+  expect(await screen.findByText('COMUNICADO INSTITUCIONAL')).toBeInTheDocument()
+  expect(
+    screen.getByRole('heading', { name: 'Actualización de datos del alumno' }),
+  ).toBeInTheDocument()
+  expect(screen.getByText('13 de noviembre de 2026, 15:26')).toBeInTheDocument()
+  expect(screen.getByText('Colegio ESSERI')).toBeInTheDocument()
+  expect(screen.queryByText('Solo portal')).not.toBeInTheDocument()
+  expect(screen.queryByText('Lectura registrada')).not.toBeInTheDocument()
+  expect(screen.queryByText('Archivos adjuntos')).not.toBeInTheDocument()
+})
+
+it('derives previous and next links plus the position from the family list', async () => {
+  const items = Array.from({ length: 8 }, (_, index) => ({
+    ...publicadaDetalle,
+    id: `c${index + 1}`,
+    asunto: `Comunicado ${index + 1}`,
+    tipo: 'curso',
+    emisor: 'Laura Díaz',
+  }))
+  api.mockImplementation(async (path) => {
+    if (path.startsWith('/comunicaciones/familia?'))
+      return { items, total: 8, pagina: 1, total_paginas: 1 }
+    return items[1]
+  })
+
+  renderDetalleFamilia('c2')
+
+  expect(await screen.findByText('2 de 8')).toBeInTheDocument()
+  expect(screen.getByText('COMUNICADO DE CURSO')).toBeInTheDocument()
+  expect(screen.getByText('Laura Díaz')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: /Anterior/ })).toHaveAttribute(
+    'href',
+    '/familia/comunicaciones/c1',
+  )
+  expect(screen.getByRole('link', { name: /Siguiente/ })).toHaveAttribute(
+    'href',
+    '/familia/comunicaciones/c3',
+  )
+})
+
+it('disables the previous action at the newest communication', async () => {
+  const items = Array.from({ length: 8 }, (_, index) => ({
+    ...publicadaDetalle,
+    id: `c${index + 1}`,
+    asunto: `Comunicado ${index + 1}`,
+  }))
+  api.mockImplementation(async (path) => {
+    if (path.startsWith('/comunicaciones/familia?'))
+      return { items, total: 8, pagina: 1, total_paginas: 1 }
+    return items[0]
+  })
+
+  renderDetalleFamilia('c1')
+
+  expect(await screen.findByText('1 de 8')).toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: /Anterior/ })).not.toBeInTheDocument()
+  expect(screen.getByText('Anterior').closest('[aria-disabled="true"]')).not.toBeNull()
+  expect(screen.getByRole('link', { name: /Siguiente/ })).toHaveAttribute(
+    'href',
+    '/familia/comunicaciones/c2',
+  )
+})
+
+it('hides the family pager when the current communication is not in the list', async () => {
+  const items = Array.from({ length: 8 }, (_, index) => ({
+    ...publicadaDetalle,
+    id: `c${index + 2}`,
+    asunto: `Comunicado ${index + 2}`,
+  }))
+  api.mockImplementation(async (path) => {
+    if (path.startsWith('/comunicaciones/familia?'))
+      return { items, total: 8, pagina: 1, total_paginas: 1 }
+    return publicadaDetalle
+  })
+
+  renderDetalleFamilia('c1')
+
+  expect(
+    await screen.findByRole('heading', { name: 'Actualización de datos del alumno' }),
+  ).toBeInTheDocument()
+  await waitFor(() =>
+    expect(api.mock.calls.some(([path]) => path.includes('tamanio=50'))).toBe(true),
+  )
+  expect(
+    screen.queryByRole('navigation', { name: 'Navegación entre comunicaciones' }),
+  ).not.toBeInTheDocument()
+})
+
+it('hides the family pager when the loaded list does not cover the total', async () => {
+  const items = Array.from({ length: 8 }, (_, index) => ({
+    ...publicadaDetalle,
+    id: `c${index + 1}`,
+    asunto: `Comunicado ${index + 1}`,
+  }))
+  api.mockImplementation(async (path) => {
+    if (path.startsWith('/comunicaciones/familia?'))
+      return { items, total: 9, pagina: 1, total_paginas: 1 }
+    return items[1]
+  })
+
+  renderDetalleFamilia('c2')
+
+  expect(await screen.findByRole('heading', { name: 'Comunicado 2' })).toBeInTheDocument()
+  await waitFor(() =>
+    expect(api.mock.calls.some(([path]) => path.includes('tamanio=50'))).toBe(true),
+  )
+  expect(
+    screen.queryByRole('navigation', { name: 'Navegación entre comunicaciones' }),
+  ).not.toBeInTheDocument()
 })
 
 it('family inbox shows individual unread status without management actions', async () => {

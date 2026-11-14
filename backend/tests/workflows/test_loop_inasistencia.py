@@ -9,6 +9,7 @@ from datetime import date, timedelta
 import pytest
 from sqlalchemy import select
 
+from src.academico import solicitud_periodo_service
 from src.academico.models import JustificacionInasistencia, MotivoJustificacion
 from src.academico.solicitud_periodo_service import (
     crear_solicitud_periodo,
@@ -21,6 +22,14 @@ from src.workflows import despacho_service
 from src.workflows.eventos_service import emit_event
 from src.workflows.models import NotificacionTemplate, WorkflowExecution, WorkflowRule
 from tests.workflows.conftest import _ahora, _asistencia
+
+
+@pytest.fixture(autouse=True)
+def fijar_dia_operativo(monkeypatch):
+    """Los tests usan 2027 como año futuro: se fija el día operativo en ese ciclo."""
+    monkeypatch.setattr(
+        solicitud_periodo_service, "fecha_operativa_argentina", lambda: date(2027, 1, 1)
+    )
 
 
 @pytest.fixture()
