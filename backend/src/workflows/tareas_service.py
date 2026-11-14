@@ -18,6 +18,7 @@ from src.auth.models import Usuario
 from src.fechas import ahora_utc
 from src.models import EventLog
 from src.workflows import destinatarios_service
+from src.workflows.accion_contexto import AccionContexto
 from src.workflows.constants import (
     ESTADOS_TAREA_ABIERTA,
     MAX_DESTINATARIOS_POR_EJECUCION,
@@ -56,7 +57,7 @@ LARGO_MAXIMO_TITULO = 150
 
 
 def ejecutar_crear_tarea(
-    db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
+    db: Session, regla: AccionContexto, evento: EventLog, ejecucion: WorkflowExecution
 ) -> ResultadoAccion:
     """Crea una tarea `pendiente` por cada usuario activo de la regla."""
     config = ConfigCrearTarea.model_validate(regla.accion_config or {})
@@ -92,7 +93,7 @@ def ejecutar_crear_tarea(
 
 
 def ejecutar_escalar_caso(
-    db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
+    db: Session, regla: AccionContexto, evento: EventLog, ejecucion: WorkflowExecution
 ) -> ResultadoAccion:
     """Escala el caso del evento: sus tareas abiertas pasan a `escalada` y se crea una tarea nueva
     por cada usuario de la regla, encadenada a la más reciente de ellas con `tarea_id`. Si el caso
@@ -149,9 +150,9 @@ def _renderizar_textos(
     return titulo_final, (descripcion_final if descripcion is not None else None)
 
 
-def usuarios_asignables(db: Session, regla: WorkflowRule) -> list[Usuario] | str:
+def usuarios_asignables(db: Session, regla: AccionContexto) -> list[Usuario] | str:
     """Usuarios activos de la regla, o el mensaje de error si no hay ninguno o son demasiados."""
-    usuarios = destinatarios_service.usuarios_activos_de_regla(db, regla.id)
+    usuarios = destinatarios_service.usuarios_activos_de_nodo(db, regla.nodo_id)
     if not usuarios:
         return ERROR_SIN_ASIGNADOS
     if len(usuarios) > MAX_DESTINATARIOS_POR_EJECUCION:
@@ -159,17 +160,17 @@ def usuarios_asignables(db: Session, regla: WorkflowRule) -> list[Usuario] | str
     return usuarios
 
 
-def _ejecuciones_del_caso(regla: WorkflowRule, evento: EventLog):
+def _ejecuciones_del_caso(regla: AccionContexto, evento: EventLog):
     """Todos los intentos de esta regla sobre este evento (un reintento crea otra ejecución)."""
     return select(WorkflowExecution.id).where(
-        WorkflowExecution.workflow_rule_id == regla.id,
+        WorkflowExecution.workflow_nodo_id == regla.nodo_id,
         WorkflowExecution.event_log_id == evento.id,
     )
 
 
 def _crear_tareas(
     db: Session,
-    regla: WorkflowRule,
+    regla: AccionContexto,
     evento: EventLog,
     ejecucion: WorkflowExecution,
     asignados: list[Usuario],
@@ -209,7 +210,7 @@ def _crear_tareas(
     return len(nuevas)
 
 
-def _tareas_abiertas_del_caso(db: Session, regla: WorkflowRule, evento: EventLog) -> list[Tarea]:
+def _tareas_abiertas_del_caso(db: Session, regla: AccionContexto, evento: EventLog) -> list[Tarea]:
     """Tareas abiertas de la misma entidad, de la más reciente a la más antigua. Excluye las que
     creó esta misma regla para este evento: un reintento no escala lo que ya escaló."""
     return list(

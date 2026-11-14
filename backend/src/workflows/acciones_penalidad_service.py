@@ -7,12 +7,13 @@ from src.facturacion.cuenta_corriente_service import registrar_penalidad_en_tran
 from src.facturacion.models import Factura, ReglaPenalidad
 from src.facturacion.penalidades_service import calcular_penalidad, resolver_tramo
 from src.models import EventLog
-from src.workflows.models import WorkflowExecution, WorkflowRule
+from src.workflows.accion_contexto import AccionContexto
+from src.workflows.models import WorkflowExecution
 from src.workflows.schemas import ConfigAplicarPenalidad, ResultadoAccion
 
 
 def ejecutar_aplicar_penalidad(
-    db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
+    db: Session, regla: AccionContexto, evento: EventLog, ejecucion: WorkflowExecution
 ) -> ResultadoAccion:
     """Registra en la cuenta corriente la penalidad del tramo que alcanzó el atraso del evento."""
     if evento.entidad != "factura":

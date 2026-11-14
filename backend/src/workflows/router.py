@@ -15,11 +15,13 @@ from src.auth.models import Usuario
 from src.database import get_db
 from src.workflows import (
     despacho_service,
-    destinatarios_service,
     ejecuciones_service,
     notificaciones_service,
     plantillas_service,
+    reglas_service,
+    resumen_service,
     service,
+    simulacion_service,
     tareas_service,
 )
 from src.workflows.constants import EstadoTarea, PrioridadTarea
@@ -34,16 +36,19 @@ from src.workflows.models import NotificacionTemplate, WorkflowRule
 from src.workflows.schemas import (
     DestinatarioTipo,
     EjecucionRechazo,
+    EstadisticasReglaRead,
     EstadoEnvioNotificacion,
     EstadoWorkflowExecution,
+    EventoResumenRead,
     NotificacionDetalleRead,
     NotificacionListadoRead,
     NotificacionTemplateCreate,
     NotificacionTemplateRead,
     NotificacionTemplateUpdate,
-    ReglaDestinatariosRead,
-    ReglaDestinatariosUpdate,
     ResumenDespacho,
+    ResumenWorkflowsRead,
+    SimulacionEntrada,
+    SimulacionRead,
     TareaAsignadoUpdate,
     TareaDetalleRead,
     TareaEstadoUpdate,
@@ -120,12 +125,16 @@ def listar_ejecuciones(
     db: DbSession,
     _: PuedeLeer,
     estado: Annotated[EstadoWorkflowExecution | None, Query()] = None,
+    workflow_rule_id: Annotated[uuid.UUID | None, Query()] = None,
+    workflow_nodo_id: Annotated[uuid.UUID | None, Query()] = None,
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanio_pagina: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> WorkflowExecutionListadoRead:
     return ejecuciones_service.listar_ejecuciones(
         db,
         estado=estado,
+        workflow_rule_id=workflow_rule_id,
+        workflow_nodo_id=workflow_nodo_id,
         pagina=pagina,
         tamanio_pagina=tamanio_pagina,
     )
@@ -254,6 +263,24 @@ def reasignar_tarea(
     return tareas_service.reasignar_tarea(db, tarea_id, datos.usuario_id, usuario.id)
 
 
+@router.get("/resumen", response_model=ResumenWorkflowsRead)
+def resumen(
+    db: DbSession, _: PuedeLeer, dias: Annotated[int, Query(ge=7, le=90)] = 30
+) -> ResumenWorkflowsRead:
+    return resumen_service.resumen(db, dias)
+
+
+@router.get("/eventos-recientes", response_model=list[EventoResumenRead])
+def eventos_recientes(
+    db: DbSession,
+    _: PuedeActualizar,
+    tipo_evento_id: Annotated[uuid.UUID, Query()],
+    limite: Annotated[int, Query(ge=1, le=50)] = 20,
+) -> list[EventoResumenRead]:
+    """Eventos reales entre los que se elige el de prueba de una regla. Sin el payload crudo."""
+    return resumen_service.eventos_recientes(db, tipo_evento_id, limite)
+
+
 @router.get("/reglas", response_model=list[WorkflowRuleRead])
 def listar_reglas(
     db: DbSession,
@@ -261,47 +288,40 @@ def listar_reglas(
     tipo_evento_id: uuid.UUID | None = None,
     activo: bool | None = None,
 ):
-    return service.listar_reglas(db, tipo_evento_id, activo)
+    return reglas_service.listar_reglas(db, tipo_evento_id, activo)
+
+
+@router.post("/reglas/simular", response_model=SimulacionRead)
+def simular_regla(datos: SimulacionEntrada, db: DbSession, _: PuedeActualizar) -> SimulacionRead:
+    """Prueba un borrador contra un evento real sin escribir nada."""
+    return simulacion_service.simular(db, datos)
 
 
 @router.get("/reglas/{regla_id}", response_model=WorkflowRuleRead)
-def obtener_regla(_: PuedeLeer, regla: ReglaActual):
-    return regla
+def obtener_regla(_: PuedeLeer, regla: ReglaActual, db: DbSession):
+    return reglas_service.obtener_regla_read(db, regla)
+
+
+@router.get("/reglas/{regla_id}/estadisticas", response_model=EstadisticasReglaRead)
+def estadisticas_regla(
+    regla: ReglaActual,
+    db: DbSession,
+    _: PuedeLeer,
+    dias: Annotated[int, Query(ge=1, le=365)] = 30,
+) -> EstadisticasReglaRead:
+    return resumen_service.estadisticas_regla(db, regla.id, dias)
 
 
 @router.post("/reglas", response_model=WorkflowRuleRead, status_code=201)
 def crear_regla(datos: WorkflowRuleCreate, db: DbSession, usuario: PuedeCrear):
-    return service.crear_regla(db, datos, usuario.id)
+    return reglas_service.crear_regla(db, datos, usuario.id)
 
 
 @router.patch("/reglas/{regla_id}", response_model=WorkflowRuleRead)
 def actualizar_regla(
     usuario: PuedeActualizar, regla: ReglaActual, datos: WorkflowRuleUpdate, db: DbSession
 ):
-    return service.actualizar_regla(db, regla, datos, usuario.id)
-
-
-@router.get(
-    "/reglas/{regla_id}/destinatarios",
-    response_model=ReglaDestinatariosRead,
-)
-def listar_destinatarios_regla(
-    _: PuedeLeer, regla: ReglaActual, db: DbSession
-) -> ReglaDestinatariosRead:
-    return destinatarios_service.listar_destinatarios_regla(db, regla.id)
-
-
-@router.put(
-    "/reglas/{regla_id}/destinatarios",
-    response_model=ReglaDestinatariosRead,
-)
-def reemplazar_destinatarios_regla(
-    datos: ReglaDestinatariosUpdate,
-    usuario: PuedeActualizar,
-    regla: ReglaActual,
-    db: DbSession,
-) -> ReglaDestinatariosRead:
-    return destinatarios_service.reemplazar_destinatarios_regla(db, regla, datos, usuario.id)
+    return reglas_service.actualizar_regla(db, regla, datos, usuario.id)
 
 
 @router.post("/procesar", response_model=ResumenDespacho)

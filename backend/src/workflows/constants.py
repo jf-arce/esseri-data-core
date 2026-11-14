@@ -173,3 +173,13 @@ ENLACES_MAIL: dict[EnlaceMail, tuple[str, str]] = {
     "ejecuciones": ("/workflows/ejecuciones", "Revisar en ESSERI"),
     "tareas": ("/workflows/tareas", "Ver mis tareas"),
 }
+
+# Topes del árbol de una regla: lo que el editor puede dibujar sin volverse inmanejable.
+MAX_NODOS_POR_REGLA = 30
+MAX_PROFUNDIDAD_ARBOL = 6
+MAX_COMPARACIONES = 5
+# Acciones de la allowlist que todavía no tienen ejecutor en `despacho_service.ACCIONES` (un test
+# verifica que las dos listas coincidan). El editor las muestra como "todavía no disponible".
+ACCIONES_NO_IMPLEMENTADAS: frozenset[str] = frozenset(
+    {"registrar_pago", "actualizar_cuenta_corriente", "crear_registro_relacionado"}
+)

@@ -22,7 +22,8 @@ from src.facturacion.models import (
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate
 from src.inscripciones.models import Inscripcion
 from src.models import EventLog
-from src.workflows.models import WorkflowExecution, WorkflowRule
+from src.workflows.accion_contexto import AccionContexto
+from src.workflows.models import WorkflowExecution
 from src.workflows.schemas import ConfigGenerarCargo, ResultadoAccion
 
 # Sin regla de facturación de donde tomar el día, un cargo con monto fijo vence a los 10 días.
@@ -30,7 +31,7 @@ DIAS_PARA_VENCER_SIN_REGLA = 10
 
 
 def ejecutar_generar_cargo(
-    db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
+    db: Session, regla: AccionContexto, evento: EventLog, ejecucion: WorkflowExecution
 ) -> ResultadoAccion:
     """Emite el cargo del concepto de la regla en la cuenta corriente del alumno del evento.
 

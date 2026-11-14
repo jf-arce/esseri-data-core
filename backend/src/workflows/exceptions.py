@@ -185,3 +185,25 @@ class AsignadoTareaInvalido(AppException):
 
     def __init__(self, message: str = "El usuario indicado no existe o no está activo."):
         super().__init__(message)
+
+
+class ArbolInvalido(AppException):
+    """El árbol de nodos de la regla no cumple la forma permitida."""
+
+    status_code = 422
+
+    def __init__(self, message: str, nodo_id: object | None = None):
+        super().__init__(message)
+        self.nodo_id = nodo_id
+
+
+class ReglaDesactualizada(AppException):
+    """La regla cambió desde que se abrió el editor."""
+
+    status_code = 409
+
+    def __init__(
+        self,
+        message: str = "La regla cambió mientras la editabas. Recargala para no pisar cambios.",
+    ):
+        super().__init__(message)

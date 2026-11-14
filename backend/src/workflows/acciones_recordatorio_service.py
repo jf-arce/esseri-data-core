@@ -12,12 +12,13 @@ from src.academico.models import JustificacionInasistencia, SolicitudAusenciaPer
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import EventLog
 from src.workflows import notificaciones_service
-from src.workflows.models import WorkflowExecution, WorkflowRule
+from src.workflows.accion_contexto import AccionContexto
+from src.workflows.models import WorkflowExecution
 from src.workflows.schemas import ResultadoAccion
 
 
 def ejecutar_generar_recordatorio(
-    db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
+    db: Session, regla: AccionContexto, evento: EventLog, ejecucion: WorkflowExecution
 ) -> ResultadoAccion:
     motivo = _motivo_para_no_recordar(db, evento)
     if motivo is not None:

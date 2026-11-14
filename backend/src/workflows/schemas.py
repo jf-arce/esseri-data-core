@@ -1,6 +1,7 @@
 """Modelos Pydantic: forma de los datos que entran y salen por la API de este módulo."""
 
 import uuid
+from datetime import date
 from decimal import Decimal
 from typing import Literal
 
@@ -16,6 +17,8 @@ from pydantic import (
 
 from src.fechas import InstanteUtc
 from src.workflows.constants import (
+    MAX_COMPARACIONES,
+    MAX_NODOS_POR_REGLA,
     Criticidad,
     Destinatario,
     EnlaceMail,
@@ -64,6 +67,13 @@ class Condicion(_EntradaEstricta):
     campo: str = Field(min_length=1)
     operador: Operador
     valor: StrictInt | StrictFloat | StrictStr
+
+
+class GrupoCondicion(_EntradaEstricta):
+    """Condición de un nodo: 1..N comparaciones que se cumplen todas o alguna."""
+
+    logica: Literal["todas", "alguna"] = "todas"
+    comparaciones: list[Condicion] = Field(min_length=1, max_length=MAX_COMPARACIONES)
 
 
 class _ConfigAccion(BaseModel):
@@ -162,23 +172,92 @@ class TipoAccionRead(BaseModel):
     requiere_aprobacion_por_defecto: bool
     eventos_permitidos: list[str] | None
     admite_plantilla: bool
+    implementada: bool = True
     config_schema: dict[str, object]
 
 
-class WorkflowRuleCreate(BaseModel):
-    """`condicion` y `accion_config` son datos que el backend interpreta contra una allowlist,
-    nunca código ejecutable. `crear_regla` los valida (ver `CONFIG_POR_ACCION` y `Condicion`)."""
+TipoNodo = Literal["condicion", "accion"]
+RamaNodo = Literal["si", "no"]
+
+
+class PosicionNodo(_EntradaEstricta):
+    x: float
+    y: float
+
+
+class DestinatariosNodoWrite(_EntradaEstricta):
+    rol_ids: list[uuid.UUID] = Field(default_factory=list, max_length=100)
+    usuario_ids: list[uuid.UUID] = Field(default_factory=list, max_length=100)
+
+    @field_validator("rol_ids", "usuario_ids")
+    @classmethod
+    def quitar_repetidos(cls, values: list[uuid.UUID]) -> list[uuid.UUID]:
+        return list(dict.fromkeys(values))
+
+
+class NodoWrite(_EntradaEstricta):
+    """Nodo del árbol tal como lo arma el editor. El `id` lo genera el cliente: así el guardado
+    sincroniza por UUID (inserta, actualiza o da de baja) en una sola llamada."""
+
+    id: uuid.UUID
+    tipo: TipoNodo
+    padre_id: uuid.UUID | None = None
+    rama: RamaNodo | None = None
+    condicion: GrupoCondicion | None = None
+    tipo_accion: TipoAccion | None = None
+    accion_config: dict[str, object] | None = None
+    notificacion_template_id: uuid.UUID | None = None
+    # Sin valor, toma el default del `tipo_accion` (ver `ACCIONES_CON_APROBACION_POR_DEFECTO`).
+    requiere_aprobacion_humana: bool | None = None
+    destinatarios: DestinatariosNodoWrite = Field(default_factory=DestinatariosNodoWrite)
+    posicion: PosicionNodo | None = None
+
+
+class DestinatarioRolRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    nombre: str
+
+
+class DestinatarioUsuarioRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    email: str
+    estado: str
+
+
+class DestinatariosNodoRead(BaseModel):
+    roles: list[DestinatarioRolRead] = []
+    usuarios: list[DestinatarioUsuarioRead] = []
+
+
+class NodoRead(BaseModel):
+    id: uuid.UUID
+    tipo: TipoNodo
+    padre_id: uuid.UUID | None
+    rama: RamaNodo | None
+    orden: int
+    condicion: dict[str, object] | None
+    tipo_accion: TipoAccion | None
+    accion_config: dict[str, object] | None
+    notificacion_template_id: uuid.UUID | None
+    requiere_aprobacion_humana: bool
+    destinatarios: DestinatariosNodoRead
+    posicion: PosicionNodo | None
+    updated_at: InstanteUtc
+
+
+class WorkflowRuleCreate(_EntradaEstricta):
+    """El árbol de `nodos` es datos que el backend interpreta contra una allowlist, nunca código
+    ejecutable. `crear_regla` los valida (ver `CONFIG_POR_ACCION` y `GrupoCondicion`)."""
 
     nombre: str = Field(min_length=1, max_length=150)
     tipo_evento_id: uuid.UUID
-    condicion: dict[str, object] = Field(default_factory=dict)
-    tipo_accion: TipoAccion
-    accion_config: dict[str, object] | None = None
     criticidad: Criticidad
-    # Sin valor, toma el default del `tipo_accion` (ver `ACCIONES_CON_APROBACION_POR_DEFECTO`).
-    requiere_aprobacion_humana: bool | None = None
-    notificacion_template_id: uuid.UUID | None = None
     activo: bool = True
+    nodos: list[NodoWrite] = Field(min_length=1, max_length=MAX_NODOS_POR_REGLA)
 
     @field_validator("nombre", mode="before")
     @classmethod
@@ -186,19 +265,20 @@ class WorkflowRuleCreate(BaseModel):
         return value.strip() if isinstance(value, str) else value
 
 
-class WorkflowRuleUpdate(BaseModel):
-    """Edición parcial. La baja es `activo = false`: las ejecuciones históricas referencian la
-    regla, así que no se borra."""
+class WorkflowRuleUpdate(_EntradaEstricta):
+    """Edición parcial. Si llega `nodos`, reemplaza el árbol completo (se sincroniza por UUID). La
+    baja es `activo = false`: las ejecuciones históricas referencian la regla, así que no se
+    borra. `updated_at_base` es el `updated_at` que tenía la regla al abrirla: si cambió, el
+    guardado se rechaza para no pisar una edición ajena."""
 
     nombre: str | None = Field(default=None, min_length=1, max_length=150)
     tipo_evento_id: uuid.UUID | None = None
-    condicion: dict[str, object] | None = None
-    tipo_accion: TipoAccion | None = None
-    accion_config: dict[str, object] | None = None
     criticidad: Criticidad | None = None
-    requiere_aprobacion_humana: bool | None = None
-    notificacion_template_id: uuid.UUID | None = None
     activo: bool | None = None
+    nodos: list[NodoWrite] | None = Field(
+        default=None, min_length=1, max_length=MAX_NODOS_POR_REGLA
+    )
+    updated_at_base: InstanteUtc | None = None
 
     @field_validator("nombre", mode="before")
     @classmethod
@@ -207,20 +287,14 @@ class WorkflowRuleUpdate(BaseModel):
 
 
 class WorkflowRuleRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     id: uuid.UUID
     nombre: str
     tipo_evento_id: uuid.UUID
-    condicion: dict[str, object]
-    tipo_accion: TipoAccion
-    accion_config: dict[str, object] | None
     criticidad: Criticidad
-    requiere_aprobacion_humana: bool
-    notificacion_template_id: uuid.UUID | None
     activo: bool
     created_at: InstanteUtc
     updated_at: InstanteUtc
+    nodos: list[NodoRead]
 
 
 class NotificacionTemplateCreate(_EntradaEstricta):
@@ -280,36 +354,6 @@ class NotificacionTemplateRead(BaseModel):
     updated_at: InstanteUtc
 
 
-class ReglaDestinatariosUpdate(_EntradaEstricta):
-    rol_ids: list[uuid.UUID] = Field(max_length=100)
-    usuario_ids: list[uuid.UUID] = Field(max_length=100)
-
-    @field_validator("rol_ids", "usuario_ids")
-    @classmethod
-    def quitar_repetidos(cls, values: list[uuid.UUID]) -> list[uuid.UUID]:
-        return list(dict.fromkeys(values))
-
-
-class DestinatarioRolRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: uuid.UUID
-    nombre: str
-
-
-class DestinatarioUsuarioRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: uuid.UUID
-    email: str
-    estado: str
-
-
-class ReglaDestinatariosRead(BaseModel):
-    roles: list[DestinatarioRolRead]
-    usuarios: list[DestinatarioUsuarioRead]
-
-
 EstadoWorkflowExecution = Literal["exitoso", "fallido", "pendiente", "rechazado"]
 
 
@@ -331,7 +375,9 @@ class WorkflowExecutionRead(BaseModel):
     error_detail: str | None
     workflow_rule_id: uuid.UUID
     workflow_rule_nombre: str
-    tipo_accion: TipoAccion
+    workflow_nodo_id: uuid.UUID
+    # Nulo cuando la ejecución es de una condición que no se pudo evaluar.
+    tipo_accion: TipoAccion | None
     event_log_id: uuid.UUID
     tipo_evento: str
     evento_timestamp: InstanteUtc
@@ -470,3 +516,85 @@ class TareaEstadoUpdate(_EntradaEstricta):
     """Una persona solo puede avanzar la tarea: `escalada` la pone el motor."""
 
     estado: Literal["en_progreso", "completada"]
+
+
+# --- Simulación, estadísticas y resumen ------------------------------------------------------
+
+EstadoCondicionSimulada = Literal["cumple", "no_cumple", "error"]
+EstadoAccionSimulada = Literal[
+    "alcanzada", "requiere_aprobacion", "diferida", "no_implementada", "config_invalida"
+]
+
+
+class SimulacionEntrada(_EntradaEstricta):
+    """Borrador de regla (sin guardar) y el evento real contra el que se prueba."""
+
+    tipo_evento_id: uuid.UUID
+    event_log_id: uuid.UUID
+    nodos: list[NodoWrite] = Field(min_length=1, max_length=MAX_NODOS_POR_REGLA)
+
+
+class NodoSimulado(BaseModel):
+    """`no_alcanzado` es un nodo al que el recorrido no llegó con los datos de ese evento."""
+
+    id: uuid.UUID
+    estado: EstadoCondicionSimulada | EstadoAccionSimulada | Literal["no_alcanzado"]
+    detalle: str | None = None
+
+
+class EventoResumenRead(BaseModel):
+    id: uuid.UUID
+    timestamp: InstanteUtc
+    entidad: str
+    estado: str
+    campos: list[CampoResumen]
+
+
+class SimulacionRead(BaseModel):
+    evento: EventoResumenRead
+    nodos: list[NodoSimulado]
+
+
+class EstadisticasNodoRead(BaseModel):
+    workflow_nodo_id: uuid.UUID
+    exitoso: int = 0
+    fallido: int = 0
+    pendiente: int = 0
+    rechazado: int = 0
+
+
+class EstadisticasReglaRead(BaseModel):
+    dias: int
+    nodos: list[EstadisticasNodoRead]
+
+
+class ConteoEstadosRead(BaseModel):
+    exitoso: int = 0
+    fallido: int = 0
+    pendiente: int = 0
+    rechazado: int = 0
+    total: int = 0
+
+
+class PuntoSerieRead(ConteoEstadosRead):
+    fecha: date
+
+
+class ResumenReglaRead(BaseModel):
+    workflow_rule_id: uuid.UUID
+    ejecuciones: ConteoEstadosRead
+    serie: list[int]
+    ultima_ejecucion: InstanteUtc | None
+    fallas_7_dias: int
+    sin_disparos: bool
+
+
+class ResumenWorkflowsRead(BaseModel):
+    dias: int
+    actual: ConteoEstadosRead
+    anterior: ConteoEstadosRead
+    serie_diaria: list[PuntoSerieRead]
+    reglas: list[ResumenReglaRead]
+    activas: int
+    inactivas: int
+    con_errores: int
