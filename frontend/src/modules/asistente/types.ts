@@ -15,6 +15,9 @@ export type BloqueKpi = {
   unidad: string
   periodo: string
   fuente: string
+  /** Cambio porcentual contra `periodo_comparado`; `null` si no había base para comparar. */
+  variacion?: number | null
+  periodo_comparado?: string
 }
 
 export type BloqueTabla = {

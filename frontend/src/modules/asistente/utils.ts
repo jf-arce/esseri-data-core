@@ -346,6 +346,11 @@ export function formatearKpi(bloque: BloqueKpi): string {
   return bloque.unidad === '' ? numero : `${numero} ${bloque.unidad}`
 }
 
+/** Variación sin signo (la dirección la dan la flecha y el color): `12,5 %`. */
+export function formatearVariacion(variacion: number): string {
+  return `${Math.abs(variacion).toLocaleString('es-AR')} %`
+}
+
 /** Texto de una celda, con el nombre real en las columnas de alias. */
 export function textoDeCelda(
   columna: ColumnaTabla,
