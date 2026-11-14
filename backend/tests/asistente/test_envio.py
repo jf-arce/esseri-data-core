@@ -9,11 +9,14 @@ from sqlalchemy import select
 from src.asistente import service
 from src.asistente.models import AliasConversacion, Conversacion, MensajeAsistente
 from src.asistente.schemas import MensajeCreate
+from src.auth.constants import MODULO_ASISTENTE, MODULO_PANEL_ADMIN
 from src.auth.models import Usuario
 from src.config import settings
 from tests.asistente.conftest import (
+    crear_cuenta,
     enviar,
     eventos,
+    iniciar_sesion,
     nombres,
     nueva_conversacion,
     respuesta_herramientas,
@@ -357,3 +360,37 @@ def test_el_prompt_de_sistema_no_crece_sin_que_se_note():
     from src.asistente.service import _SISTEMA
 
     assert len(_SISTEMA) < 3400
+
+
+class TestComando:
+    def test_el_atajo_fuerza_la_herramienta_en_el_primer_paso_solamente(
+        self, direccion, proveedor, personas
+    ):
+        proveedor.respuestas = [
+            respuesta_herramientas(("deuda_por_familias", {})),
+            respuesta_texto("ok"),
+        ]
+        enviar(direccion, nueva_conversacion(direccion), "¿Quién debe más?", comando="deuda")
+        assert proveedor.peticiones[0]["tool_choice"] == {
+            "type": "function",
+            "function": {"name": "deuda_por_familias"},
+        }
+        assert proveedor.peticiones[1]["tool_choice"] == "auto"
+
+    def test_sin_atajo_el_modelo_elige(self, direccion, proveedor):
+        proveedor.respuestas = [respuesta_texto("ok")]
+        enviar(direccion, nueva_conversacion(direccion), "hola")
+        assert proveedor.peticiones[0]["tool_choice"] == "auto"
+
+    def test_si_el_rol_no_tiene_la_herramienta_el_atajo_se_ignora(
+        self, client, db_session, proveedor
+    ):
+        crear_cuenta(db_session, "adm@esseri.test", [MODULO_ASISTENTE, MODULO_PANEL_ADMIN])
+        cliente = iniciar_sesion("adm@esseri.test")
+        proveedor.respuestas = [respuesta_texto("ok")]
+        enviar(cliente, nueva_conversacion(cliente), "¿Quién debe más?", comando="deuda")
+        assert proveedor.peticiones[0]["tool_choice"] == "auto"
+
+    def test_un_atajo_desconocido_da_422(self, direccion):
+        respuesta = enviar(direccion, nueva_conversacion(direccion), "hola", comando="borrar")
+        assert respuesta.status_code == 422

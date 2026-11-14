@@ -14,6 +14,19 @@ TIPO_ALIAS_ALUMNO = "ALUMNO"
 TIPO_ALIAS_FAMILIA = "FAMILIA"
 TIPO_ALIAS_DOCENTE = "DOCENTE"
 TIPOS_ALIAS = (TIPO_ALIAS_ALUMNO, TIPO_ALIAS_FAMILIA, TIPO_ALIAS_DOCENTE)
+# Un curso no es un dato personal: la mención se reemplaza por su nombre, sin alias.
+TIPO_MENCION_CURSO = "CURSO"
+
+# Atajos `/` del campo de texto: cada uno fuerza una herramienta en el primer paso. El permiso
+# lo sigue validando la herramienta; si el rol no la tiene, el atajo se ignora.
+COMANDOS_HERRAMIENTA = {
+    "deuda": "deuda_por_familias",
+    "asistencia": "ausentes_del_dia",
+    "horario": "horario_del_curso",
+    "evolucion": "evolucion_financiera",
+    "comparar": "evolucion_financiera",
+    "ir": "ir_a",
+}
 
 BLOQUE_TEXTO = "texto"
 BLOQUE_KPI = "kpi"

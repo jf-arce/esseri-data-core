@@ -16,8 +16,14 @@ from dataclasses import dataclass, field
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from src.academico.models import Docente
-from src.asistente.constants import TIPO_ALIAS_ALUMNO, TIPO_ALIAS_DOCENTE, TIPO_ALIAS_FAMILIA
+from src.academico.horarios_service import describir_curso
+from src.academico.models import Division, Docente
+from src.asistente.constants import (
+    TIPO_ALIAS_ALUMNO,
+    TIPO_ALIAS_DOCENTE,
+    TIPO_ALIAS_FAMILIA,
+    TIPO_MENCION_CURSO,
+)
 from src.asistente.exceptions import AliasInvalido
 from src.asistente.models import AliasConversacion
 from src.auth import autorizacion_service
@@ -176,6 +182,7 @@ def preparar_entrada(
     menciones: list[Mencion],
     *,
     puede_ver_personas: bool,
+    puede_ver_academico: bool = False,
 ) -> EntradaPreparada:
     """Deja el mensaje en condiciones de salir hacia el proveedor.
 
@@ -183,8 +190,14 @@ def preparar_entrada(
     pedir que elijan entre tarjetas en vez de consultar al modelo.
     """
     resultado = _sin_alias_ajenos(db, conversacion_id, texto)
-    if puede_ver_personas:
-        resultado = _aplicar_menciones(db, conversacion_id, resultado, menciones)
+    resultado = _aplicar_menciones(
+        db,
+        conversacion_id,
+        resultado,
+        menciones,
+        puede_ver_personas=puede_ver_personas,
+        puede_ver_academico=puede_ver_academico,
+    )
     resultado, ambiguedades = _reemplazar_nombres(
         db, conversacion_id, resultado, aliasar=puede_ver_personas
     )
@@ -212,12 +225,28 @@ def _sin_alias_ajenos(db: Session, conversacion_id: uuid.UUID, texto: str) -> st
 
 
 def _aplicar_menciones(
-    db: Session, conversacion_id: uuid.UUID, texto: str, menciones: list[Mencion]
+    db: Session,
+    conversacion_id: uuid.UUID,
+    texto: str,
+    menciones: list[Mencion],
+    *,
+    puede_ver_personas: bool,
+    puede_ver_academico: bool,
 ) -> str:
+    """Alumnos y familias con `familias_alumnos.leer`; docentes y cursos con `academico.leer`.
+    Una mención sin el permiso de su tipo se deja como texto."""
     for mencion in menciones:
         if not mencion.texto or mencion.texto not in texto:
             continue
-        if not _existe_entidad(db, mencion.tipo, mencion.entidad_id):
+        if mencion.tipo == TIPO_MENCION_CURSO:
+            division = db.get(Division, mencion.entidad_id) if puede_ver_academico else None
+            if division is not None:
+                texto = texto.replace(mencion.texto, describir_curso(division))
+            continue
+        permitido = (
+            puede_ver_academico if mencion.tipo == TIPO_ALIAS_DOCENTE else puede_ver_personas
+        )
+        if not permitido or not _existe_entidad(db, mencion.tipo, mencion.entidad_id):
             continue
         alias = obtener_o_crear_alias(db, conversacion_id, mencion.tipo, mencion.entidad_id)
         texto = texto.replace(mencion.texto, alias)

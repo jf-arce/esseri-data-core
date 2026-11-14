@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class MencionCreate(BaseModel):
     """Persona elegida con `@`: `texto` es lo que se vio en el mensaje y se cambia por su alias."""
 
-    tipo: Literal["ALUMNO", "FAMILIA", "DOCENTE"]
+    tipo: Literal["ALUMNO", "FAMILIA", "DOCENTE", "CURSO"]
     entidad_id: uuid.UUID
     texto: str = Field(min_length=1, max_length=120)
 
@@ -26,6 +26,7 @@ class MensajeCreate(BaseModel):
     contenido: str = Field(min_length=1)
     menciones: list[MencionCreate] = Field(default_factory=list, max_length=10)
     contexto: ContextoCreate | None = None
+    comando: Literal["deuda", "asistencia", "horario", "evolucion", "comparar", "ir"] | None = None
     ruta: str | None = Field(default=None, max_length=200)
     ciclo_lectivo: str | None = Field(default=None, max_length=10)
 

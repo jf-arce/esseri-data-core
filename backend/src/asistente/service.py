@@ -23,6 +23,7 @@ from src.asistente.constants import (
     AUTOR_USUARIO,
     BLOQUE_NAVEGAR,
     BLOQUE_TARJETA,
+    COMANDOS_HERRAMIENTA,
     ESTADO_CONVERSACION_GENERANDO,
     ESTADO_CONVERSACION_LIBRE,
     ESTADO_MENSAJE_COMPLETO,
@@ -57,7 +58,7 @@ from src.asistente.seudonimos_service import (
     preparar_entrada,
 )
 from src.auth import autorizacion_service
-from src.auth.constants import PERMISO_FAMILIAS_ALUMNOS_LEER
+from src.auth.constants import PERMISO_ACADEMICO_LEER, PERMISO_FAMILIAS_ALUMNOS_LEER
 from src.auth.models import Usuario
 from src.config import settings
 from src.facturacion.calendario_facturacion import fecha_operativa_argentina
@@ -253,6 +254,8 @@ class Envio:
     ambiguedades: list[Ambiguedad] = field(default_factory=list)
     # Alias de la ficha que se está viendo, si el rol puede ver personas.
     alias_vista: str | None = None
+    # Herramienta que el atajo `/` pide usar en el primer paso.
+    herramienta_forzada: str | None = None
 
 
 def _titulo_desde(texto: str) -> str:
@@ -337,6 +340,9 @@ def iniciar_envio(
             datos.contenido,
             [Mencion(m.tipo, m.entidad_id, m.texto) for m in datos.menciones],
             puede_ver_personas=puede_ver_personas,
+            puede_ver_academico=autorizacion_service.tiene_permiso_en_rol(
+                db, usuario.id, rol_codigo, PERMISO_ACADEMICO_LEER
+            ),
         )
         alias_vista = (
             alias_de_contexto(
@@ -384,6 +390,7 @@ def iniciar_envio(
         ciclo_lectivo=datos.ciclo_lectivo or str(fecha_operativa_argentina().year),
         ambiguedades=entrada.ambiguedades,
         alias_vista=alias_vista,
+        herramienta_forzada=COMANDOS_HERRAMIENTA.get(datos.comando or ""),
     )
 
 
@@ -529,6 +536,7 @@ def _loop_con_herramientas(
     transport: httpx.BaseTransport | None,
 ) -> Iterator[dict[str, Any]]:
     definiciones = herramientas.definiciones(contexto)
+    nombres_disponibles = {d["function"]["name"] for d in definiciones}
     conversacion: list[dict[str, Any]] = [
         {"role": "system", "content": _prompt_sistema(envio, envio.rol_codigo)},
         *_historial(db, envio),
@@ -547,8 +555,17 @@ def _loop_con_herramientas(
         filtro = FiltroAlias(alias_emitidos(db, envio.conversacion_id))
         respuesta: llm_client.RespuestaConHerramientas | None = None
         hubo_texto = False
+        # El atajo `/` fuerza la herramienta solo en el primer paso, y solo si el rol la tiene.
+        forzada = (
+            envio.herramienta_forzada
+            if paso == 0 and envio.herramienta_forzada in nombres_disponibles
+            else None
+        )
         for tipo, valor in llm_client.transmitir_con_herramientas(
-            conversacion, definiciones if con_herramientas else [], transport
+            conversacion,
+            definiciones if con_herramientas else [],
+            transport,
+            herramienta_forzada=forzada,
         ):
             if isinstance(valor, llm_client.RespuestaConHerramientas):
                 respuesta = valor
