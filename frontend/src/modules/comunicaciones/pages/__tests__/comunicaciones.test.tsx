@@ -373,19 +373,19 @@ it('hides the family pager when the loaded list does not cover the total', async
   ).not.toBeInTheDocument()
 })
 
-it('family inbox shows individual unread status without management actions', async () => {
+it('family inbox shows the list with type, unread marker and no management actions', async () => {
   render(
     <MemoryRouter>
       <ComunicacionesPage familia />
     </MemoryRouter>,
   )
-  expect(await screen.findByText('No leída')).toBeInTheDocument()
-  expect(screen.getByText('Institucional')).toBeInTheDocument()
-  expect(screen.queryByText('Colegio ESSERI')).toBeNull()
+  expect(await screen.findByText('Institucional')).toBeInTheDocument()
+  expect(screen.getByText('Reunión')).toBeInTheDocument()
+  expect(screen.queryByText('No leída')).toBeNull()
   expect(screen.queryByRole('link', { name: 'Nueva comunicación' })).toBeNull()
 })
 
-it('family inbox identifies the teacher for course communications', async () => {
+it('family inbox marks course communications with their type', async () => {
   api.mockResolvedValue({
     items: [{ ...comunicacion, tipo: 'curso', emisor: 'Laura Díaz' }],
     total: 1,
@@ -397,8 +397,30 @@ it('family inbox identifies the teacher for course communications', async () => 
       <ComunicacionesPage familia />
     </MemoryRouter>,
   )
-  expect(await screen.findByText('Laura Díaz')).toBeInTheDocument()
+  expect(await screen.findByText('Curso')).toBeInTheDocument()
   expect(screen.queryByText('Institucional')).toBeNull()
+})
+
+it('family inbox sorts by date from newest to oldest', async () => {
+  render(
+    <MemoryRouter>
+      <ComunicacionesPage familia />
+    </MemoryRouter>,
+  )
+  await screen.findByText('Institucional')
+
+  const selector = screen.getByRole('combobox', {
+    name: 'Ordenar comunicaciones por fecha',
+  })
+  expect(selector).toHaveTextContent('Fecha: más recientes')
+
+  await userEvent.click(selector)
+  await userEvent.click(await screen.findByRole('option', { name: /Más antiguas primero/ }))
+
+  expect(selector).toHaveTextContent('Fecha: más antiguas')
+  await waitFor(() =>
+    expect(api.mock.calls.some(([path]) => String(path).includes('orden=antiguas'))).toBe(true),
+  )
 })
 
 it('teacher form only offers assigned courses and publishes through teacher endpoints', async () => {

@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from src.auth import config, sesion_service
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
-from src.comunicaciones.models import ReciboComunicacion
+from src.comunicaciones.models import Comunicacion, ReciboComunicacion
 from src.familias_alumnos.models import Familia, FamiliaAlumno
 from src.models import AuditLog, Base, Persona
 from src.workflows.models import EnvioNotificacion, Notificacion
@@ -454,6 +454,28 @@ def test_borrador_publicacion_y_lectura_persistida(client, escenario, db_session
     db_session.expire_all()
     assert client.get("/comunicaciones/familia").json()["items"][0]["leida_at"]
     assert db_session.scalars(select(AuditLog).where(AuditLog.entidad == "comunicacion")).all()
+
+
+def test_listado_familiar_ordena_por_fecha_de_publicacion(client, escenario, db_session):
+    ids, entrar = escenario
+    primera = crear(client, ids, asunto="Primera")
+    assert client.post(f"/comunicaciones/{primera['id']}/publicar").status_code == 200
+    segunda = crear(client, ids, asunto="Segunda")
+    assert client.post(f"/comunicaciones/{segunda['id']}/publicar").status_code == 200
+
+    primera_db = db_session.get(Comunicacion, uuid.UUID(primera["id"]))
+    segunda_db = db_session.get(Comunicacion, uuid.UUID(segunda["id"]))
+    primera_db.publicada_at = datetime(2026, 11, 5, 10, 0)
+    segunda_db.publicada_at = datetime(2026, 11, 10, 10, 0)
+    db_session.commit()
+
+    entrar(ids["usuario_a"], "familia")
+    recientes = client.get("/comunicaciones/familia", params={"orden": "recientes"}).json()
+    antiguas = client.get("/comunicaciones/familia", params={"orden": "antiguas"}).json()
+
+    assert [item["asunto"] for item in recientes["items"]] == ["Segunda", "Primera"]
+    assert [item["asunto"] for item in antiguas["items"]] == ["Primera", "Segunda"]
+    assert client.get("/comunicaciones/familia", params={"orden": "otro"}).status_code == 422
 
 
 def test_ajenos_y_vinculos_revocados_no_acceden(client, escenario, db_session):

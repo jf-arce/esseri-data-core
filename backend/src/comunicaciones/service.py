@@ -392,6 +392,7 @@ def listar(
     autor_id: uuid.UUID | None = None,
     estado: str | None = None,
     tamanio: int = 10,
+    orden: str = "recientes",
 ):
     consulta = select(Comunicacion)
     recibos = {}
@@ -427,8 +428,15 @@ def listar(
             )
         )
     total = db.scalar(select(func.count()).select_from(consulta.subquery()))
+    if familia:
+        fecha_publicacion = func.coalesce(Comunicacion.publicada_at, Comunicacion.created_at)
+        criterio_fecha = (
+            fecha_publicacion.asc() if orden == "antiguas" else fecha_publicacion.desc()
+        )
+    else:
+        criterio_fecha = Comunicacion.created_at.desc()
     filas = db.scalars(
-        consulta.order_by(Comunicacion.created_at.desc(), Comunicacion.id)
+        consulta.order_by(criterio_fecha, Comunicacion.id)
         .offset((pagina - 1) * tamanio)
         .limit(tamanio)
     )

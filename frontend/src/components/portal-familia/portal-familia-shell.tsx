@@ -20,6 +20,7 @@ type PortalFamiliaShellProps = {
   volverEtiqueta?: string
   acciones?: ReactNode
   ilustracion?: ReactNode
+  icono?: ReactNode
   anchoMaximo?: string
   className?: string
   tituloClassName?: string
@@ -34,6 +35,7 @@ export function PortalFamiliaShell({
   volverEtiqueta = 'Volver',
   acciones,
   ilustracion,
+  icono,
   anchoMaximo = 'max-w-7xl',
   className,
   tituloClassName,
@@ -42,7 +44,7 @@ export function PortalFamiliaShell({
     <section
       data-slot="portal-familia-shell"
       className={cn(
-        'relative -mx-4 -mt-6 overflow-hidden px-4 pt-7 pb-14 sm:-mx-8 sm:px-8',
+        'relative -mx-4 -mt-6 overflow-hidden px-4 pt-10 pb-14 sm:-mx-8 sm:px-8',
         className,
       )}
     >
@@ -67,25 +69,32 @@ export function PortalFamiliaShell({
         )}
 
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <div className="min-w-0">
-            {etiqueta && (
-              <p className="text-xs font-bold tracking-[0.08em] text-[#CFC4DE] uppercase">
-                {etiqueta}
-              </p>
+          <div className="flex min-w-0 items-start gap-4">
+            {icono && (
+              <span className="flex size-16 shrink-0 items-center justify-center rounded-[18px] border border-white/20 bg-white/15 text-white">
+                {icono}
+              </span>
             )}
-            <h1
-              className={cn(
-                'font-heading text-[30px] leading-[1.15] font-bold tracking-[-0.02em] text-white sm:text-[36px]',
-                tituloClassName,
+            <div className="min-w-0">
+              {etiqueta && (
+                <p className="text-xs font-bold tracking-[0.08em] text-[#CFC4DE] uppercase">
+                  {etiqueta}
+                </p>
               )}
-            >
-              {titulo}
-            </h1>
-            {descripcion && (
-              <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-[#CFC4DE] sm:text-[16px]">
-                {descripcion}
-              </p>
-            )}
+              <h1
+                className={cn(
+                  'font-heading text-[30px] leading-[1.15] font-bold tracking-[-0.02em] text-white sm:text-[36px]',
+                  tituloClassName,
+                )}
+              >
+                {titulo}
+              </h1>
+              {descripcion && (
+                <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-[#CFC4DE] sm:text-[16px]">
+                  {descripcion}
+                </p>
+              )}
+            </div>
           </div>
           {acciones && (
             <div className="flex w-full flex-wrap items-end gap-2 sm:w-auto">{acciones}</div>
