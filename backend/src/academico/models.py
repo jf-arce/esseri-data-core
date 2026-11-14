@@ -225,6 +225,7 @@ class AsignacionDocente(Base):
     )
     docente_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("docente.id"))
     materia_curso_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("materia_curso.id"))
+    docente: Mapped["Docente"] = relationship("Docente")
     materia_curso: Mapped["MateriaCurso"] = relationship(
         "MateriaCurso", back_populates="asignaciones"
     )

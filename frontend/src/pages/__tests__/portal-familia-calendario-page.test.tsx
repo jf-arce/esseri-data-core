@@ -27,6 +27,7 @@ function crearMateria(overrides: Partial<MateriaCurso> = {}): MateriaCurso {
     nivel_educativo_id: 'nivel-1',
     nivel_educativo_nombre: 'Primario',
     horarios: [{ id: 'horario-1', dia_semana: 1, hora_inicio: '08:00:00', hora_fin: '09:00:00' }],
+    docentes: ['María González'],
     cantidad_asignaciones: 1,
     created_at: '2027-01-01T00:00:00',
     updated_at: '2027-01-01T00:00:00',
@@ -63,12 +64,39 @@ describe('PortalFamiliaCalendarioPage', () => {
   it('muestra el horario del alumno a cargo en la grilla semanal', () => {
     renderizar()
 
-    expect(screen.getByText('Horario de Martina Ibáñez')).toBeInTheDocument()
-    expect(screen.getByText('Matemática')).toBeInTheDocument()
+    expect(screen.getByText('Horario semanal')).toBeInTheDocument()
     expect(screen.getByText('4°B · Primario')).toBeInTheDocument()
-    expect(
-      screen.getByRole('group', { name: /Matemática, lunes de 08:00 a 09:00/ }),
-    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Matemática.*08:00/ })).toBeInTheDocument()
+    expect(screen.getAllByText('Matemática').length).toBeGreaterThan(0)
+    expect(screen.getByText('María González')).toBeInTheDocument()
+  })
+
+  it('muestra el detalle de la clase seleccionada', async () => {
+    const usuario = userEvent.setup()
+    mockedUseHorarioFamilia.mockReturnValue({
+      materiasCurso: [
+        crearMateria(),
+        crearMateria({
+          id: 'materia-curso-2',
+          materia_id: 'materia-2',
+          materia_nombre: 'Inglés',
+          horarios: [
+            { id: 'horario-2', dia_semana: 3, hora_inicio: '09:00:00', hora_fin: '10:00:00' },
+          ],
+          docentes: ['Laura Díaz'],
+        }),
+      ],
+      cargando: false,
+      error: false,
+    })
+    renderizar()
+
+    expect(screen.getByText('María González')).toBeInTheDocument()
+
+    await usuario.click(screen.getByRole('button', { name: /Inglés.*09:00/ }))
+
+    expect(screen.getByText('Laura Díaz')).toBeInTheDocument()
+    expect(screen.getAllByText('09:00 – 10:00').length).toBeGreaterThan(0)
   })
 
   it('cambia de alumno y vuelve a pedir el horario del seleccionado', async () => {

@@ -2,8 +2,15 @@
 
 from datetime import time
 
-from src.academico.models import HorarioMateriaCurso, Materia, MateriaCurso
+from src.academico.models import (
+    AsignacionDocente,
+    Docente,
+    HorarioMateriaCurso,
+    Materia,
+    MateriaCurso,
+)
 from src.inscripciones.models import Inscripcion
+from src.models import Persona
 
 
 def _crear_materia_con_horario(db_session, division_id):
@@ -48,6 +55,33 @@ def test_familia_ve_el_horario_del_curso_de_su_alumno(
         "08:00:00",
         "09:30:00",
     )
+
+
+def test_familia_ve_el_docente_asignado_a_la_materia(
+    client_familia, db_session, escenario_dos_familias
+):
+    materia_curso = _crear_materia_con_horario(db_session, escenario_dos_familias["division"])
+    persona = Persona(nombre="María", apellido="González", dni="30999111")
+    db_session.add(persona)
+    db_session.flush()
+    docente = Docente(legajo="DOC-9911", persona_id=persona.id)
+    db_session.add(docente)
+    db_session.flush()
+    db_session.add(
+        AsignacionDocente(
+            docente_id=docente.id,
+            materia_curso_id=materia_curso.id,
+            ciclo_lectivo="2027",
+        )
+    )
+    db_session.commit()
+
+    respuesta = client_familia.get(
+        f"/academico/familia/alumnos/{escenario_dos_familias['alumno_a']}/horario"
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()[0]["docentes"] == ["María González"]
 
 
 def test_familia_ajena_no_puede_ver_el_horario(client_familia, db_session, escenario_dos_familias):
