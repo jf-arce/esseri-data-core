@@ -25,6 +25,7 @@ MODULO_AUDITORIA = "Auditoría"
 MODULO_PANEL_ADMIN = "Panel Administrativo"
 MODULO_IA_SUGERENCIAS = "IA/Sugerencias"
 MODULO_COMUNICACIONES = "Comunicaciones"
+MODULO_ASISTENTE = "Asistente"
 
 MODULOS = (
     MODULO_AUTENTICACION,
@@ -38,6 +39,7 @@ MODULOS = (
     MODULO_PANEL_ADMIN,
     MODULO_IA_SUGERENCIAS,
     MODULO_COMUNICACIONES,
+    MODULO_ASISTENTE,
 )
 
 ACCION_CREAR = "crear"
@@ -66,6 +68,7 @@ ModuloLiteral = Literal[
     "Panel Administrativo",
     "IA/Sugerencias",
     "Comunicaciones",
+    "Asistente",
 ]
 
 AccionLiteral = Literal["crear", "leer", "actualizar", "eliminar", "exportar"]
@@ -85,6 +88,7 @@ SLUG_POR_MODULO: dict[str, str] = {
     MODULO_PANEL_ADMIN: "panel_administrativo",
     MODULO_IA_SUGERENCIAS: "ia_sugerencias",
     MODULO_COMUNICACIONES: "comunicaciones",
+    MODULO_ASISTENTE: "asistente",
 }
 
 
@@ -179,6 +183,7 @@ PERMISO_WORKFLOWS_ELIMINAR = codigo_de(MODULO_WORKFLOWS, ACCION_ELIMINAR)
 PERMISO_AUDITORIA_LEER = codigo_de(MODULO_AUDITORIA, ACCION_LEER)
 
 PERMISO_PANEL_ADMIN_LEER = codigo_de(MODULO_PANEL_ADMIN, ACCION_LEER)
+PERMISO_ASISTENTE_LEER = codigo_de(MODULO_ASISTENTE, ACCION_LEER)
 PERMISO_COMUNICACIONES_CREAR = codigo_de(MODULO_COMUNICACIONES, ACCION_CREAR)
 PERMISO_COMUNICACIONES_LEER = codigo_de(MODULO_COMUNICACIONES, ACCION_LEER)
 PERMISO_COMUNICACIONES_ACTUALIZAR = codigo_de(MODULO_COMUNICACIONES, ACCION_ACTUALIZAR)

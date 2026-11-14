@@ -8,6 +8,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.academico.router import router as academico_router
+from src.asistente.retencion_job import ejecutar_job_retencion_periodico
+from src.asistente.router import router as asistente_router
 from src.auditoria.router import router as auditoria_router
 from src.auth.router import router as auth_router
 from src.comunicaciones.adjuntos_router import router as adjuntos_router
@@ -41,10 +43,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     despacho: asyncio.Task[None] | None = None
     if app.state.workflows_despacho_habilitado:
         despacho = asyncio.create_task(ejecutar_job_despacho_periodico(), name="workflows-despacho")
+    retencion: asyncio.Task[None] | None = None
+    if app.state.asistente_habilitado:
+        retencion = asyncio.create_task(
+            ejecutar_job_retencion_periodico(), name="asistente-retencion"
+        )
     try:
         yield
     finally:
-        for tarea in (job, despacho):
+        for tarea in (job, despacho, retencion):
             if tarea is not None:
                 tarea.cancel()
                 with suppress(asyncio.CancelledError):
@@ -54,6 +61,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="ESSERI Data Core API", lifespan=lifespan)
 app.state.facturacion_job_habilitado = settings.FACTURACION_AUTOMATICA_HABILITADA
 app.state.workflows_despacho_habilitado = settings.WORKFLOWS_DESPACHO_HABILITADO
+app.state.asistente_habilitado = settings.ASISTENTE_HABILITADO
 
 app.add_middleware(
     CORSMiddleware,
@@ -80,6 +88,7 @@ app.include_router(envios_router)
 app.include_router(auditoria_router)
 app.include_router(panel_admin_router)
 app.include_router(ia_sugerencias_router)
+app.include_router(asistente_router)
 
 
 @app.get("/health")

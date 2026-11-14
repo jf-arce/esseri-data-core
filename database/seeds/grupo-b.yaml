@@ -29,6 +29,17 @@ permiso:
   - rol: familia
     modulo: Comunicaciones
     acciones: [leer] # own inbox and individual read receipt, never management
+  # Asistente de IA: consulta y navegación (Fase 1). Las herramientas revalidan además el permiso
+  # de cada módulo que consultan, así que este permiso solo habilita el panel.
+  - rol: administrador del sistema
+    modulo: Asistente
+    acciones: [leer]
+  - rol: dirección
+    modulo: Asistente
+    acciones: [leer]
+  - rol: administración
+    modulo: Asistente
+    acciones: [leer]
   # administrador del sistema — CRUD completo en todos los módulos
   - rol: administrador del sistema
     modulo: Comunicaciones

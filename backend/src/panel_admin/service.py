@@ -62,31 +62,45 @@ def obtener_indicadores_direccion(
     }
 
 
-def obtener_evolucion_financiera(db: Session, *, fecha_hoy: date | None = None) -> list[dict]:
-    """Aggregate issued invoices and approved receipts separately, never expenses."""
+def obtener_evolucion_financiera(
+    db: Session,
+    *,
+    fecha_hoy: date | None = None,
+    desde: date | None = None,
+    hasta: date | None = None,
+) -> list[dict]:
+    """Aggregate issued invoices and approved receipts separately, never expenses.
+
+    Sin fechas, devuelve el año en curso hasta hoy; con `desde` y `hasta`, mes a mes en ese rango.
+    """
     hoy = fecha_hoy or date.today()
-    inicio = date(hoy.year, 1, 1)
+    fin = hasta or hoy
+    inicio = desde or date(fin.year, 1, 1)
 
     def totales_por_mes(fecha, monto, *condiciones):
+        anio = extract("year", fecha)
         mes = extract("month", fecha)
-        return dict(
-            db.execute(
-                select(mes, func.sum(monto))
-                .where(fecha >= inicio, fecha <= hoy, *condiciones)
-                .group_by(mes)
-            ).all()
-        )
+        filas = db.execute(
+            select(anio, mes, func.sum(monto))
+            .where(fecha >= inicio, fecha <= fin, *condiciones)
+            .group_by(anio, mes)
+        ).all()
+        return {(int(a), int(m)): total for a, m, total in filas}
 
     facturado = totales_por_mes(Factura.fecha_emision, Factura.monto_total)
     cobrado = totales_por_mes(Pago.fecha, Pago.monto, Pago.estado == "aprobado")
-    return [
-        {
-            "mes": f"{hoy.year}-{mes:02d}",
-            "facturado": facturado.get(mes, Decimal("0")),
-            "cobrado": cobrado.get(mes, Decimal("0")),
-        }
-        for mes in range(1, hoy.month + 1)
-    ]
+    meses = []
+    anio, mes = inicio.year, inicio.month
+    while (anio, mes) <= (fin.year, fin.month):
+        meses.append(
+            {
+                "mes": f"{anio}-{mes:02d}",
+                "facturado": facturado.get((anio, mes), Decimal("0")),
+                "cobrado": cobrado.get((anio, mes), Decimal("0")),
+            }
+        )
+        anio, mes = (anio + 1, 1) if mes == 12 else (anio, mes + 1)
+    return meses
 
 
 # Hechos de negocio que sí quedan en `EVENT_LOG`. La asistencia se registra por clase, pero no

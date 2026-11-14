@@ -37,12 +37,10 @@ from src.ia_sugerencias.constants import (
     TIPOS_AUSENCIA_SIN_JUSTIFICAR,
 )
 from src.ia_sugerencias.exceptions import (
-    IaRespuestaInvalida,
     SugerenciaIlegible,
     SugerenciaYaRevisada,
 )
 from src.ia_sugerencias.models import IaSugerencia
-from src.ia_sugerencias.openai_client import completar_json
 from src.ia_sugerencias.schemas import (
     BorradorComunicacion,
     BorradorComunicacionCreate,
@@ -51,6 +49,7 @@ from src.ia_sugerencias.schemas import (
     SugerenciaResponse,
 )
 from src.inscripciones.models import Asistencia, Inscripcion
+from src.llm_client import IaRespuestaInvalida, completar_json
 from src.models import Persona
 from src.workflows.exceptions import (
     PlantillaDuplicada,
@@ -204,7 +203,7 @@ def generar_borrador_comunicacion(
         TipoEventoNoEncontrado: si el evento no existe.
         PlantillaDuplicada: si ya hay una plantilla con ese nombre (se corta antes de llamar al
             modelo, que es la parte que cuesta plata).
-        IaNoConfigurada / IaNoDisponible / IaRespuestaInvalida: ver `openai_client`.
+        IaNoConfigurada / IaNoDisponible / IaRespuestaInvalida: ver `src.llm_client`.
     """
     tipo_evento = db.get(TipoEvento, datos.tipo_evento_id)
     if tipo_evento is None:
