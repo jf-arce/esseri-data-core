@@ -25,7 +25,8 @@ import {
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
 import { listarComunicaciones } from '@/modules/comunicaciones/services/listar-comunicaciones'
 import { listarAsistenciasFamilia } from '@/modules/academico/services/listar-asistencias-familia'
-import { esAusenciaPendienteDeJustificar } from '@/modules/academico/utils'
+import { listarSolicitudesAusenciaFamilia } from '@/modules/academico/services/solicitudes-ausencia-familia'
+import { esAusenciaSinJustificar } from '@/modules/academico/utils'
 import { listarFacturacionFamilia } from '@/modules/facturacion/services/listar-facturacion-familia'
 import { formatearMoneda } from '@/modules/facturacion/utils'
 import type { FacturacionFamilia } from '@/modules/facturacion/types'
@@ -115,14 +116,33 @@ export function PortalFamiliaPage() {
   useEffect(() => {
     if (alumnos.length === 0) return
     let activo = true
-    Promise.all(alumnos.map((alumno) => listarAsistenciasFamilia(alumno.alumno_id)))
-      .then((listas) => {
+    Promise.all(
+      alumnos.map(async (alumno) => {
+        const [lista, solicitudes] = await Promise.all([
+          listarAsistenciasFamilia(alumno.alumno_id),
+          listarSolicitudesAusenciaFamilia(alumno.alumno_id).catch(() => []),
+        ])
+        return { lista, solicitudes }
+      }),
+    )
+      .then((resultados) => {
         if (!activo) return
-        setAsistencias({
-          total: listas.flat().filter((asistencia) => esAusenciaPendienteDeJustificar(asistencia))
-            .length,
-          cargando: false,
-        })
+        const total = resultados.reduce((acumulado, { lista, solicitudes }) => {
+          const activas = solicitudes.filter(
+            (solicitud) => solicitud.estado === 'pendiente' || solicitud.estado === 'aprobada',
+          )
+          const cubierta = (fecha: string) =>
+            activas.some(
+              (solicitud) => solicitud.fecha_inicio <= fecha && solicitud.fecha_fin >= fecha,
+            )
+          return (
+            acumulado +
+            lista.filter(
+              (asistencia) => esAusenciaSinJustificar(asistencia) && !cubierta(asistencia.fecha),
+            ).length
+          )
+        }, 0)
+        setAsistencias({ total, cargando: false })
       })
       .catch(() => {
         if (activo) setAsistencias({ total: null, cargando: false })
