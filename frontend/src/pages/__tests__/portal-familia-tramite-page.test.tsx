@@ -156,7 +156,12 @@ describe('PortalFamiliaTramitePage', () => {
     expect(screen.getByRole('tab', { name: 'Historial' })).toHaveAttribute('aria-selected', 'false')
     expect(screen.getByRole('button', { name: 'Justificar' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Justificar' }))
+    const botonJustificar = await screen.findByRole(
+      'button',
+      { name: 'Justificar' },
+      { timeout: 3000 },
+    )
+    fireEvent.click(botonJustificar)
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Justificar ausencia' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
@@ -465,7 +470,12 @@ describe('PortalFamiliaTramitePage', () => {
       )
 
       await screen.findByRole('heading', { name: 'Pendientes' })
-      fireEvent.click(screen.getByRole('button', { name: 'Justificar' }))
+      const botonJustificar = await screen.findByRole(
+        'button',
+        { name: 'Justificar' },
+        { timeout: 3000 },
+      )
+      fireEvent.click(botonJustificar)
 
       const dialogo = within(screen.getByRole('dialog'))
       expect(
@@ -501,7 +511,12 @@ describe('PortalFamiliaTramitePage', () => {
       )
 
       await screen.findByRole('heading', { name: 'Pendientes' })
-      fireEvent.click(screen.getByRole('button', { name: 'Justificar' }))
+      const botonJustificar = await screen.findByRole(
+        'button',
+        { name: 'Justificar' },
+        { timeout: 3000 },
+      )
+      fireEvent.click(botonJustificar)
 
       const dialogo = within(screen.getByRole('dialog'))
       expect(
@@ -533,7 +548,12 @@ describe('PortalFamiliaTramitePage', () => {
       )
 
       await screen.findByRole('heading', { name: 'Pendientes' })
-      fireEvent.click(screen.getByRole('button', { name: 'Justificar' }))
+      const botonJustificar = await screen.findByRole(
+        'button',
+        { name: 'Justificar' },
+        { timeout: 3000 },
+      )
+      fireEvent.click(botonJustificar)
 
       const dialogo = within(screen.getByRole('dialog'))
       expect(
@@ -563,7 +583,12 @@ describe('PortalFamiliaTramitePage', () => {
       )
 
       await screen.findByRole('heading', { name: 'Pendientes' })
-      fireEvent.click(screen.getByRole('button', { name: 'Justificar' }))
+      const botonJustificar = await screen.findByRole(
+        'button',
+        { name: 'Justificar' },
+        { timeout: 3000 },
+      )
+      fireEvent.click(botonJustificar)
 
       const dialogo = within(screen.getByRole('dialog'))
       expect(
@@ -601,7 +626,12 @@ describe('PortalFamiliaTramitePage', () => {
       )
 
       await screen.findByRole('heading', { name: 'Pendientes' })
-      fireEvent.click(screen.getByRole('button', { name: 'Justificar' }))
+      const botonJustificar = await screen.findByRole(
+        'button',
+        { name: 'Justificar' },
+        { timeout: 3000 },
+      )
+      fireEvent.click(botonJustificar)
 
       const dialogo = within(screen.getByRole('dialog'))
       fireEvent.change(dialogo.getByLabelText(/^Hasta/), { target: { value: '2026-11-05' } })
