@@ -86,6 +86,7 @@ export interface FacturaFamilia {
   fecha_vencimiento_efectiva: string
   monto_total: string
   estado: EstadoFactura
+  medio?: 'cbu' | 'tarjeta' | null
   alumno_nombre: string
   detalles: DetalleFacturaFamilia[]
   pagos: PagoFamilia[]
@@ -192,6 +193,8 @@ export interface FiltrosFacturas {
   buscar?: string
   alumnoId?: string
   conceptoCobroId?: string
+  emisionDesde?: string
+  emisionHasta?: string
   ordenarPor?: OrdenarPorFacturas
   direccion?: DireccionOrdenFacturas
 }

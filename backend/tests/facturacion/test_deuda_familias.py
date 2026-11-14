@@ -133,3 +133,26 @@ def test_deuda_familiar_filtra_familias_al_dia(db_session):
     assert items[0]["deuda_total"] == Decimal("0.00")
     assert items[0]["monto_pagado"] == Decimal("100.00")
     assert items[0]["estado"] == "pagada"
+
+
+def test_deuda_familiar_al_cierre_solo_cuenta_lo_emitido_hasta_ese_dia(db_session):
+    inscripcion, concepto, _, _ = _crear_escenario_con_deuda(db_session)
+    for emision, monto in [(date(2027, 3, 1), "100.00"), (date(2027, 3, 10), "50.00")]:
+        _crear_factura(
+            db_session,
+            inscripcion.id,
+            concepto.id,
+            emision=emision,
+            vencimiento=date(2027, 4, 1),
+            monto=Decimal(monto),
+        )
+
+    def deuda_al(dia: date) -> Decimal | None:
+        items, _ = listar_deuda_por_familia(
+            db_session, fecha_referencia=dia, pagina=1, tamanio=20, al=dia
+        )
+        return items[0]["deuda_total"] if items else None
+
+    assert deuda_al(date(2027, 2, 28)) is None
+    assert deuda_al(date(2027, 3, 5)) == Decimal("100.00")
+    assert deuda_al(date(2027, 3, 15)) == Decimal("150.00")

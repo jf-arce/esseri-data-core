@@ -5,6 +5,7 @@ import {
   fechaApi,
   formatearFechaFactura,
   formatearMoneda,
+  rangoDeMes,
   resumenConceptosFactura,
   validarTramoPenalidad,
 } from '@/modules/facturacion/utils'
@@ -47,5 +48,18 @@ describe('validarTramoPenalidad', () => {
     expect(validarTramoPenalidad({ ...valido, hasta: '5' })).toMatch(/día hasta/)
     expect(validarTramoPenalidad({ ...valido, desde: '2.5' })).toMatch(/día desde/)
     expect(validarTramoPenalidad({ ...valido, porcentaje: '120' })).toMatch(/entre 0 y 100/)
+  })
+})
+
+describe('rangoDeMes', () => {
+  it('returns the first and last day, including leap years', () => {
+    expect(rangoDeMes('2026-10')).toEqual({ desde: '2026-10-01', hasta: '2026-10-31' })
+    expect(rangoDeMes('2028-02')).toEqual({ desde: '2028-02-01', hasta: '2028-02-29' })
+    expect(rangoDeMes('2027-02')).toEqual({ desde: '2027-02-01', hasta: '2027-02-28' })
+  })
+
+  it('rejects text that is not a month', () => {
+    for (const valor of ['', '2026', '2026-13', '2026-00', 'octubre', '2026-1'])
+      expect(rangoDeMes(valor)).toBeNull()
   })
 })

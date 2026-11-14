@@ -8,6 +8,7 @@ import {
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   Search,
+  SparklesIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router'
@@ -44,6 +45,11 @@ import {
 } from '@/layout/nav-items'
 import { GlobalSearchDialog } from '@/layout/global-search-dialog'
 import { MenuCuenta } from '@/layout/menu-cuenta'
+import { AsistenteDock } from '@/modules/asistente/components/asistente-dock'
+import { TECLA_ATAJO } from '@/modules/asistente/constants'
+import { useAsistenteDisponible } from '@/modules/asistente/hooks/use-asistente-disponible'
+import { useAsistenteStore } from '@/modules/asistente/store'
+import { PERMISO_ASISTENTE_LEER, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 import { useUiStore } from '@/store/ui-store'
@@ -57,6 +63,12 @@ export function AppLayout() {
   const ciclo = useCicloLectivoStore((state) => state.cicloLectivo)
   const setCicloLectivo = useCicloLectivoStore((state) => state.setCicloLectivo)
   const location = useLocation()
+  const asistenteAbierto = useAsistenteStore((state) => state.abierto)
+  const alternarAsistente = useAsistenteStore((state) => state.alternar)
+  // Visible solo con `asistente.leer` y si el backend no lo tiene deshabilitado (503).
+  const asistenteDisponible = useAsistenteDisponible(
+    rolActivo !== null && tienePermiso(permisos, PERMISO_ASISTENTE_LEER),
+  )
   // Sidebar, buscador y ruta activa comparten un único árbol ya acotado al rol activo — un
   // docente no debe ni ver ni poder activar por URL un módulo que su vista no muestra.
   const navGrupos = useMemo(
@@ -91,10 +103,20 @@ export function AppLayout() {
         evento.preventDefault()
         setComandoAbierto((abierto) => !abierto)
       }
+      if (
+        asistenteDisponible &&
+        evento.key.toLowerCase() === TECLA_ATAJO &&
+        (evento.metaKey || evento.ctrlKey) &&
+        !evento.shiftKey &&
+        !evento.altKey
+      ) {
+        evento.preventDefault()
+        alternarAsistente()
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [asistenteDisponible, alternarAsistente])
 
   return (
     <TooltipProvider>
@@ -213,6 +235,21 @@ export function AppLayout() {
               </DropdownMenuContent>
             </DropdownMenu>
 
+            {asistenteDisponible && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                aria-label="Asistente"
+                aria-pressed={asistenteAbierto}
+                title="Asistente (Ctrl+I)"
+                onClick={alternarAsistente}
+              >
+                <SparklesIcon className="size-5" />
+              </Button>
+            )}
+
             <Popover>
               <PopoverTrigger asChild>
                 <button
@@ -244,6 +281,9 @@ export function AppLayout() {
             <Outlet />
           </main>
         </SidebarInset>
+
+        {/* Montado aunque esté cerrado: así no se pierde la conversación al cerrarlo. */}
+        {asistenteDisponible && <AsistenteDock abierto={asistenteAbierto} />}
       </SidebarProvider>
 
       <GlobalSearchDialog open={comandoAbierto} onOpenChange={setComandoAbierto} />

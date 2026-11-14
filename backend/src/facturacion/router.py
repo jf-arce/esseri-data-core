@@ -346,6 +346,8 @@ def listar_facturas(
     concepto_cobro_id: uuid.UUID | None = None,
     estado: FacturaEstado | None = None,
     buscar: Annotated[str | None, Query(max_length=100)] = None,
+    emision_desde: date | None = None,
+    emision_hasta: date | None = None,
     ordenar_por: Literal["fecha_vencimiento", "monto_total"] = "fecha_vencimiento",
     direccion: Literal["asc", "desc"] = "asc",
 ) -> FacturaListadoRead:
@@ -358,6 +360,8 @@ def listar_facturas(
         concepto_cobro_id=concepto_cobro_id,
         estado=estado,
         buscar=buscar,
+        emision_desde=emision_desde,
+        emision_hasta=emision_hasta,
         ordenar_por=ordenar_por,
         direccion=direccion,
     )

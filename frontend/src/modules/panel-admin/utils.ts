@@ -22,3 +22,29 @@ export function fechaActividad(valor: string, ahora = new Date()) {
     year: 'numeric',
   })} · ${hora}`
 }
+
+const DIA_MS = 86_400_000
+
+/** Días enteros entre una fecha `AAAA-MM-DD` y hoy, en calendario local (nunca negativo). */
+export function diasDesde(fecha: string, ahora = new Date()) {
+  const [anio, mes, dia] = fecha.slice(0, 10).split('-').map(Number)
+  const origen = Date.UTC(anio, mes - 1, dia)
+  const hoy = Date.UTC(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
+  return Math.max(0, Math.round((hoy - origen) / DIA_MS))
+}
+
+export function antiguedad(dias: number) {
+  if (dias === 0) return 'hoy'
+  if (dias === 1) return 'hace 1 día'
+  return `hace ${dias} días`
+}
+
+/** Porcentaje cobrado sobre lo facturado, o `null` si no se facturó nada. */
+export function porcentajeCobranza(facturado: number, cobrado: number) {
+  return facturado > 0 ? (cobrado / facturado) * 100 : null
+}
+
+/** Variación porcentual entre dos períodos, o `null` si la base es cero. */
+export function variacionPorcentual(actual: number, anterior: number) {
+  return anterior > 0 ? ((actual - anterior) / anterior) * 100 : null
+}

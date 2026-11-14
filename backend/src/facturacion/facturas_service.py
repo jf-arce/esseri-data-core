@@ -397,6 +397,8 @@ def listar_facturas(
     concepto_cobro_id: uuid.UUID | None = None,
     estado: str | None = None,
     buscar: str | None = None,
+    emision_desde: date | None = None,
+    emision_hasta: date | None = None,
     ordenar_por: str = "fecha_vencimiento",
     direccion: str = "asc",
 ) -> tuple[list[Factura], int]:
@@ -426,6 +428,10 @@ def listar_facturas(
         filtros.append(Factura.estado == estado)
     if buscar:
         filtros.append(cast(Factura.id, String).ilike(f"%{buscar.strip()}%"))
+    if emision_desde is not None:
+        filtros.append(Factura.fecha_emision >= emision_desde)
+    if emision_hasta is not None:
+        filtros.append(Factura.fecha_emision <= emision_hasta)
     if filtros:
         consulta = consulta.where(*filtros)
         consulta_total = consulta_total.where(*filtros)

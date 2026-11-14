@@ -86,3 +86,11 @@ export function validarTramoPenalidad(valores: ValoresTramoPenalidad): string | 
     return 'El porcentaje debe estar entre 0 y 100.'
   return null
 }
+
+/** Primer y último día de un mes `AAAA-MM`, o `null` si el texto no es un mes válido. */
+export function rangoDeMes(mes: string) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) return null
+  const [anio, numero] = mes.split('-').map(Number)
+  const ultimo = new Date(anio, numero, 0).getDate()
+  return { desde: `${mes}-01`, hasta: `${mes}-${String(ultimo).padStart(2, '0')}` }
+}

@@ -26,6 +26,7 @@ esseri-data-core/
 - **Convenciones de nombres, dónde va cada archivo, criterio de testing**: [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 - **Reglas para asistentes de IA** (Cursor, Claude Code, Copilot): [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md).
 - **Diccionario de datos y decisiones de diseño**: [`docs/diccionario-de-datos-esseri.md`](./docs/diccionario-de-datos-esseri.md).
+- **Asistente IA** (qué hace, cómo funciona, herramientas, privacidad y cómo extenderlo): [`docs/asistente.md`](./docs/asistente.md).
 
 ## Flujo de trabajo
 

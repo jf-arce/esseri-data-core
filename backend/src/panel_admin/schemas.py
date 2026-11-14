@@ -1,6 +1,6 @@
 """Contratos HTTP del módulo Panel Administrativo."""
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -12,6 +12,12 @@ class IndicadoresDireccionRead(BaseModel):
     deuda_pendiente_total: Decimal
     inasistencias_hoy: int
     solicitudes_compra_pendientes: int
+    deuda_vencida_total: Decimal
+    familias_en_mora: int
+    altas_mes: int
+    bajas_mes: int
+    asistencias_registradas_hoy: int
+    solicitud_pendiente_mas_antigua: date | None
 
 
 class EvolucionFinancieraRead(BaseModel):

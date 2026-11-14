@@ -1,15 +1,8 @@
-import {
-  CircleDollarSignIcon,
-  ClipboardListIcon,
-  UserRoundCheckIcon,
-  UserRoundXIcon,
-} from 'lucide-react'
-import { Link } from 'react-router'
+import { RefreshCwIcon } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/page-header'
-import { StatTile } from '@/components/stat-tile'
 import { useIndicadoresDireccion } from '@/modules/panel-admin/hooks/use-indicadores-direccion'
-import { formatearMoneda } from '@/modules/facturacion/utils'
 import {
   PERMISO_ACADEMICO_LEER,
   PERMISO_FACTURACION_LEER,
@@ -18,16 +11,67 @@ import {
   tienePermiso,
 } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
+import { useDetalleDireccion } from '../hooks/use-detalle-direccion'
 import { DetalleDireccion } from '../components/detalle-direccion'
+import { IndicadoresDireccion } from '../components/indicadores-direccion'
+
+const fechaDeHoy = () =>
+  new Date().toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+
+const capitalize = (str: string) => {
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
 
 export function PanelDireccionPage() {
-  const { datos, cargando, error } = useIndicadoresDireccion()
+  const { datos, cargando, actualizando, actualizadoEn, error, version, recargar } =
+    useIndicadoresDireccion()
   const permisos = useAuthStore(permisosActivos)
+  const acceso = {
+    compras: tienePermiso(permisos, PERMISO_PROVEEDORES_COMPRAS_LEER),
+    finanzas: tienePermiso(permisos, PERMISO_FACTURACION_LEER),
+    academico: tienePermiso(permisos, PERMISO_ACADEMICO_LEER),
+    alumnos: tienePermiso(permisos, PERMISO_FAMILIAS_ALUMNOS_LEER),
+  }
+
+  // Una sola consulta de detalle: la usan las tarjetas (mini detalle) y las secciones de abajo.
+  const detalle = useDetalleDireccion(acceso, version)
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader titulo="Panel de Dirección" />
-      <p className="-mt-4 text-sm text-texto-2">Resumen general de la gestión institucional</p>
+      <PageHeader
+        etiqueta="Dirección"
+        titulo="Panel de Dirección"
+        descripcion={capitalize(fechaDeHoy())}
+        accion={
+          <div className="flex items-center gap-3">
+            {actualizadoEn && (
+              <span className="text-xs tabular-nums text-texto-2">
+                Actualizado a las{' '}
+                {actualizadoEn.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+            <Button
+              variant="secondary"
+              size="sm"
+              className="min-h-10"
+              disabled={cargando || actualizando}
+              onClick={recargar}
+            >
+              <RefreshCwIcon
+                data-icon="inline-start"
+                aria-hidden="true"
+                className={actualizando ? 'animate-spin' : undefined}
+              />
+              {actualizando ? 'Actualizando' : 'Actualizar'}
+            </Button>
+          </div>
+        }
+      />
 
       {error && (
         <Alert variant="error">
@@ -36,87 +80,19 @@ export function PanelDireccionPage() {
         </Alert>
       )}
 
-      <section
-        aria-label="Indicadores de Dirección"
-        className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
-      >
-        {tienePermiso(permisos, PERMISO_FAMILIAS_ALUMNOS_LEER) && (
-          <Link
-            to="/familias-alumnos/alumnos"
-            aria-label="Ver alumnos activos"
-            className="group rounded-card-sm"
-          >
-            <StatTile
-              label="Alumnos activos"
-              value={error ? 'No disponible' : datos.alumnos_activos}
-              icon={UserRoundCheckIcon}
-              variant="dark"
-              compact
-              cargando={cargando}
-              className="h-full transition-colors duration-200 group-hover:bg-nav-hover"
-            />
-          </Link>
-        )}
-        {tienePermiso(permisos, PERMISO_FACTURACION_LEER) && (
-          <Link
-            to="/facturacion"
-            aria-label="Ver facturas y deuda pendiente"
-            className="group rounded-card-sm"
-          >
-            <StatTile
-              label="Deuda pendiente"
-              value={error ? 'No disponible' : formatearMoneda(datos.deuda_pendiente_total)}
-              icon={CircleDollarSignIcon}
-              iconClassName="bg-sup-facturacion text-mod-facturacion"
-              compact
-              cargando={cargando}
-              className="h-full transition-colors duration-200 group-hover:bg-fila-hover"
-            />
-          </Link>
-        )}
-        {tienePermiso(permisos, PERMISO_ACADEMICO_LEER) && (
-          <Link
-            to="/academico"
-            aria-label="Ver inasistencias en Académico"
-            className="group rounded-card-sm"
-          >
-            <StatTile
-              label="Inasistencias de hoy"
-              value={error ? 'No disponible' : datos.inasistencias_hoy}
-              icon={UserRoundXIcon}
-              iconClassName="bg-sup-academico text-mod-academico"
-              compact
-              cargando={cargando}
-              className="h-full transition-colors duration-200 group-hover:bg-fila-hover"
-            />
-          </Link>
-        )}
-        {tienePermiso(permisos, PERMISO_PROVEEDORES_COMPRAS_LEER) && (
-          <Link
-            to="/solicitudes-compra"
-            aria-label="Ver solicitudes de compra pendientes"
-            className="group rounded-card-sm"
-          >
-            <StatTile
-              label="Solicitudes de compra pendientes"
-              value={error ? 'No disponible' : datos.solicitudes_compra_pendientes}
-              icon={ClipboardListIcon}
-              iconClassName="bg-sup-compras text-mod-compras"
-              compact
-              cargando={cargando}
-              className="h-full transition-colors duration-200 group-hover:bg-fila-hover"
-            />
-          </Link>
-        )}
-      </section>
-      <DetalleDireccion
+      <IndicadoresDireccion
+        datos={datos}
+        cargando={cargando}
+        error={error !== null}
+        contexto={{ deudas: detalle.deudas, compras: detalle.compras }}
         acceso={{
-          compras: tienePermiso(permisos, PERMISO_PROVEEDORES_COMPRAS_LEER),
-          finanzas: tienePermiso(permisos, PERMISO_FACTURACION_LEER),
-          academico: tienePermiso(permisos, PERMISO_ACADEMICO_LEER),
-          alumnos: tienePermiso(permisos, PERMISO_FAMILIAS_ALUMNOS_LEER),
+          alumnos: acceso.alumnos,
+          facturacion: acceso.finanzas,
+          academico: acceso.academico,
+          compras: acceso.compras,
         }}
       />
+      <DetalleDireccion acceso={acceso} datos={detalle} />
     </div>
   )
 }

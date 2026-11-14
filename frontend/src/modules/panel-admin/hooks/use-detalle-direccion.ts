@@ -11,7 +11,13 @@ export interface Recurso<T> {
   error: string | null
 }
 
-function useConsulta<T>(habilitado: boolean, consultar: () => Promise<T>): Recurso<T> {
+// `version` fuerza una nueva consulta (botón Actualizar) sin descartar lo que ya se ve: los datos
+// anteriores quedan en pantalla hasta que llegan los nuevos.
+function useConsulta<T>(
+  habilitado: boolean,
+  consultar: () => Promise<T>,
+  version: number,
+): Recurso<T> {
   const [estado, setEstado] = useState<Recurso<T>>({ datos: null, cargando: true, error: null })
   useEffect(() => {
     if (!habilitado) return
@@ -32,7 +38,7 @@ function useConsulta<T>(habilitado: boolean, consultar: () => Promise<T>): Recur
     return () => {
       vigente = false
     }
-  }, [habilitado, consultar])
+  }, [habilitado, consultar, version])
   return habilitado ? estado : { datos: null, cargando: false, error: null }
 }
 
@@ -46,21 +52,27 @@ const consultarAsistencia = () => {
   return listarAsistencias({ fecha_desde: fechaLocal(inicio), fecha_hasta: fechaLocal(hoy) })
 }
 
-export function useDetalleDireccion(acceso: {
-  compras: boolean
-  finanzas: boolean
-  academico: boolean
-  alumnos: boolean
-}) {
-  const compras = useConsulta(acceso.compras, listarSolicitudes)
-  const deudas = useConsulta(acceso.finanzas, consultarDeudas)
-  const asistencia = useConsulta(acceso.academico, consultarAsistencia)
-  const finanzas = useConsulta(acceso.finanzas, obtenerEvolucionFinanciera)
+export function useDetalleDireccion(
+  acceso: {
+    compras: boolean
+    finanzas: boolean
+    academico: boolean
+    alumnos: boolean
+  },
+  version = 0,
+) {
+  const compras = useConsulta(acceso.compras, listarSolicitudes, version)
+  const deudas = useConsulta(acceso.finanzas, consultarDeudas, version)
+  const asistencia = useConsulta(acceso.academico, consultarAsistencia, version)
+  const finanzas = useConsulta(acceso.finanzas, obtenerEvolucionFinanciera, version)
   // El backend filtra las categorías por el rol activo; acá solo se evita pedir el feed cuando
   // ninguna de las tres está habilitada.
   const actividad = useConsulta(
     acceso.compras || acceso.finanzas || acceso.alumnos,
     obtenerActividadReciente,
+    version,
   )
   return { compras, deudas, asistencia, finanzas, actividad }
 }
+
+export type DatosDetalleDireccion = ReturnType<typeof useDetalleDireccion>

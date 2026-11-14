@@ -12,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 # cruzan módulos (ej. event_log.tipo_evento_id -> workflows). Mismo bloque que alembic/env.py.
 from src.academico import models as academico_models  # noqa: F401
 from src.academico.models import Anio, Division, NivelEducativo
+from src.asistente import models as asistente_models  # noqa: F401
 from src.auth import models as auth_models  # noqa: F401
 from src.auth import sesion_service
 from src.auth.constants import (
@@ -49,6 +50,7 @@ PASSWORD_VALIDA = "una-contrasenia-larga"
 
 app.state.facturacion_job_habilitado = False
 app.state.workflows_despacho_habilitado = False
+app.state.asistente_habilitado = False
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
 

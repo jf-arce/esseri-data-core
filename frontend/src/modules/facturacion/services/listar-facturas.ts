@@ -10,6 +10,8 @@ export function listarFacturas(filtros: FiltrosFacturas, signal?: AbortSignal) {
   if (filtros.buscar?.trim()) parametros.set('buscar', filtros.buscar.trim())
   if (filtros.alumnoId) parametros.set('alumno_id', filtros.alumnoId)
   if (filtros.conceptoCobroId) parametros.set('concepto_cobro_id', filtros.conceptoCobroId)
+  if (filtros.emisionDesde) parametros.set('emision_desde', filtros.emisionDesde)
+  if (filtros.emisionHasta) parametros.set('emision_hasta', filtros.emisionHasta)
   if (filtros.ordenarPor) parametros.set('ordenar_por', filtros.ordenarPor)
   if (filtros.direccion) parametros.set('direccion', filtros.direccion)
 

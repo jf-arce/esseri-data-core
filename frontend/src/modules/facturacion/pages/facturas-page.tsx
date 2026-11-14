@@ -9,11 +9,13 @@ import {
 import { Link, useSearchParams } from 'react-router'
 import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { FacturasFiltros } from '@/modules/facturacion/components/facturas-filtros'
 import { FacturasTabla } from '@/modules/facturacion/components/facturas-tabla'
 import { useFacturas } from '@/modules/facturacion/hooks/use-facturas'
+import { rangoDeMes } from '@/modules/facturacion/utils'
 import type {
   DireccionOrdenFacturas,
   EstadoFactura,
@@ -38,18 +40,25 @@ export function FacturasPage() {
     (searchParams.get('direccion') as DireccionOrdenFacturas | null) ?? 'asc',
   )
   const [pagina, setPagina] = useState(Number(searchParams.get('pagina')) || 1)
-  const filtros = useMemo(
-    () => ({
+  // Mes de emisión (`AAAA-MM`): llega desde el gráfico del Panel de Dirección.
+  const [emisionMes, setEmisionMes] = useState(() => {
+    const mes = searchParams.get('emision_mes') ?? ''
+    return rangoDeMes(mes) ? mes : ''
+  })
+  const filtros = useMemo(() => {
+    const rango = rangoDeMes(emisionMes)
+    return {
       pagina,
       tamanio: TAMANIO_PAGINA,
       estado: estado || undefined,
       alumnoId: alumnoId || undefined,
       conceptoCobroId: conceptoCobroId || undefined,
+      emisionDesde: rango?.desde,
+      emisionHasta: rango?.hasta,
       ordenarPor,
       direccion,
-    }),
-    [alumnoId, conceptoCobroId, direccion, estado, ordenarPor, pagina],
-  )
+    }
+  }, [alumnoId, conceptoCobroId, direccion, emisionMes, estado, ordenarPor, pagina])
   const { datos, cargando, error, sinPermiso, recargar } = useFacturas(filtros)
 
   const actualizarEstado = (siguiente: EstadoFactura | '') => {
@@ -83,9 +92,19 @@ export function FacturasPage() {
     if (conceptoCobroId) parametros.set('concepto_cobro_id', conceptoCobroId)
     if (ordenarPor !== 'fecha_vencimiento') parametros.set('ordenar_por', ordenarPor)
     if (direccion !== 'asc') parametros.set('direccion', direccion)
+    if (emisionMes) parametros.set('emision_mes', emisionMes)
     if (pagina !== 1) parametros.set('pagina', String(pagina))
     setSearchParams(parametros, { replace: true })
-  }, [alumnoId, conceptoCobroId, direccion, estado, ordenarPor, pagina, setSearchParams])
+  }, [
+    alumnoId,
+    conceptoCobroId,
+    direccion,
+    emisionMes,
+    estado,
+    ordenarPor,
+    pagina,
+    setSearchParams,
+  ])
 
   if (sinPermiso) {
     return (
@@ -154,6 +173,28 @@ export function FacturasPage() {
         onAlumnoChange={actualizarAlumno}
         onConceptoCobroChange={actualizarConcepto}
       />
+
+      {emisionMes && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <Badge variant="info">
+            Emitidas en{' '}
+            {new Date(`${emisionMes}-01T12:00:00`).toLocaleDateString('es-AR', {
+              month: 'long',
+              year: 'numeric',
+            })}
+          </Badge>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setEmisionMes('')
+              setPagina(1)
+            }}
+          >
+            Eliminar filtro
+          </Button>
+        </div>
+      )}
 
       {!cargando && datos.items.length === 0 && !error ? (
         <Empty className="min-h-[300px] rounded-panel bg-superficie shadow-card">

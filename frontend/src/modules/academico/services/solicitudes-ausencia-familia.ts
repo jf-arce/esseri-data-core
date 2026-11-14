@@ -11,6 +11,15 @@ export type CrearSolicitudAusenciaPeriodo = {
   comprobante?: File
 }
 
+export type ConfiguracionAusenciasFamilia = {
+  dias_limite_justificacion: number
+}
+
+/** Ventana vigente de justificación, configurada en el backend. */
+export function obtenerConfiguracionAusencias(): Promise<ConfiguracionAusenciasFamilia> {
+  return apiClient<ConfiguracionAusenciasFamilia>('/academico/familia/configuracion-ausencias')
+}
+
 export function crearSolicitudAusenciaPeriodo(
   datos: CrearSolicitudAusenciaPeriodo,
 ): Promise<SolicitudAusenciaPeriodo> {

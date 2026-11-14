@@ -8,12 +8,12 @@
     <script>
       ;(() => {
         try {
-          const theme = localStorage.getItem('esseri-theme') === 'dark' ? 'dark' : 'light'
+          const theme = localStorage.getItem('esseri-theme') === 'light' ? 'light' : 'dark'
           document.documentElement.classList.toggle('dark', theme === 'dark')
           document.documentElement.dataset.theme = theme
           document.documentElement.style.colorScheme = theme
         } catch {
-          // El navegador puede bloquear localStorage. En ese caso se conserva el tema claro.
+          // El navegador puede bloquear localStorage. En ese caso se conserva el tema oscuro.
         }
       })()
     </script>

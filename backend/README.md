@@ -177,11 +177,52 @@ Workflows, en la misma transacción; no envía nada.
 - Lo que devuelve se valida como una plantilla antes de guardarse: longitudes, formato de los
   marcadores y que cada uno exista en el evento. Si no pasa, responde 502 y no se guarda.
 - Sin `OPENAI_API_KEY` responde 503; el resto del módulo sigue funcionando.
-- `src/ia_sugerencias/openai_client.py` habla el protocolo de Chat Completions de OpenAI por
+- `src/llm_client.py` (compartido con el Asistente) habla el protocolo de Chat Completions de OpenAI por
   `httpx`, sin SDK. `OPENAI_BASE_URL` y `OPENAI_MODEL` permiten apuntarlo a otro proveedor
-  compatible con ese protocolo sin cambiar código.
+  compatible con ese protocolo sin cambiar código. `OPENAI_REASONING_EFFORT` es opcional: con
+  `gpt-6-luna` hay que ponerlo en `none` (sin eso OpenAI rechaza las herramientas con un 400).
 - Los tests simulan al proveedor con `httpx.MockTransport`: ninguno sale a la red. La
   integración contra un proveedor real se verifica a mano, con una clave.
+
+### Asistente de IA
+
+Módulo `src/asistente/`: un asistente conversacional para Dirección y Administración. El modelo
+elige herramientas (consultas a los services existentes) y el backend produce todas las cifras.
+Reutiliza el proveedor configurado con `OPENAI_BASE_URL` / `OPENAI_MODEL` (que tiene que soportar
+`tools` y `tool_calls`) a través de `src/llm_client.py`.
+
+- Explicación completa del asistente: `docs/asistente.md`.
+- Herramientas de consulta (solo lectura): indicadores, evolución financiera, deuda por familia, inscripciones, asistencias, ausentes del día, ficha de alumno, tareas y ejecuciones, búsqueda de recursos, navegación (`ir_a`) y, en `herramientas_cursos.py`, estructura académica (cursos con cantidad de alumnos y materias), horario del curso, alumnos del curso y docentes del curso. Cada herramienta exige los permisos del dominio y puede declarar la pantalla relacionada (`destino`), que se ofrece como botón al terminar la respuesta.
+- Endpoints, bajo `/asistente` y con `asistente.leer`: `POST/GET /conversaciones`,
+  `GET /conversaciones/{id}/mensajes`, `DELETE /conversaciones/{id}`,
+  `POST /conversaciones/{id}/mensajes` (SSE con los eventos `herramienta`, `delta` (trozo de
+  texto), `texto` (respuesta final), `tarjeta`, `navegar`, `fin` y `error`) y `POST /resolver`. Con `ASISTENTE_HABILITADO=false` todo responde 503.
+- Al proveedor solo salen alias (`[ALUMNO:3]`, `[FAMILIA:1]`, `[DOCENTE:2]`), nunca nombres, DNI ni contacto. El detalle de la
+  regla está en `ARCHITECTURE.md` ("Asistente: privacidad y aislamiento").
+- Una conversación genera una respuesta a la vez (409 si se envía otro mensaje mientras tanto). La
+  cuota diaria (`ASISTENTE_MENSAJES_POR_DIA`) cuenta mensajes del usuario; los que terminan en
+  error del proveedor no cuentan.
+- Un job (`retencion_job.py`) borra al arrancar y cada `ASISTENTE_RETENCION_INTERVALO_HORAS` horas
+  las conversaciones sin actividad desde hace `ASISTENTE_RETENCION_DIAS` días.
+
+| Variable | Por defecto | Qué hace |
+|---|---|---|
+| `ASISTENTE_HABILITADO` | `true` | Interruptor del módulo (503 si está en `false`) |
+| `ASISTENTE_MAX_PASOS` | `6` | Pasos de modelo por respuesta; en el último se lo obliga a cerrar con texto |
+| `ASISTENTE_MAX_HERRAMIENTAS_POR_PASO` | `4` | Herramientas que se ejecutan por paso |
+| `ASISTENTE_MENSAJES_POR_DIA` | `100` | Cuota diaria por usuario |
+| `ASISTENTE_MAX_CARACTERES_ENTRADA` | `2000` | Largo máximo de un mensaje |
+| `ASISTENTE_VENTANA_HISTORIAL` | `12` | Mensajes previos que se reenvían al modelo |
+| `ASISTENTE_MAX_FILAS_RESULTADO` | `20` | Filas máximas de una tabla de resultado |
+| `ASISTENTE_RETENCION_DIAS` | `90` | Días sin actividad antes de borrar una conversación |
+| `ASISTENTE_RETENCION_INTERVALO_HORAS` | `24` | Cada cuánto corre el job de retención |
+| `ASISTENTE_GENERACION_TIMEOUT_SEGUNDOS` | `180` | Pasado este tiempo, una generación caída libera la conversación |
+
+**Permiso en instalaciones existentes.** `asistente.leer` (dirección, administración y
+administrador del sistema) está en `database/seeds/grupo-b.yaml`. En una base ya sembrada se
+aplica volviendo a correr `python ../database/seeds/03_seed_grupo_b.py`: es idempotente (solo
+agrega los `Permiso` y `RolPermiso` que faltan) y después hay que aplicar la migración con
+`alembic upgrade head`.
 
 ### Workflows: eventos y despacho
 

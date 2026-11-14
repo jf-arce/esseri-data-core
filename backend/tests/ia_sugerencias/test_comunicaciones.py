@@ -14,15 +14,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from src import llm_client
 from src.config import settings
-from src.ia_sugerencias import openai_client
 from src.ia_sugerencias import service as ia_service
-from src.ia_sugerencias.exceptions import (
-    IaNoConfigurada,
-    IaNoDisponible,
-    IaRespuestaInvalida,
-    SugerenciaIlegible,
-)
+from src.ia_sugerencias.exceptions import SugerenciaIlegible
 from src.ia_sugerencias.models import IaSugerencia
 from src.ia_sugerencias.schemas import BorradorComunicacionCreate
 from src.ia_sugerencias.service import (
@@ -31,6 +26,7 @@ from src.ia_sugerencias.service import (
     generar_borrador_comunicacion,
     rechazar_sugerencia,
 )
+from src.llm_client import IaNoConfigurada, IaNoDisponible, IaRespuestaInvalida
 from src.models import AuditLog
 from src.workflows.exceptions import PlantillaDuplicada, TipoEventoNoEncontrado
 from src.workflows.models import CampoEvento, NotificacionTemplate, TipoEvento
@@ -102,7 +98,7 @@ class TestClienteDelProveedor:
     def test_arma_el_pedido_con_clave_modelo_y_formato_json(self, clave):
         recibidas: list[httpx.Request] = []
 
-        datos = openai_client.completar_json(
+        datos = llm_client.completar_json(
             "sistema", "pedido", transport=_proveedor(recibidas=recibidas)
         )
 
@@ -123,14 +119,14 @@ class TestClienteDelProveedor:
         recibidas: list[httpx.Request] = []
 
         with pytest.raises(IaNoConfigurada):
-            openai_client.completar_json("s", "p", transport=_proveedor(recibidas=recibidas))
+            llm_client.completar_json("s", "p", transport=_proveedor(recibidas=recibidas))
 
         assert recibidas == []
 
     @pytest.mark.parametrize("status", [401, 429, 500])
     def test_error_del_proveedor_informa_solo_el_codigo(self, clave, status):
         with pytest.raises(IaNoDisponible) as error:
-            openai_client.completar_json("s", "p", transport=_proveedor(status=status))
+            llm_client.completar_json("s", "p", transport=_proveedor(status=status))
 
         assert str(status) in error.value.message
 
@@ -139,25 +135,25 @@ class TestClienteDelProveedor:
             raise httpx.ConnectTimeout("timeout", request=request)
 
         with pytest.raises(IaNoDisponible):
-            openai_client.completar_json("s", "p", transport=httpx.MockTransport(fallar))
+            llm_client.completar_json("s", "p", transport=httpx.MockTransport(fallar))
 
     def test_acepta_json_envuelto_en_cerca_de_codigo(self, clave):
         envuelto = f"```json\n{json.dumps({'asunto': ASUNTO, 'cuerpo': CUERPO})}\n```"
 
-        datos = openai_client.completar_json("s", "p", transport=_proveedor(envuelto))
+        datos = llm_client.completar_json("s", "p", transport=_proveedor(envuelto))
 
         assert datos["asunto"] == ASUNTO
 
     @pytest.mark.parametrize("contenido", ["no es json", "[1, 2]", '"solo texto"'])
     def test_contenido_que_no_es_un_objeto_json_es_invalido(self, clave, contenido):
         with pytest.raises(IaRespuestaInvalida):
-            openai_client.completar_json("s", "p", transport=_proveedor(contenido))
+            llm_client.completar_json("s", "p", transport=_proveedor(contenido))
 
     def test_respuesta_sin_la_forma_esperada_es_invalida(self, clave):
         transporte = httpx.MockTransport(lambda request: httpx.Response(200, json={"otra": 1}))
 
         with pytest.raises(IaRespuestaInvalida):
-            openai_client.completar_json("s", "p", transport=transporte)
+            llm_client.completar_json("s", "p", transport=transporte)
 
 
 class TestGenerarBorrador:
