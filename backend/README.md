@@ -831,3 +831,19 @@ En Railway el backend permanece privado, con `UVICORN_ROOT_PATH=/api` y
 `FORWARDED_ALLOW_IPS=*` únicamente dentro de la red de servicios de confianza. El frontend
 publica la API por `/api` y reenvía la IP que informa la entrada HTTP de Railway.
 Ver [configuración y aceptación de Railway](../infra/railway.md).
+
+### Reglas de workflows como árbol de nodos
+
+Una regla es una cabecera (disparador, nombre, criticidad, estado) con un árbol de nodos:
+condiciones con salidas Sí/No y acciones. `POST /workflows/reglas` y `PATCH /workflows/reglas/{id}`
+reciben la lista `nodos` completa (con `id` generado por el cliente) y la sincronizan por UUID.
+`updated_at_base` en el PATCH rechaza con 409 el guardado si la regla cambió desde que se abrió.
+
+Endpoints nuevos: `POST /workflows/reglas/simular` (prueba un borrador contra un evento real sin
+escribir), `GET /workflows/eventos-recientes`, `GET /workflows/reglas/{id}/estadisticas`,
+`GET /workflows/resumen` y los filtros `workflow_rule_id` y `workflow_nodo_id` en
+`GET /workflows/ejecuciones`. Los destinatarios van dentro de cada nodo de acción.
+
+La migración `a7c1e9d4b2f6` convierte las reglas existentes y conserva los ids de las ejecuciones.
+Su `downgrade` falla con un mensaje explícito si hay reglas con ramas, varias acciones, condiciones
+compuestas o nodos dados de baja, en vez de perder datos.

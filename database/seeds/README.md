@@ -213,3 +213,9 @@ Pide la contraseña por consola; en entornos no interactivos toma `BOOTSTRAP_ADM
 ## Pendiente
 
 - **Grupo C restante**: transcribir `ANIO`/`DIVISION`/`MATERIA` y `PRODUCTO_SERVICIO` cuando ESSERI entregue la tabla maestra real (pregunta pendiente #17 del diccionario) — no antes.
+
+## Reglas de workflows y el árbol de nodos
+
+Los seeds 04 y 06 crean reglas con `reglas_service.crear_regla` y `nodos_de_regla_simple`: cada regla
+queda como una acción, con una condición simple antes si la declara (acción por la rama Sí). Los
+destinatarios (`rol`) se cargan en esa acción. Siguen siendo idempotentes por nombre de regla.

@@ -412,3 +412,14 @@ móvil, con navegación expandida/contraída y movimiento reducido.
 Si la concurrencia por defecto provoca timeouts en equipos ocupados, usar
 `npm run test -- --maxWorkers=2`: ejecuta la misma suite con dos workers, sin ampliar
 los tiempos límite ni omitir tests.
+
+## Editor de reglas de workflows
+
+El editor (`/workflows/reglas/nueva` y `/workflows/reglas/:id`) es un flujo de nodos hecho con
+[`@xyflow/react`](https://reactflow.dev). La ruta se carga en diferido (`lazy`), así que la librería
+no pesa en el resto del módulo. El mapa de automatizaciones de `/workflows/reglas` la comparte.
+
+Parámetros de la ruta de alta: `?evento=<id>` abre el lienzo con el disparador ya elegido y
+`?duplicar=<id>` abre una copia (inactiva y sin guardar) de otra regla. La lógica pura del editor
+(borrador, validación local, auto-layout, frase, deshacer, duplicado) está en
+`src/modules/workflows/utils-grafo.ts` y se prueba con `npm test`.

@@ -732,16 +732,44 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 |---|---|---|---|
 | id | uuid | PK |  |
 | nombre | string |  |  |
-| condicion | jsonb |  | **No es código ejecutable.** Estructura fija `{campo, operador, valor}`, ej. `{"campo":"dias_vencido","operador":">","valor":30}`. El backend interpreta estos valores con lógica propia — nunca ejecuta el contenido del campo directamente |
-| tipo_accion | string |  | Ver los 15 valores en Enumeraciones |
-| accion_config | jsonb |  | `[ACLARACIÓN CLIENTE]` Config específica de la acción (ej. qué entidad/campo cambia, qué `REGLA_PENALIDAD` aplica). Validada contra la allowlist del backend, nunca ejecutada como código |
 | criticidad | string |  | `[ACLARACIÓN CLIENTE]` respuesta 15 — baja / media / alta / critica |
-| requiere_aprobacion_humana | boolean |  | `[ACLARACIÓN CLIENTE]` respuesta 16. Si `true`, la acción queda en estado intermedio (similar a `IA_SUGERENCIA.pendiente_revision`) hasta que un usuario la confirme, en vez de ejecutarse sola |
 | activo | boolean |  |  |
 | created_at | datetime |  | Fecha y hora de creación del registro. |
-| updated_at | datetime |  | Fecha y hora de la última modificación del registro. |
-| tipo_evento_id | uuid | FK |  |
+| updated_at | datetime |  | Fecha y hora de la última modificación de la regla. Solo se mueve cuando cambia el árbol de verdad: mover nodos en el lienzo no lo toca. |
+| tipo_evento_id | uuid | FK | El disparador. Es uno solo por regla. |
+
+> **[DECISIÓN DE DISEÑO]** La regla es la cabecera: disparador, nombre, criticidad y estado. Lo que hace vive en un árbol de nodos (`WORKFLOW_NODO`): condiciones con salidas Sí/No y acciones como hojas. Antes la regla tenía una sola condición y una sola acción (`condicion`, `tipo_accion`, `accion_config`, `notificacion_template_id` y `requiere_aprobacion_humana` eran columnas de esta tabla); la migración `a7c1e9d4b2f6` las convirtió en (condición, acción por Sí) o acción directa.
+
+### `WORKFLOW_NODO`
+> Nodo del árbol de una regla. Cada nodo tiene un solo padre: no hay ramas que se vuelvan a juntar ni ciclos. Las acciones que cuelgan de una misma salida son hermanas independientes: una que falla o queda pendiente de aprobación no frena a las demás. Topes: 30 nodos por regla, 6 niveles de profundidad y 5 comparaciones por condición.
+>
+> `condicion` y `accion_config` **no son código ejecutable**: el backend los interpreta contra la allowlist. Un campo ausente en el payload del evento es un error de evaluación, no la rama No. La baja es lógica (`eliminado_at`) cuando el nodo ya tiene ejecuciones; si no, se borra. Al darlo de baja, sus ejecuciones `pendiente` se rechazan con "La acción se eliminó de la regla".
+
+| Campo | Tipo | Clave | Descripción |
+|---|---|---|---|
+| id | uuid | PK | Lo genera el editor: el guardado sincroniza el árbol por UUID. |
+| tipo | string |  | condicion / accion |
+| orden | int |  | Orden visual entre hermanos |
+| rama | string |  | si / no. Nulo si el padre es el disparador |
+| condicion | jsonb |  | Solo en `tipo = condicion`. `{logica: "todas"/"alguna", comparaciones: [{campo, operador, valor}]}` |
+| tipo_accion | string |  | Solo en `tipo = accion`. Ver los 15 valores en Enumeraciones |
+| accion_config | jsonb |  | Config específica de la acción, validada contra la allowlist |
+| requiere_aprobacion_humana | boolean |  | La aprobación es por acción, no por regla |
+| eliminado_at | datetime |  | Baja lógica |
+| created_at | datetime |  | Los recordatorios de un nodo agregado a una regla vieja miran desde acá, no desde la creación de la regla |
+| updated_at | datetime |  | Reintentos y aprobaciones se rechazan si el nodo (o una condición que lleva a él) cambió después de la ejecución |
+| workflow_rule_id | uuid | FK |  |
+| padre_id | uuid | FK | Nulo = cuelga del disparador |
 | notificacion_template_id | uuid | FK | Solo si `tipo_accion` genera una notificación |
+
+### `WORKFLOW_NODO_POSICION`
+> Posición de cada nodo en el lienzo del editor (`x`, `y`). Va en una tabla aparte para que mover un nodo nunca modifique el `updated_at` funcional del nodo ni de la regla, que invalida pendientes y reintentos.
+
+| Campo | Tipo | Clave | Descripción |
+|---|---|---|---|
+| workflow_nodo_id | uuid | PK, FK |  |
+| x | float |  |  |
+| y | float |  |  |
 
 ### `NOTIFICACION_TEMPLATE`
 > `nombre` es único (`uq_notificacion_template_nombre`).
@@ -772,7 +800,9 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 | estado | string |  | exitoso / fallido / pendiente / rechazado |
 | detalle | string |  |  |
 | error_detail | string |  | Detalle del error cuando `estado = fallido` |
+| accion_snapshot | jsonb |  | Config del nodo al momento de ejecutar (trazabilidad sin versionar la regla). Las migradas desde el modelo anterior llevan `migrado: true` |
 | workflow_rule_id | uuid | FK |  |
+| workflow_nodo_id | uuid | FK | La acción ejecutada, o la condición que no se pudo evaluar. Es único junto con `event_log_id` e `intento` |
 | event_log_id | uuid | FK | El hecho de negocio que disparó esta ejecución |
 
 ### `NOTIFICACION`
@@ -826,11 +856,11 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 > **[DECISIÓN DE DISEÑO]** La bandeja es de cada persona: ve las tareas que se le asignaron aunque su rol no tenga permisos de Workflows; con `workflows.leer` ve las de todos.
 
 ### `REGLA_DESTINATARIO` (tabla intermedia)
-> **[ACLARACIÓN CLIENTE]** (respuesta 15): *"el nivel de criticidad y los destinatarios deben ser configurables"*. Permite que una `WORKFLOW_RULE` avise a un rol completo, a un usuario puntual, o a ambos.
+> **[ACLARACIÓN CLIENTE]** (respuesta 15): *"el nivel de criticidad y los destinatarios deben ser configurables"*. Permite que una acción (`WORKFLOW_NODO`) avise a un rol completo, a un usuario puntual, o a ambos.
 >
 > La base exige exactamente una referencia según `destinatario_tipo` y evita repetir el mismo rol
-> o usuario dentro de una regla (`uq_regla_destinatario_regla_rol` y
-> `uq_regla_destinatario_regla_usuario`).
+> o usuario dentro de una regla (`uq_regla_destinatario_nodo_rol` y
+> `uq_regla_destinatario_nodo_usuario`).
 >
 > `[DECISIÓN DE DISEÑO]` Un `ROL` referenciado acá no se puede eliminar (409). Auth no importa
 > modelos de Workflows para chequearlo: `eliminar_rol` recorre `Base.metadata` y rechaza el borrado
@@ -847,7 +877,7 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 | destinatario_tipo | string |  | rol / usuario |
 | created_at | datetime |  | Fecha y hora de creación del registro. |
 | updated_at | datetime |  | Fecha y hora de la última modificación del registro. |
-| workflow_rule_id | uuid | FK |  |
+| workflow_nodo_id | uuid | FK | La acción a la que pertenece (antes colgaba de la regla) |
 | rol_id | uuid | FK |  |
 | usuario_id | uuid | FK |  |
 
