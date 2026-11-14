@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from src.asistente import service
+from src.asistente import exportar_tabla_service, service
 from src.asistente.dependencies import Sesion, TransportProveedor, exigir_habilitado
 from src.asistente.schemas import (
     AliasResueltoRead,
@@ -18,6 +18,7 @@ from src.asistente.schemas import (
     ResolverCreate,
     ResolverRead,
 )
+from src.asistente.exportar_tabla_service import FormatoExport
 from src.asistente.seudonimos_service import resolver_aliases
 from src.database import get_db
 
@@ -101,6 +102,21 @@ def enviar_mensaje(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@router.get("/conversaciones/{conversacion_id}/tablas/{tabla_id}/export")
+def exportar_tabla(
+    conversacion_id: uuid.UUID,
+    tabla_id: uuid.UUID,
+    db: DbSession,
+    sesion: Sesion,
+    formato: FormatoExport = "csv",
+) -> StreamingResponse:
+    """Descarga una tabla de la conversación; los alias se resuelven con el permiso del rol."""
+    conversacion = service.obtener_conversacion_propia(
+        db, sesion.usuario, sesion.rol_codigo, conversacion_id
+    )
+    return exportar_tabla_service.exportar_tabla(db, conversacion, tabla_id, formato)
 
 
 @router.post("/resolver")
