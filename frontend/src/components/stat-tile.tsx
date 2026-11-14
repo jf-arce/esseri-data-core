@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -14,6 +15,13 @@ interface StatTileProps {
   // Mientras carga, el valor grande se reemplaza por un esqueleto (§9.5 DESIGN.md) en vez de
   // mostrar un "0" que parece un dato real.
   cargando?: boolean
+  // Indicador principal de la grilla: valor más grande y más aire. Combinable con `children`
+  // para un desglose debajo del valor.
+  hero?: boolean
+  // Baja la nota al pie con un divisor, para que las tarjetas de una fila alta (junto a un hero
+  // con desglose) no dejen un hueco vacío debajo.
+  notaAlPie?: boolean
+  children?: ReactNode
 }
 
 // Card de indicador (§9 DESIGN.md): etiqueta a la izquierda, tile de ícono a la derecha,
@@ -30,14 +38,17 @@ export function StatTile({
   className,
   compact = false,
   cargando,
+  hero = false,
+  notaAlPie = false,
+  children,
 }: StatTileProps) {
   const esOscuro = variant === 'dark'
 
   return (
     <div
       className={cn(
-        'relative overflow-hidden rounded-card-sm shadow-card',
-        compact ? 'p-4' : 'p-5',
+        'relative flex flex-col overflow-hidden rounded-card-sm shadow-card',
+        hero ? 'p-6' : compact ? 'p-4' : 'p-5',
         esOscuro ? 'bg-banda-oscura' : 'bg-superficie',
         className,
       )}
@@ -89,11 +100,14 @@ export function StatTile({
         </div>
       </div>
       {cargando ? (
-        <Skeleton className={cn('relative mt-2.5 h-8 w-16', esOscuro && 'bg-white/10')} />
+        <Skeleton
+          className={cn('relative mt-2.5 h-8 w-16', hero && 'h-10 w-40', esOscuro && 'bg-white/10')}
+        />
       ) : (
         <p
           className={cn(
-            'relative mt-2.5 text-2xl font-semibold tabular-nums',
+            'relative mt-2.5 font-semibold tabular-nums',
+            hero ? 'text-4xl leading-[44px]' : 'text-2xl',
             esOscuro ? 'text-texto-sobre-oscuro' : 'text-texto',
           )}
         >
@@ -103,13 +117,17 @@ export function StatTile({
       {note && (
         <p
           className={cn(
-            'relative mt-1.5 text-xs',
+            'relative text-xs',
+            notaAlPie
+              ? cn('mt-auto border-t pt-3', esOscuro ? 'border-white/15' : 'border-borde')
+              : 'mt-1.5',
             esOscuro ? 'text-texto-2-sobre-oscuro/85' : 'text-texto-3',
           )}
         >
           {note}
         </p>
       )}
+      {children && <div className="relative mt-4">{children}</div>}
     </div>
   )
 }

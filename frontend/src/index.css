@@ -338,6 +338,20 @@
   html {
     @apply font-sans;
   }
+  /* El preflight de Tailwind v4 deja los botones con cursor por defecto: todo lo clicable lleva
+     la mano, y lo deshabilitado el cursor de "no permitido". */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='tab']:not(:disabled),
+  summary,
+  select:not(:disabled),
+  input:is([type='checkbox'], [type='radio'], [type='file']):not(:disabled) {
+    cursor: pointer;
+  }
+  button:disabled,
+  [role='button'][aria-disabled='true'] {
+    cursor: not-allowed;
+  }
   ::selection {
     background: var(--violeta-borde);
     color: var(--violeta-pressed);

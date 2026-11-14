@@ -12,7 +12,7 @@ Es una superficie de **producto**, no de marketing: una herramienta de uso inter
 
 ## 2. Color
 
-El sistema ofrece tema claro y oscuro. Claro es el valor predeterminado y la elección se conserva por navegador; el tema guardado se aplica antes del primer render para evitar un destello de color incorrecto. Nunca `#000000` ni `#FFFFFF` puros: todo neutro de este sistema lleva un tinte violáceo (hue ≈300 en OKLCH), para que la interfaz se lea como una sola familia y no como grises de sistema operativo.
+El sistema ofrece tema claro y oscuro. Oscuro es el valor predeterminado y la elección se conserva por navegador; el tema guardado se aplica antes del primer render para evitar un destello de color incorrecto. Nunca `#000000` ni `#FFFFFF` puros: todo neutro de este sistema lleva un tinte violáceo (hue ≈300 en OKLCH), para que la interfaz se lea como una sola familia y no como grises de sistema operativo.
 
 Los tokens semánticos se redefinen en `.dark` dentro de `frontend/src/index.css`; las pantallas y componentes usan exclusivamente esos tokens, sin variantes `dark:` ni colores fijos. El selector de tema vive en el menú de cuenta y ofrece "Claro" y "Oscuro" como opciones de radio accesibles.
 
@@ -210,6 +210,8 @@ Los 7 estados que todo control interactivo (Button, Input, ítem de nav, chip) c
 **Card**: siempre sobre `superficie` lisa, sin borde, radio según 5.1, sombra baja en reposo según 5.2. El título va en `texto`, nunca en el color de un módulo — el color queda reservado a íconos, badges y a los nodos del canvas de workflows, no a la superficie ni al texto de una card genérica. Una tabla dentro de una card se mantiene sobre `superficie` neutra (mismo tono, sin distinción visual adicional).
 
 **Card de indicador (KPI)**: variante chica de Card (radio 12px según 5.1) con una anatomía fija — encabezado con la etiqueta a la izquierda y el ícono de color a la derecha (fondo `-suave` del semántico o módulo que corresponda + ícono saturado, 30px, radio 9px), debajo el valor en grande (`26px`, tabular-nums) y, solo cuando hay un dato real que lo justifique, una nota chica en `texto-3` (variación respecto al período anterior, cantidad que vence pronto, etc.) — nunca una nota de relleno. La primera card de una grilla de indicadores puede ir en `tinta` como ancla visual de la métrica principal; en ese caso lleva una ilustración de línea sutil (un motivo geométrico en blanco al 8–10% de opacidad, recortado por el radio de la card) para que no quede vacía, y mantiene la misma anatomía que las demás.
+
+En un panel que prioriza decisiones, ese indicador ancla puede ir como **hero**: ocupa dos columnas, el valor sube a `36px` con line-height explícito, el padding a 24px y admite un desglose en dos columnas debajo del valor (`StatTile` con `hero`).
 
 **Input / Select / Textarea**: todo campo que tenga un tipo de dato reconocible (correo, contraseña, teléfono, fecha, importe, documento, nombre de persona, búsqueda) lleva un ícono a la izquierda identificando ese dato, con el mismo recurso que ya usa el buscador de la topbar (`position:relative` + ícono absoluto + padding-left en el control). El ícono va en `texto-3` en reposo y toma el color de foco cuando el campo está activo. Un campo de contraseña suma además el toggle de mostrar/ocultar a la derecha.
 

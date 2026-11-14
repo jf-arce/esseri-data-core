@@ -15,5 +15,5 @@ export interface ActividadReciente {
 }
 
 export function obtenerActividadReciente() {
-  return apiClient<ActividadReciente[]>('/panel-admin/actividad-reciente?limite=6')
+  return apiClient<ActividadReciente[]>('/panel-admin/actividad-reciente?limite=8')
 }

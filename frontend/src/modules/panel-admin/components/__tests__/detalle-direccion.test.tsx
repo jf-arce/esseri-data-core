@@ -1,7 +1,15 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import './echarts-mocks'
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, it, vi } from 'vitest'
+import { useDetalleDireccion } from '../../hooks/use-detalle-direccion'
 import { DetalleDireccion } from '../detalle-direccion'
+
+// El hook se mockea más abajo; la página real lo llama y pasa el resultado como prop.
+function Detalle({ acceso }: { acceso: Parameters<typeof DetalleDireccion>[0]['acceso'] }) {
+  return <DetalleDireccion acceso={acceso} datos={useDetalleDireccion(acceso)} />
+}
 
 interface FilaActividad {
   id: string
@@ -77,126 +85,162 @@ const acceso = (
   ...cambios,
 })
 
+const solicitud = (indice: number, dia: string, estado = 'pendiente') => ({
+  id: String(indice),
+  articulo: `Artículo ${indice}`,
+  estado,
+  fecha: dia,
+  cantidad: 1,
+  area_solicitante: 'Dirección',
+})
+
 it.each([0, 1, 5, 6])(
   'explains the preview limit only above five pending requests (%i)',
   (total) => {
-    compras.datos = Array.from({ length: total }, (_, index) => ({
-      id: String(index),
-      articulo: `Artículo ${index}`,
-      estado: 'pendiente',
-      fecha: `2026-10-${String(index + 1).padStart(2, '0')}`,
-      cantidad: 1,
-      area_solicitante: 'Dirección',
-    }))
+    compras.datos = Array.from({ length: total }, (_, index) =>
+      solicitud(index, `2026-10-${String(index + 1).padStart(2, '0')}`),
+    )
     render(
       <MemoryRouter>
-        <DetalleDireccion acceso={acceso({ compras: true })} />
+        <Detalle acceso={acceso({ compras: true })} />
       </MemoryRouter>,
     )
-    expect(screen.queryByText('Hasta cinco solicitudes pendientes')).not.toBeInTheDocument()
-    const notice = screen.queryByText('Mostrando las 5 pendientes más recientes')
-    if (total > 5) expect(notice).toBeInTheDocument()
-    else expect(notice).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Revisar solicitudes' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Revisar solicitudes/ })).toHaveAttribute(
       'href',
       '/solicitudes-compra',
     )
-    if (total) expect(screen.getAllByRole('row')).toHaveLength(Math.min(total, 5) + 1)
+    const columna = screen.getByRole('region', { name: 'Solicitudes de compra' })
+    expect(within(columna).queryAllByRole('listitem')).toHaveLength(Math.min(total, 5))
   },
 )
 
-it('shows monthly billed and collected amounts in a keyboard-accessible tooltip', async () => {
+it('shows the financial strip, collection rate and data table instead of range selects', async () => {
   render(
     <MemoryRouter>
-      <DetalleDireccion acceso={acceso({ finanzas: true })} />
+      <Detalle acceso={acceso({ finanzas: true })} />
     </MemoryRouter>,
   )
-  fireEvent.focus(screen.getByRole('button', { name: 'Ver valores de 2026-01' }))
-  const tooltip = await screen.findByRole('tooltip')
-  expect(screen.queryByText('Ver importes por mes')).not.toBeInTheDocument()
-  expect(tooltip).toHaveTextContent('enero de 2026')
-  expect(screen.getByText('Último mes · enero de 2026')).toBeInTheDocument()
-  expect(tooltip).toHaveTextContent(/Facturado:.*1.200,00/)
-  expect(tooltip).toHaveTextContent(/Cobrado:.*800,00/)
+  const resumen = screen.getByLabelText('Resumen financiero del año')
+  expect(resumen).toHaveTextContent(/Facturado del año.*1.200,00/)
+  expect(resumen).toHaveTextContent(/Cobrado del año.*800,00/)
+  expect(resumen).toHaveTextContent('67 %')
+  expect(screen.queryByText('Consultar valores por mes')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Restablecer' })).not.toBeInTheDocument()
+  expect(screen.getByRole('table', { name: 'Facturado y cobrado por mes' })).toBeVisible()
+  expect(screen.getByRole('link', { name: /Abrir facturación/ })).toHaveAttribute(
+    'href',
+    '/facturacion',
+  )
 })
 
-it('shows the attendance date, percentage and record counts in a tooltip', async () => {
+it('shows attendance summary and its data table', () => {
   render(
     <MemoryRouter>
-      <DetalleDireccion acceso={acceso({ academico: true })} />
+      <Detalle acceso={acceso({ academico: true })} />
     </MemoryRouter>,
   )
-  fireEvent.focus(screen.getByRole('button', { name: 'Ver asistencia del 12/1/2026' }))
-  const tooltip = await screen.findByRole('tooltip')
-  expect(screen.queryByText('Ver asistencia por día')).not.toBeInTheDocument()
-  expect(tooltip).toHaveTextContent('12/1/2026')
-  expect(screen.getByRole('link', { name: 'Ver asistencias' })).toHaveAttribute(
+  expect(screen.getByLabelText('Presentismo registrado')).toHaveTextContent('50%')
+  expect(screen.getByLabelText('Presentismo registrado')).toHaveTextContent('1 de 2 registros')
+  expect(screen.getByRole('table', { name: 'Presentismo por fecha' })).toBeVisible()
+  expect(screen.getByRole('link', { name: /Ver asistencias/ })).toHaveAttribute(
     'href',
     '/academico/historial-asistencia',
   )
-  expect(tooltip).toHaveTextContent('50%')
-  expect(tooltip).toHaveTextContent('1 de 2 registros')
 })
 
-it('exposes chart scales and essential summaries without opening details', () => {
+it('lists only pending requests, oldest first, with their age and no repeated status badge', () => {
+  const hoy = new Date()
+  const hace = (dias: number) => {
+    const d = new Date(hoy)
+    d.setDate(hoy.getDate() - dias)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+  compras.datos = [
+    solicitud(1, hace(2)),
+    solicitud(2, hace(12)),
+    solicitud(3, hace(30), 'aprobada'),
+  ]
   render(
     <MemoryRouter>
-      <DetalleDireccion acceso={acceso({ finanzas: true, academico: true })} />
+      <Detalle acceso={acceso({ compras: true })} />
     </MemoryRouter>,
   )
-  expect(screen.getByLabelText('Escala financiera en pesos argentinos')).toBeVisible()
-  expect(screen.getByLabelText('Escala de presentismo')).toHaveTextContent('100%')
-  expect(screen.getByLabelText('Escala de presentismo')).toHaveTextContent('0%')
-  expect(screen.getByLabelText('Presentismo registrado')).toHaveTextContent('50%')
-  expect(screen.getByLabelText('Resumen financiero del último mes')).toHaveTextContent(/1.200,00/)
-  expect(screen.getByLabelText('Resumen financiero del último mes')).toHaveTextContent(/800,00/)
-  expect(screen.getAllByText('12/1/2026', { selector: 'span' })[0]).toBeVisible()
+  const columna = screen.getByRole('region', { name: 'Solicitudes de compra' })
+  expect(within(columna).getByRole('heading', { name: /Solicitudes de compra/ })).toHaveTextContent(
+    '· 2',
+  )
+  const filas = within(columna).getAllByRole('listitem')
+  expect(filas).toHaveLength(2)
+  expect(filas[0]).toHaveTextContent('Artículo 2')
+  expect(filas[0]).toHaveTextContent('hace 12 días')
+  expect(filas[0]).toHaveTextContent('Demorada')
+  expect(filas[1]).toHaveTextContent('hace 2 días')
+  expect(filas[1]).not.toHaveTextContent('Demorada')
+  expect(within(columna).queryByText('Pendiente')).not.toBeInTheDocument()
 })
 
-it('counts only pending purchases, shows their real status and never invents amounts', () => {
-  compras.datos = [
+it('makes each pending request a link and keeps the count visible', () => {
+  compras.datos = [solicitud(1, '2026-10-01'), solicitud(2, '2026-10-02')]
+  render(
+    <MemoryRouter>
+      <Detalle acceso={acceso({ compras: true })} />
+    </MemoryRouter>,
+  )
+  const columna = screen.getByRole('region', { name: 'Solicitudes de compra' })
+  for (const fila of within(columna).getAllByRole('listitem'))
+    expect(within(fila).getByRole('link')).toHaveAttribute('href', '/solicitudes-compra')
+  expect(screen.queryByText(/Lo más urgente primero/)).not.toBeInTheDocument()
+})
+
+it('filters the activity feed by category with tabs', async () => {
+  actividad.datos = [
     {
-      id: '1',
-      articulo: 'Material didáctico',
-      estado: 'pendiente',
-      fecha: '2026-01-12',
-      cantidad: 2,
-      area_solicitante: 'Inicial',
+      id: 'a',
+      categoria: 'finanzas',
+      tipo: 'pago_registrado',
+      titulo: 'Pago registrado',
+      referencia: null,
+      detalle: null,
+      estado: 'registrado',
+      monto: null,
+      ocurrido_en: '2026-01-12T15:30:00.000Z',
     },
     {
-      id: '2',
-      articulo: 'Insumos',
-      estado: 'pendiente',
-      fecha: '2026-01-11',
-      cantidad: 1,
-      area_solicitante: 'Servicios',
+      id: 'b',
+      categoria: 'compras',
+      tipo: 'orden_compra_emitida',
+      titulo: 'Orden de compra emitida',
+      referencia: null,
+      detalle: null,
+      estado: 'emitida',
+      monto: null,
+      ocurrido_en: '2026-01-11T15:30:00.000Z',
     },
     {
-      id: '3',
-      articulo: 'Resmas',
-      estado: 'aprobada',
-      fecha: '2026-01-10',
-      cantidad: 3,
-      area_solicitante: 'Primaria',
+      id: 'c',
+      categoria: 'alumnos',
+      tipo: 'matricula_alta',
+      titulo: 'Alta de matrícula',
+      referencia: null,
+      detalle: null,
+      estado: 'alta',
+      monto: null,
+      ocurrido_en: '2026-01-10T15:30:00.000Z',
     },
   ]
   render(
     <MemoryRouter>
-      <DetalleDireccion acceso={acceso({ compras: true })} />
+      <Detalle acceso={acceso({ compras: true, finanzas: true, alumnos: true })} />
     </MemoryRouter>,
   )
-  expect(screen.getByRole('tab', { name: 'Solicitudes de compra (2)' })).toBeInTheDocument()
-  const tabla = screen.getByRole('table', { name: /Solicitudes de compra pendientes/ })
-  expect(within(tabla).getByRole('columnheader', { name: 'Estado' })).toBeInTheDocument()
-  expect(within(tabla).queryByRole('columnheader', { name: 'Monto' })).not.toBeInTheDocument()
-  expect(within(tabla).getAllByText('Pendiente')).toHaveLength(2)
-  // Sin acciones por fila: la tabla solo informa, y el único acceso es el general.
-  expect(within(tabla).queryByRole('link')).not.toBeInTheDocument()
-  expect(within(tabla).queryByRole('columnheader', { name: 'Acciones' })).not.toBeInTheDocument()
-  expect(screen.getByRole('link', { name: 'Revisar solicitudes' })).toHaveAttribute(
-    'href',
-    '/solicitudes-compra',
-  )
+  const lista = () => screen.getByRole('list', { name: 'Actividad reciente' })
+  expect(within(lista()).getAllByRole('listitem')).toHaveLength(3)
+  await userEvent.click(screen.getByRole('tab', { name: 'Compras' }))
+  expect(within(lista()).getAllByRole('listitem')).toHaveLength(1)
+  expect(within(lista()).getByText('Orden de compra emitida')).toBeVisible()
+  expect(screen.getByRole('tab', { name: 'Compras' })).toHaveAttribute('aria-selected', 'true')
+  await userEvent.click(screen.getByRole('tab', { name: 'Todo' }))
+  expect(within(lista()).getAllByRole('listitem')).toHaveLength(3)
 })
 
 it('renders cross-module activity with its icon, state and reference', () => {
@@ -226,7 +270,7 @@ it('renders cross-module activity with its icon, state and reference', () => {
   ]
   render(
     <MemoryRouter>
-      <DetalleDireccion acceso={acceso({ finanzas: true, alumnos: true })} />
+      <Detalle acceso={acceso({ finanzas: true, alumnos: true })} />
     </MemoryRouter>,
   )
   const lista = screen.getByRole('list', { name: 'Actividad reciente' })
@@ -237,6 +281,14 @@ it('renders cross-module activity with its icon, state and reference', () => {
   expect(within(lista).getByText('Baja de matrícula')).toBeVisible()
   expect(within(lista).getByText('Baja')).toBeVisible()
   expect(lista.querySelectorAll('svg')).toHaveLength(2)
+  expect(within(lista).getByRole('link', { name: 'Ver pago registrado' })).toHaveAttribute(
+    'href',
+    '/facturacion',
+  )
+  expect(within(lista).getByRole('link', { name: 'Ver baja de matrícula' })).toHaveAttribute(
+    'href',
+    '/inscripciones',
+  )
 })
 
 it('keeps compact empty and error states without presenting failed counts as zero', () => {
@@ -244,11 +296,11 @@ it('keeps compact empty and error states without presenting failed counts as zer
   actividad.error = 'No se pudo cargar la actividad'
   render(
     <MemoryRouter>
-      <DetalleDireccion acceso={acceso({ compras: true })} />
+      <Detalle acceso={acceso({ compras: true })} />
     </MemoryRouter>,
   )
-  expect(screen.getByRole('tab', { name: 'Solicitudes de compra' })).toBeInTheDocument()
-  expect(screen.queryByRole('tab', { name: 'Solicitudes de compra (0)' })).not.toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Solicitudes de compra' })).toBeInTheDocument()
+  expect(screen.queryByText(/· 0/)).not.toBeInTheDocument()
   expect(screen.getAllByRole('alert')).toHaveLength(2)
 })
 
@@ -256,14 +308,12 @@ it('shows explicit empty sections without synthetic chart values or invalid perc
   escenario.vacio = true
   render(
     <MemoryRouter>
-      <DetalleDireccion
-        acceso={acceso({ compras: true, finanzas: true, academico: true, alumnos: true })}
-      />
+      <Detalle acceso={acceso({ compras: true, finanzas: true, academico: true, alumnos: true })} />
     </MemoryRouter>,
   )
-  expect(screen.getByRole('tab', { name: 'Solicitudes de compra (0)' })).toBeInTheDocument()
-  expect(screen.getAllByText('No hay registros para mostrar.')).toHaveLength(4)
-  expect(screen.queryByLabelText('Escala de presentismo')).not.toBeInTheDocument()
-  expect(screen.queryByLabelText('Resumen financiero del último mes')).not.toBeInTheDocument()
+  expect(screen.getByText('No hay solicitudes pendientes')).toBeInTheDocument()
+  expect(screen.getByText('No hay cuentas en mora')).toBeInTheDocument()
+  expect(screen.getAllByText('No hay registros para mostrar.')).toHaveLength(3)
+  expect(screen.queryByLabelText('Resumen financiero del año')).not.toBeInTheDocument()
   expect(screen.queryByText(/NaN|Infinity/)).not.toBeInTheDocument()
 })

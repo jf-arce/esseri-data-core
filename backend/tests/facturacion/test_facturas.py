@@ -161,6 +161,28 @@ def test_listar_facturas_filtra_por_alumno_y_pagina(db_session):
     assert facturas[0].detalles
 
 
+def test_listar_facturas_filtra_por_mes_de_emision(db_session):
+    _, inscripcion, concepto, _ = _crear_base_facturable(db_session)
+    crear_factura(db_session, _datos_factura(inscripcion.id, concepto.id, monto="100.00"))
+    abril = _datos_factura(inscripcion.id, concepto.id, monto="200.00")
+    abril.fecha_emision = date(2027, 4, 1)
+    abril.fecha_vencimiento = date(2027, 4, 10)
+    crear_factura(db_session, abril)
+
+    marzo, total_marzo = listar_facturas(
+        db_session,
+        pagina=1,
+        tamanio=10,
+        emision_desde=date(2027, 3, 1),
+        emision_hasta=date(2027, 3, 31),
+    )
+    _, total = listar_facturas(db_session, pagina=1, tamanio=10)
+
+    assert total == 2
+    assert total_marzo == 1
+    assert marzo[0].monto_total == Decimal("100.00")
+
+
 def test_listar_facturas_filtra_por_concepto_sin_duplicar_y_expone_alumno(db_session):
     escenario, inscripcion, concepto, _ = _crear_base_facturable(db_session)
     otro_concepto = ConceptoCobro(nombre="Comedor", categoria="Servicios", activo=True)
