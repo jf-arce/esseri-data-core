@@ -165,6 +165,30 @@ class TestEvolucionFinanciera:
         meses = resultado_de_herramienta(proveedor)["meses"]
         assert [m["mes"] for m in meses] == ["11/2025", "12/2025", "01/2026", "02/2026"]
 
+    def test_comparar_trae_el_periodo_anterior_y_la_variacion_calculada(self, direccion, proveedor):
+        lista = correr(
+            direccion,
+            proveedor,
+            "evolucion_financiera",
+            {**self.RANGO, "comparar_con_anterior": True},
+        )
+        resultado = resultado_de_herramienta(proveedor)
+        # 10/11/2025 a 01/02/2026 son 84 días: el anterior termina el 09/11/2025.
+        assert resultado["periodo_anterior"] == "18/08/2025 a 09/11/2025"
+        assert set(resultado["totales"]) == {"facturado", "cobrado"}
+        assert "variacion_porcentual" in resultado["totales"]["cobrado"]
+        (tabla,) = bloques_de(lista, "tabla")
+        claves = [c["clave"] for c in tabla["columnas"]]
+        assert {"facturado_anterior", "cobrado_anterior", "variacion_cobrado"} <= set(claves)
+        kpis = bloques_de(lista, "kpi")
+        assert [k["periodo_comparado"] for k in kpis] == ["18/08/2025 a 09/11/2025"] * 2
+
+    def test_sin_comparar_no_hay_columnas_ni_kpis_de_variacion(self, direccion, proveedor):
+        lista = correr(direccion, proveedor, "evolucion_financiera", self.RANGO)
+        (tabla,) = bloques_de(lista, "tabla")
+        assert [c["clave"] for c in tabla["columnas"]] == ["mes", "facturado", "cobrado"]
+        assert bloques_de(lista, "kpi") == []
+
     def test_rechaza_rangos_de_mas_de_24_meses(self, direccion, proveedor):
         correr(
             direccion,
@@ -503,3 +527,25 @@ class TestDeudaPorFamilias:
         correr(direccion, proveedor, "deuda_por_familias", {"al": "2026-10-31"})
 
         assert resultado_de_herramienta(proveedor)["periodo"] == "al 31/10/2026"
+
+
+class TestDeudaComparada:
+    def test_comparar_al_agrega_un_kpi_con_variacion(self, direccion, proveedor):
+        previa = (date.today() - timedelta(days=30)).isoformat()
+        lista = correr(direccion, proveedor, "deuda_por_familias", {"comparar_al": previa})
+        (kpi,) = bloques_de(lista, "kpi")
+        assert kpi["titulo"] == "Deuda vencida total"
+        assert "variacion" in kpi
+        assert kpi["periodo_comparado"].startswith("al ")
+        assert resultado_de_herramienta(proveedor)["periodo_comparado"] == kpi["periodo_comparado"]
+
+    def test_la_fecha_a_comparar_debe_ser_anterior(self, direccion, proveedor):
+        lista = correr(
+            direccion, proveedor, "deuda_por_familias", {"comparar_al": date.today().isoformat()}
+        )
+        assert "error" in resultado_de_herramienta(proveedor)
+        assert bloques_de(lista, "kpi") == []
+
+    def test_sin_comparar_no_hay_kpi(self, direccion, proveedor):
+        lista = correr(direccion, proveedor, "deuda_por_familias", {})
+        assert bloques_de(lista, "kpi") == []

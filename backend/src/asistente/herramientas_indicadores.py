@@ -1,6 +1,7 @@
 """Indicadores del panel y evolución financiera."""
 
-from datetime import date
+from datetime import date, timedelta
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -16,6 +17,7 @@ from src.asistente.herramientas_base import (
     fecha_ar,
     mes_iso_ar,
     numero,
+    variacion_porcentual,
 )
 from src.asistente.herramientas_workflows import contar_tareas
 from src.auth.constants import (
@@ -108,6 +110,10 @@ class ParametrosEvolucion(BaseModel):
         default=None, description="Inicio, AAAA-MM-DD. Por defecto, el 1 de enero del año."
     )
     hasta: date | None = Field(default=None, description="Fin, AAAA-MM-DD. Por defecto, hoy.")
+    comparar_con_anterior: bool = Field(
+        default=False,
+        description="Suma lo del período inmediatamente anterior de igual duración y la variación.",
+    )
     grafico: Literal["barras", "lineas", "areas"] | None = Field(
         default=None, description="Solo si conviene verlo en un gráfico o lo piden."
     )
@@ -125,28 +131,81 @@ def _evolucion_financiera(
     meses = obtener_evolucion_financiera(
         contexto.db, fecha_hoy=contexto.hoy, desde=desde, hasta=hasta
     )
-    filas = [
-        {
+    anteriores: list[dict[str, Decimal | str]] = []
+    desde_ant = hasta_ant = None
+    if parametros.comparar_con_anterior:
+        # Igual cantidad de días, terminando el día anterior al inicio pedido.
+        hasta_ant = desde - timedelta(days=1)
+        desde_ant = hasta_ant - (hasta - desde)
+        anteriores = obtener_evolucion_financiera(
+            contexto.db, fecha_hoy=contexto.hoy, desde=desde_ant, hasta=hasta_ant
+        )
+    filas = []
+    for indice, mes in enumerate(meses):
+        fila = {
             "mes": mes_iso_ar(mes["mes"]),
             "facturado": numero(mes["facturado"]),
             "cobrado": numero(mes["cobrado"]),
         }
-        for mes in meses
-    ]
+        if parametros.comparar_con_anterior:
+            # Se compara mes a mes por posición: el primero del rango contra el primero del previo.
+            previo = anteriores[indice] if indice < len(anteriores) else None
+            fila["facturado_anterior"] = None if previo is None else numero(previo["facturado"])
+            fila["cobrado_anterior"] = None if previo is None else numero(previo["cobrado"])
+            fila["variacion_facturado"] = (
+                None
+                if previo is None
+                else variacion_porcentual(mes["facturado"], previo["facturado"])
+            )
+            fila["variacion_cobrado"] = (
+                None if previo is None else variacion_porcentual(mes["cobrado"], previo["cobrado"])
+            )
+        filas.append(fila)
     periodo = f"{fecha_ar(desde)} a {fecha_ar(hasta)}"
     fuente = "Panel administrativo: facturas emitidas y pagos aprobados"
+    columnas = [
+        {"clave": "mes", "etiqueta": "Mes", "tipo": "texto"},
+        {"clave": "facturado", "etiqueta": "Facturado", "tipo": "moneda"},
+        {"clave": "cobrado", "etiqueta": "Cobrado", "tipo": "moneda"},
+    ]
+    if parametros.comparar_con_anterior:
+        columnas += [
+            {"clave": "facturado_anterior", "etiqueta": "Facturado anterior", "tipo": "moneda"},
+            {"clave": "cobrado_anterior", "etiqueta": "Cobrado anterior", "tipo": "moneda"},
+            {"clave": "variacion_facturado", "etiqueta": "Var. facturado", "tipo": "porcentaje"},
+            {"clave": "variacion_cobrado", "etiqueta": "Var. cobrado", "tipo": "porcentaje"},
+        ]
     tabla = bloque_tabla(
-        "Facturado y cobrado por mes",
-        [
-            {"clave": "mes", "etiqueta": "Mes", "tipo": "texto"},
-            {"clave": "facturado", "etiqueta": "Facturado", "tipo": "moneda"},
-            {"clave": "cobrado", "etiqueta": "Cobrado", "tipo": "moneda"},
-        ],
-        filas,
-        periodo=periodo,
-        fuente=fuente,
+        "Facturado y cobrado por mes", columnas, filas, periodo=periodo, fuente=fuente
     )
     bloques = [tabla]
+    para_llm: dict[str, object] = {"periodo": periodo, "fuente": fuente, "meses": filas}
+    if desde_ant is not None and hasta_ant is not None:
+        periodo_ant = f"{fecha_ar(desde_ant)} a {fecha_ar(hasta_ant)}"
+        actual = {k: sum(m[k] for m in meses) for k in ("facturado", "cobrado")}
+        previo = {k: sum(m[k] for m in anteriores) for k in ("facturado", "cobrado")}
+        # El modelo no calcula: los totales y la variación vienen resueltos.
+        para_llm["periodo_anterior"] = periodo_ant
+        para_llm["totales"] = {
+            k: {
+                "actual": numero(actual[k]),
+                "anterior": numero(previo[k]),
+                "variacion_porcentual": variacion_porcentual(actual[k], previo[k]),
+            }
+            for k in actual
+        }
+        bloques = [
+            bloque_kpi(
+                f"{titulo} (total)",
+                numero(actual[clave]),
+                periodo=periodo,
+                fuente=fuente,
+                unidad="$",
+                variacion=variacion_porcentual(actual[clave], previo[clave]),
+                periodo_comparado=periodo_ant,
+            )
+            for clave, titulo in (("facturado", "Facturado"), ("cobrado", "Cobrado"))
+        ] + bloques
     # Con pocos períodos el gráfico no suma: se ignora aunque el modelo lo pida.
     if parametros.grafico is not None and len(filas) >= MIN_PUNTOS_GRAFICO:
         bloques.append(
@@ -154,9 +213,7 @@ def _evolucion_financiera(
                 tabla, forma=parametros.grafico, eje_x="mes", series=["facturado", "cobrado"]
             )
         )
-    return ResultadoHerramienta(
-        para_llm={"periodo": periodo, "fuente": fuente, "meses": filas}, bloques=bloques
-    )
+    return ResultadoHerramienta(para_llm=para_llm, bloques=bloques)
 
 
 HERRAMIENTAS = [

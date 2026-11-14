@@ -112,10 +112,27 @@ def porcentaje(parte: int, total: int) -> float | None:
     return round(parte / total * 100, 1)
 
 
+def variacion_porcentual(
+    actual: Decimal | int | float, anterior: Decimal | int | float
+) -> float | None:
+    """Cambio porcentual contra el período anterior; `None` si no hay base para comparar."""
+    if anterior <= 0:
+        return None
+    return round(float((actual - anterior) / anterior * 100), 1)
+
+
 def bloque_kpi(
-    titulo: str, valor: int | float | str | None, *, periodo: str, fuente: str, unidad: str = ""
+    titulo: str,
+    valor: int | float | str | None,
+    *,
+    periodo: str,
+    fuente: str,
+    unidad: str = "",
+    variacion: float | None = None,
+    periodo_comparado: str | None = None,
 ) -> dict[str, Any]:
-    return {
+    """Con `periodo_comparado` trae su variación; `variacion` en `None` es "sin base"."""
+    bloque: dict[str, Any] = {
         "tipo": BLOQUE_KPI,
         "titulo": titulo,
         "valor": valor,
@@ -123,6 +140,10 @@ def bloque_kpi(
         "periodo": periodo,
         "fuente": fuente,
     }
+    if periodo_comparado is not None:
+        bloque["variacion"] = variacion
+        bloque["periodo_comparado"] = periodo_comparado
+    return bloque
 
 
 def bloque_tabla(
