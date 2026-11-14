@@ -10,23 +10,22 @@ claim the new portal passed. No remote fetch was performed.
 Browser comparisons used the same isolated SQLite-backed API, demo invoices,
 family account, theme and CSS viewport widths. This is not PostgreSQL verification.
 
-## Attendance dialog inherits the global dark theme
+## Attendance dialog inherited the global dark theme
 
-**Status:** reproduced in both `9327d46` and `fbd40a0`; unchanged in this correction.
+**Status:** reproduced in both `9327d46` and `fbd40a0`; **corrected in this branch**
+after the human review, with the defect preserved here as baseline evidence.
 
-With the global dark theme, open Asistencias and the absence justification dialog.
-The family portal stays light, but the dialog background becomes `rgb(33, 28, 41)`.
-With the global light preference, it becomes `rgb(253, 252, 254)`.
+With the global dark theme, opening the absence dialog in Asistencias originally
+produced a dark `rgb(33, 28, 41)` panel inside the light family portal.
 
 `DialogContent` portals to `body`, outside the `.portal-familia` subtree that
-overrides the light tokens. It therefore uses the global dark `--superficie`.
-The dialog remained readable, scrollable and closable in the exercised cases;
-that does not make the theme mismatch correct.
+overrides the light tokens, so it inherited the global dark `--superficie`.
+The correction adds the existing `portal-familia` scope to that portaled content:
+measured with `html.dark` active, the dialog now resolves to
+`rgb(253, 252, 254)` background, `rgb(27, 24, 34)` text and `color-scheme: light`,
+while the global theme and dialogs in other roles remain untouched.
 
-Affected surfaces: `frontend/src/components/ui/dialog.tsx`,
-`frontend/src/index.css`, and the family absence form.
-Any future fix should scope the portal theme to its portaled content without
-changing the selected theme or dialogs in other roles.
+A regression assertion now pins the scoped class in the family absence form.
 
 ## Billing amount sizing was already fragile
 

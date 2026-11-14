@@ -26,11 +26,11 @@ all-browser, accessibility or branch-closure approval.
 
 ## Classification and corrections
 
-| Finding                                            | Compared with `9327d46`                                                           | Local correction                                                                                          |
-| -------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Billing amounts painted over at 720/768 CSS px     | Candidate reduced space further; baseline sizing was fragile but amounts readable | Remove duplicate content padding and stack summary tiles below `lg`; skeleton follows the same breakpoint |
-| Dark attendance dialog in light portal             | Reproduced in baseline and candidate                                              | Not changed; recorded separately                                                                          |
-| “Miércoles” overflows mobile day tab at 390 CSS px | New candidate agenda UI; no equivalent baseline tabs                              | Wrap whole day controls, preserve full labels, use body text scale and minimum 40px height                |
+| Finding                                            | Compared with `9327d46`                                                           | Local correction                                                                                                                  |
+| -------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Billing amounts painted over at 720/768 CSS px     | Candidate reduced space further; baseline sizing was fragile but amounts readable | Remove duplicate content padding and stack summary tiles below `lg`; skeleton follows the same breakpoint                         |
+| Dark attendance dialog in light portal             | Reproduced in baseline and candidate                                              | Corrected in this branch by scoping the light family token set to the portaled dialog; verified with the global dark theme active |
+| “Miércoles” overflows mobile day tab at 390 CSS px | New candidate agenda UI; no equivalent baseline tabs                              | Wrap whole day controls, preserve full labels, use body text scale and minimum 40px height                                        |
 
 Pre-existing issues and the architecture/theme documentation discrepancy are
 recorded in [the separate defect report](portal-familia-preexisting-visual-defects.md).
@@ -186,4 +186,6 @@ The live QA link was visible within 1440/768/390-pixel viewports and returned
 to `/familia` at each width. These are responsive checks, not a new native-zoom
 sweep. The earlier 933-test/full zoom evidence belongs to the preceding layout
 snapshot; neither that full suite nor Safari zoom was rerun for this local link
-addition. Existing focus/theme findings remain open. No commit or merge.
+addition. The calendar focus indicator and the absence-dialog theme were corrected
+afterwards, outside that communications unit. No commit or merge was performed at
+that point.

@@ -167,6 +167,7 @@ describe('PortalFamiliaTramitePage', () => {
     )
     fireEvent.click(botonJustificar)
     expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toHaveClass('portal-familia')
     expect(screen.getByRole('heading', { name: 'Justificar ausencia' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
