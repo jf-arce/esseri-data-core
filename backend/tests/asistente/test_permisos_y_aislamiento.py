@@ -5,7 +5,6 @@ import json
 import uuid
 
 from openpyxl import load_workbook
-
 from sqlalchemy import delete, select
 
 from src.asistente.models import AliasConversacion, Conversacion, MensajeAsistente

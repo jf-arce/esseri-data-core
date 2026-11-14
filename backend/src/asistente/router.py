@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from src.asistente import exportar_tabla_service, service
 from src.asistente.dependencies import Sesion, TransportProveedor, exigir_habilitado
+from src.asistente.exportar_tabla_service import FormatoExport
 from src.asistente.schemas import (
     AliasResueltoRead,
     ConversacionListadoRead,
@@ -18,7 +19,6 @@ from src.asistente.schemas import (
     ResolverCreate,
     ResolverRead,
 )
-from src.asistente.exportar_tabla_service import FormatoExport
 from src.asistente.seudonimos_service import resolver_aliases
 from src.database import get_db
 
