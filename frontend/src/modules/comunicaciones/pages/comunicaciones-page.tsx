@@ -232,11 +232,11 @@ function ListaFamilia({
             titulo="Comunicaciones"
             descripcion="Avisos institucionales y de curso"
             etiqueta="Portal de familia"
-            anchoMaximo="max-w-[1400px]"
+            anchoMaximo="max-w-[92vw]"
             className="pb-8"
           />
 
-          <div className="mx-auto flex w-full max-w-[1400px] flex-col px-4 pb-10 sm:px-8">
+          <div className="mx-auto flex w-full max-w-[92vw] flex-col px-4 pb-10 sm:px-8">
             <div className="overflow-hidden rounded-[28px] bg-white shadow-[0_18px_50px_rgba(57,34,84,0.12)]">
               <div className="flex flex-col gap-4 p-4 sm:p-5 xl:flex-row xl:items-center">
                 <div className="relative min-w-0 flex-1">

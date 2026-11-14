@@ -1875,6 +1875,9 @@ def _query_materias_curso_con_conteos(db: Session):
         .joinedload(Division.anio)
         .joinedload(Anio.nivel_educativo),
         selectinload(MateriaCurso.horarios),
+        selectinload(MateriaCurso.asignaciones)
+        .joinedload(AsignacionDocente.docente)
+        .joinedload(Docente.persona),
     )
 
 
@@ -1939,7 +1942,14 @@ def listar_materias_sin_docente(db: Session, ciclo_lectivo: str) -> list[Materia
 def _materias_curso_con_conteos(query) -> list[MateriaCursoResponse]:
     return [
         MateriaCursoResponse.model_validate(materia_curso).model_copy(
-            update={"cantidad_asignaciones": cantidad_asignaciones}
+            update={
+                "cantidad_asignaciones": cantidad_asignaciones,
+                "docentes": [
+                    f"{asignacion.docente.persona.nombre} {asignacion.docente.persona.apellido}"
+                    for asignacion in materia_curso.asignaciones
+                    if asignacion.docente and asignacion.docente.persona
+                ],
+            }
         )
         for materia_curso, cantidad_asignaciones in query.order_by(MateriaCurso.id).all()
     ]

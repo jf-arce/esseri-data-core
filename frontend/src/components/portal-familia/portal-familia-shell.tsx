@@ -23,6 +23,7 @@ type PortalFamiliaShellProps = {
   icono?: ReactNode
   anchoMaximo?: string
   className?: string
+  classNameContenido?: string
   tituloClassName?: string
 }
 
@@ -36,8 +37,9 @@ export function PortalFamiliaShell({
   acciones,
   ilustracion,
   icono,
-  anchoMaximo = 'max-w-7xl',
+  anchoMaximo = 'max-w-[92vw]',
   className,
+  classNameContenido,
   tituloClassName,
 }: PortalFamiliaShellProps) {
   return (
@@ -57,7 +59,13 @@ export function PortalFamiliaShell({
         </div>
       )}
 
-      <div className={cn('relative mx-auto flex w-full flex-col gap-5', anchoMaximo)}>
+      <div
+        className={cn(
+          'relative mx-auto flex w-full flex-col gap-5',
+          anchoMaximo,
+          classNameContenido,
+        )}
+      >
         {volverA && (
           <Link
             to={volverA}

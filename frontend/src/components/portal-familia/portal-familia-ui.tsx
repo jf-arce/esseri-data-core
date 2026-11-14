@@ -117,7 +117,7 @@ export function PortalCard({
     >
       {(titulo || accion) && (
         <CardHeader className={cn('px-5 pt-5 pb-0', headerClassName)}>
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex min-w-0 items-start gap-3">
               {Icono && (
                 <span

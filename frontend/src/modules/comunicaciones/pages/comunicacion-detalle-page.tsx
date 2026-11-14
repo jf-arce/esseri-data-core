@@ -286,7 +286,7 @@ export function ComunicacionDetallePage({
           />
         </svg>
 
-        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-5">
+        <div className="relative z-10 mx-auto flex w-full max-w-[92vw] flex-col gap-5">
           <div className="flex flex-col gap-3">
             <Link
               to={base}
