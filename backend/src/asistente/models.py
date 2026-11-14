@@ -74,7 +74,9 @@ class AliasConversacion(Base):
         sa.UniqueConstraint(
             "conversacion_id", "tipo", "entidad_id", name="uq_alias_conversacion_entidad"
         ),
-        sa.CheckConstraint("tipo IN ('ALUMNO', 'FAMILIA')", name="ck_alias_conversacion_tipo"),
+        sa.CheckConstraint(
+            "tipo IN ('ALUMNO', 'FAMILIA', 'DOCENTE')", name="ck_alias_conversacion_tipo"
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)

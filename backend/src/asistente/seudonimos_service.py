@@ -16,17 +16,18 @@ from dataclasses import dataclass, field
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from src.asistente.constants import TIPO_ALIAS_ALUMNO, TIPO_ALIAS_FAMILIA
+from src.academico.models import Docente
+from src.asistente.constants import TIPO_ALIAS_ALUMNO, TIPO_ALIAS_DOCENTE, TIPO_ALIAS_FAMILIA
 from src.asistente.exceptions import AliasInvalido
 from src.asistente.models import AliasConversacion
 from src.auth import autorizacion_service
-from src.auth.constants import PERMISO_FAMILIAS_ALUMNOS_LEER
+from src.auth.constants import PERMISO_ACADEMICO_LEER, PERMISO_FAMILIAS_ALUMNOS_LEER
 from src.auth.exceptions import PermisoDenegado
 from src.familias_alumnos.models import Alumno, Familia
 from src.models import Persona
 from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
 
-PATRON_ALIAS = re.compile(r"\[(ALUMNO|FAMILIA):(\d+)\]")
+PATRON_ALIAS = re.compile(r"\[(ALUMNO|FAMILIA|DOCENTE):(\d+)\]")
 _PATRON_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 _PATRON_DNI = re.compile(r"(?<![\d.])\d{1,2}\.?\d{3}\.?\d{3}(?![\d.]*\d)")
 _PATRON_TELEFONO = re.compile(r"(?<![\w])\+?\d[\d\s().-]{6,}\d")
@@ -139,9 +140,9 @@ class FiltroAlias:
 
 
 def _puede_ser_alias(cola: str) -> bool:
-    if any(prefijo.startswith(cola) for prefijo in ("[ALUMNO:", "[FAMILIA:")):
+    if any(prefijo.startswith(cola) for prefijo in ("[ALUMNO:", "[FAMILIA:", "[DOCENTE:")):
         return True
-    return re.fullmatch(r"\[(?:ALUMNO|FAMILIA):\d*", cola) is not None
+    return re.fullmatch(r"\[(?:ALUMNO|FAMILIA|DOCENTE):\d*", cola) is not None
 
 
 # --- Entrada ------------------------------------------------------------------------------
@@ -209,9 +210,11 @@ def _aplicar_menciones(
 
 
 def _existe_entidad(db: Session, tipo: str, entidad_id: uuid.UUID) -> bool:
-    modelo = (
-        Alumno if tipo == TIPO_ALIAS_ALUMNO else Familia if tipo == TIPO_ALIAS_FAMILIA else None
-    )
+    modelo = {
+        TIPO_ALIAS_ALUMNO: Alumno,
+        TIPO_ALIAS_FAMILIA: Familia,
+        TIPO_ALIAS_DOCENTE: Docente,
+    }.get(tipo)
     return modelo is not None and db.get(modelo, entidad_id) is not None
 
 
@@ -239,7 +242,11 @@ def _candidatos_por_tokens(db: Session, tokens: set[str]) -> list[_Candidato]:
     if not lista:
         return []
     candidatos: list[_Candidato] = []
-    for tipo, modelo in ((TIPO_ALIAS_ALUMNO, Alumno), (TIPO_ALIAS_FAMILIA, Familia)):
+    for tipo, modelo in (
+        (TIPO_ALIAS_ALUMNO, Alumno),
+        (TIPO_ALIAS_FAMILIA, Familia),
+        (TIPO_ALIAS_DOCENTE, Docente),
+    ):
         filas = db.execute(
             select(modelo.id, Persona.nombre, Persona.apellido)
             .join(Persona, Persona.id == modelo.persona_id)
@@ -391,14 +398,26 @@ def resolver_aliases(
     Los permisos se evalúan en cada llamada: si se revocan después de la conversación, el
     historial deja de mostrar nombres.
     """
-    if not autorizacion_service.tiene_permiso_en_rol(
+    puede_personas = autorizacion_service.tiene_permiso_en_rol(
         db, usuario_id, rol_codigo, PERMISO_FAMILIAS_ALUMNOS_LEER
-    ):
+    )
+    puede_docentes = autorizacion_service.tiene_permiso_en_rol(
+        db, usuario_id, rol_codigo, PERMISO_ACADEMICO_LEER
+    )
+    if not puede_personas and not puede_docentes:
         raise PermisoDenegado()
     resueltos: list[AliasResuelto] = []
     for alias in dict.fromkeys(aliases):
         fila = resolver_alias(db, conversacion_id, alias)
-        modelo = Alumno if fila.tipo == TIPO_ALIAS_ALUMNO else Familia
+        # Cada tipo se resuelve con su propio permiso: sin él, el alias queda sin nombre.
+        if fila.tipo == TIPO_ALIAS_DOCENTE:
+            if not puede_docentes:
+                continue
+            modelo = Docente
+        elif not puede_personas:
+            continue
+        else:
+            modelo = Alumno if fila.tipo == TIPO_ALIAS_ALUMNO else Familia
         entidad = db.get(modelo, fila.entidad_id)
         if entidad is None:
             continue

@@ -32,7 +32,7 @@ it('el alias resuelto es un link a la ficha', () => {
       <TextoMarkdown texto="Mirá a [ALUMNO:1]" porAlias={resuelto} />
     </MemoryRouter>,
   )
-  expect(screen.getByRole('link', { name: 'Quintero, Mariana' })).toHaveAttribute(
+  expect(screen.getByRole('link', { name: 'Mariana Quintero' })).toHaveAttribute(
     'href',
     '/familias-alumnos/alumnos/abc',
   )

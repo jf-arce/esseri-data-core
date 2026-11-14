@@ -1,4 +1,4 @@
-export type TipoAlias = 'ALUMNO' | 'FAMILIA'
+export type TipoAlias = 'ALUMNO' | 'FAMILIA' | 'DOCENTE'
 
 export type TipoColumna = 'texto' | 'numero' | 'moneda' | 'porcentaje' | 'alias'
 
@@ -38,6 +38,8 @@ export type BloqueTarjeta = {
 export type BloqueNavegar = {
   tipo: 'navegar'
   destino?: string
+  /** Filtros con los que se abre la pantalla (ids de nivel, año y división en Académico). */
+  filtros?: Record<string, string>
   entidad?: 'alumno' | 'familia'
   alias?: string
 }
@@ -93,6 +95,7 @@ export type EventoSse =
       datos: {
         solicitud_id: string
         destino?: string
+        filtros?: Record<string, string>
         entidad?: 'alumno' | 'familia'
         alias?: string
       }

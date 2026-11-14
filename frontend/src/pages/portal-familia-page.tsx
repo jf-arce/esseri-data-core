@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import {
   CalendarClockIcon,
+  CalendarDaysIcon,
   CalendarPlusIcon,
   ChevronRightIcon,
   FileTextIcon,
@@ -77,7 +78,18 @@ export function PortalFamiliaPage() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Link to="/familia/calendario" className={accesoClass()}>
+              <span className="flex size-10 items-center justify-center rounded-lg bg-sup-academico text-info">
+                <CalendarDaysIcon aria-hidden="true" className="size-5" />
+              </span>
+              <span>
+                <span className="block text-sm font-semibold text-texto">Calendario</span>
+                <span className="mt-1 block text-xs text-texto-2">
+                  El horario semanal de cada alumno.
+                </span>
+              </span>
+            </Link>
             <Link to="/familia/facturacion" className={accesoClass()}>
               <span className="flex size-10 items-center justify-center rounded-lg bg-sup-facturacion text-advertencia">
                 <ReceiptTextIcon aria-hidden="true" className="size-5" />
@@ -121,6 +133,14 @@ export function PortalFamiliaPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="divide-y divide-borde">
+              <Link
+                to="/familia/calendario"
+                className="flex items-center gap-3 py-4 hover:text-violeta"
+              >
+                <CalendarDaysIcon aria-hidden="true" className="size-4 text-info" />
+                <span className="flex-1 text-sm font-medium">Calendario</span>
+                <ChevronRightIcon aria-hidden="true" className="size-4 text-texto-3" />
+              </Link>
               <Link
                 to="/familia/asistencias"
                 className="flex items-center gap-3 py-4 hover:text-violeta"

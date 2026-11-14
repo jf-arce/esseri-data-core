@@ -20,7 +20,7 @@ it('reemplaza el alias por el nombre con link a la ficha cuando está resuelto',
     </MemoryRouter>,
   )
 
-  expect(screen.getByRole('link', { name: 'Quintero, Mariana' })).toHaveAttribute(
+  expect(screen.getByRole('link', { name: 'Mariana Quintero' })).toHaveAttribute(
     'href',
     '/familias-alumnos/alumnos/abc',
   )

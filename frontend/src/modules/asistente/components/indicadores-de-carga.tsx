@@ -1,17 +1,12 @@
+import { Trio } from 'ldrs/react'
+import 'ldrs/react/Trio.css'
 import { motion } from 'motion/react'
 
-/** Tres puntos que rebotan en cadena mientras el asistente arma la respuesta. */
+/** Loader de `ldrs` (tres puntos) mientras el asistente arma la respuesta. */
 export function PuntosPensando() {
   return (
-    <span className="flex items-center gap-1" aria-hidden="true">
-      {[0, 1, 2].map((indice) => (
-        <motion.span
-          key={indice}
-          className="size-1.5 rounded-full bg-violeta"
-          animate={{ y: [0, -4, 0], opacity: [0.4, 1, 0.4] }}
-          transition={{ duration: 0.9, repeat: Infinity, delay: indice * 0.15, ease: 'easeInOut' }}
-        />
-      ))}
+    <span className="flex items-center" aria-hidden="true">
+      <Trio size={22} speed={1.3} color="var(--violeta)" />
     </span>
   )
 }

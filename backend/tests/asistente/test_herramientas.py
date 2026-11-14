@@ -1,6 +1,9 @@
 import json
 from datetime import date, timedelta
 
+import pytest
+from sqlalchemy import select
+
 from tests.asistente.conftest import (
     APELLIDO_ALUMNA,
     NOMBRE_ALUMNA,
@@ -238,6 +241,214 @@ class TestOtrasHerramientas:
         assert "Argumentos inválidos" in resultado_de_herramienta(proveedor)["error"]
 
 
+@pytest.fixture()
+def horarios(db_session, personas):
+    """5°A con Matemática (lunes y miércoles) y Lengua (miércoles); 5°B con Inglés (miércoles)."""
+    from datetime import time
+
+    from src.academico.models import (
+        Anio,
+        Division,
+        HorarioMateriaCurso,
+        Materia,
+        MateriaCurso,
+    )
+
+    anio = db_session.scalar(select(Anio).where(Anio.numero == 5))
+    division_a = db_session.scalar(select(Division).where(Division.nombre == "A"))
+    division_b = Division(nombre="B", anio_id=anio.id)
+    db_session.add(division_b)
+    db_session.flush()
+
+    def asignar(nombre, division, franjas):
+        materia = Materia(nombre=nombre, tipo="materia")
+        db_session.add(materia)
+        db_session.flush()
+        curso = MateriaCurso(materia_id=materia.id, division_id=division.id)
+        db_session.add(curso)
+        db_session.flush()
+        for dia, inicio, fin in franjas:
+            db_session.add(
+                HorarioMateriaCurso(
+                    dia_semana=dia,
+                    hora_inicio=time(inicio),
+                    hora_fin=time(fin),
+                    materia_curso_id=curso.id,
+                )
+            )
+
+    asignar("Matemática", division_a, [(1, 8, 9), (3, 8, 9)])
+    asignar("Lengua", division_a, [(3, 9, 10)])
+    asignar("Inglés", division_b, [(3, 10, 11)])
+    db_session.commit()
+
+
+class TestHorarioDelCurso:
+    def test_materias_de_un_curso_un_dia(self, direccion, proveedor, horarios):
+        lista = correr(
+            direccion,
+            proveedor,
+            "horario_del_curso",
+            {"nivel": "primaria", "anio": 5, "division": "A", "dia": "miércoles"},
+        )
+        franjas = resultado_de_herramienta(proveedor)["franjas"]
+        assert [(f["materia"], f["desde"], f["hasta"]) for f in franjas] == [
+            ("Matemática", "08:00", "09:00"),
+            ("Lengua", "09:00", "10:00"),
+        ]
+        assert {f["curso"] for f in franjas} == {"5°A"}
+        assert [d["bloque"]["titulo"] for n, d in lista if n == "tarjeta"] == ["Horario por curso"]
+
+    def test_sin_division_trae_todas_las_del_año(self, direccion, proveedor, horarios):
+        correr(direccion, proveedor, "horario_del_curso", {"anio": 5, "dia": "miercoles"})
+        cursos = {f["curso"] for f in resultado_de_herramienta(proveedor)["franjas"]}
+        assert cursos == {"5°A", "5°B"}
+
+    def test_sin_horarios_informa_que_no_hay(self, direccion, proveedor, horarios):
+        correr(direccion, proveedor, "horario_del_curso", {"anio": 5, "dia": "domingo"})
+        assert "No hay horarios" in resultado_de_herramienta(proveedor)["error"]
+
+    def test_exige_nivel_o_anio(self, direccion, proveedor, horarios):
+        correr(direccion, proveedor, "horario_del_curso", {"dia": "lunes"})
+        assert "nivel o el año" in resultado_de_herramienta(proveedor)["error"]
+
+    def test_dia_invalido(self, direccion, proveedor, horarios):
+        correr(direccion, proveedor, "horario_del_curso", {"anio": 5, "dia": "feriado"})
+        assert "Día inválido" in resultado_de_herramienta(proveedor)["error"]
+
+    def test_no_expone_docentes(self, direccion, proveedor, horarios):
+        correr(direccion, proveedor, "horario_del_curso", {"anio": 5})
+        assert "docente" not in json.dumps(resultado_de_herramienta(proveedor)).lower()
+
+
+@pytest.fixture()
+def docente(db_session, horarios):
+    """Graciela Ferrero dicta Matemática en 5°A durante 2026."""
+    from src.academico.models import AsignacionDocente, Docente, Materia, MateriaCurso
+    from src.models import Persona
+
+    persona = Persona(nombre="Graciela", apellido="Ferrero", dni="25999888")
+    db_session.add(persona)
+    db_session.flush()
+    fila = Docente(legajo="D-001", persona_id=persona.id)
+    db_session.add(fila)
+    db_session.flush()
+    curso = db_session.scalar(
+        select(MateriaCurso).join(Materia).where(Materia.nombre == "Matemática")
+    )
+    db_session.add(
+        AsignacionDocente(docente_id=fila.id, materia_curso_id=curso.id, ciclo_lectivo="2026")
+    )
+    db_session.commit()
+    return fila
+
+
+class TestCursos:
+    def test_estructura_con_alumnos_y_materias_por_curso(self, direccion, proveedor, horarios):
+        correr(direccion, proveedor, "estructura_academica", {"anio": 5})
+        resultado = resultado_de_herramienta(proveedor)
+        por_curso = {c["curso"]: c for c in resultado["cursos"]}
+        assert por_curso["5°A"]["alumnos"] == 1
+        assert por_curso["5°A"]["materias"] == 2
+        assert por_curso["5°B"] == {
+            "nivel": "Primaria",
+            "curso": "5°B",
+            "alumnos": 0,
+            "materias": 1,
+        }
+        assert resultado["total_alumnos"] == 1
+
+    def test_la_pantalla_sugerida_se_abre_filtrada_por_el_curso(
+        self, direccion, proveedor, horarios, db_session
+    ):
+        from src.academico.models import Anio, Division
+
+        lista = correr(
+            direccion,
+            proveedor,
+            "estructura_academica",
+            {"nivel": "primaria", "anio": 5, "division": "A"},
+        )
+        (navegar,) = [d for n, d in lista if n == "navegar"]
+        division = db_session.scalar(select(Division).where(Division.nombre == "A"))
+        anio = db_session.get(Anio, division.anio_id)
+        assert navegar["destino"] == "academico"
+        assert navegar["filtros"] == {
+            "nivel": str(anio.nivel_educativo_id),
+            "anio": str(anio.id),
+            "division": str(division.id),
+        }
+
+    def test_con_varias_divisiones_no_filtra_por_division(self, direccion, proveedor, horarios):
+        lista = correr(direccion, proveedor, "estructura_academica", {"anio": 5})
+        (navegar,) = [d for n, d in lista if n == "navegar"]
+        assert set(navegar["filtros"]) == {"nivel", "anio"}
+
+    def test_estructura_sin_curso_informa_que_no_hay(self, direccion, proveedor, horarios):
+        correr(direccion, proveedor, "estructura_academica", {"anio": 9})
+        assert "error" in resultado_de_herramienta(proveedor)
+
+    def test_alumnos_del_curso_van_como_alias_sin_nombres(self, direccion, proveedor, horarios):
+        lista = correr(direccion, proveedor, "alumnos_del_curso", {"anio": 5, "division": "A"})
+        resultado = resultado_de_herramienta(proveedor)
+        assert resultado["total_alumnos"] == 1
+        assert resultado["alumnos"] == [{"alumno": "[ALUMNO:1]", "curso": "5°A"}]
+        assert APELLIDO_ALUMNA not in proveedor.texto_enviado()
+        assert any(n == "tarjeta" for n, _ in lista)
+
+    def test_alumnos_del_curso_exige_nivel_o_anio(self, direccion, proveedor, horarios):
+        correr(direccion, proveedor, "alumnos_del_curso", {"division": "A"})
+        assert "nivel o el año" in resultado_de_herramienta(proveedor)["error"]
+
+    def test_docentes_del_curso_van_como_alias_sin_nombres(self, direccion, proveedor, docente):
+        correr(direccion, proveedor, "docentes_del_curso", {"anio": 5, "division": "A"})
+        resultado = resultado_de_herramienta(proveedor)
+        assert resultado["docentes"] == [
+            {"docente": "[DOCENTE:1]", "materia": "Matemática", "curso": "5°A"}
+        ]
+        assert "Ferrero" not in proveedor.texto_enviado()
+        assert "Graciela" not in proveedor.texto_enviado()
+
+    def test_docentes_de_un_dia_solo_incluye_las_materias_de_ese_dia(
+        self, direccion, proveedor, docente
+    ):
+        # Matemática se dicta lunes y miércoles; el jueves no hay clases de ella.
+        correr(direccion, proveedor, "docentes_del_curso", {"anio": 5, "dia": "lunes"})
+        assert [d["materia"] for d in resultado_de_herramienta(proveedor)["docentes"]] == [
+            "Matemática"
+        ]
+        proveedor.peticiones.clear()
+        correr(direccion, proveedor, "docentes_del_curso", {"anio": 5, "dia": "jueves"})
+        assert "No hay docentes" in resultado_de_herramienta(proveedor)["error"]
+
+    def test_docentes_con_dia_invalido(self, direccion, proveedor, docente):
+        correr(direccion, proveedor, "docentes_del_curso", {"anio": 5, "dia": "feriado"})
+        assert "Día inválido" in resultado_de_herramienta(proveedor)["error"]
+
+    def test_docentes_de_una_materia(self, direccion, proveedor, docente):
+        correr(direccion, proveedor, "docentes_del_curso", {"anio": 5, "materia": "lengua"})
+        assert "No hay docentes" in resultado_de_herramienta(proveedor)["error"]
+
+    def test_el_alias_de_docente_se_resuelve_con_academico_leer(
+        self, direccion, proveedor, docente
+    ):
+        proveedor.respuestas = [
+            respuesta_herramientas(("docentes_del_curso", {"anio": 5})),
+            respuesta_texto("Lo dicta [DOCENTE:1]."),
+        ]
+        conversacion = nueva_conversacion(direccion)
+        enviar(direccion, conversacion, "¿quién da Matemática?")
+
+        respuesta = direccion.post(
+            "/asistente/resolver",
+            json={"conversacion_id": conversacion, "aliases": ["[DOCENTE:1]"]},
+        )
+        assert respuesta.status_code == 200
+        (item,) = respuesta.json()["items"]
+        assert item["tipo"] == "DOCENTE"
+        assert item["nombre"] == "Ferrero, Graciela"
+
+
 class TestDeudaPorFamilias:
     def test_informa_cuantas_familias_tienen_deuda_vencida_y_el_alcance(
         self, direccion, proveedor, personas
@@ -245,6 +456,7 @@ class TestDeudaPorFamilias:
         correr(direccion, proveedor, "deuda_por_familias", {"limite": 5})
         resultado = resultado_de_herramienta(proveedor)
         assert resultado["familias_con_deuda_vencida"] == 0
+        assert resultado["total_vencido_todas_las_familias"] == 0
         assert "mes" in resultado["alcance"]
 
     def test_rechaza_una_fecha_de_corte_futura(self, direccion, proveedor):

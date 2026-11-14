@@ -1002,9 +1002,9 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 |---|---|---|---|
 | id | uuid | PK |  |
 | conversacion_id | uuid | FK | `ON DELETE CASCADE`. Única junto con `alias` y junto con (`tipo`, `entidad_id`) |
-| alias | string |  | `[ALUMNO:3]`, `[FAMILIA:1]` |
-| tipo | string |  | ALUMNO / FAMILIA |
-| entidad_id | uuid |  | `ALUMNO.id` o `FAMILIA.id`, sin FK (depende de `tipo`) |
+| alias | string |  | `[ALUMNO:3]`, `[FAMILIA:1]`, `[DOCENTE:2]` |
+| tipo | string |  | ALUMNO / FAMILIA / DOCENTE |
+| entidad_id | uuid |  | `ALUMNO.id`, `FAMILIA.id` o `DOCENTE.id`, sin FK (depende de `tipo`) |
 
 > **[DECISIÓN DE EQUIPO]** **Regla de seudonimización del Asistente.** Al proveedor de IA nunca le llegan nombres, DNI ni datos de contacto, ni en lo que escribe el usuario (menciones `@`, nombres a mano, DNI, emails y teléfonos se reemplazan o tapan antes de enviar), ni en lo que devuelven las herramientas (solo agregados y alias; sin textos libres), ni en el historial reenviado. La tabla de alias es la única que relaciona un alias con una persona, y solo vale dentro de su conversación. Permiso `asistente.leer` para dirección, administración y administrador del sistema; las herramientas revalidan el permiso `.leer` de cada módulo que consultan. La retención borra las conversaciones sin actividad pasados `ASISTENTE_RETENCION_DIAS` días (90 por defecto).
 
@@ -1052,7 +1052,7 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | `CONVERSACION_ASISTENTE.estado` | libre, generando | [DECISIÓN DE DISEÑO] |
 | `MENSAJE_ASISTENTE.autor` | usuario, asistente | [DECISIÓN DE DISEÑO] |
 | `MENSAJE_ASISTENTE.estado` | completo, parcial, error | [DECISIÓN DE DISEÑO] |
-| `ALIAS_CONVERSACION.tipo` | ALUMNO, FAMILIA | [DECISIÓN DE DISEÑO] |
+| `ALIAS_CONVERSACION.tipo` | ALUMNO, FAMILIA, DOCENTE | [DECISIÓN DE DISEÑO] |
 | `IA_SUGERENCIA.tipo` | patron_detectado, comunicacion | [DECISIÓN DE DISEÑO] |
 | `IA_SUGERENCIA.estado` | pendiente_revision, aprobada, rechazada, ejecutada_automaticamente | [DECISIÓN DE DISEÑO] |
 

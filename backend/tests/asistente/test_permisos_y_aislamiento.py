@@ -186,5 +186,7 @@ class TestResolver:
         respuesta = direccion.post(
             "/asistente/resolver", json={"conversacion_id": conversacion, "aliases": ["[ALUMNO:1]"]}
         )
-        assert respuesta.status_code == 403
+        # Conserva academico.leer: la petición vale, pero ya no devuelve nombres de personas.
+        assert respuesta.status_code == 200
+        assert respuesta.json()["items"] == []
         assert usuario is not None

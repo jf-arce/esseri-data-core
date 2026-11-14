@@ -84,6 +84,6 @@ it('copia el texto con los nombres reales en lugar de los alias', async () => {
   await usuario.click(screen.getByRole('button', { name: 'Copiar respuesta' }))
 
   const copiado = await navigator.clipboard.readText()
-  expect(copiado).toContain('Pérez, Ana')
+  expect(copiado).toContain('Ana Pérez')
   expect(copiado).not.toContain('[FAMILIA:1]')
 })

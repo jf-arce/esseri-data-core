@@ -1,4 +1,5 @@
-import { motion, MotionConfig } from 'motion/react'
+import { useEffect, useState } from 'react'
+import { AnimatePresence, motion, MotionConfig, type Variants } from 'motion/react'
 import { ArrowRightIcon, RotateCcwIcon, SparklesIcon, TriangleAlertIcon } from 'lucide-react'
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import { Button } from '@/components/ui/button'
@@ -10,7 +11,9 @@ import {
   MessageScrollerItem,
   MessageScrollerProvider,
   MessageScrollerViewport,
+  useMessageScroller,
 } from '@/components/ui/message-scroller'
+import { useTextoGradual } from '../hooks/use-texto-gradual'
 import type { AliasResuelto, Bloque, BloqueNavegar, MensajeVisible } from '../types'
 import { BloqueKpiVista } from './bloque-kpi'
 import { AccionesDelMensaje } from './acciones-del-mensaje'
@@ -21,15 +24,27 @@ import { TarjetaRecurso } from './tarjeta-recurso'
 import { TextoConAlias } from './texto-con-alias'
 import { TextoMarkdown } from './texto-markdown'
 
+// Los datos entran de a uno, con un fundido y un leve ascenso.
+const ENTRADA_DE_DATOS: Variants = {
+  oculto: {},
+  visible: { transition: { staggerChildren: 0.14 } },
+}
+const ELEMENTO_DE_DATOS: Variants = {
+  oculto: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } },
+}
+
+/** Botón de navegación: su texto y lo que hace al tocarlo. */
+export type AccionIr = { etiqueta: string; ir: () => void }
+
 interface ListaMensajesProps {
   mensajes: MensajeVisible[]
   porAlias: Record<string, AliasResuelto>
   alElegir: (resuelto: AliasResuelto) => void
-  /** Etiqueta y acción para un bloque de navegación, o `null` si el rol no puede ir ahí. */
-  alIr: (bloque: BloqueNavegar) => (() => void) | null
+  /** Botón para un bloque de navegación, o `null` si el rol no puede ir ahí. */
+  alIr: (bloque: BloqueNavegar) => AccionIr | null
   /** Vuelve a mandar la última pregunta; `null` mientras se está generando. */
   alReintentar: (() => void) | null
-  /** Preguntas de arranque para el estado vacío. */
   sugerencias: string[]
   alSugerir: (texto: string) => void
 }
@@ -90,6 +105,9 @@ export function ListaMensajes({
   return (
     <MotionConfig reducedMotion="user">
       <MessageScrollerProvider>
+        <DesplazarAlEnviar
+          enviados={mensajes.filter((mensaje) => mensaje.autor === 'usuario').length}
+        />
         <MessageScroller className="flex-1" aria-live="polite">
           <MessageScrollerViewport>
             <MessageScrollerContent className="gap-5 px-4 py-4">
@@ -134,6 +152,15 @@ export function ListaMensajes({
   )
 }
 
+/** Al mandar un mensaje (o abrir una conversación) baja hasta lo último. */
+function DesplazarAlEnviar({ enviados }: { enviados: number }) {
+  const { scrollToEnd } = useMessageScroller()
+  useEffect(() => {
+    if (enviados > 0) scrollToEnd({ behavior: 'smooth' })
+  }, [enviados, scrollToEnd])
+  return null
+}
+
 function MensajeDelAsistente({
   mensaje,
   porAlias,
@@ -144,24 +171,39 @@ function MensajeDelAsistente({
   mensaje: MensajeVisible
 }) {
   const generando = mensaje.estado === 'generando'
+  // Solo se anima lo que llega en vivo; las conversaciones guardadas se muestran enteras.
+  const [animar] = useState(generando)
+  const { visible, revelando } = useTextoGradual(mensaje.contenido, animar)
+  const escribiendo = generando || revelando
   return (
     <Message>
       <MessageContent>
         <PasosDelMensaje pasos={mensaje.pasos} herramienta={mensaje.herramienta} />
-        {generando && mensaje.contenido === '' && mensaje.herramienta === null && (
-          <p className="flex items-center gap-2.5 text-sm text-texto-3">
-            <PuntosPensando />
-            <span className="shimmer motion-reduce:shimmer-none">
-              {mensaje.pasos.length > 0 ? 'Redactando…' : 'Pensando…'}
-            </span>
-          </p>
+        <AnimatePresence>
+          {generando && mensaje.contenido === '' && mensaje.herramienta === null && (
+            <motion.p
+              key="espera"
+              className="flex items-center gap-2.5 text-sm text-texto-3"
+              exit={{ opacity: 0, transition: { duration: 0.15 } }}
+            >
+              <PuntosPensando />
+              <span className="shimmer motion-reduce:shimmer-none">
+                {mensaje.pasos.length > 0 ? 'Redactando…' : 'Pensando…'}
+              </span>
+            </motion.p>
+          )}
+        </AnimatePresence>
+        {visible !== '' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <TextoMarkdown texto={visible} porAlias={porAlias} />
+          </motion.div>
         )}
-        {mensaje.contenido !== '' && (
-          <TextoMarkdown texto={mensaje.contenido} porAlias={porAlias} />
-        )}
-        {generando && mensaje.contenido !== '' && <CursorEscritura />}
-        {/* Los datos van debajo del texto; mientras no hay texto se retienen para no reacomodar. */}
-        {(!generando || mensaje.contenido !== '') && (
+        {escribiendo && visible !== '' && <CursorEscritura />}
+        {!escribiendo && (
           <BloquesDelMensaje
             bloques={mensaje.bloques}
             porAlias={porAlias}
@@ -169,9 +211,10 @@ function MensajeDelAsistente({
             alIr={alIr}
           />
         )}
-        {!generando && mensaje.contenido !== '' && (
+        {!escribiendo && mensaje.contenido !== '' && (
           <AccionesDelMensaje
             contenido={mensaje.contenido}
+            bloques={mensaje.bloques}
             porAlias={porAlias}
             alReintentar={alReintentar}
           />
@@ -210,51 +253,60 @@ function BloquesDelMensaje({
   bloques: Bloque[]
   porAlias: Record<string, AliasResuelto>
   alElegir: (resuelto: AliasResuelto) => void
-  alIr: (bloque: BloqueNavegar) => (() => void) | null
+  alIr: (bloque: BloqueNavegar) => AccionIr | null
 }) {
   const kpis = bloques.flatMap((b) => (b.tipo === 'kpi' ? [b] : []))
+  if (bloques.length === 0) return null
   return (
-    <>
+    <motion.div
+      className="flex flex-col gap-2"
+      variants={ENTRADA_DE_DATOS}
+      initial="oculto"
+      animate="visible"
+    >
       {kpis.length > 0 && (
-        <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
+        <motion.div
+          variants={ELEMENTO_DE_DATOS}
+          className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2"
+        >
           {kpis.map((kpi, indice) => (
             <BloqueKpiVista key={indice} bloque={kpi} />
           ))}
-        </div>
+        </motion.div>
       )}
       {bloques.map((bloque, indice) => {
         if (bloque.tipo === 'tabla') {
-          return <BloqueTablaVista key={bloque.tabla_id} bloque={bloque} porAlias={porAlias} />
+          return (
+            <motion.div key={bloque.tabla_id} variants={ELEMENTO_DE_DATOS}>
+              <BloqueTablaVista bloque={bloque} porAlias={porAlias} />
+            </motion.div>
+          )
         }
         if (bloque.tipo === 'tarjeta') {
           return (
-            <TarjetaRecurso
-              key={indice}
-              bloque={bloque}
-              resuelto={porAlias[bloque.alias]}
-              alElegir={alElegir}
-            />
+            <motion.div key={indice} variants={ELEMENTO_DE_DATOS}>
+              <TarjetaRecurso
+                bloque={bloque}
+                resuelto={porAlias[bloque.alias]}
+                alElegir={alElegir}
+              />
+            </motion.div>
           )
         }
         if (bloque.tipo === 'navegar') {
-          const ir = alIr(bloque)
-          if (ir === null) return null
+          const accion = alIr(bloque)
+          if (accion === null) return null
           return (
-            <Button
-              key={indice}
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="self-start"
-              onClick={ir}
-            >
-              Ir ahí
-              <ArrowRightIcon data-icon="inline-end" />
-            </Button>
+            <motion.div key={indice} variants={ELEMENTO_DE_DATOS} className="self-start">
+              <Button type="button" variant="secondary" size="sm" onClick={accion.ir}>
+                {accion.etiqueta}
+                <ArrowRightIcon data-icon="inline-end" />
+              </Button>
+            </motion.div>
           )
         }
         return null
       })}
-    </>
+    </motion.div>
   )
 }

@@ -35,25 +35,19 @@ export function mensajeDeError(error: unknown): string {
 interface Opciones {
   ruta: string
   cicloLectivo: string
-  alNavegar: (destino: BloqueNavegar) => void
 }
 
 /**
  * Estado de la conversación visible y su stream. Al desmontarse (cambio de rol o cierre de
  * sesión) corta el stream en curso, así una respuesta tardía no se mezcla con otra cuenta.
  */
-export function useConversacion({ ruta, cicloLectivo, alNavegar }: Opciones) {
+export function useConversacion({ ruta, cicloLectivo }: Opciones) {
   const [conversacionId, setConversacionId] = useState<string | null>(null)
   const [mensajes, setMensajes] = useState<MensajeVisible[]>([])
   const [generando, setGenerando] = useState(false)
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const controlador = useRef<AbortController | null>(null)
-  const alNavegarActual = useRef(alNavegar)
-
-  useEffect(() => {
-    alNavegarActual.current = alNavegar
-  }, [alNavegar])
 
   const cortar = useCallback(() => {
     controlador.current?.abort()
@@ -100,7 +94,6 @@ export function useConversacion({ ruta, cicloLectivo, alNavegar }: Opciones) {
           void _omitido
           const bloque: BloqueNavegar = { tipo: 'navegar', ...destino }
           actualizarUltimo((m) => ({ ...m, bloques: [...m.bloques, bloque] }))
-          alNavegarActual.current(bloque)
           break
         }
         case 'fin':

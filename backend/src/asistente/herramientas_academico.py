@@ -402,6 +402,7 @@ HERRAMIENTAS = [
         parametros=ParametrosCiclo,
         permisos=(PERMISO_INSCRIPCIONES_LEER,),
         ejecutar=_resumen_inscripciones,
+        destino="inscripciones",
     ),
     Herramienta(
         nombre="tendencia_asistencias",
@@ -413,6 +414,7 @@ HERRAMIENTAS = [
         parametros=ParametrosTendencia,
         permisos=(PERMISO_ACADEMICO_LEER,),
         ejecutar=_tendencia_asistencias,
+        destino="historial_asistencia",
     ),
     Herramienta(
         nombre="ausentes_del_dia",
@@ -424,6 +426,7 @@ HERRAMIENTAS = [
         parametros=ParametrosAusentes,
         permisos=(PERMISO_ACADEMICO_LEER, PERMISO_FAMILIAS_ALUMNOS_LEER),
         ejecutar=_ausentes_del_dia,
+        destino="historial_asistencia",
     ),
     Herramienta(
         nombre="ficha_alumno",
