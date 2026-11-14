@@ -193,6 +193,8 @@ export interface FiltrosFacturas {
   buscar?: string
   alumnoId?: string
   conceptoCobroId?: string
+  emisionDesde?: string
+  emisionHasta?: string
   ordenarPor?: OrdenarPorFacturas
   direccion?: DireccionOrdenFacturas
 }

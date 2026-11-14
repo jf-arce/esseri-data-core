@@ -172,7 +172,12 @@ export function HistorialAsistenciaPage() {
   const setCiclo = useCicloLectivoStore((state) => state.setCicloLectivo)
   const permisos = useAuthStore(permisosActivos)
   const puedeExportar = tienePermiso(permisos, PERMISO_ACADEMICO_EXPORTAR)
-  const [seleccion, setSeleccion] = useState(() => filtrosIniciales(ciclo))
+  // `?fecha=AAAA-MM-DD` (desde el gráfico del Panel de Dirección) abre el historial en ese día.
+  const [seleccion, setSeleccion] = useState(() => {
+    const base = filtrosIniciales(ciclo)
+    const dia = new URLSearchParams(window.location.search).get('fecha') ?? ''
+    return /^\d{4}-\d{2}-\d{2}$/.test(dia) ? { ...base, fecha_desde: dia, fecha_hasta: dia } : base
+  })
   const filtros = seleccion.ciclo_lectivo === ciclo ? seleccion : filtrosIniciales(ciclo)
   if (seleccion.ciclo_lectivo !== ciclo) setSeleccion(filtros)
   const recurso = useConsultaHistorial(filtros)

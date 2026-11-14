@@ -290,7 +290,7 @@ arranca cerrado y solo se recuerda su ancho en `localStorage`. Solo aparece con 
 
 El panel del asistente usa [`@shadcn/react`](https://www.npmjs.com/package/@shadcn/react) (`message-scroller`): mantiene el scroll pegado al final mientras llega la respuesta y trae el botón de "ir al final". Lo usa `components/ui/message-scroller.tsx`, generado con la CLI de shadcn (AI Elements).
 
-Las transiciones del panel del asistente (entrada de mensajes, sugerencias, puntos de "Pensando…") usan [`motion`](https://motion.dev) con `MotionConfig reducedMotion="user"`, así que se apagan si el sistema pide reducir movimiento. Solo lo usa `modules/asistente/`.
+Las transiciones del panel del asistente (entrada de mensajes, sugerencias, puntos de "Pensando…") usan [`motion`](https://motion.dev) con `MotionConfig reducedMotion="user"`, así que se apagan si el sistema pide reducir movimiento. También se reutiliza en los gráficos de `modules/panel-admin/`.
 
 El color de las materias (Académico) se elige con [`react-colorful`](https://github.com/omgovich/react-colorful) (`HexColorPicker` y `HexColorInput`), dentro del `Popover` de shadcn: shadcn/ui no trae un color picker propio. Está fijado en una versión exacta en `package.json` y solo lo usa `modules/academico/components/selector-color.tsx`.
 
@@ -371,3 +371,44 @@ Railway publica el frontend por HTTPS; `/api/` se reenvía al backend privado y 
 se ajusta a `/api/auth`. El procedimiento y las variables del backend están en
 [Railway](../infra/railway.md). Para verificar este proxy sin Docker, seguir
 [las pruebas de Infra](../infra/README.md#verificar-el-proxy-de-railway-sin-docker).
+
+## Prueba de EvilCharts en Dirección
+
+Los gráficos de `/panel` usan [EvilCharts para Apache ECharts](https://evilcharts.com/docs/echarts/bar-chart/static), incorporados con la CLI de shadcn:
+
+```bash
+npx shadcn@latest add @evilcharts/echarts-bar-chart @evilcharts/echarts-line-chart --dry-run
+# Para incorporarlos por primera vez, quitar --dry-run. No usar --overwrite.
+```
+
+Los primitivos generados están en `src/components/ui/echarts-*.tsx`. Se conservan las
+variantes, la leyenda seleccionable, los tooltips, el resaltado y el brush nativo.
+Las adaptaciones locales incorporan controles accesibles, etiquetas de carga en español,
+escala configurable, soporte para React y movimiento reducido. No regenerar sin revisar el diff.
+La dependencia `echarts` sustituye a `recharts`; Motion se reutiliza para las transiciones.
+
+La composición de datos y los controles pertenecen a `panel-admin/components/graficos-direccion.tsx`:
+
+- Finanzas: barras duotono de facturado/cobrado, importes ARS completos y resumen del último mes.
+- Asistencia: escala fija 0–100 %, puntos con borde y eje diario. Los días sin registros se
+  representan con `null`, nunca como ausencias. La línea conecta las observaciones reales.
+- La miniatura permite ajustar el intervalo y desplazarlo. Los selectores Desde/Hasta hacen
+  lo mismo con teclado o toque; Restablecer recupera toda la serie cargada.
+- El resumen de asistencia pondera presentes sobre registros del intervalo. Finanzas muestra
+  las sumas del intervalo cuando se reduce, conservando el resumen del último mes.
+- La leyenda permite destacar una serie. Los detalles desplegables permiten consultar todos
+  los valores con teclado y lector de pantalla, sin depender del canvas.
+- Los esqueletos representan carga, no datos; las animaciones respetan movimiento reducido.
+
+Comparación visual de esta prueba: `/panel` muestra duotono; `/panel?graficos=expresivos`
+activa barras expansibles de facturado y revelado de la línea al pasar el cursor. Se mantiene
+cobrado en duotono para distinguir ambas series. El parámetro solo afecta a estos gráficos.
+No requiere variables de entorno adicionales ni cambios de API.
+
+Verificación focalizada: `npm run test -- src/modules/panel-admin`. Antes de entregar,
+correr `npm run test`, `npm run lint` y `npm run build`. Revisar `/panel` en escritorio y
+móvil, con navegación expandida/contraída y movimiento reducido.
+
+Si la concurrencia por defecto provoca timeouts en equipos ocupados, usar
+`npm run test -- --maxWorkers=2`: ejecuta la misma suite con dos workers, sin ampliar
+los tiempos límite ni omitir tests.

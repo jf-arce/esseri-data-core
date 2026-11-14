@@ -72,6 +72,12 @@ def test_indicadores_calculan_deuda_con_pagos_parciales_y_solo_aprobados(db_sess
         "deuda_pendiente_total": Decimal("60.00"),
         "inasistencias_hoy": 1,
         "solicitudes_compra_pendientes": 1,
+        "deuda_vencida_total": Decimal("0.00"),
+        "familias_en_mora": 0,
+        "altas_mes": 0,
+        "bajas_mes": 0,
+        "asistencias_registradas_hoy": 2,
+        "solicitud_pendiente_mas_antigua": date(2026, 9, 1),
     }
     evolucion = obtener_evolucion_financiera(db_session, fecha_hoy=date(2026, 9, 1))
     assert len(evolucion) == 9
@@ -81,6 +87,81 @@ def test_indicadores_calculan_deuda_con_pagos_parciales_y_solo_aprobados(db_sess
         "cobrado": Decimal("40.00"),
     }
     assert evolucion[0] == {"mes": "2026-01", "facturado": Decimal("0"), "cobrado": Decimal("0")}
+
+
+def test_indicadores_separan_deuda_vencida_y_cuentan_altas_y_bajas_del_mes(db_session):
+    escenario = crear_escenario(db_session)
+    inscripcion = crear_inscripcion_previa(db_session, escenario, estado="activa")
+    inscripcion.fecha_inscripcion = date(2026, 9, 1)
+    responsable = ResponsableEconomico(
+        vigencia_desde=date(2026, 1, 1),
+        alumno_id=escenario["alumno_id"],
+        familia_id=escenario["familia_id"],
+    )
+    metodo_pago = MetodoPago(nombre="Efectivo", activo=True, requiere_comprobante=False)
+    db_session.add_all([responsable, metodo_pago])
+    db_session.flush()
+    vencida_parcial = Factura(
+        fecha_emision=date(2026, 8, 1),
+        fecha_vencimiento=date(2026, 8, 10),
+        monto_total=Decimal("100.00"),
+        estado="vencida",
+        inscripcion_id=inscripcion.id,
+        responsable_economico_id=responsable.id,
+    )
+    vencida_saldada = Factura(
+        fecha_emision=date(2026, 8, 1),
+        fecha_vencimiento=date(2026, 8, 12),
+        monto_total=Decimal("50.00"),
+        estado="pagada",
+        inscripcion_id=inscripcion.id,
+        responsable_economico_id=responsable.id,
+    )
+    a_vencer = Factura(
+        fecha_emision=date(2026, 9, 1),
+        fecha_vencimiento=date(2026, 9, 20),
+        monto_total=Decimal("70.00"),
+        estado="pendiente",
+        inscripcion_id=inscripcion.id,
+        responsable_economico_id=responsable.id,
+    )
+    db_session.add_all([vencida_parcial, vencida_saldada, a_vencer])
+    db_session.flush()
+    db_session.add_all(
+        [
+            Pago(
+                fecha=date(2026, 8, 15),
+                monto=Decimal("30.00"),
+                estado="aprobado",
+                factura_id=vencida_parcial.id,
+                metodo_pago_id=metodo_pago.id,
+            ),
+            Pago(
+                fecha=date(2026, 8, 15),
+                monto=Decimal("50.00"),
+                estado="aprobado",
+                factura_id=vencida_saldada.id,
+                metodo_pago_id=metodo_pago.id,
+            ),
+            Pago(
+                fecha=date(2026, 8, 15),
+                monto=Decimal("20.00"),
+                estado="pendiente",
+                factura_id=vencida_parcial.id,
+                metodo_pago_id=metodo_pago.id,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    indicadores = obtener_indicadores_direccion(db_session, fecha_hoy=date(2026, 9, 5))
+
+    assert indicadores["deuda_vencida_total"] == Decimal("70.00")
+    assert indicadores["familias_en_mora"] == 1
+    assert indicadores["altas_mes"] == 1
+    assert indicadores["bajas_mes"] == 0
+    assert indicadores["asistencias_registradas_hoy"] == 0
+    assert indicadores["solicitud_pendiente_mas_antigua"] is None
 
 
 def test_evolucion_financiera_con_rango_cruza_de_anio(db_session):
@@ -95,3 +176,20 @@ def test_solo_compras_no_puede_leer_evolucion_financiera(client_solo_compras):
     respuesta = client_solo_compras.get("/panel-admin/evolucion-financiera")
 
     assert respuesta.status_code == 403
+
+
+def test_endpoint_de_indicadores_expone_los_campos_de_contexto(client_direccion):
+    respuesta = client_direccion.get("/panel-admin/indicadores-direccion")
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    for campo in (
+        "deuda_vencida_total",
+        "familias_en_mora",
+        "altas_mes",
+        "bajas_mes",
+        "asistencias_registradas_hoy",
+        "solicitud_pendiente_mas_antigua",
+    ):
+        assert campo in cuerpo
+    assert cuerpo["solicitud_pendiente_mas_antigua"] is None

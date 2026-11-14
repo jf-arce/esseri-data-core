@@ -19,10 +19,33 @@ from src.proveedores_compras.models import ProductoServicio, SolicitudCompra
 from src.workflows.models import TipoEvento
 
 
+def _saldo_vencido_por_familia(db: Session, hoy: date) -> list[Decimal]:
+    """Saldo vencido de cada familia con deuda: facturas vencidas menos sus pagos aprobados."""
+    pagado = (
+        select(func.coalesce(func.sum(Pago.monto), Decimal("0.00")))
+        .where(Pago.factura_id == Factura.id, Pago.estado == "aprobado")
+        .correlate(Factura)
+        .scalar_subquery()
+    )
+    saldo_factura = (Factura.monto_total - pagado).label("saldo")
+    saldos = (
+        select(ResponsableEconomico.familia_id.label("familia_id"), saldo_factura)
+        .join(ResponsableEconomico, ResponsableEconomico.id == Factura.responsable_economico_id)
+        .where(Factura.fecha_vencimiento < hoy)
+        .subquery()
+    )
+    filas = db.execute(
+        select(func.sum(saldos.c.saldo))
+        .group_by(saldos.c.familia_id)
+        .having(func.sum(saldos.c.saldo) > 0)
+    ).all()
+    return [total for (total,) in filas]
+
+
 def obtener_indicadores_direccion(
     db: Session, *, fecha_hoy: date | None = None
-) -> dict[str, int | Decimal]:
-    """Obtiene los cuatro indicadores del Panel de Dirección.
+) -> dict[str, int | Decimal | date | None]:
+    """Obtiene los indicadores del Panel de Dirección y el contexto de cada cifra.
 
     La subconsulta de pagos evita multiplicar el total de una factura cuando tiene pagos
     parciales. Solo los pagos aprobados disminuyen la deuda provisoria.
@@ -36,16 +59,35 @@ def obtener_indicadores_direccion(
         func.coalesce(func.sum(Factura.monto_total), Decimal("0.00"))
     ).scalar_subquery()
 
+    hoy = fecha_hoy or date.today()
+    saldos_vencidos = _saldo_vencido_por_familia(db, hoy)
+    inicio_mes = hoy.replace(day=1)
+
+    def inscripciones_del_mes(tipo: str) -> int:
+        return (
+            db.scalar(
+                select(func.count(Inscripcion.id)).where(
+                    Inscripcion.tipo == tipo,
+                    Inscripcion.fecha_inscripcion >= inicio_mes,
+                    Inscripcion.fecha_inscripcion <= hoy,
+                )
+            )
+            or 0
+        )
+
     deuda_pendiente_total = db.scalar(select(total_facturado - pagos_aprobados)) or Decimal("0.00")
     alumnos_activos = db.scalar(select(func.count(Alumno.id)).where(Alumno.estado == "activo")) or 0
     inasistencias_hoy = (
         db.scalar(
             select(func.count(Asistencia.id)).where(
-                Asistencia.fecha == (fecha_hoy or date.today()),
+                Asistencia.fecha == hoy,
                 Asistencia.tipo.like("ausente%"),
             )
         )
         or 0
+    )
+    asistencias_registradas_hoy = (
+        db.scalar(select(func.count(Asistencia.id)).where(Asistencia.fecha == hoy)) or 0
     )
     solicitudes_compra_pendientes = (
         db.scalar(
@@ -59,6 +101,14 @@ def obtener_indicadores_direccion(
         "deuda_pendiente_total": deuda_pendiente_total,
         "inasistencias_hoy": inasistencias_hoy,
         "solicitudes_compra_pendientes": solicitudes_compra_pendientes,
+        "deuda_vencida_total": sum(saldos_vencidos, Decimal("0.00")),
+        "familias_en_mora": len(saldos_vencidos),
+        "altas_mes": inscripciones_del_mes("nueva"),
+        "bajas_mes": inscripciones_del_mes("baja"),
+        "asistencias_registradas_hoy": asistencias_registradas_hoy,
+        "solicitud_pendiente_mas_antigua": db.scalar(
+            select(func.min(SolicitudCompra.fecha)).where(SolicitudCompra.estado == "pendiente")
+        ),
     }
 
 
@@ -318,13 +368,20 @@ def _filas_matriculas(db: Session, limite: int) -> list[dict]:
 def obtener_actividad_reciente(db: Session, *, categorias: Set[str], limite: int = 8) -> list[dict]:
     """Hechos ya ocurridos, de la más reciente a la más antigua.
 
-    Solo consulta las categorías que el rol activo puede ver. No completa categorías vacías ni
-    deriva hechos que el sistema no registró: si no hay filas, la lista queda vacía.
+    `limite` es por categoría, no global: así una categoría con mucho movimiento no deja afuera
+    a las demás. Solo consulta las categorías que el rol activo puede ver. No completa categorías
+    vacías ni deriva hechos que el sistema no registró: si no hay filas, la lista queda vacía.
     """
-    filas = _filas_eventos(db, categorias, limite)
-    if "compras" in categorias:
-        filas.extend(_filas_solicitudes(db, limite))
-    if "alumnos" in categorias:
-        filas.extend(_filas_matriculas(db, limite))
-    filas.sort(key=lambda fila: fila["ocurrido_en"], reverse=True)
-    return filas[:limite]
+
+    def recientes(filas: list[dict]) -> list[dict]:
+        return sorted(filas, key=lambda fila: fila["ocurrido_en"], reverse=True)[:limite]
+
+    resultado: list[dict] = []
+    for categoria in sorted(categorias & set(EVENTOS_POR_CATEGORIA)):
+        filas = _filas_eventos(db, {categoria}, limite)
+        if categoria == "compras":
+            filas.extend(_filas_solicitudes(db, limite))
+        elif categoria == "alumnos":
+            filas.extend(_filas_matriculas(db, limite))
+        resultado.extend(recientes(filas))
+    return sorted(resultado, key=lambda fila: fila["ocurrido_en"], reverse=True)
