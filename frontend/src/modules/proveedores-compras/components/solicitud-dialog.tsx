@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { BuildingIcon, CalendarIcon, HashIcon, PackageIcon } from 'lucide-react'
+import { BuildingIcon, HashIcon, PackageIcon } from 'lucide-react'
 import { ApiError } from '@/api/client'
+import { DatePicker } from '@/components/date-picker'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,16 +12,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Field, FieldLabel } from '@/components/ui/field'
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { actualizarSolicitud } from '@/modules/proveedores-compras/services/actualizar-solicitud'
 import { crearSolicitud } from '@/modules/proveedores-compras/services/crear-solicitud'
-import type { SolicitudCompra } from '@/modules/proveedores-compras/types'
+import type { AreaSolicitante, SolicitudCompra } from '@/modules/proveedores-compras/types'
+import {
+  CANTIDAD_MAXIMA_SOLICITUD,
+  fechaAISO,
+  parsearFechaISO,
+} from '@/modules/proveedores-compras/utils'
 
 interface SolicitudDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   solicitud: SolicitudCompra | null
+  areas: AreaSolicitante[]
   onGuardado: () => void
 }
 
@@ -30,6 +44,7 @@ export function SolicitudDialog({
   open,
   onOpenChange,
   solicitud,
+  areas,
   onGuardado,
 }: SolicitudDialogProps) {
   return (
@@ -38,6 +53,7 @@ export function SolicitudDialog({
         {open && (
           <SolicitudForm
             solicitud={solicitud}
+            areas={areas}
             onOpenChange={onOpenChange}
             onGuardado={onGuardado}
           />
@@ -49,29 +65,60 @@ export function SolicitudDialog({
 
 function SolicitudForm({
   solicitud,
+  areas,
   onOpenChange,
   onGuardado,
 }: {
   solicitud: SolicitudCompra | null
+  areas: AreaSolicitante[]
   onOpenChange: (open: boolean) => void
   onGuardado: () => void
 }) {
   const [articulo, setArticulo] = useState(solicitud?.articulo ?? '')
   const [cantidad, setCantidad] = useState(String(solicitud?.cantidad ?? 1))
-  const [areaSolicitante, setAreaSolicitante] = useState(solicitud?.area_solicitante ?? '')
-  const [fecha, setFecha] = useState(solicitud?.fecha ?? '')
+  const [areaId, setAreaId] = useState(solicitud?.area_solicitante_id ?? '')
+  const [fecha, setFecha] = useState<Date | undefined>(
+    solicitud ? parsearFechaISO(solicitud.fecha) : new Date(),
+  )
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Solo las áreas activas se pueden elegir; la del registro se mantiene visible aunque
+  // después se haya dado de baja, para que editarlo no obligue a cambiarla sin querer.
+  const areasDisponibles = areas.filter(
+    (area) => area.activo || area.id === solicitud?.area_solicitante_id,
+  )
+
+  // El input de cantidad solo acepta dígitos: evita decimales y negativos sin depender de las
+  // flechitas del `type="number"`.
+  function handleCantidad(valor: string) {
+    setCantidad(valor.replace(/\D/g, '').slice(0, String(CANTIDAD_MAXIMA_SOLICITUD).length))
+  }
+
   async function handleSubmit(evento: React.FormEvent) {
     evento.preventDefault()
-    setEnviando(true)
     setError(null)
+
+    const cantidadNumero = Number(cantidad)
+    if (
+      !Number.isInteger(cantidadNumero) ||
+      cantidadNumero < 1 ||
+      cantidadNumero > CANTIDAD_MAXIMA_SOLICITUD
+    ) {
+      setError(`La cantidad tiene que ser un número entero entre 1 y ${CANTIDAD_MAXIMA_SOLICITUD}.`)
+      return
+    }
+    if (!areaId) {
+      setError('Elegí el área solicitante.')
+      return
+    }
+
+    setEnviando(true)
     const datos = {
       articulo: articulo.trim(),
-      cantidad: Number(cantidad),
-      area_solicitante: areaSolicitante.trim() || null,
-      fecha: fecha || null,
+      cantidad: cantidadNumero,
+      area_solicitante_id: areaId,
+      fecha: fecha ? fechaAISO(fecha) : null,
     }
     try {
       if (solicitud) {
@@ -130,47 +177,42 @@ function SolicitudForm({
             />
             <Input
               id="solicitud-cantidad"
-              type="number"
-              min={1}
-              step={1}
+              inputMode="numeric"
               value={cantidad}
-              onChange={(evento) => setCantidad(evento.target.value)}
+              onChange={(evento) => handleCantidad(evento.target.value)}
               className="pl-9"
               required
             />
           </div>
+          <FieldDescription>
+            Número entero, de 1 a {CANTIDAD_MAXIMA_SOLICITUD}.
+          </FieldDescription>
         </Field>
         <Field>
-          <FieldLabel htmlFor="solicitud-area">Área solicitante (opcional)</FieldLabel>
-          <div className="relative">
-            <BuildingIcon
-              className="text-texto-3 pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
-              aria-hidden
-            />
-            <Input
-              id="solicitud-area"
-              value={areaSolicitante}
-              onChange={(evento) => setAreaSolicitante(evento.target.value)}
-              placeholder="ej. Secretaría"
-              className="pl-9"
-            />
-          </div>
+          <FieldLabel htmlFor="solicitud-area">Área solicitante</FieldLabel>
+          <Select value={areaId} onValueChange={setAreaId}>
+            <SelectTrigger id="solicitud-area" className="w-full">
+              <BuildingIcon className="text-texto-3" aria-hidden />
+              <SelectValue placeholder="Elegí un área" />
+            </SelectTrigger>
+            <SelectContent>
+              {areasDisponibles.length === 0 && (
+                <SelectItem value="sin-areas" disabled>
+                  No hay áreas cargadas
+                </SelectItem>
+              )}
+              {areasDisponibles.map((area) => (
+                <SelectItem key={area.id} value={area.id}>
+                  {area.nombre}
+                  {area.activo ? '' : ' (inactiva)'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         <Field>
-          <FieldLabel htmlFor="solicitud-fecha">Fecha (opcional)</FieldLabel>
-          <div className="relative">
-            <CalendarIcon
-              className="text-texto-3 pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
-              aria-hidden
-            />
-            <Input
-              id="solicitud-fecha"
-              type="date"
-              value={fecha}
-              onChange={(evento) => setFecha(evento.target.value)}
-              className="pl-9"
-            />
-          </div>
+          <FieldLabel htmlFor="solicitud-fecha">Fecha</FieldLabel>
+          <DatePicker id="solicitud-fecha" value={fecha} onChange={setFecha} />
         </Field>
       </div>
 

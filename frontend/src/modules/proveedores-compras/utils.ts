@@ -1,6 +1,6 @@
 import type {
-  EstadoSolicitud,
   EstadoVigencia,
+  FiltrosSolicitudes,
   OrdenProductos,
   OrdenProveedores,
   OrdenSolicitudes,
@@ -68,24 +68,49 @@ export function categoriasDisponibles(proveedores: Proveedor[]): string[] {
 
 // --- Solicitudes internas de compra (RF-20) -------------------------------------------------
 
-interface FiltrosSolicitudes {
-  busqueda: string
-  estado: '' | EstadoSolicitud
-  orden: OrdenSolicitudes
+// Tope de cantidad, espeja `CANTIDAD_MAXIMA` del backend. Si cambia allá, cambia acá.
+export const CANTIDAD_MAXIMA_SOLICITUD = 9999
+
+export const FILTROS_SOLICITUDES_VACIOS: FiltrosSolicitudes = {
+  busqueda: '',
+  estado: '',
+  areaId: '',
+  solicitante: '',
+  desde: '',
+  hasta: '',
+  cantidadMin: '',
+  cantidadMax: '',
+}
+
+function numeroDeFiltro(valor: string): number | null {
+  const numero = Number(valor)
+  return valor.trim() !== '' && Number.isFinite(numero) ? numero : null
 }
 
 export function filtrarYOrdenarSolicitudes(
   solicitudes: SolicitudCompra[],
-  { busqueda, estado, orden }: FiltrosSolicitudes,
+  filtros: FiltrosSolicitudes,
+  orden: OrdenSolicitudes,
 ): SolicitudCompra[] {
+  const { busqueda, estado, areaId, solicitante, desde, hasta } = filtros
   const termino = normalizar(busqueda.trim())
+  const cantidadMin = numeroDeFiltro(filtros.cantidadMin)
+  const cantidadMax = numeroDeFiltro(filtros.cantidadMax)
 
   const filtradas = solicitudes.filter((solicitud) => {
     if (estado && solicitud.estado !== estado) return false
+    if (areaId && solicitud.area_solicitante_id !== areaId) return false
+    if (solicitante && solicitud.solicitante_nombre !== solicitante) return false
+    // `fecha` viene como ISO (YYYY-MM-DD) del backend: comparar strings compara días.
+    if (desde && solicitud.fecha < desde) return false
+    if (hasta && solicitud.fecha > hasta) return false
+    if (cantidadMin !== null && solicitud.cantidad < cantidadMin) return false
+    if (cantidadMax !== null && solicitud.cantidad > cantidadMax) return false
     if (!termino) return true
     return (
       normalizar(solicitud.articulo ?? '').includes(termino) ||
-      normalizar(solicitud.area_solicitante ?? '').includes(termino)
+      normalizar(solicitud.area_solicitante ?? '').includes(termino) ||
+      normalizar(solicitud.solicitante_nombre).includes(termino)
     )
   })
 
@@ -96,6 +121,19 @@ export function filtrarYOrdenarSolicitudes(
     if (orden === 'fecha-asc') return a.fecha.localeCompare(b.fecha)
     return b.fecha.localeCompare(a.fecha)
   })
+}
+
+export function hayFiltrosSolicitudes(filtros: FiltrosSolicitudes): boolean {
+  return Object.values(filtros).some((valor) => valor.trim() !== '')
+}
+
+// Los solicitantes que ya aparecen en el listado: no hay endpoint de usuarios para este
+// filtro y la lista se arma con los nombres que trae cada solicitud.
+export function solicitantesDisponibles(solicitudes: SolicitudCompra[]): string[] {
+  const nombres = solicitudes
+    .map((solicitud) => solicitud.solicitante_nombre)
+    .filter((nombre) => nombre.trim() !== '')
+  return Array.from(new Set(nombres)).sort((a, b) => a.localeCompare(b, 'es'))
 }
 
 // Que muestra la fila cuando el pedido vino por catalogo en vez de texto libre. El nombre del
@@ -156,14 +194,31 @@ export function categoriasDeProductos(productos: ProductoServicio[]): string[] {
 // Las fechas de vigencia viajan como ISO (YYYY-MM-DD) sin hora: comparar los strings alcanza y
 // evita los corrimientos de zona horaria de pasar por `Date`.
 
-export function hoyISO(ahora: Date = new Date()): string {
-  const mes = String(ahora.getMonth() + 1).padStart(2, '0')
-  const dia = String(ahora.getDate()).padStart(2, '0')
-  return `${ahora.getFullYear()}-${mes}-${dia}`
+// Fecha local en ISO (YYYY-MM-DD). No usa `toISOString()` porque eso pasa a UTC y, de noche,
+// adelanta un día en Argentina.
+export function fechaAISO(fecha: Date): string {
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0')
+  const dia = String(fecha.getDate()).padStart(2, '0')
+  return `${fecha.getFullYear()}-${mes}-${dia}`
 }
 
-export function formatearFechaVigencia(iso: string): string {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString('es-AR')
+export function hoyISO(ahora: Date = new Date()): string {
+  return fechaAISO(ahora)
+}
+
+export function parsearFechaISO(iso: string): Date {
+  return new Date(`${iso}T00:00:00`)
+}
+
+/** Día de una fecha ISO sin hora, siempre en orden día/mes/año. */
+const formatoFechaDia = new Intl.DateTimeFormat('es-AR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+})
+
+export function formatearFechaDia(iso: string): string {
+  return formatoFechaDia.format(parsearFechaISO(iso))
 }
 
 // A quien se le puede ofrecer el item: proveedores activos que todavia no lo tienen asociado.
