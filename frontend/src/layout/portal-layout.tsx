@@ -62,9 +62,6 @@ export function PortalLayout() {
             <NavLink to="/familia" end className={navItemClass}>
               Inicio
             </NavLink>
-            <NavLink to="/familia/calendario" className={navItemClass}>
-              Calendario
-            </NavLink>
             <NavLink to="/familia/asistencias" className={navItemClass}>
               Asistencias
             </NavLink>
@@ -73,6 +70,9 @@ export function PortalLayout() {
             </NavLink>
             <NavLink to="/familia/comunicaciones" className={navItemClass}>
               Comunicaciones
+            </NavLink>
+            <NavLink to="/familia/calendario" className={navItemClass}>
+              Calendario
             </NavLink>
           </nav>
         )}
