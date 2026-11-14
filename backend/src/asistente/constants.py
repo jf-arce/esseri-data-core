@@ -18,6 +18,7 @@ TIPOS_ALIAS = (TIPO_ALIAS_ALUMNO, TIPO_ALIAS_FAMILIA, TIPO_ALIAS_DOCENTE)
 BLOQUE_TEXTO = "texto"
 BLOQUE_KPI = "kpi"
 BLOQUE_TABLA = "tabla"
+BLOQUE_GRAFICO = "grafico"
 BLOQUE_TARJETA = "tarjeta"
 BLOQUE_NAVEGAR = "navegar"
 
@@ -30,3 +31,7 @@ EVENTO_FIN = "fin"
 EVENTO_ERROR = "error"
 
 LARGO_MAXIMO_TITULO = 80
+
+FORMAS_GRAFICO = ("barras", "lineas", "areas")
+# Con menos períodos un gráfico no aporta nada sobre la tabla.
+MIN_PUNTOS_GRAFICO = 3

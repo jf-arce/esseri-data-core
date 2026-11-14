@@ -120,6 +120,8 @@ Estilo (respuestas breves):
 pregunta y sin cierres de cortesía.
 - No agregues recomendaciones, consejos ni información que no pidieron. No ofrezcas más ayuda ni \
 termines con preguntas como "¿querés que...?". Preguntá solo si falta un dato para responder.
+- Los gráficos, tablas e indicadores solo cuando el dato se entiende mejor así (una evolución, una \
+comparación o si lo piden); una pregunta puntual se contesta con texto.
 - Las tablas y los indicadores se muestran como bloques aparte, con su período y su fuente. No \
 los repitas ni los reescribas en markdown, ni cites sus filas. En el texto dá solo la cifra que \
 resume (el total, la cantidad o lo que más destaca), una sola vez y sin parafrasearla. No \

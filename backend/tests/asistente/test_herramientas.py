@@ -119,7 +119,41 @@ class TestAusentesDelDia:
         assert resultado["ausentes"] == []
 
 
+def bloques_de(lista, tipo: str) -> list[dict]:
+    return [
+        d["bloque"] for nombre, d in lista if nombre == "tarjeta" and d["bloque"]["tipo"] == tipo
+    ]
+
+
 class TestEvolucionFinanciera:
+    RANGO = {"desde": "2025-11-10", "hasta": "2026-02-01"}
+
+    def test_sin_grafico_no_se_emite_bloque_grafico(self, direccion, proveedor):
+        lista = correr(direccion, proveedor, "evolucion_financiera", self.RANGO)
+        assert bloques_de(lista, "grafico") == []
+        assert len(bloques_de(lista, "tabla")) == 1
+
+    def test_con_grafico_referencia_la_tabla_sin_repetir_filas(self, direccion, proveedor):
+        lista = correr(
+            direccion, proveedor, "evolucion_financiera", {**self.RANGO, "grafico": "barras"}
+        )
+        (tabla,) = bloques_de(lista, "tabla")
+        (grafico,) = bloques_de(lista, "grafico")
+        assert grafico["tabla_id"] == tabla["tabla_id"]
+        assert grafico["forma"] == "barras"
+        assert grafico["eje_x"] == "mes"
+        assert grafico["series"] == ["facturado", "cobrado"]
+        assert "filas" not in grafico
+
+    def test_con_menos_de_3_periodos_ignora_el_grafico(self, direccion, proveedor):
+        lista = correr(
+            direccion,
+            proveedor,
+            "evolucion_financiera",
+            {"desde": "2026-01-01", "hasta": "2026-02-01", "grafico": "lineas"},
+        )
+        assert bloques_de(lista, "grafico") == []
+
     def test_con_rango_devuelve_los_meses_pedidos(self, direccion, proveedor):
         correr(
             direccion,

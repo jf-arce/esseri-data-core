@@ -5,10 +5,12 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from src.asistente.constants import MIN_PUNTOS_GRAFICO
 from src.asistente.herramientas_base import (
     ContextoHerramienta,
     Herramienta,
     ResultadoHerramienta,
+    bloque_grafico,
     bloque_kpi,
     bloque_tabla,
     fecha_ar,
@@ -106,6 +108,9 @@ class ParametrosEvolucion(BaseModel):
         default=None, description="Inicio, AAAA-MM-DD. Por defecto, el 1 de enero del año."
     )
     hasta: date | None = Field(default=None, description="Fin, AAAA-MM-DD. Por defecto, hoy.")
+    grafico: Literal["barras", "lineas", "areas"] | None = Field(
+        default=None, description="Solo si conviene verlo en un gráfico o lo piden."
+    )
 
 
 def _evolucion_financiera(
@@ -141,8 +146,16 @@ def _evolucion_financiera(
         periodo=periodo,
         fuente=fuente,
     )
+    bloques = [tabla]
+    # Con pocos períodos el gráfico no suma: se ignora aunque el modelo lo pida.
+    if parametros.grafico is not None and len(filas) >= MIN_PUNTOS_GRAFICO:
+        bloques.append(
+            bloque_grafico(
+                tabla, forma=parametros.grafico, eje_x="mes", series=["facturado", "cobrado"]
+            )
+        )
     return ResultadoHerramienta(
-        para_llm={"periodo": periodo, "fuente": fuente, "meses": filas}, bloques=[tabla]
+        para_llm={"periodo": periodo, "fuente": fuente, "meses": filas}, bloques=bloques
     )
 
 

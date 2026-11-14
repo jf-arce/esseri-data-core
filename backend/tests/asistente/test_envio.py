@@ -350,3 +350,10 @@ class TestDestinoSugerido:
         ]
         lista = eventos(enviar(direccion, nueva_conversacion(direccion), "deuda del futuro"))
         assert self._navegaciones(lista) == []
+
+
+def test_el_prompt_de_sistema_no_crece_sin_que_se_note():
+    """El prompt se reenvía en cada llamada: si crece, que sea una decisión y no un descuido."""
+    from src.asistente.service import _SISTEMA
+
+    assert len(_SISTEMA) < 3400

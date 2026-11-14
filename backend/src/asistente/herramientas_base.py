@@ -16,7 +16,7 @@ from typing import Any
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from src.asistente.constants import BLOQUE_KPI, BLOQUE_TABLA, BLOQUE_TARJETA
+from src.asistente.constants import BLOQUE_GRAFICO, BLOQUE_KPI, BLOQUE_TABLA, BLOQUE_TARJETA
 from src.auth import autorizacion_service
 from src.auth.models import Usuario
 
@@ -142,6 +142,26 @@ def bloque_tabla(
         "filas": filas,
         "periodo": periodo,
         "fuente": fuente,
+    }
+
+
+def bloque_grafico(
+    tabla: dict[str, Any],
+    *,
+    forma: str,
+    eje_x: str,
+    series: list[str],
+) -> dict[str, Any]:
+    """Gráfico de una tabla ya emitida: referencia `tabla_id` y no repite las filas."""
+    return {
+        "tipo": BLOQUE_GRAFICO,
+        "tabla_id": tabla["tabla_id"],
+        "titulo": tabla["titulo"],
+        "forma": forma,
+        "eje_x": eje_x,
+        "series": series,
+        "periodo": tabla["periodo"],
+        "fuente": tabla["fuente"],
     }
 
 
