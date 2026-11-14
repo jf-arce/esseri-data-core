@@ -14,7 +14,8 @@ import {
   useMessageScroller,
 } from '@/components/ui/message-scroller'
 import { useTextoGradual } from '../hooks/use-texto-gradual'
-import type { AliasResuelto, Bloque, BloqueNavegar, MensajeVisible } from '../types'
+import type { AliasResuelto, Bloque, BloqueNavegar, BloqueTabla, MensajeVisible } from '../types'
+import { BloqueGraficoVista } from './bloque-grafico'
 import { BloqueKpiVista } from './bloque-kpi'
 import { AccionesDelMensaje } from './acciones-del-mensaje'
 import { BloqueTablaVista } from './bloque-tabla'
@@ -291,6 +292,16 @@ function BloquesDelMensaje({
                 porAlias={porAlias}
                 conversacionId={conversacionId}
               />
+            </motion.div>
+          )
+        }
+        if (bloque.tipo === 'grafico') {
+          const tabla = bloques.find(
+            (b): b is BloqueTabla => b.tipo === 'tabla' && b.tabla_id === bloque.tabla_id,
+          )
+          return (
+            <motion.div key={`grafico-${bloque.tabla_id}-${indice}`} variants={ELEMENTO_DE_DATOS}>
+              <BloqueGraficoVista bloque={bloque} tabla={tabla} />
             </motion.div>
           )
         }

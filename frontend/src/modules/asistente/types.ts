@@ -7,7 +7,7 @@ export type ColumnaTabla = { clave: string; etiqueta: string; tipo: TipoColumna 
 export type ValorCelda = string | number | null
 
 // Bloques tipados que arma el backend. El modelo nunca escribe una cifra: todo número llega
-// dentro de un `kpi` o una `tabla`. Los gráficos llegan en la Fase 2.
+// dentro de un `kpi` o una `tabla`.
 export type BloqueKpi = {
   tipo: 'kpi'
   titulo: string
@@ -23,6 +23,18 @@ export type BloqueTabla = {
   titulo: string
   columnas: ColumnaTabla[]
   filas: Record<string, ValorCelda>[]
+  periodo: string
+  fuente: string
+}
+
+/** Gráfico de una tabla ya emitida: no trae filas, los datos salen de la tabla con ese `tabla_id`. */
+export type BloqueGrafico = {
+  tipo: 'grafico'
+  tabla_id: string
+  titulo: string
+  forma: 'barras' | 'lineas' | 'areas'
+  eje_x: string
+  series: string[]
   periodo: string
   fuente: string
 }
@@ -44,7 +56,7 @@ export type BloqueNavegar = {
   alias?: string
 }
 
-export type Bloque = BloqueKpi | BloqueTabla | BloqueTarjeta | BloqueNavegar
+export type Bloque = BloqueKpi | BloqueTabla | BloqueGrafico | BloqueTarjeta | BloqueNavegar
 
 export type AutorMensaje = 'usuario' | 'asistente'
 export type EstadoMensaje = 'completo' | 'parcial' | 'error'
