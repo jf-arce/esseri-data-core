@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     IA_INASISTENCIAS_CANTIDAD: int = 3
     IA_INASISTENCIAS_VENTANA_DIAS: int = 30
 
+    # Portal familia: cuántos días hacia atrás se puede justificar una ausencia. La validación del
+    # backend y el formulario del portal leen el mismo valor.
+    ACADEMICO_DIAS_LIMITE_JUSTIFICACION: PositiveInt = 45
+
     # Asistente de IA (módulo `asistente`). Los topes acotan costo y abuso por conversación.
     ASISTENTE_HABILITADO: bool = True
     ASISTENTE_MAX_PASOS: PositiveInt = 6
