@@ -16,8 +16,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font
 
 # Excel en Windows asume la codificación regional (cp1252) al abrir un .csv, y sin esto "Librería"
-# se ve como "LibrerÃ­a". El BOM le avisa que es UTF-8. Es la razón por la que un CSV alcanza
-# para cubrir "CSV y Excel" del RF sin sumar una dependencia para generar .xlsx.
+# se ve como "LibrerÃ­a". El BOM le avisa que es UTF-8.
 BOM_UTF8 = "﻿"
 
 
