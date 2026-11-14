@@ -447,3 +447,69 @@
     color: #1b1822;
   }
 }
+
+/* Editor de flujo de workflows (§6 y §9.10 DESIGN.md): 150-220 ms, ease-out, sin rebote ni glow. */
+@keyframes arista-dibujar {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes arista-recorrido {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+@keyframes nodo-entrar {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes panel-entrar {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.arista-dibujar {
+  stroke-dasharray: 1;
+  animation: arista-dibujar 200ms ease-out;
+}
+
+/* Solo mientras dura la simulación: la regla activa no anima nada por sí sola. */
+.arista-recorrido {
+  stroke-dasharray: 6 6;
+  animation: arista-recorrido 600ms linear infinite;
+}
+
+.nodo-entrar {
+  animation: nodo-entrar 180ms ease-out;
+}
+
+.panel-entrar {
+  animation: panel-entrar 200ms ease-out;
+}
+
+/* "Ordenar": los nodos se deslizan a su lugar. */
+.flujo-ordenando .react-flow__node {
+  transition: transform 200ms ease-out;
+}
+
+.fila-entrar {
+  animation: nodo-entrar 180ms ease-out;
+}

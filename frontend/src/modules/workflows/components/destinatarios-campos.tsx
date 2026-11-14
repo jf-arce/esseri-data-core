@@ -17,7 +17,7 @@ import { PERMISO_WORKFLOWS_ACTUALIZAR, tienePermiso } from '@/modules/auth/const
 import { formatearNombreRol, nombreVisibleDeUsuario } from '@/modules/auth/utils'
 import { ESTADO_USUARIO_ACTIVO } from '@/modules/workflows/constants'
 import type { useDestinatariosDisponibles } from '@/modules/workflows/hooks/use-destinatarios-disponibles'
-import type { DestinatariosRegla } from '@/modules/workflows/types'
+import type { DestinatariosNodo } from '@/modules/workflows/types'
 import { desplazarConRueda } from '@/modules/workflows/utils'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
@@ -139,7 +139,7 @@ function SelectorDestinatarios({
 interface DestinatariosCamposProps {
   seleccion: SeleccionDestinatarios
   /** Lo que hay guardado en el servidor: da el nombre de lo que el catálogo no trae. */
-  guardados: DestinatariosRegla
+  guardados: DestinatariosNodo
   disponibles: ReturnType<typeof useDestinatariosDisponibles>
   deshabilitado: boolean
   /** Cómo se rotula el selector: "Destinatarios de la regla" o, si asigna trabajo, "Asignar a". */

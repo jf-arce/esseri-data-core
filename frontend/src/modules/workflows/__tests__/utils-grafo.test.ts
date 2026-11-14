@@ -1,0 +1,569 @@
+import { describe, expect, it } from 'vitest'
+import {
+  catalogoAccion,
+  EVENTO_FACTURA,
+  nodoAccion,
+  nodoCondicion,
+  reglaDe,
+} from '@/modules/workflows/__tests__/fabricas'
+import type { TipoEvento } from '@/modules/workflows/types'
+import {
+  actualizarNodo,
+  borradorDesdeRegla,
+  BORRADOR_VACIO,
+  cambiarEventoDelBorrador,
+  conectar,
+  confirmarCambio,
+  deshacer,
+  desconectar,
+  duplicarRegla,
+  duplicarSubarbol,
+  eliminarSubarbol,
+  estadoDeBloque,
+  fraseRegla,
+  hijosDe,
+  iniciarHistorial,
+  nuevoNodoAccion,
+  nuevoNodoCondicion,
+  ordenarArbol,
+  payloadDesdeBorrador,
+  posicionDisparador,
+  profundidad,
+  puedeConectar,
+  rehacer,
+  registrarCambio,
+  reemplazarPresente,
+  subarbol,
+  textoContadores,
+  validarBorrador,
+  type BorradorFlujo,
+  type NodoEditor,
+} from '@/modules/workflows/utils-grafo'
+
+const CATALOGO = [
+  catalogoAccion('notificar', { admite_plantilla: true }),
+  catalogoAccion('alerta_interna'),
+  catalogoAccion('crear_tarea'),
+  catalogoAccion('aplicar_penalidad', {
+    eventos_permitidos: ['factura.vencida'],
+    requiere_aprobacion_por_defecto: true,
+  }),
+  catalogoAccion('registrar_pago', { eventos_permitidos: ['pago.registrado'] }),
+  catalogoAccion('actualizar_cuenta_corriente', { implementada: false }),
+]
+
+/** disparador → condición ─Sí→ [notificar, tarea]  /  ─No→ condición2 ─Sí→ alerta */
+function reglaConRamas() {
+  return reglaDe({
+    nodos: [
+      nodoCondicion('c-1', { orden: 0 }),
+      nodoAccion('a-1', {
+        padre_id: 'c-1',
+        rama: 'si',
+        tipo_accion: 'notificar',
+        notificacion_template_id: 'p-1',
+        accion_config: { destinatario: 'responsables_habilitados' },
+        orden: 0,
+      }),
+      nodoAccion('a-2', {
+        padre_id: 'c-1',
+        rama: 'si',
+        tipo_accion: 'crear_tarea',
+        accion_config: { titulo: 'Llamar' },
+        orden: 1,
+      }),
+      nodoCondicion('c-2', {
+        padre_id: 'c-1',
+        rama: 'no',
+        condicion: {
+          logica: 'alguna',
+          comparaciones: [
+            { campo: 'nombre_familia', operador: 'contiene', valor: 'Pérez' },
+            { campo: 'monto_deuda', operador: '>=', valor: 1000 },
+          ],
+        },
+      }),
+      nodoAccion('a-3', {
+        padre_id: 'c-2',
+        rama: 'si',
+        tipo_accion: 'alerta_interna',
+        requiere_aprobacion_humana: true,
+      }),
+    ],
+  })
+}
+
+function borradorConRamas(): BorradorFlujo {
+  return borradorDesdeRegla(reglaConRamas())
+}
+
+describe('borradorDesdeRegla y payloadDesdeBorrador', () => {
+  it('cargar y volver a armar la regla conserva el árbol, la config y la aprobación', () => {
+    const payload = payloadDesdeBorrador(borradorConRamas(), CATALOGO, EVENTO_FACTURA)
+
+    expect(payload).toMatchObject({
+      nombre: 'Aviso de mora',
+      tipo_evento_id: 'e-1',
+      criticidad: 'media',
+      activo: true,
+    })
+    const porId = new Map(payload.nodos.map((nodo) => [nodo.id, nodo]))
+    expect(porId.get('c-1')).toMatchObject({
+      tipo: 'condicion',
+      padre_id: null,
+      condicion: {
+        logica: 'todas',
+        comparaciones: [{ campo: 'dias_vencido', operador: '>', valor: 30 }],
+      },
+      tipo_accion: null,
+    })
+    expect(porId.get('a-1')).toMatchObject({
+      padre_id: 'c-1',
+      rama: 'si',
+      tipo_accion: 'notificar',
+      notificacion_template_id: 'p-1',
+      requiere_aprobacion_humana: false,
+    })
+    expect(porId.get('a-3')).toMatchObject({ requiere_aprobacion_humana: true })
+    expect(porId.get('c-2')?.condicion?.comparaciones[1]).toEqual({
+      campo: 'monto_deuda',
+      operador: '>=',
+      valor: 1000,
+    })
+  })
+
+  it('manda los números como número y el texto como texto', () => {
+    const borrador = borradorConRamas()
+    const payload = payloadDesdeBorrador(borrador, CATALOGO, EVENTO_FACTURA)
+    const [primera] = payload.nodos.find((n) => n.id === 'c-2')?.condicion?.comparaciones ?? []
+
+    expect(primera.valor).toBe('Pérez')
+  })
+
+  it('no manda plantilla si la acción no la admite ni destinatarios si no corresponde', () => {
+    const borrador = borradorConRamas()
+    const modificado = {
+      ...borrador,
+      nodos: actualizarNodo(borrador.nodos, 'a-2', {
+        plantillaId: 'p-9',
+        seleccion: { rolIds: ['r-1'], usuarioIds: [] },
+      }),
+    }
+    const tarea = payloadDesdeBorrador(modificado, CATALOGO, EVENTO_FACTURA).nodos.find(
+      (n) => n.id === 'a-2',
+    )
+
+    expect(tarea?.notificacion_template_id).toBeNull()
+    // `crear_tarea` asigna a los destinatarios: ahí sí viajan.
+    expect(tarea?.destinatarios.rol_ids).toEqual(['r-1'])
+    const alerta = payloadDesdeBorrador(modificado, CATALOGO, EVENTO_FACTURA).nodos.find(
+      (n) => n.id === 'a-1',
+    )
+    expect(alerta?.destinatarios).toEqual({ rol_ids: [], usuario_ids: [] })
+  })
+
+  it('una regla migrada sin posiciones se acomoda sola', () => {
+    const regla = reglaDe({ nodos: [nodoAccion('n-1', { posicion: null })] })
+
+    const [nodo] = borradorDesdeRegla(regla).nodos
+
+    expect(nodo.posicion).toEqual({ x: 340, y: 0 })
+  })
+})
+
+describe('árbol', () => {
+  it('hijosDe separa por salida y subarbol junta todo lo que cuelga', () => {
+    const { nodos } = borradorConRamas()
+
+    expect(hijosDe(nodos, 'c-1', 'si').map((n) => n.id)).toEqual(['a-1', 'a-2'])
+    expect(hijosDe(nodos, 'c-1', 'no').map((n) => n.id)).toEqual(['c-2'])
+    expect(subarbol(nodos, 'c-1')).toHaveLength(5)
+    expect(subarbol(nodos, 'c-2').map((n) => n.id)).toEqual(['c-2', 'a-3'])
+  })
+
+  it('eliminar un nodo se lleva su subárbol', () => {
+    const { nodos } = borradorConRamas()
+
+    expect(eliminarSubarbol(nodos, 'c-2').map((n) => n.id)).toEqual(['c-1', 'a-1', 'a-2'])
+  })
+
+  it('profundidad cuenta los nodos desde el disparador', () => {
+    const { nodos } = borradorConRamas()
+
+    expect(profundidad(nodos, 'c-1')).toBe(1)
+    expect(profundidad(nodos, 'a-3')).toBe(3)
+  })
+})
+
+describe('conexiones', () => {
+  function conSuelto(): NodoEditor[] {
+    const { nodos } = borradorConRamas()
+    return [...nodos, { ...nuevoNodoAccion(null, null), id: 'suelto', suelto: true }]
+  }
+
+  it('un nodo suelto se conecta a una salida de condición', () => {
+    const nodos = conSuelto()
+
+    expect(puedeConectar(nodos, { origenId: 'c-2', destinoId: 'suelto', rama: 'no' })).toBe(true)
+    const resultado = conectar(nodos, { origenId: 'c-2', destinoId: 'suelto', rama: 'no' })
+    expect(resultado.find((n) => n.id === 'suelto')).toMatchObject({
+      padreId: 'c-2',
+      rama: 'no',
+      suelto: false,
+    })
+  })
+
+  it('un nodo ya conectado no puede tener un segundo padre', () => {
+    const { nodos } = borradorConRamas()
+
+    expect(puedeConectar(nodos, { origenId: 'c-2', destinoId: 'a-1', rama: 'si' })).toBe(false)
+  })
+
+  it('una acción no tiene salidas y una condición necesita elegir Sí o No', () => {
+    const nodos = conSuelto()
+
+    expect(puedeConectar(nodos, { origenId: 'a-1', destinoId: 'suelto', rama: 'si' })).toBe(false)
+    expect(puedeConectar(nodos, { origenId: 'c-2', destinoId: 'suelto', rama: null })).toBe(false)
+  })
+
+  it('no deja cerrar un ciclo ni conectar un nodo consigo mismo', () => {
+    const { nodos } = borradorConRamas()
+    const desconectada = desconectar(nodos, 'c-1')
+
+    expect(puedeConectar(desconectada, { origenId: 'c-2', destinoId: 'c-1', rama: 'si' })).toBe(
+      false,
+    )
+    expect(puedeConectar(desconectada, { origenId: 'c-1', destinoId: 'c-1', rama: 'si' })).toBe(
+      false,
+    )
+  })
+
+  it('el disparador conecta sin rama', () => {
+    const nodos = conSuelto()
+
+    expect(puedeConectar(nodos, { origenId: null, destinoId: 'suelto', rama: null })).toBe(true)
+    expect(puedeConectar(nodos, { origenId: null, destinoId: 'suelto', rama: 'si' })).toBe(false)
+  })
+
+  it('no deja pasar de la profundidad máxima', () => {
+    let nodos: NodoEditor[] = []
+    let padre: string | null = null
+    for (let i = 0; i < 6; i += 1) {
+      const condicion: NodoEditor = {
+        ...nuevoNodoCondicion(padre, padre ? 'si' : null),
+        id: `n-${i}`,
+      }
+      nodos = [...nodos, condicion]
+      padre = condicion.id
+    }
+    nodos = [...nodos, { ...nuevoNodoAccion(null, null), id: 'suelto', suelto: true }]
+
+    expect(puedeConectar(nodos, { origenId: 'n-5', destinoId: 'suelto', rama: 'si' })).toBe(false)
+    expect(puedeConectar(nodos, { origenId: 'n-4', destinoId: 'suelto', rama: 'si' })).toBe(true)
+  })
+
+  it('desconectar deja el nodo suelto con su subárbol', () => {
+    const { nodos } = borradorConRamas()
+
+    const resultado = desconectar(nodos, 'c-2')
+
+    expect(resultado.find((n) => n.id === 'c-2')).toMatchObject({
+      padreId: null,
+      rama: null,
+      suelto: true,
+    })
+    expect(resultado.find((n) => n.id === 'a-3')?.padreId).toBe('c-2')
+  })
+})
+
+describe('ordenarArbol', () => {
+  it('pone cada nivel en su columna y las hojas en filas distintas', () => {
+    const ordenado = ordenarArbol(borradorConRamas().nodos)
+    const pos = (id: string) => ordenado.find((n) => n.id === id)?.posicion
+
+    expect(pos('c-1')?.x).toBe(340)
+    expect(pos('a-1')?.x).toBe(680)
+    expect(pos('c-2')?.x).toBe(680)
+    expect(pos('a-3')?.x).toBe(1020)
+    const filas = ['a-1', 'a-2', 'a-3'].map((id) => pos(id)?.y)
+    expect(new Set(filas).size).toBe(3)
+  })
+
+  it('centra el padre entre sus hijos y el disparador entre los primeros nodos', () => {
+    const ordenado = ordenarArbol(borradorConRamas().nodos)
+    const y = (id: string) => ordenado.find((n) => n.id === id)?.posicion.y ?? 0
+
+    expect(y('c-2')).toBe(y('a-3'))
+    expect(y('c-1')).toBe(
+      (Math.min(y('a-1'), y('a-2'), y('c-2')) + Math.max(y('a-1'), y('a-2'), y('c-2'))) / 2,
+    )
+    expect(posicionDisparador(ordenado)).toEqual({ x: 0, y: y('c-1') })
+  })
+})
+
+describe('validarBorrador', () => {
+  it('un borrador sin nombre, sin evento y sin acciones lista cada problema', () => {
+    const errores = validarBorrador(BORRADOR_VACIO, CATALOGO)
+
+    expect(errores.general).toEqual([
+      'Falta el nombre de la regla.',
+      'Elegí qué evento dispara la regla.',
+      'La regla necesita al menos una acción.',
+    ])
+  })
+
+  it('marca los nodos incompletos con su primer problema', () => {
+    const borrador: BorradorFlujo = {
+      ...borradorConRamas(),
+      nodos: [
+        { ...nuevoNodoCondicion(null, null), id: 'c' },
+        { ...nuevoNodoAccion(null, null), id: 'sin-tipo', padreId: 'c', rama: 'si' },
+        {
+          ...nuevoNodoAccion(null, null, CATALOGO[0]),
+          id: 'sin-plantilla',
+          padreId: 'c',
+          rama: 'no',
+        },
+        {
+          ...nuevoNodoAccion(null, null, CATALOGO[2]),
+          id: 'sin-titulo',
+          padreId: 'c',
+          rama: 'no',
+        },
+        { ...nuevoNodoAccion(null, null, CATALOGO[5]), id: 'no-impl', padreId: 'c', rama: 'no' },
+        { ...nuevoNodoAccion(null, null, CATALOGO[1]), id: 'suelto', suelto: true },
+      ],
+    }
+
+    const { porNodo } = validarBorrador(borrador, CATALOGO)
+
+    expect(porNodo.c).toBe('Completá el campo, el operador y el valor')
+    expect(porNodo['sin-tipo']).toBe('Elegí qué hace esta acción')
+    expect(porNodo['sin-plantilla']).toBe('Falta la plantilla')
+    expect(porNodo['sin-titulo']).toBe('Falta el título de la tarea')
+    expect(porNodo['no-impl']).toBe('Esta acción todavía no está disponible')
+    expect(porNodo.suelto).toBe('Conectalo al flujo o eliminalo')
+  })
+
+  it('un borrador completo no tiene errores', () => {
+    const errores = validarBorrador(borradorConRamas(), CATALOGO)
+
+    expect(errores).toEqual({ general: [], porNodo: {} })
+  })
+
+  it('avisa si se pasa de la profundidad máxima', () => {
+    let nodos: NodoEditor[] = []
+    let padre: string | null = null
+    for (let i = 0; i < 7; i += 1) {
+      const nodo: NodoEditor = {
+        ...nuevoNodoAccion(padre, padre ? 'si' : null, CATALOGO[1]),
+        id: `n-${i}`,
+        tipo: i < 6 ? 'condicion' : 'accion',
+        comparaciones: i < 6 ? [{ campo: 'dias_vencido', operador: '>', valor: '1' }] : [],
+      }
+      nodos = [...nodos, nodo]
+      padre = nodo.id
+    }
+
+    const { general } = validarBorrador({ ...borradorConRamas(), nodos }, CATALOGO)
+
+    expect(general).toContain('El flujo admite hasta 6 niveles.')
+  })
+})
+
+describe('cambiarEventoDelBorrador', () => {
+  const otro: TipoEvento = { ...EVENTO_FACTURA, id: 'e-2', nombre: 'pago.registrado', campos: [] }
+
+  it('limpia las comparaciones y las acciones que el evento nuevo no admite', () => {
+    const borrador: BorradorFlujo = {
+      ...borradorConRamas(),
+      nodos: [
+        ...borradorConRamas().nodos,
+        { ...nuevoNodoAccion('c-1', 'no', CATALOGO[3]), id: 'penalidad' },
+      ],
+    }
+
+    const resultado = cambiarEventoDelBorrador(borrador, otro.id, CATALOGO, otro.nombre)
+    const por = (id: string) => resultado.nodos.find((n) => n.id === id)
+
+    expect(resultado.tipoEventoId).toBe('e-2')
+    expect(por('c-1')?.comparaciones).toEqual([{ campo: '', operador: '', valor: '' }])
+    expect(por('penalidad')?.tipoAccion).toBe('')
+    expect(por('a-3')?.tipoAccion).toBe('alerta_interna')
+  })
+
+  it('elegir el mismo evento no toca nada', () => {
+    const borrador = borradorConRamas()
+
+    expect(cambiarEventoDelBorrador(borrador, 'e-1', CATALOGO, 'factura.vencida')).toBe(borrador)
+  })
+})
+
+describe('duplicar', () => {
+  it('duplicar un subárbol deja ids nuevos y la copia cuelga del mismo padre', () => {
+    const { nodos } = borradorConRamas()
+
+    const { nodos: resultado, copiaId } = duplicarSubarbol(nodos, 'c-2')
+
+    expect(resultado).toHaveLength(nodos.length + 2)
+    const copia = resultado.find((n) => n.id === copiaId)
+    expect(copia).toMatchObject({ tipo: 'condicion', padreId: 'c-1', rama: 'no' })
+    const hijos = resultado.filter((n) => n.padreId === copiaId)
+    expect(hijos).toHaveLength(1)
+    const ids = resultado.map((n) => n.id)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('no duplica si la copia pasa del tope de nodos', () => {
+    const { nodos } = borradorConRamas()
+    const lleno = Array.from({ length: 28 }, (_, i) => ({
+      ...nuevoNodoAccion(null, null),
+      id: `x-${i}`,
+    }))
+    const todos = [...nodos, ...lleno.slice(0, 25)]
+
+    const resultado = duplicarSubarbol(todos, 'c-1')
+
+    expect(resultado.copiaId).toBeNull()
+    expect(resultado.nodos).toHaveLength(todos.length)
+  })
+
+  it('duplicar la regla genera ids nuevos, queda inactiva y mantiene la estructura', () => {
+    const regla = reglaConRamas()
+
+    const copia = duplicarRegla(regla)
+
+    expect(copia.nombre).toBe('Copia de Aviso de mora')
+    expect(copia.activo).toBe(false)
+    const originales = new Set(regla.nodos.map((n) => n.id))
+    expect(copia.nodos.every((n) => !originales.has(n.id))).toBe(true)
+    const raiz = copia.nodos.find((n) => n.padreId === null)
+    expect(hijosDe(copia.nodos, raiz?.id ?? '', 'si')).toHaveLength(2)
+    expect(
+      copia.nodos.find((n) => n.tipoAccion === 'alerta_interna')?.requiereAprobacionHumana,
+    ).toBe(true)
+  })
+})
+
+describe('fraseRegla', () => {
+  it('cuenta la regla con sus ramas y acciones hermanas', () => {
+    const frase = fraseRegla(borradorConRamas(), [EVENTO_FACTURA])
+
+    expect(frase).toBe(
+      'Cuando vence una factura: si días vencido es mayor que 30, notificar y crear tarea; si no, si familia contiene Pérez o monto de la deuda es mayor o igual que 1000, alerta interna (con aprobación).',
+    )
+  })
+
+  it('sin evento pide elegirlo y sin acciones lo dice', () => {
+    expect(fraseRegla(BORRADOR_VACIO, [EVENTO_FACTURA])).toBe(
+      'Elegí el evento que dispara la regla.',
+    )
+    expect(fraseRegla({ ...BORRADOR_VACIO, tipoEventoId: 'e-1' }, [EVENTO_FACTURA])).toBe(
+      'Cuando vence una factura, todavía sin acciones.',
+    )
+  })
+
+  it('ignora los bloques sueltos', () => {
+    const borrador = {
+      ...BORRADOR_VACIO,
+      tipoEventoId: 'e-1',
+      nodos: [{ ...nuevoNodoAccion(null, null, CATALOGO[1]), suelto: true }],
+    }
+
+    expect(fraseRegla(borrador, [EVENTO_FACTURA])).toBe(
+      'Cuando vence una factura, todavía sin acciones.',
+    )
+  })
+})
+
+describe('historial', () => {
+  it('deshacer y rehacer recorren los cambios', () => {
+    let h = iniciarHistorial('a')
+    h = registrarCambio(h, 'b')
+    h = registrarCambio(h, 'c')
+
+    h = deshacer(h)
+    expect(h.presente).toBe('b')
+    h = deshacer(h)
+    expect(h.presente).toBe('a')
+    expect(deshacer(h)).toBe(h)
+    h = rehacer(h)
+    expect(h.presente).toBe('b')
+  })
+
+  it('un cambio nuevo descarta lo que se podía rehacer', () => {
+    let h = registrarCambio(iniciarHistorial('a'), 'b')
+    h = deshacer(h)
+
+    h = registrarCambio(h, 'c')
+
+    expect(h.futuro).toEqual([])
+    expect(rehacer(h)).toBe(h)
+  })
+
+  it('un cambio idéntico no suma un paso', () => {
+    const h = iniciarHistorial({ x: 1 })
+
+    expect(registrarCambio(h, h.presente)).toBe(h)
+  })
+
+  it('los pasos intermedios de un arrastre cuentan como uno solo', () => {
+    const inicio = iniciarHistorial({ x: 0 })
+    let h = reemplazarPresente(inicio, { x: 5 })
+    h = reemplazarPresente(h, { x: 10 })
+
+    h = confirmarCambio(h, inicio.presente)
+
+    expect(h.pasado).toEqual([{ x: 0 }])
+    expect(deshacer(h).presente).toEqual({ x: 0 })
+  })
+
+  it('recuerda un máximo de pasos', () => {
+    let h = iniciarHistorial(0)
+    for (let i = 1; i <= 80; i += 1) h = registrarCambio(h, i)
+
+    expect(h.pasado).toHaveLength(50)
+  })
+})
+
+describe('paleta', () => {
+  const evento = 'factura.vencida'
+
+  it('distingue disponible, no permitida para el evento y todavía no disponible', () => {
+    expect(estadoDeBloque('notificar', CATALOGO, evento).estado).toBe('disponible')
+    expect(estadoDeBloque('registrar_pago', CATALOGO, evento)).toMatchObject({
+      estado: 'no_permitida',
+    })
+    expect(estadoDeBloque('actualizar_cuenta_corriente', CATALOGO, evento)).toEqual({
+      estado: 'no_disponible',
+      motivo: 'Todavía no disponible',
+    })
+  })
+
+  it('sin evento elegido no bloquea por evento', () => {
+    expect(estadoDeBloque('registrar_pago', CATALOGO, null).estado).toBe('disponible')
+  })
+})
+
+describe('textoContadores', () => {
+  it('lista lo que tiene valor, en singular o plural', () => {
+    expect(
+      textoContadores({
+        workflow_nodo_id: 'n-1',
+        exitoso: 12,
+        fallido: 1,
+        pendiente: 0,
+        rechazado: 0,
+      }),
+    ).toBe('12 exitosas · 1 fallida')
+    expect(
+      textoContadores({
+        workflow_nodo_id: 'n-1',
+        exitoso: 0,
+        fallido: 0,
+        pendiente: 0,
+        rechazado: 0,
+      }),
+    ).toBe('Sin ejecuciones')
+  })
+})

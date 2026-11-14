@@ -29,7 +29,6 @@ import type {
   OpcionCombo,
   PrioridadTarea,
   ReglaWorkflow,
-  ReglaWorkflowCreatePayload,
   TipoAccion,
   TipoAccionCatalogo,
   TipoDato,
@@ -255,107 +254,6 @@ export function armarCondicion(
   return { campo, operador, valor }
 }
 
-/** Estado del formulario del editor: todo como texto, igual que los inputs. */
-export interface ValoresRegla {
-  nombre: string
-  tipoEventoId: string
-  campoCondicion: string
-  operadorCondicion: Operador | ''
-  valorCondicion: string
-  tipoAccion: TipoAccion | ''
-  config: Record<string, string>
-  /** Id de la plantilla elegida, o `''` si no hay. */
-  plantillaId: string
-  criticidad: Criticidad
-  requiereAprobacionHumana: boolean
-  activo: boolean
-}
-
-export const VALORES_REGLA_VACIOS: ValoresRegla = {
-  nombre: '',
-  tipoEventoId: '',
-  campoCondicion: '',
-  operadorCondicion: '',
-  valorCondicion: '',
-  tipoAccion: '',
-  config: {},
-  plantillaId: '',
-  criticidad: 'media',
-  requiereAprobacionHumana: false,
-  activo: true,
-}
-
-function esOperador(valor: unknown): valor is Operador {
-  return (
-    valor === '==' ||
-    valor === '!=' ||
-    valor === '>' ||
-    valor === '>=' ||
-    valor === '<' ||
-    valor === '<=' ||
-    valor === 'contiene'
-  )
-}
-
-/** Carga una regla guardada en el formulario, respetando lo que tiene (incluida la aprobación
- * humana aunque difiera del default de la acción). */
-export function valoresDesdeRegla(regla: ReglaWorkflow): ValoresRegla {
-  const guardada = regla.accion_config ?? {}
-  const config: Record<string, string> = {}
-  for (const { nombre } of CAMPOS_POR_ACCION[regla.tipo_accion]) {
-    const valor = guardada[nombre]
-    if (typeof valor === 'string' || typeof valor === 'number') config[nombre] = String(valor)
-  }
-  const { campo, operador, valor } = regla.condicion
-  return {
-    nombre: regla.nombre,
-    tipoEventoId: regla.tipo_evento_id,
-    campoCondicion: campo ?? '',
-    operadorCondicion: esOperador(operador) ? operador : '',
-    valorCondicion: valor === undefined ? '' : String(valor),
-    tipoAccion: regla.tipo_accion,
-    config,
-    plantillaId: regla.notificacion_template_id ?? '',
-    criticidad: regla.criticidad,
-    requiereAprobacionHumana: regla.requiere_aprobacion_humana,
-    activo: regla.activo,
-  }
-}
-
-export interface ContextoPayload {
-  /** Tipo de dato del campo elegido en la condición. */
-  tipoDatoCondicion: TipoDato | null
-  /** Si la acción elegida admite `notificacion_template_id`. */
-  admitePlantilla: boolean
-}
-
-/** Payload completo de la regla, igual para el alta y el PATCH (reemplazo explícito de todo lo
- * editable). Siempre manda la aprobación humana: sin ella el backend la recalcularía al cambiar
- * de acción. */
-export function armarPayloadRegla(
-  valores: ValoresRegla,
-  tipoAccion: TipoAccion,
-  { tipoDatoCondicion, admitePlantilla }: ContextoPayload,
-): ReglaWorkflowCreatePayload {
-  return {
-    nombre: valores.nombre.trim(),
-    tipo_evento_id: valores.tipoEventoId,
-    condicion: armarCondicion(
-      valores.campoCondicion,
-      valores.operadorCondicion,
-      valores.valorCondicion,
-      tipoDatoCondicion,
-    ),
-    tipo_accion: tipoAccion,
-    accion_config: armarConfig(tipoAccion, valores.config),
-    criticidad: valores.criticidad,
-    requiere_aprobacion_humana: valores.requiereAprobacionHumana,
-    notificacion_template_id:
-      admitePlantilla && valores.plantillaId !== '' ? valores.plantillaId : null,
-    activo: valores.activo,
-  }
-}
-
 const ACCIONES_CON_DESTINATARIO_ELEGIBLE: readonly TipoAccion[] = [
   'notificar',
   'generar_recordatorio',
@@ -466,59 +364,6 @@ export function sinConceptosDisponibles(disponibles: AccionDisponible[]): Accion
         }
       : accion,
   )
-}
-
-/** Cambio de evento: la condición y la config que dependen del evento ya no valen, y si la
- * acción elegida no admite el nuevo evento también se limpia. */
-export function cambiarEvento(
-  valores: ValoresRegla,
-  tipoEventoId: string,
-  tiposAccion: TipoAccionCatalogo[],
-  nombreEvento: string | null,
-): ValoresRegla {
-  const sigueDisponible = accionesDisponibles(tiposAccion, nombreEvento).some(
-    (accion) => accion.tipo_accion === valores.tipoAccion && accion.disponible,
-  )
-  const config = { ...valores.config }
-  for (const campo of CAMPOS_DEPENDIENTES_DEL_EVENTO) delete config[campo]
-  return {
-    ...valores,
-    tipoEventoId,
-    campoCondicion: '',
-    operadorCondicion: '',
-    valorCondicion: '',
-    tipoAccion: sigueDisponible ? valores.tipoAccion : '',
-    config: sigueDisponible ? config : {},
-    // Si la acción sigue, la compatibilidad de la plantilla con el nuevo evento la resuelve el
-    // editor cuando llega la lista de plantillas del evento.
-    plantillaId: sigueDisponible ? valores.plantillaId : '',
-  }
-}
-
-/** Cambio de acción hecho por el usuario: la config arranca con los defaults de la nueva acción
- * y recién ahí se aplica su default de aprobación humana. */
-export function cambiarAccion(valores: ValoresRegla, accion: TipoAccionCatalogo): ValoresRegla {
-  return {
-    ...valores,
-    tipoAccion: accion.tipo_accion,
-    config: defaultsDeConfig(accion.config_schema),
-    plantillaId: accion.admite_plantilla ? valores.plantillaId : '',
-    requiereAprobacionHumana: accion.requiere_aprobacion_por_defecto,
-  }
-}
-
-/** Cambio de campo en la condición: el operador pasa al primero válido para el tipo de dato y
- * el valor se vacía. `campo` vacío = sin condición. */
-export function cambiarCampoCondicion(
-  valores: ValoresRegla,
-  campo: CampoEvento | null,
-): ValoresRegla {
-  return {
-    ...valores,
-    campoCondicion: campo?.nombre_interno ?? '',
-    operadorCondicion: campo ? OPERADORES_POR_TIPO_DATO[campo.tipo_dato][0] : '',
-    valorCondicion: '',
-  }
 }
 
 export type EstadoEjecucionFiltro = (typeof ESTADOS_EJECUCION_FILTRO)[number]

@@ -30,8 +30,12 @@ export function apiPlantilla(id: string): string {
   return `${API_PLANTILLAS}/${id}`
 }
 
-export function apiDestinatariosRegla(id: string): string {
-  return `${apiRegla(id)}/destinatarios`
+export const API_SIMULAR_REGLA = `${API_REGLAS}/simular`
+export const API_EVENTOS_RECIENTES = '/workflows/eventos-recientes'
+export const API_RESUMEN = '/workflows/resumen'
+
+export function apiEstadisticasRegla(id: string): string {
+  return `${apiRegla(id)}/estadisticas`
 }
 
 export const API_EJECUCIONES = '/workflows/ejecuciones'
@@ -169,3 +173,33 @@ export const TIPOS_ASIENTO: OpcionSelect[] = [
   { value: 'debe', label: 'Debe' },
   { value: 'haber', label: 'Haber' },
 ]
+
+// --- Editor de flujo -----------------------------------------------------------------------
+
+/** Tope de nodos, profundidad y comparaciones: espejo de `constants.py` del backend. */
+export const MAX_NODOS = 30
+export const MAX_PROFUNDIDAD = 6
+export const MAX_COMPARACIONES = 5
+export const DIAS_ESTADISTICAS = 30
+export const DIAS_RESUMEN = 30
+/** Cada cuánto se refresca la actividad en vivo de la página de reglas. */
+export const INTERVALO_ACTIVIDAD_MS = 30_000
+export const ULTIMAS_EJECUCIONES = 15
+/** Pasos que recuerda el deshacer del borrador. */
+export const MAX_HISTORIAL = 50
+
+/** Módulo al que pertenece cada evento, según el prefijo de su nombre (`factura.` → Facturación). */
+export const MODULO_POR_PREFIJO_EVENTO: Record<string, string> = {
+  inasistencia: 'Asistencia',
+  solicitud_ausencia_periodo: 'Asistencia',
+  factura: 'Facturación',
+  pago: 'Facturación',
+  inscripcion: 'Inscripciones',
+  solicitud_inscripcion: 'Inscripciones',
+  orden_compra: 'Compras',
+  recepcion_compra: 'Compras',
+  solicitud_compra: 'Compras',
+}
+export const MODULO_SIN_CLASIFICAR = 'Otros'
+export const CLAVE_VISTA_REGLAS = 'workflows.reglas.vista'
+export const VISTAS_REGLAS = ['tarjetas', 'tabla', 'mapa'] as const

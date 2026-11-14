@@ -13,7 +13,13 @@ import { EjecucionesWorkflowPage } from '@/modules/workflows/pages/ejecuciones-w
 import { NotificacionesPage } from '@/modules/workflows/pages/notificaciones-page'
 import { ReglasWorkflowPage } from '@/modules/workflows/pages/reglas-workflow-page'
 import { TareasPage } from '@/modules/workflows/pages/tareas-page'
-import { ReglaWorkflowEditorPage } from '@/modules/workflows/pages/regla-workflow-editor-page'
+
+// El editor carga @xyflow/react: se pide recién al abrirlo, para no sumarlo al resto del módulo.
+async function cargarEditor() {
+  const { ReglaWorkflowEditorPage } =
+    await import('@/modules/workflows/pages/regla-workflow-editor-page')
+  return { Component: ReglaWorkflowEditorPage }
+}
 
 export const workflowsRoutes: RouteObject[] = [
   {
@@ -22,9 +28,9 @@ export const workflowsRoutes: RouteObject[] = [
       { path: RUTA_REGLAS, element: <ReglasWorkflowPage /> },
       {
         element: <PermisoRoute codigo={PERMISO_WORKFLOWS_CREAR} label="Workflows · Crear" />,
-        children: [{ path: RUTA_NUEVA_REGLA, element: <ReglaWorkflowEditorPage /> }],
+        children: [{ path: RUTA_NUEVA_REGLA, lazy: cargarEditor }],
       },
-      { path: RUTA_REGLA_POR_ID, element: <ReglaWorkflowEditorPage /> },
+      { path: RUTA_REGLA_POR_ID, lazy: cargarEditor },
       { path: RUTA_EJECUCIONES, element: <EjecucionesWorkflowPage /> },
       { path: RUTA_NOTIFICACIONES, element: <NotificacionesPage /> },
     ],

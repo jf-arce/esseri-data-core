@@ -1,4 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { listarEventosRecientes } from '@/modules/workflows/services/listar-eventos-recientes'
+import { obtenerEstadisticasRegla } from '@/modules/workflows/services/obtener-estadisticas-regla'
+import { obtenerResumenWorkflows } from '@/modules/workflows/services/obtener-resumen-workflows'
+import { simularRegla } from '@/modules/workflows/services/simular-regla'
 import { actualizarPlantilla } from '@/modules/workflows/services/actualizar-plantilla'
 import { actualizarReglaWorkflow } from '@/modules/workflows/services/actualizar-regla-workflow'
 import { crearPlantilla } from '@/modules/workflows/services/crear-plantilla'
@@ -11,8 +15,6 @@ import { listarTareas } from '@/modules/workflows/services/listar-tareas'
 import { listarReglasWorkflow } from '@/modules/workflows/services/listar-reglas-workflow'
 import { listarTiposAccion } from '@/modules/workflows/services/listar-tipos-accion'
 import { listarTiposEvento } from '@/modules/workflows/services/listar-tipos-evento'
-import { obtenerDestinatariosRegla } from '@/modules/workflows/services/obtener-destinatarios-regla'
-import { reemplazarDestinatariosRegla } from '@/modules/workflows/services/reemplazar-destinatarios-regla'
 import { aprobarEjecucionWorkflow } from '@/modules/workflows/services/aprobar-ejecucion-workflow'
 import { rechazarEjecucionWorkflow } from '@/modules/workflows/services/rechazar-ejecucion-workflow'
 import { reasignarTarea } from '@/modules/workflows/services/reasignar-tarea'
@@ -57,13 +59,23 @@ describe('servicios de workflows', () => {
     const payload = {
       nombre: 'Aviso de mora',
       tipo_evento_id: 'evento-1',
-      condicion: {},
-      tipo_accion: 'notificar' as const,
-      accion_config: {},
       criticidad: 'media' as const,
-      requiere_aprobacion_humana: false,
-      notificacion_template_id: null,
       activo: true,
+      nodos: [
+        {
+          id: 'n-1',
+          tipo: 'accion' as const,
+          padre_id: null,
+          rama: null,
+          condicion: null,
+          tipo_accion: 'notificar' as const,
+          accion_config: {},
+          notificacion_template_id: null,
+          requiere_aprobacion_humana: false,
+          destinatarios: { rol_ids: [], usuario_ids: [] },
+          posicion: { x: 0, y: 0 },
+        },
+      ],
     }
 
     await crearReglaWorkflow(payload)
@@ -191,24 +203,44 @@ describe('servicios de workflows', () => {
     expect(init?.body).toBe(JSON.stringify(payload))
   })
 
-  it('obtiene los destinatarios de una regla', async () => {
+  it('prueba un borrador con POST a /reglas/simular', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+    const payload = { tipo_evento_id: 'e-1', event_log_id: 'ev-1', nodos: [] }
 
-    await obtenerDestinatariosRegla('regla-1')
-
-    expect(fetchMock.mock.calls[0][0]).toContain('/workflows/reglas/regla-1/destinatarios')
-  })
-
-  it('reemplaza los destinatarios de una regla con PUT', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
-    const payload = { rol_ids: ['rol-1'], usuario_ids: [] }
-
-    await reemplazarDestinatariosRegla('regla-1', payload)
+    await simularRegla(payload)
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toContain('/workflows/reglas/regla-1/destinatarios')
-    expect(init?.method).toBe('PUT')
+    expect(url).toContain('/workflows/reglas/simular')
+    expect(init?.method).toBe('POST')
     expect(init?.body).toBe(JSON.stringify(payload))
+  })
+
+  it('pide los eventos recientes del tipo de evento', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await listarEventosRecientes('e-1')
+
+    expect(fetchMock.mock.calls[0][0]).toContain('/workflows/eventos-recientes?tipo_evento_id=e-1')
+  })
+
+  it('pide las estadísticas de una regla y el resumen del módulo con los días', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await obtenerEstadisticasRegla('regla-1', 7)
+    await obtenerResumenWorkflows(30)
+
+    expect(fetchMock.mock.calls[0][0]).toContain('/workflows/reglas/regla-1/estadisticas?dias=7')
+    expect(fetchMock.mock.calls[1][0]).toContain('/workflows/resumen?dias=30')
+  })
+
+  it('filtra las ejecuciones por regla y por nodo', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await listarEjecucionesWorkflow({ pagina: 1, tamanioPagina: 20, reglaId: 'r-1', nodoId: 'n-1' })
+
+    const url = String(fetchMock.mock.calls[0][0])
+    expect(url).toContain('workflow_rule_id=r-1')
+    expect(url).toContain('workflow_nodo_id=n-1')
   })
 
   it('lista las tareas con sus filtros y pide solo las propias cuando se indica', async () => {

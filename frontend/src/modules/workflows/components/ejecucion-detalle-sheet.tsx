@@ -81,7 +81,9 @@ export function EjecucionDetalleSheet({
                     {ejecucion.workflow_rule_nombre}
                   </Link>
                 </Dato>
-                <Dato etiqueta="Acción">{ETIQUETA_ACCION[ejecucion.tipo_accion]}</Dato>
+                <Dato etiqueta="Acción">
+                  {ejecucion.tipo_accion ? ETIQUETA_ACCION[ejecucion.tipo_accion] : 'Condición'}
+                </Dato>
                 <Dato etiqueta="Evento">
                   {etiquetaEvento(ejecucion.tipo_evento)}
                   <span className="block text-xs text-texto-3">
