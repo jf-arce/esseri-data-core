@@ -134,6 +134,27 @@ def test_combina_eventos_y_auditoria_en_orden_de_ocurrencia(db_session, escenari
     assert filas[3]["detalle"] == "3 ítems"
 
 
+def test_el_limite_se_aplica_por_categoria_y_no_global(db_session, escenario_con_solicitud):
+    _, usuario, solicitud = escenario_con_solicitud
+    for dias in range(3):
+        _evento(
+            db_session,
+            "factura.vencida",
+            "factura",
+            solicitud.id,
+            {"dias_vencido": 8, "monto_deuda": Decimal("100.00"), "nombre_familia": "Cabral"},
+            usuario.id,
+            BASE + timedelta(hours=dias),
+        )
+    _auditoria(db_session, "SOLICITUD_COMPRA", solicitud.id, "__alta__", "Resmas", usuario.id, BASE)
+
+    filas = obtener_actividad_reciente(db_session, categorias={"compras", "finanzas"}, limite=2)
+
+    # Las facturas, más recientes, no desplazan a la solicitud de compras.
+    assert [fila["categoria"] for fila in filas].count("finanzas") == 2
+    assert [fila["categoria"] for fila in filas].count("compras") == 1
+
+
 def test_respeta_las_categorias_habilitadas(db_session, escenario_con_solicitud):
     escenario, usuario, solicitud = escenario_con_solicitud
     _evento(

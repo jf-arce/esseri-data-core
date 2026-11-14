@@ -59,7 +59,7 @@ def obtener_actividad(
     rol_activo: RolActivo,
     limite: Annotated[int, Query(ge=1, le=20)] = 8,
 ) -> list[ActividadRecienteRead]:
-    """Hechos recientes de las categorías que el rol activo puede ver.
+    """Hechos recientes de las categorías que el rol activo puede ver (`limite` por categoría).
 
     Sin categorías habilitadas devuelve una lista vacía; nunca inventa actividad ni completa
     una categoría que el sistema no registra.
