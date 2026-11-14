@@ -181,11 +181,7 @@ export function PortalFamiliaPage() {
   return (
     <section className="flex w-full flex-col">
       <PortalFamiliaShell
-        titulo={
-          <>
-            {saludo ? `Hola, ${saludo}` : 'Hola'} 👋
-          </>
-        }
+        titulo={<>{saludo ? `Hola, ${saludo}` : 'Hola'} 👋</>}
         tituloClassName="text-[32px] sm:text-[40px]"
         descripcion="Este es el resumen de tu familia en ESSERI."
         ilustracion={<IlustracionColegio />}
@@ -399,10 +395,7 @@ export function PortalFamiliaPage() {
                 ) : sinLeer.total > 0 ? (
                   <p className="leading-tight">
                     <span
-                      className={cn(
-                        'block font-heading text-[26px] font-bold tabular-nums',
-                        TINTA,
-                      )}
+                      className={cn('block font-heading text-[26px] font-bold tabular-nums', TINTA)}
                     >
                       {sinLeer.total}
                     </span>

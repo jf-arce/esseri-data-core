@@ -100,12 +100,7 @@ function IlustracionSobre() {
         <rect x="152" y="110" width="70" height="5" rx="2.5" fill="#E9D5FF" />
         <rect x="152" y="126" width="46" height="5" rx="2.5" fill="#F3E8FB" />
       </g>
-      <path
-        d="m108 104 80 58 80-58-80-48-80 48Z"
-        stroke="#C084FC"
-        strokeWidth="2"
-        opacity=".7"
-      />
+      <path d="m108 104 80 58 80-58-80-48-80 48Z" stroke="#C084FC" strokeWidth="2" opacity=".7" />
     </svg>
   )
 }
@@ -271,11 +266,7 @@ export function ComunicacionDetallePage({
           viewBox="0 0 1440 340"
           preserveAspectRatio="none"
         >
-          <path
-            d="M0 0h1440v200c-220 95-470 8-720 62S180 350 0 286Z"
-            fill="#EADFF8"
-            opacity=".7"
-          />
+          <path d="M0 0h1440v200c-220 95-470 8-720 62S180 350 0 286Z" fill="#EADFF8" opacity=".7" />
           <path
             d="M0 0h1440v110c-300 125-560 24-840 76S180 245 0 205Z"
             fill="#F1E8FA"
@@ -304,10 +295,7 @@ export function ComunicacionDetallePage({
               <ArrowLeftIcon aria-hidden="true" className="size-4" />
               Volver a comunicaciones
             </Link>
-            <nav
-              aria-label="Breadcrumb"
-              className="flex items-center gap-2 text-sm text-[#6B6478]"
-            >
+            <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-[#6B6478]">
               <Link
                 to="/familia"
                 aria-label="Inicio"
@@ -338,10 +326,7 @@ export function ComunicacionDetallePage({
               </AlertDescription>
             </Alert>
           ) : !datos ? (
-            <Skeleton
-              className="h-64 w-full rounded-[28px]"
-              aria-label="Cargando comunicación"
-            />
+            <Skeleton className="h-64 w-full rounded-[28px]" aria-label="Cargando comunicación" />
           ) : (
             <article className="relative overflow-hidden rounded-[28px] bg-white shadow-[0_28px_70px_rgba(70,32,110,0.12)]">
               <div

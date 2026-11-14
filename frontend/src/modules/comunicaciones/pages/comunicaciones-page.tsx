@@ -62,7 +62,16 @@ export function ComunicacionesPage({
   useEffect(() => {
     const controller = new AbortController()
     const estado = filtro === 'todas' ? undefined : filtro
-    listarComunicaciones(familia, pagina, buscar, noLeidas, controller.signal, docente, estado, familia ? 5 : undefined)
+    listarComunicaciones(
+      familia,
+      pagina,
+      buscar,
+      noLeidas,
+      controller.signal,
+      docente,
+      estado,
+      familia ? 5 : undefined,
+    )
       .then((data) => {
         if (!controller.signal.aborted) {
           setDatos(data)
@@ -112,9 +121,7 @@ export function ComunicacionesPage({
           <Input
             aria-label="Buscar comunicaciones"
             className={
-              familia
-                ? 'rounded-xl border-[#E7DDF1] bg-[#FBF9FE] pl-9 text-[#2B2338]'
-                : 'pl-9'
+              familia ? 'rounded-xl border-[#E7DDF1] bg-[#FBF9FE] pl-9 text-[#2B2338]' : 'pl-9'
             }
             value={buscar}
             onChange={(e) => {
@@ -186,17 +193,13 @@ export function ComunicacionesPage({
                       )}
                       <span
                         className={`block break-words ${
-                          c.leida_at
-                            ? 'font-medium text-[#6B6478]'
-                            : 'font-bold text-[#241A33]'
+                          c.leida_at ? 'font-medium text-[#6B6478]' : 'font-bold text-[#241A33]'
                         }`}
                       >
                         {c.asunto}
                       </span>
                     </span>
-                    <span
-                      className={`text-sm text-[#6B6478] ${c.leida_at ? '' : 'pl-3.5'}`}
-                    >
+                    <span className={`text-sm text-[#6B6478] ${c.leida_at ? '' : 'pl-3.5'}`}>
                       {c.tipo === 'curso' ? (c.emisor ?? 'Colegio ESSERI') : ETIQUETAS_TIPO[c.tipo]}
                     </span>
                   </span>
@@ -265,8 +268,9 @@ export function ComunicacionesPage({
           </Table>
         </div>
       )}
-      {datos && !error && (
-        familia ? (
+      {datos &&
+        !error &&
+        (familia ? (
           <div className="rounded-[16px] bg-white px-4 py-2 shadow-[0_10px_26px_rgba(24,16,40,0.08)]">
             <PaginadorServidor
               pagina={pagina}
@@ -286,8 +290,7 @@ export function ComunicacionesPage({
             onCambiarPagina={setPagina}
             etiqueta="comunicaciones"
           />
-        )
-      )}
+        ))}
     </>
   )
 

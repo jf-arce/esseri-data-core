@@ -83,8 +83,20 @@ describe('PortalFamiliaFacturacionPage', () => {
     const cuenta = structuredClone(facturacion)
     const base = cuenta.facturas[0]
     cuenta.facturas = [
-      { ...base, id: 'a1', alumno_id: 'a', alumno_nombre: 'Ana', detalles: [{ descripcion: 'Cuota Ana', monto: '125.00' }] },
-      { ...base, id: 'b1', alumno_id: 'b', alumno_nombre: 'Bea', detalles: [{ descripcion: 'Cuota Bea', monto: '125.00' }] },
+      {
+        ...base,
+        id: 'a1',
+        alumno_id: 'a',
+        alumno_nombre: 'Ana',
+        detalles: [{ descripcion: 'Cuota Ana', monto: '125.00' }],
+      },
+      {
+        ...base,
+        id: 'b1',
+        alumno_id: 'b',
+        alumno_nombre: 'Bea',
+        detalles: [{ descripcion: 'Cuota Bea', monto: '125.00' }],
+      },
     ]
     mockedListarFacturacion.mockResolvedValue(cuenta)
     render(
@@ -133,7 +145,6 @@ describe('PortalFamiliaFacturacionPage', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'Emisión (más reciente)' }))
     await waitFor(async () => expect(await primero()).toContain('abril'))
   })
-
 
   it('shows the automatic debit label without exposing the internal payment code', async () => {
     const cuenta = structuredClone(facturacion)

@@ -30,9 +30,7 @@ def contexto(db_session):
     return usuario, escenario
 
 
-def test_configuracion_ausencias_expone_el_limite_configurado(
-    client_familia, monkeypatch
-):
+def test_configuracion_ausencias_expone_el_limite_configurado(client_familia, monkeypatch):
     monkeypatch.setattr(settings, "ACADEMICO_DIAS_LIMITE_JUSTIFICACION", 12)
 
     respuesta = client_familia.get(RUTA_CONFIGURACION)
@@ -41,14 +39,10 @@ def test_configuracion_ausencias_expone_el_limite_configurado(
     assert respuesta.json() == {"dias_limite_justificacion": 12}
 
 
-def test_limite_de_justificacion_usa_la_configuracion(
-    db_session, contexto, monkeypatch
-):
+def test_limite_de_justificacion_usa_la_configuracion(db_session, contexto, monkeypatch):
     usuario, escenario = contexto
     hoy = date(2026, 11, 15)
-    monkeypatch.setattr(
-        solicitud_periodo_service, "fecha_operativa_argentina", lambda: hoy
-    )
+    monkeypatch.setattr(solicitud_periodo_service, "fecha_operativa_argentina", lambda: hoy)
     monkeypatch.setattr(settings, "ACADEMICO_DIAS_LIMITE_JUSTIFICACION", 10)
 
     with pytest.raises(HTTPException) as error:
@@ -63,8 +57,5 @@ def test_limite_de_justificacion_usa_la_configuracion(
         )
 
     assert error.value.status_code == 422
-    assert (
-        error.value.detail
-        == "Solo se pueden justificar ausencias de los últimos 10 días."
-    )
+    assert error.value.detail == "Solo se pueden justificar ausencias de los últimos 10 días."
     assert db_session.query(SolicitudAusenciaPeriodo).count() == 0

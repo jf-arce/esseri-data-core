@@ -509,9 +509,7 @@ def listar_destinatarios(
     )
     if buscar.strip():
         texto = normalizar_texto_busqueda(buscar.strip())
-        criterio = normalizar_columna_busqueda(nombre).like(
-            _patron_busqueda(texto), escape="\\"
-        )
+        criterio = normalizar_columna_busqueda(nombre).like(_patron_busqueda(texto), escape="\\")
         if vista != "destinatarios":
             criterio = or_(
                 criterio,
@@ -679,9 +677,7 @@ def listar_entrega(
     )
     if buscar.strip():
         texto = normalizar_texto_busqueda(buscar.strip())
-        criterio = normalizar_columna_busqueda(nombre).like(
-            _patron_busqueda(texto), escape="\\"
-        )
+        criterio = normalizar_columna_busqueda(nombre).like(_patron_busqueda(texto), escape="\\")
         if email_aplica:
             criterio = or_(
                 criterio,

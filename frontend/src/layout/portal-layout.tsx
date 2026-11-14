@@ -40,9 +40,7 @@ export function PortalLayout() {
         style={{ background: PORTAL_FAMILIA_GLOW_CENTRAL }}
       />
 
-      <header
-        className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-3 border-b border-white/10 bg-[#2C2143]/35 px-4 py-3 backdrop-blur-md sm:flex-nowrap sm:px-7 sm:py-0"
-      >
+      <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-3 border-b border-white/10 bg-[#2C2143]/35 px-4 py-3 backdrop-blur-md sm:flex-nowrap sm:px-7 sm:py-0">
         <div className="flex items-center gap-2.5">
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10">
             <img

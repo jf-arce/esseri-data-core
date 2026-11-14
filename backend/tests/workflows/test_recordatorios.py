@@ -35,6 +35,7 @@ def fijar_dia_operativo(monkeypatch):
         solicitud_periodo_service, "fecha_operativa_argentina", lambda: date(2027, 1, 1)
     )
 
+
 # --- Armado --------------------------------------------------------------------------------
 
 

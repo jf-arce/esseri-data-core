@@ -32,7 +32,10 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Spinner } from '@/components/ui/spinner'
-import { crearSolicitudAusenciaPeriodo, obtenerConfiguracionAusencias } from '@/modules/academico/services/solicitudes-ausencia-familia'
+import {
+  crearSolicitudAusenciaPeriodo,
+  obtenerConfiguracionAusencias,
+} from '@/modules/academico/services/solicitudes-ausencia-familia'
 import { MOTIVOS_JUSTIFICACION } from '@/modules/academico/utils'
 import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 
@@ -136,8 +139,7 @@ export function FormularioAusencia({
     if (modo === 'justificar') return fecha < minDesde || fecha > hoy
     return fecha > finCiclo
   }
-  const ventanaJustificacion =
-    diasLimite === 1 ? 'el último día' : `los últimos ${diasLimite} días`
+  const ventanaJustificacion = diasLimite === 1 ? 'el último día' : `los últimos ${diasLimite} días`
   const mensajeFueraDeLimite =
     modo === 'justificar'
       ? `La fecha debe estar dentro de ${ventanaJustificacion}.`

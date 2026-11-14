@@ -223,8 +223,7 @@ function FacturaFamiliaCard({
   const dias = diasParaVencer(vencimiento(factura))
   const ultimoDebito = factura.pagos
     .filter(
-      (pago) =>
-        pago.metodo_pago === 'debito_directo' || pago.metodo_pago === 'Débito por archivo',
+      (pago) => pago.metodo_pago === 'debito_directo' || pago.metodo_pago === 'Débito por archivo',
     )
     .slice()
     .sort((a, b) => b.fecha.localeCompare(a.fecha))[0]
@@ -298,7 +297,9 @@ function FacturaFamiliaCard({
 
           <div className="flex items-center justify-between border-t border-[#F0EAF6] pt-4 text-sm">
             <span className="font-semibold text-[#2B2338]">Total de la factura</span>
-            <span className="font-semibold text-[#2B2338]">{formatearMoneda(factura.monto_total)}</span>
+            <span className="font-semibold text-[#2B2338]">
+              {formatearMoneda(factura.monto_total)}
+            </span>
           </div>
 
           {factura.pagos.length > 0 && (
@@ -306,7 +307,9 @@ function FacturaFamiliaCard({
               aria-label={`Débitos de factura ${factura.id.slice(0, 8)}`}
               className="border-t border-[#F0EAF6] pt-4"
             >
-              <h3 className="mb-3 text-sm font-semibold text-[#2B2338]">{TEXTOS_DEBITO.registrados}</h3>
+              <h3 className="mb-3 text-sm font-semibold text-[#2B2338]">
+                {TEXTOS_DEBITO.registrados}
+              </h3>
               <ul className="flex flex-col divide-y divide-borde">
                 {factura.pagos.map((pago) => (
                   <li
@@ -493,205 +496,209 @@ export function PortalFamiliaFacturacionPage() {
       />
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 pt-6">
-
-      {cargando && (
-        <div role="status" aria-label="Cargando facturación" className="flex flex-col gap-4">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Skeleton className="h-28 rounded-[24px]" />
-            <Skeleton className="h-28 rounded-[24px]" />
-            <Skeleton className="h-28 rounded-[24px]" />
-          </div>
-          <Skeleton className="h-64 rounded-[24px]" />
-        </div>
-      )}
-
-      {error && !cargando && (
-        <Empty role="alert" className="min-h-64 rounded-[24px] bg-white shadow-[0_14px_34px_rgba(24,16,40,0.12)]">
-          <EmptyMedia variant="neutral">
-            <ReceiptTextIcon />
-          </EmptyMedia>
-          <EmptyTitle>No pudimos cargar tu facturación.</EmptyTitle>
-          <EmptyDescription>Revisá tu conexión e intentá nuevamente.</EmptyDescription>
-          <Button
-            type="button"
-            variant="secondary"
-            className="rounded-full"
-            onClick={() => setIntento((actual) => actual + 1)}
-          >
-            Reintentar
-          </Button>
-        </Empty>
-      )}
-
-      {cuenta && !cargando && !error && (
-        <div className="flex flex-col gap-6">
-          <ResumenCuenta cuenta={cuenta} />
-
-          <section aria-labelledby="facturas-familia-heading" className="flex flex-col gap-4">
-            <div>
-              <h2
-                id="facturas-familia-heading"
-                className="font-heading text-lg font-semibold text-white"
-              >
-                Facturas
-              </h2>
-              <p className="mt-1 text-sm text-[#D9CBE8]">
-                Consultá los vencimientos y el detalle de cada factura emitida a tu nombre.
-              </p>
-              <p className="mt-1 text-sm text-[#D9CBE8]">{TEXTOS_DEBITO.aviso}</p>
+        {cargando && (
+          <div role="status" aria-label="Cargando facturación" className="flex flex-col gap-4">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Skeleton className="h-28 rounded-[24px]" />
+              <Skeleton className="h-28 rounded-[24px]" />
+              <Skeleton className="h-28 rounded-[24px]" />
             </div>
-            {cuenta.facturas.length > 0 ? (
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-wrap items-center gap-2" aria-label="Filtrar facturas">
-                  {(['todas', 'vencida', 'pendiente', 'pagada'] as const).map((valor) => (
-                    <Button
-                      key={valor}
-                      type="button"
-                      variant={filtro === valor ? 'default' : 'secondary'}
+            <Skeleton className="h-64 rounded-[24px]" />
+          </div>
+        )}
+
+        {error && !cargando && (
+          <Empty
+            role="alert"
+            className="min-h-64 rounded-[24px] bg-white shadow-[0_14px_34px_rgba(24,16,40,0.12)]"
+          >
+            <EmptyMedia variant="neutral">
+              <ReceiptTextIcon />
+            </EmptyMedia>
+            <EmptyTitle>No pudimos cargar tu facturación.</EmptyTitle>
+            <EmptyDescription>Revisá tu conexión e intentá nuevamente.</EmptyDescription>
+            <Button
+              type="button"
+              variant="secondary"
+              className="rounded-full"
+              onClick={() => setIntento((actual) => actual + 1)}
+            >
+              Reintentar
+            </Button>
+          </Empty>
+        )}
+
+        {cuenta && !cargando && !error && (
+          <div className="flex flex-col gap-6">
+            <ResumenCuenta cuenta={cuenta} />
+
+            <section aria-labelledby="facturas-familia-heading" className="flex flex-col gap-4">
+              <div>
+                <h2
+                  id="facturas-familia-heading"
+                  className="font-heading text-lg font-semibold text-white"
+                >
+                  Facturas
+                </h2>
+                <p className="mt-1 text-sm text-[#D9CBE8]">
+                  Consultá los vencimientos y el detalle de cada factura emitida a tu nombre.
+                </p>
+                <p className="mt-1 text-sm text-[#D9CBE8]">{TEXTOS_DEBITO.aviso}</p>
+              </div>
+              {cuenta.facturas.length > 0 ? (
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-wrap items-center gap-2" aria-label="Filtrar facturas">
+                    {(['todas', 'vencida', 'pendiente', 'pagada'] as const).map((valor) => (
+                      <Button
+                        key={valor}
+                        type="button"
+                        variant={filtro === valor ? 'default' : 'secondary'}
+                        className="rounded-full"
+                        aria-pressed={filtro === valor}
+                        onClick={() => {
+                          setFiltro(valor)
+                          setPagina(0)
+                        }}
+                      >
+                        {
+                          {
+                            todas: 'Todas',
+                            vencida: 'Vencidas',
+                            pendiente: 'Pendientes',
+                            pagada: 'Pagadas',
+                          }[valor]
+                        }{' '}
+                        {valor === 'todas'
+                          ? ordenadas.length
+                          : ordenadas.filter((factura) => estadoVisible(factura) === valor).length}
+                      </Button>
+                    ))}
+                    <FilterDropdown
                       className="rounded-full"
-                      aria-pressed={filtro === valor}
-                      onClick={() => {
-                        setFiltro(valor)
+                      label={`Ordenar: ${
+                        {
+                          'vencimiento-asc': 'Vencimiento próximo',
+                          'vencimiento-desc': 'Vencimiento lejano',
+                          'emision-desc': 'Emisión reciente',
+                        }[orden]
+                      }`}
+                      active
+                      icon={ArrowUpDownIcon}
+                      align="end"
+                      value={orden}
+                      onChange={(valor) => {
+                        setOrden(valor as typeof orden)
                         setPagina(0)
                       }}
-                    >
-                      {
-                        {
-                          todas: 'Todas',
-                          vencida: 'Vencidas',
-                          pendiente: 'Pendientes',
-                          pagada: 'Pagadas',
-                        }[valor]
-                      }{' '}
-                      {valor === 'todas'
-                        ? ordenadas.length
-                        : ordenadas.filter((factura) => estadoVisible(factura) === valor).length}
-                    </Button>
-                  ))}
-                  <FilterDropdown
-                    className="rounded-full"
-                    label={`Ordenar: ${{
-                      'vencimiento-asc': 'Vencimiento próximo',
-                      'vencimiento-desc': 'Vencimiento lejano',
-                      'emision-desc': 'Emisión reciente',
-                    }[orden]}`}
-                    active
-                    icon={ArrowUpDownIcon}
-                    align="end"
-                    value={orden}
-                    onChange={(valor) => {
-                      setOrden(valor as typeof orden)
-                      setPagina(0)
-                    }}
-                    options={[
-                      { value: 'vencimiento-asc', label: 'Vencimiento (más próximo)' },
-                      { value: 'vencimiento-desc', label: 'Vencimiento (más lejano)' },
-                      { value: 'emision-desc', label: 'Emisión (más reciente)' },
-                    ]}
-                  />
-                </div>
-                <details>
-                  <summary className="cursor-pointer text-sm font-semibold text-[#E4DAF0] focus-visible:outline-2 focus-visible:outline-white">
-                    Más filtros
-                  </summary>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <label className="flex items-center gap-2 text-sm text-[#E4DAF0]">
-                      Desde{' '}
-                      <input
-                        aria-label="Desde"
-                        type="date"
-                        value={desde}
-                        className="h-9 rounded-lg border border-[#F0EAF6] bg-white px-3 text-[#2B2338]"
-                        onChange={(evento) => {
-                          setDesde(evento.target.value)
-                          setPagina(0)
-                        }}
-                      />
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-[#E4DAF0]">
-                      Hasta{' '}
-                      <input
-                        aria-label="Hasta"
-                        type="date"
-                        value={hasta}
-                        className="h-9 rounded-lg border border-[#F0EAF6] bg-white px-3 text-[#2B2338]"
-                        onChange={(evento) => {
-                          setHasta(evento.target.value)
-                          setPagina(0)
-                        }}
-                      />
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-[#E4DAF0]">
-                      Buscar{' '}
-                      <input
-                        aria-label="Buscar por nombre o ID"
-                        placeholder="Nombre o ID"
-                        value={busqueda}
-                        className="h-9 rounded-lg border border-[#F0EAF6] bg-white px-3 text-[#2B2338]"
-                        onChange={(evento) => {
-                          setBusqueda(evento.target.value)
-                          setPagina(0)
-                        }}
-                      />
-                    </label>
+                      options={[
+                        { value: 'vencimiento-asc', label: 'Vencimiento (más próximo)' },
+                        { value: 'vencimiento-desc', label: 'Vencimiento (más lejano)' },
+                        { value: 'emision-desc', label: 'Emisión (más reciente)' },
+                      ]}
+                    />
                   </div>
-                </details>
-                {filtradas.length === 0 && (
-                  <p className="text-sm text-[#E4DAF0]">
-                    No hay facturas para los filtros seleccionados.
-                  </p>
-                )}
-                {filtradas.slice(pagina * 10, (pagina + 1) * 10).map((factura) => (
-                  <FacturaFamiliaCard
-                    key={factura.id}
-                    factura={factura}
-                    descargandoPagoId={descargandoPagoId}
-                    alDescargar={(pagoId) => void descargarComprobante(pagoId)}
-                  />
-                ))}
-                {filtradas.length > 10 && (
-                  <nav
-                    aria-label="Páginas de facturas"
-                    className="flex items-center justify-between gap-3"
-                  >
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="rounded-full"
-                      disabled={pagina === 0}
-                      onClick={() => setPagina((actual) => actual - 1)}
+                  <details>
+                    <summary className="cursor-pointer text-sm font-semibold text-[#E4DAF0] focus-visible:outline-2 focus-visible:outline-white">
+                      Más filtros
+                    </summary>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <label className="flex items-center gap-2 text-sm text-[#E4DAF0]">
+                        Desde{' '}
+                        <input
+                          aria-label="Desde"
+                          type="date"
+                          value={desde}
+                          className="h-9 rounded-lg border border-[#F0EAF6] bg-white px-3 text-[#2B2338]"
+                          onChange={(evento) => {
+                            setDesde(evento.target.value)
+                            setPagina(0)
+                          }}
+                        />
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-[#E4DAF0]">
+                        Hasta{' '}
+                        <input
+                          aria-label="Hasta"
+                          type="date"
+                          value={hasta}
+                          className="h-9 rounded-lg border border-[#F0EAF6] bg-white px-3 text-[#2B2338]"
+                          onChange={(evento) => {
+                            setHasta(evento.target.value)
+                            setPagina(0)
+                          }}
+                        />
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-[#E4DAF0]">
+                        Buscar{' '}
+                        <input
+                          aria-label="Buscar por nombre o ID"
+                          placeholder="Nombre o ID"
+                          value={busqueda}
+                          className="h-9 rounded-lg border border-[#F0EAF6] bg-white px-3 text-[#2B2338]"
+                          onChange={(evento) => {
+                            setBusqueda(evento.target.value)
+                            setPagina(0)
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </details>
+                  {filtradas.length === 0 && (
+                    <p className="text-sm text-[#E4DAF0]">
+                      No hay facturas para los filtros seleccionados.
+                    </p>
+                  )}
+                  {filtradas.slice(pagina * 10, (pagina + 1) * 10).map((factura) => (
+                    <FacturaFamiliaCard
+                      key={factura.id}
+                      factura={factura}
+                      descargandoPagoId={descargandoPagoId}
+                      alDescargar={(pagoId) => void descargarComprobante(pagoId)}
+                    />
+                  ))}
+                  {filtradas.length > 10 && (
+                    <nav
+                      aria-label="Páginas de facturas"
+                      className="flex items-center justify-between gap-3"
                     >
-                      Anterior
-                    </Button>
-                    <span className="text-sm text-[#E4DAF0]">
-                      Página {pagina + 1} de {Math.ceil(filtradas.length / 10)}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="rounded-full"
-                      disabled={(pagina + 1) * 10 >= filtradas.length}
-                      onClick={() => setPagina((actual) => actual + 1)}
-                    >
-                      Siguiente
-                    </Button>
-                  </nav>
-                )}
-              </div>
-            ) : (
-              <Empty className="min-h-52 rounded-[24px] bg-white shadow-[0_14px_34px_rgba(24,16,40,0.12)]">
-                <EmptyMedia variant="icon" className="bg-[#FBF2E7] text-[#B45309]">
-                  <ReceiptTextIcon />
-                </EmptyMedia>
-                <EmptyTitle>Todavía no tenés facturas.</EmptyTitle>
-                <EmptyDescription>
-                  Cuando se emita una factura a tu nombre, vas a poder consultarla acá.
-                </EmptyDescription>
-              </Empty>
-            )}
-          </section>
-        </div>
-      )}
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="rounded-full"
+                        disabled={pagina === 0}
+                        onClick={() => setPagina((actual) => actual - 1)}
+                      >
+                        Anterior
+                      </Button>
+                      <span className="text-sm text-[#E4DAF0]">
+                        Página {pagina + 1} de {Math.ceil(filtradas.length / 10)}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="rounded-full"
+                        disabled={(pagina + 1) * 10 >= filtradas.length}
+                        onClick={() => setPagina((actual) => actual + 1)}
+                      >
+                        Siguiente
+                      </Button>
+                    </nav>
+                  )}
+                </div>
+              ) : (
+                <Empty className="min-h-52 rounded-[24px] bg-white shadow-[0_14px_34px_rgba(24,16,40,0.12)]">
+                  <EmptyMedia variant="icon" className="bg-[#FBF2E7] text-[#B45309]">
+                    <ReceiptTextIcon />
+                  </EmptyMedia>
+                  <EmptyTitle>Todavía no tenés facturas.</EmptyTitle>
+                  <EmptyDescription>
+                    Cuando se emita una factura a tu nombre, vas a poder consultarla acá.
+                  </EmptyDescription>
+                </Empty>
+              )}
+            </section>
+          </div>
+        )}
       </div>
     </section>
   )

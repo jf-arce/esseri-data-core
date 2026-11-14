@@ -375,7 +375,9 @@ export function PortalFamiliaTramitePage({
                   aria-labelledby="asistencias-tab-resumen"
                   tabIndex={0}
                 >
-                  <h2 className="mb-2 text-sm font-semibold text-[#2B2338]">Resumen de asistencia</h2>
+                  <h2 className="mb-2 text-sm font-semibold text-[#2B2338]">
+                    Resumen de asistencia
+                  </h2>
                   {asistencias.length > 0 ? (
                     <div className="grid gap-3 sm:grid-cols-3">
                       <PortalStatTile
@@ -434,7 +436,9 @@ export function PortalFamiliaTramitePage({
                             {iconoEstadoJustificacion(asistencia.justificacion_estado)}
                             {!asistencia.justificacion_estado &&
                               (cubiertaPorPeriodo(asistencia.fecha) ? (
-                                <span className="text-xs text-[#8C8599]">Cubierta por solicitud</span>
+                                <span className="text-xs text-[#8C8599]">
+                                  Cubierta por solicitud
+                                </span>
                               ) : (
                                 <Button
                                   size="sm"
@@ -462,7 +466,9 @@ export function PortalFamiliaTramitePage({
                   tabIndex={0}
                 >
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="text-sm font-semibold text-[#2B2338]">Solicitudes de ausencia</h2>
+                    <h2 className="text-sm font-semibold text-[#2B2338]">
+                      Solicitudes de ausencia
+                    </h2>
                     <Button
                       size="sm"
                       className="rounded-full"

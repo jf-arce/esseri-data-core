@@ -154,9 +154,9 @@ describe('PortalFamiliaPage', () => {
       await within(screen.getByRole('group', { name: 'Alumnos vinculados' })).findByText('2'),
     ).toBeInTheDocument()
     expect(
-      await within(
-        screen.getByRole('group', { name: 'Asistencias sin justificar' }),
-      ).findByText('1'),
+      await within(screen.getByRole('group', { name: 'Asistencias sin justificar' })).findByText(
+        '1',
+      ),
     ).toBeInTheDocument()
     expect(
       await within(screen.getByRole('group', { name: 'Mensajes sin leer' })).findByText('2'),
@@ -177,9 +177,7 @@ describe('PortalFamiliaPage', () => {
 
     const indicador = screen.getByRole('group', { name: 'Asistencias sin justificar' })
     expect(await within(indicador).findByText('0')).toBeInTheDocument()
-    expect(
-      screen.queryByRole('link', { name: /Justificar ausencia/ }),
-    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Justificar ausencia/ })).not.toBeInTheDocument()
   })
 
   it('enlaza las gestiones de cada alumno con su identificador', async () => {
@@ -221,9 +219,7 @@ describe('PortalFamiliaPage', () => {
 
     const tarjeta = tarjetaCon('Estado general de la cuenta familiar.')
     expect(await within(tarjeta).findByText('Saldo a favor')).toBeInTheDocument()
-    expect(
-      within(tarjeta).getByText(formatearMoneda(1500).replace(/\s/g, ' ')),
-    ).toBeInTheDocument()
+    expect(within(tarjeta).getByText(formatearMoneda(1500).replace(/\s/g, ' '))).toBeInTheDocument()
     expect(
       within(tarjeta).queryByText(formatearMoneda(-1500).replace(/\s/g, ' ')),
     ).not.toBeInTheDocument()
@@ -274,9 +270,7 @@ describe('PortalFamiliaPage', () => {
       expect(mockedListarComunicaciones).toHaveBeenCalled()
       expect(mockedListarFacturacion).toHaveBeenCalled()
     })
-    expect(
-      screen.queryByRole('link', { name: /Justificar ausencia/ }),
-    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Justificar ausencia/ })).not.toBeInTheDocument()
   })
 
   it('mantiene una sola cabecera del portal y marca Inicio como activo', async () => {
