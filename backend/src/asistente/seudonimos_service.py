@@ -192,6 +192,21 @@ def preparar_entrada(
     return EntradaPreparada(texto=resultado, ambiguedades=ambiguedades)
 
 
+def alias_de_contexto(
+    db: Session,
+    conversacion_id: uuid.UUID,
+    tipo: str,
+    entidad_id: uuid.UUID,
+    *,
+    puede_ver_personas: bool,
+) -> str | None:
+    """Alias de la ficha que la persona tiene abierta, para que "este alumno" se resuelva sin
+    mandar el nombre. Sin permiso para ver personas, o si no existe, no hay contexto."""
+    if not puede_ver_personas or not _existe_entidad(db, tipo, entidad_id):
+        return None
+    return obtener_o_crear_alias(db, conversacion_id, tipo, entidad_id)
+
+
 def _sin_alias_ajenos(db: Session, conversacion_id: uuid.UUID, texto: str) -> str:
     return neutralizar_alias_no_emitidos(db, conversacion_id, texto)
 

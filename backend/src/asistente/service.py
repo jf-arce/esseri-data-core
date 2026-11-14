@@ -51,6 +51,7 @@ from src.asistente.seudonimos_service import (
     Ambiguedad,
     FiltroAlias,
     Mencion,
+    alias_de_contexto,
     alias_emitidos,
     neutralizar_alias_no_emitidos,
     preparar_entrada,
@@ -142,7 +143,7 @@ Contexto de esta consulta:
 - Rol activo: {rol}.
 - Fecha de hoy: {hoy}.
 - Ciclo lectivo seleccionado en pantalla: {ciclo}.
-- Pantalla actual: {ruta}."""
+- Pantalla actual: {ruta}.{vista}"""
 
 
 # --- Conversaciones --------------------------------------------------------------------------
@@ -250,6 +251,8 @@ class Envio:
     ruta: str | None
     ciclo_lectivo: str
     ambiguedades: list[Ambiguedad] = field(default_factory=list)
+    # Alias de la ficha que se está viendo, si el rol puede ver personas.
+    alias_vista: str | None = None
 
 
 def _titulo_desde(texto: str) -> str:
@@ -325,14 +328,26 @@ def iniciar_envio(
         if _mensajes_de_hoy(db, usuario.id) >= settings.ASISTENTE_MENSAJES_POR_DIA:
             raise CuotaDiariaAgotada()
 
+        puede_ver_personas = autorizacion_service.tiene_permiso_en_rol(
+            db, usuario.id, rol_codigo, PERMISO_FAMILIAS_ALUMNOS_LEER
+        )
         entrada = preparar_entrada(
             db,
             conversacion.id,
             datos.contenido,
             [Mencion(m.tipo, m.entidad_id, m.texto) for m in datos.menciones],
-            puede_ver_personas=autorizacion_service.tiene_permiso_en_rol(
-                db, usuario.id, rol_codigo, PERMISO_FAMILIAS_ALUMNOS_LEER
-            ),
+            puede_ver_personas=puede_ver_personas,
+        )
+        alias_vista = (
+            alias_de_contexto(
+                db,
+                conversacion.id,
+                datos.contexto.tipo,
+                datos.contexto.entidad_id,
+                puede_ver_personas=puede_ver_personas,
+            )
+            if datos.contexto is not None
+            else None
         )
         orden = _siguiente_orden(db, conversacion.id)
         mensaje_usuario = MensajeAsistente(
@@ -368,6 +383,7 @@ def iniciar_envio(
         ruta=datos.ruta,
         ciclo_lectivo=datos.ciclo_lectivo or str(fecha_operativa_argentina().year),
         ambiguedades=entrada.ambiguedades,
+        alias_vista=alias_vista,
     )
 
 
@@ -418,6 +434,12 @@ def _prompt_sistema(envio: Envio, rol_codigo: str) -> str:
         hoy=fecha_operativa_argentina().strftime("%d/%m/%Y"),
         ciclo=envio.ciclo_lectivo,
         ruta=envio.ruta or "desconocida",
+        vista=(
+            f'\n- La persona está viendo la ficha {envio.alias_vista}; "este alumno" o "esta '
+            'familia" se refiere a ella.'
+            if envio.alias_vista is not None
+            else ""
+        ),
     )
 
 

@@ -88,6 +88,18 @@ class TestEntrada:
         ultimo = proveedor.peticiones[0]["messages"][-1]["content"]
         assert ultimo == "ficha de [ALUMNO:1]"
 
+    def test_el_contexto_de_pantalla_viaja_como_alias(self, direccion, proveedor, personas):
+        proveedor.respuestas = [respuesta_texto("ok")]
+        enviar(
+            direccion,
+            nueva_conversacion(direccion),
+            "¿cómo viene este alumno?",
+            contexto={"tipo": "ALUMNO", "entidad_id": str(personas["mariana"].id)},
+        )
+        sistema = proveedor.peticiones[0]["messages"][0]["content"]
+        assert "está viendo la ficha [ALUMNO:1]" in sistema
+        assert_sin_datos_personales(proveedor)
+
 
 class TestSalidasDeHerramientas:
     def test_ficha_de_alumno_no_expone_datos_personales(

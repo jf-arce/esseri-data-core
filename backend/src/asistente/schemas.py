@@ -15,9 +15,17 @@ class MencionCreate(BaseModel):
     texto: str = Field(min_length=1, max_length=120)
 
 
+class ContextoCreate(BaseModel):
+    """Ficha que la persona tiene abierta en pantalla (`alumnos/:id` o `familias/:id`)."""
+
+    tipo: Literal["ALUMNO", "FAMILIA"]
+    entidad_id: uuid.UUID
+
+
 class MensajeCreate(BaseModel):
     contenido: str = Field(min_length=1)
     menciones: list[MencionCreate] = Field(default_factory=list, max_length=10)
+    contexto: ContextoCreate | None = None
     ruta: str | None = Field(default=None, max_length=200)
     ciclo_lectivo: str | None = Field(default=None, max_length=10)
 

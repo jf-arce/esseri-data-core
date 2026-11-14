@@ -272,3 +272,40 @@ class TestExportarTabla:
     def test_formato_invalido_da_422(self, direccion, proveedor, personas, db_session):
         conversacion = self.preparar(direccion, proveedor, db_session)
         assert direccion.get(self.url(conversacion, "pdf")).status_code == 422
+
+
+class TestContextoDePantalla:
+    def test_sin_permiso_de_personas_el_contexto_se_ignora(
+        self, client, db_session, proveedor, personas
+    ):
+        crear_cuenta(db_session, "sinper@esseri.test", [MODULO_ASISTENTE, MODULO_PANEL_ADMIN])
+        cliente = iniciar_sesion("sinper@esseri.test")
+        proveedor.respuestas = [respuesta_texto("ok")]
+        enviar(
+            cliente,
+            nueva_conversacion(cliente),
+            "¿cómo viene este alumno?",
+            contexto={"tipo": "ALUMNO", "entidad_id": str(personas["mariana"].id)},
+        )
+        sistema = proveedor.peticiones[0]["messages"][0]["content"]
+        assert "está viendo" not in sistema
+        assert db_session.scalar(select(AliasConversacion.id)) is None
+
+    def test_una_entidad_inexistente_se_ignora(self, direccion, proveedor, personas):
+        proveedor.respuestas = [respuesta_texto("ok")]
+        enviar(
+            direccion,
+            nueva_conversacion(direccion),
+            "¿cómo viene este alumno?",
+            contexto={"tipo": "ALUMNO", "entidad_id": str(uuid.uuid4())},
+        )
+        assert "está viendo" not in proveedor.peticiones[0]["messages"][0]["content"]
+
+    def test_el_tipo_de_contexto_debe_ser_alumno_o_familia(self, direccion, personas):
+        respuesta = enviar(
+            direccion,
+            nueva_conversacion(direccion),
+            "hola",
+            contexto={"tipo": "DOCENTE", "entidad_id": str(uuid.uuid4())},
+        )
+        assert respuesta.status_code == 422
