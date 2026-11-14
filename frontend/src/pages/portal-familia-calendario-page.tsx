@@ -126,6 +126,7 @@ export function PortalFamiliaCalendarioPage() {
   const { alumnos, cargando } = useMisAlumnos(true)
   const [alumnoId, setAlumnoId] = useState('')
   const [seleccionId, setSeleccionId] = useState<string | null>(null)
+  const [diaAgenda, setDiaAgenda] = useState<number | null>(null)
   const alumno = alumnos.find((item) => item.alumno_id === alumnoId) ?? alumnos[0]
   const {
     materiasCurso,
@@ -168,6 +169,22 @@ export function PortalFamiliaCalendarioPage() {
 
   const activa = franjas.find((franja) => franja.id === seleccionId) ?? primeraFranja
   const diaActivo = activa?.dia_semana
+  const diaVisible = diaAgenda ?? diaActivo ?? 1
+  const franjasDelDia = useMemo(
+    () =>
+      franjas
+        .filter((franja) => franja.dia_semana === diaVisible)
+        .sort((a, b) => aMinutos(a.hora_inicio) - aMinutos(b.hora_inicio)),
+    [franjas, diaVisible],
+  )
+
+  function elegirDia(dia: number) {
+    setDiaAgenda(dia)
+    const primera = franjas
+      .filter((franja) => franja.dia_semana === dia)
+      .sort((a, b) => aMinutos(a.hora_inicio) - aMinutos(b.hora_inicio))[0]
+    if (primera) setSeleccionId(primera.id)
+  }
 
   return (
     <section
@@ -219,6 +236,7 @@ export function PortalFamiliaCalendarioPage() {
                         onValueChange={(valor) => {
                           setAlumnoId(valor)
                           setSeleccionId(null)
+                          setDiaAgenda(null)
                         }}
                       >
                         <SelectTrigger
@@ -260,84 +278,158 @@ export function PortalFamiliaCalendarioPage() {
                     </EmptyDescription>
                   </Empty>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <div className="min-w-[820px]">
-                      <div
-                        className="grid overflow-hidden rounded-[18px] border border-[#EFE7F6] bg-white"
-                        style={{
-                          gridTemplateColumns: '8rem repeat(5, minmax(0, 1fr))',
-                        }}
-                      >
-                        <div className="bg-[#FBF9FD]" aria-hidden="true" />
-                        {DIAS.map((dia) => (
+                  <>
+                    <div data-testid="calendario-grilla" className="hidden lg:block">
+                      <div className="overflow-x-auto">
+                        <div className="min-w-[820px]">
                           <div
+                            className="grid overflow-hidden rounded-[18px] border border-[#EFE7F6] bg-white"
+                            style={{
+                              gridTemplateColumns: '8rem repeat(5, minmax(0, 1fr))',
+                            }}
+                          >
+                            <div className="bg-[#FBF9FD]" aria-hidden="true" />
+                            {DIAS.map((dia) => (
+                              <div
+                                key={dia}
+                                className={cn(
+                                  'border-l border-[#EFE7F6] px-3 py-3 text-center text-[15px] font-semibold',
+                                  dia === diaActivo
+                                    ? 'bg-[#F1E4FB] text-[#7A2FA8]'
+                                    : 'bg-[#FBF9FD] text-[#2B2338]',
+                                )}
+                              >
+                                {NOMBRES_DIA[dia - 1]}
+                              </div>
+                            ))}
+
+                            {slots.map((slot) => (
+                              <Fragment key={`${slot.inicio}-${slot.fin}`}>
+                                <div className="border-t border-[#EFE7F6] px-3 py-4 text-center text-[13px] font-semibold text-[#6B6478] tabular-nums">
+                                  {rangoHora(slot.inicio)} – {rangoHora(slot.fin)}
+                                </div>
+                                {DIAS.map((dia) => {
+                                  const franja = celdas.get(`${dia}-${slot.inicio}-${slot.fin}`)
+                                  if (!franja) {
+                                    return (
+                                      <div
+                                        key={`${dia}-${slot.inicio}`}
+                                        className="min-h-[72px] border-t border-l border-[#EFE7F6]"
+                                      />
+                                    )
+                                  }
+                                  const estilo = estiloMateria(franja.materia.materia_nombre)
+                                  const Icono = estilo.Icono
+                                  const activaEsta = franja.id === activa?.id
+                                  return (
+                                    <div
+                                      key={`${dia}-${slot.inicio}`}
+                                      className="border-t border-l border-[#EFE7F6] p-2"
+                                    >
+                                      <button
+                                        type="button"
+                                        aria-pressed={activaEsta}
+                                        onClick={() => setSeleccionId(franja.id)}
+                                        className={cn(
+                                          'flex min-h-[60px] w-full flex-col justify-center gap-1 rounded-[12px] px-3 py-2 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]',
+                                          estilo.bg,
+                                          activaEsta &&
+                                            'ring-2 ring-[#7A2FA8] ring-offset-2 ring-offset-white',
+                                        )}
+                                      >
+                                        <span className="flex items-center gap-2">
+                                          <Icono
+                                            aria-hidden="true"
+                                            className={cn('size-[18px] shrink-0', estilo.texto)}
+                                          />
+                                          <span className="min-w-0 text-[13.5px] leading-tight font-bold text-[#2B2338]">
+                                            {franja.materia.materia_nombre}
+                                          </span>
+                                        </span>
+                                        <span className="text-[12px] font-medium text-[#4B4456] tabular-nums">
+                                          {rangoHora(franja.hora_inicio)} –{' '}
+                                          {rangoHora(franja.hora_fin)}
+                                        </span>
+                                      </button>
+                                    </div>
+                                  )
+                                })}
+                              </Fragment>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div data-testid="calendario-agenda" className="flex flex-col gap-4 lg:hidden">
+                      <div
+                        role="tablist"
+                        aria-label="Día del calendario"
+                        className="grid grid-cols-5 gap-1 rounded-full bg-[#F5EFFA] p-1"
+                      >
+                        {DIAS.map((dia) => (
+                          <button
                             key={dia}
+                            type="button"
+                            role="tab"
+                            aria-selected={dia === diaVisible}
+                            onClick={() => elegirDia(dia)}
                             className={cn(
-                              'border-l border-[#EFE7F6] px-3 py-3 text-center text-[15px] font-semibold',
-                              dia === diaActivo
-                                ? 'bg-[#F1E4FB] text-[#7A2FA8]'
-                                : 'bg-[#FBF9FD] text-[#2B2338]',
+                              'rounded-full px-1 py-2 text-[12px] font-semibold whitespace-nowrap transition-colors sm:text-sm',
+                              dia === diaVisible
+                                ? 'bg-white text-[#7A2FA8] shadow-sm'
+                                : 'text-[#6B6478] hover:text-[#2B2338]',
                             )}
                           >
                             {NOMBRES_DIA[dia - 1]}
-                          </div>
-                        ))}
-
-                        {slots.map((slot) => (
-                          <Fragment key={`${slot.inicio}-${slot.fin}`}>
-                            <div className="border-t border-[#EFE7F6] px-3 py-4 text-center text-[13px] font-semibold text-[#6B6478] tabular-nums">
-                              {rangoHora(slot.inicio)} – {rangoHora(slot.fin)}
-                            </div>
-                            {DIAS.map((dia) => {
-                              const franja = celdas.get(`${dia}-${slot.inicio}-${slot.fin}`)
-                              if (!franja) {
-                                return (
-                                  <div
-                                    key={`${dia}-${slot.inicio}`}
-                                    className="min-h-[72px] border-t border-l border-[#EFE7F6]"
-                                  />
-                                )
-                              }
-                              const estilo = estiloMateria(franja.materia.materia_nombre)
-                              const Icono = estilo.Icono
-                              const activaEsta = franja.id === activa?.id
-                              return (
-                                <div
-                                  key={`${dia}-${slot.inicio}`}
-                                  className="border-t border-l border-[#EFE7F6] p-2"
-                                >
-                                  <button
-                                    type="button"
-                                    aria-pressed={activaEsta}
-                                    onClick={() => setSeleccionId(franja.id)}
-                                    className={cn(
-                                      'flex min-h-[60px] w-full flex-col justify-center gap-1 rounded-[12px] px-3 py-2 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]',
-                                      estilo.bg,
-                                      activaEsta &&
-                                        'ring-2 ring-[#7A2FA8] ring-offset-2 ring-offset-white',
-                                    )}
-                                  >
-                                    <span className="flex items-center gap-2">
-                                      <Icono
-                                        aria-hidden="true"
-                                        className={cn('size-[18px] shrink-0', estilo.texto)}
-                                      />
-                                      <span className="min-w-0 text-[13.5px] leading-tight font-bold text-[#2B2338]">
-                                        {franja.materia.materia_nombre}
-                                      </span>
-                                    </span>
-                                    <span className="text-[12px] font-medium text-[#4B4456] tabular-nums">
-                                      {rangoHora(franja.hora_inicio)} – {rangoHora(franja.hora_fin)}
-                                    </span>
-                                  </button>
-                                </div>
-                              )
-                            })}
-                          </Fragment>
+                          </button>
                         ))}
                       </div>
+                      <div className="flex flex-col gap-2">
+                        {franjasDelDia.length === 0 ? (
+                          <p className="rounded-[12px] border border-dashed border-[#E4D9F0] bg-[#FBF9FD] p-4 text-sm text-[#6B6478]">
+                            No hay clases este día.
+                          </p>
+                        ) : (
+                          franjasDelDia.map((franja) => {
+                            const estilo = estiloMateria(franja.materia.materia_nombre)
+                            const Icono = estilo.Icono
+                            const activaEsta = franja.id === activa?.id
+                            return (
+                              <button
+                                key={franja.id}
+                                type="button"
+                                aria-pressed={activaEsta}
+                                onClick={() => setSeleccionId(franja.id)}
+                                className={cn(
+                                  'flex items-center gap-3 rounded-[14px] px-4 py-3 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]',
+                                  estilo.bg,
+                                  activaEsta &&
+                                    'ring-2 ring-[#7A2FA8] ring-offset-2 ring-offset-white',
+                                )}
+                              >
+                                <span
+                                  className={cn(
+                                    'flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-white/70',
+                                    estilo.texto,
+                                  )}
+                                >
+                                  <Icono aria-hidden="true" className="size-5" />
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="block text-[15px] font-bold text-[#2B2338]">
+                                    {franja.materia.materia_nombre}
+                                  </span>
+                                  <span className="mt-0.5 block text-[13px] font-medium text-[#4B4456] tabular-nums">
+                                    {rangoHora(franja.hora_inicio)} – {rangoHora(franja.hora_fin)}
+                                  </span>
+                                </span>
+                              </button>
+                            )
+                          })
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </>
                 )}
               </PortalCard>
 

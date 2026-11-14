@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -66,7 +66,11 @@ describe('PortalFamiliaCalendarioPage', () => {
 
     expect(screen.getByText('Horario semanal')).toBeInTheDocument()
     expect(screen.getByText('4°B · Primario')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Matemática.*08:00/ })).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId('calendario-grilla')).getByRole('button', {
+        name: /Matemática.*08:00/,
+      }),
+    ).toBeInTheDocument()
     expect(screen.getAllByText('Matemática').length).toBeGreaterThan(0)
     expect(screen.getByText('María González')).toBeInTheDocument()
   })
@@ -97,6 +101,20 @@ describe('PortalFamiliaCalendarioPage', () => {
 
     expect(screen.getByText('Laura Díaz')).toBeInTheDocument()
     expect(screen.getAllByText('09:00 – 10:00').length).toBeGreaterThan(0)
+  })
+
+  it('permite recorrer los días en la agenda compacta', async () => {
+    const usuario = userEvent.setup()
+    renderizar()
+
+    const agenda = within(screen.getByTestId('calendario-agenda'))
+    expect(agenda.getByRole('button', { name: /Matemática/ })).toBeInTheDocument()
+
+    await usuario.click(agenda.getByRole('tab', { name: 'Miércoles' }))
+    expect(agenda.getByText('No hay clases este día.')).toBeInTheDocument()
+
+    await usuario.click(agenda.getByRole('tab', { name: 'Lunes' }))
+    expect(agenda.getByRole('button', { name: /Matemática/ })).toBeInTheDocument()
   })
 
   it('cambia de alumno y vuelve a pedir el horario del seleccionado', async () => {
