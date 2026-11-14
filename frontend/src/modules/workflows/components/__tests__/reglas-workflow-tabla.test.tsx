@@ -3,26 +3,20 @@ import { MemoryRouter } from 'react-router'
 import { abrirMenuDeFila } from '@/modules/workflows/__tests__/menu-acciones'
 import { describe, expect, it, vi } from 'vitest'
 import { ReglasWorkflowTabla } from '@/modules/workflows/components/reglas-workflow-tabla'
-import type { ReglaWorkflow, TipoEvento } from '@/modules/workflows/types'
+import { nodoAccion, reglaDe } from '@/modules/workflows/__tests__/fabricas'
+import type { TipoEvento } from '@/modules/workflows/types'
 
 const tiposEvento: TipoEvento[] = [
   { id: 'e-1', nombre: 'factura.vencida', descripcion: null, campos: [] },
 ]
 
-const regla: ReglaWorkflow = {
-  id: 'r-1',
+const regla = reglaDe({
   nombre: 'Penalidad por mora',
-  tipo_evento_id: 'e-1',
-  condicion: {},
-  tipo_accion: 'aplicar_penalidad',
-  accion_config: {},
   criticidad: 'alta',
-  requiere_aprobacion_humana: true,
-  notificacion_template_id: null,
-  activo: true,
-  created_at: '2026-09-01T00:00:00Z',
-  updated_at: '2026-09-01T00:00:00Z',
-}
+  nodos: [
+    nodoAccion('n-1', { tipo_accion: 'aplicar_penalidad', requiere_aprobacion_humana: true }),
+  ],
+})
 
 function renderizar(puedeActualizar: boolean) {
   return render(
