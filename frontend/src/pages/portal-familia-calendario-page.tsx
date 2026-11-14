@@ -27,7 +27,7 @@ import {
 import { PortalFamiliaShell } from '@/components/portal-familia/portal-familia-shell'
 import { PortalCard } from '@/components/portal-familia/portal-familia-ui'
 import { useHorarioFamilia } from '@/modules/academico/hooks/use-horario-familia'
-import { aMinutos } from '@/modules/academico/utils'
+import { aMinutos, deMinutos } from '@/modules/academico/utils'
 import type { MateriaCurso } from '@/modules/academico/types'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
 import { normalizarTexto } from '@/lib/texto'
@@ -50,6 +50,7 @@ const ESTILOS_MATERIA: Record<string, EstiloMateria> = {
   'educacion fisica': { bg: 'bg-[#FDEEE3]', texto: 'text-[#EA580C]', Icono: FlaskConicalIcon },
   musica: { bg: 'bg-[#FCE9F2]', texto: 'text-[#DB2777]', Icono: MusicIcon },
   plastica: { bg: 'bg-[#E4F6FA]', texto: 'text-[#0891B2]', Icono: PaletteIcon },
+  'taller de arte': { bg: 'bg-[#F3E8FF]', texto: 'text-[#7C3AED]', Icono: PaletteIcon },
   tecnologia: { bg: 'bg-[#E8EDFD]', texto: 'text-[#4F46E5]', Icono: LaptopIcon },
 }
 
@@ -68,10 +69,6 @@ function rangoHora(hora: string): string {
 }
 
 type Franja = MateriaCurso['horarios'][number] & { materia: MateriaCurso }
-
-function claveCelda(franja: Franja): string {
-  return `${franja.dia_semana}-${franja.hora_inicio}-${franja.hora_fin}`
-}
 
 function DetalleClase({ franja }: { franja: Franja | null }) {
   if (!franja) {
@@ -142,22 +139,25 @@ export function PortalFamiliaCalendarioPage() {
     [materiasCurso],
   )
 
-  const slots = useMemo(() => {
-    const unicos = new Map<string, { inicio: string; fin: string }>()
+  const puntos = useMemo(() => {
+    const unicos = new Set<number>()
     for (const franja of franjas) {
-      const clave = `${franja.hora_inicio}-${franja.hora_fin}`
-      if (!unicos.has(clave)) {
-        unicos.set(clave, { inicio: franja.hora_inicio, fin: franja.hora_fin })
-      }
+      unicos.add(aMinutos(franja.hora_inicio))
+      unicos.add(aMinutos(franja.hora_fin))
     }
-    return [...unicos.values()].sort((a, b) => aMinutos(a.inicio) - aMinutos(b.inicio))
+    return [...unicos].sort((a, b) => a - b)
   }, [franjas])
 
-  const celdas = useMemo(() => {
-    const mapa = new Map<string, Franja>()
-    for (const franja of franjas) mapa.set(claveCelda(franja), franja)
-    return mapa
-  }, [franjas])
+  const filasHorario = useMemo(() => {
+    const intervalos = puntos
+      .slice(0, -1)
+      .map((inicio, indice) => ({ inicio, fin: puntos[indice + 1] }))
+    return intervalos.filter(({ inicio, fin }) =>
+      franjas.some(
+        (franja) => aMinutos(franja.hora_inicio) <= inicio && aMinutos(franja.hora_fin) >= fin,
+      ),
+    )
+  }, [puntos, franjas])
 
   const primeraFranja = useMemo(
     () =>
@@ -201,6 +201,7 @@ export function PortalFamiliaCalendarioPage() {
           volverEtiqueta="Volver al inicio"
           anchoMaximo="max-w-[92vw]"
           className="pb-8"
+          classNameContenido="px-4 sm:px-8"
         />
 
         <div className="mx-auto w-full max-w-[92vw] px-4 pb-10 sm:px-8">
@@ -286,6 +287,12 @@ export function PortalFamiliaCalendarioPage() {
                             className="grid overflow-hidden rounded-[18px] border border-[#EFE7F6] bg-white"
                             style={{
                               gridTemplateColumns: '8rem repeat(5, minmax(0, 1fr))',
+                              gridTemplateRows: `auto ${filasHorario
+                                .map(
+                                  (fila) =>
+                                    `minmax(56px, ${Math.max(1, (fila.fin - fila.inicio) / 60)}fr)`,
+                                )
+                                .join(' ')}`,
                             }}
                           >
                             <div className="bg-[#FBF9FD]" aria-hidden="true" />
@@ -303,59 +310,67 @@ export function PortalFamiliaCalendarioPage() {
                               </div>
                             ))}
 
-                            {slots.map((slot) => (
-                              <Fragment key={`${slot.inicio}-${slot.fin}`}>
-                                <div className="border-t border-[#EFE7F6] px-3 py-4 text-center text-[13px] font-semibold text-[#6B6478] tabular-nums">
-                                  {rangoHora(slot.inicio)} – {rangoHora(slot.fin)}
+                            {filasHorario.map((fila, indice) => (
+                              <Fragment key={`${fila.inicio}-${fila.fin}`}>
+                                <div
+                                  className="border-t border-[#EFE7F6] px-3 py-4 text-center text-[13px] font-semibold text-[#6B6478] tabular-nums"
+                                  style={{ gridRow: indice + 2, gridColumn: 1 }}
+                                >
+                                  {deMinutos(fila.inicio)} – {deMinutos(fila.fin)}
                                 </div>
-                                {DIAS.map((dia) => {
-                                  const franja = celdas.get(`${dia}-${slot.inicio}-${slot.fin}`)
-                                  if (!franja) {
-                                    return (
-                                      <div
-                                        key={`${dia}-${slot.inicio}`}
-                                        className="min-h-[72px] border-t border-l border-[#EFE7F6]"
-                                      />
-                                    )
-                                  }
-                                  const estilo = estiloMateria(franja.materia.materia_nombre)
-                                  const Icono = estilo.Icono
-                                  const activaEsta = franja.id === activa?.id
-                                  return (
-                                    <div
-                                      key={`${dia}-${slot.inicio}`}
-                                      className="border-t border-l border-[#EFE7F6] p-2"
-                                    >
-                                      <button
-                                        type="button"
-                                        aria-pressed={activaEsta}
-                                        onClick={() => setSeleccionId(franja.id)}
-                                        className={cn(
-                                          'flex min-h-[60px] w-full flex-col justify-center gap-1 rounded-[12px] px-3 py-2 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]',
-                                          estilo.bg,
-                                          activaEsta &&
-                                            'ring-2 ring-[#7A2FA8] ring-offset-2 ring-offset-white',
-                                        )}
-                                      >
-                                        <span className="flex items-center gap-2">
-                                          <Icono
-                                            aria-hidden="true"
-                                            className={cn('size-[18px] shrink-0', estilo.texto)}
-                                          />
-                                          <span className="min-w-0 text-[13.5px] leading-tight font-bold text-[#2B2338]">
-                                            {franja.materia.materia_nombre}
-                                          </span>
-                                        </span>
-                                        <span className="text-[12px] font-medium text-[#4B4456] tabular-nums">
-                                          {rangoHora(franja.hora_inicio)} –{' '}
-                                          {rangoHora(franja.hora_fin)}
-                                        </span>
-                                      </button>
-                                    </div>
-                                  )
-                                })}
+                                {DIAS.map((dia) => (
+                                  <div
+                                    key={dia}
+                                    className="border-t border-l border-[#EFE7F6]"
+                                    style={{ gridRow: indice + 2, gridColumn: dia + 1 }}
+                                  />
+                                ))}
                               </Fragment>
                             ))}
+
+                            {franjas.map((franja) => {
+                              const inicio = aMinutos(franja.hora_inicio)
+                              const fin = aMinutos(franja.hora_fin)
+                              const filaInicio = filasHorario.findIndex(
+                                (fila) => fila.inicio === inicio,
+                              )
+                              const filaFin = filasHorario.findIndex((fila) => fila.fin === fin)
+                              if (filaInicio === -1 || filaFin === -1) return null
+                              const estilo = estiloMateria(franja.materia.materia_nombre)
+                              const Icono = estilo.Icono
+                              const activaEsta = franja.id === activa?.id
+                              return (
+                                <button
+                                  key={franja.id}
+                                  type="button"
+                                  aria-pressed={activaEsta}
+                                  onClick={() => setSeleccionId(franja.id)}
+                                  style={{
+                                    gridRow: `${filaInicio + 2} / ${filaFin + 3}`,
+                                    gridColumn: franja.dia_semana + 1,
+                                  }}
+                                  className={cn(
+                                    'relative z-10 m-1 flex flex-col justify-center gap-1 rounded-[12px] px-3 py-2 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]',
+                                    estilo.bg,
+                                    activaEsta &&
+                                      'ring-2 ring-[#7A2FA8] ring-offset-2 ring-offset-white',
+                                  )}
+                                >
+                                  <span className="flex items-center gap-2">
+                                    <Icono
+                                      aria-hidden="true"
+                                      className={cn('size-[18px] shrink-0', estilo.texto)}
+                                    />
+                                    <span className="min-w-0 text-[13.5px] leading-tight font-bold text-[#2B2338]">
+                                      {franja.materia.materia_nombre}
+                                    </span>
+                                  </span>
+                                  <span className="text-[12px] font-medium text-[#4B4456] tabular-nums">
+                                    {rangoHora(franja.hora_inicio)} – {rangoHora(franja.hora_fin)}
+                                  </span>
+                                </button>
+                              )
+                            })}
                           </div>
                         </div>
                       </div>
