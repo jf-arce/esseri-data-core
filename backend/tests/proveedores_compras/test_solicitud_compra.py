@@ -8,7 +8,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from src.proveedores_compras.exceptions import (
+    AreaSolicitanteInexistente,
+    AreaSolicitanteObligatoria,
     ProductoServicioInexistente,
+    SolicitudPropiaNoDecidible,
     SolicitudSinArticuloNiProducto,
 )
 from src.proveedores_compras.models import ProductoServicio
@@ -18,9 +21,11 @@ from src.proveedores_compras.service import (
     cambiar_estado_solicitud,
     crear_solicitud,
     eliminar_solicitud,
+    listar_areas_solicitantes,
     listar_solicitudes,
     obtener_solicitud_por_id,
 )
+from tests.areas import AREA_SOLICITANTE_ID
 
 
 def _producto(db: Session, nombre: str = "Resma A4") -> ProductoServicio:
@@ -32,15 +37,17 @@ def _producto(db: Session, nombre: str = "Resma A4") -> ProductoServicio:
 
 
 class TestSolicitudCompraSchema:
-    """La regla artículo/producto se valida antes de tocar la base."""
+    """Las reglas de artículo, cantidad y área se validan antes de tocar la base."""
 
     def test_sin_articulo_ni_producto_es_invalida(self):
         """Regla del modelo: tiene que venir uno de los dos."""
         with pytest.raises(ValueError, match="artículo o un producto"):
-            SolicitudCompraCreate(cantidad=5)
+            SolicitudCompraCreate(cantidad=5, area_solicitante_id=AREA_SOLICITANTE_ID)
 
     def test_alcanza_con_el_articulo_libre(self):
-        solicitud = SolicitudCompraCreate(articulo="Resmas A4", cantidad=5)
+        solicitud = SolicitudCompraCreate(
+            articulo="Resmas A4", cantidad=5, area_solicitante_id=AREA_SOLICITANTE_ID
+        )
 
         assert solicitud.articulo == "Resmas A4"
         assert solicitud.producto_servicio_id is None
@@ -48,15 +55,46 @@ class TestSolicitudCompraSchema:
     def test_alcanza_con_el_producto_de_catalogo(self):
         producto_id = uuid.uuid4()
 
-        solicitud = SolicitudCompraCreate(producto_servicio_id=producto_id, cantidad=5)
+        solicitud = SolicitudCompraCreate(
+            producto_servicio_id=producto_id,
+            cantidad=5,
+            area_solicitante_id=AREA_SOLICITANTE_ID,
+        )
 
         assert solicitud.producto_servicio_id == producto_id
 
+    def test_area_es_obligatoria(self):
+        with pytest.raises(ValueError, match="area_solicitante_id"):
+            SolicitudCompraCreate(articulo="Resmas A4", cantidad=5)
+
     def test_cantidad_cero_o_negativa_es_invalida(self):
         with pytest.raises(ValueError):
-            SolicitudCompraCreate(articulo="Resmas A4", cantidad=0)
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=0, area_solicitante_id=AREA_SOLICITANTE_ID
+            )
         with pytest.raises(ValueError):
-            SolicitudCompraCreate(articulo="Resmas A4", cantidad=-3)
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=-3, area_solicitante_id=AREA_SOLICITANTE_ID
+            )
+
+    def test_cantidad_con_decimales_es_invalida(self):
+        with pytest.raises(ValueError):
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=1.5, area_solicitante_id=AREA_SOLICITANTE_ID
+            )
+
+    def test_cantidad_supera_el_tope(self):
+        with pytest.raises(ValueError):
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10000, area_solicitante_id=AREA_SOLICITANTE_ID
+            )
+
+    def test_cantidad_en_el_tope_es_valida(self):
+        solicitud = SolicitudCompraCreate(
+            articulo="Resmas A4", cantidad=9999, area_solicitante_id=AREA_SOLICITANTE_ID
+        )
+
+        assert solicitud.cantidad == 9999
 
 
 class TestSolicitudCompraService:
@@ -66,18 +104,28 @@ class TestSolicitudCompraService:
         usuario_id = uuid.uuid4()
 
         solicitud = crear_solicitud(
-            db_session, SolicitudCompraCreate(articulo="Resmas A4", cantidad=10), usuario_id
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            usuario_id,
         )
 
         assert solicitud.estado == "pendiente"
         assert solicitud.fecha == date.today()
         assert solicitud.usuario_id == usuario_id
+        assert solicitud.area_solicitante == "Secretaría"
 
     def test_crear_solicitud_respeta_la_fecha_informada(self, db_session: Session):
         """Se puede cargar un pedido en diferido."""
         solicitud = crear_solicitud(
             db_session,
-            SolicitudCompraCreate(articulo="Resmas A4", cantidad=10, fecha=date(2026, 8, 1)),
+            SolicitudCompraCreate(
+                articulo="Resmas A4",
+                cantidad=10,
+                area_solicitante_id=AREA_SOLICITANTE_ID,
+                fecha=date(2026, 8, 1),
+            ),
             uuid.uuid4(),
         )
 
@@ -88,7 +136,21 @@ class TestSolicitudCompraService:
         with pytest.raises(ProductoServicioInexistente):
             crear_solicitud(
                 db_session,
-                SolicitudCompraCreate(producto_servicio_id=uuid.uuid4(), cantidad=1),
+                SolicitudCompraCreate(
+                    producto_servicio_id=uuid.uuid4(),
+                    cantidad=1,
+                    area_solicitante_id=AREA_SOLICITANTE_ID,
+                ),
+                uuid.uuid4(),
+            )
+
+    def test_crear_solicitud_con_area_inexistente_rechaza(self, db_session: Session):
+        with pytest.raises(AreaSolicitanteInexistente):
+            crear_solicitud(
+                db_session,
+                SolicitudCompraCreate(
+                    articulo="Resmas A4", cantidad=1, area_solicitante_id=uuid.uuid4()
+                ),
                 uuid.uuid4(),
             )
 
@@ -97,7 +159,11 @@ class TestSolicitudCompraService:
 
         solicitud = crear_solicitud(
             db_session,
-            SolicitudCompraCreate(producto_servicio_id=producto.id, cantidad=2),
+            SolicitudCompraCreate(
+                producto_servicio_id=producto.id,
+                cantidad=2,
+                area_solicitante_id=AREA_SOLICITANTE_ID,
+            ),
             uuid.uuid4(),
         )
 
@@ -108,21 +174,38 @@ class TestSolicitudCompraService:
         usuario_id = uuid.uuid4()
         crear_solicitud(
             db_session,
-            SolicitudCompraCreate(articulo="Vieja", cantidad=1, fecha=date(2026, 1, 5)),
+            SolicitudCompraCreate(
+                articulo="Vieja",
+                cantidad=1,
+                area_solicitante_id=AREA_SOLICITANTE_ID,
+                fecha=date(2026, 1, 5),
+            ),
             usuario_id,
         )
         crear_solicitud(
             db_session,
-            SolicitudCompraCreate(articulo="Nueva", cantidad=1, fecha=date(2026, 8, 20)),
+            SolicitudCompraCreate(
+                articulo="Nueva",
+                cantidad=1,
+                area_solicitante_id=AREA_SOLICITANTE_ID,
+                fecha=date(2026, 8, 20),
+            ),
             usuario_id,
         )
 
         assert [s.articulo for s in listar_solicitudes(db_session)] == ["Nueva", "Vieja"]
 
+    def test_listar_areas_solicitantes_ordena_por_nombre(self, db_session: Session):
+        areas = listar_areas_solicitantes(db_session)
+
+        assert [area.nombre for area in areas] == ["Secretaría"]
+
     def test_actualizar_no_pisa_campos_no_enviados(self, db_session: Session):
         solicitud = crear_solicitud(
             db_session,
-            SolicitudCompraCreate(articulo="Resmas A4", cantidad=10, area_solicitante="Secretaría"),
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
             uuid.uuid4(),
         )
 
@@ -132,23 +215,59 @@ class TestSolicitudCompraService:
 
         assert actualizado.cantidad == 25
         assert actualizado.articulo == "Resmas A4"
-        assert actualizado.area_solicitante == "Secretaría"
+        assert actualizado.area_solicitante_id == AREA_SOLICITANTE_ID
 
     def test_actualizar_no_puede_dejarla_sin_articulo_ni_producto(self, db_session: Session):
         """El validador del schema no alcanza acá: el otro valor vive en la fila, no en el
         payload."""
         solicitud = crear_solicitud(
-            db_session, SolicitudCompraCreate(articulo="Resmas A4", cantidad=10), uuid.uuid4()
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
         )
 
         with pytest.raises(SolicitudSinArticuloNiProducto):
             actualizar_solicitud(db_session, solicitud, SolicitudCompraUpdate(articulo=None))
 
+    def test_actualizar_no_puede_dejarla_sin_area(self, db_session: Session):
+        solicitud = crear_solicitud(
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
+        )
+
+        with pytest.raises(AreaSolicitanteObligatoria):
+            actualizar_solicitud(
+                db_session, solicitud, SolicitudCompraUpdate(area_solicitante_id=None)
+            )
+
+    def test_actualizar_con_area_inexistente_rechaza(self, db_session: Session):
+        solicitud = crear_solicitud(
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
+        )
+
+        with pytest.raises(AreaSolicitanteInexistente):
+            actualizar_solicitud(
+                db_session, solicitud, SolicitudCompraUpdate(area_solicitante_id=uuid.uuid4())
+            )
+
     def test_actualizar_permite_borrar_el_articulo_si_queda_el_producto(self, db_session: Session):
         """Pasar de texto libre a catálogo en un solo request es válido."""
         producto = _producto(db_session)
         solicitud = crear_solicitud(
-            db_session, SolicitudCompraCreate(articulo="Resmas A4", cantidad=10), uuid.uuid4()
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
         )
 
         actualizado = actualizar_solicitud(
@@ -162,16 +281,50 @@ class TestSolicitudCompraService:
 
     def test_cambiar_estado(self, db_session: Session):
         solicitud = crear_solicitud(
-            db_session, SolicitudCompraCreate(articulo="Resmas A4", cantidad=10), uuid.uuid4()
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
         )
 
         aprobada = cambiar_estado_solicitud(db_session, solicitud, "aprobada")
 
         assert aprobada.estado == "aprobada"
 
+    def test_no_puede_decidir_sobre_su_propia_solicitud(self, db_session: Session):
+        usuario_id = uuid.uuid4()
+        solicitud = crear_solicitud(
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            usuario_id,
+        )
+
+        with pytest.raises(SolicitudPropiaNoDecidible):
+            cambiar_estado_solicitud(db_session, solicitud, "aprobada", usuario_id)
+
+    def test_otro_usuario_puede_decidir_la_solicitud(self, db_session: Session):
+        solicitud = crear_solicitud(
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
+        )
+
+        aprobada = cambiar_estado_solicitud(db_session, solicitud, "aprobada", uuid.uuid4())
+
+        assert aprobada.estado == "aprobada"
+
     def test_eliminar_solicitud(self, db_session: Session):
         solicitud = crear_solicitud(
-            db_session, SolicitudCompraCreate(articulo="Resmas A4", cantidad=10), uuid.uuid4()
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
         )
         solicitud_id = solicitud.id
 
@@ -186,13 +339,20 @@ class TestSolicitudCompraEndpoints:
     def test_crear_solicitud_endpoint(self, client_autenticado: TestClient):
         response = client_autenticado.post(
             "/proveedores-compras/solicitudes",
-            json={"articulo": "Resmas A4", "cantidad": 10, "area_solicitante": "Secretaría"},
+            json={
+                "articulo": "Resmas A4",
+                "cantidad": 10,
+                "area_solicitante_id": str(AREA_SOLICITANTE_ID),
+            },
         )
 
         assert response.status_code == 201
         data = response.json()
         assert data["estado"] == "pendiente"
         assert data["cantidad"] == 10
+        assert data["area_solicitante"] == "Secretaría"
+        assert data["area_solicitante_id"] == str(AREA_SOLICITANTE_ID)
+        assert data["solicitante_nombre"] == "compras@esseri.edu.ar"
 
     def test_crear_solicitud_toma_el_solicitante_de_la_sesion(self, client_autenticado: TestClient):
         """`usuario_id` no se acepta del payload: lo pone el backend desde la sesión."""
@@ -200,33 +360,89 @@ class TestSolicitudCompraEndpoints:
 
         response = client_autenticado.post(
             "/proveedores-compras/solicitudes",
-            json={"articulo": "Resmas A4", "cantidad": 1, "usuario_id": usuario_falso},
+            json={
+                "articulo": "Resmas A4",
+                "cantidad": 1,
+                "area_solicitante_id": str(AREA_SOLICITANTE_ID),
+                "usuario_id": usuario_falso,
+            },
         )
 
         assert response.status_code == 201
         assert response.json()["usuario_id"] != usuario_falso
 
     def test_crear_sin_articulo_ni_producto_rechaza(self, client_autenticado: TestClient):
-        response = client_autenticado.post("/proveedores-compras/solicitudes", json={"cantidad": 5})
+        response = client_autenticado.post(
+            "/proveedores-compras/solicitudes",
+            json={"cantidad": 5, "area_solicitante_id": str(AREA_SOLICITANTE_ID)},
+        )
+
+        assert response.status_code == 422
+
+    def test_crear_sin_area_rechaza(self, client_autenticado: TestClient):
+        response = client_autenticado.post(
+            "/proveedores-compras/solicitudes", json={"articulo": "Resmas A4", "cantidad": 5}
+        )
+
+        assert response.status_code == 422
+
+    def test_crear_con_area_inexistente_rechaza(self, client_autenticado: TestClient):
+        response = client_autenticado.post(
+            "/proveedores-compras/solicitudes",
+            json={
+                "articulo": "Resmas A4",
+                "cantidad": 5,
+                "area_solicitante_id": str(uuid.uuid4()),
+            },
+        )
 
         assert response.status_code == 422
 
     def test_crear_con_cantidad_invalida_rechaza(self, client_autenticado: TestClient):
         response = client_autenticado.post(
-            "/proveedores-compras/solicitudes", json={"articulo": "Resmas A4", "cantidad": 0}
+            "/proveedores-compras/solicitudes",
+            json={
+                "articulo": "Resmas A4",
+                "cantidad": 0,
+                "area_solicitante_id": str(AREA_SOLICITANTE_ID),
+            },
+        )
+
+        assert response.status_code == 422
+
+    def test_crear_con_cantidad_sobre_el_tope_rechaza(self, client_autenticado: TestClient):
+        response = client_autenticado.post(
+            "/proveedores-compras/solicitudes",
+            json={
+                "articulo": "Resmas A4",
+                "cantidad": 10000,
+                "area_solicitante_id": str(AREA_SOLICITANTE_ID),
+            },
         )
 
         assert response.status_code == 422
 
     def test_listar_solicitudes_endpoint(self, client_autenticado: TestClient, db_session: Session):
         crear_solicitud(
-            db_session, SolicitudCompraCreate(articulo="Resmas A4", cantidad=10), uuid.uuid4()
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
         )
 
         response = client_autenticado.get("/proveedores-compras/solicitudes")
 
         assert response.status_code == 200
         assert len(response.json()) == 1
+
+    def test_listar_areas_solicitantes_endpoint(self, client_autenticado: TestClient):
+        response = client_autenticado.get("/proveedores-compras/areas-solicitantes")
+
+        assert response.status_code == 200
+        assert response.json() == [
+            {"id": str(AREA_SOLICITANTE_ID), "nombre": "Secretaría", "activo": True}
+        ]
 
     def test_obtener_solicitud_no_existente_endpoint(self, client_autenticado: TestClient):
         response = client_autenticado.get(f"/proveedores-compras/solicitudes/{uuid.uuid4()}")
@@ -235,7 +451,11 @@ class TestSolicitudCompraEndpoints:
 
     def test_cambiar_estado_endpoint(self, client_autenticado: TestClient, db_session: Session):
         solicitud = crear_solicitud(
-            db_session, SolicitudCompraCreate(articulo="Resmas A4", cantidad=10), uuid.uuid4()
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
         )
 
         response = client_autenticado.patch(
@@ -246,12 +466,52 @@ class TestSolicitudCompraEndpoints:
         assert response.status_code == 200
         assert response.json()["estado"] == "aprobada"
 
+    def test_no_puede_aprobar_su_propia_solicitud(self, client_autenticado: TestClient):
+        """El solicitante sale de la sesión: quien la crea no puede aprobarla."""
+        creada = client_autenticado.post(
+            "/proveedores-compras/solicitudes",
+            json={
+                "articulo": "Resmas A4",
+                "cantidad": 10,
+                "area_solicitante_id": str(AREA_SOLICITANTE_ID),
+            },
+        )
+
+        response = client_autenticado.patch(
+            f"/proveedores-compras/solicitudes/{creada.json()['id']}/estado",
+            json={"estado": "aprobada"},
+        )
+
+        assert response.status_code == 403
+        assert "creaste" in response.json()["detail"]
+
+    def test_no_puede_rechazar_su_propia_solicitud(self, client_autenticado: TestClient):
+        creada = client_autenticado.post(
+            "/proveedores-compras/solicitudes",
+            json={
+                "articulo": "Resmas A4",
+                "cantidad": 10,
+                "area_solicitante_id": str(AREA_SOLICITANTE_ID),
+            },
+        )
+
+        response = client_autenticado.patch(
+            f"/proveedores-compras/solicitudes/{creada.json()['id']}/estado",
+            json={"estado": "rechazada"},
+        )
+
+        assert response.status_code == 403
+
     def test_cambiar_estado_invalido_rechaza(
         self, client_autenticado: TestClient, db_session: Session
     ):
         """El `Literal` corta el estado inventado con 422, no con un 500 de la base."""
         solicitud = crear_solicitud(
-            db_session, SolicitudCompraCreate(articulo="Resmas A4", cantidad=10), uuid.uuid4()
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
         )
 
         response = client_autenticado.patch(
@@ -265,7 +525,11 @@ class TestSolicitudCompraEndpoints:
         self, client_autenticado: TestClient, db_session: Session
     ):
         solicitud = crear_solicitud(
-            db_session, SolicitudCompraCreate(articulo="Resmas A4", cantidad=10), uuid.uuid4()
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
         )
 
         response = client_autenticado.put(
@@ -274,9 +538,30 @@ class TestSolicitudCompraEndpoints:
 
         assert response.status_code == 422
 
+    def test_actualizar_que_la_deja_sin_area_da_422(
+        self, client_autenticado: TestClient, db_session: Session
+    ):
+        solicitud = crear_solicitud(
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
+        )
+
+        response = client_autenticado.put(
+            f"/proveedores-compras/solicitudes/{solicitud.id}", json={"area_solicitante_id": None}
+        )
+
+        assert response.status_code == 422
+
     def test_eliminar_solicitud_endpoint(self, client_autenticado: TestClient, db_session: Session):
         solicitud = crear_solicitud(
-            db_session, SolicitudCompraCreate(articulo="Resmas A4", cantidad=10), uuid.uuid4()
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
         )
 
         response = client_autenticado.delete(f"/proveedores-compras/solicitudes/{solicitud.id}")
@@ -285,9 +570,15 @@ class TestSolicitudCompraEndpoints:
 
     def test_endpoints_sin_sesion_rechazan(self, client: TestClient):
         assert client.get("/proveedores-compras/solicitudes").status_code == 401
+        assert client.get("/proveedores-compras/areas-solicitantes").status_code == 401
         assert (
             client.post(
-                "/proveedores-compras/solicitudes", json={"articulo": "Resmas A4", "cantidad": 1}
+                "/proveedores-compras/solicitudes",
+                json={
+                    "articulo": "Resmas A4",
+                    "cantidad": 1,
+                    "area_solicitante_id": str(AREA_SOLICITANTE_ID),
+                },
             ).status_code
             == 401
         )

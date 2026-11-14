@@ -37,6 +37,7 @@ from src.proveedores_compras.service import (
     eliminar_solicitud,
     obtener_detalles_de_orden,
 )
+from tests.areas import AREA_SOLICITANTE_ID
 
 
 def _crear_usuario(db_session, email="auditor@esseri.edu.ar"):
@@ -106,7 +107,11 @@ class TestAuditoriaSolicitudCompra:
         usuario = _crear_usuario(db_session)
 
         solicitud = crear_solicitud(
-            db_session, SolicitudCompraCreate(articulo="Resmas A4", cantidad=10), usuario.id
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            usuario.id,
         )
 
         registros = _historial(db_session, "SOLICITUD_COMPRA", solicitud.id)
@@ -117,7 +122,11 @@ class TestAuditoriaSolicitudCompra:
     def test_cambiar_estado_solicitud_audita_el_campo_estado(self, db_session: Session):
         usuario = _crear_usuario(db_session)
         solicitud = crear_solicitud(
-            db_session, SolicitudCompraCreate(articulo="Resmas A4", cantidad=10), uuid.uuid4()
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
         )
 
         cambiar_estado_solicitud(db_session, solicitud, "aprobada", usuario.id)
@@ -131,7 +140,11 @@ class TestAuditoriaSolicitudCompra:
     def test_actualizar_solicitud_audita_campo_cambiado(self, db_session: Session):
         usuario = _crear_usuario(db_session)
         solicitud = crear_solicitud(
-            db_session, SolicitudCompraCreate(articulo="Resmas A4", cantidad=10), uuid.uuid4()
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
         )
 
         actualizar_solicitud(db_session, solicitud, SolicitudCompraUpdate(cantidad=20), usuario.id)
@@ -143,7 +156,11 @@ class TestAuditoriaSolicitudCompra:
     def test_eliminar_solicitud_audita_baja(self, db_session: Session):
         usuario = _crear_usuario(db_session)
         solicitud = crear_solicitud(
-            db_session, SolicitudCompraCreate(articulo="Resmas A4", cantidad=10), usuario.id
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            usuario.id,
         )
         solicitud_id = solicitud.id
 
@@ -205,7 +222,11 @@ class TestAuditoriaOrdenYRecepcion:
             db_session, ProductoServicioCreate(nombre="Resma A4", tipo="producto")
         )
         solicitud = crear_solicitud(
-            db_session, SolicitudCompraCreate(articulo="Resmas A4", cantidad=10), uuid.uuid4()
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
         )
         cambiar_estado_solicitud(db_session, solicitud, "aprobada")
         orden = crear_orden_compra(

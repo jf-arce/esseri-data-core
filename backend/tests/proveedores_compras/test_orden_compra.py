@@ -35,6 +35,7 @@ from src.proveedores_compras.service import (
     obtener_detalles_de_orden,
     obtener_solicitudes_de_orden,
 )
+from tests.areas import AREA_SOLICITANTE_ID
 
 
 def _proveedor(db: Session, nombre: str = "Papelera del Sur") -> Proveedor:
@@ -47,7 +48,11 @@ def _producto(db: Session, nombre: str = "Resma A4"):
 
 def _solicitud_aprobada(db: Session, articulo: str = "Resmas A4") -> SolicitudCompra:
     solicitud = crear_solicitud(
-        db, SolicitudCompraCreate(articulo=articulo, cantidad=10), uuid.uuid4()
+        db,
+        SolicitudCompraCreate(
+            articulo=articulo, cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+        ),
+        uuid.uuid4(),
     )
     return cambiar_estado_solicitud(db, solicitud, "aprobada")
 
@@ -124,7 +129,11 @@ class TestOrdenCompraService:
         proveedor = _proveedor(db_session)
         producto = _producto(db_session)
         pendiente = crear_solicitud(
-            db_session, SolicitudCompraCreate(articulo="Resmas A4", cantidad=10), uuid.uuid4()
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
         )
 
         with pytest.raises(SolicitudNoAprobada):
@@ -145,7 +154,11 @@ class TestOrdenCompraService:
         proveedor = _proveedor(db_session)
         producto = _producto(db_session)
         solicitud = crear_solicitud(
-            db_session, SolicitudCompraCreate(articulo="Resmas A4", cantidad=10), uuid.uuid4()
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
         )
         cambiar_estado_solicitud(db_session, solicitud, "rechazada")
 
@@ -385,7 +398,11 @@ class TestOrdenCompraEndpoints:
         proveedor = _proveedor(db_session)
         producto = _producto(db_session)
         pendiente = crear_solicitud(
-            db_session, SolicitudCompraCreate(articulo="Resmas A4", cantidad=10), uuid.uuid4()
+            db_session,
+            SolicitudCompraCreate(
+                articulo="Resmas A4", cantidad=10, area_solicitante_id=AREA_SOLICITANTE_ID
+            ),
+            uuid.uuid4(),
         )
 
         response = client_autenticado.post(

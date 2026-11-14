@@ -24,6 +24,7 @@ from src.proveedores_compras.service import (
     listar_productos_servicios,
     obtener_producto_servicio_por_id,
 )
+from tests.areas import AREA_SOLICITANTE_ID
 
 
 def _resma() -> ProductoServicioCreate:
@@ -96,7 +97,11 @@ class TestProductoServicioService:
         producto = crear_producto_servicio(db_session, _resma())
         crear_solicitud(
             db_session,
-            SolicitudCompraCreate(producto_servicio_id=producto.id, cantidad=5),
+            SolicitudCompraCreate(
+                producto_servicio_id=producto.id,
+                cantidad=5,
+                area_solicitante_id=AREA_SOLICITANTE_ID,
+            ),
             uuid.uuid4(),
         )
 
@@ -192,7 +197,11 @@ class TestProductoServicioEndpoints:
         producto = crear_producto_servicio(db_session, _resma())
         crear_solicitud(
             db_session,
-            SolicitudCompraCreate(producto_servicio_id=producto.id, cantidad=5),
+            SolicitudCompraCreate(
+                producto_servicio_id=producto.id,
+                cantidad=5,
+                area_solicitante_id=AREA_SOLICITANTE_ID,
+            ),
             uuid.uuid4(),
         )
 

@@ -342,3 +342,19 @@ campo_evento:
     - nombre_interno: fecha
       etiqueta: Fecha de la aprobación
       tipo_dato: fecha
+
+# --- AREA_SOLICITANTE: áreas que originan pedidos de compra -----------------
+# Lista inicial propuesta por el equipo; el cliente todavía no entregó un catálogo
+# propio. Es el universo del select "Área solicitante" y del filtro por área.
+# Todavía no hay ABM: para sumar o renombrar un área se edita esta lista y se vuelve
+# a correr 03_seed_grupo_b.py (idempotente por nombre).
+area_solicitante:
+  - Dirección
+  - Secretaría
+  - Administración
+  - Compras
+  - Preceptoría
+  - Docentes
+  - Biblioteca
+  - Informática
+  - Mantenimiento

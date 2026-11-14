@@ -2,11 +2,15 @@
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import sqlalchemy as sa
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import Base
+
+if TYPE_CHECKING:
+    from src.models import Persona
 
 
 class Usuario(Base):
@@ -30,6 +34,7 @@ class Usuario(Base):
         sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
     )
     persona_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("persona.id"))
+    persona: Mapped["Persona | None"] = relationship()
 
 
 class Rol(Base):

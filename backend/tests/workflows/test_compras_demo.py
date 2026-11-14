@@ -42,6 +42,7 @@ from src.workflows.notificaciones_service import (
     _SinSolicitante,
     resolver_destinatarios,
 )
+from tests.areas import AREA_SOLICITANTE_ID
 from tests.proveedores_compras.conftest import catalogo_eventos_compras  # noqa: F401
 
 SEED = Path(__file__).resolve().parents[3] / "database" / "seeds" / "04_seed_demo.py"
@@ -83,10 +84,17 @@ def producto(db_session):
 
 
 def _aprobar(db, usuario, producto, cantidad=10):
+    aprobador = _usuario(db, f"aprobador-{uuid.uuid4()}@esseri.edu.ar")
     solicitud = crear_solicitud(
-        db, SolicitudCompraCreate(producto_servicio_id=producto.id, cantidad=cantidad), usuario.id
+        db,
+        SolicitudCompraCreate(
+            producto_servicio_id=producto.id,
+            cantidad=cantidad,
+            area_solicitante_id=AREA_SOLICITANTE_ID,
+        ),
+        usuario.id,
     )
-    cambiar_estado_solicitud(db, solicitud, "aprobada", usuario.id)
+    cambiar_estado_solicitud(db, solicitud, "aprobada", aprobador.id)
     return solicitud
 
 

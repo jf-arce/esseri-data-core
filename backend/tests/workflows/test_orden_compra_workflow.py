@@ -28,6 +28,7 @@ from src.proveedores_compras.service import (
 from src.workflows.acciones_compras_service import ejecutar_generar_orden_compra
 from src.workflows.despacho_service import procesar_eventos_pendientes
 from src.workflows.models import TipoEvento, WorkflowExecution, WorkflowRule
+from tests.areas import AREA_SOLICITANTE_ID
 from tests.proveedores_compras.conftest import catalogo_eventos_compras  # noqa: F401
 
 
@@ -78,12 +79,26 @@ def regla(db_session):
 
 def _aprobar(db, usuario, *, producto=None, articulo=None, cantidad=10):
     datos = (
-        SolicitudCompraCreate(producto_servicio_id=producto.id, cantidad=cantidad)
+        SolicitudCompraCreate(
+            producto_servicio_id=producto.id,
+            cantidad=cantidad,
+            area_solicitante_id=AREA_SOLICITANTE_ID,
+        )
         if producto
-        else SolicitudCompraCreate(articulo=articulo, cantidad=cantidad)
+        else SolicitudCompraCreate(
+            articulo=articulo, cantidad=cantidad, area_solicitante_id=AREA_SOLICITANTE_ID
+        )
     )
+    aprobador = Usuario(
+        email=f"aprobador-{uuid.uuid4()}@esseri.edu.ar",
+        password_hash="x",
+        auth_provider="local",
+        estado="activo",
+    )
+    db.add(aprobador)
+    db.flush()
     solicitud = crear_solicitud(db, datos, usuario.id)
-    cambiar_estado_solicitud(db, solicitud, "aprobada", usuario.id)
+    cambiar_estado_solicitud(db, solicitud, "aprobada", aprobador.id)
     evento = db.scalar(select(EventLog).where(EventLog.entidad_id == solicitud.id))
     return solicitud, evento
 
@@ -113,7 +128,7 @@ def test_emite_la_orden_con_el_unico_proveedor_activo(db_session, usuario, produ
     assert vinculo.solicitud_compra_id == solicitud.id
     # La orden emitida dispara su propio evento, con el usuario que aprobó la solicitud.
     emitida = db_session.scalar(select(EventLog).where(EventLog.entidad_id == orden.id))
-    assert emitida.usuario_id == usuario.id
+    assert emitida.usuario_id == evento.usuario_id
 
 
 def test_ignora_proveedores_inactivos(db_session, usuario, producto, regla):

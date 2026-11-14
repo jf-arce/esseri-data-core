@@ -17,6 +17,7 @@ import yaml
 from src.auth.constants import codigo_de
 from src.auth.models import Permiso, Rol
 from src.database import SessionLocal
+from src.proveedores_compras.models import AreaSolicitante
 from src.workflows.models import CampoEvento, TipoEvento
 
 YAML_PATH = Path(__file__).parent / "grupo-b.yaml"
@@ -85,12 +86,25 @@ def seed_campo_evento(db, data):
             print(f"  creado: CampoEvento({campo['nombre_interno']!r}) en {tipo_evento_nombre!r}")
 
 
+def seed_area_solicitante(db, data):
+    print("area_solicitante:")
+    for nombre in data.get("area_solicitante", []):
+        existing = db.query(AreaSolicitante).filter_by(nombre=nombre).first()
+        if existing:
+            print(f"  ya existe: AreaSolicitante({nombre!r})")
+            continue
+        db.add(AreaSolicitante(nombre=nombre))
+        db.flush()
+        print(f"  creado: AreaSolicitante({nombre!r})")
+
+
 def seed_grupo_b():
     data = yaml.safe_load(YAML_PATH.read_text())
     db = SessionLocal()
     try:
         seed_permiso(db, data)
         seed_campo_evento(db, data)
+        seed_area_solicitante(db, data)
         db.commit()
     finally:
         db.close()

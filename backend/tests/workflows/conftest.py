@@ -21,13 +21,22 @@ from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
 from src.facturacion.models import ConceptoCobro, ReglaPenalidad
 from src.familias_alumnos.models import Familia
 from src.inscripciones.models import Asistencia
+from src.proveedores_compras.models import AreaSolicitante
 from src.workflows import n8n_client
 from src.workflows.eventos_service import emit_event
 from src.workflows.models import CampoEvento, TipoEvento, WorkflowExecution, WorkflowRule
+from tests.areas import AREA_SOLICITANTE_ID
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
 PASSWORD_VALIDA = "una-contrasenia-larga"
 SEED_DEMO = Path(__file__).resolve().parents[3] / "database" / "seeds" / "04_seed_demo.py"
+
+
+@pytest.fixture(autouse=True)
+def catalogo_area_solicitante(db_session):
+    """Las solicitudes de estos tests necesitan un área del catálogo."""
+    db_session.add(AreaSolicitante(id=AREA_SOLICITANTE_ID, nombre="Secretaría"))
+    db_session.commit()
 
 
 @pytest.fixture()

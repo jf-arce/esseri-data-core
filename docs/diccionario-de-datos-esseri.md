@@ -590,15 +590,28 @@ RF cubiertos: RF-19, RF-20, RF-21, RF-34, RF-35 (búsquedas, no generan tabla), 
 >
 > `[DEUDA TÉCNICA]` `PRODUCTO_PROVEEDOR` no tiene restricción única sobre el par: hoy lo impide el backend. Agregarla requiere una migración.
 
+### `AREA_SOLICITANTE`
+> **[DECISIÓN DE EQUIPO]** El área que origina un pedido de compra deja de ser texto libre y pasa a ser un catálogo, mismo patrón que `PRODUCTO_SERVICIO`: el texto libre permitía "Administración", "administracion" y "Admin" como tres áreas distintas. La lista inicial (Dirección, Secretaría, Administración, Compras, Preceptoría, Docentes, Biblioteca, Informática, Mantenimiento) vive en `database/seeds/grupo-b.yaml` y la carga `03_seed_grupo_b.py`; todavía no tiene ABM.
+
+| Campo | Tipo | Clave | Descripción |
+|---|---|---|---|
+| id | uuid | PK |  |
+| nombre | string | UNIQUE | `uq_area_solicitante_nombre` |
+| activo | boolean |  | Baja lógica: un área inactiva no se puede elegir en altas nuevas, pero sigue visible en el historial |
+| created_at | datetime |  | Fecha y hora de creación del registro. |
+| updated_at | datetime |  | Fecha y hora de la última modificación del registro. |
+
 ### `SOLICITUD_COMPRA`
 > **[ACLARACIÓN CLIENTE]** (respuesta 12) agrega la referencia controlada al catálogo. `articulo` se conserva como texto libre para casos excepcionales que todavía no están en `PRODUCTO_SERVICIO` — **regla dura de backend: debe existir uno de los dos** (`producto_servicio_id` o `articulo`, nunca ninguno).
+>
+> **[DECISIÓN DE EQUIPO]** `area_solicitante_id` referencia `AREA_SOLICITANTE` y es obligatoria en altas y ediciones. Es nullable solo por las filas migradas desde el texto libre que no coincidieron con ninguna área: esas quedan sin área hasta que alguien las edite. `cantidad` es entera, de 1 a 9999 (`CANTIDAD_MAXIMA` en el backend). Quien creó la solicitud no puede aprobarla ni rechazarla, ni siquiera siendo administrador.
 
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
 | id | uuid | PK |  |
 | articulo | string |  | Texto libre — solo para excepciones fuera del catálogo. Ver regla dura arriba |
-| cantidad | int |  |  |
-| area_solicitante | string |  |  |
+| cantidad | int |  | Entero, 1 a 9999 |
+| area_solicitante_id | uuid | FK | `AREA_SOLICITANTE`. Nullable solo en filas legacy migradas |
 | estado | string |  | pendiente / aprobada / rechazada |
 | fecha | date |  |  |
 | updated_at | datetime |  | Fecha y hora de la última modificación del registro. |
@@ -1168,3 +1181,4 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | — | Sumados a `TIPO_EVENTO` los dos eventos que emite Proveedores y Compras: `orden_compra.emitida` (entidad `orden_compra`; campos `proveedor_nombre`, `cantidad_items`, `fecha`) y `recepcion_compra.registrada` (entidad `recepcion_compra`; campos `proveedor_nombre`, `tipo_recepcion`, `fecha`). Sin cambios de esquema: son filas de catálogo. |
 | — | Sumados a `TIPO_EVENTO` `inscripcion.confirmada` (entidad `inscripcion`; campos `alumno_nombre`, `nivel_educativo`, `fecha`) y `solicitud_compra.aprobada` (entidad `solicitud_compra`; campos `item`, `cantidad`, `fecha`), y abiertas en la allowlist de `generar_cargo` y `generar_orden_compra` (issue #199). Sin cambios de esquema: son filas de catálogo. |
 | 2026-10-27 | Sumados `nombre_google` y `avatar_url` a `USUARIO` (issue #260): se guardan del id_token en cada login con Google y alimentan el nombre y la foto del encabezado. Prioridad del nombre: persona, Google, email |
+| 2026-11-13 | `SOLICITUD_COMPRA.area_solicitante` (texto libre) pasa a `area_solicitante_id`, FK al catálogo nuevo `AREA_SOLICITANTE` (migración `c7d2e4a91b30`, lista inicial por seed). `cantidad` queda acotada a 1–9999 y quien creó una solicitud no puede aprobarla ni rechazarla |

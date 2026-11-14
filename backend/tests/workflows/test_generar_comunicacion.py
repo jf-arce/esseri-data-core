@@ -25,6 +25,7 @@ from src.workflows.models import (
     WorkflowExecution,
     WorkflowRule,
 )
+from tests.areas import AREA_SOLICITANTE_ID
 from tests.proveedores_compras.conftest import catalogo_eventos_compras  # noqa: F401
 
 
@@ -77,10 +78,17 @@ def _disparar(db, usuario):
     producto = crear_producto_servicio(
         db, ProductoServicioCreate(nombre="Resma A4", tipo="producto")
     )
+    aprobador = _usuario(db, f"aprobador-{usuario.id}@esseri.edu.ar")
     solicitud = crear_solicitud(
-        db, SolicitudCompraCreate(producto_servicio_id=producto.id, cantidad=12), usuario.id
+        db,
+        SolicitudCompraCreate(
+            producto_servicio_id=producto.id,
+            cantidad=12,
+            area_solicitante_id=AREA_SOLICITANTE_ID,
+        ),
+        usuario.id,
     )
-    cambiar_estado_solicitud(db, solicitud, "aprobada", usuario.id)
+    cambiar_estado_solicitud(db, solicitud, "aprobada", aprobador.id)
     procesar_eventos_pendientes(db)
 
 
