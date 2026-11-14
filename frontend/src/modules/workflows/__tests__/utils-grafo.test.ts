@@ -8,12 +8,12 @@ import {
 } from '@/modules/workflows/__tests__/fabricas'
 import type { TipoEvento } from '@/modules/workflows/types'
 import {
+  ANCHO_COLUMNA,
   actualizarNodo,
   borradorDesdeRegla,
   BORRADOR_VACIO,
   cambiarEventoDelBorrador,
   conectar,
-  confirmarCambio,
   deshacer,
   desconectar,
   duplicarRegla,
@@ -32,7 +32,6 @@ import {
   puedeConectar,
   rehacer,
   registrarCambio,
-  reemplazarPresente,
   subarbol,
   textoContadores,
   validarBorrador,
@@ -167,7 +166,7 @@ describe('borradorDesdeRegla y payloadDesdeBorrador', () => {
 
     const [nodo] = borradorDesdeRegla(regla).nodos
 
-    expect(nodo.posicion).toEqual({ x: 340, y: 0 })
+    expect(nodo.posicion).toEqual({ x: ANCHO_COLUMNA, y: 0 })
   })
 })
 
@@ -281,10 +280,10 @@ describe('ordenarArbol', () => {
     const ordenado = ordenarArbol(borradorConRamas().nodos)
     const pos = (id: string) => ordenado.find((n) => n.id === id)?.posicion
 
-    expect(pos('c-1')?.x).toBe(340)
-    expect(pos('a-1')?.x).toBe(680)
-    expect(pos('c-2')?.x).toBe(680)
-    expect(pos('a-3')?.x).toBe(1020)
+    expect(pos('c-1')?.x).toBe(ANCHO_COLUMNA)
+    expect(pos('a-1')?.x).toBe(ANCHO_COLUMNA * 2)
+    expect(pos('c-2')?.x).toBe(ANCHO_COLUMNA * 2)
+    expect(pos('a-3')?.x).toBe(ANCHO_COLUMNA * 3)
     const filas = ['a-1', 'a-2', 'a-3'].map((id) => pos(id)?.y)
     expect(new Set(filas).size).toBe(3)
   })
@@ -298,6 +297,19 @@ describe('ordenarArbol', () => {
       (Math.min(y('a-1'), y('a-2'), y('c-2')) + Math.max(y('a-1'), y('a-2'), y('c-2'))) / 2,
     )
     expect(posicionDisparador(ordenado)).toEqual({ x: 0, y: y('c-1') })
+  })
+})
+
+describe('ordenarArbol con nodos agrandados', () => {
+  it('deja más lugar a un nodo alto para que no pise al siguiente', () => {
+    const { nodos } = borradorConRamas()
+
+    const normal = ordenarArbol(nodos)
+    const conAltura = ordenarArbol(nodos, new Map([['a-1', 400]]))
+    const y = (lista: NodoEditor[], id: string) => lista.find((n) => n.id === id)?.posicion.y ?? 0
+
+    expect(y(normal, 'a-2') - y(normal, 'a-1')).toBe(128)
+    expect(y(conAltura, 'a-2') - y(conAltura, 'a-1')).toBe(432)
   })
 })
 
@@ -454,6 +466,38 @@ describe('fraseRegla', () => {
     )
   })
 
+  it('una acción colgada del disparador se dice "siempre"', () => {
+    const borrador = {
+      ...BORRADOR_VACIO,
+      tipoEventoId: 'e-1',
+      nodos: [nuevoNodoAccion(null, null, CATALOGO[1])],
+    }
+
+    expect(fraseRegla(borrador, [EVENTO_FACTURA])).toBe(
+      'Cuando vence una factura: siempre alerta interna.',
+    )
+  })
+
+  it('las acciones directas y las condiciones conviven en la frase', () => {
+    const condicion = {
+      ...nuevoNodoCondicion(null, null),
+      comparaciones: [{ campo: 'dias_vencido', operador: '>' as const, valor: '30' }],
+    }
+    const borrador = {
+      ...BORRADOR_VACIO,
+      tipoEventoId: 'e-1',
+      nodos: [
+        nuevoNodoAccion(null, null, CATALOGO[1]),
+        condicion,
+        nuevoNodoAccion(condicion.id, 'si', CATALOGO[2]),
+      ],
+    }
+
+    expect(fraseRegla(borrador, [EVENTO_FACTURA])).toBe(
+      'Cuando vence una factura: siempre alerta interna; si días vencido es mayor que 30, crear tarea.',
+    )
+  })
+
   it('sin evento pide elegirlo y sin acciones lo dice', () => {
     expect(fraseRegla(BORRADOR_VACIO, [EVENTO_FACTURA])).toBe(
       'Elegí el evento que dispara la regla.',
@@ -505,17 +549,6 @@ describe('historial', () => {
     const h = iniciarHistorial({ x: 1 })
 
     expect(registrarCambio(h, h.presente)).toBe(h)
-  })
-
-  it('los pasos intermedios de un arrastre cuentan como uno solo', () => {
-    const inicio = iniciarHistorial({ x: 0 })
-    let h = reemplazarPresente(inicio, { x: 5 })
-    h = reemplazarPresente(h, { x: 10 })
-
-    h = confirmarCambio(h, inicio.presente)
-
-    expect(h.pasado).toEqual([{ x: 0 }])
-    expect(deshacer(h).presente).toEqual({ x: 0 })
   })
 
   it('recuerda un máximo de pasos', () => {

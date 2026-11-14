@@ -12,6 +12,8 @@ export interface DatosArista {
   [clave: string]: unknown
   /** Contexto de la salida: `si` verde, `no` rojo, sin rama violeta. */
   rama: 'si' | 'no' | null
+  /** Sale del disparador hacia una acción sin condición: corre con cada evento. */
+  siempre?: boolean
   /** Durante la simulación: la arista que el indicador está recorriendo ahora, la ya recorrida y
    * la que no se tomó. */
   simulacion?: 'activa' | 'recorrida' | 'tenue'
@@ -66,6 +68,18 @@ export function AristaFlujo({
           opacity: tenue ? 0.25 : 1,
         }}
       />
+      {data?.siempre && (
+        <EdgeLabelRenderer>
+          <span
+            style={{
+              transform: `translate(-50%, -50%) translate(${sourceX + (targetX - sourceX) * 0.3}px, ${sourceY + (targetY - sourceY) * 0.3}px)`,
+            }}
+            className="pointer-events-none absolute rounded-full bg-sup-workflows px-2 py-0.5 text-[11px] font-semibold text-mod-workflows"
+          >
+            Siempre
+          </span>
+        </EdgeLabelRenderer>
+      )}
       {selected && !data?.soloLectura && (
         <EdgeLabelRenderer>
           <button

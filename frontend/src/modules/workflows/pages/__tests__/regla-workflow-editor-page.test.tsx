@@ -166,7 +166,9 @@ describe('ReglaWorkflowEditorPage', () => {
         requiere_aprobacion_humana: false,
       })
       expect(await screen.findByText('Listado de reglas')).toBeInTheDocument()
-    })
+      // Es el primero del archivo y arrastra la carga de los módulos del editor: con la suite
+      // completa en paralelo puede pasar los 5 s por defecto.
+    }, 20_000)
 
     it('un lienzo vacío abre el disparador para elegir el evento', async () => {
       abrirEditor('/workflows/reglas/nueva')
@@ -204,6 +206,29 @@ describe('ReglaWorkflowEditorPage', () => {
         screen.getByRole('complementary', { name: 'Configurar condición' }),
       ).toBeInTheDocument()
       expect(crearReglaWorkflow).not.toHaveBeenCalled()
+    })
+
+    it('un bloque suelto se marca apenas aparece, sin esperar a guardar', async () => {
+      const user = userEvent.setup()
+      abrirEditor('/workflows/reglas/nueva?evento=e-1')
+      await screen.findByLabelText('Nombre de la regla')
+
+      await user.click(screen.getByRole('button', { name: 'Soltar alerta suelta' }))
+
+      expect(await screen.findAllByText('Conectalo al flujo o eliminalo')).not.toHaveLength(0)
+    })
+
+    it('una acción directa del disparador se aclara que corre con cada evento', async () => {
+      const user = userEvent.setup()
+      abrirEditor('/workflows/reglas/nueva?evento=e-1')
+      await screen.findByLabelText('Nombre de la regla')
+
+      await user.click(screen.getByRole('button', { name: 'Agregar alerta al disparador' }))
+
+      expect(
+        screen.getByText(/Las acciones sin condición se ejecutan con cada evento/),
+      ).toBeInTheDocument()
+      expect(screen.getByText(/siempre alerta interna/)).toBeInTheDocument()
     })
 
     it('un bloque suelto no se puede guardar', async () => {

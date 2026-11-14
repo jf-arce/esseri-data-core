@@ -69,7 +69,8 @@ export function PaletaBloques({
   return (
     <nav aria-label="Bloques" className="flex flex-col gap-3">
       <p className="text-xs text-texto-2">
-        Arrastrá un bloque al lienzo o usá el + de cada salida.
+        Un clic agrega el bloque a la salida seleccionada (o al disparador si no hay ninguna).
+        También podés arrastrarlo al lienzo y conectarlo, o usar el + de cada salida.
       </p>
       <ul className="flex flex-col">
         <Bloque

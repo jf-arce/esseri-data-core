@@ -163,7 +163,9 @@ describe('ReglasWorkflowPage', () => {
       'href',
       '/workflows/reglas/r-1',
     )
-    expect(screen.getByText(/Cuando vence una factura: alerta interna\./)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Cuando vence una factura: siempre alerta interna\./),
+    ).toBeInTheDocument()
     expect(screen.getByText(/en 30 días/)).toBeInTheDocument()
   })
 

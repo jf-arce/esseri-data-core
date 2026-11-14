@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, type DragEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -40,6 +40,7 @@ import type {
 import { etiquetaEvento } from '@/modules/workflows/utils'
 import {
   DISPARADOR_ID,
+  ordenarArbol,
   posicionDisparador,
   puedeConectar,
   SALIDA_DISPARADOR,
@@ -58,6 +59,10 @@ const TIPOS_NODO: NodeTypes = {
 const TIPOS_ARISTA: EdgeTypes = { flujo: AristaFlujo }
 
 type NodoFlujo = NodoDisparadorFlujo | NodoCondicionFlujo | NodoAccionFlujo
+interface Medida {
+  width: number
+  height: number
+}
 
 export type QueAgregar = 'condicion' | TipoAccion
 
@@ -86,9 +91,8 @@ export interface CanvasFlujoProps {
   onSoltarBloque: (que: QueAgregar, posicion: PosicionNodo) => void
   onConectar: (conexion: ConexionPropuesta) => void
   onDesconectar: (destinoId: string) => void
+  /** Se llama una sola vez, al soltar el nodo, con las posiciones finales. */
   onMover: (posiciones: Record<string, PosicionNodo>) => void
-  onInicioArrastre: () => void
-  onFinArrastre: () => void
   onCambiarComparacion: (nodoId: string, comparacion: ComparacionEditor) => void
 }
 
@@ -112,6 +116,11 @@ function LienzoFlujo(props: CanvasFlujoProps) {
   const evento = tiposEvento.find((tipo) => tipo.id === borrador.tipoEventoId)
   const nombreEvento = evento?.nombre ?? null
   const campos = useMemo(() => evento?.campos ?? [], [evento])
+  // React Flow oculta un nodo hasta medirlo y pide que se le devuelvan las medidas: si se pierden
+  // al reconstruir los nodos (por ejemplo en cada cuadro de un arrastre) el lienzo parpadea.
+  const [medidas, setMedidas] = useState<ReadonlyMap<string, Medida>>(new Map())
+  // Posición de los nodos mientras se los arrastra. Se vuelca al borrador recién al soltarlos.
+  const [arrastrando, setArrastrando] = useState<Readonly<Record<string, PosicionNodo>>>({})
 
   const nodos = useMemo<NodoFlujo[]>(() => {
     const opcionesAgregar = {
@@ -122,6 +131,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
       id: DISPARADOR_ID,
       type: 'disparador',
       position: posicionDisparador(borrador.nodos),
+      measured: medidas.get(DISPARADOR_ID),
       draggable: false,
       deletable: false,
       selected: seleccionId === DISPARADOR_ID,
@@ -145,6 +155,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
       const comunes = {
         id: nodo.id,
         position: nodo.posicion,
+        measured: medidas.get(nodo.id),
         draggable: !soloLectura,
         selected: seleccionId === nodo.id,
       }
@@ -191,6 +202,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
     errores,
     estadisticas,
     evento,
+    medidas,
     nombreEvento,
     reglaId,
     seleccionId,
@@ -198,6 +210,17 @@ function LienzoFlujo(props: CanvasFlujoProps) {
     soloLectura,
     tiposAccion,
   ])
+
+  // Solo cambian de objeto los nodos que se están moviendo: el resto no se vuelve a renderizar.
+  const nodosVisibles = useMemo(
+    () =>
+      Object.keys(arrastrando).length === 0
+        ? nodos
+        : nodos.map((nodo) =>
+            arrastrando[nodo.id] ? { ...nodo, position: arrastrando[nodo.id] } : nodo,
+          ),
+    [nodos, arrastrando],
+  )
 
   const aristas = useMemo<TipoAristaFlujo[]>(
     () =>
@@ -211,6 +234,8 @@ function LienzoFlujo(props: CanvasFlujoProps) {
           target: nodo.id,
           data: {
             rama: nodo.rama,
+            // Una acción colgada del disparador corre con cada evento: la arista lo dice.
+            siempre: nodo.padreId === null && nodo.tipo === 'accion',
             simulacion: aristasSimulacion?.get(nodo.id),
             soloLectura,
             onDesconectar: () => props.onDesconectar(nodo.id),
@@ -227,27 +252,57 @@ function LienzoFlujo(props: CanvasFlujoProps) {
       primeraVez.current = false
       return
     }
+    if (ordenar === 0) return
+    // Se ordena con el alto real de cada nodo (el texto largo los agranda).
+    const alturas = new Map([...medidas].map(([id, medida]) => [id, medida.height]))
+    const ordenados = ordenarArbol(borrador.nodos, alturas)
+    props.onMover(Object.fromEntries(ordenados.map((n) => [n.id, n.posicion])))
+    // Los nodos se deslizan a su lugar solo durante el reordenado: con la transición siempre
+    // activa, el arrastre iría a destiempo del cursor.
+    const caja = contenedor.current
+    caja?.classList.add('flujo-ordenando')
     // Un cuadro después, para que el lienzo ya tenga las posiciones nuevas.
-    if (ordenar > 0) requestAnimationFrame(() => void fitView({ duration: 200, padding: 0.2 }))
+    requestAnimationFrame(() => void fitView({ duration: 200, padding: 0.2 }))
+    const quitar = setTimeout(() => caja?.classList.remove('flujo-ordenando'), 300)
+    return () => clearTimeout(quitar)
+    // Solo reacciona al pedido de ordenar: los demás datos se leen tal como están en ese momento.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ordenar, fitView])
   useEffect(() => {
     if (enfocar)
       void fitView({ nodes: [{ id: enfocar.id }], duration: 200, maxZoom: 1.1, padding: 0.6 })
   }, [enfocar, fitView])
 
-  const alCambiarNodos = useCallback(
-    (cambios: NodeChange<NodoFlujo>[]) => {
-      const movidos: Record<string, PosicionNodo> = {}
-      for (const cambio of cambios) {
-        if (cambio.type === 'position' && cambio.position && cambio.id !== DISPARADOR_ID) {
-          movidos[cambio.id] = cambio.position
-        }
+  const alCambiarNodos = useCallback((cambios: NodeChange<NodoFlujo>[]) => {
+    const nuevasMedidas: Record<string, Medida> = {}
+    const movidos: Record<string, PosicionNodo> = {}
+    for (const cambio of cambios) {
+      if (cambio.type === 'dimensions' && cambio.dimensions) {
+        nuevasMedidas[cambio.id] = cambio.dimensions
+      } else if (cambio.type === 'position' && cambio.position && cambio.id !== DISPARADOR_ID) {
+        movidos[cambio.id] = cambio.position
       }
-      if (Object.keys(movidos).length > 0) props.onMover(movidos)
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [props.onMover],
-  )
+    }
+    if (Object.keys(nuevasMedidas).length > 0) {
+      setMedidas((actuales) => {
+        const hayCambio = Object.entries(nuevasMedidas).some(([id, medida]) => {
+          const actual = actuales.get(id)
+          return actual?.width !== medida.width || actual?.height !== medida.height
+        })
+        return hayCambio ? new Map([...actuales, ...Object.entries(nuevasMedidas)]) : actuales
+      })
+    }
+    if (Object.keys(movidos).length > 0) setArrastrando((actual) => ({ ...actual, ...movidos }))
+  }, [])
+
+  function alSoltarNodo(nodosMovidos: NodoFlujo[]) {
+    setArrastrando({})
+    const posiciones: Record<string, PosicionNodo> = {}
+    for (const nodo of nodosMovidos) {
+      if (nodo.id !== DISPARADOR_ID) posiciones[nodo.id] = nodo.position
+    }
+    if (Object.keys(posiciones).length > 0) props.onMover(posiciones)
+  }
 
   function alConectar(conexion: Connection) {
     const origenId = conexion.source === DISPARADOR_ID ? null : conexion.source
@@ -281,15 +336,25 @@ function LienzoFlujo(props: CanvasFlujoProps) {
   return (
     <div
       ref={contenedor}
-      className="flujo-ordenando h-full min-h-[460px] w-full rounded-panel bg-superficie shadow-card"
+      className="relative h-full min-h-[460px] w-full rounded-panel bg-superficie shadow-card"
       onDragOver={(evento) => {
         evento.preventDefault()
         evento.dataTransfer.dropEffect = 'move'
       }}
       onDrop={alSoltar}
     >
+      {borrador.nodos.length === 0 && (
+        <p
+          role="status"
+          className="pointer-events-none absolute inset-x-0 bottom-6 z-10 mx-auto w-fit max-w-[90%] rounded-full bg-sup-workflows px-4 py-2 text-center text-sm font-medium text-texto"
+        >
+          {borrador.tipoEventoId === ''
+            ? 'Elegí primero el evento en el panel de la derecha.'
+            : 'Empezá con el + que está a la derecha del disparador.'}
+        </p>
+      )}
       <ReactFlow<NodoFlujo, TipoAristaFlujo>
-        nodes={nodos}
+        nodes={nodosVisibles}
         edges={aristas}
         nodeTypes={TIPOS_NODO}
         edgeTypes={TIPOS_ARISTA}
@@ -298,8 +363,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
         isValidConnection={esConexionValida}
         onNodeClick={(_, nodo) => props.onSeleccionar(nodo.id)}
         onPaneClick={() => props.onSeleccionar(null)}
-        onNodeDragStart={props.onInicioArrastre}
-        onNodeDragStop={props.onFinArrastre}
+        onNodeDragStop={(_, __, movidos) => alSoltarNodo(movidos)}
         nodesConnectable={!soloLectura}
         deleteKeyCode={null}
         fitView

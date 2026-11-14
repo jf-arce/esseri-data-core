@@ -1,5 +1,5 @@
+import { cn } from '@/lib/utils'
 import { CopyIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react'
-import { DatePicker } from '@/components/date-picker'
 import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
@@ -16,8 +16,13 @@ import {
   type ContextoConfig,
 } from '@/modules/workflows/components/config-accion-campos'
 import { DestinatariosCampos } from '@/modules/workflows/components/destinatarios-campos'
+import { ValorComparacion } from '@/modules/workflows/components/valor-comparacion'
 import { PlantillaCampos } from '@/modules/workflows/components/plantilla-campos'
-import { LIMITE_NOMBRE_REGLA, MAX_COMPARACIONES } from '@/modules/workflows/constants'
+import {
+  CLASE_SELECT_ADAPTABLE,
+  LIMITE_NOMBRE_REGLA,
+  MAX_COMPARACIONES,
+} from '@/modules/workflows/constants'
 import type { useDestinatariosDisponibles } from '@/modules/workflows/hooks/use-destinatarios-disponibles'
 import type { usePlantillas } from '@/modules/workflows/hooks/use-plantillas'
 import {
@@ -48,18 +53,6 @@ import {
 } from '@/modules/workflows/utils-grafo'
 
 const SIN_DESTINATARIOS: DestinatariosNodo = { roles: [], usuarios: [] }
-
-function aFechaLocal(iso: string): Date | undefined {
-  const [anio, mes, dia] = iso.split('-').map(Number)
-  if (!anio || !mes || !dia) return undefined
-  return new Date(anio, mes - 1, dia)
-}
-
-function aIso(fecha: Date): string {
-  const mes = String(fecha.getMonth() + 1).padStart(2, '0')
-  const dia = String(fecha.getDate()).padStart(2, '0')
-  return `${fecha.getFullYear()}-${mes}-${dia}`
-}
 
 export interface InspectorNodoProps {
   /** `'disparador'` o el nodo elegido en el lienzo. */
@@ -95,8 +88,8 @@ function Encabezado({
 }) {
   return (
     <div className="flex items-start justify-between gap-2">
-      <div>
-        <h2 className="text-base font-semibold text-texto">{titulo}</h2>
+      <div className="min-w-0">
+        <h2 className="text-base font-semibold break-words text-texto">{titulo}</h2>
         <p className="text-xs text-texto-2">{descripcion}</p>
       </div>
       <Button variant="ghost" size="icon" aria-label="Cerrar el panel" onClick={onCerrar}>
@@ -136,7 +129,7 @@ function PanelDisparador({
           onValueChange={onCambiarEvento}
           disabled={soloLectura}
         >
-          <SelectTrigger id="regla-evento">
+          <SelectTrigger id="regla-evento" className={CLASE_SELECT_ADAPTABLE}>
             <SelectValue placeholder="Elegir cuándo se dispara" />
           </SelectTrigger>
           <SelectContent>
@@ -159,7 +152,7 @@ function PanelDisparador({
             if (criticidad) onCambiarRegla({ criticidad })
           }}
         >
-          <SelectTrigger id="regla-criticidad">
+          <SelectTrigger id="regla-criticidad" className={CLASE_SELECT_ADAPTABLE}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -210,7 +203,11 @@ function FilaComparacion({
             )
           }
         >
-          <SelectTrigger id={`${sufijo}-campo`} aria-label="Campo" className="bg-superficie">
+          <SelectTrigger
+            id={`${sufijo}-campo`}
+            aria-label="Campo"
+            className={cn(CLASE_SELECT_ADAPTABLE, 'bg-superficie')}
+          >
             <SelectValue placeholder="Elegir campo" />
           </SelectTrigger>
           <SelectContent>
@@ -242,7 +239,10 @@ function FilaComparacion({
               if (operador) onCambiar({ ...comparacion, operador })
             }}
           >
-            <SelectTrigger aria-label="Operador" className="min-w-24 bg-superficie">
+            <SelectTrigger
+              aria-label="Operador"
+              className={cn(CLASE_SELECT_ADAPTABLE, 'min-w-24 bg-superficie')}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -253,22 +253,12 @@ function FilaComparacion({
               ))}
             </SelectContent>
           </Select>
-          {campo.tipo_dato === 'fecha' ? (
-            <DatePicker
-              value={aFechaLocal(comparacion.valor)}
-              disabled={soloLectura}
-              onChange={(fecha) => onCambiar({ ...comparacion, valor: fecha ? aIso(fecha) : '' })}
-            />
-          ) : (
-            <Input
-              aria-label="Valor"
-              type={campo.tipo_dato === 'numero' ? 'number' : 'text'}
-              value={comparacion.valor}
-              disabled={soloLectura}
-              className="bg-superficie"
-              onChange={(e) => onCambiar({ ...comparacion, valor: e.target.value })}
-            />
-          )}
+          <ValorComparacion
+            tipoDato={campo.tipo_dato}
+            valor={comparacion.valor}
+            disabled={soloLectura}
+            onChange={(valor) => onCambiar({ ...comparacion, valor })}
+          />
         </div>
       )}
     </fieldset>
@@ -294,6 +284,10 @@ function PanelCondicion({
   }
   return (
     <div className="flex flex-col gap-4">
+      <p className="text-xs text-texto-2">
+        Si se cumple, el flujo sigue por la salida <strong className="text-exito">Sí</strong>; si
+        no, por la salida <strong className="text-error">No</strong>.
+      </p>
       {!evento && <FieldDescription>Elegí primero el evento disparador.</FieldDescription>}
       {nodo.comparaciones.length > 1 && (
         <Field>
@@ -306,7 +300,7 @@ function PanelCondicion({
               onCambiarNodo(nodo.id, { logica })
             }}
           >
-            <SelectTrigger id="condicion-logica">
+            <SelectTrigger id="condicion-logica" className={CLASE_SELECT_ADAPTABLE}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -397,7 +391,7 @@ function PanelAccion({
             })
           }}
         >
-          <SelectTrigger id="accion-tipo">
+          <SelectTrigger id="accion-tipo" className={CLASE_SELECT_ADAPTABLE}>
             <SelectValue placeholder="Elegir acción" />
           </SelectTrigger>
           <SelectContent>
@@ -490,7 +484,7 @@ export function InspectorNodo(props: InspectorNodoProps) {
   return (
     <aside
       aria-label={`Configurar ${titulo.toLowerCase()}`}
-      className="panel-entrar flex min-h-0 w-full flex-col gap-4 overflow-y-auto rounded-panel bg-superficie p-4 shadow-card"
+      className="panel-entrar flex min-h-0 w-full min-w-0 flex-col gap-4 overflow-x-hidden overflow-y-auto rounded-panel bg-superficie p-4 break-words shadow-card"
     >
       <Encabezado titulo={titulo} descripcion={descripcion} onCerrar={onCerrar} />
       {error && <p className="text-sm font-medium text-error">{error}</p>}

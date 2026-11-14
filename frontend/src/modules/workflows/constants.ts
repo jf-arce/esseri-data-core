@@ -203,3 +203,8 @@ export const MODULO_POR_PREFIJO_EVENTO: Record<string, string> = {
 export const MODULO_SIN_CLASIFICAR = 'Otros'
 export const CLAVE_VISTA_REGLAS = 'workflows.reglas.vista'
 export const VISTAS_REGLAS = ['tarjetas', 'tabla', 'mapa'] as const
+
+/** Clases para un `SelectTrigger` que se adapta al texto: ocupa todo el ancho, no ensancha su
+ * columna y deja que un valor largo pase a una segunda línea en vez de desbordar. */
+export const CLASE_SELECT_ADAPTABLE =
+  'w-full min-w-0 h-auto min-h-9 data-[size=default]:h-auto data-[size=sm]:h-auto data-[size=sm]:min-h-8 whitespace-normal py-2 text-left *:data-[slot=select-value]:line-clamp-2 *:data-[slot=select-value]:break-words'

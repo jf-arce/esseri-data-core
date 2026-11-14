@@ -513,3 +513,15 @@
 .fila-entrar {
   animation: nodo-entrar 180ms ease-out;
 }
+
+/* Los puntos de conexión del flujo son chicos a la vista y grandes para el mouse: el área
+   clicable se extiende más allá del círculo. */
+.react-flow__handle::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+.react-flow__handle {
+  cursor: crosshair;
+}

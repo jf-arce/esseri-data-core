@@ -26,7 +26,9 @@ import { ETIQUETA_ACCION } from '@/modules/workflows/utils'
 import { estadoDeBloque, GRUPOS_ACCION, TEXTO_SIMULACION } from '@/modules/workflows/utils-grafo'
 import type { TipoAccionCatalogo } from '@/modules/workflows/types'
 
-export const ANCHO_NODO = 260
+/** El nodo mide al menos esto y crece con su contenido hasta el máximo. */
+export const ANCHO_NODO_MIN = 260
+export const ANCHO_NODO_MAX = 380
 
 /** Qué sabe cada nodo de la simulación en curso: su resultado y si ya se mostró. */
 export interface SimulacionNodo {
@@ -112,9 +114,9 @@ export function TarjetaNodo({
   const atenuado = simulacion?.visible && simulacion.estado === 'no_alcanzado'
   return (
     <div
-      style={{ width: ANCHO_NODO }}
+      style={{ minWidth: ANCHO_NODO_MIN, maxWidth: ANCHO_NODO_MAX, width: 'max-content' }}
       className={cn(
-        'nodo-entrar relative rounded-card-sm p-3.5 shadow-card transition-opacity duration-200',
+        'nodo-entrar relative rounded-card-sm p-3.5 break-words [overflow-wrap:anywhere] shadow-card transition-opacity duration-200',
         superficie,
         seleccionado && cn('outline-2 outline-offset-2', contorno),
         incompleto && !seleccionado && 'outline-2 outline-offset-2 outline-error',
@@ -172,11 +174,11 @@ export function BotonSumar({
           title={etiqueta}
           disabled={deshabilitado}
           className={cn(
-            'nodrag nopan size-6 min-h-0 rounded-full',
+            'nodrag nopan size-7 min-h-0 rounded-full',
             resaltado && 'outline-2 outline-offset-2 outline-mod-workflows',
           )}
         >
-          <PlusIcon className="size-3.5" />
+          <PlusIcon className="size-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">

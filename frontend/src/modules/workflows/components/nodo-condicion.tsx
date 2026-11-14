@@ -1,6 +1,7 @@
+import { cn } from '@/lib/utils'
+import { CLASE_SELECT_ADAPTABLE } from '@/modules/workflows/constants'
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import { ArrowLeftRightIcon } from 'lucide-react'
-import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -8,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { ValorComparacion } from '@/modules/workflows/components/valor-comparacion'
 import {
   BotonSumar,
   TarjetaNodo,
@@ -57,7 +59,7 @@ export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
       <Handle
         type="target"
         position={Position.Left}
-        className="size-2.5! border-0! bg-advertencia!"
+        className="size-3.5! border-0! bg-advertencia!"
       />
       {primera ? (
         <div className="nodrag nopan flex flex-col gap-1.5">
@@ -72,7 +74,11 @@ export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
               )
             }
           >
-            <SelectTrigger size="sm" aria-label="Campo de la condición" className="bg-superficie">
+            <SelectTrigger
+              size="sm"
+              aria-label="Campo de la condición"
+              className={cn(CLASE_SELECT_ADAPTABLE, 'bg-superficie')}
+            >
               <SelectValue placeholder="Elegir campo" />
             </SelectTrigger>
             <SelectContent>
@@ -92,7 +98,11 @@ export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
                 if (operador) data.onCambiarComparacion({ ...primera, operador })
               }}
             >
-              <SelectTrigger size="sm" aria-label="Operador" className="min-w-16 bg-superficie">
+              <SelectTrigger
+                size="sm"
+                aria-label="Operador"
+                className={cn(CLASE_SELECT_ADAPTABLE, 'min-w-16 bg-superficie')}
+              >
                 <SelectValue placeholder="…" />
               </SelectTrigger>
               <SelectContent>
@@ -103,14 +113,14 @@ export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
                 ))}
               </SelectContent>
             </Select>
-            <Input
-              aria-label="Valor de la condición"
-              value={primera.valor}
-              disabled={soloLectura || !campo}
-              type={campo?.tipo_dato === 'numero' ? 'number' : 'text'}
-              className="h-8 bg-superficie"
-              onChange={(e) => data.onCambiarComparacion({ ...primera, valor: e.target.value })}
-            />
+            {campo && (
+              <ValorComparacion
+                tipoDato={campo.tipo_dato}
+                valor={primera.valor}
+                disabled={soloLectura}
+                onChange={(valor) => data.onCambiarComparacion({ ...primera, valor })}
+              />
+            )}
           </div>
         </div>
       ) : (
@@ -128,14 +138,14 @@ export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
         type="source"
         position={Position.Right}
         style={{ top: '34%' }}
-        className="size-2.5! border-0! bg-exito!"
+        className="size-3.5! border-0! bg-exito!"
       />
       <Handle
         id="no"
         type="source"
         position={Position.Right}
         style={{ top: '72%' }}
-        className="size-2.5! border-0! bg-error!"
+        className="size-3.5! border-0! bg-error!"
       />
       <div className="absolute -right-9" style={{ top: 'calc(34% - 12px)' }}>
         <BotonSumar

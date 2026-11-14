@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { CopyIcon, LayoutGridIcon, Redo2Icon, SearchXIcon, Undo2Icon } from 'lucide-react'
 import { toast } from 'sonner'
@@ -17,6 +17,7 @@ import {
   tienePermiso,
 } from '@/modules/auth/constants'
 import { CanvasFlujo, type QueAgregar } from '@/modules/workflows/components/canvas-flujo'
+import { AtajosEditor } from '@/modules/workflows/components/atajos-editor'
 import { InspectorNodo } from '@/modules/workflows/components/inspector-nodo'
 import { PaletaBloques } from '@/modules/workflows/components/paleta-bloques'
 import { ResumenRegla } from '@/modules/workflows/components/resumen-regla'
@@ -51,7 +52,6 @@ import {
   BORRADOR_VACIO,
   cambiarEventoDelBorrador,
   conectar,
-  confirmarCambio,
   deshacer,
   desconectar,
   duplicarRegla,
@@ -61,7 +61,6 @@ import {
   iniciarHistorial,
   nuevoNodoAccion,
   nuevoNodoCondicion,
-  ordenarArbol,
   payloadDesdeBorrador,
   posicionParaHijo,
   profundidad,
@@ -129,7 +128,6 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
   const [enfocar, setEnfocar] = useState<{ id: string; vez: number } | null>(null)
   const [ordenar, setOrdenar] = useState(0)
   const [porEliminar, setPorEliminar] = useState<{ id: string; cantidad: number } | null>(null)
-  const baseArrastre = useRef<BorradorFlujo | null>(null)
   const [instantanea] = useState(() => JSON.stringify(inicial))
   const sinGuardar = JSON.stringify(borrador) !== instantanea
 
@@ -148,7 +146,16 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
     () => validarBorrador(borrador, tiposAccion),
     [borrador, tiposAccion],
   )
-  const errores = mostrarErrores ? erroresVivos : SIN_ERRORES
+  // Un bloque suelto se marca apenas aparece; los demás faltantes, recién al intentar guardar.
+  const errores = useMemo<ErroresFlujo>(() => {
+    if (mostrarErrores) return erroresVivos
+    const sueltos = Object.fromEntries(
+      borrador.nodos
+        .filter((nodo) => nodo.suelto && erroresVivos.porNodo[nodo.id])
+        .map((nodo) => [nodo.id, erroresVivos.porNodo[nodo.id]]),
+    )
+    return Object.keys(sueltos).length === 0 ? SIN_ERRORES : { general: [], porNodo: sueltos }
+  }, [mostrarErrores, erroresVivos, borrador.nodos])
 
   // Al cambiar de evento, una plantilla que no es compatible con el nuevo se descarta. Solo con
   // la lista vigente y sin error: mientras carga o si falla no se sabe, y no se toca.
@@ -170,7 +177,12 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
     setHistorial((actual) => registrarCambio(actual, transformar(actual.presente)))
   }
 
-  function agregarEn(padreId: string | null, rama: RamaNodo | null, que: QueAgregar) {
+  function agregarEn(
+    padreId: string | null,
+    rama: RamaNodo | null,
+    que: QueAgregar,
+    aviso?: string,
+  ) {
     if (borrador.tipoEventoId === '') {
       setSeleccionId(DISPARADOR_ID)
       toast.info('Elegí primero el evento que dispara la regla.')
@@ -196,15 +208,21 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
           )
     cambiar((actual) => ({ ...actual, nodos: [...actual.nodos, nodo] }))
     setSeleccionId(nodo.id)
+    if (aviso) toast.info(aviso)
   }
 
   function agregarDesdePaleta(que: QueAgregar) {
     const elegido = borrador.nodos.find((nodo) => nodo.id === seleccionId)
     if (elegido?.tipo === 'condicion') {
       const siLibre = borrador.nodos.every((n) => !(n.padreId === elegido.id && n.rama === 'si'))
-      agregarEn(elegido.id, siLibre ? 'si' : 'no', que)
+      agregarEn(
+        elegido.id,
+        siLibre ? 'si' : 'no',
+        que,
+        `Agregado a la salida ${siLibre ? 'Sí' : 'No'} de la condición seleccionada.`,
+      )
     } else {
-      agregarEn(null, null, que)
+      agregarEn(null, null, que, 'Agregado a continuación del disparador.')
     }
   }
 
@@ -231,15 +249,12 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
     cambiar((actual) => ({ ...actual, nodos: conectar(actual.nodos, conexion) }))
   }
 
+  // Un arrastre es un solo paso del historial: se registra al soltar los nodos.
   function moverNodos(posiciones: Record<string, PosicionNodo>) {
-    setHistorial((actual) =>
-      reemplazarPresente(actual, {
-        ...actual.presente,
-        nodos: actual.presente.nodos.map((n) =>
-          posiciones[n.id] ? { ...n, posicion: posiciones[n.id] } : n,
-        ),
-      }),
-    )
+    cambiar((actual) => ({
+      ...actual,
+      nodos: actual.nodos.map((n) => (posiciones[n.id] ? { ...n, posicion: posiciones[n.id] } : n)),
+    }))
   }
 
   function eliminarNodo(id: string) {
@@ -391,14 +406,13 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
                   variant="ghost"
                   size="sm"
                   disabled={borrador.nodos.length === 0}
-                  onClick={() => {
-                    cambiar((actual) => ({ ...actual, nodos: ordenarArbol(actual.nodos) }))
-                    setOrdenar((n) => n + 1)
-                  }}
+                  // El lienzo conoce el alto real de cada nodo: él calcula el orden.
+                  onClick={() => setOrdenar((n) => n + 1)}
                 >
                   <LayoutGridIcon data-icon="inline-start" />
                   Ordenar
                 </Button>
+                <AtajosEditor />
                 {regla && (
                   <Button variant="ghost" size="sm" onClick={duplicarEstaRegla}>
                     <CopyIcon data-icon="inline-start" />
@@ -462,7 +476,9 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
             />
           </div>
         </details>
-        <div className={seleccionado ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]' : ''}>
+        <div
+          className={seleccionado ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,360px)]' : ''}
+        >
           <div className="h-[min(640px,70vh)] min-h-[460px]">
             <CanvasFlujo
               borrador={borrador}
@@ -486,17 +502,6 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
                 cambiar((actual) => ({ ...actual, nodos: desconectar(actual.nodos, id) }))
               }
               onMover={moverNodos}
-              onInicioArrastre={() =>
-                setHistorial((actual) => {
-                  baseArrastre.current = actual.presente
-                  return actual
-                })
-              }
-              onFinArrastre={() =>
-                setHistorial((actual) =>
-                  baseArrastre.current ? confirmarCambio(actual, baseArrastre.current) : actual,
-                )
-              }
               onCambiarComparacion={(id, comparacion: ComparacionEditor) =>
                 cambiar((actual) => ({
                   ...actual,

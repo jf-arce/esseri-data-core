@@ -39,7 +39,7 @@ export function NodoAccion({ data }: NodeProps<NodoAccionFlujo>) {
       <Handle
         type="target"
         position={Position.Left}
-        className="size-2.5! border-0! bg-mod-inscripciones!"
+        className="size-3.5! border-0! bg-mod-inscripciones!"
       />
       <p className="flex items-center gap-1.5 text-sm font-semibold text-texto">
         {nodo.tipoAccion ? ETIQUETA_ACCION[nodo.tipoAccion] : 'Sin acción'}
@@ -47,7 +47,11 @@ export function NodoAccion({ data }: NodeProps<NodoAccionFlujo>) {
           <LockIcon className="size-3.5 text-advertencia" aria-label="Requiere aprobación humana" />
         )}
       </p>
-      {data.detalle && <p className="mt-0.5 truncate text-xs text-texto-2">{data.detalle}</p>}
+      {data.detalle && (
+        <p className="mt-0.5 line-clamp-3 text-xs text-texto-2" title={data.detalle}>
+          {data.detalle}
+        </p>
+      )}
       {data.estadisticas && data.reglaId && (
         <Link
           to={`${RUTA_EJECUCIONES}?regla=${data.reglaId}&nodo=${nodo.id}`}

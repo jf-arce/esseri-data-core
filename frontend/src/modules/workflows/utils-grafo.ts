@@ -45,8 +45,11 @@ import { CLAVE_CONFIG } from '@/modules/workflows/constants'
 export const DISPARADOR_ID = 'disparador'
 export const SALIDA_DISPARADOR = 'salida'
 
-export const ANCHO_COLUMNA = 340
+// Ancho máximo de un nodo (380) más el aire para el "+" y la arista.
+export const ANCHO_COLUMNA = 470
 export const ALTO_FILA = 128
+/** Aire vertical entre dos nodos apilados. */
+const SEPARACION_FILA = 32
 
 export interface ComparacionEditor {
   campo: string
@@ -255,16 +258,20 @@ export function actualizarNodo(
 
 /** Acomoda el árbol por niveles: cada hoja en su fila, cada nodo centrado respecto de sus hijos.
  * Las acciones hermanas quedan apiladas en una columna. */
-export function ordenarArbol(nodos: readonly NodoEditor[]): NodoEditor[] {
+export function ordenarArbol(
+  nodos: readonly NodoEditor[],
+  /** Alto medido de cada nodo: uno que creció por su texto no debe pisar al de abajo. */
+  alturas: ReadonlyMap<string, number> = new Map(),
+): NodoEditor[] {
   const posiciones = new Map<string, PosicionNodo>()
-  let fila = 0
+  let cursor = 0
 
   function acomodar(nodo: NodoEditor, nivel: number): number {
     const hijos = [...hijosDe(nodos, nodo.id, 'si'), ...hijosDe(nodos, nodo.id, 'no')]
     let y: number
     if (hijos.length === 0) {
-      y = fila * ALTO_FILA
-      fila += 1
+      y = cursor
+      cursor += Math.max(ALTO_FILA, (alturas.get(nodo.id) ?? 0) + SEPARACION_FILA)
     } else {
       const ys = hijos.map((hijo) => acomodar(hijo, nivel + 1))
       y = (Math.min(...ys) + Math.max(...ys)) / 2
@@ -276,8 +283,8 @@ export function ordenarArbol(nodos: readonly NodoEditor[]): NodoEditor[] {
   for (const raiz of hijosDe(nodos, null)) acomodar(raiz, 0)
   // Nodos sueltos (sin padre accesible): debajo del árbol, en la primera columna.
   for (const suelto of nodos.filter((nodo) => !posiciones.has(nodo.id) && nodo.padreId === null)) {
-    posiciones.set(suelto.id, { x: ANCHO_COLUMNA, y: fila * ALTO_FILA })
-    fila += 1
+    posiciones.set(suelto.id, { x: ANCHO_COLUMNA, y: cursor })
+    cursor += Math.max(ALTO_FILA, (alturas.get(suelto.id) ?? 0) + SEPARACION_FILA)
   }
   return nodos.map((nodo) => ({ ...nodo, posicion: posiciones.get(nodo.id) ?? nodo.posicion }))
 }
@@ -642,7 +649,10 @@ export function fraseRegla(borrador: BorradorFlujo, tiposEvento: TipoEvento[]): 
           .filter(Boolean)
           .join('; ')
       })
-    return [acciones.length > 0 ? listar(acciones) : '', ...condiciones].filter(Boolean).join('; ')
+    // Las acciones que cuelgan directo del disparador no tienen condición: corren "siempre".
+    const textoAcciones =
+      acciones.length > 0 ? `${padreId === null ? 'siempre ' : ''}${listar(acciones)}` : ''
+    return [textoAcciones, ...condiciones].filter(Boolean).join('; ')
   }
 
   const cuerpo = describir(null, null)
@@ -739,17 +749,6 @@ export function estadoDeBloque(
     return { estado: 'no_permitida', motivo: permitida.motivo ?? MOTIVO_NO_PERMITIDA }
   }
   return { estado: 'disponible', motivo: null }
-}
-
-/** Cierra un cambio hecho en varios pasos (como arrastrar un nodo): el historial recuerda `base`,
- * el estado de antes del gesto, como un único paso. */
-export function confirmarCambio<T>(historial: Historial<T>, base: T): Historial<T> {
-  if (Object.is(historial.presente, base)) return historial
-  return {
-    pasado: [...historial.pasado, base].slice(-MAX_HISTORIAL),
-    presente: historial.presente,
-    futuro: [],
-  }
 }
 
 /** Reemplaza el presente sin dejar rastro en el historial (los pasos intermedios de un arrastre). */

@@ -50,7 +50,7 @@ export function nodoAccion(id: string, extra: Partial<NodoWorkflow> = {}): NodoW
     notificacion_template_id: null,
     requiere_aprobacion_humana: false,
     destinatarios: { roles: [], usuarios: [] },
-    posicion: { x: 340, y: 0 },
+    posicion: { x: 470, y: 0 },
     updated_at: '2026-09-01T00:00:00Z',
     ...extra,
   }

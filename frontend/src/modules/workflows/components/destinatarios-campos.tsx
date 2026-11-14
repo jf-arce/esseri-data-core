@@ -90,7 +90,7 @@ function SelectorDestinatarios({
             role="combobox"
             aria-expanded={abierto}
             disabled={deshabilitado}
-            className="justify-between font-normal"
+            className="w-full min-w-0 justify-between font-normal"
           >
             {seleccionados.length > 0
               ? `${seleccionados.length} elegidos`
@@ -112,8 +112,9 @@ function SelectorDestinatarios({
       {seleccionados.length > 0 && (
         <ul className="flex flex-wrap gap-1.5" aria-label="Destinatarios elegidos">
           {seleccionados.map((opcion) => (
-            <li key={clave(opcion)}>
+            <li key={clave(opcion)} className="min-w-0 max-w-full">
               <Badge
+                className="h-auto min-h-[22px] max-w-full justify-start py-0.5 text-left break-all whitespace-normal"
                 variant={opcion.inactivo ? 'neutro' : opcion.tipo === 'rol' ? 'info' : 'exito'}
               >
                 {opcion.etiqueta}

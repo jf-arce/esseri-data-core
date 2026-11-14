@@ -31,15 +31,19 @@ export function NodoDisparador({ data }: NodeProps<NodoDisparadorFlujo>) {
       seleccionado={data.seleccionado}
       incompleto={data.incompleto}
     >
-      <p className="truncate text-sm font-semibold text-texto">{data.titulo}</p>
-      <p className="mt-0.5 truncate text-xs text-texto-2">{data.detalle}</p>
+      <p className="line-clamp-3 text-sm font-semibold text-texto" title={data.titulo}>
+        {data.titulo}
+      </p>
+      <p className="mt-0.5 line-clamp-3 text-xs text-texto-2" title={data.detalle}>
+        {data.detalle}
+      </p>
       <Handle
         id={SALIDA_DISPARADOR}
         type="source"
         position={Position.Right}
-        className="size-2.5! border-0! bg-mod-workflows!"
+        className="size-3.5! border-0! bg-mod-workflows!"
       />
-      <div className="absolute top-1/2 -right-9 -translate-y-1/2">
+      <div className="absolute top-1/2 -right-10 -translate-y-1/2">
         <BotonSumar
           rama={null}
           etiqueta="Agregar el primer bloque"
