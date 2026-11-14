@@ -19,8 +19,9 @@ from src.models import AuditLog
 from src.workflows import acciones_vencimiento_service
 from src.workflows.acciones_vencimiento_service import ejecutar_aplicar_vencimiento
 from src.workflows.eventos_service import emit_event
-from src.workflows.models import WorkflowExecution, WorkflowRule
+from src.workflows.models import WorkflowExecution
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
+from tests.workflows.factories import crear_regla_simple
 
 URL = "/facturacion/penalidades"
 
@@ -232,7 +233,8 @@ def test_solo_lectura_no_otorga_ni_anula(client_solo_lectura, factura_vencida):
 
 
 def _vencer(db, factura, tipo_factura_vencida):
-    regla = WorkflowRule(
+    regla = crear_regla_simple(
+        db,
         nombre="Vencer",
         condicion={},
         tipo_accion="aplicar_vencimiento",
@@ -242,7 +244,6 @@ def _vencer(db, factura, tipo_factura_vencida):
         activo=True,
         tipo_evento_id=tipo_factura_vencida.id,
     )
-    db.add(regla)
     db.commit()
     evento = emit_event(
         db,

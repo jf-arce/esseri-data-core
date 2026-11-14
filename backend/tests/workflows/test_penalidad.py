@@ -12,8 +12,9 @@ from src.facturacion.penalidades_service import resolver_tramo
 from src.workflows.acciones_penalidad_service import ejecutar_aplicar_penalidad
 from src.workflows.despacho_service import procesar_eventos_pendientes
 from src.workflows.eventos_service import emit_event
-from src.workflows.models import WorkflowExecution, WorkflowRule
+from src.workflows.models import WorkflowExecution
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
+from tests.workflows.factories import crear_regla_simple
 
 
 @pytest.fixture()
@@ -55,7 +56,8 @@ def caso(db_session, tipo_factura_vencida, tramos):
     )
     db_session.add(factura)
     db_session.flush()
-    regla = WorkflowRule(
+    regla = crear_regla_simple(
+        db_session,
         nombre="Aplicar penalidad",
         condicion={},
         tipo_accion="aplicar_penalidad",
@@ -65,7 +67,6 @@ def caso(db_session, tipo_factura_vencida, tramos):
         activo=True,
         tipo_evento_id=tipo_factura_vencida.id,
     )
-    db_session.add(regla)
     db_session.commit()
     return factura, regla
 
@@ -210,7 +211,10 @@ def test_con_aprobacion_queda_pendiente_y_al_aprobar_registra(client_autenticado
 def _pendiente(db, factura, regla, dias):
     evento = _evento(db, factura.id, dias)
     ejecucion = WorkflowExecution(
-        workflow_rule_id=regla.id, event_log_id=evento.id, estado="pendiente"
+        workflow_rule_id=regla.id,
+        workflow_nodo_id=regla.nodo_id,
+        event_log_id=evento.id,
+        estado="pendiente",
     )
     db.add(ejecucion)
     db.commit()

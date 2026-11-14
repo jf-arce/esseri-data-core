@@ -23,9 +23,9 @@ from src.workflows.models import (
     NotificacionTemplate,
     TipoEvento,
     WorkflowExecution,
-    WorkflowRule,
 )
 from tests.proveedores_compras.conftest import catalogo_eventos_compras  # noqa: F401
+from tests.workflows.factories import crear_regla_simple
 
 
 def _usuario(db, email):
@@ -57,7 +57,8 @@ def regla(db_session):
     tipo = db_session.scalar(
         select(TipoEvento).where(TipoEvento.nombre == "solicitud_compra.aprobada")
     )
-    regla = WorkflowRule(
+    regla = crear_regla_simple(
+        db_session,
         nombre="Avisar pedido aprobado",
         condicion={},
         tipo_accion="generar_comunicacion",
@@ -68,7 +69,6 @@ def regla(db_session):
         tipo_evento_id=tipo.id,
         notificacion_template_id=plantilla.id,
     )
-    db_session.add(regla)
     db_session.commit()
     return regla
 

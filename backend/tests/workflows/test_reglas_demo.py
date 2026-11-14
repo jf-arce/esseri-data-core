@@ -9,7 +9,14 @@ from sqlalchemy import select
 from src.auth.models import Rol, Usuario, UsuarioRol
 from src.workflows import despacho_service, ejecuciones_service
 from src.workflows.eventos_service import emit_event
-from src.workflows.models import ReglaDestinatario, Tarea, WorkflowExecution, WorkflowRule
+from src.workflows.models import (
+    ReglaDestinatario,
+    Tarea,
+    WorkflowExecution,
+    WorkflowNodo,
+    WorkflowRule,
+)
+from tests.workflows.factories import ReglaSimple
 
 
 def _usuario_con_rol(db, email, rol):
@@ -51,7 +58,8 @@ def _emitir(db, dias_vencido, factura_id):
 
 
 def _regla(db, nombre):
-    return db.scalars(select(WorkflowRule).where(WorkflowRule.nombre == nombre)).one()
+    regla = db.scalars(select(WorkflowRule).where(WorkflowRule.nombre == nombre)).one()
+    return ReglaSimple.desde_base(db, regla)
 
 
 def test_el_seed_crea_las_dos_reglas_de_mora_con_su_destinatario(db_session, escenario):
@@ -69,7 +77,7 @@ def test_el_seed_crea_las_dos_reglas_de_mora_con_su_destinatario(db_session, esc
         regla.id: db_session.get(Rol, d.rol_id).nombre
         for regla in (crear, escalar)
         for d in db_session.scalars(
-            select(ReglaDestinatario).where(ReglaDestinatario.workflow_rule_id == regla.id)
+            select(ReglaDestinatario).where(ReglaDestinatario.workflow_nodo_id == regla.nodo_id)
         )
     }
     assert roles == {crear.id: "administración", escalar.id: "dirección"}
@@ -116,7 +124,7 @@ def test_con_mas_de_30_dias_la_tarea_se_crea_y_el_escalamiento_espera_aprobacion
     _emitir(db_session, 40, uuid.uuid4())
 
     ejecuciones = {
-        db_session.get(WorkflowRule, e.workflow_rule_id).tipo_accion: e.estado
+        db_session.get(WorkflowNodo, e.workflow_nodo_id).tipo_accion: e.estado
         for e in db_session.scalars(select(WorkflowExecution))
     }
     assert ejecuciones == {"crear_tarea": "exitoso", "escalar_caso": "pendiente"}

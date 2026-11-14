@@ -28,7 +28,6 @@ from src.workflows.models import (
     NotificacionTemplate,
     ReglaDestinatario,
     WorkflowExecution,
-    WorkflowRule,
 )
 from src.workflows.notificaciones_service import (
     _enlace_de,
@@ -38,6 +37,7 @@ from src.workflows.notificaciones_service import (
 )
 from src.workflows.plantillas_service import formatear_valor, renderizar_contenido
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
+from tests.workflows.factories import crear_regla_simple
 
 # --- Render --------------------------------------------------------------------------------
 
@@ -130,7 +130,8 @@ def plantilla(db_session):
 
 
 def _regla(db, tipo, plantilla, destinatario="responsables_habilitados"):
-    regla = WorkflowRule(
+    regla = crear_regla_simple(
+        db,
         nombre="Avisar mora",
         condicion={},
         tipo_accion="notificar",
@@ -141,7 +142,6 @@ def _regla(db, tipo, plantilla, destinatario="responsables_habilitados"):
         tipo_evento_id=tipo.id,
         notificacion_template_id=None if plantilla is None else plantilla.id,
     )
-    db.add(regla)
     db.commit()
     return regla
 
@@ -161,7 +161,10 @@ def _evento(db, tipo, entidad="factura", entidad_id=None, payload=None):
 
 def _ejecucion(db, regla, evento, intento=1):
     ejecucion = WorkflowExecution(
-        workflow_rule_id=regla.id, event_log_id=evento.id, intento=intento
+        workflow_rule_id=regla.id,
+        workflow_nodo_id=regla.nodo_id,
+        event_log_id=evento.id,
+        intento=intento,
     )
     db.add(ejecucion)
     db.flush()
@@ -188,9 +191,11 @@ def test_destinatarios_regla_une_usuarios_y_roles_activos(db_session, tipo_factu
             UsuarioRol(usuario_id=por_rol.id, rol_id=rol.id),
             UsuarioRol(usuario_id=inactivo.id, rol_id=rol.id),
             UsuarioRol(usuario_id=directo.id, rol_id=rol.id),
-            ReglaDestinatario(destinatario_tipo="rol", workflow_rule_id=regla.id, rol_id=rol.id),
             ReglaDestinatario(
-                destinatario_tipo="usuario", workflow_rule_id=regla.id, usuario_id=directo.id
+                destinatario_tipo="rol", workflow_nodo_id=regla.nodo_id, rol_id=rol.id
+            ),
+            ReglaDestinatario(
+                destinatario_tipo="usuario", workflow_nodo_id=regla.nodo_id, usuario_id=directo.id
             ),
         ]
     )
@@ -373,7 +378,7 @@ def _preparar_regla_con_usuarios(db, tipo, plantilla, cantidad=2):
         usuario = _usuario(db, f"u{i:02d}@esseri.edu.ar")
         db.add(
             ReglaDestinatario(
-                destinatario_tipo="usuario", workflow_rule_id=regla.id, usuario_id=usuario.id
+                destinatario_tipo="usuario", workflow_nodo_id=regla.nodo_id, usuario_id=usuario.id
             )
         )
     db.commit()

@@ -23,8 +23,9 @@ from src.familias_alumnos.models import Familia
 from src.inscripciones.models import Asistencia
 from src.workflows import n8n_client
 from src.workflows.eventos_service import emit_event
-from src.workflows.models import CampoEvento, TipoEvento, WorkflowExecution, WorkflowRule
+from src.workflows.models import CampoEvento, TipoEvento, WorkflowExecution
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
+from tests.workflows.factories import crear_regla_simple
 
 PASSWORD_VALIDA = "una-contrasenia-larga"
 SEED_DEMO = Path(__file__).resolve().parents[3] / "database" / "seeds" / "04_seed_demo.py"
@@ -280,7 +281,8 @@ def crear_ejecucion(
     nombre="Avisar mora",
     requiere_aprobacion_humana=False,
 ):
-    regla = WorkflowRule(
+    regla = crear_regla_simple(
+        db,
         nombre=nombre,
         condicion={},
         tipo_accion="notificar",
@@ -290,7 +292,6 @@ def crear_ejecucion(
         activo=True,
         tipo_evento_id=tipo_evento.id,
     )
-    db.add(regla)
     db.commit()
     evento = emit_event(
         db,
@@ -310,6 +311,8 @@ def crear_ejecucion(
         error_detail="falló el envío" if estado == "fallido" else None,
         detalle="Esperando aprobación humana." if estado == "pendiente" else None,
         workflow_rule_id=regla.id,
+        workflow_nodo_id=regla.nodo_id,
+        accion_snapshot={"requiere_aprobacion_humana": requiere_aprobacion_humana},
         event_log_id=evento.id,
     )
     db.add(ejecucion)

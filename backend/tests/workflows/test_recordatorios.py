@@ -22,9 +22,9 @@ from src.workflows.models import (
     NotificacionTemplate,
     ReglaDestinatario,
     WorkflowExecution,
-    WorkflowRule,
 )
 from tests.workflows.conftest import _ahora, _asistencia
+from tests.workflows.factories import crear_regla_simple
 
 # --- Armado --------------------------------------------------------------------------------
 
@@ -59,8 +59,7 @@ def _regla(db, tipos, plantilla, *, config=None, condicion=None, **campos):
         # La regla existe de antes que los eventos: solo se recuerdan los posteriores a su alta.
         "created_at": _ahora(db) - timedelta(days=60),
     }
-    regla = WorkflowRule(**{**datos, **campos})
-    db.add(regla)
+    regla = crear_regla_simple(db, **{**datos, **campos})
     db.commit()
     return regla
 
@@ -248,7 +247,7 @@ def test_alerta_interna_no_se_suspende_por_cobertura(
     db_session.add(
         ReglaDestinatario(
             destinatario_tipo="usuario",
-            workflow_rule_id=regla.id,
+            workflow_nodo_id=regla.nodo_id,
             usuario_id=interno.id,
         )
     )
@@ -515,7 +514,8 @@ def test_un_recordatorio_de_otro_evento_se_manda_sin_mas_condiciones(
     )
     db_session.add_all([destinatario, plantilla])
     db_session.flush()
-    regla = WorkflowRule(
+    regla = crear_regla_simple(
+        db_session,
         nombre="Recordar mora",
         condicion={},
         tipo_accion="generar_recordatorio",
@@ -527,11 +527,10 @@ def test_un_recordatorio_de_otro_evento_se_manda_sin_mas_condiciones(
         notificacion_template_id=plantilla.id,
         created_at=_ahora(db_session) - timedelta(days=60),
     )
-    db_session.add(regla)
     db_session.flush()
     db_session.add(
         ReglaDestinatario(
-            destinatario_tipo="usuario", workflow_rule_id=regla.id, usuario_id=destinatario.id
+            destinatario_tipo="usuario", workflow_nodo_id=regla.nodo_id, usuario_id=destinatario.id
         )
     )
     db_session.add(

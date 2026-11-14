@@ -8,16 +8,17 @@ from src.workflows.models import (
     Notificacion,
     NotificacionTemplate,
     WorkflowExecution,
-    WorkflowRule,
 )
 from tests.workflows.conftest import _crear_usuario_con_permisos, _login
+from tests.workflows.factories import crear_regla_simple
 
 URL = "/workflows/notificaciones"
 INICIO = datetime(2026, 5, 1, 10, 0, 0)
 
 
 def _regla(db, tipo, nombre="Avisar mora"):
-    regla = WorkflowRule(
+    regla = crear_regla_simple(
+        db,
         nombre=nombre,
         condicion={},
         tipo_accion="notificar",
@@ -27,7 +28,6 @@ def _regla(db, tipo, nombre="Avisar mora"):
         activo=True,
         tipo_evento_id=tipo.id,
     )
-    db.add(regla)
     db.commit()
     return regla
 
@@ -48,6 +48,7 @@ def _evento(db, tipo):
 def _ejecucion(db, regla, evento, *, started_at=INICIO, intento=1):
     ejecucion = WorkflowExecution(
         workflow_rule_id=regla.id,
+        workflow_nodo_id=regla.nodo_id,
         event_log_id=evento.id,
         intento=intento,
         started_at=started_at,

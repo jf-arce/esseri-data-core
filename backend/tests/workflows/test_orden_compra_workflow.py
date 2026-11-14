@@ -27,8 +27,9 @@ from src.proveedores_compras.service import (
 )
 from src.workflows.acciones_compras_service import ejecutar_generar_orden_compra
 from src.workflows.despacho_service import procesar_eventos_pendientes
-from src.workflows.models import TipoEvento, WorkflowExecution, WorkflowRule
+from src.workflows.models import TipoEvento, WorkflowExecution
 from tests.proveedores_compras.conftest import catalogo_eventos_compras  # noqa: F401
+from tests.workflows.factories import crear_regla_simple
 
 
 @pytest.fixture()
@@ -61,7 +62,8 @@ def regla(db_session):
     tipo = db_session.scalar(
         select(TipoEvento).where(TipoEvento.nombre == "solicitud_compra.aprobada")
     )
-    regla = WorkflowRule(
+    regla = crear_regla_simple(
+        db_session,
         nombre="Generar orden de compra",
         condicion={},
         tipo_accion="generar_orden_compra",
@@ -71,7 +73,6 @@ def regla(db_session):
         activo=True,
         tipo_evento_id=tipo.id,
     )
-    db_session.add(regla)
     db_session.commit()
     return regla
 

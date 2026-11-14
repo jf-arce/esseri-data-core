@@ -82,15 +82,13 @@ from src.proveedores_compras.models import (
     SolicitudCompra,
 )
 from src.search import normalizar_texto_busqueda
-from src.workflows.destinatarios_service import reemplazar_destinatarios_regla
 from src.workflows.models import NotificacionTemplate, TipoEvento, WorkflowRule
 from src.workflows.plantillas_service import crear_plantilla
+from src.workflows.reglas_service import crear_regla, nodos_de_regla_simple
 from src.workflows.schemas import (
     NotificacionTemplateCreate,
-    ReglaDestinatariosUpdate,
     WorkflowRuleCreate,
 )
-from src.workflows.service import crear_regla
 
 DEMO_EMAIL = "demo.admin@esseri.local"
 DEMO_PASSWORD = os.getenv("ESSERI_DEMO_PASSWORD", "EsseriDemo2026!")
@@ -1072,25 +1070,24 @@ def _ensure_regla_workflow(db, usuario: Usuario, tipo_evento: TipoEvento, regla:
     plantilla_id = None
     if "plantilla" in regla:
         plantilla_id = _require(db, NotificacionTemplate, nombre=regla["plantilla"]).id
-    creada = crear_regla(
+    # Solo algunas acciones admiten destinatarios: las demás rechazan la regla.
+    rol_ids = [_require(db, Rol, nombre=regla["rol"]).id] if "rol" in regla else []
+    crear_regla(
         db,
         WorkflowRuleCreate(
             nombre=regla["nombre"],
             tipo_evento_id=tipo_evento.id,
-            condicion=condicion,
-            tipo_accion=regla["tipo_accion"],
-            accion_config=regla.get("accion_config"),
             criticidad=regla["criticidad"],
-            notificacion_template_id=plantilla_id,
+            nodos=nodos_de_regla_simple(
+                condicion=condicion,
+                tipo_accion=regla["tipo_accion"],
+                accion_config=regla.get("accion_config"),
+                notificacion_template_id=plantilla_id,
+                rol_ids=rol_ids,
+            ),
         ),
         usuario.id,
     )
-    # Solo algunas acciones admiten destinatarios: las demás rechazan la llamada.
-    if "rol" in regla:
-        rol = _require(db, Rol, nombre=regla["rol"])
-        reemplazar_destinatarios_regla(
-            db, creada, ReglaDestinatariosUpdate(rol_ids=[rol.id], usuario_ids=[]), usuario.id
-        )
 
 
 def _ensure_reglas_workflow(db, usuario: Usuario):
@@ -1338,11 +1335,13 @@ def _ensure_reglas_inasistencia(db, usuario: Usuario):
             WorkflowRuleCreate(
                 nombre=regla["nombre"],
                 tipo_evento_id=tipo_evento.id,
-                condicion=regla["condicion"],
-                tipo_accion=regla["tipo_accion"],
-                accion_config=regla["accion_config"],
                 criticidad="baja",
-                notificacion_template_id=plantillas[regla["plantilla"]].id,
+                nodos=nodos_de_regla_simple(
+                    condicion=regla["condicion"],
+                    tipo_accion=regla["tipo_accion"],
+                    accion_config=regla["accion_config"],
+                    notificacion_template_id=plantillas[regla["plantilla"]].id,
+                ),
             ),
             usuario.id,
         )

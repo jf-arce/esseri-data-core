@@ -17,8 +17,9 @@ from src.workflows.acciones_vencimiento_service import (
 )
 from src.workflows.despacho_service import procesar_eventos_pendientes
 from src.workflows.eventos_service import emit_event
-from src.workflows.models import WorkflowExecution, WorkflowRule
+from src.workflows.models import WorkflowExecution
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
+from tests.workflows.factories import crear_regla_simple
 
 # Fecha fija: la prórroga solo cuenta en el mismo mes, y los casos usan hoy ± días.
 HOY = date(2026, 11, 20)
@@ -54,7 +55,8 @@ def caso(db_session, tipo_factura_vencida):
     )
     db_session.add(factura)
     db_session.flush()
-    regla = WorkflowRule(
+    regla = crear_regla_simple(
+        db_session,
         nombre="Vencer factura",
         condicion={},
         tipo_accion="aplicar_vencimiento",
@@ -64,7 +66,6 @@ def caso(db_session, tipo_factura_vencida):
         activo=True,
         tipo_evento_id=tipo_factura_vencida.id,
     )
-    db_session.add(regla)
     db_session.commit()
     return factura, responsable, regla
 
