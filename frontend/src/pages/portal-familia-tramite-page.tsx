@@ -16,6 +16,7 @@ import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { PortalFamiliaShell } from '@/components/portal-familia/portal-familia-shell'
+import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
 import {
   PORTAL_PRIMARY_BUTTON_CLASS,
   PortalAlertBanner,
@@ -284,7 +285,8 @@ export function PortalFamiliaTramitePage({
     setFormularioAbierto(true)
   }
   return (
-    <section className="flex w-full flex-col">
+    <section className="relative isolate flex w-full flex-col">
+      <PortalFamiliaWatermark />
       <PortalFamiliaShell
         titulo={titulo}
         descripcion={esAsistencias ? undefined : descripcion}
@@ -297,14 +299,11 @@ export function PortalFamiliaTramitePage({
             <div className="flex w-full flex-wrap items-end gap-2 sm:w-auto">
               <div className="w-full sm:w-56">
                 <Field>
-                  <FieldLabel htmlFor="familia-alumno" className="text-white/80">
+                  <FieldLabel htmlFor="familia-alumno" className="text-texto-2">
                     Alumno
                   </FieldLabel>
                   <Select value={alumnoSeleccionado} onValueChange={setAlumnoId}>
-                    <SelectTrigger
-                      id="familia-alumno"
-                      className="w-full border-white/20 bg-white/95"
-                    >
+                    <SelectTrigger id="familia-alumno" className="w-full">
                       <SelectValue placeholder="Seleccioná un alumno" />
                     </SelectTrigger>
                     <SelectContent>
@@ -319,7 +318,7 @@ export function PortalFamiliaTramitePage({
               </div>
               <Button
                 variant="secondary"
-                className="rounded-full border-white/25 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+                className="rounded-full"
                 onClick={() => abrirFormulario('informar')}
               >
                 Informar ausencia

@@ -16,6 +16,7 @@ import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PortalFamiliaShell } from '@/components/portal-familia/portal-familia-shell'
+import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
 import {
   PORTAL_PRIMARY_BUTTON_CLASS,
   PortalAlertBanner,
@@ -199,7 +200,8 @@ export function PortalFamiliaPage() {
       : 'Sin vencimientos'
 
   return (
-    <section className="flex w-full flex-col">
+    <section className="relative isolate flex w-full flex-col">
+      <PortalFamiliaWatermark />
       <PortalFamiliaShell
         titulo={<>{saludo ? `Hola, ${saludo}` : 'Hola'} 👋</>}
         tituloClassName="text-[32px] sm:text-[40px]"

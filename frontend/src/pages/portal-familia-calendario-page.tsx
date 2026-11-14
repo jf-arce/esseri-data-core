@@ -24,7 +24,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { PortalFamiliaShell } from '@/components/portal-familia/portal-familia-shell'
+import {
+  PORTAL_FAMILIA_BACKGROUND,
+  PortalFamiliaShell,
+} from '@/components/portal-familia/portal-familia-shell'
+import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
 import { PortalCard } from '@/components/portal-familia/portal-familia-ui'
 import { useHorarioFamilia } from '@/modules/academico/hooks/use-horario-familia'
 import { aMinutos, deMinutos } from '@/modules/academico/utils'
@@ -32,9 +36,6 @@ import type { MateriaCurso } from '@/modules/academico/types'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
 import { normalizarTexto } from '@/lib/texto'
 import { cn } from '@/lib/utils'
-
-const FONDO_CALENDARIO =
-  'linear-gradient(180deg, rgba(74,58,99,0) 0%, rgba(74,58,99,0) 150px, #F3EDF9 320px, #F6F1FA 100%)'
 
 const DIAS = [1, 2, 3, 4, 5]
 const NOMBRES_DIA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
@@ -188,9 +189,10 @@ export function PortalFamiliaCalendarioPage() {
 
   return (
     <section
-      className="relative -mx-4 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden sm:-mx-8"
-      style={{ background: FONDO_CALENDARIO }}
+      className="relative isolate -mx-4 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden sm:-mx-8"
+      style={{ background: PORTAL_FAMILIA_BACKGROUND }}
     >
+      <PortalFamiliaWatermark />
       <div className="relative z-10">
         <PortalFamiliaShell
           icono={<CalendarDaysIcon aria-hidden="true" className="size-8" />}
@@ -379,7 +381,7 @@ export function PortalFamiliaCalendarioPage() {
                       <div
                         role="tablist"
                         aria-label="Día del calendario"
-                        className="grid grid-cols-5 gap-1 rounded-full bg-[#F5EFFA] p-1"
+                        className="flex flex-wrap gap-1 rounded-[20px] bg-[#F5EFFA] p-1"
                       >
                         {DIAS.map((dia) => (
                           <button
@@ -389,7 +391,7 @@ export function PortalFamiliaCalendarioPage() {
                             aria-selected={dia === diaVisible}
                             onClick={() => elegirDia(dia)}
                             className={cn(
-                              'rounded-full px-1 py-2 text-[12px] font-semibold whitespace-nowrap transition-colors sm:text-sm',
+                              'min-h-10 flex-1 rounded-full px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-[#7A2FA8] focus-visible:ring-offset-2',
                               dia === diaVisible
                                 ? 'bg-white text-[#7A2FA8] shadow-sm'
                                 : 'text-[#6B6478] hover:text-[#2B2338]',

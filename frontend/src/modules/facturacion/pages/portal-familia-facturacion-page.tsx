@@ -16,7 +16,11 @@ import { FilterDropdown } from '@/components/filter-dropdown'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
-import { PortalFamiliaShell } from '@/components/portal-familia/portal-familia-shell'
+import {
+  PORTAL_FAMILIA_BACKGROUND,
+  PortalFamiliaShell,
+} from '@/components/portal-familia/portal-familia-shell'
+import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
 import { PortalStatTile } from '@/components/portal-familia/portal-familia-ui'
 import { normalizarTexto } from '@/lib/texto'
 import { descargarComprobantePagoFamilia } from '@/modules/facturacion/services/descargar-comprobante-pago-familia'
@@ -150,7 +154,7 @@ function ResumenCuenta({ cuenta }: { cuenta: FacturacionFamilia }) {
     0,
   )
   return (
-    <section aria-label="Resumen de cuenta" className="grid gap-4 sm:grid-cols-3">
+    <section aria-label="Resumen de cuenta" className="grid gap-4 lg:grid-cols-3">
       <PortalStatTile
         label="Cargos emitidos"
         value={formatearMoneda(cuenta.total_debe)}
@@ -461,12 +465,10 @@ export function PortalFamiliaFacturacionPage() {
 
   return (
     <section
-      className="relative -mx-4 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden sm:-mx-8"
-      style={{
-        background:
-          'linear-gradient(180deg, rgba(74,58,99,0) 0%, rgba(74,58,99,0) 150px, #F3EDF9 320px, #F6F1FA 100%)',
-      }}
+      className="relative isolate -mx-4 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden sm:-mx-8"
+      style={{ background: PORTAL_FAMILIA_BACKGROUND }}
     >
+      <PortalFamiliaWatermark />
       <div className="relative z-10">
         <PortalFamiliaShell
           titulo="Facturación"
@@ -503,10 +505,10 @@ export function PortalFamiliaFacturacionPage() {
           }
         />
 
-        <div className="mx-auto flex w-full max-w-[92vw] flex-col gap-6 px-4 pb-10 sm:px-8">
+        <div className="mx-auto flex w-full max-w-[92vw] flex-col gap-6 pb-10">
           {cargando && (
             <div role="status" aria-label="Cargando facturación" className="flex flex-col gap-4">
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 lg:grid-cols-3">
                 <Skeleton className="h-28 rounded-[24px]" />
                 <Skeleton className="h-28 rounded-[24px]" />
                 <Skeleton className="h-28 rounded-[24px]" />

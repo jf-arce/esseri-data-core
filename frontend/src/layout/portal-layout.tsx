@@ -2,8 +2,7 @@ import { BellIcon } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router'
 import {
   PORTAL_FAMILIA_BACKGROUND,
-  PORTAL_FAMILIA_GLOW_CENTRAL,
-  PORTAL_FAMILIA_GLOW_DERECHO,
+  PORTAL_FAMILIA_HEADER_BACKGROUND,
 } from '@/components/portal-familia/portal-familia-shell'
 import { MenuCuenta } from '@/layout/menu-cuenta'
 import { cn } from '@/lib/utils'
@@ -22,25 +21,20 @@ export function PortalLayout() {
     )
 
   return (
-    <div className="portal-familia relative min-h-svh bg-[#4A3A63]">
+    <div
+      className="portal-familia relative min-h-svh"
+      style={{ background: PORTAL_FAMILIA_BACKGROUND }}
+    >
       <div
         data-slot="portal-familia-background"
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
         style={{ background: PORTAL_FAMILIA_BACKGROUND }}
       />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{ background: PORTAL_FAMILIA_GLOW_DERECHO }}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{ background: PORTAL_FAMILIA_GLOW_CENTRAL }}
-      />
-
-      <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-3 border-b border-white/10 bg-[#2C2143]/35 px-4 py-3 backdrop-blur-md sm:px-7 sm:py-0 lg:flex-nowrap">
+      <header
+        className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-3 border-b border-white/10 px-4 py-3 sm:px-7 sm:py-0 lg:flex-nowrap"
+        style={{ background: PORTAL_FAMILIA_HEADER_BACKGROUND }}
+      >
         <div className="flex items-center gap-2.5">
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10">
             <img

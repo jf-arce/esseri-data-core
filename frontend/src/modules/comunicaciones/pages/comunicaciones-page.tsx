@@ -15,7 +15,11 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
 import { PaginadorServidor } from '@/components/paginador-servidor'
-import { PortalFamiliaShell } from '@/components/portal-familia/portal-familia-shell'
+import {
+  PORTAL_FAMILIA_BACKGROUND,
+  PortalFamiliaShell,
+} from '@/components/portal-familia/portal-familia-shell'
+import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -220,18 +224,18 @@ function ListaFamilia({
   return (
     <>
       <section
-        className="relative -mx-4 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden sm:-mx-8"
-        style={{
-          background:
-            'linear-gradient(180deg, rgba(74,58,99,0) 0%, rgba(74,58,99,0) 150px, #F3EDF9 320px, #F6F1FA 100%)',
-        }}
+        className="relative isolate -mx-4 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden sm:-mx-8"
+        style={{ background: PORTAL_FAMILIA_BACKGROUND }}
       >
+        <PortalFamiliaWatermark />
         <div className="relative z-10">
           <PortalFamiliaShell
             icono={<MegaphoneIcon aria-hidden="true" className="size-8" />}
             titulo="Comunicaciones"
             descripcion="Avisos institucionales y de curso"
             etiqueta="Portal de familia"
+            volverA="/familia"
+            volverEtiqueta="Volver al inicio"
             anchoMaximo="max-w-[92vw]"
             className="pb-8"
           />
