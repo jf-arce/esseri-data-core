@@ -140,6 +140,7 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
       ) : (
         <ListaMensajes
           mensajes={mensajes}
+          conversacionId={conversacionId}
           porAlias={porAlias}
           alElegir={alElegir}
           alIr={alIr}

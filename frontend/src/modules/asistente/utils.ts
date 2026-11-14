@@ -194,6 +194,42 @@ export function formatearCelda(
   return valor.toLocaleString('es-AR')
 }
 
+// --- Orden de tablas ---------------------------------------------------------------------------
+
+export type OrdenTabla = { clave: string; dir: 'asc' | 'desc' }
+
+/** Ciclo del encabezado: sin orden, ascendente, descendente y de vuelta a sin orden. */
+export function siguienteOrden(actual: OrdenTabla | null, clave: string): OrdenTabla | null {
+  if (actual?.clave !== clave) return { clave, dir: 'asc' }
+  return actual.dir === 'asc' ? { clave, dir: 'desc' } : null
+}
+
+/** Filas ordenadas por una columna: los números como números, el texto y los alias (por nombre
+ * si ya se resolvió) con `localeCompare`. Los vacíos van siempre al final. No muta `filas`. */
+export function ordenarFilas(
+  filas: Record<string, ValorCelda>[],
+  columna: ColumnaTabla,
+  dir: 'asc' | 'desc',
+  porAlias: Record<string, AliasResuelto>,
+): Record<string, ValorCelda>[] {
+  const numerica =
+    columna.tipo === 'numero' || columna.tipo === 'moneda' || columna.tipo === 'porcentaje'
+  const signo = dir === 'asc' ? 1 : -1
+  const clave = (fila: Record<string, ValorCelda>): ValorCelda => {
+    const valor = fila[columna.clave] ?? null
+    if (columna.tipo === 'alias' && typeof valor === 'string')
+      return porAlias[valor]?.nombre ?? valor
+    return valor
+  }
+  return [...filas].sort((a, b) => {
+    const va = clave(a)
+    const vb = clave(b)
+    if (va === null || vb === null) return va === vb ? 0 : va === null ? 1 : -1
+    if (numerica && typeof va === 'number' && typeof vb === 'number') return (va - vb) * signo
+    return String(va).localeCompare(String(vb), 'es-AR', { numeric: true }) * signo
+  })
+}
+
 // --- Alias de un mensaje -----------------------------------------------------------------------
 
 /** Todos los alias que aparecen en los mensajes (texto, tarjetas y columnas de tipo alias). */

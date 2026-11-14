@@ -39,6 +39,8 @@ export type AccionIr = { etiqueta: string; ir: () => void }
 
 interface ListaMensajesProps {
   mensajes: MensajeVisible[]
+  /** Conversación abierta; habilita la descarga de tablas. */
+  conversacionId?: string | null
   porAlias: Record<string, AliasResuelto>
   alElegir: (resuelto: AliasResuelto) => void
   /** Botón para un bloque de navegación, o `null` si el rol no puede ir ahí. */
@@ -51,6 +53,7 @@ interface ListaMensajesProps {
 
 export function ListaMensajes({
   mensajes,
+  conversacionId = null,
   porAlias,
   alElegir,
   alIr,
@@ -131,6 +134,7 @@ export function ListaMensajes({
                     ) : (
                       <MensajeDelAsistente
                         mensaje={mensaje}
+                        conversacionId={conversacionId}
                         porAlias={porAlias}
                         alElegir={alElegir}
                         alIr={alIr}
@@ -163,6 +167,7 @@ function DesplazarAlEnviar({ enviados }: { enviados: number }) {
 
 function MensajeDelAsistente({
   mensaje,
+  conversacionId,
   porAlias,
   alElegir,
   alIr,
@@ -206,6 +211,7 @@ function MensajeDelAsistente({
         {!escribiendo && (
           <BloquesDelMensaje
             bloques={mensaje.bloques}
+            conversacionId={conversacionId ?? null}
             porAlias={porAlias}
             alElegir={alElegir}
             alIr={alIr}
@@ -246,11 +252,13 @@ function MensajeDelAsistente({
 
 function BloquesDelMensaje({
   bloques,
+  conversacionId,
   porAlias,
   alElegir,
   alIr,
 }: {
   bloques: Bloque[]
+  conversacionId: string | null
   porAlias: Record<string, AliasResuelto>
   alElegir: (resuelto: AliasResuelto) => void
   alIr: (bloque: BloqueNavegar) => AccionIr | null
@@ -278,7 +286,11 @@ function BloquesDelMensaje({
         if (bloque.tipo === 'tabla') {
           return (
             <motion.div key={bloque.tabla_id} variants={ELEMENTO_DE_DATOS}>
-              <BloqueTablaVista bloque={bloque} porAlias={porAlias} />
+              <BloqueTablaVista
+                bloque={bloque}
+                porAlias={porAlias}
+                conversacionId={conversacionId}
+              />
             </motion.div>
           )
         }
