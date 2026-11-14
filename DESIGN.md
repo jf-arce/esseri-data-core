@@ -211,6 +211,8 @@ Los 7 estados que todo control interactivo (Button, Input, ítem de nav, chip) c
 
 **Card de indicador (KPI)**: variante chica de Card (radio 12px según 5.1) con una anatomía fija — encabezado con la etiqueta a la izquierda y el ícono de color a la derecha (fondo `-suave` del semántico o módulo que corresponda + ícono saturado, 30px, radio 9px), debajo el valor en grande (`26px`, tabular-nums) y, solo cuando hay un dato real que lo justifique, una nota chica en `texto-3` (variación respecto al período anterior, cantidad que vence pronto, etc.) — nunca una nota de relleno. La primera card de una grilla de indicadores puede ir en `tinta` como ancla visual de la métrica principal; en ese caso lleva una ilustración de línea sutil (un motivo geométrico en blanco al 8–10% de opacidad, recortado por el radio de la card) para que no quede vacía, y mantiene la misma anatomía que las demás.
 
+En un panel que prioriza decisiones, ese indicador ancla puede ir como **hero**: ocupa dos columnas, el valor sube a `36px` con line-height explícito, el padding a 24px y admite un desglose en dos columnas debajo del valor (`StatTile` con `hero`).
+
 **Input / Select / Textarea**: todo campo que tenga un tipo de dato reconocible (correo, contraseña, teléfono, fecha, importe, documento, nombre de persona, búsqueda) lleva un ícono a la izquierda identificando ese dato, con el mismo recurso que ya usa el buscador de la topbar (`position:relative` + ícono absoluto + padding-left en el control). El ícono va en `texto-3` en reposo y toma el color de foco cuando el campo está activo. Un campo de contraseña suma además el toggle de mostrar/ocultar a la derecha.
 
 ### 9.1 Filtros de tabla
