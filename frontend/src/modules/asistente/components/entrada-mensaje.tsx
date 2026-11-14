@@ -1,6 +1,12 @@
 import { SendIcon, SquareIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Command, CommandEmpty, CommandItem, CommandList } from '@/components/ui/command'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import {
   InputGroup,
   InputGroupAddon,
@@ -8,23 +14,35 @@ import {
   InputGroupText,
   InputGroupTextarea,
 } from '@/components/ui/input-group'
-import { listarAlumnos } from '@/modules/familias-alumnos/services/listar-alumnos'
-import { listarFamilias } from '@/modules/familias-alumnos/services/listar-familias'
-import type { Mencion, TipoAlias } from '../types'
+import type { Permiso } from '@/modules/auth/types'
+import type { ComandoDeEntrada } from '../constants'
+import { useSugerenciasMencion, type Sugerencia } from '../hooks/use-sugerencias-mencion'
+import type { ComandoBackend, Mencion, TipoMencion } from '../types'
+import { comandosDisponibles, comandoVigente, consultaDeComando, consultaDeMencion } from '../utils'
 
 const MAX_CARACTERES = 2000
-const MAX_SUGERENCIAS = 6
-const ESPERA_BUSQUEDA_MS = 250
 
-type Sugerencia = { clave: string; tipo: TipoAlias; id: string; nombre: string }
+const ETIQUETA_TIPO: Record<TipoMencion, string> = {
+  ALUMNO: 'Alumnos',
+  FAMILIA: 'Familias',
+  DOCENTE: 'Docentes',
+  CURSO: 'Cursos',
+}
+const ORDEN_TIPOS: TipoMencion[] = ['ALUMNO', 'FAMILIA', 'DOCENTE', 'CURSO']
 
 interface EntradaMensajeProps {
   abierto: boolean
   generando: boolean
-  /** Con `familias_alumnos.leer`: sin él no se ofrece la lista de personas. */
+  /** Con `familias_alumnos.leer`: sin él no se ofrecen alumnos ni familias. */
   puedeMencionar: boolean
-  onEnviar: (contenido: string, menciones: Mencion[]) => void
+  /** Con `academico.leer`: habilita mencionar docentes y cursos. */
+  puedeMencionarAcademico?: boolean
+  /** Permisos del rol activo, para listar solo los atajos `/` que puede usar. */
+  permisos?: Permiso[]
+  onEnviar: (contenido: string, menciones: Mencion[], comando?: ComandoBackend) => void
   onCancelar: () => void
+  /** Atajo `/nueva`: se resuelve en el navegador, sin llamar al modelo. */
+  onNueva?: () => void
   /** Persona elegida desde una tarjeta de elección: se agrega como mención. */
   mencionPendiente: Sugerencia | null
   onMencionAplicada: () => void
@@ -32,28 +50,46 @@ interface EntradaMensajeProps {
 
 export type { Sugerencia }
 
-// "@mar" justo antes del cursor: lo que sigue a la última arroba sin espacios.
-function consultaDeMencion(texto: string, cursor: number): string | null {
-  const antes = texto.slice(0, cursor)
-  const coincidencia = antes.match(/(?:^|\s)@([^\s@]*)$/)
-  return coincidencia ? coincidencia[1] : null
-}
+type Opcion =
+  | { clave: string; tipo: 'mencion'; sugerencia: Sugerencia }
+  | { clave: string; tipo: 'comando'; comando: ComandoDeEntrada }
 
 export function EntradaMensaje({
   abierto,
   generando,
   puedeMencionar,
+  puedeMencionarAcademico = false,
+  permisos = [],
   onEnviar,
   onCancelar,
+  onNueva,
   mencionPendiente,
   onMencionAplicada,
 }: EntradaMensajeProps) {
   const [texto, setTexto] = useState('')
   const [menciones, setMenciones] = useState<Mencion[]>([])
   const [consulta, setConsulta] = useState<string | null>(null)
-  const [sugerencias, setSugerencias] = useState<Sugerencia[]>([])
+  const [consultaComando, setConsultaComando] = useState<string | null>(null)
+  const [comandoElegido, setComandoElegido] = useState<ComandoDeEntrada | null>(null)
   const [activa, setActiva] = useState(0)
   const campo = useRef<HTMLTextAreaElement>(null)
+
+  const sugerencias = useSugerenciasMencion(consulta, {
+    personas: puedeMencionar,
+    academico: puedeMencionarAcademico,
+  })
+  const comandos = consultaComando === null ? [] : comandosDisponibles(permisos, consultaComando)
+  const opciones: Opcion[] =
+    consultaComando !== null
+      ? comandos.map((comando) => ({ clave: `/${comando.nombre}`, tipo: 'comando', comando }))
+      : sugerencias.map((sugerencia) => ({
+          clave: sugerencia.clave,
+          tipo: 'mencion',
+          sugerencia,
+        }))
+  const mencionesActivas = (puedeMencionar || puedeMencionarAcademico) && consulta !== null
+  const mostrarLista = consultaComando !== null ? true : mencionesActivas
+  const itemActivo = Math.min(activa, Math.max(opciones.length - 1, 0))
 
   useEffect(() => {
     if (!abierto) return
@@ -62,40 +98,10 @@ export function EntradaMensaje({
     return () => window.cancelAnimationFrame(cuadro)
   }, [abierto])
 
-  useEffect(() => {
-    if (!puedeMencionar || consulta === null) return
-    const controlador = new AbortController()
-    const espera = window.setTimeout(() => {
-      const filtros = { buscar: consulta }
-      Promise.all([
-        listarAlumnos(filtros, controlador.signal),
-        listarFamilias(filtros, controlador.signal),
-      ])
-        .then(([alumnos, familias]) => {
-          const encontrados: Sugerencia[] = [
-            ...alumnos.map((a) => ({
-              clave: `ALUMNO:${a.id}`,
-              tipo: 'ALUMNO' as const,
-              id: a.id,
-              nombre: `${a.persona_nombre} ${a.persona_apellido}`,
-            })),
-            ...familias.map((f) => ({
-              clave: `FAMILIA:${f.id}`,
-              tipo: 'FAMILIA' as const,
-              id: f.id,
-              nombre: `${f.persona_nombre} ${f.persona_apellido}`,
-            })),
-          ]
-          setSugerencias(encontrados.slice(0, MAX_SUGERENCIAS))
-          setActiva(0)
-        })
-        .catch(() => setSugerencias([]))
-    }, ESPERA_BUSQUEDA_MS)
-    return () => {
-      window.clearTimeout(espera)
-      controlador.abort()
-    }
-  }, [consulta, puedeMencionar])
+  function cerrarListas() {
+    setConsulta(null)
+    setConsultaComando(null)
+  }
 
   function insertarMencion(elegida: Sugerencia) {
     const cursor = campo.current?.selectionStart ?? texto.length
@@ -108,9 +114,32 @@ export function EntradaMensaje({
       ...actuales.filter((m) => m.texto !== mencion),
       { tipo: elegida.tipo, entidad_id: elegida.id, texto: mencion },
     ])
-    setConsulta(null)
-    setSugerencias([])
+    cerrarListas()
     campo.current?.focus()
+  }
+
+  function elegirComando(comando: ComandoDeEntrada) {
+    if (comando.comando === null) {
+      // `/nueva`: limpia el campo y abre una conversación nueva, sin llamar al modelo.
+      setTexto('')
+      setMenciones([])
+      setComandoElegido(null)
+      cerrarListas()
+      onNueva?.()
+      return
+    }
+    setTexto(comando.plantilla)
+    setMenciones([])
+    setComandoElegido(comando)
+    setConsultaComando(null)
+    // Si la plantilla termina en `@` (ej. `/horario`), sigue la lista de menciones.
+    setConsulta(comando.plantilla.endsWith('@') ? '' : null)
+    campo.current?.focus()
+  }
+
+  function elegir(opcion: Opcion) {
+    if (opcion.tipo === 'comando') elegirComando(opcion.comando)
+    else insertarMencion(opcion.sugerencia)
   }
 
   // Una persona elegida desde una tarjeta de elección se suma al final del mensaje.
@@ -131,36 +160,39 @@ export function EntradaMensaje({
   function enviar() {
     const contenido = texto.trim()
     if (contenido === '' || generando) return
+    const comando = comandoVigente(contenido, comandoElegido)
     onEnviar(
       contenido,
       menciones.filter((m) => contenido.includes(m.texto)),
+      ...(comando === null ? [] : [comando]),
     )
     setTexto('')
     setMenciones([])
-    setConsulta(null)
+    setComandoElegido(null)
+    cerrarListas()
   }
 
   function alTeclear(evento: React.KeyboardEvent<HTMLTextAreaElement>) {
-    const abierta = consulta !== null && sugerencias.length > 0
+    const abierta = mostrarLista && opciones.length > 0
     if (abierta) {
       if (evento.key === 'ArrowDown') {
         evento.preventDefault()
-        setActiva((i) => (i + 1) % sugerencias.length)
+        setActiva((i) => (i + 1) % opciones.length)
         return
       }
       if (evento.key === 'ArrowUp') {
         evento.preventDefault()
-        setActiva((i) => (i - 1 + sugerencias.length) % sugerencias.length)
+        setActiva((i) => (i - 1 + opciones.length) % opciones.length)
         return
       }
       if (evento.key === 'Enter' || evento.key === 'Tab') {
         evento.preventDefault()
-        insertarMencion(sugerencias[activa])
+        elegir(opciones[itemActivo])
         return
       }
     }
-    if (evento.key === 'Escape' && consulta !== null) {
-      setConsulta(null)
+    if (evento.key === 'Escape' && (consulta !== null || consultaComando !== null)) {
+      cerrarListas()
       return
     }
     if (evento.key === 'Enter' && !evento.shiftKey) {
@@ -169,31 +201,49 @@ export function EntradaMensaje({
     }
   }
 
-  const mostrarLista = puedeMencionar && consulta !== null
+  const grupos = ORDEN_TIPOS.map((tipo) => ({
+    tipo,
+    items: opciones.flatMap((o) => (o.tipo === 'mencion' && o.sugerencia.tipo === tipo ? [o] : [])),
+  })).filter((grupo) => grupo.items.length > 0)
 
   return (
     <div className="relative border-t border-borde bg-superficie p-3">
       {mostrarLista && (
         <Command
           shouldFilter={false}
-          value={sugerencias[activa]?.clave ?? ''}
+          value={opciones[itemActivo]?.clave ?? ''}
           className="absolute right-3 bottom-full left-3 mb-1 h-auto w-auto rounded-lg border border-borde shadow-card"
         >
           <p className="border-b border-borde px-3 py-2 text-xs text-texto-3">
-            {consulta === ''
-              ? 'Mencioná a un alumno o una familia para que el asistente consulte sus datos. Escribí un nombre o apellido para buscar.'
-              : 'Elegí a quién mencionar con ↑ ↓ y Enter. Esc cierra la lista.'}
+            {consultaComando !== null
+              ? 'Elegí un atajo con ↑ ↓ y Enter. Esc cierra la lista.'
+              : consulta === ''
+                ? 'Mencioná a un alumno, una familia, un docente o un curso para que el asistente consulte sus datos. Escribí un nombre para buscar.'
+                : 'Elegí a quién mencionar con ↑ ↓ y Enter. Esc cierra la lista.'}
           </p>
           <CommandList>
-            {sugerencias.length === 0 && <CommandEmpty>Sin coincidencias.</CommandEmpty>}
-            {sugerencias.map((s) => (
-              <CommandItem key={s.clave} value={s.clave} onSelect={() => insertarMencion(s)}>
-                <span className="truncate">{s.nombre}</span>
-                <span className="ml-auto text-xs text-texto-3">
-                  {s.tipo === 'ALUMNO' ? 'Alumno' : 'Familia'}
-                </span>
-              </CommandItem>
-            ))}
+            {opciones.length === 0 && <CommandEmpty>Sin coincidencias.</CommandEmpty>}
+            {consultaComando !== null &&
+              opciones.map((o) =>
+                o.tipo === 'comando' ? (
+                  <CommandItem key={o.clave} value={o.clave} onSelect={() => elegir(o)}>
+                    <span className="font-medium">/{o.comando.nombre}</span>
+                    <span className="ml-2 truncate text-xs text-texto-3">
+                      {o.comando.descripcion}
+                    </span>
+                  </CommandItem>
+                ) : null,
+              )}
+            {consultaComando === null &&
+              grupos.map((grupo) => (
+                <CommandGroup key={grupo.tipo} heading={ETIQUETA_TIPO[grupo.tipo]}>
+                  {grupo.items.map((o) => (
+                    <CommandItem key={o.clave} value={o.clave} onSelect={() => elegir(o)}>
+                      <span className="truncate">{o.sugerencia.nombre}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ))}
           </CommandList>
         </Command>
       )}
@@ -203,18 +253,23 @@ export function EntradaMensaje({
           value={texto}
           rows={1}
           maxLength={MAX_CARACTERES}
-          placeholder="Preguntá algo… o mencioná con @"
+          placeholder="Preguntá algo… @ menciona, / abre atajos"
           aria-label="Mensaje para el asistente"
           className="max-h-40 min-h-12 resize-none [field-sizing:content]"
           onChange={(evento) => {
-            setTexto(evento.target.value)
-            setConsulta(consultaDeMencion(evento.target.value, evento.target.selectionStart))
+            const { value, selectionStart } = evento.target
+            setTexto(value)
+            setConsulta(consultaDeMencion(value, selectionStart))
+            setConsultaComando(consultaDeComando(value, selectionStart))
+            setActiva(0)
           }}
           onKeyDown={alTeclear}
         />
         <InputGroupAddon align="block-end">
           <InputGroupText className="text-xs text-texto-3">
-            {puedeMencionar ? '@ menciona un alumno o una familia' : 'Enter para enviar'}
+            {puedeMencionar || puedeMencionarAcademico
+              ? '@ menciona · / atajos'
+              : '/ atajos · Enter para enviar'}
           </InputGroupText>
           {generando ? (
             <InputGroupButton

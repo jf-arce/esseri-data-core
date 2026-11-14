@@ -183,7 +183,10 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
         abierto={abierto}
         generando={generando}
         puedeMencionar={puedeVerPersonas}
-        onEnviar={(contenido, menciones) => void enviar(contenido, menciones)}
+        puedeMencionarAcademico={tienePermiso(permisos, PERMISO_ACADEMICO_LEER)}
+        permisos={permisos}
+        onNueva={nueva}
+        onEnviar={(contenido, menciones, comando) => void enviar(contenido, menciones, comando)}
         onCancelar={cortar}
         mencionPendiente={mencionPendiente}
         onMencionAplicada={() => setMencionPendiente(null)}

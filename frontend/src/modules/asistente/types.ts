@@ -90,7 +90,13 @@ export type AliasResuelto = {
   nombre: string
 }
 
-export type Mencion = { tipo: TipoAlias; entidad_id: string; texto: string }
+/** Lo que se puede mencionar con `@`: personas (viajan como alias) y cursos (viajan por nombre). */
+export type TipoMencion = TipoAlias | 'CURSO'
+
+export type Mencion = { tipo: TipoMencion; entidad_id: string; texto: string }
+
+/** Atajos `/` que el backend entiende: cada uno fuerza una herramienta en el primer paso. */
+export type ComandoBackend = 'deuda' | 'asistencia' | 'horario' | 'evolucion' | 'comparar' | 'ir'
 
 /** Ficha que la persona tiene abierta; el backend la convierte en alias antes de usarla. */
 export type ContextoPantalla = { tipo: 'ALUMNO' | 'FAMILIA'; entidad_id: string }
@@ -98,6 +104,7 @@ export type ContextoPantalla = { tipo: 'ALUMNO' | 'FAMILIA'; entidad_id: string 
 export type PedidoMensaje = {
   contenido: string
   menciones: Mencion[]
+  comando?: ComandoBackend
   contexto?: ContextoPantalla
   ruta: string
   ciclo_lectivo: string

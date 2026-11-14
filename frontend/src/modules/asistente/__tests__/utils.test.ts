@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { Permiso } from '@/modules/auth/types'
+import { COMANDOS } from '../constants'
 import type { MensajeVisible } from '../types'
 import {
   aliasDeMensajes,
+  comandoVigente,
+  comandosDisponibles,
+  consultaDeComando,
+  consultaDeMencion,
   nombreCorrido,
   ordenarFilas,
   siguienteOrden,
@@ -415,5 +420,59 @@ describe('orden de tablas', () => {
       '[ALUMNO:2]',
       '[ALUMNO:1]',
     ])
+  })
+})
+
+describe('consultaDeMencion', () => {
+  it('toma lo que sigue a la última arroba antes del cursor', () => {
+    expect(consultaDeMencion('ficha de @mar', 13)).toBe('mar')
+    expect(consultaDeMencion('@', 1)).toBe('')
+    expect(consultaDeMencion('mail a@b', 8)).toBeNull()
+    expect(consultaDeMencion('@mar listo', 10)).toBeNull()
+  })
+})
+
+describe('consultaDeComando', () => {
+  it('solo abre si el mensaje empieza con / y el cursor sigue en esa palabra', () => {
+    expect(consultaDeComando('/', 1)).toBe('')
+    expect(consultaDeComando('/deu', 4)).toBe('deu')
+    expect(consultaDeComando('hola /deuda', 11)).toBeNull()
+    expect(consultaDeComando('/deuda algo', 11)).toBeNull()
+    expect(consultaDeComando('/a/b', 4)).toBeNull()
+  })
+})
+
+describe('comandosDisponibles', () => {
+  it('lista solo los atajos que el rol puede usar', () => {
+    const nombres = (permisos: Permiso[], consulta = '') =>
+      comandosDisponibles(permisos, consulta).map((c) => c.nombre)
+    expect(nombres([])).toEqual(['ir', 'nueva'])
+    expect(nombres([permiso('facturacion.leer')])).toEqual(['deuda', 'ir', 'nueva'])
+    expect(nombres([permiso('facturacion.leer'), permiso('panel_administrativo.leer')])).toContain(
+      'comparar',
+    )
+  })
+
+  it('filtra por lo escrito, sin distinguir tildes ni mayúsculas', () => {
+    const todos = [permiso('facturacion.leer'), permiso('panel_administrativo.leer')]
+    expect(comandosDisponibles(todos, 'EV').map((c) => c.nombre)).toEqual(['evolucion'])
+    expect(comandosDisponibles(todos, 'zzz')).toEqual([])
+  })
+})
+
+describe('comandoVigente', () => {
+  const deuda = COMANDOS.find((c) => c.nombre === 'deuda') ?? null
+  const horario = COMANDOS.find((c) => c.nombre === 'horario') ?? null
+  const nueva = COMANDOS.find((c) => c.nombre === 'nueva') ?? null
+
+  it('viaja mientras el mensaje siga siendo el de la plantilla', () => {
+    expect(comandoVigente('Familias con mayor deuda vencida', deuda)).toBe('deuda')
+    expect(comandoVigente('Horario de 5°A de Primaria', horario)).toBe('horario')
+  })
+
+  it('no viaja si se reescribió el mensaje, no hay atajo o es local', () => {
+    expect(comandoVigente('¿Y la asistencia?', deuda)).toBeNull()
+    expect(comandoVigente('hola', null)).toBeNull()
+    expect(comandoVigente('hola', nueva)).toBeNull()
   })
 })

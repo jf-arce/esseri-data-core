@@ -4,6 +4,7 @@ import { enviarMensaje } from '../services/enviar-mensaje'
 import { crearConversacion, listarMensajes } from '../services/conversaciones'
 import type {
   BloqueNavegar,
+  ComandoBackend,
   ContextoPantalla,
   EventoSse,
   MensajeAsistente,
@@ -122,7 +123,7 @@ export function useConversacion({ ruta, cicloLectivo, contexto = null }: Opcione
   )
 
   const enviar = useCallback(
-    async (contenido: string, menciones: Mencion[]) => {
+    async (contenido: string, menciones: Mencion[], comando?: ComandoBackend) => {
       const texto = contenido.trim()
       if (texto === '' || generando) return
       setError(null)
@@ -161,6 +162,7 @@ export function useConversacion({ ruta, cicloLectivo, contexto = null }: Opcione
           {
             contenido: texto,
             menciones,
+            ...(comando === undefined ? {} : { comando }),
             ruta,
             ciclo_lectivo: cicloLectivo,
             ...(contexto === null ? {} : { contexto }),

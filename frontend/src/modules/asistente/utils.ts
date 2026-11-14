@@ -8,7 +8,7 @@ import {
   RUTA_REGLAS,
   RUTA_TAREAS,
 } from '@/modules/workflows/constants'
-import { SUGERENCIAS } from './constants'
+import { COMANDOS, SUGERENCIAS, type ComandoDeEntrada } from './constants'
 import type {
   AliasResuelto,
   Bloque,
@@ -16,6 +16,7 @@ import type {
   BloqueKpi,
   BloqueTabla,
   ColumnaTabla,
+  ComandoBackend,
   ContextoPantalla,
   EventoSse,
   MensajeVisible,
@@ -100,6 +101,55 @@ export function etiquetaDeDestino(
     (candidato) => candidato.ruta === ruta,
   )
   return destino?.etiqueta ?? null
+}
+
+// --- Campo de texto: `@` y `/` -----------------------------------------------------------------
+
+/** "@mar" justo antes del cursor: lo que sigue a la última arroba sin espacios. */
+export function consultaDeMencion(texto: string, cursor: number): string | null {
+  const coincidencia = texto.slice(0, cursor).match(/(?:^|\s)@([^\s@]*)$/)
+  return coincidencia ? coincidencia[1] : null
+}
+
+/** "/deu" si el mensaje empieza con `/` y el cursor sigue en esa primera palabra. */
+export function consultaDeComando(texto: string, cursor: number): string | null {
+  const coincidencia = texto.slice(0, cursor).match(/^\/([^\s/]*)$/)
+  return coincidencia ? coincidencia[1] : null
+}
+
+function sinTildes(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+/** Atajos que el rol puede usar y que empiezan con lo escrito después de `/`. */
+export function comandosDisponibles(permisos: Permiso[], consulta: string): ComandoDeEntrada[] {
+  const buscado = sinTildes(consulta)
+  return COMANDOS.filter(
+    (c) =>
+      c.permisos.every((permiso) => tienePermiso(permisos, permiso)) &&
+      sinTildes(c.nombre).startsWith(buscado),
+  )
+}
+
+/**
+ * El atajo solo viaja si el mensaje sigue siendo el que armó la plantilla: si la persona lo
+ * reescribió por completo, es una pregunta nueva y el modelo elige la herramienta.
+ */
+export function comandoVigente(
+  contenido: string,
+  elegido: ComandoDeEntrada | null,
+): ComandoBackend | null {
+  if (elegido === null || elegido.comando === null) return null
+  const base = elegido.plantilla.replace(/@$/, '').trim()
+  return contenido.trim().startsWith(base) ? elegido.comando : null
+}
+
+/** Coincidencia sin tildes ni mayúsculas, para filtrar docentes y cursos en el navegador. */
+export function coincideConBusqueda(nombre: string, consulta: string): boolean {
+  return sinTildes(nombre).includes(sinTildes(consulta))
 }
 
 // --- Contexto de pantalla ----------------------------------------------------------------------
