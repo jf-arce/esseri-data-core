@@ -472,7 +472,7 @@ export function PortalFamiliaFacturacionPage() {
           titulo="Facturación"
           descripcion="Consultá las facturas y los débitos asociados a tu cuenta."
           etiqueta="Portal de familia"
-          anchoMaximo="max-w-[1400px]"
+          anchoMaximo="max-w-[92vw]"
           className="pb-8"
           volverA="/familia"
           volverEtiqueta="Volver al inicio"
@@ -503,7 +503,7 @@ export function PortalFamiliaFacturacionPage() {
           }
         />
 
-        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 px-4 pb-10 sm:px-8">
+        <div className="mx-auto flex w-full max-w-[92vw] flex-col gap-6 px-4 pb-10 sm:px-8">
           {cargando && (
             <div role="status" aria-label="Cargando facturación" className="flex flex-col gap-4">
               <div className="grid gap-4 sm:grid-cols-3">

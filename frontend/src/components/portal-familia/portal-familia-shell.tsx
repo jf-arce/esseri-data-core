@@ -36,7 +36,7 @@ export function PortalFamiliaShell({
   acciones,
   ilustracion,
   icono,
-  anchoMaximo = 'max-w-7xl',
+  anchoMaximo = 'max-w-[92vw]',
   className,
   tituloClassName,
 }: PortalFamiliaShellProps) {

@@ -186,10 +186,10 @@ export function PortalFamiliaPage() {
         descripcion="Este es el resumen de tu familia en ESSERI."
         ilustracion={<IlustracionColegio />}
         className="pb-36"
-        anchoMaximo="max-w-7xl"
+        anchoMaximo="max-w-[92vw]"
       />
 
-      <div className="relative mx-auto -mt-28 w-full max-w-7xl">
+      <div className="relative mx-auto -mt-28 w-full max-w-[92vw]">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="flex min-w-0 flex-col gap-6">
             <div className="grid gap-4 sm:grid-cols-3">

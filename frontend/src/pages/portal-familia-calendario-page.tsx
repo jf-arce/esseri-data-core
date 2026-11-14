@@ -199,11 +199,11 @@ export function PortalFamiliaCalendarioPage() {
           etiqueta="Portal de familia"
           volverA="/familia"
           volverEtiqueta="Volver al inicio"
-          anchoMaximo="max-w-[1500px]"
+          anchoMaximo="max-w-[92vw]"
           className="pb-8"
         />
 
-        <div className="mx-auto w-full max-w-[1500px] px-4 pb-10 sm:px-8">
+        <div className="mx-auto w-full max-w-[92vw] px-4 pb-10 sm:px-8">
           {cargando ? (
             <Skeleton className="h-96 w-full rounded-[24px] bg-white/80" />
           ) : alumnos.length === 0 ? (
