@@ -1,7 +1,8 @@
 import './echarts-mocks'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import { beforeEach, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
+import { EChartsBarChart } from '@/components/ui/echarts-bar-chart'
 import { EChartsLineChart } from '@/components/ui/echarts-line-chart'
 import { GraficoAsistencia, GraficoFinanciero } from '../graficos-direccion'
 
@@ -17,11 +18,13 @@ it('handles empty series and invalid counts without invalid percentages', () => 
   rerender(<GraficoFinanciero meses={[]} />)
   expect(screen.getByText('No hay registros para mostrar.')).toBeVisible()
 })
-it('keeps zero amounts available through a keyboard-accessible detail', async () => {
+it('keeps zero amounts available in an accessible table and avoids invalid percentages', async () => {
   render(<GraficoFinanciero meses={[{ mes: '2026-01', facturado: '0', cobrado: '0' }]} />)
-  await userEvent.click(screen.getByText('Consultar valores por mes'))
-  expect(screen.getByLabelText('Mes a consultar')).toHaveDisplayValue('enero de 2026')
-  expect(screen.getByText(/Facturado:.*0,00.*Cobrado:.*0,00/)).toBeVisible()
+  const tabla = screen.getByRole('table', { name: 'Facturado y cobrado por mes' })
+  expect(within(tabla).getByText('enero de 2026')).toBeVisible()
+  expect(within(tabla).getAllByText(/0,00/)).toHaveLength(2)
+  expect(screen.getAllByText('Sin facturación')).toHaveLength(2)
+  expect(screen.queryByText(/NaN|Infinity/)).not.toBeInTheDocument()
   expect(screen.queryByLabelText('Desde')).not.toBeInTheDocument()
 })
 it('preserves calendar gaps as null, a fixed percentage scale and weighted range totals', async () => {
@@ -44,36 +47,66 @@ it('preserves calendar gaps as null, a fixed percentage scale and weighted range
     undefined,
   )
   expect(screen.getByLabelText('Presentismo registrado')).toHaveTextContent('25%3 de 12 registros')
-  await userEvent.selectOptions(screen.getByLabelText('Desde'), '1')
-  expect(screen.getByLabelText('Presentismo registrado')).toHaveTextContent('75%3 de 4 registros')
-  await userEvent.selectOptions(screen.getByLabelText('Hasta'), '5')
-  await userEvent.selectOptions(screen.getByLabelText('Desde'), '2')
-  expect(screen.getByLabelText('Presentismo registrado')).toHaveTextContent('Sin registros')
-  await userEvent.click(screen.getByRole('button', { name: 'Restablecer' }))
+  expect(screen.getByText('Promedio diario')).toBeVisible()
   expect(screen.getByLabelText('Presentismo registrado')).toHaveTextContent('25%3 de 12 registros')
 })
-it('exposes a single attendance point and its counts', async () => {
-  render(<GraficoAsistencia serie={[['2026-01-01', { presentes: 1, total: 1 }]]} />)
-  await userEvent.click(screen.getByText('Consultar valores por fecha'))
-  expect(screen.getByLabelText('Fecha a consultar')).toHaveDisplayValue('1/1/2026')
-  expect(screen.getByText('Presentismo: 100% · 1 de 1 registros')).toBeVisible()
-})
-it('shows financial interval sums without changing the latest-month summary', async () => {
+it('summarizes attendance with the daily average and the lowest day', () => {
   render(
-    <GraficoFinanciero
-      meses={[
-        { mes: '2026-01', facturado: '100', cobrado: '50' },
-        { mes: '2026-02', facturado: '300', cobrado: '200' },
+    <GraficoAsistencia
+      serie={[
+        ['2026-01-01', { presentes: 1, total: 2 }],
+        ['2026-01-02', { presentes: 2, total: 2 }],
       ]}
     />,
   )
-  await userEvent.selectOptions(screen.getByLabelText('Hasta'), '0')
-  expect(screen.getByText(/Total del intervalo/)).toHaveTextContent(
-    /Facturado:.*100,00.*Cobrado:.*50,00/,
+  expect(screen.getByText('Promedio diario').nextSibling).toHaveTextContent('75 %')
+  const masBajo = screen.getByText('Día más bajo').nextSibling
+  expect(masBajo).toHaveTextContent('50 %')
+  expect(masBajo).toHaveTextContent('1/1/2026')
+})
+
+it('exposes a single attendance point in the data table', async () => {
+  render(<GraficoAsistencia serie={[['2026-01-01', { presentes: 1, total: 1 }]]} />)
+  const tabla = screen.getByRole('table', { name: 'Presentismo por fecha' })
+  expect(within(tabla).getByText('1/1/2026')).toBeVisible()
+  expect(within(tabla).getByText('100 %')).toBeVisible()
+  expect(within(tabla).getByText('1 de 1')).toBeVisible()
+})
+
+it.each([
+  [['100', '95'], 'En meta'],
+  [['100', '50'], 'Bajo meta'],
+])('shows the collection rate badge for %j', (montos, etiqueta) => {
+  render(
+    <GraficoFinanciero meses={[{ mes: '2026-01', facturado: montos[0], cobrado: montos[1] }]} />,
   )
-  expect(
-    within(screen.getByLabelText('Resumen financiero del último mes')).getByText(/300,00/),
-  ).toBeVisible()
+  expect(screen.getByText(etiqueta)).toBeVisible()
+  expect(screen.getByText('Cobranza', { selector: 'dt' }).nextSibling).toHaveTextContent(
+    `${montos[1]} %`,
+  )
+})
+
+it('compares the latest collected amount against the previous month with text, not only color', () => {
+  const { rerender } = render(
+    <GraficoFinanciero
+      meses={[
+        { mes: '2026-01', facturado: '100', cobrado: '100' },
+        { mes: '2026-02', facturado: '100', cobrado: '150' },
+      ]}
+    />,
+  )
+  expect(screen.getByText('Cobrado vs. mes anterior').nextSibling).toHaveTextContent('▲ 50 % más')
+  rerender(
+    <GraficoFinanciero
+      meses={[
+        { mes: '2026-01', facturado: '100', cobrado: '100' },
+        { mes: '2026-02', facturado: '100', cobrado: '50' },
+      ]}
+    />,
+  )
+  expect(screen.getByText('Cobrado vs. mes anterior').nextSibling).toHaveTextContent('▼ 50 % menos')
+  rerender(<GraficoFinanciero meses={[{ mes: '2026-01', facturado: '100', cobrado: '50' }]} />)
+  expect(screen.getByText('Sin base de comparación')).toBeVisible()
 })
 
 it('opens the whole interval when loading resolves', () => {
@@ -87,6 +120,41 @@ it('opens the whole interval when loading resolves', () => {
     />,
   )
   expect(screen.getByLabelText('Presentismo registrado')).toHaveTextContent('90%9 de 10 registros')
-  expect(screen.getByLabelText('Hasta')).toHaveValue('10')
-  expect(screen.getByRole('button', { name: 'Restablecer' })).toBeDisabled()
+})
+
+it('summarizes the zoomed interval with labelled amounts and its collection rate', () => {
+  render(
+    <GraficoFinanciero
+      meses={[
+        { mes: '2026-01', facturado: '100', cobrado: '50' },
+        { mes: '2026-02', facturado: '300', cobrado: '200' },
+      ]}
+    />,
+  )
+  const brush = vi
+    .mocked(EChartsBarChart.Brush)
+    .mock.calls.map(([props]) => props)
+    .find((props) => 'onChange' in props)
+  act(() => brush?.onChange?.({ startIndex: 1, endIndex: 1 }))
+  const resumen = screen.getByLabelText('Resumen del intervalo seleccionado')
+  expect(resumen).toHaveTextContent(/feb.*2026.*\(1 mes\)/)
+  expect(resumen).toHaveTextContent(/Facturado.*300,00/)
+  expect(resumen).toHaveTextContent(/Cobrado.*200,00/)
+  expect(resumen).toHaveTextContent('67 %')
+})
+
+it('offers range shortcuts that zoom the chart and summarize the interval', async () => {
+  const meses = Array.from({ length: 8 }, (_, i) => ({
+    mes: `2026-${String(i + 1).padStart(2, '0')}`,
+    facturado: '100',
+    cobrado: '80',
+  }))
+  render(<GraficoFinanciero meses={meses} />)
+  expect(screen.getByRole('button', { name: 'Todo' })).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.getByLabelText('Resumen del intervalo seleccionado')).toHaveTextContent('(8 meses)')
+  await userEvent.click(screen.getByRole('button', { name: '3 meses' }))
+  expect(screen.getByRole('button', { name: '3 meses' })).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.getByLabelText('Resumen del intervalo seleccionado')).toHaveTextContent(
+    /\(3 meses\).*Facturado.*Cobrado/,
+  )
 })

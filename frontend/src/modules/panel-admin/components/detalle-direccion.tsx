@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import { Link } from 'react-router'
+import { useState, type ReactNode } from 'react'
+import { Link, useNavigate } from 'react-router'
 import {
   ArrowLeftRightIcon,
   ArrowUpRightIcon,
@@ -14,103 +14,63 @@ import {
   UserPlusIcon,
   XCircleIcon,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatearMoneda } from '@/modules/facturacion/utils'
-import type { EstadoSolicitud } from '@/modules/proveedores-compras/types'
-import { useDetalleDireccion, type Recurso } from '../hooks/use-detalle-direccion'
+import type { DatosDetalleDireccion } from '../hooks/use-detalle-direccion'
 import { fechaActividad } from '../utils'
 import type { ActividadReciente, CategoriaActividad } from '../services/obtener-actividad-reciente'
+import { AtencionDireccion } from './atencion-direccion'
+import { Estado } from './estado-recurso'
 import { GraficoAsistencia, GraficoFinanciero } from './graficos-direccion'
 
 function Panel({
   titulo,
-  detalle,
+  accion,
+  fijo,
   children,
+  className,
+  contenidoClassName,
 }: {
   titulo: string
-  detalle?: string
+  accion?: ReactNode
+  // Contenido que queda fijo arriba mientras el cuerpo de la card hace scroll.
+  fijo?: ReactNode
   children: ReactNode
+  className?: string
+  contenidoClassName?: string
 }) {
   return (
-    <Card size="sm" className="w-full min-w-0 self-start gap-3">
-      <CardHeader>
-        <h2 className="text-base font-semibold leading-snug">{titulo}</h2>
-        {detalle && <p className="text-xs text-texto-2">{detalle}</p>}
+    <Card className={cn('h-full w-full min-w-0', className)}>
+      <CardHeader className="items-start">
+        <CardTitle>
+          <h2>{titulo}</h2>
+        </CardTitle>
+        {accion && <CardAction className="row-span-1 self-start">{accion}</CardAction>}
       </CardHeader>
-      <CardContent className="@container space-y-3">{children}</CardContent>
+      {fijo && <div className="px-(--card-spacing)">{fijo}</div>}
+      <CardContent className={cn('@container flex flex-1 flex-col gap-3', contenidoClassName)}>
+        {children}
+      </CardContent>
     </Card>
   )
 }
 
-function Estado<T>({
-  recurso,
-  vacio,
-  children,
-  carga,
-}: {
-  carga?: ReactNode
-  recurso: Recurso<T>
-  vacio: boolean
-  children: ReactNode
-}) {
-  if (recurso.cargando)
-    return (
-      carga ?? (
-        <div role="status" aria-label="Cargando sección" className="space-y-3">
-          <Skeleton className="h-5 w-2/3" />
-          <Skeleton className="h-20 w-full" />
-        </div>
-      )
-    )
-  if (recurso.error)
-    return (
-      <p role="alert" className="py-4 text-sm text-error">
-        {recurso.error}
-      </p>
-    )
-  if (vacio) return <p className="py-5 text-sm text-texto-2">No hay registros para mostrar.</p>
-  return children
-}
-
-// Todo acceso que sale de este panel se ve como botón y no como link de texto: el destino es
-// otra pantalla, y el botón lo hace evidente sin depender de un subrayado al hover.
-function Acceso({ to, children, label }: { to: string; children: ReactNode; label?: string }) {
+// El destino es otra pantalla, así que se ve como botón; pero secundario: en esta pantalla
+// ningún acceso compite con los datos (§9, un solo primario por vista como máximo).
+function Acceso({ to, children }: { to: string; children: ReactNode }) {
   return (
-    <Button asChild className="h-10">
-      <Link to={to} aria-label={label}>
+    <Button asChild variant="secondary" size="sm" className="min-h-9">
+      <Link to={to}>
         {children}
         <ArrowUpRightIcon data-icon="inline-end" aria-hidden="true" />
       </Link>
     </Button>
   )
 }
-
-// En "Requiere tu atención" el estado `pendiente` es justamente lo que exige una decisión de
-// Dirección, así que acá usa `advertencia` y no el `neutro` de la tabla de Compras (donde
-// significa "sin decisión", no una alerta). Sin ícono: el badge semántico ya comunica con
-// punto + texto, y un ícono adentro suma ruido (DESIGN.md §9).
-const VARIANTE_ESTADO_COMPRA = {
-  aprobada: 'exito',
-  rechazada: 'error',
-  pendiente: 'advertencia',
-} as const
-
-const ETIQUETA_ESTADO_COMPRA: Record<EstadoSolicitud, string> = {
-  aprobada: 'Aprobada',
-  rechazada: 'Rechazada',
-  pendiente: 'Pendiente',
-}
-
-function EstadoCompra({ estado }: { estado: EstadoSolicitud }) {
-  return <Badge variant={VARIANTE_ESTADO_COMPRA[estado]}>{ETIQUETA_ESTADO_COMPRA[estado]}</Badge>
-}
-
-const fecha = (valor: string) =>
-  new Date(`${valor.slice(0, 10)}T12:00:00`).toLocaleDateString('es-AR')
 
 const ICONO_ACTIVIDAD = {
   solicitud_compra_creada: ClipboardListIcon,
@@ -124,6 +84,20 @@ const ICONO_ACTIVIDAD = {
   matricula_baja: UserMinusIcon,
   cambio_matricula: ArrowLeftRightIcon,
 } as const
+
+// El feed no trae el id de la entidad, así que cada hecho lleva a la pantalla de su módulo.
+const RUTA_ACTIVIDAD: Record<string, string> = {
+  solicitud_compra_creada: '/solicitudes-compra',
+  solicitud_compra_aprobada: '/solicitudes-compra',
+  solicitud_compra_rechazada: '/solicitudes-compra',
+  orden_compra_emitida: '/ordenes-compra',
+  recepcion_compra_registrada: '/ordenes-compra',
+  pago_registrado: '/facturacion',
+  factura_vencida: '/facturacion/deudas/familias',
+  matricula_alta: '/inscripciones',
+  matricula_baja: '/inscripciones',
+  cambio_matricula: '/inscripciones',
+}
 
 const TINTE_CATEGORIA: Record<CategoriaActividad, string> = {
   compras: 'bg-sup-compras text-mod-compras',
@@ -154,13 +128,23 @@ function EstadoActividad({ estado }: { estado: string | null }) {
   return <Badge variant={configuracion.variante}>{configuracion.etiqueta}</Badge>
 }
 
-function FilaActividad({ item }: { item: ActividadReciente }) {
+function FilaActividad({ item, ultimo }: { item: ActividadReciente; ultimo: boolean }) {
   const Icono = ICONO_ACTIVIDAD[item.tipo as keyof typeof ICONO_ACTIVIDAD] ?? Clock3Icon
+  const ruta = RUTA_ACTIVIDAD[item.tipo]
   const contexto = [item.referencia, item.detalle].filter(Boolean).join(' · ')
   return (
-    <li className="grid grid-cols-[2rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1 py-3">
+    <li
+      className={`relative grid grid-cols-[2rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1 ${ultimo ? '' : 'pb-5'}`}
+    >
+      {/* Riel (§13): la línea nace en el centro del tile (2rem / 2 = 1rem) y baja hasta el siguiente. */}
+      {!ultimo && (
+        <span
+          aria-hidden="true"
+          className="absolute top-9 -bottom-1 left-4 w-px -translate-x-1/2 bg-borde"
+        />
+      )}
       <span
-        className={`flex size-8 items-center justify-center rounded-lg ${TINTE_CATEGORIA[item.categoria]}`}
+        className={`relative flex size-8 items-center justify-center rounded-lg ${TINTE_CATEGORIA[item.categoria]}`}
       >
         <Icono className="size-4" aria-hidden="true" />
       </span>
@@ -178,19 +162,64 @@ function FilaActividad({ item }: { item: ActividadReciente }) {
           <time dateTime={item.ocurrido_en} className="text-xs tabular-nums text-texto-2">
             {fechaActividad(item.ocurrido_en)}
           </time>
+          {ruta && (
+            <Link
+              to={ruta}
+              aria-label={`Ver ${item.titulo.toLowerCase()}`}
+              className="text-xs font-semibold text-violeta underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-violeta"
+            >
+              Ver detalle
+            </Link>
+          )}
         </div>
       </div>
     </li>
   )
 }
 
+const FILTROS_ACTIVIDAD: { valor: CategoriaActividad | 'todas'; etiqueta: string }[] = [
+  { valor: 'todas', etiqueta: 'Todo' },
+  { valor: 'compras', etiqueta: 'Compras' },
+  { valor: 'finanzas', etiqueta: 'Finanzas' },
+  { valor: 'alumnos', etiqueta: 'Alumnos' },
+]
+
+function FiltroActividad({
+  activo,
+  categorias,
+  onChange,
+}: {
+  activo: CategoriaActividad | 'todas'
+  categorias: Set<CategoriaActividad>
+  onChange: (valor: CategoriaActividad | 'todas') => void
+}) {
+  // Solo se ofrecen las categorías que el rol ve y que tienen hechos en la lista.
+  const visibles = FILTROS_ACTIVIDAD.filter((f) => f.valor === 'todas' || categorias.has(f.valor))
+  if (visibles.length < 3) return null
+  return (
+    <Tabs value={activo} onValueChange={(valor) => onChange(valor as typeof activo)}>
+      <TabsList aria-label="Filtrar actividad">
+        {visibles.map(({ valor, etiqueta }) => (
+          <TabsTrigger key={valor} value={valor}>
+            {etiqueta}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
+  )
+}
+
 export function DetalleDireccion({
   acceso,
+  datos,
 }: {
   acceso: { compras: boolean; finanzas: boolean; academico: boolean; alumnos: boolean }
+  datos: DatosDetalleDireccion
 }) {
-  const datos = useDetalleDireccion(acceso)
-  const pendientes = datos.compras.datos?.filter((item) => item.estado === 'pendiente') ?? []
+  const navegar = useNavigate()
+  const [filtro, setFiltro] = useState<CategoriaActividad | 'todas'>('todas')
+  const eventos = datos.actividad.datos ?? []
+  const visibles = eventos.filter((item) => filtro === 'todas' || item.categoria === filtro)
   const meses = datos.finanzas.datos ?? []
   const dias = new Map<string, { presentes: number; total: number }>()
   for (const item of datos.asistencia.datos ?? []) {
@@ -200,159 +229,107 @@ export function DetalleDireccion({
     dias.set(item.fecha, dia)
   }
   const serie = [...dias].sort(([a], [b]) => a.localeCompare(b))
+  const hayAtencion = acceso.compras || acceso.finanzas
+  const hayActividad = acceso.compras || acceso.finanzas || acceso.alumnos
+  // Bento de 12 columnas: 8/4 arriba y 4/8 abajo, para que los anchos se alternen en vez de
+  // repetir dos columnas iguales. Si falta la pareja de una celda, ocupa todo el ancho.
+  const ancho = (principal: boolean, pareja: boolean, grande: string, chico: string) =>
+    pareja ? (principal ? grande : chico) : 'xl:col-span-12'
   return (
-    <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-      <div className="min-w-0 space-y-4">
-        {(acceso.compras || acceso.finanzas) && (
+    <div className="grid min-w-0 items-stretch gap-6 xl:grid-cols-12">
+      {hayAtencion && (
+        <div className={cn('min-w-0', ancho(true, hayActividad, 'xl:col-span-8', 'xl:col-span-4'))}>
+          <AtencionDireccion
+            compras={datos.compras}
+            deudas={datos.deudas}
+            acceso={{ compras: acceso.compras, finanzas: acceso.finanzas }}
+          />
+        </div>
+      )}
+      {hayActividad && (
+        // En escritorio la card toma la altura de "Requiere tu atención" (`xl:h-0 xl:min-h-full`
+        // la saca del cálculo de la fila) y la lista hace scroll adentro si hay muchos eventos.
+        <div
+          className={cn(
+            'min-w-0',
+            ancho(false, hayAtencion, 'xl:col-span-8', 'xl:col-span-4'),
+            hayAtencion && 'xl:h-0 xl:min-h-full',
+          )}
+        >
           <Panel
-            titulo="Requiere tu atención"
-            detalle="Pendientes de gestión y cuentas con deuda vencida"
+            titulo="Actividad reciente"
+            fijo={
+              <FiltroActividad
+                activo={filtro}
+                categorias={new Set(eventos.map((item) => item.categoria))}
+                onChange={setFiltro}
+              />
+            }
+            contenidoClassName={cn(
+              'min-h-0 flex-1 overflow-y-auto',
+              hayAtencion ? 'max-h-96 xl:max-h-none' : 'max-h-[32rem]',
+            )}
           >
-            <Tabs defaultValue={acceso.compras ? 'compras' : 'deudas'}>
-              <TabsList className="h-auto flex-wrap gap-x-3 gap-y-1 group-data-horizontal/tabs:h-auto">
-                {acceso.compras && (
-                  <TabsTrigger value="compras" className="mr-0">
-                    Solicitudes de compra
-                    {!datos.compras.cargando && !datos.compras.error && datos.compras.datos
-                      ? ` (${pendientes.length})`
-                      : ''}
-                  </TabsTrigger>
-                )}
-                {acceso.finanzas && (
-                  <TabsTrigger value="deudas" className="mr-0">
-                    Cuentas en mora{datos.deudas.datos ? ` (${datos.deudas.datos.total})` : ''}
-                  </TabsTrigger>
-                )}
-              </TabsList>
-              {acceso.compras && (
-                <TabsContent value="compras">
-                  <Estado recurso={datos.compras} vacio={!pendientes.length}>
-                    <table className="w-full table-fixed text-left text-sm">
-                      <caption className="sr-only">
-                        Solicitudes de compra pendientes, últimas cinco
-                      </caption>
-                      <thead className="text-xs text-texto-2">
-                        <tr>
-                          <th className="hidden w-24 py-3 font-medium @xl:table-cell">Fecha</th>
-                          <th className="py-3 pr-3 font-medium">Solicitud</th>
-                          <th className="w-28 font-medium">Estado</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[...pendientes]
-                          .sort((a, b) => b.fecha.localeCompare(a.fecha))
-                          .slice(0, 5)
-                          .map((item) => (
-                            <tr key={item.id} className="border-t border-borde">
-                              <td className="hidden py-3 pr-3 text-xs tabular-nums text-texto-2 @xl:table-cell">
-                                {fecha(item.fecha)}
-                              </td>
-                              <td className="py-3 pr-3">
-                                <p className="break-words font-medium leading-snug">
-                                  {item.articulo || 'Solicitud de producto del catálogo'}
-                                </p>
-                                <p className="mt-1 break-words text-xs text-texto-2">
-                                  {item.area_solicitante || 'Sin área indicada'} · {item.cantidad}{' '}
-                                  {item.cantidad === 1 ? 'unidad' : 'unidades'}
-                                  <span className="block tabular-nums @xl:hidden">
-                                    {fecha(item.fecha)}
-                                  </span>
-                                </p>
-                              </td>
-                              <td>
-                                <EstadoCompra estado={item.estado} />
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </Estado>
-                  <div className="flex flex-wrap items-center justify-between gap-x-3 border-t border-borde pt-2">
-                    {pendientes.length > 5 && (
-                      <p className="text-xs text-texto-2">
-                        Mostrando las 5 pendientes más recientes
-                      </p>
-                    )}
-                    <Acceso to="/solicitudes-compra">Revisar solicitudes</Acceso>
-                  </div>
-                </TabsContent>
-              )}
-              {acceso.finanzas && (
-                <TabsContent value="deudas">
-                  <Estado recurso={datos.deudas} vacio={!datos.deudas.datos?.items.length}>
-                    <ul className="divide-y divide-borde">
-                      {datos.deudas.datos?.items.map((item) => (
-                        <li
-                          key={item.familia_id}
-                          className="flex flex-wrap items-center justify-between gap-2 py-3"
-                        >
-                          <div>
-                            <p className="font-medium">
-                              {item.familia_apellido}, {item.familia_nombre}
-                            </p>
-                            <p className="text-xs text-texto-2">Deuda vencida</p>
-                          </div>
-                          <span className="font-semibold tabular-nums text-error">
-                            {formatearMoneda(item.monto_vencido)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </Estado>
-                  <Acceso to="/facturacion/deudas/familias">Ver cuentas por familia</Acceso>
-                </TabsContent>
-              )}
-            </Tabs>
-          </Panel>
-        )}
-        {acceso.academico && (
-          <Panel titulo="Asistencia" detalle="Últimos 30 días · registros cargados">
-            <Estado
-              recurso={datos.asistencia}
-              vacio={!serie.length}
-              carga={<GraficoAsistencia serie={[]} cargando />}
-            >
-              {serie.length > 0 && <GraficoAsistencia serie={serie} />}
+            <Estado recurso={datos.actividad} vacio={!visibles.length}>
+              <ul aria-label="Actividad reciente">
+                {visibles.map((item, indice, lista) => (
+                  <FilaActividad key={item.id} item={item} ultimo={indice === lista.length - 1} />
+                ))}
+              </ul>
             </Estado>
-            <div className="border-t border-borde pt-1">
-              <Acceso to="/academico/historial-asistencia">Ver asistencias</Acceso>
-            </div>
           </Panel>
-        )}
-      </div>
-      <div className="min-w-0 space-y-4">
-        {acceso.finanzas && (
+        </div>
+      )}
+      {acceso.finanzas && (
+        <div
+          className={cn(
+            'min-w-0 xl:order-4',
+            ancho(true, acceso.academico, 'xl:col-span-8', 'xl:col-span-4'),
+          )}
+        >
           <Panel
             titulo="Evolución financiera"
-            detalle="Facturación emitida y cobros aprobados del año en curso"
+            accion={<Acceso to="/facturacion">Abrir facturación</Acceso>}
           >
             <Estado
               recurso={datos.finanzas}
               vacio={!meses.length}
               carga={<GraficoFinanciero meses={[]} cargando />}
             >
-              <GraficoFinanciero meses={meses} />
+              <GraficoFinanciero
+                meses={meses}
+                onMesClick={(mes) => navegar(`/facturacion?emision_mes=${mes}`)}
+              />
             </Estado>
-            <div className="border-t border-borde pt-1">
-              <Acceso to="/facturacion">Abrir facturación</Acceso>
-            </div>
           </Panel>
-        )}
-        {(acceso.compras || acceso.finanzas || acceso.alumnos) && (
+        </div>
+      )}
+      {acceso.academico && (
+        <div
+          className={cn(
+            'min-w-0 xl:order-3',
+            ancho(false, acceso.finanzas, 'xl:col-span-8', 'xl:col-span-4'),
+          )}
+        >
           <Panel
-            titulo="Actividad reciente"
-            detalle="Hechos registrados de compras, finanzas y alumnado"
+            titulo="Asistencia · 30 días"
+            accion={<Acceso to="/academico/historial-asistencia">Ver asistencias</Acceso>}
           >
-            <Estado recurso={datos.actividad} vacio={!datos.actividad.datos?.length}>
-              <ul aria-label="Actividad reciente" className="divide-y divide-borde">
-                {datos.actividad.datos?.map((item) => (
-                  <FilaActividad key={item.id} item={item} />
-                ))}
-              </ul>
+            <Estado
+              recurso={datos.asistencia}
+              vacio={!serie.length}
+              carga={<GraficoAsistencia serie={[]} cargando />}
+            >
+              {serie.length > 0 && (
+                <GraficoAsistencia
+                  serie={serie}
+                  onDiaClick={(dia) => navegar(`/academico/historial-asistencia?fecha=${dia}`)}
+                />
+              )}
             </Estado>
           </Panel>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
