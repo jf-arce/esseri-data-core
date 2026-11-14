@@ -2,7 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError } from '@/api/client'
 import { enviarMensaje } from '../services/enviar-mensaje'
 import { crearConversacion, listarMensajes } from '../services/conversaciones'
-import type { BloqueNavegar, EventoSse, MensajeAsistente, MensajeVisible, Mencion } from '../types'
+import type {
+  BloqueNavegar,
+  ContextoPantalla,
+  EventoSse,
+  MensajeAsistente,
+  MensajeVisible,
+  Mencion,
+} from '../types'
 
 let contador = 0
 function idLocal(): string {
@@ -35,13 +42,15 @@ export function mensajeDeError(error: unknown): string {
 interface Opciones {
   ruta: string
   cicloLectivo: string
+  /** Ficha abierta que se envía junto a la pregunta; `null` si no hay o se descartó. */
+  contexto?: ContextoPantalla | null
 }
 
 /**
  * Estado de la conversación visible y su stream. Al desmontarse (cambio de rol o cierre de
  * sesión) corta el stream en curso, así una respuesta tardía no se mezcla con otra cuenta.
  */
-export function useConversacion({ ruta, cicloLectivo }: Opciones) {
+export function useConversacion({ ruta, cicloLectivo, contexto = null }: Opciones) {
   const [conversacionId, setConversacionId] = useState<string | null>(null)
   const [mensajes, setMensajes] = useState<MensajeVisible[]>([])
   const [generando, setGenerando] = useState(false)
@@ -149,7 +158,13 @@ export function useConversacion({ ruta, cicloLectivo }: Opciones) {
         }
         await enviarMensaje(
           id,
-          { contenido: texto, menciones, ruta, ciclo_lectivo: cicloLectivo },
+          {
+            contenido: texto,
+            menciones,
+            ruta,
+            ciclo_lectivo: cicloLectivo,
+            ...(contexto === null ? {} : { contexto }),
+          },
           abortar.signal,
           aplicarEvento,
         )
@@ -168,7 +183,7 @@ export function useConversacion({ ruta, cicloLectivo }: Opciones) {
         setGenerando(false)
       }
     },
-    [actualizarUltimo, aplicarEvento, cicloLectivo, conversacionId, generando, ruta],
+    [actualizarUltimo, aplicarEvento, cicloLectivo, contexto, conversacionId, generando, ruta],
   )
 
   // Vuelve a mandar la última pregunta: el intento fallido se descarta de la pantalla.

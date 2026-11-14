@@ -21,6 +21,7 @@ import {
   rutaDeEntidad,
   sugerenciasPermitidas,
 } from '../utils'
+import { useContextoPantalla } from '../hooks/use-contexto-pantalla'
 import { EntradaMensaje, type Sugerencia } from './entrada-mensaje'
 import { PuntosPensando } from './indicadores-de-carga'
 import { HistorialConversaciones } from './historial-conversaciones'
@@ -58,6 +59,11 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
   )
 
   const {
+    contexto,
+    nombre: nombreVisto,
+    descartar,
+  } = useContextoPantalla(ubicacion.pathname, puedeVerPersonas)
+  const {
     conversacionId,
     mensajes,
     generando,
@@ -68,7 +74,7 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
     nueva,
     abrir,
     cortar,
-  } = useConversacion({ ruta: ubicacion.pathname, cicloLectivo: ciclo })
+  } = useConversacion({ ruta: ubicacion.pathname, cicloLectivo: ciclo, contexto })
   const { porAlias, resolver } = useAlias(conversacionId)
 
   // Rehidrata los nombres solo cuando la respuesta terminó, y solo si el rol puede ver personas.
@@ -157,6 +163,21 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
         >
           {error}
         </p>
+      )}
+      {nombreVisto !== null && (
+        <div className="flex shrink-0 items-center gap-1 border-t border-borde px-4 pt-2">
+          <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-violeta-suave py-0.5 pr-1 pl-2.5 text-xs text-texto">
+            <span className="truncate">Viendo: {nombreVisto}</span>
+            <button
+              type="button"
+              onClick={descartar}
+              aria-label="Dejar de usar esta ficha como contexto"
+              className="cursor-pointer rounded-full p-0.5 hover:bg-violeta-borde"
+            >
+              <XIcon className="size-3" />
+            </button>
+          </span>
+        </div>
       )}
       <EntradaMensaje
         abierto={abierto}

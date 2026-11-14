@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, expect, it, vi } from 'vitest'
-import type { EventoSse } from '../types'
+import type { ContextoPantalla, EventoSse } from '../types'
 
 const enviarMensaje = vi.fn()
 const crearConversacion = vi.fn()
@@ -219,4 +219,23 @@ it('acumula en orden cada herramienta que se consulta', async () => {
     pasos: ['buscar_recurso', 'ficha_alumno'],
     herramienta: null,
   })
+})
+
+it('envía la ficha abierta como contexto y no la manda si no hay', async () => {
+  enviarMensaje.mockResolvedValue(undefined)
+  const contexto: ContextoPantalla = { tipo: 'ALUMNO', entidad_id: 'a1' }
+  const inicial: Parameters<typeof useConversacion>[0] = { ...opciones, contexto }
+  const { result, rerender } = renderHook((props) => useConversacion(props), {
+    initialProps: inicial,
+  })
+  await act(async () => {
+    await result.current.enviar('¿cómo viene?', [])
+  })
+  expect(enviarMensaje.mock.calls[0][1]).toMatchObject({ contexto })
+
+  rerender({ ...opciones, contexto: null })
+  await act(async () => {
+    await result.current.enviar('otra', [])
+  })
+  expect(enviarMensaje.mock.calls[1][1]).not.toHaveProperty('contexto')
 })

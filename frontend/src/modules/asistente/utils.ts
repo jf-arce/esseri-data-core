@@ -1,3 +1,4 @@
+import { matchPath } from 'react-router'
 import { tienePermiso } from '@/modules/auth/constants'
 import { destinosDe, filtrarNav, NAV_GROUPS } from '@/layout/nav-items'
 import type { Permiso } from '@/modules/auth/types'
@@ -15,6 +16,7 @@ import type {
   BloqueKpi,
   BloqueTabla,
   ColumnaTabla,
+  ContextoPantalla,
   EventoSse,
   MensajeVisible,
   TipoAlias,
@@ -98,6 +100,19 @@ export function etiquetaDeDestino(
     (candidato) => candidato.ruta === ruta,
   )
   return destino?.etiqueta ?? null
+}
+
+// --- Contexto de pantalla ----------------------------------------------------------------------
+
+/** Ficha abierta según la URL (`alumnos/:alumnoId`, `familias/:familiaId`), o `null`. */
+export function contextoDeRuta(pathname: string): ContextoPantalla | null {
+  const alumno = matchPath('/familias-alumnos/alumnos/:alumnoId', pathname)?.params.alumnoId
+  if (alumno !== undefined && PATRON_ID.test(alumno)) return { tipo: 'ALUMNO', entidad_id: alumno }
+  const familia = matchPath('/familias-alumnos/familias/:familiaId', pathname)?.params.familiaId
+  if (familia !== undefined && PATRON_ID.test(familia)) {
+    return { tipo: 'FAMILIA', entidad_id: familia }
+  }
+  return null
 }
 
 // --- Alias -----------------------------------------------------------------------------------

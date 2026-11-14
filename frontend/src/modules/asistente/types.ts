@@ -92,9 +92,13 @@ export type AliasResuelto = {
 
 export type Mencion = { tipo: TipoAlias; entidad_id: string; texto: string }
 
+/** Ficha que la persona tiene abierta; el backend la convierte en alias antes de usarla. */
+export type ContextoPantalla = { tipo: 'ALUMNO' | 'FAMILIA'; entidad_id: string }
+
 export type PedidoMensaje = {
   contenido: string
   menciones: Mencion[]
+  contexto?: ContextoPantalla
   ruta: string
   ciclo_lectivo: string
 }
