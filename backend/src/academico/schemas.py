@@ -685,6 +685,7 @@ class MateriaCursoResponse(BaseModel):
     nivel_educativo_id: uuid.UUID | None = None
     nivel_educativo_nombre: str | None = None
     horarios: list[HorarioMateriaCursoResponse] = Field(default_factory=list)
+    docentes: list[str] = Field(default_factory=list)
     cantidad_asignaciones: int = 0
     created_at: datetime
     updated_at: datetime

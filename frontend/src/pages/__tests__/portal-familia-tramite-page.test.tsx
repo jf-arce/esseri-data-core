@@ -84,6 +84,10 @@ describe('PortalFamiliaTramitePage', () => {
       </MemoryRouter>,
     )
 
+    expect(
+      await screen.findByText('No tenés ausencias pendientes de justificar.'),
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Historial' }))
     expect(await screen.findByText('En revisión')).toBeInTheDocument()
     expect(screen.getByLabelText('Pendiente de aprobación')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Justificar' })).not.toBeInTheDocument()
@@ -163,6 +167,7 @@ describe('PortalFamiliaTramitePage', () => {
     )
     fireEvent.click(botonJustificar)
     expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toHaveClass('portal-familia')
     expect(screen.getByRole('heading', { name: 'Justificar ausencia' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -369,9 +374,15 @@ describe('PortalFamiliaTramitePage', () => {
     )
 
     await screen.findByRole('heading', { name: 'Resumen de asistencia' })
+    expect(screen.queryByText('Tenés una ausencia pendiente')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('tab', { name: 'Justificar asistencia' }))
-    expect(await screen.findByText('Cubierta por solicitud')).toBeInTheDocument()
+    expect(
+      await screen.findByText('No tenés ausencias pendientes de justificar.'),
+    ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Justificar' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Historial' }))
+    expect(await screen.findByText('Cubierta por solicitud')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('tab', { name: 'Solicitudes' }))
     expect(screen.getByText('Pendiente')).toBeInTheDocument()
