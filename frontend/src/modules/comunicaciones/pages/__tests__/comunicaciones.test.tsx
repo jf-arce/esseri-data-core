@@ -88,6 +88,22 @@ beforeEach(() => {
   })
 })
 
+it('returns from family communications to the family home', async () => {
+  render(
+    <MemoryRouter initialEntries={['/familia/comunicaciones']}>
+      <Routes>
+        <Route path="/familia/comunicaciones" element={<ComunicacionesPage familia />} />
+        <Route path="/familia" element={<h1>Family home</h1>} />
+      </Routes>
+    </MemoryRouter>,
+  )
+
+  const backLink = await screen.findByRole('link', { name: 'Volver al inicio' })
+  expect(backLink).toHaveAttribute('href', '/familia')
+  await userEvent.click(backLink)
+  expect(screen.getByRole('heading', { name: 'Family home' })).toBeInTheDocument()
+})
+
 it('links the steps with a line that fills instead of a step counter', async () => {
   render(
     <MemoryRouter>

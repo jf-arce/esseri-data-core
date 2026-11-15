@@ -196,7 +196,7 @@ export function FormularioAusencia({
 
   return (
     <Dialog open={abierto} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="portal-familia max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
             {modo === 'justificar' ? 'Justificar ausencia' : 'Informar ausencia'}

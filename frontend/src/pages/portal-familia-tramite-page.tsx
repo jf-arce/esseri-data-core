@@ -16,6 +16,7 @@ import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { PortalFamiliaShell } from '@/components/portal-familia/portal-familia-shell'
+import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
 import {
   PORTAL_PRIMARY_BUTTON_CLASS,
   PortalAlertBanner,
@@ -35,7 +36,7 @@ import {
   type ModoFormularioAusencia,
 } from '@/modules/academico/components/formulario-ausencia'
 import { listarAsistenciasFamilia } from '@/modules/academico/services/listar-asistencias-familia'
-import { esAusenciaPendienteDeJustificar } from '@/modules/academico/utils'
+import { esAusenciaSinJustificar } from '@/modules/academico/utils'
 import {
   cancelarSolicitudAusencia,
   descargarComprobanteSolicitudAusencia,
@@ -66,10 +67,6 @@ function etiquetaAsistencia(asistencia: AsistenciaFamilia) {
     ausente_injustificado: 'Ausente',
   }
   return etiquetas[asistencia.tipo] ?? asistencia.tipo.replaceAll('_', ' ')
-}
-
-function esPendiente(asistencia: AsistenciaFamilia) {
-  return esAusenciaPendienteDeJustificar(asistencia)
 }
 
 function iconoEstadoJustificacion(estado: AsistenciaFamilia['justificacion_estado']) {
@@ -199,8 +196,22 @@ export function PortalFamiliaTramitePage({
       (solicitud) => solicitud.fecha_inicio <= fecha && solicitud.fecha_fin >= fecha,
     )
   }
-  const asistenciasPendientes = asistencias.filter(esPendiente)
-  const asistenciasHistorial = asistencias.filter((asistencia) => !esPendiente(asistencia))
+  const asistenciasPendientes = useMemo(
+    () =>
+      asistencias.filter(
+        (asistencia) =>
+          esAusenciaSinJustificar(asistencia) &&
+          !solicitudesActivas.some(
+            (solicitud) =>
+              solicitud.fecha_inicio <= asistencia.fecha && solicitud.fecha_fin >= asistencia.fecha,
+          ),
+      ),
+    [asistencias, solicitudesActivas],
+  )
+  const asistenciasHistorial = useMemo(
+    () => asistencias.filter((asistencia) => !asistenciasPendientes.includes(asistencia)),
+    [asistencias, asistenciasPendientes],
+  )
   const resumenAsistencias = resumirAsistencias(asistencias)
   const asistenciasHistorialFiltradas = useMemo(() => {
     const filtradas = asistenciasHistorial.filter((asistencia) => {
@@ -274,27 +285,25 @@ export function PortalFamiliaTramitePage({
     setFormularioAbierto(true)
   }
   return (
-    <section className="flex w-full flex-col">
+    <section className="relative isolate flex w-full flex-col">
+      <PortalFamiliaWatermark />
       <PortalFamiliaShell
         titulo={titulo}
         descripcion={esAsistencias ? undefined : descripcion}
         etiqueta="Portal de familia"
         volverA="/familia"
         volverEtiqueta="Volver al inicio"
-        anchoMaximo="max-w-5xl"
+        anchoMaximo="max-w-[92vw]"
         acciones={
           esJustificacion && alumnos.length > 0 ? (
             <div className="flex w-full flex-wrap items-end gap-2 sm:w-auto">
               <div className="w-full sm:w-56">
                 <Field>
-                  <FieldLabel htmlFor="familia-alumno" className="text-white/80">
+                  <FieldLabel htmlFor="familia-alumno" className="text-texto-2">
                     Alumno
                   </FieldLabel>
                   <Select value={alumnoSeleccionado} onValueChange={setAlumnoId}>
-                    <SelectTrigger
-                      id="familia-alumno"
-                      className="w-full border-white/20 bg-white/95"
-                    >
+                    <SelectTrigger id="familia-alumno" className="w-full">
                       <SelectValue placeholder="Seleccioná un alumno" />
                     </SelectTrigger>
                     <SelectContent>
@@ -309,7 +318,7 @@ export function PortalFamiliaTramitePage({
               </div>
               <Button
                 variant="secondary"
-                className="rounded-full border-white/25 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+                className="rounded-full"
                 onClick={() => abrirFormulario('informar')}
               >
                 Informar ausencia
@@ -319,7 +328,7 @@ export function PortalFamiliaTramitePage({
         }
       />
 
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 pt-6">
+      <div className="mx-auto flex w-full max-w-[92vw] flex-col gap-5 pt-6">
         <PortalCard contentClassName="p-5 sm:p-6">
           {esJustificacion && alumnos.length > 0 ? (
             <div className="flex flex-col gap-4">
@@ -433,21 +442,13 @@ export function PortalFamiliaTramitePage({
                               {new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString('es-AR')}
                             </span>
                             <span className="text-[#6B6478]">{etiquetaAsistencia(asistencia)}</span>
-                            {iconoEstadoJustificacion(asistencia.justificacion_estado)}
-                            {!asistencia.justificacion_estado &&
-                              (cubiertaPorPeriodo(asistencia.fecha) ? (
-                                <span className="text-xs text-[#8C8599]">
-                                  Cubierta por solicitud
-                                </span>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  className="rounded-full"
-                                  onClick={() => abrirFormulario('justificar', asistencia.fecha)}
-                                >
-                                  Justificar
-                                </Button>
-                              ))}
+                            <Button
+                              size="sm"
+                              className="rounded-full"
+                              onClick={() => abrirFormulario('justificar', asistencia.fecha)}
+                            >
+                              Justificar
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -637,6 +638,12 @@ export function PortalFamiliaTramitePage({
                                       {etiquetaAsistencia(asistencia)}
                                     </span>
                                     {iconoEstadoJustificacion(asistencia.justificacion_estado)}
+                                    {!asistencia.justificacion_id &&
+                                      cubiertaPorPeriodo(asistencia.fecha) && (
+                                        <span className="text-xs text-[#8C8599]">
+                                          Cubierta por solicitud
+                                        </span>
+                                      )}
                                     {asistencia.justificacion_id && (
                                       <button
                                         type="button"

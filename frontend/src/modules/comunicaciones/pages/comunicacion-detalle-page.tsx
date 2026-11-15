@@ -8,6 +8,8 @@ import {
   ChevronRightIcon,
   HomeIcon,
 } from 'lucide-react'
+import { PORTAL_FAMILIA_BACKGROUND } from '@/components/portal-familia/portal-familia-shell'
+import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,9 +22,6 @@ import { obtenerComunicacion } from '../services/obtener-comunicacion'
 import { registrarLectura } from '../services/registrar-lectura'
 import type { Adjunto, Comunicacion } from '../types'
 import { ETIQUETAS_CANAL, ETIQUETAS_TIPO } from '../utils'
-
-const FONDO_DETALLE =
-  'radial-gradient(ellipse 60% 45% at 100% 0%, #EADFF8 0%, rgba(234,223,248,0) 60%), radial-gradient(ellipse 50% 40% at 80% 100%, #EFE5FA 0%, rgba(239,229,250,0) 65%), #F3EEF9'
 
 const FORMATO_FECHA_LARGA = new Intl.DateTimeFormat('es-AR', {
   day: 'numeric',
@@ -257,36 +256,12 @@ export function ComunicacionDetallePage({
   if (familia) {
     return (
       <section
-        className="relative -mx-4 -mt-6 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden px-4 pt-6 pb-10 sm:-mx-8 sm:px-8"
-        style={{ background: FONDO_DETALLE }}
+        className="relative isolate -mx-4 -mt-6 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden px-4 pt-6 pb-10 sm:-mx-8 sm:px-8"
+        style={{ background: PORTAL_FAMILIA_BACKGROUND }}
       >
-        <svg
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-[340px] w-full"
-          viewBox="0 0 1440 340"
-          preserveAspectRatio="none"
-        >
-          <path d="M0 0h1440v200c-220 95-470 8-720 62S180 350 0 286Z" fill="#EADFF8" opacity=".7" />
-          <path
-            d="M0 0h1440v110c-300 125-560 24-840 76S180 245 0 205Z"
-            fill="#F1E8FA"
-            opacity=".85"
-          />
-        </svg>
-        <svg
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[260px] w-full"
-          viewBox="0 0 1440 260"
-          preserveAspectRatio="none"
-        >
-          <path
-            d="M0 260h1440V70c-260 95-500 20-760 70S240 220 0 160Z"
-            fill="#EFE5FA"
-            opacity=".55"
-          />
-        </svg>
+        <PortalFamiliaWatermark />
 
-        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-5">
+        <div className="relative z-10 mx-auto flex w-full max-w-[92vw] flex-col gap-5">
           <div className="flex flex-col gap-3">
             <Link
               to={base}

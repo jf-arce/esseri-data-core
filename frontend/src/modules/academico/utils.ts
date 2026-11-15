@@ -76,6 +76,14 @@ export function esAusenciaPendienteDeJustificar(asistencia: {
   )
 }
 
+/** Ausencia pendiente que todavía no tiene ninguna justificación cargada. */
+export function esAusenciaSinJustificar(asistencia: {
+  tipo: string
+  justificacion_estado?: string | null
+}): boolean {
+  return asistencia.tipo === 'ausente_pendiente' && !asistencia.justificacion_estado
+}
+
 const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
 /** Formatea una franja como "Lun 08:00–09:00" (día 1 = lunes). */

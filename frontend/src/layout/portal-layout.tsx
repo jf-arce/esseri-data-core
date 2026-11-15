@@ -2,8 +2,7 @@ import { BellIcon } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router'
 import {
   PORTAL_FAMILIA_BACKGROUND,
-  PORTAL_FAMILIA_GLOW_CENTRAL,
-  PORTAL_FAMILIA_GLOW_DERECHO,
+  PORTAL_FAMILIA_HEADER_BACKGROUND,
 } from '@/components/portal-familia/portal-familia-shell'
 import { MenuCuenta } from '@/layout/menu-cuenta'
 import { cn } from '@/lib/utils'
@@ -15,32 +14,27 @@ export function PortalLayout() {
   const rolActivo = useAuthStore((state) => state.rolActivo)
   const navItemClass = ({ isActive }: { isActive: boolean }) =>
     cn(
-      'rounded-full px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors',
+      'rounded-full px-2.5 py-2 text-[13px] font-semibold whitespace-nowrap transition-colors sm:px-3 lg:px-4 lg:text-sm',
       isActive
         ? 'bg-white/15 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.16)]'
         : 'text-white/70 hover:bg-white/10 hover:text-white',
     )
 
   return (
-    <div className="portal-familia relative min-h-svh bg-[#4A3A63]">
+    <div
+      className="portal-familia relative min-h-svh"
+      style={{ background: PORTAL_FAMILIA_BACKGROUND }}
+    >
       <div
         data-slot="portal-familia-background"
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
         style={{ background: PORTAL_FAMILIA_BACKGROUND }}
       />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{ background: PORTAL_FAMILIA_GLOW_DERECHO }}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{ background: PORTAL_FAMILIA_GLOW_CENTRAL }}
-      />
-
-      <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-3 border-b border-white/10 bg-[#2C2143]/35 px-4 py-3 backdrop-blur-md sm:flex-nowrap sm:px-7 sm:py-0">
+      <header
+        className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-3 border-b border-white/10 px-4 py-3 sm:px-7 sm:py-0 lg:flex-nowrap"
+        style={{ background: PORTAL_FAMILIA_HEADER_BACKGROUND }}
+      >
         <div className="flex items-center gap-2.5">
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10">
             <img
@@ -57,13 +51,10 @@ export function PortalLayout() {
         {rolActivo === 'familia' && (
           <nav
             aria-label="Navegación del portal de familia"
-            className="order-last mx-auto flex w-full min-w-0 items-center gap-1 overflow-x-auto sm:order-none sm:w-auto"
+            className="order-last mx-auto flex w-full min-w-0 flex-wrap items-center justify-center gap-1 lg:order-none lg:w-auto lg:flex-nowrap lg:justify-start"
           >
             <NavLink to="/familia" end className={navItemClass}>
               Inicio
-            </NavLink>
-            <NavLink to="/familia/calendario" className={navItemClass}>
-              Calendario
             </NavLink>
             <NavLink to="/familia/asistencias" className={navItemClass}>
               Asistencias
@@ -73,6 +64,9 @@ export function PortalLayout() {
             </NavLink>
             <NavLink to="/familia/comunicaciones" className={navItemClass}>
               Comunicaciones
+            </NavLink>
+            <NavLink to="/familia/calendario" className={navItemClass}>
+              Calendario
             </NavLink>
           </nav>
         )}
