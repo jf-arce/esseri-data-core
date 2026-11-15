@@ -1,4 +1,4 @@
-import { BanIcon, MoreHorizontalIcon, PackageCheckIcon } from 'lucide-react'
+import { BanIcon, EyeIcon, MoreHorizontalIcon, PackageCheckIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -26,6 +26,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { EstadoOrdenCompra, OrdenListadoItem } from '@/modules/proveedores-compras/types'
+import { ETIQUETA_ESTADO_ORDEN, formatearFechaDia } from '@/modules/proveedores-compras/utils'
 
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-40', anchoAlt: 'h-4 w-32' },
@@ -43,12 +44,6 @@ const VARIANTE_POR_ESTADO: Record<EstadoOrdenCompra, 'exito' | 'info' | 'neutro'
   cancelada: 'neutro',
 }
 
-const ETIQUETA_POR_ESTADO: Record<EstadoOrdenCompra, string> = {
-  emitida: 'Emitida',
-  recibida: 'Recibida',
-  cancelada: 'Cancelada',
-}
-
 interface OrdenesTablaProps {
   ordenes: OrdenListadoItem[]
   cargando: boolean
@@ -56,6 +51,7 @@ interface OrdenesTablaProps {
   totalPaginas: number
   total: number
   onCambiarPagina: (pagina: number) => void
+  onVerDetalle: (orden: OrdenListadoItem) => void
   onRecibir: (orden: OrdenListadoItem) => void
   onCancelar: (orden: OrdenListadoItem) => void
 }
@@ -67,6 +63,7 @@ function OrdenesTabla({
   totalPaginas,
   total,
   onCambiarPagina,
+  onVerDetalle,
   onRecibir,
   onCancelar,
 }: OrdenesTablaProps) {
@@ -92,7 +89,9 @@ function OrdenesTabla({
             ordenes.map((orden) => (
               <TableRow key={orden.id}>
                 <TableCell className="font-medium">{orden.proveedor_nombre}</TableCell>
-                <TableCell className="text-texto-2 tabular-nums">{orden.fecha}</TableCell>
+                <TableCell className="text-texto-2 tabular-nums">
+                  {formatearFechaDia(orden.fecha)}
+                </TableCell>
                 <TableCell data-align="end" className="tabular-nums">
                   {orden.cantidad_items}
                 </TableCell>
@@ -101,7 +100,7 @@ function OrdenesTabla({
                 </TableCell>
                 <TableCell>
                   <Badge variant={VARIANTE_POR_ESTADO[orden.estado]}>
-                    {ETIQUETA_POR_ESTADO[orden.estado]}
+                    {ETIQUETA_ESTADO_ORDEN[orden.estado]}
                   </Badge>
                 </TableCell>
                 <TableCell data-align="end">
@@ -116,11 +115,17 @@ function OrdenesTabla({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {/* Las acciones dependen del estado (§9.2 DESIGN.md): solo una orden
-                          emitida se puede recibir o cancelar. Una recibida ya cerró su ciclo y
-                          una cancelada nunca va a llegar. */}
-                      {orden.estado === 'emitida' ? (
+                      {/* "Ver detalle" está siempre: no depende del estado y evita que el menú
+                          quede vacío. Recibir y cancelar solo tienen sentido en una orden
+                          emitida (§9.2 DESIGN.md): una recibida ya cerró su ciclo y una cancelada
+                          nunca va a llegar. */}
+                      <DropdownMenuItem onSelect={() => onVerDetalle(orden)}>
+                        <EyeIcon className="text-petroleo" />
+                        Ver detalle
+                      </DropdownMenuItem>
+                      {orden.estado === 'emitida' && (
                         <>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem onSelect={() => onRecibir(orden)}>
                             <PackageCheckIcon className="text-petroleo" />
                             Registrar recepción
@@ -134,8 +139,6 @@ function OrdenesTabla({
                             Cancelar orden
                           </DropdownMenuItem>
                         </>
-                      ) : (
-                        <DropdownMenuItem disabled>Sin acciones disponibles</DropdownMenuItem>
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
