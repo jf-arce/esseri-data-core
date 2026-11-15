@@ -18,7 +18,7 @@ import { formatearNombreRol, nombreVisibleDeUsuario } from '@/modules/auth/utils
 import { ESTADO_USUARIO_ACTIVO } from '@/modules/workflows/constants'
 import type { useDestinatariosDisponibles } from '@/modules/workflows/hooks/use-destinatarios-disponibles'
 import type { DestinatariosRegla } from '@/modules/workflows/types'
-import { desplazarConRueda } from '@/modules/workflows/utils'
+import { desplazarConRueda } from '@/lib/desplazar-con-rueda'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 export interface SeleccionDestinatarios {

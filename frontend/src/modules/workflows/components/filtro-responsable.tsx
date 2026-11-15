@@ -1,8 +1,7 @@
+import { ComboboxBuscable, type OpcionCombo } from '@/components/combobox-buscable'
 import { FilterTrigger } from '@/components/filter-dropdown'
 import type { UsuarioConRoles } from '@/modules/auth/types'
-import { ComboboxBuscable } from '@/modules/workflows/components/combobox-buscable'
 import { RESPONSABLE_TODOS, RESPONSABLE_YO } from '@/modules/workflows/constants'
-import type { OpcionCombo } from '@/modules/workflows/types'
 import { opcionDeUsuario } from '@/modules/workflows/utils'
 
 interface FiltroResponsableProps {
