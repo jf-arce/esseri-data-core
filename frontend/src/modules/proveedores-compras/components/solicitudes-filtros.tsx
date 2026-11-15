@@ -154,7 +154,9 @@ function SolicitudesFiltros({
       {hayFiltrosSolicitudes(filtros) && (
         <FilterChips onClearAll={() => onCambios({ ...FILTROS_SOLICITUDES_VACIOS })}>
           {busqueda.trim() !== '' && (
-            <FilterChip onRemove={() => onCambios({ busqueda: '' })}>Búsqueda: {busqueda}</FilterChip>
+            <FilterChip onRemove={() => onCambios({ busqueda: '' })}>
+              Búsqueda: {busqueda}
+            </FilterChip>
           )}
           {estado !== '' && (
             <FilterChip onRemove={() => onCambios({ estado: '' })}>

@@ -184,9 +184,7 @@ function SolicitudForm({
               required
             />
           </div>
-          <FieldDescription>
-            Número entero, de 1 a {CANTIDAD_MAXIMA_SOLICITUD}.
-          </FieldDescription>
+          <FieldDescription>Número entero, de 1 a {CANTIDAD_MAXIMA_SOLICITUD}.</FieldDescription>
         </Field>
         <Field>
           <FieldLabel htmlFor="solicitud-area">Área solicitante</FieldLabel>

@@ -124,7 +124,9 @@ function SolicitudesTabla({
                             <CheckIcon className="text-exito" />
                             Aprobar solicitud
                           </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => onCambiarEstado(solicitud, 'rechazada')}>
+                          <DropdownMenuItem
+                            onSelect={() => onCambiarEstado(solicitud, 'rechazada')}
+                          >
                             <XIcon className="text-advertencia" />
                             Rechazar solicitud
                           </DropdownMenuItem>
@@ -136,7 +138,10 @@ function SolicitudesTabla({
                         Editar solicitud
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem variant="destructive" onSelect={() => onEliminar(solicitud)}>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={() => onEliminar(solicitud)}
+                      >
                         <Trash2Icon />
                         Eliminar solicitud
                       </DropdownMenuItem>
