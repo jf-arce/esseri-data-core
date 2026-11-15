@@ -189,6 +189,36 @@ export function categoriasDeProductos(productos: ProductoServicio[]): string[] {
   return Array.from(new Set(categorias)).sort((a, b) => a.localeCompare(b, 'es'))
 }
 
+// Vocabulario del formulario de ítem del catálogo. El backend sigue aceptando texto libre
+// (`ProductoServicioBase` en `schemas.py`: no hay tabla maestra todavía), así que el listado vive
+// solo en el frontend: para sumar o cambiar un valor se edita esta constante.
+export const CATEGORIAS_PRODUCTO = [
+  'Alimentos',
+  'Deportes',
+  'Librería',
+  'Mantenimiento',
+  'Papelería',
+  'Tecnología',
+] as const
+
+export const UNIDADES_PRODUCTO = [
+  'unidad',
+  'caja',
+  'resma',
+  'kit',
+  'ración',
+  'servicio',
+  'hora',
+] as const
+
+// Un ítem cargado antes de este formulario puede tener una categoría o unidad que ya no está en
+// el listado: se agrega al final para no perderla si se guarda sin tocarla.
+export function opcionesConValorActual(opciones: readonly string[], valorActual: string): string[] {
+  const limpio = valorActual.trim()
+  if (!limpio || opciones.includes(limpio)) return [...opciones]
+  return [...opciones, limpio]
+}
+
 // --- Proveedores y precios por item del catalogo (issue #114) -------------------------------
 
 // Las fechas de vigencia viajan como ISO (YYYY-MM-DD) sin hora: comparar los strings alcanza y
