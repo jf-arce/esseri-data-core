@@ -26,6 +26,7 @@ from src.proveedores_compras.dependencies import (
     obtener_solicitud_o_404,
 )
 from src.proveedores_compras.models import (
+    AreaSolicitante,
     OrdenCompra,
     PrecioProducto,
     ProductoServicio,
@@ -42,6 +43,7 @@ from src.proveedores_compras.precios_service import (
     listar_proveedores_de_producto,
 )
 from src.proveedores_compras.schemas import (
+    AreaSolicitanteResponse,
     LineaPendienteResponse,
     OrdenCompraCambioEstado,
     OrdenCompraCreate,
@@ -83,6 +85,7 @@ from src.proveedores_compras.service import (
     eliminar_solicitud,
     filas_export_ordenes,
     filas_export_proveedores,
+    listar_areas_solicitantes,
     listar_ordenes_compra,
     listar_productos_servicios,
     listar_proveedores,
@@ -146,6 +149,18 @@ def eliminar_proveedor_endpoint(
     Da 409 si el proveedor ya está referenciado por catálogo, precios u órdenes.
     """
     eliminar_proveedor(db, proveedor, usuario.id)
+
+
+@router.get("/areas-solicitantes", response_model=list[AreaSolicitanteResponse])
+def listar_areas_solicitantes_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_LEER))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[AreaSolicitante]:
+    """Listar el catálogo de áreas solicitantes, ordenado por nombre.
+
+    Es lo que alimenta el select del formulario y el filtro por área.
+    """
+    return listar_areas_solicitantes(db)
 
 
 @router.post("/solicitudes", response_model=SolicitudCompraResponse, status_code=201)

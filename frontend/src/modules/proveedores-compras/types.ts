@@ -33,15 +33,23 @@ export type OrdenProveedores = 'nombre-asc' | 'nombre-desc' | 'categoria-asc'
 
 export type EstadoSolicitud = 'pendiente' | 'aprobada' | 'rechazada'
 
+export interface AreaSolicitante {
+  id: string
+  nombre: string
+  activo: boolean
+}
+
 export interface SolicitudCompra {
   id: string
   articulo: string | null
   producto_servicio_id: string | null
   cantidad: number
   area_solicitante: string | null
+  area_solicitante_id: string | null
   estado: EstadoSolicitud
   fecha: string
   usuario_id: string
+  solicitante_nombre: string
   updated_at: string
 }
 
@@ -50,7 +58,7 @@ export interface CrearSolicitudPayload {
   articulo?: string | null
   producto_servicio_id?: string | null
   cantidad: number
-  area_solicitante?: string | null
+  area_solicitante_id: string
   fecha?: string | null
 }
 
@@ -58,6 +66,19 @@ export interface CrearSolicitudPayload {
 export type ActualizarSolicitudPayload = Partial<CrearSolicitudPayload>
 
 export type OrdenSolicitudes = 'fecha-desc' | 'fecha-asc' | 'cantidad-desc'
+
+// Filtros del listado. Las fechas y las cantidades viajan como texto porque son lo que
+// tienen los inputs vacios; `filtrarYOrdenarSolicitudes` los interpreta.
+export interface FiltrosSolicitudes {
+  busqueda: string
+  estado: '' | EstadoSolicitud
+  areaId: string
+  solicitante: string
+  desde: string
+  hasta: string
+  cantidadMin: string
+  cantidadMax: string
+}
 
 // --- Catalogo de productos y servicios ------------------------------------------------------
 

@@ -23,6 +23,10 @@ EstadoOrdenCompra = Literal["emitida", "recibida", "cancelada"]
 # Ídem para `ck_recepcion_compra_tipo`.
 TipoRecepcion = Literal["total", "parcial"]
 
+# Tope de cantidad por solicitud. Es un número de negocio, no una restricción de la base:
+# si el colegio necesita pedidos más grandes, se cambia acá y en el formulario del frontend.
+CANTIDAD_MAXIMA = 9999
+
 
 class ProveedorBase(BaseModel):
     """Campos comunes de Proveedor (RF-19).
@@ -65,6 +69,16 @@ class ProveedorResponse(ProveedorBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class AreaSolicitanteResponse(BaseModel):
+    """Área del catálogo que puede originar una solicitud de compra."""
+
+    id: uuid.UUID
+    nombre: str
+    activo: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class SolicitudCompraBase(BaseModel):
     """Campos comunes de una solicitud interna de compra (RF-20).
 
@@ -80,8 +94,15 @@ class SolicitudCompraBase(BaseModel):
     producto_servicio_id: uuid.UUID | None = Field(
         None, description="Referencia al catálogo, cuando el ítem ya existe ahí"
     )
-    cantidad: int = Field(..., gt=0, description="Cantidad pedida, siempre mayor a cero")
-    area_solicitante: str | None = Field(None, description="Área que origina el pedido")
+    cantidad: int = Field(
+        ...,
+        gt=0,
+        le=CANTIDAD_MAXIMA,
+        description=f"Cantidad pedida, entera entre 1 y {CANTIDAD_MAXIMA}",
+    )
+    area_solicitante_id: uuid.UUID = Field(
+        ..., description="Área del catálogo que origina el pedido (obligatoria)"
+    )
 
     @model_validator(mode="after")
     def validar_articulo_o_producto(self) -> "SolicitudCompraBase":
@@ -112,8 +133,10 @@ class SolicitudCompraUpdate(BaseModel):
 
     articulo: str | None = Field(None, min_length=1)
     producto_servicio_id: uuid.UUID | None = None
-    cantidad: int | None = Field(None, gt=0)
-    area_solicitante: str | None = None
+    cantidad: int | None = Field(None, gt=0, le=CANTIDAD_MAXIMA)
+    # Opcional para no pisar filas viejas sin área, pero un `null` explícito se rechaza en el
+    # service: quien edita una solicitud legacy tiene que elegir un área.
+    area_solicitante_id: uuid.UUID | None = None
     fecha: date | None = None
 
 
@@ -130,10 +153,13 @@ class SolicitudCompraResponse(BaseModel):
     articulo: str | None
     producto_servicio_id: uuid.UUID | None
     cantidad: int
+    # Nombre resuelto del área, además del id: el frontend muestra el nombre sin otro request.
     area_solicitante: str | None
+    area_solicitante_id: uuid.UUID | None
     estado: EstadoSolicitud
     fecha: date
     usuario_id: uuid.UUID
+    solicitante_nombre: str
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

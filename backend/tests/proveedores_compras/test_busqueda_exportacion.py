@@ -23,6 +23,7 @@ from src.proveedores_compras.service import (
     crear_proveedor,
     crear_solicitud,
 )
+from tests.areas import AREA_SOLICITANTE_ID
 
 
 def _orden(db: Session, proveedor_nombre: str, fecha: date, cantidad: int = 10) -> OrdenCompra:
@@ -31,7 +32,11 @@ def _orden(db: Session, proveedor_nombre: str, fecha: date, cantidad: int = 10) 
         db, ProductoServicioCreate(nombre=f"Item {proveedor_nombre}", tipo="producto")
     )
     solicitud = crear_solicitud(
-        db, SolicitudCompraCreate(articulo="Algo", cantidad=cantidad), uuid.uuid4()
+        db,
+        SolicitudCompraCreate(
+            articulo="Algo", cantidad=cantidad, area_solicitante_id=AREA_SOLICITANTE_ID
+        ),
+        uuid.uuid4(),
     )
     cambiar_estado_solicitud(db, solicitud, "aprobada")
     return crear_orden_compra(
