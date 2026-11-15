@@ -233,15 +233,20 @@ export function PortalFamiliaPage() {
                 tone="ambar"
                 cargando={cargandoAsistencias}
               />
-              <PortalStatTile
-                ariaLabel="Mensajes sin leer"
-                label="Mensajes"
-                detalle="Sin leer"
-                value={sinLeer.cargando ? '-' : (sinLeer.total ?? '-')}
-                icon={MailIcon}
-                tone="azul"
-                cargando={sinLeer.cargando}
-              />
+              <Link
+                to="/familia/comunicaciones"
+                className="block rounded-[22px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
+              >
+                <PortalStatTile
+                  ariaLabel="Mensajes sin leer"
+                  label="Mensajes"
+                  detalle="Sin leer"
+                  value={sinLeer.cargando ? '-' : (sinLeer.total ?? '-')}
+                  icon={MailIcon}
+                  tone="azul"
+                  cargando={sinLeer.cargando}
+                />
+              </Link>
             </div>
 
             {pendientesJustificar !== null && pendientesJustificar > 0 && (
@@ -396,48 +401,6 @@ export function PortalFamiliaPage() {
                     <ChevronRightIcon aria-hidden="true" className="size-4" />
                   </Link>
                 </div>
-              </div>
-            </PortalCard>
-
-            <PortalCard
-              icono={MailIcon}
-              tone="azul"
-              titulo="Comunicaciones"
-              descripcion="Avisos y mensajes del colegio."
-              className="bg-[#EDF1FE]"
-            >
-              <div className="flex items-end justify-between gap-3">
-                {sinLeer.cargando ? (
-                  <div className="flex flex-col gap-2">
-                    <Skeleton className="h-7 w-10 bg-[#D7E4F8]" />
-                    <Skeleton className="h-4 w-24 bg-[#E1EBFA]" />
-                  </div>
-                ) : sinLeer.total === null ? (
-                  <p className={cn('text-[15px]', TINTA_2)}>-</p>
-                ) : sinLeer.total > 0 ? (
-                  <p className="leading-tight">
-                    <span
-                      className={cn('block font-heading text-[26px] font-bold tabular-nums', TINTA)}
-                    >
-                      {sinLeer.total}
-                    </span>
-                    <span className={cn('text-[14px]', TINTA_2)}>
-                      {sinLeer.total === 1 ? 'mensaje sin leer' : 'mensajes sin leer'}
-                    </span>
-                  </p>
-                ) : (
-                  <p className={cn('text-[14px]', TINTA_2)}>Estás al día.</p>
-                )}
-                <Link
-                  to="/familia/comunicaciones"
-                  className={cn(
-                    'inline-flex min-h-9 shrink-0 items-center gap-1 text-[14px] font-semibold',
-                    ENLACE_VIOLETA,
-                  )}
-                >
-                  Ver mensajes
-                  <ChevronRightIcon aria-hidden="true" className="size-4" />
-                </Link>
               </div>
             </PortalCard>
 

@@ -165,6 +165,10 @@ describe('PortalFamiliaPage', () => {
     expect(
       await within(screen.getByRole('group', { name: 'Mensajes sin leer' })).findByText('2'),
     ).toBeInTheDocument()
+
+    const atajoMensajes = screen.getByRole('link', { name: /Mensajes sin leer/ })
+    expect(atajoMensajes).toHaveAttribute('href', '/familia/comunicaciones')
+    expect(screen.queryByRole('link', { name: /Ver mensajes/ })).not.toBeInTheDocument()
   })
 
   it('avisa las ausencias pendientes y ofrece justificarlas', async () => {
