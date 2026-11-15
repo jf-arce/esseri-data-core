@@ -885,18 +885,51 @@ def buscar_ordenes_compra(
     *,
     buscar: str | None = None,
     estado: str | None = None,
+    proveedor_id: uuid.UUID | None = None,
+    desde: date | None = None,
+    hasta: date | None = None,
+    items_min: int | None = None,
+    items_max: int | None = None,
+    orden: str = "fecha-desc",
     pagina: int = 1,
     tamanio_pagina: int = 20,
 ) -> OrdenCompraListado:
-    """Listado de órdenes con búsqueda por proveedor, filtro por estado y paginación (RF-35).
+    """Listado de órdenes con búsqueda, filtros y paginación (RF-35).
 
     Va contra la base y no en el cliente porque las órdenes se acumulan para siempre: un
     listado completo funciona el primer año y deja de funcionar el tercero. Los proveedores,
     en cambio, son decenas y siguen filtrándose en el cliente.
+
+    Los ítems y las unidades se agregan en una subconsulta (una fila por orden) en vez de
+    resolverlos orden por orden: ordenar o filtrar por cantidad de ítems con el detalle cargado
+    en Python obligaría a traer la tabla entera y a paginar después.
     """
+    agregados = (
+        sa.select(
+            OrdenCompraDetalle.orden_compra_id.label("orden_id"),
+            sa.func.count(OrdenCompraDetalle.id).label("cantidad_items"),
+            sa.func.coalesce(sa.func.sum(OrdenCompraDetalle.cantidad_pedida), 0).label(
+                "unidades_pedidas"
+            ),
+        )
+        .group_by(OrdenCompraDetalle.orden_compra_id)
+        .subquery()
+    )
+    cantidad_items = sa.func.coalesce(agregados.c.cantidad_items, 0)
+
     filtros = []
     if estado is not None:
         filtros.append(OrdenCompra.estado == estado)
+    if proveedor_id is not None:
+        filtros.append(OrdenCompra.proveedor_id == proveedor_id)
+    if desde is not None:
+        filtros.append(OrdenCompra.fecha >= desde)
+    if hasta is not None:
+        filtros.append(OrdenCompra.fecha <= hasta)
+    if items_min is not None:
+        filtros.append(cantidad_items >= items_min)
+    if items_max is not None:
+        filtros.append(cantidad_items <= items_max)
 
     termino = normalizar_texto_busqueda(buscar.strip()) if buscar else ""
     if termino:
@@ -906,38 +939,50 @@ def buscar_ordenes_compra(
         db.scalar(
             sa.select(sa.func.count(OrdenCompra.id))
             .join(Proveedor, Proveedor.id == OrdenCompra.proveedor_id)
+            .outerjoin(agregados, agregados.c.orden_id == OrdenCompra.id)
             .where(*filtros)
         )
         or 0
     )
 
+    # `fecha-desc` sigue siendo el orden por defecto del historial. Los empates se desempatan
+    # por fecha y por id para que la paginación no repita ni saltee filas.
+    ordenamientos = {
+        "fecha-desc": (OrdenCompra.fecha.desc(), OrdenCompra.id),
+        "fecha-asc": (OrdenCompra.fecha.asc(), OrdenCompra.id),
+        "items-desc": (cantidad_items.desc(), OrdenCompra.fecha.desc(), OrdenCompra.id),
+        "items-asc": (cantidad_items.asc(), OrdenCompra.fecha.desc(), OrdenCompra.id),
+    }
+
     offset = (pagina - 1) * tamanio_pagina
     filas = db.execute(
-        sa.select(OrdenCompra, Proveedor)
+        sa.select(
+            OrdenCompra,
+            Proveedor,
+            cantidad_items.label("cantidad_items"),
+            agregados.c.unidades_pedidas,
+        )
         .join(Proveedor, Proveedor.id == OrdenCompra.proveedor_id)
+        .outerjoin(agregados, agregados.c.orden_id == OrdenCompra.id)
         .where(*filtros)
-        .order_by(OrdenCompra.fecha.desc(), OrdenCompra.id)
+        .order_by(*ordenamientos.get(orden, ordenamientos["fecha-desc"]))
         .offset(offset)
         .limit(tamanio_pagina)
     ).all()
 
-    items = []
-    for orden, proveedor in filas:
-        detalles = obtener_detalles_de_orden(db, orden.id)
-        items.append(
-            OrdenCompraListadoItem(
-                id=orden.id,
-                fecha=orden.fecha,
-                estado=orden.estado,
-                proveedor_id=proveedor.id,
-                proveedor_nombre=proveedor.nombre,
-                cantidad_items=len(detalles),
-                unidades_pedidas=sum(
-                    (detalle.cantidad_pedida for detalle in detalles), decimal.Decimal(0)
-                ),
-                updated_at=orden.updated_at,
-            )
+    items = [
+        OrdenCompraListadoItem(
+            id=orden.id,
+            fecha=orden.fecha,
+            estado=orden.estado,
+            proveedor_id=proveedor.id,
+            proveedor_nombre=proveedor.nombre,
+            cantidad_items=int(items_orden or 0),
+            unidades_pedidas=decimal.Decimal(str(unidades or 0)),
+            updated_at=orden.updated_at,
         )
+        for orden, proveedor, items_orden, unidades in filas
+    ]
 
     total_paginas = (total + tamanio_pagina - 1) // tamanio_pagina if tamanio_pagina else 0
     return OrdenCompraListado(

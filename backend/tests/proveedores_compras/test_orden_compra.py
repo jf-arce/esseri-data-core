@@ -366,6 +366,11 @@ class TestOrdenCompraSchema:
         with pytest.raises(ValueError):
             OrdenCompraDetalleCreate(producto_servicio_id=uuid.uuid4(), cantidad_pedida=0)
 
+    def test_cantidad_decimal_es_invalida(self):
+        """La orden pide bultos enteros, aunque la columna siga siendo Numeric(10,2)."""
+        with pytest.raises(ValueError):
+            OrdenCompraDetalleCreate(producto_servicio_id=uuid.uuid4(), cantidad_pedida=2.5)
+
 
 class TestOrdenCompraEndpoints:
     """Tests para los endpoints de OrdenCompra."""
@@ -380,9 +385,7 @@ class TestOrdenCompraEndpoints:
             json={
                 "proveedor_id": str(proveedor.id),
                 "solicitud_ids": [str(solicitud.id)],
-                "detalles": [
-                    {"producto_servicio_id": str(producto.id), "cantidad_pedida": "10.00"}
-                ],
+                "detalles": [{"producto_servicio_id": str(producto.id), "cantidad_pedida": 10}],
             },
         )
 
@@ -410,9 +413,25 @@ class TestOrdenCompraEndpoints:
             json={
                 "proveedor_id": str(proveedor.id),
                 "solicitud_ids": [str(pendiente.id)],
-                "detalles": [
-                    {"producto_servicio_id": str(producto.id), "cantidad_pedida": "10.00"}
-                ],
+                "detalles": [{"producto_servicio_id": str(producto.id), "cantidad_pedida": 10}],
+            },
+        )
+
+        assert response.status_code == 422
+
+    def test_crear_con_cantidad_decimal_da_422(
+        self, client_autenticado: TestClient, db_session: Session
+    ):
+        proveedor = _proveedor(db_session)
+        producto = _producto(db_session)
+        solicitud = _solicitud_aprobada(db_session)
+
+        response = client_autenticado.post(
+            "/proveedores-compras/ordenes",
+            json={
+                "proveedor_id": str(proveedor.id),
+                "solicitud_ids": [str(solicitud.id)],
+                "detalles": [{"producto_servicio_id": str(producto.id), "cantidad_pedida": "2.5"}],
             },
         )
 
