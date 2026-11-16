@@ -1,5 +1,6 @@
 """Modelos Pydantic: forma de los datos que entran y salen por la API de este módulo."""
 
+import json
 import uuid
 from datetime import date
 from decimal import Decimal
@@ -17,6 +18,8 @@ from pydantic import (
 
 from src.fechas import InstanteUtc
 from src.workflows.constants import (
+    MAX_BLOQUES_SUELTOS,
+    MAX_BYTES_BLOQUES_SUELTOS,
     MAX_COMPARACIONES,
     MAX_NODOS_POR_REGLA,
     Criticidad,
@@ -256,6 +259,21 @@ class NodoRead(BaseModel):
     updated_at: InstanteUtc
 
 
+def _validar_bloques_sueltos(value: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Solo la forma mínima: son borradores que nunca se ejecutan, no se valida su contenido."""
+    for bloque in value:
+        if not isinstance(bloque.get("id"), str) or bloque.get("tipo") not in (
+            "condicion",
+            "accion",
+        ):
+            raise ValueError(
+                "Cada bloque sin conectar necesita 'id' y 'tipo' (condicion o accion)."
+            )
+    if len(json.dumps(value)) > MAX_BYTES_BLOQUES_SUELTOS:
+        raise ValueError("Los bloques sin conectar ocupan demasiado.")
+    return value
+
+
 class WorkflowRuleCreate(_EntradaEstricta):
     """El árbol de `nodos` es datos que el backend interpreta contra una allowlist, nunca código
     ejecutable. `crear_regla` los valida (ver `CONFIG_POR_ACCION` y `GrupoCondicion`)."""
@@ -265,11 +283,16 @@ class WorkflowRuleCreate(_EntradaEstricta):
     criticidad: Criticidad
     activo: bool = True
     nodos: list[NodoWrite] = Field(min_length=1, max_length=MAX_NODOS_POR_REGLA)
+    bloques_sueltos: list[dict[str, object]] = Field(
+        default_factory=list, max_length=MAX_BLOQUES_SUELTOS
+    )
 
     @field_validator("nombre", mode="before")
     @classmethod
     def normalizar_nombre(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
+
+    _validar_sueltos = field_validator("bloques_sueltos")(_validar_bloques_sueltos)
 
 
 class WorkflowRuleUpdate(_EntradaEstricta):
@@ -285,12 +308,23 @@ class WorkflowRuleUpdate(_EntradaEstricta):
     nodos: list[NodoWrite] | None = Field(
         default=None, min_length=1, max_length=MAX_NODOS_POR_REGLA
     )
+    # `None` deja los bloques sin conectar como están; una lista (incluso vacía) los reemplaza.
+    bloques_sueltos: list[dict[str, object]] | None = Field(
+        default=None, max_length=MAX_BLOQUES_SUELTOS
+    )
     updated_at_base: InstanteUtc | None = None
 
     @field_validator("nombre", mode="before")
     @classmethod
     def normalizar_nombre(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
+
+    @field_validator("bloques_sueltos")
+    @classmethod
+    def validar_sueltos(
+        cls, value: list[dict[str, object]] | None
+    ) -> list[dict[str, object]] | None:
+        return None if value is None else _validar_bloques_sueltos(value)
 
 
 class WorkflowRuleRead(BaseModel):
@@ -302,6 +336,7 @@ class WorkflowRuleRead(BaseModel):
     created_at: InstanteUtc
     updated_at: InstanteUtc
     nodos: list[NodoRead]
+    bloques_sueltos: list[dict[str, object]] = []
 
 
 class NotificacionTemplateCreate(_EntradaEstricta):

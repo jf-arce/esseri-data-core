@@ -13,7 +13,7 @@ from src.workflows.exceptions import (
     ReglaNoEncontrada,
     TipoEventoNoEncontrado,
 )
-from src.workflows.models import TipoEvento, WorkflowRule
+from src.workflows.models import TipoEvento, WorkflowRule, WorkflowRuleBorrador
 from src.workflows.schemas import (
     NodoWrite,
     WorkflowRuleCreate,
@@ -33,7 +33,15 @@ def listar_reglas(
         consulta = consulta.where(WorkflowRule.activo.is_(activo))
     reglas = list(db.scalars(consulta))
     nodos = arbol_service.nodos_de_reglas(db, [r.id for r in reglas])
-    return [leer_regla(regla, nodos[regla.id]) for regla in reglas]
+    borradores = {
+        b.workflow_rule_id: b.bloques_sueltos
+        for b in db.scalars(
+            select(WorkflowRuleBorrador).where(
+                WorkflowRuleBorrador.workflow_rule_id.in_([r.id for r in reglas])
+            )
+        )
+    }
+    return [leer_regla(regla, nodos[regla.id], borradores.get(regla.id)) for regla in reglas]
 
 
 def obtener_regla(db: Session, regla_id: uuid.UUID) -> WorkflowRule | None:
@@ -41,10 +49,31 @@ def obtener_regla(db: Session, regla_id: uuid.UUID) -> WorkflowRule | None:
 
 
 def obtener_regla_read(db: Session, regla: WorkflowRule) -> WorkflowRuleRead:
-    return leer_regla(regla, arbol_service.nodos_de_reglas(db, [regla.id])[regla.id])
+    borrador = db.get(WorkflowRuleBorrador, regla.id)
+    return leer_regla(
+        regla,
+        arbol_service.nodos_de_reglas(db, [regla.id])[regla.id],
+        [] if borrador is None else borrador.bloques_sueltos,
+    )
 
 
-def leer_regla(regla: WorkflowRule, nodos) -> WorkflowRuleRead:
+def _guardar_bloques_sueltos(
+    db: Session, regla_id: uuid.UUID, bloques: list[dict[str, object]]
+) -> None:
+    """Los bloques sin conectar no se validan ni se ejecutan; solo se conservan."""
+    borrador = db.get(WorkflowRuleBorrador, regla_id)
+    if not bloques:
+        if borrador is not None:
+            db.delete(borrador)
+    elif borrador is None:
+        db.add(WorkflowRuleBorrador(workflow_rule_id=regla_id, bloques_sueltos=bloques))
+    else:
+        borrador.bloques_sueltos = bloques
+
+
+def leer_regla(
+    regla: WorkflowRule, nodos, bloques_sueltos: list[dict[str, object]] | None = None
+) -> WorkflowRuleRead:
     return WorkflowRuleRead(
         id=regla.id,
         nombre=regla.nombre,
@@ -54,6 +83,7 @@ def leer_regla(regla: WorkflowRule, nodos) -> WorkflowRuleRead:
         created_at=regla.created_at,
         updated_at=regla.updated_at,
         nodos=nodos,
+        bloques_sueltos=bloques_sueltos or [],
     )
 
 
@@ -80,6 +110,7 @@ def crear_regla(
     db.add(regla)
     db.flush()
     arbol_service.sincronizar_arbol(db, regla, validados, usuario_id)
+    _guardar_bloques_sueltos(db, regla.id, datos.bloques_sueltos)
     log_audit(
         db,
         entidad="WORKFLOW_RULE",
@@ -112,7 +143,7 @@ def actualizar_regla(
     cambios = {
         campo: valor
         for campo, valor in datos.model_dump(
-            exclude_unset=True, exclude={"nodos", "updated_at_base"}
+            exclude_unset=True, exclude={"nodos", "bloques_sueltos", "updated_at_base"}
         ).items()
         if valor is not None
     }
@@ -161,6 +192,8 @@ def actualizar_regla(
         if cambio_arbol:
             # El árbol cambió de verdad (no solo posiciones): la regla figura modificada.
             regla.updated_at = func.now()
+    if datos.bloques_sueltos is not None:
+        _guardar_bloques_sueltos(db, regla.id, datos.bloques_sueltos)
     db.commit()
     db.refresh(regla)
     return obtener_regla_read(db, regla)

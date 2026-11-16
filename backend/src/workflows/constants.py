@@ -203,6 +203,9 @@ ENLACES_MAIL: dict[EnlaceMail, tuple[str, str]] = {
 MAX_NODOS_POR_REGLA = 30
 MAX_PROFUNDIDAD_ARBOL = 6
 MAX_COMPARACIONES = 5
+# Bloques sin conectar que se guardan con la regla (no se ejecutan) y tamaño máximo en JSON.
+MAX_BLOQUES_SUELTOS = 30
+MAX_BYTES_BLOQUES_SUELTOS = 200_000
 # Acciones de la allowlist que todavía no tienen ejecutor en `despacho_service.ACCIONES` (un test
 # verifica que las dos listas coincidan). El editor las muestra como "todavía no disponible".
 ACCIONES_NO_IMPLEMENTADAS: frozenset[str] = frozenset(

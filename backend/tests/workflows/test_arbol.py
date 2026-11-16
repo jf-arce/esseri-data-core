@@ -756,3 +756,51 @@ def test_aprobar_una_condicion_no_es_posible(
 
     assert respuesta.status_code == 409
     assert ejecuciones_service  # el servicio decide; la API responde 409
+
+
+def _suelto():
+    return {"id": _id(), "tipo": "accion", "tipo_accion": "crear_tarea", "accion_config": {}}
+
+
+def test_bloques_sueltos_van_y_vuelven_sin_ejecutarse(
+    client_autenticado, db_session, tipo_factura_vencida
+):
+    suelto = _suelto()
+    cuerpo = _cuerpo(tipo_factura_vencida, [_accion()], bloques_sueltos=[suelto])
+
+    creada = _crear(client_autenticado, cuerpo)
+
+    assert creada.status_code == 201
+    assert creada.json()["bloques_sueltos"] == [suelto]
+    regla_id = creada.json()["id"]
+    assert client_autenticado.get(f"/workflows/reglas/{regla_id}").json()["bloques_sueltos"] == [
+        suelto
+    ]
+    # Los sueltos no son nodos: el motor solo ve el árbol conectado.
+    assert len(creada.json()["nodos"]) == 1
+
+
+def test_actualizar_bloques_sueltos_no_cambia_updated_at(client_autenticado, tipo_factura_vencida):
+    regla = _crear(client_autenticado, _cuerpo(tipo_factura_vencida, [_accion()])).json()
+    assert regla["bloques_sueltos"] == []
+
+    sueltos = [_suelto()]
+    editada = client_autenticado.patch(
+        f"/workflows/reglas/{regla['id']}", json={"bloques_sueltos": sueltos}
+    ).json()
+
+    assert editada["bloques_sueltos"] == sueltos
+    assert editada["updated_at"] == regla["updated_at"]
+    # Sin la clave se conservan; con lista vacía se borran.
+    sin_clave = client_autenticado.patch(f"/workflows/reglas/{regla['id']}", json={"activo": True})
+    assert sin_clave.json()["bloques_sueltos"] == sueltos
+    vacia = client_autenticado.patch(
+        f"/workflows/reglas/{regla['id']}", json={"bloques_sueltos": []}
+    )
+    assert vacia.json()["bloques_sueltos"] == []
+
+
+def test_bloque_suelto_sin_forma_minima_es_422(client_autenticado, tipo_factura_vencida):
+    cuerpo = _cuerpo(tipo_factura_vencida, [_accion()], bloques_sueltos=[{"tipo": "accion"}])
+
+    assert _crear(client_autenticado, cuerpo).status_code == 422

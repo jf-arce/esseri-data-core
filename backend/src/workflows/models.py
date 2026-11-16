@@ -72,6 +72,19 @@ class WorkflowRule(Base):
     tipo_evento_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("tipo_evento.id"))
 
 
+class WorkflowRuleBorrador(Base):
+    """Bloques del editor que no están conectados al flujo. Se guardan tal cual los armó la persona
+    (pueden estar incompletos) y el motor nunca los lee. Va aparte para que editarlos no toque el
+    `updated_at` funcional de la regla."""
+
+    __tablename__ = "workflow_rule_borrador"
+
+    workflow_rule_id: Mapped[uuid.UUID] = mapped_column(
+        sa.ForeignKey("workflow_rule.id"), primary_key=True
+    )
+    bloques_sueltos: Mapped[list[dict[str, object]]] = mapped_column(JSON_TYPE)
+
+
 class WorkflowNodo(Base):
     """Nodo del árbol de una regla. `condicion` es `{logica, comparaciones}` y `accion_config` se
     interpretan contra una allowlist, nunca se ejecutan. `padre_id` nulo = cuelga del disparador.
