@@ -5,10 +5,13 @@ import uuid
 from datetime import date
 
 import sqlalchemy as sa
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from src.auditoria.service import log_audit
+from src.auth.models import Usuario
 from src.proveedores_compras.exceptions import (
+    AreaSolicitanteInexistente,
+    AreaSolicitanteObligatoria,
     LineaAjenaALaOrden,
     OrdenCompraNoCancelable,
     OrdenNoRecibible,
@@ -19,10 +22,12 @@ from src.proveedores_compras.exceptions import (
     ProveedorInexistente,
     RecepcionExcedeLoPedido,
     SolicitudNoAprobada,
+    SolicitudPropiaNoDecidible,
     SolicitudSinArticuloNiProducto,
     SolicitudYaEnOrden,
 )
 from src.proveedores_compras.models import (
+    AreaSolicitante,
     OrdenCompra,
     OrdenCompraDetalle,
     OrdenCompraSolicitud,
@@ -199,9 +204,11 @@ def crear_solicitud(
 
     Raises:
         ProductoServicioInexistente: si se refiere a un ítem de catálogo que no existe.
+        AreaSolicitanteInexistente: si el área no existe o está inactiva.
     """
     datos = solicitud_data.model_dump()
     _validar_producto_servicio(db, datos.get("producto_servicio_id"))
+    _validar_area_solicitante(db, datos.get("area_solicitante_id"))
 
     nueva_solicitud = SolicitudCompra(
         **{**datos, "fecha": datos.get("fecha") or date.today()},
@@ -225,9 +232,25 @@ def crear_solicitud(
     return nueva_solicitud
 
 
+def _con_datos_relacionados(query):
+    """Trae área y solicitante en la misma consulta.
+
+    La respuesta expone `area_solicitante` y `solicitante_nombre`, que salen de esas dos
+    relaciones: sin eager loading serían dos consultas por fila.
+    """
+    return query.options(
+        joinedload(SolicitudCompra.area),
+        joinedload(SolicitudCompra.solicitante).joinedload(Usuario.persona),
+    )
+
+
 def obtener_solicitud_por_id(db: Session, solicitud_id: uuid.UUID) -> SolicitudCompra | None:
     """Obtener una solicitud por su ID, o None si no existe."""
-    return db.query(SolicitudCompra).filter(SolicitudCompra.id == solicitud_id).first()
+    return (
+        _con_datos_relacionados(db.query(SolicitudCompra))
+        .filter(SolicitudCompra.id == solicitud_id)
+        .first()
+    )
 
 
 def listar_solicitudes(db: Session) -> list[SolicitudCompra]:
@@ -237,10 +260,19 @@ def listar_solicitudes(db: Session) -> list[SolicitudCompra]:
     en el listado de proveedores.
     """
     return (
-        db.query(SolicitudCompra)
+        _con_datos_relacionados(db.query(SolicitudCompra))
         .order_by(SolicitudCompra.fecha.desc(), SolicitudCompra.updated_at.desc())
         .all()
     )
+
+
+def listar_areas_solicitantes(db: Session) -> list[AreaSolicitante]:
+    """Listar el catálogo de áreas, activas e inactivas, ordenado por nombre.
+
+    El formulario filtra las activas para las altas; las inactivas quedan para poder
+    mostrar y filtrar el historial que las usó.
+    """
+    return db.query(AreaSolicitante).order_by(AreaSolicitante.nombre).all()
 
 
 def actualizar_solicitud(
@@ -258,6 +290,8 @@ def actualizar_solicitud(
             los dos. El `model_validator` del schema no puede detectarlo solo, porque en un
             update parcial el otro valor vive en la fila y no en el payload.
         ProductoServicioInexistente: si el nuevo `producto_servicio_id` no existe.
+        AreaSolicitanteObligatoria: si se intenta dejarla sin área.
+        AreaSolicitanteInexistente: si el área indicada no existe o está inactiva.
     """
     update_data = solicitud_data.model_dump(exclude_unset=True)
 
@@ -268,6 +302,9 @@ def actualizar_solicitud(
 
     if "producto_servicio_id" in update_data:
         _validar_producto_servicio(db, update_data["producto_servicio_id"])
+
+    if "area_solicitante_id" in update_data:
+        _validar_area_solicitante(db, update_data["area_solicitante_id"])
 
     valores_anteriores = {campo: getattr(solicitud, campo) for campo in update_data}
 
@@ -302,7 +339,16 @@ def cambiar_estado_solicitud(
     No hay máquina de estados con transiciones prohibidas: el cliente no definió ninguna, y
     en la práctica una aprobación puede corregirse. La restricción real aparece en RF-21,
     donde solo las aprobadas pueden entrar en una orden de compra.
+
+    Quien creó la solicitud no puede decidir sobre ella, aunque tenga el permiso de
+    actualizar: sería autoaprobarse.
+
+    Raises:
+        SolicitudPropiaNoDecidible: si `usuario_id` es el del solicitante.
     """
+    if usuario_id is not None and solicitud.usuario_id == usuario_id:
+        raise SolicitudPropiaNoDecidible()
+
     valor_anterior = solicitud.estado
     solicitud.estado = estado
     log_audit(
@@ -377,6 +423,19 @@ def _validar_producto_servicio(db: Session, producto_servicio_id: uuid.UUID | No
     )
     if not existe:
         raise ProductoServicioInexistente()
+
+
+def _validar_area_solicitante(db: Session, area_solicitante_id: uuid.UUID | None) -> None:
+    """Mismo criterio que el producto: un FK inválido se corta con 422, no con un 500.
+
+    Un área inactiva tampoco se acepta en solicitudes nuevas: sigue visible en el historial,
+    pero no se puede elegir.
+    """
+    if area_solicitante_id is None:
+        raise AreaSolicitanteObligatoria()
+    area = db.get(AreaSolicitante, area_solicitante_id)
+    if area is None or not area.activo:
+        raise AreaSolicitanteInexistente()
 
 
 # --- Catálogo de productos y servicios ------------------------------------------------------
@@ -826,18 +885,51 @@ def buscar_ordenes_compra(
     *,
     buscar: str | None = None,
     estado: str | None = None,
+    proveedor_id: uuid.UUID | None = None,
+    desde: date | None = None,
+    hasta: date | None = None,
+    items_min: int | None = None,
+    items_max: int | None = None,
+    orden: str = "fecha-desc",
     pagina: int = 1,
     tamanio_pagina: int = 20,
 ) -> OrdenCompraListado:
-    """Listado de órdenes con búsqueda por proveedor, filtro por estado y paginación (RF-35).
+    """Listado de órdenes con búsqueda, filtros y paginación (RF-35).
 
     Va contra la base y no en el cliente porque las órdenes se acumulan para siempre: un
     listado completo funciona el primer año y deja de funcionar el tercero. Los proveedores,
     en cambio, son decenas y siguen filtrándose en el cliente.
+
+    Los ítems y las unidades se agregan en una subconsulta (una fila por orden) en vez de
+    resolverlos orden por orden: ordenar o filtrar por cantidad de ítems con el detalle cargado
+    en Python obligaría a traer la tabla entera y a paginar después.
     """
+    agregados = (
+        sa.select(
+            OrdenCompraDetalle.orden_compra_id.label("orden_id"),
+            sa.func.count(OrdenCompraDetalle.id).label("cantidad_items"),
+            sa.func.coalesce(sa.func.sum(OrdenCompraDetalle.cantidad_pedida), 0).label(
+                "unidades_pedidas"
+            ),
+        )
+        .group_by(OrdenCompraDetalle.orden_compra_id)
+        .subquery()
+    )
+    cantidad_items = sa.func.coalesce(agregados.c.cantidad_items, 0)
+
     filtros = []
     if estado is not None:
         filtros.append(OrdenCompra.estado == estado)
+    if proveedor_id is not None:
+        filtros.append(OrdenCompra.proveedor_id == proveedor_id)
+    if desde is not None:
+        filtros.append(OrdenCompra.fecha >= desde)
+    if hasta is not None:
+        filtros.append(OrdenCompra.fecha <= hasta)
+    if items_min is not None:
+        filtros.append(cantidad_items >= items_min)
+    if items_max is not None:
+        filtros.append(cantidad_items <= items_max)
 
     termino = normalizar_texto_busqueda(buscar.strip()) if buscar else ""
     if termino:
@@ -847,38 +939,50 @@ def buscar_ordenes_compra(
         db.scalar(
             sa.select(sa.func.count(OrdenCompra.id))
             .join(Proveedor, Proveedor.id == OrdenCompra.proveedor_id)
+            .outerjoin(agregados, agregados.c.orden_id == OrdenCompra.id)
             .where(*filtros)
         )
         or 0
     )
 
+    # `fecha-desc` sigue siendo el orden por defecto del historial. Los empates se desempatan
+    # por fecha y por id para que la paginación no repita ni saltee filas.
+    ordenamientos = {
+        "fecha-desc": (OrdenCompra.fecha.desc(), OrdenCompra.id),
+        "fecha-asc": (OrdenCompra.fecha.asc(), OrdenCompra.id),
+        "items-desc": (cantidad_items.desc(), OrdenCompra.fecha.desc(), OrdenCompra.id),
+        "items-asc": (cantidad_items.asc(), OrdenCompra.fecha.desc(), OrdenCompra.id),
+    }
+
     offset = (pagina - 1) * tamanio_pagina
     filas = db.execute(
-        sa.select(OrdenCompra, Proveedor)
+        sa.select(
+            OrdenCompra,
+            Proveedor,
+            cantidad_items.label("cantidad_items"),
+            agregados.c.unidades_pedidas,
+        )
         .join(Proveedor, Proveedor.id == OrdenCompra.proveedor_id)
+        .outerjoin(agregados, agregados.c.orden_id == OrdenCompra.id)
         .where(*filtros)
-        .order_by(OrdenCompra.fecha.desc(), OrdenCompra.id)
+        .order_by(*ordenamientos.get(orden, ordenamientos["fecha-desc"]))
         .offset(offset)
         .limit(tamanio_pagina)
     ).all()
 
-    items = []
-    for orden, proveedor in filas:
-        detalles = obtener_detalles_de_orden(db, orden.id)
-        items.append(
-            OrdenCompraListadoItem(
-                id=orden.id,
-                fecha=orden.fecha,
-                estado=orden.estado,
-                proveedor_id=proveedor.id,
-                proveedor_nombre=proveedor.nombre,
-                cantidad_items=len(detalles),
-                unidades_pedidas=sum(
-                    (detalle.cantidad_pedida for detalle in detalles), decimal.Decimal(0)
-                ),
-                updated_at=orden.updated_at,
-            )
+    items = [
+        OrdenCompraListadoItem(
+            id=orden.id,
+            fecha=orden.fecha,
+            estado=orden.estado,
+            proveedor_id=proveedor.id,
+            proveedor_nombre=proveedor.nombre,
+            cantidad_items=int(items_orden or 0),
+            unidades_pedidas=decimal.Decimal(str(unidades or 0)),
+            updated_at=orden.updated_at,
         )
+        for orden, proveedor, items_orden, unidades in filas
+    ]
 
     total_paginas = (total + tamanio_pagina - 1) // tamanio_pagina if tamanio_pagina else 0
     return OrdenCompraListado(

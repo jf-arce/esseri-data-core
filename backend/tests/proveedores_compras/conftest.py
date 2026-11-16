@@ -15,7 +15,9 @@ from src.auth.constants import (
     MODULO_PROVEEDORES_COMPRAS,
 )
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
+from src.proveedores_compras.models import AreaSolicitante
 from src.workflows.models import CampoEvento, TipoEvento
+from tests.areas import AREA_SOLICITANTE_ID
 
 PASSWORD_VALIDA = "una-contrasenia-larga"
 
@@ -47,6 +49,16 @@ def catalogo_eventos_compras(db_session):
         db_session.add(tipo)
         db_session.flush()
         db_session.add_all(CampoEvento(tipo_evento_id=tipo.id, **campo) for campo in campos[nombre])
+    db_session.commit()
+
+
+@pytest.fixture(autouse=True)
+def catalogo_area_solicitante(db_session):
+    """Deja un área disponible en todas las pruebas del módulo.
+
+    Las altas de solicitud la exigen; tenerla siempre evita repetir el alta en cada test.
+    """
+    db_session.add(AreaSolicitante(id=AREA_SOLICITANTE_ID, nombre="Secretaría"))
     db_session.commit()
 
 

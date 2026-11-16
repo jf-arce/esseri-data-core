@@ -70,6 +70,7 @@ from src.inscripciones.models import (
 )
 from src.models import Persona
 from src.proveedores_compras.models import (
+    AreaSolicitante,
     OrdenCompra,
     OrdenCompraDetalle,
     OrdenCompraSolicitud,
@@ -1425,6 +1426,16 @@ def _ensure_compras(db, usuario: Usuario, hoy: date):
             precio_row.precio = precio
     db.flush()
 
+    # La demo usa áreas propias además de las del seed canónico (es data ficticia), así que
+    # se dan de alta acá para que la FK no falle en una base recién sembrada.
+    def _area_de_demo(nombre: str) -> AreaSolicitante:
+        area = db.scalar(select(AreaSolicitante).where(AreaSolicitante.nombre == nombre))
+        if area is None:
+            area = AreaSolicitante(nombre=nombre)
+            db.add(area)
+            db.flush()
+        return area
+
     solicitudes_def = [
         (0, 12, "Administración", "pendiente"),
         (1, 4, "Primaria", "pendiente"),
@@ -1438,12 +1449,13 @@ def _ensure_compras(db, usuario: Usuario, hoy: date):
     solicitudes: list[SolicitudCompra] = []
     for idx, (producto_idx, cantidad, area, estado) in enumerate(solicitudes_def):
         producto = productos[producto_idx]
+        area_row = _area_de_demo(area)
         fecha = hoy - timedelta(days=8 - idx)
         solicitud = db.scalar(
             select(SolicitudCompra)
             .where(
                 SolicitudCompra.producto_servicio_id == producto.id,
-                SolicitudCompra.area_solicitante == area,
+                SolicitudCompra.area_solicitante_id == area_row.id,
                 SolicitudCompra.usuario_id == usuario.id,
             )
             .limit(1)
@@ -1452,7 +1464,7 @@ def _ensure_compras(db, usuario: Usuario, hoy: date):
             solicitud = SolicitudCompra(
                 articulo=None,
                 cantidad=cantidad,
-                area_solicitante=area,
+                area_solicitante_id=area_row.id,
                 estado=estado,
                 fecha=fecha,
                 usuario_id=usuario.id,
