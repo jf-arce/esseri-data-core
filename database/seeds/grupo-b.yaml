@@ -215,7 +215,7 @@ campo_evento:
       etiqueta: Nombre del alumno
       tipo_dato: texto
     - nombre_interno: tipo_asistencia
-      etiqueta: Tipo de registro (ausente_pendiente, tardanza, etc.)
+      etiqueta: Tipo de registro
       tipo_dato: texto
     - nombre_interno: fecha
       etiqueta: Fecha de la ausencia
@@ -271,7 +271,7 @@ campo_evento:
       etiqueta: Nombre del alumno
       tipo_dato: texto
     - nombre_interno: tipo_cambio
-      etiqueta: Tipo de cambio (división, nivel, baja)
+      etiqueta: Tipo de cambio
       tipo_dato: texto
     - nombre_interno: fecha
       etiqueta: Fecha del cambio
@@ -326,7 +326,7 @@ campo_evento:
       etiqueta: Nombre del proveedor
       tipo_dato: texto
     - nombre_interno: tipo_recepcion
-      etiqueta: Tipo de recepción (total o parcial)
+      etiqueta: Tipo de recepción
       tipo_dato: texto
     - nombre_interno: fecha
       etiqueta: Fecha de la recepción

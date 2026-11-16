@@ -11,18 +11,22 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.facturacion.models import ConceptoCobro, ReglaPenalidad
+from src.academico.models import NivelEducativo
+from src.facturacion.models import ConceptoCobro, MetodoPago, ReglaPenalidad
 from src.workflows import plantillas_service
 from src.workflows.constants import (
     ACCIONES_CON_APROBACION_POR_DEFECTO,
     ACCIONES_CON_PLANTILLA,
     ACCIONES_NO_IMPLEMENTADAS,
     CAMBIOS_ESTADO_PERMITIDOS,
+    CAMPOS_CON_OPCIONES_DE_TABLA,
     DESTINATARIOS_FAMILIARES,
     ENTIDAD_POR_EVENTO,
     ENTIDADES_CON_ALUMNO,
     ENTIDADES_CON_SOLICITANTE,
     EVENTOS_POR_ACCION,
+    OPCIONES_POR_CAMPO,
+    OPERADORES_CON_OPCIONES,
     OPERADORES_POR_TIPO_DATO,
     TipoAccion,
 )
@@ -49,9 +53,32 @@ from src.workflows.schemas import (
     ConfigGenerarCargo,
     ConfigNotificar,
     GrupoCondicion,
+    OpcionCampoRead,
     TipoAccionRead,
     TipoEventoRead,
 )
+
+
+def opciones_de_campos(db: Session, tipo_evento_nombre: str) -> dict[str, list[OpcionCampoRead]]:
+    """Valores cerrados de los campos del evento (`nombre_interno -> opciones`). Los campos libres
+    no aparecen."""
+    opciones: dict[str, list[OpcionCampoRead]] = {
+        campo: [OpcionCampoRead(valor=v, etiqueta=e) for v, e in valores]
+        for (evento, campo), valores in OPCIONES_POR_CAMPO.items()
+        if evento == tipo_evento_nombre
+    }
+    for (evento, campo), tabla in CAMPOS_CON_OPCIONES_DE_TABLA.items():
+        if evento != tipo_evento_nombre:
+            continue
+        nombres = (
+            db.scalars(
+                select(MetodoPago.nombre).where(MetodoPago.activo).order_by(MetodoPago.nombre)
+            )
+            if tabla == "metodo_pago"
+            else db.scalars(select(NivelEducativo.nombre).order_by(NivelEducativo.nombre))
+        )
+        opciones[campo] = [OpcionCampoRead(valor=n, etiqueta=n) for n in nombres]
+    return opciones
 
 
 def listar_tipos_evento(db: Session) -> list[TipoEventoRead]:
@@ -59,15 +86,25 @@ def listar_tipos_evento(db: Session) -> list[TipoEventoRead]:
     for campo in db.scalars(select(CampoEvento).order_by(CampoEvento.nombre_interno)):
         campos_por_tipo[campo.tipo_evento_id].append(campo)
     tipos = db.scalars(select(TipoEvento).order_by(TipoEvento.nombre))
-    return [
-        TipoEventoRead(
-            id=tipo.id,
-            nombre=tipo.nombre,
-            descripcion=tipo.descripcion,
-            campos=[CampoEventoRead.model_validate(c) for c in campos_por_tipo[tipo.id]],
+    resultado: list[TipoEventoRead] = []
+    for tipo in tipos:
+        opciones = opciones_de_campos(db, tipo.nombre)
+        campos = [
+            CampoEventoRead(
+                id=c.id,
+                nombre_interno=c.nombre_interno,
+                etiqueta=c.etiqueta,
+                tipo_dato=c.tipo_dato,
+                opciones=opciones.get(c.nombre_interno),
+            )
+            for c in campos_por_tipo[tipo.id]
+        ]
+        resultado.append(
+            TipoEventoRead(
+                id=tipo.id, nombre=tipo.nombre, descripcion=tipo.descripcion, campos=campos
+            )
         )
-        for tipo in tipos
-    ]
+    return resultado
 
 
 def listar_tipos_accion() -> list[TipoAccionRead]:
@@ -109,18 +146,26 @@ def _resumen_errores(error: ValidationError) -> str:
     )
 
 
-def validar_condicion(condicion: dict[str, object], campos: dict[str, str]) -> GrupoCondicion:
-    """Valida el grupo de comparaciones contra los campos del evento."""
+def validar_condicion(
+    condicion: dict[str, object],
+    campos: dict[str, str],
+    opciones: dict[str, list[OpcionCampoRead]] | None = None,
+) -> GrupoCondicion:
+    """Valida el grupo de comparaciones contra los campos del evento. Con `opciones` (al guardar
+    una regla) también exige que los campos enumerados usen un valor de su lista; al evaluar un
+    evento no se pasa, para que una opción dada de baja después no rompa reglas ya guardadas."""
     try:
         grupo = GrupoCondicion.model_validate(condicion)
     except ValidationError as error:
         raise CondicionInvalida(f"Condición inválida: {_resumen_errores(error)}") from error
     for comparacion in grupo.comparaciones:
-        _validar_comparacion(comparacion, campos)
+        _validar_comparacion(comparacion, campos, opciones or {})
     return grupo
 
 
-def _validar_comparacion(comparacion: Condicion, campos: dict[str, str]) -> None:
+def _validar_comparacion(
+    comparacion: Condicion, campos: dict[str, str], opciones: dict[str, list[OpcionCampoRead]]
+) -> None:
     tipo_dato = campos.get(comparacion.campo)
     if tipo_dato is None:
         disponibles = ", ".join(sorted(campos)) or "ninguno"
@@ -131,6 +176,17 @@ def _validar_comparacion(comparacion: Condicion, campos: dict[str, str]) -> None
         raise CondicionInvalida(
             f"El operador '{comparacion.operador}' no aplica a '{comparacion.campo}' ({tipo_dato})."
         )
+    validas = opciones.get(comparacion.campo)
+    if validas is not None:
+        if comparacion.operador not in OPERADORES_CON_OPCIONES:
+            raise CondicionInvalida(
+                f"'{comparacion.campo}' tiene valores fijos: solo admite 'es' o 'no es'."
+            )
+        if comparacion.valor not in {o.valor for o in validas}:
+            raise CondicionInvalida(
+                f"'{comparacion.valor}' no es un valor válido para '{comparacion.campo}'. "
+                f"Opciones: {', '.join(o.valor for o in validas) or 'ninguna'}."
+            )
     try:
         coaccionar_valor(tipo_dato, comparacion.valor)
     except ValueError as error:

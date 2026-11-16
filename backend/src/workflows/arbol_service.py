@@ -43,7 +43,12 @@ from src.workflows.schemas import (
     NodoWrite,
     PosicionNodo,
 )
-from src.workflows.service import aprobacion_por_defecto, validar_accion, validar_condicion
+from src.workflows.service import (
+    aprobacion_por_defecto,
+    opciones_de_campos,
+    validar_accion,
+    validar_condicion,
+)
 
 DETALLE_NODO_ELIMINADO = "La acción se eliminó de la regla."
 
@@ -266,7 +271,11 @@ def _validar_contenido(
                 raise ArbolInvalido("Una condición necesita comparaciones y no tiene acción.")
             if nodo.destinatarios.rol_ids or nodo.destinatarios.usuario_ids:
                 raise ArbolInvalido("Una condición no admite destinatarios.")
-            grupo = validar_condicion(nodo.condicion.model_dump(mode="json"), campos)
+            grupo = validar_condicion(
+                nodo.condicion.model_dump(mode="json"),
+                campos,
+                opciones_de_campos(db, tipo_evento.nombre),
+            )
             return NodoValidado(nodo, grupo.model_dump(mode="json"), None, False, orden)
 
         if nodo.tipo_accion is None or nodo.condicion is not None:

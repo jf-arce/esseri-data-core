@@ -42,6 +42,11 @@ def _normalizar_asunto(value: object) -> object:
     return normalizado
 
 
+class OpcionCampoRead(BaseModel):
+    valor: str
+    etiqueta: str
+
+
 class CampoEventoRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -49,6 +54,8 @@ class CampoEventoRead(BaseModel):
     nombre_interno: str
     etiqueta: str
     tipo_dato: str
+    # `None` = campo libre; con lista, la condición solo acepta `==`/`!=` y uno de estos valores.
+    opciones: list[OpcionCampoRead] | None = None
 
 
 class TipoEventoRead(BaseModel):

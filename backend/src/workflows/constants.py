@@ -135,6 +135,31 @@ OPERADORES_POR_TIPO_DATO: dict[str, frozenset[str]] = {
     "texto": frozenset({"==", "!=", "contiene"}),
 }
 
+# Campos de texto con valores cerrados que emite el sistema: (evento, campo) -> (valor, etiqueta).
+# El editor los muestra como lista y el backend rechaza cualquier otro valor. Los que salen de una
+# tabla (método de pago, nivel educativo) se leen en `service.opciones_de_campos`.
+OPCIONES_POR_CAMPO: dict[tuple[str, str], tuple[tuple[str, str], ...]] = {
+    ("inasistencia.registrada", "tipo_asistencia"): (
+        ("ausente_pendiente", "Ausente"),
+        ("tardanza", "Tardanza"),
+    ),
+    ("inscripcion.cambio_matricula", "tipo_cambio"): (
+        ("division", "Cambio de división"),
+        ("nivel", "Cambio de nivel"),
+    ),
+    ("recepcion_compra.registrada", "tipo_recepcion"): (
+        ("total", "Total"),
+        ("parcial", "Parcial"),
+    ),
+}
+# Campos cuyo valor es el nombre de una fila de tabla: (evento, campo) -> tabla.
+CAMPOS_CON_OPCIONES_DE_TABLA: dict[tuple[str, str], Literal["metodo_pago", "nivel_educativo"]] = {
+    ("pago.registrado", "metodo_pago"): "metodo_pago",
+    ("solicitud_inscripcion.aprobada", "nivel_educativo"): "nivel_educativo",
+    ("inscripcion.confirmada", "nivel_educativo"): "nivel_educativo",
+}
+OPERADORES_CON_OPCIONES: frozenset[str] = frozenset({"==", "!="})
+
 # Entidades de evento de las que se puede llegar a un alumno, necesario para los destinatarios
 # `responsable_economico` y `responsables_habilitados`.
 ENTIDADES_CON_ALUMNO: frozenset[str] = frozenset(
