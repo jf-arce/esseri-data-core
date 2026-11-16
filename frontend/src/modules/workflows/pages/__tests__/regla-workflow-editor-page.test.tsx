@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router'
+import { createMemoryRouter, RouterProvider } from 'react-router'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '@/api/client'
@@ -123,15 +123,16 @@ function conPermisos(codigos: string[]) {
 }
 
 function abrirEditor(ruta = '/workflows/reglas/r-1') {
-  return render(
-    <MemoryRouter initialEntries={[ruta]}>
-      <Routes>
-        <Route path="/workflows/reglas/nueva" element={<ReglaWorkflowEditorPage />} />
-        <Route path="/workflows/reglas/:reglaId" element={<ReglaWorkflowEditorPage />} />
-        <Route path="/workflows/reglas" element={<p>Listado de reglas</p>} />
-      </Routes>
-    </MemoryRouter>,
+  const router = createMemoryRouter(
+    [
+      { path: '/workflows/reglas/nueva', element: <ReglaWorkflowEditorPage /> },
+      { path: '/workflows/reglas/:reglaId', element: <ReglaWorkflowEditorPage /> },
+      { path: '/workflows/reglas', element: <p>Listado de reglas</p> },
+      { path: '/otra-pantalla', element: <p>Otra pantalla</p> },
+    ],
+    { initialEntries: [ruta] },
   )
+  return render(<RouterProvider router={router} />)
 }
 
 const reglaConRamas = reglaDe({
@@ -396,6 +397,51 @@ describe('ReglaWorkflowEditorPage', () => {
 
       expect(await screen.findByText('La regla no existe')).toBeInTheDocument()
       expect(screen.getByRole('link', { name: 'Volver a las reglas' })).toBeInTheDocument()
+    })
+  })
+
+  describe('salir con cambios sin guardar', () => {
+    it('pide confirmación al salir con cambios y permite seguir editando', async () => {
+      const user = userEvent.setup()
+      abrirEditor()
+
+      await user.type(await screen.findByLabelText('Nombre de la regla'), ' nueva')
+      await user.click(screen.getByRole('link', { name: 'Cancelar' }))
+
+      expect(await screen.findByText('¿Salir sin guardar?')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Seguir editando' }))
+      expect(screen.queryByText('¿Salir sin guardar?')).not.toBeInTheDocument()
+      expect(screen.getByLabelText('Nombre de la regla')).toBeInTheDocument()
+    })
+
+    it('sale al confirmar', async () => {
+      const user = userEvent.setup()
+      abrirEditor()
+
+      await user.type(await screen.findByLabelText('Nombre de la regla'), ' nueva')
+      await user.click(screen.getByRole('link', { name: 'Cancelar' }))
+      await user.click(await screen.findByRole('button', { name: 'Salir sin guardar' }))
+
+      expect(await screen.findByText('Listado de reglas')).toBeInTheDocument()
+    })
+
+    it('no pide confirmación si no hay cambios', async () => {
+      const user = userEvent.setup()
+      abrirEditor()
+
+      await user.click(await screen.findByRole('link', { name: 'Cancelar' }))
+
+      expect(await screen.findByText('Listado de reglas')).toBeInTheDocument()
+    })
+
+    it('no pide confirmación tras guardar', async () => {
+      const user = userEvent.setup()
+      abrirEditor()
+
+      await user.type(await screen.findByLabelText('Nombre de la regla'), ' nueva')
+      await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+
+      expect(await screen.findByText('Listado de reglas')).toBeInTheDocument()
     })
   })
 })

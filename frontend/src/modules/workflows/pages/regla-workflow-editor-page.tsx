@@ -1,9 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import { useMemo, useState } from 'react'
+import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router'
 import { SearchXIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -133,12 +143,12 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
   const [instantanea] = useState(() => JSON.stringify(inicial))
   const sinGuardar = JSON.stringify(borrador) !== instantanea
 
-  useEffect(() => {
-    if (!sinGuardar || guardando) return
-    const avisar = (evento: BeforeUnloadEvent) => evento.preventDefault()
-    window.addEventListener('beforeunload', avisar)
-    return () => window.removeEventListener('beforeunload', avisar)
-  }, [sinGuardar, guardando])
+  // Navegar dentro del sistema con cambios sin guardar pide confirmación. Cerrar o recargar la
+  // pestaña no avisa: el borrador automático se recupera al volver.
+  const bloqueo = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      sinGuardar && !guardando && currentLocation.pathname !== nextLocation.pathname,
+  )
 
   const evento = tiposEvento.find((tipo) => tipo.id === borrador.tipoEventoId)
   const nombreEvento = evento?.nombre ?? null
@@ -485,6 +495,24 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
           />
         )}
       </div>
+      <AlertDialog open={bloqueo.state === 'blocked'}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Salir sin guardar?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Los cambios de esta regla se pierden si salís ahora.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => bloqueo.state === 'blocked' && bloqueo.reset()}>
+              Seguir editando
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => bloqueo.state === 'blocked' && bloqueo.proceed()}>
+              Salir sin guardar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Dialog open={conflicto} onOpenChange={setConflicto}>
         <DialogContent>
           <DialogHeader>
