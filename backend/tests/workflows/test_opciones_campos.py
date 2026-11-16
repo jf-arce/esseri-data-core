@@ -125,3 +125,28 @@ def test_motivo_de_justificacion_sale_de_la_tabla_de_motivos(client_autenticado,
     campos = client_autenticado.get("/workflows/tipos-evento").json()[0]["campos"]
 
     assert campos[0]["opciones"] == [{"valor": "Enfermedad", "etiqueta": "Enfermedad"}]
+
+
+def test_proveedor_de_una_compra_sale_de_los_proveedores_activos(client_autenticado, db_session):
+    from src.proveedores_compras.models import Proveedor
+
+    tipo = TipoEvento(nombre="orden_compra.emitida", descripcion="Se emitió una orden")
+    db_session.add(tipo)
+    db_session.flush()
+    db_session.add_all(
+        [
+            CampoEvento(
+                nombre_interno="proveedor_nombre",
+                etiqueta="Proveedor",
+                tipo_dato="texto",
+                tipo_evento_id=tipo.id,
+            ),
+            Proveedor(nombre="Librería Sur", estado="activo"),
+            Proveedor(nombre="Cerrada SA", estado="inactivo"),
+        ]
+    )
+    db_session.flush()
+
+    campos = client_autenticado.get("/workflows/tipos-evento").json()[0]["campos"]
+
+    assert campos[0]["opciones"] == [{"valor": "Librería Sur", "etiqueta": "Librería Sur"}]

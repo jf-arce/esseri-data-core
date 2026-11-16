@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from src.academico.models import MotivoJustificacion, NivelEducativo
 from src.facturacion.models import ConceptoCobro, MetodoPago, ReglaPenalidad
+from src.proveedores_compras.models import Proveedor
 from src.workflows import plantillas_service
 from src.workflows.constants import (
     ACCIONES_CON_APROBACION_POR_DEFECTO,
@@ -73,6 +74,12 @@ def opciones_de_campos(db: Session, tipo_evento_nombre: str) -> dict[str, list[O
         if tabla == "metodo_pago":
             consulta = (
                 select(MetodoPago.nombre).where(MetodoPago.activo).order_by(MetodoPago.nombre)
+            )
+        elif tabla == "proveedor":
+            consulta = (
+                select(Proveedor.nombre)
+                .where(Proveedor.estado == "activo")
+                .order_by(Proveedor.nombre)
             )
         elif tabla == "motivo_justificacion":
             consulta = (

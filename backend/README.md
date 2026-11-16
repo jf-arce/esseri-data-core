@@ -457,7 +457,7 @@ defaults.
   Solo las cuatro que arman un mensaje admiten `notificacion_template_id`.
 - Los campos con valores cerrados llegan en `GET /workflows/tipos-evento` con `opciones`
   (`[{valor, etiqueta}]`; `null` si el campo es libre). Las fijas están en `OPCIONES_POR_CAMPO`
-  (`constants.py`) y las que salen de una tabla (método de pago, nivel educativo) se leen al armar
+  (`constants.py`) y las que salen de una tabla (método de pago, nivel educativo, motivo de justificación, proveedor) se leen al armar
   el catálogo. Un campo con opciones solo admite `==` y `!=`, y al guardar la regla el backend
   rechaza un valor que no esté en la lista (al evaluar un evento no se vuelve a chequear).
 - `bloques_sueltos` (en `POST` y `PATCH /workflows/reglas`, y en la lectura) guarda los bloques del
