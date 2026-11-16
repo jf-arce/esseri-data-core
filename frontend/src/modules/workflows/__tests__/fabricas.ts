@@ -11,14 +11,27 @@ export const EVENTO_FACTURA: TipoEvento = {
   nombre: 'factura.vencida',
   descripcion: 'Una factura impaga superó su fecha de vencimiento',
   campos: [
-    { id: 'c-1', nombre_interno: 'dias_vencido', etiqueta: 'Días vencido', tipo_dato: 'numero' },
+    {
+      id: 'c-1',
+      nombre_interno: 'dias_vencido',
+      etiqueta: 'Días vencido',
+      tipo_dato: 'numero',
+      opciones: null,
+    },
     {
       id: 'c-2',
       nombre_interno: 'monto_deuda',
       etiqueta: 'Monto de la deuda',
       tipo_dato: 'numero',
+      opciones: null,
     },
-    { id: 'c-3', nombre_interno: 'nombre_familia', etiqueta: 'Familia', tipo_dato: 'texto' },
+    {
+      id: 'c-3',
+      nombre_interno: 'nombre_familia',
+      etiqueta: 'Familia',
+      tipo_dato: 'texto',
+      opciones: null,
+    },
   ],
 }
 
@@ -81,6 +94,7 @@ export function reglaDe(extra: Partial<ReglaWorkflow> = {}): ReglaWorkflow {
     created_at: '2026-09-01T00:00:00Z',
     updated_at: '2026-09-01T00:00:00Z',
     nodos: [nodoAccion('n-1')],
+    bloques_sueltos: [],
     ...extra,
   }
 }

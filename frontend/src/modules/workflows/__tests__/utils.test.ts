@@ -238,8 +238,14 @@ describe('insertarPlaceholder', () => {
 
 describe('validarPlaceholders', () => {
   const campos: CampoEvento[] = [
-    { id: 'c-1', nombre_interno: 'monto', etiqueta: 'Monto', tipo_dato: 'numero' },
-    { id: 'c-2', nombre_interno: 'dias_vencido', etiqueta: 'Días', tipo_dato: 'numero' },
+    { id: 'c-1', nombre_interno: 'monto', etiqueta: 'Monto', tipo_dato: 'numero', opciones: null },
+    {
+      id: 'c-2',
+      nombre_interno: 'dias_vencido',
+      etiqueta: 'Días',
+      tipo_dato: 'numero',
+      opciones: null,
+    },
   ]
 
   it('no avisa si los placeholders existen en el evento', () => {

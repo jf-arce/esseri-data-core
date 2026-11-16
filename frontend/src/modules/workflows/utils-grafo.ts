@@ -36,8 +36,9 @@ import {
   defaultsDeConfig,
   ETIQUETA_ACCION,
   ETIQUETA_OPERADOR,
+  esNumeroValido,
   etiquetaEvento,
-  OPERADORES_POR_TIPO_DATO,
+  operadoresDeCampo,
 } from '@/modules/workflows/utils'
 import { CLAVE_CONFIG } from '@/modules/workflows/constants'
 
@@ -175,6 +176,15 @@ export function subarbol(nodos: readonly NodoEditor[], raizId: string): NodoEdit
     pendientes.push(...todosLosHijos(nodos, actual.id))
   }
   return resultado
+}
+
+/** Ids de los bloques sin conectar: cada suelto y todo lo que cuelga de él. */
+export function idsSinConectar(nodos: readonly NodoEditor[]): Set<string> {
+  const ids = new Set<string>()
+  for (const raiz of nodos.filter((nodo) => nodo.suelto)) {
+    for (const nodo of subarbol(nodos, raiz.id)) ids.add(nodo.id)
+  }
+  return ids
 }
 
 export function eliminarSubarbol(nodos: readonly NodoEditor[], raizId: string): NodoEditor[] {
@@ -362,16 +372,32 @@ function nodoDesdeBackend(nodo: NodoWorkflow): NodoEditor {
   }
 }
 
+function esNodoEditor(valor: unknown): valor is NodoEditor {
+  if (typeof valor !== 'object' || valor === null) return false
+  return (
+    'id' in valor &&
+    typeof valor.id === 'string' &&
+    'tipo' in valor &&
+    (valor.tipo === 'condicion' || valor.tipo === 'accion') &&
+    'comparaciones' in valor &&
+    Array.isArray(valor.comparaciones) &&
+    'posicion' in valor &&
+    typeof valor.posicion === 'object'
+  )
+}
+
 /** Carga la regla guardada; si algún nodo no trae posición (reglas migradas), se auto-ordena. */
 export function borradorDesdeRegla(regla: ReglaWorkflow): BorradorFlujo {
-  const nodos = [...regla.nodos].sort((a, b) => a.orden - b.orden).map(nodoDesdeBackend)
+  const conectados = [...regla.nodos].sort((a, b) => a.orden - b.orden).map(nodoDesdeBackend)
   const sinPosicion = regla.nodos.some((nodo) => nodo.posicion === null)
+  const sueltos = regla.bloques_sueltos.filter(esNodoEditor)
+  const nodos = [...(sinPosicion ? ordenarArbol(conectados) : conectados), ...sueltos]
   return {
     nombre: regla.nombre,
     tipoEventoId: regla.tipo_evento_id,
     criticidad: regla.criticidad,
     activo: regla.activo,
-    nodos: sinPosicion ? ordenarArbol(nodos) : nodos,
+    nodos,
   }
 }
 
@@ -476,12 +502,17 @@ export function payloadDesdeBorrador(
   evento: TipoEvento | undefined,
 ): ReglaWorkflowCreatePayload {
   const campos = evento?.campos ?? []
+  const sinConectar = idsSinConectar(borrador.nodos)
   return {
     nombre: borrador.nombre.trim(),
     tipo_evento_id: borrador.tipoEventoId,
     criticidad: borrador.criticidad,
     activo: borrador.activo,
-    nodos: borrador.nodos.map((nodo) => payloadDeNodo(nodo, tiposAccion, campos)),
+    nodos: borrador.nodos
+      .filter((nodo) => !sinConectar.has(nodo.id))
+      .map((nodo) => payloadDeNodo(nodo, tiposAccion, campos)),
+    // Se guardan tal cual están en el editor (pueden estar incompletos); el motor no los ve.
+    bloques_sueltos: borrador.nodos.filter((nodo) => sinConectar.has(nodo.id)),
   }
 }
 
@@ -516,7 +547,7 @@ export function cambiarEventoDelBorrador(
 export function cambiarCampoDeComparacion(campo: CampoEvento | null): ComparacionEditor {
   return {
     campo: campo?.nombre_interno ?? '',
-    operador: campo ? OPERADORES_POR_TIPO_DATO[campo.tipo_dato][0] : '',
+    operador: campo ? operadoresDeCampo(campo)[0] : '',
     valor: '',
   }
 }
@@ -527,7 +558,11 @@ export interface ErroresFlujo {
   general: string[]
   /** Primer problema de cada nodo incompleto, por id. */
   porNodo: Record<string, string>
+  /** Avisos que no impiden guardar (bloques sin conectar), por id. */
+  avisos: Record<string, string>
 }
+
+export const AVISO_SIN_CONECTAR = 'No se ejecuta hasta que lo conectes'
 
 const CONFIG_OBLIGATORIA: Partial<Record<TipoAccion, readonly [string, string][]>> = {
   crear_tarea: [[CLAVE_CONFIG.titulo, 'Falta el título de la tarea']],
@@ -539,7 +574,7 @@ const CONFIG_OBLIGATORIA: Partial<Record<TipoAccion, readonly [string, string][]
   ],
 }
 
-function errorDeCondicion(nodo: NodoEditor): string | null {
+function errorDeCondicion(nodo: NodoEditor, campos: CampoEvento[]): string | null {
   if (nodo.comparaciones.length === 0) return 'Falta al menos una comparación'
   if (nodo.comparaciones.length > MAX_COMPARACIONES) {
     return `Hasta ${MAX_COMPARACIONES} comparaciones por condición`
@@ -547,7 +582,18 @@ function errorDeCondicion(nodo: NodoEditor): string | null {
   const incompleta = nodo.comparaciones.some(
     (c) => c.campo === '' || c.operador === '' || c.valor.trim() === '',
   )
-  return incompleta ? 'Completá el campo, el operador y el valor' : null
+  if (incompleta) return 'Completá el campo, el operador y el valor'
+  for (const comparacion of nodo.comparaciones) {
+    const campo = campos.find((c) => c.nombre_interno === comparacion.campo)
+    if (!campo) continue
+    if (campo.tipo_dato === 'numero' && !esNumeroValido(comparacion.valor)) {
+      return 'El valor tiene que ser un número'
+    }
+    if (campo.opciones && !campo.opciones.some((o) => o.valor === comparacion.valor)) {
+      return 'Elegí uno de los valores de la lista'
+    }
+  }
+  return null
 }
 
 function errorDeAccion(nodo: NodoEditor, tiposAccion: TipoAccionCatalogo[]): string | null {
@@ -566,28 +612,30 @@ function errorDeAccion(nodo: NodoEditor, tiposAccion: TipoAccionCatalogo[]): str
 export function validarBorrador(
   borrador: BorradorFlujo,
   tiposAccion: TipoAccionCatalogo[],
+  campos: CampoEvento[] = [],
 ): ErroresFlujo {
   const general: string[] = []
   const porNodo: Record<string, string> = {}
+  const avisos: Record<string, string> = {}
+  const sinConectar = idsSinConectar(borrador.nodos)
+  const conectados = borrador.nodos.filter((nodo) => !sinConectar.has(nodo.id))
   if (borrador.nombre.trim() === '') general.push('Falta el nombre de la regla.')
   if (borrador.tipoEventoId === '') general.push('Elegí qué evento dispara la regla.')
   if (borrador.nodos.length > MAX_NODOS) general.push(`Hasta ${MAX_NODOS} bloques por regla.`)
-  if (!borrador.nodos.some((nodo) => nodo.tipo === 'accion' && !nodo.suelto)) {
+  if (!conectados.some((nodo) => nodo.tipo === 'accion')) {
     general.push('La regla necesita al menos una acción.')
   }
-  for (const nodo of borrador.nodos) {
-    const error = nodo.suelto
-      ? 'Conectalo al flujo o eliminalo'
-      : nodo.tipo === 'condicion'
-        ? errorDeCondicion(nodo)
-        : errorDeAccion(nodo, tiposAccion)
+  for (const id of sinConectar) avisos[id] = AVISO_SIN_CONECTAR
+  for (const nodo of conectados) {
+    const error =
+      nodo.tipo === 'condicion' ? errorDeCondicion(nodo, campos) : errorDeAccion(nodo, tiposAccion)
     if (error) porNodo[nodo.id] = error
     if (profundidad(borrador.nodos, nodo.id) > MAX_PROFUNDIDAD) {
       general.push(`El flujo admite hasta ${MAX_PROFUNDIDAD} niveles.`)
       break
     }
   }
-  return { general, porNodo }
+  return { general, porNodo, avisos }
 }
 
 export function hayErrores(errores: ErroresFlujo): boolean {
@@ -600,7 +648,18 @@ export function textoComparacion(comparacion: ComparacionEditor, campos: CampoEv
   const campo = campos.find((c) => c.nombre_interno === comparacion.campo)
   if (!campo) return 'sin definir'
   const operador = comparacion.operador === '' ? '' : ETIQUETA_OPERADOR[comparacion.operador]
-  return `${campo.etiqueta} ${operador} ${comparacion.valor || '…'}`.replace(/\s+/g, ' ').trim()
+  return `${campo.etiqueta} ${operador} ${valorLegible(campo, comparacion.valor)}`
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** El valor como lo lee una persona: etiqueta de la opción y fechas dd/mm/aaaa. */
+function valorLegible(campo: CampoEvento, valor: string): string {
+  if (valor === '') return '…'
+  const opcion = campo.opciones?.find((o) => o.valor === valor)
+  if (opcion) return opcion.etiqueta
+  const fecha = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor)
+  return campo.tipo_dato === 'fecha' && fecha ? `${fecha[3]}/${fecha[2]}/${fecha[1]}` : valor
 }
 
 export function textoCondicion(

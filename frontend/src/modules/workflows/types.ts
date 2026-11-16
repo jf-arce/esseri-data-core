@@ -27,11 +27,18 @@ export type Operador = (typeof OPERADORES)[number]
 
 export type TipoDato = 'numero' | 'fecha' | 'texto'
 
+export interface OpcionCampo {
+  valor: string
+  etiqueta: string
+}
+
 export interface CampoEvento {
   id: string
   nombre_interno: string
   etiqueta: string
   tipo_dato: TipoDato
+  /** Valores cerrados del campo; `null` = campo libre. */
+  opciones: OpcionCampo[] | null
 }
 
 export interface TipoEvento {
@@ -122,6 +129,8 @@ export interface ReglaWorkflow {
   created_at: string
   updated_at: string
   nodos: NodoWorkflow[]
+  /** Bloques del editor sin conectar al flujo: se guardan pero el motor no los ejecuta. */
+  bloques_sueltos: unknown[]
 }
 
 export interface ReglaWorkflowCreatePayload {
@@ -130,6 +139,7 @@ export interface ReglaWorkflowCreatePayload {
   criticidad: Criticidad
   activo: boolean
   nodos: NodoWorkflowPayload[]
+  bloques_sueltos: unknown[]
 }
 
 export interface ReglaWorkflowPatch {
@@ -138,6 +148,7 @@ export interface ReglaWorkflowPatch {
   criticidad?: Criticidad
   activo?: boolean
   nodos?: NodoWorkflowPayload[]
+  bloques_sueltos?: unknown[]
   /** `updated_at` de la regla al abrirla: si cambió, el guardado se rechaza (409). */
   updated_at_base?: string
 }

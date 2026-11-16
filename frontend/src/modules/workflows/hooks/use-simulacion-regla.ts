@@ -74,7 +74,7 @@ export function useSimulacionRegla(
 
   const simular = useCallback(
     async (eventoId: string) => {
-      if (hayErrores(validarBorrador(borrador, tiposAccion))) {
+      if (hayErrores(validarBorrador(borrador, tiposAccion, evento?.campos))) {
         setError('Completá los bloques marcados como incompletos antes de probar la regla.')
         return
       }

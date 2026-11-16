@@ -6,6 +6,7 @@ import {
   LockIcon,
   MinusIcon,
   PlusIcon,
+  UnlinkIcon,
   XIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -84,6 +85,8 @@ interface TarjetaNodoProps {
   contorno: string
   seleccionado: boolean
   incompleto?: string
+  /** Aviso que no impide guardar (p. ej. bloque sin conectar). */
+  aviso?: string
   simulacion?: SimulacionNodo
   /** El nodo apareció hace instantes: entra con una animación corta. */
   children: ReactNode
@@ -98,6 +101,7 @@ export function TarjetaNodo({
   contorno,
   seleccionado,
   incompleto,
+  aviso,
   simulacion,
   children,
 }: TarjetaNodoProps) {
@@ -130,6 +134,12 @@ export function TarjetaNodo({
         <p className="mt-2 flex items-center gap-1 text-xs font-semibold text-error [&>svg]:size-3.5">
           <AlertCircleIcon />
           Incompleto: {incompleto}
+        </p>
+      )}
+      {aviso && !incompleto && (
+        <p className="mt-2 flex items-center gap-1 text-xs font-semibold text-texto-2 [&>svg]:size-3.5">
+          <UnlinkIcon />
+          Sin conectar: {aviso}
         </p>
       )}
     </div>

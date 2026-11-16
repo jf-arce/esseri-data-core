@@ -86,7 +86,7 @@ import { permisosActivos, useAuthStore } from '@/store/auth-store'
 const ANCHO_INSPECTOR = 380
 const ETIQUETA_VOLVER_A_REGLAS = 'Volver a las reglas'
 const SIN_DESTINATARIOS: DestinatariosNodo = { roles: [], usuarios: [] }
-const SIN_ERRORES: ErroresFlujo = { general: [], porNodo: {} }
+const SIN_ERRORES: ErroresFlujo = { general: [], porNodo: {}, avisos: {} }
 
 function detalleDe(causa: unknown, porDefecto: string): string {
   return causa instanceof ApiError ? (causa.detail ?? porDefecto) : porDefecto
@@ -147,19 +147,14 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
   const plantillas = usePlantillas(borrador.tipoEventoId)
   const simulacion = useSimulacionRegla(borrador, tiposAccion, evento)
   const erroresVivos = useMemo(
-    () => validarBorrador(borrador, tiposAccion),
-    [borrador, tiposAccion],
+    () => validarBorrador(borrador, tiposAccion, evento?.campos),
+    [borrador, tiposAccion, evento],
   )
-  // Un bloque suelto se marca apenas aparece; los demás faltantes, recién al intentar guardar.
-  const errores = useMemo<ErroresFlujo>(() => {
-    if (mostrarErrores) return erroresVivos
-    const sueltos = Object.fromEntries(
-      borrador.nodos
-        .filter((nodo) => nodo.suelto && erroresVivos.porNodo[nodo.id])
-        .map((nodo) => [nodo.id, erroresVivos.porNodo[nodo.id]]),
-    )
-    return Object.keys(sueltos).length === 0 ? SIN_ERRORES : { general: [], porNodo: sueltos }
-  }, [mostrarErrores, erroresVivos, borrador.nodos])
+  // Los faltantes se marcan recién al intentar guardar; los avisos de bloques sin conectar, siempre.
+  const errores = useMemo<ErroresFlujo>(
+    () => (mostrarErrores ? erroresVivos : { ...SIN_ERRORES, avisos: erroresVivos.avisos }),
+    [mostrarErrores, erroresVivos],
+  )
 
   // Al cambiar de evento, una plantilla que no es compatible con el nuevo se descarta. Solo con
   // la lista vigente y sin error: mientras carga o si falla no se sabe, y no se toca.
@@ -313,7 +308,7 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
   async function guardar() {
     setMostrarErrores(true)
     setConflicto(false)
-    const problemas = validarBorrador(borrador, tiposAccion)
+    const problemas = validarBorrador(borrador, tiposAccion, evento?.campos)
     if (hayErrores(problemas)) {
       const primero = borrador.nodos.find((nodo) => problemas.porNodo[nodo.id])
       if (primero) {

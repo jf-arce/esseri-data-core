@@ -2,7 +2,16 @@ import { DatePicker } from '@/components/date-picker'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
-import type { TipoDato } from '@/modules/workflows/types'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { CLASE_SELECT_ADAPTABLE } from '@/modules/workflows/constants'
+import type { CampoEvento } from '@/modules/workflows/types'
+import { esNumeroValido } from '@/modules/workflows/utils'
 
 function aFechaLocal(iso: string): Date | undefined {
   const [anio, mes, dia] = iso.split('-').map(Number)
@@ -17,7 +26,7 @@ function aIso(fecha: Date): string {
 }
 
 interface ValorComparacionProps {
-  tipoDato: TipoDato
+  campo: CampoEvento
   valor: string
   disabled: boolean
   onChange: (valor: string) => void
@@ -27,12 +36,29 @@ interface ValorComparacionProps {
 /** El valor de una comparación según el tipo del campo. El texto crece hacia abajo en vez de
  * desbordar: una fila que se agranda con lo que se escribe (sin saltos de línea). */
 export function ValorComparacion({
-  tipoDato,
+  campo,
   valor,
   disabled,
   onChange,
   className,
 }: ValorComparacionProps) {
+  const { tipo_dato: tipoDato, opciones } = campo
+  if (opciones !== null) {
+    return (
+      <Select value={valor} disabled={disabled} onValueChange={onChange}>
+        <SelectTrigger aria-label="Valor" className={cn(CLASE_SELECT_ADAPTABLE, 'bg-superficie')}>
+          <SelectValue placeholder="Elegir valor" />
+        </SelectTrigger>
+        <SelectContent>
+          {opciones.map((opcion) => (
+            <SelectItem key={opcion.valor} value={opcion.valor}>
+              {opcion.etiqueta}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    )
+  }
   if (tipoDato === 'fecha') {
     return (
       <DatePicker
@@ -43,15 +69,20 @@ export function ValorComparacion({
     )
   }
   if (tipoDato === 'numero') {
+    const invalido = valor.trim() !== '' && !esNumeroValido(valor)
     return (
-      <Input
-        aria-label="Valor"
-        type="number"
-        value={valor}
-        disabled={disabled}
-        className={cn('min-w-0 bg-superficie', className)}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <div className="flex min-w-0 flex-col gap-1">
+        <Input
+          aria-label="Valor"
+          inputMode="decimal"
+          value={valor}
+          disabled={disabled}
+          aria-invalid={invalido}
+          className={cn('min-w-0 bg-superficie', className)}
+          onChange={(e) => onChange(e.target.value.replace(',', '.'))}
+        />
+        {invalido && <p className="text-xs text-error">El valor tiene que ser un número</p>}
+      </div>
     )
   }
   return (

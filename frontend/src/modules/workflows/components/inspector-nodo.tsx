@@ -40,7 +40,7 @@ import {
   ETIQUETA_CRITICIDAD,
   ETIQUETA_OPERADOR,
   etiquetaEvento,
-  OPERADORES_POR_TIPO_DATO,
+  operadoresDeCampo,
 } from '@/modules/workflows/utils'
 import {
   cambiarCampoDeComparacion,
@@ -177,7 +177,7 @@ function FilaComparacion({
   onQuitar: () => void
 }) {
   const campo = campos.find((item) => item.nombre_interno === comparacion.campo)
-  const operadores = campo ? OPERADORES_POR_TIPO_DATO[campo.tipo_dato] : []
+  const operadores = campo ? operadoresDeCampo(campo) : []
   const sufijo = `comparacion-${indice}`
   return (
     <fieldset className="flex flex-col gap-2 rounded-lg bg-fila-hover p-3">
@@ -245,7 +245,7 @@ function FilaComparacion({
             </SelectContent>
           </Select>
           <ValorComparacion
-            tipoDato={campo.tipo_dato}
+            campo={campo}
             valor={comparacion.valor}
             disabled={soloLectura}
             onChange={(valor) => onCambiar({ ...comparacion, valor })}

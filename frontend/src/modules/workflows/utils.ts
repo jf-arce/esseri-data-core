@@ -100,6 +100,16 @@ export const OPERADORES_POR_TIPO_DATO: Record<TipoDato, readonly Operador[]> = {
   texto: ['==', '!=', 'contiene'],
 }
 
+export function esNumeroValido(texto: string): boolean {
+  const limpio = texto.trim()
+  return limpio !== '' && Number.isFinite(Number(limpio))
+}
+
+/** Un campo con valores cerrados solo se compara con "es" o "no es" (igual que el backend). */
+export function operadoresDeCampo(campo: CampoEvento): readonly Operador[] {
+  return campo.opciones === null ? OPERADORES_POR_TIPO_DATO[campo.tipo_dato] : ['==', '!=']
+}
+
 // Réplica de `CAMBIOS_ESTADO_PERMITIDOS` (por entidad) y `ENTIDAD_POR_EVENTO` en
 // `backend/src/workflows/constants.py`, resuelta por nombre de evento.
 export const ESTADOS_POR_EVENTO: Record<string, readonly string[]> = {

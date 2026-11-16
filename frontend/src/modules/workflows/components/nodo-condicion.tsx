@@ -16,6 +16,7 @@ export interface DatosNodoCondicion extends OpcionesAgregar {
   seleccionado: boolean
   soloLectura: boolean
   incompleto?: string
+  aviso?: string
   simulacion?: SimulacionNodo
 }
 
@@ -36,6 +37,7 @@ export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
       contorno="outline-advertencia"
       seleccionado={data.seleccionado}
       incompleto={data.incompleto}
+      aviso={data.aviso}
       simulacion={data.simulacion}
     >
       <Handle

@@ -17,6 +17,7 @@ import {
   deshacer,
   desconectar,
   duplicarRegla,
+  hayErrores,
   duplicarSubarbol,
   eliminarSubarbol,
   estadoDeBloque,
@@ -313,6 +314,51 @@ describe('ordenarArbol con nodos agrandados', () => {
   })
 })
 
+describe('bloques sin conectar', () => {
+  function conSuelto(): BorradorFlujo {
+    const base = borradorConRamas()
+    return {
+      ...base,
+      nodos: [
+        ...base.nodos,
+        { ...nuevoNodoCondicion(null, null), id: 'suelta', suelto: true },
+        { ...nuevoNodoAccion('suelta', 'si', CATALOGO[1]), id: 'hija' },
+      ],
+    }
+  }
+
+  it('el payload separa los sueltos (con su subárbol) de los nodos que corren', () => {
+    const payload = payloadDesdeBorrador(conSuelto(), CATALOGO, EVENTO_FACTURA)
+
+    expect(payload.nodos.map((n) => n.id)).not.toContain('suelta')
+    expect(payload.nodos.map((n) => n.id)).not.toContain('hija')
+    expect(payload.bloques_sueltos).toHaveLength(2)
+  })
+
+  it('guardar y volver a cargar conserva los sueltos y no los conecta', () => {
+    const payload = payloadDesdeBorrador(conSuelto(), CATALOGO, EVENTO_FACTURA)
+    const regla = reglaDe({
+      nodos: [],
+      bloques_sueltos: payload.bloques_sueltos,
+    })
+
+    const recargado = borradorDesdeRegla(regla)
+
+    expect(recargado.nodos.map((n) => n.id)).toEqual(['suelta', 'hija'])
+    expect(recargado.nodos.find((n) => n.id === 'suelta')?.suelto).toBe(true)
+  })
+
+  it('duplicar la regla conserva los sueltos con ids nuevos', () => {
+    const payload = payloadDesdeBorrador(conSuelto(), CATALOGO, EVENTO_FACTURA)
+    const copia = duplicarRegla(reglaDe({ nodos: [], bloques_sueltos: payload.bloques_sueltos }))
+
+    expect(copia.nodos).toHaveLength(2)
+    expect(copia.nodos.map((n) => n.id)).not.toContain('suelta')
+    const raiz = copia.nodos.find((n) => n.suelto)
+    expect(copia.nodos.find((n) => n.padreId === raiz?.id)).toBeDefined()
+  })
+})
+
 describe('validarBorrador', () => {
   it('un borrador sin nombre, sin evento y sin acciones lista cada problema', () => {
     const errores = validarBorrador(BORRADOR_VACIO, CATALOGO)
@@ -354,13 +400,61 @@ describe('validarBorrador', () => {
     expect(porNodo['sin-plantilla']).toBe('Falta la plantilla')
     expect(porNodo['sin-titulo']).toBe('Falta el título de la tarea')
     expect(porNodo['no-impl']).toBe('Esta acción todavía no está disponible')
-    expect(porNodo.suelto).toBe('Conectalo al flujo o eliminalo')
+    expect(porNodo.suelto).toBeUndefined()
+  })
+
+  it('un bloque sin conectar no bloquea: solo lleva un aviso, igual que su subárbol', () => {
+    const borrador: BorradorFlujo = {
+      ...borradorConRamas(),
+      nodos: [
+        ...borradorConRamas().nodos,
+        { ...nuevoNodoCondicion(null, null), id: 'suelta', suelto: true },
+        { ...nuevoNodoAccion('suelta', 'si'), id: 'hija' },
+      ],
+    }
+
+    const errores = validarBorrador(borrador, CATALOGO)
+
+    expect(hayErrores(errores)).toBe(false)
+    expect(Object.keys(errores.avisos).sort()).toEqual(['hija', 'suelta'])
+  })
+
+  it('un valor numérico inválido o fuera de la lista de opciones es un error', () => {
+    const campos = [
+      ...EVENTO_FACTURA.campos,
+      {
+        id: 'c-9',
+        nombre_interno: 'tipo',
+        etiqueta: 'Tipo',
+        tipo_dato: 'texto' as const,
+        opciones: [{ valor: 'tardanza', etiqueta: 'Tardanza' }],
+      },
+    ]
+    const condicion = (campo: string, operador: '>' | '==', valor: string): NodoEditor => ({
+      ...nuevoNodoCondicion(null, null),
+      id: 'c',
+      comparaciones: [{ campo, operador, valor }],
+    })
+    const con = (nodo: NodoEditor): BorradorFlujo => ({
+      ...borradorConRamas(),
+      nodos: [nodo, { ...nuevoNodoAccion('c', 'si', CATALOGO[1]), id: 'a' }],
+    })
+
+    expect(
+      validarBorrador(con(condicion('dias_vencido', '>', 'abc')), CATALOGO, campos).porNodo.c,
+    ).toBe('El valor tiene que ser un número')
+    expect(validarBorrador(con(condicion('tipo', '==', 'otro')), CATALOGO, campos).porNodo.c).toBe(
+      'Elegí uno de los valores de la lista',
+    )
+    expect(
+      validarBorrador(con(condicion('tipo', '==', 'tardanza')), CATALOGO, campos).porNodo.c,
+    ).toBeUndefined()
   })
 
   it('un borrador completo no tiene errores', () => {
     const errores = validarBorrador(borradorConRamas(), CATALOGO)
 
-    expect(errores).toEqual({ general: [], porNodo: {} })
+    expect(errores).toEqual({ general: [], porNodo: {}, avisos: {} })
   })
 
   it('avisa si se pasa de la profundidad máxima', () => {

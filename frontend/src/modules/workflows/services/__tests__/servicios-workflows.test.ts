@@ -76,6 +76,7 @@ describe('servicios de workflows', () => {
           posicion: { x: 0, y: 0 },
         },
       ],
+      bloques_sueltos: [],
     }
 
     await crearReglaWorkflow(payload)

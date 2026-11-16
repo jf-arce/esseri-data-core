@@ -74,6 +74,9 @@ vi.mock('@/modules/workflows/components/canvas-flujo', async () => {
                 {`Nodo ${nodo.tipo} ${nodo.id}`}
               </button>
               {props.errores.porNodo[nodo.id] && <span>{props.errores.porNodo[nodo.id]}</span>}
+              {props.errores.avisos[nodo.id] && (
+                <span>Sin conectar: {props.errores.avisos[nodo.id]}</span>
+              )}
             </li>
           ))}
         </ul>
@@ -226,14 +229,14 @@ describe('ReglaWorkflowEditorPage', () => {
       expect(crearReglaWorkflow).not.toHaveBeenCalled()
     })
 
-    it('un bloque suelto se marca apenas aparece, sin esperar a guardar', async () => {
+    it('un bloque suelto avisa apenas aparece que no se ejecuta', async () => {
       const user = userEvent.setup()
       abrirEditor('/workflows/reglas/nueva?evento=e-1')
       await screen.findByLabelText('Nombre de la regla')
 
       await user.click(screen.getByRole('button', { name: 'Soltar alerta suelta' }))
 
-      expect(await screen.findAllByText('Conectalo al flujo o eliminalo')).not.toHaveLength(0)
+      expect(await screen.findAllByText(/Sin conectar:/)).not.toHaveLength(0)
     })
 
     it('una acción directa del disparador se aclara que corre con cada evento', async () => {
@@ -250,7 +253,7 @@ describe('ReglaWorkflowEditorPage', () => {
       ).toBeInTheDocument()
     })
 
-    it('un bloque suelto no se puede guardar', async () => {
+    it('un bloque suelto no cuenta como acción de la regla', async () => {
       const user = userEvent.setup()
       abrirEditor('/workflows/reglas/nueva?evento=e-1')
       await user.type(await screen.findByLabelText('Nombre de la regla'), 'Aviso')
@@ -258,7 +261,6 @@ describe('ReglaWorkflowEditorPage', () => {
 
       await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
 
-      expect(await screen.findAllByText('Conectalo al flujo o eliminalo')).not.toHaveLength(0)
       expect(crearReglaWorkflow).not.toHaveBeenCalled()
     })
   })

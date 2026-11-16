@@ -14,6 +14,7 @@ export interface DatosNodoAccion {
   detalle: string
   seleccionado: boolean
   incompleto?: string
+  aviso?: string
   simulacion?: SimulacionNodo
   /** Solo en acciones ya guardadas de una regla guardada. */
   estadisticas?: EstadisticasNodo
@@ -34,6 +35,7 @@ export function NodoAccion({ data }: NodeProps<NodoAccionFlujo>) {
       contorno="outline-mod-inscripciones"
       seleccionado={data.seleccionado}
       incompleto={data.incompleto}
+      aviso={data.aviso}
       simulacion={data.simulacion}
     >
       <Handle
