@@ -90,7 +90,7 @@ def test_segunda_corrida_cambia_ids_ni_pisa_lo_editado(db_session, seed_aviso):
     ids = (plantilla.id, regla.id)
 
     plantilla.asunto = "Editado a mano"
-    regla.criticidad = "alta"
+    regla.activo = False
     db_session.commit()
 
     seed_aviso.seed(db_session)
@@ -99,4 +99,4 @@ def test_segunda_corrida_cambia_ids_ni_pisa_lo_editado(db_session, seed_aviso):
     regla = db_session.scalar(select(WorkflowRule))
     assert (plantilla.id, regla.id) == ids
     assert plantilla.asunto == "Editado a mano"
-    assert regla.criticidad == "alta"
+    assert regla.activo is False

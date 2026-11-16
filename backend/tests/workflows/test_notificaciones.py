@@ -136,7 +136,6 @@ def _regla(db, tipo, plantilla, destinatario="responsables_habilitados"):
         condicion={},
         tipo_accion="notificar",
         accion_config={"destinatario": destinatario},
-        criticidad="media",
         requiere_aprobacion_humana=False,
         activo=True,
         tipo_evento_id=tipo.id,

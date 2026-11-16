@@ -732,13 +732,12 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 |---|---|---|---|
 | id | uuid | PK |  |
 | nombre | string |  |  |
-| criticidad | string |  | `[ACLARACIÓN CLIENTE]` respuesta 15 — baja / media / alta / critica |
 | activo | boolean |  |  |
 | created_at | datetime |  | Fecha y hora de creación del registro. |
 | updated_at | datetime |  | Fecha y hora de la última modificación de la regla. Solo se mueve cuando cambia el árbol de verdad: mover nodos en el lienzo no lo toca. |
 | tipo_evento_id | uuid | FK | El disparador. Es uno solo por regla. |
 
-> **[DECISIÓN DE DISEÑO]** La regla es la cabecera: disparador, nombre, criticidad y estado. Lo que hace vive en un árbol de nodos (`WORKFLOW_NODO`): condiciones con salidas Sí/No y acciones como hojas. Antes la regla tenía una sola condición y una sola acción (`condicion`, `tipo_accion`, `accion_config`, `notificacion_template_id` y `requiere_aprobacion_humana` eran columnas de esta tabla); la migración `a7c1e9d4b2f6` las convirtió en (condición, acción por Sí) o acción directa.
+> **[DECISIÓN DE DISEÑO]** La regla es la cabecera: disparador, nombre y estado. Lo que hace vive en un árbol de nodos (`WORKFLOW_NODO`): condiciones con salidas Sí/No y acciones como hojas. Antes la regla tenía una sola condición y una sola acción (`condicion`, `tipo_accion`, `accion_config`, `notificacion_template_id` y `requiere_aprobacion_humana` eran columnas de esta tabla); la migración `a7c1e9d4b2f6` las convirtió en (condición, acción por Sí) o acción directa.
 
 ### `WORKFLOW_NODO`
 > Nodo del árbol de una regla. Cada nodo tiene un solo padre: no hay ramas que se vuelvan a juntar ni ciclos. Las acciones que cuelgan de una misma salida son hermanas independientes: una que falla o queda pendiente de aprobación no frena a las demás. Topes: 30 nodos por regla, 6 niveles de profundidad y 5 comparaciones por condición.
@@ -864,7 +863,9 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 > **[DECISIÓN DE DISEÑO]** La bandeja es de cada persona: ve las tareas que se le asignaron aunque su rol no tenga permisos de Workflows; con `workflows.leer` ve las de todos.
 
 ### `REGLA_DESTINATARIO` (tabla intermedia)
-> **[ACLARACIÓN CLIENTE]** (respuesta 15): *"el nivel de criticidad y los destinatarios deben ser configurables"*. Permite que una acción (`WORKFLOW_NODO`) avise a un rol completo, a un usuario puntual, o a ambos.
+> **[ACLARACIÓN CLIENTE]** (respuesta 15): *"el nivel de criticidad y los destinatarios deben ser configurables"*. Los destinatarios son configurables: una acción (`WORKFLOW_NODO`) avisa a un rol completo, a un usuario puntual, o a ambos.
+>
+> **[DECISIÓN DE DISEÑO]** La criticidad de la regla se eliminó (migración `c4e8a1d97b25`): no tenía ningún efecto en el motor, así que no se guarda ni se muestra. Deja sin efecto esa parte de la respuesta 15.
 >
 > La base exige exactamente una referencia según `destinatario_tipo` y evita repetir el mismo rol
 > o usuario dentro de una regla (`uq_regla_destinatario_nodo_rol` y
@@ -1081,7 +1082,6 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | `NOTIFICACION.estado_envio` | enviado, fallido, pendiente | Propuesta del equipo |
 | `NOTIFICACION.destinatario_tipo` | familia, usuario | `[ACLARACIÓN CLIENTE]` respuesta 15 — **NUEVO** |
 | `WORKFLOW_RULE.tipo_accion` | notificar, alerta_interna, cambiar_estado, crear_tarea, generar_cargo, aplicar_vencimiento, aplicar_penalidad, registrar_pago, registrar_rechazo, actualizar_cuenta_corriente, generar_recordatorio, escalar_caso, crear_registro_relacionado, generar_orden_compra, generar_comunicacion | **MODIFICADO — de 2 a 15 valores** — `[ACLARACIÓN CLIENTE]` respuesta 16. `registrar_pago`, `actualizar_cuenta_corriente` y `crear_registro_relacionado` no se implementan en el motor: las reglas con esos tipos quedan `fallido` |
-| `WORKFLOW_RULE.criticidad` | baja, media, alta, critica | [DECISIÓN DE DISEÑO] — `[ACLARACIÓN CLIENTE]` respuesta 15 pide que sea configurable |
 | `TAREA.estado` | pendiente, en_progreso, completada, escalada | [DECISIÓN DE DISEÑO] — **NUEVO** |
 | `TAREA.prioridad` | baja, media, alta | [DECISIÓN DE DISEÑO] — **NUEVO** |
 | `EVENT_LOG.actor_tipo` | usuario, sistema | [DECISIÓN DE DISEÑO] — **NUEVO** |

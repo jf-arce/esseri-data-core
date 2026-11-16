@@ -236,7 +236,6 @@ def test_una_regla_de_faltante_se_dispara_solo_con_recepcion_parcial(
         condicion={"campo": "tipo_recepcion", "operador": "==", "valor": "parcial"},
         tipo_accion="alerta_interna",
         accion_config=None,
-        criticidad="media",
         requiere_aprobacion_humana=False,
         activo=True,
         tipo_evento_id=tipo.id,

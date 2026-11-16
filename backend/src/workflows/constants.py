@@ -1,4 +1,4 @@
-"""Vocabularios cerrados del motor de workflows (tipos de acción, criticidad, eventos)."""
+"""Vocabularios cerrados del motor de workflows (tipos de acción y eventos)."""
 
 from typing import Literal, get_args
 
@@ -22,9 +22,6 @@ TipoAccion = Literal[
 TIPOS_ACCION: tuple[str, ...] = get_args(TipoAccion)
 
 ERROR_ACCION_NO_IMPLEMENTADA = "La acción '{tipo_accion}' todavía no está implementada."
-
-Criticidad = Literal["baja", "media", "alta", "critica"]
-CRITICIDADES: tuple[str, ...] = get_args(Criticidad)
 
 # Catálogo sembrado en database/seeds/grupo-a.yaml (`tipo_evento`). Al sumar un evento se
 # agrega acá y en el seed.

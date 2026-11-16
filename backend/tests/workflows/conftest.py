@@ -287,7 +287,6 @@ def crear_ejecucion(
         condicion={},
         tipo_accion="notificar",
         accion_config={"destinatario": "responsables_habilitados"},
-        criticidad="media",
         requiere_aprobacion_humana=requiere_aprobacion_humana,
         activo=True,
         tipo_evento_id=tipo_evento.id,

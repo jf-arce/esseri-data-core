@@ -850,7 +850,7 @@ Ver [configuración y aceptación de Railway](../infra/railway.md).
 
 ### Reglas de workflows como árbol de nodos
 
-Una regla es una cabecera (disparador, nombre, criticidad, estado) con un árbol de nodos:
+Una regla es una cabecera (disparador, nombre, estado) con un árbol de nodos:
 condiciones con salidas Sí/No y acciones. `POST /workflows/reglas` y `PATCH /workflows/reglas/{id}`
 reciben la lista `nodos` completa (con `id` generado por el cliente) y la sincronizan por UUID.
 `updated_at_base` en el PATCH rechaza con 409 el guardado si la regla cambió desde que se abrió.

@@ -62,7 +62,6 @@ def caso(db_session, tipo_factura_vencida, tramos):
         condicion={},
         tipo_accion="aplicar_penalidad",
         accion_config={},
-        criticidad="alta",
         requiere_aprobacion_humana=False,
         activo=True,
         tipo_evento_id=tipo_factura_vencida.id,

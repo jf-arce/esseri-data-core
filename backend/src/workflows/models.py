@@ -55,15 +55,9 @@ class WorkflowRule(Base):
     hace vive en su árbol de `WorkflowNodo` (condiciones y acciones)."""
 
     __tablename__ = "workflow_rule"
-    __table_args__ = (
-        sa.CheckConstraint(
-            "criticidad IN ('baja', 'media', 'alta', 'critica')", name="ck_workflow_rule_criticidad"
-        ),
-    )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
     nombre: Mapped[str] = mapped_column(sa.String)
-    criticidad: Mapped[str] = mapped_column(sa.String)
     activo: Mapped[bool] = mapped_column(sa.Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
     updated_at: Mapped[datetime] = mapped_column(

@@ -82,7 +82,6 @@ def _crear_regla_tarea_pago(db_session, usuario):
             "prioridad": "media",
             "dias_para_vencer": 2,
         },
-        criticidad="media",
         requiere_aprobacion_humana=False,
         activo=True,
         tipo_evento_id=tipo.id,

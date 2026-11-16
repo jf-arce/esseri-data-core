@@ -239,7 +239,6 @@ def _vencer(db, factura, tipo_factura_vencida):
         condicion={},
         tipo_accion="aplicar_vencimiento",
         accion_config={},
-        criticidad="media",
         requiere_aprobacion_humana=False,
         activo=True,
         tipo_evento_id=tipo_factura_vencida.id,

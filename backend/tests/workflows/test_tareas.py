@@ -38,7 +38,6 @@ def _regla(db, tipo, tipo_accion, accion_config, *, aprobacion=False, destinatar
         condicion={},
         tipo_accion=tipo_accion,
         accion_config=accion_config,
-        criticidad="media",
         requiere_aprobacion_humana=aprobacion,
         activo=True,
         tipo_evento_id=tipo.id,
@@ -1010,7 +1009,6 @@ def test_guardar_una_regla_valida_los_placeholders_de_la_tarea(
             "condicion": {},
             "tipo_accion": "crear_tarea",
             "accion_config": {"titulo": "Llamar a {{no_existe}}"},
-            "criticidad": "media",
             "tipo_evento_id": str(tipo_factura_vencida.id),
         },
     )

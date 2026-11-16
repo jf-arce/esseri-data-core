@@ -63,7 +63,6 @@ def regla(db_session):
         condicion={},
         tipo_accion="generar_comunicacion",
         accion_config={"destinatario": "solicitante"},
-        criticidad="baja",
         requiere_aprobacion_humana=False,
         activo=True,
         tipo_evento_id=tipo.id,

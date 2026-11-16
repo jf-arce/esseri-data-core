@@ -53,7 +53,6 @@ def _cuerpo(tipo, nodos, **extra):
     return {
         "nombre": "Flujo",
         "tipo_evento_id": str(tipo.id),
-        "criticidad": "media",
         "nodos": nodos,
         **extra,
     }

@@ -1,5 +1,5 @@
-"""ABM de reglas de workflow (RF-22). La regla es la cabecera (disparador, nombre, criticidad,
-estado) y su contenido es el árbol de nodos que valida y sincroniza `arbol_service.py`."""
+"""ABM de reglas de workflow (RF-22). La regla es la cabecera (disparador, nombre, estado) y su
+contenido es el árbol de nodos que valida y sincroniza `arbol_service.py`."""
 
 import uuid
 
@@ -78,7 +78,6 @@ def leer_regla(
         id=regla.id,
         nombre=regla.nombre,
         tipo_evento_id=regla.tipo_evento_id,
-        criticidad=regla.criticidad,
         activo=regla.activo,
         created_at=regla.created_at,
         updated_at=regla.updated_at,
@@ -104,7 +103,6 @@ def crear_regla(
     regla = WorkflowRule(
         nombre=datos.nombre,
         tipo_evento_id=datos.tipo_evento_id,
-        criticidad=datos.criticidad,
         activo=datos.activo,
     )
     db.add(regla)

@@ -68,7 +68,6 @@ def regla(db_session):
         condicion={},
         tipo_accion="generar_orden_compra",
         accion_config={},
-        criticidad="media",
         requiere_aprobacion_humana=False,
         activo=True,
         tipo_evento_id=tipo.id,

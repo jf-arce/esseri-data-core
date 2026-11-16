@@ -37,7 +37,6 @@ def _regla(tipo, comparacion):
     return {
         "nombre": "Flujo",
         "tipo_evento_id": str(tipo.id),
-        "criticidad": "media",
         "nodos": [
             {
                 "id": condicion_id,

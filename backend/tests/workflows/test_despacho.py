@@ -21,7 +21,6 @@ def _regla(db, tipo, **extra):
         condicion=extra.pop("condicion", {}),
         tipo_accion=extra.pop("tipo_accion", "notificar"),
         accion_config=extra.pop("accion_config", None),
-        criticidad="media",
         requiere_aprobacion_humana=extra.pop("requiere_aprobacion_humana", False),
         activo=extra.pop("activo", True),
         tipo_evento_id=tipo.id,

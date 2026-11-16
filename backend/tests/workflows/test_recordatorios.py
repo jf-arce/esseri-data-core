@@ -51,7 +51,6 @@ def _regla(db, tipos, plantilla, *, config=None, condicion=None, **campos):
         "accion_config": config
         if config is not None
         else {"destinatario": "responsables_habilitados", "dias_despues": 2},
-        "criticidad": "baja",
         "requiere_aprobacion_humana": False,
         "activo": True,
         "tipo_evento_id": tipos["registrada"].id,
@@ -520,7 +519,6 @@ def test_un_recordatorio_de_otro_evento_se_manda_sin_mas_condiciones(
         condicion={},
         tipo_accion="generar_recordatorio",
         accion_config={"destinatario": "destinatarios_regla", "dias_despues": 3},
-        criticidad="baja",
         requiere_aprobacion_humana=False,
         activo=True,
         tipo_evento_id=tipo_factura_vencida.id,

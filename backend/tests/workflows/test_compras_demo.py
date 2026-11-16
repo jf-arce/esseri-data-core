@@ -102,7 +102,6 @@ def _regla_notificar(db, evento, plantilla=None):
         condicion={},
         tipo_accion="notificar",
         accion_config={"destinatario": "solicitante"},
-        criticidad="baja",
         requiere_aprobacion_humana=False,
         activo=True,
         tipo_evento_id=_tipo(db, evento).id,
@@ -207,7 +206,6 @@ def test_solicitante_solo_se_acepta_en_eventos_de_compras(
                 tipo_id,
                 nombre="Aviso",
                 accion_config={"destinatario": "solicitante"},
-                criticidad="baja",
             ),
         )
 

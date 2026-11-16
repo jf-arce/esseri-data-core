@@ -111,7 +111,6 @@ REGLAS_MORA = [
             "prioridad": "media",
             "dias_para_vencer": 5,
         },
-        "criticidad": "media",
         "rol": "administración",
     },
     {
@@ -124,7 +123,6 @@ REGLAS_MORA = [
             ),
             "prioridad": "alta",
         },
-        "criticidad": "alta",
         "rol": "dirección",
     },
 ]
@@ -163,13 +161,11 @@ REGLAS_VENCIMIENTO = [
     {
         "nombre": "Vencimiento 1: marcar factura vencida",
         "tipo_accion": "aplicar_vencimiento",
-        "criticidad": "media",
     },
     {
         "nombre": "Vencimiento 2: alerta a Administración",
         "tipo_accion": "alerta_interna",
         "accion_config": {"enlace": "ejecuciones"},
-        "criticidad": "media",
         "plantilla": PLANTILLA_ALERTA_VENCIDA["nombre"],
         "rol": "administración",
     },
@@ -177,14 +173,12 @@ REGLAS_VENCIMIENTO = [
         "nombre": "Vencimiento 3: aviso a la familia",
         "tipo_accion": "notificar",
         "accion_config": {"destinatario": "responsable_economico", "enlace": "familia_facturacion"},
-        "criticidad": "media",
         "plantilla": PLANTILLA_VENCIDA["nombre"],
     },
     # Sin `requiere_aprobacion_humana`: toma el default de la acción, que mueve dinero (true).
     {
         "nombre": "Vencimiento 4: aplicar penalidad por mora",
         "tipo_accion": "aplicar_penalidad",
-        "criticidad": "alta",
     },
 ]
 
@@ -244,7 +238,6 @@ REGLAS_COMPRAS = [
         {
             "nombre": "Compras 1: generar orden de compra",
             "tipo_accion": "generar_orden_compra",
-            "criticidad": "media",
         },
     ),
     (
@@ -252,7 +245,6 @@ REGLAS_COMPRAS = [
         {
             "nombre": "Compras 2: alerta al área de Compras",
             "tipo_accion": "alerta_interna",
-            "criticidad": "media",
             "plantilla": PLANTILLA_ORDEN_EMITIDA["nombre"],
             "rol": "compras",
         },
@@ -263,7 +255,6 @@ REGLAS_COMPRAS = [
             "nombre": "Compras 3: aviso al solicitante",
             "tipo_accion": "notificar",
             "accion_config": {"destinatario": "solicitante"},
-            "criticidad": "baja",
             "plantilla": PLANTILLA_RECEPCION["nombre"],
         },
     ),
@@ -1077,7 +1068,6 @@ def _ensure_regla_workflow(db, usuario: Usuario, tipo_evento: TipoEvento, regla:
         WorkflowRuleCreate(
             nombre=regla["nombre"],
             tipo_evento_id=tipo_evento.id,
-            criticidad=regla["criticidad"],
             nodos=nodos_de_regla_simple(
                 condicion=condicion,
                 tipo_accion=regla["tipo_accion"],
@@ -1219,13 +1209,11 @@ def _ensure_reglas_loop_a(db, usuario: Usuario):
                 "concepto_cobro_id": str(matricula.id),
                 "monto": str(IMPORTE_MATRICULA),
             },
-            "criticidad": "media",
         },
         {
             "nombre": "Loop A 2: bienvenida a la familia",
             "tipo_accion": "notificar",
             "accion_config": {"destinatario": "responsables_habilitados"},
-            "criticidad": "baja",
             "plantilla": PLANTILLA_BIENVENIDA["nombre"],
         },
     ):
@@ -1335,7 +1323,6 @@ def _ensure_reglas_inasistencia(db, usuario: Usuario):
             WorkflowRuleCreate(
                 nombre=regla["nombre"],
                 tipo_evento_id=tipo_evento.id,
-                criticidad="baja",
                 nodos=nodos_de_regla_simple(
                     condicion=regla["condicion"],
                     tipo_accion=regla["tipo_accion"],

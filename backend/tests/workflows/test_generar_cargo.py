@@ -73,7 +73,6 @@ def _regla(db, concepto, monto=None, aprobacion=False):
         condicion={},
         tipo_accion="generar_cargo",
         accion_config=config,
-        criticidad="media",
         requiere_aprobacion_humana=aprobacion,
         activo=True,
         tipo_evento_id=tipo.id,

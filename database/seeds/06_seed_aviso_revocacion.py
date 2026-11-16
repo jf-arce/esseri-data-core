@@ -42,7 +42,6 @@ REGLA = {
     "condicion": {},
     "tipo_accion": "notificar",
     "accion_config": {"destinatario": "responsables_habilitados"},
-    "criticidad": "baja",
 }
 
 
@@ -89,7 +88,6 @@ def seed(db) -> None:
             WorkflowRuleCreate(
                 nombre=REGLA["nombre"],
                 tipo_evento_id=tipo_evento.id,
-                criticidad=REGLA["criticidad"],
                 nodos=nodos_de_regla_simple(
                     condicion=REGLA["condicion"],
                     tipo_accion=REGLA["tipo_accion"],

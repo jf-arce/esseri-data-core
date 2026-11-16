@@ -22,7 +22,6 @@ from src.workflows.constants import (
     MAX_BYTES_BLOQUES_SUELTOS,
     MAX_COMPARACIONES,
     MAX_NODOS_POR_REGLA,
-    Criticidad,
     Destinatario,
     EnlaceMail,
     EstadoTarea,
@@ -284,7 +283,6 @@ class WorkflowRuleCreate(_EntradaEstricta):
 
     nombre: str = Field(min_length=1, max_length=150)
     tipo_evento_id: uuid.UUID
-    criticidad: Criticidad
     activo: bool = True
     nodos: list[NodoWrite] = Field(min_length=1, max_length=MAX_NODOS_POR_REGLA)
     bloques_sueltos: list[dict[str, object]] = Field(
@@ -307,7 +305,6 @@ class WorkflowRuleUpdate(_EntradaEstricta):
 
     nombre: str | None = Field(default=None, min_length=1, max_length=150)
     tipo_evento_id: uuid.UUID | None = None
-    criticidad: Criticidad | None = None
     activo: bool | None = None
     nodos: list[NodoWrite] | None = Field(
         default=None, min_length=1, max_length=MAX_NODOS_POR_REGLA
@@ -335,7 +332,6 @@ class WorkflowRuleRead(BaseModel):
     id: uuid.UUID
     nombre: str
     tipo_evento_id: uuid.UUID
-    criticidad: Criticidad
     activo: bool
     created_at: InstanteUtc
     updated_at: InstanteUtc

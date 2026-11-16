@@ -23,7 +23,6 @@ def _regla(db, tipo, nombre="Avisar mora"):
         condicion={},
         tipo_accion="notificar",
         accion_config={"destinatario": "destinatarios_regla"},
-        criticidad="media",
         requiere_aprobacion_humana=False,
         activo=True,
         tipo_evento_id=tipo.id,

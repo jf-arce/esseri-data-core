@@ -61,7 +61,6 @@ def crear_regla_simple(
     condicion=None,
     tipo_accion="notificar",
     accion_config=None,
-    criticidad="media",
     requiere_aprobacion_humana=False,
     activo=True,
     notificacion_template_id=None,
@@ -73,7 +72,6 @@ def crear_regla_simple(
     fechas = {} if created_at is None else {"created_at": created_at, "updated_at": created_at}
     regla = WorkflowRule(
         nombre=nombre,
-        criticidad=criticidad,
         activo=activo,
         tipo_evento_id=tipo_evento_id,
         **fechas,
@@ -122,7 +120,6 @@ def cuerpo_regla(
     *,
     nombre="Avisar mora",
     tipo_accion="notificar",
-    criticidad="media",
     activo=True,
     condicion=None,
     accion_config=None,
@@ -166,7 +163,6 @@ def cuerpo_regla(
     return {
         "nombre": nombre,
         "tipo_evento_id": str(tipo_evento_id),
-        "criticidad": criticidad,
         "activo": activo,
         "nodos": nodos,
     }
