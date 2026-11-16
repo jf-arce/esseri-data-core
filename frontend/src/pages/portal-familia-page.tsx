@@ -84,7 +84,9 @@ function IndicadorCompacto({
             {valor}
           </span>
         )}
-        <span className="mt-1 block truncate text-[14px] text-[#6B6478]">{etiqueta}</span>
+        <span className="mt-1 block text-[13px] leading-tight text-[#6B6478] sm:text-[14px]">
+          {etiqueta}
+        </span>
       </span>
       {href && <ChevronRightIcon aria-hidden="true" className="size-5 shrink-0 text-[#3A2E45]" />}
     </>
