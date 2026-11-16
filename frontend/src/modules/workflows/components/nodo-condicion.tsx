@@ -34,7 +34,7 @@ export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
     <TarjetaNodo
       etiqueta="Condición"
       icono={<ArrowLeftRightIcon />}
-      superficie="bg-advertencia-suave"
+      superficie="bg-advertencia-suave pr-12"
       acento="text-advertencia"
       contorno="outline-advertencia"
       seleccionado={data.seleccionado}
@@ -94,14 +94,14 @@ export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
         />
       </div>
       <span
-        style={{ top: 'calc(34% - 4px)' }}
-        className="pointer-events-none absolute left-full ml-3 -translate-y-full text-[10px] font-bold text-exito"
+        style={{ top: '34%' }}
+        className="pointer-events-none absolute right-3 -translate-y-1/2 rounded-full bg-exito-suave px-2 py-0.5 text-[10px] font-bold text-exito"
       >
         Sí
       </span>
       <span
-        style={{ top: 'calc(72% - 4px)' }}
-        className="pointer-events-none absolute left-full ml-3 -translate-y-full text-[10px] font-bold text-error"
+        style={{ top: '72%' }}
+        className="pointer-events-none absolute right-3 -translate-y-1/2 rounded-full bg-error-suave px-2 py-0.5 text-[10px] font-bold text-error"
       >
         No
       </span>
