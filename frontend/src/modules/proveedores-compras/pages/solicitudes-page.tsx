@@ -10,21 +10,28 @@ import { PageHeader } from '@/components/page-header'
 import { SolicitudDialog } from '@/modules/proveedores-compras/components/solicitud-dialog'
 import { SolicitudesFiltros } from '@/modules/proveedores-compras/components/solicitudes-filtros'
 import { SolicitudesTabla } from '@/modules/proveedores-compras/components/solicitudes-tabla'
+import { useAreasSolicitantes } from '@/modules/proveedores-compras/hooks/use-areas-solicitantes'
 import { useSolicitudes } from '@/modules/proveedores-compras/hooks/use-solicitudes'
 import { cambiarEstadoSolicitud } from '@/modules/proveedores-compras/services/cambiar-estado-solicitud'
 import { eliminarSolicitud } from '@/modules/proveedores-compras/services/eliminar-solicitud'
 import type {
   EstadoSolicitud,
+  FiltrosSolicitudes,
   OrdenSolicitudes,
   SolicitudCompra,
 } from '@/modules/proveedores-compras/types'
 import {
+  FILTROS_SOLICITUDES_VACIOS,
   descripcionSolicitud,
   filtrarYOrdenarSolicitudes,
+  solicitantesDisponibles,
 } from '@/modules/proveedores-compras/utils'
+import { useAuthStore } from '@/store/auth-store'
 
 export function SolicitudesPage() {
   const { datos: solicitudes, cargando, error, sinPermiso, recargar } = useSolicitudes()
+  const { datos: areas } = useAreasSolicitantes()
+  const usuarioActualId = useAuthStore((state) => state.usuario?.id)
   const [dialogoAbierto, setDialogoAbierto] = useState(false)
   const [solicitudEditando, setSolicitudEditando] = useState<SolicitudCompra | null>(null)
   const [solicitudAEliminar, setSolicitudAEliminar] = useState<SolicitudCompra | null>(null)
@@ -34,16 +41,14 @@ export function SolicitudesPage() {
   })
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
 
-  const [busqueda, setBusqueda] = useState('')
-  const [estado, setEstado] = useState<'' | EstadoSolicitud>('')
+  const [filtros, setFiltros] = useState<FiltrosSolicitudes>(FILTROS_SOLICITUDES_VACIOS)
   const [orden, setOrden] = useState<OrdenSolicitudes>('fecha-desc')
 
   const filtradas = useMemo(
-    () => filtrarYOrdenarSolicitudes(solicitudes, { busqueda, estado, orden }),
-    [solicitudes, busqueda, estado, orden],
+    () => filtrarYOrdenarSolicitudes(solicitudes, filtros, orden),
+    [solicitudes, filtros, orden],
   )
-
-  const hayFiltrosActivos = busqueda.trim() !== '' || estado !== ''
+  const solicitantes = useMemo(() => solicitantesDisponibles(solicitudes), [solicitudes])
 
   async function handleCambiarEstado(solicitud: SolicitudCompra, nuevoEstado: EstadoSolicitud) {
     setErrorAccion(null)
@@ -112,13 +117,12 @@ export function SolicitudesPage() {
       )}
 
       <SolicitudesFiltros
-        busqueda={busqueda}
-        onBusquedaChange={setBusqueda}
-        estado={estado}
-        onEstadoChange={setEstado}
+        filtros={filtros}
+        onCambios={(cambios) => setFiltros((previos) => ({ ...previos, ...cambios }))}
+        areas={areas}
+        solicitantes={solicitantes}
         orden={orden}
         onOrdenChange={setOrden}
-        hayFiltrosActivos={hayFiltrosActivos}
       />
 
       {!cargando && filtradas.length === 0 ? (
@@ -156,6 +160,7 @@ export function SolicitudesPage() {
         <SolicitudesTabla
           solicitudes={filtradas}
           cargando={cargando}
+          usuarioActualId={usuarioActualId}
           onEditar={(solicitud) => {
             setSolicitudEditando(solicitud)
             setDialogoAbierto(true)
@@ -169,6 +174,7 @@ export function SolicitudesPage() {
         open={dialogoAbierto}
         onOpenChange={setDialogoAbierto}
         solicitud={solicitudEditando}
+        areas={areas}
         onGuardado={recargar}
       />
 
