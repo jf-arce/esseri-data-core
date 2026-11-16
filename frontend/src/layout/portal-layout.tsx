@@ -32,56 +32,58 @@ export function PortalLayout() {
         style={{ background: PORTAL_FAMILIA_BACKGROUND }}
       />
       <header
-        className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-3 border-b border-white/10 px-4 py-3 sm:px-7 sm:py-0 lg:flex-nowrap"
+        className="sticky top-0 z-30 border-b border-white/10"
         style={{ background: PORTAL_FAMILIA_HEADER_BACKGROUND }}
       >
-        <div className="flex items-center gap-2.5">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10">
-            <img
-              src="/esseri-icon.png"
-              alt=""
-              className="size-5 object-contain brightness-0 invert"
-            />
+        <div className="mx-auto flex min-h-16 w-full max-w-[92vw] flex-wrap items-center gap-3 py-3 lg:flex-nowrap lg:py-0">
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10">
+              <img
+                src="/esseri-icon.png"
+                alt=""
+                className="size-5 object-contain brightness-0 invert"
+              />
+            </div>
+            <span className="font-heading text-base font-semibold tracking-[0.02em] text-white">
+              ESSERI
+            </span>
           </div>
-          <span className="font-heading text-base font-semibold tracking-[0.02em] text-white">
-            ESSERI
-          </span>
-        </div>
 
-        {rolActivo === 'familia' && (
-          <nav
-            aria-label="Navegación del portal de familia"
-            className="order-last mx-auto flex w-full min-w-0 flex-wrap items-center justify-center gap-1 lg:order-none lg:w-auto lg:flex-nowrap lg:justify-start"
-          >
-            <NavLink to="/familia" end className={navItemClass}>
-              Inicio
-            </NavLink>
-            <NavLink to="/familia/asistencias" className={navItemClass}>
-              Asistencias
-            </NavLink>
-            <NavLink to="/familia/facturacion" className={navItemClass}>
-              Facturación
-            </NavLink>
-            <NavLink to="/familia/comunicaciones" className={navItemClass}>
-              Comunicaciones
-            </NavLink>
-            <NavLink to="/familia/calendario" className={navItemClass}>
-              Calendario
-            </NavLink>
-          </nav>
-        )}
-
-        <div className="ml-auto">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="flex size-9 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-              aria-label="No hay notificaciones nuevas"
-              disabled
+          {rolActivo === 'familia' && (
+            <nav
+              aria-label="Navegación del portal de familia"
+              className="order-last mx-auto flex w-full min-w-0 flex-wrap items-center justify-center gap-1 lg:order-none lg:w-auto lg:flex-nowrap lg:justify-start"
             >
-              <BellIcon aria-hidden="true" className="size-4" />
-            </button>
-            <MenuCuenta className="hover:bg-white/10" />
+              <NavLink to="/familia" end className={navItemClass}>
+                Inicio
+              </NavLink>
+              <NavLink to="/familia/asistencias" className={navItemClass}>
+                Asistencias
+              </NavLink>
+              <NavLink to="/familia/facturacion" className={navItemClass}>
+                Facturación
+              </NavLink>
+              <NavLink to="/familia/comunicaciones" className={navItemClass}>
+                Comunicaciones
+              </NavLink>
+              <NavLink to="/familia/calendario" className={navItemClass}>
+                Calendario
+              </NavLink>
+            </nav>
+          )}
+
+          <div className="ml-auto">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="flex size-9 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                aria-label="No hay notificaciones nuevas"
+                disabled
+              >
+                <BellIcon aria-hidden="true" className="size-4" />
+              </button>
+              <MenuCuenta className="hover:bg-white/10" />
+            </div>
           </div>
         </div>
       </header>
