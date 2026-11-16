@@ -3,11 +3,9 @@ import {
   ArrowRightIcon,
   CalendarClockIcon,
   CalendarDaysIcon,
-  CalendarPlusIcon,
   ChevronRightIcon,
   CircleAlertIcon,
   CircleCheckIcon,
-  LayoutGridIcon,
   MailIcon,
   ReceiptTextIcon,
   UsersIcon,
@@ -38,13 +36,6 @@ import { useAuthStore } from '@/store/auth-store'
 const TINTA = 'text-[#2B2338]'
 const TINTA_2 = 'text-[#6B6478]'
 const ENLACE_VIOLETA = 'text-[#7A2FA8] hover:text-[#6A2494]'
-
-const ACCESOS_RAPIDOS = [
-  { to: '/familia/calendario', label: 'Calendario', Icon: CalendarDaysIcon },
-  { to: '/familia/facturacion', label: 'Mi cuenta', Icon: ReceiptTextIcon },
-  { to: '/familia/asistencias', label: 'Asistencias', Icon: CalendarClockIcon },
-  { to: '/familia/informar-ausencia', label: 'Informar ausencia', Icon: CalendarPlusIcon },
-] as const
 
 function iniciales(nombre: string, apellido: string) {
   return `${nombre.charAt(0)}${apellido.charAt(0)}`.toUpperCase()
@@ -345,6 +336,17 @@ export function PortalFamiliaPage() {
                           <ReceiptTextIcon aria-hidden="true" className="size-[18px]" />
                           Facturación
                         </Link>
+                        <span aria-hidden="true" className="h-5 w-px bg-[#E4DBEE]" />
+                        <Link
+                          to={`/familia/calendario?alumno=${alumno.alumno_id}`}
+                          className={cn(
+                            'inline-flex min-h-10 flex-1 items-center justify-center gap-2 py-2 text-[15px] font-semibold',
+                            ENLACE_VIOLETA,
+                          )}
+                        >
+                          <CalendarDaysIcon aria-hidden="true" className="size-[18px]" />
+                          Calendario
+                        </Link>
                       </div>
                     </li>
                   ))}
@@ -406,34 +408,6 @@ export function PortalFamiliaPage() {
                     <ChevronRightIcon aria-hidden="true" className="size-4" />
                   </Link>
                 </div>
-              </div>
-            </PortalCard>
-
-            <PortalCard
-              icono={LayoutGridIcon}
-              tone="lavanda"
-              titulo="Accesos rápidos"
-              descripcion="Otras gestiones frecuentes."
-            >
-              <div className="flex flex-col gap-2">
-                {ACCESOS_RAPIDOS.map(({ to, label, Icon }) => (
-                  <Link
-                    key={to}
-                    to={to}
-                    className="flex min-h-14 items-center gap-3 rounded-[12px] border border-[#EFE9F6] bg-[#FBF9FE] px-3 py-2.5 transition-colors hover:border-[#E3D6F0] hover:bg-[#F7F2FC]"
-                  >
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EADCF8] text-[#7A2FA8]">
-                      <Icon aria-hidden="true" className="size-5" />
-                    </span>
-                    <span className={cn('min-w-0 flex-1 text-[15px] font-medium', TINTA)}>
-                      {label}
-                    </span>
-                    <ChevronRightIcon
-                      aria-hidden="true"
-                      className="size-4 shrink-0 text-[#6B6478]"
-                    />
-                  </Link>
-                ))}
               </div>
             </PortalCard>
           </aside>

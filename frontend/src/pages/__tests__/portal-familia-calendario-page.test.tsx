@@ -61,6 +61,21 @@ describe('PortalFamiliaCalendarioPage', () => {
     )
   }
 
+  it('preselecciona el alumno indicado en la URL', () => {
+    mockedUseMisAlumnos.mockReturnValue({
+      alumnos: [ALUMNA, { ...ALUMNA, alumno_id: 'alumno-2', nombre: 'Juan', apellido: 'Gómez' }],
+      cargando: false,
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/familia/calendario?alumno=alumno-2']}>
+        <PortalFamiliaCalendarioPage />
+      </MemoryRouter>,
+    )
+
+    expect(mockedUseHorarioFamilia).toHaveBeenCalledWith('alumno-2')
+  })
+
   it('muestra el horario del alumno a cargo en la grilla semanal', () => {
     renderizar()
 

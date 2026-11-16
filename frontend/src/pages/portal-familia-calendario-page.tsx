@@ -14,6 +14,7 @@ import {
   UserRoundIcon,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { useSearchParams } from 'react-router'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -122,7 +123,8 @@ function DetalleClase({ franja }: { franja: Franja | null }) {
 
 export function PortalFamiliaCalendarioPage() {
   const { alumnos, cargando } = useMisAlumnos(true)
-  const [alumnoId, setAlumnoId] = useState('')
+  const [searchParams] = useSearchParams()
+  const [alumnoId, setAlumnoId] = useState(() => searchParams.get('alumno') ?? '')
   const [seleccionId, setSeleccionId] = useState<string | null>(null)
   const [diaAgenda, setDiaAgenda] = useState<number | null>(null)
   const alumno = alumnos.find((item) => item.alumno_id === alumnoId) ?? alumnos[0]

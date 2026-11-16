@@ -270,23 +270,24 @@ describe('PortalFamiliaPage', () => {
     expect(await within(tarjeta).findByText('2 vencidas')).toBeInTheDocument()
   })
 
-  it('ofrece accesos rápidos solo a rutas existentes del portal', () => {
+  it('ofrece asistencias, facturación y calendario en cada alumno', async () => {
     renderPage()
 
-    const tarjeta = tarjetaCon('Accesos rápidos')
-    const accesos = within(tarjeta)
+    const fila = screen.getByText('Gómez, Juan').closest('li')
+    expect(fila).not.toBeNull()
+    const atajos = within(fila as HTMLElement)
       .getAllByRole('link')
       .map((link) => ({
         nombre: link.textContent?.trim(),
         href: link.getAttribute('href'),
       }))
 
-    expect(accesos).toEqual([
-      { nombre: 'Calendario', href: '/familia/calendario' },
-      { nombre: 'Mi cuenta', href: '/familia/facturacion' },
+    expect(atajos).toEqual([
       { nombre: 'Asistencias', href: '/familia/asistencias' },
-      { nombre: 'Informar ausencia', href: '/familia/informar-ausencia' },
+      { nombre: 'Facturación', href: '/familia/facturacion?alumno=alumno-1' },
+      { nombre: 'Calendario', href: '/familia/calendario?alumno=alumno-1' },
     ])
+    expect(screen.queryByText('Accesos rápidos')).not.toBeInTheDocument()
   })
 
   it('sigue en pie si fallan las consultas del resumen', async () => {
