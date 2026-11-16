@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.academico.models import NivelEducativo
+from src.academico.models import MotivoJustificacion, NivelEducativo
 from src.facturacion.models import ConceptoCobro, MetodoPago, ReglaPenalidad
 from src.workflows import plantillas_service
 from src.workflows.constants import (
@@ -70,13 +70,19 @@ def opciones_de_campos(db: Session, tipo_evento_nombre: str) -> dict[str, list[O
     for (evento, campo), tabla in CAMPOS_CON_OPCIONES_DE_TABLA.items():
         if evento != tipo_evento_nombre:
             continue
-        nombres = (
-            db.scalars(
+        if tabla == "metodo_pago":
+            consulta = (
                 select(MetodoPago.nombre).where(MetodoPago.activo).order_by(MetodoPago.nombre)
             )
-            if tabla == "metodo_pago"
-            else db.scalars(select(NivelEducativo.nombre).order_by(NivelEducativo.nombre))
-        )
+        elif tabla == "motivo_justificacion":
+            consulta = (
+                select(MotivoJustificacion.nombre)
+                .where(MotivoJustificacion.activo)
+                .order_by(MotivoJustificacion.nombre)
+            )
+        else:
+            consulta = select(NivelEducativo.nombre).order_by(NivelEducativo.nombre)
+        nombres = db.scalars(consulta)
         opciones[campo] = [OpcionCampoRead(valor=n, etiqueta=n) for n in nombres]
     return opciones
 

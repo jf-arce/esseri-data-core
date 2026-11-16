@@ -100,3 +100,28 @@ def test_rechaza_contiene_en_un_campo_cerrado(client_autenticado, tipo_inasisten
 
     assert respuesta.status_code == 422
     assert "valores fijos" in respuesta.json()["detail"]
+
+
+def test_motivo_de_justificacion_sale_de_la_tabla_de_motivos(client_autenticado, db_session):
+    from src.academico.models import MotivoJustificacion
+
+    tipo = TipoEvento(nombre="inasistencia.justificada", descripcion="Se justificó")
+    db_session.add(tipo)
+    db_session.flush()
+    db_session.add_all(
+        [
+            CampoEvento(
+                nombre_interno="motivo",
+                etiqueta="Motivo",
+                tipo_dato="texto",
+                tipo_evento_id=tipo.id,
+            ),
+            MotivoJustificacion(nombre="Enfermedad", activo=True),
+            MotivoJustificacion(nombre="Viejo", activo=False),
+        ]
+    )
+    db_session.flush()
+
+    campos = client_autenticado.get("/workflows/tipos-evento").json()[0]["campos"]
+
+    assert campos[0]["opciones"] == [{"valor": "Enfermedad", "etiqueta": "Enfermedad"}]

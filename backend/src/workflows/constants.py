@@ -153,7 +153,10 @@ OPCIONES_POR_CAMPO: dict[tuple[str, str], tuple[tuple[str, str], ...]] = {
     ),
 }
 # Campos cuyo valor es el nombre de una fila de tabla: (evento, campo) -> tabla.
-CAMPOS_CON_OPCIONES_DE_TABLA: dict[tuple[str, str], Literal["metodo_pago", "nivel_educativo"]] = {
+CAMPOS_CON_OPCIONES_DE_TABLA: dict[
+    tuple[str, str], Literal["metodo_pago", "nivel_educativo", "motivo_justificacion"]
+] = {
+    ("inasistencia.justificada", "motivo"): "motivo_justificacion",
     ("pago.registrado", "metodo_pago"): "metodo_pago",
     ("solicitud_inscripcion.aprobada", "nivel_educativo"): "nivel_educativo",
     ("inscripcion.confirmada", "nivel_educativo"): "nivel_educativo",
