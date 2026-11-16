@@ -187,9 +187,13 @@ export function idsSinConectar(nodos: readonly NodoEditor[]): Set<string> {
   return ids
 }
 
-export function eliminarSubarbol(nodos: readonly NodoEditor[], raizId: string): NodoEditor[] {
-  const quitar = new Set(subarbol(nodos, raizId).map((nodo) => nodo.id))
-  return nodos.filter((nodo) => !quitar.has(nodo.id))
+/** Elimina solo el bloque: sus hijos directos quedan sueltos (con lo que cuelga de ellos). */
+export function eliminarNodo(nodos: readonly NodoEditor[], id: string): NodoEditor[] {
+  return nodos
+    .filter((nodo) => nodo.id !== id)
+    .map((nodo) =>
+      nodo.padreId === id ? { ...nodo, padreId: null, rama: null, suelto: true } : nodo,
+    )
 }
 
 export function profundidad(nodos: readonly NodoEditor[], id: string): number {

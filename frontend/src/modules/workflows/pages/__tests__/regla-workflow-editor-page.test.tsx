@@ -327,18 +327,15 @@ describe('ReglaWorkflowEditorPage', () => {
       expect(screen.getAllByRole('button', { name: /^Nodo accion/ })).toHaveLength(3)
     })
 
-    it('eliminar un bloque con subárbol pide confirmar y dice cuántos se eliminan', async () => {
+    it('eliminar una condición borra solo ese bloque y deja sueltos a los demás', async () => {
       const user = userEvent.setup()
       abrirEditor()
       await user.click(await screen.findByRole('button', { name: 'Nodo condicion c-1' }))
 
       await user.keyboard('{Delete}')
 
-      expect(await screen.findByText(/Se eliminan 3 bloques/)).toBeInTheDocument()
-      await user.click(screen.getByRole('button', { name: 'Eliminar' }))
-      await waitFor(() =>
-        expect(screen.queryByRole('button', { name: /^Nodo/ })).not.toBeInTheDocument(),
-      )
+      expect(screen.queryByRole('button', { name: 'Nodo condicion c-1' })).not.toBeInTheDocument()
+      expect(screen.getAllByRole('button', { name: /^Nodo accion/ }).length).toBeGreaterThan(0)
     })
 
     it('eliminar una acción sin hijos no pide confirmación', async () => {

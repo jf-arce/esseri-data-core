@@ -21,7 +21,7 @@ import {
   insertarCondicionEn,
   reconectar,
   duplicarSubarbol,
-  eliminarSubarbol,
+  eliminarNodo,
   estadoDeBloque,
   etiquetaDeArista,
   fraseRegla,
@@ -184,10 +184,13 @@ describe('árbol', () => {
     expect(subarbol(nodos, 'c-2').map((n) => n.id)).toEqual(['c-2', 'a-3'])
   })
 
-  it('eliminar un nodo se lleva su subárbol', () => {
+  it('eliminar un nodo deja sueltos a sus hijos y conserva lo que cuelga de ellos', () => {
     const { nodos } = borradorConRamas()
 
-    expect(eliminarSubarbol(nodos, 'c-2').map((n) => n.id)).toEqual(['c-1', 'a-1', 'a-2'])
+    const resultado = eliminarNodo(nodos, 'c-2')
+
+    expect(resultado.map((n) => n.id).sort()).toEqual(['a-1', 'a-2', 'a-3', 'c-1'])
+    expect(resultado.find((n) => n.id === 'a-3')).toMatchObject({ padreId: null, suelto: true })
   })
 
   it('profundidad cuenta los nodos desde el disparador', () => {

@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { SearchXIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
-import { ConfirmarEliminacion } from '@/components/confirmar-eliminacion'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -49,7 +48,7 @@ import type {
   TipoAccionCatalogo,
   TipoEvento,
 } from '@/modules/workflows/types'
-import { ESTADOS_POR_EVENTO, ETIQUETA_ACCION } from '@/modules/workflows/utils'
+import { ESTADOS_POR_EVENTO } from '@/modules/workflows/utils'
 import {
   actualizarNodo,
   borradorDesdeRegla,
@@ -61,7 +60,7 @@ import {
   reconectar,
   duplicarRegla,
   duplicarSubarbol,
-  eliminarSubarbol,
+  eliminarNodo as quitarNodo,
   hayErrores,
   iniciarHistorial,
   nuevoNodoAccion,
@@ -72,7 +71,6 @@ import {
   rehacer,
   registrarCambio,
   reemplazarPresente,
-  subarbol,
   validarBorrador,
   DISPARADOR_ID,
   type BorradorFlujo,
@@ -132,7 +130,6 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
   const [conflicto, setConflicto] = useState(false)
   const [mostrarErrores, setMostrarErrores] = useState(false)
   const [enfocar, setEnfocar] = useState<{ id: string; vez: number } | null>(null)
-  const [porEliminar, setPorEliminar] = useState<{ id: string; cantidad: number } | null>(null)
   const [instantanea] = useState(() => JSON.stringify(inicial))
   const sinGuardar = JSON.stringify(borrador) !== instantanea
 
@@ -278,14 +275,8 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
   }
 
   function eliminarNodo(id: string) {
-    cambiar((actual) => ({ ...actual, nodos: eliminarSubarbol(actual.nodos, id) }))
+    cambiar((actual) => ({ ...actual, nodos: quitarNodo(actual.nodos, id) }))
     setSeleccionId(null)
-  }
-
-  function pedirEliminar(id: string) {
-    const cantidad = subarbol(borrador.nodos, id).length
-    if (cantidad > 1) setPorEliminar({ id, cantidad })
-    else eliminarNodo(id)
   }
 
   function duplicarNodo(id: string) {
@@ -322,7 +313,7 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
       duplicarNodo(seleccionId)
     } else if (tecla.key === 'Delete' && seleccionId && seleccionId !== DISPARADOR_ID) {
       tecla.preventDefault()
-      pedirEliminar(seleccionId)
+      eliminarNodo(seleccionId)
     }
   }
 
@@ -489,7 +480,7 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
               }))
             }
             onDuplicar={duplicarNodo}
-            onEliminar={pedirEliminar}
+            onEliminar={eliminarNodo}
             onCerrar={() => setSeleccionId(null)}
           />
         )}
@@ -511,24 +502,6 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <ConfirmarEliminacion
-        open={porEliminar !== null}
-        onOpenChange={(abierto) => !abierto && setPorEliminar(null)}
-        titulo="Eliminar bloque"
-        descripcion={
-          porEliminar
-            ? `Se eliminan ${porEliminar.cantidad} bloques: ${(() => {
-                const raiz = borrador.nodos.find((n) => n.id === porEliminar.id)
-                return raiz?.tipoAccion ? ETIQUETA_ACCION[raiz.tipoAccion] : 'la condición'
-              })()} y todo lo que cuelga de él. Podés deshacerlo con Ctrl+Z hasta que guardes la regla.`
-            : ''
-        }
-        textoConfirmar="Eliminar"
-        destructivo
-        onConfirmar={async () => {
-          if (porEliminar) eliminarNodo(porEliminar.id)
-        }}
-      />
     </div>
   )
 }
