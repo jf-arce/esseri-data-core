@@ -458,12 +458,6 @@
   }
 }
 
-@keyframes arista-recorrido {
-  to {
-    stroke-dashoffset: -24;
-  }
-}
-
 @keyframes nodo-entrar {
   from {
     opacity: 0;
@@ -491,18 +485,95 @@
   animation: arista-dibujar 200ms ease-out;
 }
 
-/* Solo mientras dura la simulación: la regla activa no anima nada por sí sola. */
-.arista-recorrido {
-  stroke-dasharray: 6 6;
-  animation: arista-recorrido 600ms linear infinite;
-}
-
 .nodo-entrar {
   animation: nodo-entrar 180ms ease-out;
 }
 
 .panel-entrar {
   animation: panel-entrar 200ms ease-out;
+}
+
+/* "Probar regla": un trazo luminoso y un punto viajan por la conexión, y el bloque alcanzado se
+   enciende con un anillo que se expande. Todo bajo `no-preference`: con movimiento reducido el
+   recorrido se muestra de una vez, sin animar. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes arista-viaje {
+    from {
+      stroke-dashoffset: 0.25;
+    }
+    to {
+      stroke-dashoffset: -1;
+    }
+  }
+
+  @keyframes anillo-alcanzado {
+    from {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--anillo) 55%, transparent);
+    }
+    to {
+      box-shadow: 0 0 0 16px color-mix(in srgb, var(--anillo) 0%, transparent);
+    }
+  }
+
+  @keyframes insignia-pop {
+    0% {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+    70% {
+      transform: scale(1.12);
+    }
+    100% {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .arista-viaje {
+    stroke-dasharray: 0.25 2;
+    stroke-dashoffset: 0.25;
+    stroke-linecap: butt;
+    animation: arista-viaje linear forwards;
+  }
+
+  .nodo-alcanzado::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    animation: anillo-alcanzado 650ms ease-out;
+  }
+
+  .insignia-pop {
+    animation: insignia-pop 300ms ease-out;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arista-viaje-capa {
+    display: none;
+  }
+}
+
+.anillo-exito {
+  --anillo: var(--exito);
+}
+
+.anillo-error {
+  --anillo: var(--error);
+}
+
+.anillo-atencion {
+  --anillo: var(--advertencia);
+}
+
+.anillo-info {
+  --anillo: var(--info);
+}
+
+.anillo-neutro {
+  --anillo: var(--texto-3);
 }
 
 /* "Ordenar": los nodos se deslizan a su lugar. */

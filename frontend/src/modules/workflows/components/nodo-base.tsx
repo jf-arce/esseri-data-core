@@ -72,13 +72,26 @@ const CLASE_SIMULACION: Record<EstadoNodoSimulado, string> = {
   no_alcanzado: 'bg-fila-hover text-texto-3',
 }
 
+/** Color del anillo con el que un nodo "se enciende" al ser alcanzado. */
+const ANILLO_SIMULACION: Record<EstadoNodoSimulado, string> = {
+  cumple: 'anillo-exito',
+  no_cumple: 'anillo-neutro',
+  error: 'anillo-error',
+  alcanzada: 'anillo-exito',
+  requiere_aprobacion: 'anillo-atencion',
+  diferida: 'anillo-info',
+  no_implementada: 'anillo-neutro',
+  config_invalida: 'anillo-error',
+  no_alcanzado: 'anillo-neutro',
+}
+
 /** Resultado de la simulación sobre el nodo: ícono y texto, nunca solo color (§12). */
 function InsigniaSimulacion({ simulacion }: { simulacion: SimulacionNodo }) {
   return (
     <span
       title={simulacion.detalle ?? undefined}
       className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold [&>svg]:size-3',
+        'insignia-pop inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold [&>svg]:size-3',
         CLASE_SIMULACION[simulacion.estado],
       )}
     >
@@ -170,6 +183,11 @@ export function TarjetaNodo({
         seleccionado && cn('outline-2 outline-offset-2', contorno),
         incompleto && !seleccionado && 'outline-2 outline-offset-2 outline-error',
         atenuado && 'opacity-40',
+        simulacion?.visible &&
+          simulacion.estado !== 'no_alcanzado' && [
+            'nodo-alcanzado',
+            ANILLO_SIMULACION[simulacion.estado],
+          ],
       )}
     >
       <div className="mb-2 flex items-center justify-between gap-2">

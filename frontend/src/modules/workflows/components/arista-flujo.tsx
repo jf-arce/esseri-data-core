@@ -8,6 +8,7 @@ import {
 import { PlusIcon, XIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { PASO_MS } from '@/modules/workflows/hooks/use-simulacion-regla'
 
 export interface DatosArista {
   [clave: string]: unknown
@@ -52,26 +53,50 @@ export function AristaFlujo({
     targetPosition,
   })
   const color = COLOR[data?.rama ?? 'neutra']
-  const tenue = data?.simulacion === 'tenue'
+  const simulacion = data?.simulacion
+  const tenue = simulacion === 'tenue'
+  const activa = simulacion === 'activa'
+  const recorrida = simulacion === 'recorrida'
   return (
     <>
       {/* El `pathLength` normalizado deja que el dibujo al conectar (stroke-dashoffset) dure lo
-          mismo sin importar el largo de la arista. */}
+          mismo sin importar el largo de la arista. Durante la simulación la arista queda fija:
+          el movimiento lo hace la capa de arriba, así no se reinicia el dibujo en cada paso. */}
       <BaseEdge
         id={id}
         path={trayecto}
         pathLength={1}
         interactionWidth={24}
         className={cn(
-          data?.simulacion === 'activa' ? 'arista-recorrido' : 'arista-dibujar',
+          simulacion === undefined && 'arista-dibujar',
           'transition-opacity duration-200',
         )}
         style={{
           stroke: color,
-          strokeWidth: selected || data?.simulacion === 'activa' ? 2.5 : 1.75,
+          strokeWidth: selected || activa || recorrida ? 2.5 : 1.75,
           opacity: tenue ? 0.25 : 1,
+          filter: recorrida ? `drop-shadow(0 0 3px ${color})` : undefined,
         }}
       />
+      {activa && (
+        <g aria-hidden="true" className="arista-viaje-capa">
+          <path
+            d={trayecto}
+            pathLength={1}
+            fill="none"
+            stroke={color}
+            strokeWidth={4}
+            className="arista-viaje"
+            style={{
+              animationDuration: `${PASO_MS}ms`,
+              filter: `drop-shadow(0 0 5px ${color})`,
+            }}
+          />
+          <circle r={5} fill={color} style={{ filter: `drop-shadow(0 0 4px ${color})` }}>
+            <animateMotion dur={`${PASO_MS}ms`} path={trayecto} fill="freeze" />
+          </circle>
+        </g>
+      )}
       {data?.etiqueta && (
         <EdgeLabelRenderer>
           <span

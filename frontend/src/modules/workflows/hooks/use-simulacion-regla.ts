@@ -12,7 +12,7 @@ import {
 } from '@/modules/workflows/utils-grafo'
 
 /** Pausa entre un bloque y el siguiente del recorrido animado. */
-const PASO_MS = 420
+export const PASO_MS = 650
 
 /** Estado de nodo con el que la simulación no llegó. */
 const NO_ALCANZADO = 'no_alcanzado'

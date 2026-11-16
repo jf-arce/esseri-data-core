@@ -159,7 +159,8 @@ function LienzoFlujo(props: CanvasFlujoProps) {
   } = props
   // "Ordenar" se cuenta acá: el lienzo conoce el alto real de cada nodo y es el que calcula el orden.
   const [ordenar, setOrdenar] = useState(0)
-  const { screenToFlowPosition, fitView, getNode, getViewport, setViewport } = useReactFlow()
+  const { screenToFlowPosition, fitView, getNode, getViewport, setViewport, setCenter } =
+    useReactFlow()
   const contenedor = useRef<HTMLDivElement>(null)
   const evento = tiposEvento.find((tipo) => tipo.id === borrador.tipoEventoId)
   const nombreEvento = evento?.nombre ?? null
@@ -372,6 +373,33 @@ function LienzoFlujo(props: CanvasFlujoProps) {
     // Solo reacciona a cambiar de selección o de panel: no a cada movimiento del encuadre.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seleccionId, anchoTapado])
+
+  // Al "probar la regla" la vista sigue al recorrido, pero solo se mueve si el bloque que toca
+  // queda fuera de lo que se ve.
+  useEffect(() => {
+    const caja = contenedor.current
+    if (!caja || !aristasSimulacion) return
+    const activo = [...aristasSimulacion].find(([, estado]) => estado === 'activa')?.[0]
+    const nodo = activo ? getNode(activo) : undefined
+    if (!nodo) return
+    const { x, y, zoom } = getViewport()
+    const ancho = (nodo.measured?.width ?? ANCHO_NODO_MIN) * zoom
+    const alto = (nodo.measured?.height ?? ALTO_NODO_ESTIMADO) * zoom
+    const izquierda = nodo.position.x * zoom + x
+    const arriba = nodo.position.y * zoom + y
+    const visible =
+      izquierda >= 0 &&
+      izquierda + ancho <= caja.clientWidth - anchoTapado &&
+      arriba >= 0 &&
+      arriba + alto <= caja.clientHeight
+    if (!visible)
+      void setCenter(nodo.position.x + ancho / zoom / 2, nodo.position.y + alto / zoom / 2, {
+        zoom,
+        duration: 300,
+      })
+    // Solo reacciona al avance del recorrido: el encuadre y el panel se leen como están.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aristasSimulacion])
 
   const alCambiarNodos = useCallback((cambios: NodeChange<NodoFlujo>[]) => {
     const nuevasMedidas: Record<string, Medida> = {}
