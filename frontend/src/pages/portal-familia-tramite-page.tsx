@@ -454,7 +454,9 @@ export function PortalFamiliaTramitePage({
         return false
       }
       if (!termino) return true
-      return `${solicitud.motivo} ${solicitud.observacion ?? ''}`.toLowerCase().includes(termino)
+      return `${solicitud.motivo} ${etiquetaMotivoJustificacion(solicitud.motivo)} ${solicitud.observacion ?? ''}`
+        .toLowerCase()
+        .includes(termino)
     })
   }, [solicitudes, periodoJustificacionActivo, busquedaJustificacion])
   const asistenciasHistorialFiltradas = useMemo(() => {
@@ -991,7 +993,9 @@ export function PortalFamiliaTramitePage({
                                   {rangoPeriodo(solicitud)}
                                 </td>
                                 <td className="px-4 py-2.5 text-[#3A2E45]">Inasistencia</td>
-                                <td className="px-4 py-2.5 text-[#3A2E45]">{solicitud.motivo}</td>
+                                <td className="px-4 py-2.5 text-[#3A2E45]">
+                                  {etiquetaMotivoJustificacion(solicitud.motivo)}
+                                </td>
                                 <td className="px-4 py-2.5 whitespace-nowrap text-[#6B6478]">
                                   {formatearFechaHora(solicitud.fecha_carga)}
                                 </td>
@@ -1124,7 +1128,7 @@ export function PortalFamiliaTramitePage({
                                 Motivo informado
                               </h3>
                               <p className="rounded-[12px] bg-[#FBF9FD] p-3 text-sm text-[#3A2E45]">
-                                {detalleJustificacion.solicitud.motivo}
+                                {etiquetaMotivoJustificacion(detalleJustificacion.solicitud.motivo)}
                                 {detalleJustificacion.solicitud.observacion
                                   ? ` ${detalleJustificacion.solicitud.observacion}`
                                   : ''}
