@@ -19,6 +19,7 @@ import {
 } from '@/modules/workflows/components/config-accion-campos'
 import { DestinatariosCampos } from '@/modules/workflows/components/destinatarios-campos'
 import { ResumenReglaCompleto } from '@/modules/workflows/components/resumen-regla'
+import { SelectorLogica } from '@/modules/workflows/components/selector-logica'
 import { ValorComparacion } from '@/modules/workflows/components/valor-comparacion'
 import { PlantillaCampos } from '@/modules/workflows/components/plantilla-campos'
 import { CLASE_SELECT_ADAPTABLE, MAX_COMPARACIONES } from '@/modules/workflows/constants'
@@ -28,7 +29,6 @@ import type { usePlantillas } from '@/modules/workflows/hooks/use-plantillas'
 import {
   CRITICIDADES,
   type DestinatariosNodo,
-  type LogicaCondicion,
   type Operador,
   type TipoAccionCatalogo,
   type TipoEvento,
@@ -279,27 +279,16 @@ function PanelCondicion({
         Si se cumple, el flujo sigue por la salida <strong className="text-exito">Sí</strong>; si
         no, por la salida <strong className="text-error">No</strong>.
       </p>
+      <p className="text-xs text-texto-2">
+        Hasta {MAX_COMPARACIONES} comparaciones por bloque, todas con Y o todas con O.
+      </p>
       {!evento && <FieldDescription>Elegí primero el evento disparador.</FieldDescription>}
       {nodo.comparaciones.length > 1 && (
-        <Field>
-          <FieldLabel htmlFor="condicion-logica">Cuándo se cumple</FieldLabel>
-          <Select
-            value={nodo.logica}
-            disabled={soloLectura}
-            onValueChange={(valor) => {
-              const logica: LogicaCondicion = valor === 'alguna' ? 'alguna' : 'todas'
-              onCambiarNodo(nodo.id, { logica })
-            }}
-          >
-            <SelectTrigger id="condicion-logica" className={CLASE_SELECT_ADAPTABLE}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todas">Se cumplen todas</SelectItem>
-              <SelectItem value="alguna">Se cumple alguna</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
+        <SelectorLogica
+          valor={nodo.logica}
+          disabled={soloLectura}
+          onCambiar={(logica) => onCambiarNodo(nodo.id, { logica })}
+        />
       )}
       <div className="flex flex-col gap-2">
         {nodo.comparaciones.map((comparacion, indice) => (

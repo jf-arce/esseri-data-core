@@ -42,6 +42,7 @@ import {
   type NodoDisparadorFlujo,
 } from '@/modules/workflows/components/nodo-disparador'
 import { AtajosEditor } from '@/modules/workflows/components/atajos-editor'
+import { LimitesEditor } from '@/modules/workflows/components/limites-editor'
 import {
   CatalogoBloques,
   MIME_BLOQUE,
@@ -546,6 +547,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
                 <LayoutGridIcon />
               </Button>
               <AtajosEditor />
+              <LimitesEditor />
             </div>
           </Panel>
         )}
