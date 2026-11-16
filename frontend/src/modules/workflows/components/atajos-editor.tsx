@@ -12,7 +12,7 @@ const ATAJOS: { teclas: string; accion: string }[] = [
 const GESTOS: string[] = [
   'Para conectar, arrastrá desde un punto de salida (derecha) hasta el punto de entrada (izquierda) de otro bloque.',
   'Para desconectar, hacé clic sobre la línea y tocá la ×.',
-  'Un bloque que viene de la paleta aparece suelto: conectalo a una salida.',
+  'Un bloque que viene del catálogo aparece suelto: conectalo a una salida.',
 ]
 
 /** Qué se puede hacer con el teclado y el mouse en el lienzo, a un clic de distancia. */
@@ -20,12 +20,11 @@ export function AtajosEditor() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm">
-          <KeyboardIcon data-icon="inline-start" />
-          Atajos
+        <Button variant="ghost" size="icon" aria-label="Atajos del editor" title="Atajos">
+          <KeyboardIcon />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80">
+      <PopoverContent side="top" align="start" className="w-80">
         <h2 className="mb-2 text-sm font-semibold text-texto">Atajos del editor</h2>
         <dl className="flex flex-col gap-1.5 text-sm">
           {ATAJOS.map((atajo) => (

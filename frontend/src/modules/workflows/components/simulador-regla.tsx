@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Spinner } from '@/components/ui/spinner'
 import { useEventosRecientes } from '@/modules/workflows/hooks/use-eventos-recientes'
 import type { useSimulacionRegla } from '@/modules/workflows/hooks/use-simulacion-regla'
@@ -30,8 +31,8 @@ interface SimuladorReglaProps {
 
 const FORMATO_FECHA = new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' })
 
-/** "Probar regla": se elige un evento real, se simula el borrador y el lienzo muestra el camino.
- * Abajo queda el mismo resultado en texto, para quien no sigue la animación. */
+/** "Probar regla": botón flotante del lienzo. Se elige un evento real, se simula el borrador y el
+ * lienzo muestra el camino; el mismo resultado queda en texto en el panel. */
 export function SimuladorRegla({
   borrador,
   evento,
@@ -64,12 +65,20 @@ export function SimuladorRegla({
     : []
 
   return (
-    <section
-      aria-label="Probar regla"
-      className="flex flex-col gap-3 rounded-panel bg-superficie p-4 shadow-card"
-    >
-      <div className="flex flex-wrap items-end gap-3">
-        <Field className="min-w-64 flex-1">
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button className="shadow-card">
+          <PlayIcon data-icon="inline-start" />
+          Probar regla
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="center"
+        aria-label="Probar regla"
+        className="flex max-h-[min(480px,60dvh)] w-[min(420px,calc(100vw-2rem))] flex-col gap-3 overflow-y-auto"
+      >
+        <Field>
           <FieldLabel htmlFor="simulacion-evento">Evento de prueba</FieldLabel>
           <Select
             value={elegido}
@@ -97,69 +106,71 @@ export function SimuladorRegla({
             </SelectContent>
           </Select>
         </Field>
-        <Button
-          disabled={deshabilitado || elegido === '' || simulacion.cargando}
-          onClick={() => void simulacion.simular(elegido)}
-        >
-          {simulacion.cargando ? (
-            <Spinner data-icon="inline-start" />
-          ) : (
-            <PlayIcon data-icon="inline-start" />
-          )}
-          Probar regla
-        </Button>
-        {simulacion.simulacion && (
-          <Button variant="secondary" onClick={simulacion.limpiar}>
-            <XIcon data-icon="inline-start" />
-            Limpiar
+        <div className="flex gap-2">
+          <Button
+            disabled={deshabilitado || elegido === '' || simulacion.cargando}
+            onClick={() => void simulacion.simular(elegido)}
+          >
+            {simulacion.cargando ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <PlayIcon data-icon="inline-start" />
+            )}
+            Probar
           </Button>
-        )}
-      </div>
-      {eventos.error && (
-        <Alert variant="error">
-          <AlertDescription>{eventos.error}</AlertDescription>
-        </Alert>
-      )}
-      {simulacion.error && (
-        <Alert variant="advertencia">
-          <AlertDescription>{simulacion.error}</AlertDescription>
-        </Alert>
-      )}
-      {simulacion.desactualizada && (
-        <Alert variant="info">
-          <AlertDescription>
-            El borrador cambió después de la prueba. Volvé a probar la regla para ver el resultado
-            actual.
-          </AlertDescription>
-        </Alert>
-      )}
-      {simulacion.simulacion && !simulacion.desactualizada && (
-        <div className="flex flex-col gap-2" aria-live="polite">
-          <p className="text-xs text-texto-2">
-            Alcanzada significa que el flujo llega a la acción con ese evento: no promete cómo
-            termina cuando se ejecute.
-          </p>
-          {filas.length === 0 ? (
-            <p className="text-sm text-texto">
-              Con este evento el flujo no llega a ninguna acción.
-            </p>
-          ) : (
-            <ol className="flex flex-col gap-1 text-sm">
-              {filas.map(
-                (fila, indice) =>
-                  fila && (
-                    <li key={fila.id} className="flex flex-wrap gap-x-2">
-                      <span className="tabular text-texto-3">{indice + 1}.</span>
-                      <span className="text-texto">{fila.titulo}</span>
-                      <span className="font-semibold text-texto">{fila.estado}</span>
-                      {fila.detalle && <span className="text-texto-2">({fila.detalle})</span>}
-                    </li>
-                  ),
-              )}
-            </ol>
+          {simulacion.simulacion && (
+            <Button variant="secondary" onClick={simulacion.limpiar}>
+              <XIcon data-icon="inline-start" />
+              Limpiar
+            </Button>
           )}
         </div>
-      )}
-    </section>
+        {eventos.error && (
+          <Alert variant="error">
+            <AlertDescription>{eventos.error}</AlertDescription>
+          </Alert>
+        )}
+        {simulacion.error && (
+          <Alert variant="advertencia">
+            <AlertDescription>{simulacion.error}</AlertDescription>
+          </Alert>
+        )}
+        {simulacion.desactualizada && (
+          <Alert variant="info">
+            <AlertDescription>
+              El borrador cambió después de la prueba. Volvé a probar la regla para ver el resultado
+              actual.
+            </AlertDescription>
+          </Alert>
+        )}
+        {simulacion.simulacion && !simulacion.desactualizada && (
+          <div className="flex flex-col gap-2" aria-live="polite">
+            <p className="text-xs text-texto-2">
+              Alcanzada significa que el flujo llega a la acción con ese evento: no promete cómo
+              termina cuando se ejecute.
+            </p>
+            {filas.length === 0 ? (
+              <p className="text-sm text-texto">
+                Con este evento el flujo no llega a ninguna acción.
+              </p>
+            ) : (
+              <ol className="flex flex-col gap-1 text-sm">
+                {filas.map(
+                  (fila, indice) =>
+                    fila && (
+                      <li key={fila.id} className="flex flex-wrap gap-x-2">
+                        <span className="tabular text-texto-3">{indice + 1}.</span>
+                        <span className="text-texto">{fila.titulo}</span>
+                        <span className="font-semibold text-texto">{fila.estado}</span>
+                        {fila.detalle && <span className="text-texto-2">({fila.detalle})</span>}
+                      </li>
+                    ),
+                )}
+              </ol>
+            )}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   )
 }

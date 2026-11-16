@@ -1,26 +1,29 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { CopyIcon, LayoutGridIcon, Redo2Icon, SearchXIcon, Undo2Icon } from 'lucide-react'
+import { SearchXIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
-import { BackLink } from '@/components/back-link'
 import { ConfirmarEliminacion } from '@/components/confirmar-eliminacion'
-import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Switch } from '@/components/ui/switch'
 import {
   PERMISO_WORKFLOWS_ACTUALIZAR,
   PERMISO_WORKFLOWS_CREAR,
   tienePermiso,
 } from '@/modules/auth/constants'
 import { CanvasFlujo, type QueAgregar } from '@/modules/workflows/components/canvas-flujo'
-import { AtajosEditor } from '@/modules/workflows/components/atajos-editor'
+import { BarraEditor } from '@/modules/workflows/components/barra-editor'
 import { InspectorNodo } from '@/modules/workflows/components/inspector-nodo'
-import { PaletaBloques } from '@/modules/workflows/components/paleta-bloques'
-import { ResumenRegla } from '@/modules/workflows/components/resumen-regla'
 import { SimuladorRegla } from '@/modules/workflows/components/simulador-regla'
 import {
   MAX_NODOS,
@@ -28,6 +31,7 @@ import {
   PARAMETRO_REGLA_ID,
   RUTA_REGLAS,
 } from '@/modules/workflows/constants'
+import { usePantallaAncha } from '@/modules/workflows/hooks/use-pantalla-ancha'
 import { useCatalogosWorkflow } from '@/modules/workflows/hooks/use-catalogos-workflow'
 import { useConceptosCobro } from '@/modules/workflows/hooks/use-conceptos-cobro'
 import { useDestinatariosDisponibles } from '@/modules/workflows/hooks/use-destinatarios-disponibles'
@@ -72,13 +76,14 @@ import {
   DISPARADOR_ID,
   type BorradorFlujo,
   type ConexionPropuesta,
-  type ComparacionEditor,
   type ErroresFlujo,
   type Historial,
   type NodoEditor,
 } from '@/modules/workflows/utils-grafo'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
+/** Ancho del inspector flotante en pantallas anchas (px). */
+const ANCHO_INSPECTOR = 380
 const ETIQUETA_VOLVER_A_REGLAS = 'Volver a las reglas'
 const SIN_DESTINATARIOS: DestinatariosNodo = { roles: [], usuarios: [] }
 const SIN_ERRORES: ErroresFlujo = { general: [], porNodo: {} }
@@ -115,6 +120,7 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
   const conceptos = useConceptosCobro()
   const destinatariosDisponibles = useDestinatariosDisponibles()
   const estadisticas = useEstadisticasRegla(regla?.id)
+  const ancha = usePantallaAncha()
 
   const [historial, setHistorial] = useState<Historial<BorradorFlujo>>(() =>
     iniciarHistorial(inicial),
@@ -122,11 +128,9 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
   const borrador = historial.presente
   const [seleccionId, setSeleccionId] = useState<string | null>(regla ? null : DISPARADOR_ID)
   const [guardando, setGuardando] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [conflicto, setConflicto] = useState(false)
   const [mostrarErrores, setMostrarErrores] = useState(false)
   const [enfocar, setEnfocar] = useState<{ id: string; vez: number } | null>(null)
-  const [ordenar, setOrdenar] = useState(0)
   const [porEliminar, setPorEliminar] = useState<{ id: string; cantidad: number } | null>(null)
   const [instantanea] = useState(() => JSON.stringify(inicial))
   const sinGuardar = JSON.stringify(borrador) !== instantanea
@@ -308,7 +312,6 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
 
   async function guardar() {
     setMostrarErrores(true)
-    setError(null)
     setConflicto(false)
     const problemas = validarBorrador(borrador, tiposAccion)
     if (hayErrores(problemas)) {
@@ -319,7 +322,7 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
       } else {
         setSeleccionId(DISPARADOR_ID)
       }
-      setError(
+      toast.error(
         problemas.general.length > 0
           ? problemas.general.join(' ')
           : 'Hay bloques incompletos: están marcados en el lienzo.',
@@ -339,7 +342,7 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
       navigate(RUTA_REGLAS)
     } catch (causa) {
       if (causa instanceof ApiError && causa.status === 409 && regla) setConflicto(true)
-      else setError(detalleDe(causa, 'No se pudo guardar la regla.'))
+      else toast.error(detalleDe(causa, 'No se pudo guardar la regla.'))
       setGuardando(false)
     }
   }
@@ -364,210 +367,132 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
   const puedeRehacer = historial.futuro.length > 0
 
   return (
+    // Alto de la ventana menos el encabezado del layout (4rem) y el aire de `main` (3rem).
     // El contenedor recibe el teclado del editor (deshacer, duplicar, eliminar).
-    <div className="flex flex-col gap-4 outline-none" role="presentation" onKeyDown={alTeclear}>
-      <div className="flex flex-col gap-1.5">
-        <BackLink to={RUTA_REGLAS} label={ETIQUETA_VOLVER_A_REGLAS} />
-        <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">Workflows</p>
-      </div>
-      <PageHeader
+    <div
+      className="flex h-[calc(100dvh-7rem)] min-h-[480px] flex-col gap-3 outline-none"
+      role="presentation"
+      onKeyDown={alTeclear}
+    >
+      <BarraEditor
         titulo={
           regla
-            ? `${soloLectura ? 'Regla' : 'Editar regla'} · ${regla.nombre}`
+            ? soloLectura
+              ? 'Regla'
+              : 'Editar regla'
             : borrador.nombre.startsWith('Copia de ')
               ? 'Duplicar regla'
               : 'Nueva regla'
         }
-        accion={
-          <div className="flex flex-wrap items-center gap-3">
-            {!soloLectura && (
-              <div className="flex items-center gap-1" role="group" aria-label="Edición del flujo">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Deshacer"
-                  title="Deshacer (Ctrl+Z)"
-                  disabled={!puedeDeshacer}
-                  onClick={() => setHistorial(deshacer)}
-                >
-                  <Undo2Icon />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Rehacer"
-                  title="Rehacer (Ctrl+Shift+Z)"
-                  disabled={!puedeRehacer}
-                  onClick={() => setHistorial(rehacer)}
-                >
-                  <Redo2Icon />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={borrador.nodos.length === 0}
-                  // El lienzo conoce el alto real de cada nodo: él calcula el orden.
-                  onClick={() => setOrdenar((n) => n + 1)}
-                >
-                  <LayoutGridIcon data-icon="inline-start" />
-                  Ordenar
-                </Button>
-                <AtajosEditor />
-                {regla && (
-                  <Button variant="ghost" size="sm" onClick={duplicarEstaRegla}>
-                    <CopyIcon data-icon="inline-start" />
-                    Duplicar regla
-                  </Button>
-                )}
-              </div>
-            )}
-            <div className="flex items-center gap-2">
-              <Switch
-                id="regla-activa"
-                checked={borrador.activo}
-                disabled={soloLectura}
-                onCheckedChange={(activo) => cambiar((actual) => ({ ...actual, activo }))}
-              />
-              <label htmlFor="regla-activa" className="text-sm font-semibold text-texto-2">
-                Regla activa
-              </label>
-            </div>
-            <Button variant="secondary" asChild>
-              <Link to={RUTA_REGLAS}>{soloLectura ? 'Volver' : 'Cancelar'}</Link>
-            </Button>
-            {!soloLectura && (
-              <Button onClick={guardar} disabled={guardando}>
-                Guardar regla
-              </Button>
-            )}
-          </div>
-        }
+        nombre={borrador.nombre}
+        activo={borrador.activo}
+        soloLectura={soloLectura}
+        guardando={guardando}
+        puedeDuplicar={regla !== null}
+        onCambiarNombre={(nombre) => cambiar((actual) => ({ ...actual, nombre }))}
+        onCambiarActivo={(activo) => cambiar((actual) => ({ ...actual, activo }))}
+        onDuplicar={duplicarEstaRegla}
+        onGuardar={guardar}
       />
-      {conflicto && (
-        <Alert variant="advertencia">
-          <AlertTitle>La regla cambió mientras la editabas</AlertTitle>
-          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-            Alguien guardó una versión nueva. Recargá para ver sus cambios: si guardás ahora, los
-            pisarías.
-            <Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
-              Recargar la regla
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-      {error && (
-        <Alert variant="error">
-          <AlertTitle>No se pudo guardar la regla</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      <ResumenRegla borrador={borrador} tiposEvento={tiposEvento} />
-      <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <details className="rounded-panel bg-superficie p-4 shadow-card lg:open:block" open>
-          <summary className="cursor-pointer text-sm font-semibold text-texto lg:hidden">
-            Bloques
-          </summary>
-          <div className="mt-3 lg:mt-0">
-            <PaletaBloques
-              tiposAccion={tiposAccion}
-              nombreEvento={nombreEvento}
-              soloLectura={soloLectura}
-              onAgregar={agregarDesdePaleta}
-            />
-          </div>
-        </details>
-        <div
-          className={seleccionado ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,360px)]' : ''}
-        >
-          <div className="h-[min(640px,70vh)] min-h-[460px]">
-            <CanvasFlujo
+      <div className="relative min-h-0 flex-1">
+        <CanvasFlujo
+          borrador={borrador}
+          tiposEvento={tiposEvento}
+          tiposAccion={tiposAccion}
+          seleccionId={seleccionId}
+          errores={errores}
+          soloLectura={soloLectura}
+          simulacion={simulacion.nodos}
+          aristasSimulacion={simulacion.aristas}
+          estadisticas={estadisticas}
+          reglaId={regla?.id}
+          detalleDe={detalleAccion}
+          enfocar={enfocar}
+          puedeDeshacer={puedeDeshacer}
+          puedeRehacer={puedeRehacer}
+          simulador={
+            <SimuladorRegla
               borrador={borrador}
-              tiposEvento={tiposEvento}
-              tiposAccion={tiposAccion}
-              seleccionId={seleccionId}
-              errores={errores}
-              soloLectura={soloLectura}
-              simulacion={simulacion.nodos}
-              aristasSimulacion={simulacion.aristas}
-              estadisticas={estadisticas}
-              reglaId={regla?.id}
-              detalleDe={detalleAccion}
-              enfocar={enfocar}
-              ordenar={ordenar}
-              onSeleccionar={setSeleccionId}
-              onAgregarEn={agregarEn}
-              onSoltarBloque={soltarBloque}
-              onConectar={conectarNodos}
-              onDesconectar={(id) =>
-                cambiar((actual) => ({ ...actual, nodos: desconectar(actual.nodos, id) }))
-              }
-              onMover={moverNodos}
-              onCambiarComparacion={(id, comparacion: ComparacionEditor) =>
-                cambiar((actual) => ({
-                  ...actual,
-                  nodos: actualizarNodo(actual.nodos, id, {
-                    comparaciones: actual.nodos
-                      .find((n) => n.id === id)
-                      ?.comparaciones.map((c, i) => (i === 0 ? comparacion : c)),
-                  }),
-                }))
-              }
-            />
-          </div>
-          {seleccionado && (
-            <InspectorNodo
-              seleccion={seleccionado}
-              borrador={borrador}
-              tiposEvento={tiposEvento}
-              tiposAccion={tiposAccion}
               evento={evento}
-              contexto={{
-                estadosPermitidos: (nombreEvento && ESTADOS_POR_EVENTO[nombreEvento]) || [],
-                camposNumericos: evento?.campos.filter((item) => item.tipo_dato === 'numero') ?? [],
-                conceptos: conceptos.conceptos,
-                deshabilitado: soloLectura,
-              }}
-              plantillas={plantillas}
-              destinatariosDisponibles={destinatariosDisponibles}
-              destinatariosGuardados={
-                (typeof seleccionado !== 'string' &&
-                  regla?.nodos.find((n) => n.id === seleccionado.id)?.destinatarios) ||
-                SIN_DESTINATARIOS
-              }
-              soloLectura={soloLectura}
-              error={
-                typeof seleccionado === 'string' ? undefined : errores.porNodo[seleccionado.id]
-              }
-              onCambiarRegla={(cambios) => cambiar((actual) => ({ ...actual, ...cambios }))}
-              onCambiarEvento={(id) =>
-                cambiar((actual) =>
-                  cambiarEventoDelBorrador(
-                    actual,
-                    id,
-                    tiposAccion,
-                    tiposEvento.find((tipo) => tipo.id === id)?.nombre ?? null,
-                  ),
-                )
-              }
-              onCambiarNodo={(id, cambios) =>
-                cambiar((actual) => ({
-                  ...actual,
-                  nodos: actualizarNodo(actual.nodos, id, cambios),
-                }))
-              }
-              onDuplicar={duplicarNodo}
-              onEliminar={pedirEliminar}
-              onCerrar={() => setSeleccionId(null)}
+              simulacion={simulacion}
+              deshabilitado={soloLectura}
             />
-          )}
-        </div>
+          }
+          onDeshacer={() => setHistorial(deshacer)}
+          onRehacer={() => setHistorial(rehacer)}
+          onAgregarBloque={agregarDesdePaleta}
+          anchoTapado={seleccionado && ancha ? ANCHO_INSPECTOR + 12 : 0}
+          onSeleccionar={setSeleccionId}
+          onAgregarEn={agregarEn}
+          onSoltarBloque={soltarBloque}
+          onConectar={conectarNodos}
+          onDesconectar={(id) =>
+            cambiar((actual) => ({ ...actual, nodos: desconectar(actual.nodos, id) }))
+          }
+          onMover={moverNodos}
+        />
+        {seleccionado && (
+          <InspectorNodo
+            seleccion={seleccionado}
+            borrador={borrador}
+            tiposEvento={tiposEvento}
+            tiposAccion={tiposAccion}
+            evento={evento}
+            contexto={{
+              estadosPermitidos: (nombreEvento && ESTADOS_POR_EVENTO[nombreEvento]) || [],
+              camposNumericos: evento?.campos.filter((item) => item.tipo_dato === 'numero') ?? [],
+              conceptos: conceptos.conceptos,
+              deshabilitado: soloLectura,
+            }}
+            plantillas={plantillas}
+            destinatariosDisponibles={destinatariosDisponibles}
+            destinatariosGuardados={
+              (typeof seleccionado !== 'string' &&
+                regla?.nodos.find((n) => n.id === seleccionado.id)?.destinatarios) ||
+              SIN_DESTINATARIOS
+            }
+            soloLectura={soloLectura}
+            error={typeof seleccionado === 'string' ? undefined : errores.porNodo[seleccionado.id]}
+            onCambiarRegla={(cambios) => cambiar((actual) => ({ ...actual, ...cambios }))}
+            onCambiarEvento={(id) =>
+              cambiar((actual) =>
+                cambiarEventoDelBorrador(
+                  actual,
+                  id,
+                  tiposAccion,
+                  tiposEvento.find((tipo) => tipo.id === id)?.nombre ?? null,
+                ),
+              )
+            }
+            onCambiarNodo={(id, cambios) =>
+              cambiar((actual) => ({
+                ...actual,
+                nodos: actualizarNodo(actual.nodos, id, cambios),
+              }))
+            }
+            onDuplicar={duplicarNodo}
+            onEliminar={pedirEliminar}
+            onCerrar={() => setSeleccionId(null)}
+          />
+        )}
       </div>
-      <SimuladorRegla
-        borrador={borrador}
-        evento={evento}
-        simulacion={simulacion}
-        deshabilitado={soloLectura}
-      />
+      <Dialog open={conflicto} onOpenChange={setConflicto}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>La regla cambió mientras la editabas</DialogTitle>
+            <DialogDescription>
+              Alguien guardó una versión nueva. Recargá para ver sus cambios: si guardás ahora, los
+              pisarías.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setConflicto(false)}>
+              Seguir editando
+            </Button>
+            <Button onClick={() => window.location.reload()}>Recargar la regla</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <ConfirmarEliminacion
         open={porEliminar !== null}
         onOpenChange={(abierto) => !abierto && setPorEliminar(null)}

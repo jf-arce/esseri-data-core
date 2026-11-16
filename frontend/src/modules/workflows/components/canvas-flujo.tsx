@@ -1,9 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type ReactNode,
+} from 'react'
 import {
   Background,
   BackgroundVariant,
   Controls,
   MiniMap,
+  Panel,
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
@@ -13,6 +22,8 @@ import {
   type EdgeTypes,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { LayoutGridIcon, Redo2Icon, Undo2Icon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import {
   AristaFlujo,
   type AristaFlujo as TipoAristaFlujo,
@@ -27,13 +38,15 @@ import {
   NodoDisparador,
   type NodoDisparadorFlujo,
 } from '@/modules/workflows/components/nodo-disparador'
-import { MIME_BLOQUE } from '@/modules/workflows/components/paleta-bloques'
+import { AtajosEditor } from '@/modules/workflows/components/atajos-editor'
+import { MIME_BLOQUE, type QueBloque } from '@/modules/workflows/components/catalogo-bloques'
+import { PaletaBloques } from '@/modules/workflows/components/paleta-bloques'
+import { ResumenRegla } from '@/modules/workflows/components/resumen-regla'
 import { DIAS_ESTADISTICAS } from '@/modules/workflows/constants'
 import type {
   EstadisticasNodo,
   PosicionNodo,
   RamaNodo,
-  TipoAccion,
   TipoAccionCatalogo,
   TipoEvento,
 } from '@/modules/workflows/types'
@@ -45,7 +58,6 @@ import {
   puedeConectar,
   SALIDA_DISPARADOR,
   type BorradorFlujo,
-  type ComparacionEditor,
   type ConexionPropuesta,
   type ErroresFlujo,
   type NodoEditor,
@@ -64,7 +76,7 @@ interface Medida {
   height: number
 }
 
-export type QueAgregar = 'condicion' | TipoAccion
+export type QueAgregar = QueBloque
 
 export interface CanvasFlujoProps {
   borrador: BorradorFlujo
@@ -84,16 +96,23 @@ export interface CanvasFlujoProps {
   /** Pide encuadrar un nodo (por ejemplo, el primero incompleto al guardar). `vez` distingue
    * pedidos repetidos sobre el mismo nodo. */
   enfocar: { id: string; vez: number } | null
-  /** Se incrementa al tocar "Ordenar": los nodos se deslizan y el encuadre es animado. */
-  ordenar: number
+  puedeDeshacer: boolean
+  puedeRehacer: boolean
+  /** "Probar regla": el panel flotante del simulador, que arma la página. */
+  simulador: ReactNode
+  /** Ancho que el inspector flotante le tapa al lienzo por la derecha (0 si está cerrado). */
+  anchoTapado: number
+  onDeshacer: () => void
+  onRehacer: () => void
   onSeleccionar: (id: string | null) => void
+  /** Alta desde el botón "Agregar bloque": el editor decide a qué salida se conecta. */
+  onAgregarBloque: (que: QueAgregar) => void
   onAgregarEn: (padreId: string | null, rama: RamaNodo | null, que: QueAgregar) => void
   onSoltarBloque: (que: QueAgregar, posicion: PosicionNodo) => void
   onConectar: (conexion: ConexionPropuesta) => void
   onDesconectar: (destinoId: string) => void
   /** Se llama una sola vez, al soltar el nodo, con las posiciones finales. */
   onMover: (posiciones: Record<string, PosicionNodo>) => void
-  onCambiarComparacion: (nodoId: string, comparacion: ComparacionEditor) => void
 }
 
 function LienzoFlujo(props: CanvasFlujoProps) {
@@ -109,9 +128,11 @@ function LienzoFlujo(props: CanvasFlujoProps) {
     estadisticas,
     reglaId,
     enfocar,
-    ordenar,
+    anchoTapado,
   } = props
-  const { screenToFlowPosition, fitView } = useReactFlow()
+  // "Ordenar" se cuenta acá: el lienzo conoce el alto real de cada nodo y es el que calcula el orden.
+  const [ordenar, setOrdenar] = useState(0)
+  const { screenToFlowPosition, fitView, getNode, getViewport, setViewport } = useReactFlow()
   const contenedor = useRef<HTMLDivElement>(null)
   const evento = tiposEvento.find((tipo) => tipo.id === borrador.tipoEventoId)
   const nombreEvento = evento?.nombre ?? null
@@ -172,7 +193,6 @@ function LienzoFlujo(props: CanvasFlujoProps) {
             soloLectura,
             incompleto: errores.porNodo[nodo.id],
             simulacion: simulado,
-            onCambiarComparacion: (comparacion) => props.onCambiarComparacion(nodo.id, comparacion),
             onAgregar: (rama, que) => props.onAgregarEn(nodo.id, rama, que),
           },
         }
@@ -273,6 +293,23 @@ function LienzoFlujo(props: CanvasFlujoProps) {
       void fitView({ nodes: [{ id: enfocar.id }], duration: 200, maxZoom: 1.1, padding: 0.6 })
   }, [enfocar, fitView])
 
+  // El inspector flota sobre el lienzo: si al seleccionar un nodo queda tapado, se corre el
+  // encuadre lo justo para que se vea.
+  useEffect(() => {
+    const caja = contenedor.current
+    if (!caja || seleccionId === null || anchoTapado === 0) return
+    const nodo = getNode(seleccionId)
+    if (!nodo) return
+    const { x, y, zoom } = getViewport()
+    const derecha = (nodo.position.x + (nodo.measured?.width ?? 300)) * zoom + x
+    // Margen para el "+" de salida, que sobresale del nodo.
+    const limite = caja.clientWidth - anchoTapado - 56
+    if (derecha > limite)
+      void setViewport({ x: x - (derecha - limite), y, zoom }, { duration: 200 })
+    // Solo reacciona a cambiar de selección o de panel: no a cada movimiento del encuadre.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seleccionId, anchoTapado])
+
   const alCambiarNodos = useCallback((cambios: NodeChange<NodoFlujo>[]) => {
     const nuevasMedidas: Record<string, Medida> = {}
     const movidos: Record<string, PosicionNodo> = {}
@@ -336,7 +373,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
   return (
     <div
       ref={contenedor}
-      className="relative h-full min-h-[460px] w-full rounded-panel bg-superficie shadow-card"
+      className="relative h-full w-full overflow-hidden rounded-panel bg-superficie shadow-card"
       onDragOver={(evento) => {
         evento.preventDefault()
         evento.dataTransfer.dropEffect = 'move'
@@ -375,19 +412,78 @@ function LienzoFlujo(props: CanvasFlujoProps) {
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} color="var(--borde)" />
         <Controls showInteractive={false} position="bottom-left" />
-        <MiniMap
-          pannable
-          zoomable
-          ariaLabel="Mapa del flujo"
-          nodeColor={(nodo) =>
-            nodo.type === 'condicion'
-              ? 'var(--advertencia)'
-              : nodo.type === 'accion'
-                ? 'var(--mod-inscripciones)'
-                : 'var(--mod-workflows)'
-          }
-          className="hidden! sm:block!"
-        />
+        <Panel
+          position="top-left"
+          className="flex flex-col items-start gap-2"
+          // El inspector flotante tapa la derecha: el chip no pasa por debajo.
+          style={{ maxWidth: `calc(100% - ${anchoTapado > 0 ? anchoTapado + 12 : 0}px - 1.5rem)` }}
+        >
+          {!soloLectura && (
+            <PaletaBloques
+              tiposAccion={tiposAccion}
+              nombreEvento={nombreEvento}
+              soloLectura={soloLectura}
+              onAgregar={props.onAgregarBloque}
+            />
+          )}
+          <ResumenRegla borrador={borrador} tiposEvento={tiposEvento} />
+        </Panel>
+        {!soloLectura && (
+          <Panel
+            position="bottom-left"
+            className="ml-12! flex items-center gap-0.5 rounded-lg bg-superficie p-0.5 shadow-card"
+          >
+            <div className="flex items-center" role="group" aria-label="Edición del flujo">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Deshacer"
+                title="Deshacer (Ctrl+Z)"
+                disabled={!props.puedeDeshacer}
+                onClick={props.onDeshacer}
+              >
+                <Undo2Icon />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Rehacer"
+                title="Rehacer (Ctrl+Shift+Z)"
+                disabled={!props.puedeRehacer}
+                onClick={props.onRehacer}
+              >
+                <Redo2Icon />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Ordenar"
+                title="Ordenar los bloques"
+                disabled={borrador.nodos.length === 0}
+                onClick={() => setOrdenar((n) => n + 1)}
+              >
+                <LayoutGridIcon />
+              </Button>
+              <AtajosEditor />
+            </div>
+          </Panel>
+        )}
+        <Panel position="bottom-center">{props.simulador}</Panel>
+        {anchoTapado === 0 && (
+          <MiniMap
+            pannable
+            zoomable
+            ariaLabel="Mapa del flujo"
+            nodeColor={(nodo) =>
+              nodo.type === 'condicion'
+                ? 'var(--advertencia)'
+                : nodo.type === 'accion'
+                  ? 'var(--mod-inscripciones)'
+                  : 'var(--mod-workflows)'
+            }
+            className="hidden! sm:block!"
+          />
+        )}
       </ReactFlow>
     </div>
   )

@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
+import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '@/api/client'
 import { getRoles } from '@/modules/auth/services/get-roles'
@@ -25,6 +26,7 @@ import { obtenerEstadisticasRegla } from '@/modules/workflows/services/obtener-e
 import { obtenerReglaWorkflow } from '@/modules/workflows/services/obtener-regla-workflow'
 import { useAuthStore } from '@/store/auth-store'
 
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), info: vi.fn(), error: vi.fn() } }))
 vi.mock('@/modules/auth/services/get-roles')
 vi.mock('@/modules/auth/services/get-usuarios')
 vi.mock('@/modules/facturacion/services/listar-conceptos-cobro')
@@ -39,32 +41,46 @@ vi.mock('@/modules/workflows/services/obtener-regla-workflow')
 
 // React Flow mide el DOM y jsdom no tiene layout: se prueba el contrato del editor con el
 // lienzo (los nodos que recibe y lo que le pide al editor); el dibujo se verifica en el navegador.
-vi.mock('@/modules/workflows/components/canvas-flujo', () => ({
-  CanvasFlujo: (props: CanvasFlujoProps) => (
-    <div role="group" aria-label="Lienzo">
-      <p>Seleccionado: {props.seleccionId ?? 'ninguno'}</p>
-      <button onClick={() => props.onAgregarEn(null, null, 'alerta_interna')}>
-        Agregar alerta al disparador
-      </button>
-      <button onClick={() => props.onAgregarEn(null, null, 'condicion')}>
-        Agregar condición al disparador
-      </button>
-      <button onClick={() => props.onSoltarBloque('alerta_interna', { x: 10, y: 20 })}>
-        Soltar alerta suelta
-      </button>
-      <ul>
-        {props.borrador.nodos.map((nodo) => (
-          <li key={nodo.id}>
-            <button onClick={() => props.onSeleccionar(nodo.id)}>
-              {`Nodo ${nodo.tipo} ${nodo.id}`}
+vi.mock('@/modules/workflows/components/canvas-flujo', async () => {
+  const { ResumenRegla } = await import('@/modules/workflows/components/resumen-regla')
+  return {
+    CanvasFlujo: (props: CanvasFlujoProps) => (
+      <div role="group" aria-label="Lienzo">
+        <p>Seleccionado: {props.seleccionId ?? 'ninguno'}</p>
+        <ResumenRegla borrador={props.borrador} tiposEvento={props.tiposEvento} />
+        {!props.soloLectura && (
+          <>
+            <button disabled={!props.puedeDeshacer} onClick={props.onDeshacer}>
+              Deshacer
             </button>
-            {props.errores.porNodo[nodo.id] && <span>{props.errores.porNodo[nodo.id]}</span>}
-          </li>
-        ))}
-      </ul>
-    </div>
-  ),
-}))
+            <button disabled={!props.puedeRehacer} onClick={props.onRehacer}>
+              Rehacer
+            </button>
+          </>
+        )}
+        <button onClick={() => props.onAgregarEn(null, null, 'alerta_interna')}>
+          Agregar alerta al disparador
+        </button>
+        <button onClick={() => props.onAgregarEn(null, null, 'condicion')}>
+          Agregar condición al disparador
+        </button>
+        <button onClick={() => props.onSoltarBloque('alerta_interna', { x: 10, y: 20 })}>
+          Soltar alerta suelta
+        </button>
+        <ul>
+          {props.borrador.nodos.map((nodo) => (
+            <li key={nodo.id}>
+              <button onClick={() => props.onSeleccionar(nodo.id)}>
+                {`Nodo ${nodo.tipo} ${nodo.id}`}
+              </button>
+              {props.errores.porNodo[nodo.id] && <span>{props.errores.porNodo[nodo.id]}</span>}
+            </li>
+          ))}
+        </ul>
+      </div>
+    ),
+  }
+})
 
 const tiposAccion = [
   catalogoAccion('notificar', { admite_plantilla: true }),
@@ -186,7 +202,9 @@ describe('ReglaWorkflowEditorPage', () => {
       await user.type(await screen.findByLabelText('Nombre de la regla'), 'Aviso')
       await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
 
-      expect(await screen.findByText('La regla necesita al menos una acción.')).toBeInTheDocument()
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith('La regla necesita al menos una acción.'),
+      )
       expect(crearReglaWorkflow).not.toHaveBeenCalled()
     })
 
@@ -225,10 +243,11 @@ describe('ReglaWorkflowEditorPage', () => {
 
       await user.click(screen.getByRole('button', { name: 'Agregar alerta al disparador' }))
 
+      // El resumen es un chip de una línea: un clic lo expande y muestra la nota.
+      await user.click(screen.getByRole('button', { name: /siempre alerta interna/ }))
       expect(
         screen.getByText(/Las acciones sin condición se ejecutan con cada evento/),
       ).toBeInTheDocument()
-      expect(screen.getByText(/siempre alerta interna/)).toBeInTheDocument()
     })
 
     it('un bloque suelto no se puede guardar', async () => {
@@ -288,7 +307,7 @@ describe('ReglaWorkflowEditorPage', () => {
       await screen.findByRole('button', { name: 'Nodo condicion c-1' })
       await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
 
-      expect(await screen.findByText('Condición inválida')).toBeInTheDocument()
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Condición inválida'))
     })
 
     it('deshacer y rehacer recorren los cambios del borrador', async () => {

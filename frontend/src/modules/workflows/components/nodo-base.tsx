@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   AlertCircleIcon,
   CheckIcon,
@@ -9,21 +9,11 @@ import {
   XIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { CatalogoBloques } from '@/modules/workflows/components/catalogo-bloques'
 import { cn } from '@/lib/utils'
 import type { EstadoNodoSimulado, RamaNodo, TipoAccion } from '@/modules/workflows/types'
-import { ETIQUETA_ACCION } from '@/modules/workflows/utils'
-import { estadoDeBloque, GRUPOS_ACCION, TEXTO_SIMULACION } from '@/modules/workflows/utils-grafo'
+import { TEXTO_SIMULACION } from '@/modules/workflows/utils-grafo'
 import type { TipoAccionCatalogo } from '@/modules/workflows/types'
 
 /** El nodo mide al menos esto y crece con su contenido hasta el máximo. */
@@ -164,9 +154,10 @@ export function BotonSumar({
   nombreEvento,
   onAgregar,
 }: BotonSumarProps) {
+  const [abierto, setAbierto] = useState(false)
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <Popover open={abierto} onOpenChange={setAbierto}>
+      <PopoverTrigger asChild>
         <Button
           variant="secondary"
           size="icon"
@@ -180,32 +171,18 @@ export function BotonSumar({
         >
           <PlusIcon className="size-4" />
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuLabel>Agregar a esta salida</DropdownMenuLabel>
-        <DropdownMenuItem onSelect={() => onAgregar(rama, 'condicion')}>Condición</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        {GRUPOS_ACCION.map((grupo) => (
-          <DropdownMenuSub key={grupo.titulo}>
-            <DropdownMenuSubTrigger>{grupo.titulo}</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-60">
-              {grupo.acciones.map((tipo) => {
-                const { estado, motivo } = estadoDeBloque(tipo, tiposAccion, nombreEvento)
-                return (
-                  <DropdownMenuItem
-                    key={tipo}
-                    disabled={estado !== 'disponible'}
-                    title={motivo ?? undefined}
-                    onSelect={() => onAgregar(rama, tipo)}
-                  >
-                    {ETIQUETA_ACCION[tipo]}
-                  </DropdownMenuItem>
-                )
-              })}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="nodrag nopan nowheel w-[300px] overflow-hidden p-0">
+        <CatalogoBloques
+          tiposAccion={tiposAccion}
+          nombreEvento={nombreEvento}
+          soloLectura={Boolean(deshabilitado)}
+          onElegir={(que) => {
+            onAgregar(rama, que)
+            setAbierto(false)
+          }}
+        />
+      </PopoverContent>
+    </Popover>
   )
 }
