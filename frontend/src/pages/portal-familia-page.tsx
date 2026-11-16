@@ -235,7 +235,7 @@ export function PortalFamiliaPage() {
               />
               <Link
                 to="/familia/comunicaciones"
-                className="block rounded-[22px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
+                className="relative block rounded-[22px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
               >
                 <PortalStatTile
                   ariaLabel="Mensajes sin leer"
@@ -245,6 +245,11 @@ export function PortalFamiliaPage() {
                   icon={MailIcon}
                   tone="azul"
                   cargando={sinLeer.cargando}
+                  className="pr-12"
+                />
+                <ChevronRightIcon
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-1/2 right-4 size-5 -translate-y-1/2 text-[#7A2FA8]"
                 />
               </Link>
             </div>

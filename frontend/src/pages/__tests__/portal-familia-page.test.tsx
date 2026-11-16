@@ -168,6 +168,7 @@ describe('PortalFamiliaPage', () => {
 
     const atajoMensajes = screen.getByRole('link', { name: /Mensajes sin leer/ })
     expect(atajoMensajes).toHaveAttribute('href', '/familia/comunicaciones')
+    expect(atajoMensajes.querySelector('.lucide-chevron-right')).not.toBeNull()
     expect(screen.queryByRole('link', { name: /Ver mensajes/ })).not.toBeInTheDocument()
   })
 
