@@ -4,9 +4,11 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
   CalendarDaysIcon,
+  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   EllipsisIcon,
+  FilterIcon,
   MegaphoneIcon,
   PlusIcon,
   SearchIcon,
@@ -24,6 +26,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -86,6 +89,20 @@ function tipoVisual(tipo: Comunicacion['tipo']): TipoVisual {
   if (tipo === 'institucional') return 'institucional'
   if (tipo === 'curso') return 'curso'
   return 'otro'
+}
+
+/** "Hoy", "Ayer" o "12 may", siempre en hora argentina. */
+function fechaCortaComunicacion(valor: string | null): string {
+  if (!valor) return 'Sin fecha'
+  const fecha = new Date(valor)
+  if (Number.isNaN(fecha.getTime())) return 'Sin fecha'
+  const dia = FECHA_DIA.format(fecha)
+  if (dia === FECHA_DIA.format(new Date())) return 'Hoy'
+  if (dia === FECHA_DIA.format(new Date(Date.now() - 86_400_000))) return 'Ayer'
+  const partes = FECHA_CORTA.formatToParts(fecha)
+  const valorParte = (tipo: Intl.DateTimeFormatPartTypes) =>
+    partes.find((parte) => parte.type === tipo)?.value ?? ''
+  return `${valorParte('day')} ${valorParte('month').replace('.', '')}`
 }
 
 /** "Hoy, 15:26", "Ayer, 11:05" o "10 nov 2026, 09:30", siempre en hora argentina. */
@@ -206,7 +223,261 @@ function PieLista({
   )
 }
 
-function ListaFamilia({
+function ListaFamiliaMovil({
+  datos,
+  error,
+  buscar,
+  onBuscar,
+  noLeidas,
+  onNoLeidas,
+  orden,
+  onOrden,
+  pagina,
+  onPagina,
+  conteos,
+  onReintentar,
+  base,
+}: ListaFamiliaProps) {
+  const [filtroTipo, setFiltroTipo] = useState<'todas' | TipoVisual>('todas')
+  const publicadas = datos?.items ?? []
+  const visibles =
+    filtroTipo === 'todas'
+      ? publicadas
+      : publicadas.filter((comunicacion) => tipoVisual(comunicacion.tipo) === filtroTipo)
+
+  return (
+    <section
+      className="relative isolate -mx-4 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden sm:-mx-8"
+      style={{ background: PORTAL_FAMILIA_BACKGROUND }}
+    >
+      <PortalFamiliaWatermark />
+      <div className="relative z-10">
+        <PortalFamiliaShell
+          titulo="Comunicaciones"
+          descripcion="Avisos institucionales y de curso"
+          etiqueta="Portal de familia"
+          volverA="/familia"
+          volverEtiqueta="Volver al inicio"
+          anchoMaximo="max-w-[92vw]"
+          className="pb-8"
+        />
+
+        <div className="mx-auto flex w-full max-w-[92vw] flex-col gap-4 px-4 pb-10 sm:px-8">
+          <div className="relative w-full">
+            <SearchIcon
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#8C8599]"
+            />
+            <Input
+              aria-label="Buscar comunicaciones"
+              placeholder="Buscar comunicaciones..."
+              value={buscar}
+              onChange={(event) => onBuscar(event.target.value)}
+              className="h-12 rounded-full border-[#E7DDF1] bg-white pl-12 text-[15px] text-[#2B2338] placeholder:text-[#8C8599]"
+            />
+          </div>
+
+          <div
+            className="flex w-full rounded-full bg-[#F5EFFA] p-1"
+            role="group"
+            aria-label="Filtrar comunicaciones"
+          >
+            <button
+              type="button"
+              aria-pressed={!noLeidas}
+              onClick={() => onNoLeidas(false)}
+              className={cn(
+                'min-h-11 flex-1 rounded-full px-4 text-[15px] font-semibold transition-colors',
+                !noLeidas
+                  ? 'bg-[#7A2FA8] text-white shadow-[0_4px_12px_rgba(122,47,168,0.25)]'
+                  : 'text-[#3A2E45] hover:text-[#2B2338]',
+              )}
+            >
+              Todas ({conteos.todas ?? '—'})
+            </button>
+            <button
+              type="button"
+              aria-pressed={noLeidas}
+              onClick={() => onNoLeidas(true)}
+              className={cn(
+                'inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full px-4 text-[15px] font-semibold transition-colors',
+                noLeidas
+                  ? 'bg-[#7A2FA8] text-white shadow-[0_4px_12px_rgba(122,47,168,0.25)]'
+                  : 'text-[#3A2E45] hover:text-[#2B2338]',
+              )}
+            >
+              No leídas ({conteos.noLeidas ?? '—'})
+              {(conteos.noLeidas ?? 0) > 0 && (
+                <span
+                  aria-hidden="true"
+                  className={cn('size-2 rounded-full', noLeidas ? 'bg-white' : 'bg-[#7A2FA8]')}
+                />
+              )}
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Select value={orden} onValueChange={(valor) => onOrden(valor as OrdenFecha)}>
+              <SelectTrigger
+                aria-label="Ordenar comunicaciones por fecha"
+                className="h-11 min-w-0 flex-1 rounded-full border-[#E7DDF1] bg-white px-4 text-[14px] font-medium text-[#2B2338]"
+              >
+                <span className="flex items-center gap-2">
+                  <CalendarDaysIcon aria-hidden="true" className="size-4 text-[#7A2FA8]" />
+                  {orden === 'recientes' ? 'Fecha: más recientes' : 'Fecha: más antiguas'}
+                  <ChevronDownIcon aria-hidden="true" className="size-4 text-[#6B6478]" />
+                </span>
+              </SelectTrigger>
+              <SelectContent position="popper" align="start">
+                <SelectItem value="recientes">
+                  <ArrowDownIcon aria-hidden="true" />
+                  Más recientes primero
+                </SelectItem>
+                <SelectItem value="antiguas">
+                  <ArrowUpIcon aria-hidden="true" />
+                  Más antiguas primero
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-11 items-center gap-2 rounded-full border border-[#E7DDF1] bg-white px-4 text-[14px] font-medium text-[#2B2338]"
+                >
+                  <FilterIcon aria-hidden="true" className="size-4 text-[#7A2FA8]" />
+                  {filtroTipo === 'todas'
+                    ? 'Filtrar'
+                    : `Filtrar: ${ETIQUETAS_TIPO[filtroTipo === 'institucional' ? 'institucional' : filtroTipo === 'curso' ? 'curso' : 'otro']}`}
+                  <ChevronDownIcon aria-hidden="true" className="size-4 text-[#6B6478]" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="portal-familia w-56 p-2">
+                {[
+                  { clave: 'todas', etiqueta: 'Todas' },
+                  { clave: 'institucional', etiqueta: 'Institucional' },
+                  { clave: 'curso', etiqueta: 'Curso' },
+                  { clave: 'otro', etiqueta: 'Otro' },
+                ].map(({ clave, etiqueta }) => (
+                  <button
+                    key={clave}
+                    type="button"
+                    aria-pressed={filtroTipo === clave}
+                    onClick={() => setFiltroTipo(clave as 'todas' | TipoVisual)}
+                    className={cn(
+                      'flex min-h-9 w-full items-center rounded-[10px] px-3 text-left text-[14px] font-medium transition-colors',
+                      filtroTipo === clave
+                        ? 'bg-[#F1E4FB] text-[#7A2FA8]'
+                        : 'text-[#2B2338] hover:bg-[#F7F2FC]',
+                    )}
+                  >
+                    {etiqueta}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {error ? (
+            <Alert variant="error">
+              <AlertDescription>
+                No se pudieron cargar las comunicaciones.{' '}
+                <Button variant="secondary" className="rounded-full" onClick={onReintentar}>
+                  Reintentar
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : !datos ? (
+            <div className="flex flex-col gap-3">
+              {[0, 1, 2].map((fila) => (
+                <Skeleton key={fila} className="h-24 w-full rounded-[16px] bg-[#F3EDF9]" />
+              ))}
+            </div>
+          ) : visibles.length === 0 ? (
+            <p role="status" className="py-10 text-center text-[15px] text-[#6B6478]">
+              No hay comunicaciones para mostrar.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {visibles.map((c) => {
+                const visual = ESTILOS_TIPO[tipoVisual(c.tipo)]
+                const Icono = visual.Icon
+                return (
+                  <li key={c.id}>
+                    <Link
+                      to={`${base}/${c.id}`}
+                      className={cn(
+                        'flex items-start gap-3 rounded-[16px] border p-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8] sm:p-4',
+                        c.leida_at
+                          ? 'border-[#EFE9F6] bg-white hover:bg-[#FAF7FD]'
+                          : 'border-transparent bg-[#F7F0FC] hover:bg-[#F2E8FA]',
+                      )}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          'mt-6 size-2 shrink-0 rounded-full',
+                          c.leida_at ? 'bg-transparent' : 'bg-[#7A2FA8]',
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          'flex size-12 shrink-0 items-center justify-center rounded-[14px]',
+                          visual.tile,
+                        )}
+                      >
+                        <Icono aria-hidden="true" className="size-6" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-start justify-between gap-2">
+                          <span
+                            className={cn(
+                              'inline-flex w-fit items-center rounded-full px-3 py-1 text-[11px] font-bold tracking-[0.06em] uppercase',
+                              visual.pill,
+                            )}
+                          >
+                            {ETIQUETAS_TIPO[c.tipo]}
+                          </span>
+                          <span className="shrink-0 text-[13px] text-[#6B6478]">
+                            {fechaCortaComunicacion(c.publicada_at ?? c.created_at)}
+                          </span>
+                        </span>
+                        <span className="mt-1 block truncate font-heading text-[16px] leading-snug font-bold text-[#241A33] sm:text-[18px]">
+                          {c.asunto}
+                        </span>
+                        <span className="mt-0.5 block truncate text-[14px] text-[#6B6478]">
+                          {c.cuerpo}
+                        </span>
+                      </span>
+                      <ChevronRightIcon
+                        aria-hidden="true"
+                        className="mt-5 size-5 shrink-0 text-[#2B2338]"
+                      />
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+
+          {datos && !error && (
+            <div className="rounded-[16px] border border-[#EFE9F6] bg-white">
+              <PieLista
+                pagina={pagina}
+                total={datos.total}
+                totalPaginas={datos.total_paginas}
+                onCambiarPagina={onPagina}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function ListaFamiliaEscritorio({
   datos,
   error,
   buscar,
@@ -424,6 +695,29 @@ function ListaFamilia({
       </section>
     </>
   )
+}
+
+/** El listado usa tarjetas en celular y la tabla de escritorio desde lg. */
+function useEsMovil(): boolean {
+  const [esMovil, setEsMovil] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
+    return window.matchMedia('(max-width: 1023px)').matches
+  })
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const consulta = window.matchMedia('(max-width: 1023px)')
+    const alCambiar = () => setEsMovil(consulta.matches)
+    consulta.addEventListener('change', alCambiar)
+    return () => consulta.removeEventListener('change', alCambiar)
+  }, [])
+
+  return esMovil
+}
+
+function ListaFamilia(props: ListaFamiliaProps) {
+  const esMovil = useEsMovil()
+  return esMovil ? <ListaFamiliaMovil {...props} /> : <ListaFamiliaEscritorio {...props} />
 }
 
 export function ComunicacionesPage({
