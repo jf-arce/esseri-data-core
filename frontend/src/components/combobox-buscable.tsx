@@ -8,8 +8,17 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import type { OpcionCombo } from '@/modules/workflows/types'
-import { desplazarConRueda } from '@/modules/workflows/utils'
+import { desplazarConRueda } from '@/lib/desplazar-con-rueda'
+
+/** Opción de una lista de selección única con buscador (`ComboboxBuscable`). */
+export interface OpcionCombo {
+  valor: string
+  etiqueta: string
+  /** Texto secundario (p. ej. la categoría o el email) que también encuentra el buscador. */
+  detalle?: string
+  /** Las opciones con el mismo grupo se muestran juntas, bajo su título. */
+  grupo?: string
+}
 
 interface ComboboxBuscableProps {
   opciones: OpcionCombo[]

@@ -129,7 +129,9 @@ export interface OrdenCompra {
 
 export interface CrearOrdenDetallePayload {
   producto_servicio_id: string
-  cantidad_pedida: string
+  // El backend exige un entero positivo; la columna sigue siendo decimal y por eso la respuesta
+  // de la orden llega como string.
+  cantidad_pedida: number
 }
 
 export interface CrearOrdenPayload {
@@ -137,6 +139,15 @@ export interface CrearOrdenPayload {
   fecha?: string | null
   solicitud_ids: string[]
   detalles: CrearOrdenDetallePayload[]
+}
+
+// Línea del formulario de la orden. `solicitudIds` permite sumar varias solicitudes del mismo
+// ítem y deshacer el aporte al destildarlas; `editada` protege la cantidad que cargó la persona.
+export interface LineaOrdenFormulario {
+  productoId: string
+  cantidad: string
+  solicitudIds: string[]
+  editada: boolean
 }
 
 // --- Recepcion de compras (issue #111) ------------------------------------------------------
@@ -203,9 +214,19 @@ export interface OrdenListado {
   total_paginas: number
 }
 
+export type OrdenOrdenes = 'fecha-desc' | 'fecha-asc' | 'items-desc' | 'items-asc'
+
 export interface FiltrosOrdenesBusqueda {
   buscar?: string
   estado?: EstadoOrdenCompra | ''
+  proveedorId?: string
+  // Las fechas viajan como ISO (YYYY-MM-DD) y las cantidades como texto: es lo que escriben los
+  // campos del filtro y lo que la URL sabe transportar sin conversiones intermedias.
+  desde?: string
+  hasta?: string
+  itemsMin?: string
+  itemsMax?: string
+  orden?: OrdenOrdenes
   pagina: number
   tamanioPagina: number
 }

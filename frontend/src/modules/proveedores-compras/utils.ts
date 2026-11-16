@@ -1,6 +1,8 @@
 import type {
+  EstadoOrdenCompra,
   EstadoVigencia,
   FiltrosSolicitudes,
+  LineaOrdenFormulario,
   OrdenProductos,
   OrdenProveedores,
   OrdenSolicitudes,
@@ -143,6 +145,90 @@ export function descripcionSolicitud(solicitud: SolicitudCompra): string {
   if (solicitud.articulo) return solicitud.articulo
   if (solicitud.producto_servicio_id) return 'Ítem de catálogo'
   return '—'
+}
+
+// --- Órdenes de compra ----------------------------------------------------------------------
+
+export const ETIQUETA_ESTADO_ORDEN: Record<EstadoOrdenCompra, string> = {
+  emitida: 'Emitida',
+  recibida: 'Recibida',
+  cancelada: 'Cancelada',
+}
+
+export function lineaOrdenVacia(): LineaOrdenFormulario {
+  return { productoId: '', cantidad: '', solicitudIds: [], editada: false }
+}
+
+/** Cantidad entera positiva, o `null` si el texto no sirve para emitir la orden. */
+export function cantidadEntera(valor: string): number | null {
+  if (valor.trim() === '') return null
+  const numero = Number(valor)
+  if (!Number.isInteger(numero) || numero <= 0) return null
+  return numero
+}
+
+function cantidadAportada(ids: string[], solicitudes: SolicitudCompra[]): number {
+  const elegidas = new Set(ids)
+  return solicitudes
+    .filter((solicitud) => elegidas.has(solicitud.id))
+    .reduce((total, solicitud) => total + solicitud.cantidad, 0)
+}
+
+/**
+ * Tilda o destilda una solicitud en el detalle de la orden.
+ *
+ * Al tildarla, su cantidad se carga en la línea del ítem de catálogo y varias solicitudes del
+ * mismo ítem se suman. Si la persona ya había escrito una cantidad a mano, se respeta como base y
+ * el aporte nuevo se suma encima; al destildar, esa cantidad manual no se toca.
+ *
+ * Una solicitud con artículo de texto libre no tiene ítem que mapear: el formulario la avisa y la
+ * línea se carga a mano.
+ */
+export function alternarSolicitudEnLineas(
+  lineas: LineaOrdenFormulario[],
+  solicitud: SolicitudCompra,
+  tildada: boolean,
+  solicitudes: SolicitudCompra[],
+): LineaOrdenFormulario[] {
+  const productoId = solicitud.producto_servicio_id
+  if (!productoId) return lineas
+
+  if (!tildada) {
+    const indice = lineas.findIndex((linea) => linea.solicitudIds.includes(solicitud.id))
+    if (indice === -1) return lineas
+    const resultado = lineas.flatMap((linea, i) => {
+      if (i !== indice) return [linea]
+      const restantes = linea.solicitudIds.filter((id) => id !== solicitud.id)
+      const aporte = cantidadAportada(restantes, solicitudes)
+      const cantidad = linea.editada ? linea.cantidad : aporte > 0 ? String(aporte) : ''
+      const quedoVacia = restantes.length === 0 && !linea.editada && cantidad === ''
+      return quedoVacia ? [] : [{ ...linea, solicitudIds: restantes, cantidad }]
+    })
+    return resultado.length > 0 ? resultado : [lineaOrdenVacia()]
+  }
+
+  const existente = lineas.findIndex((linea) => linea.productoId === productoId)
+  if (existente !== -1) {
+    return lineas.map((linea, i) => {
+      if (i !== existente || linea.solicitudIds.includes(solicitud.id)) return linea
+      const ids = [...linea.solicitudIds, solicitud.id]
+      const aporte = cantidadAportada(ids, solicitudes)
+      const cantidad = linea.editada
+        ? String((Number(linea.cantidad) || 0) + solicitud.cantidad)
+        : String(aporte)
+      return { ...linea, solicitudIds: ids, cantidad }
+    })
+  }
+
+  const nueva: LineaOrdenFormulario = {
+    productoId,
+    cantidad: String(solicitud.cantidad),
+    solicitudIds: [solicitud.id],
+    editada: false,
+  }
+  const vacia = lineas.findIndex((linea) => linea.productoId === '')
+  if (vacia === -1) return [...lineas, nueva]
+  return lineas.map((linea, i) => (i === vacia ? nueva : linea))
 }
 
 // --- Catalogo de productos y servicios ------------------------------------------------------

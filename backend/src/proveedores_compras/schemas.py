@@ -20,6 +20,10 @@ TipoProductoServicio = Literal["producto", "servicio"]
 # Ídem para `ck_orden_compra_estado`.
 EstadoOrdenCompra = Literal["emitida", "recibida", "cancelada"]
 
+# Criterios de orden del listado de órdenes. Espeja `OrdenOrdenes` del frontend: si se agrega
+# uno nuevo, se agrega acá y en las opciones del filtro.
+OrdenOrdenesCompra = Literal["fecha-desc", "fecha-asc", "items-desc", "items-asc"]
+
 # Ídem para `ck_recepcion_compra_tipo`.
 TipoRecepcion = Literal["total", "parcial"]
 
@@ -215,7 +219,9 @@ class OrdenCompraDetalleCreate(BaseModel):
     """
 
     producto_servicio_id: uuid.UUID = Field(..., description="Ítem del catálogo que se pide")
-    cantidad_pedida: decimal.Decimal = Field(..., gt=0, description="Cantidad, mayor a cero")
+    # Entero positivo, aunque la columna siga siendo `Numeric(10,2)`: no se piden fracciones de
+    # un ítem de catálogo, y migrar la columna tocaría los datos y la recepción existentes.
+    cantidad_pedida: int = Field(..., gt=0, description="Cantidad entera, mayor a cero")
 
 
 class OrdenCompraDetalleResponse(BaseModel):

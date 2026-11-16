@@ -281,16 +281,6 @@ export interface FiltrosTareas {
   tamanioPagina: number
 }
 
-/** Opción de una lista de selección única con buscador (`ComboboxBuscable`). */
-export interface OpcionCombo {
-  valor: string
-  etiqueta: string
-  /** Texto secundario (p. ej. el email) que también encuentra el buscador. */
-  detalle?: string
-  /** Las opciones con el mismo grupo se muestran juntas, bajo su título. */
-  grupo?: string
-}
-
 export interface OpcionSelect {
   value: string
   label: string
