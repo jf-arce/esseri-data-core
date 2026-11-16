@@ -455,6 +455,15 @@ defaults.
   evento o mueven dinero tienen una lista cerrada (`generar_orden_compra` solo con
   `solicitud_compra.aprobada`, `generar_cargo` con `inscripcion.confirmada` o `pago.rechazado`).
   Solo las cuatro que arman un mensaje admiten `notificacion_template_id`.
+- Los campos con valores cerrados llegan en `GET /workflows/tipos-evento` con `opciones`
+  (`[{valor, etiqueta}]`; `null` si el campo es libre). Las fijas están en `OPCIONES_POR_CAMPO`
+  (`constants.py`) y las que salen de una tabla (método de pago, nivel educativo) se leen al armar
+  el catálogo. Un campo con opciones solo admite `==` y `!=`, y al guardar la regla el backend
+  rechaza un valor que no esté en la lista (al evaluar un evento no se vuelve a chequear).
+- `bloques_sueltos` (en `POST` y `PATCH /workflows/reglas`, y en la lectura) guarda los bloques del
+  editor sin conectar al flujo, en la tabla `workflow_rule_borrador` (migración `8b0cbab76489`). No
+  se validan ni se ejecutan y editarlos no cambia el `updated_at` de la regla. En el `PATCH`,
+  omitirlo los conserva y mandar `[]` los borra. `nodos` sigue exigiendo al menos uno.
 - `GET /workflows/tipos-accion` devuelve, por acción, el default de aprobación humana, los eventos
   permitidos, si admite plantilla y el JSON Schema de su config.
 - Para habilitar una acción en otro evento, o `cambiar_estado` sobre otra entidad

@@ -771,6 +771,14 @@ RF cubiertos: RF-22, RF-23, RF-24, RF-25, RF-26
 | x | float |  |  |
 | y | float |  |  |
 
+### `WORKFLOW_RULE_BORRADOR`
+> Bloques del editor que no están conectados al flujo de la regla. Se guardan tal como los armó la persona (pueden estar incompletos) y el motor nunca los lee ni los ejecuta. Va en una tabla aparte, igual que `WORKFLOW_NODO_POSICION`, para que editarlos no modifique el `updated_at` funcional de la regla. Si la regla no tiene bloques sueltos no hay fila.
+
+| Campo | Tipo | Clave | Descripción |
+|---|---|---|---|
+| workflow_rule_id | uuid | PK, FK |  |
+| bloques_sueltos | jsonb |  | Lista de bloques (`id`, `tipo` y el resto de lo que guarda el editor). El backend solo valida la forma mínima y el tamaño (hasta 30 bloques) |
+
 ### `NOTIFICACION_TEMPLATE`
 > `nombre` es único (`uq_notificacion_template_nombre`).
 >
