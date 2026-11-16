@@ -382,10 +382,11 @@ describe('PortalFamiliaTramitePage', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Historial' }))
     expect(await screen.findByText('Cubierta por solicitud')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Solicitudes' }))
-    expect(screen.getByText('Pendiente')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Justificaciones' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Ver detalle' }))
+    expect(within(screen.getByRole('dialog')).getAllByText('Pendiente').length).toBeGreaterThan(0)
     const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true)
-    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar solicitud' }))
     await vi.waitFor(() => expect(mockedCancelarSolicitud).toHaveBeenCalledWith('solicitud-1'))
     confirmar.mockRestore()
   })
@@ -399,7 +400,7 @@ describe('PortalFamiliaTramitePage', () => {
     )
 
     await screen.findByRole('heading', { name: 'Resumen del período' })
-    fireEvent.click(screen.getByRole('tab', { name: 'Solicitudes' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Justificaciones' }))
     fireEvent.click(screen.getByRole('button', { name: 'Informar ausencia' }))
 
     expect(screen.getByRole('heading', { name: 'Informar ausencia' })).toBeInTheDocument()
@@ -421,7 +422,7 @@ describe('PortalFamiliaTramitePage', () => {
       </MemoryRouter>,
     )
     await screen.findByRole('heading', { name: 'Resumen del período' })
-    fireEvent.click(screen.getByRole('tab', { name: 'Solicitudes' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Justificaciones' }))
     fireEvent.click(screen.getByRole('button', { name: 'Informar ausencia' }))
     const dialogo = within(screen.getByRole('dialog'))
     fireEvent.change(dialogo.getByLabelText('Desde'), { target: { value: '2026-12-05' } })
@@ -665,7 +666,7 @@ describe('PortalFamiliaTramitePage', () => {
       )
 
       await screen.findByRole('heading', { name: 'Resumen del período' })
-      fireEvent.click(screen.getByRole('tab', { name: 'Solicitudes' }))
+      fireEvent.click(screen.getByRole('tab', { name: 'Justificaciones' }))
       fireEvent.click(screen.getByRole('button', { name: 'Informar ausencia' }))
 
       const dialogo = within(screen.getByRole('dialog'))
@@ -700,7 +701,7 @@ describe('PortalFamiliaTramitePage', () => {
       )
 
       await screen.findByRole('heading', { name: 'Resumen del período' })
-      fireEvent.click(screen.getByRole('tab', { name: 'Solicitudes' }))
+      fireEvent.click(screen.getByRole('tab', { name: 'Justificaciones' }))
       fireEvent.click(screen.getByRole('button', { name: 'Informar ausencia' }))
 
       const dialogo = within(screen.getByRole('dialog'))
@@ -725,7 +726,7 @@ describe('PortalFamiliaTramitePage', () => {
       )
 
       await screen.findByRole('heading', { name: 'Resumen del período' })
-      fireEvent.click(screen.getByRole('tab', { name: 'Solicitudes' }))
+      fireEvent.click(screen.getByRole('tab', { name: 'Justificaciones' }))
       fireEvent.click(screen.getByRole('button', { name: 'Informar ausencia' }))
 
       const dialogo = within(screen.getByRole('dialog'))
