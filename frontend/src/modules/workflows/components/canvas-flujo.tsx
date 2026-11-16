@@ -59,6 +59,7 @@ import type {
 } from '@/modules/workflows/types'
 import { etiquetaEvento } from '@/modules/workflows/utils'
 import {
+  desconectar,
   DISPARADOR_ID,
   etiquetaDeArista,
   ordenarArbol,
@@ -423,7 +424,8 @@ function LienzoFlujo(props: CanvasFlujoProps) {
   }) {
     const rama: RamaNodo | null =
       conexion.sourceHandle === 'si' ? 'si' : conexion.sourceHandle === 'no' ? 'no' : null
-    return puedeConectar(borrador.nodos, {
+    // Un bloque que ya está conectado se puede mover a otra salida: se valida como si estuviera suelto.
+    return puedeConectar(desconectar(borrador.nodos, conexion.target), {
       origenId: conexion.source === DISPARADOR_ID ? null : conexion.source,
       destinoId: conexion.target,
       rama,

@@ -55,7 +55,6 @@ import {
   borradorDesdeRegla,
   BORRADOR_VACIO,
   cambiarEventoDelBorrador,
-  conectar,
   deshacer,
   desconectar,
   insertarCondicionEn,
@@ -264,7 +263,10 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
   }
 
   function conectarNodos(conexion: ConexionPropuesta) {
-    cambiar((actual) => ({ ...actual, nodos: conectar(actual.nodos, conexion) }))
+    cambiar((actual) => ({
+      ...actual,
+      nodos: reconectar(actual.nodos, conexion.destinoId, conexion),
+    }))
   }
 
   // Un arrastre es un solo paso del historial: se registra al soltar los nodos.
