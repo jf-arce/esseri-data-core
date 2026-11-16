@@ -168,8 +168,10 @@ function LienzoFlujo(props: CanvasFlujoProps) {
   const [medidas, setMedidas] = useState<ReadonlyMap<string, Medida>>(new Map())
   // Posición de los nodos mientras se los arrastra. Se vuelca al borrador recién al soltarlos.
   const [arrastrando, setArrastrando] = useState<Readonly<Record<string, PosicionNodo>>>({})
-  // Catálogo que se abre al soltar una línea en el vacío: de qué salida venía y dónde cayó.
+  // Catálogo que se abre en el vacío: al soltar una línea (de qué salida venía) o con clic
+  // derecho (bloque suelto). Guarda además dónde se abrió.
   const [soltada, setSoltada] = useState<{
+    origen: 'linea' | 'menu'
     padreId: string | null
     rama: RamaNodo | null
     pantalla: PosicionNodo
@@ -415,8 +417,22 @@ function LienzoFlujo(props: CanvasFlujoProps) {
     const punto = 'changedTouches' in evento ? evento.changedTouches[0] : evento
     const pantalla = { x: punto.clientX, y: punto.clientY }
     setSoltada({
+      origen: 'linea',
       padreId: origen === DISPARADOR_ID ? null : origen,
       rama: estado.fromHandle.id === 'si' ? 'si' : estado.fromHandle.id === 'no' ? 'no' : null,
+      pantalla,
+      lienzo: screenToFlowPosition(pantalla),
+    })
+  }
+
+  function alMenuContextual(evento: MouseEvent | React.MouseEvent) {
+    evento.preventDefault()
+    if (soloLectura) return
+    const pantalla = { x: evento.clientX, y: evento.clientY }
+    setSoltada({
+      origen: 'menu',
+      padreId: null,
+      rama: null,
       pantalla,
       lienzo: screenToFlowPosition(pantalla),
     })
@@ -491,6 +507,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
         onNodeClick={(_, nodo) => props.onSeleccionar(nodo.id)}
         onNodeDoubleClick={(_, nodo) => props.onAbrirNodo(nodo.id)}
         onPaneClick={() => props.onSeleccionar(null)}
+        onPaneContextMenu={alMenuContextual}
         onNodeDragStop={(_, __, movidos) => alSoltarNodo(movidos)}
         nodesConnectable={!soloLectura}
         deleteKeyCode={null}
@@ -608,7 +625,8 @@ function LienzoFlujo(props: CanvasFlujoProps) {
             nombreEvento={nombreEvento}
             soloLectura={soloLectura}
             onElegir={(que) => {
-              if (soltada)
+              if (soltada?.origen === 'menu') props.onSoltarBloque(que, soltada.lienzo)
+              else if (soltada)
                 props.onAgregarEn(soltada.padreId, soltada.rama, que, undefined, soltada.lienzo)
               setSoltada(null)
             }}
