@@ -232,7 +232,6 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
     padreId: string | null,
     rama: RamaNodo | null,
     que: QueAgregar,
-    aviso?: string,
     posicionElegida?: PosicionNodo,
   ) {
     if (borrador.tipoEventoId === '') {
@@ -261,22 +260,6 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
           )
     cambiar((actual) => ({ ...actual, nodos: [...actual.nodos, nodo] }))
     setSeleccionId(nodo.id)
-    if (aviso) toast.info(aviso)
-  }
-
-  function agregarDesdePaleta(que: QueAgregar) {
-    const elegido = borrador.nodos.find((nodo) => nodo.id === seleccionId)
-    if (elegido?.tipo === 'condicion') {
-      const siLibre = borrador.nodos.every((n) => !(n.padreId === elegido.id && n.rama === 'si'))
-      agregarEn(
-        elegido.id,
-        siLibre ? 'si' : 'no',
-        que,
-        `Agregado a la salida ${siLibre ? 'Sí' : 'No'} de la condición seleccionada.`,
-      )
-    } else {
-      agregarEn(null, null, que, 'Agregado a continuación del disparador.')
-    }
   }
 
   function soltarBloque(que: QueAgregar, posicion: PosicionNodo) {
@@ -486,7 +469,6 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
           }
           onDeshacer={() => setHistorial(deshacer)}
           onRehacer={() => setHistorial(rehacer)}
-          onAgregarBloque={agregarDesdePaleta}
           anchoTapado={seleccionado && ancha ? ANCHO_INSPECTOR + 12 : 0}
           onSeleccionar={seleccionar}
           onAbrirNodo={abrirNodo}

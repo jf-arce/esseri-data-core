@@ -32,7 +32,7 @@ import {
   AristaFlujo,
   type AristaFlujo as TipoAristaFlujo,
 } from '@/modules/workflows/components/arista-flujo'
-import type { SimulacionNodo } from '@/modules/workflows/components/nodo-base'
+import { ANCHO_NODO_MIN, type SimulacionNodo } from '@/modules/workflows/components/nodo-base'
 import { NodoAccion, type NodoAccionFlujo } from '@/modules/workflows/components/nodo-accion'
 import {
   NodoCondicion,
@@ -81,6 +81,10 @@ const TIPOS_NODO: NodeTypes = {
 }
 const TIPOS_ARISTA: EdgeTypes = { flujo: AristaFlujo }
 
+/** Alto aproximado de un bloque nuevo, para centrarlo. */
+const ALTO_NODO_ESTIMADO = 90
+const DESPLAZAMIENTO_SUELTO = 28
+
 type NodoFlujo = NodoDisparadorFlujo | NodoCondicionFlujo | NodoAccionFlujo
 interface Medida {
   width: number
@@ -121,13 +125,10 @@ export interface CanvasFlujoProps {
   onAbrirNodo: (id: string) => void
   onDuplicarNodo: (id: string) => void
   onEliminarNodo: (id: string) => void
-  /** Alta desde el botón "Agregar bloque": el editor decide a qué salida se conecta. */
-  onAgregarBloque: (que: QueAgregar) => void
   onAgregarEn: (
     padreId: string | null,
     rama: RamaNodo | null,
     que: QueAgregar,
-    aviso?: string,
     posicion?: PosicionNodo,
   ) => void
   onSoltarBloque: (que: QueAgregar, posicion: PosicionNodo) => void
@@ -474,6 +475,23 @@ function LienzoFlujo(props: CanvasFlujoProps) {
     })
   }
 
+  // "Agregar bloque" deja el bloque suelto en el centro de lo que se ve (sin lo que tapa el
+  // panel), corrido un poco por cada suelto para que no se apilen justo encima.
+  function agregarEnElCentro(que: QueAgregar) {
+    const caja = contenedor.current
+    if (!caja) return
+    const medida = caja.getBoundingClientRect()
+    const centro = screenToFlowPosition({
+      x: medida.left + (medida.width - anchoTapado) / 2,
+      y: medida.top + medida.height / 2,
+    })
+    const sueltos = borrador.nodos.filter((nodo) => nodo.suelto).length
+    props.onSoltarBloque(que, {
+      x: centro.x - ANCHO_NODO_MIN / 2 + sueltos * DESPLAZAMIENTO_SUELTO,
+      y: centro.y - ALTO_NODO_ESTIMADO / 2 + sueltos * DESPLAZAMIENTO_SUELTO,
+    })
+  }
+
   function alSoltar(evento: DragEvent<HTMLDivElement>) {
     evento.preventDefault()
     const que = evento.dataTransfer.getData(MIME_BLOQUE)
@@ -531,7 +549,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
               tiposAccion={tiposAccion}
               nombreEvento={nombreEvento}
               soloLectura={soloLectura}
-              onAgregar={props.onAgregarBloque}
+              onAgregar={agregarEnElCentro}
             />
           )}
           <ResumenRegla borrador={borrador} tiposEvento={tiposEvento} />
@@ -627,7 +645,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
             onElegir={(que) => {
               if (soltada?.origen === 'menu') props.onSoltarBloque(que, soltada.lienzo)
               else if (soltada)
-                props.onAgregarEn(soltada.padreId, soltada.rama, que, undefined, soltada.lienzo)
+                props.onAgregarEn(soltada.padreId, soltada.rama, que, soltada.lienzo)
               setSoltada(null)
             }}
           />

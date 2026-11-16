@@ -9,7 +9,7 @@ interface PaletaBloquesProps {
   tiposAccion: TipoAccionCatalogo[]
   nombreEvento: string | null
   soloLectura: boolean
-  /** Alta con un clic: el editor lo conecta a la salida seleccionada o lo deja suelto. */
+  /** Alta con un clic: el bloque queda suelto en el centro del lienzo. */
   onAgregar: (que: QueBloque) => void
 }
 
