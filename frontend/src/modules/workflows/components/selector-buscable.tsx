@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { ChevronsUpDownIcon, PencilIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import {
   Command,
   CommandEmpty,
@@ -12,6 +11,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
+import { CLASE_SELECT_ADAPTABLE } from '@/modules/workflows/constants'
 import { buscarOpcionesCampo } from '@/modules/workflows/services/buscar-opciones-campo'
 import type { OpcionCampo } from '@/modules/workflows/types'
 
@@ -92,19 +92,23 @@ export function SelectorBuscable({
   return (
     <Popover open={abierto} onOpenChange={setAbierto}>
       <PopoverTrigger asChild>
-        <Button
-          variant="secondary"
+        <button
+          type="button"
           role="combobox"
           aria-label="Valor"
           aria-expanded={abierto}
           disabled={disabled}
-          className="min-w-0 justify-between bg-superficie font-normal"
+          // Mismo aspecto y tamaño que el resto de los desplegables de la condición.
+          className={cn(
+            CLASE_SELECT_ADAPTABLE,
+            'flex cursor-pointer items-center justify-between gap-1.5 rounded-lg border border-borde bg-superficie px-3 text-sm text-texto transition-colors outline-none disabled:cursor-not-allowed disabled:opacity-50',
+          )}
         >
-          <span className={cn('truncate', valor === '' && 'text-texto-2')}>
+          <span className={cn('line-clamp-2 break-words', valor === '' && 'text-desactivado')}>
             {valor === '' ? 'Buscar y elegir' : valor}
           </span>
-          <ChevronsUpDownIcon className="opacity-60" />
-        </Button>
+          <ChevronsUpDownIcon className="size-4 shrink-0 opacity-60" />
+        </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 p-0">
         <Command shouldFilter={false}>

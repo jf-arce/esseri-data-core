@@ -324,10 +324,10 @@ describe('sinConceptosDisponibles', () => {
 })
 
 describe('etiquetaEvento', () => {
-  it('nombra el evento en lenguaje de usuario y cae al nombre interno si no lo conoce', () => {
+  it('nombra el evento en lenguaje de usuario y humaniza el nombre si no lo conoce', () => {
     expect(etiquetaEvento('factura.vencida')).toBe('Vence una factura')
     expect(etiquetaEvento('solicitud_compra.aprobada')).toBe('Se aprueba una solicitud de compra')
-    expect(etiquetaEvento('evento.nuevo')).toBe('evento.nuevo')
+    expect(etiquetaEvento('evento.nuevo')).toBe('Evento nuevo')
   })
 })
 
@@ -425,5 +425,17 @@ describe('operadoresDeCampo', () => {
       '!=',
       'contiene',
     ])
+  })
+})
+
+describe('etiquetaEvento', () => {
+  it('conoce la revocación de ausencia por período', () => {
+    expect(etiquetaEvento('solicitud_ausencia_periodo.revocada')).toBe(
+      'Se revoca una ausencia por período',
+    )
+  })
+
+  it('un evento sin etiqueta no muestra puntos ni guiones bajos', () => {
+    expect(etiquetaEvento('mesa_examen.cerrada')).toBe('Mesa examen cerrada')
   })
 })

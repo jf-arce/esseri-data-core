@@ -251,7 +251,7 @@ campo_evento:
       etiqueta: Días de deuda
       tipo_dato: numero
     - nombre_interno: dias_vencido_texto
-      etiqueta: Días de deuda en texto ("1 día", "55 días")
+      etiqueta: Días de deuda en texto
       tipo_dato: texto
     - nombre_interno: monto_deuda
       etiqueta: Monto adeudado

@@ -53,11 +53,12 @@ export const ETIQUETA_ACCION: Record<TipoAccion, string> = {
 }
 
 // Cómo se nombra cada evento del catálogo (`TipoEventoNombre` en el backend) frente al usuario.
-// Un evento nuevo sin entrada acá se muestra con su nombre interno.
+// Un evento nuevo sin entrada acá se muestra con su nombre interno, sin puntos ni guiones bajos.
 const ETIQUETA_EVENTO: Record<string, string> = {
   'inasistencia.registrada': 'Se registra una inasistencia',
   'inasistencia.justificada': 'Se justifica una inasistencia',
   'factura.vencida': 'Vence una factura',
+  'solicitud_ausencia_periodo.revocada': 'Se revoca una ausencia por período',
   'inscripcion.cambio_matricula': 'Cambia la matrícula de una inscripción',
   'solicitud_inscripcion.aprobada': 'Se aprueba una solicitud de inscripción',
   'pago.registrado': 'Se registra un pago',
@@ -69,7 +70,10 @@ const ETIQUETA_EVENTO: Record<string, string> = {
 }
 
 export function etiquetaEvento(nombre: string): string {
-  return ETIQUETA_EVENTO[nombre] ?? nombre
+  const conocida = ETIQUETA_EVENTO[nombre]
+  if (conocida) return conocida
+  const legible = nombre.replace(/[._]+/g, ' ').trim()
+  return legible.charAt(0).toUpperCase() + legible.slice(1)
 }
 
 export const ETIQUETA_CRITICIDAD: Record<Criticidad, string> = {
