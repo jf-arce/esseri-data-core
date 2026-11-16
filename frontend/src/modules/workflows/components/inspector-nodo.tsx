@@ -1,8 +1,8 @@
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { CopyIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -10,20 +10,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   ConfigAccionCampos,
   type ContextoConfig,
 } from '@/modules/workflows/components/config-accion-campos'
 import { DestinatariosCampos } from '@/modules/workflows/components/destinatarios-campos'
+import { ResumenReglaCompleto } from '@/modules/workflows/components/resumen-regla'
 import { ValorComparacion } from '@/modules/workflows/components/valor-comparacion'
 import { PlantillaCampos } from '@/modules/workflows/components/plantilla-campos'
-import {
-  CLASE_SELECT_ADAPTABLE,
-  LIMITE_NOMBRE_REGLA,
-  MAX_COMPARACIONES,
-} from '@/modules/workflows/constants'
+import { CLASE_SELECT_ADAPTABLE, MAX_COMPARACIONES } from '@/modules/workflows/constants'
 import type { useDestinatariosDisponibles } from '@/modules/workflows/hooks/use-destinatarios-disponibles'
+import { usePantallaAncha } from '@/modules/workflows/hooks/use-pantalla-ancha'
 import type { usePlantillas } from '@/modules/workflows/hooks/use-plantillas'
 import {
   CRITICIDADES,
@@ -69,7 +69,7 @@ export interface InspectorNodoProps {
   soloLectura: boolean
   /** Primer problema del nodo, si falta algo. */
   error?: string
-  onCambiarRegla: (cambios: Partial<Pick<BorradorFlujo, 'nombre' | 'criticidad'>>) => void
+  onCambiarRegla: (cambios: Partial<Pick<BorradorFlujo, 'criticidad'>>) => void
   onCambiarEvento: (tipoEventoId: string) => void
   onCambiarNodo: (id: string, cambios: Partial<NodoEditor>) => void
   onDuplicar: (id: string) => void
@@ -113,16 +113,6 @@ function PanelDisparador({
   return (
     <div className="flex flex-col gap-4">
       <Field>
-        <FieldLabel htmlFor="regla-nombre">Nombre de la regla</FieldLabel>
-        <Input
-          id="regla-nombre"
-          value={borrador.nombre}
-          maxLength={LIMITE_NOMBRE_REGLA}
-          disabled={soloLectura}
-          onChange={(e) => onCambiarRegla({ nombre: e.target.value })}
-        />
-      </Field>
-      <Field>
         <FieldLabel htmlFor="regla-evento">Cuándo se dispara</FieldLabel>
         <Select
           value={borrador.tipoEventoId}
@@ -164,6 +154,7 @@ function PanelDisparador({
           </SelectContent>
         </Select>
       </Field>
+      <ResumenReglaCompleto borrador={borrador} tiposEvento={tiposEvento} />
     </div>
   )
 }
@@ -348,6 +339,12 @@ function PanelCondicion({
   )
 }
 
+type PestanaAccion = 'configuracion' | 'mensaje' | 'destinatarios'
+
+function pestanaDe(valor: string): PestanaAccion {
+  return valor === 'mensaje' || valor === 'destinatarios' ? valor : 'configuracion'
+}
+
 function PanelAccion({
   nodo,
   tiposAccion,
@@ -370,12 +367,17 @@ function PanelAccion({
   | 'onCambiarNodo'
 > & { nodo: NodoEditor }) {
   const catalogo = tiposAccion.find((tipo) => tipo.tipo_accion === nodo.tipoAccion)
-  const nombreEvento = evento?.nombre ?? null
-  const hayColumnaExtra =
-    (nodo.tipoAccion !== '' && catalogo?.admite_plantilla === true) ||
-    admiteDestinatarios(nodo.tipoAccion, nodo.config)
+  const [pestana, setPestana] = useState<PestanaAccion>('configuracion')
+  const conPlantilla = nodo.tipoAccion !== '' && catalogo?.admite_plantilla === true
+  const conDestinatarios = admiteDestinatarios(nodo.tipoAccion, nodo.config)
+  // Las pestañas que no aplican a esta acción no se muestran; si la elegida desaparece, se vuelve
+  // a la primera.
+  const activa: PestanaAccion =
+    (pestana === 'mensaje' && !conPlantilla) || (pestana === 'destinatarios' && !conDestinatarios)
+      ? 'configuracion'
+      : pestana
 
-  return (
+  const configuracion = (
     <div className="flex flex-col gap-4">
       <Field>
         <FieldLabel htmlFor="accion-tipo">Tipo de acción</FieldLabel>
@@ -396,7 +398,7 @@ function PanelAccion({
           </SelectTrigger>
           <SelectContent>
             {GRUPOS_ACCION.flatMap((grupo) => grupo.acciones).map((tipo) => {
-              const { estado, motivo } = estadoDeBloque(tipo, tiposAccion, nombreEvento)
+              const { estado, motivo } = estadoDeBloque(tipo, tiposAccion, evento?.nombre ?? null)
               const sinConcepto =
                 contexto.conceptos.length === 0 &&
                 (tipo === 'generar_cargo' || tipo === 'actualizar_cuenta_corriente')
@@ -435,36 +437,58 @@ function PanelAccion({
         />
         <FieldLabel htmlFor="accion-aprobacion">Requiere aprobación humana</FieldLabel>
       </Field>
-      {hayColumnaExtra && (
-        <div className="flex flex-col gap-4 border-t border-borde pt-4">
-          {nodo.tipoAccion !== '' && catalogo?.admite_plantilla && (
-            <div className="flex flex-col gap-2">
-              <PlantillaCampos
-                tipoAccion={nodo.tipoAccion}
-                plantillaId={nodo.plantillaId}
-                evento={evento}
-                plantillas={plantillas}
-                deshabilitado={soloLectura}
-                onElegir={(plantillaId) => onCambiarNodo(nodo.id, { plantillaId })}
-              />
-              <p className="text-xs text-texto-2">
-                Se guarda al instante y afecta a todas las reglas que la usan.
-              </p>
-            </div>
-          )}
-          {admiteDestinatarios(nodo.tipoAccion, nodo.config) && (
-            <DestinatariosCampos
-              seleccion={nodo.seleccion}
-              guardados={destinatariosGuardados}
-              disponibles={destinatariosDisponibles}
-              deshabilitado={soloLectura}
-              etiqueta={asignaTareas(nodo.tipoAccion) ? 'Asignar a' : undefined}
-              onCambiar={(seleccion) => onCambiarNodo(nodo.id, { seleccion })}
-            />
-          )}
-        </div>
-      )}
     </div>
+  )
+
+  const mensaje = nodo.tipoAccion !== '' && (
+    <div className="flex flex-col gap-2">
+      <PlantillaCampos
+        tipoAccion={nodo.tipoAccion}
+        plantillaId={nodo.plantillaId}
+        evento={evento}
+        plantillas={plantillas}
+        deshabilitado={soloLectura}
+        onElegir={(plantillaId) => onCambiarNodo(nodo.id, { plantillaId })}
+      />
+      <p className="text-xs text-texto-2">
+        Se guarda al instante y afecta a todas las reglas que la usan.
+      </p>
+    </div>
+  )
+
+  const destinatarios = (
+    <DestinatariosCampos
+      seleccion={nodo.seleccion}
+      guardados={destinatariosGuardados}
+      disponibles={destinatariosDisponibles}
+      deshabilitado={soloLectura}
+      etiqueta={asignaTareas(nodo.tipoAccion) ? 'Asignar a' : undefined}
+      onCambiar={(seleccion) => onCambiarNodo(nodo.id, { seleccion })}
+    />
+  )
+
+  if (!conPlantilla && !conDestinatarios) return configuracion
+  return (
+    <Tabs value={activa} onValueChange={(valor) => setPestana(pestanaDe(valor))}>
+      <TabsList aria-label="Secciones de la acción">
+        <TabsTrigger value="configuracion">Configuración</TabsTrigger>
+        {conPlantilla && <TabsTrigger value="mensaje">Mensaje</TabsTrigger>}
+        {conDestinatarios && <TabsTrigger value="destinatarios">Destinatarios</TabsTrigger>}
+      </TabsList>
+      <TabsContent value="configuracion" className="pt-4">
+        {configuracion}
+      </TabsContent>
+      {conPlantilla && (
+        <TabsContent value="mensaje" className="pt-4">
+          {mensaje}
+        </TabsContent>
+      )}
+      {conDestinatarios && (
+        <TabsContent value="destinatarios" className="pt-4">
+          {destinatarios}
+        </TabsContent>
+      )}
+    </Tabs>
   )
 }
 
@@ -481,11 +505,10 @@ export function InspectorNodo(props: InspectorNodoProps) {
         ? 'Qué se compara para decidir entre Sí y No.'
         : 'Qué hace la regla y a quién avisa.'
 
-  return (
-    <aside
-      aria-label={`Configurar ${titulo.toLowerCase()}`}
-      className="panel-entrar flex min-h-0 w-full min-w-0 flex-col gap-4 overflow-x-hidden overflow-y-auto rounded-panel bg-superficie p-4 break-words shadow-card"
-    >
+  const ancha = usePantallaAncha()
+
+  const cuerpo = (
+    <>
       <Encabezado titulo={titulo} descripcion={descripcion} onCerrar={onCerrar} />
       {error && <p className="text-sm font-medium text-error">{error}</p>}
       {nodo === null && <PanelDisparador {...props} />}
@@ -500,6 +523,8 @@ export function InspectorNodo(props: InspectorNodoProps) {
       {nodo?.tipo === 'accion' && (
         <PanelAccion
           {...props}
+          // Cada acción arranca en su primera pestaña.
+          key={nodo.id}
           nodo={nodo}
           destinatariosGuardados={props.destinatariosGuardados ?? SIN_DESTINATARIOS}
         />
@@ -516,6 +541,40 @@ export function InspectorNodo(props: InspectorNodoProps) {
           </Button>
         </div>
       )}
+    </>
+  )
+
+  if (!ancha)
+    return (
+      <Sheet open onOpenChange={(abierto) => !abierto && onCerrar()}>
+        <SheetContent
+          side="bottom"
+          showCloseButton={false}
+          aria-label={`Configurar ${titulo.toLowerCase()}`}
+          className="max-h-[85dvh] overflow-y-auto p-4"
+        >
+          <SheetTitle className="sr-only">{`Configurar ${titulo.toLowerCase()}`}</SheetTitle>
+          <SheetDescription className="sr-only">{descripcion}</SheetDescription>
+          {cuerpo}
+        </SheetContent>
+      </Sheet>
+    )
+
+  return (
+    <aside
+      aria-label={`Configurar ${titulo.toLowerCase()}`}
+      onKeyDown={(tecla) => {
+        // Un desplegable abierto se cierra con su propio Esc: solo cuenta el que nace en el panel.
+        if (
+          tecla.key === 'Escape' &&
+          tecla.target instanceof Node &&
+          tecla.currentTarget.contains(tecla.target)
+        )
+          onCerrar()
+      }}
+      className="panel-entrar absolute top-3 right-3 bottom-3 z-20 flex w-[380px] max-w-[calc(100%-1.5rem)] min-w-0 flex-col gap-4 overflow-x-hidden overflow-y-auto rounded-panel bg-superficie p-4 break-words shadow-overlay"
+    >
+      {cuerpo}
     </aside>
   )
 }

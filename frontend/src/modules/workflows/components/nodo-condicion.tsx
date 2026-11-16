@@ -1,29 +1,13 @@
-import { cn } from '@/lib/utils'
-import { CLASE_SELECT_ADAPTABLE } from '@/modules/workflows/constants'
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import { ArrowLeftRightIcon } from 'lucide-react'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { ValorComparacion } from '@/modules/workflows/components/valor-comparacion'
 import {
   BotonSumar,
   TarjetaNodo,
   type OpcionesAgregar,
   type SimulacionNodo,
 } from '@/modules/workflows/components/nodo-base'
-import type { CampoEvento, Operador } from '@/modules/workflows/types'
-import { ETIQUETA_OPERADOR, OPERADORES_POR_TIPO_DATO } from '@/modules/workflows/utils'
-import {
-  cambiarCampoDeComparacion,
-  textoCondicion,
-  type ComparacionEditor,
-  type NodoEditor,
-} from '@/modules/workflows/utils-grafo'
+import type { CampoEvento } from '@/modules/workflows/types'
+import { textoCondicion, type NodoEditor } from '@/modules/workflows/utils-grafo'
 
 export interface DatosNodoCondicion extends OpcionesAgregar {
   [clave: string]: unknown
@@ -33,17 +17,15 @@ export interface DatosNodoCondicion extends OpcionesAgregar {
   soloLectura: boolean
   incompleto?: string
   simulacion?: SimulacionNodo
-  onCambiarComparacion: (comparacion: ComparacionEditor) => void
 }
 
 export type NodoCondicionFlujo = Node<DatosNodoCondicion, 'condicion'>
 
 export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
   const { nodo, campos, soloLectura } = data
-  const primera = nodo.comparaciones[0]
-  const campo = campos.find((item) => item.nombre_interno === primera?.campo)
-  const operadores = campo ? OPERADORES_POR_TIPO_DATO[campo.tipo_dato] : []
   const adicionales = nodo.comparaciones.length - 1
+  // Solo la primera comparación: el resto se resume en "+ N más" y se edita en el panel.
+  const resumen = textoCondicion({ ...nodo, comparaciones: nodo.comparaciones.slice(0, 1) }, campos)
 
   return (
     <TarjetaNodo
@@ -61,71 +43,9 @@ export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
         position={Position.Left}
         className="size-3.5! border-0! bg-advertencia!"
       />
-      {primera ? (
-        <div className="nodrag nopan flex flex-col gap-1.5">
-          <Select
-            value={primera.campo}
-            disabled={soloLectura}
-            onValueChange={(nombre) =>
-              data.onCambiarComparacion(
-                cambiarCampoDeComparacion(
-                  campos.find((item) => item.nombre_interno === nombre) ?? null,
-                ),
-              )
-            }
-          >
-            <SelectTrigger
-              size="sm"
-              aria-label="Campo de la condición"
-              className={cn(CLASE_SELECT_ADAPTABLE, 'bg-superficie')}
-            >
-              <SelectValue placeholder="Elegir campo" />
-            </SelectTrigger>
-            <SelectContent>
-              {campos.map((item) => (
-                <SelectItem key={item.id} value={item.nombre_interno}>
-                  {item.etiqueta}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="grid grid-cols-[auto_1fr] gap-1.5">
-            <Select
-              value={primera.operador}
-              disabled={soloLectura || !campo}
-              onValueChange={(valor) => {
-                const operador = operadores.find((item) => item === valor)
-                if (operador) data.onCambiarComparacion({ ...primera, operador })
-              }}
-            >
-              <SelectTrigger
-                size="sm"
-                aria-label="Operador"
-                className={cn(CLASE_SELECT_ADAPTABLE, 'min-w-16 bg-superficie')}
-              >
-                <SelectValue placeholder="…" />
-              </SelectTrigger>
-              <SelectContent>
-                {operadores.map((operador: Operador) => (
-                  <SelectItem key={operador} value={operador}>
-                    {ETIQUETA_OPERADOR[operador]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {campo && (
-              <ValorComparacion
-                tipoDato={campo.tipo_dato}
-                valor={primera.valor}
-                disabled={soloLectura}
-                onChange={(valor) => data.onCambiarComparacion({ ...primera, valor })}
-              />
-            )}
-          </div>
-        </div>
-      ) : (
-        <p className="text-sm text-texto-2">{textoCondicion(nodo, campos)}</p>
-      )}
+      <p className="line-clamp-3 text-sm font-semibold text-texto" title={resumen}>
+        {resumen}
+      </p>
       {adicionales > 0 && (
         <p className="mt-1.5 text-xs text-texto-2">
           {`+ ${adicionales} ${adicionales === 1 ? 'comparación más' : 'comparaciones más'} (se cumplen ${
