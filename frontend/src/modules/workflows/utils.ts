@@ -107,7 +107,8 @@ export function esNumeroValido(texto: string): boolean {
 
 /** Un campo con valores cerrados solo se compara con "es" o "no es" (igual que el backend). */
 export function operadoresDeCampo(campo: CampoEvento): readonly Operador[] {
-  return campo.opciones === null ? OPERADORES_POR_TIPO_DATO[campo.tipo_dato] : ['==', '!=']
+  const cerrado = campo.opciones !== null || (campo.busqueda && !campo.permite_otro)
+  return cerrado ? ['==', '!='] : OPERADORES_POR_TIPO_DATO[campo.tipo_dato]
 }
 
 // Réplica de `CAMBIOS_ESTADO_PERMITIDOS` (por entidad) y `ENTIDAD_POR_EVENTO` en

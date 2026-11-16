@@ -19,6 +19,7 @@ export const RUTA_TAREAS = '/workflows/tareas'
 
 export const API_REGLAS = '/workflows/reglas'
 export const API_TIPOS_EVENTO = '/workflows/tipos-evento'
+export const API_CAMPOS_EVENTO = '/workflows/campos-evento'
 export const API_TIPOS_ACCION = '/workflows/tipos-accion'
 export const API_PLANTILLAS = '/workflows/plantillas'
 

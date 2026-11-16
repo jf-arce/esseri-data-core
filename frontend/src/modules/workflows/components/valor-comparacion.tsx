@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { SelectorBuscable } from '@/modules/workflows/components/selector-buscable'
 import { CLASE_SELECT_ADAPTABLE } from '@/modules/workflows/constants'
 import type { CampoEvento } from '@/modules/workflows/types'
 import { esNumeroValido } from '@/modules/workflows/utils'
@@ -43,6 +44,17 @@ export function ValorComparacion({
   className,
 }: ValorComparacionProps) {
   const { tipo_dato: tipoDato, opciones } = campo
+  if (campo.busqueda) {
+    return (
+      <SelectorBuscable
+        campoId={campo.id}
+        valor={valor}
+        disabled={disabled}
+        permiteOtro={campo.permite_otro}
+        onChange={onChange}
+      />
+    )
+  }
   if (opciones !== null) {
     return (
       <Select value={valor} disabled={disabled} onValueChange={onChange}>

@@ -460,6 +460,13 @@ defaults.
   (`constants.py`) y las que salen de una tabla (método de pago, nivel educativo, motivo de justificación, proveedor) se leen al armar
   el catálogo. Un campo con opciones solo admite `==` y `!=`, y al guardar la regla el backend
   rechaza un valor que no esté en la lista (al evaluar un evento no se vuelve a chequear).
+- Los campos con muchos valores (alumno, familia, artículo) llegan con `busqueda: true` y se
+  consultan por texto en `GET /workflows/campos-evento/{id}/opciones?q=` (hasta 20, sin distinguir
+  mayúsculas ni tildes; pide `workflows.leer`). Cada fuente arma el nombre igual que el módulo que
+  emite el evento (`BUSQUEDA_POR_CAMPO` en `constants.py`: "Apellido, Nombre" en inasistencias y
+  "Nombre Apellido" en facturas vencidas y cambios de matrícula). Al guardar, el valor tiene que
+  existir y solo se admite `==`/`!=`. `permite_otro: true` (el artículo de una solicitud de compra)
+  acepta además un valor libre. Al sumar un evento con un campo así, hay que agregarlo ahí.
 - `bloques_sueltos` (en `POST` y `PATCH /workflows/reglas`, y en la lectura) guarda los bloques del
   editor sin conectar al flujo, en la tabla `workflow_rule_borrador` (migración `8b0cbab76489`). No
   se validan ni se ejecutan y editarlos no cambia el `updated_at` de la regla. En el `PATCH`,

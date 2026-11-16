@@ -431,6 +431,8 @@ describe('validarBorrador', () => {
         etiqueta: 'Tipo',
         tipo_dato: 'texto' as const,
         opciones: [{ valor: 'tardanza', etiqueta: 'Tardanza' }],
+        busqueda: false,
+        permite_otro: false,
       },
     ]
     const condicion = (campo: string, operador: '>' | '==', valor: string): NodoEditor => ({

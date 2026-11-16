@@ -437,4 +437,5 @@ desconecta) y arrastrar desde la entrada de un bloque hasta la salida de otro ta
 líneas se rotulan según el paso ("Siempre", "Entonces", "Si no, pero si"…). Los bloques que no
 están conectados se guardan con la regla (`bloques_sueltos`) pero no se ejecutan ni se simulan, y
 no impiden guardar. En una condición sobre un campo con opciones, el valor es una lista y solo se
-puede elegir "es" o "no es".
+puede elegir "es" o "no es". Los campos de alumnos, familias y artículos usan un buscador que
+consulta al servidor (`selector-buscable`); el artículo permite además "Otro (escribir a mano)".

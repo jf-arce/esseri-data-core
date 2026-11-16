@@ -17,6 +17,7 @@ import {
   etiquetaEvento,
   filtrarReglas,
   insertarPlaceholder,
+  operadoresDeCampo,
   presentarCampo,
   resumenEnLinea,
   validarPlaceholders,
@@ -238,13 +239,23 @@ describe('insertarPlaceholder', () => {
 
 describe('validarPlaceholders', () => {
   const campos: CampoEvento[] = [
-    { id: 'c-1', nombre_interno: 'monto', etiqueta: 'Monto', tipo_dato: 'numero', opciones: null },
+    {
+      id: 'c-1',
+      nombre_interno: 'monto',
+      etiqueta: 'Monto',
+      tipo_dato: 'numero',
+      opciones: null,
+      busqueda: false,
+      permite_otro: false,
+    },
     {
       id: 'c-2',
       nombre_interno: 'dias_vencido',
       etiqueta: 'Días',
       tipo_dato: 'numero',
       opciones: null,
+      busqueda: false,
+      permite_otro: false,
     },
   ]
 
@@ -382,5 +393,37 @@ describe('presentarCampo', () => {
     const campos = ['a', 'b', 'c', 'd'].map((n) => campo(n, n.toUpperCase()))
 
     expect(resumenEnLinea(campos)).toBe('A · B · C')
+  })
+})
+
+describe('operadoresDeCampo', () => {
+  const base: CampoEvento = {
+    id: 'c',
+    nombre_interno: 'x',
+    etiqueta: 'X',
+    tipo_dato: 'texto',
+    opciones: null,
+    busqueda: false,
+    permite_otro: false,
+  }
+
+  it('un campo libre usa los operadores de su tipo', () => {
+    expect(operadoresDeCampo(base)).toEqual(['==', '!=', 'contiene'])
+  })
+
+  it('un campo con opciones o con búsqueda cerrada solo admite es / no es', () => {
+    expect(operadoresDeCampo({ ...base, opciones: [{ valor: 'a', etiqueta: 'A' }] })).toEqual([
+      '==',
+      '!=',
+    ])
+    expect(operadoresDeCampo({ ...base, busqueda: true })).toEqual(['==', '!='])
+  })
+
+  it('con búsqueda y "otro" conserva los operadores de texto', () => {
+    expect(operadoresDeCampo({ ...base, busqueda: true, permite_otro: true })).toEqual([
+      '==',
+      '!=',
+      'contiene',
+    ])
   })
 })

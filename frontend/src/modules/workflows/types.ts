@@ -39,6 +39,10 @@ export interface CampoEvento {
   tipo_dato: TipoDato
   /** Valores cerrados del campo; `null` = campo libre. */
   opciones: OpcionCampo[] | null
+  /** Demasiados valores para listarlos: se buscan por texto en el servidor. */
+  busqueda: boolean
+  /** Además de buscar, se puede escribir un valor a mano. */
+  permite_otro: boolean
 }
 
 export interface TipoEvento {

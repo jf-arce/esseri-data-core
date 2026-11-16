@@ -21,6 +21,8 @@ const evento: TipoEvento = {
       etiqueta: 'Días vencido',
       tipo_dato: 'numero',
       opciones: null,
+      busqueda: false,
+      permite_otro: false,
     },
     {
       id: 'c-2',
@@ -28,6 +30,8 @@ const evento: TipoEvento = {
       etiqueta: 'Monto adeudado',
       tipo_dato: 'numero',
       opciones: null,
+      busqueda: false,
+      permite_otro: false,
     },
   ],
 }

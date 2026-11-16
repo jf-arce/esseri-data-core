@@ -17,6 +17,8 @@ export const EVENTO_FACTURA: TipoEvento = {
       etiqueta: 'Días vencido',
       tipo_dato: 'numero',
       opciones: null,
+      busqueda: false,
+      permite_otro: false,
     },
     {
       id: 'c-2',
@@ -24,6 +26,8 @@ export const EVENTO_FACTURA: TipoEvento = {
       etiqueta: 'Monto de la deuda',
       tipo_dato: 'numero',
       opciones: null,
+      busqueda: false,
+      permite_otro: false,
     },
     {
       id: 'c-3',
@@ -31,6 +35,8 @@ export const EVENTO_FACTURA: TipoEvento = {
       etiqueta: 'Familia',
       tipo_dato: 'texto',
       opciones: null,
+      busqueda: false,
+      permite_otro: false,
     },
   ],
 }
