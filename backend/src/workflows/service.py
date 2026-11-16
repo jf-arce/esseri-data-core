@@ -5,6 +5,7 @@ eventos en `eventos_service.py` (ver el motivo ahí) y el despacho en `despacho_
 
 import uuid
 from collections import defaultdict
+from collections.abc import Callable
 from typing import get_args
 
 from pydantic import ValidationError
@@ -19,6 +20,7 @@ from src.workflows.constants import (
     ACCIONES_CON_APROBACION_POR_DEFECTO,
     ACCIONES_CON_PLANTILLA,
     ACCIONES_NO_IMPLEMENTADAS,
+    BUSQUEDA_POR_CAMPO,
     CAMBIOS_ESTADO_PERMITIDOS,
     CAMPOS_CON_OPCIONES_DE_TABLA,
     DESTINATARIOS_FAMILIARES,
@@ -94,6 +96,11 @@ def opciones_de_campos(db: Session, tipo_evento_nombre: str) -> dict[str, list[O
     return opciones
 
 
+def _permite_otro(tipo_evento_nombre: str, campo: str) -> bool:
+    config = BUSQUEDA_POR_CAMPO.get((tipo_evento_nombre, campo))
+    return config is not None and config[1]
+
+
 def listar_tipos_evento(db: Session) -> list[TipoEventoRead]:
     campos_por_tipo: dict[uuid.UUID, list[CampoEvento]] = defaultdict(list)
     for campo in db.scalars(select(CampoEvento).order_by(CampoEvento.nombre_interno)):
@@ -109,6 +116,10 @@ def listar_tipos_evento(db: Session) -> list[TipoEventoRead]:
                 etiqueta=c.etiqueta,
                 tipo_dato=c.tipo_dato,
                 opciones=opciones.get(c.nombre_interno),
+                busqueda=(tipo.nombre, c.nombre_interno) in BUSQUEDA_POR_CAMPO,
+                permite_otro=BUSQUEDA_POR_CAMPO.get((tipo.nombre, c.nombre_interno), (None, False))[
+                    1
+                ],
             )
             for c in campos_por_tipo[tipo.id]
         ]
@@ -163,6 +174,7 @@ def validar_condicion(
     condicion: dict[str, object],
     campos: dict[str, str],
     opciones: dict[str, list[OpcionCampoRead]] | None = None,
+    verificadores: dict[str, Callable[[str], bool]] | None = None,
 ) -> GrupoCondicion:
     """Valida el grupo de comparaciones contra los campos del evento. Con `opciones` (al guardar
     una regla) también exige que los campos enumerados usen un valor de su lista; al evaluar un
@@ -172,12 +184,15 @@ def validar_condicion(
     except ValidationError as error:
         raise CondicionInvalida(f"Condición inválida: {_resumen_errores(error)}") from error
     for comparacion in grupo.comparaciones:
-        _validar_comparacion(comparacion, campos, opciones or {})
+        _validar_comparacion(comparacion, campos, opciones or {}, verificadores or {})
     return grupo
 
 
 def _validar_comparacion(
-    comparacion: Condicion, campos: dict[str, str], opciones: dict[str, list[OpcionCampoRead]]
+    comparacion: Condicion,
+    campos: dict[str, str],
+    opciones: dict[str, list[OpcionCampoRead]],
+    verificadores: dict[str, Callable[[str], bool]],
 ) -> None:
     tipo_dato = campos.get(comparacion.campo)
     if tipo_dato is None:
@@ -199,6 +214,16 @@ def _validar_comparacion(
             raise CondicionInvalida(
                 f"'{comparacion.valor}' no es un valor válido para '{comparacion.campo}'. "
                 f"Opciones: {', '.join(o.valor for o in validas) or 'ninguna'}."
+            )
+    existe = verificadores.get(comparacion.campo)
+    if existe is not None:
+        if comparacion.operador not in OPERADORES_CON_OPCIONES:
+            raise CondicionInvalida(
+                f"'{comparacion.campo}' se elige de una lista: solo admite 'es' o 'no es'."
+            )
+        if not isinstance(comparacion.valor, str) or not existe(comparacion.valor):
+            raise CondicionInvalida(
+                f"'{comparacion.valor}' no coincide con ningún valor de '{comparacion.campo}'."
             )
     try:
         coaccionar_valor(tipo_dato, comparacion.valor)

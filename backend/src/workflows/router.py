@@ -14,6 +14,7 @@ from src.auth.dependencies import requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
 from src.workflows import (
+    busqueda_service,
     despacho_service,
     ejecuciones_service,
     notificaciones_service,
@@ -31,7 +32,7 @@ from src.workflows.dependencies import (
     obtener_plantilla_o_404,
     obtener_regla_o_404,
 )
-from src.workflows.exceptions import TareaNoEncontrada
+from src.workflows.exceptions import CampoSinBusqueda, TareaNoEncontrada
 from src.workflows.models import NotificacionTemplate, WorkflowRule
 from src.workflows.schemas import (
     DestinatarioTipo,
@@ -45,6 +46,7 @@ from src.workflows.schemas import (
     NotificacionTemplateCreate,
     NotificacionTemplateRead,
     NotificacionTemplateUpdate,
+    OpcionCampoRead,
     ResumenDespacho,
     ResumenWorkflowsRead,
     SimulacionEntrada,
@@ -77,6 +79,16 @@ PlantillaActual = Annotated[NotificacionTemplate, Depends(obtener_plantilla_o_40
 @router.get("/tipos-evento", response_model=list[TipoEventoRead])
 def listar_tipos_evento(db: DbSession, _: PuedeLeer):
     return service.listar_tipos_evento(db)
+
+
+@router.get("/campos-evento/{campo_id}/opciones", response_model=list[OpcionCampoRead])
+def buscar_opciones_de_campo(
+    campo_id: uuid.UUID, db: DbSession, _: PuedeLeer, q: Annotated[str, Query(max_length=100)] = ""
+):
+    opciones = busqueda_service.buscar_en_campo(db, campo_id, q)
+    if opciones is None:
+        raise CampoSinBusqueda()
+    return opciones
 
 
 @router.get("/tipos-accion", response_model=list[TipoAccionRead])

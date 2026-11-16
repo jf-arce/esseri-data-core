@@ -166,6 +166,27 @@ CAMPOS_CON_OPCIONES_DE_TABLA: dict[
 }
 OPERADORES_CON_OPCIONES: frozenset[str] = frozenset({"==", "!="})
 
+# Campos con muchos valores posibles (personas, artículos): el editor los busca por texto en
+# `GET /workflows/campos-evento/{id}/opciones`. Cada fuente arma el texto igual que el módulo que
+# emite el evento. El `bool` indica si además se admite un valor libre ("otro").
+FuenteBusqueda = Literal[
+    "alumno_apellido_nombre",
+    "alumno_nombre_apellido",
+    "familia_apellido_nombre",
+    "familia_apellido",
+    "producto",
+]
+BUSQUEDA_POR_CAMPO: dict[tuple[str, str], tuple[FuenteBusqueda, bool]] = {
+    ("inasistencia.registrada", "alumno_nombre"): ("alumno_apellido_nombre", False),
+    ("inasistencia.justificada", "alumno_nombre"): ("alumno_apellido_nombre", False),
+    ("solicitud_ausencia_periodo.revocada", "alumno_nombre"): ("alumno_apellido_nombre", False),
+    ("inscripcion.cambio_matricula", "alumno_nombre"): ("alumno_nombre_apellido", False),
+    ("factura.vencida", "alumno_nombre"): ("alumno_nombre_apellido", False),
+    ("factura.vencida", "nombre_familia"): ("familia_apellido_nombre", False),
+    ("factura.vencida", "apellido_familia"): ("familia_apellido", False),
+    ("solicitud_compra.aprobada", "item"): ("producto", True),
+}
+
 # Entidades de evento de las que se puede llegar a un alumno, necesario para los destinatarios
 # `responsable_economico` y `responsables_habilitados`.
 ENTIDADES_CON_ALUMNO: frozenset[str] = frozenset(

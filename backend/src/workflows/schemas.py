@@ -59,6 +59,10 @@ class CampoEventoRead(BaseModel):
     tipo_dato: str
     # `None` = campo libre; con lista, la condición solo acepta `==`/`!=` y uno de estos valores.
     opciones: list[OpcionCampoRead] | None = None
+    # Muchos valores posibles: se buscan por texto en `/campos-evento/{id}/opciones`.
+    busqueda: bool = False
+    # Además de buscar, se admite escribir un valor libre ("otro").
+    permite_otro: bool = False
 
 
 class TipoEventoRead(BaseModel):

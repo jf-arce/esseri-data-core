@@ -19,7 +19,7 @@ from src.auditoria.service import log_audit
 from src.auth.models import Rol, Usuario
 from src.fechas import ahora_utc
 from src.models import EventLog
-from src.workflows import destinatarios_service
+from src.workflows import busqueda_service, destinatarios_service
 from src.workflows.constants import (
     ENTIDAD_POR_EVENTO,
     MAX_NODOS_POR_REGLA,
@@ -275,6 +275,7 @@ def _validar_contenido(
                 nodo.condicion.model_dump(mode="json"),
                 campos,
                 opciones_de_campos(db, tipo_evento.nombre),
+                busqueda_service.verificadores_de_campos(db, tipo_evento.nombre),
             )
             return NodoValidado(nodo, grupo.model_dump(mode="json"), None, False, orden)
 

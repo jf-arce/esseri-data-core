@@ -23,6 +23,13 @@ class EntidadDeEventoInvalida(AppException):
         )
 
 
+class CampoSinBusqueda(AppException):
+    status_code = 404
+
+    def __init__(self):
+        super().__init__("El campo indicado no existe o no tiene lista de valores.")
+
+
 class TipoEventoNoEncontrado(AppException):
     status_code = 404
 
