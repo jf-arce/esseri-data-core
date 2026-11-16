@@ -557,10 +557,14 @@ function LienzoFlujo(props: CanvasFlujoProps) {
         {!soloLectura && (
           <Panel
             position="bottom-left"
-            className="ml-16! flex items-center gap-0.5 rounded-lg bg-superficie p-0.5 shadow-card"
+            className="ml-16! flex items-center overflow-hidden rounded-lg border border-borde bg-superficie shadow-card"
           >
             <TooltipProvider>
-              <div className="flex items-center" role="group" aria-label="Edición del flujo">
+              <div
+                className="flex items-center divide-x divide-borde"
+                role="group"
+                aria-label="Edición del flujo"
+              >
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button

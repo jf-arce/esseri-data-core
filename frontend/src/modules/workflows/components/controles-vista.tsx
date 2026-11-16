@@ -8,7 +8,7 @@ export function ControlesVista() {
   return (
     <Panel
       position="bottom-left"
-      className="flex flex-col gap-0.5 rounded-lg bg-superficie p-0.5 shadow-card"
+      className="flex flex-col divide-y divide-borde overflow-hidden rounded-lg border border-borde bg-superficie shadow-card"
     >
       <BotonIcono etiqueta="Acercar" lado="right" onClick={() => void zoomIn({ duration: 150 })}>
         <PlusIcon />
