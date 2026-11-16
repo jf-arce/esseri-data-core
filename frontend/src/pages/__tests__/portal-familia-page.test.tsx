@@ -158,13 +158,13 @@ describe('PortalFamiliaPage', () => {
       await within(screen.getByRole('group', { name: 'Alumnos vinculados' })).findByText('2'),
     ).toBeInTheDocument()
     expect(
-      await within(screen.getByRole('group', { name: 'Asistencias sin justificar' })).findByText(
-        '1',
-      ),
+      await within(screen.getByRole('group', { name: /Ausencias? pendientes?/ })).findByText('1'),
     ).toBeInTheDocument()
-    expect(
-      await within(screen.getByRole('group', { name: 'Mensajes sin leer' })).findByText('2'),
-    ).toBeInTheDocument()
+
+    const atajoMensajes = screen.getByRole('link', { name: /Comunicaciones sin leer/ })
+    expect(atajoMensajes).toHaveAttribute('href', '/familia/comunicaciones')
+    expect(atajoMensajes.querySelector('.lucide-chevron-right')).not.toBeNull()
+    expect(screen.queryByRole('link', { name: /Ver mensajes/ })).not.toBeInTheDocument()
   })
 
   it('avisa las ausencias pendientes y ofrece justificarlas', async () => {
@@ -179,7 +179,7 @@ describe('PortalFamiliaPage', () => {
     mockedListarAsistencias.mockResolvedValue([])
     renderPage()
 
-    const indicador = screen.getByRole('group', { name: 'Asistencias sin justificar' })
+    const indicador = screen.getByRole('group', { name: /Ausencias? pendientes?/ })
     expect(await within(indicador).findByText('0')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Justificar ausencia/ })).not.toBeInTheDocument()
   })
@@ -202,7 +202,7 @@ describe('PortalFamiliaPage', () => {
     ])
     renderPage()
 
-    const indicador = screen.getByRole('group', { name: 'Asistencias sin justificar' })
+    const indicador = screen.getByRole('group', { name: /Ausencias? pendientes?/ })
     expect(await within(indicador).findByText('0')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Justificar ausencia/ })).not.toBeInTheDocument()
   })
@@ -265,23 +265,24 @@ describe('PortalFamiliaPage', () => {
     expect(await within(tarjeta).findByText('2 vencidas')).toBeInTheDocument()
   })
 
-  it('ofrece accesos rápidos solo a rutas existentes del portal', () => {
+  it('ofrece asistencias, facturación y calendario en cada alumno', async () => {
     renderPage()
 
-    const tarjeta = tarjetaCon('Accesos rápidos')
-    const accesos = within(tarjeta)
+    const fila = screen.getByText('Gómez, Juan').closest('li')
+    expect(fila).not.toBeNull()
+    const atajos = within(fila as HTMLElement)
       .getAllByRole('link')
       .map((link) => ({
         nombre: link.textContent?.trim(),
         href: link.getAttribute('href'),
       }))
 
-    expect(accesos).toEqual([
-      { nombre: 'Calendario', href: '/familia/calendario' },
-      { nombre: 'Mi cuenta', href: '/familia/facturacion' },
+    expect(atajos).toEqual([
       { nombre: 'Asistencias', href: '/familia/asistencias' },
-      { nombre: 'Informar ausencia', href: '/familia/informar-ausencia' },
+      { nombre: 'Facturación', href: '/familia/facturacion?alumno=alumno-1' },
+      { nombre: 'Horario', href: '/familia/calendario?alumno=alumno-1' },
     ])
+    expect(screen.queryByText('Accesos rápidos')).not.toBeInTheDocument()
   })
 
   it('sigue en pie si fallan las consultas del resumen', async () => {
