@@ -110,7 +110,9 @@ describe('PortalFamiliaCalendarioPage', () => {
     expect(grilla.getByText('Profesor: María González')).toBeInTheDocument()
     expect(grilla.getByText('Profesor: Laura Díaz')).toBeInTheDocument()
     expect(grilla.getAllByText('09:00 – 10:00').length).toBeGreaterThan(0)
-    expect(screen.queryByText('Detalle de clase')).not.toBeInTheDocument()
+    expect(screen.getByText('Detalle de clase')).toBeInTheDocument()
+    expect(screen.getByText('Día')).toBeInTheDocument()
+    expect(screen.getByText('Docente')).toBeInTheDocument()
   })
 
   it('permite recorrer los días en la agenda compacta', async () => {
