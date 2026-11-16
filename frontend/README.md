@@ -423,3 +423,10 @@ Parámetros de la ruta de alta: `?evento=<id>` abre el lienzo con el disparador 
 `?duplicar=<id>` abre una copia (inactiva y sin guardar) de otra regla. La lógica pura del editor
 (borrador, validación local, auto-layout, frase, deshacer, duplicado) está en
 `src/modules/workflows/utils-grafo.ts` y se prueba con `npm test`.
+
+El editor ocupa el alto de la ventana (`100dvh` menos el encabezado del layout) y no tiene scroll de
+página. Los componentes viven en `src/modules/workflows/components/`: `barra-editor` (migas, nombre,
+activa, guardar), `canvas-flujo` (lienzo y paneles flotantes), `catalogo-bloques` (lista con
+buscador, compartida por `paleta-bloques` y por el "+" de cada salida), `inspector-nodo` (panel
+flotante; hoja inferior debajo de `lg`), `resumen-regla` (chip) y `simulador-regla` (panel "Probar
+regla").
