@@ -12,7 +12,7 @@ const ATAJOS: { teclas: string; accion: string }[] = [
 const GESTOS: string[] = [
   'Para conectar, arrastrá desde un punto de salida (derecha) hasta el punto de entrada (izquierda) de otro bloque.',
   'Si soltás la línea en un lugar vacío, se abre el catálogo y el bloque nuevo queda conectado.',
-  'Para mover una conexión, arrastrá uno de sus extremos a otro bloque. Si lo soltás en el vacío, se desconecta.',
+  'Para cambiar de dónde sale un bloque, arrastrá el extremo de origen de su línea a otra salida (en el vacío, se desconecta). También podés arrastrar desde la entrada de un bloque hasta la salida de otro.',
   'Hacé clic sobre una línea para insertar una condición en el medio (+) o desconectarla (×).',
   'Un bloque sin conectar se guarda con la regla, pero no se ejecuta.',
 ]

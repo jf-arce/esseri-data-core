@@ -279,6 +279,9 @@ function LienzoFlujo(props: CanvasFlujoProps) {
         .map((nodo) => ({
           id: `arista-${nodo.id}`,
           type: 'flujo',
+          // Solo el extremo de origen se reengancha: el de destino queda libre para arrastrar
+          // desde la entrada de un bloque conectado hacia la salida de otro.
+          reconnectable: 'source',
           source: nodo.padreId ?? DISPARADOR_ID,
           sourceHandle: nodo.rama ?? SALIDA_DISPARADOR,
           target: nodo.id,

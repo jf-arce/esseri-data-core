@@ -432,8 +432,8 @@ flotante; hoja inferior debajo de `lg`), `resumen-regla` (chip) y `simulador-reg
 regla").
 
 Interacción del lienzo: al soltar una línea en un lugar vacío se abre el catálogo y el bloque queda
-conectado a esa salida; arrastrar un extremo de una conexión la mueve (soltada en el vacío, la
-desconecta); al seleccionar una línea aparecen "+" (inserta una condición en el medio) y "×". Las
+conectado a esa salida; arrastrar el extremo de origen de una conexión la mueve (soltada en el vacío, la
+desconecta) y arrastrar desde la entrada de un bloque hasta la salida de otro también; al seleccionar una línea aparecen "+" (inserta una condición en el medio) y "×". Las
 líneas se rotulan según el paso ("Siempre", "Entonces", "Si no, pero si"…). Los bloques que no
 están conectados se guardan con la regla (`bloques_sueltos`) pero no se ejecutan ni se simulan, y
 no impiden guardar. En una condición sobre un campo con opciones, el valor es una lista y solo se
