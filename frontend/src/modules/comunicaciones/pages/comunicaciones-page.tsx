@@ -230,7 +230,6 @@ function ListaFamilia({
         <PortalFamiliaWatermark />
         <div className="relative z-10">
           <PortalFamiliaShell
-            icono={<MegaphoneIcon aria-hidden="true" className="size-8" />}
             titulo="Comunicaciones"
             descripcion="Avisos institucionales y de curso"
             etiqueta="Portal de familia"

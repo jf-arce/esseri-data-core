@@ -1,9 +1,7 @@
 import {
   BarChart3Icon,
-  CalendarCheckIcon,
   CalendarDaysIcon,
   CheckIcon,
-  ClipboardCheckIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -538,13 +536,6 @@ export function PortalFamiliaTramitePage({
     <section className="relative isolate flex w-full flex-col">
       <PortalFamiliaWatermark />
       <PortalFamiliaShell
-        icono={
-          esAsistencias ? (
-            <CalendarCheckIcon aria-hidden="true" className="size-8" />
-          ) : (
-            <ClipboardCheckIcon aria-hidden="true" className="size-8" />
-          )
-        }
         titulo={titulo}
         descripcion={descripcion}
         etiqueta="Portal de familia"

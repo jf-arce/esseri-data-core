@@ -207,7 +207,6 @@ export function PortalFamiliaCalendarioPage() {
       <PortalFamiliaWatermark />
       <div className="relative z-10">
         <PortalFamiliaShell
-          icono={<CalendarDaysIcon aria-hidden="true" className="size-8" />}
           titulo="Calendario"
           descripcion="Consultá el horario semanal de cada alumno a tu cargo."
           etiqueta="Portal de familia"
