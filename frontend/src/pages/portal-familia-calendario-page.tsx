@@ -3,7 +3,6 @@ import {
   BookOpenIcon,
   CalculatorIcon,
   CalendarDaysIcon,
-  ClockIcon,
   EarthIcon,
   FlaskConicalIcon,
   GlobeIcon,
@@ -72,70 +71,10 @@ function rangoHora(hora: string): string {
 
 type Franja = MateriaCurso['horarios'][number] & { materia: MateriaCurso }
 
-function DetalleClase({ franja }: { franja: Franja | null }) {
-  if (!franja) {
-    return (
-      <p className="py-6 text-center text-sm text-[#6B6478]">
-        Seleccioná una clase de la grilla para ver su detalle.
-      </p>
-    )
-  }
-  const estilo = estiloMateria(franja.materia.materia_nombre)
-  const Icono = estilo.Icono
-  const docente = franja.materia.docentes?.join(', ') || 'Sin docente asignado'
-
-  return (
-    <div className="flex flex-col gap-5">
-      <div className={cn('flex items-center gap-4 rounded-[16px] px-4 py-4', estilo.bg)}>
-        <span
-          className={cn(
-            'flex size-14 shrink-0 items-center justify-center rounded-[14px] bg-white/70',
-            estilo.texto,
-          )}
-        >
-          <Icono aria-hidden="true" className="size-7" />
-        </span>
-        <p className="font-heading text-[24px] leading-tight font-bold text-[#241A33]">
-          {franja.materia.materia_nombre}
-        </p>
-      </div>
-
-      <div className="flex items-start gap-3.5 border-t border-[#F1EBF7] pt-5">
-        <CalendarDaysIcon aria-hidden="true" className="mt-0.5 size-6 shrink-0 text-[#6B6478]" />
-        <div>
-          <p className="text-[14px] text-[#6B6478]">Día</p>
-          <p className="text-[18px] font-semibold text-[#2B2338]">
-            {NOMBRES_DIA[franja.dia_semana - 1] ?? '—'}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex items-start gap-3.5 border-t border-[#F1EBF7] pt-5">
-        <ClockIcon aria-hidden="true" className="mt-0.5 size-6 shrink-0 text-[#6B6478]" />
-        <div>
-          <p className="text-[14px] text-[#6B6478]">Horario</p>
-          <p className="text-[18px] font-semibold text-[#2B2338]">
-            {rangoHora(franja.hora_inicio)} – {rangoHora(franja.hora_fin)}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex items-start gap-3.5 border-t border-[#F1EBF7] pt-5">
-        <UserRoundIcon aria-hidden="true" className="mt-0.5 size-6 shrink-0 text-[#6B6478]" />
-        <div>
-          <p className="text-[14px] text-[#6B6478]">Docente</p>
-          <p className="text-[18px] font-semibold text-[#2B2338]">{docente}</p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export function PortalFamiliaCalendarioPage() {
   const { alumnos, cargando } = useMisAlumnos(true)
   const [searchParams] = useSearchParams()
   const [alumnoId, setAlumnoId] = useState(() => searchParams.get('alumno') ?? '')
-  const [seleccionId, setSeleccionId] = useState<string | null>(null)
   const [diaAgenda, setDiaAgenda] = useState<number | null>(null)
   const alumno = alumnos.find((item) => item.alumno_id === alumnoId) ?? alumnos[0]
   const {
@@ -172,17 +111,7 @@ export function PortalFamiliaCalendarioPage() {
     )
   }, [puntos, franjas])
 
-  const primeraFranja = useMemo(
-    () =>
-      [...franjas].sort(
-        (a, b) => a.dia_semana - b.dia_semana || aMinutos(a.hora_inicio) - aMinutos(b.hora_inicio),
-      )[0] ?? null,
-    [franjas],
-  )
-
-  const activa = franjas.find((franja) => franja.id === seleccionId) ?? primeraFranja
-  const diaActivo = activa?.dia_semana
-  const diaVisible = diaAgenda ?? diaActivo ?? 1
+  const diaVisible = diaAgenda ?? 1
   const franjasDelDia = useMemo(
     () =>
       franjas
@@ -193,10 +122,6 @@ export function PortalFamiliaCalendarioPage() {
 
   function elegirDia(dia: number) {
     setDiaAgenda(dia)
-    const primera = franjas
-      .filter((franja) => franja.dia_semana === dia)
-      .sort((a, b) => aMinutos(a.hora_inicio) - aMinutos(b.hora_inicio))[0]
-    if (primera) setSeleccionId(primera.id)
   }
 
   return (
@@ -234,242 +159,232 @@ export function PortalFamiliaCalendarioPage() {
               </Empty>
             </PortalCard>
           ) : (
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
-              <PortalCard
-                titulo="Horario semanal"
-                descripcion={alumno?.division_etiqueta ?? 'Todavía sin división asignada'}
-                tituloClassName="font-heading text-[26px] leading-tight font-bold tracking-[-0.01em] text-[#241A33]"
-                headerClassName="border-b border-[#F1EBF7] px-6 pt-6 pb-6"
-                contentClassName="px-6 pt-6 pb-6"
-                accion={
-                  <div className="w-full sm:w-64">
-                    <Field>
-                      <FieldLabel htmlFor="calendario-alumno">Alumno</FieldLabel>
-                      <Select
-                        value={alumno?.alumno_id ?? ''}
-                        onValueChange={(valor) => {
-                          setAlumnoId(valor)
-                          setSeleccionId(null)
-                          setDiaAgenda(null)
-                        }}
+            <PortalCard
+              titulo="Horario semanal"
+              descripcion={alumno?.division_etiqueta ?? 'Todavía sin división asignada'}
+              tituloClassName="font-heading text-[26px] leading-tight font-bold tracking-[-0.01em] text-[#241A33]"
+              headerClassName="border-b border-[#F1EBF7] px-6 pt-6 pb-6"
+              contentClassName="px-6 pt-6 pb-6"
+              accion={
+                <div className="w-full sm:w-64">
+                  <Field>
+                    <FieldLabel htmlFor="calendario-alumno">Alumno</FieldLabel>
+                    <Select
+                      value={alumno?.alumno_id ?? ''}
+                      onValueChange={(valor) => {
+                        setAlumnoId(valor)
+                        setDiaAgenda(null)
+                      }}
+                    >
+                      <SelectTrigger
+                        id="calendario-alumno"
+                        className="h-11 w-full rounded-[12px] border-[#E7DDF1] bg-white text-[15px]"
                       >
-                        <SelectTrigger
-                          id="calendario-alumno"
-                          className="h-11 w-full rounded-[12px] border-[#E7DDF1] bg-white text-[15px]"
+                        <span className="flex items-center gap-2">
+                          <UserRoundIcon aria-hidden="true" className="size-4 text-[#6B6478]" />
+                          <SelectValue placeholder="Seleccioná un alumno" />
+                        </span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {alumnos.map((item) => (
+                          <SelectItem key={item.alumno_id} value={item.alumno_id}>
+                            {item.nombre} {item.apellido}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+              }
+            >
+              {cargandoHorario ? (
+                <Skeleton className="h-80 w-full rounded-[16px] bg-[#F3EDF9]" />
+              ) : error ? (
+                <p className="rounded-[16px] border border-dashed border-[#E4D9F0] bg-[#FBF9FD] p-4 text-sm text-[#6B6478]">
+                  No pudimos cargar el calendario de este alumno. Probá de nuevo en unos minutos.
+                </p>
+              ) : materiasCurso.length === 0 ? (
+                <Empty className="min-h-56">
+                  <EmptyMedia variant="neutral">
+                    <CalendarDaysIcon />
+                  </EmptyMedia>
+                  <EmptyTitle>Todavía no hay materias cargadas</EmptyTitle>
+                  <EmptyDescription>
+                    Cuando el colegio cargue el horario del curso, las materias van a aparecer acá.
+                  </EmptyDescription>
+                </Empty>
+              ) : (
+                <>
+                  <div data-testid="calendario-grilla" className="hidden lg:block">
+                    <div className="overflow-x-auto">
+                      <div className="min-w-[820px]">
+                        <div
+                          className="grid overflow-hidden rounded-[18px] border border-[#EFE7F6] bg-white"
+                          style={{
+                            gridTemplateColumns: '8rem repeat(5, minmax(0, 1fr))',
+                            gridTemplateRows: `auto ${filasHorario
+                              .map(
+                                (fila) =>
+                                  `minmax(78px, ${Math.max(1, (fila.fin - fila.inicio) / 60)}fr)`,
+                              )
+                              .join(' ')}`,
+                          }}
                         >
-                          <span className="flex items-center gap-2">
-                            <UserRoundIcon aria-hidden="true" className="size-4 text-[#6B6478]" />
-                            <SelectValue placeholder="Seleccioná un alumno" />
-                          </span>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {alumnos.map((item) => (
-                            <SelectItem key={item.alumno_id} value={item.alumno_id}>
-                              {item.nombre} {item.apellido}
-                            </SelectItem>
+                          <div className="bg-[#FBF9FD]" aria-hidden="true" />
+                          {DIAS.map((dia) => (
+                            <div
+                              key={dia}
+                              className="border-l border-[#EFE7F6] bg-[#FBF9FD] px-3 py-3 text-center text-[15px] font-semibold text-[#2B2338]"
+                            >
+                              {NOMBRES_DIA[dia - 1]}
+                            </div>
                           ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                  </div>
-                }
-              >
-                {cargandoHorario ? (
-                  <Skeleton className="h-80 w-full rounded-[16px] bg-[#F3EDF9]" />
-                ) : error ? (
-                  <p className="rounded-[16px] border border-dashed border-[#E4D9F0] bg-[#FBF9FD] p-4 text-sm text-[#6B6478]">
-                    No pudimos cargar el calendario de este alumno. Probá de nuevo en unos minutos.
-                  </p>
-                ) : materiasCurso.length === 0 ? (
-                  <Empty className="min-h-56">
-                    <EmptyMedia variant="neutral">
-                      <CalendarDaysIcon />
-                    </EmptyMedia>
-                    <EmptyTitle>Todavía no hay materias cargadas</EmptyTitle>
-                    <EmptyDescription>
-                      Cuando el colegio cargue el horario del curso, las materias van a aparecer
-                      acá.
-                    </EmptyDescription>
-                  </Empty>
-                ) : (
-                  <>
-                    <div data-testid="calendario-grilla" className="hidden lg:block">
-                      <div className="overflow-x-auto">
-                        <div className="min-w-[820px]">
-                          <div
-                            className="grid overflow-hidden rounded-[18px] border border-[#EFE7F6] bg-white"
-                            style={{
-                              gridTemplateColumns: '8rem repeat(5, minmax(0, 1fr))',
-                              gridTemplateRows: `auto ${filasHorario
-                                .map(
-                                  (fila) =>
-                                    `minmax(56px, ${Math.max(1, (fila.fin - fila.inicio) / 60)}fr)`,
-                                )
-                                .join(' ')}`,
-                            }}
-                          >
-                            <div className="bg-[#FBF9FD]" aria-hidden="true" />
-                            {DIAS.map((dia) => (
+
+                          {filasHorario.map((fila, indice) => (
+                            <Fragment key={`${fila.inicio}-${fila.fin}`}>
                               <div
-                                key={dia}
+                                className="border-t border-[#EFE7F6] px-3 py-4 text-center text-[13px] font-semibold text-[#6B6478] tabular-nums"
+                                style={{ gridRow: indice + 2, gridColumn: 1 }}
+                              >
+                                {deMinutos(fila.inicio)} – {deMinutos(fila.fin)}
+                              </div>
+                              {DIAS.map((dia) => (
+                                <div
+                                  key={dia}
+                                  className="border-t border-l border-[#EFE7F6]"
+                                  style={{ gridRow: indice + 2, gridColumn: dia + 1 }}
+                                />
+                              ))}
+                            </Fragment>
+                          ))}
+
+                          {franjas.map((franja) => {
+                            const inicio = aMinutos(franja.hora_inicio)
+                            const fin = aMinutos(franja.hora_fin)
+                            const filaInicio = filasHorario.findIndex(
+                              (fila) => fila.inicio === inicio,
+                            )
+                            const filaFin = filasHorario.findIndex((fila) => fila.fin === fin)
+                            if (filaInicio === -1 || filaFin === -1) return null
+                            const estilo = estiloMateria(franja.materia.materia_nombre)
+                            const Icono = estilo.Icono
+                            const docentes = franja.materia.docentes ?? []
+                            const docente =
+                              docentes.length > 1
+                                ? `Profesores: ${docentes.join(', ')}`
+                                : docentes.length === 1
+                                  ? `Profesor: ${docentes[0]}`
+                                  : 'Sin docente'
+                            return (
+                              <div
+                                key={franja.id}
+                                style={{
+                                  gridRow: `${filaInicio + 2} / ${filaFin + 3}`,
+                                  gridColumn: franja.dia_semana + 1,
+                                }}
                                 className={cn(
-                                  'border-l border-[#EFE7F6] px-3 py-3 text-center text-[15px] font-semibold',
-                                  dia === diaActivo
-                                    ? 'bg-[#F1E4FB] text-[#7A2FA8]'
-                                    : 'bg-[#FBF9FD] text-[#2B2338]',
+                                  'relative z-10 m-1 flex flex-col justify-center gap-0.5 rounded-[12px] px-2.5 py-1.5 text-left',
+                                  estilo.bg,
                                 )}
                               >
-                                {NOMBRES_DIA[dia - 1]}
-                              </div>
-                            ))}
-
-                            {filasHorario.map((fila, indice) => (
-                              <Fragment key={`${fila.inicio}-${fila.fin}`}>
-                                <div
-                                  className="border-t border-[#EFE7F6] px-3 py-4 text-center text-[13px] font-semibold text-[#6B6478] tabular-nums"
-                                  style={{ gridRow: indice + 2, gridColumn: 1 }}
-                                >
-                                  {deMinutos(fila.inicio)} – {deMinutos(fila.fin)}
-                                </div>
-                                {DIAS.map((dia) => (
-                                  <div
-                                    key={dia}
-                                    className="border-t border-l border-[#EFE7F6]"
-                                    style={{ gridRow: indice + 2, gridColumn: dia + 1 }}
+                                <span className="flex items-center gap-1.5">
+                                  <Icono
+                                    aria-hidden="true"
+                                    className={cn('size-4 shrink-0', estilo.texto)}
                                   />
-                                ))}
-                              </Fragment>
-                            ))}
-
-                            {franjas.map((franja) => {
-                              const inicio = aMinutos(franja.hora_inicio)
-                              const fin = aMinutos(franja.hora_fin)
-                              const filaInicio = filasHorario.findIndex(
-                                (fila) => fila.inicio === inicio,
-                              )
-                              const filaFin = filasHorario.findIndex((fila) => fila.fin === fin)
-                              if (filaInicio === -1 || filaFin === -1) return null
-                              const estilo = estiloMateria(franja.materia.materia_nombre)
-                              const Icono = estilo.Icono
-                              const activaEsta = franja.id === activa?.id
-                              return (
-                                <button
-                                  key={franja.id}
-                                  type="button"
-                                  aria-pressed={activaEsta}
-                                  onClick={() => setSeleccionId(franja.id)}
-                                  style={{
-                                    gridRow: `${filaInicio + 2} / ${filaFin + 3}`,
-                                    gridColumn: franja.dia_semana + 1,
-                                  }}
-                                  className={cn(
-                                    'relative z-10 m-1 flex flex-col justify-center gap-1 rounded-[12px] px-3 py-2 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]',
-                                    estilo.bg,
-                                    activaEsta &&
-                                      'ring-2 ring-[#7A2FA8] ring-offset-2 ring-offset-white',
-                                  )}
-                                >
-                                  <span className="flex items-center gap-2">
-                                    <Icono
-                                      aria-hidden="true"
-                                      className={cn('size-[18px] shrink-0', estilo.texto)}
-                                    />
-                                    <span className="min-w-0 text-[13.5px] leading-tight font-bold text-[#2B2338]">
-                                      {franja.materia.materia_nombre}
-                                    </span>
+                                  <span className="min-w-0 text-[13px] leading-tight font-bold text-[#2B2338]">
+                                    {franja.materia.materia_nombre}
                                   </span>
-                                  <span className="text-[12px] font-medium text-[#4B4456] tabular-nums">
-                                    {rangoHora(franja.hora_inicio)} – {rangoHora(franja.hora_fin)}
-                                  </span>
-                                </button>
-                              )
-                            })}
-                          </div>
+                                </span>
+                                <span className="text-[11px] font-medium text-[#4B4456] tabular-nums">
+                                  {rangoHora(franja.hora_inicio)} – {rangoHora(franja.hora_fin)}
+                                </span>
+                                <span className="line-clamp-2 text-[11px] leading-tight font-medium text-[#4B4456]">
+                                  {docente}
+                                </span>
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
                     </div>
-                    <div data-testid="calendario-agenda" className="flex flex-col gap-4 lg:hidden">
-                      <div
-                        role="tablist"
-                        aria-label="Día del calendario"
-                        className="flex flex-wrap gap-1 rounded-[20px] bg-[#F5EFFA] p-1"
-                      >
-                        {DIAS.map((dia) => (
-                          <button
-                            key={dia}
-                            type="button"
-                            role="tab"
-                            aria-selected={dia === diaVisible}
-                            onClick={() => elegirDia(dia)}
-                            className={cn(
-                              'min-h-10 flex-1 rounded-full px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-[#7A2FA8] focus-visible:ring-offset-2',
-                              dia === diaVisible
-                                ? 'bg-white text-[#7A2FA8] shadow-sm'
-                                : 'text-[#6B6478] hover:text-[#2B2338]',
-                            )}
-                          >
-                            {NOMBRES_DIA[dia - 1]}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        {franjasDelDia.length === 0 ? (
-                          <p className="rounded-[12px] border border-dashed border-[#E4D9F0] bg-[#FBF9FD] p-4 text-sm text-[#6B6478]">
-                            No hay clases este día.
-                          </p>
-                        ) : (
-                          franjasDelDia.map((franja) => {
-                            const estilo = estiloMateria(franja.materia.materia_nombre)
-                            const Icono = estilo.Icono
-                            const activaEsta = franja.id === activa?.id
-                            return (
-                              <button
-                                key={franja.id}
-                                type="button"
-                                aria-pressed={activaEsta}
-                                onClick={() => setSeleccionId(franja.id)}
+                  </div>
+                  <div data-testid="calendario-agenda" className="flex flex-col gap-4 lg:hidden">
+                    <div
+                      role="tablist"
+                      aria-label="Día del calendario"
+                      className="flex flex-wrap gap-1 rounded-[20px] bg-[#F5EFFA] p-1"
+                    >
+                      {DIAS.map((dia) => (
+                        <button
+                          key={dia}
+                          type="button"
+                          role="tab"
+                          aria-selected={dia === diaVisible}
+                          onClick={() => elegirDia(dia)}
+                          className={cn(
+                            'min-h-10 flex-1 rounded-full px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-[#7A2FA8] focus-visible:ring-offset-2',
+                            dia === diaVisible
+                              ? 'bg-white text-[#7A2FA8] shadow-sm'
+                              : 'text-[#6B6478] hover:text-[#2B2338]',
+                          )}
+                        >
+                          {NOMBRES_DIA[dia - 1]}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {franjasDelDia.length === 0 ? (
+                        <p className="rounded-[12px] border border-dashed border-[#E4D9F0] bg-[#FBF9FD] p-4 text-sm text-[#6B6478]">
+                          No hay clases este día.
+                        </p>
+                      ) : (
+                        franjasDelDia.map((franja) => {
+                          const estilo = estiloMateria(franja.materia.materia_nombre)
+                          const Icono = estilo.Icono
+                          const docentes = franja.materia.docentes ?? []
+                          const docente =
+                            docentes.length > 1
+                              ? `Profesores: ${docentes.join(', ')}`
+                              : docentes.length === 1
+                                ? `Profesor: ${docentes[0]}`
+                                : 'Sin docente'
+                          return (
+                            <div
+                              key={franja.id}
+                              className={cn(
+                                'flex items-center gap-3 rounded-[14px] px-4 py-3 text-left',
+                                estilo.bg,
+                              )}
+                            >
+                              <span
                                 className={cn(
-                                  'flex items-center gap-3 rounded-[14px] px-4 py-3 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]',
-                                  estilo.bg,
-                                  activaEsta &&
-                                    'ring-2 ring-[#7A2FA8] ring-offset-2 ring-offset-white',
+                                  'flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-white/70',
+                                  estilo.texto,
                                 )}
                               >
-                                <span
-                                  className={cn(
-                                    'flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-white/70',
-                                    estilo.texto,
-                                  )}
-                                >
-                                  <Icono aria-hidden="true" className="size-5" />
+                                <Icono aria-hidden="true" className="size-5" />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block text-[15px] font-bold text-[#2B2338]">
+                                  {franja.materia.materia_nombre}
                                 </span>
-                                <span className="min-w-0 flex-1">
-                                  <span className="block text-[15px] font-bold text-[#2B2338]">
-                                    {franja.materia.materia_nombre}
-                                  </span>
-                                  <span className="mt-0.5 block text-[13px] font-medium text-[#4B4456] tabular-nums">
-                                    {rangoHora(franja.hora_inicio)} – {rangoHora(franja.hora_fin)}
-                                  </span>
+                                <span className="mt-0.5 block text-[13px] font-medium text-[#4B4456] tabular-nums">
+                                  {rangoHora(franja.hora_inicio)} – {rangoHora(franja.hora_fin)}
                                 </span>
-                              </button>
-                            )
-                          })
-                        )}
-                      </div>
+                                <span className="mt-0.5 block text-[13px] font-medium text-[#4B4456]">
+                                  {docente}
+                                </span>
+                              </span>
+                            </div>
+                          )
+                        })
+                      )}
                     </div>
-                  </>
-                )}
-              </PortalCard>
-
-              <PortalCard
-                titulo="Detalle de clase"
-                tituloClassName="font-heading text-[24px] leading-tight font-bold text-[#241A33]"
-                headerClassName="px-6 pt-6 pb-5"
-                contentClassName="px-6 pt-1 pb-6"
-              >
-                <DetalleClase franja={activa} />
-              </PortalCard>
-            </div>
+                  </div>
+                </>
+              )}
+            </PortalCard>
           )}
         </div>
       </div>

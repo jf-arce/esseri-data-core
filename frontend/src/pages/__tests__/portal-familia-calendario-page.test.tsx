@@ -81,17 +81,13 @@ describe('PortalFamiliaCalendarioPage', () => {
 
     expect(screen.getByText('Horario semanal')).toBeInTheDocument()
     expect(screen.getByText('4°B · Primario')).toBeInTheDocument()
-    expect(
-      within(screen.getByTestId('calendario-grilla')).getByRole('button', {
-        name: /Matemática.*08:00/,
-      }),
-    ).toBeInTheDocument()
-    expect(screen.getAllByText('Matemática').length).toBeGreaterThan(0)
-    expect(screen.getByText('María González')).toBeInTheDocument()
+    const grilla = within(screen.getByTestId('calendario-grilla'))
+    expect(grilla.getByText('Matemática')).toBeInTheDocument()
+    expect(grilla.getAllByText('08:00 – 09:00').length).toBeGreaterThan(0)
+    expect(grilla.getByText('Profesor: María González')).toBeInTheDocument()
   })
 
-  it('muestra el detalle de la clase seleccionada', async () => {
-    const usuario = userEvent.setup()
+  it('muestra el docente en cada bloque del horario', () => {
     mockedUseHorarioFamilia.mockReturnValue({
       materiasCurso: [
         crearMateria(),
@@ -110,14 +106,11 @@ describe('PortalFamiliaCalendarioPage', () => {
     })
     renderizar()
 
-    expect(screen.getByText('María González')).toBeInTheDocument()
-
-    await usuario.click(screen.getByRole('button', { name: /Inglés.*09:00/ }))
-
-    expect(screen.getByText('Laura Díaz')).toBeInTheDocument()
-    expect(screen.getByText('Día')).toBeInTheDocument()
-    expect(screen.getAllByText('Miércoles').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('09:00 – 10:00').length).toBeGreaterThan(0)
+    const grilla = within(screen.getByTestId('calendario-grilla'))
+    expect(grilla.getByText('Profesor: María González')).toBeInTheDocument()
+    expect(grilla.getByText('Profesor: Laura Díaz')).toBeInTheDocument()
+    expect(grilla.getAllByText('09:00 – 10:00').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Detalle de clase')).not.toBeInTheDocument()
   })
 
   it('permite recorrer los días en la agenda compacta', async () => {
@@ -125,13 +118,15 @@ describe('PortalFamiliaCalendarioPage', () => {
     renderizar()
 
     const agenda = within(screen.getByTestId('calendario-agenda'))
-    expect(agenda.getByRole('button', { name: /Matemática/ })).toBeInTheDocument()
+    expect(agenda.getByText('Matemática')).toBeInTheDocument()
+    expect(agenda.getByText('Profesor: María González')).toBeInTheDocument()
 
     await usuario.click(agenda.getByRole('tab', { name: 'Miércoles' }))
     expect(agenda.getByText('No hay clases este día.')).toBeInTheDocument()
 
     await usuario.click(agenda.getByRole('tab', { name: 'Lunes' }))
-    expect(agenda.getByRole('button', { name: /Matemática/ })).toBeInTheDocument()
+    expect(agenda.getByText('Matemática')).toBeInTheDocument()
+    expect(agenda.getByText('Profesor: María González')).toBeInTheDocument()
   })
 
   it('cambia de alumno y vuelve a pedir el horario del seleccionado', async () => {
