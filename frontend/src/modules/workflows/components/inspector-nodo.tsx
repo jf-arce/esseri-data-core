@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { CopyIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react'
+import { BotonIcono } from '@/modules/workflows/components/boton-icono'
 import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import {
@@ -92,9 +93,9 @@ function Encabezado({
         <h2 className="text-base font-semibold break-words text-texto">{titulo}</h2>
         <p className="text-xs text-texto-2">{descripcion}</p>
       </div>
-      <Button variant="ghost" size="icon" aria-label="Cerrar el panel" onClick={onCerrar}>
+      <BotonIcono etiqueta="Cerrar el panel" onClick={onCerrar}>
         <XIcon />
-      </Button>
+      </BotonIcono>
     </div>
   )
 }
@@ -210,14 +211,9 @@ function FilaComparacion({
           </SelectContent>
         </Select>
         {puedeQuitar && !soloLectura && (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={`Eliminar la comparación ${indice + 1}`}
-            onClick={onQuitar}
-          >
+          <BotonIcono etiqueta={`Eliminar la comparación ${indice + 1}`} onClick={onQuitar}>
             <Trash2Icon />
-          </Button>
+          </BotonIcono>
         )}
       </div>
       {campo && (

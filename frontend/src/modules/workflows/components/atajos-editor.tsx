@@ -1,5 +1,5 @@
 import { KeyboardIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { BotonIcono } from '@/modules/workflows/components/boton-icono'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 const ATAJOS: { teclas: string; accion: string }[] = [
@@ -22,9 +22,9 @@ export function AtajosEditor() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Atajos del editor" title="Atajos">
+        <BotonIcono etiqueta="Atajos del editor" lado="top">
           <KeyboardIcon />
-        </Button>
+        </BotonIcono>
       </PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-80">
         <h2 className="mb-2 text-sm font-semibold text-texto">Atajos del editor</h2>

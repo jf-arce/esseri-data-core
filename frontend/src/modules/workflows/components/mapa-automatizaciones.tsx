@@ -3,7 +3,6 @@ import { Link } from 'react-router'
 import {
   Background,
   BackgroundVariant,
-  Controls,
   Handle,
   Position,
   ReactFlow,
@@ -14,6 +13,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { PlusIcon } from 'lucide-react'
+import { ControlesVista } from '@/modules/workflows/components/controles-vista'
 import { cn } from '@/lib/utils'
 import { RUTA_NUEVA_REGLA, rutaRegla } from '@/modules/workflows/constants'
 import type { ReglaWorkflow, TipoEvento } from '@/modules/workflows/types'
@@ -192,7 +192,7 @@ export default function MapaAutomatizaciones({
         aria-label="Mapa de automatizaciones"
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} color="var(--borde)" />
-        <Controls showInteractive={false} position="bottom-left" />
+        <ControlesVista />
       </ReactFlow>
     </div>
   )

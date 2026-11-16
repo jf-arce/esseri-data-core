@@ -72,6 +72,7 @@ export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
       <div className="absolute -right-9" style={{ top: 'calc(34% - 12px)' }}>
         <BotonSumar
           rama="si"
+          ladoTooltip="top"
           etiqueta="Agregar a la salida Sí"
           deshabilitado={soloLectura}
           tiposAccion={data.tiposAccion}

@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { BotonIcono } from '@/modules/workflows/components/boton-icono'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { LIMITE_NOMBRE_REGLA, RUTA_REGLAS } from '@/modules/workflows/constants'
@@ -43,11 +44,11 @@ export function BarraEditor({
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <Button variant="ghost" size="icon" asChild>
-          <Link to={RUTA_REGLAS} aria-label="Volver a las reglas">
+        <BotonIcono etiqueta="Volver a las reglas" asChild>
+          <Link to={RUTA_REGLAS}>
             <ArrowLeftIcon />
           </Link>
-        </Button>
+        </BotonIcono>
         <nav aria-label="Ubicación" className="hidden shrink-0 text-sm text-texto-2 sm:block">
           <Link to={RUTA_REGLAS} className="hover:text-texto">
             Workflows
@@ -81,9 +82,9 @@ export function BarraEditor({
         {puedeDuplicar && !soloLectura && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Más acciones">
+              <BotonIcono etiqueta="Más acciones">
                 <EllipsisIcon />
-              </Button>
+              </BotonIcono>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={onDuplicar}>

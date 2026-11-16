@@ -6,6 +6,7 @@ import {
   type EdgeProps,
 } from '@xyflow/react'
 import { PlusIcon, XIcon } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 export interface DatosArista {
@@ -93,26 +94,40 @@ export function AristaFlujo({
             }}
             className="nodrag nopan pointer-events-auto absolute flex items-center gap-1"
           >
-            <button
-              type="button"
-              aria-label="Insertar una condición"
-              title="Insertar una condición"
-              onClick={data?.onInsertarCondicion}
-              className="flex size-6 items-center justify-center rounded-full border border-borde bg-superficie text-texto-2 shadow-card hover:text-texto"
-            >
-              <PlusIcon className="size-3.5" />
-            </button>
-            {selected && (
-              <button
-                type="button"
-                aria-label="Desconectar bloque"
-                title="Desconectar"
-                onClick={data?.onDesconectar}
-                className="flex size-6 items-center justify-center rounded-full border border-borde bg-superficie text-texto-2 shadow-card hover:text-error"
-              >
-                <XIcon className="size-3.5" />
-              </button>
-            )}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Agregar condición"
+                    onClick={data?.onInsertarCondicion}
+                    className="flex size-6 items-center justify-center rounded-full border border-borde bg-superficie text-texto-2 shadow-card hover:text-texto"
+                  >
+                    <PlusIcon className="size-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={2}>
+                  Agregar condición
+                </TooltipContent>
+              </Tooltip>
+              {selected && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label="Desconectar bloque"
+                      onClick={data?.onDesconectar}
+                      className="flex size-6 items-center justify-center rounded-full border border-borde bg-superficie text-texto-2 shadow-card hover:text-error"
+                    >
+                      <XIcon className="size-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={2}>
+                    Desconectar
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </TooltipProvider>
           </div>
         </EdgeLabelRenderer>
       )}

@@ -10,7 +10,6 @@ import {
 import {
   Background,
   BackgroundVariant,
-  Controls,
   MiniMap,
   Panel,
   ReactFlow,
@@ -25,7 +24,9 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { LayoutGridIcon, Redo2Icon, Undo2Icon } from 'lucide-react'
+import { ControlesVista } from '@/modules/workflows/components/controles-vista'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import {
   AristaFlujo,
@@ -493,7 +494,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
         aria-label="Lienzo del flujo de la regla"
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} color="var(--borde)" />
-        <Controls showInteractive={false} position="bottom-left" />
+        <ControlesVista />
         <Panel
           position="top-left"
           className="flex flex-row items-start gap-2"
@@ -513,42 +514,62 @@ function LienzoFlujo(props: CanvasFlujoProps) {
         {!soloLectura && (
           <Panel
             position="bottom-left"
-            className="ml-12! flex items-center gap-0.5 rounded-lg bg-superficie p-0.5 shadow-card"
+            className="ml-16! flex items-center gap-0.5 rounded-lg bg-superficie p-0.5 shadow-card"
           >
-            <div className="flex items-center" role="group" aria-label="Edición del flujo">
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Deshacer"
-                title="Deshacer (Ctrl+Z)"
-                disabled={!props.puedeDeshacer}
-                onClick={props.onDeshacer}
-              >
-                <Undo2Icon />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Rehacer"
-                title="Rehacer (Ctrl+Shift+Z)"
-                disabled={!props.puedeRehacer}
-                onClick={props.onRehacer}
-              >
-                <Redo2Icon />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Ordenar"
-                title="Ordenar los bloques"
-                disabled={borrador.nodos.length === 0}
-                onClick={() => setOrdenar((n) => n + 1)}
-              >
-                <LayoutGridIcon />
-              </Button>
-              <AtajosEditor />
-              <LimitesEditor />
-            </div>
+            <TooltipProvider>
+              <div className="flex items-center" role="group" aria-label="Edición del flujo">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Deshacer"
+                      disabled={!props.puedeDeshacer}
+                      onClick={props.onDeshacer}
+                    >
+                      <Undo2Icon />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={2}>
+                    Deshacer (Ctrl+Z)
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Rehacer"
+                      disabled={!props.puedeRehacer}
+                      onClick={props.onRehacer}
+                    >
+                      <Redo2Icon />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={2}>
+                    Rehacer (Ctrl+Shift+Z)
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Ordenar"
+                      disabled={borrador.nodos.length === 0}
+                      onClick={() => setOrdenar((n) => n + 1)}
+                    >
+                      <LayoutGridIcon />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={2}>
+                    Ordenar los bloques
+                  </TooltipContent>
+                </Tooltip>
+                <AtajosEditor />
+                <LimitesEditor />
+              </div>
+            </TooltipProvider>
           </Panel>
         )}
         <Panel position="bottom-center">{props.simulador}</Panel>

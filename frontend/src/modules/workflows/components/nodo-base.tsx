@@ -10,6 +10,7 @@ import {
   XIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { CatalogoBloques } from '@/modules/workflows/components/catalogo-bloques'
 import { cn } from '@/lib/utils'
@@ -152,6 +153,8 @@ interface BotonSumarProps extends OpcionesAgregar {
   /** Es el siguiente paso sugerido (lienzo vacío): se resalta. */
   resaltado?: boolean
   deshabilitado?: boolean
+  /** Hacia dónde sale el tooltip; con dos salidas apiladas evita que uno tape al otro. */
+  ladoTooltip?: 'top' | 'bottom'
 }
 
 /** El "+" de una salida: menú rápido que crea el bloque ya conectado a esa salida. */
@@ -160,6 +163,7 @@ export function BotonSumar({
   etiqueta,
   resaltado,
   deshabilitado,
+  ladoTooltip = 'bottom',
   tiposAccion,
   nombreEvento,
   onAgregar,
@@ -167,21 +171,29 @@ export function BotonSumar({
   const [abierto, setAbierto] = useState(false)
   return (
     <Popover open={abierto} onOpenChange={setAbierto}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="secondary"
-          size="icon"
-          aria-label={etiqueta}
-          title={etiqueta}
-          disabled={deshabilitado}
-          className={cn(
-            'nodrag nopan size-7 min-h-0 rounded-full',
-            resaltado && 'outline-2 outline-offset-2 outline-mod-workflows',
-          )}
-        >
-          <PlusIcon className="size-4" />
-        </Button>
-      </PopoverTrigger>
+      <TooltipProvider>
+        <Tooltip open={abierto ? false : undefined}>
+          <PopoverTrigger asChild>
+            <TooltipTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                aria-label={etiqueta}
+                disabled={deshabilitado}
+                className={cn(
+                  'nodrag nopan size-7 min-h-0 rounded-full',
+                  resaltado && 'outline-2 outline-offset-2 outline-mod-workflows',
+                )}
+              >
+                <PlusIcon className="size-4" />
+              </Button>
+            </TooltipTrigger>
+          </PopoverTrigger>
+          <TooltipContent side={ladoTooltip} sideOffset={2}>
+            {etiqueta}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <PopoverContent align="start" className="nodrag nopan nowheel w-[300px] overflow-hidden p-0">
         <CatalogoBloques
           tiposAccion={tiposAccion}
