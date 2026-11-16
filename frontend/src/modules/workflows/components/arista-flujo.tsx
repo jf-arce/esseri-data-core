@@ -60,6 +60,7 @@ export function AristaFlujo({
         id={id}
         path={trayecto}
         pathLength={1}
+        interactionWidth={24}
         className={cn(
           data?.simulacion === 'activa' ? 'arista-recorrido' : 'arista-dibujar',
           'transition-opacity duration-200',
@@ -84,7 +85,7 @@ export function AristaFlujo({
           </span>
         </EdgeLabelRenderer>
       )}
-      {selected && !data?.soloLectura && (
+      {!data?.soloLectura && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -101,15 +102,17 @@ export function AristaFlujo({
             >
               <PlusIcon className="size-3.5" />
             </button>
-            <button
-              type="button"
-              aria-label="Desconectar bloque"
-              title="Desconectar"
-              onClick={data?.onDesconectar}
-              className="flex size-6 items-center justify-center rounded-full border border-borde bg-superficie text-texto-2 shadow-card hover:text-error"
-            >
-              <XIcon className="size-3.5" />
-            </button>
+            {selected && (
+              <button
+                type="button"
+                aria-label="Desconectar bloque"
+                title="Desconectar"
+                onClick={data?.onDesconectar}
+                className="flex size-6 items-center justify-center rounded-full border border-borde bg-superficie text-texto-2 shadow-card hover:text-error"
+              >
+                <XIcon className="size-3.5" />
+              </button>
+            )}
           </div>
         </EdgeLabelRenderer>
       )}

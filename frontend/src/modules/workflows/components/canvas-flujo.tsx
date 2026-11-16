@@ -295,7 +295,11 @@ function LienzoFlujo(props: CanvasFlujoProps) {
             simulacion: aristasSimulacion?.get(nodo.id),
             soloLectura,
             onDesconectar: () => props.onDesconectar(nodo.id),
-            onInsertarCondicion: () => props.onInsertarCondicion(nodo.id),
+            onInsertarCondicion: () => {
+              props.onInsertarCondicion(nodo.id)
+              // Se reordena para que la condición quede entre los dos bloques sin pisar a nadie.
+              setOrdenar((n) => n + 1)
+            },
           },
         })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
