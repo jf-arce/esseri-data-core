@@ -158,15 +158,10 @@ describe('PortalFamiliaPage', () => {
       await within(screen.getByRole('group', { name: 'Alumnos vinculados' })).findByText('2'),
     ).toBeInTheDocument()
     expect(
-      await within(screen.getByRole('group', { name: 'Asistencias sin justificar' })).findByText(
-        '1',
-      ),
-    ).toBeInTheDocument()
-    expect(
-      await within(screen.getByRole('group', { name: 'Mensajes sin leer' })).findByText('2'),
+      await within(screen.getByRole('group', { name: /Ausencias? pendientes?/ })).findByText('1'),
     ).toBeInTheDocument()
 
-    const atajoMensajes = screen.getByRole('link', { name: /Mensajes sin leer/ })
+    const atajoMensajes = screen.getByRole('link', { name: /Comunicaciones sin leer/ })
     expect(atajoMensajes).toHaveAttribute('href', '/familia/comunicaciones')
     expect(atajoMensajes.querySelector('.lucide-chevron-right')).not.toBeNull()
     expect(screen.queryByRole('link', { name: /Ver mensajes/ })).not.toBeInTheDocument()
@@ -184,7 +179,7 @@ describe('PortalFamiliaPage', () => {
     mockedListarAsistencias.mockResolvedValue([])
     renderPage()
 
-    const indicador = screen.getByRole('group', { name: 'Asistencias sin justificar' })
+    const indicador = screen.getByRole('group', { name: /Ausencias? pendientes?/ })
     expect(await within(indicador).findByText('0')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Justificar ausencia/ })).not.toBeInTheDocument()
   })
@@ -207,7 +202,7 @@ describe('PortalFamiliaPage', () => {
     ])
     renderPage()
 
-    const indicador = screen.getByRole('group', { name: 'Asistencias sin justificar' })
+    const indicador = screen.getByRole('group', { name: /Ausencias? pendientes?/ })
     expect(await within(indicador).findByText('0')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Justificar ausencia/ })).not.toBeInTheDocument()
   })
@@ -285,7 +280,7 @@ describe('PortalFamiliaPage', () => {
     expect(atajos).toEqual([
       { nombre: 'Asistencias', href: '/familia/asistencias' },
       { nombre: 'Facturación', href: '/familia/facturacion?alumno=alumno-1' },
-      { nombre: 'Calendario', href: '/familia/calendario?alumno=alumno-1' },
+      { nombre: 'Horario', href: '/familia/calendario?alumno=alumno-1' },
     ])
     expect(screen.queryByText('Accesos rápidos')).not.toBeInTheDocument()
   })
