@@ -486,7 +486,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
         <Controls showInteractive={false} position="bottom-left" />
         <Panel
           position="top-left"
-          className="flex flex-col items-start gap-2"
+          className="flex flex-row items-start gap-2"
           // El inspector flotante tapa la derecha: el chip no pasa por debajo.
           style={{ maxWidth: `calc(100% - ${anchoTapado > 0 ? anchoTapado + 12 : 0}px - 1.5rem)` }}
         >

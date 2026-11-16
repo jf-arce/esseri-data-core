@@ -23,7 +23,7 @@ export function ResumenRegla({ borrador, tiposEvento }: ResumenReglaProps) {
   const [expandido, setExpandido] = useState(false)
   const aviso = haySinCondicion(borrador)
   return (
-    <div className="flex max-w-full flex-col items-start gap-1.5">
+    <div className="flex min-w-0 max-w-full flex-col items-start gap-1.5">
       <button
         type="button"
         aria-expanded={expandido}

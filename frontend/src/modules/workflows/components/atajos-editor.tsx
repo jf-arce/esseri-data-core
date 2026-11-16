@@ -11,8 +11,10 @@ const ATAJOS: { teclas: string; accion: string }[] = [
 
 const GESTOS: string[] = [
   'Para conectar, arrastrá desde un punto de salida (derecha) hasta el punto de entrada (izquierda) de otro bloque.',
-  'Para desconectar, hacé clic sobre la línea y tocá la ×.',
-  'Un bloque que viene del catálogo aparece suelto: conectalo a una salida.',
+  'Si soltás la línea en un lugar vacío, se abre el catálogo y el bloque nuevo queda conectado.',
+  'Para mover una conexión, arrastrá uno de sus extremos a otro bloque. Si lo soltás en el vacío, se desconecta.',
+  'Hacé clic sobre una línea para insertar una condición en el medio (+) o desconectarla (×).',
+  'Un bloque sin conectar se guarda con la regla, pero no se ejecuta.',
 ]
 
 /** Qué se puede hacer con el teclado y el mouse en el lienzo, a un clic de distancia. */

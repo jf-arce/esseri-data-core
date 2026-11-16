@@ -89,10 +89,16 @@ export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
           onAgregar={data.onAgregar}
         />
       </div>
-      <span className="pointer-events-none absolute top-[34%] right-2.5 -translate-y-1/2 text-[10px] font-bold text-exito">
+      <span
+        style={{ top: 'calc(34% - 4px)' }}
+        className="pointer-events-none absolute left-full ml-3 -translate-y-full text-[10px] font-bold text-exito"
+      >
         Sí
       </span>
-      <span className="pointer-events-none absolute top-[72%] right-2.5 -translate-y-1/2 text-[10px] font-bold text-error">
+      <span
+        style={{ top: 'calc(72% - 4px)' }}
+        className="pointer-events-none absolute left-full ml-3 -translate-y-full text-[10px] font-bold text-error"
+      >
         No
       </span>
     </TarjetaNodo>

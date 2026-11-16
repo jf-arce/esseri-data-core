@@ -535,7 +535,7 @@ export function InspectorNodo(props: InspectorNodoProps) {
             <CopyIcon data-icon="inline-start" />
             Duplicar
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => onEliminar(nodo.id)}>
+          <Button variant="destructive" size="sm" onClick={() => onEliminar(nodo.id)}>
             <Trash2Icon data-icon="inline-start" />
             Eliminar
           </Button>

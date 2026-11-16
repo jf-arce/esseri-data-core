@@ -525,3 +525,16 @@
 .react-flow__handle {
   cursor: crosshair;
 }
+
+/* Controles y minimapa de React Flow con los tokens del proyecto: siguen el tema (.dark) sin
+   pasar por `colorMode`. */
+.react-flow {
+  --xy-controls-button-background-color: var(--superficie);
+  --xy-controls-button-background-color-hover: var(--fila-hover);
+  --xy-controls-button-color: var(--texto);
+  --xy-controls-button-color-hover: var(--texto);
+  --xy-controls-button-border-color: var(--borde);
+  --xy-minimap-background-color: var(--superficie);
+  --xy-minimap-mask-background-color: color-mix(in srgb, var(--texto) 12%, transparent);
+  --xy-minimap-mask-stroke-color: var(--borde);
+}
