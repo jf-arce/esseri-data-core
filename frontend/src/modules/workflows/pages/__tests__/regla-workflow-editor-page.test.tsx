@@ -73,6 +73,8 @@ vi.mock('@/modules/workflows/components/canvas-flujo', async () => {
               <button onClick={() => props.onSeleccionar(nodo.id)}>
                 {`Nodo ${nodo.tipo} ${nodo.id}`}
               </button>
+              <button onClick={() => props.onAbrirNodo(nodo.id)}>{`Abrir ${nodo.id}`}</button>
+              <button onClick={() => props.onEliminarNodo(nodo.id)}>{`Eliminar ${nodo.id}`}</button>
               {props.errores.porNodo[nodo.id] && <span>{props.errores.porNodo[nodo.id]}</span>}
               {props.errores.avisos[nodo.id] && (
                 <span>Sin conectar: {props.errores.avisos[nodo.id]}</span>
@@ -487,6 +489,31 @@ describe('ReglaWorkflowEditorPage', () => {
 
       expect(await screen.findByText('Listado de reglas')).toBeInTheDocument()
       expect(window.localStorage.length).toBe(0)
+    })
+  })
+
+  describe('panel de edición', () => {
+    it('un clic selecciona el bloque sin abrir el panel y el doble clic lo abre', async () => {
+      const user = userEvent.setup()
+      abrirEditor()
+
+      await user.click(await screen.findByRole('button', { name: 'Nodo condicion c-1' }))
+      expect(screen.getByText('Seleccionado: c-1')).toBeInTheDocument()
+      expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Abrir c-1' }))
+      expect(await screen.findByRole('complementary')).toBeInTheDocument()
+    })
+
+    it('eliminar un bloque cierra el panel', async () => {
+      const user = userEvent.setup()
+      abrirEditor()
+
+      await user.click(await screen.findByRole('button', { name: 'Abrir a-si' }))
+      expect(await screen.findByRole('complementary')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Eliminar a-si' }))
+
+      expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
     })
   })
 })

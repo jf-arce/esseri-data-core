@@ -115,7 +115,12 @@ export interface CanvasFlujoProps {
   anchoTapado: number
   onDeshacer: () => void
   onRehacer: () => void
+  /** Un clic selecciona (contorno y atajos); `null` es un clic en el vacío. */
   onSeleccionar: (id: string | null) => void
+  /** Doble clic o "Editar" del menú del bloque: selecciona y abre el panel. */
+  onAbrirNodo: (id: string) => void
+  onDuplicarNodo: (id: string) => void
+  onEliminarNodo: (id: string) => void
   /** Alta desde el botón "Agregar bloque": el editor decide a qué salida se conecta. */
   onAgregarBloque: (que: QueAgregar) => void
   onAgregarEn: (
@@ -198,6 +203,10 @@ function LienzoFlujo(props: CanvasFlujoProps) {
               : undefined,
         seleccionado: seleccionId === DISPARADOR_ID,
         soloLectura,
+        acciones: {
+          soloLectura,
+          onEditar: () => props.onAbrirNodo(DISPARADOR_ID),
+        },
         resaltarSalida: borrador.tipoEventoId !== '' && borrador.nodos.length === 0,
         onAgregar: (rama, que) => props.onAgregarEn(null, rama, que),
       },
@@ -211,6 +220,12 @@ function LienzoFlujo(props: CanvasFlujoProps) {
         selected: seleccionId === nodo.id,
       }
       const simulado = simulacion?.get(nodo.id)
+      const acciones = {
+        soloLectura,
+        onEditar: () => props.onAbrirNodo(nodo.id),
+        onDuplicar: () => props.onDuplicarNodo(nodo.id),
+        onEliminar: () => props.onEliminarNodo(nodo.id),
+      }
       if (nodo.tipo === 'condicion') {
         return {
           ...comunes,
@@ -221,6 +236,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
             campos,
             seleccionado: seleccionId === nodo.id,
             soloLectura,
+            acciones,
             incompleto: errores.porNodo[nodo.id],
             aviso: errores.avisos[nodo.id],
             simulacion: simulado,
@@ -235,6 +251,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
           nodo,
           detalle: props.detalleDe(nodo),
           seleccionado: seleccionId === nodo.id,
+          acciones,
           incompleto: errores.porNodo[nodo.id],
           aviso: errores.avisos[nodo.id],
           simulacion: simulado,
@@ -472,6 +489,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
         onReconnectEnd={alTerminarReconexion}
         isValidConnection={esConexionValida}
         onNodeClick={(_, nodo) => props.onSeleccionar(nodo.id)}
+        onNodeDoubleClick={(_, nodo) => props.onAbrirNodo(nodo.id)}
         onPaneClick={() => props.onSeleccionar(null)}
         onNodeDragStop={(_, __, movidos) => alSoltarNodo(movidos)}
         nodesConnectable={!soloLectura}

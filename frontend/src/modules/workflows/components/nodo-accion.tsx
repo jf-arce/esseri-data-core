@@ -1,7 +1,11 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import { LockIcon, SendIcon } from 'lucide-react'
 import { Link } from 'react-router'
-import { TarjetaNodo, type SimulacionNodo } from '@/modules/workflows/components/nodo-base'
+import {
+  TarjetaNodo,
+  type AccionesNodo,
+  type SimulacionNodo,
+} from '@/modules/workflows/components/nodo-base'
 import { RUTA_EJECUCIONES } from '@/modules/workflows/constants'
 import type { EstadisticasNodo } from '@/modules/workflows/types'
 import { ETIQUETA_ACCION } from '@/modules/workflows/utils'
@@ -9,6 +13,7 @@ import { textoContadores, type NodoEditor } from '@/modules/workflows/utils-graf
 
 export interface DatosNodoAccion {
   [clave: string]: unknown
+  acciones: AccionesNodo
   nodo: NodoEditor
   /** Línea secundaria: plantilla, destinatarios, etc. */
   detalle: string
@@ -35,6 +40,7 @@ export function NodoAccion({ data }: NodeProps<NodoAccionFlujo>) {
       contorno="outline-mod-inscripciones"
       seleccionado={data.seleccionado}
       incompleto={data.incompleto}
+      acciones={data.acciones}
       aviso={data.aviso}
       simulacion={data.simulacion}
     >

@@ -148,6 +148,9 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
   )
   const borrador = historial.presente
   const [seleccionId, setSeleccionId] = useState<string | null>(regla ? null : DISPARADOR_ID)
+  // El panel de la derecha se abre con doble clic o "Editar"; un clic solo selecciona. Una regla
+  // nueva sin evento lo abre sola, porque lo primero es elegirlo.
+  const [panelAbierto, setPanelAbierto] = useState(!regla && inicial.tipoEventoId === '')
   const [guardando, setGuardando] = useState(false)
   const [conflicto, setConflicto] = useState(false)
   const [mostrarErrores, setMostrarErrores] = useState(false)
@@ -211,6 +214,16 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
     }
   }
 
+  function seleccionar(id: string | null) {
+    setSeleccionId(id)
+    if (id === null) setPanelAbierto(false)
+  }
+
+  function abrirNodo(id: string) {
+    setSeleccionId(id)
+    setPanelAbierto(true)
+  }
+
   function cambiar(transformar: (actual: BorradorFlujo) => BorradorFlujo) {
     setHistorial((actual) => registrarCambio(actual, transformar(actual.presente)))
   }
@@ -224,6 +237,7 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
   ) {
     if (borrador.tipoEventoId === '') {
       setSeleccionId(DISPARADOR_ID)
+      setPanelAbierto(true)
       toast.info('Elegí primero el evento que dispara la regla.')
       return
     }
@@ -317,7 +331,7 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
 
   function eliminarNodo(id: string) {
     cambiar((actual) => ({ ...actual, nodos: quitarNodo(actual.nodos, id) }))
-    setSeleccionId(null)
+    seleccionar(null)
   }
 
   function duplicarNodo(id: string) {
@@ -364,6 +378,7 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
     const problemas = validarBorrador(borrador, tiposAccion, evento?.campos)
     if (hayErrores(problemas)) {
       const primero = borrador.nodos.find((nodo) => problemas.porNodo[nodo.id])
+      setPanelAbierto(true)
       if (primero) {
         setSeleccionId(primero.id)
         setEnfocar({ id: primero.id, vez: Date.now() })
@@ -397,9 +412,11 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
   }
 
   const seleccionado =
-    seleccionId === DISPARADOR_ID
-      ? 'disparador'
-      : (borrador.nodos.find((nodo) => nodo.id === seleccionId) ?? null)
+    !panelAbierto || seleccionId === null
+      ? null
+      : seleccionId === DISPARADOR_ID
+        ? 'disparador'
+        : (borrador.nodos.find((nodo) => nodo.id === seleccionId) ?? null)
 
   function detalleAccion(nodo: NodoEditor): string {
     const partes: string[] = []
@@ -471,7 +488,10 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
           onRehacer={() => setHistorial(rehacer)}
           onAgregarBloque={agregarDesdePaleta}
           anchoTapado={seleccionado && ancha ? ANCHO_INSPECTOR + 12 : 0}
-          onSeleccionar={setSeleccionId}
+          onSeleccionar={seleccionar}
+          onAbrirNodo={abrirNodo}
+          onDuplicarNodo={duplicarNodo}
+          onEliminarNodo={eliminarNodo}
           onAgregarEn={agregarEn}
           onSoltarBloque={soltarBloque}
           onConectar={conectarNodos}
@@ -523,7 +543,7 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
             }
             onDuplicar={duplicarNodo}
             onEliminar={eliminarNodo}
-            onCerrar={() => setSeleccionId(null)}
+            onCerrar={() => seleccionar(null)}
           />
         )}
       </div>

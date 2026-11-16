@@ -3,6 +3,7 @@ import { ArrowLeftRightIcon } from 'lucide-react'
 import {
   BotonSumar,
   TarjetaNodo,
+  type AccionesNodo,
   type OpcionesAgregar,
   type SimulacionNodo,
 } from '@/modules/workflows/components/nodo-base'
@@ -11,6 +12,7 @@ import { textoCondicion, type NodoEditor } from '@/modules/workflows/utils-grafo
 
 export interface DatosNodoCondicion extends OpcionesAgregar {
   [clave: string]: unknown
+  acciones: AccionesNodo
   nodo: NodoEditor
   campos: CampoEvento[]
   seleccionado: boolean
@@ -37,6 +39,7 @@ export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
       contorno="outline-advertencia"
       seleccionado={data.seleccionado}
       incompleto={data.incompleto}
+      acciones={data.acciones}
       aviso={data.aviso}
       simulacion={data.simulacion}
     >

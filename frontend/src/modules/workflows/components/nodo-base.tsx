@@ -3,13 +3,24 @@ import {
   AlertCircleIcon,
   CheckIcon,
   ClockIcon,
+  CopyIcon,
+  EllipsisVerticalIcon,
   LockIcon,
   MinusIcon,
+  PencilIcon,
   PlusIcon,
+  Trash2Icon,
   UnlinkIcon,
   XIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { BotonIcono } from '@/modules/workflows/components/boton-icono'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { CatalogoBloques } from '@/modules/workflows/components/catalogo-bloques'
@@ -77,6 +88,48 @@ function InsigniaSimulacion({ simulacion }: { simulacion: SimulacionNodo }) {
   )
 }
 
+/** Lo que se puede hacer con un nodo desde su menú de tres puntos. El disparador solo se edita. */
+export interface AccionesNodo {
+  soloLectura: boolean
+  onEditar: () => void
+  onDuplicar?: () => void
+  onEliminar?: () => void
+}
+
+function MenuNodo({ acciones }: { acciones: AccionesNodo }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <BotonIcono
+          etiqueta="Más acciones del bloque"
+          lado="top"
+          className="nodrag nopan -my-1 -mr-1.5 size-7 min-h-0"
+        >
+          <EllipsisVerticalIcon />
+        </BotonIcono>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="nodrag nopan">
+        <DropdownMenuItem onSelect={acciones.onEditar}>
+          <PencilIcon />
+          {acciones.soloLectura ? 'Ver' : 'Editar'}
+        </DropdownMenuItem>
+        {!acciones.soloLectura && acciones.onDuplicar && (
+          <DropdownMenuItem onSelect={acciones.onDuplicar}>
+            <CopyIcon />
+            Duplicar
+          </DropdownMenuItem>
+        )}
+        {!acciones.soloLectura && acciones.onEliminar && (
+          <DropdownMenuItem variant="destructive" onSelect={acciones.onEliminar}>
+            <Trash2Icon />
+            Eliminar
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 interface TarjetaNodoProps {
   etiqueta: string
   icono: ReactNode
@@ -89,7 +142,7 @@ interface TarjetaNodoProps {
   /** Aviso que no impide guardar (p. ej. bloque sin conectar). */
   aviso?: string
   simulacion?: SimulacionNodo
-  /** El nodo apareció hace instantes: entra con una animación corta. */
+  acciones?: AccionesNodo
   children: ReactNode
 }
 
@@ -104,6 +157,7 @@ export function TarjetaNodo({
   incompleto,
   aviso,
   simulacion,
+  acciones,
   children,
 }: TarjetaNodoProps) {
   const atenuado = simulacion?.visible && simulacion.estado === 'no_alcanzado'
@@ -128,7 +182,10 @@ export function TarjetaNodo({
           {icono}
           {etiqueta}
         </span>
-        {simulacion?.visible && <InsigniaSimulacion simulacion={simulacion} />}
+        <span className="flex items-center gap-1.5">
+          {simulacion?.visible && <InsigniaSimulacion simulacion={simulacion} />}
+          {acciones && <MenuNodo acciones={acciones} />}
+        </span>
       </div>
       {children}
       {incompleto && (

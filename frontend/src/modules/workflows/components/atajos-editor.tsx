@@ -10,6 +10,8 @@ const ATAJOS: { teclas: string; accion: string }[] = [
 ]
 
 const GESTOS: string[] = [
+  'Hacé doble clic sobre un bloque (o elegí Editar en sus tres puntos) para abrir su panel de edición.',
+  'Con clic derecho en un lugar vacío del lienzo podés agregar un bloque suelto ahí.',
   'Para conectar, arrastrá desde un punto de salida (derecha) hasta el punto de entrada (izquierda) de otro bloque.',
   'Si soltás la línea en un lugar vacío, se abre el catálogo y el bloque nuevo queda conectado.',
   'Para cambiar de dónde sale un bloque, arrastrá el extremo de origen de su línea a otra salida (en el vacío, se desconecta). También podés arrastrar desde la entrada de un bloque hasta la salida de otro.',

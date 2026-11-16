@@ -3,12 +3,14 @@ import { ZapIcon } from 'lucide-react'
 import {
   BotonSumar,
   TarjetaNodo,
+  type AccionesNodo,
   type OpcionesAgregar,
 } from '@/modules/workflows/components/nodo-base'
 import { SALIDA_DISPARADOR } from '@/modules/workflows/utils-grafo'
 
 export interface DatosNodoDisparador extends OpcionesAgregar {
   [clave: string]: unknown
+  acciones: AccionesNodo
   titulo: string
   detalle: string
   incompleto?: string
@@ -30,6 +32,7 @@ export function NodoDisparador({ data }: NodeProps<NodoDisparadorFlujo>) {
       contorno="outline-mod-workflows"
       seleccionado={data.seleccionado}
       incompleto={data.incompleto}
+      acciones={data.acciones}
     >
       <p className="line-clamp-3 text-sm font-semibold text-texto" title={data.titulo}>
         {data.titulo}
