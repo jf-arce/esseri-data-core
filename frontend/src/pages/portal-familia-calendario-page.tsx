@@ -101,6 +101,16 @@ function DetalleClase({ franja }: { franja: Franja | null }) {
       </div>
 
       <div className="flex items-start gap-3.5 border-t border-[#F1EBF7] pt-5">
+        <CalendarDaysIcon aria-hidden="true" className="mt-0.5 size-6 shrink-0 text-[#6B6478]" />
+        <div>
+          <p className="text-[14px] text-[#6B6478]">Día</p>
+          <p className="text-[18px] font-semibold text-[#2B2338]">
+            {NOMBRES_DIA[franja.dia_semana - 1] ?? '—'}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-start gap-3.5 border-t border-[#F1EBF7] pt-5">
         <ClockIcon aria-hidden="true" className="mt-0.5 size-6 shrink-0 text-[#6B6478]" />
         <div>
           <p className="text-[14px] text-[#6B6478]">Horario</p>

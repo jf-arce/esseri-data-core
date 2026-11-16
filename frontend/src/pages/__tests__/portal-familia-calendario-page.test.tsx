@@ -115,6 +115,8 @@ describe('PortalFamiliaCalendarioPage', () => {
     await usuario.click(screen.getByRole('button', { name: /Inglés.*09:00/ }))
 
     expect(screen.getByText('Laura Díaz')).toBeInTheDocument()
+    expect(screen.getByText('Día')).toBeInTheDocument()
+    expect(screen.getAllByText('Miércoles').length).toBeGreaterThan(0)
     expect(screen.getAllByText('09:00 – 10:00').length).toBeGreaterThan(0)
   })
 
