@@ -238,19 +238,17 @@ describe('PortalFamiliaTramitePage', () => {
       </MemoryRouter>,
     )
 
-    expect(
-      await screen.findByRole('heading', { name: 'Resumen de asistencia' }),
-    ).toBeInTheDocument()
-    expect(screen.queryByText('Consultá tus asistencias.')).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Resumen del período' })).toBeInTheDocument()
+    expect(screen.getByText('Consultá tus asistencias.')).toBeInTheDocument()
     const selectorAlumno = screen.getByLabelText('Alumno')
     expect(selectorAlumno).toHaveTextContent('Juan Gómez')
     expect(selectorAlumno.closest('[data-slot="portal-familia-shell"]')).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Resumen' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('tab', { name: 'Justificar asistencia' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Justificaciones' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Historial' })).toBeInTheDocument()
 
     const resumen = screen.getByRole('tabpanel', { name: 'Resumen' })
-    const presentes = within(resumen).getByText('Asistencias').closest('article')
+    const presentes = within(resumen).getByText('Días presentes').closest('article')
     const inasistencias = within(resumen).getByText('Inasistencias').closest('article')
     const tardanzas = within(resumen).getByText('Tardanzas').closest('article')
     expect(within(presentes!).getByText('1')).toBeInTheDocument()
@@ -258,8 +256,8 @@ describe('PortalFamiliaTramitePage', () => {
     expect(within(inasistencias!).getByText('1 justificada')).toBeInTheDocument()
     expect(within(tardanzas!).getByText('1')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Justificar asistencia' }))
-    expect(screen.getByRole('heading', { name: 'Justificar asistencia' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Justificaciones' }))
+    expect(screen.getByRole('heading', { name: 'Justificaciones' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('tab', { name: 'Historial' }))
     expect(screen.getByRole('heading', { name: 'Historial' })).toBeInTheDocument()
   })
@@ -317,7 +315,7 @@ describe('PortalFamiliaTramitePage', () => {
       </MemoryRouter>,
     )
 
-    await screen.findByRole('heading', { name: 'Resumen de asistencia' })
+    await screen.findByRole('heading', { name: 'Resumen del período' })
     fireEvent.click(screen.getByRole('tab', { name: 'Historial' }))
     const historial = screen.getByRole('tabpanel', { name: 'Historial' })
     expect(within(historial).getByText('15/3/2027')).toBeInTheDocument()
@@ -373,9 +371,9 @@ describe('PortalFamiliaTramitePage', () => {
       </MemoryRouter>,
     )
 
-    await screen.findByRole('heading', { name: 'Resumen de asistencia' })
+    await screen.findByRole('heading', { name: 'Resumen del período' })
     expect(screen.queryByText('Tenés una ausencia pendiente')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('tab', { name: 'Justificar asistencia' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Justificaciones' }))
     expect(
       await screen.findByText('No tenés ausencias pendientes de justificar.'),
     ).toBeInTheDocument()
@@ -400,7 +398,8 @@ describe('PortalFamiliaTramitePage', () => {
       </MemoryRouter>,
     )
 
-    await screen.findByRole('heading', { name: 'Resumen de asistencia' })
+    await screen.findByRole('heading', { name: 'Resumen del período' })
+    fireEvent.click(screen.getByRole('tab', { name: 'Solicitudes' }))
     fireEvent.click(screen.getByRole('button', { name: 'Informar ausencia' }))
 
     expect(screen.getByRole('heading', { name: 'Informar ausencia' })).toBeInTheDocument()
@@ -421,7 +420,8 @@ describe('PortalFamiliaTramitePage', () => {
         <PortalFamiliaTramitePage titulo="Asistencias" descripcion="Consultá tus asistencias." />
       </MemoryRouter>,
     )
-    await screen.findByRole('heading', { name: 'Resumen de asistencia' })
+    await screen.findByRole('heading', { name: 'Resumen del período' })
+    fireEvent.click(screen.getByRole('tab', { name: 'Solicitudes' }))
     fireEvent.click(screen.getByRole('button', { name: 'Informar ausencia' }))
     const dialogo = within(screen.getByRole('dialog'))
     fireEvent.change(dialogo.getByLabelText('Desde'), { target: { value: '2026-12-05' } })
@@ -664,7 +664,8 @@ describe('PortalFamiliaTramitePage', () => {
         </MemoryRouter>,
       )
 
-      await screen.findByRole('heading', { name: 'Resumen de asistencia' })
+      await screen.findByRole('heading', { name: 'Resumen del período' })
+      fireEvent.click(screen.getByRole('tab', { name: 'Solicitudes' }))
       fireEvent.click(screen.getByRole('button', { name: 'Informar ausencia' }))
 
       const dialogo = within(screen.getByRole('dialog'))
@@ -698,7 +699,8 @@ describe('PortalFamiliaTramitePage', () => {
         </MemoryRouter>,
       )
 
-      await screen.findByRole('heading', { name: 'Resumen de asistencia' })
+      await screen.findByRole('heading', { name: 'Resumen del período' })
+      fireEvent.click(screen.getByRole('tab', { name: 'Solicitudes' }))
       fireEvent.click(screen.getByRole('button', { name: 'Informar ausencia' }))
 
       const dialogo = within(screen.getByRole('dialog'))
@@ -722,7 +724,8 @@ describe('PortalFamiliaTramitePage', () => {
         </MemoryRouter>,
       )
 
-      await screen.findByRole('heading', { name: 'Resumen de asistencia' })
+      await screen.findByRole('heading', { name: 'Resumen del período' })
+      fireEvent.click(screen.getByRole('tab', { name: 'Solicitudes' }))
       fireEvent.click(screen.getByRole('button', { name: 'Informar ausencia' }))
 
       const dialogo = within(screen.getByRole('dialog'))
