@@ -58,6 +58,8 @@ import {
   conectar,
   deshacer,
   desconectar,
+  insertarCondicionEn,
+  reconectar,
   duplicarRegla,
   duplicarSubarbol,
   eliminarSubarbol,
@@ -181,6 +183,7 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
     rama: RamaNodo | null,
     que: QueAgregar,
     aviso?: string,
+    posicionElegida?: PosicionNodo,
   ) {
     if (borrador.tipoEventoId === '') {
       setSeleccionId(DISPARADOR_ID)
@@ -195,7 +198,7 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
       toast.error(`El flujo admite hasta ${MAX_PROFUNDIDAD} niveles.`)
       return
     }
-    const posicion = posicionParaHijo(borrador.nodos, padreId, rama)
+    const posicion = posicionElegida ?? posicionParaHijo(borrador.nodos, padreId, rama)
     const nodo =
       que === 'condicion'
         ? nuevoNodoCondicion(padreId, rama, posicion)
@@ -242,6 +245,22 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
     const nodo = { ...base, suelto: true }
     cambiar((actual) => ({ ...actual, nodos: [...actual.nodos, nodo] }))
     setSeleccionId(nodo.id)
+  }
+
+  function insertarCondicion(destinoId: string) {
+    const { nodos, condicionId } = insertarCondicionEn(borrador.nodos, destinoId)
+    if (condicionId === null) {
+      toast.error(
+        `No entra otra condición: el tope es ${MAX_NODOS} bloques y ${MAX_PROFUNDIDAD} niveles.`,
+      )
+      return
+    }
+    cambiar((actual) => ({ ...actual, nodos }))
+    setSeleccionId(condicionId)
+  }
+
+  function reconectarNodos(destinoViejoId: string, conexion: ConexionPropuesta) {
+    cambiar((actual) => ({ ...actual, nodos: reconectar(actual.nodos, destinoViejoId, conexion) }))
   }
 
   function conectarNodos(conexion: ConexionPropuesta) {
@@ -421,6 +440,8 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
           onAgregarEn={agregarEn}
           onSoltarBloque={soltarBloque}
           onConectar={conectarNodos}
+          onReconectar={reconectarNodos}
+          onInsertarCondicion={insertarCondicion}
           onDesconectar={(id) =>
             cambiar((actual) => ({ ...actual, nodos: desconectar(actual.nodos, id) }))
           }

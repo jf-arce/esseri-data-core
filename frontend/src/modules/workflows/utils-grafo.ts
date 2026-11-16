@@ -256,6 +256,59 @@ export function desconectar(nodos: readonly NodoEditor[], destinoId: string): No
   )
 }
 
+/** Mete una condición nueva en la conexión que llega a `hijoId`: el hijo pasa a su salida Sí.
+ * Devuelve la condición creada, o `null` si no entra (tope de bloques o de niveles). */
+export function insertarCondicionEn(
+  nodos: readonly NodoEditor[],
+  hijoId: string,
+): { nodos: NodoEditor[]; condicionId: string | null } {
+  const hijo = nodos.find((nodo) => nodo.id === hijoId)
+  const sinCambios = { nodos: [...nodos], condicionId: null }
+  if (!hijo || hijo.suelto || nodos.length >= MAX_NODOS) return sinCambios
+  const bajan = subarbol(nodos, hijoId)
+  if (bajan.some((nodo) => profundidad(nodos, nodo.id) + 1 > MAX_PROFUNDIDAD)) return sinCambios
+  const condicion = nuevoNodoCondicion(hijo.padreId, hijo.rama, hijo.posicion)
+  const idsQueBajan = new Set(bajan.map((nodo) => nodo.id))
+  return {
+    nodos: [
+      ...nodos.map((nodo) => {
+        if (nodo.id === hijoId) return { ...nodo, padreId: condicion.id, rama: 'si' as const }
+        if (!idsQueBajan.has(nodo.id)) return nodo
+        // Todo el subárbol se corre una columna a la derecha para dejarle lugar a la condición.
+        return { ...nodo, posicion: { ...nodo.posicion, x: nodo.posicion.x + ANCHO_COLUMNA } }
+      }),
+      condicion,
+    ],
+    condicionId: condicion.id,
+  }
+}
+
+/** Mueve el extremo de una conexión existente (el que llegaba a `destinoViejoId`). Si el nuevo
+ * destino es otro, el viejo queda suelto. Si algo no es válido no cambia nada. */
+export function reconectar(
+  nodos: readonly NodoEditor[],
+  destinoViejoId: string,
+  conexion: ConexionPropuesta,
+): NodoEditor[] {
+  // Se valida con la conexión vieja ya soltada: así mover solo el origen o la rama es legal.
+  const sinViejo = desconectar(nodos, destinoViejoId)
+  if (!puedeConectar(sinViejo, conexion)) return [...nodos]
+  return conectar(sinViejo, conexion)
+}
+
+/** Cómo se lee el paso hacia `destino`: depende de de dónde sale (disparador, Sí o No) y de si
+ * lo que sigue es una acción o otra condición. */
+export function etiquetaDeArista(
+  origen: Pick<NodoEditor, 'tipo'> | null,
+  rama: RamaNodo | null,
+  destino: Pick<NodoEditor, 'tipo'>,
+): string {
+  const esCondicion = destino.tipo === 'condicion'
+  if (origen === null || rama === null) return esCondicion ? 'Solo si' : 'Siempre'
+  if (rama === 'si') return esCondicion ? 'Y además, si' : 'Entonces'
+  return esCondicion ? 'Si no, pero si' : 'Si no'
+}
+
 export function actualizarNodo(
   nodos: readonly NodoEditor[],
   id: string,
@@ -684,39 +737,62 @@ function listar(partes: string[]): string {
   return `${partes.slice(0, -1).join(', ')} y ${partes.at(-1)}`
 }
 
-/** Resumen de la regla en una frase: "Cuando …, si … entonces …; si no …". */
+/** Resumen de la regla en una frase. Cada rama de primer nivel es una oración; dentro de una
+ * condición las partes van con punto y coma: "Cuando …: si A, entonces X; y además, si B, Y. Si no
+ * se cumple A, Z." */
 export function fraseRegla(borrador: BorradorFlujo, tiposEvento: TipoEvento[]): string {
   const evento = tiposEvento.find((tipo) => tipo.id === borrador.tipoEventoId)
   if (!evento) return 'Elegí el evento que dispara la regla.'
   const campos = evento.campos
 
-  function describir(padreId: string | null, rama: RamaNodo | null): string {
-    const hijos = hijosDe(borrador.nodos, padreId, rama)
-    const acciones = hijos
+  function accionesDe(padreId: string | null, rama: RamaNodo | null): string[] {
+    return hijosDe(borrador.nodos, padreId, rama)
       .filter((nodo) => nodo.tipo === 'accion')
       .map((nodo) => {
         const base = nodo.tipoAccion ? enMinuscula(ETIQUETA_ACCION[nodo.tipoAccion]) : 'una acción'
         return nodo.requiereAprobacionHumana ? `${base} (con aprobación)` : base
       })
-    const condiciones = hijos
-      .filter((nodo) => nodo.tipo === 'condicion')
-      .map((nodo) => {
-        const si = describir(nodo.id, 'si')
-        const no = describir(nodo.id, 'no')
-        const cabecera = `si ${textoCondicion(nodo, campos, true)}`
-        return [si ? `${cabecera}, ${si}` : cabecera, no ? `si no, ${no}` : '']
-          .filter(Boolean)
-          .join('; ')
-      })
-    // Las acciones que cuelgan directo del disparador no tienen condición: corren "siempre".
-    const textoAcciones =
-      acciones.length > 0 ? `${padreId === null ? 'siempre ' : ''}${listar(acciones)}` : ''
-    return [textoAcciones, ...condiciones].filter(Boolean).join('; ')
   }
 
-  const cuerpo = describir(null, null)
+  /** Lo que pasa por una salida de la condición: sus acciones y las condiciones que siguen. */
+  function contenidoDe(padreId: string, rama: RamaNodo): string {
+    const acciones = accionesDe(padreId, rama)
+    const partes =
+      acciones.length > 0 ? [`${rama === 'si' ? 'entonces ' : ''}${listar(acciones)}`] : []
+    for (const hijo of hijosDe(borrador.nodos, padreId, rama)) {
+      if (hijo.tipo === 'condicion') {
+        partes.push(...oracionesDe(hijo, rama === 'si' ? 'y además, ' : 'pero '))
+      }
+    }
+    return partes.join('; ')
+  }
+
+  /** "si A, …" y, si tiene salida No, "si no se cumple A, …". */
+  function oracionesDe(condicion: NodoEditor, conector: string): string[] {
+    const texto = textoCondicion(condicion, campos, true)
+    const si = contenidoDe(condicion.id, 'si')
+    const no = contenidoDe(condicion.id, 'no')
+    return [
+      `${conector}si ${texto}${si ? `, ${si}` : ''}`,
+      ...(no ? [`si no se cumple ${texto}, ${no}`] : []),
+    ]
+  }
+
+  const directas = accionesDe(null, null)
+  const oraciones = [
+    ...(directas.length > 0 ? [`siempre ${listar(directas)}`] : []),
+    ...hijosDe(borrador.nodos, null)
+      .filter((nodo) => nodo.tipo === 'condicion')
+      .flatMap((nodo) => oracionesDe(nodo, '')),
+  ].map((oracion, indice) => (indice === 0 ? oracion : mayuscula(oracion)))
   const cabecera = `Cuando ${enMinuscula(etiquetaEvento(evento.nombre))}`
-  return cuerpo ? `${cabecera}: ${cuerpo}.` : `${cabecera}, todavía sin acciones.`
+  return oraciones.length > 0
+    ? `${cabecera}: ${oraciones.join('. ')}.`
+    : `${cabecera}, todavía sin acciones.`
+}
+
+function mayuscula(texto: string): string {
+  return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
 
 // --- Historial (deshacer / rehacer) --------------------------------------------------------

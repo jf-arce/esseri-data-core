@@ -18,9 +18,12 @@ import {
   desconectar,
   duplicarRegla,
   hayErrores,
+  insertarCondicionEn,
+  reconectar,
   duplicarSubarbol,
   eliminarSubarbol,
   estadoDeBloque,
+  etiquetaDeArista,
   fraseRegla,
   hijosDe,
   iniciarHistorial,
@@ -556,7 +559,7 @@ describe('fraseRegla', () => {
     const frase = fraseRegla(borradorConRamas(), [EVENTO_FACTURA])
 
     expect(frase).toBe(
-      'Cuando vence una factura: si días vencido es mayor que 30, notificar y crear tarea; si no, si familia contiene Pérez o monto de la deuda es mayor o igual que 1000, alerta interna (con aprobación).',
+      'Cuando vence una factura: si días vencido es mayor que 30, entonces notificar y crear tarea. Si no se cumple días vencido es mayor que 30, pero si familia contiene Pérez o monto de la deuda es mayor o igual que 1000, entonces alerta interna (con aprobación).',
     )
   })
 
@@ -588,7 +591,33 @@ describe('fraseRegla', () => {
     }
 
     expect(fraseRegla(borrador, [EVENTO_FACTURA])).toBe(
-      'Cuando vence una factura: siempre alerta interna; si días vencido es mayor que 30, crear tarea.',
+      'Cuando vence una factura: siempre alerta interna. Si días vencido es mayor que 30, entonces crear tarea.',
+    )
+  })
+
+  it('una condición dentro de la salida Sí se dice "y además, si" y la No, "si no se cumple"', () => {
+    const a = {
+      ...nuevoNodoCondicion(null, null),
+      comparaciones: [{ campo: 'dias_vencido', operador: '>' as const, valor: '30' }],
+    }
+    const b = {
+      ...nuevoNodoCondicion(a.id, 'si'),
+      comparaciones: [{ campo: 'monto_deuda', operador: '>' as const, valor: '500' }],
+    }
+    const borrador = {
+      ...BORRADOR_VACIO,
+      tipoEventoId: 'e-1',
+      nodos: [
+        a,
+        nuevoNodoAccion(a.id, 'si', CATALOGO[1]),
+        b,
+        nuevoNodoAccion(b.id, 'si', CATALOGO[2]),
+        nuevoNodoAccion(a.id, 'no', CATALOGO[0]),
+      ],
+    }
+
+    expect(fraseRegla(borrador, [EVENTO_FACTURA])).toBe(
+      'Cuando vence una factura: si días vencido es mayor que 30, entonces alerta interna; y además, si monto de la deuda es mayor que 500, entonces crear tarea. Si no se cumple días vencido es mayor que 30, notificar.',
     )
   })
 
@@ -692,5 +721,91 @@ describe('textoContadores', () => {
         rechazado: 0,
       }),
     ).toBe('Sin ejecuciones')
+  })
+})
+
+describe('insertarCondicionEn', () => {
+  it('mete la condición entre el padre y el hijo, que pasa a la salida Sí', () => {
+    const { nodos, condicionId } = insertarCondicionEn(borradorConRamas().nodos, 'a-3')
+
+    const nueva = nodos.find((n) => n.id === condicionId)
+    expect(nueva).toMatchObject({ tipo: 'condicion', padreId: 'c-2', rama: 'si', suelto: false })
+    expect(nodos.find((n) => n.id === 'a-3')).toMatchObject({ padreId: condicionId, rama: 'si' })
+  })
+
+  it('un hijo del disparador queda colgado de la condición nueva', () => {
+    const { nodos, condicionId } = insertarCondicionEn(borradorConRamas().nodos, 'c-1')
+
+    expect(nodos.find((n) => n.id === condicionId)).toMatchObject({ padreId: null, rama: null })
+    expect(nodos.find((n) => n.id === 'c-1')).toMatchObject({ padreId: condicionId, rama: 'si' })
+  })
+
+  it('no inserta si el subárbol pasaría de la profundidad máxima', () => {
+    let nodos: NodoEditor[] = []
+    let padre: string | null = null
+    for (let i = 0; i < 6; i += 1) {
+      const nodo: NodoEditor = {
+        ...nuevoNodoCondicion(padre, padre ? 'si' : null),
+        id: `n-${i}`,
+      }
+      nodos = [...nodos, nodo]
+      padre = nodo.id
+    }
+
+    const resultado = insertarCondicionEn(nodos, 'n-5')
+
+    expect(resultado.condicionId).toBeNull()
+    expect(resultado.nodos).toHaveLength(6)
+  })
+})
+
+describe('reconectar', () => {
+  it('mueve la conexión a otro destino suelto y deja suelto al anterior', () => {
+    const base = borradorConRamas().nodos
+    const nodos = [
+      ...base,
+      { ...nuevoNodoAccion(null, null, CATALOGO[1]), id: 'libre', suelto: true },
+    ]
+
+    const resultado = reconectar(nodos, 'a-3', { origenId: 'c-1', destinoId: 'libre', rama: 'si' })
+
+    expect(resultado.find((n) => n.id === 'libre')).toMatchObject({
+      padreId: 'c-1',
+      rama: 'si',
+      suelto: false,
+    })
+    expect(resultado.find((n) => n.id === 'a-3')).toMatchObject({ padreId: null, suelto: true })
+  })
+
+  it('cambiar solo la rama del mismo destino es válido', () => {
+    const resultado = reconectar(borradorConRamas().nodos, 'a-3', {
+      origenId: 'c-2',
+      destinoId: 'a-3',
+      rama: 'no',
+    })
+
+    expect(resultado.find((n) => n.id === 'a-3')).toMatchObject({ padreId: 'c-2', rama: 'no' })
+  })
+
+  it('si el destino nuevo ya está conectado, no cambia nada', () => {
+    const nodos = borradorConRamas().nodos
+
+    const resultado = reconectar(nodos, 'a-3', { origenId: 'c-1', destinoId: 'a-1', rama: 'no' })
+
+    expect(resultado).toEqual(nodos)
+  })
+})
+
+describe('etiquetaDeArista', () => {
+  const accion = { tipo: 'accion' as const }
+  const condicion = { tipo: 'condicion' as const }
+
+  it('se lee según de dónde sale y a qué llega', () => {
+    expect(etiquetaDeArista(null, null, accion)).toBe('Siempre')
+    expect(etiquetaDeArista(null, null, condicion)).toBe('Solo si')
+    expect(etiquetaDeArista(condicion, 'si', accion)).toBe('Entonces')
+    expect(etiquetaDeArista(condicion, 'si', condicion)).toBe('Y además, si')
+    expect(etiquetaDeArista(condicion, 'no', accion)).toBe('Si no')
+    expect(etiquetaDeArista(condicion, 'no', condicion)).toBe('Si no, pero si')
   })
 })

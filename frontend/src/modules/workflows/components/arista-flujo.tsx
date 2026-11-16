@@ -5,20 +5,22 @@ import {
   type Edge,
   type EdgeProps,
 } from '@xyflow/react'
-import { XIcon } from 'lucide-react'
+import { PlusIcon, XIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface DatosArista {
   [clave: string]: unknown
   /** Contexto de la salida: `si` verde, `no` rojo, sin rama violeta. */
   rama: 'si' | 'no' | null
-  /** Sale del disparador hacia una acción sin condición: corre con cada evento. */
-  siempre?: boolean
+  /** Cómo se lee el paso ("Siempre", "Entonces", "Si no, pero si"…), según origen y destino. */
+  etiqueta: string
   /** Durante la simulación: la arista que el indicador está recorriendo ahora, la ya recorrida y
    * la que no se tomó. */
   simulacion?: 'activa' | 'recorrida' | 'tenue'
   soloLectura: boolean
   onDesconectar: () => void
+  /** Mete una condición entre el origen y el destino de esta conexión. */
+  onInsertarCondicion: () => void
 }
 
 export type AristaFlujo = Edge<DatosArista, 'flujo'>
@@ -68,30 +70,47 @@ export function AristaFlujo({
           opacity: tenue ? 0.25 : 1,
         }}
       />
-      {data?.siempre && (
+      {data?.etiqueta && (
         <EdgeLabelRenderer>
           <span
             style={{
-              transform: `translate(-50%, -50%) translate(${sourceX + (targetX - sourceX) * 0.3}px, ${sourceY + (targetY - sourceY) * 0.3}px)`,
+              transform: `translate(-50%, -50%) translate(${centroX}px, ${centroY}px)`,
+              color,
+              borderColor: color,
             }}
-            className="pointer-events-none absolute rounded-full bg-sup-workflows px-2 py-0.5 text-[11px] font-semibold text-mod-workflows"
+            className="pointer-events-none absolute rounded-full border bg-superficie px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap"
           >
-            Siempre
+            {data.etiqueta}
           </span>
         </EdgeLabelRenderer>
       )}
       {selected && !data?.soloLectura && (
         <EdgeLabelRenderer>
-          <button
-            type="button"
-            aria-label="Desconectar bloque"
-            title="Desconectar"
-            onClick={data?.onDesconectar}
-            style={{ transform: `translate(-50%, -50%) translate(${centroX}px, ${centroY}px)` }}
-            className="nodrag nopan pointer-events-auto absolute flex size-6 items-center justify-center rounded-full border border-borde bg-superficie text-texto-2 shadow-card hover:text-error"
+          <div
+            style={{
+              transform: `translate(-50%, 0) translate(${centroX}px, ${centroY + 16}px)`,
+            }}
+            className="nodrag nopan pointer-events-auto absolute flex items-center gap-1"
           >
-            <XIcon className="size-3.5" />
-          </button>
+            <button
+              type="button"
+              aria-label="Insertar una condición"
+              title="Insertar una condición"
+              onClick={data?.onInsertarCondicion}
+              className="flex size-6 items-center justify-center rounded-full border border-borde bg-superficie text-texto-2 shadow-card hover:text-texto"
+            >
+              <PlusIcon className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Desconectar bloque"
+              title="Desconectar"
+              onClick={data?.onDesconectar}
+              className="flex size-6 items-center justify-center rounded-full border border-borde bg-superficie text-texto-2 shadow-card hover:text-error"
+            >
+              <XIcon className="size-3.5" />
+            </button>
+          </div>
         </EdgeLabelRenderer>
       )}
     </>

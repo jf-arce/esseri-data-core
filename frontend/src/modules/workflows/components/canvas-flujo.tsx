@@ -17,6 +17,8 @@ import {
   ReactFlowProvider,
   useReactFlow,
   type Connection,
+  type Edge,
+  type FinalConnectionState,
   type NodeChange,
   type NodeTypes,
   type EdgeTypes,
@@ -24,6 +26,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { LayoutGridIcon, Redo2Icon, Undo2Icon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import {
   AristaFlujo,
   type AristaFlujo as TipoAristaFlujo,
@@ -39,7 +42,11 @@ import {
   type NodoDisparadorFlujo,
 } from '@/modules/workflows/components/nodo-disparador'
 import { AtajosEditor } from '@/modules/workflows/components/atajos-editor'
-import { MIME_BLOQUE, type QueBloque } from '@/modules/workflows/components/catalogo-bloques'
+import {
+  CatalogoBloques,
+  MIME_BLOQUE,
+  type QueBloque,
+} from '@/modules/workflows/components/catalogo-bloques'
 import { PaletaBloques } from '@/modules/workflows/components/paleta-bloques'
 import { ResumenRegla } from '@/modules/workflows/components/resumen-regla'
 import { DIAS_ESTADISTICAS } from '@/modules/workflows/constants'
@@ -53,6 +60,7 @@ import type {
 import { etiquetaEvento } from '@/modules/workflows/utils'
 import {
   DISPARADOR_ID,
+  etiquetaDeArista,
   ordenarArbol,
   posicionDisparador,
   puedeConectar,
@@ -107,10 +115,20 @@ export interface CanvasFlujoProps {
   onSeleccionar: (id: string | null) => void
   /** Alta desde el botón "Agregar bloque": el editor decide a qué salida se conecta. */
   onAgregarBloque: (que: QueAgregar) => void
-  onAgregarEn: (padreId: string | null, rama: RamaNodo | null, que: QueAgregar) => void
+  onAgregarEn: (
+    padreId: string | null,
+    rama: RamaNodo | null,
+    que: QueAgregar,
+    aviso?: string,
+    posicion?: PosicionNodo,
+  ) => void
   onSoltarBloque: (que: QueAgregar, posicion: PosicionNodo) => void
   onConectar: (conexion: ConexionPropuesta) => void
   onDesconectar: (destinoId: string) => void
+  /** Mete una condición en la conexión que llega a ese nodo. */
+  onInsertarCondicion: (destinoId: string) => void
+  /** Mueve el extremo de una conexión: `destinoViejoId` es a donde llegaba antes. */
+  onReconectar: (destinoViejoId: string, conexion: ConexionPropuesta) => void
   /** Se llama una sola vez, al soltar el nodo, con las posiciones finales. */
   onMover: (posiciones: Record<string, PosicionNodo>) => void
 }
@@ -142,6 +160,15 @@ function LienzoFlujo(props: CanvasFlujoProps) {
   const [medidas, setMedidas] = useState<ReadonlyMap<string, Medida>>(new Map())
   // Posición de los nodos mientras se los arrastra. Se vuelca al borrador recién al soltarlos.
   const [arrastrando, setArrastrando] = useState<Readonly<Record<string, PosicionNodo>>>({})
+  // Catálogo que se abre al soltar una línea en el vacío: de qué salida venía y dónde cayó.
+  const [soltada, setSoltada] = useState<{
+    padreId: string | null
+    rama: RamaNodo | null
+    pantalla: PosicionNodo
+    lienzo: PosicionNodo
+  } | null>(null)
+  // Una reconexión que no terminó en otro nodo (soltada en el vacío) desconecta el bloque.
+  const reconectada = useRef(false)
 
   const nodos = useMemo<NodoFlujo[]>(() => {
     const opcionesAgregar = {
@@ -256,11 +283,15 @@ function LienzoFlujo(props: CanvasFlujoProps) {
           target: nodo.id,
           data: {
             rama: nodo.rama,
-            // Una acción colgada del disparador corre con cada evento: la arista lo dice.
-            siempre: nodo.padreId === null && nodo.tipo === 'accion',
+            etiqueta: etiquetaDeArista(
+              borrador.nodos.find((origen) => origen.id === nodo.padreId) ?? null,
+              nodo.rama,
+              nodo,
+            ),
             simulacion: aristasSimulacion?.get(nodo.id),
             soloLectura,
             onDesconectar: () => props.onDesconectar(nodo.id),
+            onInsertarCondicion: () => props.onInsertarCondicion(nodo.id),
           },
         })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -350,6 +381,41 @@ function LienzoFlujo(props: CanvasFlujoProps) {
     props.onConectar({ origenId, destinoId: conexion.target, rama })
   }
 
+  function alTerminarConexion(evento: MouseEvent | TouchEvent, estado: FinalConnectionState) {
+    if (soloLectura || estado.toNode !== null || estado.fromHandle?.type !== 'source') return
+    const origen = estado.fromNode?.id
+    if (origen === undefined) return
+    const punto = 'changedTouches' in evento ? evento.changedTouches[0] : evento
+    const pantalla = { x: punto.clientX, y: punto.clientY }
+    setSoltada({
+      padreId: origen === DISPARADOR_ID ? null : origen,
+      rama: estado.fromHandle.id === 'si' ? 'si' : estado.fromHandle.id === 'no' ? 'no' : null,
+      pantalla,
+      lienzo: screenToFlowPosition(pantalla),
+    })
+  }
+
+  function alReconectar(viejo: Edge, nueva: Connection) {
+    reconectada.current = true
+    const rama: RamaNodo | null =
+      nueva.sourceHandle === 'si' ? 'si' : nueva.sourceHandle === 'no' ? 'no' : null
+    props.onReconectar(viejo.target, {
+      origenId: nueva.source === DISPARADOR_ID ? null : nueva.source,
+      destinoId: nueva.target,
+      rama,
+    })
+  }
+
+  function alTerminarReconexion(
+    _: unknown,
+    arista: Edge,
+    __: unknown,
+    estado: FinalConnectionState,
+  ) {
+    if (!reconectada.current && estado.toNode === null) props.onDesconectar(arista.target)
+    reconectada.current = false
+  }
+
   function esConexionValida(conexion: {
     source: string
     target: string
@@ -399,6 +465,10 @@ function LienzoFlujo(props: CanvasFlujoProps) {
         edgeTypes={TIPOS_ARISTA}
         onNodesChange={alCambiarNodos}
         onConnect={alConectar}
+        onConnectEnd={alTerminarConexion}
+        edgesReconnectable={!soloLectura}
+        onReconnect={alReconectar}
+        onReconnectEnd={alTerminarReconexion}
         isValidConnection={esConexionValida}
         onNodeClick={(_, nodo) => props.onSeleccionar(nodo.id)}
         onPaneClick={() => props.onSeleccionar(null)}
@@ -487,6 +557,24 @@ function LienzoFlujo(props: CanvasFlujoProps) {
           />
         )}
       </ReactFlow>
+      <Popover open={soltada !== null} onOpenChange={(abierto) => !abierto && setSoltada(null)}>
+        <PopoverAnchor
+          className="fixed size-0"
+          style={{ left: soltada?.pantalla.x ?? 0, top: soltada?.pantalla.y ?? 0 }}
+        />
+        <PopoverContent align="start" className="w-[300px] overflow-hidden p-0">
+          <CatalogoBloques
+            tiposAccion={tiposAccion}
+            nombreEvento={nombreEvento}
+            soloLectura={soloLectura}
+            onElegir={(que) => {
+              if (soltada)
+                props.onAgregarEn(soltada.padreId, soltada.rama, que, undefined, soltada.lienzo)
+              setSoltada(null)
+            }}
+          />
+        </PopoverContent>
+      </Popover>
     </div>
   )
 }
