@@ -95,7 +95,6 @@ export function reglaDe(extra: Partial<ReglaWorkflow> = {}): ReglaWorkflow {
     id: 'r-1',
     nombre: 'Aviso de mora',
     tipo_evento_id: 'e-1',
-    criticidad: 'media',
     activo: true,
     created_at: '2026-09-01T00:00:00Z',
     updated_at: '2026-09-01T00:00:00Z',

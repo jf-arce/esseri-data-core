@@ -19,12 +19,7 @@ import {
 } from '@/components/ui/table'
 import { rutaRegla } from '@/modules/workflows/constants'
 import type { ReglaWorkflow, TipoEvento } from '@/modules/workflows/types'
-import {
-  ETIQUETA_ACCION,
-  ETIQUETA_CRITICIDAD,
-  etiquetaEvento,
-  VARIANTE_CRITICIDAD,
-} from '@/modules/workflows/utils'
+import { ETIQUETA_ACCION, etiquetaEvento } from '@/modules/workflows/utils'
 
 /** Las acciones del flujo en una línea: la primera por nombre y el resto contado. */
 function resumenAcciones(regla: ReglaWorkflow): string {
@@ -39,7 +34,6 @@ const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-44', anchoAlt: 'h-4 w-32' },
   { tipo: 'texto', clase: 'hidden xl:table-cell' },
   { tipo: 'texto', ancho: 'h-4 w-36', anchoAlt: 'h-4 w-28', clase: 'hidden lg:table-cell' },
-  { tipo: 'texto', ancho: 'h-4 w-16', clase: 'hidden 2xl:table-cell' },
   { tipo: 'texto', ancho: 'h-4 w-10', clase: 'hidden 2xl:table-cell' },
   { tipo: 'chip' },
   { tipo: 'accion' },
@@ -76,7 +70,6 @@ export function ReglasWorkflowTabla({
             <TableHead>Regla</TableHead>
             <TableHead className="hidden xl:table-cell">Disparador</TableHead>
             <TableHead className="hidden lg:table-cell">Acciones</TableHead>
-            <TableHead className="hidden 2xl:table-cell">Criticidad</TableHead>
             <TableHead className="hidden 2xl:table-cell">Aprob. humana</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead data-align="end">
@@ -100,11 +93,6 @@ export function ReglasWorkflowTabla({
                   {nombreEvento.get(regla.tipo_evento_id) ?? 'Evento desconocido'}
                 </TableCell>
                 <TableCell className="hidden lg:table-cell">{resumenAcciones(regla)}</TableCell>
-                <TableCell className="hidden 2xl:table-cell">
-                  <Badge variant={VARIANTE_CRITICIDAD[regla.criticidad]}>
-                    {ETIQUETA_CRITICIDAD[regla.criticidad]}
-                  </Badge>
-                </TableCell>
                 <TableCell className="hidden 2xl:table-cell">
                   {regla.nodos.some((nodo) => nodo.requiere_aprobacion_humana) ? 'Sí' : 'No'}
                 </TableCell>

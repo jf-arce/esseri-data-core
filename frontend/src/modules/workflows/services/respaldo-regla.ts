@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { CRITICIDADES, OPERADORES, TIPOS_ACCION } from '@/modules/workflows/types'
+import { OPERADORES, TIPOS_ACCION } from '@/modules/workflows/types'
 import type { BorradorFlujo } from '@/modules/workflows/utils-grafo'
 
 const esquemaNodo = z.object({
@@ -27,7 +27,6 @@ const esquemaNodo = z.object({
 const esquemaBorrador: z.ZodType<BorradorFlujo> = z.object({
   nombre: z.string(),
   tipoEventoId: z.string(),
-  criticidad: z.enum(CRITICIDADES),
   activo: z.boolean(),
   nodos: z.array(esquemaNodo),
 })

@@ -28,7 +28,6 @@ import type { useDestinatariosDisponibles } from '@/modules/workflows/hooks/use-
 import { usePantallaAncha } from '@/modules/workflows/hooks/use-pantalla-ancha'
 import type { usePlantillas } from '@/modules/workflows/hooks/use-plantillas'
 import {
-  CRITICIDADES,
   type DestinatariosNodo,
   type Operador,
   type TipoAccionCatalogo,
@@ -38,7 +37,6 @@ import {
   admiteDestinatarios,
   asignaTareas,
   ETIQUETA_ACCION,
-  ETIQUETA_CRITICIDAD,
   ETIQUETA_OPERADOR,
   etiquetaEvento,
   operadoresDeCampo,
@@ -70,7 +68,6 @@ export interface InspectorNodoProps {
   soloLectura: boolean
   /** Primer problema del nodo, si falta algo. */
   error?: string
-  onCambiarRegla: (cambios: Partial<Pick<BorradorFlujo, 'criticidad'>>) => void
   onCambiarEvento: (tipoEventoId: string) => void
   onCambiarNodo: (id: string, cambios: Partial<NodoEditor>) => void
   onDuplicar: (id: string) => void
@@ -104,12 +101,8 @@ function PanelDisparador({
   borrador,
   tiposEvento,
   soloLectura,
-  onCambiarRegla,
   onCambiarEvento,
-}: Pick<
-  InspectorNodoProps,
-  'borrador' | 'tiposEvento' | 'soloLectura' | 'onCambiarRegla' | 'onCambiarEvento'
->) {
+}: Pick<InspectorNodoProps, 'borrador' | 'tiposEvento' | 'soloLectura' | 'onCambiarEvento'>) {
   const evento = tiposEvento.find((tipo) => tipo.id === borrador.tipoEventoId)
   return (
     <div className="flex flex-col gap-4">
@@ -132,28 +125,6 @@ function PanelDisparador({
           </SelectContent>
         </Select>
         {evento?.descripcion && <FieldDescription>{evento.descripcion}</FieldDescription>}
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="regla-criticidad">Criticidad</FieldLabel>
-        <Select
-          value={borrador.criticidad}
-          disabled={soloLectura}
-          onValueChange={(valor) => {
-            const criticidad = CRITICIDADES.find((item) => item === valor)
-            if (criticidad) onCambiarRegla({ criticidad })
-          }}
-        >
-          <SelectTrigger id="regla-criticidad" className={CLASE_SELECT_ADAPTABLE}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {CRITICIDADES.map((criticidad) => (
-              <SelectItem key={criticidad} value={criticidad}>
-                {ETIQUETA_CRITICIDAD[criticidad]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </Field>
       <ResumenReglaCompleto borrador={borrador} tiposEvento={tiposEvento} />
     </div>

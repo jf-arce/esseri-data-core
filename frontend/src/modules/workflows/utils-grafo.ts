@@ -12,7 +12,6 @@ import type {
   EstadisticasNodo,
   EstadoNodoSimulado,
   Condicion,
-  Criticidad,
   LogicaCondicion,
   NodoWorkflow,
   NodoWorkflowPayload,
@@ -80,7 +79,6 @@ export interface NodoEditor {
 export interface BorradorFlujo {
   nombre: string
   tipoEventoId: string
-  criticidad: Criticidad
   activo: boolean
   nodos: NodoEditor[]
 }
@@ -88,7 +86,6 @@ export interface BorradorFlujo {
 export const BORRADOR_VACIO: BorradorFlujo = {
   nombre: '',
   tipoEventoId: '',
-  criticidad: 'media',
   activo: true,
   nodos: [],
 }
@@ -452,7 +449,6 @@ export function borradorDesdeRegla(regla: ReglaWorkflow): BorradorFlujo {
   return {
     nombre: regla.nombre,
     tipoEventoId: regla.tipo_evento_id,
-    criticidad: regla.criticidad,
     activo: regla.activo,
     nodos,
   }
@@ -563,7 +559,6 @@ export function payloadDesdeBorrador(
   return {
     nombre: borrador.nombre.trim(),
     tipo_evento_id: borrador.tipoEventoId,
-    criticidad: borrador.criticidad,
     activo: borrador.activo,
     nodos: borrador.nodos
       .filter((nodo) => !sinConectar.has(nodo.id))

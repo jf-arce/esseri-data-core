@@ -12,7 +12,6 @@ const tiposEvento: TipoEvento[] = [
 
 const regla = reglaDe({
   nombre: 'Penalidad por mora',
-  criticidad: 'alta',
   nodos: [
     nodoAccion('n-1', { tipo_accion: 'aplicar_penalidad', requiere_aprobacion_humana: true }),
   ],
@@ -33,13 +32,12 @@ function renderizar(puedeActualizar: boolean) {
 }
 
 describe('ReglasWorkflowTabla', () => {
-  it('muestra evento, acción, criticidad y aprobación humana de la regla', async () => {
+  it('muestra evento, acción y aprobación humana de la regla', async () => {
     renderizar(true)
 
     expect(screen.getByText('Penalidad por mora')).toBeInTheDocument()
     expect(screen.getByText('Vence una factura')).toBeInTheDocument()
     expect(screen.getByText('Aplicar penalidad')).toBeInTheDocument()
-    expect(screen.getByText('Alta')).toBeInTheDocument()
     expect(screen.getByText('Sí')).toBeInTheDocument()
   })
 

@@ -19,9 +19,6 @@ export const TIPOS_ACCION = [
 ] as const
 export type TipoAccion = (typeof TIPOS_ACCION)[number]
 
-export const CRITICIDADES = ['baja', 'media', 'alta', 'critica'] as const
-export type Criticidad = (typeof CRITICIDADES)[number]
-
 export const OPERADORES = ['==', '!=', '>', '>=', '<', '<=', 'contiene'] as const
 export type Operador = (typeof OPERADORES)[number]
 
@@ -128,7 +125,6 @@ export interface ReglaWorkflow {
   id: string
   nombre: string
   tipo_evento_id: string
-  criticidad: Criticidad
   activo: boolean
   created_at: string
   updated_at: string
@@ -140,7 +136,6 @@ export interface ReglaWorkflow {
 export interface ReglaWorkflowCreatePayload {
   nombre: string
   tipo_evento_id: string
-  criticidad: Criticidad
   activo: boolean
   nodos: NodoWorkflowPayload[]
   bloques_sueltos: unknown[]
@@ -149,7 +144,6 @@ export interface ReglaWorkflowCreatePayload {
 export interface ReglaWorkflowPatch {
   nombre?: string
   tipo_evento_id?: string
-  criticidad?: Criticidad
   activo?: boolean
   nodos?: NodoWorkflowPayload[]
   bloques_sueltos?: unknown[]

@@ -177,7 +177,6 @@ describe('ReglaWorkflowEditorPage', () => {
       expect(payload).toMatchObject({
         nombre: 'Aviso de mora',
         tipo_evento_id: 'e-1',
-        criticidad: 'media',
         activo: true,
       })
       expect(payload.nodos).toHaveLength(1)

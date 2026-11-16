@@ -20,7 +20,6 @@ import type {
   AccionConfig,
   CampoEvento,
   Condicion,
-  Criticidad,
   DestinatarioTipo,
   EstadoEjecucion,
   EstadoEnvio,
@@ -75,16 +74,6 @@ export function etiquetaEvento(nombre: string): string {
   const legible = nombre.replace(/[._]+/g, ' ').trim()
   return legible.charAt(0).toUpperCase() + legible.slice(1)
 }
-
-export const ETIQUETA_CRITICIDAD: Record<Criticidad, string> = {
-  baja: 'Baja',
-  media: 'Media',
-  alta: 'Alta',
-  critica: 'Crítica',
-}
-
-export const VARIANTE_CRITICIDAD: Record<Criticidad, 'neutro' | 'info' | 'advertencia' | 'error'> =
-  { baja: 'neutro', media: 'info', alta: 'advertencia', critica: 'error' }
 
 export const ETIQUETA_OPERADOR: Record<Operador, string> = {
   '==': 'es igual a',

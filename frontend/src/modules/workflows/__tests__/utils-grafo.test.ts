@@ -107,7 +107,6 @@ describe('borradorDesdeRegla y payloadDesdeBorrador', () => {
     expect(payload).toMatchObject({
       nombre: 'Aviso de mora',
       tipo_evento_id: 'e-1',
-      criticidad: 'media',
       activo: true,
     })
     const porId = new Map(payload.nodos.map((nodo) => [nodo.id, nodo]))

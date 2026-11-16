@@ -21,12 +21,7 @@ import { cn } from '@/lib/utils'
 import { MiniFlujo } from '@/modules/workflows/components/mini-flujo'
 import { RUTA_EJECUCIONES, rutaRegla } from '@/modules/workflows/constants'
 import type { ReglaWorkflow, ResumenRegla, TipoEvento } from '@/modules/workflows/types'
-import {
-  ETIQUETA_ACCION,
-  ETIQUETA_CRITICIDAD,
-  etiquetaEvento,
-  VARIANTE_CRITICIDAD,
-} from '@/modules/workflows/utils'
+import { ETIQUETA_ACCION, etiquetaEvento } from '@/modules/workflows/utils'
 import { borradorDesdeRegla, fraseRegla } from '@/modules/workflows/utils-grafo'
 import { tiempoRelativo } from '@/modules/workflows/utils-mapa'
 
@@ -169,12 +164,6 @@ export function TarjetaRegla({
       <HoverCardContent className="w-80">
         <p className="mb-1 text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
           {evento ? etiquetaEvento(evento.nombre) : 'Evento desconocido'}
-        </p>
-        <p className="mb-2 text-xs text-texto-2">
-          Criticidad{' '}
-          <Badge variant={VARIANTE_CRITICIDAD[regla.criticidad]}>
-            {ETIQUETA_CRITICIDAD[regla.criticidad]}
-          </Badge>
         </p>
         <ul className="flex flex-col gap-1.5">
           {acciones.map((nodo) => (

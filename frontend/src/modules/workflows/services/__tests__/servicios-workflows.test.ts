@@ -59,7 +59,6 @@ describe('servicios de workflows', () => {
     const payload = {
       nombre: 'Aviso de mora',
       tipo_evento_id: 'evento-1',
-      criticidad: 'media' as const,
       activo: true,
       nodos: [
         {

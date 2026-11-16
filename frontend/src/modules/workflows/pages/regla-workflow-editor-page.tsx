@@ -506,7 +506,6 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
             }
             soloLectura={soloLectura}
             error={typeof seleccionado === 'string' ? undefined : errores.porNodo[seleccionado.id]}
-            onCambiarRegla={(cambios) => cambiar((actual) => ({ ...actual, ...cambios }))}
             onCambiarEvento={(id) =>
               cambiar((actual) =>
                 cambiarEventoDelBorrador(
