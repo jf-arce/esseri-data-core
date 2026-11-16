@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router'
 import { SearchXIcon } from 'lucide-react'
 import { toast } from 'sonner'
@@ -50,6 +50,13 @@ import { useReglaWorkflow } from '@/modules/workflows/hooks/use-regla-workflow'
 import { useSimulacionRegla } from '@/modules/workflows/hooks/use-simulacion-regla'
 import { actualizarReglaWorkflow } from '@/modules/workflows/services/actualizar-regla-workflow'
 import { crearReglaWorkflow } from '@/modules/workflows/services/crear-regla-workflow'
+import {
+  borrarRespaldo,
+  claveRespaldo,
+  guardarRespaldo,
+  leerRespaldo,
+  type RespaldoRegla,
+} from '@/modules/workflows/services/respaldo-regla'
 import type {
   DestinatariosNodo,
   PosicionNodo,
@@ -96,6 +103,9 @@ const ANCHO_INSPECTOR = 380
 const ETIQUETA_VOLVER_A_REGLAS = 'Volver a las reglas'
 const SIN_DESTINATARIOS: DestinatariosNodo = { roles: [], usuarios: [] }
 const SIN_ERRORES: ErroresFlujo = { general: [], porNodo: {}, avisos: {} }
+/** Espera antes de volcar el borrador automático, para no escribir en cada tecla. */
+const ESPERA_RESPALDO_MS = 600
+const FORMATO_HORA = new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' })
 
 function detalleDe(causa: unknown, porDefecto: string): string {
   return causa instanceof ApiError ? (causa.detail ?? porDefecto) : porDefecto
@@ -117,9 +127,11 @@ interface EditorReglaProps {
   inicial: BorradorFlujo
   tiposEvento: TipoEvento[]
   tiposAccion: TipoAccionCatalogo[]
+  /** Qué se edita, para separar los borradores automáticos: id de la regla, `nueva` o `duplicar-<id>`. */
+  destino: string
 }
 
-function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaProps) {
+function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: EditorReglaProps) {
   const navigate = useNavigate()
   const permisos = useAuthStore(permisosActivos)
   const soloLectura = !tienePermiso(
@@ -143,12 +155,31 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
   const [instantanea] = useState(() => JSON.stringify(inicial))
   const sinGuardar = JSON.stringify(borrador) !== instantanea
 
+  const usuarioId = useAuthStore((estado) => estado.usuario?.id ?? '')
+  const claveBorrador = claveRespaldo(usuarioId, destino)
+  // Borrador automático de una sesión anterior que quedó distinto de lo guardado. Mientras se
+  // decide qué hacer con él no se pisa con uno nuevo.
+  const [pendiente, setPendiente] = useState<RespaldoRegla | null>(() => {
+    if (soloLectura) return null
+    const respaldo = leerRespaldo(claveBorrador)
+    return respaldo && JSON.stringify(respaldo.borrador) !== instantanea ? respaldo : null
+  })
+
   // Navegar dentro del sistema con cambios sin guardar pide confirmación. Cerrar o recargar la
   // pestaña no avisa: el borrador automático se recupera al volver.
   const bloqueo = useBlocker(
     ({ currentLocation, nextLocation }) =>
       sinGuardar && !guardando && currentLocation.pathname !== nextLocation.pathname,
   )
+
+  useEffect(() => {
+    if (!sinGuardar || guardando || soloLectura || pendiente !== null) return
+    const espera = setTimeout(
+      () => guardarRespaldo(claveBorrador, borrador, regla?.updated_at ?? null),
+      ESPERA_RESPALDO_MS,
+    )
+    return () => clearTimeout(espera)
+  }, [borrador, sinGuardar, guardando, soloLectura, pendiente, claveBorrador, regla])
 
   const evento = tiposEvento.find((tipo) => tipo.id === borrador.tipoEventoId)
   const nombreEvento = evento?.nombre ?? null
@@ -356,6 +387,7 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
         await crearReglaWorkflow(payload)
         toast.success('Regla creada')
       }
+      borrarRespaldo(claveBorrador)
       navigate(RUTA_REGLAS)
     } catch (causa) {
       if (causa instanceof ApiError && causa.status === 409 && regla) setConflicto(true)
@@ -507,8 +539,45 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion }: EditorReglaPr
             <AlertDialogCancel onClick={() => bloqueo.state === 'blocked' && bloqueo.reset()}>
               Seguir editando
             </AlertDialogCancel>
-            <AlertDialogAction onClick={() => bloqueo.state === 'blocked' && bloqueo.proceed()}>
+            <AlertDialogAction
+              onClick={() => {
+                if (bloqueo.state !== 'blocked') return
+                borrarRespaldo(claveBorrador)
+                bloqueo.proceed()
+              }}
+            >
               Salir sin guardar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={pendiente !== null}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tenías cambios sin guardar en esta regla</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendiente && `Quedaron del ${FORMATO_HORA.format(pendiente.actualizado)}. `}
+              {pendiente && pendiente.base !== (regla?.updated_at ?? null)
+                ? 'La regla se modificó después: si los recuperás, pisás esos cambios al guardar.'
+                : '¿Querés recuperarlos?'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                borrarRespaldo(claveBorrador)
+                setPendiente(null)
+              }}
+            >
+              Descartar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendiente) cambiar(() => pendiente.borrador)
+                setPendiente(null)
+              }}
+            >
+              Recuperar cambios
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -590,6 +659,9 @@ export function ReglaWorkflowEditorPage() {
   return (
     <EditorRegla
       key={regla.regla?.id ?? original.regla?.id ?? 'nueva'}
+      destino={
+        regla.regla ? regla.regla.id : original.regla ? `duplicar-${original.regla.id}` : 'nueva'
+      }
       regla={regla.regla}
       inicial={inicial}
       tiposEvento={catalogos.tiposEvento}

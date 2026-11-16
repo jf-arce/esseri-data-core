@@ -144,6 +144,7 @@ const reglaConRamas = reglaDe({
 })
 
 beforeEach(() => {
+  window.localStorage.clear()
   vi.resetAllMocks()
   conPermisos(['workflows.leer', 'workflows.crear', 'workflows.actualizar'])
   vi.mocked(listarTiposEvento).mockResolvedValue([EVENTO_FACTURA])
@@ -443,6 +444,49 @@ describe('ReglaWorkflowEditorPage', () => {
       await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
 
       expect(await screen.findByText('Listado de reglas')).toBeInTheDocument()
+    })
+  })
+
+  describe('borrador automático', () => {
+    it('guarda los cambios y ofrece recuperarlos al volver a abrir la regla', async () => {
+      const user = userEvent.setup()
+      const primera = abrirEditor()
+      await user.type(await screen.findByLabelText('Nombre de la regla'), ' recuperable')
+      await waitFor(() => expect(window.localStorage.length).toBe(1))
+      primera.unmount()
+
+      abrirEditor()
+      expect(
+        await screen.findByText('Tenías cambios sin guardar en esta regla'),
+      ).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Recuperar cambios' }))
+
+      expect(await screen.findByDisplayValue(/recuperable$/)).toBeInTheDocument()
+    })
+
+    it('descarta el borrador y lo borra', async () => {
+      const user = userEvent.setup()
+      const primera = abrirEditor()
+      await user.type(await screen.findByLabelText('Nombre de la regla'), ' recuperable')
+      await waitFor(() => expect(window.localStorage.length).toBe(1))
+      primera.unmount()
+
+      abrirEditor()
+      await user.click(await screen.findByRole('button', { name: 'Descartar' }))
+
+      expect(window.localStorage.length).toBe(0)
+      expect(screen.queryByDisplayValue(/recuperable$/)).not.toBeInTheDocument()
+    })
+
+    it('borra el borrador al guardar', async () => {
+      const user = userEvent.setup()
+      abrirEditor()
+      await user.type(await screen.findByLabelText('Nombre de la regla'), ' nueva')
+      await waitFor(() => expect(window.localStorage.length).toBe(1))
+      await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
+
+      expect(await screen.findByText('Listado de reglas')).toBeInTheDocument()
+      expect(window.localStorage.length).toBe(0)
     })
   })
 })
