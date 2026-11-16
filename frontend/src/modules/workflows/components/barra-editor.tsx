@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import { ArrowLeftIcon, CopyIcon, EllipsisIcon } from 'lucide-react'
+import { ArrowLeftIcon, CopyIcon, EllipsisIcon, SaveIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { BotonIcono } from '@/modules/workflows/components/boton-icono'
 import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { LIMITE_NOMBRE_REGLA, RUTA_REGLAS } from '@/modules/workflows/constants'
 
@@ -99,6 +100,11 @@ export function BarraEditor({
         </Button>
         {!soloLectura && (
           <Button onClick={onGuardar} disabled={guardando}>
+            {guardando ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <SaveIcon data-icon="inline-start" />
+            )}
             Guardar regla
           </Button>
         )}

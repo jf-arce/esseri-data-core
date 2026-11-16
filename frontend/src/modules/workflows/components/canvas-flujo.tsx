@@ -459,16 +459,6 @@ function LienzoFlujo(props: CanvasFlujoProps) {
       }}
       onDrop={alSoltar}
     >
-      {borrador.nodos.length === 0 && (
-        <p
-          role="status"
-          className="pointer-events-none absolute inset-x-0 bottom-6 z-10 mx-auto w-fit max-w-[90%] rounded-full bg-sup-workflows px-4 py-2 text-center text-sm font-medium text-texto"
-        >
-          {borrador.tipoEventoId === ''
-            ? 'Elegí primero el evento en el panel de la derecha.'
-            : 'Empezá con el + que está a la derecha del disparador.'}
-        </p>
-      )}
       <ReactFlow<NodoFlujo, TipoAristaFlujo>
         nodes={nodosVisibles}
         edges={aristas}
