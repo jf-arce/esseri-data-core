@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { BotonIcono } from '@/modules/workflows/components/boton-icono'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { LIMITE_NOMBRE_REGLA, RUTA_REGLAS } from '@/modules/workflows/constants'
@@ -20,6 +21,8 @@ interface BarraEditorProps {
   activo: boolean
   soloLectura: boolean
   guardando: boolean
+  /** Mientras carga la regla: el nombre se dibuja como skeleton y no se puede guardar. */
+  cargando?: boolean
   /** Solo una regla ya guardada se puede duplicar. */
   puedeDuplicar: boolean
   onCambiarNombre: (nombre: string) => void
@@ -36,6 +39,7 @@ export function BarraEditor({
   activo,
   soloLectura,
   guardando,
+  cargando = false,
   puedeDuplicar,
   onCambiarNombre,
   onCambiarActivo,
@@ -57,15 +61,19 @@ export function BarraEditor({
           <span aria-hidden="true"> / </span>
           <span className="font-semibold text-texto">{titulo}</span>
         </nav>
-        <Input
-          aria-label="Nombre de la regla"
-          placeholder="Nombre de la regla"
-          value={nombre}
-          maxLength={LIMITE_NOMBRE_REGLA}
-          disabled={soloLectura}
-          onChange={(evento) => onCambiarNombre(evento.target.value)}
-          className="h-9 max-w-md min-w-40 flex-1 border-transparent bg-transparent px-2 text-base font-semibold shadow-none hover:bg-fila-hover focus-visible:bg-superficie"
-        />
+        {cargando ? (
+          <Skeleton className="h-9 w-64" />
+        ) : (
+          <Input
+            aria-label="Nombre de la regla"
+            placeholder="Nombre de la regla"
+            value={nombre}
+            maxLength={LIMITE_NOMBRE_REGLA}
+            disabled={soloLectura}
+            onChange={(evento) => onCambiarNombre(evento.target.value)}
+            className="h-9 max-w-md min-w-40 flex-1 border-transparent bg-transparent px-2 text-base font-semibold shadow-none hover:bg-fila-hover focus-visible:bg-superficie"
+          />
+        )}
       </div>
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
@@ -99,7 +107,7 @@ export function BarraEditor({
           <Link to={RUTA_REGLAS}>{soloLectura ? 'Volver' : 'Cancelar'}</Link>
         </Button>
         {!soloLectura && (
-          <Button onClick={onGuardar} disabled={guardando}>
+          <Button onClick={onGuardar} disabled={guardando || cargando}>
             {guardando ? (
               <Spinner data-icon="inline-start" />
             ) : (

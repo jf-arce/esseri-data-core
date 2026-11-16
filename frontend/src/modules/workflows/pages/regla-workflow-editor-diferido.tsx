@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Skeleton } from '@/components/ui/skeleton'
+import { EsqueletoEditor } from '@/modules/workflows/components/esqueleto-editor'
 
 // El editor carga @xyflow/react: se pide recién al abrirlo, para no sumarlo al resto del módulo.
 // La app usa `useRoutes` (no un data router), así que va con `React.lazy` y no con el `lazy` de la ruta.
@@ -11,7 +11,7 @@ const ReglaWorkflowEditorPage = lazy(async () => {
 
 export function ReglaWorkflowEditorDiferido() {
   return (
-    <Suspense fallback={<Skeleton className="h-[460px] rounded-panel" />}>
+    <Suspense fallback={<EsqueletoEditor />}>
       <ReglaWorkflowEditorPage />
     </Suspense>
   )

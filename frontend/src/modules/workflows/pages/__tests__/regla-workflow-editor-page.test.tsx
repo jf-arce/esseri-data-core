@@ -429,7 +429,8 @@ describe('ReglaWorkflowEditorPage', () => {
       const user = userEvent.setup()
       abrirEditor()
 
-      await user.click(await screen.findByRole('link', { name: 'Cancelar' }))
+      await screen.findByLabelText('Nombre de la regla')
+      await user.click(screen.getByRole('link', { name: 'Cancelar' }))
 
       expect(await screen.findByText('Listado de reglas')).toBeInTheDocument()
     })

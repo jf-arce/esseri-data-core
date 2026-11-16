@@ -24,7 +24,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { Skeleton } from '@/components/ui/skeleton'
 import {
   PERMISO_WORKFLOWS_ACTUALIZAR,
   PERMISO_WORKFLOWS_CREAR,
@@ -32,6 +31,7 @@ import {
 } from '@/modules/auth/constants'
 import { CanvasFlujo, type QueAgregar } from '@/modules/workflows/components/canvas-flujo'
 import { BarraEditor } from '@/modules/workflows/components/barra-editor'
+import { EsqueletoEditor } from '@/modules/workflows/components/esqueleto-editor'
 import { InspectorNodo } from '@/modules/workflows/components/inspector-nodo'
 import { SimuladorRegla } from '@/modules/workflows/components/simulador-regla'
 import {
@@ -544,13 +544,7 @@ export function ReglaWorkflowEditorPage() {
   const original = useReglaWorkflow(duplicarId)
 
   const cargando = catalogos.cargando || regla.cargando || original.cargando
-  if (cargando)
-    return (
-      <div className="flex flex-col gap-5" aria-busy="true">
-        <Skeleton className="h-8 w-72" />
-        <Skeleton className="h-[460px] rounded-panel" />
-      </div>
-    )
+  if (cargando) return <EsqueletoEditor />
 
   if (regla.noEncontrada || original.noEncontrada)
     return (
