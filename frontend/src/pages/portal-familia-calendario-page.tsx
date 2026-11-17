@@ -3,6 +3,8 @@ import {
   BookOpenIcon,
   CalculatorIcon,
   CalendarDaysIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   ClockIcon,
   EarthIcon,
   FlaskConicalIcon,
@@ -11,10 +13,13 @@ import {
   LeafIcon,
   MusicIcon,
   PaletteIcon,
+  PrinterIcon,
   UserRoundIcon,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useSearchParams } from 'react-router'
+import { FiltrosHorario } from '@/modules/academico/components/filtros-horario'
+import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -32,14 +37,20 @@ import {
 import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
 import { PortalCard } from '@/components/portal-familia/portal-familia-ui'
 import { useHorarioFamilia } from '@/modules/academico/hooks/use-horario-familia'
-import { aMinutos } from '@/modules/academico/utils'
+import {
+  aMinutos,
+  calcularGrilla,
+  coincideFiltroHorario,
+  FILTRO_HORARIO_INICIAL,
+  hayFiltroHorario,
+  type FiltroHorario,
+} from '@/modules/academico/utils'
 import type { MateriaCurso } from '@/modules/academico/types'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
 import { normalizarTexto } from '@/lib/texto'
 import { cn } from '@/lib/utils'
 
 const DIAS = [1, 2, 3, 4, 5]
-const HORAS = Array.from({ length: 9 }, (_, indice) => 8 + indice)
 const NOMBRES_DIA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
 
 type EstiloMateria = { bg: string; texto: string; Icono: LucideIcon }
@@ -137,6 +148,8 @@ export function PortalFamiliaCalendarioPage() {
   const [alumnoId, setAlumnoId] = useState(() => searchParams.get('alumno') ?? '')
   const [diaAgenda, setDiaAgenda] = useState<number | null>(null)
   const [seleccionId, setSeleccionId] = useState<string | null>(null)
+  const [filtro, setFiltro] = useState<FiltroHorario>(FILTRO_HORARIO_INICIAL)
+  const [semanaOffset, setSemanaOffset] = useState(0)
   const alumno = alumnos.find((item) => item.alumno_id === alumnoId) ?? alumnos[0]
   const {
     materiasCurso,
@@ -152,27 +165,58 @@ export function PortalFamiliaCalendarioPage() {
     [materiasCurso],
   )
 
+  const docentesDisponibles = useMemo(
+    () =>
+      [...new Set(materiasCurso.flatMap((materia) => materia.docentes ?? []))].sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [materiasCurso],
+  )
+  const franjasFiltradas = useMemo(
+    () =>
+      franjas.filter((franja) =>
+        coincideFiltroHorario(franja.materia, filtro, franja.materia.docentes ?? []),
+      ),
+    [franjas, filtro],
+  )
+  const grilla = useMemo(
+    () => calcularGrilla(franjasFiltradas, { dias: [...DIAS], inicio: 8 * 60, fin: 17 * 60 }),
+    [franjasFiltradas],
+  )
   const primeraFranja = useMemo(
     () =>
-      [...franjas].sort(
+      [...franjasFiltradas].sort(
         (a, b) => a.dia_semana - b.dia_semana || aMinutos(a.hora_inicio) - aMinutos(b.hora_inicio),
       )[0] ?? null,
-    [franjas],
+    [franjasFiltradas],
   )
-  const activa = franjas.find((franja) => franja.id === seleccionId) ?? primeraFranja
+  const activa = franjasFiltradas.find((franja) => franja.id === seleccionId) ?? primeraFranja
   const diaActivo = activa?.dia_semana
   const diaVisible = diaAgenda ?? diaActivo ?? 1
+  const semana = useMemo(() => {
+    const hoy = new Date()
+    const lunes = new Date(hoy)
+    lunes.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7) + semanaOffset * 7)
+    return DIAS.map((dia) => {
+      const fecha = new Date(lunes)
+      fecha.setDate(lunes.getDate() + dia - 1)
+      return fecha
+    })
+  }, [semanaOffset])
+  const hoyISO = new Date().toDateString()
+  const formateoCorto = new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short' })
+  const etiquetaSemana = `${formateoCorto.format(semana[0])} – ${formateoCorto.format(semana[4])}`
   const franjasDelDia = useMemo(
     () =>
-      franjas
+      franjasFiltradas
         .filter((franja) => franja.dia_semana === diaVisible)
         .sort((a, b) => aMinutos(a.hora_inicio) - aMinutos(b.hora_inicio)),
-    [franjas, diaVisible],
+    [franjasFiltradas, diaVisible],
   )
 
   function elegirDia(dia: number) {
     setDiaAgenda(dia)
-    const primera = franjas
+    const primera = franjasFiltradas
       .filter((franja) => franja.dia_semana === dia)
       .sort((a, b) => aMinutos(a.hora_inicio) - aMinutos(b.hora_inicio))[0]
     if (primera) setSeleccionId(primera.id)
@@ -271,6 +315,60 @@ export function PortalFamiliaCalendarioPage() {
                   </Empty>
                 ) : (
                   <>
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F1EBF7] px-4 py-3 print:hidden">
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          aria-label="Semana anterior"
+                          onClick={() => setSemanaOffset((valor) => valor - 1)}
+                        >
+                          <ChevronLeftIcon aria-hidden="true" />
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="rounded-full"
+                          onClick={() => setSemanaOffset(0)}
+                        >
+                          Hoy
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          aria-label="Semana siguiente"
+                          onClick={() => setSemanaOffset((valor) => valor + 1)}
+                        >
+                          <ChevronRightIcon aria-hidden="true" />
+                        </Button>
+                        <span className="ml-2 text-[14px] font-medium text-[#6B6478]">
+                          Semana del {etiquetaSemana}
+                        </span>
+                      </div>
+                      <Button
+                        variant="secondary"
+                        className="rounded-full"
+                        onClick={() => window.print()}
+                      >
+                        <PrinterIcon aria-hidden="true" className="size-4" />
+                        Imprimir
+                      </Button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 border-b border-[#F1EBF7] px-4 py-3 print:hidden">
+                      <FiltrosHorario
+                        filtro={filtro}
+                        onFiltro={setFiltro}
+                        docentes={docentesDisponibles}
+                      />
+                    </div>
+
+                    {hayFiltroHorario(filtro) && franjasFiltradas.length === 0 && (
+                      <p className="mx-4 mt-4 rounded-[12px] border border-dashed border-[#E4D9F0] bg-[#FBF9FD] p-4 text-sm text-[#6B6478]">
+                        No hay clases que coincidan con los filtros.
+                      </p>
+                    )}
+
                     <div data-testid="calendario-grilla" className="hidden lg:block">
                       <div className="overflow-x-auto">
                         <div className="min-w-[820px]">
@@ -278,7 +376,7 @@ export function PortalFamiliaCalendarioPage() {
                             className="grid overflow-hidden rounded-[18px] border border-[#EFE7F6] bg-white"
                             style={{
                               gridTemplateColumns: '8rem repeat(5, minmax(0, 1fr))',
-                              gridTemplateRows: `auto repeat(${HORAS.length}, minmax(64px, 1fr))`,
+                              gridTemplateRows: `auto repeat(${grilla.filas}, minmax(30px, 1fr))`,
                             }}
                           >
                             <div className="bg-[#FBF9FD]" aria-hidden="true" />
@@ -286,23 +384,32 @@ export function PortalFamiliaCalendarioPage() {
                               <div
                                 key={dia}
                                 className={cn(
-                                  'border-l border-[#EFE7F6] px-3 py-3 text-center text-[15px] font-semibold',
+                                  'border-l border-[#EFE7F6] px-3 py-2 text-center text-[14px] font-semibold',
                                   dia === diaActivo
                                     ? 'bg-[#F1E4FB] text-[#7A2FA8]'
                                     : 'bg-[#FBF9FD] text-[#2B2338]',
                                 )}
                               >
-                                {NOMBRES_DIA[dia - 1]}
+                                <span className="block">{NOMBRES_DIA[dia - 1]}</span>
+                                <span className="block text-[12px] font-normal opacity-70">
+                                  {semana[dia - 1].getDate()}
+                                  {semana[dia - 1].toDateString() === hoyISO ? ' · Hoy' : ''}
+                                </span>
                               </div>
                             ))}
 
-                            {HORAS.map((hora, indice) => (
-                              <Fragment key={hora}>
+                            {Array.from(
+                              { length: grilla.filas },
+                              (_, indice) => grilla.inicio + indice * 30,
+                            ).map((minutos, indice) => (
+                              <Fragment key={minutos}>
                                 <div
-                                  className="border-t border-[#EFE7F6] px-3 py-4 text-center text-[13px] font-semibold text-[#6B6478] tabular-nums"
+                                  className="border-t border-[#EFE7F6] px-3 text-center text-[12px] font-semibold text-[#6B6478] tabular-nums"
                                   style={{ gridRow: indice + 2, gridColumn: 1 }}
                                 >
-                                  {String(hora).padStart(2, '0')}:00
+                                  {minutos % 60 === 0
+                                    ? `${String(Math.floor(minutos / 60)).padStart(2, '0')}:00`
+                                    : ''}
                                 </div>
                                 {DIAS.map((dia) => (
                                   <div
@@ -314,13 +421,17 @@ export function PortalFamiliaCalendarioPage() {
                               </Fragment>
                             ))}
 
-                            {franjas.map((franja) => {
+                            {franjasFiltradas.map((franja) => {
                               const inicio = aMinutos(franja.hora_inicio)
                               const fin = aMinutos(franja.hora_fin)
-                              const horaInicio = Math.max(8, Math.floor(inicio / 60))
-                              const horaFin = Math.min(17, Math.ceil(fin / 60))
-                              const filaInicio = horaInicio - 8
-                              const filaFin = Math.max(filaInicio + 1, horaFin - 8)
+                              const filaInicio = Math.max(
+                                0,
+                                Math.round((inicio - grilla.inicio) / 30),
+                              )
+                              const filaFin = Math.min(
+                                grilla.filas,
+                                Math.max(filaInicio + 1, Math.round((fin - grilla.inicio) / 30)),
+                              )
                               const estilo = estiloMateria(franja.materia.materia_nombre)
                               const Icono = estilo.Icono
                               const color = franja.materia.materia_color || '#7A2FA8'

@@ -50,7 +50,7 @@ export function PortalLayout() {
         style={{ background: PORTAL_FAMILIA_BACKGROUND }}
       />
       <header
-        className="sticky top-0 z-30 border-b border-white/10"
+        className="sticky top-0 z-30 border-b border-white/10 print:hidden"
         style={{ background: PORTAL_FAMILIA_HEADER_BACKGROUND }}
       >
         <div className="relative mx-auto flex min-h-16 w-full max-w-[92vw] items-center gap-3 py-3">
