@@ -180,7 +180,12 @@ export function PortalFamiliaCalendarioPage() {
     [franjas, filtro],
   )
   const grilla = useMemo(
-    () => calcularGrilla(franjasFiltradas, { dias: [...DIAS], inicio: 8 * 60, fin: 17 * 60 }),
+    () =>
+      calcularGrilla(franjasFiltradas, {
+        dias: [...DIAS],
+        inicio: 7 * 60 + 30,
+        fin: 16 * 60 + 30,
+      }),
     [franjasFiltradas],
   )
   const primeraFranja = useMemo(
@@ -408,9 +413,7 @@ export function PortalFamiliaCalendarioPage() {
                                   className="border-t border-[#EFE7F6] px-3 text-center text-[12px] font-semibold text-[#6B6478] tabular-nums"
                                   style={{ gridRow: indice + 2, gridColumn: 1 }}
                                 >
-                                  {minutos % 60 === 0
-                                    ? `${String(Math.floor(minutos / 60)).padStart(2, '0')}:00`
-                                    : ''}
+                                  {`${String(Math.floor(minutos / 60)).padStart(2, '0')}:${String(minutos % 60).padStart(2, '0')}`}
                                 </div>
                                 {DIAS.map((dia) => (
                                   <div
