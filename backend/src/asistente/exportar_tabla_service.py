@@ -1,6 +1,7 @@
 """Descarga de las tablas que el Asistente mostró en una conversación (CSV o Excel)."""
 
 import re
+import unicodedata
 import uuid
 from typing import Any, Literal
 
@@ -54,7 +55,9 @@ def _nombres_de_alias(
 
 
 def _nombre_de_archivo(titulo: str) -> str:
-    base = re.sub(r"[^a-z0-9]+", "-", titulo.lower().encode("ascii", "ignore").decode()).strip("-")
+    # NFKD separa la tilde de la letra: "período" queda "periodo" y no "perodo".
+    sin_tildes = unicodedata.normalize("NFKD", titulo.lower()).encode("ascii", "ignore").decode()
+    base = re.sub(r"[^a-z0-9]+", "-", sin_tildes).strip("-")
     return base or "tabla"
 
 
