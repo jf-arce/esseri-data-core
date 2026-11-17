@@ -9,6 +9,7 @@ import { useCatalogosWorkflow } from '@/modules/workflows/hooks/use-catalogos-wo
 import { useEjecucionesWorkflow } from '@/modules/workflows/hooks/use-ejecuciones-workflow'
 import { useReglasWorkflow } from '@/modules/workflows/hooks/use-reglas-workflow'
 import { useResumenWorkflows } from '@/modules/workflows/hooks/use-resumen-workflows'
+import { actualizarReglaWorkflow } from '@/modules/workflows/services/actualizar-regla-workflow'
 import { aprobarEjecucionWorkflow } from '@/modules/workflows/services/aprobar-ejecucion-workflow'
 import type { EjecucionWorkflow, ResumenWorkflows } from '@/modules/workflows/types'
 import { useAuthStore } from '@/store/auth-store'
@@ -19,13 +20,14 @@ vi.mock('@/modules/workflows/hooks/use-catalogos-workflow')
 vi.mock('@/modules/workflows/hooks/use-ejecuciones-workflow')
 vi.mock('@/modules/workflows/hooks/use-reglas-workflow')
 vi.mock('@/modules/workflows/hooks/use-resumen-workflows')
+vi.mock('@/modules/workflows/services/actualizar-regla-workflow')
 vi.mock('@/modules/workflows/services/aprobar-ejecucion-workflow')
 // El gráfico necesita canvas, que jsdom no tiene.
 vi.mock('@/modules/workflows/components/indicador-ejecuciones', () => ({
   IndicadorEjecuciones: () => <p>Indicador de ejecuciones</p>,
 }))
 vi.mock('@/modules/workflows/components/mapa-automatizaciones', () => ({
-  default: () => <p>Mapa de automatizaciones cargado</p>,
+  MapaAutomatizaciones: () => <p>Mapa de automatizaciones cargado</p>,
 }))
 
 const resumen: ResumenWorkflows = {
@@ -125,6 +127,7 @@ beforeEach(() => {
     error: null,
     sinPermiso: false,
     recargar: vi.fn(),
+    reemplazar: vi.fn(),
   })
   vi.mocked(useCatalogosWorkflow).mockReturnValue({
     tiposEvento: [EVENTO_FACTURA],
@@ -173,7 +176,7 @@ describe('ReglasWorkflowPage', () => {
     const user = userEvent.setup()
     renderizar()
 
-    await user.click(screen.getByRole('radio', { name: 'Tabla' }))
+    await user.click(screen.getByRole('tab', { name: /^Tabla/ }))
 
     expect(screen.getByRole('columnheader', { name: 'Regla' })).toBeInTheDocument()
     expect(window.localStorage.getItem('workflows.reglas.vista')).toBe('tabla')
@@ -192,7 +195,7 @@ describe('ReglasWorkflowPage', () => {
     renderizar()
     expect(screen.queryByText('Mapa de automatizaciones cargado')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('radio', { name: 'Mapa de automatizaciones' }))
+    await user.click(screen.getByRole('tab', { name: /^Mapa/ }))
 
     expect(await screen.findByText('Mapa de automatizaciones cargado')).toBeInTheDocument()
   })
@@ -202,7 +205,7 @@ describe('ReglasWorkflowPage', () => {
     usarAlmacenamiento(almacenamiento(true))
     renderizar()
 
-    await user.click(screen.getByRole('radio', { name: 'Tabla' }))
+    await user.click(screen.getByRole('tab', { name: /^Tabla/ }))
 
     expect(screen.getByRole('columnheader', { name: 'Regla' })).toBeInTheDocument()
   })
@@ -211,8 +214,63 @@ describe('ReglasWorkflowPage', () => {
     renderizar()
 
     expect(screen.getByRole('heading', { name: 'Requiere tu atención' })).toBeInTheDocument()
-    expect(screen.getByText('Aprobaciones pendientes')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Aprobaciones · 1' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Fallas · 1' })).toBeInTheDocument()
+  })
+
+  it('abre en la primera tab con elementos y permite pasar a las fallas', async () => {
+    const user = userEvent.setup()
+    renderizar()
+    expect(screen.getByRole('button', { name: 'Aprobar' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: 'Fallas · 1' }))
+
     expect(screen.getByText('2 fallas en los últimos 7 días')).toBeInTheDocument()
+  })
+
+  it('pagina las tarjetas de a 9', async () => {
+    const user = userEvent.setup()
+    const muchas = Array.from({ length: 10 }, (_, indice) =>
+      reglaDe({ id: `r-${indice}`, nombre: `Regla ${indice}` }),
+    )
+    vi.mocked(useReglasWorkflow).mockReturnValue({
+      reglas: muchas,
+      cargando: false,
+      error: null,
+      sinPermiso: false,
+      recargar: vi.fn(),
+      reemplazar: vi.fn(),
+    })
+    renderizar()
+    expect(screen.getByText('1-9 de 10 reglas')).toBeInTheDocument()
+    expect(screen.queryByText('Regla 9')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('link', { name: '2' }))
+
+    expect(screen.getByText('10-10 de 10 reglas')).toBeInTheDocument()
+    expect(screen.getByText('Regla 9')).toBeInTheDocument()
+  })
+
+  it('el switch actualiza la regla en memoria sin recargar la lista', async () => {
+    const user = userEvent.setup()
+    const reemplazar = vi.fn()
+    const recargar = vi.fn()
+    vi.mocked(useReglasWorkflow).mockReturnValue({
+      reglas: [reglaDe()],
+      cargando: false,
+      error: null,
+      sinPermiso: false,
+      recargar,
+      reemplazar,
+    })
+    vi.mocked(actualizarReglaWorkflow).mockResolvedValue(reglaDe({ activo: false }))
+    renderizar()
+
+    await user.click(screen.getByRole('switch', { name: 'Desactivar Aviso de mora' }))
+
+    await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
+    expect(reemplazar).toHaveBeenCalledWith(expect.objectContaining({ activo: false }))
+    expect(recargar).not.toHaveBeenCalled()
   })
 
   it('aprueba una ejecución pendiente sin salir de la página', async () => {
@@ -245,6 +303,7 @@ describe('ReglasWorkflowPage', () => {
       error: null,
       sinPermiso: false,
       recargar: vi.fn(),
+      reemplazar: vi.fn(),
     })
 
     renderizar()

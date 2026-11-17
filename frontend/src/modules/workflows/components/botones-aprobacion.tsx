@@ -27,11 +27,23 @@ export function BotonesAprobacion({
   const ocupado = decidiendoId !== null
   return (
     <>
-      <Button variant="ghost" size="sm" disabled={ocupado} onClick={() => onAprobar(ejecucion)}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-exito hover:bg-exito-suave hover:text-exito"
+        disabled={ocupado}
+        onClick={() => onAprobar(ejecucion)}
+      >
         {decidiendo ? <Spinner data-icon="inline-start" /> : <CheckIcon data-icon="inline-start" />}
         Aprobar
       </Button>
-      <Button variant="ghost" size="sm" disabled={ocupado} onClick={() => onRechazar(ejecucion)}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-error hover:bg-error-suave hover:text-error"
+        disabled={ocupado}
+        onClick={() => onRechazar(ejecucion)}
+      >
         <XIcon data-icon="inline-start" />
         Rechazar
       </Button>

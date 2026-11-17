@@ -1,6 +1,9 @@
+import { Link } from 'react-router'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
+import { RUTA_EJECUCIONES } from '@/modules/workflows/constants'
 import type { EjecucionWorkflow } from '@/modules/workflows/types'
 import {
   ETIQUETA_ACCION,
@@ -34,7 +37,7 @@ export function ActividadEnVivo({
   onAbrir,
 }: ActividadEnVivoProps) {
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center justify-between gap-2">
           <h2>Actividad</h2>
@@ -56,33 +59,43 @@ export function ActividadEnVivo({
             Todavía no hay ejecuciones. Aparecen acá cuando una regla activa se dispara.
           </p>
         ) : (
-          <ul className="divide-y divide-borde">
-            {ejecuciones.map((ejecucion) => (
-              <li key={ejecucion.id} className={cn(nuevas.has(ejecucion.id) && 'fila-entrar')}>
-                <button
-                  type="button"
-                  onClick={() => onAbrir(ejecucion)}
-                  className="flex min-h-12 w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-fila-hover"
-                >
-                  <Badge variant={VARIANTE_ESTADO_EJECUCION[ejecucion.estado]}>
-                    {ETIQUETA_ESTADO_EJECUCION[ejecucion.estado]}
-                  </Badge>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-texto">
-                      {ejecucion.workflow_rule_nombre}
+          <ScrollArea className="h-[280px]">
+            <ul className="divide-y divide-borde">
+              {ejecuciones.map((ejecucion) => (
+                <li key={ejecucion.id} className={cn(nuevas.has(ejecucion.id) && 'fila-entrar')}>
+                  <button
+                    type="button"
+                    onClick={() => onAbrir(ejecucion)}
+                    className="flex min-h-12 w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-fila-hover"
+                  >
+                    <Badge variant={VARIANTE_ESTADO_EJECUCION[ejecucion.estado]}>
+                      {ETIQUETA_ESTADO_EJECUCION[ejecucion.estado]}
+                    </Badge>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-texto">
+                        {ejecucion.workflow_rule_nombre}
+                      </span>
+                      <span className="block truncate text-xs text-texto-2">
+                        {ejecucion.tipo_accion
+                          ? ETIQUETA_ACCION[ejecucion.tipo_accion]
+                          : 'Condición'}
+                      </span>
                     </span>
-                    <span className="block truncate text-xs text-texto-2">
-                      {ejecucion.tipo_accion ? ETIQUETA_ACCION[ejecucion.tipo_accion] : 'Condición'}
+                    <span className="shrink-0 text-xs text-texto-3">
+                      {tiempoRelativo(ejecucion.started_at)}
                     </span>
-                  </span>
-                  <span className="shrink-0 text-xs text-texto-3">
-                    {tiempoRelativo(ejecucion.started_at)}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </ScrollArea>
         )}
+        <Link
+          to={RUTA_EJECUCIONES}
+          className="mt-2 inline-flex min-h-8 items-center text-sm font-semibold text-violeta hover:underline"
+        >
+          Ver todas
+        </Link>
       </CardContent>
     </Card>
   )

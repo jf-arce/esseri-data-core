@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import {
   LayoutGridIcon,
@@ -7,6 +7,7 @@ import {
   ShieldAlertIcon,
   TableIcon,
   WorkflowIcon,
+  type LucideIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
@@ -17,7 +18,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { PaginadorServidor } from '@/components/paginador-servidor'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   PERMISO_WORKFLOWS_ACTUALIZAR,
   PERMISO_WORKFLOWS_CREAR,
@@ -26,6 +28,7 @@ import {
 import { ActividadEnVivo } from '@/modules/workflows/components/actividad-en-vivo'
 import { AtencionWorkflows } from '@/modules/workflows/components/atencion-workflows'
 import { EjecucionDetalleSheet } from '@/modules/workflows/components/ejecucion-detalle-sheet'
+import { MapaAutomatizaciones } from '@/modules/workflows/components/mapa-automatizaciones'
 import { IndicadorEjecuciones } from '@/modules/workflows/components/indicador-ejecuciones'
 import { RechazoEjecucionDialog } from '@/modules/workflows/components/rechazo-ejecucion-dialog'
 import { ReglasWorkflowTabla } from '@/modules/workflows/components/reglas-workflow-tabla'
@@ -37,12 +40,15 @@ import {
   FILTRO_INACTIVAS,
   FILTRO_TODOS,
   RUTA_NUEVA_REGLA,
+  TAMANIO_PAGINA_TABLA,
+  TAMANIO_PAGINA_TARJETAS,
   VISTAS_REGLAS,
 } from '@/modules/workflows/constants'
 import { useActividadWorkflows } from '@/modules/workflows/hooks/use-actividad-workflows'
 import { useCatalogosWorkflow } from '@/modules/workflows/hooks/use-catalogos-workflow'
 import { useDecisionesEjecucion } from '@/modules/workflows/hooks/use-decisiones-ejecucion'
 import { useEjecucionesWorkflow } from '@/modules/workflows/hooks/use-ejecuciones-workflow'
+import { usePantallaAncha } from '@/modules/workflows/hooks/use-pantalla-ancha'
 import { useReglasWorkflow } from '@/modules/workflows/hooks/use-reglas-workflow'
 import { useResumenWorkflows } from '@/modules/workflows/hooks/use-resumen-workflows'
 import { actualizarReglaWorkflow } from '@/modules/workflows/services/actualizar-regla-workflow'
@@ -56,12 +62,13 @@ import {
 import { reglasQueRequierenAtencion } from '@/modules/workflows/utils-mapa'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
-// El mapa carga @xyflow/react: comparte el chunk con el editor y no pesa en las otras vistas.
-const MapaAutomatizaciones = lazy(
-  () => import('@/modules/workflows/components/mapa-automatizaciones'),
-)
-
 type Vista = (typeof VISTAS_REGLAS)[number]
+
+const VISTAS: { valor: Vista; etiqueta: string; Icono: LucideIcon }[] = [
+  { valor: 'tarjetas', etiqueta: 'Tarjetas', Icono: LayoutGridIcon },
+  { valor: 'tabla', etiqueta: 'Tabla', Icono: TableIcon },
+  { valor: 'mapa', etiqueta: 'Mapa', Icono: MapIcon },
+]
 
 const OPCIONES_ESTADO: { value: EstadoReglaFiltro; label: string }[] = [
   { value: FILTRO_TODOS, label: 'Todos' },
@@ -97,7 +104,8 @@ export function ReglasWorkflowPage() {
   const permisos = useAuthStore(permisosActivos)
   const puedeCrear = tienePermiso(permisos, PERMISO_WORKFLOWS_CREAR)
   const puedeActualizar = tienePermiso(permisos, PERMISO_WORKFLOWS_ACTUALIZAR)
-  const { reglas, cargando, error, sinPermiso, recargar } = useReglasWorkflow()
+  const { reglas, cargando, error, sinPermiso, recargar, reemplazar } = useReglasWorkflow()
+  const ancha = usePantallaAncha()
   const { tiposEvento } = useCatalogosWorkflow()
   const resumen = useResumenWorkflows()
   const actividad = useActividadWorkflows()
@@ -106,6 +114,7 @@ export function ReglasWorkflowPage() {
   const [estado, setEstado] = useState<EstadoReglaFiltro>(FILTRO_TODOS)
   const [tipoEventoId, setTipoEventoId] = useState(FILTRO_TODOS)
   const [vista, setVista] = useState<Vista>(leerVista)
+  const [pagina, setPagina] = useState(1)
   const [detalle, setDetalle] = useState<EjecucionWorkflow | null>(null)
 
   const decisiones = useDecisionesEjecucion({
@@ -119,12 +128,14 @@ export function ReglasWorkflowPage() {
   })
 
   async function cambiarActivo(regla: ReglaWorkflow) {
+    // Optimista: el switch responde al instante y se revierte si el backend falla.
+    reemplazar({ ...regla, activo: !regla.activo })
     try {
-      await actualizarReglaWorkflow(regla.id, { activo: !regla.activo })
+      reemplazar(await actualizarReglaWorkflow(regla.id, { activo: !regla.activo }))
       toast.success(regla.activo ? 'Regla desactivada' : 'Regla activada')
-      recargar()
       resumen.recargar()
     } catch (causa) {
+      reemplazar(regla)
       toast.error(causa instanceof ApiError ? causa.detail : 'No se pudo actualizar la regla.')
     }
   }
@@ -136,6 +147,7 @@ export function ReglasWorkflowPage() {
   function elegirVista(valor: string) {
     if (!esVista(valor)) return
     setVista(valor)
+    setPagina(1)
     guardarVista(valor)
   }
 
@@ -151,6 +163,23 @@ export function ReglasWorkflowPage() {
     )
 
   const visibles = filtrarReglas(reglas, { busqueda, estado, tipoEventoId })
+  const tamanioPagina = vista === 'tabla' ? TAMANIO_PAGINA_TABLA : TAMANIO_PAGINA_TARJETAS
+  const totalPaginas = Math.max(1, Math.ceil(visibles.length / tamanioPagina))
+  const paginaActual = Math.min(pagina, totalPaginas)
+  const deLaPagina = visibles.slice(
+    (paginaActual - 1) * tamanioPagina,
+    paginaActual * tamanioPagina,
+  )
+  const paginador = (
+    <PaginadorServidor
+      pagina={paginaActual}
+      tamanioPagina={tamanioPagina}
+      total={visibles.length}
+      totalPaginas={totalPaginas}
+      onCambiarPagina={setPagina}
+      etiqueta="reglas"
+    />
+  )
   const sinReglas = !cargando && !error && reglas.length === 0
   const resumenPorRegla = new Map(
     resumen.resumen?.reglas.map((item) => [item.workflow_rule_id, item]),
@@ -222,104 +251,116 @@ export function ReglasWorkflowPage() {
         </Empty>
       ) : (
         !error && (
-          <>
-            <FilterBar>
-              <FilterSearch
-                value={busqueda}
-                onChange={setBusqueda}
-                placeholder="Buscar por nombre"
-              />
-              <FilterDropdown
-                label="Estado"
-                options={OPCIONES_ESTADO}
-                value={estado}
-                onChange={(valor) => {
-                  if (esEstadoReglaFiltro(valor)) setEstado(valor)
-                }}
-                active={estado !== FILTRO_TODOS}
-              />
-              <FilterDropdown
-                label="Evento"
-                options={[
-                  { value: FILTRO_TODOS, label: 'Todos' },
-                  ...tiposEvento.map((tipo) => ({
-                    value: tipo.id,
-                    label: etiquetaEvento(tipo.nombre),
-                  })),
-                ]}
-                value={tipoEventoId}
-                onChange={setTipoEventoId}
-                active={tipoEventoId !== FILTRO_TODOS}
-              />
-              <FilterBarSpacer />
-              <ToggleGroup
-                type="single"
-                value={vista}
-                onValueChange={elegirVista}
-                aria-label="Vista de las reglas"
-                variant="outline"
-                spacing={0}
-              >
-                <ToggleGroupItem value="tarjetas" aria-label="Tarjetas">
-                  <LayoutGridIcon />
-                </ToggleGroupItem>
-                <ToggleGroupItem value="tabla" aria-label="Tabla">
-                  <TableIcon />
-                </ToggleGroupItem>
-                <ToggleGroupItem value="mapa" aria-label="Mapa de automatizaciones">
-                  <MapIcon />
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </FilterBar>
-            {vista === 'tarjetas' &&
-              (cargando ? (
-                <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3" aria-busy="true">
-                  {[0, 1, 2].map((indice) => (
-                    <Skeleton key={indice} className="h-56 rounded-card-sm" />
-                  ))}
-                </div>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                  {visibles.map((regla) => (
-                    <TarjetaRegla
-                      key={regla.id}
-                      regla={regla}
-                      tiposEvento={tiposEvento}
-                      resumen={resumenPorRegla.get(regla.id)}
-                      puedeActualizar={puedeActualizar}
-                      puedeCrear={puedeCrear}
-                      onCambiarActivo={cambiarActivo}
-                      onDuplicar={duplicar}
-                    />
-                  ))}
-                </div>
+          <Tabs
+            value={vista}
+            onValueChange={elegirVista}
+            orientation={ancha ? 'vertical' : 'horizontal'}
+            className="gap-4 lg:gap-6"
+          >
+            <TabsList
+              variant="line"
+              aria-label="Vista de las reglas"
+              className="lg:w-44 lg:shrink-0 lg:self-start lg:border-r lg:border-b-0 lg:pr-2"
+            >
+              {VISTAS.map(({ valor, etiqueta, Icono }) => (
+                <TabsTrigger key={valor} value={valor} className="mr-0 lg:px-2">
+                  <Icono />
+                  {etiqueta}
+                  <span className="ml-auto text-xs font-normal text-texto-3 tabular-nums">
+                    {visibles.length}
+                  </span>
+                </TabsTrigger>
               ))}
-            {vista === 'tabla' && (
-              <ReglasWorkflowTabla
-                reglas={visibles}
-                tiposEvento={tiposEvento}
-                cargando={cargando}
-                puedeActualizar={puedeActualizar}
-                onCambiarActivo={cambiarActivo}
-                puedeCrear={puedeCrear}
-                onDuplicar={duplicar}
-              />
-            )}
-            {vista === 'mapa' && (
-              <Suspense fallback={<Skeleton className="h-[420px] rounded-panel" />}>
+            </TabsList>
+            <div className="flex min-w-0 flex-1 flex-col gap-4">
+              <FilterBar>
+                <FilterSearch
+                  value={busqueda}
+                  onChange={(valor) => {
+                    setBusqueda(valor)
+                    setPagina(1)
+                  }}
+                  placeholder="Buscar por nombre"
+                />
+                <FilterDropdown
+                  label="Estado"
+                  options={OPCIONES_ESTADO}
+                  value={estado}
+                  onChange={(valor) => {
+                    if (!esEstadoReglaFiltro(valor)) return
+                    setEstado(valor)
+                    setPagina(1)
+                  }}
+                  active={estado !== FILTRO_TODOS}
+                />
+                <FilterDropdown
+                  label="Evento"
+                  options={[
+                    { value: FILTRO_TODOS, label: 'Todos' },
+                    ...tiposEvento.map((tipo) => ({
+                      value: tipo.id,
+                      label: etiquetaEvento(tipo.nombre),
+                    })),
+                  ]}
+                  value={tipoEventoId}
+                  onChange={(valor) => {
+                    setTipoEventoId(valor)
+                    setPagina(1)
+                  }}
+                  active={tipoEventoId !== FILTRO_TODOS}
+                />
+                <FilterBarSpacer />
+              </FilterBar>
+              {vista === 'tarjetas' &&
+                (cargando ? (
+                  <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3" aria-busy="true">
+                    {[0, 1, 2].map((indice) => (
+                      <Skeleton key={indice} className="h-56 rounded-card-sm" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+                    {deLaPagina.map((regla) => (
+                      <TarjetaRegla
+                        key={regla.id}
+                        regla={regla}
+                        tiposEvento={tiposEvento}
+                        resumen={resumenPorRegla.get(regla.id)}
+                        puedeActualizar={puedeActualizar}
+                        puedeCrear={puedeCrear}
+                        onCambiarActivo={cambiarActivo}
+                        onDuplicar={duplicar}
+                      />
+                    ))}
+                  </div>
+                ))}
+              {vista === 'tabla' && (
+                <ReglasWorkflowTabla
+                  reglas={deLaPagina}
+                  tiposEvento={tiposEvento}
+                  cargando={cargando}
+                  puedeActualizar={puedeActualizar}
+                  onCambiarActivo={cambiarActivo}
+                  puedeCrear={puedeCrear}
+                  onDuplicar={duplicar}
+                />
+              )}
+              {vista === 'mapa' && (
                 <MapaAutomatizaciones
                   tiposEvento={tiposEvento}
                   reglas={visibles}
+                  resumenPorRegla={resumenPorRegla}
                   puedeCrear={puedeCrear}
                 />
-              </Suspense>
-            )}
-            {vista !== 'mapa' && !cargando && visibles.length === 0 && (
-              <p className="text-center text-sm text-texto-2">
-                Ninguna regla coincide con los filtros.
-              </p>
-            )}
-          </>
+              )}
+              {vista !== 'mapa' && !cargando && visibles.length === 0 && (
+                <p className="text-center text-sm text-texto-2">
+                  Ninguna regla coincide con los filtros.
+                </p>
+              )}
+              {vista !== 'mapa' && !cargando && paginador}
+            </div>
+          </Tabs>
         )
       )}
       <EjecucionDetalleSheet

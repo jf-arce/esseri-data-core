@@ -12,6 +12,14 @@ export function useReglasWorkflow() {
     sinPermiso: boolean
   }>({ revision: null, reglas: [], error: null, sinPermiso: false })
   const recargar = useCallback(() => setRevision((actual) => actual + 1), [])
+  const reemplazar = useCallback(
+    (regla: ReglaWorkflow) =>
+      setResultado((actual) => ({
+        ...actual,
+        reglas: actual.reglas.map((item) => (item.id === regla.id ? regla : item)),
+      })),
+    [],
+  )
 
   useEffect(() => {
     const controller = new AbortController()
@@ -37,9 +45,12 @@ export function useReglasWorkflow() {
   const vigente = resultado.revision === revision
   return {
     reglas: resultado.reglas,
-    cargando: !vigente,
+    // Solo la primera carga cuenta como "cargando": en las recargas se conservan las reglas
+    // actuales para que la grilla no se reemplace por esqueletos y el scroll no salte.
+    cargando: resultado.revision === null,
     error: vigente ? resultado.error : null,
     sinPermiso: vigente && resultado.sinPermiso,
     recargar,
+    reemplazar,
   }
 }

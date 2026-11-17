@@ -122,3 +122,39 @@ export function tiempoRelativo(iso: string | null, ahora: Date = new Date()): st
   const dias = Math.round(horas / 24)
   return `hace ${dias} ${dias === 1 ? 'día' : 'días'}`
 }
+
+export type EstadoReglaMapa = 'activa' | 'pausada' | 'con_fallas' | 'sin_disparos'
+
+/** Estado que el mapa muestra de una regla: pausada manda sobre lo demás; después, las fallas
+ * de los últimos 7 días y las activas que no se dispararon en el período. */
+export function estadoReglaMapa(regla: ReglaWorkflow, resumen?: ResumenRegla): EstadoReglaMapa {
+  if (!regla.activo) return 'pausada'
+  if (resumen && resumen.fallas_7_dias > 0) return 'con_fallas'
+  if (resumen?.sin_disparos) return 'sin_disparos'
+  return 'activa'
+}
+
+export interface ResumenModuloMapa {
+  eventos: number
+  automatizados: number
+  reglasActivas: number
+  reglasConFallas: number
+  reglas: number
+}
+
+/** Conteos del encabezado de cada carril del mapa. */
+export function resumirModuloMapa(
+  modulo: ModuloDelMapa,
+  resumenPorRegla: Map<string, ResumenRegla>,
+): ResumenModuloMapa {
+  const reglas = modulo.eventos.flatMap((item) => item.reglas)
+  return {
+    eventos: modulo.eventos.length,
+    automatizados: modulo.eventos.filter((item) => item.reglas.length > 0).length,
+    reglas: reglas.length,
+    reglasActivas: reglas.filter((regla) => regla.activo).length,
+    reglasConFallas: reglas.filter(
+      (regla) => (resumenPorRegla.get(regla.id)?.fallas_7_dias ?? 0) > 0,
+    ).length,
+  }
+}
