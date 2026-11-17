@@ -20,15 +20,15 @@ export function useEjecucionesWorkflow(filtros: FiltrosEjecuciones) {
     sinPermiso: boolean
   }>({ clave: null, datos: LISTADO_VACIO, error: null, sinPermiso: false })
 
-  const { estado, pagina, tamanioPagina } = filtros
-  const claveSolicitud = JSON.stringify([estado, pagina, tamanioPagina, revision])
+  const { estado, pagina, tamanioPagina, reglaId, nodoId } = filtros
+  const claveSolicitud = JSON.stringify([estado, pagina, tamanioPagina, reglaId, nodoId, revision])
 
   const recargar = useCallback(() => setRevision((actual) => actual + 1), [])
 
   useEffect(() => {
     const controller = new AbortController()
 
-    listarEjecucionesWorkflow({ estado, pagina, tamanioPagina }, controller.signal)
+    listarEjecucionesWorkflow({ estado, pagina, tamanioPagina, reglaId, nodoId }, controller.signal)
       .then((datos) => {
         setResultado({ clave: claveSolicitud, datos, error: null, sinPermiso: false })
       })
@@ -48,7 +48,7 @@ export function useEjecucionesWorkflow(filtros: FiltrosEjecuciones) {
       })
 
     return () => controller.abort()
-  }, [claveSolicitud, estado, pagina, tamanioPagina])
+  }, [claveSolicitud, estado, pagina, tamanioPagina, reglaId, nodoId])
 
   const solicitudVigente = resultado.clave === claveSolicitud
 

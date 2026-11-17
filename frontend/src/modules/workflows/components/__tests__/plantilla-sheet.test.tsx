@@ -15,8 +15,24 @@ const evento: TipoEvento = {
   nombre: 'factura.vencida',
   descripcion: null,
   campos: [
-    { id: 'c-1', nombre_interno: 'dias_vencido', etiqueta: 'Días vencido', tipo_dato: 'numero' },
-    { id: 'c-2', nombre_interno: 'monto_deuda', etiqueta: 'Monto adeudado', tipo_dato: 'numero' },
+    {
+      id: 'c-1',
+      nombre_interno: 'dias_vencido',
+      etiqueta: 'Días vencido',
+      tipo_dato: 'numero',
+      opciones: null,
+      busqueda: false,
+      permite_otro: false,
+    },
+    {
+      id: 'c-2',
+      nombre_interno: 'monto_deuda',
+      etiqueta: 'Monto adeudado',
+      tipo_dato: 'numero',
+      opciones: null,
+      busqueda: false,
+      permite_otro: false,
+    },
   ],
 }
 

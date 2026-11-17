@@ -7,20 +7,21 @@ from src.facturacion.calendario_facturacion import fecha_operativa_argentina
 from src.facturacion.models import ExcepcionVencimiento, Factura, ResponsableEconomico
 from src.facturacion.vencimientos_service import fecha_vencimiento_efectiva
 from src.models import EventLog
+from src.workflows.accion_contexto import AccionContexto
 from src.workflows.constants import CAMBIOS_ESTADO_PERMITIDOS
-from src.workflows.models import WorkflowExecution, WorkflowRule
+from src.workflows.models import WorkflowExecution
 from src.workflows.schemas import ConfigCambiarEstado, ResultadoAccion
 
 
 def ejecutar_aplicar_vencimiento(
-    db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
+    db: Session, regla: AccionContexto, evento: EventLog, ejecucion: WorkflowExecution
 ) -> ResultadoAccion:
     """Revalida el vencimiento al ejecutar, incluso tras una aprobación o un reintento."""
     return _vencer_factura(db, evento, respetar_fecha=True)
 
 
 def ejecutar_cambiar_estado(
-    db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
+    db: Session, regla: AccionContexto, evento: EventLog, ejecucion: WorkflowExecution
 ) -> ResultadoAccion:
     """Cambio explícito acotado por la allowlist, sin política de fechas o excepciones."""
     config = ConfigCambiarEstado.model_validate(regla.accion_config or {})

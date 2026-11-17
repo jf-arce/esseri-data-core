@@ -412,3 +412,30 @@ móvil, con navegación expandida/contraída y movimiento reducido.
 Si la concurrencia por defecto provoca timeouts en equipos ocupados, usar
 `npm run test -- --maxWorkers=2`: ejecuta la misma suite con dos workers, sin ampliar
 los tiempos límite ni omitir tests.
+
+## Editor de reglas de workflows
+
+El editor (`/workflows/reglas/nueva` y `/workflows/reglas/:id`) es un flujo de nodos hecho con
+[`@xyflow/react`](https://reactflow.dev). La ruta se carga en diferido (`lazy`), así que la librería
+no pesa en el resto del módulo. El mapa de automatizaciones de `/workflows/reglas` la comparte.
+
+Parámetros de la ruta de alta: `?evento=<id>` abre el lienzo con el disparador ya elegido y
+`?duplicar=<id>` abre una copia (inactiva y sin guardar) de otra regla. La lógica pura del editor
+(borrador, validación local, auto-layout, frase, deshacer, duplicado) está en
+`src/modules/workflows/utils-grafo.ts` y se prueba con `npm test`.
+
+El editor ocupa el alto de la ventana (`100dvh` menos el encabezado del layout) y no tiene scroll de
+página. Los componentes viven en `src/modules/workflows/components/`: `barra-editor` (migas, nombre,
+activa, guardar), `canvas-flujo` (lienzo y paneles flotantes), `catalogo-bloques` (lista con
+buscador, compartida por `paleta-bloques` y por el "+" de cada salida), `inspector-nodo` (panel
+flotante; hoja inferior debajo de `lg`), `resumen-regla` (chip) y `simulador-regla` (panel "Probar
+regla").
+
+Interacción del lienzo: al soltar una línea en un lugar vacío se abre el catálogo y el bloque queda
+conectado a esa salida; arrastrar el extremo de origen de una conexión la mueve (soltada en el vacío, la
+desconecta) y arrastrar desde la entrada de un bloque hasta la salida de otro también; al seleccionar una línea aparecen "+" (inserta una condición en el medio) y "×". Las
+líneas se rotulan según el paso ("Siempre", "Entonces", "Si no, pero si"…). Los bloques que no
+están conectados se guardan con la regla (`bloques_sueltos`) pero no se ejecutan ni se simulan, y
+no impiden guardar. En una condición sobre un campo con opciones, el valor es una lista y solo se
+puede elegir "es" o "no es". Los campos de alumnos, familias y artículos usan un buscador que
+consulta al servidor (`selector-buscable`); el artículo permite además "Otro (escribir a mano)".

@@ -27,6 +27,32 @@ for (const metodo of ['hasPointerCapture', 'setPointerCapture', 'releasePointerC
   })
 }
 
+// Desde Node 25 el `localStorage` global de Node tapa al de JSDOM y sin `--localstorage-file`
+// queda indefinido. Un almacenamiento en memoria por archivo de test; cada test puede pisarlo.
+function almacenamientoEnMemoria(): Storage {
+  const datos = new Map<string, string>()
+  return {
+    get length() {
+      return datos.size
+    },
+    clear: () => datos.clear(),
+    getItem: (clave) => datos.get(clave) ?? null,
+    key: (indice) => [...datos.keys()][indice] ?? null,
+    removeItem: (clave) => {
+      datos.delete(clave)
+    },
+    setItem: (clave, valor) => {
+      datos.set(clave, String(valor))
+    },
+  }
+}
+
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  writable: true,
+  value: almacenamientoEnMemoria(),
+})
+
 // Motion observa cuándo entran los gráficos en pantalla. JSDOM no tiene viewport real;
 // las entradas animadas se verifican en navegador, los datos/tooltips en los tests del módulo.
 Object.defineProperty(globalThis, 'IntersectionObserver', {

@@ -14,11 +14,12 @@ import {
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { PERMISO_WORKFLOWS_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
-import { formatearNombreRol, nombreVisibleDeUsuario } from '@/modules/auth/utils'
+import { formatearNombreRol } from '@/modules/auth/utils'
 import { ESTADO_USUARIO_ACTIVO } from '@/modules/workflows/constants'
 import type { useDestinatariosDisponibles } from '@/modules/workflows/hooks/use-destinatarios-disponibles'
-import type { DestinatariosRegla } from '@/modules/workflows/types'
 import { desplazarConRueda } from '@/lib/desplazar-con-rueda'
+import type { DestinatariosNodo } from '@/modules/workflows/types'
+import { nombreDePersona } from '@/modules/workflows/utils'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 export interface SeleccionDestinatarios {
@@ -90,7 +91,7 @@ function SelectorDestinatarios({
             role="combobox"
             aria-expanded={abierto}
             disabled={deshabilitado}
-            className="justify-between font-normal"
+            className="w-full min-w-0 justify-between font-normal"
           >
             {seleccionados.length > 0
               ? `${seleccionados.length} elegidos`
@@ -112,8 +113,9 @@ function SelectorDestinatarios({
       {seleccionados.length > 0 && (
         <ul className="flex flex-wrap gap-1.5" aria-label="Destinatarios elegidos">
           {seleccionados.map((opcion) => (
-            <li key={clave(opcion)}>
+            <li key={clave(opcion)} className="min-w-0 max-w-full">
               <Badge
+                className="h-auto min-h-[22px] max-w-full justify-start py-0.5 text-left break-all whitespace-normal"
                 variant={opcion.inactivo ? 'neutro' : opcion.tipo === 'rol' ? 'info' : 'exito'}
               >
                 {opcion.etiqueta}
@@ -139,7 +141,7 @@ function SelectorDestinatarios({
 interface DestinatariosCamposProps {
   seleccion: SeleccionDestinatarios
   /** Lo que hay guardado en el servidor: da el nombre de lo que el catálogo no trae. */
-  guardados: DestinatariosRegla
+  guardados: DestinatariosNodo
   disponibles: ReturnType<typeof useDestinatariosDisponibles>
   deshabilitado: boolean
   /** Cómo se rotula el selector: "Destinatarios de la regla" o, si asigna trabajo, "Asignar a". */
@@ -168,7 +170,7 @@ export function DestinatariosCampos({
   const usuarios: Opcion[] = disponibles.usuarios.map((usuario) => ({
     tipo: 'usuario',
     id: usuario.id,
-    etiqueta: nombreVisibleDeUsuario(usuario),
+    etiqueta: nombreDePersona(usuario),
     email: usuario.email,
   }))
 

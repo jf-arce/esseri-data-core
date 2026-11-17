@@ -19,6 +19,7 @@ const pendiente: EjecucionWorkflow = {
   error_detail: null,
   workflow_rule_id: 'r-1',
   workflow_rule_nombre: 'Aplicar penalidad',
+  workflow_nodo_id: 'n-1',
   tipo_accion: 'aplicar_penalidad',
   event_log_id: 'ev-1',
   tipo_evento: 'factura.vencida',

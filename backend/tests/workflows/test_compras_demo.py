@@ -44,6 +44,7 @@ from src.workflows.notificaciones_service import (
 )
 from tests.areas import AREA_SOLICITANTE_ID
 from tests.proveedores_compras.conftest import catalogo_eventos_compras  # noqa: F401
+from tests.workflows.factories import ReglaSimple, crear_regla_simple, cuerpo_regla
 
 SEED = Path(__file__).resolve().parents[3] / "database" / "seeds" / "04_seed_demo.py"
 
@@ -103,18 +104,17 @@ def _tipo(db, nombre):
 
 
 def _regla_notificar(db, evento, plantilla=None):
-    regla = WorkflowRule(
+    regla = crear_regla_simple(
+        db,
         nombre="Avisar al solicitante",
         condicion={},
         tipo_accion="notificar",
         accion_config={"destinatario": "solicitante"},
-        criticidad="baja",
         requiere_aprobacion_humana=False,
         activo=True,
         tipo_evento_id=_tipo(db, evento).id,
         notificacion_template_id=None if plantilla is None else plantilla.id,
     )
-    db.add(regla)
     db.commit()
     return regla
 
@@ -210,14 +210,11 @@ def test_solicitante_solo_se_acepta_en_eventos_de_compras(
     def crear(tipo_id):
         return client_autenticado.post(
             "/workflows/reglas",
-            json={
-                "nombre": "Aviso",
-                "tipo_evento_id": str(tipo_id),
-                "condicion": {},
-                "tipo_accion": "notificar",
-                "accion_config": {"destinatario": "solicitante"},
-                "criticidad": "baja",
-            },
+            json=cuerpo_regla(
+                tipo_id,
+                nombre="Aviso",
+                accion_config={"destinatario": "solicitante"},
+            ),
         )
 
     rechazada = crear(tipo_factura_vencida.id)
@@ -240,7 +237,8 @@ def demo(db_session, seed_demo, monkeypatch):
 
 
 def _regla(db, nombre):
-    return db.scalars(select(WorkflowRule).where(WorkflowRule.nombre == nombre)).one()
+    regla = db.scalars(select(WorkflowRule).where(WorkflowRule.nombre == nombre)).one()
+    return ReglaSimple.desde_base(db, regla)
 
 
 def test_el_seed_crea_las_reglas_de_compras(db_session, demo, seed_demo):
@@ -252,7 +250,7 @@ def test_el_seed_crea_las_reglas_de_compras(db_session, demo, seed_demo):
     assert orden.requiere_aprobacion_humana is True
     assert alerta.tipo_accion == "alerta_interna"
     rol_ids = db_session.scalars(
-        select(ReglaDestinatario.rol_id).where(ReglaDestinatario.workflow_rule_id == alerta.id)
+        select(ReglaDestinatario.rol_id).where(ReglaDestinatario.workflow_nodo_id == alerta.nodo_id)
     ).all()
     assert [db_session.get(Rol, r).nombre for r in rol_ids] == ["compras"]
     assert aviso.accion_config["destinatario"] == "solicitante"

@@ -9,22 +9,22 @@ from src.workflows import despacho_service, ejecuciones_service
 from src.workflows.constants import TIPOS_ACCION
 from src.workflows.despacho_service import procesar_eventos_pendientes
 from src.workflows.eventos_service import emit_event
-from src.workflows.models import TipoEvento, WorkflowExecution, WorkflowRule
+from src.workflows.models import TipoEvento, WorkflowExecution
 from src.workflows.schemas import ResultadoAccion
+from tests.workflows.factories import crear_regla_simple
 
 
 def _regla(db, tipo, **extra):
-    regla = WorkflowRule(
+    regla = crear_regla_simple(
+        db,
         nombre=extra.pop("nombre", "Avisar mora"),
         condicion=extra.pop("condicion", {}),
         tipo_accion=extra.pop("tipo_accion", "notificar"),
         accion_config=extra.pop("accion_config", None),
-        criticidad="media",
         requiere_aprobacion_humana=extra.pop("requiere_aprobacion_humana", False),
         activo=extra.pop("activo", True),
         tipo_evento_id=tipo.id,
     )
-    db.add(regla)
     db.commit()
     return regla
 
@@ -133,7 +133,12 @@ def test_accion_sin_reserva_conserva_el_savepoint(db_session, tipo_factura_venci
     acciones["crear_tarea"] = falla_a_mitad
     regla = _regla(db_session, tipo_factura_vencida, tipo_accion="crear_tarea")
     evento = _evento(db_session)
-    ejecucion = WorkflowExecution(workflow_rule_id=regla.id, event_log_id=evento.id, intento=1)
+    ejecucion = WorkflowExecution(
+        workflow_rule_id=regla.id,
+        workflow_nodo_id=regla.nodo_id,
+        event_log_id=evento.id,
+        intento=1,
+    )
     db_session.add(ejecucion)
     db_session.commit()
 
@@ -189,14 +194,14 @@ def test_error_inesperado_marca_el_evento_fallido_y_sigue(
 ):
     primero = _evento(db_session)
     segundo = _evento(db_session)
-    original = despacho_service._despachar_evento
+    original = despacho_service._registrar_evento
 
     def despachar(db, evento):
         if evento.id == primero.id:
             raise RuntimeError("boom")
         return original(db, evento)
 
-    monkeypatch.setattr(despacho_service, "_despachar_evento", despachar)
+    monkeypatch.setattr(despacho_service, "_registrar_evento", despachar)
 
     resumen = procesar_eventos_pendientes(db_session)
 

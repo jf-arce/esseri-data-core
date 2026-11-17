@@ -73,7 +73,11 @@ def seed_campo_evento(db, data):
                 .first()
             )
             if existing:
-                print(f"  ya existe: CampoEvento({campo['nombre_interno']!r})")
+                if existing.etiqueta != campo["etiqueta"]:
+                    existing.etiqueta = campo["etiqueta"]
+                    print(f"  etiqueta actualizada: CampoEvento({campo['nombre_interno']!r})")
+                else:
+                    print(f"  ya existe: CampoEvento({campo['nombre_interno']!r})")
                 continue
             db.add(
                 CampoEvento(

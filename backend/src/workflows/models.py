@@ -4,11 +4,15 @@ import uuid
 from datetime import datetime
 
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.models import JSON_TYPE, Base
 from src.workflows.constants import TIPOS_ACCION
 
+# `condicion` y `accion_config` guardan NULL de SQL (no el JSON `null`): los checks por tipo de nodo
+# preguntan `IS NULL`.
+_JSON_NULO = sa.JSON(none_as_null=True).with_variant(JSONB(none_as_null=True), "postgresql")
 _CK_TIPO_ACCION = "tipo_accion IN (" + ", ".join(f"'{t}'" for t in TIPOS_ACCION) + ")"
 
 
@@ -47,33 +51,85 @@ class TipoEvento(Base):
 
 
 class WorkflowRule(Base):
-    """`condicion`/`accion_config` no son código ejecutable: el backend los
-    interpreta contra una allowlist, nunca los ejecuta directamente."""
+    """Cabecera de la regla: el disparador (`tipo_evento_id`) y los datos propios. Lo que la regla
+    hace vive en su árbol de `WorkflowNodo` (condiciones y acciones)."""
 
     __tablename__ = "workflow_rule"
-    __table_args__ = (
-        sa.CheckConstraint(_CK_TIPO_ACCION, name="ck_workflow_rule_tipo_accion"),
-        sa.CheckConstraint(
-            "criticidad IN ('baja', 'media', 'alta', 'critica')", name="ck_workflow_rule_criticidad"
-        ),
-    )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
     nombre: Mapped[str] = mapped_column(sa.String)
-    condicion: Mapped[dict] = mapped_column(JSON_TYPE)
-    tipo_accion: Mapped[str] = mapped_column(sa.String)
-    accion_config: Mapped[dict | None] = mapped_column(JSON_TYPE)
-    criticidad: Mapped[str] = mapped_column(sa.String)
-    requiere_aprobacion_humana: Mapped[bool] = mapped_column(sa.Boolean, default=False)
     activo: Mapped[bool] = mapped_column(sa.Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
     updated_at: Mapped[datetime] = mapped_column(
         sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
     )
     tipo_evento_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("tipo_evento.id"))
+
+
+class WorkflowRuleBorrador(Base):
+    """Bloques del editor que no están conectados al flujo. Se guardan tal cual los armó la persona
+    (pueden estar incompletos) y el motor nunca los lee. Va aparte para que editarlos no toque el
+    `updated_at` funcional de la regla."""
+
+    __tablename__ = "workflow_rule_borrador"
+
+    workflow_rule_id: Mapped[uuid.UUID] = mapped_column(
+        sa.ForeignKey("workflow_rule.id"), primary_key=True
+    )
+    bloques_sueltos: Mapped[list[dict[str, object]]] = mapped_column(JSON_TYPE)
+
+
+class WorkflowNodo(Base):
+    """Nodo del árbol de una regla. `condicion` es `{logica, comparaciones}` y `accion_config` se
+    interpretan contra una allowlist, nunca se ejecutan. `padre_id` nulo = cuelga del disparador.
+    La baja es lógica (`eliminado_at`) cuando el nodo ya tiene ejecuciones."""
+
+    __tablename__ = "workflow_nodo"
+    __table_args__ = (
+        sa.CheckConstraint("tipo IN ('condicion', 'accion')", name="ck_workflow_nodo_tipo"),
+        sa.CheckConstraint("rama IS NULL OR rama IN ('si', 'no')", name="ck_workflow_nodo_rama"),
+        sa.CheckConstraint(
+            "(tipo = 'condicion' AND condicion IS NOT NULL AND tipo_accion IS NULL) OR "
+            "(tipo = 'accion' AND tipo_accion IS NOT NULL AND condicion IS NULL)",
+            name="ck_workflow_nodo_contenido",
+        ),
+        sa.CheckConstraint(
+            f"tipo_accion IS NULL OR {_CK_TIPO_ACCION}", name="ck_workflow_nodo_tipo_accion"
+        ),
+        sa.Index("ix_workflow_nodo_regla", "workflow_rule_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    workflow_rule_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("workflow_rule.id"))
+    tipo: Mapped[str] = mapped_column(sa.String)
+    padre_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("workflow_nodo.id"))
+    rama: Mapped[str | None] = mapped_column(sa.String)
+    orden: Mapped[int] = mapped_column(sa.Integer, default=0)
+    condicion: Mapped[dict | None] = mapped_column(_JSON_NULO)
+    tipo_accion: Mapped[str | None] = mapped_column(sa.String)
+    accion_config: Mapped[dict | None] = mapped_column(_JSON_NULO)
     notificacion_template_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.ForeignKey("notificacion_template.id")
     )
+    requiere_aprobacion_humana: Mapped[bool] = mapped_column(sa.Boolean, default=False)
+    eliminado_at: Mapped[datetime | None] = mapped_column(sa.DateTime)
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
+    )
+
+
+class WorkflowNodoPosicion(Base):
+    """Posición del nodo en el lienzo. Va aparte para que mover un nodo no toque el `updated_at`
+    funcional (que invalida pendientes y reintentos)."""
+
+    __tablename__ = "workflow_nodo_posicion"
+
+    workflow_nodo_id: Mapped[uuid.UUID] = mapped_column(
+        sa.ForeignKey("workflow_nodo.id"), primary_key=True
+    )
+    x: Mapped[float] = mapped_column(sa.Float)
+    y: Mapped[float] = mapped_column(sa.Float)
 
 
 class NotificacionTemplate(Base):
@@ -100,10 +156,10 @@ class WorkflowExecution(Base):
             name="ck_workflow_execution_estado",
         ),
         sa.UniqueConstraint(
-            "workflow_rule_id",
+            "workflow_nodo_id",
             "event_log_id",
             "intento",
-            name="uq_workflow_execution_regla_evento_intento",
+            name="uq_workflow_execution_nodo_evento_intento",
         ),
     )
 
@@ -114,7 +170,10 @@ class WorkflowExecution(Base):
     estado: Mapped[str] = mapped_column(sa.String, default="pendiente")
     detalle: Mapped[str | None] = mapped_column(sa.String)
     error_detail: Mapped[str | None] = mapped_column(sa.String)
+    # Config de la acción al momento de ejecutar: trazabilidad sin versionar la regla.
+    accion_snapshot: Mapped[dict | None] = mapped_column(JSON_TYPE)
     workflow_rule_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("workflow_rule.id"))
+    workflow_nodo_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("workflow_nodo.id"))
     event_log_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("event_log.id"))
 
 
@@ -235,14 +294,14 @@ class ReglaDestinatario(Base):
             name="ck_regla_destinatario_referencia",
         ),
         sa.UniqueConstraint(
-            "workflow_rule_id",
+            "workflow_nodo_id",
             "rol_id",
-            name="uq_regla_destinatario_regla_rol",
+            name="uq_regla_destinatario_nodo_rol",
         ),
         sa.UniqueConstraint(
-            "workflow_rule_id",
+            "workflow_nodo_id",
             "usuario_id",
-            name="uq_regla_destinatario_regla_usuario",
+            name="uq_regla_destinatario_nodo_usuario",
         ),
     )
 
@@ -252,6 +311,6 @@ class ReglaDestinatario(Base):
     updated_at: Mapped[datetime] = mapped_column(
         sa.DateTime, server_default=sa.func.now(), onupdate=sa.func.now()
     )
-    workflow_rule_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("workflow_rule.id"))
+    workflow_nodo_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("workflow_nodo.id"))
     rol_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("rol.id"))
     usuario_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("usuario.id"))

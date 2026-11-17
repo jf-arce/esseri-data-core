@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { HistoryIcon, ShieldAlertIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
@@ -13,9 +14,8 @@ import { FILTRO_TODOS, TAMANIO_PAGINA_EJECUCIONES } from '@/modules/workflows/co
 import { EjecucionDetalleSheet } from '@/modules/workflows/components/ejecucion-detalle-sheet'
 import { EjecucionesWorkflowTabla } from '@/modules/workflows/components/ejecuciones-workflow-tabla'
 import { RechazoEjecucionDialog } from '@/modules/workflows/components/rechazo-ejecucion-dialog'
+import { useDecisionesEjecucion } from '@/modules/workflows/hooks/use-decisiones-ejecucion'
 import { useEjecucionesWorkflow } from '@/modules/workflows/hooks/use-ejecuciones-workflow'
-import { aprobarEjecucionWorkflow } from '@/modules/workflows/services/aprobar-ejecucion-workflow'
-import { rechazarEjecucionWorkflow } from '@/modules/workflows/services/rechazar-ejecucion-workflow'
 import { reintentarEjecucionWorkflow } from '@/modules/workflows/services/reintentar-ejecucion-workflow'
 import type { EjecucionWorkflow } from '@/modules/workflows/types'
 import {
@@ -34,22 +34,35 @@ const OPCIONES_ESTADO: { value: EstadoEjecucionFiltro; label: string }[] = [
 ]
 
 export function EjecucionesWorkflowPage() {
-  const [estado, setEstado] = useState<EstadoEjecucionFiltro>(FILTRO_TODOS)
+  // La página de reglas y el editor enlazan acá con el estado, la regla y la acción ya filtrados.
+  const [parametros, setParametros] = useSearchParams()
+  const reglaId = parametros.get('regla') ?? undefined
+  const nodoId = parametros.get('nodo') ?? undefined
+  const estadoUrl = parametros.get('estado')
+  const [estado, setEstado] = useState<EstadoEjecucionFiltro>(
+    estadoUrl !== null && esEstadoEjecucionFiltro(estadoUrl) ? estadoUrl : FILTRO_TODOS,
+  )
   const [pagina, setPagina] = useState(1)
   const [detalle, setDetalle] = useState<EjecucionWorkflow | null>(null)
   const [reintentandoId, setReintentandoId] = useState<string | null>(null)
   // El estado no alcanza para frenar un segundo clic dentro del mismo render.
   const reintentoEnCurso = useRef(false)
-  const [decidiendoId, setDecidiendoId] = useState<string | null>(null)
-  const [porRechazar, setPorRechazar] = useState<EjecucionWorkflow | null>(null)
-  const decisionEnCurso = useRef(false)
   const permisos = useAuthStore(permisosActivos)
   const puedeActualizar = tienePermiso(permisos, PERMISO_WORKFLOWS_ACTUALIZAR)
 
   const { datos, cargando, error, sinPermiso, recargar } = useEjecucionesWorkflow({
     estado: estado === FILTRO_TODOS ? undefined : estado,
+    reglaId,
+    nodoId,
     pagina,
     tamanioPagina: TAMANIO_PAGINA_EJECUCIONES,
+  })
+
+  const { decidiendoId, porRechazar, setPorRechazar, aprobar, rechazar } = useDecisionesEjecucion({
+    onTerminar: recargar,
+    // Si el detalle está abierto, muestra cómo quedó la ejecución en vez de cerrarse.
+    onResultado: (resultado) =>
+      setDetalle((actual) => (actual?.id === resultado.id ? resultado : actual)),
   })
 
   async function reintentar(ejecucion: EjecucionWorkflow) {
@@ -71,53 +84,6 @@ export function EjecucionesWorkflowPage() {
     }
   }
 
-  /** Aprobar y rechazar comparten el mismo manejo: un solo clic a la vez, aviso y recarga. */
-  async function decidir(
-    ejecucion: EjecucionWorkflow,
-    pedir: () => Promise<EjecucionWorkflow>,
-    avisar: (resultado: EjecucionWorkflow) => void,
-    mensajeError: string,
-  ) {
-    if (decisionEnCurso.current) return
-    decisionEnCurso.current = true
-    setDecidiendoId(ejecucion.id)
-    try {
-      const resultado = await pedir()
-      avisar(resultado)
-      // Si el detalle está abierto, muestra cómo quedó la ejecución en vez de cerrarse.
-      setDetalle((actual) => (actual?.id === resultado.id ? resultado : actual))
-    } catch (causa) {
-      toast.error(causa instanceof ApiError ? causa.detail : mensajeError)
-    } finally {
-      decisionEnCurso.current = false
-      setDecidiendoId(null)
-      setPorRechazar(null)
-      recargar()
-    }
-  }
-
-  function aprobar(ejecucion: EjecucionWorkflow) {
-    return decidir(
-      ejecucion,
-      () => aprobarEjecucionWorkflow(ejecucion.id),
-      (resultado) => {
-        if (resultado.estado === 'exitoso') toast.success('La ejecución se aprobó y se completó.')
-        else toast.error('La ejecución se aprobó, pero la acción falló.')
-      },
-      'No se pudo aprobar la ejecución.',
-    )
-  }
-
-  function rechazar(motivo: string) {
-    if (porRechazar === null) return
-    return decidir(
-      porRechazar,
-      () => rechazarEjecucionWorkflow(porRechazar.id, motivo),
-      () => toast.success('La ejecución se rechazó.'),
-      'No se pudo rechazar la ejecución.',
-    )
-  }
-
   if (sinPermiso)
     return (
       <Empty className="min-h-[420px] rounded-panel bg-superficie shadow-card">
@@ -129,11 +95,32 @@ export function EjecucionesWorkflowPage() {
       </Empty>
     )
 
-  const sinEjecuciones = !cargando && !error && datos.total === 0 && estado === FILTRO_TODOS
+  const filtradaPorRegla = reglaId !== undefined || nodoId !== undefined
+  const sinEjecuciones =
+    !cargando && !error && datos.total === 0 && estado === FILTRO_TODOS && !filtradaPorRegla
 
   return (
     <div className="flex flex-col gap-5">
       <PageHeader titulo="Historial de ejecuciones" />
+      {filtradaPorRegla && (
+        <Alert variant="info">
+          <AlertDescription className="flex items-center justify-between gap-3">
+            {nodoId
+              ? 'Mostrando solo las ejecuciones de una acción de la regla.'
+              : 'Mostrando solo las ejecuciones de una regla.'}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setParametros({})
+                setPagina(1)
+              }}
+            >
+              Ver todas
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudo cargar el historial</AlertTitle>

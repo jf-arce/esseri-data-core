@@ -12,8 +12,8 @@ import {
 import { EjecucionesWorkflowPage } from '@/modules/workflows/pages/ejecuciones-workflow-page'
 import { NotificacionesPage } from '@/modules/workflows/pages/notificaciones-page'
 import { ReglasWorkflowPage } from '@/modules/workflows/pages/reglas-workflow-page'
+import { ReglaWorkflowEditorDiferido } from '@/modules/workflows/pages/regla-workflow-editor-diferido'
 import { TareasPage } from '@/modules/workflows/pages/tareas-page'
-import { ReglaWorkflowEditorPage } from '@/modules/workflows/pages/regla-workflow-editor-page'
 
 export const workflowsRoutes: RouteObject[] = [
   {
@@ -22,9 +22,9 @@ export const workflowsRoutes: RouteObject[] = [
       { path: RUTA_REGLAS, element: <ReglasWorkflowPage /> },
       {
         element: <PermisoRoute codigo={PERMISO_WORKFLOWS_CREAR} label="Workflows · Crear" />,
-        children: [{ path: RUTA_NUEVA_REGLA, element: <ReglaWorkflowEditorPage /> }],
+        children: [{ path: RUTA_NUEVA_REGLA, element: <ReglaWorkflowEditorDiferido /> }],
       },
-      { path: RUTA_REGLA_POR_ID, element: <ReglaWorkflowEditorPage /> },
+      { path: RUTA_REGLA_POR_ID, element: <ReglaWorkflowEditorDiferido /> },
       { path: RUTA_EJECUCIONES, element: <EjecucionesWorkflowPage /> },
       { path: RUTA_NOTIFICACIONES, element: <NotificacionesPage /> },
     ],

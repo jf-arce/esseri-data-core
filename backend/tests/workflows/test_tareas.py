@@ -11,7 +11,7 @@ from src.auth.models import Rol, Usuario, UsuarioRol
 from src.fechas import ahora_utc
 from src.models import AuditLog, EventLog
 from src.workflows import despacho_service, tareas_service
-from src.workflows.models import ReglaDestinatario, Tarea, WorkflowExecution, WorkflowRule
+from src.workflows.models import ReglaDestinatario, Tarea, WorkflowExecution
 from src.workflows.tareas_service import (
     ERROR_SIN_ASIGNADOS,
     ERROR_TOPE,
@@ -19,6 +19,7 @@ from src.workflows.tareas_service import (
     ejecutar_escalar_caso,
 )
 from tests.workflows.conftest import _crear_usuario_con_permisos, _login
+from tests.workflows.factories import accion_de, crear_regla_simple, cuerpo_regla
 
 # --- Armado --------------------------------------------------------------------------------
 
@@ -31,29 +32,30 @@ def _usuario(db, email, *, estado="activo"):
 
 
 def _regla(db, tipo, tipo_accion, accion_config, *, aprobacion=False, destinatarios=()):
-    regla = WorkflowRule(
+    regla = crear_regla_simple(
+        db,
         nombre="Regla de tareas",
         condicion={},
         tipo_accion=tipo_accion,
         accion_config=accion_config,
-        criticidad="media",
         requiere_aprobacion_humana=aprobacion,
         activo=True,
         tipo_evento_id=tipo.id,
     )
-    db.add(regla)
     db.flush()
     for destino in destinatarios:
         if isinstance(destino, Rol):
             db.add(
                 ReglaDestinatario(
-                    destinatario_tipo="rol", workflow_rule_id=regla.id, rol_id=destino.id
+                    destinatario_tipo="rol", workflow_nodo_id=regla.nodo_id, rol_id=destino.id
                 )
             )
         else:
             db.add(
                 ReglaDestinatario(
-                    destinatario_tipo="usuario", workflow_rule_id=regla.id, usuario_id=destino.id
+                    destinatario_tipo="usuario",
+                    workflow_nodo_id=regla.nodo_id,
+                    usuario_id=destino.id,
                 )
             )
     db.commit()
@@ -75,7 +77,10 @@ def _evento(db, tipo, entidad_id=None):
 
 def _ejecucion(db, regla, evento, intento=1):
     ejecucion = WorkflowExecution(
-        workflow_rule_id=regla.id, event_log_id=evento.id, intento=intento
+        workflow_rule_id=regla.id,
+        workflow_nodo_id=regla.nodo_id,
+        event_log_id=evento.id,
+        intento=intento,
     )
     db.add(ejecucion)
     db.flush()
@@ -213,7 +218,9 @@ def test_reintentar_crear_tarea_no_duplica_el_trabajo(db_session, tipo_factura_v
     # Un segundo usuario se suma antes del reintento: solo él recibe tarea nueva.
     dos = _usuario(db_session, "dos@esseri.edu.ar")
     db_session.add(
-        ReglaDestinatario(destinatario_tipo="usuario", workflow_rule_id=regla.id, usuario_id=dos.id)
+        ReglaDestinatario(
+            destinatario_tipo="usuario", workflow_nodo_id=regla.nodo_id, usuario_id=dos.id
+        )
     )
     db_session.commit()
 
@@ -415,24 +422,19 @@ def test_la_regla_de_crear_tarea_admite_destinatarios(
 ):
     usuario = _usuario(db_session, "uno@esseri.edu.ar")
     db_session.commit()
-    regla = client_autenticado.post(
+    respuesta = client_autenticado.post(
         "/workflows/reglas",
-        json={
-            "nombre": "Tarea por mora",
-            "tipo_evento_id": str(tipo_factura_vencida.id),
-            "tipo_accion": "crear_tarea",
-            "accion_config": CONFIG_TAREA,
-            "criticidad": "media",
-        },
-    ).json()
-
-    respuesta = client_autenticado.put(
-        f"/workflows/reglas/{regla['id']}/destinatarios",
-        json={"rol_ids": [], "usuario_ids": [str(usuario.id)]},
+        json=cuerpo_regla(
+            tipo_factura_vencida.id,
+            nombre="Tarea por mora",
+            tipo_accion="crear_tarea",
+            accion_config=CONFIG_TAREA,
+            usuario_ids=[usuario.id],
+        ),
     )
 
-    assert respuesta.status_code == 200
-    assert respuesta.json()["usuarios"][0]["email"] == usuario.email
+    assert respuesta.status_code == 201
+    assert accion_de(respuesta.json())["destinatarios"]["usuarios"][0]["email"] == usuario.email
 
 
 # --- Bandeja: alcance ----------------------------------------------------------------------
@@ -1007,7 +1009,6 @@ def test_guardar_una_regla_valida_los_placeholders_de_la_tarea(
             "condicion": {},
             "tipo_accion": "crear_tarea",
             "accion_config": {"titulo": "Llamar a {{no_existe}}"},
-            "criticidad": "media",
             "tipo_evento_id": str(tipo_factura_vencida.id),
         },
     )

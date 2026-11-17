@@ -131,6 +131,7 @@ def test_no_reintenta_un_intento_anterior(client_autenticado, db_session, tipo_f
             estado="fallido",
             error_detail="segundo fallo",
             workflow_rule_id=regla.id,
+            workflow_nodo_id=regla.nodo_id,
             event_log_id=evento.id,
         )
     )
@@ -190,6 +191,7 @@ def test_reintentable_solo_en_el_ultimo_intento_fallido(
         started_at=ahora_utc_naive() + timedelta(minutes=1),
         estado="fallido",
         workflow_rule_id=regla.id,
+        workflow_nodo_id=regla.nodo_id,
         event_log_id=evento.id,
     )
     db_session.add(posterior)
@@ -234,6 +236,7 @@ def test_no_permite_repetir_numero_de_intento(db_session, tipo_factura_vencida):
             intento=1,
             estado="fallido",
             workflow_rule_id=regla.id,
+            workflow_nodo_id=regla.nodo_id,
             event_log_id=evento.id,
         )
     )
@@ -251,7 +254,7 @@ def test_conflicto_concurrente_de_reintento_es_409(
     def simular_conflicto(*args, **kwargs):
         raise IntegrityError("intento duplicado", {}, Exception())
 
-    monkeypatch.setattr(despacho_service, "_procesar_regla", simular_conflicto)
+    monkeypatch.setattr(despacho_service, "reintentar_accion", simular_conflicto)
 
     respuesta = client_autenticado.post(f"/workflows/ejecuciones/{ejecucion.id}/reintentar")
 

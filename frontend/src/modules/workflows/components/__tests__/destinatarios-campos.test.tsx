@@ -100,8 +100,8 @@ describe('DestinatariosCampos', () => {
     await userEvent.click(screen.getByRole('combobox'))
     await userEvent.type(screen.getByPlaceholderText('Buscar'), 'tareas.admin@esseri')
 
-    expect(await screen.findByText('Admin, Tareas')).toBeInTheDocument()
-    expect(screen.queryByText('Pérez, Ana')).not.toBeInTheDocument()
+    expect(await screen.findByText('Tareas Admin')).toBeInTheDocument()
+    expect(screen.queryByText('Ana Pérez')).not.toBeInTheDocument()
   })
 
   it('el buscador sigue encontrando por el nombre', async () => {
@@ -109,8 +109,8 @@ describe('DestinatariosCampos', () => {
     await userEvent.click(screen.getByRole('combobox'))
     await userEvent.type(screen.getByPlaceholderText('Buscar'), 'Pérez')
 
-    expect(await screen.findByText('Pérez, Ana')).toBeInTheDocument()
-    expect(screen.queryByText('Admin, Tareas')).not.toBeInTheDocument()
+    expect(await screen.findByText('Ana Pérez')).toBeInTheDocument()
+    expect(screen.queryByText('Tareas Admin')).not.toBeInTheDocument()
   })
 
   it('al elegir un usuario avisa con su id', async () => {
@@ -118,7 +118,7 @@ describe('DestinatariosCampos', () => {
     renderCampos({ onCambiar })
     await userEvent.click(screen.getByRole('combobox'))
 
-    await userEvent.click(await screen.findByText('Admin, Tareas'))
+    await userEvent.click(await screen.findByText('Tareas Admin'))
 
     expect(onCambiar).toHaveBeenCalledWith({ rolIds: [], usuarioIds: ['u-1'] })
   })

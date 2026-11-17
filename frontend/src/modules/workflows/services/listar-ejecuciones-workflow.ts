@@ -9,6 +9,8 @@ export function listarEjecucionesWorkflow(filtros: FiltrosEjecuciones, signal?: 
   })
 
   if (filtros.estado) parametros.set('estado', filtros.estado)
+  if (filtros.reglaId) parametros.set('workflow_rule_id', filtros.reglaId)
+  if (filtros.nodoId) parametros.set('workflow_nodo_id', filtros.nodoId)
 
   return apiClient<EjecucionWorkflowListado>(`${API_EJECUCIONES}?${parametros.toString()}`, {
     signal,
