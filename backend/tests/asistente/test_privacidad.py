@@ -68,7 +68,7 @@ class TestEntrada:
         lista = eventos(enviar(direccion, nueva_conversacion(direccion), "¿Cómo viene Juan?"))
 
         assert proveedor.peticiones == []
-        assert nombres(lista) == ["texto", "tarjeta", "tarjeta", "fin"]
+        assert nombres(lista) == ["inicio", "texto", "tarjeta", "tarjeta", "fin"]
         assert all(datos["bloque"]["elegir"] for nombre, datos in lista if nombre == "tarjeta")
 
     def test_la_mencion_viaja_como_alias(self, direccion, proveedor, personas):

@@ -63,6 +63,7 @@ BLOQUE_GRAFICO = "grafico"
 BLOQUE_TARJETA = "tarjeta"
 BLOQUE_NAVEGAR = "navegar"
 
+EVENTO_INICIO = "inicio"
 EVENTO_HERRAMIENTA = "herramienta"
 EVENTO_TEXTO = "texto"
 EVENTO_DELTA = "delta"

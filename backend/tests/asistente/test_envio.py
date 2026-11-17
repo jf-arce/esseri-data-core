@@ -38,9 +38,9 @@ class TestFlujo:
         assert respuesta.status_code == 200
         assert respuesta.headers["content-type"].startswith("text/event-stream")
         lista = eventos(respuesta)
-        assert nombres(lista) == ["herramienta", "tarjeta", "navegar", "texto", "fin"]
+        assert nombres(lista) == ["inicio", "herramienta", "tarjeta", "navegar", "texto", "fin"]
         assert all("solicitud_id" in datos for _, datos in lista)
-        assert lista[0][1]["nombre"] == "indicadores_generales"
+        assert lista[1][1]["nombre"] == "indicadores_generales"
         assert lista[-2][1]["texto"] == "Hay 3 alumnos activos."
 
     def test_el_texto_llega_en_trozos_que_suman_la_respuesta(self, direccion, proveedor):
@@ -170,7 +170,7 @@ class TestErroresDelProveedor:
         conversacion = nueva_conversacion(direccion)
         lista = eventos(enviar(direccion, conversacion, "hola"))
 
-        assert nombres(lista) == ["error"]
+        assert nombres(lista) == ["inicio", "error"]
         db_session.expire_all()
         estados = list(db_session.scalars(select(MensajeAsistente.estado)))
         assert estados == ["error", "error"]
@@ -191,7 +191,7 @@ class TestErroresDelProveedor:
         monkeypatch.setattr(settings, "OPENAI_REINTENTOS", 0)
         proveedor.status = codigo
         lista = eventos(enviar(direccion, nueva_conversacion(direccion), "hola"))
-        detalle = lista[0][1]["detalle"]
+        detalle = lista[1][1]["detalle"]
         assert texto in detalle
         # Nada de códigos ni de la tecnología que hay detrás.
         assert str(codigo) not in detalle
@@ -212,7 +212,7 @@ class TestErroresDelProveedor:
     def test_sin_clave_responde_error_por_sse(self, direccion, monkeypatch):
         monkeypatch.setattr(settings, "OPENAI_API_KEY", "")
         lista = eventos(enviar(direccion, nueva_conversacion(direccion), "hola"))
-        assert nombres(lista) == ["error"]
+        assert nombres(lista) == ["inicio", "error"]
 
 
 class TestLimites:
@@ -284,12 +284,41 @@ class TestConcurrencia:
         flujo = service.generar_respuesta(
             db_session, usuario, envio, transport=proveedor.transport()
         )
+        assert next(flujo)["evento"] == "inicio"
         assert next(flujo)["evento"] == "herramienta"
         flujo.close()
 
         db_session.expire_all()
         mensaje = db_session.get(MensajeAsistente, envio.mensaje_asistente_id)
         assert mensaje.estado == "parcial"
+        assert db_session.get(Conversacion, conversacion.id).estado == "libre"
+
+    def test_al_cortar_se_guarda_el_texto_que_ya_salio(
+        self, db_session, direccion, proveedor, personas
+    ):
+        proveedor.respuestas = [respuesta_texto("Hay muchos alumnos en la institución.")]
+        usuario = db_session.scalar(select(Usuario))
+        conversacion = service.crear_conversacion(db_session, usuario, "dirección")
+        envio = service.iniciar_envio(
+            db_session,
+            usuario,
+            "dirección",
+            conversacion,
+            MensajeCreate(contenido="hola", ciclo_lectivo="2026"),
+        )
+        flujo = service.generar_respuesta(
+            db_session, usuario, envio, transport=proveedor.transport()
+        )
+        inicio = next(flujo)
+        assert inicio["datos"]["mensaje_usuario_id"] == str(envio.mensaje_usuario_id)
+        assert inicio["datos"]["mensaje_asistente_id"] == str(envio.mensaje_asistente_id)
+        assert next(flujo)["evento"] == "delta"
+        flujo.close()
+
+        db_session.expire_all()
+        mensaje = db_session.get(MensajeAsistente, envio.mensaje_asistente_id)
+        assert mensaje.estado == "parcial"
+        assert mensaje.contenido != ""
         assert db_session.get(Conversacion, conversacion.id).estado == "libre"
 
 

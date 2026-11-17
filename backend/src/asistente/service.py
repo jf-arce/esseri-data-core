@@ -37,6 +37,7 @@ from src.asistente.constants import (
     EVENTO_ERROR,
     EVENTO_FIN,
     EVENTO_HERRAMIENTA,
+    EVENTO_INICIO,
     EVENTO_NAVEGAR,
     EVENTO_TARJETA,
     EVENTO_TEXTO,
@@ -459,6 +460,13 @@ def _liberar(db: Session, conversacion_id: uuid.UUID) -> None:
 # --- Generación ------------------------------------------------------------------------------
 
 
+@dataclass
+class Progreso:
+    """Texto que ya salió hacia el navegador: si se corta el stream, eso es lo que se guarda."""
+
+    texto: str = ""
+
+
 def _evento(solicitud_id: str, tipo_evento: str, /, **datos: Any) -> dict[str, Any]:
     return {"evento": tipo_evento, "datos": {"solicitud_id": solicitud_id, **datos}}
 
@@ -551,7 +559,14 @@ def generar_respuesta(
         _liberar(db, envio.conversacion_id)
         return
 
+    progreso = Progreso()
     try:
+        yield _evento(
+            solicitud_id,
+            EVENTO_INICIO,
+            mensaje_usuario_id=str(envio.mensaje_usuario_id),
+            mensaje_asistente_id=str(envio.mensaje_asistente_id),
+        )
         if envio.ambiguedades:
             yield from _responder_ambiguedad(db, envio, mensaje, solicitud_id)
             return
@@ -565,7 +580,13 @@ def generar_respuesta(
             hoy=fecha_operativa_argentina(),
             max_filas=settings.ASISTENTE_MAX_FILAS_RESULTADO,
         )
-        yield from _loop_con_herramientas(db, envio, contexto, mensaje, solicitud_id, transport)
+        yield from _loop_con_herramientas(
+            db, envio, contexto, mensaje, solicitud_id, transport, progreso
+        )
+    except GeneratorExit:
+        # El cliente cortó (botón de detener): se guarda lo que alcanzó a salir como parcial.
+        _guardar_parcial(db, envio, progreso)
+        raise
     except (IaNoConfigurada, IaNoDisponible, IaRespuestaInvalida) as error:
         _marcar_error(db, envio)
         yield _evento(solicitud_id, EVENTO_ERROR, detalle=mensaje_para_usuario(error))
@@ -576,6 +597,18 @@ def generar_respuesta(
     finally:
         db.rollback()
         _liberar(db, envio.conversacion_id)
+
+
+def _guardar_parcial(db: Session, envio: Envio, progreso: Progreso) -> None:
+    db.rollback()
+    mensaje = db.get(MensajeAsistente, envio.mensaje_asistente_id)
+    if mensaje is None:
+        return
+    mensaje.contenido = neutralizar_alias_no_emitidos(
+        db, envio.conversacion_id, progreso.texto.strip()
+    )
+    mensaje.estado = ESTADO_MENSAJE_PARCIAL
+    db.commit()
 
 
 def _marcar_error(db: Session, envio: Envio) -> None:
@@ -613,6 +646,7 @@ def _loop_con_herramientas(
     mensaje: MensajeAsistente,
     solicitud_id: str,
     transport: httpx.BaseTransport | None,
+    progreso: Progreso,
 ) -> Iterator[dict[str, Any]]:
     definiciones = herramientas.definiciones(contexto)
     nombres_disponibles = {d["function"]["name"] for d in definiciones}
@@ -652,10 +686,12 @@ def _loop_con_herramientas(
                 seguro = filtro.alimentar(valor)
                 if seguro:
                     hubo_texto = True
+                    progreso.texto += seguro
                     yield _evento(solicitud_id, EVENTO_DELTA, texto=seguro)
         resto = filtro.vaciar()
         if resto:
             hubo_texto = True
+            progreso.texto += resto
             yield _evento(solicitud_id, EVENTO_DELTA, texto=resto)
         if respuesta is None:
             raise llm_client.IaRespuestaInvalida()
@@ -669,6 +705,7 @@ def _loop_con_herramientas(
             break
         if hubo_texto:
             # El texto previo a una herramienta no es la respuesta: se descarta de la pantalla.
+            progreso.texto = ""
             yield _evento(solicitud_id, EVENTO_TEXTO, texto="")
 
         conversacion.append(

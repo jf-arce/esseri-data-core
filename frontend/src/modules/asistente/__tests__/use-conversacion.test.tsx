@@ -319,3 +319,30 @@ it('una conversación nueva empieza sin nada fijado', () => {
   act(() => result.current.nueva())
   expect(result.current.fijados).toEqual([])
 })
+
+it('al detener queda lo que llegó como respuesta parcial detenida, sin error', async () => {
+  enviarMensaje.mockImplementation(
+    (_id: string, _pedido: unknown, signal: AbortSignal, alEvento: (e: EventoSse) => void) =>
+      new Promise<void>((_resolver, rechazar) => {
+        alEvento({
+          evento: 'inicio',
+          datos: { solicitud_id: 's', mensaje_usuario_id: 'u1', mensaje_asistente_id: 'a1' },
+        })
+        alEvento({ evento: 'delta', datos: { solicitud_id: 's', texto: 'Hay tres' } })
+        signal.addEventListener('abort', () => rechazar(new DOMException('abortado', 'AbortError')))
+      }),
+  )
+  const { result } = renderHook(() => useConversacion(opciones))
+  act(() => {
+    void result.current.enviar('hola', [])
+  })
+  await waitFor(() => expect(result.current.mensajes[1]?.contenido).toBe('Hay tres'))
+  expect(result.current.mensajes.map((m) => m.id)).toEqual(['u1', 'a1'])
+
+  act(() => result.current.cortar())
+
+  await waitFor(() => expect(result.current.generando).toBe(false))
+  const ultimo = result.current.mensajes[1]
+  expect(ultimo).toMatchObject({ estado: 'parcial', detenido: true, contenido: 'Hay tres' })
+  expect(ultimo.error).toBeUndefined()
+})

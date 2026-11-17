@@ -125,6 +125,10 @@ export type PedidoMensaje = {
 
 // Eventos SSE del backend. Todos traen el `solicitud_id` del envío.
 export type EventoSse =
+  | {
+      evento: 'inicio'
+      datos: { solicitud_id: string; mensaje_usuario_id: string; mensaje_asistente_id: string }
+    }
   | { evento: 'herramienta'; datos: { solicitud_id: string; nombre: string } }
   | { evento: 'delta'; datos: { solicitud_id: string; texto: string } }
   | { evento: 'texto'; datos: { solicitud_id: string; texto: string } }
@@ -153,6 +157,8 @@ export type MensajeVisible = {
   herramienta: string | null
   /** Herramientas consultadas en esta sesión, en orden. El historial del servidor no las trae. */
   pasos: string[]
+  /** La persona cortó la generación: queda lo que llegó, sin error. */
+  detenido?: boolean
   /** Qué pasó y qué hacer, en lenguaje claro, si la respuesta no se pudo generar. */
   error?: string
 }

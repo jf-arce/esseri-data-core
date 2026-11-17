@@ -249,8 +249,17 @@ function MensajeDelAsistente({
             alReintentar={alReintentar}
           />
         )}
-        {mensaje.estado === 'parcial' && (
+        {mensaje.estado === 'parcial' && mensaje.detenido === true && (
+          <p className="text-xs text-texto-3">Respuesta detenida</p>
+        )}
+        {mensaje.estado === 'parcial' && mensaje.detenido !== true && (
           <p className="text-xs text-texto-3">La respuesta quedó incompleta. Probá de nuevo.</p>
+        )}
+        {mensaje.detenido === true && mensaje.contenido === '' && alReintentar !== null && (
+          <Button type="button" size="sm" variant="secondary" onClick={alReintentar}>
+            <RotateCcwIcon data-icon="inline-start" />
+            Reintentar
+          </Button>
         )}
         {mensaje.estado === 'error' && mensaje.contenido === '' && (
           <div

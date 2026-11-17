@@ -95,6 +95,22 @@ export function useConversacion({
   const aplicarEvento = useCallback(
     (evento: EventoSse) => {
       switch (evento.evento) {
+        case 'inicio':
+          // Los ids reales reemplazan a los locales: hacen falta para editar la pregunta.
+          setMensajes((actuales) => {
+            if (actuales.length < 2) return actuales
+            const copia = [...actuales]
+            copia[copia.length - 2] = {
+              ...copia[copia.length - 2],
+              id: evento.datos.mensaje_usuario_id,
+            }
+            copia[copia.length - 1] = {
+              ...copia[copia.length - 1],
+              id: evento.datos.mensaje_asistente_id,
+            }
+            return copia
+          })
+          break
         case 'herramienta':
           actualizarUltimo((m) => ({
             ...m,
@@ -195,7 +211,15 @@ export function useConversacion({
         // Si el stream terminó sin `fin` ni `error` (corte de red), el mensaje queda incompleto.
         actualizarUltimo((m) => (m.estado === 'generando' ? { ...m, estado: 'parcial' } : m))
       } catch (causa) {
-        if (abortar.signal.aborted) return
+        if (abortar.signal.aborted) {
+          // Como en ChatGPT: queda lo que alcanzó a llegar, marcado como detenido y sin error.
+          actualizarUltimo((m) =>
+            m.estado === 'generando'
+              ? { ...m, estado: 'parcial', herramienta: null, detenido: true }
+              : m,
+          )
+          return
+        }
         actualizarUltimo((m) => ({
           ...m,
           estado: 'error',
