@@ -549,3 +549,119 @@ class TestDeudaComparada:
     def test_sin_comparar_no_hay_kpi(self, direccion, proveedor):
         lista = correr(direccion, proveedor, "deuda_por_familias", {})
         assert bloques_de(lista, "kpi") == []
+
+
+class TestTendenciaComparada:
+    def test_comparar_suma_columnas_totales_y_un_indicador(
+        self, direccion, proveedor, personas, asistencias
+    ):
+        lista = correr(
+            direccion,
+            proveedor,
+            "tendencia_asistencias",
+            {"agrupar_por": "mes", "comparar_con_anterior": True},
+        )
+        totales = resultado_de_herramienta(proveedor)["totales"]
+        assert totales["ausentes_actual"] == 1
+        assert totales["ausentes_anterior"] == 0
+        assert totales["variacion_ausentes_porcentual"] is None
+        (kpi,) = bloques_de(lista, "kpi")
+        assert kpi["titulo"] == "Ausentes (total)"
+        assert kpi["mejora"] == "baja"
+        # Sin asistencias en el período anterior no hay base: no se manda un "antes: 0".
+        assert "valor_anterior" not in kpi
+        (tabla,) = bloques_de(lista, "tabla")
+        claves = [columna["clave"] for columna in tabla["columnas"]]
+        assert {"presencia_anterior", "diferencia_presencia"} <= set(claves)
+
+    def test_sin_comparar_no_hay_indicador_ni_columnas_extra(
+        self, direccion, proveedor, personas, asistencias
+    ):
+        lista = correr(direccion, proveedor, "tendencia_asistencias", {"agrupar_por": "mes"})
+        assert bloques_de(lista, "kpi") == []
+        (tabla,) = bloques_de(lista, "tabla")
+        assert "presencia_anterior" not in [c["clave"] for c in tabla["columnas"]]
+
+    def test_con_grafico_referencia_la_tabla(self, direccion, proveedor, personas, asistencias):
+        lista = correr(
+            direccion,
+            proveedor,
+            "tendencia_asistencias",
+            {"agrupar_por": "semana", "grafico": "barras"},
+        )
+        (tabla,) = bloques_de(lista, "tabla")
+        (grafico,) = bloques_de(lista, "grafico")
+        assert grafico["tabla_id"] == tabla["tabla_id"]
+        assert grafico["series"] == ["presentes", "tardanzas", "ausentes"]
+
+
+class TestInscripcionesComparadas:
+    @pytest.fixture()
+    def inscripciones(self, client, db_session, personas):
+        from src.auth.constants import MODULO_ASISTENTE, MODULO_INSCRIPCIONES
+        from src.inscripciones.models import Inscripcion
+        from tests.asistente.conftest import crear_cuenta, iniciar_sesion
+
+        db_session.add(
+            Inscripcion(
+                ciclo_lectivo="2025",
+                fecha_inscripcion=date(2025, 3, 1),
+                tipo="nueva",
+                estado="finalizada",
+                alumno_id=personas["mariana"].id,
+                division_id=personas["inscripcion"].division_id,
+            )
+        )
+        db_session.commit()
+        crear_cuenta(db_session, "insc@esseri.test", [MODULO_ASISTENTE, MODULO_INSCRIPCIONES])
+        return iniciar_sesion("insc@esseri.test")
+
+    def test_comparar_trae_el_ciclo_anterior_y_su_variacion(self, inscripciones, proveedor):
+        lista = correr(
+            inscripciones, proveedor, "resumen_inscripciones", {"comparar_con_anterior": True}
+        )
+        resultado = resultado_de_herramienta(proveedor)
+        assert resultado["periodo_anterior"] == "ciclo lectivo 2025"
+        assert resultado["totales"] == {"actual": 1, "anterior": 1, "variacion_porcentual": 0.0}
+        (kpi,) = bloques_de(lista, "kpi")
+        assert kpi["titulo"] == "Inscripciones (total)"
+        assert kpi["valor_anterior"] == 1
+
+    def test_sin_comparar_no_hay_indicador(self, inscripciones, proveedor):
+        lista = correr(inscripciones, proveedor, "resumen_inscripciones", {})
+        assert bloques_de(lista, "kpi") == []
+
+    def test_el_grafico_se_ignora_con_pocos_grupos(self, inscripciones, proveedor):
+        lista = correr(inscripciones, proveedor, "resumen_inscripciones", {"grafico": "barras"})
+        assert bloques_de(lista, "grafico") == []
+
+
+class TestDeudaComparadaConAnterior:
+    def test_comparar_con_anterior_compara_contra_un_mes_antes(self, direccion, proveedor):
+        lista = correr(direccion, proveedor, "deuda_por_familias", {"comparar_con_anterior": True})
+        (kpi,) = bloques_de(lista, "kpi")
+        assert kpi["titulo"] == "Deuda vencida total"
+        assert kpi["periodo_comparado"].startswith("al ")
+        assert kpi["mejora"] == "baja"
+        assert kpi["valor_anterior"] == 0
+
+    def test_un_mes_antes_respeta_el_largo_del_mes_y_el_cambio_de_anio(self):
+        from src.asistente.herramientas_finanzas import _un_mes_antes
+
+        assert _un_mes_antes(date(2026, 3, 31)) == date(2026, 2, 28)
+        assert _un_mes_antes(date(2026, 1, 15)) == date(2025, 12, 15)
+
+
+@pytest.mark.parametrize(
+    ("titulo", "esperado"),
+    [
+        ("Asistencia por período", "asistencia-por-periodo"),
+        ("Evolución de lo facturado", "evolucion-de-lo-facturado"),
+        ("Deuda por familia", "deuda-por-familia"),
+        ("???", "tabla"),
+    ],
+)
+def test_el_nombre_del_archivo_sale_del_titulo_sin_perder_las_tildes(titulo, esperado):
+    from src.asistente.exportar_tabla_service import _nombre_de_archivo
+
+    assert _nombre_de_archivo(titulo) == esperado

@@ -1,5 +1,6 @@
 """Deuda por familia, desde la fuente contable."""
 
+import calendar
 from datetime import date
 from typing import Literal
 
@@ -39,6 +40,15 @@ class ParametrosDeudaPorFamilias(BaseModel):
         default=None,
         description="Compara el total vencido con el de esta fecha pasada, AAAA-MM-DD.",
     )
+    comparar_con_anterior: bool = Field(
+        default=False,
+        description="Compara el total vencido con el de un mes antes del corte.",
+    )
+
+
+def _un_mes_antes(dia: date) -> date:
+    anio, mes = (dia.year - 1, 12) if dia.month == 1 else (dia.year, dia.month - 1)
+    return date(anio, mes, min(dia.day, calendar.monthrange(anio, mes)[1]))
 
 
 def _total_vencido(
@@ -66,7 +76,10 @@ def _deuda_por_familias(
     corte = parametros.al or contexto.hoy
     if corte > contexto.hoy:
         return ResultadoHerramienta(para_llm={"error": "La fecha de corte no puede ser futura."})
-    if parametros.comparar_al is not None and parametros.comparar_al >= corte:
+    comparar_al = parametros.comparar_al
+    if comparar_al is None and parametros.comparar_con_anterior:
+        comparar_al = _un_mes_antes(corte)
+    if comparar_al is not None and comparar_al >= corte:
         return ResultadoHerramienta(
             para_llm={"error": "La fecha a comparar debe ser anterior a la de corte."}
         )
@@ -113,8 +126,8 @@ def _deuda_por_familias(
     )
     para_comparacion: dict[str, object] = {}
     bloques = [tabla]
-    if parametros.comparar_al is not None:
-        previa = parametros.comparar_al
+    if comparar_al is not None:
+        previa = comparar_al
         _, vencido_previo = _total_vencido(contexto, previa, previa)
         variacion = variacion_porcentual(vencido, vencido_previo)
         periodo_previo = f"al {fecha_ar(previa)}"
@@ -133,6 +146,8 @@ def _deuda_por_familias(
                 unidad="$",
                 variacion=variacion,
                 periodo_comparado=periodo_previo,
+                mejora="baja",
+                valor_anterior=numero(vencido_previo),
             ),
         )
     return ResultadoHerramienta(

@@ -11,12 +11,18 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from src.asistente.constants import BLOQUE_GRAFICO, BLOQUE_KPI, BLOQUE_TABLA, BLOQUE_TARJETA
+from src.asistente.constants import (
+    BLOQUE_GRAFICO,
+    BLOQUE_KPI,
+    BLOQUE_TABLA,
+    BLOQUE_TARJETA,
+    MIN_PUNTOS_GRAFICO,
+)
 from src.auth import autorizacion_service
 from src.auth.models import Usuario
 
@@ -130,8 +136,16 @@ def bloque_kpi(
     unidad: str = "",
     variacion: float | None = None,
     periodo_comparado: str | None = None,
+    mejora: Literal["alza", "baja"] | None = None,
+    valor_anterior: int | float | None = None,
 ) -> dict[str, Any]:
-    """Con `periodo_comparado` trae su variación; `variacion` en `None` es "sin base"."""
+    """Con `periodo_comparado` trae su variación; `variacion` en `None` es "sin base".
+
+    `mejora` dice hacia dónde es mejor la cifra (más facturado es bueno, más ausentes no), para
+    que el cliente coloree la variación; sin él la variación se muestra sin juicio.
+    `valor_anterior` es la cifra del período comparado: sirve para mostrarla cuando la variación
+    no se puede calcular (contra 0). Si ese período no tiene registros, va `None`: sin base.
+    """
     bloque: dict[str, Any] = {
         "tipo": BLOQUE_KPI,
         "titulo": titulo,
@@ -143,6 +157,10 @@ def bloque_kpi(
     if periodo_comparado is not None:
         bloque["variacion"] = variacion
         bloque["periodo_comparado"] = periodo_comparado
+        if mejora is not None:
+            bloque["mejora"] = mejora
+        if valor_anterior is not None:
+            bloque["valor_anterior"] = valor_anterior
     return bloque
 
 
@@ -184,6 +202,22 @@ def bloque_grafico(
         "periodo": tabla["periodo"],
         "fuente": tabla["fuente"],
     }
+
+
+FormaGrafico = Literal["barras", "lineas", "areas"]
+
+
+def agregar_grafico(
+    bloques: list[dict[str, Any]],
+    tabla: dict[str, Any],
+    forma: FormaGrafico | None,
+    *,
+    eje_x: str,
+    series: list[str],
+) -> None:
+    """Suma el gráfico de la tabla si lo pidieron y hay períodos suficientes para que aporte."""
+    if forma is not None and len(tabla["filas"]) >= MIN_PUNTOS_GRAFICO:
+        bloques.append(bloque_grafico(tabla, forma=forma, eje_x=eje_x, series=series))
 
 
 def bloque_tarjeta(entidad: str, alias: str) -> dict[str, Any]:
