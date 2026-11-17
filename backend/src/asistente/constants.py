@@ -49,8 +49,11 @@ INSTRUCCION_MODO = {
         "anterior; si ninguna la admite para lo preguntado, decilo en una frase."
     ),
     "grafico": (
-        "La persona pidió verlo como gráfico: usá las herramientas que admiten gráfico. Si la "
-        "herramienta devuelve `aviso_grafico`, decilo en una frase."
+        "La persona pidió verlo como gráfico: usá las herramientas que admiten gráfico. Un "
+        "gráfico necesita 3 o más períodos o categorías: si la pregunta es de un solo período "
+        "(ej. 'este mes'), pedí además los últimos 6 meses o el desglose por familia/curso para "
+        "poder graficar. Si la herramienta devuelve `aviso_grafico`, explicá en una frase por "
+        "qué no hay gráfico y ofrecé la alternativa."
     ),
     "resumen": (
         "La persona pidió un resumen: respondé en una sola frase con la cifra clave, sin tablas "
