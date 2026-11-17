@@ -329,9 +329,10 @@ export function PortalFamiliaCalendarioPage() {
                           variant="secondary"
                           size="sm"
                           className="rounded-full"
+                          disabled={semanaOffset === 0}
                           onClick={() => setSemanaOffset(0)}
                         >
-                          Hoy
+                          Semana actual
                         </Button>
                         <Button
                           variant="secondary"
