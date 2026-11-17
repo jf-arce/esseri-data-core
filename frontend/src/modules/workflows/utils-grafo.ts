@@ -307,7 +307,7 @@ export function etiquetaDeArista(
   const esCondicion = destino.tipo === 'condicion'
   if (origen === null || rama === null) return esCondicion ? 'Solo si' : 'Siempre'
   if (rama === 'si') return esCondicion ? 'Y además, si' : 'Entonces'
-  return esCondicion ? 'Si no, pero si' : 'Si no'
+  return esCondicion ? 'Si no, si' : 'Si no'
 }
 
 export function actualizarNodo(
@@ -698,7 +698,7 @@ export function hayErrores(errores: ErroresFlujo): boolean {
 
 export function textoComparacion(comparacion: ComparacionEditor, campos: CampoEvento[]): string {
   const campo = campos.find((c) => c.nombre_interno === comparacion.campo)
-  if (!campo) return 'sin definir'
+  if (!campo) return 'Sin definir'
   const operador = comparacion.operador === '' ? '' : ETIQUETA_OPERADOR[comparacion.operador]
   return `${campo.etiqueta} ${operador} ${valorLegible(campo, comparacion.valor)}`
     .replace(/\s+/g, ' ')
@@ -707,7 +707,7 @@ export function textoComparacion(comparacion: ComparacionEditor, campos: CampoEv
 
 /** El valor como lo lee una persona: etiqueta de la opción y fechas dd/mm/aaaa. */
 function valorLegible(campo: CampoEvento, valor: string): string {
-  if (valor === '') return '…'
+  if (valor === '') return '(sin valor)'
   const opcion = campo.opciones?.find((o) => o.valor === valor)
   if (opcion) return opcion.etiqueta
   const fecha = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor)
@@ -723,7 +723,7 @@ export function textoCondicion(
     const texto = textoComparacion(c, campos)
     return enMinusculas ? enMinuscula(texto) : texto
   })
-  if (partes.length === 0) return 'sin definir'
+  if (partes.length === 0) return enMinusculas ? 'sin definir' : 'Sin definir'
   return partes.join(nodo.logica === 'todas' ? ' y ' : ' o ')
 }
 
@@ -736,12 +736,18 @@ function listar(partes: string[]): string {
   return `${partes.slice(0, -1).join(', ')} y ${partes.at(-1)}`
 }
 
-/** Resumen de la regla en una frase. Cada rama de primer nivel es una oración; dentro de una
- * condición las partes van con punto y coma: "Cuando …: si A, entonces X; y además, si B, Y. Si no
- * se cumple A, Z." */
+/** Resumen de la regla en una frase. Mismo texto que `lineasRegla`, de corrido. */
 export function fraseRegla(borrador: BorradorFlujo, tiposEvento: TipoEvento[]): string {
+  return lineasRegla(borrador, tiposEvento).join(' ')
+}
+
+/** Resumen de la regla, una línea por oración: la cabecera ("Cuando …:") y luego cada rama de
+ * primer nivel. Dentro de una condición las partes van con punto y coma: "Si A, X; y además, si B,
+ * Y." y la salida No como "Si no, Z." (o "Si no se cumple A, Z." si la rama Sí tiene más
+ * condiciones y "si no" quedaría ambiguo). */
+export function lineasRegla(borrador: BorradorFlujo, tiposEvento: TipoEvento[]): string[] {
   const evento = tiposEvento.find((tipo) => tipo.id === borrador.tipoEventoId)
-  if (!evento) return 'Elegí el evento que dispara la regla.'
+  if (!evento) return ['Elegí el evento que dispara la regla.']
   const campos = evento.campos
 
   function accionesDe(padreId: string | null, rama: RamaNodo | null): string[] {
@@ -756,11 +762,10 @@ export function fraseRegla(borrador: BorradorFlujo, tiposEvento: TipoEvento[]): 
   /** Lo que pasa por una salida de la condición: sus acciones y las condiciones que siguen. */
   function contenidoDe(padreId: string, rama: RamaNodo): string {
     const acciones = accionesDe(padreId, rama)
-    const partes =
-      acciones.length > 0 ? [`${rama === 'si' ? 'entonces ' : ''}${listar(acciones)}`] : []
+    const partes = acciones.length > 0 ? [listar(acciones)] : []
     for (const hijo of hijosDe(borrador.nodos, padreId, rama)) {
       if (hijo.tipo === 'condicion') {
-        partes.push(...oracionesDe(hijo, rama === 'si' ? 'y además, ' : 'pero '))
+        partes.push(...oracionesDe(hijo, rama === 'si' ? 'y además, ' : ''))
       }
     }
     return partes.join('; ')
@@ -771,9 +776,12 @@ export function fraseRegla(borrador: BorradorFlujo, tiposEvento: TipoEvento[]): 
     const texto = textoCondicion(condicion, campos, true)
     const si = contenidoDe(condicion.id, 'si')
     const no = contenidoDe(condicion.id, 'no')
+    const anidadas = hijosDe(borrador.nodos, condicion.id, 'si').some(
+      (hijo) => hijo.tipo === 'condicion',
+    )
     return [
       `${conector}si ${texto}${si ? `, ${si}` : ''}`,
-      ...(no ? [`si no se cumple ${texto}, ${no}`] : []),
+      ...(no ? [`${anidadas ? `si no se cumple ${texto}` : 'si no'}, ${no}`] : []),
     ]
   }
 
@@ -786,8 +794,8 @@ export function fraseRegla(borrador: BorradorFlujo, tiposEvento: TipoEvento[]): 
   ].map((oracion, indice) => (indice === 0 ? oracion : mayuscula(oracion)))
   const cabecera = `Cuando ${enMinuscula(etiquetaEvento(evento.nombre))}`
   return oraciones.length > 0
-    ? `${cabecera}: ${oraciones.join('. ')}.`
-    : `${cabecera}, todavía sin acciones.`
+    ? [`${cabecera}:`, ...oraciones.map((oracion) => `${oracion}.`)]
+    : [`${cabecera}, todavía sin acciones.`]
 }
 
 function mayuscula(texto: string): string {

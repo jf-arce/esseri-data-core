@@ -249,10 +249,10 @@ describe('ReglaWorkflowEditorPage', () => {
 
       await user.click(screen.getByRole('button', { name: 'Agregar alerta al disparador' }))
 
-      // El resumen es un chip de una línea: un clic lo expande y muestra la nota.
-      await user.click(screen.getByRole('button', { name: /siempre alerta interna/ }))
+      // El resumen es un ícono: al pasar el mouse muestra el texto y la nota.
+      await user.hover(screen.getByRole('button', { name: 'Resumen de la regla' }))
       expect(
-        screen.getByText(/Las acciones sin condición se ejecutan con cada evento/),
+        await screen.findByText(/Las acciones sin condición se ejecutan con cada evento/),
       ).toBeInTheDocument()
     })
 

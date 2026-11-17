@@ -563,7 +563,7 @@ describe('fraseRegla', () => {
     const frase = fraseRegla(borradorConRamas(), [EVENTO_FACTURA])
 
     expect(frase).toBe(
-      'Cuando vence una factura: si días vencido es mayor que 30, entonces notificar y crear tarea. Si no se cumple días vencido es mayor que 30, pero si familia contiene Pérez o monto de la deuda es mayor o igual que 1000, entonces alerta interna (con aprobación).',
+      'Cuando vence una factura: si días vencido es mayor que 30, notificar y crear tarea. Si no, si familia contiene Pérez o monto de la deuda es mayor o igual que 1000, alerta interna (con aprobación).',
     )
   })
 
@@ -595,7 +595,7 @@ describe('fraseRegla', () => {
     }
 
     expect(fraseRegla(borrador, [EVENTO_FACTURA])).toBe(
-      'Cuando vence una factura: siempre alerta interna. Si días vencido es mayor que 30, entonces crear tarea.',
+      'Cuando vence una factura: siempre alerta interna. Si días vencido es mayor que 30, crear tarea.',
     )
   })
 
@@ -621,7 +621,7 @@ describe('fraseRegla', () => {
     }
 
     expect(fraseRegla(borrador, [EVENTO_FACTURA])).toBe(
-      'Cuando vence una factura: si días vencido es mayor que 30, entonces alerta interna; y además, si monto de la deuda es mayor que 500, entonces crear tarea. Si no se cumple días vencido es mayor que 30, notificar.',
+      'Cuando vence una factura: si días vencido es mayor que 30, alerta interna; y además, si monto de la deuda es mayor que 500, crear tarea. Si no se cumple días vencido es mayor que 30, notificar.',
     )
   })
 
@@ -810,6 +810,6 @@ describe('etiquetaDeArista', () => {
     expect(etiquetaDeArista(condicion, 'si', accion)).toBe('Entonces')
     expect(etiquetaDeArista(condicion, 'si', condicion)).toBe('Y además, si')
     expect(etiquetaDeArista(condicion, 'no', accion)).toBe('Si no')
-    expect(etiquetaDeArista(condicion, 'no', condicion)).toBe('Si no, pero si')
+    expect(etiquetaDeArista(condicion, 'no', condicion)).toBe('Si no, si')
   })
 })

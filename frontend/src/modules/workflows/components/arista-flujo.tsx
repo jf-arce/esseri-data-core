@@ -14,7 +14,7 @@ export interface DatosArista {
   [clave: string]: unknown
   /** Contexto de la salida: `si` verde, `no` rojo, sin rama violeta. */
   rama: 'si' | 'no' | null
-  /** Cómo se lee el paso ("Siempre", "Entonces", "Si no, pero si"…), según origen y destino. */
+  /** Cómo se lee el paso ("Siempre", "Entonces", "Si no, si"…), según origen y destino. */
   etiqueta: string
   /** Durante la simulación: la arista que el indicador está recorriendo ahora, la ya recorrida y
    * la que no se tomó. */
