@@ -7,12 +7,14 @@ from datetime import timedelta
 import pytest
 from sqlalchemy import select
 
-from src.asistente import service
+from src.asistente import conversaciones_service, envio_service, respuesta_service
+from src.asistente.mensajes_de_error import MENSAJE_SIN_RESPUESTA
 from src.asistente.models import AliasConversacion, Conversacion, MensajeAsistente
 from src.asistente.schemas import MensajeCreate
 from src.auth.constants import MODULO_ACADEMICO, MODULO_ASISTENTE, MODULO_PANEL_ADMIN
 from src.auth.models import Usuario
 from src.config import settings
+from src.fechas import ahora_utc
 from tests.asistente.conftest import (
     crear_cuenta,
     enviar,
@@ -142,7 +144,7 @@ class TestFlujo:
     def test_respuesta_vacia_del_modelo_no_deja_el_mensaje_en_blanco(self, direccion, proveedor):
         proveedor.respuestas = [respuesta_texto("")]
         lista = eventos(enviar(direccion, nueva_conversacion(direccion), "hola"))
-        assert lista[-2][1]["texto"] == service.MENSAJE_SIN_RESPUESTA
+        assert lista[-2][1]["texto"] == MENSAJE_SIN_RESPUESTA
 
     def test_alias_inventado_por_el_modelo_se_descarta(self, direccion, proveedor):
         proveedor.respuestas = [respuesta_texto("Mirá a [ALUMNO:9].")]
@@ -241,7 +243,7 @@ class TestConcurrencia:
         conversacion = nueva_conversacion(direccion)
         fila = db_session.scalar(select(Conversacion))
         fila.estado = "generando"
-        fila.generando_desde = service.ahora_utc()
+        fila.generando_desde = ahora_utc()
         db_session.commit()
 
         respuesta = enviar(direccion, conversacion, "otra vez")
@@ -257,7 +259,7 @@ class TestConcurrencia:
         conversacion = nueva_conversacion(direccion)
         fila = db_session.scalar(select(Conversacion))
         fila.estado = "generando"
-        fila.generando_desde = service.ahora_utc() - timedelta(minutes=5)
+        fila.generando_desde = ahora_utc() - timedelta(minutes=5)
         db_session.commit()
 
         assert enviar(direccion, conversacion, "hola").status_code == 200
@@ -270,10 +272,10 @@ class TestConcurrencia:
             respuesta_texto("Hay alumnos."),
         ]
         usuario = db_session.scalar(select(Usuario))
-        conversacion = db_session.scalar(select(Conversacion)) or service.crear_conversacion(
-            db_session, usuario, "dirección"
-        )
-        envio = service.iniciar_envio(
+        conversacion = db_session.scalar(
+            select(Conversacion)
+        ) or conversaciones_service.crear_conversacion(db_session, usuario, "dirección")
+        envio = envio_service.iniciar_envio(
             db_session,
             usuario,
             "dirección",
@@ -281,7 +283,7 @@ class TestConcurrencia:
             MensajeCreate(contenido="indicadores", ciclo_lectivo="2026"),
         )
 
-        flujo = service.generar_respuesta(
+        flujo = respuesta_service.generar_respuesta(
             db_session, usuario, envio, transport=proveedor.transport()
         )
         assert next(flujo)["evento"] == "inicio"
@@ -298,15 +300,15 @@ class TestConcurrencia:
     ):
         proveedor.respuestas = [respuesta_texto("Hay muchos alumnos en la institución.")]
         usuario = db_session.scalar(select(Usuario))
-        conversacion = service.crear_conversacion(db_session, usuario, "dirección")
-        envio = service.iniciar_envio(
+        conversacion = conversaciones_service.crear_conversacion(db_session, usuario, "dirección")
+        envio = envio_service.iniciar_envio(
             db_session,
             usuario,
             "dirección",
             conversacion,
             MensajeCreate(contenido="hola", ciclo_lectivo="2026"),
         )
-        flujo = service.generar_respuesta(
+        flujo = respuesta_service.generar_respuesta(
             db_session, usuario, envio, transport=proveedor.transport()
         )
         inicio = next(flujo)
@@ -391,10 +393,10 @@ class TestRetencion:
         enviar(direccion, vieja, "ficha de Mariana Quintero")
         reciente = nueva_conversacion(direccion)
         fila = db_session.get(Conversacion, uuid.UUID(vieja))
-        fila.actualizada_en = service.ahora_utc() - timedelta(days=31)
+        fila.actualizada_en = ahora_utc() - timedelta(days=31)
         db_session.commit()
 
-        assert service.borrar_conversaciones_vencidas(db_session) == 1
+        assert conversaciones_service.borrar_conversaciones_vencidas(db_session) == 1
 
         db_session.expire_all()
         restantes = list(db_session.scalars(select(Conversacion.id)))
@@ -446,9 +448,9 @@ class TestDestinoSugerido:
 
 def test_el_prompt_de_sistema_no_crece_sin_que_se_note():
     """El prompt se reenvía en cada llamada: si crece, que sea una decisión y no un descuido."""
-    from src.asistente.service import _SISTEMA
+    from src.asistente.prompt import SISTEMA
 
-    assert len(_SISTEMA) < 3400
+    assert len(SISTEMA) < 3400
 
 
 class TestComando:

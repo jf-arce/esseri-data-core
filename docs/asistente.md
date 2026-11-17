@@ -27,7 +27,11 @@ Qué puede responder hoy: indicadores generales, evolución de facturado y cobra
 | Archivo | Responsabilidad |
 |---|---|
 | `router.py` | API bajo `/asistente`. El envío de un mensaje responde por SSE. |
-| `service.py` | El prompt del sistema, el loop de herramientas, la persistencia por paso, la cuota, los errores para el usuario. |
+| `conversaciones_service.py` | Alta, lectura y borrado de conversaciones, y la limpieza de las vencidas. |
+| `envio_service.py` | Validación de un envío: cuota diaria, bloqueo de la conversación, edición de una pregunta, persistencia de los mensajes. |
+| `respuesta_service.py` | La respuesta en stream: loop de herramientas, persistencia por paso, texto parcial al cortar. |
+| `prompt.py` | El prompt del sistema y su armado según contexto y atajo. |
+| `mensajes_de_error.py` | Los textos que ve la persona cuando algo falla. |
 | `seudonimos_service.py` | Privacidad: alias, limpieza de la entrada (menciones de alumno, familia, docente y curso), alias del contexto de pantalla, filtro de alias en el texto que vuelve, resolución de nombres. |
 | `exportar_tabla_service.py` | Descarga de una tabla de la conversación en CSV o Excel, con los alias resueltos según el permiso. |
 | `herramientas.py` | Registro de herramientas, ejecución con validación de permisos y de argumentos, pantalla sugerida. |
@@ -150,7 +154,7 @@ Cada cifra viaja con su período y su fuente: sin ellos no se puede auditar.
 - Habla el protocolo de Chat Completions de OpenAI. La URL base y el modelo salen de la configuración, así que sirve contra cualquier proveedor compatible sin tocar código.
 - **Streaming con herramientas.** `transmitir_con_herramientas` lee el stream, arma cada llamada a herramienta juntando los pedazos de sus argumentos y entrega el texto por trozos. Los 429 y 503 se reintentan con espera creciente (respeta `Retry-After`), solo antes de que empiece el stream.
 - **Errores.** Sin clave: el asistente no está disponible. Sin respuesta del proveedor o con error: se informa solo el código de estado, nunca el cuerpo, que puede traer datos de la cuenta.
-- **Mensajes al usuario.** Nunca mencionan el proveedor, el modelo ni la tecnología interna. Dicen cosas como "alcanzaste el límite de consultas de IA" o "el asistente no está disponible en este momento". El texto está en `mensaje_para_usuario` de `service.py`.
+- **Mensajes al usuario.** Nunca mencionan el proveedor, el modelo ni la tecnología interna. Dicen cosas como "alcanzaste el límite de consultas de IA" o "el asistente no está disponible en este momento". El texto está en `mensaje_para_usuario` de `mensajes_de_error.py`.
 - Compartido con IA/Sugerencias, que solo manda plantillas, nunca datos de familias ni de alumnos.
 
 Modelo en uso en desarrollo: `gpt-4.1-mini` contra la API de OpenAI. También se probó contra Gemini por su endpoint compatible (`gemini-3-flash-preview`), con una salvedad: Gemini 3 exige devolver el `thought_signature` de cada llamada (`extra_content`), y el código ya lo reenvía.
@@ -204,7 +208,7 @@ Costo por consulta: cada pregunta hace al menos dos llamadas al modelo (decidir 
 
 ## 12. Estilo de respuesta (prompt)
 
-El prompt del sistema vive en `service.py` (`_SISTEMA`). Sus reglas:
+El prompt del sistema vive en `prompt.py` (`SISTEMA`). Sus reglas:
 
 - Respuestas de una o dos frases, sin introducciones ni cierres, sin recomendaciones ni ofertas de ayuda.
 - No repetir lo que ya muestran las tablas e indicadores. En el texto va solo la cifra que resume.
