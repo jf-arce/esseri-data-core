@@ -1045,7 +1045,7 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | contenido | text |  | Texto **seudonimizado**: es lo mismo que ve el proveedor |
 | tool_calls | json |  | Herramientas ejecutadas y sus argumentos (solo alias) |
 | tarjetas | json |  | Bloques tipados para el navegador (`kpi`, `tabla`, `tarjeta`, `navegar`); los alias se rehidratan al mostrarlos |
-| estado | string |  | completo / parcial (se cortó el stream) / error (falló el proveedor; un mensaje de usuario en error no consume cuota) |
+| estado | string |  | completo / parcial (se cortó el stream o se detuvo) / error (falló el proveedor; un mensaje de usuario en error no consume cuota) / descartado (pregunta editada y lo posterior; se conserva para no liberar cuota) |
 | creado_en | datetime |  |  |
 
 ### `ALIAS_CONVERSACION`
@@ -1102,7 +1102,7 @@ RF-32 (perfil Administración): accesos rápidos a Familias, Facturación y Prov
 | `CAMPO_EVENTO.tipo_dato` | numero, texto, fecha | [DECISIÓN DE DISEÑO] |
 | `CONVERSACION_ASISTENTE.estado` | libre, generando | [DECISIÓN DE DISEÑO] |
 | `MENSAJE_ASISTENTE.autor` | usuario, asistente | [DECISIÓN DE DISEÑO] |
-| `MENSAJE_ASISTENTE.estado` | completo, parcial, error | [DECISIÓN DE DISEÑO] |
+| `MENSAJE_ASISTENTE.estado` | completo, parcial, error, descartado | [DECISIÓN DE DISEÑO] |
 | `ALIAS_CONVERSACION.tipo` | ALUMNO, FAMILIA, DOCENTE | [DECISIÓN DE DISEÑO] |
 | `IA_SUGERENCIA.tipo` | patron_detectado, comunicacion | [DECISIÓN DE DISEÑO] |
 | `IA_SUGERENCIA.estado` | pendiente_revision, aprobada, rechazada, ejecutada_automaticamente | [DECISIÓN DE DISEÑO] |
