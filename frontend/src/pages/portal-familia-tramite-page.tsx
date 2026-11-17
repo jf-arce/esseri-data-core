@@ -12,7 +12,6 @@ import {
   FileTextIcon,
   HistoryIcon,
   InboxIcon,
-  InfoIcon,
   ListIcon,
   MoreHorizontalIcon,
   PaperclipIcon,
@@ -93,9 +92,16 @@ const NOMBRES_MES = [
 
 /** "2026-11-12" → "Noviembre 2026". */
 function etiquetaPeriodo(periodo: string): string {
+  if (!periodo.includes('-')) return `Todo ${periodo}`
   const [anio, mes] = periodo.split('-')
   const nombre = NOMBRES_MES[Number(mes) - 1]
   return nombre ? `${nombre} ${anio}` : periodo
+}
+
+function periodoDisponible(periodo: string, disponibles: string[]): boolean {
+  return periodo.length === 4
+    ? disponibles.some((clave) => clave.startsWith(periodo))
+    : disponibles.includes(periodo)
 }
 
 function fechaCorta(fecha: string): string {
@@ -153,6 +159,24 @@ function SelectorPeriodo({ valor, periodos, onChange, etiqueta }: SelectorPeriod
             <ChevronRightIcon aria-hidden="true" className="size-4" />
           </button>
         </div>
+        <button
+          type="button"
+          disabled={!periodos.some((periodo) => periodo.startsWith(String(anio)))}
+          aria-pressed={valor === String(anio)}
+          onClick={() => {
+            setAnioNavegado(null)
+            onChange(String(anio))
+          }}
+          className={`min-h-9 w-full rounded-[10px] text-[14px] font-medium transition-colors ${
+            valor === String(anio)
+              ? 'bg-[#7A2FA8] text-white'
+              : periodos.some((periodo) => periodo.startsWith(String(anio)))
+                ? 'text-[#2B2338] hover:bg-[#F5EFFA]'
+                : 'cursor-not-allowed text-[#C9C2D3]'
+          }`}
+        >
+          Todo el año
+        </button>
         <div className="grid grid-cols-3 gap-1">
           {NOMBRES_MES.map((nombre, indice) => {
             const clave = `${anio}-${String(indice + 1).padStart(2, '0')}`
@@ -393,7 +417,7 @@ export function PortalFamiliaTramitePage({
     return [...unicos].sort((a, b) => b.localeCompare(a))
   }, [asistencias])
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState('')
-  const periodoActivo = periodos.includes(periodoSeleccionado)
+  const periodoActivo = periodoDisponible(periodoSeleccionado, periodos)
     ? periodoSeleccionado
     : (periodos[0] ?? '')
   const resumenPeriodo = useMemo(
@@ -431,7 +455,7 @@ export function PortalFamiliaTramitePage({
     ])
     return [...unicos].sort((a, b) => b.localeCompare(a))
   }, [asistenciasPendientes, solicitudes])
-  const periodoJustificacionActivo = periodosJustificacion.includes(periodoJustificacion)
+  const periodoJustificacionActivo = periodoDisponible(periodoJustificacion, periodosJustificacion)
     ? periodoJustificacion
     : (periodosJustificacion[0] ?? '')
   const pendientesJustificacion = useMemo(
@@ -651,7 +675,7 @@ export function PortalFamiliaTramitePage({
                     </h2>
                     {periodos.length > 0 && (
                       <div className="flex items-center gap-2">
-                        <span className="text-[14px] text-[#6B6478]">Período actual:</span>
+                        <span className="text-[14px] text-[#6B6478]">Período:</span>
                         <SelectorPeriodo
                           valor={periodoActivo}
                           periodos={periodos}
@@ -693,10 +717,6 @@ export function PortalFamiliaTramitePage({
                             <p className="text-[15px] font-semibold text-[#2B2338]">
                               Asistencia del período
                             </p>
-                            <InfoIcon
-                              aria-label="Porcentaje de días presentes sobre el total registrado"
-                              className="size-4 shrink-0 text-[#8C8599]"
-                            />
                           </div>
                           <p className="font-heading text-[26px] leading-none font-bold text-[#2B2338] tabular-nums">
                             {porcentajeAsistencia} %

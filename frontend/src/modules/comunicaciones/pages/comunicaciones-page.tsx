@@ -7,7 +7,7 @@ import {
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  EllipsisIcon,
+  MessageSquareTextIcon,
   FilterIcon,
   MegaphoneIcon,
   PlusIcon,
@@ -62,7 +62,7 @@ const ESTILOS_TIPO: Record<TipoVisual, { pill: string; tile: string; Icon: Lucid
   otro: {
     pill: 'bg-[#E4F1E3] text-[#3E7B45]',
     tile: 'bg-[#EDF6EC] text-[#4F8F46]',
-    Icon: EllipsisIcon,
+    Icon: MessageSquareTextIcon,
   },
 }
 
