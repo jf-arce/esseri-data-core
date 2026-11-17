@@ -545,8 +545,22 @@
     animation: anillo-alcanzado 650ms ease-out;
   }
 
+  @keyframes insignia-trazo {
+    from {
+      stroke-dashoffset: 24;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
   .insignia-pop {
     animation: insignia-pop 300ms ease-out;
+  }
+
+  .insignia-check svg path {
+    stroke-dasharray: 24;
+    animation: insignia-trazo 350ms ease-out 120ms backwards;
   }
 }
 

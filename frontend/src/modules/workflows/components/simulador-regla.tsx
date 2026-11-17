@@ -1,5 +1,10 @@
 import { useState } from 'react'
 import { PlayIcon, XIcon } from 'lucide-react'
+import {
+  CLASE_SIMULACION,
+  ICONO_SIMULACION,
+} from '@/modules/workflows/components/estado-simulacion'
+import { cn } from '@/lib/utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Field, FieldLabel } from '@/components/ui/field'
@@ -14,7 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Spinner } from '@/components/ui/spinner'
 import { useEventosRecientes } from '@/modules/workflows/hooks/use-eventos-recientes'
 import type { useSimulacionRegla } from '@/modules/workflows/hooks/use-simulacion-regla'
-import { ETIQUETA_ACCION, resumenEnLinea } from '@/modules/workflows/utils'
+import { ETIQUETA_ACCION, presentarCampo } from '@/modules/workflows/utils'
 import {
   TEXTO_SIMULACION,
   textoCondicion,
@@ -29,7 +34,12 @@ interface SimuladorReglaProps {
   deshabilitado: boolean
 }
 
-const FORMATO_FECHA = new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' })
+const FORMATO_FECHA = new Intl.DateTimeFormat('es-AR', {
+  day: 'numeric',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+})
 
 /** "Probar regla": botón flotante del lienzo. Se elige un evento real, se simula el borrador y el
  * lienzo muestra el camino; el mismo resultado queda en texto en el panel. */
@@ -45,23 +55,29 @@ export function SimuladorRegla({
     ? elegidoId
     : (eventos.eventos[0]?.id ?? '')
   const campos = evento?.campos ?? []
+  const eventoElegido = eventos.eventos.find((item) => item.id === elegido)
 
   const filas = simulacion.simulacion
-    ? simulacion.orden.map((id) => {
-        const nodo = borrador.nodos.find((item) => item.id === id)
-        const resultado = simulacion.simulacion?.nodos.find((item) => item.id === id)
-        if (!nodo || !resultado) return null
-        const titulo =
-          nodo.tipo === 'condicion'
-            ? `Condición: ${textoCondicion(nodo, campos)}`
-            : `Acción: ${nodo.tipoAccion ? ETIQUETA_ACCION[nodo.tipoAccion] : 'sin definir'}`
-        return {
-          id,
-          titulo,
-          estado: TEXTO_SIMULACION[resultado.estado],
-          detalle: resultado.detalle,
-        }
-      })
+    ? simulacion.orden
+        .filter((id) => simulacion.nodos?.get(id)?.visible)
+        .map((id) => {
+          const nodo = borrador.nodos.find((item) => item.id === id)
+          const resultado = simulacion.simulacion?.nodos.find((item) => item.id === id)
+          if (!nodo || !resultado) return null
+          const esCondicion = nodo.tipo === 'condicion'
+          return {
+            id,
+            tipo: esCondicion ? 'Condición' : 'Acción',
+            titulo: esCondicion
+              ? textoCondicion(nodo, campos)
+              : nodo.tipoAccion
+                ? ETIQUETA_ACCION[nodo.tipoAccion]
+                : 'Sin definir',
+            codigo: resultado.estado,
+            estado: TEXTO_SIMULACION[resultado.estado],
+            detalle: resultado.detalle,
+          }
+        })
     : []
 
   return (
@@ -76,31 +92,46 @@ export function SimuladorRegla({
         side="top"
         align="center"
         aria-label="Probar regla"
-        className="flex max-h-[min(480px,60dvh)] w-[min(420px,calc(100vw-2rem))] flex-col gap-3 overflow-y-auto"
+        className="flex max-h-[min(520px,70dvh)] w-[min(420px,calc(100vw-2rem))] flex-col gap-3 overflow-hidden"
       >
         <Field>
-          <FieldLabel htmlFor="simulacion-evento">Evento de prueba</FieldLabel>
+          <FieldLabel htmlFor="simulacion-evento">Probar con este evento</FieldLabel>
           <Select
             value={elegido}
             onValueChange={setElegidoId}
             disabled={deshabilitado || eventos.cargando || eventos.eventos.length === 0}
           >
-            <SelectTrigger id="simulacion-evento">
+            <SelectTrigger id="simulacion-evento" className="w-full">
               <SelectValue
                 placeholder={
                   borrador.tipoEventoId === ''
                     ? 'Elegí primero el disparador'
                     : eventos.cargando
-                      ? 'Cargando eventos'
+                      ? 'Cargando eventos…'
                       : 'No hay eventos de este tipo todavía'
                 }
-              />
+              >
+                {eventoElegido &&
+                  `Evento del ${FORMATO_FECHA.format(new Date(eventoElegido.timestamp))}`}
+              </SelectValue>
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent
+              position="popper"
+              side="top"
+              className="w-(--radix-select-trigger-width) px-3 py-2"
+            >
               {eventos.eventos.map((item) => (
-                <SelectItem key={item.id} value={item.id}>
-                  {FORMATO_FECHA.format(new Date(item.timestamp))}
-                  {item.campos.length > 0 && ` · ${resumenEnLinea(item.campos, 2)}`}
+                <SelectItem key={item.id} value={item.id} className="pr-10 pl-4 py-2.5">
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="font-semibold">
+                      {FORMATO_FECHA.format(new Date(item.timestamp))}
+                    </span>
+                    {item.campos.slice(0, 3).map((campo) => (
+                      <span key={campo.nombre_interno} className="text-xs break-words text-texto-2">
+                        {campo.etiqueta}: {presentarCampo(campo)}
+                      </span>
+                    ))}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -144,25 +175,48 @@ export function SimuladorRegla({
           </Alert>
         )}
         {simulacion.simulacion && !simulacion.desactualizada && (
-          <div className="flex flex-col gap-2" aria-live="polite">
-            <p className="text-xs text-texto-2">
-              Alcanzada significa que el flujo llega a la acción con ese evento: no promete cómo
-              termina cuando se ejecute.
-            </p>
+          <div
+            className="nowheel -mr-2 flex min-h-0 flex-col gap-3 overflow-y-auto border-t border-borde pt-3 pr-2"
+            aria-live="polite"
+          >
             {filas.length === 0 ? (
-              <p className="text-sm text-texto">
-                Con este evento el flujo no llega a ninguna acción.
-              </p>
+              simulacion.enCurso ? null : (
+                <p className="text-sm text-texto">
+                  Con este evento el flujo no llega a ninguna acción.
+                </p>
+              )
             ) : (
-              <ol className="flex flex-col gap-1 text-sm">
+              <ol className="flex flex-col">
                 {filas.map(
                   (fila, indice) =>
                     fila && (
-                      <li key={fila.id} className="flex flex-wrap gap-x-2">
-                        <span className="tabular text-texto-3">{indice + 1}.</span>
-                        <span className="text-texto">{fila.titulo}</span>
-                        <span className="font-semibold text-texto">{fila.estado}</span>
-                        {fila.detalle && <span className="text-texto-2">({fila.detalle})</span>}
+                      <li key={fila.id} className="relative flex gap-3 pb-3 last:pb-0">
+                        {indice < filas.length - 1 && (
+                          <span
+                            aria-hidden
+                            className="absolute top-8 bottom-0 left-4 w-px -translate-x-1/2 bg-borde"
+                          />
+                        )}
+                        <span
+                          className={cn(
+                            'insignia-pop insignia-check flex size-8 shrink-0 items-center justify-center rounded-full [&>svg]:size-4 [&>svg]:stroke-[3]',
+                            CLASE_SIMULACION[fila.codigo],
+                          )}
+                        >
+                          {ICONO_SIMULACION[fila.codigo]}
+                        </span>
+                        <div className="flex min-w-0 flex-col gap-0.5">
+                          <span className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
+                            {fila.tipo}
+                          </span>
+                          <span className="text-sm font-semibold break-words text-texto">
+                            {fila.titulo}
+                          </span>
+                          <span className="text-sm text-texto-2">
+                            {fila.estado}
+                            {fila.detalle && ` · ${fila.detalle}`}
+                          </span>
+                        </div>
                       </li>
                     ),
                 )}

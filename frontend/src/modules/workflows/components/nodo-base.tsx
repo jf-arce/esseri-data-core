@@ -1,17 +1,12 @@
 import { useState, type ReactNode } from 'react'
 import {
   AlertCircleIcon,
-  CheckIcon,
-  ClockIcon,
   CopyIcon,
   EllipsisVerticalIcon,
-  LockIcon,
-  MinusIcon,
   PencilIcon,
   PlusIcon,
   Trash2Icon,
   UnlinkIcon,
-  XIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -26,6 +21,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CatalogoBloques } from '@/modules/workflows/components/catalogo-bloques'
 import { cn } from '@/lib/utils'
 import type { EstadoNodoSimulado, RamaNodo, TipoAccion } from '@/modules/workflows/types'
+import {
+  CLASE_SIMULACION,
+  ICONO_SIMULACION,
+} from '@/modules/workflows/components/estado-simulacion'
 import { TEXTO_SIMULACION } from '@/modules/workflows/utils-grafo'
 import type { TipoAccionCatalogo } from '@/modules/workflows/types'
 
@@ -48,30 +47,6 @@ export interface OpcionesAgregar {
   onAgregar: (rama: RamaNodo | null, que: 'condicion' | TipoAccion) => void
 }
 
-const ICONO_SIMULACION: Record<EstadoNodoSimulado, ReactNode> = {
-  cumple: <CheckIcon />,
-  no_cumple: <XIcon />,
-  error: <AlertCircleIcon />,
-  alcanzada: <CheckIcon />,
-  requiere_aprobacion: <LockIcon />,
-  diferida: <ClockIcon />,
-  no_implementada: <MinusIcon />,
-  config_invalida: <AlertCircleIcon />,
-  no_alcanzado: <MinusIcon />,
-}
-
-const CLASE_SIMULACION: Record<EstadoNodoSimulado, string> = {
-  cumple: 'bg-exito-suave text-exito',
-  no_cumple: 'bg-fila-hover text-texto-2',
-  error: 'bg-error-suave text-error',
-  alcanzada: 'bg-exito-suave text-exito',
-  requiere_aprobacion: 'bg-advertencia-suave text-advertencia',
-  diferida: 'bg-info-suave text-info',
-  no_implementada: 'bg-fila-hover text-texto-2',
-  config_invalida: 'bg-error-suave text-error',
-  no_alcanzado: 'bg-fila-hover text-texto-3',
-}
-
 /** Color del anillo con el que un nodo "se enciende" al ser alcanzado. */
 const ANILLO_SIMULACION: Record<EstadoNodoSimulado, string> = {
   cumple: 'anillo-exito',
@@ -85,18 +60,20 @@ const ANILLO_SIMULACION: Record<EstadoNodoSimulado, string> = {
   no_alcanzado: 'anillo-neutro',
 }
 
-/** Resultado de la simulación sobre el nodo: ícono y texto, nunca solo color (§12). */
+/** Resultado de la simulación sobre el nodo: círculo con ícono; el texto va en el aria-label y el tooltip. */
 function InsigniaSimulacion({ simulacion }: { simulacion: SimulacionNodo }) {
+  const texto = TEXTO_SIMULACION[simulacion.estado]
   return (
     <span
-      title={simulacion.detalle ?? undefined}
+      role="img"
+      aria-label={texto}
+      title={simulacion.detalle ? `${texto}: ${simulacion.detalle}` : texto}
       className={cn(
-        'insignia-pop inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold [&>svg]:size-3',
+        'insignia-pop insignia-check inline-flex size-7 items-center justify-center rounded-full [&>svg]:size-4 [&>svg]:stroke-[3]',
         CLASE_SIMULACION[simulacion.estado],
       )}
     >
       {ICONO_SIMULACION[simulacion.estado]}
-      {TEXTO_SIMULACION[simulacion.estado]}
     </span>
   )
 }
