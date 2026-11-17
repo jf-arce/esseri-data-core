@@ -17,7 +17,8 @@ export function AtajoResaltado({ comando, className, ref }: AtajoResaltadoProps)
       data-slot="atajo-resaltado"
       className={cn('inline-flex items-center gap-1 text-sm font-medium text-violeta', className)}
     >
-      <Icono aria-hidden className="size-3.5" />{comando.nombre}
+      <Icono aria-hidden className="size-3.5" />
+      {comando.nombre}
     </span>
   )
 }
