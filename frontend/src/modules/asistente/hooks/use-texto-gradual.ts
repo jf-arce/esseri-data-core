@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { cortarSeguro } from '../utils'
+import { cortarSeguro } from '../utils/texto'
 
 // Caracteres por segundo: ritmo de lectura cómodo y tope al ponerse al día.
 const RITMO_BASE = 85

@@ -19,17 +19,20 @@ import { cn } from '@/lib/utils'
 function Table({
   className,
   containerClassName,
+  containerStyle,
   minWidth = 'min-w-[720px]',
   bare = false,
   ...props
 }: React.ComponentProps<'table'> & {
   minWidth?: string
   containerClassName?: string
+  containerStyle?: React.CSSProperties
   bare?: boolean
 }) {
   return (
     <div
       data-slot="table-container"
+      style={containerStyle}
       className={cn(
         'relative w-full overflow-x-auto overflow-y-hidden',
         !bare && 'rounded-panel bg-superficie shadow-card',

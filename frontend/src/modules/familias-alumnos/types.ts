@@ -157,6 +157,8 @@ export type VinculoUpdate = {
 
 export type FiltrosListarAlumnos = {
   buscar?: string
+  /** Busca solo en nombre y apellido, palabra por palabra (no en el DNI). */
+  solo_nombre?: boolean
   estado?: EstadoAlumno
   nivel_educativo_id?: string
   estado_deuda?: string
@@ -165,6 +167,7 @@ export type FiltrosListarAlumnos = {
 
 export type FiltrosListarFamilias = {
   buscar?: string
+  solo_nombre?: boolean
   estado_deuda?: string
 }
 

@@ -3,7 +3,7 @@
 import asyncio
 import logging
 
-from src.asistente.service import borrar_conversaciones_vencidas
+from src.asistente.conversaciones_service import borrar_conversaciones_vencidas
 from src.config import settings
 from src.database import SessionLocal
 
