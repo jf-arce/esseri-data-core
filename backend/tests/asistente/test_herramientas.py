@@ -452,7 +452,8 @@ class TestCursos:
         assert resultado["total_alumnos"] == 1
         assert resultado["alumnos"] == [{"alumno": "[ALUMNO:1]", "curso": "5°A"}]
         assert APELLIDO_ALUMNA not in proveedor.texto_enviado()
-        assert any(n == "tarjeta" for n, _ in lista)
+        # Con un solo alumno la cifra va en el texto: no se emite tabla.
+        assert bloques_de(lista, "tabla") == []
 
     def test_alumnos_del_curso_exige_nivel_o_anio(self, direccion, proveedor, horarios):
         correr(direccion, proveedor, "alumnos_del_curso", {"division": "A"})
@@ -592,7 +593,22 @@ class TestTendenciaComparada:
         (tabla,) = bloques_de(lista, "tabla")
         (grafico,) = bloques_de(lista, "grafico")
         assert grafico["tabla_id"] == tabla["tabla_id"]
-        assert grafico["series"] == ["presentes", "tardanzas", "ausentes"]
+        # Las series son columnas visibles de la tabla: el gráfico toma de ahí etiqueta y tipo.
+        assert grafico["series"] == ["ausentes"]
+        assert {c["clave"] for c in tabla["columnas"]} >= set(grafico["series"])
+
+    def test_la_tabla_tiene_solo_periodo_ausentes_y_presencia(
+        self, direccion, proveedor, personas, asistencias
+    ):
+        lista = correr(direccion, proveedor, "tendencia_asistencias", {"agrupar_por": "semana"})
+        (tabla,) = bloques_de(lista, "tabla")
+        assert [c["clave"] for c in tabla["columnas"]] == [
+            "periodo",
+            "ausentes",
+            "porcentaje_presencia",
+        ]
+        # El desglose completo sigue disponible para el modelo.
+        assert "presentes" in resultado_de_herramienta(proveedor)["periodos"][0]
 
 
 class TestInscripcionesComparadas:

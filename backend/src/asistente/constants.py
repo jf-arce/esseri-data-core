@@ -68,6 +68,18 @@ LARGO_MAXIMO_TITULO = 80
 # Bloques que un modo no muestra aunque la herramienta los devuelva.
 MODOS_SIN_BLOQUES = {"resumen": frozenset({BLOQUE_TABLA, BLOQUE_GRAFICO})}
 
+# Una respuesta muestra una sola tabla (y el gráfico de esa tabla): las siguientes se omiten y el
+# modelo sigue recibiendo sus datos en `para_llm`.
+MAX_TABLAS_POR_RESPUESTA = 1
+
+TIPOS_AUSENTE = ("ausente_pendiente", "ausente_justificado", "ausente_injustificado")
+# Ausencias que todavía no tienen una justificación aceptada.
+TIPOS_AUSENTE_SIN_JUSTIFICAR = ("ausente_pendiente", "ausente_injustificado")
+# Tope de un período consultado.
+MAX_DIAS_PERIODO = 366
+
 FORMAS_GRAFICO = ("barras", "lineas", "areas")
+# Con menos filas una tabla no aporta sobre el texto.
+MIN_FILAS_TABLA = 2
 # Con menos períodos un gráfico no aporta nada sobre la tabla.
 MIN_PUNTOS_GRAFICO = 3

@@ -220,6 +220,27 @@ def alias_de_contexto(
     return obtener_o_crear_alias(db, conversacion_id, tipo, entidad_id)
 
 
+def describir_fijado(
+    db: Session,
+    conversacion_id: uuid.UUID,
+    tipo: str,
+    entidad_id: uuid.UUID,
+    *,
+    puede_ver_personas: bool,
+    puede_ver_academico: bool,
+) -> str | None:
+    """Cómo se le nombra al modelo algo que la persona dejó fijado: el alias de una persona o el
+    nombre de un curso. Con el mismo permiso que la mención de ese tipo; sin él, o si ya no
+    existe, no se menciona."""
+    if tipo == TIPO_MENCION_CURSO:
+        division = db.get(Division, entidad_id) if puede_ver_academico else None
+        return None if division is None else f"el curso {describir_curso(division)}"
+    permitido = puede_ver_academico if tipo == TIPO_ALIAS_DOCENTE else puede_ver_personas
+    if not permitido or not _existe_entidad(db, tipo, entidad_id):
+        return None
+    return obtener_o_crear_alias(db, conversacion_id, tipo, entidad_id)
+
+
 def _sin_alias_ajenos(db: Session, conversacion_id: uuid.UUID, texto: str) -> str:
     return neutralizar_alias_no_emitidos(db, conversacion_id, texto)
 

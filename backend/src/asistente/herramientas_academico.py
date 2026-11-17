@@ -7,13 +7,14 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
 from src.academico.models import Anio, Division, NivelEducativo
-from src.asistente.constants import TIPO_ALIAS_ALUMNO
+from src.asistente.constants import MAX_DIAS_PERIODO, TIPO_ALIAS_ALUMNO, TIPOS_AUSENTE
 from src.asistente.herramientas_base import (
     ContextoHerramienta,
     FormaGrafico,
     Herramienta,
     ResultadoHerramienta,
     agregar_grafico,
+    agregar_tabla,
     bloque_kpi,
     bloque_tabla,
     bloque_tarjeta,
@@ -34,7 +35,6 @@ from src.facturacion.cuenta_corriente_service import obtener_resumen_cuenta
 from src.familias_alumnos.models import Alumno
 from src.inscripciones.models import Asistencia, Inscripcion, SolicitudInscripcion
 
-_MAX_DIAS_TENDENCIA = 366
 _MAX_DIAS_POR_DIA = 62
 
 
@@ -146,20 +146,19 @@ def _resumen_inscripciones(
         periodo=periodo,
         fuente=fuente,
     )
-    bloques = [
-        *kpi,
-        tabla,
-        bloque_tabla(
-            "Admisiones en proceso por etapa",
-            [
-                {"clave": "etapa", "etiqueta": "Etapa", "tipo": "texto"},
-                {"clave": "cantidad", "etiqueta": "Cantidad", "tipo": "numero"},
-            ],
-            filas_admisiones,
-            periodo=periodo,
-            fuente=fuente,
-        ),
-    ]
+    en_proceso = sum(cantidad for _, cantidad in admisiones)
+    if en_proceso:
+        # Las admisiones por etapa quedan en `para_llm`: una respuesta muestra una sola tabla.
+        kpi.append(
+            bloque_kpi(
+                "Admisiones en proceso",
+                en_proceso,
+                periodo=periodo,
+                fuente="Admisiones",
+            )
+        )
+    bloques = [*kpi]
+    agregar_tabla(bloques, tabla)
     agregar_grafico(bloques, tabla, parametros.grafico, eje_x="categoria", series=series)
     return ResultadoHerramienta(para_llm=para_llm, bloques=bloques)
 
@@ -250,7 +249,7 @@ def _tendencia_asistencias(
     ciclo = parametros.ciclo_lectivo or contexto.ciclo_lectivo
     hasta = parametros.hasta or contexto.hoy
     desde = parametros.desde or hasta - timedelta(days=30)
-    if desde > hasta or (hasta - desde).days > _MAX_DIAS_TENDENCIA:
+    if desde > hasta or (hasta - desde).days > MAX_DIAS_PERIODO:
         return ResultadoHerramienta(
             para_llm={"error": "El período es inválido o supera un año. Pedí uno más corto."}
         )
@@ -265,9 +264,6 @@ def _tendencia_asistencias(
     fuente = "Asistencias (Inscripciones)"
     columnas = [
         {"clave": "periodo", "etiqueta": "Período", "tipo": "texto"},
-        {"clave": "registros", "etiqueta": "Registros", "tipo": "numero"},
-        {"clave": "presentes", "etiqueta": "Presentes", "tipo": "numero"},
-        {"clave": "tardanzas", "etiqueta": "Tardanzas", "tipo": "numero"},
         {"clave": "ausentes", "etiqueta": "Ausentes", "tipo": "numero"},
         {"clave": "porcentaje_presencia", "etiqueta": "Presencia", "tipo": "porcentaje"},
     ]
@@ -296,7 +292,7 @@ def _tendencia_asistencias(
             )
         columnas += [
             {"clave": "presencia_anterior", "etiqueta": "Presencia anterior", "tipo": "porcentaje"},
-            {"clave": "diferencia_presencia", "etiqueta": "Dif. presencia (pp)", "tipo": "numero"},
+            {"clave": "diferencia_presencia", "etiqueta": "Dif. (pp)", "tipo": "numero"},
         ]
         periodo_ant = f"{fecha_ar(desde_ant)} a {fecha_ar(hasta_ant)}"
         total = {k: sum(f[k] for f in filas) for k in ("registros", "presentes", "tardanzas")}
@@ -335,18 +331,11 @@ def _tendencia_asistencias(
         )
     para_llm["periodos"] = filas
     tabla = bloque_tabla("Asistencia por período", columnas, filas, periodo=periodo, fuente=fuente)
-    bloques = [*kpi, tabla]
-    agregar_grafico(
-        bloques,
-        tabla,
-        parametros.grafico,
-        eje_x="periodo",
-        series=["presentes", "tardanzas", "ausentes"],
-    )
+    bloques = [*kpi]
+    agregar_tabla(bloques, tabla)
+    # Las series son columnas visibles: el gráfico toma de ahí la etiqueta y el tipo.
+    agregar_grafico(bloques, tabla, parametros.grafico, eje_x="periodo", series=["ausentes"])
     return ResultadoHerramienta(para_llm=para_llm, bloques=bloques)
-
-
-_TIPOS_AUSENTE = ("ausente_pendiente", "ausente_justificado", "ausente_injustificado")
 
 
 class ParametrosAusentes(BaseModel):
@@ -359,7 +348,7 @@ def _ausentes_del_dia(
 ) -> ResultadoHerramienta:
     dia = parametros.fecha or contexto.hoy
     limite = min(parametros.limite, contexto.max_filas)
-    condiciones = (Asistencia.fecha == dia, Asistencia.tipo.in_(_TIPOS_AUSENTE))
+    condiciones = (Asistencia.fecha == dia, Asistencia.tipo.in_(TIPOS_AUSENTE))
     total = contexto.db.execute(select(func.count(Asistencia.id)).where(*condiciones)).scalar_one()
     registros = contexto.db.execute(
         select(
@@ -390,6 +379,21 @@ def _ausentes_del_dia(
     ]
     periodo = fecha_ar(dia)
     fuente = "Asistencias (Inscripciones)"
+    bloques: list[dict] = []
+    agregar_tabla(
+        bloques,
+        bloque_tabla(
+            "Ausentes del día",
+            [
+                {"clave": "alumno", "etiqueta": "Alumno", "tipo": "alias"},
+                {"clave": "curso", "etiqueta": "Curso", "tipo": "texto"},
+                {"clave": "tipo", "etiqueta": "Tipo", "tipo": "texto"},
+            ],
+            filas,
+            periodo=periodo,
+            fuente=fuente,
+        ),
+    )
     return ResultadoHerramienta(
         para_llm={
             "periodo": periodo,
@@ -398,19 +402,7 @@ def _ausentes_del_dia(
             "alumnos_devueltos": len(filas),
             "ausentes": filas,
         },
-        bloques=[
-            bloque_tabla(
-                "Ausentes del día",
-                [
-                    {"clave": "alumno", "etiqueta": "Alumno", "tipo": "alias"},
-                    {"clave": "curso", "etiqueta": "Curso", "tipo": "texto"},
-                    {"clave": "tipo", "etiqueta": "Tipo", "tipo": "texto"},
-                ],
-                filas,
-                periodo=periodo,
-                fuente=fuente,
-            )
-        ],
+        bloques=bloques,
     )
 
 
@@ -556,7 +548,8 @@ HERRAMIENTAS = [
         descripcion=(
             "Alumnos ausentes en un día puntual, hoy o pasado (también 'ayer'), con curso y "
             "tipo de ausencia. Cada alumno viene como alias, sin nombre ni DNI. Para solo la "
-            "cantidad usá tendencia_asistencias."
+            "cantidad usá tendencia_asistencias; para el ranking de un período usá "
+            "alumnos_con_mas_inasistencias."
         ),
         parametros=ParametrosAusentes,
         permisos=(PERMISO_ACADEMICO_LEER, PERMISO_FAMILIAS_ALUMNOS_LEER),

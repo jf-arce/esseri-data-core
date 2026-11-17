@@ -21,6 +21,7 @@ from src.asistente.constants import (
     BLOQUE_KPI,
     BLOQUE_TABLA,
     BLOQUE_TARJETA,
+    MIN_FILAS_TABLA,
     MIN_PUNTOS_GRAFICO,
 )
 from src.auth import autorizacion_service
@@ -184,6 +185,17 @@ def bloque_tabla(
     }
 
 
+def agregar_tabla(bloques: list[dict[str, Any]], tabla: dict[str, Any]) -> bool:
+    """Suma la tabla solo si tiene al menos dos filas: con una (o ninguna) la cifra va en el texto.
+
+    Devuelve si la tabla quedó: el gráfico que la referencia solo tiene sentido si está.
+    """
+    if len(tabla["filas"]) < MIN_FILAS_TABLA:
+        return False
+    bloques.append(tabla)
+    return True
+
+
 def bloque_grafico(
     tabla: dict[str, Any],
     *,
@@ -216,7 +228,7 @@ def agregar_grafico(
     series: list[str],
 ) -> None:
     """Suma el gráfico de la tabla si lo pidieron y hay períodos suficientes para que aporte."""
-    if forma is not None and len(tabla["filas"]) >= MIN_PUNTOS_GRAFICO:
+    if forma is not None and len(tabla["filas"]) >= MIN_PUNTOS_GRAFICO and tabla in bloques:
         bloques.append(bloque_grafico(tabla, forma=forma, eje_x=eje_x, series=series))
 
 

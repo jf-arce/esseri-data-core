@@ -6,6 +6,7 @@ Todo lo que sale hacia el proveedor pasa antes por `seudonimos_service`.
 
 import json
 import logging
+import re
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
@@ -22,7 +23,9 @@ from src.asistente.constants import (
     ARGUMENTOS_COMANDO,
     AUTOR_ASISTENTE,
     AUTOR_USUARIO,
+    BLOQUE_GRAFICO,
     BLOQUE_NAVEGAR,
+    BLOQUE_TABLA,
     BLOQUE_TARJETA,
     COMANDOS_HERRAMIENTA,
     ESTADO_CONVERSACION_GENERANDO,
@@ -39,6 +42,7 @@ from src.asistente.constants import (
     EVENTO_TEXTO,
     INSTRUCCION_MODO,
     LARGO_MAXIMO_TITULO,
+    MAX_TABLAS_POR_RESPUESTA,
     MODOS_SIN_BLOQUES,
 )
 from src.asistente.exceptions import (
@@ -57,6 +61,7 @@ from src.asistente.seudonimos_service import (
     Mencion,
     alias_de_contexto,
     alias_emitidos,
+    describir_fijado,
     neutralizar_alias_no_emitidos,
     preparar_entrada,
 )
@@ -113,7 +118,9 @@ la que devolvió la herramienta. Si no hay una herramienta para lo que piden, de
 alias que aparezcan en la conversación o en resultados de herramientas, tal cual. Nunca intentes \
 adivinar nombres, DNI, emails ni teléfonos.
 - Si una sección no vino por falta de permiso, no la completes con suposiciones.
-- Pedí a las herramientas solo lo que la pregunta necesita: cada resultado se muestra al usuario.
+- Pedí a las herramientas solo lo que la pregunta necesita: cada resultado se muestra al usuario. \
+Usá una sola herramienta cuando alcance para responder: elegí la que resuelva toda la pregunta \
+en vez de combinar varias.
 - Si una herramienta no puede responder exactamente lo preguntado (por ejemplo, un filtro por \
 mes que no existe), decí qué alcance tiene el dato que sí te dio.
 - Para llevar a la persona a una pantalla o a una ficha usá la herramienta ir_a, solo si lo pide. \
@@ -254,13 +261,25 @@ class Envio:
     texto_seguro: str
     ruta: str | None
     ciclo_lectivo: str
+    # Módulo o pantalla en que está la persona; ya saneado para ir al prompt.
+    pantalla: str | None = None
     ambiguedades: list[Ambiguedad] = field(default_factory=list)
     # Alias de la ficha que se está viendo, si el rol puede ver personas.
     alias_vista: str | None = None
+    # Alias o nombre de lo que la persona fijó como contexto (alumnos, familias, docentes, cursos).
+    fijados: list[str] = field(default_factory=list)
     # Herramienta que el atajo `/` pide usar en el primer paso.
     herramienta_forzada: str | None = None
     # Atajo `/` con el que se envió: puede imponer argumentos y condicionar el formato de salida.
     comando: str | None = None
+
+
+def _pantalla_segura(pantalla: str | None) -> str | None:
+    """Es texto del navegador y va al prompt: solo letras, números y puntuación simple."""
+    if pantalla is None:
+        return None
+    limpia = " ".join(re.sub(r"[^\w ()/.\-]", " ", pantalla).split())
+    return limpia or None
 
 
 def _titulo_desde(texto: str) -> str:
@@ -339,15 +358,16 @@ def iniciar_envio(
         puede_ver_personas = autorizacion_service.tiene_permiso_en_rol(
             db, usuario.id, rol_codigo, PERMISO_FAMILIAS_ALUMNOS_LEER
         )
+        puede_ver_academico = autorizacion_service.tiene_permiso_en_rol(
+            db, usuario.id, rol_codigo, PERMISO_ACADEMICO_LEER
+        )
         entrada = preparar_entrada(
             db,
             conversacion.id,
             datos.contenido,
             [Mencion(m.tipo, m.entidad_id, m.texto) for m in datos.menciones],
             puede_ver_personas=puede_ver_personas,
-            puede_ver_academico=autorizacion_service.tiene_permiso_en_rol(
-                db, usuario.id, rol_codigo, PERMISO_ACADEMICO_LEER
-            ),
+            puede_ver_academico=puede_ver_academico,
         )
         alias_vista = (
             alias_de_contexto(
@@ -360,6 +380,21 @@ def iniciar_envio(
             if datos.contexto is not None
             else None
         )
+        fijados = [
+            descripcion
+            for fijado in datos.fijados
+            if (
+                descripcion := describir_fijado(
+                    db,
+                    conversacion.id,
+                    fijado.tipo,
+                    fijado.entidad_id,
+                    puede_ver_personas=puede_ver_personas,
+                    puede_ver_academico=puede_ver_academico,
+                )
+            )
+            is not None
+        ]
         orden = _siguiente_orden(db, conversacion.id)
         mensaje_usuario = MensajeAsistente(
             conversacion_id=conversacion.id,
@@ -392,9 +427,11 @@ def iniciar_envio(
         mensaje_asistente_id=mensaje_asistente.id,
         texto_seguro=entrada.texto,
         ruta=datos.ruta,
+        pantalla=_pantalla_segura(datos.pantalla),
         ciclo_lectivo=datos.ciclo_lectivo or str(fecha_operativa_argentina().year),
         ambiguedades=entrada.ambiguedades,
         alias_vista=alias_vista,
+        fijados=fijados,
         herramienta_forzada=COMANDOS_HERRAMIENTA.get(datos.comando or ""),
         comando=datos.comando,
     )
@@ -451,6 +488,23 @@ def _prompt_sistema(envio: Envio, rol_codigo: str) -> str:
             f'\n- La persona está viendo la ficha {envio.alias_vista}; "este alumno" o "esta '
             'familia" se refiere a ella.'
             if envio.alias_vista is not None
+            else ""
+        )
+        + (
+            f"\n- La persona fijó como contexto: {', '.join(envio.fijados)}. Mientras haya algo "
+            "fijado, toda pregunta que no nombre a otra persona u otro curso se refiere a ellos, "
+            'por vaga o corta que sea ("decime de esto", "contame", "¿cómo viene?", "¿y su '
+            'asistencia?", "info", "resumen", "esto"): consultá sus datos con las herramientas '
+            "(ficha_alumno para un alumno, asistencia_por_curso para un curso) en vez de pedir "
+            "aclaraciones. Si para alguno no hay una herramienta, decilo en una frase."
+            if envio.fijados
+            else ""
+        )
+        + (
+            f"\n- La persona está en la pantalla «{envio.pantalla}». Si la pregunta es ambigua "
+            "(por ejemplo, no dice de qué módulo habla), interpretala según esa pantalla; si "
+            "nombra otra cosa, manda la pregunta."
+            if envio.pantalla is not None
             else ""
         )
         + (f"\n- {INSTRUCCION_MODO[envio.comando]}" if envio.comando in INSTRUCCION_MODO else ""),
@@ -702,6 +756,11 @@ def _emitir_resultado(
     solicitud_id: str,
     omitir: frozenset[str] = frozenset(),
 ) -> Iterator[dict[str, Any]]:
+    # Una respuesta muestra una sola tabla: pasado el tope se omiten las siguientes y los gráficos
+    # que las referenciarían. El modelo igual recibe sus datos en `para_llm`.
+    tablas = sum(1 for bloque in acumulado if bloque.get("tipo") == BLOQUE_TABLA)
+    if tablas >= MAX_TABLAS_POR_RESPUESTA:
+        omitir = omitir | {BLOQUE_TABLA, BLOQUE_GRAFICO}
     for bloque in resultado.bloques:
         if bloque.get("tipo") in omitir:
             continue

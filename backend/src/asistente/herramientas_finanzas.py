@@ -2,7 +2,7 @@
 
 import calendar
 from datetime import date
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -11,6 +11,7 @@ from src.asistente.herramientas_base import (
     ContextoHerramienta,
     Herramienta,
     ResultadoHerramienta,
+    agregar_tabla,
     bloque_kpi,
     bloque_tabla,
     fecha_ar,
@@ -125,7 +126,8 @@ def _deuda_por_familias(
         fuente=_FUENTE,
     )
     para_comparacion: dict[str, object] = {}
-    bloques = [tabla]
+    bloques: list[dict[str, Any]] = []
+    agregar_tabla(bloques, tabla)
     if comparar_al is not None:
         previa = comparar_al
         _, vencido_previo = _total_vencido(contexto, previa, previa)

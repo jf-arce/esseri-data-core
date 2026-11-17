@@ -2,7 +2,7 @@
 
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -12,6 +12,7 @@ from src.asistente.herramientas_base import (
     Herramienta,
     ResultadoHerramienta,
     agregar_grafico,
+    agregar_tabla,
     bloque_kpi,
     bloque_tabla,
     fecha_ar,
@@ -178,7 +179,8 @@ def _evolucion_financiera(
     tabla = bloque_tabla(
         "Facturado y cobrado por mes", columnas, filas, periodo=periodo, fuente=fuente
     )
-    bloques = [tabla]
+    bloques: list[dict[str, Any]] = []
+    agregar_tabla(bloques, tabla)
     para_llm: dict[str, object] = {"periodo": periodo, "fuente": fuente, "meses": filas}
     if desde_ant is not None and hasta_ant is not None:
         periodo_ant = f"{fecha_ar(desde_ant)} a {fecha_ar(hasta_ant)}"
