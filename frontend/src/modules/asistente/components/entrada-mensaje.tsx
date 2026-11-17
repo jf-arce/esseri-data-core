@@ -344,7 +344,7 @@ export function EntradaMensaje({
             <AtajoResaltado
               ref={atajo}
               comando={comandoElegido}
-              className="pointer-events-none absolute top-2 left-2.5 leading-5"
+              className="pointer-events-none absolute top-2 left-2.5"
             />
           )}
           <InputGroupTextarea
