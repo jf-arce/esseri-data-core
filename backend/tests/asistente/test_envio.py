@@ -1,5 +1,6 @@
 """Flujo completo de un mensaje: herramientas, topes, cuota, concurrencia y cortes."""
 
+import json
 import uuid
 from datetime import timedelta
 
@@ -376,6 +377,93 @@ class TestComando:
             "function": {"name": "deuda_por_familias"},
         }
         assert proveedor.peticiones[1]["tool_choice"] == "auto"
+
+    def _bloques(self, respuesta, tipo):
+        return [
+            d["bloque"]
+            for nombre, d in eventos(respuesta)
+            if nombre == "tarjeta" and d["bloque"]["tipo"] == tipo
+        ]
+
+    def test_evolucion_impone_el_grafico_y_una_sola_consulta(self, direccion, proveedor):
+        rango = {"desde": "2025-11-10", "hasta": "2026-02-01"}
+        proveedor.respuestas = [
+            respuesta_herramientas(
+                ("evolucion_financiera", rango),
+                ("evolucion_financiera", {"desde": "2025-01-01", "hasta": "2025-11-17"}),
+            ),
+            respuesta_texto("ok"),
+        ]
+        respuesta = enviar(direccion, nueva_conversacion(direccion), "hola", comando="evolucion")
+        assert len(self._bloques(respuesta, "grafico")) == 1
+        assert len(self._bloques(respuesta, "tabla")) == 1
+
+    def test_comparar_impone_la_comparacion_en_finanzas(self, direccion, proveedor):
+        proveedor.respuestas = [
+            respuesta_herramientas(("evolucion_financiera", {"desde": "2026-01-01"})),
+            respuesta_texto("ok"),
+        ]
+        respuesta = enviar(direccion, nueva_conversacion(direccion), "hola", comando="comparar")
+        kpis = self._bloques(respuesta, "kpi")
+        assert len(kpis) == 2
+        assert {kpi["mejora"] for kpi in kpis} == {"alza"}
+
+    def test_comparar_sirve_en_otro_modulo(self, direccion, proveedor, personas, asistencias):
+        proveedor.respuestas = [
+            respuesta_herramientas(("tendencia_asistencias", {"agrupar_por": "mes"})),
+            respuesta_texto("ok"),
+        ]
+        enviar(direccion, nueva_conversacion(direccion), "hola", comando="comparar")
+        resultado = json.loads(proveedor.peticiones[1]["messages"][-1]["content"])
+        assert "periodo_anterior" in resultado
+
+    def test_un_modo_no_fuerza_la_herramienta(self, direccion, proveedor):
+        proveedor.respuestas = [respuesta_texto("ok")]
+        enviar(direccion, nueva_conversacion(direccion), "hola", comando="comparar")
+        assert proveedor.peticiones[0]["tool_choice"] == "auto"
+
+    def test_un_modo_agrega_su_instruccion_al_prompt(self, direccion, proveedor):
+        proveedor.respuestas = [respuesta_texto("ok")]
+        enviar(direccion, nueva_conversacion(direccion), "hola", comando="comparar")
+        assert "pidió comparar" in proveedor.peticiones[0]["messages"][0]["content"]
+
+    def test_un_modo_ignora_los_campos_que_la_herramienta_no_declara(self, direccion, proveedor):
+        proveedor.respuestas = [
+            respuesta_herramientas(("ausentes_del_dia", {})),
+            respuesta_texto("ok"),
+        ]
+        enviar(direccion, nueva_conversacion(direccion), "hola", comando="grafico")
+        resultado = json.loads(proveedor.peticiones[1]["messages"][-1]["content"])
+        assert "error" not in resultado
+
+    def test_grafico_emite_el_bloque_en_cualquier_herramienta_que_lo_admite(
+        self, direccion, proveedor
+    ):
+        rango = {"desde": "2025-11-10", "hasta": "2026-02-01"}
+        proveedor.respuestas = [
+            respuesta_herramientas(("evolucion_financiera", rango)),
+            respuesta_texto("ok"),
+        ]
+        respuesta = enviar(direccion, nueva_conversacion(direccion), "hola", comando="grafico")
+        assert len(self._bloques(respuesta, "grafico")) == 1
+
+    def test_resumen_no_muestra_tablas_ni_graficos(self, direccion, proveedor):
+        rango = {"desde": "2025-11-10", "hasta": "2026-02-01", "grafico": "barras"}
+        proveedor.respuestas = [
+            respuesta_herramientas(("evolucion_financiera", rango)),
+            respuesta_texto("ok"),
+        ]
+        respuesta = enviar(direccion, nueva_conversacion(direccion), "hola", comando="resumen")
+        assert self._bloques(respuesta, "tabla") == []
+        assert self._bloques(respuesta, "grafico") == []
+
+    def test_sin_atajo_no_se_imponen_argumentos(self, direccion, proveedor):
+        proveedor.respuestas = [
+            respuesta_herramientas(("evolucion_financiera", {"desde": "2026-01-01"})),
+            respuesta_texto("ok"),
+        ]
+        respuesta = enviar(direccion, nueva_conversacion(direccion), "hola")
+        assert self._bloques(respuesta, "kpi") == []
 
     def test_sin_atajo_el_modelo_elige(self, direccion, proveedor):
         proveedor.respuestas = [respuesta_texto("ok")]

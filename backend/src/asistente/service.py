@@ -8,7 +8,7 @@ import json
 import logging
 import uuid
 from collections.abc import Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import timedelta
 from typing import Any
 
@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from src import llm_client
 from src.asistente import herramientas
 from src.asistente.constants import (
+    ARGUMENTOS_COMANDO,
     AUTOR_ASISTENTE,
     AUTOR_USUARIO,
     BLOQUE_NAVEGAR,
@@ -36,7 +37,9 @@ from src.asistente.constants import (
     EVENTO_NAVEGAR,
     EVENTO_TARJETA,
     EVENTO_TEXTO,
+    INSTRUCCION_MODO,
     LARGO_MAXIMO_TITULO,
+    MODOS_SIN_BLOQUES,
 )
 from src.asistente.exceptions import (
     ConversacionNoEncontrada,
@@ -256,6 +259,8 @@ class Envio:
     alias_vista: str | None = None
     # Herramienta que el atajo `/` pide usar en el primer paso.
     herramienta_forzada: str | None = None
+    # Atajo `/` con el que se envió: puede imponer argumentos y condicionar el formato de salida.
+    comando: str | None = None
 
 
 def _titulo_desde(texto: str) -> str:
@@ -391,6 +396,7 @@ def iniciar_envio(
         ambiguedades=entrada.ambiguedades,
         alias_vista=alias_vista,
         herramienta_forzada=COMANDOS_HERRAMIENTA.get(datos.comando or ""),
+        comando=datos.comando,
     )
 
 
@@ -446,7 +452,8 @@ def _prompt_sistema(envio: Envio, rol_codigo: str) -> str:
             'familia" se refiere a ella.'
             if envio.alias_vista is not None
             else ""
-        ),
+        )
+        + (f"\n- {INSTRUCCION_MODO[envio.comando]}" if envio.comando in INSTRUCCION_MODO else ""),
     )
 
 
@@ -581,6 +588,10 @@ def _loop_con_herramientas(
         if respuesta is None:
             raise llm_client.IaRespuestaInvalida()
         llamadas = respuesta.llamadas[: settings.ASISTENTE_MAX_HERRAMIENTAS_POR_PASO]
+        if forzada is not None:
+            # Un atajo de módulo es una sola consulta: se descartan las llamadas extra.
+            llamadas = [llamada for llamada in llamadas if llamada.nombre == forzada][:1]
+        llamadas = [_con_argumentos_del_comando(llamada, envio.comando) for llamada in llamadas]
         if not llamadas or not con_herramientas:
             texto_final = respuesta.contenido
             break
@@ -614,7 +625,12 @@ def _loop_con_herramientas(
                     "content": json.dumps(resultado.para_llm, ensure_ascii=False, default=str),
                 }
             )
-            yield from _emitir_resultado(resultado, bloques_hechos, solicitud_id)
+            yield from _emitir_resultado(
+                resultado,
+                bloques_hechos,
+                solicitud_id,
+                MODOS_SIN_BLOQUES.get(envio.comando or "", frozenset()),
+            )
         # Commit por paso: lo hecho hasta acá queda guardado aunque se corte el stream.
         mensaje.tool_calls = list(llamadas_hechas)
         mensaje.tarjetas = list(bloques_hechos)
@@ -651,6 +667,21 @@ def _loop_con_herramientas(
     yield _evento(solicitud_id, EVENTO_FIN, mensaje_id=str(mensaje.id))
 
 
+def _con_argumentos_del_comando(
+    llamada: LlamadaHerramienta, comando: str | None
+) -> LlamadaHerramienta:
+    """Impone los argumentos del atajo, solo en las herramientas que los declaran."""
+    herramienta = herramientas.REGISTRO.get(llamada.nombre)
+    fijos = ARGUMENTOS_COMANDO.get(comando or "")
+    if not fijos or herramienta is None or not llamada.argumentos_validos:
+        return llamada
+    campos = herramienta.parametros.model_fields
+    aplicables = {clave: valor for clave, valor in fijos.items() if clave in campos}
+    if not aplicables:
+        return llamada
+    return replace(llamada, argumentos={**llamada.argumentos, **aplicables})
+
+
 def _llamada_para_historial(llamada: LlamadaHerramienta) -> dict[str, Any]:
     entrada: dict[str, Any] = {
         "id": llamada.id,
@@ -666,9 +697,14 @@ def _llamada_para_historial(llamada: LlamadaHerramienta) -> dict[str, Any]:
 
 
 def _emitir_resultado(
-    resultado: ResultadoHerramienta, acumulado: list[dict[str, Any]], solicitud_id: str
+    resultado: ResultadoHerramienta,
+    acumulado: list[dict[str, Any]],
+    solicitud_id: str,
+    omitir: frozenset[str] = frozenset(),
 ) -> Iterator[dict[str, Any]]:
     for bloque in resultado.bloques:
+        if bloque.get("tipo") in omitir:
+            continue
         acumulado.append(bloque)
         yield _evento(solicitud_id, EVENTO_TARJETA, bloque=bloque)
     if resultado.navegar is not None:

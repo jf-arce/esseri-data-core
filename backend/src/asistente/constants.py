@@ -24,8 +24,28 @@ COMANDOS_HERRAMIENTA = {
     "asistencia": "ausentes_del_dia",
     "horario": "horario_del_curso",
     "evolucion": "evolucion_financiera",
-    "comparar": "evolucion_financiera",
     "ir": "ir_a",
+}
+
+# Argumentos que un atajo impone a cualquier herramienta que los declare; pisan lo que arme el
+# modelo. `comparar` y `grafico` son modos: no fuerzan herramienta, sirven para cualquier módulo.
+ARGUMENTOS_COMANDO: dict[str, dict[str, object]] = {
+    "evolucion": {"grafico": "barras"},
+    "comparar": {"comparar_con_anterior": True},
+    "grafico": {"grafico": "barras"},
+}
+
+# Línea que se suma al prompt de sistema cuando la consulta viene de un modo.
+INSTRUCCION_MODO = {
+    "comparar": (
+        "La persona pidió comparar. Pedí a las herramientas la comparación con el período "
+        "anterior; si ninguna la admite para lo preguntado, decilo en una frase."
+    ),
+    "grafico": "La persona pidió verlo como gráfico: usá las herramientas que admiten gráfico.",
+    "resumen": (
+        "La persona pidió un resumen: respondé en una sola frase con la cifra clave, sin tablas "
+        "ni gráficos."
+    ),
 }
 
 BLOQUE_TEXTO = "texto"
@@ -44,6 +64,9 @@ EVENTO_FIN = "fin"
 EVENTO_ERROR = "error"
 
 LARGO_MAXIMO_TITULO = 80
+
+# Bloques que un modo no muestra aunque la herramienta los devuelva.
+MODOS_SIN_BLOQUES = {"resumen": frozenset({BLOQUE_TABLA, BLOQUE_GRAFICO})}
 
 FORMAS_GRAFICO = ("barras", "lineas", "areas")
 # Con menos períodos un gráfico no aporta nada sobre la tabla.

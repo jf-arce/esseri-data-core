@@ -26,7 +26,12 @@ class MensajeCreate(BaseModel):
     contenido: str = Field(min_length=1)
     menciones: list[MencionCreate] = Field(default_factory=list, max_length=10)
     contexto: ContextoCreate | None = None
-    comando: Literal["deuda", "asistencia", "horario", "evolucion", "comparar", "ir"] | None = None
+    comando: (
+        Literal[
+            "deuda", "asistencia", "horario", "evolucion", "comparar", "grafico", "resumen", "ir"
+        ]
+        | None
+    ) = None
     ruta: str | None = Field(default=None, max_length=200)
     ciclo_lectivo: str | None = Field(default=None, max_length=10)
 
