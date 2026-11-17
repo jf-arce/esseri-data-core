@@ -87,6 +87,7 @@ export type MateriaCurso = {
   nivel_educativo_id: string | null
   nivel_educativo_nombre: string | null
   horarios: HorarioMateriaCurso[]
+  docentes?: string[]
   cantidad_asignaciones: number
   created_at: string
   updated_at: string

@@ -16,7 +16,8 @@ from src.facturacion.models import Factura
 from src.facturacion.penalidades_service import calcular_penalidad, resolver_tramo
 from src.fechas import ahora_utc
 from src.models import EventLog
-from src.workflows import despacho_service, notificaciones_service, tareas_service
+from src.workflows import arbol_service, despacho_service, notificaciones_service, tareas_service
+from src.workflows.accion_contexto import AccionContexto
 from src.workflows.constants import CAMPOS_RESERVADOS_RESUMEN, ERROR_ACCION_NO_IMPLEMENTADA
 from src.workflows.despacho_service import ERROR_ACCION, ERROR_CONFIGURACION, ERROR_EVALUACION
 from src.workflows.exceptions import (
@@ -25,7 +26,13 @@ from src.workflows.exceptions import (
     EjecucionNoReintentable,
     TipoEventoNoEncontrado,
 )
-from src.workflows.models import CampoEvento, TipoEvento, WorkflowExecution, WorkflowRule
+from src.workflows.models import (
+    CampoEvento,
+    TipoEvento,
+    WorkflowExecution,
+    WorkflowNodo,
+    WorkflowRule,
+)
 from src.workflows.plantillas_service import formatear_valor
 from src.workflows.schemas import (
     CampoResumen,
@@ -44,8 +51,16 @@ def listar_ejecuciones(
     estado: EstadoWorkflowExecution | None,
     pagina: int,
     tamanio_pagina: int,
+    workflow_rule_id: uuid.UUID | None = None,
+    workflow_nodo_id: uuid.UUID | None = None,
 ) -> WorkflowExecutionListadoRead:
-    filtros = [] if estado is None else [WorkflowExecution.estado == estado]
+    filtros = []
+    if estado is not None:
+        filtros.append(WorkflowExecution.estado == estado)
+    if workflow_rule_id is not None:
+        filtros.append(WorkflowExecution.workflow_rule_id == workflow_rule_id)
+    if workflow_nodo_id is not None:
+        filtros.append(WorkflowExecution.workflow_nodo_id == workflow_nodo_id)
     total = db.scalar(select(func.count(WorkflowExecution.id)).where(*filtros)) or 0
     filas = db.execute(
         _consulta_ejecuciones()
@@ -75,6 +90,21 @@ def obtener_ejecucion_read(db: Session, ejecucion_id: uuid.UUID) -> WorkflowExec
     return leida
 
 
+def _cargar_nodo_y_regla(
+    db: Session, ejecucion: WorkflowExecution, error: type[Exception]
+) -> tuple[WorkflowRule, WorkflowNodo]:
+    # La regla es el ancla estable que serializa decisiones concurrentes sobre sus acciones.
+    regla = db.scalar(
+        select(WorkflowRule).where(WorkflowRule.id == ejecucion.workflow_rule_id).with_for_update()
+    )
+    if regla is None:
+        raise error("La regla asociada ya no existe.")
+    nodo = db.get(WorkflowNodo, ejecucion.workflow_nodo_id)
+    if nodo is None or nodo.eliminado_at is not None:
+        raise error("La acción se eliminó de la regla.")
+    return regla, nodo
+
+
 def reintentar_ejecucion(
     db: Session, ejecucion_id: uuid.UUID, usuario_id: uuid.UUID
 ) -> WorkflowExecutionRead:
@@ -84,19 +114,18 @@ def reintentar_ejecucion(
     if anterior is None:
         raise EjecucionNoEncontrada()
 
-    # La regla es el ancla estable que serializa reintentos concurrentes del mismo workflow.
-    regla = db.scalar(
-        select(WorkflowRule).where(WorkflowRule.id == anterior.workflow_rule_id).with_for_update()
-    )
-    if regla is None:
-        raise EjecucionNoReintentable("La regla asociada ya no existe.")
+    regla, nodo = _cargar_nodo_y_regla(db, anterior, EjecucionNoReintentable)
     if not regla.activo:
         raise EjecucionNoReintentable("No se puede reintentar una regla inactiva.")
+    if nodo.tipo != "accion":
+        raise EjecucionNoReintentable(
+            "La condición no se pudo evaluar con ese evento; debe generarse un evento nuevo."
+        )
 
     ultimo = db.scalars(
         select(WorkflowExecution)
         .where(
-            WorkflowExecution.workflow_rule_id == anterior.workflow_rule_id,
+            WorkflowExecution.workflow_nodo_id == anterior.workflow_nodo_id,
             WorkflowExecution.event_log_id == anterior.event_log_id,
         )
         .order_by(WorkflowExecution.intento.desc())
@@ -106,9 +135,9 @@ def reintentar_ejecucion(
         raise EjecucionNoReintentable("La ejecución indicada ya tiene un intento posterior.")
     if anterior.estado != "fallido":
         raise EjecucionNoReintentable("Solo se pueden reintentar ejecuciones fallidas.")
-    if regla.updated_at > anterior.started_at:
+    if arbol_service.ultima_modificacion_camino(db, nodo) > anterior.started_at:
         raise EjecucionNoReintentable(
-            "La regla fue modificada después de esta ejecución; debe generarse un evento nuevo."
+            "La acción fue modificada después de esta ejecución; debe generarse un evento nuevo."
         )
 
     evento = db.get(EventLog, anterior.event_log_id)
@@ -119,22 +148,20 @@ def reintentar_ejecucion(
         raise TipoEventoNoEncontrado()
 
     try:
-        nueva = despacho_service._procesar_regla(
+        nueva = despacho_service.reintentar_accion(
             db,
             regla,
+            nodo,
             evento,
             tipo_evento,
             tipos_de_campos(db, tipo_evento.id),
             intento=anterior.intento + 1,
-            registrar_si_no_aplica=True,
         )
     except IntegrityError as error:
         db.rollback()
         raise EjecucionNoReintentable(
             "Otro reintento de esta ejecución ya fue registrado."
         ) from error
-    if nueva is None:
-        raise RuntimeError("El reintento no generó una ejecución.")
     db.flush()
     log_audit(
         db,
@@ -166,16 +193,14 @@ def aprobar_ejecucion(
     db: Session, ejecucion_id: uuid.UUID, usuario_id: uuid.UUID
 ) -> WorkflowExecutionRead:
     ejecucion = _bloquear_pendiente(db, ejecucion_id)
-    regla = db.scalar(
-        select(WorkflowRule).where(WorkflowRule.id == ejecucion.workflow_rule_id).with_for_update()
-    )
-    if regla is None:
-        raise EjecucionNoDecidible("La regla asociada ya no existe.")
+    if not (ejecucion.accion_snapshot or {}).get("requiere_aprobacion_humana"):
+        raise EjecucionNoDecidible("Solo se pueden decidir ejecuciones pendientes de aprobación.")
+    regla, nodo = _cargar_nodo_y_regla(db, ejecucion, EjecucionNoDecidible)
     if not regla.activo:
         raise EjecucionNoDecidible("No se puede aprobar una regla inactiva.")
-    if regla.updated_at > ejecucion.started_at:
+    if arbol_service.ultima_modificacion_camino(db, nodo) > ejecucion.started_at:
         raise EjecucionNoDecidible(
-            "La regla cambió desde que quedó pendiente; rechazala y generá un evento nuevo."
+            "La acción cambió desde que quedó pendiente; rechazala y generá un evento nuevo."
         )
     evento = db.get(EventLog, ejecucion.event_log_id)
     if evento is None:
@@ -189,17 +214,19 @@ def aprobar_ejecucion(
     try:
         validar_accion(
             db,
-            regla.tipo_accion,
-            regla.accion_config,
+            nodo.tipo_accion or "",
+            nodo.accion_config,
             tipo_evento.nombre,
             tipos_de_campos(db, tipo_evento.id),
-            regla.notificacion_template_id,
+            nodo.notificacion_template_id,
         )
     except Exception as error:
-        logger.warning("La configuración de una regla no es válida (tipo=%s)", type(error).__name__)
+        logger.warning(
+            "La configuración de una acción no es válida (tipo=%s)", type(error).__name__
+        )
         despacho_service._marcar_fallida(ejecucion, ERROR_CONFIGURACION)
     else:
-        despacho_service._ejecutar_accion(db, regla, evento, ejecucion)
+        despacho_service._ejecutar_accion(db, AccionContexto(regla, nodo), evento, ejecucion)
 
     log_audit(
         db,
@@ -238,28 +265,33 @@ def rechazar_ejecucion(
 
 def _consulta_ejecuciones():
     # `reintentable` y `aprobable` repiten lo que validan `reintentar_ejecucion` y
-    # `aprobar_ejecucion`, que siguen siendo la fuente de verdad.
+    # `aprobar_ejecucion`, que siguen siendo la fuente de verdad. Comparan con el `updated_at`
+    # del nodo (no de la regla): mover o renombrar la regla no invalida nada.
     posterior = aliased(WorkflowExecution)
     reintentable = and_(
         WorkflowExecution.estado == "fallido",
         WorkflowRule.activo,
-        WorkflowRule.updated_at <= WorkflowExecution.started_at,
+        WorkflowNodo.eliminado_at.is_(None),
+        WorkflowNodo.tipo == "accion",
+        WorkflowNodo.updated_at <= WorkflowExecution.started_at,
         ~exists().where(
-            posterior.workflow_rule_id == WorkflowExecution.workflow_rule_id,
+            posterior.workflow_nodo_id == WorkflowExecution.workflow_nodo_id,
             posterior.event_log_id == WorkflowExecution.event_log_id,
             posterior.intento > WorkflowExecution.intento,
         ),
     )
     aprobable = and_(
         WorkflowExecution.estado == "pendiente",
+        WorkflowExecution.detalle.is_not(None),
         WorkflowRule.activo,
-        WorkflowRule.updated_at <= WorkflowExecution.started_at,
+        WorkflowNodo.eliminado_at.is_(None),
+        WorkflowNodo.updated_at <= WorkflowExecution.started_at,
     )
     return (
         select(
             WorkflowExecution,
             WorkflowRule.nombre,
-            WorkflowRule.tipo_accion,
+            WorkflowNodo.tipo_accion,
             TipoEvento.nombre,
             EventLog.timestamp,
             EventLog.entidad,
@@ -270,6 +302,7 @@ def _consulta_ejecuciones():
             EventLog.tipo_evento_id,
         )
         .join(WorkflowRule, WorkflowRule.id == WorkflowExecution.workflow_rule_id)
+        .join(WorkflowNodo, WorkflowNodo.id == WorkflowExecution.workflow_nodo_id)
         .join(EventLog, EventLog.id == WorkflowExecution.event_log_id)
         .join(TipoEvento, TipoEvento.id == EventLog.tipo_evento_id)
     )
@@ -278,7 +311,7 @@ def _consulta_ejecuciones():
 def _fila_ejecucion_read(
     ejecucion: WorkflowExecution,
     regla_nombre: str,
-    tipo_accion: str,
+    tipo_accion: str | None,
     tipo_evento: str,
     evento_timestamp: datetime,
     entidad: str,
@@ -294,9 +327,10 @@ def _fila_ejecucion_read(
         finished_at=ejecucion.finished_at,
         estado=ejecucion.estado,
         detalle=ejecucion.detalle,
-        error_detail=_error_detail_publico(ejecucion.error_detail, tipo_accion),
+        error_detail=_error_detail_publico(ejecucion.error_detail, tipo_accion or ""),
         workflow_rule_id=ejecucion.workflow_rule_id,
         workflow_rule_nombre=regla_nombre,
+        workflow_nodo_id=ejecucion.workflow_nodo_id,
         tipo_accion=tipo_accion,
         event_log_id=ejecucion.event_log_id,
         tipo_evento=tipo_evento,
@@ -315,7 +349,7 @@ def _filas_read(db: Session, filas: Sequence[Row]) -> list[WorkflowExecutionRead
     return [
         _fila_ejecucion_read(
             *fila[:9],
-            _resumen_evento(fila[3], fila.payload, campos.get(fila.tipo_evento_id, [])),
+            resumen_evento(fila[3], fila.payload, campos.get(fila.tipo_evento_id, [])),
         )
         for fila in filas
     ]
@@ -334,7 +368,7 @@ def _campos_por_tipo(
     return campos
 
 
-def _resumen_evento(
+def resumen_evento(
     tipo_evento: str, payload: dict[str, object] | None, campos: list[CampoEvento]
 ) -> list[CampoResumen]:
     """Valores del payload en el orden del catálogo. Omite nulos, faltantes y reservados."""
@@ -375,7 +409,7 @@ def _error_detail_publico(error_detail: str | None, tipo_accion: str) -> str | N
         ERROR_ACCION,
         *notificaciones_service.ERRORES_CONTROLADOS,
         *tareas_service.ERRORES_CONTROLADOS,
-        "La regla ya no aplica al evento original.",
+        despacho_service.ERROR_YA_NO_APLICA,
         ERROR_ACCION_NO_IMPLEMENTADA.format(tipo_accion=tipo_accion),
     }
     return error_detail if error_detail in controlados else ERROR_ACCION

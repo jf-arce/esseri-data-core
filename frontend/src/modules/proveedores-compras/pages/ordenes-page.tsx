@@ -11,10 +11,14 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useAbrirDesdeUrl } from '@/hooks/use-abrir-desde-url'
 import { ConfirmarEliminacion } from '@/components/confirmar-eliminacion'
+import { DatePicker } from '@/components/date-picker'
 import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
 import { FilterChip, FilterChips, FilterDropdown } from '@/components/filter-dropdown'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { PageHeader } from '@/components/page-header'
+import { OrdenDetalleDialog } from '@/modules/proveedores-compras/components/orden-detalle-dialog'
 import { OrdenDialog } from '@/modules/proveedores-compras/components/orden-dialog'
 import { OrdenesTabla } from '@/modules/proveedores-compras/components/ordenes-tabla'
 import { RecepcionDialog } from '@/modules/proveedores-compras/components/recepcion-dialog'
@@ -25,7 +29,13 @@ import { useSolicitudes } from '@/modules/proveedores-compras/hooks/use-solicitu
 import { cancelarOrden } from '@/modules/proveedores-compras/services/cancelar-orden'
 import { descargarExport } from '@/lib/descargar-export'
 import { listarOrdenes } from '@/modules/proveedores-compras/services/listar-ordenes'
-import type { EstadoOrdenCompra, OrdenListadoItem } from '@/modules/proveedores-compras/types'
+import type {
+  EstadoOrdenCompra,
+  OrdenCompra,
+  OrdenListadoItem,
+  OrdenOrdenes,
+} from '@/modules/proveedores-compras/types'
+import { fechaAISO, formatearFechaDia, parsearFechaISO } from '@/modules/proveedores-compras/utils'
 
 const TAMANIO_PAGINA = 10
 
@@ -35,10 +45,23 @@ const OPCIONES_ESTADO: { value: EstadoOrdenCompra; label: string }[] = [
   { value: 'cancelada', label: 'Cancelada' },
 ]
 
+const OPCIONES_ORDEN: { value: OrdenOrdenes; label: string }[] = [
+  { value: 'fecha-desc', label: 'Más recientes primero' },
+  { value: 'fecha-asc', label: 'Más antiguas primero' },
+  { value: 'items-desc', label: 'Más ítems primero' },
+  { value: 'items-asc', label: 'Menos ítems primero' },
+]
+
 export function OrdenesPage() {
   const [busqueda, setBusqueda] = useState('')
   const [busquedaAplicada, setBusquedaAplicada] = useState('')
   const [estado, setEstado] = useState<'' | EstadoOrdenCompra>('')
+  const [proveedorId, setProveedorId] = useState('')
+  const [desde, setDesde] = useState('')
+  const [hasta, setHasta] = useState('')
+  const [itemsMin, setItemsMin] = useState('')
+  const [itemsMax, setItemsMax] = useState('')
+  const [orden, setOrden] = useState<OrdenOrdenes>('fecha-desc')
   const [pagina, setPagina] = useState(1)
 
   // Debounce de 300ms, igual que el listado de inscripciones: sin esto cada tecla dispara una
@@ -52,10 +75,16 @@ export function OrdenesPage() {
     () => ({
       buscar: busquedaAplicada || undefined,
       estado: estado || undefined,
+      proveedorId: proveedorId || undefined,
+      desde: desde || undefined,
+      hasta: hasta || undefined,
+      itemsMin: itemsMin || undefined,
+      itemsMax: itemsMax || undefined,
+      orden,
       pagina,
       tamanioPagina: TAMANIO_PAGINA,
     }),
-    [busquedaAplicada, estado, pagina],
+    [busquedaAplicada, estado, proveedorId, desde, hasta, itemsMin, itemsMax, orden, pagina],
   )
   const { datos, cargando, error, sinPermiso, recargar } = useBusquedaOrdenes(filtros)
 
@@ -65,34 +94,45 @@ export function OrdenesPage() {
 
   const [dialogoAbierto, setDialogoAbierto] = useState(false)
   useAbrirDesdeUrl('crear', () => setDialogoAbierto(true))
+  const [ordenAVer, setOrdenAVer] = useState<OrdenListadoItem | null>(null)
   const [ordenACancelar, setOrdenACancelar] = useState<OrdenListadoItem | null>(null)
   const [ordenARecibir, setOrdenARecibir] = useState<OrdenListadoItem | null>(null)
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
-  const [solicitudesUsadas, setSolicitudesUsadas] = useState<Set<string>>(new Set())
+  const [ordenesExistentes, setOrdenesExistentes] = useState<OrdenCompra[]>([])
 
-  // Qué solicitudes ya están comprometidas en otra orden no se puede saber desde el listado
-  // paginado (solo trae la página actual), así que se consulta aparte al abrir el formulario.
-  // El backend igual lo rechaza; esto evita ofrecer algo que va a fallar.
+  // El listado paginado solo trae la página actual, así que las solicitudes ya comprometidas se
+  // consultan aparte al abrir el formulario. El backend igual las rechaza; esto permite explicar
+  // por qué una solicitud no está disponible en vez de ofrecer algo que va a fallar.
   useEffect(() => {
     if (!dialogoAbierto) return
     listarOrdenes()
-      .then((todas) => setSolicitudesUsadas(new Set(todas.flatMap((orden) => orden.solicitud_ids))))
-      .catch(() => setSolicitudesUsadas(new Set()))
+      .then(setOrdenesExistentes)
+      .catch(() => setOrdenesExistentes([]))
   }, [dialogoAbierto])
 
+  const ordenPorSolicitud = useMemo(() => {
+    const mapa = new Map<string, OrdenCompra>()
+    for (const ordenExistente of ordenesExistentes) {
+      for (const solicitudId of ordenExistente.solicitud_ids) {
+        mapa.set(solicitudId, ordenExistente)
+      }
+    }
+    return mapa
+  }, [ordenesExistentes])
+
   const solicitudesAprobadas = useMemo(
-    () =>
-      solicitudes.filter(
-        (solicitud) => solicitud.estado === 'aprobada' && !solicitudesUsadas.has(solicitud.id),
-      ),
-    [solicitudes, solicitudesUsadas],
-  )
-  const productosActivos = useMemo(
-    () => productos.filter((producto) => producto.activo),
-    [productos],
+    () => solicitudes.filter((solicitud) => solicitud.estado === 'aprobada'),
+    [solicitudes],
   )
 
-  const hayFiltrosActivos = busqueda.trim() !== '' || estado !== ''
+  const hayFiltrosActivos =
+    busqueda.trim() !== '' ||
+    estado !== '' ||
+    proveedorId !== '' ||
+    desde !== '' ||
+    hasta !== '' ||
+    itemsMin !== '' ||
+    itemsMax !== ''
 
   function actualizarFiltro<T>(setter: (valor: T) => void) {
     return (valor: T) => {
@@ -100,6 +140,17 @@ export function OrdenesPage() {
       // Cambiar un filtro estando en la página 5 dejaría un resultado vacío sin explicación.
       setPagina(1)
     }
+  }
+
+  function limpiarFiltros() {
+    setBusqueda('')
+    setEstado('')
+    setProveedorId('')
+    setDesde('')
+    setHasta('')
+    setItemsMin('')
+    setItemsMax('')
+    setPagina(1)
   }
 
   async function handleExportar() {
@@ -110,6 +161,14 @@ export function OrdenesPage() {
       setErrorAccion('No se pudo descargar el archivo. Probá de nuevo en unos segundos.')
     }
   }
+
+  const etiquetaProveedor = proveedores.find((proveedor) => proveedor.id === proveedorId)?.nombre
+  const rangoItems =
+    itemsMin !== '' && itemsMax !== ''
+      ? `${itemsMin} a ${itemsMax}`
+      : itemsMin !== ''
+        ? `desde ${itemsMin}`
+        : `hasta ${itemsMax}`
 
   if (sinPermiso) {
     return (
@@ -173,25 +232,79 @@ export function OrdenesPage() {
             label="Estado"
             options={OPCIONES_ESTADO}
             value={estado}
+            active={estado !== ''}
             onChange={(valor) => actualizarFiltro(setEstado)(valor as '' | EstadoOrdenCompra)}
           />
+          <FilterDropdown
+            label="Proveedor"
+            options={proveedores.map((proveedor) => ({
+              value: proveedor.id,
+              label: proveedor.nombre,
+            }))}
+            value={proveedorId}
+            active={proveedorId !== ''}
+            onChange={actualizarFiltro(setProveedorId)}
+          />
           <FilterBarSpacer />
-          {/* Sin dropdown de orden: el backend devuelve siempre de más reciente a más vieja,
-              que es el único criterio con sentido para un historial de compras. */}
-          <span className="text-texto-3 flex items-center gap-1.5 text-xs">
-            <ArrowDownAZIcon className="size-3.5" aria-hidden />
-            Más recientes primero
-          </span>
+          <FilterDropdown
+            label={OPCIONES_ORDEN.find((opcion) => opcion.value === orden)?.label ?? 'Ordenar por'}
+            icon={ArrowDownAZIcon}
+            align="end"
+            options={OPCIONES_ORDEN}
+            value={orden}
+            onChange={(valor) => actualizarFiltro(setOrden)(valor as OrdenOrdenes)}
+          />
         </FilterBar>
 
+        <div className="flex flex-wrap items-end gap-3">
+          <Field className="w-44">
+            <FieldLabel htmlFor="ordenes-desde">Fecha desde</FieldLabel>
+            <DatePicker
+              id="ordenes-desde"
+              value={desde ? parsearFechaISO(desde) : undefined}
+              onChange={(fecha) => actualizarFiltro(setDesde)(fecha ? fechaAISO(fecha) : '')}
+              placeholder="dd/mm/aaaa"
+            />
+          </Field>
+          <Field className="w-44">
+            <FieldLabel htmlFor="ordenes-hasta">Fecha hasta</FieldLabel>
+            <DatePicker
+              id="ordenes-hasta"
+              value={hasta ? parsearFechaISO(hasta) : undefined}
+              onChange={(fecha) => actualizarFiltro(setHasta)(fecha ? fechaAISO(fecha) : '')}
+              placeholder="dd/mm/aaaa"
+            />
+          </Field>
+          <Field className="w-32">
+            <FieldLabel htmlFor="ordenes-items-min">Ítems mín.</FieldLabel>
+            <Input
+              id="ordenes-items-min"
+              type="number"
+              min={0}
+              value={itemsMin}
+              onChange={(evento) =>
+                actualizarFiltro(setItemsMin)(evento.target.value.replace(/\D/g, ''))
+              }
+              placeholder="0"
+            />
+          </Field>
+          <Field className="w-32">
+            <FieldLabel htmlFor="ordenes-items-max">Ítems máx.</FieldLabel>
+            <Input
+              id="ordenes-items-max"
+              type="number"
+              min={0}
+              value={itemsMax}
+              onChange={(evento) =>
+                actualizarFiltro(setItemsMax)(evento.target.value.replace(/\D/g, ''))
+              }
+              placeholder="10"
+            />
+          </Field>
+        </div>
+
         {hayFiltrosActivos && (
-          <FilterChips
-            onClearAll={() => {
-              setBusqueda('')
-              setEstado('')
-              setPagina(1)
-            }}
-          >
+          <FilterChips onClearAll={limpiarFiltros}>
             {busqueda.trim() !== '' && (
               <FilterChip onRemove={() => actualizarFiltro(setBusqueda)('')}>
                 Búsqueda: {busqueda}
@@ -200,6 +313,32 @@ export function OrdenesPage() {
             {estado !== '' && (
               <FilterChip onRemove={() => actualizarFiltro(setEstado)('')}>
                 Estado: {OPCIONES_ESTADO.find((o) => o.value === estado)?.label}
+              </FilterChip>
+            )}
+            {proveedorId !== '' && (
+              <FilterChip onRemove={() => actualizarFiltro(setProveedorId)('')}>
+                Proveedor: {etiquetaProveedor ?? '—'}
+              </FilterChip>
+            )}
+            {desde !== '' && (
+              <FilterChip onRemove={() => actualizarFiltro(setDesde)('')}>
+                Desde: {formatearFechaDia(desde)}
+              </FilterChip>
+            )}
+            {hasta !== '' && (
+              <FilterChip onRemove={() => actualizarFiltro(setHasta)('')}>
+                Hasta: {formatearFechaDia(hasta)}
+              </FilterChip>
+            )}
+            {(itemsMin !== '' || itemsMax !== '') && (
+              <FilterChip
+                onRemove={() => {
+                  actualizarFiltro(setItemsMin)('')
+                  setItemsMax('')
+                  setPagina(1)
+                }}
+              >
+                Ítems: {rangoItems}
               </FilterChip>
             )}
           </FilterChips>
@@ -240,6 +379,7 @@ export function OrdenesPage() {
           totalPaginas={datos.total_paginas}
           total={datos.total}
           onCambiarPagina={setPagina}
+          onVerDetalle={setOrdenAVer}
           onRecibir={setOrdenARecibir}
           onCancelar={setOrdenACancelar}
         />
@@ -250,11 +390,21 @@ export function OrdenesPage() {
         onOpenChange={setDialogoAbierto}
         proveedores={proveedores}
         solicitudesAprobadas={solicitudesAprobadas}
-        productosActivos={productosActivos}
+        ordenPorSolicitud={ordenPorSolicitud}
+        productos={productos}
         onGuardado={() => {
           recargar()
           recargarSolicitudes()
         }}
+      />
+
+      <OrdenDetalleDialog
+        open={!!ordenAVer}
+        onOpenChange={(open) => !open && setOrdenAVer(null)}
+        ordenId={ordenAVer?.id ?? null}
+        productos={productos}
+        solicitudes={solicitudes}
+        proveedores={proveedores}
       />
 
       {ordenARecibir && (

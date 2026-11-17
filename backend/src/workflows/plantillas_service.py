@@ -17,7 +17,13 @@ from src.workflows.exceptions import (
     PlantillaNoEncontrada,
     TipoEventoNoEncontrado,
 )
-from src.workflows.models import CampoEvento, NotificacionTemplate, TipoEvento, WorkflowRule
+from src.workflows.models import (
+    CampoEvento,
+    NotificacionTemplate,
+    TipoEvento,
+    WorkflowNodo,
+    WorkflowRule,
+)
 from src.workflows.schemas import NotificacionTemplateCreate, NotificacionTemplateUpdate
 
 _PLACEHOLDER = re.compile(r"\{\{([a-z][a-z0-9_]*)\}\}")
@@ -213,7 +219,13 @@ def actualizar_plantilla(
     cuerpo = cambios.get("cuerpo", plantilla.cuerpo)
     extraer_placeholders(asunto, cuerpo)
     reglas = db.scalars(
-        select(WorkflowRule).where(WorkflowRule.notificacion_template_id == plantilla.id)
+        select(WorkflowRule)
+        .join(WorkflowNodo, WorkflowNodo.workflow_rule_id == WorkflowRule.id)
+        .where(
+            WorkflowNodo.notificacion_template_id == plantilla.id,
+            WorkflowNodo.eliminado_at.is_(None),
+        )
+        .distinct()
     )
     campos_por_evento: dict[uuid.UUID, set[str]] = {}
     for regla in reglas:
@@ -268,8 +280,11 @@ def eliminar_plantilla(
     plantilla = bloqueada
     reglas = db.scalar(
         select(func.count())
-        .select_from(WorkflowRule)
-        .where(WorkflowRule.notificacion_template_id == plantilla.id)
+        .select_from(WorkflowNodo)
+        .where(
+            WorkflowNodo.notificacion_template_id == plantilla.id,
+            WorkflowNodo.eliminado_at.is_(None),
+        )
     )
     sugerencias = db.scalar(
         select(func.count())

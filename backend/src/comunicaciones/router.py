@@ -74,9 +74,20 @@ def bandeja(
     pagina: Annotated[int, Query(ge=1)] = 1,
     buscar: Annotated[str, Query(max_length=200)] = "",
     no_leidas: bool = False,
+    tamanio: Annotated[int, Query(ge=1, le=50)] = 10,
+    orden: Annotated[Literal["recientes", "antiguas"], Query()] = "recientes",
 ) -> Listado:
     familiar(rol, response)
-    return service.listar(db, usuario, pagina, buscar, no_leidas, familia=True)
+    return service.listar(
+        db,
+        usuario,
+        pagina,
+        buscar,
+        no_leidas,
+        familia=True,
+        tamanio=tamanio,
+        orden=orden,
+    )
 
 
 @router.get("/familia/{id}")

@@ -65,6 +65,25 @@ export function abreviarDocentes(docentes: string[]): string | null {
     .join(' · ')
 }
 
+/** Ausencia aún no justificada, o con justificación todavía en revisión. */
+export function esAusenciaPendienteDeJustificar(asistencia: {
+  tipo: string
+  justificacion_estado?: string | null
+}): boolean {
+  return (
+    asistencia.tipo === 'ausente_pendiente' &&
+    (!asistencia.justificacion_estado || asistencia.justificacion_estado === 'pendiente')
+  )
+}
+
+/** Ausencia pendiente que todavía no tiene ninguna justificación cargada. */
+export function esAusenciaSinJustificar(asistencia: {
+  tipo: string
+  justificacion_estado?: string | null
+}): boolean {
+  return asistencia.tipo === 'ausente_pendiente' && !asistencia.justificacion_estado
+}
+
 const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
 /** Formatea una franja como "Lun 08:00–09:00" (día 1 = lunes). */

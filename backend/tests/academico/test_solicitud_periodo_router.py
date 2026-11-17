@@ -1,11 +1,21 @@
 import uuid
+from datetime import date
 
 import pytest
 
+from src.academico import solicitud_periodo_service
 from src.academico.models import MotivoJustificacion, SolicitudAusenciaPeriodo
 from src.models import AuditLog
 
 RUTA_CREAR = "/academico/familia/solicitudes-ausencia"
+
+
+@pytest.fixture(autouse=True)
+def fijar_dia_operativo(monkeypatch):
+    """Los tests usan 2027 como año futuro: se fija el día operativo en ese ciclo."""
+    monkeypatch.setattr(
+        solicitud_periodo_service, "fecha_operativa_argentina", lambda: date(2027, 1, 1)
+    )
 
 
 @pytest.fixture()

@@ -7,7 +7,7 @@ El diccionario clasifica los catálogos en 3 grupos según qué tan segura es la
 | Grupo | Estado acá | Por qué |
 |---|---|---|
 | **A** — confirmado por RF o por el cliente | **Cargado.** `grupo-a.yaml` + `01_seed_grupo_a.py` | `ROL` (10), `TIPO_EVENTO` (9), `METODO_PAGO` (4), `CONCEPTO_COBRO` (10), `MOTIVO_JUSTIFICACION` (7), `REGLA_PENALIDAD` (3) — corridos contra Postgres local, verificados por conteo. |
-| **B** — propuesta del equipo, validada informalmente (no por ESSERI) | **Cargado.** `grupo-b.yaml` + `03_seed_grupo_b.py` | `PERMISO` (41 filas) + `ROL_PERMISO` (99 vínculos) + `CAMPO_EVENTO` (27). Matriz rol × módulo × acción acotada a propósito — más fácil sumar un permiso después que sacar uno de más. Editable después vía el futuro ABM de roles/permisos, no volviendo a correr el seed. |
+| **B** — propuesta del equipo, validada informalmente (no por ESSERI) | **Cargado.** `grupo-b.yaml` + `03_seed_grupo_b.py` | `PERMISO` (41 filas) + `ROL_PERMISO` (99 vínculos) + `CAMPO_EVENTO` (27) + `AREA_SOLICITANTE` (9 áreas de compras). Matriz rol × módulo × acción acotada a propósito — más fácil sumar un permiso después que sacar uno de más. Editable después vía el futuro ABM de roles/permisos, no volviendo a correr el seed. |
 | **C** — dato real de ESSERI | `NIVEL_EDUCATIVO` (3 valores) **cargado** vía `02_seed_grupo_c.py`. El resto (`ANIO`/`DIVISION`/`MATERIA`, `PRODUCTO_SERVICIO`) **sigue bloqueado**. | **Corrección sobre el diccionario**: dice que "el equipo ya recibió la tabla maestra", pero `docs/aclaraciones-cliente-esseri.md` (pregunta 19) lo dice en futuro ("vamos a entregar/preparar") — todavía no llegó. Solo los 3 niveles (Inicial/Primario/Secundario) están confirmados con nombre concreto (pregunta 6); años, divisiones, materias, docentes y catálogo de productos siguen sin entregar — no inventarlos. |
 
 ## Cómo correr los scripts ya disponibles
@@ -213,3 +213,9 @@ Pide la contraseña por consola; en entornos no interactivos toma `BOOTSTRAP_ADM
 ## Pendiente
 
 - **Grupo C restante**: transcribir `ANIO`/`DIVISION`/`MATERIA` y `PRODUCTO_SERVICIO` cuando ESSERI entregue la tabla maestra real (pregunta pendiente #17 del diccionario) — no antes.
+
+## Reglas de workflows y el árbol de nodos
+
+Los seeds 04 y 06 crean reglas con `reglas_service.crear_regla` y `nodos_de_regla_simple`: cada regla
+queda como una acción, con una condición simple antes si la declara (acción por la rama Sí). Los
+destinatarios (`rol`) se cargan en esa acción. Siguen siendo idempotentes por nombre de regla.

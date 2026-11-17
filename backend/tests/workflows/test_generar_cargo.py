@@ -12,12 +12,13 @@ from src.models import EventLog
 from src.workflows import acciones_admision_service
 from src.workflows.acciones_admision_service import ejecutar_generar_cargo
 from src.workflows.despacho_service import procesar_eventos_pendientes
-from src.workflows.models import TipoEvento, WorkflowExecution, WorkflowRule
+from src.workflows.models import TipoEvento, WorkflowExecution
 from tests.inscripciones.conftest import catalogo_evento_inscripcion_confirmada  # noqa: F401
 from tests.inscripciones.test_alta_integrada_admision import (
     _crear_admision_documentada,
     _finalizar,
 )
+from tests.workflows.factories import crear_regla_simple
 
 HOY = date(2026, 8, 28)
 
@@ -66,17 +67,16 @@ def _regla(db, concepto, monto=None, aprobacion=False):
     config = {"concepto_cobro_id": str(concepto.id)}
     if monto is not None:
         config["monto"] = monto
-    regla = WorkflowRule(
+    regla = crear_regla_simple(
+        db,
         nombre="Cargo de matrícula",
         condicion={},
         tipo_accion="generar_cargo",
         accion_config=config,
-        criticidad="media",
         requiere_aprobacion_humana=aprobacion,
         activo=True,
         tipo_evento_id=tipo.id,
     )
-    db.add(regla)
     db.commit()
     return regla
 

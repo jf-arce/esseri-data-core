@@ -21,6 +21,7 @@ from src.workflows.despacho_service import procesar_eventos_pendientes
 from src.workflows.ejecuciones_service import aprobar_ejecucion
 from src.workflows.models import WorkflowExecution, WorkflowRule
 from tests.inscripciones.conftest import catalogo_evento_inscripcion_confirmada  # noqa: F401
+from tests.workflows.factories import ReglaSimple
 
 SEED = Path(__file__).resolve().parents[3] / "database" / "seeds" / "04_seed_demo.py"
 HOY = date(2026, 10, 28)
@@ -87,12 +88,13 @@ def _finalizar(db, demo, solicitud):
 
 
 def test_el_seed_crea_las_reglas_y_una_solicitud_lista(db_session, demo):
-    cargo = db_session.scalars(
-        select(WorkflowRule).where(WorkflowRule.nombre == "Loop A 1: cargo de matrícula")
-    ).one()
-    bienvenida = db_session.scalars(
-        select(WorkflowRule).where(WorkflowRule.nombre == "Loop A 2: bienvenida a la familia")
-    ).one()
+    cargo, bienvenida = (
+        ReglaSimple.desde_base(
+            db_session,
+            db_session.scalars(select(WorkflowRule).where(WorkflowRule.nombre == nombre)).one(),
+        )
+        for nombre in ("Loop A 1: cargo de matrícula", "Loop A 2: bienvenida a la familia")
+    )
     assert cargo.tipo_accion == "generar_cargo"
     assert cargo.requiere_aprobacion_humana is True
     assert cargo.accion_config["monto"] == "120000.00"

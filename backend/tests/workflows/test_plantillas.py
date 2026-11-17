@@ -8,6 +8,7 @@ from src.models import AuditLog
 from src.workflows import despacho_service
 from src.workflows.eventos_service import emit_event
 from src.workflows.models import NotificacionTemplate, WorkflowExecution
+from tests.workflows.factories import cuerpo_regla
 
 
 def _datos(**extra):
@@ -22,13 +23,7 @@ def _datos(**extra):
 def _crear_regla(client, tipo_evento_id, plantilla_id):
     return client.post(
         "/workflows/reglas",
-        json={
-            "nombre": "Avisar mora",
-            "tipo_evento_id": str(tipo_evento_id),
-            "tipo_accion": "notificar",
-            "criticidad": "media",
-            "notificacion_template_id": str(plantilla_id),
-        },
+        json=cuerpo_regla(tipo_evento_id, notificacion_template_id=plantilla_id),
     )
 
 

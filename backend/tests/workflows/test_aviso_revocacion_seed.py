@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import select
 
 from src.workflows.models import CampoEvento, NotificacionTemplate, TipoEvento, WorkflowRule
+from tests.workflows.factories import ReglaSimple
 
 SEED = Path(__file__).resolve().parents[3] / "database" / "seeds" / "06_seed_aviso_revocacion.py"
 EVENTO = "solicitud_ausencia_periodo.revocada"
@@ -55,7 +56,7 @@ def test_crea_plantilla_y_regla_una_sola_vez(db_session, seed_aviso):
     reglas = db_session.scalars(select(WorkflowRule)).all()
     assert len(plantillas) == 1
     assert len(reglas) == 1
-    plantilla, regla = plantillas[0], reglas[0]
+    plantilla, regla = plantillas[0], ReglaSimple.desde_base(db_session, reglas[0])
     assert plantilla.nombre == seed_aviso.PLANTILLA["nombre"]
     assert regla.nombre == seed_aviso.REGLA["nombre"]
     assert regla.tipo_accion == "notificar"
@@ -89,7 +90,7 @@ def test_segunda_corrida_cambia_ids_ni_pisa_lo_editado(db_session, seed_aviso):
     ids = (plantilla.id, regla.id)
 
     plantilla.asunto = "Editado a mano"
-    regla.criticidad = "alta"
+    regla.activo = False
     db_session.commit()
 
     seed_aviso.seed(db_session)
@@ -98,4 +99,4 @@ def test_segunda_corrida_cambia_ids_ni_pisa_lo_editado(db_session, seed_aviso):
     regla = db_session.scalar(select(WorkflowRule))
     assert (plantilla.id, regla.id) == ids
     assert plantilla.asunto == "Editado a mano"
-    assert regla.criticidad == "alta"
+    assert regla.activo is False

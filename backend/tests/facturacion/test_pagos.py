@@ -26,10 +26,10 @@ from src.workflows.models import (
     Tarea,
     TipoEvento,
     WorkflowExecution,
-    WorkflowRule,
 )
 from tests.facturacion.conftest import crear_catalogo_evento_pago_registrado
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
+from tests.workflows.factories import crear_regla_simple
 
 
 def _crear_factura_pendiente(db_session):
@@ -71,7 +71,8 @@ def _crear_factura_pendiente(db_session):
 
 def _crear_regla_tarea_pago(db_session, usuario):
     tipo = db_session.query(TipoEvento).filter_by(nombre="pago.registrado").one()
-    regla = WorkflowRule(
+    regla = crear_regla_simple(
+        db_session,
         nombre="Pago registrado: verificar comprobante",
         condicion={},
         tipo_accion="crear_tarea",
@@ -81,17 +82,15 @@ def _crear_regla_tarea_pago(db_session, usuario):
             "prioridad": "media",
             "dias_para_vencer": 2,
         },
-        criticidad="media",
         requiere_aprobacion_humana=False,
         activo=True,
         tipo_evento_id=tipo.id,
     )
-    db_session.add(regla)
     db_session.flush()
     db_session.add(
         ReglaDestinatario(
             destinatario_tipo="usuario",
-            workflow_rule_id=regla.id,
+            workflow_nodo_id=regla.nodo_id,
             usuario_id=usuario.id,
         )
     )

@@ -1,3 +1,4 @@
+import type { OpcionCombo } from '@/components/combobox-buscable'
 import type { UsuarioConRoles } from '@/modules/auth/types'
 import { nombreVisibleDeUsuario } from '@/modules/auth/utils'
 import {
@@ -20,16 +21,13 @@ import type {
   AccionConfig,
   CampoEvento,
   Condicion,
-  Criticidad,
   DestinatarioTipo,
   EstadoEjecucion,
   EstadoEnvio,
   EstadoTarea,
   Operador,
-  OpcionCombo,
   PrioridadTarea,
   ReglaWorkflow,
-  ReglaWorkflowCreatePayload,
   TipoAccion,
   TipoAccionCatalogo,
   TipoDato,
@@ -54,11 +52,12 @@ export const ETIQUETA_ACCION: Record<TipoAccion, string> = {
 }
 
 // Cómo se nombra cada evento del catálogo (`TipoEventoNombre` en el backend) frente al usuario.
-// Un evento nuevo sin entrada acá se muestra con su nombre interno.
+// Un evento nuevo sin entrada acá se muestra con su nombre interno, sin puntos ni guiones bajos.
 const ETIQUETA_EVENTO: Record<string, string> = {
   'inasistencia.registrada': 'Se registra una inasistencia',
   'inasistencia.justificada': 'Se justifica una inasistencia',
   'factura.vencida': 'Vence una factura',
+  'solicitud_ausencia_periodo.revocada': 'Se revoca una ausencia por período',
   'inscripcion.cambio_matricula': 'Cambia la matrícula de una inscripción',
   'solicitud_inscripcion.aprobada': 'Se aprueba una solicitud de inscripción',
   'pago.registrado': 'Se registra un pago',
@@ -70,18 +69,11 @@ const ETIQUETA_EVENTO: Record<string, string> = {
 }
 
 export function etiquetaEvento(nombre: string): string {
-  return ETIQUETA_EVENTO[nombre] ?? nombre
+  const conocida = ETIQUETA_EVENTO[nombre]
+  if (conocida) return conocida
+  const legible = nombre.replace(/[._]+/g, ' ').trim()
+  return legible.charAt(0).toUpperCase() + legible.slice(1)
 }
-
-export const ETIQUETA_CRITICIDAD: Record<Criticidad, string> = {
-  baja: 'Baja',
-  media: 'Media',
-  alta: 'Alta',
-  critica: 'Crítica',
-}
-
-export const VARIANTE_CRITICIDAD: Record<Criticidad, 'neutro' | 'info' | 'advertencia' | 'error'> =
-  { baja: 'neutro', media: 'info', alta: 'advertencia', critica: 'error' }
 
 export const ETIQUETA_OPERADOR: Record<Operador, string> = {
   '==': 'es igual a',
@@ -99,6 +91,17 @@ export const OPERADORES_POR_TIPO_DATO: Record<TipoDato, readonly Operador[]> = {
   numero: ['==', '!=', '>', '>=', '<', '<='],
   fecha: ['==', '!=', '>', '>=', '<', '<='],
   texto: ['==', '!=', 'contiene'],
+}
+
+export function esNumeroValido(texto: string): boolean {
+  const limpio = texto.trim()
+  return limpio !== '' && Number.isFinite(Number(limpio))
+}
+
+/** Un campo con valores cerrados solo se compara con "es" o "no es" (igual que el backend). */
+export function operadoresDeCampo(campo: CampoEvento): readonly Operador[] {
+  const cerrado = campo.opciones !== null || (campo.busqueda && !campo.permite_otro)
+  return cerrado ? ['==', '!='] : OPERADORES_POR_TIPO_DATO[campo.tipo_dato]
 }
 
 // Réplica de `CAMBIOS_ESTADO_PERMITIDOS` (por entidad) y `ENTIDAD_POR_EVENTO` en
@@ -255,107 +258,6 @@ export function armarCondicion(
   return { campo, operador, valor }
 }
 
-/** Estado del formulario del editor: todo como texto, igual que los inputs. */
-export interface ValoresRegla {
-  nombre: string
-  tipoEventoId: string
-  campoCondicion: string
-  operadorCondicion: Operador | ''
-  valorCondicion: string
-  tipoAccion: TipoAccion | ''
-  config: Record<string, string>
-  /** Id de la plantilla elegida, o `''` si no hay. */
-  plantillaId: string
-  criticidad: Criticidad
-  requiereAprobacionHumana: boolean
-  activo: boolean
-}
-
-export const VALORES_REGLA_VACIOS: ValoresRegla = {
-  nombre: '',
-  tipoEventoId: '',
-  campoCondicion: '',
-  operadorCondicion: '',
-  valorCondicion: '',
-  tipoAccion: '',
-  config: {},
-  plantillaId: '',
-  criticidad: 'media',
-  requiereAprobacionHumana: false,
-  activo: true,
-}
-
-function esOperador(valor: unknown): valor is Operador {
-  return (
-    valor === '==' ||
-    valor === '!=' ||
-    valor === '>' ||
-    valor === '>=' ||
-    valor === '<' ||
-    valor === '<=' ||
-    valor === 'contiene'
-  )
-}
-
-/** Carga una regla guardada en el formulario, respetando lo que tiene (incluida la aprobación
- * humana aunque difiera del default de la acción). */
-export function valoresDesdeRegla(regla: ReglaWorkflow): ValoresRegla {
-  const guardada = regla.accion_config ?? {}
-  const config: Record<string, string> = {}
-  for (const { nombre } of CAMPOS_POR_ACCION[regla.tipo_accion]) {
-    const valor = guardada[nombre]
-    if (typeof valor === 'string' || typeof valor === 'number') config[nombre] = String(valor)
-  }
-  const { campo, operador, valor } = regla.condicion
-  return {
-    nombre: regla.nombre,
-    tipoEventoId: regla.tipo_evento_id,
-    campoCondicion: campo ?? '',
-    operadorCondicion: esOperador(operador) ? operador : '',
-    valorCondicion: valor === undefined ? '' : String(valor),
-    tipoAccion: regla.tipo_accion,
-    config,
-    plantillaId: regla.notificacion_template_id ?? '',
-    criticidad: regla.criticidad,
-    requiereAprobacionHumana: regla.requiere_aprobacion_humana,
-    activo: regla.activo,
-  }
-}
-
-export interface ContextoPayload {
-  /** Tipo de dato del campo elegido en la condición. */
-  tipoDatoCondicion: TipoDato | null
-  /** Si la acción elegida admite `notificacion_template_id`. */
-  admitePlantilla: boolean
-}
-
-/** Payload completo de la regla, igual para el alta y el PATCH (reemplazo explícito de todo lo
- * editable). Siempre manda la aprobación humana: sin ella el backend la recalcularía al cambiar
- * de acción. */
-export function armarPayloadRegla(
-  valores: ValoresRegla,
-  tipoAccion: TipoAccion,
-  { tipoDatoCondicion, admitePlantilla }: ContextoPayload,
-): ReglaWorkflowCreatePayload {
-  return {
-    nombre: valores.nombre.trim(),
-    tipo_evento_id: valores.tipoEventoId,
-    condicion: armarCondicion(
-      valores.campoCondicion,
-      valores.operadorCondicion,
-      valores.valorCondicion,
-      tipoDatoCondicion,
-    ),
-    tipo_accion: tipoAccion,
-    accion_config: armarConfig(tipoAccion, valores.config),
-    criticidad: valores.criticidad,
-    requiere_aprobacion_humana: valores.requiereAprobacionHumana,
-    notificacion_template_id:
-      admitePlantilla && valores.plantillaId !== '' ? valores.plantillaId : null,
-    activo: valores.activo,
-  }
-}
-
 const ACCIONES_CON_DESTINATARIO_ELEGIBLE: readonly TipoAccion[] = [
   'notificar',
   'generar_recordatorio',
@@ -466,59 +368,6 @@ export function sinConceptosDisponibles(disponibles: AccionDisponible[]): Accion
         }
       : accion,
   )
-}
-
-/** Cambio de evento: la condición y la config que dependen del evento ya no valen, y si la
- * acción elegida no admite el nuevo evento también se limpia. */
-export function cambiarEvento(
-  valores: ValoresRegla,
-  tipoEventoId: string,
-  tiposAccion: TipoAccionCatalogo[],
-  nombreEvento: string | null,
-): ValoresRegla {
-  const sigueDisponible = accionesDisponibles(tiposAccion, nombreEvento).some(
-    (accion) => accion.tipo_accion === valores.tipoAccion && accion.disponible,
-  )
-  const config = { ...valores.config }
-  for (const campo of CAMPOS_DEPENDIENTES_DEL_EVENTO) delete config[campo]
-  return {
-    ...valores,
-    tipoEventoId,
-    campoCondicion: '',
-    operadorCondicion: '',
-    valorCondicion: '',
-    tipoAccion: sigueDisponible ? valores.tipoAccion : '',
-    config: sigueDisponible ? config : {},
-    // Si la acción sigue, la compatibilidad de la plantilla con el nuevo evento la resuelve el
-    // editor cuando llega la lista de plantillas del evento.
-    plantillaId: sigueDisponible ? valores.plantillaId : '',
-  }
-}
-
-/** Cambio de acción hecho por el usuario: la config arranca con los defaults de la nueva acción
- * y recién ahí se aplica su default de aprobación humana. */
-export function cambiarAccion(valores: ValoresRegla, accion: TipoAccionCatalogo): ValoresRegla {
-  return {
-    ...valores,
-    tipoAccion: accion.tipo_accion,
-    config: defaultsDeConfig(accion.config_schema),
-    plantillaId: accion.admite_plantilla ? valores.plantillaId : '',
-    requiereAprobacionHumana: accion.requiere_aprobacion_por_defecto,
-  }
-}
-
-/** Cambio de campo en la condición: el operador pasa al primero válido para el tipo de dato y
- * el valor se vacía. `campo` vacío = sin condición. */
-export function cambiarCampoCondicion(
-  valores: ValoresRegla,
-  campo: CampoEvento | null,
-): ValoresRegla {
-  return {
-    ...valores,
-    campoCondicion: campo?.nombre_interno ?? '',
-    operadorCondicion: campo ? OPERADORES_POR_TIPO_DATO[campo.tipo_dato][0] : '',
-    valorCondicion: '',
-  }
 }
 
 export type EstadoEjecucionFiltro = (typeof ESTADOS_EJECUCION_FILTRO)[number]
@@ -653,27 +502,17 @@ export function estadosSiguientesTarea(
   return []
 }
 
+/** "Nombre Apellido" seguido, sin coma: así no se confunde cuando hay varias personas en una lista. */
+export function nombreDePersona(usuario: Parameters<typeof nombreVisibleDeUsuario>[0]): string {
+  const [apellido, nombre, ...resto] = nombreVisibleDeUsuario(usuario).split(', ')
+  return nombre !== undefined && resto.length === 0 ? `${nombre} ${apellido}` : (apellido ?? '')
+}
+
 export function opcionDeUsuario(usuario: UsuarioConRoles, grupo?: string): OpcionCombo {
   return {
     valor: usuario.id,
-    etiqueta: nombreVisibleDeUsuario(usuario),
+    etiqueta: nombreDePersona(usuario),
     detalle: usuario.email,
     grupo,
   }
-}
-
-/** Dentro de un diálogo o panel lateral, su bloqueo de scroll se traga la rueda sobre un popover
- * que va en un portal: la lista no se desplaza y lo que está más abajo queda fuera de alcance. Se
- * desplaza a mano, sin pasar por el bloqueo. */
-export function desplazarConRueda(lista: HTMLDivElement | null) {
-  if (lista === null) return
-  lista.addEventListener(
-    'wheel',
-    (evento) => {
-      evento.preventDefault()
-      evento.stopPropagation()
-      lista.scrollTop += evento.deltaY * (evento.deltaMode === 1 ? 16 : 1)
-    },
-    { passive: false },
-  )
 }

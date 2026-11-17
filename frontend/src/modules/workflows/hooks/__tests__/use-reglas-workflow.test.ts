@@ -3,26 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '@/api/client'
 import { useReglasWorkflow } from '@/modules/workflows/hooks/use-reglas-workflow'
 import { listarReglasWorkflow } from '@/modules/workflows/services/listar-reglas-workflow'
-import type { ReglaWorkflow } from '@/modules/workflows/types'
+import { reglaDe } from '@/modules/workflows/__tests__/fabricas'
 
 vi.mock('@/modules/workflows/services/listar-reglas-workflow')
 
 const mockedListar = vi.mocked(listarReglasWorkflow)
 
-const regla: ReglaWorkflow = {
-  id: 'r-1',
-  nombre: 'Aviso de mora',
-  tipo_evento_id: 'e-1',
-  condicion: {},
-  tipo_accion: 'notificar',
-  accion_config: {},
-  criticidad: 'media',
-  requiere_aprobacion_humana: false,
-  notificacion_template_id: null,
-  activo: true,
-  created_at: '2026-09-01T00:00:00Z',
-  updated_at: '2026-09-01T00:00:00Z',
-}
+const regla = reglaDe()
 
 beforeEach(() => {
   vi.clearAllMocks()

@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { CalendarIcon, PlusIcon, Trash2Icon, TruckIcon } from 'lucide-react'
+import { ChevronsUpDownIcon, PlusIcon, Trash2Icon, TruckIcon } from 'lucide-react'
 import { ApiError } from '@/api/client'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ComboboxBuscable } from '@/components/combobox-buscable'
+import { DatePicker } from '@/components/date-picker'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -12,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Field, FieldLabel } from '@/components/ui/field'
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
@@ -24,23 +26,29 @@ import {
 } from '@/components/ui/select'
 import { crearOrden } from '@/modules/proveedores-compras/services/crear-orden'
 import type {
+  LineaOrdenFormulario,
+  OrdenCompra,
   ProductoServicio,
   Proveedor,
   SolicitudCompra,
 } from '@/modules/proveedores-compras/types'
-import { descripcionSolicitud } from '@/modules/proveedores-compras/utils'
-
-interface LineaDetalle {
-  productoId: string
-  cantidad: string
-}
+import {
+  alternarSolicitudEnLineas,
+  cantidadEntera,
+  ETIQUETA_ESTADO_ORDEN,
+  fechaAISO,
+  formatearFechaDia,
+  lineaOrdenVacia,
+} from '@/modules/proveedores-compras/utils'
 
 interface OrdenDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   proveedores: Proveedor[]
   solicitudesAprobadas: SolicitudCompra[]
-  productosActivos: ProductoServicio[]
+  /** Orden en la que ya está cada solicitud aprobada, si está vinculada a alguna. */
+  ordenPorSolicitud: Map<string, OrdenCompra>
+  productos: ProductoServicio[]
   onGuardado: () => void
 }
 
@@ -49,7 +57,8 @@ export function OrdenDialog({
   onOpenChange,
   proveedores,
   solicitudesAprobadas,
-  productosActivos,
+  ordenPorSolicitud,
+  productos,
   onGuardado,
 }: OrdenDialogProps) {
   return (
@@ -59,7 +68,8 @@ export function OrdenDialog({
           <OrdenForm
             proveedores={proveedores}
             solicitudesAprobadas={solicitudesAprobadas}
-            productosActivos={productosActivos}
+            ordenPorSolicitud={ordenPorSolicitud}
+            productos={productos}
             onOpenChange={onOpenChange}
             onGuardado={onGuardado}
           />
@@ -72,63 +82,151 @@ export function OrdenDialog({
 function OrdenForm({
   proveedores,
   solicitudesAprobadas,
-  productosActivos,
+  ordenPorSolicitud,
+  productos,
   onOpenChange,
   onGuardado,
 }: {
   proveedores: Proveedor[]
   solicitudesAprobadas: SolicitudCompra[]
-  productosActivos: ProductoServicio[]
+  ordenPorSolicitud: Map<string, OrdenCompra>
+  productos: ProductoServicio[]
   onOpenChange: (open: boolean) => void
   onGuardado: () => void
 }) {
   const [proveedorId, setProveedorId] = useState('')
-  const [fecha, setFecha] = useState('')
+  const [fecha, setFecha] = useState<Date | undefined>(() => new Date())
   const [solicitudIds, setSolicitudIds] = useState<string[]>([])
-  const [lineas, setLineas] = useState<LineaDetalle[]>([{ productoId: '', cantidad: '' }])
+  const [lineas, setLineas] = useState<LineaOrdenFormulario[]>([lineaOrdenVacia()])
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const lineasCompletas = lineas.filter(
-    (linea) => linea.productoId !== '' && Number(linea.cantidad) > 0,
+  const productosActivos = productos.filter((producto) => producto.activo)
+  const productoPorId = new Map(productos.map((producto) => [producto.id, producto]))
+
+  const solicitudesDisponibles = solicitudesAprobadas.filter(
+    (solicitud) => !ordenPorSolicitud.has(solicitud.id),
   )
-  // El backend rechaza ítems repetidos en el detalle (habría que sumar las cantidades en una
-  // sola línea): se avisa acá antes de mandar, en vez de esperar el 422.
+  const solicitudesUsadas = solicitudesAprobadas.filter((solicitud) =>
+    ordenPorSolicitud.has(solicitud.id),
+  )
+
+  const lineasConProducto = lineas.filter((linea) => linea.productoId !== '')
+  const lineasCompletas = lineasConProducto.filter(
+    (linea) => cantidadEntera(linea.cantidad) !== null,
+  )
+  const hayCantidadInvalida = lineasConProducto.some(
+    (linea) => linea.cantidad.trim() !== '' && cantidadEntera(linea.cantidad) === null,
+  )
+  // El backend rechaza ítems repetidos: se avisa acá antes de mandar el 422.
   const hayProductoRepetido =
-    new Set(lineasCompletas.map((linea) => linea.productoId)).size !== lineasCompletas.length
+    new Set(lineasConProducto.map((linea) => linea.productoId)).size !== lineasConProducto.length
 
-  const puedeEnviar =
-    proveedorId !== '' &&
-    solicitudIds.length > 0 &&
-    lineasCompletas.length > 0 &&
-    !hayProductoRepetido
-
-  function alternarSolicitud(solicitudId: string) {
-    setSolicitudIds((actuales) =>
-      actuales.includes(solicitudId)
-        ? actuales.filter((id) => id !== solicitudId)
-        : [...actuales, solicitudId],
-    )
+  function nombreSolicitud(solicitud: SolicitudCompra): string {
+    const producto = solicitud.producto_servicio_id
+      ? productoPorId.get(solicitud.producto_servicio_id)
+      : undefined
+    return solicitud.articulo ?? producto?.nombre ?? 'Ítem de catálogo'
   }
 
-  function actualizarLinea(indice: number, cambios: Partial<LineaDetalle>) {
+  const solicitudesElegidas = solicitudIds
+    .map((id) => solicitudesAprobadas.find((solicitud) => solicitud.id === id))
+    .filter((solicitud): solicitud is SolicitudCompra => solicitud !== undefined)
+
+  const solicitudesSinItem = solicitudesElegidas.filter(
+    (solicitud) =>
+      !solicitud.producto_servicio_id ||
+      !productosActivos.some((producto) => producto.id === solicitud.producto_servicio_id),
+  )
+  // Una solicitud con ítem de catálogo puede quedar sin línea si la persona cambió el ítem de
+  // esa línea o la borró: se avisa para que la cantidad no quede afuera del detalle.
+  const solicitudesSinLinea = solicitudesElegidas.filter(
+    (solicitud) =>
+      solicitud.producto_servicio_id !== null &&
+      productosActivos.some((producto) => producto.id === solicitud.producto_servicio_id) &&
+      !lineas.some((linea) => linea.solicitudIds.includes(solicitud.id)),
+  )
+
+  const faltantes: string[] = []
+  if (proveedorId === '') faltantes.push('Elegí un proveedor.')
+  if (solicitudIds.length === 0) {
+    faltantes.push('Tildá al menos una solicitud aprobada que origine la orden.')
+  }
+  if (lineasCompletas.length === 0) {
+    faltantes.push('Agregá al menos un ítem del catálogo con su cantidad.')
+  }
+  if (hayCantidadInvalida) {
+    faltantes.push('Las cantidades deben ser números enteros mayores a 0.')
+  }
+  if (lineasConProducto.length > lineasCompletas.length && !hayCantidadInvalida) {
+    faltantes.push('Completá la cantidad de todas las líneas, o quitá las que sobran.')
+  }
+  if (hayProductoRepetido) {
+    faltantes.push('Hay un ítem repetido: sumá las cantidades en una sola línea.')
+  }
+
+  const puedeEnviar = faltantes.length === 0
+
+  function alternarSolicitud(solicitud: SolicitudCompra) {
+    const tildada = !solicitudIds.includes(solicitud.id)
+    setSolicitudIds((actuales) =>
+      tildada ? [...actuales, solicitud.id] : actuales.filter((id) => id !== solicitud.id),
+    )
+
+    // Solo se puede mapear a una línea un ítem que exista y siga activo en el catálogo. Las de
+    // texto libre (o con el ítem dado de baja) se avisan y se cargan a mano.
+    const producto = solicitud.producto_servicio_id
+      ? productosActivos.find((item) => item.id === solicitud.producto_servicio_id)
+      : undefined
+    if (tildada && producto) {
+      setLineas((actuales) =>
+        alternarSolicitudEnLineas(actuales, solicitud, true, solicitudesAprobadas),
+      )
+    } else if (!tildada) {
+      setLineas((actuales) =>
+        alternarSolicitudEnLineas(actuales, solicitud, false, solicitudesAprobadas),
+      )
+    }
+  }
+
+  function actualizarLinea(indice: number, cambios: Partial<LineaOrdenFormulario>) {
     setLineas((actuales) =>
       actuales.map((linea, i) => (i === indice ? { ...linea, ...cambios } : linea)),
     )
   }
 
+  function cambiarProducto(indice: number, productoId: string) {
+    // Cambiar el ítem desarma el aporte de las solicitudes que estaban en esa línea: la cantidad
+    // que queda es la que escriba la persona. Elegir el mismo ítem no borra lo cargado.
+    setLineas((actuales) =>
+      actuales.map((linea, i) =>
+        i !== indice || linea.productoId === productoId
+          ? linea
+          : { productoId, cantidad: '', solicitudIds: [], editada: false },
+      ),
+    )
+  }
+
+  function quitarLinea(indice: number) {
+    setLineas((actuales) => {
+      const restantes = actuales.filter((_, i) => i !== indice)
+      return restantes.length > 0 ? restantes : [lineaOrdenVacia()]
+    })
+  }
+
   async function handleSubmit(evento: React.FormEvent) {
     evento.preventDefault()
+    if (!puedeEnviar) return
     setEnviando(true)
     setError(null)
     try {
       await crearOrden({
         proveedor_id: proveedorId,
-        fecha: fecha || null,
+        fecha: fecha ? fechaAISO(fecha) : null,
         solicitud_ids: solicitudIds,
         detalles: lineasCompletas.map((linea) => ({
           producto_servicio_id: linea.productoId,
-          cantidad_pedida: linea.cantidad,
+          cantidad_pedida: cantidadEntera(linea.cantidad) ?? 0,
         })),
       })
       onGuardado()
@@ -180,49 +278,64 @@ function OrdenForm({
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="orden-fecha">Fecha de emisión (opcional)</FieldLabel>
-          <div className="relative">
-            <CalendarIcon
-              className="text-texto-3 pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
-              aria-hidden
-            />
-            <Input
-              id="orden-fecha"
-              type="date"
-              value={fecha}
-              onChange={(evento) => setFecha(evento.target.value)}
-              className="pl-9"
-            />
-          </div>
+          <FieldLabel htmlFor="orden-fecha">Fecha de emisión</FieldLabel>
+          <DatePicker id="orden-fecha" value={fecha} onChange={setFecha} placeholder="dd/mm/aaaa" />
+          <FieldDescription>Si no la cambiás, se emite con la fecha de hoy.</FieldDescription>
         </Field>
 
         <Field>
           <FieldLabel>Solicitudes aprobadas que origina esta orden</FieldLabel>
           {solicitudesAprobadas.length === 0 ? (
             <p className="text-texto-2 text-sm">
-              No hay solicitudes aprobadas disponibles. Aprobá alguna en Solicitudes de compra, o
-              revisá si ya están incluidas en otra orden.
+              No hay solicitudes aprobadas todavía. Aprobá alguna en Solicitudes de compra para
+              poder emitir una orden.
+            </p>
+          ) : solicitudesDisponibles.length === 0 ? (
+            <p className="text-texto-2 text-sm">
+              Las {solicitudesAprobadas.length} solicitudes aprobadas ya están vinculadas a una
+              orden, y una solicitud no se puede usar dos veces. Aprobá una solicitud nueva para
+              emitir otra orden. Las que ya están en uso son:
             </p>
           ) : (
             <ScrollArea className="border-borde max-h-44 rounded-panel border p-2">
               <div className="flex flex-col gap-2">
-                {solicitudesAprobadas.map((solicitud) => (
+                {solicitudesDisponibles.map((solicitud) => (
                   <label
                     key={solicitud.id}
                     className="hover:bg-fila-hover flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm"
                   >
                     <Checkbox
                       checked={solicitudIds.includes(solicitud.id)}
-                      onCheckedChange={() => alternarSolicitud(solicitud.id)}
+                      onCheckedChange={() => alternarSolicitud(solicitud)}
                     />
-                    <span className="font-medium">{descripcionSolicitud(solicitud)}</span>
+                    <span className="font-medium">{nombreSolicitud(solicitud)}</span>
                     <span className="text-texto-2">
-                      · {solicitud.cantidad} · {solicitud.area_solicitante ?? 'sin área'}
+                      · {solicitud.cantidad} · {solicitud.area_solicitante ?? 'sin área'} ·{' '}
+                      {formatearFechaDia(solicitud.fecha)}
                     </span>
                   </label>
                 ))}
               </div>
             </ScrollArea>
+          )}
+
+          {solicitudesUsadas.length > 0 && (
+            <div className="text-texto-2 mt-2 flex flex-col gap-1 text-xs">
+              <p className="font-medium">Ya vinculadas a una orden (no se pueden reutilizar):</p>
+              <ul className="flex flex-col gap-0.5">
+                {solicitudesUsadas.map((solicitud) => {
+                  const orden = ordenPorSolicitud.get(solicitud.id)
+                  return (
+                    <li key={solicitud.id} className="truncate">
+                      · {nombreSolicitud(solicitud)} · {solicitud.cantidad} ·{' '}
+                      {orden
+                        ? `orden del ${formatearFechaDia(orden.fecha)} (${ETIQUETA_ESTADO_ORDEN[orden.estado]})`
+                        : 'orden sin datos'}
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
           )}
         </Field>
 
@@ -235,55 +348,72 @@ function OrdenForm({
             </p>
           ) : (
             <div className="flex flex-col gap-2">
-              {lineas.map((linea, indice) => (
-                <div key={indice} className="flex items-center gap-2">
-                  <Select
-                    value={linea.productoId}
-                    onValueChange={(valor) => actualizarLinea(indice, { productoId: valor })}
-                  >
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Elegí un ítem del catálogo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {productosActivos.map((producto) => (
-                        <SelectItem key={producto.id} value={producto.id}>
-                          {producto.nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="number"
-                    min={1}
-                    step="0.01"
-                    value={linea.cantidad}
-                    onChange={(evento) =>
-                      actualizarLinea(indice, { cantidad: evento.target.value })
-                    }
-                    placeholder="Cantidad"
-                    className="w-28"
-                    aria-label={`Cantidad de la línea ${indice + 1}`}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`Quitar la línea ${indice + 1}`}
-                    disabled={lineas.length === 1}
-                    onClick={() => setLineas((actuales) => actuales.filter((_, i) => i !== indice))}
-                  >
-                    <Trash2Icon />
-                  </Button>
-                </div>
-              ))}
+              {lineas.map((linea, indice) => {
+                const producto = productoPorId.get(linea.productoId)
+                const usadosEnOtrasLineas = new Set(
+                  lineas
+                    .filter((otra, i) => i !== indice && otra.productoId !== '')
+                    .map((otra) => otra.productoId),
+                )
+                const opciones = productosActivos
+                  .filter((item) => !usadosEnOtrasLineas.has(item.id))
+                  .map((item) => ({
+                    valor: item.id,
+                    etiqueta: item.nombre,
+                    detalle: [item.categoria, item.unidad].filter(Boolean).join(' · ') || undefined,
+                  }))
+
+                return (
+                  <div key={indice} className="flex items-center gap-2">
+                    <ComboboxBuscable
+                      opciones={opciones}
+                      valor={linea.productoId || null}
+                      onElegir={(valor) => cambiarProducto(indice, valor)}
+                    >
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        role="combobox"
+                        className="min-w-0 flex-1 justify-between font-normal"
+                      >
+                        <span className={producto ? 'truncate' : 'text-desactivado truncate'}>
+                          {producto?.nombre ?? 'Elegí un ítem del catálogo'}
+                        </span>
+                        <ChevronsUpDownIcon />
+                      </Button>
+                    </ComboboxBuscable>
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      inputMode="numeric"
+                      value={linea.cantidad}
+                      onChange={(evento) =>
+                        actualizarLinea(indice, { cantidad: evento.target.value, editada: true })
+                      }
+                      placeholder="Cantidad"
+                      className="w-28"
+                      aria-label={`Cantidad de la línea ${indice + 1}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Quitar la línea ${indice + 1}`}
+                      disabled={lineas.length === 1}
+                      onClick={() => quitarLinea(indice)}
+                    >
+                      <Trash2Icon />
+                    </Button>
+                  </div>
+                )
+              })}
               <Button
                 type="button"
                 variant="secondary"
                 size="sm"
                 className="self-start"
-                onClick={() =>
-                  setLineas((actuales) => [...actuales, { productoId: '', cantidad: '' }])
-                }
+                onClick={() => setLineas((actuales) => [...actuales, lineaOrdenVacia()])}
               >
                 <PlusIcon />
                 Agregar ítem
@@ -292,10 +422,35 @@ function OrdenForm({
           )}
         </Field>
 
-        {hayProductoRepetido && (
-          <Alert variant="error">
+        {solicitudesSinItem.length > 0 && (
+          <Alert variant="advertencia">
+            <AlertTitle>Hay solicitudes sin ítem de catálogo</AlertTitle>
             <AlertDescription>
-              Hay un ítem repetido en el detalle. Sumá las cantidades en una sola línea.
+              {solicitudesSinItem.map(nombreSolicitud).join(', ')}. No se pueden agregar
+              automáticamente al detalle: cargá el ítem y la cantidad a mano.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {solicitudesSinLinea.length > 0 && (
+          <Alert variant="advertencia">
+            <AlertTitle>Hay solicitudes que no están en el detalle</AlertTitle>
+            <AlertDescription>
+              {solicitudesSinLinea.map(nombreSolicitud).join(', ')}. Volvé a tildarlas o revisá el
+              ítem de la línea para que su cantidad cuente.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {faltantes.length > 0 && (
+          <Alert variant="advertencia">
+            <AlertTitle>Para emitir la orden falta:</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc pl-5">
+                {faltantes.map((faltante) => (
+                  <li key={faltante}>{faltante}</li>
+                ))}
+              </ul>
             </AlertDescription>
           </Alert>
         )}

@@ -1,8 +1,9 @@
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from fastapi import HTTPException
 
+from src.academico import solicitud_periodo_service
 from src.academico.models import (
     JustificacionInasistencia,
     MotivoJustificacion,
@@ -35,6 +36,23 @@ def contexto(db_session):
     db_session.add_all([usuario, motivo])
     db_session.commit()
     return usuario, escenario
+
+
+@pytest.fixture(autouse=True)
+def fijar_dia_operativo(monkeypatch):
+    """Los tests existentes usan 2027 como año futuro: se fija el día operativo en ese ciclo."""
+    monkeypatch.setattr(
+        solicitud_periodo_service,
+        "fecha_operativa_argentina",
+        lambda: date(2027, 1, 1),
+    )
+
+
+@pytest.fixture
+def hoy_fijo(monkeypatch):
+    hoy = date(2026, 11, 15)
+    monkeypatch.setattr(solicitud_periodo_service, "fecha_operativa_argentina", lambda: hoy)
+    return hoy
 
 
 def test_legacy_individual_justification_rejects_period_covered_date(db_session, contexto):
@@ -122,6 +140,73 @@ def test_rejects_inverted_range_without_writes(db_session, contexto):
             db_session, usuario, alumno_id, date(2027, 3, 2), date(2027, 3, 1), "enfermedad", None
         )
     assert error.value.status_code == 422
+    assert db_session.query(SolicitudAusenciaPeriodo).count() == 0
+
+
+def test_rejects_period_older_than_45_days(db_session, contexto, hoy_fijo):
+    usuario, escenario = contexto
+    limite = hoy_fijo - timedelta(days=45)
+    with pytest.raises(HTTPException) as error:
+        crear_solicitud_periodo(
+            db_session,
+            usuario,
+            escenario["alumno_id"],
+            limite - timedelta(days=3),
+            limite - timedelta(days=1),
+            "enfermedad",
+            None,
+        )
+    assert error.value.status_code == 422
+    assert error.value.detail == "Solo se pueden justificar ausencias de los últimos 45 días."
+    assert db_session.query(SolicitudAusenciaPeriodo).count() == 0
+
+
+def test_accepts_period_ending_within_last_45_days(db_session, contexto, hoy_fijo):
+    usuario, escenario = contexto
+    limite = hoy_fijo - timedelta(days=45)
+    solicitud = crear_solicitud_periodo(
+        db_session,
+        usuario,
+        escenario["alumno_id"],
+        limite - timedelta(days=2),
+        limite,
+        "enfermedad",
+        None,
+    )
+    assert solicitud.fecha_fin == limite
+    assert solicitud.estado == "pendiente"
+
+
+def test_accepts_future_period_for_absence_notice(db_session, contexto, hoy_fijo):
+    usuario, escenario = contexto
+    solicitud = crear_solicitud_periodo(
+        db_session,
+        usuario,
+        escenario["alumno_id"],
+        hoy_fijo + timedelta(days=1),
+        hoy_fijo + timedelta(days=3),
+        "enfermedad",
+        None,
+    )
+    assert solicitud.fecha_inicio == hoy_fijo + timedelta(days=1)
+    assert solicitud.estado == "pendiente"
+
+
+def test_rejects_future_period_of_next_ciclo(db_session, contexto, hoy_fijo):
+    usuario, escenario = contexto
+    siguiente = date(hoy_fijo.year + 1, 2, 1)
+    with pytest.raises(HTTPException) as error:
+        crear_solicitud_periodo(
+            db_session,
+            usuario,
+            escenario["alumno_id"],
+            siguiente,
+            siguiente + timedelta(days=2),
+            "enfermedad",
+            None,
+        )
+    assert error.value.status_code == 422
+    assert error.value.detail == "La ausencia debe pertenecer al ciclo lectivo actual."
     assert db_session.query(SolicitudAusenciaPeriodo).count() == 0
 
 

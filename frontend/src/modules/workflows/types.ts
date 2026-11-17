@@ -19,19 +19,27 @@ export const TIPOS_ACCION = [
 ] as const
 export type TipoAccion = (typeof TIPOS_ACCION)[number]
 
-export const CRITICIDADES = ['baja', 'media', 'alta', 'critica'] as const
-export type Criticidad = (typeof CRITICIDADES)[number]
-
 export const OPERADORES = ['==', '!=', '>', '>=', '<', '<=', 'contiene'] as const
 export type Operador = (typeof OPERADORES)[number]
 
 export type TipoDato = 'numero' | 'fecha' | 'texto'
+
+export interface OpcionCampo {
+  valor: string
+  etiqueta: string
+}
 
 export interface CampoEvento {
   id: string
   nombre_interno: string
   etiqueta: string
   tipo_dato: TipoDato
+  /** Valores cerrados del campo; `null` = campo libre. */
+  opciones: OpcionCampo[] | null
+  /** Demasiados valores para listarlos: se buscan por texto en el servidor. */
+  busqueda: boolean
+  /** Además de buscar, se puede escribir un valor a mano. */
+  permite_otro: boolean
 }
 
 export interface TipoEvento {
@@ -47,6 +55,8 @@ export interface TipoAccionCatalogo {
   /** `null` = cualquier evento; lista vacía = todavía no se puede configurar. */
   eventos_permitidos: string[] | null
   admite_plantilla: boolean
+  /** `false` cuando la allowlist la declara pero todavía no tiene ejecutor. */
+  implementada: boolean
   config_schema: Record<string, unknown>
 }
 
@@ -56,46 +66,89 @@ export interface Condicion {
   valor: string | number
 }
 
+export type LogicaCondicion = 'todas' | 'alguna'
+
+export interface GrupoCondicion {
+  logica: LogicaCondicion
+  comparaciones: Condicion[]
+}
+
 export type AccionConfig = Record<string, unknown>
+
+export type TipoNodo = 'condicion' | 'accion'
+export type RamaNodo = 'si' | 'no'
+
+export interface PosicionNodo {
+  x: number
+  y: number
+}
+
+export interface DestinatariosNodo {
+  roles: { id: string; nombre: string }[]
+  usuarios: { id: string; email: string; estado: string }[]
+}
+
+/** Nodo del árbol tal como lo devuelve el backend. */
+export interface NodoWorkflow {
+  id: string
+  tipo: TipoNodo
+  /** `null` = cuelga del disparador. */
+  padre_id: string | null
+  rama: RamaNodo | null
+  orden: number
+  condicion: GrupoCondicion | null
+  tipo_accion: TipoAccion | null
+  accion_config: AccionConfig | null
+  notificacion_template_id: string | null
+  requiere_aprobacion_humana: boolean
+  destinatarios: DestinatariosNodo
+  posicion: PosicionNodo | null
+  updated_at: string
+}
+
+/** Nodo tal como se envía al guardar: el `id` lo genera el editor. */
+export interface NodoWorkflowPayload {
+  id: string
+  tipo: TipoNodo
+  padre_id: string | null
+  rama: RamaNodo | null
+  condicion: GrupoCondicion | null
+  tipo_accion: TipoAccion | null
+  accion_config: AccionConfig | null
+  notificacion_template_id: string | null
+  requiere_aprobacion_humana: boolean | null
+  destinatarios: { rol_ids: string[]; usuario_ids: string[] }
+  posicion: PosicionNodo | null
+}
 
 export interface ReglaWorkflow {
   id: string
   nombre: string
   tipo_evento_id: string
-  /** `{}` cuando la regla no tiene condición. */
-  condicion: Partial<Condicion>
-  tipo_accion: TipoAccion
-  accion_config: AccionConfig | null
-  criticidad: Criticidad
-  requiere_aprobacion_humana: boolean
-  notificacion_template_id: string | null
   activo: boolean
   created_at: string
   updated_at: string
+  nodos: NodoWorkflow[]
+  /** Bloques del editor sin conectar al flujo: se guardan pero el motor no los ejecuta. */
+  bloques_sueltos: unknown[]
 }
 
 export interface ReglaWorkflowCreatePayload {
   nombre: string
   tipo_evento_id: string
-  condicion: Partial<Condicion>
-  tipo_accion: TipoAccion
-  accion_config: AccionConfig
-  criticidad: Criticidad
-  requiere_aprobacion_humana: boolean
-  notificacion_template_id: string | null
   activo: boolean
+  nodos: NodoWorkflowPayload[]
+  bloques_sueltos: unknown[]
 }
 
 export interface ReglaWorkflowPatch {
   nombre?: string
   tipo_evento_id?: string
-  condicion?: Partial<Condicion>
-  tipo_accion?: TipoAccion
-  accion_config?: AccionConfig | null
-  criticidad?: Criticidad
-  requiere_aprobacion_humana?: boolean
-  notificacion_template_id?: string | null
   activo?: boolean
+  nodos?: NodoWorkflowPayload[]
+  bloques_sueltos?: unknown[]
+  /** `updated_at` de la regla al abrirla: si cambió, el guardado se rechaza (409). */
+  updated_at_base?: string
 }
 
 export interface PlantillaNotificacion {
@@ -111,16 +164,6 @@ export interface PlantillaPayload {
   nombre: string
   asunto: string
   cuerpo: string
-}
-
-export interface DestinatariosRegla {
-  roles: { id: string; nombre: string }[]
-  usuarios: { id: string; email: string; estado: string }[]
-}
-
-export interface DestinatariosReglaPayload {
-  rol_ids: string[]
-  usuario_ids: string[]
 }
 
 export const ESTADOS_EJECUCION = ['exitoso', 'fallido', 'pendiente', 'rechazado'] as const
@@ -144,7 +187,9 @@ export interface EjecucionWorkflow {
   error_detail: string | null
   workflow_rule_id: string
   workflow_rule_nombre: string
-  tipo_accion: TipoAccion
+  workflow_nodo_id: string
+  /** `null` cuando la ejecución es de una condición que no se pudo evaluar. */
+  tipo_accion: TipoAccion | null
   event_log_id: string
   tipo_evento: string
   evento_timestamp: string
@@ -170,6 +215,8 @@ export interface EjecucionWorkflowListado {
 
 export interface FiltrosEjecuciones {
   estado?: EstadoEjecucion
+  reglaId?: string
+  nodoId?: string
   pagina: number
   tamanioPagina: number
 }
@@ -281,17 +328,91 @@ export interface FiltrosTareas {
   tamanioPagina: number
 }
 
-/** Opción de una lista de selección única con buscador (`ComboboxBuscable`). */
-export interface OpcionCombo {
-  valor: string
-  etiqueta: string
-  /** Texto secundario (p. ej. el email) que también encuentra el buscador. */
-  detalle?: string
-  /** Las opciones con el mismo grupo se muestran juntas, bajo su título. */
-  grupo?: string
-}
-
 export interface OpcionSelect {
   value: string
   label: string
+}
+
+// --- Simulación, estadísticas y resumen ----------------------------------------------------
+
+export type EstadoNodoSimulado =
+  | 'cumple'
+  | 'no_cumple'
+  | 'error'
+  | 'alcanzada'
+  | 'requiere_aprobacion'
+  | 'diferida'
+  | 'no_implementada'
+  | 'config_invalida'
+  | 'no_alcanzado'
+
+export interface NodoSimulado {
+  id: string
+  estado: EstadoNodoSimulado
+  detalle: string | null
+}
+
+export interface EventoResumen {
+  id: string
+  timestamp: string
+  entidad: string
+  estado: string
+  campos: CampoResumen[]
+}
+
+export interface Simulacion {
+  evento: EventoResumen
+  nodos: NodoSimulado[]
+}
+
+export interface SimulacionPayload {
+  tipo_evento_id: string
+  event_log_id: string
+  nodos: NodoWorkflowPayload[]
+}
+
+export interface ConteoEstados {
+  exitoso: number
+  fallido: number
+  pendiente: number
+  rechazado: number
+  total: number
+}
+
+export interface EstadisticasNodo {
+  workflow_nodo_id: string
+  exitoso: number
+  fallido: number
+  pendiente: number
+  rechazado: number
+}
+
+export interface EstadisticasRegla {
+  dias: number
+  nodos: EstadisticasNodo[]
+}
+
+export interface PuntoSerie extends ConteoEstados {
+  fecha: string
+}
+
+export interface ResumenRegla {
+  workflow_rule_id: string
+  ejecuciones: ConteoEstados
+  /** Ejecuciones por día de los últimos 14 días, del más viejo al más nuevo. */
+  serie: number[]
+  ultima_ejecucion: string | null
+  fallas_7_dias: number
+  sin_disparos: boolean
+}
+
+export interface ResumenWorkflows {
+  dias: number
+  actual: ConteoEstados
+  anterior: ConteoEstados
+  serie_diaria: PuntoSerie[]
+  reglas: ResumenRegla[]
+  activas: number
+  inactivas: number
+  con_errores: number
 }

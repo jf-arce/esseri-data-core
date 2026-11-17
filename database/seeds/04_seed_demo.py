@@ -70,6 +70,7 @@ from src.inscripciones.models import (
 )
 from src.models import Persona
 from src.proveedores_compras.models import (
+    AreaSolicitante,
     OrdenCompra,
     OrdenCompraDetalle,
     OrdenCompraSolicitud,
@@ -82,15 +83,13 @@ from src.proveedores_compras.models import (
     SolicitudCompra,
 )
 from src.search import normalizar_texto_busqueda
-from src.workflows.destinatarios_service import reemplazar_destinatarios_regla
 from src.workflows.models import NotificacionTemplate, TipoEvento, WorkflowRule
 from src.workflows.plantillas_service import crear_plantilla
+from src.workflows.reglas_service import crear_regla, nodos_de_regla_simple
 from src.workflows.schemas import (
     NotificacionTemplateCreate,
-    ReglaDestinatariosUpdate,
     WorkflowRuleCreate,
 )
-from src.workflows.service import crear_regla
 
 DEMO_EMAIL = "demo.admin@esseri.local"
 DEMO_PASSWORD = os.getenv("ESSERI_DEMO_PASSWORD", "EsseriDemo2026!")
@@ -113,7 +112,6 @@ REGLAS_MORA = [
             "prioridad": "media",
             "dias_para_vencer": 5,
         },
-        "criticidad": "media",
         "rol": "administración",
     },
     {
@@ -126,7 +124,6 @@ REGLAS_MORA = [
             ),
             "prioridad": "alta",
         },
-        "criticidad": "alta",
         "rol": "dirección",
     },
 ]
@@ -165,13 +162,11 @@ REGLAS_VENCIMIENTO = [
     {
         "nombre": "Vencimiento 1: marcar factura vencida",
         "tipo_accion": "aplicar_vencimiento",
-        "criticidad": "media",
     },
     {
         "nombre": "Vencimiento 2: alerta a Administración",
         "tipo_accion": "alerta_interna",
         "accion_config": {"enlace": "ejecuciones"},
-        "criticidad": "media",
         "plantilla": PLANTILLA_ALERTA_VENCIDA["nombre"],
         "rol": "administración",
     },
@@ -179,14 +174,12 @@ REGLAS_VENCIMIENTO = [
         "nombre": "Vencimiento 3: aviso a la familia",
         "tipo_accion": "notificar",
         "accion_config": {"destinatario": "responsable_economico", "enlace": "familia_facturacion"},
-        "criticidad": "media",
         "plantilla": PLANTILLA_VENCIDA["nombre"],
     },
     # Sin `requiere_aprobacion_humana`: toma el default de la acción, que mueve dinero (true).
     {
         "nombre": "Vencimiento 4: aplicar penalidad por mora",
         "tipo_accion": "aplicar_penalidad",
-        "criticidad": "alta",
     },
 ]
 
@@ -246,7 +239,6 @@ REGLAS_COMPRAS = [
         {
             "nombre": "Compras 1: generar orden de compra",
             "tipo_accion": "generar_orden_compra",
-            "criticidad": "media",
         },
     ),
     (
@@ -254,7 +246,6 @@ REGLAS_COMPRAS = [
         {
             "nombre": "Compras 2: alerta al área de Compras",
             "tipo_accion": "alerta_interna",
-            "criticidad": "media",
             "plantilla": PLANTILLA_ORDEN_EMITIDA["nombre"],
             "rol": "compras",
         },
@@ -265,7 +256,6 @@ REGLAS_COMPRAS = [
             "nombre": "Compras 3: aviso al solicitante",
             "tipo_accion": "notificar",
             "accion_config": {"destinatario": "solicitante"},
-            "criticidad": "baja",
             "plantilla": PLANTILLA_RECEPCION["nombre"],
         },
     ),
@@ -1072,25 +1062,23 @@ def _ensure_regla_workflow(db, usuario: Usuario, tipo_evento: TipoEvento, regla:
     plantilla_id = None
     if "plantilla" in regla:
         plantilla_id = _require(db, NotificacionTemplate, nombre=regla["plantilla"]).id
-    creada = crear_regla(
+    # Solo algunas acciones admiten destinatarios: las demás rechazan la regla.
+    rol_ids = [_require(db, Rol, nombre=regla["rol"]).id] if "rol" in regla else []
+    crear_regla(
         db,
         WorkflowRuleCreate(
             nombre=regla["nombre"],
             tipo_evento_id=tipo_evento.id,
-            condicion=condicion,
-            tipo_accion=regla["tipo_accion"],
-            accion_config=regla.get("accion_config"),
-            criticidad=regla["criticidad"],
-            notificacion_template_id=plantilla_id,
+            nodos=nodos_de_regla_simple(
+                condicion=condicion,
+                tipo_accion=regla["tipo_accion"],
+                accion_config=regla.get("accion_config"),
+                notificacion_template_id=plantilla_id,
+                rol_ids=rol_ids,
+            ),
         ),
         usuario.id,
     )
-    # Solo algunas acciones admiten destinatarios: las demás rechazan la llamada.
-    if "rol" in regla:
-        rol = _require(db, Rol, nombre=regla["rol"])
-        reemplazar_destinatarios_regla(
-            db, creada, ReglaDestinatariosUpdate(rol_ids=[rol.id], usuario_ids=[]), usuario.id
-        )
 
 
 def _ensure_reglas_workflow(db, usuario: Usuario):
@@ -1222,13 +1210,11 @@ def _ensure_reglas_loop_a(db, usuario: Usuario):
                 "concepto_cobro_id": str(matricula.id),
                 "monto": str(IMPORTE_MATRICULA),
             },
-            "criticidad": "media",
         },
         {
             "nombre": "Loop A 2: bienvenida a la familia",
             "tipo_accion": "notificar",
             "accion_config": {"destinatario": "responsables_habilitados"},
-            "criticidad": "baja",
             "plantilla": PLANTILLA_BIENVENIDA["nombre"],
         },
     ):
@@ -1338,11 +1324,12 @@ def _ensure_reglas_inasistencia(db, usuario: Usuario):
             WorkflowRuleCreate(
                 nombre=regla["nombre"],
                 tipo_evento_id=tipo_evento.id,
-                condicion=regla["condicion"],
-                tipo_accion=regla["tipo_accion"],
-                accion_config=regla["accion_config"],
-                criticidad="baja",
-                notificacion_template_id=plantillas[regla["plantilla"]].id,
+                nodos=nodos_de_regla_simple(
+                    condicion=regla["condicion"],
+                    tipo_accion=regla["tipo_accion"],
+                    accion_config=regla["accion_config"],
+                    notificacion_template_id=plantillas[regla["plantilla"]].id,
+                ),
             ),
             usuario.id,
         )
@@ -1425,6 +1412,16 @@ def _ensure_compras(db, usuario: Usuario, hoy: date):
             precio_row.precio = precio
     db.flush()
 
+    # La demo usa áreas propias además de las del seed canónico (es data ficticia), así que
+    # se dan de alta acá para que la FK no falle en una base recién sembrada.
+    def _area_de_demo(nombre: str) -> AreaSolicitante:
+        area = db.scalar(select(AreaSolicitante).where(AreaSolicitante.nombre == nombre))
+        if area is None:
+            area = AreaSolicitante(nombre=nombre)
+            db.add(area)
+            db.flush()
+        return area
+
     solicitudes_def = [
         (0, 12, "Administración", "pendiente"),
         (1, 4, "Primaria", "pendiente"),
@@ -1438,12 +1435,13 @@ def _ensure_compras(db, usuario: Usuario, hoy: date):
     solicitudes: list[SolicitudCompra] = []
     for idx, (producto_idx, cantidad, area, estado) in enumerate(solicitudes_def):
         producto = productos[producto_idx]
+        area_row = _area_de_demo(area)
         fecha = hoy - timedelta(days=8 - idx)
         solicitud = db.scalar(
             select(SolicitudCompra)
             .where(
                 SolicitudCompra.producto_servicio_id == producto.id,
-                SolicitudCompra.area_solicitante == area,
+                SolicitudCompra.area_solicitante_id == area_row.id,
                 SolicitudCompra.usuario_id == usuario.id,
             )
             .limit(1)
@@ -1452,7 +1450,7 @@ def _ensure_compras(db, usuario: Usuario, hoy: date):
             solicitud = SolicitudCompra(
                 articulo=None,
                 cantidad=cantidad,
-                area_solicitante=area,
+                area_solicitante_id=area_row.id,
                 estado=estado,
                 fecha=fecha,
                 usuario_id=usuario.id,

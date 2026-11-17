@@ -1,6 +1,8 @@
 import type {
-  EstadoSolicitud,
+  EstadoOrdenCompra,
   EstadoVigencia,
+  FiltrosSolicitudes,
+  LineaOrdenFormulario,
   OrdenProductos,
   OrdenProveedores,
   OrdenSolicitudes,
@@ -68,24 +70,49 @@ export function categoriasDisponibles(proveedores: Proveedor[]): string[] {
 
 // --- Solicitudes internas de compra (RF-20) -------------------------------------------------
 
-interface FiltrosSolicitudes {
-  busqueda: string
-  estado: '' | EstadoSolicitud
-  orden: OrdenSolicitudes
+// Tope de cantidad, espeja `CANTIDAD_MAXIMA` del backend. Si cambia allá, cambia acá.
+export const CANTIDAD_MAXIMA_SOLICITUD = 9999
+
+export const FILTROS_SOLICITUDES_VACIOS: FiltrosSolicitudes = {
+  busqueda: '',
+  estado: '',
+  areaId: '',
+  solicitante: '',
+  desde: '',
+  hasta: '',
+  cantidadMin: '',
+  cantidadMax: '',
+}
+
+function numeroDeFiltro(valor: string): number | null {
+  const numero = Number(valor)
+  return valor.trim() !== '' && Number.isFinite(numero) ? numero : null
 }
 
 export function filtrarYOrdenarSolicitudes(
   solicitudes: SolicitudCompra[],
-  { busqueda, estado, orden }: FiltrosSolicitudes,
+  filtros: FiltrosSolicitudes,
+  orden: OrdenSolicitudes,
 ): SolicitudCompra[] {
+  const { busqueda, estado, areaId, solicitante, desde, hasta } = filtros
   const termino = normalizar(busqueda.trim())
+  const cantidadMin = numeroDeFiltro(filtros.cantidadMin)
+  const cantidadMax = numeroDeFiltro(filtros.cantidadMax)
 
   const filtradas = solicitudes.filter((solicitud) => {
     if (estado && solicitud.estado !== estado) return false
+    if (areaId && solicitud.area_solicitante_id !== areaId) return false
+    if (solicitante && solicitud.solicitante_nombre !== solicitante) return false
+    // `fecha` viene como ISO (YYYY-MM-DD) del backend: comparar strings compara días.
+    if (desde && solicitud.fecha < desde) return false
+    if (hasta && solicitud.fecha > hasta) return false
+    if (cantidadMin !== null && solicitud.cantidad < cantidadMin) return false
+    if (cantidadMax !== null && solicitud.cantidad > cantidadMax) return false
     if (!termino) return true
     return (
       normalizar(solicitud.articulo ?? '').includes(termino) ||
-      normalizar(solicitud.area_solicitante ?? '').includes(termino)
+      normalizar(solicitud.area_solicitante ?? '').includes(termino) ||
+      normalizar(solicitud.solicitante_nombre).includes(termino)
     )
   })
 
@@ -98,6 +125,19 @@ export function filtrarYOrdenarSolicitudes(
   })
 }
 
+export function hayFiltrosSolicitudes(filtros: FiltrosSolicitudes): boolean {
+  return Object.values(filtros).some((valor) => valor.trim() !== '')
+}
+
+// Los solicitantes que ya aparecen en el listado: no hay endpoint de usuarios para este
+// filtro y la lista se arma con los nombres que trae cada solicitud.
+export function solicitantesDisponibles(solicitudes: SolicitudCompra[]): string[] {
+  const nombres = solicitudes
+    .map((solicitud) => solicitud.solicitante_nombre)
+    .filter((nombre) => nombre.trim() !== '')
+  return Array.from(new Set(nombres)).sort((a, b) => a.localeCompare(b, 'es'))
+}
+
 // Que muestra la fila cuando el pedido vino por catalogo en vez de texto libre. El nombre del
 // producto no viaja en la respuesta todavia (el listado no hace join), asi que se cae a una
 // etiqueta explicita en vez de dejar la celda vacia.
@@ -105,6 +145,90 @@ export function descripcionSolicitud(solicitud: SolicitudCompra): string {
   if (solicitud.articulo) return solicitud.articulo
   if (solicitud.producto_servicio_id) return 'Ítem de catálogo'
   return '—'
+}
+
+// --- Órdenes de compra ----------------------------------------------------------------------
+
+export const ETIQUETA_ESTADO_ORDEN: Record<EstadoOrdenCompra, string> = {
+  emitida: 'Emitida',
+  recibida: 'Recibida',
+  cancelada: 'Cancelada',
+}
+
+export function lineaOrdenVacia(): LineaOrdenFormulario {
+  return { productoId: '', cantidad: '', solicitudIds: [], editada: false }
+}
+
+/** Cantidad entera positiva, o `null` si el texto no sirve para emitir la orden. */
+export function cantidadEntera(valor: string): number | null {
+  if (valor.trim() === '') return null
+  const numero = Number(valor)
+  if (!Number.isInteger(numero) || numero <= 0) return null
+  return numero
+}
+
+function cantidadAportada(ids: string[], solicitudes: SolicitudCompra[]): number {
+  const elegidas = new Set(ids)
+  return solicitudes
+    .filter((solicitud) => elegidas.has(solicitud.id))
+    .reduce((total, solicitud) => total + solicitud.cantidad, 0)
+}
+
+/**
+ * Tilda o destilda una solicitud en el detalle de la orden.
+ *
+ * Al tildarla, su cantidad se carga en la línea del ítem de catálogo y varias solicitudes del
+ * mismo ítem se suman. Si la persona ya había escrito una cantidad a mano, se respeta como base y
+ * el aporte nuevo se suma encima; al destildar, esa cantidad manual no se toca.
+ *
+ * Una solicitud con artículo de texto libre no tiene ítem que mapear: el formulario la avisa y la
+ * línea se carga a mano.
+ */
+export function alternarSolicitudEnLineas(
+  lineas: LineaOrdenFormulario[],
+  solicitud: SolicitudCompra,
+  tildada: boolean,
+  solicitudes: SolicitudCompra[],
+): LineaOrdenFormulario[] {
+  const productoId = solicitud.producto_servicio_id
+  if (!productoId) return lineas
+
+  if (!tildada) {
+    const indice = lineas.findIndex((linea) => linea.solicitudIds.includes(solicitud.id))
+    if (indice === -1) return lineas
+    const resultado = lineas.flatMap((linea, i) => {
+      if (i !== indice) return [linea]
+      const restantes = linea.solicitudIds.filter((id) => id !== solicitud.id)
+      const aporte = cantidadAportada(restantes, solicitudes)
+      const cantidad = linea.editada ? linea.cantidad : aporte > 0 ? String(aporte) : ''
+      const quedoVacia = restantes.length === 0 && !linea.editada && cantidad === ''
+      return quedoVacia ? [] : [{ ...linea, solicitudIds: restantes, cantidad }]
+    })
+    return resultado.length > 0 ? resultado : [lineaOrdenVacia()]
+  }
+
+  const existente = lineas.findIndex((linea) => linea.productoId === productoId)
+  if (existente !== -1) {
+    return lineas.map((linea, i) => {
+      if (i !== existente || linea.solicitudIds.includes(solicitud.id)) return linea
+      const ids = [...linea.solicitudIds, solicitud.id]
+      const aporte = cantidadAportada(ids, solicitudes)
+      const cantidad = linea.editada
+        ? String((Number(linea.cantidad) || 0) + solicitud.cantidad)
+        : String(aporte)
+      return { ...linea, solicitudIds: ids, cantidad }
+    })
+  }
+
+  const nueva: LineaOrdenFormulario = {
+    productoId,
+    cantidad: String(solicitud.cantidad),
+    solicitudIds: [solicitud.id],
+    editada: false,
+  }
+  const vacia = lineas.findIndex((linea) => linea.productoId === '')
+  if (vacia === -1) return [...lineas, nueva]
+  return lineas.map((linea, i) => (i === vacia ? nueva : linea))
 }
 
 // --- Catalogo de productos y servicios ------------------------------------------------------
@@ -151,19 +275,66 @@ export function categoriasDeProductos(productos: ProductoServicio[]): string[] {
   return Array.from(new Set(categorias)).sort((a, b) => a.localeCompare(b, 'es'))
 }
 
+// Vocabulario del formulario de ítem del catálogo. El backend sigue aceptando texto libre
+// (`ProductoServicioBase` en `schemas.py`: no hay tabla maestra todavía), así que el listado vive
+// solo en el frontend: para sumar o cambiar un valor se edita esta constante.
+export const CATEGORIAS_PRODUCTO = [
+  'Alimentos',
+  'Deportes',
+  'Librería',
+  'Mantenimiento',
+  'Papelería',
+  'Tecnología',
+] as const
+
+export const UNIDADES_PRODUCTO = [
+  'unidad',
+  'caja',
+  'resma',
+  'kit',
+  'ración',
+  'servicio',
+  'hora',
+] as const
+
+// Un ítem cargado antes de este formulario puede tener una categoría o unidad que ya no está en
+// el listado: se agrega al final para no perderla si se guarda sin tocarla.
+export function opcionesConValorActual(opciones: readonly string[], valorActual: string): string[] {
+  const limpio = valorActual.trim()
+  if (!limpio || opciones.includes(limpio)) return [...opciones]
+  return [...opciones, limpio]
+}
+
 // --- Proveedores y precios por item del catalogo (issue #114) -------------------------------
 
 // Las fechas de vigencia viajan como ISO (YYYY-MM-DD) sin hora: comparar los strings alcanza y
 // evita los corrimientos de zona horaria de pasar por `Date`.
 
-export function hoyISO(ahora: Date = new Date()): string {
-  const mes = String(ahora.getMonth() + 1).padStart(2, '0')
-  const dia = String(ahora.getDate()).padStart(2, '0')
-  return `${ahora.getFullYear()}-${mes}-${dia}`
+// Fecha local en ISO (YYYY-MM-DD). No usa `toISOString()` porque eso pasa a UTC y, de noche,
+// adelanta un día en Argentina.
+export function fechaAISO(fecha: Date): string {
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0')
+  const dia = String(fecha.getDate()).padStart(2, '0')
+  return `${fecha.getFullYear()}-${mes}-${dia}`
 }
 
-export function formatearFechaVigencia(iso: string): string {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString('es-AR')
+export function hoyISO(ahora: Date = new Date()): string {
+  return fechaAISO(ahora)
+}
+
+export function parsearFechaISO(iso: string): Date {
+  return new Date(`${iso}T00:00:00`)
+}
+
+/** Día de una fecha ISO sin hora, siempre en orden día/mes/año. */
+const formatoFechaDia = new Intl.DateTimeFormat('es-AR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+})
+
+export function formatearFechaDia(iso: string): string {
+  return formatoFechaDia.format(parsearFechaISO(iso))
 }
 
 // A quien se le puede ofrecer el item: proveedores activos que todavia no lo tienen asociado.

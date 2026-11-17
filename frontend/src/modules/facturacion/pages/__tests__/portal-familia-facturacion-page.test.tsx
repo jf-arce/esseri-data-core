@@ -79,6 +79,73 @@ function renderizarPagina() {
 }
 
 describe('PortalFamiliaFacturacionPage', () => {
+  it('preselecciona el alumno desde el atajo de la ficha', async () => {
+    const cuenta = structuredClone(facturacion)
+    const base = cuenta.facturas[0]
+    cuenta.facturas = [
+      {
+        ...base,
+        id: 'a1',
+        alumno_id: 'a',
+        alumno_nombre: 'Ana',
+        detalles: [{ descripcion: 'Cuota Ana', monto: '125.00' }],
+      },
+      {
+        ...base,
+        id: 'b1',
+        alumno_id: 'b',
+        alumno_nombre: 'Bea',
+        detalles: [{ descripcion: 'Cuota Bea', monto: '125.00' }],
+      },
+    ]
+    mockedListarFacturacion.mockResolvedValue(cuenta)
+    render(
+      <MemoryRouter initialEntries={['/familia/facturacion?alumno=a']}>
+        <PortalFamiliaFacturacionPage />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText('Cuota Ana')).toBeInTheDocument()
+    expect(screen.queryByText('Cuota Bea')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Alumno: Ana/ })).toBeInTheDocument()
+  })
+
+  it('ordena las facturas por vencimiento o emisión', async () => {
+    mockedListarFacturacion.mockResolvedValue({
+      ...facturacion,
+      facturas: [
+        {
+          ...facturacion.facturas[0],
+          id: 'factura-abril',
+          fecha_emision: '2026-04-01',
+          fecha_vencimiento: '2026-04-10',
+          fecha_vencimiento_efectiva: '2026-04-10',
+          detalles: [{ descripcion: 'Cuota de abril', monto: '125.00' }],
+        },
+        {
+          ...facturacion.facturas[0],
+          id: 'factura-marzo',
+          detalles: [{ descripcion: 'Cuota de marzo', monto: '125.00' }],
+        },
+      ],
+    })
+    render(
+      <MemoryRouter>
+        <PortalFamiliaFacturacionPage />
+      </MemoryRouter>,
+    )
+    const primero = async () =>
+      (await screen.findAllByText(/Cuota de (marzo|abril)/))[0].textContent ?? ''
+    expect(await primero()).toContain('marzo')
+
+    fireEvent.click(screen.getByRole('button', { name: /Ordenar:/ }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Vencimiento (más lejano)' }))
+    await waitFor(async () => expect(await primero()).toContain('abril'))
+
+    fireEvent.click(screen.getByRole('button', { name: /Ordenar:/ }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Emisión (más reciente)' }))
+    await waitFor(async () => expect(await primero()).toContain('abril'))
+  })
+
   it('shows the automatic debit label without exposing the internal payment code', async () => {
     const cuenta = structuredClone(facturacion)
     cuenta.facturas[0].pagos[0].metodo_pago = 'debito_directo'
@@ -105,7 +172,8 @@ describe('PortalFamiliaFacturacionPage', () => {
     expect(screen.getByText('Saldo pendiente')).toBeInTheDocument()
     expect(screen.getAllByText('Cuota de marzo')).toHaveLength(1)
     expect(screen.queryByRole('heading', { name: 'Conceptos' })).not.toBeInTheDocument()
-    expect(screen.getByText('Acreditado')).toBeInTheDocument()
+    expect(screen.getByText('Pago registrado')).toBeInTheDocument()
+    expect(screen.queryByText('Acreditado')).not.toBeInTheDocument()
     expect(screen.getByText(/Transferencia/)).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Estado de cuenta' })).not.toBeInTheDocument()
     expect(screen.getByText(/\$\s100$/)).toBeInTheDocument()
@@ -218,7 +286,8 @@ describe('PortalFamiliaFacturacionPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Pagadas 1' }))
     expect(screen.getAllByText('Cuota cancelada').length).toBeGreaterThan(0)
     expect(screen.queryByText('Futura')).not.toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('Alumno'), { target: { value: 'b' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Alumno' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Bea' }))
     expect(screen.getByText('No hay facturas para los filtros seleccionados.')).toBeInTheDocument()
   })
 
@@ -277,6 +346,39 @@ describe('PortalFamiliaFacturacionPage', () => {
     fireEvent.change(screen.getByLabelText('Buscar por nombre o ID'), { target: { value: '' } })
     fireEvent.change(screen.getByLabelText('Desde'), { target: { value: '2026-04-01' } })
     expect(screen.getByText(/Bea López/)).toBeInTheDocument()
+    expect(screen.queryByText(/Ana Pérez/)).not.toBeInTheDocument()
+  })
+
+  it('busca sin distinguir tildes ni mayúsculas', async () => {
+    const cuenta = structuredClone(facturacion)
+    cuenta.facturas = [
+      {
+        ...cuenta.facturas[0],
+        id: 'aaa11111',
+        alumno_id: 'a',
+        alumno_nombre: 'Ana Pérez',
+        detalles: [{ descripcion: 'Cuota de marzo', monto: '125.00' }],
+      },
+      {
+        ...cuenta.facturas[0],
+        id: 'bbb22222',
+        alumno_id: 'b',
+        alumno_nombre: 'Bea Lopez',
+        detalles: [{ descripcion: 'Cuota de abril', monto: '125.00' }],
+      },
+    ]
+    mockedListarFacturacion.mockResolvedValue(cuenta)
+    renderizarPagina()
+    await screen.findByText(/Ana Pérez/)
+    fireEvent.click(screen.getByText('Más filtros'))
+    const campo = screen.getByLabelText('Buscar por nombre o ID')
+
+    fireEvent.change(campo, { target: { value: 'perez' } })
+    expect(screen.getByText(/Ana Pérez/)).toBeInTheDocument()
+    expect(screen.queryByText(/Bea Lopez/)).not.toBeInTheDocument()
+
+    fireEvent.change(campo, { target: { value: 'LÓPEZ' } })
+    expect(screen.getByText(/Bea Lopez/)).toBeInTheDocument()
     expect(screen.queryByText(/Ana Pérez/)).not.toBeInTheDocument()
   })
 
