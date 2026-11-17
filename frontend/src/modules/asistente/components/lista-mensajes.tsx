@@ -24,17 +24,16 @@ import { prepararEdicion, resolverEnvio, separarComando } from '../utils'
 import type {
   AliasResuelto,
   Bloque,
+  BloqueGrafico,
   BloqueNavegar,
-  BloqueTabla,
   ComandoBackend,
   MensajeVisible,
   Mencion,
 } from '../types'
-import { BloqueGraficoVista } from './bloque-grafico'
+import { BloqueDatos } from './bloque-datos'
 import { BloqueKpiVista } from './bloque-kpi'
 import { AccionesDelMensaje } from './acciones-del-mensaje'
 import { AtajoResaltado } from './atajo-resaltado'
-import { BloqueTablaVista } from './bloque-tabla'
 import { EdicionDePregunta } from './edicion-de-pregunta'
 import { CursorEscritura, PuntosPensando } from './indicadores-de-carga'
 import { PasosDelMensaje } from './pasos-del-mensaje'
@@ -388,26 +387,23 @@ function BloquesDelMensaje({
       )}
       {bloques.map((bloque, indice) => {
         if (bloque.tipo === 'tabla') {
+          // El gráfico de esta tabla va con ella, en pestañas.
+          const grafico = bloques.find(
+            (b): b is BloqueGrafico => b.tipo === 'grafico' && b.tabla_id === bloque.tabla_id,
+          )
           return (
             <motion.div key={bloque.tabla_id} variants={ELEMENTO_DE_DATOS}>
-              <BloqueTablaVista
-                bloque={bloque}
+              <BloqueDatos
+                tabla={bloque}
+                grafico={grafico}
                 porAlias={porAlias}
                 conversacionId={conversacionId}
               />
             </motion.div>
           )
         }
-        if (bloque.tipo === 'grafico') {
-          const tabla = bloques.find(
-            (b): b is BloqueTabla => b.tipo === 'tabla' && b.tabla_id === bloque.tabla_id,
-          )
-          return (
-            <motion.div key={`grafico-${bloque.tabla_id}-${indice}`} variants={ELEMENTO_DE_DATOS}>
-              <BloqueGraficoVista bloque={bloque} tabla={tabla} porAlias={porAlias} />
-            </motion.div>
-          )
-        }
+        // Los gráficos se muestran dentro del `BloqueDatos` de su tabla.
+        if (bloque.tipo === 'grafico') return null
         if (bloque.tipo === 'tarjeta') {
           return (
             <motion.div key={indice} variants={ELEMENTO_DE_DATOS}>

@@ -43,10 +43,25 @@ interface BloqueTablaProps {
   porAlias: Record<string, AliasResuelto>
   /** Sin conversación guardada no hay nada que descargar. */
   conversacionId?: string | null
+  /** Dentro de las pestañas del bloque de datos: sin marco ni encabezado propios. */
+  incrustada?: boolean
 }
 
-export function BloqueTablaVista({ bloque, porAlias, conversacionId = null }: BloqueTablaProps) {
-  const [orden, setOrden] = useState<OrdenTabla | null>(null)
+interface AccionesDeTablaProps {
+  bloque: BloqueTabla
+  /** Las filas en el orden que se está viendo: es el que se copia. */
+  filas: BloqueTabla['filas']
+  porAlias: Record<string, AliasResuelto>
+  conversacionId?: string | null
+}
+
+/** Copiar y descargar la tabla: van en el encabezado, con o sin gráfico al lado. */
+export function AccionesDeTabla({
+  bloque,
+  filas,
+  porAlias,
+  conversacionId = null,
+}: AccionesDeTablaProps) {
   const [descargando, setDescargando] = useState(false)
   const [copiada, setCopiada] = useState(false)
 
@@ -56,15 +71,8 @@ export function BloqueTablaVista({ bloque, porAlias, conversacionId = null }: Bl
     return () => window.clearTimeout(espera)
   }, [copiada])
 
-  const filas = useMemo(() => {
-    const columna = bloque.columnas.find((c) => c.clave === orden?.clave)
-    if (orden === null || columna === undefined) return bloque.filas
-    return ordenarFilas(bloque.filas, columna, orden.dir, porAlias)
-  }, [bloque, orden, porAlias])
-
   async function copiar() {
     try {
-      // Se copia en el orden que se está viendo.
       const { texto, html } = armarCopiaTabla({ ...bloque, filas }, porAlias)
       await copiarAlPortapapeles(texto, html)
       setCopiada(true)
@@ -85,56 +93,83 @@ export function BloqueTablaVista({ bloque, porAlias, conversacionId = null }: Bl
     }
   }
 
+  if (bloque.filas.length === 0) return null
+  return (
+    <div className="flex items-center">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => void copiar()}
+            aria-label={copiada ? 'Tabla copiada' : 'Copiar la tabla'}
+          >
+            {copiada ? <CheckIcon /> : <CopyIcon />}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{copiada ? 'Copiada' : 'Copiar tabla'}</TooltipContent>
+      </Tooltip>
+      {conversacionId !== null && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              disabled={descargando}
+              aria-label="Descargar la tabla"
+            >
+              <DownloadIcon />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => void descargar('xlsx')}>
+              Descargar Excel
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void descargar('csv')}>
+              Descargar CSV
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+  )
+}
+
+export function BloqueTablaVista({
+  bloque,
+  porAlias,
+  conversacionId = null,
+  incrustada = false,
+}: BloqueTablaProps) {
+  const [orden, setOrden] = useState<OrdenTabla | null>(null)
+
+  const filas = useMemo(() => {
+    const columna = bloque.columnas.find((c) => c.clave === orden?.clave)
+    if (orden === null || columna === undefined) return bloque.filas
+    return ordenarFilas(bloque.filas, columna, orden.dir, porAlias)
+  }, [bloque, orden, porAlias])
+
   // Con más filas que las visibles, la tabla scrollea por dentro con el encabezado fijo.
   const conScroll = filas.length > FILAS_VISIBLES_TABLA
   const altoMaximo = (FILAS_VISIBLES_TABLA + 1) * ALTO_FILA_TABLA
 
+  const Envoltorio = incrustada ? 'div' : 'figure'
+
   return (
-    <figure className="rounded-xl border border-borde bg-superficie">
-      <figcaption className="flex items-center justify-between gap-2 px-3 pt-3">
-        <span className="text-sm font-medium text-texto">{bloque.titulo}</span>
-        {bloque.filas.length > 0 && (
-          <div className="flex items-center">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => void copiar()}
-                  aria-label={copiada ? 'Tabla copiada' : 'Copiar la tabla'}
-                >
-                  {copiada ? <CheckIcon /> : <CopyIcon />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{copiada ? 'Copiada' : 'Copiar tabla'}</TooltipContent>
-            </Tooltip>
-            {conversacionId !== null && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    disabled={descargando}
-                    aria-label="Descargar la tabla"
-                  >
-                    <DownloadIcon />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => void descargar('xlsx')}>
-                    Descargar Excel
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => void descargar('csv')}>
-                    Descargar CSV
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
-        )}
-      </figcaption>
+    <Envoltorio className={cn(!incrustada && 'rounded-xl border border-borde bg-superficie')}>
+      {!incrustada && (
+        <figcaption className="flex items-center justify-between gap-2 px-3 pt-3">
+          <span className="text-sm font-medium text-texto">{bloque.titulo}</span>
+          <AccionesDeTabla
+            bloque={bloque}
+            filas={filas}
+            porAlias={porAlias}
+            conversacionId={conversacionId}
+          />
+        </figcaption>
+      )}
       {bloque.filas.length === 0 ? (
         <p className="px-3 py-4 text-sm text-texto-3">Sin registros en este período.</p>
       ) : (
@@ -206,6 +241,6 @@ export function BloqueTablaVista({ bloque, porAlias, conversacionId = null }: Bl
         {conScroll && `${filas.length} filas, deslizá para ver el resto. `}
         {bloque.periodo} · {bloque.fuente}
       </p>
-    </figure>
+    </Envoltorio>
   )
 }

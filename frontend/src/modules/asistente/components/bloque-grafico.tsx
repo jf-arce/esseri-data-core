@@ -12,9 +12,16 @@ interface BloqueGraficoProps {
   tabla: BloqueTabla | undefined
   /** Nombres de los alias ya resueltos, para el eje cuando es una columna de personas. */
   porAlias?: Record<string, AliasResuelto>
+  /** Dentro de las pestañas del bloque de datos: sin marco ni título propios. */
+  incrustado?: boolean
 }
 
-export function BloqueGraficoVista({ bloque, tabla, porAlias = {} }: BloqueGraficoProps) {
+export function BloqueGraficoVista({
+  bloque,
+  tabla,
+  porAlias = {},
+  incrustado = false,
+}: BloqueGraficoProps) {
   const datos = useMemo(
     () => (tabla === undefined ? [] : datosDeGrafico(bloque, tabla, porAlias)),
     [bloque, tabla, porAlias],
@@ -37,8 +44,13 @@ export function BloqueGraficoVista({ bloque, tabla, porAlias = {} }: BloqueGrafi
   const formatearY = (valor: unknown) => formatearEjeY(Number(valor), tipoSerie)
 
   return (
-    <figure className="rounded-xl border border-borde bg-superficie p-3" aria-label={bloque.titulo}>
-      <figcaption className="pb-2 text-sm font-medium text-texto">{bloque.titulo}</figcaption>
+    <figure
+      className={incrustado ? undefined : 'rounded-xl border border-borde bg-superficie p-3'}
+      aria-label={bloque.titulo}
+    >
+      {!incrustado && (
+        <figcaption className="pb-2 text-sm font-medium text-texto">{bloque.titulo}</figcaption>
+      )}
       {bloque.forma === 'barras' ? (
         <EChartsBarChart
           data={datos}
