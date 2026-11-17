@@ -32,13 +32,14 @@ import {
 import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
 import { PortalCard } from '@/components/portal-familia/portal-familia-ui'
 import { useHorarioFamilia } from '@/modules/academico/hooks/use-horario-familia'
-import { aMinutos, deMinutos } from '@/modules/academico/utils'
+import { aMinutos } from '@/modules/academico/utils'
 import type { MateriaCurso } from '@/modules/academico/types'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
 import { normalizarTexto } from '@/lib/texto'
 import { cn } from '@/lib/utils'
 
 const DIAS = [1, 2, 3, 4, 5]
+const HORAS = Array.from({ length: 9 }, (_, indice) => 8 + indice)
 const NOMBRES_DIA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
 
 type EstiloMateria = { bg: string; texto: string; Icono: LucideIcon }
@@ -92,12 +93,15 @@ function DetalleClase({ franja }: { franja: Franja | null }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className={cn('flex items-center gap-4 rounded-[16px] px-4 py-4', estilo.bg)}>
+      <div
+        className="flex items-center gap-4 rounded-[16px] px-4 py-4"
+        style={{
+          backgroundColor: `color-mix(in srgb, ${franja.materia.materia_color || '#7A2FA8'} 22%, var(--pf-card))`,
+        }}
+      >
         <span
-          className={cn(
-            'flex size-14 shrink-0 items-center justify-center rounded-[14px] bg-white/70',
-            estilo.texto,
-          )}
+          className="flex size-14 shrink-0 items-center justify-center rounded-[14px] bg-white/70"
+          style={{ color: franja.materia.materia_color || '#7A2FA8' }}
         >
           <Icono aria-hidden="true" className="size-7" />
         </span>
@@ -157,26 +161,6 @@ export function PortalFamiliaCalendarioPage() {
       ),
     [materiasCurso],
   )
-
-  const puntos = useMemo(() => {
-    const unicos = new Set<number>()
-    for (const franja of franjas) {
-      unicos.add(aMinutos(franja.hora_inicio))
-      unicos.add(aMinutos(franja.hora_fin))
-    }
-    return [...unicos].sort((a, b) => a - b)
-  }, [franjas])
-
-  const filasHorario = useMemo(() => {
-    const intervalos = puntos
-      .slice(0, -1)
-      .map((inicio, indice) => ({ inicio, fin: puntos[indice + 1] }))
-    return intervalos.filter(({ inicio, fin }) =>
-      franjas.some(
-        (franja) => aMinutos(franja.hora_inicio) <= inicio && aMinutos(franja.hora_fin) >= fin,
-      ),
-    )
-  }, [puntos, franjas])
 
   const primeraFranja = useMemo(
     () =>
@@ -304,12 +288,7 @@ export function PortalFamiliaCalendarioPage() {
                             className="grid overflow-hidden rounded-[18px] border border-[#EFE7F6] bg-white"
                             style={{
                               gridTemplateColumns: '8rem repeat(5, minmax(0, 1fr))',
-                              gridTemplateRows: `auto ${filasHorario
-                                .map(
-                                  (fila) =>
-                                    `minmax(78px, ${Math.max(1, (fila.fin - fila.inicio) / 60)}fr)`,
-                                )
-                                .join(' ')}`,
+                              gridTemplateRows: `auto repeat(${HORAS.length}, minmax(64px, 1fr))`,
                             }}
                           >
                             <div className="bg-[#FBF9FD]" aria-hidden="true" />
@@ -322,13 +301,13 @@ export function PortalFamiliaCalendarioPage() {
                               </div>
                             ))}
 
-                            {filasHorario.map((fila, indice) => (
-                              <Fragment key={`${fila.inicio}-${fila.fin}`}>
+                            {HORAS.map((hora, indice) => (
+                              <Fragment key={hora}>
                                 <div
                                   className="border-t border-[#EFE7F6] px-3 py-4 text-center text-[13px] font-semibold text-[#6B6478] tabular-nums"
                                   style={{ gridRow: indice + 2, gridColumn: 1 }}
                                 >
-                                  {deMinutos(fila.inicio)} – {deMinutos(fila.fin)}
+                                  {String(hora).padStart(2, '0')}:00
                                 </div>
                                 {DIAS.map((dia) => (
                                   <div
@@ -343,20 +322,13 @@ export function PortalFamiliaCalendarioPage() {
                             {franjas.map((franja) => {
                               const inicio = aMinutos(franja.hora_inicio)
                               const fin = aMinutos(franja.hora_fin)
-                              const filaInicio = filasHorario.findIndex(
-                                (fila) => fila.inicio === inicio,
-                              )
-                              const filaFin = filasHorario.findIndex((fila) => fila.fin === fin)
-                              if (filaInicio === -1 || filaFin === -1) return null
+                              const horaInicio = Math.max(8, Math.floor(inicio / 60))
+                              const horaFin = Math.min(17, Math.ceil(fin / 60))
+                              const filaInicio = horaInicio - 8
+                              const filaFin = Math.max(filaInicio + 1, horaFin - 8)
                               const estilo = estiloMateria(franja.materia.materia_nombre)
                               const Icono = estilo.Icono
-                              const docentes = franja.materia.docentes ?? []
-                              const docente =
-                                docentes.length > 1
-                                  ? `Profesores: ${docentes.join(', ')}`
-                                  : docentes.length === 1
-                                    ? `Profesor: ${docentes[0]}`
-                                    : 'Sin docente'
+                              const color = franja.materia.materia_color || '#7A2FA8'
                               const activaEsta = franja.id === activa?.id
                               return (
                                 <button
@@ -365,12 +337,13 @@ export function PortalFamiliaCalendarioPage() {
                                   aria-pressed={activaEsta}
                                   onClick={() => setSeleccionId(franja.id)}
                                   style={{
-                                    gridRow: `${filaInicio + 2} / ${filaFin + 3}`,
+                                    gridRow: `${filaInicio + 2} / ${filaFin + 2}`,
                                     gridColumn: franja.dia_semana + 1,
+                                    backgroundColor: `color-mix(in srgb, ${color} 22%, var(--pf-card))`,
+                                    borderLeft: `3px solid ${color}`,
                                   }}
                                   className={cn(
-                                    'relative z-10 m-1 flex flex-col justify-center gap-0.5 rounded-[12px] px-2.5 py-1.5 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]',
-                                    estilo.bg,
+                                    'relative z-10 m-1 flex flex-col justify-center gap-0.5 rounded-[10px] px-2.5 py-1.5 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]',
                                     activaEsta &&
                                       'ring-2 ring-[#7A2FA8] ring-offset-2 ring-offset-white',
                                   )}
@@ -378,7 +351,8 @@ export function PortalFamiliaCalendarioPage() {
                                   <span className="flex items-center gap-1.5">
                                     <Icono
                                       aria-hidden="true"
-                                      className={cn('size-4 shrink-0', estilo.texto)}
+                                      className="size-4 shrink-0"
+                                      style={{ color }}
                                     />
                                     <span className="min-w-0 text-[13px] leading-tight font-bold text-[#2B2338]">
                                       {franja.materia.materia_nombre}
@@ -386,9 +360,6 @@ export function PortalFamiliaCalendarioPage() {
                                   </span>
                                   <span className="text-[11px] font-medium text-[#4B4456] tabular-nums">
                                     {rangoHora(franja.hora_inicio)} – {rangoHora(franja.hora_fin)}
-                                  </span>
-                                  <span className="line-clamp-2 text-[11px] leading-tight font-medium text-[#4B4456]">
-                                    {docente}
                                   </span>
                                 </button>
                               )
@@ -430,6 +401,7 @@ export function PortalFamiliaCalendarioPage() {
                           franjasDelDia.map((franja) => {
                             const estilo = estiloMateria(franja.materia.materia_nombre)
                             const Icono = estilo.Icono
+                            const color = franja.materia.materia_color || '#7A2FA8'
                             const docentes = franja.materia.docentes ?? []
                             const docente =
                               docentes.length > 1
@@ -440,16 +412,15 @@ export function PortalFamiliaCalendarioPage() {
                             return (
                               <div
                                 key={franja.id}
-                                className={cn(
-                                  'flex items-center gap-3 rounded-[14px] px-4 py-3 text-left',
-                                  estilo.bg,
-                                )}
+                                className="flex items-center gap-3 rounded-[14px] px-4 py-3 text-left"
+                                style={{
+                                  backgroundColor: `color-mix(in srgb, ${color} 22%, var(--pf-card))`,
+                                  borderLeft: `3px solid ${color}`,
+                                }}
                               >
                                 <span
-                                  className={cn(
-                                    'flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-white/70',
-                                    estilo.texto,
-                                  )}
+                                  className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-white/70"
+                                  style={{ color }}
                                 >
                                   <Icono aria-hidden="true" className="size-5" />
                                 </span>
