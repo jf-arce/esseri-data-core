@@ -14,11 +14,11 @@ import {
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { PERMISO_WORKFLOWS_ACTUALIZAR, tienePermiso } from '@/modules/auth/constants'
-import { formatearNombreRol, nombreVisibleDeUsuario } from '@/modules/auth/utils'
+import { formatearNombreRol } from '@/modules/auth/utils'
 import { ESTADO_USUARIO_ACTIVO } from '@/modules/workflows/constants'
 import type { useDestinatariosDisponibles } from '@/modules/workflows/hooks/use-destinatarios-disponibles'
 import type { DestinatariosNodo } from '@/modules/workflows/types'
-import { desplazarConRueda } from '@/modules/workflows/utils'
+import { desplazarConRueda, nombreDePersona } from '@/modules/workflows/utils'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 export interface SeleccionDestinatarios {
@@ -169,7 +169,7 @@ export function DestinatariosCampos({
   const usuarios: Opcion[] = disponibles.usuarios.map((usuario) => ({
     tipo: 'usuario',
     id: usuario.id,
-    etiqueta: nombreVisibleDeUsuario(usuario),
+    etiqueta: nombreDePersona(usuario),
     email: usuario.email,
   }))
 

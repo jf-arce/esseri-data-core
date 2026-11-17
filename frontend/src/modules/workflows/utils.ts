@@ -502,10 +502,16 @@ export function estadosSiguientesTarea(
   return []
 }
 
+/** "Nombre Apellido" seguido, sin coma: así no se confunde cuando hay varias personas en una lista. */
+export function nombreDePersona(usuario: Parameters<typeof nombreVisibleDeUsuario>[0]): string {
+  const [apellido, nombre, ...resto] = nombreVisibleDeUsuario(usuario).split(', ')
+  return nombre !== undefined && resto.length === 0 ? `${nombre} ${apellido}` : (apellido ?? '')
+}
+
 export function opcionDeUsuario(usuario: UsuarioConRoles, grupo?: string): OpcionCombo {
   return {
     valor: usuario.id,
-    etiqueta: nombreVisibleDeUsuario(usuario),
+    etiqueta: nombreDePersona(usuario),
     detalle: usuario.email,
     grupo,
   }
