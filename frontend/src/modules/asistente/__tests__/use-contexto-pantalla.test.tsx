@@ -63,3 +63,26 @@ it('al descartar deja de dar contexto hasta abrir otra ficha', async () => {
   rerender({ ruta: `/familias-alumnos/alumnos/${ID_2}` })
   await waitFor(() => expect(result.current.contexto).toMatchObject({ entidad_id: ID_2 }))
 })
+
+it('da el nombre de la pantalla sin ficha y lo saca al descartar', () => {
+  const { result } = renderHook(() => useContextoPantalla('/academico', true, 'Académico'))
+  expect(result.current.contexto).toBeNull()
+  expect(result.current.pantalla).toBe('Académico')
+
+  act(() => result.current.descartar())
+  expect(result.current.pantalla).toBeNull()
+  expect(result.current.descartado).toBe(true)
+})
+
+it('al cambiar de pantalla el descarte se levanta y el chip vuelve', () => {
+  const { result, rerender } = renderHook(
+    ({ ruta, etiqueta }) => useContextoPantalla(ruta, true, etiqueta),
+    { initialProps: { ruta: '/academico', etiqueta: 'Académico' } },
+  )
+  act(() => result.current.descartar())
+  expect(result.current.pantalla).toBeNull()
+
+  rerender({ ruta: '/inscripciones', etiqueta: 'Inscripciones' })
+  expect(result.current.pantalla).toBe('Inscripciones')
+  expect(result.current.descartado).toBe(false)
+})

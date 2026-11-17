@@ -1,5 +1,5 @@
 import { SendIcon, SquareIcon } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   Command,
   CommandEmpty,
@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/input-group'
 import type { Permiso } from '@/modules/auth/types'
 import type { ComandoDeEntrada } from '../constants'
+import { Skeleton } from '@/components/ui/skeleton'
+import { TIPO_FIJADO } from './tipos-de-contexto'
 import { useSugerenciasMencion, type Sugerencia } from '../hooks/use-sugerencias-mencion'
 import type { ComandoBackend, Mencion, TipoMencion } from '../types'
 import { comandosDisponibles, consultaDeComando, consultaDeMencion, resolverEnvio } from '../utils'
@@ -29,6 +31,42 @@ const ETIQUETA_TIPO: Record<TipoMencion, string> = {
   CURSO: 'Cursos',
 }
 const ORDEN_TIPOS: TipoMencion[] = ['ALUMNO', 'FAMILIA', 'DOCENTE', 'CURSO']
+
+/** El ícono del tipo (alumno, familia, docente, curso), el mismo del chip que queda al elegirlo. */
+function IconoDeTipo({ tipo }: { tipo: TipoMencion }) {
+  const { icono: Icono, color } = TIPO_FIJADO[tipo]
+  return <Icono aria-hidden className={color} />
+}
+
+/**
+ * Mientras llegan los resultados: barras gruesas de lado a lado que brillan una tras otra de arriba
+ * hacia abajo (cada una arranca un poco después que la anterior).
+ */
+function EsqueletoBusqueda() {
+  return (
+    <div role="status" aria-label="Buscando" className="space-y-2 p-1.5">
+      {[0, 1, 2, 3].map((fila) => (
+        <Skeleton
+          key={fila}
+          className="skeleton-cascada h-7 w-full"
+          style={{ animationDelay: `${fila * 180}ms` }}
+        />
+      ))}
+    </div>
+  )
+}
+
+/** Una pista del campo: la tecla en una cajita y lo que hace, separadas de las demás por espacio. */
+function Ayuda({ tecla, texto }: { tecla: string; texto: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <kbd className="rounded border border-borde bg-fila-hover px-1 font-mono text-[0.6875rem] text-texto-2">
+        {tecla}
+      </kbd>
+      {texto}
+    </span>
+  )
+}
 
 interface EntradaMensajeProps {
   abierto: boolean
@@ -46,6 +84,10 @@ interface EntradaMensajeProps {
   /** Persona elegida desde una tarjeta de elección: se agrega como mención. */
   mencionPendiente: Sugerencia | null
   onMencionAplicada: () => void
+  /** Lo elegido con `@` queda además como contexto de la conversación. */
+  onFijar?: (sugerencia: Sugerencia) => void
+  /** Ficha que se está viendo: va dentro del mismo bloque que el campo, sobre él. */
+  contexto?: ReactNode
 }
 
 export type { Sugerencia }
@@ -65,6 +107,8 @@ export function EntradaMensaje({
   onNueva,
   mencionPendiente,
   onMencionAplicada,
+  onFijar,
+  contexto,
 }: EntradaMensajeProps) {
   const [texto, setTexto] = useState('')
   const [menciones, setMenciones] = useState<Mencion[]>([])
@@ -73,8 +117,9 @@ export function EntradaMensaje({
   const [comandoElegido, setComandoElegido] = useState<ComandoDeEntrada | null>(null)
   const [activa, setActiva] = useState(0)
   const campo = useRef<HTMLTextAreaElement>(null)
+  const lista = useRef<HTMLDivElement>(null)
 
-  const sugerencias = useSugerenciasMencion(consulta, {
+  const { sugerencias, buscando: buscandoMenciones } = useSugerenciasMencion(consulta, {
     personas: puedeMencionar,
     academico: puedeMencionarAcademico,
   })
@@ -82,14 +127,25 @@ export function EntradaMensaje({
   const opciones: Opcion[] =
     consultaComando !== null
       ? comandos.map((comando) => ({ clave: `/${comando.nombre}`, tipo: 'comando', comando }))
-      : sugerencias.map((sugerencia) => ({
+      : (buscandoMenciones ? [] : sugerencias).map((sugerencia) => ({
           clave: sugerencia.clave,
           tipo: 'mencion',
           sugerencia,
         }))
   const mencionesActivas = (puedeMencionar || puedeMencionarAcademico) && consulta !== null
   const mostrarLista = consultaComando !== null ? true : mencionesActivas
+  const mostrarEsqueleto = consultaComando === null && mencionesActivas && buscandoMenciones
   const itemActivo = Math.min(activa, Math.max(opciones.length - 1, 0))
+
+  // La lista muestra pocas filas y el resto se ve con scroll: con ↑ ↓ tiene que seguir a la activa.
+  const claveActiva = opciones[itemActivo]?.clave
+  useEffect(() => {
+    if (!mostrarLista || claveActiva === undefined) return
+    const filas = lista.current?.querySelectorAll<HTMLElement>('[cmdk-item]') ?? []
+    const fila = Array.from(filas).find((f) => f.getAttribute('data-value') === claveActiva)
+    // jsdom no implementa `scrollIntoView`.
+    fila?.scrollIntoView?.({ block: 'nearest' })
+  }, [claveActiva, mostrarLista])
 
   useEffect(() => {
     if (!abierto) return
@@ -103,19 +159,21 @@ export function EntradaMensaje({
     setConsultaComando(null)
   }
 
+  // Lo elegido pasa a ser un chip de contexto: el `@` que se escribió para buscarlo se borra del
+  // campo, porque ya se usó.
   function insertarMencion(elegida: Sugerencia) {
     const cursor = campo.current?.selectionStart ?? texto.length
-    const antes = texto.slice(0, cursor)
-    const inicio = antes.lastIndexOf('@')
-    const mencion = `@${elegida.nombre}`
-    const nuevo = `${texto.slice(0, inicio)}${mencion} ${texto.slice(cursor)}`
-    setTexto(nuevo)
-    setMenciones((actuales) => [
-      ...actuales.filter((m) => m.texto !== mencion),
-      { tipo: elegida.tipo, entidad_id: elegida.id, texto: mencion },
-    ])
+    const inicio = texto.slice(0, cursor).lastIndexOf('@')
+    const antes = texto.slice(0, inicio)
+    const despues = texto.slice(cursor)
+    // Sin dejar dos espacios juntos donde estaba la mención.
+    const unido =
+      antes.endsWith(' ') && despues.startsWith(' ') ? antes + despues.slice(1) : antes + despues
+    setTexto(unido)
+    onFijar?.(elegida)
     cerrarListas()
     campo.current?.focus()
+    window.requestAnimationFrame(() => campo.current?.setSelectionRange(inicio, inicio))
   }
 
   function elegirComando(comando: ComandoDeEntrada) {
@@ -153,9 +211,10 @@ export function EntradaMensaje({
       { tipo: mencionPendiente.tipo, entidad_id: mencionPendiente.id, texto: mencion },
     ])
     /* eslint-enable react-hooks/set-state-in-effect */
+    onFijar?.(mencionPendiente)
     onMencionAplicada()
     campo.current?.focus()
-  }, [mencionPendiente, onMencionAplicada])
+  }, [mencionPendiente, onFijar, onMencionAplicada])
 
   function enviar() {
     const escrito = texto.trim()
@@ -212,6 +271,7 @@ export function EntradaMensaje({
     <div className="relative border-t border-borde bg-superficie p-3">
       {mostrarLista && (
         <Command
+          ref={lista}
           shouldFilter={false}
           value={opciones[itemActivo]?.clave ?? ''}
           className="absolute right-3 bottom-full left-3 mb-1 h-auto w-auto rounded-lg border border-borde shadow-card"
@@ -220,11 +280,16 @@ export function EntradaMensaje({
             {consultaComando !== null
               ? 'Elegí un atajo con ↑ ↓ y Enter. Esc cierra la lista.'
               : consulta === ''
-                ? 'Mencioná a un alumno, una familia, un docente o un curso para que el asistente consulte sus datos. Escribí un nombre para buscar.'
+                ? 'Mencioná un alumno, familia, docente o curso.'
                 : 'Elegí a quién mencionar con ↑ ↓ y Enter. Esc cierra la lista.'}
           </p>
-          <CommandList>
-            {opciones.length === 0 && <CommandEmpty>Sin coincidencias.</CommandEmpty>}
+          {/* 3 filas de 2.25rem más el relleno (y el título del primer grupo en las menciones): el
+              resto se ve con scroll. */}
+          <CommandList className={consultaComando !== null ? 'max-h-30' : 'max-h-39'}>
+            {mostrarEsqueleto && <EsqueletoBusqueda />}
+            {opciones.length === 0 && !mostrarEsqueleto && (
+              <CommandEmpty>Sin coincidencias.</CommandEmpty>
+            )}
             {consultaComando !== null &&
               opciones.map((o) =>
                 o.tipo === 'comando' ? (
@@ -241,6 +306,7 @@ export function EntradaMensaje({
                 <CommandGroup key={grupo.tipo} heading={ETIQUETA_TIPO[grupo.tipo]}>
                   {grupo.items.map((o) => (
                     <CommandItem key={o.clave} value={o.clave} onSelect={() => elegir(o)}>
+                      <IconoDeTipo tipo={o.sugerencia.tipo} />
                       <span className="truncate">{o.sugerencia.nombre}</span>
                     </CommandItem>
                   ))}
@@ -249,13 +315,14 @@ export function EntradaMensaje({
           </CommandList>
         </Command>
       )}
+      {contexto}
       <InputGroup className="h-auto">
         <InputGroupTextarea
           ref={campo}
           value={texto}
           rows={1}
           maxLength={MAX_CARACTERES}
-          placeholder="Preguntá algo… @ menciona, / abre atajos"
+          placeholder="Preguntá algo…"
           aria-label="Mensaje para el asistente"
           className="max-h-40 min-h-12 resize-none [field-sizing:content]"
           onChange={(evento) => {
@@ -268,10 +335,12 @@ export function EntradaMensaje({
           onKeyDown={alTeclear}
         />
         <InputGroupAddon align="block-end">
-          <InputGroupText className="text-xs text-texto-3">
-            {puedeMencionar || puedeMencionarAcademico
-              ? '@ menciona · / atajos'
-              : '/ atajos · Enter para enviar'}
+          <InputGroupText className="gap-3 text-xs text-texto-3">
+            {(puedeMencionar || puedeMencionarAcademico) && <Ayuda tecla="@" texto="menciona" />}
+            <Ayuda tecla="/" texto="atajos" />
+            {!(puedeMencionar || puedeMencionarAcademico) && (
+              <Ayuda tecla="Enter" texto="para enviar" />
+            )}
           </InputGroupText>
           {generando ? (
             <InputGroupButton

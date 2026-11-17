@@ -7,11 +7,13 @@ import {
   comandoVigente,
   comandosDisponibles,
   consultaDeComando,
+  coincideConBusqueda,
   consultaDeMencion,
   nombreCorrido,
   ordenarFilas,
   siguienteOrden,
   etiquetaDeDestino,
+  etiquetaDePantalla,
   etiquetaGenerica,
   armarCopia,
   cortarSeguro,
@@ -355,6 +357,66 @@ describe('alias de docentes', () => {
 describe('etiquetaDeDestino', () => {
   it('una clave desconocida no tiene etiqueta', () => {
     expect(etiquetaDeDestino('no_existe', null, [])).toBeNull()
+  })
+})
+
+describe('etiquetaDePantalla', () => {
+  const permisos = [permiso('academico.leer'), permiso('facturacion.leer')]
+
+  it('usa el nombre del menú de la pantalla en que está', () => {
+    const academico = etiquetaDeDestino('academico', 'direccion', permisos)
+    expect(academico).not.toBeNull()
+    expect(etiquetaDePantalla('/academico', 'direccion', permisos)).toBe(academico)
+  })
+
+  it('en una subpantalla gana la entrada más específica', () => {
+    const historial = etiquetaDeDestino('historial_asistencia', 'direccion', permisos)
+    expect(historial).not.toBeNull()
+    expect(etiquetaDePantalla('/academico/historial-asistencia', 'direccion', permisos)).toBe(
+      historial,
+    )
+  })
+
+  it('una pantalla anidada sin entrada propia usa la del módulo', () => {
+    expect(etiquetaDePantalla('/academico/algo/mas', 'direccion', permisos)).toBe(
+      etiquetaDePantalla('/academico', 'direccion', permisos),
+    )
+  })
+
+  it('sin permiso o fuera del menú no hay pantalla', () => {
+    expect(etiquetaDePantalla('/academico', 'direccion', [])).toBeNull()
+    expect(etiquetaDePantalla('/no-existe', 'direccion', permisos)).toBeNull()
+  })
+
+  it('no confunde rutas que solo comparten el comienzo', () => {
+    expect(etiquetaDePantalla('/academicos', 'direccion', permisos)).toBeNull()
+  })
+})
+
+describe('coincideConBusqueda', () => {
+  const curso = '3°A de Primario'
+
+  it.each(['3', 'a', '3a', '3 a', '3° a', '3°A', 'prim', 'primario', '3a prim', 'A 3', 'DE'])(
+    'encuentra el curso al escribir "%s"',
+    (escrito) => expect(coincideConBusqueda(curso, escrito)).toBe(true),
+  )
+
+  it.each(['b', '3b', '4', '3 b', 'secundario', 'rio'])(
+    'no encuentra el curso al escribir "%s"',
+    (escrito) => expect(coincideConBusqueda(curso, escrito)).toBe(false),
+  )
+
+  it('una letra suelta no coincide con el medio de otra palabra', () => {
+    expect(coincideConBusqueda('3°B de Primario', 'a')).toBe(false)
+  })
+
+  it('en nombres de personas no distingue tildes ni orden', () => {
+    expect(coincideConBusqueda('Ana Pérez', 'perez ana')).toBe(true)
+    expect(coincideConBusqueda('Ana Pérez', 'PÉR')).toBe(true)
+  })
+
+  it('lo escrito vacío coincide con todo', () => {
+    expect(coincideConBusqueda(curso, '')).toBe(true)
   })
 })
 

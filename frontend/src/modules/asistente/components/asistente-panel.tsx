@@ -11,12 +11,15 @@ import {
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 import { useAlias } from '../hooks/use-alias'
+import { MAX_FIJADOS } from '../constants'
+import { ChipsContexto } from './chips-contexto'
 import { useConversacion } from '../hooks/use-conversacion'
 import { useAsistenteStore } from '../store'
 import type { AliasResuelto, BloqueNavegar } from '../types'
 import {
   aliasDeMensajes,
   etiquetaDeDestino,
+  etiquetaDePantalla,
   rutaDeDestino,
   rutaDeEntidad,
   sugerenciasPermitidas,
@@ -58,11 +61,17 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
     [permisos, rolActivo],
   )
 
+  const etiquetaPantalla = useMemo(
+    () => etiquetaDePantalla(ubicacion.pathname, rolActivo, permisos),
+    [permisos, rolActivo, ubicacion.pathname],
+  )
   const {
     contexto,
     nombre: nombreVisto,
+    pantalla,
+    descartado,
     descartar,
-  } = useContextoPantalla(ubicacion.pathname, puedeVerPersonas)
+  } = useContextoPantalla(ubicacion.pathname, puedeVerPersonas, etiquetaPantalla)
   const {
     conversacionId,
     mensajes,
@@ -74,7 +83,20 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
     nueva,
     abrir,
     cortar,
-  } = useConversacion({ ruta: ubicacion.pathname, cicloLectivo: ciclo, contexto })
+    fijados,
+    fijar,
+    desfijar,
+  } = useConversacion({
+    ruta: descartado ? undefined : ubicacion.pathname,
+    pantalla,
+    cicloLectivo: ciclo,
+    contexto,
+  })
+  const fijarSugerencia = useCallback(
+    (sugerencia: Sugerencia) =>
+      fijar({ tipo: sugerencia.tipo, entidad_id: sugerencia.id, nombre: sugerencia.nombre }),
+    [fijar],
+  )
   const { porAlias, resolver } = useAlias(conversacionId)
 
   // Rehidrata los nombres solo cuando la respuesta terminó, y solo si el rol puede ver personas.
@@ -164,21 +186,6 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
           {error}
         </p>
       )}
-      {nombreVisto !== null && (
-        <div className="flex shrink-0 items-center gap-1 border-t border-borde px-4 pt-2">
-          <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-violeta-suave py-0.5 pr-1 pl-2.5 text-xs text-texto">
-            <span className="truncate">Viendo: {nombreVisto}</span>
-            <button
-              type="button"
-              onClick={descartar}
-              aria-label="Dejar de usar esta ficha como contexto"
-              className="cursor-pointer rounded-full p-0.5 hover:bg-violeta-borde"
-            >
-              <XIcon className="size-3" />
-            </button>
-          </span>
-        </div>
-      )}
       <EntradaMensaje
         abierto={abierto}
         generando={generando}
@@ -190,6 +197,22 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
         onCancelar={cortar}
         mencionPendiente={mencionPendiente}
         onMencionAplicada={() => setMencionPendiente(null)}
+        onFijar={fijarSugerencia}
+        contexto={
+          <ChipsContexto
+            pantalla={
+              nombreVisto !== null
+                ? { tipo: 'ficha', texto: nombreVisto }
+                : pantalla === null
+                  ? null
+                  : { tipo: 'pantalla', texto: pantalla }
+            }
+            onQuitarPantalla={descartar}
+            fijados={fijados}
+            maximo={MAX_FIJADOS}
+            onQuitarFijado={desfijar}
+          />
+        }
       />
     </div>
   )

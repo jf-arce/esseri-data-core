@@ -14,6 +14,7 @@ vi.mock('../services/conversaciones', () => ({
   listarMensajes: (...args: unknown[]) => listarMensajes(...args),
 }))
 
+import { MAX_FIJADOS } from '../constants'
 import { useConversacion } from '../hooks/use-conversacion'
 
 const opciones = { ruta: '/panel', cicloLectivo: '2026' }
@@ -238,4 +239,83 @@ it('envía la ficha abierta como contexto y no la manda si no hay', async () => 
     await result.current.enviar('otra', [])
   })
   expect(enviarMensaje.mock.calls[1][1]).not.toHaveProperty('contexto')
+})
+
+const ana = { tipo: 'ALUMNO', entidad_id: 'a1', nombre: 'Ana Pérez' } as const
+const curso = { tipo: 'CURSO', entidad_id: 'c1', nombre: '3°A de Primario' } as const
+
+it('lo fijado viaja en cada mensaje, sin el nombre, hasta que se saca', async () => {
+  enviarMensaje.mockResolvedValue(undefined)
+  const { result } = renderHook(() => useConversacion(opciones))
+
+  act(() => {
+    result.current.fijar(ana)
+    result.current.fijar(curso)
+  })
+  await act(async () => {
+    await result.current.enviar('¿cómo viene?', [])
+  })
+  expect(enviarMensaje.mock.calls[0][1].fijados).toEqual([
+    { tipo: 'ALUMNO', entidad_id: 'a1' },
+    { tipo: 'CURSO', entidad_id: 'c1' },
+  ])
+
+  act(() => result.current.desfijar('ALUMNO', 'a1'))
+  expect(result.current.fijados).toEqual([curso])
+  await act(async () => {
+    await result.current.enviar('y ahora', [])
+  })
+  expect(enviarMensaje.mock.calls[1][1].fijados).toEqual([{ tipo: 'CURSO', entidad_id: 'c1' }])
+})
+
+it('sin nada fijado no manda el campo', async () => {
+  enviarMensaje.mockResolvedValue(undefined)
+  const { result } = renderHook(() => useConversacion(opciones))
+  await act(async () => {
+    await result.current.enviar('hola', [])
+  })
+  expect(enviarMensaje.mock.calls[0][1]).not.toHaveProperty('fijados')
+})
+
+it('fijar lo mismo dos veces no lo duplica', () => {
+  const { result } = renderHook(() => useConversacion(opciones))
+  act(() => {
+    result.current.fijar(ana)
+  })
+  act(() => {
+    result.current.fijar(ana)
+  })
+  expect(result.current.fijados).toHaveLength(1)
+})
+
+it('al llegar al máximo no entra otro, avisa con false y lo ya fijado se conserva', () => {
+  const { result } = renderHook(() => useConversacion(opciones))
+  for (let i = 0; i < MAX_FIJADOS; i++) {
+    act(() => {
+      expect(
+        result.current.fijar({ tipo: 'DOCENTE', entidad_id: `d${i}`, nombre: `Docente ${i}` }),
+      ).toBe(true)
+    })
+  }
+  expect(result.current.fijados).toHaveLength(MAX_FIJADOS)
+
+  act(() => {
+    expect(result.current.fijar(ana)).toBe(false)
+  })
+  expect(result.current.fijados).toHaveLength(MAX_FIJADOS)
+  expect(result.current.fijados.map((f) => f.entidad_id)).not.toContain('a1')
+
+  // Con uno menos vuelve a haber lugar, y volver a fijar uno que ya está sigue siendo válido.
+  act(() => result.current.desfijar('DOCENTE', 'd0'))
+  act(() => {
+    expect(result.current.fijar(ana)).toBe(true)
+  })
+  expect(result.current.fijados).toHaveLength(MAX_FIJADOS)
+})
+
+it('una conversación nueva empieza sin nada fijado', () => {
+  const { result } = renderHook(() => useConversacion(opciones))
+  act(() => result.current.fijar(ana))
+  act(() => result.current.nueva())
+  expect(result.current.fijados).toEqual([])
 })

@@ -31,6 +31,10 @@ export const ETIQUETA_HERRAMIENTA: Record<string, string> = {
   resumen_inscripciones: 'Consultando inscripciones',
   tendencia_asistencias: 'Consultando asistencias',
   ausentes_del_dia: 'Consultando los ausentes del día',
+  alumnos_con_mas_inasistencias: 'Consultando las inasistencias por alumno',
+  asistencia_por_curso: 'Consultando la asistencia por curso',
+  resumen_justificaciones: 'Consultando las justificaciones',
+  justificaciones_pendientes: 'Consultando las justificaciones pendientes',
   estructura_academica: 'Consultando los cursos',
   alumnos_del_curso: 'Consultando los alumnos del curso',
   docentes_del_curso: 'Consultando los docentes del curso',
@@ -131,3 +135,6 @@ export const COMANDOS: ComandoDeEntrada[] = [
     comando: null,
   },
 ]
+
+/** Cuántos alumnos, familias, docentes o cursos se pueden tener fijados a la vez. */
+export const MAX_FIJADOS = 10

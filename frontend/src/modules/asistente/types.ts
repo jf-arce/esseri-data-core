@@ -99,6 +99,9 @@ export type TipoMencion = TipoAlias | 'CURSO'
 
 export type Mencion = { tipo: TipoMencion; entidad_id: string; texto: string }
 
+/** Lo que la persona dejó fijado como contexto: el nombre es solo para mostrarlo en el chip. */
+export type Fijado = { tipo: TipoMencion; entidad_id: string; nombre: string }
+
 /**
  * Atajos `/` que el backend entiende. Los de módulo fuerzan una herramienta en el primer paso;
  * los modos (`comparar`, `grafico`, `resumen`) sirven para cualquier módulo y no fuerzan ninguna.
@@ -114,7 +117,9 @@ export type PedidoMensaje = {
   menciones: Mencion[]
   comando?: ComandoBackend
   contexto?: ContextoPantalla
-  ruta: string
+  fijados?: Pick<Fijado, 'tipo' | 'entidad_id'>[]
+  ruta?: string
+  pantalla?: string
   ciclo_lectivo: string
 }
 

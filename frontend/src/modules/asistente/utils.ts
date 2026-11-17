@@ -103,6 +103,27 @@ export function etiquetaDeDestino(
   return destino?.etiqueta ?? null
 }
 
+/**
+ * Nombre de la pantalla en que está la persona, tal como figura en el menú de su rol: la entrada
+ * más específica que coincide con la ruta (así `/academico/historial-asistencia` gana sobre
+ * `/academico`). `null` si la ruta no está en su menú.
+ */
+export function etiquetaDePantalla(
+  pathname: string,
+  rolActivo: string | null,
+  permisos: Permiso[],
+): string | null {
+  const coincidencias = destinosDe(filtrarNav(NAV_GROUPS, rolActivo, permisos)).filter(
+    (destino) => pathname === destino.ruta || pathname.startsWith(`${destino.ruta}/`),
+  )
+  const mejor = coincidencias.reduce<(typeof coincidencias)[number] | null>(
+    (actual, candidato) =>
+      actual === null || candidato.ruta.length > actual.ruta.length ? candidato : actual,
+    null,
+  )
+  return mejor?.etiqueta ?? null
+}
+
 // --- Campo de texto: `@` y `/` -----------------------------------------------------------------
 
 /** "@mar" justo antes del cursor: lo que sigue a la última arroba sin espacios. */
@@ -166,9 +187,22 @@ export function resolverEnvio(
   return { contenido: contenido.slice(candidato.nombre.length + 1).trim(), comando }
 }
 
-/** Coincidencia sin tildes ni mayúsculas, para filtrar docentes y cursos en el navegador. */
+/** Palabras sin tildes ni mayúsculas, con los números y las letras separados ("3°A" → 3, a). */
+function palabrasDeBusqueda(texto: string): string[] {
+  return sinTildes(texto).match(/\d+|[a-z\u00f1]+/g) ?? []
+}
+
+/**
+ * Coincidencia para filtrar docentes y cursos en el navegador: cada palabra escrita tiene que ser
+ * el comienzo de alguna palabra del nombre, en cualquier orden y sin tildes ni mayúsculas. Así
+ * "3", "a", "3a", "3° a", "prim" o "3 a primario" encuentran a "3°A de Primario", y "ana perez"
+ * a "Ana Pérez".
+ */
 export function coincideConBusqueda(nombre: string, consulta: string): boolean {
-  return sinTildes(nombre).includes(sinTildes(consulta))
+  const palabrasNombre = palabrasDeBusqueda(nombre)
+  return palabrasDeBusqueda(consulta).every((buscada) =>
+    palabrasNombre.some((palabra) => palabra.startsWith(buscada)),
+  )
 }
 
 // --- Contexto de pantalla ----------------------------------------------------------------------

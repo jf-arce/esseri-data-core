@@ -13,6 +13,8 @@ import { coincideConBusqueda } from '../utils'
 export type Sugerencia = { clave: string; tipo: TipoMencion; id: string; nombre: string }
 
 const MAX_POR_TIPO = 4
+// Los cursos se filtran en el navegador y la lista tiene scroll: con "3" o "primario" se ven todos.
+const MAX_CURSOS = 12
 const ESPERA_BUSQUEDA_MS = 250
 
 type Catalogo = { docentes: Sugerencia[]; cursos: Sugerencia[] }
@@ -59,20 +61,24 @@ async function cargarCatalogo(): Promise<Catalogo> {
 /**
  * Sugerencias de `@` para lo que se escribió: alumnos y familias (búsqueda en el servidor, con
  * `familias_alumnos.leer`) y docentes y cursos (catálogo que se baja una vez y se filtra acá, con
- * `academico.leer`). Salen agrupadas por tipo, en ese orden.
+ * `academico.leer`). Salen agrupadas por tipo, en ese orden. `buscando` es verdadero desde que
+ * cambia lo escrito hasta que llegan los resultados de esa búsqueda.
  */
 export function useSugerenciasMencion(
   consulta: string | null,
   { personas, academico }: { personas: boolean; academico: boolean },
-): Sugerencia[] {
+): { sugerencias: Sugerencia[]; buscando: boolean } {
   const [sugerencias, setSugerencias] = useState<Sugerencia[]>([])
+  // Lo escrito a lo que corresponden las sugerencias guardadas.
+  const [respondida, setRespondida] = useState<string | null>(null)
   const catalogo = useRef<Promise<Catalogo> | null>(null)
 
   useEffect(() => {
     if ((!personas && !academico) || consulta === null) return
     const controlador = new AbortController()
     const espera = window.setTimeout(() => {
-      const filtros = { buscar: consulta }
+      // Solo por nombre y apellido: un número suelto no tiene que traer a todos los DNI que lo tienen.
+      const filtros = { buscar: consulta, solo_nombre: true }
       const alumnosPedidos = personas
         ? listarAlumnos(filtros, controlador.signal)
         : Promise.resolve<Alumno[]>([])
@@ -84,8 +90,8 @@ export function useSugerenciasMencion(
         : Promise.resolve({ docentes: [], cursos: [] })
       Promise.all([alumnosPedidos, familiasPedidas, catalogo.current])
         .then(([alumnos, familias, { docentes, cursos }]) => {
-          const filtrar = (lista: Sugerencia[]) =>
-            lista.filter((s) => coincideConBusqueda(s.nombre, consulta)).slice(0, MAX_POR_TIPO)
+          const filtrar = (lista: Sugerencia[], maximo = MAX_POR_TIPO) =>
+            lista.filter((s) => coincideConBusqueda(s.nombre, consulta)).slice(0, maximo)
           setSugerencias([
             ...alumnos.slice(0, MAX_POR_TIPO).map((a) => ({
               clave: `ALUMNO:${a.id}`,
@@ -100,13 +106,15 @@ export function useSugerenciasMencion(
               nombre: `${f.persona_nombre} ${f.persona_apellido}`,
             })),
             ...filtrar(docentes),
-            ...filtrar(cursos),
+            ...filtrar(cursos, MAX_CURSOS),
           ])
+          setRespondida(consulta)
         })
         .catch(() => {
           // Si falló el catálogo, se vuelve a intentar en la próxima búsqueda.
           catalogo.current = null
           setSugerencias([])
+          setRespondida(consulta)
         })
     }, ESPERA_BUSQUEDA_MS)
     return () => {
@@ -115,5 +123,9 @@ export function useSugerenciasMencion(
     }
   }, [academico, consulta, personas])
 
-  return consulta === null || (!personas && !academico) ? [] : sugerencias
+  const activa = consulta !== null && (personas || academico)
+  return {
+    sugerencias: activa ? sugerencias : [],
+    buscando: activa && respondida !== consulta,
+  }
 }

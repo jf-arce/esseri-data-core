@@ -107,3 +107,18 @@ it('un modo sin pregunta no se envía', async () => {
   await usuario.keyboard('{Enter}')
   expect(onEnviar).not.toHaveBeenCalled()
 })
+
+it('lo que se elige para mencionar queda también como contexto fijado', async () => {
+  const onFijar = vi.fn()
+  const sugerencia = {
+    clave: 'CURSO:c1',
+    tipo: 'CURSO',
+    id: 'c1',
+    nombre: '3°A de Primario',
+  } as const
+  render(
+    <EntradaMensaje abierto {...propiedades} mencionPendiente={sugerencia} onFijar={onFijar} />,
+  )
+  await waitFor(() => expect(onFijar).toHaveBeenCalledWith(sugerencia))
+  expect(screen.getByRole('textbox')).toHaveValue('@3°A de Primario ')
+})
