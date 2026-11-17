@@ -14,7 +14,7 @@ from datetime import timedelta
 from typing import Any
 
 import httpx
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from src import llm_client
@@ -31,6 +31,7 @@ from src.asistente.constants import (
     ESTADO_CONVERSACION_GENERANDO,
     ESTADO_CONVERSACION_LIBRE,
     ESTADO_MENSAJE_COMPLETO,
+    ESTADO_MENSAJE_DESCARTADO,
     ESTADO_MENSAJE_ERROR,
     ESTADO_MENSAJE_PARCIAL,
     EVENTO_DELTA,
@@ -212,7 +213,8 @@ def listar_mensajes(
     total = (
         db.scalar(
             select(func.count(MensajeAsistente.id)).where(
-                MensajeAsistente.conversacion_id == conversacion.id
+                MensajeAsistente.conversacion_id == conversacion.id,
+                MensajeAsistente.estado != ESTADO_MENSAJE_DESCARTADO,
             )
         )
         or 0
@@ -220,7 +222,10 @@ def listar_mensajes(
     items = list(
         db.scalars(
             select(MensajeAsistente)
-            .where(MensajeAsistente.conversacion_id == conversacion.id)
+            .where(
+                MensajeAsistente.conversacion_id == conversacion.id,
+                MensajeAsistente.estado != ESTADO_MENSAJE_DESCARTADO,
+            )
             .order_by(MensajeAsistente.orden)
             .offset((pagina - 1) * tamanio)
             .limit(tamanio)
@@ -338,6 +343,31 @@ def _mensajes_de_hoy(db: Session, usuario_id: uuid.UUID) -> int:
     )
 
 
+def _descartar_desde(db: Session, conversacion_id: uuid.UUID, mensaje_id: uuid.UUID) -> None:
+    """Editar una pregunta propia descarta esa pregunta y todo lo que vino después.
+
+    No se borran filas: borrarlas liberaría la cuota diaria, que cuenta los mensajes del usuario.
+    """
+    original = db.scalar(
+        select(MensajeAsistente).where(
+            MensajeAsistente.id == mensaje_id,
+            MensajeAsistente.conversacion_id == conversacion_id,
+            MensajeAsistente.autor == AUTOR_USUARIO,
+            MensajeAsistente.estado != ESTADO_MENSAJE_DESCARTADO,
+        )
+    )
+    if original is None:
+        raise MensajeInvalido("No se puede editar ese mensaje.")
+    db.execute(
+        update(MensajeAsistente)
+        .where(
+            MensajeAsistente.conversacion_id == conversacion_id,
+            MensajeAsistente.orden >= original.orden,
+        )
+        .values(estado=ESTADO_MENSAJE_DESCARTADO)
+    )
+
+
 def _siguiente_orden(db: Session, conversacion_id: uuid.UUID) -> int:
     ultimo = db.scalar(
         select(func.max(MensajeAsistente.orden)).where(
@@ -407,6 +437,8 @@ def iniciar_envio(
             )
             is not None
         ]
+        if datos.editar_desde is not None:
+            _descartar_desde(db, conversacion.id, datos.editar_desde)
         orden = _siguiente_orden(db, conversacion.id)
         mensaje_usuario = MensajeAsistente(
             conversacion_id=conversacion.id,

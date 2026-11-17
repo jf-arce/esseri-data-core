@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion, MotionConfig, type Variants } from 'motion/react'
-import { ArrowRightIcon, RotateCcwIcon, SparklesIcon, TriangleAlertIcon } from 'lucide-react'
+import {
+  ArrowRightIcon,
+  PencilIcon,
+  RotateCcwIcon,
+  SparklesIcon,
+  TriangleAlertIcon,
+} from 'lucide-react'
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import { Button } from '@/components/ui/button'
 import { Message, MessageContent } from '@/components/ui/message'
@@ -14,13 +20,22 @@ import {
   useMessageScroller,
 } from '@/components/ui/message-scroller'
 import { useTextoGradual } from '../hooks/use-texto-gradual'
-import { separarComando } from '../utils'
-import type { AliasResuelto, Bloque, BloqueNavegar, BloqueTabla, MensajeVisible } from '../types'
+import { prepararEdicion, resolverEnvio, separarComando } from '../utils'
+import type {
+  AliasResuelto,
+  Bloque,
+  BloqueNavegar,
+  BloqueTabla,
+  ComandoBackend,
+  MensajeVisible,
+  Mencion,
+} from '../types'
 import { BloqueGraficoVista } from './bloque-grafico'
 import { BloqueKpiVista } from './bloque-kpi'
 import { AccionesDelMensaje } from './acciones-del-mensaje'
 import { AtajoResaltado } from './atajo-resaltado'
 import { BloqueTablaVista } from './bloque-tabla'
+import { EdicionDePregunta } from './edicion-de-pregunta'
 import { CursorEscritura, PuntosPensando } from './indicadores-de-carga'
 import { PasosDelMensaje } from './pasos-del-mensaje'
 import { TarjetaRecurso } from './tarjeta-recurso'
@@ -50,6 +65,9 @@ interface ListaMensajesProps {
   alIr: (bloque: BloqueNavegar) => AccionIr | null
   /** Vuelve a mandar la última pregunta; `null` mientras se está generando. */
   alReintentar: (() => void) | null
+  /** Reenvía una pregunta propia con otro texto; `null` mientras se genera una respuesta. */
+  alEditar?:
+    ((id: string, contenido: string, menciones: Mencion[], comando?: ComandoBackend) => void) | null
   sugerencias: string[]
   alSugerir: (texto: string) => void
 }
@@ -61,9 +79,11 @@ export function ListaMensajes({
   alElegir,
   alIr,
   alReintentar,
+  alEditar = null,
   sugerencias,
   alSugerir,
 }: ListaMensajesProps) {
+  const [editando, setEditando] = useState<string | null>(null)
   if (mensajes.length === 0) {
     return (
       <MotionConfig reducedMotion="user">
@@ -124,8 +144,18 @@ export function ListaMensajes({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.25, ease: 'easeOut' }}
                   >
-                    {mensaje.autor === 'usuario' ? (
-                      <Message align="end">
+                    {mensaje.autor === 'usuario' && editando === mensaje.id ? (
+                      <EdicionEnLinea
+                        contenido={mensaje.contenido}
+                        porAlias={porAlias}
+                        alCancelar={() => setEditando(null)}
+                        alEnviar={(contenido, menciones, comando) => {
+                          setEditando(null)
+                          alEditar?.(mensaje.id, contenido, menciones, comando)
+                        }}
+                      />
+                    ) : mensaje.autor === 'usuario' ? (
+                      <Message align="end" className="group/pregunta">
                         <MessageContent>
                           <Bubble variant="muted" align="end">
                             <BubbleContent>
@@ -135,6 +165,18 @@ export function ListaMensajes({
                               />
                             </BubbleContent>
                           </Bubble>
+                          {alEditar !== null && !mensaje.id.startsWith('local-') && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              className="self-end opacity-0 transition-opacity group-focus-within/pregunta:opacity-100 group-hover/pregunta:opacity-100"
+                              onClick={() => setEditando(mensaje.id)}
+                            >
+                              <PencilIcon />
+                              <span className="sr-only">Editar pregunta</span>
+                            </Button>
+                          )}
                         </MessageContent>
                       </Message>
                     ) : (
@@ -159,6 +201,35 @@ export function ListaMensajes({
         </MessageScroller>
       </MessageScrollerProvider>
     </MotionConfig>
+  )
+}
+
+function EdicionEnLinea({
+  contenido,
+  porAlias,
+  alCancelar,
+  alEnviar,
+}: {
+  contenido: string
+  porAlias: Record<string, AliasResuelto>
+  alCancelar: () => void
+  alEnviar: (contenido: string, menciones: Mencion[], comando?: ComandoBackend) => void
+}) {
+  const { comando, texto, menciones } = prepararEdicion(contenido, porAlias)
+  return (
+    <EdicionDePregunta
+      textoInicial={texto}
+      comando={comando}
+      alCancelar={alCancelar}
+      alEnviar={(editado) => {
+        const resuelto = resolverEnvio(editado, comando)
+        alEnviar(
+          resuelto.contenido,
+          menciones.filter((m) => resuelto.contenido.includes(m.texto)),
+          resuelto.comando ?? undefined,
+        )
+      }}
+    />
   )
 }
 

@@ -346,3 +346,38 @@ it('al detener queda lo que llegó como respuesta parcial detenida, sin error', 
   expect(ultimo).toMatchObject({ estado: 'parcial', detenido: true, contenido: 'Hay tres' })
   expect(ultimo.error).toBeUndefined()
 })
+
+it('editar recorta desde esa pregunta y manda editar_desde', async () => {
+  enviarMensaje.mockImplementation(
+    async (
+      _id: string,
+      _pedido: unknown,
+      _signal: AbortSignal,
+      alEvento: (e: EventoSse) => void,
+    ) => {
+      alEvento({
+        evento: 'inicio',
+        datos: { solicitud_id: 's', mensaje_usuario_id: 'u1', mensaje_asistente_id: 'a1' },
+      })
+      alEvento({ evento: 'texto', datos: { solicitud_id: 's', texto: 'Listo.' } })
+      alEvento({ evento: 'fin', datos: { solicitud_id: 's', mensaje_id: 'a1' } })
+    },
+  )
+  const { result } = renderHook(() => useConversacion(opciones))
+  await act(async () => {
+    await result.current.enviar('primera', [])
+  })
+  expect(result.current.mensajes).toHaveLength(2)
+
+  await act(async () => {
+    await result.current.editar('u1', 'primera editada', [], 'comparar')
+  })
+
+  expect(enviarMensaje.mock.calls[1][1]).toMatchObject({
+    contenido: 'primera editada',
+    comando: 'comparar',
+    editar_desde: 'u1',
+  })
+  expect(result.current.mensajes).toHaveLength(2)
+  expect(result.current.mensajes[0].contenido).toBe('/comparar primera editada')
+})

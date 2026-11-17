@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.asistente.constants import BLOQUE_TABLA
+from src.asistente.constants import BLOQUE_TABLA, ESTADO_MENSAJE_DESCARTADO
 from src.asistente.exceptions import TablaNoEncontrada
 from src.asistente.models import Conversacion, MensajeAsistente
 from src.asistente.seudonimos_service import resolver_aliases
@@ -24,6 +24,7 @@ def _buscar_tabla(db: Session, conversacion: Conversacion, tabla_id: str) -> dic
         select(MensajeAsistente.tarjetas).where(
             MensajeAsistente.conversacion_id == conversacion.id,
             MensajeAsistente.tarjetas.is_not(None),
+            MensajeAsistente.estado != ESTADO_MENSAJE_DESCARTADO,
         )
     )
     for bloques in listas:

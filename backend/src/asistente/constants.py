@@ -9,6 +9,8 @@ AUTOR_ASISTENTE = "asistente"
 ESTADO_MENSAJE_COMPLETO = "completo"
 ESTADO_MENSAJE_PARCIAL = "parcial"
 ESTADO_MENSAJE_ERROR = "error"
+# Pregunta (y lo que le siguió) reemplazada al editar: se conserva pero no se muestra ni se usa.
+ESTADO_MENSAJE_DESCARTADO = "descartado"
 
 TIPO_ALIAS_ALUMNO = "ALUMNO"
 TIPO_ALIAS_FAMILIA = "FAMILIA"

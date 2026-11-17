@@ -121,6 +121,8 @@ export type PedidoMensaje = {
   ruta?: string
   pantalla?: string
   ciclo_lectivo: string
+  /** Id de la pregunta que se edita: ella y lo posterior se descartan en el servidor. */
+  editar_desde?: string
 }
 
 // Eventos SSE del backend. Todos traen el `solicitud_id` del envío.

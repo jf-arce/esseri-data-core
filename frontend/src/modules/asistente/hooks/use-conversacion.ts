@@ -156,13 +156,24 @@ export function useConversacion({
   )
 
   const enviar = useCallback(
-    async (contenido: string, menciones: Mencion[], comando?: ComandoBackend) => {
+    async (
+      contenido: string,
+      menciones: Mencion[],
+      comando?: ComandoBackend,
+      editarDesde?: string,
+    ) => {
       const texto = contenido.trim()
       if (texto === '' || generando) return
       setError(null)
       setGenerando(true)
       const abortar = new AbortController()
       controlador.current = abortar
+      setMensajes((actuales) => {
+        // Al editar, la pregunta original y todo lo que seguía salen de la pantalla.
+        const corte =
+          editarDesde === undefined ? -1 : actuales.findIndex((m) => m.id === editarDesde)
+        return corte < 0 ? actuales : actuales.slice(0, corte)
+      })
       setMensajes((actuales) => [
         ...actuales,
         {
@@ -197,6 +208,7 @@ export function useConversacion({
             contenido: texto,
             menciones,
             ...(comando === undefined ? {} : { comando }),
+            ...(editarDesde === undefined ? {} : { editar_desde: editarDesde }),
             ...(ruta === undefined ? {} : { ruta }),
             ...(pantalla === null ? {} : { pantalla }),
             ciclo_lectivo: cicloLectivo,
@@ -252,6 +264,13 @@ export function useConversacion({
     const { comando, texto } = separarComando(ultimaPregunta.contenido)
     void enviar(texto, [], comando?.comando ?? undefined)
   }, [enviar, generando, mensajes])
+
+  // Reenvía una pregunta propia con otro texto: la original y lo posterior se descartan.
+  const editar = useCallback(
+    (id: string, contenido: string, menciones: Mencion[], comando?: ComandoBackend) =>
+      enviar(contenido, menciones, comando, id),
+    [enviar],
+  )
 
   const nueva = useCallback(() => {
     cortar()
@@ -318,6 +337,7 @@ export function useConversacion({
     error,
     enviar,
     reintentar,
+    editar,
     nueva,
     abrir,
     cortar,

@@ -80,6 +80,7 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
     error,
     enviar,
     reintentar,
+    editar,
     nueva,
     abrir,
     cortar,
@@ -173,6 +174,7 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
           alElegir={alElegir}
           alIr={alIr}
           alReintentar={generando ? null : reintentar}
+          alEditar={generando ? null : editar}
           sugerencias={sugerencias}
           alSugerir={(texto) => void enviar(texto, [])}
         />

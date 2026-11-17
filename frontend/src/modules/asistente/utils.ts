@@ -20,6 +20,7 @@ import type {
   ContextoPantalla,
   EventoSse,
   MensajeVisible,
+  Mencion,
   TipoAlias,
   ValorCelda,
 } from './types'
@@ -247,6 +248,31 @@ export function partirTextoConAlias(texto: string): TrozoDeTexto[] {
   }
   if (cursor < texto.length) trozos.push({ tipo: 'texto', valor: texto.slice(cursor) })
   return trozos
+}
+
+/**
+ * Lo que se precarga al editar una pregunta: el texto con las personas como `@Nombre` (cuando se
+ * conoce quiénes son) y las menciones reconstruidas para volver a mandarlas.
+ */
+export function prepararEdicion(
+  contenido: string,
+  porAlias: Record<string, AliasResuelto>,
+): { comando: ComandoDeEntrada | null; texto: string; menciones: Mencion[] } {
+  const { comando, texto } = separarComando(contenido)
+  const menciones: Mencion[] = []
+  const armado = partirTextoConAlias(texto)
+    .map((trozo) => {
+      if (trozo.tipo === 'texto') return trozo.valor
+      const resuelto = porAlias[trozo.alias]
+      if (resuelto === undefined) return trozo.alias
+      const mencion = `@${nombreCorrido(resuelto.nombre)}`
+      if (!menciones.some((m) => m.entidad_id === resuelto.entidad_id)) {
+        menciones.push({ tipo: resuelto.tipo, entidad_id: resuelto.entidad_id, texto: mencion })
+      }
+      return mencion
+    })
+    .join('')
+  return { comando, texto: armado, menciones }
 }
 
 export function aliasEnTexto(texto: string): string[] {

@@ -47,7 +47,8 @@ class MensajeAsistente(Base):
     __table_args__ = (
         sa.CheckConstraint("autor IN ('usuario', 'asistente')", name="ck_mensaje_asistente_autor"),
         sa.CheckConstraint(
-            "estado IN ('completo', 'parcial', 'error')", name="ck_mensaje_asistente_estado"
+            "estado IN ('completo', 'parcial', 'error', 'descartado')",
+            name="ck_mensaje_asistente_estado",
         ),
         sa.UniqueConstraint("conversacion_id", "orden", name="uq_mensaje_asistente_orden"),
     )

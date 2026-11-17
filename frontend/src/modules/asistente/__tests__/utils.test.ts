@@ -5,6 +5,7 @@ import type { BloqueTabla, MensajeVisible } from '../types'
 import {
   aliasDeMensajes,
   atajoAlInicio,
+  prepararEdicion,
   separarComando,
   comandosDisponibles,
   consultaDeComando,
@@ -677,5 +678,30 @@ describe('armarCopiaTabla', () => {
     expect(texto).not.toContain('Deuda por familia')
     expect(texto).not.toContain('Cuenta corriente')
     expect(html.startsWith('<table>')).toBe(true)
+  })
+})
+
+describe('prepararEdicion', () => {
+  const porAlias = {
+    '[ALUMNO:1]': {
+      alias: '[ALUMNO:1]',
+      tipo: 'ALUMNO' as const,
+      entidad_id: 'a1',
+      nombre: 'Mariana Quintero',
+    },
+  }
+
+  it('pone @Nombre donde había un alias y reconstruye la mención', () => {
+    const { texto, menciones, comando } = prepararEdicion('asistencia de [ALUMNO:1]', porAlias)
+    expect(comando).toBeNull()
+    expect(texto).toBe('asistencia de @Mariana Quintero')
+    expect(menciones).toEqual([{ tipo: 'ALUMNO', entidad_id: 'a1', texto: '@Mariana Quintero' }])
+  })
+
+  it('mantiene el atajo aparte del texto y deja sin tocar un alias que no conoce', () => {
+    const { texto, menciones, comando } = prepararEdicion('/grafico de [ALUMNO:9]', porAlias)
+    expect(comando?.nombre).toBe('grafico')
+    expect(texto).toBe('de [ALUMNO:9]')
+    expect(menciones).toEqual([])
   })
 })

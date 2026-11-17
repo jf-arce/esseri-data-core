@@ -322,6 +322,65 @@ class TestConcurrencia:
         assert db_session.get(Conversacion, conversacion.id).estado == "libre"
 
 
+class TestEditar:
+    def _ids_de_usuario(self, cliente, conversacion):
+        mensajes = cliente.get(f"/asistente/conversaciones/{conversacion}/mensajes").json()["items"]
+        return [m["id"] for m in mensajes if m["autor"] == "usuario"], mensajes
+
+    def test_editar_descarta_esa_pregunta_y_lo_posterior(self, direccion, proveedor):
+        proveedor.respuestas = [
+            respuesta_texto("uno"),
+            respuesta_texto("dos"),
+            respuesta_texto("tres"),
+        ]
+        conversacion = nueva_conversacion(direccion)
+        enviar(direccion, conversacion, "primera")
+        enviar(direccion, conversacion, "segunda")
+        ids, _ = self._ids_de_usuario(direccion, conversacion)
+
+        respuesta = enviar(direccion, conversacion, "primera editada", editar_desde=ids[0])
+        assert respuesta.status_code == 200
+
+        _, mensajes = self._ids_de_usuario(direccion, conversacion)
+        assert [m["contenido"] for m in mensajes] == ["primera editada", "tres"]
+        # Al modelo no le llega lo descartado.
+        enviados = [
+            m["content"] for m in proveedor.peticiones[2]["messages"] if m["role"] != "system"
+        ]
+        assert enviados == ["primera editada"]
+
+    def test_editar_no_libera_la_cuota(self, direccion, proveedor, monkeypatch):
+        monkeypatch.setattr(settings, "ASISTENTE_MENSAJES_POR_DIA", 2)
+        proveedor.respuestas = [respuesta_texto("a"), respuesta_texto("b"), respuesta_texto("c")]
+        conversacion = nueva_conversacion(direccion)
+        enviar(direccion, conversacion, "primera")
+        ids, _ = self._ids_de_usuario(direccion, conversacion)
+        assert enviar(direccion, conversacion, "editada", editar_desde=ids[0]).status_code == 200
+        assert enviar(direccion, conversacion, "otra").status_code == 429
+
+    def test_un_id_ajeno_o_de_otra_conversacion_se_rechaza(self, direccion, proveedor):
+        proveedor.respuestas = [respuesta_texto("a"), respuesta_texto("b")]
+        una = nueva_conversacion(direccion)
+        otra = nueva_conversacion(direccion)
+        enviar(direccion, una, "hola")
+        ids, mensajes = self._ids_de_usuario(direccion, una)
+        assert enviar(direccion, otra, "editar", editar_desde=ids[0]).status_code == 422
+        respuesta_del_asistente = next(m["id"] for m in mensajes if m["autor"] == "asistente")
+        assert (
+            enviar(direccion, una, "editar", editar_desde=respuesta_del_asistente).status_code
+            == 422
+        )
+
+    def test_un_rechazo_deja_la_conversacion_libre(self, direccion, proveedor, db_session):
+        conversacion = nueva_conversacion(direccion)
+        respuesta = enviar(
+            direccion, conversacion, "editar", editar_desde="00000000-0000-0000-0000-000000000000"
+        )
+        assert respuesta.status_code == 422
+        db_session.expire_all()
+        assert db_session.scalar(select(Conversacion.estado)) == "libre"
+
+
 class TestRetencion:
     def test_borra_solo_las_conversaciones_vencidas(
         self, direccion, proveedor, personas, db_session, monkeypatch

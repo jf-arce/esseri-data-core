@@ -44,6 +44,8 @@ class MensajeCreate(BaseModel):
     # Nombre del módulo o pantalla en que está la persona, tal como figura en su menú.
     pantalla: str | None = Field(default=None, max_length=80)
     ciclo_lectivo: str | None = Field(default=None, max_length=10)
+    # Pregunta propia que se edita: ella y todo lo posterior se descartan antes de responder.
+    editar_desde: uuid.UUID | None = None
 
 
 class ConversacionRead(BaseModel):
