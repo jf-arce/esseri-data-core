@@ -228,19 +228,22 @@ def opciones(db: Session) -> dict[str, list[str]]:
             select(periodos_union.c.periodo).order_by(periodos_union.c.periodo.desc())
         ).all()
     ]
-    medios = [
-        str(medio)
-        for medio in db.scalars(
-            select(_medio_expr())
-            .select_from(Factura)
-            .join(Inscripcion, Factura.inscripcion_id == Inscripcion.id)
-            .outerjoin(FacturaCobranzaDemo, FacturaCobranzaDemo.factura_id == Factura.id)
-            .where(Factura.estado != "pagada")
-            .where(Factura.monto_total > _pagado_expr())
-            .distinct()
-            .order_by(_medio_expr())
-        ).all()
-    ]
+    # El orden se resuelve en Python: PostgreSQL rechaza `DISTINCT` con un `ORDER BY`
+    # sobre una expresión que no está en la lista de selección.
+    medios = sorted(
+        {
+            str(medio)
+            for medio in db.scalars(
+                select(_medio_expr())
+                .select_from(Factura)
+                .join(Inscripcion, Factura.inscripcion_id == Inscripcion.id)
+                .outerjoin(FacturaCobranzaDemo, FacturaCobranzaDemo.factura_id == Factura.id)
+                .where(Factura.estado != "pagada")
+                .where(Factura.monto_total > _pagado_expr())
+                .distinct()
+            ).all()
+        }
+    )
     return {"periodos": periodos, "medios": medios}
 
 

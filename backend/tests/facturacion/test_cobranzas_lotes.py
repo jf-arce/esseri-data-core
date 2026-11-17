@@ -162,6 +162,17 @@ def test_opciones_devuelve_periodos_y_medios(client_autenticado, db_session):
     assert respuesta.json() == {"periodos": ["2026-11", "2026-10"], "medios": ["cbu", "tarjeta"]}
 
 
+def test_opciones_devuelve_medios_unicos_y_ordenados(client_autenticado, db_session):
+    crear_factura_demo(db_session, 1, periodo="2026-11", medio="tarjeta")
+    crear_factura_demo(db_session, 2, periodo="2026-11", medio="cbu")
+    crear_factura_demo(db_session, 3, periodo="2026-11", medio="cbu")
+
+    respuesta = client_autenticado.get(BASE + "/opciones")
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["medios"] == ["cbu", "tarjeta"]
+
+
 def test_opciones_incluye_periodos_de_lotes_sin_facturas_demo(client_autenticado, db_session):
     crear_factura_demo(db_session, 1, periodo="2026-11")
     usuario = db_session.scalar(select(Usuario).where(Usuario.email == "facturacion@esseri.edu.ar"))
