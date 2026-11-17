@@ -39,7 +39,6 @@ import { PortalCard } from '@/components/portal-familia/portal-familia-ui'
 import { useHorarioFamilia } from '@/modules/academico/hooks/use-horario-familia'
 import {
   aMinutos,
-  calcularGrilla,
   coincideFiltroHorario,
   FILTRO_HORARIO_INICIAL,
   hayFiltroHorario,
@@ -51,6 +50,9 @@ import { normalizarTexto } from '@/lib/texto'
 import { cn } from '@/lib/utils'
 
 const DIAS = [1, 2, 3, 4, 5]
+const INICIO_GRILLA = 7 * 60 + 30
+const FIN_GRILLA = 16 * 60 + 30
+const FILAS_GRILLA = (FIN_GRILLA - INICIO_GRILLA) / 30
 const NOMBRES_DIA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
 
 type EstiloMateria = { bg: string; texto: string; Icono: LucideIcon }
@@ -179,15 +181,6 @@ export function PortalFamiliaCalendarioPage() {
       ),
     [franjas, filtro],
   )
-  const grilla = useMemo(
-    () =>
-      calcularGrilla(franjasFiltradas, {
-        dias: [...DIAS],
-        inicio: 7 * 60 + 30,
-        fin: 16 * 60 + 30,
-      }),
-    [franjasFiltradas],
-  )
   const primeraFranja = useMemo(
     () =>
       [...franjasFiltradas].sort(
@@ -219,6 +212,18 @@ export function PortalFamiliaCalendarioPage() {
     [franjasFiltradas, diaVisible],
   )
 
+  function imprimirCalendario() {
+    const raiz = document.documentElement
+    const estabaOscuro = raiz.classList.contains('dark')
+    if (estabaOscuro) raiz.classList.remove('dark')
+    const restaurar = () => {
+      if (estabaOscuro) raiz.classList.add('dark')
+      window.removeEventListener('afterprint', restaurar)
+    }
+    window.addEventListener('afterprint', restaurar)
+    window.print()
+  }
+
   function elegirDia(dia: number) {
     setDiaAgenda(dia)
     const primera = franjasFiltradas
@@ -241,11 +246,11 @@ export function PortalFamiliaCalendarioPage() {
           volverA="/familia"
           volverEtiqueta="Volver al inicio"
           anchoMaximo="max-w-[92vw]"
-          className="pb-8"
+          className="pb-8 print:hidden"
           classNameContenido="px-4 sm:px-8"
         />
 
-        <div className="mx-auto w-full max-w-[92vw] px-4 pb-10 sm:px-8">
+        <div className="zona-impresion mx-auto w-full max-w-[92vw] px-4 pb-10 sm:px-8 print:max-w-none print:p-0">
           {cargando ? (
             <Skeleton className="h-96 w-full rounded-[24px] bg-white/80" />
           ) : alumnos.length === 0 ? (
@@ -264,6 +269,7 @@ export function PortalFamiliaCalendarioPage() {
           ) : (
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
               <PortalCard
+                className="print:border-0 print:shadow-none"
                 titulo="Horario semanal"
                 descripcion={alumno?.division_etiqueta ?? 'Todavía sin división asignada'}
                 tituloClassName="font-heading text-[26px] leading-tight font-bold tracking-[-0.01em] text-[#241A33]"
@@ -354,7 +360,7 @@ export function PortalFamiliaCalendarioPage() {
                       <Button
                         variant="secondary"
                         className="rounded-full"
-                        onClick={() => window.print()}
+                        onClick={imprimirCalendario}
                       >
                         <PrinterIcon aria-hidden="true" className="size-4" />
                         Imprimir
@@ -377,12 +383,12 @@ export function PortalFamiliaCalendarioPage() {
 
                     <div data-testid="calendario-grilla" className="hidden lg:block">
                       <div className="overflow-x-auto">
-                        <div className="min-w-[820px]">
+                        <div className="min-w-[820px] print:min-w-0">
                           <div
                             className="grid overflow-hidden rounded-[18px] border border-[#EFE7F6] bg-white"
                             style={{
                               gridTemplateColumns: '8rem repeat(5, minmax(0, 1fr))',
-                              gridTemplateRows: `auto repeat(${grilla.filas}, minmax(30px, 1fr))`,
+                              gridTemplateRows: `auto repeat(${FILAS_GRILLA}, minmax(30px, 1fr))`,
                             }}
                           >
                             <div className="bg-[#FBF9FD]" aria-hidden="true" />
@@ -405,8 +411,8 @@ export function PortalFamiliaCalendarioPage() {
                             ))}
 
                             {Array.from(
-                              { length: grilla.filas },
-                              (_, indice) => grilla.inicio + indice * 30,
+                              { length: FILAS_GRILLA },
+                              (_, indice) => INICIO_GRILLA + indice * 30,
                             ).map((minutos, indice) => (
                               <Fragment key={minutos}>
                                 <div
@@ -430,11 +436,11 @@ export function PortalFamiliaCalendarioPage() {
                               const fin = aMinutos(franja.hora_fin)
                               const filaInicio = Math.max(
                                 0,
-                                Math.round((inicio - grilla.inicio) / 30),
+                                Math.round((inicio - INICIO_GRILLA) / 30),
                               )
                               const filaFin = Math.min(
-                                grilla.filas,
-                                Math.max(filaInicio + 1, Math.round((fin - grilla.inicio) / 30)),
+                                FILAS_GRILLA,
+                                Math.max(filaInicio + 1, Math.round((fin - INICIO_GRILLA) / 30)),
                               )
                               const estilo = estiloMateria(franja.materia.materia_nombre)
                               const Icono = estilo.Icono
@@ -555,7 +561,7 @@ export function PortalFamiliaCalendarioPage() {
               </PortalCard>
 
               <PortalCard
-                className="hidden xl:block"
+                className="hidden xl:block print:hidden"
                 titulo="Detalle de clase"
                 tituloClassName="font-heading text-[24px] leading-tight font-bold text-[#241A33]"
                 headerClassName="px-6 pt-6 pb-5"

@@ -839,3 +839,23 @@
     color: #1b1822;
   }
 }
+
+/* Impresión del Portal Familia: solo el contenido del calendario, en horizontal. */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  [data-slot='portal-familia-watermark'] {
+    display: none !important;
+  }
+
+  .portal-familia {
+    background: #ffffff !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+}
