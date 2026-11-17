@@ -9,7 +9,7 @@ from src.facturacion.models import Factura, MetodoPago, Pago, ResponsableEconomi
 from src.inscripciones.models import Inscripcion
 from src.models import AuditLog
 from src.panel_admin.service import obtener_actividad_reciente
-from src.proveedores_compras.models import SolicitudCompra
+from src.proveedores_compras.models import AreaSolicitante, SolicitudCompra
 from src.workflows.eventos_service import emit_event
 from src.workflows.models import TipoEvento
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
@@ -57,10 +57,13 @@ def _auditoria(db_session, entidad, entidad_id, campo, valor_nuevo, usuario_id, 
 def escenario_con_solicitud(db_session):
     escenario = crear_escenario(db_session)
     usuario = _usuario(db_session)
+    area = AreaSolicitante(nombre="Administración")
+    db_session.add(area)
+    db_session.flush()
     solicitud = SolicitudCompra(
         articulo="Resmas",
         cantidad=3,
-        area_solicitante="Administración",
+        area_solicitante_id=area.id,
         estado="pendiente",
         fecha=date(2026, 10, 18),
         usuario_id=usuario.id,

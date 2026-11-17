@@ -314,6 +314,12 @@ class AsistenciaFamiliaResponse(AsistenciaResponse):
     justificacion_archivo_nombre: str | None = None
 
 
+class ConfiguracionAusenciasFamiliaResponse(BaseModel):
+    """Parámetros que el portal familia usa en el formulario de ausencias."""
+
+    dias_limite_justificacion: int
+
+
 class JustificacionFamiliaCreate(BaseModel):
     motivo: str = Field(..., min_length=1, max_length=120)
     observacion: str | None = Field(None, max_length=500)
@@ -679,6 +685,7 @@ class MateriaCursoResponse(BaseModel):
     nivel_educativo_id: uuid.UUID | None = None
     nivel_educativo_nombre: str | None = None
     horarios: list[HorarioMateriaCursoResponse] = Field(default_factory=list)
+    docentes: list[str] = Field(default_factory=list)
     cantidad_asignaciones: int = 0
     created_at: datetime
     updated_at: datetime

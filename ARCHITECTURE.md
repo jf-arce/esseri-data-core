@@ -196,7 +196,7 @@ El **rol activo** es una decisión puramente de UI, guardada en `store/auth-stor
 | `types/global.d.ts` | Tipos globales que no pertenecen a un módulo específico. |
 | `App.tsx` | Componente raíz: renderiza el `RouterProvider` (o `<Routes>`) con el árbol armado en `src/router/`, envuelto en el `layout/` general. |
 | `main.tsx` | Punto de entrada de la aplicación. |
-| `index.css` | Estilos globales y punto de entrada de Tailwind. Acá viven los tokens de `DESIGN.md` (`--violeta`, `--superficie`, `--texto-2`, etc.), mapeados sobre el contrato de variables de shadcn/ui y expuestos como utilidades Tailwind (`bg-superficie`, `text-texto-2`). Modo claro únicamente: no hay bloque `.dark`. |
+| `index.css` | Estilos globales y punto de entrada de Tailwind. Acá viven los tokens de `DESIGN.md` (`--violeta`, `--superficie`, `--texto-2`, etc.), mapeados sobre el contrato de variables de shadcn/ui y expuestos como utilidades Tailwind (`bg-superficie`, `text-texto-2`). Define tema claro y oscuro: `:root` establece la paleta clara y `:root.dark` redefine los mismos tokens semánticos. El subárbol `.portal-familia` fija además la paleta clara de forma local, con independencia del tema elegido en la aplicación. |
 | `components.json` | Archivo de configuración de shadcn/ui (le indica a la CLI dónde generar los componentes: `src/components/ui/`). |
 
 ### Archivos propios de `frontend/` (independientes del resto del repo)

@@ -23,15 +23,33 @@ from src.proveedores_compras.service import (
     crear_proveedor,
     crear_solicitud,
 )
+from tests.areas import AREA_SOLICITANTE_ID
 
 
 def _orden(db: Session, proveedor_nombre: str, fecha: date, cantidad: int = 10) -> OrdenCompra:
+    return _orden_con_items(db, proveedor_nombre, fecha, [cantidad])
+
+
+def _orden_con_items(
+    db: Session, proveedor_nombre: str, fecha: date, cantidades: list[int]
+) -> OrdenCompra:
+    """Orden con una línea por cantidad: sirve para probar el filtro/orden por ítems."""
     proveedor = crear_proveedor(db, ProveedorCreate(nombre=proveedor_nombre))
-    producto = crear_producto_servicio(
-        db, ProductoServicioCreate(nombre=f"Item {proveedor_nombre}", tipo="producto")
-    )
+    productos = [
+        crear_producto_servicio(
+            db,
+            ProductoServicioCreate(nombre=f"Item {proveedor_nombre} {indice}", tipo="producto"),
+        )
+        for indice in range(len(cantidades))
+    ]
     solicitud = crear_solicitud(
-        db, SolicitudCompraCreate(articulo="Algo", cantidad=cantidad), uuid.uuid4()
+        db,
+        SolicitudCompraCreate(
+            articulo="Algo",
+            cantidad=sum(cantidades),
+            area_solicitante_id=AREA_SOLICITANTE_ID,
+        ),
+        uuid.uuid4(),
     )
     cambiar_estado_solicitud(db, solicitud, "aprobada")
     return crear_orden_compra(
@@ -42,6 +60,7 @@ def _orden(db: Session, proveedor_nombre: str, fecha: date, cantidad: int = 10) 
             solicitud_ids=[solicitud.id],
             detalles=[
                 OrdenCompraDetalleCreate(producto_servicio_id=producto.id, cantidad_pedida=cantidad)
+                for producto, cantidad in zip(productos, cantidades, strict=True)
             ],
         ),
     )
@@ -77,6 +96,76 @@ class TestBusquedaDeOrdenes:
         resultado = buscar_ordenes_compra(db_session)
 
         assert [item.proveedor_nombre for item in resultado.items] == ["Nueva", "Vieja"]
+
+    def test_ordena_de_mas_vieja_a_mas_nueva(self, db_session: Session):
+        _orden(db_session, "Vieja", date(2026, 1, 10))
+        _orden(db_session, "Nueva", date(2026, 8, 25))
+
+        resultado = buscar_ordenes_compra(db_session, orden="fecha-asc")
+
+        assert [item.proveedor_nombre for item in resultado.items] == ["Vieja", "Nueva"]
+
+    def test_ordena_por_cantidad_de_items_descendente(self, db_session: Session):
+        _orden_con_items(db_session, "Una línea", date(2026, 8, 20), [3])
+        _orden_con_items(db_session, "Tres líneas", date(2026, 8, 10), [1, 2, 3])
+
+        resultado = buscar_ordenes_compra(db_session, orden="items-desc")
+
+        assert [item.cantidad_items for item in resultado.items] == [3, 1]
+
+    def test_ordena_por_cantidad_de_items_ascendente(self, db_session: Session):
+        _orden_con_items(db_session, "Tres líneas", date(2026, 8, 20), [1, 2, 3])
+        _orden_con_items(db_session, "Una línea", date(2026, 8, 10), [3])
+
+        resultado = buscar_ordenes_compra(db_session, orden="items-asc")
+
+        assert [item.cantidad_items for item in resultado.items] == [1, 3]
+
+    def test_filtra_por_rango_de_fechas(self, db_session: Session):
+        _orden(db_session, "Vieja", date(2026, 1, 10))
+        _orden(db_session, "Del medio", date(2026, 6, 15))
+        _orden(db_session, "Nueva", date(2026, 8, 25))
+
+        resultado = buscar_ordenes_compra(
+            db_session, desde=date(2026, 6, 1), hasta=date(2026, 8, 1)
+        )
+
+        assert [item.proveedor_nombre for item in resultado.items] == ["Del medio"]
+
+    def test_filtra_por_proveedor(self, db_session: Session):
+        orden = _orden(db_session, "Papelera del Sur", date(2026, 8, 20))
+        _orden(db_session, "Librería Central", date(2026, 8, 21))
+
+        resultado = buscar_ordenes_compra(db_session, proveedor_id=orden.proveedor_id)
+
+        assert resultado.total == 1
+        assert resultado.items[0].proveedor_nombre == "Papelera del Sur"
+
+    def test_filtra_por_rango_de_items(self, db_session: Session):
+        _orden_con_items(db_session, "Una línea", date(2026, 8, 20), [1])
+        _orden_con_items(db_session, "Dos líneas", date(2026, 8, 21), [1, 2])
+        _orden_con_items(db_session, "Tres líneas", date(2026, 8, 22), [1, 2, 3])
+
+        resultado = buscar_ordenes_compra(db_session, items_min=2, items_max=2)
+
+        assert [item.cantidad_items for item in resultado.items] == [2]
+
+    def test_combina_los_filtros_nuevos(self, db_session: Session):
+        _orden_con_items(db_session, "Papelera del Sur", date(2026, 8, 20), [1, 2])
+        _orden_con_items(db_session, "Librería Central", date(2026, 8, 21), [1, 2, 3])
+
+        resultado = buscar_ordenes_compra(
+            db_session,
+            buscar="papelera",
+            desde=date(2026, 8, 1),
+            hasta=date(2026, 8, 31),
+            items_min=2,
+            items_max=2,
+            orden="items-desc",
+        )
+
+        assert resultado.total == 1
+        assert resultado.items[0].proveedor_nombre == "Papelera del Sur"
 
     def test_busca_por_proveedor_sin_depender_de_las_tildes(self, db_session: Session):
         """Mismo comportamiento que la búsqueda de inscripciones, ahora con el helper común."""
@@ -280,6 +369,36 @@ class TestBusquedaEndpoints:
         """Sin tope, un `tamanio_pagina=100000` traería la tabla entera."""
         response = client_autenticado.get(
             "/proveedores-compras/ordenes-buscar", params={"tamanio_pagina": 500}
+        )
+
+        assert response.status_code == 422
+
+    def test_buscar_ordenes_con_los_filtros_nuevos(
+        self, client_autenticado: TestClient, db_session: Session
+    ):
+        _orden_con_items(db_session, "Papelera del Sur", date(2026, 8, 20), [1, 2])
+        _orden_con_items(db_session, "Librería Central", date(2026, 8, 21), [1, 2, 3])
+
+        response = client_autenticado.get(
+            "/proveedores-compras/ordenes-buscar",
+            params={
+                "buscar": "papelera",
+                "desde": "2026-08-01",
+                "hasta": "2026-08-31",
+                "items_min": 2,
+                "items_max": 2,
+                "orden": "items-desc",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert data["items"][0]["proveedor_nombre"] == "Papelera del Sur"
+
+    def test_un_orden_desconocido_rechaza(self, client_autenticado: TestClient):
+        response = client_autenticado.get(
+            "/proveedores-compras/ordenes-buscar", params={"orden": "precio-desc"}
         )
 
         assert response.status_code == 422

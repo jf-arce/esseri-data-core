@@ -2,7 +2,7 @@
 
 import math
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select
@@ -23,6 +23,8 @@ from src.academico.service import _familia_del_usuario, _validar_comprobante_jus
 from src.auditoria.service import log_audit
 from src.auth.exceptions import PermisoDenegado
 from src.auth.models import Usuario
+from src.config import settings
+from src.facturacion.calendario_facturacion import fecha_operativa_argentina
 from src.familias_alumnos.models import Alumno, FamiliaAlumno
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import AuditLog, Persona
@@ -53,6 +55,18 @@ def crear_solicitud_periodo(
     if fecha_inicio > fecha_fin:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT, "El período de fechas es inválido"
+        )
+    hoy = fecha_operativa_argentina()
+    dias_limite = settings.ACADEMICO_DIAS_LIMITE_JUSTIFICACION
+    if fecha_fin < hoy - timedelta(days=dias_limite):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"Solo se pueden justificar ausencias de los últimos {dias_limite} días.",
+        )
+    if fecha_fin.year > hoy.year:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "La ausencia debe pertenecer al ciclo lectivo actual.",
         )
     _validar_comprobante_justificacion(
         nombre=comprobante_nombre,

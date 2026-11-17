@@ -23,6 +23,7 @@ const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-40', anchoAlt: 'h-4 w-32' },
   { tipo: 'chip', ancho: 'w-24', anchoAlt: 'w-20' },
   { tipo: 'texto', ancho: 'h-4 w-28', anchoAlt: 'h-4 w-36' },
+  { tipo: 'texto', ancho: 'h-4 w-24', anchoAlt: 'h-4 w-24' },
   { tipo: 'chip', ancho: 'w-20', anchoAlt: 'w-20' },
   { tipo: 'accion' },
 ]
@@ -51,6 +52,7 @@ function ProveedoresTabla({ proveedores, cargando, onEditar, onEliminar }: Prove
           <TableHead>Proveedor</TableHead>
           <TableHead>Categoría</TableHead>
           <TableHead>Contacto</TableHead>
+          <TableHead>Teléfono</TableHead>
           <TableHead>Estado</TableHead>
           <TableHead data-align="end">
             <span className="sr-only">Acciones</span>
@@ -76,6 +78,7 @@ function ProveedoresTabla({ proveedores, cargando, onEditar, onEliminar }: Prove
               <TableCell className="text-texto-2">
                 {proveedor.email ?? proveedor.telefono ?? '—'}
               </TableCell>
+              <TableCell className="text-texto-2">{proveedor.telefono ?? '—'}</TableCell>
               <TableCell>
                 <BadgeEstado estado={proveedor.estado} />
               </TableCell>

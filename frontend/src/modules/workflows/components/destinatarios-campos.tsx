@@ -17,8 +17,9 @@ import { PERMISO_WORKFLOWS_ACTUALIZAR, tienePermiso } from '@/modules/auth/const
 import { formatearNombreRol } from '@/modules/auth/utils'
 import { ESTADO_USUARIO_ACTIVO } from '@/modules/workflows/constants'
 import type { useDestinatariosDisponibles } from '@/modules/workflows/hooks/use-destinatarios-disponibles'
+import { desplazarConRueda } from '@/lib/desplazar-con-rueda'
 import type { DestinatariosNodo } from '@/modules/workflows/types'
-import { desplazarConRueda, nombreDePersona } from '@/modules/workflows/utils'
+import { nombreDePersona } from '@/modules/workflows/utils'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 
 export interface SeleccionDestinatarios {

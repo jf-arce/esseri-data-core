@@ -105,16 +105,7 @@ export function AdjuntosComunicacion({
   }
 
   if (visibles.length === 0) {
-    return (
-      <section className="space-y-2">
-        <h2 className="font-semibold">Archivos adjuntos</h2>
-        <p className="text-sm text-texto-2">
-          {familia
-            ? 'Esta comunicación no tiene archivos disponibles.'
-            : 'No hay archivos adjuntos.'}
-        </p>
-      </section>
-    )
+    return null
   }
 
   return (

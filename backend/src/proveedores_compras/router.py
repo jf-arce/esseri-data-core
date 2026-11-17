@@ -1,6 +1,7 @@
 """Endpoints HTTP del módulo Proveedores y Compras."""
 
 import uuid
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -26,6 +27,7 @@ from src.proveedores_compras.dependencies import (
     obtener_solicitud_o_404,
 )
 from src.proveedores_compras.models import (
+    AreaSolicitante,
     OrdenCompra,
     PrecioProducto,
     ProductoServicio,
@@ -42,11 +44,13 @@ from src.proveedores_compras.precios_service import (
     listar_proveedores_de_producto,
 )
 from src.proveedores_compras.schemas import (
+    AreaSolicitanteResponse,
     LineaPendienteResponse,
     OrdenCompraCambioEstado,
     OrdenCompraCreate,
     OrdenCompraListado,
     OrdenCompraResponse,
+    OrdenOrdenesCompra,
     PrecioProductoCreate,
     PrecioProductoResponse,
     PrecioProductoUpdate,
@@ -83,6 +87,7 @@ from src.proveedores_compras.service import (
     eliminar_solicitud,
     filas_export_ordenes,
     filas_export_proveedores,
+    listar_areas_solicitantes,
     listar_ordenes_compra,
     listar_productos_servicios,
     listar_proveedores,
@@ -146,6 +151,18 @@ def eliminar_proveedor_endpoint(
     Da 409 si el proveedor ya está referenciado por catálogo, precios u órdenes.
     """
     eliminar_proveedor(db, proveedor, usuario.id)
+
+
+@router.get("/areas-solicitantes", response_model=list[AreaSolicitanteResponse])
+def listar_areas_solicitantes_endpoint(
+    _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_LEER))],
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[AreaSolicitante]:
+    """Listar el catálogo de áreas solicitantes, ordenado por nombre.
+
+    Es lo que alimenta el select del formulario y el filtro por área.
+    """
+    return listar_areas_solicitantes(db)
 
 
 @router.post("/solicitudes", response_model=SolicitudCompraResponse, status_code=201)
@@ -475,17 +492,37 @@ def buscar_ordenes_endpoint(
     _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_PROVEEDORES_COMPRAS_LEER))],
     buscar: str | None = Query(None, description="Busca por nombre de proveedor, sin tildes"),
     estado: str | None = Query(None, description="emitida, recibida o cancelada"),
+    proveedor_id: uuid.UUID | None = Query(  # noqa: B008
+        None, description="Filtra por proveedor"
+    ),
+    desde: date | None = Query(None, description="Fecha de emisión desde (inclusive)"),  # noqa: B008
+    hasta: date | None = Query(None, description="Fecha de emisión hasta (inclusive)"),  # noqa: B008
+    items_min: int | None = Query(None, ge=0, description="Cantidad mínima de ítems"),  # noqa: B008
+    items_max: int | None = Query(None, ge=0, description="Cantidad máxima de ítems"),  # noqa: B008
+    orden: OrdenOrdenesCompra = Query(  # noqa: B008
+        "fecha-desc", description="Criterio de orden del listado"
+    ),
     pagina: int = Query(1, ge=1),
     tamanio_pagina: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> OrdenCompraListado:
-    """Buscar órdenes por proveedor y estado, paginado (RF-34/RF-35).
+    """Buscar órdenes por proveedor, estado, fechas y cantidad de ítems (RF-34/RF-35).
 
     Va en `/ordenes-buscar` y no en `/ordenes` para no romper a quien ya consume el listado
     completo: son dos contratos distintos (una lista contra una página de resultados).
     """
     return buscar_ordenes_compra(
-        db, buscar=buscar, estado=estado, pagina=pagina, tamanio_pagina=tamanio_pagina
+        db,
+        buscar=buscar,
+        estado=estado,
+        proveedor_id=proveedor_id,
+        desde=desde,
+        hasta=hasta,
+        items_min=items_min,
+        items_max=items_max,
+        orden=orden,
+        pagina=pagina,
+        tamanio_pagina=tamanio_pagina,
     )
 
 

@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { ChevronsUpDownIcon } from 'lucide-react'
+import { ComboboxBuscable } from '@/components/combobox-buscable'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import type { UsuarioConRoles } from '@/modules/auth/types'
-import { ComboboxBuscable } from '@/modules/workflows/components/combobox-buscable'
 import { opcionDeUsuario } from '@/modules/workflows/utils'
 
 interface ReasignarTareaProps {

@@ -33,6 +33,44 @@ class SolicitudSinArticuloNiProducto(AppException):
         super().__init__(message)
 
 
+class AreaSolicitanteInexistente(AppException):
+    """El `area_solicitante_id` recibido no existe o está dado de baja en el catálogo."""
+
+    status_code = 422
+
+    def __init__(self, message: str = "El área solicitante indicada no existe o está inactiva."):
+        super().__init__(message)
+
+
+class AreaSolicitanteObligatoria(AppException):
+    """Se intentó editar una solicitud dejándola sin área.
+
+    Las filas viejas migradas pueden no tener área, pero al editarlas hay que elegir una:
+    el área es obligatoria desde que existe el catálogo.
+    """
+
+    status_code = 422
+
+    def __init__(self, message: str = "El área solicitante es obligatoria."):
+        super().__init__(message)
+
+
+class SolicitudPropiaNoDecidible(AppException):
+    """Quien creó la solicitud no puede aprobarla ni rechazarla.
+
+    Es una regla de negocio, no de permisos: aunque tenga `actualizar` (incluido el
+    administrador del sistema), decidir sobre el pedido propio es autoaprobarse.
+    """
+
+    status_code = 403
+
+    def __init__(
+        self,
+        message: str = "No podés aprobar ni rechazar una solicitud que creaste vos.",
+    ):
+        super().__init__(message)
+
+
 class ProductoServicioInexistente(AppException):
     """El `producto_servicio_id` recibido no existe en el catálogo."""
 

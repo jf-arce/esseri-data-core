@@ -25,7 +25,7 @@ export const iaSugerenciasFamiliaRoutes: RouteObject[] = [
     element: (
       <PortalFamiliaTramitePage
         titulo="Asistencias"
-        descripcion="Consultá el resumen, justificá ausencias y revisá el historial de asistencia."
+        descripcion="Consultá la asistencia y gestioná las justificaciones."
         modo="asistencias"
       />
     ),

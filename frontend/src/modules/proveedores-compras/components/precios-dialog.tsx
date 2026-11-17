@@ -49,7 +49,7 @@ import {
   estadoVigencia,
   fechaMinimaNuevoPrecio,
   fechaSugeridaNuevoPrecio,
-  formatearFechaVigencia,
+  formatearFechaDia,
   hoyISO,
   preciosDeProveedor,
   proveedoresAsociables,
@@ -253,7 +253,7 @@ function PreciosPanel({
                       <p className="text-sm font-medium">{asociado.proveedor_nombre}</p>
                       <p className="text-texto-2 text-sm tabular-nums">
                         {asociado.precio_vigente
-                          ? `${formatearMoneda(asociado.precio_vigente.precio)} · vigente desde el ${formatearFechaVigencia(asociado.precio_vigente.vigencia_desde)}`
+                          ? `${formatearMoneda(asociado.precio_vigente.precio)} · vigente desde el ${formatearFechaDia(asociado.precio_vigente.vigencia_desde)}`
                           : 'Sin precio vigente'}
                       </p>
                     </div>
@@ -357,11 +357,11 @@ function PreciosPanel({
                                 {formatearMoneda(precio.precio)}
                               </TableCell>
                               <TableCell className="tabular-nums">
-                                {formatearFechaVigencia(precio.vigencia_desde)}
+                                {formatearFechaDia(precio.vigencia_desde)}
                               </TableCell>
                               <TableCell className="text-texto-2 tabular-nums">
                                 {precio.vigencia_hasta
-                                  ? formatearFechaVigencia(precio.vigencia_hasta)
+                                  ? formatearFechaDia(precio.vigencia_hasta)
                                   : '—'}
                               </TableCell>
                               <TableCell>
@@ -375,7 +375,7 @@ function PreciosPanel({
                                   variant="ghost"
                                   size="icon-sm"
                                   disabled={enviando}
-                                  aria-label={`Corregir el precio vigente desde el ${formatearFechaVigencia(precio.vigencia_desde)}`}
+                                  aria-label={`Corregir el precio vigente desde el ${formatearFechaDia(precio.vigencia_desde)}`}
                                   title="Corregir un error de carga"
                                   onClick={() => setFormulario({ tipo: 'corregir', precio })}
                                 >
