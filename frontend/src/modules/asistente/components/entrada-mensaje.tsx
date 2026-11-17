@@ -1,5 +1,5 @@
 import { SendIcon, SquareIcon } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import {
   Command,
   CommandEmpty,
@@ -17,7 +17,6 @@ import {
 import type { Permiso } from '@/modules/auth/types'
 import type { ComandoDeEntrada } from '../constants'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn } from '@/lib/utils'
 import { TIPO_FIJADO } from './tipos-de-contexto'
 import { useSugerenciasMencion, type Sugerencia } from '../hooks/use-sugerencias-mencion'
 import type { ComandoBackend, Mencion, TipoMencion } from '../types'
@@ -125,7 +124,14 @@ export function EntradaMensaje({
   const [comandoElegido, setComandoElegido] = useState<ComandoDeEntrada | null>(null)
   const [activa, setActiva] = useState(0)
   const campo = useRef<HTMLTextAreaElement>(null)
+  const atajo = useRef<HTMLSpanElement>(null)
+  const [sangria, setSangria] = useState(0)
   const lista = useRef<HTMLDivElement>(null)
+
+  // El texto arranca a continuación del atajo y, al seguir de largo, vuelve al borde izquierdo.
+  useLayoutEffect(() => {
+    setSangria(atajo.current === null ? 0 : atajo.current.offsetWidth + 6)
+  }, [comandoElegido])
 
   const { sugerencias, buscando: buscandoMenciones } = useSugerenciasMencion(consulta, {
     personas: puedeMencionar,
@@ -333,9 +339,13 @@ export function EntradaMensaje({
       )}
       {contexto}
       <InputGroup className="h-auto">
-        <div className="flex w-full items-start">
+        <div className="relative w-full">
           {comandoElegido !== null && (
-            <AtajoResaltado comando={comandoElegido} className="shrink-0 pt-3 pl-3 leading-6" />
+            <AtajoResaltado
+              ref={atajo}
+              comando={comandoElegido}
+              className="pointer-events-none absolute top-2 left-2.5 leading-5"
+            />
           )}
           <InputGroupTextarea
             ref={campo}
@@ -344,10 +354,8 @@ export function EntradaMensaje({
             maxLength={MAX_CARACTERES}
             placeholder={comandoElegido === null ? 'Preguntá algo…' : 'Agregá una consulta…'}
             aria-label="Mensaje para el asistente"
-            className={cn(
-              'max-h-40 min-h-12 min-w-0 flex-1 resize-none [field-sizing:content]',
-              comandoElegido !== null && 'pl-2',
-            )}
+            className="max-h-40 min-h-12 w-full min-w-0 resize-none [field-sizing:content]"
+            style={comandoElegido === null ? undefined : { textIndent: sangria }}
             onChange={(evento) => {
               const { value, selectionStart } = evento.target
               // `/grafico deuda` escrito a mano: el atajo pasa al resaltado, como si se hubiera elegido.
