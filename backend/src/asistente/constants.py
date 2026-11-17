@@ -41,7 +41,10 @@ INSTRUCCION_MODO = {
         "La persona pidió comparar. Pedí a las herramientas la comparación con el período "
         "anterior; si ninguna la admite para lo preguntado, decilo en una frase."
     ),
-    "grafico": "La persona pidió verlo como gráfico: usá las herramientas que admiten gráfico.",
+    "grafico": (
+        "La persona pidió verlo como gráfico: usá las herramientas que admiten gráfico. Si la "
+        "herramienta devuelve `aviso_grafico`, decilo en una frase."
+    ),
     "resumen": (
         "La persona pidió un resumen: respondé en una sola frase con la cifra clave, sin tablas "
         "ni gráficos."
@@ -79,6 +82,8 @@ TIPOS_AUSENTE_SIN_JUSTIFICAR = ("ausente_pendiente", "ausente_injustificado")
 MAX_DIAS_PERIODO = 366
 
 FORMAS_GRAFICO = ("barras", "lineas", "areas")
+# Pedido de gráfico en lenguaje natural (texto sin tildes): equivale al atajo `/grafico`.
+PATRON_PEDIDO_GRAFICO = r"\b(grafic\w*|chart|visualiz\w*)"
 # Con menos filas una tabla no aporta sobre el texto.
 MIN_FILAS_TABLA = 2
 # Con menos períodos un gráfico no aporta nada sobre la tabla.

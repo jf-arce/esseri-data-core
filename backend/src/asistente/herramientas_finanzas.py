@@ -9,8 +9,10 @@ from pydantic import BaseModel, Field
 from src.asistente.constants import TIPO_ALIAS_FAMILIA
 from src.asistente.herramientas_base import (
     ContextoHerramienta,
+    FormaGrafico,
     Herramienta,
     ResultadoHerramienta,
+    agregar_grafico,
     agregar_tabla,
     bloque_kpi,
     bloque_tabla,
@@ -44,6 +46,10 @@ class ParametrosDeudaPorFamilias(BaseModel):
     comparar_con_anterior: bool = Field(
         default=False,
         description="Compara el total vencido con el de un mes antes del corte.",
+    )
+    grafico: FormaGrafico | None = Field(
+        default=None,
+        description="Verlo como gráfico: para comparar 3 o más categorías o ver una evolución.",
     )
 
 
@@ -128,6 +134,7 @@ def _deuda_por_familias(
     para_comparacion: dict[str, object] = {}
     bloques: list[dict[str, Any]] = []
     agregar_tabla(bloques, tabla)
+    agregar_grafico(bloques, tabla, parametros.grafico, eje_x="familia", series=["deuda_total"])
     if comparar_al is not None:
         previa = comparar_al
         _, vencido_previo = _total_vencido(contexto, previa, previa)

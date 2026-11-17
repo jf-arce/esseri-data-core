@@ -118,6 +118,10 @@ class ParametrosAlumnosInasistencias(ParametrosPeriodo):
         le=100,
         description="Solo alumnos con presencia igual o menor a este porcentaje, por ejemplo 85.",
     )
+    grafico: FormaGrafico | None = Field(
+        default=None,
+        description="Verlo como gráfico: para comparar 3 o más categorías o ver una evolución.",
+    )
 
 
 def _alumnos_con_mas_inasistencias(
@@ -174,20 +178,25 @@ def _alumnos_con_mas_inasistencias(
     ]
     periodo = f"{fecha_ar(desde)} a {fecha_ar(hasta)}, ciclo {ciclo}"
     bloques: list[dict[str, Any]] = []
-    agregar_tabla(
+    tabla = bloque_tabla(
+        "Alumnos con más inasistencias",
+        [
+            {"clave": "alumno", "etiqueta": "Alumno", "tipo": "alias"},
+            {"clave": "curso", "etiqueta": "Curso", "tipo": "texto"},
+            {"clave": "inasistencias", "etiqueta": "Inasistencias", "tipo": "numero"},
+            {"clave": "sin_justificar", "etiqueta": "Sin justificar", "tipo": "numero"},
+        ],
+        filas,
+        periodo=periodo,
+        fuente=_FUENTE_ASISTENCIAS,
+    )
+    agregar_tabla(bloques, tabla)
+    agregar_grafico(
         bloques,
-        bloque_tabla(
-            "Alumnos con más inasistencias",
-            [
-                {"clave": "alumno", "etiqueta": "Alumno", "tipo": "alias"},
-                {"clave": "curso", "etiqueta": "Curso", "tipo": "texto"},
-                {"clave": "inasistencias", "etiqueta": "Inasistencias", "tipo": "numero"},
-                {"clave": "sin_justificar", "etiqueta": "Sin justificar", "tipo": "numero"},
-            ],
-            filas,
-            periodo=periodo,
-            fuente=_FUENTE_ASISTENCIAS,
-        ),
+        tabla,
+        parametros.grafico,
+        eje_x="alumno",
+        series=["inasistencias", "sin_justificar"],
     )
     return ResultadoHerramienta(
         para_llm={
@@ -388,6 +397,10 @@ class ParametrosResumenJustificaciones(ParametrosPeriodo):
         default=False,
         description="Suma el período anterior de igual duración y la variación de pendientes.",
     )
+    grafico: FormaGrafico | None = Field(
+        default=None,
+        description="Verlo como gráfico: para comparar 3 o más categorías o ver una evolución.",
+    )
 
 
 def _conteo_justificaciones(
@@ -501,15 +514,20 @@ def _resumen_justificaciones(
                     valor_anterior=pendientes_ant if anterior else None,
                 )
             )
-    agregar_tabla(
+    tabla = bloque_tabla(
+        "Justificaciones por estado" if por_estado else "Justificaciones por motivo",
+        columnas,
+        filas,
+        periodo=periodo,
+        fuente=_FUENTE_JUSTIFICACIONES,
+    )
+    agregar_tabla(bloques, tabla)
+    agregar_grafico(
         bloques,
-        bloque_tabla(
-            "Justificaciones por estado" if por_estado else "Justificaciones por motivo",
-            columnas,
-            filas,
-            periodo=periodo,
-            fuente=_FUENTE_JUSTIFICACIONES,
-        ),
+        tabla,
+        parametros.grafico,
+        eje_x=etiqueta,
+        series=["cantidad", "cantidad_anterior"] if comparar else ["cantidad"],
     )
     return ResultadoHerramienta(para_llm=para_llm, bloques=bloques)
 

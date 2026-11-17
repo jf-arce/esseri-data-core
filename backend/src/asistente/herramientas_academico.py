@@ -542,6 +542,7 @@ HERRAMIENTAS = [
         permisos=(PERMISO_ACADEMICO_LEER,),
         ejecutar=_tendencia_asistencias,
         destino="historial_asistencia",
+        grafico_por_defecto="lineas",
     ),
     Herramienta(
         nombre="ausentes_del_dia",

@@ -45,6 +45,28 @@ it('toma los datos de la tabla referenciada, con null donde no hay valor', () =>
   })
 })
 
+it('resuelve el nombre en el eje cuando es una columna de alias', () => {
+  const porFamilia: BloqueTabla = {
+    ...tabla,
+    columnas: [
+      { clave: 'familia', etiqueta: 'Familia', tipo: 'alias' },
+      { clave: 'deuda_total', etiqueta: 'Deuda', tipo: 'moneda' },
+    ],
+    filas: [{ familia: '[FAMILIA:1]', deuda_total: 500 }],
+  }
+  const barras: BloqueGrafico = { ...grafico, eje_x: 'familia', series: ['deuda_total'] }
+  const porAlias = {
+    '[FAMILIA:1]': {
+      alias: '[FAMILIA:1]',
+      tipo: 'FAMILIA' as const,
+      entidad_id: 'f1',
+      nombre: 'Familia Gómez',
+    },
+  }
+  expect(datosDeGrafico(barras, porFamilia, porAlias)[0].familia).toBe('Familia Gómez')
+  expect(datosDeGrafico(barras, porFamilia)[0].familia).toBe('[FAMILIA:1]')
+})
+
 it('dibuja barras con los datos de su tabla', () => {
   render(<BloqueGraficoVista bloque={grafico} tabla={tabla} />)
   const props = vi.mocked(EChartsBarChart).mock.calls[0][0]

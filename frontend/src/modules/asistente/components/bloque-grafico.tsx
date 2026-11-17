@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { EChartsBarChart } from '@/components/ui/echarts-bar-chart'
 import { EChartsLineChart } from '@/components/ui/echarts-line-chart'
-import type { BloqueGrafico, BloqueTabla } from '../types'
+import type { AliasResuelto, BloqueGrafico, BloqueTabla } from '../types'
 import { datosDeGrafico, formatearEjeY } from '../utils'
 
 const COLORES = ['var(--violeta)', 'var(--petroleo)', 'var(--exito)', 'var(--violeta-pressed)']
@@ -10,12 +10,14 @@ interface BloqueGraficoProps {
   bloque: BloqueGrafico
   /** La tabla a la que apunta `bloque.tabla_id`; si no está, no hay nada que dibujar. */
   tabla: BloqueTabla | undefined
+  /** Nombres de los alias ya resueltos, para el eje cuando es una columna de personas. */
+  porAlias?: Record<string, AliasResuelto>
 }
 
-export function BloqueGraficoVista({ bloque, tabla }: BloqueGraficoProps) {
+export function BloqueGraficoVista({ bloque, tabla, porAlias = {} }: BloqueGraficoProps) {
   const datos = useMemo(
-    () => (tabla === undefined ? [] : datosDeGrafico(bloque, tabla)),
-    [bloque, tabla],
+    () => (tabla === undefined ? [] : datosDeGrafico(bloque, tabla, porAlias)),
+    [bloque, tabla, porAlias],
   )
   const config = useMemo(
     () =>

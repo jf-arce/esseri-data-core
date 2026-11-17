@@ -353,10 +353,20 @@ export function ordenarFilas(
 
 export type PuntoGrafico = Record<string, string | number | null>
 
-/** Filas del gráfico, tomadas de su tabla: el eje X como texto y las series como números. */
-export function datosDeGrafico(bloque: BloqueGrafico, tabla: BloqueTabla): PuntoGrafico[] {
+/**
+ * Filas del gráfico, tomadas de su tabla: el eje X como texto y las series como números. Si el
+ * eje es una columna de alias, muestra el nombre resuelto en vez del `[FAMILIA:1]`.
+ */
+export function datosDeGrafico(
+  bloque: BloqueGrafico,
+  tabla: BloqueTabla,
+  porAlias: Record<string, AliasResuelto> = {},
+): PuntoGrafico[] {
+  const ejeEsAlias = tabla.columnas.some((c) => c.clave === bloque.eje_x && c.tipo === 'alias')
   return tabla.filas.map((fila) => {
-    const punto: PuntoGrafico = { [bloque.eje_x]: String(fila[bloque.eje_x] ?? '') }
+    const crudo = String(fila[bloque.eje_x] ?? '')
+    const etiqueta = ejeEsAlias ? (porAlias[crudo]?.nombre ?? crudo) : crudo
+    const punto: PuntoGrafico = { [bloque.eje_x]: etiqueta }
     for (const clave of bloque.series) {
       const valor = fila[clave] ?? null
       punto[clave] = typeof valor === 'number' ? valor : null

@@ -301,7 +301,7 @@ function BloquesDelMensaje({
           )
           return (
             <motion.div key={`grafico-${bloque.tabla_id}-${indice}`} variants={ELEMENTO_DE_DATOS}>
-              <BloqueGraficoVista bloque={bloque} tabla={tabla} />
+              <BloqueGraficoVista bloque={bloque} tabla={tabla} porAlias={porAlias} />
             </motion.div>
           )
         }

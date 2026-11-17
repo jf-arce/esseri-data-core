@@ -128,10 +128,21 @@ def bloques_de(lista, tipo: str) -> list[dict]:
 class TestEvolucionFinanciera:
     RANGO = {"desde": "2025-11-10", "hasta": "2026-02-01"}
 
-    def test_sin_grafico_no_se_emite_bloque_grafico(self, direccion, proveedor):
+    def test_sin_pedirlo_la_serie_se_grafica_sola(self, direccion, proveedor):
         lista = correr(direccion, proveedor, "evolucion_financiera", self.RANGO)
-        assert bloques_de(lista, "grafico") == []
+        (grafico,) = bloques_de(lista, "grafico")
+        assert grafico["forma"] == "barras"
         assert len(bloques_de(lista, "tabla")) == 1
+
+    def test_en_modo_resumen_la_serie_no_se_grafica(self, direccion, proveedor):
+        proveedor.respuestas = [
+            respuesta_herramientas(("evolucion_financiera", self.RANGO)),
+            respuesta_texto("ok"),
+        ]
+        lista = eventos(
+            enviar(direccion, nueva_conversacion(direccion), "consulta", comando="resumen")
+        )
+        assert bloques_de(lista, "grafico") == []
 
     def test_con_grafico_referencia_la_tabla_sin_repetir_filas(self, direccion, proveedor):
         lista = correr(

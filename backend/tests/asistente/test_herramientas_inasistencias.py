@@ -223,6 +223,15 @@ class TestAlumnosConMasInasistencias:
         assert_sin_datos_personales(proveedor)
 
 
+class TestRankingConGrafico:
+    def test_alumnos_con_mas_inasistencias_admite_grafico(self, direccion, proveedor, dos_alumnos):
+        lista = correr(direccion, proveedor, "alumnos_con_mas_inasistencias", {"grafico": "barras"})
+        # Con solo 2 alumnos no hay puntos suficientes para graficar: la tabla queda sola.
+        assert len(bloques_de(lista, "tabla")) == 1
+        assert bloques_de(lista, "grafico") == []
+        assert "error" not in resultado_de_herramienta(proveedor)
+
+
 class TestAsistenciaPorCurso:
     def test_un_curso_trae_alumnos_inasistencias_y_presencia(
         self, direccion, proveedor, dos_alumnos
@@ -315,6 +324,14 @@ class TestResumenJustificaciones:
         }
         (tabla,) = bloques_de(lista, "tabla")
         assert tabla["titulo"] == "Justificaciones por estado"
+
+    def test_con_grafico_referencia_la_tabla_por_estado(self, revisor, proveedor, justificaciones):
+        lista = correr(revisor[0], proveedor, "resumen_justificaciones", {"grafico": "barras"})
+        (tabla,) = bloques_de(lista, "tabla")
+        (grafico,) = bloques_de(lista, "grafico")
+        assert grafico["tabla_id"] == tabla["tabla_id"]
+        assert grafico["eje_x"] == "estado"
+        assert grafico["series"] == ["cantidad"]
 
     def test_agrupa_por_motivo(self, revisor, proveedor, justificaciones):
         lista = correr(revisor[0], proveedor, "resumen_justificaciones", {"agrupar_por": "motivo"})

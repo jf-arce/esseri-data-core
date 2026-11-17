@@ -44,6 +44,7 @@ from src.asistente.constants import (
     LARGO_MAXIMO_TITULO,
     MAX_TABLAS_POR_RESPUESTA,
     MODOS_SIN_BLOQUES,
+    PATRON_PEDIDO_GRAFICO,
 )
 from src.asistente.exceptions import (
     ConversacionNoEncontrada,
@@ -77,6 +78,7 @@ from src.llm_client import (
     IaRespuestaInvalida,
     LlamadaHerramienta,
 )
+from src.search import normalizar_texto_busqueda
 
 MENSAJE_AMBIGUEDAD = (
     "Lo que escribiste coincide con más de una persona. Elegí a cuál te referís (tocá la "
@@ -132,8 +134,9 @@ Estilo (respuestas breves):
 pregunta y sin cierres de cortesía.
 - No agregues recomendaciones, consejos ni información que no pidieron. No ofrezcas más ayuda ni \
 termines con preguntas como "¿querés que...?". Preguntá solo si falta un dato para responder.
-- Los gráficos, tablas e indicadores solo cuando el dato se entiende mejor así (una evolución, una \
-comparación o si lo piden); una pregunta puntual se contesta con texto.
+- Los gráficos, tablas e indicadores solo cuando el dato se entiende mejor así; una pregunta \
+puntual se contesta con texto. Pedí gráfico (parámetro grafico) en las evoluciones en el tiempo y \
+en los rankings o comparaciones de 3 o más categorías, y siempre que lo pidan.
 - Las tablas y los indicadores se muestran como bloques aparte, con su período y su fuente. No \
 los repitas ni los reescribas en markdown, ni cites sus filas. En el texto dá solo la cifra que \
 resume (el total, la cantidad o lo que más destaca), una sola vez y sin parafrasearla. No \
@@ -290,6 +293,13 @@ def _titulo_desde(texto: str) -> str:
     return limpio[: LARGO_MAXIMO_TITULO - 1].rstrip() + "…"
 
 
+def _comando_por_texto(texto: str) -> str | None:
+    """Pedir un gráfico con palabras equivale al atajo `/grafico`."""
+    if re.search(PATRON_PEDIDO_GRAFICO, normalizar_texto_busqueda(texto)):
+        return "grafico"
+    return None
+
+
 def _tomar_conversacion(db: Session, conversacion: Conversacion) -> None:
     """Una generación activa por conversación: lock de fila y `estado`; el segundo envío da 409."""
     fila = db.scalar(
@@ -433,7 +443,7 @@ def iniciar_envio(
         alias_vista=alias_vista,
         fijados=fijados,
         herramienta_forzada=COMANDOS_HERRAMIENTA.get(datos.comando or ""),
-        comando=datos.comando,
+        comando=datos.comando or _comando_por_texto(entrada.texto),
     )
 
 
@@ -672,6 +682,7 @@ def _loop_con_herramientas(
             if resultado.destino_sugerido is not None:
                 destinos_sugeridos.add(resultado.destino_sugerido)
                 filtros_sugeridos.append(resultado.filtros_destino)
+            _avisar_si_no_hubo_grafico(resultado, llamada, envio.comando)
             conversacion.append(
                 {
                     "role": "tool",
@@ -726,14 +737,42 @@ def _con_argumentos_del_comando(
 ) -> LlamadaHerramienta:
     """Impone los argumentos del atajo, solo en las herramientas que los declaran."""
     herramienta = herramientas.REGISTRO.get(llamada.nombre)
-    fijos = ARGUMENTOS_COMANDO.get(comando or "")
-    if not fijos or herramienta is None or not llamada.argumentos_validos:
+    if herramienta is None or not llamada.argumentos_validos:
         return llamada
     campos = herramienta.parametros.model_fields
-    aplicables = {clave: valor for clave, valor in fijos.items() if clave in campos}
+    aplicables = {
+        clave: valor
+        for clave, valor in ARGUMENTOS_COMANDO.get(comando or "", {}).items()
+        if clave in campos
+    }
+    # Las series temporales se grafican solas, salvo que se pida un resumen.
+    if (
+        "grafico" not in aplicables
+        and comando != "resumen"
+        and herramienta.grafico_por_defecto is not None
+        and not llamada.argumentos.get("grafico")
+    ):
+        aplicables["grafico"] = herramienta.grafico_por_defecto
     if not aplicables:
         return llamada
     return replace(llamada, argumentos={**llamada.argumentos, **aplicables})
+
+
+def _avisar_si_no_hubo_grafico(
+    resultado: ResultadoHerramienta, llamada: LlamadaHerramienta, comando: str | None
+) -> None:
+    """En el modo gráfico, le dice al modelo por qué no hubo uno para que lo explique."""
+    if comando != "grafico" or "error" in resultado.para_llm:
+        return
+    if any(bloque.get("tipo") == BLOQUE_GRAFICO for bloque in resultado.bloques):
+        return
+    herramienta = herramientas.REGISTRO.get(llamada.nombre)
+    admite = herramienta is not None and "grafico" in herramienta.parametros.model_fields
+    resultado.para_llm["aviso_grafico"] = (
+        "No hay suficientes períodos o categorías para armar un gráfico."
+        if admite
+        else "Este dato no se puede graficar."
+    )
 
 
 def _llamada_para_historial(llamada: LlamadaHerramienta) -> dict[str, Any]:

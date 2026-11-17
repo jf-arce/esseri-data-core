@@ -23,8 +23,10 @@ from src.academico.models import (
 from src.asistente.constants import TIPO_ALIAS_ALUMNO, TIPO_ALIAS_DOCENTE
 from src.asistente.herramientas_base import (
     ContextoHerramienta,
+    FormaGrafico,
     Herramienta,
     ResultadoHerramienta,
+    agregar_grafico,
     agregar_tabla,
     bloque_tabla,
 )
@@ -112,8 +114,15 @@ class ParametrosEstructura(ParametrosCurso):
     )
 
 
+class ParametrosEstructuraAcademica(ParametrosEstructura):
+    grafico: FormaGrafico | None = Field(
+        default=None,
+        description="Verlo como gráfico: para comparar 3 o más categorías o ver una evolución.",
+    )
+
+
 def _estructura_academica(
-    contexto: ContextoHerramienta, parametros: ParametrosEstructura
+    contexto: ContextoHerramienta, parametros: ParametrosEstructuraAcademica
 ) -> ResultadoHerramienta:
     ciclo = parametros.ciclo_lectivo or contexto.ciclo_lectivo
     divisiones = divisiones_del_filtro(contexto.db, parametros)
@@ -161,6 +170,8 @@ def _estructura_academica(
         periodo=periodo,
         fuente=fuente,
     )
+    bloques = _con_tabla(tabla)
+    agregar_grafico(bloques, tabla, parametros.grafico, eje_x="curso", series=["alumnos"])
     return ResultadoHerramienta(
         para_llm={
             "periodo": periodo,
@@ -170,7 +181,7 @@ def _estructura_academica(
             "total_alumnos": sum(f["alumnos"] for f in filas),
             "truncado": len(divisiones) > _MAX_FILAS,
         },
-        bloques=_con_tabla(tabla),
+        bloques=bloques,
         filtros_destino=filtros_academico(divisiones),
     )
 
@@ -405,7 +416,7 @@ HERRAMIENTAS = [
             "materias de cada uno. Sin nombres de personas. Para la asistencia de un curso usá "
             "asistencia_por_curso."
         ),
-        parametros=ParametrosEstructura,
+        parametros=ParametrosEstructuraAcademica,
         permisos=(PERMISO_ACADEMICO_LEER,),
         ejecutar=_estructura_academica,
         destino="academico",

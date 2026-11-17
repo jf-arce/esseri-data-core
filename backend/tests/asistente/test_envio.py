@@ -447,6 +447,48 @@ class TestComando:
         respuesta = enviar(direccion, nueva_conversacion(direccion), "hola", comando="grafico")
         assert len(self._bloques(respuesta, "grafico")) == 1
 
+    @pytest.mark.parametrize(
+        "texto", ["mostrame un gráfico de la deuda", "quiero un Grafico", "visualizá esto"]
+    )
+    def test_pedir_un_grafico_con_palabras_equivale_al_atajo(self, direccion, proveedor, texto):
+        proveedor.respuestas = [respuesta_texto("ok")]
+        enviar(direccion, nueva_conversacion(direccion), texto)
+        assert "pidió verlo como gráfico" in proveedor.peticiones[0]["messages"][0]["content"]
+
+    def test_una_pregunta_comun_no_activa_el_modo_grafico(self, direccion, proveedor):
+        proveedor.respuestas = [respuesta_texto("ok")]
+        enviar(direccion, nueva_conversacion(direccion), "¿cómo viene la deuda?")
+        assert "pidió verlo como gráfico" not in proveedor.peticiones[0]["messages"][0]["content"]
+
+    def test_si_no_se_pudo_graficar_el_modelo_recibe_el_aviso(self, direccion, proveedor):
+        proveedor.respuestas = [
+            respuesta_herramientas(("ausentes_del_dia", {})),
+            respuesta_texto("ok"),
+        ]
+        enviar(direccion, nueva_conversacion(direccion), "hola", comando="grafico")
+        resultado = json.loads(proveedor.peticiones[1]["messages"][-1]["content"])
+        assert resultado["aviso_grafico"] == "Este dato no se puede graficar."
+
+    def test_con_pocos_puntos_el_aviso_lo_explica(self, direccion, proveedor):
+        proveedor.respuestas = [
+            respuesta_herramientas(
+                ("evolucion_financiera", {"desde": "2026-01-01", "hasta": "2026-02-01"})
+            ),
+            respuesta_texto("ok"),
+        ]
+        enviar(direccion, nueva_conversacion(direccion), "hola", comando="grafico")
+        resultado = json.loads(proveedor.peticiones[1]["messages"][-1]["content"])
+        assert "No hay suficientes" in resultado["aviso_grafico"]
+
+    def test_sin_el_modo_grafico_no_hay_aviso(self, direccion, proveedor):
+        proveedor.respuestas = [
+            respuesta_herramientas(("ausentes_del_dia", {})),
+            respuesta_texto("ok"),
+        ]
+        enviar(direccion, nueva_conversacion(direccion), "hola")
+        resultado = json.loads(proveedor.peticiones[1]["messages"][-1]["content"])
+        assert "aviso_grafico" not in resultado
+
     def test_resumen_no_muestra_tablas_ni_graficos(self, direccion, proveedor):
         rango = {"desde": "2025-11-10", "hasta": "2026-02-01", "grafico": "barras"}
         proveedor.respuestas = [

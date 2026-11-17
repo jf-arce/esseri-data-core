@@ -27,6 +27,8 @@ from src.asistente.constants import (
 from src.auth import autorizacion_service
 from src.auth.models import Usuario
 
+FormaGrafico = Literal["barras", "lineas", "areas"]
+
 
 @dataclass(frozen=True)
 class ContextoHerramienta:
@@ -68,6 +70,8 @@ class Herramienta:
     ejecutar: Callable[[ContextoHerramienta, Any], ResultadoHerramienta]
     # Clave de `DESTINOS` de la pantalla donde se ve este dato (`panel` según el rol).
     destino: str | None = None
+    # Forma del gráfico que se completa si el modelo no lo pidió (series temporales).
+    grafico_por_defecto: FormaGrafico | None = None
 
     def disponible_para(self, contexto: ContextoHerramienta) -> bool:
         """Todos los permisos son necesarios, como en el router del dominio."""
@@ -214,9 +218,6 @@ def bloque_grafico(
         "periodo": tabla["periodo"],
         "fuente": tabla["fuente"],
     }
-
-
-FormaGrafico = Literal["barras", "lineas", "areas"]
 
 
 def agregar_grafico(
