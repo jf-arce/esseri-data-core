@@ -59,10 +59,11 @@ def test_exportar_la_misma_factura_a_la_vez_reserva_una_sola(
     client_autenticado, db_session, tmp_path
 ):
     factura = crear_factura_demo(db_session, 1)
+    factura_id = factura.id
     motor, sesiones = _copiar_base(db_session, tmp_path)
     original = _override(motor, sesiones)
     try:
-        respuestas = _en_paralelo(lambda: exportar(client_autenticado, [factura.id]))
+        respuestas = _en_paralelo(lambda: exportar(client_autenticado, [factura_id]))
         assert sorted(respuesta.status_code for respuesta in respuestas) == [201, 409]
         with sesiones() as sesion:
             assert sesion.query(LoteCobranza).count() == 1
