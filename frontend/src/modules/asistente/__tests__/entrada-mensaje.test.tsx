@@ -82,3 +82,28 @@ it('si se reescribe el mensaje del atajo, viaja sin atajo', async () => {
   await usuario.keyboard('{Enter}')
   expect(onEnviar).toHaveBeenCalledWith('otra cosa', [])
 })
+
+it('un modo deja /nombre en el campo y manda la pregunta con el modo', async () => {
+  const onEnviar = vi.fn()
+  render(<EntradaMensaje abierto {...propiedades} onEnviar={onEnviar} />)
+  const campo = screen.getByRole('textbox')
+  const usuario = userEvent.setup()
+
+  await usuario.type(campo, '/comp')
+  await usuario.keyboard('{Tab}')
+  expect(campo).toHaveValue('/comparar ')
+
+  await usuario.type(campo, 'asistencias de octubre')
+  await usuario.keyboard('{Enter}')
+  expect(onEnviar).toHaveBeenCalledWith('asistencias de octubre', [], 'comparar')
+})
+
+it('un modo sin pregunta no se envía', async () => {
+  const onEnviar = vi.fn()
+  render(<EntradaMensaje abierto {...propiedades} onEnviar={onEnviar} />)
+  const usuario = userEvent.setup()
+  await usuario.type(screen.getByRole('textbox'), '/comp')
+  await usuario.keyboard('{Enter}')
+  await usuario.keyboard('{Enter}')
+  expect(onEnviar).not.toHaveBeenCalled()
+})

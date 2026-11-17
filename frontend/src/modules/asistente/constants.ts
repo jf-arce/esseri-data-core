@@ -12,6 +12,14 @@ export const ANCHO_INICIAL_PANEL = 400
 export const PASO_TECLADO_ANCHO = 24
 export const CLAVE_ALMACENAMIENTO = 'esseri.asistente'
 
+/** Cuánto dura el "Copiado" después de copiar una respuesta o una tabla. */
+export const MS_FEEDBACK_COPIA = 1500
+
+/** Filas de una tabla del chat que se ven sin scroll; con más, la tabla scrollea por dentro. */
+export const FILAS_VISIBLES_TABLA = 6
+/** Alto de una fila (`h-10`) y del encabezado, para calcular el alto máximo de la tabla. */
+export const ALTO_FILA_TABLA = 40
+
 export const TECLA_ATAJO = 'i'
 
 export const PREFIJO_API = '/asistente'
@@ -50,6 +58,8 @@ export type ComandoDeEntrada = {
   plantilla: string
   /** Atajo que se manda al backend; `null` si se resuelve en el navegador (`/nueva`). */
   comando: ComandoBackend | null
+  /** Sirve para cualquier módulo: queda `/nombre ` en el campo y la pregunta va a continuación. */
+  modo?: boolean
 }
 
 /** Atajos del campo de texto (`/`). El backend vuelve a validar el permiso de cada herramienta. */
@@ -84,10 +94,27 @@ export const COMANDOS: ComandoDeEntrada[] = [
   },
   {
     nombre: 'comparar',
-    descripcion: 'Evolución contra el período anterior',
-    permisos: [PERMISO_PANEL_ADMIN_LEER, PERMISO_FACTURACION_LEER],
-    plantilla: 'Evolución de lo facturado y cobrado del año, comparada con el período anterior',
+    descripcion: 'Compara con el período anterior, en cualquier módulo',
+    permisos: [],
+    plantilla: '/comparar ',
     comando: 'comparar',
+    modo: true,
+  },
+  {
+    nombre: 'grafico',
+    descripcion: 'Muestra el resultado como gráfico, en cualquier módulo',
+    permisos: [],
+    plantilla: '/grafico ',
+    comando: 'grafico',
+    modo: true,
+  },
+  {
+    nombre: 'resumen',
+    descripcion: 'Responde en una frase, sin tablas ni gráficos',
+    permisos: [],
+    plantilla: '/resumen ',
+    comando: 'resumen',
+    modo: true,
   },
   {
     nombre: 'ir',

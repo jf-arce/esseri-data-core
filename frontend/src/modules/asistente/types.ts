@@ -18,6 +18,10 @@ export type BloqueKpi = {
   /** Cambio porcentual contra `periodo_comparado`; `null` si no había base para comparar. */
   variacion?: number | null
   periodo_comparado?: string
+  /** Hacia dónde es mejor la cifra; sin él, la variación se muestra sin juicio de valor. */
+  mejora?: 'alza' | 'baja'
+  /** Cifra del período comparado; falta si ese período no tiene registros (sin base). */
+  valor_anterior?: number
 }
 
 export type BloqueTabla = {
@@ -95,8 +99,12 @@ export type TipoMencion = TipoAlias | 'CURSO'
 
 export type Mencion = { tipo: TipoMencion; entidad_id: string; texto: string }
 
-/** Atajos `/` que el backend entiende: cada uno fuerza una herramienta en el primer paso. */
-export type ComandoBackend = 'deuda' | 'asistencia' | 'horario' | 'evolucion' | 'comparar' | 'ir'
+/**
+ * Atajos `/` que el backend entiende. Los de módulo fuerzan una herramienta en el primer paso;
+ * los modos (`comparar`, `grafico`, `resumen`) sirven para cualquier módulo y no fuerzan ninguna.
+ */
+export type ComandoBackend =
+  'deuda' | 'asistencia' | 'horario' | 'evolucion' | 'comparar' | 'grafico' | 'resumen' | 'ir'
 
 /** Ficha que la persona tiene abierta; el backend la convierte en alias antes de usarla. */
 export type ContextoPantalla = { tipo: 'ALUMNO' | 'FAMILIA'; entidad_id: string }

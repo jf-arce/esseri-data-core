@@ -18,7 +18,7 @@ import type { Permiso } from '@/modules/auth/types'
 import type { ComandoDeEntrada } from '../constants'
 import { useSugerenciasMencion, type Sugerencia } from '../hooks/use-sugerencias-mencion'
 import type { ComandoBackend, Mencion, TipoMencion } from '../types'
-import { comandosDisponibles, comandoVigente, consultaDeComando, consultaDeMencion } from '../utils'
+import { comandosDisponibles, consultaDeComando, consultaDeMencion, resolverEnvio } from '../utils'
 
 const MAX_CARACTERES = 2000
 
@@ -158,9 +158,11 @@ export function EntradaMensaje({
   }, [mencionPendiente, onMencionAplicada])
 
   function enviar() {
-    const contenido = texto.trim()
-    if (contenido === '' || generando) return
-    const comando = comandoVigente(contenido, comandoElegido)
+    const escrito = texto.trim()
+    if (escrito === '' || generando) return
+    const { contenido, comando } = resolverEnvio(escrito, comandoElegido)
+    // Un modo sin pregunta (`/comparar` solo) no tiene qué consultar.
+    if (contenido === '') return
     onEnviar(
       contenido,
       menciones.filter((m) => contenido.includes(m.texto)),

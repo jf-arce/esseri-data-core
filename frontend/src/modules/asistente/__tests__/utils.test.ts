@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Permiso } from '@/modules/auth/types'
 import { COMANDOS } from '../constants'
-import type { MensajeVisible } from '../types'
+import type { BloqueTabla, MensajeVisible } from '../types'
 import {
   aliasDeMensajes,
   comandoVigente,
@@ -23,6 +23,11 @@ import {
   rutaDeEntidad,
   sugerenciasPermitidas,
   sustituirAlias,
+  resolverEnvio,
+  tonoDeKpi,
+  iconoDeKpi,
+  armarCopiaTabla,
+  esColumnaDeCambio,
 } from '../utils'
 
 function permiso(codigo: string): Permiso {
@@ -446,11 +451,16 @@ describe('comandosDisponibles', () => {
   it('lista solo los atajos que el rol puede usar', () => {
     const nombres = (permisos: Permiso[], consulta = '') =>
       comandosDisponibles(permisos, consulta).map((c) => c.nombre)
-    expect(nombres([])).toEqual(['ir', 'nueva'])
-    expect(nombres([permiso('facturacion.leer')])).toEqual(['deuda', 'ir', 'nueva'])
-    expect(nombres([permiso('facturacion.leer'), permiso('panel_administrativo.leer')])).toContain(
+    // Los modos sirven para cualquier módulo: se listan sin permisos propios.
+    expect(nombres([])).toEqual(['comparar', 'grafico', 'resumen', 'ir', 'nueva'])
+    expect(nombres([permiso('facturacion.leer')])).toEqual([
+      'deuda',
       'comparar',
-    )
+      'grafico',
+      'resumen',
+      'ir',
+      'nueva',
+    ])
   })
 
   it('filtra por lo escrito, sin distinguir tildes ni mayúsculas', () => {
@@ -474,5 +484,124 @@ describe('comandoVigente', () => {
     expect(comandoVigente('¿Y la asistencia?', deuda)).toBeNull()
     expect(comandoVigente('hola', null)).toBeNull()
     expect(comandoVigente('hola', nueva)).toBeNull()
+  })
+})
+
+describe('resolverEnvio', () => {
+  const comparar = COMANDOS.find((c) => c.nombre === 'comparar') ?? null
+  const deuda = COMANDOS.find((c) => c.nombre === 'deuda') ?? null
+
+  it('en un modo manda solo la pregunta que sigue al atajo', () => {
+    expect(resolverEnvio('/comparar asistencias de octubre', comparar)).toEqual({
+      contenido: 'asistencias de octubre',
+      comando: 'comparar',
+    })
+  })
+
+  it('reconoce el modo escrito a mano, sin elegirlo de la lista', () => {
+    expect(resolverEnvio('/grafico inscripciones', null)).toEqual({
+      contenido: 'inscripciones',
+      comando: 'grafico',
+    })
+  })
+
+  it('un modo sin pregunta devuelve el contenido vacío', () => {
+    expect(resolverEnvio('/comparar ', comparar).contenido).toBe('')
+  })
+
+  it('si se reescribió el mensaje, viaja sin atajo y sin tocar el texto', () => {
+    expect(resolverEnvio('otra cosa', comparar)).toEqual({ contenido: 'otra cosa', comando: null })
+  })
+
+  it('en un atajo de módulo no recorta el mensaje de la plantilla', () => {
+    expect(resolverEnvio('Familias con mayor deuda vencida', deuda)).toEqual({
+      contenido: 'Familias con mayor deuda vencida',
+      comando: 'deuda',
+    })
+  })
+})
+
+describe('tonoDeKpi', () => {
+  const kpi = { tipo: 'kpi', titulo: 'x', valor: 1, unidad: '', periodo: 'p', fuente: 'f' } as const
+
+  it('es bueno si la variación va hacia donde es mejor', () => {
+    expect(tonoDeKpi({ ...kpi, variacion: 5, mejora: 'alza' })).toBe('bueno')
+    expect(tonoDeKpi({ ...kpi, variacion: -5, mejora: 'baja' })).toBe('bueno')
+  })
+
+  it('es malo si va al revés', () => {
+    expect(tonoDeKpi({ ...kpi, variacion: -5, mejora: 'alza' })).toBe('malo')
+    expect(tonoDeKpi({ ...kpi, variacion: 5, mejora: 'baja' })).toBe('malo')
+  })
+
+  it('es neutro sin variación, sin cambio o sin saber qué es mejor', () => {
+    expect(tonoDeKpi({ ...kpi, mejora: 'alza' })).toBe('neutro')
+    expect(tonoDeKpi({ ...kpi, variacion: null, mejora: 'alza' })).toBe('neutro')
+    expect(tonoDeKpi({ ...kpi, variacion: 0, mejora: 'alza' })).toBe('neutro')
+    expect(tonoDeKpi({ ...kpi, variacion: 5 })).toBe('neutro')
+  })
+})
+
+describe('esColumnaDeCambio', () => {
+  it('reconoce las columnas de variación y diferencia', () => {
+    const columna = (clave: string) => ({ clave, etiqueta: clave, tipo: 'numero' as const })
+    expect(esColumnaDeCambio(columna('variacion_facturado'))).toBe(true)
+    expect(esColumnaDeCambio(columna('diferencia_presencia'))).toBe(true)
+    expect(esColumnaDeCambio(columna('facturado'))).toBe(false)
+  })
+})
+
+describe('iconoDeKpi', () => {
+  const kpi = { tipo: 'kpi', titulo: 'x', valor: 1, unidad: '', periodo: 'p', fuente: 'f' } as const
+
+  it('elige el ícono según de qué trata el indicador', () => {
+    expect(iconoDeKpi({ ...kpi, titulo: 'Ausentes (total)' })).toBe('ausentes')
+    expect(iconoDeKpi({ ...kpi, titulo: 'Inasistencias del día' })).toBe('ausentes')
+    expect(iconoDeKpi({ ...kpi, titulo: 'Inscripciones (total)' })).toBe('inscripciones')
+    expect(iconoDeKpi({ ...kpi, titulo: 'Alumnos activos' })).toBe('alumnos')
+    expect(iconoDeKpi({ ...kpi, titulo: 'Tareas abiertas (todas)' })).toBe('tareas')
+    expect(iconoDeKpi({ ...kpi, titulo: 'Solicitudes de compra pendientes' })).toBe('compras')
+  })
+
+  it('distingue la deuda del resto de los importes', () => {
+    expect(iconoDeKpi({ ...kpi, titulo: 'Deuda vencida total', unidad: '$' })).toBe('deuda')
+    expect(iconoDeKpi({ ...kpi, titulo: 'Facturado (total)', unidad: '$' })).toBe('dinero')
+  })
+
+  it('usa un ícono general si no reconoce el tema', () => {
+    expect(iconoDeKpi({ ...kpi, titulo: 'Algo nuevo' })).toBe('general')
+  })
+})
+
+describe('armarCopiaTabla', () => {
+  const bloque: BloqueTabla = {
+    tipo: 'tabla',
+    tabla_id: 't',
+    titulo: 'Deuda por familia',
+    columnas: [
+      { clave: 'familia', etiqueta: 'Familia', tipo: 'alias' },
+      { clave: 'monto', etiqueta: 'Monto', tipo: 'moneda' },
+    ],
+    filas: [{ familia: '[FAMILIA:1]', monto: 1000 }],
+    periodo: 'al 17/11/2026',
+    fuente: 'Cuenta corriente',
+  }
+
+  it('trae solo el encabezado y las filas, con el nombre real en los alias', () => {
+    const porAlias = {
+      '[FAMILIA:1]': {
+        alias: '[FAMILIA:1]',
+        tipo: 'FAMILIA',
+        entidad_id: 'f1',
+        nombre: 'Pérez, Ana',
+      },
+    } as const
+    const { texto, html } = armarCopiaTabla(bloque, porAlias)
+    expect(texto.split('\n')).toHaveLength(2)
+    expect(texto).toContain('Familia\tMonto')
+    expect(texto).toContain('Pérez, Ana')
+    expect(texto).not.toContain('Deuda por familia')
+    expect(texto).not.toContain('Cuenta corriente')
+    expect(html.startsWith('<table>')).toBe(true)
   })
 })

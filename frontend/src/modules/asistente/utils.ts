@@ -147,6 +147,25 @@ export function comandoVigente(
   return contenido.trim().startsWith(base) ? elegido.comando : null
 }
 
+/**
+ * Qué se manda al enviar. En un modo (`/comparar ...`) la pregunta es lo que sigue al atajo; se
+ * reconoce también si se escribió a mano, sin elegirlo de la lista.
+ */
+export function resolverEnvio(
+  contenido: string,
+  elegido: ComandoDeEntrada | null,
+): { contenido: string; comando: ComandoBackend | null } {
+  const candidato =
+    elegido ??
+    COMANDOS.find((c) => c.modo === true && contenido.startsWith(`/${c.nombre} `)) ??
+    null
+  const comando = comandoVigente(contenido, candidato)
+  if (comando === null || candidato === null || candidato.modo !== true) {
+    return { contenido, comando }
+  }
+  return { contenido: contenido.slice(candidato.nombre.length + 1).trim(), comando }
+}
+
 /** Coincidencia sin tildes ni mayúsculas, para filtrar docentes y cursos en el navegador. */
 export function coincideConBusqueda(nombre: string, consulta: string): boolean {
   return sinTildes(nombre).includes(sinTildes(consulta))
@@ -411,6 +430,37 @@ export function formatearKpi(bloque: BloqueKpi): string {
   return bloque.unidad === '' ? numero : `${numero} ${bloque.unidad}`
 }
 
+export type TonoKpi = 'bueno' | 'malo' | 'neutro'
+
+/** Color de un indicador: bueno si la variación va hacia donde es mejor, malo si va al revés. */
+export function tonoDeKpi(bloque: BloqueKpi): TonoKpi {
+  const variacion = bloque.variacion
+  if (variacion === null || variacion === undefined || variacion === 0) return 'neutro'
+  if (bloque.mejora === undefined) return 'neutro'
+  return (bloque.mejora === 'alza') === variacion > 0 ? 'bueno' : 'malo'
+}
+
+export type IconoKpi =
+  'dinero' | 'deuda' | 'ausentes' | 'inscripciones' | 'alumnos' | 'tareas' | 'compras' | 'general'
+
+/** Qué ícono lleva un indicador, según de qué trata (por su título y su unidad). */
+export function iconoDeKpi(bloque: BloqueKpi): IconoKpi {
+  const titulo = sinTildes(bloque.titulo)
+  if (titulo.includes('deuda')) return 'deuda'
+  if (bloque.unidad === '$') return 'dinero'
+  if (titulo.includes('ausente') || titulo.includes('inasisten')) return 'ausentes'
+  if (titulo.includes('inscripci')) return 'inscripciones'
+  if (titulo.includes('alumno')) return 'alumnos'
+  if (titulo.includes('tarea')) return 'tareas'
+  if (titulo.includes('solicitud') || titulo.includes('compra')) return 'compras'
+  return 'general'
+}
+
+/** Columnas de variación o diferencia contra un período anterior: suben bien, bajan mal. */
+export function esColumnaDeCambio(columna: ColumnaTabla): boolean {
+  return columna.clave.startsWith('variacion') || columna.clave.startsWith('diferencia')
+}
+
 /** Variación sin signo (la dirección la dan la flecha y el color): `12,5 %`. */
 export function formatearVariacion(variacion: number): string {
   return `${Math.abs(variacion).toLocaleString('es-AR')} %`
@@ -432,15 +482,24 @@ function escaparHtml(texto: string): string {
   return texto.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-function tablaEnTexto(bloque: BloqueTabla, porAlias: Record<string, AliasResuelto>): string {
+function tablaEnTexto(
+  bloque: BloqueTabla,
+  porAlias: Record<string, AliasResuelto>,
+  soloTabla = false,
+): string {
   const encabezado = bloque.columnas.map((c) => c.etiqueta).join('\t')
   const filas = bloque.filas.map((fila) =>
     bloque.columnas.map((c) => textoDeCelda(c, fila[c.clave] ?? null, porAlias)).join('\t'),
   )
+  if (soloTabla) return [encabezado, ...filas].join('\n')
   return [bloque.titulo, encabezado, ...filas, `${bloque.periodo} · ${bloque.fuente}`].join('\n')
 }
 
-function tablaEnHtml(bloque: BloqueTabla, porAlias: Record<string, AliasResuelto>): string {
+function tablaEnHtml(
+  bloque: BloqueTabla,
+  porAlias: Record<string, AliasResuelto>,
+  soloTabla = false,
+): string {
   const celdas = (etiquetas: string[], etiqueta: 'th' | 'td') =>
     `<tr>${etiquetas.map((e) => `<${etiqueta}>${escaparHtml(e)}</${etiqueta}>`).join('')}</tr>`
   const filas = bloque.filas.map((fila) =>
@@ -449,14 +508,24 @@ function tablaEnHtml(bloque: BloqueTabla, porAlias: Record<string, AliasResuelto
       'td',
     ),
   )
+  const tabla = `<table>${celdas(
+    bloque.columnas.map((c) => c.etiqueta),
+    'th',
+  )}${filas.join('')}</table>`
+  if (soloTabla) return tabla
   return (
     `<p><strong>${escaparHtml(bloque.titulo)}</strong></p>` +
-    `<table>${celdas(
-      bloque.columnas.map((c) => c.etiqueta),
-      'th',
-    )}${filas.join('')}</table>` +
+    tabla +
     `<p>${escaparHtml(`${bloque.periodo} · ${bloque.fuente}`)}</p>`
   )
+}
+
+/** Solo el encabezado y las filas, sin título ni fuente: pega limpio en una planilla. */
+export function armarCopiaTabla(
+  bloque: BloqueTabla,
+  porAlias: Record<string, AliasResuelto>,
+): { texto: string; html: string } {
+  return { texto: tablaEnTexto(bloque, porAlias, true), html: tablaEnHtml(bloque, porAlias, true) }
 }
 
 /**
