@@ -93,12 +93,7 @@ function DetalleClase({ franja }: { franja: Franja | null }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div
-        className="flex items-center gap-4 rounded-[16px] px-4 py-4"
-        style={{
-          backgroundColor: `color-mix(in srgb, ${franja.materia.materia_color || '#7A2FA8'} 22%, var(--pf-card))`,
-        }}
-      >
+      <div className="flex items-center gap-4 rounded-[16px] bg-fila-hover px-4 py-4">
         <span
           className="flex size-14 shrink-0 items-center justify-center rounded-[14px] bg-white/70"
           style={{ color: franja.materia.materia_color || '#7A2FA8' }}
@@ -295,7 +290,12 @@ export function PortalFamiliaCalendarioPage() {
                             {DIAS.map((dia) => (
                               <div
                                 key={dia}
-                                className="border-l border-[#EFE7F6] bg-[#FBF9FD] px-3 py-3 text-center text-[15px] font-semibold text-[#2B2338]"
+                                className={cn(
+                                  'border-l border-[#EFE7F6] px-3 py-3 text-center text-[15px] font-semibold',
+                                  dia === diaActivo
+                                    ? 'bg-[#F1E4FB] text-[#7A2FA8]'
+                                    : 'bg-[#FBF9FD] text-[#2B2338]',
+                                )}
                               >
                                 {NOMBRES_DIA[dia - 1]}
                               </div>
@@ -339,13 +339,12 @@ export function PortalFamiliaCalendarioPage() {
                                   style={{
                                     gridRow: `${filaInicio + 2} / ${filaFin + 2}`,
                                     gridColumn: franja.dia_semana + 1,
-                                    backgroundColor: `color-mix(in srgb, ${color} 22%, var(--pf-card))`,
-                                    borderLeft: `3px solid ${color}`,
+                                    backgroundColor: `color-mix(in srgb, ${color} 20%, var(--pf-card))`,
+                                    border: `1px solid color-mix(in srgb, ${color} 45%, var(--borde))`,
+                                    boxShadow: activaEsta ? `0 0 0 2px ${color}` : undefined,
                                   }}
                                   className={cn(
                                     'relative z-10 m-1 flex flex-col justify-center gap-0.5 rounded-[10px] px-2.5 py-1.5 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]',
-                                    activaEsta &&
-                                      'ring-2 ring-[#7A2FA8] ring-offset-2 ring-offset-white',
                                   )}
                                 >
                                   <span className="flex items-center gap-1.5">
@@ -414,8 +413,8 @@ export function PortalFamiliaCalendarioPage() {
                                 key={franja.id}
                                 className="flex items-center gap-3 rounded-[14px] px-4 py-3 text-left"
                                 style={{
-                                  backgroundColor: `color-mix(in srgb, ${color} 22%, var(--pf-card))`,
-                                  borderLeft: `3px solid ${color}`,
+                                  backgroundColor: `color-mix(in srgb, ${color} 20%, var(--pf-card))`,
+                                  border: `1px solid color-mix(in srgb, ${color} 45%, var(--borde))`,
                                 }}
                               >
                                 <span
