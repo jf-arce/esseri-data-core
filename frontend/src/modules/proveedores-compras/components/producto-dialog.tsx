@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PackageIcon, RulerIcon, TagIcon } from 'lucide-react'
+import { PackageIcon } from 'lucide-react'
 import { ApiError } from '@/api/client'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -24,6 +24,11 @@ import { Switch } from '@/components/ui/switch'
 import { actualizarProducto } from '@/modules/proveedores-compras/services/actualizar-producto'
 import { crearProducto } from '@/modules/proveedores-compras/services/crear-producto'
 import type { ProductoServicio, TipoProductoServicio } from '@/modules/proveedores-compras/types'
+import {
+  CATEGORIAS_PRODUCTO,
+  UNIDADES_PRODUCTO,
+  opcionesConValorActual,
+} from '@/modules/proveedores-compras/utils'
 
 // Coincide con el `Literal` del backend, que espeja el CheckConstraint
 // `ck_producto_servicio_tipo`.
@@ -31,6 +36,9 @@ const TIPOS: { valor: TipoProductoServicio; etiqueta: string }[] = [
   { valor: 'producto', etiqueta: 'Producto' },
   { valor: 'servicio', etiqueta: 'Servicio' },
 ]
+
+// Radix no acepta `value=""` en un SelectItem: la opción "sin elegir" viaja con este centinela.
+const SIN_VALOR = 'sin-valor'
 
 interface ProductoDialogProps {
   open: boolean
@@ -67,6 +75,9 @@ function ProductoForm({
   const [activo, setActivo] = useState(producto?.activo ?? true)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const opcionesCategoria = opcionesConValorActual(CATEGORIAS_PRODUCTO, categoria)
+  const opcionesUnidad = opcionesConValorActual(UNIDADES_PRODUCTO, unidad)
 
   async function handleSubmit(evento: React.FormEvent) {
     evento.preventDefault()
@@ -145,35 +156,41 @@ function ProductoForm({
         </Field>
         <Field>
           <FieldLabel htmlFor="producto-categoria">Categoría (opcional)</FieldLabel>
-          <div className="relative">
-            <TagIcon
-              className="text-texto-3 pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
-              aria-hidden
-            />
-            <Input
-              id="producto-categoria"
-              value={categoria}
-              onChange={(evento) => setCategoria(evento.target.value)}
-              placeholder="ej. Librería"
-              className="pl-9"
-            />
-          </div>
+          <Select
+            value={categoria || SIN_VALOR}
+            onValueChange={(valor) => setCategoria(valor === SIN_VALOR ? '' : valor)}
+          >
+            <SelectTrigger id="producto-categoria" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SIN_VALOR}>Sin categoría</SelectItem>
+              {opcionesCategoria.map((opcion) => (
+                <SelectItem key={opcion} value={opcion}>
+                  {opcion}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         <Field>
           <FieldLabel htmlFor="producto-unidad">Unidad (opcional)</FieldLabel>
-          <div className="relative">
-            <RulerIcon
-              className="text-texto-3 pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
-              aria-hidden
-            />
-            <Input
-              id="producto-unidad"
-              value={unidad}
-              onChange={(evento) => setUnidad(evento.target.value)}
-              placeholder="ej. unidad, caja, hora"
-              className="pl-9"
-            />
-          </div>
+          <Select
+            value={unidad || SIN_VALOR}
+            onValueChange={(valor) => setUnidad(valor === SIN_VALOR ? '' : valor)}
+          >
+            <SelectTrigger id="producto-unidad" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SIN_VALOR}>Sin unidad</SelectItem>
+              {opcionesUnidad.map((opcion) => (
+                <SelectItem key={opcion} value={opcion}>
+                  {opcion}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         <Field orientation="horizontal">
           <FieldLabel htmlFor="producto-activo">Disponible para compras nuevas</FieldLabel>

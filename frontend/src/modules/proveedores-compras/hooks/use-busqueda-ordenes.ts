@@ -24,15 +24,52 @@ export function useBusquedaOrdenes(filtros: FiltrosOrdenesBusqueda) {
     sinPermiso: boolean
   }>({ clave: null, datos: LISTADO_VACIO, error: null, sinPermiso: false })
 
-  const { buscar, estado, pagina, tamanioPagina } = filtros
-  const claveSolicitud = JSON.stringify([buscar, estado, pagina, tamanioPagina, revision])
+  const {
+    buscar,
+    estado,
+    proveedorId,
+    desde,
+    hasta,
+    itemsMin,
+    itemsMax,
+    orden,
+    pagina,
+    tamanioPagina,
+  } = filtros
+  const claveSolicitud = JSON.stringify([
+    buscar,
+    estado,
+    proveedorId,
+    desde,
+    hasta,
+    itemsMin,
+    itemsMax,
+    orden,
+    pagina,
+    tamanioPagina,
+    revision,
+  ])
 
   const recargar = useCallback(() => setRevision((actual) => actual + 1), [])
 
   useEffect(() => {
     const controller = new AbortController()
 
-    buscarOrdenes({ buscar, estado, pagina, tamanioPagina }, controller.signal)
+    buscarOrdenes(
+      {
+        buscar,
+        estado,
+        proveedorId,
+        desde,
+        hasta,
+        itemsMin,
+        itemsMax,
+        orden,
+        pagina,
+        tamanioPagina,
+      },
+      controller.signal,
+    )
       .then((datos) => {
         setResultado({ clave: claveSolicitud, datos, error: null, sinPermiso: false })
       })
@@ -55,7 +92,19 @@ export function useBusquedaOrdenes(filtros: FiltrosOrdenesBusqueda) {
       })
 
     return () => controller.abort()
-  }, [buscar, estado, pagina, tamanioPagina, claveSolicitud])
+  }, [
+    buscar,
+    estado,
+    proveedorId,
+    desde,
+    hasta,
+    itemsMin,
+    itemsMax,
+    orden,
+    pagina,
+    tamanioPagina,
+    claveSolicitud,
+  ])
 
   return {
     datos: resultado.datos,

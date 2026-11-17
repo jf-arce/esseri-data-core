@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   categoriasDeProductos,
   filtrarYOrdenarProductos,
+  opcionesConValorActual,
 } from '@/modules/proveedores-compras/utils'
 import type { ProductoServicio } from '@/modules/proveedores-compras/types'
 
@@ -128,5 +129,29 @@ describe('filtrarYOrdenarProductos', () => {
 describe('categoriasDeProductos', () => {
   it('devuelve las categorías únicas y ordenadas, sin los nulos', () => {
     expect(categoriasDeProductos(TODOS)).toEqual(['Ferretería', 'Librería', 'Limpieza'])
+  })
+})
+
+describe('opcionesConValorActual', () => {
+  const OPCIONES = ['Librería', 'Papelería'] as const
+
+  it('devuelve las opciones tal cual cuando no hay valor cargado', () => {
+    expect(opcionesConValorActual(OPCIONES, '')).toEqual(['Librería', 'Papelería'])
+  })
+
+  it('no duplica un valor que ya está en la lista', () => {
+    expect(opcionesConValorActual(OPCIONES, 'Librería')).toEqual(['Librería', 'Papelería'])
+  })
+
+  it('agrega al final la categoría heredada que ya no está en la lista', () => {
+    expect(opcionesConValorActual(OPCIONES, 'Ferretería')).toEqual([
+      'Librería',
+      'Papelería',
+      'Ferretería',
+    ])
+  })
+
+  it('ignora un valor en blanco', () => {
+    expect(opcionesConValorActual(OPCIONES, '   ')).toEqual(['Librería', 'Papelería'])
   })
 })
