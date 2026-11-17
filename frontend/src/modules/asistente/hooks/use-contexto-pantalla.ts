@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { obtenerAlumno } from '@/modules/familias-alumnos/services/obtener-alumno'
 import { getFamiliaById } from '@/modules/familias-alumnos/services/create-familia'
 import type { ContextoPantalla } from '../types'
-import { contextoDeRuta } from '../utils'
+import { contextoDeRuta } from '../utils/destinos'
 
 /**
  * Contexto de pantalla para el chip: la ficha que se está viendo (con su nombre, solo para la

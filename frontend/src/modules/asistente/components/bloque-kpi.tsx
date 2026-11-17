@@ -17,14 +17,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { BloqueKpi } from '../types'
-import {
-  formatearKpi,
-  formatearVariacion,
-  iconoDeKpi,
-  tonoDeKpi,
-  type IconoKpi,
-  type TonoKpi,
-} from '../utils'
+import { formatearKpi, iconoDeKpi, tonoDeKpi, type IconoKpi, type TonoKpi } from '../utils/kpi'
+import { formatearVariacion } from '../utils/tablas'
 
 const ICONOS: Record<IconoKpi, LucideIcon> = {
   dinero: WalletIcon,

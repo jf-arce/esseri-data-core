@@ -8,7 +8,7 @@ import { listarAlumnos } from '@/modules/familias-alumnos/services/listar-alumno
 import { listarFamilias } from '@/modules/familias-alumnos/services/listar-familias'
 import type { Alumno, Familia } from '@/modules/familias-alumnos/types'
 import type { TipoMencion } from '../types'
-import { coincideConBusqueda } from '../utils'
+import { coincideConBusqueda } from '../utils/entrada'
 
 export type Sugerencia = { clave: string; tipo: TipoMencion; id: string; nombre: string }
 

@@ -5,7 +5,7 @@ import { EChartsBarChart } from '@/components/ui/echarts-bar-chart'
 import { EChartsLineChart } from '@/components/ui/echarts-line-chart'
 import { BloqueGraficoVista } from '../components/bloque-grafico'
 import type { BloqueGrafico, BloqueTabla } from '../types'
-import { datosDeGrafico, formatearEjeY } from '../utils'
+import { datosDeGrafico, formatearEjeY } from '../utils/graficos'
 
 const tabla: BloqueTabla = {
   tipo: 'tabla',

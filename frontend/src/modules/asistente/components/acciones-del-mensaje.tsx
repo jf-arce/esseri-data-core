@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { MS_FEEDBACK_COPIA } from '../constants'
 import { copiarAlPortapapeles } from '../services/portapapeles'
 import type { AliasResuelto, Bloque } from '../types'
-import { armarCopia } from '../utils'
+import { armarCopia } from '../utils/copia'
 
 interface AccionesDelMensajeProps {
   contenido: string

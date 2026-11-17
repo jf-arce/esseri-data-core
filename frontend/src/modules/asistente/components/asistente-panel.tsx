@@ -16,14 +16,14 @@ import { ChipsContexto } from './chips-contexto'
 import { useConversacion } from '../hooks/use-conversacion'
 import { useAsistenteStore } from '../store'
 import type { AliasResuelto, BloqueNavegar } from '../types'
+import { aliasDeMensajes } from '../utils/alias'
 import {
-  aliasDeMensajes,
   etiquetaDeDestino,
   etiquetaDePantalla,
   rutaDeDestino,
   rutaDeEntidad,
-  sugerenciasPermitidas,
-} from '../utils'
+} from '../utils/destinos'
+import { sugerenciasPermitidas } from '../utils/entrada'
 import { useContextoPantalla } from '../hooks/use-contexto-pantalla'
 import { EntradaMensaje, type Sugerencia } from './entrada-mensaje'
 import { PuntosPensando } from './indicadores-de-carga'

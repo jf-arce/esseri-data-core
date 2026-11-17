@@ -11,7 +11,7 @@ vi.mock('@/modules/familias-alumnos/services/create-familia', () => ({
 }))
 
 import { useContextoPantalla } from '../hooks/use-contexto-pantalla'
-import { contextoDeRuta } from '../utils'
+import { contextoDeRuta } from '../utils/destinos'
 
 const ID = '3f2b8a52-6c1e-4d0a-9d55-0a9d1c5b7e11'
 const ID_2 = '4f2b8a52-6c1e-4d0a-9d55-0a9d1c5b7e22'

@@ -3,7 +3,7 @@ import { ApiError } from '@/api/client'
 import { MAX_FIJADOS } from '../constants'
 import { enviarMensaje } from '../services/enviar-mensaje'
 import { crearConversacion, listarMensajes } from '../services/conversaciones'
-import { separarComando } from '../utils'
+import { separarComando } from '../utils/entrada'
 import type {
   BloqueNavegar,
   ComandoBackend,

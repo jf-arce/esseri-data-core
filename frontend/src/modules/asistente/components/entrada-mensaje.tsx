@@ -26,7 +26,7 @@ import {
   consultaDeComando,
   consultaDeMencion,
   resolverEnvio,
-} from '../utils'
+} from '../utils/entrada'
 import { AtajoResaltado } from './atajo-resaltado'
 
 const MAX_CARACTERES = 2000

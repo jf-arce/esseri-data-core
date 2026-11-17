@@ -20,7 +20,7 @@ import {
   useMessageScroller,
 } from '@/components/ui/message-scroller'
 import { useTextoGradual } from '../hooks/use-texto-gradual'
-import { prepararEdicion, resolverEnvio, separarComando } from '../utils'
+import { prepararEdicion, resolverEnvio, separarComando } from '../utils/entrada'
 import type {
   AliasResuelto,
   Bloque,

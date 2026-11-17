@@ -29,14 +29,14 @@ import { descargarTabla, type FormatoTabla } from '../services/exportar-tabla'
 import { ALTO_FILA_TABLA, FILAS_VISIBLES_TABLA, MS_FEEDBACK_COPIA } from '../constants'
 import { copiarAlPortapapeles } from '../services/portapapeles'
 import type { AliasResuelto, BloqueTabla } from '../types'
+import { armarCopiaTabla } from '../utils/copia'
 import {
-  armarCopiaTabla,
   esColumnaDeCambio,
   ordenarFilas,
   siguienteOrden,
   textoDeCelda,
   type OrdenTabla,
-} from '../utils'
+} from '../utils/tablas'
 
 interface BloqueTablaProps {
   bloque: BloqueTabla

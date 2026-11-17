@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { EChartsBarChart } from '@/components/ui/echarts-bar-chart'
 import { EChartsLineChart } from '@/components/ui/echarts-line-chart'
 import type { AliasResuelto, BloqueGrafico, BloqueTabla } from '../types'
-import { datosDeGrafico, formatearEjeY } from '../utils'
+import { datosDeGrafico, formatearEjeY } from '../utils/graficos'
 
 const COLORES = ['var(--violeta)', 'var(--petroleo)', 'var(--exito)', 'var(--violeta-pressed)']
 

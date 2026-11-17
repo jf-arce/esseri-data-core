@@ -2,7 +2,7 @@ import { Link } from 'react-router'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { AliasResuelto } from '../types'
-import { sustituirAlias } from '../utils'
+import { sustituirAlias } from '../utils/alias'
 
 // Estilos de cada elemento: el panel es angosto, así que todo va compacto y las tablas hacen
 // scroll horizontal en vez de romper el ancho.
