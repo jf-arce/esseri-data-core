@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import {
   BookOpenIcon,
   CalculatorIcon,
@@ -13,12 +13,16 @@ import {
   LeafIcon,
   MusicIcon,
   PaletteIcon,
-  PrinterIcon,
   UserRoundIcon,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useSearchParams } from 'react-router'
+import { ExportarHorario } from '@/modules/academico/components/exportar-horario'
 import { FiltrosHorario } from '@/modules/academico/components/filtros-horario'
+import {
+  compartirHorarioFamilia,
+  descargarHorarioFamilia,
+} from '@/modules/academico/services/exportar-horario'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Field, FieldLabel } from '@/components/ui/field'
@@ -204,6 +208,29 @@ export function PortalFamiliaCalendarioPage() {
   const hoyISO = new Date().toDateString()
   const formateoCorto = new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short' })
   const etiquetaSemana = `${formateoCorto.format(semana[0])} – ${formateoCorto.format(semana[4])}`
+  useEffect(() => {
+    const raiz = document.documentElement
+    const antes = () => {
+      if (raiz.classList.contains('dark')) {
+        raiz.dataset.temaOscuroImpresion = '1'
+        raiz.classList.remove('dark')
+      }
+    }
+    const despues = () => {
+      if (raiz.dataset.temaOscuroImpresion) {
+        raiz.classList.add('dark')
+        delete raiz.dataset.temaOscuroImpresion
+      }
+    }
+    window.addEventListener('beforeprint', antes)
+    window.addEventListener('afterprint', despues)
+    return () => {
+      window.removeEventListener('beforeprint', antes)
+      window.removeEventListener('afterprint', despues)
+      despues()
+    }
+  }, [])
+
   const franjasDelDia = useMemo(
     () =>
       franjasFiltradas
@@ -211,18 +238,6 @@ export function PortalFamiliaCalendarioPage() {
         .sort((a, b) => aMinutos(a.hora_inicio) - aMinutos(b.hora_inicio)),
     [franjasFiltradas, diaVisible],
   )
-
-  function imprimirCalendario() {
-    const raiz = document.documentElement
-    const estabaOscuro = raiz.classList.contains('dark')
-    if (estabaOscuro) raiz.classList.remove('dark')
-    const restaurar = () => {
-      if (estabaOscuro) raiz.classList.add('dark')
-      window.removeEventListener('afterprint', restaurar)
-    }
-    window.addEventListener('afterprint', restaurar)
-    window.print()
-  }
 
   function elegirDia(dia: number) {
     setDiaAgenda(dia)
@@ -357,14 +372,17 @@ export function PortalFamiliaCalendarioPage() {
                           Semana del {etiquetaSemana}
                         </span>
                       </div>
-                      <Button
-                        variant="secondary"
-                        className="rounded-full"
-                        onClick={imprimirCalendario}
-                      >
-                        <PrinterIcon aria-hidden="true" className="size-4" />
-                        Imprimir
-                      </Button>
+                      <ExportarHorario
+                        titulo="Horario semanal"
+                        descargar={
+                          alumno ? () => descargarHorarioFamilia(alumno.alumno_id) : undefined
+                        }
+                        compartir={
+                          alumno
+                            ? () => compartirHorarioFamilia(alumno.alumno_id, 'Horario semanal')
+                            : undefined
+                        }
+                      />
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 border-b border-[#F1EBF7] px-4 py-3 print:hidden">
