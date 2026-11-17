@@ -76,12 +76,8 @@ def crear_factura_demo(
 ):
     """Create an isolated synthetic student/invoice pair; unrelated rows stay untouched."""
     cat = catalogo(db_session)
-    persona_alumno = Persona(
-        nombre=f"Alumno{indice}", apellido="Demo", dni=f"40{indice:06d}"
-    )
-    persona_familia = Persona(
-        nombre=f"Familia{indice}", apellido="Demo", dni=f"41{indice:06d}"
-    )
+    persona_alumno = Persona(nombre=f"Alumno{indice}", apellido="Demo", dni=f"40{indice:06d}")
+    persona_familia = Persona(nombre=f"Familia{indice}", apellido="Demo", dni=f"41{indice:06d}")
     db_session.add_all([persona_alumno, persona_familia])
     db_session.flush()
     alumno = Alumno(
@@ -150,9 +146,7 @@ def exportar(client, factura_ids, *, periodo="2026-11", modo="pagina", filtros=N
     return client.post(
         BASE,
         json={
-            "seleccion": seleccion(
-                factura_ids, modo=modo, filtros=filtros, excluir=excluir
-            ),
+            "seleccion": seleccion(factura_ids, modo=modo, filtros=filtros, excluir=excluir),
             "periodo": periodo,
         },
     )
@@ -170,9 +164,7 @@ def test_opciones_devuelve_periodos_y_medios(client_autenticado, db_session):
 
 def test_opciones_incluye_periodos_de_lotes_sin_facturas_demo(client_autenticado, db_session):
     crear_factura_demo(db_session, 1, periodo="2026-11")
-    usuario = db_session.scalar(
-        select(Usuario).where(Usuario.email == "facturacion@esseri.edu.ar")
-    )
+    usuario = db_session.scalar(select(Usuario).where(Usuario.email == "facturacion@esseri.edu.ar"))
     assert usuario is not None
     db_session.add_all(
         [
@@ -207,9 +199,7 @@ def test_opciones_incluye_periodos_de_lotes_sin_facturas_demo(client_autenticado
     assert respuesta.json()["periodos"] == ["2026-11", "2025-08"]
 
 
-def test_facturas_elegibles_pagina_y_marca_ocultas_en_otro_lote(
-    client_autenticado, db_session
-):
+def test_facturas_elegibles_pagina_y_marca_ocultas_en_otro_lote(client_autenticado, db_session):
     crear_factura_demo(db_session, 1, numero="F-0001")
     for indice in range(2, 5):
         crear_factura_demo(db_session, indice, numero=f"F-{indice:04d}")
@@ -231,9 +221,7 @@ def test_facturas_elegibles_pagina_y_marca_ocultas_en_otro_lote(
     assert cuerpo["items"][0]["curso"] == "4° A"
     assert cuerpo["items"][0]["alumno_nombre"] == "Demo, Alumno1"
 
-    en_lote = client_autenticado.get(
-        BASE + "/facturas-elegibles", params={"estado": "en_lote"}
-    )
+    en_lote = client_autenticado.get(BASE + "/facturas-elegibles", params={"estado": "en_lote"})
     assert en_lote.status_code == 200
     assert [item["numero"] for item in en_lote.json()["items"]] == ["F-0009"]
     assert en_lote.json()["items"][0]["en_lote"] is True
@@ -341,9 +329,7 @@ def test_exportar_seleccion_filtrada_excluye_ids(client_autenticado, db_session)
     assert db_session.query(DebitoCobranza).count() == 2
 
 
-def test_liberar_exige_motivo_y_confirmacion_y_devuelve_factura(
-    client_autenticado, db_session
-):
+def test_liberar_exige_motivo_y_confirmacion_y_devuelve_factura(client_autenticado, db_session):
     factura = crear_factura_demo(db_session, 1)
     lote = exportar(client_autenticado, [factura.id]).json()
     ruta = f"{BASE}/{lote['id']}/liberar"
@@ -373,9 +359,12 @@ def test_liberar_exige_motivo_y_confirmacion_y_devuelve_factura(
     assert cuerpo["liberacion"]["fecha"]
     assert cuerpo["liberacion"]["usuario_id"]
     assert db_session.scalar(select(DebitoCobranza)).reserva_activa is False
-    assert db_session.query(AuditLog).filter_by(
-        entidad="LOTE_COBRANZA", campo="__liberacion__"
-    ).count() == 1
+    assert (
+        db_session.query(AuditLog)
+        .filter_by(entidad="LOTE_COBRANZA", campo="__liberacion__")
+        .count()
+        == 1
+    )
 
     elegibles = client_autenticado.get(BASE + "/facturas-elegibles")
     assert str(factura.id) in {item["id"] for item in elegibles.json()["items"]}
@@ -386,9 +375,12 @@ def test_liberar_exige_motivo_y_confirmacion_y_devuelve_factura(
     )
     assert repetido.status_code == 200
     assert repetido.json()["liberacion"]["motivo"] == "El banco no procesó el lote"
-    assert db_session.query(AuditLog).filter_by(
-        entidad="LOTE_COBRANZA", campo="__liberacion__"
-    ).count() == 1
+    assert (
+        db_session.query(AuditLog)
+        .filter_by(entidad="LOTE_COBRANZA", campo="__liberacion__")
+        .count()
+        == 1
+    )
 
     historial = client_autenticado.get(BASE + "/liberaciones")
     assert historial.status_code == 200
@@ -459,9 +451,7 @@ def test_busqueda_elegibles_ignora_tildes_y_mayusculas(client_autenticado, db_se
     db_session.commit()
 
     for termino in ("garcia", "GARCÍA", "García"):
-        respuesta = client_autenticado.get(
-            BASE + "/facturas-elegibles", params={"buscar": termino}
-        )
+        respuesta = client_autenticado.get(BASE + "/facturas-elegibles", params={"buscar": termino})
         assert respuesta.status_code == 200
         cuerpo = respuesta.json()
         assert cuerpo["total"] == 1

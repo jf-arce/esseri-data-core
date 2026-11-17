@@ -114,18 +114,14 @@ def test_confirmar_exige_revision_confirmada(client_autenticado, db_session):
     texto = respuesta(client_autenticado, lote)
     importacion = preview(client_autenticado, texto).json()
 
-    respuesta_sin_checkbox = confirmar(
-        client_autenticado, importacion["id"], revisada=False
-    )
+    respuesta_sin_checkbox = confirmar(client_autenticado, importacion["id"], revisada=False)
 
     assert respuesta_sin_checkbox.status_code == 422
     assert db_session.query(Pago).count() == 0
     assert db_session.query(DebitoCobranza).one().resultado_hash is None
 
 
-def test_confirmar_aplica_cobros_y_rechazos_en_una_sola_transaccion(
-    client_autenticado, db_session
-):
+def test_confirmar_aplica_cobros_y_rechazos_en_una_sola_transaccion(client_autenticado, db_session):
     crear_catalogo_evento_pago_registrado(db_session)
     facturas, lote = _lote_con_facturas(client_autenticado, db_session, 3)
     texto = respuesta(client_autenticado, lote, rechazos_cantidad=1)
@@ -223,9 +219,7 @@ def test_reimportar_el_mismo_archivo_recupera_confirmado_sin_duplicar(
     assert db_session.query(ImportacionCobranza).count() == 1
 
 
-def test_confirmacion_revalida_y_no_aplica_pagos_obsoletos(
-    client_autenticado, db_session
-):
+def test_confirmacion_revalida_y_no_aplica_pagos_obsoletos(client_autenticado, db_session):
     crear_catalogo_evento_pago_registrado(db_session)
     facturas, lote = _lote_con_facturas(client_autenticado, db_session, 1)
     texto = respuesta(client_autenticado, lote)
@@ -375,9 +369,7 @@ def test_incidencias_descarga_rechazados_y_errores_completos(client_autenticado,
     revision = preview(client_autenticado, texto).json()
     assert revision["puede_confirmar"] is False
 
-    incidencias = client_autenticado.get(
-        f"{BASE}/importaciones/{revision['id']}/incidencias"
-    )
+    incidencias = client_autenticado.get(f"{BASE}/importaciones/{revision['id']}/incidencias")
 
     assert incidencias.status_code == 200
     archivo = incidencias.json()
@@ -410,9 +402,7 @@ def test_confirmar_otra_revision_tras_confirmar_el_lote(client_autenticado, db_s
     assert db_session.query(Pago).count() == 1
 
 
-def test_envelope_malformado_devuelve_campos_nulos_sin_persistir(
-    client_autenticado, db_session
-):
+def test_envelope_malformado_devuelve_campos_nulos_sin_persistir(client_autenticado, db_session):
     resultado = preview(client_autenticado, "esto no es un archivo")
 
     assert resultado.status_code == 200

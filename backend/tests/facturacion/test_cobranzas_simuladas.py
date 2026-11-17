@@ -62,9 +62,7 @@ def crear_lote(client, factura):
 def respuesta_demo(client, lote, *, rechazar=False):
     respuesta = client.post(
         f"{BASE}/{lote['id']}/respuesta",
-        json={
-            "rechazar_referencias": [lote["items"][0]["referencia"]] if rechazar else []
-        },
+        json={"rechazar_referencias": [lote["items"][0]["referencia"]] if rechazar else []},
     )
     assert respuesta.status_code == 200, respuesta.text
     return respuesta.json()["contenido"]
@@ -321,9 +319,7 @@ def test_confirmaciones_concurrentes_no_duplican(
         with ThreadPoolExecutor(max_workers=2) as pool:
             respuestas = list(pool.map(lambda _: confirmar_http(), range(2)))
         assert all(respuesta.status_code == 200 for respuesta in respuestas)
-        assert all(
-            respuesta.json()["estado"] == "confirmada" for respuesta in respuestas
-        )
+        assert all(respuesta.json()["estado"] == "confirmada" for respuesta in respuestas)
         with sesiones() as sesion:
             assert sesion.query(Pago).count() == 1
             assert sesion.query(Movimiento).filter_by(tipo="haber").count() == 1

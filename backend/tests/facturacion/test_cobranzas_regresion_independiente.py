@@ -64,15 +64,19 @@ def _catalogo(db):
         db.add(concepto)
         db.flush()
     if db.get(MetodoPago, METODO_DEMO) is None:
-        db.add(MetodoPago(id=METODO_DEMO, nombre="Débito por archivo", activo=True,
-                          requiere_comprobante=False))
+        db.add(
+            MetodoPago(
+                id=METODO_DEMO, nombre="Débito por archivo", activo=True, requiere_comprobante=False
+            )
+        )
         db.flush()
     db.commit()
     return {"division": division, "concepto": concepto}
 
 
-def _factura(db, indice, *, periodo="2026-11", medio="cbu", importe="100.00",
-             numero=None, estado="pendiente"):
+def _factura(
+    db, indice, *, periodo="2026-11", medio="cbu", importe="100.00", numero=None, estado="pendiente"
+):
     cat = _catalogo(db)
     pa = Persona(nombre=f"Alumno{indice}", apellido="Demo", dni=f"40{indice:06d}")
     pf = Persona(nombre=f"Familia{indice}", apellido="Demo", dni=f"41{indice:06d}")
@@ -82,38 +86,58 @@ def _factura(db, indice, *, periodo="2026-11", medio="cbu", importe="100.00",
     familia = Familia(estado_deuda="con_deuda", persona_id=pf.id)
     db.add_all([alumno, familia])
     db.flush()
-    ins = Inscripcion(ciclo_lectivo="2026", fecha_inscripcion=date(2026, 1, 10),
-                      tipo="nueva", estado="activa", alumno_id=alumno.id,
-                      division_id=cat["division"].id)
-    resp = ResponsableEconomico(vigencia_desde=date(2026, 1, 1), alumno_id=alumno.id,
-                                familia_id=familia.id)
+    ins = Inscripcion(
+        ciclo_lectivo="2026",
+        fecha_inscripcion=date(2026, 1, 10),
+        tipo="nueva",
+        estado="activa",
+        alumno_id=alumno.id,
+        division_id=cat["division"].id,
+    )
+    resp = ResponsableEconomico(
+        vigencia_desde=date(2026, 1, 1), alumno_id=alumno.id, familia_id=familia.id
+    )
     db.add_all([ins, resp])
     db.flush()
-    f = Factura(fecha_emision=date(int(periodo[:4]), int(periodo[5:]), 1),
-                fecha_vencimiento=date(int(periodo[:4]), int(periodo[5:]), 10),
-                monto_total=Decimal(importe), estado=estado, inscripcion_id=ins.id,
-                responsable_economico_id=resp.id,
-                detalles=[DetalleFactura(descripcion=f"Cuota {periodo}",
-                                         monto=Decimal(importe),
-                                         concepto_cobro_id=cat["concepto"].id)])
+    f = Factura(
+        fecha_emision=date(int(periodo[:4]), int(periodo[5:]), 1),
+        fecha_vencimiento=date(int(periodo[:4]), int(periodo[5:]), 10),
+        monto_total=Decimal(importe),
+        estado=estado,
+        inscripcion_id=ins.id,
+        responsable_economico_id=resp.id,
+        detalles=[
+            DetalleFactura(
+                descripcion=f"Cuota {periodo}",
+                monto=Decimal(importe),
+                concepto_cobro_id=cat["concepto"].id,
+            )
+        ],
+    )
     db.add(f)
     db.flush()
-    db.add(FacturaCobranzaDemo(factura_id=f.id, numero=numero or f"F-{indice:04d}",
-                               periodo=periodo, medio=medio))
+    db.add(
+        FacturaCobranzaDemo(
+            factura_id=f.id, numero=numero or f"F-{indice:04d}", periodo=periodo, medio=medio
+        )
+    )
     db.commit()
     return f
 
 
 def _seleccion(ids, modo="pagina", filtros=None, excluir=None):
-    return {"modo": modo,
-            "factura_ids": [str(i) for i in ids],
-            "filtros": filtros or {},
-            "excluir_ids": [str(i) for i in (excluir or [])]}
+    return {
+        "modo": modo,
+        "factura_ids": [str(i) for i in ids],
+        "filtros": filtros or {},
+        "excluir_ids": [str(i) for i in (excluir or [])],
+    }
 
 
 def _exportar(client, ids, periodo="2026-11", modo="pagina", filtros=None, excluir=None):
-    return client.post(BASE, json={"seleccion": _seleccion(ids, modo, filtros, excluir),
-                                   "periodo": periodo})
+    return client.post(
+        BASE, json={"seleccion": _seleccion(ids, modo, filtros, excluir), "periodo": periodo}
+    )
 
 
 def _respuesta(client, lote, rechazar=None, cantidad=None):
@@ -130,32 +154,35 @@ def _preview(client, texto):
 
 
 def _confirmar(client, importacion_id, revisada=True):
-    return client.post(BASE + "/confirmar",
-                       json={"importacion_id": str(importacion_id),
-                             "revision_confirmada": revisada})
+    return client.post(
+        BASE + "/confirmar",
+        json={"importacion_id": str(importacion_id), "revision_confirmada": revisada},
+    )
 
 
 def _fin(db):
     def val(model):
         return db.query(model).count()
+
     return {
         "pago": val(Pago),
         "mov": val(Movimiento),
         "event": val(EventLog),
         "audit_pago": db.query(AuditLog).filter_by(entidad="PAGO").count(),
         "audit_debito": db.query(AuditLog).filter_by(entidad="DEBITO_COBRANZA").count(),
-        "factura_estados": sorted((str(f.id), f.estado, str(f.monto_total))
-                                  for f in db.query(Factura).all()),
-        "debitos": sorted((str(d.id), d.resultado, d.resultado_hash,
-                           d.reserva_activa, str(d.pago_id))
-                          for d in db.query(DebitoCobranza).all()),
+        "factura_estados": sorted(
+            (str(f.id), f.estado, str(f.monto_total)) for f in db.query(Factura).all()
+        ),
+        "debitos": sorted(
+            (str(d.id), d.resultado, d.resultado_hash, d.reserva_activa, str(d.pago_id))
+            for d in db.query(DebitoCobranza).all()
+        ),
         "cc": val(CuentaCorriente),
     }
 
 
 def _huella(db):
-    return hashlib.sha256(json.dumps(_fin(db), sort_keys=True,
-                                     default=str).encode()).hexdigest()
+    return hashlib.sha256(json.dumps(_fin(db), sort_keys=True, default=str).encode()).hexdigest()
 
 
 def _lote_con_facturas(client, db, n, **kw):
@@ -201,17 +228,19 @@ def test_s7_paginacion_25_estado_filtros_y_ocultas(client_autenticado, db_sessio
 def test_s7_filtrados_predicado_y_export_con_reintento(client_autenticado, db_session):
     fs = [_factura(db_session, i, numero=f"F-{i:04d}") for i in range(1, 31)]
     filtros = {"periodo": "2026-11", "medio": "cbu", "estado": "pendientes_sin_lote"}
-    r = client_autenticado.post(BASE + "/resumen-seleccion",
-                                json={"seleccion": _seleccion([], "filtrados", filtros)})
+    r = client_autenticado.post(
+        BASE + "/resumen-seleccion", json={"seleccion": _seleccion([], "filtrados", filtros)}
+    )
     assert r.status_code == 200, r.text
     assert (
         r.json()["cantidad"],
         r.json()["importe_total"],
         r.json()["alcance"],
     ) == (30, "3000.00", "filtrados")
-    r2 = client_autenticado.post(BASE + "/resumen-seleccion",
-                                 json={"seleccion": _seleccion([], "filtrados", filtros,
-                                                               excluir=[fs[0].id, fs[1].id])})
+    r2 = client_autenticado.post(
+        BASE + "/resumen-seleccion",
+        json={"seleccion": _seleccion([], "filtrados", filtros, excluir=[fs[0].id, fs[1].id])},
+    )
     assert r2.json()["cantidad"] == 28
     exportado = _exportar(client_autenticado, [], modo="filtrados", filtros=filtros)
     assert exportado.status_code == 201, exportado.text
@@ -221,10 +250,14 @@ def test_s7_filtrados_predicado_y_export_con_reintento(client_autenticado, db_se
     assert again.status_code == 400, again.text
     assert db_session.query(LoteCobranza).count() == 1
     # database-enforced single active reservation per invoice
-    duplicado = DebitoCobranza(lote_id=uuid.UUID(exportado.json()["id"]),
-                               factura_id=fs[0].id, importe=Decimal("1.00"),
-                               vencimiento=date(2026, 11, 10), concepto="dup",
-                               reserva_activa=True)
+    duplicado = DebitoCobranza(
+        lote_id=uuid.UUID(exportado.json()["id"]),
+        factura_id=fs[0].id,
+        importe=Decimal("1.00"),
+        vencimiento=date(2026, 11, 10),
+        concepto="dup",
+        reserva_activa=True,
+    )
     db_session.add(duplicado)
     with pytest.raises(IntegrityError):
         db_session.commit()
@@ -255,9 +288,10 @@ def test_s8_preview_durable_hash_y_release_bloqueado(client_autenticado, db_sess
     revision = client_autenticado.get(f"{BASE}/importaciones/{p['id']}")
     assert revision.status_code == 200 and revision.json()["total"] == 0
     assert detalle.json()["resumen"] == p["resumen"]
-    liberar = client_autenticado.post(f"{BASE}/{lote['id']}/liberar",
-                                      json={"motivo": "no procesado",
-                                            "confirmacion_no_procesado": True})
+    liberar = client_autenticado.post(
+        f"{BASE}/{lote['id']}/liberar",
+        json={"motivo": "no procesado", "confirmacion_no_procesado": True},
+    )
     assert liberar.status_code == 409, liberar.text
     assert "no se puede liberar" in liberar.json()["detail"]
     malo = _preview(client_autenticado, "esto no es un archivo")
@@ -299,9 +333,10 @@ def test_s11_revalidacion_antes_de_escribir_pago_parcial(client_autenticado, db_
     fs, lote = _lote_con_facturas(client_autenticado, db_session, 3)
     p = _preview(client_autenticado, _respuesta(client_autenticado, lote)).json()
     # authoritative state changes after preview: pay invoice 1 partially via existing endpoint
-    pago = client_autenticado.post(f"/facturacion/facturas/{fs[0].id}/pagos",
-                                   data={"fecha": "2026-11-11", "monto": "10.00",
-                                         "metodo_pago_id": str(METODO_DEMO)})
+    pago = client_autenticado.post(
+        f"/facturacion/facturas/{fs[0].id}/pagos",
+        data={"fecha": "2026-11-11", "monto": "10.00", "metodo_pago_id": str(METODO_DEMO)},
+    )
     assert pago.status_code == 201, pago.text
     confirmado = _confirmar(client_autenticado, p["id"])
     assert confirmado.status_code == 200, confirmado.text
@@ -311,10 +346,7 @@ def test_s11_revalidacion_antes_de_escribir_pago_parcial(client_autenticado, db_
     assert len(errores) == 1 and "importe no coincide" in errores[0]["mensaje"]
     assert db_session.query(Pago).count() == 1  # only the manual partial payment
     assert (
-        db_session.query(DebitoCobranza)
-        .filter(DebitoCobranza.resultado.is_not(None))
-        .count()
-        == 0
+        db_session.query(DebitoCobranza).filter(DebitoCobranza.resultado.is_not(None)).count() == 0
     )
     assert all(d.reserva_activa for d in db_session.query(DebitoCobranza))
     assert db_session.query(LoteCobranza).one().estado == "en_revision"
@@ -373,16 +405,19 @@ def test_s8_confirmacion_atomica_pago_ledger_audit_evento_y_rechazo(client_auten
 def test_s9_liberacion_guards_auditoria_y_respuesta_obsoleta(client_autenticado, db_session):
     fs, lote = _lote_con_facturas(client_autenticado, db_session, 2)
     texto = _respuesta(client_autenticado, lote)
-    sin_check = client_autenticado.post(f"{BASE}/{lote['id']}/liberar",
-                                        json={"motivo": "no procesado",
-                                              "confirmacion_no_procesado": False})
+    sin_check = client_autenticado.post(
+        f"{BASE}/{lote['id']}/liberar",
+        json={"motivo": "no procesado", "confirmacion_no_procesado": False},
+    )
     assert sin_check.status_code == 422
-    sin_motivo = client_autenticado.post(f"{BASE}/{lote['id']}/liberar",
-                                         json={"motivo": "", "confirmacion_no_procesado": True})
+    sin_motivo = client_autenticado.post(
+        f"{BASE}/{lote['id']}/liberar", json={"motivo": "", "confirmacion_no_procesado": True}
+    )
     assert sin_motivo.status_code == 422
-    r = client_autenticado.post(f"{BASE}/{lote['id']}/liberar",
-                                json={"motivo": "El banco no procesó el lote",
-                                      "confirmacion_no_procesado": True})
+    r = client_autenticado.post(
+        f"{BASE}/{lote['id']}/liberar",
+        json={"motivo": "El banco no procesó el lote", "confirmacion_no_procesado": True},
+    )
     assert r.status_code == 200, r.text
     s = r.json()
     assert s["estado"] == "liberado"
@@ -403,6 +438,7 @@ def test_s9_liberacion_guards_auditoria_y_respuesta_obsoleta(client_autenticado,
 
 def test_s11_rollback_total_ante_falla_tardia(client_autenticado, db_session, monkeypatch):
     from src.facturacion import facturas_service
+
     crear_catalogo_evento_pago_registrado(db_session)
     fs, lote = _lote_con_facturas(client_autenticado, db_session, 2)
     p = _preview(client_autenticado, _respuesta(client_autenticado, lote)).json()
@@ -429,6 +465,7 @@ def test_s11_rollback_total_ante_falla_tardia(client_autenticado, db_session, mo
 def test_s10_seed_500_idempotente_y_438(client_autenticado, db_session):
     import importlib.util
     from pathlib import Path
+
     ruta = Path(__file__).resolve().parents[3] / "database/seeds/07_seed_debitos_demo.py"
     spec = importlib.util.spec_from_file_location("seed_debitos", ruta)
     mod = importlib.util.module_from_spec(spec)
@@ -456,8 +493,11 @@ def test_s10_seed_500_idempotente_y_438(client_autenticado, db_session):
     opciones = client_autenticado.get(BASE + "/opciones").json()
     assert "2026-11" in opciones["periodos"] and "2026-10" in opciones["periodos"]
     if db_session.get(MetodoPago, METODO_DEMO) is None:
-        db_session.add(MetodoPago(id=METODO_DEMO, nombre="Débito por archivo",
-                                  activo=True, requiere_comprobante=False))
+        db_session.add(
+            MetodoPago(
+                id=METODO_DEMO, nombre="Débito por archivo", activo=True, requiere_comprobante=False
+            )
+        )
         db_session.commit()
     filtros = {"periodo": "2026-11", "estado": "pendientes_sin_lote"}
     resumen = client_autenticado.post(
@@ -505,8 +545,9 @@ def test_concurrencia_propia_export_preview_confirm(client_autenticado, db_sessi
     archivo = tmp_path / "propia.sqlite"
     with sqlite3.connect(archivo) as destino:
         db_session.connection().connection.driver_connection.backup(destino)
-    motor = create_engine(f"sqlite:///{archivo}",
-                          connect_args={"timeout": 10, "check_same_thread": False})
+    motor = create_engine(
+        f"sqlite:///{archivo}", connect_args={"timeout": 10, "check_same_thread": False}
+    )
     sesiones = sessionmaker(bind=motor, autoflush=False)
 
     def db_independiente():
@@ -556,8 +597,9 @@ def test_s11_preview_vs_release_carrera(client_autenticado, db_session, tmp_path
     archivo = tmp_path / "carrera.sqlite"
     with sqlite3.connect(archivo) as destino:
         db_session.connection().connection.driver_connection.backup(destino)
-    motor = create_engine(f"sqlite:///{archivo}",
-                          connect_args={"timeout": 10, "check_same_thread": False})
+    motor = create_engine(
+        f"sqlite:///{archivo}", connect_args={"timeout": 10, "check_same_thread": False}
+    )
     sesiones = sessionmaker(bind=motor, autoflush=False)
 
     def db_independiente():
@@ -574,9 +616,13 @@ def test_s11_preview_vs_release_carrera(client_autenticado, db_session, tmp_path
 
     def liberar():
         barrera.wait(timeout=10)
-        return ("liberar", client_autenticado.post(
-            f"{BASE}/{lote['id']}/liberar",
-            json={"motivo": "carrera", "confirmacion_no_procesado": True}))
+        return (
+            "liberar",
+            client_autenticado.post(
+                f"{BASE}/{lote['id']}/liberar",
+                json={"motivo": "carrera", "confirmacion_no_procesado": True},
+            ),
+        )
 
     try:
         with ThreadPoolExecutor(max_workers=2) as pool:
@@ -607,13 +653,19 @@ def test_s4_portal_familia_ve_el_pago_confirmado(client_autenticado, db_session)
     familia = db_session.get(Familia, responsable.familia_id)
     from src.auth import sesion_service
     from src.auth.models import Usuario as UsuarioAuth
-    usuario = UsuarioAuth(email="familia.demo@esseri.test",
-                          password_hash=sesion_service.hashear_password("clave-larga-1"),
-                          auth_provider="local", estado="activo", persona_id=familia.persona_id)
+
+    usuario = UsuarioAuth(
+        email="familia.demo@esseri.test",
+        password_hash=sesion_service.hashear_password("clave-larga-1"),
+        auth_provider="local",
+        estado="activo",
+        persona_id=familia.persona_id,
+    )
     db_session.add(usuario)
     db_session.commit()
-    login = client_autenticado.post("/auth/login", json={"email": usuario.email,
-                                                       "password": "clave-larga-1"})
+    login = client_autenticado.post(
+        "/auth/login", json={"email": usuario.email, "password": "clave-larga-1"}
+    )
     assert login.status_code == 200, login.text
     portal = client_autenticado.get("/facturacion/familia/me")
     assert portal.status_code == 200, portal.text
@@ -626,18 +678,24 @@ def test_s4_portal_familia_ve_el_pago_confirmado(client_autenticado, db_session)
 
 def test_preview_lote_inexistente_y_legacy_factura_ids(client_autenticado, db_session):
     from src.facturacion import formato_cobranza_simulada as fmt
+
     antes = _huella(db_session)
-    contenido = fmt.generar_respuesta(uuid.uuid4(), date(2026, 11, 11), [
-        fmt.RespuestaDetalle(uuid.uuid4(), fmt.COBRADO, Decimal("100.00"),
-                             date(2026, 11, 11), "", "")])
+    contenido = fmt.generar_respuesta(
+        uuid.uuid4(),
+        date(2026, 11, 11),
+        [
+            fmt.RespuestaDetalle(
+                uuid.uuid4(), fmt.COBRADO, Decimal("100.00"), date(2026, 11, 11), "", ""
+            )
+        ],
+    )
     r = _preview(client_autenticado, contenido)
     assert r.status_code == 200
     assert r.json()["id"] is None and r.json()["errores"]
     assert db_session.query(ImportacionCobranza).count() == 0
     assert _huella(db_session) == antes
     f = _factura(db_session, 1, numero="F-0001")
-    legacy = client_autenticado.post(BASE, json={"factura_ids": [str(f.id)],
-                                               "periodo": "2026-11"})
+    legacy = client_autenticado.post(BASE, json={"factura_ids": [str(f.id)], "periodo": "2026-11"})
     assert legacy.status_code == 201, legacy.text
     assert legacy.json()["cantidad_facturas"] == 1
     otra = client_autenticado.post(BASE, json={"factura_ids": [str(f.id)]})

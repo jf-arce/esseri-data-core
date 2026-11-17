@@ -62,9 +62,7 @@ def test_exportar_la_misma_factura_a_la_vez_reserva_una_sola(
     motor, sesiones = _copiar_base(db_session, tmp_path)
     original = _override(motor, sesiones)
     try:
-        respuestas = _en_paralelo(
-            lambda: exportar(client_autenticado, [factura.id])
-        )
+        respuestas = _en_paralelo(lambda: exportar(client_autenticado, [factura.id]))
         assert sorted(respuesta.status_code for respuesta in respuestas) == [201, 409]
         with sesiones() as sesion:
             assert sesion.query(LoteCobranza).count() == 1
@@ -107,9 +105,7 @@ def test_confirmar_a_la_vez_registra_un_solo_pago(client_autenticado, db_session
             assert sesion.query(Pago).count() == 1
             assert sesion.query(ImportacionCobranza).one().estado == "confirmada"
             assert sesion.query(DebitoCobranza).one().pago_id == sesion.query(Pago).one().id
-            assert (
-                sesion.query(AuditLog).filter_by(entidad="PAGO").count() == 1
-            )
+            assert sesion.query(AuditLog).filter_by(entidad="PAGO").count() == 1
     finally:
         app.dependency_overrides[get_db] = original
         motor.dispose()

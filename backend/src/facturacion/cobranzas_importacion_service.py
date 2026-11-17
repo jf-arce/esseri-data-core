@@ -135,12 +135,8 @@ def _leer_importacion(
         consulta = consulta.where(
             or_(
                 normalizar_columna_busqueda(ImportacionCobranzaDetalle.referencia).like(patron),
-                normalizar_columna_busqueda(ImportacionCobranzaDetalle.numero_factura).like(
-                    patron
-                ),
-                normalizar_columna_busqueda(ImportacionCobranzaDetalle.alumno_nombre).like(
-                    patron
-                ),
+                normalizar_columna_busqueda(ImportacionCobranzaDetalle.numero_factura).like(patron),
+                normalizar_columna_busqueda(ImportacionCobranzaDetalle.alumno_nombre).like(patron),
                 normalizar_columna_busqueda(ImportacionCobranzaDetalle.mensaje).like(patron),
             )
         )
@@ -247,9 +243,7 @@ def _resolver_filas(
     ids = {debito.factura_id for debito in debitos.values()}
     info, pagados = _info_facturas(db, ids)
     metodo = db.get(MetodoPago, METODO_ID, populate_existing=True)
-    metodo_valido = (
-        metodo is not None and metodo.activo and not metodo.requiere_comprobante
-    )
+    metodo_valido = metodo is not None and metodo.activo and not metodo.requiere_comprobante
     resultado: list[ImportacionCobranzaDetalle] = []
     for linea, fila in enumerate(filas, start=2):
         huella = _huella(fila)
@@ -308,9 +302,7 @@ def _resolver_filas(
             )
             resultado.append(detalle)
             continue
-        detalle.estado = (
-            "listo" if fila.resultado == formato.COBRADO else "rechazado"
-        )
+        detalle.estado = "listo" if fila.resultado == formato.COBRADO else "rechazado"
         detalle.mensaje = (
             "Cobro listo para registrar al confirmar."
             if fila.resultado == formato.COBRADO
@@ -354,9 +346,7 @@ def previsualizar(
             lote_id=lote.id,
             lote_codigo=lote.codigo,
             archivo_hash=archivo_hash,
-            errores=[
-                f"El lote {lote.codigo or lote.id} está {estado}; no admite otra respuesta."
-            ],
+            errores=[f"El lote {lote.codigo or lote.id} está {estado}; no admite otra respuesta."],
         )
 
     _bloquear_escritura_sqlite(db)
@@ -387,9 +377,7 @@ def previsualizar(
             lote_id=lote.id,
             lote_codigo=lote.codigo,
             archivo_hash=archivo_hash,
-            errores=[
-                f"El lote {lote.codigo or lote.id} está {estado}; no admite otra respuesta."
-            ],
+            errores=[f"El lote {lote.codigo or lote.id} está {estado}; no admite otra respuesta."],
         )
     importacion = ImportacionCobranza(
         lote_id=lote.id,
@@ -474,8 +462,7 @@ def incidencias(db: Session, importacion_id: uuid.UUID) -> ArchivoRead:
     filas = [
         detalle
         for detalle in importacion.detalles
-        if detalle.estado in ("error", "duplicado")
-        or detalle.resultado == formato.RECHAZADO
+        if detalle.estado in ("error", "duplicado") or detalle.resultado == formato.RECHAZADO
     ]
     salida = StringIO(newline="")
     escritor = csv.writer(salida, delimiter=";", lineterminator="\n")
@@ -513,9 +500,7 @@ def incidencias(db: Session, importacion_id: uuid.UUID) -> ArchivoRead:
     )
 
 
-def _revalidar(
-    db: Session, lote: LoteCobranza, detalles: list[ImportacionCobranzaDetalle]
-) -> bool:
+def _revalidar(db: Session, lote: LoteCobranza, detalles: list[ImportacionCobranzaDetalle]) -> bool:
     """Re-read authoritative invoice state under locks; no financial write happens here."""
     debitos = {
         debito.id: debito
@@ -551,9 +536,7 @@ def _revalidar(
         detalle.alumno_nombre = factura["alumno_nombre"] if factura else None
         if debito.resultado_hash is not None:
             detalle.estado = (
-                "duplicado"
-                if debito.resultado_hash == detalle.resultado_hash
-                else "error"
+                "duplicado" if debito.resultado_hash == detalle.resultado_hash else "error"
             )
             detalle.mensaje = (
                 "Resultado ya registrado; no se aplicó otra vez."
@@ -590,9 +573,7 @@ def _revalidar(
             )
             hay_error = True
             continue
-        detalle.estado = (
-            "listo" if detalle.resultado == formato.COBRADO else "rechazado"
-        )
+        detalle.estado = "listo" if detalle.resultado == formato.COBRADO else "rechazado"
         detalle.mensaje = (
             "Cobro listo para registrar al confirmar."
             if detalle.resultado == formato.COBRADO
@@ -645,9 +626,7 @@ def confirmar(
         return _leer_importacion(
             db,
             importacion,
-            errores=[
-                "El lote ya tiene pagos registrados; esta respuesta no se puede confirmar."
-            ],
+            errores=["El lote ya tiene pagos registrados; esta respuesta no se puede confirmar."],
         )
     detalles = _detalles(db, importacion.id)
     if not detalles:
@@ -724,9 +703,7 @@ def confirmar(
                     fecha=detalle.fecha_procesamiento,
                     monto=detalle.importe,
                     metodo_pago_id=METODO_ID,
-                    referencia_transaccion=(
-                        f"ESSERI_SIMULADO:{lote.id}:{debito.id}"
-                    ),
+                    referencia_transaccion=(f"ESSERI_SIMULADO:{lote.id}:{debito.id}"),
                     comprobante_nombre=None,
                     comprobante_tipo_contenido=None,
                     comprobante_contenido=None,
@@ -749,9 +726,7 @@ def confirmar(
                 usuario_id=usuario_id,
             )
         lote.estado = "pagos_registrados"
-        importacion = db.get(
-            ImportacionCobranza, importacion.id, populate_existing=True
-        )
+        importacion = db.get(ImportacionCobranza, importacion.id, populate_existing=True)
         importacion.estado = "confirmada"
         importacion.confirmada_at = datetime.now(UTC)
         log_audit(
@@ -766,9 +741,7 @@ def confirmar(
         db.commit()
     except CobranzaInvalida as exc:
         db.rollback()
-        return _leer_importacion(
-            db, obtener_importacion(db, importacion_id), errores=[str(exc)]
-        )
+        return _leer_importacion(db, obtener_importacion(db, importacion_id), errores=[str(exc)])
     except Exception:
         db.rollback()
         raise

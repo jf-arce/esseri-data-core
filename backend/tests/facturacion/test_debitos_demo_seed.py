@@ -51,9 +51,7 @@ def test_seed_crea_dataset_acotado_e_idempotente(db_session):
     lote_exportado = db_session.scalar(
         select(LoteCobranza).where(LoteCobranza.estado == "exportado")
     )
-    lote_liberado = db_session.scalar(
-        select(LoteCobranza).where(LoteCobranza.estado == "liberado")
-    )
+    lote_liberado = db_session.scalar(select(LoteCobranza).where(LoteCobranza.estado == "liberado"))
     assert lote_exportado is not None and lote_exportado.codigo == "LD-2026-11-001"
     assert lote_liberado is not None and lote_liberado.codigo == "LD-2026-10-001"
     reservados = list(
@@ -62,9 +60,7 @@ def test_seed_crea_dataset_acotado_e_idempotente(db_session):
         )
     )
     liberados = list(
-        db_session.scalars(
-            select(DebitoCobranza).where(DebitoCobranza.lote_id == lote_liberado.id)
-        )
+        db_session.scalars(select(DebitoCobranza).where(DebitoCobranza.lote_id == lote_liberado.id))
     )
     assert len(reservados) == 12
     assert all(debito.reserva_activa for debito in reservados)
@@ -135,9 +131,7 @@ def test_seed_permite_exportar_las_438_facturas_del_periodo(client_autenticado, 
     creditos = next((v for k, v in contenidos.items() if "CREDITOS" in k), None)
     assert debitos is not None and creditos is not None
     assert all("SIMULADO" not in nombre for nombre in contenidos)
-    assert debitos.startswith(
-        "referencia;factura;alumno;periodo;concepto;importe;vencimiento;cbu"
-    )
+    assert debitos.startswith("referencia;factura;alumno;periodo;concepto;importe;vencimiento;cbu")
     assert creditos.startswith(
         "referencia;factura;alumno;periodo;concepto;importe;vencimiento;token_tarjeta"
     )

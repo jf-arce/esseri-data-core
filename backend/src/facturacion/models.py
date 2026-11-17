@@ -285,9 +285,7 @@ class DebitoCobranza(Base):
     resultado: Mapped[str | None] = mapped_column(sa.String(30))
     resultado_hash: Mapped[str | None] = mapped_column(sa.String(64))
     pago_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("pago.id"), unique=True)
-    reserva_activa: Mapped[bool] = mapped_column(
-        sa.Boolean, default=True, server_default=sa.true()
-    )
+    reserva_activa: Mapped[bool] = mapped_column(sa.Boolean, default=True, server_default=sa.true())
     lote: Mapped[LoteCobranza] = relationship(back_populates="items")
 
 
@@ -298,9 +296,7 @@ class FacturaCobranzaDemo(Base):
     __table_args__ = (
         sa.UniqueConstraint("factura_id", name="uq_factura_cobranza_demo_factura"),
         sa.UniqueConstraint("numero", name="uq_factura_cobranza_demo_numero"),
-        sa.CheckConstraint(
-            "medio IN ('cbu', 'tarjeta')", name="ck_factura_cobranza_demo_medio"
-        ),
+        sa.CheckConstraint("medio IN ('cbu', 'tarjeta')", name="ck_factura_cobranza_demo_medio"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
@@ -319,9 +315,7 @@ class ImportacionCobranza(Base):
     __tablename__ = "importacion_cobranza"
     __table_args__ = (
         sa.UniqueConstraint("lote_id", "archivo_hash", name="uq_importacion_lote_hash"),
-        sa.CheckConstraint(
-            "estado IN ('en_revision', 'confirmada')", name="ck_importacion_estado"
-        ),
+        sa.CheckConstraint("estado IN ('en_revision', 'confirmada')", name="ck_importacion_estado"),
         sa.Index("ix_importacion_cobranza_lote", "lote_id"),
     )
 
@@ -358,9 +352,7 @@ class ImportacionCobranzaDetalle(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
-    importacion_id: Mapped[uuid.UUID] = mapped_column(
-        sa.ForeignKey("importacion_cobranza.id")
-    )
+    importacion_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("importacion_cobranza.id"))
     linea: Mapped[int] = mapped_column(sa.Integer)
     referencia: Mapped[str | None] = mapped_column(sa.String(36))
     resultado: Mapped[str | None] = mapped_column(sa.String(30))
@@ -377,7 +369,6 @@ class ImportacionCobranzaDetalle(Base):
     mensaje: Mapped[str] = mapped_column(sa.Text, default="")
     pago_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("pago.id"))
     importacion: Mapped[ImportacionCobranza] = relationship(back_populates="detalles")
-
 
 
 class ArchivoComprobantePago(Base):

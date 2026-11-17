@@ -133,9 +133,7 @@ def _consulta_elegibles(
         .where(Factura.monto_total > _pagado_expr())
     )
     estado = (
-        "pendientes_sin_lote"
-        if forzar_reservadas
-        else (filtros.estado or "pendientes_sin_lote")
+        "pendientes_sin_lote" if forzar_reservadas else (filtros.estado or "pendientes_sin_lote")
     )
     if forzar_reservadas:
         consulta = consulta.where(_reserva_expr())
@@ -328,8 +326,10 @@ def resumen_seleccion(db: Session, seleccion: Seleccion) -> ResumenSeleccionRead
             ocultas_en_lote=_ocultas_en_lote(db, seleccion.filtros),
         )
     filas = _resolver(db, seleccion)
-    por_medio = {"cbu": ResumenMedioRead(cantidad=0, importe=Decimal("0.00")),
-                 "tarjeta": ResumenMedioRead(cantidad=0, importe=Decimal("0.00"))}
+    por_medio = {
+        "cbu": ResumenMedioRead(cantidad=0, importe=Decimal("0.00")),
+        "tarjeta": ResumenMedioRead(cantidad=0, importe=Decimal("0.00")),
+    }
     for fila in filas:
         actual = por_medio.get(fila.medio)
         if actual is not None:
@@ -591,9 +591,7 @@ def crear_lote(db: Session, datos: LoteCreate, usuario_id: uuid.UUID) -> LoteDet
         if not filas:
             raise SolicitudCobranzaInvalida("La selección no contiene facturas disponibles.")
         if len(filas) > MAX_FACTURAS_LOTE:
-            raise SolicitudCobranzaInvalida(
-                f"Un lote admite hasta {MAX_FACTURAS_LOTE} facturas."
-            )
+            raise SolicitudCobranzaInvalida(f"Un lote admite hasta {MAX_FACTURAS_LOTE} facturas.")
         periodo = datos.periodo or seleccion.filtros.periodo or _periodo_comun(filas)
         if seleccion.filtros.periodo and periodo != seleccion.filtros.periodo:
             raise SolicitudCobranzaInvalida(
@@ -781,9 +779,7 @@ def liberar_lote(
             "El lote ya tiene resultados importados o pagos registrados; no se puede liberar."
         )
     if db.scalar(select(ImportacionCobranza.id).where(ImportacionCobranza.lote_id == lote.id)):
-        raise CobranzaEnConflicto(
-            "El lote tiene una vista previa persistida; no se puede liberar."
-        )
+        raise CobranzaEnConflicto("El lote tiene una vista previa persistida; no se puede liberar.")
     db.execute(
         update(DebitoCobranza)
         .where(DebitoCobranza.lote_id == lote.id)
@@ -831,6 +827,4 @@ def listar_liberaciones(db: Session, *, pagina: int, tamanio: int) -> Liberacion
         )
         for lote in lotes
     ]
-    return LiberacionesRead(
-        items=items, total=total, pagina=pagina, tamanio=tamanio
-    )
+    return LiberacionesRead(items=items, total=total, pagina=pagina, tamanio=tamanio)

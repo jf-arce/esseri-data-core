@@ -52,9 +52,7 @@ def facturas_elegibles(
     pagina: Pagina = 1,
     tamanio: Tamanio = 25,
 ) -> FacturasElegiblesRead:
-    filtros = FiltrosSeleccion(
-        periodo=periodo, medio=medio, estado=estado, buscar=buscar
-    )
+    filtros = FiltrosSeleccion(periodo=periodo, medio=medio, estado=estado, buscar=buscar)
     return service.listar_elegibles(db, filtros=filtros, pagina=pagina, tamanio=tamanio)
 
 
@@ -77,9 +75,7 @@ def obtener_importacion(
     importacion_id: UUID,
     db: DbSession,
     _: Operador,
-    resultado: Literal[
-        "revision", "cobrados", "rechazados", "errores", "todos"
-    ] = "revision",
+    resultado: Literal["revision", "cobrados", "rechazados", "errores", "todos"] = "revision",
     buscar: str | None = None,
     pagina: Pagina = 1,
     tamanio: Tamanio = 25,
@@ -126,9 +122,7 @@ def listar(
     db: DbSession,
     _: Operador,
     periodo: str | None = None,
-    estado: (
-        Literal["exportado", "en_revision", "pagos_registrados", "liberado"] | None
-    ) = None,
+    estado: (Literal["exportado", "en_revision", "pagos_registrados", "liberado"] | None) = None,
     buscar: str | None = None,
     pagina: Pagina = 1,
     tamanio: Tamanio = 25,
@@ -149,9 +143,7 @@ def obtener(lote_id: UUID, db: DbSession, _: Operador) -> LoteDetailRead:
 
 
 @router.post("/{lote_id}/respuesta")
-def respuesta(
-    lote_id: UUID, datos: RespuestaCreate, db: DbSession, _: Operador
-) -> ArchivoRead:
+def respuesta(lote_id: UUID, datos: RespuestaCreate, db: DbSession, _: Operador) -> ArchivoRead:
     return service.generar_respuesta(
         db, lote_id, datos.rechazar_referencias, datos.rechazos_cantidad
     )
