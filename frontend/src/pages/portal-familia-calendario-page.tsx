@@ -84,12 +84,7 @@ function DetalleClase({ franja }: { franja: Franja | null }) {
   const estilo = estiloMateria(franja.materia.materia_nombre)
   const Icono = estilo.Icono
   const docentes = franja.materia.docentes ?? []
-  const docente =
-    docentes.length > 1
-      ? `Profesores: ${docentes.join(', ')}`
-      : docentes.length === 1
-        ? `Profesor: ${docentes[0]}`
-        : 'Sin docente'
+  const docente = docentes.length > 0 ? docentes.join(', ') : 'Sin docente'
 
   return (
     <div className="flex flex-col gap-5">
@@ -339,7 +334,7 @@ export function PortalFamiliaCalendarioPage() {
                                   style={{
                                     gridRow: `${filaInicio + 2} / ${filaFin + 2}`,
                                     gridColumn: franja.dia_semana + 1,
-                                    backgroundColor: `color-mix(in srgb, ${color} 20%, var(--pf-card))`,
+                                    backgroundColor: `color-mix(in srgb, ${color} 20%, var(--superficie))`,
                                     border: `1px solid color-mix(in srgb, ${color} 45%, var(--borde))`,
                                     boxShadow: activaEsta ? `0 0 0 2px ${color}` : undefined,
                                   }}
@@ -413,7 +408,7 @@ export function PortalFamiliaCalendarioPage() {
                                 key={franja.id}
                                 className="flex items-center gap-3 rounded-[14px] px-4 py-3 text-left"
                                 style={{
-                                  backgroundColor: `color-mix(in srgb, ${color} 20%, var(--pf-card))`,
+                                  backgroundColor: `color-mix(in srgb, ${color} 20%, var(--superficie))`,
                                   border: `1px solid color-mix(in srgb, ${color} 45%, var(--borde))`,
                                 }}
                               >
