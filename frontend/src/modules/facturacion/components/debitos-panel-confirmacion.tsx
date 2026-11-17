@@ -60,9 +60,7 @@ export function DebitosPanelConfirmacion({
       <Alert variant="advertencia">
         <ShieldAlertIcon />
         <AlertTitle>Vista previa: todavía no se registró ningún pago</AlertTitle>
-        <AlertDescription>
-          Al confirmar se registran solo los cobros informados.
-        </AlertDescription>
+        <AlertDescription>Al confirmar se registran solo los cobros informados.</AlertDescription>
       </Alert>
 
       <dl className="mt-4 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1.5 text-[13px]">

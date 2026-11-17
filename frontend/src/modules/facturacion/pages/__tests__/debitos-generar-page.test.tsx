@@ -135,9 +135,7 @@ describe('DebitosGenerarPage', () => {
 
     await user.click(screen.getByRole('checkbox', { name: 'Seleccionar F-2026-00001' }))
 
-    expect(
-      await screen.findByText('Seleccionaste 1 factura de esta página.'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Seleccionaste 1 factura de esta página.')).toBeInTheDocument()
     expect(cabezal).toBePartiallyChecked()
     await waitFor(() => {
       const ultima = vi.mocked(resumirSeleccionDebitos).mock.calls.at(-1)?.[0]

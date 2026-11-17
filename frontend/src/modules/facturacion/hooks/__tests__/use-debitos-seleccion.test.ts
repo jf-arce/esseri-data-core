@@ -27,9 +27,7 @@ const filtros = { periodo: '2026-10', estado: 'pendientes_sin_lote' as const }
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(resumirSeleccionDebitos).mockImplementation(async ({ modo, factura_ids }) =>
-    modo === 'pagina'
-      ? resumen('pagina', factura_ids.length)
-      : resumen('filtrados', 438),
+    modo === 'pagina' ? resumen('pagina', factura_ids.length) : resumen('filtrados', 438),
   )
 })
 

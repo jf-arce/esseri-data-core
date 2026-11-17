@@ -153,16 +153,16 @@ describe('DebitosHistorialPage', () => {
     const observadas = new Map<Element, () => void>()
     const resizeObserverOriginal = globalThis.ResizeObserver
     globalThis.ResizeObserver = class {
-        private callback: () => void
-        constructor(callback: () => void) {
-          this.callback = callback
-        }
-        observe(element: Element) {
-          observadas.set(element, this.callback)
-        }
-        disconnect() {}
-        unobserve() {}
-      } as unknown as typeof ResizeObserver
+      private callback: () => void
+      constructor(callback: () => void) {
+        this.callback = callback
+      }
+      observe(element: Element) {
+        observadas.set(element, this.callback)
+      }
+      disconnect() {}
+      unobserve() {}
+    } as unknown as typeof ResizeObserver
     try {
       const user = userEvent.setup()
       vi.mocked(obtenerLoteDebitos).mockResolvedValue({
@@ -374,9 +374,7 @@ describe('DebitosHistorialPage', () => {
     expect(within(dialog).getByText('Demo, Alumno 431')).toBeInTheDocument()
     expect(within(dialog).getByText('Resultado')).toBeInTheDocument()
     expect(within(dialog).getByText('Cobrado')).toBeInTheDocument()
-    expect(
-      within(dialog).getByPlaceholderText('Buscar alumno o factura'),
-    ).toBeInTheDocument()
+    expect(within(dialog).getByPlaceholderText('Buscar alumno o factura')).toBeInTheDocument()
     expect(within(dialog).getByText('Total del lote')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Descargar archivos del lote' }))
     await user.click(screen.getByRole('menuitem', { name: 'Débitos (CBU)' }))
