@@ -32,7 +32,7 @@ import {
   AristaFlujo,
   type AristaFlujo as TipoAristaFlujo,
 } from '@/modules/workflows/components/arista-flujo'
-import { ANCHO_NODO_MIN, type SimulacionNodo } from '@/modules/workflows/components/nodo-base'
+import { ANCHO_NODO, type SimulacionNodo } from '@/modules/workflows/components/nodo-base'
 import { NodoAccion, type NodoAccionFlujo } from '@/modules/workflows/components/nodo-accion'
 import {
   NodoCondicion,
@@ -383,7 +383,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
     const nodo = activo ? getNode(activo) : undefined
     if (!nodo) return
     const { x, y, zoom } = getViewport()
-    const ancho = (nodo.measured?.width ?? ANCHO_NODO_MIN) * zoom
+    const ancho = (nodo.measured?.width ?? ANCHO_NODO) * zoom
     const alto = (nodo.measured?.height ?? ALTO_NODO_ESTIMADO) * zoom
     const izquierda = nodo.position.x * zoom + x
     const arriba = nodo.position.y * zoom + y
@@ -515,7 +515,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
     })
     const sueltos = borrador.nodos.filter((nodo) => nodo.suelto).length
     props.onSoltarBloque(que, {
-      x: centro.x - ANCHO_NODO_MIN / 2 + sueltos * DESPLAZAMIENTO_SUELTO,
+      x: centro.x - ANCHO_NODO / 2 + sueltos * DESPLAZAMIENTO_SUELTO,
       y: centro.y - ALTO_NODO_ESTIMADO / 2 + sueltos * DESPLAZAMIENTO_SUELTO,
     })
   }
@@ -550,9 +550,17 @@ function LienzoFlujo(props: CanvasFlujoProps) {
         onReconnect={alReconectar}
         onReconnectEnd={alTerminarReconexion}
         isValidConnection={esConexionValida}
-        onNodeClick={(_, nodo) => props.onSeleccionar(nodo.id)}
-        onNodeDoubleClick={(_, nodo) => props.onAbrirNodo(nodo.id)}
-        onPaneClick={() => props.onSeleccionar(null)}
+        onNodeClick={(_, nodo) => {
+          setSoltada(null)
+          props.onSeleccionar(nodo.id)
+        }}
+        zoomOnDoubleClick={false}
+        onPaneClick={() => {
+          setSoltada(null)
+          props.onSeleccionar(null)
+        }}
+        onMoveStart={() => setSoltada(null)}
+        onNodeDragStart={() => setSoltada(null)}
         onPaneContextMenu={alMenuContextual}
         onNodeDragStop={(_, __, movidos) => alSoltarNodo(movidos)}
         nodesConnectable={!soloLectura}

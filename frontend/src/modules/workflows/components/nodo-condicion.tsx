@@ -22,6 +22,10 @@ export interface DatosNodoCondicion extends OpcionesAgregar {
   simulacion?: SimulacionNodo
 }
 
+// Sí y No siempre en el centro de la tarjeta; el texto (pr-5) llega hasta los tres puntos sin pisarlos.
+const TOP_SI = 'calc(50% - 16px)'
+const TOP_NO = 'calc(50% + 16px)'
+
 export type NodoCondicionFlujo = Node<DatosNodoCondicion, 'condicion'>
 
 export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
@@ -34,13 +38,14 @@ export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
     <TarjetaNodo
       etiqueta="Condición"
       icono={<ArrowLeftRightIcon />}
-      superficie="bg-advertencia-suave pr-12"
+      superficie="bg-advertencia-suave min-h-[128px]"
       acento="text-advertencia"
       contorno="outline-advertencia"
       seleccionado={data.seleccionado}
       incompleto={data.incompleto}
       acciones={data.acciones}
       aviso={data.aviso}
+      margenAvisos="pr-5"
       simulacion={data.simulacion}
     >
       <Handle
@@ -48,11 +53,9 @@ export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
         position={Position.Left}
         className="size-3.5! border-0! bg-advertencia!"
       />
-      <p className="line-clamp-3 text-sm font-semibold text-texto" title={resumen}>
-        {resumen}
-      </p>
+      <p className="pr-5 text-sm font-semibold text-texto">{resumen}</p>
       {adicionales > 0 && (
-        <p className="mt-1.5 text-xs text-texto-2">
+        <p className="mt-1.5 pr-5 text-xs text-texto-2">
           {`+ ${adicionales} ${adicionales === 1 ? 'comparación más' : 'comparaciones más'} (se cumplen ${
             nodo.logica === 'todas' ? 'todas' : 'alguna'
           })`}
@@ -62,17 +65,17 @@ export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
         id="si"
         type="source"
         position={Position.Right}
-        style={{ top: '34%' }}
+        style={{ top: TOP_SI }}
         className="size-3.5! border-0! bg-exito!"
       />
       <Handle
         id="no"
         type="source"
         position={Position.Right}
-        style={{ top: '72%' }}
+        style={{ top: TOP_NO }}
         className="size-3.5! border-0! bg-error!"
       />
-      <div className="absolute -right-9" style={{ top: 'calc(34% - 12px)' }}>
+      <div className="absolute -right-9" style={{ top: `calc(${TOP_SI} - 12px)` }}>
         <BotonSumar
           rama="si"
           ladoTooltip="top"
@@ -83,7 +86,7 @@ export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
           onAgregar={data.onAgregar}
         />
       </div>
-      <div className="absolute -right-9" style={{ top: 'calc(72% - 12px)' }}>
+      <div className="absolute -right-9" style={{ top: `calc(${TOP_NO} - 12px)` }}>
         <BotonSumar
           rama="no"
           etiqueta="Agregar a la salida No"
@@ -94,14 +97,14 @@ export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
         />
       </div>
       <span
-        style={{ top: '34%' }}
-        className="pointer-events-none absolute right-3 -translate-y-1/2 rounded-full bg-exito-suave px-2 py-0.5 text-[10px] font-bold text-exito"
+        style={{ top: TOP_SI }}
+        className="pointer-events-none absolute right-3 -translate-y-1/2 text-[10px] font-bold text-exito"
       >
         Sí
       </span>
       <span
-        style={{ top: '72%' }}
-        className="pointer-events-none absolute right-3 -translate-y-1/2 rounded-full bg-error-suave px-2 py-0.5 text-[10px] font-bold text-error"
+        style={{ top: TOP_NO }}
+        className="pointer-events-none absolute right-3 -translate-y-1/2 text-[10px] font-bold text-error"
       >
         No
       </span>

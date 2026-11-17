@@ -532,7 +532,7 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Salir sin guardar?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="text-wrap">
               Los cambios de esta regla se pierden si salís ahora.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -556,7 +556,7 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Tenías cambios sin guardar en esta regla</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="text-wrap">
               {pendiente && `Quedaron del ${FORMATO_HORA.format(pendiente.actualizado)}. `}
               {pendiente && pendiente.base !== (regla?.updated_at ?? null)
                 ? 'La regla se modificó después: si los recuperás, pisás esos cambios al guardar.'

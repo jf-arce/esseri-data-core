@@ -15,7 +15,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { BotonIcono } from '@/modules/workflows/components/boton-icono'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { CatalogoBloques } from '@/modules/workflows/components/catalogo-bloques'
@@ -28,9 +27,8 @@ import {
 import { TEXTO_SIMULACION } from '@/modules/workflows/utils-grafo'
 import type { TipoAccionCatalogo } from '@/modules/workflows/types'
 
-/** El nodo mide al menos esto y crece con su contenido hasta el máximo. */
-export const ANCHO_NODO_MIN = 260
-export const ANCHO_NODO_MAX = 380
+/** Todos los bloques miden lo mismo: el texto largo sigue hacia abajo. */
+export const ANCHO_NODO = 260
 
 /** Qué sabe cada nodo de la simulación en curso: su resultado y si ya se mostró. */
 export interface SimulacionNodo {
@@ -90,15 +88,22 @@ function MenuNodo({ acciones }: { acciones: AccionesNodo }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <BotonIcono
-          etiqueta="Más acciones del bloque"
-          lado="top"
-          className="nodrag nopan -my-1 -mr-1.5 size-7 min-h-0"
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Más acciones del bloque"
+          onDoubleClick={(evento) => evento.stopPropagation()}
+          className="nodrag nopan -my-1.5 -mr-2 size-7 min-h-0 text-inherit hover:bg-current/10 hover:text-inherit"
         >
           <EllipsisVerticalIcon />
-        </BotonIcono>
+        </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="nodrag nopan">
+      <DropdownMenuContent
+        side="right"
+        align="end"
+        className="nodrag nopan"
+        onDoubleClick={(evento) => evento.stopPropagation()}
+      >
         <DropdownMenuItem onSelect={acciones.onEditar}>
           <PencilIcon />
           {acciones.soloLectura ? 'Ver' : 'Editar'}
@@ -131,6 +136,8 @@ interface TarjetaNodoProps {
   incompleto?: string
   /** Aviso que no impide guardar (p. ej. bloque sin conectar). */
   aviso?: string
+  /** Clase de margen derecho para los avisos, si el nodo reserva espacio a ese lado. */
+  margenAvisos?: string
   simulacion?: SimulacionNodo
   acciones?: AccionesNodo
   children: ReactNode
@@ -146,6 +153,7 @@ export function TarjetaNodo({
   seleccionado,
   incompleto,
   aviso,
+  margenAvisos,
   simulacion,
   acciones,
   children,
@@ -153,7 +161,8 @@ export function TarjetaNodo({
   const atenuado = simulacion?.visible && simulacion.estado === 'no_alcanzado'
   return (
     <div
-      style={{ minWidth: ANCHO_NODO_MIN, maxWidth: ANCHO_NODO_MAX, width: 'max-content' }}
+      onDoubleClick={acciones?.onEditar}
+      style={{ width: ANCHO_NODO }}
       className={cn(
         'nodo-entrar relative rounded-card-sm p-3.5 break-words [overflow-wrap:anywhere] shadow-card transition-opacity duration-200',
         superficie,
@@ -184,13 +193,23 @@ export function TarjetaNodo({
       </div>
       {children}
       {incompleto && (
-        <p className="mt-2 flex items-center gap-1 text-xs font-semibold text-error [&>svg]:size-3.5">
+        <p
+          className={cn(
+            'mt-2 flex items-start gap-1 text-xs font-semibold text-error [&>svg]:mt-px [&>svg]:size-3.5 [&>svg]:shrink-0',
+            margenAvisos,
+          )}
+        >
           <AlertCircleIcon />
           Incompleto: {incompleto}
         </p>
       )}
       {aviso && !incompleto && (
-        <p className="mt-2 flex items-center gap-1 text-xs font-semibold text-texto-2 [&>svg]:size-3.5">
+        <p
+          className={cn(
+            'mt-2 flex items-start gap-1 text-xs font-semibold text-texto-2 [&>svg]:mt-px [&>svg]:size-3.5 [&>svg]:shrink-0',
+            margenAvisos,
+          )}
+        >
           <UnlinkIcon />
           Sin conectar: {aviso}
         </p>

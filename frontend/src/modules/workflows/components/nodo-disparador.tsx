@@ -34,12 +34,8 @@ export function NodoDisparador({ data }: NodeProps<NodoDisparadorFlujo>) {
       incompleto={data.incompleto}
       acciones={data.acciones}
     >
-      <p className="line-clamp-3 text-sm font-semibold text-texto" title={data.titulo}>
-        {data.titulo}
-      </p>
-      <p className="mt-0.5 line-clamp-3 text-xs text-texto-2" title={data.detalle}>
-        {data.detalle}
-      </p>
+      <p className="line-clamp-3 text-sm font-semibold text-texto">{data.titulo}</p>
+      <p className="mt-0.5 text-xs text-texto-2">{data.detalle}</p>
       <Handle
         id={SALIDA_DISPARADOR}
         type="source"
