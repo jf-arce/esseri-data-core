@@ -3,6 +3,7 @@ import { ApiError } from '@/api/client'
 import { MAX_FIJADOS } from '../constants'
 import { enviarMensaje } from '../services/enviar-mensaje'
 import { crearConversacion, listarMensajes } from '../services/conversaciones'
+import { separarComando } from '../utils'
 import type {
   BloqueNavegar,
   ComandoBackend,
@@ -151,7 +152,8 @@ export function useConversacion({
         {
           id: idLocal(),
           autor: 'usuario',
-          contenido: texto,
+          // Igual que lo guarda el backend: el atajo va como prefijo y se resalta en el chat.
+          contenido: comando === undefined ? texto : `/${comando} ${texto}`,
           bloques: [],
           estado: 'completo',
           herramienta: null,
@@ -223,7 +225,8 @@ export function useConversacion({
     const ultimaPregunta = [...mensajes].reverse().find((m) => m.autor === 'usuario')
     if (ultimaPregunta === undefined || generando) return
     setMensajes((actuales) => actuales.slice(0, -2))
-    void enviar(ultimaPregunta.contenido, [])
+    const { comando, texto } = separarComando(ultimaPregunta.contenido)
+    void enviar(texto, [], comando?.comando ?? undefined)
   }, [enviar, generando, mensajes])
 
   const nueva = useCallback(() => {

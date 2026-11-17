@@ -87,3 +87,14 @@ it('copia el texto con los nombres reales en lugar de los alias', async () => {
   expect(copiado).toContain('Ana Pérez')
   expect(copiado).not.toContain('[FAMILIA:1]')
 })
+
+it('en la pregunta del usuario resalta el atajo y deja el texto aparte', () => {
+  const pregunta: MensajeVisible = {
+    ...respuesta('u', '/comparar asistencias de octubre'),
+    autor: 'usuario',
+  }
+  renderizar(<ListaMensajes {...propiedades} mensajes={[pregunta]} />)
+
+  expect(document.querySelector('[data-slot="atajo-resaltado"]')).toHaveTextContent('/comparar')
+  expect(screen.getByText('asistencias de octubre')).toBeInTheDocument()
+})

@@ -156,35 +156,46 @@ export function comandosDisponibles(permisos: Permiso[], consulta: string): Coma
 }
 
 /**
- * El atajo solo viaja si el mensaje sigue siendo el que armó la plantilla: si la persona lo
- * reescribió por completo, es una pregunta nueva y el modelo elige la herramienta.
- */
-export function comandoVigente(
-  contenido: string,
-  elegido: ComandoDeEntrada | null,
-): ComandoBackend | null {
-  if (elegido === null || elegido.comando === null) return null
-  const base = elegido.plantilla.replace(/@$/, '').trim()
-  return contenido.trim().startsWith(base) ? elegido.comando : null
-}
-
-/**
- * Qué se manda al enviar. En un modo (`/comparar ...`) la pregunta es lo que sigue al atajo; se
- * reconoce también si se escribió a mano, sin elegirlo de la lista.
+ * Qué se manda al enviar. El atajo elegido define el comando; sin texto después, va la pregunta
+ * por defecto del atajo (los que exigen texto no se pueden enviar vacíos: devuelven `''`).
  */
 export function resolverEnvio(
   contenido: string,
   elegido: ComandoDeEntrada | null,
 ): { contenido: string; comando: ComandoBackend | null } {
-  const candidato =
-    elegido ??
-    COMANDOS.find((c) => c.modo === true && contenido.startsWith(`/${c.nombre} `)) ??
-    null
-  const comando = comandoVigente(contenido, candidato)
-  if (comando === null || candidato === null || candidato.modo !== true) {
-    return { contenido, comando }
+  const texto = contenido.trim()
+  if (elegido === null || elegido.comando === null) return { contenido: texto, comando: null }
+  return {
+    contenido: texto === '' ? elegido.preguntaPorDefecto : texto,
+    comando: elegido.comando,
   }
-  return { contenido: contenido.slice(candidato.nombre.length + 1).trim(), comando }
+}
+
+/** Atajo escrito a mano al inicio del campo (`/grafico deuda`): el atajo y el resto del texto. */
+export function atajoAlInicio(
+  texto: string,
+  permisos: Permiso[],
+): { comando: ComandoDeEntrada; resto: string } | null {
+  const coincidencia = texto.match(/^\/([^\s/]+) ([\s\S]*)$/)
+  if (coincidencia === null) return null
+  const comando = comandosDisponibles(permisos, coincidencia[1]).find(
+    (c) => c.nombre === coincidencia[1] && c.comando !== null,
+  )
+  return comando === undefined ? null : { comando, resto: coincidencia[2] }
+}
+
+/** Separa el `/atajo` con el que se guardó un mensaje del usuario de lo que escribió después. */
+export function separarComando(contenido: string): {
+  comando: ComandoDeEntrada | null
+  texto: string
+} {
+  const coincidencia = contenido.match(/^\/([a-z]+)(?: ([\s\S]*))?$/)
+  const comando =
+    coincidencia === null
+      ? undefined
+      : COMANDOS.find((c) => c.comando !== null && c.nombre === coincidencia[1])
+  if (coincidencia === null || comando === undefined) return { comando: null, texto: contenido }
+  return { comando, texto: coincidencia[2] ?? '' }
 }
 
 /** Palabras sin tildes ni mayúsculas, con los números y las letras separados ("3°A" → 3, a). */

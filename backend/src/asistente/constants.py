@@ -27,6 +27,11 @@ COMANDOS_HERRAMIENTA = {
     "ir": "ir_a",
 }
 
+# Todos los atajos `/` que acepta el envío (los de módulo y los modos).
+COMANDOS = ("deuda", "asistencia", "horario", "evolucion", "comparar", "grafico", "resumen", "ir")
+# El mensaje del usuario se guarda como `/<atajo> <texto>` para mostrar el atajo en el chat.
+PATRON_PREFIJO_COMANDO = rf"^/({'|'.join(COMANDOS)})(?: |$)"
+
 # Argumentos que un atajo impone a cualquier herramienta que los declare; pisan lo que arme el
 # modelo. `comparar` y `grafico` son modos: no fuerzan herramienta, sirven para cualquier módulo.
 ARGUMENTOS_COMANDO: dict[str, dict[str, object]] = {

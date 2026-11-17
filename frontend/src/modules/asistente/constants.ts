@@ -1,3 +1,15 @@
+import {
+  AlignLeftIcon,
+  CalendarClockIcon,
+  ChartColumnIcon,
+  CornerDownRightIcon,
+  GitCompareArrowsIcon,
+  PlusIcon,
+  TrendingUpIcon,
+  UserCheckIcon,
+  WalletIcon,
+  type LucideIcon,
+} from 'lucide-react'
 import type { ComandoBackend } from './types'
 import {
   PERMISO_ACADEMICO_LEER,
@@ -58,12 +70,15 @@ export type ComandoDeEntrada = {
   descripcion: string
   /** Todos los permisos son necesarios; sin ellos el atajo no se lista. */
   permisos: string[]
-  /** Texto que se inserta al elegirlo. Si termina en `@`, abre la lista de menciones. */
-  plantilla: string
+  icono: LucideIcon
+  /** Lo que se manda si después del atajo no se escribe nada. */
+  preguntaPorDefecto: string
+  /** Sin texto no hay qué consultar: hay que escribir algo después del atajo. */
+  requiereTexto: boolean
+  /** Al elegirlo se abre la lista de menciones (`/horario`: el curso se elige con `@`). */
+  abreMenciones?: boolean
   /** Atajo que se manda al backend; `null` si se resuelve en el navegador (`/nueva`). */
   comando: ComandoBackend | null
-  /** Sirve para cualquier módulo: queda `/nombre ` en el campo y la pregunta va a continuación. */
-  modo?: boolean
 }
 
 /** Atajos del campo de texto (`/`). El backend vuelve a validar el permiso de cada herramienta. */
@@ -72,66 +87,82 @@ export const COMANDOS: ComandoDeEntrada[] = [
     nombre: 'deuda',
     descripcion: 'Familias con mayor deuda vencida',
     permisos: [PERMISO_FACTURACION_LEER],
-    plantilla: 'Familias con mayor deuda vencida',
+    icono: WalletIcon,
+    preguntaPorDefecto: 'Familias con mayor deuda vencida',
+    requiereTexto: false,
     comando: 'deuda',
   },
   {
     nombre: 'asistencia',
     descripcion: 'Ausentes de hoy',
     permisos: [PERMISO_ACADEMICO_LEER],
-    plantilla: 'Ausentes de hoy',
+    icono: UserCheckIcon,
+    preguntaPorDefecto: 'Ausentes de hoy',
+    requiereTexto: false,
     comando: 'asistencia',
   },
   {
     nombre: 'horario',
     descripcion: 'Horario del curso que menciones con @',
     permisos: [PERMISO_ACADEMICO_LEER],
-    plantilla: 'Horario de @',
+    icono: CalendarClockIcon,
+    preguntaPorDefecto: 'Horario del curso',
+    requiereTexto: false,
+    abreMenciones: true,
     comando: 'horario',
   },
   {
     nombre: 'evolucion',
     descripcion: 'Facturado vs cobrado del año, con gráfico',
     permisos: [PERMISO_PANEL_ADMIN_LEER, PERMISO_FACTURACION_LEER],
-    plantilla: 'Evolución de lo facturado y cobrado del año, con gráfico',
+    icono: TrendingUpIcon,
+    preguntaPorDefecto: 'Evolución de lo facturado y cobrado del año, con gráfico',
+    requiereTexto: false,
     comando: 'evolucion',
   },
   {
     nombre: 'comparar',
     descripcion: 'Compara con el período anterior, en cualquier módulo',
     permisos: [],
-    plantilla: '/comparar ',
+    icono: GitCompareArrowsIcon,
+    preguntaPorDefecto: '',
+    requiereTexto: true,
     comando: 'comparar',
-    modo: true,
   },
   {
     nombre: 'grafico',
     descripcion: 'Muestra el resultado como gráfico, en cualquier módulo',
     permisos: [],
-    plantilla: '/grafico ',
+    icono: ChartColumnIcon,
+    preguntaPorDefecto: '',
+    requiereTexto: true,
     comando: 'grafico',
-    modo: true,
   },
   {
     nombre: 'resumen',
     descripcion: 'Responde en una frase, sin tablas ni gráficos',
     permisos: [],
-    plantilla: '/resumen ',
+    icono: AlignLeftIcon,
+    preguntaPorDefecto: '',
+    requiereTexto: true,
     comando: 'resumen',
-    modo: true,
   },
   {
     nombre: 'ir',
     descripcion: 'Llevarte a una pantalla',
     permisos: [],
-    plantilla: 'Llevame a ',
+    icono: CornerDownRightIcon,
+    preguntaPorDefecto: '',
+    requiereTexto: true,
     comando: 'ir',
   },
   {
     nombre: 'nueva',
     descripcion: 'Empezar una conversación nueva',
     permisos: [],
-    plantilla: '',
+    icono: PlusIcon,
+    preguntaPorDefecto: '',
+    requiereTexto: false,
     comando: null,
   },
 ]

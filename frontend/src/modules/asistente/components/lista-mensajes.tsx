@@ -14,10 +14,12 @@ import {
   useMessageScroller,
 } from '@/components/ui/message-scroller'
 import { useTextoGradual } from '../hooks/use-texto-gradual'
+import { separarComando } from '../utils'
 import type { AliasResuelto, Bloque, BloqueNavegar, BloqueTabla, MensajeVisible } from '../types'
 import { BloqueGraficoVista } from './bloque-grafico'
 import { BloqueKpiVista } from './bloque-kpi'
 import { AccionesDelMensaje } from './acciones-del-mensaje'
+import { AtajoResaltado } from './atajo-resaltado'
 import { BloqueTablaVista } from './bloque-tabla'
 import { CursorEscritura, PuntosPensando } from './indicadores-de-carga'
 import { PasosDelMensaje } from './pasos-del-mensaje'
@@ -127,7 +129,10 @@ export function ListaMensajes({
                         <MessageContent>
                           <Bubble variant="muted" align="end">
                             <BubbleContent>
-                              <TextoConAlias texto={mensaje.contenido} porAlias={porAlias} />
+                              <PreguntaDelUsuario
+                                contenido={mensaje.contenido}
+                                porAlias={porAlias}
+                              />
                             </BubbleContent>
                           </Bubble>
                         </MessageContent>
@@ -154,6 +159,24 @@ export function ListaMensajes({
         </MessageScroller>
       </MessageScrollerProvider>
     </MotionConfig>
+  )
+}
+
+/** La pregunta del usuario; si se envió con un atajo, este va resaltado antes del texto. */
+function PreguntaDelUsuario({
+  contenido,
+  porAlias,
+}: {
+  contenido: string
+  porAlias: Record<string, AliasResuelto>
+}) {
+  const { comando, texto } = separarComando(contenido)
+  if (comando === null) return <TextoConAlias texto={contenido} porAlias={porAlias} />
+  return (
+    <div className="flex items-start gap-1.5">
+      <AtajoResaltado comando={comando} className="shrink-0 leading-relaxed" />
+      {texto !== '' && <TextoConAlias texto={texto} porAlias={porAlias} />}
+    </div>
   )
 }
 

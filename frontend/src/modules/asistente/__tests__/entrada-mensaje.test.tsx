@@ -32,7 +32,7 @@ const permisosDeDireccion = ['facturacion.leer', 'academico.leer', 'panel_admini
   }),
 )
 
-it('al escribir / lista los atajos y al elegir uno lo manda con el pedido', async () => {
+it('al elegir un atajo lo resalta y, sin texto, manda su pregunta por defecto', async () => {
   const onEnviar = vi.fn()
   render(
     <EntradaMensaje abierto {...propiedades} permisos={permisosDeDireccion} onEnviar={onEnviar} />,
@@ -42,10 +42,12 @@ it('al escribir / lista los atajos y al elegir uno lo manda con el pedido', asyn
 
   await usuario.type(campo, '/deu')
   await usuario.click(await screen.findByText('/deuda'))
-  expect(campo).toHaveValue('Familias con mayor deuda vencida')
+  expect(campo).toHaveValue('')
+  expect(document.querySelector('[data-slot="atajo-resaltado"]')).toHaveTextContent('/deuda')
 
   await usuario.click(screen.getByRole('button', { name: 'Enviar' }))
   expect(onEnviar).toHaveBeenCalledWith('Familias con mayor deuda vencida', [], 'deuda')
+  expect(document.querySelector('[data-slot="atajo-resaltado"]')).toBeNull()
 })
 
 it('no lista los atajos para los que el rol no tiene permiso', async () => {
@@ -68,7 +70,7 @@ it('/nueva limpia el campo y abre una conversación nueva sin enviar nada', asyn
   expect(campo).toHaveValue('')
 })
 
-it('si se reescribe el mensaje del atajo, viaja sin atajo', async () => {
+it('Backspace con el campo vacío elimina el atajo', async () => {
   const onEnviar = vi.fn()
   render(
     <EntradaMensaje abierto {...propiedades} permisos={permisosDeDireccion} onEnviar={onEnviar} />,
@@ -77,13 +79,16 @@ it('si se reescribe el mensaje del atajo, viaja sin atajo', async () => {
   const usuario = userEvent.setup()
   await usuario.type(campo, '/asis')
   await usuario.keyboard('{Enter}')
-  await usuario.clear(campo)
+  expect(document.querySelector('[data-slot="atajo-resaltado"]')).not.toBeNull()
+
+  await usuario.keyboard('{Backspace}')
+  expect(document.querySelector('[data-slot="atajo-resaltado"]')).toBeNull()
   await usuario.type(campo, 'otra cosa')
   await usuario.keyboard('{Enter}')
   expect(onEnviar).toHaveBeenCalledWith('otra cosa', [])
 })
 
-it('un modo deja /nombre en el campo y manda la pregunta con el modo', async () => {
+it('un modo queda resaltado y manda la pregunta que se escribe después', async () => {
   const onEnviar = vi.fn()
   render(<EntradaMensaje abierto {...propiedades} onEnviar={onEnviar} />)
   const campo = screen.getByRole('textbox')
@@ -91,11 +96,20 @@ it('un modo deja /nombre en el campo y manda la pregunta con el modo', async () 
 
   await usuario.type(campo, '/comp')
   await usuario.keyboard('{Tab}')
-  expect(campo).toHaveValue('/comparar ')
+  expect(campo).toHaveValue('')
+  expect(document.querySelector('[data-slot="atajo-resaltado"]')).toHaveTextContent('/comparar')
 
   await usuario.type(campo, 'asistencias de octubre')
   await usuario.keyboard('{Enter}')
   expect(onEnviar).toHaveBeenCalledWith('asistencias de octubre', [], 'comparar')
+})
+
+it('un atajo escrito a mano con su espacio también se resalta', async () => {
+  render(<EntradaMensaje abierto {...propiedades} />)
+  const campo = screen.getByRole('textbox')
+  await userEvent.setup().type(campo, '/grafico deuda')
+  expect(document.querySelector('[data-slot="atajo-resaltado"]')).toHaveTextContent('/grafico')
+  expect(campo).toHaveValue('deuda')
 })
 
 it('un modo sin pregunta no se envía', async () => {
@@ -106,6 +120,7 @@ it('un modo sin pregunta no se envía', async () => {
   await usuario.keyboard('{Enter}')
   await usuario.keyboard('{Enter}')
   expect(onEnviar).not.toHaveBeenCalled()
+  expect(screen.getByRole('button', { name: 'Enviar' })).toBeDisabled()
 })
 
 it('lo que se elige para mencionar queda también como contexto fijado', async () => {

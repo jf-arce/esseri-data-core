@@ -17,10 +17,18 @@ import {
 import type { Permiso } from '@/modules/auth/types'
 import type { ComandoDeEntrada } from '../constants'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 import { TIPO_FIJADO } from './tipos-de-contexto'
 import { useSugerenciasMencion, type Sugerencia } from '../hooks/use-sugerencias-mencion'
 import type { ComandoBackend, Mencion, TipoMencion } from '../types'
-import { comandosDisponibles, consultaDeComando, consultaDeMencion, resolverEnvio } from '../utils'
+import {
+  atajoAlInicio,
+  comandosDisponibles,
+  consultaDeComando,
+  consultaDeMencion,
+  resolverEnvio,
+} from '../utils'
+import { AtajoResaltado } from './atajo-resaltado'
 
 const MAX_CARACTERES = 2000
 
@@ -163,7 +171,9 @@ export function EntradaMensaje({
   // campo, porque ya se usó.
   function insertarMencion(elegida: Sugerencia) {
     const cursor = campo.current?.selectionStart ?? texto.length
-    const inicio = texto.slice(0, cursor).lastIndexOf('@')
+    const arroba = texto.slice(0, cursor).lastIndexOf('@')
+    // Sin `@` escrito (lo abrió un atajo como `/horario`), no hay nada que borrar.
+    const inicio = arroba < 0 ? cursor : arroba
     const antes = texto.slice(0, inicio)
     const despues = texto.slice(cursor)
     // Sin dejar dos espacios juntos donde estaba la mención.
@@ -186,12 +196,13 @@ export function EntradaMensaje({
       onNueva?.()
       return
     }
-    setTexto(comando.plantilla)
+    // El atajo queda resaltado al inicio del campo y el texto es solo lo que se escriba después.
+    setTexto('')
     setMenciones([])
     setComandoElegido(comando)
     setConsultaComando(null)
-    // Si la plantilla termina en `@` (ej. `/horario`), sigue la lista de menciones.
-    setConsulta(comando.plantilla.endsWith('@') ? '' : null)
+    // `/horario` sigue con la lista de menciones para elegir el curso.
+    setConsulta(comando.abreMenciones === true ? '' : null)
     campo.current?.focus()
   }
 
@@ -217,10 +228,9 @@ export function EntradaMensaje({
   }, [mencionPendiente, onFijar, onMencionAplicada])
 
   function enviar() {
-    const escrito = texto.trim()
-    if (escrito === '' || generando) return
-    const { contenido, comando } = resolverEnvio(escrito, comandoElegido)
-    // Un modo sin pregunta (`/comparar` solo) no tiene qué consultar.
+    if (generando) return
+    const { contenido, comando } = resolverEnvio(texto, comandoElegido)
+    // Un atajo que exige texto (`/comparar` solo) no tiene qué consultar.
     if (contenido === '') return
     onEnviar(
       contenido,
@@ -251,6 +261,12 @@ export function EntradaMensaje({
         elegir(opciones[itemActivo])
         return
       }
+    }
+    if (evento.key === 'Backspace' && comandoElegido !== null && texto === '') {
+      evento.preventDefault()
+      setComandoElegido(null)
+      cerrarListas()
+      return
     }
     if (evento.key === 'Escape' && (consulta !== null || consultaComando !== null)) {
       cerrarListas()
@@ -317,23 +333,43 @@ export function EntradaMensaje({
       )}
       {contexto}
       <InputGroup className="h-auto">
-        <InputGroupTextarea
-          ref={campo}
-          value={texto}
-          rows={1}
-          maxLength={MAX_CARACTERES}
-          placeholder="Preguntá algo…"
-          aria-label="Mensaje para el asistente"
-          className="max-h-40 min-h-12 resize-none [field-sizing:content]"
-          onChange={(evento) => {
-            const { value, selectionStart } = evento.target
-            setTexto(value)
-            setConsulta(consultaDeMencion(value, selectionStart))
-            setConsultaComando(consultaDeComando(value, selectionStart))
-            setActiva(0)
-          }}
-          onKeyDown={alTeclear}
-        />
+        <div className="flex w-full items-start">
+          {comandoElegido !== null && (
+            <AtajoResaltado comando={comandoElegido} className="shrink-0 pt-3 pl-3 leading-6" />
+          )}
+          <InputGroupTextarea
+            ref={campo}
+            value={texto}
+            rows={1}
+            maxLength={MAX_CARACTERES}
+            placeholder={comandoElegido === null ? 'Preguntá algo…' : 'Agregá una consulta…'}
+            aria-label="Mensaje para el asistente"
+            className={cn(
+              'max-h-40 min-h-12 min-w-0 flex-1 resize-none [field-sizing:content]',
+              comandoElegido !== null && 'pl-2',
+            )}
+            onChange={(evento) => {
+              const { value, selectionStart } = evento.target
+              // `/grafico deuda` escrito a mano: el atajo pasa al resaltado, como si se hubiera elegido.
+              const escrito = comandoElegido === null ? atajoAlInicio(value, permisos) : null
+              if (escrito !== null) {
+                setComandoElegido(escrito.comando)
+                setTexto(escrito.resto)
+                setConsulta(null)
+                setConsultaComando(null)
+                setActiva(0)
+                return
+              }
+              setTexto(value)
+              setConsulta(consultaDeMencion(value, selectionStart))
+              setConsultaComando(
+                comandoElegido === null ? consultaDeComando(value, selectionStart) : null,
+              )
+              setActiva(0)
+            }}
+            onKeyDown={alTeclear}
+          />
+        </div>
         <InputGroupAddon align="block-end">
           <InputGroupText className="gap-3 text-xs text-texto-3">
             {(puedeMencionar || puedeMencionarAcademico) && <Ayuda tecla="@" texto="menciona" />}
@@ -359,7 +395,7 @@ export function EntradaMensaje({
               size="icon-sm"
               variant="default"
               className="ml-auto"
-              disabled={texto.trim() === ''}
+              disabled={texto.trim() === '' && (comandoElegido?.requiereTexto ?? true)}
               onClick={enviar}
             >
               <SendIcon />

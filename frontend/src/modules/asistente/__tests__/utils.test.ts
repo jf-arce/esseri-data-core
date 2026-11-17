@@ -4,7 +4,8 @@ import { COMANDOS } from '../constants'
 import type { BloqueTabla, MensajeVisible } from '../types'
 import {
   aliasDeMensajes,
-  comandoVigente,
+  atajoAlInicio,
+  separarComando,
   comandosDisponibles,
   consultaDeComando,
   coincideConBusqueda,
@@ -532,54 +533,65 @@ describe('comandosDisponibles', () => {
   })
 })
 
-describe('comandoVigente', () => {
-  const deuda = COMANDOS.find((c) => c.nombre === 'deuda') ?? null
-  const horario = COMANDOS.find((c) => c.nombre === 'horario') ?? null
-  const nueva = COMANDOS.find((c) => c.nombre === 'nueva') ?? null
-
-  it('viaja mientras el mensaje siga siendo el de la plantilla', () => {
-    expect(comandoVigente('Familias con mayor deuda vencida', deuda)).toBe('deuda')
-    expect(comandoVigente('Horario de 5°A de Primaria', horario)).toBe('horario')
-  })
-
-  it('no viaja si se reescribió el mensaje, no hay atajo o es local', () => {
-    expect(comandoVigente('¿Y la asistencia?', deuda)).toBeNull()
-    expect(comandoVigente('hola', null)).toBeNull()
-    expect(comandoVigente('hola', nueva)).toBeNull()
-  })
-})
-
 describe('resolverEnvio', () => {
   const comparar = COMANDOS.find((c) => c.nombre === 'comparar') ?? null
   const deuda = COMANDOS.find((c) => c.nombre === 'deuda') ?? null
+  const nueva = COMANDOS.find((c) => c.nombre === 'nueva') ?? null
 
-  it('en un modo manda solo la pregunta que sigue al atajo', () => {
-    expect(resolverEnvio('/comparar asistencias de octubre', comparar)).toEqual({
+  it('con un atajo manda el texto escrito y su comando', () => {
+    expect(resolverEnvio('asistencias de octubre', comparar)).toEqual({
       contenido: 'asistencias de octubre',
       comando: 'comparar',
     })
   })
 
-  it('reconoce el modo escrito a mano, sin elegirlo de la lista', () => {
-    expect(resolverEnvio('/grafico inscripciones', null)).toEqual({
-      contenido: 'inscripciones',
-      comando: 'grafico',
-    })
-  })
-
-  it('un modo sin pregunta devuelve el contenido vacío', () => {
-    expect(resolverEnvio('/comparar ', comparar).contenido).toBe('')
-  })
-
-  it('si se reescribió el mensaje, viaja sin atajo y sin tocar el texto', () => {
-    expect(resolverEnvio('otra cosa', comparar)).toEqual({ contenido: 'otra cosa', comando: null })
-  })
-
-  it('en un atajo de módulo no recorta el mensaje de la plantilla', () => {
-    expect(resolverEnvio('Familias con mayor deuda vencida', deuda)).toEqual({
+  it('sin texto, un atajo de módulo manda su pregunta por defecto', () => {
+    expect(resolverEnvio('  ', deuda)).toEqual({
       contenido: 'Familias con mayor deuda vencida',
       comando: 'deuda',
     })
+  })
+
+  it('un modo sin texto devuelve el contenido vacío', () => {
+    expect(resolverEnvio('', comparar).contenido).toBe('')
+  })
+
+  it('sin atajo, o con uno local, no hay comando', () => {
+    expect(resolverEnvio(' hola ', null)).toEqual({ contenido: 'hola', comando: null })
+    expect(resolverEnvio('hola', nueva)).toEqual({ contenido: 'hola', comando: null })
+  })
+})
+
+describe('atajoAlInicio', () => {
+  it('reconoce un atajo escrito a mano y separa el resto', () => {
+    const encontrado = atajoAlInicio('/grafico deuda de marzo', [])
+    expect(encontrado?.comando.nombre).toBe('grafico')
+    expect(encontrado?.resto).toBe('deuda de marzo')
+  })
+
+  it('ignora atajos desconocidos, locales o sin permiso', () => {
+    expect(atajoAlInicio('/borrar algo', [])).toBeNull()
+    expect(atajoAlInicio('/nueva algo', [])).toBeNull()
+    expect(atajoAlInicio('/deuda algo', [])).toBeNull()
+    expect(atajoAlInicio('hola /grafico', [])).toBeNull()
+  })
+})
+
+describe('separarComando', () => {
+  it('separa el atajo con el que se guardó el mensaje', () => {
+    const { comando, texto } = separarComando('/comparar asistencias de octubre')
+    expect(comando?.nombre).toBe('comparar')
+    expect(texto).toBe('asistencias de octubre')
+  })
+
+  it('un atajo sin texto queda con el texto vacío', () => {
+    expect(separarComando('/resumen').texto).toBe('')
+  })
+
+  it('un mensaje común, o con una barra que no es un atajo, queda igual', () => {
+    expect(separarComando('hola /grafico')).toEqual({ comando: null, texto: 'hola /grafico' })
+    expect(separarComando('/inventado algo')).toEqual({ comando: null, texto: '/inventado algo' })
+    expect(separarComando('/nueva')).toEqual({ comando: null, texto: '/nueva' })
   })
 })
 

@@ -45,6 +45,7 @@ from src.asistente.constants import (
     MAX_TABLAS_POR_RESPUESTA,
     MODOS_SIN_BLOQUES,
     PATRON_PEDIDO_GRAFICO,
+    PATRON_PREFIJO_COMANDO,
 )
 from src.asistente.exceptions import (
     ConversacionNoEncontrada,
@@ -410,7 +411,7 @@ def iniciar_envio(
             conversacion_id=conversacion.id,
             orden=orden,
             autor=AUTOR_USUARIO,
-            contenido=entrada.texto,
+            contenido=f"/{datos.comando} {entrada.texto}" if datos.comando else entrada.texto,
             estado=ESTADO_MENSAJE_COMPLETO,
         )
         mensaje_asistente = MensajeAsistente(
@@ -482,10 +483,17 @@ def _historial(db: Session, envio: Envio) -> list[dict[str, Any]]:
     return [
         {
             "role": "user" if mensaje.autor == AUTOR_USUARIO else "assistant",
-            "content": mensaje.contenido,
+            "content": _sin_prefijo_de_comando(mensaje.contenido)
+            if mensaje.autor == AUTOR_USUARIO
+            else mensaje.contenido,
         }
         for mensaje in reversed(previos)
     ]
+
+
+def _sin_prefijo_de_comando(contenido: str) -> str:
+    """Al modelo le llega la pregunta sola: el atajo es de la interfaz."""
+    return re.sub(PATRON_PREFIJO_COMANDO, "", contenido, count=1)
 
 
 def _prompt_sistema(envio: Envio, rol_codigo: str) -> str:

@@ -417,6 +417,28 @@ class TestComando:
         resultado = json.loads(proveedor.peticiones[1]["messages"][-1]["content"])
         assert "periodo_anterior" in resultado
 
+    def test_el_mensaje_se_guarda_con_el_atajo_y_el_modelo_recibe_la_pregunta_sola(
+        self, direccion, proveedor
+    ):
+        proveedor.respuestas = [respuesta_texto("ok"), respuesta_texto("ok")]
+        conversacion = nueva_conversacion(direccion)
+        enviar(direccion, conversacion, "la deuda", comando="comparar")
+        mensajes = direccion.get(f"/asistente/conversaciones/{conversacion}/mensajes").json()
+        assert mensajes["items"][0]["contenido"] == "/comparar la deuda"
+        assert proveedor.peticiones[0]["messages"][-1]["content"] == "la deuda"
+
+        enviar(direccion, conversacion, "y ahora")
+        historial = proveedor.peticiones[1]["messages"]
+        assert {"role": "user", "content": "la deuda"} in historial
+        assert all(not m["content"].startswith("/") for m in historial if m["role"] == "user")
+
+    def test_sin_atajo_el_mensaje_se_guarda_tal_cual(self, direccion, proveedor):
+        proveedor.respuestas = [respuesta_texto("ok")]
+        conversacion = nueva_conversacion(direccion)
+        enviar(direccion, conversacion, "hola")
+        mensajes = direccion.get(f"/asistente/conversaciones/{conversacion}/mensajes").json()
+        assert mensajes["items"][0]["contenido"] == "hola"
+
     def test_un_modo_no_fuerza_la_herramienta(self, direccion, proveedor):
         proveedor.respuestas = [respuesta_texto("ok")]
         enviar(direccion, nueva_conversacion(direccion), "hola", comando="comparar")
