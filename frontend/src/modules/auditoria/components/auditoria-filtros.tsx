@@ -48,16 +48,28 @@ export function AuditoriaFiltros({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Todos los controles viven en la misma barra y miden 40px: los desplegables ya se
-          identifican por su propio texto ("Entidad", "Campo"), así que las fechas usan
-          "Desde"/"Hasta" como placeholder en vez de un label arriba. Un label visible sólo
-          en las fechas las dejaba más altas que el resto y desalineaba la fila. */}
+      {/* Dos filas: buscar y ordenar arriba, los criterios abajo. Los nueve controles en una
+          sola barra quedaban apretados y envolvían de cualquier manera. Todos miden 40px, y
+          las fechas se identifican con "Desde"/"Hasta" en vez de un label arriba, que las
+          dejaba 4px más altas que los desplegables y desalineaba la fila. */}
       <FilterBar>
         <FilterSearch
           value={busqueda}
           onChange={(valor) => onCambios({ busqueda: valor })}
           placeholder="Buscar entidad, campo, valor o usuario"
         />
+        <FilterBarSpacer />
+        <FilterDropdown
+          label={etiquetaOrdenActual?.label ?? 'Ordenar por'}
+          icon={ArrowDownAZIcon}
+          align="end"
+          options={OPCIONES_ORDEN}
+          value={orden}
+          onChange={(valor) => onCambios({ orden: valor as OrdenAuditoria })}
+        />
+      </FilterBar>
+
+      <FilterBar>
         <FilterDropdown
           label="Entidad"
           options={[
@@ -114,29 +126,25 @@ export function AuditoriaFiltros({
           active={origen !== FILTRO_TODOS}
           onChange={(valor) => onCambios({ origen: valor })}
         />
-        <DatePicker
-          id="auditoria-desde"
-          className="h-10 w-40 shrink-0"
-          value={desde ? parsearFechaISO(desde) : undefined}
-          onChange={(fecha) => onCambios({ desde: fecha ? fechaAISO(fecha) : '' })}
-          placeholder="Desde"
-        />
-        <DatePicker
-          id="auditoria-hasta"
-          className="h-10 w-40 shrink-0"
-          value={hasta ? parsearFechaISO(hasta) : undefined}
-          onChange={(fecha) => onCambios({ hasta: fecha ? fechaAISO(fecha) : '' })}
-          placeholder="Hasta"
-        />
-        <FilterBarSpacer />
-        <FilterDropdown
-          label={etiquetaOrdenActual?.label ?? 'Ordenar por'}
-          icon={ArrowDownAZIcon}
-          align="end"
-          options={OPCIONES_ORDEN}
-          value={orden}
-          onChange={(valor) => onCambios({ orden: valor as OrdenAuditoria })}
-        />
+        {/* El rango de fechas va como un bloque propio: así envuelve entero y nunca queda
+            "Desde" en un renglón y "Hasta" en el siguiente. */}
+        <div className="flex shrink-0 items-center gap-2">
+          <span aria-hidden="true" className="mx-1 hidden h-6 w-px bg-borde sm:block" />
+          <DatePicker
+            id="auditoria-desde"
+            className="h-10 w-40"
+            value={desde ? parsearFechaISO(desde) : undefined}
+            onChange={(fecha) => onCambios({ desde: fecha ? fechaAISO(fecha) : '' })}
+            placeholder="Desde"
+          />
+          <DatePicker
+            id="auditoria-hasta"
+            className="h-10 w-40"
+            value={hasta ? parsearFechaISO(hasta) : undefined}
+            onChange={(fecha) => onCambios({ hasta: fecha ? fechaAISO(fecha) : '' })}
+            placeholder="Hasta"
+          />
+        </div>
       </FilterBar>
 
       {hayFiltrosAuditoria(filtros) && (
