@@ -28,6 +28,7 @@ from src.facturacion.calendario_facturacion import fecha_operativa_argentina
 from src.familias_alumnos.models import Alumno, FamiliaAlumno
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import AuditLog, Persona
+from src.notificaciones import academico_service as notificaciones_academicas
 from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
 from src.workflows.eventos_service import emit_event
 
@@ -477,6 +478,7 @@ def resolver_solicitud_periodo(
                 referencia_id=decision.id,
             )
 
+    notificaciones_academicas.registrar_resolucion_periodo(db, solicitud=solicitud)
     db.commit()
     db.refresh(solicitud)
     return solicitud
