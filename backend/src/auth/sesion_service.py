@@ -22,7 +22,6 @@ from src.auth.exceptions import (
 )
 from src.auth.google_client import GoogleIdentity
 from src.auth.models import LogAcceso, Usuario
-from src.auth.refresh_service import TokensEmitidos
 from src.fechas import a_utc, ahora_utc
 
 # bcrypt solo mira los primeros 72 bytes y falla si le pasás más; truncar en los dos sentidos
@@ -204,7 +203,9 @@ def resolver_usuario_google(
     return usuario
 
 
-def finalizar_login(db: Session, usuario: Usuario, ip_origen: str | None) -> TokensEmitidos:
+def finalizar_login(
+    db: Session, usuario: Usuario, ip_origen: str | None
+) -> refresh_service.TokensEmitidos:
     """Único punto por el que se emite una sesión nueva, lo use Google o el login local.
 
     Con un solo rol, ese rol se embebe como rol activo de entrada — nadie nota el cambio.
