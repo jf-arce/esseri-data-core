@@ -12,26 +12,36 @@ Este documento describe **estructura y convenciones**, no decisiones de negocio 
 
 ## Decisiones de base
 
-### Internal notifications (first delivery: Family portal and Academic)
+### Internal notifications (Family portal: Academic, Communications and Billing)
 
 `backend/src/notificaciones/` owns the internal inbox, recipient-specific history and first-read
 state. Its `notificacion_interna` table is separate from the Workflows email attempt log and from
-Communications read receipts. The first delivery connects only the Family portal and Academic
-absence/justification transitions; other roles and domains have no notification interface or
-producer in this delivery.
+Communications read receipts. It is connected only to the Family portal; other roles have no
+notification interface or producer.
+
+The Academic delivery covers absence and justification transitions. The Communications delivery
+notifies institutional publications whose channel includes the portal, reusing the audience
+resolution and receipts already created by publication. The Billing delivery notifies invoice
+issuance, payments approved by Administration and one upcoming-due reminder per invoice. The
+upcoming-due job is independent of automatic invoice generation and only observes effective due
+dates, unpaid balances and a three-day window; it never mutates invoices.
 
 Academic services insert notifications before their existing transaction commits. The notification
 service does not commit, call n8n or send email. An unexpected insert failure rolls back the domain
 operation; an expected duplicate conflicts only with the notification's logical unique key.
 Absence identity is enrollment plus calendar date, while resolution identity is the individual
-justification or period request. Corrections and retries do not overwrite historical content or
-reset a first read. Rejecting a request never backfills previously suppressed absence notices.
+justification or period request. Invoice, payment and communication identities are their own
+resource ids. Corrections and retries do not overwrite historical content or reset a first read.
+Rejecting a request never backfills previously suppressed absence notices.
 
 Absence recipients are active family-role accounts of linked responsible persons with
 `recibe_comunicaciones=true`. A resolution targets only the requesting account and family recorded
-on the request. Every inbox operation revalidates ownership, the active Family role, the recorded
-family identity and the current student link; absence notices additionally revalidate the
-communications flag. Stored recipient context is not a permanent authorization grant.
+on the request. Communications target the accounts of each family that received a portal receipt;
+Billing targets the accounts of the invoice's persisted economic-responsible family. Every inbox
+operation revalidates ownership, the active Family role and the recorded family identity; Academic
+notices additionally revalidate the current student link, absences the communications flag, and
+Billing the invoice/payment responsible-family relationship. Stored recipient context is not a
+permanent authorization grant.
 
 The shared coverage query belongs to `academico/cobertura_ausencias_service.py`. Pending and
 approved period requests suppress new absence notices. Workflow email and reminder callers retain
