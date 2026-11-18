@@ -152,6 +152,15 @@ def exportar(client, factura_ids, *, periodo="2026-11", modo="pagina", filtros=N
     )
 
 
+def test_demo_no_exporta_tarjetas_ni_reserva_facturas(client_autenticado, db_session):
+    factura = crear_factura_demo(db_session, 1, medio="tarjeta")
+    respuesta = exportar(client_autenticado, [factura.id])
+    assert respuesta.status_code == 400
+    assert "CBU" in respuesta.text
+    assert db_session.query(LoteCobranza).count() == 0
+    assert db_session.query(DebitoCobranza).count() == 0
+
+
 def test_opciones_devuelve_periodos_y_medios(client_autenticado, db_session):
     crear_factura_demo(db_session, 1, periodo="2026-11", medio="cbu")
     crear_factura_demo(db_session, 2, periodo="2026-10", medio="tarjeta")

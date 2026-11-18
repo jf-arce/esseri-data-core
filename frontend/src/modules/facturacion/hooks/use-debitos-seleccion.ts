@@ -40,10 +40,11 @@ export function useDebitosSeleccion({
   claveFiltros,
 }: UseDebitosSeleccionParams) {
   const { periodo, medio, estado: estadoFiltro, buscar } = filtros
+  const modoInicial = periodo && estadoFiltro === 'pendientes_sin_lote' ? 'filtrados' : 'pagina'
   const [estadoSeleccion, setEstadoSeleccion] = useState<EstadoSeleccion>({
     clave: claveFiltros,
     pagina,
-    modo: 'pagina',
+    modo: modoInicial,
     ids: [],
     excluidos: [],
   })
@@ -55,22 +56,21 @@ export function useDebitosSeleccion({
   const [revisionResumen, setRevisionResumen] = useState(0)
   const claveFiltrosAnterior = useRef(claveFiltros)
 
-  // La selección se descarta al cambiar filtros o búsqueda; el reset debe persistir
-  // aunque luego se vuelva al filtro anterior.
+  // A new eligible scope starts fully selected; exclusions never leak across scopes.
   useEffect(() => {
     if (claveFiltrosAnterior.current === claveFiltros) return
     claveFiltrosAnterior.current = claveFiltros
     setEstadoSeleccion({
       clave: claveFiltros,
       pagina,
-      modo: 'pagina',
+      modo: modoInicial,
       ids: [],
       excluidos: [],
     })
-  }, [claveFiltros, pagina])
+  }, [claveFiltros, modoInicial, pagina])
 
   const filtrosVigentes = estadoSeleccion.clave === claveFiltros
-  const modo = filtrosVigentes ? estadoSeleccion.modo : 'pagina'
+  const modo = filtrosVigentes ? estadoSeleccion.modo : modoInicial
   const idsPagina = useMemo(
     () => (filtrosVigentes && estadoSeleccion.pagina === pagina ? estadoSeleccion.ids : []),
     [estadoSeleccion.ids, estadoSeleccion.pagina, filtrosVigentes, pagina],

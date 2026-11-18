@@ -3,6 +3,7 @@
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import select
 
 from src.auth import sesion_service
 from src.auth.constants import (
@@ -23,6 +24,13 @@ def crear_catalogo_evento_pago_registrado(db_session) -> TipoEvento:
     """Replica el catálogo de producción que requiere registrar un pago aprobado."""
     tipo = TipoEvento(nombre="pago.registrado", descripcion="Se confirmó un pago")
     db_session.add(tipo)
+    if (
+        db_session.scalar(
+            select(TipoEvento).where(TipoEvento.nombre == "debito.resultado_registrado")
+        )
+        is None
+    ):
+        db_session.add(TipoEvento(nombre="debito.resultado_registrado"))
     db_session.flush()
     db_session.add_all(
         [
@@ -39,6 +47,16 @@ def crear_catalogo_evento_pago_registrado(db_session) -> TipoEvento:
             )
         ]
     )
+    return tipo
+
+
+@pytest.fixture()
+def catalogo_resultado_debito(db_session):
+    tipo = TipoEvento(
+        nombre="debito.resultado_registrado", descripcion="Resultado de débito simulado confirmado"
+    )
+    db_session.add(tipo)
+    db_session.flush()
     return tipo
 
 

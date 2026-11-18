@@ -10,7 +10,6 @@ import { DebitosResumenSeleccion } from '@/modules/facturacion/components/debito
 import { FacturaDetalleSheet } from '@/modules/facturacion/components/factura-detalle-sheet'
 import {
   etiquetaArchivoSolicitud,
-  etiquetaMedio,
   etiquetaPeriodo,
 } from '@/modules/facturacion/components/debitos-etiquetas'
 import { useDebitosSeleccion } from '@/modules/facturacion/hooks/use-debitos-seleccion'
@@ -39,7 +38,7 @@ interface DebitosGenerarPageProps {
 
 export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
   const [periodo, setPeriodo] = useState('')
-  const [medio, setMedio] = useState('todos')
+  const medio = 'cbu'
   const [estado, setEstado] = useState<EstadoSeleccionDebitos>('pendientes_sin_lote')
   const [buscar, setBuscar] = useState('')
   const [pagina, setPagina] = useState(1)
@@ -51,7 +50,7 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
   const filtros = useMemo(
     () => ({
       periodo: periodo || undefined,
-      medio: (medio === 'todos' ? undefined : medio) as MedioDebito | undefined,
+      medio: medio as MedioDebito,
       estado,
       buscar: buscar.trim() || undefined,
       pagina,
@@ -81,11 +80,6 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
 
   function actualizarPeriodo(valor: string) {
     setPeriodo(valor)
-    setPagina(1)
-  }
-
-  function actualizarMedio(valor: string) {
-    setMedio(valor)
     setPagina(1)
   }
 
@@ -146,16 +140,7 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
           label: etiquetaPeriodo(valor),
         }))}
       />
-      <FilterDropdown
-        label={medio !== 'todos' ? `Medio: ${etiquetaMedio(medio)}` : 'Medio de débito'}
-        value={medio}
-        onChange={actualizarMedio}
-        options={[
-          { value: 'todos', label: 'Todos (CBU y tarjeta)' },
-          { value: 'cbu', label: 'CBU' },
-          { value: 'tarjeta', label: 'Tarjeta' },
-        ]}
-      />
+      <span className="self-center text-sm text-texto-2">CBU simulado</span>
       <FilterDropdown
         label={`Estado: ${ESTADOS.find((opcion) => opcion.value === estado)?.label ?? 'Todos'}`}
         value={estado}

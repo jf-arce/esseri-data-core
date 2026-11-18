@@ -20,7 +20,7 @@ from src.academico.models import JustificacionInasistencia, SolicitudAusenciaPer
 from src.auditoria.service import log_audit
 from src.auth.models import Usuario
 from src.config import settings
-from src.facturacion.models import Factura, Pago, ResponsableEconomico
+from src.facturacion.models import DebitoCobranza, Factura, Pago, ResponsableEconomico
 from src.familias_alumnos.models import Familia, FamiliaAlumno
 from src.fechas import ahora_utc
 from src.inscripciones.models import Asistencia, Inscripcion
@@ -217,6 +217,12 @@ def _alumno_del_evento(db: Session, evento: EventLog) -> uuid.UUID:
             raise _SinAlumno()
         return alumno_id
     match evento.entidad:
+        case "debito_cobranza":
+            inscripcion_id = db.scalar(
+                select(Factura.inscripcion_id)
+                .join(DebitoCobranza, DebitoCobranza.factura_id == Factura.id)
+                .where(DebitoCobranza.id == entidad_id)
+            )
         case "inscripcion":
             inscripcion_id: uuid.UUID | None = entidad_id
         case "factura":
@@ -256,12 +262,18 @@ def _familia_responsable_economico(
     db: Session, evento: EventLog, alumno_id: uuid.UUID
 ) -> uuid.UUID | None:
     """En facturas y pagos vale el responsable que tenía la factura, aunque ya no esté vigente."""
-    if evento.entidad in {"factura", "pago"}:
+    if evento.entidad in {"factura", "pago", "debito_cobranza"}:
         consulta = select(ResponsableEconomico.familia_id).join(
             Factura, Factura.responsable_economico_id == ResponsableEconomico.id
         )
         if evento.entidad == "factura":
             return db.scalar(consulta.where(Factura.id == evento.entidad_id))
+        if evento.entidad == "debito_cobranza":
+            return db.scalar(
+                consulta.join(DebitoCobranza, DebitoCobranza.factura_id == Factura.id).where(
+                    DebitoCobranza.id == evento.entidad_id
+                )
+            )
         return db.scalar(
             consulta.join(Pago, Pago.factura_id == Factura.id).where(Pago.id == evento.entidad_id)
         )

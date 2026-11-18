@@ -10,7 +10,8 @@ Reported collection is a demo payment, **not evidence of bank settlement**.
 
 1. Apply the backend migration with `alembic upgrade head` in the configured local environment.
 2. Sign in with billing read/create permissions. Open Facturas → Cobranzas por archivo.
-3. Select unpaid invoices (pending or overdue); generate and download the request.
+3. Choose a period. All eligible unpaid CBU invoices are selected automatically across
+   pages. Exclude individual invoices if needed, then generate and download the request.
 4. Select that request, mark some debit references as rejected and download its response.
    During the presentation this prepared file plays the role of the bank-provided response.
 5. Upload it under **Importar respuesta de débitos**. Inspect the batch/reference match,
@@ -22,9 +23,69 @@ Reported collection is a demo payment, **not evidence of bank settlement**.
 
 Operational labels say **Pago registrado**, not bank accreditation. The demo presentation
 and this document disclose the prepared files; there is no production bank integration.
-Emails are independent: configure an active `pago.registrado` → `notificar` workflow with
-the invoice economic responsible and a template, plus the existing n8n mail transport.
-This feature does not create a workflow, publish a family communication or send email itself.
+## Result notifications
+
+The opt-in seed installs **Notificación de débitos automáticos**, an editable rule in the
+existing workflow editor. Its trigger is `debito.resultado_registrado`; separate conditions
+compare `resultado == exitoso` and `resultado == rechazado`. Each reached branch uses
+`notificar` with the corresponding configurable template, the invoice's economic responsible
+and the existing n8n email webhook. Re-running the seed preserves edited rules/templates.
+
+Every confirmed instruction emits exactly one result event inside the rendition transaction.
+Its payload includes `debito_id`, `factura_id`, `lote_id`, `resultado`, `importe`,
+`codigo_resultado`, `motivo_rechazo`, `numero_factura` and `responsable_economico_id`.
+`pago.registrado` is retained for successful payments. Its family communication actions are
+marked as handled by the debit-result event, without suppressing other actions or manual
+payment workflows. Rejected results create no fictitious payment or ledger credit.
+
+After commit, the existing dispatcher evaluates the rule and durably records message
+snapshots **before** calling n8n. Family billing exposes those snapshots through
+`GET /facturacion/familia/me`, under `avisos_debito`, even when email fails or is uncertain.
+The view rechecks the invoice's persisted economic responsible and does not trust IDs in
+the event payload for authorization. Multiple email addresses or email attempts do not
+produce duplicate portal notices for the same result. Existing Communications publications
+and read receipts are unchanged.
+
+### Safe A/B/C demonstration
+
+Run this automated scenario from `backend/`, with the virtual environment activated:
+
+```bash
+pytest -q tests/facturacion/test_debitos_resultados_workflow.py
+```
+
+The integration scenario creates three isolated synthetic invoices and test-family accounts
+at `example.test`, confirms A/B successfully and rejects C with `SALDO_INSUF`
+(`Saldo insuficiente`). It runs the actual event dispatcher and both workflow conditions,
+captures three emails in an isolated transport, authenticates each family to read its notice,
+and replays both upload and confirmation. A second run simulates n8n failure; notices and
+payments remain. A manual-payment regression verifies its ordinary workflow is unchanged.
+**Captured test emails are not proof of delivery through a running n8n or a real mailbox.**
+
+For a browser demonstration against a separate demo database:
+
+1. Apply migrations and run `python ../database/seeds/07_seed_debitos_demo.py`
+   from `backend/`. It installs the editable workflow.
+2. Prepare three unpaid CBU invoices assigned to economic-responsible families that have
+   active test accounts. The bulk 500-invoice seed does not provision family login accounts.
+3. In **Débitos automáticos → Generar lote**, select the period, keep those three invoices
+   selected and exclude the others (or use a search matching those three).
+4. Generate the lot and its simulated response with only C rejected. Confirm the response
+   contains all three references; missing, duplicate or unknown references block confirmation.
+5. Under **Importar resultados**, review the two successes and the rejection; confirm explicitly.
+6. Let the configured workflow job run, or invoke the authenticated
+   `POST /workflows/procesar` with workflow-update permission.
+7. Check two payments, C still unpaid, three result events and three matching rule executions
+   in the existing histories. Open each responsible's **Portal Familia → Facturación**
+   to see the frozen notice. Reimport and confirm again; counts must remain unchanged.
+8. For real test email delivery, configure the existing
+   [n8n transport](../infra/n8n/README.md) with authorized sending credentials and explicit
+   test mailboxes before step 6. Do not use production recipients or blindly replay uncertain
+   provider executions. No new n8n workflow is required.
+
+Email failure never rolls back the already-confirmed payment. HTTP success means provider
+acceptance, not inbox delivery. The legacy workflow transport cannot promise exactly-once
+external delivery; uncertain attempts are retained and are not automatically resent.
 
 ## File contract
 
@@ -32,14 +93,14 @@ UTF-8, semicolon-delimited CSV, standard CSV quoting, decimal point and exactly 
 decimal places, ISO dates (`YYYY-MM-DD`), UUID references, at most 10 MiB per file and
 no row limit. Download names do not contain demo wording.
 
-Requests are split by platform: debit requests (CBU) and credit requests (card) are
-separate flat files, one named column header row plus one row per invoice. Downloaded
-names are `ESSERI_DEBITOS_<batch code>.csv` and `ESSERI_CREDITOS_<batch code>.csv`.
+New batches in this demo accept CBU only. The request is a flat file with one named
+column-header row and one row per invoice: `ESSERI_DEBITOS_<batch code>.csv`.
+Legacy card serialization remains readable for historical fixtures; new card batches fail
+without creating reservations. No card integration is enabled.
 
 | File | Ordered columns |
 | --- | --- |
 | Debit request (CBU) | `referencia;factura;alumno;periodo;concepto;importe;vencimiento;cbu` |
-| Credit request (card) | `referencia;factura;alumno;periodo;concepto;importe;vencimiento;token_tarjeta` |
 
 The `cbu` (22 digits) and `token_tarjeta` (16 digits) values are **fictional and
 deterministic per invoice**; they are not real accounts or cards. The response keeps a
@@ -57,6 +118,10 @@ sample generator cycles through realistic generic reasons such as `SALDO_INSUF`
 (“Saldo insuficiente”), `CBU_INEXISTENTE` (“CBU no encontrado”), `CUENTA_INHABIL` and
 `CUENTA_CERRADA`. Rejected amounts represent the requested amount not collected, not a
 payment. Trailer reported total includes both.
+
+The rendition must contain exactly one result for every original debit in the lot, including
+rejected results. Completeness is checked in the review and again under the confirmation lock;
+an incomplete review cannot register payments or release reservations.
 
 Assumptions: each reported amount must equal its frozen request amount. No partial
 debit results or settlement reconciliation are modeled. Structural failures (including

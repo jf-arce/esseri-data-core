@@ -22,7 +22,6 @@ export function DebitosResumenSeleccion({
   onLimpiar,
 }: DebitosResumenSeleccionProps) {
   const cbu = resumen.por_medio.cbu ?? { cantidad: 0, importe: '0.00' }
-  const tarjeta = resumen.por_medio.tarjeta ?? { cantidad: 0, importe: '0.00' }
 
   return (
     <aside
@@ -47,8 +46,6 @@ export function DebitosResumenSeleccion({
         <dd className="text-right font-medium tabular-nums">{resumen.cantidad}</dd>
         <dt className="text-texto-2">Débito en CBU</dt>
         <dd className="text-right font-medium tabular-nums">{cbu.cantidad}</dd>
-        <dt className="text-texto-2">Débito con tarjeta</dt>
-        <dd className="text-right font-medium tabular-nums">{tarjeta.cantidad}</dd>
         <dt className="text-texto-2">Coinciden con filtros</dt>
         <dd className="text-right font-medium tabular-nums">{total}</dd>
         <dt className="text-texto-2">Ocultas: ya están en otro lote</dt>

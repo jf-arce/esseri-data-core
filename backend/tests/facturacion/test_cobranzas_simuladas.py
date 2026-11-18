@@ -99,7 +99,8 @@ def test_generar_previsualizar_confirmar_y_reintentar(client_autenticado, db_ses
     assert "SIMULADO" in pago.referencia_transaccion
     assert pago.usuario_registro_id is not None
     assert db_session.get(Factura, factura.id).estado == "pagada"
-    assert db_session.query(EventLog).count() == previo_eventos + 1
+    assert db_session.query(EventLog).count() == previo_eventos + 2
+    assert db_session.query(EventLog).filter_by(entidad="debito_cobranza").count() == 1
     assert db_session.query(AuditLog).filter_by(entidad="PAGO").count() == previo_auditoria + 1
     assert db_session.query(Movimiento).count() == previo_movimientos + 1
     assert db_session.query(Movimiento).filter_by(pago_id=pago.id).one().monto == pago.monto
@@ -323,7 +324,8 @@ def test_confirmaciones_concurrentes_no_duplican(
         with sesiones() as sesion:
             assert sesion.query(Pago).count() == 1
             assert sesion.query(Movimiento).filter_by(tipo="haber").count() == 1
-            assert sesion.query(EventLog).count() == 1
+            assert sesion.query(EventLog).count() == 2
+            assert sesion.query(EventLog).filter_by(entidad="debito_cobranza").count() == 1
             assert sesion.query(AuditLog).filter_by(entidad="PAGO").count() == 1
             assert sesion.query(DebitoCobranza).one().pago_id == sesion.query(Pago).one().id
             assert sesion.get(Factura, factura.id).estado == "pagada"

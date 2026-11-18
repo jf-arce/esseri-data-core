@@ -30,6 +30,8 @@ tipo_evento: # RF-24 (3 ejemplos originales) + eventos nuevos de las aclaracione
     descripcion: Se confirmó un pago
   - nombre: pago.rechazado
     descripcion: Un pago fue rechazado (ej. stop debit)
+  - nombre: debito.resultado_registrado
+    descripcion: Se confirmó el resultado de un débito simulado por CBU
   - nombre: orden_compra.emitida
     descripcion: Se emitió una orden de compra a un proveedor
   - nombre: recepcion_compra.registrada

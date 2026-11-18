@@ -52,7 +52,8 @@ Flujo y endpoints principales:
 
 1. **Selección**: `GET /opciones`, `GET /facturas-elegibles` (25 filas por defecto) y
    `POST /resumen-seleccion`. La selección usa `{modo:"pagina"|"filtrados", factura_ids,
-   filtros, excluir_ids}`; `filtrados` se resuelve en el backend.
+    filtros, excluir_ids}`; `filtrados` se resuelve en el backend. La pantalla preselecciona
+    las elegibles del período por CBU y permite exclusiones. La demo no genera lotes de tarjetas.
 2. **Exportación**: `POST /` con `{seleccion, periodo}` crea el lote, un código humano
    `LD-AAAA-MM-NNN` y reserva cada factura. `GET /`, `GET /{id}` y `POST /{id}/respuesta`
    permiten historial, detalle y descarga de la solicitud simulada.
@@ -60,7 +61,8 @@ Flujo y endpoints principales:
    y resuelto, incluidas filas inválidas. No registra pagos. Una vista previa aceptada deja el
    lote `en_revision` y bloquea su liberación.
 4. **Confirmación**: `POST /confirmar` con `{importacion_id, revision_confirmada:true}`.
-   Revalida todas las filas bajo bloqueo antes de escribir. Cualquier error estructural o
+    Exige exactamente un resultado por cada débito del lote y revalida las filas bajo bloqueo.
+    Cualquier error estructural o
    semántico bloquea la totalidad: no se aplican pagos parciales. Los cobros usan
    `registrar_pago(..., confirmar=False)` y confirman pago, factura, movimiento, auditoría y
    `pago.registrado` en una sola transacción; los rechazos no generan pago y liberan su reserva.
@@ -73,7 +75,14 @@ Reimportar el mismo archivo recupera la revisión o confirmación existente sin 
 La reserva activa de facturas está reforzada por un índice único parcial en base; los bloqueos
 de fila de PostgreSQL y el reclamo condicional por referencia completan la idempotencia ante
 reintentos y concurrencia. Una falla inesperada revierte toda la confirmación. Los emails no
-forman parte de esta transacción: se configuran con `pago.registrado` en Workflows.
+forman parte de esta transacción. Cada resultado confirmado publica
+`debito.resultado_registrado`; la regla editable **Notificación de débitos automáticos**
+usa dos condiciones (`resultado == exitoso` / `resultado == rechazado`) y la acción existente
+`notificar`. Los snapshots se muestran en `GET /facturacion/familia/me`, campo
+`avisos_debito`, aunque falle n8n. `pago.registrado` se conserva; sus acciones de comunicación
+familiar se consideran gestionadas por el resultado del débito para no duplicar avisos.
+Los pagos manuales conservan sus workflows. El seed siguiente instala la regla y sus plantillas
+sin sobrescribir ediciones posteriores.
 
 Seed opcional e idempotente para la demo (crea 500 alumnos/facturas sintéticas, 438 elegibles
 del período actual, 12 reservadas en un lote exportado y un lote histórico liberado; no borra
@@ -91,6 +100,17 @@ pytest -q tests/facturacion/test_formato_cobranza_simulada.py \
   tests/facturacion/test_cobranzas_concurrencia.py tests/facturacion/test_debitos_demo_seed.py \
   tests/facturacion/test_cobranzas_simuladas.py
 ```
+
+Escenario integral A/B/C aislado, con transporte de email capturado (no envía correos reales):
+
+```bash
+pytest -q tests/facturacion/test_debitos_resultados_workflow.py
+```
+
+Comprueba dos pagos, un rechazo por saldo insuficiente, tres eventos y avisos, aislamiento
+entre familias, fallo de n8n sin reversión y ausencia de duplicados al reprocesar.
+Para la presentación en navegador y correos a casillas de prueba autorizadas, seguir
+[el recorrido de demo](../docs/cobranzas-simuladas.md#safe-abc-demonstration).
 
 La revisión `91553e2163be` fue autogenerada contra un esquema de referencia aislado en SQLite y
 revisada para que sea aditiva (tablas nuevas, columnas nullable o con default, constraints e

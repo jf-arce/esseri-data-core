@@ -19,6 +19,7 @@ try:
 except ImportError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
 
+import yaml
 from sqlalchemy import select
 
 from src.academico.models import Anio, Division, NivelEducativo
@@ -38,6 +39,13 @@ from src.facturacion.models import (
 from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
+from src.workflows.models import (
+    CampoEvento,
+    NotificacionTemplate,
+    TipoEvento,
+    WorkflowNodo,
+    WorkflowRule,
+)
 
 NAMESPACE = uuid.UUID("e55e2100-0000-4000-8000-00000000d3e0")
 PERIODO_ACTUAL = "2026-11"
@@ -58,9 +66,7 @@ def _catalogo(db):
         nivel = NivelEducativo(id=_id("nivel"), nombre="Primario")
         db.add(nivel)
         db.flush()
-    anio = db.scalar(
-        select(Anio).where(Anio.numero == 4, Anio.nivel_educativo_id == nivel.id)
-    )
+    anio = db.scalar(select(Anio).where(Anio.numero == 4, Anio.nivel_educativo_id == nivel.id))
     if anio is None:
         anio = Anio(id=_id("anio"), numero=4, nivel_educativo_id=nivel.id)
         db.add(anio)
@@ -195,7 +201,7 @@ def _factura(
         factura_id=factura.id,
         numero=f"F-{periodo.replace('-', '')}-{indice:04d}",
         periodo=periodo,
-        medio="cbu" if indice % 2 else "tarjeta",
+        medio="cbu",
     )
     db.add(meta)
     db.commit()
@@ -240,20 +246,102 @@ def _crear_lote(
     db.commit()
 
 
+def seed_workflow(db) -> WorkflowRule:
+    """Install the editable demo rule once; never replace an operator's configuration."""
+    nombre_evento = "debito.resultado_registrado"
+    tipo = db.scalar(select(TipoEvento).where(TipoEvento.nombre == nombre_evento))
+    if tipo is None:
+        tipo = TipoEvento(id=_id("evento-resultado"), nombre=nombre_evento)
+        db.add(tipo)
+        db.flush()
+    catalogo = yaml.safe_load(Path(__file__).with_name("grupo-b.yaml").read_text())
+    for campo in catalogo["campo_evento"][nombre_evento]:
+        existente = db.scalar(
+            select(CampoEvento.id).where(
+                CampoEvento.tipo_evento_id == tipo.id,
+                CampoEvento.nombre_interno == campo["nombre_interno"],
+            )
+        )
+        if existente is None:
+            db.add(CampoEvento(tipo_evento_id=tipo.id, **campo))
+    regla = db.get(WorkflowRule, _id("workflow-resultados"))
+    if regla is not None:
+        db.commit()
+        return regla
+    regla = WorkflowRule(
+        id=_id("workflow-resultados"),
+        nombre="Notificación de débitos automáticos",
+        tipo_evento_id=tipo.id,
+        activo=True,
+    )
+    db.add(regla)
+    db.flush()
+    for orden, (resultado, asunto, cuerpo) in enumerate(
+        [
+            (
+                "exitoso",
+                "Débito simulado confirmado: factura {{numero_factura}}",
+                "Se registró el pago de la factura {{numero_factura}} por ${{importe}}. "
+                "Operación de demostración por CBU, sin integración bancaria real.",
+            ),
+            (
+                "rechazado",
+                "Débito simulado rechazado: factura {{numero_factura}}",
+                "No se pudo cobrar la factura {{numero_factura}} por ${{importe}}. "
+                "Motivo: {{motivo_rechazo}}. Código: {{codigo_resultado}}. "
+                "La factura continúa pendiente. Operación de demostración por CBU.",
+            ),
+        ]
+    ):
+        plantilla = NotificacionTemplate(
+            id=_id(f"plantilla-{resultado}"),
+            nombre=f"Débito simulado {resultado}",
+            asunto=asunto,
+            cuerpo=cuerpo,
+        )
+        condicion = WorkflowNodo(
+            id=_id(f"condicion-{resultado}"),
+            workflow_rule_id=regla.id,
+            tipo="condicion",
+            orden=orden,
+            condicion={
+                "logica": "todas",
+                "comparaciones": [{"campo": "resultado", "operador": "==", "valor": resultado}],
+            },
+        )
+        db.add_all([plantilla, condicion])
+        db.flush()
+        db.add(
+            WorkflowNodo(
+                id=_id(f"accion-{resultado}"),
+                workflow_rule_id=regla.id,
+                padre_id=condicion.id,
+                rama="si",
+                tipo="accion",
+                tipo_accion="notificar",
+                accion_config={
+                    "destinatario": "responsable_economico",
+                    "enlace": "familia_facturacion",
+                },
+                notificacion_template_id=plantilla.id,
+                requiere_aprobacion_humana=False,
+            )
+        )
+    db.commit()
+    return regla
+
+
 def seed(db) -> None:
+    seed_workflow(db)
     division, concepto = _catalogo(db)
     usuario = _usuario(db)
     creadas_actual: list[Factura] = []
     creadas_anterior: list[Factura] = []
     for indice in range(1, TOTAL_ALUMNOS + 1):
         periodo = (
-            PERIODO_ACTUAL
-            if indice <= ELEGIBLES_ACTUAL + RESERVADAS_ACTUAL
-            else PERIODO_ANTERIOR
+            PERIODO_ACTUAL if indice <= ELEGIBLES_ACTUAL + RESERVADAS_ACTUAL else PERIODO_ANTERIOR
         )
-        factura, _ = _factura(
-            db, indice, periodo=periodo, division=division, concepto=concepto
-        )
+        factura, _ = _factura(db, indice, periodo=periodo, division=division, concepto=concepto)
         (creadas_actual if periodo == PERIODO_ACTUAL else creadas_anterior).append(factura)
 
     _crear_lote(

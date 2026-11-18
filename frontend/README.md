@@ -10,6 +10,22 @@ Para la estructura completa de carpetas y las convenciones del proyecto, ver **`
 
 ## Requisitos
 
+### Simulated automatic debit results
+
+**Débitos automáticos → Generar lote** preselects every eligible CBU invoice in the chosen
+period across pages. Uncheck invoices to exclude them; the server still rejects paid or
+reserved invoices. Card batches are not available in this demo. Result review requires a
+complete rendition before confirmation.
+
+**Portal Familia → Facturación** displays the workflow's frozen result messages under
+**Avisos de débitos simulados**. These are visible even if email fails, without exposing
+other families' results. No bank settlement or real Galicia integration is implied.
+See [the complete walkthrough](../docs/cobranzas-simuladas.md).
+
+```bash
+npm run test -- src/modules/facturacion src/modules/workflows
+```
+
 ### Communications — stages 1 and 2
 
 Administration/Direction open `/comunicaciones` to create or resume their own drafts.

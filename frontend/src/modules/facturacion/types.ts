@@ -313,12 +313,30 @@ export interface MovimientoFamilia {
   factura_id: string
 }
 
+export interface AvisoDebitoFamilia {
+  evento_id: string
+  ejecucion_id: string
+  regla_id: string
+  debito_id: string
+  factura_id: string
+  numero_factura: string
+  lote_id: string
+  fecha: string
+  resultado: 'exitoso' | 'rechazado'
+  importe: string
+  codigo_resultado: string
+  motivo_rechazo: string
+  asunto: string
+  cuerpo: string
+}
+
 export interface FacturacionFamilia {
   total_debe: string
   total_haber: string
   saldo: string
   facturas: FacturaFamilia[]
   movimientos: MovimientoFamilia[]
+  avisos_debito?: AvisoDebitoFamilia[]
 }
 
 export interface MovimientoCuentaCorriente {

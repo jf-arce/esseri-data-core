@@ -17,6 +17,7 @@ from datetime import timedelta
 from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
+from src.facturacion.models import DebitoCobranza
 from src.fechas import ahora_utc
 from src.models import EventLog
 from src.workflows import (
@@ -74,6 +75,62 @@ ERROR_EVALUACION = "No se pudo evaluar la regla con los datos del evento."
 ERROR_CONFIGURACION = "La configuración de la acción no es válida."
 ERROR_ACCION = "La acción no pudo completarse."
 ACCIONES_CON_RESERVA = frozenset({"notificar", "alerta_interna", "generar_recordatorio"})
+ACCIONES_DE_AVISO_FAMILIAR = frozenset(
+    {"notificar", "generar_recordatorio", "generar_comunicacion"}
+)
+DESTINOS_FAMILIARES = frozenset({"responsable_economico", "responsables_habilitados"})
+
+
+def _aviso_familiar_cubierto(db: Session, evento: EventLog, destino_actual: str) -> bool:
+    """Whether an active applicable debit-result rule will send the same family notice.
+
+    Suppression never depends on the mere existence of the result event: an inactive,
+    non-matching or approval-gated rule must leave the legacy payment notice intact.
+    """
+    if evento.entidad != "pago" or destino_actual not in DESTINOS_FAMILIARES:
+        return False
+    debito = db.scalar(select(DebitoCobranza).where(DebitoCobranza.pago_id == evento.entidad_id))
+    if debito is None:
+        return False
+    resultado = db.scalar(
+        select(EventLog)
+        .join(TipoEvento, TipoEvento.id == EventLog.tipo_evento_id)
+        .where(
+            EventLog.entidad == "debito_cobranza",
+            EventLog.entidad_id == debito.id,
+            TipoEvento.nombre == "debito.resultado_registrado",
+            EventLog.estado != "fallido",
+        )
+    )
+    if resultado is None:
+        return False
+    campos = tipos_de_campos(db, resultado.tipo_evento_id)
+    reglas = db.scalars(
+        select(WorkflowRule).where(
+            WorkflowRule.tipo_evento_id == resultado.tipo_evento_id,
+            WorkflowRule.activo.is_(True),
+        )
+    ).all()
+    for regla in reglas:
+        nodos = arbol_service.cargar_nodos(db, regla.id)
+        if not nodos:
+            continue
+        try:
+            recorrido = arbol_service.recorrer_arbol(nodos, campos, resultado.payload or {})
+        except Exception:
+            continue
+        for nodo in recorrido.acciones:
+            destino = (nodo.accion_config or {}).get("destinatario", "responsables_habilitados")
+            if (
+                nodo.tipo_accion in ACCIONES_DE_AVISO_FAMILIAR
+                and nodo.tipo_accion not in ACCIONES_DIFERIDAS
+                and not nodo.requiere_aprobacion_humana
+                and destino == destino_actual
+            ):
+                return True
+    return False
+
+
 DETALLE_ESPERANDO_APROBACION = "Esperando aprobación humana."
 ERROR_YA_NO_APLICA = "La regla ya no aplica al evento original."
 # Una ejecución registrada que lleva más que esto sin ejecutarse se da por abandonada y se retoma.
@@ -390,6 +447,14 @@ def _registrar_accion(
         return ejecucion
 
     _reservar_ejecucion(db, ejecucion)
+    destino = (nodo.accion_config or {}).get("destinatario", "responsables_habilitados")
+    if nodo.tipo_accion in ACCIONES_DE_AVISO_FAMILIAR and _aviso_familiar_cubierto(
+        db, evento, destino
+    ):
+        ejecucion.estado = "exitoso"
+        ejecucion.detalle = "Aviso familiar gestionado por debito.resultado_registrado."
+        ejecucion.finished_at = ahora_utc()
+        return ejecucion
     if nodo.requiere_aprobacion_humana:
         ejecucion.detalle = DETALLE_ESPERANDO_APROBACION
     elif ejecutar_ya:

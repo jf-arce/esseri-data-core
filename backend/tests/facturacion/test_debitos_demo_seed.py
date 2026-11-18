@@ -70,7 +70,7 @@ def test_seed_crea_dataset_acotado_e_idempotente(db_session):
     assert lote_liberado.liberado_at is not None
 
     filas = list(db_session.scalars(select(FacturaCobranzaDemo)))
-    assert {fila.medio for fila in filas} == {"cbu", "tarjeta"}
+    assert {fila.medio for fila in filas} == {"cbu"}
     assert {fila.periodo for fila in filas} == {"2026-11", "2026-10"}
     assert "numero" in {columna.name for columna in FacturaCobranzaDemo.__table__.columns}
     vencimientos = {factura.fecha_vencimiento for factura in db_session.scalars(select(Factura))}
@@ -129,13 +129,10 @@ def test_seed_permite_exportar_las_438_facturas_del_periodo(client_autenticado, 
     contenidos = {archivo["nombre"]: archivo["contenido"] for archivo in cuerpo["solicitudes"]}
     debitos = next((v for k, v in contenidos.items() if "DEBITOS" in k), None)
     creditos = next((v for k, v in contenidos.items() if "CREDITOS" in k), None)
-    assert debitos is not None and creditos is not None
+    assert debitos is not None and creditos is None
     assert all("SIMULADO" not in nombre for nombre in contenidos)
     assert debitos.startswith("referencia;factura;alumno;periodo;concepto;importe;vencimiento;cbu")
-    assert creditos.startswith(
-        "referencia;factura;alumno;periodo;concepto;importe;vencimiento;token_tarjeta"
-    )
-    filas = (debitos.splitlines() + creditos.splitlines())[2:]
+    filas = debitos.splitlines()[1:]
     assert len(filas) == 438
 
     respuesta = client_autenticado.post(

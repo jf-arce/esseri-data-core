@@ -595,6 +595,8 @@ def crear_lote(db: Session, datos: LoteCreate, usuario_id: uuid.UUID) -> LoteDet
         filas = _resolver(db, seleccion, bloquear=True)
         if not filas:
             raise SolicitudCobranzaInvalida("La selección no contiene facturas disponibles.")
+        if any(fila.medio != "cbu" for fila in filas):
+            raise SolicitudCobranzaInvalida("La demo solo permite débitos simulados por CBU.")
         periodo = datos.periodo or seleccion.filtros.periodo or _periodo_comun(filas)
         if seleccion.filtros.periodo and periodo != seleccion.filtros.periodo:
             raise SolicitudCobranzaInvalida(

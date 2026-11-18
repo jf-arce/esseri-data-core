@@ -542,6 +542,57 @@ export function PortalFamiliaFacturacionPage() {
             <div className="flex flex-col gap-6">
               <ResumenCuenta cuenta={cuenta} />
 
+              {!!cuenta.avisos_debito?.length && (
+                <section aria-labelledby="avisos-debito-heading">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle id="avisos-debito-heading" className="text-base">
+                        Avisos de débitos simulados
+                      </CardTitle>
+                      <CardDescription>
+                        Simulación por CBU, sin integración bancaria real. Los avisos se conservan
+                        aunque no se pueda enviar el email.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="divide-y divide-borde">
+                        {cuenta.avisos_debito.map((aviso) => (
+                          <li key={aviso.evento_id} className="min-w-0 space-y-2 py-4">
+                            <h3 className="text-sm leading-relaxed font-semibold text-texto">
+                              {aviso.asunto}
+                            </h3>
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap break-words text-texto-2">
+                              {aviso.cuerpo}
+                            </p>
+                            <p className="text-xs text-texto-2">
+                              {aviso.resultado === 'exitoso'
+                                ? 'Pago registrado'
+                                : 'Débito rechazado'}
+                              {' · '}
+                              {formatearFecha(aviso.fecha)}
+                            </p>
+                            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-texto-2">
+                              <dt>Factura</dt>
+                              <dd className="tabular-nums">{aviso.numero_factura}</dd>
+                              <dt>Importe</dt>
+                              <dd className="tabular-nums">{formatearMoneda(aviso.importe)}</dd>
+                              {aviso.resultado === 'rechazado' && (
+                                <>
+                                  <dt>Motivo</dt>
+                                  <dd className="break-words">{aviso.motivo_rechazo}</dd>
+                                  <dt>Código</dt>
+                                  <dd className="tabular-nums">{aviso.codigo_resultado}</dd>
+                                </>
+                              )}
+                            </dl>
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </section>
+              )}
+
               <section aria-labelledby="facturas-familia-heading" className="flex flex-col gap-4">
                 <div>
                   <h2

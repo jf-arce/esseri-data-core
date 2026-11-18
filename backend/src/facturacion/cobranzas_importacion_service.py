@@ -40,6 +40,7 @@ from src.familias_alumnos.models import Alumno
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
 from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
+from src.workflows.eventos_service import emit_event
 
 METODO_ID = uuid.UUID("e55e2100-0000-4000-8000-000000000001")
 TAMANIO_DETALLE = 25
@@ -112,6 +113,17 @@ def _filtro_detalle(resultado: str):
     return None
 
 
+def _errores_integridad_lote(
+    db: Session, lote_id: uuid.UUID, detalles: list[ImportacionCobranzaDetalle]
+) -> list[str]:
+    """Require exactly one result for every original instruction, not just every visible row."""
+    esperados = set(db.scalars(select(DebitoCobranza.id).where(DebitoCobranza.lote_id == lote_id)))
+    recibidos = {detalle.debito_id for detalle in detalles}
+    if esperados != recibidos or len(detalles) != len(esperados):
+        return ["La rendición debe estar completa: incluí un único resultado por débito del lote."]
+    return []
+
+
 def _leer_importacion(
     db: Session,
     importacion: ImportacionCobranza,
@@ -149,6 +161,8 @@ def _leer_importacion(
         ).all()
     )
     errores_globales = list(errores or [])
+    if importacion.estado == "en_revision":
+        errores_globales.extend(_errores_integridad_lote(db, importacion.lote_id, detalles))
     puede = (
         not errores_globales
         and importacion.estado == "en_revision"
@@ -637,6 +651,8 @@ def confirmar(
         )
     if any(detalle.estado in ("error", "duplicado") for detalle in detalles):
         return _leer_importacion(db, importacion)
+    if _errores_integridad_lote(db, lote.id, detalles):
+        return _leer_importacion(db, importacion)
     if _revalidar(db, lote, detalles):
         db.commit()
         return _leer_importacion(db, obtener_importacion(db, importacion_id))
@@ -716,6 +732,26 @@ def confirmar(
             else:
                 detalle.estado = "rechazado"
                 detalle.mensaje = _mensaje_rechazo(detalle.codigo, detalle.descripcion)
+            factura = db.get(Factura, debito.factura_id)
+            emit_event(
+                db,
+                tipo="debito.resultado_registrado",
+                entidad="debito_cobranza",
+                entidad_id=debito.id,
+                usuario_id=usuario_id,
+                payload={
+                    "debito_id": debito.id,
+                    "factura_id": debito.factura_id,
+                    "lote_id": lote.id,
+                    "resultado": "exitoso" if debito.pago_id else "rechazado",
+                    "importe": detalle.importe,
+                    "codigo_resultado": detalle.codigo or "",
+                    "motivo_rechazo": detalle.descripcion if not debito.pago_id else "",
+                    "responsable_economico_id": factura.responsable_economico_id,
+                    "numero_factura": detalle.numero_factura or str(factura.id),
+                    "simulado": True,
+                },
+            )
             log_audit(
                 db,
                 entidad="DEBITO_COBRANZA",

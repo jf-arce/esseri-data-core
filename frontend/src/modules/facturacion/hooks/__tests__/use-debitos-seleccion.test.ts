@@ -32,6 +32,25 @@ beforeEach(() => {
 })
 
 describe('useDebitosSeleccion', () => {
+  it('preselecciona las elegibles y conserva exclusiones al cambiar de página', async () => {
+    const { result, rerender } = renderHook(
+      ({ pagina }) =>
+        useDebitosSeleccion({ total: 438, pagina, filtros, claveFiltros: 'periodo-cbu' }),
+      { initialProps: { pagina: 1 } },
+    )
+    await waitFor(() => expect(result.current.resumen.cantidad).toBe(438))
+    expect(result.current.seleccion).toMatchObject({
+      modo: 'filtrados',
+      factura_ids: [],
+      excluir_ids: [],
+    })
+    act(() => result.current.alternarFila('factura-2', false))
+    rerender({ pagina: 2 })
+    expect(result.current.excluidos).toEqual(['factura-2'])
+    act(() => result.current.alternarFila('factura-2', true))
+    expect(result.current.excluidos).toEqual([])
+  })
+
   it('las filas seleccionadas envían exactamente sus IDs y nada del resto del filtro', async () => {
     const { result } = renderHook(() =>
       useDebitosSeleccion({
@@ -42,6 +61,7 @@ describe('useDebitosSeleccion', () => {
       }),
     )
 
+    act(() => result.current.limpiar())
     await waitFor(() => expect(result.current.resumen.cantidad).toBe(0))
     act(() => result.current.alternarFila('factura-3', true))
     act(() => result.current.alternarFila('factura-7', true))
@@ -67,6 +87,7 @@ describe('useDebitosSeleccion', () => {
       }),
     )
 
+    act(() => result.current.limpiar())
     await waitFor(() => expect(result.current.resumen.cantidad).toBe(0))
     act(() => result.current.seleccionarFiltrados())
 
@@ -94,6 +115,7 @@ describe('useDebitosSeleccion', () => {
       { initialProps: { pagina: 1 } },
     )
 
+    act(() => result.current.limpiar())
     await waitFor(() => expect(result.current.resumen.cantidad).toBe(0))
     act(() => result.current.alternarFila('factura-1', true))
     await waitFor(() => expect(result.current.seleccionadas).toEqual(['factura-1']))
@@ -109,7 +131,7 @@ describe('useDebitosSeleccion', () => {
     expect(result.current.resumen.cantidad).toBe(438)
   })
 
-  it('cambiar filtros o búsqueda limpia la selección global', async () => {
+  it('cambiar filtros o búsqueda preselecciona el nuevo alcance sin exclusiones previas', async () => {
     const { result, rerender } = renderHook(
       ({ clave }) =>
         useDebitosSeleccion({
@@ -121,13 +143,12 @@ describe('useDebitosSeleccion', () => {
       { initialProps: { clave: '2026-10|todos|pendientes_sin_lote|' } },
     )
 
-    await waitFor(() => expect(result.current.resumen.cantidad).toBe(0))
-    act(() => result.current.seleccionarFiltrados())
+    await waitFor(() => expect(result.current.resumen.cantidad).toBe(438))
     await waitFor(() => expect(result.current.modo).toBe('filtrados'))
 
     rerender({ clave: '2026-10|todos|pendientes_sin_lote|García' })
 
-    await waitFor(() => expect(result.current.modo).toBe('pagina'))
+    await waitFor(() => expect(result.current.modo).toBe('filtrados'))
     expect(result.current.seleccionadas).toHaveLength(0)
     expect(result.current.excluidos).toHaveLength(0)
   })
@@ -142,7 +163,7 @@ describe('useDebitosSeleccion', () => {
       }),
     )
 
-    await waitFor(() => expect(result.current.resumen.cantidad).toBe(0))
+    await waitFor(() => expect(result.current.resumen.cantidad).toBe(438))
     act(() => result.current.seleccionarFiltrados())
     await waitFor(() => expect(result.current.modo).toBe('filtrados'))
 
@@ -175,6 +196,7 @@ describe('useDebitosSeleccion', () => {
       },
     )
 
+    act(() => result.current.limpiar())
     await waitFor(() => expect(result.current.resumen.cantidad).toBe(0))
     act(() => result.current.alternarFila('factura-1', true))
     await waitFor(() => expect(result.current.seleccionadas).toEqual(['factura-1']))
@@ -191,9 +213,9 @@ describe('useDebitosSeleccion', () => {
     })
 
     await waitFor(() => expect(result.current.seleccionadas).toHaveLength(0))
-    expect(result.current.modo).toBe('pagina')
+    expect(result.current.modo).toBe('filtrados')
     expect(result.current.seleccion).toMatchObject({
-      modo: 'pagina',
+      modo: 'filtrados',
       factura_ids: [],
       excluir_ids: [],
     })
@@ -221,7 +243,7 @@ describe('useDebitosSeleccion', () => {
       },
     )
 
-    await waitFor(() => expect(result.current.resumen.cantidad).toBe(0))
+    await waitFor(() => expect(result.current.resumen.cantidad).toBe(438))
     act(() => result.current.seleccionarFiltrados())
     await waitFor(() => expect(result.current.modo).toBe('filtrados'))
     act(() => result.current.alternarFila('factura-2', false))
@@ -231,7 +253,7 @@ describe('useDebitosSeleccion', () => {
       clave: '2026-09|cbu|pendientes_sin_lote|',
       filtrosActuales: { ...filtrosPeriodoA, periodo: '2026-09' },
     })
-    await waitFor(() => expect(result.current.modo).toBe('pagina'))
+    await waitFor(() => expect(result.current.modo).toBe('filtrados'))
     await waitFor(() => expect(result.current.excluidos).toHaveLength(0))
 
     rerender({
@@ -239,17 +261,17 @@ describe('useDebitosSeleccion', () => {
       filtrosActuales: filtrosPeriodoA,
     })
 
-    await waitFor(() => expect(result.current.modo).toBe('pagina'))
+    await waitFor(() => expect(result.current.modo).toBe('filtrados'))
     expect(result.current.seleccionadas).toHaveLength(0)
     expect(result.current.excluidos).toHaveLength(0)
     expect(result.current.seleccion).toMatchObject({
-      modo: 'pagina',
+      modo: 'filtrados',
       factura_ids: [],
       excluir_ids: [],
     })
     await waitFor(() =>
       expect(vi.mocked(resumirSeleccionDebitos).mock.calls.at(-1)?.[0]).toMatchObject({
-        modo: 'pagina',
+        modo: 'filtrados',
         factura_ids: [],
         excluir_ids: [],
       }),

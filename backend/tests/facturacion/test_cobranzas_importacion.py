@@ -121,6 +121,66 @@ def test_confirmar_exige_revision_confirmada(client_autenticado, db_session):
     assert db_session.query(DebitoCobranza).one().resultado_hash is None
 
 
+def test_rendicion_incompleta_no_confirma_ni_libera_reservas(client_autenticado, db_session):
+    crear_catalogo_evento_pago_registrado(db_session)
+    _, lote = _lote_con_facturas(client_autenticado, db_session, 3)
+    lote_id, filas = formato.leer_respuesta(respuesta(client_autenticado, lote))
+    incompleta = formato.generar_respuesta(lote_id, date.today(), filas[:2])
+    antes = _conteos(db_session)
+
+    revision = preview(client_autenticado, incompleta).json()
+
+    assert revision["puede_confirmar"] is False
+    assert any("completa" in error for error in revision["errores"])
+    assert _conteos(db_session) == antes
+    assert all(d.reserva_activa for d in db_session.scalars(select(DebitoCobranza)))
+    if revision["id"]:
+        resultado = confirmar(client_autenticado, revision["id"]).json()
+        assert resultado["estado"] == "en_revision"
+        assert resultado["puede_confirmar"] is False
+        assert _conteos(db_session) == antes
+
+
+def test_resultado_debito_es_atomico_y_no_se_duplica(
+    client_autenticado, db_session, catalogo_resultado_debito
+):
+    crear_catalogo_evento_pago_registrado(db_session)
+    _, lote = _lote_con_facturas(client_autenticado, db_session, 3)
+    texto = respuesta(client_autenticado, lote, rechazos_cantidad=1)
+    revision = preview(client_autenticado, texto).json()
+    assert db_session.query(EventLog).count() == 0
+
+    resultado = confirmar(client_autenticado, revision["id"])
+    assert resultado.status_code == 200, resultado.text
+    eventos = (
+        db_session.query(EventLog).filter_by(tipo_evento_id=catalogo_resultado_debito.id).all()
+    )
+    assert len(eventos) == 3
+    assert sorted(e.payload["resultado"] for e in eventos) == ["exitoso", "exitoso", "rechazado"]
+    for evento in eventos:
+        debito = db_session.get(DebitoCobranza, evento.entidad_id)
+        factura = db_session.get(Factura, debito.factura_id)
+        assert evento.estado == "pendiente"
+        assert evento.entidad == "debito_cobranza"
+        assert (
+            evento.payload.items()
+            >= {
+                "debito_id": str(debito.id),
+                "factura_id": str(factura.id),
+                "lote_id": lote["id"],
+                "responsable_economico_id": str(factura.responsable_economico_id),
+            }.items()
+        )
+        assert {"importe", "codigo_resultado", "motivo_rechazo"} <= evento.payload.keys()
+        assert factura.estado == ("pagada" if debito.pago_id else "pendiente")
+    assert db_session.query(Pago).count() == 2
+    assert db_session.query(EventLog).filter_by(entidad="pago").count() == 2
+    antes = _conteos(db_session)
+    assert confirmar(client_autenticado, revision["id"]).json()["estado"] == "confirmada"
+    assert preview(client_autenticado, texto).json()["estado"] == "confirmada"
+    assert _conteos(db_session) == antes
+
+
 def test_confirmar_aplica_cobros_y_rechazos_en_una_sola_transaccion(client_autenticado, db_session):
     crear_catalogo_evento_pago_registrado(db_session)
     facturas, lote = _lote_con_facturas(client_autenticado, db_session, 3)

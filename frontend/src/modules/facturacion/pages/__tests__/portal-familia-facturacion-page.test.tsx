@@ -79,6 +79,38 @@ function renderizarPagina() {
 }
 
 describe('PortalFamiliaFacturacionPage', () => {
+  it('muestra los snapshots de resultado sin depender del estado de envío del email', async () => {
+    mockedListarFacturacion.mockResolvedValue({
+      ...facturacion,
+      avisos_debito: [
+        {
+          evento_id: 'evento-1',
+          ejecucion_id: 'ejecucion-1',
+          regla_id: 'regla-1',
+          debito_id: 'debito-1',
+          factura_id: 'factura-1',
+          numero_factura: 'F-202611-0003',
+          lote_id: 'lote-1',
+          fecha: '2026-11-18T12:00:00Z',
+          resultado: 'rechazado',
+          importe: '100.00',
+          codigo_resultado: 'SIM-01',
+          motivo_rechazo: 'Fondos insuficientes',
+          asunto: 'Débito simulado rechazado',
+          cuerpo: 'Factura F-0003 por $100. Fondos insuficientes. Código SIM-01.',
+        },
+      ],
+    })
+    renderizarPagina()
+    expect(await screen.findByText('Débito simulado rechazado')).toBeInTheDocument()
+    const avisos = screen.getByRole('region', { name: 'Avisos de débitos simulados' })
+    expect(within(avisos).getByText(/Factura F-0003 por \$100/)).toBeInTheDocument()
+    expect(within(avisos).getByText('F-202611-0003')).toBeInTheDocument()
+    expect(within(avisos).getByText('Fondos insuficientes')).toBeInTheDocument()
+    expect(within(avisos).getByText('SIM-01')).toBeInTheDocument()
+    expect(within(avisos).getByText(/sin integración bancaria real/)).toBeInTheDocument()
+  })
+
   it('preselecciona el alumno desde el atajo de la ficha', async () => {
     const cuenta = structuredClone(facturacion)
     const base = cuenta.facturas[0]
