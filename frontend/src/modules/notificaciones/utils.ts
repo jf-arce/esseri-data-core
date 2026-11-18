@@ -1,14 +1,20 @@
 import {
   BellIcon,
+  CalendarClockIcon,
   CalendarXIcon,
   CircleCheckIcon,
+  CircleDollarSignIcon,
   CircleXIcon,
+  MegaphoneIcon,
+  ReceiptTextIcon,
   type LucideIcon,
 } from 'lucide-react'
 import {
+  TIPOS_RECURSO_ACADEMICO,
   TIPOS_RECURSO_NOTIFICACION,
   type DestinoNotificacion,
   type TipoNotificacion,
+  type TipoRecursoAcademico,
   type TipoRecursoNotificacion,
 } from './types'
 
@@ -52,6 +58,22 @@ const ESTILOS_POR_TIPO: Record<TipoNotificacion, { icon: LucideIcon; tileClassNa
     icon: CircleXIcon,
     tileClassName: 'bg-error-suave text-error',
   },
+  'comunicaciones.institucional_publicada': {
+    icon: MegaphoneIcon,
+    tileClassName: 'bg-violeta-suave text-violeta',
+  },
+  'facturacion.factura_emitida': {
+    icon: ReceiptTextIcon,
+    tileClassName: 'bg-sup-facturacion text-mod-facturacion',
+  },
+  'facturacion.pago_registrado': {
+    icon: CircleDollarSignIcon,
+    tileClassName: 'bg-exito-suave text-exito',
+  },
+  'facturacion.proximo_vencimiento': {
+    icon: CalendarClockIcon,
+    tileClassName: 'bg-advertencia-suave text-advertencia',
+  },
 }
 
 const ESTILO_GENERICO = {
@@ -71,30 +93,40 @@ export function esTipoRecursoNotificacion(valor: string): valor is TipoRecursoNo
   return (TIPOS_RECURSO_NOTIFICACION as readonly string[]).includes(valor)
 }
 
+export function esTipoRecursoAcademico(valor: string): valor is TipoRecursoAcademico {
+  return (TIPOS_RECURSO_ACADEMICO as readonly string[]).includes(valor)
+}
+
 export type SeccionDestino = 'historial' | 'justificaciones'
 
 export type DestinoNotificacionQuery = {
   alumnoId: string
   seccion: SeccionDestino
-  recurso: TipoRecursoNotificacion
+  recurso: TipoRecursoAcademico
   recursoId: string
 }
 
-export const SECCION_POR_RECURSO: Record<TipoRecursoNotificacion, SeccionDestino> = {
+export const SECCION_POR_RECURSO: Record<TipoRecursoAcademico, SeccionDestino> = {
   asistencia: 'historial',
   justificacion_individual: 'historial',
   solicitud_ausencia_periodo: 'justificaciones',
 }
 
 /**
- * Ruta del Portal Familia para abrir el recurso exacto de una notificación. Devuelve `null`
- * ante un destino nulo, incompleto o de un tipo que esta entrega todavía no conoce: nunca se
- * arma una URL arbitraria a partir de datos del backend.
+ * Ruta del Portal Familia para abrir el recurso de una notificación. Devuelve `null` ante un
+ * destino nulo, incompleto o desconocido: nunca se arma una URL arbitraria a partir de datos
+ * del backend.
  */
 export function rutaDesdeDestino(destino: DestinoNotificacion | null | undefined): string | null {
-  if (!destino) return null
-  if (!esTipoRecursoNotificacion(destino.tipo)) return null
-  if (!destino.id.trim() || !destino.alumno_id.trim()) return null
+  if (!destino || !destino.id.trim()) return null
+  if (destino.tipo === 'comunicacion') {
+    return `/familia/comunicaciones/${encodeURIComponent(destino.id)}`
+  }
+  if (destino.tipo === 'factura' || destino.tipo === 'pago') {
+    return '/familia/facturacion'
+  }
+  if (!esTipoRecursoAcademico(destino.tipo)) return null
+  if (!destino.alumno_id?.trim()) return null
 
   const parametros = new URLSearchParams()
   parametros.set('alumno', destino.alumno_id)
@@ -105,7 +137,7 @@ export function rutaDesdeDestino(destino: DestinoNotificacion | null | undefined
   return `/familia/asistencias?${parametros.toString()}`
 }
 
-/** Lee y valida los parámetros tipados que arma `rutaDesdeDestino`. */
+/** Lee y valida los parámetros tipados que arma `rutaDesdeDestino` para Académico. */
 export function leerDestinoDesdeParametros(
   parametros: Pick<URLSearchParams, 'get'>,
 ): DestinoNotificacionQuery | null {
@@ -115,7 +147,7 @@ export function leerDestinoDesdeParametros(
   const recursoId = parametros.get('recurso_id')?.trim() ?? ''
 
   if (!alumnoId || !recursoId) return null
-  if (!esTipoRecursoNotificacion(recurso)) return null
+  if (!esTipoRecursoAcademico(recurso)) return null
   if (seccion !== 'historial' && seccion !== 'justificaciones') return null
   if (SECCION_POR_RECURSO[recurso] !== seccion) return null
 
