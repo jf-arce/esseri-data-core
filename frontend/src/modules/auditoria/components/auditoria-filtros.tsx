@@ -2,7 +2,6 @@ import { ArrowDownAZIcon } from 'lucide-react'
 import { DatePicker } from '@/components/date-picker'
 import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
 import { FilterChip, FilterChips, FilterDropdown } from '@/components/filter-dropdown'
-import { Field, FieldLabel } from '@/components/ui/field'
 import { FILTRO_TODOS } from '@/modules/auditoria/constants'
 import type { FiltrosAuditoria, OpcionesAuditoria, OrdenAuditoria } from '@/modules/auditoria/types'
 import {
@@ -49,6 +48,10 @@ export function AuditoriaFiltros({
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Todos los controles viven en la misma barra y miden 40px: los desplegables ya se
+          identifican por su propio texto ("Entidad", "Campo"), así que las fechas usan
+          "Desde"/"Hasta" como placeholder en vez de un label arriba. Un label visible sólo
+          en las fechas las dejaba más altas que el resto y desalineaba la fila. */}
       <FilterBar>
         <FilterSearch
           value={busqueda}
@@ -111,6 +114,20 @@ export function AuditoriaFiltros({
           active={origen !== FILTRO_TODOS}
           onChange={(valor) => onCambios({ origen: valor })}
         />
+        <DatePicker
+          id="auditoria-desde"
+          className="h-10 w-40 shrink-0"
+          value={desde ? parsearFechaISO(desde) : undefined}
+          onChange={(fecha) => onCambios({ desde: fecha ? fechaAISO(fecha) : '' })}
+          placeholder="Desde"
+        />
+        <DatePicker
+          id="auditoria-hasta"
+          className="h-10 w-40 shrink-0"
+          value={hasta ? parsearFechaISO(hasta) : undefined}
+          onChange={(fecha) => onCambios({ hasta: fecha ? fechaAISO(fecha) : '' })}
+          placeholder="Hasta"
+        />
         <FilterBarSpacer />
         <FilterDropdown
           label={etiquetaOrdenActual?.label ?? 'Ordenar por'}
@@ -121,29 +138,6 @@ export function AuditoriaFiltros({
           onChange={(valor) => onCambios({ orden: valor as OrdenAuditoria })}
         />
       </FilterBar>
-
-      {/* Las fechas llevan label, los desplegables de arriba no: `items-end` alinea el borde
-          inferior de los dos inputs con el de la barra en vez de centrarlos y dejarlos corridos. */}
-      <div className="flex flex-wrap items-end gap-3">
-        <Field className="w-44">
-          <FieldLabel htmlFor="auditoria-desde">Fecha desde</FieldLabel>
-          <DatePicker
-            id="auditoria-desde"
-            value={desde ? parsearFechaISO(desde) : undefined}
-            onChange={(fecha) => onCambios({ desde: fecha ? fechaAISO(fecha) : '' })}
-            placeholder="dd/mm/aaaa"
-          />
-        </Field>
-        <Field className="w-44">
-          <FieldLabel htmlFor="auditoria-hasta">Fecha hasta</FieldLabel>
-          <DatePicker
-            id="auditoria-hasta"
-            value={hasta ? parsearFechaISO(hasta) : undefined}
-            onChange={(fecha) => onCambios({ hasta: fecha ? fechaAISO(fecha) : '' })}
-            placeholder="dd/mm/aaaa"
-          />
-        </Field>
-      </div>
 
       {hayFiltrosAuditoria(filtros) && (
         <FilterChips onClearAll={onLimpiar}>
