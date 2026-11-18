@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { LockIcon, PlusIcon } from 'lucide-react'
+import { ChevronDownIcon, LockIcon, PlusIcon, SendIcon, ZapIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
+import { BotonEstadoRegla } from '@/modules/workflows/components/boton-estado-regla'
+import { LeyendaReglas } from '@/modules/workflows/components/leyenda-reglas'
+import { TextoResumen } from '@/modules/workflows/components/resumen-regla'
 import { RUTA_NUEVA_REGLA, rutaRegla } from '@/modules/workflows/constants'
 import type { ReglaWorkflow, ResumenRegla, TipoEvento } from '@/modules/workflows/types'
 import { ETIQUETA_ACCION, etiquetaEvento } from '@/modules/workflows/utils'
@@ -12,17 +16,19 @@ import {
   resumirModuloMapa,
   type EstadoReglaMapa,
 } from '@/modules/workflows/utils-mapa'
+import { borradorDesdeRegla } from '@/modules/workflows/utils-grafo'
 
 interface MapaAutomatizacionesProps {
   tiposEvento: TipoEvento[]
   reglas: ReglaWorkflow[]
   resumenPorRegla: Map<string, ResumenRegla>
   puedeCrear: boolean
+  puedeActualizar: boolean
+  onCambiarActivo: (regla: ReglaWorkflow) => void
 }
 
-const ESTADOS: Record<EstadoReglaMapa, { etiqueta: string; clase: string }> = {
-  activa: { etiqueta: 'Activa', clase: 'bg-exito-suave text-exito' },
-  pausada: { etiqueta: 'Pausada', clase: 'bg-fila-hover text-texto-2' },
+// "Activa" y "Pausada" las muestra el botón de estado; acá solo la salud de la regla.
+const ESTADOS: Partial<Record<EstadoReglaMapa, { etiqueta: string; clase: string }>> = {
   con_fallas: { etiqueta: 'Con fallas', clase: 'bg-error-suave text-error' },
   sin_disparos: { etiqueta: 'Sin disparos', clase: 'bg-advertencia-suave text-advertencia' },
 }
@@ -48,9 +54,15 @@ function contarCondiciones(regla: ReglaWorkflow): number {
 function FilaRegla({
   regla,
   resumen,
+  tiposEvento,
+  puedeActualizar,
+  onCambiarActivo,
 }: {
   regla: ReglaWorkflow
   resumen: ResumenRegla | undefined
+  tiposEvento: TipoEvento[]
+  puedeActualizar: boolean
+  onCambiarActivo: (regla: ReglaWorkflow) => void
 }) {
   const estado = ESTADOS[estadoReglaMapa(regla, resumen)]
   const condiciones = contarCondiciones(regla)
@@ -58,21 +70,45 @@ function FilaRegla({
   return (
     <div className="grid gap-2 md:col-span-3 md:grid-cols-subgrid md:gap-x-2">
       <div className="min-w-0 rounded-card-sm bg-fila-hover px-3 py-2">
-        <Link
-          to={rutaRegla(regla.id)}
-          className="block truncate text-sm font-semibold text-texto hover:underline"
-          title={regla.nombre}
-        >
-          {regla.nombre}
-        </Link>
+        <div className="flex items-start justify-between gap-2">
+          <Link
+            to={rutaRegla(regla.id)}
+            className="block min-w-0 truncate text-sm font-semibold text-texto hover:underline"
+            title={regla.nombre}
+          >
+            {regla.nombre}
+          </Link>
+          <BotonEstadoRegla
+            regla={regla}
+            puedeActualizar={puedeActualizar}
+            onCambiarActivo={onCambiarActivo}
+          />
+        </div>
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
-          <span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold', estado.clase)}>
-            {estado.etiqueta}
-          </span>
-          {condiciones > 0 && (
-            <span className="rounded-full bg-advertencia-suave px-2 py-0.5 text-xs font-semibold text-advertencia">
-              {condiciones} {condiciones === 1 ? 'condición' : 'condiciones'}
+          {estado && (
+            <span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold', estado.clase)}>
+              {estado.etiqueta}
             </span>
+          )}
+          {condiciones > 0 && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full bg-advertencia-suave px-2 py-0.5 text-xs font-semibold text-advertencia"
+                >
+                  <span
+                    className="size-2 shrink-0 rotate-45 rounded-[2px] bg-advertencia"
+                    aria-hidden="true"
+                  />
+                  {condiciones} {condiciones === 1 ? 'condición' : 'condiciones'}
+                  <ChevronDownIcon className="size-3" aria-hidden="true" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-96 max-w-[90vw]">
+                <TextoResumen borrador={borradorDesdeRegla(regla)} tiposEvento={tiposEvento} />
+              </PopoverContent>
+            </Popover>
           )}
         </div>
       </div>
@@ -89,7 +125,11 @@ function FilaRegla({
                 aprobacion ? 'bg-advertencia-suave text-advertencia' : 'bg-exito-suave text-exito',
               )}
             >
-              {aprobacion && <LockIcon className="size-3" aria-hidden="true" />}
+              {aprobacion ? (
+                <LockIcon className="size-3" aria-hidden="true" />
+              ) : (
+                <SendIcon className="size-3" aria-hidden="true" />
+              )}
               {nodo.tipo_accion ? ETIQUETA_ACCION[nodo.tipo_accion] : 'Acción'}
               <span className="sr-only">{aprobacion ? ' (con aprobación)' : ' (automática)'}</span>
             </span>
@@ -100,33 +140,6 @@ function FilaRegla({
   )
 }
 
-function Leyenda() {
-  return (
-    <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-texto-2">
-      <li className="flex items-center gap-1.5">
-        <span className="size-2.5 rounded-full bg-exito" aria-hidden="true" />
-        Acción automática
-      </li>
-      <li className="flex items-center gap-1.5">
-        <LockIcon className="size-3 text-advertencia" aria-hidden="true" />
-        Acción con aprobación
-      </li>
-      <li className="flex items-center gap-1.5">
-        <span className="size-2.5 rounded-full bg-advertencia" aria-hidden="true" />
-        Con condiciones
-      </li>
-      <li className="flex items-center gap-1.5">
-        <span className="mapa-conector mapa-conector-activo w-5" aria-hidden="true" />
-        Regla activa
-      </li>
-      <li className="flex items-center gap-1.5">
-        <span className="mapa-conector mapa-conector-pausado w-5" aria-hidden="true" />
-        Regla pausada
-      </li>
-    </ul>
-  )
-}
-
 /** Mapa de solo lectura por carriles: un carril por módulo y, en cada uno, Evento → Regla →
  * Qué hace. Los eventos sin reglas quedan al pie como "Sin automatizar". */
 export function MapaAutomatizaciones({
@@ -134,6 +147,8 @@ export function MapaAutomatizaciones({
   reglas,
   resumenPorRegla,
   puedeCrear,
+  puedeActualizar,
+  onCambiarActivo,
 }: MapaAutomatizacionesProps) {
   const [moduloElegido, setModuloElegido] = useState<string | null>(null)
   const modulos = agruparMapa(tiposEvento, reglas)
@@ -143,7 +158,7 @@ export function MapaAutomatizaciones({
 
   return (
     <div className="flex flex-col gap-4" aria-label="Mapa de automatizaciones" role="region">
-      <Leyenda />
+      <LeyendaReglas />
       <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por módulo">
         {[null, ...modulos.map((item) => item.modulo)].map((modulo) => (
           <button
@@ -196,6 +211,10 @@ export function MapaAutomatizaciones({
               {conReglas.map(({ evento, reglas: delEvento }) => (
                 <div key={evento.id} className={cn('grid gap-2 md:gap-x-2', COLUMNAS)}>
                   <div className="rounded-card-sm bg-sup-workflows px-3 py-2 text-sm font-medium text-texto md:self-center">
+                    <ZapIcon
+                      className="mr-2 inline size-3.5 align-[-2px] text-mod-workflows"
+                      aria-hidden="true"
+                    />
                     {etiquetaEvento(evento.nombre)}
                   </div>
                   <Conector activo={delEvento.some((regla) => regla.activo)} />
@@ -205,6 +224,9 @@ export function MapaAutomatizaciones({
                         key={regla.id}
                         regla={regla}
                         resumen={resumenPorRegla.get(regla.id)}
+                        tiposEvento={tiposEvento}
+                        puedeActualizar={puedeActualizar}
+                        onCambiarActivo={onCambiarActivo}
                       />
                     ))}
                   </div>
