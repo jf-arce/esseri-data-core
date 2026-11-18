@@ -3,8 +3,13 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
+import { FiltroSelect } from '@/modules/workflows/components/filtro-select'
 import { RUTA_EJECUCIONES } from '@/modules/workflows/constants'
-import type { EjecucionWorkflow } from '@/modules/workflows/types'
+import {
+  ESTADOS_EJECUCION,
+  type EjecucionWorkflow,
+  type EstadoEjecucion,
+} from '@/modules/workflows/types'
 import {
   ETIQUETA_ACCION,
   ETIQUETA_ESTADO_EJECUCION,
@@ -16,47 +21,62 @@ interface ActividadEnVivoProps {
   ejecuciones: EjecucionWorkflow[]
   /** Ids que llegaron en el último refresco: entran con una animación corta. */
   nuevas: ReadonlySet<string>
-  actualizadoEn: Date | null
   error: string | null
+  /** Filtro por estado; `undefined` muestra todas. */
+  estado: EstadoEjecucion | undefined
+  onCambiarEstado: (estado: EstadoEjecucion | undefined) => void
   onAbrir: (ejecucion: EjecucionWorkflow) => void
 }
 
-const FORMATO_HORA = new Intl.DateTimeFormat('es-AR', {
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-})
+const TAB_TODAS = 'todas'
+
+const TABS: { valor: string; etiqueta: string; vacio: string }[] = [
+  { valor: TAB_TODAS, etiqueta: 'Todas', vacio: '' },
+  ...ESTADOS_EJECUCION.map((estado) => ({
+    valor: estado,
+    etiqueta: `${ETIQUETA_ESTADO_EJECUCION[estado]}s`,
+    vacio: `No hay ejecuciones ${ETIQUETA_ESTADO_EJECUCION[estado].toLowerCase()}s recientes.`,
+  })),
+]
+
+function esEstadoEjecucion(valor: string): valor is EstadoEjecucion {
+  return ESTADOS_EJECUCION.some((estado) => estado === valor)
+}
 
 /** Las últimas ejecuciones, refrescadas cada 30 s. "En vivo" y la hora de la última
  * actualización dejan claro que no es una foto vieja. */
 export function ActividadEnVivo({
   ejecuciones,
   nuevas,
-  actualizadoEn,
   error,
+  estado,
+  onCambiarEstado,
   onAbrir,
 }: ActividadEnVivoProps) {
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle className="flex flex-wrap items-center justify-between gap-2">
+        <CardTitle className="flex flex-wrap items-center justify-between gap-3">
           <h2>Actividad</h2>
-          <span className="flex items-center gap-2 text-xs font-normal text-texto-2">
-            <Badge variant="exito">En vivo</Badge>
-            {actualizadoEn && (
-              <span>
-                Actualizado a las{' '}
-                <span className="tabular-nums">{FORMATO_HORA.format(actualizadoEn)}</span>
-              </span>
-            )}
-          </span>
+          <FiltroSelect
+            label="Estado"
+            options={TABS.map((tab) => ({ value: tab.valor, label: tab.etiqueta }))}
+            value={estado ?? TAB_TODAS}
+            onChange={(valor) => {
+              if (valor === TAB_TODAS) onCambiarEstado(undefined)
+              else if (esEstadoEjecucion(valor)) onCambiarEstado(valor)
+            }}
+            active={estado !== undefined}
+          />
         </CardTitle>
       </CardHeader>
       <CardContent>
         {error && <p className="mb-2 text-sm text-error">{error}</p>}
         {ejecuciones.length === 0 && !error ? (
           <p className="py-4 text-sm text-texto-2">
-            Todavía no hay ejecuciones. Aparecen acá cuando una regla activa se dispara.
+            {estado
+              ? TABS.find((tab) => tab.valor === estado)?.vacio
+              : 'Todavía no hay ejecuciones. Aparecen acá cuando una regla activa se dispara.'}
           </p>
         ) : (
           <ScrollArea className="h-[280px]">
@@ -91,7 +111,7 @@ export function ActividadEnVivo({
           </ScrollArea>
         )}
         <Link
-          to={RUTA_EJECUCIONES}
+          to={estado ? `${RUTA_EJECUCIONES}?estado=${estado}` : RUTA_EJECUCIONES}
           className="mt-2 inline-flex min-h-8 items-center text-sm font-semibold text-violeta hover:underline"
         >
           Ver todas

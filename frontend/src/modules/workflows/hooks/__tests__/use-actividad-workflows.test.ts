@@ -99,6 +99,26 @@ describe('useActividadWorkflows', () => {
     expect(result.current.ejecuciones.map((e) => e.id)).toEqual(['a'])
   })
 
+  it('manda el estado al backend y al cambiarlo no anima lo que llega', async () => {
+    mockedListar.mockResolvedValue(listado('a'))
+    const { result, rerender } = renderHook(
+      ({ estado }: { estado?: 'fallido' }) => useActividadWorkflows(30_000, estado),
+      { initialProps: {} },
+    )
+    await act(async () => {})
+
+    mockedListar.mockResolvedValue(listado('b'))
+    rerender({ estado: 'fallido' })
+    await act(async () => {})
+
+    expect(mockedListar).toHaveBeenLastCalledWith(
+      expect.objectContaining({ estado: 'fallido' }),
+      expect.anything(),
+    )
+    expect(result.current.ejecuciones.map((e) => e.id)).toEqual(['b'])
+    expect([...result.current.nuevas]).toEqual([])
+  })
+
   it('al desmontar deja de pedir', async () => {
     mockedListar.mockResolvedValue(listado('a'))
     const { unmount } = renderHook(() => useActividadWorkflows(30_000))

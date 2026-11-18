@@ -21,7 +21,8 @@ export function useEjecucionesWorkflow(filtros: FiltrosEjecuciones) {
   }>({ clave: null, datos: LISTADO_VACIO, error: null, sinPermiso: false })
 
   const { estado, pagina, tamanioPagina, reglaId, nodoId } = filtros
-  const claveSolicitud = JSON.stringify([estado, pagina, tamanioPagina, reglaId, nodoId, revision])
+  // Sin la revisión: recargar con los mismos filtros conserva lo que se ve, sin estado de carga.
+  const claveSolicitud = JSON.stringify([estado, pagina, tamanioPagina, reglaId, nodoId])
 
   const recargar = useCallback(() => setRevision((actual) => actual + 1), [])
 
@@ -48,7 +49,7 @@ export function useEjecucionesWorkflow(filtros: FiltrosEjecuciones) {
       })
 
     return () => controller.abort()
-  }, [claveSolicitud, estado, pagina, tamanioPagina, reglaId, nodoId])
+  }, [claveSolicitud, estado, pagina, tamanioPagina, reglaId, nodoId, revision])
 
   const solicitudVigente = resultado.clave === claveSolicitud
 
