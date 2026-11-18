@@ -7,6 +7,10 @@ from src.config import settings
 JWT_SECRET = settings.JWT_SECRET
 JWT_ALGORITHM = settings.JWT_ALGORITHM
 JWT_EXPIRE_MINUTES = settings.JWT_EXPIRE_MINUTES
+REFRESH_TOKEN_INACTIVIDAD = timedelta(days=settings.REFRESH_TOKEN_INACTIVIDAD_DIAS)
+REFRESH_TOKEN_MAX = timedelta(days=settings.REFRESH_TOKEN_MAX_DIAS)
+# Ventana en la que reusar un refresh ya rotado se toma como carrera entre pestañas, no como robo.
+REFRESH_GRACIA = timedelta(seconds=30)
 
 LOGIN_MAX_INTENTOS = settings.LOGIN_MAX_INTENTOS
 LOGIN_VENTANA = timedelta(minutes=settings.LOGIN_VENTANA_MINUTOS)
@@ -20,6 +24,7 @@ FRONTEND_URL = settings.FRONTEND_URL
 
 # Nombres de las cookies que emite el módulo.
 COOKIE_SESION = "access_token"
+COOKIE_REFRESH = "refresh_token"
 COOKIE_OAUTH_STATE = "oauth_state"
 
 # La cookie de state/PKCE solo tiene que sobrevivir el viaje de ida y vuelta a Google.
