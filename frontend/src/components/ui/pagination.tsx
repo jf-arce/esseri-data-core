@@ -78,12 +78,12 @@ function PaginationPrevious({
   return (
     <PaginationLink
       aria-label="Ir a la página anterior"
-      size="default"
-      className={cn('pl-1.5!', className)}
+      size={text ? 'default' : 'icon-sm'}
+      className={cn(text && 'pl-1.5!', className)}
       {...props}
     >
       <ChevronLeftIcon data-icon="inline-start" />
-      <span className="hidden sm:block">{text}</span>
+      {text && <span className="hidden sm:block">{text}</span>}
     </PaginationLink>
   )
 }
@@ -96,11 +96,11 @@ function PaginationNext({
   return (
     <PaginationLink
       aria-label="Ir a la página siguiente"
-      size="default"
-      className={cn('pr-1.5!', className)}
+      size={text ? 'default' : 'icon-sm'}
+      className={cn(text && 'pr-1.5!', className)}
       {...props}
     >
-      <span className="hidden sm:block">{text}</span>
+      {text && <span className="hidden sm:block">{text}</span>}
       <ChevronRightIcon data-icon="inline-end" />
     </PaginationLink>
   )

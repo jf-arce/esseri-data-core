@@ -203,6 +203,9 @@ export const MODULO_POR_PREFIJO_EVENTO: Record<string, string> = {
 }
 export const MODULO_SIN_CLASIFICAR = 'Otros'
 export const CLAVE_VISTA_REGLAS = 'workflows.reglas.vista'
+/** Reglas por página: 9 tarjetas (grilla de 3) o 10 filas de tabla. */
+export const TAMANIO_PAGINA_TARJETAS = 9
+export const TAMANIO_PAGINA_TABLA = 10
 export const VISTAS_REGLAS = ['tarjetas', 'tabla', 'mapa'] as const
 
 /** Clases para un `SelectTrigger` que se adapta al texto: ocupa todo el ancho, no ensancha su

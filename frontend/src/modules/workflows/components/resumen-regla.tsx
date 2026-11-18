@@ -17,7 +17,7 @@ function haySinCondicion(borrador: BorradorFlujo): boolean {
 }
 
 /** La regla leída en lenguaje natural: la cabecera y una línea por rama. */
-function TextoResumen({ borrador, tiposEvento }: ResumenReglaProps) {
+export function TextoResumen({ borrador, tiposEvento }: ResumenReglaProps) {
   const [cabecera, ...ramas] = lineasRegla(borrador, tiposEvento)
   return (
     <div className="flex flex-col gap-1.5 text-sm text-texto">
