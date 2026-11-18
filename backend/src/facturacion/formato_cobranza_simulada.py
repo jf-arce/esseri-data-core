@@ -12,8 +12,7 @@ from io import StringIO
 MARCA = "ESSERI_SIMULADO"
 VERSION = "1"
 ENTIDAD = "ENTIDAD_FICTICIA"
-MAX_BYTES = 1024 * 1024
-MAX_REGISTROS = 500
+MAX_BYTES = 10 * 1024 * 1024
 COBRADO = "COBRADO_SIM"
 RECHAZADO = "RECHAZADO_SIM"
 
@@ -108,8 +107,6 @@ def generar_solicitud(filas: list[SolicitudFila], medio: str) -> str:
         raise FormatoInvalido("Medio desconocido: se espera cbu o tarjeta.")
     if not filas:
         raise FormatoInvalido("La solicitud requiere al menos un registro.")
-    if len(filas) > MAX_REGISTROS:
-        raise FormatoInvalido(f"La solicitud admite hasta {MAX_REGISTROS} registros.")
     salida = StringIO(newline="")
     escritor = csv.writer(salida, delimiter=";", lineterminator="\n")
     escritor.writerow(columnas)
@@ -147,7 +144,7 @@ def generar_respuesta(lote_id: uuid.UUID, fecha: date, filas: list[RespuestaDeta
 
 
 def _importe(valor: str, *, cero: bool = False) -> Decimal:
-    # Control totals can sum up to 500 individual Numeric(12, 2) amounts.
+    # Control totals can sum every detail amount of the batch.
     enteros = 13 if cero else 10
     if not re.fullmatch(rf"\d{{1,{enteros}}}\.\d{{2}}", valor):
         raise FormatoInvalido("Importe inválido: revisar el límite de enteros y los dos decimales.")
@@ -160,13 +157,11 @@ def _importe(valor: str, *, cero: bool = False) -> Decimal:
 def leer_respuesta(texto: str) -> tuple[uuid.UUID, list[RespuestaDetalle]]:
     """Validate the complete envelope before exposing any normalized business row."""
     if len(texto.encode("utf-8")) > MAX_BYTES:
-        raise FormatoInvalido("El archivo supera 1 MiB.")
+        raise FormatoInvalido("El archivo supera 10 MiB.")
     try:
         registros = list(csv.reader(StringIO(texto, newline=""), delimiter=";", strict=True))
-        if not 3 <= len(registros) <= MAX_REGISTROS + 2:
-            raise FormatoInvalido(
-                f"Se requieren cabecera, entre 1 y {MAX_REGISTROS} detalles y cierre."
-            )
+        if len(registros) < 3:
+            raise FormatoInvalido("Se requieren cabecera, al menos un detalle y cierre.")
         cabecera, *detalles, cierre = registros
         if (
             len(cabecera) != 7

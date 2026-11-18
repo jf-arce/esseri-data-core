@@ -29,8 +29,8 @@ This feature does not create a workflow, publish a family communication or send 
 ## File contract
 
 UTF-8, semicolon-delimited CSV, standard CSV quoting, decimal point and exactly two
-decimal places, ISO dates (`YYYY-MM-DD`), UUID references, at most 1 MiB and 500 rows
-per file. Download names do not contain demo wording.
+decimal places, ISO dates (`YYYY-MM-DD`), UUID references, at most 10 MiB per file and
+no row limit. Download names do not contain demo wording.
 
 Requests are split by platform: debit requests (CBU) and credit requests (card) are
 separate flat files, one named column header row plus one row per invoice. Downloaded
@@ -70,8 +70,9 @@ result is a conflict, not a second payment. A new batch does not bypass invoice 
 ## Three-screen lifecycle
 
 The operational UI is **Débitos automáticos**, with Generar lote, Importar resultados
-and Historial de lotes tabs, using the existing application shell. Invoice pages contain
-25 rows. Selecting all filtered results sends a filter predicate to the server; it does
+and Historial de lotes tabs, using the existing application shell. Every batch belongs to
+a single billing period and has no invoice-count cap. Invoice pages contain 25 rows.
+Selecting all filtered results sends a filter predicate to the server; it does
 not render hundreds of invoices. Demo invoice numbers, periods and CBU/card categories
 are isolated metadata, not real bank details. The opt-in seed supplies approximately
 500 fictional students and a period with 438 eligible invoices.

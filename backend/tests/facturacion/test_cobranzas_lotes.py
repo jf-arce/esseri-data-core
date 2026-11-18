@@ -231,6 +231,7 @@ def test_facturas_elegibles_pagina_y_marca_ocultas_en_otro_lote(client_autentica
     assert cuerpo["items"][0]["importe"] == "100.00"
     assert cuerpo["items"][0]["curso"] == "4° A"
     assert cuerpo["items"][0]["alumno_nombre"] == "Demo, Alumno1"
+    assert uuid.UUID(cuerpo["items"][0]["alumno_id"])
 
     en_lote = client_autenticado.get(BASE + "/facturas-elegibles", params={"estado": "en_lote"})
     assert en_lote.status_code == 200

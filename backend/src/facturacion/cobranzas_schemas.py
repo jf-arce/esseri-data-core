@@ -22,15 +22,15 @@ class FiltrosSeleccion(BaseModel):
 
 class Seleccion(BaseModel):
     modo: Literal["pagina", "filtrados"]
-    factura_ids: list[uuid.UUID] = Field(default_factory=list, max_length=1000)
+    factura_ids: list[uuid.UUID] = Field(default_factory=list)
     filtros: FiltrosSeleccion = Field(default_factory=FiltrosSeleccion)
-    excluir_ids: list[uuid.UUID] = Field(default_factory=list, max_length=1000)
+    excluir_ids: list[uuid.UUID] = Field(default_factory=list)
 
 
 class LoteCreate(BaseModel):
     seleccion: Seleccion | None = None
     periodo: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
-    factura_ids: list[uuid.UUID] | None = Field(default=None, max_length=500)
+    factura_ids: list[uuid.UUID] | None = None
 
 
 class ResumenSeleccionInput(BaseModel):
@@ -43,7 +43,7 @@ class RespuestaCreate(BaseModel):
 
 
 class ImportacionInput(BaseModel):
-    contenido: str = Field(min_length=1, max_length=1024 * 1024)
+    contenido: str = Field(min_length=1, max_length=10 * 1024 * 1024)
 
 
 class ConfirmarImportacionInput(BaseModel):
@@ -76,6 +76,7 @@ class DebitoRead(BaseModel):
 class FacturaElegibleRead(BaseModel):
     id: uuid.UUID
     numero: str
+    alumno_id: uuid.UUID
     alumno_nombre: str
     curso: str
     periodo: str

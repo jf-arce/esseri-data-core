@@ -50,13 +50,12 @@ from src.inscripciones.models import Inscripcion
 from src.models import Persona
 from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
 
-MAX_FACTURAS_LOTE = 500
-
 
 @dataclass(frozen=True)
 class FilaElegible:
     id: uuid.UUID
     numero: str
+    alumno_id: uuid.UUID
     alumno_nombre: str
     curso: str
     periodo: str
@@ -110,6 +109,7 @@ def _consulta_elegibles(
         select(
             Factura.id,
             FacturaCobranzaDemo.numero,
+            Alumno.id,
             Persona.nombre,
             Persona.apellido,
             Anio.numero,
@@ -174,6 +174,7 @@ def _fila(fila) -> FilaElegible:
     (
         factura_id,
         numero,
+        alumno_id,
         nombre,
         apellido,
         anio,
@@ -189,6 +190,7 @@ def _fila(fila) -> FilaElegible:
     return FilaElegible(
         id=factura_id,
         numero=numero or f"F-{factura_id.hex[:8].upper()}",
+        alumno_id=alumno_id,
         alumno_nombre=f"{apellido}, {nombre}",
         curso=f"{anio}° {division}",
         periodo=str(periodo),
@@ -593,8 +595,6 @@ def crear_lote(db: Session, datos: LoteCreate, usuario_id: uuid.UUID) -> LoteDet
         filas = _resolver(db, seleccion, bloquear=True)
         if not filas:
             raise SolicitudCobranzaInvalida("La selección no contiene facturas disponibles.")
-        if len(filas) > MAX_FACTURAS_LOTE:
-            raise SolicitudCobranzaInvalida(f"Un lote admite hasta {MAX_FACTURAS_LOTE} facturas.")
         periodo = datos.periodo or seleccion.filtros.periodo or _periodo_comun(filas)
         if seleccion.filtros.periodo and periodo != seleccion.filtros.periodo:
             raise SolicitudCobranzaInvalida(
