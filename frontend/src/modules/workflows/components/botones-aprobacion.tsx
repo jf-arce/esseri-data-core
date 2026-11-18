@@ -1,6 +1,6 @@
 import { CheckIcon, XIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
+import { BotonIcono } from '@/modules/workflows/components/boton-icono'
 import type { EjecucionWorkflow } from '@/modules/workflows/types'
 
 interface BotonesAprobacionProps {
@@ -26,15 +26,28 @@ export function BotonesAprobacion({
   const decidiendo = decidiendoId === ejecucion.id
   const ocupado = decidiendoId !== null
   return (
-    <>
-      <Button variant="ghost" size="sm" disabled={ocupado} onClick={() => onAprobar(ejecucion)}>
-        {decidiendo ? <Spinner data-icon="inline-start" /> : <CheckIcon data-icon="inline-start" />}
-        Aprobar
-      </Button>
-      <Button variant="ghost" size="sm" disabled={ocupado} onClick={() => onRechazar(ejecucion)}>
-        <XIcon data-icon="inline-start" />
-        Rechazar
-      </Button>
-    </>
+    <div className="flex items-center gap-2">
+      <BotonIcono
+        etiqueta="Aprobar"
+        lado="top"
+        variant="ghost"
+        size="icon-sm"
+        className="bg-exito-suave text-exito hover:bg-[color-mix(in_oklch,var(--exito)_15%,var(--exito-suave))] hover:text-exito"
+        disabled={ocupado}
+        onClick={() => onAprobar(ejecucion)}
+      >
+        {decidiendo ? <Spinner /> : <CheckIcon />}
+      </BotonIcono>
+      <BotonIcono
+        etiqueta="Rechazar"
+        lado="top"
+        variant="destructive"
+        size="icon-sm"
+        disabled={ocupado}
+        onClick={() => onRechazar(ejecucion)}
+      >
+        <XIcon />
+      </BotonIcono>
+    </div>
   )
 }

@@ -3,6 +3,8 @@ import { EVENTO_FACTURA, reglaDe } from '@/modules/workflows/__tests__/fabricas'
 import type { ConteoEstados, ResumenRegla, TipoEvento } from '@/modules/workflows/types'
 import {
   agruparMapa,
+  estadoReglaMapa,
+  resumirModuloMapa,
   moduloDeEvento,
   reglasQueRequierenAtencion,
   textoVariacion,
@@ -143,5 +145,45 @@ describe('tiempoRelativo', () => {
     expect(tiempoRelativo('2026-11-14T10:00:00Z', ahora)).toBe('hace 2 horas')
     expect(tiempoRelativo('2026-11-12T12:00:00Z', ahora)).toBe('hace 2 días')
     expect(tiempoRelativo('2026-11-13T12:00:00Z', ahora)).toBe('hace 1 día')
+  })
+})
+
+describe('resumen por carril del mapa', () => {
+  const datos = (id: string, extra: Partial<ResumenRegla>): ResumenRegla => ({
+    workflow_rule_id: id,
+    ejecuciones: conteo(0),
+    serie: [],
+    ultima_ejecucion: null,
+    fallas_7_dias: 0,
+    sin_disparos: false,
+    ...extra,
+  })
+
+  it('cuenta eventos, automatizados, reglas activas y con fallas', () => {
+    const mapa = agruparMapa(
+      [evento('e-1', 'factura.vencida'), evento('e-2', 'pago.registrado')],
+      [
+        reglaDe({ id: 'r-1', tipo_evento_id: 'e-1' }),
+        reglaDe({ id: 'r-2', tipo_evento_id: 'e-1', activo: false }),
+      ],
+    )
+    const porRegla = new Map([['r-1', datos('r-1', { fallas_7_dias: 1 })]])
+
+    expect(resumirModuloMapa(mapa[0], porRegla)).toEqual({
+      eventos: 2,
+      automatizados: 1,
+      reglas: 2,
+      reglasActivas: 1,
+      reglasConFallas: 1,
+    })
+  })
+
+  it('el estado de una regla pausada manda sobre sus fallas', () => {
+    const resumen = datos('r-1', { fallas_7_dias: 3, sin_disparos: true })
+
+    expect(estadoReglaMapa(reglaDe({ activo: false }), resumen)).toBe('pausada')
+    expect(estadoReglaMapa(reglaDe(), resumen)).toBe('con_fallas')
+    expect(estadoReglaMapa(reglaDe(), datos('r-1', { sin_disparos: true }))).toBe('sin_disparos')
+    expect(estadoReglaMapa(reglaDe())).toBe('activa')
   })
 })

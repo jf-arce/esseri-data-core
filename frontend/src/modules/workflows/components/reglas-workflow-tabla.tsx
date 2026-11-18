@@ -1,7 +1,6 @@
 import { Link } from 'react-router'
-import { CopyIcon, EyeIcon, MoreHorizontalIcon, PencilIcon, PowerIcon } from 'lucide-react'
+import { CopyIcon, EyeIcon, MoreHorizontalIcon, PencilIcon } from 'lucide-react'
 import { TableSkeleton, type ColumnaEsqueleto } from '@/components/table-skeleton'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -17,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { BotonEstadoRegla } from '@/modules/workflows/components/boton-estado-regla'
 import { rutaRegla } from '@/modules/workflows/constants'
 import type { ReglaWorkflow, TipoEvento } from '@/modules/workflows/types'
 import { ETIQUETA_ACCION, etiquetaEvento } from '@/modules/workflows/utils'
@@ -43,7 +43,7 @@ interface ReglasWorkflowTablaProps {
   reglas: ReglaWorkflow[]
   tiposEvento: TipoEvento[]
   cargando: boolean
-  /** Con permiso de actualización: "Editar" y "Activar/Desactivar". Sin él, solo "Ver". */
+  /** Con permiso de actualización: "Editar" y el botón de estado. Sin él, solo "Ver". */
   puedeActualizar: boolean
   onCambiarActivo: (regla: ReglaWorkflow) => void
   /** Con permiso de creación y `onDuplicar`, el menú ofrece "Duplicar". */
@@ -68,7 +68,7 @@ export function ReglasWorkflowTabla({
         <TableHeader>
           <TableRow>
             <TableHead>Regla</TableHead>
-            <TableHead className="hidden xl:table-cell">Disparador</TableHead>
+            <TableHead className="hidden xl:table-cell">Evento</TableHead>
             <TableHead className="hidden lg:table-cell">Acciones</TableHead>
             <TableHead className="hidden 2xl:table-cell">Aprob. humana</TableHead>
             <TableHead>Estado</TableHead>
@@ -82,7 +82,8 @@ export function ReglasWorkflowTabla({
             <TableSkeleton columnas={COLUMNAS_ESQUELETO} />
           ) : (
             reglas.map((regla) => (
-              <TableRow key={regla.id}>
+              // Filas más altas que el estándar de 40px: el botón de estado y el menú miden 36px.
+              <TableRow key={regla.id} className="[&>td]:h-14">
                 <TableCell
                   className="whitespace-normal font-medium md:max-w-[12rem] md:truncate md:whitespace-nowrap xl:max-w-xs"
                   title={regla.nombre}
@@ -97,9 +98,11 @@ export function ReglasWorkflowTabla({
                   {regla.nodos.some((nodo) => nodo.requiere_aprobacion_humana) ? 'Sí' : 'No'}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={regla.activo ? 'exito' : 'neutro'}>
-                    {regla.activo ? 'Activa' : 'Inactiva'}
-                  </Badge>
+                  <BotonEstadoRegla
+                    regla={regla}
+                    puedeActualizar={puedeActualizar}
+                    onCambiarActivo={onCambiarActivo}
+                  />
                 </TableCell>
                 <TableCell data-align="end" className="px-2 sm:px-4">
                   <DropdownMenu>
@@ -127,12 +130,6 @@ export function ReglasWorkflowTabla({
                         <DropdownMenuItem onSelect={() => onDuplicar(regla)}>
                           <CopyIcon />
                           Duplicar
-                        </DropdownMenuItem>
-                      )}
-                      {puedeActualizar && (
-                        <DropdownMenuItem onSelect={() => onCambiarActivo(regla)}>
-                          <PowerIcon />
-                          {regla.activo ? 'Desactivar' : 'Activar'}
                         </DropdownMenuItem>
                       )}
                     </DropdownMenuContent>

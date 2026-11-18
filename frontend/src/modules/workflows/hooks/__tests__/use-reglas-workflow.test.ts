@@ -58,4 +58,32 @@ describe('useReglasWorkflow', () => {
     await waitFor(() => expect(result.current.reglas).toEqual([regla]))
     expect(mockedListar).toHaveBeenCalledTimes(2)
   })
+
+  it('al recargar conserva las reglas y no vuelve a "cargando"', async () => {
+    let resolver: (reglas: (typeof regla)[]) => void = () => {}
+    mockedListar.mockResolvedValueOnce([regla]).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolver = resolve
+      }),
+    )
+
+    const { result } = renderHook(() => useReglasWorkflow())
+    await waitFor(() => expect(result.current.cargando).toBe(false))
+
+    act(() => result.current.recargar())
+
+    expect(result.current.cargando).toBe(false)
+    expect(result.current.reglas).toEqual([regla])
+    await act(async () => resolver([regla]))
+  })
+
+  it('reemplazar actualiza una regla en memoria', async () => {
+    mockedListar.mockResolvedValue([regla])
+    const { result } = renderHook(() => useReglasWorkflow())
+    await waitFor(() => expect(result.current.cargando).toBe(false))
+
+    act(() => result.current.reemplazar({ ...regla, activo: false }))
+
+    expect(result.current.reglas[0].activo).toBe(false)
+  })
 })
