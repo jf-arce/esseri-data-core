@@ -15,11 +15,18 @@ from sqlalchemy import and_, case, exists, false, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from src.comunicaciones.models import Comunicacion, ReciboComunicacion
+from src.facturacion.models import Factura, Pago, ResponsableEconomico
 from src.familias_alumnos.models import FamiliaAlumno
 from src.fechas import ahora_utc
 from src.notificaciones.constants import (
     AMBITO_ACADEMICO,
+    AMBITO_COMUNICACIONES,
+    AMBITO_FACTURACION,
+    AMBITO_POR_TIPO,
     AMBITOS_VALIDOS,
+    DESTINO_FACTURA,
+    DESTINO_PAGO,
     DESTINOS_VALIDOS,
     NOMBRE_UNICO_CLAVE,
     TIPO_INASISTENCIA_REGISTRADA,
@@ -49,7 +56,7 @@ def publicar(
     *,
     usuario_id: uuid.UUID,
     familia_id: uuid.UUID,
-    alumno_id: uuid.UUID,
+    alumno_id: uuid.UUID | None = None,
     ambito: str,
     clave_hecho: str,
     tipo: str,
@@ -67,12 +74,21 @@ def publicar(
     """
     if ambito not in AMBITOS_VALIDOS or destino_tipo not in DESTINOS_VALIDOS:
         raise NotificacionInvalida()
-    if not titulo.strip() or not mensaje.strip() or not clave_hecho.strip():
+    if (
+        AMBITO_POR_TIPO.get(tipo) != ambito
+        or not titulo.strip()
+        or not mensaje.strip()
+        or not clave_hecho.strip()
+    ):
         raise NotificacionInvalida()
     contexto_validado = validar_contexto(tipo=tipo, destino_tipo=destino_tipo, contexto=contexto)
-    if contexto_validado.get("familia_id") != str(familia_id) or contexto_validado.get(
-        "alumno_id"
-    ) != str(alumno_id):
+    if contexto_validado.get("familia_id") != str(familia_id):
+        raise NotificacionInvalida()
+    alumno_contexto = contexto_validado.get("alumno_id")
+    if alumno_id is None:
+        if alumno_contexto is not None:
+            raise NotificacionInvalida()
+    elif alumno_contexto != str(alumno_id):
         raise NotificacionInvalida()
 
     try:
@@ -123,9 +139,9 @@ def _es_conflicto_de_clave(exc: IntegrityError) -> bool:
 def _predicado_autorizado(usuario_id: uuid.UUID, familia_id: uuid.UUID, dialecto: str) -> list:
     """Condiciones SQL de la bandeja propia, revalidadas en cada operación y conteo.
 
-    Incluye el allowlist de lectura de esta entrega: un tipo, ámbito o contexto que no esté en
-    el registro validado se excluye igual que una notificación ajena. La regla se evalúa en SQL,
-    sin traer historial a memoria.
+    Incluye el allowlist de lectura: un tipo, ámbito o contexto que no esté en el registro
+    validado se excluye igual que una notificación ajena. Cada dominio conserva su propia
+    autorización vigente y se evalúa en SQL, sin traer historial a memoria.
     """
     enlace = exists().where(
         FamiliaAlumno.familia_id == NotificacionInterna.familia_id,
@@ -136,30 +152,67 @@ def _predicado_autorizado(usuario_id: uuid.UUID, familia_id: uuid.UUID, dialecto
         FamiliaAlumno.alumno_id == NotificacionInterna.alumno_id,
         FamiliaAlumno.recibe_comunicaciones.is_(True),
     )
-    return [
-        NotificacionInterna.usuario_id == usuario_id,
-        NotificacionInterna.familia_id == familia_id,
+    academico = and_(
+        NotificacionInterna.ambito == AMBITO_ACADEMICO,
         enlace,
         # Las resoluciones no dependen del flag; las ausencias sí, siempre el vigente.
         or_(NotificacionInterna.tipo != TIPO_INASISTENCIA_REGISTRADA, enlace_habilitado),
+    )
+    comunicaciones = and_(
+        NotificacionInterna.ambito == AMBITO_COMUNICACIONES,
+        exists().where(
+            ReciboComunicacion.comunicacion_id == NotificacionInterna.destino_id,
+            ReciboComunicacion.familia_id == NotificacionInterna.familia_id,
+        ),
+        exists().where(
+            Comunicacion.id == NotificacionInterna.destino_id,
+            Comunicacion.estado == "publicada",
+        ),
+    )
+    facturacion = and_(
+        NotificacionInterna.ambito == AMBITO_FACTURACION,
+        or_(
+            and_(
+                NotificacionInterna.destino_tipo == DESTINO_FACTURA,
+                exists().where(
+                    Factura.id == NotificacionInterna.destino_id,
+                    Factura.responsable_economico_id == ResponsableEconomico.id,
+                    ResponsableEconomico.familia_id == NotificacionInterna.familia_id,
+                ),
+            ),
+            and_(
+                NotificacionInterna.destino_tipo == DESTINO_PAGO,
+                exists().where(
+                    Pago.id == NotificacionInterna.destino_id,
+                    Pago.factura_id == Factura.id,
+                    Factura.responsable_economico_id == ResponsableEconomico.id,
+                    ResponsableEconomico.familia_id == NotificacionInterna.familia_id,
+                ),
+            ),
+        ),
+    )
+    return [
+        NotificacionInterna.usuario_id == usuario_id,
+        NotificacionInterna.familia_id == familia_id,
+        or_(academico, comunicaciones, facturacion),
         _predicado_tipo_conocido(dialecto),
     ]
 
 
 def _predicado_tipo_conocido(dialecto: str):
     """Solo las combinaciones (ámbito, tipo, destino) y contextos que esta entrega conoce."""
-    grupos: dict[tuple[type, str], set[str]] = {}
+    grupos: dict[tuple[str, type, str], set[str]] = {}
     for (tipo, destino), esquema in ESQUEMAS_CONTEXTO.items():
-        grupos.setdefault((esquema, destino), set()).add(tipo)
+        grupos.setdefault((AMBITO_POR_TIPO[tipo], esquema, destino), set()).add(tipo)
     return or_(
         *[
             and_(
-                NotificacionInterna.ambito == AMBITO_ACADEMICO,
+                NotificacionInterna.ambito == ambito,
                 NotificacionInterna.tipo.in_(sorted(tipos)),
                 NotificacionInterna.destino_tipo == destino,
                 _contexto_integro(esquema, dialecto),
             )
-            for (esquema, destino), tipos in grupos.items()
+            for (ambito, esquema, destino), tipos in grupos.items()
         ]
     )
 

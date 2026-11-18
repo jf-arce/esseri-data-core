@@ -9,21 +9,35 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from src.fechas import InstanteUtc
 from src.notificaciones.constants import (
     DESTINO_ASISTENCIA,
+    DESTINO_COMUNICACION,
+    DESTINO_FACTURA,
     DESTINO_JUSTIFICACION_INDIVIDUAL,
+    DESTINO_PAGO,
     DESTINO_SOLICITUD_PERIODO,
+    TIPO_COMUNICACION_PUBLICADA,
+    TIPO_FACTURA_EMITIDA,
     TIPO_INASISTENCIA_REGISTRADA,
     TIPO_JUSTIFICACION_APROBADA,
     TIPO_JUSTIFICACION_RECHAZADA,
+    TIPO_PAGO_REGISTRADO,
+    TIPO_PROXIMO_VENCIMIENTO,
 )
 from src.notificaciones.exceptions import NotificacionInvalida
 
 
 class DestinoNotificacion(BaseModel):
-    """Puntero tipado al recurso académico exacto, con el alumno congelado."""
+    """Puntero tipado al recurso exacto; el alumno puede faltar en avisos familiares."""
 
-    tipo: Literal["asistencia", "justificacion_individual", "solicitud_ausencia_periodo"]
+    tipo: Literal[
+        "asistencia",
+        "justificacion_individual",
+        "solicitud_ausencia_periodo",
+        "comunicacion",
+        "factura",
+        "pago",
+    ]
     id: uuid.UUID
-    alumno_id: uuid.UUID
+    alumno_id: uuid.UUID | None
 
 
 class NotificacionItem(BaseModel):
@@ -85,7 +99,43 @@ class ContextoResolucionPeriodo(_ContextoBase):
     fecha_fin: date
 
 
-ESQUEMAS_CONTEXTO: dict[tuple[str, str], type[_ContextoBase]] = {
+class ContextoComunicacion(BaseModel):
+    """Comunicación institucional entregada a una familia; el recibo conserva los alumnos."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    familia_id: uuid.UUID
+    comunicacion_id: uuid.UUID
+    asunto: str
+
+
+class ContextoFactura(_ContextoBase):
+    """Factura emitida a la familia responsable económica."""
+
+    factura_id: uuid.UUID
+    fecha_emision: date
+    fecha_vencimiento: date
+    monto_total: str
+
+
+class ContextoPago(_ContextoBase):
+    """Pago aprobado por Administración, sin afirmar acreditación bancaria."""
+
+    pago_id: uuid.UUID
+    factura_id: uuid.UUID
+    monto: str
+    fecha: date
+
+
+class ContextoProximoVencimiento(_ContextoBase):
+    """Recordatorio único de una factura próxima a vencer."""
+
+    factura_id: uuid.UUID
+    fecha_vencimiento: date
+    monto_pendiente: str
+
+
+ESQUEMAS_CONTEXTO: dict[tuple[str, str], type[BaseModel]] = {
     (TIPO_INASISTENCIA_REGISTRADA, DESTINO_ASISTENCIA): ContextoAusencia,
     (TIPO_JUSTIFICACION_APROBADA, DESTINO_JUSTIFICACION_INDIVIDUAL): (
         ContextoJustificacionIndividual
@@ -95,6 +145,10 @@ ESQUEMAS_CONTEXTO: dict[tuple[str, str], type[_ContextoBase]] = {
     ),
     (TIPO_JUSTIFICACION_APROBADA, DESTINO_SOLICITUD_PERIODO): ContextoResolucionPeriodo,
     (TIPO_JUSTIFICACION_RECHAZADA, DESTINO_SOLICITUD_PERIODO): ContextoResolucionPeriodo,
+    (TIPO_COMUNICACION_PUBLICADA, DESTINO_COMUNICACION): ContextoComunicacion,
+    (TIPO_FACTURA_EMITIDA, DESTINO_FACTURA): ContextoFactura,
+    (TIPO_PAGO_REGISTRADO, DESTINO_PAGO): ContextoPago,
+    (TIPO_PROXIMO_VENCIMIENTO, DESTINO_FACTURA): ContextoProximoVencimiento,
 }
 
 
