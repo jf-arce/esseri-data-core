@@ -159,16 +159,16 @@ beforeEach(() => {
 })
 
 describe('ReglasWorkflowPage', () => {
-  it('muestra las reglas en tarjetas por defecto, con su frase y sus ejecuciones', () => {
+  it('muestra las reglas en tarjetas por defecto, con sus acciones y sus ejecuciones', () => {
     renderizar()
 
     expect(screen.getByRole('link', { name: 'Aviso de mora' })).toHaveAttribute(
       'href',
       '/workflows/reglas/r-1',
     )
-    expect(
-      screen.getByText(/Cuando vence una factura: siempre alerta interna\./),
-    ).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: 'Qué hace la regla' })).toHaveTextContent(
+      'Alerta interna',
+    )
     expect(screen.getByText(/en 30 días/)).toBeInTheDocument()
   })
 
@@ -251,7 +251,7 @@ describe('ReglasWorkflowPage', () => {
     expect(screen.getByText('Regla 9')).toBeInTheDocument()
   })
 
-  it('el switch actualiza la regla en memoria sin recargar la lista', async () => {
+  it('el botón de estado actualiza la regla en memoria sin recargar la lista', async () => {
     const user = userEvent.setup()
     const reemplazar = vi.fn()
     const recargar = vi.fn()
@@ -266,11 +266,38 @@ describe('ReglasWorkflowPage', () => {
     vi.mocked(actualizarReglaWorkflow).mockResolvedValue(reglaDe({ activo: false }))
     renderizar()
 
-    await user.click(screen.getByRole('switch', { name: 'Desactivar Aviso de mora' }))
+    await user.click(screen.getByRole('button', { name: 'Pausar Aviso de mora' }))
 
     await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
     expect(reemplazar).toHaveBeenCalledWith(expect.objectContaining({ activo: false }))
     expect(recargar).not.toHaveBeenCalled()
+  })
+
+  it('renombra la regla desde el menú de la tarjeta', async () => {
+    const user = userEvent.setup()
+    const reemplazar = vi.fn()
+    vi.mocked(useReglasWorkflow).mockReturnValue({
+      reglas: [reglaDe()],
+      cargando: false,
+      error: null,
+      sinPermiso: false,
+      recargar: vi.fn(),
+      reemplazar,
+    })
+    vi.mocked(actualizarReglaWorkflow).mockResolvedValue(reglaDe({ nombre: 'Mora temprana' }))
+    renderizar()
+
+    await user.click(screen.getByRole('button', { name: 'Acciones para Aviso de mora' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Renombrar' }))
+    const campo = await screen.findByLabelText('Nombre')
+    await user.clear(campo)
+    await user.type(campo, 'Mora temprana')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    await waitFor(() =>
+      expect(actualizarReglaWorkflow).toHaveBeenCalledWith('r-1', { nombre: 'Mora temprana' }),
+    )
+    expect(reemplazar).toHaveBeenCalledWith(expect.objectContaining({ nombre: 'Mora temprana' }))
   })
 
   it('aprueba una ejecución pendiente sin salir de la página', async () => {
@@ -292,7 +319,7 @@ describe('ReglasWorkflowPage', () => {
     renderizar()
 
     expect(screen.queryByRole('button', { name: 'Aprobar' })).not.toBeInTheDocument()
-    expect(screen.getByRole('switch', { name: 'Desactivar Aviso de mora' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Pausar Aviso de mora' })).toBeDisabled()
     expect(screen.queryByRole('link', { name: 'Nueva regla' })).not.toBeInTheDocument()
   })
 
