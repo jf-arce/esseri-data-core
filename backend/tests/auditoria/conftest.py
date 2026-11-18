@@ -33,3 +33,25 @@ def client_autenticado(client, db_session):
     )
     assert respuesta.status_code == 200
     return client
+
+
+@pytest.fixture()
+def client_sin_permiso(client, db_session):
+    """Sesión con un rol activo que no tiene `auditoria.leer` (para el 403)."""
+    usuario = Usuario(
+        email="sin-auditoria@esseri.edu.ar",
+        password_hash=sesion_service.hashear_password(PASSWORD_VALIDA),
+        auth_provider="local",
+        estado="activo",
+    )
+    rol = Rol(nombre="sin auditoria")
+    db_session.add_all([usuario, rol])
+    db_session.flush()
+    db_session.add(UsuarioRol(usuario_id=usuario.id, rol_id=rol.id))
+    db_session.commit()
+
+    respuesta = client.post(
+        "/auth/login", json={"email": usuario.email, "password": PASSWORD_VALIDA}
+    )
+    assert respuesta.status_code == 200
+    return client

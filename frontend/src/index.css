@@ -1075,3 +1075,60 @@
   --xy-minimap-mask-background-color: color-mix(in srgb, var(--texto) 12%, transparent);
   --xy-minimap-mask-stroke-color: var(--borde);
 }
+
+/* Conectores del mapa de automatizaciones: línea con puntos que viajan si la regla está activa. */
+.mapa-conector {
+  height: 2px;
+  background: var(--borde);
+}
+
+.mapa-conector-pausado {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--borde-fuerte, var(--texto-3)) 0 4px,
+    transparent 4px 8px
+  );
+  opacity: 0.7;
+}
+
+.mapa-conector-activo {
+  background: repeating-linear-gradient(90deg, var(--mod-workflows) 0 4px, transparent 4px 8px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes mapa-conector-viaje {
+    to {
+      background-position: 8px 0;
+    }
+  }
+
+  .mapa-conector-activo {
+    animation: mapa-conector-viaje 600ms linear infinite;
+  }
+}
+
+/* Pulso del mini-flujo de las tarjetas: solo en reglas activas. Va a velocidad constante: cambiarla
+   con el hover haría saltar la animación. */
+@media (prefers-reduced-motion: no-preference) {
+  /* El desplazamiento final es el largo del patrón (4 + 6): el ciclo cierra sin salto. */
+  @keyframes mini-flujo-viaje {
+    from {
+      stroke-dashoffset: 0;
+    }
+    to {
+      stroke-dashoffset: -10;
+    }
+  }
+
+  .mini-flujo-viaje {
+    stroke-dasharray: 4 6;
+    stroke-dashoffset: 0;
+    animation: mini-flujo-viaje 2.4s linear infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mini-flujo-viaje {
+    display: none;
+  }
+}
