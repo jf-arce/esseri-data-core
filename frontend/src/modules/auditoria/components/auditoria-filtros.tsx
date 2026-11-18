@@ -53,7 +53,7 @@ export function AuditoriaFiltros({
         <FilterSearch
           value={busqueda}
           onChange={(valor) => onCambios({ busqueda: valor })}
-          placeholder="Buscar por entidad, campo, valor, motivo o usuario"
+          placeholder="Buscar entidad, campo, valor o usuario"
         />
         <FilterDropdown
           label="Entidad"
@@ -85,18 +85,6 @@ export function AuditoriaFiltros({
           active={actorTipo !== FILTRO_TODOS}
           onChange={(valor) => onCambios({ actorTipo: valor })}
         />
-        <FilterBarSpacer />
-        <FilterDropdown
-          label={etiquetaOrdenActual?.label ?? 'Ordenar por'}
-          icon={ArrowDownAZIcon}
-          align="end"
-          options={OPCIONES_ORDEN}
-          value={orden}
-          onChange={(valor) => onCambios({ orden: valor as OrdenAuditoria })}
-        />
-      </FilterBar>
-
-      <div className="flex flex-wrap items-center gap-3">
         <FilterDropdown
           label="Usuario"
           options={[
@@ -123,6 +111,20 @@ export function AuditoriaFiltros({
           active={origen !== FILTRO_TODOS}
           onChange={(valor) => onCambios({ origen: valor })}
         />
+        <FilterBarSpacer />
+        <FilterDropdown
+          label={etiquetaOrdenActual?.label ?? 'Ordenar por'}
+          icon={ArrowDownAZIcon}
+          align="end"
+          options={OPCIONES_ORDEN}
+          value={orden}
+          onChange={(valor) => onCambios({ orden: valor as OrdenAuditoria })}
+        />
+      </FilterBar>
+
+      {/* Las fechas llevan label, los desplegables de arriba no: `items-end` alinea el borde
+          inferior de los dos inputs con el de la barra en vez de centrarlos y dejarlos corridos. */}
+      <div className="flex flex-wrap items-end gap-3">
         <Field className="w-44">
           <FieldLabel htmlFor="auditoria-desde">Fecha desde</FieldLabel>
           <DatePicker
