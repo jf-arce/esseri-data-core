@@ -1,3 +1,4 @@
+import { fetchConSesion } from '@/api/client'
 import { descargarExport } from '@/lib/descargar-export'
 
 function rutaFactura(id: string) {
@@ -18,9 +19,7 @@ export async function compartirFacturaFamilia(id: string) {
       'Este dispositivo no permite compartir archivos. Descargá la factura para enviarla.',
     )
   }
-  const respuesta = await fetch(`${import.meta.env.VITE_API_URL}${rutaFactura(id)}`, {
-    credentials: 'include',
-  })
+  const respuesta = await fetchConSesion(`${import.meta.env.VITE_API_URL}${rutaFactura(id)}`)
   if (!respuesta.ok) throw new Error('No se pudo obtener la factura. Intentá de nuevo.')
   const archivo = new File([await respuesta.blob()], nombreFactura(id), { type: 'application/pdf' })
   if (!navigator.canShare({ files: [archivo] })) {
