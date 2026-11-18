@@ -31,6 +31,7 @@ from src.proveedores_compras.models import (
     SolicitudCompra,
 )
 from src.workflows import destinatarios_service, n8n_client, plantillas_service
+from src.workflows.accion_contexto import AccionContexto
 from src.workflows.constants import ENLACES_MAIL, MAX_DESTINATARIOS_POR_EJECUCION
 from src.workflows.email_html import armar_html, quitar_marcas
 from src.workflows.exceptions import (
@@ -116,7 +117,7 @@ class _SinContenido(Exception):
 
 
 def resolver_destinatarios(
-    db: Session, regla: WorkflowRule, evento: EventLog, destino: str
+    db: Session, regla: AccionContexto, evento: EventLog, destino: str
 ) -> tuple[list[Destinatario], int]:
     """Devuelve los destinatarios deduplicados y cuántas familias quedaron sin email."""
     if destino == "destinatarios_regla":
@@ -155,8 +156,8 @@ def _deduplicar(destinatarios: list[Destinatario]) -> list[Destinatario]:
     return list(vistos.values())
 
 
-def _destinatarios_de_regla(db: Session, regla: WorkflowRule) -> list[Destinatario]:
-    usuarios = destinatarios_service.usuarios_activos_de_regla(db, regla.id)
+def _destinatarios_de_regla(db: Session, regla: AccionContexto) -> list[Destinatario]:
+    usuarios = destinatarios_service.usuarios_activos_de_nodo(db, regla.nodo_id)
     return [Destinatario(tipo="usuario", email=u.email, usuario_id=u.id) for u in usuarios]
 
 
@@ -282,7 +283,7 @@ class ComunicacionNoPreparada(Exception):
 
 
 def preparar_comunicacion(
-    db: Session, regla: WorkflowRule, evento: EventLog, destino: str
+    db: Session, regla: AccionContexto, evento: EventLog, destino: str
 ) -> tuple[str, str, list[Destinatario]]:
     """Arma lo que enviaría `notificar` (plantilla y destinatarios) sin enviarlo.
 
@@ -321,14 +322,14 @@ def enviar_comunicacion(
 
 
 def ejecutar_notificar(
-    db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
+    db: Session, regla: AccionContexto, evento: EventLog, ejecucion: WorkflowExecution
 ) -> ResultadoAccion:
     destino = ConfigNotificar.model_validate(regla.accion_config or {}).destinatario
     return _ejecutar(db, regla, evento, ejecucion, destino, _contenido_notificar)
 
 
 def ejecutar_recordatorio(
-    db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
+    db: Session, regla: AccionContexto, evento: EventLog, ejecucion: WorkflowExecution
 ) -> ResultadoAccion:
     """El mismo envío que `notificar`, con la config de `generar_recordatorio`. Los `dias_despues`
     ya los esperó el despachador: acá solo se manda."""
@@ -337,21 +338,21 @@ def ejecutar_recordatorio(
 
 
 def ejecutar_alerta_interna(
-    db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
+    db: Session, regla: AccionContexto, evento: EventLog, ejecucion: WorkflowExecution
 ) -> ResultadoAccion:
     """Avisa por email a los usuarios y roles de la regla. Usa la plantilla si la regla la tiene
     y, si no, `accion_config.mensaje` como cuerpo."""
     return _ejecutar(db, regla, evento, ejecucion, "destinatarios_regla", _contenido_alerta)
 
 
-def _contenido_notificar(db: Session, regla: WorkflowRule, evento: EventLog) -> tuple[str, str]:
+def _contenido_notificar(db: Session, regla: AccionContexto, evento: EventLog) -> tuple[str, str]:
     plantilla = _plantilla_de(db, regla)
     if plantilla is None:
         raise _SinContenido(ERROR_SIN_PLANTILLA)
     return _renderizar(regla, evento, plantilla)
 
 
-def _contenido_alerta(db: Session, regla: WorkflowRule, evento: EventLog) -> tuple[str, str]:
+def _contenido_alerta(db: Session, regla: AccionContexto, evento: EventLog) -> tuple[str, str]:
     plantilla = _plantilla_de(db, regla)
     if plantilla is not None:
         return _renderizar(regla, evento, plantilla)
@@ -361,14 +362,14 @@ def _contenido_alerta(db: Session, regla: WorkflowRule, evento: EventLog) -> tup
     return f"Alerta interna: {regla.nombre}", mensaje
 
 
-def _plantilla_de(db: Session, regla: WorkflowRule) -> NotificacionTemplate | None:
+def _plantilla_de(db: Session, regla: AccionContexto) -> NotificacionTemplate | None:
     if regla.notificacion_template_id is None:
         return None
     return db.get(NotificacionTemplate, regla.notificacion_template_id)
 
 
 def _renderizar(
-    regla: WorkflowRule, evento: EventLog, plantilla: NotificacionTemplate
+    regla: AccionContexto, evento: EventLog, plantilla: NotificacionTemplate
 ) -> tuple[str, str]:
     try:
         return plantillas_service.renderizar_contenido(
@@ -403,11 +404,11 @@ def _cobertura_periodo(db: Session, evento: EventLog) -> uuid.UUID | None:
 
 def _ejecutar(
     db: Session,
-    regla: WorkflowRule,
+    regla: AccionContexto,
     evento: EventLog,
     ejecucion: WorkflowExecution,
     destino: str,
-    obtener_contenido: Callable[[Session, WorkflowRule, EventLog], tuple[str, str]],
+    obtener_contenido: Callable[[Session, AccionContexto, EventLog], tuple[str, str]],
 ) -> ResultadoAccion:
     cobertura = _cobertura_periodo(db, evento)
     if cobertura is not None and destino == "responsables_habilitados":
@@ -494,7 +495,7 @@ def _ejecutar(
     )
 
 
-def _enlace_de(regla: WorkflowRule) -> tuple[str, str] | None:
+def _enlace_de(regla: AccionContexto) -> tuple[str, str] | None:
     """`(url completa, texto)` del botón de la regla. La ruta sale de `ENLACES_MAIL`: lo único
     que guarda la regla es la clave."""
     clave = (regla.accion_config or {}).get("enlace")
@@ -509,13 +510,13 @@ def _detalle_sin_email(sin_email: int) -> str | None:
 
 
 def _notificaciones_del_ultimo_intento(
-    db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
+    db: Session, regla: AccionContexto, evento: EventLog, ejecucion: WorkflowExecution
 ) -> list[Notificacion]:
     ultimo_intento_id = db.scalar(
         select(WorkflowExecution.id)
         .join(Notificacion, Notificacion.workflow_execution_id == WorkflowExecution.id)
         .where(
-            WorkflowExecution.workflow_rule_id == regla.id,
+            WorkflowExecution.workflow_nodo_id == regla.nodo_id,
             WorkflowExecution.event_log_id == evento.id,
             WorkflowExecution.id != ejecucion.id,
         )

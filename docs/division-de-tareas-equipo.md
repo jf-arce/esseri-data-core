@@ -199,7 +199,7 @@ Antes del alcance nuevo, estas vistas no tenían dueño formal en ningún docume
 **RF cubiertos:** RF-22, RF-23, RF-24, RF-25, RF-26
 
 **Backend (`src/workflows/`):**
-- CRUD de `WORKFLOW_RULE` (evento disparador, condición en JSON, `tipo_accion`, `accion_config`, `criticidad`, `requiere_aprobacion_humana`).
+- CRUD de `WORKFLOW_RULE` (evento disparador, condición en JSON, `tipo_accion`, `accion_config`, `requiere_aprobacion_humana`).
 - Motor de ejecución — **15 tipos de acción** (cambio 10, ver enum completo en el diccionario), no solo notificar/alerta_interna: `cambiar_estado`, `crear_tarea`, `generar_cargo`, `aplicar_vencimiento`, `aplicar_penalidad`, `registrar_pago`, `registrar_rechazo`, `actualizar_cuenta_corriente`, `generar_recordatorio`, `escalar_caso`, `crear_registro_relacionado`, `generar_orden_compra`, `generar_comunicacion`, además de los 2 que ya existían.
 - **La allowlist es la pieza de seguridad central de este módulo**: el backend valida `accion_config` contra una lista cerrada de entidades/campos/estados permitidos antes de ejecutar — el motor no puede escribir arbitrariamente sobre cualquier tabla. Acciones sensibles (disciplinarias, legales, excepciones económicas) quedan con `requiere_aprobacion_humana = true`.
 - `EVENT_LOG` (nuevo, append-only, transversal en `src/models.py`) + helper `emit_event()` — infraestructura que el resto del equipo necesita desde el 1er Informe. No confundir con `AUDIT_LOG` (ex `EVENT_LOG`, de Botteri).
@@ -219,7 +219,7 @@ Antes del alcance nuevo, estas vistas no tenían dueño formal en ningún docume
 5. `solicitud_inscripcion.aprobada` → `crear_registro_relacionado` (dispara el Loop A completo).
 
 **Frontend (`modules/workflows/`):**
-- ABM de reglas de workflow (RF-22), **hecho** (#65): selector de evento, editor de condición, selector de acción con su configuración, criticidad y aprobación humana.
+- ABM de reglas de workflow (RF-22), **hecho** (#65): selector de evento, editor de condición, selector de acción con su configuración y aprobación humana.
 - Editor de plantilla con chips insertables de `CAMPO_EVENTO` y destinatarios (`REGLA_DESTINATARIO`) (RF-25), **hecho** (#70), dentro del editor de reglas. Limitación conocida: los destinatarios se guardan con un `PUT` aparte después del `POST`/`PATCH` de la regla, así que una regla activa puede ejecutarse en el medio sin destinatarios; queda `fallido` con "sin destinatarios" y se reintenta desde el historial.
 - Historial de ejecuciones (RF-23), con filtro por estado, detalle en panel lateral y reintento de las fallidas, **hecho** (#67).
 - Log de notificaciones enviadas (RF-26), **hecho**: pantalla "Notificaciones enviadas" bajo Workflows, con filtros por estado y tipo de destinatario, y detalle en panel lateral que pide el cuerpo aparte.

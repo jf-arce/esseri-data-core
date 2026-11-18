@@ -31,6 +31,7 @@ from src.workflows.models import (
     WorkflowRule,
 )
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
+from tests.workflows.factories import ReglaSimple
 
 SEED = Path(__file__).resolve().parents[3] / "database" / "seeds" / "04_seed_demo.py"
 
@@ -99,7 +100,8 @@ def _sembrar(seed_demo, db, escenario):
 
 
 def _regla(db, nombre):
-    return db.scalars(select(WorkflowRule).where(WorkflowRule.nombre == nombre)).one()
+    regla = db.scalars(select(WorkflowRule).where(WorkflowRule.nombre == nombre)).one()
+    return ReglaSimple.desde_base(db, regla)
 
 
 def test_el_seed_crea_las_reglas_con_su_accion_y_destinatarios(db_session, escenario, seed_demo):
@@ -129,7 +131,7 @@ def test_el_seed_crea_las_reglas_con_su_accion_y_destinatarios(db_session, escen
         r.id: db_session.get(Rol, d.rol_id).nombre
         for r in (marcar, alerta, aviso)
         for d in db_session.scalars(
-            select(ReglaDestinatario).where(ReglaDestinatario.workflow_rule_id == r.id)
+            select(ReglaDestinatario).where(ReglaDestinatario.workflow_nodo_id == r.nodo_id)
         )
     }
     assert por_regla == {alerta.id: "administración"}

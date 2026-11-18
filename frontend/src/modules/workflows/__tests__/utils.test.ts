@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { reglaDe } from '@/modules/workflows/__tests__/fabricas'
 import type { CampoEvento, ReglaWorkflow, TipoAccionCatalogo } from '@/modules/workflows/types'
 import {
   accionesDisponibles,
@@ -6,10 +7,6 @@ import {
   asignaTareas,
   armarCondicion,
   armarConfig,
-  armarPayloadRegla,
-  cambiarAccion,
-  cambiarCampoCondicion,
-  cambiarEvento,
   sinConceptosDisponibles,
   defaultsDeConfig,
   duracionEjecucion,
@@ -20,11 +17,10 @@ import {
   etiquetaEvento,
   filtrarReglas,
   insertarPlaceholder,
+  operadoresDeCampo,
   presentarCampo,
   resumenEnLinea,
   validarPlaceholders,
-  valoresDesdeRegla,
-  VALORES_REGLA_VACIOS,
 } from '@/modules/workflows/utils'
 
 function accion(
@@ -36,6 +32,7 @@ function accion(
     eventos_permitidos,
     requiere_aprobacion_por_defecto: false,
     admite_plantilla: false,
+    implementada: true,
     config_schema: {},
   }
 }
@@ -198,73 +195,7 @@ describe('armarConfig', () => {
   })
 })
 
-const regla: ReglaWorkflow = {
-  id: 'r-1',
-  nombre: 'Penalidad por mora',
-  tipo_evento_id: 'e-1',
-  condicion: { campo: 'dias_vencido', operador: '>', valor: 30 },
-  tipo_accion: 'aplicar_penalidad',
-  accion_config: { regla_penalidad_id: 'p-1' },
-  criticidad: 'alta',
-  requiere_aprobacion_humana: false,
-  notificacion_template_id: null,
-  activo: true,
-  created_at: '2026-09-01T00:00:00Z',
-  updated_at: '2026-09-01T00:00:00Z',
-}
-
-describe('valoresDesdeRegla / armarPayloadRegla', () => {
-  it('respeta la aprobación humana guardada aunque difiera del default de la acción', () => {
-    expect(valoresDesdeRegla(regla).requiereAprobacionHumana).toBe(false)
-  })
-
-  it('carga la plantilla guardada', () => {
-    expect(valoresDesdeRegla({ ...regla, notificacion_template_id: 'p-1' }).plantillaId).toBe('p-1')
-    expect(valoresDesdeRegla(regla).plantillaId).toBe('')
-  })
-
-  it('reemplaza de forma explícita todo lo editable y manda la plantilla elegida', () => {
-    const valores = {
-      ...valoresDesdeRegla({ ...regla, tipo_accion: 'notificar', accion_config: {} }),
-      plantillaId: 'p-1',
-    }
-    const payload = armarPayloadRegla(valores, 'notificar', {
-      tipoDatoCondicion: 'numero',
-      admitePlantilla: true,
-    })
-    expect(payload).toEqual({
-      nombre: 'Penalidad por mora',
-      tipo_evento_id: 'e-1',
-      condicion: { campo: 'dias_vencido', operador: '>', valor: 30 },
-      tipo_accion: 'notificar',
-      accion_config: {},
-      criticidad: 'alta',
-      requiere_aprobacion_humana: false,
-      notificacion_template_id: 'p-1',
-      activo: true,
-    })
-  })
-
-  it('manda notificacion_template_id null si no se eligió plantilla', () => {
-    const payload = armarPayloadRegla(
-      { ...VALORES_REGLA_VACIOS, nombre: ' Aviso ', tipoEventoId: 'e-1' },
-      'notificar',
-      { tipoDatoCondicion: null, admitePlantilla: true },
-    )
-    expect(payload).toMatchObject({ nombre: 'Aviso', condicion: {}, accion_config: {} })
-    expect(payload.notificacion_template_id).toBeNull()
-  })
-
-  it('manda notificacion_template_id null si la acción no admite plantilla', () => {
-    const payload = armarPayloadRegla(
-      { ...valoresDesdeRegla(regla), plantillaId: 'p-1' },
-      'aplicar_penalidad',
-      { tipoDatoCondicion: 'numero', admitePlantilla: false },
-    )
-    expect(payload.notificacion_template_id).toBeNull()
-    expect(payload.accion_config).toEqual({ regla_penalidad_id: 'p-1' })
-  })
-})
+const regla = reglaDe({ nombre: 'Penalidad por mora' })
 
 describe('admiteDestinatarios', () => {
   it('alerta_interna siempre los admite', () => {
@@ -308,8 +239,24 @@ describe('insertarPlaceholder', () => {
 
 describe('validarPlaceholders', () => {
   const campos: CampoEvento[] = [
-    { id: 'c-1', nombre_interno: 'monto', etiqueta: 'Monto', tipo_dato: 'numero' },
-    { id: 'c-2', nombre_interno: 'dias_vencido', etiqueta: 'Días', tipo_dato: 'numero' },
+    {
+      id: 'c-1',
+      nombre_interno: 'monto',
+      etiqueta: 'Monto',
+      tipo_dato: 'numero',
+      opciones: null,
+      busqueda: false,
+      permite_otro: false,
+    },
+    {
+      id: 'c-2',
+      nombre_interno: 'dias_vencido',
+      etiqueta: 'Días',
+      tipo_dato: 'numero',
+      opciones: null,
+      busqueda: false,
+      permite_otro: false,
+    },
   ]
 
   it('no avisa si los placeholders existen en el evento', () => {
@@ -362,90 +309,6 @@ describe('filtrarReglas', () => {
   })
 })
 
-describe('cambiarEvento', () => {
-  const catalogo = [accion('notificar', null), accion('aplicar_penalidad', ['factura.vencida'])]
-  const valores = {
-    ...VALORES_REGLA_VACIOS,
-    tipoEventoId: 'e-1',
-    campoCondicion: 'dias_vencido',
-    operadorCondicion: '>' as const,
-    valorCondicion: '30',
-    tipoAccion: 'aplicar_penalidad' as const,
-    config: { regla_penalidad_id: 'p-1', campo_monto: 'monto_deuda', estado_nuevo: 'vencida' },
-  }
-
-  it('limpia la condición y la config que depende del evento', () => {
-    const resultado = cambiarEvento(valores, 'e-2', catalogo, 'factura.vencida')
-    expect(resultado).toMatchObject({
-      tipoEventoId: 'e-2',
-      campoCondicion: '',
-      operadorCondicion: '',
-      valorCondicion: '',
-      tipoAccion: 'aplicar_penalidad',
-      config: { regla_penalidad_id: 'p-1' },
-    })
-  })
-
-  it('limpia la plantilla solo si también limpia la acción', () => {
-    const conPlantilla = { ...valores, plantillaId: 'p-1' }
-    expect(cambiarEvento(conPlantilla, 'e-2', catalogo, 'factura.vencida').plantillaId).toBe('p-1')
-    expect(cambiarEvento(conPlantilla, 'e-3', catalogo, 'pago.registrado').plantillaId).toBe('')
-  })
-
-  it('limpia la acción si el nuevo evento no la admite', () => {
-    const resultado = cambiarEvento(valores, 'e-3', catalogo, 'pago.registrado')
-    expect(resultado.tipoAccion).toBe('')
-    expect(resultado.config).toEqual({})
-  })
-})
-
-describe('cambiarAccion', () => {
-  it('conserva la plantilla si la acción nueva la admite y la limpia si no', () => {
-    const valores = {
-      ...VALORES_REGLA_VACIOS,
-      tipoAccion: 'notificar' as const,
-      plantillaId: 'p-1',
-    }
-    const conPlantilla = { ...accion('alerta_interna', null), admite_plantilla: true }
-    expect(cambiarAccion(valores, conPlantilla).plantillaId).toBe('p-1')
-    expect(cambiarAccion(valores, accion('crear_tarea', null)).plantillaId).toBe('')
-  })
-
-  it('reinicia la config con los defaults y aplica la aprobación por defecto', () => {
-    const resultado = cambiarAccion(
-      { ...VALORES_REGLA_VACIOS, tipoAccion: 'notificar', config: { destinatario: 'x' } },
-      {
-        ...accion('generar_recordatorio', null),
-        requiere_aprobacion_por_defecto: true,
-        config_schema: { properties: { dias_despues: { default: 1 } } },
-      },
-    )
-    expect(resultado).toMatchObject({
-      tipoAccion: 'generar_recordatorio',
-      config: { dias_despues: '1' },
-      requiereAprobacionHumana: true,
-    })
-  })
-})
-
-describe('cambiarCampoCondicion', () => {
-  it('elige el primer operador válido del tipo de dato y vacía el valor', () => {
-    const resultado = cambiarCampoCondicion(
-      { ...VALORES_REGLA_VACIOS, valorCondicion: 'viejo' },
-      { id: 'c-1', nombre_interno: 'motivo', etiqueta: 'Motivo', tipo_dato: 'texto' },
-    )
-    expect(resultado).toMatchObject({
-      campoCondicion: 'motivo',
-      operadorCondicion: '==',
-      valorCondicion: '',
-    })
-  })
-
-  it('sin campo deja la regla sin condición', () => {
-    expect(cambiarCampoCondicion(VALORES_REGLA_VACIOS, null).campoCondicion).toBe('')
-  })
-})
-
 describe('sinConceptosDisponibles', () => {
   it('bloquea solo las acciones que piden concepto de cobro', () => {
     const resultado = sinConceptosDisponibles(
@@ -461,10 +324,10 @@ describe('sinConceptosDisponibles', () => {
 })
 
 describe('etiquetaEvento', () => {
-  it('nombra el evento en lenguaje de usuario y cae al nombre interno si no lo conoce', () => {
+  it('nombra el evento en lenguaje de usuario y humaniza el nombre si no lo conoce', () => {
     expect(etiquetaEvento('factura.vencida')).toBe('Vence una factura')
     expect(etiquetaEvento('solicitud_compra.aprobada')).toBe('Se aprueba una solicitud de compra')
-    expect(etiquetaEvento('evento.nuevo')).toBe('evento.nuevo')
+    expect(etiquetaEvento('evento.nuevo')).toBe('Evento nuevo')
   })
 })
 
@@ -530,5 +393,49 @@ describe('presentarCampo', () => {
     const campos = ['a', 'b', 'c', 'd'].map((n) => campo(n, n.toUpperCase()))
 
     expect(resumenEnLinea(campos)).toBe('A · B · C')
+  })
+})
+
+describe('operadoresDeCampo', () => {
+  const base: CampoEvento = {
+    id: 'c',
+    nombre_interno: 'x',
+    etiqueta: 'X',
+    tipo_dato: 'texto',
+    opciones: null,
+    busqueda: false,
+    permite_otro: false,
+  }
+
+  it('un campo libre usa los operadores de su tipo', () => {
+    expect(operadoresDeCampo(base)).toEqual(['==', '!=', 'contiene'])
+  })
+
+  it('un campo con opciones o con búsqueda cerrada solo admite es / no es', () => {
+    expect(operadoresDeCampo({ ...base, opciones: [{ valor: 'a', etiqueta: 'A' }] })).toEqual([
+      '==',
+      '!=',
+    ])
+    expect(operadoresDeCampo({ ...base, busqueda: true })).toEqual(['==', '!='])
+  })
+
+  it('con búsqueda y "otro" conserva los operadores de texto', () => {
+    expect(operadoresDeCampo({ ...base, busqueda: true, permite_otro: true })).toEqual([
+      '==',
+      '!=',
+      'contiene',
+    ])
+  })
+})
+
+describe('etiquetaEvento', () => {
+  it('conoce la revocación de ausencia por período', () => {
+    expect(etiquetaEvento('solicitud_ausencia_periodo.revocada')).toBe(
+      'Se revoca una ausencia por período',
+    )
+  })
+
+  it('un evento sin etiqueta no muestra puntos ni guiones bajos', () => {
+    expect(etiquetaEvento('mesa_examen.cerrada')).toBe('Mesa examen cerrada')
   })
 })

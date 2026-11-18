@@ -21,8 +21,8 @@ from sqlalchemy import select
 from src.database import SessionLocal
 from src.workflows.models import CampoEvento, NotificacionTemplate, TipoEvento, WorkflowRule
 from src.workflows.plantillas_service import crear_plantilla, extraer_placeholders
+from src.workflows.reglas_service import crear_regla, nodos_de_regla_simple
 from src.workflows.schemas import NotificacionTemplateCreate, WorkflowRuleCreate
-from src.workflows.service import crear_regla
 
 EVENTO = "solicitud_ausencia_periodo.revocada"
 
@@ -42,7 +42,6 @@ REGLA = {
     "condicion": {},
     "tipo_accion": "notificar",
     "accion_config": {"destinatario": "responsables_habilitados"},
-    "criticidad": "baja",
 }
 
 
@@ -89,11 +88,12 @@ def seed(db) -> None:
             WorkflowRuleCreate(
                 nombre=REGLA["nombre"],
                 tipo_evento_id=tipo_evento.id,
-                condicion=REGLA["condicion"],
-                tipo_accion=REGLA["tipo_accion"],
-                accion_config=REGLA["accion_config"],
-                criticidad=REGLA["criticidad"],
-                notificacion_template_id=plantilla.id,
+                nodos=nodos_de_regla_simple(
+                    condicion=REGLA["condicion"],
+                    tipo_accion=REGLA["tipo_accion"],
+                    accion_config=REGLA["accion_config"],
+                    notificacion_template_id=plantilla.id,
+                ),
             ),
         )
         print(f"  creado: WorkflowRule({REGLA['nombre']!r})")

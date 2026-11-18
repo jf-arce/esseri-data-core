@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion, MotionConfig, type Variants } from 'motion/react'
-import { ArrowRightIcon, RotateCcwIcon, SparklesIcon, TriangleAlertIcon } from 'lucide-react'
+import {
+  ArrowRightIcon,
+  PencilIcon,
+  RotateCcwIcon,
+  SparklesIcon,
+  TriangleAlertIcon,
+} from 'lucide-react'
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import { Button } from '@/components/ui/button'
 import { Message, MessageContent } from '@/components/ui/message'
@@ -14,10 +20,21 @@ import {
   useMessageScroller,
 } from '@/components/ui/message-scroller'
 import { useTextoGradual } from '../hooks/use-texto-gradual'
-import type { AliasResuelto, Bloque, BloqueNavegar, MensajeVisible } from '../types'
+import { prepararEdicion, resolverEnvio, separarComando } from '../utils/entrada'
+import type {
+  AliasResuelto,
+  Bloque,
+  BloqueGrafico,
+  BloqueNavegar,
+  ComandoBackend,
+  MensajeVisible,
+  Mencion,
+} from '../types'
+import { BloqueDatos } from './bloque-datos'
 import { BloqueKpiVista } from './bloque-kpi'
 import { AccionesDelMensaje } from './acciones-del-mensaje'
-import { BloqueTablaVista } from './bloque-tabla'
+import { AtajoResaltado } from './atajo-resaltado'
+import { EdicionDePregunta } from './edicion-de-pregunta'
 import { CursorEscritura, PuntosPensando } from './indicadores-de-carga'
 import { PasosDelMensaje } from './pasos-del-mensaje'
 import { TarjetaRecurso } from './tarjeta-recurso'
@@ -39,25 +56,33 @@ export type AccionIr = { etiqueta: string; ir: () => void }
 
 interface ListaMensajesProps {
   mensajes: MensajeVisible[]
+  /** Conversación abierta; habilita la descarga de tablas. */
+  conversacionId?: string | null
   porAlias: Record<string, AliasResuelto>
   alElegir: (resuelto: AliasResuelto) => void
   /** Botón para un bloque de navegación, o `null` si el rol no puede ir ahí. */
   alIr: (bloque: BloqueNavegar) => AccionIr | null
   /** Vuelve a mandar la última pregunta; `null` mientras se está generando. */
   alReintentar: (() => void) | null
+  /** Reenvía una pregunta propia con otro texto; `null` mientras se genera una respuesta. */
+  alEditar?:
+    ((id: string, contenido: string, menciones: Mencion[], comando?: ComandoBackend) => void) | null
   sugerencias: string[]
   alSugerir: (texto: string) => void
 }
 
 export function ListaMensajes({
   mensajes,
+  conversacionId = null,
   porAlias,
   alElegir,
   alIr,
   alReintentar,
+  alEditar = null,
   sugerencias,
   alSugerir,
 }: ListaMensajesProps) {
+  const [editando, setEditando] = useState<string | null>(null)
   if (mensajes.length === 0) {
     return (
       <MotionConfig reducedMotion="user">
@@ -118,19 +143,45 @@ export function ListaMensajes({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.25, ease: 'easeOut' }}
                   >
-                    {mensaje.autor === 'usuario' ? (
-                      <Message align="end">
+                    {mensaje.autor === 'usuario' && editando === mensaje.id ? (
+                      <EdicionEnLinea
+                        contenido={mensaje.contenido}
+                        porAlias={porAlias}
+                        alCancelar={() => setEditando(null)}
+                        alEnviar={(contenido, menciones, comando) => {
+                          setEditando(null)
+                          alEditar?.(mensaje.id, contenido, menciones, comando)
+                        }}
+                      />
+                    ) : mensaje.autor === 'usuario' ? (
+                      <Message align="end" className="group/pregunta">
                         <MessageContent>
                           <Bubble variant="muted" align="end">
                             <BubbleContent>
-                              <TextoConAlias texto={mensaje.contenido} porAlias={porAlias} />
+                              <PreguntaDelUsuario
+                                contenido={mensaje.contenido}
+                                porAlias={porAlias}
+                              />
                             </BubbleContent>
                           </Bubble>
+                          {alEditar !== null && !mensaje.id.startsWith('local-') && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              className="self-end opacity-0 transition-opacity group-focus-within/pregunta:opacity-100 group-hover/pregunta:opacity-100"
+                              onClick={() => setEditando(mensaje.id)}
+                            >
+                              <PencilIcon />
+                              <span className="sr-only">Editar pregunta</span>
+                            </Button>
+                          )}
                         </MessageContent>
                       </Message>
                     ) : (
                       <MensajeDelAsistente
                         mensaje={mensaje}
+                        conversacionId={conversacionId}
                         porAlias={porAlias}
                         alElegir={alElegir}
                         alIr={alIr}
@@ -152,6 +203,53 @@ export function ListaMensajes({
   )
 }
 
+function EdicionEnLinea({
+  contenido,
+  porAlias,
+  alCancelar,
+  alEnviar,
+}: {
+  contenido: string
+  porAlias: Record<string, AliasResuelto>
+  alCancelar: () => void
+  alEnviar: (contenido: string, menciones: Mencion[], comando?: ComandoBackend) => void
+}) {
+  const { comando, texto, menciones } = prepararEdicion(contenido, porAlias)
+  return (
+    <EdicionDePregunta
+      textoInicial={texto}
+      comando={comando}
+      alCancelar={alCancelar}
+      alEnviar={(editado) => {
+        const resuelto = resolverEnvio(editado, comando)
+        alEnviar(
+          resuelto.contenido,
+          menciones.filter((m) => resuelto.contenido.includes(m.texto)),
+          resuelto.comando ?? undefined,
+        )
+      }}
+    />
+  )
+}
+
+/** La pregunta del usuario; si se envió con un atajo, este va resaltado antes del texto. */
+function PreguntaDelUsuario({
+  contenido,
+  porAlias,
+}: {
+  contenido: string
+  porAlias: Record<string, AliasResuelto>
+}) {
+  const { comando, texto } = separarComando(contenido)
+  if (comando === null) return <TextoConAlias texto={contenido} porAlias={porAlias} />
+  return (
+    <div className="flex items-start gap-1.5">
+      <AtajoResaltado comando={comando} className="shrink-0 leading-relaxed" />
+      {texto !== '' && <TextoConAlias texto={texto} porAlias={porAlias} />}
+    </div>
+  )
+}
+
 /** Al mandar un mensaje (o abrir una conversación) baja hasta lo último. */
 function DesplazarAlEnviar({ enviados }: { enviados: number }) {
   const { scrollToEnd } = useMessageScroller()
@@ -163,6 +261,7 @@ function DesplazarAlEnviar({ enviados }: { enviados: number }) {
 
 function MensajeDelAsistente({
   mensaje,
+  conversacionId,
   porAlias,
   alElegir,
   alIr,
@@ -206,6 +305,7 @@ function MensajeDelAsistente({
         {!escribiendo && (
           <BloquesDelMensaje
             bloques={mensaje.bloques}
+            conversacionId={conversacionId ?? null}
             porAlias={porAlias}
             alElegir={alElegir}
             alIr={alIr}
@@ -219,8 +319,17 @@ function MensajeDelAsistente({
             alReintentar={alReintentar}
           />
         )}
-        {mensaje.estado === 'parcial' && (
+        {mensaje.estado === 'parcial' && mensaje.detenido === true && (
+          <p className="text-xs text-texto-3">Respuesta detenida</p>
+        )}
+        {mensaje.estado === 'parcial' && mensaje.detenido !== true && (
           <p className="text-xs text-texto-3">La respuesta quedó incompleta. Probá de nuevo.</p>
+        )}
+        {mensaje.detenido === true && mensaje.contenido === '' && alReintentar !== null && (
+          <Button type="button" size="sm" variant="secondary" onClick={alReintentar}>
+            <RotateCcwIcon data-icon="inline-start" />
+            Reintentar
+          </Button>
         )}
         {mensaje.estado === 'error' && mensaje.contenido === '' && (
           <div
@@ -246,11 +355,13 @@ function MensajeDelAsistente({
 
 function BloquesDelMensaje({
   bloques,
+  conversacionId,
   porAlias,
   alElegir,
   alIr,
 }: {
   bloques: Bloque[]
+  conversacionId: string | null
   porAlias: Record<string, AliasResuelto>
   alElegir: (resuelto: AliasResuelto) => void
   alIr: (bloque: BloqueNavegar) => AccionIr | null
@@ -276,12 +387,23 @@ function BloquesDelMensaje({
       )}
       {bloques.map((bloque, indice) => {
         if (bloque.tipo === 'tabla') {
+          // El gráfico de esta tabla va con ella, en pestañas.
+          const grafico = bloques.find(
+            (b): b is BloqueGrafico => b.tipo === 'grafico' && b.tabla_id === bloque.tabla_id,
+          )
           return (
             <motion.div key={bloque.tabla_id} variants={ELEMENTO_DE_DATOS}>
-              <BloqueTablaVista bloque={bloque} porAlias={porAlias} />
+              <BloqueDatos
+                tabla={bloque}
+                grafico={grafico}
+                porAlias={porAlias}
+                conversacionId={conversacionId}
+              />
             </motion.div>
           )
         }
+        // Los gráficos se muestran dentro del `BloqueDatos` de su tabla.
+        if (bloque.tipo === 'grafico') return null
         if (bloque.tipo === 'tarjeta') {
           return (
             <motion.div key={indice} variants={ELEMENTO_DE_DATOS}>

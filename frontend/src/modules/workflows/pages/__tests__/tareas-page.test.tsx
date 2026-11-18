@@ -306,7 +306,9 @@ describe('TareasPage: responsable y reasignación', () => {
     await waitFor(() =>
       expect(mockedListar.mock.lastCall?.[0]).toMatchObject({ usuarioId: 'u2', soloMias: false }),
     )
-    expect(screen.getByRole('button', { name: /Responsable: Secretaria/ })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Responsable: Sofía Secretaria/ }),
+    ).toBeInTheDocument()
   })
 
   it('el buscador del filtro encuentra a la persona por su email', async () => {

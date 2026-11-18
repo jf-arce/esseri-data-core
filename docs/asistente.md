@@ -27,11 +27,16 @@ Qué puede responder hoy: indicadores generales, evolución de facturado y cobra
 | Archivo | Responsabilidad |
 |---|---|
 | `router.py` | API bajo `/asistente`. El envío de un mensaje responde por SSE. |
-| `service.py` | El prompt del sistema, el loop de herramientas, la persistencia por paso, la cuota, los errores para el usuario. |
-| `seudonimos_service.py` | Privacidad: alias, limpieza de la entrada, filtro de alias en el texto que vuelve, resolución de nombres. |
+| `conversaciones_service.py` | Alta, lectura y borrado de conversaciones, y la limpieza de las vencidas. |
+| `envio_service.py` | Validación de un envío: cuota diaria, bloqueo de la conversación, edición de una pregunta, persistencia de los mensajes. |
+| `respuesta_service.py` | La respuesta en stream: loop de herramientas, persistencia por paso, texto parcial al cortar. |
+| `prompt.py` | El prompt del sistema y su armado según contexto y atajo. |
+| `mensajes_de_error.py` | Los textos que ve la persona cuando algo falla. |
+| `seudonimos_service.py` | Privacidad: alias, limpieza de la entrada (menciones de alumno, familia, docente y curso), alias del contexto de pantalla, filtro de alias en el texto que vuelve, resolución de nombres. |
+| `exportar_tabla_service.py` | Descarga de una tabla de la conversación en CSV o Excel, con los alias resueltos según el permiso. |
 | `herramientas.py` | Registro de herramientas, ejecución con validación de permisos y de argumentos, pantalla sugerida. |
-| `herramientas_base.py` | Contrato de una herramienta, bloques de salida (`kpi`, `tabla`, `tarjeta`) y formatos (`fecha_ar`, `numero`, ...). |
-| `herramientas_indicadores.py`, `_finanzas.py`, `_academico.py`, `_cursos.py`, `_workflows.py`, `_navegacion.py` | Las herramientas, agrupadas por dominio. |
+| `herramientas_base.py` | Contrato de una herramienta, bloques de salida (`kpi`, `tabla`, `grafico`, `tarjeta`) y formatos (`fecha_ar`, `numero`, ...). |
+| `herramientas_indicadores.py`, `_finanzas.py`, `_academico.py`, `_cursos.py`, `_inasistencias.py`, `_workflows.py`, `_navegacion.py` | Las herramientas, agrupadas por dominio. |
 | `models.py`, `schemas.py`, `constants.py`, `exceptions.py`, `dependencies.py` | Modelos, esquemas, constantes (eventos, tipos de alias, estados), excepciones y dependencias de FastAPI. |
 | `retencion_job.py` | Borra conversaciones sin actividad. |
 | `src/llm_client.py` (fuera de la carpeta) | Cliente del proveedor, compartido con IA/Sugerencias. |
@@ -44,21 +49,25 @@ Qué puede responder hoy: indicadores generales, evolución de facturado y cobra
 | `components/asistente-panel.tsx` | Contenido del panel: encabezado, lista de mensajes, entrada. Resuelve alias y arma los botones de navegación. |
 | `components/lista-mensajes.tsx` | Renderiza los mensajes, la animación de entrada, el scroll y el orden texto, datos y acciones. |
 | `components/texto-markdown.tsx`, `texto-con-alias.tsx` | Texto con formato markdown y alias reemplazados por nombres. |
-| `components/bloque-kpi.tsx`, `bloque-tabla.tsx`, `tarjeta-recurso.tsx` | Indicadores, tablas y tarjetas de personas. |
+| `components/bloque-kpi.tsx`, `bloque-tabla.tsx`, `bloque-grafico.tsx`, `tarjeta-recurso.tsx` | Indicadores (con variación), tablas (ordenables, con descarga), gráficos y tarjetas de personas. |
 | `components/pasos-del-mensaje.tsx`, `indicadores-de-carga.tsx`, `acciones-del-mensaje.tsx` | Pasos consultados, loaders, copiar y reintentar. |
-| `components/entrada-mensaje.tsx`, `historial-conversaciones.tsx` | Caja de texto con menciones `@` y listado de conversaciones. |
+| `components/entrada-mensaje.tsx`, `historial-conversaciones.tsx` | Caja de texto con menciones `@` y atajos `/`, y listado de conversaciones. |
 | `hooks/use-conversacion.ts` | Estado de la conversación visible y su stream. |
 | `hooks/use-alias.ts` | Resolución de alias a nombres con caché. |
+| `components/chips-contexto.tsx` | Chips de contexto arriba del campo: pantalla o ficha actual y lo fijado con `@`, cada uno con su cruz. |
+| `hooks/use-contexto-pantalla.ts` | Ficha abierta (alumno o familia) según la URL, con su nombre, y pantalla o módulo en que está la persona, para el chip. |
+| `hooks/use-sugerencias-mencion.ts` | Sugerencias del `@`: alumnos y familias (búsqueda en el servidor), docentes y cursos (catálogo filtrado en el navegador). |
 | `hooks/use-texto-gradual.ts` | Revelado progresivo del texto mientras llega. |
 | `hooks/use-asistente-disponible.ts` | Si el backend responde 503, el botón no aparece. |
 | `services/` | Llamadas HTTP y lector del stream SSE. |
-| `store.ts`, `types.ts`, `constants.ts`, `utils.ts` | Estado del panel, tipos, textos y etiquetas, y utilidades. |
+| `store.ts`, `types.ts`, `constants.ts` | Estado del panel, tipos, textos y etiquetas. |
+| `utils/` | Utilidades puras por tema: `destinos`, `entrada` (`@` y `/`), `alias`, `sse`, `tablas`, `graficos`, `kpi`, `copia`, `texto`. |
 
 Los componentes de chat (`message`, `bubble`, `message-scroller`, `trace`, entre otros) vienen de AI Elements (shadcn) y viven en `src/components/ui/`.
 
 ## 4. Cómo se procesa un mensaje
 
-1. **Envío.** El frontend hace `POST /asistente/conversaciones/{id}/mensajes` con el texto, las menciones `@`, la ruta actual y el ciclo lectivo seleccionado.
+1. **Envío.** El frontend hace `POST /asistente/conversaciones/{id}/mensajes` con el texto, las menciones `@`, el atajo `/` elegido (`comando`), la ficha abierta (`contexto`), lo fijado con `@` (`fijados`), la ruta y el nombre de la pantalla (`pantalla`) y el ciclo lectivo seleccionado.
 2. **Chequeos.** Es de quien pregunta y con su rol activo, no hay otra generación en curso (si la hay, 409), no se pasó la cuota diaria y el texto no supera el máximo.
 3. **Limpieza de la entrada.** Se aplica `preparar_entrada` (sección 5). Si un nombre escrito a mano es ambiguo, no se llama al modelo: se devuelven tarjetas para elegir.
 4. **Loop del modelo.** Se arma el contexto: el prompt del sistema, los últimos mensajes de la conversación (solo texto, nunca resultados de herramientas) y el pedido. En cada paso:
@@ -72,6 +81,7 @@ Los componentes de chat (`message`, `bubble`, `message-scroller`, `trace`, entre
 
 | Evento | Contenido |
 |---|---|
+| `inicio` | Primer evento: ids reales del mensaje del usuario y del de la respuesta (el navegador reemplaza los locales; hacen falta para editar). |
 | `herramienta` | Nombre de la herramienta que empieza a correr (para mostrar "Consultando…"). |
 | `delta` | Un trozo de texto de la respuesta. |
 | `texto` | La respuesta final validada. Reemplaza lo acumulado por los `delta` (llega vacío si el texto previo a una herramienta no era la respuesta). |
@@ -100,12 +110,16 @@ Cada herramienta declara parámetros (con esquema validado), permisos acumulativ
 | Herramienta | Permisos | Qué devuelve | Pantalla sugerida |
 |---|---|---|---|
 | `indicadores_generales` | `panel_administrativo.leer` | Solo los indicadores pedidos (alumnos activos, inasistencias del día, tareas, ...). | Panel del rol |
-| `evolucion_financiera` | `panel_administrativo.leer`, `facturacion.leer` | Facturado y cobrado mes a mes. | Facturas |
-| `deuda_por_familias` | `facturacion.leer` | Familias con mayor deuda, con el total vencido de todas y la cantidad con deuda vencida. Hoy o al cierre de un día pasado. | Deuda por familia |
-| `resumen_inscripciones` | `inscripciones.leer` | Inscripciones por tipo y estado, y admisiones en proceso. | Inscripciones |
-| `tendencia_asistencias` | `academico.leer` | Asistencia por día, semana o mes. Distingue "sin registros" de 0 %. | Historial de asistencia |
+| `evolucion_financiera` | `panel_administrativo.leer`, `facturacion.leer` | Facturado y cobrado mes a mes. Opcionales: `grafico` (barras, líneas o áreas; se ignora con menos de 3 períodos) y `comparar_con_anterior` (suma el período anterior de igual duración, la variación y dos indicadores con los totales). | Facturas |
+| `deuda_por_familias` | `facturacion.leer` | Familias con mayor deuda, con el total vencido de todas y la cantidad con deuda vencida. Hoy o al cierre de un día pasado; con `comparar_al` (o `comparar_con_anterior`, que toma un mes antes del corte), agrega un indicador con la variación del total vencido contra esa fecha. Opcional: `grafico`. | Deuda por familia |
+| `resumen_inscripciones` | `inscripciones.leer` | Inscripciones por tipo y estado (la tabla); las admisiones en proceso van como indicador y por etapa solo al modelo. Opcionales: `comparar_con_anterior` (suma el ciclo lectivo anterior, la variación y un indicador con el total) y `grafico`. | Inscripciones |
+| `tendencia_asistencias` | `academico.leer` | Asistencia por día, semana o mes. Distingue "sin registros" de 0 %. Opcionales: `comparar_con_anterior` (período anterior de igual duración, diferencia de presencia en puntos y un indicador con los ausentes) y `grafico`. | Historial de asistencia |
+| `alumnos_con_mas_inasistencias` | `academico.leer`, `familias_alumnos.leer` | Ranking de alumnos (alias) con más inasistencias de un período (por defecto, el ciclo hasta hoy), de toda la institución o de un curso: inasistencias y sin justificar. Opcionales: `solo_sin_justificar` y `presencia_maxima`. Opcional: `grafico`. | Historial de asistencia |
+| `asistencia_por_curso` | `academico.leer` | Por curso: alumnos inscriptos, inasistencias y presencia, de menor a mayor presencia. Opcionales: `comparar_con_anterior` (columnas del período anterior y un indicador de presencia) y `grafico`. | Historial de asistencia |
+| `resumen_justificaciones` | `academico.actualizar:justificaciones` | Justificaciones por estado o por motivo (`agrupar_por`), de toda la institución o de un curso. Opcional: `comparar_con_anterior` (indicador de pendientes). Opcional: `grafico`. | |
+| `justificaciones_pendientes` | `academico.actualizar:justificaciones`, `familias_alumnos.leer` | Las pendientes de revisar, las que más esperan primero: alumno (alias), curso, fecha, motivo y días de espera. | |
 | `ausentes_del_dia` | `academico.leer`, `familias_alumnos.leer` | Alumnos ausentes de un día (alias) con curso y tipo. | Historial de asistencia |
-| `estructura_academica` | `academico.leer` | Niveles, años y divisiones con cantidad de alumnos y de materias. | Académico |
+| `estructura_academica` | `academico.leer` | Niveles, años y divisiones con cantidad de alumnos y de materias. Opcional: `grafico`. | Académico |
 | `horario_del_curso` | `academico.leer` | Materias y franjas horarias por curso y día. Sin docentes. | Académico |
 | `alumnos_del_curso` | `academico.leer`, `familias_alumnos.leer` | Alumnos inscriptos activos de un curso (alias). | Académico |
 | `docentes_del_curso` | `academico.leer` | Docentes asignados por curso, materia o día de la semana (alias). | Asignaciones docentes |
@@ -116,8 +130,13 @@ Cada herramienta declara parámetros (con esquema validado), permisos acumulativ
 
 ### Bloques de salida
 
+**Una sola tabla por respuesta.** Cada herramienta emite como máximo una tabla (el detalle extra queda en `para_llm`, no en pantalla), con pocas columnas, y no emite ninguna si tiene menos de dos filas: la cifra va en el texto. Si en una misma respuesta varias herramientas arman una tabla, sale la primera y se omiten las siguientes y sus gráficos (`MAX_TABLAS_POR_RESPUESTA`, aplicado en `_emitir_resultado`); el modelo igual recibe sus datos. El prompt le pide usar una sola herramienta cuando alcance. Las series de un gráfico tienen que ser columnas visibles de la tabla.
+
 - **`kpi`**: un número con su unidad, período y fuente.
-- **`tabla`**: título, columnas tipadas (`texto`, `numero`, `moneda`, `porcentaje`, `alias`), filas, período y fuente. Tope de filas por `ASISTENTE_MAX_FILAS_RESULTADO` (algunas herramientas usan su propio tope y avisan si truncan).
+- **`tabla`**: título, columnas tipadas (`texto`, `numero`, `moneda`, `porcentaje`, `alias`), filas, período y fuente. Tope de filas por `ASISTENTE_MAX_FILAS_RESULTADO` (algunas herramientas usan su propio tope y avisan si truncan). En pantalla se ordena con un clic en el encabezado y se descarga en CSV o Excel (`GET /asistente/conversaciones/{id}/tablas/{tabla_id}/export?formato=csv|xlsx`): el backend busca la tabla en el mensaje, valida que la conversación sea de quien la pide y resuelve los alias con la regla de `/resolver`; sin permiso, el alias queda como texto.
+- **`grafico`**: `tabla_id`, `forma` (barras, líneas o áreas), `eje_x` y `series`. Referencia una tabla ya emitida y no repite filas (no suma tokens). Si la tabla no está entre los bloques del mensaje, no se dibuja. Hoy la forma `areas` se dibuja como líneas: `ui/echarts-line-chart.tsx` no tiene variante de área.
+- **Cuándo se usan.** Los bloques visuales no acompañan todas las respuestas: el prompt (`_SISTEMA`) pide usarlos solo cuando el dato se entiende mejor así (evolución, comparación o pedido explícito). Un test fija el tamaño máximo del prompt.
+- **`kpi` con variación.** `bloque_kpi` acepta `variacion`, `periodo_comparado`, `mejora` y `valor_anterior`. `mejora` (`alza` o `baja`) dice hacia dónde es mejor la cifra: la tarjeta se pinta de verde si la variación va hacia ahí y de rojo si va al revés (más facturado es bueno, más ausentes o más deuda no); sin `mejora` queda neutra. `variacion` en `null` significa que no se pudo calcular (contra 0 no hay porcentaje): si viene `valor_anterior`, la tarjeta muestra «Antes: X», y si no viene (el período comparado no tiene registros), «Sin base de comparación». El modelo no calcula: la variación sale del backend y va resuelta en `para_llm`.
 - **`tarjeta`**: una persona (alumno o familia) con link a su ficha, o para elegir cuando un nombre es ambiguo.
 - **`navegar`**: botón hacia una pantalla (`destino`) o una ficha (`alias`).
 
@@ -125,7 +144,7 @@ Cada cifra viaja con su período y su fuente: sin ellos no se puede auditar.
 
 ## 7. Navegación
 
-- El modelo elige una **clave de destino** (`panel_direccion`, `deuda_por_familia`, `academico`, ...). La lista y el permiso de cada una están en `herramientas_navegacion.py` (`DESTINOS`), y las rutas en `frontend/.../utils.ts` (`RUTAS_DE_DESTINO`).
+- El modelo elige una **clave de destino** (`panel_direccion`, `deuda_por_familia`, `academico`, ...). La lista y el permiso de cada una están en `herramientas_navegacion.py` (`DESTINOS`), y las rutas en `frontend/.../utils/destinos.ts` (`RUTAS_DE_DESTINO`).
 - La ruta la arma el frontend y la valida contra el menú del rol activo (`destinosDe(filtrarNav(...))`). Nunca se navega a una URL generada por el modelo.
 - **Con los filtros de la conversación.** Si se habla de un curso, el botón abre Académico en ese nivel, año y división (`?nivel=&anio=&division=`). El backend manda los ids de la consulta y el frontend solo acepta, por pantalla, los filtros que esa pantalla entiende (hoy Académico) y que tengan forma de id. Si la consulta abarca varias divisiones, se filtra solo por lo que tienen en común (el nivel, o el nivel y el año).
 - **No se navega sola.** `ir_a` y la pantalla sugerida dejan un botón ("Ir a Deuda por familia") que la persona decide usar.
@@ -136,7 +155,7 @@ Cada cifra viaja con su período y su fuente: sin ellos no se puede auditar.
 - Habla el protocolo de Chat Completions de OpenAI. La URL base y el modelo salen de la configuración, así que sirve contra cualquier proveedor compatible sin tocar código.
 - **Streaming con herramientas.** `transmitir_con_herramientas` lee el stream, arma cada llamada a herramienta juntando los pedazos de sus argumentos y entrega el texto por trozos. Los 429 y 503 se reintentan con espera creciente (respeta `Retry-After`), solo antes de que empiece el stream.
 - **Errores.** Sin clave: el asistente no está disponible. Sin respuesta del proveedor o con error: se informa solo el código de estado, nunca el cuerpo, que puede traer datos de la cuenta.
-- **Mensajes al usuario.** Nunca mencionan el proveedor, el modelo ni la tecnología interna. Dicen cosas como "alcanzaste el límite de consultas de IA" o "el asistente no está disponible en este momento". El texto está en `mensaje_para_usuario` de `service.py`.
+- **Mensajes al usuario.** Nunca mencionan el proveedor, el modelo ni la tecnología interna. Dicen cosas como "alcanzaste el límite de consultas de IA" o "el asistente no está disponible en este momento". El texto está en `mensaje_para_usuario` de `mensajes_de_error.py`.
 - Compartido con IA/Sugerencias, que solo manda plantillas, nunca datos de familias ni de alumnos.
 
 Modelo en uso en desarrollo: `gpt-4.1-mini` contra la API de OpenAI. También se probó contra Gemini por su endpoint compatible (`gemini-3-flash-preview`), con una salvedad: Gemini 3 exige devolver el `thought_signature` de cada llamada (`extra_content`), y el código ya lo reenvía.
@@ -146,7 +165,7 @@ Modelo en uso en desarrollo: `gpt-4.1-mini` contra la API de OpenAI. También se
 Tres tablas (ver el detalle en `docs/diccionario-de-datos-esseri.md`):
 
 - `conversacion_asistente`: dueño, rol activo, título, estado (`libre` o `generando`, que hace de lock) y última actividad.
-- `mensaje_asistente`: autor, contenido, tarjetas (los bloques), llamadas hechas, estado (`completo`, `parcial` si el stream se cortó, o `error`) y orden. El estado "generando" solo existe en la pantalla mientras llega la respuesta.
+- `mensaje_asistente`: autor, contenido, tarjetas (los bloques), llamadas hechas, estado (`completo`, `parcial` si el stream se cortó o la persona lo detuvo, `error`, o `descartado` si se editó la pregunta y ese tramo ya no cuenta) y orden. El mensaje del usuario se guarda como `/<atajo> <texto>` cuando se envió con un atajo. El estado "generando" solo existe en la pantalla mientras llega la respuesta.
 - `alias_conversacion`: alias, tipo (`ALUMNO`, `FAMILIA`, `DOCENTE`) y entidad. Única por conversación y alias, y por conversación y entidad.
 
 El historial del servidor no guarda los resultados crudos de las herramientas ni los pasos: los pasos visibles son solo de la sesión en curso.
@@ -159,7 +178,15 @@ El historial del servidor no guarda los resultados crudos de las herramientas ni
 - **Copiar.** Copia el texto y, debajo, los indicadores y las tablas, en dos formatos a la vez: texto plano (tablas con tabuladores, que Excel y Sheets separan en celdas) y HTML (una tabla real al pegar en Word, Docs o un mail).
 - **Errores.** Se muestran dentro de la burbuja con un botón "Reintentar". Los mensajes en error no cuentan para la cuota.
 - **Loaders.** Los de `ldrs` (`Trio`), con su CSS importado junto al componente.
-- **Menciones.** Con `@` se elige un alumno o una familia; el texto se cambia por su alias antes de salir.
+- **Menciones.** Con `@` se elige un alumno, una familia, un docente o un curso, agrupados por tipo. Alumnos y familias piden `familias_alumnos.leer`; docentes y cursos, `academico.leer`. Las personas se cambian por su alias antes de salir; un curso no es un dato personal y viaja como `{tipo: "CURSO", entidad_id}`, que el backend reemplaza por su nombre ("5°A de Primaria"). Sin el permiso del tipo, la mención no se resuelve.
+- **Atajos `/`.** Si el mensaje empieza con `/` se abre la lista de atajos (definidos en `constants.ts`). Hay dos clases. Los **atajos de módulo** (`/deuda`, `/asistencia`, `/horario @curso`, `/evolucion`, `/ir`) tienen permisos y una pregunta por defecto: al elegirlos (o escribir `/nombre ` a mano) el atajo queda resaltado al inicio del campo, con su ícono y su nombre en violeta, y el texto es solo lo que se escriba después; sin texto viaja la pregunta por defecto, y el pedido viaja con `comando`; el backend lo traduce a una herramienta (`COMANDOS_HERRAMIENTA`) y la fuerza con `tool_choice` solo en el primer paso, si el rol la tiene (si no, se ignora), con una sola consulta (se descartan las llamadas extra). `/nueva` limpia y abre una conversación nueva, sin llamar al modelo. Los **modos** (`/comparar`, `/grafico`, `/resumen`) sirven para cualquier módulo: al elegirlos quedan resaltados igual, la pregunta se escribe a continuación y es obligatoria (sin texto no se envía). No fuerzan herramienta; el efecto es determinista y lo aplica el backend: `/comparar` pone `comparar_con_anterior` y `/grafico` pone `grafico` en toda herramienta que declare ese parámetro (`ARGUMENTOS_COMANDO`, filtrado por los campos de cada herramienta, así que no rompe las que no lo tienen), y `/resumen` descarta las tablas y gráficos del resultado (`MODOS_SIN_BLOQUES`). Cada modo agrega además una línea al prompt (`INSTRUCCION_MODO`). Los modos no piden permisos propios: cada herramienta sigue validando el suyo. `/evolucion` también impone `grafico`. Los que el rol no puede usar no se listan. Backspace con el campo vacío elimina el atajo resaltado. El backend guarda el mensaje como `/<atajo> <texto>` (sin migración) y se lo manda al modelo sin el prefijo (`_historial` también lo quita); el chat lo vuelve a resaltar con `separarComando`, usando el mismo `atajo-resaltado.tsx` que el campo. La detección está en `utils/entrada.ts` (`consultaDeMencion`, `consultaDeComando`, `atajoAlInicio`, `resolverEnvio`).
+- **Gráficos.** Admiten `grafico` las herramientas con una medida numérica clara: evolución financiera, inscripciones, tendencia de asistencias, asistencia por curso, deuda por familia, ranking de inasistencias, resumen de justificaciones y estructura académica. Las series temporales (`evolucion_financiera`, `tendencia_asistencias`) se grafican solas (`grafico_por_defecto` de la herramienta), salvo en `/resumen`. Pedir un gráfico con palabras ("mostrame un gráfico de…") equivale a `/grafico` (`PATRON_PEDIDO_GRAFICO`). En modo gráfico, si no hubo uno, la herramienta devuelve `aviso_grafico` para que el modelo lo explique. El gráfico y su tabla se ven en pestañas (`bloque-datos.tsx`, gráfico primero) con un encabezado común para copiar y descargar.
+- **Detener.** El botón de stop corta el stream y queda lo que llegó, con "Respuesta detenida" y sin error. El backend captura el cierre del stream (`GeneratorExit`), guarda el texto ya emitido como `parcial` y libera la conversación, así el próximo envío no da 409.
+- **Editar.** Cualquier pregunta propia se puede editar (lápiz, oculto mientras se genera). Se manda con `editar_desde`: ese mensaje y todos los posteriores pasan a `descartado` (no se borran, así la cuota diaria no se libera), no se listan, no se exportan y no llegan al modelo. Al editar, las personas se precargan como `@Nombre` y se reconstruyen las menciones; el atajo se mantiene.
+- **Contexto de pantalla.** Si la URL es `familias-alumnos/alumnos/:id` o `familias/:id` y el rol tiene `familias_alumnos.leer`, el panel muestra el chip "Viendo: Juan Pérez" (se puede descartar) y envía `contexto: {tipo, entidad_id}`. El backend lo convierte en alias y lo agrega al bloque de contexto del prompt ("está viendo la ficha [ALUMNO:3]"), así "este alumno" se resuelve sin mandar el nombre. Sin permiso o con una entidad inexistente, se ignora.
+- **Pantalla actual.** El chip se muestra siempre que la ruta esté en el menú del rol: en una ficha muestra una tarjeta de contacto y el nombre ("Juan Pérez") y en el resto un monitor y el nombre de la pantalla ("Historial de asistencia"); el "Viendo" o "Pantalla" queda en el tooltip (la entrada más específica del menú que coincide con la ruta, `etiquetaDePantalla`). Esa etiqueta viaja como `pantalla` y el prompt le pide al modelo que la use solo para desambiguar preguntas que no dicen de qué módulo hablan; si la pregunta nombra otra cosa, manda la pregunta, y no limita las herramientas. El backend sanea el texto antes de ponerlo en el prompt. Con la cruz del chip no se envían ni `contexto` ni `ruta` ni `pantalla`, hasta que la persona cambie de pantalla.
+- **Contexto fijado.** Todo lo que se elige con `@` (alumno, familia, docente o curso) además de ir en el texto queda como chip arriba del campo (un ícono por tipo, cada uno con su color de ícono y de fondo, sin repetir ninguno entre los seis tipos de chip, y el nombre del tipo en el tooltip y para lectores de pantalla: alumno, familia, docente, curso), junto al de la pantalla, y viaja en cada mensaje como `fijados: [{tipo, entidad_id}]` (sin nombre) hasta que la persona lo saque con su cruz o abra otra conversación. Como mucho 10 (`MAX_FIJADOS`; el backend rechaza más con un 422): al llegar no entra otro, no se descarta ninguno en silencio y debajo de los chips aparece "Llegaste al máximo de 10. Sacá alguno para sumar otro." El área de chips no pasa de dos filas (el resto se ve con scroll). El backend convierte cada uno con `describir_fijado`: alias para personas y nombre para cursos, con el mismo permiso que la mención de su tipo (sin permiso, o si ya no existe, se ignora), y el prompt agrega "La persona fijó como contexto: ..." para que "este alumno" o "este curso" se resuelvan sin nombrarlos. No limita las herramientas. Los chips están en `chips-contexto.tsx`.
+- **Búsqueda del `@`.** Alumnos y familias se buscan en el servidor con `solo_nombre=true` (solo nombre y apellido, palabra por palabra y sin tildes; sin DNI, para que un número suelto como `1` no traiga a todos los que lo tienen en el DNI; la pantalla de Alumnos y Familias sigue buscando también por DNI); docentes y cursos se filtran en el navegador con `coincideConBusqueda`: cada palabra escrita tiene que ser el comienzo de una palabra del nombre, en cualquier orden y sin tildes, y los números y letras pegados se separan. Así `3`, `a`, `3a`, `3° a`, `prim` o `3a primario` encuentran "3°A de Primario". Se muestran hasta 4 por tipo y hasta 12 cursos. Mientras llegan los resultados (desde que se escribe hasta que responde la búsqueda) la lista muestra un esqueleto animado en vez de "Sin coincidencias".
 
 ## 11. Límites, cuotas y retención
 
@@ -182,7 +209,7 @@ Costo por consulta: cada pregunta hace al menos dos llamadas al modelo (decidir 
 
 ## 12. Estilo de respuesta (prompt)
 
-El prompt del sistema vive en `service.py` (`_SISTEMA`). Sus reglas:
+El prompt del sistema vive en `prompt.py` (`SISTEMA`). Sus reglas:
 
 - Respuestas de una o dos frases, sin introducciones ni cierres, sin recomendaciones ni ofertas de ayuda.
 - No repetir lo que ya muestran las tablas e indicadores. En el texto va solo la cifra que resume.
@@ -211,7 +238,7 @@ Importante: son instrucciones al modelo, no garantías. Lo que sí está garanti
 ## 15. Fases del asistente
 
 - **Fase 1 (hecha):** consulta, análisis básico y navegación, todo de solo lectura.
-- **Fase 2 (pendiente):** motor de análisis sobre tablas de resultado, gráficos (barras, líneas, áreas), tablas ordenables con descarga en CSV o Excel, comparaciones contra el período anterior, resumen al abrir y contexto de la pantalla en que está la persona ("este alumno").
+- **Fase 2 (en curso, rama `feat/asistente-fase-2`):** hechos los gráficos (barras y líneas; las áreas se dibujan como líneas), las tablas ordenables con descarga en CSV o Excel, las comparaciones contra el período anterior (evolución financiera y deuda), el contexto de la pantalla ("este alumno") y, en el campo de texto, las menciones de docentes y cursos y los atajos `/`. Queda pendiente el resumen al abrir.
 - **Fase 3 (pendiente):** escrituras con confirmación (el asistente propone, la persona confirma con un botón, y queda auditado con `origen="asistente"`) y borradores de comunicaciones. Nunca envíos masivos directos.
 - **Fase 4 (pendiente):** administración de reglas de workflows (que nacen inactivas), ejecuciones y tareas, y revisión de sugerencias de IA.
 

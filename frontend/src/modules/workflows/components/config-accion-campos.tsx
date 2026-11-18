@@ -22,6 +22,7 @@ import {
   TIPOS_ASIENTO,
   ENLACES_MAIL,
   SIN_ENLACE,
+  CLASE_SELECT_ADAPTABLE,
 } from '@/modules/workflows/constants'
 import type { CampoEvento, OpcionSelect, TipoAccion } from '@/modules/workflows/types'
 
@@ -65,7 +66,7 @@ function CampoSelect({
         disabled={contexto.deshabilitado}
         onValueChange={(valor) => onCambiar(nombre, valor)}
       >
-        <SelectTrigger id={id}>
+        <SelectTrigger id={id} className={CLASE_SELECT_ADAPTABLE}>
           <SelectValue placeholder={placeholder ?? 'Elegir'} />
         </SelectTrigger>
         <SelectContent>

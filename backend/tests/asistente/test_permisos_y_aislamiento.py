@@ -1,11 +1,13 @@
 """Permisos de acceso, filtrado de herramientas por rol y aislamiento entre cuentas y roles."""
 
+import io
 import json
 import uuid
 
+from openpyxl import load_workbook
 from sqlalchemy import delete, select
 
-from src.asistente.models import AliasConversacion, Conversacion
+from src.asistente.models import AliasConversacion, Conversacion, MensajeAsistente
 from src.auth.constants import MODULO_ASISTENTE, MODULO_FAMILIAS_ALUMNOS, MODULO_PANEL_ADMIN
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario
 from tests.asistente.conftest import (
@@ -190,3 +192,120 @@ class TestResolver:
         assert respuesta.status_code == 200
         assert respuesta.json()["items"] == []
         assert usuario is not None
+
+
+class TestExportarTabla:
+    TABLA_ID = "11111111-1111-1111-1111-111111111111"
+
+    def preparar(self, direccion, proveedor, db_session):
+        """Conversación con el alias [ALUMNO:1] y una tabla que lo lista junto a un monto."""
+        proveedor.respuestas = [respuesta_texto("ok")]
+        conversacion = nueva_conversacion(direccion)
+        enviar(direccion, conversacion, "ficha de Mariana Quintero")
+        db_session.add(
+            MensajeAsistente(
+                conversacion_id=uuid.UUID(conversacion),
+                orden=99,
+                autor="asistente",
+                contenido="listo",
+                estado="completo",
+                tarjetas=[
+                    {
+                        "tipo": "tabla",
+                        "tabla_id": self.TABLA_ID,
+                        "titulo": "Deuda por familia",
+                        "columnas": [
+                            {"clave": "alumno", "etiqueta": "Alumno", "tipo": "alias"},
+                            {"clave": "monto", "etiqueta": "Monto", "tipo": "moneda"},
+                        ],
+                        "filas": [{"alumno": "[ALUMNO:1]", "monto": 1500}],
+                        "periodo": "hoy",
+                        "fuente": "prueba",
+                    }
+                ],
+            )
+        )
+        db_session.commit()
+        return conversacion
+
+    def url(self, conversacion: str, formato: str, tabla_id: str | None = None) -> str:
+        return (
+            f"/asistente/conversaciones/{conversacion}/tablas/{tabla_id or self.TABLA_ID}"
+            f"/export?formato={formato}"
+        )
+
+    def test_csv_con_nombres_reales(self, direccion, proveedor, personas, db_session):
+        conversacion = self.preparar(direccion, proveedor, db_session)
+        respuesta = direccion.get(self.url(conversacion, "csv"))
+        assert respuesta.status_code == 200
+        assert "deuda-por-familia" in respuesta.headers["content-disposition"]
+        assert '"Quintero, Mariana",1500' in respuesta.text
+
+    def test_xlsx_con_nombres_reales_y_numeros(self, direccion, proveedor, personas, db_session):
+        conversacion = self.preparar(direccion, proveedor, db_session)
+        respuesta = direccion.get(self.url(conversacion, "xlsx"))
+        assert respuesta.status_code == 200
+        hoja = load_workbook(io.BytesIO(respuesta.content)).active
+        assert [c.value for c in hoja[1]] == ["Alumno", "Monto"]
+        assert [c.value for c in hoja[2]] == ["Quintero, Mariana", 1500]
+
+    def test_sin_permiso_el_alias_queda_como_texto(self, client, db_session, proveedor, personas):
+        crear_cuenta(db_session, "solo@esseri.test", [MODULO_ASISTENTE])
+        cliente = iniciar_sesion("solo@esseri.test")
+        conversacion = self.preparar(cliente, proveedor, db_session)
+        respuesta = cliente.get(self.url(conversacion, "csv"))
+        assert respuesta.status_code == 200
+        assert "[ALUMNO:" in respuesta.text
+        assert "Quintero" not in respuesta.text
+
+    def test_tabla_inexistente_da_404(self, direccion, proveedor, personas, db_session):
+        conversacion = self.preparar(direccion, proveedor, db_session)
+        otra = str(uuid.uuid4())
+        assert direccion.get(self.url(conversacion, "csv", otra)).status_code == 404
+
+    def test_conversacion_ajena_da_404(self, direccion, proveedor, personas, db_session):
+        conversacion = self.preparar(direccion, proveedor, db_session)
+        crear_cuenta(db_session, "otra@esseri.test", TODOS)
+        otra = iniciar_sesion("otra@esseri.test")
+        assert otra.get(self.url(conversacion, "csv")).status_code == 404
+
+    def test_formato_invalido_da_422(self, direccion, proveedor, personas, db_session):
+        conversacion = self.preparar(direccion, proveedor, db_session)
+        assert direccion.get(self.url(conversacion, "pdf")).status_code == 422
+
+
+class TestContextoDePantalla:
+    def test_sin_permiso_de_personas_el_contexto_se_ignora(
+        self, client, db_session, proveedor, personas
+    ):
+        crear_cuenta(db_session, "sinper@esseri.test", [MODULO_ASISTENTE, MODULO_PANEL_ADMIN])
+        cliente = iniciar_sesion("sinper@esseri.test")
+        proveedor.respuestas = [respuesta_texto("ok")]
+        enviar(
+            cliente,
+            nueva_conversacion(cliente),
+            "¿cómo viene este alumno?",
+            contexto={"tipo": "ALUMNO", "entidad_id": str(personas["mariana"].id)},
+        )
+        sistema = proveedor.peticiones[0]["messages"][0]["content"]
+        assert "está viendo" not in sistema
+        assert db_session.scalar(select(AliasConversacion.id)) is None
+
+    def test_una_entidad_inexistente_se_ignora(self, direccion, proveedor, personas):
+        proveedor.respuestas = [respuesta_texto("ok")]
+        enviar(
+            direccion,
+            nueva_conversacion(direccion),
+            "¿cómo viene este alumno?",
+            contexto={"tipo": "ALUMNO", "entidad_id": str(uuid.uuid4())},
+        )
+        assert "está viendo" not in proveedor.peticiones[0]["messages"][0]["content"]
+
+    def test_el_tipo_de_contexto_debe_ser_alumno_o_familia(self, direccion, personas):
+        respuesta = enviar(
+            direccion,
+            nueva_conversacion(direccion),
+            "hola",
+            contexto={"tipo": "DOCENTE", "entidad_id": str(uuid.uuid4())},
+        )
+        assert respuesta.status_code == 422

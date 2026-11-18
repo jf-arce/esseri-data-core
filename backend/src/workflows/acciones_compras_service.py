@@ -15,13 +15,14 @@ from src.proveedores_compras.models import (
 )
 from src.proveedores_compras.schemas import OrdenCompraCreate, OrdenCompraDetalleCreate
 from src.proveedores_compras.service import crear_orden_compra_en_transaccion
-from src.workflows.models import WorkflowExecution, WorkflowRule
+from src.workflows.accion_contexto import AccionContexto
+from src.workflows.models import WorkflowExecution
 from src.workflows.notificaciones_service import ComunicacionNoPreparada, preparar_comunicacion
 from src.workflows.schemas import ConfigGenerarComunicacion, ResultadoAccion
 
 
 def ejecutar_generar_orden_compra(
-    db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
+    db: Session, regla: AccionContexto, evento: EventLog, ejecucion: WorkflowExecution
 ) -> ResultadoAccion:
     """Emite la orden de una solicitud aprobada con el único proveedor activo de su ítem.
 
@@ -94,7 +95,7 @@ def ejecutar_generar_orden_compra(
 
 
 def ejecutar_generar_comunicacion(
-    db: Session, regla: WorkflowRule, evento: EventLog, ejecucion: WorkflowExecution
+    db: Session, regla: AccionContexto, evento: EventLog, ejecucion: WorkflowExecution
 ) -> ResultadoAccion:
     """Arma el mensaje igual que `notificar`, pero no lo envía: lo deja en la bandeja de
     Sugerencias para que una persona lo lea y lo apruebe o lo descarte (#213)."""

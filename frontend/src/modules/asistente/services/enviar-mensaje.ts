@@ -1,7 +1,7 @@
 import { ApiError } from '@/api/client'
 import { PREFIJO_API } from '../constants'
 import type { EventoSse, PedidoMensaje } from '../types'
-import { parsearSse } from '../utils'
+import { parsearSse } from '../utils/sse'
 
 const API_URL = import.meta.env.VITE_API_URL
 

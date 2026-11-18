@@ -98,6 +98,8 @@
   --color-mod-workflows-suave: var(--mod-workflows-suave);
   --color-mod-auditoria-suave: var(--mod-auditoria-suave);
   --color-mod-ia-suave: var(--mod-ia-suave);
+  --color-rosa: var(--rosa);
+  --color-rosa-suave: var(--rosa-suave);
   --color-texto: var(--texto);
   --color-texto-2: var(--texto-2);
   --color-texto-3: var(--texto-3);
@@ -190,6 +192,9 @@
   --mod-workflows-suave: #e6dcf9;
   --mod-auditoria-suave: #d9dae0;
   --mod-ia-suave: #d2e5e8;
+  /* Rosa de los chips de familia del asistente: ni rojo (parece error) ni gris. */
+  --rosa: #be185d;
+  --rosa-suave: #fbdfec;
 
   /* Fondo del chip de "identidad de rol" (colorIdentidad() en modules/auth/utils.ts), mismo
      criterio que arriba: hex fijo, mezclado 18%/82% con --superficie */
@@ -699,6 +704,8 @@
   --mod-workflows-suave: #382d52;
   --mod-auditoria-suave: #303640;
   --mod-ia-suave: #203e40;
+  --rosa: #f4a6cc;
+  --rosa-suave: #43203a;
 
   --identidad-violeta-suave: #3d2b48;
   --identidad-petroleo-suave: #203e40;
@@ -797,6 +804,40 @@
   animation: skeleton-shimmer 1.6s ease-in-out infinite;
 }
 
+/* Esqueleto de la búsqueda de menciones: más marcado que el shimmer común (barrido violeta y
+   pulso de opacidad). Cada fila arranca con su `animation-delay`, y hasta entonces se queda en el
+   primer cuadro (`backwards`) para que la cascada baje de arriba hacia abajo. */
+@keyframes skeleton-cascada {
+  0% {
+    background-position: 100% 50%;
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    background-position: 0% 50%;
+    opacity: 0.45;
+  }
+}
+
+.skeleton-cascada {
+  background-image: linear-gradient(
+    90deg,
+    var(--fila-hover) 20%,
+    color-mix(in oklch, var(--violeta-borde) 50%, var(--fila-hover)) 50%,
+    var(--fila-hover) 80%
+  );
+  background-size: 300% 100%;
+  animation: skeleton-cascada 1.1s ease-in-out infinite backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-cascada {
+    animation: none;
+  }
+}
+
 @page {
   size: A4 landscape;
   margin: 12mm;
@@ -858,4 +899,179 @@
   main {
     padding: 0 !important;
   }
+}
+/* Editor de flujo de workflows (§6 y §9.10 DESIGN.md): 150-220 ms, ease-out, sin rebote ni glow. */
+@keyframes arista-dibujar {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes nodo-entrar {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes panel-entrar {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.arista-dibujar {
+  stroke-dasharray: 1;
+  animation: arista-dibujar 200ms ease-out;
+}
+
+.nodo-entrar {
+  animation: nodo-entrar 180ms ease-out;
+}
+
+.panel-entrar {
+  animation: panel-entrar 200ms ease-out;
+}
+
+/* "Probar regla": un trazo luminoso y un punto viajan por la conexión, y el bloque alcanzado se
+   enciende con un anillo que se expande. Todo bajo `no-preference`: con movimiento reducido el
+   recorrido se muestra de una vez, sin animar. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes arista-viaje {
+    from {
+      stroke-dashoffset: 0.25;
+    }
+    to {
+      stroke-dashoffset: -1;
+    }
+  }
+
+  @keyframes anillo-alcanzado {
+    from {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--anillo) 55%, transparent);
+    }
+    to {
+      box-shadow: 0 0 0 16px color-mix(in srgb, var(--anillo) 0%, transparent);
+    }
+  }
+
+  @keyframes insignia-pop {
+    0% {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+    70% {
+      transform: scale(1.12);
+    }
+    100% {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .arista-viaje {
+    stroke-dasharray: 0.25 2;
+    stroke-dashoffset: 0.25;
+    stroke-linecap: butt;
+    animation: arista-viaje linear forwards;
+  }
+
+  .nodo-alcanzado::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    animation: anillo-alcanzado 650ms ease-out;
+  }
+
+  @keyframes insignia-trazo {
+    from {
+      stroke-dashoffset: 24;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  .insignia-pop {
+    animation: insignia-pop 300ms ease-out;
+  }
+
+  .insignia-check svg path {
+    stroke-dasharray: 24;
+    animation: insignia-trazo 350ms ease-out 120ms backwards;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arista-viaje-capa {
+    display: none;
+  }
+}
+
+.anillo-exito {
+  --anillo: var(--exito);
+}
+
+.anillo-error {
+  --anillo: var(--error);
+}
+
+.anillo-atencion {
+  --anillo: var(--advertencia);
+}
+
+.anillo-info {
+  --anillo: var(--info);
+}
+
+.anillo-neutro {
+  --anillo: var(--texto-3);
+}
+
+/* "Ordenar": los nodos se deslizan a su lugar. */
+.flujo-ordenando .react-flow__node {
+  transition: transform 200ms ease-out;
+}
+
+.fila-entrar {
+  animation: nodo-entrar 180ms ease-out;
+}
+
+/* Los puntos de conexión del flujo son chicos a la vista y grandes para el mouse: el área
+   clicable se extiende más allá del círculo. */
+.react-flow__handle::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+.react-flow__handle {
+  cursor: crosshair;
+}
+
+/* Controles y minimapa de React Flow con los tokens del proyecto: siguen el tema (.dark) sin
+   pasar por `colorMode`. */
+.react-flow {
+  --xy-controls-button-background-color: var(--superficie);
+  --xy-controls-button-background-color-hover: var(--fila-hover);
+  --xy-controls-button-color: var(--texto);
+  --xy-controls-button-color-hover: var(--texto);
+  --xy-controls-button-border-color: var(--borde);
+  --xy-minimap-background-color: var(--superficie);
+  --xy-minimap-mask-background-color: color-mix(in srgb, var(--texto) 12%, transparent);
+  --xy-minimap-mask-stroke-color: var(--borde);
 }

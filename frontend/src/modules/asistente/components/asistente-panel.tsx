@@ -11,16 +11,20 @@ import {
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 import { useAlias } from '../hooks/use-alias'
+import { MAX_FIJADOS } from '../constants'
+import { ChipsContexto } from './chips-contexto'
 import { useConversacion } from '../hooks/use-conversacion'
 import { useAsistenteStore } from '../store'
 import type { AliasResuelto, BloqueNavegar } from '../types'
+import { aliasDeMensajes } from '../utils/alias'
 import {
-  aliasDeMensajes,
   etiquetaDeDestino,
+  etiquetaDePantalla,
   rutaDeDestino,
   rutaDeEntidad,
-  sugerenciasPermitidas,
-} from '../utils'
+} from '../utils/destinos'
+import { sugerenciasPermitidas } from '../utils/entrada'
+import { useContextoPantalla } from '../hooks/use-contexto-pantalla'
 import { EntradaMensaje, type Sugerencia } from './entrada-mensaje'
 import { PuntosPensando } from './indicadores-de-carga'
 import { HistorialConversaciones } from './historial-conversaciones'
@@ -57,6 +61,17 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
     [permisos, rolActivo],
   )
 
+  const etiquetaPantalla = useMemo(
+    () => etiquetaDePantalla(ubicacion.pathname, rolActivo, permisos),
+    [permisos, rolActivo, ubicacion.pathname],
+  )
+  const {
+    contexto,
+    nombre: nombreVisto,
+    pantalla,
+    descartado,
+    descartar,
+  } = useContextoPantalla(ubicacion.pathname, puedeVerPersonas, etiquetaPantalla)
   const {
     conversacionId,
     mensajes,
@@ -65,10 +80,24 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
     error,
     enviar,
     reintentar,
+    editar,
     nueva,
     abrir,
     cortar,
-  } = useConversacion({ ruta: ubicacion.pathname, cicloLectivo: ciclo })
+    fijados,
+    fijar,
+    desfijar,
+  } = useConversacion({
+    ruta: descartado ? undefined : ubicacion.pathname,
+    pantalla,
+    cicloLectivo: ciclo,
+    contexto,
+  })
+  const fijarSugerencia = useCallback(
+    (sugerencia: Sugerencia) =>
+      fijar({ tipo: sugerencia.tipo, entidad_id: sugerencia.id, nombre: sugerencia.nombre }),
+    [fijar],
+  )
   const { porAlias, resolver } = useAlias(conversacionId)
 
   // Rehidrata los nombres solo cuando la respuesta terminó, y solo si el rol puede ver personas.
@@ -140,10 +169,12 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
       ) : (
         <ListaMensajes
           mensajes={mensajes}
+          conversacionId={conversacionId}
           porAlias={porAlias}
           alElegir={alElegir}
           alIr={alIr}
           alReintentar={generando ? null : reintentar}
+          alEditar={generando ? null : editar}
           sugerencias={sugerencias}
           alSugerir={(texto) => void enviar(texto, [])}
         />
@@ -161,10 +192,29 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
         abierto={abierto}
         generando={generando}
         puedeMencionar={puedeVerPersonas}
-        onEnviar={(contenido, menciones) => void enviar(contenido, menciones)}
+        puedeMencionarAcademico={tienePermiso(permisos, PERMISO_ACADEMICO_LEER)}
+        permisos={permisos}
+        onNueva={nueva}
+        onEnviar={(contenido, menciones, comando) => void enviar(contenido, menciones, comando)}
         onCancelar={cortar}
         mencionPendiente={mencionPendiente}
         onMencionAplicada={() => setMencionPendiente(null)}
+        onFijar={fijarSugerencia}
+        contexto={
+          <ChipsContexto
+            pantalla={
+              nombreVisto !== null
+                ? { tipo: 'ficha', texto: nombreVisto }
+                : pantalla === null
+                  ? null
+                  : { tipo: 'pantalla', texto: pantalla }
+            }
+            onQuitarPantalla={descartar}
+            fijados={fijados}
+            maximo={MAX_FIJADOS}
+            onQuitarFijado={desfijar}
+          />
+        }
       />
     </div>
   )

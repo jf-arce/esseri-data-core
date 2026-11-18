@@ -121,7 +121,7 @@ export function EjecucionesWorkflowTabla({
                   {etiquetaEvento(ejecucion.tipo_evento)}
                 </TableCell>
                 <TableCell className="hidden lg:table-cell">
-                  {ETIQUETA_ACCION[ejecucion.tipo_accion]}
+                  {ejecucion.tipo_accion ? ETIQUETA_ACCION[ejecucion.tipo_accion] : 'Condición'}
                 </TableCell>
                 <TableCell className="hidden tabular-nums 2xl:table-cell">
                   {ejecucion.intento}

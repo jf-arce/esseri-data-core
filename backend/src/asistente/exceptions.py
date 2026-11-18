@@ -45,3 +45,10 @@ class AliasInvalido(AppException):
 
     def __init__(self, message: str = "El alias no pertenece a esta conversación."):
         super().__init__(message)
+
+
+class TablaNoEncontrada(AppException):
+    status_code = 404
+
+    def __init__(self, message: str = "Tabla no encontrada."):
+        super().__init__(message)

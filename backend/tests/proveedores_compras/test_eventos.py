@@ -35,9 +35,10 @@ from src.proveedores_compras.service import (
 )
 from src.workflows import despacho_service
 from src.workflows.despacho_service import procesar_eventos_pendientes
-from src.workflows.models import TipoEvento, WorkflowExecution, WorkflowRule
+from src.workflows.models import TipoEvento, WorkflowExecution
 from src.workflows.schemas import ResultadoAccion
 from tests.areas import AREA_SOLICITANTE_ID
+from tests.workflows.factories import crear_regla_simple
 
 
 def _crear_usuario(db_session, email="compras-eventos@esseri.edu.ar"):
@@ -234,17 +235,15 @@ def test_una_regla_de_faltante_se_dispara_solo_con_recepcion_parcial(
     tipo = db_session.scalars(
         select(TipoEvento).where(TipoEvento.nombre == "recepcion_compra.registrada")
     ).one()
-    db_session.add(
-        WorkflowRule(
-            nombre="Avisar faltante",
-            condicion={"campo": "tipo_recepcion", "operador": "==", "valor": "parcial"},
-            tipo_accion="alerta_interna",
-            accion_config=None,
-            criticidad="media",
-            requiere_aprobacion_humana=False,
-            activo=True,
-            tipo_evento_id=tipo.id,
-        )
+    crear_regla_simple(
+        db_session,
+        nombre="Avisar faltante",
+        condicion={"campo": "tipo_recepcion", "operador": "==", "valor": "parcial"},
+        tipo_accion="alerta_interna",
+        accion_config=None,
+        requiere_aprobacion_humana=False,
+        activo=True,
+        tipo_evento_id=tipo.id,
     )
     usuario = _crear_usuario(db_session)
     orden = _orden_de_10(db_session, usuario.id)

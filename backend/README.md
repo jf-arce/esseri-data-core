@@ -455,6 +455,22 @@ defaults.
   evento o mueven dinero tienen una lista cerrada (`generar_orden_compra` solo con
   `solicitud_compra.aprobada`, `generar_cargo` con `inscripcion.confirmada` o `pago.rechazado`).
   Solo las cuatro que arman un mensaje admiten `notificacion_template_id`.
+- Los campos con valores cerrados llegan en `GET /workflows/tipos-evento` con `opciones`
+  (`[{valor, etiqueta}]`; `null` si el campo es libre). Las fijas están en `OPCIONES_POR_CAMPO`
+  (`constants.py`) y las que salen de una tabla (método de pago, nivel educativo, motivo de justificación, proveedor) se leen al armar
+  el catálogo. Un campo con opciones solo admite `==` y `!=`, y al guardar la regla el backend
+  rechaza un valor que no esté en la lista (al evaluar un evento no se vuelve a chequear).
+- Los campos con muchos valores (alumno, familia, artículo) llegan con `busqueda: true` y se
+  consultan por texto en `GET /workflows/campos-evento/{id}/opciones?q=` (hasta 20, sin distinguir
+  mayúsculas ni tildes; pide `workflows.leer`). Cada fuente arma el nombre igual que el módulo que
+  emite el evento (`BUSQUEDA_POR_CAMPO` en `constants.py`: "Apellido, Nombre" en inasistencias y
+  "Nombre Apellido" en facturas vencidas y cambios de matrícula). Al guardar, el valor tiene que
+  existir y solo se admite `==`/`!=`. `permite_otro: true` (el artículo de una solicitud de compra)
+  acepta además un valor libre. Al sumar un evento con un campo así, hay que agregarlo ahí.
+- `bloques_sueltos` (en `POST` y `PATCH /workflows/reglas`, y en la lectura) guarda los bloques del
+  editor sin conectar al flujo, en la tabla `workflow_rule_borrador` (migración `8b0cbab76489`). No
+  se validan ni se ejecutan y editarlos no cambia el `updated_at` de la regla. En el `PATCH`,
+  omitirlo los conserva y mandar `[]` los borra. `nodos` sigue exigiendo al menos uno.
 - `GET /workflows/tipos-accion` devuelve, por acción, el default de aprobación humana, los eventos
   permitidos, si admite plantilla y el JSON Schema de su config.
 - Para habilitar una acción en otro evento, o `cambiar_estado` sobre otra entidad
@@ -831,3 +847,19 @@ En Railway el backend permanece privado, con `UVICORN_ROOT_PATH=/api` y
 `FORWARDED_ALLOW_IPS=*` únicamente dentro de la red de servicios de confianza. El frontend
 publica la API por `/api` y reenvía la IP que informa la entrada HTTP de Railway.
 Ver [configuración y aceptación de Railway](../infra/railway.md).
+
+### Reglas de workflows como árbol de nodos
+
+Una regla es una cabecera (disparador, nombre, estado) con un árbol de nodos:
+condiciones con salidas Sí/No y acciones. `POST /workflows/reglas` y `PATCH /workflows/reglas/{id}`
+reciben la lista `nodos` completa (con `id` generado por el cliente) y la sincronizan por UUID.
+`updated_at_base` en el PATCH rechaza con 409 el guardado si la regla cambió desde que se abrió.
+
+Endpoints nuevos: `POST /workflows/reglas/simular` (prueba un borrador contra un evento real sin
+escribir), `GET /workflows/eventos-recientes`, `GET /workflows/reglas/{id}/estadisticas`,
+`GET /workflows/resumen` y los filtros `workflow_rule_id` y `workflow_nodo_id` en
+`GET /workflows/ejecuciones`. Los destinatarios van dentro de cada nodo de acción.
+
+La migración `a7c1e9d4b2f6` convierte las reglas existentes y conserva los ids de las ejecuciones.
+Su `downgrade` falla con un mensaje explícito si hay reglas con ramas, varias acciones, condiciones
+compuestas o nodos dados de baja, en vez de perder datos.

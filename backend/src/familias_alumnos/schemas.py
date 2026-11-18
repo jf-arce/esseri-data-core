@@ -241,6 +241,10 @@ class FiltrosListarAlumnos(BaseModel):
     """Filtros para listar alumnos con búsqueda y filtros específicos."""
 
     buscar: str | None = Field(None, description="Búsqueda por nombre, apellido o DNI")
+    solo_nombre: bool = Field(
+        False,
+        description="La búsqueda mira solo nombre y apellido (no el DNI), palabra por palabra",
+    )
     estado: str | None = Field(None, description="Estado del alumno: activo / inactivo")
     nivel_educativo_id: uuid.UUID | None = Field(None, description="Filtrar por nivel educativo")
     estado_deuda: str | None = Field(
@@ -255,6 +259,10 @@ class FiltrosListarFamilias(BaseModel):
     """Filtros para listar familias con búsqueda y filtros específicos."""
 
     buscar: str | None = Field(None, description="Búsqueda por nombre, apellido o DNI")
+    solo_nombre: bool = Field(
+        False,
+        description="La búsqueda mira solo nombre y apellido (no el DNI), palabra por palabra",
+    )
     estado_deuda: str | None = Field(
         None, description="Estado de deuda: al_dia / con_deuda / en_mora"
     )

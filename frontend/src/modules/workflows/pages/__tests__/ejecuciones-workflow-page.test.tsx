@@ -37,6 +37,7 @@ const ejecucionFallida: EjecucionWorkflow = {
   error_detail: 'La acción no pudo completarse.',
   workflow_rule_id: 'r-1',
   workflow_rule_nombre: 'Aviso de mora',
+  workflow_nodo_id: 'n-1',
   tipo_accion: 'notificar',
   event_log_id: 'ev-1',
   tipo_evento: 'factura.vencida',

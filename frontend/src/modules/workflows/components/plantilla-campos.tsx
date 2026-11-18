@@ -1,3 +1,4 @@
+import { CLASE_SELECT_ADAPTABLE } from '@/modules/workflows/constants'
 import { useState } from 'react'
 import { PencilIcon, PlusIcon } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -59,7 +60,7 @@ export function PlantillaCampos({
           onValueChange={onElegir}
           disabled={deshabilitado || plantillas.cargando}
         >
-          <SelectTrigger id="accion-plantilla">
+          <SelectTrigger id="accion-plantilla" className={CLASE_SELECT_ADAPTABLE}>
             <SelectValue
               placeholder={
                 plantillas.cargando

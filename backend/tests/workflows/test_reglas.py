@@ -13,16 +13,11 @@ from src.workflows.constants import (
 )
 from src.workflows.models import NotificacionTemplate, TipoEvento
 from src.workflows.schemas import CONFIG_POR_ACCION
+from tests.workflows.factories import accion_de, condicion_de, cuerpo_regla
 
 
 def _cuerpo(tipo_evento_id, **extra):
-    return {
-        "nombre": "Avisar mora",
-        "tipo_evento_id": str(tipo_evento_id),
-        "tipo_accion": "notificar",
-        "criticidad": "media",
-        **extra,
-    }
+    return cuerpo_regla(tipo_evento_id, **extra)
 
 
 def test_alta_de_regla_notificar_no_requiere_aprobacion(client_autenticado, tipo_factura_vencida):
@@ -30,9 +25,9 @@ def test_alta_de_regla_notificar_no_requiere_aprobacion(client_autenticado, tipo
 
     assert respuesta.status_code == 201
     regla = respuesta.json()
-    assert regla["requiere_aprobacion_humana"] is False
+    assert accion_de(regla)["requiere_aprobacion_humana"] is False
     assert regla["activo"] is True
-    assert regla["condicion"] == {}
+    assert condicion_de(regla) is None
 
 
 def test_accion_monetaria_requiere_aprobacion_por_defecto(client_autenticado, tipo_factura_vencida):
@@ -41,7 +36,7 @@ def test_accion_monetaria_requiere_aprobacion_por_defecto(client_autenticado, ti
         json=_cuerpo(tipo_factura_vencida.id, tipo_accion="aplicar_penalidad"),
     )
 
-    assert respuesta.json()["requiere_aprobacion_humana"] is True
+    assert accion_de(respuesta.json())["requiere_aprobacion_humana"] is True
 
 
 def test_aprobacion_explicita_pisa_el_default(client_autenticado, tipo_factura_vencida):
@@ -54,7 +49,7 @@ def test_aprobacion_explicita_pisa_el_default(client_autenticado, tipo_factura_v
         ),
     )
 
-    assert respuesta.json()["requiere_aprobacion_humana"] is False
+    assert accion_de(respuesta.json())["requiere_aprobacion_humana"] is False
 
 
 def test_tipo_accion_invalido_es_422(client_autenticado, tipo_factura_vencida):
@@ -124,38 +119,6 @@ def test_patch_da_de_baja_y_audita(client_autenticado, db_session, tipo_factura_
     assert "activo" in campos
 
 
-def test_patch_de_tipo_accion_recalcula_aprobacion(client_autenticado, tipo_factura_vencida):
-    regla_id = client_autenticado.post(
-        "/workflows/reglas", json=_cuerpo(tipo_factura_vencida.id)
-    ).json()["id"]
-
-    respuesta = client_autenticado.patch(
-        f"/workflows/reglas/{regla_id}",
-        json={"tipo_accion": "aplicar_penalidad", "accion_config": {}},
-    )
-
-    assert respuesta.json()["requiere_aprobacion_humana"] is True
-
-
-def test_patch_puede_limpiar_plantilla_pero_no_campos_obligatorios(
-    client_autenticado, db_session, tipo_factura_vencida
-):
-    plantilla = NotificacionTemplate(nombre="Mora", asunto="Aviso", cuerpo="Hola")
-    db_session.add(plantilla)
-    db_session.commit()
-    regla_id = client_autenticado.post(
-        "/workflows/reglas",
-        json=_cuerpo(tipo_factura_vencida.id, notificacion_template_id=str(plantilla.id)),
-    ).json()["id"]
-
-    respuesta = client_autenticado.patch(
-        f"/workflows/reglas/{regla_id}", json={"notificacion_template_id": None, "nombre": None}
-    )
-
-    assert respuesta.json()["notificacion_template_id"] is None
-    assert respuesta.json()["nombre"] == "Avisar mora"
-
-
 def test_regla_inexistente_es_404(client_autenticado):
     assert client_autenticado.get(f"/workflows/reglas/{uuid.uuid4()}").status_code == 404
 
@@ -208,7 +171,7 @@ def test_config_valida_se_guarda_normalizada_con_defaults(client_autenticado, ti
     respuesta = _crear(client_autenticado, tipo_factura_vencida.id, accion_config={})
 
     assert respuesta.status_code == 201
-    assert respuesta.json()["accion_config"] == {
+    assert accion_de(respuesta.json())["accion_config"] == {
         "destinatario": "responsables_habilitados",
         "enlace": None,
     }
@@ -221,9 +184,9 @@ def test_accion_config_nulo_equivale_a_vacio(client_autenticado, tipo_factura_ve
     penalidad = _crear(client_autenticado, tipo_factura_vencida.id, tipo_accion="aplicar_penalidad")
 
     assert sin_config.status_code == 201
-    assert sin_config.json()["accion_config"] == {}
+    assert accion_de(sin_config.json())["accion_config"] == {}
     assert penalidad.status_code == 201
-    assert penalidad.json()["accion_config"] == {"regla_penalidad_id": None}
+    assert accion_de(penalidad.json())["accion_config"] == {"regla_penalidad_id": None}
 
 
 def test_config_con_clave_desconocida_es_422(client_autenticado, tipo_factura_vencida):
@@ -420,36 +383,6 @@ def test_concepto_de_cobro_inactivo_es_422(
     assert respuesta.status_code == 422
 
 
-def test_patch_de_accion_sin_config_compatible_es_422(client_autenticado, tipo_factura_vencida):
-    regla_id = _crear(client_autenticado, tipo_factura_vencida.id, accion_config={}).json()["id"]
-
-    respuesta = client_autenticado.patch(
-        f"/workflows/reglas/{regla_id}", json={"tipo_accion": "aplicar_vencimiento"}
-    )
-
-    assert respuesta.status_code == 422
-
-
-def test_patch_de_config_se_valida_contra_la_accion_actual(
-    client_autenticado, tipo_factura_vencida
-):
-    regla_id = _crear(client_autenticado, tipo_factura_vencida.id).json()["id"]
-
-    mala = client_autenticado.patch(
-        f"/workflows/reglas/{regla_id}", json={"accion_config": {"destinatario": "todos"}}
-    )
-    buena = client_autenticado.patch(
-        f"/workflows/reglas/{regla_id}",
-        json={"accion_config": {"destinatario": "responsable_economico"}},
-    )
-
-    assert mala.status_code == 422
-    assert buena.json()["accion_config"] == {
-        "destinatario": "responsable_economico",
-        "enlace": None,
-    }
-
-
 def test_aplicar_penalidad_valida_la_regla_de_penalidad(
     client_autenticado, db_session, tipo_factura_vencida, regla_penalidad
 ):
@@ -467,7 +400,7 @@ def test_aplicar_penalidad_valida_la_regla_de_penalidad(
     db_session.commit()
     inactiva = alta(regla_penalidad.id)
 
-    assert valida.status_code == 201
+    assert valida.status_code == 201, valida.json()
     assert inexistente.status_code == 422
     assert inactiva.status_code == 422
 
@@ -522,7 +455,10 @@ def test_condicion_valida_se_guarda(client_autenticado, tipo_factura_vencida):
     respuesta = _crear(client_autenticado, tipo_factura_vencida.id, condicion=condicion)
 
     assert respuesta.status_code == 201
-    assert respuesta.json()["condicion"] == condicion
+    assert condicion_de(respuesta.json())["condicion"] == {
+        "logica": "todas",
+        "comparaciones": [condicion],
+    }
 
 
 @pytest.mark.parametrize(
@@ -540,25 +476,6 @@ def test_condicion_valida_se_guarda(client_autenticado, tipo_factura_vencida):
 )
 def test_condicion_invalida_es_422(client_autenticado, tipo_factura_vencida, condicion):
     respuesta = _crear(client_autenticado, tipo_factura_vencida.id, condicion=condicion)
-
-    assert respuesta.status_code == 422
-
-
-def test_cambiar_el_evento_revalida_la_condicion(
-    client_autenticado, db_session, tipo_factura_vencida
-):
-    otro = TipoEvento(nombre="pago.registrado")
-    db_session.add(otro)
-    db_session.commit()
-    regla_id = _crear(
-        client_autenticado,
-        tipo_factura_vencida.id,
-        condicion={"campo": "dias_vencido", "operador": ">", "valor": 30},
-    ).json()["id"]
-
-    respuesta = client_autenticado.patch(
-        f"/workflows/reglas/{regla_id}", json={"tipo_evento_id": str(otro.id)}
-    )
 
     assert respuesta.status_code == 422
 
@@ -587,14 +504,12 @@ def test_tipos_accion_requiere_sesion(client):
 def _crear_con_config(client, tipo, tipo_accion, accion_config):
     return client.post(
         "/workflows/reglas",
-        json={
-            "nombre": f"Regla {tipo_accion} con enlace",
-            "condicion": {},
-            "tipo_accion": tipo_accion,
-            "accion_config": accion_config,
-            "criticidad": "media",
-            "tipo_evento_id": str(tipo.id),
-        },
+        json=cuerpo_regla(
+            tipo.id,
+            nombre=f"Regla {tipo_accion} con enlace",
+            tipo_accion=tipo_accion,
+            accion_config=accion_config,
+        ),
     )
 
 
@@ -607,7 +522,7 @@ def test_acepta_enlaces_de_la_allowlist(client_autenticado, tipo_factura_vencida
     respuesta = _crear_con_config(client_autenticado, tipo_factura_vencida, tipo_accion, config)
 
     assert respuesta.status_code == 201, respuesta.text
-    assert respuesta.json()["accion_config"]["enlace"] == "tareas"
+    assert accion_de(respuesta.json())["accion_config"]["enlace"] == "tareas"
 
 
 @pytest.mark.parametrize("enlace", ["https://evil.com", "/familia/facturacion", "inexistente"])

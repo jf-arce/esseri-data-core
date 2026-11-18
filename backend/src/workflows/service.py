@@ -1,28 +1,35 @@
-"""Lógica de negocio del motor de Workflows: ABM de reglas y su validación contra la allowlist.
+"""Catálogos del motor de Workflows y validación de condiciones y acciones contra la allowlist.
 
-La emisión de eventos vive en `eventos_service.py` (ver el motivo ahí) y el despacho de eventos
-pendientes en `despacho_service.py`."""
+El ABM de reglas vive en `reglas_service.py`, el árbol de nodos en `arbol_service.py`, la emisión de
+eventos en `eventos_service.py` (ver el motivo ahí) y el despacho en `despacho_service.py`."""
 
 import uuid
 from collections import defaultdict
+from collections.abc import Callable
 from typing import get_args
 
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.auditoria.service import log_audit
-from src.facturacion.models import ConceptoCobro, ReglaPenalidad
-from src.workflows import destinatarios_service, plantillas_service
+from src.academico.models import MotivoJustificacion, NivelEducativo
+from src.facturacion.models import ConceptoCobro, MetodoPago, ReglaPenalidad
+from src.proveedores_compras.models import Proveedor
+from src.workflows import plantillas_service
 from src.workflows.constants import (
     ACCIONES_CON_APROBACION_POR_DEFECTO,
     ACCIONES_CON_PLANTILLA,
+    ACCIONES_NO_IMPLEMENTADAS,
+    BUSQUEDA_POR_CAMPO,
     CAMBIOS_ESTADO_PERMITIDOS,
+    CAMPOS_CON_OPCIONES_DE_TABLA,
     DESTINATARIOS_FAMILIARES,
     ENTIDAD_POR_EVENTO,
     ENTIDADES_CON_ALUMNO,
     ENTIDADES_CON_SOLICITANTE,
     EVENTOS_POR_ACCION,
+    OPCIONES_POR_CAMPO,
+    OPERADORES_CON_OPCIONES,
     OPERADORES_POR_TIPO_DATO,
     TipoAccion,
 )
@@ -30,16 +37,12 @@ from src.workflows.eventos_service import coaccionar_valor
 from src.workflows.exceptions import (
     AccionConfigInvalida,
     CondicionInvalida,
-    DestinatariosInvalidos,
     PlantillaNoEncontrada,
-    ReglaNoEncontrada,
-    TipoEventoNoEncontrado,
 )
 from src.workflows.models import (
     CampoEvento,
     NotificacionTemplate,
     TipoEvento,
-    WorkflowRule,
 )
 from src.workflows.schemas import (
     CONFIG_POR_ACCION,
@@ -52,21 +55,50 @@ from src.workflows.schemas import (
     ConfigEscalarCaso,
     ConfigGenerarCargo,
     ConfigNotificar,
+    GrupoCondicion,
+    OpcionCampoRead,
     TipoAccionRead,
     TipoEventoRead,
-    WorkflowRuleCreate,
-    WorkflowRuleUpdate,
 )
 
-# --- Reglas de workflow (RF-22) -----------------------------------------------------------
 
-# Campos de `WorkflowRule` que admiten NULL: en una edición, `None` explícito los limpia. Para el
-# resto, `None` significa "no cambiar".
-_CAMPOS_NULLABLES_REGLA = frozenset({"accion_config", "notificacion_template_id"})
-# Campos cuyo cambio obliga a revalidar la regla completa contra la allowlist.
-_CAMPOS_QUE_REVALIDAN_REGLA = frozenset(
-    {"tipo_evento_id", "tipo_accion", "condicion", "accion_config", "notificacion_template_id"}
-)
+def opciones_de_campos(db: Session, tipo_evento_nombre: str) -> dict[str, list[OpcionCampoRead]]:
+    """Valores cerrados de los campos del evento (`nombre_interno -> opciones`). Los campos libres
+    no aparecen."""
+    opciones: dict[str, list[OpcionCampoRead]] = {
+        campo: [OpcionCampoRead(valor=v, etiqueta=e) for v, e in valores]
+        for (evento, campo), valores in OPCIONES_POR_CAMPO.items()
+        if evento == tipo_evento_nombre
+    }
+    for (evento, campo), tabla in CAMPOS_CON_OPCIONES_DE_TABLA.items():
+        if evento != tipo_evento_nombre:
+            continue
+        if tabla == "metodo_pago":
+            consulta = (
+                select(MetodoPago.nombre).where(MetodoPago.activo).order_by(MetodoPago.nombre)
+            )
+        elif tabla == "proveedor":
+            consulta = (
+                select(Proveedor.nombre)
+                .where(Proveedor.estado == "activo")
+                .order_by(Proveedor.nombre)
+            )
+        elif tabla == "motivo_justificacion":
+            consulta = (
+                select(MotivoJustificacion.nombre)
+                .where(MotivoJustificacion.activo)
+                .order_by(MotivoJustificacion.nombre)
+            )
+        else:
+            consulta = select(NivelEducativo.nombre).order_by(NivelEducativo.nombre)
+        nombres = db.scalars(consulta)
+        opciones[campo] = [OpcionCampoRead(valor=n, etiqueta=n) for n in nombres]
+    return opciones
+
+
+def _permite_otro(tipo_evento_nombre: str, campo: str) -> bool:
+    config = BUSQUEDA_POR_CAMPO.get((tipo_evento_nombre, campo))
+    return config is not None and config[1]
 
 
 def listar_tipos_evento(db: Session) -> list[TipoEventoRead]:
@@ -74,187 +106,49 @@ def listar_tipos_evento(db: Session) -> list[TipoEventoRead]:
     for campo in db.scalars(select(CampoEvento).order_by(CampoEvento.nombre_interno)):
         campos_por_tipo[campo.tipo_evento_id].append(campo)
     tipos = db.scalars(select(TipoEvento).order_by(TipoEvento.nombre))
-    return [
-        TipoEventoRead(
-            id=tipo.id,
-            nombre=tipo.nombre,
-            descripcion=tipo.descripcion,
-            campos=[CampoEventoRead.model_validate(c) for c in campos_por_tipo[tipo.id]],
+    resultado: list[TipoEventoRead] = []
+    for tipo in tipos:
+        opciones = opciones_de_campos(db, tipo.nombre)
+        campos = [
+            CampoEventoRead(
+                id=c.id,
+                nombre_interno=c.nombre_interno,
+                etiqueta=c.etiqueta,
+                tipo_dato=c.tipo_dato,
+                opciones=opciones.get(c.nombre_interno),
+                busqueda=(tipo.nombre, c.nombre_interno) in BUSQUEDA_POR_CAMPO,
+                permite_otro=BUSQUEDA_POR_CAMPO.get((tipo.nombre, c.nombre_interno), (None, False))[
+                    1
+                ],
+            )
+            for c in campos_por_tipo[tipo.id]
+        ]
+        resultado.append(
+            TipoEventoRead(
+                id=tipo.id, nombre=tipo.nombre, descripcion=tipo.descripcion, campos=campos
+            )
         )
-        for tipo in tipos
-    ]
+    return resultado
 
 
 def listar_tipos_accion() -> list[TipoAccionRead]:
     return [
         TipoAccionRead(
             tipo_accion=tipo,
-            requiere_aprobacion_por_defecto=_aprobacion_por_defecto(tipo),
+            requiere_aprobacion_por_defecto=aprobacion_por_defecto(tipo),
             eventos_permitidos=(
                 None if EVENTOS_POR_ACCION[tipo] is None else sorted(EVENTOS_POR_ACCION[tipo])
             ),
             admite_plantilla=tipo in ACCIONES_CON_PLANTILLA,
+            implementada=tipo not in ACCIONES_NO_IMPLEMENTADAS,
             config_schema=CONFIG_POR_ACCION[tipo].model_json_schema(),
         )
         for tipo in get_args(TipoAccion)
     ]
 
 
-def listar_reglas(
-    db: Session, tipo_evento_id: uuid.UUID | None = None, activo: bool | None = None
-) -> list[WorkflowRule]:
-    consulta = select(WorkflowRule).order_by(WorkflowRule.nombre)
-    if tipo_evento_id is not None:
-        consulta = consulta.where(WorkflowRule.tipo_evento_id == tipo_evento_id)
-    if activo is not None:
-        consulta = consulta.where(WorkflowRule.activo.is_(activo))
-    return list(db.scalars(consulta))
-
-
-def obtener_regla(db: Session, regla_id: uuid.UUID) -> WorkflowRule | None:
-    return db.get(WorkflowRule, regla_id)
-
-
-def crear_regla(
-    db: Session, datos: WorkflowRuleCreate, usuario_id: uuid.UUID | None = None
-) -> WorkflowRule:
-    _validar_referencias(db, datos.tipo_evento_id, datos.notificacion_template_id)
-
-    valores = datos.model_dump()
-    valores["accion_config"] = _validar_regla(
-        db,
-        datos.tipo_evento_id,
-        datos.tipo_accion,
-        datos.condicion,
-        datos.accion_config,
-        datos.notificacion_template_id,
-    )
-    if valores["requiere_aprobacion_humana"] is None:
-        valores["requiere_aprobacion_humana"] = _aprobacion_por_defecto(datos.tipo_accion)
-    regla = WorkflowRule(**valores)
-    db.add(regla)
-    db.flush()
-    log_audit(
-        db,
-        entidad="WORKFLOW_RULE",
-        entidad_id=regla.id,
-        campo="__alta__",
-        valor_anterior=None,
-        valor_nuevo=regla.nombre,
-        usuario_id=usuario_id,
-    )
-    db.commit()
-    db.refresh(regla)
-    return regla
-
-
-def actualizar_regla(
-    db: Session,
-    regla: WorkflowRule,
-    datos: WorkflowRuleUpdate,
-    usuario_id: uuid.UUID | None = None,
-) -> WorkflowRule:
-    regla_bloqueada = db.scalar(
-        select(WorkflowRule).where(WorkflowRule.id == regla.id).with_for_update()
-    )
-    if regla_bloqueada is None:
-        raise ReglaNoEncontrada()
-    regla = regla_bloqueada
-    cambios = {
-        campo: valor
-        for campo, valor in datos.model_dump(exclude_unset=True).items()
-        if valor is not None or campo in _CAMPOS_NULLABLES_REGLA
-    }
-    if cambios.keys() & _CAMPOS_QUE_REVALIDAN_REGLA:
-        plantilla_final = (
-            cambios["notificacion_template_id"]
-            if "notificacion_template_id" in cambios
-            else regla.notificacion_template_id
-        )
-        _validar_referencias(db, cambios.get("tipo_evento_id"), plantilla_final)
-        # Se valida el estado final (regla actual + cambios), no solo lo que llegó en el PATCH.
-        # Los campos nullables solo están en `cambios` si llegaron explícitos (incluso en null).
-        cambios["accion_config"] = _validar_regla(
-            db,
-            cambios.get("tipo_evento_id", regla.tipo_evento_id),
-            cambios.get("tipo_accion", regla.tipo_accion),
-            cambios.get("condicion", regla.condicion),
-            cambios["accion_config"] if "accion_config" in cambios else regla.accion_config,
-            plantilla_final,
-        )
-        if destinatarios_service.regla_tiene_destinatarios(
-            db, regla.id
-        ) and not destinatarios_service.config_admite_destinatarios(
-            cambios.get("tipo_accion", regla.tipo_accion), cambios["accion_config"]
-        ):
-            raise DestinatariosInvalidos(
-                "La configuración nueva no admite destinatarios; vacialos antes de editar la regla."
-            )
-    # Al cambiar de acción sin decidir la aprobación, la regla adopta el default de la nueva.
-    if "tipo_accion" in cambios and "requiere_aprobacion_humana" not in cambios:
-        cambios["requiere_aprobacion_humana"] = _aprobacion_por_defecto(cambios["tipo_accion"])
-
-    anteriores = {campo: getattr(regla, campo) for campo in cambios}
-    for campo, valor in cambios.items():
-        setattr(regla, campo, valor)
-    for campo, valor in cambios.items():
-        if anteriores[campo] == valor:
-            continue
-        log_audit(
-            db,
-            entidad="WORKFLOW_RULE",
-            entidad_id=regla.id,
-            campo=campo,
-            valor_anterior=_como_texto(anteriores[campo]),
-            valor_nuevo=_como_texto(valor),
-            usuario_id=usuario_id,
-        )
-    db.commit()
-    db.refresh(regla)
-    return regla
-
-
-def _aprobacion_por_defecto(tipo_accion: str) -> bool:
+def aprobacion_por_defecto(tipo_accion: str) -> bool:
     return tipo_accion in ACCIONES_CON_APROBACION_POR_DEFECTO
-
-
-def _como_texto(valor: object) -> str | None:
-    return None if valor is None else str(valor)
-
-
-def _validar_referencias(
-    db: Session, tipo_evento_id: uuid.UUID | None, notificacion_template_id: uuid.UUID | None
-) -> None:
-    if tipo_evento_id is not None and db.get(TipoEvento, tipo_evento_id) is None:
-        raise TipoEventoNoEncontrado()
-    if notificacion_template_id is not None:
-        plantilla = db.scalar(
-            select(NotificacionTemplate)
-            .where(NotificacionTemplate.id == notificacion_template_id)
-            .with_for_update()
-        )
-        if plantilla is None:
-            raise PlantillaNoEncontrada()
-
-
-def _validar_regla(
-    db: Session,
-    tipo_evento_id: uuid.UUID,
-    tipo_accion: str,
-    condicion: dict[str, object],
-    accion_config: dict[str, object] | None,
-    notificacion_template_id: uuid.UUID | None,
-) -> dict[str, object]:
-    """Valida condición y acción contra la allowlist. Devuelve el `accion_config` normalizado
-    (con los defaults completos) que se guarda en la regla."""
-    tipo_evento = db.get(TipoEvento, tipo_evento_id)
-    if tipo_evento is None:
-        raise TipoEventoNoEncontrado()
-    campos = tipos_de_campos(db, tipo_evento.id)
-    validar_condicion(condicion, campos)
-    return validar_accion(
-        db, tipo_accion, accion_config, tipo_evento.nombre, campos, notificacion_template_id
-    )
 
 
 def tipos_de_campos(db: Session, tipo_evento_id: uuid.UUID) -> dict[str, str]:
@@ -276,29 +170,65 @@ def _resumen_errores(error: ValidationError) -> str:
     )
 
 
-def validar_condicion(condicion: dict[str, object], campos: dict[str, str]) -> Condicion | None:
-    """Valida la condición contra los campos del evento. Sin condición devuelve `None`."""
-    if not condicion:
-        return None
+def validar_condicion(
+    condicion: dict[str, object],
+    campos: dict[str, str],
+    opciones: dict[str, list[OpcionCampoRead]] | None = None,
+    verificadores: dict[str, Callable[[str], bool]] | None = None,
+) -> GrupoCondicion:
+    """Valida el grupo de comparaciones contra los campos del evento. Con `opciones` (al guardar
+    una regla) también exige que los campos enumerados usen un valor de su lista; al evaluar un
+    evento no se pasa, para que una opción dada de baja después no rompa reglas ya guardadas."""
     try:
-        parseada = Condicion.model_validate(condicion)
+        grupo = GrupoCondicion.model_validate(condicion)
     except ValidationError as error:
         raise CondicionInvalida(f"Condición inválida: {_resumen_errores(error)}") from error
-    tipo_dato = campos.get(parseada.campo)
+    for comparacion in grupo.comparaciones:
+        _validar_comparacion(comparacion, campos, opciones or {}, verificadores or {})
+    return grupo
+
+
+def _validar_comparacion(
+    comparacion: Condicion,
+    campos: dict[str, str],
+    opciones: dict[str, list[OpcionCampoRead]],
+    verificadores: dict[str, Callable[[str], bool]],
+) -> None:
+    tipo_dato = campos.get(comparacion.campo)
     if tipo_dato is None:
         disponibles = ", ".join(sorted(campos)) or "ninguno"
         raise CondicionInvalida(
-            f"El campo '{parseada.campo}' no existe en este evento. Disponibles: {disponibles}."
+            f"El campo '{comparacion.campo}' no existe en este evento. Disponibles: {disponibles}."
         )
-    if parseada.operador not in OPERADORES_POR_TIPO_DATO[tipo_dato]:
+    if comparacion.operador not in OPERADORES_POR_TIPO_DATO[tipo_dato]:
         raise CondicionInvalida(
-            f"El operador '{parseada.operador}' no aplica a '{parseada.campo}' ({tipo_dato})."
+            f"El operador '{comparacion.operador}' no aplica a '{comparacion.campo}' ({tipo_dato})."
         )
+    validas = opciones.get(comparacion.campo)
+    if validas is not None:
+        if comparacion.operador not in OPERADORES_CON_OPCIONES:
+            raise CondicionInvalida(
+                f"'{comparacion.campo}' tiene valores fijos: solo admite 'es' o 'no es'."
+            )
+        if comparacion.valor not in {o.valor for o in validas}:
+            raise CondicionInvalida(
+                f"'{comparacion.valor}' no es un valor válido para '{comparacion.campo}'. "
+                f"Opciones: {', '.join(o.valor for o in validas) or 'ninguna'}."
+            )
+    existe = verificadores.get(comparacion.campo)
+    if existe is not None:
+        if comparacion.operador not in OPERADORES_CON_OPCIONES:
+            raise CondicionInvalida(
+                f"'{comparacion.campo}' se elige de una lista: solo admite 'es' o 'no es'."
+            )
+        if not isinstance(comparacion.valor, str) or not existe(comparacion.valor):
+            raise CondicionInvalida(
+                f"'{comparacion.valor}' no coincide con ningún valor de '{comparacion.campo}'."
+            )
     try:
-        coaccionar_valor(tipo_dato, parseada.valor)
+        coaccionar_valor(tipo_dato, comparacion.valor)
     except ValueError as error:
-        raise CondicionInvalida(f"Valor inválido para '{parseada.campo}': {error}") from error
-    return parseada
+        raise CondicionInvalida(f"Valor inválido para '{comparacion.campo}': {error}") from error
 
 
 def validar_accion(

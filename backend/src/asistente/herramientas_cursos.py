@@ -3,6 +3,8 @@
 Las personas salen como alias (`[ALUMNO:n]`, `[DOCENTE:n]`): el proveedor no ve nombres.
 """
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -21,8 +23,11 @@ from src.academico.models import (
 from src.asistente.constants import TIPO_ALIAS_ALUMNO, TIPO_ALIAS_DOCENTE
 from src.asistente.herramientas_base import (
     ContextoHerramienta,
+    FormaGrafico,
     Herramienta,
     ResultadoHerramienta,
+    agregar_grafico,
+    agregar_tabla,
     bloque_tabla,
 )
 from src.asistente.seudonimos_service import obtener_o_crear_alias
@@ -48,7 +53,7 @@ class ParametrosCurso(BaseModel):
     )
 
 
-def _divisiones(db: Session, parametros: ParametrosCurso) -> list[Division]:
+def divisiones_del_filtro(db: Session, parametros: ParametrosCurso) -> list[Division]:
     """Divisiones que cumplen el filtro, ordenadas por nivel, año y nombre."""
     consulta = (
         select(Division)
@@ -77,7 +82,7 @@ def _divisiones(db: Session, parametros: ParametrosCurso) -> list[Division]:
     ]
 
 
-def _filtros_academico(divisiones: list[Division]) -> dict[str, str]:
+def filtros_academico(divisiones: list[Division]) -> dict[str, str]:
     """Nivel, año y división con los que abrir Académico, solo los que son únicos en la consulta."""
     filtros: dict[str, str] = {}
     niveles = {d.anio.nivel_educativo_id for d in divisiones}
@@ -91,10 +96,16 @@ def _filtros_academico(divisiones: list[Division]) -> dict[str, str]:
     return filtros
 
 
-def _sin_curso(
+def sin_curso(
     mensaje: str = "No hay un curso que coincida con ese filtro.",
 ) -> ResultadoHerramienta:
     return ResultadoHerramienta(para_llm={"error": mensaje})
+
+
+def _con_tabla(tabla: dict[str, Any]) -> list[dict[str, Any]]:
+    bloques: list[dict[str, Any]] = []
+    agregar_tabla(bloques, tabla)
+    return bloques
 
 
 class ParametrosEstructura(ParametrosCurso):
@@ -103,13 +114,20 @@ class ParametrosEstructura(ParametrosCurso):
     )
 
 
+class ParametrosEstructuraAcademica(ParametrosEstructura):
+    grafico: FormaGrafico | None = Field(
+        default=None,
+        description="Verlo como gráfico: para comparar 3 o más categorías o ver una evolución.",
+    )
+
+
 def _estructura_academica(
-    contexto: ContextoHerramienta, parametros: ParametrosEstructura
+    contexto: ContextoHerramienta, parametros: ParametrosEstructuraAcademica
 ) -> ResultadoHerramienta:
     ciclo = parametros.ciclo_lectivo or contexto.ciclo_lectivo
-    divisiones = _divisiones(contexto.db, parametros)
+    divisiones = divisiones_del_filtro(contexto.db, parametros)
     if not divisiones:
-        return _sin_curso()
+        return sin_curso()
     ids = [d.id for d in divisiones]
     alumnos = dict(
         contexto.db.execute(
@@ -152,6 +170,8 @@ def _estructura_academica(
         periodo=periodo,
         fuente=fuente,
     )
+    bloques = _con_tabla(tabla)
+    agregar_grafico(bloques, tabla, parametros.grafico, eje_x="curso", series=["alumnos"])
     return ResultadoHerramienta(
         para_llm={
             "periodo": periodo,
@@ -161,8 +181,8 @@ def _estructura_academica(
             "total_alumnos": sum(f["alumnos"] for f in filas),
             "truncado": len(divisiones) > _MAX_FILAS,
         },
-        bloques=[tabla],
-        filtros_destino=_filtros_academico(divisiones),
+        bloques=bloques,
+        filtros_destino=filtros_academico(divisiones),
     )
 
 
@@ -176,14 +196,14 @@ def _horario_del_curso(
     contexto: ContextoHerramienta, parametros: ParametrosHorario
 ) -> ResultadoHerramienta:
     if parametros.nivel is None and parametros.anio is None:
-        return _sin_curso("Indicá al menos el nivel o el año.")
+        return sin_curso("Indicá al menos el nivel o el año.")
     dia = None
     if parametros.dia is not None:
         dia = _NUMERO_DE_DIA.get(normalizar_texto_busqueda(parametros.dia))
         if dia is None:
-            return _sin_curso("Día inválido: usá lunes a domingo.")
+            return sin_curso("Día inválido: usá lunes a domingo.")
 
-    divisiones = {d.id: d for d in _divisiones(contexto.db, parametros)}
+    divisiones = {d.id: d for d in divisiones_del_filtro(contexto.db, parametros)}
     consulta = (
         select(
             MateriaCurso.division_id,
@@ -206,7 +226,7 @@ def _horario_del_curso(
         key=lambda f: (f[0], f[1], f[2]),
     )
     if not franjas:
-        return _sin_curso("No hay horarios cargados para ese curso o día.")
+        return sin_curso("No hay horarios cargados para ese curso o día.")
 
     filas = [
         {
@@ -234,8 +254,8 @@ def _horario_del_curso(
     )
     return ResultadoHerramienta(
         para_llm={"fuente": fuente, "franjas": filas, "truncado": len(franjas) > _MAX_FILAS},
-        bloques=[tabla],
-        filtros_destino=_filtros_academico(list(divisiones.values())),
+        bloques=_con_tabla(tabla),
+        filtros_destino=filtros_academico(list(divisiones.values())),
     )
 
 
@@ -247,11 +267,11 @@ def _alumnos_del_curso(
     contexto: ContextoHerramienta, parametros: ParametrosAlumnosDelCurso
 ) -> ResultadoHerramienta:
     if parametros.nivel is None and parametros.anio is None:
-        return _sin_curso("Indicá al menos el nivel o el año.")
+        return sin_curso("Indicá al menos el nivel o el año.")
     ciclo = parametros.ciclo_lectivo or contexto.ciclo_lectivo
-    divisiones = {d.id: d for d in _divisiones(contexto.db, parametros)}
+    divisiones = {d.id: d for d in divisiones_del_filtro(contexto.db, parametros)}
     if not divisiones:
-        return _sin_curso()
+        return sin_curso()
     consulta = (
         select(Inscripcion.division_id, Inscripcion.alumno_id)
         .join(Alumno, Alumno.id == Inscripcion.alumno_id)
@@ -265,7 +285,7 @@ def _alumnos_del_curso(
     )
     inscriptos = contexto.db.execute(consulta).all()
     if not inscriptos:
-        return _sin_curso("No hay alumnos inscriptos activos en ese curso.")
+        return sin_curso("No hay alumnos inscriptos activos en ese curso.")
 
     tope = min(_MAX_FILAS, contexto.max_filas * 3)
     filas = [
@@ -297,8 +317,8 @@ def _alumnos_del_curso(
             "alumnos": filas,
             "truncado": len(inscriptos) > tope,
         },
-        bloques=[tabla],
-        filtros_destino=_filtros_academico(list(divisiones.values())),
+        bloques=_con_tabla(tabla),
+        filtros_destino=filtros_academico(list(divisiones.values())),
     )
 
 
@@ -316,16 +336,16 @@ def _docentes_del_curso(
     contexto: ContextoHerramienta, parametros: ParametrosDocentesDelCurso
 ) -> ResultadoHerramienta:
     if parametros.nivel is None and parametros.anio is None and parametros.materia is None:
-        return _sin_curso("Indicá al menos el nivel, el año o la materia.")
+        return sin_curso("Indicá al menos el nivel, el año o la materia.")
     ciclo = parametros.ciclo_lectivo or contexto.ciclo_lectivo
     dia = None
     if parametros.dia is not None:
         dia = _NUMERO_DE_DIA.get(normalizar_texto_busqueda(parametros.dia))
         if dia is None:
-            return _sin_curso("Día inválido: usá lunes a domingo.")
-    divisiones = {d.id: d for d in _divisiones(contexto.db, parametros)}
+            return sin_curso("Día inválido: usá lunes a domingo.")
+    divisiones = {d.id: d for d in divisiones_del_filtro(contexto.db, parametros)}
     if not divisiones:
-        return _sin_curso()
+        return sin_curso()
     consulta = (
         select(MateriaCurso.division_id, Materia.nombre, Docente.id)
         .select_from(AsignacionDocente)
@@ -352,7 +372,7 @@ def _docentes_del_curso(
         )
     asignaciones = contexto.db.execute(consulta).all()
     if not asignaciones:
-        return _sin_curso("No hay docentes asignados a ese curso o materia.")
+        return sin_curso("No hay docentes asignados a ese curso o materia.")
 
     filas = [
         {
@@ -384,7 +404,7 @@ def _docentes_del_curso(
             "docentes": filas,
             "truncado": len(asignaciones) > _MAX_FILAS,
         },
-        bloques=[tabla],
+        bloques=_con_tabla(tabla),
     )
 
 
@@ -393,9 +413,10 @@ HERRAMIENTAS = [
         nombre="estructura_academica",
         descripcion=(
             "Niveles, años y divisiones (cursos) con la cantidad de alumnos inscriptos y de "
-            "materias de cada uno. Sin nombres de personas."
+            "materias de cada uno. Sin nombres de personas. Para la asistencia de un curso usá "
+            "asistencia_por_curso."
         ),
-        parametros=ParametrosEstructura,
+        parametros=ParametrosEstructuraAcademica,
         permisos=(PERMISO_ACADEMICO_LEER,),
         ejecutar=_estructura_academica,
         destino="academico",

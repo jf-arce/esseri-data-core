@@ -20,8 +20,9 @@ from src.auth.models import Usuario
 from src.models import EventLog
 from src.workflows import despacho_service
 from src.workflows.eventos_service import emit_event
-from src.workflows.models import NotificacionTemplate, WorkflowExecution, WorkflowRule
+from src.workflows.models import NotificacionTemplate, WorkflowExecution, WorkflowNodo, WorkflowRule
 from tests.workflows.conftest import _ahora, _asistencia
+from tests.workflows.factories import ReglaSimple
 
 
 @pytest.fixture(autouse=True)
@@ -41,7 +42,7 @@ def demo(db_session, tipos_inasistencia, seed_demo):
     db_session.commit()
     seed_demo._ensure_reglas_inasistencia(db_session, usuario)
     # Las reglas son "de antes" que los eventos de la prueba.
-    for regla in db_session.scalars(select(WorkflowRule)):
+    for regla in db_session.scalars(select(WorkflowNodo)):
         regla.created_at = _ahora(db_session) - timedelta(days=60)
     db_session.commit()
     return usuario
@@ -75,7 +76,10 @@ def _asuntos(envios):
 def test_el_seed_crea_las_plantillas_y_las_cinco_reglas_sin_duplicar(db_session, demo, seed_demo):
     seed_demo._ensure_reglas_inasistencia(db_session, demo)
 
-    reglas = {r.nombre: r for r in db_session.scalars(select(WorkflowRule))}
+    reglas = {
+        r.nombre: ReglaSimple.desde_base(db_session, r)
+        for r in db_session.scalars(select(WorkflowRule))
+    }
     assert sorted(reglas) == [
         "Inasistencia justificada: avisar a la familia",
         "Inasistencia sin justificar: recordatorio",
