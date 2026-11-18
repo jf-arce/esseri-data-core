@@ -84,10 +84,10 @@ describe('PortalFamiliaCalendarioPage', () => {
     const grilla = within(screen.getByTestId('calendario-grilla'))
     expect(grilla.getByText('Matemática')).toBeInTheDocument()
     expect(grilla.getAllByText('08:00 – 09:00').length).toBeGreaterThan(0)
-    expect(grilla.getByText('Profesor: María González')).toBeInTheDocument()
+    expect(grilla.queryByText(/Profesor/)).not.toBeInTheDocument()
   })
 
-  it('muestra el docente en cada bloque del horario', () => {
+  it('muestra el docente solo en el detalle de clase', () => {
     mockedUseHorarioFamilia.mockReturnValue({
       materiasCurso: [
         crearMateria(),
@@ -107,12 +107,12 @@ describe('PortalFamiliaCalendarioPage', () => {
     renderizar()
 
     const grilla = within(screen.getByTestId('calendario-grilla'))
-    expect(grilla.getByText('Profesor: María González')).toBeInTheDocument()
-    expect(grilla.getByText('Profesor: Laura Díaz')).toBeInTheDocument()
+    expect(grilla.queryByText(/Profesor/)).not.toBeInTheDocument()
     expect(grilla.getAllByText('09:00 – 10:00').length).toBeGreaterThan(0)
     expect(screen.getByText('Detalle de clase')).toBeInTheDocument()
     expect(screen.getByText('Día')).toBeInTheDocument()
     expect(screen.getByText('Docente')).toBeInTheDocument()
+    expect(screen.getAllByText('María González').length).toBeGreaterThan(0)
   })
 
   it('permite recorrer los días en la agenda compacta', async () => {

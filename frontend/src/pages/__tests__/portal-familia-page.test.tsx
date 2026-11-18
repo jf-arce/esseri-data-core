@@ -320,7 +320,7 @@ describe('PortalFamiliaPage', () => {
 
     const fondo = document.querySelector('[data-slot="portal-familia-background"]')
     expect(fondo).toBeInTheDocument()
-    expect(fondo?.getAttribute('style')).toContain('rgb(250, 249, 252)')
+    expect(fondo?.getAttribute('style')).toContain('var(--pf-canvas)')
 
     const inicio = screen.getByRole('link', { name: 'Inicio' })
     expect(inicio).toHaveAttribute('aria-current', 'page')

@@ -149,6 +149,7 @@ from src.academico.service import (
     eliminar_docente,
     eliminar_materia,
     eliminar_materia_curso,
+    exportar_horario_de_familia,
     generar_csv_reporte_asistencias,
     generar_pdf_reporte_asistencias,
     generar_xlsx_reporte_asistencias,
@@ -944,6 +945,24 @@ def listar_horario_familia(
 ) -> list[MateriaCursoResponse]:
     """Horario semanal del curso activo del alumno, limitado a la familia autenticada."""
     return horario_de_familia(db, usuario, alumno_id)
+
+
+@router.get("/familia/alumnos/{alumno_id}/horario/exportar")
+def exportar_horario_familia_endpoint(
+    alumno_id: uuid.UUID,
+    usuario: UsuarioAutenticado,
+    ciclo_lectivo: str | None = None,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Response:
+    """Excel del horario del curso activo del alumno, limitado a la familia autenticada."""
+    contenido, nombre = exportar_horario_de_familia(
+        db, usuario, alumno_id, ciclo_lectivo or str(date.today().year)
+    )
+    return Response(
+        content=contenido,
+        media_type=_MEDIA_TYPE_POR_FORMATO["xlsx"],
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
+    )
 
 
 @router.get(

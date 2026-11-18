@@ -44,66 +44,6 @@ type NavegacionDetalle = {
   total: number
 }
 
-function IlustracionSobre() {
-  return (
-    <svg viewBox="0 0 360 230" fill="none" aria-hidden="true" className="h-auto w-full">
-      <defs>
-        <linearGradient
-          id="portal-familia-detalle-sobre"
-          x1="108"
-          y1="104"
-          x2="268"
-          y2="210"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor="#A855F7" />
-          <stop offset="1" stopColor="#7A2FA8" />
-        </linearGradient>
-        <linearGradient
-          id="portal-familia-detalle-carta"
-          x1="150"
-          y1="58"
-          x2="226"
-          y2="158"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor="#FFFFFF" />
-          <stop offset="1" stopColor="#F3E8FB" />
-        </linearGradient>
-      </defs>
-      <g stroke="#A855F7" strokeWidth="3" strokeLinecap="round">
-        <path d="M88 66 74 54" />
-        <path d="M72 90 54 88" />
-        <path d="M96 48 90 32" />
-        <path d="M118 42l8-14" />
-      </g>
-      <circle cx="70" cy="58" r="4" fill="#C084FC" />
-      <circle cx="102" cy="32" r="3" fill="#C084FC" />
-      <path
-        d="M108 104h160v92a14 14 0 0 1-14 14H122a14 14 0 0 1-14-14v-92Z"
-        fill="url(#portal-familia-detalle-sobre)"
-      />
-      <path d="m108 104 80 58 80-58" fill="#8B3FC0" />
-      <path d="m108 210 62-54 18 14 18-14 62 54" fill="#6E2A8D" opacity=".75" />
-      <g transform="rotate(-4 190 116)">
-        <rect
-          x="134"
-          y="58"
-          width="112"
-          height="100"
-          rx="8"
-          fill="url(#portal-familia-detalle-carta)"
-        />
-        <rect x="152" y="78" width="76" height="5" rx="2.5" fill="#D8B4FE" />
-        <rect x="152" y="94" width="62" height="5" rx="2.5" fill="#E9D5FF" />
-        <rect x="152" y="110" width="70" height="5" rx="2.5" fill="#E9D5FF" />
-        <rect x="152" y="126" width="46" height="5" rx="2.5" fill="#F3E8FB" />
-      </g>
-      <path d="m108 104 80 58 80-58-80-48-80 48Z" stroke="#C084FC" strokeWidth="2" opacity=".7" />
-    </svg>
-  )
-}
-
 export function ComunicacionDetallePage({
   familia = false,
   docente = false,
@@ -306,21 +246,18 @@ export function ComunicacionDetallePage({
             <article className="relative overflow-hidden rounded-[28px] bg-white shadow-[0_28px_70px_rgba(70,32,110,0.12)]">
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0"
-                style={{
-                  background:
-                    'radial-gradient(ellipse 55% 65% at 88% 18%, #F0E5FB 0%, rgba(240,229,251,0) 65%)',
-                }}
-              />
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute top-4 right-4 hidden w-[300px] lg:block xl:w-[340px]"
+                className="pointer-events-none absolute top-6 right-6 hidden w-[120px] lg:block"
               >
-                <IlustracionSobre />
+                <img
+                  data-slot="portal-familia-detalle-logo"
+                  src="/esseri-icon.png"
+                  alt=""
+                  className="h-auto w-full"
+                />
               </div>
 
               <div className="relative z-10 p-6 sm:p-10">
-                <div className="lg:pr-[320px] xl:pr-[360px]">
+                <div className="lg:pr-[200px]">
                   <span className="inline-flex items-center gap-2 rounded-full bg-[#F1E4FB] px-4 py-2 text-[12px] font-bold tracking-[0.08em] text-[#7A2FA8] uppercase">
                     <Building2Icon aria-hidden="true" className="size-4" />
                     {datos.tipo === 'curso'

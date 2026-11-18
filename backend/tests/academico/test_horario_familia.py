@@ -108,3 +108,29 @@ def test_alumno_sin_inscripcion_activa_no_tiene_horario(
 
     assert respuesta.status_code == 200
     assert respuesta.json() == []
+
+
+def test_familia_descarga_el_horario_en_excel(client_familia, db_session, escenario_dos_familias):
+    _crear_materia_con_horario(db_session, escenario_dos_familias["division"])
+
+    respuesta = client_familia.get(
+        f"/academico/familia/alumnos/{escenario_dos_familias['alumno_a']}/horario/exportar"
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    assert respuesta.content[:2] == b"PK"
+
+
+def test_familia_ajena_no_puede_descargar_el_horario(
+    client_familia, db_session, escenario_dos_familias
+):
+    _crear_materia_con_horario(db_session, escenario_dos_familias["division"])
+
+    respuesta = client_familia.get(
+        f"/academico/familia/alumnos/{escenario_dos_familias['alumno_b']}/horario/exportar"
+    )
+
+    assert respuesta.status_code == 403
