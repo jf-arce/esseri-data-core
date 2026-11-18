@@ -65,6 +65,7 @@ class Settings(BaseSettings):
 
     # El job solo decide cuándo ejecutar; cada regla define su propio día de generación.
     FACTURACION_AUTOMATICA_HABILITADA: bool = True
+    NOTIFICACIONES_VENCIMIENTOS_HABILITADO: bool = True
     FACTURACION_HORA_EJECUCION: time = time(hour=0, minute=5)
 
     # Despachador de Workflows: procesa EVENT_LOG pendientes cada N segundos.
