@@ -12,6 +12,7 @@ from sqlalchemy import func, inspect, select
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from src.academico.cobertura_ausencias_service import solicitud_periodo_que_cubre
 from src.academico.exceptions import (
     AnioConDivisiones,
     AnioConMaterias,
@@ -96,6 +97,7 @@ from src.auth.models import Rol, Usuario, UsuarioRol
 from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import Persona
+from src.notificaciones import academico_service as notificaciones_academicas
 from src.search import normalizar_texto_busqueda
 from src.workflows.eventos_service import emit_event
 
@@ -271,15 +273,8 @@ def justificar_asistencia_de_familia(
     )
     if existe_justificacion:
         raise HTTPException(status.HTTP_409_CONFLICT, "Esta ausencia ya tiene una justificación")
-    periodo = db.scalar(
-        select(SolicitudAusenciaPeriodo.id)
-        .where(
-            SolicitudAusenciaPeriodo.alumno_id == inscripcion.alumno_id,
-            SolicitudAusenciaPeriodo.estado.in_(("pendiente", "aprobada")),
-            SolicitudAusenciaPeriodo.fecha_inicio <= asistencia.fecha,
-            SolicitudAusenciaPeriodo.fecha_fin >= asistencia.fecha,
-        )
-        .limit(1)
+    periodo = solicitud_periodo_que_cubre(
+        db, alumno_id=inscripcion.alumno_id, fecha=asistencia.fecha
     )
     if periodo is not None:
         raise HTTPException(
@@ -412,6 +407,7 @@ def resolver_justificacion(
         },
         usuario_id=usuario_id,
     )
+    notificaciones_academicas.registrar_resolucion_individual(db, justificacion=justificacion)
     db.commit()
     db.refresh(justificacion)
     return justificacion
@@ -690,6 +686,7 @@ def registrar_asistencia(
             },
             usuario_id=usuario_id,
         )
+    notificaciones_academicas.registrar_ausencia(db, asistencia=nuevo, inscripcion=inscripcion)
     db.commit()
     db.refresh(nuevo)
 
@@ -782,6 +779,7 @@ def registrar_asistencia_masiva(
                 aplicar_cobertura_periodo(db, existente, referencia_id=auditoria_tipo.id)
             actualizadas += 1
             asistencia_id = existente.id
+            asistencia_registrada = existente
             # Solo en la transición real: resubir el mismo bulk no debe volver a emitir el
             # evento para una fila que ya estaba en ese mismo tipo.
             emite_evento = tipo_db in _TIPOS_CON_EVENTO and tipo_anterior != tipo_db
@@ -809,6 +807,7 @@ def registrar_asistencia_masiva(
                 aplicar_cobertura_periodo(db, nuevo, referencia_id=auditoria_alta.id)
             creadas += 1
             asistencia_id = nuevo.id
+            asistencia_registrada = nuevo
             emite_evento = tipo_db in _TIPOS_CON_EVENTO
 
         if emite_evento:
@@ -824,6 +823,10 @@ def registrar_asistencia_masiva(
                 },
                 usuario_id=usuario_id,
             )
+
+        notificaciones_academicas.registrar_ausencia(
+            db, asistencia=asistencia_registrada, inscripcion=inscripcion
+        )
 
         if tipo_db in {"ausente_pendiente", "tardanza"}:
             notificaciones += _notificar_asistencia(db, inscripcion, datos.fecha, tipo_db)
@@ -946,6 +949,10 @@ def actualizar_asistencia(
                 "fecha": asistencia.fecha.isoformat(),
             },
             usuario_id=usuario_id,
+        )
+    if inscripcion is not None:
+        notificaciones_academicas.registrar_ausencia(
+            db, asistencia=asistencia, inscripcion=inscripcion
         )
     db.commit()
     db.refresh(asistencia)

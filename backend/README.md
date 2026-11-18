@@ -814,6 +814,58 @@ Para verificar el aislamiento con SQLite en memoria y datos sintéticos:
 pytest -q tests/inscripciones/test_scoping_familia.py
 ```
 
+### Notificaciones internas (primera entrega: Portal Familia y Académico)
+
+La bandeja interna vive en `src/notificaciones/` y en la tabla propia `notificacion_interna`,
+separada del log de intentos de email de Workflows y de los recibos de Comunicaciones. La
+primera entrega conecta solo el Portal Familia y las transiciones académicas de ausencias y
+resoluciones de justificaciones.
+
+Endpoints (todos privados, `Cache-Control: private, no-store`, y sin entrada de `usuario_id`):
+
+- `GET /notificaciones?no_leidas=false&limite=20&cursor=...` devuelve
+  `{items, siguiente_cursor, total_no_leidas}`. El orden es descendente y estable por
+  `(created_at, id)`; `limite` va de 1 a 50 y el cursor es opaco.
+- `GET /notificaciones/resumen` devuelve `{total_no_leidas}` para la campanita.
+- `PATCH /notificaciones/{id}/lectura` completa `leida_at` una sola vez y devuelve
+  `{id, leida_at}`; repetirlo devuelve el instante ya persistido.
+- `POST /notificaciones/lecturas` devuelve `{marcadas}` y marca en una sola sentencia todo lo
+  no leído de la misma foto autorizada.
+
+Sin sesión responde 401. Sin rol activo Familia, con el rol revocado o sin `Familia` propia
+responde 403. Un id ajeno o inaccesible responde 404, igual que uno inexistente. Cada consulta
+revalida en SQL la cuenta, la familia vigente, el vínculo actual con el alumno y —solo para las
+ausencias— `recibe_comunicaciones=true`. Las resoluciones no dependen de ese flag. Solo se
+exponen los tipos, ámbitos, destinos y contextos de esta entrega: una fila con un tipo, ámbito o
+contexto desconocido se excluye del listado, del contador y de la lectura, igual que una ajena.
+
+Los productores académicos insertan dentro de la transacción del comando, antes de su commit:
+la ausencia se identifica por inscripción y fecha calendario, y la resolución por la
+justificación individual o la solicitud por período (una sola notificación, no una por día).
+Una solicitud pendiente o aprobada suspende los avisos nuevos de ausencia para las fechas
+cubiertas mediante `src/academico/cobertura_ausencias_service.py`; rechazarla no genera avisos
+retroactivos. Las tardanzas conservan su evento de Workflows pero no generan aviso interno. Un
+choque con la clave lógica es un no-op; cualquier otra falla de inserción revierte el comando
+académico. El contenido y la primera lectura son inmutables.
+
+Tests acotados (SQLite por defecto):
+
+```bash
+pytest -q tests/notificaciones
+```
+
+La prueba de concurrencia y atomicidad real necesita PostgreSQL. Aplicar la migración sobre una
+base descartable (`esseri_test` en `127.0.0.1`) y pasar explícitamente su URL; sin esa variable
+las pruebas de PostgreSQL se saltean en vez de presentar SQLite como prueba de locking:
+
+```bash
+DATABASE_URL="$ISOLATED_TEST_DATABASE_URL" alembic upgrade head
+ESSERI_DISPOSABLE_POSTGRES_URL="$ISOLATED_TEST_DATABASE_URL" pytest -q tests/notificaciones
+```
+
+Cada prueba de PostgreSQL crea un esquema temporal propio, lo usa con sesiones independientes y
+lo elimina al terminar. La migración `652a29fa8e8d` es aditiva: solo crea la tabla y sus índices.
+
 ## Lint y formato
 
 ```bash

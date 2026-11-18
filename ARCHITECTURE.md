@@ -12,6 +12,38 @@ Este documento describe **estructura y convenciones**, no decisiones de negocio 
 
 ## Decisiones de base
 
+### Internal notifications (first delivery: Family portal and Academic)
+
+`backend/src/notificaciones/` owns the internal inbox, recipient-specific history and first-read
+state. Its `notificacion_interna` table is separate from the Workflows email attempt log and from
+Communications read receipts. The first delivery connects only the Family portal and Academic
+absence/justification transitions; other roles and domains have no notification interface or
+producer in this delivery.
+
+Academic services insert notifications before their existing transaction commits. The notification
+service does not commit, call n8n or send email. An unexpected insert failure rolls back the domain
+operation; an expected duplicate conflicts only with the notification's logical unique key.
+Absence identity is enrollment plus calendar date, while resolution identity is the individual
+justification or period request. Corrections and retries do not overwrite historical content or
+reset a first read. Rejecting a request never backfills previously suppressed absence notices.
+
+Absence recipients are active family-role accounts of linked responsible persons with
+`recibe_comunicaciones=true`. A resolution targets only the requesting account and family recorded
+on the request. Every inbox operation revalidates ownership, the active Family role, the recorded
+family identity and the current student link; absence notices additionally revalidate the
+communications flag. Stored recipient context is not a permanent authorization grant.
+
+The shared coverage query belongs to `academico/cobertura_ausencias_service.py`. Pending and
+approved period requests suppress new absence notices. Workflow email and reminder callers retain
+their existing destination guards and additional rules; sharing coverage does not unify their
+different delivery policies.
+
+`frontend/src/modules/notificaciones/` owns the API services, polling hook and inbox components.
+`layout/portal-layout.tsx` composes them without changing the other shells. The inbox polls while
+visible, cancels stale identity-bound work and navigates through typed Academic destinations.
+It never records a Communications read. Code stays module-owned, with no new global store,
+transport dependency or infrastructure.
+
 ### Communications domain (stages 1–3)
 
 Institutional and course communications are owned by `backend/src/comunicaciones/` and
@@ -178,9 +210,14 @@ Con esto, ningún módulo necesita saber de la existencia de los demás para def
 
 #### Rol activo: cuentas con más de un rol
 
-`ROL` en base admite que una cuenta tenga varios roles simultáneos (ej. docente + familia). El backend nunca elige entre ellos: `GET /auth/me` devuelve `permisos` (la suma de todos los roles — lo que efectivamente autoriza cada endpoint, RF-30, sin cambios) y `perfiles` (los mismos roles desglosados, cada uno con sus propios permisos).
+`ROL` supports multiple roles per account. `GET /auth/me` exposes role profiles and the selected
+`rol_activo`; aggregate permission information does not authorize an operation by itself.
+The active role is embedded in the session cookie's JWT. Backend dependencies validate permission
+membership against that role, rather than combining grants from every role on the account.
 
-El **rol activo** es una decisión puramente de UI, guardada en `store/auth-store.ts` (persistida en `sessionStorage`, por cuenta): con un solo rol se fija solo; con más de uno, `/elegir-perfil` (`src/pages/elegir-perfil-page.tsx`) pregunta con cuál entrar, y el menú de cuenta ("Cambiar vista") permite cambiarlo después. El rol activo decide qué pantalla principal, qué panel y qué ítems del sidebar se ven (`layout/nav-items.ts` → `filtrarNav`) — **nunca** amplía ni reduce lo que el backend deja hacer. Cambiar de vista no es un cambio de permisos, es un cambio de qué parte de los permisos ya otorgados se muestra.
+`store/auth-store.ts` mirrors the server-selected active role. The profile selector and account
+menu switch it through the backend before changing the visible shell and navigation. A UI route
+guard is therefore only an additional affordance, never a substitute for backend authorization.
 
 ### Resto de `frontend/src/` (carpetas compartidas con todos los módulos)
 | Carpeta/archivo | Contenido |
