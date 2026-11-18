@@ -30,6 +30,7 @@ from src.academico.exceptions import (
     MateriaConCursos,
     MateriaCursoDuplicada,
     MateriaDuplicada,
+    SinInscripcionActiva,
 )
 from src.academico.horarios_service import (
     describir_curso,
@@ -193,6 +194,45 @@ def horario_de_familia(
         return []
 
     return listar_materias_curso(db, division_id=inscripcion.division_id)
+
+
+def exportar_horario_de_familia(
+    db: Session,
+    usuario: Usuario,
+    alumno_id: uuid.UUID,
+    ciclo_lectivo: str,
+) -> tuple[bytes, str]:
+    """Excel del horario del curso activo del alumno, limitado a la familia autenticada."""
+    from src.academico.horario_export_service import (
+        generar_xlsx_horario_division,
+        nombre_archivo_horario,
+    )
+
+    familia = _familia_del_usuario(db, usuario)
+    vinculo = (
+        db.query(FamiliaAlumno)
+        .filter(FamiliaAlumno.familia_id == familia.id, FamiliaAlumno.alumno_id == alumno_id)
+        .first()
+    )
+    if vinculo is None:
+        raise PermisoDenegado("No tenés acceso a este alumno")
+
+    inscripcion = (
+        db.query(Inscripcion)
+        .filter(Inscripcion.alumno_id == alumno_id, Inscripcion.estado == "activa")
+        .first()
+    )
+    if inscripcion is None:
+        raise SinInscripcionActiva()
+
+    division = db.get(Division, inscripcion.division_id)
+    if division is None:
+        raise SinInscripcionActiva("No se encontró la división del alumno")
+
+    return (
+        generar_xlsx_horario_division(db, division, ciclo_lectivo),
+        nombre_archivo_horario(division, ciclo_lectivo),
+    )
 
 
 def justificar_asistencia_de_familia(
