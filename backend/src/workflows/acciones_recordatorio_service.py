@@ -8,7 +8,8 @@ El despachador no la ejecuta al llegar el evento: la toma
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.academico.models import JustificacionInasistencia, SolicitudAusenciaPeriodo
+from src.academico.cobertura_ausencias_service import solicitud_periodo_que_cubre
+from src.academico.models import JustificacionInasistencia
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import EventLog
 from src.workflows import notificaciones_service
@@ -47,15 +48,8 @@ def _motivo_para_no_recordar(db: Session, evento: EventLog) -> str | None:
         return "la familia ya cargó una justificación."
     inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
     if inscripcion is not None:
-        periodo = db.scalar(
-            select(SolicitudAusenciaPeriodo.id)
-            .where(
-                SolicitudAusenciaPeriodo.alumno_id == inscripcion.alumno_id,
-                SolicitudAusenciaPeriodo.estado.in_(("pendiente", "aprobada")),
-                SolicitudAusenciaPeriodo.fecha_inicio <= asistencia.fecha,
-                SolicitudAusenciaPeriodo.fecha_fin >= asistencia.fecha,
-            )
-            .limit(1)
+        periodo = solicitud_periodo_que_cubre(
+            db, alumno_id=inscripcion.alumno_id, fecha=asistencia.fecha
         )
         if periodo is not None:
             return "la familia ya informó una ausencia por período."

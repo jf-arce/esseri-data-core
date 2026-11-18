@@ -13,6 +13,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import { CampanitaNotificaciones } from '@/modules/notificaciones/components/campanita-notificaciones'
 import { MenuCuenta } from '@/layout/menu-cuenta'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth-store'
@@ -29,6 +30,7 @@ const ENLACES = [
 // oscuro del mundo visual familiar. Las páginas no repiten marca ni navegación.
 export function PortalLayout() {
   const rolActivo = useAuthStore((state) => state.rolActivo)
+  const usuario = useAuthStore((state) => state.usuario)
   const [menuAbierto, setMenuAbierto] = useState(false)
   const navItemClass = ({ isActive }: { isActive: boolean }) =>
     cn(
@@ -82,14 +84,22 @@ export function PortalLayout() {
 
           <div className="ml-auto">
             <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                className="flex size-9 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-                aria-label="No hay notificaciones nuevas"
-                disabled
-              >
-                <BellIcon aria-hidden="true" className="size-4" />
-              </button>
+              {rolActivo === 'familia' && usuario ? (
+                <CampanitaNotificaciones
+                  key={`${usuario.id}:${rolActivo}`}
+                  usuarioId={usuario.id}
+                  rolActivo={rolActivo}
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="flex size-9 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                  aria-label="No hay notificaciones nuevas"
+                  disabled
+                >
+                  <BellIcon aria-hidden="true" className="size-4" />
+                </button>
+              )}
               <MenuCuenta className="hover:bg-white/10" />
 
               {rolActivo === 'familia' && (

@@ -43,6 +43,7 @@ from src.inscripciones import models as inscripciones_models  # noqa: F401
 from src.inscripciones.models import DocumentoSolicitud, Inscripcion, SolicitudInscripcion
 from src.main import app
 from src.models import Base, Persona
+from src.notificaciones import models as notificaciones_models  # noqa: F401
 from src.proveedores_compras import models as proveedores_compras_models  # noqa: F401
 from src.workflows import models as workflows_models  # noqa: F401
 
