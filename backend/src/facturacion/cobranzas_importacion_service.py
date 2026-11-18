@@ -733,6 +733,7 @@ def confirmar(
                 detalle.estado = "rechazado"
                 detalle.mensaje = _mensaje_rechazo(detalle.codigo, detalle.descripcion)
             factura = db.get(Factura, debito.factura_id)
+            es_exitoso = debito.pago_id is not None
             emit_event(
                 db,
                 tipo="debito.resultado_registrado",
@@ -743,13 +744,12 @@ def confirmar(
                     "debito_id": debito.id,
                     "factura_id": debito.factura_id,
                     "lote_id": lote.id,
-                    "resultado": "exitoso" if debito.pago_id else "rechazado",
+                    "resultado": "exitoso" if es_exitoso else "rechazado",
                     "importe": detalle.importe,
                     "codigo_resultado": detalle.codigo or "",
-                    "motivo_rechazo": detalle.descripcion if not debito.pago_id else "",
+                    "motivo_rechazo": "" if es_exitoso else detalle.descripcion,
                     "responsable_economico_id": factura.responsable_economico_id,
                     "numero_factura": detalle.numero_factura or str(factura.id),
-                    "simulado": True,
                 },
             )
             log_audit(

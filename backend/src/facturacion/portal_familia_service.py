@@ -57,6 +57,9 @@ def _avisos_debito(db: Session, familia_id: uuid.UUID) -> list[AvisoDebitoFamili
         if evento.id in avisos:
             continue
         datos = evento.payload or {}
+        resultado = datos.get("resultado")
+        if resultado not in ("exitoso", "rechazado"):
+            resultado = "exitoso" if debito.pago_id is not None else "rechazado"
         avisos[evento.id] = AvisoDebitoFamiliaRead(
             evento_id=evento.id,
             ejecucion_id=ejecucion.id,
@@ -66,10 +69,10 @@ def _avisos_debito(db: Session, familia_id: uuid.UUID) -> list[AvisoDebitoFamili
             numero_factura=str(datos.get("numero_factura") or debito.factura_id),
             lote_id=debito.lote_id,
             fecha=evento.timestamp,
-            resultado=datos["resultado"],
+            resultado=resultado,
             importe=debito.importe,
-            codigo_resultado=datos.get("codigo_resultado", ""),
-            motivo_rechazo=datos.get("motivo_rechazo", ""),
+            codigo_resultado=str(datos.get("codigo_resultado") or ""),
+            motivo_rechazo=str(datos.get("motivo_rechazo") or ""),
             asunto=notificacion.asunto_snapshot,
             cuerpo=notificacion.cuerpo_snapshot,
         )

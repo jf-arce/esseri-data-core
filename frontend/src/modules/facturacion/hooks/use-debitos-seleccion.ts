@@ -40,11 +40,14 @@ export function useDebitosSeleccion({
   claveFiltros,
 }: UseDebitosSeleccionParams) {
   const { periodo, medio, estado: estadoFiltro, buscar } = filtros
-  const modoInicial = periodo && estadoFiltro === 'pendientes_sin_lote' ? 'filtrados' : 'pagina'
+  // La preselección global solo aplica al alcance por defecto: período elegido y facturas
+  // pendientes sin lote. Otros filtros siguen arrancando con selección de página.
+  const modoDelAlcance: 'pagina' | 'filtrados' =
+    periodo && estadoFiltro === 'pendientes_sin_lote' ? 'filtrados' : 'pagina'
   const [estadoSeleccion, setEstadoSeleccion] = useState<EstadoSeleccion>({
     clave: claveFiltros,
     pagina,
-    modo: modoInicial,
+    modo: modoDelAlcance,
     ids: [],
     excluidos: [],
   })
@@ -63,14 +66,14 @@ export function useDebitosSeleccion({
     setEstadoSeleccion({
       clave: claveFiltros,
       pagina,
-      modo: modoInicial,
+      modo: modoDelAlcance,
       ids: [],
       excluidos: [],
     })
-  }, [claveFiltros, modoInicial, pagina])
+  }, [claveFiltros, modoDelAlcance, pagina])
 
   const filtrosVigentes = estadoSeleccion.clave === claveFiltros
-  const modo = filtrosVigentes ? estadoSeleccion.modo : modoInicial
+  const modo = filtrosVigentes ? estadoSeleccion.modo : modoDelAlcance
   const idsPagina = useMemo(
     () => (filtrosVigentes && estadoSeleccion.pagina === pagina ? estadoSeleccion.ids : []),
     [estadoSeleccion.ids, estadoSeleccion.pagina, filtrosVigentes, pagina],

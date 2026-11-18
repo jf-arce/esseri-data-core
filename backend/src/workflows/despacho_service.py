@@ -75,19 +75,39 @@ ERROR_EVALUACION = "No se pudo evaluar la regla con los datos del evento."
 ERROR_CONFIGURACION = "La configuración de la acción no es válida."
 ERROR_ACCION = "La acción no pudo completarse."
 ACCIONES_CON_RESERVA = frozenset({"notificar", "alerta_interna", "generar_recordatorio"})
-ACCIONES_DE_AVISO_FAMILIAR = frozenset(
-    {"notificar", "generar_recordatorio", "generar_comunicacion"}
-)
+ACCIONES_DE_AVISO_FAMILIAR = frozenset({"notificar"})
 DESTINOS_FAMILIARES = frozenset({"responsable_economico", "responsables_habilitados"})
+DESTINO_FAMILIAR_POR_DEFECTO = "responsables_habilitados"
 
 
-def _aviso_familiar_cubierto(db: Session, evento: EventLog, destino_actual: str) -> bool:
-    """Whether an active applicable debit-result rule will send the same family notice.
+def _emails_de_aviso(
+    db: Session, regla: WorkflowRule, evento: EventLog, destino: str
+) -> set[str] | None:
+    if destino not in DESTINOS_FAMILIARES:
+        return None
+    try:
+        destinatarios, _ = notificaciones_service.resolver_destinatarios(db, regla, evento, destino)
+    except Exception:
+        logger.warning("No se pudieron resolver destinatarios al deduplicar", exc_info=True)
+        return None
+    return {destinatario.email for destinatario in destinatarios}
 
-    Suppression never depends on the mere existence of the result event: an inactive,
-    non-matching or approval-gated rule must leave the legacy payment notice intact.
+
+def _aviso_familiar_cubierto(
+    db: Session, regla_actual: WorkflowRule, evento: EventLog, destino_actual: str
+) -> bool:
+    """Whether an active applicable debit-result rule will notify every same family address.
+
+    Only the ordinary ``pago.registrado`` email can be superseded. Comparing resolved addresses
+    avoids duplicating the engine's destination defaults and never drops a recipient that the
+    result notice would not reach. Other payment events and Communications actions keep their
+    baseline behavior. An inactive, non-matching or approval-gated rule leaves the legacy
+    payment notice intact.
     """
     if evento.entidad != "pago" or destino_actual not in DESTINOS_FAMILIARES:
+        return False
+    tipo_pago = db.get(TipoEvento, evento.tipo_evento_id)
+    if tipo_pago is None or tipo_pago.nombre != "pago.registrado":
         return False
     debito = db.scalar(select(DebitoCobranza).where(DebitoCobranza.pago_id == evento.entidad_id))
     if debito is None:
@@ -104,6 +124,9 @@ def _aviso_familiar_cubierto(db: Session, evento: EventLog, destino_actual: str)
     )
     if resultado is None:
         return False
+    actuales = _emails_de_aviso(db, regla_actual, evento, destino_actual)
+    if not actuales:
+        return False
     campos = tipos_de_campos(db, resultado.tipo_evento_id)
     reglas = db.scalars(
         select(WorkflowRule).where(
@@ -118,15 +141,17 @@ def _aviso_familiar_cubierto(db: Session, evento: EventLog, destino_actual: str)
         try:
             recorrido = arbol_service.recorrer_arbol(nodos, campos, resultado.payload or {})
         except Exception:
+            logger.warning("No se pudo evaluar la regla de resultados al deduplicar", exc_info=True)
             continue
         for nodo in recorrido.acciones:
-            destino = (nodo.accion_config or {}).get("destinatario", "responsables_habilitados")
             if (
-                nodo.tipo_accion in ACCIONES_DE_AVISO_FAMILIAR
-                and nodo.tipo_accion not in ACCIONES_DIFERIDAS
-                and not nodo.requiere_aprobacion_humana
-                and destino == destino_actual
+                nodo.tipo_accion not in ACCIONES_DE_AVISO_FAMILIAR
+                or nodo.requiere_aprobacion_humana
             ):
+                continue
+            destino = (nodo.accion_config or {}).get("destinatario", DESTINO_FAMILIAR_POR_DEFECTO)
+            cubiertos = _emails_de_aviso(db, regla, resultado, destino)
+            if cubiertos and actuales <= cubiertos:
                 return True
     return False
 
@@ -447,9 +472,9 @@ def _registrar_accion(
         return ejecucion
 
     _reservar_ejecucion(db, ejecucion)
-    destino = (nodo.accion_config or {}).get("destinatario", "responsables_habilitados")
+    destino = (nodo.accion_config or {}).get("destinatario", DESTINO_FAMILIAR_POR_DEFECTO)
     if nodo.tipo_accion in ACCIONES_DE_AVISO_FAMILIAR and _aviso_familiar_cubierto(
-        db, evento, destino
+        db, regla, evento, destino
     ):
         ejecucion.estado = "exitoso"
         ejecucion.detalle = "Aviso familiar gestionado por debito.resultado_registrado."

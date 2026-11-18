@@ -21,7 +21,13 @@ from src.familias_alumnos.models import Familia
 from src.models import AuditLog, EventLog
 from src.workflows import despacho_service, n8n_client
 from src.workflows.exceptions import N8nNoDisponible
-from src.workflows.models import Notificacion, NotificacionTemplate, TipoEvento, WorkflowExecution
+from src.workflows.models import (
+    Notificacion,
+    NotificacionTemplate,
+    TipoEvento,
+    WorkflowExecution,
+    WorkflowNodo,
+)
 from tests.facturacion.conftest import crear_catalogo_evento_pago_registrado
 from tests.facturacion.test_cobranzas_importacion import (
     _lote_con_facturas,
@@ -49,7 +55,8 @@ def test_abc_despacha_una_vez_y_portal_sobrevive_a_fallo_email(
     crear_regla_simple(
         db_session,
         tipo_evento_id=tipo_pago.id,
-        accion_config={"destinatario": "responsable_economico"},
+        # Default destination: the suppression must compare real recipients, not labels.
+        accion_config={"destinatario": "responsables_habilitados"},
         notificacion_template_id=generica.id,
     )
     facturas, lote = _lote_con_facturas(client_autenticado, db_session, 3)
@@ -226,6 +233,41 @@ def test_pago_de_debito_conserva_aviso_si_la_regla_de_resultados_esta_inactiva(
         tipo_evento_id=tipo.id,
         accion_config={"destinatario": "responsable_economico"},
         notificacion_template_id=plantilla.id,
+    )
+    revision = preview(client_autenticado, respuesta(client_autenticado, lote)).json()
+    assert confirmar(client_autenticado, revision["id"]).json()["estado"] == "confirmada"
+    enviados = []
+    monkeypatch.setattr(n8n_client, "enviar_email", lambda *args: enviados.append(args))
+    despacho_service.procesar_eventos_pendientes(db_session)
+    assert len(enviados) == 1
+    assert db_session.query(Notificacion).count() == 1
+
+
+def test_regla_resultados_con_aprobacion_conserva_el_aviso_de_pago(
+    client_autenticado, db_session, monkeypatch
+):
+    tipo = crear_catalogo_evento_pago_registrado(db_session)
+    _cargar_seed().seed_workflow(db_session)
+    plantilla = db_session.scalar(
+        select(NotificacionTemplate).where(NotificacionTemplate.nombre == "Débito simulado exitoso")
+    )
+    accion = db_session.scalar(
+        select(WorkflowNodo).where(WorkflowNodo.notificacion_template_id == plantilla.id)
+    )
+    accion.requiere_aprobacion_humana = True
+    db_session.commit()
+    facturas, lote = _lote_con_facturas(client_autenticado, db_session, 1)
+    responsable = db_session.get(ResponsableEconomico, facturas[0].responsable_economico_id)
+    familia = db_session.get(Familia, responsable.familia_id)
+    _crear_usuario(db_session, persona_id=familia.persona_id, email="pago@example.test")
+    plantilla_pago = NotificacionTemplate(nombre="Pago", asunto="Pago", cuerpo="Pago")
+    db_session.add(plantilla_pago)
+    db_session.flush()
+    crear_regla_simple(
+        db_session,
+        tipo_evento_id=tipo.id,
+        accion_config={"destinatario": "responsable_economico"},
+        notificacion_template_id=plantilla_pago.id,
     )
     revision = preview(client_autenticado, respuesta(client_autenticado, lote)).json()
     assert confirmar(client_autenticado, revision["id"]).json()["estado"] == "confirmada"

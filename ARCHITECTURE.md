@@ -69,8 +69,9 @@ only after commit. The existing configurable `notificar` action snapshots the fa
 before n8n; family billing projects that snapshot regardless of email status, scoped to the
 invoice's persisted economic responsible. This projection is not a Communications publication
 or read receipt, and does not introduce another inbox or notification table. Payment events
-remain available; their family message actions defer to the debit-result event only for
-payments linked to a simulated debit. Manual-payment workflows are unchanged.
+remain available; their ordinary family `notificar` action defers to the debit-result event only
+for `pago.registrado` linked to a simulated debit. Other payment actions, `pago.rechazado` and
+Communications publications are unchanged. Manual-payment workflows are unchanged.
 
 - **Monorepo** (un solo repositorio para todo el sistema), no un repo por módulo. No lo exige ningún RF/RNF explícitamente — es una decisión del equipo para simplificar la coordinación entre los 4 integrantes y la transferencia final a ESSERI.
 - **Separación por capas en la raíz** (`frontend/`, `backend/`, `database/`, `infra/`) para cumplir RNF-09 (separación entre frontend, backend y base de datos).

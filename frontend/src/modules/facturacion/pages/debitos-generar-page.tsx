@@ -31,6 +31,7 @@ const ESTADOS: { value: EstadoSeleccionDebitos; label: string }[] = [
 ]
 
 const TAMANIO_PAGINA = 10
+const MEDIO_DEMO: MedioDebito = 'cbu'
 
 interface DebitosGenerarPageProps {
   onIrAImportar: () => void
@@ -38,7 +39,6 @@ interface DebitosGenerarPageProps {
 
 export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
   const [periodo, setPeriodo] = useState('')
-  const medio = 'cbu'
   const [estado, setEstado] = useState<EstadoSeleccionDebitos>('pendientes_sin_lote')
   const [buscar, setBuscar] = useState('')
   const [pagina, setPagina] = useState(1)
@@ -50,13 +50,13 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
   const filtros = useMemo(
     () => ({
       periodo: periodo || undefined,
-      medio: medio as MedioDebito,
+      medio: MEDIO_DEMO,
       estado,
       buscar: buscar.trim() || undefined,
       pagina,
       tamanio: TAMANIO_PAGINA,
     }),
-    [buscar, estado, medio, pagina, periodo],
+    [buscar, estado, pagina, periodo],
   )
   const { datos, opciones, periodoEfectivo, cargando, error, errorOpciones, recargar } =
     useFacturasDebito(filtros)
@@ -69,7 +69,7 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
     }),
     [estado, filtros.buscar, filtros.medio, periodoEfectivo],
   )
-  const claveFiltros = JSON.stringify([periodoEfectivo ?? '', medio, estado, buscar])
+  const claveFiltros = JSON.stringify([periodoEfectivo ?? '', MEDIO_DEMO, estado, buscar])
 
   const seleccion = useDebitosSeleccion({
     total: datos.total,

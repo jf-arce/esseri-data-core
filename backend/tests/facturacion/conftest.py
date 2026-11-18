@@ -20,43 +20,44 @@ from src.workflows.models import CampoEvento, TipoEvento
 PASSWORD_VALIDA = "una-contrasenia-larga"
 
 
+def _asegurar_tipo_evento(db_session, nombre: str, descripcion: str | None = None) -> TipoEvento:
+    tipo = db_session.scalar(select(TipoEvento).where(TipoEvento.nombre == nombre))
+    if tipo is None:
+        tipo = TipoEvento(nombre=nombre, descripcion=descripcion)
+        db_session.add(tipo)
+        db_session.flush()
+    return tipo
+
+
 def crear_catalogo_evento_pago_registrado(db_session) -> TipoEvento:
     """Replica el catálogo de producción que requiere registrar un pago aprobado."""
-    tipo = TipoEvento(nombre="pago.registrado", descripcion="Se confirmó un pago")
-    db_session.add(tipo)
-    if (
-        db_session.scalar(
-            select(TipoEvento).where(TipoEvento.nombre == "debito.resultado_registrado")
-        )
-        is None
+    tipo = _asegurar_tipo_evento(db_session, "pago.registrado", "Se confirmó un pago")
+    _asegurar_tipo_evento(db_session, "debito.resultado_registrado")
+    if not db_session.scalar(
+        select(CampoEvento.id).where(CampoEvento.tipo_evento_id == tipo.id).limit(1)
     ):
-        db_session.add(TipoEvento(nombre="debito.resultado_registrado"))
-    db_session.flush()
-    db_session.add_all(
-        [
-            CampoEvento(
-                nombre_interno=nombre,
-                etiqueta=etiqueta,
-                tipo_dato=tipo_dato,
-                tipo_evento_id=tipo.id,
-            )
-            for nombre, etiqueta, tipo_dato in (
-                ("monto", "Monto del pago", "numero"),
-                ("metodo_pago", "Método de pago", "texto"),
-                ("fecha_operacion", "Fecha en que se procesó", "fecha"),
-            )
-        ]
-    )
+        db_session.add_all(
+            [
+                CampoEvento(
+                    nombre_interno=nombre,
+                    etiqueta=etiqueta,
+                    tipo_dato=tipo_dato,
+                    tipo_evento_id=tipo.id,
+                )
+                for nombre, etiqueta, tipo_dato in (
+                    ("monto", "Monto del pago", "numero"),
+                    ("metodo_pago", "Método de pago", "texto"),
+                    ("fecha_operacion", "Fecha en que se procesó", "fecha"),
+                )
+            ]
+        )
     return tipo
 
 
 @pytest.fixture()
 def catalogo_resultado_debito(db_session):
-    tipo = TipoEvento(
-        nombre="debito.resultado_registrado", descripcion="Resultado de débito simulado confirmado"
-    )
-    db_session.add(tipo)
-    db_session.flush()
+    tipo = _asegurar_tipo_evento(db_session, "debito.resultado_registrado")
+    db_session.commit()
     return tipo
 
 

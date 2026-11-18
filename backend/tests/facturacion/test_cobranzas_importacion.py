@@ -134,11 +134,11 @@ def test_rendicion_incompleta_no_confirma_ni_libera_reservas(client_autenticado,
     assert any("completa" in error for error in revision["errores"])
     assert _conteos(db_session) == antes
     assert all(d.reserva_activa for d in db_session.scalars(select(DebitoCobranza)))
-    if revision["id"]:
-        resultado = confirmar(client_autenticado, revision["id"]).json()
-        assert resultado["estado"] == "en_revision"
-        assert resultado["puede_confirmar"] is False
-        assert _conteos(db_session) == antes
+    assert revision["id"] is not None
+    resultado = confirmar(client_autenticado, revision["id"]).json()
+    assert resultado["estado"] == "en_revision"
+    assert resultado["puede_confirmar"] is False
+    assert _conteos(db_session) == antes
 
 
 def test_resultado_debito_es_atomico_y_no_se_duplica(

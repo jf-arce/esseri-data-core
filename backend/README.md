@@ -79,10 +79,17 @@ forman parte de esta transacción. Cada resultado confirmado publica
 `debito.resultado_registrado`; la regla editable **Notificación de débitos automáticos**
 usa dos condiciones (`resultado == exitoso` / `resultado == rechazado`) y la acción existente
 `notificar`. Los snapshots se muestran en `GET /facturacion/familia/me`, campo
-`avisos_debito`, aunque falle n8n. `pago.registrado` se conserva; sus acciones de comunicación
-familiar se consideran gestionadas por el resultado del débito para no duplicar avisos.
-Los pagos manuales conservan sus workflows. El seed siguiente instala la regla y sus plantillas
-sin sobrescribir ediciones posteriores.
+`avisos_debito`, aunque falle n8n. `pago.registrado` se conserva; solo su acción `notificar`
+familiar se considera gestionada por el resultado del débito, y únicamente cuando la regla de
+resultados está activa y aplicable y cubre todas las direcciones del aviso de pago. Los pagos
+manuales, `pago.rechazado` y Comunicaciones conservan su comportamiento. El seed siguiente instala la regla y sus
+plantillas sin sobrescribir ediciones posteriores.
+
+**Actualización de una base existente:** después de `alembic upgrade head`, correr
+`python ../database/seeds/01_seed_grupo_a.py` y
+`python ../database/seeds/03_seed_grupo_b.py` (o el seed de demo) antes de confirmar una
+rendición. El catálogo `debito.resultado_registrado` es dato de seed, no una migración; si
+falta, la confirmación entera se revierte sin dejar pagos parciales.
 
 Seed opcional e idempotente para la demo (crea 500 alumnos/facturas sintéticas, 438 elegibles
 del período actual, 12 reservadas en un lote exportado y un lote histórico liberado; no borra

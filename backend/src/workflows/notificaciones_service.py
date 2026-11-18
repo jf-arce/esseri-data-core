@@ -261,7 +261,8 @@ def _alumno_del_evento(db: Session, evento: EventLog) -> uuid.UUID:
 def _familia_responsable_economico(
     db: Session, evento: EventLog, alumno_id: uuid.UUID
 ) -> uuid.UUID | None:
-    """En facturas y pagos vale el responsable que tenía la factura, aunque ya no esté vigente."""
+    """En facturas, pagos y resultados de débito vale el responsable congelado en la factura,
+    aunque ya no esté vigente."""
     if evento.entidad in {"factura", "pago", "debito_cobranza"}:
         consulta = select(ResponsableEconomico.familia_id).join(
             Factura, Factura.responsable_economico_id == ResponsableEconomico.id

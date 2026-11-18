@@ -9,6 +9,8 @@ Reported collection is a demo payment, **not evidence of bank settlement**.
 ## Demo walkthrough
 
 1. Apply the backend migration with `alembic upgrade head` in the configured local environment.
+   On an existing database, also run `python ../database/seeds/01_seed_grupo_a.py` and
+   `python ../database/seeds/03_seed_grupo_b.py`, or the demo seed, so the result event exists.
 2. Sign in with billing read/create permissions. Open Facturas → Cobranzas por archivo.
 3. Choose a period. All eligible unpaid CBU invoices are selected automatically across
    pages. Exclude individual invoices if needed, then generate and download the request.
@@ -34,9 +36,11 @@ and the existing n8n email webhook. Re-running the seed preserves edited rules/t
 Every confirmed instruction emits exactly one result event inside the rendition transaction.
 Its payload includes `debito_id`, `factura_id`, `lote_id`, `resultado`, `importe`,
 `codigo_resultado`, `motivo_rechazo`, `numero_factura` and `responsable_economico_id`.
-`pago.registrado` is retained for successful payments. Its family communication actions are
-marked as handled by the debit-result event, without suppressing other actions or manual
-payment workflows. Rejected results create no fictitious payment or ledger credit.
+`pago.registrado` is retained for successful payments. Only its ordinary `notificar` email to
+the family is superseded by the debit-result event, and only when an active applicable result
+rule reaches every address the payment notice would reach. Other payment actions,
+`pago.rechazado` events, Communications publications and manual payments keep their previous
+behavior. Rejected results create no fictitious payment or ledger credit.
 
 After commit, the existing dispatcher evaluates the rule and durably records message
 snapshots **before** calling n8n. Family billing exposes those snapshots through
