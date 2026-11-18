@@ -3,13 +3,38 @@ import { ETIQUETA_ACCION } from '@/modules/workflows/utils'
 
 const MAX_ACCIONES = 3
 const ALTO_ACCION = 22
-const ANCHO_ACCION = 84
 const SEPARACION = 6
-const MAX_LETRAS = 12
+// Ancho aproximado por letra a 9.5px semibold: la pastilla crece para mostrar el nombre completo.
+// El dibujo se ve a esta escala sobre su viewBox, igual en todas las tarjetas.
+const ESCALA = 1.3
+const ANCHO_LETRA = 5.5
+// Layout fijo: la columna de la condición se reserva siempre, así el disparador, el rombo y las
+// pastillas miden y se ubican igual en todas las tarjetas.
+const X_CONDICION = 56
+const X_BUS = 82
+const X_ACCIONES = 94
+const X_INICIO_ARISTA = 22
 
-function etiquetaCorta(nodo: NodoWorkflow): string {
-  const nombre = nodo.tipo_accion ? ETIQUETA_ACCION[nodo.tipo_accion] : 'Acción'
-  return nombre.length > MAX_LETRAS ? `${nombre.slice(0, MAX_LETRAS - 1)}…` : nombre
+function etiqueta(nodo: NodoWorkflow): string {
+  return nodo.tipo_accion ? ETIQUETA_ACCION[nodo.tipo_accion] : 'Acción'
+}
+
+let lienzo: CanvasRenderingContext2D | null | undefined
+
+/** Ancho real del texto de la pastilla (misma fuente y tamaño que el SVG). Sin canvas, por
+ * ejemplo en los tests, cae a una estimación por letra. */
+function anchoTexto(texto: string): number {
+  if (lienzo === undefined) {
+    lienzo =
+      typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d')
+  }
+  if (!lienzo) return texto.length * ANCHO_LETRA
+  lienzo.font = "600 9.5px 'Geist Variable', sans-serif"
+  return lienzo.measureText(texto).width
+}
+
+function rellenoPastilla(nodo: NodoWorkflow): number {
+  return nodo.requiere_aprobacion_humana ? 27 : 18
 }
 
 /** Resumen del flujo en SVG (no React Flow): disparador (círculo con rayo), condición (rombo) y
@@ -22,13 +47,18 @@ export function MiniFlujo({ nodos, activo = true }: { nodos: NodoWorkflow[]; act
   const visibles = acciones.slice(0, MAX_ACCIONES)
   const extra = acciones.length - visibles.length
   const filas = Math.max(1, visibles.length + (extra > 0 ? 1 : 0))
-  const alto = Math.max(24, filas * ALTO_ACCION + (filas - 1) * SEPARACION)
+  const contenido = filas * ALTO_ACCION + (filas - 1) * SEPARACION
+  const alto = Math.max(24, contenido)
   const centro = alto / 2
+  const desfase = (alto - contenido) / 2
   const tieneCondicion = condiciones.length > 0
-  const xCondicion = 56
-  const xAcciones = tieneCondicion ? 96 : 56
-  const xInicioArista = 22
-  const yFila = (indice: number) => indice * (ALTO_ACCION + SEPARACION) + ALTO_ACCION / 2
+  const xCondicion = X_CONDICION
+  const xAcciones = X_ACCIONES
+  const anchoPastilla = (nodo: NodoWorkflow) =>
+    Math.ceil(anchoTexto(etiqueta(nodo)) + rellenoPastilla(nodo))
+  const anchoTotal = X_ACCIONES + Math.max(0, ...visibles.map(anchoPastilla)) + 4
+  const yTop = (indice: number) => desfase + indice * (ALTO_ACCION + SEPARACION)
+  const yFila = (indice: number) => yTop(indice) + ALTO_ACCION / 2
 
   const colorDisparador = activo ? 'var(--mod-workflows)' : 'var(--texto-3)'
   const colorCondicion = activo ? 'var(--advertencia)' : 'var(--texto-3)'
@@ -36,7 +66,7 @@ export function MiniFlujo({ nodos, activo = true }: { nodos: NodoWorkflow[]; act
   const claseViaje = activo ? 'mini-flujo-viaje' : undefined
 
   const descripcion = [
-    'Disparador',
+    'Evento',
     tieneCondicion
       ? `${condiciones.length} ${condiciones.length === 1 ? 'condición' : 'condiciones'}`
       : null,
@@ -45,31 +75,26 @@ export function MiniFlujo({ nodos, activo = true }: { nodos: NodoWorkflow[]; act
     .filter(Boolean)
     .join(', ')
 
+  // Trazos ortogonales: un tronco horizontal hasta el "bus" vertical y de ahí un tramo recto a
+  // cada acción. Sin condición, el tronco sale del disparador.
   const aristas: string[] = []
-  if (tieneCondicion) {
-    aristas.push(`M ${xInicioArista} ${centro} L ${xCondicion - 12} ${centro}`)
-    visibles.forEach((_, indice) =>
-      aristas.push(
-        `M ${xCondicion + 12} ${centro} C ${xCondicion + 26} ${centro}, ${xAcciones - 16} ${yFila(indice)}, ${xAcciones} ${yFila(indice)}`,
-      ),
-    )
-  } else {
-    visibles.forEach((_, indice) =>
-      aristas.push(
-        `M ${xInicioArista} ${centro} C ${xInicioArista + 14} ${centro}, ${xAcciones - 16} ${yFila(indice)}, ${xAcciones} ${yFila(indice)}`,
-      ),
-    )
-  }
+  const xTronco = tieneCondicion ? xCondicion + 12 : X_INICIO_ARISTA
+  if (tieneCondicion) aristas.push(`M ${X_INICIO_ARISTA} ${centro} H ${xCondicion - 12}`)
+  visibles.forEach((_, indice) =>
+    aristas.push(`M ${xTronco} ${centro} H ${X_BUS} V ${yFila(indice)} H ${xAcciones}`),
+  )
 
   return (
     <svg
       role="img"
       aria-label={`Flujo: ${descripcion}`}
-      viewBox={`0 0 ${xAcciones + ANCHO_ACCION + 4} ${alto}`}
-      className={`h-auto w-full max-w-72 ${activo ? '' : 'opacity-70'}`}
+      viewBox={`0 0 ${anchoTotal} ${alto}`}
+      width={anchoTotal * ESCALA}
+      height={alto * ESCALA}
+      className={`max-w-full ${activo ? '' : 'opacity-70'}`}
     >
       <title>{descripcion}</title>
-      <g fill="none" strokeWidth="1.5" strokeLinecap="round">
+      <g fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         {aristas.map((trazo, indice) => (
           // El orden es fijo: no hay identidad que conservar entre renders.
           <path key={indice} d={trazo} stroke={colorArista} opacity={activo ? 0.45 : 1} />
@@ -79,7 +104,6 @@ export function MiniFlujo({ nodos, activo = true }: { nodos: NodoWorkflow[]; act
             <path
               key={`viaje-${indice}`}
               d={trazo}
-              pathLength={1}
               stroke={colorArista}
               strokeWidth="2.5"
               className={claseViaje}
@@ -115,14 +139,14 @@ export function MiniFlujo({ nodos, activo = true }: { nodos: NodoWorkflow[]; act
           ? 'var(--texto-3)'
           : aprobacion
             ? 'var(--advertencia)'
-            : 'var(--mod-inscripciones)'
-        const y = indice * (ALTO_ACCION + SEPARACION)
+            : 'var(--exito)'
+        const y = yTop(indice)
         return (
           <g key={nodo.id}>
             <rect
               x={xAcciones}
               y={y}
-              width={ANCHO_ACCION}
+              width={anchoPastilla(nodo)}
               height={ALTO_ACCION}
               rx="11"
               fill={color}
@@ -145,7 +169,7 @@ export function MiniFlujo({ nodos, activo = true }: { nodos: NodoWorkflow[]; act
               fontWeight="600"
               fill="white"
             >
-              {etiquetaCorta(nodo)}
+              {etiqueta(nodo)}
             </text>
           </g>
         )
@@ -153,7 +177,7 @@ export function MiniFlujo({ nodos, activo = true }: { nodos: NodoWorkflow[]; act
       {extra > 0 && (
         <text
           x={xAcciones + 4}
-          y={visibles.length * (ALTO_ACCION + SEPARACION) + 14}
+          y={yTop(visibles.length) + 14}
           fontSize="11"
           fontWeight="700"
           fill="var(--texto-2)"
