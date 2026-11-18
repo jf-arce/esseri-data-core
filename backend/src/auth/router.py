@@ -1,7 +1,8 @@
 """Endpoints de Autenticación (RF-27).
 
-El JWT viaja en una cookie httpOnly: nunca queda expuesto a JavaScript ni en la barra de
-direcciones. `state` y el verifier de PKCE viajan en su propia cookie firmada, de vida corta.
+El access JWT y el refresh token viajan en cookies httpOnly: nunca quedan expuestos a JavaScript
+ni en la barra de direcciones. `state` y el verifier de PKCE viajan en su propia cookie firmada,
+de vida corta.
 """
 
 import base64
@@ -18,6 +19,7 @@ from src.auth import (
     autorizacion_service,
     config,
     google_client,
+    refresh_service,
     roles_service,
     sesion_service,
     usuarios_service,
@@ -42,10 +44,12 @@ from src.auth.exceptions import (
     EstadoOAuthInvalido,
     LoginCancelado,
     PermisoDenegado,
+    TokenInvalido,
     UsuarioInactivo,
     UsuarioNoHabilitado,
 )
 from src.auth.models import Permiso, Rol, Usuario
+from src.auth.refresh_service import TokensEmitidos
 from src.auth.schemas import (
     AccesoUpdate,
     EstadoUsuarioIn,
@@ -98,16 +102,31 @@ def _generar_pkce() -> tuple[str, str]:
     return verifier, challenge
 
 
-def _setear_cookie_sesion(response: Response, token: str) -> None:
+def _setear_cookies(response: Response, tokens: TokensEmitidos) -> None:
     response.set_cookie(
         config.COOKIE_SESION,
-        token,
+        tokens.access,
         httponly=True,
         secure=config.COOKIE_SECURE,
         samesite="lax",
         max_age=config.JWT_EXPIRE_MINUTES * 60,
         path="/",
     )
+    if tokens.refresh is not None:
+        response.set_cookie(
+            config.COOKIE_REFRESH,
+            tokens.refresh,
+            httponly=True,
+            secure=config.COOKIE_SECURE,
+            samesite="lax",
+            max_age=int(config.REFRESH_TOKEN_INACTIVIDAD.total_seconds()),
+            path="/auth",
+        )
+
+
+def _borrar_cookies(response: Response) -> None:
+    response.delete_cookie(config.COOKIE_SESION, path="/")
+    response.delete_cookie(config.COOKIE_REFRESH, path="/auth")
 
 
 @router.get("/google/login")
@@ -162,12 +181,12 @@ def google_callback(
 
         ip = _ip_de(request)
         usuario = sesion_service.resolver_usuario_google(db, identidad, ip)
-        token = sesion_service.finalizar_login(db, usuario, ip)
+        tokens = sesion_service.finalizar_login(db, usuario, ip)
     except AppException as exc:
         return _redirect_de_error(exc)
 
     respuesta = RedirectResponse(config.FRONTEND_URL)
-    _setear_cookie_sesion(respuesta, token)
+    _setear_cookies(respuesta, tokens)
     respuesta.delete_cookie(config.COOKIE_OAUTH_STATE, path="/auth")
     return respuesta
 
@@ -177,10 +196,27 @@ def login_local(datos: LoginLocalIn, request: Request, db: DbSession) -> JSONRes
     """Fallback con contraseña, para cuando Google no está disponible."""
     ip = _ip_de(request)
     usuario = sesion_service.autenticar_local(db, datos.email, datos.password, ip)
-    token = sesion_service.finalizar_login(db, usuario, ip)
+    tokens = sesion_service.finalizar_login(db, usuario, ip)
 
     respuesta = JSONResponse({"detail": "Sesión iniciada"})
-    _setear_cookie_sesion(respuesta, token)
+    _setear_cookies(respuesta, tokens)
+    return respuesta
+
+
+@router.post("/refresh")
+def refrescar_sesion(request: Request, db: DbSession) -> JSONResponse:
+    try:
+        token = request.cookies.get(config.COOKIE_REFRESH)
+        if not token:
+            raise TokenInvalido("No hay sesión activa")
+        tokens = refresh_service.rotar(db, token, _ip_de(request))
+    except TokenInvalido as exc:
+        respuesta = JSONResponse({"detail": exc.message}, status_code=exc.status_code)
+        _borrar_cookies(respuesta)
+        return respuesta
+
+    respuesta = JSONResponse({"detail": "Sesión renovada"})
+    _setear_cookies(respuesta, tokens)
     return respuesta
 
 
@@ -219,21 +255,28 @@ def me(usuario: UsuarioAutenticado, db: DbSession, rol_activo: RolActivo) -> Usu
 
 @router.post("/rol-activo")
 def establecer_rol_activo(
-    datos: RolActivoIn, usuario: UsuarioAutenticado, db: DbSession
+    datos: RolActivoIn, request: Request, usuario: UsuarioAutenticado, db: DbSession
 ) -> JSONResponse:
     if datos.rol not in autorizacion_service.roles_de(db, usuario.id):
         raise PermisoDenegado("Ese rol no pertenece a tu cuenta")
 
-    token = sesion_service.crear_access_token(usuario.id, datos.rol)
+    refresh = request.cookies.get(config.COOKIE_REFRESH)
+    if refresh:
+        refresh_service.actualizar_rol(db, refresh, datos.rol)
+
+    access = sesion_service.crear_access_token(usuario.id, datos.rol)
     respuesta = JSONResponse({"detail": "Rol activo actualizado"})
-    _setear_cookie_sesion(respuesta, token)
+    _setear_cookies(respuesta, TokensEmitidos(access, None))
     return respuesta
 
 
 @router.post("/logout")
-def logout() -> JSONResponse:
+def logout(request: Request, db: DbSession) -> JSONResponse:
+    refresh = request.cookies.get(config.COOKIE_REFRESH)
+    if refresh:
+        refresh_service.revocar(db, refresh)
     respuesta = JSONResponse({"detail": "Sesión cerrada"})
-    respuesta.delete_cookie(config.COOKIE_SESION, path="/")
+    _borrar_cookies(respuesta)
     return respuesta
 
 

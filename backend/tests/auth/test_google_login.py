@@ -38,6 +38,7 @@ def test_usuario_habilitado_entra(client, usuario_google, google_responde, inici
     assert respuesta.status_code in (302, 307)
     assert respuesta.headers["location"] == config.FRONTEND_URL
     assert config.COOKIE_SESION in respuesta.cookies
+    assert config.COOKIE_REFRESH in respuesta.cookies
 
 
 def test_usuario_desconocido_no_entra(client, google_responde, iniciar_flujo_google):
@@ -50,6 +51,7 @@ def test_usuario_desconocido_no_entra(client, google_responde, iniciar_flujo_goo
     assert respuesta.status_code in (302, 307)
     assert respuesta.headers["location"] == f"{config.FRONTEND_URL}/login?error=no_habilitado"
     assert config.COOKIE_SESION not in respuesta.cookies
+    assert config.COOKIE_REFRESH not in respuesta.cookies
 
 
 def test_usuario_inactivo_no_entra(client, usuario_inactivo, google_responde, iniciar_flujo_google):

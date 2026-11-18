@@ -1,5 +1,5 @@
 """Sesión: contraseñas, JWT y los dos caminos de login —Google y contraseña— que terminan en
-el mismo lugar, `finalizar_login`, el único punto del sistema que emite un JWT (RF-27).
+el mismo lugar, `finalizar_login`, el único punto del sistema que abre una sesión (RF-27).
 """
 
 import uuid
@@ -10,7 +10,7 @@ from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.auth import config
+from src.auth import config, refresh_service
 from src.auth.autorizacion_service import roles_de
 from src.auth.constants import ESTADO_ACTIVO, PROVIDER_GOOGLE
 from src.auth.exceptions import (
@@ -22,6 +22,7 @@ from src.auth.exceptions import (
 )
 from src.auth.google_client import GoogleIdentity
 from src.auth.models import LogAcceso, Usuario
+from src.auth.refresh_service import TokensEmitidos
 from src.fechas import a_utc, ahora_utc
 
 # bcrypt solo mira los primeros 72 bytes y falla si le pasás más; truncar en los dos sentidos
@@ -203,8 +204,8 @@ def resolver_usuario_google(
     return usuario
 
 
-def finalizar_login(db: Session, usuario: Usuario, ip_origen: str | None) -> str:
-    """Único punto por el que se emite un token, lo use Google o el login local.
+def finalizar_login(db: Session, usuario: Usuario, ip_origen: str | None) -> TokensEmitidos:
+    """Único punto por el que se emite una sesión nueva, lo use Google o el login local.
 
     Con un solo rol, ese rol se embebe como rol activo de entrada — nadie nota el cambio.
     Con 0 o 2+ roles arranca en `None`: `requiere_permiso` deniega hasta `POST /auth/rol-activo`.
@@ -216,4 +217,4 @@ def finalizar_login(db: Session, usuario: Usuario, ip_origen: str | None) -> str
     registrar_acceso(db, RESULTADO_EXITOSO, ip_origen, usuario.id)
     roles = roles_de(db, usuario.id)
     rol_inicial = roles[0] if len(roles) == 1 else None
-    return crear_access_token(usuario.id, rol_inicial)
+    return refresh_service.crear_sesion(db, usuario.id, rol_inicial, ip_origen)
