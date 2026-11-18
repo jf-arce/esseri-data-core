@@ -110,9 +110,7 @@ def test_alumno_sin_inscripcion_activa_no_tiene_horario(
     assert respuesta.json() == []
 
 
-def test_familia_descarga_el_horario_en_excel(
-    client_familia, db_session, escenario_dos_familias
-):
+def test_familia_descarga_el_horario_en_excel(client_familia, db_session, escenario_dos_familias):
     _crear_materia_con_horario(db_session, escenario_dos_familias["division"])
 
     respuesta = client_familia.get(
