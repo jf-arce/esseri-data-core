@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router'
 import { PaginadorServidor } from '@/components/paginador-servidor'
 import { TableSkeleton, type ColumnaEsqueleto } from '@/components/table-skeleton'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -19,7 +20,6 @@ const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'checkbox' },
   { tipo: 'texto', ancho: 'h-4 w-24' },
   { tipo: 'texto', ancho: 'h-4 w-40', anchoAlt: 'h-4 w-32' },
-  { tipo: 'texto', ancho: 'h-4 w-14' },
   { tipo: 'texto', ancho: 'h-4 w-20' },
   { tipo: 'chip', ancho: 'w-16' },
   { tipo: 'texto', ancho: 'h-4 w-20' },
@@ -42,6 +42,7 @@ interface DebitosGenerarTablaProps {
   onCambiarPagina: (pagina: number) => void
   onAlternarFila: (id: string, seleccionada: boolean) => void
   onAlternarTodasFiltradas: (seleccionada: boolean) => void
+  onVerFactura: (factura: FacturaElegibleDebito) => void
 }
 
 export function DebitosGenerarTabla({
@@ -60,6 +61,7 @@ export function DebitosGenerarTabla({
   onCambiarPagina,
   onAlternarFila,
   onAlternarTodasFiltradas,
+  onVerFactura,
 }: DebitosGenerarTablaProps) {
   const totalPaginas = Math.max(1, Math.ceil(total / tamanio))
   const cantidadVisible = resumen.cantidad
@@ -80,7 +82,7 @@ export function DebitosGenerarTabla({
       {!cargando && facturas.length === 0 ? (
         <div className="p-6">{vacio}</div>
       ) : (
-        <Table bare minWidth="min-w-[1040px]" className="text-[13px]">
+        <Table bare minWidth="min-w-[600px]" className="text-[13px] [&_td]:px-2 [&_th]:px-2">
           <TableHeader>
             <TableRow>
               <TableHead className="w-12">
@@ -93,7 +95,6 @@ export function DebitosGenerarTabla({
               </TableHead>
               <TableHead>Factura</TableHead>
               <TableHead>Alumno</TableHead>
-              <TableHead>Curso</TableHead>
               <TableHead>Período</TableHead>
               <TableHead>Medio</TableHead>
               <TableHead>Vence</TableHead>
@@ -121,16 +122,25 @@ export function DebitosGenerarTabla({
                       />
                     </TableCell>
                     <TableCell className="font-medium tabular-nums">
-                      <span className="block max-w-32 truncate" title={factura.numero}>
+                      <button
+                        type="button"
+                        aria-haspopup="dialog"
+                        title={`Ver detalle de ${factura.numero}`}
+                        className="block max-w-32 truncate underline-offset-4 hover:underline"
+                        onClick={() => onVerFactura(factura)}
+                      >
                         {factura.numero}
-                      </span>
+                      </button>
                     </TableCell>
                     <TableCell>
-                      <span className="block max-w-48 truncate" title={factura.alumno_nombre}>
+                      <Link
+                        to={`/familias-alumnos/alumnos/${factura.alumno_id}`}
+                        className="block max-w-48 truncate font-medium underline-offset-4 hover:underline"
+                        title={factura.alumno_nombre}
+                      >
                         {factura.alumno_nombre}
-                      </span>
+                      </Link>
                     </TableCell>
-                    <TableCell>{factura.curso}</TableCell>
                     <TableCell>{etiquetaPeriodo(factura.periodo)}</TableCell>
                     <TableCell>{etiquetaMedio(factura.medio)}</TableCell>
                     <TableCell className="tabular-nums">
@@ -147,8 +157,8 @@ export function DebitosGenerarTabla({
           {!cargando && facturas.length > 0 && resumen.cantidad > 0 && (
             <TableFooter>
               <TableRow>
-                <TableCell colSpan={5}>Total de la selección</TableCell>
-                <TableCell data-align="end" colSpan={2} className="font-semibold">
+                <TableCell colSpan={6}>Total de la selección</TableCell>
+                <TableCell data-align="end" className="font-semibold">
                   {formatearMoneda(resumen.importe_total)}
                 </TableCell>
               </TableRow>

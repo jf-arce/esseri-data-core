@@ -7,6 +7,7 @@ import { FilterBar, FilterSearch } from '@/components/filter-bar'
 import { FilterDropdown } from '@/components/filter-dropdown'
 import { DebitosGenerarTabla } from '@/modules/facturacion/components/debitos-generar-tabla'
 import { DebitosResumenSeleccion } from '@/modules/facturacion/components/debitos-resumen-seleccion'
+import { FacturaDetalleSheet } from '@/modules/facturacion/components/factura-detalle-sheet'
 import {
   etiquetaArchivoSolicitud,
   etiquetaMedio,
@@ -30,12 +31,14 @@ const ESTADOS: { value: EstadoSeleccionDebitos; label: string }[] = [
   { value: 'todas', label: 'Todas' },
 ]
 
+const TAMANIO_PAGINA = 10
+
 interface DebitosGenerarPageProps {
   onIrAImportar: () => void
 }
 
 export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
-  const [periodo, setPeriodo] = useState('todos')
+  const [periodo, setPeriodo] = useState('')
   const [medio, setMedio] = useState('todos')
   const [estado, setEstado] = useState<EstadoSeleccionDebitos>('pendientes_sin_lote')
   const [buscar, setBuscar] = useState('')
@@ -43,30 +46,32 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
   const [exportando, setExportando] = useState(false)
   const [loteCreado, setLoteCreado] = useState<LoteDebitoDetalle | null>(null)
   const [errorAccion, setErrorAccion] = useState('')
+  const [facturaAbierta, setFacturaAbierta] = useState<{ id: string; numero: string } | null>(null)
 
   const filtros = useMemo(
     () => ({
-      periodo: periodo === 'todos' ? undefined : periodo,
+      periodo: periodo || undefined,
       medio: (medio === 'todos' ? undefined : medio) as MedioDebito | undefined,
       estado,
       buscar: buscar.trim() || undefined,
       pagina,
-      tamanio: 25,
+      tamanio: TAMANIO_PAGINA,
     }),
     [buscar, estado, medio, pagina, periodo],
   )
+  const { datos, opciones, periodoEfectivo, cargando, error, errorOpciones, recargar } =
+    useFacturasDebito(filtros)
   const filtrosSeleccion = useMemo(
     () => ({
-      periodo: filtros.periodo,
+      periodo: periodoEfectivo,
       medio: filtros.medio,
       estado,
       buscar: filtros.buscar,
     }),
-    [estado, filtros.buscar, filtros.medio, filtros.periodo],
+    [estado, filtros.buscar, filtros.medio, periodoEfectivo],
   )
-  const claveFiltros = JSON.stringify([periodo, medio, estado, buscar])
+  const claveFiltros = JSON.stringify([periodoEfectivo ?? '', medio, estado, buscar])
 
-  const { datos, opciones, cargando, error, recargar } = useFacturasDebito(filtros)
   const seleccion = useDebitosSeleccion({
     total: datos.total,
     pagina,
@@ -95,10 +100,14 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
   }
 
   async function exportar() {
+    if (!periodoEfectivo) {
+      setErrorAccion('Elegí un período para generar el lote.')
+      return
+    }
     setExportando(true)
     setErrorAccion('')
     try {
-      const lote = await crearLoteDebitos(seleccion.seleccion, filtros.periodo)
+      const lote = await crearLoteDebitos(seleccion.seleccion, periodoEfectivo)
       setLoteCreado(lote)
       seleccion.limpiar()
       recargar()
@@ -129,16 +138,13 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
   const barraFiltros = (
     <FilterBar>
       <FilterDropdown
-        label={periodo !== 'todos' ? `Período: ${etiquetaPeriodo(periodo)}` : 'Período'}
-        value={periodo}
+        label={periodoEfectivo ? `Período: ${etiquetaPeriodo(periodoEfectivo)}` : 'Período'}
+        value={periodoEfectivo ?? ''}
         onChange={actualizarPeriodo}
-        options={[
-          { value: 'todos', label: 'Todos los períodos' },
-          ...opciones.periodos.map((valor) => ({
-            value: valor,
-            label: etiquetaPeriodo(valor),
-          })),
-        ]}
+        options={opciones.periodos.map((valor) => ({
+          value: valor,
+          label: etiquetaPeriodo(valor),
+        }))}
       />
       <FilterDropdown
         label={medio !== 'todos' ? `Medio: ${etiquetaMedio(medio)}` : 'Medio de débito'}
@@ -166,11 +172,11 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      {error && (
+      {(error || errorOpciones) && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar las facturas</AlertTitle>
           <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-            {error}
+            {error ?? errorOpciones}
             <Button variant="secondary" size="sm" onClick={recargar}>
               <RotateCcwIcon data-icon="inline-start" />
               Reintentar
@@ -240,7 +246,7 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
           facturas={datos.items}
           cargando={cargando}
           pagina={pagina}
-          tamanio={25}
+          tamanio={TAMANIO_PAGINA}
           total={datos.total}
           resumen={seleccion.resumen}
           modo={seleccion.modo}
@@ -250,6 +256,7 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
           onCambiarPagina={setPagina}
           onAlternarFila={seleccion.alternarFila}
           onAlternarTodasFiltradas={seleccion.alternarTodasFiltradas}
+          onVerFactura={(factura) => setFacturaAbierta({ id: factura.id, numero: factura.numero })}
         />
         <DebitosResumenSeleccion
           resumen={seleccion.resumen}
@@ -266,6 +273,13 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
           <AlertDescription>{seleccion.errorResumen}</AlertDescription>
         </Alert>
       )}
+      <FacturaDetalleSheet
+        facturaId={facturaAbierta?.id ?? null}
+        numero={facturaAbierta?.numero ?? null}
+        onOpenChange={(abierto) => {
+          if (!abierto) setFacturaAbierta(null)
+        }}
+      />
     </div>
   )
 }

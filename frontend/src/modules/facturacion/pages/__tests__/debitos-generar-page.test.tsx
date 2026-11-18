@@ -8,9 +8,11 @@ import { crearLoteDebitos } from '@/modules/facturacion/services/crear-lote-debi
 import { descargarArchivoDebitos } from '@/modules/facturacion/services/descargar-archivo-debitos'
 import { generarRespuestaDebitos } from '@/modules/facturacion/services/generar-respuesta-debitos'
 import { listarFacturasElegiblesDebitos } from '@/modules/facturacion/services/listar-facturas-elegibles-debitos'
+import { obtenerFactura } from '@/modules/facturacion/services/obtener-factura'
 import { obtenerOpcionesDebitos } from '@/modules/facturacion/services/obtener-opciones-debitos'
 import { resumirSeleccionDebitos } from '@/modules/facturacion/services/resumir-seleccion-debitos'
 import type {
+  FacturaDetalle,
   FacturaElegibleDebito,
   LoteDebitoDetalle,
   ResumenSeleccionDebitos,
@@ -18,6 +20,7 @@ import type {
 
 vi.mock('@/modules/facturacion/services/listar-facturas-elegibles-debitos')
 vi.mock('@/modules/facturacion/services/obtener-opciones-debitos')
+vi.mock('@/modules/facturacion/services/obtener-factura')
 vi.mock('@/modules/facturacion/services/resumir-seleccion-debitos')
 vi.mock('@/modules/facturacion/services/crear-lote-debitos')
 vi.mock('@/modules/facturacion/services/descargar-archivo-debitos')
@@ -28,6 +31,7 @@ function factura(indice: number): FacturaElegibleDebito {
   return {
     id: `factura-${indice}`,
     numero: `F-2026-${String(indice).padStart(5, '0')}`,
+    alumno_id: `alumno-${indice}`,
     alumno_nombre: `Alumno ${indice}`,
     curso: '1° A',
     periodo: '2026-10',
@@ -39,14 +43,14 @@ function factura(indice: number): FacturaElegibleDebito {
   }
 }
 
-const paginaUno = Array.from({ length: 25 }, (_, indice) => factura(indice + 1))
+const paginaUno = Array.from({ length: 10 }, (_, indice) => factura(indice + 1))
 
 const listado = {
   items: paginaUno,
   total: 438,
   pagina: 1,
-  tamanio: 25,
-  total_pagina: 25,
+  tamanio: 10,
+  total_pagina: 10,
   ocultas_en_lote: 12,
 }
 
@@ -85,9 +89,36 @@ const lote: LoteDebitoDetalle = {
   ],
 }
 
+const detalleFactura: FacturaDetalle = {
+  id: 'factura-1',
+  fecha_emision: '2026-10-01',
+  fecha_vencimiento: '2026-10-10',
+  monto_total: '172000.00',
+  estado: 'pendiente',
+  updated_at: '2026-10-01T10:00:00Z',
+  inscripcion_id: 'inscripcion-1',
+  responsable_economico_id: 'responsable-1',
+  alumno_id: 'alumno-1',
+  alumno_nombre: 'Alumno',
+  alumno_apellido: 'Uno',
+  detalles: [
+    {
+      id: 'detalle-1',
+      descripcion: 'Cuota octubre',
+      monto: '172000.00',
+      concepto_cobro_id: 'concepto-1',
+    },
+  ],
+  alumno_legajo: 'L-1',
+  responsable_economico_nombre: 'Uno, Padre',
+  pagos: [],
+  recargos: [],
+}
+
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(listarFacturasElegiblesDebitos).mockResolvedValue(listado)
+  vi.mocked(obtenerFactura).mockResolvedValue(detalleFactura)
   vi.mocked(obtenerOpcionesDebitos).mockResolvedValue({
     periodos: ['2026-10', '2026-09'],
     medios: ['cbu', 'tarjeta'],
@@ -113,15 +144,49 @@ function renderPage() {
 }
 
 describe('DebitosGenerarPage', () => {
-  it('renderiza solo las 25 filas de la página aunque el filtro tenga 438 facturas', async () => {
+  it('renderiza solo las 10 filas de la página aunque el filtro tenga 438 facturas', async () => {
     renderPage()
 
     expect(await screen.findByText('F-2026-00001')).toBeInTheDocument()
-    expect(screen.getAllByText(/^F-2026-/)).toHaveLength(25)
-    expect(screen.queryByText('F-2026-00026')).not.toBeInTheDocument()
-    expect(screen.getByText('1-25 de 438 facturas')).toBeInTheDocument()
+    expect(screen.getAllByText(/^F-2026-/)).toHaveLength(10)
+    expect(screen.queryByText('F-2026-00011')).not.toBeInTheDocument()
+    expect(screen.getByText('1-10 de 438 facturas')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Alumno 1' })).toHaveAttribute(
+      'href',
+      '/familias-alumnos/alumnos/alumno-1',
+    )
     expect(screen.queryByText(/Archivos de demostración/)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Exportar 0 solicitudes' })).toBeInTheDocument()
+  })
+
+  it('genera siempre sobre un período: sin "Todos" y arranca en el más reciente', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText('F-2026-00001')
+
+    const disparador = await screen.findByRole('button', { name: 'Período: Oct 2026' })
+    expect(vi.mocked(listarFacturasElegiblesDebitos)).toHaveBeenLastCalledWith(
+      expect.objectContaining({ periodo: '2026-10' }),
+      expect.anything(),
+    )
+
+    await user.click(disparador)
+
+    expect(screen.queryByText('Todos los períodos')).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Oct 2026' })).toBeChecked()
+  })
+
+  it('abre el detalle de la factura en un panel lateral al hacer clic en el número', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText('F-2026-00001')
+
+    await user.click(screen.getByRole('button', { name: 'F-2026-00001' }))
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(await screen.findByText('Cuota octubre')).toBeInTheDocument()
+    expect(screen.getByText('Factura F-2026-00001')).toBeInTheDocument()
+    expect(vi.mocked(obtenerFactura)).toHaveBeenCalledWith('factura-1', expect.anything())
   })
 
   it('seleccionar una fila marca el cabezal parcial y el cabezal elige todos los filtrados', async () => {
@@ -153,7 +218,7 @@ describe('DebitosGenerarPage', () => {
       expect(ultima).toEqual({
         modo: 'filtrados',
         factura_ids: [],
-        filtros: { estado: 'pendientes_sin_lote' },
+        filtros: { periodo: '2026-10', estado: 'pendientes_sin_lote' },
         excluir_ids: [],
       })
     })
@@ -227,7 +292,7 @@ describe('DebitosGenerarPage', () => {
           modo: 'pagina',
           factura_ids: ['factura-1', 'factura-2'],
         }),
-        undefined,
+        '2026-10',
       ),
     )
     expect(vi.mocked(descargarArchivoDebitos)).not.toHaveBeenCalled()
@@ -271,12 +336,12 @@ describe('DebitosGenerarPage', () => {
     expect(screen.queryByText('Débitos rechazados')).not.toBeInTheDocument()
   })
 
-  it('muestra la carga mientras espera las facturas', () => {
+  it('muestra la carga mientras espera las facturas', async () => {
     vi.mocked(listarFacturasElegiblesDebitos).mockImplementationOnce(
       () => new Promise(() => undefined),
     )
     renderPage()
-    expect(screen.getByRole('status')).toHaveTextContent('Cargando facturas…')
+    expect(await screen.findByRole('status')).toHaveTextContent('Cargando facturas…')
   })
 
   it('expone el error con reintento', async () => {
@@ -295,6 +360,7 @@ describe('DebitosGenerarPage', () => {
       total_pagina: 0,
     })
     renderPage()
+    await screen.findByRole('button', { name: 'Período: Oct 2026' })
     expect(await screen.findByText('No hay facturas para estos filtros.')).toBeInTheDocument()
   })
 })

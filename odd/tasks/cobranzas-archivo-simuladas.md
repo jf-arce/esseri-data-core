@@ -99,3 +99,8 @@ Clean main at baseline; parent created feature branch. Mapping worker completed 
 
 ### L4 — T1 proof
 Format tests observed RED (missing module), then 13 passed; targeted Ruff check passed after formatting. No meaningful existing-command differential for the new standalone codec. Engram mirror created as observation #585. Local Docker executable exists but the explicit default local socket is unavailable; do not probe remote contexts.
+
+### L5 — Review corrections (2026-11-18)
+> y el listado hay que compactarlo o hacer algo porque para verlo completo pide scroll lateral, yo dscsris la columna curso, al apretar alumno ya te lleva a la ficha del alumno, no pondria limite en cantidad de factura por lote
+
+Además, la revisión previa pidió que el lote se genere siempre sobre un período. Decisiones: se elimina el tope de 500 facturas por lote y el límite de filas del archivo simulado (queda un guard de 10 MiB por archivo); la UI quita "Todos los períodos" y arranca en el más reciente; se elimina la columna Curso; el nombre del alumno enlaza a su ficha. Verificación: backend 207 pruebas y Ruff; frontend 1091 pruebas, ESLint y build; preview medido sin scroll horizontal a 1280 px.

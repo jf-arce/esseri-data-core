@@ -22,28 +22,36 @@ export function useFacturasDebito(filtros: FiltrosFacturasDebitos) {
   const { periodo, medio, estado, buscar, pagina, tamanio } = filtros
   const [revision, setRevision] = useState(0)
   const [opciones, setOpciones] = useState<OpcionesDebitos>(OPCIONES_VACIAS)
+  const [errorOpciones, setErrorOpciones] = useState<string | null>(null)
   const [resultado, setResultado] = useState<{
     clave: string | null
     datos: FacturasElegiblesDebitos
     error: string | null
   }>({ clave: null, datos: LISTADO_VACIO, error: null })
-  const clave = JSON.stringify([periodo, medio, estado, buscar, pagina, tamanio, revision])
+  const periodoEfectivo = periodo || opciones.periodos[0]
+  const clave = JSON.stringify([periodoEfectivo, medio, estado, buscar, pagina, tamanio, revision])
   const recargar = useCallback(() => setRevision((actual) => actual + 1), [])
 
   useEffect(() => {
     const controller = new AbortController()
     obtenerOpcionesDebitos(controller.signal)
-      .then(setOpciones)
+      .then((datos) => {
+        setOpciones(datos)
+        setErrorOpciones(null)
+      })
       .catch(() => {
-        if (!controller.signal.aborted) setOpciones(OPCIONES_VACIAS)
+        if (!controller.signal.aborted) {
+          setErrorOpciones('No se pudieron cargar los períodos.')
+        }
       })
     return () => controller.abort()
-  }, [])
+  }, [revision])
 
   useEffect(() => {
+    if (!periodoEfectivo) return
     const controller = new AbortController()
     listarFacturasElegiblesDebitos(
-      { periodo, medio, estado, buscar, pagina, tamanio },
+      { periodo: periodoEfectivo, medio, estado, buscar, pagina, tamanio },
       controller.signal,
     )
       .then((datos) => setResultado({ clave, datos, error: null }))
@@ -61,14 +69,16 @@ export function useFacturasDebito(filtros: FiltrosFacturasDebitos) {
         }))
       })
     return () => controller.abort()
-  }, [buscar, clave, estado, medio, pagina, periodo, tamanio])
+  }, [buscar, clave, estado, medio, pagina, periodoEfectivo, tamanio])
 
   const vigente = resultado.clave === clave
   return {
     datos: resultado.datos,
     opciones,
-    cargando: !vigente,
+    periodoEfectivo,
+    cargando: Boolean(periodoEfectivo) && !vigente,
     error: vigente ? resultado.error : null,
+    errorOpciones,
     recargar,
   }
 }

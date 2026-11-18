@@ -88,6 +88,7 @@ export interface OpcionesDebitos {
 export interface FacturaElegibleDebito {
   id: string
   numero: string
+  alumno_id: string
   alumno_nombre: string
   curso: string
   periodo: string
