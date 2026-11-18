@@ -127,6 +127,17 @@ export function EntradaMensaje({
   const atajo = useRef<HTMLSpanElement>(null)
   const [sangria, setSangria] = useState(0)
   const lista = useRef<HTMLDivElement>(null)
+  const caretPendiente = useRef<number | null>(null)
+
+  // Restaura el cursor en el mismo render que actualiza el texto. Un `requestAnimationFrame`
+  // posterior podía moverlo después de que la persona siguiera escribiendo y romper la mención
+  // siguiente.
+  useLayoutEffect(() => {
+    if (caretPendiente.current === null) return
+    const posicion = caretPendiente.current
+    caretPendiente.current = null
+    campo.current?.setSelectionRange(posicion, posicion)
+  }, [texto])
 
   // El texto arranca a continuación del atajo y, al seguir de largo, vuelve al borde izquierdo.
   useLayoutEffect(() => {
@@ -188,8 +199,8 @@ export function EntradaMensaje({
     setTexto(unido)
     onFijar?.(elegida)
     cerrarListas()
+    caretPendiente.current = inicio
     campo.current?.focus()
-    window.requestAnimationFrame(() => campo.current?.setSelectionRange(inicio, inicio))
   }
 
   function elegirComando(comando: ComandoDeEntrada) {
