@@ -10,16 +10,42 @@ from pydantic import BaseModel, ConfigDict, Field
 class MencionCreate(BaseModel):
     """Persona elegida con `@`: `texto` es lo que se vio en el mensaje y se cambia por su alias."""
 
-    tipo: Literal["ALUMNO", "FAMILIA", "DOCENTE"]
+    tipo: Literal["ALUMNO", "FAMILIA", "DOCENTE", "CURSO"]
     entidad_id: uuid.UUID
     texto: str = Field(min_length=1, max_length=120)
+
+
+class ContextoCreate(BaseModel):
+    """Ficha que la persona tiene abierta en pantalla (`alumnos/:id` o `familias/:id`)."""
+
+    tipo: Literal["ALUMNO", "FAMILIA"]
+    entidad_id: uuid.UUID
+
+
+class FijadoCreate(BaseModel):
+    """Alumno, familia, docente o curso que la persona fijó como contexto de la conversación."""
+
+    tipo: Literal["ALUMNO", "FAMILIA", "DOCENTE", "CURSO"]
+    entidad_id: uuid.UUID
 
 
 class MensajeCreate(BaseModel):
     contenido: str = Field(min_length=1)
     menciones: list[MencionCreate] = Field(default_factory=list, max_length=10)
+    contexto: ContextoCreate | None = None
+    fijados: list[FijadoCreate] = Field(default_factory=list, max_length=10)
+    comando: (
+        Literal[
+            "deuda", "asistencia", "horario", "evolucion", "comparar", "grafico", "resumen", "ir"
+        ]
+        | None
+    ) = None
     ruta: str | None = Field(default=None, max_length=200)
+    # Nombre del módulo o pantalla en que está la persona, tal como figura en su menú.
+    pantalla: str | None = Field(default=None, max_length=80)
     ciclo_lectivo: str | None = Field(default=None, max_length=10)
+    # Pregunta propia que se edita: ella y todo lo posterior se descartan antes de responder.
+    editar_desde: uuid.UUID | None = None
 
 
 class ConversacionRead(BaseModel):

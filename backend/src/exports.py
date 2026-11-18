@@ -12,10 +12,11 @@ from collections.abc import Iterable, Sequence
 from datetime import date
 
 from fastapi.responses import StreamingResponse
+from openpyxl import Workbook
+from openpyxl.styles import Font
 
 # Excel en Windows asume la codificación regional (cp1252) al abrir un .csv, y sin esto "Librería"
-# se ve como "LibrerÃ­a". El BOM le avisa que es UTF-8. Es la razón por la que un CSV alcanza
-# para cubrir "CSV y Excel" del RF sin sumar una dependencia para generar .xlsx.
+# se ve como "LibrerÃ­a". El BOM le avisa que es UTF-8.
 BOM_UTF8 = "﻿"
 
 
@@ -47,6 +48,38 @@ def respuesta_csv(
     return StreamingResponse(
         iter([buffer.getvalue()]),
         media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{nombre_completo}"'},
+    )
+
+
+MEDIA_TYPE_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+def respuesta_xlsx(
+    nombre_archivo: str,
+    encabezados: Sequence[str],
+    filas: Iterable[Sequence[object]],
+) -> StreamingResponse:
+    """Igual que `respuesta_csv`, pero como libro de Excel (una hoja, encabezado en negrita).
+
+    Los números y las fechas se escriben como valores de celda, no como texto.
+    """
+    libro = Workbook()
+    hoja = libro.active
+    if hoja is None:
+        raise RuntimeError("El libro nuevo no tiene hoja activa.")
+    hoja.append(list(encabezados))
+    for celda in hoja[1]:
+        celda.font = Font(bold=True)
+    for fila in filas:
+        hoja.append(list(fila))
+    buffer = io.BytesIO()
+    libro.save(buffer)
+
+    nombre_completo = f"{nombre_archivo}-{date.today().isoformat()}.xlsx"
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type=MEDIA_TYPE_XLSX,
         headers={"Content-Disposition": f'attachment; filename="{nombre_completo}"'},
     )
 

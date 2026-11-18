@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
 import type { AliasResuelto } from '../types'
-import { etiquetaGenerica, nombreCorrido, partirTextoConAlias, rutaDeEntidad } from '../utils'
+import { etiquetaGenerica, nombreCorrido, partirTextoConAlias } from '../utils/alias'
+import { rutaDeEntidad } from '../utils/destinos'
 
 interface TextoConAliasProps {
   texto: string

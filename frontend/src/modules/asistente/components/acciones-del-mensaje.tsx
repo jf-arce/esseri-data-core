@@ -3,10 +3,10 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { MessageFooter } from '@/components/ui/message'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { MS_FEEDBACK_COPIA } from '../constants'
+import { copiarAlPortapapeles } from '../services/portapapeles'
 import type { AliasResuelto, Bloque } from '../types'
-import { armarCopia } from '../utils'
-
-const MS_FEEDBACK_COPIA = 1500
+import { armarCopia } from '../utils/copia'
 
 interface AccionesDelMensajeProps {
   contenido: string
@@ -32,16 +32,7 @@ export function AccionesDelMensaje({
   async function copiar() {
     try {
       const { texto, html } = armarCopia(contenido, bloques, porAlias)
-      if (typeof ClipboardItem === 'undefined') {
-        await navigator.clipboard.writeText(texto)
-      } else {
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            'text/plain': new Blob([texto], { type: 'text/plain' }),
-            'text/html': new Blob([html], { type: 'text/html' }),
-          }),
-        ])
-      }
+      await copiarAlPortapapeles(texto, html)
       setCopiado(true)
     } catch {
       // Sin permiso de portapapeles no hay nada que mostrar: el botón queda como estaba.
@@ -54,10 +45,10 @@ export function AccionesDelMensaje({
         <TooltipTrigger asChild>
           <Button type="button" variant="ghost" size="icon-sm" onClick={() => void copiar()}>
             {copiado ? <CheckIcon /> : <CopyIcon />}
-            <span className="sr-only">{copiado ? 'Copiado' : 'Copiar respuesta'}</span>
+            <span className="sr-only">{copiado ? 'Respuesta copiada' : 'Copiar respuesta'}</span>
           </Button>
         </TooltipTrigger>
-        <TooltipContent>{copiado ? 'Copiado' : 'Copiar'}</TooltipContent>
+        <TooltipContent>{copiado ? 'Copiada' : 'Copiar respuesta'}</TooltipContent>
       </Tooltip>
       {alReintentar !== null && (
         <Tooltip>

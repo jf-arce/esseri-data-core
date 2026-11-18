@@ -1,8 +1,9 @@
 """Lógica de negocio del módulo Familias y Alumnos."""
 
+import re
 import uuid
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -31,6 +32,7 @@ from src.familias_alumnos.schemas import (
 )
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
+from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
 
 ROL_FAMILIA = "familia"
 PREFIJO_LEGAJO_AUTOMATICO = "ALU-"
@@ -170,14 +172,9 @@ def listar_familias(
     if filtros:
         # Búsqueda por nombre, apellido o DNI
         if filtros.buscar:
-            busqueda = f"%{filtros.buscar}%"
-            query = query.filter(
-                or_(
-                    Persona.nombre.ilike(busqueda),
-                    Persona.apellido.ilike(busqueda),
-                    Persona.dni.ilike(busqueda),
-                )
-            )
+            condicion = _condicion_de_busqueda(filtros.buscar, solo_nombre=filtros.solo_nombre)
+            if condicion is not None:
+                query = query.filter(condicion)
 
         # Filtro por estado de deuda
         if filtros.estado_deuda:
@@ -406,6 +403,35 @@ def obtener_alumno_por_id(db: Session, alumno_id: uuid.UUID) -> Alumno | None:
     return db.query(Alumno).filter(Alumno.id == alumno_id).first()
 
 
+def _condicion_de_busqueda(buscar: str, *, solo_nombre: bool):
+    """Condición SQL de la búsqueda de personas.
+
+    Por defecto el texto entero se busca en nombre, apellido o DNI. Con `solo_nombre` (el `@` del
+    Asistente) no se mira el DNI y cada palabra tiene que estar en el nombre o en el apellido, sin
+    distinguir tildes ni orden, así "perez ana" encuentra a Ana Pérez y un "1" no trae a todos los
+    DNI que lo contienen. `None` si no queda nada que buscar.
+    """
+    if not solo_nombre:
+        patron = f"%{buscar}%"
+        return or_(
+            Persona.nombre.ilike(patron),
+            Persona.apellido.ilike(patron),
+            Persona.dni.ilike(patron),
+        )
+    palabras = re.findall(r"\w+", normalizar_texto_busqueda(buscar))
+    if not palabras:
+        return None
+    return and_(
+        *(
+            or_(
+                normalizar_columna_busqueda(Persona.nombre).like(f"%{palabra}%"),
+                normalizar_columna_busqueda(Persona.apellido).like(f"%{palabra}%"),
+            )
+            for palabra in palabras
+        )
+    )
+
+
 def listar_alumnos(
     db: Session,
     filtros: FiltrosListarAlumnos | None = None,
@@ -434,14 +460,9 @@ def listar_alumnos(
     if filtros:
         # Búsqueda por nombre, apellido o DNI
         if filtros.buscar:
-            busqueda = f"%{filtros.buscar}%"
-            query = query.filter(
-                or_(
-                    Persona.nombre.ilike(busqueda),
-                    Persona.apellido.ilike(busqueda),
-                    Persona.dni.ilike(busqueda),
-                )
-            )
+            condicion = _condicion_de_busqueda(filtros.buscar, solo_nombre=filtros.solo_nombre)
+            if condicion is not None:
+                query = query.filter(condicion)
 
         # Filtro por estado del alumno
         if filtros.estado:

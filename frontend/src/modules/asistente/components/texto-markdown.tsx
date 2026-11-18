@@ -2,7 +2,7 @@ import { Link } from 'react-router'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { AliasResuelto } from '../types'
-import { sustituirAlias } from '../utils'
+import { sustituirAlias } from '../utils/alias'
 
 // Estilos de cada elemento: el panel es angosto, así que todo va compacto y las tablas hacen
 // scroll horizontal en vez de romper el ancho.
@@ -10,7 +10,10 @@ const COMPONENTES: Components = {
   p: ({ children }) => <p className="text-sm leading-relaxed wrap-break-word">{children}</p>,
   ul: ({ children }) => <ul className="ml-5 list-disc space-y-1 text-sm">{children}</ul>,
   ol: ({ children }) => <ol className="ml-5 list-decimal space-y-1 text-sm">{children}</ol>,
-  strong: ({ children }) => <strong className="font-semibold text-texto">{children}</strong>,
+  // El prompt limita la negrita a la cifra o conclusión clave: se resalta sin abusar.
+  strong: ({ children }) => (
+    <strong className="rounded bg-violeta-suave px-1 font-semibold text-texto">{children}</strong>
+  ),
   h1: ({ children }) => <h3 className="text-sm font-semibold text-texto">{children}</h3>,
   h2: ({ children }) => <h3 className="text-sm font-semibold text-texto">{children}</h3>,
   h3: ({ children }) => <h3 className="text-sm font-semibold text-texto">{children}</h3>,

@@ -103,11 +103,14 @@ def listar_familias_endpoint(
     _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_FAMILIAS_ALUMNOS_LEER))],
     familia_activa: FamiliaActiva,
     buscar: str | None = None,
+    solo_nombre: bool = False,
     estado_deuda: str | None = None,
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[Familia]:
     """Listar familias con filtros opcionales. El rol familia solo ve la propia."""
-    filtros = FiltrosListarFamilias(buscar=buscar, estado_deuda=estado_deuda)
+    filtros = FiltrosListarFamilias(
+        buscar=buscar, solo_nombre=solo_nombre, estado_deuda=estado_deuda
+    )
     return listar_familias(
         db, filtros, familia_id=familia_activa.id if familia_activa is not None else None
     )
@@ -210,6 +213,7 @@ def listar_alumnos_endpoint(
     _: Annotated[Usuario, Depends(requiere_permiso(PERMISO_FAMILIAS_ALUMNOS_LEER))],
     familia_activa: FamiliaActiva,
     buscar: str | None = None,
+    solo_nombre: bool = False,
     estado: str | None = None,
     nivel_educativo_id: str | None = None,
     estado_deuda: str | None = None,
@@ -219,6 +223,7 @@ def listar_alumnos_endpoint(
     """Listar alumnos con filtros opcionales. El rol familia solo ve los vinculados."""
     filtros = FiltrosListarAlumnos(
         buscar=buscar,
+        solo_nombre=solo_nombre,
         estado=estado,
         nivel_educativo_id=nivel_educativo_id,
         estado_deuda=estado_deuda,

@@ -1,7 +1,9 @@
 import uuid
 
 import pytest
+from sqlalchemy import select
 
+from src.academico.models import Division, Docente
 from src.asistente.exceptions import AliasInvalido
 from src.asistente.models import Conversacion
 from src.asistente.seudonimos_service import (
@@ -12,6 +14,7 @@ from src.asistente.seudonimos_service import (
     preparar_entrada,
     resolver_alias,
 )
+from src.models import Persona
 from tests.asistente.conftest import crear_cuenta
 
 
@@ -24,8 +27,15 @@ def conversacion(db_session):
     return fila
 
 
-def preparar(db, conversacion, texto, menciones=None, *, puede=True):
-    return preparar_entrada(db, conversacion.id, texto, menciones or [], puede_ver_personas=puede)
+def preparar(db, conversacion, texto, menciones=None, *, puede=True, academico=False):
+    return preparar_entrada(
+        db,
+        conversacion.id,
+        texto,
+        menciones or [],
+        puede_ver_personas=puede,
+        puede_ver_academico=academico,
+    )
 
 
 class TestAlias:
@@ -101,6 +111,44 @@ class TestEntrada:
         mencion = Mencion("ALUMNO", uuid.uuid4(), "@Fantasma")
         resultado = preparar(db_session, conversacion, "ficha de @Fantasma", [mencion])
         assert "[ALUMNO" not in resultado.texto
+
+    def test_mencion_de_curso_se_reemplaza_por_su_nombre_sin_alias(
+        self, db_session, conversacion, personas
+    ):
+        division = db_session.scalar(select(Division))
+        mencion = Mencion("CURSO", division.id, "@5°A")
+        resultado = preparar(
+            db_session, conversacion, "horario de @5°A", [mencion], puede=False, academico=True
+        )
+        assert resultado.texto == "horario de 5°A de Primaria"
+
+    def test_mencion_de_curso_sin_permiso_academico_queda_como_texto(
+        self, db_session, conversacion, personas
+    ):
+        division = db_session.scalar(select(Division))
+        mencion = Mencion("CURSO", division.id, "@5°A")
+        resultado = preparar(db_session, conversacion, "horario de @5°A", [mencion])
+        assert "Primaria" not in resultado.texto
+
+    def test_mencion_de_docente_pide_permiso_academico(self, db_session, conversacion):
+        persona = Persona(nombre="Elena", apellido="Rojas", dni="25111222")
+        db_session.add(persona)
+        db_session.flush()
+        docente = Docente(legajo="D-8", persona_id=persona.id)
+        db_session.add(docente)
+        db_session.commit()
+        mencion = Mencion("DOCENTE", docente.id, "@Elena Rojas")
+        sin = preparar(db_session, conversacion, "clases de @Elena Rojas", [mencion], puede=False)
+        con = preparar(
+            db_session,
+            conversacion,
+            "clases de @Elena Rojas",
+            [mencion],
+            puede=False,
+            academico=True,
+        )
+        assert "[DOCENTE" not in sin.texto
+        assert con.texto == "clases de [DOCENTE:1]"
 
     def test_dni_email_y_telefono_se_tapan(self, db_session, conversacion):
         resultado = preparar(
