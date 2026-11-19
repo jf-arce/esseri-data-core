@@ -105,6 +105,16 @@ authenticated portal links. This first-version storage choice trades simple atom
 for increased database/WAL/backup size; see backend README operational limits and controls.
 Frontend filenames remain kebab-case and backend snake_case.
 
+Simulated CBU debit results remain owned by Facturación. Confirmation persists
+`debito.resultado_registrado` atomically with the payment/result, while Workflows dispatches
+only after commit. The existing configurable `notificar` action snapshots the family message
+before n8n; family billing projects that snapshot regardless of email status, scoped to the
+invoice's persisted economic responsible. This projection is not a Communications publication
+or read receipt, and does not introduce another inbox or notification table. Payment events
+remain available; their ordinary family `notificar` action defers to the debit-result event only
+for `pago.registrado` linked to a simulated debit. Other payment actions, `pago.rechazado` and
+Communications publications are unchanged. Manual-payment workflows are unchanged.
+
 - **Monorepo** (un solo repositorio para todo el sistema), no un repo por módulo. No lo exige ningún RF/RNF explícitamente — es una decisión del equipo para simplificar la coordinación entre los 4 integrantes y la transferencia final a ESSERI.
 - **Separación por capas en la raíz** (`frontend/`, `backend/`, `database/`, `infra/`) para cumplir RNF-09 (separación entre frontend, backend y base de datos).
 - **Dentro de cada capa, separación por dominio/módulo** (los 10 módulos del EDT: Autenticación, Familias y Alumnos, Académico, Inscripciones, Facturación, Proveedores y Compras, Workflows, Auditoría, Panel Administrativo, IA/Sugerencias), no por tipo de archivo. Esto refleja la arquitectura orientada a eventos: cada módulo puede evolucionar y publicar/escuchar eventos sin acoplarse a los demás.

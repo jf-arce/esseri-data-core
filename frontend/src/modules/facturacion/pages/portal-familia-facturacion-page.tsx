@@ -31,6 +31,7 @@ import {
   descargarFacturaFamilia,
 } from '@/modules/facturacion/services/factura-pdf-familia'
 import type {
+  AvisoDebitoFamilia,
   EstadoFactura,
   FacturaFamilia,
   FacturacionFamilia,
@@ -48,6 +49,7 @@ const FORMATEADOR_FECHA = new Intl.DateTimeFormat('es-AR', {
   year: 'numeric',
   timeZone: 'UTC',
 })
+const FACTURAS_POR_PAGINA = 5
 const MESES = [
   'enero',
   'febrero',
@@ -122,7 +124,6 @@ function formatearConcepto(descripcion: string) {
     return nombre ? `${nombre} ${anio}` : `${mes}/${anio}`
   })
 }
-
 function diasParaVencer(fecha: string) {
   const hoy = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Argentina/Buenos_Aires',
@@ -215,6 +216,7 @@ function colorAccesible(variante: 'advertencia' | 'error' | 'exito') {
 
 function FacturaFamiliaCard({
   factura,
+  aviso,
   descargandoPagoId,
   alDescargar,
   resaltada = false,
@@ -222,6 +224,7 @@ function FacturaFamiliaCard({
   alAlternar,
 }: {
   factura: FacturacionFamilia['facturas'][number]
+  aviso?: AvisoDebitoFamilia
   descargandoPagoId: string | null
   alDescargar: (pagoId: string) => void
   resaltada?: boolean
@@ -238,10 +241,14 @@ function FacturaFamiliaCard({
     )
     .slice()
     .sort((a, b) => b.fecha.localeCompare(a.fecha))[0]
-  const rechazado = estadoActual !== 'pagada' && ultimoDebito?.estado === 'rechazado'
+  const rechazado =
+    aviso?.resultado === 'rechazado' ||
+    (estadoActual !== 'pagada' && ultimoDebito?.estado === 'rechazado')
   const concepto = factura.detalles[0]?.descripcion?.trim()
     ? formatearConcepto(factura.detalles[0].descripcion.trim())
     : `Cuota ${MESES[Number(vencimiento(factura).slice(5, 7)) - 1]} ${vencimiento(factura).slice(0, 4)}`
+  const periodo = `${MESES[Number(vencimiento(factura).slice(5, 7)) - 1]} ${vencimiento(factura).slice(0, 4)}`
+  const titulo = `Factura de ${periodo}`
   return (
     <Card
       id={`factura-${factura.id}`}
@@ -265,9 +272,9 @@ function FacturaFamiliaCard({
         >
           <CardHeader className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-1">
-              <CardTitle>{concepto}</CardTitle>
+              <CardTitle>{titulo}</CardTitle>
               <CardDescription>
-                {factura.alumno_nombre} ·{' '}
+                {concepto} · {factura.alumno_nombre} ·{' '}
                 {estadoActual === 'pendiente'
                   ? TEXTOS_DEBITO.programado(dias, vencimiento(factura))
                   : `Vence ${formatearFecha(vencimiento(factura))}`}
@@ -288,7 +295,24 @@ function FacturaFamiliaCard({
           </CardHeader>
         </summary>
         <CardContent className="flex flex-col gap-5 pt-2 pb-5">
-          <p className="text-xs text-[#6B6478]">Factura #{factura.id.slice(0, 8)}</p>
+          <p className="text-xs text-[#6B6478]">
+            Factura {aviso?.numero_factura ?? `#${factura.id.slice(0, 8)}`}
+          </p>
+          {aviso?.resultado === 'rechazado' && (
+            <section
+              aria-label={`Débito automático de factura ${aviso.numero_factura}`}
+              className="rounded-[16px] bg-[#FDF0ED] p-4"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="error">{TEXTOS_DEBITO.rechazado}</Badge>
+                <span className="text-sm font-medium text-[#2B2338]">
+                  {formatearMoneda(aviso.importe)}
+                </span>
+                <span className="text-xs text-[#6B6478]">{formatearFecha(aviso.fecha)}</span>
+              </div>
+              <p className="mt-2 text-sm text-[#6B6478]">Motivo: {aviso.motivo_rechazo}.</p>
+            </section>
+          )}
           {estadoActual === 'vencida' && (
             <p className="text-sm text-[#6B6478]">
               {TEXTOS_DEBITO.vencida}{' '}
@@ -298,7 +322,7 @@ function FacturaFamiliaCard({
               .
             </p>
           )}
-          {factura.detalles.length > 1 && (
+          {factura.detalles.length > 0 && (
             <section aria-label={`Conceptos de factura ${factura.id.slice(0, 8)}`}>
               <h3 className="mb-3 text-sm font-semibold text-[#2B2338]">Conceptos</h3>
               <ul
@@ -310,7 +334,7 @@ function FacturaFamiliaCard({
                     key={`${factura.id}-${indice}`}
                     className="flex items-start justify-between gap-4 text-sm"
                   >
-                    <span className="text-[#6B6478]">{detalle.descripcion}</span>
+                    <span className="text-[#6B6478]">{formatearConcepto(detalle.descripcion)}</span>
                     <span className="shrink-0 font-medium text-[#2B2338]">
                       {formatearMoneda(detalle.monto)}
                     </span>
@@ -412,7 +436,7 @@ export function PortalFamiliaFacturacionPage() {
   const [intento, setIntento] = useState(0)
   const [descargandoPagoId, setDescargandoPagoId] = useState<string | null>(null)
   const [pagina, setPagina] = useState(0)
-  const [filtro, setFiltro] = useState<'todas' | EstadoFactura>('todas')
+  const [filtro, setFiltro] = useState<'todas' | EstadoFactura | 'rechazadas'>('todas')
   const [searchParams, setSearchParams] = useSearchParams()
   const [alumno, setAlumno] = useState(() => searchParams.get('alumno') ?? 'todos')
   const [busqueda, setBusqueda] = useState('')
@@ -424,6 +448,16 @@ export function PortalFamiliaFacturacionPage() {
   const cargando = resultado === null || resultado.intento !== intento
   const error = !cargando && resultado?.estado === 'error'
   const cuenta = !cargando && resultado?.estado === 'exito' ? resultado.cuenta : null
+  const avisoDe = (facturaId: string) =>
+    (cuenta?.avisos_debito ?? [])
+      .filter((aviso) => aviso.factura_id === facturaId)
+      .sort((a, b) => b.fecha.localeCompare(a.fecha))[0]
+  const rechazadas = (cuenta?.facturas ?? []).filter(
+    (factura) => avisoDe(factura.id)?.resultado === 'rechazado',
+  ).length
+  const acreditadas = (cuenta?.facturas ?? []).filter(
+    (factura) => avisoDe(factura.id)?.resultado === 'exitoso',
+  ).length
   const alumnos = [
     ...new Map(
       (cuenta?.facturas ?? []).map((factura) => [factura.alumno_id, factura.alumno_nombre]),
@@ -451,7 +485,10 @@ export function PortalFamiliaFacturacionPage() {
       ].join(' '),
     )
     return (
-      (filtro === 'todas' || estadoVisible(factura) === filtro) &&
+      (filtro === 'todas' ||
+        (filtro === 'rechazadas'
+          ? avisoDe(factura.id)?.resultado === 'rechazado'
+          : estadoVisible(factura) === filtro)) &&
       (alumno === 'todos' || factura.alumno_id === alumno) &&
       (!desde || vencimiento(factura) >= desde) &&
       (!hasta || vencimiento(factura) <= hasta) &&
@@ -597,6 +634,34 @@ export function PortalFamiliaFacturacionPage() {
             <div className="flex flex-col gap-6">
               <ResumenCuenta cuenta={cuenta} />
 
+              {!!cuenta.avisos_debito?.length && (
+                <section aria-labelledby="avisos-debito-heading">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle id="avisos-debito-heading" className="text-base">
+                        Avisos de débitos automáticos
+                      </CardTitle>
+                      <CardDescription>
+                        {acreditadas} acreditados · {rechazadas} rechazados. El detalle está en cada
+                        factura.
+                      </CardDescription>
+                    </CardHeader>
+                    {rechazadas > 0 && (
+                      <CardContent>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="rounded-full"
+                          onClick={() => setFiltro('rechazadas')}
+                        >
+                          Ver rechazados
+                        </Button>
+                      </CardContent>
+                    )}
+                  </Card>
+                </section>
+              )}
+
               <section aria-labelledby="facturas-familia-heading" className="flex flex-col gap-4">
                 <div>
                   <h2
@@ -616,32 +681,37 @@ export function PortalFamiliaFacturacionPage() {
                       className="flex flex-wrap items-center gap-2"
                       aria-label="Filtrar facturas"
                     >
-                      {(['todas', 'vencida', 'pendiente', 'pagada'] as const).map((valor) => (
-                        <Button
-                          key={valor}
-                          type="button"
-                          variant={filtro === valor ? 'default' : 'secondary'}
-                          className="rounded-full"
-                          aria-pressed={filtro === valor}
-                          onClick={() => {
-                            setFiltro(valor)
-                            setPagina(0)
-                          }}
-                        >
-                          {
+                      {(['todas', 'vencida', 'pendiente', 'pagada', 'rechazadas'] as const).map(
+                        (valor) => (
+                          <Button
+                            key={valor}
+                            type="button"
+                            variant={filtro === valor ? 'default' : 'secondary'}
+                            className="rounded-full"
+                            aria-pressed={filtro === valor}
+                            onClick={() => {
+                              setFiltro(valor)
+                              setPagina(0)
+                            }}
+                          >
                             {
-                              todas: 'Todas',
-                              vencida: 'Vencidas',
-                              pendiente: 'Pendientes',
-                              pagada: 'Pagadas',
-                            }[valor]
-                          }{' '}
-                          {valor === 'todas'
-                            ? ordenadas.length
-                            : ordenadas.filter((factura) => estadoVisible(factura) === valor)
-                                .length}
-                        </Button>
-                      ))}
+                              {
+                                todas: 'Todas',
+                                vencida: 'Vencidas',
+                                pendiente: 'Pendientes',
+                                pagada: 'Pagadas',
+                                rechazadas: 'Rechazadas',
+                              }[valor]
+                            }{' '}
+                            {valor === 'todas'
+                              ? ordenadas.length
+                              : valor === 'rechazadas'
+                                ? rechazadas
+                                : ordenadas.filter((factura) => estadoVisible(factura) === valor)
+                                    .length}
+                          </Button>
+                        ),
+                      )}
                       <FilterDropdown
                         className="rounded-full"
                         label={`Ordenar: ${
@@ -717,21 +787,24 @@ export function PortalFamiliaFacturacionPage() {
                         No hay facturas para los filtros seleccionados.
                       </p>
                     )}
-                    {filtradas.slice(pagina * 10, (pagina + 1) * 10).map((factura) => (
-                      <FacturaFamiliaCard
-                        key={factura.id === focoFacturaId ? `${factura.id}-foco` : factura.id}
-                        factura={factura}
-                        descargandoPagoId={descargandoPagoId}
-                        alDescargar={(pagoId) => void descargarComprobante(pagoId)}
-                        resaltada={factura.id === focoFacturaId}
-                        abrirInicial={factura.id === focoFacturaId}
-                        alAlternar={(abierta) => {
-                          if (!focoFacturaId) return
-                          if (factura.id !== focoFacturaId || !abierta) limpiarFoco()
-                        }}
-                      />
-                    ))}
-                    {filtradas.length > 10 && (
+                    {filtradas
+                      .slice(pagina * FACTURAS_POR_PAGINA, (pagina + 1) * FACTURAS_POR_PAGINA)
+                      .map((factura) => (
+                        <FacturaFamiliaCard
+                          key={factura.id === focoFacturaId ? `${factura.id}-foco` : factura.id}
+                          factura={factura}
+                          aviso={avisoDe(factura.id)}
+                          descargandoPagoId={descargandoPagoId}
+                          alDescargar={(pagoId) => void descargarComprobante(pagoId)}
+                          resaltada={factura.id === focoFacturaId}
+                          abrirInicial={factura.id === focoFacturaId}
+                          alAlternar={(abierta) => {
+                            if (!focoFacturaId) return
+                            if (factura.id !== focoFacturaId || !abierta) limpiarFoco()
+                          }}
+                        />
+                      ))}
+                    {filtradas.length > FACTURAS_POR_PAGINA && (
                       <nav
                         aria-label="Páginas de facturas"
                         className="flex items-center justify-between gap-3"
@@ -746,13 +819,13 @@ export function PortalFamiliaFacturacionPage() {
                           Anterior
                         </Button>
                         <span className="text-sm text-[#3A2E45]">
-                          Página {pagina + 1} de {Math.ceil(filtradas.length / 10)}
+                          Página {pagina + 1} de {Math.ceil(filtradas.length / FACTURAS_POR_PAGINA)}
                         </span>
                         <Button
                           type="button"
                           variant="secondary"
                           className="rounded-full"
-                          disabled={(pagina + 1) * 10 >= filtradas.length}
+                          disabled={(pagina + 1) * FACTURAS_POR_PAGINA >= filtradas.length}
                           onClick={() => setPagina((actual) => actual + 1)}
                         >
                           Siguiente

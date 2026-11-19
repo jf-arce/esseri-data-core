@@ -32,6 +32,104 @@ La app fija `timezone=UTC` en cada sesión de Postgres (`src/database.py`), así
 
 ## Migraciones (Alembic)
 
+### Demo de cobranzas por archivo
+
+El recorrido de débitos automáticos es una demostración operativa: los archivos tienen marca
+propia (`ESSERI_SIMULADO`), no son compatibles con Payway, Banco Galicia ni ningún banco real y
+no acreditan fondos. El formato y el recorrido están documentados en
+[Cobranzas por archivo](../docs/cobranzas-simuladas.md). La API vive en
+`/facturacion/cobranzas-simuladas` y requiere `facturacion.crear` en todos sus endpoints,
+incluidas las consultas y descargas; no se expone al portal de familias.
+
+Esquema (aplicar `alembic upgrade head` antes del recorrido):
+
+| Revisión | Efecto |
+|---|---|
+| `fb836637c05a` | Solicitudes/débitos iniciales y método “Débito por archivo”. |
+| `91553e2163be` | Metadatos visibles por factura, revisión durable de respuestas, reservas activas e historial de liberaciones. |
+
+Flujo y endpoints principales:
+
+1. **Selección**: `GET /opciones`, `GET /facturas-elegibles` (25 filas por defecto) y
+   `POST /resumen-seleccion`. La selección usa `{modo:"pagina"|"filtrados", factura_ids,
+    filtros, excluir_ids}`; `filtrados` se resuelve en el backend. La pantalla preselecciona
+    las elegibles del período por CBU y permite exclusiones. La demo no genera lotes de tarjetas.
+2. **Exportación**: `POST /` con `{seleccion, periodo}` crea el lote, un código humano
+   `LD-AAAA-MM-NNN` y reserva cada factura. `GET /`, `GET /{id}` y `POST /{id}/respuesta`
+   permiten historial, detalle y descarga de la solicitud simulada.
+3. **Revisión**: `POST /previsualizar` persiste la revisión por lote y hash, con detalle crudo
+   y resuelto, incluidas filas inválidas. No registra pagos. Una vista previa aceptada deja el
+   lote `en_revision` y bloquea su liberación.
+4. **Confirmación**: `POST /confirmar` con `{importacion_id, revision_confirmada:true}`.
+    Exige exactamente un resultado por cada débito del lote y revalida las filas bajo bloqueo.
+    Cualquier error estructural o
+   semántico bloquea la totalidad: no se aplican pagos parciales. Los cobros usan
+   `registrar_pago(..., confirmar=False)` y confirman pago, factura, movimiento, auditoría y
+   `pago.registrado` en una sola transacción; los rechazos no generan pago y liberan su reserva.
+5. **Incidencias e historial**: `GET /importaciones/{id}` pagina y filtra el detalle,
+   `GET /importaciones/{id}/incidencias` descarga un CSV demo de rechazos/errores y
+   `GET /liberaciones` lista las liberaciones auditadas. `POST /{id}/liberar` exige motivo y
+   confirmación explícita, solo para lotes exportados sin revisión persistida.
+
+Reimportar el mismo archivo recupera la revisión o confirmación existente sin duplicar pagos.
+La reserva activa de facturas está reforzada por un índice único parcial en base; los bloqueos
+de fila de PostgreSQL y el reclamo condicional por referencia completan la idempotencia ante
+reintentos y concurrencia. Una falla inesperada revierte toda la confirmación. Los emails no
+forman parte de esta transacción. Cada resultado confirmado publica
+`debito.resultado_registrado`; la regla editable **Notificación de débitos automáticos**
+usa dos condiciones (`resultado == exitoso` / `resultado == rechazado`) y la acción existente
+`notificar`. Los snapshots se muestran en `GET /facturacion/familia/me`, campo
+`avisos_debito`, aunque falle n8n. `pago.registrado` se conserva; solo su acción `notificar`
+familiar se considera gestionada por el resultado del débito, y únicamente cuando la regla de
+resultados está activa y aplicable y cubre todas las direcciones del aviso de pago. Los pagos
+manuales, `pago.rechazado` y Comunicaciones conservan su comportamiento. El seed siguiente instala la regla y sus
+plantillas sin sobrescribir ediciones posteriores.
+
+**Actualización de una base existente:** después de `alembic upgrade head`, correr
+`python ../database/seeds/01_seed_grupo_a.py` y
+`python ../database/seeds/03_seed_grupo_b.py` (o el seed de demo) antes de confirmar una
+rendición. El catálogo `debito.resultado_registrado` es dato de seed, no una migración; si
+falta, la confirmación entera se revierte sin dejar pagos parciales.
+
+Seed opcional e idempotente para la demo (crea 500 alumnos/facturas sintéticas, 438 elegibles
+del período actual, 12 reservadas en un lote exportado y un lote histórico liberado; no borra
+datos ajenos ni incluye CBU, cuentas o tarjetas):
+
+```bash
+python ../database/seeds/07_seed_debitos_demo.py
+```
+
+Con `ESSERI_DEMO_EMAIL_BASE=tu-casilla@gmail.com` el seed crea tres cuentas familiares
+(`tu-casilla+debito-1@gmail.com` a `+debito-3`) con la contraseña `ESSERI_DEMO_PASSWORD`
+(por defecto `EsseriDemo2026!`), para mostrar el correo real y el Portal Familia. Sin esa
+variable no crea cuentas. El envío requiere n8n configurado y el despachador corre cada 30 s.
+
+Verificación focalizada (con el venv activado):
+
+```bash
+pytest -q tests/facturacion/test_formato_cobranza_simulada.py \
+  tests/facturacion/test_cobranzas_lotes.py tests/facturacion/test_cobranzas_importacion.py \
+  tests/facturacion/test_cobranzas_concurrencia.py tests/facturacion/test_debitos_demo_seed.py \
+  tests/facturacion/test_cobranzas_simuladas.py
+```
+
+Escenario integral A/B/C aislado, con transporte de email capturado (no envía correos reales):
+
+```bash
+pytest -q tests/facturacion/test_debitos_resultados_workflow.py
+```
+
+Comprueba dos pagos, un rechazo por saldo insuficiente, tres eventos y avisos, aislamiento
+entre familias, fallo de n8n sin reversión y ausencia de duplicados al reprocesar.
+Para la presentación en navegador y correos a casillas de prueba autorizadas, seguir
+[el recorrido de demo](../docs/cobranzas-simuladas.md#safe-abc-demonstration).
+
+La revisión `91553e2163be` fue autogenerada contra un esquema de referencia aislado en SQLite y
+revisada para que sea aditiva (tablas nuevas, columnas nullable o con default, constraints e
+índices nombrados). Se verificó `upgrade`/`downgrade` en ese esquema aislado. Eso no sustituye
+la comprobación de migración y bloqueos concurrentes con PostgreSQL. No apuntar pruebas
+destructivas a una base compartida ni reutilizar credenciales/conexiones remotas sin autorización.
+
 Nunca se escribe SQL a mano en `database/` — todo cambio de esquema se genera con Alembic desde acá:
 
 ```bash

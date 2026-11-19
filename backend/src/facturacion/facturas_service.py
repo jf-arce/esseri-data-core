@@ -230,6 +230,7 @@ def registrar_pago(
     comprobante_nombre: str | None,
     comprobante_tipo_contenido: str | None,
     comprobante_contenido: bytes | None,
+    confirmar: bool = True,
 ) -> Pago:
     factura_bloqueada = db.scalar(select(Factura).where(Factura.id == factura.id).with_for_update())
     if factura_bloqueada is None:
@@ -301,8 +302,12 @@ def registrar_pago(
     from src.notificaciones.facturacion_service import registrar_pago_aprobado
 
     registrar_pago_aprobado(db, pago)
-    db.commit()
-    db.refresh(pago)
+    if confirmar:
+        db.commit()
+        db.refresh(pago)
+    else:
+        # The caller owns the transaction, including any durable import-result claim.
+        db.flush()
     return pago
 
 

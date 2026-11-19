@@ -299,6 +299,35 @@ campo_evento:
       etiqueta: Fecha en que se procesó
       tipo_dato: fecha
 
+  debito.resultado_registrado:
+    - nombre_interno: debito_id
+      etiqueta: Débito
+      tipo_dato: texto
+    - nombre_interno: factura_id
+      etiqueta: Factura
+      tipo_dato: texto
+    - nombre_interno: lote_id
+      etiqueta: Lote
+      tipo_dato: texto
+    - nombre_interno: responsable_economico_id
+      etiqueta: Responsable económico de la factura
+      tipo_dato: texto
+    - nombre_interno: numero_factura
+      etiqueta: Número de factura
+      tipo_dato: texto
+    - nombre_interno: resultado
+      etiqueta: Resultado del débito
+      tipo_dato: texto
+    - nombre_interno: importe
+      etiqueta: Importe del débito
+      tipo_dato: numero
+    - nombre_interno: codigo_resultado
+      etiqueta: Código del resultado
+      tipo_dato: texto
+    - nombre_interno: motivo_rechazo
+      etiqueta: Motivo del rechazo
+      tipo_dato: texto
+
   pago.rechazado:
     - nombre_interno: monto
       etiqueta: Monto del pago
