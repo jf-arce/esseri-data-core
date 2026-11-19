@@ -15,12 +15,20 @@ import {
 } from '@/modules/academico/services/exportar-horario'
 
 interface ExportarHorarioProps {
-  /** Si falta, el menú solo ofrece imprimir. */
+  /** Si falta, el menú solo ofrece imprimir o las acciones recibidas. */
   divisionId?: string
   titulo: string
+  /** Acciones alternativas para vistas de solo lectura, como el Portal Familia. */
+  descargar?: () => Promise<void>
+  compartir?: () => Promise<void>
 }
 
-export function ExportarHorario({ divisionId, titulo }: ExportarHorarioProps) {
+export function ExportarHorario({
+  divisionId,
+  titulo,
+  descargar,
+  compartir,
+}: ExportarHorarioProps) {
   const [ocupado, setOcupado] = useState(false)
 
   async function ejecutar(accion: () => Promise<void>) {
@@ -47,17 +55,25 @@ export function ExportarHorario({ divisionId, titulo }: ExportarHorarioProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {divisionId && (
+        {(descargar || divisionId) && (
           <DropdownMenuItem
-            onSelect={() => void ejecutar(() => descargarHorarioDivision(divisionId))}
+            onSelect={() =>
+              void ejecutar(() =>
+                descargar ? descargar() : descargarHorarioDivision(divisionId as string),
+              )
+            }
           >
             <FileSpreadsheetIcon />
             Exportar a Excel
           </DropdownMenuItem>
         )}
-        {divisionId && puedeCompartirArchivos() && (
+        {(compartir || (divisionId && puedeCompartirArchivos())) && (
           <DropdownMenuItem
-            onSelect={() => void ejecutar(() => compartirHorarioDivision(divisionId, titulo))}
+            onSelect={() =>
+              void ejecutar(() =>
+                compartir ? compartir() : compartirHorarioDivision(divisionId as string, titulo),
+              )
+            }
           >
             <Share2Icon />
             Compartir

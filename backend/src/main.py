@@ -21,6 +21,8 @@ from src.facturacion.router import router as facturacion_router
 from src.familias_alumnos.router import router as familias_alumnos_router
 from src.ia_sugerencias.router import router as ia_sugerencias_router
 from src.inscripciones.router import router as inscripciones_router
+from src.notificaciones.router import router as notificaciones_router
+from src.notificaciones.vencimientos_job import ejecutar_job_vencimientos_periodico
 from src.panel_admin.router import router as panel_admin_router
 from src.proveedores_compras.router import router as proveedores_compras_router
 from src.workflows.despacho_job import ejecutar_job_despacho_periodico
@@ -48,10 +50,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         retencion = asyncio.create_task(
             ejecutar_job_retencion_periodico(), name="asistente-retencion"
         )
+    vencimientos: asyncio.Task[None] | None = None
+    if app.state.notificaciones_vencimientos_habilitado:
+        vencimientos = asyncio.create_task(
+            ejecutar_job_vencimientos_periodico(), name="notificaciones-vencimientos"
+        )
     try:
         yield
     finally:
-        for tarea in (job, despacho, retencion):
+        for tarea in (job, despacho, retencion, vencimientos):
             if tarea is not None:
                 tarea.cancel()
                 with suppress(asyncio.CancelledError):
@@ -62,6 +69,7 @@ app = FastAPI(title="ESSERI Data Core API", lifespan=lifespan)
 app.state.facturacion_job_habilitado = settings.FACTURACION_AUTOMATICA_HABILITADA
 app.state.workflows_despacho_habilitado = settings.WORKFLOWS_DESPACHO_HABILITADO
 app.state.asistente_habilitado = settings.ASISTENTE_HABILITADO
+app.state.notificaciones_vencimientos_habilitado = settings.NOTIFICACIONES_VENCIMIENTOS_HABILITADO
 
 app.add_middleware(
     CORSMiddleware,
@@ -81,6 +89,7 @@ app.include_router(adjuntos_router)
 app.include_router(familias_alumnos_router)
 app.include_router(academico_router)
 app.include_router(inscripciones_router)
+app.include_router(notificaciones_router)
 app.include_router(facturacion_router)
 app.include_router(proveedores_compras_router)
 app.include_router(workflows_router)

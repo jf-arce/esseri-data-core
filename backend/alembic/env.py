@@ -1,25 +1,24 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 
-from src.config import settings
-from src.models import Base
-
 # Importa el models.py de cada módulo para que sus tablas queden
 # registradas en Base.metadata antes del autogenerate.
-from src.auth import models as auth_models  # noqa: F401
-from src.familias_alumnos import models as familias_alumnos_models  # noqa: F401
 from src.academico import models as academico_models  # noqa: F401
-from src.inscripciones import models as inscripciones_models  # noqa: F401
+from src.asistente import models as asistente_models  # noqa: F401
+from src.auth import models as auth_models  # noqa: F401
+from src.comunicaciones import models as comunicaciones_models  # noqa: F401
+from src.config import settings
 from src.facturacion import models as facturacion_models  # noqa: F401
+from src.familias_alumnos import models as familias_alumnos_models  # noqa: F401
+from src.ia_sugerencias import models as ia_sugerencias_models  # noqa: F401
+from src.inscripciones import models as inscripciones_models  # noqa: F401
+from src.models import Base
+from src.notificaciones import models as notificaciones_models  # noqa: F401
 from src.proveedores_compras import models as proveedores_compras_models  # noqa: F401
 from src.workflows import models as workflows_models  # noqa: F401
-from src.ia_sugerencias import models as ia_sugerencias_models  # noqa: F401
-from src.comunicaciones import models as comunicaciones_models  # noqa: F401
-from src.asistente import models as asistente_models  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -80,9 +79,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

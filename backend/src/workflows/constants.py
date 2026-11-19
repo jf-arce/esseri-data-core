@@ -34,6 +34,7 @@ TipoEventoNombre = Literal[
     "solicitud_inscripcion.aprobada",
     "pago.registrado",
     "pago.rechazado",
+    "debito.resultado_registrado",
     "orden_compra.emitida",
     "recepcion_compra.registrada",
     "inscripcion.confirmada",
@@ -64,6 +65,7 @@ ENTIDAD_POR_EVENTO: dict[TipoEventoNombre, str] = {
     "solicitud_inscripcion.aprobada": "solicitud_inscripcion",
     "pago.registrado": "pago",
     "pago.rechazado": "pago",
+    "debito.resultado_registrado": "debito_cobranza",
     "orden_compra.emitida": "orden_compra",
     "recepcion_compra.registrada": "recepcion_compra",
     "inscripcion.confirmada": "inscripcion",
@@ -188,6 +190,7 @@ BUSQUEDA_POR_CAMPO: dict[tuple[str, str], tuple[FuenteBusqueda, bool]] = {
 # `responsable_economico` y `responsables_habilitados`.
 ENTIDADES_CON_ALUMNO: frozenset[str] = frozenset(
     {
+        "debito_cobranza",
         "factura",
         "pago",
         "asistencia",

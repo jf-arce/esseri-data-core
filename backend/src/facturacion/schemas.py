@@ -241,12 +241,30 @@ class MovimientoFamiliaRead(BaseModel):
     factura_id: uuid.UUID
 
 
+class AvisoDebitoFamiliaRead(BaseModel):
+    evento_id: uuid.UUID
+    ejecucion_id: uuid.UUID
+    regla_id: uuid.UUID
+    debito_id: uuid.UUID
+    factura_id: uuid.UUID
+    numero_factura: str
+    lote_id: uuid.UUID
+    fecha: InstanteUtc
+    resultado: Literal["exitoso", "rechazado"]
+    importe: Decimal
+    codigo_resultado: str
+    motivo_rechazo: str
+    asunto: str
+    cuerpo: str
+
+
 class FacturacionFamiliaRead(BaseModel):
     total_debe: Decimal
     total_haber: Decimal
     saldo: Decimal
     facturas: list[FacturaFamiliaRead]
     movimientos: list[MovimientoFamiliaRead]
+    avisos_debito: list[AvisoDebitoFamiliaRead] = Field(default_factory=list)
 
 
 EstadoDeudaFamilia = Literal["pendiente", "vencida", "pagada"]

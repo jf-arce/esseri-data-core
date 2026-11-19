@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from src.facturacion.models import (
     ArchivoComprobantePago,
+    DebitoCobranza,
     ExcepcionVencimiento,
     Factura,
     Movimiento,
@@ -15,6 +16,7 @@ from src.facturacion.models import (
     ResponsableEconomico,
 )
 from src.facturacion.schemas import (
+    AvisoDebitoFamiliaRead,
     DetalleFacturaFamiliaRead,
     FacturacionFamiliaRead,
     FacturaFamiliaRead,
@@ -24,7 +26,57 @@ from src.facturacion.schemas import (
 from src.facturacion.vencimientos_service import fecha_vencimiento_efectiva
 from src.familias_alumnos.models import Alumno, Familia
 from src.inscripciones.models import Inscripcion
-from src.models import Persona
+from src.models import EventLog, Persona
+from src.workflows.models import Notificacion, TipoEvento, WorkflowExecution
+
+
+def _avisos_debito(db: Session, familia_id: uuid.UUID) -> list[AvisoDebitoFamiliaRead]:
+    """Project durable workflow snapshots, not email delivery, into the billing view.
+
+    Multiple addresses and send attempts share a single notice per result and family.
+    The persisted invoice responsible is rechecked; payload IDs never authorize a read.
+    """
+    filas = db.execute(
+        select(Notificacion, WorkflowExecution, EventLog, DebitoCobranza)
+        .join(WorkflowExecution, WorkflowExecution.id == Notificacion.workflow_execution_id)
+        .join(EventLog, EventLog.id == WorkflowExecution.event_log_id)
+        .join(TipoEvento, TipoEvento.id == EventLog.tipo_evento_id)
+        .join(DebitoCobranza, DebitoCobranza.id == EventLog.entidad_id)
+        .join(Factura, Factura.id == DebitoCobranza.factura_id)
+        .join(ResponsableEconomico, ResponsableEconomico.id == Factura.responsable_economico_id)
+        .where(
+            TipoEvento.nombre == "debito.resultado_registrado",
+            EventLog.entidad == "debito_cobranza",
+            ResponsableEconomico.familia_id == familia_id,
+            Notificacion.familia_id == familia_id,
+        )
+        .order_by(EventLog.timestamp.desc(), Notificacion.started_at, Notificacion.id)
+    ).all()
+    avisos: dict[uuid.UUID, AvisoDebitoFamiliaRead] = {}
+    for notificacion, ejecucion, evento, debito in filas:
+        if evento.id in avisos:
+            continue
+        datos = evento.payload or {}
+        resultado = datos.get("resultado")
+        if resultado not in ("exitoso", "rechazado"):
+            resultado = "exitoso" if debito.pago_id is not None else "rechazado"
+        avisos[evento.id] = AvisoDebitoFamiliaRead(
+            evento_id=evento.id,
+            ejecucion_id=ejecucion.id,
+            regla_id=ejecucion.workflow_rule_id,
+            debito_id=debito.id,
+            factura_id=debito.factura_id,
+            numero_factura=str(datos.get("numero_factura") or debito.factura_id),
+            lote_id=debito.lote_id,
+            fecha=evento.timestamp,
+            resultado=resultado,
+            importe=debito.importe,
+            codigo_resultado=str(datos.get("codigo_resultado") or ""),
+            motivo_rechazo=str(datos.get("motivo_rechazo") or ""),
+            asunto=notificacion.asunto_snapshot,
+            cuerpo=notificacion.cuerpo_snapshot,
+        )
+    return list(avisos.values())
 
 
 def _cuenta_vacia() -> FacturacionFamiliaRead:
@@ -143,6 +195,7 @@ def obtener_facturacion_familia(
         saldo=debe - haber,
         facturas=facturas,
         movimientos=movimientos_read,
+        avisos_debito=_avisos_debito(db, familia_id),
     )
 
 

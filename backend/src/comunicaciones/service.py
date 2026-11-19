@@ -329,6 +329,9 @@ def publicar(
     c.publicada_at = datetime.now(UTC).replace(tzinfo=None)
     for familia_id, alumnos in destinatarios.items():
         db.add(ReciboComunicacion(comunicacion_id=c.id, familia_id=familia_id, alumnos=alumnos))
+    from src.notificaciones.comunicaciones_service import registrar_comunicacion_publicada
+
+    registrar_comunicacion_publicada(db, c, destinatarios)
     if c.canal in ("email", "ambos"):
         from src.workflows.manuales_service import preparar_envios
 

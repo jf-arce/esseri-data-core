@@ -17,6 +17,7 @@ from datetime import timedelta
 from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
+from src.facturacion.models import DebitoCobranza
 from src.fechas import ahora_utc
 from src.models import EventLog
 from src.workflows import (
@@ -74,6 +75,87 @@ ERROR_EVALUACION = "No se pudo evaluar la regla con los datos del evento."
 ERROR_CONFIGURACION = "La configuración de la acción no es válida."
 ERROR_ACCION = "La acción no pudo completarse."
 ACCIONES_CON_RESERVA = frozenset({"notificar", "alerta_interna", "generar_recordatorio"})
+ACCIONES_DE_AVISO_FAMILIAR = frozenset({"notificar"})
+DESTINOS_FAMILIARES = frozenset({"responsable_economico", "responsables_habilitados"})
+DESTINO_FAMILIAR_POR_DEFECTO = "responsables_habilitados"
+
+
+def _emails_de_aviso(
+    db: Session, regla: WorkflowRule, evento: EventLog, destino: str
+) -> set[str] | None:
+    if destino not in DESTINOS_FAMILIARES:
+        return None
+    try:
+        destinatarios, _ = notificaciones_service.resolver_destinatarios(db, regla, evento, destino)
+    except Exception:
+        logger.warning("No se pudieron resolver destinatarios al deduplicar", exc_info=True)
+        return None
+    return {destinatario.email for destinatario in destinatarios}
+
+
+def _aviso_familiar_cubierto(
+    db: Session, regla_actual: WorkflowRule, evento: EventLog, destino_actual: str
+) -> bool:
+    """Whether an active applicable debit-result rule will notify every same family address.
+
+    Only the ordinary ``pago.registrado`` email can be superseded. Comparing resolved addresses
+    avoids duplicating the engine's destination defaults and never drops a recipient that the
+    result notice would not reach. Other payment events and Communications actions keep their
+    baseline behavior. An inactive, non-matching or approval-gated rule leaves the legacy
+    payment notice intact.
+    """
+    if evento.entidad != "pago" or destino_actual not in DESTINOS_FAMILIARES:
+        return False
+    tipo_pago = db.get(TipoEvento, evento.tipo_evento_id)
+    if tipo_pago is None or tipo_pago.nombre != "pago.registrado":
+        return False
+    debito = db.scalar(select(DebitoCobranza).where(DebitoCobranza.pago_id == evento.entidad_id))
+    if debito is None:
+        return False
+    resultado = db.scalar(
+        select(EventLog)
+        .join(TipoEvento, TipoEvento.id == EventLog.tipo_evento_id)
+        .where(
+            EventLog.entidad == "debito_cobranza",
+            EventLog.entidad_id == debito.id,
+            TipoEvento.nombre == "debito.resultado_registrado",
+            EventLog.estado != "fallido",
+        )
+    )
+    if resultado is None:
+        return False
+    actuales = _emails_de_aviso(db, regla_actual, evento, destino_actual)
+    if not actuales:
+        return False
+    campos = tipos_de_campos(db, resultado.tipo_evento_id)
+    reglas = db.scalars(
+        select(WorkflowRule).where(
+            WorkflowRule.tipo_evento_id == resultado.tipo_evento_id,
+            WorkflowRule.activo.is_(True),
+        )
+    ).all()
+    for regla in reglas:
+        nodos = arbol_service.cargar_nodos(db, regla.id)
+        if not nodos:
+            continue
+        try:
+            recorrido = arbol_service.recorrer_arbol(nodos, campos, resultado.payload or {})
+        except Exception:
+            logger.warning("No se pudo evaluar la regla de resultados al deduplicar", exc_info=True)
+            continue
+        for nodo in recorrido.acciones:
+            if (
+                nodo.tipo_accion not in ACCIONES_DE_AVISO_FAMILIAR
+                or nodo.requiere_aprobacion_humana
+            ):
+                continue
+            destino = (nodo.accion_config or {}).get("destinatario", DESTINO_FAMILIAR_POR_DEFECTO)
+            cubiertos = _emails_de_aviso(db, regla, resultado, destino)
+            if cubiertos and actuales <= cubiertos:
+                return True
+    return False
+
+
 DETALLE_ESPERANDO_APROBACION = "Esperando aprobación humana."
 ERROR_YA_NO_APLICA = "La regla ya no aplica al evento original."
 # Una ejecución registrada que lleva más que esto sin ejecutarse se da por abandonada y se retoma.
@@ -390,6 +472,14 @@ def _registrar_accion(
         return ejecucion
 
     _reservar_ejecucion(db, ejecucion)
+    destino = (nodo.accion_config or {}).get("destinatario", DESTINO_FAMILIAR_POR_DEFECTO)
+    if nodo.tipo_accion in ACCIONES_DE_AVISO_FAMILIAR and _aviso_familiar_cubierto(
+        db, regla, evento, destino
+    ):
+        ejecucion.estado = "exitoso"
+        ejecucion.detalle = "Aviso familiar gestionado por debito.resultado_registrado."
+        ejecucion.finished_at = ahora_utc()
+        return ejecucion
     if nodo.requiere_aprobacion_humana:
         ejecucion.detalle = DETALLE_ESPERANDO_APROBACION
     elif ejecutar_ya:

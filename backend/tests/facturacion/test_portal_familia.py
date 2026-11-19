@@ -247,6 +247,7 @@ def test_familia_vinculada_no_economica_no_ve_facturas_ni_comprobantes(client, d
         "saldo": "0.00",
         "facturas": [],
         "movimientos": [],
+        "avisos_debito": [],
     }
     assert comprobante.status_code == 404
     assert (
@@ -318,5 +319,6 @@ def test_familia_sin_facturas_recibe_cuenta_vacia(client, db_session):
         "saldo": "0.00",
         "facturas": [],
         "movimientos": [],
+        "avisos_debito": [],
     }
     assert _conteos(db_session) == antes
