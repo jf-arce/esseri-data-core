@@ -308,7 +308,7 @@ function FacturaFamiliaCard({
               .
             </p>
           )}
-          {factura.detalles.length > 1 && (
+          {factura.detalles.length > 0 && (
             <section aria-label={`Conceptos de factura ${factura.id.slice(0, 8)}`}>
               <h3 className="mb-3 text-sm font-semibold text-[#2B2338]">Conceptos</h3>
               <ul

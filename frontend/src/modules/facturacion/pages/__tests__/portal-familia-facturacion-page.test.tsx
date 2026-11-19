@@ -113,10 +113,11 @@ describe('PortalFamiliaFacturacionPage', () => {
     ).toBeInTheDocument()
     expect(screen.getAllByText('Débito rechazado').length).toBeGreaterThanOrEqual(2)
 
-    const resumenFactura = screen.getByText('Cuota de marzo').closest('summary')
+    const resumenFactura = screen.getAllByText('Cuota de marzo')[0].closest('summary')
     expect(resumenFactura).not.toBeNull()
     fireEvent.click(resumenFactura!)
     expect(await screen.findByText('Motivo: Fondos insuficientes.')).toBeInTheDocument()
+    expect(screen.getAllByText('Cuota de marzo').length).toBeGreaterThanOrEqual(2)
     expect(screen.queryByText(/Código:/)).not.toBeInTheDocument()
   })
 
@@ -145,7 +146,7 @@ describe('PortalFamiliaFacturacionPage', () => {
         <PortalFamiliaFacturacionPage />
       </MemoryRouter>,
     )
-    expect(await screen.findByText('Cuota Ana')).toBeInTheDocument()
+    expect(await screen.findAllByText('Cuota Ana')).toHaveLength(2)
     expect(screen.queryByText('Cuota Bea')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Alumno: Ana/ })).toBeInTheDocument()
   })
@@ -211,8 +212,8 @@ describe('PortalFamiliaFacturacionPage', () => {
     expect(await screen.findByText(/Tiziano Cabral/)).toBeInTheDocument()
     fireEvent.click(screen.getAllByText('Cuota de marzo')[0])
     expect(screen.getByText('Saldo pendiente')).toBeInTheDocument()
-    expect(screen.getAllByText('Cuota de marzo')).toHaveLength(1)
-    expect(screen.queryByRole('heading', { name: 'Conceptos' })).not.toBeInTheDocument()
+    expect(screen.getAllByText('Cuota de marzo')).toHaveLength(2)
+    expect(screen.getByRole('heading', { name: 'Conceptos' })).toBeInTheDocument()
     expect(screen.getByText('Pago registrado')).toBeInTheDocument()
     expect(screen.queryByText('Acreditado')).not.toBeInTheDocument()
     expect(screen.getByText(/Transferencia/)).toBeInTheDocument()
