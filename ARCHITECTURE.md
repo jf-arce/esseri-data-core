@@ -12,6 +12,48 @@ Este documento describe **estructura y convenciones**, no decisiones de negocio 
 
 ## Decisiones de base
 
+### Internal notifications (Family portal: Academic, Communications and Billing)
+
+`backend/src/notificaciones/` owns the internal inbox, recipient-specific history and first-read
+state. Its `notificacion_interna` table is separate from the Workflows email attempt log and from
+Communications read receipts. It is connected only to the Family portal; other roles have no
+notification interface or producer.
+
+The Academic delivery covers absence and justification transitions. The Communications delivery
+notifies institutional publications whose channel includes the portal, reusing the audience
+resolution and receipts already created by publication. The Billing delivery notifies invoice
+issuance, payments approved by Administration and one upcoming-due reminder per invoice. The
+upcoming-due job is independent of automatic invoice generation and only observes effective due
+dates, unpaid balances and a three-day window; it never mutates invoices.
+
+Academic services insert notifications before their existing transaction commits. The notification
+service does not commit, call n8n or send email. An unexpected insert failure rolls back the domain
+operation; an expected duplicate conflicts only with the notification's logical unique key.
+Absence identity is enrollment plus calendar date, while resolution identity is the individual
+justification or period request. Invoice, payment and communication identities are their own
+resource ids. Corrections and retries do not overwrite historical content or reset a first read.
+Rejecting a request never backfills previously suppressed absence notices.
+
+Absence recipients are active family-role accounts of linked responsible persons with
+`recibe_comunicaciones=true`. A resolution targets only the requesting account and family recorded
+on the request. Communications target the accounts of each family that received a portal receipt;
+Billing targets the accounts of the invoice's persisted economic-responsible family. Every inbox
+operation revalidates ownership, the active Family role and the recorded family identity; Academic
+notices additionally revalidate the current student link, absences the communications flag, and
+Billing the invoice/payment responsible-family relationship. Stored recipient context is not a
+permanent authorization grant.
+
+The shared coverage query belongs to `academico/cobertura_ausencias_service.py`. Pending and
+approved period requests suppress new absence notices. Workflow email and reminder callers retain
+their existing destination guards and additional rules; sharing coverage does not unify their
+different delivery policies.
+
+`frontend/src/modules/notificaciones/` owns the API services, polling hook and inbox components.
+`layout/portal-layout.tsx` composes them without changing the other shells. The inbox polls while
+visible, cancels stale identity-bound work and navigates through typed Academic destinations.
+It never records a Communications read. Code stays module-owned, with no new global store,
+transport dependency or infrastructure.
+
 ### Communications domain (stages 1–3)
 
 Institutional and course communications are owned by `backend/src/comunicaciones/` and
@@ -62,6 +104,16 @@ publication/download, with fail-closed quarantine on scanner failure. Email carr
 authenticated portal links. This first-version storage choice trades simple atomic cleanup
 for increased database/WAL/backup size; see backend README operational limits and controls.
 Frontend filenames remain kebab-case and backend snake_case.
+
+Simulated CBU debit results remain owned by Facturación. Confirmation persists
+`debito.resultado_registrado` atomically with the payment/result, while Workflows dispatches
+only after commit. The existing configurable `notificar` action snapshots the family message
+before n8n; family billing projects that snapshot regardless of email status, scoped to the
+invoice's persisted economic responsible. This projection is not a Communications publication
+or read receipt, and does not introduce another inbox or notification table. Payment events
+remain available; their ordinary family `notificar` action defers to the debit-result event only
+for `pago.registrado` linked to a simulated debit. Other payment actions, `pago.rechazado` and
+Communications publications are unchanged. Manual-payment workflows are unchanged.
 
 - **Monorepo** (un solo repositorio para todo el sistema), no un repo por módulo. No lo exige ningún RF/RNF explícitamente — es una decisión del equipo para simplificar la coordinación entre los 4 integrantes y la transferencia final a ESSERI.
 - **Separación por capas en la raíz** (`frontend/`, `backend/`, `database/`, `infra/`) para cumplir RNF-09 (separación entre frontend, backend y base de datos).
@@ -178,9 +230,14 @@ Con esto, ningún módulo necesita saber de la existencia de los demás para def
 
 #### Rol activo: cuentas con más de un rol
 
-`ROL` en base admite que una cuenta tenga varios roles simultáneos (ej. docente + familia). El backend nunca elige entre ellos: `GET /auth/me` devuelve `permisos` (la suma de todos los roles — lo que efectivamente autoriza cada endpoint, RF-30, sin cambios) y `perfiles` (los mismos roles desglosados, cada uno con sus propios permisos).
+`ROL` supports multiple roles per account. `GET /auth/me` exposes role profiles and the selected
+`rol_activo`; aggregate permission information does not authorize an operation by itself.
+The active role is embedded in the session cookie's JWT. Backend dependencies validate permission
+membership against that role, rather than combining grants from every role on the account.
 
-El **rol activo** es una decisión puramente de UI, guardada en `store/auth-store.ts` (persistida en `sessionStorage`, por cuenta): con un solo rol se fija solo; con más de uno, `/elegir-perfil` (`src/pages/elegir-perfil-page.tsx`) pregunta con cuál entrar, y el menú de cuenta ("Cambiar vista") permite cambiarlo después. El rol activo decide qué pantalla principal, qué panel y qué ítems del sidebar se ven (`layout/nav-items.ts` → `filtrarNav`) — **nunca** amplía ni reduce lo que el backend deja hacer. Cambiar de vista no es un cambio de permisos, es un cambio de qué parte de los permisos ya otorgados se muestra.
+`store/auth-store.ts` mirrors the server-selected active role. The profile selector and account
+menu switch it through the backend before changing the visible shell and navigation. A UI route
+guard is therefore only an additional affordance, never a substitute for backend authorization.
 
 ### Resto de `frontend/src/` (carpetas compartidas con todos los módulos)
 | Carpeta/archivo | Contenido |

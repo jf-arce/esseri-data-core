@@ -204,3 +204,38 @@ class ExcepcionVencimientoYaAnulada(AppException):
 
     def __init__(self, message: str = "La prórroga de vencimiento ya estaba anulada."):
         super().__init__(message)
+
+
+class SolicitudCobranzaInvalida(AppException):
+    status_code = 400
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class CobranzaEnConflicto(AppException):
+    status_code = 409
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class CobranzaInvalida(AppException):
+    status_code = 422
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class ImportacionCobranzaNoEncontrada(AppException):
+    status_code = 404
+
+    def __init__(self, message: str = "La importación indicada no existe."):
+        super().__init__(message)
+
+
+class LoteCobranzaNoEncontrado(AppException):
+    status_code = 404
+
+    def __init__(self, message: str = "No existe la solicitud de débitos indicada."):
+        super().__init__(message)

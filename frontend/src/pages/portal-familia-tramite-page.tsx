@@ -12,7 +12,6 @@ import {
   FileTextIcon,
   HistoryIcon,
   InboxIcon,
-  InfoIcon,
   ListIcon,
   MoreHorizontalIcon,
   PaperclipIcon,
@@ -22,7 +21,8 @@ import {
   XIcon,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
@@ -53,6 +53,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
+import {
+  leerDestinoDesdeParametros,
+  type DestinoNotificacionQuery,
+} from '@/modules/notificaciones/utils'
 import {
   FormularioAusencia,
   type ModoFormularioAusencia,
@@ -93,9 +97,16 @@ const NOMBRES_MES = [
 
 /** "2026-11-12" → "Noviembre 2026". */
 function etiquetaPeriodo(periodo: string): string {
+  if (!periodo.includes('-')) return `Todo ${periodo}`
   const [anio, mes] = periodo.split('-')
   const nombre = NOMBRES_MES[Number(mes) - 1]
   return nombre ? `${nombre} ${anio}` : periodo
+}
+
+function periodoDisponible(periodo: string, disponibles: string[]): boolean {
+  return periodo.length === 4
+    ? disponibles.some((clave) => clave.startsWith(periodo))
+    : disponibles.includes(periodo)
 }
 
 function fechaCorta(fecha: string): string {
@@ -153,6 +164,24 @@ function SelectorPeriodo({ valor, periodos, onChange, etiqueta }: SelectorPeriod
             <ChevronRightIcon aria-hidden="true" className="size-4" />
           </button>
         </div>
+        <button
+          type="button"
+          disabled={!periodos.some((periodo) => periodo.startsWith(String(anio)))}
+          aria-pressed={valor === String(anio)}
+          onClick={() => {
+            setAnioNavegado(null)
+            onChange(String(anio))
+          }}
+          className={`min-h-9 w-full rounded-[10px] text-[14px] font-medium transition-colors ${
+            valor === String(anio)
+              ? 'bg-[#7A2FA8] text-white'
+              : periodos.some((periodo) => periodo.startsWith(String(anio)))
+                ? 'text-[#2B2338] hover:bg-[#F5EFFA]'
+                : 'cursor-not-allowed text-[#C9C2D3]'
+          }`}
+        >
+          Todo el año
+        </button>
         <div className="grid grid-cols-3 gap-1">
           {NOMBRES_MES.map((nombre, indice) => {
             const clave = `${anio}-${String(indice + 1).padStart(2, '0')}`
@@ -228,6 +257,24 @@ type PortalFamiliaTramitePageProps = {
 }
 
 type SeccionAsistencia = 'resumen' | 'pendientes' | 'historial' | 'solicitudes'
+
+type RegistroResaltado = {
+  tipo: 'asistencia' | 'justificacion' | 'solicitud'
+  id: string
+}
+
+/** La sección inicial respeta el deep link de una notificación y, sin él, el comportamiento
+ * histórico de cada ruta del portal. */
+function seccionDesdeDestino(
+  destino: DestinoNotificacionQuery | null,
+  seccionInicial: SeccionAsistencia | undefined,
+  esAsistencias: boolean,
+): SeccionAsistencia {
+  if (destino) {
+    return destino.seccion === 'historial' ? 'historial' : 'pendientes'
+  }
+  return seccionInicial ?? (esAsistencias ? 'resumen' : 'pendientes')
+}
 
 type DetalleJustificacion =
   | { tipo: 'pendiente'; asistencia: AsistenciaFamilia }
@@ -334,10 +381,18 @@ export function PortalFamiliaTramitePage({
   const modoEfectivo = modo ?? (titulo === 'Asistencias' ? 'asistencias' : 'justificar')
   const esAsistencias = modoEfectivo === 'asistencias'
   const esJustificacion = true
-  const { alumnos } = useMisAlumnos(esJustificacion)
+  const { alumnos, cargando: cargandoAlumnos } = useMisAlumnos(esJustificacion)
+  const [searchParams] = useSearchParams()
+  const destinoUrl = useMemo(() => leerDestinoDesdeParametros(searchParams), [searchParams])
+  const firmaDestino = destinoUrl
+    ? `${destinoUrl.alumnoId}:${destinoUrl.seccion}:${destinoUrl.recurso}:${destinoUrl.recursoId}`
+    : ''
+  const destinoAplicado = useRef<string | null>(null)
+  const datosCargadosPara = useRef<string | null>(null)
   const [asistencias, setAsistencias] = useState<AsistenciaFamilia[]>([])
   const [solicitudes, setSolicitudes] = useState<SolicitudAusenciaPeriodo[]>([])
-  const [alumnoId, setAlumnoId] = useState('')
+  const [alumnoId, setAlumnoId] = useState(() => destinoUrl?.alumnoId ?? '')
+  const [registroResaltado, setRegistroResaltado] = useState<RegistroResaltado | null>(null)
   const [formularioAbierto, setFormularioAbierto] = useState(
     modoEfectivo === 'informar' || abrirFormularioInicial,
   )
@@ -352,10 +407,12 @@ export function PortalFamiliaTramitePage({
   const [historialFiltro, setHistorialFiltro] = useState<FiltroHistorial>('todas')
   const [historialOrden, setHistorialOrden] = useState<OrdenHistorial>('fecha-desc')
   const [historialPagina, setHistorialPagina] = useState(1)
-  const [seccionAsistencia, setSeccionAsistencia] = useState<SeccionAsistencia>(
-    seccionInicial ?? (esAsistencias ? 'resumen' : 'pendientes'),
+  const [seccionAsistencia, setSeccionAsistencia] = useState<SeccionAsistencia>(() =>
+    seccionDesdeDestino(destinoUrl, seccionInicial, esAsistencias),
   )
-  const alumnoSeleccionado = alumnoId || alumnos[0]?.alumno_id || ''
+  const alumnoSeleccionado = alumnos.some((alumno) => alumno.alumno_id === alumnoId)
+    ? alumnoId
+    : (alumnos[0]?.alumno_id ?? '')
   const alumnoActual = alumnos.find((alumno) => alumno.alumno_id === alumnoSeleccionado)
   const nombreAlumno = alumnoActual
     ? `${alumnoActual.nombre} ${alumnoActual.apellido}`
@@ -393,7 +450,7 @@ export function PortalFamiliaTramitePage({
     return [...unicos].sort((a, b) => b.localeCompare(a))
   }, [asistencias])
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState('')
-  const periodoActivo = periodos.includes(periodoSeleccionado)
+  const periodoActivo = periodoDisponible(periodoSeleccionado, periodos)
     ? periodoSeleccionado
     : (periodos[0] ?? '')
   const resumenPeriodo = useMemo(
@@ -431,7 +488,7 @@ export function PortalFamiliaTramitePage({
     ])
     return [...unicos].sort((a, b) => b.localeCompare(a))
   }, [asistenciasPendientes, solicitudes])
-  const periodoJustificacionActivo = periodosJustificacion.includes(periodoJustificacion)
+  const periodoJustificacionActivo = periodoDisponible(periodoJustificacion, periodosJustificacion)
     ? periodoJustificacion
     : (periodosJustificacion[0] ?? '')
   const pendientesJustificacion = useMemo(
@@ -501,8 +558,12 @@ export function PortalFamiliaTramitePage({
     solicitudes: InboxIcon,
   }
   useEffect(() => {
-    if (!alumnoSeleccionado) return
+    if (!alumnoSeleccionado) {
+      datosCargadosPara.current = null
+      return
+    }
     let activo = true
+    datosCargadosPara.current = null
     void Promise.all([
       listarAsistenciasFamilia(alumnoSeleccionado).catch(() => [] as AsistenciaFamilia[]),
       listarSolicitudesAusenciaFamilia(alumnoSeleccionado).catch(
@@ -512,11 +573,96 @@ export function PortalFamiliaTramitePage({
       if (!activo) return
       setAsistencias(asistenciasCargadas)
       setSolicitudes(solicitudesCargadas)
+      datosCargadosPara.current = alumnoSeleccionado
     })
     return () => {
       activo = false
     }
   }, [alumnoSeleccionado, revision])
+
+  // Deep link de una notificación interna: aplica una sola vez la sección y el registro exacto
+  // de la URL. Sin parámetros válidos no toca el estado y cada ruta conserva su vista inicial.
+  /* eslint-disable react-hooks/set-state-in-effect -- sincroniza URL -> estado una sola vez */
+  useEffect(() => {
+    if (!destinoUrl) return
+    if (destinoAplicado.current === firmaDestino) return
+
+    const seccion = destinoUrl.seccion === 'historial' ? 'historial' : 'pendientes'
+    if (alumnoSeleccionado !== destinoUrl.alumnoId) {
+      if (alumnos.some((alumno) => alumno.alumno_id === destinoUrl.alumnoId)) {
+        // La página ya estaba montada con otro alumno: se cambia el selector y este mismo
+        // efecto vuelve a correr cuando lleguen los datos del alumno pedido.
+        setAlumnoId(destinoUrl.alumnoId)
+        return
+      }
+      if (cargandoAlumnos) return
+      setSeccionAsistencia(seccion)
+      destinoAplicado.current = firmaDestino
+      return
+    }
+
+    if (datosCargadosPara.current !== alumnoSeleccionado) return
+
+    if (destinoUrl.recurso === 'solicitud_ausencia_periodo') {
+      const solicitud = solicitudes.find((item) => item.id === destinoUrl.recursoId)
+      setSeccionAsistencia('pendientes')
+      if (solicitud) {
+        setDetalleJustificacion({ tipo: 'enviada', solicitud })
+        setRegistroResaltado({ tipo: 'solicitud', id: solicitud.id })
+      }
+      destinoAplicado.current = firmaDestino
+      return
+    }
+
+    const asistencia =
+      destinoUrl.recurso === 'justificacion_individual'
+        ? asistencias.find((item) => item.justificacion_id === destinoUrl.recursoId)
+        : asistencias.find((item) => item.id === destinoUrl.recursoId)
+
+    if (!asistencia) {
+      setSeccionAsistencia(seccion)
+      destinoAplicado.current = firmaDestino
+      return
+    }
+
+    const pendiente = asistenciasPendientes.some((item) => item.id === asistencia.id)
+    if (pendiente) {
+      setSeccionAsistencia('pendientes')
+      setRegistroResaltado({ tipo: 'asistencia', id: asistencia.id })
+    } else {
+      setSeccionAsistencia('historial')
+      setRegistroResaltado({
+        tipo: destinoUrl.recurso === 'justificacion_individual' ? 'justificacion' : 'asistencia',
+        id: asistencia.id,
+      })
+      setHistorialFiltro('todas')
+      setHistorialFechaDesde('')
+      setHistorialFechaHasta('')
+      setHistorialOrden('fecha-desc')
+      const historialOrdenado = asistencias
+        .filter(
+          (item) => !asistenciasPendientes.some((pendienteItem) => pendienteItem.id === item.id),
+        )
+        .toSorted((a, b) => b.fecha.localeCompare(a.fecha))
+      const indice = historialOrdenado.findIndex((item) => item.id === asistencia.id)
+      if (indice >= 0) {
+        setHistorialPagina(Math.floor(indice / HISTORIAL_REGISTROS_POR_PAGINA) + 1)
+      }
+      if (asistencia.justificacion_id) setDetalleExpandido(asistencia.id)
+    }
+    destinoAplicado.current = firmaDestino
+  }, [
+    alumnoSeleccionado,
+    alumnos,
+    asistencias,
+    asistenciasPendientes,
+    cargandoAlumnos,
+    destinoUrl,
+    firmaDestino,
+    solicitudes,
+  ])
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   async function cancelarSolicitud(solicitud: SolicitudAusenciaPeriodo) {
     if (!window.confirm('¿Cancelar esta solicitud de ausencia?')) return
     try {
@@ -651,7 +797,7 @@ export function PortalFamiliaTramitePage({
                     </h2>
                     {periodos.length > 0 && (
                       <div className="flex items-center gap-2">
-                        <span className="text-[14px] text-[#6B6478]">Período actual:</span>
+                        <span className="text-[14px] text-[#6B6478]">Período:</span>
                         <SelectorPeriodo
                           valor={periodoActivo}
                           periodos={periodos}
@@ -693,10 +839,6 @@ export function PortalFamiliaTramitePage({
                             <p className="text-[15px] font-semibold text-[#2B2338]">
                               Asistencia del período
                             </p>
-                            <InfoIcon
-                              aria-label="Porcentaje de días presentes sobre el total registrado"
-                              className="size-4 shrink-0 text-[#8C8599]"
-                            />
                           </div>
                           <p className="font-heading text-[26px] leading-none font-bold text-[#2B2338] tabular-nums">
                             {porcentajeAsistencia} %
@@ -918,27 +1060,38 @@ export function PortalFamiliaTramitePage({
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[#F1EBF7]">
-                            {pendientesJustificacion.map((asistencia) => (
-                              <tr key={asistencia.id}>
-                                <td className="px-4 py-2.5 whitespace-nowrap text-[#3A2E45]">
-                                  {formatearFecha(asistencia.fecha)}
-                                </td>
-                                <td className="px-4 py-2.5 text-[#3A2E45]">Inasistencia</td>
-                                <td className="px-4 py-2.5">
-                                  <Badge variant="advertencia">Sin justificar</Badge>
-                                </td>
-                                <td className="px-4 py-2.5 text-right">
-                                  <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    className="rounded-full"
-                                    onClick={() => abrirFormulario('justificar', asistencia.fecha)}
-                                  >
-                                    Justificar
-                                  </Button>
-                                </td>
-                              </tr>
-                            ))}
+                            {pendientesJustificacion.map((asistencia) => {
+                              const resaltada =
+                                registroResaltado?.tipo === 'asistencia' &&
+                                registroResaltado.id === asistencia.id
+                              return (
+                                <tr
+                                  key={asistencia.id}
+                                  aria-current={resaltada ? 'true' : undefined}
+                                  className={resaltada ? 'bg-violeta-suave' : undefined}
+                                >
+                                  <td className="px-4 py-2.5 whitespace-nowrap text-[#3A2E45]">
+                                    {formatearFecha(asistencia.fecha)}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-[#3A2E45]">Inasistencia</td>
+                                  <td className="px-4 py-2.5">
+                                    <Badge variant="advertencia">Sin justificar</Badge>
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right">
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      className="rounded-full"
+                                      onClick={() =>
+                                        abrirFormulario('justificar', asistencia.fecha)
+                                      }
+                                    >
+                                      Justificar
+                                    </Button>
+                                  </td>
+                                </tr>
+                              )
+                            })}
                           </tbody>
                         </table>
                       </div>
@@ -978,39 +1131,48 @@ export function PortalFamiliaTramitePage({
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[#F1EBF7]">
-                            {enviadasJustificacion.map((solicitud) => (
-                              <tr key={solicitud.id}>
-                                <td className="px-4 py-2.5 whitespace-nowrap text-[#3A2E45]">
-                                  {rangoPeriodo(solicitud)}
-                                </td>
-                                <td className="px-4 py-2.5 text-[#3A2E45]">Inasistencia</td>
-                                <td className="px-4 py-2.5 text-[#3A2E45]">
-                                  {etiquetaMotivoJustificacion(solicitud.motivo)}
-                                </td>
-                                <td className="px-4 py-2.5 whitespace-nowrap text-[#6B6478]">
-                                  {formatearFechaHora(solicitud.fecha_carga)}
-                                </td>
-                                <td className="px-4 py-2.5">
-                                  <Badge
-                                    variant={VARIANTE_ESTADO_SOLICITUD_PERIODO[solicitud.estado]}
-                                  >
-                                    {etiquetaEstadoSolicitud(solicitud.estado)}
-                                  </Badge>
-                                </td>
-                                <td className="px-4 py-2.5 text-right">
-                                  <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    className="rounded-full"
-                                    onClick={() =>
-                                      setDetalleJustificacion({ tipo: 'enviada', solicitud })
-                                    }
-                                  >
-                                    Ver detalle
-                                  </Button>
-                                </td>
-                              </tr>
-                            ))}
+                            {enviadasJustificacion.map((solicitud) => {
+                              const resaltada =
+                                registroResaltado?.tipo === 'solicitud' &&
+                                registroResaltado.id === solicitud.id
+                              return (
+                                <tr
+                                  key={solicitud.id}
+                                  aria-current={resaltada ? 'true' : undefined}
+                                  className={resaltada ? 'bg-violeta-suave' : undefined}
+                                >
+                                  <td className="px-4 py-2.5 whitespace-nowrap text-[#3A2E45]">
+                                    {rangoPeriodo(solicitud)}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-[#3A2E45]">Inasistencia</td>
+                                  <td className="px-4 py-2.5 text-[#3A2E45]">
+                                    {etiquetaMotivoJustificacion(solicitud.motivo)}
+                                  </td>
+                                  <td className="px-4 py-2.5 whitespace-nowrap text-[#6B6478]">
+                                    {formatearFechaHora(solicitud.fecha_carga)}
+                                  </td>
+                                  <td className="px-4 py-2.5">
+                                    <Badge
+                                      variant={VARIANTE_ESTADO_SOLICITUD_PERIODO[solicitud.estado]}
+                                    >
+                                      {etiquetaEstadoSolicitud(solicitud.estado)}
+                                    </Badge>
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right">
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      className="rounded-full"
+                                      onClick={() =>
+                                        setDetalleJustificacion({ tipo: 'enviada', solicitud })
+                                      }
+                                    >
+                                      Ver detalle
+                                    </Button>
+                                  </td>
+                                </tr>
+                              )
+                            })}
                           </tbody>
                         </table>
                       </div>
@@ -1287,10 +1449,17 @@ export function PortalFamiliaTramitePage({
                             {asistenciasHistorialPaginadas.map((asistencia) => {
                               const detalleId = `justificacion-detalle-${asistencia.id}`
                               const expandido = detalleExpandido === asistencia.id
+                              const resaltada =
+                                (registroResaltado?.tipo === 'asistencia' ||
+                                  registroResaltado?.tipo === 'justificacion') &&
+                                registroResaltado.id === asistencia.id
                               return (
                                 <div
                                   key={asistencia.id}
-                                  className="px-3 py-2 text-sm first:rounded-t-lg last:rounded-b-lg"
+                                  aria-current={resaltada ? 'true' : undefined}
+                                  className={`px-3 py-2 text-sm first:rounded-t-lg last:rounded-b-lg ${
+                                    resaltada ? 'bg-violeta-suave' : ''
+                                  }`}
                                 >
                                   <div className="flex items-center gap-3">
                                     <span className="flex-1">

@@ -144,6 +144,9 @@ def crear_factura_en_transaccion(
         valor_nuevo=f"inscripcion={factura.inscripcion_id} monto={factura.monto_total}",
         usuario_id=usuario_id,
     )
+    from src.notificaciones.facturacion_service import registrar_factura_emitida
+
+    registrar_factura_emitida(db, factura)
     return factura
 
 
@@ -227,6 +230,7 @@ def registrar_pago(
     comprobante_nombre: str | None,
     comprobante_tipo_contenido: str | None,
     comprobante_contenido: bytes | None,
+    confirmar: bool = True,
 ) -> Pago:
     factura_bloqueada = db.scalar(select(Factura).where(Factura.id == factura.id).with_for_update())
     if factura_bloqueada is None:
@@ -295,8 +299,15 @@ def registrar_pago(
         valor_nuevo=f"factura={factura.id} monto={monto}",
         usuario_id=usuario_registro_id,
     )
-    db.commit()
-    db.refresh(pago)
+    from src.notificaciones.facturacion_service import registrar_pago_aprobado
+
+    registrar_pago_aprobado(db, pago)
+    if confirmar:
+        db.commit()
+        db.refresh(pago)
+    else:
+        # The caller owns the transaction, including any durable import-result claim.
+        db.flush()
     return pago
 
 

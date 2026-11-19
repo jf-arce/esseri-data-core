@@ -10,6 +10,22 @@ Para la estructura completa de carpetas y las convenciones del proyecto, ver **`
 
 ## Requisitos
 
+### Simulated automatic debit results
+
+**Débitos automáticos → Generar lote** preselects every eligible CBU invoice in the chosen
+period across pages. Uncheck invoices to exclude them; the server still rejects paid or
+reserved invoices. Card batches are not available in this demo. Result review requires a
+complete rendition before confirmation.
+
+**Portal Familia → Facturación** displays the workflow's frozen result messages under
+**Avisos de débitos automáticos**. These are visible even if email fails, without exposing
+other families' results. No bank settlement or real Galicia integration is implied.
+See [the complete walkthrough](../docs/cobranzas-simuladas.md).
+
+```bash
+npm run test -- src/modules/facturacion src/modules/workflows
+```
+
 ### Communications — stages 1 and 2
 
 Administration/Direction open `/comunicaciones` to create or resume their own drafts.
@@ -186,6 +202,33 @@ filtrados, no solo la página, y solo se ofrece con `academico.exportar`. El acc
 separado «Exportar asistencias» ya no aparece en el menú; su URL anterior redirige al
 historial y conserva el control de permiso de exportación. Un docente consulta una división asignada a su ciclo;
 la pantalla no amplía sus permisos. Los errores no se muestran como indicadores en cero.
+
+### Notificaciones internas del Portal Familia
+
+La campanita vive en `frontend/src/modules/notificaciones/` y se monta solo en el shell del
+Portal Familia (`layout/portal-layout.tsx`). Consume el contrato de notificaciones:
+`GET /notificaciones` con `no_leidas`, `limite` y `cursor`, `GET /notificaciones/resumen`,
+`PATCH /notificaciones/{id}/lectura` y `POST /notificaciones/lecturas`. El contador se refresca
+cada 30 segundos únicamente con la pestaña visible, al recuperar el foco y al abrir el panel;
+las respuestas viejas se descartan al cambiar de cuenta o de rol activo, y una lectura en curso
+no se pisa con un resumen anterior. No hay caché persistente ni estado compartido con
+Comunicaciones.
+
+El panel ofrece filtros Todas/No leídas, paginación por cursor, lectura individual explícita,
+marcar todas como leídas y estados de carga, vacío y error. Abrir el panel no marca nada como
+leído. Los avisos académicos navegan a `/familia/asistencias` con parámetros tipados (`alumno`,
+`seccion`, `recurso`, `recurso_id`) que seleccionan al alumno y resaltan el registro exacto; las
+comunicaciones abren `/familia/comunicaciones/:id`; facturas y vencimientos abren
+`/familia/facturacion?factura=<id>`, y los pagos `/familia/facturacion?pago=<id>`, con la tarjeta
+correspondiente abierta, resaltada y desplazada a la vista. Si la marcación de lectura falla, la
+navegación igual se completa. Un destino desconocido no genera una URL arbitraria y la notificación
+se muestra sin enlace.
+
+Verificación focalizada:
+
+```bash
+npm run test -- src/modules/notificaciones src/pages/__tests__/portal-familia-tramite-page.test.tsx src/pages/__tests__/portal-familia-page.test.tsx src/layout/__tests__/portal-layout.test.tsx
+```
 
 ### Ejecución
 

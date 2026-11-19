@@ -566,6 +566,9 @@ def generar_facturacion(
                 valor_nuevo=f"inscripcion={factura.inscripcion_id} monto={factura.monto_total}",
                 usuario_id=usuario_id,
             )
+            from src.notificaciones.facturacion_service import registrar_factura_emitida
+
+            registrar_factura_emitida(db, factura)
             facturas_generadas += 1
         ejecucion.facturas_generadas = facturas_generadas
         ejecucion.cargos_generados = len(plan.cargos_aptos)

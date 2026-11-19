@@ -255,6 +255,8 @@
    la aplicación esté en tema oscuro, porque sus tarjetas y héroes usan colores claros fijos. */
 .portal-familia {
   color-scheme: light;
+  --pf-canvas: #faf9fc;
+  --pf-accent: #7a2fa8;
 
   --lienzo: #f6f5f8;
   --superficie: #fdfcfe;
@@ -300,6 +302,345 @@
   --destructive: var(--error);
   --border: var(--borde);
   --input: var(--borde);
+}
+
+/* Portal Familia en tema oscuro: lienzo profundo y tipografía clara; las tarjetas de
+   contenido conservan su superficie para mantener la legibilidad de sus datos. */
+.dark .portal-familia {
+  color-scheme: dark;
+  --pf-canvas: #171320;
+  --pf-accent: #c79be0;
+
+  --lienzo: #171320;
+  --superficie: #2b2339;
+  --fila-hover: #372e48;
+  --borde: #524663;
+
+  --texto: #ede8f2;
+  --texto-2: #b9b0c6;
+  --texto-3: #a79fb4;
+  --desactivado: #7e768b;
+
+  --exito: #6ee7a8;
+  --exito-suave: #1e3629;
+  --advertencia: #f0b46a;
+  --advertencia-suave: #3a2a1c;
+  --error: #f2a4a0;
+  --error-suave: #3f2422;
+  --info: #9bbcf5;
+  --info-suave: #1f2f45;
+  --petroleo: #6fd3da;
+  --petroleo-suave: #173033;
+
+  --background: var(--lienzo);
+  --foreground: var(--texto);
+  --card: var(--superficie);
+  --card-foreground: var(--texto);
+  --popover: var(--superficie);
+  --popover-foreground: var(--texto);
+  --muted: var(--fila-hover);
+  --muted-foreground: var(--texto-2);
+  --accent: var(--fila-hover);
+  --accent-foreground: var(--texto);
+  --border: var(--borde);
+  --input: var(--borde);
+}
+
+/* Ajustes automáticos de la paleta clara del Portal Familia en tema oscuro. */
+.dark .portal-familia [data-slot='card'] .bg-white\/70,
+.dark .portal-familia [data-slot='card'] .bg-white\/80,
+.dark .portal-familia [data-slot='card'] .bg-white\/95 {
+  background-color: rgb(255 255 255 / 0.12);
+}
+.dark .portal-familia .bg-white {
+  background-color: var(--superficie);
+}
+.dark .portal-familia .bg-\[\#DCE9FC\] {
+  background-color: hsl(216 30% 18%);
+}
+.dark .portal-familia .bg-\[\#DCEEDC\] {
+  background-color: hsl(120 16% 18%);
+}
+.dark .portal-familia .bg-\[\#DFEAFB\] {
+  background-color: hsl(216 30% 18%);
+}
+.dark .portal-familia .bg-\[\#E3CEF6\] {
+  background-color: hsl(271 30% 18%);
+}
+.dark .portal-familia .bg-\[\#E3F6F1\] {
+  background-color: hsl(164 23% 18%);
+}
+.dark .portal-familia .bg-\[\#E4DBEE\] {
+  background-color: hsl(268 16% 18%);
+}
+.dark .portal-familia .bg-\[\#E4F1E3\] {
+  background-color: hsl(116 15% 18%);
+}
+.dark .portal-familia .bg-\[\#E4F6FA\] {
+  background-color: hsl(191 30% 18%);
+}
+.dark .portal-familia .bg-\[\#E7D4F7\] {
+  background-color: hsl(273 30% 18%);
+}
+.dark .portal-familia .bg-\[\#E7DEF0\] {
+  background-color: hsl(270 17% 18%);
+}
+.dark .portal-familia .bg-\[\#E8EDFD\] {
+  background-color: hsl(226 30% 18%);
+}
+.dark .portal-familia .bg-\[\#E8F0FD\] {
+  background-color: hsl(217 30% 18%);
+}
+.dark .portal-familia .bg-\[\#E8F1FE\] {
+  background-color: hsl(215 30% 18%);
+}
+.dark .portal-familia .bg-\[\#EAE2F2\] {
+  background-color: hsl(270 17% 18%);
+}
+.dark .portal-familia .bg-\[\#EAF7E7\] {
+  background-color: hsl(109 23% 18%);
+}
+.dark .portal-familia .bg-\[\#ECF0FD\] {
+  background-color: hsl(226 30% 18%);
+}
+.dark .portal-familia .bg-\[\#EDE4F4\] {
+  background-color: hsl(274 19% 18%);
+}
+.dark .portal-familia .bg-\[\#EDF6EC\] {
+  background-color: hsl(114 16% 18%);
+}
+.dark .portal-familia .bg-\[\#EEE7F5\] {
+  background-color: hsl(270 19% 18%);
+}
+.dark .portal-familia .bg-\[\#EEF4EE\] {
+  background-color: hsl(120 10% 18%);
+}
+.dark .portal-familia .bg-\[\#EFE0FA\] {
+  background-color: hsl(275 30% 18%);
+}
+.dark .portal-familia .bg-\[\#EFF7EE\] {
+  background-color: hsl(113 16% 18%);
+}
+.dark .portal-familia .bg-\[\#F0E4FA\] {
+  background-color: hsl(273 30% 18%);
+}
+.dark .portal-familia .bg-\[\#F0EAF7\] {
+  background-color: hsl(268 20% 18%);
+}
+.dark .portal-familia .bg-\[\#F1E4FB\] {
+  background-color: hsl(274 30% 18%);
+}
+.dark .portal-familia .bg-\[\#F1E9FD\] {
+  background-color: hsl(264 30% 18%);
+}
+.dark .portal-familia .bg-\[\#F1EAF7\] {
+  background-color: hsl(272 20% 18%);
+}
+.dark .portal-familia .bg-\[\#F2E8FA\] {
+  background-color: hsl(273 29% 18%);
+}
+.dark .portal-familia .bg-\[\#F3E8FF\] {
+  background-color: hsl(269 30% 18%);
+}
+.dark .portal-familia .bg-\[\#F3EDF9\] {
+  background-color: hsl(270 22% 18%);
+}
+.dark .portal-familia .bg-\[\#F5EFFA\] {
+  background-color: hsl(273 24% 18%);
+}
+.dark .portal-familia .bg-\[\#F5F1FB\] {
+  background-color: hsl(264 25% 18%);
+}
+.dark .portal-familia .bg-\[\#F6EDFB\] {
+  background-color: hsl(279 29% 18%);
+}
+.dark .portal-familia .bg-\[\#F7F0FC\] {
+  background-color: hsl(275 30% 18%);
+}
+.dark .portal-familia .bg-\[\#F7F1FC\] {
+  background-color: hsl(273 29% 18%);
+}
+.dark .portal-familia .bg-\[\#F7F2FC\] {
+  background-color: hsl(270 28% 18%);
+}
+.dark .portal-familia .bg-\[\#F7F3FB\] {
+  background-color: hsl(270 22% 18%);
+}
+.dark .portal-familia .bg-\[\#F8DAD5\] {
+  background-color: hsl(9 30% 18%);
+}
+.dark .portal-familia .bg-\[\#FAF7FD\] {
+  background-color: hsl(270 27% 18%);
+}
+.dark .portal-familia .bg-\[\#FBF2E7\] {
+  background-color: hsl(33 30% 18%);
+}
+.dark .portal-familia .bg-\[\#FBF3DC\] {
+  background-color: hsl(45 30% 18%);
+}
+.dark .portal-familia .bg-\[\#FBF9FD\] {
+  background-color: hsl(270 23% 18%);
+}
+.dark .portal-familia .bg-\[\#FBF9FE\] {
+  background-color: hsl(264 30% 18%);
+}
+.dark .portal-familia .bg-\[\#FCE4CA\] {
+  background-color: hsl(31 30% 18%);
+}
+.dark .portal-familia .bg-\[\#FCE9F2\] {
+  background-color: hsl(332 30% 18%);
+}
+.dark .portal-familia .bg-\[\#FCFAFE\] {
+  background-color: hsl(270 30% 18%);
+}
+.dark .portal-familia .bg-\[\#FDEEE3\] {
+  background-color: hsl(25 30% 18%);
+}
+.dark .portal-familia .bg-\[\#FDF0E8\] {
+  background-color: hsl(23 30% 18%);
+}
+.dark .portal-familia .bg-\[\#FDF0ED\] {
+  background-color: hsl(11 30% 18%);
+}
+.dark .portal-familia .text-\[\#0891B2\] {
+  color: hsl(192 45% 74%);
+}
+.dark .portal-familia .text-\[\#09613e\] {
+  color: hsl(156 45% 74%);
+}
+.dark .portal-familia .text-\[\#0D9488\] {
+  color: hsl(175 45% 74%);
+}
+.dark .portal-familia .text-\[\#0F7A4D\] {
+  color: hsl(155 45% 74%);
+}
+.dark .portal-familia .text-\[\#16A34A\] {
+  color: hsl(142 45% 74%);
+}
+.dark .portal-familia .text-\[\#241A33\] {
+  color: hsl(264 10% 90%);
+}
+.dark .portal-familia .text-\[\#2B1838\] {
+  color: hsl(276 10% 90%);
+}
+.dark .portal-familia .text-\[\#2B2338\] {
+  color: hsl(263 10% 90%);
+}
+.dark .portal-familia .text-\[\#3A2E45\] {
+  color: hsl(271 10% 90%);
+}
+.dark .portal-familia .text-\[\#3A2E4A\] {
+  color: hsl(266 10% 90%);
+}
+.dark .portal-familia .text-\[\#3B6FB6\] {
+  color: hsl(215 45% 74%);
+}
+.dark .portal-familia .text-\[\#3E7B45\] {
+  color: hsl(127 10% 90%);
+}
+.dark .portal-familia .text-\[\#3F245C\] {
+  color: hsl(269 10% 90%);
+}
+.dark .portal-familia .text-\[\#4A3B5C\] {
+  color: hsl(267 10% 90%);
+}
+.dark .portal-familia .text-\[\#4B4456\] {
+  color: hsl(263 10% 90%);
+}
+.dark .portal-familia .text-\[\#4F8F46\] {
+  color: hsl(113 10% 90%);
+}
+.dark .portal-familia .text-\[\#5B3A7E\] {
+  color: hsl(269 10% 90%);
+}
+.dark .portal-familia .text-\[\#5F4B7A\] {
+  color: hsl(266 10% 90%);
+}
+.dark .portal-familia .text-\[\#5F586B\] {
+  color: hsl(262 10% 90%);
+}
+.dark .portal-familia .text-\[\#6A2494\] {
+  color: hsl(278 45% 74%);
+}
+.dark .portal-familia .text-\[\#6B6478\] {
+  color: hsl(261 10% 90%);
+}
+.dark .portal-familia .text-\[\#6E2A8D\] {
+  color: hsl(281 45% 74%);
+}
+.dark .portal-familia .text-\[\#7A2FA8\] {
+  color: hsl(277 45% 74%);
+}
+.dark .portal-familia .text-\[\#873b08\] {
+  color: hsl(24 45% 74%);
+}
+.dark .portal-familia .text-\[\#B42318\] {
+  color: hsl(4 45% 74%);
+}
+.dark .portal-familia .text-\[\#B45309\] {
+  color: hsl(26 45% 74%);
+}
+.dark .portal-familia .text-\[\#CA8A04\] {
+  color: hsl(41 45% 74%);
+}
+.dark .portal-familia .text-\[\#EA580C\] {
+  color: hsl(21 45% 74%);
+}
+.dark .portal-familia .border-\[\#DCCBEC\] {
+  border-color: var(--borde);
+}
+.dark .portal-familia .border-\[\#E4D9F0\] {
+  border-color: var(--borde);
+}
+.dark .portal-familia .border-\[\#E7DDF1\] {
+  border-color: var(--borde);
+}
+.dark .portal-familia .border-\[\#E9E1F1\] {
+  border-color: var(--borde);
+}
+.dark .portal-familia .border-\[\#EDE4F4\] {
+  border-color: var(--borde);
+}
+.dark .portal-familia .border-\[\#EEE8F4\] {
+  border-color: var(--borde);
+}
+.dark .portal-familia .border-\[\#EFE5F7\] {
+  border-color: var(--borde);
+}
+.dark .portal-familia .border-\[\#EFE7F6\] {
+  border-color: var(--borde);
+}
+.dark .portal-familia .border-\[\#EFE9F6\] {
+  border-color: var(--borde);
+}
+.dark .portal-familia .border-\[\#F0EAF6\] {
+  border-color: var(--borde);
+}
+.dark .portal-familia .border-\[\#F1EBF7\] {
+  border-color: var(--borde);
+}
+
+/* Tipos de comunicación: los tiles necesitan más contraste que la fila no leída. */
+.dark .portal-familia .bg-\[\#F1E4FB\] {
+  background-color: hsl(271 32% 30%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
+}
+.dark .portal-familia .bg-\[\#E8F0FD\] {
+  background-color: hsl(216 32% 28%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
+}
+.dark .portal-familia .bg-\[\#EDF6EC\] {
+  background-color: hsl(120 22% 26%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
+}
+
+/* Marca de agua del detalle de comunicaciones. */
+[data-slot='portal-familia-detalle-logo'] {
+  opacity: 0.16;
+}
+.dark .portal-familia [data-slot='portal-familia-detalle-logo'] {
+  opacity: 0.35;
+  filter: brightness(0) invert(1);
 }
 
 /* Tema oscuro: conserva la jerarquía violeta de ESSERI sin invertir colores de forma mecánica. */
@@ -540,6 +881,25 @@
   }
 }
 
+/* Impresión del Portal Familia: solo el contenido del calendario, en horizontal. */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  [data-slot='portal-familia-watermark'] {
+    display: none !important;
+  }
+
+  .portal-familia {
+    background: #ffffff !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+}
 /* Editor de flujo de workflows (§6 y §9.10 DESIGN.md): 150-220 ms, ease-out, sin rebote ni glow. */
 @keyframes arista-dibujar {
   from {
@@ -714,4 +1074,61 @@
   --xy-minimap-background-color: var(--superficie);
   --xy-minimap-mask-background-color: color-mix(in srgb, var(--texto) 12%, transparent);
   --xy-minimap-mask-stroke-color: var(--borde);
+}
+
+/* Conectores del mapa de automatizaciones: línea con puntos que viajan si la regla está activa. */
+.mapa-conector {
+  height: 2px;
+  background: var(--borde);
+}
+
+.mapa-conector-pausado {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--borde-fuerte, var(--texto-3)) 0 4px,
+    transparent 4px 8px
+  );
+  opacity: 0.7;
+}
+
+.mapa-conector-activo {
+  background: repeating-linear-gradient(90deg, var(--mod-workflows) 0 4px, transparent 4px 8px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes mapa-conector-viaje {
+    to {
+      background-position: 8px 0;
+    }
+  }
+
+  .mapa-conector-activo {
+    animation: mapa-conector-viaje 600ms linear infinite;
+  }
+}
+
+/* Pulso del mini-flujo de las tarjetas: solo en reglas activas. Va a velocidad constante: cambiarla
+   con el hover haría saltar la animación. */
+@media (prefers-reduced-motion: no-preference) {
+  /* El desplazamiento final es el largo del patrón (4 + 6): el ciclo cierra sin salto. */
+  @keyframes mini-flujo-viaje {
+    from {
+      stroke-dashoffset: 0;
+    }
+    to {
+      stroke-dashoffset: -10;
+    }
+  }
+
+  .mini-flujo-viaje {
+    stroke-dasharray: 4 6;
+    stroke-dashoffset: 0;
+    animation: mini-flujo-viaje 2.4s linear infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mini-flujo-viaje {
+    display: none;
+  }
 }
