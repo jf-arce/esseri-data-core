@@ -34,6 +34,7 @@ import {
   PERMISO_ACADEMICO_ACTUALIZAR_ASISTENCIA,
   PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES,
   PERMISO_ACADEMICO_LEER,
+  PERMISO_AUDITORIA_LEER,
   PERMISO_COMUNICACIONES_LEER,
   PERMISO_AUTENTICACION_LEER,
   PERMISO_FACTURACION_CREAR,
@@ -50,6 +51,7 @@ import {
   ROL_FAMILIA,
   tienePermiso,
 } from '@/modules/auth/constants'
+import { RUTA_AUDITORIA } from '@/modules/auditoria/constants'
 import {
   RUTA_EJECUCIONES,
   RUTA_NOTIFICACIONES,
@@ -115,9 +117,7 @@ export function vistaDe(rolActivo: string | null): Vista {
 }
 
 // Cada módulo suma su propia línea acá cuando tenga una página real. No se dibujan ítems
-// muertos: cada href tiene que apuntar a una ruta implementada (§8 DESIGN.md). Auditoría
-// existe como módulo pero su routes.tsx todavía está vacío (`RouteObject[] = []`) — se
-// agrega acá cuando tenga una página real.
+// muertos: cada href tiene que apuntar a una ruta implementada (§8 DESIGN.md).
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Paneles',
@@ -308,6 +308,13 @@ export const NAV_GROUPS: NavGroup[] = [
             icon: Grid3x3Icon,
           },
         ],
+      },
+      {
+        label: 'Auditoría',
+        href: RUTA_AUDITORIA,
+        icon: HistoryIcon,
+        modulo: 'sistema',
+        permiso: PERMISO_AUDITORIA_LEER,
       },
     ],
   },

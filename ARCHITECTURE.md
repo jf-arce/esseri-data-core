@@ -12,6 +12,48 @@ Este documento describe **estructura y convenciones**, no decisiones de negocio 
 
 ## Decisiones de base
 
+### Internal notifications (Family portal: Academic, Communications and Billing)
+
+`backend/src/notificaciones/` owns the internal inbox, recipient-specific history and first-read
+state. Its `notificacion_interna` table is separate from the Workflows email attempt log and from
+Communications read receipts. It is connected only to the Family portal; other roles have no
+notification interface or producer.
+
+The Academic delivery covers absence and justification transitions. The Communications delivery
+notifies institutional publications whose channel includes the portal, reusing the audience
+resolution and receipts already created by publication. The Billing delivery notifies invoice
+issuance, payments approved by Administration and one upcoming-due reminder per invoice. The
+upcoming-due job is independent of automatic invoice generation and only observes effective due
+dates, unpaid balances and a three-day window; it never mutates invoices.
+
+Academic services insert notifications before their existing transaction commits. The notification
+service does not commit, call n8n or send email. An unexpected insert failure rolls back the domain
+operation; an expected duplicate conflicts only with the notification's logical unique key.
+Absence identity is enrollment plus calendar date, while resolution identity is the individual
+justification or period request. Invoice, payment and communication identities are their own
+resource ids. Corrections and retries do not overwrite historical content or reset a first read.
+Rejecting a request never backfills previously suppressed absence notices.
+
+Absence recipients are active family-role accounts of linked responsible persons with
+`recibe_comunicaciones=true`. A resolution targets only the requesting account and family recorded
+on the request. Communications target the accounts of each family that received a portal receipt;
+Billing targets the accounts of the invoice's persisted economic-responsible family. Every inbox
+operation revalidates ownership, the active Family role and the recorded family identity; Academic
+notices additionally revalidate the current student link, absences the communications flag, and
+Billing the invoice/payment responsible-family relationship. Stored recipient context is not a
+permanent authorization grant.
+
+The shared coverage query belongs to `academico/cobertura_ausencias_service.py`. Pending and
+approved period requests suppress new absence notices. Workflow email and reminder callers retain
+their existing destination guards and additional rules; sharing coverage does not unify their
+different delivery policies.
+
+`frontend/src/modules/notificaciones/` owns the API services, polling hook and inbox components.
+`layout/portal-layout.tsx` composes them without changing the other shells. The inbox polls while
+visible, cancels stale identity-bound work and navigates through typed Academic destinations.
+It never records a Communications read. Code stays module-owned, with no new global store,
+transport dependency or infrastructure.
+
 ### Communications domain (stages 1–3)
 
 Institutional and course communications are owned by `backend/src/comunicaciones/` and
@@ -188,9 +230,14 @@ Con esto, ningún módulo necesita saber de la existencia de los demás para def
 
 #### Rol activo: cuentas con más de un rol
 
-`ROL` en base admite que una cuenta tenga varios roles simultáneos (ej. docente + familia). El backend nunca elige entre ellos: `GET /auth/me` devuelve `permisos` (la suma de todos los roles — lo que efectivamente autoriza cada endpoint, RF-30, sin cambios) y `perfiles` (los mismos roles desglosados, cada uno con sus propios permisos).
+`ROL` supports multiple roles per account. `GET /auth/me` exposes role profiles and the selected
+`rol_activo`; aggregate permission information does not authorize an operation by itself.
+The active role is embedded in the session cookie's JWT. Backend dependencies validate permission
+membership against that role, rather than combining grants from every role on the account.
 
-El **rol activo** es una decisión puramente de UI, guardada en `store/auth-store.ts` (persistida en `sessionStorage`, por cuenta): con un solo rol se fija solo; con más de uno, `/elegir-perfil` (`src/pages/elegir-perfil-page.tsx`) pregunta con cuál entrar, y el menú de cuenta ("Cambiar vista") permite cambiarlo después. El rol activo decide qué pantalla principal, qué panel y qué ítems del sidebar se ven (`layout/nav-items.ts` → `filtrarNav`) — **nunca** amplía ni reduce lo que el backend deja hacer. Cambiar de vista no es un cambio de permisos, es un cambio de qué parte de los permisos ya otorgados se muestra.
+`store/auth-store.ts` mirrors the server-selected active role. The profile selector and account
+menu switch it through the backend before changing the visible shell and navigation. A UI route
+guard is therefore only an additional affordance, never a substitute for backend authorization.
 
 ### Resto de `frontend/src/` (carpetas compartidas con todos los módulos)
 | Carpeta/archivo | Contenido |
@@ -387,7 +434,7 @@ Así lo resuelve directamente el repo de referencia: unos pocos archivos a nivel
 | `auditoria/` | Solo `router.py` y `service.py` — es una capa de consulta sobre tablas de otros módulos (`AUDIT_LOG`, `EVENT_LOG`, `LOG_ACCESO`, `WORKFLOW_EXECUTION`, `NOTIFICACION`, `CUENTA_CORRIENTE`/`MOVIMIENTO`, `TAREA`), no tiene `models.py` propio. `AUDIT_LOG` (cambios de datos, ex `EVENT_LOG`) y `EVENT_LOG` (hechos de negocio append-only que consume el motor de workflows) son transversales y viven en `src/models.py`, no acá — ver diccionario de datos. |
 | `panel_admin/` | Igual que auditoría: sin modelo propio, solo agrega y expone datos de otros módulos. |
 | `ia_sugerencias/` | Archivos estándar para `IA_SUGERENCIA`. El cliente del proveedor de IA vive en `src/llm_client.py`, compartido con `asistente/`. |
-| `asistente/` | Asistente conversacional para Dirección y Administración (solo lectura en la Fase 1). Un LLM interpreta el pedido y elige herramientas; las herramientas son funciones del backend que consultan los services existentes, así que el modelo no calcula ni "sabe" datos. `herramientas.py` es el registro y cada `herramientas_<dominio>.py` declara su contrato: permisos acumulativos (los mismos que exige el router del dominio, revalidados en cada ejecución), parámetros y salida armada campo por campo. `service.py` tiene el prompt, el loop con topes de pasos y de herramientas por paso, y la persistencia por paso; `seudonimos_service.py` cubre la privacidad (ver abajo); `router.py` expone la API con SSE; `retencion_job.py` borra conversaciones vencidas. En el frontend, el panel va acoplado a la derecha dentro de `app-layout.tsx` (`asistente-dock.tsx`) y se arma con los componentes de AI Elements de `components/ui/` (`message`, `bubble`, `message-scroller`, `trace`); los pasos de herramientas que muestra cada respuesta son solo de la sesión en curso, el historial del servidor no los trae. |
+| `asistente/` | Asistente conversacional para Dirección y Administración (solo lectura; la Fase 2 suma gráficos, tablas descargables, comparaciones, contexto de pantalla y atajos `/`). Un LLM interpreta el pedido y elige herramientas; las herramientas son funciones del backend que consultan los services existentes, así que el modelo no calcula ni "sabe" datos. `herramientas.py` es el registro y cada `herramientas_<dominio>.py` (incluido `herramientas_inasistencias.py`, con inasistencias por alumno y curso y justificaciones) declara su contrato: permisos acumulativos (los mismos que exige el router del dominio, revalidados en cada ejecución), parámetros y salida armada campo por campo. `prompt.py` tiene el prompt, `envio_service.py` valida y persiste cada envío, `respuesta_service.py` corre el loop con topes de pasos y de herramientas por paso y persiste por paso, y `conversaciones_service.py` administra las conversaciones; `seudonimos_service.py` cubre la privacidad (ver abajo); `router.py` expone la API con SSE; `exportar_tabla_service.py` arma la descarga CSV/Excel de una tabla (con `src/exports.py`); `retencion_job.py` borra conversaciones vencidas. En el frontend, el panel va acoplado a la derecha dentro de `app-layout.tsx` (`asistente-dock.tsx`) y se arma con los componentes de AI Elements de `components/ui/` (`message`, `bubble`, `message-scroller`, `trace`); los pasos de herramientas que muestra cada respuesta son solo de la sesión en curso, el historial del servidor no los trae. |
 | `academico/` | `service.py` concentra el ABM de la estructura (años, divisiones, materias, materias-curso) y las asignaciones docentes. `horarios_service.py` valida que no se superpongan franjas horarias (dentro de una división y entre las asignaciones de un mismo docente en un ciclo); se separó porque la regla la usan materias-curso y asignaciones por igual. Los niveles educativos son datos maestros fijos (Inicial, Primario, Secundario): solo se consultan, una migración inserta los que falten. En el frontend, la página de estructura navega nivel → año → división con el estado en la URL (`use-seleccion-estructura.ts`) y carga los datos por tramos (`use-estructura-academica.ts`); el contenido de la división está en `components/division-contenido.tsx` (con `materias-vista.tsx` para las tarjetas, su búsqueda y su orden) y el estado de la vista (pestaña, filtro y materia resaltada) en `use-vista-division.ts`; la vista de horario semanal vive en `components/horario-semanal.tsx` (con `bloque-horario.tsx` y `fantasma-horario.tsx` para el dibujo, `filtros-horario.tsx` y `resaltado-horario.tsx` para los filtros, el aviso de superposiciones y el selector de materias a resaltar, y los hooks `use-arrastre-horario.ts` y `use-teclado-horario.ts` para los gestos y `use-guardar-franjas.ts` para el guardado optimista) y el catálogo global de materias tiene su propia página. |
 | `proveedores_compras/` | Además de `service.py` (proveedores, catálogo, solicitudes, órdenes, recepciones, búsqueda y exportación), tiene `precios_service.py` con los proveedores y precios por ítem del catálogo (`PRODUCTO_PROVEEDOR`/`PRECIO_PRODUCTO`, vigencias e histórico). Los precios nacieron separados porque `service.py` ya superaba el umbral de la sección "Cuándo dividir la lógica de negocio de un módulo"; el resto de `service.py` todavía no se dividió (deuda técnica registrada: corresponde separarlo por capacidad, sin fachada). |
 | `auth/` | Sin `service.py` único: se dividió en `sesion_service.py` (contraseñas, JWT, login), `autorizacion_service.py` (permisos/roles de la sesión, RF-30), `roles_service.py` (ABM de Rol/Permiso y ROL_PERMISO) y `usuarios_service.py` (alta, edición, baja y eliminación de cuentas, y USUARIO_ROL) — superaba el umbral de la sección "Cuándo dividir la lógica de negocio de un módulo" y sus subdominios (sesión, autorización, roles/permisos, usuarios) tienen vocabulario y ciclo de vida propios. |
@@ -398,12 +445,13 @@ La explicación completa del asistente (qué hace, cómo funciona, herramientas,
 
 Decisiones de `asistente/` que no se deducen del código y que hay que respetar al tocarlo:
 
-- **Seudonimización completa.** El proveedor de IA nunca ve nombres, DNI ni datos de contacto. Las personas viajan como alias por conversación (`[ALUMNO:3]`, `[FAMILIA:1]`, `[DOCENTE:2]`), una fila de `ALIAS_CONVERSACION` cada uno. El navegador los rehidrata con `POST /asistente/resolver`, que valida que la conversación sea de quien pregunta y que su rol activo tenga el permiso de cada tipo en ese momento: `familias_alumnos.leer` para alumnos y familias, `academico.leer` para docentes. Los alias de un tipo sin permiso quedan sin nombre.
+- **Seudonimización completa.** El proveedor de IA nunca ve nombres, DNI ni datos de contacto. Las personas viajan como alias por conversación (`[ALUMNO:3]`, `[FAMILIA:1]`, `[DOCENTE:2]`), una fila de `ALIAS_CONVERSACION` cada uno. El navegador los rehidrata con `POST /asistente/resolver`, que valida que la conversación sea de quien pregunta y que su rol activo tenga el permiso de cada tipo en ese momento: `familias_alumnos.leer` para alumnos y familias, `academico.leer` para docentes. Los alias de un tipo sin permiso quedan sin nombre. El contexto de pantalla (la ficha abierta) y las menciones de docentes también viajan como alias; las de curso viajan por nombre porque no son datos personales.
 - **La entrada también se limpia.** Antes de salir, el mensaje del usuario pasa por `preparar_entrada`: las menciones `@` se resuelven localmente, los nombres escritos a mano que coinciden con alumnos, familias o docentes de la base se reemplazan por alias (con la misma normalización sin tildes de `src/search.py`), y DNI, emails y teléfonos se tapan. Si un nombre es ambiguo, no se consulta al modelo: se muestran tarjetas para elegir.
 - **Salidas construidas a mano.** Ninguna herramienta serializa un objeto de dominio. Se excluyen los textos libres (títulos y descripciones de tareas, observaciones, payloads de eventos): además de ser datos personales en potencia, podrían llevar instrucciones al modelo.
-- **Los números los produce el backend.** La respuesta se compone de bloques tipados (`texto`, `kpi`, `tabla`, `tarjeta`; `grafico` llega en la Fase 2). Cada cifra trae período y fuente. La deuda sale de `cuenta_corriente_service`, no de la cifra provisoria del panel.
+- **Los números los produce el backend.** La respuesta se compone de bloques tipados (`texto`, `kpi`, `tabla`, `grafico`, `tarjeta`). Cada cifra trae período y fuente. La deuda sale de `cuenta_corriente_service`, no de la cifra provisoria del panel.
 - **Aislamiento.** Cada operación sobre una conversación exige que sea del usuario y que su `rol_codigo` coincida con el rol activo: cada rol tiene su propio historial. Una sola generación activa por conversación (lock de fila sobre `estado`); un segundo envío recibe 409. El frontend remonta el panel al cambiar de cuenta o de rol, lo que descarta la conversación visible, la caché de alias y el stream en curso.
 - **Navegación.** El modelo elige una clave de destino del menú (`ir_a`); la ruta la arma el frontend y se valida contra el menú del rol activo (`destinosDe(filtrarNav(...))`). Nunca se navega a una URL generada por el modelo, ni se navega sola: `ir_a` deja un botón y la persona decide si lo usa. Además, cada herramienta declara la pantalla donde se ve su dato (`Herramienta.destino`); al terminar la respuesta se ofrece ese botón ("Ir a Deuda por familia"), solo si todas las herramientas usadas apuntan a una misma pantalla, el rol puede entrar y la persona no pidió ir a otra. Los docentes no tienen ficha: su nombre se muestra sin link.
+- **Detener y editar.** Cortar el stream guarda lo ya emitido como `parcial` y libera la conversación (el evento SSE `inicio` entrega los ids reales de los mensajes). Editar una pregunta (`editar_desde`) marca como `descartado` esa pregunta y todo lo posterior: no se borran filas porque la cuota diaria cuenta los mensajes del usuario. El mensaje de un atajo se guarda como `/<atajo> <texto>`; al modelo le llega sin el prefijo.
 - **Streaming del texto.** `llm_client.transmitir_con_herramientas` lee el stream del proveedor: arma las `tool_call` a partir de sus pedazos y entrega el texto por trozos, que el servicio emite como eventos SSE `delta`. Un `FiltroAlias` neutraliza los alias no emitidos aunque lleguen partidos entre trozos. Al terminar, el evento `texto` trae la respuesta final validada y reemplaza lo acumulado. Los 429 y 503 solo se reintentan antes de que empiece el stream.
 
 ### Resto de `backend/` (fuera de `src/`)

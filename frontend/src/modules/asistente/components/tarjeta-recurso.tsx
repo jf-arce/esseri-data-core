@@ -2,7 +2,8 @@ import { GraduationCapIcon, UsersRoundIcon } from 'lucide-react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import type { AliasResuelto, BloqueTarjeta } from '../types'
-import { etiquetaGenerica, rutaDeEntidad } from '../utils'
+import { etiquetaGenerica } from '../utils/alias'
+import { rutaDeEntidad } from '../utils/destinos'
 
 interface TarjetaRecursoProps {
   bloque: BloqueTarjeta

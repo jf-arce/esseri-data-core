@@ -1,5 +1,5 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { MemoryRouter, useNavigate } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PortalFamiliaTramitePage } from '@/pages/portal-familia-tramite-page'
 import { listarAsistenciasFamilia } from '@/modules/academico/services/listar-asistencias-familia'
@@ -10,7 +10,7 @@ import {
   obtenerConfiguracionAusencias,
 } from '@/modules/academico/services/solicitudes-ausencia-familia'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
-import type { AsistenciaFamilia } from '@/modules/academico/types'
+import type { AsistenciaFamilia, SolicitudAusenciaPeriodo } from '@/modules/academico/types'
 import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 
 vi.mock('@/modules/academico/services/listar-asistencias-familia')
@@ -36,6 +36,25 @@ function crearAsistencia(overrides: Partial<AsistenciaFamilia>): AsistenciaFamil
     justificacion_motivo: null,
     justificacion_observacion: null,
     justificacion_archivo_nombre: null,
+    ...overrides,
+  }
+}
+
+function crearSolicitud(
+  overrides: Partial<SolicitudAusenciaPeriodo> = {},
+): SolicitudAusenciaPeriodo {
+  return {
+    id: 'solicitud-generica',
+    alumno_id: 'alumno-1',
+    fecha_inicio: '2027-03-01',
+    fecha_fin: '2027-03-05',
+    estado: 'pendiente',
+    motivo: 'enfermedad',
+    observacion: null,
+    observacion_resolucion: null,
+    archivo_nombre: null,
+    fecha_carga: '2027-03-01T08:00:00',
+    fecha_resolucion: null,
     ...overrides,
   }
 }
@@ -732,6 +751,301 @@ describe('PortalFamiliaTramitePage', () => {
       const dialogo = within(screen.getByRole('dialog'))
       expect(dialogo.getByLabelText('Desde')).toHaveAttribute('max', '2027-12-31')
       expect(dialogo.getByLabelText(/^Hasta/)).toHaveAttribute('max', '2027-12-31')
+    })
+  })
+
+  describe('navegación desde notificaciones internas', () => {
+    it('selecciona el alumno y abre el historial en la inasistencia exacta', async () => {
+      mockedUseMisAlumnos.mockReturnValue({
+        alumnos: [
+          {
+            alumno_id: 'alumno-1',
+            nombre: 'Juan',
+            apellido: 'Gómez',
+            division_etiqueta: '4°B · Primario',
+          },
+          {
+            alumno_id: 'alumno-2',
+            nombre: 'Ana',
+            apellido: 'Gómez',
+            division_etiqueta: '2°A · Primario',
+          },
+        ],
+        cargando: false,
+      })
+      mockedListarAsistenciasFamilia.mockResolvedValue([
+        crearAsistencia({ id: 'a-15', fecha: '2027-03-15' }),
+        crearAsistencia({ id: 'a-14', fecha: '2027-03-14' }),
+        crearAsistencia({ id: 'a-13', fecha: '2027-03-13' }),
+        crearAsistencia({ id: 'a-12', fecha: '2027-03-12' }),
+        crearAsistencia({ id: 'a-11', fecha: '2027-03-11' }),
+        crearAsistencia({
+          id: 'a-10',
+          fecha: '2027-03-10',
+          tipo: 'ausente_injustificado',
+        }),
+      ])
+
+      render(
+        <MemoryRouter
+          initialEntries={[
+            '/familia/asistencias?alumno=alumno-2&seccion=historial&recurso=asistencia&recurso_id=a-10',
+          ]}
+        >
+          <PortalFamiliaTramitePage
+            titulo="Asistencias"
+            descripcion="Consultá tus asistencias."
+            modo="asistencias"
+          />
+        </MemoryRouter>,
+      )
+
+      expect(await screen.findByRole('heading', { name: 'Historial' })).toBeInTheDocument()
+      expect(screen.getByLabelText('Alumno')).toHaveTextContent('Ana Gómez')
+      expect(mockedListarAsistenciasFamilia).toHaveBeenCalledWith('alumno-2')
+      expect(screen.getByRole('tab', { name: 'Historial' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+      expect(screen.getByText('Página 2 de 2')).toBeInTheDocument()
+
+      const historial = screen.getByRole('tabpanel', { name: 'Historial' })
+      const fila = within(historial).getByText('10/3/2027').closest('[aria-current="true"]')
+      expect(fila).not.toBeNull()
+    })
+
+    it('abre y resalta una ausencia pendiente de justificar', async () => {
+      mockedListarAsistenciasFamilia.mockResolvedValue([
+        crearAsistencia({
+          id: 'a-pendiente',
+          fecha: '2027-03-15',
+          tipo: 'ausente_pendiente',
+        }),
+      ])
+
+      render(
+        <MemoryRouter
+          initialEntries={[
+            '/familia/asistencias?alumno=alumno-1&seccion=historial&recurso=asistencia&recurso_id=a-pendiente',
+          ]}
+        >
+          <PortalFamiliaTramitePage
+            titulo="Asistencias"
+            descripcion="Consultá tus asistencias."
+            modo="asistencias"
+          />
+        </MemoryRouter>,
+      )
+
+      expect(await screen.findByRole('heading', { name: 'Justificaciones' })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Justificaciones' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+      const fila = screen.getByText('15/3/2027').closest('tr[aria-current="true"]')
+      expect(fila).not.toBeNull()
+      expect(
+        within(fila as HTMLElement).getByRole('button', { name: 'Justificar' }),
+      ).toBeInTheDocument()
+    })
+
+    it('abre y resalta la justificación individual exacta', async () => {
+      mockedListarAsistenciasFamilia.mockResolvedValue([
+        crearAsistencia({
+          id: 'a-justificada',
+          fecha: '2027-03-14',
+          tipo: 'ausente_justificado',
+          justificacion_id: 'justificacion-9',
+          justificacion_estado: 'aprobada',
+          justificacion_motivo: 'Enfermedad',
+          justificacion_observacion: 'Se adjunta certificado.',
+        }),
+      ])
+
+      render(
+        <MemoryRouter
+          initialEntries={[
+            '/familia/asistencias?alumno=alumno-1&seccion=historial&recurso=justificacion_individual&recurso_id=justificacion-9',
+          ]}
+        >
+          <PortalFamiliaTramitePage
+            titulo="Asistencias"
+            descripcion="Consultá tus asistencias."
+            modo="asistencias"
+          />
+        </MemoryRouter>,
+      )
+
+      expect(await screen.findByRole('heading', { name: 'Historial' })).toBeInTheDocument()
+      const disclosure = screen.getByRole('button', {
+        name: 'Ocultar detalle de la justificación del 14/3/2027',
+      })
+      expect(disclosure).toHaveAttribute('aria-expanded', 'true')
+      expect(screen.getByText('Se adjunta certificado.')).toBeVisible()
+      expect(screen.getByText('14/3/2027').closest('[aria-current="true"]')).not.toBeNull()
+    })
+
+    it('abre la solicitud de ausencia por período exacta', async () => {
+      mockedListarAsistenciasFamilia.mockResolvedValue([])
+      mockedListarSolicitudesFamilia.mockResolvedValue([
+        crearSolicitud({
+          id: 'solicitud-9',
+          estado: 'rechazada',
+          observacion_resolucion: 'Falta documentación.',
+          fecha_resolucion: '2027-03-06T09:00:00',
+        }),
+      ])
+
+      render(
+        <MemoryRouter
+          initialEntries={[
+            '/familia/asistencias?alumno=alumno-1&seccion=justificaciones&recurso=solicitud_ausencia_periodo&recurso_id=solicitud-9',
+          ]}
+        >
+          <PortalFamiliaTramitePage
+            titulo="Asistencias"
+            descripcion="Consultá tus asistencias."
+            modo="asistencias"
+          />
+        </MemoryRouter>,
+      )
+
+      expect(await screen.findByRole('heading', { name: 'Justificaciones' })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Justificaciones', hidden: true })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+
+      const dialogo = await screen.findByRole('dialog')
+      expect(
+        within(dialogo).getByRole('heading', { name: 'Detalle de justificación' }),
+      ).toBeInTheDocument()
+      expect(within(dialogo).getAllByText('Rechazada').length).toBeGreaterThan(0)
+
+      const filaResaltada = document.querySelector('tr[aria-current="true"]')
+      expect(filaResaltada).not.toBeNull()
+      expect(filaResaltada).toHaveTextContent('1/3/2027 – 5/3/2027')
+    })
+
+    it('cambia de alumno y resalta el registro al navegar con la página ya montada', async () => {
+      mockedUseMisAlumnos.mockReturnValue({
+        alumnos: [
+          {
+            alumno_id: 'alumno-1',
+            nombre: 'Juan',
+            apellido: 'Gómez',
+            division_etiqueta: '4°B · Primario',
+          },
+          {
+            alumno_id: 'alumno-2',
+            nombre: 'Ana',
+            apellido: 'Gómez',
+            division_etiqueta: '2°A · Primario',
+          },
+        ],
+        cargando: false,
+      })
+      mockedListarAsistenciasFamilia.mockImplementation((alumnoId) =>
+        Promise.resolve(
+          alumnoId === 'alumno-1'
+            ? [crearAsistencia({ id: 'a-1', fecha: '2027-03-15' })]
+            : [
+                crearAsistencia({
+                  id: 'a-2',
+                  fecha: '2027-03-10',
+                  tipo: 'ausente_injustificado',
+                }),
+              ],
+        ),
+      )
+
+      function Navegador() {
+        const navigate = useNavigate()
+        return (
+          <button
+            type="button"
+            onClick={() =>
+              navigate(
+                '/familia/asistencias?alumno=alumno-2&seccion=historial&recurso=asistencia&recurso_id=a-2',
+              )
+            }
+          >
+            Ir a la notificación
+          </button>
+        )
+      }
+
+      render(
+        <MemoryRouter
+          initialEntries={[
+            '/familia/asistencias?alumno=alumno-1&seccion=historial&recurso=asistencia&recurso_id=a-1',
+          ]}
+        >
+          <Navegador />
+          <PortalFamiliaTramitePage
+            titulo="Asistencias"
+            descripcion="Consultá tus asistencias."
+            modo="asistencias"
+          />
+        </MemoryRouter>,
+      )
+
+      expect(await screen.findByLabelText('Alumno')).toHaveTextContent('Juan Gómez')
+      expect(await screen.findByText('15/3/2027')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Ir a la notificación' }))
+
+      expect(await screen.findByLabelText('Alumno')).toHaveTextContent('Ana Gómez')
+      expect(await screen.findByText('10/3/2027')).toBeInTheDocument()
+      await waitFor(() =>
+        expect(screen.getByText('10/3/2027').closest('[aria-current="true"]')).not.toBeNull(),
+      )
+    })
+
+    it('ignora un destino desconocido y conserva la vista inicial', async () => {
+      mockedListarAsistenciasFamilia.mockResolvedValue([])
+
+      render(
+        <MemoryRouter
+          initialEntries={[
+            '/familia/asistencias?alumno=alumno-1&seccion=historial&recurso=desconocido&recurso_id=x',
+          ]}
+        >
+          <PortalFamiliaTramitePage
+            titulo="Asistencias"
+            descripcion="Consultá tus asistencias."
+            modo="asistencias"
+          />
+        </MemoryRouter>,
+      )
+
+      expect(
+        await screen.findByRole('heading', { name: 'Resumen del período' }),
+      ).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Resumen' })).toHaveAttribute('aria-selected', 'true')
+      expect(document.querySelector('[aria-current="true"]')).toBeNull()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('mantiene la ruta hermana de justificación sin parámetros', async () => {
+      mockedListarAsistenciasFamilia.mockResolvedValue([])
+
+      render(
+        <MemoryRouter initialEntries={['/familia/justificar-ausencia']}>
+          <PortalFamiliaTramitePage
+            titulo="Asistencias"
+            descripcion="Informá el motivo de la ausencia."
+            seccionInicial="pendientes"
+          />
+        </MemoryRouter>,
+      )
+
+      expect(await screen.findByRole('heading', { name: 'Justificaciones' })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Justificaciones' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+      expect(document.querySelector('[aria-current="true"]')).toBeNull()
     })
   })
 })

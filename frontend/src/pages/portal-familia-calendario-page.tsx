@@ -1,8 +1,10 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import {
   BookOpenIcon,
   CalculatorIcon,
   CalendarDaysIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   ClockIcon,
   EarthIcon,
   FlaskConicalIcon,
@@ -15,6 +17,13 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useSearchParams } from 'react-router'
+import { ExportarHorario } from '@/modules/academico/components/exportar-horario'
+import { FiltrosHorario } from '@/modules/academico/components/filtros-horario'
+import {
+  compartirHorarioFamilia,
+  descargarHorarioFamilia,
+} from '@/modules/academico/services/exportar-horario'
+import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -32,13 +41,22 @@ import {
 import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
 import { PortalCard } from '@/components/portal-familia/portal-familia-ui'
 import { useHorarioFamilia } from '@/modules/academico/hooks/use-horario-familia'
-import { aMinutos, deMinutos } from '@/modules/academico/utils'
+import {
+  aMinutos,
+  coincideFiltroHorario,
+  FILTRO_HORARIO_INICIAL,
+  hayFiltroHorario,
+  type FiltroHorario,
+} from '@/modules/academico/utils'
 import type { MateriaCurso } from '@/modules/academico/types'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
 import { normalizarTexto } from '@/lib/texto'
 import { cn } from '@/lib/utils'
 
 const DIAS = [1, 2, 3, 4, 5]
+const INICIO_GRILLA = 7 * 60 + 30
+const FIN_GRILLA = 16 * 60 + 30
+const FILAS_GRILLA = (FIN_GRILLA - INICIO_GRILLA) / 30
 const NOMBRES_DIA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
 
 type EstiloMateria = { bg: string; texto: string; Icono: LucideIcon }
@@ -83,21 +101,14 @@ function DetalleClase({ franja }: { franja: Franja | null }) {
   const estilo = estiloMateria(franja.materia.materia_nombre)
   const Icono = estilo.Icono
   const docentes = franja.materia.docentes ?? []
-  const docente =
-    docentes.length > 1
-      ? `Profesores: ${docentes.join(', ')}`
-      : docentes.length === 1
-        ? `Profesor: ${docentes[0]}`
-        : 'Sin docente'
+  const docente = docentes.length > 0 ? docentes.join(', ') : 'Sin docente'
 
   return (
     <div className="flex flex-col gap-5">
-      <div className={cn('flex items-center gap-4 rounded-[16px] px-4 py-4', estilo.bg)}>
+      <div className="flex items-center gap-4 rounded-[16px] bg-fila-hover px-4 py-4">
         <span
-          className={cn(
-            'flex size-14 shrink-0 items-center justify-center rounded-[14px] bg-white/70',
-            estilo.texto,
-          )}
+          className="flex size-14 shrink-0 items-center justify-center rounded-[14px] bg-white/70"
+          style={{ color: franja.materia.materia_color || '#7A2FA8' }}
         >
           <Icono aria-hidden="true" className="size-7" />
         </span>
@@ -143,6 +154,8 @@ export function PortalFamiliaCalendarioPage() {
   const [alumnoId, setAlumnoId] = useState(() => searchParams.get('alumno') ?? '')
   const [diaAgenda, setDiaAgenda] = useState<number | null>(null)
   const [seleccionId, setSeleccionId] = useState<string | null>(null)
+  const [filtro, setFiltro] = useState<FiltroHorario>(FILTRO_HORARIO_INICIAL)
+  const [semanaOffset, setSemanaOffset] = useState(0)
   const alumno = alumnos.find((item) => item.alumno_id === alumnoId) ?? alumnos[0]
   const {
     materiasCurso,
@@ -158,47 +171,77 @@ export function PortalFamiliaCalendarioPage() {
     [materiasCurso],
   )
 
-  const puntos = useMemo(() => {
-    const unicos = new Set<number>()
-    for (const franja of franjas) {
-      unicos.add(aMinutos(franja.hora_inicio))
-      unicos.add(aMinutos(franja.hora_fin))
-    }
-    return [...unicos].sort((a, b) => a - b)
-  }, [franjas])
-
-  const filasHorario = useMemo(() => {
-    const intervalos = puntos
-      .slice(0, -1)
-      .map((inicio, indice) => ({ inicio, fin: puntos[indice + 1] }))
-    return intervalos.filter(({ inicio, fin }) =>
-      franjas.some(
-        (franja) => aMinutos(franja.hora_inicio) <= inicio && aMinutos(franja.hora_fin) >= fin,
+  const docentesDisponibles = useMemo(
+    () =>
+      [...new Set(materiasCurso.flatMap((materia) => materia.docentes ?? []))].sort((a, b) =>
+        a.localeCompare(b),
       ),
-    )
-  }, [puntos, franjas])
-
+    [materiasCurso],
+  )
+  const franjasFiltradas = useMemo(
+    () =>
+      franjas.filter((franja) =>
+        coincideFiltroHorario(franja.materia, filtro, franja.materia.docentes ?? []),
+      ),
+    [franjas, filtro],
+  )
   const primeraFranja = useMemo(
     () =>
-      [...franjas].sort(
+      [...franjasFiltradas].sort(
         (a, b) => a.dia_semana - b.dia_semana || aMinutos(a.hora_inicio) - aMinutos(b.hora_inicio),
       )[0] ?? null,
-    [franjas],
+    [franjasFiltradas],
   )
-  const activa = franjas.find((franja) => franja.id === seleccionId) ?? primeraFranja
+  const activa = franjasFiltradas.find((franja) => franja.id === seleccionId) ?? primeraFranja
   const diaActivo = activa?.dia_semana
   const diaVisible = diaAgenda ?? diaActivo ?? 1
+  const semana = useMemo(() => {
+    const hoy = new Date()
+    const lunes = new Date(hoy)
+    lunes.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7) + semanaOffset * 7)
+    return DIAS.map((dia) => {
+      const fecha = new Date(lunes)
+      fecha.setDate(lunes.getDate() + dia - 1)
+      return fecha
+    })
+  }, [semanaOffset])
+  const hoyISO = new Date().toDateString()
+  const formateoCorto = new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short' })
+  const etiquetaSemana = `${formateoCorto.format(semana[0])} – ${formateoCorto.format(semana[4])}`
+  useEffect(() => {
+    const raiz = document.documentElement
+    const antes = () => {
+      if (raiz.classList.contains('dark')) {
+        raiz.dataset.temaOscuroImpresion = '1'
+        raiz.classList.remove('dark')
+      }
+    }
+    const despues = () => {
+      if (raiz.dataset.temaOscuroImpresion) {
+        raiz.classList.add('dark')
+        delete raiz.dataset.temaOscuroImpresion
+      }
+    }
+    window.addEventListener('beforeprint', antes)
+    window.addEventListener('afterprint', despues)
+    return () => {
+      window.removeEventListener('beforeprint', antes)
+      window.removeEventListener('afterprint', despues)
+      despues()
+    }
+  }, [])
+
   const franjasDelDia = useMemo(
     () =>
-      franjas
+      franjasFiltradas
         .filter((franja) => franja.dia_semana === diaVisible)
         .sort((a, b) => aMinutos(a.hora_inicio) - aMinutos(b.hora_inicio)),
-    [franjas, diaVisible],
+    [franjasFiltradas, diaVisible],
   )
 
   function elegirDia(dia: number) {
     setDiaAgenda(dia)
-    const primera = franjas
+    const primera = franjasFiltradas
       .filter((franja) => franja.dia_semana === dia)
       .sort((a, b) => aMinutos(a.hora_inicio) - aMinutos(b.hora_inicio))[0]
     if (primera) setSeleccionId(primera.id)
@@ -218,11 +261,11 @@ export function PortalFamiliaCalendarioPage() {
           volverA="/familia"
           volverEtiqueta="Volver al inicio"
           anchoMaximo="max-w-[92vw]"
-          className="pb-8"
+          className="pb-8 print:hidden"
           classNameContenido="px-4 sm:px-8"
         />
 
-        <div className="mx-auto w-full max-w-[92vw] px-4 pb-10 sm:px-8">
+        <div className="zona-impresion mx-auto w-full max-w-[92vw] px-4 pb-10 sm:px-8 print:max-w-none print:p-0">
           {cargando ? (
             <Skeleton className="h-96 w-full rounded-[24px] bg-white/80" />
           ) : alumnos.length === 0 ? (
@@ -241,6 +284,7 @@ export function PortalFamiliaCalendarioPage() {
           ) : (
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
               <PortalCard
+                className="print:border-0 print:shadow-none"
                 titulo="Horario semanal"
                 descripcion={alumno?.division_etiqueta ?? 'Todavía sin división asignada'}
                 tituloClassName="font-heading text-[26px] leading-tight font-bold tracking-[-0.01em] text-[#241A33]"
@@ -297,38 +341,103 @@ export function PortalFamiliaCalendarioPage() {
                   </Empty>
                 ) : (
                   <>
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F1EBF7] px-4 py-3 print:hidden">
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          aria-label="Semana anterior"
+                          onClick={() => setSemanaOffset((valor) => valor - 1)}
+                        >
+                          <ChevronLeftIcon aria-hidden="true" />
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="rounded-full"
+                          disabled={semanaOffset === 0}
+                          onClick={() => setSemanaOffset(0)}
+                        >
+                          Semana actual
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          aria-label="Semana siguiente"
+                          onClick={() => setSemanaOffset((valor) => valor + 1)}
+                        >
+                          <ChevronRightIcon aria-hidden="true" />
+                        </Button>
+                        <span className="ml-2 text-[14px] font-medium text-[#6B6478]">
+                          Semana del {etiquetaSemana}
+                        </span>
+                      </div>
+                      <ExportarHorario
+                        titulo="Horario semanal"
+                        descargar={
+                          alumno ? () => descargarHorarioFamilia(alumno.alumno_id) : undefined
+                        }
+                        compartir={
+                          alumno
+                            ? () => compartirHorarioFamilia(alumno.alumno_id, 'Horario semanal')
+                            : undefined
+                        }
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 border-b border-[#F1EBF7] px-4 py-3 print:hidden">
+                      <FiltrosHorario
+                        filtro={filtro}
+                        onFiltro={setFiltro}
+                        docentes={docentesDisponibles}
+                      />
+                    </div>
+
+                    {hayFiltroHorario(filtro) && franjasFiltradas.length === 0 && (
+                      <p className="mx-4 mt-4 rounded-[12px] border border-dashed border-[#E4D9F0] bg-[#FBF9FD] p-4 text-sm text-[#6B6478]">
+                        No hay clases que coincidan con los filtros.
+                      </p>
+                    )}
+
                     <div data-testid="calendario-grilla" className="hidden lg:block">
                       <div className="overflow-x-auto">
-                        <div className="min-w-[820px]">
+                        <div className="min-w-[820px] print:min-w-0">
                           <div
                             className="grid overflow-hidden rounded-[18px] border border-[#EFE7F6] bg-white"
                             style={{
                               gridTemplateColumns: '8rem repeat(5, minmax(0, 1fr))',
-                              gridTemplateRows: `auto ${filasHorario
-                                .map(
-                                  (fila) =>
-                                    `minmax(78px, ${Math.max(1, (fila.fin - fila.inicio) / 60)}fr)`,
-                                )
-                                .join(' ')}`,
+                              gridTemplateRows: `auto repeat(${FILAS_GRILLA}, minmax(30px, 1fr))`,
                             }}
                           >
                             <div className="bg-[#FBF9FD]" aria-hidden="true" />
                             {DIAS.map((dia) => (
                               <div
                                 key={dia}
-                                className="border-l border-[#EFE7F6] bg-[#FBF9FD] px-3 py-3 text-center text-[15px] font-semibold text-[#2B2338]"
+                                className={cn(
+                                  'border-l border-[#EFE7F6] px-3 py-2 text-center text-[14px] font-semibold',
+                                  dia === diaActivo
+                                    ? 'bg-[#F1E4FB] text-[#7A2FA8]'
+                                    : 'bg-[#FBF9FD] text-[#2B2338]',
+                                )}
                               >
-                                {NOMBRES_DIA[dia - 1]}
+                                <span className="block">{NOMBRES_DIA[dia - 1]}</span>
+                                <span className="block text-[12px] font-normal opacity-70">
+                                  {semana[dia - 1].getDate()}
+                                  {semana[dia - 1].toDateString() === hoyISO ? ' · Hoy' : ''}
+                                </span>
                               </div>
                             ))}
 
-                            {filasHorario.map((fila, indice) => (
-                              <Fragment key={`${fila.inicio}-${fila.fin}`}>
+                            {Array.from(
+                              { length: FILAS_GRILLA },
+                              (_, indice) => INICIO_GRILLA + indice * 30,
+                            ).map((minutos, indice) => (
+                              <Fragment key={minutos}>
                                 <div
-                                  className="border-t border-[#EFE7F6] px-3 py-4 text-center text-[13px] font-semibold text-[#6B6478] tabular-nums"
+                                  className="border-t border-[#EFE7F6] px-3 text-center text-[12px] font-semibold text-[#6B6478] tabular-nums"
                                   style={{ gridRow: indice + 2, gridColumn: 1 }}
                                 >
-                                  {deMinutos(fila.inicio)} – {deMinutos(fila.fin)}
+                                  {`${String(Math.floor(minutos / 60)).padStart(2, '0')}:${String(minutos % 60).padStart(2, '0')}`}
                                 </div>
                                 {DIAS.map((dia) => (
                                   <div
@@ -340,23 +449,20 @@ export function PortalFamiliaCalendarioPage() {
                               </Fragment>
                             ))}
 
-                            {franjas.map((franja) => {
+                            {franjasFiltradas.map((franja) => {
                               const inicio = aMinutos(franja.hora_inicio)
                               const fin = aMinutos(franja.hora_fin)
-                              const filaInicio = filasHorario.findIndex(
-                                (fila) => fila.inicio === inicio,
+                              const filaInicio = Math.max(
+                                0,
+                                Math.round((inicio - INICIO_GRILLA) / 30),
                               )
-                              const filaFin = filasHorario.findIndex((fila) => fila.fin === fin)
-                              if (filaInicio === -1 || filaFin === -1) return null
+                              const filaFin = Math.min(
+                                FILAS_GRILLA,
+                                Math.max(filaInicio + 1, Math.round((fin - INICIO_GRILLA) / 30)),
+                              )
                               const estilo = estiloMateria(franja.materia.materia_nombre)
                               const Icono = estilo.Icono
-                              const docentes = franja.materia.docentes ?? []
-                              const docente =
-                                docentes.length > 1
-                                  ? `Profesores: ${docentes.join(', ')}`
-                                  : docentes.length === 1
-                                    ? `Profesor: ${docentes[0]}`
-                                    : 'Sin docente'
+                              const color = franja.materia.materia_color || '#7A2FA8'
                               const activaEsta = franja.id === activa?.id
                               return (
                                 <button
@@ -365,20 +471,21 @@ export function PortalFamiliaCalendarioPage() {
                                   aria-pressed={activaEsta}
                                   onClick={() => setSeleccionId(franja.id)}
                                   style={{
-                                    gridRow: `${filaInicio + 2} / ${filaFin + 3}`,
+                                    gridRow: `${filaInicio + 2} / ${filaFin + 2}`,
                                     gridColumn: franja.dia_semana + 1,
+                                    backgroundColor: `color-mix(in srgb, ${color} 20%, var(--superficie))`,
+                                    border: `1px solid color-mix(in srgb, ${color} 45%, var(--borde))`,
+                                    boxShadow: activaEsta ? `0 0 0 2px ${color}` : undefined,
                                   }}
                                   className={cn(
-                                    'relative z-10 m-1 flex flex-col justify-center gap-0.5 rounded-[12px] px-2.5 py-1.5 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]',
-                                    estilo.bg,
-                                    activaEsta &&
-                                      'ring-2 ring-[#7A2FA8] ring-offset-2 ring-offset-white',
+                                    'relative z-10 m-1 flex flex-col justify-center gap-0.5 rounded-[10px] px-2.5 py-1.5 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]',
                                   )}
                                 >
                                   <span className="flex items-center gap-1.5">
                                     <Icono
                                       aria-hidden="true"
-                                      className={cn('size-4 shrink-0', estilo.texto)}
+                                      className="size-4 shrink-0"
+                                      style={{ color }}
                                     />
                                     <span className="min-w-0 text-[13px] leading-tight font-bold text-[#2B2338]">
                                       {franja.materia.materia_nombre}
@@ -386,9 +493,6 @@ export function PortalFamiliaCalendarioPage() {
                                   </span>
                                   <span className="text-[11px] font-medium text-[#4B4456] tabular-nums">
                                     {rangoHora(franja.hora_inicio)} – {rangoHora(franja.hora_fin)}
-                                  </span>
-                                  <span className="line-clamp-2 text-[11px] leading-tight font-medium text-[#4B4456]">
-                                    {docente}
                                   </span>
                                 </button>
                               )
@@ -430,6 +534,7 @@ export function PortalFamiliaCalendarioPage() {
                           franjasDelDia.map((franja) => {
                             const estilo = estiloMateria(franja.materia.materia_nombre)
                             const Icono = estilo.Icono
+                            const color = franja.materia.materia_color || '#7A2FA8'
                             const docentes = franja.materia.docentes ?? []
                             const docente =
                               docentes.length > 1
@@ -440,16 +545,15 @@ export function PortalFamiliaCalendarioPage() {
                             return (
                               <div
                                 key={franja.id}
-                                className={cn(
-                                  'flex items-center gap-3 rounded-[14px] px-4 py-3 text-left',
-                                  estilo.bg,
-                                )}
+                                className="flex items-center gap-3 rounded-[14px] px-4 py-3 text-left"
+                                style={{
+                                  backgroundColor: `color-mix(in srgb, ${color} 20%, var(--superficie))`,
+                                  border: `1px solid color-mix(in srgb, ${color} 45%, var(--borde))`,
+                                }}
                               >
                                 <span
-                                  className={cn(
-                                    'flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-white/70',
-                                    estilo.texto,
-                                  )}
+                                  className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-white/70"
+                                  style={{ color }}
                                 >
                                   <Icono aria-hidden="true" className="size-5" />
                                 </span>
@@ -475,7 +579,7 @@ export function PortalFamiliaCalendarioPage() {
               </PortalCard>
 
               <PortalCard
-                className="hidden xl:block"
+                className="hidden xl:block print:hidden"
                 titulo="Detalle de clase"
                 tituloClassName="font-heading text-[24px] leading-tight font-bold text-[#241A33]"
                 headerClassName="px-6 pt-6 pb-5"

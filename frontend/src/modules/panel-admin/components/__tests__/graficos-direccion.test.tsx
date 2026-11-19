@@ -1,4 +1,4 @@
-import './echarts-mocks'
+import '@/test/echarts-mocks'
 import { act, render, screen, within } from '@testing-library/react'
 import { beforeEach, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'

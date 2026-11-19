@@ -32,3 +32,28 @@ export async function compartirHorarioDivision(divisionId: string, titulo: strin
 export function puedeCompartirArchivos(): boolean {
   return typeof navigator.share === 'function' && typeof navigator.canShare === 'function'
 }
+
+function rutaHorarioFamilia(alumnoId: string) {
+  return `/academico/familia/alumnos/${alumnoId}/horario/exportar`
+}
+
+export async function descargarHorarioFamilia(alumnoId: string): Promise<void> {
+  const { blob, nombre } = await obtenerExport(rutaHorarioFamilia(alumnoId), 'horario_semanal.xlsx')
+  guardarArchivo(blob, nombre)
+}
+
+export async function compartirHorarioFamilia(alumnoId: string, titulo: string): Promise<void> {
+  const { blob, nombre } = await obtenerExport(rutaHorarioFamilia(alumnoId), 'horario_semanal.xlsx')
+  const archivo = new File([blob], nombre, { type: TIPO_XLSX })
+
+  if (typeof navigator.canShare !== 'function' || !navigator.canShare({ files: [archivo] })) {
+    guardarArchivo(blob, nombre)
+    return
+  }
+  try {
+    await navigator.share({ files: [archivo], title: titulo })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return
+    throw error
+  }
+}

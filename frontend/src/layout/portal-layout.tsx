@@ -13,6 +13,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import { CampanitaNotificaciones } from '@/modules/notificaciones/components/campanita-notificaciones'
 import { MenuCuenta } from '@/layout/menu-cuenta'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth-store'
@@ -29,6 +30,7 @@ const ENLACES = [
 // oscuro del mundo visual familiar. Las páginas no repiten marca ni navegación.
 export function PortalLayout() {
   const rolActivo = useAuthStore((state) => state.rolActivo)
+  const usuario = useAuthStore((state) => state.usuario)
   const [menuAbierto, setMenuAbierto] = useState(false)
   const navItemClass = ({ isActive }: { isActive: boolean }) =>
     cn(
@@ -50,10 +52,10 @@ export function PortalLayout() {
         style={{ background: PORTAL_FAMILIA_BACKGROUND }}
       />
       <header
-        className="sticky top-0 z-30 border-b border-white/10"
+        className="sticky top-0 z-30 border-b border-white/10 print:hidden"
         style={{ background: PORTAL_FAMILIA_HEADER_BACKGROUND }}
       >
-        <div className="mx-auto flex min-h-16 w-full max-w-[92vw] items-center gap-3 py-3">
+        <div className="relative mx-auto flex min-h-16 w-full max-w-[92vw] items-center gap-3 py-3">
           <div className="flex items-center gap-2.5">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10">
               <img
@@ -70,7 +72,7 @@ export function PortalLayout() {
           {rolActivo === 'familia' && (
             <nav
               aria-label="Navegación del portal de familia"
-              className="ml-4 hidden min-w-0 items-center gap-1 lg:flex"
+              className="ml-4 hidden min-w-0 items-center gap-1 lg:absolute lg:top-1/2 lg:left-1/2 lg:ml-0 lg:flex lg:-translate-x-1/2 lg:-translate-y-1/2"
             >
               {ENLACES.map(({ to, etiqueta, end }) => (
                 <NavLink key={to} to={to} end={end} className={navItemClass}>
@@ -82,14 +84,22 @@ export function PortalLayout() {
 
           <div className="ml-auto">
             <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                className="flex size-9 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-                aria-label="No hay notificaciones nuevas"
-                disabled
-              >
-                <BellIcon aria-hidden="true" className="size-4" />
-              </button>
+              {rolActivo === 'familia' && usuario ? (
+                <CampanitaNotificaciones
+                  key={`${usuario.id}:${rolActivo}`}
+                  usuarioId={usuario.id}
+                  rolActivo={rolActivo}
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="flex size-9 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                  aria-label="No hay notificaciones nuevas"
+                  disabled
+                >
+                  <BellIcon aria-hidden="true" className="size-4" />
+                </button>
+              )}
               <MenuCuenta className="hover:bg-white/10" />
 
               {rolActivo === 'familia' && (

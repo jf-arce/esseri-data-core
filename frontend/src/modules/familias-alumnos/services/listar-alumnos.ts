@@ -4,6 +4,7 @@ import type { Alumno, FiltrosListarAlumnos } from '../types'
 export function listarAlumnos(filtros?: FiltrosListarAlumnos, signal?: AbortSignal) {
   const params = new URLSearchParams()
   if (filtros?.buscar) params.set('buscar', filtros.buscar)
+  if (filtros?.solo_nombre) params.set('solo_nombre', 'true')
   if (filtros?.estado) params.set('estado', filtros.estado)
   if (filtros?.nivel_educativo_id) params.set('nivel_educativo_id', filtros.nivel_educativo_id)
   if (filtros?.estado_deuda) params.set('estado_deuda', filtros.estado_deuda)

@@ -67,8 +67,9 @@ export function IndicadorEjecuciones({ resumen, cargando }: IndicadorEjecuciones
             <h2>Ejecuciones por día</h2>
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <div className="relative h-44">
+        <CardContent className="flex flex-1 flex-col gap-3">
+          {/* El gráfico ocupa el alto que sobra: título arriba, gráfico en el medio, resumen abajo. */}
+          <div className="relative min-h-44 flex-1">
             <EChartsLineChart
               data={serie}
               config={CONFIG_SERIE}
@@ -86,10 +87,18 @@ export function IndicadorEjecuciones({ resumen, cargando }: IndicadorEjecuciones
             </EChartsLineChart>
           </div>
           {resumen && (
-            <p className="text-sm text-texto-2">
-              <span className="tabular-nums">{resumen.activas}</span> activas ·{' '}
-              <span className="tabular-nums">{resumen.inactivas}</span> inactivas ·{' '}
-              <span className="tabular-nums">{resumen.con_errores}</span> con errores
+            <p className="text-xs text-texto-2">
+              <span className="font-semibold text-exito">
+                <span className="tabular-nums">{resumen.activas}</span> activas
+              </span>{' '}
+              ·{' '}
+              <span className="font-semibold text-advertencia">
+                <span className="tabular-nums">{resumen.inactivas}</span> inactivas
+              </span>{' '}
+              ·{' '}
+              <span className="font-semibold text-error">
+                <span className="tabular-nums">{resumen.con_errores}</span> con errores
+              </span>
             </p>
           )}
         </CardContent>

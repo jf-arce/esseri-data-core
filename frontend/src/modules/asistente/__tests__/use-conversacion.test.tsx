@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, expect, it, vi } from 'vitest'
-import type { EventoSse } from '../types'
+import type { ContextoPantalla, EventoSse } from '../types'
 
 const enviarMensaje = vi.fn()
 const crearConversacion = vi.fn()
@@ -14,6 +14,7 @@ vi.mock('../services/conversaciones', () => ({
   listarMensajes: (...args: unknown[]) => listarMensajes(...args),
 }))
 
+import { MAX_FIJADOS } from '../constants'
 import { useConversacion } from '../hooks/use-conversacion'
 
 const opciones = { ruta: '/panel', cicloLectivo: '2026' }
@@ -219,4 +220,164 @@ it('acumula en orden cada herramienta que se consulta', async () => {
     pasos: ['buscar_recurso', 'ficha_alumno'],
     herramienta: null,
   })
+})
+
+it('envía la ficha abierta como contexto y no la manda si no hay', async () => {
+  enviarMensaje.mockResolvedValue(undefined)
+  const contexto: ContextoPantalla = { tipo: 'ALUMNO', entidad_id: 'a1' }
+  const inicial: Parameters<typeof useConversacion>[0] = { ...opciones, contexto }
+  const { result, rerender } = renderHook((props) => useConversacion(props), {
+    initialProps: inicial,
+  })
+  await act(async () => {
+    await result.current.enviar('¿cómo viene?', [])
+  })
+  expect(enviarMensaje.mock.calls[0][1]).toMatchObject({ contexto })
+
+  rerender({ ...opciones, contexto: null })
+  await act(async () => {
+    await result.current.enviar('otra', [])
+  })
+  expect(enviarMensaje.mock.calls[1][1]).not.toHaveProperty('contexto')
+})
+
+const ana = { tipo: 'ALUMNO', entidad_id: 'a1', nombre: 'Ana Pérez' } as const
+const curso = { tipo: 'CURSO', entidad_id: 'c1', nombre: '3°A de Primario' } as const
+
+it('lo fijado viaja en cada mensaje, sin el nombre, hasta que se saca', async () => {
+  enviarMensaje.mockResolvedValue(undefined)
+  const { result } = renderHook(() => useConversacion(opciones))
+
+  act(() => {
+    result.current.fijar(ana)
+    result.current.fijar(curso)
+  })
+  await act(async () => {
+    await result.current.enviar('¿cómo viene?', [])
+  })
+  expect(enviarMensaje.mock.calls[0][1].fijados).toEqual([
+    { tipo: 'ALUMNO', entidad_id: 'a1' },
+    { tipo: 'CURSO', entidad_id: 'c1' },
+  ])
+
+  act(() => result.current.desfijar('ALUMNO', 'a1'))
+  expect(result.current.fijados).toEqual([curso])
+  await act(async () => {
+    await result.current.enviar('y ahora', [])
+  })
+  expect(enviarMensaje.mock.calls[1][1].fijados).toEqual([{ tipo: 'CURSO', entidad_id: 'c1' }])
+})
+
+it('sin nada fijado no manda el campo', async () => {
+  enviarMensaje.mockResolvedValue(undefined)
+  const { result } = renderHook(() => useConversacion(opciones))
+  await act(async () => {
+    await result.current.enviar('hola', [])
+  })
+  expect(enviarMensaje.mock.calls[0][1]).not.toHaveProperty('fijados')
+})
+
+it('fijar lo mismo dos veces no lo duplica', () => {
+  const { result } = renderHook(() => useConversacion(opciones))
+  act(() => {
+    result.current.fijar(ana)
+  })
+  act(() => {
+    result.current.fijar(ana)
+  })
+  expect(result.current.fijados).toHaveLength(1)
+})
+
+it('al llegar al máximo no entra otro, avisa con false y lo ya fijado se conserva', () => {
+  const { result } = renderHook(() => useConversacion(opciones))
+  for (let i = 0; i < MAX_FIJADOS; i++) {
+    act(() => {
+      expect(
+        result.current.fijar({ tipo: 'DOCENTE', entidad_id: `d${i}`, nombre: `Docente ${i}` }),
+      ).toBe(true)
+    })
+  }
+  expect(result.current.fijados).toHaveLength(MAX_FIJADOS)
+
+  act(() => {
+    expect(result.current.fijar(ana)).toBe(false)
+  })
+  expect(result.current.fijados).toHaveLength(MAX_FIJADOS)
+  expect(result.current.fijados.map((f) => f.entidad_id)).not.toContain('a1')
+
+  // Con uno menos vuelve a haber lugar, y volver a fijar uno que ya está sigue siendo válido.
+  act(() => result.current.desfijar('DOCENTE', 'd0'))
+  act(() => {
+    expect(result.current.fijar(ana)).toBe(true)
+  })
+  expect(result.current.fijados).toHaveLength(MAX_FIJADOS)
+})
+
+it('una conversación nueva empieza sin nada fijado', () => {
+  const { result } = renderHook(() => useConversacion(opciones))
+  act(() => result.current.fijar(ana))
+  act(() => result.current.nueva())
+  expect(result.current.fijados).toEqual([])
+})
+
+it('al detener queda lo que llegó como respuesta parcial detenida, sin error', async () => {
+  enviarMensaje.mockImplementation(
+    (_id: string, _pedido: unknown, signal: AbortSignal, alEvento: (e: EventoSse) => void) =>
+      new Promise<void>((_resolver, rechazar) => {
+        alEvento({
+          evento: 'inicio',
+          datos: { solicitud_id: 's', mensaje_usuario_id: 'u1', mensaje_asistente_id: 'a1' },
+        })
+        alEvento({ evento: 'delta', datos: { solicitud_id: 's', texto: 'Hay tres' } })
+        signal.addEventListener('abort', () => rechazar(new DOMException('abortado', 'AbortError')))
+      }),
+  )
+  const { result } = renderHook(() => useConversacion(opciones))
+  act(() => {
+    void result.current.enviar('hola', [])
+  })
+  await waitFor(() => expect(result.current.mensajes[1]?.contenido).toBe('Hay tres'))
+  expect(result.current.mensajes.map((m) => m.id)).toEqual(['u1', 'a1'])
+
+  act(() => result.current.cortar())
+
+  await waitFor(() => expect(result.current.generando).toBe(false))
+  const ultimo = result.current.mensajes[1]
+  expect(ultimo).toMatchObject({ estado: 'parcial', detenido: true, contenido: 'Hay tres' })
+  expect(ultimo.error).toBeUndefined()
+})
+
+it('editar recorta desde esa pregunta y manda editar_desde', async () => {
+  enviarMensaje.mockImplementation(
+    async (
+      _id: string,
+      _pedido: unknown,
+      _signal: AbortSignal,
+      alEvento: (e: EventoSse) => void,
+    ) => {
+      alEvento({
+        evento: 'inicio',
+        datos: { solicitud_id: 's', mensaje_usuario_id: 'u1', mensaje_asistente_id: 'a1' },
+      })
+      alEvento({ evento: 'texto', datos: { solicitud_id: 's', texto: 'Listo.' } })
+      alEvento({ evento: 'fin', datos: { solicitud_id: 's', mensaje_id: 'a1' } })
+    },
+  )
+  const { result } = renderHook(() => useConversacion(opciones))
+  await act(async () => {
+    await result.current.enviar('primera', [])
+  })
+  expect(result.current.mensajes).toHaveLength(2)
+
+  await act(async () => {
+    await result.current.editar('u1', 'primera editada', [], 'comparar')
+  })
+
+  expect(enviarMensaje.mock.calls[1][1]).toMatchObject({
+    contenido: 'primera editada',
+    comando: 'comparar',
+    editar_desde: 'u1',
+  })
+  expect(result.current.mensajes).toHaveLength(2)
+  expect(result.current.mensajes[0].contenido).toBe('/comparar primera editada')
 })

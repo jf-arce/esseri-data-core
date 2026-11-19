@@ -202,3 +202,12 @@ class InscripcionNoActiva(AppException):
         message: str = "La inscripción no está activa, no se puede registrar asistencia",
     ):
         super().__init__(message)
+
+
+class SinInscripcionActiva(AppException):
+    """El alumno no tiene inscripción activa para exportar su horario."""
+
+    status_code = 404
+
+    def __init__(self, message: str = "El alumno no tiene una inscripción activa"):
+        super().__init__(message)

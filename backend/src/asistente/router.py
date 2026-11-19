@@ -7,8 +7,14 @@ from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from src.asistente import service
+from src.asistente import (
+    conversaciones_service,
+    envio_service,
+    exportar_tabla_service,
+    respuesta_service,
+)
 from src.asistente.dependencies import Sesion, TransportProveedor, exigir_habilitado
+from src.asistente.exportar_tabla_service import FormatoExport
 from src.asistente.schemas import (
     AliasResueltoRead,
     ConversacionListadoRead,
@@ -30,7 +36,7 @@ DbSession = Annotated[Session, Depends(get_db)]
 
 @router.post("/conversaciones", status_code=status.HTTP_201_CREATED)
 def crear_conversacion(db: DbSession, sesion: Sesion) -> ConversacionRead:
-    conversacion = service.crear_conversacion(db, sesion.usuario, sesion.rol_codigo)
+    conversacion = conversaciones_service.crear_conversacion(db, sesion.usuario, sesion.rol_codigo)
     return ConversacionRead.model_validate(conversacion)
 
 
@@ -41,7 +47,7 @@ def listar_conversaciones(
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanio: Annotated[int, Query(ge=1, le=50)] = 20,
 ) -> ConversacionListadoRead:
-    items, total = service.listar_conversaciones(
+    items, total = conversaciones_service.listar_conversaciones(
         db, sesion.usuario, sesion.rol_codigo, pagina=pagina, tamanio=tamanio
     )
     return ConversacionListadoRead(
@@ -60,10 +66,12 @@ def listar_mensajes(
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanio: Annotated[int, Query(ge=1, le=200)] = 100,
 ) -> MensajeListadoRead:
-    conversacion = service.obtener_conversacion_propia(
+    conversacion = conversaciones_service.obtener_conversacion_propia(
         db, sesion.usuario, sesion.rol_codigo, conversacion_id
     )
-    items, total = service.listar_mensajes(db, conversacion, pagina=pagina, tamanio=tamanio)
+    items, total = conversaciones_service.listar_mensajes(
+        db, conversacion, pagina=pagina, tamanio=tamanio
+    )
     return MensajeListadoRead.model_validate(
         {"items": items, "total": total, "pagina": pagina, "tamanio": tamanio}
     )
@@ -71,10 +79,10 @@ def listar_mensajes(
 
 @router.delete("/conversaciones/{conversacion_id}", status_code=status.HTTP_204_NO_CONTENT)
 def eliminar_conversacion(conversacion_id: uuid.UUID, db: DbSession, sesion: Sesion) -> None:
-    conversacion = service.obtener_conversacion_propia(
+    conversacion = conversaciones_service.obtener_conversacion_propia(
         db, sesion.usuario, sesion.rol_codigo, conversacion_id
     )
-    service.eliminar_conversacion(db, conversacion)
+    conversaciones_service.eliminar_conversacion(db, conversacion)
 
 
 @router.post("/conversaciones/{conversacion_id}/mensajes")
@@ -87,13 +95,15 @@ def enviar_mensaje(
 ) -> StreamingResponse:
     """Responde por SSE con los eventos `herramienta`, `texto`, `tarjeta`, `navegar`, `fin` y
     `error`, cada uno con el `solicitud_id` de este envío."""
-    conversacion = service.obtener_conversacion_propia(
+    conversacion = conversaciones_service.obtener_conversacion_propia(
         db, sesion.usuario, sesion.rol_codigo, conversacion_id
     )
-    envio = service.iniciar_envio(db, sesion.usuario, sesion.rol_codigo, conversacion, datos)
+    envio = envio_service.iniciar_envio(db, sesion.usuario, sesion.rol_codigo, conversacion, datos)
 
     def _flujo() -> Iterator[str]:
-        for evento in service.generar_respuesta(db, sesion.usuario, envio, transport=transport):
+        for evento in respuesta_service.generar_respuesta(
+            db, sesion.usuario, envio, transport=transport
+        ):
             yield _formatear_sse(evento)
 
     return StreamingResponse(
@@ -103,11 +113,26 @@ def enviar_mensaje(
     )
 
 
+@router.get("/conversaciones/{conversacion_id}/tablas/{tabla_id}/export")
+def exportar_tabla(
+    conversacion_id: uuid.UUID,
+    tabla_id: uuid.UUID,
+    db: DbSession,
+    sesion: Sesion,
+    formato: FormatoExport = "csv",
+) -> StreamingResponse:
+    """Descarga una tabla de la conversación; los alias se resuelven con el permiso del rol."""
+    conversacion = conversaciones_service.obtener_conversacion_propia(
+        db, sesion.usuario, sesion.rol_codigo, conversacion_id
+    )
+    return exportar_tabla_service.exportar_tabla(db, conversacion, tabla_id, formato)
+
+
 @router.post("/resolver")
 def resolver(datos: ResolverCreate, db: DbSession, sesion: Sesion) -> ResolverRead:
     """Rehidrata alias con nombres reales, si la conversación es de quien pregunta y su rol
     activo puede leer esas personas."""
-    conversacion = service.obtener_conversacion_propia(
+    conversacion = conversaciones_service.obtener_conversacion_propia(
         db, sesion.usuario, sesion.rol_codigo, datos.conversacion_id
     )
     resueltos = resolver_aliases(

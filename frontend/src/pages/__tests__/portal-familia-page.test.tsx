@@ -13,6 +13,8 @@ import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
 import type { FacturaFamilia, FacturacionFamilia } from '@/modules/facturacion/types'
 import { listarFacturacionFamilia } from '@/modules/facturacion/services/listar-facturacion-familia'
 import { formatearMoneda } from '@/modules/facturacion/utils'
+import { listarNotificaciones } from '@/modules/notificaciones/services/listar-notificaciones'
+import { obtenerResumenNotificaciones } from '@/modules/notificaciones/services/obtener-resumen-notificaciones'
 import { useAuthStore } from '@/store/auth-store'
 
 vi.mock('@/modules/familias-alumnos/hooks/use-mis-alumnos')
@@ -20,12 +22,18 @@ vi.mock('@/modules/comunicaciones/services/listar-comunicaciones')
 vi.mock('@/modules/academico/services/listar-asistencias-familia')
 vi.mock('@/modules/academico/services/solicitudes-ausencia-familia')
 vi.mock('@/modules/facturacion/services/listar-facturacion-familia')
+vi.mock('@/modules/notificaciones/services/listar-notificaciones')
+vi.mock('@/modules/notificaciones/services/obtener-resumen-notificaciones')
+vi.mock('@/modules/notificaciones/services/marcar-notificacion-leida')
+vi.mock('@/modules/notificaciones/services/marcar-todas-notificaciones-leidas')
 
 const mockedUseMisAlumnos = vi.mocked(useMisAlumnos)
 const mockedListarComunicaciones = vi.mocked(listarComunicaciones)
 const mockedListarAsistencias = vi.mocked(listarAsistenciasFamilia)
 const mockedListarSolicitudes = vi.mocked(listarSolicitudesAusenciaFamilia)
 const mockedListarFacturacion = vi.mocked(listarFacturacionFamilia)
+const mockedResumenNotificaciones = vi.mocked(obtenerResumenNotificaciones)
+const mockedListarNotificaciones = vi.mocked(listarNotificaciones)
 
 const ALUMNOS = [
   {
@@ -137,6 +145,12 @@ describe('PortalFamiliaPage', () => {
     )
     mockedListarFacturacion.mockResolvedValue(crearFacturacion())
     mockedListarSolicitudes.mockResolvedValue([])
+    mockedResumenNotificaciones.mockResolvedValue({ total_no_leidas: 0 })
+    mockedListarNotificaciones.mockResolvedValue({
+      items: [],
+      siguiente_cursor: null,
+      total_no_leidas: 0,
+    })
     useAuthStore.setState({
       usuario: crearUsuario(),
       status: 'authenticated',
@@ -320,10 +334,27 @@ describe('PortalFamiliaPage', () => {
 
     const fondo = document.querySelector('[data-slot="portal-familia-background"]')
     expect(fondo).toBeInTheDocument()
-    expect(fondo?.getAttribute('style')).toContain('rgb(250, 249, 252)')
+    expect(fondo?.getAttribute('style')).toContain('var(--pf-canvas)')
 
     const inicio = screen.getByRole('link', { name: 'Inicio' })
     expect(inicio).toHaveAttribute('aria-current', 'page')
     expect(inicio.className).toContain('bg-white/15')
+  })
+
+  it('muestra el contador real de notificaciones en la cabecera del portal', async () => {
+    mockedResumenNotificaciones.mockResolvedValue({ total_no_leidas: 2 })
+
+    render(
+      <MemoryRouter initialEntries={['/familia']}>
+        <Routes>
+          <Route element={<PortalLayout />}>
+            <Route path="/familia" element={<PortalFamiliaPage />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('button', { name: /2 sin leer/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'No hay notificaciones nuevas' })).toBeNull()
   })
 })

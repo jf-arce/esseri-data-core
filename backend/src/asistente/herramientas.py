@@ -13,6 +13,7 @@ from src.asistente import (
     herramientas_academico,
     herramientas_cursos,
     herramientas_finanzas,
+    herramientas_inasistencias,
     herramientas_indicadores,
     herramientas_navegacion,
     herramientas_workflows,
@@ -30,6 +31,7 @@ REGISTRO: dict[str, Herramienta] = {
         herramientas_finanzas,
         herramientas_academico,
         herramientas_cursos,
+        herramientas_inasistencias,
         herramientas_workflows,
         herramientas_navegacion,
     )

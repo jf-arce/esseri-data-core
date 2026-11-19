@@ -41,15 +41,16 @@ describe('ReglasWorkflowTabla', () => {
     expect(screen.getByText('Sí')).toBeInTheDocument()
   })
 
-  it('con permiso de actualización ofrece editar y desactivar', async () => {
+  it('con permiso de actualización ofrece editar y el botón de estado, sin desactivar en el menú', async () => {
     renderizar(true)
 
+    expect(screen.getByRole('button', { name: /^Pausar / })).toBeEnabled()
     await abrirMenuDeFila()
     expect(screen.getByRole('menuitem', { name: 'Editar' })).toHaveAttribute(
       'href',
       '/workflows/reglas/r-1',
     )
-    expect(screen.getByRole('menuitem', { name: 'Desactivar' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Desactivar' })).not.toBeInTheDocument()
   })
 
   it('sin permiso de actualización solo ofrece ver', async () => {

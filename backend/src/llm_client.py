@@ -216,6 +216,8 @@ def transmitir_con_herramientas(
     mensajes: list[dict[str, Any]],
     herramientas: list[dict[str, Any]],
     transport: httpx.BaseTransport | None = None,
+    *,
+    herramienta_forzada: str | None = None,
 ) -> Iterator[tuple[str, str | RespuestaConHerramientas]]:
     """Igual que `completar_con_herramientas`, pero con streaming del proveedor.
 
@@ -228,7 +230,11 @@ def transmitir_con_herramientas(
     cuerpo: dict[str, Any] = {"messages": mensajes, "stream": True}
     if herramientas:
         cuerpo["tools"] = herramientas
-        cuerpo["tool_choice"] = "auto"
+        cuerpo["tool_choice"] = (
+            {"type": "function", "function": {"name": herramienta_forzada}}
+            if herramienta_forzada is not None
+            else "auto"
+        )
 
     for intento in range(settings.OPENAI_REINTENTOS + 1):
         espera: float | None = None

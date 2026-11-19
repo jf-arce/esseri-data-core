@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 import { cn } from '@/lib/utils'
 
 // Family portal colors stay scoped here, without changing the staff theme tokens.
-export const PORTAL_FAMILIA_BACKGROUND = '#FAF9FC'
+export const PORTAL_FAMILIA_BACKGROUND = 'var(--pf-canvas)'
 export const PORTAL_FAMILIA_HEADER_BACKGROUND = '#43275C'
 
 type PortalFamiliaShellProps = {
@@ -64,7 +64,7 @@ export function PortalFamiliaShell({
         {volverA && (
           <Link
             to={volverA}
-            className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-violeta transition-colors hover:text-violeta-esseri focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
+            className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-[var(--pf-accent)] transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pf-accent)]"
           >
             <ArrowLeftIcon aria-hidden="true" className="size-4" />
             {volverEtiqueta}
@@ -74,7 +74,7 @@ export function PortalFamiliaShell({
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex min-w-0 items-start gap-4">
             {icono && (
-              <span className="flex size-16 shrink-0 items-center justify-center rounded-[18px] border border-borde bg-superficie text-violeta">
+              <span className="flex size-16 shrink-0 items-center justify-center rounded-[18px] border border-borde bg-superficie text-[var(--pf-accent)]">
                 {icono}
               </span>
             )}

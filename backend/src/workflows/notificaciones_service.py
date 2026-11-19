@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from src.academico.cobertura_ausencias_service import solicitud_periodo_que_cubre
 from src.academico.models import JustificacionInasistencia, SolicitudAusenciaPeriodo
 from src.auditoria.service import log_audit
 from src.auth.models import Usuario
@@ -403,16 +404,7 @@ def _cobertura_periodo(db: Session, evento: EventLog) -> uuid.UUID | None:
     inscripcion = db.get(Inscripcion, asistencia.inscripcion_id)
     if inscripcion is None:
         return None
-    return db.scalar(
-        select(SolicitudAusenciaPeriodo.id)
-        .where(
-            SolicitudAusenciaPeriodo.alumno_id == inscripcion.alumno_id,
-            SolicitudAusenciaPeriodo.estado.in_(("pendiente", "aprobada")),
-            SolicitudAusenciaPeriodo.fecha_inicio <= asistencia.fecha,
-            SolicitudAusenciaPeriodo.fecha_fin >= asistencia.fecha,
-        )
-        .limit(1)
-    )
+    return solicitud_periodo_que_cubre(db, alumno_id=inscripcion.alumno_id, fecha=asistencia.fecha)
 
 
 def _ejecutar(

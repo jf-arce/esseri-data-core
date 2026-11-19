@@ -1,8 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError } from '@/api/client'
+import { MAX_FIJADOS } from '../constants'
 import { enviarMensaje } from '../services/enviar-mensaje'
 import { crearConversacion, listarMensajes } from '../services/conversaciones'
-import type { BloqueNavegar, EventoSse, MensajeAsistente, MensajeVisible, Mencion } from '../types'
+import { separarComando } from '../utils/entrada'
+import type {
+  BloqueNavegar,
+  ComandoBackend,
+  ContextoPantalla,
+  EventoSse,
+  Fijado,
+  MensajeAsistente,
+  MensajeVisible,
+  Mencion,
+} from '../types'
 
 let contador = 0
 function idLocal(): string {
@@ -33,20 +44,36 @@ export function mensajeDeError(error: unknown): string {
 }
 
 interface Opciones {
-  ruta: string
+  /** Sin ruta ni pantalla (la persona sacó el contexto), el backend no sabe dónde está. */
+  ruta?: string
+  pantalla?: string | null
   cicloLectivo: string
+  /** Ficha abierta que se envía junto a la pregunta; `null` si no hay o se descartó. */
+  contexto?: ContextoPantalla | null
 }
 
 /**
  * Estado de la conversación visible y su stream. Al desmontarse (cambio de rol o cierre de
  * sesión) corta el stream en curso, así una respuesta tardía no se mezcla con otra cuenta.
  */
-export function useConversacion({ ruta, cicloLectivo }: Opciones) {
+export function useConversacion({
+  ruta,
+  pantalla = null,
+  cicloLectivo,
+  contexto = null,
+}: Opciones) {
   const [conversacionId, setConversacionId] = useState<string | null>(null)
   const [mensajes, setMensajes] = useState<MensajeVisible[]>([])
   const [generando, setGenerando] = useState(false)
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fijados, setFijados] = useState<Fijado[]>([])
+  // La lista vigente, para que dos cambios seguidos en el mismo instante no se pisen.
+  const fijadosVigentes = useRef<Fijado[]>([])
+  const guardarFijados = useCallback((lista: Fijado[]) => {
+    fijadosVigentes.current = lista
+    setFijados(lista)
+  }, [])
   const controlador = useRef<AbortController | null>(null)
 
   const cortar = useCallback(() => {
@@ -68,6 +95,22 @@ export function useConversacion({ ruta, cicloLectivo }: Opciones) {
   const aplicarEvento = useCallback(
     (evento: EventoSse) => {
       switch (evento.evento) {
+        case 'inicio':
+          // Los ids reales reemplazan a los locales: hacen falta para editar la pregunta.
+          setMensajes((actuales) => {
+            if (actuales.length < 2) return actuales
+            const copia = [...actuales]
+            copia[copia.length - 2] = {
+              ...copia[copia.length - 2],
+              id: evento.datos.mensaje_usuario_id,
+            }
+            copia[copia.length - 1] = {
+              ...copia[copia.length - 1],
+              id: evento.datos.mensaje_asistente_id,
+            }
+            return copia
+          })
+          break
         case 'herramienta':
           actualizarUltimo((m) => ({
             ...m,
@@ -113,19 +156,31 @@ export function useConversacion({ ruta, cicloLectivo }: Opciones) {
   )
 
   const enviar = useCallback(
-    async (contenido: string, menciones: Mencion[]) => {
+    async (
+      contenido: string,
+      menciones: Mencion[],
+      comando?: ComandoBackend,
+      editarDesde?: string,
+    ) => {
       const texto = contenido.trim()
       if (texto === '' || generando) return
       setError(null)
       setGenerando(true)
       const abortar = new AbortController()
       controlador.current = abortar
+      setMensajes((actuales) => {
+        // Al editar, la pregunta original y todo lo que seguía salen de la pantalla.
+        const corte =
+          editarDesde === undefined ? -1 : actuales.findIndex((m) => m.id === editarDesde)
+        return corte < 0 ? actuales : actuales.slice(0, corte)
+      })
       setMensajes((actuales) => [
         ...actuales,
         {
           id: idLocal(),
           autor: 'usuario',
-          contenido: texto,
+          // Igual que lo guarda el backend: el atajo va como prefijo y se resalta en el chat.
+          contenido: comando === undefined ? texto : `/${comando} ${texto}`,
           bloques: [],
           estado: 'completo',
           herramienta: null,
@@ -149,14 +204,34 @@ export function useConversacion({ ruta, cicloLectivo }: Opciones) {
         }
         await enviarMensaje(
           id,
-          { contenido: texto, menciones, ruta, ciclo_lectivo: cicloLectivo },
+          {
+            contenido: texto,
+            menciones,
+            ...(comando === undefined ? {} : { comando }),
+            ...(editarDesde === undefined ? {} : { editar_desde: editarDesde }),
+            ...(ruta === undefined ? {} : { ruta }),
+            ...(pantalla === null ? {} : { pantalla }),
+            ciclo_lectivo: cicloLectivo,
+            ...(contexto === null ? {} : { contexto }),
+            ...(fijados.length === 0
+              ? {}
+              : { fijados: fijados.map(({ tipo, entidad_id }) => ({ tipo, entidad_id })) }),
+          },
           abortar.signal,
           aplicarEvento,
         )
         // Si el stream terminó sin `fin` ni `error` (corte de red), el mensaje queda incompleto.
         actualizarUltimo((m) => (m.estado === 'generando' ? { ...m, estado: 'parcial' } : m))
       } catch (causa) {
-        if (abortar.signal.aborted) return
+        if (abortar.signal.aborted) {
+          // Como en ChatGPT: queda lo que alcanzó a llegar, marcado como detenido y sin error.
+          actualizarUltimo((m) =>
+            m.estado === 'generando'
+              ? { ...m, estado: 'parcial', herramienta: null, detenido: true }
+              : m,
+          )
+          return
+        }
         actualizarUltimo((m) => ({
           ...m,
           estado: 'error',
@@ -168,7 +243,17 @@ export function useConversacion({ ruta, cicloLectivo }: Opciones) {
         setGenerando(false)
       }
     },
-    [actualizarUltimo, aplicarEvento, cicloLectivo, conversacionId, generando, ruta],
+    [
+      actualizarUltimo,
+      aplicarEvento,
+      cicloLectivo,
+      contexto,
+      conversacionId,
+      fijados,
+      generando,
+      pantalla,
+      ruta,
+    ],
   )
 
   // Vuelve a mandar la última pregunta: el intento fallido se descarta de la pantalla.
@@ -176,16 +261,25 @@ export function useConversacion({ ruta, cicloLectivo }: Opciones) {
     const ultimaPregunta = [...mensajes].reverse().find((m) => m.autor === 'usuario')
     if (ultimaPregunta === undefined || generando) return
     setMensajes((actuales) => actuales.slice(0, -2))
-    void enviar(ultimaPregunta.contenido, [])
+    const { comando, texto } = separarComando(ultimaPregunta.contenido)
+    void enviar(texto, [], comando?.comando ?? undefined)
   }, [enviar, generando, mensajes])
+
+  // Reenvía una pregunta propia con otro texto: la original y lo posterior se descartan.
+  const editar = useCallback(
+    (id: string, contenido: string, menciones: Mencion[], comando?: ComandoBackend) =>
+      enviar(contenido, menciones, comando, id),
+    [enviar],
+  )
 
   const nueva = useCallback(() => {
     cortar()
     setConversacionId(null)
     setMensajes([])
+    guardarFijados([])
     setGenerando(false)
     setError(null)
-  }, [cortar])
+  }, [cortar, guardarFijados])
 
   const abrir = useCallback(
     async (id: string) => {
@@ -195,6 +289,7 @@ export function useConversacion({ ruta, cicloLectivo }: Opciones) {
       setCargando(true)
       setConversacionId(id)
       setMensajes([])
+      guardarFijados([])
       try {
         const pagina = await listarMensajes(id)
         setMensajes(pagina.items.map(desdeServidor))
@@ -204,17 +299,45 @@ export function useConversacion({ ruta, cicloLectivo }: Opciones) {
         setCargando(false)
       }
     },
-    [cortar],
+    [cortar, guardarFijados],
+  )
+
+  // Fijar de nuevo lo mismo no lo duplica. Al llegar al máximo no entra otro: devuelve `false` y
+  // la persona tiene que sacar alguno (el chip avisa), así no se pierde nada sin que lo note.
+  const fijar = useCallback(
+    (nuevo: Fijado): boolean => {
+      const actuales = fijadosVigentes.current
+      if (actuales.some((f) => f.tipo === nuevo.tipo && f.entidad_id === nuevo.entidad_id)) {
+        return true
+      }
+      if (actuales.length >= MAX_FIJADOS) return false
+      guardarFijados([...actuales, nuevo])
+      return true
+    },
+    [guardarFijados],
+  )
+
+  const desfijar = useCallback(
+    (tipo: Fijado['tipo'], entidadId: string) => {
+      guardarFijados(
+        fijadosVigentes.current.filter((f) => f.tipo !== tipo || f.entidad_id !== entidadId),
+      )
+    },
+    [guardarFijados],
   )
 
   return {
     conversacionId,
+    fijados,
+    fijar,
+    desfijar,
     mensajes,
     generando,
     cargando,
     error,
     enviar,
     reintentar,
+    editar,
     nueva,
     abrir,
     cortar,
