@@ -41,7 +41,7 @@ no Communications/Billing email changes, no n8n changes, no new infrastructure.
 
 - T1 — S1–S6 — backend domain, producers and job — completed; focused 253 tests, full suite 1973 passed / 40 skipped.
 - T2 — S1–S6 — frontend destinations and tests — completed; 164 files / 1226 tests, lint and build passed.
-- T3 — integration, tests, docs, commits — in progress; local commits and PR pending.
+- T3 — integration, tests, docs, commits — completed locally; backend and frontend verification passed; PR pending.
 
 ## Log
 
@@ -60,4 +60,11 @@ notification read never writes the communication receipt. Billing: economic-resp
 deduplicated by invoice/payment. Upcoming due: one reminder per invoice/account, effective date
 in today..today+3, positive balance, separate always-on job. Generic read authorization extended
 by domain; academic rules unchanged. No schema migration required.
+
+### L3. Verification and commits
+Backend full suite: 1973 passed / 40 environment-gated skips; notifications module on PostgreSQL:
+62 passed. Frontend full suite: 1229 tests; lint and build passed. Commits: `68b24ea` domain,
+`68932be` communications, `b3bf981` billing/job, `ea66ee4` frontend destinations, `92c3ad9` docs,
+`5beeb81` exact invoice navigation, `10c04dd` clear stale focus.
+
 
