@@ -83,8 +83,8 @@ python ../database/seeds/07_seed_debitos_demo.py
    `WORKFLOWS_DESPACHO_INTERVALO_SEGUNDOS` (30 by default), so wait for the next pass. For a
    controlled moment, call `POST /workflows/procesar` with a workflow-update session, or keep
    the interval short for the demo.
-6. Show the base inbox: two messages with subject `Débito simulado confirmado: factura
-   F-202611-...` and one with `Débito simulado rechazado: factura F-202611-...` including
+6. Show the base inbox: two messages with subject `Débito automático confirmado: factura
+   F-202611-...` and one with `Débito automático rechazado: factura F-202611-...` including
    `Saldo insuficiente` and `SALDO_INSUF`. Then show the three notices in the family portal.
 
 If no email arrives, inspect the n8n execution and `NOTIFICACION.estado_envio`; a `fallido` state

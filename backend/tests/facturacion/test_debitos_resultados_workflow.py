@@ -249,7 +249,9 @@ def test_regla_resultados_con_aprobacion_conserva_el_aviso_de_pago(
     tipo = crear_catalogo_evento_pago_registrado(db_session)
     _cargar_seed().seed_workflow(db_session)
     plantilla = db_session.scalar(
-        select(NotificacionTemplate).where(NotificacionTemplate.nombre == "Débito simulado exitoso")
+        select(NotificacionTemplate).where(
+            NotificacionTemplate.nombre == "Débito automático exitoso"
+        )
     )
     accion = db_session.scalar(
         select(WorkflowNodo).where(WorkflowNodo.notificacion_template_id == plantilla.id)

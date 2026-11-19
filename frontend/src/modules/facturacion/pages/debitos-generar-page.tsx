@@ -142,7 +142,7 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
           label: etiquetaPeriodo(valor),
         }))}
       />
-      <span className="self-center text-sm text-texto-2">CBU simulado</span>
+      <span className="self-center text-sm text-texto-2">CBU</span>
       <FilterDropdown
         label={`Estado: ${ESTADOS.find((opcion) => opcion.value === estado)?.label ?? 'Todos'}`}
         value={estado}

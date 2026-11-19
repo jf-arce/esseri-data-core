@@ -96,19 +96,29 @@ describe('PortalFamiliaFacturacionPage', () => {
           importe: '100.00',
           codigo_resultado: 'SIM-01',
           motivo_rechazo: 'Fondos insuficientes',
-          asunto: 'Débito simulado rechazado',
+          asunto: 'Débito automático rechazado',
           cuerpo: 'Factura F-0003 por $100. Fondos insuficientes. Código SIM-01.',
         },
       ],
     })
     renderizarPagina()
-    expect(await screen.findByText('Débito simulado rechazado')).toBeInTheDocument()
-    const avisos = screen.getByRole('region', { name: 'Avisos de débitos simulados' })
+    expect(await screen.findByText('Débito automático rechazado')).toBeInTheDocument()
+    const avisos = screen.getByRole('region', { name: 'Avisos de débitos automáticos' })
     expect(within(avisos).getByText(/Factura F-0003 por \$100/)).toBeInTheDocument()
     expect(within(avisos).getByText('F-202611-0003')).toBeInTheDocument()
     expect(within(avisos).getByText('Fondos insuficientes')).toBeInTheDocument()
     expect(within(avisos).getByText('SIM-01')).toBeInTheDocument()
-    expect(within(avisos).getByText(/sin integración bancaria real/)).toBeInTheDocument()
+    expect(
+      within(avisos).getByText('Estado de los débitos automáticos de tus facturas.'),
+    ).toBeInTheDocument()
+    expect(screen.getAllByText('Débito rechazado').length).toBeGreaterThanOrEqual(2)
+
+    const resumenFactura = screen.getByText('Cuota de marzo').closest('summary')
+    expect(resumenFactura).not.toBeNull()
+    fireEvent.click(resumenFactura!)
+    expect(
+      await screen.findByText('Motivo: Fondos insuficientes. Código: SIM-01.'),
+    ).toBeInTheDocument()
   })
 
   it('preselecciona el alumno desde el atajo de la ficha', async () => {

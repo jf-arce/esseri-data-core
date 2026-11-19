@@ -18,7 +18,7 @@ reserved invoices. Card batches are not available in this demo. Result review re
 complete rendition before confirmation.
 
 **Portal Familia → Facturación** displays the workflow's frozen result messages under
-**Avisos de débitos simulados**. These are visible even if email fails, without exposing
+**Avisos de débitos automáticos**. These are visible even if email fails, without exposing
 other families' results. No bank settlement or real Galicia integration is implied.
 See [the complete walkthrough](../docs/cobranzas-simuladas.md).
 

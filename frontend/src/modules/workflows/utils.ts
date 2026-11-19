@@ -61,7 +61,7 @@ const ETIQUETA_EVENTO: Record<string, string> = {
   'inscripcion.cambio_matricula': 'Cambia la matrícula de una inscripción',
   'solicitud_inscripcion.aprobada': 'Se aprueba una solicitud de inscripción',
   'pago.registrado': 'Se registra un pago',
-  'debito.resultado_registrado': 'Se confirma un resultado de débito simulado',
+  'debito.resultado_registrado': 'Se confirma un resultado de débito automático',
   'pago.rechazado': 'Se rechaza un pago',
   'orden_compra.emitida': 'Se emite una orden de compra',
   'recepcion_compra.registrada': 'Se registra una recepción de compra',

@@ -285,22 +285,22 @@ def seed_workflow(db) -> WorkflowRule:
         [
             (
                 "exitoso",
-                "Débito simulado confirmado: factura {{numero_factura}}",
-                "Se registró el pago de la factura {{numero_factura}} por ${{importe}}. "
-                "Operación de demostración por CBU, sin integración bancaria real.",
+                "Débito automático confirmado: factura {{numero_factura}}",
+                "Se debitó la factura {{numero_factura}} por ${{importe}}. "
+                "El pago quedó registrado.",
             ),
             (
                 "rechazado",
-                "Débito simulado rechazado: factura {{numero_factura}}",
-                "No se pudo cobrar la factura {{numero_factura}} por ${{importe}}. "
+                "Débito automático rechazado: factura {{numero_factura}}",
+                "No se pudo debitar la factura {{numero_factura}} por ${{importe}}. "
                 "Motivo: {{motivo_rechazo}}. Código: {{codigo_resultado}}. "
-                "La factura continúa pendiente. Operación de demostración por CBU.",
+                "La factura continúa pendiente.",
             ),
         ]
     ):
         plantilla = NotificacionTemplate(
             id=_id(f"plantilla-{resultado}"),
-            nombre=f"Débito simulado {resultado}",
+            nombre=f"Débito automático {resultado}",
             asunto=asunto,
             cuerpo=cuerpo,
         )

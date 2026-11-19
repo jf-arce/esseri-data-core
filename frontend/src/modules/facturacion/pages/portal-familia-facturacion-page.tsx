@@ -30,6 +30,7 @@ import {
   descargarFacturaFamilia,
 } from '@/modules/facturacion/services/factura-pdf-familia'
 import type {
+  AvisoDebitoFamilia,
   EstadoFactura,
   FacturaFamilia,
   FacturacionFamilia,
@@ -88,6 +89,7 @@ const TEXTOS_DEBITO = {
   aviso: 'Las cuotas se debitan automáticamente de tu medio de pago adherido.',
   vencida: 'No pudimos acreditar el débito. Escribinos desde',
   rechazado: 'Débito rechazado',
+  acreditado: 'Débito acreditado',
   registrados: 'Pagos registrados',
   medio: (metodo: string, medio?: 'cbu' | 'tarjeta' | null) =>
     metodo === 'debito_directo' || metodo === 'Débito por archivo'
@@ -214,10 +216,12 @@ function colorAccesible(variante: 'advertencia' | 'error' | 'exito') {
 
 function FacturaFamiliaCard({
   factura,
+  aviso,
   descargandoPagoId,
   alDescargar,
 }: {
   factura: FacturacionFamilia['facturas'][number]
+  aviso?: AvisoDebitoFamilia
   descargandoPagoId: string | null
   alDescargar: (pagoId: string) => void
 }) {
@@ -231,7 +235,9 @@ function FacturaFamiliaCard({
     )
     .slice()
     .sort((a, b) => b.fecha.localeCompare(a.fecha))[0]
-  const rechazado = estadoActual !== 'pagada' && ultimoDebito?.estado === 'rechazado'
+  const rechazado =
+    aviso?.resultado === 'rechazado' ||
+    (estadoActual !== 'pagada' && ultimoDebito?.estado === 'rechazado')
   const concepto = factura.detalles[0]?.descripcion?.trim()
     ? formatearConcepto(factura.detalles[0].descripcion.trim())
     : `Cuota ${MESES[Number(vencimiento(factura).slice(5, 7)) - 1]} ${vencimiento(factura).slice(0, 4)}`
@@ -267,7 +273,34 @@ function FacturaFamiliaCard({
           </CardHeader>
         </summary>
         <CardContent className="flex flex-col gap-5 pt-2 pb-5">
-          <p className="text-xs text-[#6B6478]">Factura #{factura.id.slice(0, 8)}</p>
+          <p className="text-xs text-[#6B6478]">
+            Factura {aviso?.numero_factura ?? `#${factura.id.slice(0, 8)}`}
+          </p>
+          {aviso && (
+            <section
+              aria-label={`Débito automático de factura ${aviso.numero_factura}`}
+              className={`rounded-[16px] p-4 ${
+                aviso.resultado === 'rechazado' ? 'bg-[#FDF0ED]' : 'bg-[#EFF7EE]'
+              }`}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={aviso.resultado === 'rechazado' ? 'error' : 'exito'}>
+                  {aviso.resultado === 'rechazado'
+                    ? TEXTOS_DEBITO.rechazado
+                    : TEXTOS_DEBITO.acreditado}
+                </Badge>
+                <span className="text-sm font-medium text-[#2B2338]">
+                  {formatearMoneda(aviso.importe)}
+                </span>
+                <span className="text-xs text-[#6B6478]">{formatearFecha(aviso.fecha)}</span>
+              </div>
+              {aviso.resultado === 'rechazado' && (
+                <p className="mt-2 text-sm text-[#6B6478]">
+                  Motivo: {aviso.motivo_rechazo}. Código: {aviso.codigo_resultado}.
+                </p>
+              )}
+            </section>
+          )}
           {estadoActual === 'vencida' && (
             <p className="text-sm text-[#6B6478]">
               {TEXTOS_DEBITO.vencida}{' '}
@@ -547,11 +580,10 @@ export function PortalFamiliaFacturacionPage() {
                   <Card>
                     <CardHeader>
                       <CardTitle id="avisos-debito-heading" className="text-base">
-                        Avisos de débitos simulados
+                        Avisos de débitos automáticos
                       </CardTitle>
                       <CardDescription>
-                        Simulación por CBU, sin integración bancaria real. Los avisos se conservan
-                        aunque no se pueda enviar el email.
+                        Estado de los débitos automáticos de tus facturas.
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -566,8 +598,8 @@ export function PortalFamiliaFacturacionPage() {
                             </p>
                             <p className="text-xs text-texto-2">
                               {aviso.resultado === 'exitoso'
-                                ? 'Pago registrado'
-                                : 'Débito rechazado'}
+                                ? TEXTOS_DEBITO.acreditado
+                                : TEXTOS_DEBITO.rechazado}
                               {' · '}
                               {formatearFecha(aviso.fecha)}
                             </p>
@@ -713,14 +745,20 @@ export function PortalFamiliaFacturacionPage() {
                         No hay facturas para los filtros seleccionados.
                       </p>
                     )}
-                    {filtradas.slice(pagina * 10, (pagina + 1) * 10).map((factura) => (
-                      <FacturaFamiliaCard
-                        key={factura.id}
-                        factura={factura}
-                        descargandoPagoId={descargandoPagoId}
-                        alDescargar={(pagoId) => void descargarComprobante(pagoId)}
-                      />
-                    ))}
+                    {filtradas.slice(pagina * 10, (pagina + 1) * 10).map((factura) => {
+                      const aviso = cuenta.avisos_debito
+                        ?.filter((item) => item.factura_id === factura.id)
+                        .sort((a, b) => b.fecha.localeCompare(a.fecha))[0]
+                      return (
+                        <FacturaFamiliaCard
+                          key={factura.id}
+                          factura={factura}
+                          aviso={aviso}
+                          descargandoPagoId={descargandoPagoId}
+                          alDescargar={(pagoId) => void descargarComprobante(pagoId)}
+                        />
+                      )
+                    })}
                     {filtradas.length > 10 && (
                       <nav
                         aria-label="Páginas de facturas"
