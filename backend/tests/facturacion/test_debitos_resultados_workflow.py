@@ -6,7 +6,7 @@ from datetime import date
 import pytest
 from sqlalchemy import select
 
-from src.auth.models import Usuario
+from src.auth.models import Rol, Usuario, UsuarioRol
 from src.facturacion import cobranzas_importacion_service as importaciones
 from src.facturacion.facturas_service import registrar_pago
 from src.facturacion.models import (
@@ -19,6 +19,7 @@ from src.facturacion.models import (
 )
 from src.familias_alumnos.models import Familia
 from src.models import AuditLog, EventLog
+from src.notificaciones.models import NotificacionInterna
 from src.workflows import despacho_service, n8n_client
 from src.workflows.exceptions import N8nNoDisponible
 from src.workflows.models import (
@@ -69,6 +70,14 @@ def test_abc_despacha_una_vez_y_portal_sobrevive_a_fallo_email(
                 db_session, persona_id=familia.persona_id, email=f"familia-{indice}@example.test"
             )
         )
+    rol_familia = db_session.scalar(select(Rol).where(Rol.codigo == "familia"))
+    if rol_familia is None:
+        rol_familia = Rol(nombre="familia")
+        db_session.add(rol_familia)
+        db_session.flush()
+    for usuario in usuarios:
+        db_session.add(UsuarioRol(usuario_id=usuario.id, rol_id=rol_familia.id))
+    db_session.commit()
     enviados = []
 
     def enviar(destinatario, asunto, cuerpo, cuerpo_html=None, **kwargs):
@@ -93,6 +102,7 @@ def test_abc_despacha_una_vez_y_portal_sobrevive_a_fallo_email(
     despacho_service.procesar_eventos_pendientes(db_session)
 
     assert db_session.query(Pago).count() == 2
+    assert db_session.query(NotificacionInterna).count() == 2
     assert sorted(db_session.get(Factura, f.id).estado for f in facturas) == [
         "pagada",
         "pagada",
@@ -130,6 +140,7 @@ def test_abc_despacha_una_vez_y_portal_sobrevive_a_fallo_email(
         db_session.query(WorkflowExecution).count(),
     ) == conteos
     assert db_session.query(Notificacion).count() == 3
+    assert db_session.query(NotificacionInterna).count() == 2
     assert len(enviados) == (0 if falla_email else 3)
 
     # Later template edits must never rewrite already-published snapshots.
