@@ -123,7 +123,6 @@ function formatearConcepto(descripcion: string) {
     return nombre ? `${nombre} ${anio}` : `${mes}/${anio}`
   })
 }
-
 function diasParaVencer(fecha: string) {
   const hoy = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Argentina/Buenos_Aires',
@@ -241,6 +240,8 @@ function FacturaFamiliaCard({
   const concepto = factura.detalles[0]?.descripcion?.trim()
     ? formatearConcepto(factura.detalles[0].descripcion.trim())
     : `Cuota ${MESES[Number(vencimiento(factura).slice(5, 7)) - 1]} ${vencimiento(factura).slice(0, 4)}`
+  const periodo = `${MESES[Number(vencimiento(factura).slice(5, 7)) - 1]} ${vencimiento(factura).slice(0, 4)}`
+  const titulo = `Factura de ${periodo}`
   return (
     <Card className="gap-0 rounded-[20px] border border-[#F0EAF6] bg-white py-0 shadow-[0_10px_26px_rgba(24,16,40,0.08)]">
       <details onToggle={(evento) => setAbierta(evento.currentTarget.open)}>
@@ -250,9 +251,9 @@ function FacturaFamiliaCard({
         >
           <CardHeader className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-1">
-              <CardTitle>{concepto}</CardTitle>
+              <CardTitle>{titulo}</CardTitle>
               <CardDescription>
-                {factura.alumno_nombre} ·{' '}
+                {concepto} · {factura.alumno_nombre} ·{' '}
                 {estadoActual === 'pendiente'
                   ? TEXTOS_DEBITO.programado(dias, vencimiento(factura))
                   : `Vence ${formatearFecha(vencimiento(factura))}`}
@@ -320,7 +321,7 @@ function FacturaFamiliaCard({
                     key={`${factura.id}-${indice}`}
                     className="flex items-start justify-between gap-4 text-sm"
                   >
-                    <span className="text-[#6B6478]">{detalle.descripcion}</span>
+                    <span className="text-[#6B6478]">{formatearConcepto(detalle.descripcion)}</span>
                     <span className="shrink-0 font-medium text-[#2B2338]">
                       {formatearMoneda(detalle.monto)}
                     </span>

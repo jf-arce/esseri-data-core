@@ -78,6 +78,11 @@ function renderizarPagina() {
   )
 }
 
+function abrirFactura(indice = 0) {
+  const titulo = screen.getAllByText(/^Factura de /)[indice]
+  fireEvent.click(titulo.closest('summary')!)
+}
+
 describe('PortalFamiliaFacturacionPage', () => {
   it('muestra los snapshots de resultado sin depender del estado de envío del email', async () => {
     mockedListarFacturacion.mockResolvedValue({
@@ -112,12 +117,12 @@ describe('PortalFamiliaFacturacionPage', () => {
       within(avisos).getByText('Estado de los débitos automáticos de tus facturas.'),
     ).toBeInTheDocument()
     expect(screen.getAllByText('Débito rechazado').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByText('Factura de marzo 2026')).toBeInTheDocument()
 
-    const resumenFactura = screen.getAllByText('Cuota de marzo')[0].closest('summary')
-    expect(resumenFactura).not.toBeNull()
-    fireEvent.click(resumenFactura!)
+    abrirFactura()
     expect(await screen.findByText('Motivo: Fondos insuficientes.')).toBeInTheDocument()
-    expect(screen.getAllByText('Cuota de marzo').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByText('Factura F-202611-0003')).toBeInTheDocument()
+    expect(screen.getAllByText(/Cuota de marzo/).length).toBeGreaterThanOrEqual(2)
     expect(screen.queryByText(/Código:/)).not.toBeInTheDocument()
   })
 
@@ -146,7 +151,8 @@ describe('PortalFamiliaFacturacionPage', () => {
         <PortalFamiliaFacturacionPage />
       </MemoryRouter>,
     )
-    expect(await screen.findAllByText('Cuota Ana')).toHaveLength(2)
+    expect(await screen.findByText('Cuota Ana')).toBeInTheDocument()
+    expect(screen.queryByText('Cuota Bea')).not.toBeInTheDocument()
     expect(screen.queryByText('Cuota Bea')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Alumno: Ana/ })).toBeInTheDocument()
   })
@@ -210,9 +216,9 @@ describe('PortalFamiliaFacturacionPage', () => {
     renderizarPagina()
 
     expect(await screen.findByText(/Tiziano Cabral/)).toBeInTheDocument()
-    fireEvent.click(screen.getAllByText('Cuota de marzo')[0])
+    abrirFactura()
     expect(screen.getByText('Saldo pendiente')).toBeInTheDocument()
-    expect(screen.getAllByText('Cuota de marzo')).toHaveLength(2)
+    expect(screen.getAllByText(/Cuota de marzo/).length).toBeGreaterThanOrEqual(2)
     expect(screen.getByRole('heading', { name: 'Conceptos' })).toBeInTheDocument()
     expect(screen.getByText('Pago registrado')).toBeInTheDocument()
     expect(screen.queryByText('Acreditado')).not.toBeInTheDocument()
@@ -232,7 +238,8 @@ describe('PortalFamiliaFacturacionPage', () => {
     cuenta.facturas[0].detalles.push({ descripcion: 'Otro concepto', monto: '1.00' })
     mockedListarFacturacion.mockResolvedValue(cuenta)
     renderizarPagina()
-    fireEvent.click((await screen.findAllByText('Cuota de marzo'))[0])
+    await screen.findByText(/^Factura de /)
+    abrirFactura()
     expect(await screen.findByText(/\$\s125,50$/)).toBeInTheDocument()
     expect(screen.getByText(/\$\s100$/)).toBeInTheDocument()
   })
@@ -242,7 +249,8 @@ describe('PortalFamiliaFacturacionPage', () => {
     vi.mocked(descargarFacturaFamilia).mockResolvedValue(undefined)
     vi.mocked(compartirFacturaFamilia).mockResolvedValue(undefined)
     renderizarPagina()
-    fireEvent.click((await screen.findAllByText('Cuota de marzo'))[0])
+    await screen.findByText(/^Factura de /)
+    abrirFactura()
     fireEvent.click(await screen.findByRole('button', { name: 'Descargar factura' }))
     await waitFor(() => expect(descargarFacturaFamilia).toHaveBeenCalledWith('factura-1'))
     fireEvent.click(screen.getByRole('button', { name: 'Compartir factura' }))
@@ -252,7 +260,8 @@ describe('PortalFamiliaFacturacionPage', () => {
   it('ubica las acciones de factura al final y alineadas a la derecha', async () => {
     mockedListarFacturacion.mockResolvedValue(facturacion)
     renderizarPagina()
-    fireEvent.click((await screen.findAllByText('Cuota de marzo'))[0])
+    await screen.findByText(/^Factura de /)
+    abrirFactura()
     const descarga = screen.getByRole('button', { name: 'Descargar factura' })
     const comprobante = screen.getByRole('button', { name: 'Descargar comprobante' })
     expect(
@@ -274,7 +283,7 @@ describe('PortalFamiliaFacturacionPage', () => {
     expect(screen.getAllByText('Concepto 10')[0]).toBeInTheDocument()
     expect(screen.queryByText('Concepto 11')).not.toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Descargar factura' })[0]).not.toBeVisible()
-    fireEvent.click(screen.getAllByText('Concepto 1')[0])
+    abrirFactura()
     expect(screen.getAllByRole('button', { name: 'Descargar factura' })[0]).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
     expect(screen.getAllByText('Concepto 11')[0]).toBeInTheDocument()
