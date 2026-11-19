@@ -109,6 +109,32 @@ describe('PortalFamiliaFacturacionPage', () => {
     expect(screen.getByRole('button', { name: /Alumno: Ana/ })).toBeInTheDocument()
   })
 
+  it('abre y resalta la factura indicada por una notificación', async () => {
+    mockedListarFacturacion.mockResolvedValue(facturacion)
+    render(
+      <MemoryRouter initialEntries={['/familia/facturacion?factura=factura-1']}>
+        <PortalFamiliaFacturacionPage />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => expect(document.querySelector('[aria-current="true"]')).not.toBeNull())
+    const resaltada = document.querySelector('[aria-current="true"]') as HTMLElement
+    expect(resaltada).toHaveTextContent('Tiziano Cabral')
+    expect(resaltada.querySelector('details')).toHaveAttribute('open')
+  })
+
+  it('resalta la factura que contiene el pago indicado por una notificación', async () => {
+    mockedListarFacturacion.mockResolvedValue(facturacion)
+    render(
+      <MemoryRouter initialEntries={['/familia/facturacion?pago=pago-1']}>
+        <PortalFamiliaFacturacionPage />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => expect(document.querySelector('[aria-current="true"]')).not.toBeNull())
+    expect(document.querySelector('[aria-current="true"]')).toHaveTextContent('Tiziano Cabral')
+  })
+
   it('ordena las facturas por vencimiento o emisión', async () => {
     mockedListarFacturacion.mockResolvedValue({
       ...facturacion,

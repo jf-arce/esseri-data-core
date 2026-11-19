@@ -43,17 +43,17 @@ describe('rutaDesdeDestino', () => {
   })
 
   it('arma la ruta de una comunicación institucional', () => {
-    expect(
-      rutaDesdeDestino({ tipo: 'comunicacion', id: 'comunicacion-1', alumno_id: null }),
-    ).toBe('/familia/comunicaciones/comunicacion-1')
+    expect(rutaDesdeDestino({ tipo: 'comunicacion', id: 'comunicacion-1', alumno_id: null })).toBe(
+      '/familia/comunicaciones/comunicacion-1',
+    )
   })
 
   it('arma la ruta de facturación para una factura o un pago', () => {
     expect(rutaDesdeDestino({ tipo: 'factura', id: 'factura-1', alumno_id: 'alumno-1' })).toBe(
-      '/familia/facturacion',
+      '/familia/facturacion?factura=factura-1',
     )
     expect(rutaDesdeDestino({ tipo: 'pago', id: 'pago-1', alumno_id: 'alumno-1' })).toBe(
-      '/familia/facturacion',
+      '/familia/facturacion?pago=pago-1',
     )
   })
 

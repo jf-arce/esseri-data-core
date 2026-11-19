@@ -123,7 +123,7 @@ export function rutaDesdeDestino(destino: DestinoNotificacion | null | undefined
     return `/familia/comunicaciones/${encodeURIComponent(destino.id)}`
   }
   if (destino.tipo === 'factura' || destino.tipo === 'pago') {
-    return '/familia/facturacion'
+    return `/familia/facturacion?${destino.tipo}=${encodeURIComponent(destino.id)}`
   }
   if (!esTipoRecursoAcademico(destino.tipo)) return null
   if (!destino.alumno_id?.trim()) return null
