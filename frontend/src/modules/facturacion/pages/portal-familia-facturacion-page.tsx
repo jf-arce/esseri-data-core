@@ -219,12 +219,14 @@ function FacturaFamiliaCard({
   alDescargar,
   resaltada = false,
   abrirInicial = false,
+  alAlternar,
 }: {
   factura: FacturacionFamilia['facturas'][number]
   descargandoPagoId: string | null
   alDescargar: (pagoId: string) => void
   resaltada?: boolean
   abrirInicial?: boolean
+  alAlternar?: (abierta: boolean) => void
 }) {
   const [abierta, setAbierta] = useState(abrirInicial)
   const estadoActual = estadoVisible(factura)
@@ -249,7 +251,14 @@ function FacturaFamiliaCard({
         resaltada ? 'border-[#7A2FA8] ring-2 ring-[#7A2FA8]/35' : 'border-[#F0EAF6]',
       )}
     >
-      <details open={abierta} onToggle={(evento) => setAbierta(evento.currentTarget.open)}>
+      <details
+        open={abierta}
+        onToggle={(evento) => {
+          const siguiente = evento.currentTarget.open
+          setAbierta(siguiente)
+          alAlternar?.(siguiente)
+        }}
+      >
         <summary
           aria-expanded={abierta}
           className="cursor-pointer list-none focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#7A2FA8]"
@@ -464,6 +473,14 @@ export function PortalFamiliaFacturacionPage() {
     }
     return null
   }, [cuenta, facturaParam, pagoParam])
+
+  function limpiarFoco() {
+    if (!facturaParam && !pagoParam) return
+    const siguientes = new URLSearchParams(searchParams)
+    siguientes.delete('factura')
+    siguientes.delete('pago')
+    setSearchParams(siguientes, { replace: true })
+  }
 
   useEffect(() => {
     if (!focoFacturaId) return
@@ -702,12 +719,18 @@ export function PortalFamiliaFacturacionPage() {
                     )}
                     {filtradas.slice(pagina * 10, (pagina + 1) * 10).map((factura) => (
                       <FacturaFamiliaCard
-                        key={factura.id}
+                        key={
+                          factura.id === focoFacturaId ? `${factura.id}-foco` : factura.id
+                        }
                         factura={factura}
                         descargandoPagoId={descargandoPagoId}
                         alDescargar={(pagoId) => void descargarComprobante(pagoId)}
                         resaltada={factura.id === focoFacturaId}
                         abrirInicial={factura.id === focoFacturaId}
+                        alAlternar={(abierta) => {
+                          if (!focoFacturaId) return
+                          if (factura.id !== focoFacturaId || !abierta) limpiarFoco()
+                        }}
                       />
                     ))}
                     {filtradas.length > 10 && (

@@ -135,6 +135,31 @@ describe('PortalFamiliaFacturacionPage', () => {
     expect(document.querySelector('[aria-current="true"]')).toHaveTextContent('Tiziano Cabral')
   })
 
+  it('quita el resaltado al abrir otra factura', async () => {
+    mockedListarFacturacion.mockResolvedValue({
+      ...facturacion,
+      facturas: [
+        facturacion.facturas[0],
+        {
+          ...facturacion.facturas[0],
+          id: 'factura-2',
+          detalles: [{ descripcion: 'Cuota segunda', monto: '50.00' }],
+        },
+      ],
+    })
+    render(
+      <MemoryRouter initialEntries={['/familia/facturacion?factura=factura-1']}>
+        <PortalFamiliaFacturacionPage />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => expect(document.querySelector('[aria-current="true"]')).not.toBeNull())
+    fireEvent.click(screen.getByText('Cuota segunda').closest('summary') as HTMLElement)
+
+    await waitFor(() => expect(document.querySelector('[aria-current="true"]')).toBeNull())
+    expect(screen.getByText('Cuota segunda').closest('details')).toHaveAttribute('open')
+  })
+
   it('ordena las facturas por vencimiento o emisión', async () => {
     mockedListarFacturacion.mockResolvedValue({
       ...facturacion,
