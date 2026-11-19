@@ -2,7 +2,6 @@ import { ArrowDownAZIcon } from 'lucide-react'
 import { DatePicker } from '@/components/date-picker'
 import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
 import { FilterChip, FilterChips, FilterDropdown } from '@/components/filter-dropdown'
-import { Field, FieldLabel } from '@/components/ui/field'
 import { FILTRO_TODOS } from '@/modules/auditoria/constants'
 import type { FiltrosAuditoria, OpcionesAuditoria, OrdenAuditoria } from '@/modules/auditoria/types'
 import {
@@ -49,12 +48,28 @@ export function AuditoriaFiltros({
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Dos filas: buscar y ordenar arriba, los criterios abajo. Los nueve controles en una
+          sola barra quedaban apretados y envolvían de cualquier manera. Todos miden 40px, y
+          las fechas se identifican con "Desde"/"Hasta" en vez de un label arriba, que las
+          dejaba 4px más altas que los desplegables y desalineaba la fila. */}
       <FilterBar>
         <FilterSearch
           value={busqueda}
           onChange={(valor) => onCambios({ busqueda: valor })}
-          placeholder="Buscar por entidad, campo, valor, motivo o usuario"
+          placeholder="Buscar entidad, campo, valor o usuario"
         />
+        <FilterBarSpacer />
+        <FilterDropdown
+          label={etiquetaOrdenActual?.label ?? 'Ordenar por'}
+          icon={ArrowDownAZIcon}
+          align="end"
+          options={OPCIONES_ORDEN}
+          value={orden}
+          onChange={(valor) => onCambios({ orden: valor as OrdenAuditoria })}
+        />
+      </FilterBar>
+
+      <FilterBar>
         <FilterDropdown
           label="Entidad"
           options={[
@@ -85,18 +100,6 @@ export function AuditoriaFiltros({
           active={actorTipo !== FILTRO_TODOS}
           onChange={(valor) => onCambios({ actorTipo: valor })}
         />
-        <FilterBarSpacer />
-        <FilterDropdown
-          label={etiquetaOrdenActual?.label ?? 'Ordenar por'}
-          icon={ArrowDownAZIcon}
-          align="end"
-          options={OPCIONES_ORDEN}
-          value={orden}
-          onChange={(valor) => onCambios({ orden: valor as OrdenAuditoria })}
-        />
-      </FilterBar>
-
-      <div className="flex flex-wrap items-center gap-3">
         <FilterDropdown
           label="Usuario"
           options={[
@@ -123,25 +126,26 @@ export function AuditoriaFiltros({
           active={origen !== FILTRO_TODOS}
           onChange={(valor) => onCambios({ origen: valor })}
         />
-        <Field className="w-44">
-          <FieldLabel htmlFor="auditoria-desde">Fecha desde</FieldLabel>
+        {/* El rango de fechas va como un bloque propio: así envuelve entero y nunca queda
+            "Desde" en un renglón y "Hasta" en el siguiente. */}
+        <div className="flex shrink-0 items-center gap-2">
+          <span aria-hidden="true" className="mx-1 hidden h-6 w-px bg-borde sm:block" />
           <DatePicker
             id="auditoria-desde"
+            className="h-10 w-40"
             value={desde ? parsearFechaISO(desde) : undefined}
             onChange={(fecha) => onCambios({ desde: fecha ? fechaAISO(fecha) : '' })}
-            placeholder="dd/mm/aaaa"
+            placeholder="Desde"
           />
-        </Field>
-        <Field className="w-44">
-          <FieldLabel htmlFor="auditoria-hasta">Fecha hasta</FieldLabel>
           <DatePicker
             id="auditoria-hasta"
+            className="h-10 w-40"
             value={hasta ? parsearFechaISO(hasta) : undefined}
             onChange={(fecha) => onCambios({ hasta: fecha ? fechaAISO(fecha) : '' })}
-            placeholder="dd/mm/aaaa"
+            placeholder="Hasta"
           />
-        </Field>
-      </div>
+        </div>
+      </FilterBar>
 
       {hayFiltrosAuditoria(filtros) && (
         <FilterChips onClearAll={onLimpiar}>

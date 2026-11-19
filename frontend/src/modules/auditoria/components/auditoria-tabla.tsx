@@ -49,7 +49,9 @@ export function AuditoriaTabla({
 }: AuditoriaTablaProps) {
   return (
     <div className="overflow-hidden rounded-panel bg-superficie shadow-card">
-      <Table bare minWidth="min-w-0">
+      {/* Un ancho mínimo real (no `min-w-0`) hace que en pantallas angostas la tabla scrollee en
+          horizontal, en vez de aplastar las columnas y que un valor largo pise al actor. */}
+      <Table bare minWidth="min-w-[880px]">
         <TableHeader>
           <TableRow>
             <TableHead>Fecha</TableHead>
@@ -82,26 +84,35 @@ export function AuditoriaTabla({
                 <TableCell className="whitespace-nowrap tabular-nums text-texto-2">
                   {formatearFechaHora(item.fecha)}
                 </TableCell>
-                <TableCell className="whitespace-nowrap font-medium">
+                <TableCell
+                  className="max-w-[10rem] truncate font-medium"
+                  title={etiquetaEntidad(item.entidad)}
+                >
                   {etiquetaEntidad(item.entidad)}
                 </TableCell>
-                <TableCell className="whitespace-nowrap text-texto-2">
+                <TableCell
+                  className="max-w-[10rem] truncate text-texto-2"
+                  title={formatearCampo(item.campo)}
+                >
                   {formatearCampo(item.campo)}
                 </TableCell>
-                <TableCell className="max-w-[20rem] whitespace-normal">
-                  <ValoresCambio
-                    valorAnterior={item.valor_anterior}
-                    valorNuevo={item.valor_nuevo}
-                  />
+                <TableCell className="whitespace-normal">
+                  <div className="max-w-[22rem]">
+                    <ValoresCambio
+                      valorAnterior={item.valor_anterior}
+                      valorNuevo={item.valor_nuevo}
+                      truncar
+                    />
+                  </div>
                 </TableCell>
                 <TableCell className="hidden lg:table-cell">
-                  <div className="flex flex-col gap-1">
+                  <div className="flex max-w-[13rem] flex-col items-start gap-1">
                     <Badge variant={item.actor_tipo === 'sistema' ? 'neutro' : 'info'}>
                       {item.actor_tipo === 'sistema' ? 'Sistema' : 'Usuario'}
                     </Badge>
                     {item.usuario_email && (
                       <span
-                        className="max-w-[14rem] truncate text-xs text-texto-3"
+                        className="max-w-full min-w-0 truncate text-xs text-texto-3"
                         title={item.usuario_email}
                       >
                         {item.usuario_email}
@@ -109,7 +120,10 @@ export function AuditoriaTabla({
                     )}
                   </div>
                 </TableCell>
-                <TableCell className="hidden text-texto-2 xl:table-cell">
+                <TableCell
+                  className="hidden max-w-[8rem] truncate text-texto-2 xl:table-cell"
+                  title={item.origen ? formatearCampo(item.origen) : undefined}
+                >
                   {item.origen ? formatearCampo(item.origen) : '—'}
                 </TableCell>
                 <TableCell data-align="end" className="px-2 sm:px-4">
