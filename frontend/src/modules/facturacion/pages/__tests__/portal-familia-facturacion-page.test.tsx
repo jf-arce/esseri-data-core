@@ -107,7 +107,7 @@ describe('PortalFamiliaFacturacionPage', () => {
     expect(within(avisos).getByText(/Factura F-0003 por \$100/)).toBeInTheDocument()
     expect(within(avisos).getByText('F-202611-0003')).toBeInTheDocument()
     expect(within(avisos).getByText('Fondos insuficientes')).toBeInTheDocument()
-    expect(within(avisos).getByText('SIM-01')).toBeInTheDocument()
+    expect(within(avisos).queryByText('SIM-01')).not.toBeInTheDocument()
     expect(
       within(avisos).getByText('Estado de los débitos automáticos de tus facturas.'),
     ).toBeInTheDocument()
@@ -116,9 +116,8 @@ describe('PortalFamiliaFacturacionPage', () => {
     const resumenFactura = screen.getByText('Cuota de marzo').closest('summary')
     expect(resumenFactura).not.toBeNull()
     fireEvent.click(resumenFactura!)
-    expect(
-      await screen.findByText('Motivo: Fondos insuficientes. Código: SIM-01.'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Motivo: Fondos insuficientes.')).toBeInTheDocument()
+    expect(screen.queryByText(/Código:/)).not.toBeInTheDocument()
   })
 
   it('preselecciona el alumno desde el atajo de la ficha', async () => {

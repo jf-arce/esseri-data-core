@@ -293,8 +293,7 @@ def seed_workflow(db) -> WorkflowRule:
                 "rechazado",
                 "Débito automático rechazado: factura {{numero_factura}}",
                 "No se pudo debitar la factura {{numero_factura}} por ${{importe}}. "
-                "Motivo: {{motivo_rechazo}}. Código: {{codigo_resultado}}. "
-                "La factura continúa pendiente.",
+                "Motivo: {{motivo_rechazo}}. La factura continúa pendiente.",
             ),
         ]
     ):

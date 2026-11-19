@@ -295,9 +295,7 @@ function FacturaFamiliaCard({
                 <span className="text-xs text-[#6B6478]">{formatearFecha(aviso.fecha)}</span>
               </div>
               {aviso.resultado === 'rechazado' && (
-                <p className="mt-2 text-sm text-[#6B6478]">
-                  Motivo: {aviso.motivo_rechazo}. Código: {aviso.codigo_resultado}.
-                </p>
+                <p className="mt-2 text-sm text-[#6B6478]">Motivo: {aviso.motivo_rechazo}.</p>
               )}
             </section>
           )}
@@ -612,8 +610,6 @@ export function PortalFamiliaFacturacionPage() {
                                 <>
                                   <dt>Motivo</dt>
                                   <dd className="break-words">{aviso.motivo_rechazo}</dd>
-                                  <dt>Código</dt>
-                                  <dd className="tabular-nums">{aviso.codigo_resultado}</dd>
                                 </>
                               )}
                             </dl>

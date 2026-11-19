@@ -85,7 +85,10 @@ python ../database/seeds/07_seed_debitos_demo.py
    the interval short for the demo.
 6. Show the base inbox: two messages with subject `Débito automático confirmado: factura
    F-202611-...` and one with `Débito automático rechazado: factura F-202611-...` including
-   `Saldo insuficiente` and `SALDO_INSUF`. Then show the three notices in the family portal.
+   `Saldo insuficiente`. Then show the three notices in the family portal.
+
+The rejection code remains in the event and the debit record for internal reconciliation, but the
+family email and portal only show the reason. Administrative history still exposes the code.
 
 If no email arrives, inspect the n8n execution and `NOTIFICACION.estado_envio`; a `fallido` state
 means the transport failed and the portal notice is still available. The backend never rolls back
