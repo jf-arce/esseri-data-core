@@ -719,9 +719,7 @@ export function PortalFamiliaFacturacionPage() {
                     )}
                     {filtradas.slice(pagina * 10, (pagina + 1) * 10).map((factura) => (
                       <FacturaFamiliaCard
-                        key={
-                          factura.id === focoFacturaId ? `${factura.id}-foco` : factura.id
-                        }
+                        key={factura.id === focoFacturaId ? `${factura.id}-foco` : factura.id}
                         factura={factura}
                         descargandoPagoId={descargandoPagoId}
                         alDescargar={(pagoId) => void descargarComprobante(pagoId)}
