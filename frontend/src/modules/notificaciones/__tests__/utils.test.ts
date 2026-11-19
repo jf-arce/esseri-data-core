@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  TIPOS_RECURSO_NOTIFICACION,
+  TIPOS_RECURSO_ACADEMICO,
   type DestinoNotificacion,
   type TipoRecursoNotificacion,
 } from '@/modules/notificaciones/types'
@@ -39,6 +39,21 @@ describe('rutaDesdeDestino', () => {
       rutaDesdeDestino(crearDestino({ tipo: 'solicitud_ausencia_periodo', id: 'solicitud-1' })),
     ).toBe(
       '/familia/asistencias?alumno=alumno-1&seccion=justificaciones&recurso=solicitud_ausencia_periodo&recurso_id=solicitud-1',
+    )
+  })
+
+  it('arma la ruta de una comunicación institucional', () => {
+    expect(rutaDesdeDestino({ tipo: 'comunicacion', id: 'comunicacion-1', alumno_id: null })).toBe(
+      '/familia/comunicaciones/comunicacion-1',
+    )
+  })
+
+  it('arma la ruta de facturación para una factura o un pago', () => {
+    expect(rutaDesdeDestino({ tipo: 'factura', id: 'factura-1', alumno_id: 'alumno-1' })).toBe(
+      '/familia/facturacion?factura=factura-1',
+    )
+    expect(rutaDesdeDestino({ tipo: 'pago', id: 'pago-1', alumno_id: 'alumno-1' })).toBe(
+      '/familia/facturacion?pago=pago-1',
     )
   })
 
@@ -84,7 +99,7 @@ describe('leerDestinoDesdeParametros', () => {
         new URLSearchParams('alumno=alumno-1&seccion=historial&recurso=asistencia'),
       ),
     ).toBeNull()
-    for (const recurso of TIPOS_RECURSO_NOTIFICACION) {
+    for (const recurso of TIPOS_RECURSO_ACADEMICO) {
       const seccion = recurso === 'solicitud_ausencia_periodo' ? 'justificaciones' : 'historial'
       expect(
         leerDestinoDesdeParametros(
