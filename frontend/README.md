@@ -190,7 +190,7 @@ la pantalla no amplía sus permisos. Los errores no se muestran como indicadores
 ### Notificaciones internas del Portal Familia
 
 La campanita vive en `frontend/src/modules/notificaciones/` y se monta solo en el shell del
-Portal Familia (`layout/portal-layout.tsx`). Consume el contrato fijo de la primera entrega:
+Portal Familia (`layout/portal-layout.tsx`). Consume el contrato de notificaciones:
 `GET /notificaciones` con `no_leidas`, `limite` y `cursor`, `GET /notificaciones/resumen`,
 `PATCH /notificaciones/{id}/lectura` y `POST /notificaciones/lecturas`. El contador se refresca
 cada 30 segundos únicamente con la pestaña visible, al recuperar el foco y al abrir el panel;
@@ -200,10 +200,13 @@ Comunicaciones.
 
 El panel ofrece filtros Todas/No leídas, paginación por cursor, lectura individual explícita,
 marcar todas como leídas y estados de carga, vacío y error. Abrir el panel no marca nada como
-leído. Al abrir una notificación se navega a `/familia/asistencias` con parámetros tipados
-(`alumno`, `seccion`, `recurso`, `recurso_id`) que seleccionan al alumno y resaltan el registro
-académico exacto; si la marcación de lectura falla, la navegación igual se completa. Un destino
-desconocido no genera una URL arbitraria y la notificación se muestra sin enlace.
+leído. Los avisos académicos navegan a `/familia/asistencias` con parámetros tipados (`alumno`,
+`seccion`, `recurso`, `recurso_id`) que seleccionan al alumno y resaltan el registro exacto; las
+comunicaciones abren `/familia/comunicaciones/:id`; facturas y vencimientos abren
+`/familia/facturacion?factura=<id>`, y los pagos `/familia/facturacion?pago=<id>`, con la tarjeta
+correspondiente abierta, resaltada y desplazada a la vista. Si la marcación de lectura falla, la
+navegación igual se completa. Un destino desconocido no genera una URL arbitraria y la notificación
+se muestra sin enlace.
 
 Verificación focalizada:
 

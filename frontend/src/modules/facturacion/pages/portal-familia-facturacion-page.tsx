@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowUpDownIcon } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router'
 import {
@@ -22,6 +22,7 @@ import {
 } from '@/components/portal-familia/portal-familia-shell'
 import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
 import { PortalStatTile } from '@/components/portal-familia/portal-familia-ui'
+import { cn } from '@/lib/utils'
 import { normalizarTexto } from '@/lib/texto'
 import { descargarComprobantePagoFamilia } from '@/modules/facturacion/services/descargar-comprobante-pago-familia'
 import { listarFacturacionFamilia } from '@/modules/facturacion/services/listar-facturacion-familia'
@@ -216,12 +217,18 @@ function FacturaFamiliaCard({
   factura,
   descargandoPagoId,
   alDescargar,
+  resaltada = false,
+  abrirInicial = false,
+  alAlternar,
 }: {
   factura: FacturacionFamilia['facturas'][number]
   descargandoPagoId: string | null
   alDescargar: (pagoId: string) => void
+  resaltada?: boolean
+  abrirInicial?: boolean
+  alAlternar?: (abierta: boolean) => void
 }) {
-  const [abierta, setAbierta] = useState(false)
+  const [abierta, setAbierta] = useState(abrirInicial)
   const estadoActual = estadoVisible(factura)
   const estado = ESTADOS_FACTURA[estadoActual]
   const dias = diasParaVencer(vencimiento(factura))
@@ -236,8 +243,22 @@ function FacturaFamiliaCard({
     ? formatearConcepto(factura.detalles[0].descripcion.trim())
     : `Cuota ${MESES[Number(vencimiento(factura).slice(5, 7)) - 1]} ${vencimiento(factura).slice(0, 4)}`
   return (
-    <Card className="gap-0 rounded-[20px] border border-[#F0EAF6] bg-white py-0 shadow-[0_10px_26px_rgba(24,16,40,0.08)]">
-      <details onToggle={(evento) => setAbierta(evento.currentTarget.open)}>
+    <Card
+      id={`factura-${factura.id}`}
+      aria-current={resaltada ? 'true' : undefined}
+      className={cn(
+        'gap-0 rounded-[20px] border bg-white py-0 shadow-[0_10px_26px_rgba(24,16,40,0.08)]',
+        resaltada ? 'border-[#7A2FA8] ring-2 ring-[#7A2FA8]/35' : 'border-[#F0EAF6]',
+      )}
+    >
+      <details
+        open={abierta}
+        onToggle={(evento) => {
+          const siguiente = evento.currentTarget.open
+          setAbierta(siguiente)
+          alAlternar?.(siguiente)
+        }}
+      >
         <summary
           aria-expanded={abierta}
           className="cursor-pointer list-none focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#7A2FA8]"
@@ -437,6 +458,40 @@ export function PortalFamiliaFacturacionPage() {
       texto.includes(busquedaNormalizada)
     )
   })
+  const facturaParam = searchParams.get('factura')
+  const pagoParam = searchParams.get('pago')
+  const focoFacturaId = useMemo(() => {
+    if (!cuenta) return null
+    if (facturaParam) {
+      return cuenta.facturas.some((factura) => factura.id === facturaParam) ? facturaParam : null
+    }
+    if (pagoParam) {
+      return (
+        cuenta.facturas.find((factura) => factura.pagos.some((pago) => pago.id === pagoParam))
+          ?.id ?? null
+      )
+    }
+    return null
+  }, [cuenta, facturaParam, pagoParam])
+
+  function limpiarFoco() {
+    if (!facturaParam && !pagoParam) return
+    const siguientes = new URLSearchParams(searchParams)
+    siguientes.delete('factura')
+    siguientes.delete('pago')
+    setSearchParams(siguientes, { replace: true })
+  }
+
+  useEffect(() => {
+    if (!focoFacturaId) return
+    const indice = ordenadas.findIndex((factura) => factura.id === focoFacturaId)
+    const cuadro = window.setTimeout(() => {
+      if (indice >= 0) setPagina(Math.floor(indice / 10))
+      document.getElementById(`factura-${focoFacturaId}`)?.scrollIntoView?.({ block: 'center' })
+    }, 0)
+    return () => window.clearTimeout(cuadro)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- el foco se recalcula al cargar la cuenta
+  }, [focoFacturaId, cuenta])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -664,10 +719,16 @@ export function PortalFamiliaFacturacionPage() {
                     )}
                     {filtradas.slice(pagina * 10, (pagina + 1) * 10).map((factura) => (
                       <FacturaFamiliaCard
-                        key={factura.id}
+                        key={factura.id === focoFacturaId ? `${factura.id}-foco` : factura.id}
                         factura={factura}
                         descargandoPagoId={descargandoPagoId}
                         alDescargar={(pagoId) => void descargarComprobante(pagoId)}
+                        resaltada={factura.id === focoFacturaId}
+                        abrirInicial={factura.id === focoFacturaId}
+                        alAlternar={(abierta) => {
+                          if (!focoFacturaId) return
+                          if (factura.id !== focoFacturaId || !abierta) limpiarFoco()
+                        }}
                       />
                     ))}
                     {filtradas.length > 10 && (

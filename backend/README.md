@@ -814,12 +814,12 @@ Para verificar el aislamiento con SQLite en memoria y datos sintéticos:
 pytest -q tests/inscripciones/test_scoping_familia.py
 ```
 
-### Notificaciones internas (primera entrega: Portal Familia y Académico)
+### Notificaciones internas (Portal Familia: Académico, Comunicaciones y Facturación)
 
 La bandeja interna vive en `src/notificaciones/` y en la tabla propia `notificacion_interna`,
-separada del log de intentos de email de Workflows y de los recibos de Comunicaciones. La
-primera entrega conecta solo el Portal Familia y las transiciones académicas de ausencias y
-resoluciones de justificaciones.
+separada del log de intentos de email de Workflows y de los recibos de Comunicaciones. Conecta
+solo el Portal Familia: transiciones académicas, comunicaciones institucionales publicadas para
+el portal, facturas emitidas, pagos aprobados por Administración y recordatorios de vencimiento.
 
 Endpoints (todos privados, `Cache-Control: private, no-store`, y sin entrada de `usuario_id`):
 
@@ -835,9 +835,21 @@ Endpoints (todos privados, `Cache-Control: private, no-store`, y sin entrada de 
 Sin sesión responde 401. Sin rol activo Familia, con el rol revocado o sin `Familia` propia
 responde 403. Un id ajeno o inaccesible responde 404, igual que uno inexistente. Cada consulta
 revalida en SQL la cuenta, la familia vigente, el vínculo actual con el alumno y —solo para las
-ausencias— `recibe_comunicaciones=true`. Las resoluciones no dependen de ese flag. Solo se
-exponen los tipos, ámbitos, destinos y contextos de esta entrega: una fila con un tipo, ámbito o
-contexto desconocido se excluye del listado, del contador y de la lectura, igual que una ajena.
+ausencias— `recibe_comunicaciones=true`. Las resoluciones no dependen de ese flag. En Comunicaciones
+se exige un recibo vigente para la comunicación y la familia, y que la comunicación siga publicada;
+en Facturación, que la factura o el pago pertenezcan a la familia responsable económica persistida.
+Solo se exponen los tipos, ámbitos, destinos y contextos de las entregas: una fila con un tipo,
+ámbito o contexto desconocido se excluye del listado, del contador y de la lectura, igual que una
+ajena.
+
+Productores de la segunda entrega: una comunicación institucional con canal `portal` o `ambos`
+genera un aviso por cuenta de cada familia destinataria y no toca `ReciboComunicacion.leida_at`.
+Cada factura emitida por cualquier camino productivo genera un aviso por cuenta de su familia
+responsable económica; cada pago aprobado por Administración genera su aviso sin afirmar
+acreditación bancaria. `notificaciones/vencimientos_job.py` corre al iniciar y luego a diario con
+`FACTURACION_HORA_EJECUCION`, con independencia de `FACTURACION_AUTOMATICA_HABILITADA`: avisa una
+sola vez por factura y cuenta cuando el vencimiento efectivo cae en `hoy..hoy+3` y el saldo
+pendiente es positivo. Una prórroga posterior no genera un segundo recordatorio.
 
 Los productores académicos insertan dentro de la transacción del comando, antes de su commit:
 la ausencia se identifica por inscripción y fecha calendario, y la resolución por la

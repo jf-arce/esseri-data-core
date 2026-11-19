@@ -1,10 +1,14 @@
-// Contrato de la API de notificaciones internas (S3 del ODD). El `tipo` se deja como string
-// porque la tabla es genérica: la UI conoce los tipos académicos y muestra un fallback para
+// Contrato de la API de notificaciones internas. El `tipo` se deja como string porque la
+// tabla es genérica: la UI conoce los tipos de las dos entregas y muestra un fallback para
 // cualquier tipo futuro, sin romper el listado.
 export const TIPOS_NOTIFICACION = [
   'academico.inasistencia_registrada',
   'academico.justificacion_aprobada',
   'academico.justificacion_rechazada',
+  'comunicaciones.institucional_publicada',
+  'facturacion.factura_emitida',
+  'facturacion.pago_registrado',
+  'facturacion.proximo_vencimiento',
 ] as const
 
 export type TipoNotificacion = (typeof TIPOS_NOTIFICACION)[number]
@@ -13,14 +17,25 @@ export const TIPOS_RECURSO_NOTIFICACION = [
   'asistencia',
   'justificacion_individual',
   'solicitud_ausencia_periodo',
+  'comunicacion',
+  'factura',
+  'pago',
 ] as const
 
 export type TipoRecursoNotificacion = (typeof TIPOS_RECURSO_NOTIFICACION)[number]
 
+export const TIPOS_RECURSO_ACADEMICO = [
+  'asistencia',
+  'justificacion_individual',
+  'solicitud_ausencia_periodo',
+] as const
+
+export type TipoRecursoAcademico = (typeof TIPOS_RECURSO_ACADEMICO)[number]
+
 export type DestinoNotificacion = {
   tipo: TipoRecursoNotificacion
   id: string
-  alumno_id: string
+  alumno_id: string | null
 }
 
 export type NotificacionInterna = {

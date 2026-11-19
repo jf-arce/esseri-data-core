@@ -144,6 +144,9 @@ def crear_factura_en_transaccion(
         valor_nuevo=f"inscripcion={factura.inscripcion_id} monto={factura.monto_total}",
         usuario_id=usuario_id,
     )
+    from src.notificaciones.facturacion_service import registrar_factura_emitida
+
+    registrar_factura_emitida(db, factura)
     return factura
 
 
@@ -295,6 +298,9 @@ def registrar_pago(
         valor_nuevo=f"factura={factura.id} monto={monto}",
         usuario_id=usuario_registro_id,
     )
+    from src.notificaciones.facturacion_service import registrar_pago_aprobado
+
+    registrar_pago_aprobado(db, pago)
     db.commit()
     db.refresh(pago)
     return pago
