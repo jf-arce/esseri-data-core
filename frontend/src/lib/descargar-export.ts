@@ -1,3 +1,5 @@
+import { fetchConSesion } from '@/api/client'
+
 const API_URL = import.meta.env.VITE_API_URL
 
 // Los endpoints de exportación devuelven un archivo, no JSON. El JWT viaja en la cookie
@@ -7,7 +9,7 @@ export async function obtenerExport(
   path: string,
   nombrePorDefecto: string,
 ): Promise<{ blob: Blob; nombre: string }> {
-  const res = await fetch(`${API_URL}${path}`, { credentials: 'include' })
+  const res = await fetchConSesion(`${API_URL}${path}`)
   if (!res.ok) {
     throw new Error(`No se pudo descargar el archivo (${res.status}).`)
   }

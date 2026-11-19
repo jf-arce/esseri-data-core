@@ -1,4 +1,4 @@
-# Autenticación — Login con Google + JWT interno (RF-27)
+# Autenticación — Login con Google + sesión con refresh token (RF-27)
 
 Documento del módulo completo (`backend/src/auth/` + lo que necesita `frontend/modules/auth/`),
 no solo de cómo levantar el backend — por eso vive en `docs/` y no en `backend/README.md`.
@@ -7,7 +7,8 @@ no solo de cómo levantar el backend — por eso vive en `docs/` y no en `backen
 
 El backend hace el flujo **Authorization Code + PKCE**: el navegador va a `/auth/google/login`,
 Google confirma la identidad y vuelve a `/auth/google/callback`, y el backend canjea el código y
-emite su propio JWT interno en una cookie httpOnly. El *client secret* de Google nunca sale del
+abre una sesión propia con dos cookies httpOnly: un access token (JWT) de vida corta y un refresh
+token (ver [Sesión y refresh token](#sesión-y-refresh-token)). El *client secret* de Google nunca sale del
 backend ni llega al frontend.
 
 Sobre el frontend: con este flujo, el botón de login es un link a `/auth/google/login` — no hace
@@ -56,6 +57,31 @@ Pide la contraseña por consola. Para entornos no interactivos se puede usar
 El usuario nace con `auth_provider='local'` para que el sistema arranque sin depender de que
 Google Cloud esté configurado; la primera vez que ese admin entre por Google, la cuenta se vincula
 sola y conserva la contraseña como fallback.
+
+## Sesión y refresh token
+
+- **Access token:** el JWT (`sub`, `rol`, `exp`) vive `JWT_EXPIRE_MINUTES` (15 por defecto), cookie
+  `access_token` con `Path=/`. Es stateless, pero `get_current_user` consulta al usuario en cada
+  request, así que una baja corta el acceso al instante.
+- **Refresh token:** string opaco en la cookie httpOnly `refresh_token` con `Path=/auth`. En la
+  tabla `SESION` solo queda su hash SHA-256. La sesión vence a los `REFRESH_TOKEN_INACTIVIDAD_DIAS`
+  (7) sin uso y tiene un tope absoluto de `REFRESH_TOKEN_MAX_DIAS` (30) desde el login.
+- **`POST /auth/refresh`:** con un refresh válido lo rota (la fila vieja queda como reemplazada, se
+  crea otra en la misma familia con el mismo rol activo y el mismo tope absoluto) y setea las dos
+  cookies. Si el token ya se rotó hace menos de 30 segundos (dos pestañas refrescando a la vez),
+  solo emite un access nuevo y no toca la cookie de refresh. Reusar un token rotado fuera de esa
+  ventana se toma como robo: se revoca toda la familia. Vencido, revocado, inexistente o de un
+  usuario inactivo: 401 y borra las cookies.
+- **Logout:** `POST /auth/logout` revoca la sesión del refresh actual y borra las dos cookies.
+- **Revocación masiva:** dar de baja a un usuario o cambiarle/eliminarle la contraseña revoca todas
+  sus sesiones. Eliminar la cuenta borra sus filas de `SESION`.
+- **Cambio de rol:** `POST /auth/rol-activo` actualiza también el rol de la sesión, para que el
+  refresh lo conserve.
+- **Frontend:** `fetchConSesion` (`src/api/client.ts`) reintenta una vez tras un 401 después de
+  llamar a `/auth/refresh`, con una sola promesa compartida entre pedidos simultáneos. Si el
+  refresh falla, el store limpia la sesión y `ProtectedRoute` manda a `/login`.
+- **Railway:** `proxy_cookie_path /auth /api/auth` en el Nginx del frontend también cubre la cookie
+  de refresh.
 
 ## Bloqueo por intentos
 

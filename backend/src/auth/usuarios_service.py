@@ -23,7 +23,8 @@ from src.auth.exceptions import (
     RolEnUso,
     UsuarioConHistorial,
 )
-from src.auth.models import LogAcceso, Permiso, Rol, RolPermiso, Usuario, UsuarioRol
+from src.auth.models import LogAcceso, Permiso, Rol, RolPermiso, Sesion, Usuario, UsuarioRol
+from src.auth.refresh_service import revocar_todas
 from src.auth.schemas import AccesoUpdate, PersonaUpdate, UsuarioCreate, UsuarioUpdate
 from src.auth.sesion_service import buscar_por_email, hashear_password
 from src.models import Base, Persona
@@ -205,6 +206,7 @@ def actualizar_acceso(db: Session, usuario: Usuario, datos: AccesoUpdate) -> Usu
         usuario.password_hash = None
         usuario.auth_provider = PROVIDER_GOOGLE
 
+    revocar_todas(db, usuario.id)
     db.commit()
     db.refresh(usuario)
     return usuario
@@ -223,6 +225,8 @@ def cambiar_estado(db: Session, usuario: Usuario, estado: str, actor_id: uuid.UU
                 "roles y permisos"
             )
     usuario.estado = estado
+    if estado == ESTADO_INACTIVO:
+        revocar_todas(db, usuario.id)
     db.commit()
     db.refresh(usuario)
     return usuario
@@ -268,10 +272,11 @@ def eliminar_usuario(db: Session, usuario: Usuario, actor_id: uuid.UUID) -> None
         raise RolEnUso(
             "No se puede eliminar: dejaría al sistema sin nadie que administre roles y permisos"
         )
-    if _tiene_filas_referenciando(db, "usuario", usuario.id, "usuario_rol", "log_acceso"):
+    if _tiene_filas_referenciando(db, "usuario", usuario.id, "usuario_rol", "log_acceso", "sesion"):
         raise UsuarioConHistorial()
 
     db.execute(sa.delete(UsuarioRol).where(UsuarioRol.usuario_id == usuario.id))
+    db.execute(sa.delete(Sesion).where(Sesion.usuario_id == usuario.id))
     db.execute(
         sa.update(LogAcceso).where(LogAcceso.usuario_id == usuario.id).values(usuario_id=None)
     )

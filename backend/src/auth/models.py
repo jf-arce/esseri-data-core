@@ -139,3 +139,22 @@ class LogAcceso(Base):
     resultado: Mapped[str] = mapped_column(sa.String)
     ip_origen: Mapped[str | None] = mapped_column(sa.String)
     usuario_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("usuario.id"))
+
+
+class Sesion(Base):
+    """Un refresh token. Se guarda solo su hash; cada rotación crea una fila nueva en la misma
+    `familia_id`, y reusar una ya reemplazada revoca la familia entera."""
+
+    __tablename__ = "sesion"
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("usuario.id"), index=True)
+    familia_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, index=True)
+    token_hash: Mapped[str] = mapped_column(sa.String, unique=True, index=True)
+    rol_activo: Mapped[str | None] = mapped_column(sa.String)
+    creada_en: Mapped[datetime] = mapped_column(sa.DateTime)
+    expira_en: Mapped[datetime] = mapped_column(sa.DateTime)
+    expira_absoluta_en: Mapped[datetime] = mapped_column(sa.DateTime)
+    revocada_en: Mapped[datetime | None] = mapped_column(sa.DateTime)
+    reemplazada_en: Mapped[datetime | None] = mapped_column(sa.DateTime)
+    ip_origen: Mapped[str | None] = mapped_column(sa.String)

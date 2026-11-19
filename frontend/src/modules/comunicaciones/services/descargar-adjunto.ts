@@ -1,4 +1,4 @@
-import { ApiError } from '@/api/client'
+import { ApiError, fetchConSesion } from '@/api/client'
 import type { Adjunto } from '../types'
 
 const API_URL = import.meta.env.VITE_API_URL
@@ -33,11 +33,13 @@ export async function obtenerArchivoAdjunto(
   adjunto: Adjunto,
   opciones: { familia?: boolean; docente?: boolean; signal?: AbortSignal } = {},
 ): Promise<Blob> {
-  const res = await fetch(`${API_URL}${rutaArchivoAdjunto(comunicacionId, adjunto.id, opciones)}`, {
-    credentials: 'include',
-    signal: opciones.signal,
-    cache: 'no-store',
-  })
+  const res = await fetchConSesion(
+    `${API_URL}${rutaArchivoAdjunto(comunicacionId, adjunto.id, opciones)}`,
+    {
+      signal: opciones.signal,
+      cache: 'no-store',
+    },
+  )
   if (!res.ok) throw new ApiError(res.status, null)
 
   return res.blob()

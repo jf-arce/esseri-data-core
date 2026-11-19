@@ -12,7 +12,9 @@ class Settings(BaseSettings):
 
     JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRE_MINUTES: int = 60
+    JWT_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_INACTIVIDAD_DIAS: PositiveInt = 7
+    REFRESH_TOKEN_MAX_DIAS: PositiveInt = 30
 
     # Bloqueo de POST /auth/login por IP (ver docs/auth-oauth-google.md).
     LOGIN_MAX_INTENTOS: PositiveInt = 10

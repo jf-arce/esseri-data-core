@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { onSesionExpirada } from '@/api/client'
 import { getMe } from '@/modules/auth/services/get-me'
 import { useAuthStore } from '@/store/auth-store'
 
@@ -14,6 +15,7 @@ export function useBootstrapSesion() {
   const setLoading = useAuthStore((state) => state.setLoading)
 
   useEffect(() => {
+    onSesionExpirada(clearSesion)
     setLoading()
     getMe()
       .then(setUsuario)

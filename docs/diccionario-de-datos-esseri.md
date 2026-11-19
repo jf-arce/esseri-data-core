@@ -111,6 +111,27 @@ La tercera fila aparece cuando una cuenta creada como `local` entra por Google p
 | rol_id | uuid | FK |  |
 | permiso_id | uuid | FK |  |
 
+### `SESION`
+> Refresh token de una sesión de login. El access token (JWT de 15 minutos) es stateless; esta tabla es lo que permite renovarlo, rotarlo y revocarlo (logout real, baja de usuario, cambio de contraseña). Solo se guarda el hash SHA-256 del token; el valor en claro viaja únicamente en la cookie `refresh_token`.
+>
+> Cada renovación marca la fila como reemplazada y crea otra en la misma `familia_id`. Reusar un token ya reemplazado fuera de los 30 segundos de gracia (dos pestañas que refrescan a la vez) revoca toda la familia.
+
+| Campo | Tipo | Clave | Descripción |
+|---|---|---|---|
+| id | uuid | PK |  |
+| familia_id | uuid |  | Cadena de rotación: todas las filas de un mismo login comparten este valor |
+| token_hash | string | UQ | SHA-256 del refresh token. Indexado |
+| rol_activo | string |  | Código del rol activo de la sesión; se conserva al renovar. Nulo hasta que la cuenta elige rol |
+| creada_en | datetime |  |  |
+| expira_en | datetime |  | Vencimiento por inactividad (`REFRESH_TOKEN_INACTIVIDAD_DIAS`), nunca posterior a `expira_absoluta_en` |
+| expira_absoluta_en | datetime |  | Tope desde el login (`REFRESH_TOKEN_MAX_DIAS`); se hereda en cada rotación |
+| revocada_en | datetime |  | Nulo mientras la sesión sirve |
+| reemplazada_en | datetime |  | Instante en que este token se rotó por uno nuevo |
+| ip_origen | string |  |  |
+| usuario_id | uuid | FK |  |
+
+---
+
 ### `LOG_ACCESO`
 > Cubre RF-27: *"intentos fallidos son registrados"*. Distinto de `AUDIT_LOG` (que registra cambios de campos) y de `EVENT_LOG` (que registra hechos de negocio).
 >

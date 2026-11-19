@@ -59,7 +59,9 @@ no son credenciales para producción. Las claves y tokens deben ser propios de l
 | `ENVIRONMENT` | `development` en desarrollo y `production` en producción. Fuera de desarrollo activa cookies `Secure`; producción también impide cargar el seed de demo. |
 | `JWT_SECRET` | Secreto para firmar la sesión interna. Obligatorio; no reutilizar el ejemplo de desarrollo. |
 | `JWT_ALGORITHM` | Algoritmo de firma; la configuración existente usa `HS256`. |
-| `JWT_EXPIRE_MINUTES` | Duración del JWT en minutos. |
+| `JWT_EXPIRE_MINUTES` | Duración del access token (JWT) en minutos; por defecto `15`. La sesión se renueva sola con el refresh token. |
+| `REFRESH_TOKEN_INACTIVIDAD_DIAS` | Días sin uso tras los cuales la sesión vence; por defecto `7`. |
+| `REFRESH_TOKEN_MAX_DIAS` | Tope absoluto de la sesión desde el login, aunque se use todos los días; por defecto `30`. |
 | `GOOGLE_CLIENT_ID` | Identificador del cliente OAuth web. Necesario para habilitar login con Google. |
 | `GOOGLE_CLIENT_SECRET` | Secreto del cliente OAuth, exclusivo del backend. |
 | `GOOGLE_REDIRECT_URI` | Callback de la API que debe registrarse exactamente en Google Cloud. |

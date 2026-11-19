@@ -17,6 +17,7 @@ def test_password_correcta_inicia_sesion(client, usuario_local):
     )
     assert respuesta.status_code == 200
     assert config.COOKIE_SESION in respuesta.cookies
+    assert config.COOKIE_REFRESH in respuesta.cookies
 
 
 def test_el_email_no_distingue_mayusculas(client, usuario_local):
@@ -30,6 +31,7 @@ def test_password_incorrecta_rechaza(client, usuario_local):
     respuesta = client.post("/auth/login", json={"email": usuario_local.email, "password": "no-es"})
     assert respuesta.status_code == 401
     assert config.COOKIE_SESION not in respuesta.cookies
+    assert config.COOKIE_REFRESH not in respuesta.cookies
 
 
 def test_email_inexistente_da_el_mismo_error_que_password_incorrecta(client, usuario_local):

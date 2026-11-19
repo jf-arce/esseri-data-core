@@ -1,4 +1,4 @@
-import { ApiError } from '@/api/client'
+import { ApiError, fetchConSesion } from '@/api/client'
 import { PREFIJO_API } from '../constants'
 import type { EventoSse, PedidoMensaje } from '../types'
 import { parsearSse } from '../utils/sse'
@@ -15,11 +15,10 @@ export async function enviarMensaje(
   signal: AbortSignal,
   alEvento: (evento: EventoSse) => void,
 ): Promise<void> {
-  const respuesta = await fetch(
+  const respuesta = await fetchConSesion(
     `${API_URL}${PREFIJO_API}/conversaciones/${conversacionId}/mensajes`,
     {
       method: 'POST',
-      credentials: 'include',
       headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
       body: JSON.stringify(pedido),
       signal,
