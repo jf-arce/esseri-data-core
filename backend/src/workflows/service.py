@@ -250,6 +250,8 @@ def validar_accion(
             f"La acción '{tipo_accion}' no admite el evento '{tipo_evento_nombre}'. "
             f"Eventos permitidos: {', '.join(sorted(permitidos))}."
         )
+    if tipo_accion == "publicar_comunicacion" and notificacion_template_id is None:
+        raise AccionConfigInvalida("Elegí una plantilla para publicar la comunicación.")
     if notificacion_template_id is not None and tipo_accion not in ACCIONES_CON_PLANTILLA:
         raise AccionConfigInvalida(
             f"La acción '{tipo_accion}' no admite plantilla de notificación."

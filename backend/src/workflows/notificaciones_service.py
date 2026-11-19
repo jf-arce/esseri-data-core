@@ -296,6 +296,15 @@ class ComunicacionNoPreparada(Exception):
         self.error = error
 
 
+def preparar_contenido_comunicacion(
+    db: Session, regla: AccionContexto, evento: EventLog
+) -> tuple[str, str]:
+    try:
+        return _contenido_notificar(db, regla, evento)
+    except _SinContenido as error:
+        raise ComunicacionNoPreparada(error.error) from None
+
+
 def preparar_comunicacion(
     db: Session, regla: AccionContexto, evento: EventLog, destino: str
 ) -> tuple[str, str, list[Destinatario]]:
@@ -305,10 +314,8 @@ def preparar_comunicacion(
         ComunicacionNoPreparada: con el mismo error controlado que dejaría `notificar`.
     """
     try:
-        asunto, cuerpo = _contenido_notificar(db, regla, evento)
+        asunto, cuerpo = preparar_contenido_comunicacion(db, regla, evento)
         destinatarios, _ = resolver_destinatarios(db, regla, evento, destino)
-    except _SinContenido as e:
-        raise ComunicacionNoPreparada(e.error) from None
     except _SinAlumno:
         raise ComunicacionNoPreparada(ERROR_SIN_ALUMNO) from None
     except _SinSolicitante:

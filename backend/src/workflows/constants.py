@@ -18,6 +18,7 @@ TipoAccion = Literal[
     "crear_registro_relacionado",
     "generar_orden_compra",
     "generar_comunicacion",
+    "publicar_comunicacion",
 ]
 TIPOS_ACCION: tuple[str, ...] = get_args(TipoAccion)
 
@@ -79,6 +80,7 @@ EVENTOS_POR_ACCION: dict[str, frozenset[str] | None] = {
     "alerta_interna": None,
     "generar_recordatorio": None,
     "generar_comunicacion": None,
+    "publicar_comunicacion": frozenset({"debito.resultado_registrado"}),
     "crear_tarea": None,
     "escalar_caso": None,
     "cambiar_estado": frozenset({"factura.vencida"}),
@@ -104,7 +106,13 @@ VENTANA_RECORDATORIOS_DIAS = 7
 
 # Acciones que arman un mensaje: son las únicas que admiten `notificacion_template_id`.
 ACCIONES_CON_PLANTILLA: frozenset[str] = frozenset(
-    {"notificar", "alerta_interna", "generar_recordatorio", "generar_comunicacion"}
+    {
+        "notificar",
+        "alerta_interna",
+        "generar_recordatorio",
+        "generar_comunicacion",
+        "publicar_comunicacion",
+    }
 )
 
 # Estados a los que `cambiar_estado` puede llevar a cada entidad.

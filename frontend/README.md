@@ -467,6 +467,13 @@ Parámetros de la ruta de alta: `?evento=<id>` abre el lienzo con el disparador 
 (borrador, validación local, auto-layout, frase, deshacer, duplicado) está en
 `src/modules/workflows/utils-grafo.ts` y se prueba con `npm test`.
 
+Para avisar el resultado de un débito, elegí el disparador **Se confirma un resultado de débito
+automático**, configurá una plantilla para cada resultado y agregá **Publicar comunicación**.
+En **Canal de publicación**, elegí **Portal**, **Email** o **Ambos**. **Ambos** deja el aviso en
+Comunicaciones y encola su correo; no agregues también **Notificar**. Si existe la regla de
+débitos de la demo que envía correo directamente, desactivala antes de activar la regla nueva.
+**Generar comunicación** continúa enviando borradores a Sugerencias para su revisión.
+
 El editor ocupa el alto de la ventana (`100dvh` menos el encabezado del layout) y no tiene scroll de
 página. Los componentes viven en `src/modules/workflows/components/`: `barra-editor` (migas, nombre,
 activa, guardar), `canvas-flujo` (lienzo y paneles flotantes), `catalogo-bloques` (lista con

@@ -16,6 +16,7 @@ export const TIPOS_ACCION = [
   'crear_registro_relacionado',
   'generar_orden_compra',
   'generar_comunicacion',
+  'publicar_comunicacion',
 ] as const
 export type TipoAccion = (typeof TIPOS_ACCION)[number]
 

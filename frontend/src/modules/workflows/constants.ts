@@ -110,6 +110,7 @@ export const TAMANIO_PAGINA_TAREAS = 20
 /** Claves de `accion_config` (`backend/src/workflows/schemas.py`). */
 export const CLAVE_CONFIG = {
   destinatario: 'destinatario',
+  canal: 'canal',
   diasDespues: 'dias_despues',
   mensaje: 'mensaje',
   titulo: 'titulo',
