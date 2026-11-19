@@ -50,6 +50,47 @@ the event payload for authorization. Multiple email addresses or email attempts 
 produce duplicate portal notices for the same result. Existing Communications publications
 and read receipts are unchanged.
 
+### Showing real email delivery
+
+The email is sent by the existing n8n webhook, not by the backend directly. Prepare it before the
+demo:
+
+1. Import `infra/n8n/enviar-email.json`, assign the Header Auth credential with
+   `Bearer <N8N_WEBHOOK_TOKEN>`, assign a Gmail OAuth2 credential for the sending account, and
+   **publish** the workflow. Follow `infra/n8n/README.md`; the Gmail test-mode token expires
+   after seven days, so reauthorize it before presenting.
+2. Set `N8N_WEBHOOK_URL` to `http://n8n:5678/webhook/enviar-email` inside Docker, or
+   `http://localhost:5678/webhook/enviar-email` outside. Set the same `N8N_WEBHOOK_TOKEN`.
+3. Seed the debit dataset with an address you control:
+
+```bash
+ESSERI_DEMO_EMAIL_BASE=your-demo@gmail.com \
+ESSERI_DEMO_PASSWORD='EsseriDemo2026!' \
+python ../database/seeds/07_seed_debitos_demo.py
+```
+
+   With that variable set, the seed creates three family accounts for the first three eligible
+   invoices: `your-demo+debito-1@gmail.com`, `your-demo+debito-2@gmail.com` and
+   `your-demo+debito-3@gmail.com`, all with the demo password. Gmail plus-addressing delivers
+   all three to the base inbox while keeping distinct `To:` addresses. Without the variable the
+   seed creates no accounts and keeps its data-only behavior.
+4. In **Generar lote**, choose `2026-11`. The 438 eligible invoices are preselected. Click the
+   header checkbox once to clear the selection, then select the three rows for
+   `F-202611-0001` to `F-202611-0003`. Export the lot and choose **Preparar respuesta de
+   ejemplo**; for a three-invoice lot it leaves one rejection, so the demo gets two successes
+   and one rejection.
+5. Import, review and confirm. The backend dispatcher runs every
+   `WORKFLOWS_DESPACHO_INTERVALO_SEGUNDOS` (30 by default), so wait for the next pass. For a
+   controlled moment, call `POST /workflows/procesar` with a workflow-update session, or keep
+   the interval short for the demo.
+6. Show the base inbox: two messages with subject `Débito simulado confirmado: factura
+   F-202611-...` and one with `Débito simulado rechazado: factura F-202611-...` including
+   `Saldo insuficiente` and `SALDO_INSUF`. Then show the three notices in the family portal.
+
+If no email arrives, inspect the n8n execution and `NOTIFICACION.estado_envio`; a `fallido` state
+means the transport failed and the portal notice is still available. The backend never rolls back
+a confirmed payment because of an email failure.
+
 ### Safe A/B/C demonstration
 
 Run this automated scenario from `backend/`, with the virtual environment activated:

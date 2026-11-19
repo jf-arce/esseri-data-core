@@ -6,6 +6,7 @@ from pathlib import Path
 
 from sqlalchemy import select
 
+from src.auth.models import Rol, Usuario, UsuarioRol
 from src.facturacion.models import (
     DebitoCobranza,
     Factura,
@@ -88,6 +89,30 @@ def test_seed_crea_dataset_acotado_e_idempotente(db_session):
     db_session.commit()
     assert _conteos(db_session) == primeros
     assert db_session.get(Persona, ajeno.id) is not None
+
+
+def test_seed_crea_cuentas_de_familia_opt_in_para_mostrar_correos(db_session, monkeypatch):
+    monkeypatch.setenv("ESSERI_DEMO_EMAIL_BASE", "equipo@example.test")
+    db_session.add(Rol(nombre="familia"))
+    db_session.commit()
+    seed = _cargar_seed()
+
+    seed.seed(db_session)
+    db_session.commit()
+
+    usuarios = list(
+        db_session.scalars(select(Usuario).where(Usuario.email.like("equipo+debito-%")))
+    )
+    assert [usuario.email for usuario in usuarios] == [
+        f"equipo+debito-{indice}@example.test" for indice in range(1, 4)
+    ]
+    assert all(usuario.password_hash for usuario in usuarios)
+    rol = db_session.scalar(select(Rol).where(Rol.codigo == "familia"))
+    assert db_session.query(UsuarioRol).filter_by(rol_id=rol.id).count() == 3
+
+    seed.seed(db_session)
+    db_session.commit()
+    assert db_session.query(Usuario).filter(Usuario.email.like("equipo+debito-%")).count() == 3
 
 
 def test_seed_permite_exportar_las_438_facturas_del_periodo(client_autenticado, db_session):

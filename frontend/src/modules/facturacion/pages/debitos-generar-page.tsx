@@ -118,7 +118,9 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
     setErrorAccion('')
     try {
       const archivo = await generarRespuestaDebitos(loteCreado.id, {
-        rechazosCantidad: Math.min(3, loteCreado.cantidad_facturas),
+        // Un lote chico de demo deja un rechazo; los lotes reales conservan hasta tres.
+        rechazosCantidad:
+          loteCreado.cantidad_facturas <= 3 ? 1 : Math.min(3, loteCreado.cantidad_facturas),
       })
       descargarArchivoDebitos(archivo)
       onIrAImportar()

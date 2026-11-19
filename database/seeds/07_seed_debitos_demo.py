@@ -8,6 +8,7 @@ Uso (desde backend/, con el venv activado):
     python ../database/seeds/07_seed_debitos_demo.py
 """
 
+import os
 import sys
 import uuid
 from datetime import UTC, date, datetime
@@ -23,7 +24,8 @@ import yaml
 from sqlalchemy import select
 
 from src.academico.models import Anio, Division, NivelEducativo
-from src.auth.models import Usuario
+from src.auth.models import Rol, Usuario, UsuarioRol
+from src.auth.sesion_service import hashear_password
 from src.database import SessionLocal
 from src.facturacion import cuenta_corriente_service
 from src.facturacion.models import (
@@ -54,6 +56,9 @@ TOTAL_ALUMNOS = 500
 ELEGIBLES_ACTUAL = 438
 RESERVADAS_ACTUAL = 12
 LIBERADAS_ANTERIOR = 20
+DEMO_EMAIL_BASE = os.getenv("ESSERI_DEMO_EMAIL_BASE", "").strip()
+DEMO_PASSWORD = os.getenv("ESSERI_DEMO_PASSWORD", "EsseriDemo2026!")
+CUENTAS_DEMO = 3
 
 
 def _id(etiqueta: str) -> uuid.UUID:
@@ -331,6 +336,52 @@ def seed_workflow(db) -> WorkflowRule:
     return regla
 
 
+def _email_demo(alias: str) -> str:
+    if not DEMO_EMAIL_BASE:
+        return f"{alias}@esseri.local"
+    local, _, dominio = DEMO_EMAIL_BASE.partition("@")
+    return f"{local}+{alias}@{dominio}"
+
+
+def _crear_cuentas_demo(db, facturas) -> list[str]:
+    """Opt-in family accounts for the first invoices, so the demo can show real email.
+
+    Requires the regular role catalog and an explicit ``ESSERI_DEMO_EMAIL_BASE``; otherwise the
+    seed keeps its previous data-only behavior.
+    """
+    if not DEMO_EMAIL_BASE:
+        return []
+    rol = db.scalar(select(Rol).where(Rol.codigo == "familia"))
+    if rol is None:
+        print("  Aviso: no existe el rol familia; corré 01_seed_grupo_a.py antes.")
+        return []
+    emails: list[str] = []
+    for indice, factura in enumerate(facturas[:CUENTAS_DEMO], start=1):
+        responsable = db.get(ResponsableEconomico, factura.responsable_economico_id)
+        familia = db.get(Familia, responsable.familia_id)
+        email = _email_demo(f"debito-{indice}")
+        existente = db.scalar(
+            select(Usuario).where(Usuario.persona_id == familia.persona_id).limit(1)
+        )
+        if existente is not None:
+            emails.append(existente.email)
+            continue
+        usuario = Usuario(
+            email=email,
+            password_hash=hashear_password(DEMO_PASSWORD),
+            auth_provider="local",
+            estado="activo",
+            persona_id=familia.persona_id,
+        )
+        db.add(usuario)
+        db.flush()
+        db.add(UsuarioRol(usuario_id=usuario.id, rol_id=rol.id))
+        db.flush()
+        emails.append(email)
+    db.commit()
+    return emails
+
+
 def seed(db) -> None:
     seed_workflow(db)
     division, concepto = _catalogo(db)
@@ -361,6 +412,9 @@ def seed(db) -> None:
         estado="liberado",
         motivo="El banco no procesó el lote (demo)",
     )
+    emails = _crear_cuentas_demo(db, creadas_actual)
+    if emails:
+        print("  cuentas de familia: " + ", ".join(emails))
 
 
 def main() -> None:

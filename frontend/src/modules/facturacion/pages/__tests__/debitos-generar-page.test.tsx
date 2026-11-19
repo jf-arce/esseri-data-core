@@ -350,6 +350,25 @@ describe('DebitosGenerarPage', () => {
     expect(screen.queryByText('Débitos rechazados')).not.toBeInTheDocument()
   })
 
+  it('deja un solo rechazo cuando el lote de demo tiene tres facturas', async () => {
+    const user = userEvent.setup()
+    vi.mocked(crearLoteDebitos).mockResolvedValueOnce({ ...lote, cantidad_facturas: 3 })
+    renderPage()
+    await screen.findByText('F-2026-00001')
+
+    await user.click(screen.getByRole('checkbox', { name: 'Seleccionar F-2026-00001' }))
+    await user.click(await screen.findByRole('button', { name: 'Exportar 437 solicitudes' }))
+    await screen.findByText('Lote LD-2026-10-002 exportado')
+
+    await user.click(screen.getByRole('button', { name: 'Preparar respuesta de ejemplo' }))
+
+    await waitFor(() =>
+      expect(vi.mocked(generarRespuestaDebitos)).toHaveBeenCalledWith('lote-1', {
+        rechazosCantidad: 1,
+      }),
+    )
+  })
+
   it('muestra la carga mientras espera las facturas', async () => {
     vi.mocked(listarFacturasElegiblesDebitos).mockImplementationOnce(
       () => new Promise(() => undefined),
