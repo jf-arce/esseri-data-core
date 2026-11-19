@@ -107,16 +107,10 @@ describe('PortalFamiliaFacturacionPage', () => {
       ],
     })
     renderizarPagina()
-    expect(await screen.findByText('Débito automático rechazado')).toBeInTheDocument()
+    expect((await screen.findAllByText('Débito rechazado')).length).toBeGreaterThanOrEqual(1)
     const avisos = screen.getByRole('region', { name: 'Avisos de débitos automáticos' })
-    expect(within(avisos).getByText(/Factura F-0003 por \$100/)).toBeInTheDocument()
-    expect(within(avisos).getByText('F-202611-0003')).toBeInTheDocument()
-    expect(within(avisos).getByText('Fondos insuficientes')).toBeInTheDocument()
-    expect(within(avisos).queryByText('SIM-01')).not.toBeInTheDocument()
-    expect(
-      within(avisos).getByText('Estado de los débitos automáticos de tus facturas.'),
-    ).toBeInTheDocument()
-    expect(screen.getAllByText('Débito rechazado').length).toBeGreaterThanOrEqual(2)
+    expect(within(avisos).getByText(/0 acreditados · 1 rechazados/)).toBeInTheDocument()
+    fireEvent.click(within(avisos).getByRole('button', { name: 'Ver rechazados' }))
     expect(screen.getByText('Factura de marzo 2026')).toBeInTheDocument()
 
     abrirFactura()
