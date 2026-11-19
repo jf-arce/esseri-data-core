@@ -48,6 +48,7 @@ const FORMATEADOR_FECHA = new Intl.DateTimeFormat('es-AR', {
   year: 'numeric',
   timeZone: 'UTC',
 })
+const FACTURAS_POR_PAGINA = 5
 const MESES = [
   'enero',
   'febrero',
@@ -89,7 +90,6 @@ const TEXTOS_DEBITO = {
   aviso: 'Las cuotas se debitan automáticamente de tu medio de pago adherido.',
   vencida: 'No pudimos acreditar el débito. Escribinos desde',
   rechazado: 'Débito rechazado',
-  acreditado: 'Débito acreditado',
   registrados: 'Pagos registrados',
   medio: (metodo: string, medio?: 'cbu' | 'tarjeta' | null) =>
     metodo === 'debito_directo' || metodo === 'Débito por archivo'
@@ -277,27 +277,19 @@ function FacturaFamiliaCard({
           <p className="text-xs text-[#6B6478]">
             Factura {aviso?.numero_factura ?? `#${factura.id.slice(0, 8)}`}
           </p>
-          {aviso && (
+          {aviso?.resultado === 'rechazado' && (
             <section
               aria-label={`Débito automático de factura ${aviso.numero_factura}`}
-              className={`rounded-[16px] p-4 ${
-                aviso.resultado === 'rechazado' ? 'bg-[#FDF0ED]' : 'bg-[#EFF7EE]'
-              }`}
+              className="rounded-[16px] bg-[#FDF0ED] p-4"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={aviso.resultado === 'rechazado' ? 'error' : 'exito'}>
-                  {aviso.resultado === 'rechazado'
-                    ? TEXTOS_DEBITO.rechazado
-                    : TEXTOS_DEBITO.acreditado}
-                </Badge>
+                <Badge variant="error">{TEXTOS_DEBITO.rechazado}</Badge>
                 <span className="text-sm font-medium text-[#2B2338]">
                   {formatearMoneda(aviso.importe)}
                 </span>
                 <span className="text-xs text-[#6B6478]">{formatearFecha(aviso.fecha)}</span>
               </div>
-              {aviso.resultado === 'rechazado' && (
-                <p className="mt-2 text-sm text-[#6B6478]">Motivo: {aviso.motivo_rechazo}.</p>
-              )}
+              <p className="mt-2 text-sm text-[#6B6478]">Motivo: {aviso.motivo_rechazo}.</p>
             </section>
           )}
           {estadoActual === 'vencida' && (
@@ -740,18 +732,20 @@ export function PortalFamiliaFacturacionPage() {
                         No hay facturas para los filtros seleccionados.
                       </p>
                     )}
-                    {filtradas.slice(pagina * 10, (pagina + 1) * 10).map((factura) => {
-                      return (
-                        <FacturaFamiliaCard
-                          key={factura.id}
-                          factura={factura}
-                          aviso={avisoDe(factura.id)}
-                          descargandoPagoId={descargandoPagoId}
-                          alDescargar={(pagoId) => void descargarComprobante(pagoId)}
-                        />
-                      )
-                    })}
-                    {filtradas.length > 10 && (
+                    {filtradas
+                      .slice(pagina * FACTURAS_POR_PAGINA, (pagina + 1) * FACTURAS_POR_PAGINA)
+                      .map((factura) => {
+                        return (
+                          <FacturaFamiliaCard
+                            key={factura.id}
+                            factura={factura}
+                            aviso={avisoDe(factura.id)}
+                            descargandoPagoId={descargandoPagoId}
+                            alDescargar={(pagoId) => void descargarComprobante(pagoId)}
+                          />
+                        )
+                      })}
+                    {filtradas.length > FACTURAS_POR_PAGINA && (
                       <nav
                         aria-label="Páginas de facturas"
                         className="flex items-center justify-between gap-3"
@@ -766,13 +760,13 @@ export function PortalFamiliaFacturacionPage() {
                           Anterior
                         </Button>
                         <span className="text-sm text-[#3A2E45]">
-                          Página {pagina + 1} de {Math.ceil(filtradas.length / 10)}
+                          Página {pagina + 1} de {Math.ceil(filtradas.length / FACTURAS_POR_PAGINA)}
                         </span>
                         <Button
                           type="button"
                           variant="secondary"
                           className="rounded-full"
-                          disabled={(pagina + 1) * 10 >= filtradas.length}
+                          disabled={(pagina + 1) * FACTURAS_POR_PAGINA >= filtradas.length}
                           onClick={() => setPagina((actual) => actual + 1)}
                         >
                           Siguiente

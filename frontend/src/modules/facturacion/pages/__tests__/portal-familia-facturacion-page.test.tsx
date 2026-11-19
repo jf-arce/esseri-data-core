@@ -120,6 +120,36 @@ describe('PortalFamiliaFacturacionPage', () => {
     expect(screen.queryByText(/Código:/)).not.toBeInTheDocument()
   })
 
+  it('no repite el débito acreditado cuando el pago ya está registrado', async () => {
+    const cuenta = structuredClone(facturacion)
+    cuenta.facturas[0].estado = 'pagada'
+    cuenta.avisos_debito = [
+      {
+        evento_id: 'evento-2',
+        ejecucion_id: 'ejecucion-2',
+        regla_id: 'regla-1',
+        debito_id: 'debito-2',
+        factura_id: 'factura-1',
+        numero_factura: 'F-202611-0001',
+        lote_id: 'lote-1',
+        fecha: '2026-11-18T12:00:00Z',
+        resultado: 'exitoso',
+        importe: '125.00',
+        codigo_resultado: '',
+        motivo_rechazo: '',
+        asunto: 'Débito automático confirmado',
+        cuerpo: 'Se debitó la factura F-202611-0001.',
+      },
+    ]
+    mockedListarFacturacion.mockResolvedValue(cuenta)
+    renderizarPagina()
+    await screen.findByText('Factura de marzo 2026')
+    abrirFactura()
+    expect(screen.queryByText('Débito acreditado')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Pagos registrados' })).toBeInTheDocument()
+    expect(screen.getByText('Pago registrado')).toBeInTheDocument()
+  })
+
   it('preselecciona el alumno desde el atajo de la ficha', async () => {
     const cuenta = structuredClone(facturacion)
     const base = cuenta.facturas[0]
@@ -264,7 +294,7 @@ describe('PortalFamiliaFacturacionPage', () => {
     expect(descarga.parentElement).toHaveClass('justify-end')
   })
 
-  it('oculta el detalle hasta desplegar la factura y pagina de a diez', async () => {
+  it('oculta el detalle hasta desplegar la factura y pagina de a cinco', async () => {
     const cuenta = structuredClone(facturacion)
     cuenta.facturas = Array.from({ length: 11 }, (_, indice) => ({
       ...structuredClone(facturacion.facturas[0]),
@@ -274,14 +304,17 @@ describe('PortalFamiliaFacturacionPage', () => {
     mockedListarFacturacion.mockResolvedValue(cuenta)
     renderizarPagina()
     expect((await screen.findAllByText('Concepto 1'))[0]).toBeInTheDocument()
-    expect(screen.getAllByText('Concepto 10')[0]).toBeInTheDocument()
-    expect(screen.queryByText('Concepto 11')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Concepto 5')[0]).toBeInTheDocument()
+    expect(screen.queryByText('Concepto 6')).not.toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Descargar factura' })[0]).not.toBeVisible()
     abrirFactura()
     expect(screen.getAllByRole('button', { name: 'Descargar factura' })[0]).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
-    expect(screen.getAllByText('Concepto 11')[0]).toBeInTheDocument()
+    expect(screen.getAllByText('Concepto 6')[0]).toBeInTheDocument()
     expect(screen.queryByText('Concepto 1')).not.toBeInTheDocument()
+    expect(screen.queryByText('Concepto 11')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
+    expect(screen.getAllByText('Concepto 11')[0]).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Todas 11' }))
     expect(screen.getAllByText('Concepto 1')[0]).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
