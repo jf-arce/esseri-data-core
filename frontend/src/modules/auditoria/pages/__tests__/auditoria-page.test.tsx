@@ -66,7 +66,7 @@ describe('AuditoriaPage', () => {
     await userEvent.click(screen.getByText('2'))
     await waitFor(() => expect(mockedListar.mock.lastCall?.[0].pagina).toBe(2))
 
-    await userEvent.type(screen.getByPlaceholderText(/Buscar por entidad/), 'beca')
+    await userEvent.type(screen.getByPlaceholderText(/Buscar entidad/), 'beca')
 
     await waitFor(() =>
       expect(mockedListar.mock.lastCall?.[0]).toMatchObject({ busqueda: 'beca', pagina: 1 }),
