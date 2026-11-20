@@ -65,7 +65,11 @@ function ProveedoresTabla({ proveedores, cargando, onEditar, onEliminar }: Prove
         ) : (
           proveedores.map((proveedor) => (
             <TableRow key={proveedor.id}>
-              <TableCell className="font-medium">{proveedor.nombre}</TableCell>
+              <TableCell className="font-medium">
+                <span className="block max-w-[16rem] truncate" title={proveedor.nombre}>
+                  {proveedor.nombre}
+                </span>
+              </TableCell>
               <TableCell>
                 {proveedor.categoria ? (
                   <Badge variant="modulo" data-modulo="compras">
@@ -76,7 +80,12 @@ function ProveedoresTabla({ proveedores, cargando, onEditar, onEliminar }: Prove
                 )}
               </TableCell>
               <TableCell className="text-texto-2">
-                {proveedor.email ?? proveedor.telefono ?? '—'}
+                <span
+                  className="block max-w-[16rem] truncate"
+                  title={proveedor.email ?? proveedor.telefono ?? undefined}
+                >
+                  {proveedor.email ?? proveedor.telefono ?? '—'}
+                </span>
               </TableCell>
               <TableCell className="text-texto-2">{proveedor.telefono ?? '—'}</TableCell>
               <TableCell>
