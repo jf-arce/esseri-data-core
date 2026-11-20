@@ -8,10 +8,11 @@ export const ETIQUETAS_TIPO: Record<TipoComunicacion, string> = {
 }
 
 export const DESCRIPCIONES_TIPO: Record<TipoComunicacion, string> = {
-  institucional: 'Novedades y avisos del colegio',
+  institucional: 'Novedades, actividades, eventos y avisos generales del colegio.',
   curso: 'Información para un curso o división',
-  administrativa: 'Información de gestión',
-  otro: 'Otro tipo de comunicación',
+  administrativa:
+    'Información operativa o de gestión (facturación, inscripciones, documentación, etc.).',
+  otro: 'Comunicaciones no contempladas en las categorías anteriores.',
 }
 
 export const MAX_ADJUNTOS = 5
@@ -34,9 +35,9 @@ export const ETIQUETAS_CANAL: Record<Canal, string> = {
 }
 
 export const DESCRIPCIONES_CANAL: Record<Canal, string> = {
-  portal: 'Se publica en la bandeja del portal familiar.',
-  email: 'No aparece en la bandeja del portal: se envía por email a los responsables.',
-  ambos: 'Se publica en el portal y también se envía por email.',
+  portal: 'Se publica en la bandeja del Portal Familia.',
+  email: 'No aparece en la bandeja del portal; se envía por correo a los responsables.',
+  ambos: 'Se publica en el portal y también se envía por correo.',
 }
 
 export const ETIQUETAS_ESTADO_ADJUNTO: Record<EstadoAdjunto, string> = {

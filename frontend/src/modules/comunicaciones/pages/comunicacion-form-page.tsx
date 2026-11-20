@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { ArrowLeftIcon, CheckCircle2Icon, ChevronDownIcon, SearchIcon } from 'lucide-react'
+import {
+  ArrowLeftIcon,
+  CheckCircle2Icon,
+  ChevronDownIcon,
+  ClipboardListIcon,
+  EllipsisIcon,
+  MegaphoneIcon,
+  SearchIcon,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { FieldDescription, FieldGroup } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -20,6 +29,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 import { useAuthStore } from '@/store/auth-store'
 import { AdjuntosBorrador } from '../components/adjuntos-borrador'
+import { SelectorComunicacion } from '../components/selector-comunicacion'
 import { listarAdjuntos } from '../services/adjuntos'
 import { guardarBorrador } from '../services/guardar-borrador'
 import { obtenerComunicacion } from '../services/obtener-comunicacion'
@@ -61,6 +71,18 @@ const etiquetas = {
   division: 'Curso o división',
   alumnos: 'Alumnos seleccionados',
   responsables: 'Responsables seleccionados',
+}
+
+const TIPOS_GESTION = [
+  'institucional',
+  'administrativa',
+  'otro',
+] as const satisfies readonly TipoComunicacion[]
+const CANALES = ['portal', 'email', 'ambos'] as const satisfies readonly Canal[]
+const ICONOS_TIPO = {
+  institucional: MegaphoneIcon,
+  administrativa: ClipboardListIcon,
+  otro: EllipsisIcon,
 }
 
 const MENSAJES_SINCRONIZACION: Record<EstadoSincronizacion, string> = {
@@ -535,44 +557,36 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
           <p role="status">Cargando borrador…</p>
         ) : paso === 1 ? (
           <>
-            {!docente && (
-              <fieldset>
-                <legend className="sr-only">Tipo de comunicación</legend>
-                <RadioGroup
-                  value={datos.tipo ?? (docente ? 'curso' : 'institucional')}
-                  onValueChange={(tipo) =>
-                    actualizarDatos({ ...datos, tipo: tipo as TipoComunicacion })
-                  }
-                  disabled={ocupado}
-                  className={`grid grid-cols-1 gap-3 ${docente ? '' : 'sm:grid-cols-3'}`}
-                >
-                  {(Object.keys(ETIQUETAS_TIPO) as TipoComunicacion[])
-                    .filter((tipo) => (docente ? tipo === 'curso' : tipo !== 'curso'))
-                    .map((tipo) => (
-                      <Label
-                        key={tipo}
-                        className="flex h-full items-start gap-2 rounded-lg border border-borde p-4 has-[[data-state=checked]]:border-violeta has-[[data-state=checked]]:bg-violeta-suave has-[:disabled]:opacity-60"
-                      >
-                        <RadioGroupItem
-                          value={tipo}
-                          aria-label={ETIQUETAS_TIPO[tipo]}
-                          className="mt-0.5"
-                          disabled={docente ? tipo !== 'curso' : tipo === 'curso'}
-                        />
-                        <span className="space-y-1">
-                          <span className="block font-semibold">{ETIQUETAS_TIPO[tipo]}</span>
-                          <span className="block text-xs text-texto-2">
-                            {DESCRIPCIONES_TIPO[tipo]}
-                          </span>
-                        </span>
-                      </Label>
-                    ))}
-                </RadioGroup>
-                <p className="mt-2 text-xs text-texto-2">
-                  En Destinatarios podés elegir todo el colegio, un nivel o un curso.
-                </p>
-              </fieldset>
-            )}
+            <FieldGroup className={docente ? '' : 'grid grid-cols-1 gap-4 sm:grid-cols-2'}>
+              {!docente && (
+                <div className="flex min-w-0 flex-col gap-2">
+                  <SelectorComunicacion
+                    id="tipo-comunicacion"
+                    etiqueta="Tipo de comunicación"
+                    valor={datos.tipo ?? 'institucional'}
+                    opciones={TIPOS_GESTION}
+                    titulos={ETIQUETAS_TIPO}
+                    descripciones={DESCRIPCIONES_TIPO}
+                    iconos={ICONOS_TIPO}
+                    disabled={ocupado}
+                    onChange={(tipo) => actualizarDatos({ ...datos, tipo })}
+                  />
+                  <FieldDescription>
+                    En Destinatarios podés elegir todo el colegio, un nivel o un curso.
+                  </FieldDescription>
+                </div>
+              )}
+              <SelectorComunicacion
+                id="canal-comunicacion"
+                etiqueta="Canal de envío"
+                valor={canal}
+                opciones={CANALES}
+                titulos={ETIQUETAS_CANAL}
+                descripciones={DESCRIPCIONES_CANAL}
+                disabled={ocupado}
+                onChange={(canal) => actualizarDatos({ ...datos, canal })}
+              />
+            </FieldGroup>
             <div className="space-y-2">
               <Label htmlFor="asunto">Asunto</Label>
               <Input
@@ -594,29 +608,6 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
                 onChange={(e) => actualizarDatos({ ...datos, cuerpo: e.target.value })}
               />
             </div>
-            <fieldset className="space-y-3">
-              <legend className="mb-1 font-semibold">Canal de envío</legend>
-              <RadioGroup
-                value={canal}
-                onValueChange={(v) => actualizarDatos({ ...datos, canal: v as Canal })}
-                disabled={ocupado}
-              >
-                {(Object.keys(ETIQUETAS_CANAL) as Canal[]).map((opcion) => (
-                  <Label
-                    key={opcion}
-                    className="flex items-start gap-3 rounded-lg border border-borde p-3"
-                  >
-                    <RadioGroupItem value={opcion} className="mt-0.5" />
-                    <span>
-                      <span className="block">{ETIQUETAS_CANAL[opcion]}</span>
-                      <span className="block text-xs text-texto-2">
-                        {DESCRIPCIONES_CANAL[opcion]}
-                      </span>
-                    </span>
-                  </Label>
-                ))}
-              </RadioGroup>
-            </fieldset>
             <AdjuntosBorrador
               comunicacionId={persistido}
               adjuntos={adjuntos}
