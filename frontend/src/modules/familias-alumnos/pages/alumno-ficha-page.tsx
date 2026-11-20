@@ -136,13 +136,19 @@ export function AlumnoFichaPage() {
                 </div>
                 <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-x-4 gap-y-3 px-6 py-5 text-sm">
                   <span className="text-texto-2">Nombre</span>
-                  <span className="font-medium break-words text-texto">{alumno.persona_nombre}</span>
+                  <span className="font-medium break-words text-texto">
+                    {alumno.persona_nombre}
+                  </span>
                   <span className="text-texto-2">Apellido</span>
-                  <span className="font-medium break-words text-texto">{alumno.persona_apellido}</span>
+                  <span className="font-medium break-words text-texto">
+                    {alumno.persona_apellido}
+                  </span>
                   <span className="text-texto-2">DNI</span>
                   <span className="font-medium break-words text-texto">{alumno.persona_dni}</span>
                   <span className="text-texto-2">Teléfono</span>
-                  <span className="font-medium break-words text-texto">{alumno.persona_telefono ?? '—'}</span>
+                  <span className="font-medium break-words text-texto">
+                    {alumno.persona_telefono ?? '—'}
+                  </span>
                 </div>
               </Card>
 
@@ -152,7 +158,9 @@ export function AlumnoFichaPage() {
                 </div>
                 <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-x-4 gap-y-3 px-6 py-5 text-sm">
                   <span className="text-texto-2">Número de legajo</span>
-                  <span className="font-mono font-medium break-words text-texto">{alumno.numero_legajo}</span>
+                  <span className="font-mono font-medium break-words text-texto">
+                    {alumno.numero_legajo}
+                  </span>
                   <span className="text-texto-2">Estado</span>
                   <span>
                     <BadgeEstado estado={alumno.estado} />

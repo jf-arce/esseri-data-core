@@ -225,7 +225,9 @@ export function FamiliaFichaPage() {
                   <span className="text-texto-2">DNI</span>
                   <span className="font-medium break-words text-texto">{familia.persona_dni}</span>
                   <span className="text-texto-2">Teléfono</span>
-                  <span className="font-medium break-words text-texto">{familia.persona_telefono ?? '—'}</span>
+                  <span className="font-medium break-words text-texto">
+                    {familia.persona_telefono ?? '—'}
+                  </span>
                   <span className="text-texto-2">Usuario del sistema</span>
                   <span>
                     <Badge variant="exito">Activo</Badge>

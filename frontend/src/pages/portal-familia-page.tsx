@@ -256,7 +256,9 @@ export function PortalFamiliaPage() {
   const resumen = cargandoResumen ? (
     'Estamos armando el resumen de tu familia.'
   ) : chips.length === 0 ? (
-    hayAusenciasPendientes ? null : 'Todo al día por ahora.'
+    hayAusenciasPendientes ? null : (
+      'Todo al día por ahora.'
+    )
   ) : (
     <span className="flex flex-wrap items-center gap-1.5 text-sm">
       {chips.map((chip) => (
