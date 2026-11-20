@@ -23,11 +23,6 @@ export const panelAdminRoutes: RouteObject[] = [
     ],
   },
   {
-    // "administrador del sistema" también entra acá (grupo-b.yaml: "administrador del sistema
-    // = todo", CRUD completo en los 10 módulos) — su *pantalla de inicio* por default es
-    // /panel (ver `rutaInicioDe` en nav-items.ts), pero eso no le saca acceso a /admin: puede
-    // navegar a los dos paneles desde el sidebar, a diferencia de Dirección/Administración que
-    // solo ven el suyo.
     element: <RoleRoute allowedRoles={[ROL_ADMINISTRACION, ROL_ADMINISTRADOR_DEL_SISTEMA]} />,
     children: [
       {

@@ -223,7 +223,7 @@ Arma el árbol de rutas de React Router juntando lo que cada módulo expone en s
 | `protected-route.tsx` | Componente wrapper que envuelve rutas que requieren sesión iniciada — redirige a login si no hay usuario autenticado (usa `store/auth-store.ts`). |
 | `rol-activo-route.tsx` | Dentro de `ProtectedRoute`, antes del shell: con sesión pero sin rol activo elegido todavía, redirige a `/elegir-perfil` en vez de dejar entrar a un panel sin rol. |
 | `inicio-route.tsx` | La ruta `index` del shell: redirige a la pantalla principal del rol activo (`nav-items.ts` → `rutaInicioDe`), o muestra "sin acceso" si el rol no tiene ningún permiso. Reemplaza a la vieja `HomePage` genérica. |
-| `role-route.tsx` | Wrapper similar a `protected-route.tsx`, pero además valida el **rol activo** (no todos los roles de la cuenta) contra los roles permitidos para esa ruta (ej. solo `dirección` entra a `/panel`, solo `administración` a `/admin`). |
+| `role-route.tsx` | Wrapper similar a `protected-route.tsx`, pero además valida el **rol activo** (no todos los roles de la cuenta) contra los roles permitidos para esa ruta (ej. `/panel` es de `dirección` y del administrador del sistema, `/admin` de `administración` y del administrador del sistema). |
 | `permiso-route.tsx` | Análogo a `role-route.tsx` pero por permiso: valida el código contra los permisos del **rol activo** (`store/auth-store.ts` → `permisosActivos`), no contra la suma de permisos de la cuenta. |
 
 Con esto, ningún módulo necesita saber de la existencia de los demás para definir sus propias rutas — cada uno declara las suyas en su `routes.tsx`, y `router/index.tsx` es el único lugar que los conoce a todos.
