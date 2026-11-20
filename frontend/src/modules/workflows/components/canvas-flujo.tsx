@@ -589,7 +589,8 @@ function LienzoFlujo(props: CanvasFlujoProps) {
           variant={BackgroundVariant.Dots}
           gap={20}
           size={1.6}
-          color="color-mix(in srgb, var(--borde) 55%, var(--texto-3))"
+          className="[--punto:color-mix(in_srgb,var(--borde)_55%,var(--texto-3))] [.dark_&]:[--punto:color-mix(in_srgb,var(--borde)_70%,transparent)]"
+          color="var(--punto)"
         />
         <ControlesVista />
         <Panel
