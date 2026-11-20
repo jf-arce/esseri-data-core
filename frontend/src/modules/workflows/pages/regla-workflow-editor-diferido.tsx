@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useRef } from 'react'
 import { EsqueletoEditor } from '@/modules/workflows/components/esqueleto-editor'
 
 // El editor carga @xyflow/react: se pide recién al abrirlo, para no sumarlo al resto del módulo.
@@ -10,9 +10,11 @@ const ReglaWorkflowEditorPage = lazy(async () => {
 })
 
 export function ReglaWorkflowEditorDiferido() {
+  const inicioPulso = useRef<number | null>(null)
+
   return (
-    <Suspense fallback={<EsqueletoEditor />}>
-      <ReglaWorkflowEditorPage />
+    <Suspense fallback={<EsqueletoEditor inicioPulso={inicioPulso} />}>
+      <ReglaWorkflowEditorPage inicioPulso={inicioPulso} />
     </Suspense>
   )
 }

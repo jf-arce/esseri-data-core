@@ -126,7 +126,7 @@ export function AristaFlujo({
                     type="button"
                     aria-label="Agregar condición"
                     onClick={data?.onInsertarCondicion}
-                    className="flex size-6 items-center justify-center rounded-full border border-borde bg-superficie text-texto-2 shadow-card hover:text-texto"
+                    className="flex size-6 items-center justify-center rounded-full border border-borde bg-superficie text-texto-2 shadow-(--sombra-flotante) hover:text-texto"
                   >
                     <PlusIcon className="size-3.5" />
                   </button>
@@ -142,7 +142,7 @@ export function AristaFlujo({
                       type="button"
                       aria-label="Desconectar bloque"
                       onClick={data?.onDesconectar}
-                      className="flex size-6 items-center justify-center rounded-full border border-borde bg-superficie text-texto-2 shadow-card hover:text-error"
+                      className="flex size-6 items-center justify-center rounded-full border border-borde bg-superficie text-texto-2 shadow-(--sombra-flotante) hover:text-error"
                     >
                       <XIcon className="size-3.5" />
                     </button>

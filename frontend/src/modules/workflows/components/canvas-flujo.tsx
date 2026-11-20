@@ -10,7 +10,6 @@ import {
 import {
   Background,
   BackgroundVariant,
-  MiniMap,
   Panel,
   ReactFlow,
   ReactFlowProvider,
@@ -113,7 +112,7 @@ export interface CanvasFlujoProps {
   enfocar: { id: string; vez: number } | null
   puedeDeshacer: boolean
   puedeRehacer: boolean
-  /** "Probar regla": el panel flotante del simulador, que arma la página. */
+  /** "Probar regla": el simulador, que arma la página y trae sus propios `Panel` del lienzo. */
   simulador: ReactNode
   /** Ancho que el inspector flotante le tapa al lienzo por la derecha (0 si está cerrado). */
   anchoTapado: number
@@ -528,6 +527,16 @@ function LienzoFlujo(props: CanvasFlujoProps) {
     props.onSoltarBloque(que as QueAgregar, posicion)
   }
 
+  /** Selecciona el nodo apenas se lo aprieta (también el disparador, que no se arrastra). Los
+   * botones y los puntos de conexión del nodo conservan su comportamiento. */
+  function alApretarNodo(evento: React.PointerEvent<HTMLDivElement>) {
+    if (!(evento.target instanceof Element)) return
+    if (evento.target.closest('button, a, [role="menuitem"], .react-flow__handle')) return
+    const nodo = evento.target.closest('.react-flow__node')
+    const id = nodo?.getAttribute('data-id')
+    if (id) props.onSeleccionar(id)
+  }
+
   return (
     <div
       ref={contenedor}
@@ -537,6 +546,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
         evento.dataTransfer.dropEffect = 'move'
       }}
       onDrop={alSoltar}
+      onPointerDownCapture={alApretarNodo}
     >
       <ReactFlow<NodoFlujo, TipoAristaFlujo>
         nodes={nodosVisibles}
@@ -560,7 +570,10 @@ function LienzoFlujo(props: CanvasFlujoProps) {
           props.onSeleccionar(null)
         }}
         onMoveStart={() => setSoltada(null)}
-        onNodeDragStart={() => setSoltada(null)}
+        onNodeDragStart={(_, nodo) => {
+          setSoltada(null)
+          props.onSeleccionar(nodo.id)
+        }}
         onPaneContextMenu={alMenuContextual}
         onNodeDragStop={(_, __, movidos) => alSoltarNodo(movidos)}
         nodesConnectable={!soloLectura}
@@ -572,7 +585,13 @@ function LienzoFlujo(props: CanvasFlujoProps) {
         proOptions={{ hideAttribution: true }}
         aria-label="Lienzo del flujo de la regla"
       >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} color="var(--borde)" />
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={20}
+          size={1.6}
+          className="[--punto:color-mix(in_srgb,var(--borde)_55%,var(--texto-3))] [.dark_&]:[--punto:color-mix(in_srgb,var(--borde)_70%,transparent)]"
+          color="var(--punto)"
+        />
         <ControlesVista />
         <Panel
           position="top-left"
@@ -593,7 +612,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
         {!soloLectura && (
           <Panel
             position="bottom-left"
-            className="ml-16! flex items-center overflow-hidden rounded-lg border border-borde bg-superficie shadow-card"
+            className="ml-16! flex items-center overflow-hidden rounded-lg border border-borde bg-superficie shadow-(--sombra-flotante)"
           >
             <TooltipProvider>
               <div
@@ -655,22 +674,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
             </TooltipProvider>
           </Panel>
         )}
-        <Panel position="bottom-center">{props.simulador}</Panel>
-        {anchoTapado === 0 && (
-          <MiniMap
-            pannable
-            zoomable
-            ariaLabel="Mapa del flujo"
-            nodeColor={(nodo) =>
-              nodo.type === 'condicion'
-                ? 'var(--advertencia)'
-                : nodo.type === 'accion'
-                  ? 'var(--mod-inscripciones)'
-                  : 'var(--mod-workflows)'
-            }
-            className="hidden! sm:block!"
-          />
-        )}
+        {props.simulador}
       </ReactFlow>
       <Popover open={soltada !== null} onOpenChange={(abierto) => !abierto && setSoltada(null)}>
         <PopoverAnchor

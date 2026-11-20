@@ -44,7 +44,7 @@ describe('ReglasWorkflowTabla', () => {
   it('con permiso de actualización ofrece editar y el botón de estado, sin desactivar en el menú', async () => {
     renderizar(true)
 
-    expect(screen.getByRole('button', { name: /^Pausar / })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /^Detener / })).toBeEnabled()
     await abrirMenuDeFila()
     expect(screen.getByRole('menuitem', { name: 'Editar' })).toHaveAttribute(
       'href',

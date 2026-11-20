@@ -128,7 +128,6 @@ export function AlumnosPage() {
           label="Alumnos registrados"
           value={stats.total}
           icon={GraduationCapIcon}
-          variant="dark"
           cargando={cargando}
         />
         <StatTile

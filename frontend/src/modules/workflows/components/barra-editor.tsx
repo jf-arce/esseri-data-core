@@ -55,14 +55,17 @@ export function BarraEditor({
           </Link>
         </BotonIcono>
         <nav aria-label="Ubicación" className="hidden shrink-0 text-sm text-texto-2 sm:block">
-          <Link to={RUTA_REGLAS} className="hover:text-texto">
+          <Link to={RUTA_REGLAS} className="hidden hover:text-texto sm:inline">
             Workflows
           </Link>
-          <span aria-hidden="true"> / </span>
+          <span aria-hidden="true" className="hidden sm:inline">
+            {' '}
+            /{' '}
+          </span>
           <span className="font-semibold text-texto">{titulo}</span>
         </nav>
         {cargando ? (
-          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-9 w-64 min-w-0 motion-reduce:animate-none!" aria-hidden="true" />
         ) : (
           <Input
             aria-label="Nombre de la regla"
@@ -70,8 +73,9 @@ export function BarraEditor({
             value={nombre}
             maxLength={LIMITE_NOMBRE_REGLA}
             disabled={soloLectura}
+            aria-invalid={!soloLectura && nombre.trim() === ''}
             onChange={(evento) => onCambiarNombre(evento.target.value)}
-            className="h-9 max-w-md min-w-40 flex-1 border-transparent bg-transparent px-2 text-base font-semibold shadow-none hover:bg-fila-hover focus-visible:bg-superficie"
+            className="h-9 max-w-md min-w-40 flex-1 border-transparent bg-transparent px-2 text-base font-semibold shadow-none hover:bg-fila-hover focus-visible:bg-superficie aria-invalid:border-error"
           />
         )}
       </div>
@@ -81,7 +85,7 @@ export function BarraEditor({
             id="regla-activa"
             aria-label="Regla activa"
             checked={activo}
-            disabled={soloLectura}
+            disabled={soloLectura || cargando}
             onCheckedChange={onCambiarActivo}
           />
           <label htmlFor="regla-activa" className="text-sm font-semibold text-texto-2">

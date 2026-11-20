@@ -56,13 +56,11 @@ const COLUMNAS_XL = {
 
 function Desglose({ items }: { items: { etiqueta: string; valor: string }[] }) {
   return (
-    <dl className="grid grid-cols-2 gap-4 border-t border-white/15 pt-4">
+    <dl className="grid grid-cols-2 gap-4 border-t border-borde pt-4">
       {items.map(({ etiqueta, valor }) => (
         <div key={etiqueta}>
-          <dt className="text-xs text-texto-2-sobre-oscuro">{etiqueta}</dt>
-          <dd className="mt-0.5 text-base font-semibold tabular-nums text-texto-sobre-oscuro">
-            {valor}
-          </dd>
+          <dt className="text-xs text-texto-2">{etiqueta}</dt>
+          <dd className="mt-0.5 text-base font-semibold tabular-nums text-texto">{valor}</dd>
         </div>
       ))}
     </dl>
@@ -265,13 +263,12 @@ export function IndicadoresDireccion({
               value={error ? 'No disponible' : tarjeta.value}
               icon={tarjeta.icon}
               iconClassName={tarjeta.iconClassName}
-              variant={esHero ? 'dark' : 'default'}
               hero={esHero}
               notaAlPie={!esHero}
               compact={!esHero}
               cargando={cargando}
               note={error || cargando ? undefined : tarjeta.note}
-              className={`h-full transition-colors duration-200 ${esHero ? 'group-hover:bg-nav-hover' : 'group-hover:bg-fila-hover'}`}
+              className="h-full transition-[background-color,box-shadow] duration-200 group-hover:bg-(--card-hover) group-hover:shadow-(--sombra-card-hover)"
             >
               {esHero && !cargando && !error ? tarjeta.desglose : null}
             </StatTile>

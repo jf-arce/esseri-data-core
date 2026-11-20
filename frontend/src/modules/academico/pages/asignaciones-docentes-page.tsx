@@ -152,12 +152,7 @@ export function AsignacionesDocentesPage() {
 
       {/* Stats strip */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatTile
-          variant="dark"
-          label="Asignaciones activas"
-          value={stats.activas}
-          icon={UsersIcon}
-        />
+        <StatTile label="Asignaciones activas" value={stats.activas} icon={UsersIcon} />
         <StatTile
           label="Docentes con asignación"
           value={stats.docentes}
