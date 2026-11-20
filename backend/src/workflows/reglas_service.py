@@ -26,9 +26,7 @@ from src.workflows.service import tipos_de_campos
 def listar_reglas(
     db: Session, tipo_evento_id: uuid.UUID | None = None, activo: bool | None = None
 ) -> list[WorkflowRuleRead]:
-    consulta = select(WorkflowRule).order_by(
-        WorkflowRule.created_at.desc(), WorkflowRule.nombre
-    )
+    consulta = select(WorkflowRule).order_by(WorkflowRule.created_at.desc(), WorkflowRule.nombre)
     if tipo_evento_id is not None:
         consulta = consulta.where(WorkflowRule.tipo_evento_id == tipo_evento_id)
     if activo is not None:

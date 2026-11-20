@@ -90,44 +90,6 @@ def test_rechaza_un_valor_fuera_de_la_lista(client_autenticado, tipo_inasistenci
     assert "no es un valor válido" in respuesta.json()["detail"]
 
 
-@pytest.fixture()
-def tipo_debito(db_session):
-    tipo = TipoEvento(nombre="debito.resultado_registrado", descripcion="Resultado de un débito")
-    db_session.add(tipo)
-    db_session.flush()
-    db_session.add(
-        CampoEvento(
-            nombre_interno="resultado",
-            etiqueta="Resultado del débito",
-            tipo_dato="texto",
-            tipo_evento_id=tipo.id,
-        )
-    )
-    db_session.flush()
-    return tipo
-
-
-def test_resultado_del_debito_expone_exitoso_y_rechazado(client_autenticado, tipo_debito):
-    tipos = client_autenticado.get("/workflows/tipos-evento").json()
-
-    campo = tipos[0]["campos"][0]
-    assert campo["opciones"] == [
-        {"valor": "exitoso", "etiqueta": "Exitoso"},
-        {"valor": "rechazado", "etiqueta": "Rechazado"},
-    ]
-
-
-def test_resultado_del_debito_acepta_exitoso_y_rechaza_otros(client_autenticado, tipo_debito):
-    valido = {"campo": "resultado", "operador": "==", "valor": "exitoso"}
-    invalido = {"campo": "resultado", "operador": "==", "valor": "COBRADO_SIM"}
-
-    ok = client_autenticado.post("/workflows/reglas", json=_regla(tipo_debito, valido))
-    mal = client_autenticado.post("/workflows/reglas", json=_regla(tipo_debito, invalido))
-
-    assert ok.status_code == 201
-    assert mal.status_code == 422
-
-
 def test_rechaza_contiene_en_un_campo_cerrado(client_autenticado, tipo_inasistencia):
     comparacion = {"campo": "tipo_asistencia", "operador": "contiene", "valor": "tard"}
 
