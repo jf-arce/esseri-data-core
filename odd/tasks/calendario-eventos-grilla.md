@@ -30,3 +30,10 @@ Runners: Vitest and pytest. Scope: family calendar, its event projection and Com
 - L5 · Verified in the running preview: total overlap at 50%, evening event extending the grid to 19:30, Side Sheet from grid and list, overlap notice without cancellation wording.
 
 - L6 · Fixed detail panel removed. `DetalleMateria` feeds a controlled Popover anchored to each class card and a bottom Sheet in the mobile agenda; the event Side Sheet now uses a bottom side below 768 px. Grid width went from 1071 to 1310 px at 1440 px, overlap cards from 91 to 118 px. 286 frontend tests, lint and build passed; verified in the browser at 1440 and 390.
+
+## Entrega
+
+- Estrategia: `ask-on-risk`, cadena `stacked-to-main` elegida por el usuario.
+- PR #339 (`feat/comunicaciones-formulario`, base `main`): commits `b788458` a `60725c8`.
+- PR #340 (`feat/calendario-eventos-semanales`, base `feat/comunicaciones-formulario`): commits `0d69003` a `13864eb`.
+- Ambos PRs exceden el presupuesto de revisión de 400 líneas y requieren `size:exception`.
