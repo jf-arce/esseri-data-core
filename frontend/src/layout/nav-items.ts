@@ -163,6 +163,28 @@ export const NAV_GROUPS: NavGroup[] = [
         permiso: PERMISO_COMUNICACIONES_LEER,
       },
       {
+        // Administración no tiene `academico.leer`: llega solo a resolver justificaciones con el
+        // permiso tipado. Se muestra el mismo módulo con sus dos bandejas, sin landing propia.
+        label: 'Académico',
+        icon: BookOpenIcon,
+        modulo: 'academico',
+        roles: [ROL_ADMINISTRACION],
+        children: [
+          {
+            label: 'Justificaciones',
+            href: '/academico/justificaciones',
+            icon: ClipboardCheck,
+            permiso: PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES,
+          },
+          {
+            label: 'Solicitudes por período',
+            href: '/academico/solicitudes-ausencia',
+            icon: ClipboardList,
+            permiso: PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES,
+          },
+        ],
+      },
+      {
         // El label es el link a la landing del módulo (§8 DESIGN.md); el desplegable solo
         // suma los destinos DISTINTOS de esa landing — nunca la repite como primer ítem.
         label: 'Familias y alumnos',

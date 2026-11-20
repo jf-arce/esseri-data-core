@@ -1,5 +1,5 @@
 import { DownloadIcon, ShieldAlertIcon } from 'lucide-react'
-import { useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 import { descargarExport } from '@/lib/descargar-export'
 import { formatearFechaHora } from '@/lib/fechas'
 import { BackLink } from '@/components/back-link'
@@ -9,6 +9,8 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/componen
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { FormularioPagoFactura } from '@/modules/facturacion/components/formulario-pago-factura'
+import { ESTADOS } from '@/modules/comunicaciones/conversaciones'
+import { useConversacionesPorFactura } from '@/modules/comunicaciones/hooks/use-conversaciones-contexto'
 import { useFacturaDetalle } from '@/modules/facturacion/hooks/use-factura-detalle'
 import {
   etiquetaEstadoFactura,
@@ -22,6 +24,8 @@ const VARIANTE_ESTADO = { pendiente: 'advertencia', vencida: 'error', pagada: 'e
 export function FacturaDetallePage() {
   const { facturaId } = useParams()
   const { factura, cargando, error, sinPermiso, recargar } = useFacturaDetalle(facturaId)
+  const conversaciones = useConversacionesPorFactura()
+  const conversacion = factura ? conversaciones.get(factura.id) : undefined
 
   if (cargando) {
     return <Skeleton className="h-120 w-full rounded-panel" />
@@ -223,14 +227,39 @@ export function FacturaDetallePage() {
           </Card>
         </div>
 
-        <Card>
-          <CardHeader className="border-b border-borde">
-            <CardTitle>Registrar pago</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <FormularioPagoFactura factura={factura} onPagoRegistrado={recargar} />
-          </CardContent>
-        </Card>
+        <div className="flex flex-col gap-5">
+          <Card>
+            <CardHeader className="border-b border-borde">
+              <CardTitle>Registrar pago</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FormularioPagoFactura factura={factura} onPagoRegistrado={recargar} />
+            </CardContent>
+          </Card>
+
+          {conversacion && (
+            <Card>
+              <CardHeader className="border-b border-borde">
+                <CardTitle>Conversación vinculada</CardTitle>
+                <CardAction>
+                  <Badge variant={conversacion.estado === 'resuelta' ? 'exito' : 'advertencia'}>
+                    {ESTADOS[conversacion.estado]}
+                  </Badge>
+                </CardAction>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <p className="line-clamp-3 text-sm text-texto-2">
+                  {conversacion.ultimo_mensaje?.texto ?? 'La conversación no tiene mensajes.'}
+                </p>
+                <Button asChild>
+                  <Link to={`/comunicaciones/conversaciones/${conversacion.id}`}>
+                    Abrir conversación
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
   )

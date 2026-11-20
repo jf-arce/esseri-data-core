@@ -19,3 +19,24 @@ export function useConversacionesContexto() {
     return mapa
   }, [items])
 }
+
+/** Conversaciones de débito indexadas por factura, para la ficha de facturación. */
+export function useConversacionesPorFactura() {
+  const [items, setItems] = useState<ConsultaResumen[]>([])
+  useEffect(() => {
+    const controller = new AbortController()
+    void listarConversaciones({ limite: 100 }, controller.signal)
+      .then((datos) => {
+        if (!controller.signal.aborted) setItems(datos.items)
+      })
+      .catch(() => undefined)
+    return () => controller.abort()
+  }, [])
+  return useMemo(() => {
+    const mapa = new Map<string, ConsultaResumen>()
+    for (const item of items) {
+      if (item.contexto.factura_id) mapa.set(item.contexto.factura_id, item)
+    }
+    return mapa
+  }, [items])
+}
