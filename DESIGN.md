@@ -187,6 +187,31 @@ Dos shells, no uno solo — elegir según cuántos destinos tiene el rol, no por
 - Todo elemento de grid (`.two-col`, `.two`) que puede contener una tabla ancha necesita `min-width:0` en sus hijos directos, y la tabla va envuelta en un contenedor con `overflow-x:auto` — si no, la tabla fuerza su `min-width` y desborda la columna (y a veces la página entera) en vez de scrollear contenida.
 - **Encabezado de página**: etiqueta de sección (estilo versalitas), breadcrumb que nombre la vista de origen (toda vista de detalle lo lleva), título, acciones primarias a la derecha, tabs debajo si corresponde.
 
+### 8.0 Responsive del contenido (container queries)
+
+En la Consola, el contenido de las páginas comparte el ancho con el sidebar (16rem, o 4rem en modo ícono) y con el asistente acoplado (340 a 640px). Un breakpoint de viewport (`sm:`, `lg:`, `xl:`) no sabe nada de eso: con ambos paneles abiertos en 1440px, `xl:` sigue activo y al contenido le quedan unos 780px.
+
+**Regla**: dentro de las páginas, el responsive se hace con container queries contra `main` (`@xl/main:`, `@5xl/main:`...), no con breakpoints de viewport. Los tres layouts (`app-layout.tsx`, `portal-layout.tsx`, `portal-docente-layout.tsx`) declaran `@container/main` en su contenedor de contenido, así que las páginas compartidas entre portales funcionan igual en los tres.
+
+| Viewport | Container (contra `main`) |
+|---|---|
+| `sm:` | `@xl/main:` (576px) |
+| `md:` | `@3xl/main:` (768px) |
+| `lg:` | `@5xl/main:` (1024px) |
+| `xl:` | `@7xl/main:` (1280px) |
+| `2xl:` | `@6xl/main:` (1152px, baja a propósito) |
+| `max-lg:` | `@max-5xl/main:` |
+
+Excepciones y contenedores propios:
+
+- Lo que se renderiza en un portal (Dialog, Sheet, AlertDialog, Popover, DropdownMenu, contenido de Select/Command y Tooltip) se mide contra la ventana: sigue con `sm:` y similares.
+- Los márgenes negativos que compensan el padding del `<main>` de los portales (Comunicaciones) usan el breakpoint de viewport, porque ese padding también es de viewport.
+- Formularios dentro de `FieldGroup`: `@…/field-group:`. Cards de `panel-card`: `@sm:` y similares (ya es `@container`). Card de atención de Dirección: `@…/atencion:`. Lienzo del editor de workflows: `@…/lienzo:`.
+- El topbar usa `@container/shell` (el ancho del `SidebarInset`), para que el buscador se reduzca a ícono cuando el asistente lo aplasta.
+- Por debajo de `md` el sidebar es un Sheet; el `SidebarTrigger` del topbar (`md:hidden`) es el único modo de abrirlo.
+
+Patrones asociados: tabla dentro de una pista de grid siempre con `minmax(0,1fr)` o `min-w-0`; `Table bare` cuando va dentro de un `Card`; `max-w-* truncate` va en un `<span className="block ...">` dentro de la celda, no sobre el `<td>`; si una tabla oculta columnas por ancho, el esqueleto (`COLUMNAS_ESQUELETO`) se convierte en el mismo cambio; grillas con cantidad variable de tiles con `repeat(auto-fit|auto-fill, minmax(...))` o `flex flex-wrap *:flex-1 *:min-w-N`.
+
 ### 8.1 Autenticación y roles
 
 Un solo formulario de login para las cuatro audiencias (Dirección, Administración, Docente, Familia). El rol **nunca se pregunta antes de autenticar**: es un dato que devuelve el servidor junto con el JWT, no una elección del usuario. Preguntar el rol de antemano agrega un paso a un flujo diario, permite enumerar qué tipos de cuenta existen, y si el usuario elige mal se entera recién después de tipear la contraseña. El router (`role-route.tsx`) redirige a la home de cada rol según lo que trae el token.
