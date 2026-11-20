@@ -57,7 +57,7 @@ export function PanelDireccionPage() {
         titulo="Panel de Dirección"
         descripcion={`${capitalize(fechaDeHoy())} · Ciclo ${cicloLectivo}`}
         accion={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {actualizadoEn && (
               <span className="text-xs tabular-nums text-texto-2">
                 Actualizado a las{' '}

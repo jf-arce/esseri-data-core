@@ -45,11 +45,11 @@ export function DetalleDireccion({
   // Bento de 12 columnas: 8/4 arriba y 4/8 abajo, para que los anchos se alternen en vez de
   // repetir dos columnas iguales. Si falta la pareja de una celda, ocupa todo el ancho.
   const ancho = (principal: boolean, pareja: boolean, grande: string, chico: string) =>
-    pareja ? (principal ? grande : chico) : 'xl:col-span-12'
+    pareja ? (principal ? grande : chico) : '@7xl/main:col-span-12'
   return (
-    <div className="grid min-w-0 items-stretch gap-6 xl:grid-cols-12">
+    <div className="grid min-w-0 items-stretch gap-6 @7xl/main:grid-cols-12">
       {hayAtencion && (
-        <div className={cn('min-w-0', ancho(true, hayActividad, 'xl:col-span-8', 'xl:col-span-4'))}>
+        <div className={cn('min-w-0', ancho(true, hayActividad, '@7xl/main:col-span-8', '@7xl/main:col-span-4'))}>
           <AtencionDireccion
             compras={datos.compras}
             deudas={datos.deudas}
@@ -58,20 +58,20 @@ export function DetalleDireccion({
         </div>
       )}
       {hayActividad && (
-        // En escritorio la card toma la altura de "Requiere tu atención" (`xl:h-0 xl:min-h-full`
+        // En escritorio la card toma la altura de "Requiere tu atención" (`@7xl/main:h-0 @7xl/main:min-h-full`
         // la saca del cálculo de la fila) y la lista hace scroll adentro si hay muchos eventos.
         <div
           className={cn(
             'min-w-0',
-            ancho(false, hayAtencion, 'xl:col-span-8', 'xl:col-span-4'),
-            hayAtencion && 'xl:h-0 xl:min-h-full',
+            ancho(false, hayAtencion, '@7xl/main:col-span-8', '@7xl/main:col-span-4'),
+            hayAtencion && '@7xl/main:h-0 @7xl/main:min-h-full',
           )}
         >
           <PanelActividadReciente
             recurso={datos.actividad}
             contenidoClassName={cn(
               'min-h-0 flex-1 overflow-y-auto',
-              hayAtencion ? 'max-h-96 xl:max-h-none' : 'max-h-[32rem]',
+              hayAtencion ? 'max-h-96 @7xl/main:max-h-none' : 'max-h-[32rem]',
             )}
           />
         </div>
@@ -79,8 +79,8 @@ export function DetalleDireccion({
       {acceso.finanzas && (
         <div
           className={cn(
-            'min-w-0 xl:order-4',
-            ancho(true, acceso.academico, 'xl:col-span-8', 'xl:col-span-4'),
+            'min-w-0 @7xl/main:order-4',
+            ancho(true, acceso.academico, '@7xl/main:col-span-8', '@7xl/main:col-span-4'),
           )}
         >
           <Panel
@@ -103,8 +103,8 @@ export function DetalleDireccion({
       {acceso.academico && (
         <div
           className={cn(
-            'min-w-0 xl:order-3',
-            ancho(false, acceso.finanzas, 'xl:col-span-8', 'xl:col-span-4'),
+            'min-w-0 @7xl/main:order-3',
+            ancho(false, acceso.finanzas, '@7xl/main:col-span-8', '@7xl/main:col-span-4'),
           )}
         >
           <Panel

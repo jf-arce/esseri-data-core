@@ -424,7 +424,7 @@ function Cifra({
         {etiqueta}
       </dt>
       <dd
-        className={`mt-0.5 font-semibold tabular-nums ${destacada ? 'text-2xl leading-8 text-texto' : grande ? 'text-2xl leading-8 text-violeta' : 'text-base'}`}
+        className={`mt-0.5 break-words font-semibold tabular-nums ${destacada ? 'text-2xl leading-8 text-texto' : grande ? 'text-2xl leading-8 text-violeta' : 'text-base'}`}
       >
         {children}
       </dd>
@@ -519,7 +519,7 @@ export function GraficoFinanciero({
   return (
     <div className="flex flex-1 flex-col gap-4">
       {!cargando && (
-        <dl aria-label="Resumen financiero del año" className="grid grid-cols-2 gap-x-6 gap-y-4">
+        <dl aria-label="Resumen financiero del año" className="grid grid-cols-1 gap-x-6 gap-y-4 @sm:grid-cols-2">
           <Cifra etiqueta="Facturado del año" color="bg-violeta" destacada>
             {formatearMoneda(facturadoAnio)}
           </Cifra>
@@ -632,7 +632,7 @@ export function GraficoAsistencia({
   return (
     <div className="flex flex-1 flex-col gap-3">
       {!cargando && (
-        <dl className="grid grid-cols-3 gap-x-3 gap-y-3">
+        <dl className="grid grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] gap-x-3 gap-y-3">
           <div aria-label="Presentismo registrado" aria-live="polite" className="min-w-0">
             <dt className="text-xs text-texto-2">Presentismo</dt>
             <dd>

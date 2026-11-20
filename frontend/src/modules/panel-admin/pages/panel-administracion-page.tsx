@@ -128,7 +128,7 @@ export function PanelAdministracionPage() {
       {indicadores.length > 0 && (
         <section
           aria-label="Indicadores operativos"
-          className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+          className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @3xl/main:grid-cols-3"
         >
           {indicadores.map((indicador) => (
             <Link
@@ -153,9 +153,9 @@ export function PanelAdministracionPage() {
 
       {atencion.justificaciones && <AtencionInstitucional acceso={atencion} version={0} />}
 
-      <div className="grid min-w-0 items-stretch gap-6 xl:grid-cols-12">
+      <div className="grid min-w-0 items-stretch gap-6 @7xl/main:grid-cols-12">
         {hayAtencion && (
-          <div className={cn('min-w-0', hayActividad ? 'xl:col-span-6' : 'xl:col-span-12')}>
+          <div className={cn('min-w-0', hayActividad ? '@7xl/main:col-span-6' : '@7xl/main:col-span-12')}>
             <AtencionDireccion
               compras={detalle.compras}
               deudas={detalle.deudas}
@@ -164,7 +164,7 @@ export function PanelAdministracionPage() {
           </div>
         )}
         {hayActividad && (
-          <div className={cn('min-w-0', hayAtencion ? 'xl:col-span-6' : 'xl:col-span-12')}>
+          <div className={cn('min-w-0', hayAtencion ? '@7xl/main:col-span-6' : '@7xl/main:col-span-12')}>
             <PanelActividadReciente
               recurso={detalle.actividad}
               contenidoClassName="max-h-96 min-h-0 flex-1 overflow-y-auto"
@@ -173,7 +173,7 @@ export function PanelAdministracionPage() {
         )}
       </div>
 
-      <section aria-label="Accesos rápidos" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <section aria-label="Accesos rápidos" className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">
         {accesosVisibles.map(({ titulo, descripcion, href, icono: Icono }) => (
           <Link key={href} to={href} className="group rounded-card">
             <Card className="h-full py-4 transition-[background-color,box-shadow] duration-200 group-hover:bg-(--card-hover) group-hover:shadow-(--sombra-card-hover)">

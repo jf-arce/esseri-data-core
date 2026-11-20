@@ -46,12 +46,12 @@ const DIAS_DEMORA = 7
 // El orden es la prioridad para elegir el indicador principal: el primero habilitado es el hero.
 const ORDEN: Clave[] = ['deuda', 'alumnos', 'inasistencias', 'solicitudes', 'tareas']
 // El hero ocupa dos columnas: una tarjeta más de columnas que de indicadores.
-const COLUMNAS_XL = {
-  1: 'xl:grid-cols-2',
-  2: 'xl:grid-cols-3',
-  3: 'xl:grid-cols-4',
-  4: 'xl:grid-cols-5',
-  5: 'xl:grid-cols-6',
+const COLUMNAS_ANCHO = {
+  1: '@7xl/main:grid-cols-2',
+  2: '@7xl/main:grid-cols-3',
+  3: '@7xl/main:grid-cols-4',
+  4: '@7xl/main:grid-cols-5',
+  5: '@7xl/main:grid-cols-6',
 }
 
 function Desglose({ items }: { items: { etiqueta: string; valor: string }[] }) {
@@ -243,12 +243,12 @@ export function IndicadoresDireccion({
   )
   if (!hero) return null
   const tarjetas = construirTarjetas(datos, acceso, hero, ahora, contexto)
-  const columnas = COLUMNAS_XL[Math.min(tarjetas.length, 5) as 1 | 2 | 3 | 4 | 5]
+  const columnas = COLUMNAS_ANCHO[Math.min(tarjetas.length, 5) as 1 | 2 | 3 | 4 | 5]
 
   return (
     <section
       aria-label="Indicadores de Dirección"
-      className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${columnas}`}
+      className={`grid grid-cols-1 gap-4 @xl/main:grid-cols-2 ${columnas}`}
     >
       {tarjetas.map((tarjeta, indice) => {
         const esHero = indice === 0
@@ -274,7 +274,9 @@ export function IndicadoresDireccion({
             </StatTile>
           </Link>
         )
-        const celda = esHero ? 'sm:col-span-2' : ''
+        const celda = esHero
+          ? '@xl/main:col-span-2'
+          : '@xl/main:even:last:col-span-2 @7xl/main:col-span-1'
         if (!tarjeta.vistaPrevia || error || cargando)
           return (
             <div key={tarjeta.clave} className={celda}>
