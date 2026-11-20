@@ -58,7 +58,7 @@ export function FacturaDetallePage() {
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 py-4">
       <BackLink to="/facturacion" label="Volver a facturas" />
 
-      <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+      <header className="flex flex-col justify-between gap-4 @xl/main:flex-row @xl/main:items-end">
         <div className="flex flex-col gap-1">
           <p className="text-xs font-bold tracking-widest text-texto-3 uppercase">
             Facturación y cobranza
@@ -72,7 +72,7 @@ export function FacturaDetallePage() {
         </Button>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(20rem,0.9fr)] lg:items-start">
+      <div className="grid gap-6 @5xl/main:grid-cols-[minmax(0,1.55fr)_minmax(20rem,0.9fr)] @5xl/main:items-start">
         <div className="flex flex-col gap-5">
           <Card>
             <CardHeader className="border-b border-borde">
@@ -84,7 +84,7 @@ export function FacturaDetallePage() {
               </CardAction>
             </CardHeader>
             <CardContent>
-              <dl className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
+              <dl className="grid gap-x-8 gap-y-3 text-sm @xl/main:grid-cols-2">
                 <div>
                   <dt className="text-texto-3">Alumno</dt>
                   <dd className="font-medium text-texto">
@@ -124,8 +124,10 @@ export function FacturaDetallePage() {
                     key={detalle.id}
                     className="flex items-center justify-between gap-4 px-5 py-3 text-sm"
                   >
-                    <span>{detalle.descripcion}</span>
-                    <strong className="tabular-nums">{formatearMoneda(detalle.monto)}</strong>
+                    <span className="min-w-0 break-words">{detalle.descripcion}</span>
+                    <strong className="shrink-0 tabular-nums">
+                      {formatearMoneda(detalle.monto)}
+                    </strong>
                   </div>
                 ))}
                 <div className="flex items-center justify-between gap-4 bg-texto px-5 py-4 text-sm font-semibold text-superficie">
@@ -148,13 +150,13 @@ export function FacturaDetallePage() {
                       key={recargo.id}
                       className="flex items-center justify-between gap-4 px-5 py-3 text-sm"
                     >
-                      <div>
+                      <div className="min-w-0 break-words">
                         <p className="font-medium text-texto">
                           {recargo.observacion ?? 'Recargo por mora'}
                         </p>
                         <p className="text-xs text-texto-3">{formatearFechaHora(recargo.fecha)}</p>
                       </div>
-                      <strong className="tabular-nums text-error">
+                      <strong className="shrink-0 tabular-nums text-error">
                         {formatearMoneda(recargo.monto)}
                       </strong>
                     </div>
@@ -182,9 +184,9 @@ export function FacturaDetallePage() {
                   {factura.pagos.map((pago) => (
                     <div
                       key={pago.id}
-                      className="flex flex-col gap-2 px-5 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+                      className="flex flex-col gap-2 px-5 py-3 text-sm @xl/main:flex-row @xl/main:items-center @xl/main:justify-between"
                     >
-                      <div>
+                      <div className="min-w-0 break-words">
                         <p className="font-medium text-texto">
                           {etiquetaMetodoPago(pago.metodo_pago.nombre)} ·{' '}
                           {formatearFechaFactura(pago.fecha)}
@@ -200,7 +202,7 @@ export function FacturaDetallePage() {
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 self-end sm:self-auto">
+                      <div className="flex items-center gap-2 self-end @xl/main:self-auto">
                         {pago.comprobante && (
                           <Button
                             type="button"

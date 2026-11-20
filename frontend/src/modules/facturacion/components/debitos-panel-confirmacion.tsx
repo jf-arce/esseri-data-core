@@ -28,7 +28,7 @@ export function DebitosPanelConfirmacion({
     return (
       <aside
         aria-label="Confirmación de la importación"
-        className="min-w-0 w-full rounded-panel border border-borde bg-superficie p-5 shadow-card"
+        className="min-w-0 w-full rounded-panel border border-borde bg-superficie p-5 shadow-card @7xl/main:sticky @7xl/main:top-6"
       >
         <Alert variant="success">
           <CircleCheckIcon />
@@ -55,7 +55,7 @@ export function DebitosPanelConfirmacion({
   return (
     <aside
       aria-label="Confirmación de la importación"
-      className="min-w-0 w-full rounded-panel border border-borde bg-superficie p-5 shadow-card"
+      className="min-w-0 w-full rounded-panel border border-borde bg-superficie p-5 shadow-card @7xl/main:sticky @7xl/main:top-6"
     >
       <Alert variant="advertencia">
         <ShieldAlertIcon />

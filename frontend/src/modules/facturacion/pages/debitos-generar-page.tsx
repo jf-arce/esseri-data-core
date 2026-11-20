@@ -215,7 +215,7 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
         </p>
       )}
 
-      <div className="grid min-w-0 w-full items-start gap-4 xl:grid-cols-[minmax(0,1fr)_304px]">
+      <div className="grid min-w-0 w-full items-start gap-4 @5xl/main:grid-cols-[minmax(0,1fr)_304px]">
         <DebitosGenerarTabla
           filtros={barraFiltros}
           vacio={

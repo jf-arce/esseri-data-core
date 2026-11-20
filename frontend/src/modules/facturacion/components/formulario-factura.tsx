@@ -217,12 +217,12 @@ export function FormularioFactura({ onCancelar }: FormularioFacturaProps) {
                   </p>
                 </div>
               </div>
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid gap-5 @lg/field-group:grid-cols-2">
                 <Controller
                   control={control}
                   name="inscripcionId"
                   render={({ field, fieldState }) => (
-                    <Field className="md:col-span-2" data-invalid={fieldState.invalid}>
+                    <Field className="@lg/field-group:col-span-2" data-invalid={fieldState.invalid}>
                       <FieldLabel htmlFor="inscripcionId">Alumno e inscripción</FieldLabel>
                       <SelectorBuscable
                         id="inscripcionId"
@@ -277,8 +277,8 @@ export function FormularioFactura({ onCancelar }: FormularioFacturaProps) {
             </section>
 
             <section className="flex flex-col gap-5">
-              <div className="flex items-center justify-between gap-3 border-b border-borde pb-3">
-                <div>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-borde pb-3">
+                <div className="min-w-0">
                   <h2 className="text-sm font-semibold text-texto">Conceptos de cobro</h2>
                   <p className="text-xs text-texto-3">
                     El total se calcula automáticamente desde los conceptos.
@@ -297,7 +297,7 @@ export function FormularioFactura({ onCancelar }: FormularioFacturaProps) {
                 {fields.map((campo, indice) => (
                   <div
                     key={campo.id}
-                    className="grid gap-4 rounded-card-sm border border-borde p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_9rem_auto] md:items-end"
+                    className="grid gap-4 rounded-card-sm border border-borde p-4 @2xl/field-group:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_9rem_auto] @2xl/field-group:items-end"
                   >
                     <Controller
                       control={control}
