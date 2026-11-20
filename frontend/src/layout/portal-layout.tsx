@@ -34,9 +34,9 @@ export function PortalLayout() {
   const [menuAbierto, setMenuAbierto] = useState(false)
   const navItemClass = ({ isActive }: { isActive: boolean }) =>
     cn(
-      'rounded-full px-2.5 py-2 text-[13px] font-semibold whitespace-nowrap transition-colors lg:px-4 lg:text-sm',
+      'rounded-full px-2.5 py-2 text-sm font-semibold whitespace-nowrap transition-colors lg:px-4 lg:text-sm',
       isActive
-        ? 'bg-white/15 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.16)]'
+        ? 'bg-nav-activo text-lila-claro'
         : 'text-white/70 hover:bg-white/10 hover:text-white',
     )
 
@@ -115,7 +115,7 @@ export function PortalLayout() {
                   </SheetTrigger>
                   <SheetContent side="left" className="portal-familia w-[85vw] max-w-xs">
                     <SheetHeader>
-                      <SheetTitle className="font-heading text-[20px]">Menú</SheetTitle>
+                      <SheetTitle className="font-heading text-pf-encabezado">Menú</SheetTitle>
                       <SheetDescription>Portal de Familia</SheetDescription>
                     </SheetHeader>
                     <nav
@@ -130,10 +130,10 @@ export function PortalLayout() {
                           onClick={() => setMenuAbierto(false)}
                           className={({ isActive }) =>
                             cn(
-                              'flex min-h-11 items-center rounded-full px-4 text-[15px] font-semibold transition-colors',
+                              'flex min-h-11 items-center rounded-full px-4 text-pf-cuerpo font-semibold transition-colors',
                               isActive
-                                ? 'bg-[#F1E4FB] text-[#7A2FA8]'
-                                : 'text-[#2B2338] hover:bg-[#F7F2FC]',
+                                ? 'bg-pf-lila text-pf-accent'
+                                : 'text-texto hover:bg-pf-item-hover',
                             )
                           }
                         >

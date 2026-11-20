@@ -64,7 +64,7 @@ export function PortalFamiliaShell({
         {volverA && (
           <Link
             to={volverA}
-            className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-[var(--pf-accent)] transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pf-accent)]"
+            className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-pf-accent transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
           >
             <ArrowLeftIcon aria-hidden="true" className="size-4" />
             {volverEtiqueta}
@@ -74,7 +74,7 @@ export function PortalFamiliaShell({
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex min-w-0 items-start gap-4">
             {icono && (
-              <span className="flex size-16 shrink-0 items-center justify-center rounded-[18px] border border-borde bg-superficie text-[var(--pf-accent)]">
+              <span className="flex size-16 shrink-0 items-center justify-center rounded-pf-tile border border-pf-borde bg-superficie text-pf-accent">
                 {icono}
               </span>
             )}
@@ -86,14 +86,14 @@ export function PortalFamiliaShell({
               )}
               <h1
                 className={cn(
-                  'font-heading text-[30px] leading-[1.15] font-bold tracking-[-0.02em] text-texto sm:text-[36px]',
+                  'font-heading text-pf-titulo font-bold tracking-[-0.02em] text-texto sm:text-pf-titulo-lg',
                   tituloClassName,
                 )}
               >
                 {titulo}
               </h1>
               {descripcion && (
-                <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-texto-2 sm:text-[16px]">
+                <p className="mt-2 max-w-2xl text-pf-cuerpo leading-relaxed text-texto-2">
                   {descripcion}
                 </p>
               )}

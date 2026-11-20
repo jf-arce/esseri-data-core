@@ -6,16 +6,16 @@ import { cn } from '@/lib/utils'
 
 export type PortalFamiliaTone = 'lavanda' | 'ambar' | 'azul' | 'verde' | 'rojo'
 
-const TONOS: Record<PortalFamiliaTone, { card: string; tile: string }> = {
-  lavanda: { card: 'bg-[#F5F1FB]', tile: 'bg-[#E3CEF6] text-[#832ED2]' },
-  ambar: { card: 'bg-[#FBF2E7]', tile: 'bg-[#FCE4CA] text-[#DF8A2F]' },
-  azul: { card: 'bg-[#ECF0FD]', tile: 'bg-[#DCE9FC] text-[#4F86D9]' },
-  verde: { card: 'bg-[#EFF7EE]', tile: 'bg-[#DCEEDC] text-[#4F8F46]' },
-  rojo: { card: 'bg-[#FDF0ED]', tile: 'bg-[#F8DAD5] text-[#B42318]' },
+export const TONOS: Record<PortalFamiliaTone, { card: string; tile: string }> = {
+  lavanda: { card: 'bg-pf-lavanda-card', tile: 'bg-pf-lavanda-bg text-pf-lavanda-fg' },
+  ambar: { card: 'bg-pf-ambar-card', tile: 'bg-pf-ambar-bg text-pf-ambar-fg' },
+  azul: { card: 'bg-pf-azul-card', tile: 'bg-pf-azul-bg text-pf-azul-fg' },
+  verde: { card: 'bg-pf-verde-card', tile: 'bg-pf-verde-bg text-pf-verde-fg' },
+  rojo: { card: 'bg-pf-rojo-card', tile: 'bg-pf-rojo-bg text-pf-rojo-fg' },
 }
 
 export const PORTAL_PRIMARY_BUTTON_CLASS =
-  'inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#7A31A3] px-5 text-[15px] font-semibold text-white shadow-[0_8px_18px_rgba(80,20,120,0.28)] transition-colors hover:bg-[#6A2494]'
+  'inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-pf-accent px-5 text-pf-cuerpo font-semibold text-superficie transition-colors hover:bg-pf-accent-hover'
 
 export const PORTAL_SECONDARY_BUTTON_CLASS = 'rounded-full'
 
@@ -48,14 +48,14 @@ export function PortalStatTile({
       role={ariaLabel ? 'group' : undefined}
       aria-label={ariaLabel}
       className={cn(
-        'flex items-center gap-4 rounded-[22px] p-5 shadow-[0_10px_26px_rgba(24,16,40,0.08)]',
+        'flex items-center gap-4 rounded-pf-tile p-5',
         TONOS[tone].card,
         className,
       )}
     >
       <span
         className={cn(
-          'flex size-14 shrink-0 items-center justify-center rounded-[14px]',
+          'flex size-14 shrink-0 items-center justify-center rounded-pf-icono',
           TONOS[tone].tile,
         )}
       >
@@ -63,15 +63,15 @@ export function PortalStatTile({
       </span>
       <div className="min-w-0">
         {cargando ? (
-          <Skeleton className="h-7 w-14 bg-white/60" />
+          <Skeleton className="h-7 w-14" />
         ) : (
-          <p className="font-heading text-[26px] leading-none font-bold tabular-nums text-[#2B2338]">
+          <p className="font-heading text-pf-cifra leading-none font-bold tabular-nums text-texto">
             {value}
           </p>
         )}
-        <p className="mt-2 text-[15px] leading-tight font-semibold text-[#2B2338]">{label}</p>
+        <p className="mt-2 text-pf-cuerpo leading-tight font-semibold text-texto">{label}</p>
         {detalle && (
-          <p className={cn('text-[13px] leading-tight text-[#6B6478]', detalleClassName)}>
+          <p className={cn('text-sm leading-tight text-texto-2', detalleClassName)}>
             {detalle}
           </p>
         )}
@@ -111,7 +111,7 @@ export function PortalCard({
   return (
     <Card
       className={cn(
-        'gap-0 rounded-[24px] border-0 bg-white py-0 shadow-[0_14px_34px_rgba(24,16,40,0.12)]',
+        'gap-0 rounded-pf-card border-0 bg-superficie py-0 shadow-pf-card',
         className,
       )}
     >
@@ -122,7 +122,7 @@ export function PortalCard({
               {Icono && (
                 <span
                   className={cn(
-                    'flex size-12 shrink-0 items-center justify-center rounded-[13px]',
+                    'flex size-12 shrink-0 items-center justify-center rounded-pf-icono',
                     TONOS[tone].tile,
                   )}
                 >
@@ -134,13 +134,13 @@ export function PortalCard({
                   <CardTitle
                     role="heading"
                     aria-level={nivelEncabezado}
-                    className={cn('text-[17px] font-semibold text-[#2B2338]', tituloClassName)}
+                    className={cn('text-pf-encabezado font-semibold text-texto', tituloClassName)}
                   >
                     {titulo}
                   </CardTitle>
                 )}
                 {descripcion && (
-                  <CardDescription className="text-[14px] leading-snug text-[#6B6478]">
+                  <CardDescription className="text-sm leading-snug text-texto-2">
                     {descripcion}
                   </CardDescription>
                 )}
@@ -172,17 +172,17 @@ export function PortalAlertBanner({
   return (
     <div
       className={cn(
-        'flex flex-col gap-4 rounded-[18px] bg-[#FDF0E8] p-5 shadow-[0_10px_26px_rgba(24,16,40,0.08)] sm:flex-row sm:items-center sm:justify-between',
+        'flex flex-col gap-4 rounded-pf-tile bg-pf-ambar-card p-5 sm:flex-row sm:items-center sm:justify-between',
         className,
       )}
     >
       <div className="flex items-start gap-4">
-        <span className="flex size-12 shrink-0 items-center justify-center rounded-full border-2 border-[#E7A33C] text-[#D98A2B]">
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-full border-2 border-advertencia text-advertencia">
           <CircleAlertIcon aria-hidden="true" className="size-6" />
         </span>
         <div>
-          <p className="text-[17px] font-semibold text-[#2B2338]">{titulo}</p>
-          <p className="mt-1 text-[15px] text-[#5F586B]">{descripcion}</p>
+          <p className="text-pf-encabezado font-semibold text-texto">{titulo}</p>
+          <p className="mt-1 text-pf-cuerpo text-texto-2">{descripcion}</p>
         </div>
       </div>
       {accion}
