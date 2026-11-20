@@ -104,5 +104,6 @@ Si encontrás un impedimento arquitectónico o de negocio importante, documental
 - Chromium also displayed and opened the exact rejected debit's conversation composer in the seeded preview. No message was sent in that smoke check.
 - T5: E2E passed twice in sequence (`--repeat-each=2`). Frontend: 1320 tests, lint and production build passed; backend focused slices passed; full backend suite run excluding `tests/academico/test_solicitud_periodo_concurrencia_postgres.py` (see next line).
 - Pre-existing, not caused by this branch: those seven academic concurrency tests hardcode 2027 dates while `solicitud_periodo_service` rejects years after the current one; identical code exists at the base commit.
+- Full backend suite (excluding that file): 2124 passed, 41 skipped, 5 errors. All five errors are `infra/tests/test_railway_proxy.py` requiring a local Nginx binary (`NGINX_BINARY`), which this environment lacks; no infra file changed.
 - Advisory not fixed (pre-existing shared helper): `frontend/src/lib/descargar-export.ts` reads only the ASCII `filename=` header, so other exports may fall back to a generic name. Contextual attachments now save under their already-authorized stored name.
 - Preview: `esseri_preview` database in the disposable container, loopback Vite/FastAPI only, schedulers and email transport off. Not a production configuration.
