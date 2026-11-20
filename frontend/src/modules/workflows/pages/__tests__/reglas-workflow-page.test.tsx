@@ -266,7 +266,7 @@ describe('ReglasWorkflowPage', () => {
     vi.mocked(actualizarReglaWorkflow).mockResolvedValue(reglaDe({ activo: false }))
     renderizar()
 
-    await user.click(screen.getByRole('button', { name: 'Pausar Aviso de mora' }))
+    await user.click(screen.getByRole('button', { name: 'Detener Aviso de mora' }))
 
     await waitFor(() => expect(actualizarReglaWorkflow).toHaveBeenCalled())
     expect(reemplazar).toHaveBeenCalledWith(expect.objectContaining({ activo: false }))
@@ -319,7 +319,7 @@ describe('ReglasWorkflowPage', () => {
     renderizar()
 
     expect(screen.queryByRole('button', { name: 'Aprobar' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Pausar Aviso de mora' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Detener Aviso de mora' })).toBeDisabled()
     expect(screen.queryByRole('link', { name: 'Nueva regla' })).not.toBeInTheDocument()
   })
 

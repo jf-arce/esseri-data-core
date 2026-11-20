@@ -17,6 +17,7 @@ import { LIMITE_NOMBRE_REGLA, RUTA_REGLAS } from '@/modules/workflows/constants'
 interface BarraEditorProps {
   /** Último tramo de las migas: "Nueva regla", "Editar regla", etc. */
   titulo: string
+  mostrarTituloEnMovil?: boolean
   nombre: string
   activo: boolean
   soloLectura: boolean
@@ -35,6 +36,7 @@ interface BarraEditorProps {
  * cancelar, guardar). Lo demás flota sobre el lienzo. */
 export function BarraEditor({
   titulo,
+  mostrarTituloEnMovil = false,
   nombre,
   activo,
   soloLectura,
@@ -48,21 +50,29 @@ export function BarraEditor({
 }: BarraEditorProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+      <div
+        className={`flex min-w-0 flex-1 items-center gap-2 ${mostrarTituloEnMovil ? 'basis-full sm:basis-auto' : ''}`}
+      >
         <BotonIcono etiqueta="Volver a las reglas" asChild>
           <Link to={RUTA_REGLAS}>
             <ArrowLeftIcon />
           </Link>
         </BotonIcono>
-        <nav aria-label="Ubicación" className="hidden shrink-0 text-sm text-texto-2 sm:block">
-          <Link to={RUTA_REGLAS} className="hover:text-texto">
+        <nav
+          aria-label="Ubicación"
+          className={`shrink-0 text-sm text-texto-2 ${mostrarTituloEnMovil ? '' : 'hidden sm:block'}`}
+        >
+          <Link to={RUTA_REGLAS} className="hidden hover:text-texto sm:inline">
             Workflows
           </Link>
-          <span aria-hidden="true"> / </span>
+          <span aria-hidden="true" className="hidden sm:inline">
+            {' '}
+            /{' '}
+          </span>
           <span className="font-semibold text-texto">{titulo}</span>
         </nav>
         {cargando ? (
-          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-9 w-64 min-w-0 motion-reduce:animate-none!" aria-hidden="true" />
         ) : (
           <Input
             aria-label="Nombre de la regla"
@@ -70,18 +80,19 @@ export function BarraEditor({
             value={nombre}
             maxLength={LIMITE_NOMBRE_REGLA}
             disabled={soloLectura}
+            aria-invalid={!soloLectura && nombre.trim() === ''}
             onChange={(evento) => onCambiarNombre(evento.target.value)}
-            className="h-9 max-w-md min-w-40 flex-1 border-transparent bg-transparent px-2 text-base font-semibold shadow-none hover:bg-fila-hover focus-visible:bg-superficie"
+            className="h-9 max-w-md min-w-40 flex-1 border-transparent bg-transparent px-2 text-base font-semibold shadow-none hover:bg-fila-hover focus-visible:bg-superficie aria-invalid:border-error"
           />
         )}
       </div>
-      <div className="flex items-center gap-3">
+      <div className={`flex items-center gap-3 ${mostrarTituloEnMovil ? 'flex-wrap' : ''}`}>
         <div className="flex items-center gap-2">
           <Switch
             id="regla-activa"
             aria-label="Regla activa"
             checked={activo}
-            disabled={soloLectura}
+            disabled={soloLectura || cargando}
             onCheckedChange={onCambiarActivo}
           />
           <label htmlFor="regla-activa" className="text-sm font-semibold text-texto-2">

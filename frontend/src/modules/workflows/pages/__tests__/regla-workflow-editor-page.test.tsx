@@ -368,7 +368,10 @@ describe('ReglaWorkflowEditorPage', () => {
       const user = userEvent.setup()
       abrirEditor('/workflows/reglas/nueva?duplicar=r-1')
 
-      expect(await screen.findByText('Duplicar regla')).toBeInTheDocument()
+      expect(await screen.findByRole('textbox', { name: 'Nombre de la regla' })).toHaveValue(
+        'Copia de Aviso de mora',
+      )
+      expect(screen.getByText('Duplicar regla')).toBeInTheDocument()
       expect(screen.getByRole('switch', { name: 'Regla activa' })).not.toBeChecked()
       await user.click(screen.getByRole('button', { name: 'Guardar regla' }))
 

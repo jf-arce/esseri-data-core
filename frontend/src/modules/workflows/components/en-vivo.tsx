@@ -1,5 +1,3 @@
-import { RadioIcon } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 /** Marca que el tablero se actualiza solo (ver `useRefrescoPeriodico`). */
@@ -8,10 +6,11 @@ export function EnVivo() {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Badge variant="exito" className="gap-1.5 before:hidden">
-            <RadioIcon className="size-3.5 motion-safe:animate-pulse" aria-hidden="true" />
-            En vivo
-          </Badge>
+          <span
+            role="img"
+            aria-label="En vivo"
+            className="inline-flex size-2 rounded-full bg-exito motion-safe:animate-[en-vivo-respirar_2s_ease-in-out_infinite]"
+          />
         </TooltipTrigger>
         <TooltipContent side="bottom" align="end" className="max-w-64 text-balance">
           Se actualizan solos cada 30 segundos: Ejecuciones, Requiere tu atención y Actividad. Las

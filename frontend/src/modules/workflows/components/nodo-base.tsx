@@ -48,7 +48,7 @@ export interface OpcionesAgregar {
 /** Color del anillo con el que un nodo "se enciende" al ser alcanzado. */
 const ANILLO_SIMULACION: Record<EstadoNodoSimulado, string> = {
   cumple: 'anillo-exito',
-  no_cumple: 'anillo-neutro',
+  no_cumple: 'anillo-exito',
   error: 'anillo-error',
   alcanzada: 'anillo-exito',
   requiere_aprobacion: 'anillo-atencion',

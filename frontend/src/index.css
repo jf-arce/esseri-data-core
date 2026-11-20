@@ -804,6 +804,127 @@
   animation: skeleton-shimmer 1.6s ease-in-out infinite;
 }
 
+.esqueleto-acento,
+.esqueleto-trazo {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .esqueleto-origen {
+    animation-name: esqueleto-origen;
+  }
+
+  .esqueleto-tramo {
+    animation-name: esqueleto-tramo;
+  }
+
+  .esqueleto-condicion {
+    animation-name: esqueleto-condicion;
+  }
+
+  .esqueleto-rama {
+    animation-name: esqueleto-rama;
+  }
+
+  .esqueleto-accion-si,
+  .esqueleto-accion-no {
+    animation-name: esqueleto-accion;
+  }
+
+  .esqueleto-acento,
+  .esqueleto-trazo {
+    animation-duration: 2.4s;
+    animation-delay: var(--esqueleto-demora, 0ms);
+    animation-iteration-count: 3;
+    animation-timing-function: linear;
+  }
+
+  .esqueleto-trazo {
+    stroke-dasharray: 1;
+  }
+
+  @keyframes esqueleto-origen {
+    0% {
+      opacity: 0.7;
+    }
+    8% {
+      opacity: 1;
+    }
+    26%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes esqueleto-tramo {
+    0%,
+    8% {
+      opacity: 0;
+      stroke-dashoffset: 1;
+    }
+    11% {
+      opacity: 1;
+    }
+    30% {
+      opacity: 1;
+      stroke-dashoffset: 0;
+    }
+    64%,
+    100% {
+      opacity: 0;
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes esqueleto-condicion {
+    0%,
+    27% {
+      opacity: 0;
+    }
+    34% {
+      opacity: 1;
+    }
+    56%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes esqueleto-rama {
+    0%,
+    35% {
+      opacity: 0;
+      stroke-dashoffset: 1;
+    }
+    38% {
+      opacity: 1;
+    }
+    62% {
+      opacity: 1;
+      stroke-dashoffset: 0;
+    }
+    88%,
+    100% {
+      opacity: 0;
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes esqueleto-accion {
+    0%,
+    59% {
+      opacity: 0;
+    }
+    66% {
+      opacity: 1;
+    }
+    90%,
+    100% {
+      opacity: 0;
+    }
+  }
+}
+
 /* Esqueleto de la búsqueda de menciones: más marcado que el shimmer común (barrido violeta y
    pulso de opacidad). Cada fila arranca con su `animation-delay`, y hasta entonces se queda en el
    primer cuadro (`backwards`) para que la cascada baje de arriba hacia abajo. */
@@ -900,6 +1021,17 @@
     padding: 0 !important;
   }
 }
+/* Punto "en vivo": respira solo con opacidad. */
+@keyframes en-vivo-respirar {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
 /* Editor de flujo de workflows (§6 y §9.10 DESIGN.md): 150-220 ms, ease-out, sin rebote ni glow. */
 @keyframes arista-dibujar {
   from {
@@ -1063,7 +1195,7 @@
   cursor: crosshair;
 }
 
-/* Controles y minimapa de React Flow con los tokens del proyecto: siguen el tema (.dark) sin
+/* Controles de React Flow con los tokens del proyecto: siguen el tema (.dark) sin
    pasar por `colorMode`. */
 .react-flow {
   --xy-controls-button-background-color: var(--superficie);
@@ -1071,9 +1203,6 @@
   --xy-controls-button-color: var(--texto);
   --xy-controls-button-color-hover: var(--texto);
   --xy-controls-button-border-color: var(--borde);
-  --xy-minimap-background-color: var(--superficie);
-  --xy-minimap-mask-background-color: color-mix(in srgb, var(--texto) 12%, transparent);
-  --xy-minimap-mask-stroke-color: var(--borde);
 }
 
 /* Conectores del mapa de automatizaciones: línea con puntos que viajan si la regla está activa. */

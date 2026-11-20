@@ -32,7 +32,7 @@ import { LeyendaReglas } from '@/modules/workflows/components/leyenda-reglas'
 import { MapaAutomatizaciones } from '@/modules/workflows/components/mapa-automatizaciones'
 import { IndicadorEjecuciones } from '@/modules/workflows/components/indicador-ejecuciones'
 import { RenombrarReglaDialog } from '@/modules/workflows/components/renombrar-regla-dialog'
-import { RelojPanel } from '@/modules/workflows/components/reloj-panel'
+import { EstadoEnVivo } from '@/modules/workflows/components/estado-en-vivo'
 import { RechazoEjecucionDialog } from '@/modules/workflows/components/rechazo-ejecucion-dialog'
 import { ReglasWorkflowTabla } from '@/modules/workflows/components/reglas-workflow-tabla'
 import { TarjetaRegla } from '@/modules/workflows/components/tarjeta-regla'
@@ -227,7 +227,7 @@ export function ReglasWorkflowPage() {
   )
   const accionEncabezado = (
     <div className="flex flex-wrap items-center gap-4">
-      <RelojPanel actualizadoEn={actividad.actualizadoEn} />
+      <EstadoEnVivo actualizadoEn={actividad.actualizadoEn} />
       {nuevaRegla}
     </div>
   )

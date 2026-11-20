@@ -10,7 +10,6 @@ import {
 import {
   Background,
   BackgroundVariant,
-  MiniMap,
   Panel,
   ReactFlow,
   ReactFlowProvider,
@@ -113,7 +112,7 @@ export interface CanvasFlujoProps {
   enfocar: { id: string; vez: number } | null
   puedeDeshacer: boolean
   puedeRehacer: boolean
-  /** "Probar regla": el panel flotante del simulador, que arma la página. */
+  /** "Probar regla": el simulador, que arma la página y trae sus propios `Panel` del lienzo. */
   simulador: ReactNode
   /** Ancho que el inspector flotante le tapa al lienzo por la derecha (0 si está cerrado). */
   anchoTapado: number
@@ -655,22 +654,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
             </TooltipProvider>
           </Panel>
         )}
-        <Panel position="bottom-center">{props.simulador}</Panel>
-        {anchoTapado === 0 && (
-          <MiniMap
-            pannable
-            zoomable
-            ariaLabel="Mapa del flujo"
-            nodeColor={(nodo) =>
-              nodo.type === 'condicion'
-                ? 'var(--advertencia)'
-                : nodo.type === 'accion'
-                  ? 'var(--mod-inscripciones)'
-                  : 'var(--mod-workflows)'
-            }
-            className="hidden! sm:block!"
-          />
-        )}
+        {props.simulador}
       </ReactFlow>
       <Popover open={soltada !== null} onOpenChange={(abierto) => !abierto && setSoltada(null)}>
         <PopoverAnchor
