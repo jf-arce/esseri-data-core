@@ -18,7 +18,7 @@ Delivery: `ask-on-risk`; forecast over 400 authored lines. Runners: pytest, Post
 - [x] T1 · S1–S3, S7–S8 · inline, dependent core · model, API, permissions, migration and tests · `fcda116`; Risk: items 2 and 4 (family isolation and serialized thread mutations)
 - [x] T2 · S4, S7–S8 · inline, depends on T1 · family and Administration surfaces · `c724f24`
 - [x] T3 · S5, S7–S8 · inline, follows T2 · private attachments · `3d7ac66`, independent verification passed · Risk: item 2 (private-file authorization)
-- [ ] T4 · S5–S8 · inline, follows T3 · notifications · `ab9987d`, independent verification pending · Risk: items 2 and 3 (email boundary and shared transport)
+- [x] T4 · S5–S8 · inline, follows T3 · notifications · `ab9987d` + `cbfe3ec`; independent verification found no change-caused blocker and both advisories were fixed · Risk: items 2 and 3 (email boundary and shared transport)
 - [x] T5 · S1–S8 · inline, depends on prior tasks · integration and regression · `6dee77b`; date-dependent academic concurrency tests excluded as pre-existing (see log)
 
 ## Log
@@ -105,5 +105,7 @@ Si encontrás un impedimento arquitectónico o de negocio importante, documental
 - T5: E2E passed twice in sequence (`--repeat-each=2`). Frontend: 1320 tests, lint and production build passed; backend focused slices passed; full backend suite run excluding `tests/academico/test_solicitud_periodo_concurrencia_postgres.py` (see next line).
 - Pre-existing, not caused by this branch: those seven academic concurrency tests hardcode 2027 dates while `solicitud_periodo_service` rejects years after the current one; identical code exists at the base commit.
 - Full backend suite (excluding that file): 2124 passed, 41 skipped, 5 errors. All five errors are `infra/tests/test_railway_proxy.py` requiring a local Nginx binary (`NGINX_BINARY`), which this environment lacks; no infra file changed.
+- `tests/comunicaciones/test_publicacion.py` has two failures only under the optional PostgreSQL session fixture (`COMUNICACIONES_TEST_DATABASE_URL`). Reproduced identically on a detached worktree at baseline `e1923f5`, so they are pre-existing and unrelated; the same file passes 30/30 on the default SQLite fixture.
+- T4 corrections after independent verification: the portal notice now honors `recibe_comunicaciones` exactly like the email (the flag gates alerts, never thread access), the inbox predicate requires `enlace_habilitado`, and a revoked claim clears `intento_actual_id`. Focused slice after the fix: 90 passed, 6 skipped.
 - Advisory not fixed (pre-existing shared helper): `frontend/src/lib/descargar-export.ts` reads only the ASCII `filename=` header, so other exports may fall back to a generic name. Contextual attachments now save under their already-authorized stored name.
 - Preview: `esseri_preview` database in the disposable container, loopback Vite/FastAPI only, schedulers and email transport off. Not a production configuration.
