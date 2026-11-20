@@ -104,6 +104,37 @@ it('returns from family communications to the family home', async () => {
   expect(screen.getByRole('heading', { name: 'Family home' })).toBeInTheDocument()
 })
 
+it('shows the linked event and the calendar link to the family', async () => {
+  const conEvento = {
+    ...publicadaDetalle,
+    evento: {
+      titulo: 'Reunión de padres',
+      fecha: '2026-11-27',
+      hora_inicio: '18:00',
+      hora_fin: '19:30',
+      lugar: 'Biblioteca',
+      descripcion: '',
+    },
+  }
+  api.mockImplementation(async (path) => {
+    if (path === '/comunicaciones/familia/c1') return conEvento
+    if (path.includes('/lectura')) return conEvento
+    if (path.includes('?')) return { items: [conEvento], total: 1, pagina: 1, total_paginas: 1 }
+    return conEvento
+  })
+
+  renderDetalleFamilia()
+
+  expect(await screen.findByText(/viernes 27 de noviembre/)).toBeInTheDocument()
+  expect(screen.getByText(/18:00 a 19:30/)).toBeInTheDocument()
+  expect(screen.getByText(/Biblioteca/)).toBeInTheDocument()
+  expect(screen.getByText('Evento en el calendario')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: /Ver en calendario/ })).toHaveAttribute(
+    'href',
+    '/familia/calendario',
+  )
+})
+
 it('links the steps with a line that fills instead of a step counter', async () => {
   render(
     <MemoryRouter>

@@ -203,7 +203,7 @@ def respuesta(
         leida_at=recibo.leida_at if recibo is not None else None,
         canal=c.canal,
         adjuntos=listar_metadata(db, c.id),
-        evento=c.evento if recibo is None else None,
+        evento=c.evento,
     )
 
 

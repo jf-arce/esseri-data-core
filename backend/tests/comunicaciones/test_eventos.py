@@ -44,6 +44,9 @@ def test_evento_publicado_solo_email_respeta_recibo_y_es_idempotente(client, esc
     assert len(result.json()) == 1
     assert result.json()[0]["comunicacion_id"] == draft["id"]
     assert result.json()[0]["fecha"] == EVENTO["fecha"]
+    detalle = client.get(f"/comunicaciones/familia/{draft['id']}").json()
+    assert detalle["evento"]["fecha"] == EVENTO["fecha"]
+    assert detalle["evento"]["lugar"] == EVENTO["lugar"]
     assert client.get(calendario(ids["alumno_b"])).json() == []
     assert client.get(url.replace("2026-11-30", "2026-12-06")).json() == []
 

@@ -10,12 +10,14 @@ Runners: Vitest and pytest. Keep changes inside Communications and its delivery/
 - S5. “Conservar el flujo de creación actual, incluyendo el botón **Siguiente**, el guardado de borradores y los pasos posteriores.” Preserve header, existing theme, spacing and responsive behavior. Do not change attachments or recipient/channel rules.
 - S6. “Agregar o actualizar los tests necesarios.” Verify persistence, backward compatibility, safe rendering, optional event lifecycle and permissions, and existing flows.
 - S7. “as comunicaciones q estan en borrador y no tienen asunto , queda rara la vista desde el listado, que diga sin asunto al menos”
+- S8. “asi deberia verse la comunicacion desde el portsal familia cuando le llega ua comunicaion evento”: in the family detail, when the communication has a published event, show a highlighted Fecha/Horario/Lugar summary plus an “Evento en el calendario” section with “Ver en calendario”.
 
 ## Tasks
 - T1 · S1–S2, S5–S6 · inline · b788458 · selectors and unchanged wizard flow.
 - T2 · S3, S5–S6 · inline · verified · editor, safe rendering and compatibility · risk 2/5.
 - T3 · S4–S6 · inline · 6e67049, native review pending · draft event intent, publication and calendar · risk 1/2/4.
 - T4 · S7 · inline · e09c002 · make untitled draft links readable.
+- T5 · S8 · inline · checking · family detail event summary and calendar link · risk 2.
 
 ## Log
 - L1 · User requested the four scoped form changes, visual parity with current ESSERI using the supplied mockup as reference, pre-implementation module analysis, fresh `main`, and no changes to other branches.

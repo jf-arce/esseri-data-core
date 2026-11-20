@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AdjuntosComunicacion } from '../components/adjuntos-comunicacion'
+import { EventoComunicacionDetalle } from '../components/evento-comunicacion-detalle'
 import { MensajeComunicacion } from '../components/mensaje-comunicacion'
 import { EntregaComunicacion } from '../components/entrega-comunicacion'
 import { listarComunicaciones } from '../services/listar-comunicaciones'
@@ -196,6 +197,8 @@ export function ComunicacionDetallePage({
     fechaPublicacion && !Number.isNaN(fechaPublicacion.getTime())
       ? `${FORMATO_FECHA_LARGA.format(fechaPublicacion)}, ${FORMATO_HORA_LARGA.format(fechaPublicacion)}`
       : 'Sin publicar'
+  const eventoDetalle =
+    familia && datos?.evento?.fecha ? { ...datos.evento, fecha: datos.evento.fecha } : null
   if (familia) {
     return (
       <section
@@ -291,6 +294,13 @@ export function ComunicacionDetallePage({
                   cuerpoRico={datos.cuerpo_rico}
                   className="py-8 text-[16px] leading-8 text-[#3A2E4A] sm:text-[17px]"
                 />
+
+                {eventoDetalle && (
+                  <EventoComunicacionDetalle
+                    evento={eventoDetalle}
+                    destinoCalendario="/familia/calendario"
+                  />
+                )}
 
                 {canal === 'email' && (
                   <p
