@@ -21,7 +21,6 @@ import {
   PercentIcon,
   Settings2Icon,
   ShieldCheck,
-  SparklesIcon,
   Truck,
   UserCog,
   UserIcon,
@@ -58,7 +57,6 @@ import {
   RUTA_REGLAS,
   RUTA_TAREAS,
 } from '@/modules/workflows/constants'
-import { PERMISO_IA_SUGERENCIAS_LEER, RUTA_SUGERENCIAS } from '@/modules/ia-sugerencias/constants'
 import type { Permiso } from '@/modules/auth/types'
 
 /** Dominio al que pertenece un ítem de primer nivel (color en el buscador global, §2.5
@@ -278,14 +276,6 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: ListChecksIcon,
         modulo: 'workflows',
         soloRolActivo: true,
-      },
-      {
-        label: 'Sugerencias de IA',
-        href: RUTA_SUGERENCIAS,
-        tituloLanding: 'Sugerencias de IA',
-        icon: SparklesIcon,
-        modulo: 'ia',
-        permiso: PERMISO_IA_SUGERENCIAS_LEER,
       },
     ],
   },
