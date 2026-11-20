@@ -66,7 +66,9 @@ the durable Workflows transport with a distinct message-based origin, recipient 
 a fresh scope check before n8n claims the delivery. Both the notice and the email require the
 current student link to keep `recibe_comunicaciones`; that flag governs alerts, never access to the
 thread, which still follows the original family and the current student link. These alerts never
-replace billing or attendance notices.
+replace billing or attendance notices. The same collection endpoint serves the family's own
+consultations (revalidating each record) and the staff queue; the family portal groups them under
+Comunicaciones → Mis consultas without mixing them with institutional announcements.
 
 Institutional and course communications are owned by `backend/src/comunicaciones/` and
 `frontend/src/modules/comunicaciones/`, an additional domain alongside the original EDT modules.

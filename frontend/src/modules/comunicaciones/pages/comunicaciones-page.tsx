@@ -40,6 +40,7 @@ import {
 import { formatearDiaDeInstante } from '@/lib/fechas'
 import { paginasVisibles } from '@/lib/paginacion'
 import { cn } from '@/lib/utils'
+import { SubnavComunicaciones } from '../components/subnav-comunicaciones'
 import { listarComunicaciones } from '../services/listar-comunicaciones'
 import type { Comunicacion, Listado } from '../types'
 import { ETIQUETAS_CANAL, ETIQUETAS_TIPO } from '../utils'
@@ -259,8 +260,9 @@ function ListaFamiliaMovil({
           volverA="/familia"
           volverEtiqueta="Volver al inicio"
           anchoMaximo="max-w-[92vw]"
-          className="pb-8"
+          className="pb-6"
         />
+        <SubnavComunicaciones actual="avisos" />
 
         <div className="mx-auto flex w-full max-w-[92vw] flex-col gap-4 px-4 pb-10 sm:px-8">
           <div className="relative w-full">
@@ -507,8 +509,9 @@ function ListaFamiliaEscritorio({
             volverA="/familia"
             volverEtiqueta="Volver al inicio"
             anchoMaximo="max-w-[92vw]"
-            className="pb-8"
+            className="pb-6"
           />
+          <SubnavComunicaciones actual="avisos" />
 
           <div className="mx-auto flex w-full max-w-[92vw] flex-col px-4 pb-10 sm:px-8">
             <div className="overflow-hidden rounded-[28px] bg-white shadow-[0_18px_50px_rgba(57,34,84,0.12)]">

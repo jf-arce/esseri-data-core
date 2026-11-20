@@ -1,3 +1,4 @@
+import unicodedata
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -6,6 +7,7 @@ from sqlalchemy import or_, select, tuple_
 from sqlalchemy.orm import Session
 
 from src.auditoria.service import log_audit
+from src.auth.autorizacion_service import roles_de
 from src.auth.models import Usuario
 from src.comunicaciones import adjuntos_conversacion
 from src.comunicaciones.adjuntos_service import adjuntos_habilitados
@@ -21,15 +23,28 @@ from src.comunicaciones.conversaciones_schemas import (
     BandejaRead,
     ContextoConversacion,
     ConversacionRead,
+    ConversacionResumenRead,
     EstadoContextoRead,
     EstadoConversacion,
     HistorialRead,
     MensajeCreate,
     MensajeRead,
+    ResumenConsultasRead,
+    UltimoMensajeRead,
 )
 from src.comunicaciones.models import ConversacionContextual, MensajeConversacion
+from src.familias_alumnos.service import obtener_familia_de_usuario
 from src.models import Persona
 from src.notificaciones.conversaciones_service import registrar_respuesta
+
+MAX_VISTA_PREVIA = 140
+
+
+def _normalizado(valor: str) -> str:
+    sin_tildes = "".join(
+        letra for letra in unicodedata.normalize("NFKD", valor) if not unicodedata.combining(letra)
+    )
+    return sin_tildes.replace("_", " ").lower()
 
 
 def _hilo_read(hilo, contexto, rol) -> ConversacionRead:
@@ -169,10 +184,16 @@ def abrir(
 
 
 def _mensaje_read(mensaje, nombre: str | None, adjuntos) -> MensajeRead:
+    # La familia se identifica por su nombre; Administración nunca expone a la persona que
+    # respondió, solo el lado institucional.
+    if mensaje.lado == "familia":
+        autor = f"Familia ({nombre})" if nombre else "Familia"
+    else:
+        autor = "Administración"
     return MensajeRead(
         id=mensaje.id,
         lado=mensaje.lado,
-        autor=nombre or ("Familia" if mensaje.lado == "familia" else "Administración"),
+        autor=autor,
         texto=mensaje.texto,
         created_at=mensaje.created_at,
         adjuntos=[AdjuntoConversacionRead.model_validate(a) for a in adjuntos],
@@ -244,7 +265,102 @@ def historial(db, usuario, rol, id_hilo, limite, antes) -> HistorialRead:
     )
 
 
-def bandeja(db, usuario, rol, estado, tipo, limite, offset) -> BandejaRead:
+def _ultimo_mensaje(db, id_hilo):
+    fila = db.execute(
+        select(
+            MensajeConversacion.texto,
+            MensajeConversacion.lado,
+            MensajeConversacion.created_at,
+        )
+        .where(MensajeConversacion.conversacion_id == id_hilo)
+        .order_by(MensajeConversacion.created_at.desc(), MensajeConversacion.id.desc())
+        .limit(1)
+    ).one_or_none()
+    if fila is None:
+        return None
+    texto = " ".join(fila.texto.split())
+    return UltimoMensajeRead(
+        texto=texto[:MAX_VISTA_PREVIA] + ("…" if len(texto) > MAX_VISTA_PREVIA else ""),
+        lado=fila.lado,
+        created_at=fila.created_at,
+    )
+
+
+def _resumen(items) -> ResumenConsultasRead:
+    pendientes = sum(1 for item in items if item.estado != "resuelta")
+    return ResumenConsultasRead(
+        total=len(items), pendientes=pendientes, resueltas=len(items) - pendientes
+    )
+
+
+def _propias(db, usuario, rol) -> list[ConversacionResumenRead]:
+    """Consultas de la familia activa, revalidando cada trámite con su vínculo vigente."""
+    familia = obtener_familia_de_usuario(db, usuario)
+    if familia is None or "familia" not in roles_de(db, usuario.id):
+        raise no_encontrado()
+    hilos = db.scalars(
+        select(ConversacionContextual)
+        .where(ConversacionContextual.familia_id == familia.id)
+        .order_by(ConversacionContextual.updated_at.desc(), ConversacionContextual.id.desc())
+    ).all()
+    propias = []
+    for hilo in hilos:
+        try:
+            contexto, familia_id = resolver_contexto(db, usuario, rol, *contexto_de_hilo(hilo))
+        except HTTPException as error:
+            if error.status_code == 404:
+                continue
+            raise
+        if familia_id != hilo.familia_id:
+            continue
+        propias.append(
+            ConversacionResumenRead(
+                **_hilo_read(hilo, contexto, rol).model_dump(),
+                ultimo_mensaje=_ultimo_mensaje(db, hilo.id),
+            )
+        )
+    return propias
+
+
+def bandeja(
+    db,
+    usuario,
+    rol,
+    estado,
+    tipo,
+    limite,
+    offset,
+    *,
+    buscar: str | None = None,
+    abiertas: bool = False,
+) -> BandejaRead:
+    if rol == "familia":
+        propias = _propias(db, usuario, rol)
+        resumen = _resumen(propias)
+        filtradas = propias
+        if estado:
+            filtradas = [item for item in filtradas if item.estado == estado]
+        if abiertas:
+            filtradas = [item for item in filtradas if item.estado != "resuelta"]
+        if tipo:
+            filtradas = [item for item in filtradas if item.contexto.tipo == tipo]
+        if buscar and buscar.strip():
+            termino = _normalizado(buscar.strip())
+
+            def coincide(item):
+                contexto = item.contexto
+                campos = " ".join(
+                    filter(None, [contexto.alumno_nombre, contexto.concepto, contexto.motivo])
+                )
+                return termino in _normalizado(f"{campos} {contexto.tipo}")
+
+            filtradas = [item for item in filtradas if coincide(item)]
+        return BandejaRead(
+            items=filtradas[offset : offset + limite],
+            siguiente_offset=(offset + limite if len(filtradas) > offset + limite else None),
+            total=len(filtradas),
+            resumen=resumen,
+        )
     permitidos = tipos_administrativos(db, usuario, rol)
     if not permitidos:
         raise HTTPException(403, "No tenés acceso a la bandeja.")
@@ -263,7 +379,14 @@ def bandeja(db, usuario, rol, estado, tipo, limite, offset) -> BandejaRead:
     for hilo in filas[:limite]:
         contexto, familia_id = resolver_contexto(db, usuario, rol, *contexto_de_hilo(hilo))
         if familia_id == hilo.familia_id:
-            items.append(_hilo_read(hilo, contexto, rol))
+            items.append(
+                ConversacionResumenRead(
+                    **_hilo_read(hilo, contexto, rol).model_dump(),
+                    ultimo_mensaje=_ultimo_mensaje(db, hilo.id),
+                )
+            )
     return BandejaRead(
-        items=items, siguiente_offset=offset + limite if len(filas) > limite else None
+        items=items,
+        siguiente_offset=offset + limite if len(filas) > limite else None,
+        total=len(items),
     )

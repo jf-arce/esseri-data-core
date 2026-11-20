@@ -55,8 +55,12 @@ def bandeja(
     tipo: TipoContexto | None = None,
     limite: Limite = 25,
     offset: Offset = 0,
+    buscar: Annotated[str | None, Query(max_length=120)] = None,
+    abiertas: bool = False,
 ) -> BandejaRead:
-    return service.bandeja(db, usuario, rol, estado, tipo, limite, offset)
+    return service.bandeja(
+        db, usuario, rol, estado, tipo, limite, offset, buscar=buscar, abiertas=abiertas
+    )
 
 
 @router.get("/contextos/{tipo}/{id_contexto}")

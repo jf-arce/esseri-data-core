@@ -825,6 +825,9 @@ pytest -q tests/comunicaciones
 
 The contextual conversation API lives under `/comunicaciones/conversaciones`. An authorized
 caller consults and opens a thread at `/contextos/{tipo}/{id}`; history is at `/{id}/mensajes`.
+`GET /comunicaciones/conversaciones` returns the active family's own consultations (revalidating
+each record's current link) with `abiertas`, `buscar`, `limite` and `offset`, plus totals and the
+last message preview; staff receive the permission-scoped queue of the same endpoint.
 Message commands take plain `texto` and a UUID `clave` kept stable across retries. Staff can
 list pending threads and resolve or reopen them without mutating the underlying record. Run
 `pytest -q tests/comunicaciones/test_conversaciones.py`; set `COMUNICACIONES_TEST_DATABASE_URL`

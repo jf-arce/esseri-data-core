@@ -1,11 +1,16 @@
-from datetime import date
 from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, defer
 
-from src.academico.models import JustificacionInasistencia, SolicitudAusenciaPeriodo
+from src.academico.models import (
+    Anio,
+    Division,
+    JustificacionInasistencia,
+    MotivoJustificacion,
+    SolicitudAusenciaPeriodo,
+)
 from src.auth.autorizacion_service import roles_de, tiene_permiso_en_rol
 from src.auth.constants import (
     PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES,
@@ -14,11 +19,17 @@ from src.auth.constants import (
 from src.auth.models import Usuario
 from src.comunicaciones.conversaciones_schemas import ContextoConversacion, TipoContexto
 from src.comunicaciones.models import ConversacionContextual
-from src.facturacion.models import DebitoCobranza, Factura, ResponsableEconomico
+from src.facturacion.models import (
+    DebitoCobranza,
+    Factura,
+    LoteCobranza,
+    ResponsableEconomico,
+)
 from src.familias_alumnos.models import Alumno
 from src.familias_alumnos.service import familia_tiene_alumno, obtener_familia_de_usuario
 from src.inscripciones.models import Asistencia, Inscripcion
-from src.models import Persona
+from src.models import EventLog, Persona
+from src.workflows.models import TipoEvento
 
 CONTEXTO_FK = {
     "debito_cobranza": ConversacionContextual.debito_id,
@@ -108,16 +119,53 @@ def resolver_contexto(
         .join(Alumno, Alumno.persona_id == Persona.id)
         .where(Alumno.id == alumno_id)
     ).one()
-    inicio: date
+    curso = db.execute(
+        select(Anio.numero, Division.nombre)
+        .join(Anio, Anio.id == Division.anio_id)
+        .join(Inscripcion, Inscripcion.division_id == Division.id)
+        .where(Inscripcion.alumno_id == alumno_id, Inscripcion.estado == "activa")
+        .order_by(Inscripcion.fecha_inscripcion.desc())
+        .limit(1)
+    ).one_or_none()
+    curso = f"{curso.numero}° {curso.nombre}" if curso is not None else None
+    concepto = importe = motivo = None
+    fecha_intento = None
     if tipo == "debito_cobranza":
         inicio = tramite.vencimiento
         estado = "rechazado"
+        concepto = tramite.concepto
+        importe = f"{tramite.importe:.2f}"
+        evento = db.execute(
+            select(EventLog.payload, EventLog.timestamp)
+            .join(TipoEvento, TipoEvento.id == EventLog.tipo_evento_id)
+            .where(
+                EventLog.entidad == "debito_cobranza",
+                EventLog.entidad_id == id_contexto,
+                TipoEvento.nombre == "debito.resultado_registrado",
+            )
+            .order_by(EventLog.timestamp.desc(), EventLog.id.desc())
+            .limit(1)
+        ).one_or_none()
+        if evento is not None:
+            datos = evento.payload or {}
+            motivo = str(datos.get("motivo_rechazo") or datos.get("codigo_resultado") or "") or None
+            fecha_intento = evento.timestamp.date()
+        if fecha_intento is None:
+            fecha_intento = db.scalar(
+                select(LoteCobranza.fecha).where(LoteCobranza.id == tramite.lote_id)
+            )
     elif tipo == "justificacion_inasistencia":
         inicio = fila[3]
         estado = tramite.estado
     else:
         inicio = tramite.fecha_inicio
         estado = tramite.estado
+    if tipo != "debito_cobranza":
+        motivo = db.scalar(
+            select(MotivoJustificacion.nombre).where(
+                MotivoJustificacion.id == tramite.motivo_justificacion_id
+            )
+        )
     return ContextoConversacion(
         tipo=tipo,
         id=id_contexto,
@@ -127,4 +175,9 @@ def resolver_contexto(
         fecha_fin=tramite.fecha_fin if tipo == "solicitud_ausencia_periodo" else None,
         estado_tramite=estado,
         factura_id=tramite.factura_id if tipo == "debito_cobranza" else None,
+        alumno_curso=curso,
+        concepto=concepto,
+        importe=importe,
+        motivo=motivo,
+        fecha_intento=fecha_intento,
     ), familia_id

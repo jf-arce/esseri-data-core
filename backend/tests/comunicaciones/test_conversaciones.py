@@ -156,7 +156,16 @@ def test_justificacion_individual_y_revocacion(
         ]
         is None
     )
-    assert client.get(BASE).status_code == 403
+    propias = client.get(BASE).json()
+    assert [item["id"] for item in propias["items"]] == [apertura.json()["id"]]
+    assert propias["resumen"] == {"total": 1, "pendientes": 1, "resueltas": 0}
+    assert propias["items"][0]["ultimo_mensaje"]["lado"] == "familia"
+    assert propias["items"][0]["ultimo_mensaje"]["texto"] == "Consulta individual"
+    assert client.get(BASE, params={"buscar": "sin coincidencias"}).json()["items"] == []
+    assert client.get(BASE, params={"buscar": "justificación"}).json()["items"]
+    assert client.get(BASE, params={"buscar": "prueba"}).json()["items"]
+    assert client.get(BASE, params={"abiertas": "true"}).json()["total"] == 1
+    assert client.get(BASE, params={"estado": "resuelta"}).json()["total"] == 0
     db_session.delete(db_session.get(FamiliaAlumno, ids["vinculo_a"]))
     db_session.commit()
     assert client.get(url).status_code == 404

@@ -6,6 +6,7 @@ import { ComunicacionDetallePage } from './pages/comunicacion-detalle-page'
 import { ComunicacionFormPage } from './pages/comunicacion-form-page'
 import { ConversacionContextualPage } from './pages/conversacion-contextual-page'
 import { ConversacionesPage } from './pages/conversaciones-page'
+import { MisConsultasPage } from './pages/mis-consultas-page'
 
 export const comunicacionesRoutes: RouteObject[] = [
   { path: 'comunicaciones/conversaciones', element: <ConversacionesPage /> },
@@ -39,6 +40,7 @@ export const comunicacionesDocenteRoutes: RouteObject[] = [
 ]
 
 export const comunicacionesFamiliaRoutes: RouteObject[] = [
+  { path: 'familia/consultas', element: <MisConsultasPage /> },
   { path: 'familia/conversaciones/:id', element: <ConversacionContextualPage familia /> },
   {
     path: 'familia/conversaciones/contextos/:tipo/:contextoId',

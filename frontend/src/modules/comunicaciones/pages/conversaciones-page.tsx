@@ -44,7 +44,7 @@ function Listado({ estado }: { estado: EstadoConversacion }) {
 
   useEffect(() => {
     const controller = new AbortController()
-    void listarConversaciones(estado, offset, controller.signal)
+    void listarConversaciones({ estado, offset }, controller.signal)
       .then((datos) => {
         if (!controller.signal.aborted) {
           setItems(datos.items)

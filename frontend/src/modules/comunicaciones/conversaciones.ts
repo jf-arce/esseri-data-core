@@ -13,31 +13,46 @@ export type Contexto = {
   fecha_fin?: string | null
   estado_tramite?: string | null
   factura_id?: string | null
+  alumno_curso?: string | null
+  concepto?: string | null
+  importe?: string | null
+  motivo?: string | null
+  fecha_intento?: string | null
 }
 export type Conversacion = {
   id: string
   contexto: Contexto
   estado: EstadoConversacion
+  updated_at: string
   puede_responder: boolean
   puede_gestionar: boolean
   adjuntos_habilitados: boolean
 }
-type AdjuntoMensaje = { id: string; nombre: string }
+type AdjuntoMensaje = { id: string; nombre: string; tipo_contenido: string; tamanio: number }
 export type Mensaje = {
   id: string
+  lado: 'familia' | 'administracion'
   autor: string
   texto: string
   created_at: string
   adjuntos?: AdjuntoMensaje[]
 }
 export type Historial = { items: Mensaje[]; siguiente: string | null }
+export type ConsultaResumen = Conversacion & {
+  ultimo_mensaje: { texto: string; lado: 'familia' | 'administracion'; created_at: string } | null
+}
+export type Bandeja = {
+  items: ConsultaResumen[]
+  siguiente_offset: number | null
+  total: number
+  resumen: { total: number; pendientes: number; resueltas: number } | null
+}
 type EstadoContexto = {
   contexto: Contexto
   conversacion: Conversacion | null
   puede_iniciar: boolean
   adjuntos_habilitados: boolean
 }
-type Bandeja = { items: Conversacion[]; siguiente_offset: number | null }
 
 export const TITULOS: Record<TipoContexto, string> = {
   debito_cobranza: 'Débito rechazado',
@@ -141,15 +156,20 @@ export function gestionarHilo(id: string, accion: 'resolver' | 'reabrir', signal
 }
 
 export function listarConversaciones(
-  estado: EstadoConversacion,
-  offset: number,
+  filtros: {
+    estado?: EstadoConversacion
+    abiertas?: boolean
+    buscar?: string
+    offset?: number
+    limite?: number
+  },
   signal: AbortSignal,
 ) {
-  return apiClient<Bandeja>(
-    `${URL_CONVERSACIONES}?${new URLSearchParams({
-      estado,
-      offset: String(offset),
-    })}`,
-    { signal },
-  )
+  const parametros = new URLSearchParams()
+  if (filtros.estado) parametros.set('estado', filtros.estado)
+  if (filtros.abiertas) parametros.set('abiertas', 'true')
+  if (filtros.buscar?.trim()) parametros.set('buscar', filtros.buscar.trim())
+  parametros.set('offset', String(filtros.offset ?? 0))
+  if (filtros.limite) parametros.set('limite', String(filtros.limite))
+  return apiClient<Bandeja>(`${URL_CONVERSACIONES}?${parametros}`, { signal })
 }

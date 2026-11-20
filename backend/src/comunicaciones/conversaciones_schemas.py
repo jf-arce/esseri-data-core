@@ -19,6 +19,11 @@ class ContextoConversacion(BaseModel):
     fecha_fin: date | None = None
     estado_tramite: str | None = None
     factura_id: UUID | None = None
+    alumno_curso: str | None = None
+    concepto: str | None = None
+    importe: str | None = None
+    motivo: str | None = None
+    fecha_intento: date | None = None
 
 
 class ConversacionRead(BaseModel):
@@ -29,6 +34,22 @@ class ConversacionRead(BaseModel):
     puede_responder: bool
     puede_gestionar: bool
     adjuntos_habilitados: bool
+
+
+class UltimoMensajeRead(BaseModel):
+    texto: str
+    lado: Literal["familia", "administracion"]
+    created_at: datetime
+
+
+class ConversacionResumenRead(ConversacionRead):
+    ultimo_mensaje: UltimoMensajeRead | None = None
+
+
+class ResumenConsultasRead(BaseModel):
+    total: int
+    pendientes: int
+    resueltas: int
 
 
 class EstadoContextoRead(BaseModel):
@@ -69,5 +90,7 @@ class HistorialRead(BaseModel):
 
 
 class BandejaRead(BaseModel):
-    items: list[ConversacionRead]
+    items: list[ConversacionResumenRead]
     siguiente_offset: int | None
+    total: int = 0
+    resumen: ResumenConsultasRead | None = None
