@@ -45,22 +45,23 @@ interface Tarjeta {
 const DIAS_DEMORA = 7
 // El orden es la prioridad para elegir el indicador principal: el primero habilitado es el hero.
 const ORDEN: Clave[] = ['deuda', 'alumnos', 'inasistencias', 'solicitudes', 'tareas']
-// El hero ocupa dos columnas: una tarjeta más de columnas que de indicadores.
+// Una sola fila en escritorio: el hero ocupa dos columnas y cada indicador restante una, así que
+// las columnas son indicadores + 1 y todas las tarjetas comparten la misma altura baja.
 const COLUMNAS_ANCHO = {
-  1: '@7xl/main:grid-cols-2',
-  2: '@7xl/main:grid-cols-3',
-  3: '@7xl/main:grid-cols-4',
-  4: '@7xl/main:grid-cols-5',
-  5: '@7xl/main:grid-cols-6',
+  1: '@5xl/main:grid-cols-1',
+  2: '@5xl/main:grid-cols-3',
+  3: '@5xl/main:grid-cols-4',
+  4: '@5xl/main:grid-cols-5',
+  5: '@5xl/main:grid-cols-6',
 }
 
 function Desglose({ items }: { items: { etiqueta: string; valor: string }[] }) {
   return (
-    <dl className="grid grid-cols-2 gap-4 border-t border-borde pt-4">
+    <dl className="grid gap-2 @[34rem]:border-l @[34rem]:border-borde @[34rem]:pl-6">
       {items.map(({ etiqueta, valor }) => (
-        <div key={etiqueta}>
+        <div key={etiqueta} className="flex items-baseline justify-between gap-6">
           <dt className="text-xs text-texto-2">{etiqueta}</dt>
-          <dd className="mt-0.5 text-base font-semibold tabular-nums text-texto">{valor}</dd>
+          <dd className="text-sm font-semibold tabular-nums text-texto">{valor}</dd>
         </div>
       ))}
     </dl>
@@ -115,7 +116,7 @@ function construirTarjetas(
     .map((item) => ({
       clave: item.familia_id,
       texto: `${item.familia_apellido}, ${item.familia_nombre}`,
-      valor: formatearMoneda(item.monto_vencido),
+      valor: formatearMoneda(item.monto_vencido, 0),
       tono: 'text-error',
     }))
   const filasSolicitudes = (contexto.compras?.datos ?? [])
@@ -135,7 +136,7 @@ function construirTarjetas(
           aria: 'Ver facturas y deuda pendiente',
           to: '/facturacion',
           icon: CircleDollarSignIcon,
-          value: formatearMoneda(datos.deuda_pendiente_total),
+          value: formatearMoneda(datos.deuda_pendiente_total, 0),
           iconClassName: 'bg-sup-facturacion text-mod-facturacion',
           vistaPrevia: filasDeuda.length ? (
             <VistaPrevia titulo="Mayores deudas vencidas" filas={filasDeuda} />
@@ -145,7 +146,7 @@ function construirTarjetas(
               items={[
                 {
                   etiqueta: 'Vencida',
-                  valor: formatearMoneda(datos.deuda_vencida_total),
+                  valor: formatearMoneda(datos.deuda_vencida_total, 0),
                 },
                 { etiqueta: 'Familias en mora', valor: String(datos.familias_en_mora) },
               ]}
@@ -167,7 +168,7 @@ function construirTarjetas(
     inasistencias: acceso.academico
       ? {
           clave: 'inasistencias',
-          label: 'Inasistencias de hoy',
+          label: 'Inasistencias hoy',
           aria: 'Ver inasistencias en Académico',
           to: '/academico',
           icon: UserRoundXIcon,
@@ -181,7 +182,7 @@ function construirTarjetas(
     solicitudes: acceso.compras
       ? {
           clave: 'solicitudes',
-          label: 'Solicitudes de compra pendientes',
+          label: 'Compras pendientes',
           aria: 'Ver solicitudes de compra pendientes',
           to: '/solicitudes-compra',
           icon: ClipboardListIcon,
@@ -264,7 +265,6 @@ export function IndicadoresDireccion({
               icon={tarjeta.icon}
               iconClassName={tarjeta.iconClassName}
               hero={esHero}
-              notaAlPie={!esHero}
               compact={!esHero}
               cargando={cargando}
               note={error || cargando ? undefined : tarjeta.note}
@@ -274,9 +274,14 @@ export function IndicadoresDireccion({
             </StatTile>
           </Link>
         )
-        const celda = esHero
-          ? '@xl/main:col-span-2'
-          : '@xl/main:even:last:col-span-2 @7xl/main:col-span-1'
+        const celdaHero =
+          tarjetas.length === 1
+            ? '@xl/main:col-span-2 @5xl/main:col-span-1'
+            : '@xl/main:col-span-2 @5xl/main:col-span-2'
+        // La última tarjeta completa la fila de abajo cuando queda sola en pantallas medias.
+        const celdaChica =
+          '@xl/main:even:last:col-span-2 @5xl/main:col-span-1 @5xl/main:even:last:col-span-1'
+        const celda = esHero ? celdaHero : celdaChica
         if (!tarjeta.vistaPrevia || error || cargando)
           return (
             <div key={tarjeta.clave} className={celda}>

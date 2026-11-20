@@ -68,6 +68,7 @@ beforeEach(() => {
 })
 
 it('preserves KPI navigation and adds the approved dashboard sections without sample data', () => {
+  state.permisos = [...state.permisos, 'proveedores_compras.actualizar', 'facturacion.actualizar']
   render(
     <MemoryRouter>
       <PanelDireccionPage />
@@ -77,7 +78,7 @@ it('preserves KPI navigation and adds the approved dashboard sections without sa
     'href',
     '/familias-alumnos/alumnos',
   )
-  expect(screen.getByRole('heading', { name: 'Requiere tu atención' })).toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: 'Requiere tu atención' })).not.toBeInTheDocument()
   expect(screen.getByRole('heading', { name: 'Evolución financiera' })).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: 'Asistencia · 30 días' })).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: 'Actividad reciente' })).toBeInTheDocument()
@@ -103,7 +104,7 @@ it('leads with pending debt and gives every indicator real context', () => {
   )
   const hero = screen.getByRole('link', { name: 'Ver facturas y deuda pendiente' })
   expect(hero).toHaveTextContent('Deuda pendiente')
-  expect(hero).toHaveTextContent(/Vencida.*40,00/)
+  expect(hero).toHaveTextContent(/Vencida.*\$\s*40(?!,)/)
   expect(hero).toHaveTextContent(/Familias en mora.*3/)
   expect(screen.getByText('+2 nuevas · 1 baja este mes')).toBeInTheDocument()
   expect(screen.getByText('Sin registros cargados hoy')).toBeInTheDocument()
@@ -142,7 +143,7 @@ it('lists workflow errors as a review situation and links to the filtered execut
       <PanelDireccionPage />
     </MemoryRouter>,
   )
-  expect(screen.getByRole('heading', { name: 'Situaciones para revisar' })).toBeInTheDocument()
+  expect(screen.getByRole('region', { name: 'Situaciones para revisar' })).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Ver ejecuciones' })).toHaveAttribute(
     'href',
     '/workflows/ejecuciones?estado=fallido',
@@ -150,16 +151,23 @@ it('lists workflow errors as a review situation and links to the filtered execut
   expect(screen.getByText('2')).toBeInTheDocument()
 })
 
-it('does not show justifications in Dirección: the bandeja belongs to Administración', () => {
-  state.permisos = [...state.permisos, 'academico.actualizar:justificaciones', 'workflows.leer']
+it('never shows the operational queues: they live in the Panel Administrativo', () => {
+  state.permisos = [
+    ...state.permisos,
+    'proveedores_compras.actualizar',
+    'facturacion.actualizar',
+    'academico.actualizar:justificaciones',
+    'workflows.leer',
+  ]
   state.justificaciones = { datos: { total: 4 }, cargando: false, error: null }
   render(
     <MemoryRouter>
       <PanelDireccionPage />
     </MemoryRouter>,
   )
+  expect(screen.queryByRole('heading', { name: 'Requiere tu atención' })).not.toBeInTheDocument()
   expect(screen.queryByText('Justificaciones pendientes')).not.toBeInTheDocument()
-  expect(screen.queryByRole('link', { name: 'Abrir bandeja' })).not.toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Actividad reciente' })).toBeInTheDocument()
 })
 
 it('hides review situations the role cannot open', () => {
@@ -168,9 +176,7 @@ it('hides review situations the role cannot open', () => {
       <PanelDireccionPage />
     </MemoryRouter>,
   )
-  expect(
-    screen.queryByRole('heading', { name: 'Situaciones para revisar' }),
-  ).not.toBeInTheDocument()
+  expect(screen.queryByRole('region', { name: 'Situaciones para revisar' })).not.toBeInTheDocument()
 })
 
 it('promotes active students to the hero when the role cannot see billing', () => {
