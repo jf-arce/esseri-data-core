@@ -29,6 +29,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 import { useAuthStore } from '@/store/auth-store'
 import { AdjuntosBorrador } from '../components/adjuntos-borrador'
+import { EventoComunicacion } from '../components/evento-comunicacion'
 import { SelectorComunicacion } from '../components/selector-comunicacion'
 import { listarAdjuntos } from '../services/adjuntos'
 import { guardarBorrador } from '../services/guardar-borrador'
@@ -53,6 +54,7 @@ import type {
   Borrador,
   Canal,
   Comunicacion,
+  EventoBorrador,
   Opciones,
   TipoComunicacion,
 } from '../types'
@@ -97,6 +99,14 @@ const MENSAJES_SINCRONIZACION: Record<EstadoSincronizacion, string> = {
 
 function normalizarBusqueda(valor: string) {
   return valor.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('es').trim()
+}
+
+function validarEvento(evento: EventoBorrador | null | undefined) {
+  if (!evento) return
+  if (!evento.titulo.trim() || !evento.fecha)
+    throw new Error('Completá el título y la fecha del evento.')
+  if (evento.hora_inicio && evento.hora_fin && evento.hora_fin <= evento.hora_inicio)
+    throw new Error('La hora de fin debe ser posterior a la hora de inicio.')
 }
 
 export function ComunicacionFormPage({ docente = false }: { docente?: boolean }) {
@@ -235,6 +245,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
             audiencia: c.audiencia,
             canal: c.canal ?? 'portal',
             tipo: c.tipo,
+            evento: c.evento ?? undefined,
           }
           let respaldo: RespaldoBorrador | undefined
           let copiasLocales: RespaldoBorrador[] = []
@@ -317,6 +328,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
           audiencia: remoto.audiencia,
           canal: remoto.canal ?? 'portal',
           tipo: remoto.tipo,
+          evento: remoto.evento ?? undefined,
         }
         datosActuales.current = datosRemotos
         setDatos(datosRemotos)
@@ -347,6 +359,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
     try {
       if (!datos.asunto.trim() || !datos.cuerpo.trim())
         throw new Error('Completá el asunto y el mensaje.')
+      if (accion !== 'guardar') validarEvento(datos.evento)
       if (docente && (!datos.audiencia.ciclo_lectivo || datos.audiencia.ids.length === 0))
         throw new Error('Elegí un curso o alumnos del ciclo lectivo.')
       if (accion === 'publicar' && !puedePublicar(adjuntos))
@@ -608,6 +621,11 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
                 onChange={(e) => actualizarDatos({ ...datos, cuerpo: e.target.value })}
               />
             </div>
+            <EventoComunicacion
+              evento={datos.evento}
+              disabled={ocupado}
+              onChange={(evento) => actualizarDatos({ ...datos, evento })}
+            />
             <AdjuntosBorrador
               comunicacionId={persistido}
               adjuntos={adjuntos}
@@ -844,7 +862,15 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
               {paso === 1 ? (
                 <Button
                   disabled={ocupado || !datos.asunto.trim() || !datos.cuerpo.trim()}
-                  onClick={() => setPaso(2)}
+                  onClick={() => {
+                    try {
+                      validarEvento(datos.evento)
+                      setError('')
+                      setPaso(2)
+                    } catch (error) {
+                      if (error instanceof Error) setError(error.message)
+                    }
+                  }}
                 >
                   Siguiente
                 </Button>

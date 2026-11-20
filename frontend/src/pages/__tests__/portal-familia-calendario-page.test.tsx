@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { apiClient } from '@/api/client'
 import type { MateriaCurso } from '@/modules/academico/types'
 import { useHorarioFamilia } from '@/modules/academico/hooks/use-horario-familia'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
@@ -9,6 +10,7 @@ import { PortalFamiliaCalendarioPage } from '@/pages/portal-familia-calendario-p
 
 vi.mock('@/modules/familias-alumnos/hooks/use-mis-alumnos')
 vi.mock('@/modules/academico/hooks/use-horario-familia')
+vi.mock('@/api/client')
 
 const mockedUseMisAlumnos = vi.mocked(useMisAlumnos)
 const mockedUseHorarioFamilia = vi.mocked(useHorarioFamilia)
@@ -45,6 +47,7 @@ const ALUMNA = {
 describe('PortalFamiliaCalendarioPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(apiClient).mockResolvedValue([])
     mockedUseMisAlumnos.mockReturnValue({ alumnos: [ALUMNA], cargando: false })
     mockedUseHorarioFamilia.mockReturnValue({
       materiasCurso: [crearMateria()],
@@ -74,6 +77,28 @@ describe('PortalFamiliaCalendarioPage', () => {
     )
 
     expect(mockedUseHorarioFamilia).toHaveBeenCalledWith('alumno-2')
+  })
+
+  it('muestra eventos del alumno aunque el curso todavía no tenga horario', async () => {
+    mockedUseHorarioFamilia.mockReturnValue({ materiasCurso: [], cargando: false, error: false })
+    vi.mocked(apiClient).mockResolvedValue([
+      {
+        comunicacion_id: 'c1',
+        titulo: 'Encuentro de familias',
+        fecha: '2026-12-05',
+        hora_inicio: '10:00',
+        hora_fin: '11:00',
+        lugar: 'Biblioteca',
+        descripcion: 'Traer el boletín.',
+      },
+    ])
+    renderizar()
+    expect(await screen.findByText('Encuentro de familias')).toBeVisible()
+    expect(screen.getByText(/10:00.*11:00.*Biblioteca/)).toBeVisible()
+    expect(vi.mocked(apiClient)).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/comunicaciones\/familia\/eventos\?alumno_id=alumno-1&desde=/),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
   })
 
   it('muestra el horario del alumno a cargo en la grilla semanal', () => {

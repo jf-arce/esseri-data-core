@@ -606,6 +606,46 @@ it('persists the email-only channel and never claims portal availability', async
   expect(screen.queryByText(/Disponible en el portal/)).toBeNull()
 })
 
+it('keeps a collapsed event enabled and saves its fields, then clears it when unchecked', async () => {
+  const user = userEvent.setup()
+  render(
+    <MemoryRouter>
+      <ComunicacionFormPage />
+    </MemoryRouter>,
+  )
+  const checkbox = screen.getByRole('checkbox', {
+    name: 'Agregar evento al calendario del Portal Familia',
+  })
+  expect(checkbox).not.toBeChecked()
+  expect(screen.queryByLabelText('Título del evento')).not.toBeInTheDocument()
+  await user.click(checkbox)
+  await user.type(screen.getByLabelText('Título del evento'), 'Encuentro')
+  await user.click(screen.getByRole('button', { name: 'Contraer campos del evento' }))
+  expect(checkbox).toBeChecked()
+  expect(screen.queryByLabelText('Título del evento')).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Expandir campos del evento' }))
+  expect(screen.getByLabelText('Título del evento')).toHaveValue('Encuentro')
+  await user.type(screen.getByLabelText('Asunto'), 'Aviso')
+  await user.type(screen.getByLabelText('Mensaje'), 'Contenido')
+  await user.click(screen.getByRole('button', { name: 'Siguiente' }))
+  expect(screen.getByText('Completá el título y la fecha del evento.')).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Guardar borrador' }))
+  await screen.findByText('Borrador guardado')
+  expect(api).toHaveBeenCalledWith(
+    '/comunicaciones',
+    expect.objectContaining({ body: expect.stringContaining('"titulo":"Encuentro"') }),
+  )
+  await user.click(checkbox)
+  expect(screen.queryByLabelText('Título del evento')).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Guardar borrador' }))
+  await waitFor(() =>
+    expect(api).toHaveBeenCalledWith(
+      '/comunicaciones/c1',
+      expect.objectContaining({ body: expect.stringContaining('"evento":null') }),
+    ),
+  )
+})
+
 it('automatically saves before uploading and blocks publishing while a file is quarantined', async () => {
   render(
     <MemoryRouter>

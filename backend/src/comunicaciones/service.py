@@ -1,7 +1,7 @@
 import hashlib
 import json
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -22,6 +22,7 @@ from src.comunicaciones.schemas import (
     ComunicacionRead,
     ContactoEntregaRead,
     EnvioEntregaRead,
+    EventoCalendario,
     IntentoEntregaRead,
     Listado,
     ListadoEntrega,
@@ -199,6 +200,7 @@ def respuesta(db: Session, c: Comunicacion, *, recibo=None) -> ComunicacionRead:
         leida_at=recibo.leida_at if recibo is not None else None,
         canal=c.canal,
         adjuntos=listar_metadata(db, c.id),
+        evento=c.evento if recibo is None else None,
     )
 
 
@@ -210,7 +212,10 @@ def crear(db: Session, data: BorradorInput, usuario: Usuario, *, tipo="instituci
     if tipo == "curso":
         validar_curso_borrador(db, usuario, data.audiencia)
     # Preserve stage-1/2 idempotency hashes for the original portal-only contract.
-    contenido = data.model_dump(mode="json", exclude={"canal", "tipo"})
+    contenido = data.model_dump(mode="json", exclude={"canal", "tipo", "evento"})
+    evento = data.evento.model_dump(mode="json") if data.evento is not None else None
+    if evento is not None:
+        contenido["evento"] = evento
     if data.canal != "portal":
         contenido["canal"] = data.canal
     digest = hashlib.sha256(json.dumps(contenido, sort_keys=True).encode()).hexdigest()
@@ -230,6 +235,7 @@ def crear(db: Session, data: BorradorInput, usuario: Usuario, *, tipo="instituci
         asunto=data.asunto,
         cuerpo=data.cuerpo,
         audiencia=data.audiencia.model_dump(mode="json"),
+        evento=evento,
         tipo=tipo,
         canal=data.canal,
     )
@@ -280,7 +286,13 @@ def editar(
         ("audiencia", data.audiencia.model_dump(mode="json")),
         ("canal", data.canal),
         ("tipo", data.tipo or c.tipo),
+        (
+            "evento",
+            data.evento.model_dump(mode="json") if data.evento is not None else None,
+        ),
     ):
+        if campo == "evento" and campo not in data.model_fields_set:
+            continue
         anterior = getattr(c, campo)
         if anterior != nuevo:
             # Audit the operation without copying personal message content into the log.
@@ -312,9 +324,15 @@ def publicar(
                 "audiencia": c.audiencia,
                 "tipo": c.tipo,
                 "canal": c.canal,
+                "evento": c.evento,
             }
         )
     except ValidationError as exc:
+        evento_error = next(
+            (error for error in exc.errors() if error["loc"][:1] == ("evento",)), None
+        )
+        if evento_error is not None:
+            raise HTTPException(422, "Revisá el título, la fecha y el horario del evento") from exc
         raise HTTPException(422, "Completá el asunto, el mensaje y los destinatarios") from exc
     audiencia = publicable.audiencia
     if tipo == "curso":
@@ -351,7 +369,7 @@ def publicar_en_transaccion(
     auditar(db, c, usuario, "estado", "borrador", "publicada")
 
 
-def recibos_propios(db: Session, usuario: Usuario):
+def recibos_propios(db: Session, usuario: Usuario, *, alumno_id: uuid.UUID | None = None):
     familia = obtener_familia_de_usuario(db, usuario)
     if familia is None:
         raise HTTPException(403, "Tu cuenta no tiene una familia asociada")
@@ -364,6 +382,10 @@ def recibos_propios(db: Session, usuario: Usuario):
             )
         )
     )
+    if alumno_id is not None:
+        vigentes.intersection_update({str(alumno_id)})
+    if not vigentes:
+        return []
     # Check the persisted delivery context, not just any new family link.
     return [
         r
@@ -372,6 +394,29 @@ def recibos_propios(db: Session, usuario: Usuario):
         )
         if vigentes.intersection(r.alumnos)
     ]
+
+
+def eventos_familia(
+    db: Session, usuario: Usuario, alumno_id: uuid.UUID, desde: date, hasta: date
+) -> list[EventoCalendario]:
+    """Project one event per published communication from its original recipient receipts."""
+    if not 0 <= (hasta - desde).days <= 31:
+        raise HTTPException(422, "Seleccioná un período de hasta 32 días")
+    ids = [recibo.comunicacion_id for recibo in recibos_propios(db, usuario, alumno_id=alumno_id)]
+    if not ids:
+        return []
+    eventos = (
+        EventoCalendario(comunicacion_id=id, **evento)
+        for id, evento in db.execute(
+            select(Comunicacion.id, Comunicacion.evento).where(
+                Comunicacion.id.in_(ids),
+                Comunicacion.estado == "publicada",
+                Comunicacion.evento.is_not(None),
+            )
+        )
+        if desde.isoformat() <= evento["fecha"] <= hasta.isoformat()
+    )
+    return sorted(eventos, key=lambda e: (e.fecha, e.hora_inicio or "", e.comunicacion_id))
 
 
 def detalle_familia(db: Session, id: uuid.UUID, usuario: Usuario, *, leer=False):

@@ -50,6 +50,7 @@ import {
 } from '@/modules/academico/utils'
 import type { MateriaCurso } from '@/modules/academico/types'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
+import { EventosCalendarioFamilia } from '@/modules/comunicaciones/components/eventos-calendario-familia'
 import { normalizarTexto } from '@/lib/texto'
 import { cn } from '@/lib/utils'
 
@@ -208,6 +209,10 @@ export function PortalFamiliaCalendarioPage() {
   const hoyISO = new Date().toDateString()
   const formateoCorto = new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short' })
   const etiquetaSemana = `${formateoCorto.format(semana[0])} – ${formateoCorto.format(semana[4])}`
+  const domingo = new Date(semana[0])
+  domingo.setDate(domingo.getDate() + 6)
+  const claveFecha = (fecha: Date) =>
+    `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`
   useEffect(() => {
     const raiz = document.documentElement
     const antes = () => {
@@ -575,6 +580,36 @@ export function PortalFamiliaCalendarioPage() {
                       </div>
                     </div>
                   </>
+                )}
+                {alumno && (
+                  <EventosCalendarioFamilia
+                    alumnoId={alumno.alumno_id}
+                    desde={claveFecha(semana[0])}
+                    hasta={claveFecha(domingo)}
+                    navegacion={
+                      !cargandoHorario && (error || materiasCurso.length === 0) ? (
+                        <div className="flex flex-wrap items-center gap-2 print:hidden">
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            aria-label="Semana anterior"
+                            onClick={() => setSemanaOffset((valor) => valor - 1)}
+                          >
+                            <ChevronLeftIcon aria-hidden="true" />
+                          </Button>
+                          <span className="text-sm">{`${formateoCorto.format(semana[0])} – ${formateoCorto.format(domingo)}`}</span>
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            aria-label="Semana siguiente"
+                            onClick={() => setSemanaOffset((valor) => valor + 1)}
+                          >
+                            <ChevronRightIcon aria-hidden="true" />
+                          </Button>
+                        </div>
+                      ) : undefined
+                    }
+                  />
                 )}
               </PortalCard>
 

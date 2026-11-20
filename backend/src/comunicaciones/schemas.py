@@ -1,10 +1,36 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 Texto = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+HoraLocal = Annotated[str, StringConstraints(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")]
+
+
+class EventoBorrador(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    titulo: str = Field(default="", max_length=200)
+    fecha: date | None = None
+    hora_inicio: HoraLocal | None = None
+    hora_fin: HoraLocal | None = None
+    lugar: str = Field(default="", max_length=200)
+    descripcion: str = Field(default="", max_length=2000)
+
+
+class EventoPublicable(EventoBorrador):
+    titulo: Texto = Field(max_length=200)
+    fecha: date
+
+    @model_validator(mode="after")
+    def horario(self):
+        if self.hora_inicio and self.hora_fin and self.hora_fin <= self.hora_inicio:
+            raise ValueError("La hora de fin debe ser posterior a la hora de inicio")
+        return self
+
+
+class EventoCalendario(EventoPublicable):
+    comunicacion_id: uuid.UUID
 
 
 class AudienciaBorrador(BaseModel):
@@ -40,12 +66,14 @@ class BorradorInput(BaseModel):
     audiencia: AudienciaBorrador
     canal: Literal["portal", "email", "ambos"] = "portal"
     tipo: Literal["institucional", "curso", "administrativa", "otro"] | None = None
+    evento: EventoBorrador | None = None
 
 
 class PublicableInput(BorradorInput):
     asunto: Texto = Field(max_length=200)
     cuerpo: Texto = Field(max_length=20000)
     audiencia: Audiencia
+    evento: EventoPublicable | None = None
 
 
 class BorradorEdicionInput(BorradorInput):
@@ -77,6 +105,7 @@ class ComunicacionRead(BaseModel):
     leida_at: datetime | None = None
     canal: str = "portal"
     adjuntos: list[dict] = Field(default_factory=list)
+    evento: EventoBorrador | None = None
 
 
 class Listado(BaseModel):

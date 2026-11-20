@@ -27,6 +27,7 @@ class Comunicacion(Base):
     asunto: Mapped[str] = mapped_column(sa.String(200))
     cuerpo: Mapped[str] = mapped_column(sa.Text)
     audiencia: Mapped[dict] = mapped_column(sa.JSON)
+    evento: Mapped[dict | None] = mapped_column(sa.JSON(none_as_null=True))
     tipo: Mapped[str] = mapped_column(
         sa.String, default="institucional", server_default="institucional", index=True
     )
