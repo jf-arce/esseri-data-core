@@ -162,7 +162,7 @@ export function FormularioAdmision({ onCancelar, onCreada }: FormularioAdmisionP
                 </div>
               </div>
 
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid gap-5 @3xl/main:grid-cols-2">
                 <Field data-invalid={Boolean(errors.aspirante?.nombre)}>
                   <FieldLabel htmlFor="aspirante.nombre">Nombre</FieldLabel>
                   <Input id="aspirante.nombre" {...register('aspirante.nombre')} />
@@ -200,7 +200,7 @@ export function FormularioAdmision({ onCancelar, onCreada }: FormularioAdmisionP
                 </div>
               </div>
 
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid gap-5 @3xl/main:grid-cols-2">
                 <Controller
                   control={control}
                   name="fechaSolicitud"
@@ -279,7 +279,7 @@ export function FormularioAdmision({ onCancelar, onCreada }: FormularioAdmisionP
                 </p>
               </div>
 
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid gap-5 @3xl/main:grid-cols-2">
                 <Field data-invalid={Boolean(errors.contacto?.nombre)}>
                   <FieldLabel htmlFor="contacto.nombre">Nombre</FieldLabel>
                   <Input id="contacto.nombre" {...register('contacto.nombre')} />
@@ -340,7 +340,7 @@ export function FormularioAdmision({ onCancelar, onCreada }: FormularioAdmisionP
             </section>
           </FieldGroup>
         </CardContent>
-        <CardFooter className="mt-5 justify-end gap-2">
+        <CardFooter className="mt-5 flex-wrap justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onCancelar} disabled={enviando}>
             Cancelar
           </Button>

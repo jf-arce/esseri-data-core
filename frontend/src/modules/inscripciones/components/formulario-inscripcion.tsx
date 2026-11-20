@@ -378,7 +378,7 @@ export function FormularioInscripcion({ onCancelar }: FormularioInscripcionProps
               </Alert>
             )}
 
-            <div className="grid gap-5 md:grid-cols-2">
+            <div className="grid gap-5 @3xl/main:grid-cols-2">
               <Controller
                 control={control}
                 name="fechaInscripcion"
@@ -470,7 +470,7 @@ export function FormularioInscripcion({ onCancelar }: FormularioInscripcionProps
             )}
 
             {(solicitudSeleccionada || alumnoSeleccionado) && (
-              <div className="grid gap-3 rounded-card-sm border border-[color-mix(in_oklch,var(--petroleo)_20%,white)] bg-sup-inscripciones p-4 text-sm md:grid-cols-3">
+              <div className="grid gap-3 rounded-card-sm border border-[color-mix(in_oklch,var(--petroleo)_20%,white)] bg-sup-inscripciones p-4 text-sm @3xl/main:grid-cols-3">
                 <div>
                   <p className="text-xs font-medium text-texto-3">Alumno</p>
                   <p className="font-semibold text-texto">
@@ -541,7 +541,7 @@ export function FormularioInscripcion({ onCancelar }: FormularioInscripcionProps
             />
           </FieldGroup>
         </CardContent>
-        <CardFooter className="mt-5 justify-end gap-2">
+        <CardFooter className="mt-5 flex-wrap justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onCancelar} disabled={enviando}>
             Cancelar
           </Button>

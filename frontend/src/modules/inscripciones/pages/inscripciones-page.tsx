@@ -115,7 +115,7 @@ export function InscripcionesPage() {
         <PageHeader
           titulo="Inscripciones"
           accion={
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button variant="secondary" asChild>
                 <Link to="/inscripciones/admisiones">
                   <ListChecksIcon data-icon="inline-start" />
@@ -136,7 +136,7 @@ export function InscripcionesPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar las inscripciones</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargar}>
               Reintentar
