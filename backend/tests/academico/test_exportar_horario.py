@@ -85,7 +85,6 @@ def test_exporta_grilla_y_listado(client_secretaria, db_session):
         "Miércoles",
         "Jueves",
         "Viernes",
-        "Sábado",
     ]
     assert grilla["A4"].value == "08:00"
     assert grilla["B4"].value == "Matemática\n08:00 a 09:30\nPérez, Ana"
@@ -96,6 +95,25 @@ def test_exporta_grilla_y_listado(client_secretaria, db_session):
     filas = [[c.value for c in fila] for fila in libro["Listado"].iter_rows(min_row=2)]
     assert filas[0] == [None, "Lunes", "08:00", "09:30", "Matemática", "Materia", "Pérez, Ana"]
     assert filas[1][:5] == [None, "Martes", "08:00", "09:00", "Lengua"]
+
+
+def test_sabado_aparece_solo_si_tiene_clases(client_secretaria, db_session):
+    division = _division(db_session)
+    _asignar(db_session, division, "Matemática", _franja(1, time(8, 0), time(9, 0)))
+    _asignar(db_session, division, "Taller de huerta", _franja(6, time(9, 0), time(10, 0)))
+    db_session.commit()
+
+    respuesta = client_secretaria.get(
+        f"/academico/divisiones/{division.id}/horario/exportar?ciclo_lectivo=2027"
+    )
+
+    assert respuesta.status_code == 200
+    libro = _libro(respuesta)
+    encabezados = [c.value for c in libro["Horario"][3]]
+    assert encabezados[:6] == ["Hora", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
+    assert encabezados[6] == "Sábado"
+    filas = [[c.value for c in fila] for fila in libro["Listado"].iter_rows(min_row=2)]
+    assert filas[-1][1] == "Sábado"
 
 
 def test_ignora_docentes_de_otro_ciclo(client_secretaria, db_session):

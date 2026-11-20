@@ -1,5 +1,23 @@
 import '@testing-library/jest-dom/vitest'
 
+// JSDOM no implementa `matchMedia`; los hooks responsive necesitan la API aunque no haya layout.
+if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: (consulta: string) => ({
+      matches: false,
+      media: consulta,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  })
+}
+
 // `cmdk` observa el tamaño de su lista para manejar correctamente el foco y el scroll. JSDOM no
 // implementa esta API del navegador; este stub alcanza para las pruebas de componentes que usan la
 // paleta sin alterar el comportamiento de la aplicación real.

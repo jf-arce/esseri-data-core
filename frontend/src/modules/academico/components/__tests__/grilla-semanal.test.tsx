@@ -1,0 +1,244 @@
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { expect, it, vi } from 'vitest'
+import type { EventoCalendario } from '@/modules/comunicaciones/types'
+import type { MateriaCurso } from '../../types'
+import { GrillaSemanal, type Actividad } from '../grilla-semanal'
+
+const semana = [16, 17, 18, 19, 20].map((dia) => new Date(2026, 10, dia))
+
+function materia(nombre: string): MateriaCurso {
+  return {
+    id: `mc-${nombre}`,
+    materia_id: `m-${nombre}`,
+    materia_nombre: nombre,
+    materia_tipo: 'materia',
+    materia_color: '#2563eb',
+    division_id: 'division-1',
+    division_nombre: 'B',
+    anio_id: 'anio-1',
+    anio_numero: 4,
+    nivel_educativo_id: 'nivel-1',
+    nivel_educativo_nombre: 'Primario',
+    horarios: [],
+    docentes: [],
+    cantidad_asignaciones: 0,
+    created_at: '2026-01-01T00:00:00',
+    updated_at: '2026-01-01T00:00:00',
+  }
+}
+
+function clase(id: string, dia: number, inicio: number, fin: number): Actividad {
+  const curso = materia('Matemática')
+  return {
+    tipo: 'clase',
+    id,
+    dia,
+    inicio,
+    fin,
+    franja: {
+      id: `franja-${id}`,
+      dia_semana: dia,
+      hora_inicio: `${String(Math.floor(inicio / 60)).padStart(2, '0')}:${String(inicio % 60).padStart(2, '0')}`,
+      hora_fin: `${String(Math.floor(fin / 60)).padStart(2, '0')}:${String(fin % 60).padStart(2, '0')}`,
+      materia: curso,
+    },
+  }
+}
+
+function evento(
+  id: string,
+  dia: number,
+  inicio: number | null,
+  fin: number | null,
+  titulo = 'Reunión de padres',
+): Actividad {
+  const calendario: EventoCalendario = {
+    comunicacion_id: `c-${id}`,
+    titulo,
+    fecha: `2026-11-${String(15 + dia).padStart(2, '0')}`,
+    hora_inicio:
+      inicio === null
+        ? null
+        : `${String(Math.floor(inicio / 60)).padStart(2, '0')}:${String(inicio % 60).padStart(2, '0')}`,
+    hora_fin:
+      fin === null
+        ? null
+        : `${String(Math.floor(fin / 60)).padStart(2, '0')}:${String(fin % 60).padStart(2, '0')}`,
+    lugar: 'Biblioteca',
+    descripcion: '',
+  }
+  return { tipo: 'evento', id, dia, inicio: inicio ?? 0, fin: fin ?? 60, evento: calendario }
+}
+
+function renderizar(actividades: Actividad[], rango = { inicio: 480, fin: 600 }) {
+  return render(
+    <GrillaSemanal
+      semana={semana}
+      diaActivo={1}
+      hoyISO={new Date(2026, 10, 16).toDateString()}
+      rango={rango}
+      actividades={actividades}
+      claseAbiertaId={null}
+      onSeleccionarClase={vi.fn()}
+      onSeleccionarEvento={vi.fn()}
+      onVerGrupo={vi.fn()}
+    />,
+  )
+}
+
+/** Posición porcentual sin el inset de 4 px con el que la tarjeta se separa del borde. */
+const posicion = (elemento: HTMLElement) => ({
+  top: elemento.style.top.replace(/^calc\(| \+ 4px\)$/g, ''),
+  height: elemento.style.height.replace(/^calc\(| - 8px\)$/g, ''),
+  left: elemento.style.left.replace(/^calc\(| \+ 4px\)$/g, ''),
+  width: elemento.style.width.replace(/^calc\(| - 8px\)$/g, ''),
+})
+
+it('renders an event without overlap at full width next to the class', () => {
+  renderizar([clase('c1', 1, 480, 540), evento('e1', 2, 480, 540)])
+
+  const botonClase = screen.getByRole('button', { name: /Matemática/ })
+  const botonEvento = screen.getByRole('button', { name: /Reunión de padres/ })
+  expect(posicion(botonClase)).toEqual({ top: '0%', height: '50%', left: '0%', width: '100%' })
+  expect(posicion(botonEvento)).toEqual({ top: '0%', height: '50%', left: '0%', width: '100%' })
+})
+
+it('splits a partial overlap into two columns and keeps both durations', () => {
+  renderizar([clase('c1', 1, 480, 540), evento('e1', 1, 510, 570)], { inicio: 480, fin: 570 })
+
+  const botones = screen.getAllByRole('button')
+  const claseBoton = botones.find((boton) => boton.textContent?.includes('Matemática'))!
+  const eventoBoton = botones.find((boton) => boton.textContent?.includes('Reunión de padres'))!
+  const cajaClase = posicion(claseBoton)
+  expect(cajaClase.top).toBe('0%')
+  expect(Number.parseFloat(cajaClase.height)).toBeCloseTo(66.667, 2)
+  expect(cajaClase.left).toBe('0%')
+  expect(cajaClase.width).toBe('50%')
+  const cajaEvento = posicion(eventoBoton)
+  expect(cajaEvento.left).toBe('50%')
+  expect(cajaEvento.width).toBe('50%')
+  expect(Number.parseFloat(cajaEvento.top)).toBeCloseTo(33.333, 2)
+})
+
+it('shows a total overlap side by side at half width each', () => {
+  renderizar([clase('c1', 1, 480, 540), evento('e1', 1, 480, 540)], { inicio: 480, fin: 540 })
+
+  const claseBoton = screen.getByRole('button', { name: /Matemática/ })
+  const eventoBoton = screen.getByRole('button', { name: /Reunión de padres/ })
+  expect(posicion(claseBoton)).toEqual({ top: '0%', height: '100%', left: '0%', width: '50%' })
+  expect(posicion(eventoBoton)).toEqual({ top: '0%', height: '100%', left: '50%', width: '50%' })
+})
+
+it('summarizes three simultaneous activities behind a “+N más” control', async () => {
+  const usuario = userEvent.setup()
+  const onVerGrupo = vi.fn()
+  render(
+    <GrillaSemanal
+      semana={semana}
+      diaActivo={1}
+      hoyISO={new Date(2026, 10, 16).toDateString()}
+      rango={{ inicio: 480, fin: 540 }}
+      actividades={[clase('c1', 1, 480, 540), clase('c2', 1, 480, 540), evento('e1', 1, 480, 540)]}
+      claseAbiertaId={null}
+      onSeleccionarClase={vi.fn()}
+      onSeleccionarEvento={vi.fn()}
+      onVerGrupo={onVerGrupo}
+    />,
+  )
+
+  expect(screen.queryByRole('button', { name: /Reunión de padres/ })).not.toBeInTheDocument()
+  const resumen = screen.getByRole('button', { name: '+1 más' })
+  expect(posicion(resumen)).toEqual({
+    top: '0%',
+    height: '100%',
+    left: '66.66666666666666%',
+    width: '33.33333333333333%',
+  })
+  await usuario.click(resumen)
+  expect(onVerGrupo).toHaveBeenCalledTimes(1)
+})
+
+it('positions an evening event outside the school day using the expanded range', () => {
+  renderizar([evento('e1', 5, 1080, 1145)], { inicio: 450, fin: 1170 })
+
+  const boton = screen.getByRole('button', { name: /Reunión de padres/ })
+  const { top, height, left, width } = posicion(boton)
+  expect(top).toBe('87.5%')
+  expect(Number.parseFloat(height)).toBeCloseTo(9.0278, 3)
+  expect(left).toBe('0%')
+  expect(width).toBe('100%')
+  expect(boton.style.height).toMatch(/^calc\(.* - 8px\)$/)
+})
+
+it('keeps an event that spans several half-hour slots at its real duration', () => {
+  renderizar([evento('e1', 1, 495, 615)], { inicio: 450, fin: 630 })
+
+  const boton = screen.getByRole('button', { name: /Reunión de padres/ })
+  const caja = posicion(boton)
+  expect(caja.top).toBe('25%')
+  expect(Number.parseFloat(caja.height)).toBeCloseTo(66.667, 2)
+  expect(caja.left).toBe('0%')
+  expect(caja.width).toBe('100%')
+})
+
+it('keeps the class detail selectable while an event overlaps', async () => {
+  const usuario = userEvent.setup()
+  const onSeleccionarClase = vi.fn()
+  const onSeleccionarEvento = vi.fn()
+  render(
+    <GrillaSemanal
+      semana={semana}
+      diaActivo={1}
+      hoyISO={new Date(2026, 10, 16).toDateString()}
+      rango={{ inicio: 480, fin: 540 }}
+      actividades={[clase('c1', 1, 480, 540), evento('e1', 1, 480, 540)]}
+      claseAbiertaId={null}
+      onSeleccionarClase={onSeleccionarClase}
+      onSeleccionarEvento={onSeleccionarEvento}
+      onVerGrupo={vi.fn()}
+    />,
+  )
+
+  await usuario.click(screen.getByRole('button', { name: /Matemática/ }))
+  await usuario.click(screen.getByRole('button', { name: /Reunión de padres/ }))
+  expect(onSeleccionarClase).toHaveBeenCalledTimes(1)
+  expect(onSeleccionarEvento).toHaveBeenCalledTimes(1)
+})
+
+it('opens the materia popover when its card is selected', async () => {
+  const { container } = render(
+    <GrillaSemanal
+      semana={semana}
+      hoyISO={new Date(2026, 10, 16).toDateString()}
+      rango={{ inicio: 480, fin: 540 }}
+      actividades={[clase('c1', 1, 480, 540)]}
+      claseAbiertaId="franja-c1"
+      onSeleccionarClase={vi.fn()}
+      onSeleccionarEvento={vi.fn()}
+      onVerGrupo={vi.fn()}
+    />,
+  )
+  const panel = await screen.findByText('Docente')
+  expect(panel).toBeInTheDocument()
+  expect(container).toBeTruthy()
+})
+
+it('requests the selected materia when a card is clicked', async () => {
+  const usuario = userEvent.setup()
+  const onSeleccionarClase = vi.fn()
+  render(
+    <GrillaSemanal
+      semana={semana}
+      hoyISO={new Date(2026, 10, 16).toDateString()}
+      rango={{ inicio: 480, fin: 540 }}
+      actividades={[clase('c1', 1, 480, 540)]}
+      claseAbiertaId={null}
+      onSeleccionarClase={onSeleccionarClase}
+      onSeleccionarEvento={vi.fn()}
+      onVerGrupo={vi.fn()}
+    />,
+  )
+  await usuario.click(screen.getByRole('button', { name: /Matemática: ver detalle/ }))
+  expect(onSeleccionarClase).toHaveBeenCalledWith(expect.objectContaining({ id: 'franja-c1' }))
+})
