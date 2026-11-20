@@ -249,7 +249,7 @@ function ListaFamiliaMovil({
 
   return (
     <section
-      className="relative isolate -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden"
+      className="relative isolate -mb-6 min-h-[calc(100svh-4rem)]"
       style={{ background: PORTAL_FAMILIA_BACKGROUND }}
     >
       <PortalFamiliaWatermark />
@@ -492,7 +492,7 @@ function ListaFamiliaEscritorio({
   return (
     <>
       <section
-        className="relative isolate -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden"
+        className="relative isolate -mb-6 min-h-[calc(100svh-4rem)]"
         style={{ background: PORTAL_FAMILIA_BACKGROUND }}
       >
         <PortalFamiliaWatermark />

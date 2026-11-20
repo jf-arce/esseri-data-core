@@ -336,8 +336,9 @@
   --pf-header: #422c5a;
   /* Blanco al 18% sobre --pf-header: se distingue del header (1.3:1 o más) y el texto blanco llega a 4.5:1 */
   --pf-nav-activo: color-mix(in srgb, white 18%, var(--pf-header));
-  --pf-borde: #d6c8e6;
-  --pf-divisor: #f1ebf7;
+  /* Mismos bordes y sombra que Administración: hairline de --borde al 60% y --sombra-card */
+  --pf-borde: var(--borde);
+  --pf-divisor: color-mix(in srgb, var(--borde) 60%, transparent);
   --pf-item: #f9f5fd;
   --pf-item-hover: #f3ecf9;
   --pf-lila: #f1e4fb;
@@ -366,58 +367,8 @@
   --pf-ilus-medio: #9b7bbf;
   --pf-ilus-oscuro: #5c3f82;
 
-  --sombra-pf-card:
-    0 0 0 1px color-mix(in srgb, var(--borde) 60%, transparent), 0 2px 4px rgba(24, 16, 40, 0.04),
-    0 8px 20px rgba(24, 16, 40, 0.06);
-  --sombra-pf-hover:
-    0 0 0 1px color-mix(in srgb, var(--borde) 80%, transparent), 0 3px 6px rgba(24, 16, 40, 0.06),
-    0 12px 28px rgba(24, 16, 40, 0.1);
-
-  --lienzo: #f6f5f8;
-  --superficie: #fdfcfe;
-  --fila-hover: #f1eff4;
-  --borde: #dad3e2;
-
-  --texto: #1b1822;
-  --texto-2: #6b6577;
-  --texto-3: #6b6577;
-  --desactivado: #9a94a6;
-
-  /* Un único violeta de acción: el mismo de --pf-accent y su hover */
-  --violeta: #7a2fa8;
-  --violeta-esseri: #6a2494;
-  --violeta-pressed: #55206e;
-  --violeta-suave: #f6edfb;
-  --violeta-borde: #e7cff2;
-
-  --petroleo: #0e7c86;
-  --exito: #0a5f3c;
-  --advertencia: #b45309;
-  --error: #b42318;
-  --info: #0f4ba8;
-  --exito-suave: #d2e5de;
-  --advertencia-suave: #f0ded2;
-  --error-suave: #f0d5d5;
-  --info-suave: #d4dff6;
-  --petroleo-suave: #d2e5e8;
-
-  --background: var(--lienzo);
-  --foreground: var(--texto);
-  --card: var(--superficie);
-  --card-foreground: var(--texto);
-  --popover: var(--superficie);
-  --popover-foreground: var(--texto);
-  --primary: var(--violeta);
-  --primary-foreground: var(--superficie);
-  --secondary: var(--superficie);
-  --secondary-foreground: var(--texto);
-  --muted: var(--fila-hover);
-  --muted-foreground: var(--texto-2);
-  --accent: var(--fila-hover);
-  --accent-foreground: var(--texto);
-  --destructive: var(--error);
-  --border: var(--borde);
-  --input: var(--borde);
+  --sombra-pf-card: var(--sombra-card);
+  --sombra-pf-hover: var(--sombra-card-hover);
 }
 
 /* Portal Familia en tema oscuro: redefine solo tokens; ninguna página necesita reglas por clase. */
@@ -426,8 +377,6 @@
   --pf-canvas: #171320;
   --pf-accent: #c79be0;
   --pf-accent-hover: #ddbaf0;
-  --pf-borde: #524663;
-  --pf-divisor: #3a3049;
   --pf-item: #342a44;
   --pf-item-hover: #3e3350;
   --pf-lila: #3d2f50;
@@ -437,8 +386,6 @@
   --pf-ilus-claro: #8a73a3;
   --pf-ilus-medio: #6c5489;
   --pf-ilus-oscuro: #3d2d57;
-  --sombra-pf-card: 0 0 0 1px color-mix(in srgb, var(--borde) 60%, transparent);
-  --sombra-pf-hover: 0 0 0 1px var(--borde), 0 8px 20px rgba(0, 0, 0, 0.3);
 
   --lienzo: #171320;
   --superficie: #2b2339;

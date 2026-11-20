@@ -217,15 +217,13 @@ Mismo ADN, otro registro. El portal **hereda** la marca, Geist, el isotipo, los 
 | Input, select | 10px | 8px |
 | Diálogo, sheet | 16px | 12px |
 
-**Elevación:** dos tokens, `shadow-pf-card` (reposo: anillo hairline + dos capas bajas, un escalón por encima de `shadow-card`) y `shadow-pf-hover` (cards clickeables). Sin sombra en tiles internos, banner ni botón: el botón se distingue por color, nunca por glow.
-
-**Bordes:** `border-pf-borde` (contorno de ítem, input, card en hover) y `border-pf-divisor` (separadores internos, más tenue). El hairline de la card va como anillo dentro de la sombra, no como `border`. `border-dashed` solo para estados vacíos y dropzone.
+**Elevación y bordes:** el portal usa exactamente los mismos que Administración (§5.2): `shadow-pf-card` es `--sombra-card` (anillo hairline de `borde` al 60% más sombra baja) y `shadow-pf-hover` es `--sombra-card-hover`. `border-pf-borde` es `--borde` (inputs, controles) y `border-pf-divisor` es `--borde` al 60% (separadores y contornos internos). No hay bordes ni sombras propios del portal. Las secciones que contienen cards no llevan `overflow-hidden`, porque recortaría el anillo de la sombra en los costados. `border-dashed` solo para estados vacíos y dropzone.
 
 **Color:** un único violeta de acción (`text-pf-accent`, `bg-pf-accent`), un header derivado de la rampa `nav` (`--pf-header`) y tonos de tile (`lavanda`, `ambar`, `azul`, `verde`, `rojo`) como pares `--pf-tile-<tono>-bg/fg` con contraste de al menos 3:1 en el ícono (WCAG 1.4.11). Tienen valores propios en `.dark .portal-familia`, así que ningún componente necesita reglas por clase para el tema oscuro.
 
 **Navegación activa:** el ítem activo del header usa `--pf-nav-activo` (blanco al 18% sobre `--pf-header`) con texto blanco. Se distingue del header (más de 1.3:1) y el texto llega a 4.5:1.
 
-**Contraste verificado** (WCAG, calculado para ambos temas): texto 4.5:1 o más sobre `superficie`, `pf-item`, `pf-lila` y sobre cada fondo de tile; íconos 3:1 o más sobre su tile. En claro, `--pf-tile-ambar-fg` es `#9a4507` (no `--advertencia`) porque `#b45309` daba 3.85:1 sobre el tile; `--pf-borde` es `#d6c8e6`. Al cambiar un token `--pf-*`, recalcular estos pares.
+**Contraste verificado** (WCAG, calculado para ambos temas): texto 4.5:1 o más sobre `superficie`, `pf-item`, `pf-lila` y sobre cada fondo de tile; íconos 3:1 o más sobre su tile. En claro, `--pf-tile-ambar-fg` es `#9a4507` (no `--advertencia`) porque `#b45309` daba 3.85:1 sobre el tile. Al cambiar un token `--pf-*`, recalcular estos pares.
 
 **Tono de copy:** cercano y en voseo ("Hola, Laura", "Podés justificarla"), sin exclamaciones de entusiasmo.
 

@@ -202,7 +202,7 @@ export function ComunicacionDetallePage({
   if (familia) {
     return (
       <section
-        className="relative isolate -mt-6 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden pt-6 pb-10"
+        className="relative isolate -mt-6 -mb-6 min-h-[calc(100svh-4rem)] pt-6 pb-10"
         style={{ background: PORTAL_FAMILIA_BACKGROUND }}
       >
         <PortalFamiliaWatermark />
