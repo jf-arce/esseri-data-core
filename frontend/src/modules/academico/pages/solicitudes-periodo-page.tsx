@@ -432,6 +432,11 @@ export function SolicitudesPeriodoPage() {
                     </Badge>
                   </TableCell>
                   <TableCell data-align="end">
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to={rutaContexto('solicitud_ausencia_periodo', item.id)}>
+                        Conversación
+                      </Link>
+                    </Button>
                     {item.estado === 'pendiente' ? (
                       <div className="flex justify-end gap-2">
                         <Button
@@ -626,3 +631,4 @@ export function SolicitudesPeriodoPage() {
     </div>
   )
 }
+import { rutaContexto } from '@/modules/comunicaciones/conversaciones'

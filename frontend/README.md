@@ -157,6 +157,13 @@ npm run format         # aplica formato con Prettier
 npm run format:check   # solo verifica, no modifica archivos
 ```
 
+## Conversaciones contextuales
+
+Las conversaciones se abren desde el detalle de un débito rechazado o una justificación
+individual o por período. Administración encuentra la bandeja de pendientes desde su panel.
+El historial y el estado se actualizan al recuperar el foco y cada 30 segundos con la pestaña
+visible. Cerrar una conversación no cambia el trámite.
+
 ## Tests unitarios (Vitest)
 
 ### Panel de Dirección

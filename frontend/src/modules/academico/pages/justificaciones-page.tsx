@@ -459,6 +459,11 @@ export function JustificacionesPage() {
                     </Badge>
                   </TableCell>
                   <TableCell data-align="end">
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to={rutaContexto('justificacion_inasistencia', item.id)}>
+                        Conversación
+                      </Link>
+                    </Button>
                     {item.estado === 'pendiente' ? (
                       <div className="flex justify-end gap-2">
                         <Button
@@ -565,3 +570,4 @@ export function JustificacionesPage() {
     </div>
   )
 }
+import { rutaContexto } from '@/modules/comunicaciones/conversaciones'

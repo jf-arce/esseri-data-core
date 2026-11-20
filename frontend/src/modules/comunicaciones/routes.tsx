@@ -4,8 +4,16 @@ import { PERMISO_COMUNICACIONES_CREAR, PERMISO_COMUNICACIONES_LEER } from '@/mod
 import { ComunicacionesPage } from './pages/comunicaciones-page'
 import { ComunicacionDetallePage } from './pages/comunicacion-detalle-page'
 import { ComunicacionFormPage } from './pages/comunicacion-form-page'
+import { ConversacionContextualPage } from './pages/conversacion-contextual-page'
+import { ConversacionesPage } from './pages/conversaciones-page'
 
 export const comunicacionesRoutes: RouteObject[] = [
+  { path: 'comunicaciones/conversaciones', element: <ConversacionesPage /> },
+  { path: 'comunicaciones/conversaciones/:id', element: <ConversacionContextualPage /> },
+  {
+    path: 'comunicaciones/conversaciones/contextos/:tipo/:contextoId',
+    element: <ConversacionContextualPage />,
+  },
   {
     element: <PermisoRoute codigo={PERMISO_COMUNICACIONES_LEER} label="Comunicaciones · Leer" />,
     children: [
@@ -31,6 +39,11 @@ export const comunicacionesDocenteRoutes: RouteObject[] = [
 ]
 
 export const comunicacionesFamiliaRoutes: RouteObject[] = [
+  { path: 'familia/conversaciones/:id', element: <ConversacionContextualPage familia /> },
+  {
+    path: 'familia/conversaciones/contextos/:tipo/:contextoId',
+    element: <ConversacionContextualPage familia />,
+  },
   {
     element: <PermisoRoute codigo={PERMISO_COMUNICACIONES_LEER} label="Comunicaciones · Leer" />,
     children: [

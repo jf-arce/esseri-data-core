@@ -311,6 +311,13 @@ function FacturaFamiliaCard({
                 <span className="text-xs text-[#6B6478]">{formatearFecha(resultado.fecha)}</span>
               </div>
               {motivo && <p className="mt-2 text-sm text-[#6B6478]">Motivo: {motivo}.</p>}
+              {resultado.debito_id && (
+                <Button variant="secondary" size="sm" className="mt-2 rounded-full" asChild>
+                  <Link to={rutaContexto('debito_cobranza', resultado.debito_id, true)}>
+                    Consultar sobre este pago
+                  </Link>
+                </Button>
+              )}
             </section>
           )}
           {estadoActual === 'vencida' && (
@@ -852,3 +859,4 @@ export function PortalFamiliaFacturacionPage() {
     </section>
   )
 }
+import { rutaContexto } from '@/modules/comunicaciones/conversaciones'

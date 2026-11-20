@@ -221,6 +221,7 @@ class PagoFamiliaRead(BaseModel):
 
 
 class ResultadoDebitoFamiliaRead(BaseModel):
+    debito_id: uuid.UUID
     resultado: Literal["exitoso", "rechazado"]
     fecha: InstanteUtc
     importe: Decimal

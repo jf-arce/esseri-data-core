@@ -1,5 +1,7 @@
 import { useLayoutEffect, useMemo, useState } from 'react'
 import { ChevronDownIcon, DownloadIcon } from 'lucide-react'
+import { Link } from 'react-router'
+import { rutaContexto } from '@/modules/comunicaciones/conversaciones'
 import { FilterSearch } from '@/components/filter-bar'
 import { PaginadorServidor } from '@/components/paginador-servidor'
 import { Badge } from '@/components/ui/badge'
@@ -247,7 +249,14 @@ export function DebitosLoteDetalleSheet({
                               {item.resultado === 'COBRADO_SIM' ? (
                                 <Badge variant="exito">Cobrado</Badge>
                               ) : item.resultado === 'RECHAZADO_SIM' ? (
-                                <Badge variant="neutro">Rechazado</Badge>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Badge variant="neutro">Rechazado</Badge>
+                                  <Button variant="ghost" size="sm" asChild>
+                                    <Link to={rutaContexto('debito_cobranza', item.referencia)}>
+                                      Conversación
+                                    </Link>
+                                  </Button>
+                                </div>
                               ) : (
                                 <Badge variant="info">Sin resultado</Badge>
                               )}
