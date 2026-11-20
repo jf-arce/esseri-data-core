@@ -218,11 +218,12 @@ El panel ofrece filtros Todas/No leídas, paginación por cursor, lectura indivi
 marcar todas como leídas y estados de carga, vacío y error. Abrir el panel no marca nada como
 leído. Los avisos académicos navegan a `/familia/asistencias` con parámetros tipados (`alumno`,
 `seccion`, `recurso`, `recurso_id`) que seleccionan al alumno y resaltan el registro exacto; las
-comunicaciones abren `/familia/comunicaciones/:id`; facturas y vencimientos abren
-`/familia/facturacion?factura=<id>`, y los pagos `/familia/facturacion?pago=<id>`, con la tarjeta
-correspondiente abierta, resaltada y desplazada a la vista. Si la marcación de lectura falla, la
-navegación igual se completa. Un destino desconocido no genera una URL arbitraria y la notificación
-se muestra sin enlace.
+comunicaciones abren `/familia/comunicaciones/:id`; facturas, vencimientos y resultados de débito
+abren `/familia/facturacion?factura=<id>`, y los pagos `/familia/facturacion?pago=<id>`, con la
+tarjeta correspondiente abierta, resaltada y desplazada a la vista. Los avisos
+`facturacion.debito_exitoso` y `facturacion.debito_rechazado` usan íconos y colores propios de
+éxito y error. Si la marcación de lectura falla, la navegación igual se completa. Un destino
+desconocido no genera una URL arbitraria y la notificación se muestra sin enlace.
 
 Verificación focalizada:
 
