@@ -1,7 +1,5 @@
 import {
   BellIcon,
-  CalendarIcon,
-  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   HouseIcon,
@@ -12,13 +10,6 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
@@ -51,7 +42,6 @@ import { useAsistenteDisponible } from '@/modules/asistente/hooks/use-asistente-
 import { useAsistenteStore } from '@/modules/asistente/store'
 import { PERMISO_ASISTENTE_LEER, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
-import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 import { useUiStore } from '@/store/ui-store'
 import { Button } from '@/components/ui/button'
 
@@ -60,8 +50,6 @@ export function AppLayout() {
   const setSidebarOpen = useUiStore((state) => state.setSidebarOpen)
   const rolActivo = useAuthStore((state) => state.rolActivo)
   const permisos = useAuthStore(permisosActivos)
-  const ciclo = useCicloLectivoStore((state) => state.cicloLectivo)
-  const setCicloLectivo = useCicloLectivoStore((state) => state.setCicloLectivo)
   const location = useLocation()
   const asistenteAbierto = useAsistenteStore((state) => state.abierto)
   const alternarAsistente = useAsistenteStore((state) => state.alternar)
@@ -209,31 +197,6 @@ export function AppLayout() {
                 </div>
               </kbd>
             </button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-borde px-3 py-2 text-sm font-medium text-texto-2 hover:bg-fila-hover"
-                >
-                  <CalendarIcon className="size-4 text-texto-3" />
-                  Ciclo {ciclo}
-                  <ChevronDownIcon className="size-3.5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuRadioGroup value={ciclo} onValueChange={setCicloLectivo}>
-                  <DropdownMenuRadioItem value="2026">
-                    <CalendarIcon className="text-texto-3" />
-                    2026
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="2025">
-                    <CalendarIcon className="text-texto-3" />
-                    2025
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
 
             {asistenteDisponible && (
               <Button
