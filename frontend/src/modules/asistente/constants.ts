@@ -46,6 +46,8 @@ export const ETIQUETA_HERRAMIENTA: Record<string, string> = {
   resumen_debitos: 'Consultando los débitos',
   lotes_debito: 'Consultando los lotes de débito',
   facturas_para_debitar: 'Consultando las facturas a debitar',
+  configuracion_facturacion: 'Consultando la configuración de facturación',
+  ayuda_facturacion: 'Buscando la explicación',
   resumen_inscripciones: 'Consultando inscripciones',
   tendencia_asistencias: 'Consultando asistencias',
   ausentes_del_dia: 'Consultando los ausentes del día',

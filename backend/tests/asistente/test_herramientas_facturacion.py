@@ -15,7 +15,12 @@ from src.auth.constants import (
 )
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
 from src.facturacion.facturas_service import crear_factura, registrar_pago
-from src.facturacion.models import ConceptoCobro, MetodoPago, ResponsableEconomico
+from src.facturacion.models import (
+    ConceptoCobro,
+    MetodoPago,
+    ReglaPenalidad,
+    ResponsableEconomico,
+)
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate
 from src.models import Persona
 from tests.asistente.conftest import (
@@ -295,4 +300,73 @@ class TestResumenCobros:
         crear_cuenta(db_session, "sin-fact@esseri.test", [MODULO_ASISTENTE])
         cliente = iniciar_sesion("sin-fact@esseri.test")
         correr(cliente, proveedor, ("resumen_cobros", {}))
+        assert "no tiene permiso" in resultados(proveedor, 1)["error"]
+
+
+class TestConfiguracionYAyuda:
+    @pytest.fixture()
+    def tramos(self, db_session):
+        concepto = ConceptoCobro(nombre="Penalidad por mora", activo=True)
+        db_session.add(concepto)
+        db_session.flush()
+        db_session.add_all(
+            [
+                ReglaPenalidad(
+                    desde_dia_vencido=6,
+                    hasta_dia_vencido=15,
+                    porcentaje=Decimal("20.00"),
+                    concepto_cobro_id=concepto.id,
+                ),
+                ReglaPenalidad(
+                    desde_dia_vencido=16,
+                    hasta_dia_vencido=30,
+                    porcentaje=Decimal("30.00"),
+                    concepto_cobro_id=concepto.id,
+                    activo=False,
+                ),
+            ]
+        )
+        db_session.commit()
+
+    def test_lista_los_tramos_de_recargo(self, direccion_fact, proveedor, tramos):
+        correr(direccion_fact, proveedor, ("configuracion_facturacion", {"seccion": "penalidades"}))
+        datos = resultados(proveedor, 1)
+        assert datos["total"] == 2
+        assert [f["porcentaje"] for f in datos["filas"]] == [20, 30]
+
+    def test_filtra_los_tramos_activos(self, direccion_fact, proveedor, tramos):
+        correr(
+            direccion_fact,
+            proveedor,
+            ("configuracion_facturacion", {"seccion": "penalidades", "estado": "activo"}),
+        )
+        assert resultados(proveedor, 1)["total"] == 1
+
+    def test_conceptos_y_metodos_sin_datos(self, direccion_fact, proveedor):
+        correr(direccion_fact, proveedor, ("configuracion_facturacion", {"seccion": "conceptos"}))
+        assert resultados(proveedor, 1)["filas"] == []
+
+    def test_reglas_sin_datos(self, direccion_fact, proveedor):
+        correr(direccion_fact, proveedor, ("configuracion_facturacion", {"seccion": "reglas"}))
+        assert resultados(proveedor, 1)["total"] == 0
+
+    def test_seccion_invalida(self, direccion_fact, proveedor):
+        correr(direccion_fact, proveedor, ("configuracion_facturacion", {"seccion": "sueldos"}))
+        assert "Argumentos inválidos" in resultados(proveedor, 1)["error"]
+
+    def test_ayuda_devuelve_el_texto_del_tema(self, direccion_fact, proveedor):
+        correr(direccion_fact, proveedor, ("ayuda_facturacion", {"tema": "recargos"}))
+        assert "no se suman" in resultados(proveedor, 1)["explicacion"]
+
+    def test_ayuda_cubre_todos_los_temas(self):
+        from typing import get_args
+
+        from src.asistente.herramientas_config_facturacion import AYUDA, Tema
+
+        assert set(AYUDA) == set(get_args(Tema))
+
+    def test_exigen_facturacion(self, client, db_session, proveedor):
+        crear_cuenta(db_session, "sin-fact2@esseri.test", [MODULO_ASISTENTE])
+        cliente = iniciar_sesion("sin-fact2@esseri.test")
+        correr(cliente, proveedor, ("ayuda_facturacion", {"tema": "debitos"}))
         assert "no tiene permiso" in resultados(proveedor, 1)["error"]

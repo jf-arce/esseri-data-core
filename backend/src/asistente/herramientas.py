@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from src.asistente import (
     herramientas_academico,
+    herramientas_config_facturacion,
     herramientas_cursos,
     herramientas_debitos,
     herramientas_finanzas,
@@ -31,6 +32,7 @@ REGISTRO: dict[str, Herramienta] = {
         herramientas_indicadores,
         herramientas_finanzas,
         herramientas_debitos,
+        herramientas_config_facturacion,
         herramientas_academico,
         herramientas_cursos,
         herramientas_inasistencias,
