@@ -22,7 +22,13 @@ export function useDetalleDireccion(
   cicloLectivo?: string,
 ) {
   const consultarDeudas = useCallback(
-    () => listarDeudaFamilias({ estado: 'vencida', pagina: 1, tamanio: 5, ciclo_lectivo: cicloLectivo }),
+    () =>
+      listarDeudaFamilias({
+        estado: 'vencida',
+        pagina: 1,
+        tamanio: 5,
+        ciclo_lectivo: cicloLectivo,
+      }),
     [cicloLectivo],
   )
   const consultarAsistencia = useCallback(() => {

@@ -17,6 +17,8 @@ TIPO_RESPUESTA_CONVERSACION = "comunicaciones.respuesta_conversacion"
 TIPO_FACTURA_EMITIDA = "facturacion.factura_emitida"
 TIPO_PAGO_REGISTRADO = "facturacion.pago_registrado"
 TIPO_PROXIMO_VENCIMIENTO = "facturacion.proximo_vencimiento"
+TIPO_DEBITO_EXITOSO = "facturacion.debito_exitoso"
+TIPO_DEBITO_RECHAZADO = "facturacion.debito_rechazado"
 
 DESTINO_ASISTENCIA = "asistencia"
 DESTINO_JUSTIFICACION_INDIVIDUAL = "justificacion_individual"
@@ -47,6 +49,8 @@ AMBITO_POR_TIPO = {
     TIPO_FACTURA_EMITIDA: AMBITO_FACTURACION,
     TIPO_PAGO_REGISTRADO: AMBITO_FACTURACION,
     TIPO_PROXIMO_VENCIMIENTO: AMBITO_FACTURACION,
+    TIPO_DEBITO_EXITOSO: AMBITO_FACTURACION,
+    TIPO_DEBITO_RECHAZADO: AMBITO_FACTURACION,
 }
 
 # Clave lógica de la tabla. El nombre es estable porque el productor lo usa para distinguir el

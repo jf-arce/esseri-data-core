@@ -70,7 +70,5 @@ it('passes the selected school year to debt and attendance', () => {
     tamanio: 5,
     ciclo_lectivo: '2027',
   })
-  expect(listarAsistencias).toHaveBeenCalledWith(
-    expect.objectContaining({ ciclo_lectivo: '2027' }),
-  )
+  expect(listarAsistencias).toHaveBeenCalledWith(expect.objectContaining({ ciclo_lectivo: '2027' }))
 })

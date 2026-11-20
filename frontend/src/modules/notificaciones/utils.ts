@@ -79,6 +79,14 @@ const ESTILOS_POR_TIPO: Record<TipoNotificacion, { icon: LucideIcon; tileClassNa
     icon: CalendarClockIcon,
     tileClassName: 'bg-advertencia-suave text-advertencia',
   },
+  'facturacion.debito_exitoso': {
+    icon: CircleCheckIcon,
+    tileClassName: 'bg-exito-suave text-exito',
+  },
+  'facturacion.debito_rechazado': {
+    icon: CircleXIcon,
+    tileClassName: 'bg-error-suave text-error',
+  },
 }
 
 const ESTILO_GENERICO = {

@@ -961,7 +961,8 @@ pytest -q tests/inscripciones/test_scoping_familia.py
 La bandeja interna vive en `src/notificaciones/` y en la tabla propia `notificacion_interna`,
 separada del log de intentos de email de Workflows y de los recibos de Comunicaciones. Conecta
 solo el Portal Familia: transiciones académicas, comunicaciones institucionales publicadas para
-el portal, facturas emitidas, pagos aprobados por Administración y recordatorios de vencimiento.
+el portal, facturas emitidas, pagos aprobados por Administración, recordatorios de vencimiento y
+el resultado confirmado de cada débito automático (exitoso o rechazado).
 
 Endpoints (todos privados, `Cache-Control: private, no-store`, y sin entrada de `usuario_id`):
 
@@ -992,6 +993,13 @@ acreditación bancaria. `notificaciones/vencimientos_job.py` corre al iniciar y 
 `FACTURACION_HORA_EJECUCION`, con independencia de `FACTURACION_AUTOMATICA_HABILITADA`: avisa una
 sola vez por factura y cuenta cuando el vencimiento efectivo cae en `hoy..hoy+3` y el saldo
 pendiente es positivo. Una prórroga posterior no genera un segundo recordatorio.
+
+Al confirmar una rendición, cada débito genera un aviso por cuenta de la familia responsable
+económica y por débito: `facturacion.debito_exitoso` o `facturacion.debito_rechazado`, ambos con
+destino a la factura exacta. El rechazo muestra solo el motivo; el código queda en el evento y en
+el historial administrativo. El pago de un débito no genera además el aviso genérico de pago
+aprobado: `registrar_pago(..., notificar=False)` evita atribuir a Administración un cobro
+automático. Los pagos manuales conservan su aviso sin cambios.
 
 Los productores académicos insertan dentro de la transacción del comando, antes de su commit:
 la ausencia se identifica por inscripción y fecha calendario, y la resolución por la

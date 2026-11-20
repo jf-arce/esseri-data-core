@@ -10,6 +10,8 @@ export const TIPOS_NOTIFICACION = [
   'facturacion.factura_emitida',
   'facturacion.pago_registrado',
   'facturacion.proximo_vencimiento',
+  'facturacion.debito_exitoso',
+  'facturacion.debito_rechazado',
 ] as const
 
 export type TipoNotificacion = (typeof TIPOS_NOTIFICACION)[number]

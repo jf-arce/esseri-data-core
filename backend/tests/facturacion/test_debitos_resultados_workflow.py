@@ -102,7 +102,7 @@ def test_abc_despacha_una_vez_y_portal_sobrevive_a_fallo_email(
     despacho_service.procesar_eventos_pendientes(db_session)
 
     assert db_session.query(Pago).count() == 2
-    assert db_session.query(NotificacionInterna).count() == 2
+    assert db_session.query(NotificacionInterna).count() == 3
     assert sorted(db_session.get(Factura, f.id).estado for f in facturas) == [
         "pagada",
         "pagada",
@@ -120,6 +120,23 @@ def test_abc_despacha_una_vez_y_portal_sobrevive_a_fallo_email(
     assert rechazo.payload["factura_id"] == str(facturas[2].id)
     assert rechazo.payload["codigo_resultado"] == "SALDO_INSUF"
     assert rechazo.payload["motivo_rechazo"] == "Saldo insuficiente"
+
+    avisos_internos = db_session.query(NotificacionInterna).all()
+    assert {aviso.tipo for aviso in avisos_internos} == {
+        "facturacion.debito_exitoso",
+        "facturacion.debito_rechazado",
+    }
+    assert sum(1 for a in avisos_internos if a.tipo == "facturacion.debito_exitoso") == 2
+    rechazo_interno = next(a for a in avisos_internos if a.tipo == "facturacion.debito_rechazado")
+    assert "Saldo insuficiente" in rechazo_interno.mensaje
+    assert "SALDO_INSUF" not in rechazo_interno.mensaje
+    assert rechazo_interno.destino_tipo == "factura"
+    assert rechazo_interno.destino_id == facturas[2].id
+    assert rechazo_interno.contexto["debito_id"] == str(rechazo.entidad_id)
+    assert all(
+        aviso.destino_id in {factura.id for factura in facturas} for aviso in avisos_internos
+    )
+
     assert len(enviados) == (0 if falla_email else 3)
     assert {e[0] for e in enviados} == (set() if falla_email else {u.email for u in usuarios})
     avisos = db_session.query(Notificacion).all()
@@ -140,7 +157,7 @@ def test_abc_despacha_una_vez_y_portal_sobrevive_a_fallo_email(
         db_session.query(WorkflowExecution).count(),
     ) == conteos
     assert db_session.query(Notificacion).count() == 3
-    assert db_session.query(NotificacionInterna).count() == 2
+    assert db_session.query(NotificacionInterna).count() == 3
     assert len(enviados) == (0 if falla_email else 3)
 
     # Later template edits must never rewrite already-published snapshots.
@@ -163,6 +180,26 @@ def test_abc_despacha_una_vez_y_portal_sobrevive_a_fallo_email(
         if aviso["resultado"] == "rechazado":
             assert aviso["motivo_rechazo"]
             assert aviso["codigo_resultado"]
+
+    _login(client_autenticado, usuarios[2])
+    listado = client_autenticado.get("/notificaciones?no_leidas=false&limite=50").json()
+    propios = [item for item in listado["items"] if item["tipo"].startswith("facturacion.debito_")]
+    assert [item["tipo"] for item in propios] == ["facturacion.debito_rechazado"]
+    assert propios[0]["destino"]["tipo"] == "factura"
+    assert propios[0]["destino"]["id"] == str(facturas[2].id)
+    assert "Saldo insuficiente" in propios[0]["mensaje"]
+    assert "SALDO_INSUF" not in propios[0]["mensaje"]
+
+    _login(client_autenticado, usuarios[0])
+    exitosos = [
+        item
+        for item in client_autenticado.get("/notificaciones?no_leidas=false&limite=50").json()[
+            "items"
+        ]
+        if item["tipo"] == "facturacion.debito_exitoso"
+    ]
+    assert len(exitosos) == 1
+    assert exitosos[0]["destino"]["id"] == str(facturas[0].id)
 
 
 @pytest.mark.parametrize("debito_anterior", [False, True])
@@ -319,5 +356,6 @@ def test_fallo_inesperado_no_deja_pagos_ni_eventos(client_autenticado, db_sessio
     db_session.rollback()
     assert db_session.query(Pago).count() == 0
     assert db_session.query(EventLog).count() == 0
+    assert db_session.query(NotificacionInterna).count() == 0
     assert db_session.query(ImportacionCobranza).one().estado == "en_revision"
     assert db_session.query(DebitoCobranza).filter_by(reserva_activa=True).count() == 3

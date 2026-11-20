@@ -5,7 +5,9 @@ import {
   type TipoRecursoNotificacion,
 } from '@/modules/notificaciones/types'
 import {
+  esTipoNotificacionConocido,
   etiquetaTiempoNotificacion,
+  estiloNotificacion,
   leerDestinoDesdeParametros,
   rutaDesdeDestino,
 } from '@/modules/notificaciones/utils'
@@ -71,6 +73,16 @@ describe('rutaDesdeDestino', () => {
     ).toBeNull()
     expect(rutaDesdeDestino(crearDestino({ id: '' }))).toBeNull()
     expect(rutaDesdeDestino(crearDestino({ alumno_id: '' }))).toBeNull()
+  })
+
+  it('conoce los resultados de débito y les asigna un estilo propio', () => {
+    expect(esTipoNotificacionConocido('facturacion.debito_exitoso')).toBe(true)
+    expect(esTipoNotificacionConocido('facturacion.debito_rechazado')).toBe(true)
+    expect(estiloNotificacion('facturacion.debito_exitoso').tileClassName).toContain('exito')
+    expect(estiloNotificacion('facturacion.debito_rechazado').tileClassName).toContain('error')
+    expect(estiloNotificacion('facturacion.debito_exitoso').icon).not.toBe(
+      estiloNotificacion('facturacion.debito_rechazado').icon,
+    )
   })
 })
 
