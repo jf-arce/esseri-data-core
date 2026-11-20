@@ -13,8 +13,7 @@ const state = vi.hoisted(() => ({
     'proveedores_compras.leer',
   ] as string[],
   justificaciones: { datos: { total: 0 }, cargando: false, error: null },
-  sugerencias: { datos: [] as unknown[], cargando: false, error: null },
-  workflows: { datos: { con_errores: 0 }, cargando: false, error: null },
+  workflows: { datos: { actual: { fallido: 0 } }, cargando: false, error: null },
 }))
 vi.mock('@/modules/panel-admin/hooks/use-indicadores-direccion', () => ({
   useIndicadoresDireccion: () => ({
@@ -47,7 +46,6 @@ vi.mock('@/modules/panel-admin/hooks/use-detalle-direccion', () => ({
 vi.mock('@/modules/panel-admin/hooks/use-atencion-institucional', () => ({
   useAtencionInstitucional: () => ({
     justificaciones: state.justificaciones,
-    sugerencias: state.sugerencias,
     workflows: state.workflows,
   }),
 }))
@@ -66,8 +64,7 @@ beforeEach(() => {
     'proveedores_compras.leer',
   ]
   state.justificaciones = { datos: { total: 0 }, cargando: false, error: null }
-  state.sugerencias = { datos: [], cargando: false, error: null }
-  state.workflows = { datos: { con_errores: 0 }, cargando: false, error: null }
+  state.workflows = { datos: { actual: { fallido: 0 } }, cargando: false, error: null }
 })
 
 it('preserves KPI navigation and adds the approved dashboard sections without sample data', () => {
@@ -137,34 +134,32 @@ it('hides the task indicator without workflows permission', () => {
   ).not.toBeInTheDocument()
 })
 
-it('lists review situations without turning them into Dirección tasks', () => {
-  state.permisos = [
-    ...state.permisos,
-    'academico.actualizar:justificaciones',
-    'ia_sugerencias.leer',
-    'workflows.leer',
-  ]
-  state.justificaciones = { datos: { total: 4 }, cargando: false, error: null }
-  state.sugerencias = { datos: [{ id: '1' }, { id: '2' }], cargando: false, error: null }
-  state.workflows = { datos: { con_errores: 1 }, cargando: false, error: null }
+it('lists workflow errors as a review situation and links to the filtered executions', () => {
+  state.permisos = [...state.permisos, 'workflows.leer']
+  state.workflows = { datos: { actual: { fallido: 2 } }, cargando: false, error: null }
   render(
     <MemoryRouter>
       <PanelDireccionPage />
     </MemoryRouter>,
   )
   expect(screen.getByRole('heading', { name: 'Situaciones para revisar' })).toBeInTheDocument()
-  expect(screen.getByRole('link', { name: 'Abrir bandeja' })).toHaveAttribute(
-    'href',
-    '/academico/justificaciones',
-  )
-  expect(screen.getByText('4')).toBeInTheDocument()
-  expect(screen.getByRole('link', { name: 'Revisar' })).toHaveAttribute('href', '/sugerencias-ia')
-  expect(screen.getByText('2')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Ver ejecuciones' })).toHaveAttribute(
     'href',
-    '/workflows/ejecuciones',
+    '/workflows/ejecuciones?estado=fallido',
   )
-  expect(screen.getByText('1')).toBeInTheDocument()
+  expect(screen.getByText('2')).toBeInTheDocument()
+})
+
+it('does not show justifications in Dirección: the bandeja belongs to Administración', () => {
+  state.permisos = [...state.permisos, 'academico.actualizar:justificaciones', 'workflows.leer']
+  state.justificaciones = { datos: { total: 4 }, cargando: false, error: null }
+  render(
+    <MemoryRouter>
+      <PanelDireccionPage />
+    </MemoryRouter>,
+  )
+  expect(screen.queryByText('Justificaciones pendientes')).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Abrir bandeja' })).not.toBeInTheDocument()
 })
 
 it('hides review situations the role cannot open', () => {
@@ -173,7 +168,9 @@ it('hides review situations the role cannot open', () => {
       <PanelDireccionPage />
     </MemoryRouter>,
   )
-  expect(screen.queryByRole('heading', { name: 'Situaciones para revisar' })).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('heading', { name: 'Situaciones para revisar' }),
+  ).not.toBeInTheDocument()
 })
 
 it('promotes active students to the hero when the role cannot see billing', () => {

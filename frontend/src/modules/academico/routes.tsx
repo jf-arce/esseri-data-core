@@ -39,18 +39,15 @@ export const academicoRoutes: RouteObject[] = [
             element: <AsignacionesDocentesPage />,
           },
           {
-            // Bandeja institucional: no alcanza con `academico.leer`, porque ese permiso
-            // también lo tienen familia y docente para sus propios flujos.
+            // Bandeja institucional de ausencias por período: además de `academico.leer`, pide
+            // el permiso tipado de justificaciones.
             element: (
               <PermisoRoute
                 codigo={PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES}
                 label="Académico · Justificaciones"
               />
             ),
-            children: [
-              { path: 'justificaciones', element: <JustificacionesPage /> },
-              { path: 'solicitudes-ausencia', element: <SolicitudesPeriodoPage /> },
-            ],
+            children: [{ path: 'solicitudes-ausencia', element: <SolicitudesPeriodoPage /> }],
           },
           {
             // RF-05/RF-06: mismo permiso de lectura que el resto de este grupo. El scoping por
@@ -62,6 +59,17 @@ export const academicoRoutes: RouteObject[] = [
         ],
       },
     ],
+  },
+  {
+    // La bandeja de justificaciones la resuelve Administración, que no tiene `academico.leer`.
+    // Se guarda solo con el permiso tipado y queda fuera del paraguas del módulo.
+    element: (
+      <PermisoRoute
+        codigo={PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES}
+        label="Académico · Justificaciones"
+      />
+    ),
+    children: [{ path: 'academico/justificaciones', element: <JustificacionesPage /> }],
   },
   {
     // Separado del grupo de arriba: cualquier rol de consola que también toma asistencia

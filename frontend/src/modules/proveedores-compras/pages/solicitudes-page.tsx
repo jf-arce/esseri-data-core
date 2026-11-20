@@ -1,5 +1,6 @@
 import { ClipboardListIcon, PlusIcon, ShieldAlertIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { ApiError } from '@/api/client'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -23,6 +24,7 @@ import type {
 import {
   FILTROS_SOLICITUDES_VACIOS,
   descripcionSolicitud,
+  esEstadoSolicitud,
   filtrarYOrdenarSolicitudes,
   solicitantesDisponibles,
 } from '@/modules/proveedores-compras/utils'
@@ -41,7 +43,14 @@ export function SolicitudesPage() {
   })
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
 
-  const [filtros, setFiltros] = useState<FiltrosSolicitudes>(FILTROS_SOLICITUDES_VACIOS)
+  const [parametros] = useSearchParams()
+  // El panel de Administración enlaza con el estado ya filtrado (`?estado=pendiente`).
+  const estadoUrl = parametros.get('estado')
+  const [filtros, setFiltros] = useState<FiltrosSolicitudes>(() =>
+    esEstadoSolicitud(estadoUrl)
+      ? { ...FILTROS_SOLICITUDES_VACIOS, estado: estadoUrl }
+      : FILTROS_SOLICITUDES_VACIOS,
+  )
   const [orden, setOrden] = useState<OrdenSolicitudes>('fecha-desc')
 
   const filtradas = useMemo(

@@ -53,6 +53,12 @@ permiso:
   - rol: administrador del sistema
     modulo: Académico
     acciones: [crear, leer, actualizar, eliminar, exportar]
+  # El "todo" del administrador del sistema se declara sin tipo; la bandeja de justificaciones
+  # usa un permiso tipado, así que se suma explícito para que también pueda resolverla.
+  - rol: administrador del sistema
+    modulo: Académico
+    acciones: [actualizar]
+    tipo_informacion: justificaciones
   - rol: administrador del sistema
     modulo: Inscripciones
     acciones: [crear, leer, actualizar, eliminar, exportar]
@@ -85,9 +91,10 @@ permiso:
   - rol: dirección
     modulo: Académico
     acciones: [leer, exportar]
-  # Revisa y resuelve la bandeja institucional de justificaciones, incluido el acceso a
-  # comprobantes. Es un permiso tipado separado de `academico.leer` (familia/docente).
-  - rol: dirección
+  # La bandeja institucional de justificaciones la resuelve administración (decisión del equipo,
+  # 2026-11-20). Los endpoints y la ruta se guardan con este permiso tipado, así que no hace
+  # falta el `academico.leer` completo.
+  - rol: administración
     modulo: Académico
     acciones: [actualizar]
     tipo_informacion: justificaciones

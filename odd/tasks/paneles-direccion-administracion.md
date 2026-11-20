@@ -10,7 +10,10 @@ S1. Dirección conserva los indicadores RF-31 y completa "tareas pendientes/esca
 S2. Dirección conserva gráficos financiero y de asistencia, altas y bajas, actividad reciente y desgloses.
 S3. Dirección suma una sección compacta de "situaciones para revisar" con justificaciones pendientes, sugerencias de IA pendientes y workflows con errores. User: "no convertir todas las justificaciones ordinarias ni todos los errores técnicos en tareas que Dirección necesariamente deba resolver."
 S4. Administración conserva sus accesos rápidos y suma exactamente tres indicadores: cantidad de facturas vencidas, monto cobrado durante el mes y cantidad de solicitudes de compra pendientes. Cada uno abre el módulo cuando el rol tiene permiso.
-S5. Administración no suma gráficos, bandejas universales ni procesos nuevos.
+S5. Administración no suma gráficos. Suma "Requiere tu atención" y "Actividad reciente" reutilizando las consultas y componentes existentes, y una fila de justificaciones pendientes; no se crean endpoints ni bandejas nuevas. Cada KPI abre su módulo ya filtrado.
+S13. Las justificaciones pendientes las resuelve Administración, no Dirección: el permiso tipado se mueve en la matriz y la ruta de la bandeja deja de exigir `academico.leer`.
+S14. La actividad reciente enlaza al registro exacto cuando el feed trae `entidad_id` (factura vencida → ficha de la factura). "Workflows con errores" cuenta ejecuciones fallidas, no reglas, para coincidir con la bandeja de ejecuciones.
+S15. "Sugerencias de IA" no aparece en "Situaciones para revisar".
 S6. La autorización de ambos paneles se separa en backend: `/panel-admin/indicadores-direccion` y `/panel-admin/actividad-reciente` quedan restringidos a roles de Dirección; `/panel-admin/evolucion-financiera` conserva `facturacion.leer` porque alimenta ambos paneles.
 S7. La deuda se calcula desde `cuenta_corriente_service` (libro `Movimiento` debe/haber), sin duplicar la regla y sin sumar listas paginadas.
 S8. Las fechas operativas de los indicadores usan la fecha argentina (`fecha_operativa_argentina`), no `date.today()`.
@@ -49,3 +52,15 @@ L8. Implementado T3-T5: `/panel-admin/indicadores-administracion` con bloques po
 L9. Verificación observada: backend panel_admin 31 tests + facturación 224; frontend 174 archivos / 1314 tests; ESLint sin hallazgos; `tsc -b && vite build` OK con el aviso preexistente de tamaño de bundle. `/workflows/tareas` ya está cubierto por `tests/workflows/test_tareas.py::test_sin_permiso_de_workflows_solo_se_ven_las_tareas_propias` (ruta de la secretaría: solo propias, ajenas 404), así que no requiere cambios.
 
 L10. Suite completa de backend: 2114 passed, 40 skipped (9m42s). Prueba en navegador contra una base demo aislada (`esseri_paneles_preview`, puerto 8110): login demo.admin, `/panel` con deuda $7.080.000 y 12 familias en mora, ciclo 2025 cambia la deuda a $0,00 sin tocar alumnos activos ni tareas, `/admin` con 30 facturas vencidas y 3 solicitudes. El cambio de ciclo destapó un anidado HTML inválido preexistente en `Estado` (`<p>` envolviendo el bloque de `VacioBueno`); se corrigió el wrapper a `<div>` y se verificó que la consola queda sin errores. Límite conocido: el gráfico financiero sigue siendo por año calendario y no acompaña al ciclo seleccionado.
+
+L11. Corrección verbatim: "para mi lo de requiere tu atencion ya ctividad reciente deberia aparecer en el administrativo tambien". Se extrajo `PanelActividadReciente` y `Panel` a componentes propios; `/admin` suma `AtencionDireccion`, el feed compartido y el permiso de rol para `actividad-reciente` (con las categorías todavía filtradas por módulo).
+
+L12. Corrección verbatim: "el modulo sugerencias de ia que ni aparezca en situaciones para revisar, despues cuando apretas en ver ejeciuciones de workflows con errores q ue ya te lo filten". Se quitó la fila de IA y el link de ejecuciones abre con `?estado=fallido`.
+
+L13. Corrección verbatim: "en el de adminstrtatiov cuando apretas en solicitudes pendientes, que ya te la filtre de una". `/solicitudes-compra` ahora lee `?estado=` y el KPI enlaza con `estado=pendiente`.
+
+L14. Corrección verbatim: "las justificaciones pendientes las tiene que aprobar administracion no direccion". Matriz: se quitó `academico.actualizar:justificaciones` de dirección y se agregó a administración (y al administrador del sistema, que declara el "todo" sin tipo). La ruta de la bandeja se movió fuera del paraguas de `academico.leer` para no ampliar permisos de lectura; el panel de Dirección ya no muestra la fila y el de Administración sí.
+
+L15. Corrección verbatim: "el ver detalle de la factura reciente, que te lleve a esa factura". El feed expone `entidad_id`; una factura vencida enlaza a `/facturacion/{id}` y el resto conserva el link al módulo.
+
+L16. Pregunta/corrección verbatim: "porque aparecen workflow con errores 2 y en ver ejecuciones me muestra como 20". `con_errores` cuenta reglas con fallas en 7 días; la bandeja cuenta ejecuciones. El badge pasó a `actual.fallido` (30 días); verificado en el preview: badge 60 y total de la bandeja 60, con `con_errores` seguía en 2.

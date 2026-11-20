@@ -12,13 +12,19 @@ import { StatTile } from '@/components/stat-tile'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatearMoneda } from '@/modules/facturacion/utils'
 import {
+  PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES,
   PERMISO_FACTURACION_LEER,
   PERMISO_FAMILIAS_ALUMNOS_LEER,
   PERMISO_INSCRIPCIONES_LEER,
   PERMISO_PROVEEDORES_COMPRAS_LEER,
   tienePermiso,
 } from '@/modules/auth/constants'
+import { cn } from '@/lib/utils'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
+import { AtencionInstitucional } from '../components/atencion-institucional'
+import { PanelActividadReciente } from '../components/actividad-reciente'
+import { AtencionDireccion } from '../components/atencion-direccion'
+import { useDetalleDireccion } from '../hooks/use-detalle-direccion'
 import { useIndicadoresAdministracion } from '../hooks/use-indicadores-administracion'
 
 const accesos = [
@@ -63,6 +69,19 @@ export function PanelAdministracionPage() {
   const permisos = useAuthStore(permisosActivos)
   const accesosVisibles = accesos.filter((acceso) => tienePermiso(permisos, acceso.permiso))
   const { datos, cargando, error } = useIndicadoresAdministracion()
+  const acceso = {
+    compras: tienePermiso(permisos, PERMISO_PROVEEDORES_COMPRAS_LEER),
+    finanzas: tienePermiso(permisos, PERMISO_FACTURACION_LEER),
+    alumnos: tienePermiso(permisos, PERMISO_FAMILIAS_ALUMNOS_LEER),
+  }
+  const atencion = {
+    justificaciones: tienePermiso(permisos, PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES),
+    // Administración no tiene permisos de Workflows: esa cola es de Dirección.
+    workflows: false,
+  }
+  const hayAtencion = acceso.compras || acceso.finanzas
+  const hayActividad = hayAtencion || acceso.alumnos
+  const detalle = useDetalleDireccion({ ...acceso, academico: false }, 0)
 
   // Un bloque sin permiso llega en `null`: no se muestra. Mientras carga (`datos === null`)
   // se mantienen las tres tarjetas con esqueleto para no mover el layout.
@@ -94,7 +113,7 @@ export function PanelAdministracionPage() {
       visible: datos === null || datos.solicitudes_compra_pendientes !== null,
       label: 'Solicitudes pendientes',
       aria: 'Ver solicitudes de compra pendientes',
-      to: '/solicitudes-compra',
+      to: '/solicitudes-compra?estado=pendiente',
       icon: ClipboardListIcon,
       iconClassName: 'bg-sup-compras text-mod-compras',
       value: error ? 'No disponible' : (datos?.solicitudes_compra_pendientes ?? 0),
@@ -131,6 +150,30 @@ export function PanelAdministracionPage() {
           ))}
         </section>
       )}
+
+      {atencion.justificaciones && (
+        <AtencionInstitucional acceso={atencion} version={0} />
+      )}
+
+      <div className="grid min-w-0 items-stretch gap-6 xl:grid-cols-12">
+        {hayAtencion && (
+          <div className={cn('min-w-0', hayActividad ? 'xl:col-span-6' : 'xl:col-span-12')}>
+            <AtencionDireccion
+              compras={detalle.compras}
+              deudas={detalle.deudas}
+              acceso={{ compras: acceso.compras, finanzas: acceso.finanzas }}
+            />
+          </div>
+        )}
+        {hayActividad && (
+          <div className={cn('min-w-0', hayAtencion ? 'xl:col-span-6' : 'xl:col-span-12')}>
+            <PanelActividadReciente
+              recurso={detalle.actividad}
+              contenidoClassName="max-h-96 min-h-0 flex-1 overflow-y-auto"
+            />
+          </div>
+        )}
+      </div>
 
       <section aria-label="Accesos rápidos" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {accesosVisibles.map(({ titulo, descripcion, href, icono: Icono }) => (
