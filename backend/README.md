@@ -133,6 +133,10 @@ Comunicaciones (`N8N_MANUAL_HABILITADO`), no el envío directo de `notificar`.
 Si otra regla coincide con el mismo resultado y solicita un canal distinto, su ejecución
 informa el conflicto; la publicación original y su canal se conservan.
 
+`GET /facturacion/familia/me` incluye `ultimo_resultado_debito` por factura cuando existe una
+rendición confirmada. Este dato no depende de la comunicación ni del envío de correo y solo se
+proyecta para las facturas de la familia responsable.
+
 ```bash
 pytest -q tests/facturacion/test_publicar_comunicacion_debito.py
 ```

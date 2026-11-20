@@ -7,6 +7,7 @@ from src.comunicaciones.models import Comunicacion, ReciboComunicacion
 from src.comunicaciones.service import listar, recibos_propios
 from src.config import settings
 from src.facturacion.models import ResponsableEconomico
+from src.facturacion.portal_familia_service import obtener_facturacion_familia
 from src.familias_alumnos.models import Familia, FamiliaAlumno
 from src.workflows import despacho_service, manuales_service, n8n_client
 from src.workflows.models import (
@@ -131,6 +132,17 @@ def test_publicar_resultado(
         {usuario.email for usuario in usuarios} if estado_envio else set()
     )
     assert set(pagos) == ({usuario.email for usuario in usuarios} if canal == "portal" else set())
+    for numero, (usuario, propia) in enumerate(
+        zip(usuarios, (factura, otra_factura), strict=True), 1
+    ):
+        cuenta = obtener_facturacion_familia(db_session, usuario.persona_id).model_dump()
+        assert cuenta["avisos_debito"] == []
+        assert [fila["id"] for fila in cuenta["facturas"]] == [propia.id]
+        resultado = cuenta["facturas"][0]["ultimo_resultado_debito"]
+        assert resultado["resultado"] == ("rechazado" if rechazado else "exitoso")
+        assert resultado["numero_factura"] == f"F-{numero:04d}"
+        assert (resultado["motivo_rechazo"] != "") is rechazado
+        assert "codigo_resultado" not in resultado
 
 
 @pytest.mark.parametrize(("primero", "segundo"), [("portal", "ambos"), ("ambos", "portal")])

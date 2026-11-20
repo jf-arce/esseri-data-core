@@ -89,7 +89,7 @@ const ESTADOS_PAGO: Record<
 
 const TEXTOS_DEBITO = {
   aviso: 'Las cuotas se debitan automáticamente de tu medio de pago adherido.',
-  vencida: 'No pudimos acreditar el débito. Escribinos desde',
+  consulta: 'Si tenés dudas sobre esta factura, escribinos desde',
   rechazado: 'Débito rechazado',
   registrados: 'Pagos registrados',
   medio: (metodo: string, medio?: 'cbu' | 'tarjeta' | null) =>
@@ -98,12 +98,6 @@ const TEXTOS_DEBITO = {
         ? 'Tarjeta de crédito'
         : 'Débito automático'
       : metodo,
-  programado: (dias: number, fecha: string) =>
-    dias === 0
-      ? 'Se debita hoy'
-      : dias === 1
-        ? 'Se debita mañana'
-        : `Se debita el ${formatearFecha(fecha)}`,
 }
 
 function formatearMoneda(monto: string) {
@@ -178,7 +172,7 @@ function ResumenCuenta({ cuenta }: { cuenta: FacturacionFamilia }) {
           <>
             {proxima && (
               <span className="block">
-                Próximo débito:{' '}
+                Próximo vencimiento:{' '}
                 {diasParaVencer(vencimiento(proxima)) === 0
                   ? 'hoy'
                   : diasParaVencer(vencimiento(proxima)) === 1
@@ -214,6 +208,19 @@ function colorAccesible(variante: 'advertencia' | 'error' | 'exito') {
   return undefined
 }
 
+function tieneDebitoRechazado(factura: FacturaFamilia, aviso?: AvisoDebitoFamilia) {
+  const resultado = factura.ultimo_resultado_debito ?? aviso
+  if (resultado) return resultado.resultado === 'rechazado'
+  return (
+    factura.pagos
+      .filter(
+        (pago) =>
+          pago.metodo_pago === 'debito_directo' || pago.metodo_pago === 'Débito por archivo',
+      )
+      .sort((a, b) => b.fecha.localeCompare(a.fecha))[0]?.estado === 'rechazado'
+  )
+}
+
 function FacturaFamiliaCard({
   factura,
   aviso,
@@ -234,16 +241,9 @@ function FacturaFamiliaCard({
   const [abierta, setAbierta] = useState(abrirInicial)
   const estadoActual = estadoVisible(factura)
   const estado = ESTADOS_FACTURA[estadoActual]
-  const dias = diasParaVencer(vencimiento(factura))
-  const ultimoDebito = factura.pagos
-    .filter(
-      (pago) => pago.metodo_pago === 'debito_directo' || pago.metodo_pago === 'Débito por archivo',
-    )
-    .slice()
-    .sort((a, b) => b.fecha.localeCompare(a.fecha))[0]
-  const rechazado =
-    aviso?.resultado === 'rechazado' ||
-    (estadoActual !== 'pagada' && ultimoDebito?.estado === 'rechazado')
+  const rechazado = tieneDebitoRechazado(factura, aviso)
+  const resultado = factura.ultimo_resultado_debito ?? aviso
+  const motivo = resultado?.resultado === 'rechazado' ? resultado.motivo_rechazo.trim() : ''
   const concepto = factura.detalles[0]?.descripcion?.trim()
     ? formatearConcepto(factura.detalles[0].descripcion.trim())
     : `Cuota ${MESES[Number(vencimiento(factura).slice(5, 7)) - 1]} ${vencimiento(factura).slice(0, 4)}`
@@ -274,21 +274,21 @@ function FacturaFamiliaCard({
             <div className="flex flex-col gap-1">
               <CardTitle>{titulo}</CardTitle>
               <CardDescription>
-                {concepto} · {factura.alumno_nombre} ·{' '}
-                {estadoActual === 'pendiente'
-                  ? TEXTOS_DEBITO.programado(dias, vencimiento(factura))
-                  : `Vence ${formatearFecha(vencimiento(factura))}`}
+                {concepto} · {factura.alumno_nombre} · Vence {formatearFecha(vencimiento(factura))}
               </CardDescription>
+              {rechazado && estadoActual !== 'pagada' && (
+                <span className="text-sm font-medium text-[#B42318]">
+                  {TEXTOS_DEBITO.rechazado}
+                  {motivo ? `: ${motivo}` : ''}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <span className="font-semibold text-[#2B2338]">
                 {formatearMoneda(factura.monto_total)}
               </span>
-              <Badge
-                variant={rechazado ? 'error' : estado.variante}
-                className={rechazado ? undefined : colorAccesible(estado.variante)}
-              >
-                {rechazado ? TEXTOS_DEBITO.rechazado : estado.etiqueta}
+              <Badge variant={estado.variante} className={colorAccesible(estado.variante)}>
+                {estado.etiqueta}
               </Badge>
               <ChevronDownIcon aria-hidden="true" className="size-4 text-[#6B6478]" />
             </div>
@@ -296,26 +296,26 @@ function FacturaFamiliaCard({
         </summary>
         <CardContent className="flex flex-col gap-5 pt-2 pb-5">
           <p className="text-xs text-[#6B6478]">
-            Factura {aviso?.numero_factura ?? `#${factura.id.slice(0, 8)}`}
+            Factura {resultado?.numero_factura ?? `#${factura.id.slice(0, 8)}`}
           </p>
-          {aviso?.resultado === 'rechazado' && (
+          {resultado?.resultado === 'rechazado' && (
             <section
-              aria-label={`Débito automático de factura ${aviso.numero_factura}`}
+              aria-label={`Débito automático de factura ${resultado.numero_factura}`}
               className="rounded-[16px] bg-[#FDF0ED] p-4"
             >
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="error">{TEXTOS_DEBITO.rechazado}</Badge>
                 <span className="text-sm font-medium text-[#2B2338]">
-                  {formatearMoneda(aviso.importe)}
+                  {formatearMoneda(resultado.importe)}
                 </span>
-                <span className="text-xs text-[#6B6478]">{formatearFecha(aviso.fecha)}</span>
+                <span className="text-xs text-[#6B6478]">{formatearFecha(resultado.fecha)}</span>
               </div>
-              <p className="mt-2 text-sm text-[#6B6478]">Motivo: {aviso.motivo_rechazo}.</p>
+              {motivo && <p className="mt-2 text-sm text-[#6B6478]">Motivo: {motivo}.</p>}
             </section>
           )}
           {estadoActual === 'vencida' && (
             <p className="text-sm text-[#6B6478]">
-              {TEXTOS_DEBITO.vencida}{' '}
+              {TEXTOS_DEBITO.consulta}{' '}
               <Link className="underline" to="/familia/comunicaciones">
                 Comunicaciones
               </Link>
@@ -452,11 +452,11 @@ export function PortalFamiliaFacturacionPage() {
     (cuenta?.avisos_debito ?? [])
       .filter((aviso) => aviso.factura_id === facturaId)
       .sort((a, b) => b.fecha.localeCompare(a.fecha))[0]
-  const rechazadas = (cuenta?.facturas ?? []).filter(
-    (factura) => avisoDe(factura.id)?.resultado === 'rechazado',
+  const rechazadas = (cuenta?.facturas ?? []).filter((factura) =>
+    tieneDebitoRechazado(factura, avisoDe(factura.id)),
   ).length
   const acreditadas = (cuenta?.facturas ?? []).filter(
-    (factura) => avisoDe(factura.id)?.resultado === 'exitoso',
+    (factura) => (factura.ultimo_resultado_debito ?? avisoDe(factura.id))?.resultado === 'exitoso',
   ).length
   const alumnos = [
     ...new Map(
@@ -487,7 +487,7 @@ export function PortalFamiliaFacturacionPage() {
     return (
       (filtro === 'todas' ||
         (filtro === 'rechazadas'
-          ? avisoDe(factura.id)?.resultado === 'rechazado'
+          ? tieneDebitoRechazado(factura, avisoDe(factura.id))
           : estadoVisible(factura) === filtro)) &&
       (alumno === 'todos' || factura.alumno_id === alumno) &&
       (!desde || vencimiento(factura) >= desde) &&
@@ -634,7 +634,7 @@ export function PortalFamiliaFacturacionPage() {
             <div className="flex flex-col gap-6">
               <ResumenCuenta cuenta={cuenta} />
 
-              {!!cuenta.avisos_debito?.length && (
+              {(acreditadas > 0 || rechazadas > 0) && (
                 <section aria-labelledby="avisos-debito-heading">
                   <Card>
                     <CardHeader>
@@ -654,7 +654,7 @@ export function PortalFamiliaFacturacionPage() {
                           className="rounded-full"
                           onClick={() => setFiltro('rechazadas')}
                         >
-                          Ver rechazados
+                          Ver facturas con débito rechazado
                         </Button>
                       </CardContent>
                     )}
@@ -700,7 +700,7 @@ export function PortalFamiliaFacturacionPage() {
                                 vencida: 'Vencidas',
                                 pendiente: 'Pendientes',
                                 pagada: 'Pagadas',
-                                rechazadas: 'Rechazadas',
+                                rechazadas: 'Con débito rechazado',
                               }[valor]
                             }{' '}
                             {valor === 'todas'
