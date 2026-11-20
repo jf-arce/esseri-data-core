@@ -166,7 +166,7 @@ function datosDelContexto(contexto: Contexto): DatoHeader[] {
   ]
 }
 
-function ContextoCard({ contexto }: { contexto: Contexto }) {
+function ContextoCard({ contexto, mostrarEstado }: { contexto: Contexto; mostrarEstado: boolean }) {
   const estado = contexto.estado_tramite ? ESTADO_TRAMITE[contexto.estado_tramite] : undefined
   const subtitulo = `Alumno: ${contexto.alumno_nombre}${
     contexto.alumno_curso ? ` (${contexto.alumno_curso})` : ''
@@ -214,7 +214,7 @@ function ContextoCard({ contexto }: { contexto: Contexto }) {
             </div>
           )
         })}
-        {estado && (
+        {estado && mostrarEstado && (
           <div className="xl:ml-auto xl:shrink-0 xl:border-l xl:border-[#F0EAF6] xl:pl-5">
             <Badge variant={estado.variante}>{estado.texto}</Badge>
           </div>
@@ -493,7 +493,14 @@ function Detalle({ familia }: { familia: boolean }) {
 
   const conversacion = (
     <>
-      {contexto && <ContextoCard contexto={contexto} />}
+      {contexto && (
+        <ContextoCard
+          contexto={contexto}
+          // Con un hilo abierto, el estado que manda es el de la conversación (arriba a la
+          // derecha): no se repite otro badge de "Pendiente" en la tarjeta.
+          mostrarEstado={!hilo || contexto.tipo === 'debito_cobranza'}
+        />
+      )}
       <Card className="gap-0 rounded-[20px] border border-[#F0EAF6] bg-white py-0 shadow-[0_10px_26px_rgba(24,16,40,0.08)]">
         <CardContent className="flex flex-col gap-4 px-5 pt-5 pb-5">
           {cargando && <Skeleton className="h-24 w-full" />}
