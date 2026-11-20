@@ -21,6 +21,7 @@ import {
   PortalAlertBanner,
   PortalCard,
 } from '@/components/portal-familia/portal-familia-ui'
+import { TONOS, type PortalFamiliaTone } from '@/components/portal-familia/portal-familia-tonos'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
 import { listarComunicaciones } from '@/modules/comunicaciones/services/listar-comunicaciones'
 import { listarAsistenciasFamilia } from '@/modules/academico/services/listar-asistencias-familia'
@@ -33,25 +34,15 @@ import { nombreDeUsuario } from '@/modules/auth/utils'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth-store'
 
-const TINTA = 'text-[#2B2338]'
-const TINTA_2 = 'text-[#6B6478]'
-const ENLACE_VIOLETA = 'text-[#7A2FA8] hover:text-[#6A2494]'
-
 function iniciales(nombre: string, apellido: string) {
   return `${nombre.charAt(0)}${apellido.charAt(0)}`.toUpperCase()
 }
-
-const TONOS_INDICADOR = {
-  lavanda: 'bg-[#F1E4FB] text-[#7A2FA8]',
-  ambar: 'bg-[#FCE4CA] text-[#DF8A2F]',
-  azul: 'bg-[#DCE9FC] text-[#4F86D9]',
-} as const
 
 type IndicadorCompactoProps = {
   etiqueta: string
   valor: number | string
   icono: LucideIcon
-  tono: keyof typeof TONOS_INDICADOR
+  tono: PortalFamiliaTone
   cargando?: boolean
   href?: string
 }
@@ -69,37 +60,35 @@ function IndicadorCompacto({
     <>
       <span
         className={cn(
-          'flex size-10 shrink-0 items-center justify-center rounded-[12px]',
-          TONOS_INDICADOR[tono],
+          'flex size-10 shrink-0 items-center justify-center rounded-pf-item',
+          TONOS[tono].tile,
         )}
       >
         <Icono aria-hidden="true" className="size-5" />
       </span>
-      <span aria-hidden="true" className="h-9 w-px shrink-0 bg-[#EEE7F5]" />
+      <span aria-hidden="true" className="h-9 w-px shrink-0 bg-pf-lila" />
       <span className="min-w-0 flex-1">
         {cargando ? (
-          <Skeleton className="h-7 w-10 bg-[#F1EAF7]" />
+          <Skeleton className="h-7 w-10 bg-pf-lila" />
         ) : (
-          <span className="block font-heading text-[24px] leading-none font-bold text-[#2B2338] tabular-nums">
+          <span className="block font-heading text-pf-cifra leading-none font-bold text-texto tabular-nums">
             {valor}
           </span>
         )}
-        <span className="mt-1 block text-[13px] leading-tight text-[#6B6478] sm:text-[14px]">
-          {etiqueta}
-        </span>
+        <span className="mt-1 block text-sm leading-tight text-texto-2 sm:text-sm">{etiqueta}</span>
       </span>
-      {href && <ChevronRightIcon aria-hidden="true" className="size-5 shrink-0 text-[#3A2E45]" />}
+      {href && <ChevronRightIcon aria-hidden="true" className="size-5 shrink-0 text-texto" />}
     </>
   )
 
   const clases =
-    'flex min-h-[74px] items-center gap-3 rounded-[18px] border border-[#E9E1F1] bg-white px-4 py-3 shadow-[0_6px_18px_rgba(24,16,40,0.05)]'
+    'flex min-h-[74px] items-center gap-3 rounded-pf-tile border border-pf-borde bg-superficie px-4 py-3 shadow-pf-card'
 
   return href ? (
     <Link
       to={href}
       aria-label={`${etiqueta}: ${valor}`}
-      className={cn(clases, 'transition-colors hover:border-[#DCCBEC] hover:bg-[#FCFAFE]')}
+      className={cn(clases, 'transition-colors hover:border-pf-borde hover:bg-pf-item')}
     >
       {contenido}
     </Link>
@@ -122,12 +111,12 @@ function IlustracionColegio() {
           y2="230"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#B392D1" stopOpacity="0.9" />
-          <stop offset="1" stopColor="#7B5AA6" stopOpacity="0.4" />
+          <stop style={{ stopColor: 'var(--pf-ilus-claro)' }} stopOpacity="0.9" />
+          <stop offset="1" style={{ stopColor: 'var(--pf-ilus-medio)' }} stopOpacity="0.4" />
         </linearGradient>
       </defs>
-      <ellipse cx="238" cy="236" rx="190" ry="18" fill="#8E6BB8" opacity="0.22" />
-      <g fill="#8B67B5" opacity="0.55">
+      <ellipse cx="238" cy="236" rx="190" ry="18" className="fill-pf-ilus-medio" opacity="0.22" />
+      <g className="fill-pf-ilus-medio" opacity="0.55">
         <rect x="48" y="150" width="10" height="80" rx="3" />
         <circle cx="53" cy="128" r="32" />
         <circle cx="34" cy="150" r="24" />
@@ -139,14 +128,35 @@ function IlustracionColegio() {
       </g>
       <g opacity="0.82">
         <path d="M150 226V120l80-48 80 48v106" fill="url(#portal-familia-colegio)" />
-        <path d="M150 120l80-48 80 48" stroke="#D6C3E8" strokeWidth="2" fill="none" />
-        <rect x="176" y="146" width="26" height="30" rx="3" fill="#5C3F82" />
-        <rect x="258" y="146" width="26" height="30" rx="3" fill="#5C3F82" />
-        <rect x="216" y="170" width="28" height="56" rx="4" fill="#4E346F" />
-        <path d="M230 74V44" stroke="#D6C3E8" strokeWidth="2" />
-        <path d="M232 44l26 8-26 9z" fill="#C9A7E8" />
-        <rect x="112" y="176" width="42" height="50" rx="3" fill="#9B7BBF" opacity="0.7" />
-        <rect x="306" y="176" width="42" height="50" rx="3" fill="#9B7BBF" opacity="0.7" />
+        <path
+          d="M150 120l80-48 80 48"
+          className="stroke-pf-ilus-claro"
+          strokeWidth="2"
+          fill="none"
+        />
+        <rect x="176" y="146" width="26" height="30" rx="3" className="fill-pf-ilus-oscuro" />
+        <rect x="258" y="146" width="26" height="30" rx="3" className="fill-pf-ilus-oscuro" />
+        <rect x="216" y="170" width="28" height="56" rx="4" className="fill-pf-ilus-oscuro" />
+        <path d="M230 74V44" className="stroke-pf-ilus-claro" strokeWidth="2" />
+        <path d="M232 44l26 8-26 9z" className="fill-pf-ilus-claro" />
+        <rect
+          x="112"
+          y="176"
+          width="42"
+          height="50"
+          rx="3"
+          className="fill-pf-ilus-medio"
+          opacity="0.7"
+        />
+        <rect
+          x="306"
+          y="176"
+          width="42"
+          height="50"
+          rx="3"
+          className="fill-pf-ilus-medio"
+          opacity="0.7"
+        />
       </g>
     </svg>
   )
@@ -264,7 +274,6 @@ export function PortalFamiliaPage() {
       <PortalFamiliaWatermark />
       <PortalFamiliaShell
         titulo={<>{saludo ? `Hola, ${saludo}` : 'Hola'} 👋</>}
-        tituloClassName="text-[32px] sm:text-[40px]"
         descripcion="Este es el resumen de tu familia en ESSERI."
         ilustracion={<IlustracionColegio />}
         className="pb-8"
@@ -323,21 +332,21 @@ export function PortalFamiliaPage() {
           <PortalCard
             titulo="Mis alumnos"
             descripcion="Accedé a la información y gestiones de cada alumno."
-            tituloClassName="font-heading text-[20px] font-bold tracking-[-0.01em] text-[#2B2338]"
-            headerClassName="border-b border-[#F1EBF7] px-5 py-4"
+            tituloClassName="font-heading text-pf-encabezado font-bold tracking-[-0.01em] text-texto"
+            headerClassName="border-b border-pf-divisor px-5 py-4"
             contentClassName="px-4 py-3"
           >
             {cargandoAlumnos ? (
-              <Skeleton className="h-28 w-full bg-[#F0EAF7]" />
+              <Skeleton className="h-28 w-full bg-pf-lila" />
             ) : alumnos.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-10 text-center">
-                <span className="flex size-14 items-center justify-center rounded-full bg-[#F0E4FA] text-[#7A2FA8]">
+                <span className="flex size-14 items-center justify-center rounded-full bg-pf-lila text-pf-accent">
                   <UsersIcon aria-hidden="true" className="size-6" />
                 </span>
-                <p className={cn('text-[15px] font-semibold', TINTA)}>
+                <p className={cn('text-pf-cuerpo font-semibold', 'text-texto')}>
                   No encontramos alumnos vinculados a tu cuenta.
                 </p>
-                <p className={cn('max-w-[280px] text-[14px]', TINTA_2)}>
+                <p className={cn('max-w-[280px] text-sm', 'text-texto-2')}>
                   Comunicate con el colegio para vincular tu cuenta.
                 </p>
               </div>
@@ -346,19 +355,22 @@ export function PortalFamiliaPage() {
                 {alumnos.map((alumno) => (
                   <li
                     key={alumno.alumno_id}
-                    className="rounded-[14px] border border-[#EFE9F6] bg-white px-3 py-2.5"
+                    className="rounded-pf-icono border border-pf-divisor bg-superficie px-3 py-2.5"
                   >
                     <div className="flex flex-wrap items-center gap-3">
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#E7D4F7] text-[14px] font-semibold text-[#7A2FA8]">
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-pf-lila-fuerte text-sm font-semibold text-pf-accent">
                         {iniciales(alumno.nombre, alumno.apellido)}
                       </span>
                       <div className="min-w-0 flex-1">
                         <p
-                          className={cn('truncate text-[16px] leading-tight font-semibold', TINTA)}
+                          className={cn(
+                            'truncate text-pf-cuerpo leading-tight font-semibold',
+                            'text-texto',
+                          )}
                         >
                           {alumno.apellido}, {alumno.nombre}
                         </p>
-                        <p className={cn('mt-0.5 text-[13px]', TINTA_2)}>
+                        <p className={cn('mt-0.5 text-sm', 'text-texto-2')}>
                           {alumno.division_etiqueta ?? 'Curso no informado'}
                         </p>
                       </div>
@@ -366,30 +378,30 @@ export function PortalFamiliaPage() {
                         <Link
                           to="/familia/asistencias"
                           className={cn(
-                            'inline-flex min-h-9 items-center gap-1.5 rounded-full px-2 text-[14px] font-semibold',
-                            ENLACE_VIOLETA,
+                            'inline-flex min-h-9 items-center gap-1.5 rounded-full px-2 text-sm font-semibold',
+                            'text-pf-accent hover:text-pf-accent-hover',
                           )}
                         >
                           <CalendarClockIcon aria-hidden="true" className="size-4" />
                           Asistencias
                         </Link>
-                        <span aria-hidden="true" className="h-4 w-px bg-[#E4DBEE]" />
+                        <span aria-hidden="true" className="h-4 w-px bg-pf-lila" />
                         <Link
                           to={`/familia/facturacion?alumno=${alumno.alumno_id}`}
                           className={cn(
-                            'inline-flex min-h-9 items-center gap-1.5 rounded-full px-2 text-[14px] font-semibold',
-                            ENLACE_VIOLETA,
+                            'inline-flex min-h-9 items-center gap-1.5 rounded-full px-2 text-sm font-semibold',
+                            'text-pf-accent hover:text-pf-accent-hover',
                           )}
                         >
                           <ReceiptTextIcon aria-hidden="true" className="size-4" />
                           Facturación
                         </Link>
-                        <span aria-hidden="true" className="h-4 w-px bg-[#E4DBEE]" />
+                        <span aria-hidden="true" className="h-4 w-px bg-pf-lila" />
                         <Link
                           to={`/familia/calendario?alumno=${alumno.alumno_id}`}
                           className={cn(
-                            'inline-flex min-h-9 items-center gap-1.5 rounded-full px-2 text-[14px] font-semibold',
-                            ENLACE_VIOLETA,
+                            'inline-flex min-h-9 items-center gap-1.5 rounded-full px-2 text-sm font-semibold',
+                            'text-pf-accent hover:text-pf-accent-hover',
                           )}
                         >
                           <CalendarDaysIcon aria-hidden="true" className="size-4" />
@@ -398,7 +410,7 @@ export function PortalFamiliaPage() {
                       </div>
                       <ChevronRightIcon
                         aria-hidden="true"
-                        className="hidden size-4 shrink-0 text-[#6B6478] sm:block"
+                        className="hidden size-4 shrink-0 text-texto-2 sm:block"
                       />
                     </div>
                   </li>
@@ -417,29 +429,29 @@ export function PortalFamiliaPage() {
               contentClassName="px-5 pt-4 pb-4"
             >
               <div className="flex flex-col">
-                <div className="border-t border-[#F1EBF7] pt-3">
-                  <p className="text-[13px] font-medium text-[#6B6478]">
+                <div className="border-t border-pf-divisor pt-3">
+                  <p className="text-sm font-medium text-texto-2">
                     {saldoAFavor ? 'Saldo a favor' : 'Saldo pendiente'}
                   </p>
                   {facturacion.cargando ? (
-                    <Skeleton className="mt-2 h-8 w-28 bg-[#EEF4EE]" />
+                    <Skeleton className="mt-2 h-8 w-28 bg-pf-verde-card" />
                   ) : (
                     <p
                       className={cn(
-                        'mt-1 font-heading text-[30px] leading-none font-bold tabular-nums',
-                        TINTA,
+                        'mt-1 font-heading text-pf-cifra leading-none font-bold tabular-nums',
+                        'text-texto',
                       )}
                     >
                       {facturacion.cuenta ? formatearMoneda(Math.abs(saldoCuenta ?? 0)) : '-'}
                     </p>
                   )}
                   {facturacion.cargando ? (
-                    <Skeleton className="mt-3 h-5 w-32 bg-[#EEF4EE]" />
+                    <Skeleton className="mt-3 h-5 w-32 bg-pf-verde-card" />
                   ) : facturacion.cuenta ? (
                     <p
                       className={cn(
-                        'mt-3 inline-flex items-center gap-1.5 text-[14px] font-medium',
-                        facturasVencidas > 0 ? 'text-[#B42318]' : 'text-[#3E7B45]',
+                        'mt-3 inline-flex items-center gap-1.5 text-sm font-medium',
+                        facturasVencidas > 0 ? 'text-error' : 'text-exito',
                       )}
                     >
                       {facturasVencidas > 0 ? (
@@ -454,8 +466,8 @@ export function PortalFamiliaPage() {
                 <Link
                   to="/familia/facturacion"
                   className={cn(
-                    'mt-4 flex min-h-11 items-center justify-between border-t border-[#F1EBF7] pt-3 text-[15px] font-semibold',
-                    ENLACE_VIOLETA,
+                    'mt-4 flex min-h-11 items-center justify-between border-t border-pf-divisor pt-3 text-pf-cuerpo font-semibold',
+                    'text-pf-accent hover:text-pf-accent-hover',
                   )}
                 >
                   Ver facturación

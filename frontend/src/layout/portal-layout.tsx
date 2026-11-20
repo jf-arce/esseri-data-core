@@ -34,7 +34,7 @@ export function PortalLayout() {
   const [menuAbierto, setMenuAbierto] = useState(false)
   const navItemClass = ({ isActive }: { isActive: boolean }) =>
     cn(
-      'rounded-full px-2.5 py-2 text-sm font-semibold whitespace-nowrap transition-colors lg:px-4 lg:text-sm',
+      'rounded-full px-2.5 py-2 text-sm font-semibold whitespace-nowrap transition-colors lg:px-4',
       isActive
         ? 'bg-nav-activo text-lila-claro'
         : 'text-white/70 hover:bg-white/10 hover:text-white',

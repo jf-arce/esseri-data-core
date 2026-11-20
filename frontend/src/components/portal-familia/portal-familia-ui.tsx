@@ -3,16 +3,7 @@ import { CircleAlertIcon, type LucideIcon } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-
-export type PortalFamiliaTone = 'lavanda' | 'ambar' | 'azul' | 'verde' | 'rojo'
-
-export const TONOS: Record<PortalFamiliaTone, { card: string; tile: string }> = {
-  lavanda: { card: 'bg-pf-lavanda-card', tile: 'bg-pf-lavanda-bg text-pf-lavanda-fg' },
-  ambar: { card: 'bg-pf-ambar-card', tile: 'bg-pf-ambar-bg text-pf-ambar-fg' },
-  azul: { card: 'bg-pf-azul-card', tile: 'bg-pf-azul-bg text-pf-azul-fg' },
-  verde: { card: 'bg-pf-verde-card', tile: 'bg-pf-verde-bg text-pf-verde-fg' },
-  rojo: { card: 'bg-pf-rojo-card', tile: 'bg-pf-rojo-bg text-pf-rojo-fg' },
-}
+import { TONOS, type PortalFamiliaTone } from './portal-familia-tonos'
 
 export const PORTAL_PRIMARY_BUTTON_CLASS =
   'inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-pf-accent px-5 text-pf-cuerpo font-semibold text-superficie transition-colors hover:bg-pf-accent-hover'
@@ -47,11 +38,7 @@ export function PortalStatTile({
     <article
       role={ariaLabel ? 'group' : undefined}
       aria-label={ariaLabel}
-      className={cn(
-        'flex items-center gap-4 rounded-pf-tile p-5',
-        TONOS[tone].card,
-        className,
-      )}
+      className={cn('flex items-center gap-4 rounded-pf-tile p-5', TONOS[tone].card, className)}
     >
       <span
         className={cn(
@@ -71,9 +58,7 @@ export function PortalStatTile({
         )}
         <p className="mt-2 text-pf-cuerpo leading-tight font-semibold text-texto">{label}</p>
         {detalle && (
-          <p className={cn('text-sm leading-tight text-texto-2', detalleClassName)}>
-            {detalle}
-          </p>
+          <p className={cn('text-sm leading-tight text-texto-2', detalleClassName)}>{detalle}</p>
         )}
       </div>
     </article>
@@ -110,10 +95,7 @@ export function PortalCard({
 }: PortalCardProps) {
   return (
     <Card
-      className={cn(
-        'gap-0 rounded-pf-card border-0 bg-superficie py-0 shadow-pf-card',
-        className,
-      )}
+      className={cn('gap-0 rounded-pf-card border-0 bg-superficie py-0 shadow-pf-card', className)}
     >
       {(titulo || accion) && (
         <CardHeader className={cn('px-5 pt-5 pb-0', headerClassName)}>
