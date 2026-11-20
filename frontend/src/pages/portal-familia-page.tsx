@@ -219,6 +219,7 @@ export function PortalFamiliaPage() {
 
   const cargandoAsistencias = cargandoAlumnos || (alumnos.length > 0 && asistencias.cargando)
   const pendientesJustificar = alumnos.length === 0 ? 0 : asistencias.total
+  const hayAusenciasPendientes = pendientesJustificar !== null && pendientesJustificar > 0
   const hoyArgentina = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Argentina/Buenos_Aires',
     year: 'numeric',
@@ -255,9 +256,7 @@ export function PortalFamiliaPage() {
   const resumen = cargandoResumen ? (
     'Estamos armando el resumen de tu familia.'
   ) : chips.length === 0 ? (
-    pendientesJustificar > 0 ? null : (
-      'Todo al día por ahora.'
-    )
+    hayAusenciasPendientes ? null : 'Todo al día por ahora.'
   ) : (
     <span className="flex flex-wrap items-center gap-1.5 text-sm">
       {chips.map((chip) => (
@@ -319,7 +318,7 @@ export function PortalFamiliaPage() {
             />
           </div>
 
-          {pendientesJustificar !== null && pendientesJustificar > 0 && (
+          {hayAusenciasPendientes && (
             <PortalAlertBanner
               titulo={
                 pendientesJustificar === 1
