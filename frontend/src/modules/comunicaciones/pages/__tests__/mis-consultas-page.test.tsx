@@ -46,7 +46,7 @@ it('lists the family consultations and filters the pending ones', async () => {
   expect(await screen.findByText('Justificación por período')).toBeInTheDocument()
   expect(screen.getByText(/Martina Torres · Enfermedad/)).toBeInTheDocument()
   expect(screen.getByText('Vos:')).toBeInTheDocument()
-  expect(screen.getByText('Pendiente de Administración')).toBeInTheDocument()
+  expect(screen.getByText('Esperando a Administración')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: /Justificación por período/ })).toHaveAttribute(
     'href',
     '/familia/conversaciones/hilo-1',

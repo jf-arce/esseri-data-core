@@ -42,7 +42,7 @@ it('opens the thread from its concrete context and shows the persisted first mes
   await userEvent.type(await screen.findByRole('textbox', { name: 'Mensaje' }), 'Consulta')
   await userEvent.click(screen.getByRole('button', { name: 'Enviar mensaje' }))
   expect(await screen.findByText('Consulta', { selector: 'p' })).toBeInTheDocument()
-  expect(screen.getByText('Pendiente de Administración')).toBeInTheDocument()
+  expect(screen.getByText('Esperando a Administración')).toBeInTheDocument()
   expect(api).toHaveBeenCalledWith(
     '/comunicaciones/conversaciones/contextos/solicitud_ausencia_periodo/request',
     expect.objectContaining({ method: 'POST' }),

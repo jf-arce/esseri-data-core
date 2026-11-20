@@ -61,7 +61,7 @@ export const TITULOS: Record<TipoContexto, string> = {
 }
 
 export const ESTADOS: Record<EstadoConversacion, string> = {
-  pendiente_administracion: 'Pendiente de Administración',
+  pendiente_administracion: 'Esperando a Administración',
   pendiente_familia: 'Pendiente de la familia',
   resuelta: 'Resuelta',
 }
