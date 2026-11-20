@@ -252,7 +252,7 @@ export function ComunicacionDetallePage({
             <article className="relative overflow-hidden rounded-[28px] bg-white shadow-[0_28px_70px_rgba(70,32,110,0.12)]">
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute top-6 right-6 hidden w-[120px] lg:block"
+                className="pointer-events-none absolute top-6 right-6 hidden w-[120px] @5xl/main:block"
               >
                 <img
                   data-slot="portal-familia-detalle-logo"
@@ -262,8 +262,8 @@ export function ComunicacionDetallePage({
                 />
               </div>
 
-              <div className="relative z-10 p-6 sm:p-10">
-                <div className="lg:pr-[200px]">
+              <div className="relative z-10 p-6 @xl/main:p-10">
+                <div className="@5xl/main:pr-[200px]">
                   <span className="inline-flex items-center gap-2 rounded-full bg-[#F1E4FB] px-4 py-2 text-[12px] font-bold tracking-[0.08em] text-[#7A2FA8] uppercase">
                     <Building2Icon aria-hidden="true" className="size-4" />
                     {datos.tipo === 'curso'
@@ -272,7 +272,7 @@ export function ComunicacionDetallePage({
                         ? 'COMUNICADO INSTITUCIONAL'
                         : `COMUNICADO ${ETIQUETAS_TIPO[datos.tipo].toUpperCase()}`}
                   </span>
-                  <h1 className="mt-5 font-heading text-[32px] leading-[1.12] font-bold tracking-[-0.02em] text-[#2B1838] sm:text-[40px] xl:text-[44px]">
+                  <h1 className="mt-5 font-heading text-[32px] leading-[1.12] font-bold tracking-[-0.02em] text-[#2B1838] @xl/main:text-[40px] @7xl/main:text-[44px]">
                     {datos.asunto}
                   </h1>
                   <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-[15px] font-medium text-[#4A3B5C]">
@@ -280,7 +280,7 @@ export function ComunicacionDetallePage({
                       <Building2Icon aria-hidden="true" className="size-4 text-[#7A2FA8]" />
                       {datos.emisor ?? 'Colegio ESSERI'}
                     </span>
-                    <span aria-hidden="true" className="hidden h-5 w-px bg-[#E7DEF0] sm:block" />
+                    <span aria-hidden="true" className="hidden h-5 w-px bg-[#E7DEF0] @xl/main:block" />
                     <span className="inline-flex items-center gap-2">
                       <CalendarIcon aria-hidden="true" className="size-4 text-[#7A2FA8]" />
                       {fechaLarga}
@@ -292,7 +292,7 @@ export function ComunicacionDetallePage({
                 <MensajeComunicacion
                   texto={datos.cuerpo}
                   cuerpoRico={datos.cuerpo_rico}
-                  className="py-8 text-[16px] leading-8 text-[#3A2E4A] sm:text-[17px]"
+                  className="py-8 text-[16px] leading-8 text-[#3A2E4A] @xl/main:text-[17px]"
                 />
 
                 {eventoDetalle && (
@@ -323,12 +323,12 @@ export function ComunicacionDetallePage({
                   <div className="mt-8 border-t border-[#EEE8F4] pt-6">
                     <nav
                       aria-label="Navegación entre comunicaciones"
-                      className="flex flex-col gap-3 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center"
+                      className="flex flex-col gap-3 @xl/main:grid @xl/main:grid-cols-[1fr_auto_1fr] @xl/main:items-center"
                     >
                       {navegacionActual.anteriorId ? (
                         <Link
                           to={`${base}/${navegacionActual.anteriorId}`}
-                          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[#8B4BC0]/40 px-6 text-[15px] font-semibold text-[#6E2A8D] transition-colors hover:bg-[#F6EDFB] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8] sm:w-auto sm:justify-self-start"
+                          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[#8B4BC0]/40 px-6 text-[15px] font-semibold text-[#6E2A8D] transition-colors hover:bg-[#F6EDFB] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8] @xl/main:w-auto @xl/main:justify-self-start"
                         >
                           <ArrowLeftIcon aria-hidden="true" className="size-4" />
                           Anterior
@@ -336,7 +336,7 @@ export function ComunicacionDetallePage({
                       ) : (
                         <span
                           aria-disabled="true"
-                          className="inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-full border border-[#8B4BC0]/20 px-6 text-[15px] font-semibold text-[#6E2A8D] opacity-40 sm:w-auto sm:justify-self-start"
+                          className="inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-full border border-[#8B4BC0]/20 px-6 text-[15px] font-semibold text-[#6E2A8D] opacity-40 @xl/main:w-auto @xl/main:justify-self-start"
                         >
                           <ArrowLeftIcon aria-hidden="true" className="size-4" />
                           Anterior
@@ -348,7 +348,7 @@ export function ComunicacionDetallePage({
                       {navegacionActual.siguienteId ? (
                         <Link
                           to={`${base}/${navegacionActual.siguienteId}`}
-                          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[#6E2A8D] px-6 text-[15px] font-semibold text-white transition-colors hover:bg-[#5B2078] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8] sm:w-auto sm:justify-self-end"
+                          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[#6E2A8D] px-6 text-[15px] font-semibold text-white transition-colors hover:bg-[#5B2078] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8] @xl/main:w-auto @xl/main:justify-self-end"
                         >
                           Siguiente
                           <ArrowRightIcon aria-hidden="true" className="size-4" />
@@ -356,7 +356,7 @@ export function ComunicacionDetallePage({
                       ) : (
                         <span
                           aria-disabled="true"
-                          className="inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-full bg-[#6E2A8D]/40 px-6 text-[15px] font-semibold text-white opacity-50 sm:w-auto sm:justify-self-end"
+                          className="inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-full bg-[#6E2A8D]/40 px-6 text-[15px] font-semibold text-white opacity-50 @xl/main:w-auto @xl/main:justify-self-end"
                         >
                           Siguiente
                           <ArrowRightIcon aria-hidden="true" className="size-4" />
@@ -408,7 +408,7 @@ export function ComunicacionDetallePage({
       ) : !datos ? (
         <Skeleton className="h-40 w-full" aria-label="Cargando comunicación" />
       ) : (
-        <article className="space-y-6 rounded-panel bg-superficie p-5 shadow-card sm:p-8">
+        <article className="space-y-6 rounded-panel bg-superficie p-5 shadow-card @xl/main:p-8">
           {familia ? (
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="neutro">{ETIQUETAS_TIPO[datos.tipo]}</Badge>

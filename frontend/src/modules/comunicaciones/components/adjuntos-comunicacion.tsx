@@ -118,7 +118,7 @@ export function AdjuntosComunicacion({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <div className="flex flex-col gap-3 rounded-lg border border-borde p-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 rounded-lg border border-borde p-3 @xl/main:flex-row @xl/main:items-center">
         <ul className="min-w-0 flex-1 divide-y divide-borde">
           {visibles.map((adjunto) => (
             <li key={adjunto.id} className="flex flex-wrap items-center gap-3 py-2">
@@ -266,7 +266,7 @@ export function AdjuntosComunicacion({
               </Select>
             </div>
           )}
-          <div className="min-h-0 flex-1 overflow-auto bg-fila-hover p-4 sm:p-6">
+          <div className="min-h-0 flex-1 overflow-auto bg-fila-hover p-4 @xl/main:p-6">
             {error && (
               <Alert variant="error">
                 <AlertDescription>{error}</AlertDescription>

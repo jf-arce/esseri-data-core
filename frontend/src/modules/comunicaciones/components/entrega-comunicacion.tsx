@@ -136,13 +136,7 @@ export function EntregaComunicacion({
         </span>
 
         {resumen && (
-          <div
-            className={`grid gap-2 ${
-              metricas.length === 5
-                ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-5'
-                : 'grid-cols-1 sm:grid-cols-3'
-            }`}
-          >
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))] gap-2">
             {metricas.map((metrica) => (
               <div
                 key={metrica.etiqueta}
@@ -163,7 +157,7 @@ export function EntregaComunicacion({
           <p className="text-sm text-texto-2">Esta comunicación no generó envíos por email.</p>
         )}
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-3 @xl/main:flex-row @xl/main:items-center">
           <div className="relative flex-1">
             <SearchIcon aria-hidden className="absolute top-2.5 left-3 size-4 text-texto-2" />
             <Input
@@ -239,11 +233,11 @@ export function EntregaComunicacion({
             >
               <TableHeader>
                 <TableRow>
-                  <TableHead className="px-1.5 sm:px-4">Destinatario</TableHead>
-                  <TableHead className="px-1.5 sm:px-4">Email</TableHead>
-                  {emailAplica && <TableHead className="px-1.5 sm:px-4">Estado mail</TableHead>}
+                  <TableHead className="px-1.5 @xl/main:px-4">Destinatario</TableHead>
+                  <TableHead className="px-1.5 @xl/main:px-4">Email</TableHead>
+                  {emailAplica && <TableHead className="px-1.5 @xl/main:px-4">Estado mail</TableHead>}
                   {lecturaAplica && (
-                    <TableHead className="px-1.5 sm:px-4">
+                    <TableHead className="px-1.5 @xl/main:px-4">
                       {emailAplica ? 'Estado portal' : 'Estado'}
                     </TableHead>
                   )}
@@ -252,10 +246,10 @@ export function EntregaComunicacion({
               <TableBody>
                 {datos.items.map((responsable) => (
                   <TableRow key={responsable.id}>
-                    <TableCell className="h-auto px-2 py-3 whitespace-normal align-top sm:px-4">
+                    <TableCell className="h-auto px-2 py-3 whitespace-normal align-top @xl/main:px-4">
                       <span className="font-medium break-words">{responsable.nombre}</span>
                     </TableCell>
-                    <TableCell className="h-auto px-2 py-3 whitespace-normal align-top sm:px-4">
+                    <TableCell className="h-auto px-2 py-3 whitespace-normal align-top @xl/main:px-4">
                       <ul className="space-y-1">
                         {emailAplica ? (
                           responsable.emails.length === 0 ? (
@@ -279,7 +273,7 @@ export function EntregaComunicacion({
                       </ul>
                     </TableCell>
                     {emailAplica && (
-                      <TableCell className="h-auto px-2 py-3 whitespace-normal align-top sm:px-4">
+                      <TableCell className="h-auto px-2 py-3 whitespace-normal align-top @xl/main:px-4">
                         <div className="space-y-2">
                           {responsable.emails.length === 0 ? (
                             <span className="text-texto-2">Sin registro de email</span>
@@ -297,7 +291,7 @@ export function EntregaComunicacion({
                       </TableCell>
                     )}
                     {lecturaAplica && (
-                      <TableCell className="h-auto px-2 py-3 whitespace-normal align-top sm:px-4">
+                      <TableCell className="h-auto px-2 py-3 whitespace-normal align-top @xl/main:px-4">
                         {responsable.leida_at ? (
                           <Tooltip>
                             <TooltipTrigger asChild>

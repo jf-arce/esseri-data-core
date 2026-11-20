@@ -172,7 +172,7 @@ function PieLista({
   const primera = (pagina - 1) * 5 + 1
   const ultima = Math.min(total, pagina * 5)
   return (
-    <div className="flex flex-col gap-3 border-t border-[#F1EBF7] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+    <div className="flex flex-col gap-3 border-t border-[#F1EBF7] px-4 py-4 @xl/main:flex-row @xl/main:items-center @xl/main:justify-between @xl/main:px-6">
       <p className="text-[14px] text-[#3A2E45]">
         {primera}–{ultima} de {total} comunicaciones
       </p>
@@ -262,7 +262,7 @@ function ListaFamiliaMovil({
           className="pb-8"
         />
 
-        <div className="mx-auto flex w-full max-w-[92vw] flex-col gap-4 px-4 pb-10 sm:px-8">
+        <div className="mx-auto flex w-full max-w-[92vw] flex-col gap-4 px-4 pb-10 @xl/main:px-8">
           <div className="relative w-full">
             <SearchIcon
               aria-hidden="true"
@@ -408,7 +408,7 @@ function ListaFamiliaMovil({
                     <Link
                       to={`${base}/${c.id}`}
                       className={cn(
-                        'flex items-start gap-3 rounded-[16px] border p-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8] sm:p-4',
+                        'flex items-start gap-3 rounded-[16px] border p-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8] @xl/main:p-4',
                         c.leida_at
                           ? 'border-[#EFE9F6] bg-white hover:bg-[#FAF7FD]'
                           : 'border-transparent bg-[#F7F0FC] hover:bg-[#F2E8FA]',
@@ -443,7 +443,7 @@ function ListaFamiliaMovil({
                             {fechaCortaComunicacion(c.publicada_at ?? c.created_at)}
                           </span>
                         </span>
-                        <span className="mt-1 block truncate font-heading text-[16px] leading-snug font-bold text-[#241A33] sm:text-[18px]">
+                        <span className="mt-1 block truncate font-heading text-[16px] leading-snug font-bold text-[#241A33] @xl/main:text-[18px]">
                           {c.asunto}
                         </span>
                         <span className="mt-0.5 block truncate text-[14px] text-[#6B6478]">
@@ -510,9 +510,9 @@ function ListaFamiliaEscritorio({
             className="pb-8"
           />
 
-          <div className="mx-auto flex w-full max-w-[92vw] flex-col px-4 pb-10 sm:px-8">
+          <div className="mx-auto flex w-full max-w-[92vw] flex-col px-4 pb-10 @xl/main:px-8">
             <div className="overflow-hidden rounded-[28px] bg-white shadow-[0_18px_50px_rgba(57,34,84,0.12)]">
-              <div className="flex flex-col gap-4 p-4 sm:p-5 xl:flex-row xl:items-center">
+              <div className="flex flex-col gap-4 p-4 @xl/main:p-5 @7xl/main:flex-row @7xl/main:items-center">
                 <div className="relative min-w-0 flex-1">
                   <SearchIcon
                     aria-hidden="true"
@@ -528,7 +528,7 @@ function ListaFamiliaEscritorio({
                 </div>
 
                 <div
-                  className="flex w-full shrink-0 rounded-full bg-[#F5EFFA] p-1 sm:w-fit"
+                  className="flex w-full shrink-0 rounded-full bg-[#F5EFFA] p-1 @xl/main:w-fit"
                   role="group"
                   aria-label="Filtrar comunicaciones"
                 >
@@ -537,7 +537,7 @@ function ListaFamiliaEscritorio({
                     aria-pressed={!noLeidas}
                     onClick={() => onNoLeidas(false)}
                     className={cn(
-                      'min-h-10 flex-1 rounded-full px-5 text-[15px] font-semibold transition-colors sm:flex-none',
+                      'min-h-10 flex-1 rounded-full px-5 text-[15px] font-semibold transition-colors @xl/main:flex-none',
                       !noLeidas
                         ? 'bg-[#7A2FA8] text-white shadow-[0_4px_12px_rgba(122,47,168,0.25)]'
                         : 'text-[#3A2E45] hover:text-[#2B2338]',
@@ -550,7 +550,7 @@ function ListaFamiliaEscritorio({
                     aria-pressed={noLeidas}
                     onClick={() => onNoLeidas(true)}
                     className={cn(
-                      'min-h-10 flex-1 rounded-full px-5 text-[15px] font-semibold transition-colors sm:flex-none',
+                      'min-h-10 flex-1 rounded-full px-5 text-[15px] font-semibold transition-colors @xl/main:flex-none',
                       noLeidas
                         ? 'bg-[#7A2FA8] text-white shadow-[0_4px_12px_rgba(122,47,168,0.25)]'
                         : 'text-[#3A2E45] hover:text-[#2B2338]',
@@ -560,14 +560,14 @@ function ListaFamiliaEscritorio({
                   </button>
                 </div>
 
-                <div className="hidden h-8 w-px shrink-0 bg-[#EDE4F4] xl:block" />
+                <div className="hidden h-8 w-px shrink-0 bg-[#EDE4F4] @7xl/main:block" />
 
-                <div className="flex items-center justify-between gap-3 xl:justify-start">
+                <div className="flex items-center justify-between gap-3 @7xl/main:justify-start">
                   <span className="text-[14px] text-[#3A2E45]">Ordenar por</span>
                   <Select value={orden} onValueChange={(valor) => onOrden(valor as OrdenFecha)}>
                     <SelectTrigger
                       aria-label="Ordenar comunicaciones por fecha"
-                      className="h-11 w-[230px] rounded-[14px] border-[#E7DDF1] bg-white px-3 text-[14px] font-medium text-[#2B2338]"
+                      className="h-11 w-full max-w-[230px] rounded-[14px] border-[#E7DDF1] bg-white px-3 text-[14px] font-medium text-[#2B2338]"
                     >
                       <span className="flex items-center gap-2">
                         <CalendarDaysIcon
@@ -592,7 +592,7 @@ function ListaFamiliaEscritorio({
               </div>
 
               {error ? (
-                <div className="px-4 pb-4 sm:px-6">
+                <div className="px-4 pb-4 @xl/main:px-6">
                   <Alert variant="error">
                     <AlertDescription>
                       No se pudieron cargar las comunicaciones.{' '}
@@ -603,7 +603,7 @@ function ListaFamiliaEscritorio({
                   </Alert>
                 </div>
               ) : !datos ? (
-                <div className="flex flex-col gap-3 px-4 py-6 sm:px-6">
+                <div className="flex flex-col gap-3 px-4 py-6 @xl/main:px-6">
                   {[0, 1, 2].map((fila) => (
                     <Skeleton key={fila} className="h-16 w-full rounded-[14px] bg-[#F3EDF9]" />
                   ))}
@@ -622,7 +622,7 @@ function ListaFamiliaEscritorio({
                         <Link
                           to={`${base}/${c.id}`}
                           className={cn(
-                            'grid grid-cols-[0.5rem_3rem_minmax(0,1fr)] items-center gap-4 px-4 py-4.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#7A2FA8] sm:px-6 md:grid-cols-[0.5rem_3rem_minmax(0,1fr)_13.5rem_1.25rem]',
+                            'grid grid-cols-[0.5rem_3rem_minmax(0,1fr)] items-center gap-4 px-4 py-4.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#7A2FA8] @xl/main:px-6 @3xl/main:grid-cols-[0.5rem_3rem_minmax(0,1fr)_13.5rem_1.25rem]',
                             c.leida_at
                               ? 'bg-white hover:bg-[#FAF7FD]'
                               : 'bg-[#F7F0FC] hover:bg-[#F2E8FA]',
@@ -643,7 +643,7 @@ function ListaFamiliaEscritorio({
                           >
                             <Icono aria-hidden="true" className="size-6" />
                           </span>
-                          <span className="grid min-w-0 gap-1 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:items-center sm:gap-x-4">
+                          <span className="grid min-w-0 gap-1 @xl/main:grid-cols-[8.5rem_minmax(0,1fr)] @xl/main:items-center @xl/main:gap-x-4">
                             <span
                               className={cn(
                                 'inline-flex w-fit items-center rounded-full px-3 py-1 text-[11px] font-bold tracking-[0.06em] uppercase',
@@ -653,7 +653,7 @@ function ListaFamiliaEscritorio({
                               {ETIQUETAS_TIPO[c.tipo]}
                             </span>
                             <span className="min-w-0">
-                              <span className="block truncate font-heading text-[19px] leading-snug font-bold text-[#241A33] sm:text-[20px]">
+                              <span className="block truncate font-heading text-[19px] leading-snug font-bold text-[#241A33] @xl/main:text-[20px]">
                                 {c.asunto}
                               </span>
                               <span className="mt-1 block truncate text-[14px] text-[#6B6478]">
@@ -661,7 +661,7 @@ function ListaFamiliaEscritorio({
                               </span>
                             </span>
                           </span>
-                          <span className="hidden items-center gap-2.5 border-l border-[#EDE4F4] pl-5 text-[14px] text-[#3A2E45] md:flex">
+                          <span className="hidden items-center gap-2.5 border-l border-[#EDE4F4] pl-5 text-[14px] text-[#3A2E45] @3xl/main:flex">
                             <CalendarDaysIcon
                               aria-hidden="true"
                               className="size-[18px] shrink-0 text-[#7A2FA8]"
@@ -672,7 +672,7 @@ function ListaFamiliaEscritorio({
                           </span>
                           <ChevronRightIcon
                             aria-hidden="true"
-                            className="hidden size-5 text-[#2B2338] md:block"
+                            className="hidden size-5 text-[#2B2338] @3xl/main:block"
                           />
                         </Link>
                       </li>
@@ -880,61 +880,62 @@ export function ComunicacionesPage({
           No hay comunicaciones para mostrar.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-panel bg-superficie shadow-card">
-          <Table minWidth="min-w-[1080px]">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Asunto</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Canal</TableHead>
-                <TableHead>Destinatarios</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Autor</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody className="font-medium [&_td]:py-3">
-              {datos.items.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell>
-                    <Link
-                      className="font-medium text-violeta hover:text-violeta-esseri focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
-                      to={c.estado === 'borrador' ? `${base}/${c.id}/editar` : `${base}/${c.id}`}
-                    >
-                      {c.estado === 'borrador' && !c.asunto.trim() ? 'Sin asunto' : c.asunto}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{ETIQUETAS_TIPO[c.tipo]}</TableCell>
-                  <TableCell>
-                    <span className="text-texto-2">{ETIQUETAS_CANAL[c.canal ?? 'portal']}</span>
-                  </TableCell>
-                  <TableCell>
+        <Table minWidth="min-w-[760px]">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Asunto</TableHead>
+              <TableHead>Tipo</TableHead>
+              <TableHead className="hidden @5xl/main:table-cell">Canal</TableHead>
+              <TableHead>Destinatarios</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Fecha</TableHead>
+              <TableHead className="hidden @5xl/main:table-cell">Autor</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="font-medium [&_td]:py-3">
+            {datos.items.map((c) => (
+              <TableRow key={c.id}>
+                <TableCell>
+                  <Link
+                    className="block max-w-80 truncate font-medium text-violeta hover:text-violeta-esseri focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
+                    to={c.estado === 'borrador' ? `${base}/${c.id}/editar` : `${base}/${c.id}`}
+                    title={c.asunto}
+                  >
+                    {c.estado === 'borrador' && !c.asunto.trim() ? 'Sin asunto' : c.asunto}
+                  </Link>
+                </TableCell>
+                <TableCell>{ETIQUETAS_TIPO[c.tipo]}</TableCell>
+                <TableCell className="hidden @5xl/main:table-cell">
+                  <span className="text-texto-2">{ETIQUETAS_CANAL[c.canal ?? 'portal']}</span>
+                </TableCell>
+                <TableCell>
+                  <span className="block max-w-56 truncate">
                     {c.estado === 'borrador'
                       ? 'Por confirmar'
                       : `${etiquetaAudiencia(c)} · ${c.destinatarios}`}
-                  </TableCell>
-                  <TableCell>
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <span
+                    className={`inline-flex items-center gap-2 ${c.estado === 'publicada' ? 'text-exito' : 'text-texto-2'}`}
+                  >
                     <span
-                      className={`inline-flex items-center gap-2 ${c.estado === 'publicada' ? 'text-exito' : 'text-texto-2'}`}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="size-1.5 shrink-0 rounded-full bg-current"
-                      />
-                      {c.estado === 'publicada' ? 'Publicada' : 'Borrador'}
-                    </span>
-                  </TableCell>
-                  <TableCell className="tabular-nums">
-                    {formatearDiaDeInstante(c.publicada_at ?? c.created_at)}
-                  </TableCell>
-                  <TableCell className="text-texto-2">
-                    {c.autor_nombre ?? c.emisor ?? '—'}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+                      aria-hidden="true"
+                      className="size-1.5 shrink-0 rounded-full bg-current"
+                    />
+                    {c.estado === 'publicada' ? 'Publicada' : 'Borrador'}
+                  </span>
+                </TableCell>
+                <TableCell className="tabular-nums">
+                  {formatearDiaDeInstante(c.publicada_at ?? c.created_at)}
+                </TableCell>
+                <TableCell className="hidden text-texto-2 @5xl/main:table-cell">
+                  {c.autor_nombre ?? c.emisor ?? '—'}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
 
       {datos && !error && (

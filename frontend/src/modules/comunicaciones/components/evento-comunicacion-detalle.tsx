@@ -57,7 +57,7 @@ export function EventoComunicacionDetalle({
 
       <section
         aria-label="Evento en el calendario"
-        className="mt-8 flex flex-col gap-4 border-t border-[#EEE8F4] pt-6 sm:flex-row sm:items-center sm:justify-between"
+        className="mt-8 flex flex-col gap-4 border-t border-[#EEE8F4] pt-6 @xl/main:flex-row @xl/main:items-center @xl/main:justify-between"
       >
         <div className="flex items-start gap-3">
           <CalendarPlusIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-[#7A2FA8]" />
