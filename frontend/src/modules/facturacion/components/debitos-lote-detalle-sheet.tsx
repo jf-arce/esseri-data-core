@@ -1,5 +1,7 @@
 import { useLayoutEffect, useMemo, useState } from 'react'
 import { ChevronDownIcon, DownloadIcon } from 'lucide-react'
+import { AccionConversacion } from '@/modules/comunicaciones/components/accion-conversacion'
+import { useConversacionesContexto } from '@/modules/comunicaciones/hooks/use-conversaciones-contexto'
 import { FilterSearch } from '@/components/filter-bar'
 import { PaginadorServidor } from '@/components/paginador-servidor'
 import { Badge } from '@/components/ui/badge'
@@ -55,6 +57,7 @@ export function DebitosLoteDetalleSheet({
   onOpenChange,
   onDescargarSolicitud,
 }: DebitosLoteDetalleSheetProps) {
+  const conversaciones = useConversacionesContexto()
   const [buscar, setBuscar] = useState('')
   const [pagina, setPagina] = useState(1)
   const [filasPorPagina, setFilasPorPagina] = useState(FILAS_INICIALES)
@@ -247,7 +250,16 @@ export function DebitosLoteDetalleSheet({
                               {item.resultado === 'COBRADO_SIM' ? (
                                 <Badge variant="exito">Cobrado</Badge>
                               ) : item.resultado === 'RECHAZADO_SIM' ? (
-                                <Badge variant="neutro">Rechazado</Badge>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Badge variant="neutro">Rechazado</Badge>
+                                  <AccionConversacion
+                                    tipo="debito_cobranza"
+                                    id={item.referencia}
+                                    consulta={conversaciones.get(
+                                      `debito_cobranza:${item.referencia}`,
+                                    )}
+                                  />
+                                </div>
                               ) : (
                                 <Badge variant="info">Sin resultado</Badge>
                               )}

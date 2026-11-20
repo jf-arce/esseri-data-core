@@ -157,6 +157,22 @@ npm run format         # aplica formato con Prettier
 npm run format:check   # solo verifica, no modifica archivos
 ```
 
+## Conversaciones contextuales
+
+Las conversaciones se abren desde el detalle de un débito rechazado o una justificación
+individual o por período. El Portal Familia las reúne en **Comunicaciones → Mis consultas**, con
+búsqueda por alumno o trámite y filtros por estado. Administración encuentra la bandeja de
+pendientes desde su panel.
+El historial y el estado se actualizan al recuperar el foco y cada 30 segundos con la pestaña
+visible. Cerrar una conversación no cambia el trámite.
+
+El recorrido real de navegador se ejecuta con `npm run test:e2e --
+e2e/conversaciones-contextuales.spec.ts --project=chromium --no-deps`, apuntando
+`E2E_BASE_URL` y `E2E_API_URL` a un entorno local descartable y habilitando
+`E2E_CONVERSACIONES_REAL=true`. Configurá `E2E_CONVERSACIONES_ADMIN` y
+`E2E_CONVERSACIONES_FAMILIA` con dos cuentas locales de los roles respectivos y
+`E2E_PASSWORD` con su contraseña demo compartida. El test crea una solicitud de ausencia.
+
 ## Tests unitarios (Vitest)
 
 ### Panel de Dirección

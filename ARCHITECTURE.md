@@ -56,6 +56,20 @@ transport dependency or infrastructure.
 
 ### Communications domain (stages 1–3)
 
+Contextual conversations are a separate capability within Communications. Each thread has exactly
+one database-enforced business context: a rejected debit attempt, an individual justification, or
+an absence period request. Coverage rows are not separate contexts. Family access matches both
+the original family and the student's current link. Administrative access checks the active role
+and the relevant domain permission. Messages and thread transitions never write to source records.
+Administrative messages enqueue a generic Portal notice and, when the address has an email, reuse
+the durable Workflows transport with a distinct message-based origin, recipient deduplication and
+a fresh scope check before n8n claims the delivery. Both the notice and the email require the
+current student link to keep `recibe_comunicaciones`; that flag governs alerts, never access to the
+thread, which still follows the original family and the current student link. These alerts never
+replace billing or attendance notices. The same collection endpoint serves the family's own
+consultations (revalidating each record) and the staff queue; the family portal groups them under
+Comunicaciones → Mis consultas without mixing them with institutional announcements.
+
 Institutional and course communications are owned by `backend/src/comunicaciones/` and
 `frontend/src/modules/comunicaciones/`, an additional domain alongside the original EDT modules.
 It owns drafts, publication, recipient resolution and individual responsible read receipts.

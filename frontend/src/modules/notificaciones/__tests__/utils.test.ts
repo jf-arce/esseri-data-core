@@ -50,6 +50,12 @@ describe('rutaDesdeDestino', () => {
     )
   })
 
+  it('abre exactamente la conversación contextual notificada', () => {
+    expect(rutaDesdeDestino(crearDestino({ tipo: 'conversacion', id: 'hilo-1' }))).toBe(
+      '/familia/conversaciones/hilo-1',
+    )
+  })
+
   it('arma la ruta de facturación para una factura o un pago', () => {
     expect(rutaDesdeDestino({ tipo: 'factura', id: 'factura-1', alumno_id: 'alumno-1' })).toBe(
       '/familia/facturacion?factura=factura-1',

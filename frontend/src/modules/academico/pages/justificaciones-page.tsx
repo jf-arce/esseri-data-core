@@ -3,6 +3,7 @@ import {
   ClipboardListIcon,
   ClockIcon,
   DownloadIcon,
+  RefreshCwIcon,
   ShieldAlertIcon,
   XIcon,
 } from 'lucide-react'
@@ -52,7 +53,7 @@ import type {
   JustificacionesPaginadas,
   OpcionJustificacion,
 } from '@/modules/academico/types'
-import { etiquetaMotivoJustificacion } from '@/modules/academico/utils'
+import { etiquetaMotivoJustificacion, MOTIVOS_JUSTIFICACION } from '@/modules/academico/utils'
 
 const TAMANIO_PAGINA = 20
 
@@ -81,6 +82,7 @@ function formatearFechaHora(iso: string): string {
 }
 
 export function JustificacionesPage() {
+  const conversaciones = useConversacionesContexto()
   const [filtros, setFiltros] = useState<FiltrosJustificaciones>({
     estado: 'pendiente',
     pagina: 1,
@@ -336,6 +338,19 @@ export function JustificacionesPage() {
             active={Boolean(filtros.nivel_id)}
           />
         )}
+        <FilterDropdown
+          label="Motivo"
+          options={[
+            { value: 'todos', label: 'Todos' },
+            ...MOTIVOS_JUSTIFICACION.map((motivo) => ({
+              value: motivo.value,
+              label: motivo.label,
+            })),
+          ]}
+          value={filtros.motivo ?? 'todos'}
+          onChange={(valor) => actualizarFiltros({ motivo: valor === 'todos' ? undefined : valor })}
+          active={Boolean(filtros.motivo)}
+        />
         {divisionOptions.length > 0 && (
           <FilterDropdown
             label="División"
@@ -366,6 +381,14 @@ export function JustificacionesPage() {
           }
         />
         <FilterBarSpacer />
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Actualizar justificaciones"
+          onClick={() => setRevision((valor) => valor + 1)}
+        >
+          <RefreshCwIcon className="size-4" />
+        </Button>
         {hayFiltros && (
           <Button variant="ghost" size="sm" onClick={limpiarFiltros}>
             Limpiar filtros
@@ -407,6 +430,7 @@ export function JustificacionesPage() {
                 <TableHead>Fecha de la falta</TableHead>
                 <TableHead>Motivo</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead>Conversación</TableHead>
                 <TableHead data-align="end">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -434,7 +458,7 @@ export function JustificacionesPage() {
                   </TableCell>
                   <TableCell>
                     <span className="font-medium">{etiquetaMotivoJustificacion(item.motivo)}</span>
-                    <span className="block max-w-[280px] truncate text-xs text-texto-2">
+                    <span className="block max-w-[200px] truncate text-xs text-texto-2">
                       {item.observacion?.trim() || 'Sin observación de la familia'}
                     </span>
                     {item.archivo_nombre && (
@@ -458,9 +482,16 @@ export function JustificacionesPage() {
                       {ETIQUETA_ESTADO[item.estado]}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    <AccionConversacion
+                      tipo="justificacion_inasistencia"
+                      id={item.id}
+                      consulta={conversaciones.get(`justificacion_inasistencia:${item.id}`)}
+                    />
+                  </TableCell>
                   <TableCell data-align="end">
                     {item.estado === 'pendiente' ? (
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1.5">
                         <Button
                           variant="secondary"
                           size="sm"
@@ -565,3 +596,5 @@ export function JustificacionesPage() {
     </div>
   )
 }
+import { AccionConversacion } from '@/modules/comunicaciones/components/accion-conversacion'
+import { useConversacionesContexto } from '@/modules/comunicaciones/hooks/use-conversaciones-contexto'

@@ -11,6 +11,7 @@ import {
   HandCoinsIcon,
   HistoryIcon,
   MailIcon,
+  MessageSquareTextIcon,
   IdCardIcon,
   KeyRoundIcon,
   Landmark,
@@ -146,11 +147,42 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Gestión',
     items: [
       {
+        // Bandeja de consultas familiares: módulo propio, separado de las publicaciones.
+        label: 'Conversaciones',
+        href: '/comunicaciones/conversaciones',
+        icon: MessageSquareTextIcon,
+        modulo: 'familias',
+        permiso: PERMISO_COMUNICACIONES_LEER,
+        roles: [ROL_ADMINISTRACION, ROL_ADMINISTRADOR_DEL_SISTEMA],
+      },
+      {
         label: 'Comunicaciones',
         href: '/comunicaciones',
         icon: MailIcon,
         modulo: 'familias',
         permiso: PERMISO_COMUNICACIONES_LEER,
+      },
+      {
+        // Administración no tiene `academico.leer`: llega solo a resolver justificaciones con el
+        // permiso tipado. Se muestra el mismo módulo con sus dos bandejas, sin landing propia.
+        label: 'Académico',
+        icon: BookOpenIcon,
+        modulo: 'academico',
+        roles: [ROL_ADMINISTRACION],
+        children: [
+          {
+            label: 'Justificaciones',
+            href: '/academico/justificaciones',
+            icon: ClipboardCheck,
+            permiso: PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES,
+          },
+          {
+            label: 'Solicitudes por período',
+            href: '/academico/solicitudes-ausencia',
+            icon: ClipboardList,
+            permiso: PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES,
+          },
+        ],
       },
       {
         // El label es el link a la landing del módulo (§8 DESIGN.md); el desplegable solo

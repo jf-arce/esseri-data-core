@@ -230,13 +230,23 @@ class EnvioNotificacion(Base):
     __tablename__ = "envio_notificacion"
     __table_args__ = (
         sa.UniqueConstraint("comunicacion_id", "familia_id", "email", name="uq_envio_destino"),
+        sa.UniqueConstraint(
+            "mensaje_conversacion_id", "familia_id", "email", name="uq_envio_mensaje_destino"
+        ),
+        sa.CheckConstraint(
+            "(comunicacion_id IS NULL) <> (mensaje_conversacion_id IS NULL)",
+            name="ck_envio_origen_exclusivo",
+        ),
         sa.CheckConstraint(
             "estado IN ('pendiente','procesando','presentado','fallido','incierto','sin_email')",
             name="ck_envio_estado",
         ),
     )
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
-    comunicacion_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("comunicacion.id"))
+    comunicacion_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("comunicacion.id"))
+    mensaje_conversacion_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.ForeignKey("mensaje_conversacion.id", name="fk_envio_mensaje_conversacion")
+    )
     familia_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("familia.id"))
     email: Mapped[str] = mapped_column(sa.String(320))
     asunto: Mapped[str] = mapped_column(sa.String(200))

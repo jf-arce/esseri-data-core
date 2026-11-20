@@ -81,6 +81,7 @@ function formatearFechaHora(iso: string): string {
 }
 
 export function SolicitudesPeriodoPage() {
+  const conversaciones = useConversacionesContexto()
   const [filtros, setFiltros] = useState<FiltrosSolicitudesPeriodo>({
     estado: 'pendiente',
     pagina: 1,
@@ -432,6 +433,11 @@ export function SolicitudesPeriodoPage() {
                     </Badge>
                   </TableCell>
                   <TableCell data-align="end">
+                    <AccionConversacion
+                      tipo="solicitud_ausencia_periodo"
+                      id={item.id}
+                      consulta={conversaciones.get(`solicitud_ausencia_periodo:${item.id}`)}
+                    />
                     {item.estado === 'pendiente' ? (
                       <div className="flex justify-end gap-2">
                         <Button
@@ -626,3 +632,5 @@ export function SolicitudesPeriodoPage() {
     </div>
   )
 }
+import { AccionConversacion } from '@/modules/comunicaciones/components/accion-conversacion'
+import { useConversacionesContexto } from '@/modules/comunicaciones/hooks/use-conversaciones-contexto'

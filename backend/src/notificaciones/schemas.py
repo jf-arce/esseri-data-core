@@ -10,6 +10,7 @@ from src.fechas import InstanteUtc
 from src.notificaciones.constants import (
     DESTINO_ASISTENCIA,
     DESTINO_COMUNICACION,
+    DESTINO_CONVERSACION,
     DESTINO_FACTURA,
     DESTINO_JUSTIFICACION_INDIVIDUAL,
     DESTINO_PAGO,
@@ -23,6 +24,7 @@ from src.notificaciones.constants import (
     TIPO_JUSTIFICACION_RECHAZADA,
     TIPO_PAGO_REGISTRADO,
     TIPO_PROXIMO_VENCIMIENTO,
+    TIPO_RESPUESTA_CONVERSACION,
 )
 from src.notificaciones.exceptions import NotificacionInvalida
 
@@ -35,6 +37,7 @@ class DestinoNotificacion(BaseModel):
         "justificacion_individual",
         "solicitud_ausencia_periodo",
         "comunicacion",
+        "conversacion",
         "factura",
         "pago",
     ]
@@ -120,6 +123,11 @@ class ContextoFactura(_ContextoBase):
     monto_total: str
 
 
+class ContextoRespuestaConversacion(_ContextoBase):
+    conversacion_id: uuid.UUID
+    mensaje_id: uuid.UUID
+
+
 class ContextoPago(_ContextoBase):
     """Pago aprobado por Administración, sin afirmar acreditación bancaria."""
 
@@ -165,6 +173,7 @@ ESQUEMAS_CONTEXTO: dict[tuple[str, str], type[BaseModel]] = {
     (TIPO_JUSTIFICACION_APROBADA, DESTINO_SOLICITUD_PERIODO): ContextoResolucionPeriodo,
     (TIPO_JUSTIFICACION_RECHAZADA, DESTINO_SOLICITUD_PERIODO): ContextoResolucionPeriodo,
     (TIPO_COMUNICACION_PUBLICADA, DESTINO_COMUNICACION): ContextoComunicacion,
+    (TIPO_RESPUESTA_CONVERSACION, DESTINO_CONVERSACION): ContextoRespuestaConversacion,
     (TIPO_FACTURA_EMITIDA, DESTINO_FACTURA): ContextoFactura,
     (TIPO_PAGO_REGISTRADO, DESTINO_PAGO): ContextoPago,
     (TIPO_PROXIMO_VENCIMIENTO, DESTINO_FACTURA): ContextoProximoVencimiento,

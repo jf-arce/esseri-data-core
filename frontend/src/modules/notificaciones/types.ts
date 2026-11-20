@@ -6,6 +6,7 @@ export const TIPOS_NOTIFICACION = [
   'academico.justificacion_aprobada',
   'academico.justificacion_rechazada',
   'comunicaciones.institucional_publicada',
+  'comunicaciones.respuesta_conversacion',
   'facturacion.factura_emitida',
   'facturacion.pago_registrado',
   'facturacion.proximo_vencimiento',
@@ -20,6 +21,7 @@ export const TIPOS_RECURSO_NOTIFICACION = [
   'justificacion_individual',
   'solicitud_ausencia_periodo',
   'comunicacion',
+  'conversacion',
   'factura',
   'pago',
 ] as const

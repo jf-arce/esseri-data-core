@@ -152,6 +152,14 @@ export function PanelAdministracionPage() {
       )}
 
       {atencion.justificaciones && <AtencionInstitucional acceso={atencion} version={0} />}
+      {(atencion.justificaciones || acceso.finanzas) && (
+        <Link
+          className="text-sm font-semibold text-violeta hover:underline"
+          to="/comunicaciones/conversaciones"
+        >
+          Ver conversaciones pendientes
+        </Link>
+      )}
 
       <div className="grid min-w-0 items-stretch gap-6 xl:grid-cols-12">
         {hayAtencion && (

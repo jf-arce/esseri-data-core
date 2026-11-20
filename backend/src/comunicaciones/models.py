@@ -93,3 +93,78 @@ class ComunicacionAdjuntoContenido(Base):
         sa.ForeignKey("comunicacion_adjunto.id", ondelete="CASCADE"), primary_key=True
     )
     contenido: Mapped[bytes] = mapped_column(sa.LargeBinary)
+
+
+class ConversacionContextual(Base):
+    __tablename__ = "conversacion_contextual"
+    __table_args__ = (
+        sa.CheckConstraint(
+            "(CASE WHEN debito_id IS NULL THEN 0 ELSE 1 END + "
+            "CASE WHEN justificacion_id IS NULL THEN 0 ELSE 1 END + "
+            "CASE WHEN solicitud_periodo_id IS NULL THEN 0 ELSE 1 END) = 1",
+            name="ck_conversacion_contextual_un_tramite",
+        ),
+        sa.CheckConstraint(
+            "estado IN ('pendiente_administracion', 'pendiente_familia', 'resuelta')",
+            name="ck_conversacion_contextual_estado",
+        ),
+        sa.Index("ix_conversacion_contextual_bandeja", "estado", "updated_at", "id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    debito_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.ForeignKey("debito_cobranza.id"), unique=True
+    )
+    justificacion_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.ForeignKey("justificacion_inasistencia.id"), unique=True
+    )
+    solicitud_periodo_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.ForeignKey("solicitud_ausencia_periodo.id"), unique=True
+    )
+    familia_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("familia.id"))
+    autor_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("usuario.id"))
+    estado: Mapped[str] = mapped_column(sa.String(32))
+    updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
+
+
+class MensajeConversacion(Base):
+    __tablename__ = "mensaje_conversacion"
+    __table_args__ = (
+        sa.CheckConstraint(
+            "lado IN ('familia', 'administracion')", name="ck_mensaje_conversacion_lado"
+        ),
+        sa.UniqueConstraint(
+            "conversacion_id", "autor_id", "clave", name="uq_mensaje_conversacion_solicitud"
+        ),
+        sa.Index("ix_mensaje_conversacion_historial", "conversacion_id", "created_at", "id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    conversacion_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("conversacion_contextual.id"))
+    autor_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("usuario.id"))
+    clave: Mapped[uuid.UUID] = mapped_column(sa.Uuid)
+    lado: Mapped[str] = mapped_column(sa.String(16))
+    texto: Mapped[str] = mapped_column(sa.Text)
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
+
+
+class AdjuntoMensajeConversacion(Base):
+    __tablename__ = "adjunto_mensaje_conversacion"
+    __table_args__ = (sa.UniqueConstraint("mensaje_id", "orden", name="uq_adjunto_mensaje_orden"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    mensaje_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("mensaje_conversacion.id"))
+    orden: Mapped[int] = mapped_column(sa.Integer)
+    nombre: Mapped[str] = mapped_column(sa.String(255))
+    tipo_contenido: Mapped[str] = mapped_column(sa.String(80))
+    tamanio: Mapped[int] = mapped_column(sa.Integer)
+    checksum: Mapped[str] = mapped_column(sa.String(64))
+
+
+class ContenidoAdjuntoMensaje(Base):
+    __tablename__ = "contenido_adjunto_mensaje"
+
+    adjunto_id: Mapped[uuid.UUID] = mapped_column(
+        sa.ForeignKey("adjunto_mensaje_conversacion.id", ondelete="CASCADE"), primary_key=True
+    )
+    contenido: Mapped[bytes] = mapped_column(sa.LargeBinary)

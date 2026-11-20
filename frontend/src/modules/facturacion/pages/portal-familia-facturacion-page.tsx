@@ -23,7 +23,7 @@ import {
 import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
 import { PortalStatTile } from '@/components/portal-familia/portal-familia-ui'
 import { cn } from '@/lib/utils'
-import { normalizarTexto } from '@/lib/texto'
+import { capitalizar, normalizarTexto } from '@/lib/texto'
 import { descargarComprobantePagoFamilia } from '@/modules/facturacion/services/descargar-comprobante-pago-familia'
 import { listarFacturacionFamilia } from '@/modules/facturacion/services/listar-facturacion-familia'
 import {
@@ -89,7 +89,6 @@ const ESTADOS_PAGO: Record<
 
 const TEXTOS_DEBITO = {
   aviso: 'Las cuotas se debitan automáticamente de tu medio de pago adherido.',
-  consulta: 'Si tenés dudas sobre esta factura, escribinos desde',
   rechazado: 'Débito rechazado',
   registrados: 'Pagos registrados',
   medio: (metodo: string, medio?: 'cbu' | 'tarjeta' | null) =>
@@ -279,7 +278,7 @@ function FacturaFamiliaCard({
               {rechazado && estadoActual !== 'pagada' && (
                 <span className="text-sm font-medium text-[#B42318]">
                   {TEXTOS_DEBITO.rechazado}
-                  {motivo ? `: ${motivo}` : ''}
+                  {motivo ? `: ${capitalizar(motivo)}` : ''}
                 </span>
               )}
             </div>
@@ -310,17 +309,22 @@ function FacturaFamiliaCard({
                 </span>
                 <span className="text-xs text-[#6B6478]">{formatearFecha(resultado.fecha)}</span>
               </div>
-              {motivo && <p className="mt-2 text-sm text-[#6B6478]">Motivo: {motivo}.</p>}
+              {motivo && (
+                <p className="mt-2 text-sm text-[#6B6478]">Motivo: {capitalizar(motivo)}.</p>
+              )}
+              <p className="mt-2 text-sm text-[#6B6478]">
+                {resultado.debito_id
+                  ? 'Si tenés dudas, acercate a Administración o hacé clic en «Consultar sobre este pago».'
+                  : 'Si tenés dudas, acercate a Administración.'}
+              </p>
+              {resultado.debito_id && (
+                <Button variant="secondary" size="sm" className="mt-2 rounded-full" asChild>
+                  <Link to={rutaContexto('debito_cobranza', resultado.debito_id, true)}>
+                    Consultar sobre este pago
+                  </Link>
+                </Button>
+              )}
             </section>
-          )}
-          {estadoActual === 'vencida' && (
-            <p className="text-sm text-[#6B6478]">
-              {TEXTOS_DEBITO.consulta}{' '}
-              <Link className="underline" to="/familia/comunicaciones">
-                Comunicaciones
-              </Link>
-              .
-            </p>
           )}
           {factura.detalles.length > 0 && (
             <section aria-label={`Conceptos de factura ${factura.id.slice(0, 8)}`}>
@@ -852,3 +856,4 @@ export function PortalFamiliaFacturacionPage() {
     </section>
   )
 }
+import { rutaContexto } from '@/modules/comunicaciones/conversaciones'
