@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import get_args
 
 import pytest
@@ -11,7 +12,7 @@ from src.workflows.constants import (
     TIPOS_ACCION,
     TipoEventoNombre,
 )
-from src.workflows.models import NotificacionTemplate, TipoEvento
+from src.workflows.models import NotificacionTemplate, TipoEvento, WorkflowRule
 from src.workflows.schemas import CONFIG_POR_ACCION
 from tests.workflows.factories import accion_de, condicion_de, cuerpo_regla
 
@@ -540,3 +541,17 @@ def test_generar_comunicacion_no_admite_enlace(client_autenticado, tipo_factura_
     )
 
     assert respuesta.status_code == 422
+
+
+def test_listado_devuelve_primero_la_regla_mas_reciente(
+    client_autenticado, db_session, tipo_factura_vencida
+):
+    vieja = _crear(client_autenticado, tipo_factura_vencida.id, nombre="Alfa").json()
+    nueva = _crear(client_autenticado, tipo_factura_vencida.id, nombre="Zeta").json()
+    db_session.get(WorkflowRule, uuid.UUID(vieja["id"])).created_at = datetime(2026, 1, 1)
+    db_session.get(WorkflowRule, uuid.UUID(nueva["id"])).created_at = datetime(2026, 1, 2)
+    db_session.flush()
+
+    nombres = [r["nombre"] for r in client_autenticado.get("/workflows/reglas").json()]
+
+    assert nombres == ["Zeta", "Alfa"]

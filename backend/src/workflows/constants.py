@@ -150,6 +150,10 @@ OPCIONES_POR_CAMPO: dict[tuple[str, str], tuple[tuple[str, str], ...]] = {
         ("total", "Total"),
         ("parcial", "Parcial"),
     ),
+    ("debito.resultado_registrado", "resultado"): (
+        ("exitoso", "Exitoso"),
+        ("rechazado", "Rechazado"),
+    ),
 }
 # Campos cuyo valor es el nombre de una fila de tabla: (evento, campo) -> tabla.
 CAMPOS_CON_OPCIONES_DE_TABLA: dict[
