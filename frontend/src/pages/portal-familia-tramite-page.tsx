@@ -29,6 +29,7 @@ import { Input } from '@/components/ui/input'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Sheet,
   SheetContent,
@@ -43,7 +44,10 @@ import {
   PORTAL_PRIMARY_BUTTON_CLASS,
   PortalAlertBanner,
   PortalCard,
+  PortalSkeletonRegion,
   PortalStatTile,
+  SkeletonFila,
+  SkeletonTile,
 } from '@/components/portal-familia/portal-familia-ui'
 import {
   Select,
@@ -137,7 +141,7 @@ function SelectorPeriodo({ valor, periodos, onChange, etiqueta }: SelectorPeriod
         <button
           type="button"
           aria-label={`${etiqueta}: ${etiquetaPeriodo(valor)}`}
-          className="inline-flex min-h-10 items-center gap-2 rounded-pf-item border border-pf-borde bg-superficie px-3 text-sm font-medium text-texto transition-colors hover:bg-pf-item"
+          className="inline-flex min-h-10 items-center gap-2 rounded-pf-item border border-pf-borde bg-superficie px-3 text-sm font-medium text-texto transition-colors hover:bg-(--card-hover)"
         >
           <CalendarDaysIcon aria-hidden="true" className="size-4 text-pf-accent" />
           {etiquetaPeriodo(valor)}
@@ -149,7 +153,7 @@ function SelectorPeriodo({ valor, periodos, onChange, etiqueta }: SelectorPeriod
           <button
             type="button"
             aria-label="Año anterior"
-            className="inline-flex size-8 items-center justify-center rounded-full text-texto-2 hover:bg-pf-item-hover hover:text-pf-accent"
+            className="inline-flex size-8 items-center justify-center rounded-lg text-texto-2 hover:bg-(--card-hover) hover:text-pf-accent"
             onClick={() => setAnioNavegado(anio - 1)}
           >
             <ChevronLeftIcon aria-hidden="true" className="size-4" />
@@ -158,7 +162,7 @@ function SelectorPeriodo({ valor, periodos, onChange, etiqueta }: SelectorPeriod
           <button
             type="button"
             aria-label="Año siguiente"
-            className="inline-flex size-8 items-center justify-center rounded-full text-texto-2 hover:bg-pf-item-hover hover:text-pf-accent"
+            className="inline-flex size-8 items-center justify-center rounded-lg text-texto-2 hover:bg-(--card-hover) hover:text-pf-accent"
             onClick={() => setAnioNavegado(anio + 1)}
           >
             <ChevronRightIcon aria-hidden="true" className="size-4" />
@@ -176,7 +180,7 @@ function SelectorPeriodo({ valor, periodos, onChange, etiqueta }: SelectorPeriod
             valor === String(anio)
               ? 'bg-pf-accent text-white'
               : periodos.some((periodo) => periodo.startsWith(String(anio)))
-                ? 'text-texto hover:bg-pf-item-hover'
+                ? 'text-texto hover:bg-(--card-hover)'
                 : 'cursor-not-allowed text-desactivado'
           }`}
         >
@@ -201,7 +205,7 @@ function SelectorPeriodo({ valor, periodos, onChange, etiqueta }: SelectorPeriod
                   activo
                     ? 'bg-pf-accent text-white'
                     : disponible
-                      ? 'text-texto hover:bg-pf-item-hover'
+                      ? 'text-texto hover:bg-(--card-hover)'
                       : 'cursor-not-allowed text-desactivado'
                 }`}
               >
@@ -368,6 +372,47 @@ function justificacionVisible(asistencia: AsistenciaFamilia): string {
   return '—'
 }
 
+/** Silueta de la pantalla: tabs, indicadores, selector de período y filas de historial. */
+function TramiteSkeleton() {
+  return (
+    <PortalSkeletonRegion etiqueta="Cargando asistencias">
+      <div aria-hidden="true" className="flex flex-col gap-4">
+        <div className="flex gap-1 border-b border-pf-borde">
+          {['w-24', 'w-32', 'w-24'].map((ancho, indice) => (
+            <div key={indice} className="flex min-h-11 items-center px-3">
+              <Skeleton className={`h-4 ${ancho}`} />
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-10 w-44 rounded-pf-item" />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((indice) => (
+            <SkeletonTile key={indice} />
+          ))}
+        </div>
+        <div className="overflow-hidden rounded-pf-tile border border-pf-divisor">
+          <div className="border-b border-pf-divisor px-4 py-3">
+            <Skeleton className="h-5 w-40" />
+          </div>
+          <div className="divide-y divide-pf-divisor">
+            {[0, 1, 2, 3, 4].map((indice) => (
+              <SkeletonFila
+                key={indice}
+                className="px-4 py-2.5"
+                avatarClassName="size-8"
+                acciones={2}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </PortalSkeletonRegion>
+  )
+}
+
 // Estos trámites tienen una pantalla propia para completar el flujo del portal sin reutilizar
 // vistas de backoffice. Su operación se habilitará cuando existan endpoints que autoricen a la
 // familia sólo sobre sus alumnos vinculados.
@@ -390,6 +435,7 @@ export function PortalFamiliaTramitePage({
   const destinoAplicado = useRef<string | null>(null)
   const datosCargadosPara = useRef<string | null>(null)
   const [asistencias, setAsistencias] = useState<AsistenciaFamilia[]>([])
+  const [datosListosPara, setDatosListosPara] = useState<string | null>(null)
   const [solicitudes, setSolicitudes] = useState<SolicitudAusenciaPeriodo[]>([])
   const [alumnoId, setAlumnoId] = useState(() => destinoUrl?.alumnoId ?? '')
   const [registroResaltado, setRegistroResaltado] = useState<RegistroResaltado | null>(null)
@@ -413,6 +459,7 @@ export function PortalFamiliaTramitePage({
   const alumnoSeleccionado = alumnos.some((alumno) => alumno.alumno_id === alumnoId)
     ? alumnoId
     : (alumnos[0]?.alumno_id ?? '')
+  const cargandoDatos = alumnoSeleccionado !== '' && datosListosPara !== alumnoSeleccionado
   const alumnoActual = alumnos.find((alumno) => alumno.alumno_id === alumnoSeleccionado)
   const nombreAlumno = alumnoActual
     ? `${alumnoActual.nombre} ${alumnoActual.apellido}`
@@ -574,6 +621,7 @@ export function PortalFamiliaTramitePage({
       setAsistencias(asistenciasCargadas)
       setSolicitudes(solicitudesCargadas)
       datosCargadosPara.current = alumnoSeleccionado
+      setDatosListosPara(alumnoSeleccionado)
     })
     return () => {
       activo = false
@@ -684,7 +732,6 @@ export function PortalFamiliaTramitePage({
       <PortalFamiliaShell
         titulo={titulo}
         descripcion={descripcion}
-        etiqueta="Portal de familia"
         volverA="/familia"
         volverEtiqueta="Volver al inicio"
         acciones={
@@ -717,7 +764,9 @@ export function PortalFamiliaTramitePage({
 
       <div className="flex w-full flex-col gap-5 pt-2">
         <PortalCard contentClassName="px-5 pt-4 pb-5 sm:px-6 sm:pt-5 sm:pb-6">
-          {esJustificacion && alumnos.length > 0 ? (
+          {cargandoAlumnos || cargandoDatos ? (
+            <TramiteSkeleton />
+          ) : esJustificacion && alumnos.length > 0 ? (
             <div className="flex flex-col gap-4">
               {esAsistencias && asistenciasPendientes.length > 0 && (
                 <PortalAlertBanner
@@ -919,7 +968,7 @@ export function PortalFamiliaTramitePage({
                                       <button
                                         type="button"
                                         aria-label={`Ver el registro del ${fechaCorta(asistencia.fecha)} en el historial`}
-                                        className="inline-flex size-8 items-center justify-center rounded-full text-texto-2 transition-colors hover:bg-pf-item-hover hover:text-pf-accent"
+                                        className="inline-flex size-8 items-center justify-center rounded-lg text-texto-2 transition-colors hover:bg-(--card-hover) hover:text-pf-accent"
                                         onClick={() => setSeccionAsistencia('historial')}
                                       >
                                         <MoreHorizontalIcon aria-hidden="true" className="size-4" />
@@ -961,7 +1010,7 @@ export function PortalFamiliaTramitePage({
                     {esAsistencias && (
                       <Button
                         variant="secondary"
-                        className="rounded-full"
+                        className="rounded-lg"
                         onClick={() => abrirFormulario('informar')}
                       >
                         Informar ausencia
@@ -993,10 +1042,10 @@ export function PortalFamiliaTramitePage({
                           onClick={() =>
                             setFiltroJustificacion(clave as 'todas' | 'pendientes' | 'enviadas')
                           }
-                          className={`min-h-9 rounded-full px-4 text-sm font-semibold transition-colors ${
+                          className={`min-h-9 rounded-md px-4 text-sm font-semibold transition-colors ${
                             filtroJustificacion === clave
                               ? 'bg-pf-lila text-pf-accent'
-                              : 'text-texto hover:bg-pf-item'
+                              : 'text-texto hover:bg-(--card-hover)'
                           }`}
                         >
                           {etiqueta}
@@ -1026,7 +1075,7 @@ export function PortalFamiliaTramitePage({
                           placeholder="Buscar por motivo..."
                           value={busquedaJustificacion}
                           onChange={(evento) => setBusquedaJustificacion(evento.target.value)}
-                          className="h-10 rounded-full bg-superficie pl-9 text-sm"
+                          className="h-10 rounded-lg bg-superficie pl-9 text-sm"
                         />
                       </div>
                     </div>
@@ -1080,7 +1129,7 @@ export function PortalFamiliaTramitePage({
                                     <Button
                                       size="sm"
                                       variant="secondary"
-                                      className="rounded-full"
+                                      className="rounded-lg"
                                       onClick={() =>
                                         abrirFormulario('justificar', asistencia.fecha)
                                       }
@@ -1161,7 +1210,7 @@ export function PortalFamiliaTramitePage({
                                     <Button
                                       size="sm"
                                       variant="secondary"
-                                      className="rounded-full"
+                                      className="rounded-lg"
                                       onClick={() =>
                                         setDetalleJustificacion({ tipo: 'enviada', solicitud })
                                       }
@@ -1353,7 +1402,7 @@ export function PortalFamiliaTramitePage({
                             {detalleJustificacion.solicitud.estado === 'pendiente' && (
                               <Button
                                 variant="secondary"
-                                className="rounded-full"
+                                className="rounded-lg"
                                 onClick={() => {
                                   void cancelarSolicitud(detalleJustificacion.solicitud)
                                   setDetalleJustificacion(null)
@@ -1481,7 +1530,7 @@ export function PortalFamiliaTramitePage({
                                     {asistencia.justificacion_id && (
                                       <button
                                         type="button"
-                                        className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-texto-2 transition-colors hover:bg-pf-item-hover hover:text-pf-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
+                                        className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-texto-2 transition-colors hover:bg-(--card-hover) hover:text-pf-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
                                         aria-label={`${expandido ? 'Ocultar' : 'Mostrar'} detalle de la justificación del ${new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString('es-AR')}`}
                                         aria-expanded={expandido}
                                         aria-controls={detalleId}
@@ -1543,7 +1592,7 @@ export function PortalFamiliaTramitePage({
                               <Button
                                 variant="secondary"
                                 size="sm"
-                                className="rounded-full"
+                                className="rounded-lg"
                                 disabled={historialPaginaActual === 1}
                                 onClick={() =>
                                   setHistorialPagina((pagina) => Math.max(1, pagina - 1))
@@ -1558,7 +1607,7 @@ export function PortalFamiliaTramitePage({
                               <Button
                                 variant="secondary"
                                 size="sm"
-                                className="rounded-full"
+                                className="rounded-lg"
                                 disabled={historialPaginaActual === historialTotalPaginas}
                                 onClick={() =>
                                   setHistorialPagina((pagina) =>

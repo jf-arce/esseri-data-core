@@ -21,7 +21,13 @@ import {
   PortalFamiliaShell,
 } from '@/components/portal-familia/portal-familia-shell'
 import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
-import { PortalCard, PortalStatTile } from '@/components/portal-familia/portal-familia-ui'
+import {
+  PortalCard,
+  PortalCardSkeleton,
+  PortalSkeletonRegion,
+  PortalStatTile,
+  SkeletonTile,
+} from '@/components/portal-familia/portal-familia-ui'
 import { cn } from '@/lib/utils'
 import { normalizarTexto } from '@/lib/texto'
 import { descargarComprobantePagoFamilia } from '@/modules/facturacion/services/descargar-comprobante-pago-familia'
@@ -376,7 +382,7 @@ function FacturaFamiliaCard({
                         type="button"
                         variant="secondary"
                         size="sm"
-                        className="rounded-full"
+                        className="rounded-lg"
                         aria-label="Descargar comprobante"
                         disabled={descargandoPagoId === pago.id}
                         onClick={() => alDescargar(pago.id)}
@@ -394,7 +400,7 @@ function FacturaFamiliaCard({
             <Button
               type="button"
               variant="secondary"
-              className="rounded-full"
+              className="rounded-lg"
               aria-label="Descargar factura"
               onClick={() => {
                 void descargarFacturaFamilia(factura.id).catch(() =>
@@ -407,7 +413,7 @@ function FacturaFamiliaCard({
             <Button
               type="button"
               variant="secondary"
-              className="rounded-full"
+              className="rounded-lg"
               aria-label="Compartir factura"
               onClick={() => {
                 void compartirFacturaFamilia(factura.id).catch((error: unknown) => {
@@ -561,14 +567,13 @@ export function PortalFamiliaFacturacionPage() {
         <PortalFamiliaShell
           titulo="Facturación"
           descripcion="Consultá las facturas y los débitos asociados a tu cuenta."
-          etiqueta="Portal de familia"
           className="pb-8"
           volverA="/familia"
           volverEtiqueta="Volver al inicio"
           acciones={
             alumnos.length > 1 ? (
               <FilterDropdown
-                className="rounded-full bg-superficie/95"
+                className="rounded-lg bg-superficie/95"
                 label={
                   alumno === 'todos'
                     ? 'Alumno'
@@ -594,14 +599,32 @@ export function PortalFamiliaFacturacionPage() {
 
         <div className="flex w-full flex-col gap-6 pb-10">
           {cargando && (
-            <div role="status" aria-label="Cargando facturación" className="flex flex-col gap-4">
-              <div className="grid gap-4 lg:grid-cols-3">
-                <Skeleton className="h-24 rounded-pf-tile" />
-                <Skeleton className="h-24 rounded-pf-tile" />
-                <Skeleton className="h-24 rounded-pf-tile" />
+            <PortalSkeletonRegion etiqueta="Cargando facturación" className="flex flex-col gap-6">
+              <div aria-hidden="true" className="flex flex-col gap-6">
+                <div className="grid gap-4 lg:grid-cols-3">
+                  {[0, 1, 2].map((indice) => (
+                    <SkeletonTile key={indice} />
+                  ))}
+                </div>
+                <PortalCardSkeleton conIcono={false} />
+                <div className="flex flex-col gap-4">
+                  <div className="space-y-2">
+                    <Skeleton className="h-6 w-24" />
+                    <Skeleton className="h-4 w-80 max-w-full" />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {[0, 1, 2, 3].map((indice) => (
+                      <Skeleton key={indice} className="h-9 w-24 rounded-lg" />
+                    ))}
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    {[0, 1, 2].map((indice) => (
+                      <Skeleton key={indice} className="h-[72px] w-full rounded-pf-card" />
+                    ))}
+                  </div>
+                </div>
               </div>
-              <Skeleton className="h-64 rounded-pf-card" />
-            </div>
+            </PortalSkeletonRegion>
           )}
 
           {error && !cargando && (
@@ -614,7 +637,7 @@ export function PortalFamiliaFacturacionPage() {
               <Button
                 type="button"
                 variant="secondary"
-                className="rounded-full"
+                className="rounded-lg"
                 onClick={() => setIntento((actual) => actual + 1)}
               >
                 Reintentar
@@ -638,7 +661,7 @@ export function PortalFamiliaFacturacionPage() {
                       <Button
                         type="button"
                         variant="secondary"
-                        className="rounded-full"
+                        className="rounded-lg"
                         onClick={() => setFiltro('rechazadas')}
                       >
                         Ver facturas con débito rechazado
@@ -673,7 +696,7 @@ export function PortalFamiliaFacturacionPage() {
                             key={valor}
                             type="button"
                             variant={filtro === valor ? 'default' : 'secondary'}
-                            className="rounded-full"
+                            className="rounded-lg"
                             aria-pressed={filtro === valor}
                             onClick={() => {
                               setFiltro(valor)
@@ -699,7 +722,7 @@ export function PortalFamiliaFacturacionPage() {
                         ),
                       )}
                       <FilterDropdown
-                        className="rounded-full"
+                        className="rounded-lg"
                         label={`Ordenar: ${
                           {
                             'vencimiento-asc': 'Vencimiento próximo',
@@ -798,7 +821,7 @@ export function PortalFamiliaFacturacionPage() {
                         <Button
                           type="button"
                           variant="secondary"
-                          className="rounded-full"
+                          className="rounded-lg"
                           disabled={pagina === 0}
                           onClick={() => setPagina((actual) => actual - 1)}
                         >
@@ -810,7 +833,7 @@ export function PortalFamiliaFacturacionPage() {
                         <Button
                           type="button"
                           variant="secondary"
-                          className="rounded-full"
+                          className="rounded-lg"
                           disabled={(pagina + 1) * FACTURAS_POR_PAGINA >= filtradas.length}
                           onClick={() => setPagina((actual) => actual + 1)}
                         >

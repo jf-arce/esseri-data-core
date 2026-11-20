@@ -140,6 +140,99 @@ export function PortalCard({
   )
 }
 
+type PortalSkeletonRegionProps = {
+  etiqueta: string
+  children: ReactNode
+  className?: string
+}
+
+/** Contenedor accesible de cualquier skeleton del portal (`role="status"` + `aria-busy`). */
+export function PortalSkeletonRegion({ etiqueta, children, className }: PortalSkeletonRegionProps) {
+  return (
+    <div role="status" aria-busy="true" aria-label={etiqueta} className={className}>
+      {children}
+      <span className="sr-only">{etiqueta}</span>
+    </div>
+  )
+}
+
+type PortalCardSkeletonProps = {
+  conEncabezado?: boolean
+  conIcono?: boolean
+  children?: ReactNode
+  className?: string
+  headerClassName?: string
+  contentClassName?: string
+}
+
+/** Silueta de `PortalCard`: mismo radio, sombra y header (ícono + título + descripción). */
+export function PortalCardSkeleton({
+  conEncabezado = true,
+  conIcono = true,
+  children,
+  className,
+  headerClassName,
+  contentClassName,
+}: PortalCardSkeletonProps) {
+  return (
+    <Card
+      aria-hidden="true"
+      className={cn('gap-0 rounded-pf-card border-0 bg-superficie py-0 shadow-pf-card', className)}
+    >
+      {conEncabezado && (
+        <CardHeader className={cn('px-5 pt-4 pb-0', headerClassName)}>
+          <div className="flex items-start gap-3">
+            {conIcono && <Skeleton className="size-10 shrink-0 rounded-pf-item" />}
+            <div className="min-w-0 flex-1 space-y-2 pt-0.5">
+              <Skeleton className="h-5 w-40 max-w-full" />
+              <Skeleton className="h-4 w-64 max-w-full" />
+            </div>
+          </div>
+        </CardHeader>
+      )}
+      {children && (
+        <CardContent className={cn('px-5 pt-4 pb-4', contentClassName)}>{children}</CardContent>
+      )}
+    </Card>
+  )
+}
+
+type SkeletonFilaProps = {
+  className?: string
+  avatarClassName?: string
+  /** Cantidad de bloques de acción a la derecha. */
+  acciones?: number
+}
+
+/** Fila genérica: avatar o ícono, dos líneas de texto y acción opcional a la derecha. */
+export function SkeletonFila({ className, avatarClassName, acciones = 0 }: SkeletonFilaProps) {
+  return (
+    <div className={cn('flex items-center gap-3', className)}>
+      <Skeleton className={cn('size-10 shrink-0 rounded-full', avatarClassName)} />
+      <div className="min-w-0 flex-1 space-y-2">
+        <Skeleton className="h-4 w-40 max-w-full" />
+        <Skeleton className="h-3.5 w-24 max-w-full" />
+      </div>
+      {Array.from({ length: acciones }, (_, indice) => (
+        <Skeleton key={indice} className="hidden h-5 w-16 sm:block" />
+      ))}
+    </div>
+  )
+}
+
+/** Silueta de `PortalStatTile` sin ícono propio, para grillas de indicadores. */
+export function SkeletonTile({ className }: { className?: string }) {
+  return (
+    <div className={cn('flex items-center gap-3 rounded-pf-tile bg-pf-item p-4', className)}>
+      <Skeleton className="size-10 shrink-0 rounded-pf-item" />
+      <div className="min-w-0 space-y-2">
+        <Skeleton className="h-7 w-14" />
+        <Skeleton className="h-4 w-24" />
+      </div>
+    </div>
+  )
+}
+
 type PortalAlertBannerProps = {
   titulo: ReactNode
   descripcion: ReactNode
@@ -147,7 +240,7 @@ type PortalAlertBannerProps = {
   className?: string
 }
 
-/** Banner ámbar de alerta, con acción primaria violeta. */
+/** Banner de alerta en lila, con acción primaria violeta. */
 export function PortalAlertBanner({
   titulo,
   descripcion,
@@ -157,17 +250,17 @@ export function PortalAlertBanner({
   return (
     <div
       className={cn(
-        'flex flex-col gap-4 rounded-pf-tile bg-pf-ambar-card p-4 sm:flex-row sm:items-center sm:justify-between',
+        'flex flex-col gap-4 rounded-pf-tile bg-pf-lila p-4 sm:flex-row sm:items-center sm:justify-between',
         className,
       )}
     >
       <div className="flex items-start gap-4">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-advertencia text-advertencia">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-pf-accent text-pf-accent">
           <CircleAlertIcon aria-hidden="true" className="size-5" />
         </span>
         <div>
           <p className="text-pf-encabezado font-semibold text-texto">{titulo}</p>
-          <p className="mt-1 text-pf-cuerpo text-texto-2">{descripcion}</p>
+          <p className="mt-0.5 text-pf-cuerpo text-texto">{descripcion}</p>
         </div>
       </div>
       {accion}

@@ -133,17 +133,14 @@
   --color-pf-rojo-card: var(--pf-tile-rojo-card);
   --color-pf-rojo-bg: var(--pf-tile-rojo-bg);
   --color-pf-rojo-fg: var(--pf-tile-rojo-fg);
-  --color-pf-ilus-claro: var(--pf-ilus-claro);
-  --color-pf-ilus-medio: var(--pf-ilus-medio);
-  --color-pf-ilus-oscuro: var(--pf-ilus-oscuro);
   --shadow-pf-card: var(--sombra-pf-card);
   --shadow-pf-hover: var(--sombra-pf-hover);
-  --radius-pf-card: 20px;
-  --radius-pf-tile: 16px;
-  --radius-pf-item: 12px;
-  --radius-pf-icono: 14px;
-  --radius-pf-input: 10px;
-  --radius-pf-dialogo: 16px;
+  --radius-pf-card: 16px;
+  --radius-pf-tile: 12px;
+  --radius-pf-item: 8px;
+  --radius-pf-icono: 12px;
+  --radius-pf-input: 8px;
+  --radius-pf-dialogo: 12px;
   --text-pf-cuerpo: 14px;
   --text-pf-cuerpo--line-height: 20px;
   --text-pf-encabezado: 16px;
@@ -154,7 +151,7 @@
   --text-pf-titulo--line-height: 32px;
   --text-pf-titulo-lg: 28px;
   --text-pf-titulo-lg--line-height: 36px;
-  --container-pf: 80rem;
+  --container-pf: 72rem;
   --shadow-overlay: var(--sombra-overlay);
   --ease-esseri: var(--curva-esseri);
 
@@ -362,11 +359,6 @@
   --pf-tile-verde-card: color-mix(in srgb, var(--pf-tile-verde-bg) 40%, var(--superficie));
   --pf-tile-rojo-card: color-mix(in srgb, var(--pf-tile-rojo-bg) 40%, var(--superficie));
 
-  /* Ilustración del hero del inicio (excepción documentada en DESIGN.md §8.2) */
-  --pf-ilus-claro: #d6c3e8;
-  --pf-ilus-medio: #9b7bbf;
-  --pf-ilus-oscuro: #5c3f82;
-
   --sombra-pf-card: var(--sombra-card);
   --sombra-pf-hover: var(--sombra-card-hover);
 }
@@ -383,9 +375,6 @@
   --pf-lila-fuerte: #4a3862;
   --pf-tile-lavanda-bg: #4a3862;
   --pf-tile-ambar-fg: var(--advertencia);
-  --pf-ilus-claro: #8a73a3;
-  --pf-ilus-medio: #6c5489;
-  --pf-ilus-oscuro: #3d2d57;
 
   --lienzo: #171320;
   --superficie: #2b2339;

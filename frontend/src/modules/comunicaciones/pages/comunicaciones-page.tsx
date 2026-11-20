@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
+import { PortalSkeletonRegion } from '@/components/portal-familia/portal-familia-ui'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
@@ -183,7 +184,7 @@ function PieLista({
             aria-label="Ir a la página anterior"
             disabled={pagina === 1}
             onClick={() => onCambiarPagina(pagina - 1)}
-            className="flex size-9 items-center justify-center rounded-pf-input border border-pf-divisor text-texto transition-colors hover:bg-pf-item disabled:pointer-events-none disabled:opacity-40"
+            className="flex size-9 items-center justify-center rounded-pf-input border border-pf-divisor text-texto transition-colors hover:bg-(--card-hover) disabled:pointer-events-none disabled:opacity-40"
           >
             <ChevronLeftIcon aria-hidden="true" className="size-4" />
           </button>
@@ -203,7 +204,7 @@ function PieLista({
                   'size-9 rounded-pf-input text-sm font-semibold tabular-nums transition-colors',
                   item === pagina
                     ? 'bg-pf-accent text-superficie'
-                    : 'text-texto hover:bg-pf-item-hover',
+                    : 'text-texto hover:bg-(--card-hover)',
                 )}
               >
                 {item}
@@ -215,7 +216,7 @@ function PieLista({
             aria-label="Ir a la página siguiente"
             disabled={pagina === totalPaginas}
             onClick={() => onCambiarPagina(pagina + 1)}
-            className="flex size-9 items-center justify-center rounded-pf-input border border-pf-divisor text-texto transition-colors hover:bg-pf-item disabled:pointer-events-none disabled:opacity-40"
+            className="flex size-9 items-center justify-center rounded-pf-input border border-pf-divisor text-texto transition-colors hover:bg-(--card-hover) disabled:pointer-events-none disabled:opacity-40"
           >
             <ChevronRightIcon aria-hidden="true" className="size-4" />
           </button>
@@ -257,7 +258,6 @@ function ListaFamiliaMovil({
         <PortalFamiliaShell
           titulo="Comunicaciones"
           descripcion="Avisos institucionales y de curso"
-          etiqueta="Portal de familia"
           volverA="/familia"
           volverEtiqueta="Volver al inicio"
           className="pb-8"
@@ -274,12 +274,12 @@ function ListaFamiliaMovil({
               placeholder="Buscar comunicaciones..."
               value={buscar}
               onChange={(event) => onBuscar(event.target.value)}
-              className="h-10 rounded-full border-pf-borde bg-superficie pl-10 text-pf-cuerpo text-texto placeholder:text-texto-3"
+              className="h-10 rounded-lg border-pf-borde bg-superficie pl-10 text-pf-cuerpo text-texto placeholder:text-texto-3"
             />
           </div>
 
           <div
-            className="flex w-full rounded-full bg-pf-item-hover p-1 sm:w-fit"
+            className="flex w-full rounded-lg bg-pf-item-hover p-1 sm:w-fit"
             role="group"
             aria-label="Filtrar comunicaciones"
           >
@@ -288,7 +288,7 @@ function ListaFamiliaMovil({
               aria-pressed={!noLeidas}
               onClick={() => onNoLeidas(false)}
               className={cn(
-                'min-h-9 flex-1 rounded-full px-4 text-pf-cuerpo font-semibold transition-colors',
+                'min-h-9 flex-1 rounded-md px-4 text-pf-cuerpo font-semibold transition-colors',
                 !noLeidas ? 'bg-pf-accent text-superficie' : 'text-texto hover:text-texto',
               )}
             >
@@ -299,7 +299,7 @@ function ListaFamiliaMovil({
               aria-pressed={noLeidas}
               onClick={() => onNoLeidas(true)}
               className={cn(
-                'inline-flex min-h-9 flex-1 sm:flex-none items-center justify-center gap-2 rounded-full px-4 text-pf-cuerpo font-semibold transition-colors',
+                'inline-flex min-h-9 flex-1 sm:flex-none items-center justify-center gap-2 rounded-md px-4 text-pf-cuerpo font-semibold transition-colors',
                 noLeidas ? 'bg-pf-accent text-superficie' : 'text-texto hover:text-texto',
               )}
             >
@@ -317,7 +317,7 @@ function ListaFamiliaMovil({
             <Select value={orden} onValueChange={(valor) => onOrden(valor as OrdenFecha)}>
               <SelectTrigger
                 aria-label="Ordenar comunicaciones por fecha"
-                className="h-10 min-w-0 flex-1 rounded-full border-pf-borde bg-superficie px-4 text-sm font-medium text-texto"
+                className="h-10 min-w-0 flex-1 rounded-lg border-pf-borde bg-superficie px-4 text-sm font-medium text-texto"
               >
                 <span className="flex items-center gap-2">
                   <CalendarDaysIcon aria-hidden="true" className="size-4 text-pf-accent" />
@@ -341,7 +341,7 @@ function ListaFamiliaMovil({
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex h-11 items-center gap-2 rounded-full border border-pf-borde bg-superficie px-4 text-sm font-medium text-texto"
+                  className="inline-flex h-11 items-center gap-2 rounded-lg border border-pf-borde bg-superficie px-4 text-sm font-medium text-texto"
                 >
                   <FilterIcon aria-hidden="true" className="size-4 text-pf-accent" />
                   {filtroTipo === 'todas'
@@ -366,7 +366,7 @@ function ListaFamiliaMovil({
                       'flex min-h-9 w-full items-center rounded-pf-input px-3 text-left text-sm font-medium transition-colors',
                       filtroTipo === clave
                         ? 'bg-pf-lila text-pf-accent'
-                        : 'text-texto hover:bg-pf-item',
+                        : 'text-texto hover:bg-(--card-hover)',
                     )}
                   >
                     {etiqueta}
@@ -380,17 +380,35 @@ function ListaFamiliaMovil({
             <Alert variant="error">
               <AlertDescription>
                 No se pudieron cargar las comunicaciones.{' '}
-                <Button variant="secondary" className="rounded-full" onClick={onReintentar}>
+                <Button variant="secondary" className="rounded-lg" onClick={onReintentar}>
                   Reintentar
                 </Button>
               </AlertDescription>
             </Alert>
           ) : !datos ? (
-            <div className="flex flex-col gap-3">
-              {[0, 1, 2].map((fila) => (
-                <Skeleton key={fila} className="h-24 w-full rounded-pf-tile bg-pf-item" />
-              ))}
-            </div>
+            <PortalSkeletonRegion etiqueta="Cargando comunicaciones">
+              <ul aria-hidden="true" className="flex flex-col gap-3">
+                {[0, 1, 2, 3].map((fila) => (
+                  <li
+                    key={fila}
+                    className="flex items-start gap-3 rounded-pf-tile border border-pf-divisor bg-superficie p-3 @xl/main:p-4"
+                  >
+                    <Skeleton className="size-10 shrink-0 rounded-pf-item" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <Skeleton className="h-5 w-24 rounded-full" />
+                        <Skeleton className="h-4 w-16" />
+                      </div>
+                      <Skeleton className="h-5 w-3/4" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 rounded-pf-tile border border-pf-divisor bg-superficie p-3">
+                <Skeleton className="mx-auto h-9 w-40" />
+              </div>
+            </PortalSkeletonRegion>
           ) : visibles.length === 0 ? (
             <p role="status" className="py-10 text-center text-pf-cuerpo text-texto-2">
               No hay comunicaciones para mostrar.
@@ -407,8 +425,8 @@ function ListaFamiliaMovil({
                       className={cn(
                         'flex items-start gap-3 rounded-pf-tile border p-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent @xl/main:p-4',
                         c.leida_at
-                          ? 'border-pf-divisor bg-superficie hover:bg-pf-item'
-                          : 'border-transparent bg-pf-lila hover:bg-pf-lila-fuerte',
+                          ? 'border-pf-divisor bg-superficie hover:bg-(--card-hover)'
+                          : 'border-transparent bg-pf-lila hover:bg-(--card-hover)',
                       )}
                     >
                       <span
@@ -500,7 +518,6 @@ function ListaFamiliaEscritorio({
           <PortalFamiliaShell
             titulo="Comunicaciones"
             descripcion="Avisos institucionales y de curso"
-            etiqueta="Portal de familia"
             volverA="/familia"
             volverEtiqueta="Volver al inicio"
             className="pb-8"
@@ -519,12 +536,12 @@ function ListaFamiliaEscritorio({
                     placeholder="Buscar comunicaciones..."
                     value={buscar}
                     onChange={(event) => onBuscar(event.target.value)}
-                    className="h-10 rounded-full border-pf-borde bg-pf-item pl-10 text-pf-cuerpo text-texto placeholder:text-texto-3"
+                    className="h-10 rounded-lg border-pf-borde bg-pf-item pl-10 text-pf-cuerpo text-texto placeholder:text-texto-3"
                   />
                 </div>
 
                 <div
-                  className="flex w-full shrink-0 rounded-full bg-pf-item-hover p-1 @xl/main:w-fit"
+                  className="flex w-full shrink-0 rounded-lg bg-pf-item-hover p-1 @xl/main:w-fit"
                   role="group"
                   aria-label="Filtrar comunicaciones"
                 >
@@ -533,7 +550,7 @@ function ListaFamiliaEscritorio({
                     aria-pressed={!noLeidas}
                     onClick={() => onNoLeidas(false)}
                     className={cn(
-                      'min-h-9 flex-1 rounded-full px-4 text-pf-cuerpo font-semibold transition-colors @xl/main:flex-none',
+                      'min-h-9 flex-1 rounded-md px-4 text-pf-cuerpo font-semibold transition-colors @xl/main:flex-none',
                       !noLeidas ? 'bg-pf-accent text-superficie' : 'text-texto hover:text-texto',
                     )}
                   >
@@ -544,7 +561,7 @@ function ListaFamiliaEscritorio({
                     aria-pressed={noLeidas}
                     onClick={() => onNoLeidas(true)}
                     className={cn(
-                      'min-h-9 flex-1 rounded-full px-4 text-pf-cuerpo font-semibold transition-colors @xl/main:flex-none',
+                      'min-h-9 flex-1 rounded-md px-4 text-pf-cuerpo font-semibold transition-colors @xl/main:flex-none',
                       noLeidas ? 'bg-pf-accent text-superficie' : 'text-texto hover:text-texto',
                     )}
                   >
@@ -585,18 +602,33 @@ function ListaFamiliaEscritorio({
                   <Alert variant="error">
                     <AlertDescription>
                       No se pudieron cargar las comunicaciones.{' '}
-                      <Button variant="secondary" className="rounded-full" onClick={onReintentar}>
+                      <Button variant="secondary" className="rounded-lg" onClick={onReintentar}>
                         Reintentar
                       </Button>
                     </AlertDescription>
                   </Alert>
                 </div>
               ) : !datos ? (
-                <div className="flex flex-col gap-3 px-4 py-6 @xl/main:px-6">
-                  {[0, 1, 2].map((fila) => (
-                    <Skeleton key={fila} className="h-16 w-full rounded-pf-icono bg-pf-item" />
-                  ))}
-                </div>
+                <PortalSkeletonRegion etiqueta="Cargando comunicaciones">
+                  <ul aria-hidden="true" className="divide-y divide-pf-divisor">
+                    {[0, 1, 2, 3, 4].map((fila) => (
+                      <li
+                        key={fila}
+                        className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-4 px-4 py-3.5 @xl/main:px-6 @3xl/main:grid-cols-[2.5rem_minmax(0,1fr)_13.5rem]"
+                      >
+                        <Skeleton className="size-10 rounded-pf-item" />
+                        <div className="min-w-0 space-y-2">
+                          <Skeleton className="h-5 w-3/5" />
+                          <Skeleton className="h-4 w-2/5" />
+                        </div>
+                        <Skeleton className="hidden h-4 w-36 @3xl/main:block" />
+                      </li>
+                    ))}
+                  </ul>
+                  <div aria-hidden="true" className="border-t border-pf-divisor px-6 py-3">
+                    <Skeleton className="ml-auto h-9 w-40" />
+                  </div>
+                </PortalSkeletonRegion>
               ) : datos.items.length === 0 ? (
                 <p role="status" className="px-6 py-10 text-center text-pf-cuerpo text-texto-2">
                   No hay comunicaciones para mostrar.
@@ -613,8 +645,8 @@ function ListaFamiliaEscritorio({
                           className={cn(
                             'grid grid-cols-[0.5rem_2.5rem_minmax(0,1fr)] items-center gap-4 px-4 py-3.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-pf-accent @xl/main:px-6 @3xl/main:grid-cols-[0.5rem_2.5rem_minmax(0,1fr)_13.5rem_1.25rem]',
                             c.leida_at
-                              ? 'bg-superficie hover:bg-pf-item'
-                              : 'bg-pf-lila hover:bg-pf-lila-fuerte',
+                              ? 'bg-superficie hover:bg-(--card-hover)'
+                              : 'bg-pf-lila hover:bg-(--card-hover)',
                           )}
                         >
                           <span

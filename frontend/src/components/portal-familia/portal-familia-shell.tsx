@@ -43,7 +43,7 @@ export function PortalFamiliaShell({
       {ilustracion && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute top-2 right-0 hidden w-96 max-w-[40%] opacity-90 lg:block"
+          className="pointer-events-none absolute inset-y-0 right-0 hidden lg:block"
         >
           {ilustracion}
         </div>

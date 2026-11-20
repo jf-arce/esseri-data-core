@@ -99,7 +99,7 @@ function BloqueClase({
           type="button"
           onClick={() => onAbrir(false)}
           aria-label="Cerrar detalle"
-          className="absolute top-3 right-3 flex size-7 items-center justify-center rounded-full text-texto-2 transition-colors hover:bg-pf-item hover:text-texto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
+          className="absolute top-3 right-3 flex size-7 items-center justify-center rounded-full text-texto-2 transition-colors hover:bg-(--card-hover) hover:text-texto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
         >
           <XIcon aria-hidden="true" className="size-4" />
         </button>

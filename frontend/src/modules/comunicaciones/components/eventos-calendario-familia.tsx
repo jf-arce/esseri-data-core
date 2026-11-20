@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import { CalendarDaysIcon, ChevronRightIcon } from 'lucide-react'
+import { PortalSkeletonRegion } from '@/components/portal-familia/portal-familia-ui'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { EventoCalendario } from '../types'
 import { fechaEvento, horarioEvento } from '../utils'
 
@@ -33,9 +35,19 @@ export function EventosCalendarioFamilia({
       </div>
       {navegacion}
       {cargando ? (
-        <p role="status" className="text-sm text-texto-2">
-          Cargando eventos…
-        </p>
+        <PortalSkeletonRegion etiqueta="Cargando eventos…">
+          <ul aria-hidden="true" className="flex flex-col gap-2">
+            {[0, 1].map((indice) => (
+              <li key={indice} className="flex items-center gap-3 rounded-pf-icono bg-pf-lila p-3">
+                <Skeleton className="size-10 shrink-0 rounded-pf-input bg-superficie/70" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-4 w-48 max-w-full bg-superficie/70" />
+                  <Skeleton className="h-3.5 w-32 max-w-full bg-superficie/70" />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </PortalSkeletonRegion>
       ) : error ? (
         <p role="status" className="text-sm text-texto-2">
           No pudimos cargar los eventos.
@@ -50,7 +62,7 @@ export function EventosCalendarioFamilia({
                 <button
                   type="button"
                   onClick={() => onVerEvento(evento)}
-                  className="flex w-full items-center gap-3 rounded-pf-icono bg-pf-lila p-3 text-left transition-colors hover:bg-pf-lila-fuerte focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
+                  className="flex w-full items-center gap-3 rounded-pf-icono bg-pf-lila p-3 text-left transition-colors hover:bg-(--card-hover) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
                 >
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-pf-input bg-superficie/70 text-pf-accent">
                     <CalendarDaysIcon aria-hidden="true" className="size-5" />

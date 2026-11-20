@@ -45,7 +45,7 @@ export function EventoDetalleSheet({
         showCloseButton={false}
         className={
           esMovil
-            ? 'max-h-[85svh] w-full overflow-y-auto rounded-t-[24px] bg-superficie p-0'
+            ? 'max-h-[85svh] w-full overflow-y-auto rounded-t-pf-dialogo bg-superficie p-0'
             : 'w-full overflow-y-auto border-l border-borde bg-superficie p-0 sm:max-w-[470px]'
         }
       >

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { PORTAL_FAMILIA_BACKGROUND } from '@/components/portal-familia/portal-familia-shell'
 import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
+import { PortalSkeletonRegion } from '@/components/portal-familia/portal-familia-ui'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -247,7 +248,32 @@ export function ComunicacionDetallePage({
               </AlertDescription>
             </Alert>
           ) : !datos ? (
-            <Skeleton className="h-64 w-full rounded-pf-card" aria-label="Cargando comunicación" />
+            <PortalSkeletonRegion etiqueta="Cargando comunicación">
+              <article
+                aria-hidden="true"
+                className="relative overflow-hidden rounded-pf-card bg-superficie shadow-pf-card"
+              >
+                <div className="pointer-events-none absolute top-6 right-6 hidden w-[120px] @5xl/main:block">
+                  <Skeleton className="aspect-square w-full rounded-pf-card" />
+                </div>
+                <div className="relative z-10 p-6 @xl/main:p-10">
+                  <div className="@5xl/main:pr-[200px]">
+                    <Skeleton className="h-7 w-56 rounded-full" />
+                    <Skeleton className="mt-5 h-9 w-4/5" />
+                    <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2">
+                      <Skeleton className="h-5 w-40" />
+                      <Skeleton className="h-5 w-44" />
+                    </div>
+                  </div>
+                  <div className="mt-8 border-t border-pf-divisor" />
+                  <div className="space-y-3 py-8">
+                    {['w-full', 'w-full', 'w-11/12', 'w-full', 'w-2/3'].map((ancho, indice) => (
+                      <Skeleton key={indice} className={`h-5 ${ancho}`} />
+                    ))}
+                  </div>
+                </div>
+              </article>
+            </PortalSkeletonRegion>
           ) : (
             <article className="relative overflow-hidden rounded-pf-card bg-superficie shadow-pf-card">
               <div
@@ -331,7 +357,7 @@ export function ComunicacionDetallePage({
                       {navegacionActual.anteriorId ? (
                         <Link
                           to={`${base}/${navegacionActual.anteriorId}`}
-                          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-pf-accent/40 px-6 text-pf-cuerpo font-semibold text-pf-accent transition-colors hover:bg-pf-item-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent @xl/main:w-auto @xl/main:justify-self-start"
+                          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-pf-accent/40 px-6 text-pf-cuerpo font-semibold text-pf-accent transition-colors hover:bg-(--card-hover) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent @xl/main:w-auto @xl/main:justify-self-start"
                         >
                           <ArrowLeftIcon aria-hidden="true" className="size-4" />
                           Anterior

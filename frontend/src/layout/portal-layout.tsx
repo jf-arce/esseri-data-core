@@ -131,7 +131,7 @@ export function PortalLayout() {
                               'flex min-h-11 items-center rounded-full px-4 text-pf-cuerpo font-semibold transition-colors',
                               isActive
                                 ? 'bg-pf-lila text-pf-accent'
-                                : 'text-texto hover:bg-pf-item-hover',
+                                : 'text-texto hover:bg-(--card-hover)',
                             )
                           }
                         >

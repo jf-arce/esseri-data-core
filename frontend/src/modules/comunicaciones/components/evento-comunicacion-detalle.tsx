@@ -70,7 +70,7 @@ export function EventoComunicacionDetalle({
         </div>
         <Link
           to={destinoCalendario}
-          className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-pf-borde px-4 text-sm font-semibold text-pf-accent transition-colors hover:bg-pf-item-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
+          className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-pf-borde px-4 text-sm font-semibold text-pf-accent transition-colors hover:bg-(--card-hover) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
         >
           <CalendarDaysIcon aria-hidden="true" className="size-4" />
           Ver en calendario
