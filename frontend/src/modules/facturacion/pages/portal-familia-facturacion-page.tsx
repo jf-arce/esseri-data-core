@@ -596,9 +596,9 @@ export function PortalFamiliaFacturacionPage() {
           {cargando && (
             <div role="status" aria-label="Cargando facturación" className="flex flex-col gap-4">
               <div className="grid gap-4 lg:grid-cols-3">
-                <Skeleton className="h-28 rounded-pf-card" />
-                <Skeleton className="h-28 rounded-pf-card" />
-                <Skeleton className="h-28 rounded-pf-card" />
+                <Skeleton className="h-24 rounded-pf-tile" />
+                <Skeleton className="h-24 rounded-pf-tile" />
+                <Skeleton className="h-24 rounded-pf-tile" />
               </div>
               <Skeleton className="h-64 rounded-pf-card" />
             </div>

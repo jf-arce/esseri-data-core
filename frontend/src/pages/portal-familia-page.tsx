@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRightIcon,
   CalendarClockIcon,
-  CalendarDaysIcon,
   ChevronRightIcon,
   CircleAlertIcon,
   CircleCheckIcon,
@@ -314,7 +313,6 @@ export function PortalFamiliaPage() {
                   : `Tenés ${pendientesJustificar} ausencias pendientes`
               }
               descripcion="Podés justificarla desde el portal."
-              className="items-center gap-3 p-3 sm:p-3"
               accion={
                 <Button asChild className={PORTAL_PRIMARY_BUTTON_CLASS}>
                   <Link to="/familia/justificar-ausencia">
@@ -339,8 +337,8 @@ export function PortalFamiliaPage() {
               <Skeleton className="h-28 w-full bg-pf-lila" />
             ) : alumnos.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-10 text-center">
-                <span className="flex size-14 items-center justify-center rounded-full bg-pf-lila text-pf-accent">
-                  <UsersIcon aria-hidden="true" className="size-6" />
+                <span className="flex size-10 items-center justify-center rounded-full bg-pf-lila text-pf-accent">
+                  <UsersIcon aria-hidden="true" className="size-5" />
                 </span>
                 <p className={cn('text-pf-cuerpo font-semibold', 'text-texto')}>
                   No encontramos alumnos vinculados a tu cuenta.
@@ -381,7 +379,6 @@ export function PortalFamiliaPage() {
                             'text-pf-accent hover:text-pf-accent-hover',
                           )}
                         >
-                          <CalendarClockIcon aria-hidden="true" className="size-4" />
                           Asistencias
                         </Link>
                         <span aria-hidden="true" className="h-4 w-px bg-pf-lila" />
@@ -392,7 +389,6 @@ export function PortalFamiliaPage() {
                             'text-pf-accent hover:text-pf-accent-hover',
                           )}
                         >
-                          <ReceiptTextIcon aria-hidden="true" className="size-4" />
                           Facturación
                         </Link>
                         <span aria-hidden="true" className="h-4 w-px bg-pf-lila" />
@@ -403,14 +399,9 @@ export function PortalFamiliaPage() {
                             'text-pf-accent hover:text-pf-accent-hover',
                           )}
                         >
-                          <CalendarDaysIcon aria-hidden="true" className="size-4" />
                           Horario
                         </Link>
                       </div>
-                      <ChevronRightIcon
-                        aria-hidden="true"
-                        className="hidden size-4 shrink-0 text-texto-2 sm:block"
-                      />
                     </div>
                   </li>
                 ))}

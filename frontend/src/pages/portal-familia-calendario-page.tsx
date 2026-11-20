@@ -274,7 +274,7 @@ export function PortalFamiliaCalendarioPage() {
                 className="print:hidden"
                 titulo="Horario semanal"
                 descripcion={alumno?.division_etiqueta ?? 'Todavía sin división asignada'}
-                tituloClassName="font-heading text-pf-cifra leading-tight font-bold tracking-[-0.01em] text-texto"
+                tituloClassName="font-heading text-pf-encabezado font-semibold text-texto"
                 headerClassName="border-b border-pf-divisor px-5 pt-5 pb-4"
                 contentClassName="px-4 pt-5 pb-5"
                 accion={
@@ -291,7 +291,7 @@ export function PortalFamiliaCalendarioPage() {
                       >
                         <SelectTrigger
                           id="calendario-alumno"
-                          className="h-11 w-full rounded-pf-item border-pf-borde bg-superficie text-pf-cuerpo"
+                          className="h-10 w-full rounded-pf-item border-pf-borde bg-superficie text-pf-cuerpo"
                         >
                           <span className="flex items-center gap-2">
                             <UserRoundIcon aria-hidden="true" className="size-4 text-texto-2" />
