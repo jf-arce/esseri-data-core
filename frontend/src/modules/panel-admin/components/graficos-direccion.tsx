@@ -519,7 +519,10 @@ export function GraficoFinanciero({
   return (
     <div className="flex flex-1 flex-col gap-4">
       {!cargando && (
-        <dl aria-label="Resumen financiero del año" className="grid grid-cols-1 gap-x-6 gap-y-4 @sm:grid-cols-2">
+        <dl
+          aria-label="Resumen financiero del año"
+          className="grid grid-cols-1 gap-x-6 gap-y-4 @sm:grid-cols-2"
+        >
           <Cifra etiqueta="Facturado del año" color="bg-violeta" destacada>
             {formatearMoneda(facturadoAnio)}
           </Cifra>

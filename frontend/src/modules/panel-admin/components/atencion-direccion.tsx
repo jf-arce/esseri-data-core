@@ -111,7 +111,9 @@ export function AtencionDireccion({
       </CardHeader>
       <CardContent
         className={
-          dosColumnas ? 'grid gap-6 @xl/atencion:grid-cols-2 @xl/atencion:gap-0 @xl/atencion:divide-x @xl/atencion:divide-borde' : ''
+          dosColumnas
+            ? 'grid gap-6 @xl/atencion:grid-cols-2 @xl/atencion:gap-0 @xl/atencion:divide-x @xl/atencion:divide-borde'
+            : ''
         }
       >
         {acceso.compras && (
