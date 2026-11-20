@@ -104,6 +104,13 @@ def ejecutar_publicar_comunicacion(
         select(Comunicacion).where(Comunicacion.autor_id == autor.id, Comunicacion.clave == clave)
     )
     if existente is not None:
+        solicitado = ConfigPublicarComunicacion.model_validate(accion.accion_config or {}).canal
+        if existente.canal != solicitado:
+            conflicto = (
+                f"El resultado ya se publicó con el canal «{existente.canal}»; "
+                f"esta regla pidió «{solicitado}»."
+            )
+            return ResultadoAccion(detalle=conflicto, error=conflicto)
         return ResultadoAccion(detalle="La comunicación del resultado ya está publicada.")
     try:
         datos, destinatarios = _preparar(db, accion, evento)

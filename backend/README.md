@@ -130,6 +130,8 @@ Publica una comunicación administrativa por evento para la familia del responsa
 la factura, si el vínculo con el alumno habilita comunicaciones. La publicación, el recibo y
 las intenciones de envío se confirman juntos. Los canales `email` y `ambos` usan la cola de
 Comunicaciones (`N8N_MANUAL_HABILITADO`), no el envío directo de `notificar`.
+Si otra regla coincide con el mismo resultado y solicita un canal distinto, su ejecución
+informa el conflicto; la publicación original y su canal se conservan.
 
 ```bash
 pytest -q tests/facturacion/test_publicar_comunicacion_debito.py

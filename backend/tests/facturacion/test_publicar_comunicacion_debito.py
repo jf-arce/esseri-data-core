@@ -101,6 +101,9 @@ def test_publicar_resultado(
         return n8n_client.ResultadoEnvioManual(estado=estado_envio)
 
     monkeypatch.setattr(settings, "N8N_MANUAL_HABILITADO", True)
+    monkeypatch.setattr(settings, "N8N_WEBHOOK_URL", "http://n8n.test/webhook/enviar-email")
+    monkeypatch.setattr(settings, "N8N_WEBHOOK_TOKEN", "isolated-test-token")
+    monkeypatch.setattr(settings, "N8N_CALLBACK_BASE_URL", "http://backend.test")
     monkeypatch.setattr(n8n_client, "enviar_email_manual", enviar)
     monkeypatch.setattr(
         n8n_client, "enviar_email", lambda email, *args, **kwargs: pagos.append(email)
@@ -128,6 +131,51 @@ def test_publicar_resultado(
         {usuario.email for usuario in usuarios} if estado_envio else set()
     )
     assert set(pagos) == ({usuario.email for usuario in usuarios} if canal == "portal" else set())
+
+
+@pytest.mark.parametrize(("primero", "segundo"), [("portal", "ambos"), ("ambos", "portal")])
+def test_canales_incompatibles_informan_conflicto_sin_republicar(
+    client_autenticado, db_session, primero, segundo
+):
+    demo = _cargar_seed().seed_workflow(db_session)
+    demo.activo = False
+    plantilla = NotificacionTemplate(nombre="Resultado", asunto="Resultado", cuerpo="Procesado")
+    db_session.add(plantilla)
+    db_session.flush()
+    regla_incompatible = None
+    for nombre, canal in [("A publica", primero), ("B en conflicto", segundo)]:
+        regla_incompatible = crear_regla_simple(
+            db_session,
+            nombre=nombre,
+            tipo_evento_id=demo.tipo_evento_id,
+            tipo_accion="publicar_comunicacion",
+            accion_config={"canal": canal},
+            notificacion_template_id=plantilla.id,
+        )
+    (factura,), lote = _lote_con_facturas(client_autenticado, db_session, 1)
+    titular = db_session.get(ResponsableEconomico, factura.responsable_economico_id)
+    db_session.add(FamiliaAlumno(familia_id=titular.familia_id, alumno_id=titular.alumno_id))
+    db_session.commit()
+    referencias = [item["referencia"] for item in lote["items"]]
+    revision = preview(
+        client_autenticado, respuesta(client_autenticado, lote, rechazar=referencias)
+    ).json()
+    assert confirmar(client_autenticado, revision["id"]).status_code == 200
+    for _ in range(2):
+        despacho_service.procesar_eventos_pendientes(db_session)
+
+    assert db_session.scalars(select(Comunicacion.canal)).all() == [primero]
+    assert db_session.query(ReciboComunicacion).count() == 1
+    assert db_session.query(EnvioNotificacion).count() == (1 if primero == "ambos" else 0)
+    ejecucion = db_session.scalar(
+        select(WorkflowExecution).where(
+            WorkflowExecution.workflow_rule_id == regla_incompatible.regla.id
+        )
+    )
+    assert ejecucion.estado == "fallido"
+    assert ejecucion.error_detail == (
+        f"El resultado ya se publicó con el canal «{primero}»; esta regla pidió «{segundo}»."
+    )
 
 
 def test_familia_sin_vinculo_habilitado_no_recibe_publicacion(client_autenticado, db_session):
