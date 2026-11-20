@@ -11,7 +11,7 @@ const buttonVariants = cva(
       variant: {
         default: 'bg-violeta text-superficie hover:bg-violeta-esseri active:bg-violeta-pressed',
         secondary: 'border-borde bg-superficie text-texto hover:bg-fila-hover',
-        ghost: 'text-texto-2 hover:bg-fila-hover hover:text-texto',
+        ghost: 'text-texto-2 hover:bg-[color-mix(in_srgb,var(--fila-hover)_95%,var(--texto)_5%)] hover:text-texto',
         destructive:
           'bg-error-suave text-error hover:bg-[color-mix(in_oklch,var(--error)_15%,var(--error-suave))]',
         link: 'text-violeta underline-offset-4 hover:underline',
