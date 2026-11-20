@@ -44,11 +44,33 @@ export function StatTile({
 }: StatTileProps) {
   const esOscuro = variant === 'dark'
 
+  const valor = (
+    <>
+      {cargando ? (
+        <Skeleton
+          className={cn('relative mt-2.5 h-8 w-16', hero && 'h-10 w-40', esOscuro && 'bg-white/10')}
+        />
+      ) : (
+        <p
+          className={cn(
+            'relative mt-2.5 min-w-0 break-words font-semibold tabular-nums',
+            // ~7.5cqw: una cifra de hasta ~18 caracteres entra en una línea; tope en 2rem.
+            hero ? 'text-[length:clamp(1.25rem,7.5cqw,2rem)] leading-tight' : 'text-2xl',
+            esOscuro ? 'text-texto-sobre-oscuro' : 'text-texto',
+          )}
+        >
+          {value}
+        </p>
+      )}
+    </>
+  )
+
   return (
     <div
       className={cn(
         'relative flex flex-col overflow-hidden rounded-card-sm shadow-card',
-        hero ? 'p-6' : compact ? 'p-4' : 'p-5',
+        // El hero es contenedor: su valor ajusta el tamaño al ancho real de la card.
+        hero ? '@container px-6 pb-6 pt-4' : compact ? 'p-4' : 'p-5',
         esOscuro ? 'bg-banda-oscura' : 'bg-superficie',
         className,
       )}
@@ -99,20 +121,15 @@ export function StatTile({
           <Icon className="size-4" />
         </div>
       </div>
-      {cargando ? (
-        <Skeleton
-          className={cn('relative mt-2.5 h-8 w-16', hero && 'h-10 w-40', esOscuro && 'bg-white/10')}
-        />
+      {hero && children ? (
+        // Hero con desglose: el valor y el desglose comparten renglón cuando hay ancho, y se
+        // apilan cuando no, así la card no gana altura de más.
+        <div className="relative mt-auto flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+          {valor}
+          {children}
+        </div>
       ) : (
-        <p
-          className={cn(
-            'relative mt-2.5 min-w-0 break-words font-semibold tabular-nums',
-            hero ? 'text-4xl leading-[44px]' : 'text-2xl',
-            esOscuro ? 'text-texto-sobre-oscuro' : 'text-texto',
-          )}
-        >
-          {value}
-        </p>
+        <>{valor}</>
       )}
       {note && (
         <p
@@ -127,7 +144,7 @@ export function StatTile({
           {note}
         </p>
       )}
-      {children && <div className="relative mt-4">{children}</div>}
+      {!hero && children && <div className="relative mt-auto pt-4">{children}</div>}
     </div>
   )
 }
