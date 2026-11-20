@@ -1,21 +1,11 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  BookOpenIcon,
-  CalculatorIcon,
   CalendarDaysIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ClockIcon,
-  EarthIcon,
-  FlaskConicalIcon,
-  GlobeIcon,
-  LaptopIcon,
-  LeafIcon,
-  MusicIcon,
-  PaletteIcon,
   UserRoundIcon,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { useSearchParams } from 'react-router'
 import { ExportarHorario } from '@/modules/academico/components/exportar-horario'
 import { HorarioImprimible } from '@/modules/academico/components/horario-imprimible'
@@ -42,6 +32,8 @@ import {
 import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
 import { PortalCard } from '@/components/portal-familia/portal-familia-ui'
 import { useHorarioFamilia } from '@/modules/academico/hooks/use-horario-familia'
+import { GrillaSemanal, type Actividad } from '@/modules/academico/components/grilla-semanal'
+import { GrupoActividadesSheet } from '@/modules/academico/components/grupo-actividades-sheet'
 import {
   aMinutos,
   coincideFiltroHorario,
@@ -49,43 +41,21 @@ import {
   hayFiltroHorario,
   type FiltroHorario,
 } from '@/modules/academico/utils'
+import { rangoVisible } from '@/modules/academico/utils-calendario'
+import { estiloMateria } from '@/modules/academico/estilos-materia'
 import type { MateriaCurso } from '@/modules/academico/types'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
+import { EventoDetalleSheet } from '@/modules/comunicaciones/components/evento-detalle-sheet'
 import { EventosCalendarioFamilia } from '@/modules/comunicaciones/components/eventos-calendario-familia'
+import { useEventosFamilia } from '@/modules/comunicaciones/hooks/use-eventos-familia'
+import type { EventoCalendario } from '@/modules/comunicaciones/types'
 import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
-import { normalizarTexto } from '@/lib/texto'
 import { cn } from '@/lib/utils'
 
 const DIAS = [1, 2, 3, 4, 5]
 const INICIO_GRILLA = 7 * 60 + 30
 const FIN_GRILLA = 16 * 60 + 30
-const FILAS_GRILLA = (FIN_GRILLA - INICIO_GRILLA) / 30
 const NOMBRES_DIA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
-
-type EstiloMateria = { bg: string; texto: string; Icono: LucideIcon }
-
-const ESTILOS_MATERIA: Record<string, EstiloMateria> = {
-  lengua: { bg: 'bg-[#E8F1FE]', texto: 'text-[#2563EB]', Icono: BookOpenIcon },
-  matematica: { bg: 'bg-[#E3F6F1]', texto: 'text-[#0D9488]', Icono: CalculatorIcon },
-  'ciencias naturales': { bg: 'bg-[#EAF7E7]', texto: 'text-[#16A34A]', Icono: LeafIcon },
-  'ciencias sociales': { bg: 'bg-[#FBF3DC]', texto: 'text-[#CA8A04]', Icono: EarthIcon },
-  ingles: { bg: 'bg-[#F1E9FD]', texto: 'text-[#7C3AED]', Icono: GlobeIcon },
-  'educacion fisica': { bg: 'bg-[#FDEEE3]', texto: 'text-[#EA580C]', Icono: FlaskConicalIcon },
-  musica: { bg: 'bg-[#FCE9F2]', texto: 'text-[#DB2777]', Icono: MusicIcon },
-  plastica: { bg: 'bg-[#E4F6FA]', texto: 'text-[#0891B2]', Icono: PaletteIcon },
-  'taller de arte': { bg: 'bg-[#F3E8FF]', texto: 'text-[#7C3AED]', Icono: PaletteIcon },
-  tecnologia: { bg: 'bg-[#E8EDFD]', texto: 'text-[#4F46E5]', Icono: LaptopIcon },
-}
-
-const ESTILO_POR_DEFECTO: EstiloMateria = {
-  bg: 'bg-[#F3EDF9]',
-  texto: 'text-[#7A2FA8]',
-  Icono: BookOpenIcon,
-}
-
-function estiloMateria(nombre: string | null): EstiloMateria {
-  return ESTILOS_MATERIA[normalizarTexto(nombre ?? '')] ?? ESTILO_POR_DEFECTO
-}
 
 function rangoHora(hora: string): string {
   return hora.slice(0, 5)
@@ -160,6 +130,8 @@ export function PortalFamiliaCalendarioPage() {
   const [seleccionId, setSeleccionId] = useState<string | null>(null)
   const [filtro, setFiltro] = useState<FiltroHorario>(FILTRO_HORARIO_INICIAL)
   const [semanaOffset, setSemanaOffset] = useState(0)
+  const [eventoSeleccionado, setEventoSeleccionado] = useState<EventoCalendario | null>(null)
+  const [grupoSeleccionado, setGrupoSeleccionado] = useState<Actividad[] | null>(null)
   const alumno = alumnos.find((item) => item.alumno_id === alumnoId) ?? alumnos[0]
   const {
     materiasCurso,
@@ -216,6 +188,83 @@ export function PortalFamiliaCalendarioPage() {
   domingo.setDate(domingo.getDate() + 6)
   const claveFecha = (fecha: Date) =>
     `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`
+  const desdeSemana = claveFecha(semana[0])
+  const hastaSemana = claveFecha(domingo)
+  const {
+    eventos,
+    cargando: cargandoEventos,
+    error: errorEventos,
+  } = useEventosFamilia(alumno?.alumno_id ?? null, desdeSemana, hastaSemana)
+
+  const actividades = useMemo<Actividad[]>(() => {
+    const clases = franjasFiltradas.map<Actividad>((franja) => ({
+      tipo: 'clase',
+      id: `clase-${franja.id}`,
+      dia: franja.dia_semana,
+      inicio: aMinutos(franja.hora_inicio),
+      fin: aMinutos(franja.hora_fin),
+      franja,
+    }))
+    const deEventos = eventos.flatMap<Actividad>((evento) => {
+      if (!evento.hora_inicio && !evento.hora_fin) return []
+      const fecha = new Date(`${evento.fecha}T00:00:00`)
+      const dia = ((fecha.getDay() + 6) % 7) + 1
+      const inicio = evento.hora_inicio ? aMinutos(evento.hora_inicio) : 0
+      const fin = evento.hora_fin ? aMinutos(evento.hora_fin) : Math.min(24 * 60, inicio + 60)
+      return [
+        {
+          tipo: 'evento',
+          id: `evento-${evento.comunicacion_id}`,
+          dia,
+          inicio,
+          fin: Math.max(fin, inicio + 15),
+          evento,
+        },
+      ]
+    })
+    return [...clases, ...deEventos]
+  }, [franjasFiltradas, eventos])
+
+  const rango = useMemo(
+    () =>
+      rangoVisible(
+        INICIO_GRILLA,
+        FIN_GRILLA,
+        actividades.map(({ inicio, fin }) => ({ inicio, fin })),
+      ),
+    [actividades],
+  )
+
+  const solapan = (a: { inicio: number; fin: number }, b: { inicio: number; fin: number }) =>
+    a.inicio < b.fin && b.inicio < a.fin
+
+  const coincidenciasDe = useCallback(
+    (evento: EventoCalendario | null) => {
+      if (!evento) return []
+      const propio = actividades.find(
+        (actividad) =>
+          actividad.tipo === 'evento' &&
+          actividad.evento.comunicacion_id === evento.comunicacion_id,
+      )
+      if (!propio) return []
+      return actividades
+        .filter(
+          (actividad) =>
+            actividad !== propio &&
+            actividad.dia === propio.dia &&
+            solapan(actividad, propio) &&
+            actividad.tipo === 'clase',
+        )
+        .map((actividad) => ({
+          actividad,
+          detalle:
+            actividad.tipo === 'clase'
+              ? `${actividad.franja.hora_inicio.slice(0, 5)} a ${actividad.franja.hora_fin.slice(0, 5)}`
+              : '',
+        }))
+    },
+    [actividades],
+  )
   useEffect(() => {
     const raiz = document.documentElement
     const antes = () => {
@@ -408,106 +457,17 @@ export function PortalFamiliaCalendarioPage() {
                     )}
 
                     <div data-testid="calendario-grilla" className="hidden lg:block">
-                      <div className="overflow-x-auto">
-                        <div className="min-w-[820px] print:min-w-0">
-                          <div
-                            className="grid overflow-hidden rounded-[18px] border border-[#EFE7F6] bg-white"
-                            style={{
-                              gridTemplateColumns: '8rem repeat(5, minmax(0, 1fr))',
-                              gridTemplateRows: `auto repeat(${FILAS_GRILLA}, minmax(30px, 1fr))`,
-                            }}
-                          >
-                            <div className="bg-[#FBF9FD]" aria-hidden="true" />
-                            {DIAS.map((dia) => (
-                              <div
-                                key={dia}
-                                className={cn(
-                                  'border-l border-[#EFE7F6] px-3 py-2 text-center text-[14px] font-semibold',
-                                  dia === diaActivo
-                                    ? 'bg-[#F1E4FB] text-[#7A2FA8]'
-                                    : 'bg-[#FBF9FD] text-[#2B2338]',
-                                )}
-                              >
-                                <span className="block">{NOMBRES_DIA[dia - 1]}</span>
-                                <span className="block text-[12px] font-normal opacity-70">
-                                  {semana[dia - 1].getDate()}
-                                  {semana[dia - 1].toDateString() === hoyISO ? ' · Hoy' : ''}
-                                </span>
-                              </div>
-                            ))}
-
-                            {Array.from(
-                              { length: FILAS_GRILLA },
-                              (_, indice) => INICIO_GRILLA + indice * 30,
-                            ).map((minutos, indice) => (
-                              <Fragment key={minutos}>
-                                <div
-                                  className="border-t border-[#EFE7F6] px-3 text-center text-[12px] font-semibold text-[#6B6478] tabular-nums"
-                                  style={{ gridRow: indice + 2, gridColumn: 1 }}
-                                >
-                                  {`${String(Math.floor(minutos / 60)).padStart(2, '0')}:${String(minutos % 60).padStart(2, '0')}`}
-                                </div>
-                                {DIAS.map((dia) => (
-                                  <div
-                                    key={dia}
-                                    className="border-t border-l border-[#EFE7F6]"
-                                    style={{ gridRow: indice + 2, gridColumn: dia + 1 }}
-                                  />
-                                ))}
-                              </Fragment>
-                            ))}
-
-                            {franjasFiltradas.map((franja) => {
-                              const inicio = aMinutos(franja.hora_inicio)
-                              const fin = aMinutos(franja.hora_fin)
-                              const filaInicio = Math.max(
-                                0,
-                                Math.round((inicio - INICIO_GRILLA) / 30),
-                              )
-                              const filaFin = Math.min(
-                                FILAS_GRILLA,
-                                Math.max(filaInicio + 1, Math.round((fin - INICIO_GRILLA) / 30)),
-                              )
-                              const estilo = estiloMateria(franja.materia.materia_nombre)
-                              const Icono = estilo.Icono
-                              const color = franja.materia.materia_color || '#7A2FA8'
-                              const activaEsta = franja.id === activa?.id
-                              return (
-                                <button
-                                  key={franja.id}
-                                  type="button"
-                                  aria-pressed={activaEsta}
-                                  onClick={() => setSeleccionId(franja.id)}
-                                  style={{
-                                    gridRow: `${filaInicio + 2} / ${filaFin + 2}`,
-                                    gridColumn: franja.dia_semana + 1,
-                                    backgroundColor: `color-mix(in srgb, ${color} 20%, var(--superficie))`,
-                                    border: `1px solid color-mix(in srgb, ${color} 45%, var(--borde))`,
-                                    boxShadow: activaEsta ? `0 0 0 2px ${color}` : undefined,
-                                  }}
-                                  className={cn(
-                                    'relative z-10 m-1 flex flex-col justify-center gap-0.5 rounded-[10px] px-2.5 py-1.5 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]',
-                                  )}
-                                >
-                                  <span className="flex items-center gap-1.5">
-                                    <Icono
-                                      aria-hidden="true"
-                                      className="size-4 shrink-0"
-                                      style={{ color }}
-                                    />
-                                    <span className="min-w-0 text-[13px] leading-tight font-bold text-[#2B2338]">
-                                      {franja.materia.materia_nombre}
-                                    </span>
-                                  </span>
-                                  <span className="text-[11px] font-medium text-[#4B4456] tabular-nums">
-                                    {rangoHora(franja.hora_inicio)} – {rangoHora(franja.hora_fin)}
-                                  </span>
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      </div>
+                      <GrillaSemanal
+                        semana={semana}
+                        diaActivo={diaActivo}
+                        hoyISO={hoyISO}
+                        rango={rango}
+                        actividades={actividades}
+                        seleccionId={seleccionId}
+                        onSeleccionarClase={(franja) => setSeleccionId(franja.id)}
+                        onSeleccionarEvento={setEventoSeleccionado}
+                        onVerGrupo={setGrupoSeleccionado}
+                      />
                     </div>
                     <div data-testid="calendario-agenda" className="flex flex-col gap-4 lg:hidden">
                       <div
@@ -586,9 +546,12 @@ export function PortalFamiliaCalendarioPage() {
                 )}
                 {alumno && (
                   <EventosCalendarioFamilia
-                    alumnoId={alumno.alumno_id}
-                    desde={claveFecha(semana[0])}
-                    hasta={claveFecha(domingo)}
+                    eventos={eventos}
+                    cargando={cargandoEventos}
+                    error={errorEventos}
+                    etiquetaSemana={`Semana del ${formateoCorto.format(semana[0])} al ${formateoCorto.format(domingo)}`}
+                    onVerEvento={setEventoSeleccionado}
+                    coincidenciasPorEvento={(evento) => coincidenciasDe(evento).length}
                     navegacion={
                       !cargandoHorario && (error || materiasCurso.length === 0) ? (
                         <div className="flex flex-wrap items-center gap-2 print:hidden">
@@ -639,6 +602,30 @@ export function PortalFamiliaCalendarioPage() {
           )}
         </div>
       </div>
+
+      <EventoDetalleSheet
+        evento={eventoSeleccionado}
+        coincidencias={coincidenciasDe(eventoSeleccionado).map(({ actividad, detalle }) => ({
+          id: actividad.id,
+          titulo:
+            actividad.tipo === 'clase'
+              ? (actividad.franja.materia.materia_nombre ?? 'Materia')
+              : actividad.evento.titulo,
+          detalle,
+          tipo: 'clase' as const,
+        }))}
+        onCerrar={() => setEventoSeleccionado(null)}
+      />
+
+      <GrupoActividadesSheet
+        actividades={grupoSeleccionado}
+        onCerrar={() => setGrupoSeleccionado(null)}
+        onVerActividad={(actividad) => {
+          setGrupoSeleccionado(null)
+          if (actividad.tipo === 'clase') setSeleccionId(actividad.franja.id)
+          else setEventoSeleccionado(actividad.evento)
+        }}
+      />
     </section>
   )
 }

@@ -6,14 +6,17 @@ import { apiClient } from '@/api/client'
 import type { MateriaCurso } from '@/modules/academico/types'
 import { useHorarioFamilia } from '@/modules/academico/hooks/use-horario-familia'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
+import { useEventosFamilia } from '@/modules/comunicaciones/hooks/use-eventos-familia'
 import { PortalFamiliaCalendarioPage } from '@/pages/portal-familia-calendario-page'
 
 vi.mock('@/modules/familias-alumnos/hooks/use-mis-alumnos')
 vi.mock('@/modules/academico/hooks/use-horario-familia')
+vi.mock('@/modules/comunicaciones/hooks/use-eventos-familia')
 vi.mock('@/api/client')
 
 const mockedUseMisAlumnos = vi.mocked(useMisAlumnos)
 const mockedUseHorarioFamilia = vi.mocked(useHorarioFamilia)
+const mockedUseEventosFamilia = vi.mocked(useEventosFamilia)
 
 function crearMateria(overrides: Partial<MateriaCurso> = {}): MateriaCurso {
   return {
@@ -54,6 +57,7 @@ describe('PortalFamiliaCalendarioPage', () => {
       cargando: false,
       error: false,
     })
+    mockedUseEventosFamilia.mockReturnValue({ eventos: [], cargando: false, error: false })
   })
 
   function renderizar() {
@@ -81,23 +85,28 @@ describe('PortalFamiliaCalendarioPage', () => {
 
   it('muestra eventos del alumno aunque el curso todavía no tenga horario', async () => {
     mockedUseHorarioFamilia.mockReturnValue({ materiasCurso: [], cargando: false, error: false })
-    vi.mocked(apiClient).mockResolvedValue([
-      {
-        comunicacion_id: 'c1',
-        titulo: 'Encuentro de familias',
-        fecha: '2026-12-05',
-        hora_inicio: '10:00',
-        hora_fin: '11:00',
-        lugar: 'Biblioteca',
-        descripcion: 'Traer el boletín.',
-      },
-    ])
+    mockedUseEventosFamilia.mockReturnValue({
+      cargando: false,
+      error: false,
+      eventos: [
+        {
+          comunicacion_id: 'c1',
+          titulo: 'Encuentro de familias',
+          fecha: '2026-12-05',
+          hora_inicio: '10:00',
+          hora_fin: '11:00',
+          lugar: 'Biblioteca',
+          descripcion: 'Traer el boletín.',
+        },
+      ],
+    })
     renderizar()
     expect(await screen.findByText('Encuentro de familias')).toBeVisible()
     expect(screen.getByText(/10:00.*11:00.*Biblioteca/)).toBeVisible()
-    expect(vi.mocked(apiClient)).toHaveBeenCalledWith(
-      expect.stringMatching(/^\/comunicaciones\/familia\/eventos\?alumno_id=alumno-1&desde=/),
-      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    expect(mockedUseEventosFamilia).toHaveBeenCalledWith(
+      'alumno-1',
+      expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
     )
   })
 
@@ -197,5 +206,85 @@ describe('PortalFamiliaCalendarioPage', () => {
     renderizar()
 
     expect(screen.getByText('Todavía no hay materias cargadas')).toBeInTheDocument()
+  })
+
+  it('muestra el evento en la grilla y abre su detalle desde la grilla y desde la lista', async () => {
+    const usuario = userEvent.setup()
+    mockedUseHorarioFamilia.mockReturnValue({
+      materiasCurso: [
+        crearMateria({
+          horarios: [
+            { id: 'horario-viernes', dia_semana: 5, hora_inicio: '10:20:00', hora_fin: '11:20:00' },
+          ],
+        }),
+      ],
+      cargando: false,
+      error: false,
+    })
+    mockedUseEventosFamilia.mockReturnValue({
+      cargando: false,
+      error: false,
+      eventos: [
+        {
+          comunicacion_id: 'comunicacion-evento',
+          titulo: 'Reunión de padres',
+          fecha: '2026-11-20',
+          hora_inicio: '10:20',
+          hora_fin: '11:20',
+          lugar: 'Aula de 4.º A',
+          descripcion: 'Traer el boletín.',
+        },
+      ],
+    })
+
+    renderizar()
+
+    const grilla = within(screen.getByTestId('calendario-grilla'))
+    const enGrilla = grilla.getByRole('button', { name: /Reunión de padres/ })
+    expect(enGrilla).toBeInTheDocument()
+
+    const lista = within(screen.getByRole('region', { name: 'Eventos del colegio' }))
+    expect(lista.getByText('Se superpone con una clase')).toBeInTheDocument()
+
+    await usuario.click(enGrilla)
+    const panel = await screen.findByRole('dialog')
+    expect(panel).toHaveTextContent('Evento del colegio')
+    expect(panel).toHaveTextContent('Aula de 4.º A')
+    expect(panel).toHaveTextContent('Se superpone con otra actividad')
+    expect(
+      within(panel).getByRole('link', { name: /Ver comunicación relacionada/ }),
+    ).toHaveAttribute('href', '/familia/comunicaciones/comunicacion-evento')
+
+    await usuario.click(within(panel).getByRole('button', { name: 'Cerrar' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    await usuario.click(lista.getByRole('button', { name: /Reunión de padres/ }))
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Reunión de padres')
+  })
+
+  it('vuelve a pedir los eventos al cambiar de semana y de alumno', async () => {
+    const usuario = userEvent.setup()
+    mockedUseMisAlumnos.mockReturnValue({
+      alumnos: [ALUMNA, { ...ALUMNA, alumno_id: 'alumno-2', nombre: 'Juan', apellido: 'Gómez' }],
+      cargando: false,
+    })
+
+    renderizar()
+    const primeraSemana = mockedUseEventosFamilia.mock.calls.at(-1)?.slice(1)
+
+    await usuario.click(screen.getByRole('button', { name: 'Semana siguiente' }))
+    await waitFor(() =>
+      expect(mockedUseEventosFamilia.mock.calls.at(-1)?.slice(1)).not.toEqual(primeraSemana),
+    )
+
+    await usuario.click(screen.getByRole('combobox', { name: 'Alumno' }))
+    await usuario.click(await screen.findByRole('option', { name: 'Juan Gómez' }))
+    await waitFor(() =>
+      expect(mockedUseEventosFamilia).toHaveBeenLastCalledWith(
+        'alumno-2',
+        expect.any(String),
+        expect.any(String),
+      ),
+    )
   })
 })
