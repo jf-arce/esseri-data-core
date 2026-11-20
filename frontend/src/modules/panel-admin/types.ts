@@ -9,4 +9,13 @@ export interface IndicadoresDireccion {
   bajas_mes: number
   asistencias_registradas_hoy: number
   solicitud_pendiente_mas_antigua: string | null
+  tareas_pendientes: number
+  tareas_escaladas: number
+}
+
+/** Tres contadores operativos. `null` = el rol no puede ver ese módulo. */
+export interface IndicadoresAdministracion {
+  facturas_vencidas: number | null
+  cobrado_mes: string | null
+  solicitudes_compra_pendientes: number | null
 }

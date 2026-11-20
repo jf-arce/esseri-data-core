@@ -1,7 +1,7 @@
 """Capa de consulta sobre tablas de otros módulos. Sin modelo propio.
 
-La deuda es transitoria: se obtiene de facturas menos pagos aprobados. Cuando se implemente
-#83, este cálculo debe migrar al saldo derivado de ``CuentaCorriente``/``Movimiento``.
+La deuda se lee del libro de `CuentaCorriente`/`Movimiento` a través de `cuenta_corriente_service`;
+este módulo no reimplementa saldos.
 """
 
 from collections.abc import Set
@@ -11,83 +11,56 @@ from decimal import Decimal
 from sqlalchemy import and_, extract, func, or_, select
 from sqlalchemy.orm import Session
 
+from src.facturacion.calendario_facturacion import fecha_operativa_argentina
+from src.facturacion.cuenta_corriente_service import total_deuda
 from src.facturacion.models import Factura, Pago, ResponsableEconomico
 from src.familias_alumnos.models import Alumno, Familia
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import AuditLog, EventLog, Persona
 from src.proveedores_compras.models import ProductoServicio, SolicitudCompra
-from src.workflows.models import TipoEvento
-
-
-def _saldo_vencido_por_familia(db: Session, hoy: date) -> list[Decimal]:
-    """Saldo vencido de cada familia con deuda: facturas vencidas menos sus pagos aprobados."""
-    pagado = (
-        select(func.coalesce(func.sum(Pago.monto), Decimal("0.00")))
-        .where(Pago.factura_id == Factura.id, Pago.estado == "aprobado")
-        .correlate(Factura)
-        .scalar_subquery()
-    )
-    saldo_factura = (Factura.monto_total - pagado).label("saldo")
-    saldos = (
-        select(ResponsableEconomico.familia_id.label("familia_id"), saldo_factura)
-        .join(ResponsableEconomico, ResponsableEconomico.id == Factura.responsable_economico_id)
-        .where(Factura.fecha_vencimiento < hoy)
-        .subquery()
-    )
-    filas = db.execute(
-        select(func.sum(saldos.c.saldo))
-        .group_by(saldos.c.familia_id)
-        .having(func.sum(saldos.c.saldo) > 0)
-    ).all()
-    return [total for (total,) in filas]
+from src.workflows.models import Tarea, TipoEvento
 
 
 def obtener_indicadores_direccion(
-    db: Session, *, fecha_hoy: date | None = None
+    db: Session, *, fecha_hoy: date | None = None, ciclo_lectivo: str | None = None
 ) -> dict[str, int | Decimal | date | None]:
-    """Obtiene los indicadores del Panel de Dirección y el contexto de cada cifra.
+    """Indicadores de RF-31 con contexto.
 
-    La subconsulta de pagos evita multiplicar el total de una factura cuando tiene pagos
-    parciales. Solo los pagos aprobados disminuyen la deuda provisoria.
+    `ciclo_lectivo` acota deuda, inasistencias y altas/bajas, que sí tienen ciclo. `alumnos_activos`
+    y los contadores de trabajo no dependen del ciclo y se devuelven globales.
     """
-    pagos_aprobados = (
-        select(func.coalesce(func.sum(Pago.monto), Decimal("0.00")))
-        .where(Pago.estado == "aprobado")
-        .scalar_subquery()
-    )
-    total_facturado = select(
-        func.coalesce(func.sum(Factura.monto_total), Decimal("0.00"))
-    ).scalar_subquery()
-
-    hoy = fecha_hoy or date.today()
-    saldos_vencidos = _saldo_vencido_por_familia(db, hoy)
+    hoy = fecha_hoy or fecha_operativa_argentina()
     inicio_mes = hoy.replace(day=1)
+    deuda = total_deuda(db, fecha_referencia=hoy, ciclo_lectivo=ciclo_lectivo)
 
     def inscripciones_del_mes(tipo: str) -> int:
-        return (
-            db.scalar(
-                select(func.count(Inscripcion.id)).where(
-                    Inscripcion.tipo == tipo,
-                    Inscripcion.fecha_inscripcion >= inicio_mes,
-                    Inscripcion.fecha_inscripcion <= hoy,
-                )
-            )
-            or 0
-        )
+        filtros = [
+            Inscripcion.tipo == tipo,
+            Inscripcion.fecha_inscripcion >= inicio_mes,
+            Inscripcion.fecha_inscripcion <= hoy,
+        ]
+        if ciclo_lectivo is not None:
+            filtros.append(Inscripcion.ciclo_lectivo == ciclo_lectivo)
+        return db.scalar(select(func.count(Inscripcion.id)).where(*filtros)) or 0
 
-    deuda_pendiente_total = db.scalar(select(total_facturado - pagos_aprobados)) or Decimal("0.00")
+    filtros_asistencia = [Asistencia.fecha == hoy]
+    if ciclo_lectivo is not None:
+        filtros_asistencia.append(
+            Asistencia.inscripcion_id.in_(
+                select(Inscripcion.id).where(Inscripcion.ciclo_lectivo == ciclo_lectivo)
+            )
+        )
     alumnos_activos = db.scalar(select(func.count(Alumno.id)).where(Alumno.estado == "activo")) or 0
     inasistencias_hoy = (
         db.scalar(
             select(func.count(Asistencia.id)).where(
-                Asistencia.fecha == hoy,
-                Asistencia.tipo.like("ausente%"),
+                *filtros_asistencia, Asistencia.tipo.like("ausente%")
             )
         )
         or 0
     )
     asistencias_registradas_hoy = (
-        db.scalar(select(func.count(Asistencia.id)).where(Asistencia.fecha == hoy)) or 0
+        db.scalar(select(func.count(Asistencia.id)).where(*filtros_asistencia)) or 0
     )
     solicitudes_compra_pendientes = (
         db.scalar(
@@ -95,21 +68,65 @@ def obtener_indicadores_direccion(
         )
         or 0
     )
+    tareas_por_estado = dict(
+        db.execute(
+            select(Tarea.estado, func.count(Tarea.id))
+            .where(Tarea.estado.in_(("pendiente", "escalada")))
+            .group_by(Tarea.estado)
+        ).all()
+    )
 
     return {
         "alumnos_activos": alumnos_activos,
-        "deuda_pendiente_total": deuda_pendiente_total,
+        "deuda_pendiente_total": deuda["total"],
         "inasistencias_hoy": inasistencias_hoy,
         "solicitudes_compra_pendientes": solicitudes_compra_pendientes,
-        "deuda_vencida_total": sum(saldos_vencidos, Decimal("0.00")),
-        "familias_en_mora": len(saldos_vencidos),
+        "deuda_vencida_total": deuda["vencida"],
+        "familias_en_mora": deuda["familias_en_mora"],
         "altas_mes": inscripciones_del_mes("nueva"),
         "bajas_mes": inscripciones_del_mes("baja"),
         "asistencias_registradas_hoy": asistencias_registradas_hoy,
         "solicitud_pendiente_mas_antigua": db.scalar(
             select(func.min(SolicitudCompra.fecha)).where(SolicitudCompra.estado == "pendiente")
         ),
+        "tareas_pendientes": int(tareas_por_estado.get("pendiente", 0)),
+        "tareas_escaladas": int(tareas_por_estado.get("escalada", 0)),
     }
+
+
+def obtener_indicadores_administracion(
+    db: Session,
+    *,
+    fecha_hoy: date | None = None,
+    incluir_facturacion: bool = True,
+    incluir_compras: bool = True,
+) -> dict[str, Decimal | int | None]:
+    """Tres indicadores operativos del panel de Administración.
+
+    Cada bloque se omite (`None`) cuando el rol activo no tiene el permiso del módulo dueño, igual
+    que el feed de Dirección: el panel no muestra datos de un módulo que el rol no puede abrir.
+    """
+    hoy = fecha_hoy or fecha_operativa_argentina()
+    facturacion: dict[str, Decimal | int | None] = {
+        "facturas_vencidas": None,
+        "cobrado_mes": None,
+    }
+    if incluir_facturacion:
+        deuda = total_deuda(db, fecha_referencia=hoy)
+        meses = obtener_evolucion_financiera(db, fecha_hoy=hoy)
+        facturacion = {
+            "facturas_vencidas": deuda["facturas_vencidas"],
+            "cobrado_mes": meses[-1]["cobrado"] if meses else Decimal("0.00"),
+        }
+    compras = (
+        db.scalar(
+            select(func.count(SolicitudCompra.id)).where(SolicitudCompra.estado == "pendiente")
+        )
+        or 0
+        if incluir_compras
+        else None
+    )
+    return {**facturacion, "solicitudes_compra_pendientes": compras}
 
 
 def obtener_evolucion_financiera(
@@ -205,6 +222,7 @@ def _fila_evento(evento: EventLog, nombre: str, pagos: dict) -> dict:
         "monto": None,
         "referencia": None,
         "detalle": None,
+        "entidad_id": evento.entidad_id,
     }
     if nombre == "pago.registrado":
         referencia, monto = pagos.get(evento.entidad_id, (None, None))
@@ -329,6 +347,7 @@ def _filas_solicitudes(db: Session, limite: int) -> list[dict]:
                 "estado": estado,
                 "monto": None,
                 "ocurrido_en": _instante_utc(registro.fecha),
+                "entidad_id": registro.entidad_id,
             }
         )
     return resultado
@@ -360,6 +379,7 @@ def _filas_matriculas(db: Session, limite: int) -> list[dict]:
             "estado": "baja" if inscripcion.tipo == "baja" else "alta",
             "monto": None,
             "ocurrido_en": _instante_utc(registro.fecha),
+            "entidad_id": registro.entidad_id,
         }
         for registro, inscripcion, nombre, apellido in filas
     ]

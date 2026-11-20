@@ -947,10 +947,11 @@ pytest -q tests/inscripciones/test_scoping_familia.py
 ### Notificaciones internas (Portal Familia: Académico, Comunicaciones y Facturación)
 
 La bandeja interna vive en `src/notificaciones/` y en la tabla propia `notificacion_interna`,
-separada del log de intentos de email de Workflows y de los recibos de Comunicaciones. Conecta
-solo el Portal Familia: transiciones académicas, comunicaciones institucionales publicadas para
-el portal, facturas emitidas, pagos aprobados por Administración, recordatorios de vencimiento y
-el resultado confirmado de cada débito automático (exitoso o rechazado).
+separada del log de intentos de email de Workflows y de los recibos de Comunicaciones. Cada rol
+activo tiene su propio alcance: Familia ve las transiciones académicas, las comunicaciones
+institucionales publicadas para el portal, las facturas emitidas, los pagos aprobados por
+Administración, los recordatorios de vencimiento y el resultado confirmado de cada débito
+automático; Administración ve las justificaciones individuales enviadas por las familias.
 
 Endpoints (todos privados, `Cache-Control: private, no-store`, y sin entrada de `usuario_id`):
 
@@ -963,15 +964,17 @@ Endpoints (todos privados, `Cache-Control: private, no-store`, y sin entrada de 
 - `POST /notificaciones/lecturas` devuelve `{marcadas}` y marca en una sola sentencia todo lo
   no leído de la misma foto autorizada.
 
-Sin sesión responde 401. Sin rol activo Familia, con el rol revocado o sin `Familia` propia
-responde 403. Un id ajeno o inaccesible responde 404, igual que uno inexistente. Cada consulta
-revalida en SQL la cuenta, la familia vigente, el vínculo actual con el alumno y —solo para las
-ausencias— `recibe_comunicaciones=true`. Las resoluciones no dependen de ese flag. En Comunicaciones
-se exige un recibo vigente para la comunicación y la familia, y que la comunicación siga publicada;
-en Facturación, que la factura o el pago pertenezcan a la familia responsable económica persistida.
-Solo se exponen los tipos, ámbitos, destinos y contextos de las entregas: una fila con un tipo,
-ámbito o contexto desconocido se excluye del listado, del contador y de la lectura, igual que una
-ajena.
+Sin sesión responde 401. Sin un rol activo con bandeja propia responde 403. Con rol Familia se
+exige además su `Familia` persistida; con rol Administración, la cuenta y el rol vigentes. Un id
+ajeno o inaccesible responde 404, igual que uno inexistente. Cada consulta revalida en SQL la
+cuenta y el alcance de su rol activo. En Familia se revalida la familia vigente, el vínculo actual
+con el alumno y —solo para las ausencias— `recibe_comunicaciones=true`. Las resoluciones no
+dependen de ese flag. En Comunicaciones se exige un recibo vigente para la comunicación y la
+familia, y que la comunicación siga publicada; en Facturación, que la factura o el pago pertenezcan
+a la familia responsable económica persistida; en Administración, que la justificación avisada
+siga existiendo. Solo se exponen los tipos, ámbitos, destinos y contextos de las entregas: una fila
+con un tipo, ámbito o contexto desconocido se excluye del listado, del contador y de la lectura,
+igual que una ajena. Las notificaciones de Familia y de Administración nunca se mezclan.
 
 Productores de la segunda entrega: una comunicación institucional con canal `portal` o `ambos`
 genera un aviso por cuenta de cada familia destinataria y no toca `ReciboComunicacion.leida_at`.
@@ -988,6 +991,12 @@ destino a la factura exacta. El rechazo muestra solo el motivo; el código queda
 el historial administrativo. El pago de un débito no genera además el aviso genérico de pago
 aprobado: `registrar_pago(..., notificar=False)` evita atribuir a Administración un cobro
 automático. Los pagos manuales conservan su aviso sin cambios.
+
+Al enviar una justificación individual, la familia genera un aviso por cuenta activa con rol
+Administración dentro de la misma transacción: `administracion.justificacion_pendiente`, con
+alumno, fecha, motivo y destino a la bandeja institucional de justificaciones. Una falla al
+insertarlo revierte la justificación. Las solicitudes por período no generan aviso en esta
+entrega.
 
 Los productores académicos insertan dentro de la transacción del comando, antes de su commit:
 la ausencia se identifica por inscripción y fecha calendario, y la resolución por la

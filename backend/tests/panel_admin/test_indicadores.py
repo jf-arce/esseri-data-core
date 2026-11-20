@@ -1,167 +1,328 @@
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy import select
 
 from src.auth.models import Usuario
-from src.facturacion.models import Factura, MetodoPago, Pago, ResponsableEconomico
+from src.facturacion.cuenta_corriente_service import listar_deuda_por_familia, total_deuda
+from src.facturacion.models import (
+    CuentaCorriente,
+    Factura,
+    MetodoPago,
+    Movimiento,
+    Pago,
+    ResponsableEconomico,
+)
 from src.inscripciones.models import Asistencia
 from src.panel_admin.service import obtener_evolucion_financiera, obtener_indicadores_direccion
 from src.proveedores_compras.models import SolicitudCompra
+from src.workflows.models import Tarea
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
+OPERATIVO = datetime(2026, 9, 1, tzinfo=UTC)
 
-def test_indicadores_calculan_deuda_con_pagos_parciales_y_solo_aprobados(db_session):
+
+def _crear_cuenta(db_session, alumno_id):
+    cuenta = CuentaCorriente(alumno_id=alumno_id)
+    db_session.add(cuenta)
+    db_session.flush()
+    return cuenta
+
+
+def _cargo(db_session, cuenta, factura, monto):
+    db_session.add(
+        Movimiento(
+            fecha=OPERATIVO,
+            tipo="debe",
+            monto=monto,
+            cuenta_corriente_id=cuenta.id,
+            factura_id=factura.id,
+        )
+    )
+
+
+def _pago(db_session, cuenta, factura, monto, *, estado="aprobado", fecha=OPERATIVO):
+    pago = Pago(
+        fecha=fecha.date() if isinstance(fecha, datetime) else fecha,
+        monto=monto,
+        estado=estado,
+        factura_id=factura.id,
+        metodo_pago_id=db_session.scalar(select(MetodoPago.id)),
+    )
+    db_session.add(pago)
+    db_session.flush()
+    if estado == "aprobado":
+        db_session.add(
+            Movimiento(
+                fecha=fecha,
+                tipo="haber",
+                monto=monto,
+                cuenta_corriente_id=cuenta.id,
+                factura_id=factura.id,
+                pago_id=pago.id,
+            )
+        )
+    return pago
+
+
+def _escenario_facturacion(db_session, *, ciclo="2027", estado_inscripcion="activa"):
     escenario = crear_escenario(db_session)
-    inscripcion = crear_inscripcion_previa(db_session, escenario, estado="activa")
+    inscripcion = crear_inscripcion_previa(
+        db_session, escenario, ciclo=ciclo, estado=estado_inscripcion
+    )
     responsable = ResponsableEconomico(
         vigencia_desde=date(2026, 1, 1),
         alumno_id=escenario["alumno_id"],
         familia_id=escenario["familia_id"],
     )
-    metodo_pago = MetodoPago(nombre="Transferencia", activo=True, requiere_comprobante=False)
+    metodo_pago = MetodoPago(
+        nombre=f"Transferencia {ciclo}", activo=True, requiere_comprobante=False
+    )
     db_session.add_all([responsable, metodo_pago])
     db_session.flush()
+    return escenario, inscripcion, responsable
+
+
+def _factura(db_session, inscripcion, responsable, *, monto, vencimiento, estado):
     factura = Factura(
-        fecha_emision=date(2026, 9, 1),
-        fecha_vencimiento=date(2026, 9, 10),
-        monto_total=Decimal("100.00"),
-        estado="pagada",
+        fecha_emision=date(2026, 8, 1),
+        fecha_vencimiento=vencimiento,
+        monto_total=monto,
+        estado=estado,
         inscripcion_id=inscripcion.id,
         responsable_economico_id=responsable.id,
     )
-    pago_aprobado = Pago(
-        fecha=date(2026, 9, 1),
-        monto=Decimal("40.00"),
-        estado="aprobado",
-        factura=factura,
-        metodo_pago_id=metodo_pago.id,
+    db_session.add(factura)
+    db_session.flush()
+    return factura
+
+
+def test_la_deuda_sale_del_libro_y_no_de_factura_menos_pagos(db_session):
+    escenario, inscripcion, responsable = _escenario_facturacion(db_session)
+    cuenta = _crear_cuenta(db_session, escenario["alumno_id"])
+    factura = _factura(
+        db_session,
+        inscripcion,
+        responsable,
+        monto=Decimal("100.00"),
+        vencimiento=date(2026, 8, 10),
+        estado="pagada",
     )
-    pago_pendiente = Pago(
-        fecha=date(2026, 9, 1),
-        monto=Decimal("20.00"),
-        estado="pendiente",
-        factura=factura,
-        metodo_pago_id=metodo_pago.id,
-    )
-    db_session.add_all(
-        [
-            responsable,
-            factura,
-            pago_aprobado,
-            pago_pendiente,
-            Asistencia(
-                fecha=date(2026, 9, 1), tipo="ausente_injustificado", inscripcion_id=inscripcion.id
-            ),
-            Asistencia(fecha=date(2026, 9, 1), tipo="presente", inscripcion_id=inscripcion.id),
-            SolicitudCompra(
-                articulo="Resmas",
-                cantidad=2,
-                estado="pendiente",
-                fecha=date(2026, 9, 1),
-                usuario_id=db_session.scalar(select(Usuario.id)),
-            ),
-        ]
-    )
+    _cargo(db_session, cuenta, factura, Decimal("100.00"))
+    # Penalidad imputada al mismo comprobante: no existe como Factura y el libro sí la cuenta.
+    _cargo(db_session, cuenta, factura, Decimal("10.00"))
+    _pago(db_session, cuenta, factura, Decimal("40.00"))
     db_session.commit()
 
-    indicadores = obtener_indicadores_direccion(db_session, fecha_hoy=date(2026, 9, 1))
+    indicadores = obtener_indicadores_direccion(db_session, fecha_hoy=date(2026, 9, 20))
 
-    assert indicadores == {
-        "alumnos_activos": 1,
-        "deuda_pendiente_total": Decimal("60.00"),
-        "inasistencias_hoy": 1,
-        "solicitudes_compra_pendientes": 1,
-        "deuda_vencida_total": Decimal("0.00"),
-        "familias_en_mora": 0,
-        "altas_mes": 0,
-        "bajas_mes": 0,
-        "asistencias_registradas_hoy": 2,
-        "solicitud_pendiente_mas_antigua": date(2026, 9, 1),
-    }
-    evolucion = obtener_evolucion_financiera(db_session, fecha_hoy=date(2026, 9, 1))
-    assert len(evolucion) == 9
-    assert evolucion[-1] == {
-        "mes": "2026-09",
-        "facturado": Decimal("100.00"),
-        "cobrado": Decimal("40.00"),
-    }
-    assert evolucion[0] == {"mes": "2026-01", "facturado": Decimal("0"), "cobrado": Decimal("0")}
+    assert indicadores["deuda_pendiente_total"] == Decimal("70.00")
+    assert indicadores["deuda_vencida_total"] == Decimal("70.00")
+    assert indicadores["familias_en_mora"] == 1
+
+
+def test_el_total_coincide_con_la_lista_canonica_por_familia(db_session):
+    escenario, inscripcion, responsable = _escenario_facturacion(db_session)
+    cuenta = _crear_cuenta(db_session, escenario["alumno_id"])
+    vencida = _factura(
+        db_session,
+        inscripcion,
+        responsable,
+        monto=Decimal("100.00"),
+        vencimiento=date(2026, 8, 10),
+        estado="pendiente",
+    )
+    futura = _factura(
+        db_session,
+        inscripcion,
+        responsable,
+        monto=Decimal("70.00"),
+        vencimiento=date(2026, 9, 20),
+        estado="pendiente",
+    )
+    _cargo(db_session, cuenta, vencida, Decimal("100.00"))
+    _cargo(db_session, cuenta, futura, Decimal("70.00"))
+    _pago(db_session, cuenta, vencida, Decimal("30.00"))
+    db_session.commit()
+
+    totales = total_deuda(db_session, fecha_referencia=date(2026, 9, 5))
+    filas, _ = listar_deuda_por_familia(
+        db_session, fecha_referencia=date(2026, 9, 5), pagina=1, tamanio=10
+    )
+
+    assert totales["vencida"] == Decimal("70.00")
+    assert totales["no_vencida"] == Decimal("70.00")
+    assert sum(Decimal(str(fila["deuda_total"])) for fila in filas) == Decimal("140.00")
+    assert totales["vencida"] + totales["no_vencida"] == Decimal("140.00")
+
+
+def test_facturas_vencidas_ignora_la_columna_estado_y_mira_el_saldo(db_session):
+    escenario, inscripcion, responsable = _escenario_facturacion(db_session)
+    cuenta = _crear_cuenta(db_session, escenario["alumno_id"])
+    saldada = _factura(
+        db_session,
+        inscripcion,
+        responsable,
+        monto=Decimal("100.00"),
+        vencimiento=date(2026, 8, 10),
+        estado="vencida",
+    )
+    impaga = _factura(
+        db_session,
+        inscripcion,
+        responsable,
+        monto=Decimal("50.00"),
+        vencimiento=date(2026, 8, 12),
+        estado="pendiente",
+    )
+    futura = _factura(
+        db_session,
+        inscripcion,
+        responsable,
+        monto=Decimal("80.00"),
+        vencimiento=date(2026, 9, 30),
+        estado="pendiente",
+    )
+    for factura in (saldada, impaga, futura):
+        _cargo(db_session, cuenta, factura, factura.monto_total)
+    _pago(db_session, cuenta, saldada, Decimal("100.00"))
+    db_session.commit()
+
+    totales = total_deuda(db_session, fecha_referencia=date(2026, 9, 5))
+
+    assert totales["facturas_vencidas"] == 1
+    assert totales["vencida"] == Decimal("50.00")
+    assert totales["no_vencida"] == Decimal("80.00")
 
 
 def test_indicadores_separan_deuda_vencida_y_cuentan_altas_y_bajas_del_mes(db_session):
-    escenario = crear_escenario(db_session)
-    inscripcion = crear_inscripcion_previa(db_session, escenario, estado="activa")
+    escenario, inscripcion, responsable = _escenario_facturacion(
+        db_session, ciclo="2026", estado_inscripcion="activa"
+    )
     inscripcion.fecha_inscripcion = date(2026, 9, 1)
-    responsable = ResponsableEconomico(
-        vigencia_desde=date(2026, 1, 1),
-        alumno_id=escenario["alumno_id"],
-        familia_id=escenario["familia_id"],
-    )
-    metodo_pago = MetodoPago(nombre="Efectivo", activo=True, requiere_comprobante=False)
-    db_session.add_all([responsable, metodo_pago])
-    db_session.flush()
-    vencida_parcial = Factura(
-        fecha_emision=date(2026, 8, 1),
-        fecha_vencimiento=date(2026, 8, 10),
-        monto_total=Decimal("100.00"),
+    cuenta = _crear_cuenta(db_session, escenario["alumno_id"])
+    vencida_parcial = _factura(
+        db_session,
+        inscripcion,
+        responsable,
+        monto=Decimal("100.00"),
+        vencimiento=date(2026, 8, 10),
         estado="vencida",
-        inscripcion_id=inscripcion.id,
-        responsable_economico_id=responsable.id,
     )
-    vencida_saldada = Factura(
-        fecha_emision=date(2026, 8, 1),
-        fecha_vencimiento=date(2026, 8, 12),
-        monto_total=Decimal("50.00"),
+    vencida_saldada = _factura(
+        db_session,
+        inscripcion,
+        responsable,
+        monto=Decimal("50.00"),
+        vencimiento=date(2026, 8, 12),
         estado="pagada",
-        inscripcion_id=inscripcion.id,
-        responsable_economico_id=responsable.id,
     )
-    a_vencer = Factura(
-        fecha_emision=date(2026, 9, 1),
-        fecha_vencimiento=date(2026, 9, 20),
-        monto_total=Decimal("70.00"),
+    a_vencer = _factura(
+        db_session,
+        inscripcion,
+        responsable,
+        monto=Decimal("70.00"),
+        vencimiento=date(2026, 9, 20),
         estado="pendiente",
-        inscripcion_id=inscripcion.id,
-        responsable_economico_id=responsable.id,
     )
-    db_session.add_all([vencida_parcial, vencida_saldada, a_vencer])
-    db_session.flush()
-    db_session.add_all(
-        [
-            Pago(
-                fecha=date(2026, 8, 15),
-                monto=Decimal("30.00"),
-                estado="aprobado",
-                factura_id=vencida_parcial.id,
-                metodo_pago_id=metodo_pago.id,
-            ),
-            Pago(
-                fecha=date(2026, 8, 15),
-                monto=Decimal("50.00"),
-                estado="aprobado",
-                factura_id=vencida_saldada.id,
-                metodo_pago_id=metodo_pago.id,
-            ),
-            Pago(
-                fecha=date(2026, 8, 15),
-                monto=Decimal("20.00"),
-                estado="pendiente",
-                factura_id=vencida_parcial.id,
-                metodo_pago_id=metodo_pago.id,
-            ),
-        ]
-    )
+    for factura in (vencida_parcial, vencida_saldada, a_vencer):
+        _cargo(db_session, cuenta, factura, factura.monto_total)
+    _pago(db_session, cuenta, vencida_parcial, Decimal("30.00"))
+    _pago(db_session, cuenta, vencida_saldada, Decimal("50.00"))
     db_session.commit()
 
     indicadores = obtener_indicadores_direccion(db_session, fecha_hoy=date(2026, 9, 5))
 
     assert indicadores["deuda_vencida_total"] == Decimal("70.00")
+    assert indicadores["deuda_pendiente_total"] == Decimal("140.00")
     assert indicadores["familias_en_mora"] == 1
     assert indicadores["altas_mes"] == 1
     assert indicadores["bajas_mes"] == 0
     assert indicadores["asistencias_registradas_hoy"] == 0
     assert indicadores["solicitud_pendiente_mas_antigua"] is None
+
+
+def test_el_ciclo_filtra_deuda_y_no_toca_alumnos_activos(db_session):
+    escenario, inscripcion_2026, responsable = _escenario_facturacion(
+        db_session, ciclo="2026", estado_inscripcion="activa"
+    )
+    inscripcion_2027 = crear_inscripcion_previa(
+        db_session, escenario, ciclo="2027", estado="activa"
+    )
+    cuenta = _crear_cuenta(db_session, escenario["alumno_id"])
+    for inscripcion, monto in (
+        (inscripcion_2026, Decimal("100.00")),
+        (inscripcion_2027, Decimal("50.00")),
+    ):
+        factura = _factura(
+            db_session,
+            inscripcion,
+            responsable,
+            monto=monto,
+            vencimiento=date(2026, 8, 10),
+            estado="pendiente",
+        )
+        _cargo(db_session, cuenta, factura, monto)
+    db_session.commit()
+
+    solo_2026 = obtener_indicadores_direccion(
+        db_session, fecha_hoy=date(2026, 9, 20), ciclo_lectivo="2026"
+    )
+    todos = obtener_indicadores_direccion(db_session, fecha_hoy=date(2026, 9, 20))
+
+    assert solo_2026["deuda_vencida_total"] == Decimal("100.00")
+    assert todos["deuda_vencida_total"] == Decimal("150.00")
+    assert solo_2026["alumnos_activos"] == todos["alumnos_activos"] == 1
+
+
+def test_los_indicadores_usan_la_fecha_operativa_argentina(db_session, monkeypatch):
+    escenario = crear_escenario(db_session)
+    inscripcion = crear_inscripcion_previa(db_session, escenario, estado="activa")
+    db_session.add(
+        Asistencia(
+            fecha=date(2026, 9, 1), tipo="ausente_injustificado", inscripcion_id=inscripcion.id
+        )
+    )
+    db_session.commit()
+    monkeypatch.setattr(
+        "src.panel_admin.service.fecha_operativa_argentina", lambda: date(2026, 9, 1)
+    )
+
+    indicadores = obtener_indicadores_direccion(db_session)
+
+    assert indicadores["inasistencias_hoy"] == 1
+
+
+def test_cuentan_tareas_pendientes_y_escaladas(db_session):
+    usuario = Usuario(
+        email="tareas-panel@esseri.edu.ar",
+        password_hash="x",
+        auth_provider="local",
+        estado="activo",
+    )
+    db_session.add(usuario)
+    db_session.flush()
+    db_session.add_all(
+        [
+            Tarea(titulo=estado, estado=estado, prioridad="media", usuario_id=usuario.id)
+            for estado in ("pendiente", "en_progreso", "completada", "escalada")
+        ]
+    )
+    db_session.add(
+        SolicitudCompra(
+            articulo="Resmas",
+            cantidad=2,
+            estado="pendiente",
+            fecha=date(2026, 9, 1),
+            usuario_id=usuario.id,
+        )
+    )
+    db_session.commit()
+
+    indicadores = obtener_indicadores_direccion(db_session, fecha_hoy=date(2026, 9, 1))
+
+    assert indicadores["tareas_pendientes"] == 1
+    assert indicadores["tareas_escaladas"] == 1
 
 
 def test_evolucion_financiera_con_rango_cruza_de_anio(db_session):
@@ -190,6 +351,8 @@ def test_endpoint_de_indicadores_expone_los_campos_de_contexto(client_direccion)
         "bajas_mes",
         "asistencias_registradas_hoy",
         "solicitud_pendiente_mas_antigua",
+        "tareas_pendientes",
+        "tareas_escaladas",
     ):
         assert campo in cuerpo
     assert cuerpo["solicitud_pendiente_mas_antigua"] is None

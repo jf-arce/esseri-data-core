@@ -329,6 +329,13 @@ def justificar_asistencia_de_familia(
         valor_nuevo=motivo_db.nombre,
         usuario_id=usuario.id,
     )
+    notificaciones_academicas.registrar_justificacion_pendiente(
+        db,
+        justificacion=justificacion,
+        asistencia=asistencia,
+        inscripcion=inscripcion,
+        motivo=motivo_db.nombre,
+    )
     db.commit()
     db.refresh(justificacion)
     return justificacion

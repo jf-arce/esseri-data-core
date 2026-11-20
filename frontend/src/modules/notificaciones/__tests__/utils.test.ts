@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   TIPOS_RECURSO_ACADEMICO,
+  esRolAdministrativo,
   type DestinoNotificacion,
   type TipoRecursoNotificacion,
 } from '@/modules/notificaciones/types'
@@ -59,6 +60,12 @@ describe('rutaDesdeDestino', () => {
     )
   })
 
+  it('arma la ruta de la bandeja institucional de justificaciones', () => {
+    expect(rutaDesdeDestino({ tipo: 'justificacion', id: 'just-1', alumno_id: 'alumno-1' })).toBe(
+      '/academico/justificaciones?justificacion=just-1',
+    )
+  })
+
   it('no inventa una URL con un destino desconocido o incompleto', () => {
     expect(rutaDesdeDestino(null)).toBeNull()
     expect(rutaDesdeDestino(undefined)).toBeNull()
@@ -77,6 +84,14 @@ describe('rutaDesdeDestino', () => {
     expect(estiloNotificacion('facturacion.debito_exitoso').icon).not.toBe(
       estiloNotificacion('facturacion.debito_rechazado').icon,
     )
+    expect(esTipoNotificacionConocido('administracion.justificacion_pendiente')).toBe(true)
+  })
+
+  it('reconoce solo los roles administrativos con bandeja', () => {
+    expect(esRolAdministrativo('administrador_del_sistema')).toBe(true)
+    expect(esRolAdministrativo('administracion')).toBe(true)
+    expect(esRolAdministrativo('direccion')).toBe(false)
+    expect(esRolAdministrativo(null)).toBe(false)
   })
 })
 

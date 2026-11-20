@@ -3,6 +3,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -18,6 +19,16 @@ class IndicadoresDireccionRead(BaseModel):
     bajas_mes: int
     asistencias_registradas_hoy: int
     solicitud_pendiente_mas_antigua: date | None
+    tareas_pendientes: int
+    tareas_escaladas: int
+
+
+class IndicadoresAdministracionRead(BaseModel):
+    """Tres contadores operativos; `None` cuando el rol no puede ver ese módulo."""
+
+    facturas_vencidas: int | None
+    cobrado_mes: Decimal | None
+    solicitudes_compra_pendientes: int | None
 
 
 class EvolucionFinancieraRead(BaseModel):
@@ -42,3 +53,5 @@ class ActividadRecienteRead(BaseModel):
     estado: str | None
     monto: Decimal | None
     ocurrido_en: datetime
+    # Entidad de origen: permite que el panel enlace al registro exacto (ej. una factura).
+    entidad_id: UUID | None = None
