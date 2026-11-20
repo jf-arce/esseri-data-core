@@ -52,10 +52,7 @@ export function AtencionInstitucional({
       etiqueta: 'Workflows con errores',
       detalle: 'Ejecuciones fallidas en los últimos 30 días',
       // Mismo número que muestra la bandeja de ejecuciones, no la cantidad de reglas con fallas.
-      valor: valor(
-        workflows,
-        (datos) => (datos as { actual: { fallido: number } }).actual.fallido,
-      ),
+      valor: valor(workflows, (datos) => (datos as { actual: { fallido: number } }).actual.fallido),
       to: `${RUTA_EJECUCIONES}?estado=fallido`,
       accion: 'Ver ejecuciones',
     })
