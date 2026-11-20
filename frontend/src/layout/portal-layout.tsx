@@ -149,7 +149,7 @@ export function PortalLayout() {
         </div>
       </header>
 
-      <main className="relative z-10 px-4 py-6 sm:px-8">
+      <main className="@container/main relative z-10 px-4 py-6 sm:px-8">
         <Outlet />
       </main>
     </div>

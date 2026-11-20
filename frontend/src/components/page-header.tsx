@@ -18,7 +18,7 @@ export function PageHeader({ titulo, accion, etiqueta, descripcion }: PageHeader
             {etiqueta}
           </p>
         )}
-        <h1 className="text-2xl font-semibold tracking-[-.01em] text-texto">{titulo}</h1>
+        <h1 className="text-2xl font-semibold tracking-[-.01em] break-words text-texto">{titulo}</h1>
         {descripcion && <p className="mt-1 text-sm text-texto-2">{descripcion}</p>}
       </div>
       {accion}

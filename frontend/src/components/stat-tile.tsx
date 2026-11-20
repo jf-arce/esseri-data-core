@@ -106,7 +106,7 @@ export function StatTile({
       ) : (
         <p
           className={cn(
-            'relative mt-2.5 font-semibold tabular-nums',
+            'relative mt-2.5 min-w-0 break-words font-semibold tabular-nums',
             hero ? 'text-4xl leading-[44px]' : 'text-2xl',
             esOscuro ? 'text-texto-sobre-oscuro' : 'text-texto',
           )}
