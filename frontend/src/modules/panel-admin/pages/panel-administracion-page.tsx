@@ -1,13 +1,16 @@
 import {
   ClipboardCheckIcon,
   ClipboardListIcon,
+  FileWarningIcon,
   LandmarkIcon,
   TruckIcon,
   UsersRoundIcon,
 } from 'lucide-react'
 import { Link } from 'react-router'
 import { PageHeader } from '@/components/page-header'
+import { StatTile } from '@/components/stat-tile'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { formatearMoneda } from '@/modules/facturacion/utils'
 import {
   PERMISO_FACTURACION_LEER,
   PERMISO_FAMILIAS_ALUMNOS_LEER,
@@ -16,6 +19,7 @@ import {
   tienePermiso,
 } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
+import { useIndicadoresAdministracion } from '../hooks/use-indicadores-administracion'
 
 const accesos = [
   {
@@ -58,10 +62,75 @@ const accesos = [
 export function PanelAdministracionPage() {
   const permisos = useAuthStore(permisosActivos)
   const accesosVisibles = accesos.filter((acceso) => tienePermiso(permisos, acceso.permiso))
+  const { datos, cargando, error } = useIndicadoresAdministracion()
+
+  // Un bloque sin permiso llega en `null`: no se muestra. Mientras carga (`datos === null`)
+  // se mantienen las tres tarjetas con esqueleto para no mover el layout.
+  const indicadores = [
+    {
+      clave: 'vencidas',
+      visible: datos === null || datos.facturas_vencidas !== null,
+      label: 'Facturas vencidas',
+      aria: 'Ver facturas vencidas',
+      to: '/facturacion',
+      icon: FileWarningIcon,
+      iconClassName: 'bg-advertencia-suave text-advertencia',
+      value: error ? 'No disponible' : (datos?.facturas_vencidas ?? 0),
+      note: 'Con saldo impago y vencimiento pasado',
+    },
+    {
+      clave: 'cobrado',
+      visible: datos === null || datos.cobrado_mes !== null,
+      label: 'Cobrado del mes',
+      aria: 'Ver cobranzas del mes',
+      to: '/facturacion',
+      icon: LandmarkIcon,
+      iconClassName: 'bg-exito-suave text-exito',
+      value: error ? 'No disponible' : formatearMoneda(datos?.cobrado_mes ?? '0'),
+      note: 'Pagos aprobados del mes en curso',
+    },
+    {
+      clave: 'compras',
+      visible: datos === null || datos.solicitudes_compra_pendientes !== null,
+      label: 'Solicitudes pendientes',
+      aria: 'Ver solicitudes de compra pendientes',
+      to: '/solicitudes-compra',
+      icon: ClipboardListIcon,
+      iconClassName: 'bg-sup-compras text-mod-compras',
+      value: error ? 'No disponible' : (datos?.solicitudes_compra_pendientes ?? 0),
+      note: 'Sin decisión',
+    },
+  ].filter((indicador) => indicador.visible)
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader titulo="Panel Administrativo" />
+
+      {indicadores.length > 0 && (
+        <section
+          aria-label="Indicadores operativos"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+        >
+          {indicadores.map((indicador) => (
+            <Link
+              key={indicador.clave}
+              to={indicador.to}
+              aria-label={indicador.aria}
+              className="group"
+            >
+              <StatTile
+                label={indicador.label}
+                value={indicador.value}
+                icon={indicador.icon}
+                iconClassName={indicador.iconClassName}
+                note={indicador.note}
+                cargando={cargando}
+                className="h-full transition-colors duration-200 group-hover:bg-fila-hover"
+              />
+            </Link>
+          ))}
+        </section>
+      )}
 
       <section aria-label="Accesos rápidos" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {accesosVisibles.map(({ titulo, descripcion, href, icono: Icono }) => (

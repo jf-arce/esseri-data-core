@@ -27,7 +27,7 @@ import { AtencionDireccion } from './atencion-direccion'
 import { Estado } from './estado-recurso'
 import { GraficoAsistencia, GraficoFinanciero } from './graficos-direccion'
 
-function Panel({
+export function Panel({
   titulo,
   accion,
   fijo,

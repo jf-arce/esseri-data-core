@@ -11,7 +11,10 @@ const state = vi.hoisted(() => ({
     'facturacion.leer',
     'academico.leer',
     'proveedores_compras.leer',
-  ],
+  ] as string[],
+  justificaciones: { datos: { total: 0 }, cargando: false, error: null },
+  sugerencias: { datos: [] as unknown[], cargando: false, error: null },
+  workflows: { datos: { con_errores: 0 }, cargando: false, error: null },
 }))
 vi.mock('@/modules/panel-admin/hooks/use-indicadores-direccion', () => ({
   useIndicadoresDireccion: () => ({
@@ -26,6 +29,8 @@ vi.mock('@/modules/panel-admin/hooks/use-indicadores-direccion', () => ({
       bajas_mes: 1,
       asistencias_registradas_hoy: 0,
       solicitud_pendiente_mas_antigua: null,
+      tareas_pendientes: 2,
+      tareas_escaladas: 1,
     },
     ...state,
   }),
@@ -37,6 +42,13 @@ vi.mock('@/modules/panel-admin/hooks/use-detalle-direccion', () => ({
     asistencia: { datos: [], error: null, cargando: false },
     finanzas: { datos: [], error: null, cargando: false },
     actividad: { datos: [], error: null, cargando: false },
+  }),
+}))
+vi.mock('@/modules/panel-admin/hooks/use-atencion-institucional', () => ({
+  useAtencionInstitucional: () => ({
+    justificaciones: state.justificaciones,
+    sugerencias: state.sugerencias,
+    workflows: state.workflows,
   }),
 }))
 vi.mock('@/store/auth-store', () => ({
@@ -53,6 +65,9 @@ beforeEach(() => {
     'academico.leer',
     'proveedores_compras.leer',
   ]
+  state.justificaciones = { datos: { total: 0 }, cargando: false, error: null }
+  state.sugerencias = { datos: [], cargando: false, error: null }
+  state.workflows = { datos: { con_errores: 0 }, cargando: false, error: null }
 })
 
 it('preserves KPI navigation and adds the approved dashboard sections without sample data', () => {
@@ -83,19 +98,82 @@ it('does not present failed KPI requests as zero values', () => {
   expect(screen.queryByText('26')).not.toBeInTheDocument()
 })
 
-it('leads with overdue debt and gives every indicator real context', () => {
+it('leads with pending debt and gives every indicator real context', () => {
   render(
     <MemoryRouter>
       <PanelDireccionPage />
     </MemoryRouter>,
   )
-  const hero = screen.getByRole('link', { name: 'Ver facturas y deuda vencida' })
-  expect(hero).toHaveTextContent('Deuda vencida')
-  expect(hero).toHaveTextContent(/Total pendiente.*100,00/)
+  const hero = screen.getByRole('link', { name: 'Ver facturas y deuda pendiente' })
+  expect(hero).toHaveTextContent('Deuda pendiente')
+  expect(hero).toHaveTextContent(/Vencida.*40,00/)
   expect(hero).toHaveTextContent(/Familias en mora.*3/)
-  expect(screen.getByText('+2 altas · 1 baja este mes')).toBeInTheDocument()
+  expect(screen.getByText('+2 nuevas · 1 baja este mes')).toBeInTheDocument()
   expect(screen.getByText('Sin registros cargados hoy')).toBeInTheDocument()
   expect(screen.getByText('Ninguna pendiente')).toBeInTheDocument()
+})
+
+it('shows pending and escalated tasks when the role can read workflows', () => {
+  state.permisos = [...state.permisos, 'workflows.leer']
+  render(
+    <MemoryRouter>
+      <PanelDireccionPage />
+    </MemoryRouter>,
+  )
+  const tareas = screen.getByRole('link', { name: 'Ver tareas pendientes y escaladas' })
+  expect(tareas).toHaveAttribute('href', '/workflows/tareas')
+  expect(tareas).toHaveTextContent('3')
+  expect(tareas).toHaveTextContent('2 pendientes · 1 escaladas')
+})
+
+it('hides the task indicator without workflows permission', () => {
+  render(
+    <MemoryRouter>
+      <PanelDireccionPage />
+    </MemoryRouter>,
+  )
+  expect(
+    screen.queryByRole('link', { name: 'Ver tareas pendientes y escaladas' }),
+  ).not.toBeInTheDocument()
+})
+
+it('lists review situations without turning them into Dirección tasks', () => {
+  state.permisos = [
+    ...state.permisos,
+    'academico.actualizar:justificaciones',
+    'ia_sugerencias.leer',
+    'workflows.leer',
+  ]
+  state.justificaciones = { datos: { total: 4 }, cargando: false, error: null }
+  state.sugerencias = { datos: [{ id: '1' }, { id: '2' }], cargando: false, error: null }
+  state.workflows = { datos: { con_errores: 1 }, cargando: false, error: null }
+  render(
+    <MemoryRouter>
+      <PanelDireccionPage />
+    </MemoryRouter>,
+  )
+  expect(screen.getByRole('heading', { name: 'Situaciones para revisar' })).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Abrir bandeja' })).toHaveAttribute(
+    'href',
+    '/academico/justificaciones',
+  )
+  expect(screen.getByText('4')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Revisar' })).toHaveAttribute('href', '/sugerencias-ia')
+  expect(screen.getByText('2')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Ver ejecuciones' })).toHaveAttribute(
+    'href',
+    '/workflows/ejecuciones',
+  )
+  expect(screen.getByText('1')).toBeInTheDocument()
+})
+
+it('hides review situations the role cannot open', () => {
+  render(
+    <MemoryRouter>
+      <PanelDireccionPage />
+    </MemoryRouter>,
+  )
+  expect(screen.queryByRole('heading', { name: 'Situaciones para revisar' })).not.toBeInTheDocument()
 })
 
 it('promotes active students to the hero when the role cannot see billing', () => {
@@ -105,7 +183,7 @@ it('promotes active students to the hero when the role cannot see billing', () =
       <PanelDireccionPage />
     </MemoryRouter>,
   )
-  expect(screen.queryByRole('link', { name: 'Ver facturas y deuda vencida' })).toBeNull()
+  expect(screen.queryByRole('link', { name: 'Ver facturas y deuda pendiente' })).toBeNull()
   expect(screen.getByRole('link', { name: 'Ver alumnos activos' })).toHaveTextContent('26')
-  expect(screen.queryByText(/Total pendiente/)).not.toBeInTheDocument()
+  expect(screen.queryByText(/Vencida/)).not.toBeInTheDocument()
 })
