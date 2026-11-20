@@ -1,6 +1,7 @@
 """Libro inmutable de cargos y pagos por alumno."""
 
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
@@ -11,6 +12,7 @@ from sqlalchemy.orm import Session
 from src.facturacion.models import (
     ConceptoCobro,
     CuentaCorriente,
+    DetalleFactura,
     Factura,
     Movimiento,
     Pago,
@@ -427,3 +429,105 @@ def listar_deuda_por_familia(
         .limit(tamanio)
     ).mappings()
     return [dict(fila) for fila in filas], total
+
+
+@dataclass(frozen=True)
+class FacturaConSaldo:
+    factura_id: uuid.UUID
+    alumno_id: uuid.UUID
+    familia_id: uuid.UUID
+    fecha_emision: date
+    fecha_vencimiento: date
+    monto_total: Decimal
+    saldo: Decimal
+    estado: str
+    conceptos: tuple[str, ...]
+
+
+def estado_de_saldo(saldo: Decimal, fecha_vencimiento: date, fecha_referencia: date) -> str:
+    """Misma regla que la deuda por familia: el saldo del libro y el vencimiento, no la columna."""
+    if saldo <= 0:
+        return "pagada"
+    return "vencida" if fecha_vencimiento < fecha_referencia else "pendiente"
+
+
+def listar_facturas_con_saldo(
+    db: Session,
+    *,
+    fecha_referencia: date,
+    estado: str | None = None,
+    concepto_cobro_id: uuid.UUID | None = None,
+    emision_desde: date | None = None,
+    emision_hasta: date | None = None,
+    vencimiento_desde: date | None = None,
+    vencimiento_hasta: date | None = None,
+    alumno_id: uuid.UUID | None = None,
+    familia_id: uuid.UUID | None = None,
+    limite: int = 20000,
+) -> list[FacturaConSaldo]:
+    """Facturas con su saldo sobre el libro y su estado efectivo (vencida, pendiente, pagada).
+
+    Solo lectura. `familia_id` es la del responsable económico de la factura.
+    """
+    por_factura = _saldos_por_factura(familia_id=familia_id).subquery()
+    consulta = (
+        select(
+            Factura.id,
+            Inscripcion.alumno_id,
+            por_factura.c.familia_id,
+            Factura.fecha_emision,
+            Factura.fecha_vencimiento,
+            Factura.monto_total,
+            por_factura.c.total_debe - por_factura.c.total_haber,
+        )
+        .join(por_factura, por_factura.c.factura_id == Factura.id)
+        .join(Inscripcion, Inscripcion.id == Factura.inscripcion_id)
+        .order_by(Factura.fecha_vencimiento, Factura.id)
+        .limit(limite)
+    )
+    if alumno_id is not None:
+        consulta = consulta.where(Inscripcion.alumno_id == alumno_id)
+    if concepto_cobro_id is not None:
+        consulta = consulta.where(
+            Factura.detalles.any(DetalleFactura.concepto_cobro_id == concepto_cobro_id)
+        )
+    if emision_desde is not None:
+        consulta = consulta.where(Factura.fecha_emision >= emision_desde)
+    if emision_hasta is not None:
+        consulta = consulta.where(Factura.fecha_emision <= emision_hasta)
+    if vencimiento_desde is not None:
+        consulta = consulta.where(Factura.fecha_vencimiento >= vencimiento_desde)
+    if vencimiento_hasta is not None:
+        consulta = consulta.where(Factura.fecha_vencimiento <= vencimiento_hasta)
+    filas = db.execute(consulta).all()
+    conceptos: dict[uuid.UUID, list[str]] = {}
+    if filas:
+        for factura_id, nombre in db.execute(
+            select(DetalleFactura.factura_id, ConceptoCobro.nombre)
+            .join(ConceptoCobro, ConceptoCobro.id == DetalleFactura.concepto_cobro_id)
+            .where(DetalleFactura.factura_id.in_([fila[0] for fila in filas]))
+            .order_by(ConceptoCobro.nombre)
+        ):
+            conceptos.setdefault(factura_id, [])
+            if nombre not in conceptos[factura_id]:
+                conceptos[factura_id].append(nombre)
+    resultado = []
+    for factura_id, alumno, familia, emision, vencimiento, total, saldo in filas:
+        saldo = Decimal(saldo)
+        estado_fila = estado_de_saldo(saldo, vencimiento, fecha_referencia)
+        if estado is not None and estado_fila != estado:
+            continue
+        resultado.append(
+            FacturaConSaldo(
+                factura_id=factura_id,
+                alumno_id=alumno,
+                familia_id=familia,
+                fecha_emision=emision,
+                fecha_vencimiento=vencimiento,
+                monto_total=Decimal(total),
+                saldo=saldo,
+                estado=estado_fila,
+                conceptos=tuple(conceptos.get(factura_id, ())),
+            )
+        )
+    return resultado
