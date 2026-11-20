@@ -31,7 +31,7 @@ export function ContenidoSkeleton({
           <Skeleton className="h-[26rem] w-full" />
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(17rem,1fr))]">
           {Array.from({ length: conAcciones ? 2 : 3 }, (_, i) => i).map((i) => (
             <Skeleton key={i} className={conAcciones ? 'h-[9.5rem]' : 'h-28'} />
           ))}

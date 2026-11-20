@@ -195,12 +195,12 @@ export function GrillaSemanal({
             <div
               key={dia}
               className={cn(
-                'border-l border-[#EFE7F6] px-2 py-2 text-center text-[13px] font-semibold sm:text-[14px]',
+                'border-l border-[#EFE7F6] px-2 py-2 text-center text-[13px] font-semibold @xl/main:text-[14px]',
                 dia === diaActivo ? 'bg-[#F1E4FB] text-[#7A2FA8]' : 'text-[#2B2338]',
               )}
             >
               <span className="block">{nombre}</span>
-              <span className="block text-[11px] font-normal opacity-70 sm:text-[12px]">
+              <span className="block text-[11px] font-normal opacity-70 @xl/main:text-[12px]">
                 {semana[indice].getDate()}
                 {semana[indice].toDateString() === hoyISO ? ' · Hoy' : ''}
               </span>

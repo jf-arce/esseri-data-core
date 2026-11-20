@@ -91,7 +91,7 @@ export function MateriaCursoCard({
       <div className="flex flex-col gap-2 px-(--card-spacing)">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <h3 className="text-base leading-snug font-semibold text-texto">{nombre}</h3>
+            <h3 className="text-base leading-snug font-semibold break-words text-texto">{nombre}</h3>
             <p className="text-sm text-texto-3">{tipo === 'taller' ? 'Taller' : 'Materia'}</p>
           </div>
           {puedeEditar && (
