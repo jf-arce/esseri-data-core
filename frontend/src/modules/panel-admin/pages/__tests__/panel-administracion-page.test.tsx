@@ -85,16 +85,15 @@ it('shows the three operational indicators with their modules', () => {
   expect(compras).toHaveTextContent('3')
 })
 
-it('keeps the quick access cards', () => {
+it('does not repeat the sidebar modules as quick access cards', () => {
   render(
     <MemoryRouter>
       <PanelAdministracionPage />
     </MemoryRouter>,
   )
   expect(screen.getByRole('heading', { name: 'Panel Administrativo' })).toBeInTheDocument()
-  for (const titulo of ['Familias', 'Facturación', 'Proveedores', 'Inscripciones', 'Compras']) {
-    expect(screen.getByText(titulo)).toBeInTheDocument()
-  }
+  expect(screen.queryByRole('region', { name: 'Accesos rápidos' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Inscripciones' })).not.toBeInTheDocument()
 })
 
 it('adds the shared operational blocks', () => {
@@ -160,4 +159,14 @@ it('does not present a failed request as zero', () => {
   expect(screen.getByRole('link', { name: 'Ver cobranzas del mes' })).toHaveTextContent(
     'No disponible',
   )
+})
+
+it('hides the attention queue without purchasing or billing permissions', () => {
+  state.permisos = ['familias_alumnos.leer', 'inscripciones.leer']
+  render(
+    <MemoryRouter>
+      <PanelAdministracionPage />
+    </MemoryRouter>,
+  )
+  expect(screen.queryByRole('heading', { name: 'Requiere tu atención' })).not.toBeInTheDocument()
 })

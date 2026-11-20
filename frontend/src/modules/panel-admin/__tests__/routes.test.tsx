@@ -87,21 +87,10 @@ describe('rutas del panel administrativo', () => {
     expect(screen.getByText('No tenés acceso a esta sección')).toBeInTheDocument()
   })
 
-  it('muestra los accesos operativos al rol Administración', () => {
-    renderConUsuario(
-      '/admin',
-      ['administracion'],
-      ['panel_administrativo.leer', 'proveedores_compras.leer'],
-    )
-
-    expect(screen.getByRole('heading', { name: 'Panel Administrativo' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /abrir compras/i })).toBeInTheDocument()
-  })
-
-  it('oculta los accesos a módulos sin permiso de lectura', () => {
+  it('muestra el panel Administrativo al rol Administración', () => {
     renderConUsuario('/admin', ['administracion'], ['panel_administrativo.leer'])
 
-    expect(screen.queryByRole('link', { name: /abrir compras/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Panel Administrativo' })).toBeInTheDocument()
   })
 
   it('administrador del sistema también puede entrar a /admin (= todo en grupo-b.yaml)', () => {
