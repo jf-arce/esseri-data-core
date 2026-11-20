@@ -67,6 +67,67 @@ def _envios(db, comunicacion):
     ).all()
 
 
+def _procesar_email(db_session, monkeypatch):
+    capturado = {}
+
+    def enviar(_destinatario, _asunto, texto, cuerpo_html, **_kwargs):
+        capturado["texto"] = texto
+        capturado["html"] = cuerpo_html
+        return _ack("reintentable", error="test")
+
+    monkeypatch.setattr(n8n_client, "enviar_email_manual", enviar)
+    manuales_service.procesar_envios_pendientes(db_session)
+    return capturado
+
+
+def test_email_manual_renderiza_rico_una_vez_junto_a_adjuntos(
+    db_session, comunicacion, escenario_dos_familias, manual_habilitado, monkeypatch
+):
+    familia = escenario_dos_familias["familia_a"]
+    alumno = escenario_dos_familias["alumno_a"]
+    comunicacion.cuerpo_rico = {
+        "type": "doc",
+        "content": [
+            {
+                "type": "paragraph",
+                "attrs": {"textAlign": "center"},
+                "content": [{"type": "text", "text": "Hola familia", "marks": [{"type": "bold"}]}],
+            }
+        ],
+    }
+    db_session.add(
+        ComunicacionAdjunto(
+            comunicacion_id=comunicacion.id,
+            nombre="circular.pdf",
+            tipo_contenido="application/pdf",
+            tamanio=10,
+            checksum="b" * 64,
+            estado="limpio",
+        )
+    )
+    _recibo(db_session, comunicacion, familia, [alumno])
+    manuales_service.preparar_envios(db_session, comunicacion, {familia: [str(alumno)]})
+    db_session.commit()
+    capturado = _procesar_email(db_session, monkeypatch)
+    assert capturado["texto"].startswith("Hola familia")
+    assert "<strong>Hola familia</strong>" in capturado["html"]
+    assert capturado["html"].count("Hola familia") == 1
+    assert "Esta comunicación incluye 1 archivo adjunto" in capturado["html"]
+
+
+def test_email_manual_legado_conserva_su_html(
+    db_session, comunicacion, escenario_dos_familias, manual_habilitado, monkeypatch
+):
+    familia = escenario_dos_familias["familia_a"]
+    alumno = escenario_dos_familias["alumno_a"]
+    _recibo(db_session, comunicacion, familia, [alumno])
+    manuales_service.preparar_envios(db_session, comunicacion, {familia: [str(alumno)]})
+    db_session.commit()
+    capturado = _procesar_email(db_session, monkeypatch)
+    assert capturado["html"].count("Hola familia") == 1
+    assert "<strong>" not in capturado["html"]
+
+
 @pytest.fixture()
 def envio_reclamado(db_session, comunicacion, escenario_dos_familias):
     familia = escenario_dos_familias["familia_a"]

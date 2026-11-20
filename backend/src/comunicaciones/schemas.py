@@ -4,6 +4,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+from src.comunicaciones.mensaje_rico import normalizar_documento, texto_plano
+
 Texto = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 HoraLocal = Annotated[str, StringConstraints(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")]
 
@@ -63,10 +65,20 @@ class BorradorInput(BaseModel):
     clave: uuid.UUID
     asunto: str = Field(max_length=200)
     cuerpo: str = Field(max_length=20000)
+    cuerpo_rico: dict | None = None
     audiencia: AudienciaBorrador
     canal: Literal["portal", "email", "ambos"] = "portal"
     tipo: Literal["institucional", "curso", "administrativa", "otro"] | None = None
     evento: EventoBorrador | None = None
+
+    @model_validator(mode="after")
+    def normalizar_mensaje(self):
+        if self.cuerpo_rico is not None:
+            self.cuerpo_rico = normalizar_documento(self.cuerpo_rico)
+            self.cuerpo = texto_plano(self.cuerpo_rico)
+            if len(self.cuerpo) > 20000:
+                raise ValueError("El mensaje no puede superar 20000 caracteres")
+        return self
 
 
 class PublicableInput(BorradorInput):
@@ -74,6 +86,12 @@ class PublicableInput(BorradorInput):
     cuerpo: Texto = Field(max_length=20000)
     audiencia: Audiencia
     evento: EventoPublicable | None = None
+
+    @model_validator(mode="after")
+    def validar_mensaje(self):
+        if not self.cuerpo.strip():
+            raise ValueError("Completá el mensaje")
+        return self
 
 
 class BorradorEdicionInput(BorradorInput):
@@ -91,6 +109,7 @@ class ComunicacionRead(BaseModel):
     id: uuid.UUID
     asunto: str
     cuerpo: str
+    cuerpo_rico: dict | None = None
     tipo: str
     emisor: str | None = None
     autor_nombre: str | None = None

@@ -174,7 +174,9 @@ def _autor_nombre(db: Session, c: Comunicacion) -> str:
     return email or "—"
 
 
-def respuesta(db: Session, c: Comunicacion, *, recibo=None) -> ComunicacionRead:
+def respuesta(
+    db: Session, c: Comunicacion, *, recibo=None, incluir_formato=True
+) -> ComunicacionRead:
     from src.comunicaciones.adjuntos_service import listar_metadata
 
     total = db.scalar(
@@ -186,6 +188,7 @@ def respuesta(db: Session, c: Comunicacion, *, recibo=None) -> ComunicacionRead:
         id=c.id,
         asunto=c.asunto,
         cuerpo=c.cuerpo,
+        cuerpo_rico=c.cuerpo_rico if incluir_formato else None,
         tipo=c.tipo,
         emisor=_emisor(db, c),
         autor_nombre=_autor_nombre(db, c),
@@ -212,7 +215,9 @@ def crear(db: Session, data: BorradorInput, usuario: Usuario, *, tipo="instituci
     if tipo == "curso":
         validar_curso_borrador(db, usuario, data.audiencia)
     # Preserve stage-1/2 idempotency hashes for the original portal-only contract.
-    contenido = data.model_dump(mode="json", exclude={"canal", "tipo", "evento"})
+    contenido = data.model_dump(mode="json", exclude={"canal", "tipo", "evento", "cuerpo_rico"})
+    if data.cuerpo_rico is not None:
+        contenido["cuerpo_rico"] = data.cuerpo_rico
     evento = data.evento.model_dump(mode="json") if data.evento is not None else None
     if evento is not None:
         contenido["evento"] = evento
@@ -234,6 +239,7 @@ def crear(db: Session, data: BorradorInput, usuario: Usuario, *, tipo="instituci
         solicitud_hash=digest,
         asunto=data.asunto,
         cuerpo=data.cuerpo,
+        cuerpo_rico=data.cuerpo_rico,
         audiencia=data.audiencia.model_dump(mode="json"),
         evento=evento,
         tipo=tipo,
@@ -279,10 +285,16 @@ def editar(
         raise HTTPException(409, "El borrador fue modificado en otra sesión")
     if c.clave != data.clave:
         raise HTTPException(409, "La clave del borrador no puede modificarse")
+    cuerpo_rico = (
+        data.cuerpo_rico
+        if "cuerpo_rico" in data.model_fields_set or c.cuerpo != data.cuerpo
+        else c.cuerpo_rico
+    )
     modificado = False
     for campo, nuevo in (
         ("asunto", data.asunto),
         ("cuerpo", data.cuerpo),
+        ("cuerpo_rico", cuerpo_rico),
         ("audiencia", data.audiencia.model_dump(mode="json")),
         ("canal", data.canal),
         ("tipo", data.tipo or c.tipo),
@@ -321,6 +333,7 @@ def publicar(
                 "clave": c.clave,
                 "asunto": c.asunto,
                 "cuerpo": c.cuerpo,
+                "cuerpo_rico": c.cuerpo_rico,
                 "audiencia": c.audiencia,
                 "tipo": c.tipo,
                 "canal": c.canal,
@@ -499,7 +512,7 @@ def listar(
         .limit(tamanio)
     )
     return Listado(
-        items=[respuesta(db, c, recibo=recibos.get(c.id)) for c in filas],
+        items=[respuesta(db, c, recibo=recibos.get(c.id), incluir_formato=False) for c in filas],
         total=total,
         pagina=pagina,
         total_paginas=max(1, (total + tamanio - 1) // tamanio),

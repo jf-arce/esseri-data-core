@@ -412,14 +412,25 @@ def _procesar_uno(db: Session, envio_id: uuid.UUID, intento_id: uuid.UUID) -> st
             )
             or 0
         )
+        comunicacion = db.get(Comunicacion, envio.comunicacion_id)
+        texto_html = envio.cuerpo
+        cuerpo_rico = None
+        if (
+            comunicacion is not None
+            and comunicacion.cuerpo_rico is not None
+            and envio.cuerpo.startswith(comunicacion.cuerpo)
+        ):
+            cuerpo_rico = comunicacion.cuerpo_rico
+            texto_html = envio.cuerpo[len(comunicacion.cuerpo) :]
         resultado = n8n_client.enviar_email_manual(
             envio.email,
             envio.asunto,
             envio.cuerpo,
             armar_html(
                 envio.asunto,
-                envio.cuerpo,
+                texto_html,
                 _enlace_portal(envio, cantidad_adjuntos=cantidad_adjuntos),
+                cuerpo_rico=cuerpo_rico,
             ),
             envio_id=envio.id,
             intento_id=intento_id,

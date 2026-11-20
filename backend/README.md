@@ -815,7 +815,9 @@ Usuario → Persona → Familia helper, never a supplied responsible identity:
 
 Family responses are private/no-store. Access requires both a frozen receipt and a currently
 enabled original student link. New links do not grant old publications. Multiple links/siblings
-produce one receipt per responsible. Body content is plain text, never executable HTML.
+produce one receipt per responsible. `cuerpo` remains plain text. Optional `cuerpo_rico` is a
+validated document of supported editor nodes and marks; neither field accepts executable HTML.
+Email delivery renders the supported document with allowlisted tags and inline styles.
 Family presentation includes `tipo` and the author name (`emisor`) for course messages.
 Draft create/edit, publication and first reading use the existing audit helper; message contents
 are not duplicated in the audit log. No external service is called by these operations.
@@ -824,7 +826,7 @@ Drafts may store an optional `evento` with incomplete fields. Send `evento: null
 remove it. Preview and publication require a title and date; if both local times are
 provided, the end must follow the start. The calendar projects the event from the
 published communication; retries do not insert another event. Apply migration
-`610546fe20e0` before deploying this API.
+`2cda2b1779e7` (which includes event migration `610546fe20e0`) before deploying this API.
 
 Focused tests (SQLite by default):
 
