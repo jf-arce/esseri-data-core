@@ -72,6 +72,26 @@ def requiere_permiso(codigo: str) -> Callable[[Usuario, DbSession, str | None], 
     return _verificar
 
 
+def requiere_rol(*codigos: str) -> Callable[[Usuario, str | None], Usuario]:
+    """Factory de dependency (RF-30): autoriza por el código del rol activo.
+
+    Se usa cuando dos pantallas comparten el mismo permiso pero no la misma audiencia (los dos
+    paneles). Los códigos son los de `Rol.codigo` (`slug_ascii` del nombre): `direccion`,
+    `administracion`, `administrador_del_sistema`.
+    """
+
+    permitidos = frozenset(codigos)
+
+    def _verificar(usuario: UsuarioAutenticado, rol_activo: RolActivo) -> Usuario:
+        if rol_activo is None:
+            raise PermisoDenegado("Elegí con qué rol entrar antes de continuar")
+        if rol_activo not in permitidos:
+            raise PermisoDenegado()
+        return usuario
+
+    return _verificar
+
+
 def obtener_rol_o_404(rol_id: uuid.UUID, db: DbSession) -> Rol:
     rol = obtener_rol(db, rol_id)
     if rol is None:

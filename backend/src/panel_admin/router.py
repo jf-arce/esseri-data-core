@@ -10,7 +10,7 @@ from src.auth.constants import (
     PERMISO_PANEL_ADMIN_LEER,
     PERMISO_PROVEEDORES_COMPRAS_LEER,
 )
-from src.auth.dependencies import RolActivo, requiere_permiso
+from src.auth.dependencies import RolActivo, requiere_permiso, requiere_rol
 from src.auth.models import Usuario
 from src.database import get_db
 from src.panel_admin.schemas import (
@@ -28,6 +28,8 @@ router = APIRouter(prefix="/panel-admin", tags=["panel_admin"])
 
 DbSession = Annotated[Session, Depends(get_db)]
 PuedeLeer = Annotated[Usuario, Depends(requiere_permiso(PERMISO_PANEL_ADMIN_LEER))]
+# Los dos paneles comparten `panel_administrativo.leer`: el rol activo separa la audiencia.
+RolDireccion = Annotated[Usuario, Depends(requiere_rol("direccion", "administrador_del_sistema"))]
 
 # Cada categoría del feed se habilita con el permiso del módulo dueño de esos hechos, no con
 # `panel_administrativo.leer`: Dirección ve el panel, pero un rol sin facturación no debe ver
@@ -40,7 +42,7 @@ PERMISO_POR_CATEGORIA = {
 
 
 @router.get("/indicadores-direccion")
-def obtener_indicadores(db: DbSession, _: PuedeLeer) -> IndicadoresDireccionRead:
+def obtener_indicadores(db: DbSession, _: PuedeLeer, __: RolDireccion) -> IndicadoresDireccionRead:
     return IndicadoresDireccionRead.model_validate(obtener_indicadores_direccion(db))
 
 
@@ -57,6 +59,7 @@ def obtener_actividad(
     db: DbSession,
     usuario: PuedeLeer,
     rol_activo: RolActivo,
+    _rol_panel: RolDireccion,
     limite: Annotated[int, Query(ge=1, le=20)] = 8,
 ) -> list[ActividadRecienteRead]:
     """Hechos recientes de las categorías que el rol activo puede ver (`limite` por categoría).
