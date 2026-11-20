@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -121,7 +121,7 @@ describe('PortalFamiliaCalendarioPage', () => {
     expect(grilla.queryByText(/Profesor/)).not.toBeInTheDocument()
   })
 
-  it('muestra el docente solo en el detalle de clase', () => {
+  it('abre el detalle de la materia en un popover al hacer clic', async () => {
     mockedUseHorarioFamilia.mockReturnValue({
       materiasCurso: [
         crearMateria(),
@@ -130,7 +130,7 @@ describe('PortalFamiliaCalendarioPage', () => {
           materia_id: 'materia-2',
           materia_nombre: 'Inglés',
           horarios: [
-            { id: 'horario-2', dia_semana: 3, hora_inicio: '09:00:00', hora_fin: '10:00:00' },
+            { id: 'horario-2', dia_semana: 2, hora_inicio: '09:00:00', hora_fin: '10:00:00' },
           ],
           docentes: ['Laura Díaz'],
         }),
@@ -141,15 +141,37 @@ describe('PortalFamiliaCalendarioPage', () => {
     renderizar()
 
     const grilla = within(screen.getByTestId('calendario-grilla'))
-    expect(grilla.queryByText(/Profesor/)).not.toBeInTheDocument()
-    expect(grilla.getAllByText('09:00 – 10:00').length).toBeGreaterThan(0)
-    expect(screen.getByText('Detalle de clase')).toBeInTheDocument()
-    const detalle = within(
-      screen.getByText('Detalle de clase').closest('[data-slot="card"]') as HTMLElement,
-    )
-    expect(detalle.getByText('Día')).toBeInTheDocument()
-    expect(detalle.getByText('Docente')).toBeInTheDocument()
+    const abierto = () =>
+      document.querySelector<HTMLElement>('[data-slot="popover-content"][data-state="open"]')
+    expect(screen.queryByText('Detalle de clase')).not.toBeInTheDocument()
+
+    fireEvent.click(grilla.getByRole('button', { name: /Matemática: ver detalle/ }))
+    await waitFor(() => expect(abierto()).not.toBeNull())
+    const detalle = within(abierto()!)
+    expect(detalle.getByText('Matemática')).toBeInTheDocument()
     expect(detalle.getByText('María González')).toBeInTheDocument()
+    expect(detalle.getByText('08:00 – 09:00')).toBeInTheDocument()
+    expect(detalle.getByText(/Lunes 16 de noviembre/i)).toBeInTheDocument()
+
+    fireEvent.click(grilla.getByRole('button', { name: /Inglés: ver detalle/ }))
+    await waitFor(() => expect(within(abierto()!).getByText('Laura Díaz')).toBeInTheDocument())
+    expect(
+      document.querySelectorAll('[data-slot="popover-content"][data-state="open"]'),
+    ).toHaveLength(1)
+
+    fireEvent.click(within(abierto()!).getByRole('button', { name: 'Cerrar detalle' }))
+    await waitFor(() => expect(abierto()).toBeNull())
+  })
+
+  it('abre el detalle de la materia en una hoja inferior en móvil', async () => {
+    const usuario = userEvent.setup()
+    renderizar()
+
+    const agenda = within(screen.getByTestId('calendario-agenda'))
+    await usuario.click(agenda.getByRole('button', { name: /Matemática: ver detalle/ }))
+    const detalle = await screen.findByRole('dialog')
+    expect(detalle).toHaveTextContent('María González')
+    expect(detalle).toHaveTextContent('08:00 – 09:00')
   })
 
   it('permite recorrer los días en la agenda compacta', async () => {

@@ -1,8 +1,10 @@
-import { CalendarDaysIcon } from 'lucide-react'
+import { CalendarDaysIcon, XIcon } from 'lucide-react'
 import { Fragment, type CSSProperties } from 'react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import type { EventoCalendario } from '@/modules/comunicaciones/types'
 import type { MateriaCurso } from '../types'
+import { DetalleMateria } from './detalle-materia'
 import { estiloMateria } from '../estilos-materia'
 import { columnasVisibles, type ConCarril, repartirEnCarriles } from '../utils-calendario'
 
@@ -44,43 +46,66 @@ function posicion(actividad: ConCarril<Actividad>, rango: { inicio: number; fin:
 function BloqueClase({
   actividad,
   rango,
-  activa,
-  onSeleccionar,
+  fecha,
+  abierta,
+  onAbrir,
 }: {
   actividad: ConCarril<Extract<Actividad, { tipo: 'clase' }>>
   rango: { inicio: number; fin: number }
-  activa: boolean
-  onSeleccionar: () => void
+  fecha: Date
+  abierta: boolean
+  onAbrir: (abierta: boolean) => void
 }) {
   const estilo = estiloMateria(actividad.franja.materia.materia_nombre)
   const Icono = estilo.Icono
   const color = actividad.franja.materia.materia_color || DETALLE_EVENTO
   return (
-    <button
-      type="button"
-      aria-pressed={activa}
-      onClick={onSeleccionar}
-      style={{
-        ...posicion(actividad, rango),
-        backgroundColor: `color-mix(in srgb, ${color} 20%, var(--superficie))`,
-        border: `1px solid color-mix(in srgb, ${color} 45%, var(--borde))`,
-        boxShadow: activa ? `0 0 0 2px ${color}` : undefined,
-      }}
-      className="pointer-events-auto absolute z-10 m-1 flex min-w-0 flex-col justify-center gap-0.5 overflow-hidden rounded-[10px] px-2.5 py-1.5 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
-    >
-      <span className="flex min-w-0 items-center gap-1.5">
-        <Icono aria-hidden="true" className="size-4 shrink-0" style={{ color }} />
-        <span
-          className="min-w-0 truncate text-[13px] leading-tight font-bold text-[#2B2338]"
-          title={actividad.franja.materia.materia_nombre ?? undefined}
+    <Popover open={abierta} onOpenChange={onAbrir}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={abierta}
+          aria-label={`${actividad.franja.materia.materia_nombre ?? 'Materia'}: ver detalle`}
+          style={{
+            ...posicion(actividad, rango),
+            backgroundColor: `color-mix(in srgb, ${color} 20%, var(--superficie))`,
+            border: `1px solid color-mix(in srgb, ${color} 45%, var(--borde))`,
+            boxShadow: abierta ? `0 0 0 2px ${color}` : undefined,
+          }}
+          className="pointer-events-auto absolute z-10 m-1 flex min-w-0 flex-col justify-center gap-0.5 overflow-hidden rounded-[10px] px-2.5 py-1.5 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
         >
-          {actividad.franja.materia.materia_nombre}
-        </span>
-      </span>
-      <span className="block truncate text-[11px] font-medium text-[#4B4456] whitespace-nowrap tabular-nums">
-        {actividad.franja.hora_inicio.slice(0, 5)} – {actividad.franja.hora_fin.slice(0, 5)}
-      </span>
-    </button>
+          <span className="flex min-w-0 items-center gap-1.5">
+            <Icono aria-hidden="true" className="size-4 shrink-0" style={{ color }} />
+            <span
+              className="min-w-0 truncate text-[13px] leading-tight font-bold text-[#2B2338]"
+              title={actividad.franja.materia.materia_nombre ?? undefined}
+            >
+              {actividad.franja.materia.materia_nombre}
+            </span>
+          </span>
+          <span className="block truncate text-[11px] font-medium text-[#4B4456] whitespace-nowrap tabular-nums">
+            {actividad.franja.hora_inicio.slice(0, 5)} – {actividad.franja.hora_fin.slice(0, 5)}
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        collisionPadding={12}
+        className="relative w-[280px] p-4"
+      >
+        <button
+          type="button"
+          onClick={() => onAbrir(false)}
+          aria-label="Cerrar detalle"
+          className="absolute top-3 right-3 flex size-7 items-center justify-center rounded-full text-[#6B6478] transition-colors hover:bg-[#F3EDF9] hover:text-[#2B2338] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
+        >
+          <XIcon aria-hidden="true" className="size-4" />
+        </button>
+        <DetalleMateria franja={actividad.franja} fecha={fecha} />
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -131,18 +156,18 @@ export function GrillaSemanal({
   hoyISO,
   rango,
   actividades,
-  seleccionId,
+  claseAbiertaId,
   onSeleccionarClase,
   onSeleccionarEvento,
   onVerGrupo,
 }: {
   semana: Date[]
-  diaActivo: number | undefined
+  diaActivo?: number
   hoyISO: string
   rango: { inicio: number; fin: number }
   actividades: Actividad[]
-  seleccionId: string | null
-  onSeleccionarClase: (franja: FranjaGrilla) => void
+  claseAbiertaId: string | null
+  onSeleccionarClase: (franja: FranjaGrilla | null) => void
   onSeleccionarEvento: (evento: EventoCalendario) => void
   onVerGrupo: (actividades: Actividad[]) => void
 }) {
@@ -158,119 +183,147 @@ export function GrillaSemanal({
   }
 
   return (
-    <div className="overflow-hidden rounded-[18px] border border-[#EFE7F6] bg-white">
-      <div
-        className="grid bg-[#FBF9FD]"
-        style={{ gridTemplateColumns: '8rem repeat(5, minmax(0, 1fr))' }}
-      >
-        <div aria-hidden="true" />
-        {NOMBRES_DIA.map((nombre, indice) => {
-          const dia = indice + 1
-          return (
-            <div
-              key={dia}
-              className={cn(
-                'border-l border-[#EFE7F6] px-2 py-2 text-center text-[13px] font-semibold sm:text-[14px]',
-                dia === diaActivo ? 'bg-[#F1E4FB] text-[#7A2FA8]' : 'text-[#2B2338]',
-              )}
-            >
-              <span className="block">{nombre}</span>
-              <span className="block text-[11px] font-normal opacity-70 sm:text-[12px]">
-                {semana[indice].getDate()}
-                {semana[indice].toDateString() === hoyISO ? ' · Hoy' : ''}
-              </span>
-            </div>
-          )
-        })}
-      </div>
-
-      <div className="relative">
+    <>
+      <div className="overflow-hidden rounded-[18px] border border-[#EFE7F6] bg-white">
         <div
-          className="grid"
-          style={{
-            gridTemplateColumns: '8rem repeat(5, minmax(0, 1fr))',
-            gridTemplateRows: `repeat(${filas.length}, minmax(30px, 1fr))`,
-          }}
+          className="grid bg-[#FBF9FD]"
+          style={{ gridTemplateColumns: '8rem repeat(5, minmax(0, 1fr))' }}
         >
-          {filas.map((minutos, indice) => (
-            <Fragment key={minutos}>
-              <div className="border-t border-[#EFE7F6] px-3 text-center text-[12px] font-semibold text-[#6B6478] tabular-nums">
-                {`${String(Math.floor(minutos / 60)).padStart(2, '0')}:${String(minutos % 60).padStart(2, '0')}`}
-              </div>
-              {NOMBRES_DIA.map((_, columna) => (
-                <div
-                  key={columna}
-                  className="border-t border-l border-[#EFE7F6]"
-                  style={{ gridRow: indice + 1, gridColumn: columna + 2 }}
-                />
-              ))}
-            </Fragment>
-          ))}
-        </div>
-
-        <div className="pointer-events-none absolute inset-y-0 left-[8rem] right-0 grid grid-cols-5">
-          {NOMBRES_DIA.map((_, indice) => {
+          <div aria-hidden="true" />
+          {NOMBRES_DIA.map((nombre, indice) => {
             const dia = indice + 1
-            const delDia = porDia.get(dia) ?? []
-            const grupos = new Map<number, ConCarril<Actividad>[]>()
-            for (const actividad of delDia) {
-              if (actividad.carril >= 2) {
-                const lista = grupos.get(actividad.grupo) ?? []
-                lista.push(actividad)
-                grupos.set(actividad.grupo, lista)
-              }
-            }
             return (
-              <div key={dia} className="relative">
-                {delDia.map((actividad) => {
-                  if (actividad.carril >= 2) return null
-                  if (actividad.tipo === 'clase')
-                    return (
-                      <BloqueClase
-                        key={actividad.id}
-                        actividad={actividad}
-                        rango={rango}
-                        activa={actividad.id === seleccionId}
-                        onSeleccionar={() => onSeleccionarClase(actividad.franja)}
-                      />
-                    )
-                  return (
-                    <BloqueEvento
-                      key={actividad.id}
-                      actividad={actividad}
-                      rango={rango}
-                      activo={actividad.id === seleccionId}
-                      onSeleccionar={() => onSeleccionarEvento(actividad.evento)}
-                    />
-                  )
-                })}
-                {[...grupos.values()].map((ocultas) => {
-                  const primera = ocultas[0]
-                  return (
-                    <button
-                      key={`grupo-${primera.grupo}`}
-                      type="button"
-                      onClick={() => onVerGrupo(ocultas)}
-                      style={{
-                        top: porcentaje(primera.grupoInicio - rango.inicio, total),
-                        height: porcentaje(
-                          Math.max(1, Math.min(primera.grupoFin, rango.fin) - primera.grupoInicio),
-                          total,
-                        ),
-                        left: porcentaje(2, 3),
-                        width: porcentaje(1, 3),
-                      }}
-                      className="pointer-events-auto absolute z-10 m-0.5 flex items-center justify-center overflow-hidden rounded-[10px] border border-dashed border-[#7A2FA8] bg-[#F3E8FB] px-1 text-[11px] font-bold text-[#5B3A7E] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
-                    >
-                      +{ocultas.length} más
-                    </button>
-                  )
-                })}
+              <div
+                key={dia}
+                className={cn(
+                  'border-l border-[#EFE7F6] px-2 py-2 text-center text-[13px] font-semibold sm:text-[14px]',
+                  dia === diaActivo ? 'bg-[#F1E4FB] text-[#7A2FA8]' : 'text-[#2B2338]',
+                )}
+              >
+                <span className="block">{nombre}</span>
+                <span className="block text-[11px] font-normal opacity-70 sm:text-[12px]">
+                  {semana[indice].getDate()}
+                  {semana[indice].toDateString() === hoyISO ? ' · Hoy' : ''}
+                </span>
               </div>
             )
           })}
         </div>
+
+        <div className="relative">
+          <div
+            className="grid"
+            style={{
+              gridTemplateColumns: '8rem repeat(5, minmax(0, 1fr))',
+              gridTemplateRows: `repeat(${filas.length}, minmax(30px, 1fr))`,
+            }}
+          >
+            {filas.map((minutos, indice) => (
+              <Fragment key={minutos}>
+                <div className="border-t border-[#EFE7F6] px-3 text-center text-[12px] font-semibold text-[#6B6478] tabular-nums">
+                  {`${String(Math.floor(minutos / 60)).padStart(2, '0')}:${String(minutos % 60).padStart(2, '0')}`}
+                </div>
+                {NOMBRES_DIA.map((_, columna) => (
+                  <div
+                    key={columna}
+                    className="border-t border-l border-[#EFE7F6]"
+                    style={{ gridRow: indice + 1, gridColumn: columna + 2 }}
+                  />
+                ))}
+              </Fragment>
+            ))}
+          </div>
+
+          <div className="pointer-events-none absolute inset-y-0 left-[8rem] right-0 grid grid-cols-5">
+            {NOMBRES_DIA.map((_, indice) => {
+              const dia = indice + 1
+              const delDia = porDia.get(dia) ?? []
+              const grupos = new Map<number, ConCarril<Actividad>[]>()
+              for (const actividad of delDia) {
+                if (actividad.carril >= 2) {
+                  const lista = grupos.get(actividad.grupo) ?? []
+                  lista.push(actividad)
+                  grupos.set(actividad.grupo, lista)
+                }
+              }
+              return (
+                <div key={dia} className="relative">
+                  {delDia.map((actividad) => {
+                    if (actividad.carril >= 2) return null
+                    if (actividad.tipo === 'clase')
+                      return (
+                        <BloqueClase
+                          key={actividad.id}
+                          actividad={actividad}
+                          rango={rango}
+                          fecha={semana[actividad.dia - 1]}
+                          abierta={actividad.franja.id === claseAbiertaId}
+                          onAbrir={(abierta) =>
+                            onSeleccionarClase(abierta ? actividad.franja : null)
+                          }
+                        />
+                      )
+                    return (
+                      <BloqueEvento
+                        key={actividad.id}
+                        actividad={actividad}
+                        rango={rango}
+                        activo={false}
+                        onSeleccionar={() => onSeleccionarEvento(actividad.evento)}
+                      />
+                    )
+                  })}
+                  {[...grupos.values()].map((ocultas) => {
+                    const primera = ocultas[0]
+                    return (
+                      <button
+                        key={`grupo-${primera.grupo}`}
+                        type="button"
+                        onClick={() => onVerGrupo(ocultas)}
+                        style={{
+                          top: porcentaje(primera.grupoInicio - rango.inicio, total),
+                          height: porcentaje(
+                            Math.max(
+                              1,
+                              Math.min(primera.grupoFin, rango.fin) - primera.grupoInicio,
+                            ),
+                            total,
+                          ),
+                          left: porcentaje(2, 3),
+                          width: porcentaje(1, 3),
+                        }}
+                        className="pointer-events-auto absolute z-10 m-0.5 flex items-center justify-center overflow-hidden rounded-[10px] border border-dashed border-[#7A2FA8] bg-[#F3E8FB] px-1 text-[11px] font-bold text-[#5B3A7E] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
+                      >
+                        +{ocultas.length} más
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
-    </div>
+
+      <div className="flex flex-wrap items-center gap-4 px-1 pt-3 text-[12px] text-[#6B6478]">
+        <span className="inline-flex items-center gap-2">
+          <span className="size-3.5 rounded-[4px] border border-[#93C5FD] bg-[#E8F1FE]" />
+          Materia
+        </span>
+        <span className="inline-flex items-center gap-2">
+          <span className="size-3.5 rounded-[4px] border-2 border-[#7A2FA8] bg-[#F3E8FB]" />
+          Evento del colegio
+        </span>
+        <span className="inline-flex items-center gap-2">
+          <span
+            className="size-3.5 rounded-[4px] border border-[#C4A9DD]"
+            style={{
+              backgroundImage: 'repeating-linear-gradient(135deg, #E9DDF5 0 3px, #FBF9FD 3px 6px)',
+            }}
+          />
+          Superposición de actividades
+        </span>
+      </div>
+    </>
   )
 }

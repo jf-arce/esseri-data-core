@@ -16,6 +16,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { useIsMobile } from '@/hooks/use-mobile'
 import type { EventoCalendario } from '../types'
 import { fechaEvento, horarioEvento } from '../utils'
 
@@ -36,12 +37,17 @@ export function EventoDetalleSheet({
   onCerrar: () => void
 }) {
   const horario = evento ? horarioEvento(evento) : null
+  const esMovil = useIsMobile()
   return (
     <Sheet open={evento !== null} onOpenChange={(abierto) => !abierto && onCerrar()}>
       <SheetContent
-        side="right"
+        side={esMovil ? 'bottom' : 'right'}
         showCloseButton={false}
-        className="w-full overflow-y-auto border-l border-borde bg-superficie p-0 sm:max-w-[470px]"
+        className={
+          esMovil
+            ? 'max-h-[85svh] w-full overflow-y-auto rounded-t-[24px] bg-superficie p-0'
+            : 'w-full overflow-y-auto border-l border-borde bg-superficie p-0 sm:max-w-[470px]'
+        }
       >
         {evento && (
           <>

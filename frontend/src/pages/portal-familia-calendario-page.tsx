@@ -1,11 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  CalendarDaysIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ClockIcon,
-  UserRoundIcon,
-} from 'lucide-react'
+import { CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, UserRoundIcon } from 'lucide-react'
 import { useSearchParams } from 'react-router'
 import { ExportarHorario } from '@/modules/academico/components/exportar-horario'
 import { HorarioImprimible } from '@/modules/academico/components/horario-imprimible'
@@ -34,6 +28,14 @@ import { PortalCard } from '@/components/portal-familia/portal-familia-ui'
 import { useHorarioFamilia } from '@/modules/academico/hooks/use-horario-familia'
 import { GrillaSemanal, type Actividad } from '@/modules/academico/components/grilla-semanal'
 import { GrupoActividadesSheet } from '@/modules/academico/components/grupo-actividades-sheet'
+import { DetalleMateria } from '@/modules/academico/components/detalle-materia'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import {
   aMinutos,
   coincideFiltroHorario,
@@ -63,64 +65,6 @@ function rangoHora(hora: string): string {
 
 type Franja = MateriaCurso['horarios'][number] & { materia: MateriaCurso }
 
-function DetalleClase({ franja }: { franja: Franja | null }) {
-  if (!franja) {
-    return (
-      <p className="py-6 text-center text-sm text-[#6B6478]">
-        Seleccioná una clase de la grilla para ver su detalle.
-      </p>
-    )
-  }
-  const estilo = estiloMateria(franja.materia.materia_nombre)
-  const Icono = estilo.Icono
-  const docentes = franja.materia.docentes ?? []
-  const docente = docentes.length > 0 ? docentes.join(', ') : 'Sin docente'
-
-  return (
-    <div className="flex flex-col gap-5">
-      <div className="flex items-center gap-4 rounded-[16px] bg-fila-hover px-4 py-4">
-        <span
-          className="flex size-14 shrink-0 items-center justify-center rounded-[14px] bg-white/70"
-          style={{ color: franja.materia.materia_color || '#7A2FA8' }}
-        >
-          <Icono aria-hidden="true" className="size-7" />
-        </span>
-        <p className="font-heading text-[24px] leading-tight font-bold text-[#241A33]">
-          {franja.materia.materia_nombre}
-        </p>
-      </div>
-
-      <div className="flex items-start gap-3.5 border-t border-[#F1EBF7] pt-5">
-        <CalendarDaysIcon aria-hidden="true" className="mt-0.5 size-6 shrink-0 text-[#6B6478]" />
-        <div>
-          <p className="text-[14px] text-[#6B6478]">Día</p>
-          <p className="text-[18px] font-semibold text-[#2B2338]">
-            {NOMBRES_DIA[franja.dia_semana - 1] ?? '—'}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex items-start gap-3.5 border-t border-[#F1EBF7] pt-5">
-        <ClockIcon aria-hidden="true" className="mt-0.5 size-6 shrink-0 text-[#6B6478]" />
-        <div>
-          <p className="text-[14px] text-[#6B6478]">Horario</p>
-          <p className="text-[18px] font-semibold text-[#2B2338]">
-            {rangoHora(franja.hora_inicio)} – {rangoHora(franja.hora_fin)}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex items-start gap-3.5 border-t border-[#F1EBF7] pt-5">
-        <UserRoundIcon aria-hidden="true" className="mt-0.5 size-6 shrink-0 text-[#6B6478]" />
-        <div>
-          <p className="text-[14px] text-[#6B6478]">Docente</p>
-          <p className="text-[18px] font-semibold text-[#2B2338]">{docente}</p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export function PortalFamiliaCalendarioPage() {
   const { alumnos, cargando } = useMisAlumnos(true)
   const cicloLectivo = useCicloLectivoStore((s) => s.cicloLectivo)
@@ -128,6 +72,7 @@ export function PortalFamiliaCalendarioPage() {
   const [alumnoId, setAlumnoId] = useState(() => searchParams.get('alumno') ?? '')
   const [diaAgenda, setDiaAgenda] = useState<number | null>(null)
   const [seleccionId, setSeleccionId] = useState<string | null>(null)
+  const [claseMovil, setClaseMovil] = useState<Franja | null>(null)
   const [filtro, setFiltro] = useState<FiltroHorario>(FILTRO_HORARIO_INICIAL)
   const [semanaOffset, setSemanaOffset] = useState(0)
   const [eventoSeleccionado, setEventoSeleccionado] = useState<EventoCalendario | null>(null)
@@ -161,16 +106,7 @@ export function PortalFamiliaCalendarioPage() {
       ),
     [franjas, filtro],
   )
-  const primeraFranja = useMemo(
-    () =>
-      [...franjasFiltradas].sort(
-        (a, b) => a.dia_semana - b.dia_semana || aMinutos(a.hora_inicio) - aMinutos(b.hora_inicio),
-      )[0] ?? null,
-    [franjasFiltradas],
-  )
-  const activa = franjasFiltradas.find((franja) => franja.id === seleccionId) ?? primeraFranja
-  const diaActivo = activa?.dia_semana
-  const diaVisible = diaAgenda ?? diaActivo ?? 1
+  const diaVisible = diaAgenda ?? 1
   const semana = useMemo(() => {
     const hoy = new Date()
     const lunes = new Date(hoy)
@@ -298,10 +234,6 @@ export function PortalFamiliaCalendarioPage() {
 
   function elegirDia(dia: number) {
     setDiaAgenda(dia)
-    const primera = franjasFiltradas
-      .filter((franja) => franja.dia_semana === dia)
-      .sort((a, b) => aMinutos(a.hora_inicio) - aMinutos(b.hora_inicio))[0]
-    if (primera) setSeleccionId(primera.id)
   }
 
   return (
@@ -339,7 +271,7 @@ export function PortalFamiliaCalendarioPage() {
               </Empty>
             </PortalCard>
           ) : (
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_clamp(14rem,19%,20rem)] xl:items-start">
+            <div className="flex flex-col gap-4">
               <PortalCard
                 className="print:hidden"
                 titulo="Horario semanal"
@@ -356,6 +288,7 @@ export function PortalFamiliaCalendarioPage() {
                         onValueChange={(valor) => {
                           setAlumnoId(valor)
                           setDiaAgenda(null)
+                          setSeleccionId(null)
                         }}
                       >
                         <SelectTrigger
@@ -404,7 +337,10 @@ export function PortalFamiliaCalendarioPage() {
                           variant="secondary"
                           size="icon"
                           aria-label="Semana anterior"
-                          onClick={() => setSemanaOffset((valor) => valor - 1)}
+                          onClick={() => {
+                            setSeleccionId(null)
+                            setSemanaOffset((valor) => valor - 1)
+                          }}
                         >
                           <ChevronLeftIcon aria-hidden="true" />
                         </Button>
@@ -421,7 +357,10 @@ export function PortalFamiliaCalendarioPage() {
                           variant="secondary"
                           size="icon"
                           aria-label="Semana siguiente"
-                          onClick={() => setSemanaOffset((valor) => valor + 1)}
+                          onClick={() => {
+                            setSeleccionId(null)
+                            setSemanaOffset((valor) => valor + 1)
+                          }}
                         >
                           <ChevronRightIcon aria-hidden="true" />
                         </Button>
@@ -459,12 +398,11 @@ export function PortalFamiliaCalendarioPage() {
                     <div data-testid="calendario-grilla" className="hidden lg:block">
                       <GrillaSemanal
                         semana={semana}
-                        diaActivo={diaActivo}
                         hoyISO={hoyISO}
                         rango={rango}
                         actividades={actividades}
-                        seleccionId={seleccionId}
-                        onSeleccionarClase={(franja) => setSeleccionId(franja.id)}
+                        claseAbiertaId={seleccionId}
+                        onSeleccionarClase={(franja) => setSeleccionId(franja?.id ?? null)}
                         onSeleccionarEvento={setEventoSeleccionado}
                         onVerGrupo={setGrupoSeleccionado}
                       />
@@ -511,9 +449,12 @@ export function PortalFamiliaCalendarioPage() {
                                   ? `Profesor: ${docentes[0]}`
                                   : 'Sin docente'
                             return (
-                              <div
+                              <button
+                                type="button"
                                 key={franja.id}
-                                className="flex items-center gap-3 rounded-[14px] px-4 py-3 text-left"
+                                aria-label={`${franja.materia.materia_nombre ?? 'Materia'}: ver detalle`}
+                                onClick={() => setClaseMovil(franja)}
+                                className="flex items-center gap-3 rounded-[14px] px-4 py-3 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
                                 style={{
                                   backgroundColor: `color-mix(in srgb, ${color} 20%, var(--superficie))`,
                                   border: `1px solid color-mix(in srgb, ${color} 45%, var(--borde))`,
@@ -536,7 +477,7 @@ export function PortalFamiliaCalendarioPage() {
                                     {docente}
                                   </span>
                                 </span>
-                              </div>
+                              </button>
                             )
                           })
                         )}
@@ -559,7 +500,10 @@ export function PortalFamiliaCalendarioPage() {
                             variant="secondary"
                             size="icon"
                             aria-label="Semana anterior"
-                            onClick={() => setSemanaOffset((valor) => valor - 1)}
+                            onClick={() => {
+                              setSeleccionId(null)
+                              setSemanaOffset((valor) => valor - 1)
+                            }}
                           >
                             <ChevronLeftIcon aria-hidden="true" />
                           </Button>
@@ -568,7 +512,10 @@ export function PortalFamiliaCalendarioPage() {
                             variant="secondary"
                             size="icon"
                             aria-label="Semana siguiente"
-                            onClick={() => setSemanaOffset((valor) => valor + 1)}
+                            onClick={() => {
+                              setSeleccionId(null)
+                              setSemanaOffset((valor) => valor + 1)
+                            }}
                           >
                             <ChevronRightIcon aria-hidden="true" />
                           </Button>
@@ -577,16 +524,6 @@ export function PortalFamiliaCalendarioPage() {
                     }
                   />
                 )}
-              </PortalCard>
-
-              <PortalCard
-                className="hidden xl:block print:hidden"
-                titulo="Detalle de clase"
-                tituloClassName="font-heading text-[24px] leading-tight font-bold text-[#241A33]"
-                headerClassName="px-6 pt-6 pb-5"
-                contentClassName="px-6 pt-1 pb-6"
-              >
-                <DetalleClase franja={activa} />
               </PortalCard>
             </div>
           )}
@@ -616,6 +553,24 @@ export function PortalFamiliaCalendarioPage() {
         }))}
         onCerrar={() => setEventoSeleccionado(null)}
       />
+
+      <Sheet open={claseMovil !== null} onOpenChange={(abierto) => !abierto && setClaseMovil(null)}>
+        <SheetContent side="bottom" className="max-h-[85svh] overflow-y-auto rounded-t-[24px]">
+          {claseMovil && (
+            <>
+              <SheetHeader className="sr-only">
+                <SheetTitle>{claseMovil.materia.materia_nombre}</SheetTitle>
+                <SheetDescription>Detalle de la materia seleccionada</SheetDescription>
+              </SheetHeader>
+              <DetalleMateria
+                franja={claseMovil}
+                fecha={semana[claseMovil.dia_semana - 1]}
+                variante="hoja"
+              />
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
 
       <GrupoActividadesSheet
         actividades={grupoSeleccionado}

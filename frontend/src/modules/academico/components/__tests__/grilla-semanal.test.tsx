@@ -79,7 +79,7 @@ function renderizar(actividades: Actividad[], rango = { inicio: 480, fin: 600 })
       hoyISO={new Date(2026, 10, 16).toDateString()}
       rango={rango}
       actividades={actividades}
-      seleccionId={null}
+      claseAbiertaId={null}
       onSeleccionarClase={vi.fn()}
       onSeleccionarEvento={vi.fn()}
       onVerGrupo={vi.fn()}
@@ -139,7 +139,7 @@ it('summarizes three simultaneous activities behind a “+N más” control', as
       hoyISO={new Date(2026, 10, 16).toDateString()}
       rango={{ inicio: 480, fin: 540 }}
       actividades={[clase('c1', 1, 480, 540), clase('c2', 1, 480, 540), evento('e1', 1, 480, 540)]}
-      seleccionId={null}
+      claseAbiertaId={null}
       onSeleccionarClase={vi.fn()}
       onSeleccionarEvento={vi.fn()}
       onVerGrupo={onVerGrupo}
@@ -192,7 +192,7 @@ it('keeps the class detail selectable while an event overlaps', async () => {
       hoyISO={new Date(2026, 10, 16).toDateString()}
       rango={{ inicio: 480, fin: 540 }}
       actividades={[clase('c1', 1, 480, 540), evento('e1', 1, 480, 540)]}
-      seleccionId={null}
+      claseAbiertaId={null}
       onSeleccionarClase={onSeleccionarClase}
       onSeleccionarEvento={onSeleccionarEvento}
       onVerGrupo={vi.fn()}
@@ -203,4 +203,41 @@ it('keeps the class detail selectable while an event overlaps', async () => {
   await usuario.click(screen.getByRole('button', { name: /Reunión de padres/ }))
   expect(onSeleccionarClase).toHaveBeenCalledTimes(1)
   expect(onSeleccionarEvento).toHaveBeenCalledTimes(1)
+})
+
+it('opens the materia popover when its card is selected', async () => {
+  const { container } = render(
+    <GrillaSemanal
+      semana={semana}
+      hoyISO={new Date(2026, 10, 16).toDateString()}
+      rango={{ inicio: 480, fin: 540 }}
+      actividades={[clase('c1', 1, 480, 540)]}
+      claseAbiertaId="franja-c1"
+      onSeleccionarClase={vi.fn()}
+      onSeleccionarEvento={vi.fn()}
+      onVerGrupo={vi.fn()}
+    />,
+  )
+  const panel = await screen.findByText('Docente')
+  expect(panel).toBeInTheDocument()
+  expect(container).toBeTruthy()
+})
+
+it('requests the selected materia when a card is clicked', async () => {
+  const usuario = userEvent.setup()
+  const onSeleccionarClase = vi.fn()
+  render(
+    <GrillaSemanal
+      semana={semana}
+      hoyISO={new Date(2026, 10, 16).toDateString()}
+      rango={{ inicio: 480, fin: 540 }}
+      actividades={[clase('c1', 1, 480, 540)]}
+      claseAbiertaId={null}
+      onSeleccionarClase={onSeleccionarClase}
+      onSeleccionarEvento={vi.fn()}
+      onVerGrupo={vi.fn()}
+    />,
+  )
+  await usuario.click(screen.getByRole('button', { name: /Matemática: ver detalle/ }))
+  expect(onSeleccionarClase).toHaveBeenCalledWith(expect.objectContaining({ id: 'franja-c1' }))
 })
