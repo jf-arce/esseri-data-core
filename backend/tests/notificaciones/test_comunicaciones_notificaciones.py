@@ -56,10 +56,15 @@ def test_comunicacion_institucional_del_portal_avisa_a_las_cuentas_y_no_marca_le
     assert all(recibo.leida_at is None for recibo in recibos)
     assert len(_avisos(db_session, "comunicaciones.institucional_publicada")) == 3
 
-    from src.notificaciones.service import marcar_lectura
+    from src.notificaciones.service import AlcanceBandeja, marcar_lectura
 
     aviso_a = next(aviso for aviso in avisos if aviso.usuario_id == escenario["usuario_a"].id)
-    marcar_lectura(db_session, escenario["usuario_a"].id, escenario["familia_a"].id, aviso_a.id)
+    marcar_lectura(
+        db_session,
+        escenario["usuario_a"].id,
+        AlcanceBandeja(rol="familia", familia_id=escenario["familia_a"].id),
+        aviso_a.id,
+    )
     assert all(
         recibo.leida_at is None for recibo in db_session.scalars(select(ReciboComunicacion)).all()
     )

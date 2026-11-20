@@ -11,13 +11,17 @@ from src.notificaciones.constants import (
     DESTINO_ASISTENCIA,
     DESTINO_COMUNICACION,
     DESTINO_FACTURA,
+    DESTINO_JUSTIFICACION,
     DESTINO_JUSTIFICACION_INDIVIDUAL,
     DESTINO_PAGO,
     DESTINO_SOLICITUD_PERIODO,
     TIPO_COMUNICACION_PUBLICADA,
+    TIPO_DEBITO_EXITOSO,
+    TIPO_DEBITO_RECHAZADO,
     TIPO_FACTURA_EMITIDA,
     TIPO_INASISTENCIA_REGISTRADA,
     TIPO_JUSTIFICACION_APROBADA,
+    TIPO_JUSTIFICACION_PENDIENTE,
     TIPO_JUSTIFICACION_RECHAZADA,
     TIPO_PAGO_REGISTRADO,
     TIPO_PROXIMO_VENCIMIENTO,
@@ -35,6 +39,7 @@ class DestinoNotificacion(BaseModel):
         "comunicacion",
         "factura",
         "pago",
+        "justificacion",
     ]
     id: uuid.UUID
     alumno_id: uuid.UUID | None
@@ -135,6 +140,32 @@ class ContextoProximoVencimiento(_ContextoBase):
     monto_pendiente: str
 
 
+class ContextoDebitoExitoso(_ContextoBase):
+    """Débito automático cobrado sobre una factura."""
+
+    debito_id: uuid.UUID
+    factura_id: uuid.UUID
+    importe: str
+
+
+class ContextoDebitoRechazado(_ContextoBase):
+    """Débito automático rechazado; el motivo es obligatorio y nunca está vacío."""
+
+    debito_id: uuid.UUID
+    factura_id: uuid.UUID
+    importe: str
+    motivo: str
+
+
+class ContextoJustificacionPendiente(_ContextoBase):
+    """Justificación individual enviada por la familia, pendiente de revisión."""
+
+    justificacion_id: uuid.UUID
+    asistencia_id: uuid.UUID
+    fecha: date
+    motivo: str
+
+
 ESQUEMAS_CONTEXTO: dict[tuple[str, str], type[BaseModel]] = {
     (TIPO_INASISTENCIA_REGISTRADA, DESTINO_ASISTENCIA): ContextoAusencia,
     (TIPO_JUSTIFICACION_APROBADA, DESTINO_JUSTIFICACION_INDIVIDUAL): (
@@ -149,6 +180,9 @@ ESQUEMAS_CONTEXTO: dict[tuple[str, str], type[BaseModel]] = {
     (TIPO_FACTURA_EMITIDA, DESTINO_FACTURA): ContextoFactura,
     (TIPO_PAGO_REGISTRADO, DESTINO_PAGO): ContextoPago,
     (TIPO_PROXIMO_VENCIMIENTO, DESTINO_FACTURA): ContextoProximoVencimiento,
+    (TIPO_DEBITO_EXITOSO, DESTINO_FACTURA): ContextoDebitoExitoso,
+    (TIPO_DEBITO_RECHAZADO, DESTINO_FACTURA): ContextoDebitoRechazado,
+    (TIPO_JUSTIFICACION_PENDIENTE, DESTINO_JUSTIFICACION): ContextoJustificacionPendiente,
 }
 
 

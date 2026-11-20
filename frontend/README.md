@@ -205,8 +205,10 @@ la pantalla no amplía sus permisos. Los errores no se muestran como indicadores
 
 ### Notificaciones internas del Portal Familia
 
-La campanita vive en `frontend/src/modules/notificaciones/` y se monta solo en el shell del
-Portal Familia (`layout/portal-layout.tsx`). Consume el contrato de notificaciones:
+La campanita vive en `frontend/src/modules/notificaciones/`. Se monta en el shell del Portal
+Familia (`layout/portal-layout.tsx`) y, para el rol activo Administración, en el encabezado del
+panel (`layout/app-layout.tsx`); el resto de los roles conserva el marcador sin datos. Consume el
+contrato de notificaciones:
 `GET /notificaciones` con `no_leidas`, `limite` y `cursor`, `GET /notificaciones/resumen`,
 `PATCH /notificaciones/{id}/lectura` y `POST /notificaciones/lecturas`. El contador se refresca
 cada 30 segundos únicamente con la pestaña visible, al recuperar el foco y al abrir el panel;
@@ -218,11 +220,14 @@ El panel ofrece filtros Todas/No leídas, paginación por cursor, lectura indivi
 marcar todas como leídas y estados de carga, vacío y error. Abrir el panel no marca nada como
 leído. Los avisos académicos navegan a `/familia/asistencias` con parámetros tipados (`alumno`,
 `seccion`, `recurso`, `recurso_id`) que seleccionan al alumno y resaltan el registro exacto; las
-comunicaciones abren `/familia/comunicaciones/:id`; facturas y vencimientos abren
-`/familia/facturacion?factura=<id>`, y los pagos `/familia/facturacion?pago=<id>`, con la tarjeta
-correspondiente abierta, resaltada y desplazada a la vista. Si la marcación de lectura falla, la
-navegación igual se completa. Un destino desconocido no genera una URL arbitraria y la notificación
-se muestra sin enlace.
+comunicaciones abren `/familia/comunicaciones/:id`; facturas, vencimientos y resultados de débito
+abren `/familia/facturacion?factura=<id>`, y los pagos `/familia/facturacion?pago=<id>`, con la
+tarjeta correspondiente abierta, resaltada y desplazada a la vista. Los avisos
+`facturacion.debito_exitoso` y `facturacion.debito_rechazado` usan íconos y colores propios de
+éxito y error. El aviso `administracion.justificacion_pendiente` abre
+`/academico/justificaciones?justificacion=<id>` con la fila resaltada sobre el historial
+completo. Si la marcación de lectura falla, la navegación igual se completa. Un destino
+desconocido no genera una URL arbitraria y la notificación se muestra sin enlace.
 
 Verificación focalizada:
 
@@ -466,6 +471,13 @@ Parámetros de la ruta de alta: `?evento=<id>` abre el lienzo con el disparador 
 `?duplicar=<id>` abre una copia (inactiva y sin guardar) de otra regla. La lógica pura del editor
 (borrador, validación local, auto-layout, frase, deshacer, duplicado) está en
 `src/modules/workflows/utils-grafo.ts` y se prueba con `npm test`.
+
+Para avisar el resultado de un débito, elegí el disparador **Se confirma un resultado de débito
+automático**, configurá una plantilla para cada resultado y agregá **Publicar comunicación**.
+En **Canal de publicación**, elegí **Portal**, **Email** o **Ambos**. **Ambos** deja el aviso en
+Comunicaciones y encola su correo; no agregues también **Notificar**. Si existe la regla de
+débitos de la demo que envía correo directamente, desactivala antes de activar la regla nueva.
+**Generar comunicación** continúa enviando borradores a Sugerencias para su revisión.
 
 El editor ocupa el alto de la ventana (`100dvh` menos el encabezado del layout) y no tiene scroll de
 página. Los componentes viven en `src/modules/workflows/components/`: `barra-editor` (migas, nombre,

@@ -84,9 +84,13 @@ function abrirFactura(indice = 0) {
 }
 
 describe('PortalFamiliaFacturacionPage', () => {
-  it('muestra los snapshots de resultado sin depender del estado de envío del email', async () => {
-    mockedListarFacturacion.mockResolvedValue({
+  it.each([
+    ['2000-03-10', 'Vencida', false],
+    ['2099-03-10', 'Pendiente', true],
+  ])('muestra el rechazo junto al estado %s (%s)', async (vencimiento, estado, directo) => {
+    const cuenta: FacturacionFamilia = {
       ...facturacion,
+      facturas: [{ ...facturacion.facturas[0], fecha_vencimiento_efectiva: vencimiento }],
       avisos_debito: [
         {
           evento_id: 'evento-1',
@@ -105,13 +109,30 @@ describe('PortalFamiliaFacturacionPage', () => {
           cuerpo: 'Factura F-0003 por $100. Fondos insuficientes. Código SIM-01.',
         },
       ],
-    })
+    }
+    if (directo) {
+      const { resultado, fecha, importe, numero_factura, motivo_rechazo } = cuenta.avisos_debito![0]
+      cuenta.facturas[0].ultimo_resultado_debito = {
+        resultado,
+        fecha,
+        importe,
+        numero_factura,
+        motivo_rechazo,
+      }
+      cuenta.avisos_debito = []
+    }
+    mockedListarFacturacion.mockResolvedValue(cuenta)
     renderizarPagina()
-    expect((await screen.findAllByText('Débito rechazado')).length).toBeGreaterThanOrEqual(1)
+    const titulo = await screen.findByText(`Factura de marzo ${vencimiento.slice(0, 4)}`)
+    const resumen = within(titulo.closest('summary')!)
+    expect(resumen.getByText(estado)).toBeInTheDocument()
+    expect(resumen.getByText('Débito rechazado: Fondos insuficientes')).toBeInTheDocument()
     const avisos = screen.getByRole('region', { name: 'Avisos de débitos automáticos' })
     expect(within(avisos).getByText(/0 acreditados · 1 rechazados/)).toBeInTheDocument()
-    fireEvent.click(within(avisos).getByRole('button', { name: 'Ver rechazados' }))
-    expect(screen.getByText('Factura de marzo 2026')).toBeInTheDocument()
+    fireEvent.click(
+      within(avisos).getByRole('button', { name: 'Ver facturas con débito rechazado' }),
+    )
+    expect(titulo).toBeInTheDocument()
 
     abrirFactura()
     expect(await screen.findByText('Motivo: Fondos insuficientes.')).toBeInTheDocument()
@@ -439,7 +460,7 @@ describe('PortalFamiliaFacturacionPage', () => {
     })
     mockedListarFacturacion.mockResolvedValue(cuenta)
     renderizarPagina()
-    expect(await screen.findByText(/Se debita el/)).toBeInTheDocument()
+    expect(await screen.findByText(/Vence \d{2}\/\d{2}\/\d{4}/)).toBeInTheDocument()
     expect(screen.queryByText(/Pago parcial/)).not.toBeInTheDocument()
   })
 
@@ -519,7 +540,7 @@ describe('PortalFamiliaFacturacionPage', () => {
     expect(screen.getByText('Más filtros').closest('details')).not.toHaveAttribute('open')
   })
 
-  it('avisa el débito de hoy o mañana y muestra rechazo solo cuando el dato existe', async () => {
+  it('distingue el vencimiento del intento de débito y no promete otro intento', async () => {
     const cuenta = structuredClone(facturacion)
     const hoy = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'America/Argentina/Buenos_Aires',
@@ -556,9 +577,10 @@ describe('PortalFamiliaFacturacionPage', () => {
     ]
     mockedListarFacturacion.mockResolvedValue(cuenta)
     renderizarPagina()
-    expect(await screen.findByText(/Se debita hoy/)).toBeInTheDocument()
-    expect(screen.getByText(/Se debita mañana/)).toBeInTheDocument()
-    expect(screen.getByText(/Próximo débito: hoy/)).toBeInTheDocument()
+    expect(await screen.findByText(/Próximo vencimiento: hoy/)).toBeInTheDocument()
+    const antesDeVencer = screen.getByText(/^Hoy ·/).closest('summary')!
+    expect(within(antesDeVencer).getByText('Pendiente')).toBeInTheDocument()
+    expect(within(antesDeVencer).queryByText(/Débito rechazado/)).not.toBeInTheDocument()
     expect(screen.getByText(/vencido$/)).toBeInTheDocument()
     expect(screen.getByText('Débito rechazado')).toBeInTheDocument()
     const atrasada = screen.getAllByText('Atrasada')[0].closest('details')!

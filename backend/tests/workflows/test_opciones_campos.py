@@ -139,6 +139,35 @@ def test_rechaza_contiene_en_un_campo_cerrado(client_autenticado, tipo_inasisten
     assert "valores fijos" in respuesta.json()["detail"]
 
 
+def test_resultado_debito_expone_solo_acreditado_y_rechazado(client_autenticado, db_session):
+    tipo = TipoEvento(nombre="debito.resultado_registrado")
+    db_session.add(tipo)
+    db_session.flush()
+    db_session.add(
+        CampoEvento(
+            nombre_interno="resultado",
+            etiqueta="Resultado del débito",
+            tipo_dato="texto",
+            tipo_evento_id=tipo.id,
+        )
+    )
+    db_session.flush()
+
+    respuesta = client_autenticado.get("/workflows/tipos-evento")
+    assert respuesta.status_code == 200
+    evento = next(e for e in respuesta.json() if e["nombre"] == tipo.nombre)
+    assert evento["campos"][0]["opciones"] == [
+        {"valor": "exitoso", "etiqueta": "Acreditado"},
+        {"valor": "rechazado", "etiqueta": "Rechazado"},
+    ]
+    for valor, estado in (("exitoso", 201), ("rechazado", 201), ("pendiente", 422)):
+        comparacion = {"campo": "resultado", "operador": "==", "valor": valor}
+        respuesta = client_autenticado.post("/workflows/reglas", json=_regla(tipo, comparacion))
+        assert respuesta.status_code == estado
+        if estado == 422:
+            assert "no es un valor válido" in respuesta.json()["detail"]
+
+
 def test_motivo_de_justificacion_sale_de_la_tabla_de_motivos(client_autenticado, db_session):
     from src.academico.models import MotivoJustificacion
 

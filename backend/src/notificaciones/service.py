@@ -8,6 +8,7 @@ API no tienen efectos; las escrituras solo completan `leida_at` de filas ya auto
 import base64
 import binascii
 import uuid
+from dataclasses import dataclass
 from datetime import date, datetime
 
 from fastapi import HTTPException, status
@@ -15,12 +16,14 @@ from sqlalchemy import and_, case, exists, false, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from src.academico.models import JustificacionInasistencia
 from src.comunicaciones.models import Comunicacion, ReciboComunicacion
 from src.facturacion.models import Factura, Pago, ResponsableEconomico
 from src.familias_alumnos.models import FamiliaAlumno
 from src.fechas import ahora_utc
 from src.notificaciones.constants import (
     AMBITO_ACADEMICO,
+    AMBITO_ADMINISTRACION,
     AMBITO_COMUNICACIONES,
     AMBITO_FACTURACION,
     AMBITO_POR_TIPO,
@@ -29,6 +32,7 @@ from src.notificaciones.constants import (
     DESTINO_PAGO,
     DESTINOS_VALIDOS,
     NOMBRE_UNICO_CLAVE,
+    ROLES_ADMINISTRATIVOS,
     TIPO_INASISTENCIA_REGISTRADA,
 )
 from src.notificaciones.exceptions import NotificacionInvalida, NotificacionNoEncontrada
@@ -136,13 +140,32 @@ def _es_conflicto_de_clave(exc: IntegrityError) -> bool:
 # --- Autorización vigente -----------------------------------------------------------------
 
 
-def _predicado_autorizado(usuario_id: uuid.UUID, familia_id: uuid.UUID, dialecto: str) -> list:
+@dataclass(frozen=True)
+class AlcanceBandeja:
+    """Rol activo que consulta la bandeja y, solo para Familia, su familia persistida."""
+
+    rol: str
+    familia_id: uuid.UUID | None = None
+
+
+def _predicado_autorizado(usuario_id: uuid.UUID, alcance: AlcanceBandeja, dialecto: str) -> list:
     """Condiciones SQL de la bandeja propia, revalidadas en cada operación y conteo.
 
+    Cada rol activo ve solo su propio ámbito: Familia revalida el vínculo, el recibo o la
+    responsabilidad económica según el dominio; Administración revalida el destino institucional.
     Incluye el allowlist de lectura: un tipo, ámbito o contexto que no esté en el registro
-    validado se excluye igual que una notificación ajena. Cada dominio conserva su propia
-    autorización vigente y se evalúa en SQL, sin traer historial a memoria.
+    validado se excluye igual que una notificación ajena.
     """
+    if alcance.rol in ROLES_ADMINISTRATIVOS:
+        return [
+            NotificacionInterna.usuario_id == usuario_id,
+            NotificacionInterna.ambito == AMBITO_ADMINISTRACION,
+            exists().where(JustificacionInasistencia.id == NotificacionInterna.destino_id),
+            _predicado_tipo_conocido(dialecto),
+        ]
+    familia_id = alcance.familia_id
+    if familia_id is None:
+        return [false()]
     enlace = exists().where(
         FamiliaAlumno.familia_id == NotificacionInterna.familia_id,
         FamiliaAlumno.alumno_id == NotificacionInterna.alumno_id,
@@ -294,13 +317,13 @@ def _dialecto(db: Session) -> str:
 def listar(
     db: Session,
     usuario_id: uuid.UUID,
-    familia_id: uuid.UUID,
+    alcance: AlcanceBandeja,
     *,
     no_leidas: bool,
     limite: int,
     cursor: str | None,
 ) -> ListadoNotificaciones:
-    condiciones = _predicado_autorizado(usuario_id, familia_id, _dialecto(db))
+    condiciones = _predicado_autorizado(usuario_id, alcance, _dialecto(db))
     consulta = select(NotificacionInterna).where(*condiciones)
     if no_leidas:
         consulta = consulta.where(NotificacionInterna.leida_at.is_(None))
@@ -333,10 +356,10 @@ def listar(
     )
 
 
-def resumen(db: Session, usuario_id: uuid.UUID, familia_id: uuid.UUID) -> ResumenNotificaciones:
+def resumen(db: Session, usuario_id: uuid.UUID, alcance: AlcanceBandeja) -> ResumenNotificaciones:
     return ResumenNotificaciones(
         total_no_leidas=_contar_no_leidas(
-            db, _predicado_autorizado(usuario_id, familia_id, _dialecto(db))
+            db, _predicado_autorizado(usuario_id, alcance, _dialecto(db))
         )
     )
 
@@ -361,11 +384,11 @@ def _item(fila: NotificacionInterna) -> NotificacionItem:
 def marcar_lectura(
     db: Session,
     usuario_id: uuid.UUID,
-    familia_id: uuid.UUID,
+    alcance: AlcanceBandeja,
     notificacion_id: uuid.UUID,
 ) -> LecturaNotificacion:
     """Completa `leida_at` una sola vez; repetir devuelve el instante ya persistido."""
-    condiciones = _predicado_autorizado(usuario_id, familia_id, _dialecto(db))
+    condiciones = _predicado_autorizado(usuario_id, alcance, _dialecto(db))
     db.execute(
         update(NotificacionInterna)
         .where(
@@ -388,12 +411,12 @@ def marcar_lectura(
     return LecturaNotificacion(id=notificacion_id, leida_at=leida_at)
 
 
-def marcar_todas(db: Session, usuario_id: uuid.UUID, familia_id: uuid.UUID) -> LecturasMasivas:
+def marcar_todas(db: Session, usuario_id: uuid.UUID, alcance: AlcanceBandeja) -> LecturasMasivas:
     """Marca lo no leído de la misma foto autorizada, en una sola sentencia."""
     resultado = db.execute(
         update(NotificacionInterna)
         .where(
-            *_predicado_autorizado(usuario_id, familia_id, _dialecto(db)),
+            *_predicado_autorizado(usuario_id, alcance, _dialecto(db)),
             NotificacionInterna.leida_at.is_(None),
         )
         .values(leida_at=ahora_utc())

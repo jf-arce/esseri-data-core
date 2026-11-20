@@ -303,6 +303,10 @@ export interface FacturaFamilia {
   alumno_nombre: string
   detalles: DetalleFacturaFamilia[]
   pagos: PagoFamilia[]
+  ultimo_resultado_debito?: Pick<
+    AvisoDebitoFamilia,
+    'resultado' | 'fecha' | 'importe' | 'numero_factura' | 'motivo_rechazo'
+  > | null
 }
 
 export interface MovimientoFamilia {
@@ -404,6 +408,7 @@ export interface FiltrosDeudaFamilias {
   tamanio: number
   estado?: EstadoDeudaFamilia
   buscar?: string
+  ciclo_lectivo?: string
 }
 
 export interface CrearFacturaPayload {

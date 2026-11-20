@@ -124,6 +124,27 @@ entre familias, fallo de n8n sin reversión y ausencia de duplicados al reproces
 Para la presentación en navegador y correos a casillas de prueba autorizadas, seguir
 [el recorrido de demo](../docs/cobranzas-simuladas.md#safe-abc-demonstration).
 
+La acción de workflow **Publicar comunicación** (`publicar_comunicacion`) admite únicamente
+`debito.resultado_registrado`. Requiere plantilla y canal (`portal`, `email` o `ambos`).
+Publica una comunicación administrativa por evento para la familia del responsable económico de
+la factura, si el vínculo con el alumno habilita comunicaciones. La publicación, el recibo y
+las intenciones de envío se confirman juntos. Los canales `email` y `ambos` usan la cola de
+Comunicaciones (`N8N_MANUAL_HABILITADO`), no el envío directo de `notificar`.
+Si otra regla coincide con el mismo resultado y solicita un canal distinto, su ejecución
+informa el conflicto; la publicación original y su canal se conservan.
+
+`GET /facturacion/familia/me` incluye `ultimo_resultado_debito` por factura cuando existe una
+rendición confirmada. Este dato no depende de la comunicación ni del envío de correo y solo se
+proyecta para las facturas de la familia responsable.
+
+```bash
+pytest -q tests/facturacion/test_publicar_comunicacion_debito.py
+```
+
+La revisión `260e3555f2b7` amplía la restricción de acciones de `workflow_nodo`. Para volver a
+una versión anterior, primero reemplazar las acciones **Publicar comunicación** en las reglas
+que las usan; la migración de reversión no elimina nodos ni comunicaciones.
+
 La revisión `91553e2163be` fue autogenerada contra un esquema de referencia aislado en SQLite y
 revisada para que sea aditiva (tablas nuevas, columnas nullable o con default, constraints e
 índices nombrados). Se verificó `upgrade`/`downgrade` en ese esquema aislado. Eso no sustituye
@@ -915,9 +936,11 @@ pytest -q tests/inscripciones/test_scoping_familia.py
 ### Notificaciones internas (Portal Familia: Académico, Comunicaciones y Facturación)
 
 La bandeja interna vive en `src/notificaciones/` y en la tabla propia `notificacion_interna`,
-separada del log de intentos de email de Workflows y de los recibos de Comunicaciones. Conecta
-solo el Portal Familia: transiciones académicas, comunicaciones institucionales publicadas para
-el portal, facturas emitidas, pagos aprobados por Administración y recordatorios de vencimiento.
+separada del log de intentos de email de Workflows y de los recibos de Comunicaciones. Cada rol
+activo tiene su propio alcance: Familia ve las transiciones académicas, las comunicaciones
+institucionales publicadas para el portal, las facturas emitidas, los pagos aprobados por
+Administración, los recordatorios de vencimiento y el resultado confirmado de cada débito
+automático; Administración ve las justificaciones individuales enviadas por las familias.
 
 Endpoints (todos privados, `Cache-Control: private, no-store`, y sin entrada de `usuario_id`):
 
@@ -930,15 +953,17 @@ Endpoints (todos privados, `Cache-Control: private, no-store`, y sin entrada de 
 - `POST /notificaciones/lecturas` devuelve `{marcadas}` y marca en una sola sentencia todo lo
   no leído de la misma foto autorizada.
 
-Sin sesión responde 401. Sin rol activo Familia, con el rol revocado o sin `Familia` propia
-responde 403. Un id ajeno o inaccesible responde 404, igual que uno inexistente. Cada consulta
-revalida en SQL la cuenta, la familia vigente, el vínculo actual con el alumno y —solo para las
-ausencias— `recibe_comunicaciones=true`. Las resoluciones no dependen de ese flag. En Comunicaciones
-se exige un recibo vigente para la comunicación y la familia, y que la comunicación siga publicada;
-en Facturación, que la factura o el pago pertenezcan a la familia responsable económica persistida.
-Solo se exponen los tipos, ámbitos, destinos y contextos de las entregas: una fila con un tipo,
-ámbito o contexto desconocido se excluye del listado, del contador y de la lectura, igual que una
-ajena.
+Sin sesión responde 401. Sin un rol activo con bandeja propia responde 403. Con rol Familia se
+exige además su `Familia` persistida; con rol Administración, la cuenta y el rol vigentes. Un id
+ajeno o inaccesible responde 404, igual que uno inexistente. Cada consulta revalida en SQL la
+cuenta y el alcance de su rol activo. En Familia se revalida la familia vigente, el vínculo actual
+con el alumno y —solo para las ausencias— `recibe_comunicaciones=true`. Las resoluciones no
+dependen de ese flag. En Comunicaciones se exige un recibo vigente para la comunicación y la
+familia, y que la comunicación siga publicada; en Facturación, que la factura o el pago pertenezcan
+a la familia responsable económica persistida; en Administración, que la justificación avisada
+siga existiendo. Solo se exponen los tipos, ámbitos, destinos y contextos de las entregas: una fila
+con un tipo, ámbito o contexto desconocido se excluye del listado, del contador y de la lectura,
+igual que una ajena. Las notificaciones de Familia y de Administración nunca se mezclan.
 
 Productores de la segunda entrega: una comunicación institucional con canal `portal` o `ambos`
 genera un aviso por cuenta de cada familia destinataria y no toca `ReciboComunicacion.leida_at`.
@@ -948,6 +973,19 @@ acreditación bancaria. `notificaciones/vencimientos_job.py` corre al iniciar y 
 `FACTURACION_HORA_EJECUCION`, con independencia de `FACTURACION_AUTOMATICA_HABILITADA`: avisa una
 sola vez por factura y cuenta cuando el vencimiento efectivo cae en `hoy..hoy+3` y el saldo
 pendiente es positivo. Una prórroga posterior no genera un segundo recordatorio.
+
+Al confirmar una rendición, cada débito genera un aviso por cuenta de la familia responsable
+económica y por débito: `facturacion.debito_exitoso` o `facturacion.debito_rechazado`, ambos con
+destino a la factura exacta. El rechazo muestra solo el motivo; el código queda en el evento y en
+el historial administrativo. El pago de un débito no genera además el aviso genérico de pago
+aprobado: `registrar_pago(..., notificar=False)` evita atribuir a Administración un cobro
+automático. Los pagos manuales conservan su aviso sin cambios.
+
+Al enviar una justificación individual, la familia genera un aviso por cuenta activa con rol
+Administración dentro de la misma transacción: `administracion.justificacion_pendiente`, con
+alumno, fecha, motivo y destino a la bandeja institucional de justificaciones. Una falla al
+insertarlo revierte la justificación. Las solicitudes por período no generan aviso en esta
+entrega.
 
 Los productores académicos insertan dentro de la transacción del comando, antes de su commit:
 la ausencia se identifica por inscripción y fecha calendario, y la resolución por la

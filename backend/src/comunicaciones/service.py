@@ -322,6 +322,18 @@ def publicar(
     destinatarios = resolver(db, audiencia)
     if not destinatarios:
         raise HTTPException(422, "La audiencia no tiene responsables habilitados")
+    publicar_en_transaccion(db, c, usuario, destinatarios)
+    db.commit()
+    return respuesta(db, c)
+
+
+def publicar_en_transaccion(
+    db: Session,
+    c: Comunicacion,
+    usuario: Usuario,
+    destinatarios: dict[uuid.UUID, list[str]],
+) -> None:
+    """Publish a validated draft and authorized audience without committing the caller's work."""
     from src.comunicaciones.adjuntos_service import validar_publicacion
 
     validar_publicacion(db, c.id)
@@ -337,8 +349,6 @@ def publicar(
 
         preparar_envios(db, c, destinatarios)
     auditar(db, c, usuario, "estado", "borrador", "publicada")
-    db.commit()
-    return respuesta(db, c)
 
 
 def recibos_propios(db: Session, usuario: Usuario):

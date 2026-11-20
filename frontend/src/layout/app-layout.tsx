@@ -41,6 +41,8 @@ import { AsistenteDock } from '@/modules/asistente/components/asistente-dock'
 import { TECLA_ATAJO } from '@/modules/asistente/constants'
 import { useAsistenteDisponible } from '@/modules/asistente/hooks/use-asistente-disponible'
 import { useAsistenteStore } from '@/modules/asistente/store'
+import { CampanitaNotificaciones } from '@/modules/notificaciones/components/campanita-notificaciones'
+import { esRolAdministrativo } from '@/modules/notificaciones/types'
 import { PERMISO_ASISTENTE_LEER, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 import { useUiStore } from '@/store/ui-store'
@@ -50,6 +52,7 @@ export function AppLayout() {
   const sidebarOpen = useUiStore((state) => state.sidebarOpen)
   const setSidebarOpen = useUiStore((state) => state.setSidebarOpen)
   const rolActivo = useAuthStore((state) => state.rolActivo)
+  const usuario = useAuthStore((state) => state.usuario)
   const permisos = useAuthStore(permisosActivos)
   const location = useLocation()
   const asistenteAbierto = useAsistenteStore((state) => state.abierto)
@@ -219,29 +222,37 @@ export function AppLayout() {
               </Button>
             )}
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-(--topbar-texto) hover:bg-(--topbar-hover) hover:text-(--topbar-texto-hover)"
-                  aria-label="Notificaciones"
-                >
-                  <BellIcon className="size-5" />
-                  {hayNotificacionesSinLeer && (
-                    <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-advertencia" />
-                  )}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-80">
-                <Empty className="p-4">
-                  <EmptyMedia variant="neutral">
-                    <BellIcon />
-                  </EmptyMedia>
-                  <EmptyTitle>No hay notificaciones</EmptyTitle>
-                  <EmptyDescription>Todavía no hay avisos para mostrar acá.</EmptyDescription>
-                </Empty>
-              </PopoverContent>
-            </Popover>
+            {esRolAdministrativo(rolActivo) && usuario && rolActivo ? (
+              <CampanitaNotificaciones
+                key={`${usuario.id}:${rolActivo}`}
+                usuarioId={usuario.id}
+                rolActivo={rolActivo}
+              />
+            ) : (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-(--topbar-texto) hover:bg-(--topbar-hover) hover:text-(--topbar-texto-hover)"
+                    aria-label="Notificaciones"
+                  >
+                    <BellIcon className="size-5" />
+                    {hayNotificacionesSinLeer && (
+                      <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-advertencia" />
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-80">
+                  <Empty className="p-4">
+                    <EmptyMedia variant="neutral">
+                      <BellIcon />
+                    </EmptyMedia>
+                    <EmptyTitle>No hay notificaciones</EmptyTitle>
+                    <EmptyDescription>Todavía no hay avisos para mostrar acá.</EmptyDescription>
+                  </Empty>
+                </PopoverContent>
+              </Popover>
+            )}
 
             <MenuCuenta className="hover:bg-(--topbar-hover)" />
           </header>

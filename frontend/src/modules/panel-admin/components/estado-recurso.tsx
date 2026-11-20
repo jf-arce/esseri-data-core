@@ -30,6 +30,8 @@ export function Estado<T>({
         {recurso.error}
       </p>
     )
-  if (vacio) return <p className="py-5 text-sm text-texto-2">{mensajeVacio}</p>
+  // `mensajeVacio` puede ser un bloque (icono + texto): no se envuelve en `<p>` para no anidar
+  // elementos de bloque dentro de un párrafo.
+  if (vacio) return <div className="py-5 text-sm text-texto-2">{mensajeVacio}</div>
   return children
 }

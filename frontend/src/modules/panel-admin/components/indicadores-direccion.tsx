@@ -2,11 +2,13 @@ import type { ReactNode } from 'react'
 import {
   CircleDollarSignIcon,
   ClipboardListIcon,
+  ListChecksIcon,
   UserRoundCheckIcon,
   UserRoundXIcon,
   type LucideIcon,
 } from 'lucide-react'
 import { Link } from 'react-router'
+import { RUTA_TAREAS } from '@/modules/workflows/constants'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { StatTile } from '@/components/stat-tile'
 import { formatearMoneda } from '@/modules/facturacion/utils'
@@ -21,9 +23,10 @@ export interface AccesoIndicadores {
   facturacion: boolean
   academico: boolean
   compras: boolean
+  tareas: boolean
 }
 
-type Clave = 'deuda' | 'alumnos' | 'inasistencias' | 'solicitudes'
+type Clave = 'deuda' | 'alumnos' | 'inasistencias' | 'solicitudes' | 'tareas'
 
 interface Tarjeta {
   clave: Clave
@@ -41,13 +44,14 @@ interface Tarjeta {
 
 const DIAS_DEMORA = 7
 // El orden es la prioridad para elegir el indicador principal: el primero habilitado es el hero.
-const ORDEN: Clave[] = ['deuda', 'alumnos', 'inasistencias', 'solicitudes']
+const ORDEN: Clave[] = ['deuda', 'alumnos', 'inasistencias', 'solicitudes', 'tareas']
 // El hero ocupa dos columnas: una tarjeta más de columnas que de indicadores.
 const COLUMNAS_XL = {
   1: 'xl:grid-cols-2',
   2: 'xl:grid-cols-3',
   3: 'xl:grid-cols-4',
   4: 'xl:grid-cols-5',
+  5: 'xl:grid-cols-6',
 }
 
 function Desglose({ items }: { items: { etiqueta: string; valor: string }[] }) {
@@ -127,11 +131,11 @@ function construirTarjetas(
     deuda: acceso.facturacion
       ? {
           clave: 'deuda',
-          label: 'Deuda vencida',
-          aria: 'Ver facturas y deuda vencida',
+          label: 'Deuda pendiente',
+          aria: 'Ver facturas y deuda pendiente',
           to: '/facturacion',
           icon: CircleDollarSignIcon,
-          value: formatearMoneda(datos.deuda_vencida_total),
+          value: formatearMoneda(datos.deuda_pendiente_total),
           iconClassName: 'bg-sup-facturacion text-mod-facturacion',
           vistaPrevia: filasDeuda.length ? (
             <VistaPrevia titulo="Mayores deudas vencidas" filas={filasDeuda} />
@@ -140,8 +144,8 @@ function construirTarjetas(
             <Desglose
               items={[
                 {
-                  etiqueta: 'Total pendiente',
-                  valor: formatearMoneda(datos.deuda_pendiente_total),
+                  etiqueta: 'Vencida',
+                  valor: formatearMoneda(datos.deuda_vencida_total),
                 },
                 { etiqueta: 'Familias en mora', valor: String(datos.familias_en_mora) },
               ]}
@@ -157,7 +161,7 @@ function construirTarjetas(
           to: '/familias-alumnos/alumnos',
           icon: UserRoundCheckIcon,
           value: datos.alumnos_activos,
-          note: `+${datos.altas_mes} ${datos.altas_mes === 1 ? 'alta' : 'altas'} · ${datos.bajas_mes} ${datos.bajas_mes === 1 ? 'baja' : 'bajas'} este mes`,
+          note: `+${datos.altas_mes} ${datos.altas_mes === 1 ? 'nueva' : 'nuevas'} · ${datos.bajas_mes} ${datos.bajas_mes === 1 ? 'baja' : 'bajas'} este mes`,
         }
       : null,
     inasistencias: acceso.academico
@@ -194,6 +198,18 @@ function construirTarjetas(
               : `La más antigua, ${diasPendiente === 0 ? 'de hoy' : antiguedad(diasPendiente)}`,
         }
       : null,
+    tareas: acceso.tareas
+      ? {
+          clave: 'tareas',
+          label: 'Tareas pendientes',
+          aria: 'Ver tareas pendientes y escaladas',
+          to: RUTA_TAREAS,
+          icon: ListChecksIcon,
+          value: datos.tareas_pendientes + datos.tareas_escaladas,
+          iconClassName: 'bg-sup-workflows text-mod-workflows',
+          note: `${datos.tareas_pendientes} pendientes · ${datos.tareas_escaladas} escaladas`,
+        }
+      : null,
   }
   const resto = ORDEN.filter((clave) => clave !== hero)
   return [hero, ...resto].flatMap((clave) => todas[clave] ?? [])
@@ -221,11 +237,13 @@ export function IndicadoresDireccion({
         ? acceso.alumnos
         : clave === 'inasistencias'
           ? acceso.academico
-          : acceso.compras,
+          : clave === 'solicitudes'
+            ? acceso.compras
+            : acceso.tareas,
   )
   if (!hero) return null
   const tarjetas = construirTarjetas(datos, acceso, hero, ahora, contexto)
-  const columnas = COLUMNAS_XL[Math.min(tarjetas.length, 4) as 1 | 2 | 3 | 4]
+  const columnas = COLUMNAS_XL[Math.min(tarjetas.length, 5) as 1 | 2 | 3 | 4 | 5]
 
   return (
     <section

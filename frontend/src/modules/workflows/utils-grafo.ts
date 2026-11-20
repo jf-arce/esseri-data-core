@@ -617,6 +617,7 @@ export interface ErroresFlujo {
 export const AVISO_SIN_CONECTAR = 'No se ejecuta hasta que lo conectes'
 
 const CONFIG_OBLIGATORIA: Partial<Record<TipoAccion, readonly [string, string][]>> = {
+  publicar_comunicacion: [[CLAVE_CONFIG.canal, 'Elegí un canal de publicación']],
   crear_tarea: [[CLAVE_CONFIG.titulo, 'Falta el título de la tarea']],
   generar_cargo: [[CLAVE_CONFIG.conceptoCobroId, 'Falta el concepto de cobro']],
   cambiar_estado: [[CLAVE_CONFIG.estadoNuevo, 'Falta el estado nuevo']],
@@ -652,7 +653,12 @@ function errorDeAccion(nodo: NodoEditor, tiposAccion: TipoAccionCatalogo[]): str
   if (nodo.tipoAccion === '') return 'Elegí qué hace esta acción'
   const catalogo = tiposAccion.find((tipo) => tipo.tipo_accion === nodo.tipoAccion)
   if (catalogo && !catalogo.implementada) return 'Esta acción todavía no está disponible'
-  if (nodo.tipoAccion === 'notificar' && nodo.plantillaId === '') return 'Falta la plantilla'
+  if (
+    (nodo.tipoAccion === 'notificar' || nodo.tipoAccion === 'publicar_comunicacion') &&
+    nodo.plantillaId === ''
+  ) {
+    return 'Falta la plantilla'
+  }
   for (const [clave, mensaje] of CONFIG_OBLIGATORIA[nodo.tipoAccion] ?? []) {
     if ((nodo.config[clave] ?? '').trim() === '') return mensaje
   }
@@ -843,11 +849,17 @@ export function rehacer<T>(historial: Historial<T>): Historial<T> {
   }
 }
 
-/** Dominios en los que la paleta agrupa las 15 acciones. */
+/** Dominios en los que la paleta agrupa las acciones. */
 export const GRUPOS_ACCION: readonly { titulo: string; acciones: readonly TipoAccion[] }[] = [
   {
     titulo: 'Comunicación',
-    acciones: ['notificar', 'alerta_interna', 'generar_recordatorio', 'generar_comunicacion'],
+    acciones: [
+      'notificar',
+      'alerta_interna',
+      'generar_recordatorio',
+      'generar_comunicacion',
+      'publicar_comunicacion',
+    ],
   },
   { titulo: 'Tareas', acciones: ['crear_tarea', 'escalar_caso'] },
   {

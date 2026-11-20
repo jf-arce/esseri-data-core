@@ -116,6 +116,10 @@ class ConfigGenerarComunicacion(_ConfigDestinatario):
     """Stub de Canu: sin `enlace`, para no heredar el botón de `notificar`."""
 
 
+class ConfigPublicarComunicacion(_ConfigAccion):
+    canal: Literal["portal", "email", "ambos"]
+
+
 class ConfigAlertaInterna(_ConfigAccion):
     mensaje: str | None = Field(default=None, min_length=1, max_length=500)
     enlace: EnlaceMail | None = None
@@ -174,6 +178,7 @@ CONFIG_POR_ACCION: dict[str, type[_ConfigAccion]] = {
     "crear_registro_relacionado": ConfigCrearRegistroRelacionado,
     "generar_orden_compra": ConfigSinParametros,
     "generar_comunicacion": ConfigGenerarComunicacion,
+    "publicar_comunicacion": ConfigPublicarComunicacion,
 }
 
 

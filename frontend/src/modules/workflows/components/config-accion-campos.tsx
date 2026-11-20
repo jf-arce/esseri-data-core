@@ -169,6 +169,19 @@ const FORMULARIOS: Record<TipoAccion, (props: FormularioProps) => ReactNode> = {
     </>
   ),
   generar_comunicacion: destinatario,
+  publicar_comunicacion: (p) => (
+    <CampoSelect
+      {...p}
+      nombre={CLAVE_CONFIG.canal}
+      etiqueta="Canal de publicación"
+      opciones={[
+        { value: 'portal', label: 'Portal' },
+        { value: 'email', label: 'Email' },
+        { value: 'ambos', label: 'Ambos' },
+      ]}
+      descripcion="Solo se publica para la familia del responsable económico de la factura."
+    />
+  ),
   generar_recordatorio: (p) => (
     <>
       {destinatario(p)}

@@ -49,7 +49,7 @@ def _usuario(email: str, persona_id: uuid.UUID | None = None, estado: str = "act
 
 def crear_escenario(db_session) -> dict[str, object]:
     rol_familia = Rol(nombre="familia")
-    rol_administracion = Rol(nombre="administración de notificaciones")
+    rol_administracion = Rol(nombre="administración")
     rol_academico = Rol(nombre="gestión académica de notificaciones")
     db_session.add_all([rol_familia, rol_administracion, rol_academico])
     db_session.flush()
@@ -133,6 +133,10 @@ def crear_escenario(db_session) -> dict[str, object]:
     db_session.flush()
     for permiso in permisos:
         db_session.add(RolPermiso(rol_id=rol_academico.id, permiso_id=permiso.id))
+    justificaciones = next(
+        permiso for permiso in permisos if permiso.tipo_informacion == "justificaciones"
+    )
+    db_session.add(RolPermiso(rol_id=rol_administracion.id, permiso_id=justificaciones.id))
 
     nivel = NivelEducativo(nombre="Primario")
     db_session.add(nivel)
