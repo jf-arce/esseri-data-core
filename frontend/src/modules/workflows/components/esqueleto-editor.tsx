@@ -149,13 +149,12 @@ export function EsqueletoEditor({ inicioPulso }: { inicioPulso?: RefObject<numbe
       </span>
       <BarraEditor
         titulo={titulo}
-        mostrarTituloEnMovil
         nombre=""
         activo
         soloLectura={false}
         guardando={false}
         cargando
-        puedeDuplicar={false}
+        puedeDuplicar={reglaId !== undefined}
         onCambiarNombre={() => undefined}
         onCambiarActivo={() => undefined}
         onDuplicar={() => undefined}

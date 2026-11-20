@@ -17,7 +17,6 @@ import { LIMITE_NOMBRE_REGLA, RUTA_REGLAS } from '@/modules/workflows/constants'
 interface BarraEditorProps {
   /** Último tramo de las migas: "Nueva regla", "Editar regla", etc. */
   titulo: string
-  mostrarTituloEnMovil?: boolean
   nombre: string
   activo: boolean
   soloLectura: boolean
@@ -36,7 +35,6 @@ interface BarraEditorProps {
  * cancelar, guardar). Lo demás flota sobre el lienzo. */
 export function BarraEditor({
   titulo,
-  mostrarTituloEnMovil = false,
   nombre,
   activo,
   soloLectura,
@@ -50,18 +48,13 @@ export function BarraEditor({
 }: BarraEditorProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-      <div
-        className={`flex min-w-0 flex-1 items-center gap-2 ${mostrarTituloEnMovil ? 'basis-full sm:basis-auto' : ''}`}
-      >
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <BotonIcono etiqueta="Volver a las reglas" asChild>
           <Link to={RUTA_REGLAS}>
             <ArrowLeftIcon />
           </Link>
         </BotonIcono>
-        <nav
-          aria-label="Ubicación"
-          className={`shrink-0 text-sm text-texto-2 ${mostrarTituloEnMovil ? '' : 'hidden sm:block'}`}
-        >
+        <nav aria-label="Ubicación" className="hidden shrink-0 text-sm text-texto-2 sm:block">
           <Link to={RUTA_REGLAS} className="hidden hover:text-texto sm:inline">
             Workflows
           </Link>
@@ -86,7 +79,7 @@ export function BarraEditor({
           />
         )}
       </div>
-      <div className={`flex items-center gap-3 ${mostrarTituloEnMovil ? 'flex-wrap' : ''}`}>
+      <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
           <Switch
             id="regla-activa"

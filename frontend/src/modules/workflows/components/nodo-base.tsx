@@ -132,6 +132,8 @@ interface TarjetaNodoProps {
   superficie: string
   acento: string
   contorno: string
+  /** Anillo fino del color del tipo de nodo: lo separa del fondo del canvas. */
+  anillo: string
   seleccionado: boolean
   incompleto?: string
   /** Aviso que no impide guardar (p. ej. bloque sin conectar). */
@@ -150,6 +152,7 @@ export function TarjetaNodo({
   superficie,
   acento,
   contorno,
+  anillo,
   seleccionado,
   incompleto,
   aviso,
@@ -164,10 +167,11 @@ export function TarjetaNodo({
       onDoubleClick={acciones?.onEditar}
       style={{ width: ANCHO_NODO }}
       className={cn(
-        'nodo-entrar relative rounded-card-sm p-3.5 break-words [overflow-wrap:anywhere] shadow-card transition-opacity duration-200',
+        'nodo-entrar relative rounded-card-sm p-3.5 break-words [overflow-wrap:anywhere] shadow-card ring-1 transition-opacity duration-200',
         superficie,
-        seleccionado && cn('outline-2 outline-offset-2', contorno),
-        incompleto && !seleccionado && 'outline-2 outline-offset-2 outline-error',
+        anillo,
+        seleccionado && cn('outline-2 outline-offset-0', contorno),
+        incompleto && !seleccionado && 'outline-2 outline-offset-0 outline-error',
         atenuado && 'opacity-40',
         simulacion?.visible &&
           simulacion.estado !== 'no_alcanzado' && [

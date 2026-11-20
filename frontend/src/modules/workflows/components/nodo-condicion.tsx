@@ -41,6 +41,7 @@ export function NodoCondicion({ data }: NodeProps<NodoCondicionFlujo>) {
       superficie="bg-advertencia-suave min-h-[128px]"
       acento="text-advertencia"
       contorno="outline-advertencia"
+      anillo="ring-advertencia/45"
       seleccionado={data.seleccionado}
       incompleto={data.incompleto}
       acciones={data.acciones}

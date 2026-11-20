@@ -81,13 +81,15 @@ function CeldaEsqueleto({ columna, fila }: { columna: ColumnaEsqueleto; fila: nu
 interface TableSkeletonProps {
   columnas: ColumnaEsqueleto[]
   filas?: number
+  /** Clase de las filas, para igualar el alto de las filas reales. */
+  claseFila?: string
 }
 
-function TableSkeleton({ columnas, filas = 6 }: TableSkeletonProps) {
+function TableSkeleton({ columnas, filas = 6, claseFila }: TableSkeletonProps) {
   return (
     <>
       {Array.from({ length: filas }).map((_, i) => (
-        <TableRow key={i}>
+        <TableRow key={i} className={claseFila}>
           {columnas.map((columna, j) => (
             <CeldaEsqueleto key={j} columna={columna} fila={i} />
           ))}

@@ -527,6 +527,16 @@ function LienzoFlujo(props: CanvasFlujoProps) {
     props.onSoltarBloque(que as QueAgregar, posicion)
   }
 
+  /** Selecciona el nodo apenas se lo aprieta (también el disparador, que no se arrastra). Los
+   * botones y los puntos de conexión del nodo conservan su comportamiento. */
+  function alApretarNodo(evento: React.PointerEvent<HTMLDivElement>) {
+    if (!(evento.target instanceof Element)) return
+    if (evento.target.closest('button, a, [role="menuitem"], .react-flow__handle')) return
+    const nodo = evento.target.closest('.react-flow__node')
+    const id = nodo?.getAttribute('data-id')
+    if (id) props.onSeleccionar(id)
+  }
+
   return (
     <div
       ref={contenedor}
@@ -536,6 +546,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
         evento.dataTransfer.dropEffect = 'move'
       }}
       onDrop={alSoltar}
+      onPointerDownCapture={alApretarNodo}
     >
       <ReactFlow<NodoFlujo, TipoAristaFlujo>
         nodes={nodosVisibles}
@@ -559,7 +570,10 @@ function LienzoFlujo(props: CanvasFlujoProps) {
           props.onSeleccionar(null)
         }}
         onMoveStart={() => setSoltada(null)}
-        onNodeDragStart={() => setSoltada(null)}
+        onNodeDragStart={(_, nodo) => {
+          setSoltada(null)
+          props.onSeleccionar(nodo.id)
+        }}
         onPaneContextMenu={alMenuContextual}
         onNodeDragStop={(_, __, movidos) => alSoltarNodo(movidos)}
         nodesConnectable={!soloLectura}
@@ -571,7 +585,12 @@ function LienzoFlujo(props: CanvasFlujoProps) {
         proOptions={{ hideAttribution: true }}
         aria-label="Lienzo del flujo de la regla"
       >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} color="var(--borde)" />
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={20}
+          size={1.6}
+          color="color-mix(in srgb, var(--borde) 55%, var(--texto-3))"
+        />
         <ControlesVista />
         <Panel
           position="top-left"
@@ -592,7 +611,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
         {!soloLectura && (
           <Panel
             position="bottom-left"
-            className="ml-16! flex items-center overflow-hidden rounded-lg border border-borde bg-superficie shadow-card"
+            className="ml-16! flex items-center overflow-hidden rounded-lg border border-borde bg-superficie shadow-(--sombra-flotante)"
           >
             <TooltipProvider>
               <div

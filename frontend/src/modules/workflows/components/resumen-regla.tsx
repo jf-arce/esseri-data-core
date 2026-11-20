@@ -45,16 +45,9 @@ export function ResumenRegla({ borrador, tiposEvento }: ResumenReglaProps) {
         <button
           type="button"
           aria-label="Resumen de la regla"
-          className="relative flex size-9 cursor-default items-center justify-center rounded-lg border border-borde bg-superficie text-mod-workflows shadow-card hover:bg-fila-hover"
+          className="relative flex size-9 cursor-default items-center justify-center rounded-lg border border-borde bg-superficie text-mod-workflows shadow-(--sombra-flotante) hover:bg-fila-hover"
         >
           <ListChecksIcon className="size-4" aria-hidden="true" />
-          {haySinCondicion(borrador) && (
-            <span
-              role="img"
-              aria-label="Hay acciones sin condición"
-              className="absolute -top-1 -right-1 size-2.5 rounded-full bg-advertencia"
-            />
-          )}
         </button>
       </HoverCardTrigger>
       <HoverCardContent
