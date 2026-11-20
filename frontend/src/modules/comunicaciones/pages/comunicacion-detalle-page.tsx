@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AdjuntosComunicacion } from '../components/adjuntos-comunicacion'
+import { EventoComunicacionDetalle } from '../components/evento-comunicacion-detalle'
+import { MensajeComunicacion } from '../components/mensaje-comunicacion'
 import { EntregaComunicacion } from '../components/entrega-comunicacion'
 import { listarComunicaciones } from '../services/listar-comunicaciones'
 import { obtenerComunicacion } from '../services/obtener-comunicacion'
@@ -151,9 +153,11 @@ export function ComunicacionDetallePage({
     )
   const mensaje = datos && (
     <>
-      <div className="text-sm leading-relaxed whitespace-pre-wrap break-words text-texto">
-        {datos.cuerpo}
-      </div>
+      <MensajeComunicacion
+        texto={datos.cuerpo}
+        cuerpoRico={datos.cuerpo_rico}
+        className="text-sm leading-relaxed text-texto"
+      />
       {familia && canal === 'email' && (
         <p role="status" className="text-sm text-texto-2">
           Esta comunicación se envía por email y no aparece en la bandeja del portal.
@@ -193,6 +197,8 @@ export function ComunicacionDetallePage({
     fechaPublicacion && !Number.isNaN(fechaPublicacion.getTime())
       ? `${FORMATO_FECHA_LARGA.format(fechaPublicacion)}, ${FORMATO_HORA_LARGA.format(fechaPublicacion)}`
       : 'Sin publicar'
+  const eventoDetalle =
+    familia && datos?.evento?.fecha ? { ...datos.evento, fecha: datos.evento.fecha } : null
   if (familia) {
     return (
       <section
@@ -283,9 +289,18 @@ export function ComunicacionDetallePage({
                 </div>
 
                 <div className="mt-8 border-t border-[#EEE8F4]" />
-                <div className="flex flex-col gap-4 py-8 text-[16px] leading-8 break-words whitespace-pre-wrap text-[#3A2E4A] sm:text-[17px]">
-                  {datos.cuerpo}
-                </div>
+                <MensajeComunicacion
+                  texto={datos.cuerpo}
+                  cuerpoRico={datos.cuerpo_rico}
+                  className="py-8 text-[16px] leading-8 text-[#3A2E4A] sm:text-[17px]"
+                />
+
+                {eventoDetalle && (
+                  <EventoComunicacionDetalle
+                    evento={eventoDetalle}
+                    destinoCalendario="/familia/calendario"
+                  />
+                )}
 
                 {canal === 'email' && (
                   <p

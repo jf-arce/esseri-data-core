@@ -1,3 +1,5 @@
+import type { JSONContent } from '@tiptap/react'
+
 export type Canal = 'portal' | 'email' | 'ambos'
 export type TipoComunicacion = 'institucional' | 'curso' | 'administrativa' | 'otro'
 
@@ -78,19 +80,36 @@ export interface Audiencia {
   ids: string[]
   ciclo_lectivo?: string | null
 }
+export interface EventoBorrador {
+  titulo: string
+  fecha: string | null
+  hora_inicio: string | null
+  hora_fin: string | null
+  lugar: string
+  descripcion: string
+}
+
+export interface EventoCalendario extends EventoBorrador {
+  fecha: string
+  comunicacion_id: string
+}
+
 export interface Borrador {
   clave: string
   asunto: string
   cuerpo: string
+  cuerpo_rico?: JSONContent | null
   audiencia: Audiencia
   canal?: Canal
   tipo?: TipoComunicacion
+  evento?: EventoBorrador | null
 }
 export interface Comunicacion {
   id: string
   clave: string | null
   asunto: string
   cuerpo: string
+  cuerpo_rico?: JSONContent | null
   tipo: TipoComunicacion
   emisor: string | null
   estado: 'borrador' | 'publicada'
@@ -104,6 +123,7 @@ export interface Comunicacion {
   leida_at: string | null
   canal: Canal
   adjuntos?: Adjunto[]
+  evento?: EventoBorrador | null
 }
 export interface Listado {
   items: Comunicacion[]

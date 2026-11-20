@@ -3,7 +3,7 @@ import { PermisoRoute } from '@/router/permiso-route'
 import { PERMISO_COMUNICACIONES_CREAR, PERMISO_COMUNICACIONES_LEER } from '@/modules/auth/constants'
 import { ComunicacionesPage } from './pages/comunicaciones-page'
 import { ComunicacionDetallePage } from './pages/comunicacion-detalle-page'
-import { ComunicacionFormPage } from './pages/comunicacion-form-page'
+import { ComunicacionFormDiferido } from './pages/comunicacion-form-diferido'
 
 export const comunicacionesRoutes: RouteObject[] = [
   {
@@ -16,8 +16,8 @@ export const comunicacionesRoutes: RouteObject[] = [
           <PermisoRoute codigo={PERMISO_COMUNICACIONES_CREAR} label="Comunicaciones · Crear" />
         ),
         children: [
-          { path: 'comunicaciones/nueva', element: <ComunicacionFormPage /> },
-          { path: 'comunicaciones/:id/editar', element: <ComunicacionFormPage /> },
+          { path: 'comunicaciones/nueva', element: <ComunicacionFormDiferido /> },
+          { path: 'comunicaciones/:id/editar', element: <ComunicacionFormDiferido /> },
         ],
       },
     ],
@@ -25,9 +25,9 @@ export const comunicacionesRoutes: RouteObject[] = [
 ]
 export const comunicacionesDocenteRoutes: RouteObject[] = [
   { path: 'docente/comunicaciones', element: <ComunicacionesPage docente /> },
-  { path: 'docente/comunicaciones/nueva', element: <ComunicacionFormPage docente /> },
+  { path: 'docente/comunicaciones/nueva', element: <ComunicacionFormDiferido docente /> },
   { path: 'docente/comunicaciones/:id', element: <ComunicacionDetallePage docente /> },
-  { path: 'docente/comunicaciones/:id/editar', element: <ComunicacionFormPage docente /> },
+  { path: 'docente/comunicaciones/:id/editar', element: <ComunicacionFormDiferido docente /> },
 ]
 
 export const comunicacionesFamiliaRoutes: RouteObject[] = [

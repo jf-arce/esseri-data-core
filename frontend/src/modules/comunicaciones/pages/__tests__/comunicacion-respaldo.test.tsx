@@ -143,12 +143,12 @@ function copia(datos: Partial<RespaldoBorrador['datos']> = {}, pendiente?: boole
 it('never lets a synchronized local cache hide newer server content', async () => {
   copia()
   editarBorrador()
-  expect(await screen.findByLabelText('Mensaje')).toHaveValue('Contenido del servidor')
+  expect(await screen.findByLabelText('Mensaje')).toHaveTextContent('Contenido del servidor')
   expect(leerRespaldos('user-a', false)).toHaveLength(0)
 })
 
 it('still prefers a local copy with unsynchronized edits', async () => {
   copia({ cuerpo: 'Texto local sin sincronizar' }, true)
   editarBorrador()
-  expect(await screen.findByLabelText('Mensaje')).toHaveValue('Texto local sin sincronizar')
+  expect(await screen.findByLabelText('Mensaje')).toHaveTextContent('Texto local sin sincronizar')
 })

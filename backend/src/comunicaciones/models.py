@@ -26,7 +26,9 @@ class Comunicacion(Base):
     autor_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("usuario.id"))
     asunto: Mapped[str] = mapped_column(sa.String(200))
     cuerpo: Mapped[str] = mapped_column(sa.Text)
+    cuerpo_rico: Mapped[dict | None] = mapped_column(sa.JSON(none_as_null=True))
     audiencia: Mapped[dict] = mapped_column(sa.JSON)
+    evento: Mapped[dict | None] = mapped_column(sa.JSON(none_as_null=True))
     tipo: Mapped[str] = mapped_column(
         sa.String, default="institucional", server_default="institucional", index=True
     )

@@ -901,7 +901,7 @@ export function ComunicacionesPage({
                       className="font-medium text-violeta hover:text-violeta-esseri focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
                       to={c.estado === 'borrador' ? `${base}/${c.id}/editar` : `${base}/${c.id}`}
                     >
-                      {c.asunto}
+                      {c.estado === 'borrador' && !c.asunto.trim() ? 'Sin asunto' : c.asunto}
                     </Link>
                   </TableCell>
                   <TableCell>{ETIQUETAS_TIPO[c.tipo]}</TableCell>

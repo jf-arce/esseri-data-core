@@ -104,6 +104,37 @@ it('returns from family communications to the family home', async () => {
   expect(screen.getByRole('heading', { name: 'Family home' })).toBeInTheDocument()
 })
 
+it('shows the linked event and the calendar link to the family', async () => {
+  const conEvento = {
+    ...publicadaDetalle,
+    evento: {
+      titulo: 'Reunión de padres',
+      fecha: '2026-11-27',
+      hora_inicio: '18:00',
+      hora_fin: '19:30',
+      lugar: 'Biblioteca',
+      descripcion: '',
+    },
+  }
+  api.mockImplementation(async (path) => {
+    if (path === '/comunicaciones/familia/c1') return conEvento
+    if (path.includes('/lectura')) return conEvento
+    if (path.includes('?')) return { items: [conEvento], total: 1, pagina: 1, total_paginas: 1 }
+    return conEvento
+  })
+
+  renderDetalleFamilia()
+
+  expect(await screen.findByText(/viernes 27 de noviembre/)).toBeInTheDocument()
+  expect(screen.getByText(/18:00 a 19:30/)).toBeInTheDocument()
+  expect(screen.getByText(/Biblioteca/)).toBeInTheDocument()
+  expect(screen.getByText('Evento en el calendario')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: /Ver en calendario/ })).toHaveAttribute(
+    'href',
+    '/familia/calendario',
+  )
+})
+
 it('links the steps with a line that fills instead of a step counter', async () => {
   render(
     <MemoryRouter>
@@ -142,13 +173,19 @@ it.each([
       <ComunicacionFormPage />
     </MemoryRouter>,
   )
-  expect(screen.queryByRole('radio', { name: 'Curso' })).not.toBeInTheDocument()
-  await userEvent.click(screen.getByRole('radio', { name: label }))
+  const selector = () => screen.getByRole('combobox', { name: 'Tipo de comunicación' })
+  selector().focus()
+  await userEvent.keyboard('{ArrowDown}')
+  expect(screen.queryByRole('option', { name: /^Curso/ })).not.toBeInTheDocument()
+  expect(screen.getByText(/Novedades, actividades, eventos/)).toBeVisible()
+  await userEvent.click(screen.getByRole('option', { name: new RegExp(`^${label}`) }))
+  expect(selector()).toHaveTextContent(new RegExp(`^${label}$`))
+  expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   await userEvent.type(screen.getByLabelText('Asunto'), 'Aviso')
   await userEvent.type(screen.getByLabelText('Mensaje'), 'Contenido')
   await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
   await userEvent.click(screen.getByRole('button', { name: 'Anterior' }))
-  expect(screen.getByRole('radio', { name: label })).toBeChecked()
+  expect(selector()).toHaveTextContent(new RegExp(`^${label}$`))
   await userEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }))
   await screen.findByText('Borrador guardado')
   expect(api).toHaveBeenCalledWith(
@@ -512,7 +549,12 @@ it('changing an edited teacher draft cycle preserves unsaved content and reloads
   )
   await screen.findByDisplayValue('Reunión')
   await userEvent.type(screen.getByLabelText('Asunto'), ' updated')
-  await userEvent.type(screen.getByLabelText('Mensaje'), ' updated')
+  const mensaje = screen.getByRole('textbox', { name: 'Mensaje' })
+  mensaje.focus()
+  const seleccion = window.getSelection()
+  seleccion?.selectAllChildren(mensaje)
+  seleccion?.collapseToEnd()
+  await userEvent.type(mensaje, ' updated', { skipClick: true })
   await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
   screen.getByRole('combobox', { name: 'Ciclo lectivo' }).focus()
   await userEvent.keyboard('[ArrowDown]')
@@ -574,8 +616,15 @@ it('persists the email-only channel and never claims portal availability', async
   )
   await userEvent.type(screen.getByLabelText('Asunto'), 'Aviso')
   await userEvent.type(screen.getByLabelText('Mensaje'), 'Solo por correo')
-  await userEvent.click(screen.getByRole('radio', { name: /Solo email/ }))
+  const canal = screen.getByRole('combobox', { name: 'Canal de envío' })
+  expect(canal).toHaveTextContent(/^Solo portal$/)
+  canal.focus()
+  await userEvent.keyboard('{ArrowDown}')
   expect(screen.getByText(/No aparece en la bandeja del portal/)).toBeInTheDocument()
+  expect(screen.getByRole('option', { name: /^Portal y email/ })).toBeVisible()
+  await userEvent.click(screen.getByRole('option', { name: /^Solo email/ }))
+  expect(canal).toHaveTextContent(/^Solo email$/)
+  expect(screen.queryByText(/No aparece en la bandeja del portal/)).not.toBeInTheDocument()
   await userEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }))
   await screen.findByText('Borrador guardado')
   const guardado = api.mock.calls.find(
@@ -591,6 +640,46 @@ it('persists the email-only channel and never claims portal availability', async
   ).toBeInTheDocument()
   expect(screen.getByText(/quedó en cola para 2 responsables/)).toBeInTheDocument()
   expect(screen.queryByText(/Disponible en el portal/)).toBeNull()
+})
+
+it('keeps a collapsed event enabled and saves its fields, then clears it when unchecked', async () => {
+  const user = userEvent.setup()
+  render(
+    <MemoryRouter>
+      <ComunicacionFormPage />
+    </MemoryRouter>,
+  )
+  const checkbox = screen.getByRole('checkbox', {
+    name: 'Agregar evento al calendario del Portal Familia',
+  })
+  expect(checkbox).not.toBeChecked()
+  expect(screen.queryByLabelText('Título del evento')).not.toBeInTheDocument()
+  await user.click(checkbox)
+  await user.type(screen.getByLabelText('Título del evento'), 'Encuentro')
+  await user.click(screen.getByRole('button', { name: 'Contraer campos del evento' }))
+  expect(checkbox).toBeChecked()
+  expect(screen.queryByLabelText('Título del evento')).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Expandir campos del evento' }))
+  expect(screen.getByLabelText('Título del evento')).toHaveValue('Encuentro')
+  await user.type(screen.getByLabelText('Asunto'), 'Aviso')
+  await user.type(screen.getByLabelText('Mensaje'), 'Contenido')
+  await user.click(screen.getByRole('button', { name: 'Siguiente' }))
+  expect(screen.getByText('Completá el título y la fecha del evento.')).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Guardar borrador' }))
+  await screen.findByText('Borrador guardado')
+  expect(api).toHaveBeenCalledWith(
+    '/comunicaciones',
+    expect.objectContaining({ body: expect.stringContaining('"titulo":"Encuentro"') }),
+  )
+  await user.click(checkbox)
+  expect(screen.queryByLabelText('Título del evento')).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Guardar borrador' }))
+  await waitFor(() =>
+    expect(api).toHaveBeenCalledWith(
+      '/comunicaciones/c1',
+      expect.objectContaining({ body: expect.stringContaining('"evento":null') }),
+    ),
+  )
 })
 
 it('automatically saves before uploading and blocks publishing while a file is quarantined', async () => {

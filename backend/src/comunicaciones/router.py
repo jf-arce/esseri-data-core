@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -18,6 +19,7 @@ from src.comunicaciones.schemas import (
     BorradorEdicionInput,
     BorradorInput,
     ComunicacionRead,
+    EventoCalendario,
     Listado,
     ListadoDestinatarios,
     ListadoEntrega,
@@ -88,6 +90,20 @@ def bandeja(
         tamanio=tamanio,
         orden=orden,
     )
+
+
+@router.get("/familia/eventos")
+def eventos_familia(
+    db: DbSession,
+    usuario: Leer,
+    rol: RolActivo,
+    response: Response,
+    alumno_id: uuid.UUID,
+    desde: date,
+    hasta: date,
+) -> list[EventoCalendario]:
+    familiar(rol, response)
+    return service.eventos_familia(db, usuario, alumno_id, desde, hasta)
 
 
 @router.get("/familia/{id}")

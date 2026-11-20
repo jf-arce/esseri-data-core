@@ -180,7 +180,7 @@ def _armar_grilla(
 
     inicio = min(f.inicio for f in franjas) // PASO_MINUTOS * PASO_MINUTOS
     fin = -(-max(f.fin for f in franjas) // PASO_MINUTOS) * PASO_MINUTOS
-    dias = list(range(1, 8 if any(f.dia == 7 for f in franjas) else 7))
+    dias = [*range(1, 6), *sorted({f.dia for f in franjas if f.dia > 5})]
     filas = (fin - inicio) // PASO_MINUTOS
     ultima_fila = PRIMERA_FILA + filas - 1
 
