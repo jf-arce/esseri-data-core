@@ -40,7 +40,9 @@ permiso:
   - rol: administración
     modulo: Asistente
     acciones: [leer]
-  # administrador del sistema — CRUD completo en todos los módulos
+  # administrador del sistema — CRUD completo en todos los módulos.
+  # El permiso sin `tipo_informacion` también satisface los pedidos tipados (ver
+  # `autorizacion_service._condicion_codigo`), así que no hace falta repetir cada variante.
   - rol: administrador del sistema
     modulo: Comunicaciones
     acciones: [crear, leer, actualizar]
@@ -53,12 +55,6 @@ permiso:
   - rol: administrador del sistema
     modulo: Académico
     acciones: [crear, leer, actualizar, eliminar, exportar]
-  # El "todo" del administrador del sistema se declara sin tipo; la bandeja de justificaciones
-  # usa un permiso tipado, así que se suma explícito para que también pueda resolverla.
-  - rol: administrador del sistema
-    modulo: Académico
-    acciones: [actualizar]
-    tipo_informacion: justificaciones
   - rol: administrador del sistema
     modulo: Inscripciones
     acciones: [crear, leer, actualizar, eliminar, exportar]
