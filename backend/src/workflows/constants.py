@@ -146,6 +146,10 @@ OPERADORES_POR_TIPO_DATO: dict[str, frozenset[str]] = {
 # El editor los muestra como lista y el backend rechaza cualquier otro valor. Los que salen de una
 # tabla (método de pago, nivel educativo) se leen en `service.opciones_de_campos`.
 OPCIONES_POR_CAMPO: dict[tuple[str, str], tuple[tuple[str, str], ...]] = {
+    ("debito.resultado_registrado", "resultado"): (
+        ("exitoso", "Acreditado"),
+        ("rechazado", "Rechazado"),
+    ),
     ("inasistencia.registrada", "tipo_asistencia"): (
         ("ausente_pendiente", "Ausente"),
         ("tardanza", "Tardanza"),
