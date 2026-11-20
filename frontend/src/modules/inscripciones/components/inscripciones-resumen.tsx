@@ -19,7 +19,6 @@ export function InscripcionesResumen({ resumen, cargando }: InscripcionesResumen
         label="Inscripciones activas"
         value={resumen.inscripciones_activas}
         icon={ClipboardCheckIcon}
-        variant="dark"
         cargando={cargando}
       />
       <StatTile

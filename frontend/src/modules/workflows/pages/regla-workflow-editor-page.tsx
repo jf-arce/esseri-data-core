@@ -465,6 +465,7 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
               evento={evento}
               simulacion={simulacion}
               deshabilitado={soloLectura}
+              anchoTapado={seleccionado && ancha ? ANCHO_INSPECTOR + 12 : 0}
             />
           }
           onDeshacer={() => setHistorial(deshacer)}
@@ -604,7 +605,9 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
   )
 }
 
-export function ReglaWorkflowEditorPage() {
+export function ReglaWorkflowEditorPage({
+  inicioPulso,
+}: Pick<React.ComponentProps<typeof EsqueletoEditor>, 'inicioPulso'>) {
   const reglaId = useParams()[PARAMETRO_REGLA_ID]
   const [parametros] = useSearchParams()
   const duplicarId = parametros.get('duplicar') ?? undefined
@@ -614,7 +617,7 @@ export function ReglaWorkflowEditorPage() {
   const original = useReglaWorkflow(duplicarId)
 
   const cargando = catalogos.cargando || regla.cargando || original.cargando
-  if (cargando) return <EsqueletoEditor />
+  if (cargando) return <EsqueletoEditor inicioPulso={inicioPulso} />
 
   if (regla.noEncontrada || original.noEncontrada)
     return (

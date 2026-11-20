@@ -239,7 +239,6 @@ export function SolicitudesPeriodoPage() {
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatTile
-          variant="dark"
           label="Pendientes"
           value={resumen?.pendientes ?? 0}
           icon={ClockIcon}

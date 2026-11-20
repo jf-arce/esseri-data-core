@@ -9,13 +9,13 @@ function isThemePreference(value: string | null): value is ThemePreference {
 }
 
 export function getThemePreference(): ThemePreference {
-  if (typeof window === 'undefined') return 'dark'
+  if (typeof window === 'undefined') return 'light'
 
   try {
     const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY)
-    return isThemePreference(storedTheme) ? storedTheme : 'dark'
+    return isThemePreference(storedTheme) ? storedTheme : 'light'
   } catch {
-    return 'dark'
+    return 'light'
   }
 }
 

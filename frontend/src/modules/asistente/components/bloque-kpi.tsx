@@ -31,22 +31,23 @@ const ICONOS: Record<IconoKpi, LucideIcon> = {
   general: ChartNoAxesColumnIcon,
 }
 
-// Cada tono tiñe la tarjeta (degradé y borde), el ícono, la cifra y el badge de la variación.
+// Cada tono tiñe el borde de la tarjeta, el ícono, la cifra y el badge de la variación. El fondo
+// es plano (sin degradé) para que el texto conserve el contraste en tema claro.
 const TONOS: Record<TonoKpi, Record<'tarjeta' | 'icono' | 'cifra' | 'badge', string>> = {
   bueno: {
-    tarjeta: 'border-exito/30 from-exito-suave/70',
+    tarjeta: 'border-exito/40',
     icono: 'bg-exito-suave text-exito',
     cifra: 'text-exito',
     badge: 'bg-exito text-superficie',
   },
   malo: {
-    tarjeta: 'border-error/30 from-error-suave/70',
+    tarjeta: 'border-error/40',
     icono: 'bg-error-suave text-error',
     cifra: 'text-error',
     badge: 'bg-error text-superficie',
   },
   neutro: {
-    tarjeta: 'border-violeta/25 from-violeta-suave/70',
+    tarjeta: 'border-borde',
     icono: 'bg-violeta-suave text-violeta',
     cifra: 'text-texto',
     badge: 'bg-info text-superficie',
@@ -70,17 +71,12 @@ export function BloqueKpiVista({ bloque }: { bloque: BloqueKpi }) {
         ? TrendingDownIcon
         : TrendingUpIcon
   return (
-    <div
-      className={cn(
-        'flex flex-col gap-3 rounded-2xl border bg-linear-to-br to-superficie p-3.5',
-        tono.tarjeta,
-      )}
-    >
+    <div className={cn('flex flex-col gap-3 rounded-2xl border bg-superficie p-3.5', tono.tarjeta)}>
       <div className="flex items-center gap-2">
         <span className={cn('grid size-8 shrink-0 place-items-center rounded-lg', tono.icono)}>
           <Icono aria-hidden className="size-4" />
         </span>
-        <p className="text-sm font-medium text-texto-2">{bloque.titulo}</p>
+        <p className="text-sm font-medium text-texto">{bloque.titulo}</p>
       </div>
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
         <p className={cn('text-3xl leading-none font-semibold tabular-nums', tono.cifra)}>
@@ -116,8 +112,8 @@ export function BloqueKpiVista({ bloque }: { bloque: BloqueKpi }) {
       {compara && (hayBase || anterior !== undefined) && (
         <p className="text-xs text-texto-2">vs. {bloque.periodo_comparado}</p>
       )}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-texto-3">
-        <span className="inline-flex items-center gap-1 rounded-full bg-borde/40 px-2 py-0.5">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-texto-2">
+        <span className="inline-flex items-center gap-1 rounded-full bg-fila-hover px-2 py-0.5">
           <CalendarIcon aria-hidden className="size-3" />
           {bloque.periodo}
         </span>

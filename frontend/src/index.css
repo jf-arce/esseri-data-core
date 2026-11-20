@@ -7,13 +7,13 @@
   --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', sans-serif;
 
-  /* Escala tipográfica (DESIGN.md §3.1) apenas más grande que la nativa de Tailwind */
-  --text-xs: 13px;
-  --text-xs--line-height: 18px;
-  --text-sm: 15px;
-  --text-sm--line-height: 22px;
-  --text-base: 17px;
-  --text-base--line-height: 26px;
+  /* Escala tipográfica (DESIGN.md §3.1): los valores nativos de Tailwind, fijados explícitos */
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 14px;
+  --text-sm--line-height: 20px;
+  --text-base: 16px;
+  --text-base--line-height: 24px;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -153,9 +153,9 @@
   --lila-claro: #d9b8f0;
 
   /* Violeta: dos roles nunca intercambiables (§2.3) */
-  --violeta: #7c24a3;
-  --violeta-esseri: #6e2a8d;
-  --violeta-pressed: #55206e;
+  --violeta: #54327a;
+  --violeta-esseri: #472a66;
+  --violeta-pressed: #3b2256;
   --violeta-suave: #f6edfb;
   --violeta-borde: #e7cff2;
 
@@ -212,7 +212,16 @@
   --desactivado: #9a94a6;
 
   /* Elevación y movimiento (§5.2, §6) */
-  --sombra-card: 0 1px 2px rgba(20, 17, 26, 0.04), 0 4px 12px rgba(20, 17, 26, 0.035);
+  /* Borde sutil de card/tabla: anillo de 1px dentro de la propia sombra, así lo heredan por igual
+     las cards, las tablas y los wrappers que usan `shadow-card`, sin sumar tamaño al layout. */
+  --sombra-card:
+    0 0 0 1px color-mix(in srgb, var(--borde) 60%, transparent), 0 1px 2px rgba(20, 17, 26, 0.03),
+    0 4px 12px rgba(20, 17, 26, 0.025);
+  /* Controles flotantes del canvas: sombra propia, sin el anillo de borde de las cards. */
+  --sombra-flotante: 0 1px 2px rgba(20, 17, 26, 0.08), 0 2px 8px rgba(20, 17, 26, 0.06);
+  --sombra-card-hover:
+    0 0 0 1px color-mix(in srgb, var(--borde) 60%, transparent), 0 2px 4px rgba(20, 17, 26, 0.055),
+    0 6px 17px rgba(20, 17, 26, 0.067);
   --sombra-overlay: 0 8px 24px rgba(20, 17, 26, 0.08);
   --curva-esseri: cubic-bezier(0.2, 0, 0, 1);
 
@@ -241,14 +250,30 @@
   --chart-4: #b8a1cf;
   --chart-5: #54577a;
   --radius: 0.5rem;
-  --sidebar: var(--nav);
-  --sidebar-foreground: var(--texto-2-sobre-oscuro);
-  --sidebar-primary: var(--nav-activo);
-  --sidebar-primary-foreground: var(--lila-claro);
-  --sidebar-accent: var(--nav-hover);
-  --sidebar-accent-foreground: var(--texto-sobre-oscuro);
-  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar: var(--superficie);
+  --sidebar-foreground: var(--texto-2);
+  --sidebar-primary: var(--violeta);
+  --sidebar-primary-foreground: #fff;
+  --sidebar-accent: var(--fila-hover);
+  --sidebar-accent-foreground: var(--texto);
+  --sidebar-border: var(--borde);
   --sidebar-ring: var(--violeta);
+
+  /* Barra superior: violeta del header del Portal Familia (PORTAL_FAMILIA_HEADER_BACKGROUND) en
+     claro; en oscuro conserva su aspecto original. */
+  --topbar: #43275c;
+  --sidebar-header: #43275c;
+  --sidebar-header-lado: color-mix(in srgb, #43275c 88%, white);
+  --topbar-borde: rgba(255, 255, 255, 0.1);
+  --topbar-texto: rgba(255, 255, 255, 0.9);
+  --topbar-texto-hover: #fff;
+  --topbar-hover: rgba(255, 255, 255, 0.1);
+
+  /* Burbuja del mensaje del usuario en el asistente: el gris del campo de texto en claro. */
+  --burbuja-usuario: var(--fila-hover);
+
+  /* Hover de las cards clickeables: gris neutro (sin tinte violeta), apenas más oscuro que la card. */
+  --card-hover: color-mix(in srgb, black 2.5%, var(--superficie));
 }
 
 /* Portal Familia: mundo visual propio y claro. Fija la paleta clara dentro de su subárbol aunque
@@ -670,6 +695,24 @@
   --texto-2-sobre-oscuro: #c9bed2;
   --lila-claro: #e0bdf4;
 
+  /* En oscuro el sidebar conserva su aspecto original. */
+  --sidebar: var(--nav);
+  --sidebar-foreground: var(--texto-2-sobre-oscuro);
+  --sidebar-primary: var(--nav-activo);
+  --sidebar-primary-foreground: var(--lila-claro);
+  --sidebar-accent: var(--nav-hover);
+  --sidebar-accent-foreground: var(--texto-sobre-oscuro);
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --burbuja-usuario: var(--lienzo);
+  --card-hover: var(--fila-hover);
+  --topbar: var(--superficie);
+  --sidebar-header: var(--nav);
+  --sidebar-header-lado: var(--sidebar-border);
+  --topbar-borde: var(--borde);
+  --topbar-texto: var(--texto-2);
+  --topbar-texto-hover: var(--texto);
+  --topbar-hover: var(--fila-hover);
+
   --violeta: #bd75df;
   --violeta-esseri: #cb93e5;
   --violeta-pressed: #9b52bb;
@@ -719,12 +762,17 @@
   --texto-3: #b6adbd;
   --desactivado: #82788c;
 
-  --sombra-card: 0 1px 2px rgba(6, 4, 9, 0.28), 0 4px 12px rgba(6, 4, 9, 0.2);
+  --sombra-card:
+    0 0 0 1px color-mix(in srgb, var(--borde) 60%, transparent), 0 1px 2px rgba(6, 4, 9, 0.28),
+    0 4px 12px rgba(6, 4, 9, 0.2);
+  --sombra-flotante: 0 1px 2px rgba(6, 4, 9, 0.4), 0 2px 8px rgba(6, 4, 9, 0.3);
+  --sombra-card-hover:
+    0 0 0 1px color-mix(in srgb, var(--borde) 60%, transparent), 0 1px 2px rgba(6, 4, 9, 0.28),
+    0 4px 12px rgba(6, 4, 9, 0.2);
   --sombra-overlay: 0 8px 24px rgba(6, 4, 9, 0.42);
 
   --chart-4: #c4a6db;
   --chart-5: #b5b3cd;
-  --sidebar-border: rgba(255, 255, 255, 0.1);
 }
 
 @layer base {
@@ -802,6 +850,127 @@
   );
   background-size: 400% 100%;
   animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+.esqueleto-acento,
+.esqueleto-trazo {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .esqueleto-origen {
+    animation-name: esqueleto-origen;
+  }
+
+  .esqueleto-tramo {
+    animation-name: esqueleto-tramo;
+  }
+
+  .esqueleto-condicion {
+    animation-name: esqueleto-condicion;
+  }
+
+  .esqueleto-rama {
+    animation-name: esqueleto-rama;
+  }
+
+  .esqueleto-accion-si,
+  .esqueleto-accion-no {
+    animation-name: esqueleto-accion;
+  }
+
+  .esqueleto-acento,
+  .esqueleto-trazo {
+    animation-duration: 2.4s;
+    animation-delay: var(--esqueleto-demora, 0ms);
+    animation-iteration-count: 3;
+    animation-timing-function: linear;
+  }
+
+  .esqueleto-trazo {
+    stroke-dasharray: 1;
+  }
+
+  @keyframes esqueleto-origen {
+    0% {
+      opacity: 0.7;
+    }
+    8% {
+      opacity: 1;
+    }
+    26%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes esqueleto-tramo {
+    0%,
+    8% {
+      opacity: 0;
+      stroke-dashoffset: 1;
+    }
+    11% {
+      opacity: 1;
+    }
+    30% {
+      opacity: 1;
+      stroke-dashoffset: 0;
+    }
+    64%,
+    100% {
+      opacity: 0;
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes esqueleto-condicion {
+    0%,
+    27% {
+      opacity: 0;
+    }
+    34% {
+      opacity: 1;
+    }
+    56%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes esqueleto-rama {
+    0%,
+    35% {
+      opacity: 0;
+      stroke-dashoffset: 1;
+    }
+    38% {
+      opacity: 1;
+    }
+    62% {
+      opacity: 1;
+      stroke-dashoffset: 0;
+    }
+    88%,
+    100% {
+      opacity: 0;
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes esqueleto-accion {
+    0%,
+    59% {
+      opacity: 0;
+    }
+    66% {
+      opacity: 1;
+    }
+    90%,
+    100% {
+      opacity: 0;
+    }
+  }
 }
 
 /* Esqueleto de la búsqueda de menciones: más marcado que el shimmer común (barrido violeta y
@@ -900,6 +1069,17 @@
     padding: 0 !important;
   }
 }
+/* Punto "en vivo": respira solo con opacidad. */
+@keyframes en-vivo-respirar {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
 /* Editor de flujo de workflows (§6 y §9.10 DESIGN.md): 150-220 ms, ease-out, sin rebote ni glow. */
 @keyframes arista-dibujar {
   from {
@@ -1063,7 +1243,7 @@
   cursor: crosshair;
 }
 
-/* Controles y minimapa de React Flow con los tokens del proyecto: siguen el tema (.dark) sin
+/* Controles de React Flow con los tokens del proyecto: siguen el tema (.dark) sin
    pasar por `colorMode`. */
 .react-flow {
   --xy-controls-button-background-color: var(--superficie);
@@ -1071,9 +1251,6 @@
   --xy-controls-button-color: var(--texto);
   --xy-controls-button-color-hover: var(--texto);
   --xy-controls-button-border-color: var(--borde);
-  --xy-minimap-background-color: var(--superficie);
-  --xy-minimap-mask-background-color: color-mix(in srgb, var(--texto) 12%, transparent);
-  --xy-minimap-mask-stroke-color: var(--borde);
 }
 
 /* Conectores del mapa de automatizaciones: línea con puntos que viajan si la regla está activa. */

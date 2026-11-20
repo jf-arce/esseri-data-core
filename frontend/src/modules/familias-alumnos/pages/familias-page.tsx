@@ -99,7 +99,6 @@ export function FamiliasPage() {
           label="Familias registradas"
           value={stats.total}
           icon={UsersRoundIcon}
-          variant="dark"
           cargando={cargando}
         />
         <StatTile

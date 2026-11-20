@@ -48,7 +48,7 @@ export function AsistenteDock({ abierto }: { abierto: boolean }) {
       aria-label="Asistente"
       style={{ '--ancho-asistente': `${ancho}px` } as React.CSSProperties}
       hidden={!abierto}
-      className="fixed inset-0 z-40 bg-superficie md:sticky md:inset-auto md:top-0 md:z-auto md:h-svh md:w-(--ancho-asistente) md:shrink-0 md:border-l md:border-borde"
+      className="fixed inset-0 z-40 bg-superficie md:sticky md:inset-auto md:top-0 md:z-auto md:h-svh md:w-(--ancho-asistente) md:shrink-0"
     >
       <div
         role="separator"
@@ -63,7 +63,7 @@ export function AsistenteDock({ abierto }: { abierto: boolean }) {
         onPointerUp={alSoltar}
         onPointerCancel={alSoltar}
         onKeyDown={alTeclear}
-        className="absolute inset-y-0 -left-1 z-10 hidden w-2 cursor-col-resize hover:bg-violeta/20 focus-visible:bg-violeta/30 focus-visible:outline-none md:block"
+        className="absolute inset-y-0 -left-0.5 z-20 hidden w-1 cursor-col-resize hover:bg-violeta/20 focus-visible:bg-violeta/30 focus-visible:outline-none md:block"
       />
       {/* La `key` descarta todo el estado al cambiar de cuenta o de rol. */}
       <AsistentePanel key={`${usuarioId}:${rolActivo}`} abierto={abierto} />

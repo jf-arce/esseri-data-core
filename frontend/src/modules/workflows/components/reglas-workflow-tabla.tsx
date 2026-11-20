@@ -17,7 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { BotonEstadoRegla } from '@/modules/workflows/components/boton-estado-regla'
-import { rutaRegla } from '@/modules/workflows/constants'
+import { rutaRegla, TAMANIO_PAGINA_TABLA } from '@/modules/workflows/constants'
 import type { ReglaWorkflow, TipoEvento } from '@/modules/workflows/types'
 import { ETIQUETA_ACCION, etiquetaEvento } from '@/modules/workflows/utils'
 
@@ -30,12 +30,15 @@ function resumenAcciones(regla: ReglaWorkflow): string {
   return acciones.length > 1 ? `${nombre} y ${acciones.length - 1} más` : nombre
 }
 
+// Filas más altas que el estándar de 40px: el botón de estado y el menú miden 36px.
+const CLASE_FILA = '[&>td]:h-14'
+
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-44', anchoAlt: 'h-4 w-32' },
   { tipo: 'texto', clase: 'hidden xl:table-cell' },
   { tipo: 'texto', ancho: 'h-4 w-36', anchoAlt: 'h-4 w-28', clase: 'hidden lg:table-cell' },
   { tipo: 'texto', ancho: 'h-4 w-10', clase: 'hidden 2xl:table-cell' },
-  { tipo: 'chip' },
+  { tipo: 'texto', ancho: 'size-9 rounded-full' },
   { tipo: 'accion' },
 ]
 
@@ -79,11 +82,14 @@ export function ReglasWorkflowTabla({
         </TableHeader>
         <TableBody>
           {cargando ? (
-            <TableSkeleton columnas={COLUMNAS_ESQUELETO} />
+            <TableSkeleton
+              columnas={COLUMNAS_ESQUELETO}
+              filas={TAMANIO_PAGINA_TABLA}
+              claseFila={CLASE_FILA}
+            />
           ) : (
             reglas.map((regla) => (
-              // Filas más altas que el estándar de 40px: el botón de estado y el menú miden 36px.
-              <TableRow key={regla.id} className="[&>td]:h-14">
+              <TableRow key={regla.id} className={CLASE_FILA}>
                 <TableCell
                   className="whitespace-normal font-medium md:max-w-[12rem] md:truncate md:whitespace-nowrap xl:max-w-xs"
                   title={regla.nombre}

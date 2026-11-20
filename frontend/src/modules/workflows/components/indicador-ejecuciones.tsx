@@ -35,7 +35,6 @@ export function IndicadorEjecuciones({ resumen, cargando }: IndicadorEjecuciones
     <section aria-label="Ejecuciones" className="grid gap-4 xl:grid-cols-[minmax(300px,380px)_1fr]">
       <StatTile
         hero
-        variant="dark"
         label={`Ejecuciones, últimos ${dias} días`}
         value={resumen?.actual.total ?? 0}
         icon={ActivityIcon}
@@ -43,17 +42,15 @@ export function IndicadorEjecuciones({ resumen, cargando }: IndicadorEjecuciones
         cargando={cargando}
       >
         {resumen && (
-          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-white/15 pt-4">
+          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-borde pt-4">
             {ESTADOS.map((estado) => (
               <Link
                 key={estado}
                 to={`${RUTA_EJECUCIONES}?estado=${estado}`}
                 className="group/estado rounded-md py-0.5 hover:underline focus-visible:outline-2"
               >
-                <dt className="text-xs text-texto-2-sobre-oscuro">
-                  {ETIQUETA_ESTADO_EJECUCION[estado]}
-                </dt>
-                <dd className="text-base font-semibold tabular-nums text-texto-sobre-oscuro">
+                <dt className="text-xs text-texto-2">{ETIQUETA_ESTADO_EJECUCION[estado]}</dt>
+                <dd className="text-base font-semibold tabular-nums text-texto">
                   {resumen.actual[estado]}
                 </dd>
               </Link>

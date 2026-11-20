@@ -128,7 +128,7 @@ export function TarjetaRegla({
   return (
     <article
       className={cn(
-        'group/tarjeta flex flex-col gap-3 rounded-card-sm bg-superficie p-4 shadow-card transition-colors duration-200 hover:bg-[color-mix(in_oklch,var(--fila-hover)_45%,var(--superficie))]',
+        'group/tarjeta flex flex-col gap-3 rounded-card-sm bg-superficie p-4 shadow-card transition-colors duration-200 hover:bg-(--card-hover)',
         !regla.activo && 'opacity-80',
       )}
     >
