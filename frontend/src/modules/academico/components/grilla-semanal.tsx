@@ -70,11 +70,14 @@ function BloqueClase({
     >
       <span className="flex min-w-0 items-center gap-1.5">
         <Icono aria-hidden="true" className="size-4 shrink-0" style={{ color }} />
-        <span className="min-w-0 text-[13px] leading-tight font-bold text-[#2B2338]">
+        <span
+          className="min-w-0 truncate text-[13px] leading-tight font-bold text-[#2B2338]"
+          title={actividad.franja.materia.materia_nombre ?? undefined}
+        >
           {actividad.franja.materia.materia_nombre}
         </span>
       </span>
-      <span className="block text-[11px] font-medium text-[#4B4456] tabular-nums">
+      <span className="block truncate text-[11px] font-medium text-[#4B4456] whitespace-nowrap tabular-nums">
         {actividad.franja.hora_inicio.slice(0, 5)} – {actividad.franja.hora_fin.slice(0, 5)}
       </span>
     </button>
@@ -107,11 +110,14 @@ function BloqueEvento({
     >
       <span className="flex min-w-0 items-center gap-1.5">
         <CalendarDaysIcon aria-hidden="true" className="size-4 shrink-0 text-[#7A2FA8]" />
-        <span className="min-w-0 text-[13px] leading-tight font-bold text-[#3F1857]">
+        <span
+          className="min-w-0 truncate text-[13px] leading-tight font-bold text-[#3F1857]"
+          title={actividad.evento.titulo}
+        >
           {actividad.evento.titulo}
         </span>
       </span>
-      <span className="block text-[11px] font-medium text-[#5B3A7E] tabular-nums">
+      <span className="block truncate text-[11px] font-medium text-[#5B3A7E] whitespace-nowrap tabular-nums">
         {actividad.evento.hora_inicio?.slice(0, 5) ?? ''}
         {actividad.evento.hora_fin ? ` – ${actividad.evento.hora_fin.slice(0, 5)}` : ''}
       </span>

@@ -317,12 +317,12 @@ export function PortalFamiliaCalendarioPage() {
           etiqueta="Portal de familia"
           volverA="/familia"
           volverEtiqueta="Volver al inicio"
-          anchoMaximo="max-w-[92vw]"
+          anchoMaximo="max-w-[96vw]"
           className="pb-8 print:hidden"
           classNameContenido="px-4 sm:px-8"
         />
 
-        <div className="zona-impresion mx-auto w-full max-w-[92vw] px-4 pb-10 sm:px-8 print:max-w-none print:p-0">
+        <div className="zona-impresion mx-auto w-full max-w-[96vw] px-3 pb-10 sm:px-5 print:max-w-none print:p-0">
           {cargando ? (
             <Skeleton className="h-96 w-full rounded-[24px] bg-white/80" />
           ) : alumnos.length === 0 ? (
@@ -339,14 +339,14 @@ export function PortalFamiliaCalendarioPage() {
               </Empty>
             </PortalCard>
           ) : (
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_clamp(14rem,19%,20rem)] xl:items-start">
               <PortalCard
                 className="print:hidden"
                 titulo="Horario semanal"
                 descripcion={alumno?.division_etiqueta ?? 'Todavía sin división asignada'}
                 tituloClassName="font-heading text-[26px] leading-tight font-bold tracking-[-0.01em] text-[#241A33]"
-                headerClassName="border-b border-[#F1EBF7] px-6 pt-6 pb-6"
-                contentClassName="px-6 pt-6 pb-6"
+                headerClassName="border-b border-[#F1EBF7] px-5 pt-5 pb-4"
+                contentClassName="px-4 pt-5 pb-5"
                 accion={
                   <div className="w-full sm:w-64">
                     <Field>
