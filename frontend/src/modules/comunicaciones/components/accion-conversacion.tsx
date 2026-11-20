@@ -1,7 +1,7 @@
 import { Link } from 'react-router'
-import { Badge } from '@/components/ui/badge'
+import { MessageCircleIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ESTADOS, rutaContexto, type ConsultaResumen, type TipoContexto } from '../conversaciones'
+import { rutaContexto, type ConsultaResumen, type TipoContexto } from '../conversaciones'
 
 /**
  * Estado de la conversación de un trámite. Si existe, muestra el estado y el acceso; si no,
@@ -23,25 +23,25 @@ export function AccionConversacion({
       <Link
         to={rutaContexto(tipo, id)}
         className={cn(
-          'inline-flex min-h-9 items-center rounded-full px-3 text-[13px] font-semibold text-violeta hover:bg-violeta-suave',
+          'inline-flex min-h-8 items-center gap-1.5 rounded-full border border-violeta/40 px-2.5 text-[12.5px] font-semibold whitespace-nowrap text-violeta transition-colors hover:bg-violeta-suave',
           className,
         )}
       >
+        <MessageCircleIcon aria-hidden="true" className="size-3.5" />
         Iniciar conversación
       </Link>
     )
   }
   return (
-    <span className={cn('inline-flex flex-wrap items-center justify-end gap-2', className)}>
-      <Badge variant={consulta.estado === 'resuelta' ? 'exito' : 'advertencia'}>
-        {ESTADOS[consulta.estado]}
-      </Badge>
-      <Link
-        to={`/comunicaciones/conversaciones/${consulta.id}`}
-        className="text-[13px] font-semibold text-violeta hover:underline"
-      >
-        Abrir conversación
-      </Link>
-    </span>
+    <Link
+      to={`/comunicaciones/conversaciones/${consulta.id}`}
+      className={cn(
+        'inline-flex min-h-8 items-center gap-1.5 rounded-full bg-[#F1E4FB] px-2.5 text-[12.5px] font-semibold whitespace-nowrap text-[#7A2FA8] transition-colors hover:bg-[#E8D8F7]',
+        className,
+      )}
+    >
+      <MessageCircleIcon aria-hidden="true" className="size-3.5" />
+      Ver conversación
+    </Link>
   )
 }

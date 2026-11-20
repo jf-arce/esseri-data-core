@@ -3,6 +3,7 @@ import {
   ClipboardListIcon,
   ClockIcon,
   DownloadIcon,
+  RefreshCwIcon,
   ShieldAlertIcon,
   XIcon,
 } from 'lucide-react'
@@ -367,6 +368,14 @@ export function JustificacionesPage() {
           }
         />
         <FilterBarSpacer />
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Actualizar justificaciones"
+          onClick={() => setRevision((valor) => valor + 1)}
+        >
+          <RefreshCwIcon className="size-4" />
+        </Button>
         {hayFiltros && (
           <Button variant="ghost" size="sm" onClick={limpiarFiltros}>
             Limpiar filtros
@@ -408,6 +417,7 @@ export function JustificacionesPage() {
                 <TableHead>Fecha de la falta</TableHead>
                 <TableHead>Motivo</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead>Conversación</TableHead>
                 <TableHead data-align="end">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -435,7 +445,7 @@ export function JustificacionesPage() {
                   </TableCell>
                   <TableCell>
                     <span className="font-medium">{etiquetaMotivoJustificacion(item.motivo)}</span>
-                    <span className="block max-w-[280px] truncate text-xs text-texto-2">
+                    <span className="block max-w-[200px] truncate text-xs text-texto-2">
                       {item.observacion?.trim() || 'Sin observación de la familia'}
                     </span>
                     {item.archivo_nombre && (
@@ -459,14 +469,16 @@ export function JustificacionesPage() {
                       {ETIQUETA_ESTADO[item.estado]}
                     </Badge>
                   </TableCell>
-                  <TableCell data-align="end">
+                  <TableCell>
                     <AccionConversacion
                       tipo="justificacion_inasistencia"
                       id={item.id}
                       consulta={conversaciones.get(`justificacion_inasistencia:${item.id}`)}
                     />
+                  </TableCell>
+                  <TableCell data-align="end">
                     {item.estado === 'pendiente' ? (
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1.5">
                         <Button
                           variant="secondary"
                           size="sm"
