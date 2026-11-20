@@ -48,3 +48,51 @@ it('opens the thread from its concrete context and shows the persisted first mes
     expect.objectContaining({ method: 'POST' }),
   )
 })
+
+it('groups consecutive messages from the same sender and keeps the thread scrollable', async () => {
+  const api = vi.mocked(apiClient)
+  const contexto = {
+    id: 'request',
+    tipo: 'debito_cobranza',
+    alumno_nombre: 'Martina Torres',
+    alumno_id: 'alumno-1',
+    fecha_inicio: '2026-11-20',
+    concepto: 'Cuota noviembre 2026',
+    motivo: 'Saldo insuficiente',
+  }
+  const hilo = { id: 'thread', contexto, estado: 'pendiente_administracion', puede_responder: true }
+  const mensaje = (id: string, lado: 'familia' | 'administracion', texto: string) => ({
+    id,
+    lado,
+    autor: lado === 'familia' ? 'Familia (Andrés)' : 'Administración',
+    texto,
+    created_at: '2026-11-20T10:24:00Z',
+  })
+  api.mockImplementation(async (path) => {
+    if (path.endsWith('/mensajes'))
+      return {
+        items: [
+          mensaje('m1', 'administracion', 'Primer aviso'),
+          mensaje('m2', 'administracion', 'Segundo aviso'),
+          mensaje('m3', 'familia', 'Respuesta de la familia'),
+        ],
+        siguiente: null,
+      }
+    if (path.endsWith('/thread') || path.endsWith('/contextos/debito_cobranza/request')) return hilo
+    return { contexto, conversacion: hilo, puede_iniciar: false }
+  })
+  render(
+    <MemoryRouter initialEntries={['/familia/conversaciones/thread']}>
+      <Routes>
+        <Route
+          path="/familia/conversaciones/:id"
+          element={<ConversacionContextualPage familia />}
+        />
+      </Routes>
+    </MemoryRouter>,
+  )
+  expect(await screen.findByText('Primer aviso')).toBeInTheDocument()
+  expect(screen.getAllByText('Administración')).toHaveLength(1)
+  expect(screen.getAllByText('Familia (Andrés)')).toHaveLength(1)
+  expect(screen.getByRole('log', { name: 'Historial de mensajes' })).toHaveClass('overflow-y-auto')
+})

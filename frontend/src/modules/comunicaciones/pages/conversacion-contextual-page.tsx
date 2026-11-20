@@ -232,17 +232,16 @@ function ContextoCard({ contexto }: { contexto: Contexto }) {
   )
 }
 
-function Avatar({ mensaje }: { mensaje: Mensaje }) {
-  const esFamilia = mensaje.lado === 'familia'
+function Avatar({ mensaje, propio }: { mensaje: Mensaje; propio: boolean }) {
   return (
     <span
       aria-hidden="true"
       className={cn(
         'flex size-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold',
-        esFamilia ? 'bg-[#E3CEF6] text-[#832ED2]' : 'bg-[#EDEAF2] text-[#6B6478]',
+        propio ? 'bg-[#E3CEF6] text-[#832ED2]' : 'bg-[#EDEAF2] text-[#6B6478]',
       )}
     >
-      {iniciales(mensaje.autor) || (esFamilia ? 'F' : 'A')}
+      {iniciales(mensaje.autor) || (propio ? 'F' : 'A')}
     </span>
   )
 }
@@ -459,6 +458,7 @@ function Detalle({ familia }: { familia: boolean }) {
       : contexto?.tipo === 'solicitud_ausencia_periodo'
         ? 'este período'
         : 'esta justificación'
+  const propio = familia ? 'familia' : 'administracion'
   const puedeEnviar = puedeIniciar || hilo?.puede_responder
   const adjuntosHabilitados = hilo ? hilo.adjuntos_habilitados : permiteAdjuntos
 
@@ -560,17 +560,18 @@ function Detalle({ familia }: { familia: boolean }) {
               }}
               className="max-h-[min(60vh,36rem)] overflow-y-auto overscroll-contain pr-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
             >
-              <ol className="flex flex-col gap-5">
+              <ol className="flex flex-col">
                 {historial.items.map((mensaje, indice) => {
-                  const esFamilia = mensaje.lado === 'familia'
+                  const esPropio = mensaje.lado === propio
                   const anterior = historial.items[indice - 1]
                   const nuevoDia =
                     !anterior || diaLocal(anterior.created_at) !== diaLocal(mensaje.created_at)
+                  const agrupado = !nuevoDia && anterior?.lado === mensaje.lado
                   return (
                     <Fragment key={mensaje.id}>
                       {nuevoDia && (
                         <li
-                          className="flex justify-center"
+                          className="mt-4 flex justify-center first:mt-0"
                           aria-label={`Mensajes del ${fechaLarga(mensaje.created_at)}`}
                         >
                           <span className="rounded-full bg-[#F1EEF6] px-3 py-1 text-[12px] font-medium text-[#6B6478]">
@@ -579,28 +580,38 @@ function Detalle({ familia }: { familia: boolean }) {
                         </li>
                       )}
                       <li
-                        className={cn('flex items-start gap-2.5', esFamilia && 'flex-row-reverse')}
+                        className={cn(
+                          'flex items-start gap-2.5',
+                          esPropio && 'flex-row-reverse',
+                          agrupado ? 'mt-1' : 'mt-4',
+                        )}
                       >
-                        <Avatar mensaje={mensaje} />
+                        {agrupado ? (
+                          <span aria-hidden="true" className="size-9 shrink-0" />
+                        ) : (
+                          <Avatar mensaje={mensaje} propio={esPropio} />
+                        )}
                         <div
                           className={cn(
-                            'flex min-w-0 max-w-[85%] flex-col',
-                            esFamilia && 'items-end',
+                            'flex min-w-0 max-w-[85%] flex-col sm:max-w-[75%]',
+                            esPropio && 'items-end',
                           )}
                         >
-                          <p className="mb-1 text-[12px] text-[#6B6478]">
-                            <strong className="font-semibold text-[#2B2338]">
-                              {mensaje.autor}
-                            </strong>
-                            {' · '}
-                            <time dateTime={mensaje.created_at}>
-                              {fechaHora(mensaje.created_at)}
-                            </time>
-                          </p>
+                          {!agrupado && (
+                            <p className="mb-1 text-[12px] text-[#6B6478]">
+                              <strong className="font-semibold text-[#2B2338]">
+                                {mensaje.autor}
+                              </strong>
+                              {' · '}
+                              <time dateTime={mensaje.created_at}>
+                                {fechaHora(mensaje.created_at)}
+                              </time>
+                            </p>
+                          )}
                           <div
                             className={cn(
                               'w-full rounded-[14px] px-3.5 py-3 text-[14px] text-[#2B2338]',
-                              esFamilia ? 'bg-[#F1E4FB]' : 'bg-[#F6F4F9]',
+                              esPropio ? 'bg-[#F1E4FB]' : 'bg-[#F6F4F9]',
                             )}
                           >
                             <p className="break-words whitespace-pre-wrap">{mensaje.texto}</p>
@@ -731,12 +742,15 @@ function Detalle({ familia }: { familia: boolean }) {
           volverA={destino}
           volverEtiqueta="Volver a Comunicaciones"
           acciones={estadoHilo}
+          anchoMaximo="max-w-[1100px]"
+          className="px-0 sm:px-0"
+          classNameContenido="px-4 sm:px-8"
         />
-        {conversacion}
+        <div className="mx-auto w-full max-w-[1100px] px-4 pb-10 sm:px-8">{conversacion}</div>
       </section>
     )
   return (
-    <section className="flex w-full flex-col gap-4">
+    <section className="mx-auto flex w-full max-w-[1100px] flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h1 className="text-2xl font-semibold">{titulo}</h1>
