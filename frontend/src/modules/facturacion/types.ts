@@ -434,10 +434,13 @@ export interface CrearFacturaPayload {
   }>
 }
 
+export type FiltroDebitoFactura = 'rechazado' | 'cobrado'
+
 export interface FiltrosFacturas {
   pagina: number
   tamanio: number
   estado?: EstadoFactura
+  debito?: FiltroDebitoFactura
   buscar?: string
   alumnoId?: string
   conceptoCobroId?: string

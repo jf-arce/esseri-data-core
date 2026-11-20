@@ -7,6 +7,7 @@ export function listarFacturas(filtros: FiltrosFacturas, signal?: AbortSignal) {
     tamanio: String(filtros.tamanio),
   })
   if (filtros.estado) parametros.set('estado', filtros.estado)
+  if (filtros.debito) parametros.set('debito', filtros.debito)
   if (filtros.buscar?.trim()) parametros.set('buscar', filtros.buscar.trim())
   if (filtros.alumnoId) parametros.set('alumno_id', filtros.alumnoId)
   if (filtros.conceptoCobroId) parametros.set('concepto_cobro_id', filtros.conceptoCobroId)
