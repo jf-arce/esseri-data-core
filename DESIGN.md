@@ -198,7 +198,7 @@ Mismo ADN, otro registro. El portal **hereda** la marca, Geist, el isotipo, los 
 | detalle, metadata | `text-sm` | 14px |
 | cuerpo | `text-pf-cuerpo` | 15px |
 | encabezado de card | `text-pf-encabezado` | 17px |
-| cifra de indicador | `text-pf-cifra` | 26px, tabular, 700 |
+| cifra de indicador | `text-pf-cifra` | 28px, tabular, 700 |
 | título de página | `text-pf-titulo` | 30px (36px desde `sm`) |
 
 **Forma:**
