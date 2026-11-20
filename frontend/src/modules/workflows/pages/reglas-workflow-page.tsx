@@ -241,7 +241,7 @@ export function ReglasWorkflowPage() {
       {resumen.error && (
         <Alert variant="error">
           <AlertTitle>No se pudo cargar el resumen</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {resumen.error}
             <Button variant="secondary" size="sm" onClick={resumen.recargar}>
               Reintentar
@@ -249,7 +249,7 @@ export function ReglasWorkflowPage() {
           </AlertDescription>
         </Alert>
       )}
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid gap-5 @5xl/main:grid-cols-2">
         <AtencionWorkflows
           pendientes={pendientes.datos.items.filter((item) => item.aprobable)}
           cargandoPendientes={pendientes.cargando}
@@ -271,7 +271,7 @@ export function ReglasWorkflowPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar las reglas</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargar}>
               Reintentar
@@ -359,14 +359,17 @@ export function ReglasWorkflowPage() {
               {vista === 'tarjetas' && <LeyendaReglas />}
               {vista === 'tarjetas' &&
                 (cargando ? (
-                  <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3" role="status">
+                  <div
+                    className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,20rem),1fr))]"
+                    role="status"
+                  >
                     <span className="sr-only">Cargando reglas</span>
                     {Array.from({ length: TAMANIO_PAGINA_TARJETAS }, (_, indice) => (
                       <TarjetaReglaSkeleton key={indice} indice={indice} />
                     ))}
                   </div>
                 ) : (
-                  <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+                  <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,20rem),1fr))]">
                     {deLaPagina.map((regla) => (
                       <TarjetaRegla
                         key={regla.id}

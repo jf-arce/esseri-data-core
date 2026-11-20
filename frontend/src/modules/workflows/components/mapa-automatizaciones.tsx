@@ -33,14 +33,14 @@ const ESTADOS: Partial<Record<EstadoReglaMapa, { etiqueta: string; clase: string
   sin_disparos: { etiqueta: 'Sin disparos', clase: 'bg-advertencia-suave text-advertencia' },
 }
 
-const COLUMNAS = 'md:grid-cols-[minmax(0,1fr)_32px_minmax(0,1.1fr)_32px_minmax(0,1.1fr)]'
+const COLUMNAS = '@3xl/main:grid-cols-[minmax(0,1fr)_32px_minmax(0,1.1fr)_32px_minmax(0,1.1fr)]'
 
 function Conector({ activo }: { activo: boolean }) {
   return (
     <span
       aria-hidden="true"
       className={cn(
-        'mapa-conector hidden self-center md:block',
+        'mapa-conector hidden self-center @3xl/main:block',
         activo ? 'mapa-conector-activo' : 'mapa-conector-pausado',
       )}
     />
@@ -68,7 +68,7 @@ function FilaRegla({
   const condiciones = contarCondiciones(regla)
   const acciones = regla.nodos.filter((nodo) => nodo.tipo === 'accion')
   return (
-    <div className="grid gap-2 md:col-span-3 md:grid-cols-subgrid md:gap-x-2">
+    <div className="grid gap-2 @3xl/main:col-span-3 @3xl/main:grid-cols-subgrid @3xl/main:gap-x-2">
       <div className="min-w-0 rounded-card-sm bg-fila-hover px-3 py-2">
         <div className="flex items-start justify-between gap-2">
           <Link
@@ -179,7 +179,7 @@ export function MapaAutomatizaciones({
       </div>
       <div
         className={cn(
-          'hidden gap-x-2 px-4 text-xs font-bold tracking-[.06em] text-texto-3 uppercase md:grid',
+          'hidden gap-x-2 px-4 text-xs font-bold tracking-[.06em] text-texto-3 uppercase @3xl/main:grid',
           COLUMNAS,
         )}
       >
@@ -209,8 +209,8 @@ export function MapaAutomatizaciones({
             </header>
             <div className="flex flex-col gap-3">
               {conReglas.map(({ evento, reglas: delEvento }) => (
-                <div key={evento.id} className={cn('grid gap-2 md:gap-x-2', COLUMNAS)}>
-                  <div className="rounded-card-sm bg-sup-workflows px-3 py-2 text-sm font-medium text-texto md:self-center">
+                <div key={evento.id} className={cn('grid gap-2 @3xl/main:gap-x-2', COLUMNAS)}>
+                  <div className="rounded-card-sm bg-sup-workflows px-3 py-2 text-sm font-medium text-texto @3xl/main:self-center">
                     <ZapIcon
                       className="mr-2 inline size-3.5 align-[-2px] text-mod-workflows"
                       aria-hidden="true"
@@ -218,7 +218,7 @@ export function MapaAutomatizaciones({
                     {etiquetaEvento(evento.nombre)}
                   </div>
                   <Conector activo={delEvento.some((regla) => regla.activo)} />
-                  <div className="grid gap-2 md:col-span-3 md:grid-cols-subgrid">
+                  <div className="grid gap-2 @3xl/main:col-span-3 @3xl/main:grid-cols-subgrid">
                     {delEvento.map((regla) => (
                       <FilaRegla
                         key={regla.id}
@@ -241,7 +241,7 @@ export function MapaAutomatizaciones({
                         key={evento.id}
                         className="flex items-center justify-between gap-2 text-sm text-texto-2"
                       >
-                        {etiquetaEvento(evento.nombre)}
+                        <span className="min-w-0 break-words">{etiquetaEvento(evento.nombre)}</span>
                         {puedeCrear && (
                           <Link
                             to={`${RUTA_NUEVA_REGLA}?evento=${evento.id}`}

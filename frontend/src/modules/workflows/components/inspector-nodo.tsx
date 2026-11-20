@@ -25,7 +25,6 @@ import { ValorComparacion } from '@/modules/workflows/components/valor-comparaci
 import { PlantillaCampos } from '@/modules/workflows/components/plantilla-campos'
 import { CLASE_SELECT_ADAPTABLE, MAX_COMPARACIONES } from '@/modules/workflows/constants'
 import type { useDestinatariosDisponibles } from '@/modules/workflows/hooks/use-destinatarios-disponibles'
-import { usePantallaAncha } from '@/modules/workflows/hooks/use-pantalla-ancha'
 import type { usePlantillas } from '@/modules/workflows/hooks/use-plantillas'
 import {
   type DestinatariosNodo,
@@ -54,6 +53,8 @@ import {
 const SIN_DESTINATARIOS: DestinatariosNodo = { roles: [], usuarios: [] }
 
 export interface InspectorNodoProps {
+  /** Si el lienzo es lo bastante ancho para el inspector flotante; si no, se abre como hoja. */
+  ancha: boolean
   /** `'disparador'` o el nodo elegido en el lienzo. */
   seleccion: 'disparador' | NodoEditor
   borrador: BorradorFlujo
@@ -451,7 +452,7 @@ function PanelAccion({
 /** Panel lateral no modal: edita el nodo elegido en el lienzo sin tapar el flujo. Los cambios se
  * aplican al borrador al instante; "Guardar regla" es lo que persiste. */
 export function InspectorNodo(props: InspectorNodoProps) {
-  const { seleccion, soloLectura, error, onCerrar, onDuplicar, onEliminar } = props
+  const { ancha, seleccion, soloLectura, error, onCerrar, onDuplicar, onEliminar } = props
   const nodo = seleccion === 'disparador' ? null : seleccion
   const titulo = nodo === null ? 'Disparador' : nodo.tipo === 'condicion' ? 'Condición' : 'Acción'
   const descripcion =
@@ -460,8 +461,6 @@ export function InspectorNodo(props: InspectorNodoProps) {
       : nodo.tipo === 'condicion'
         ? 'Qué se compara para decidir entre Sí y No.'
         : 'Qué hace la regla y a quién avisa.'
-
-  const ancha = usePantallaAncha()
 
   const cuerpo = (
     <>

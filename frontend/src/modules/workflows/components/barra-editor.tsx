@@ -54,11 +54,11 @@ export function BarraEditor({
             <ArrowLeftIcon />
           </Link>
         </BotonIcono>
-        <nav aria-label="Ubicación" className="hidden shrink-0 text-sm text-texto-2 sm:block">
-          <Link to={RUTA_REGLAS} className="hidden hover:text-texto sm:inline">
+        <nav aria-label="Ubicación" className="hidden shrink-0 text-sm text-texto-2 @xl/main:block">
+          <Link to={RUTA_REGLAS} className="hidden hover:text-texto @xl/main:inline">
             Workflows
           </Link>
-          <span aria-hidden="true" className="hidden sm:inline">
+          <span aria-hidden="true" className="hidden @xl/main:inline">
             {' '}
             /{' '}
           </span>
@@ -79,7 +79,7 @@ export function BarraEditor({
           />
         )}
       </div>
-      <div className="flex items-center gap-3">
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
         <div className="flex items-center gap-2">
           <Switch
             id="regla-activa"
@@ -111,13 +111,13 @@ export function BarraEditor({
           <Link to={RUTA_REGLAS}>{soloLectura ? 'Volver' : 'Cancelar'}</Link>
         </Button>
         {!soloLectura && (
-          <Button onClick={onGuardar} disabled={guardando || cargando}>
+          <Button aria-label="Guardar regla" onClick={onGuardar} disabled={guardando || cargando}>
             {guardando ? (
               <Spinner data-icon="inline-start" />
             ) : (
               <SaveIcon data-icon="inline-start" />
             )}
-            Guardar regla
+            <span className="hidden @xl/main:inline">Guardar regla</span>
           </Button>
         )}
       </div>

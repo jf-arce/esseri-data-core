@@ -32,7 +32,10 @@ export function IndicadorEjecuciones({ resumen, cargando }: IndicadorEjecuciones
     total: punto.total,
   }))
   return (
-    <section aria-label="Ejecuciones" className="grid gap-4 xl:grid-cols-[minmax(300px,380px)_1fr]">
+    <section
+      aria-label="Ejecuciones"
+      className="grid gap-4 @3xl/main:grid-cols-[minmax(260px,340px)_1fr]"
+    >
       <StatTile
         hero
         label={`Ejecuciones, últimos ${dias} días`}
