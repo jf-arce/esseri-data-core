@@ -1,5 +1,6 @@
 import type {
   EstadoOrdenCompra,
+  EstadoSolicitud,
   EstadoVigencia,
   FiltrosSolicitudes,
   LineaOrdenFormulario,
@@ -82,6 +83,11 @@ export const FILTROS_SOLICITUDES_VACIOS: FiltrosSolicitudes = {
   hasta: '',
   cantidadMin: '',
   cantidadMax: '',
+}
+
+/** `true` solo para los estados reales de una solicitud; el resto de la URL se ignora. */
+export function esEstadoSolicitud(valor: string | null): valor is EstadoSolicitud {
+  return valor === 'pendiente' || valor === 'aprobada' || valor === 'rechazada'
 }
 
 function numeroDeFiltro(valor: string): number | null {

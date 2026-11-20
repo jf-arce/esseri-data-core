@@ -83,4 +83,10 @@ describe('rutas institucionales de justificaciones', () => {
 
     expect(screen.getByText('Bandeja de justificaciones')).toBeInTheDocument()
   })
+
+  it('habilita la bandeja sin academico.leer: la resuelve Administración', () => {
+    renderConPermisos(['academico.actualizar:justificaciones'])
+
+    expect(screen.getByText('Bandeja de justificaciones')).toBeInTheDocument()
+  })
 })

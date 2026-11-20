@@ -14,6 +14,8 @@ const indicadoresVacios: IndicadoresDireccion = {
   bajas_mes: 0,
   asistencias_registradas_hoy: 0,
   solicitud_pendiente_mas_antigua: null,
+  tareas_pendientes: 0,
+  tareas_escaladas: 0,
 }
 
 interface Estado {
@@ -25,7 +27,7 @@ interface Estado {
   error: string | null
 }
 
-export function useIndicadoresDireccion() {
+export function useIndicadoresDireccion(cicloLectivo?: string) {
   const [version, setVersion] = useState(0)
   const [estado, setEstado] = useState<Estado>({
     datos: indicadoresVacios,
@@ -37,7 +39,7 @@ export function useIndicadoresDireccion() {
 
   useEffect(() => {
     const controller = new AbortController()
-    obtenerIndicadoresDireccion(controller.signal)
+    obtenerIndicadoresDireccion(cicloLectivo, controller.signal)
       .then((datos) =>
         // Un backend desactualizado puede omitir campos nuevos: se completan para no pintar
         // "NaN" ni "undefined" en las tarjetas.
@@ -63,7 +65,7 @@ export function useIndicadoresDireccion() {
       })
 
     return () => controller.abort()
-  }, [version])
+  }, [version, cicloLectivo])
 
   // `version` también lo usa la página para recargar el detalle junto con los indicadores.
   const recargar = () => {

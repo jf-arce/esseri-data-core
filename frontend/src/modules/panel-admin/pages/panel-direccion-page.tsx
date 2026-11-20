@@ -8,10 +8,13 @@ import {
   PERMISO_FACTURACION_LEER,
   PERMISO_FAMILIAS_ALUMNOS_LEER,
   PERMISO_PROVEEDORES_COMPRAS_LEER,
+  PERMISO_WORKFLOWS_LEER,
   tienePermiso,
 } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
+import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 import { useDetalleDireccion } from '../hooks/use-detalle-direccion'
+import { AtencionInstitucional } from '../components/atencion-institucional'
 import { DetalleDireccion } from '../components/detalle-direccion'
 import { IndicadoresDireccion } from '../components/indicadores-direccion'
 
@@ -28,25 +31,31 @@ const capitalize = (str: string) => {
 }
 
 export function PanelDireccionPage() {
+  const cicloLectivo = useCicloLectivoStore((estado) => estado.cicloLectivo)
   const { datos, cargando, actualizando, actualizadoEn, error, version, recargar } =
-    useIndicadoresDireccion()
+    useIndicadoresDireccion(cicloLectivo)
   const permisos = useAuthStore(permisosActivos)
   const acceso = {
     compras: tienePermiso(permisos, PERMISO_PROVEEDORES_COMPRAS_LEER),
     finanzas: tienePermiso(permisos, PERMISO_FACTURACION_LEER),
     academico: tienePermiso(permisos, PERMISO_ACADEMICO_LEER),
     alumnos: tienePermiso(permisos, PERMISO_FAMILIAS_ALUMNOS_LEER),
+    tareas: tienePermiso(permisos, PERMISO_WORKFLOWS_LEER),
+  }
+  const atencion = {
+    justificaciones: false,
+    workflows: tienePermiso(permisos, PERMISO_WORKFLOWS_LEER),
   }
 
   // Una sola consulta de detalle: la usan las tarjetas (mini detalle) y las secciones de abajo.
-  const detalle = useDetalleDireccion(acceso, version)
+  const detalle = useDetalleDireccion(acceso, version, cicloLectivo)
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         etiqueta="Dirección"
         titulo="Panel de Dirección"
-        descripcion={capitalize(fechaDeHoy())}
+        descripcion={`${capitalize(fechaDeHoy())} · Ciclo ${cicloLectivo}`}
         accion={
           <div className="flex items-center gap-3">
             {actualizadoEn && (
@@ -90,8 +99,10 @@ export function PanelDireccionPage() {
           facturacion: acceso.finanzas,
           academico: acceso.academico,
           compras: acceso.compras,
+          tareas: acceso.tareas,
         }}
       />
+      <AtencionInstitucional acceso={atencion} version={version} />
       <DetalleDireccion acceso={acceso} datos={detalle} />
     </div>
   )

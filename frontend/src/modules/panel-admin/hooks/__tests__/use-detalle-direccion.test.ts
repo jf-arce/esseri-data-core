@@ -42,10 +42,33 @@ it('loads independent sections and limits overdue accounts and attendance dates'
   )
   await waitFor(() => expect(result.current.finanzas.error).not.toBeNull())
   expect(result.current.compras).toEqual({ datos: [], cargando: false, error: null })
-  expect(listarDeudaFamilias).toHaveBeenCalledWith({ estado: 'vencida', pagina: 1, tamanio: 5 })
+  expect(listarDeudaFamilias).toHaveBeenCalledWith({
+    estado: 'vencida',
+    pagina: 1,
+    tamanio: 5,
+    ciclo_lectivo: undefined,
+  })
   expect(listarAsistencias).toHaveBeenCalledWith({
     fecha_desde: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
     fecha_hasta: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+    ciclo_lectivo: undefined,
   })
   expect(result.current.finanzas.datos).toBeNull()
+})
+
+it('passes the selected school year to debt and attendance', () => {
+  renderHook(() =>
+    useDetalleDireccion(
+      { compras: true, finanzas: true, academico: true, alumnos: true },
+      0,
+      '2027',
+    ),
+  )
+  expect(listarDeudaFamilias).toHaveBeenCalledWith({
+    estado: 'vencida',
+    pagina: 1,
+    tamanio: 5,
+    ciclo_lectivo: '2027',
+  })
+  expect(listarAsistencias).toHaveBeenCalledWith(expect.objectContaining({ ciclo_lectivo: '2027' }))
 })

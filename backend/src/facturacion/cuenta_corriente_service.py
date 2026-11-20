@@ -204,31 +204,23 @@ def _movimientos_hasta(al: date | None) -> list:
     return [Movimiento.fecha < _instante_operativo(al + timedelta(days=1))]
 
 
-def listar_deuda_por_familia(
-    db: Session,
+def _saldos_por_factura(
     *,
-    fecha_referencia: date,
-    pagina: int,
-    tamanio: int,
-    estado: str | None = None,
-    buscar: str | None = None,
-    familia_id: uuid.UUID | None = None,
     al: date | None = None,
-) -> tuple[list[dict[str, object]], int]:
-    """Agrupa saldos por responsable económico usando solo movimientos contables.
+    familia_id: uuid.UUID | None = None,
+    ciclo_lectivo: str | None = None,
+):
+    """Saldo por factura sobre el libro, reutilizado por la lista y por los totales.
 
-    `familia_id` acota el resultado a la propia familia (scoping del rol familia). Con `al`, la
-    deuda se calcula como estaba al cierre de ese día: solo facturas emitidas y movimientos
-    registrados hasta esa fecha (inclusive). `fecha_referencia` sigue decidiendo qué está vencido.
+    Una factura sin movimientos vale cero: el libro es la fuente de verdad, no el monto emitido.
     """
-
     debe = func.coalesce(
         func.sum(Movimiento.monto).filter(Movimiento.tipo == "debe"), Decimal("0.00")
     )
     haber = func.coalesce(
         func.sum(Movimiento.monto).filter(Movimiento.tipo == "haber"), Decimal("0.00")
     )
-    por_factura = (
+    consulta = (
         select(
             Factura.id.label("factura_id"),
             Factura.fecha_vencimiento.label("fecha_vencimiento"),
@@ -255,10 +247,108 @@ def listar_deuda_por_familia(
         )
     )
     if al is not None:
-        por_factura = por_factura.where(Factura.fecha_emision <= al)
+        consulta = consulta.where(Factura.fecha_emision <= al)
     if familia_id is not None:
-        por_factura = por_factura.where(ResponsableEconomico.familia_id == familia_id)
-    por_factura = por_factura.subquery()
+        consulta = consulta.where(ResponsableEconomico.familia_id == familia_id)
+    if ciclo_lectivo is not None:
+        consulta = consulta.join(Inscripcion, Inscripcion.id == Factura.inscripcion_id).where(
+            Inscripcion.ciclo_lectivo == ciclo_lectivo
+        )
+    return consulta
+
+
+def total_deuda(
+    db: Session,
+    *,
+    fecha_referencia: date,
+    al: date | None = None,
+    ciclo_lectivo: str | None = None,
+) -> dict[str, Decimal | int]:
+    """Totales de deuda sobre el libro, con la misma regla que `listar_deuda_por_familia`.
+
+    `vencida` usa la fecha de vencimiento y el saldo impago; nunca la columna `Factura.estado`,
+    que puede quedar desactualizada.
+    """
+    por_factura = _saldos_por_factura(al=al, ciclo_lectivo=ciclo_lectivo).subquery()
+    saldo = por_factura.c.total_debe - por_factura.c.total_haber
+    vencida = func.coalesce(
+        func.sum(
+            case(
+                (
+                    and_(saldo > 0, por_factura.c.fecha_vencimiento < fecha_referencia),
+                    saldo,
+                ),
+                else_=Decimal("0.00"),
+            )
+        ),
+        Decimal("0.00"),
+    )
+    no_vencida = func.coalesce(
+        func.sum(
+            case(
+                (
+                    and_(saldo > 0, por_factura.c.fecha_vencimiento >= fecha_referencia),
+                    saldo,
+                ),
+                else_=Decimal("0.00"),
+            )
+        ),
+        Decimal("0.00"),
+    )
+    facturas_vencidas = func.coalesce(
+        func.sum(
+            case(
+                (and_(saldo > 0, por_factura.c.fecha_vencimiento < fecha_referencia), 1),
+                else_=0,
+            )
+        ),
+        0,
+    )
+    montos = db.execute(select(vencida, no_vencida, facturas_vencidas)).one()
+    familias_en_mora = (
+        db.scalar(
+            select(func.count()).select_from(
+                select(por_factura.c.familia_id)
+                .where(saldo > 0, por_factura.c.fecha_vencimiento < fecha_referencia)
+                .distinct()
+                .subquery()
+            )
+        )
+        or 0
+    )
+    vencido = Decimal(montos[0])
+    por_vencer = Decimal(montos[1])
+    return {
+        "total": vencido + por_vencer,
+        "vencida": vencido,
+        "no_vencida": por_vencer,
+        "facturas_vencidas": int(montos[2]),
+        "familias_en_mora": int(familias_en_mora),
+    }
+
+
+def listar_deuda_por_familia(
+    db: Session,
+    *,
+    fecha_referencia: date,
+    pagina: int,
+    tamanio: int,
+    estado: str | None = None,
+    buscar: str | None = None,
+    familia_id: uuid.UUID | None = None,
+    al: date | None = None,
+    ciclo_lectivo: str | None = None,
+) -> tuple[list[dict[str, object]], int]:
+    """Agrupa saldos por responsable económico usando solo movimientos contables.
+
+    `familia_id` acota el resultado a la propia familia (scoping del rol familia). Con `al`, la
+    deuda se calcula como estaba al cierre de ese día: solo facturas emitidas y movimientos
+    registrados hasta esa fecha (inclusive). `fecha_referencia` sigue decidiendo qué está vencido.
+    """
+
+    por_factura = _saldos_por_factura(
+        al=al, familia_id=familia_id, ciclo_lectivo=ciclo_lectivo
+    ).subquery()
     saldo_factura = por_factura.c.total_debe - por_factura.c.total_haber
     monto_pendiente = func.coalesce(
         func.sum(

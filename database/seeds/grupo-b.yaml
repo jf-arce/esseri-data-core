@@ -40,7 +40,9 @@ permiso:
   - rol: administración
     modulo: Asistente
     acciones: [leer]
-  # administrador del sistema — CRUD completo en todos los módulos
+  # administrador del sistema — CRUD completo en todos los módulos.
+  # El permiso sin `tipo_informacion` también satisface los pedidos tipados (ver
+  # `autorizacion_service._condicion_codigo`), así que no hace falta repetir cada variante.
   - rol: administrador del sistema
     modulo: Comunicaciones
     acciones: [crear, leer, actualizar]
@@ -85,9 +87,10 @@ permiso:
   - rol: dirección
     modulo: Académico
     acciones: [leer, exportar]
-  # Revisa y resuelve la bandeja institucional de justificaciones, incluido el acceso a
-  # comprobantes. Es un permiso tipado separado de `academico.leer` (familia/docente).
-  - rol: dirección
+  # La bandeja institucional de justificaciones la resuelve administración (decisión del equipo,
+  # 2026-11-20). Los endpoints y la ruta se guardan con este permiso tipado, así que no hace
+  # falta el `academico.leer` completo.
+  - rol: administración
     modulo: Académico
     acciones: [actualizar]
     tipo_informacion: justificaciones
