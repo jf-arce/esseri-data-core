@@ -172,7 +172,7 @@ Densidad empresarial en tablas: una sola densidad, fila de 40px, con `text-sm` (
 
 ## 7. Iconografía
 
-Lucide, trazo 1.5px, `stroke-linecap` y `stroke-linejoin` en `round` (un ícono con puntas en ángulo recto se lee genérico, no del sistema). Tamaño único de 16px en controles de UI, 20px en navegación (sidebar, topbar). Sin emoji, sin unicode como ícono, sin ilustraciones figurativas ni personajes. La capa de IA se marca con color (petróleo) + texto explícito ("Sugerencia de IA"), nunca con un ícono de sparkles o cualquier imaginería "mágica": la IA tiene que verse auditable, no mágica.
+Lucide, trazo 1.5px, `stroke-linecap` y `stroke-linejoin` en `round` (un ícono con puntas en ángulo recto se lee genérico, no del sistema). Tamaño único de 16px en controles de UI, 20px en navegación (sidebar, topbar). Sin emoji, sin unicode como ícono, sin ilustraciones figurativas ni personajes (única excepción: el hero del inicio del Portal Familia, ver §8.2). La capa de IA se marca con color (petróleo) + texto explícito ("Sugerencia de IA"), nunca con un ícono de sparkles o cualquier imaginería "mágica": la IA tiene que verse auditable, no mágica.
 
 Donde una vista necesita más peso visual que un ícono suelto (un nivel académico, una tarjeta de rol, una celda de bento), el ícono va dentro de un **tile**: 36-44px, radio 10-12px, fondo en el tono `-suave` del color de módulo correspondiente e ícono en el tono saturado. No se siembran íconos sueltos como decoración: dentro de una celda de tabla el estado ya lo comunica el badge (punto + texto), y un ícono ahí suma ruido en vez de jerarquía. Ver §13 para el set de ilustraciones geométricas, que es un lenguaje aparte del ícono funcional.
 
@@ -186,6 +186,42 @@ Dos shells, no uno solo — elegir según cuántos destinos tiene el rol, no por
 - **Nunca ancho fijo ni alto fijo en el shell**: `width:100%;min-height:100vh` (o `min-height:100%` dentro de un contenedor con altura), nunca `width:1440px;min-height:900px`. El frame del artboard/viewport define el tamaño real; el CSS no debe imponer uno propio, o queda banda vacía abajo cuando el contenido es más corto que ese número fijo.
 - Todo elemento de grid (`.two-col`, `.two`) que puede contener una tabla ancha necesita `min-width:0` en sus hijos directos, y la tabla va envuelta en un contenedor con `overflow-x:auto` — si no, la tabla fuerza su `min-width` y desborda la columna (y a veces la página entera) en vez de scrollear contenida.
 - **Encabezado de página**: etiqueta de sección (estilo versalitas), breadcrumb que nombre la vista de origen (toda vista de detalle lo lleva), título, acciones primarias a la derecha, tabs debajo si corresponde.
+
+### 8.2 Portal Familia: registro visual
+
+Mismo ADN, otro registro. El portal **hereda** la marca, Geist, el isotipo, los tokens semánticos (`exito`, `advertencia`, `error`, `info`), los badges de estado y las reglas de accesibilidad (§12). **Cambia** la escala, los radios, la densidad y el tono, para sentirse más cálido y menos "consola". Todo lo que difiere del sistema vive como token `--pf-*` dentro de `.portal-familia` (y su variante `.dark`) en `frontend/src/index.css`; las páginas del portal nunca llevan hex, `text-[Npx]`, `rounded-[N]` ni `shadow-[...]` sueltos.
+
+**Tipografía** (superficie de lectura, piso de 14px):
+
+| Rol | Utilidad | Tamaño |
+| --- | --- | --- |
+| detalle, metadata | `text-sm` | 14px |
+| cuerpo | `text-pf-cuerpo` | 15px |
+| encabezado de card | `text-pf-encabezado` | 17px |
+| cifra de indicador | `text-pf-cifra` | 26px, tabular, 700 |
+| título de página | `text-pf-titulo` | 30px (36px desde `sm`) |
+
+**Forma:**
+
+| Elemento | Portal | Sistema |
+| --- | --- | --- |
+| Card | `rounded-pf-card` 20px, `bg-superficie`, hairline | 16px |
+| Tile de indicador, banner de alerta | `rounded-pf-tile` 16px | 12px |
+| Ítem de lista dentro de card | `rounded-pf-item` 12px | 8px |
+| Tile de ícono | 12px (40px) o 14px (48-56px) | 9-12px |
+| Botón, nav, chip, badge | píldora | píldora |
+| Input, select | 10px | 8px |
+| Diálogo, sheet | 16px | 12px |
+
+**Elevación:** dos tokens, `shadow-pf-card` (reposo: anillo hairline + dos capas bajas, un escalón por encima de `shadow-card`) y `shadow-pf-hover` (cards clickeables). Sin sombra en tiles internos, banner ni botón: el botón se distingue por color, nunca por glow.
+
+**Bordes:** `border-pf-borde` (contorno de ítem, input, card en hover) y `border-pf-divisor` (separadores internos, más tenue). El hairline de la card va como anillo dentro de la sombra, no como `border`. `border-dashed` solo para estados vacíos y dropzone.
+
+**Color:** un único violeta de acción (`text-pf-accent`, `bg-pf-accent`), un header derivado de la rampa `nav` (`--pf-header`) y tonos de tile (`lavanda`, `ambar`, `azul`, `verde`, `rojo`) como pares `--pf-tile-<tono>-bg/fg` con contraste de al menos 3:1 en el ícono (WCAG 1.4.11). Tienen valores propios en `.dark .portal-familia`, así que ningún componente necesita reglas por clase para el tema oscuro.
+
+**Tono de copy:** cercano y en voseo ("Hola, Laura", "Podés justificarla"), sin exclamaciones de entusiasmo.
+
+**Excepción explícita del hero del inicio:** el saludo lleva un emoji (`Hola, Laura 👋`) y la portada usa `IlustracionColegio`, una ilustración figurativa con degradé violeta. Es una decisión consciente del portal y no se extiende a ninguna otra pantalla; por eso §7, §11, §13 y §14 no aplican a ese hero. Sus colores salen de tokens `--pf-*`.
 
 ### 8.0 Responsive del contenido (container queries)
 
@@ -312,7 +348,7 @@ Es el centro de control del módulo y sigue §10: un dato principal (ejecuciones
 
 ## 11. Contenido y voz
 
-**Voz:** institucional y precisa. El sistema informa y ejecuta; no vende ni felicita. Nunca "¡Genial! 🎉", nunca signos de exclamación de entusiasmo, nunca emoji.
+**Voz:** institucional y precisa. El sistema informa y ejecuta; no vende ni felicita. Nunca "¡Genial! 🎉", nunca signos de exclamación de entusiasmo, nunca emoji (salvo el saludo del hero del Portal Familia, ver §8.2).
 
 **Microcopy es-AR, voz activa, sentence case:** "Registrar pago", "Dar de alta familia", "Aprobar sugerencia". Nunca "Enviar" genérico, nunca Title Case. El verbo de la acción se mantiene igual entre el botón y el mensaje de éxito: "Registrar pago" → "Pago registrado".
 
@@ -336,13 +372,13 @@ El isotipo de la marca es un hexágono rodeado de nodos conectados: una red, por
 
 **El riel de eventos** (estructural): una línea fina con nodos circulares. El centro de cada nodo cae exactamente sobre la línea, nunca desplazado (revisar la aritmética del CSS, no a ojo: con nodo de 8px y borde de 2px en `box-sizing:border-box`, el centro queda a 4px del borde del nodo). Aparece como estructura real, no decoración, en líneas de tiempo de auditoría, historiales de ejecución de workflows y feeds de alertas. Tiene una variante horizontal (línea + nodo centrado, misma aritmética, orientación horizontal) para procesos de pocos pasos como la ejecución de un workflow paso a paso; el paso que falla queda en rojo (`error`/`error-suave`) con su mensaje debajo.
 
-**Ilustración geométrica** (decorativa, nueva en este documento): composiciones abstractas del hexágono **con sus nodos** —el motivo completo, no el hexágono solo: un hexágono sin nodos se lee como forma genérica de stock, no como la marca—, en trazo fino y muy baja opacidad (0.10-0.18), coloreadas con el lila claro de marca u otro color de módulo cuando la pantalla pertenece a un dominio específico. Van solo en zonas de respiro sin datos que leer: portadas de sección, login, estados vacíos, y como fondo de headers de card (nivel académico, tarjeta de rol, celda hero de un bento). **Nunca dentro de una tabla, un formulario o cualquier superficie con datos reales**: ahí compiten con la información en vez de enmarcarla. Donde la ilustración es interactiva (ej. una portada con hover), la transición sigue las reglas de §6: 150-220ms, ease-out, sin glow ni blur. Siguen prohibidas las ilustraciones figurativas (objetos, escenas, personajes): el motivo es siempre geométrico y deriva del isotipo, nunca decoración genérica de stock.
+**Ilustración geométrica** (decorativa, nueva en este documento): composiciones abstractas del hexágono **con sus nodos** —el motivo completo, no el hexágono solo: un hexágono sin nodos se lee como forma genérica de stock, no como la marca—, en trazo fino y muy baja opacidad (0.10-0.18), coloreadas con el lila claro de marca u otro color de módulo cuando la pantalla pertenece a un dominio específico. Van solo en zonas de respiro sin datos que leer: portadas de sección, login, estados vacíos, y como fondo de headers de card (nivel académico, tarjeta de rol, celda hero de un bento). **Nunca dentro de una tabla, un formulario o cualquier superficie con datos reales**: ahí compiten con la información en vez de enmarcarla. Donde la ilustración es interactiva (ej. una portada con hover), la transición sigue las reglas de §6: 150-220ms, ease-out, sin glow ni blur. Siguen prohibidas las ilustraciones figurativas (objetos, escenas, personajes), salvo la portada del inicio del Portal Familia (§8.2): el motivo es siempre geométrico y deriva del isotipo, nunca decoración genérica de stock.
 
 ## 14. Qué evitar (resumen)
 
 - Inter, Arial, system-ui o Roboto como fuente de marca.
 - `#000000` o `#FFFFFF` puros; cualquier gris sin tinte violáceo.
-- Degradés de violeta, en particular violeta→azul o violeta→rosa.
+- Degradés de violeta, en particular violeta→azul o violeta→rosa (la ilustración del hero del Portal Familia, §8.2, es la excepción).
 - Texto gris sobre fondos de color.
 - Cards anidadas dentro de otras cards.
 - Sombra dura, de radio grande, o cualquier sombra fuera de la elevación de card definida en 5.2 (esa sí lleva sombra baja en reposo).
@@ -350,7 +386,7 @@ El isotipo de la marca es un hexágono rodeado de nodos conectados: una red, por
 - Glassmorphism, blur decorativo, glows, sombras difusas grandes fuera de la de 5.2.
 - Easing con rebote o elástico.
 - Una teja de ícono redondeada arriba de cada encabezado.
-- Emoji como ícono, ilustraciones 3D, ilustraciones figurativas, personajes.
+- Emoji como ícono, ilustraciones 3D, ilustraciones figurativas, personajes (el hero del Portal Familia es la excepción documentada en §8.2).
 - Una fila plana de chips como único filtro cuando hay más de dos o tres opciones que combinar.
 - Un menú de acciones idéntico copiado entre tablas de dominios distintos, en vez de las acciones específicas de cada una.
 - Gráficos de torta/dona.
