@@ -5,9 +5,12 @@ cada combinación (tipo, destino) tiene un esquema estricto y un significado de 
 """
 
 AMBITO_ACADEMICO = "academico"
+AMBITO_ADMINISTRACION = "administracion"
 AMBITO_COMUNICACIONES = "comunicaciones"
 AMBITO_FACTURACION = "facturacion"
-AMBITOS_VALIDOS = frozenset({AMBITO_ACADEMICO, AMBITO_COMUNICACIONES, AMBITO_FACTURACION})
+AMBITOS_VALIDOS = frozenset(
+    {AMBITO_ACADEMICO, AMBITO_ADMINISTRACION, AMBITO_COMUNICACIONES, AMBITO_FACTURACION}
+)
 
 TIPO_INASISTENCIA_REGISTRADA = "academico.inasistencia_registrada"
 TIPO_JUSTIFICACION_APROBADA = "academico.justificacion_aprobada"
@@ -18,6 +21,7 @@ TIPO_PAGO_REGISTRADO = "facturacion.pago_registrado"
 TIPO_PROXIMO_VENCIMIENTO = "facturacion.proximo_vencimiento"
 TIPO_DEBITO_EXITOSO = "facturacion.debito_exitoso"
 TIPO_DEBITO_RECHAZADO = "facturacion.debito_rechazado"
+TIPO_JUSTIFICACION_PENDIENTE = "administracion.justificacion_pendiente"
 
 DESTINO_ASISTENCIA = "asistencia"
 DESTINO_JUSTIFICACION_INDIVIDUAL = "justificacion_individual"
@@ -25,6 +29,7 @@ DESTINO_SOLICITUD_PERIODO = "solicitud_ausencia_periodo"
 DESTINO_COMUNICACION = "comunicacion"
 DESTINO_FACTURA = "factura"
 DESTINO_PAGO = "pago"
+DESTINO_JUSTIFICACION = "justificacion"
 
 DESTINOS_VALIDOS = frozenset(
     {
@@ -34,6 +39,7 @@ DESTINOS_VALIDOS = frozenset(
         DESTINO_COMUNICACION,
         DESTINO_FACTURA,
         DESTINO_PAGO,
+        DESTINO_JUSTIFICACION,
     }
 )
 
@@ -47,6 +53,7 @@ AMBITO_POR_TIPO = {
     TIPO_PROXIMO_VENCIMIENTO: AMBITO_FACTURACION,
     TIPO_DEBITO_EXITOSO: AMBITO_FACTURACION,
     TIPO_DEBITO_RECHAZADO: AMBITO_FACTURACION,
+    TIPO_JUSTIFICACION_PENDIENTE: AMBITO_ADMINISTRACION,
 }
 
 # Clave lógica de la tabla. El nombre es estable porque el productor lo usa para distinguir el
@@ -54,3 +61,8 @@ AMBITO_POR_TIPO = {
 NOMBRE_UNICO_CLAVE = "uq_notificacion_interna_usuario_ambito_clave"
 
 ROL_FAMILIA = "familia"
+ROL_ADMINISTRACION = "administracion"
+ROL_ADMINISTRADOR_SISTEMA = "administrador_del_sistema"
+# Roles administrativos con bandeja propia. Solo reciben justificaciones los que además
+# pueden operar la bandeja institucional (permiso académico de actualización).
+ROLES_ADMINISTRATIVOS = frozenset({ROL_ADMINISTRACION, ROL_ADMINISTRADOR_SISTEMA})

@@ -54,8 +54,8 @@ def test_sin_sesion_devuelve_401(client):
         assert respuesta.status_code == 401, (metodo, ruta, respuesta.text)
 
 
-def test_rol_distinto_al_familia_devuelve_403(client, escenario_notificaciones, login):
-    login(escenario_notificaciones["usuario_admin"])
+def test_rol_sin_bandeja_interna_devuelve_403(client, escenario_notificaciones, login):
+    login(escenario_notificaciones["usuario_academico"])
 
     for metodo, ruta in (
         ("get", "/notificaciones"),
@@ -65,6 +65,14 @@ def test_rol_distinto_al_familia_devuelve_403(client, escenario_notificaciones, 
     ):
         respuesta = getattr(client, metodo)(ruta)
         assert respuesta.status_code == 403, (metodo, ruta, respuesta.text)
+
+
+def test_administracion_tiene_su_propia_bandeja_vacia(client, escenario_notificaciones, login):
+    login(escenario_notificaciones["usuario_admin"])
+
+    assert client.get("/notificaciones").json()["items"] == []
+    assert client.get("/notificaciones/resumen").json()["total_no_leidas"] == 0
+    assert client.post("/notificaciones/lecturas").json()["marcadas"] == 0
 
 
 def test_rol_familia_revocado_despues_del_login_devuelve_403(

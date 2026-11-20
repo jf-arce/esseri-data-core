@@ -10,7 +10,7 @@ from src.facturacion.models import Factura, MetodoPago, ResponsableEconomico
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate
 from src.notificaciones.facturacion_service import detectar_proximos_vencimientos
 from src.notificaciones.models import NotificacionInterna
-from src.notificaciones.service import listar
+from src.notificaciones.service import AlcanceBandeja, listar
 from tests.facturacion.conftest import crear_catalogo_evento_pago_registrado
 
 HOY = date(2027, 3, 10)
@@ -204,7 +204,7 @@ def test_aviso_de_factura_no_se_expone_a_otra_familia(db_session, escenario_noti
     visibles_a = listar(
         db_session,
         escenario["usuario_a"].id,
-        escenario["familia_a"].id,
+        AlcanceBandeja(rol="familia", familia_id=escenario["familia_a"].id),
         no_leidas=False,
         limite=50,
         cursor=None,
@@ -212,7 +212,7 @@ def test_aviso_de_factura_no_se_expone_a_otra_familia(db_session, escenario_noti
     visibles_b = listar(
         db_session,
         escenario["usuario_b"].id,
-        escenario["familia_b"].id,
+        AlcanceBandeja(rol="familia", familia_id=escenario["familia_b"].id),
         no_leidas=False,
         limite=50,
         cursor=None,
