@@ -156,6 +156,10 @@ def test_el_limite_se_aplica_por_categoria_y_no_global(db_session, escenario_con
     # Las facturas, más recientes, no desplazan a la solicitud de compras.
     assert [fila["categoria"] for fila in filas].count("finanzas") == 2
     assert [fila["categoria"] for fila in filas].count("compras") == 1
+    # La entidad de origen viaja en el feed para poder enlazar al registro exacto.
+    assert {fila["entidad_id"] for fila in filas if fila["categoria"] == "finanzas"} == {
+        solicitud.id
+    }
 
 
 def test_respeta_las_categorias_habilitadas(db_session, escenario_con_solicitud):

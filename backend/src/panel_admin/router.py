@@ -35,6 +35,11 @@ RolDireccion = Annotated[Usuario, Depends(requiere_rol("direccion", "administrad
 RolAdministracion = Annotated[
     Usuario, Depends(requiere_rol("administracion", "administrador_del_sistema"))
 ]
+# El feed es compartido: cada categoría se sigue habilitando con el permiso de su módulo.
+RolPanel = Annotated[
+    Usuario,
+    Depends(requiere_rol("direccion", "administracion", "administrador_del_sistema")),
+]
 
 # Cada categoría del feed se habilita con el permiso del módulo dueño de esos hechos, no con
 # `panel_administrativo.leer`: Dirección ve el panel, pero un rol sin facturación no debe ver
@@ -94,7 +99,7 @@ def obtener_actividad(
     db: DbSession,
     usuario: PuedeLeer,
     rol_activo: RolActivo,
-    _rol_panel: RolDireccion,
+    _rol_panel: RolPanel,
     limite: Annotated[int, Query(ge=1, le=20)] = 8,
 ) -> list[ActividadRecienteRead]:
     """Hechos recientes de las categorías que el rol activo puede ver (`limite` por categoría).

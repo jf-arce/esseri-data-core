@@ -3,6 +3,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -52,3 +53,5 @@ class ActividadRecienteRead(BaseModel):
     estado: str | None
     monto: Decimal | None
     ocurrido_en: datetime
+    # Entidad de origen: permite que el panel enlace al registro exacto (ej. una factura).
+    entidad_id: UUID | None = None

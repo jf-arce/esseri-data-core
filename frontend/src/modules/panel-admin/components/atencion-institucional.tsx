@@ -1,14 +1,12 @@
 import { Link } from 'react-router'
 import { Badge } from '@/components/ui/badge'
-import { RUTA_SUGERENCIAS } from '@/modules/ia-sugerencias/constants'
 import { RUTA_EJECUCIONES } from '@/modules/workflows/constants'
 import { useAtencionInstitucional } from '../hooks/use-atencion-institucional'
 import type { Recurso } from '../hooks/use-recurso'
-import { Panel } from './detalle-direccion'
+import { Panel } from './panel-card'
 
 export interface AccesoAtencion {
   justificaciones: boolean
-  sugerencias: boolean
   workflows: boolean
 }
 
@@ -29,7 +27,7 @@ export function AtencionInstitucional({
   acceso: AccesoAtencion
   version?: number
 }) {
-  const { justificaciones, sugerencias, workflows } = useAtencionInstitucional(acceso, version)
+  const { justificaciones, workflows } = useAtencionInstitucional(acceso, version)
   const filas: {
     clave: string
     etiqueta: string
@@ -48,23 +46,17 @@ export function AtencionInstitucional({
       accion: 'Abrir bandeja',
     })
   }
-  if (acceso.sugerencias) {
-    filas.push({
-      clave: 'sugerencias',
-      etiqueta: 'Sugerencias de IA',
-      detalle: 'Patrones detectados sin revisar',
-      valor: valor(sugerencias, (datos) => (datos as unknown[]).length),
-      to: RUTA_SUGERENCIAS,
-      accion: 'Revisar',
-    })
-  }
   if (acceso.workflows) {
     filas.push({
       clave: 'workflows',
       etiqueta: 'Workflows con errores',
       detalle: 'Ejecuciones fallidas en los últimos 30 días',
-      valor: valor(workflows, (datos) => (datos as { con_errores: number }).con_errores),
-      to: RUTA_EJECUCIONES,
+      // Mismo número que muestra la bandeja de ejecuciones, no la cantidad de reglas con fallas.
+      valor: valor(
+        workflows,
+        (datos) => (datos as { actual: { fallido: number } }).actual.fallido,
+      ),
+      to: `${RUTA_EJECUCIONES}?estado=fallido`,
       accion: 'Ver ejecuciones',
     })
   }

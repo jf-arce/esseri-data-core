@@ -222,6 +222,7 @@ def _fila_evento(evento: EventLog, nombre: str, pagos: dict) -> dict:
         "monto": None,
         "referencia": None,
         "detalle": None,
+        "entidad_id": evento.entidad_id,
     }
     if nombre == "pago.registrado":
         referencia, monto = pagos.get(evento.entidad_id, (None, None))
@@ -346,6 +347,7 @@ def _filas_solicitudes(db: Session, limite: int) -> list[dict]:
                 "estado": estado,
                 "monto": None,
                 "ocurrido_en": _instante_utc(registro.fecha),
+                "entidad_id": registro.entidad_id,
             }
         )
     return resultado
@@ -377,6 +379,7 @@ def _filas_matriculas(db: Session, limite: int) -> list[dict]:
             "estado": "baja" if inscripcion.tipo == "baja" else "alta",
             "monto": None,
             "ocurrido_en": _instante_utc(registro.fecha),
+            "entidad_id": registro.entidad_id,
         }
         for registro, inscripcion, nombre, apellido in filas
     ]

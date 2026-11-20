@@ -11,12 +11,17 @@ const state = vi.hoisted(() => ({
     cobrado_mes: '125000.00' as string | null,
     solicitudes_compra_pendientes: 3 as number | null,
   },
+  justificaciones: { datos: { total: 4 }, cargando: false, error: null } as {
+    datos: { total: number }
+    cargando: boolean
+    error: string | null
+  },
   permisos: [
     'familias_alumnos.leer',
     'facturacion.leer',
     'proveedores_compras.leer',
     'inscripciones.leer',
-  ],
+  ] as string[],
 }))
 
 vi.mock('@/modules/panel-admin/hooks/use-indicadores-administracion', () => ({
@@ -24,6 +29,21 @@ vi.mock('@/modules/panel-admin/hooks/use-indicadores-administracion', () => ({
     datos: state.datos,
     cargando: state.cargando,
     error: state.error,
+  }),
+}))
+vi.mock('@/modules/panel-admin/hooks/use-detalle-direccion', () => ({
+  useDetalleDireccion: () => ({
+    compras: { datos: [], error: null, cargando: false },
+    deudas: { datos: { items: [], total: 0 }, error: null, cargando: false },
+    asistencia: { datos: null, error: null, cargando: false },
+    finanzas: { datos: null, error: null, cargando: false },
+    actividad: { datos: [], error: null, cargando: false },
+  }),
+}))
+vi.mock('@/modules/panel-admin/hooks/use-atencion-institucional', () => ({
+  useAtencionInstitucional: () => ({
+    justificaciones: state.justificaciones,
+    workflows: { datos: null, cargando: false, error: null },
   }),
 }))
 vi.mock('@/store/auth-store', () => ({
@@ -39,6 +59,7 @@ beforeEach(() => {
     cobrado_mes: '125000.00',
     solicitudes_compra_pendientes: 3,
   }
+  state.justificaciones = { datos: { total: 4 }, cargando: false, error: null }
   state.permisos = [
     'familias_alumnos.leer',
     'facturacion.leer',
@@ -60,7 +81,7 @@ it('shows the three operational indicators with their modules', () => {
   expect(cobrado).toHaveAttribute('href', '/facturacion')
   expect(cobrado).toHaveTextContent(/125\.000,00/)
   const compras = screen.getByRole('link', { name: 'Ver solicitudes de compra pendientes' })
-  expect(compras).toHaveAttribute('href', '/solicitudes-compra')
+  expect(compras).toHaveAttribute('href', '/solicitudes-compra?estado=pendiente')
   expect(compras).toHaveTextContent('3')
 })
 
@@ -74,6 +95,38 @@ it('keeps the quick access cards', () => {
   for (const titulo of ['Familias', 'Facturación', 'Proveedores', 'Inscripciones', 'Compras']) {
     expect(screen.getByText(titulo)).toBeInTheDocument()
   }
+})
+
+it('adds the shared operational blocks', () => {
+  render(
+    <MemoryRouter>
+      <PanelAdministracionPage />
+    </MemoryRouter>,
+  )
+  expect(screen.getByRole('heading', { name: 'Requiere tu atención' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Actividad reciente' })).toBeInTheDocument()
+})
+
+it('shows pending justifications only when Administración can resolve them', () => {
+  render(
+    <MemoryRouter>
+      <PanelAdministracionPage />
+    </MemoryRouter>,
+  )
+  expect(screen.queryByText('Justificaciones pendientes')).not.toBeInTheDocument()
+
+  state.permisos = [...state.permisos, 'academico.actualizar:justificaciones']
+  render(
+    <MemoryRouter>
+      <PanelAdministracionPage />
+    </MemoryRouter>,
+  )
+  expect(screen.getByText('Justificaciones pendientes')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Abrir bandeja' })).toHaveAttribute(
+    'href',
+    '/academico/justificaciones',
+  )
+  expect(screen.getByText('4')).toBeInTheDocument()
 })
 
 it('hides a block the role cannot see', () => {

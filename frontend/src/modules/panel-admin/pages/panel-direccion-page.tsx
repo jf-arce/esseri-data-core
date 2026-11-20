@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/page-header'
 import { useIndicadoresDireccion } from '@/modules/panel-admin/hooks/use-indicadores-direccion'
 import {
-  PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES,
   PERMISO_ACADEMICO_LEER,
   PERMISO_FACTURACION_LEER,
   PERMISO_FAMILIAS_ALUMNOS_LEER,
@@ -12,7 +11,6 @@ import {
   PERMISO_WORKFLOWS_LEER,
   tienePermiso,
 } from '@/modules/auth/constants'
-import { PERMISO_IA_SUGERENCIAS_LEER } from '@/modules/ia-sugerencias/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 import { useDetalleDireccion } from '../hooks/use-detalle-direccion'
@@ -45,8 +43,7 @@ export function PanelDireccionPage() {
     tareas: tienePermiso(permisos, PERMISO_WORKFLOWS_LEER),
   }
   const atencion = {
-    justificaciones: tienePermiso(permisos, PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES),
-    sugerencias: tienePermiso(permisos, PERMISO_IA_SUGERENCIAS_LEER),
+    justificaciones: false,
     workflows: tienePermiso(permisos, PERMISO_WORKFLOWS_LEER),
   }
 
