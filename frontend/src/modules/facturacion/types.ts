@@ -408,6 +408,7 @@ export interface FiltrosDeudaFamilias {
   tamanio: number
   estado?: EstadoDeudaFamilia
   buscar?: string
+  ciclo_lectivo?: string
 }
 
 export interface CrearFacturaPayload {
