@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import {
   BanknoteIcon,
@@ -38,7 +38,7 @@ import {
   type Mensaje,
 } from '../conversaciones'
 
-const CANAL_ADJUNTOS = 'Máx. 5 MB (PDF, JPG, PNG)'
+const CANAL_ADJUNTOS = 'Máx. 10 MB (PDF, JPG, PNG)'
 
 function vuelta(contexto: Contexto | undefined, familia: boolean) {
   if (!contexto) return familia ? '/familia/comunicaciones' : rutaConversaciones(false)
@@ -66,6 +66,18 @@ function partes(fecha: Date) {
 
 function fechaCorta(valor: string) {
   return partes(new Date(`${valor}T00:00:00`))
+}
+
+function fechaLarga(valor: string) {
+  return new Date(valor).toLocaleDateString('es-AR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+function diaLocal(valor: string) {
+  return new Date(valor).toLocaleDateString('en-CA')
 }
 
 function fechaHora(valor: string) {
@@ -549,44 +561,62 @@ function Detalle({ familia }: { familia: boolean }) {
               className="max-h-[min(60vh,36rem)] overflow-y-auto overscroll-contain pr-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
             >
               <ol className="flex flex-col gap-5">
-                {historial.items.map((mensaje) => {
+                {historial.items.map((mensaje, indice) => {
                   const esFamilia = mensaje.lado === 'familia'
+                  const anterior = historial.items[indice - 1]
+                  const nuevoDia =
+                    !anterior || diaLocal(anterior.created_at) !== diaLocal(mensaje.created_at)
                   return (
-                    <li
-                      key={mensaje.id}
-                      className={cn('flex items-start gap-2.5', esFamilia && 'flex-row-reverse')}
-                    >
-                      <Avatar mensaje={mensaje} />
-                      <div
-                        className={cn(
-                          'flex min-w-0 max-w-[85%] flex-col',
-                          esFamilia && 'items-end',
-                        )}
+                    <Fragment key={mensaje.id}>
+                      {nuevoDia && (
+                        <li
+                          className="flex justify-center"
+                          aria-label={`Mensajes del ${fechaLarga(mensaje.created_at)}`}
+                        >
+                          <span className="rounded-full bg-[#F1EEF6] px-3 py-1 text-[12px] font-medium text-[#6B6478]">
+                            {fechaLarga(mensaje.created_at)}
+                          </span>
+                        </li>
+                      )}
+                      <li
+                        className={cn('flex items-start gap-2.5', esFamilia && 'flex-row-reverse')}
                       >
-                        <p className="mb-1 text-[12px] text-[#6B6478]">
-                          <strong className="font-semibold text-[#2B2338]">{mensaje.autor}</strong>
-                          {' · '}
-                          <time dateTime={mensaje.created_at}>{fechaHora(mensaje.created_at)}</time>
-                        </p>
+                        <Avatar mensaje={mensaje} />
                         <div
                           className={cn(
-                            'w-full rounded-[14px] px-3.5 py-3 text-[14px] text-[#2B2338]',
-                            esFamilia ? 'bg-[#F1E4FB]' : 'bg-[#F6F4F9]',
+                            'flex min-w-0 max-w-[85%] flex-col',
+                            esFamilia && 'items-end',
                           )}
                         >
-                          <p className="break-words whitespace-pre-wrap">{mensaje.texto}</p>
-                          <Adjuntos
-                            mensaje={mensaje}
-                            ocupado={ocupado}
-                            onDescargar={(adjunto) =>
-                              void ejecutar(async () =>
-                                descargarAdjunto(hilo.id, mensaje.id, adjunto),
-                              )
-                            }
-                          />
+                          <p className="mb-1 text-[12px] text-[#6B6478]">
+                            <strong className="font-semibold text-[#2B2338]">
+                              {mensaje.autor}
+                            </strong>
+                            {' · '}
+                            <time dateTime={mensaje.created_at}>
+                              {fechaHora(mensaje.created_at)}
+                            </time>
+                          </p>
+                          <div
+                            className={cn(
+                              'w-full rounded-[14px] px-3.5 py-3 text-[14px] text-[#2B2338]',
+                              esFamilia ? 'bg-[#F1E4FB]' : 'bg-[#F6F4F9]',
+                            )}
+                          >
+                            <p className="break-words whitespace-pre-wrap">{mensaje.texto}</p>
+                            <Adjuntos
+                              mensaje={mensaje}
+                              ocupado={ocupado}
+                              onDescargar={(adjunto) =>
+                                void ejecutar(async () =>
+                                  descargarAdjunto(hilo.id, mensaje.id, adjunto),
+                                )
+                              }
+                            />
+                          </div>
                         </div>
-                      </div>
-                    </li>
+                      </li>
+                    </Fragment>
                   )
                 })}
               </ol>
@@ -652,9 +682,9 @@ function Detalle({ familia }: { familia: boolean }) {
                           const seleccion = Array.from(evento.target.files ?? [])
                           if (
                             seleccion.length > 5 ||
-                            seleccion.some((a) => a.size > 5 * 1024 * 1024)
+                            seleccion.some((a) => a.size > 10 * 1024 * 1024)
                           ) {
-                            setError('Podés adjuntar hasta 5 archivos de hasta 5 MB cada uno.')
+                            setError('Podés adjuntar hasta 5 archivos de hasta 10 MB cada uno.')
                             evento.target.value = ''
                             setArchivos([])
                             return

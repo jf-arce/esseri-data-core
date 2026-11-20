@@ -19,6 +19,10 @@ from src.comunicaciones.models import (
     MensajeConversacion,
 )
 
+# La conversación admite archivos más grandes que una publicación; el tope total del mensaje
+# sigue siendo el mismo para no multiplicar el almacenamiento por respuesta.
+MAX_BYTES_ADJUNTO_CONVERSACION = 10 * 1024 * 1024
+
 
 @dataclass(frozen=True)
 class ArchivoPreparado:
@@ -34,7 +38,7 @@ def preparar(archivos: list[UploadFile]) -> tuple[ArchivoPreparado, ...]:
     preparados = []
     total = 0
     for archivo in archivos:
-        nombre, tipo, contenido = preparar_adjunto_privado(archivo)
+        nombre, tipo, contenido = preparar_adjunto_privado(archivo, MAX_BYTES_ADJUNTO_CONVERSACION)
         total += len(contenido)
         if total > MAX_BYTES_TOTAL:
             raise HTTPException(413, "Los adjuntos superan el tamaño total permitido.")

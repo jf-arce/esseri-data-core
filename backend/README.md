@@ -834,7 +834,7 @@ list pending threads and resolve or reopen them without mutating the underlying 
 to an explicitly isolated, migrated PostgreSQL test database to include the simultaneous-open
 constraint test.
 
-Text messages use JSON. To send up to five private PDF/JPG/PNG files (5 MiB each) with a
+Text messages use JSON. To send up to five private PDF/JPG/PNG files (10 MiB each, 25 MiB total) with a
 message, use the corresponding `/con-adjuntos` action with multipart `texto`, `clave` and
 repeated `archivos` fields. This uses the existing Communications attachment switch and
 scanner. A failed inspection leaves neither a message nor attachments. Downloads never use

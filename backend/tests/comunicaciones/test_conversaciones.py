@@ -6,6 +6,7 @@ from threading import Barrier
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 from PIL import Image
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -349,6 +350,26 @@ def test_adjunto_privado_y_envio_atomico(client, escenario, monkeypatch):
     )
     assert envio.status_code == 503
     assert client.get(f"{BASE}/{hilo}/mensajes").json()["items"] == historial
+
+
+def test_adjunto_de_conversacion_admite_hasta_diez_mebibytes(monkeypatch):
+    from src.comunicaciones import adjuntos_conversacion, adjuntos_service
+
+    monkeypatch.setattr(adjuntos_service, "adjuntos_habilitados", lambda: True)
+    monkeypatch.setattr(adjuntos_escaner, "escanear", lambda _: None)
+
+    class Archivo:
+        def __init__(self, tamano):
+            self.filename = "grande.png"
+            self.file = BytesIO(b"\x89PNG\r\n\x1a\n" + b"0" * (tamano - 8))
+
+    # Pasa el límite por archivo (el contenido después se rechaza por no ser un PNG válido).
+    with pytest.raises(HTTPException) as chico:
+        adjuntos_conversacion.preparar([Archivo(6 * 1024 * 1024)])
+    assert chico.value.status_code == 422
+    with pytest.raises(HTTPException) as grande:
+        adjuntos_conversacion.preparar([Archivo(11 * 1024 * 1024)])
+    assert grande.value.status_code == 413
 
 
 def test_sin_recibe_comunicaciones_no_hay_aviso_ni_email_pero_si_acceso(
