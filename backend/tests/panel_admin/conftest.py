@@ -100,6 +100,18 @@ def client_administracion(client, db_session):
 
 
 @pytest.fixture()
+def client_administracion_sin_modulos(client, db_session):
+    """Administración con el panel pero sin Facturación ni Compras."""
+    return _crear_cliente(
+        client,
+        db_session,
+        email="administracion-sin-modulos@esseri.edu.ar",
+        codigo="administracion",
+        modulos=[MODULO_PANEL_ADMIN],
+    )
+
+
+@pytest.fixture()
 def client_administrador_sistema(client, db_session):
     """Rol técnico: entra a los dos paneles."""
     return _crear_cliente(

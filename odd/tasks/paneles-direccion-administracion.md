@@ -22,8 +22,8 @@ S12. Sin migraciones, sin cambios de modelo, sin permisos nuevos, sin datos simu
 ## Tasks
 
 - T1 | S6 | inline | Autorización por rol en backend + tests. RED: 200 en indicadores para Administración; GREEN: 403 y suite panel_admin 20 tests.
-- T2 | S7-S10 | inline | Deuda canónica, fecha operativa, tareas y ciclo en `panel_admin`.
-- T3 | S4 | inline | Endpoint de indicadores de Administración + ciclo en `/deudas/familias`.
+- T2 | S7-S10 | inline | Deuda canónica, fecha operativa, tareas y ciclo en `panel_admin`. RED: `total_deuda` inexistente y deuda vieja 60 vs libro 70; GREEN: 25 tests de panel + 224 de facturación.
+- T3 | S4 | inline | Endpoint de indicadores de Administración + ciclo en `/deudas/familias`. Tests: bloques por permiso, 403 de Dirección, semántica saldo+fecha.
 - T4 | S1-S3,S11 | inline | Frontend Dirección: quinto indicador, etiquetas, ciclo y situaciones para revisar.
 - T5 | S4-S5,S11 | inline | Frontend Administración: tres indicadores.
 - T6 | S12 | inline | Verificación: suites focalizadas, lint, build.
