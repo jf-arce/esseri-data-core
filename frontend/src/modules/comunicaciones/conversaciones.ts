@@ -8,6 +8,7 @@ export type Contexto = {
   tipo: TipoContexto
   id: string
   alumno_nombre: string
+  alumno_id: string
   fecha_inicio: string
   fecha_fin?: string | null
   estado_tramite?: string | null

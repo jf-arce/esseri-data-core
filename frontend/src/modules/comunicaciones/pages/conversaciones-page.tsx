@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useAuthStore } from '@/store/auth-store'
 import {
   ESTADOS,
   listarConversaciones,
@@ -18,6 +19,7 @@ import {
 
 export function ConversacionesPage() {
   const [estado, setEstado] = useState<EstadoConversacion>('pendiente_administracion')
+  const identidad = useAuthStore((state) => `${state.usuario?.id}:${state.rolActivo}`)
   return (
     <section className="flex w-full flex-col gap-4">
       <PageHeader titulo="Conversaciones" descripcion="Consultas vinculadas a trámites." />
@@ -28,7 +30,7 @@ export function ConversacionesPage() {
           <TabsTrigger value="resuelta">Resueltas</TabsTrigger>
         </TabsList>
       </Tabs>
-      <Listado key={estado} estado={estado} />
+      <Listado key={`${identidad}:${estado}`} estado={estado} />
     </section>
   )
 }

@@ -14,6 +14,7 @@ class ContextoConversacion(BaseModel):
     tipo: TipoContexto
     id: UUID
     alumno_nombre: str
+    alumno_id: UUID
     fecha_inicio: date
     fecha_fin: date | None = None
     estado_tramite: str | None = None

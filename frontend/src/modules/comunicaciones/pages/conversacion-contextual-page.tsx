@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
+import { rutaDesdeDestino } from '@/modules/notificaciones/utils'
 import { useAuthStore } from '@/store/auth-store'
 import {
   consultarContexto,
@@ -32,7 +33,17 @@ function vuelta(contexto: Contexto | undefined, familia: boolean) {
       ? `/familia/facturacion?factura=${contexto.factura_id ?? ''}`
       : '/facturacion/cobranzas'
   }
-  if (familia) return '/familia/asistencias'
+  if (familia)
+    return (
+      rutaDesdeDestino({
+        tipo:
+          contexto.tipo === 'justificacion_inasistencia'
+            ? 'justificacion_individual'
+            : contexto.tipo,
+        id: contexto.id,
+        alumno_id: contexto.alumno_id,
+      }) ?? '/familia/asistencias'
+    )
   return contexto.tipo === 'justificacion_inasistencia'
     ? '/academico/justificaciones'
     : '/academico/solicitudes-ausencia'

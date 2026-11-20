@@ -122,6 +122,7 @@ def resolver_contexto(
         tipo=tipo,
         id=id_contexto,
         alumno_nombre=f"{nombre} {apellido}",
+        alumno_id=alumno_id,
         fecha_inicio=inicio,
         fecha_fin=tramite.fecha_fin if tipo == "solicitud_ausencia_periodo" else None,
         estado_tramite=estado,

@@ -29,6 +29,7 @@ from src.comunicaciones.conversaciones_schemas import (
 )
 from src.comunicaciones.models import ConversacionContextual, MensajeConversacion
 from src.models import Persona
+from src.notificaciones.conversaciones_service import registrar_respuesta
 
 
 def _hilo_read(hilo, contexto, rol) -> ConversacionRead:
@@ -121,6 +122,7 @@ def _insertar_mensaje(db, hilo, usuario, rol, datos, archivos):
     db.add(mensaje)
     db.flush()
     adjuntos_conversacion.registrar(db, mensaje.id, archivos)
+    registrar_respuesta(db, hilo, mensaje)
     return mensaje
 
 

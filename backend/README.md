@@ -837,6 +837,12 @@ repeated `archivos` fields. This uses the existing Communications attachment swi
 scanner. A failed inspection leaves neither a message nor attachments. Downloads never use
 public URLs and always recheck the contextual thread's visibility.
 
+Administrative messages enqueue a portal notice and, for enabled addresses, a correlated email
+intent. The existing Workflows/n8n worker dispatches those intents and revalidates authorization
+before the provider claim. No email credentials or workflow JSON changed. Email delivery errors
+do not roll back messages. The mail-origin migration cannot be downgraded once contextual mail
+history exists without an explicit data-retention decision; it does not delete delivery rows.
+
 For PostgreSQL, first apply `alembic upgrade head` against an **isolated disposable database**,
 then explicitly supply that URL (never a shared or production database):
 

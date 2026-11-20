@@ -23,6 +23,8 @@ from src.comunicaciones.models import ConversacionContextual, MensajeConversacio
 from src.facturacion.models import DebitoCobranza, Factura, LoteCobranza, ResponsableEconomico
 from src.familias_alumnos.models import Familia, FamiliaAlumno
 from src.inscripciones.models import Asistencia
+from src.workflows import manuales_service, n8n_client
+from src.workflows.models import EnvioNotificacion
 
 BASE = "/comunicaciones/conversaciones"
 
@@ -332,3 +334,53 @@ def test_adjunto_privado_y_envio_atomico(client, escenario, monkeypatch):
     )
     assert envio.status_code == 503
     assert client.get(f"{BASE}/{hilo}/mensajes").json()["items"] == historial
+
+
+def test_aviso_y_email_duradero_sin_divulgar_el_mensaje(
+    client, db_session, escenario, escenario_dos_familias, monkeypatch
+):
+    solicitud, familiar, admin, ajeno = escenario
+    vinculo = db_session.get(FamiliaAlumno, escenario_dos_familias["vinculo_a"])
+    vinculo.recibe_comunicaciones = True
+    db_session.commit()
+    autenticar(client, admin, "administracion")
+    contexto = f"{BASE}/contextos/solicitud_ausencia_periodo/{solicitud.id}"
+    datos = {"texto": "Información privada del trámite", "clave": str(uuid4())}
+    hilo = client.post(contexto, json=datos).json()["id"]
+    assert client.post(contexto, json=datos).json()["id"] == hilo
+    autenticar(client, familiar, "familia")
+    avisos = client.get("/notificaciones").json()["items"]
+    assert [item["tipo"] for item in avisos] == ["comunicaciones.respuesta_conversacion"]
+    assert avisos[0]["destino"]["id"] == hilo
+    assert datos["texto"] not in avisos[0]["mensaje"]
+    autenticar(client, ajeno, "familia")
+    assert not client.get("/notificaciones").json()["items"]
+    envio = db_session.scalar(select(EnvioNotificacion))
+    assert envio is not None
+    assert envio.email == "responsable.a@example.test"
+    assert datos["texto"] not in envio.cuerpo
+
+    def rechazar(*_args, **_kwargs):
+        assert f"/familia/conversaciones/{hilo}" in _args[3]
+        assert datos["texto"] not in _args[3]
+        return n8n_client.ResultadoEnvioManual(estado="reintentable", error_codigo="no_conexion")
+
+    monkeypatch.setattr(manuales_service, "_despacho_manual_habilitado", lambda: True)
+    monkeypatch.setattr(n8n_client, "enviar_email_manual", rechazar)
+    assert manuales_service.procesar_envios_pendientes(db_session).reintentados == 1
+    db_session.refresh(envio)
+    assert envio.estado == "pendiente"
+    autenticar(client, familiar, "familia")
+    assert client.get(f"{BASE}/{hilo}/mensajes").json()["items"][0]["texto"] == datos["texto"]
+    db_session.delete(vinculo)
+    envio.disponible_at = datetime.now(UTC).replace(tzinfo=None)
+    db_session.commit()
+    assert not client.get("/notificaciones").json()["items"]
+
+    def envio_prohibido(*_args, **_kwargs):
+        pytest.fail("una dirección revocada no debe llegar al transporte")
+
+    monkeypatch.setattr(n8n_client, "enviar_email_manual", envio_prohibido)
+    assert manuales_service.procesar_envios_pendientes(db_session).fallidos == 1
+    db_session.refresh(envio)
+    assert envio.estado == "fallido"
