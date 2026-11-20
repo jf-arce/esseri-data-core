@@ -18,6 +18,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { useSearchParams } from 'react-router'
 import { ExportarHorario } from '@/modules/academico/components/exportar-horario'
+import { HorarioImprimible } from '@/modules/academico/components/horario-imprimible'
 import { FiltrosHorario } from '@/modules/academico/components/filtros-horario'
 import {
   compartirHorarioFamilia,
@@ -51,6 +52,7 @@ import {
 import type { MateriaCurso } from '@/modules/academico/types'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
 import { EventosCalendarioFamilia } from '@/modules/comunicaciones/components/eventos-calendario-familia'
+import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 import { normalizarTexto } from '@/lib/texto'
 import { cn } from '@/lib/utils'
 
@@ -151,6 +153,7 @@ function DetalleClase({ franja }: { franja: Franja | null }) {
 
 export function PortalFamiliaCalendarioPage() {
   const { alumnos, cargando } = useMisAlumnos(true)
+  const cicloLectivo = useCicloLectivoStore((s) => s.cicloLectivo)
   const [searchParams] = useSearchParams()
   const [alumnoId, setAlumnoId] = useState(() => searchParams.get('alumno') ?? '')
   const [diaAgenda, setDiaAgenda] = useState<number | null>(null)
@@ -289,7 +292,7 @@ export function PortalFamiliaCalendarioPage() {
           ) : (
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
               <PortalCard
-                className="print:border-0 print:shadow-none"
+                className="print:hidden"
                 titulo="Horario semanal"
                 descripcion={alumno?.division_etiqueta ?? 'Todavía sin división asignada'}
                 tituloClassName="font-heading text-[26px] leading-tight font-bold tracking-[-0.01em] text-[#241A33]"
@@ -622,6 +625,16 @@ export function PortalFamiliaCalendarioPage() {
               >
                 <DetalleClase franja={activa} />
               </PortalCard>
+            </div>
+          )}
+
+          {alumno && (
+            <div className="hidden print:block" aria-hidden="true">
+              <HorarioImprimible
+                franjas={franjas}
+                division={alumno.division_etiqueta ?? ''}
+                cicloLectivo={cicloLectivo}
+              />
             </div>
           )}
         </div>
