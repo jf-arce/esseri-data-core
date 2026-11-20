@@ -50,18 +50,18 @@ type TipoVisual = 'institucional' | 'curso' | 'otro'
 
 const ESTILOS_TIPO: Record<TipoVisual, { pill: string; tile: string; Icon: LucideIcon }> = {
   institucional: {
-    pill: 'bg-[#EFE0FA] text-[#7A2FA8]',
-    tile: 'bg-[#F1E4FB] text-[#7A2FA8]',
+    pill: 'bg-pf-lila text-pf-accent',
+    tile: 'bg-pf-lila text-pf-accent',
     Icon: MegaphoneIcon,
   },
   curso: {
-    pill: 'bg-[#DFEAFB] text-[#3B6FB6]',
-    tile: 'bg-[#E8F0FD] text-[#4F86D9]',
+    pill: 'bg-pf-azul-bg text-pf-azul-fg',
+    tile: 'bg-pf-azul-bg text-pf-azul-fg',
     Icon: UsersIcon,
   },
   otro: {
-    pill: 'bg-[#E4F1E3] text-[#3E7B45]',
-    tile: 'bg-[#EDF6EC] text-[#4F8F46]',
+    pill: 'bg-pf-verde-bg text-exito',
+    tile: 'bg-pf-verde-bg text-pf-verde-fg',
     Icon: MessageSquareTextIcon,
   },
 }
@@ -172,8 +172,8 @@ function PieLista({
   const primera = (pagina - 1) * 5 + 1
   const ultima = Math.min(total, pagina * 5)
   return (
-    <div className="flex flex-col gap-3 border-t border-[#F1EBF7] px-4 py-4 @xl/main:flex-row @xl/main:items-center @xl/main:justify-between @xl/main:px-6">
-      <p className="text-[14px] text-[#3A2E45]">
+    <div className="flex flex-col gap-3 border-t border-pf-divisor px-4 py-4 @xl/main:flex-row @xl/main:items-center @xl/main:justify-between @xl/main:px-6">
+      <p className="text-sm text-texto">
         {primera}–{ultima} de {total} comunicaciones
       </p>
       {totalPaginas > 1 && (
@@ -183,13 +183,13 @@ function PieLista({
             aria-label="Ir a la página anterior"
             disabled={pagina === 1}
             onClick={() => onCambiarPagina(pagina - 1)}
-            className="flex size-9 items-center justify-center rounded-[10px] border border-[#EDE4F4] text-[#2B2338] transition-colors hover:bg-[#F7F2FC] disabled:pointer-events-none disabled:opacity-40"
+            className="flex size-9 items-center justify-center rounded-pf-input border border-pf-divisor text-texto transition-colors hover:bg-pf-item disabled:pointer-events-none disabled:opacity-40"
           >
             <ChevronLeftIcon aria-hidden="true" className="size-4" />
           </button>
           {paginasVisibles(totalPaginas, pagina).map((item, indice) =>
             item === 'elipsis' ? (
-              <span key={`elipsis-${indice}`} className="px-1 text-sm text-[#6B6478]">
+              <span key={`elipsis-${indice}`} className="px-1 text-sm text-texto-2">
                 …
               </span>
             ) : (
@@ -200,8 +200,10 @@ function PieLista({
                 aria-current={item === pagina ? 'page' : undefined}
                 onClick={() => onCambiarPagina(item)}
                 className={cn(
-                  'size-9 rounded-[10px] text-sm font-semibold tabular-nums transition-colors',
-                  item === pagina ? 'bg-[#7A2FA8] text-white' : 'text-[#3A2E45] hover:bg-[#F5EFFA]',
+                  'size-9 rounded-pf-input text-sm font-semibold tabular-nums transition-colors',
+                  item === pagina
+                    ? 'bg-pf-accent text-superficie'
+                    : 'text-texto hover:bg-pf-item-hover',
                 )}
               >
                 {item}
@@ -213,7 +215,7 @@ function PieLista({
             aria-label="Ir a la página siguiente"
             disabled={pagina === totalPaginas}
             onClick={() => onCambiarPagina(pagina + 1)}
-            className="flex size-9 items-center justify-center rounded-[10px] border border-[#EDE4F4] text-[#2B2338] transition-colors hover:bg-[#F7F2FC] disabled:pointer-events-none disabled:opacity-40"
+            className="flex size-9 items-center justify-center rounded-pf-input border border-pf-divisor text-texto transition-colors hover:bg-pf-item disabled:pointer-events-none disabled:opacity-40"
           >
             <ChevronRightIcon aria-hidden="true" className="size-4" />
           </button>
@@ -266,19 +268,19 @@ function ListaFamiliaMovil({
           <div className="relative w-full">
             <SearchIcon
               aria-hidden="true"
-              className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#8C8599]"
+              className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-texto-3"
             />
             <Input
               aria-label="Buscar comunicaciones"
               placeholder="Buscar comunicaciones..."
               value={buscar}
               onChange={(event) => onBuscar(event.target.value)}
-              className="h-12 rounded-full border-[#E7DDF1] bg-white pl-12 text-[15px] text-[#2B2338] placeholder:text-[#8C8599]"
+              className="h-12 rounded-full border-pf-borde bg-superficie pl-12 text-pf-cuerpo text-texto placeholder:text-texto-3"
             />
           </div>
 
           <div
-            className="flex w-full rounded-full bg-[#F5EFFA] p-1"
+            className="flex w-full rounded-full bg-pf-item-hover p-1"
             role="group"
             aria-label="Filtrar comunicaciones"
           >
@@ -287,10 +289,8 @@ function ListaFamiliaMovil({
               aria-pressed={!noLeidas}
               onClick={() => onNoLeidas(false)}
               className={cn(
-                'min-h-11 flex-1 rounded-full px-4 text-[15px] font-semibold transition-colors',
-                !noLeidas
-                  ? 'bg-[#7A2FA8] text-white shadow-[0_4px_12px_rgba(122,47,168,0.25)]'
-                  : 'text-[#3A2E45] hover:text-[#2B2338]',
+                'min-h-11 flex-1 rounded-full px-4 text-pf-cuerpo font-semibold transition-colors',
+                !noLeidas ? 'bg-pf-accent text-superficie' : 'text-texto hover:text-texto',
               )}
             >
               Todas ({conteos.todas ?? '—'})
@@ -300,17 +300,15 @@ function ListaFamiliaMovil({
               aria-pressed={noLeidas}
               onClick={() => onNoLeidas(true)}
               className={cn(
-                'inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full px-4 text-[15px] font-semibold transition-colors',
-                noLeidas
-                  ? 'bg-[#7A2FA8] text-white shadow-[0_4px_12px_rgba(122,47,168,0.25)]'
-                  : 'text-[#3A2E45] hover:text-[#2B2338]',
+                'inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full px-4 text-pf-cuerpo font-semibold transition-colors',
+                noLeidas ? 'bg-pf-accent text-superficie' : 'text-texto hover:text-texto',
               )}
             >
               No leídas ({conteos.noLeidas ?? '—'})
               {(conteos.noLeidas ?? 0) > 0 && (
                 <span
                   aria-hidden="true"
-                  className={cn('size-2 rounded-full', noLeidas ? 'bg-white' : 'bg-[#7A2FA8]')}
+                  className={cn('size-2 rounded-full', noLeidas ? 'bg-superficie' : 'bg-pf-accent')}
                 />
               )}
             </button>
@@ -320,12 +318,12 @@ function ListaFamiliaMovil({
             <Select value={orden} onValueChange={(valor) => onOrden(valor as OrdenFecha)}>
               <SelectTrigger
                 aria-label="Ordenar comunicaciones por fecha"
-                className="h-11 min-w-0 flex-1 rounded-full border-[#E7DDF1] bg-white px-4 text-[14px] font-medium text-[#2B2338]"
+                className="h-11 min-w-0 flex-1 rounded-full border-pf-borde bg-superficie px-4 text-sm font-medium text-texto"
               >
                 <span className="flex items-center gap-2">
-                  <CalendarDaysIcon aria-hidden="true" className="size-4 text-[#7A2FA8]" />
+                  <CalendarDaysIcon aria-hidden="true" className="size-4 text-pf-accent" />
                   {orden === 'recientes' ? 'Fecha: más recientes' : 'Fecha: más antiguas'}
-                  <ChevronDownIcon aria-hidden="true" className="size-4 text-[#6B6478]" />
+                  <ChevronDownIcon aria-hidden="true" className="size-4 text-texto-2" />
                 </span>
               </SelectTrigger>
               <SelectContent position="popper" align="start">
@@ -344,13 +342,13 @@ function ListaFamiliaMovil({
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex h-11 items-center gap-2 rounded-full border border-[#E7DDF1] bg-white px-4 text-[14px] font-medium text-[#2B2338]"
+                  className="inline-flex h-11 items-center gap-2 rounded-full border border-pf-borde bg-superficie px-4 text-sm font-medium text-texto"
                 >
-                  <FilterIcon aria-hidden="true" className="size-4 text-[#7A2FA8]" />
+                  <FilterIcon aria-hidden="true" className="size-4 text-pf-accent" />
                   {filtroTipo === 'todas'
                     ? 'Filtrar'
                     : `Filtrar: ${ETIQUETAS_TIPO[filtroTipo === 'institucional' ? 'institucional' : filtroTipo === 'curso' ? 'curso' : 'otro']}`}
-                  <ChevronDownIcon aria-hidden="true" className="size-4 text-[#6B6478]" />
+                  <ChevronDownIcon aria-hidden="true" className="size-4 text-texto-2" />
                 </button>
               </PopoverTrigger>
               <PopoverContent align="end" className="portal-familia w-56 p-2">
@@ -366,10 +364,10 @@ function ListaFamiliaMovil({
                     aria-pressed={filtroTipo === clave}
                     onClick={() => setFiltroTipo(clave as 'todas' | TipoVisual)}
                     className={cn(
-                      'flex min-h-9 w-full items-center rounded-[10px] px-3 text-left text-[14px] font-medium transition-colors',
+                      'flex min-h-9 w-full items-center rounded-pf-input px-3 text-left text-sm font-medium transition-colors',
                       filtroTipo === clave
-                        ? 'bg-[#F1E4FB] text-[#7A2FA8]'
-                        : 'text-[#2B2338] hover:bg-[#F7F2FC]',
+                        ? 'bg-pf-lila text-pf-accent'
+                        : 'text-texto hover:bg-pf-item',
                     )}
                   >
                     {etiqueta}
@@ -391,11 +389,11 @@ function ListaFamiliaMovil({
           ) : !datos ? (
             <div className="flex flex-col gap-3">
               {[0, 1, 2].map((fila) => (
-                <Skeleton key={fila} className="h-24 w-full rounded-[16px] bg-[#F3EDF9]" />
+                <Skeleton key={fila} className="h-24 w-full rounded-pf-tile bg-pf-item" />
               ))}
             </div>
           ) : visibles.length === 0 ? (
-            <p role="status" className="py-10 text-center text-[15px] text-[#6B6478]">
+            <p role="status" className="py-10 text-center text-pf-cuerpo text-texto-2">
               No hay comunicaciones para mostrar.
             </p>
           ) : (
@@ -408,22 +406,22 @@ function ListaFamiliaMovil({
                     <Link
                       to={`${base}/${c.id}`}
                       className={cn(
-                        'flex items-start gap-3 rounded-[16px] border p-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8] @xl/main:p-4',
+                        'flex items-start gap-3 rounded-pf-tile border p-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent @xl/main:p-4',
                         c.leida_at
-                          ? 'border-[#EFE9F6] bg-white hover:bg-[#FAF7FD]'
-                          : 'border-transparent bg-[#F7F0FC] hover:bg-[#F2E8FA]',
+                          ? 'border-pf-divisor bg-superficie hover:bg-pf-item'
+                          : 'border-transparent bg-pf-lila hover:bg-pf-lila-fuerte',
                       )}
                     >
                       <span
                         aria-hidden="true"
                         className={cn(
                           'mt-6 size-2 shrink-0 rounded-full',
-                          c.leida_at ? 'bg-transparent' : 'bg-[#7A2FA8]',
+                          c.leida_at ? 'bg-transparent' : 'bg-pf-accent',
                         )}
                       />
                       <span
                         className={cn(
-                          'flex size-12 shrink-0 items-center justify-center rounded-[14px]',
+                          'flex size-12 shrink-0 items-center justify-center rounded-pf-icono',
                           visual.tile,
                         )}
                       >
@@ -433,26 +431,26 @@ function ListaFamiliaMovil({
                         <span className="flex items-start justify-between gap-2">
                           <span
                             className={cn(
-                              'inline-flex w-fit items-center rounded-full px-3 py-1 text-[11px] font-bold tracking-[0.06em] uppercase',
+                              'inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-bold tracking-[0.06em] uppercase',
                               visual.pill,
                             )}
                           >
                             {ETIQUETAS_TIPO[c.tipo]}
                           </span>
-                          <span className="shrink-0 text-[13px] text-[#6B6478]">
+                          <span className="shrink-0 text-sm text-texto-2">
                             {fechaCortaComunicacion(c.publicada_at ?? c.created_at)}
                           </span>
                         </span>
-                        <span className="mt-1 block truncate font-heading text-[16px] leading-snug font-bold text-[#241A33] @xl/main:text-[18px]">
+                        <span className="mt-1 block truncate font-heading text-pf-cuerpo leading-snug font-bold text-texto @xl/main:text-pf-encabezado">
                           {c.asunto}
                         </span>
-                        <span className="mt-0.5 block truncate text-[14px] text-[#6B6478]">
+                        <span className="mt-0.5 block truncate text-sm text-texto-2">
                           {c.cuerpo}
                         </span>
                       </span>
                       <ChevronRightIcon
                         aria-hidden="true"
-                        className="mt-5 size-5 shrink-0 text-[#2B2338]"
+                        className="mt-5 size-5 shrink-0 text-texto"
                       />
                     </Link>
                   </li>
@@ -462,7 +460,7 @@ function ListaFamiliaMovil({
           )}
 
           {datos && !error && (
-            <div className="rounded-[16px] border border-[#EFE9F6] bg-white">
+            <div className="rounded-pf-tile border border-pf-divisor bg-superficie">
               <PieLista
                 pagina={pagina}
                 total={datos.total}
@@ -511,24 +509,24 @@ function ListaFamiliaEscritorio({
           />
 
           <div className="mx-auto flex w-full max-w-[92vw] flex-col px-4 pb-10 @xl/main:px-8">
-            <div className="overflow-hidden rounded-[28px] bg-white shadow-[0_18px_50px_rgba(57,34,84,0.12)]">
+            <div className="overflow-hidden rounded-pf-card bg-superficie shadow-pf-card">
               <div className="flex flex-col gap-4 p-4 @xl/main:p-5 @7xl/main:flex-row @7xl/main:items-center">
                 <div className="relative min-w-0 flex-1">
                   <SearchIcon
                     aria-hidden="true"
-                    className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#8C8599]"
+                    className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-texto-3"
                   />
                   <Input
                     aria-label="Buscar comunicaciones"
                     placeholder="Buscar comunicaciones..."
                     value={buscar}
                     onChange={(event) => onBuscar(event.target.value)}
-                    className="h-12 rounded-full border-[#E7DDF1] bg-[#FBF9FE] pl-12 text-[15px] text-[#2B2338] placeholder:text-[#8C8599]"
+                    className="h-12 rounded-full border-pf-borde bg-pf-item pl-12 text-pf-cuerpo text-texto placeholder:text-texto-3"
                   />
                 </div>
 
                 <div
-                  className="flex w-full shrink-0 rounded-full bg-[#F5EFFA] p-1 @xl/main:w-fit"
+                  className="flex w-full shrink-0 rounded-full bg-pf-item-hover p-1 @xl/main:w-fit"
                   role="group"
                   aria-label="Filtrar comunicaciones"
                 >
@@ -537,10 +535,8 @@ function ListaFamiliaEscritorio({
                     aria-pressed={!noLeidas}
                     onClick={() => onNoLeidas(false)}
                     className={cn(
-                      'min-h-10 flex-1 rounded-full px-5 text-[15px] font-semibold transition-colors @xl/main:flex-none',
-                      !noLeidas
-                        ? 'bg-[#7A2FA8] text-white shadow-[0_4px_12px_rgba(122,47,168,0.25)]'
-                        : 'text-[#3A2E45] hover:text-[#2B2338]',
+                      'min-h-10 flex-1 rounded-full px-5 text-pf-cuerpo font-semibold transition-colors @xl/main:flex-none',
+                      !noLeidas ? 'bg-pf-accent text-superficie' : 'text-texto hover:text-texto',
                     )}
                   >
                     Todas ({conteos.todas ?? '—'})
@@ -550,29 +546,27 @@ function ListaFamiliaEscritorio({
                     aria-pressed={noLeidas}
                     onClick={() => onNoLeidas(true)}
                     className={cn(
-                      'min-h-10 flex-1 rounded-full px-5 text-[15px] font-semibold transition-colors @xl/main:flex-none',
-                      noLeidas
-                        ? 'bg-[#7A2FA8] text-white shadow-[0_4px_12px_rgba(122,47,168,0.25)]'
-                        : 'text-[#3A2E45] hover:text-[#2B2338]',
+                      'min-h-10 flex-1 rounded-full px-5 text-pf-cuerpo font-semibold transition-colors @xl/main:flex-none',
+                      noLeidas ? 'bg-pf-accent text-superficie' : 'text-texto hover:text-texto',
                     )}
                   >
                     No leídas ({conteos.noLeidas ?? '—'})
                   </button>
                 </div>
 
-                <div className="hidden h-8 w-px shrink-0 bg-[#EDE4F4] @7xl/main:block" />
+                <div className="hidden h-8 w-px shrink-0 bg-pf-divisor @7xl/main:block" />
 
                 <div className="flex items-center justify-between gap-3 @7xl/main:justify-start">
-                  <span className="text-[14px] text-[#3A2E45]">Ordenar por</span>
+                  <span className="text-sm text-texto">Ordenar por</span>
                   <Select value={orden} onValueChange={(valor) => onOrden(valor as OrdenFecha)}>
                     <SelectTrigger
                       aria-label="Ordenar comunicaciones por fecha"
-                      className="h-11 w-full max-w-[230px] rounded-[14px] border-[#E7DDF1] bg-white px-3 text-[14px] font-medium text-[#2B2338]"
+                      className="h-11 w-full max-w-[230px] rounded-pf-icono border-pf-borde bg-superficie px-3 text-sm font-medium text-texto"
                     >
                       <span className="flex items-center gap-2">
                         <CalendarDaysIcon
                           aria-hidden="true"
-                          className="size-[18px] text-[#7A2FA8]"
+                          className="size-[18px] text-pf-accent"
                         />
                         {orden === 'recientes' ? 'Fecha: más recientes' : 'Fecha: más antiguas'}
                       </span>
@@ -605,15 +599,15 @@ function ListaFamiliaEscritorio({
               ) : !datos ? (
                 <div className="flex flex-col gap-3 px-4 py-6 @xl/main:px-6">
                   {[0, 1, 2].map((fila) => (
-                    <Skeleton key={fila} className="h-16 w-full rounded-[14px] bg-[#F3EDF9]" />
+                    <Skeleton key={fila} className="h-16 w-full rounded-pf-icono bg-pf-item" />
                   ))}
                 </div>
               ) : datos.items.length === 0 ? (
-                <p role="status" className="px-6 py-10 text-center text-[15px] text-[#6B6478]">
+                <p role="status" className="px-6 py-10 text-center text-pf-cuerpo text-texto-2">
                   No hay comunicaciones para mostrar.
                 </p>
               ) : (
-                <ul className="divide-y divide-[#F1EBF7]">
+                <ul className="divide-y divide-pf-divisor">
                   {datos.items.map((c) => {
                     const visual = ESTILOS_TIPO[tipoVisual(c.tipo)]
                     const Icono = visual.Icon
@@ -622,22 +616,22 @@ function ListaFamiliaEscritorio({
                         <Link
                           to={`${base}/${c.id}`}
                           className={cn(
-                            'grid grid-cols-[0.5rem_3rem_minmax(0,1fr)] items-center gap-4 px-4 py-4.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#7A2FA8] @xl/main:px-6 @3xl/main:grid-cols-[0.5rem_3rem_minmax(0,1fr)_13.5rem_1.25rem]',
+                            'grid grid-cols-[0.5rem_3rem_minmax(0,1fr)] items-center gap-4 px-4 py-4.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-pf-accent @xl/main:px-6 @3xl/main:grid-cols-[0.5rem_3rem_minmax(0,1fr)_13.5rem_1.25rem]',
                             c.leida_at
-                              ? 'bg-white hover:bg-[#FAF7FD]'
-                              : 'bg-[#F7F0FC] hover:bg-[#F2E8FA]',
+                              ? 'bg-superficie hover:bg-pf-item'
+                              : 'bg-pf-lila hover:bg-pf-lila-fuerte',
                           )}
                         >
                           <span
                             aria-hidden="true"
                             className={cn(
                               'size-2 justify-self-center rounded-full',
-                              c.leida_at ? 'bg-transparent' : 'bg-[#7A2FA8]',
+                              c.leida_at ? 'bg-transparent' : 'bg-pf-accent',
                             )}
                           />
                           <span
                             className={cn(
-                              'flex size-12 items-center justify-center rounded-[14px]',
+                              'flex size-12 items-center justify-center rounded-pf-icono',
                               visual.tile,
                             )}
                           >
@@ -646,25 +640,25 @@ function ListaFamiliaEscritorio({
                           <span className="grid min-w-0 gap-1 @xl/main:grid-cols-[8.5rem_minmax(0,1fr)] @xl/main:items-center @xl/main:gap-x-4">
                             <span
                               className={cn(
-                                'inline-flex w-fit items-center rounded-full px-3 py-1 text-[11px] font-bold tracking-[0.06em] uppercase',
+                                'inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-bold tracking-[0.06em] uppercase',
                                 visual.pill,
                               )}
                             >
                               {ETIQUETAS_TIPO[c.tipo]}
                             </span>
                             <span className="min-w-0">
-                              <span className="block truncate font-heading text-[19px] leading-snug font-bold text-[#241A33] @xl/main:text-[20px]">
+                              <span className="block truncate font-heading text-pf-encabezado leading-snug font-bold text-texto @xl/main:text-pf-encabezado">
                                 {c.asunto}
                               </span>
-                              <span className="mt-1 block truncate text-[14px] text-[#6B6478]">
+                              <span className="mt-1 block truncate text-sm text-texto-2">
                                 {c.cuerpo}
                               </span>
                             </span>
                           </span>
-                          <span className="hidden items-center gap-2.5 border-l border-[#EDE4F4] pl-5 text-[14px] text-[#3A2E45] @3xl/main:flex">
+                          <span className="hidden items-center gap-2.5 border-l border-pf-divisor pl-5 text-sm text-texto @3xl/main:flex">
                             <CalendarDaysIcon
                               aria-hidden="true"
-                              className="size-[18px] shrink-0 text-[#7A2FA8]"
+                              className="size-[18px] shrink-0 text-pf-accent"
                             />
                             <span className="whitespace-nowrap">
                               {fechaComunicacion(c.publicada_at ?? c.created_at)}
@@ -672,7 +666,7 @@ function ListaFamiliaEscritorio({
                           </span>
                           <ChevronRightIcon
                             aria-hidden="true"
-                            className="hidden size-5 text-[#2B2338] @3xl/main:block"
+                            className="hidden size-5 text-texto @3xl/main:block"
                           />
                         </Link>
                       </li>

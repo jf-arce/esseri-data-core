@@ -235,7 +235,9 @@ export function EntregaComunicacion({
                 <TableRow>
                   <TableHead className="px-1.5 @xl/main:px-4">Destinatario</TableHead>
                   <TableHead className="px-1.5 @xl/main:px-4">Email</TableHead>
-                  {emailAplica && <TableHead className="px-1.5 @xl/main:px-4">Estado mail</TableHead>}
+                  {emailAplica && (
+                    <TableHead className="px-1.5 @xl/main:px-4">Estado mail</TableHead>
+                  )}
                   {lecturaAplica && (
                     <TableHead className="px-1.5 @xl/main:px-4">
                       {emailAplica ? 'Estado portal' : 'Estado'}
