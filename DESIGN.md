@@ -191,15 +191,19 @@ Dos shells, no uno solo — elegir según cuántos destinos tiene el rol, no por
 
 Mismo ADN, otro registro. El portal **hereda** la marca, Geist, el isotipo, los tokens semánticos (`exito`, `advertencia`, `error`, `info`), los badges de estado y las reglas de accesibilidad (§12). **Cambia** la escala, los radios, la densidad y el tono, para sentirse más cálido y menos "consola". Todo lo que difiere del sistema vive como token `--pf-*` dentro de `.portal-familia` (y su variante `.dark`) en `frontend/src/index.css`; las páginas del portal nunca llevan hex, `text-[Npx]`, `rounded-[N]` ni `shadow-[...]` sueltos.
 
-**Tipografía** (superficie de lectura, piso de 14px):
+**Ancho y alineación:** un único contenedor de 1280px (`max-w-pf`, `--container-pf`) con `px-4 sm:px-6`, compartido por el header, el `<main>` del layout y todas las vistas. Ninguna página define su propio ancho ni padding lateral, así título, buscador y cards comparten borde. El detalle de una comunicación se acota a 896px (`max-w-4xl`) para mantener una línea de lectura corta.
+
+**Tipografía** (misma escala que el sistema, con nombres propios):
 
 | Rol | Utilidad | Tamaño |
 | --- | --- | --- |
 | detalle, metadata | `text-sm` | 14px |
-| cuerpo | `text-pf-cuerpo` | 15px |
-| encabezado de card | `text-pf-encabezado` | 17px |
-| cifra de indicador | `text-pf-cifra` | 28px, tabular, 700 |
-| título de página | `text-pf-titulo` | 30px (36px desde `sm`) |
+| cuerpo | `text-pf-cuerpo` | 14px |
+| encabezado de card | `text-pf-encabezado` | 16px |
+| cifra de indicador | `text-pf-cifra` | 24px, tabular, 700 |
+| título de página | `text-pf-titulo` | 24px (28px desde `sm`) |
+
+Íconos de 16px en controles y 20px dentro de tiles; tiles de ícono de 40px. Sin tiles de 48px o más.
 
 **Forma:**
 
@@ -218,6 +222,10 @@ Mismo ADN, otro registro. El portal **hereda** la marca, Geist, el isotipo, los 
 **Bordes:** `border-pf-borde` (contorno de ítem, input, card en hover) y `border-pf-divisor` (separadores internos, más tenue). El hairline de la card va como anillo dentro de la sombra, no como `border`. `border-dashed` solo para estados vacíos y dropzone.
 
 **Color:** un único violeta de acción (`text-pf-accent`, `bg-pf-accent`), un header derivado de la rampa `nav` (`--pf-header`) y tonos de tile (`lavanda`, `ambar`, `azul`, `verde`, `rojo`) como pares `--pf-tile-<tono>-bg/fg` con contraste de al menos 3:1 en el ícono (WCAG 1.4.11). Tienen valores propios en `.dark .portal-familia`, así que ningún componente necesita reglas por clase para el tema oscuro.
+
+**Navegación activa:** el ítem activo del header usa `--pf-nav-activo` (blanco al 18% sobre `--pf-header`) con texto blanco. Se distingue del header (más de 1.3:1) y el texto llega a 4.5:1.
+
+**Contraste verificado** (WCAG, calculado para ambos temas): texto 4.5:1 o más sobre `superficie`, `pf-item`, `pf-lila` y sobre cada fondo de tile; íconos 3:1 o más sobre su tile. En claro, `--pf-tile-ambar-fg` es `#9a4507` (no `--advertencia`) porque `#b45309` daba 3.85:1 sobre el tile; `--pf-borde` es `#d6c8e6`. Al cambiar un token `--pf-*`, recalcular estos pares.
 
 **Tono de copy:** cercano y en voseo ("Hola, Laura", "Podés justificarla"), sin exclamaciones de entusiasmo.
 
