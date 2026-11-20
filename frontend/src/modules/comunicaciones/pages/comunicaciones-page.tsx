@@ -267,19 +267,19 @@ function ListaFamiliaMovil({
           <div className="relative w-full">
             <SearchIcon
               aria-hidden="true"
-              className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-texto-3"
+              className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-texto-3"
             />
             <Input
               aria-label="Buscar comunicaciones"
               placeholder="Buscar comunicaciones..."
               value={buscar}
               onChange={(event) => onBuscar(event.target.value)}
-              className="h-12 rounded-full border-pf-borde bg-superficie pl-12 text-pf-cuerpo text-texto placeholder:text-texto-3"
+              className="h-10 rounded-full border-pf-borde bg-superficie pl-10 text-pf-cuerpo text-texto placeholder:text-texto-3"
             />
           </div>
 
           <div
-            className="flex w-full rounded-full bg-pf-item-hover p-1"
+            className="flex w-full rounded-full bg-pf-item-hover p-1 sm:w-fit"
             role="group"
             aria-label="Filtrar comunicaciones"
           >
@@ -288,7 +288,7 @@ function ListaFamiliaMovil({
               aria-pressed={!noLeidas}
               onClick={() => onNoLeidas(false)}
               className={cn(
-                'min-h-11 flex-1 rounded-full px-4 text-pf-cuerpo font-semibold transition-colors',
+                'min-h-9 flex-1 rounded-full px-4 text-pf-cuerpo font-semibold transition-colors',
                 !noLeidas ? 'bg-pf-accent text-superficie' : 'text-texto hover:text-texto',
               )}
             >
@@ -299,7 +299,7 @@ function ListaFamiliaMovil({
               aria-pressed={noLeidas}
               onClick={() => onNoLeidas(true)}
               className={cn(
-                'inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full px-4 text-pf-cuerpo font-semibold transition-colors',
+                'inline-flex min-h-9 flex-1 sm:flex-none items-center justify-center gap-2 rounded-full px-4 text-pf-cuerpo font-semibold transition-colors',
                 noLeidas ? 'bg-pf-accent text-superficie' : 'text-texto hover:text-texto',
               )}
             >
@@ -317,7 +317,7 @@ function ListaFamiliaMovil({
             <Select value={orden} onValueChange={(valor) => onOrden(valor as OrdenFecha)}>
               <SelectTrigger
                 aria-label="Ordenar comunicaciones por fecha"
-                className="h-11 min-w-0 flex-1 rounded-full border-pf-borde bg-superficie px-4 text-sm font-medium text-texto"
+                className="h-10 min-w-0 flex-1 rounded-full border-pf-borde bg-superficie px-4 text-sm font-medium text-texto"
               >
                 <span className="flex items-center gap-2">
                   <CalendarDaysIcon aria-hidden="true" className="size-4 text-pf-accent" />
@@ -414,23 +414,23 @@ function ListaFamiliaMovil({
                       <span
                         aria-hidden="true"
                         className={cn(
-                          'mt-6 size-2 shrink-0 rounded-full',
+                          'mt-4 size-2 shrink-0 rounded-full',
                           c.leida_at ? 'bg-transparent' : 'bg-pf-accent',
                         )}
                       />
                       <span
                         className={cn(
-                          'flex size-12 shrink-0 items-center justify-center rounded-pf-icono',
+                          'flex size-10 shrink-0 items-center justify-center rounded-pf-item',
                           visual.tile,
                         )}
                       >
-                        <Icono aria-hidden="true" className="size-6" />
+                        <Icono aria-hidden="true" className="size-5" />
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="flex items-start justify-between gap-2">
                           <span
                             className={cn(
-                              'inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-bold tracking-[0.06em] uppercase',
+                              'inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
                               visual.pill,
                             )}
                           >
@@ -440,7 +440,7 @@ function ListaFamiliaMovil({
                             {fechaCortaComunicacion(c.publicada_at ?? c.created_at)}
                           </span>
                         </span>
-                        <span className="mt-1 block truncate font-heading text-pf-cuerpo leading-snug font-bold text-texto @xl/main:text-pf-encabezado">
+                        <span className="mt-1 block truncate font-heading text-pf-cuerpo leading-snug font-semibold text-texto @xl/main:text-pf-encabezado">
                           {c.asunto}
                         </span>
                         <span className="mt-0.5 block truncate text-sm text-texto-2">
@@ -512,14 +512,14 @@ function ListaFamiliaEscritorio({
                 <div className="relative min-w-0 flex-1">
                   <SearchIcon
                     aria-hidden="true"
-                    className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-texto-3"
+                    className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-texto-3"
                   />
                   <Input
                     aria-label="Buscar comunicaciones"
                     placeholder="Buscar comunicaciones..."
                     value={buscar}
                     onChange={(event) => onBuscar(event.target.value)}
-                    className="h-12 rounded-full border-pf-borde bg-pf-item pl-12 text-pf-cuerpo text-texto placeholder:text-texto-3"
+                    className="h-10 rounded-full border-pf-borde bg-pf-item pl-10 text-pf-cuerpo text-texto placeholder:text-texto-3"
                   />
                 </div>
 
@@ -533,7 +533,7 @@ function ListaFamiliaEscritorio({
                     aria-pressed={!noLeidas}
                     onClick={() => onNoLeidas(false)}
                     className={cn(
-                      'min-h-10 flex-1 rounded-full px-5 text-pf-cuerpo font-semibold transition-colors @xl/main:flex-none',
+                      'min-h-9 flex-1 rounded-full px-4 text-pf-cuerpo font-semibold transition-colors @xl/main:flex-none',
                       !noLeidas ? 'bg-pf-accent text-superficie' : 'text-texto hover:text-texto',
                     )}
                   >
@@ -544,7 +544,7 @@ function ListaFamiliaEscritorio({
                     aria-pressed={noLeidas}
                     onClick={() => onNoLeidas(true)}
                     className={cn(
-                      'min-h-10 flex-1 rounded-full px-5 text-pf-cuerpo font-semibold transition-colors @xl/main:flex-none',
+                      'min-h-9 flex-1 rounded-full px-4 text-pf-cuerpo font-semibold transition-colors @xl/main:flex-none',
                       noLeidas ? 'bg-pf-accent text-superficie' : 'text-texto hover:text-texto',
                     )}
                   >
@@ -559,13 +559,10 @@ function ListaFamiliaEscritorio({
                   <Select value={orden} onValueChange={(valor) => onOrden(valor as OrdenFecha)}>
                     <SelectTrigger
                       aria-label="Ordenar comunicaciones por fecha"
-                      className="h-11 w-full max-w-[230px] rounded-pf-icono border-pf-borde bg-superficie px-3 text-sm font-medium text-texto"
+                      className="h-10 w-full max-w-[230px] rounded-pf-icono border-pf-borde bg-superficie px-3 text-sm font-medium text-texto"
                     >
                       <span className="flex items-center gap-2">
-                        <CalendarDaysIcon
-                          aria-hidden="true"
-                          className="size-[18px] text-pf-accent"
-                        />
+                        <CalendarDaysIcon aria-hidden="true" className="size-4 text-pf-accent" />
                         {orden === 'recientes' ? 'Fecha: más recientes' : 'Fecha: más antiguas'}
                       </span>
                     </SelectTrigger>
@@ -614,7 +611,7 @@ function ListaFamiliaEscritorio({
                         <Link
                           to={`${base}/${c.id}`}
                           className={cn(
-                            'grid grid-cols-[0.5rem_3rem_minmax(0,1fr)] items-center gap-4 px-4 py-4.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-pf-accent @xl/main:px-6 @3xl/main:grid-cols-[0.5rem_3rem_minmax(0,1fr)_13.5rem_1.25rem]',
+                            'grid grid-cols-[0.5rem_2.5rem_minmax(0,1fr)] items-center gap-4 px-4 py-3.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-pf-accent @xl/main:px-6 @3xl/main:grid-cols-[0.5rem_2.5rem_minmax(0,1fr)_13.5rem_1.25rem]',
                             c.leida_at
                               ? 'bg-superficie hover:bg-pf-item'
                               : 'bg-pf-lila hover:bg-pf-lila-fuerte',
@@ -629,23 +626,23 @@ function ListaFamiliaEscritorio({
                           />
                           <span
                             className={cn(
-                              'flex size-12 items-center justify-center rounded-pf-icono',
+                              'flex size-10 items-center justify-center rounded-pf-item',
                               visual.tile,
                             )}
                           >
-                            <Icono aria-hidden="true" className="size-6" />
+                            <Icono aria-hidden="true" className="size-5" />
                           </span>
                           <span className="grid min-w-0 gap-1 @xl/main:grid-cols-[8.5rem_minmax(0,1fr)] @xl/main:items-center @xl/main:gap-x-4">
                             <span
                               className={cn(
-                                'inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-bold tracking-[0.06em] uppercase',
+                                'inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
                                 visual.pill,
                               )}
                             >
                               {ETIQUETAS_TIPO[c.tipo]}
                             </span>
                             <span className="min-w-0">
-                              <span className="block truncate font-heading text-pf-encabezado leading-snug font-bold text-texto @xl/main:text-pf-encabezado">
+                              <span className="block truncate font-heading text-pf-encabezado leading-snug font-semibold text-texto @xl/main:text-pf-encabezado">
                                 {c.asunto}
                               </span>
                               <span className="mt-1 block truncate text-sm text-texto-2">
@@ -656,7 +653,7 @@ function ListaFamiliaEscritorio({
                           <span className="hidden items-center gap-2.5 border-l border-pf-divisor pl-5 text-sm text-texto @3xl/main:flex">
                             <CalendarDaysIcon
                               aria-hidden="true"
-                              className="size-[18px] shrink-0 text-pf-accent"
+                              className="size-4 shrink-0 text-pf-accent"
                             />
                             <span className="whitespace-nowrap">
                               {fechaComunicacion(c.publicada_at ?? c.created_at)}
@@ -664,7 +661,7 @@ function ListaFamiliaEscritorio({
                           </span>
                           <ChevronRightIcon
                             aria-hidden="true"
-                            className="hidden size-5 text-texto @3xl/main:block"
+                            className="hidden size-4 text-texto-2 @3xl/main:block"
                           />
                         </Link>
                       </li>

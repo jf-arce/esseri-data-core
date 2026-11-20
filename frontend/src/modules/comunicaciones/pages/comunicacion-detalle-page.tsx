@@ -207,7 +207,7 @@ export function ComunicacionDetallePage({
       >
         <PortalFamiliaWatermark />
 
-        <div className="relative z-10 flex w-full flex-col gap-5">
+        <div className="relative z-10 mx-auto flex w-full max-w-4xl flex-col gap-5">
           <div className="flex flex-col gap-3">
             <Link
               to={base}
@@ -264,7 +264,7 @@ export function ComunicacionDetallePage({
 
               <div className="relative z-10 p-6 @xl/main:p-10">
                 <div className="@5xl/main:pr-[200px]">
-                  <span className="inline-flex items-center gap-2 rounded-full bg-pf-lila px-4 py-2 text-xs font-bold tracking-[0.08em] text-pf-accent uppercase">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-pf-lila px-3 py-1 text-xs font-semibold tracking-[0.06em] text-pf-accent uppercase">
                     <Building2Icon aria-hidden="true" className="size-4" />
                     {datos.tipo === 'curso'
                       ? 'COMUNICADO DE CURSO'
@@ -272,7 +272,7 @@ export function ComunicacionDetallePage({
                         ? 'COMUNICADO INSTITUCIONAL'
                         : `COMUNICADO ${ETIQUETAS_TIPO[datos.tipo].toUpperCase()}`}
                   </span>
-                  <h1 className="mt-5 font-heading text-pf-titulo leading-[1.12] font-bold tracking-[-0.02em] text-texto @xl/main:text-pf-titulo-lg">
+                  <h1 className="mt-5 font-heading text-pf-titulo leading-tight font-semibold tracking-[-0.01em] text-texto @xl/main:text-pf-titulo-lg">
                     {datos.asunto}
                   </h1>
                   <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-pf-cuerpo font-medium text-texto-2">
@@ -295,7 +295,7 @@ export function ComunicacionDetallePage({
                 <MensajeComunicacion
                   texto={datos.cuerpo}
                   cuerpoRico={datos.cuerpo_rico}
-                  className="py-8 text-pf-cuerpo leading-8 text-texto @xl/main:text-pf-encabezado"
+                  className="py-8 text-pf-cuerpo leading-7 text-texto @xl/main:text-pf-encabezado"
                 />
 
                 {eventoDetalle && (

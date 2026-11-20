@@ -38,15 +38,15 @@ export function PortalStatTile({
     <article
       role={ariaLabel ? 'group' : undefined}
       aria-label={ariaLabel}
-      className={cn('flex items-center gap-4 rounded-pf-tile p-5', TONOS[tone].card, className)}
+      className={cn('flex items-center gap-3 rounded-pf-tile p-4', TONOS[tone].card, className)}
     >
       <span
         className={cn(
-          'flex size-14 shrink-0 items-center justify-center rounded-pf-icono',
+          'flex size-10 shrink-0 items-center justify-center rounded-pf-item',
           TONOS[tone].tile,
         )}
       >
-        <Icon aria-hidden="true" className="size-6" />
+        <Icon aria-hidden="true" className="size-5" />
       </span>
       <div className="min-w-0">
         {cargando ? (
@@ -56,7 +56,7 @@ export function PortalStatTile({
             {value}
           </p>
         )}
-        <p className="mt-2 text-pf-cuerpo leading-tight font-semibold text-texto">{label}</p>
+        <p className="mt-1.5 text-pf-cuerpo leading-tight font-semibold text-texto">{label}</p>
         {detalle && (
           <p className={cn('text-sm leading-tight text-texto-2', detalleClassName)}>{detalle}</p>
         )}
@@ -100,17 +100,17 @@ export function PortalCard({
       className={cn('gap-0 rounded-pf-card border-0 bg-superficie py-0 shadow-pf-card', className)}
     >
       {(titulo || accion) && (
-        <CardHeader className={cn('px-5 pt-5 pb-0', headerClassName)}>
+        <CardHeader className={cn('px-5 pt-4 pb-0', headerClassName)}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex min-w-0 items-start gap-3">
               {Icono && (
                 <span
                   className={cn(
-                    'flex size-12 shrink-0 items-center justify-center rounded-pf-icono',
+                    'flex size-10 shrink-0 items-center justify-center rounded-pf-item',
                     TONOS[tone].tile,
                   )}
                 >
-                  <Icono aria-hidden="true" className="size-6" />
+                  <Icono aria-hidden="true" className="size-5" />
                 </span>
               )}
               <div className="min-w-0">
@@ -135,7 +135,7 @@ export function PortalCard({
           </div>
         </CardHeader>
       )}
-      <CardContent className={cn('px-5 pt-4 pb-5', contentClassName)}>{children}</CardContent>
+      <CardContent className={cn('px-5 pt-4 pb-4', contentClassName)}>{children}</CardContent>
     </Card>
   )
 }
@@ -157,13 +157,13 @@ export function PortalAlertBanner({
   return (
     <div
       className={cn(
-        'flex flex-col gap-4 rounded-pf-tile bg-pf-ambar-card p-5 sm:flex-row sm:items-center sm:justify-between',
+        'flex flex-col gap-4 rounded-pf-tile bg-pf-ambar-card p-4 sm:flex-row sm:items-center sm:justify-between',
         className,
       )}
     >
       <div className="flex items-start gap-4">
-        <span className="flex size-12 shrink-0 items-center justify-center rounded-full border-2 border-advertencia text-advertencia">
-          <CircleAlertIcon aria-hidden="true" className="size-6" />
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-advertencia text-advertencia">
+          <CircleAlertIcon aria-hidden="true" className="size-5" />
         </span>
         <div>
           <p className="text-pf-encabezado font-semibold text-texto">{titulo}</p>
