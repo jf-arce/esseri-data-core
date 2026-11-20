@@ -15,6 +15,8 @@ from src.notificaciones.constants import (
     DESTINO_PAGO,
     DESTINO_SOLICITUD_PERIODO,
     TIPO_COMUNICACION_PUBLICADA,
+    TIPO_DEBITO_EXITOSO,
+    TIPO_DEBITO_RECHAZADO,
     TIPO_FACTURA_EMITIDA,
     TIPO_INASISTENCIA_REGISTRADA,
     TIPO_JUSTIFICACION_APROBADA,
@@ -135,6 +137,23 @@ class ContextoProximoVencimiento(_ContextoBase):
     monto_pendiente: str
 
 
+class ContextoDebitoExitoso(_ContextoBase):
+    """Débito automático cobrado sobre una factura."""
+
+    debito_id: uuid.UUID
+    factura_id: uuid.UUID
+    importe: str
+
+
+class ContextoDebitoRechazado(_ContextoBase):
+    """Débito automático rechazado; el motivo es obligatorio y nunca está vacío."""
+
+    debito_id: uuid.UUID
+    factura_id: uuid.UUID
+    importe: str
+    motivo: str
+
+
 ESQUEMAS_CONTEXTO: dict[tuple[str, str], type[BaseModel]] = {
     (TIPO_INASISTENCIA_REGISTRADA, DESTINO_ASISTENCIA): ContextoAusencia,
     (TIPO_JUSTIFICACION_APROBADA, DESTINO_JUSTIFICACION_INDIVIDUAL): (
@@ -149,6 +168,8 @@ ESQUEMAS_CONTEXTO: dict[tuple[str, str], type[BaseModel]] = {
     (TIPO_FACTURA_EMITIDA, DESTINO_FACTURA): ContextoFactura,
     (TIPO_PAGO_REGISTRADO, DESTINO_PAGO): ContextoPago,
     (TIPO_PROXIMO_VENCIMIENTO, DESTINO_FACTURA): ContextoProximoVencimiento,
+    (TIPO_DEBITO_EXITOSO, DESTINO_FACTURA): ContextoDebitoExitoso,
+    (TIPO_DEBITO_RECHAZADO, DESTINO_FACTURA): ContextoDebitoRechazado,
 }
 
 

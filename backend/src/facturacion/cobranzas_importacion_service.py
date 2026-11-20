@@ -39,6 +39,7 @@ from src.facturacion.models import (
 from src.familias_alumnos.models import Alumno
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
+from src.notificaciones.facturacion_service import registrar_resultado_debito
 from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
 from src.workflows.eventos_service import emit_event
 
@@ -724,6 +725,7 @@ def confirmar(
                     comprobante_tipo_contenido=None,
                     comprobante_contenido=None,
                     confirmar=False,
+                    notificar=False,
                 )
                 debito.pago_id = pago.id
                 detalle.pago_id = pago.id
@@ -760,6 +762,13 @@ def confirmar(
                 valor_anterior=None,
                 valor_nuevo=f"{detalle.resultado}; {detalle.resultado_hash}",
                 usuario_id=usuario_id,
+            )
+            registrar_resultado_debito(
+                db,
+                debito=debito,
+                factura=factura,
+                exitoso=es_exitoso,
+                motivo="" if es_exitoso else detalle.descripcion,
             )
         lote.estado = "pagos_registrados"
         importacion = db.get(ImportacionCobranza, importacion.id, populate_existing=True)

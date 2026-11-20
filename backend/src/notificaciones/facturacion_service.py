@@ -8,13 +8,21 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.facturacion.models import ExcepcionVencimiento, Factura, Pago, ResponsableEconomico
+from src.facturacion.models import (
+    DebitoCobranza,
+    ExcepcionVencimiento,
+    Factura,
+    Pago,
+    ResponsableEconomico,
+)
 from src.inscripciones.models import Inscripcion
 from src.notificaciones import service as notificaciones_service
 from src.notificaciones.constants import (
     AMBITO_FACTURACION,
     DESTINO_FACTURA,
     DESTINO_PAGO,
+    TIPO_DEBITO_EXITOSO,
+    TIPO_DEBITO_RECHAZADO,
     TIPO_FACTURA_EMITIDA,
     TIPO_PAGO_REGISTRADO,
     TIPO_PROXIMO_VENCIMIENTO,
@@ -132,6 +140,72 @@ def registrar_pago_aprobado(db: Session, pago: Pago) -> int:
                 },
                 destino_tipo=DESTINO_PAGO,
                 destino_id=pago.id,
+            )
+        )
+    return insertadas
+
+
+def registrar_resultado_debito(
+    db: Session,
+    *,
+    debito: DebitoCobranza,
+    factura: Factura,
+    exitoso: bool,
+    motivo: str,
+) -> int:
+    """Avisa el resultado confirmado de un débito automático a la familia responsable.
+
+    El texto del rechazo muestra solo el motivo: el código técnico queda en el evento y en el
+    historial administrativo. Una prórroga o un reintento no cambian el hecho ya avisado.
+    """
+    datos = _datos_factura(db, factura.id)
+    if datos is None:
+        return 0
+    alumno_id, familia_id = datos
+    importe = _monto(debito.importe)
+    motivo_limpio = motivo.strip()
+    if exitoso:
+        tipo = TIPO_DEBITO_EXITOSO
+        titulo = "Débito automático exitoso"
+        mensaje = (
+            f"Se debitó $ {importe} de la factura con vencimiento "
+            f"{_fecha(factura.fecha_vencimiento)}."
+        )
+        contexto = {
+            "familia_id": str(familia_id),
+            "alumno_id": str(alumno_id),
+            "debito_id": str(debito.id),
+            "factura_id": str(factura.id),
+            "importe": importe,
+        }
+    else:
+        tipo = TIPO_DEBITO_RECHAZADO
+        titulo = "Débito automático rechazado"
+        mensaje = f"Se rechazó el débito de $ {importe}. Motivo: {motivo_limpio or 'no informado'}."
+        contexto = {
+            "familia_id": str(familia_id),
+            "alumno_id": str(alumno_id),
+            "debito_id": str(debito.id),
+            "factura_id": str(factura.id),
+            "importe": importe,
+            "motivo": motivo_limpio or "No informado",
+        }
+    insertadas = 0
+    for usuario_id in cuentas_de_familia(db, familia_id):
+        insertadas += int(
+            notificaciones_service.publicar(
+                db,
+                usuario_id=usuario_id,
+                familia_id=familia_id,
+                alumno_id=alumno_id,
+                ambito=AMBITO_FACTURACION,
+                clave_hecho=f"facturacion:debito_resultado:{debito.id}",
+                tipo=tipo,
+                titulo=titulo,
+                mensaje=mensaje,
+                contexto=contexto,
+                destino_tipo=DESTINO_FACTURA,
+                destino_id=factura.id,
             )
         )
     return insertadas
