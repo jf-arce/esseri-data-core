@@ -97,6 +97,11 @@ function Detalle({ familia }: { familia: boolean }) {
           setHilo(recibido.conversacion ?? undefined)
           setPuedeIniciar(recibido.puede_iniciar)
           setPermiteAdjuntos(recibido.adjuntos_habilitados)
+          // Un hilo existente tiene una única URL canónica: el contexto redirige a ella.
+          if (recibido.conversacion) {
+            navegar(`${rutaConversaciones(familia)}/${recibido.conversacion.id}`, { replace: true })
+            return
+          }
         }
       } catch {
         if (!signal.aborted) {
@@ -111,7 +116,7 @@ function Detalle({ familia }: { familia: boolean }) {
     }
     void cargar()
     return () => controller.abort()
-  }, [id, tipo, contextoId, revision])
+  }, [id, tipo, contextoId, revision, navegar, familia])
 
   useEffect(() => {
     if (!idHilo) return
@@ -130,23 +135,18 @@ function Detalle({ familia }: { familia: boolean }) {
         setHilo(actual)
         setContexto(actual.contexto)
         setHistorial((previo) => {
-          const primero = mensajes.items[0]?.id
-          const anteriores = previo.items.findIndex((mensaje) => mensaje.id === primero)
-          return anteriores > 0
-            ? {
-                items: [...previo.items.slice(0, anteriores), ...mensajes.items],
-                siguiente: previo.siguiente,
-              }
-            : mensajes
+          // La página más nueva siempre es la fuente de verdad: se conservan solo los mensajes
+          // más viejos ya cargados con "Ver anteriores", en su orden.
+          const conocidos = new Set(mensajes.items.map((mensaje) => mensaje.id))
+          const anteriores = previo.items.filter((mensaje) => !conocidos.has(mensaje.id))
+          return {
+            items: [...mensajes.items, ...anteriores],
+            siguiente: anteriores.length > 0 ? previo.siguiente : mensajes.siguiente,
+          }
         })
       } catch {
-        if (!signal.aborted) {
-          setHistorial({ items: [], siguiente: null })
-          setHilo(undefined)
-          setContexto(undefined)
-          setPuedeIniciar(false)
-          setError('No se pudo actualizar la conversación.')
-        }
+        // Un fallo de sondeo no descarta el historial visible ni oculta el hilo.
+        if (!signal.aborted) setError('No se pudo actualizar la conversación.')
       }
     }
     void refrescar()

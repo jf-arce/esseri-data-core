@@ -41,32 +41,33 @@ test('family and Administration discuss a period request without changing the re
     const solicitudesURL = `${api}/academico/familia/alumnos/${alumno.alumno_id}/solicitudes-ausencia`
     const solicitudes = await familia.request.get(solicitudesURL)
     await expect(solicitudes).toBeOK()
-    const rangos = (await solicitudes.json()) as { fecha_inicio: string; fecha_fin: string }[]
-    const fecha = new Date()
-    fecha.setUTCDate(fecha.getUTCDate() + 30)
-    let fecha_inicio = ''
-    let fecha_fin = ''
-    for (let intento = 0; intento < 14; intento++) {
-      fecha_inicio = fecha.toISOString().slice(0, 10)
+    const existentes = (await solicitudes.json()) as {
+      id: string
+      fecha_inicio: string
+      fecha_fin: string
+    }[]
+    // Reutiliza el trámite ya creado por una corrida anterior; si no hay, crea uno dentro de la
+    // ventana que el backend acepta (últimos días justificables, nunca un ciclo futuro).
+    let solicitud: { id: string; estado?: string } = existentes.at(-1) ?? { id: '' }
+    if (!solicitud.id) {
+      const fecha = new Date()
+      fecha.setUTCDate(fecha.getUTCDate() - 1)
+      const fecha_inicio = fecha.toISOString().slice(0, 10)
       fecha.setUTCDate(fecha.getUTCDate() + 1)
-      fecha_fin = fecha.toISOString().slice(0, 10)
-      if (
-        !rangos.some((rango) => rango.fecha_inicio <= fecha_fin && rango.fecha_fin >= fecha_inicio)
-      )
-        break
-      fecha.setUTCDate(fecha.getUTCDate() + 1)
+      const fecha_fin = fecha.toISOString().slice(0, 10)
+      const alta = await familia.request.post(`${api}/academico/familia/solicitudes-ausencia`, {
+        multipart: { alumno_id: alumno.alumno_id, fecha_inicio, fecha_fin, motivo: 'enfermedad' },
+      })
+      await expect(alta).toBeOK()
+      solicitud = await alta.json()
     }
-    const alta = await familia.request.post(`${api}/academico/familia/solicitudes-ausencia`, {
-      multipart: { alumno_id: alumno.alumno_id, fecha_inicio, fecha_fin, motivo: 'enfermedad' },
-    })
-    await expect(alta).toBeOK()
-    const solicitud = await alta.json()
     const inicio = `alumno=${alumno.alumno_id}&seccion=justificaciones&recurso=solicitud_ausencia_periodo&recurso_id=${solicitud.id}`
     const portal = await familia.newPage()
     await portal.goto(`/familia/asistencias?${inicio}`)
     await portal.getByRole('link', { name: 'Conversación sobre esta justificación' }).click()
-    const consulta = `Consulta sobre la ausencia ${solicitud.id}`
-    const respuesta = 'Gracias. Por favor, confirmá la documentación.'
+    const sello = Date.now()
+    const consulta = `Consulta sobre la ausencia ${solicitud.id} (${sello})`
+    const respuesta = `Gracias. Por favor, confirmá la documentación (${sello}).`
     await portal.getByRole('textbox', { name: 'Mensaje' }).fill(consulta)
     await portal.getByRole('button', { name: 'Enviar mensaje' }).click()
     await expect(portal).toHaveURL(/\/familia\/conversaciones\/[a-f\d-]+$/)
@@ -91,6 +92,7 @@ test('family and Administration discuss a period request without changing the re
     await portal
       .getByRole('link', { name: /Nuevo mensaje de Administración/ })
       .and(portal.locator(`a[href="${rutaHilo}"]`))
+      .first()
       .click()
     await expect(portal).toHaveURL(new RegExp(`${rutaHilo}$`))
     await expect(portal.getByText(respuesta)).toBeVisible()
