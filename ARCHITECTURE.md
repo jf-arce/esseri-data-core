@@ -56,6 +56,12 @@ transport dependency or infrastructure.
 
 ### Communications domain (stages 1–3)
 
+Contextual conversations are a separate capability within Communications. Each thread has exactly
+one database-enforced business context: a rejected debit attempt, an individual justification, or
+an absence period request. Coverage rows are not separate contexts. Family access matches both
+the original family and the student's current link. Administrative access checks the active role
+and the relevant domain permission. Messages and thread transitions never write to source records.
+
 Institutional and course communications are owned by `backend/src/comunicaciones/` and
 `frontend/src/modules/comunicaciones/`, an additional domain alongside the original EDT modules.
 It owns drafts, publication, recipient resolution and individual responsible read receipts.

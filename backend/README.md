@@ -823,6 +823,14 @@ Focused tests (SQLite by default):
 pytest -q tests/comunicaciones
 ```
 
+The contextual conversation API lives under `/comunicaciones/conversaciones`. An authorized
+caller consults and opens a thread at `/contextos/{tipo}/{id}`; history is at `/{id}/mensajes`.
+Message commands take plain `texto` and a UUID `clave` kept stable across retries. Staff can
+list pending threads and resolve or reopen them without mutating the underlying record. Run
+`pytest -q tests/comunicaciones/test_conversaciones.py`; set `COMUNICACIONES_TEST_DATABASE_URL`
+to an explicitly isolated, migrated PostgreSQL test database to include the simultaneous-open
+constraint test.
+
 For PostgreSQL, first apply `alembic upgrade head` against an **isolated disposable database**,
 then explicitly supply that URL (never a shared or production database):
 
