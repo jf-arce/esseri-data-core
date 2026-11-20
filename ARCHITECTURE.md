@@ -61,11 +61,12 @@ one database-enforced business context: a rejected debit attempt, an individual 
 an absence period request. Coverage rows are not separate contexts. Family access matches both
 the original family and the student's current link. Administrative access checks the active role
 and the relevant domain permission. Messages and thread transitions never write to source records.
-Administrative messages enqueue a generic Portal notice for every account that can still open the
-thread, and reuse the durable Workflows email transport with a distinct message-based origin,
-recipient deduplication and a fresh scope check before n8n claims the delivery. Email additionally
-requires the current student link to keep `recibe_comunicaciones`. These alerts never replace
-billing or attendance notices.
+Administrative messages enqueue a generic Portal notice and, when the address has an email, reuse
+the durable Workflows transport with a distinct message-based origin, recipient deduplication and
+a fresh scope check before n8n claims the delivery. Both the notice and the email require the
+current student link to keep `recibe_comunicaciones`; that flag governs alerts, never access to the
+thread, which still follows the original family and the current student link. These alerts never
+replace billing or attendance notices.
 
 Institutional and course communications are owned by `backend/src/comunicaciones/` and
 `frontend/src/modules/comunicaciones/`, an additional domain alongside the original EDT modules.

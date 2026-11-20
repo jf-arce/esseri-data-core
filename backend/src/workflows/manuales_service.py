@@ -623,6 +623,7 @@ def reclamar_intento(db: Session, envio_id: uuid.UUID, intento_id: uuid.UUID) ->
         intento.error_codigo = "vinculo_revocado"
         envio.estado = "fallido"
         envio.lease_at = None
+        envio.intento_actual_id = None
         db.commit()
         return _respuesta_claim(envio, "vinculo_revocado", intento)
 

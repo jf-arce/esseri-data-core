@@ -342,6 +342,24 @@ def test_adjunto_privado_y_envio_atomico(client, escenario, monkeypatch):
     assert client.get(f"{BASE}/{hilo}/mensajes").json()["items"] == historial
 
 
+def test_sin_recibe_comunicaciones_no_hay_aviso_ni_email_pero_si_acceso(
+    client, db_session, escenario, escenario_dos_familias
+):
+    solicitud, familiar, admin, _ = escenario
+    vinculo = db_session.get(FamiliaAlumno, escenario_dos_familias["vinculo_a"])
+    vinculo.recibe_comunicaciones = False
+    db_session.commit()
+    autenticar(client, admin, "administracion")
+    contexto = f"{BASE}/contextos/solicitud_ausencia_periodo/{solicitud.id}"
+    creado = client.post(contexto, json={"texto": "Mensaje reservado", "clave": str(uuid4())})
+    assert creado.status_code == 201
+    hilo = creado.json()["id"]
+    assert db_session.scalar(select(func.count()).select_from(EnvioNotificacion)) == 0
+    autenticar(client, familiar, "familia")
+    assert not client.get("/notificaciones").json()["items"]
+    assert client.get(f"{BASE}/{hilo}/mensajes").json()["items"][0]["texto"] == "Mensaje reservado"
+
+
 def test_aviso_y_email_duradero_sin_divulgar_el_mensaje(
     client, db_session, escenario, escenario_dos_familias, monkeypatch
 ):
@@ -378,10 +396,11 @@ def test_aviso_y_email_duradero_sin_divulgar_el_mensaje(
     assert envio.estado == "pendiente"
     autenticar(client, familiar, "familia")
     assert client.get(f"{BASE}/{hilo}/mensajes").json()["items"][0]["texto"] == datos["texto"]
-    db_session.delete(vinculo)
+    vinculo.recibe_comunicaciones = False
     envio.disponible_at = datetime.now(UTC).replace(tzinfo=None)
     db_session.commit()
     assert not client.get("/notificaciones").json()["items"]
+    assert client.get(f"{BASE}/{hilo}/mensajes").json()["items"][0]["texto"] == datos["texto"]
 
     def envio_prohibido(*_args, **_kwargs):
         pytest.fail("una dirección revocada no debe llegar al transporte")

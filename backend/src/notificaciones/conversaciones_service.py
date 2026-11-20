@@ -61,7 +61,14 @@ def registrar_respuesta(db: Session, hilo: ConversacionContextual, mensaje: Mens
     if mensaje.lado != "administracion":
         return
     cuentas = _cuentas_autorizadas(db, hilo)
-    for usuario_id, alumno_id in cuentas.items():
+    # `recibe_comunicaciones` gobierna el aviso, no el acceso: quien lo desactivó puede seguir
+    # entrando al hilo, pero no recibe campanita ni email por estas respuestas.
+    habilitadas = {
+        usuario_id: alumno_id
+        for usuario_id, alumno_id in cuentas.items()
+        if _aviso_habilitado(db, hilo.familia_id, alumno_id)
+    }
+    for usuario_id, alumno_id in habilitadas.items():
         publicar(
             db,
             usuario_id=usuario_id,
@@ -81,7 +88,7 @@ def registrar_respuesta(db: Session, hilo: ConversacionContextual, mensaje: Mens
             destino_tipo=DESTINO_CONVERSACION,
             destino_id=hilo.id,
         )
-    for email in sorted(_emails_autorizados(db, hilo.familia_id, cuentas)):
+    for email in sorted(_emails_autorizados(db, hilo.familia_id, habilitadas)):
         db.add(
             EnvioNotificacion(
                 mensaje_conversacion_id=mensaje.id,
@@ -91,6 +98,18 @@ def registrar_respuesta(db: Session, hilo: ConversacionContextual, mensaje: Mens
                 cuerpo=AVISO,
             )
         )
+
+
+def _aviso_habilitado(db: Session, familia_id: UUID, alumno_id: UUID) -> bool:
+    return bool(
+        db.scalar(
+            select(FamiliaAlumno.id).where(
+                FamiliaAlumno.familia_id == familia_id,
+                FamiliaAlumno.alumno_id == alumno_id,
+                FamiliaAlumno.recibe_comunicaciones.is_(True),
+            )
+        )
+    )
 
 
 def hilo_de_envio(db: Session, envio: EnvioNotificacion) -> ConversacionContextual | None:

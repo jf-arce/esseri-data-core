@@ -197,7 +197,7 @@ def _predicado_autorizado(usuario_id: uuid.UUID, familia_id: uuid.UUID, dialecto
     return [
         NotificacionInterna.usuario_id == usuario_id,
         NotificacionInterna.familia_id == familia_id,
-        or_(academico, comunicaciones, facturacion, _conversacion_autorizada(enlace)),
+        or_(academico, comunicaciones, facturacion, _conversacion_autorizada(enlace_habilitado)),
         _predicado_tipo_conocido(dialecto),
     ]
 
