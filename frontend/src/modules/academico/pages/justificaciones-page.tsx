@@ -53,7 +53,7 @@ import type {
   JustificacionesPaginadas,
   OpcionJustificacion,
 } from '@/modules/academico/types'
-import { etiquetaMotivoJustificacion } from '@/modules/academico/utils'
+import { etiquetaMotivoJustificacion, MOTIVOS_JUSTIFICACION } from '@/modules/academico/utils'
 
 const TAMANIO_PAGINA = 20
 
@@ -338,6 +338,19 @@ export function JustificacionesPage() {
             active={Boolean(filtros.nivel_id)}
           />
         )}
+        <FilterDropdown
+          label="Motivo"
+          options={[
+            { value: 'todos', label: 'Todos' },
+            ...MOTIVOS_JUSTIFICACION.map((motivo) => ({
+              value: motivo.value,
+              label: motivo.label,
+            })),
+          ]}
+          value={filtros.motivo ?? 'todos'}
+          onChange={(valor) => actualizarFiltros({ motivo: valor === 'todos' ? undefined : valor })}
+          active={Boolean(filtros.motivo)}
+        />
         {divisionOptions.length > 0 && (
           <FilterDropdown
             label="División"

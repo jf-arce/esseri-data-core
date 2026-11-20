@@ -268,11 +268,21 @@ export interface RecargoFactura {
   observacion: string | null
 }
 
+export interface IntentoDebito {
+  debito_id: string
+  lote_id: string
+  fecha: string
+  importe: string
+  resultado: 'exitoso' | 'rechazado'
+  motivo: string
+}
+
 export interface FacturaDetalle extends Factura {
   alumno_nombre: string
   alumno_legajo: string
   responsable_economico_nombre: string | null
   pagos: PagoFactura[]
+  intentos_debito?: IntentoDebito[]
   /** Recargos por mora: van a la cuenta corriente y no cambian el saldo de esta factura. */
   recargos: RecargoFactura[]
 }

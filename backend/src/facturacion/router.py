@@ -18,6 +18,7 @@ from src.auth.dependencies import UsuarioAutenticado, requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
 from src.facturacion import (
+    cobranzas_service,
     cuenta_corriente_service,
     facturas_service,
     penalidades_service,
@@ -55,6 +56,7 @@ from src.facturacion.schemas import (
     FacturaUpdate,
     GeneracionFacturacionRequest,
     GeneracionFacturacionResumenRead,
+    IntentoDebitoRead,
     MetodoPagoRead,
     MovimientoCuentaCorrienteRead,
     PagoRead,
@@ -191,6 +193,10 @@ def _factura_detalle_read(db: Session, factura: Factura) -> FacturaDetalleRead:
             else None
         ),
         pagos=[PagoRead.model_validate(pago) for pago in factura.pagos],
+        intentos_debito=[
+            IntentoDebitoRead(**intento)
+            for intento in cobranzas_service.intentos_de_factura(db, factura.id)
+        ],
         recargos=[
             RecargoRead.model_validate(movimiento)
             for movimiento in penalidades_service.recargos_de_factura(db, factura.id)

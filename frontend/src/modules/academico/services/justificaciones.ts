@@ -12,6 +12,7 @@ export interface FiltrosJustificaciones {
   division_id?: string
   alumno_id?: string
   estado?: EstadoJustificacion
+  motivo?: string
   busqueda?: string
   fecha_desde?: string
   fecha_hasta?: string

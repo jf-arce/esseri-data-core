@@ -171,11 +171,21 @@ class RecargoRead(BaseModel):
     observacion: str | None
 
 
+class IntentoDebitoRead(BaseModel):
+    debito_id: uuid.UUID
+    lote_id: uuid.UUID
+    fecha: InstanteUtc
+    importe: Decimal
+    resultado: Literal["exitoso", "rechazado"]
+    motivo: str
+
+
 class FacturaDetalleRead(FacturaRead):
     alumno_nombre: str
     alumno_legajo: str
     responsable_economico_nombre: str | None
     pagos: list[PagoRead]
+    intentos_debito: list[IntentoDebitoRead] = []
     # Van a la cuenta corriente: no cambian `monto_total` ni el saldo de esta factura.
     recargos: list[RecargoRead] = []
 
