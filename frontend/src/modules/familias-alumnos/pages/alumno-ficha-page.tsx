@@ -95,14 +95,14 @@ export function AlumnoFichaPage() {
         Familias y alumnos
       </p>
 
-      <div className="flex items-end justify-between gap-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-[-.01em] text-texto">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-[-.01em] break-words text-texto">
             {/* TODO: Mostrar nombre de persona cuando el join esté disponible */}
             {tituloAlumno}
           </h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="secondary" asChild>
             <Link to={`/facturacion?alumno_id=${alumno.id}`}>Ver facturas</Link>
           </Button>
@@ -127,22 +127,22 @@ export function AlumnoFichaPage() {
         </TabsList>
 
         <TabsContent value="datos">
-          <div className="grid grid-cols-[1fr_380px] gap-6">
+          <div className="grid grid-cols-1 gap-6 @5xl/main:grid-cols-[minmax(0,1fr)_380px]">
             <div className="flex flex-col gap-5">
               <Card className="p-0">
                 <div className="flex items-center justify-between border-b border-borde px-6 py-4">
                   <h3 className="text-base font-semibold">Datos personales</h3>
                   <BadgeEstado estado={alumno.estado} />
                 </div>
-                <div className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-3 px-6 py-5 text-sm">
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-x-4 gap-y-3 px-6 py-5 text-sm">
                   <span className="text-texto-2">Nombre</span>
-                  <span className="font-medium text-texto">{alumno.persona_nombre}</span>
+                  <span className="font-medium break-words text-texto">{alumno.persona_nombre}</span>
                   <span className="text-texto-2">Apellido</span>
-                  <span className="font-medium text-texto">{alumno.persona_apellido}</span>
+                  <span className="font-medium break-words text-texto">{alumno.persona_apellido}</span>
                   <span className="text-texto-2">DNI</span>
-                  <span className="font-medium text-texto">{alumno.persona_dni}</span>
+                  <span className="font-medium break-words text-texto">{alumno.persona_dni}</span>
                   <span className="text-texto-2">Teléfono</span>
-                  <span className="font-medium text-texto">{alumno.persona_telefono ?? '—'}</span>
+                  <span className="font-medium break-words text-texto">{alumno.persona_telefono ?? '—'}</span>
                 </div>
               </Card>
 
@@ -150,15 +150,15 @@ export function AlumnoFichaPage() {
                 <div className="border-b border-borde px-6 py-4">
                   <h3 className="text-base font-semibold">Datos académicos</h3>
                 </div>
-                <div className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-3 px-6 py-5 text-sm">
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-x-4 gap-y-3 px-6 py-5 text-sm">
                   <span className="text-texto-2">Número de legajo</span>
-                  <span className="font-mono font-medium text-texto">{alumno.numero_legajo}</span>
+                  <span className="font-mono font-medium break-words text-texto">{alumno.numero_legajo}</span>
                   <span className="text-texto-2">Estado</span>
                   <span>
                     <BadgeEstado estado={alumno.estado} />
                   </span>
                   <span className="text-texto-2">Fecha de alta</span>
-                  <span className="font-medium text-texto">
+                  <span className="font-medium break-words text-texto">
                     {new Date(alumno.created_at).toLocaleDateString('es-AR')}
                   </span>
                 </div>
@@ -171,22 +171,22 @@ export function AlumnoFichaPage() {
                   <h3 className="text-base font-semibold">Estado de cuenta</h3>
                 </div>
                 {cuentaCorriente ? (
-                  <div className="grid grid-cols-3 gap-3 px-6 py-5">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-3 px-6 py-5">
                     <div>
                       <p className="text-xs text-texto-2">Cargos</p>
-                      <p className="mt-1 font-semibold tabular-nums">
+                      <p className="mt-1 break-words font-semibold tabular-nums">
                         {formatearMoneda(cuentaCorriente.total_debe)}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-texto-2">Pagos</p>
-                      <p className="mt-1 font-semibold tabular-nums">
+                      <p className="mt-1 break-words font-semibold tabular-nums">
                         {formatearMoneda(cuentaCorriente.total_haber)}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-texto-2">Saldo</p>
-                      <p className="mt-1 font-semibold tabular-nums">
+                      <p className="mt-1 break-words font-semibold tabular-nums">
                         {formatearMoneda(cuentaCorriente.saldo)}
                       </p>
                     </div>
@@ -217,15 +217,15 @@ export function AlumnoFichaPage() {
                     {vinculos.map((vinculo) => (
                       <div
                         key={vinculo.id}
-                        className="flex items-center justify-between border-b border-borde py-3 last:border-0"
+                        className="flex flex-wrap items-center justify-between gap-2 border-b border-borde py-3 last:border-0"
                       >
-                        <div>
+                        <div className="min-w-0">
                           <p className="text-sm font-medium text-texto">{vinculo.familia_nombre}</p>
                           <p className="text-xs text-texto-2">
                             {vinculo.parentesco ?? 'Sin parentesco'}
                           </p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           {vinculo.responsable_principal && (
                             <Badge variant="exito">Resp. principal</Badge>
                           )}
@@ -258,7 +258,7 @@ export function AlumnoFichaPage() {
                 </EmptyDescription>
               </Empty>
             ) : (
-              <Table>
+              <Table bare>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Familia</TableHead>

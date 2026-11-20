@@ -101,7 +101,7 @@ export function AlumnoForm({
       </div>
 
       {!isEditing && (
-        <div className="mb-6 flex gap-0">
+        <div className="mb-6 flex flex-wrap gap-0">
           <div
             className={`flex items-center gap-2.5 pb-2.5 pr-6 text-sm font-semibold ${
               currentStep > 1 ? 'text-violeta' : 'text-violeta'
@@ -142,7 +142,7 @@ export function AlumnoForm({
       )}
 
       <Card className="p-6">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2">
           {currentStep === 1 || isEditing ? (
             <>
               <Field>
@@ -242,7 +242,7 @@ export function AlumnoForm({
         </div>
       </Card>
 
-      <div className="mt-6 flex justify-between">
+      <div className="mt-6 flex flex-wrap justify-between gap-2">
         <Button
           type="button"
           variant="secondary"
