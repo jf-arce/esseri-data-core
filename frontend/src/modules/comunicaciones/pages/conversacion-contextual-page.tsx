@@ -743,10 +743,12 @@ function Detalle({ familia }: { familia: boolean }) {
           volverEtiqueta="Volver a Comunicaciones"
           acciones={estadoHilo}
           anchoMaximo="max-w-[1100px]"
-          className="px-0 sm:px-0"
+          className="px-0 pt-8 pb-4 sm:px-0"
           classNameContenido="px-4 sm:px-8"
         />
-        <div className="mx-auto w-full max-w-[1100px] px-4 pb-10 sm:px-8">{conversacion}</div>
+        <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-5 px-4 pb-10 sm:px-8">
+          {conversacion}
+        </div>
       </section>
     )
   return (
