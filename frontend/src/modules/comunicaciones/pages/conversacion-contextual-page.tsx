@@ -304,6 +304,8 @@ function Detalle({ familia }: { familia: boolean }) {
   const [revision, setRevision] = useState(0)
   const clave = useRef<string | null>(null)
   const operacion = useRef<AbortController | null>(null)
+  const desplazamiento = useRef<HTMLDivElement>(null)
+  const alFinal = useRef(true)
   const idHilo = id ?? hilo?.id
 
   useEffect(() => {
@@ -386,6 +388,12 @@ function Detalle({ familia }: { familia: boolean }) {
       window.removeEventListener('focus', refrescar)
     }
   }, [idHilo, revision])
+
+  useEffect(() => {
+    const caja = desplazamiento.current
+    if (!caja || !alFinal.current) return
+    caja.scrollTop = caja.scrollHeight
+  }, [historial.items.length, hilo?.id])
 
   useEffect(() => () => operacion.current?.abort(), [])
 
@@ -529,45 +537,60 @@ function Detalle({ familia }: { familia: boolean }) {
             </p>
           )}
           {hilo && historial.items.length > 0 && (
-            <ol aria-label="Historial de mensajes" className="flex flex-col gap-5">
-              {historial.items.map((mensaje) => {
-                const esFamilia = mensaje.lado === 'familia'
-                return (
-                  <li
-                    key={mensaje.id}
-                    className={cn('flex items-start gap-2.5', esFamilia && 'flex-row-reverse')}
-                  >
-                    <Avatar mensaje={mensaje} />
-                    <div
-                      className={cn('flex min-w-0 max-w-[85%] flex-col', esFamilia && 'items-end')}
+            <div
+              ref={desplazamiento}
+              role="log"
+              aria-label="Historial de mensajes"
+              tabIndex={0}
+              onScroll={(evento) => {
+                const caja = evento.currentTarget
+                alFinal.current = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 48
+              }}
+              className="max-h-[min(60vh,36rem)] overflow-y-auto overscroll-contain pr-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
+            >
+              <ol className="flex flex-col gap-5">
+                {historial.items.map((mensaje) => {
+                  const esFamilia = mensaje.lado === 'familia'
+                  return (
+                    <li
+                      key={mensaje.id}
+                      className={cn('flex items-start gap-2.5', esFamilia && 'flex-row-reverse')}
                     >
-                      <p className="mb-1 text-[12px] text-[#6B6478]">
-                        <strong className="font-semibold text-[#2B2338]">{mensaje.autor}</strong>
-                        {' · '}
-                        <time dateTime={mensaje.created_at}>{fechaHora(mensaje.created_at)}</time>
-                      </p>
+                      <Avatar mensaje={mensaje} />
                       <div
                         className={cn(
-                          'w-full rounded-[14px] px-3.5 py-3 text-[14px] text-[#2B2338]',
-                          esFamilia ? 'bg-[#F1E4FB]' : 'bg-[#F6F4F9]',
+                          'flex min-w-0 max-w-[85%] flex-col',
+                          esFamilia && 'items-end',
                         )}
                       >
-                        <p className="break-words whitespace-pre-wrap">{mensaje.texto}</p>
-                        <Adjuntos
-                          mensaje={mensaje}
-                          ocupado={ocupado}
-                          onDescargar={(adjunto) =>
-                            void ejecutar(async () =>
-                              descargarAdjunto(hilo.id, mensaje.id, adjunto),
-                            )
-                          }
-                        />
+                        <p className="mb-1 text-[12px] text-[#6B6478]">
+                          <strong className="font-semibold text-[#2B2338]">{mensaje.autor}</strong>
+                          {' · '}
+                          <time dateTime={mensaje.created_at}>{fechaHora(mensaje.created_at)}</time>
+                        </p>
+                        <div
+                          className={cn(
+                            'w-full rounded-[14px] px-3.5 py-3 text-[14px] text-[#2B2338]',
+                            esFamilia ? 'bg-[#F1E4FB]' : 'bg-[#F6F4F9]',
+                          )}
+                        >
+                          <p className="break-words whitespace-pre-wrap">{mensaje.texto}</p>
+                          <Adjuntos
+                            mensaje={mensaje}
+                            ocupado={ocupado}
+                            onDescargar={(adjunto) =>
+                              void ejecutar(async () =>
+                                descargarAdjunto(hilo.id, mensaje.id, adjunto),
+                              )
+                            }
+                          />
+                        </div>
                       </div>
-                    </div>
-                  </li>
-                )
-              })}
-            </ol>
+                    </li>
+                  )
+                })}
+              </ol>
+            </div>
           )}
         </CardContent>
         {puedeEnviar && (
