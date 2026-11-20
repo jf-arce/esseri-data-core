@@ -21,7 +21,7 @@ import {
   PortalFamiliaShell,
 } from '@/components/portal-familia/portal-familia-shell'
 import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
-import { PortalStatTile } from '@/components/portal-familia/portal-familia-ui'
+import { PortalCard, PortalStatTile } from '@/components/portal-familia/portal-familia-ui'
 import { cn } from '@/lib/utils'
 import { normalizarTexto } from '@/lib/texto'
 import { descargarComprobantePagoFamilia } from '@/modules/facturacion/services/descargar-comprobante-pago-familia'
@@ -254,8 +254,8 @@ function FacturaFamiliaCard({
       id={`factura-${factura.id}`}
       aria-current={resaltada ? 'true' : undefined}
       className={cn(
-        'gap-0 rounded-pf-card border bg-superficie py-0 shadow-pf-card',
-        resaltada ? 'border-pf-accent ring-2 ring-pf-accent/35' : 'border-pf-divisor',
+        'gap-0 rounded-pf-card border-0 bg-superficie py-0 shadow-pf-card',
+        resaltada && 'ring-2 ring-pf-accent/35',
       )}
     >
       <details
@@ -629,29 +629,23 @@ export function PortalFamiliaFacturacionPage() {
 
               {(acreditadas > 0 || rechazadas > 0) && (
                 <section aria-labelledby="avisos-debito-heading">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle id="avisos-debito-heading" className="text-base">
-                        Avisos de débitos automáticos
-                      </CardTitle>
-                      <CardDescription>
-                        {acreditadas} acreditados · {rechazadas} rechazados. El detalle está en cada
-                        factura.
-                      </CardDescription>
-                    </CardHeader>
+                  <PortalCard
+                    titulo="Avisos de débitos automáticos"
+                    tituloId="avisos-debito-heading"
+                    descripcion={`${acreditadas} acreditados · ${rechazadas} rechazados. El detalle está en cada factura.`}
+                    nivelEncabezado={2}
+                  >
                     {rechazadas > 0 && (
-                      <CardContent>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="rounded-full"
-                          onClick={() => setFiltro('rechazadas')}
-                        >
-                          Ver facturas con débito rechazado
-                        </Button>
-                      </CardContent>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="rounded-full"
+                        onClick={() => setFiltro('rechazadas')}
+                      >
+                        Ver facturas con débito rechazado
+                      </Button>
                     )}
-                  </Card>
+                  </PortalCard>
                 </section>
               )}
 

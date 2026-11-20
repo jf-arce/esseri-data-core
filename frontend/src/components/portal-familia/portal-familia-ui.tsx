@@ -76,6 +76,7 @@ type PortalCardProps = {
   headerClassName?: string
   contentClassName?: string
   tituloClassName?: string
+  tituloId?: string
   nivelEncabezado?: 2 | 3
 }
 
@@ -91,6 +92,7 @@ export function PortalCard({
   headerClassName,
   contentClassName,
   tituloClassName,
+  tituloId,
   nivelEncabezado = 2,
 }: PortalCardProps) {
   return (
@@ -114,6 +116,7 @@ export function PortalCard({
               <div className="min-w-0">
                 {titulo && (
                   <CardTitle
+                    id={tituloId}
                     role="heading"
                     aria-level={nivelEncabezado}
                     className={cn('text-pf-encabezado font-semibold text-texto', tituloClassName)}
