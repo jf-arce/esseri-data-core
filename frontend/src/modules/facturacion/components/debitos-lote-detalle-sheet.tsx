@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useState } from 'react'
 import { ChevronDownIcon, DownloadIcon } from 'lucide-react'
-import { Link } from 'react-router'
-import { rutaContexto } from '@/modules/comunicaciones/conversaciones'
+import { AccionConversacion } from '@/modules/comunicaciones/components/accion-conversacion'
+import { useConversacionesContexto } from '@/modules/comunicaciones/hooks/use-conversaciones-contexto'
 import { FilterSearch } from '@/components/filter-bar'
 import { PaginadorServidor } from '@/components/paginador-servidor'
 import { Badge } from '@/components/ui/badge'
@@ -57,6 +57,7 @@ export function DebitosLoteDetalleSheet({
   onOpenChange,
   onDescargarSolicitud,
 }: DebitosLoteDetalleSheetProps) {
+  const conversaciones = useConversacionesContexto()
   const [buscar, setBuscar] = useState('')
   const [pagina, setPagina] = useState(1)
   const [filasPorPagina, setFilasPorPagina] = useState(FILAS_INICIALES)
@@ -251,11 +252,13 @@ export function DebitosLoteDetalleSheet({
                               ) : item.resultado === 'RECHAZADO_SIM' ? (
                                 <div className="flex flex-wrap items-center gap-2">
                                   <Badge variant="neutro">Rechazado</Badge>
-                                  <Button variant="ghost" size="sm" asChild>
-                                    <Link to={rutaContexto('debito_cobranza', item.referencia)}>
-                                      Conversación
-                                    </Link>
-                                  </Button>
+                                  <AccionConversacion
+                                    tipo="debito_cobranza"
+                                    id={item.referencia}
+                                    consulta={conversaciones.get(
+                                      `debito_cobranza:${item.referencia}`,
+                                    )}
+                                  />
                                 </div>
                               ) : (
                                 <Badge variant="info">Sin resultado</Badge>

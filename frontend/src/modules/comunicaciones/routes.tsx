@@ -10,7 +10,7 @@ import { MisConsultasPage } from './pages/mis-consultas-page'
 
 export const comunicacionesRoutes: RouteObject[] = [
   { path: 'comunicaciones/conversaciones', element: <ConversacionesPage /> },
-  { path: 'comunicaciones/conversaciones/:id', element: <ConversacionContextualPage /> },
+  { path: 'comunicaciones/conversaciones/:id', element: <ConversacionesPage /> },
   {
     path: 'comunicaciones/conversaciones/contextos/:tipo/:contextoId',
     element: <ConversacionContextualPage />,

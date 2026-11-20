@@ -297,15 +297,36 @@ function Adjuntos({
   )
 }
 
-export function ConversacionContextualPage({ familia = false }: { familia?: boolean }) {
+export function ConversacionContextualPage({
+  familia = false,
+  enPanel = false,
+  onCambio,
+}: {
+  familia?: boolean
+  enPanel?: boolean
+  onCambio?: () => void
+}) {
   const { id, tipo, contextoId } = useParams()
   const identidad = useAuthStore((state) => `${state.usuario?.id}:${state.rolActivo}`)
   return (
-    <Detalle key={`${identidad}:${familia}:${id ?? `${tipo}:${contextoId}`}`} familia={familia} />
+    <Detalle
+      key={`${identidad}:${familia}:${id ?? `${tipo}:${contextoId}`}`}
+      familia={familia}
+      enPanel={enPanel}
+      onCambio={onCambio}
+    />
   )
 }
 
-function Detalle({ familia }: { familia: boolean }) {
+function Detalle({
+  familia,
+  enPanel,
+  onCambio,
+}: {
+  familia: boolean
+  enPanel: boolean
+  onCambio?: () => void
+}) {
   const { id, tipo, contextoId } = useParams()
   const navegar = useNavigate()
   const [contexto, setContexto] = useState<Contexto>()
@@ -451,6 +472,7 @@ function Detalle({ familia }: { familia: boolean }) {
       setArchivos([])
       if (selectorArchivos.current) selectorArchivos.current.value = ''
       setRevision((valor) => valor + 1)
+      onCambio?.()
     })
   }
 
@@ -484,6 +506,7 @@ function Detalle({ familia }: { familia: boolean }) {
           if (!signal.aborted) {
             setHilo(actualizado)
             setRevision((valor) => valor + 1)
+            onCambio?.()
           }
         })
       }
@@ -659,7 +682,7 @@ function Detalle({ familia }: { familia: boolean }) {
                 value={texto}
                 maxLength={5000}
                 disabled={ocupado}
-                placeholder="Escribí tu mensaje..."
+                placeholder={familia ? 'Escribí tu mensaje...' : 'Escribí una respuesta...'}
                 className="min-h-20 rounded-[12px] border-[#E7DDF1] bg-white text-[14px]"
                 onChange={(evento) => {
                   clave.current = null
@@ -737,7 +760,7 @@ function Detalle({ familia }: { familia: boolean }) {
                   disabled={ocupado || !texto.trim()}
                   className={familia ? PORTAL_PRIMARY_BUTTON_CLASS : undefined}
                 >
-                  Enviar mensaje
+                  {familia ? 'Enviar mensaje' : 'Enviar respuesta'}
                 </Button>
               </div>
             </form>
@@ -766,7 +789,15 @@ function Detalle({ familia }: { familia: boolean }) {
       </section>
     )
   return (
-    <section className="mx-auto flex w-full max-w-[1100px] flex-col gap-4">
+    <section className={cn('flex w-full flex-col gap-4', !enPanel && 'mx-auto max-w-[1100px]')}>
+      {enPanel && (
+        <Link
+          to={rutaConversaciones(false)}
+          className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-violeta xl:hidden"
+        >
+          ← Volver a conversaciones
+        </Link>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h1 className="text-2xl font-semibold">{titulo}</h1>
@@ -775,9 +806,11 @@ function Detalle({ familia }: { familia: boolean }) {
         <div className="flex flex-wrap items-center gap-2">
           {estadoHilo}
           {gestion}
-          <Button variant="secondary" asChild>
-            <Link to={destino}>Volver al trámite</Link>
-          </Button>
+          {!enPanel && (
+            <Button variant="secondary" asChild>
+              <Link to={destino}>Volver al trámite</Link>
+            </Button>
+          )}
         </div>
       </div>
       {conversacion}

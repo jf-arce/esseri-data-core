@@ -147,19 +147,20 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Gestión',
     items: [
       {
+        // Bandeja de consultas familiares: módulo propio, separado de las publicaciones.
+        label: 'Conversaciones',
+        href: '/comunicaciones/conversaciones',
+        icon: MessageSquareTextIcon,
+        modulo: 'familias',
+        permiso: PERMISO_COMUNICACIONES_LEER,
+        roles: [ROL_ADMINISTRACION, ROL_ADMINISTRADOR_DEL_SISTEMA],
+      },
+      {
         label: 'Comunicaciones',
         href: '/comunicaciones',
         icon: MailIcon,
         modulo: 'familias',
         permiso: PERMISO_COMUNICACIONES_LEER,
-        children: [
-          {
-            label: 'Conversaciones',
-            href: '/comunicaciones/conversaciones',
-            icon: MessageSquareTextIcon,
-            permiso: PERMISO_COMUNICACIONES_LEER,
-          },
-        ],
       },
       {
         // El label es el link a la landing del módulo (§8 DESIGN.md); el desplegable solo

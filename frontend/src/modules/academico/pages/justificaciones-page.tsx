@@ -81,6 +81,7 @@ function formatearFechaHora(iso: string): string {
 }
 
 export function JustificacionesPage() {
+  const conversaciones = useConversacionesContexto()
   const [filtros, setFiltros] = useState<FiltrosJustificaciones>({
     estado: 'pendiente',
     pagina: 1,
@@ -459,11 +460,11 @@ export function JustificacionesPage() {
                     </Badge>
                   </TableCell>
                   <TableCell data-align="end">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to={rutaContexto('justificacion_inasistencia', item.id)}>
-                        Conversación
-                      </Link>
-                    </Button>
+                    <AccionConversacion
+                      tipo="justificacion_inasistencia"
+                      id={item.id}
+                      consulta={conversaciones.get(`justificacion_inasistencia:${item.id}`)}
+                    />
                     {item.estado === 'pendiente' ? (
                       <div className="flex justify-end gap-2">
                         <Button
@@ -570,4 +571,5 @@ export function JustificacionesPage() {
     </div>
   )
 }
-import { rutaContexto } from '@/modules/comunicaciones/conversaciones'
+import { AccionConversacion } from '@/modules/comunicaciones/components/accion-conversacion'
+import { useConversacionesContexto } from '@/modules/comunicaciones/hooks/use-conversaciones-contexto'

@@ -84,7 +84,7 @@ test('family and Administration discuss a period request without changing the re
     await enlace.click()
     await expect(backoffice.getByText(consulta)).toBeVisible()
     await backoffice.getByRole('textbox', { name: 'Mensaje' }).fill(respuesta)
-    await backoffice.getByRole('button', { name: 'Enviar mensaje' }).click()
+    await backoffice.getByRole('button', { name: /^Enviar (mensaje|respuesta)$/ }).click()
     await expect(backoffice.getByText(respuesta)).toBeVisible()
 
     await portal.reload()
