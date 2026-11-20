@@ -106,6 +106,53 @@
   --color-desactivado: var(--desactivado);
 
   --shadow-card: var(--sombra-card);
+
+  /* Portal Familia (DESIGN.md §8.2): tokens del registro visual propio, definidos en .portal-familia */
+  --color-pf-accent: var(--pf-accent);
+  --color-pf-accent-hover: var(--pf-accent-hover);
+  --color-pf-header: var(--pf-header);
+  --color-pf-borde: var(--pf-borde);
+  --color-pf-divisor: var(--pf-divisor);
+  --color-pf-item: var(--pf-item);
+  --color-pf-item-hover: var(--pf-item-hover);
+  --color-pf-lila: var(--pf-lila);
+  --color-pf-lila-fuerte: var(--pf-lila-fuerte);
+  --color-pf-lavanda-card: var(--pf-tile-lavanda-card);
+  --color-pf-lavanda-bg: var(--pf-tile-lavanda-bg);
+  --color-pf-lavanda-fg: var(--pf-tile-lavanda-fg);
+  --color-pf-ambar-card: var(--pf-tile-ambar-card);
+  --color-pf-ambar-bg: var(--pf-tile-ambar-bg);
+  --color-pf-ambar-fg: var(--pf-tile-ambar-fg);
+  --color-pf-azul-card: var(--pf-tile-azul-card);
+  --color-pf-azul-bg: var(--pf-tile-azul-bg);
+  --color-pf-azul-fg: var(--pf-tile-azul-fg);
+  --color-pf-verde-card: var(--pf-tile-verde-card);
+  --color-pf-verde-bg: var(--pf-tile-verde-bg);
+  --color-pf-verde-fg: var(--pf-tile-verde-fg);
+  --color-pf-rojo-card: var(--pf-tile-rojo-card);
+  --color-pf-rojo-bg: var(--pf-tile-rojo-bg);
+  --color-pf-rojo-fg: var(--pf-tile-rojo-fg);
+  --color-pf-ilus-claro: var(--pf-ilus-claro);
+  --color-pf-ilus-medio: var(--pf-ilus-medio);
+  --color-pf-ilus-oscuro: var(--pf-ilus-oscuro);
+  --shadow-pf-card: var(--sombra-pf-card);
+  --shadow-pf-hover: var(--sombra-pf-hover);
+  --radius-pf-card: 20px;
+  --radius-pf-tile: 16px;
+  --radius-pf-item: 12px;
+  --radius-pf-icono: 14px;
+  --radius-pf-input: 10px;
+  --radius-pf-dialogo: 16px;
+  --text-pf-cuerpo: 15px;
+  --text-pf-cuerpo--line-height: 22px;
+  --text-pf-encabezado: 17px;
+  --text-pf-encabezado--line-height: 24px;
+  --text-pf-cifra: 28px;
+  --text-pf-cifra--line-height: 32px;
+  --text-pf-titulo: 30px;
+  --text-pf-titulo--line-height: 36px;
+  --text-pf-titulo-lg: 36px;
+  --text-pf-titulo-lg--line-height: 42px;
   --shadow-overlay: var(--sombra-overlay);
   --ease-esseri: var(--curva-esseri);
 
@@ -276,12 +323,50 @@
   --card-hover: color-mix(in srgb, black 2.5%, var(--superficie));
 }
 
-/* Portal Familia: mundo visual propio y claro. Fija la paleta clara dentro de su subárbol aunque
-   la aplicación esté en tema oscuro, porque sus tarjetas y héroes usan colores claros fijos. */
+/* Portal Familia: registro visual propio (DESIGN.md §8.2). Define su paleta clara y, en `.dark`,
+   la oscura, siempre a través de tokens `--pf-*`: las páginas no llevan colores fijos. */
 .portal-familia {
   color-scheme: light;
   --pf-canvas: #faf9fc;
   --pf-accent: #7a2fa8;
+  --pf-accent-hover: #6a2494;
+  /* Mezcla 50/50 de --nav-activo y --violeta-esseri del sistema (rampa nav) */
+  --pf-header: #422c5a;
+  --pf-borde: #e4d9f0;
+  --pf-divisor: #f1ebf7;
+  --pf-item: #f9f5fd;
+  --pf-item-hover: #f3ecf9;
+  --pf-lila: #f1e4fb;
+  --pf-lila-fuerte: #e7d4f7;
+
+  /* Tonos de tile: bg/fg derivados de los semánticos y de --sup-*; card es la mezcla suave del bg */
+  --pf-tile-lavanda-bg: #e7d4f7;
+  --pf-tile-lavanda-fg: var(--pf-accent);
+  --pf-tile-ambar-bg: var(--advertencia-suave);
+  --pf-tile-ambar-fg: var(--advertencia);
+  --pf-tile-azul-bg: var(--info-suave);
+  --pf-tile-azul-fg: var(--info);
+  --pf-tile-verde-bg: var(--exito-suave);
+  --pf-tile-verde-fg: var(--exito);
+  --pf-tile-rojo-bg: var(--error-suave);
+  --pf-tile-rojo-fg: var(--error);
+  --pf-tile-lavanda-card: color-mix(in srgb, var(--pf-tile-lavanda-bg) 40%, var(--superficie));
+  --pf-tile-ambar-card: color-mix(in srgb, var(--pf-tile-ambar-bg) 40%, var(--superficie));
+  --pf-tile-azul-card: color-mix(in srgb, var(--pf-tile-azul-bg) 40%, var(--superficie));
+  --pf-tile-verde-card: color-mix(in srgb, var(--pf-tile-verde-bg) 40%, var(--superficie));
+  --pf-tile-rojo-card: color-mix(in srgb, var(--pf-tile-rojo-bg) 40%, var(--superficie));
+
+  /* Ilustración del hero del inicio (excepción documentada en DESIGN.md §8.2) */
+  --pf-ilus-claro: #d6c3e8;
+  --pf-ilus-medio: #9b7bbf;
+  --pf-ilus-oscuro: #5c3f82;
+
+  --sombra-pf-card:
+    0 0 0 1px color-mix(in srgb, var(--borde) 60%, transparent), 0 2px 4px rgba(24, 16, 40, 0.04),
+    0 8px 20px rgba(24, 16, 40, 0.06);
+  --sombra-pf-hover:
+    0 0 0 1px color-mix(in srgb, var(--borde) 80%, transparent), 0 3px 6px rgba(24, 16, 40, 0.06),
+    0 12px 28px rgba(24, 16, 40, 0.1);
 
   --lienzo: #f6f5f8;
   --superficie: #fdfcfe;
@@ -293,8 +378,9 @@
   --texto-3: #6b6577;
   --desactivado: #9a94a6;
 
-  --violeta: #7c24a3;
-  --violeta-esseri: #6e2a8d;
+  /* Un único violeta de acción: el mismo de --pf-accent y su hover */
+  --violeta: #7a2fa8;
+  --violeta-esseri: #6a2494;
   --violeta-pressed: #55206e;
   --violeta-suave: #f6edfb;
   --violeta-borde: #e7cff2;
@@ -335,6 +421,19 @@
   color-scheme: dark;
   --pf-canvas: #171320;
   --pf-accent: #c79be0;
+  --pf-accent-hover: #ddbaf0;
+  --pf-borde: #524663;
+  --pf-divisor: #3a3049;
+  --pf-item: #342a44;
+  --pf-item-hover: #3e3350;
+  --pf-lila: #3d2f50;
+  --pf-lila-fuerte: #4a3862;
+  --pf-tile-lavanda-bg: #4a3862;
+  --pf-ilus-claro: #8a73a3;
+  --pf-ilus-medio: #6c5489;
+  --pf-ilus-oscuro: #3d2d57;
+  --sombra-pf-card: 0 0 0 1px color-mix(in srgb, var(--borde) 60%, transparent);
+  --sombra-pf-hover: 0 0 0 1px var(--borde), 0 8px 20px rgba(0, 0, 0, 0.3);
 
   --lienzo: #171320;
   --superficie: #2b2339;

@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 
 // Family portal colors stay scoped here, without changing the staff theme tokens.
 export const PORTAL_FAMILIA_BACKGROUND = 'var(--pf-canvas)'
-export const PORTAL_FAMILIA_HEADER_BACKGROUND = '#43275C'
+export const PORTAL_FAMILIA_HEADER_BACKGROUND = 'var(--pf-header)'
 
 type PortalFamiliaShellProps = {
   titulo: ReactNode
