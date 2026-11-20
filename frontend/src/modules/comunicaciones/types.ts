@@ -1,3 +1,5 @@
+import type { JSONContent } from '@tiptap/react'
+
 export type Canal = 'portal' | 'email' | 'ambos'
 export type TipoComunicacion = 'institucional' | 'curso' | 'administrativa' | 'otro'
 
@@ -96,6 +98,7 @@ export interface Borrador {
   clave: string
   asunto: string
   cuerpo: string
+  cuerpo_rico?: JSONContent | null
   audiencia: Audiencia
   canal?: Canal
   tipo?: TipoComunicacion
@@ -106,6 +109,7 @@ export interface Comunicacion {
   clave: string | null
   asunto: string
   cuerpo: string
+  cuerpo_rico?: JSONContent | null
   tipo: TipoComunicacion
   emisor: string | null
   estado: 'borrador' | 'publicada'

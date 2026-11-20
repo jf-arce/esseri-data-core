@@ -25,11 +25,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
 import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 import { useAuthStore } from '@/store/auth-store'
 import { AdjuntosBorrador } from '../components/adjuntos-borrador'
+import { EditorMensaje } from '../components/editor-mensaje'
 import { EventoComunicacion } from '../components/evento-comunicacion'
+import { MensajeComunicacion } from '../components/mensaje-comunicacion'
 import { SelectorComunicacion } from '../components/selector-comunicacion'
 import { listarAdjuntos } from '../services/adjuntos'
 import { guardarBorrador } from '../services/guardar-borrador'
@@ -242,6 +243,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
             clave: c.clave,
             asunto: c.asunto,
             cuerpo: c.cuerpo,
+            cuerpo_rico: c.cuerpo_rico ?? undefined,
             audiencia: c.audiencia,
             canal: c.canal ?? 'portal',
             tipo: c.tipo,
@@ -325,6 +327,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
           clave: remoto.clave,
           asunto: remoto.asunto,
           cuerpo: remoto.cuerpo,
+          cuerpo_rico: remoto.cuerpo_rico ?? undefined,
           audiencia: remoto.audiencia,
           canal: remoto.canal ?? 'portal',
           tipo: remoto.tipo,
@@ -611,14 +614,14 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="mensaje">Mensaje</Label>
-              <Textarea
-                id="mensaje"
-                maxLength={20000}
-                className="min-h-48"
-                value={datos.cuerpo}
+              <Label id="mensaje-etiqueta">Mensaje</Label>
+              <EditorMensaje
+                texto={datos.cuerpo}
+                cuerpoRico={datos.cuerpo_rico}
                 disabled={ocupado}
-                onChange={(e) => actualizarDatos({ ...datos, cuerpo: e.target.value })}
+                onChange={(cuerpo, cuerpo_rico) =>
+                  actualizarDatos({ ...datosActuales.current, cuerpo, cuerpo_rico })
+                }
               />
             </div>
             <EventoComunicacion
@@ -791,7 +794,11 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
               {total} responsables · {ETIQUETAS_CANAL[canal]}
             </p>
             <h2 className="text-xl font-semibold break-words">{datos.asunto}</h2>
-            <p className="text-sm whitespace-pre-wrap break-words">{datos.cuerpo}</p>
+            <MensajeComunicacion
+              texto={datos.cuerpo}
+              cuerpoRico={datos.cuerpo_rico}
+              className="text-sm"
+            />
             {adjuntos.length > 0 && (
               <p className="text-sm text-texto-2">
                 {adjuntos.length} archivo{adjuntos.length === 1 ? '' : 's'} adjunto

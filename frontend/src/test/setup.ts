@@ -27,6 +27,13 @@ for (const metodo of ['hasPointerCapture', 'setPointerCapture', 'releasePointerC
   })
 }
 
+// ProseMirror requests layout geometry when updating the selection; JSDOM has no layout engine.
+if (!document.elementFromPoint) document.elementFromPoint = () => document.activeElement
+if (!Range.prototype.getClientRects)
+  Object.defineProperty(Range.prototype, 'getClientRects', { value: () => [] })
+if (!Range.prototype.getBoundingClientRect)
+  Range.prototype.getBoundingClientRect = () => new DOMRect()
+
 // Desde Node 25 el `localStorage` global de Node tapa al de JSDOM y sin `--localstorage-file`
 // queda indefinido. Un almacenamiento en memoria por archivo de test; cada test puede pisarlo.
 function almacenamientoEnMemoria(): Storage {

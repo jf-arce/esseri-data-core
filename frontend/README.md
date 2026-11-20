@@ -87,6 +87,13 @@ Focused component tests:
 npm run test -- src/modules/comunicaciones/pages/__tests__/comunicaciones.test.tsx
 ```
 
+Browser tests for autosave, rich-text paste and responsive selectors use a local mocked
+API and do not require a database:
+
+```bash
+npm run test:e2e -- --config playwright-autosave.config.ts
+```
+
 Real end-to-end test (no frontend responses mocked): start the backend and frontend against an
 isolated migrated PostgreSQL database. Supply an Administration account with the stage-one
 permissions and a Family account linked to an active student with communications enabled.
@@ -114,6 +121,9 @@ explicit opt-in it skips. Do not point it at shared or production environments.
 ```bash
 npm install
 ```
+
+Communications uses TipTap for the message editor. The body still has a plain-text fallback
+for older drafts and clients. The editor requires no additional environment variables.
 
 ## Variables de entorno
 
