@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client'
+import { descargarExport } from '@/lib/descargar-export'
 
 export type TipoContexto =
   'debito_cobranza' | 'justificacion_inasistencia' | 'solicitud_ausencia_periodo'
@@ -18,13 +19,22 @@ export type Conversacion = {
   estado: EstadoConversacion
   puede_responder: boolean
   puede_gestionar: boolean
+  adjuntos_habilitados: boolean
 }
-export type Mensaje = { id: string; autor: string; texto: string; created_at: string }
+type AdjuntoMensaje = { id: string; nombre: string }
+export type Mensaje = {
+  id: string
+  autor: string
+  texto: string
+  created_at: string
+  adjuntos?: AdjuntoMensaje[]
+}
 export type Historial = { items: Mensaje[]; siguiente: string | null }
 type EstadoContexto = {
   contexto: Contexto
   conversacion: Conversacion | null
   puede_iniciar: boolean
+  adjuntos_habilitados: boolean
 }
 type Bandeja = { items: Conversacion[]; siguiente_offset: number | null }
 
@@ -69,7 +79,14 @@ export function listarMensajes(id: string, signal: AbortSignal, antes?: string) 
   })
 }
 
-function envio(texto: string, clave: string, signal: AbortSignal): RequestInit {
+function envio(texto: string, clave: string, signal: AbortSignal, archivos: File[]): RequestInit {
+  if (archivos.length) {
+    const body = new FormData()
+    body.append('texto', texto)
+    body.append('clave', clave)
+    for (const archivo of archivos) body.append('archivos', archivo)
+    return { method: 'POST', body, signal }
+  }
   return {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -84,14 +101,33 @@ export function iniciarHilo(
   texto: string,
   clave: string,
   signal: AbortSignal,
+  archivos: File[],
 ) {
-  return apiClient<Conversacion>(apiContexto(tipo, id), envio(texto, clave, signal))
+  const url = apiContexto(tipo, id)
+  return apiClient<Conversacion>(
+    archivos.length ? `${url}/con-adjuntos` : url,
+    envio(texto, clave, signal, archivos),
+  )
 }
 
-export function enviarMensaje(id: string, texto: string, clave: string, signal: AbortSignal) {
+export function enviarMensaje(
+  id: string,
+  texto: string,
+  clave: string,
+  signal: AbortSignal,
+  archivos: File[],
+) {
+  const url = `${URL_CONVERSACIONES}/${encodeURIComponent(id)}/mensajes`
   return apiClient<Mensaje>(
-    `${URL_CONVERSACIONES}/${encodeURIComponent(id)}/mensajes`,
-    envio(texto, clave, signal),
+    archivos.length ? `${url}/con-adjuntos` : url,
+    envio(texto, clave, signal, archivos),
+  )
+}
+
+export function descargarAdjunto(id: string, mensaje: string, adjunto: AdjuntoMensaje) {
+  return descargarExport(
+    `${URL_CONVERSACIONES}/${encodeURIComponent(id)}/mensajes/${encodeURIComponent(mensaje)}/adjuntos/${encodeURIComponent(adjunto.id)}`,
+    adjunto.nombre,
   )
 }
 

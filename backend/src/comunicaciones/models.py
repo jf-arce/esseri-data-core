@@ -146,3 +146,25 @@ class MensajeConversacion(Base):
     lado: Mapped[str] = mapped_column(sa.String(16))
     texto: Mapped[str] = mapped_column(sa.Text)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
+
+
+class AdjuntoMensajeConversacion(Base):
+    __tablename__ = "adjunto_mensaje_conversacion"
+    __table_args__ = (sa.UniqueConstraint("mensaje_id", "orden", name="uq_adjunto_mensaje_orden"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
+    mensaje_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("mensaje_conversacion.id"))
+    orden: Mapped[int] = mapped_column(sa.Integer)
+    nombre: Mapped[str] = mapped_column(sa.String(255))
+    tipo_contenido: Mapped[str] = mapped_column(sa.String(80))
+    tamanio: Mapped[int] = mapped_column(sa.Integer)
+    checksum: Mapped[str] = mapped_column(sa.String(64))
+
+
+class ContenidoAdjuntoMensaje(Base):
+    __tablename__ = "contenido_adjunto_mensaje"
+
+    adjunto_id: Mapped[uuid.UUID] = mapped_column(
+        sa.ForeignKey("adjunto_mensaje_conversacion.id", ondelete="CASCADE"), primary_key=True
+    )
+    contenido: Mapped[bytes] = mapped_column(sa.LargeBinary)

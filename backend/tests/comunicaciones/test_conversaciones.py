@@ -1,10 +1,12 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from io import BytesIO
 from threading import Barrier
 from uuid import uuid4
 
 import pytest
+from PIL import Image
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -16,6 +18,7 @@ from src.academico.models import (
 )
 from src.auth import config, sesion_service
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
+from src.comunicaciones import adjuntos_escaner, adjuntos_service
 from src.comunicaciones.models import ConversacionContextual, MensajeConversacion
 from src.facturacion.models import DebitoCobranza, Factura, LoteCobranza, ResponsableEconomico
 from src.familias_alumnos.models import Familia, FamiliaAlumno
@@ -284,3 +287,48 @@ def test_permiso_facturacion_no_otorga_acceso_a_justificaciones(client, db_sessi
     autenticar(client, admin, "administracion")
     assert client.get(url).status_code == 404
     assert client.get(BASE).json()["items"] == []
+
+
+def test_adjunto_privado_y_envio_atomico(client, escenario, monkeypatch):
+    solicitud, familiar, admin, ajeno = escenario
+    monkeypatch.setattr(adjuntos_service, "adjuntos_habilitados", lambda: True)
+    monkeypatch.setattr(adjuntos_escaner, "escanear", lambda _: None)
+    autenticar(client, familiar, "familia")
+    contexto = f"{BASE}/contextos/solicitud_ausencia_periodo/{solicitud.id}"
+    url = f"{contexto}/con-adjuntos"
+    datos = {"texto": "Adjunto documentación", "clave": str(uuid4())}
+    incorrecto = client.post(url, data=datos, files={"archivos": ("fake.png", b"no", "image/png")})
+    assert incorrecto.status_code == 422
+    assert client.get(contexto).json()["conversacion"] is None
+    salida = BytesIO()
+    Image.new("RGB", (4, 4)).save(salida, format="PNG")
+    archivo = salida.getvalue()
+    files = {"archivos": ("comprobante.png", archivo, "image/png")}
+    creado = client.post(url, data=datos, files=files)
+    assert creado.status_code == 201, creado.text
+    hilo = creado.json()["id"]
+    assert client.post(url, data=datos, files=files).json()["id"] == hilo
+    historial = client.get(f"{BASE}/{hilo}/mensajes").json()["items"]
+    assert len(historial) == len(historial[0]["adjuntos"]) == 1
+    mensaje = historial[0]
+    descarga = f"{BASE}/{hilo}/mensajes/{mensaje['id']}/adjuntos/{mensaje['adjuntos'][0]['id']}"
+    autenticar(client, ajeno, "familia")
+    assert client.get(descarga).status_code == 404
+    autenticar(client, admin, "administracion")
+    respuesta = client.get(descarga)
+    assert respuesta.content == archivo
+    assert respuesta.headers["cache-control"] == "private, no-store"
+    assert respuesta.headers["x-content-type-options"] == "nosniff"
+    assert client.get(descarga.replace(mensaje["id"], str(uuid4()))).status_code == 404
+
+    def sin_escaner(_):
+        raise adjuntos_escaner.EscanerNoDisponible()
+
+    monkeypatch.setattr(adjuntos_escaner, "escanear", sin_escaner)
+    envio = client.post(
+        f"{BASE}/{hilo}/mensajes/con-adjuntos",
+        data={"texto": "Otra evidencia", "clave": str(uuid4())},
+        files=files,
+    )
+    assert envio.status_code == 503
+    assert client.get(f"{BASE}/{hilo}/mensajes").json()["items"] == historial

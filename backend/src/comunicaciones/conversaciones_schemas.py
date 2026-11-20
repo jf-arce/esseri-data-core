@@ -27,12 +27,14 @@ class ConversacionRead(BaseModel):
     updated_at: datetime
     puede_responder: bool
     puede_gestionar: bool
+    adjuntos_habilitados: bool
 
 
 class EstadoContextoRead(BaseModel):
     contexto: ContextoConversacion
     conversacion: ConversacionRead | None
     puede_iniciar: bool
+    adjuntos_habilitados: bool
 
 
 class MensajeCreate(BaseModel):
@@ -42,12 +44,22 @@ class MensajeCreate(BaseModel):
     clave: UUID
 
 
+class AdjuntoConversacionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    nombre: str
+    tipo_contenido: str
+    tamanio: int
+
+
 class MensajeRead(BaseModel):
     id: UUID
     lado: Literal["familia", "administracion"]
     autor: str
     texto: str
     created_at: datetime
+    adjuntos: list[AdjuntoConversacionRead]
 
 
 class HistorialRead(BaseModel):

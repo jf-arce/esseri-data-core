@@ -5,12 +5,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuthStore } from '@/store/auth-store'
 import {
   consultarContexto,
   consultarHilo,
+  descargarAdjunto,
   enviarMensaje,
   ESTADOS,
   gestionarHilo,
@@ -55,6 +57,9 @@ function Detalle({ familia }: { familia: boolean }) {
   const [hilo, setHilo] = useState<Conversacion>()
   const [historial, setHistorial] = useState<Historial>({ items: [], siguiente: null })
   const [puedeIniciar, setPuedeIniciar] = useState(false)
+  const [permiteAdjuntos, setPermiteAdjuntos] = useState(false)
+  const [archivos, setArchivos] = useState<File[]>([])
+  const selectorArchivos = useRef<HTMLInputElement>(null)
   const [cargando, setCargando] = useState(true)
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState('')
@@ -80,6 +85,7 @@ function Detalle({ familia }: { familia: boolean }) {
           setContexto(recibido.contexto)
           setHilo(recibido.conversacion ?? undefined)
           setPuedeIniciar(recibido.puede_iniciar)
+          setPermiteAdjuntos(recibido.adjuntos_habilitados)
         }
       } catch {
         if (!signal.aborted) {
@@ -166,15 +172,17 @@ function Detalle({ familia }: { familia: boolean }) {
     void ejecutar(async (signal) => {
       clave.current ??= crypto.randomUUID()
       if (idHilo) {
-        await enviarMensaje(idHilo, texto, clave.current, signal)
+        await enviarMensaje(idHilo, texto, clave.current, signal, archivos)
       } else if (tipo && contextoId && puedeIniciar) {
-        const creado = await iniciarHilo(tipo, contextoId, texto, clave.current, signal)
+        const creado = await iniciarHilo(tipo, contextoId, texto, clave.current, signal, archivos)
         if (signal.aborted) return
         navegar(`${rutaConversaciones(familia)}/${creado.id}`, { replace: true })
       }
       if (signal.aborted) return
       clave.current = null
       setTexto('')
+      setArchivos([])
+      if (selectorArchivos.current) selectorArchivos.current.value = ''
       setRevision((valor) => valor + 1)
     })
   }
@@ -259,6 +267,19 @@ function Detalle({ familia }: { familia: boolean }) {
                   </time>
                 </div>
                 <p className="mt-1 break-words whitespace-pre-wrap">{mensaje.texto}</p>
+                {mensaje.adjuntos?.map((adjunto) => (
+                  <Button
+                    key={adjunto.id}
+                    variant="ghost"
+                    className="max-w-full truncate"
+                    onClick={() =>
+                      void ejecutar(async () => descargarAdjunto(hilo.id, mensaje.id, adjunto))
+                    }
+                    disabled={ocupado}
+                  >
+                    Descargar {adjunto.nombre}
+                  </Button>
+                ))}
               </li>
             ))}
           </ol>
@@ -278,6 +299,47 @@ function Detalle({ familia }: { familia: boolean }) {
                 setTexto(evento.target.value)
               }}
             />
+            {(hilo ? hilo.adjuntos_habilitados : permiteAdjuntos) && (
+              <>
+                <label htmlFor="archivos-contextuales" className="text-sm font-medium">
+                  Adjuntos
+                </label>
+                <Input
+                  ref={selectorArchivos}
+                  id="archivos-contextuales"
+                  type="file"
+                  accept="application/pdf,image/png,image/jpeg"
+                  multiple
+                  disabled={ocupado}
+                  onChange={(evento) => {
+                    clave.current = null
+                    const seleccion = Array.from(evento.target.files ?? [])
+                    if (seleccion.length > 5 || seleccion.some((a) => a.size > 5 * 1024 * 1024)) {
+                      setError('Podés adjuntar hasta 5 archivos de hasta 5 MiB cada uno.')
+                      evento.target.value = ''
+                      setArchivos([])
+                      return
+                    }
+                    setError('')
+                    setArchivos(seleccion)
+                  }}
+                />
+                {archivos.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={ocupado}
+                    onClick={() => {
+                      if (selectorArchivos.current) selectorArchivos.current.value = ''
+                      clave.current = null
+                      setArchivos([])
+                    }}
+                  >
+                    Quitar adjuntos
+                  </Button>
+                )}
+              </>
+            )}
             <Button type="submit" disabled={ocupado || !texto.trim()}>
               Enviar mensaje
             </Button>

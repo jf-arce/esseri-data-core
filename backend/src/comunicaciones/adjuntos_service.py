@@ -259,6 +259,17 @@ def _veredicto(contenido: bytes) -> tuple[str, str | None]:
     return ESTADO_LIMPIO, None
 
 
+def preparar_adjunto_privado(archivo: UploadFile) -> tuple[str, str, bytes]:
+    """Inspect a file for immediate use; an immutable message cannot quarantine it."""
+    _exigir_habilitados()
+    contenido = _leer_acotado(archivo)
+    tipo = inspeccionar(contenido)
+    estado, _ = _veredicto(contenido)
+    if estado != ESTADO_LIMPIO:
+        raise HTTPException(503, "No se pudo verificar el adjunto. Volvé a intentar.")
+    return nombre_seguro(archivo.filename), tipo, contenido
+
+
 def metadata(adjunto: ComunicacionAdjunto) -> dict:
     """Safe, blob-free projection shared by every response and by the parent module."""
     return {

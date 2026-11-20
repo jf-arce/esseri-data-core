@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 from src.auditoria.service import log_audit
 from src.auth.models import Usuario
+from src.comunicaciones import adjuntos_conversacion
+from src.comunicaciones.adjuntos_service import adjuntos_habilitados
 from src.comunicaciones.contextos_conversacion import (
     CONTEXTO_FK,
     contexto_de_hilo,
@@ -15,6 +17,7 @@ from src.comunicaciones.contextos_conversacion import (
     tipos_administrativos,
 )
 from src.comunicaciones.conversaciones_schemas import (
+    AdjuntoConversacionRead,
     BandejaRead,
     ContextoConversacion,
     ConversacionRead,
@@ -36,6 +39,7 @@ def _hilo_read(hilo, contexto, rol) -> ConversacionRead:
         updated_at=hilo.updated_at,
         puede_responder=hilo.estado != "resuelta",
         puede_gestionar=rol != "familia",
+        adjuntos_habilitados=adjuntos_habilitados(),
     )
 
 
@@ -72,6 +76,7 @@ def estado_contexto(db, usuario, rol, tipo, id_contexto) -> EstadoContextoRead:
         contexto=contexto,
         conversacion=_hilo_read(hilo, contexto, rol) if hilo else None,
         puede_iniciar=hilo is None,
+        adjuntos_habilitados=adjuntos_habilitados(),
     )
 
 
@@ -83,7 +88,7 @@ def _lado(rol):
     return "familia" if rol == "familia" else "administracion"
 
 
-def _reintento(db, hilo, usuario, rol, datos):
+def _reintento(db, hilo, usuario, rol, datos, archivos):
     mensaje = db.scalar(
         select(MensajeConversacion).where(
             MensajeConversacion.conversacion_id == hilo.id,
@@ -91,12 +96,16 @@ def _reintento(db, hilo, usuario, rol, datos):
             MensajeConversacion.clave == datos.clave,
         )
     )
-    if mensaje is not None and (mensaje.texto != datos.texto or mensaje.lado != _lado(rol)):
+    if mensaje is not None and (
+        mensaje.texto != datos.texto
+        or mensaje.lado != _lado(rol)
+        or not adjuntos_conversacion.coincide(db, mensaje.id, archivos)
+    ):
         raise HTTPException(409, "La clave ya corresponde a otro mensaje.")
     return mensaje
 
 
-def _insertar_mensaje(db, hilo, usuario, rol, datos):
+def _insertar_mensaje(db, hilo, usuario, rol, datos, archivos):
     lado = _lado(rol)
     ahora = datetime.now(UTC)
     hilo.estado = _turno(lado)
@@ -111,6 +120,7 @@ def _insertar_mensaje(db, hilo, usuario, rol, datos):
     )
     db.add(mensaje)
     db.flush()
+    adjuntos_conversacion.registrar(db, mensaje.id, archivos)
     return mensaje
 
 
@@ -129,13 +139,15 @@ def _auditar(db, hilo, usuario, campo, anterior, nuevo):
     )
 
 
-def abrir(db, usuario, rol, tipo, id_contexto, datos: MensajeCreate) -> ConversacionRead:
+def abrir(
+    db, usuario, rol, tipo, id_contexto, datos: MensajeCreate, archivos=()
+) -> ConversacionRead:
     contexto, familia_id = resolver_contexto(db, usuario, rol, tipo, id_contexto, bloquear=True)
     hilo = _hilo_de_contexto(db, tipo, id_contexto)
     if hilo is not None:
         if hilo.familia_id != familia_id:
             raise no_encontrado()
-        if _reintento(db, hilo, usuario, rol, datos) is not None:
+        if _reintento(db, hilo, usuario, rol, datos, archivos) is not None:
             return _hilo_read(hilo, contexto, rol)
         raise HTTPException(409, "Ya existe una conversación para este trámite.")
     hilo = ConversacionContextual(
@@ -147,33 +159,35 @@ def abrir(db, usuario, rol, tipo, id_contexto, datos: MensajeCreate) -> Conversa
     )
     db.add(hilo)
     db.flush()
-    _insertar_mensaje(db, hilo, usuario, rol, datos)
+    _insertar_mensaje(db, hilo, usuario, rol, datos, archivos)
     _auditar(db, hilo, usuario, "__alta__", None, hilo.estado)
     salida = _hilo_read(hilo, contexto, rol)
     db.commit()
     return salida
 
 
-def _mensaje_read(mensaje, nombre: str | None) -> MensajeRead:
+def _mensaje_read(mensaje, nombre: str | None, adjuntos) -> MensajeRead:
     return MensajeRead(
         id=mensaje.id,
         lado=mensaje.lado,
         autor=nombre or ("Familia" if mensaje.lado == "familia" else "Administración"),
         texto=mensaje.texto,
         created_at=mensaje.created_at,
+        adjuntos=[AdjuntoConversacionRead.model_validate(a) for a in adjuntos],
     )
 
 
-def responder(db, usuario, rol, id_hilo, datos: MensajeCreate) -> MensajeRead:
+def responder(db, usuario, rol, id_hilo, datos: MensajeCreate, archivos=()) -> MensajeRead:
     hilo, _ = buscar_hilo(db, usuario, rol, id_hilo, bloquear=True)
-    mensaje = _reintento(db, hilo, usuario, rol, datos)
+    mensaje = _reintento(db, hilo, usuario, rol, datos, archivos)
     if mensaje is None:
         if hilo.estado == "resuelta":
             raise HTTPException(409, "La conversación está resuelta.")
-        mensaje = _insertar_mensaje(db, hilo, usuario, rol, datos)
+        mensaje = _insertar_mensaje(db, hilo, usuario, rol, datos, archivos)
         _auditar(db, hilo, usuario, "mensaje", None, str(mensaje.id))
     nombre = db.scalar(select(Persona.nombre).where(Persona.id == usuario.persona_id))
-    salida = _mensaje_read(mensaje, nombre)
+    adjuntos = adjuntos_conversacion.listar(db, [mensaje.id])
+    salida = _mensaje_read(mensaje, nombre, adjuntos.get(mensaje.id, []))
     db.commit()
     return salida
 
@@ -218,8 +232,12 @@ def historial(db, usuario, rol, id_hilo, limite, antes) -> HistorialRead:
             raise no_encontrado()
         stmt = stmt.where(tuple_(modelo.created_at, modelo.id) < (cursor.created_at, cursor.id))
     filas = db.execute(stmt).all()
+    adjuntos = adjuntos_conversacion.listar(db, [m.id for m, _ in filas[:limite]])
     return HistorialRead(
-        items=[_mensaje_read(mensaje, nombre) for mensaje, nombre in reversed(filas[:limite])],
+        items=[
+            _mensaje_read(mensaje, nombre, adjuntos.get(mensaje.id, []))
+            for mensaje, nombre in reversed(filas[:limite])
+        ],
         siguiente=filas[limite - 1][0].id if len(filas) > limite else None,
     )
 
