@@ -87,11 +87,12 @@ function renderizar(actividades: Actividad[], rango = { inicio: 480, fin: 600 })
   )
 }
 
+/** Posición porcentual sin el inset de 4 px con el que la tarjeta se separa del borde. */
 const posicion = (elemento: HTMLElement) => ({
-  top: elemento.style.top,
-  height: elemento.style.height,
-  left: elemento.style.left,
-  width: elemento.style.width,
+  top: elemento.style.top.replace(/^calc\(| \+ 4px\)$/g, ''),
+  height: elemento.style.height.replace(/^calc\(| - 8px\)$/g, ''),
+  left: elemento.style.left.replace(/^calc\(| \+ 4px\)$/g, ''),
+  width: elemento.style.width.replace(/^calc\(| - 8px\)$/g, ''),
 })
 
 it('renders an event without overlap at full width next to the class', () => {
@@ -109,15 +110,15 @@ it('splits a partial overlap into two columns and keeps both durations', () => {
   const botones = screen.getAllByRole('button')
   const claseBoton = botones.find((boton) => boton.textContent?.includes('Matemática'))!
   const eventoBoton = botones.find((boton) => boton.textContent?.includes('Reunión de padres'))!
-  expect(posicion(claseBoton)).toEqual({
-    top: '0%',
-    height: '66.66666666666666%',
-    left: '0%',
-    width: '50%',
-  })
-  expect(posicion(eventoBoton).left).toBe('50%')
-  expect(posicion(eventoBoton).width).toBe('50%')
-  expect(posicion(eventoBoton).top).toBe('33.33333333333333%')
+  const cajaClase = posicion(claseBoton)
+  expect(cajaClase.top).toBe('0%')
+  expect(Number.parseFloat(cajaClase.height)).toBeCloseTo(66.667, 2)
+  expect(cajaClase.left).toBe('0%')
+  expect(cajaClase.width).toBe('50%')
+  const cajaEvento = posicion(eventoBoton)
+  expect(cajaEvento.left).toBe('50%')
+  expect(cajaEvento.width).toBe('50%')
+  expect(Number.parseFloat(cajaEvento.top)).toBeCloseTo(33.333, 2)
 })
 
 it('shows a total overlap side by side at half width each', () => {
@@ -167,18 +168,18 @@ it('positions an evening event outside the school day using the expanded range',
   expect(Number.parseFloat(height)).toBeCloseTo(9.0278, 3)
   expect(left).toBe('0%')
   expect(width).toBe('100%')
+  expect(boton.style.height).toMatch(/^calc\(.* - 8px\)$/)
 })
 
 it('keeps an event that spans several half-hour slots at its real duration', () => {
   renderizar([evento('e1', 1, 495, 615)], { inicio: 450, fin: 630 })
 
   const boton = screen.getByRole('button', { name: /Reunión de padres/ })
-  expect(posicion(boton)).toEqual({
-    top: '25%',
-    height: '66.66666666666666%',
-    left: '0%',
-    width: '100%',
-  })
+  const caja = posicion(boton)
+  expect(caja.top).toBe('25%')
+  expect(Number.parseFloat(caja.height)).toBeCloseTo(66.667, 2)
+  expect(caja.left).toBe('0%')
+  expect(caja.width).toBe('100%')
 })
 
 it('keeps the class detail selectable while an event overlaps', async () => {

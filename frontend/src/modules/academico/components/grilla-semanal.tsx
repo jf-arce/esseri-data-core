@@ -36,10 +36,10 @@ function posicion(actividad: ConCarril<Actividad>, rango: { inicio: number; fin:
   const fin = Math.min(actividad.fin, rango.fin)
   const columnas = columnasVisibles(actividad.carriles)
   return {
-    top: porcentaje(inicio - rango.inicio, total),
-    height: porcentaje(Math.max(1, fin - inicio), total),
-    left: porcentaje(Math.min(actividad.carril, columnas - 1), columnas),
-    width: porcentaje(1, columnas),
+    top: `calc(${porcentaje(inicio - rango.inicio, total)} + 4px)`,
+    height: `calc(${porcentaje(Math.max(1, fin - inicio), total)} - 8px)`,
+    left: `calc(${porcentaje(Math.min(actividad.carril, columnas - 1), columnas)} + 4px)`,
+    width: `calc(${porcentaje(1, columnas)} - 8px)`,
   } satisfies CSSProperties
 }
 
@@ -73,7 +73,7 @@ function BloqueClase({
             border: `1px solid color-mix(in srgb, ${color} 45%, var(--borde))`,
             boxShadow: abierta ? `0 0 0 2px ${color}` : undefined,
           }}
-          className="pointer-events-auto absolute z-10 m-1 flex min-w-0 flex-col justify-center gap-0.5 overflow-hidden rounded-[10px] px-2.5 py-1.5 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
+          className="pointer-events-auto absolute z-10 flex min-w-0 flex-col justify-center gap-0.5 overflow-hidden rounded-[10px] px-2.5 py-1.5 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
         >
           <span className="flex min-w-0 items-center gap-1.5">
             <Icono aria-hidden="true" className="size-4 shrink-0" style={{ color }} />
@@ -131,7 +131,7 @@ function BloqueEvento({
         border: '2px solid #7A2FA8',
         boxShadow: activo ? '0 0 0 2px #7A2FA8' : undefined,
       }}
-      className="pointer-events-auto absolute z-10 m-1 flex min-w-0 flex-col justify-center gap-0.5 overflow-hidden rounded-[10px] px-2.5 py-1.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
+      className="pointer-events-auto absolute z-10 flex min-w-0 flex-col justify-center gap-0.5 overflow-hidden rounded-[10px] px-2.5 py-1.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
     >
       <span className="flex min-w-0 items-center gap-1.5">
         <CalendarDaysIcon aria-hidden="true" className="size-4 shrink-0 text-[#7A2FA8]" />
@@ -292,7 +292,7 @@ export function GrillaSemanal({
                           left: porcentaje(2, 3),
                           width: porcentaje(1, 3),
                         }}
-                        className="pointer-events-auto absolute z-10 m-0.5 flex items-center justify-center overflow-hidden rounded-[10px] border border-dashed border-[#7A2FA8] bg-[#F3E8FB] px-1 text-[11px] font-bold text-[#5B3A7E] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
+                        className="pointer-events-auto absolute z-10 flex items-center justify-center overflow-hidden rounded-[10px] border border-dashed border-[#7A2FA8] bg-[#F3E8FB] px-1 text-[11px] font-bold text-[#5B3A7E] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
                       >
                         +{ocultas.length} más
                       </button>
