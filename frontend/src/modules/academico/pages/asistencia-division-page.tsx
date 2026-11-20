@@ -340,13 +340,7 @@ export function AsistenciaDivisionPage({
         <>
           {/* Stats */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatTile
-              variant="dark"
-              compact
-              label="Presentes"
-              value={stats.presentes}
-              icon={CheckIcon}
-            />
+            <StatTile compact label="Presentes" value={stats.presentes} icon={CheckIcon} />
             <StatTile
               compact
               label="Tardanzas"

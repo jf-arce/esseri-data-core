@@ -248,7 +248,6 @@ export function JustificacionesPage() {
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatTile
-          variant="dark"
           label="Pendientes"
           value={resumen?.pendientes ?? 0}
           icon={ClockIcon}

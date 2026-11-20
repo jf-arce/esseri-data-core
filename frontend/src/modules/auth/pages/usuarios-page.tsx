@@ -98,7 +98,6 @@ export function UsuariosPage() {
           label="Usuarios activos"
           value={kpis.activos}
           icon={UserCheckIcon}
-          variant="dark"
           cargando={cargando}
         />
         <StatTile
