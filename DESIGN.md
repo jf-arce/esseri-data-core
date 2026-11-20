@@ -12,7 +12,7 @@ Es una superficie de **producto**, no de marketing: una herramienta de uso inter
 
 ## 2. Color
 
-El sistema ofrece tema claro y oscuro. Oscuro es el valor predeterminado y la elección se conserva por navegador; el tema guardado se aplica antes del primer render para evitar un destello de color incorrecto. Nunca `#000000` ni `#FFFFFF` puros: todo neutro de este sistema lleva un tinte violáceo (hue ≈300 en OKLCH), para que la interfaz se lea como una sola familia y no como grises de sistema operativo.
+El sistema ofrece tema claro y oscuro. Claro es el valor predeterminado y la elección se conserva por navegador; el tema guardado se aplica antes del primer render para evitar un destello de color incorrecto. Nunca `#000000` ni `#FFFFFF` puros: todo neutro de este sistema lleva un tinte violáceo (hue ≈300 en OKLCH), para que la interfaz se lea como una sola familia y no como grises de sistema operativo.
 
 Los tokens semánticos se redefinen en `.dark` dentro de `frontend/src/index.css`; las pantallas y componentes usan exclusivamente esos tokens, sin variantes `dark:` ni colores fijos. El selector de tema vive en el menú de cuenta y ofrece "Claro" y "Oscuro" como opciones de radio accesibles.
 
@@ -51,9 +51,9 @@ Los tokens semánticos se redefinen en `.dark` dentro de `frontend/src/index.css
 
 | Token            | Valor     | Rol                                                                                                         |
 | ---------------- | --------- | ----------------------------------------------------------------------------------------------------------- |
-| violeta-vibrante | `#7C24A3` | **primario de interacción**: botones, links activos, ítem activo de navegación, foco, iconografía de acento |
-| violeta-esseri   | `#6E2A8D` | **marca en reposo**: wordmark/logo, y estado _hover_ de violeta-vibrante. No es un color de acción          |
-| violeta-pressed  | `#55206E` | estado _pressed_ del primario                                                                               |
+| violeta-vibrante | `#54327A` | **primario de interacción**: botones, links activos, ítem activo de navegación, foco, iconografía de acento |
+| violeta-esseri   | `#472A66` | **marca en reposo**: wordmark/logo, y estado _hover_ de violeta-vibrante. No es un color de acción          |
+| violeta-pressed  | `#3B2256` | estado _pressed_ del primario                                                                               |
 | violeta-suave    | `#F6EDFB` | fondo tenue (chips, superficies seleccionadas)                                                              |
 | violeta-borde    | `#E7CFF2` | borde tenue a juego con violeta-suave                                                                       |
 
@@ -110,23 +110,23 @@ Violeta, petróleo, ámbar, ciruela clara, pizarra. Sin degradés. **Nunca pie/d
 
 Una sola familia tipográfica: **Geist** (variable, pesos 100–900, roman + italic). Prohibidas Inter, Arial, system-ui, mono y Roboto como fuente de marca.
 
-- **Etiquetas de sección**: Geist peso 700, versalitas (uppercase), tracking ~0.06em, tamaño 13px (`text-xs`). Es el único lugar donde va texto tracked en mayúsculas; nunca en frases largas.
-- **UI y cuerpo**: Geist 400/500/600, base 13–15px. Título de página 24px/600, encabezado de sección 17px/600, cuerpo 15px/400.
+- **Etiquetas de sección**: Geist peso 700, versalitas (uppercase), tracking ~0.06em, tamaño 12px (`text-xs`). Es el único lugar donde va texto tracked en mayúsculas; nunca en frases largas.
+- **UI y cuerpo**: Geist 400/500/600, base 12–14px. Título de página 24px/600, encabezado de sección 16px/600, cuerpo 14px/400.
 
-### 3.1 Escala (revisado: cuatro pasos sobre la escala nativa de Tailwind, apenas arriba del default)
+### 3.1 Escala (revisado: cuatro pasos sobre la escala nativa de Tailwind)
 
 La escala vive directamente en la escala de tamaños de Tailwind — **nunca** como un valor `text-[Npx]` a mano. Esto no es solo prolijidad: los componentes de shadcn/ui que ya usamos (y cualquiera que se instale a futuro con `npx shadcn add ...`) vienen escritos contra `text-xs`/`text-sm`/`text-base`, así que alinear la escala del proyecto a esos mismos pasos evita que cada componente nuevo necesite retocarse a mano.
 
-`text-xs`/`text-sm`/`text-base` están redefinidos en `frontend/src/index.css` (`@theme inline`) apenas por encima del valor nativo de Tailwind — el sistema lo usa personal y familias de un colegio, no solo un equipo técnico, así que el piso de legibilidad sube de 12px a 13px, sin llegar a un salto completo de escalón. `text-2xl` (rol título) queda en su valor nativo, 24px.
+`text-xs`/`text-sm`/`text-base` están fijados en `frontend/src/index.css` (`@theme inline`) en los valores nativos de Tailwind (12, 14 y 16px). Antes estaban 1px por encima (13, 15 y 17px) para subir el piso de legibilidad; se volvió a la escala nativa por considerarse demasiado grande. `text-2xl` (rol título) queda en su valor nativo, 24px.
 
 | Rol        | Utilidad Tailwind | Tamaño | Uso                                                                                                                                                                                                                                                           |
 | ---------- | ----------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| micro      | `text-xs`         | 13px   | Etiqueta de sección (versalitas), encabezado de columna de tabla densa, badge, chip, texto auxiliar mínimo (helper, error inline)                                                                                                                             |
-| cuerpo     | `text-sm`         | 15px   | Cuerpo de UI por defecto: botón, input, select, texto de fila de tabla, label de campo, breadcrumb, texto de tabs. También cubre lo que antes era "texto secundario/metadata" — se diferencia por color (`texto-2`/`texto-3`) y peso, no por un tamaño propio |
-| encabezado | `text-base`       | 17px   | Encabezado de sección                                                                                                                                                                                                                                         |
+| micro      | `text-xs`         | 12px   | Etiqueta de sección (versalitas), encabezado de columna de tabla densa, badge, chip, texto auxiliar mínimo (helper, error inline)                                                                                                                             |
+| cuerpo     | `text-sm`         | 14px   | Cuerpo de UI por defecto: botón, input, select, texto de fila de tabla, label de campo, breadcrumb, texto de tabs. También cubre lo que antes era "texto secundario/metadata" — se diferencia por color (`texto-2`/`texto-3`) y peso, no por un tamaño propio |
+| encabezado | `text-base`       | 16px   | Encabezado de sección                                                                                                                                                                                                                                         |
 | título     | `text-2xl`        | 24px   | Título de página                                                                                                                                                                                                                                              |
 
-Nunca un valor suelto entre estos pasos (nada de 12.5px, 13.5px, 14.5px, 16px, ni un `text-[Npx]` que solo reescribe a mano un valor que la escala de Tailwind ya cubre): si un texto no encaja claramente en un rol, es señal de que le falta jerarquía real (peso, color, spacing), no que necesite un tamaño intermedio. La densidad de este sistema (§1) ya justifica un piso de 13-15px para texto de UI corriente, por debajo del piso de 15-17px que aplicaría a una superficie de lectura o de marketing (el hero de marketing del login es la única excepción documentada, con un tamaño propio de 40px fuera de esta escala).
+Nunca un valor suelto entre estos pasos (nada de 12.5px, 13.5px, 14.5px, 15px, ni un `text-[Npx]` que solo reescribe a mano un valor que la escala de Tailwind ya cubre): si un texto no encaja claramente en un rol, es señal de que le falta jerarquía real (peso, color, spacing), no que necesite un tamaño intermedio. La densidad de este sistema (§1) ya justifica un piso de 12-14px para texto de UI corriente, por debajo del piso de 15-17px que aplicaría a una superficie de lectura o de marketing (el hero de marketing del login es la única excepción documentada, con un tamaño propio de 40px fuera de esta escala).
 
 - **Datos**: Geist con numerales tabulares (`font-variant-numeric: tabular-nums`) para todo dato: montos, legajos, DNI, fechas, IDs, logs. No hay una fuente monoespaciada separada; la alineación tabular se logra con la feature OpenType, no con otra tipografía.
 - Longitud de línea de texto corrido: 65–75ch máximo.
@@ -152,15 +152,15 @@ Grilla de 8px, submúltiplos de 4: **8 / 16 / 24 / 32 / 48**. Padding interno m�
 | Modal/diálogo                                                    | 12px                                                     |
 | Grilla de datos densa (fila de tabla, línea de tiempo)           | 8px                                                      |
 
-### 5.2 Elevación de card: superficie + sombra baja, sin borde
+### 5.2 Elevación de card: superficie + borde sutil + sombra baja
 
-La Card (ver 9) no usa el hairline de 1px como recurso de separación — el hairline queda para inputs, divisores y filas de tabla. Una card se separa del lienzo por su `superficie` lisa (ver 2.1) más una sombra baja y muy sutil en reposo: `0 1px 2px rgba(20,17,26,.03), 0 4px 12px rgba(20,17,26,.025)` (dos capas, contacto + difusión). Revisado varias veces: el valor original (`0 6px 20px rgba(20,17,26,.06)`) leía más pesado de lo que corresponde a una herramienta interna densa; se probó incluso sacarla del todo (solo el contraste `superficie`/`lienzo`), pero se decidió mantenerla, apenas por debajo de la intensidad anterior — sin sacar la sombra del todo, para mantener la separación de card del §5.2 sin que compita con el dato. Sigue prohibida una sombra dura, de radio grande, o cualquier sombra decorativa fuera de ese valor — la sombra existe para separar la card del fondo, no para simular profundidad.
+La Card (ver 9) y la tabla llevan un hairline de 1px muy tenue (`borde` al 60%) además de la sombra, dibujado como anillo `0 0 0 1px` dentro de `--sombra-card` (no como `border`, así no suma tamaño al layout): sin él, el contraste `superficie`/`lienzo` y una sombra tan baja dejaban la card poco definida, sobre todo en tema claro. Se separa del lienzo por su `superficie` lisa (ver 2.1), ese borde sutil y una sombra baja y muy sutil en reposo: `0 1px 2px rgba(20,17,26,.03), 0 4px 12px rgba(20,17,26,.025)` (dos capas, contacto + difusión). Revisado varias veces: el valor original (`0 6px 20px rgba(20,17,26,.06)`) leía más pesado de lo que corresponde a una herramienta interna densa; se probó incluso sacarla del todo (solo el contraste `superficie`/`lienzo`), pero se decidió mantenerla, apenas por debajo de la intensidad anterior — sin sacar la sombra del todo, para mantener la separación de card del §5.2 sin que compita con el dato. Sigue prohibida una sombra dura, de radio grande, o cualquier sombra decorativa fuera de ese valor — la sombra existe para separar la card del fondo, no para simular profundidad.
 
 Los demás overlays (dropdowns, modales, toasts, popovers) mantienen su propia sombra de overlay, más marcada que la de una card en reposo. Un ítem en estado de arrastre activo puede llevar una sombra sutil como feedback transitorio.
 
 Prohibido anidar cards dentro de cards: para agrupar contenido dentro de una card se usan divisores (`border-top`) y encabezados de sección internos, nunca otra card.
 
-Densidad empresarial en tablas: una sola densidad, fila de 40px, con `text-sm` (15px) en la celda y padding lateral de 16px. Revisado: hubo dos modos (cómoda 44px/15px y compacta 36px/13px, alternables con un switch); en el uso real el switch no aportaba una decisión real —"cómoda" no se sentía más cómoda, solo más vacía— y la compacta bajaba el texto por debajo de lo legible. Se unificó en un solo valor, el punto medio de aire horizontal de la compacta con la tipografía de cuerpo del sistema.
+Densidad empresarial en tablas: una sola densidad, fila de 40px, con `text-sm` (14px) en la celda y padding lateral de 16px. Revisado: hubo dos modos (cómoda 44px/15px y compacta 36px/13px, alternables con un switch); en el uso real el switch no aportaba una decisión real —"cómoda" no se sentía más cómoda, solo más vacía— y la compacta bajaba el texto por debajo de lo legible. Se unificó en un solo valor, el punto medio de aire horizontal de la compacta con la tipografía de cuerpo del sistema.
 
 ## 6. Movimiento
 
@@ -207,7 +207,7 @@ Vocabulario mínimo de componentes que cualquier implementación de este sistema
 
 Los 7 estados que todo control interactivo (Button, Input, ítem de nav, chip) contempla: reposo, hover, foco, pressed/activo, deshabilitado, cargando (solo Button), error (solo campos).
 
-**Card**: siempre sobre `superficie` lisa, sin borde, radio según 5.1, sombra baja en reposo según 5.2. El título va en `texto`, nunca en el color de un módulo — el color queda reservado a íconos, badges y a los nodos del canvas de workflows, no a la superficie ni al texto de una card genérica. Una tabla dentro de una card se mantiene sobre `superficie` neutra (mismo tono, sin distinción visual adicional).
+**Card**: siempre sobre `superficie` lisa, con borde sutil (`borde` al 60%), radio según 5.1, sombra baja en reposo según 5.2. El título va en `texto`, nunca en el color de un módulo — el color queda reservado a íconos, badges y a los nodos del canvas de workflows, no a la superficie ni al texto de una card genérica. Una tabla dentro de una card se mantiene sobre `superficie` neutra (mismo tono, sin distinción visual adicional).
 
 **Card de indicador (KPI)**: variante chica de Card (radio 12px según 5.1) con una anatomía fija — encabezado con la etiqueta a la izquierda y el ícono de color a la derecha (fondo `-suave` del semántico o módulo que corresponda + ícono saturado, 30px, radio 9px), debajo el valor en grande (`26px`, tabular-nums) y, solo cuando hay un dato real que lo justifique, una nota chica en `texto-3` (variación respecto al período anterior, cantidad que vence pronto, etc.) — nunca una nota de relleno. La primera card de una grilla de indicadores puede ir en `tinta` como ancla visual de la métrica principal; en ese caso lleva una ilustración de línea sutil (un motivo geométrico en blanco al 8–10% de opacidad, recortado por el radio de la card) para que no quede vacía, y mantiene la misma anatomía que las demás.
 
