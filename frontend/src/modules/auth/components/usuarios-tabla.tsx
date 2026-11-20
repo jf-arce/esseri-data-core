@@ -129,7 +129,9 @@ function UsuariosTabla({
                         {inicialesVisiblesDeUsuario(usuario)}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="font-medium">{nombreVisibleDeUsuario(usuario)}</span>
+                    <span className="max-w-[16rem] min-w-0 truncate font-medium">
+                      {nombreVisibleDeUsuario(usuario)}
+                    </span>
                   </div>
                 </TableCell>
                 <TableCell>

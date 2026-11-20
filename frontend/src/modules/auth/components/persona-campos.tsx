@@ -26,7 +26,7 @@ export function PersonaCampos({
   errors,
 }: PersonaCamposProps) {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2">
       <Field>
         <FieldLabel htmlFor="nombre">Nombre</FieldLabel>
         <Input id="nombre" value={nombre} onChange={(e) => onNombreChange(e.target.value)} />
