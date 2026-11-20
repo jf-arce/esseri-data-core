@@ -731,9 +731,8 @@ def alumnos_a_cargo_de_persona(
     no depende de `familias_alumnos.leer`). Mismo join Inscripcion→Division→Anio que ya usa
     `listar_alumnos` para filtrar por nivel educativo.
 
-    `Division.nombre` ya es la etiqueta completa ("1°A", "3°C" — ver `nivel-seccion.tsx` y
-    `divisiones_de_persona` en `academico/service.py`), no un sufijo suelto: anteponerle
-    `Anio.numero` duplicaba el año ("1°3°C · Primario").
+    `Division.nombre` puede venir completo ("1°A") o como sufijo suelto ("A"): el año
+    (`Anio.numero`) solo se antepone si falta (sin "°"), para no duplicarlo ("1°3°C").
     """
     familia = db.query(Familia).join(Persona).filter(Persona.id == persona_id).first()
     if familia is None:
@@ -749,7 +748,7 @@ def alumnos_a_cargo_de_persona(
     resultado = []
     for alumno in alumnos:
         fila = (
-            db.query(Division.nombre, NivelEducativo.nombre)
+            db.query(Division.nombre, NivelEducativo.nombre, Anio.numero)
             .select_from(Inscripcion)
             .join(Division, Inscripcion.division_id == Division.id)
             .join(Anio, Division.anio_id == Anio.id)
@@ -757,7 +756,12 @@ def alumnos_a_cargo_de_persona(
             .filter(Inscripcion.alumno_id == alumno.id, Inscripcion.estado == "activa")
             .first()
         )
-        etiqueta = f"{fila[0]} · {fila[1]}" if fila else None
+        etiqueta = None
+        if fila:
+            nombre, nivel, numero = fila
+            prefijo = f"{numero}°"
+            division = nombre if "°" in nombre else f"{prefijo}{nombre}"
+            etiqueta = f"{division} · {nivel}"
         resultado.append((alumno, etiqueta))
     return resultado
 
