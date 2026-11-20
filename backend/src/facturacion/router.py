@@ -314,6 +314,7 @@ def listar_deuda_por_familia(
     estado: EstadoDeudaFamilia | None = None,
     buscar: Annotated[str | None, Query(max_length=100)] = None,
     fecha_referencia: date | None = None,
+    ciclo_lectivo: Annotated[str | None, Query(min_length=4, max_length=4)] = None,
 ) -> DeudaFamiliaListadoRead:
     items, total = cuenta_corriente_service.listar_deuda_por_familia(
         db,
@@ -323,6 +324,7 @@ def listar_deuda_por_familia(
         estado=estado,
         buscar=buscar,
         familia_id=familia_activa.id if familia_activa is not None else None,
+        ciclo_lectivo=ciclo_lectivo,
     )
     return DeudaFamiliaListadoRead(
         items=[DeudaFamiliaRead.model_validate(item) for item in items],

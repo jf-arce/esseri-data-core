@@ -18,6 +18,16 @@ class IndicadoresDireccionRead(BaseModel):
     bajas_mes: int
     asistencias_registradas_hoy: int
     solicitud_pendiente_mas_antigua: date | None
+    tareas_pendientes: int
+    tareas_escaladas: int
+
+
+class IndicadoresAdministracionRead(BaseModel):
+    """Tres contadores operativos; `None` cuando el rol no puede ver ese módulo."""
+
+    facturas_vencidas: int | None
+    cobrado_mes: Decimal | None
+    solicitudes_compra_pendientes: int | None
 
 
 class EvolucionFinancieraRead(BaseModel):

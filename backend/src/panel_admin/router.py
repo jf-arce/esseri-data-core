@@ -16,11 +16,13 @@ from src.database import get_db
 from src.panel_admin.schemas import (
     ActividadRecienteRead,
     EvolucionFinancieraRead,
+    IndicadoresAdministracionRead,
     IndicadoresDireccionRead,
 )
 from src.panel_admin.service import (
     obtener_actividad_reciente,
     obtener_evolucion_financiera,
+    obtener_indicadores_administracion,
     obtener_indicadores_direccion,
 )
 
@@ -30,6 +32,9 @@ DbSession = Annotated[Session, Depends(get_db)]
 PuedeLeer = Annotated[Usuario, Depends(requiere_permiso(PERMISO_PANEL_ADMIN_LEER))]
 # Los dos paneles comparten `panel_administrativo.leer`: el rol activo separa la audiencia.
 RolDireccion = Annotated[Usuario, Depends(requiere_rol("direccion", "administrador_del_sistema"))]
+RolAdministracion = Annotated[
+    Usuario, Depends(requiere_rol("administracion", "administrador_del_sistema"))
+]
 
 # Cada categoría del feed se habilita con el permiso del módulo dueño de esos hechos, no con
 # `panel_administrativo.leer`: Dirección ve el panel, pero un rol sin facturación no debe ver
@@ -42,8 +47,15 @@ PERMISO_POR_CATEGORIA = {
 
 
 @router.get("/indicadores-direccion")
-def obtener_indicadores(db: DbSession, _: PuedeLeer, __: RolDireccion) -> IndicadoresDireccionRead:
-    return IndicadoresDireccionRead.model_validate(obtener_indicadores_direccion(db))
+def obtener_indicadores(
+    db: DbSession,
+    _: PuedeLeer,
+    __: RolDireccion,
+    ciclo_lectivo: Annotated[str | None, Query(min_length=4, max_length=4)] = None,
+) -> IndicadoresDireccionRead:
+    return IndicadoresDireccionRead.model_validate(
+        obtener_indicadores_direccion(db, ciclo_lectivo=ciclo_lectivo)
+    )
 
 
 @router.get(
@@ -52,6 +64,29 @@ def obtener_indicadores(db: DbSession, _: PuedeLeer, __: RolDireccion) -> Indica
 )
 def obtener_evolucion(db: DbSession, _: PuedeLeer) -> list[EvolucionFinancieraRead]:
     return [EvolucionFinancieraRead.model_validate(mes) for mes in obtener_evolucion_financiera(db)]
+
+
+@router.get("/indicadores-administracion", response_model=IndicadoresAdministracionRead)
+def obtener_indicadores_admin(
+    db: DbSession,
+    usuario: PuedeLeer,
+    rol_activo: RolActivo,
+    _: RolAdministracion,
+) -> IndicadoresAdministracionRead:
+    """Tres contadores operativos, habilitados con el permiso de cada módulo dueño."""
+    incluir_facturacion = autorizacion_service.tiene_permiso_en_rol(
+        db, usuario.id, rol_activo, PERMISO_FACTURACION_LEER
+    )
+    incluir_compras = autorizacion_service.tiene_permiso_en_rol(
+        db, usuario.id, rol_activo, PERMISO_PROVEEDORES_COMPRAS_LEER
+    )
+    return IndicadoresAdministracionRead.model_validate(
+        obtener_indicadores_administracion(
+            db,
+            incluir_facturacion=incluir_facturacion,
+            incluir_compras=incluir_compras,
+        )
+    )
 
 
 @router.get("/actividad-reciente", response_model=list[ActividadRecienteRead])
