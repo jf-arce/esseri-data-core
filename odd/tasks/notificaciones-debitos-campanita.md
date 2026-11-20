@@ -57,4 +57,9 @@ Runners: backend `venv/bin/pytest`; frontend `npm run test`, `npm run lint`, `np
   my first three commits inherited its `832ece6`. The other session's HEAD was restored, its
   uncommitted files were preserved, and this branch was recreated in
   `../esseri-data-core-worktrees/notif-debitos-campanita` on `97bc833` with only the three
-  delivery commits. Full backend suite and PR remain pending.
+  delivery commits.
+- L7 — Full backend suite in this worktree: 2120 passed, 11 skipped, 7 failed. The seven failures
+  are all in `tests/academico/test_solicitud_periodo_concurrencia_postgres.py` and reproduce
+  identically on base `97bc833` ("La ausencia debe pertenecer al ciclo lectivo actual"), so they
+  are pre-existing and unrelated to this delivery. Manual browser checks: successful and rejected
+  notices, exact invoice opening, technical code absent, unread counter.
