@@ -11,6 +11,7 @@ export const TIPOS_NOTIFICACION = [
   'facturacion.proximo_vencimiento',
   'facturacion.debito_exitoso',
   'facturacion.debito_rechazado',
+  'administracion.justificacion_pendiente',
 ] as const
 
 export type TipoNotificacion = (typeof TIPOS_NOTIFICACION)[number]
@@ -22,6 +23,7 @@ export const TIPOS_RECURSO_NOTIFICACION = [
   'comunicacion',
   'factura',
   'pago',
+  'justificacion',
 ] as const
 
 export type TipoRecursoNotificacion = (typeof TIPOS_RECURSO_NOTIFICACION)[number]
@@ -38,6 +40,13 @@ export type DestinoNotificacion = {
   tipo: TipoRecursoNotificacion
   id: string
   alumno_id: string | null
+}
+
+/** Roles administrativos con bandeja propia en el panel. */
+export const ROLES_ADMINISTRATIVOS = ['administracion', 'administrador_del_sistema'] as const
+
+export function esRolAdministrativo(rol: string | null): boolean {
+  return rol !== null && (ROLES_ADMINISTRATIVOS as readonly string[]).includes(rol)
 }
 
 export type NotificacionInterna = {

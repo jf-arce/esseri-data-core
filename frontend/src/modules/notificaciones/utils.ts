@@ -5,6 +5,7 @@ import {
   CircleCheckIcon,
   CircleDollarSignIcon,
   CircleXIcon,
+  ClipboardCheckIcon,
   MegaphoneIcon,
   ReceiptTextIcon,
   type LucideIcon,
@@ -82,6 +83,10 @@ const ESTILOS_POR_TIPO: Record<TipoNotificacion, { icon: LucideIcon; tileClassNa
     icon: CircleXIcon,
     tileClassName: 'bg-error-suave text-error',
   },
+  'administracion.justificacion_pendiente': {
+    icon: ClipboardCheckIcon,
+    tileClassName: 'bg-advertencia-suave text-advertencia',
+  },
 }
 
 const ESTILO_GENERICO = {
@@ -132,6 +137,9 @@ export function rutaDesdeDestino(destino: DestinoNotificacion | null | undefined
   }
   if (destino.tipo === 'factura' || destino.tipo === 'pago') {
     return `/familia/facturacion?${destino.tipo}=${encodeURIComponent(destino.id)}`
+  }
+  if (destino.tipo === 'justificacion') {
+    return `/academico/justificaciones?justificacion=${encodeURIComponent(destino.id)}`
   }
   if (!esTipoRecursoAcademico(destino.tipo)) return null
   if (!destino.alumno_id?.trim()) return null

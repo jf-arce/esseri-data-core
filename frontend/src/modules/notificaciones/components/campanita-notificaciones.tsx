@@ -9,12 +9,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { useNotificaciones } from '../hooks/use-notificaciones'
-import type { FiltroNotificaciones, NotificacionInterna } from '../types'
+import { esRolAdministrativo, type FiltroNotificaciones, type NotificacionInterna } from '../types'
 import { estiloNotificacion, etiquetaTiempoNotificacion, rutaDesdeDestino } from '../utils'
 
 type CampanitaNotificacionesProps = {
   usuarioId: string
   rolActivo: string
+  /** El Portal Familia usa encabezado oscuro; el panel administrativo, claro. */
+  tono?: 'oscuro' | 'claro'
 }
 
 function etiquetaContador(total: number | null, resumenFallido: boolean): string {
@@ -145,8 +147,13 @@ function EstadoVacio({ filtro }: { filtro: FiltroNotificaciones }) {
   )
 }
 
-/** Campanita del Portal Familia: contador, panel paginado y lectura individual o masiva. */
-export function CampanitaNotificaciones({ usuarioId, rolActivo }: CampanitaNotificacionesProps) {
+/** Campanita de la bandeja interna: contador, panel paginado y lectura individual o masiva. */
+export function CampanitaNotificaciones({
+  usuarioId,
+  rolActivo,
+  tono = 'oscuro',
+}: CampanitaNotificacionesProps) {
+  const habilitado = rolActivo === 'familia' || esRolAdministrativo(rolActivo)
   const {
     abierto,
     setAbierto,
@@ -164,7 +171,7 @@ export function CampanitaNotificaciones({ usuarioId, rolActivo }: CampanitaNotif
     marcarLeida,
     marcarTodas,
     reintentarLista,
-  } = useNotificaciones({ habilitado: rolActivo === 'familia', usuarioId, rolActivo })
+  } = useNotificaciones({ habilitado, usuarioId, rolActivo })
 
   const botonRef = useRef<HTMLButtonElement>(null)
   const etiqueta = etiquetaContador(totalNoLeidas, resumenFallido)
@@ -177,7 +184,12 @@ export function CampanitaNotificaciones({ usuarioId, rolActivo }: CampanitaNotif
           ref={botonRef}
           type="button"
           aria-label={etiqueta}
-          className="relative flex size-9 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          className={cn(
+            'relative flex size-9 items-center justify-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2',
+            tono === 'oscuro'
+              ? 'text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-white'
+              : 'text-texto-2 hover:bg-fila-hover hover:text-texto focus-visible:outline-violeta',
+          )}
         >
           <BellIcon aria-hidden="true" className="size-4" />
           {sinLeer && (
