@@ -37,38 +37,38 @@ export function DetalleMateria({
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
         <span
-          className={`flex shrink-0 items-center justify-center rounded-[12px] bg-white/70 ${variante === 'hoja' ? 'size-14' : 'size-11'}`}
-          style={{ color: franja.materia.materia_color || '#7A2FA8' }}
+          className={`flex shrink-0 items-center justify-center rounded-pf-item bg-superficie/70 ${variante === 'hoja' ? 'size-14' : 'size-11'}`}
+          style={{ color: franja.materia.materia_color || 'var(--pf-accent)' }}
         >
           <Icono aria-hidden="true" className={variante === 'hoja' ? 'size-7' : 'size-5'} />
         </span>
         <p
-          className={`font-heading leading-tight font-bold text-[#241A33] ${variante === 'hoja' ? 'text-[24px]' : 'text-[20px]'}`}
+          className={`font-heading leading-tight font-bold text-texto ${variante === 'hoja' ? 'text-pf-cifra' : 'text-pf-encabezado'}`}
         >
           {franja.materia.materia_nombre}
         </p>
       </div>
 
-      <dl className="flex flex-col gap-3 border-t border-[#F1EBF7] pt-3">
+      <dl className="flex flex-col gap-3 border-t border-pf-divisor pt-3">
         <div className="flex items-start gap-3">
-          <UserRoundIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-[#6B6478]" />
+          <UserRoundIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-texto-2" />
           <div>
-            <dt className="text-[13px] text-[#6B6478]">Docente</dt>
-            <dd className="text-[15px] font-semibold text-[#2B2338]">{docente}</dd>
+            <dt className="text-sm text-texto-2">Docente</dt>
+            <dd className="text-pf-cuerpo font-semibold text-texto">{docente}</dd>
           </div>
         </div>
         <div className="flex items-start gap-3">
-          <CalendarDaysIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-[#6B6478]" />
+          <CalendarDaysIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-texto-2" />
           <div>
-            <dt className="text-[13px] text-[#6B6478]">Día</dt>
-            <dd className="text-[15px] font-semibold text-[#2B2338]">{dia ?? '—'}</dd>
+            <dt className="text-sm text-texto-2">Día</dt>
+            <dd className="text-pf-cuerpo font-semibold text-texto">{dia ?? '—'}</dd>
           </div>
         </div>
         <div className="flex items-start gap-3">
-          <ClockIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-[#6B6478]" />
+          <ClockIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-texto-2" />
           <div>
-            <dt className="text-[13px] text-[#6B6478]">Horario</dt>
-            <dd className="text-[15px] font-semibold text-[#2B2338] tabular-nums">
+            <dt className="text-sm text-texto-2">Horario</dt>
+            <dd className="text-pf-cuerpo font-semibold text-texto tabular-nums">
               {franja.hora_inicio.slice(0, 5)} – {franja.hora_fin.slice(0, 5)}
             </dd>
           </div>

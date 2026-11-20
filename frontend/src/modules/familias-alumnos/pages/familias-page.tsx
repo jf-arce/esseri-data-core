@@ -94,7 +94,7 @@ export function FamiliasPage() {
         }
       />
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
         <StatTile
           label="Familias registradas"
           value={stats.total}
@@ -127,7 +127,7 @@ export function FamiliasPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar las familias</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargar}>
               Reintentar

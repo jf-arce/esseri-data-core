@@ -78,6 +78,19 @@ describe('PortalFamiliaTramitePage', () => {
     })
   })
 
+  it('muestra el estado de carga y no el empty mientras se cargan los alumnos', () => {
+    mockedUseMisAlumnos.mockReturnValue({ alumnos: [], cargando: true })
+
+    render(
+      <MemoryRouter>
+        <PortalFamiliaTramitePage titulo="Asistencias" descripcion="Consultá las asistencias." />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('status', { name: 'Cargando asistencias' })).toBeInTheDocument()
+    expect(screen.queryByText('Este trámite estará disponible pronto')).not.toBeInTheDocument()
+  })
+
   it('muestra una ausencia ya presentada como en revisión y no permite justificarla de nuevo', async () => {
     mockedListarAsistenciasFamilia.mockResolvedValue([
       {
@@ -910,7 +923,9 @@ describe('PortalFamiliaTramitePage', () => {
         </MemoryRouter>,
       )
 
-      expect(await screen.findByRole('heading', { name: 'Justificaciones' })).toBeInTheDocument()
+      expect(
+        await screen.findByRole('heading', { name: 'Justificaciones', hidden: true }),
+      ).toBeInTheDocument()
       expect(screen.getByRole('tab', { name: 'Justificaciones', hidden: true })).toHaveAttribute(
         'aria-selected',
         'true',

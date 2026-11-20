@@ -189,7 +189,7 @@ export function OrdenesPage() {
       <PageHeader
         titulo="Órdenes de compra"
         accion={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="secondary" onClick={handleExportar}>
               <DownloadIcon />
               Exportar CSV
@@ -205,7 +205,7 @@ export function OrdenesPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar las órdenes</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargar}>
               Reintentar
@@ -256,8 +256,8 @@ export function OrdenesPage() {
           />
         </FilterBar>
 
-        <div className="flex flex-wrap items-end gap-3">
-          <Field className="w-44">
+        <div className="grid grid-cols-2 items-end gap-3 @3xl/main:flex @3xl/main:flex-wrap">
+          <Field className="w-full @3xl/main:w-44">
             <FieldLabel htmlFor="ordenes-desde">Fecha desde</FieldLabel>
             <DatePicker
               id="ordenes-desde"
@@ -266,7 +266,7 @@ export function OrdenesPage() {
               placeholder="dd/mm/aaaa"
             />
           </Field>
-          <Field className="w-44">
+          <Field className="w-full @3xl/main:w-44">
             <FieldLabel htmlFor="ordenes-hasta">Fecha hasta</FieldLabel>
             <DatePicker
               id="ordenes-hasta"
@@ -275,7 +275,7 @@ export function OrdenesPage() {
               placeholder="dd/mm/aaaa"
             />
           </Field>
-          <Field className="w-32">
+          <Field className="w-full @3xl/main:w-32">
             <FieldLabel htmlFor="ordenes-items-min">Ítems mín.</FieldLabel>
             <Input
               id="ordenes-items-min"
@@ -288,7 +288,7 @@ export function OrdenesPage() {
               placeholder="0"
             />
           </Field>
-          <Field className="w-32">
+          <Field className="w-full @3xl/main:w-32">
             <FieldLabel htmlFor="ordenes-items-max">Ítems máx.</FieldLabel>
             <Input
               id="ordenes-items-max"

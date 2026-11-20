@@ -43,7 +43,7 @@ export function UsuarioAltaPage() {
   // Familia tiene su propio formulario (además vincula alumnos): acá solo se deriva.
   if (tipo === 'familia') {
     return (
-      <div className="flex flex-col gap-5">
+      <div className="flex max-w-3xl flex-col gap-5">
         <BackLink to="/usuarios-roles/usuarios" label="Volver a Usuarios" />
         <PageHeader titulo="Nuevo usuario" />
         <Card className="flex flex-col gap-4 p-6">
@@ -129,7 +129,7 @@ export function UsuarioAltaPage() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} className="flex max-w-3xl flex-col gap-5">
       <BackLink to="/usuarios-roles/usuarios" label="Volver a Usuarios" />
       <PageHeader titulo="Nuevo usuario" />
 

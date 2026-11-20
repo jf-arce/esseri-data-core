@@ -197,9 +197,10 @@ export function AdjuntosBorrador({
                 variant="ghost"
                 size="sm"
                 disabled={deshabilitado}
+                aria-label={`Eliminar ${adjunto.nombre}`}
                 onClick={() => void quitar(adjunto)}
               >
-                Quitar {adjunto.nombre}
+                Eliminar
               </Button>
             </li>
           ))}

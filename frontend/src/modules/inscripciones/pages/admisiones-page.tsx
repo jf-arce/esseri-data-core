@@ -101,7 +101,7 @@ export function AdmisionesPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar las solicitudes</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargar}>
               Reintentar
@@ -110,7 +110,7 @@ export function AdmisionesPage() {
         </Alert>
       )}
 
-      <div className="flex flex-col gap-3 rounded-card-sm bg-superficie p-3 shadow-card sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 rounded-card-sm bg-superficie p-3 shadow-card @3xl/main:flex-row @3xl/main:items-center">
         <div className="relative min-w-0 flex-1">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-texto-3" />
           <Input
@@ -124,7 +124,7 @@ export function AdmisionesPage() {
           />
         </div>
         <Select value={estado} onValueChange={cambiarEstado}>
-          <SelectTrigger className="w-full sm:w-44">
+          <SelectTrigger className="w-full @3xl/main:w-44">
             <SelectValue placeholder="Estado" />
           </SelectTrigger>
           <SelectContent>
@@ -135,7 +135,7 @@ export function AdmisionesPage() {
           </SelectContent>
         </Select>
         <Select value={etapa} onValueChange={cambiarEtapa}>
-          <SelectTrigger className="w-full sm:w-56">
+          <SelectTrigger className="w-full @3xl/main:w-56">
             <SelectValue placeholder="Etapa" />
           </SelectTrigger>
           <SelectContent>

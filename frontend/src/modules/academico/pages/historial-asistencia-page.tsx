@@ -287,7 +287,7 @@ export function HistorialAsistenciaPage() {
         aria-label="Filtros de asistencia"
         className="space-y-4 rounded-panel bg-superficie p-4 shadow-card"
       >
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
           <Selector
             id="historial-ciclo"
             titulo="Ciclo lectivo"
@@ -445,7 +445,7 @@ export function HistorialAsistenciaPage() {
       </section>
       <section
         aria-label="Indicadores de asistencia"
-        className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5"
+        className="flex flex-wrap gap-3 *:min-w-44 *:flex-1"
       >
         {(
           [

@@ -163,7 +163,7 @@ export function FamiliaForm({
 
       {/* Form Card */}
       <Card className="card p-7">
-        <div className="form-grid">
+        <div className="grid grid-cols-1 gap-[18px] @xl/main:grid-cols-2">
           <div>
             <Label className="field-label" htmlFor="nombre">
               Nombre
@@ -396,7 +396,7 @@ export function FamiliaForm({
                     Alumno
                   </Label>
                   <Select value={alumnoSeleccionado} onValueChange={setAlumnoSeleccionado}>
-                    <SelectTrigger id="alumno-select" className="w-[280px]">
+                    <SelectTrigger id="alumno-select" className="w-full @xl/main:w-[280px]">
                       <SelectValue placeholder="Seleccionar alumno" />
                     </SelectTrigger>
                     <SelectContent>
@@ -420,7 +420,7 @@ export function FamiliaForm({
                     value={parentesco}
                     onChange={(e) => setParentesco(e.target.value)}
                     placeholder="Madre, padre, tutor..."
-                    className="w-[200px]"
+                    className="w-full @xl/main:w-[200px]"
                   />
                 </div>
                 <Button

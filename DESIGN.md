@@ -172,7 +172,7 @@ Densidad empresarial en tablas: una sola densidad, fila de 40px, con `text-sm` (
 
 ## 7. Iconografía
 
-Lucide, trazo 1.5px, `stroke-linecap` y `stroke-linejoin` en `round` (un ícono con puntas en ángulo recto se lee genérico, no del sistema). Tamaño único de 16px en controles de UI, 20px en navegación (sidebar, topbar). Sin emoji, sin unicode como ícono, sin ilustraciones figurativas ni personajes. La capa de IA se marca con color (petróleo) + texto explícito ("Sugerencia de IA"), nunca con un ícono de sparkles o cualquier imaginería "mágica": la IA tiene que verse auditable, no mágica.
+Lucide, trazo 1.5px, `stroke-linecap` y `stroke-linejoin` en `round` (un ícono con puntas en ángulo recto se lee genérico, no del sistema). Tamaño único de 16px en controles de UI, 20px en navegación (sidebar, topbar). Sin emoji, sin unicode como ícono, sin ilustraciones figurativas ni personajes (única excepción: el emoji del saludo del Portal Familia, ver §8.2). La capa de IA se marca con color (petróleo) + texto explícito ("Sugerencia de IA"), nunca con un ícono de sparkles o cualquier imaginería "mágica": la IA tiene que verse auditable, no mágica.
 
 Donde una vista necesita más peso visual que un ícono suelto (un nivel académico, una tarjeta de rol, una celda de bento), el ícono va dentro de un **tile**: 36-44px, radio 10-12px, fondo en el tono `-suave` del color de módulo correspondiente e ícono en el tono saturado. No se siembran íconos sueltos como decoración: dentro de una celda de tabla el estado ya lo comunica el badge (punto + texto), y un ícono ahí suma ruido en vez de jerarquía. Ver §13 para el set de ilustraciones geométricas, que es un lenguaje aparte del ícono funcional.
 
@@ -186,6 +186,78 @@ Dos shells, no uno solo — elegir según cuántos destinos tiene el rol, no por
 - **Nunca ancho fijo ni alto fijo en el shell**: `width:100%;min-height:100vh` (o `min-height:100%` dentro de un contenedor con altura), nunca `width:1440px;min-height:900px`. El frame del artboard/viewport define el tamaño real; el CSS no debe imponer uno propio, o queda banda vacía abajo cuando el contenido es más corto que ese número fijo.
 - Todo elemento de grid (`.two-col`, `.two`) que puede contener una tabla ancha necesita `min-width:0` en sus hijos directos, y la tabla va envuelta en un contenedor con `overflow-x:auto` — si no, la tabla fuerza su `min-width` y desborda la columna (y a veces la página entera) en vez de scrollear contenida.
 - **Encabezado de página**: etiqueta de sección (estilo versalitas), breadcrumb que nombre la vista de origen (toda vista de detalle lo lleva), título, acciones primarias a la derecha, tabs debajo si corresponde.
+
+### 8.2 Portal Familia: registro visual
+
+Mismo ADN, otro registro. El portal **hereda** la marca, Geist, el isotipo, los tokens semánticos (`exito`, `advertencia`, `error`, `info`), los badges de estado y las reglas de accesibilidad (§12). **Cambia** la escala, la densidad y el tono, para sentirse más cálido y menos "consola". Todo lo que difiere del sistema vive como token `--pf-*` dentro de `.portal-familia` (y su variante `.dark`) en `frontend/src/index.css`; las páginas del portal nunca llevan hex, `text-[Npx]`, `rounded-[N]` ni `shadow-[...]` sueltos.
+
+**Ancho y alineación:** un único contenedor de 1152px (`max-w-pf`, `--container-pf`) con `px-4 sm:px-6`, compartido por el header, el `<main>` del layout y todas las vistas. Ninguna página define su propio ancho ni padding lateral, así título, buscador y cards comparten borde. El detalle de una comunicación se acota a 896px (`max-w-4xl`) para mantener una línea de lectura corta.
+
+**Tipografía** (misma escala que el sistema, con nombres propios):
+
+| Rol | Utilidad | Tamaño |
+| --- | --- | --- |
+| detalle, metadata | `text-sm` | 14px |
+| cuerpo | `text-pf-cuerpo` | 14px |
+| encabezado de card | `text-pf-encabezado` | 16px |
+| cifra de indicador | `text-pf-cifra` | 24px, tabular, 700 |
+| título de página | `text-pf-titulo` | 24px (28px desde `sm`) |
+
+Íconos de 16px en controles y 20px dentro de tiles; tiles de ícono de 40px. Sin tiles de 48px o más.
+
+**Forma:**
+
+| Elemento | Radio (igual que el sistema) |
+| --- | --- |
+| Card | `rounded-pf-card` 16px, `bg-superficie`, hairline |
+| Tile de indicador, banner de alerta | `rounded-pf-tile` 12px |
+| Ítem de lista dentro de card | `rounded-pf-item` 8px |
+| Tile de ícono | `rounded-pf-icono` 12px |
+| Botón primario y secundario, ítem de navegación, badge, avatar, punto | píldora |
+| Chips, tabs, controles de ícono | 8px (`rounded-lg`) |
+| Input, select | `rounded-pf-input` 8px |
+| Diálogo, sheet | `rounded-pf-dialogo` 12px |
+
+Los radios del portal coinciden con los de Administración (§5.1); los tokens `--radius-pf-*` se mantienen para poder ajustarlos en un solo lugar.
+
+**Elevación y bordes:** el portal usa exactamente los mismos que Administración (§5.2): `shadow-pf-card` es `--sombra-card` (anillo hairline de `borde` al 60% más sombra baja) y `shadow-pf-hover` es `--sombra-card-hover`. `border-pf-borde` es `--borde` (inputs, controles) y `border-pf-divisor` es `--borde` al 60% (separadores y contornos internos). No hay bordes ni sombras propios del portal. Las secciones que contienen cards no llevan `overflow-hidden`, porque recortaría el anillo de la sombra en los costados. `border-dashed` solo para estados vacíos y dropzone.
+
+**Color:** un único violeta de acción (`text-pf-accent`, `bg-pf-accent`), un header derivado de la rampa `nav` (`--pf-header`) y tonos de tile (`lavanda`, `ambar`, `azul`, `verde`, `rojo`) como pares `--pf-tile-<tono>-bg/fg` con contraste de al menos 3:1 en el ícono (WCAG 1.4.11). Tienen valores propios en `.dark .portal-familia`, así que ningún componente necesita reglas por clase para el tema oscuro.
+
+**Navegación activa:** el ítem activo del header usa `--pf-nav-activo` (blanco al 18% sobre `--pf-header`) con texto blanco. Se distingue del header (más de 1.3:1) y el texto llega a 4.5:1.
+
+**Contraste verificado** (WCAG, calculado para ambos temas): texto 4.5:1 o más sobre `superficie`, `pf-item`, `pf-lila` y sobre cada fondo de tile; íconos 3:1 o más sobre su tile. En claro, `--pf-tile-ambar-fg` es `#9a4507` (no `--advertencia`) porque `#b45309` daba 3.85:1 sobre el tile. Al cambiar un token `--pf-*`, recalcular estos pares.
+
+**Estados de carga:** cada pantalla muestra un skeleton con la silueta real del contenido (mismas cards, radios, alturas y grillas), nunca un rectángulo genérico ni un texto "Cargando…", para evitar saltos de layout. El skeleton va dentro de `PortalSkeletonRegion` (`role="status"`, `aria-busy`, `aria-label`), que deja el contenido visual en `aria-hidden`. Los helpers (`PortalSkeletonRegion`, `PortalCardSkeleton`, `SkeletonFila`, `SkeletonTile`) viven en `components/portal-familia/portal-familia-ui.tsx`. Se usa el shimmer por defecto, salvo sobre fondos pastel.
+
+**Tono de copy:** cercano y en voseo ("Hola, Laura", "Podés justificarla"), sin exclamaciones de entusiasmo.
+
+**Excepción explícita del hero del inicio:** el saludo lleva un emoji que cambia según la hora de Argentina (`Buen día ☀️`, `Buenas tardes 👋`, `Buenas noches 🌙`) y la descripción resume lo pendiente con datos reales ("Tenés 1 ausencia pendiente y 2 comunicaciones sin leer."). El emoji es una decisión consciente del portal, no se extiende a otra pantalla, y por eso §7 y §11 no aplican a ese hero. La portada usa el isotipo de ESSERI (`/esseri-icon.png`) a la altura de la cabecera, sin ilustración propia: respeta §13.
+
+### 8.0 Responsive del contenido (container queries)
+
+En la Consola, el contenido de las páginas comparte el ancho con el sidebar (16rem, o 4rem en modo ícono) y con el asistente acoplado (340 a 640px). Un breakpoint de viewport (`sm:`, `lg:`, `xl:`) no sabe nada de eso: con ambos paneles abiertos en 1440px, `xl:` sigue activo y al contenido le quedan unos 780px.
+
+**Regla**: dentro de las páginas, el responsive se hace con container queries contra `main` (`@xl/main:`, `@5xl/main:`...), no con breakpoints de viewport. Los tres layouts (`app-layout.tsx`, `portal-layout.tsx`, `portal-docente-layout.tsx`) declaran `@container/main` en su contenedor de contenido, así que las páginas compartidas entre portales funcionan igual en los tres.
+
+| Viewport | Container (contra `main`) |
+|---|---|
+| `sm:` | `@xl/main:` (576px) |
+| `md:` | `@3xl/main:` (768px) |
+| `lg:` | `@5xl/main:` (1024px) |
+| `xl:` | `@7xl/main:` (1280px) |
+| `2xl:` | `@6xl/main:` (1152px, baja a propósito) |
+| `max-lg:` | `@max-5xl/main:` |
+
+Excepciones y contenedores propios:
+
+- Lo que se renderiza en un portal (Dialog, Sheet, AlertDialog, Popover, DropdownMenu, contenido de Select/Command y Tooltip) se mide contra la ventana: sigue con `sm:` y similares.
+- Los márgenes negativos que compensan el padding del `<main>` de los portales (Comunicaciones) usan el breakpoint de viewport, porque ese padding también es de viewport.
+- Formularios dentro de `FieldGroup`: `@…/field-group:`. Cards de `panel-card`: `@sm:` y similares (ya es `@container`). Card de atención de Dirección: `@…/atencion:`. Lienzo del editor de workflows: `@…/lienzo:`.
+- El topbar usa `@container/shell` (el ancho del `SidebarInset`), para que el buscador se reduzca a ícono cuando el asistente lo aplasta.
+- Por debajo de `md` el sidebar es un Sheet; el `SidebarTrigger` del topbar (`md:hidden`) es el único modo de abrirlo.
+
+Patrones asociados: tabla dentro de una pista de grid siempre con `minmax(0,1fr)` o `min-w-0`; `Table bare` cuando va dentro de un `Card`; `max-w-* truncate` va en un `<span className="block ...">` dentro de la celda, no sobre el `<td>`; si una tabla oculta columnas por ancho, el esqueleto (`COLUMNAS_ESQUELETO`) se convierte en el mismo cambio; grillas con cantidad variable de tiles con `repeat(auto-fit|auto-fill, minmax(...))` o `flex flex-wrap *:flex-1 *:min-w-N`.
 
 ### 8.1 Autenticación y roles
 
@@ -287,7 +359,7 @@ Es el centro de control del módulo y sigue §10: un dato principal (ejecuciones
 
 ## 11. Contenido y voz
 
-**Voz:** institucional y precisa. El sistema informa y ejecuta; no vende ni felicita. Nunca "¡Genial! 🎉", nunca signos de exclamación de entusiasmo, nunca emoji.
+**Voz:** institucional y precisa. El sistema informa y ejecuta; no vende ni felicita. Nunca "¡Genial! 🎉", nunca signos de exclamación de entusiasmo, nunca emoji (salvo el saludo del Portal Familia, ver §8.2).
 
 **Microcopy es-AR, voz activa, sentence case:** "Registrar pago", "Dar de alta familia", "Aprobar sugerencia". Nunca "Enviar" genérico, nunca Title Case. El verbo de la acción se mantiene igual entre el botón y el mensaje de éxito: "Registrar pago" → "Pago registrado".
 
@@ -325,7 +397,7 @@ El isotipo de la marca es un hexágono rodeado de nodos conectados: una red, por
 - Glassmorphism, blur decorativo, glows, sombras difusas grandes fuera de la de 5.2.
 - Easing con rebote o elástico.
 - Una teja de ícono redondeada arriba de cada encabezado.
-- Emoji como ícono, ilustraciones 3D, ilustraciones figurativas, personajes.
+- Emoji como ícono, ilustraciones 3D, ilustraciones figurativas, personajes
 - Una fila plana de chips como único filtro cuando hay más de dos o tres opciones que combinar.
 - Un menú de acciones idéntico copiado entre tablas de dominios distintos, en vez de las acciones específicas de cada una.
 - Gráficos de torta/dona.

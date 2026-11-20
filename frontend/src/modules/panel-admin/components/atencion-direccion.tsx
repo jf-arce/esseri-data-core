@@ -54,10 +54,10 @@ function Columna({
   return (
     <section
       aria-label={titulo}
-      className="flex min-w-0 flex-col gap-1 md:px-6 md:first:pl-0 md:last:pr-0"
+      className="flex min-w-0 flex-col gap-1 @xl/atencion:px-6 @xl/atencion:first:pl-0 @xl/atencion:last:pr-0"
     >
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold whitespace-nowrap text-texto">
+        <h3 className="min-w-0 truncate text-sm font-semibold text-texto">
           {titulo}
           {contador !== undefined && (
             <span className="ml-1.5 tabular-nums text-texto-2">· {contador}</span>
@@ -102,7 +102,7 @@ export function AtencionDireccion({
   const listo = !compras.cargando && !deudas.cargando
 
   return (
-    <Card className="h-full">
+    <Card className="@container/atencion h-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2.5">
           <h2>Requiere tu atención</h2>
@@ -111,7 +111,9 @@ export function AtencionDireccion({
       </CardHeader>
       <CardContent
         className={
-          dosColumnas ? 'grid gap-6 md:grid-cols-2 md:gap-0 md:divide-x md:divide-borde' : ''
+          dosColumnas
+            ? 'grid gap-6 @xl/atencion:grid-cols-2 @xl/atencion:gap-0 @xl/atencion:divide-x @xl/atencion:divide-borde'
+            : ''
         }
       >
         {acceso.compras && (

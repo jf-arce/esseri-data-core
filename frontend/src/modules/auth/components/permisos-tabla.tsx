@@ -60,7 +60,7 @@ interface PermisosTablaProps {
 
 function PermisosTabla({ permisos, cargando, onEditar, onEliminar }: PermisosTablaProps) {
   return (
-    <Table>
+    <Table minWidth="min-w-[560px]">
       <TableHeader>
         <TableRow>
           <TableHead>Módulo</TableHead>

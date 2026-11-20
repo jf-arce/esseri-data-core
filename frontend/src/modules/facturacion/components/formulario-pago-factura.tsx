@@ -143,7 +143,7 @@ export function FormularioPagoFactura({ factura, onPagoRegistrado }: FormularioP
                 disabled
               />
             </Field>
-            <div className="grid gap-5 sm:grid-cols-2">
+            <div className="grid gap-5 @md/field-group:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor="metodo-pago">Método de pago</FieldLabel>
                 <Select value={metodoId} onValueChange={setMetodoId} disabled={cargandoMetodos}>
@@ -182,7 +182,7 @@ export function FormularioPagoFactura({ factura, onPagoRegistrado }: FormularioP
                 <FieldDescription>Saldo pendiente: {formatearMoneda(saldo)}</FieldDescription>
               </Field>
             </div>
-            <div className="grid gap-5 sm:grid-cols-2">
+            <div className="grid gap-5 @md/field-group:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor="fecha-pago">Fecha</FieldLabel>
                 <Input

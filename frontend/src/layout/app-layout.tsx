@@ -25,6 +25,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarSeparator,
+  SidebarTrigger,
 } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import {
@@ -178,14 +179,18 @@ export function AppLayout() {
           </SidebarContent>
         </Sidebar>
 
-        <SidebarInset>
-          <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-4 border-b border-(--topbar-borde) bg-(--topbar) px-7">
+        <SidebarInset className="@container/shell">
+          <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-4 border-b border-(--topbar-borde) bg-(--topbar) px-4 md:px-7">
+            <SidebarTrigger
+              className="shrink-0 text-(--topbar-texto) hover:bg-(--topbar-hover) hover:text-(--topbar-texto-hover) md:hidden"
+              aria-label="Abrir la navegación"
+            />
             {/* En celular el buscador es solo el ícono: el campo entero queda aplastado. */}
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="ml-auto text-(--topbar-texto) hover:bg-(--topbar-hover) hover:text-(--topbar-texto-hover) sm:hidden"
+              className="ml-auto text-(--topbar-texto) hover:bg-(--topbar-hover) hover:text-(--topbar-texto-hover) @xl/shell:hidden"
               aria-label="Buscar"
               onClick={() => setComandoAbierto(true)}
             >
@@ -195,11 +200,11 @@ export function AppLayout() {
             <button
               type="button"
               onClick={() => setComandoAbierto(true)}
-              className="mx-auto hidden h-10 w-full max-w-150 min-w-0 cursor-pointer items-center gap-2.5 rounded-lg border border-borde bg-lienzo px-4 text-left text-sm text-texto-3 transition-colors hover:bg-[color-mix(in_srgb,var(--fila-hover)_85%,var(--borde))] sm:flex"
+              className="mx-auto hidden h-10 w-full max-w-150 min-w-0 cursor-pointer items-center gap-2.5 rounded-lg border border-borde bg-lienzo px-4 text-left text-sm text-texto-3 transition-colors hover:bg-[color-mix(in_srgb,var(--fila-hover)_85%,var(--borde))] @xl/shell:flex"
             >
               <Search className="size-4 shrink-0" />
               <span className="truncate">Buscar o ir a…</span>
-              <kbd className="ml-auto hidden shrink-0 rounded-md sm:block border border-borde bg-superficie px-1.5 py-0.5">
+              <kbd className="ml-auto hidden shrink-0 rounded-md border border-borde bg-superficie px-1.5 py-0.5">
                 <div className="text-xs text-texto-3 flex gap-0.5 items-center justify-center">
                   <span>⌘</span>
                   <span>K</span>
@@ -257,9 +262,9 @@ export function AppLayout() {
             <MenuCuenta className="hover:bg-(--topbar-hover)" />
           </header>
 
-          <main className="min-w-0 flex-1 px-8 py-6">
+          <div className="@container/main min-w-0 flex-1 px-4 py-4 [--main-py:1rem] @2xl/shell:px-8 @2xl/shell:py-6 @2xl/shell:[--main-py:1.5rem]">
             <Outlet />
-          </main>
+          </div>
         </SidebarInset>
 
         {/* Montado aunque esté cerrado: así no se pierde la conversación al cerrarlo. */}

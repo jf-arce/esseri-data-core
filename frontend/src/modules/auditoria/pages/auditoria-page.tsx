@@ -67,7 +67,7 @@ export function AuditoriaPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudo cargar la auditoría</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargar}>
               Reintentar

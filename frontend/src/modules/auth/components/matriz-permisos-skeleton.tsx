@@ -6,10 +6,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 function MatrizPermisosSkeleton() {
   return (
     <div className="overflow-x-auto rounded-panel bg-superficie shadow-card">
-      <table className="w-full min-w-[1540px] table-fixed border-collapse text-xs">
+      <table
+        className="w-full table-fixed border-collapse text-xs"
+        style={{ minWidth: 180 + 10 * 136 }}
+      >
         <thead>
           <tr>
-            <th className="sticky left-0 z-[1] w-45 border-b border-borde bg-superficie px-6 py-3 text-left">
+            <th className="sticky left-0 z-[1] w-45 border-b border-borde bg-superficie px-3 py-3 text-left @3xl/main:px-6">
               <Skeleton className="h-3.5 w-32" />
             </th>
             {Array.from({ length: 10 }).map((_, i) => (
@@ -22,7 +25,7 @@ function MatrizPermisosSkeleton() {
         <tbody>
           {Array.from({ length: 8 }).map((_, i) => (
             <tr key={i}>
-              <td className="sticky left-0 z-[1] border-b border-borde bg-superficie px-6 py-2.5">
+              <td className="sticky left-0 z-[1] border-b border-borde bg-superficie px-3 py-2.5 @3xl/main:px-6">
                 <Skeleton className={i % 2 === 0 ? 'h-4 w-40' : 'h-4 w-52'} />
               </td>
               {Array.from({ length: 10 }).map((_, j) => (

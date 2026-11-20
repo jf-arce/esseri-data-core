@@ -158,7 +158,7 @@ export function DebitosHistorialPage({
         </p>
       )}
 
-      <div className="grid min-w-0 items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_304px]">
+      <div className="grid min-w-0 items-start gap-4 @6xl/main:grid-cols-[minmax(0,1fr)_304px]">
         <div className="min-w-0 rounded-panel bg-superficie shadow-card">
           <div className="border-b border-borde p-3">{filtros}</div>
           {!cargando && !error && datos.items.length === 0 ? (

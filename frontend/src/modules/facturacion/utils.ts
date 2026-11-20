@@ -1,10 +1,11 @@
 import type { DetalleFactura, EstadoFactura } from '@/modules/facturacion/types'
 
-export function formatearMoneda(valor: string | number) {
+export function formatearMoneda(valor: string | number, decimales = 2) {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
     currency: 'ARS',
-    minimumFractionDigits: 2,
+    minimumFractionDigits: decimales,
+    maximumFractionDigits: decimales,
   }).format(Number(valor))
 }
 

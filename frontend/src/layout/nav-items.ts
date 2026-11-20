@@ -134,8 +134,8 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: LayoutDashboard,
         modulo: 'paneles',
         permiso: PERMISO_PANEL_ADMIN_LEER,
-        // administrador del sistema = todo (grupo-b.yaml): ve los dos paneles en el sidebar,
-        // aunque su pantalla de inicio por default sea /panel (ver rutaInicioDe más abajo).
+        // El administrador del sistema ve los dos paneles y alterna; su inicio sigue siendo /panel
+        // (ver rutaInicioDe más abajo).
         roles: [ROL_ADMINISTRACION, ROL_ADMINISTRADOR_DEL_SISTEMA],
       },
     ],

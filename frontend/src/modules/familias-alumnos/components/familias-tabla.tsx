@@ -44,7 +44,7 @@ export function FamiliasTabla({ familias, cargando, onEliminar }: FamiliasTablaP
   const navigate = useNavigate()
 
   return (
-    <Table>
+    <Table bare>
       <TableHeader>
         <TableRow>
           <TableHead>Familia</TableHead>

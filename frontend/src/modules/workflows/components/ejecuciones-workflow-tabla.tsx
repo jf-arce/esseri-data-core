@@ -29,10 +29,10 @@ import {
 
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-40', anchoAlt: 'h-4 w-32' },
-  { tipo: 'texto', ancho: 'h-4 w-36', anchoAlt: 'h-4 w-28', clase: 'hidden 2xl:table-cell' },
-  { tipo: 'texto', clase: 'hidden lg:table-cell' },
-  { tipo: 'texto', ancho: 'h-4 w-6', clase: 'hidden 2xl:table-cell' },
-  { tipo: 'texto', ancho: 'h-4 w-28', clase: 'hidden xl:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-36', anchoAlt: 'h-4 w-28', clase: 'hidden @6xl/main:table-cell' },
+  { tipo: 'texto', clase: 'hidden @5xl/main:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-6', clase: 'hidden @6xl/main:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-28', clase: 'hidden @7xl/main:table-cell' },
   { tipo: 'chip' },
   { tipo: 'accion' },
 ]
@@ -78,10 +78,10 @@ export function EjecucionesWorkflowTabla({
         <TableHeader>
           <TableRow>
             <TableHead>Regla</TableHead>
-            <TableHead className="hidden 2xl:table-cell">Evento</TableHead>
-            <TableHead className="hidden lg:table-cell">Acción</TableHead>
-            <TableHead className="hidden 2xl:table-cell">Intento</TableHead>
-            <TableHead className="hidden xl:table-cell">Inicio</TableHead>
+            <TableHead className="hidden @6xl/main:table-cell">Evento</TableHead>
+            <TableHead className="hidden @5xl/main:table-cell">Acción</TableHead>
+            <TableHead className="hidden @6xl/main:table-cell">Intento</TableHead>
+            <TableHead className="hidden @7xl/main:table-cell">Inicio</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead data-align="end">
               <span className="sr-only">Acciones</span>
@@ -104,29 +104,29 @@ export function EjecucionesWorkflowTabla({
                   }
                 }}
               >
-                <TableCell className="whitespace-normal md:whitespace-nowrap">
+                <TableCell className="whitespace-normal @3xl/main:whitespace-nowrap">
                   <span
-                    className="block font-medium md:max-w-[12rem] md:truncate xl:max-w-[20rem]"
+                    className="block font-medium @3xl/main:max-w-[12rem] @3xl/main:truncate @7xl/main:max-w-[20rem]"
                     title={ejecucion.workflow_rule_nombre}
                   >
                     {ejecucion.workflow_rule_nombre}
                   </span>
                   {ejecucion.resumen_evento.length > 0 && (
-                    <span className="block text-texto-2 md:max-w-[12rem] md:truncate xl:max-w-[20rem]">
+                    <span className="block text-texto-2 @3xl/main:max-w-[12rem] @3xl/main:truncate @7xl/main:max-w-[20rem]">
                       {resumenEnLinea(ejecucion.resumen_evento)}
                     </span>
                   )}
                 </TableCell>
-                <TableCell className="hidden text-texto-2 2xl:table-cell">
+                <TableCell className="hidden text-texto-2 @6xl/main:table-cell">
                   {etiquetaEvento(ejecucion.tipo_evento)}
                 </TableCell>
-                <TableCell className="hidden lg:table-cell">
+                <TableCell className="hidden @5xl/main:table-cell">
                   {ejecucion.tipo_accion ? ETIQUETA_ACCION[ejecucion.tipo_accion] : 'Condición'}
                 </TableCell>
-                <TableCell className="hidden tabular-nums 2xl:table-cell">
+                <TableCell className="hidden tabular-nums @6xl/main:table-cell">
                   {ejecucion.intento}
                 </TableCell>
-                <TableCell className="hidden tabular-nums xl:table-cell">
+                <TableCell className="hidden tabular-nums @7xl/main:table-cell">
                   {formatearFechaHora(ejecucion.started_at)}
                 </TableCell>
                 <TableCell>
@@ -134,7 +134,7 @@ export function EjecucionesWorkflowTabla({
                     {ETIQUETA_ESTADO_EJECUCION[ejecucion.estado]}
                   </Badge>
                 </TableCell>
-                <TableCell data-align="end" className="px-2 sm:px-4">
+                <TableCell data-align="end" className="px-2 @xl/main:px-4">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button

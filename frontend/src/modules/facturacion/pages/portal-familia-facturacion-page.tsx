@@ -21,7 +21,13 @@ import {
   PortalFamiliaShell,
 } from '@/components/portal-familia/portal-familia-shell'
 import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
-import { PortalStatTile } from '@/components/portal-familia/portal-familia-ui'
+import {
+  PortalCard,
+  PortalCardSkeleton,
+  PortalSkeletonRegion,
+  PortalStatTile,
+  SkeletonTile,
+} from '@/components/portal-familia/portal-familia-ui'
 import { cn } from '@/lib/utils'
 import { normalizarTexto } from '@/lib/texto'
 import { descargarComprobantePagoFamilia } from '@/modules/facturacion/services/descargar-comprobante-pago-familia'
@@ -182,7 +188,7 @@ function ResumenCuenta({ cuenta }: { cuenta: FacturacionFamilia }) {
               </span>
             )}
             {vencidas.length > 0 && (
-              <span className="block font-medium text-[#B42318]">
+              <span className="block font-medium text-error">
                 {formatearMoneda(String(totalVencido / 100))} vencido
               </span>
             )}
@@ -203,8 +209,8 @@ function EstadoPago({ pago }: { pago: PagoFamilia }) {
 }
 
 function colorAccesible(variante: 'advertencia' | 'error' | 'exito') {
-  if (variante === 'advertencia') return 'text-[#873b08] [.dark_&]:text-advertencia'
-  if (variante === 'exito') return 'text-[#09613e] [.dark_&]:text-exito'
+  if (variante === 'advertencia') return 'text-advertencia [.dark_&]:text-advertencia'
+  if (variante === 'exito') return 'text-exito [.dark_&]:text-exito'
   return undefined
 }
 
@@ -254,8 +260,8 @@ function FacturaFamiliaCard({
       id={`factura-${factura.id}`}
       aria-current={resaltada ? 'true' : undefined}
       className={cn(
-        'gap-0 rounded-[20px] border bg-white py-0 shadow-[0_10px_26px_rgba(24,16,40,0.08)]',
-        resaltada ? 'border-[#7A2FA8] ring-2 ring-[#7A2FA8]/35' : 'border-[#F0EAF6]',
+        'gap-0 rounded-pf-card border-0 bg-superficie py-0 shadow-pf-card',
+        resaltada && 'ring-2 ring-pf-accent/35',
       )}
     >
       <details
@@ -268,7 +274,7 @@ function FacturaFamiliaCard({
       >
         <summary
           aria-expanded={abierta}
-          className="cursor-pointer list-none focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#7A2FA8]"
+          className="cursor-pointer list-none focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-pf-accent"
         >
           <CardHeader className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-1">
@@ -277,44 +283,44 @@ function FacturaFamiliaCard({
                 {concepto} · {factura.alumno_nombre} · Vence {formatearFecha(vencimiento(factura))}
               </CardDescription>
               {rechazado && estadoActual !== 'pagada' && (
-                <span className="text-sm font-medium text-[#B42318]">
+                <span className="text-sm font-medium text-error">
                   {TEXTOS_DEBITO.rechazado}
                   {motivo ? `: ${motivo}` : ''}
                 </span>
               )}
             </div>
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-[#2B2338]">
+              <span className="font-semibold text-texto">
                 {formatearMoneda(factura.monto_total)}
               </span>
               <Badge variant={estado.variante} className={colorAccesible(estado.variante)}>
                 {estado.etiqueta}
               </Badge>
-              <ChevronDownIcon aria-hidden="true" className="size-4 text-[#6B6478]" />
+              <ChevronDownIcon aria-hidden="true" className="size-4 text-texto-2" />
             </div>
           </CardHeader>
         </summary>
         <CardContent className="flex flex-col gap-5 pt-2 pb-5">
-          <p className="text-xs text-[#6B6478]">
+          <p className="text-xs text-texto-2">
             Factura {resultado?.numero_factura ?? `#${factura.id.slice(0, 8)}`}
           </p>
           {resultado?.resultado === 'rechazado' && (
             <section
               aria-label={`Débito automático de factura ${resultado.numero_factura}`}
-              className="rounded-[16px] bg-[#FDF0ED] p-4"
+              className="rounded-pf-tile bg-pf-rojo-card p-4"
             >
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="error">{TEXTOS_DEBITO.rechazado}</Badge>
-                <span className="text-sm font-medium text-[#2B2338]">
+                <span className="text-sm font-medium text-texto">
                   {formatearMoneda(resultado.importe)}
                 </span>
-                <span className="text-xs text-[#6B6478]">{formatearFecha(resultado.fecha)}</span>
+                <span className="text-xs text-texto-2">{formatearFecha(resultado.fecha)}</span>
               </div>
-              {motivo && <p className="mt-2 text-sm text-[#6B6478]">Motivo: {motivo}.</p>}
+              {motivo && <p className="mt-2 text-sm text-texto-2">Motivo: {motivo}.</p>}
             </section>
           )}
           {estadoActual === 'vencida' && (
-            <p className="text-sm text-[#6B6478]">
+            <p className="text-sm text-texto-2">
               {TEXTOS_DEBITO.consulta}{' '}
               <Link className="underline" to="/familia/comunicaciones">
                 Comunicaciones
@@ -324,7 +330,7 @@ function FacturaFamiliaCard({
           )}
           {factura.detalles.length > 0 && (
             <section aria-label={`Conceptos de factura ${factura.id.slice(0, 8)}`}>
-              <h3 className="mb-3 text-sm font-semibold text-[#2B2338]">Conceptos</h3>
+              <h3 className="mb-3 text-sm font-semibold text-texto">Conceptos</h3>
               <ul
                 className="flex flex-col gap-2"
                 aria-label={`Detalle de factura ${factura.id.slice(0, 8)}`}
@@ -334,8 +340,8 @@ function FacturaFamiliaCard({
                     key={`${factura.id}-${indice}`}
                     className="flex items-start justify-between gap-4 text-sm"
                   >
-                    <span className="text-[#6B6478]">{formatearConcepto(detalle.descripcion)}</span>
-                    <span className="shrink-0 font-medium text-[#2B2338]">
+                    <span className="text-texto-2">{formatearConcepto(detalle.descripcion)}</span>
+                    <span className="shrink-0 font-medium text-texto">
                       {formatearMoneda(detalle.monto)}
                     </span>
                   </li>
@@ -344,21 +350,17 @@ function FacturaFamiliaCard({
             </section>
           )}
 
-          <div className="flex items-center justify-between border-t border-[#F0EAF6] pt-4 text-sm">
-            <span className="font-semibold text-[#2B2338]">Total de la factura</span>
-            <span className="font-semibold text-[#2B2338]">
-              {formatearMoneda(factura.monto_total)}
-            </span>
+          <div className="flex items-center justify-between border-t border-pf-divisor pt-4 text-sm">
+            <span className="font-semibold text-texto">Total de la factura</span>
+            <span className="font-semibold text-texto">{formatearMoneda(factura.monto_total)}</span>
           </div>
 
           {factura.pagos.length > 0 && (
             <section
               aria-label={`Débitos de factura ${factura.id.slice(0, 8)}`}
-              className="border-t border-[#F0EAF6] pt-4"
+              className="border-t border-pf-divisor pt-4"
             >
-              <h3 className="mb-3 text-sm font-semibold text-[#2B2338]">
-                {TEXTOS_DEBITO.registrados}
-              </h3>
+              <h3 className="mb-3 text-sm font-semibold text-texto">{TEXTOS_DEBITO.registrados}</h3>
               <ul className="flex flex-col divide-y divide-borde">
                 {factura.pagos.map((pago) => (
                   <li
@@ -366,10 +368,10 @@ function FacturaFamiliaCard({
                     className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-medium text-[#2B2338]">
+                      <span className="text-sm font-medium text-texto">
                         {formatearMoneda(pago.monto)}
                       </span>
-                      <span className="text-xs text-[#6B6478]">
+                      <span className="text-xs text-texto-2">
                         {TEXTOS_DEBITO.medio(pago.metodo_pago, factura.medio)} ·{' '}
                         {formatearFecha(pago.fecha)}
                       </span>
@@ -380,7 +382,7 @@ function FacturaFamiliaCard({
                         type="button"
                         variant="secondary"
                         size="sm"
-                        className="rounded-full"
+                        className="rounded-lg"
                         aria-label="Descargar comprobante"
                         disabled={descargandoPagoId === pago.id}
                         onClick={() => alDescargar(pago.id)}
@@ -398,7 +400,7 @@ function FacturaFamiliaCard({
             <Button
               type="button"
               variant="secondary"
-              className="rounded-full"
+              className="rounded-lg"
               aria-label="Descargar factura"
               onClick={() => {
                 void descargarFacturaFamilia(factura.id).catch(() =>
@@ -411,7 +413,7 @@ function FacturaFamiliaCard({
             <Button
               type="button"
               variant="secondary"
-              className="rounded-full"
+              className="rounded-lg"
               aria-label="Compartir factura"
               onClick={() => {
                 void compartirFacturaFamilia(factura.id).catch((error: unknown) => {
@@ -557,7 +559,7 @@ export function PortalFamiliaFacturacionPage() {
 
   return (
     <section
-      className="relative isolate -mx-4 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden sm:-mx-8"
+      className="relative isolate -mb-6 min-h-[calc(100svh-4rem)]"
       style={{ background: PORTAL_FAMILIA_BACKGROUND }}
     >
       <PortalFamiliaWatermark />
@@ -565,15 +567,13 @@ export function PortalFamiliaFacturacionPage() {
         <PortalFamiliaShell
           titulo="Facturación"
           descripcion="Consultá las facturas y los débitos asociados a tu cuenta."
-          etiqueta="Portal de familia"
-          anchoMaximo="max-w-[92vw]"
           className="pb-8"
           volverA="/familia"
           volverEtiqueta="Volver al inicio"
           acciones={
             alumnos.length > 1 ? (
               <FilterDropdown
-                className="rounded-full bg-white/95"
+                className="rounded-lg bg-superficie/95"
                 label={
                   alumno === 'todos'
                     ? 'Alumno'
@@ -597,23 +597,38 @@ export function PortalFamiliaFacturacionPage() {
           }
         />
 
-        <div className="mx-auto flex w-full max-w-[92vw] flex-col gap-6 pb-10">
+        <div className="flex w-full flex-col gap-6 pb-10">
           {cargando && (
-            <div role="status" aria-label="Cargando facturación" className="flex flex-col gap-4">
-              <div className="grid gap-4 lg:grid-cols-3">
-                <Skeleton className="h-28 rounded-[24px]" />
-                <Skeleton className="h-28 rounded-[24px]" />
-                <Skeleton className="h-28 rounded-[24px]" />
+            <PortalSkeletonRegion etiqueta="Cargando facturación" className="flex flex-col gap-6">
+              <div aria-hidden="true" className="flex flex-col gap-6">
+                <div className="grid gap-4 lg:grid-cols-3">
+                  {[0, 1, 2].map((indice) => (
+                    <SkeletonTile key={indice} />
+                  ))}
+                </div>
+                <PortalCardSkeleton conIcono={false} />
+                <div className="flex flex-col gap-4">
+                  <div className="space-y-2">
+                    <Skeleton className="h-6 w-24" />
+                    <Skeleton className="h-4 w-80 max-w-full" />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {[0, 1, 2, 3].map((indice) => (
+                      <Skeleton key={indice} className="h-9 w-24 rounded-lg" />
+                    ))}
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    {[0, 1, 2].map((indice) => (
+                      <Skeleton key={indice} className="h-[72px] w-full rounded-pf-card" />
+                    ))}
+                  </div>
+                </div>
               </div>
-              <Skeleton className="h-64 rounded-[24px]" />
-            </div>
+            </PortalSkeletonRegion>
           )}
 
           {error && !cargando && (
-            <Empty
-              role="alert"
-              className="min-h-64 rounded-[24px] bg-white shadow-[0_14px_34px_rgba(24,16,40,0.12)]"
-            >
+            <Empty role="alert" className="min-h-64 rounded-pf-card bg-superficie shadow-pf-card">
               <EmptyMedia variant="neutral">
                 <ReceiptTextIcon />
               </EmptyMedia>
@@ -622,7 +637,7 @@ export function PortalFamiliaFacturacionPage() {
               <Button
                 type="button"
                 variant="secondary"
-                className="rounded-full"
+                className="rounded-lg"
                 onClick={() => setIntento((actual) => actual + 1)}
               >
                 Reintentar
@@ -636,29 +651,23 @@ export function PortalFamiliaFacturacionPage() {
 
               {(acreditadas > 0 || rechazadas > 0) && (
                 <section aria-labelledby="avisos-debito-heading">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle id="avisos-debito-heading" className="text-base">
-                        Avisos de débitos automáticos
-                      </CardTitle>
-                      <CardDescription>
-                        {acreditadas} acreditados · {rechazadas} rechazados. El detalle está en cada
-                        factura.
-                      </CardDescription>
-                    </CardHeader>
+                  <PortalCard
+                    titulo="Avisos de débitos automáticos"
+                    tituloId="avisos-debito-heading"
+                    descripcion={`${acreditadas} acreditados · ${rechazadas} rechazados. El detalle está en cada factura.`}
+                    nivelEncabezado={2}
+                  >
                     {rechazadas > 0 && (
-                      <CardContent>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="rounded-full"
-                          onClick={() => setFiltro('rechazadas')}
-                        >
-                          Ver facturas con débito rechazado
-                        </Button>
-                      </CardContent>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="rounded-lg"
+                        onClick={() => setFiltro('rechazadas')}
+                      >
+                        Ver facturas con débito rechazado
+                      </Button>
                     )}
-                  </Card>
+                  </PortalCard>
                 </section>
               )}
 
@@ -666,14 +675,14 @@ export function PortalFamiliaFacturacionPage() {
                 <div>
                   <h2
                     id="facturas-familia-heading"
-                    className="font-heading text-lg font-semibold text-[#241A33]"
+                    className="font-heading text-lg font-semibold text-texto"
                   >
                     Facturas
                   </h2>
-                  <p className="mt-1 text-sm text-[#6B6478]">
+                  <p className="mt-1 text-sm text-texto-2">
                     Consultá los vencimientos y el detalle de cada factura emitida a tu nombre.
                   </p>
-                  <p className="mt-1 text-sm text-[#6B6478]">{TEXTOS_DEBITO.aviso}</p>
+                  <p className="mt-1 text-sm text-texto-2">{TEXTOS_DEBITO.aviso}</p>
                 </div>
                 {cuenta.facturas.length > 0 ? (
                   <div className="flex flex-col gap-4">
@@ -687,7 +696,7 @@ export function PortalFamiliaFacturacionPage() {
                             key={valor}
                             type="button"
                             variant={filtro === valor ? 'default' : 'secondary'}
-                            className="rounded-full"
+                            className="rounded-lg"
                             aria-pressed={filtro === valor}
                             onClick={() => {
                               setFiltro(valor)
@@ -713,7 +722,7 @@ export function PortalFamiliaFacturacionPage() {
                         ),
                       )}
                       <FilterDropdown
-                        className="rounded-full"
+                        className="rounded-lg"
                         label={`Ordenar: ${
                           {
                             'vencimiento-asc': 'Vencimiento próximo',
@@ -737,43 +746,43 @@ export function PortalFamiliaFacturacionPage() {
                       />
                     </div>
                     <details>
-                      <summary className="cursor-pointer text-sm font-semibold text-[#3A2E45] focus-visible:outline-2 focus-visible:outline-[#7A2FA8]">
+                      <summary className="cursor-pointer text-sm font-semibold text-texto focus-visible:outline-2 focus-visible:outline-pf-accent">
                         Más filtros
                       </summary>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <label className="flex items-center gap-2 text-sm text-[#3A2E45]">
+                        <label className="flex items-center gap-2 text-sm text-texto">
                           Desde{' '}
                           <input
                             aria-label="Desde"
                             type="date"
                             value={desde}
-                            className="h-9 rounded-lg border border-[#F0EAF6] bg-white px-3 text-[#2B2338]"
+                            className="h-9 rounded-lg border border-pf-divisor bg-superficie px-3 text-texto"
                             onChange={(evento) => {
                               setDesde(evento.target.value)
                               setPagina(0)
                             }}
                           />
                         </label>
-                        <label className="flex items-center gap-2 text-sm text-[#3A2E45]">
+                        <label className="flex items-center gap-2 text-sm text-texto">
                           Hasta{' '}
                           <input
                             aria-label="Hasta"
                             type="date"
                             value={hasta}
-                            className="h-9 rounded-lg border border-[#F0EAF6] bg-white px-3 text-[#2B2338]"
+                            className="h-9 rounded-lg border border-pf-divisor bg-superficie px-3 text-texto"
                             onChange={(evento) => {
                               setHasta(evento.target.value)
                               setPagina(0)
                             }}
                           />
                         </label>
-                        <label className="flex items-center gap-2 text-sm text-[#3A2E45]">
+                        <label className="flex items-center gap-2 text-sm text-texto">
                           Buscar{' '}
                           <input
                             aria-label="Buscar por nombre o ID"
                             placeholder="Nombre o ID"
                             value={busqueda}
-                            className="h-9 rounded-lg border border-[#F0EAF6] bg-white px-3 text-[#2B2338]"
+                            className="h-9 rounded-lg border border-pf-divisor bg-superficie px-3 text-texto"
                             onChange={(evento) => {
                               setBusqueda(evento.target.value)
                               setPagina(0)
@@ -783,7 +792,7 @@ export function PortalFamiliaFacturacionPage() {
                       </div>
                     </details>
                     {filtradas.length === 0 && (
-                      <p className="text-sm text-[#3A2E45]">
+                      <p className="text-sm text-texto">
                         No hay facturas para los filtros seleccionados.
                       </p>
                     )}
@@ -812,19 +821,19 @@ export function PortalFamiliaFacturacionPage() {
                         <Button
                           type="button"
                           variant="secondary"
-                          className="rounded-full"
+                          className="rounded-lg"
                           disabled={pagina === 0}
                           onClick={() => setPagina((actual) => actual - 1)}
                         >
                           Anterior
                         </Button>
-                        <span className="text-sm text-[#3A2E45]">
+                        <span className="text-sm text-texto">
                           Página {pagina + 1} de {Math.ceil(filtradas.length / FACTURAS_POR_PAGINA)}
                         </span>
                         <Button
                           type="button"
                           variant="secondary"
-                          className="rounded-full"
+                          className="rounded-lg"
                           disabled={(pagina + 1) * FACTURAS_POR_PAGINA >= filtradas.length}
                           onClick={() => setPagina((actual) => actual + 1)}
                         >
@@ -834,8 +843,8 @@ export function PortalFamiliaFacturacionPage() {
                     )}
                   </div>
                 ) : (
-                  <Empty className="min-h-52 rounded-[24px] bg-white shadow-[0_14px_34px_rgba(24,16,40,0.12)]">
-                    <EmptyMedia variant="icon" className="bg-[#FBF2E7] text-[#B45309]">
+                  <Empty className="min-h-52 rounded-pf-card bg-superficie shadow-pf-card">
+                    <EmptyMedia variant="icon" className="bg-pf-ambar-card text-advertencia">
                       <ReceiptTextIcon />
                     </EmptyMedia>
                     <EmptyTitle>Todavía no tenés facturas.</EmptyTitle>

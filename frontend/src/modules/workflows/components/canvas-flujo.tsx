@@ -540,7 +540,7 @@ function LienzoFlujo(props: CanvasFlujoProps) {
   return (
     <div
       ref={contenedor}
-      className="relative h-full w-full overflow-hidden rounded-panel bg-superficie shadow-card"
+      className="@container/lienzo relative h-full w-full overflow-hidden rounded-panel bg-superficie shadow-card"
       onDragOver={(evento) => {
         evento.preventDefault()
         evento.dataTransfer.dropEffect = 'move'

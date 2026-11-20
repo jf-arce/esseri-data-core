@@ -88,7 +88,11 @@ function OrdenesTabla({
           ) : (
             ordenes.map((orden) => (
               <TableRow key={orden.id}>
-                <TableCell className="font-medium">{orden.proveedor_nombre}</TableCell>
+                <TableCell className="font-medium">
+                  <span className="block max-w-[16rem] truncate" title={orden.proveedor_nombre}>
+                    {orden.proveedor_nombre}
+                  </span>
+                </TableCell>
                 <TableCell className="text-texto-2 tabular-nums">
                   {formatearFechaDia(orden.fecha)}
                 </TableCell>
@@ -150,7 +154,7 @@ function OrdenesTabla({
       </Table>
 
       {totalPaginas > 1 && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-texto-2 text-sm tabular-nums">
             {total} {total === 1 ? 'orden' : 'órdenes'} · página {pagina} de {totalPaginas}
           </p>
