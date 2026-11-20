@@ -19,7 +19,7 @@ Delivery: `ask-on-risk`; forecast over 400 authored lines. Runners: pytest, Post
 - [x] T2 · S4, S7–S8 · inline, depends on T1 · family and Administration surfaces · `c724f24`
 - [x] T3 · S5, S7–S8 · inline, follows T2 · private attachments · `3d7ac66`, independent verification passed · Risk: item 2 (private-file authorization)
 - [ ] T4 · S5–S8 · inline, follows T3 · notifications · `ab9987d`, independent verification pending · Risk: items 2 and 3 (email boundary and shared transport)
-- [ ] T5 · S1–S8 · inline, depends on prior tasks · integration and regression · started
+- [x] T5 · S1–S8 · inline, depends on prior tasks · integration and regression · `6dee77b`; date-dependent academic concurrency tests excluded as pre-existing (see log)
 
 ## Log
 
@@ -102,3 +102,7 @@ Si encontrás un impedimento arquitectónico o de negocio importante, documental
 - T5 browser: one Chromium test passed against an isolated seeded PostgreSQL, real FastAPI and Vite. Family used the existing period-request detail, Administration used the pending queue, Family followed the new bell destination; resolving/reopening preserved the request state. Dedicated preview is loopback only (`127.0.0.1:5187`/`:8187`), scheduler and email transport disabled.
 - Independent T3 verification found no blocker: 20 focused tests, 8 additional probes, baseline-compatible publication download headers. Retained byte-mismatch replay regression; contextual downloads preserve the already authorized attachment name.
 - Chromium also displayed and opened the exact rejected debit's conversation composer in the seeded preview. No message was sent in that smoke check.
+- T5: E2E passed twice in sequence (`--repeat-each=2`). Frontend: 1320 tests, lint and production build passed; backend focused slices passed; full backend suite run excluding `tests/academico/test_solicitud_periodo_concurrencia_postgres.py` (see next line).
+- Pre-existing, not caused by this branch: those seven academic concurrency tests hardcode 2027 dates while `solicitud_periodo_service` rejects years after the current one; identical code exists at the base commit.
+- Advisory not fixed (pre-existing shared helper): `frontend/src/lib/descargar-export.ts` reads only the ASCII `filename=` header, so other exports may fall back to a generic name. Contextual attachments now save under their already-authorized stored name.
+- Preview: `esseri_preview` database in the disposable container, loopback Vite/FastAPI only, schedulers and email transport off. Not a production configuration.
