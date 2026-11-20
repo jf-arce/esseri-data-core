@@ -47,7 +47,7 @@ export function SelectorComunicacion<T extends string>({
         <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width)">
           <SelectGroup>
             {opciones.map((opcion) => {
-              const Icono = iconos?.[opcion]
+              const Icono: LucideIcon | undefined = iconos?.[opcion]
               return (
                 <SelectItem key={opcion} value={opcion} textValue={titulos[opcion]}>
                   {Icono && <Icono aria-hidden="true" className="text-violeta" />}
