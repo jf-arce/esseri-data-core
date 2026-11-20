@@ -66,15 +66,15 @@ function BloqueClase({
         border: `1px solid color-mix(in srgb, ${color} 45%, var(--borde))`,
         boxShadow: activa ? `0 0 0 2px ${color}` : undefined,
       }}
-      className="pointer-events-auto absolute z-10 m-0.5 flex min-w-0 flex-col justify-center gap-0.5 overflow-hidden rounded-[10px] px-1.5 py-0.5 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8] sm:px-2.5 sm:py-1.5"
+      className="pointer-events-auto absolute z-10 m-1 flex min-w-0 flex-col justify-center gap-0.5 overflow-hidden rounded-[10px] px-2.5 py-1.5 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
     >
-      <span className="flex min-w-0 items-center gap-1">
-        <Icono aria-hidden="true" className="hidden size-4 shrink-0 sm:block" style={{ color }} />
-        <span className="min-w-0 text-[11px] leading-tight font-bold text-[#2B2338] sm:text-[13px]">
+      <span className="flex min-w-0 items-center gap-1.5">
+        <Icono aria-hidden="true" className="size-4 shrink-0" style={{ color }} />
+        <span className="min-w-0 text-[13px] leading-tight font-bold text-[#2B2338]">
           {actividad.franja.materia.materia_nombre}
         </span>
       </span>
-      <span className="block text-[10px] font-medium text-[#4B4456] tabular-nums sm:text-[11px]">
+      <span className="block text-[11px] font-medium text-[#4B4456] tabular-nums">
         {actividad.franja.hora_inicio.slice(0, 5)} – {actividad.franja.hora_fin.slice(0, 5)}
       </span>
     </button>
@@ -103,18 +103,15 @@ function BloqueEvento({
         border: '2px solid #7A2FA8',
         boxShadow: activo ? '0 0 0 2px #7A2FA8' : undefined,
       }}
-      className="pointer-events-auto absolute z-10 m-0.5 flex min-w-0 flex-col justify-center gap-0.5 overflow-hidden rounded-[10px] px-1.5 py-0.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8] sm:px-2.5 sm:py-1.5"
+      className="pointer-events-auto absolute z-10 m-1 flex min-w-0 flex-col justify-center gap-0.5 overflow-hidden rounded-[10px] px-2.5 py-1.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
     >
-      <span className="flex min-w-0 items-center gap-1">
-        <CalendarDaysIcon
-          aria-hidden="true"
-          className="hidden size-4 shrink-0 text-[#7A2FA8] sm:block"
-        />
-        <span className="min-w-0 text-[11px] leading-tight font-bold text-[#3F1857] sm:text-[13px]">
+      <span className="flex min-w-0 items-center gap-1.5">
+        <CalendarDaysIcon aria-hidden="true" className="size-4 shrink-0 text-[#7A2FA8]" />
+        <span className="min-w-0 text-[13px] leading-tight font-bold text-[#3F1857]">
           {actividad.evento.titulo}
         </span>
       </span>
-      <span className="block text-[10px] font-medium text-[#5B3A7E] tabular-nums sm:text-[11px]">
+      <span className="block text-[11px] font-medium text-[#5B3A7E] tabular-nums">
         {actividad.evento.hora_inicio?.slice(0, 5) ?? ''}
         {actividad.evento.hora_fin ? ` – ${actividad.evento.hora_fin.slice(0, 5)}` : ''}
       </span>
@@ -158,7 +155,7 @@ export function GrillaSemanal({
     <div className="overflow-hidden rounded-[18px] border border-[#EFE7F6] bg-white">
       <div
         className="grid bg-[#FBF9FD]"
-        style={{ gridTemplateColumns: '5rem repeat(5, minmax(0, 1fr))' }}
+        style={{ gridTemplateColumns: '8rem repeat(5, minmax(0, 1fr))' }}
       >
         <div aria-hidden="true" />
         {NOMBRES_DIA.map((nombre, indice) => {
@@ -185,16 +182,14 @@ export function GrillaSemanal({
         <div
           className="grid"
           style={{
-            gridTemplateColumns: '5rem repeat(5, minmax(0, 1fr))',
+            gridTemplateColumns: '8rem repeat(5, minmax(0, 1fr))',
             gridTemplateRows: `repeat(${filas.length}, minmax(30px, 1fr))`,
           }}
         >
           {filas.map((minutos, indice) => (
             <Fragment key={minutos}>
-              <div className="border-t border-[#EFE7F6] px-1 text-right text-[11px] font-semibold text-[#6B6478] tabular-nums sm:px-3 sm:text-[12px]">
-                {minutos % 60 === 0
-                  ? `${String(Math.floor(minutos / 60)).padStart(2, '0')}:${String(minutos % 60).padStart(2, '0')}`
-                  : ''}
+              <div className="border-t border-[#EFE7F6] px-3 text-center text-[12px] font-semibold text-[#6B6478] tabular-nums">
+                {`${String(Math.floor(minutos / 60)).padStart(2, '0')}:${String(minutos % 60).padStart(2, '0')}`}
               </div>
               {NOMBRES_DIA.map((_, columna) => (
                 <div
@@ -207,7 +202,7 @@ export function GrillaSemanal({
           ))}
         </div>
 
-        <div className="pointer-events-none absolute inset-y-0 left-[5rem] right-0 grid grid-cols-5">
+        <div className="pointer-events-none absolute inset-y-0 left-[8rem] right-0 grid grid-cols-5">
           {NOMBRES_DIA.map((_, indice) => {
             const dia = indice + 1
             const delDia = porDia.get(dia) ?? []
