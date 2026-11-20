@@ -310,6 +310,11 @@ def test_adjunto_privado_y_envio_atomico(client, escenario, monkeypatch):
     assert creado.status_code == 201, creado.text
     hilo = creado.json()["id"]
     assert client.post(url, data=datos, files=files).json()["id"] == hilo
+    otra_imagen = BytesIO()
+    Image.new("RGB", (5, 5)).save(otra_imagen, format="PNG")
+    otro = {"archivos": ("comprobante.png", otra_imagen.getvalue(), "image/png")}
+    assert client.post(url, data=datos, files=otro).status_code == 409
+    assert client.post(contexto, json=datos).status_code == 409
     historial = client.get(f"{BASE}/{hilo}/mensajes").json()["items"]
     assert len(historial) == len(historial[0]["adjuntos"]) == 1
     mensaje = historial[0]
@@ -319,6 +324,7 @@ def test_adjunto_privado_y_envio_atomico(client, escenario, monkeypatch):
     autenticar(client, admin, "administracion")
     respuesta = client.get(descarga)
     assert respuesta.content == archivo
+    assert respuesta.headers["content-type"] == "image/png"
     assert respuesta.headers["cache-control"] == "private, no-store"
     assert respuesta.headers["x-content-type-options"] == "nosniff"
     assert client.get(descarga.replace(mensaje["id"], str(uuid4()))).status_code == 404

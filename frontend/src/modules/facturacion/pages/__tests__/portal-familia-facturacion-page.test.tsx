@@ -111,8 +111,10 @@ describe('PortalFamiliaFacturacionPage', () => {
       ],
     }
     if (directo) {
-      const { resultado, fecha, importe, numero_factura, motivo_rechazo } = cuenta.avisos_debito![0]
+      const { debito_id, resultado, fecha, importe, numero_factura, motivo_rechazo } =
+        cuenta.avisos_debito![0]
       cuenta.facturas[0].ultimo_resultado_debito = {
+        debito_id,
         resultado,
         fecha,
         importe,
@@ -136,6 +138,10 @@ describe('PortalFamiliaFacturacionPage', () => {
 
     abrirFactura()
     expect(await screen.findByText('Motivo: Fondos insuficientes.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Consultar sobre este pago' })).toHaveAttribute(
+      'href',
+      '/familia/conversaciones/contextos/debito_cobranza/debito-1',
+    )
     expect(screen.getByText('Factura F-202611-0003')).toBeInTheDocument()
     expect(screen.getAllByText(/Cuota de marzo/).length).toBeGreaterThanOrEqual(2)
     expect(screen.queryByText(/Código:/)).not.toBeInTheDocument()

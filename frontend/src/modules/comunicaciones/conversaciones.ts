@@ -1,5 +1,5 @@
 import { apiClient } from '@/api/client'
-import { descargarExport } from '@/lib/descargar-export'
+import { guardarArchivo, obtenerExport } from '@/lib/descargar-export'
 
 export type TipoContexto =
   'debito_cobranza' | 'justificacion_inasistencia' | 'solicitud_ausencia_periodo'
@@ -125,11 +125,12 @@ export function enviarMensaje(
   )
 }
 
-export function descargarAdjunto(id: string, mensaje: string, adjunto: AdjuntoMensaje) {
-  return descargarExport(
+export async function descargarAdjunto(id: string, mensaje: string, adjunto: AdjuntoMensaje) {
+  const { blob } = await obtenerExport(
     `${URL_CONVERSACIONES}/${encodeURIComponent(id)}/mensajes/${encodeURIComponent(mensaje)}/adjuntos/${encodeURIComponent(adjunto.id)}`,
     adjunto.nombre,
   )
+  guardarArchivo(blob, adjunto.nombre)
 }
 
 export function gestionarHilo(id: string, accion: 'resolver' | 'reabrir', signal: AbortSignal) {

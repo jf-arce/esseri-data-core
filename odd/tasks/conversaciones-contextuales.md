@@ -16,10 +16,10 @@ Delivery: `ask-on-risk`; forecast over 400 authored lines. Runners: pytest, Post
 ## Tasks
 
 - [x] T1 · S1–S3, S7–S8 · inline, dependent core · model, API, permissions, migration and tests · `fcda116`; Risk: items 2 and 4 (family isolation and serialized thread mutations)
-- [ ] T2 · S4, S7–S8 · inline, depends on T1 · family and Administration surfaces
-- [ ] T3 · S5, S7–S8 · inline, follows T2 · private attachments
-- [ ] T4 · S5–S8 · inline, follows T3 · notifications
-- [ ] T5 · S1–S8 · inline, depends on prior tasks · integration and regression
+- [x] T2 · S4, S7–S8 · inline, depends on T1 · family and Administration surfaces · `c724f24`
+- [x] T3 · S5, S7–S8 · inline, follows T2 · private attachments · `3d7ac66`, independent verification passed · Risk: item 2 (private-file authorization)
+- [ ] T4 · S5–S8 · inline, follows T3 · notifications · `ab9987d`, independent verification pending · Risk: items 2 and 3 (email boundary and shared transport)
+- [ ] T5 · S1–S8 · inline, depends on prior tasks · integration and regression · started
 
 ## Log
 
@@ -95,3 +95,10 @@ Si encontrás un impedimento arquitectónico o de negocio importante, documental
 - Alembic autogenerate against an isolated PostgreSQL 16 database detected only the two new tables and their indexes.
 - GREEN: five focused PostgreSQL tests passed (including concurrent opens); Communications suite: 95 passed, 2 skipped. Ruff check and format check passed; Alembic upgrade and `alembic check` passed on the isolated database.
 - Independent verification found no blockers (13 additional probes). Retained API permission, pagination, replay and storage constraints in the regression suite; seven focused PostgreSQL tests pass after readback. The core commit exceeds the slice heuristic because the tested API, permission policy and migration form one usable unit.
+- Native review granted for lineage `review-56db7acff637ec39`, but remains pending: this runtime only exposes background delegation, not the required foreground group with provider capture. Independent verification passed; no review receipt claimed.
+- T2: RED missing detail page and missing `debito_id`; GREEN 426 frontend tests, frontend TypeScript and lint, 13 billing API tests. Existing staff lot read already exposes the debit ID as `referencia`.
+- T3: RED multipart route missing; GREEN 20 backend probes, 70 frontend tests, TypeScript and lint, both Alembic schema checks. Fail closed if the existing Communications scanner cannot validate a file; no mutation or quarantine row is left by the send.
+- T4: RED no inbox entry for the first administrative message; GREEN 89 passed and 6 skipped across conversation, inbox and existing correlated email tests; 111 frontend tests, TypeScript and lint. Reuse `EnvioNotificacion` with mutually exclusive origin foreign keys instead of editable workflow rules or one-way publications; no new n8n workflow or infrastructure. Delivery transport was stubbed in automated tests, with current family linkage rechecked before dispatch and before the provider claim.
+- T5 browser: one Chromium test passed against an isolated seeded PostgreSQL, real FastAPI and Vite. Family used the existing period-request detail, Administration used the pending queue, Family followed the new bell destination; resolving/reopening preserved the request state. Dedicated preview is loopback only (`127.0.0.1:5187`/`:8187`), scheduler and email transport disabled.
+- Independent T3 verification found no blocker: 20 focused tests, 8 additional probes, baseline-compatible publication download headers. Retained byte-mismatch replay regression; contextual downloads preserve the already authorized attachment name.
+- Chromium also displayed and opened the exact rejected debit's conversation composer in the seeded preview. No message was sent in that smoke check.

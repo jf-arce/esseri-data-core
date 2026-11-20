@@ -128,6 +128,7 @@ function Detalle({ familia }: { familia: boolean }) {
         ])
         if (signal.aborted) return
         setHilo(actual)
+        setContexto(actual.contexto)
         setHistorial((previo) => {
           const primero = mensajes.items[0]?.id
           const anteriores = previo.items.findIndex((mensaje) => mensaje.id === primero)
@@ -142,6 +143,7 @@ function Detalle({ familia }: { familia: boolean }) {
         if (!signal.aborted) {
           setHistorial({ items: [], siguiente: null })
           setHilo(undefined)
+          setContexto(undefined)
           setPuedeIniciar(false)
           setError('No se pudo actualizar la conversación.')
         }
