@@ -19,6 +19,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { formatearMoneda } from '@/modules/facturacion/utils'
+import { capitalizar } from '@/lib/texto'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth-store'
 import {
@@ -42,7 +43,7 @@ const CANAL_ADJUNTOS = 'Máx. 10 MB (PDF, JPG, PNG)'
 
 function vuelta(contexto: Contexto | undefined, familia: boolean) {
   if (!contexto) return familia ? '/familia/comunicaciones' : rutaConversaciones(false)
-  if (familia) return '/familia/comunicaciones'
+  if (familia) return '/familia/consultas'
   if (contexto.tipo === 'debito_cobranza') return '/facturacion/cobranzas'
   return contexto.tipo === 'justificacion_inasistencia'
     ? '/academico/justificaciones'
@@ -135,7 +136,9 @@ function datosDelContexto(contexto: Contexto): DatoHeader[] {
       },
       {
         etiqueta: 'Motivo',
-        valor: contexto.motivo ?? 'El intento de débito automático no pudo ser procesado.',
+        valor: capitalizar(
+          contexto.motivo ?? 'El intento de débito automático no pudo ser procesado.',
+        ),
         crece: true,
       },
     ]
@@ -151,7 +154,7 @@ function datosDelContexto(contexto: Contexto): DatoHeader[] {
       },
       {
         etiqueta: 'Motivo',
-        valor: contexto.motivo ?? 'Sin motivo informado',
+        valor: capitalizar(contexto.motivo ?? 'Sin motivo informado'),
         crece: true,
       },
     ]
@@ -162,7 +165,11 @@ function datosDelContexto(contexto: Contexto): DatoHeader[] {
       etiqueta: 'Fecha de la inasistencia',
       valor: fechaCorta(contexto.fecha_inicio),
     },
-    { etiqueta: 'Motivo', valor: contexto.motivo ?? 'Sin motivo informado', crece: true },
+    {
+      etiqueta: 'Motivo',
+      valor: capitalizar(contexto.motivo ?? 'Sin motivo informado'),
+      crece: true,
+    },
   ]
 }
 
@@ -747,7 +754,7 @@ function Detalle({ familia }: { familia: boolean }) {
           titulo={titulo}
           descripcion={descripcion}
           volverA={destino}
-          volverEtiqueta="Volver a Comunicaciones"
+          volverEtiqueta="Volver a Mis consultas"
           acciones={estadoHilo}
           anchoMaximo="max-w-[1100px]"
           className="px-0 pt-8 pb-4 sm:px-0"

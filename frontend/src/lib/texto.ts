@@ -11,3 +11,10 @@ export function normalizarTexto(valor: string): string {
     .replace(/\s+/g, ' ')
     .trim()
 }
+
+/** Deja la primera letra en mayúscula sin tocar el resto del texto. */
+export function capitalizar(valor: string): string {
+  const texto = valor.trim()
+  if (!texto) return texto
+  return texto.charAt(0).toLocaleUpperCase('es-AR') + texto.slice(1)
+}

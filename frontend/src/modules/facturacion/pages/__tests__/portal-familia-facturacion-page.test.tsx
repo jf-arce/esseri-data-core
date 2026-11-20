@@ -142,6 +142,7 @@ describe('PortalFamiliaFacturacionPage', () => {
       'href',
       '/familia/conversaciones/contextos/debito_cobranza/debito-1',
     )
+    expect(screen.getByText(/acercate a Administración/)).toBeInTheDocument()
     expect(screen.getByText('Factura F-202611-0003')).toBeInTheDocument()
     expect(screen.getAllByText(/Cuota de marzo/).length).toBeGreaterThanOrEqual(2)
     expect(screen.queryByText(/Código:/)).not.toBeInTheDocument()
@@ -591,10 +592,7 @@ describe('PortalFamiliaFacturacionPage', () => {
     expect(screen.getByText('Débito rechazado')).toBeInTheDocument()
     const atrasada = screen.getAllByText('Atrasada')[0].closest('details')!
     fireEvent.click(within(atrasada).getByText('Débito rechazado'))
-    expect(within(atrasada).getByRole('link', { name: 'Comunicaciones' })).toHaveAttribute(
-      'href',
-      '/familia/comunicaciones',
-    )
+    expect(within(atrasada).queryByRole('link', { name: 'Comunicaciones' })).not.toBeInTheDocument()
     expect(within(atrasada).queryByText(/Revisá tu medio de pago/)).not.toBeInTheDocument()
     const sinPagos = screen.getAllByText('Hoy')[0].closest('details')!
     expect(sinPagos.querySelector('[data-slot="card-content"]')).toHaveClass('pb-5')

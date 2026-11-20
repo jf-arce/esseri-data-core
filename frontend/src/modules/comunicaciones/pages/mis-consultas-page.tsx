@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { capitalizar } from '@/lib/texto'
 import { cn } from '@/lib/utils'
 import {
   ESTADOS,
@@ -31,12 +32,20 @@ function fechaCorta(valor: string) {
   return instante.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })
 }
 
+function horaCorta(valor: string) {
+  return new Date(valor).toLocaleTimeString('es-AR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
 function subtitulo(consulta: ConsultaResumen) {
   const { contexto } = consulta
   if (contexto.tipo === 'debito_cobranza') return contexto.concepto ?? 'Débito automático'
   if (contexto.tipo === 'solicitud_ausencia_periodo' && contexto.fecha_fin)
-    return `${contexto.motivo ?? 'Justificación'} · ${fechaCorta(contexto.fecha_inicio)} al ${fechaCorta(contexto.fecha_fin)}`
-  return contexto.motivo ?? 'Justificación de inasistencia'
+    return `${capitalizar(contexto.motivo ?? 'Justificación')} · ${fechaCorta(contexto.fecha_inicio)} al ${fechaCorta(contexto.fecha_fin)}`
+  return capitalizar(contexto.motivo ?? 'Justificación de inasistencia')
 }
 
 function FilaConsulta({ consulta }: { consulta: ConsultaResumen }) {
@@ -65,12 +74,17 @@ function FilaConsulta({ consulta }: { consulta: ConsultaResumen }) {
               <Badge variant={consulta.estado === 'resuelta' ? 'exito' : 'advertencia'}>
                 {ESTADOS[consulta.estado]}
               </Badge>
-              <time
-                className="text-[12px] whitespace-nowrap text-[#6B6478]"
-                dateTime={consulta.updated_at}
-              >
-                {fechaCorta(consulta.updated_at)}
-              </time>
+              <span className="flex flex-col items-end text-[12px] whitespace-nowrap text-[#6B6478]">
+                <time dateTime={consulta.updated_at}>{fechaCorta(consulta.updated_at)}</time>
+                {consulta.ultimo_mensaje && (
+                  <time
+                    dateTime={consulta.ultimo_mensaje.created_at}
+                    className="text-[11px] text-[#8C8599]"
+                  >
+                    {horaCorta(consulta.ultimo_mensaje.created_at)}
+                  </time>
+                )}
+              </span>
             </span>
           </span>
           {ultimo && (

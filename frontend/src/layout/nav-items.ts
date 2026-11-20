@@ -11,6 +11,7 @@ import {
   HandCoinsIcon,
   HistoryIcon,
   MailIcon,
+  MessageSquareTextIcon,
   IdCardIcon,
   KeyRoundIcon,
   Landmark,
@@ -151,6 +152,14 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: MailIcon,
         modulo: 'familias',
         permiso: PERMISO_COMUNICACIONES_LEER,
+        children: [
+          {
+            label: 'Conversaciones',
+            href: '/comunicaciones/conversaciones',
+            icon: MessageSquareTextIcon,
+            permiso: PERMISO_COMUNICACIONES_LEER,
+          },
+        ],
       },
       {
         // El label es el link a la landing del módulo (§8 DESIGN.md); el desplegable solo
