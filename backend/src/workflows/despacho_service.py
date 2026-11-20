@@ -23,6 +23,7 @@ from src.models import EventLog
 from src.workflows import (
     acciones_admision_service,
     acciones_compras_service,
+    acciones_comunicaciones_service,
     acciones_pagos_service,
     acciones_penalidad_service,
     acciones_recordatorio_service,
@@ -65,6 +66,7 @@ ACCIONES: dict[str, AccionHandler] = {
     "generar_cargo": acciones_admision_service.ejecutar_generar_cargo,
     "generar_orden_compra": acciones_compras_service.ejecutar_generar_orden_compra,
     "generar_comunicacion": acciones_compras_service.ejecutar_generar_comunicacion,
+    "publicar_comunicacion": acciones_comunicaciones_service.ejecutar_publicar_comunicacion,
     "crear_tarea": tareas_service.ejecutar_crear_tarea,
     "escalar_caso": tareas_service.ejecutar_escalar_caso,
     "generar_recordatorio": acciones_recordatorio_service.ejecutar_generar_recordatorio,
@@ -127,6 +129,8 @@ def _aviso_familiar_cubierto(
     actuales = _emails_de_aviso(db, regla_actual, evento, destino_actual)
     if not actuales:
         return False
+    actuales_normalizados = {email.strip().lower() for email in actuales}
+    coberturas_publicacion: list[set[str]] = []
     campos = tipos_de_campos(db, resultado.tipo_evento_id)
     reglas = db.scalars(
         select(WorkflowRule).where(
@@ -144,6 +148,13 @@ def _aviso_familiar_cubierto(
             logger.warning("No se pudo evaluar la regla de resultados al deduplicar", exc_info=True)
             continue
         for nodo in recorrido.acciones:
+            if nodo.tipo_accion == "publicar_comunicacion" and not nodo.requiere_aprobacion_humana:
+                coberturas_publicacion.append(
+                    acciones_comunicaciones_service.emails_cubiertos(
+                        db, AccionContexto(regla, nodo), resultado
+                    )
+                )
+                continue
             if (
                 nodo.tipo_accion not in ACCIONES_DE_AVISO_FAMILIAR
                 or nodo.requiere_aprobacion_humana
@@ -153,7 +164,11 @@ def _aviso_familiar_cubierto(
             cubiertos = _emails_de_aviso(db, regla, resultado, destino)
             if cubiertos and actuales <= cubiertos:
                 return True
-    return False
+    # A Portal-only action can win the event's single publication. Don't suppress
+    # the old email if any matching publication could leave its recipients uncovered.
+    return bool(coberturas_publicacion) and all(
+        actuales_normalizados <= cobertura for cobertura in coberturas_publicacion
+    )
 
 
 DETALLE_ESPERANDO_APROBACION = "Esperando aprobación humana."

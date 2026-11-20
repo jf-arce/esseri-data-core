@@ -220,6 +220,14 @@ class PagoFamiliaRead(BaseModel):
     comprobante_disponible: bool
 
 
+class ResultadoDebitoFamiliaRead(BaseModel):
+    resultado: Literal["exitoso", "rechazado"]
+    fecha: InstanteUtc
+    importe: Decimal
+    numero_factura: str
+    motivo_rechazo: str
+
+
 class FacturaFamiliaRead(BaseModel):
     id: uuid.UUID
     alumno_id: uuid.UUID
@@ -231,6 +239,7 @@ class FacturaFamiliaRead(BaseModel):
     alumno_nombre: str
     detalles: list[DetalleFacturaFamiliaRead]
     pagos: list[PagoFamiliaRead]
+    ultimo_resultado_debito: ResultadoDebitoFamiliaRead | None = None
 
 
 class MovimientoFamiliaRead(BaseModel):

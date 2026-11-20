@@ -22,6 +22,7 @@ from src.facturacion.schemas import (
     FacturaFamiliaRead,
     MovimientoFamiliaRead,
     PagoFamiliaRead,
+    ResultadoDebitoFamiliaRead,
 )
 from src.facturacion.vencimientos_service import fecha_vencimiento_efectiva
 from src.familias_alumnos.models import Alumno, Familia
@@ -79,6 +80,42 @@ def _avisos_debito(db: Session, familia_id: uuid.UUID) -> list[AvisoDebitoFamili
     return list(avisos.values())
 
 
+def _ultimos_resultados_debito(
+    db: Session, factura_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, ResultadoDebitoFamiliaRead]:
+    """Project confirmed results only for invoices already scoped to the calling family."""
+    filas = db.execute(
+        select(
+            DebitoCobranza.factura_id, DebitoCobranza.importe, EventLog.timestamp, EventLog.payload
+        )
+        .select_from(DebitoCobranza)
+        .join(EventLog, EventLog.entidad_id == DebitoCobranza.id)
+        .join(TipoEvento, TipoEvento.id == EventLog.tipo_evento_id)
+        .where(
+            DebitoCobranza.factura_id.in_(factura_ids),
+            EventLog.entidad == "debito_cobranza",
+            TipoEvento.nombre == "debito.resultado_registrado",
+        )
+        .order_by(EventLog.timestamp.desc(), EventLog.id.desc())
+    )
+    resultados = {}
+    for factura_id, importe, fecha, payload in filas:
+        datos = payload or {}
+        resultado = datos.get("resultado")
+        if factura_id in resultados or resultado not in ("exitoso", "rechazado"):
+            continue
+        resultados[factura_id] = ResultadoDebitoFamiliaRead(
+            resultado=resultado,
+            fecha=fecha,
+            importe=importe,
+            numero_factura=str(datos.get("numero_factura") or f"#{str(factura_id)[:8]}"),
+            motivo_rechazo=str(datos.get("motivo_rechazo") or "")
+            if resultado == "rechazado"
+            else "",
+        )
+    return resultados
+
+
 def _cuenta_vacia() -> FacturacionFamiliaRead:
     cero = Decimal("0.00")
     return FacturacionFamiliaRead(
@@ -119,6 +156,11 @@ def obtener_facturacion_familia(
         .order_by(Factura.fecha_vencimiento, Factura.id)
     ).all()
 
+    factura_ids = [factura.id for factura, _, _, _ in filas]
+    if not factura_ids:
+        return _cuenta_vacia()
+    resultados = _ultimos_resultados_debito(db, factura_ids)
+
     excepciones = list(
         db.scalars(
             select(ExcepcionVencimiento).where(
@@ -138,6 +180,7 @@ def obtener_facturacion_familia(
             monto_total=factura.monto_total,
             estado=factura.estado,
             alumno_nombre=f"{nombre} {apellido}",
+            ultimo_resultado_debito=resultados.get(factura.id),
             detalles=[
                 DetalleFacturaFamiliaRead(
                     descripcion=detalle.descripcion,
@@ -159,10 +202,6 @@ def obtener_facturacion_familia(
         )
         for factura, alumno_id, nombre, apellido in filas
     ]
-    factura_ids = [factura.id for factura, _, _, _ in filas]
-    if not factura_ids:
-        return _cuenta_vacia()
-
     movimientos = list(
         db.scalars(
             select(Movimiento)

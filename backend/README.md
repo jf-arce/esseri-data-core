@@ -124,6 +124,27 @@ entre familias, fallo de n8n sin reversión y ausencia de duplicados al reproces
 Para la presentación en navegador y correos a casillas de prueba autorizadas, seguir
 [el recorrido de demo](../docs/cobranzas-simuladas.md#safe-abc-demonstration).
 
+La acción de workflow **Publicar comunicación** (`publicar_comunicacion`) admite únicamente
+`debito.resultado_registrado`. Requiere plantilla y canal (`portal`, `email` o `ambos`).
+Publica una comunicación administrativa por evento para la familia del responsable económico de
+la factura, si el vínculo con el alumno habilita comunicaciones. La publicación, el recibo y
+las intenciones de envío se confirman juntos. Los canales `email` y `ambos` usan la cola de
+Comunicaciones (`N8N_MANUAL_HABILITADO`), no el envío directo de `notificar`.
+Si otra regla coincide con el mismo resultado y solicita un canal distinto, su ejecución
+informa el conflicto; la publicación original y su canal se conservan.
+
+`GET /facturacion/familia/me` incluye `ultimo_resultado_debito` por factura cuando existe una
+rendición confirmada. Este dato no depende de la comunicación ni del envío de correo y solo se
+proyecta para las facturas de la familia responsable.
+
+```bash
+pytest -q tests/facturacion/test_publicar_comunicacion_debito.py
+```
+
+La revisión `260e3555f2b7` amplía la restricción de acciones de `workflow_nodo`. Para volver a
+una versión anterior, primero reemplazar las acciones **Publicar comunicación** en las reglas
+que las usan; la migración de reversión no elimina nodos ni comunicaciones.
+
 La revisión `91553e2163be` fue autogenerada contra un esquema de referencia aislado en SQLite y
 revisada para que sea aditiva (tablas nuevas, columnas nullable o con default, constraints e
 índices nombrados). Se verificó `upgrade`/`downgrade` en ese esquema aislado. Eso no sustituye

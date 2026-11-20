@@ -146,10 +146,19 @@ describe('armarConfig con botón del mail', () => {
   })
 
   it('generar_comunicacion no lo admite: lo descarta', () => {
-    expect(armarConfig('generar_comunicacion', { destinatario: 'x', enlace: 'tareas' })).toEqual({
-      destinatario: 'x',
-    })
+    expect(
+      armarConfig('generar_comunicacion', { destinatario: 'x', enlace: 'tareas', canal: 'ambos' }),
+    ).toEqual({ destinatario: 'x' })
   })
+
+  it.each(['portal', 'email', 'ambos'])(
+    'guarda el canal %s sin aceptar audiencia manual',
+    (canal) => {
+      expect(
+        armarConfig('publicar_comunicacion', { canal, destinatario: 'destinatarios_regla' }),
+      ).toEqual({ canal })
+    },
+  )
 })
 
 describe('armarConfig', () => {

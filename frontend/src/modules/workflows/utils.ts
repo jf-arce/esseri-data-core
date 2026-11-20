@@ -49,6 +49,7 @@ export const ETIQUETA_ACCION: Record<TipoAccion, string> = {
   crear_registro_relacionado: 'Crear registro relacionado',
   generar_orden_compra: 'Generar orden de compra',
   generar_comunicacion: 'Generar comunicación',
+  publicar_comunicacion: 'Publicar comunicación',
 }
 
 // Cómo se nombra cada evento del catálogo (`TipoEventoNombre` en el backend) frente al usuario.
@@ -186,6 +187,7 @@ const CAMPO_ENLACE = texto(CLAVE_CONFIG.enlace)
 export const CAMPOS_POR_ACCION: Record<TipoAccion, readonly CampoConfig[]> = {
   notificar: [...CAMPOS_DESTINATARIO, CAMPO_ENLACE],
   generar_comunicacion: CAMPOS_DESTINATARIO,
+  publicar_comunicacion: [texto(CLAVE_CONFIG.canal)],
   generar_recordatorio: [
     texto(CLAVE_CONFIG.destinatario),
     entero(CLAVE_CONFIG.diasDespues),
