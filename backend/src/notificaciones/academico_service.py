@@ -19,14 +19,18 @@ from src.models import Persona
 from src.notificaciones import service as notificaciones_service
 from src.notificaciones.constants import (
     AMBITO_ACADEMICO,
+    AMBITO_ADMINISTRACION,
     DESTINO_ASISTENCIA,
+    DESTINO_JUSTIFICACION,
     DESTINO_JUSTIFICACION_INDIVIDUAL,
     DESTINO_SOLICITUD_PERIODO,
     ROL_FAMILIA,
     TIPO_INASISTENCIA_REGISTRADA,
     TIPO_JUSTIFICACION_APROBADA,
+    TIPO_JUSTIFICACION_PENDIENTE,
     TIPO_JUSTIFICACION_RECHAZADA,
 )
+from src.notificaciones.destinatarios import cuentas_de_administracion
 
 
 def _nombre_alumno(db: Session, alumno_id: uuid.UUID) -> str:
@@ -103,6 +107,49 @@ def registrar_ausencia(db: Session, *, asistencia: Asistencia, inscripcion: Insc
                 },
                 destino_tipo=DESTINO_ASISTENCIA,
                 destino_id=asistencia.id,
+            )
+        )
+    return insertadas
+
+
+def registrar_justificacion_pendiente(
+    db: Session,
+    *,
+    justificacion: JustificacionInasistencia,
+    asistencia: Asistencia,
+    inscripcion: Inscripcion,
+    motivo: str,
+) -> int:
+    """Avisa a Administración que la familia envió una justificación individual."""
+    nombre = _nombre_alumno(db, inscripcion.alumno_id)
+    mensaje = (
+        f"{nombre} presentó una justificación para la falta del "
+        f"{asistencia.fecha:%d/%m/%Y}. Motivo: {motivo}."
+    )
+    clave = f"administracion:justificacion_pendiente:{justificacion.id}"
+    insertadas = 0
+    for usuario_id in cuentas_de_administracion(db):
+        insertadas += int(
+            notificaciones_service.publicar(
+                db,
+                usuario_id=usuario_id,
+                familia_id=justificacion.familia_id,
+                alumno_id=inscripcion.alumno_id,
+                ambito=AMBITO_ADMINISTRACION,
+                clave_hecho=clave,
+                tipo=TIPO_JUSTIFICACION_PENDIENTE,
+                titulo="Nueva justificación para revisar",
+                mensaje=mensaje,
+                contexto={
+                    "familia_id": str(justificacion.familia_id),
+                    "alumno_id": str(inscripcion.alumno_id),
+                    "justificacion_id": str(justificacion.id),
+                    "asistencia_id": str(asistencia.id),
+                    "fecha": asistencia.fecha.isoformat(),
+                    "motivo": motivo,
+                },
+                destino_tipo=DESTINO_JUSTIFICACION,
+                destino_id=justificacion.id,
             )
         )
     return insertadas

@@ -11,7 +11,7 @@ from fastapi import APIRouter, Query, Response
 
 from src.auth.dependencies import DbSession, UsuarioAutenticado
 from src.notificaciones import service
-from src.notificaciones.dependencies import FamiliaVigente
+from src.notificaciones.dependencies import BandejaVigente
 from src.notificaciones.schemas import (
     LecturaNotificacion,
     LecturasMasivas,
@@ -31,7 +31,7 @@ def listar_notificaciones(
     response: Response,
     db: DbSession,
     usuario: UsuarioAutenticado,
-    familia: FamiliaVigente,
+    alcance: BandejaVigente,
     no_leidas: bool = False,
     limite: Annotated[int, Query(ge=1, le=service.LIMITE_MAXIMO)] = service.LIMITE_POR_DEFECTO,
     cursor: str | None = None,
@@ -41,7 +41,7 @@ def listar_notificaciones(
     return service.listar(
         db,
         usuario.id,
-        familia.id,
+        alcance,
         no_leidas=no_leidas,
         limite=limite,
         cursor=cursor,
@@ -53,11 +53,11 @@ def resumen_notificaciones(
     response: Response,
     db: DbSession,
     usuario: UsuarioAutenticado,
-    familia: FamiliaVigente,
+    alcance: BandejaVigente,
 ) -> ResumenNotificaciones:
     """Contador de no leídas para la campanita."""
     _privada(response)
-    return service.resumen(db, usuario.id, familia.id)
+    return service.resumen(db, usuario.id, alcance)
 
 
 @router.patch("/{notificacion_id}/lectura", response_model=LecturaNotificacion)
@@ -66,11 +66,11 @@ def marcar_notificacion_leida(
     response: Response,
     db: DbSession,
     usuario: UsuarioAutenticado,
-    familia: FamiliaVigente,
+    alcance: BandejaVigente,
 ) -> LecturaNotificacion:
     """Primera lectura inmutable: repetir devuelve el instante ya persistido."""
     _privada(response)
-    return service.marcar_lectura(db, usuario.id, familia.id, notificacion_id)
+    return service.marcar_lectura(db, usuario.id, alcance, notificacion_id)
 
 
 @router.post("/lecturas", response_model=LecturasMasivas)
@@ -78,8 +78,8 @@ def marcar_notificaciones_leidas(
     response: Response,
     db: DbSession,
     usuario: UsuarioAutenticado,
-    familia: FamiliaVigente,
+    alcance: BandejaVigente,
 ) -> LecturasMasivas:
     """Marca todo lo no leído de la foto autorizada, en una sola sentencia."""
     _privada(response)
-    return service.marcar_todas(db, usuario.id, familia.id)
+    return service.marcar_todas(db, usuario.id, alcance)
