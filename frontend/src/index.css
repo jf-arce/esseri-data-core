@@ -111,6 +111,7 @@
   --color-pf-accent: var(--pf-accent);
   --color-pf-accent-hover: var(--pf-accent-hover);
   --color-pf-header: var(--pf-header);
+  --color-pf-nav-activo: var(--pf-nav-activo);
   --color-pf-borde: var(--pf-borde);
   --color-pf-divisor: var(--pf-divisor);
   --color-pf-item: var(--pf-item);
@@ -143,16 +144,17 @@
   --radius-pf-icono: 14px;
   --radius-pf-input: 10px;
   --radius-pf-dialogo: 16px;
-  --text-pf-cuerpo: 15px;
-  --text-pf-cuerpo--line-height: 22px;
-  --text-pf-encabezado: 17px;
+  --text-pf-cuerpo: 14px;
+  --text-pf-cuerpo--line-height: 20px;
+  --text-pf-encabezado: 16px;
   --text-pf-encabezado--line-height: 24px;
-  --text-pf-cifra: 28px;
-  --text-pf-cifra--line-height: 32px;
-  --text-pf-titulo: 30px;
-  --text-pf-titulo--line-height: 36px;
-  --text-pf-titulo-lg: 36px;
-  --text-pf-titulo-lg--line-height: 42px;
+  --text-pf-cifra: 24px;
+  --text-pf-cifra--line-height: 28px;
+  --text-pf-titulo: 24px;
+  --text-pf-titulo--line-height: 32px;
+  --text-pf-titulo-lg: 28px;
+  --text-pf-titulo-lg--line-height: 36px;
+  --container-pf: 80rem;
   --shadow-overlay: var(--sombra-overlay);
   --ease-esseri: var(--curva-esseri);
 
@@ -332,7 +334,9 @@
   --pf-accent-hover: #6a2494;
   /* Mezcla 50/50 de --nav-activo y --violeta-esseri del sistema (rampa nav) */
   --pf-header: #422c5a;
-  --pf-borde: #e4d9f0;
+  /* Blanco al 18% sobre --pf-header: se distingue del header (1.3:1 o más) y el texto blanco llega a 4.5:1 */
+  --pf-nav-activo: color-mix(in srgb, white 18%, var(--pf-header));
+  --pf-borde: #d6c8e6;
   --pf-divisor: #f1ebf7;
   --pf-item: #f9f5fd;
   --pf-item-hover: #f3ecf9;
@@ -343,7 +347,8 @@
   --pf-tile-lavanda-bg: #e7d4f7;
   --pf-tile-lavanda-fg: var(--pf-accent);
   --pf-tile-ambar-bg: var(--advertencia-suave);
-  --pf-tile-ambar-fg: var(--advertencia);
+  /* Más oscuro que --advertencia: sobre --pf-tile-ambar-bg el texto llega a 4.5:1 */
+  --pf-tile-ambar-fg: #9a4507;
   --pf-tile-azul-bg: var(--info-suave);
   --pf-tile-azul-fg: var(--info);
   --pf-tile-verde-bg: var(--exito-suave);
@@ -428,6 +433,7 @@
   --pf-lila: #3d2f50;
   --pf-lila-fuerte: #4a3862;
   --pf-tile-lavanda-bg: #4a3862;
+  --pf-tile-ambar-fg: var(--advertencia);
   --pf-ilus-claro: #8a73a3;
   --pf-ilus-medio: #6c5489;
   --pf-ilus-oscuro: #3d2d57;

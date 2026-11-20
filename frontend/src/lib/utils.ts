@@ -26,6 +26,7 @@ const twMerge = extendTailwindMerge({
           ],
         },
       ],
+      'max-w': [{ 'max-w': ['pf'] }],
       shadow: [{ shadow: ['card', 'overlay', 'pf-card', 'pf-hover'] }],
     },
   },

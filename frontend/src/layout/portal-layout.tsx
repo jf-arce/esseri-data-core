@@ -35,9 +35,7 @@ export function PortalLayout() {
   const navItemClass = ({ isActive }: { isActive: boolean }) =>
     cn(
       'rounded-full px-2.5 py-2 text-sm font-semibold whitespace-nowrap transition-colors lg:px-4',
-      isActive
-        ? 'bg-nav-activo text-lila-claro'
-        : 'text-white/70 hover:bg-white/10 hover:text-white',
+      isActive ? 'bg-pf-nav-activo text-white' : 'text-white/70 hover:bg-white/10 hover:text-white',
     )
 
   return (
@@ -55,7 +53,7 @@ export function PortalLayout() {
         className="sticky top-0 z-30 border-b border-white/10 print:hidden"
         style={{ background: PORTAL_FAMILIA_HEADER_BACKGROUND }}
       >
-        <div className="relative mx-auto flex min-h-16 w-full max-w-[92vw] items-center gap-3 py-3">
+        <div className="relative mx-auto flex min-h-14 w-full max-w-pf items-center gap-3 px-4 py-2 sm:px-6">
           <div className="flex items-center gap-2.5">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10">
               <img
@@ -149,7 +147,7 @@ export function PortalLayout() {
         </div>
       </header>
 
-      <main className="@container/main relative z-10 px-4 py-6 sm:px-8">
+      <main className="@container/main relative z-10 mx-auto w-full max-w-pf px-4 py-6 sm:px-6">
         <Outlet />
       </main>
     </div>

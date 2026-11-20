@@ -338,7 +338,7 @@ describe('PortalFamiliaPage', () => {
 
     const inicio = screen.getByRole('link', { name: 'Inicio' })
     expect(inicio).toHaveAttribute('aria-current', 'page')
-    expect(inicio.className).toContain('bg-nav-activo')
+    expect(inicio.className).toContain('bg-pf-nav-activo')
   })
 
   it('muestra el contador real de notificaciones en la cabecera del portal', async () => {

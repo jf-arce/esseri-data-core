@@ -553,7 +553,7 @@ export function PortalFamiliaFacturacionPage() {
 
   return (
     <section
-      className="relative isolate -mx-4 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden sm:-mx-8"
+      className="relative isolate -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden"
       style={{ background: PORTAL_FAMILIA_BACKGROUND }}
     >
       <PortalFamiliaWatermark />
@@ -562,7 +562,6 @@ export function PortalFamiliaFacturacionPage() {
           titulo="Facturación"
           descripcion="Consultá las facturas y los débitos asociados a tu cuenta."
           etiqueta="Portal de familia"
-          anchoMaximo="max-w-[92vw]"
           className="pb-8"
           volverA="/familia"
           volverEtiqueta="Volver al inicio"
@@ -593,7 +592,7 @@ export function PortalFamiliaFacturacionPage() {
           }
         />
 
-        <div className="mx-auto flex w-full max-w-[92vw] flex-col gap-6 pb-10">
+        <div className="flex w-full flex-col gap-6 pb-10">
           {cargando && (
             <div role="status" aria-label="Cargando facturación" className="flex flex-col gap-4">
               <div className="grid gap-4 lg:grid-cols-3">

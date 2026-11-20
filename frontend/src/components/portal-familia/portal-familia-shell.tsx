@@ -16,7 +16,6 @@ type PortalFamiliaShellProps = {
   acciones?: ReactNode
   ilustracion?: ReactNode
   icono?: ReactNode
-  anchoMaximo?: string
   className?: string
   classNameContenido?: string
   tituloClassName?: string
@@ -32,7 +31,6 @@ export function PortalFamiliaShell({
   acciones,
   ilustracion,
   icono,
-  anchoMaximo = 'max-w-[92vw]',
   className,
   classNameContenido,
   tituloClassName,
@@ -40,27 +38,18 @@ export function PortalFamiliaShell({
   return (
     <section
       data-slot="portal-familia-shell"
-      className={cn(
-        'relative -mx-4 -mt-6 overflow-hidden px-4 pt-10 pb-14 sm:-mx-8 sm:px-8',
-        className,
-      )}
+      className={cn('relative overflow-hidden pt-2 pb-4', className)}
     >
       {ilustracion && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute top-2 right-0 hidden w-[34rem] max-w-[46%] opacity-90 lg:block"
+          className="pointer-events-none absolute top-2 right-0 hidden w-96 max-w-[40%] opacity-90 lg:block"
         >
           {ilustracion}
         </div>
       )}
 
-      <div
-        className={cn(
-          'relative mx-auto flex w-full flex-col gap-5',
-          anchoMaximo,
-          classNameContenido,
-        )}
-      >
+      <div className={cn('relative flex w-full flex-col gap-4', classNameContenido)}>
         {volverA && (
           <Link
             to={volverA}
@@ -74,7 +63,7 @@ export function PortalFamiliaShell({
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex min-w-0 items-start gap-4">
             {icono && (
-              <span className="flex size-16 shrink-0 items-center justify-center rounded-pf-tile border border-pf-borde bg-superficie text-pf-accent">
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-pf-tile border border-pf-borde bg-superficie text-pf-accent">
                 {icono}
               </span>
             )}

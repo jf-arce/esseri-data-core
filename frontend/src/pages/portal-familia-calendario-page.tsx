@@ -238,7 +238,7 @@ export function PortalFamiliaCalendarioPage() {
 
   return (
     <section
-      className="relative isolate -mx-4 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden sm:-mx-8"
+      className="relative isolate -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden"
       style={{ background: PORTAL_FAMILIA_BACKGROUND }}
     >
       <PortalFamiliaWatermark />
@@ -249,12 +249,10 @@ export function PortalFamiliaCalendarioPage() {
           etiqueta="Portal de familia"
           volverA="/familia"
           volverEtiqueta="Volver al inicio"
-          anchoMaximo="max-w-[96vw]"
           className="pb-8 print:hidden"
-          classNameContenido="px-4 sm:px-8"
         />
 
-        <div className="zona-impresion mx-auto w-full max-w-[96vw] px-3 pb-10 sm:px-5 print:max-w-none print:p-0">
+        <div className="zona-impresion w-full pb-10 print:max-w-none print:p-0">
           {cargando ? (
             <Skeleton className="h-96 w-full rounded-pf-card bg-superficie/80" />
           ) : alumnos.length === 0 ? (

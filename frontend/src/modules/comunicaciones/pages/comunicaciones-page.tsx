@@ -249,7 +249,7 @@ function ListaFamiliaMovil({
 
   return (
     <section
-      className="relative isolate -mx-4 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden sm:-mx-8"
+      className="relative isolate -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden"
       style={{ background: PORTAL_FAMILIA_BACKGROUND }}
     >
       <PortalFamiliaWatermark />
@@ -260,11 +260,10 @@ function ListaFamiliaMovil({
           etiqueta="Portal de familia"
           volverA="/familia"
           volverEtiqueta="Volver al inicio"
-          anchoMaximo="max-w-[92vw]"
           className="pb-8"
         />
 
-        <div className="mx-auto flex w-full max-w-[92vw] flex-col gap-4 px-4 pb-10 @xl/main:px-8">
+        <div className="flex w-full flex-col gap-4 pb-10">
           <div className="relative w-full">
             <SearchIcon
               aria-hidden="true"
@@ -493,7 +492,7 @@ function ListaFamiliaEscritorio({
   return (
     <>
       <section
-        className="relative isolate -mx-4 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden sm:-mx-8"
+        className="relative isolate -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden"
         style={{ background: PORTAL_FAMILIA_BACKGROUND }}
       >
         <PortalFamiliaWatermark />
@@ -504,11 +503,10 @@ function ListaFamiliaEscritorio({
             etiqueta="Portal de familia"
             volverA="/familia"
             volverEtiqueta="Volver al inicio"
-            anchoMaximo="max-w-[92vw]"
             className="pb-8"
           />
 
-          <div className="mx-auto flex w-full max-w-[92vw] flex-col px-4 pb-10 @xl/main:px-8">
+          <div className="flex w-full flex-col pb-10">
             <div className="overflow-hidden rounded-pf-card bg-superficie shadow-pf-card">
               <div className="flex flex-col gap-4 p-4 @xl/main:p-5 @7xl/main:flex-row @7xl/main:items-center">
                 <div className="relative min-w-0 flex-1">

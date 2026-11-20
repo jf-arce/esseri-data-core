@@ -687,7 +687,6 @@ export function PortalFamiliaTramitePage({
         etiqueta="Portal de familia"
         volverA="/familia"
         volverEtiqueta="Volver al inicio"
-        anchoMaximo="max-w-[92vw]"
         acciones={
           esJustificacion && alumnos.length > 0 ? (
             <div className="w-full sm:w-64">
@@ -716,7 +715,7 @@ export function PortalFamiliaTramitePage({
         }
       />
 
-      <div className="mx-auto flex w-full max-w-[92vw] flex-col gap-5 pt-2">
+      <div className="flex w-full flex-col gap-5 pt-2">
         <PortalCard contentClassName="px-5 pt-4 pb-5 sm:px-6 sm:pt-5 sm:pb-6">
           {esJustificacion && alumnos.length > 0 ? (
             <div className="flex flex-col gap-4">

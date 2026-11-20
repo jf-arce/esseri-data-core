@@ -202,12 +202,12 @@ export function ComunicacionDetallePage({
   if (familia) {
     return (
       <section
-        className="relative isolate -mx-4 -mt-6 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden px-4 pt-6 pb-10 sm:-mx-8 sm:px-8"
+        className="relative isolate -mt-6 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden pt-6 pb-10"
         style={{ background: PORTAL_FAMILIA_BACKGROUND }}
       >
         <PortalFamiliaWatermark />
 
-        <div className="relative z-10 mx-auto flex w-full max-w-[92vw] flex-col gap-5">
+        <div className="relative z-10 flex w-full flex-col gap-5">
           <div className="flex flex-col gap-3">
             <Link
               to={base}
