@@ -234,6 +234,9 @@ campo_evento:
     - nombre_interno: fecha_resolucion
       etiqueta: Fecha de resolución
       tipo_dato: fecha
+    - nombre_interno: estado
+      etiqueta: Resultado de la justificación
+      tipo_dato: texto
 
   solicitud_ausencia_periodo.revocada:
     - nombre_interno: alumno_nombre

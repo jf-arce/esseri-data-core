@@ -10,6 +10,7 @@ from src.academico import service
 from src.academico.models import (
     Anio,
     Division,
+    JustificacionInasistencia,
     MotivoJustificacion,
     NivelEducativo,
 )
@@ -115,3 +116,30 @@ def test_alta_administrativa_nace_aprobada_y_justifica_la_asistencia(db_session,
             db_session, admin, alumno.id, asistencia.fecha, "enfermedad", None
         )
     assert repetida.value.status_code == 409
+
+
+def test_el_rechazo_reporta_su_estado_en_el_evento(db_session, escenario_alta):
+    """El aviso por Workflows necesita saber el resultado, no solo que hubo una resolución."""
+    alumno, familia, admin, asistencia = escenario_alta
+    justificacion = JustificacionInasistencia(
+        asistencia_id=asistencia.id,
+        familia_id=familia.id,
+        motivo_justificacion_id=db_session.scalar(
+            select(MotivoJustificacion.id).where(MotivoJustificacion.nombre == "enfermedad")
+        ),
+        usuario_id=admin.id,
+        estado="pendiente",
+    )
+    db_session.add(justificacion)
+    db_session.commit()
+
+    service.resolver_justificacion(db_session, justificacion, False, usuario_id=admin.id)
+
+    evento = db_session.scalar(
+        select(EventLog).where(
+            EventLog.entidad == "justificacion_inasistencia",
+            EventLog.entidad_id == justificacion.id,
+        )
+    )
+    assert evento is not None
+    assert evento.payload["estado"] == "rechazada"

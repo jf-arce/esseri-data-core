@@ -286,6 +286,7 @@ PLANTILLAS_INASISTENCIA = {
         "Estimada familia:\n\n"
         "Se resolvió el {{fecha_resolucion}} la justificación de la inasistencia de "
         "{{alumno_nombre}}. Motivo presentado: {{motivo}}.\n\n"
+        "La justificación quedó {{estado}}.\n\n"
         "Saludos cordiales.",
     ),
     "recordatorio": (
