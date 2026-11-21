@@ -296,10 +296,12 @@ def listar_historial_responsables_economicos(
 def obtener_cuenta_corriente(
     db: DbSession,
     _: PuedeLeer,
+    familia_activa: FamiliaActiva,
     alumno: AlumnoActual,
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanio: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> CuentaCorrienteRead:
+    _denegar_consulta_administrativa_familia(familia_activa)
     cuenta, total_debe, total_haber, saldo = cuenta_corriente_service.obtener_resumen_cuenta(
         db, alumno.id
     )
