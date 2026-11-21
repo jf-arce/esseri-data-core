@@ -822,6 +822,32 @@ Family presentation includes `tipo` and the author name (`emisor`) for course me
 Draft create/edit, publication and first reading use the existing audit helper; message contents
 are not duplicated in the audit log. No external service is called by these operations.
 
+The management list accepts `destinatarios`, `nivel_id`, `division_id`, `fecha_desde` and
+`fecha_hasta` together with search, status and pagination. `nivel_id` narrows level destinations
+or the set of divisions for division destinations. `GET /comunicaciones/opciones-filtros` uses the
+list permission and returns academic levels and divisions only. Date bounds are inclusive in
+Buenos Aires time and refer to publication time for published records and creation time for drafts.
+
+Management roles with `comunicaciones.actualizar` can call `POST /comunicaciones/{id}/retirar`
+for any published communication in the management list, including course publications.
+This operation is idempotent, keeps the original publication and receipts, and hides it from
+the family inbox, calendar and notifications. An authorized family opening the original link
+receives `410 Gone` without the message; unauthorized links still return `404`. Management can
+use `GET /comunicaciones?retirada=true` to inspect withdrawn records and their delivery history.
+The existing dispatcher sends a separate withdrawal notice to each original email address with
+confirmed provider acceptance. This includes acceptances confirmed after withdrawal. Known
+failures can be retried on the same notice; uncertain outcomes are not resent.
+Apply migration `b14ac40bb88e` before deploying. Downgrade is blocked once a withdrawal or its
+delivery history has been recorded, so rollback cannot accidentally republish a withdrawn message.
+
+`PATCH /comunicaciones/{id}/contenido` accepts only the current `version`, `asunto`, `cuerpo`
+and optional `cuerpo_rico` for active publications in the management list, including course
+publications. It corrects what the portal
+displays without changing the original email snapshot or queuing mail. `DELETE
+/comunicaciones/{id}?version=…` removes only the caller's draft from view; the record, attachments,
+key and audit trail are retained. Both operations use `comunicaciones.actualizar`. Apply
+`dd3ad6076c35` before deploying either operation.
+
 Drafts may store an optional `evento` with incomplete fields. Send `evento: null` to
 remove it. Preview and publication require a title and date; if both local times are
 provided, the end must follow the start. The calendar projects the event from the

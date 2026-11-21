@@ -20,11 +20,14 @@ from src.comunicaciones.schemas import (
     BorradorInput,
     ComunicacionRead,
     EventoCalendario,
+    FiltrosGestion,
     Listado,
     ListadoDestinatarios,
     ListadoEntrega,
+    ListadoGestion,
     PublicableInput,
     PublicacionInput,
+    PublicadaEdicionInput,
 )
 
 router = APIRouter(prefix="/comunicaciones", tags=["Comunicaciones"])
@@ -214,12 +217,16 @@ def listado(
     db: DbSession,
     usuario: Leer,
     rol: RolActivo,
-    pagina: Annotated[int, Query(ge=1)] = 1,
-    buscar: Annotated[str, Query(max_length=200)] = "",
-    estado: Annotated[str | None, Query(pattern="^(publicada|borrador)$")] = None,
-) -> Listado:
+    filtros: Annotated[FiltrosGestion, Query()],
+) -> ListadoGestion:
     gestion(rol)
-    return service.listar(db, usuario, pagina, buscar, False, estado=estado)
+    return service.listar_gestion(db, usuario, filtros)
+
+
+@router.get("/opciones-filtros")
+def opciones_filtros(db: DbSession, _: Leer, rol: RolActivo):
+    gestion(rol)
+    return service.opciones_filtros(db)
 
 
 @router.post("", status_code=201)
@@ -252,6 +259,34 @@ def publicar(
 ) -> ComunicacionRead:
     gestion(rol)
     return service.publicar(db, id, usuario, data.version if data else None, tipo="institucional")
+
+
+@router.post("/{id}/retirar", status_code=204)
+def retirar(id: uuid.UUID, db: DbSession, usuario: Editar, rol: RolActivo) -> Response:
+    gestion(rol)
+    service.retirar(db, id, usuario)
+    return Response(status_code=204)
+
+
+@router.patch("/{id}/contenido")
+def editar_contenido_publicado(
+    id: uuid.UUID, data: PublicadaEdicionInput, db: DbSession, usuario: Editar, rol: RolActivo
+) -> ComunicacionRead:
+    gestion(rol)
+    return service.editar_publicada(db, id, data, usuario)
+
+
+@router.delete("/{id}", status_code=204)
+def eliminar_borrador(
+    id: uuid.UUID,
+    version: Annotated[int, Query(ge=1)],
+    db: DbSession,
+    usuario: Editar,
+    rol: RolActivo,
+) -> Response:
+    gestion(rol)
+    service.eliminar_borrador(db, id, version, usuario)
+    return Response(status_code=204)
 
 
 @router.get("/docente/{id}/envios")
