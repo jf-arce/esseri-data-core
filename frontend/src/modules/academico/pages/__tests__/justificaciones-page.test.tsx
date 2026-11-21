@@ -29,7 +29,7 @@ describe('JustificacionesPage', () => {
     }) as never)
   })
 
-  it('informa cuando no hay justificaciones pendientes', async () => {
+  it('abre en la pestaña Todas y pide el historial completo', async () => {
     render(
       <MemoryRouter>
         <JustificacionesPage />
@@ -37,9 +37,15 @@ describe('JustificacionesPage', () => {
     )
 
     expect(
-      await screen.findByText('No hay justificaciones pendientes para revisar.'),
+      await screen.findByText('No hay justificaciones para los filtros seleccionados.'),
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Justificaciones' })).toBeInTheDocument()
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs[0]).toHaveTextContent('Todas')
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
+    expect(mockedApiClient).toHaveBeenCalledWith(
+      '/academico/justificaciones?pagina=1&tamanio_pagina=20',
+    )
   })
 
   it('resalta y consulta el historial cuando llega desde un aviso', async () => {
