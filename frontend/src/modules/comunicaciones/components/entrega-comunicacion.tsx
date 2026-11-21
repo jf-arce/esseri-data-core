@@ -260,6 +260,11 @@ export function EntregaComunicacion({
                             responsable.emails.map((envio) => (
                               <li key={envio.id} className="break-all text-sm">
                                 {envio.email ?? 'Sin dirección de email'}
+                                {envio.proposito === 'retiro' && (
+                                  <span className="block text-xs text-texto-2">
+                                    Aviso de retiro
+                                  </span>
+                                )}
                               </li>
                             ))
                           )
@@ -389,7 +394,7 @@ function EstadoEmail({
           variant="secondary"
           size="sm"
           disabled={reintentando !== null}
-          aria-label={`Reintentar envío a ${direccion}`}
+          aria-label={`Reintentar ${envio.proposito === 'retiro' ? 'aviso de retiro' : 'envío'} a ${direccion}`}
           onClick={onReintentar}
         >
           {reintentando === envio.id ? 'Reintentando…' : 'Reintentar envío'}
