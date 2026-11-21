@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ComponentProps } from 'react'
 import { CalendarIcon } from 'lucide-react'
 
 import { Calendar } from '@/components/ui/calendar'
@@ -19,6 +19,8 @@ interface DatePickerProps {
   disabled?: boolean
   invalid?: boolean
   className?: string
+  disabledDays?: ComponentProps<typeof Calendar>['disabled']
+  locale?: ComponentProps<typeof Calendar>['locale']
 }
 
 function DatePicker({
@@ -29,6 +31,8 @@ function DatePicker({
   disabled,
   invalid,
   className,
+  disabledDays,
+  locale,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false)
 
@@ -60,7 +64,8 @@ function DatePicker({
             onChange(date)
             setOpen(false)
           }}
-          locale={undefined}
+          disabled={disabledDays}
+          locale={locale}
           autoFocus
         />
       </PopoverContent>
