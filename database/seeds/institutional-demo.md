@@ -3,7 +3,7 @@
 This dataset is fictional and separate from the smaller demos in seeds `04`–`07`.
 It loads 250 students (246 active), 220 guardians, 25 teachers, 15 grades/divisions,
 150 weekly time slots, attendance and admissions, 1,013 invoices and 750 payments,
-seven portal communications, three historical contextual conversations,
+seven portal communications, 24 historical contextual conversations and 8 period-absence requests,
 15 vendors, purchase/receipt examples, a local-only work item from an actual
 workflow run, and rule-based AI suggestions. The reference date is
 **November 18, 2026**. The bank lot, live workflow, its effects, and the
@@ -85,10 +85,14 @@ above. Keep it in the demo shell or your local test password manager.
 | `familia-21` | Felipe Acuña | Bruno Acuña (`ID-A021`), `ID-RENDICION-021`: insufficient funds, the protagonist's notice, and the live chat |
 | `familia-29` | Dante Ibarra | Mateo Ibarra (`ID-A029`), `ID-RESERVA-029`: exported, without result or notice |
 
-The seed also creates three historical conversations about explained absences
-for the first families with an excuse; log in with the owning `familia-NN`
-(or `admin` → **Comunicaciones → Conversaciones**) to see them. `familia-21`
-has **no** conversation until the live debit query.
+The seed also creates 24 historical conversations (16 about explained absences,
+8 about period-absence requests): eight closed, eight awaiting the family and
+eight awaiting administration. Log in with the owning `familia-NN` →
+**Comunicaciones → Mis consultas**, or `admin` → **Comunicaciones →
+Conversaciones**. `familia-21` has **no** conversation until the live debit
+query. The chat only supports the real context types: debit, absence
+explanation and period-absence request; there is no free-form chat for fees or
+activities.
 
 The remaining simulation logins are `familia-02` through `familia-30`.
 The `.test` addresses are for a local mail capture only, not public inboxes.
@@ -137,7 +141,7 @@ The `.test` addresses are for a local mail capture only, not public inboxes.
    debit: this is the contextual chat. Send the question, then log in as
    `admin`, open **Comunicaciones → Conversaciones**, reply, and return to the
    family to read the answer. This thread is intentionally absent after load;
-   the seed only provides three historical threads about explained absences.
+   the seed provides 24 historical threads about absences and period requests.
    As `familia-01`, show the paid invoice; as `familia-29`, show the invoice
    remains pending with no debit notice. The standard `Notificar` action writes
    a debit notice, not a manual inbox entry. To demonstrate the Communications
@@ -192,12 +196,12 @@ reuse live n8n, a sender account, or a real recipient.
 | Scheduling and portals | Family schedule has teachers and time slots; unrelated student is denied; published events appear only for eligible recipients; teacher reads assigned divisions |
 | Management | Direction and Administration endpoints return indicators with their real role grants; suppliers endpoint returns 15 vendors |
 | Billing and bank | 1,013 invoice charges, 750 baseline payments; file preview is non-financial; confirmation adds 20 payments and credits; reserve lot remains unprocessed |
-| Workflows and comms | Historical portal publications have recipient/read receipts; three historical conversations with distinct states; live rule produces eight executions, captured emails and rejection notices; reimport does not duplicate them |
+| Workflows and comms | Historical portal publications have recipient/read receipts; 24 historical conversations with distinct states; live rule produces eight executions, captured emails and rejection notices; reimport does not duplicate them |
 | Conversations | Admin inbox lists the three threads with their states; the protagonist has none until the family starts the debit query; family cannot read another family's thread |
 | AI and audit | Rule-based suggestions are seeded; the Assistant debt tool runs against actual data; family access to the Assistant is denied; 28 debit audit rows after confirmation |
 
 Observed checks: the seed loaded and reran as a no-op on migrated PostgreSQL
-16. The 15 institutional tests and 60 related debit regressions passed.
+16. The 15 institutional tests and 60 related debit regressions passed; the conversation expansion keeps 15 focused tests green.
 Browser smoke against a disposable seeded API showed the family timetable
 and Feria de ciencias, the teacher's three assigned divisions, both management
 panels, and all 30 debit candidates. The full import and dispatch were tested
