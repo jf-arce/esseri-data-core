@@ -38,6 +38,10 @@ class Comunicacion(Base):
     )
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, server_default=sa.func.now())
     publicada_at: Mapped[datetime | None] = mapped_column(sa.DateTime)
+    retirada_at: Mapped[datetime | None] = mapped_column(sa.DateTime)
+    eliminada_at: Mapped[datetime | None] = mapped_column(sa.DateTime)
+    # Preserve the original email snapshot (including rich formatting) when correcting the portal.
+    edicion_portal: Mapped[dict | None] = mapped_column(sa.JSON(none_as_null=True))
 
 
 class ReciboComunicacion(Base):

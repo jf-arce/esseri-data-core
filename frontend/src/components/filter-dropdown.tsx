@@ -156,9 +156,11 @@ function FilterDropdown(props: FilterDropdownProps) {
 function FilterChips({
   children,
   onClearAll,
+  clearLabel = 'Limpiar todo',
 }: {
   children: React.ReactNode
   onClearAll: () => void
+  clearLabel?: string
 }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
@@ -168,7 +170,7 @@ function FilterChips({
         onClick={onClearAll}
         className="cursor-pointer text-xs font-semibold text-texto-3 hover:text-texto-2"
       >
-        Limpiar todo
+        {clearLabel}
       </button>
     </div>
   )
