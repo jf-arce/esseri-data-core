@@ -946,8 +946,11 @@ Conserva `academico.exportar`. Los endpoints anteriores de listado y exportació
 `GET /academico/divisiones/{division_id}/horario/exportar` devuelve un `.xlsx` con el horario semanal de la división (hoja "Horario" en grilla y hoja "Listado"). Los docentes son los asignados en `ciclo_lectivo` (por defecto, el año en curso). Pide `academico.leer`, no `exportar`: es la información que ya ve quien abre el horario.
 
 ```bash
-pytest
+pytest          # en serie
+pytest -n auto  # en paralelo con pytest-xdist (como en CI)
 ```
+
+`tests/conftest.py` baja bcrypt a 4 rondas solo para los tests (con 12 cada hash tarda ~0.6 s). Con `-n auto`, los IDs de test parametrizados deben ser determinísticos: no usar `uuid4()` ni valores aleatorios en `parametrize`. Los tests de `COMUNICACIONES_TEST_DATABASE_URL` comparten una base real y no son seguros en paralelo; correrlos en serie.
 
 Los tests usan una base SQLite en memoria (ver `tests/conftest.py`), no la base de `DATABASE_URL` — así corren sin depender de Postgres. Si el equipo prefiere testear contra un Postgres real, ajustar `TEST_DATABASE_URL` en `tests/conftest.py`.
 

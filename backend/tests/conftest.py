@@ -2,6 +2,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
+import bcrypt
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
@@ -61,6 +62,17 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def bcrypt_rapido():
+    """Baja el costo de bcrypt a 4 rondas: con 12 cada hash tarda ~0.6s y domina la suite."""
+    gensalt_original = bcrypt.gensalt
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(
+            bcrypt, "gensalt", lambda rounds=4, prefix=b"2b": gensalt_original(rounds, prefix)
+        )
+        yield
 
 
 @pytest.fixture()
