@@ -438,9 +438,16 @@ def crear_justificacion_administrativa(
         valor_nuevo=motivo_db.nombre,
         usuario_id=usuario.id,
     )
-    # El alta administrativa no avisa al usuario que la carga: la familia lo ve en su portal
-    # y el evento `inasistencia.justificada` sigue disponible para las reglas de Workflows.
-    return resolver_justificacion(db, justificacion, True, usuario_id=usuario.id, notificar=False)
+    # La resolución no avisa al usuario administrativo que carga el alta: el aviso va a las
+    # cuentas familiares habilitadas. El evento `inasistencia.justificada` sigue disponible
+    # para las reglas de Workflows.
+    justificacion = resolver_justificacion(
+        db, justificacion, True, usuario_id=usuario.id, notificar=False
+    )
+    notificaciones_academicas.registrar_alta_administrativa_individual(
+        db, justificacion=justificacion
+    )
+    return justificacion
 
 
 def _validar_comprobante_justificacion(

@@ -155,6 +155,58 @@ def registrar_resolucion_individual(
     )
 
 
+def registrar_alta_administrativa_individual(
+    db: Session, *, justificacion: JustificacionInasistencia
+) -> int:
+    """Avisa a cada cuenta familiar habilitada que Administración cargó la justificación.
+
+    No existe un usuario de la familia que la haya creado, así que el destinatario son las
+    cuentas responsables con `recibe_comunicaciones`: la misma regla que una ausencia. Una
+    familia sin cuentas habilitadas no recibe aviso y no se inventa un sustituto.
+    """
+    if justificacion.estado != "aprobada":
+        return 0
+    fila = db.execute(
+        select(Asistencia.fecha, Inscripcion.alumno_id)
+        .join(Inscripcion, Inscripcion.id == Asistencia.inscripcion_id)
+        .where(Asistencia.id == justificacion.asistencia_id)
+    ).first()
+    if fila is None:
+        return 0
+
+    nombre = _nombre_alumno(db, fila.alumno_id)
+    mensaje = (
+        f"Administración cargó y aprobó la justificación de la inasistencia de "
+        f"{nombre} del {fila.fecha:%d/%m/%Y}."
+    )
+    clave = f"academico:justificacion_individual:{justificacion.id}:alta_administrativa"
+    insertadas = 0
+    for usuario_id, familia_id in _cuentas_responsables(db, fila.alumno_id):
+        insertadas += int(
+            notificaciones_service.publicar(
+                db,
+                usuario_id=usuario_id,
+                familia_id=familia_id,
+                alumno_id=fila.alumno_id,
+                ambito=AMBITO_ACADEMICO,
+                clave_hecho=clave,
+                tipo=TIPO_JUSTIFICACION_APROBADA,
+                titulo="Justificación aprobada",
+                mensaje=mensaje,
+                contexto={
+                    "familia_id": str(familia_id),
+                    "alumno_id": str(fila.alumno_id),
+                    "justificacion_id": str(justificacion.id),
+                    "asistencia_id": str(justificacion.asistencia_id),
+                    "fecha_asistencia": fila.fecha.isoformat(),
+                },
+                destino_tipo=DESTINO_JUSTIFICACION_INDIVIDUAL,
+                destino_id=justificacion.id,
+            )
+        )
+    return insertadas
+
+
 def registrar_resolucion_periodo(db: Session, *, solicitud: SolicitudAusenciaPeriodo) -> int:
     """Una sola notificación por resolución, no una por cada día del período.
 
