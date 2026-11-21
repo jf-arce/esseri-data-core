@@ -64,7 +64,7 @@ import {
 } from '../hooks/use-consulta-historial'
 import { exportarHistorial, type FiltrosHistorial } from '../services/consultar-historial'
 import type { TipoAsistencia } from '../types'
-import { etiquetaTipoAsistencia, variantePorTipoAsistencia } from '../utils'
+import { etiquetaCurso, etiquetaTipoAsistencia, variantePorTipoAsistencia } from '../utils'
 
 const ESTADOS: TipoAsistencia[] = [
   'presente',
@@ -123,16 +123,9 @@ function fechaCorta(iso: string) {
   })
 }
 
-function hoyIso() {
-  const hoy = new Date()
-  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
-}
-
 function filtrosIniciales(ciclo: string): FiltrosHistorial {
   return {
     ciclo_lectivo: ciclo,
-    fecha_desde: hoyIso(),
-    fecha_hasta: hoyIso(),
     orden: 'fecha_desc',
     pagina: 1,
     tamanio_pagina: 20,
@@ -589,7 +582,8 @@ export function HistorialAsistenciaPage() {
                       </Button>
                     </TableHead>
                   ))}
-                  <TableHead>División</TableHead>
+                  <TableHead>Nivel</TableHead>
+                  <TableHead>Curso</TableHead>
                   <TableHead>Estado</TableHead>
                 </TableRow>
               </TableHeader>
@@ -602,7 +596,8 @@ export function HistorialAsistenciaPage() {
                     <TableCell className="whitespace-normal font-medium">
                       {registro.alumno}
                     </TableCell>
-                    <TableCell>{registro.division}</TableCell>
+                    <TableCell>{registro.nivel}</TableCell>
+                    <TableCell>{etiquetaCurso(registro.anio, registro.division)}</TableCell>
                     <TableCell>
                       <Badge variant={variantePorTipoAsistencia(registro.tipo)}>
                         {etiquetaTipoAsistencia(registro.tipo)}
