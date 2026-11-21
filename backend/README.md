@@ -837,8 +837,10 @@ use `GET /comunicaciones?retirada=true` to inspect withdrawn records and their d
 The existing dispatcher sends a separate withdrawal notice to each original email address with
 confirmed provider acceptance. This includes acceptances confirmed after withdrawal. Known
 failures can be retried on the same notice; uncertain outcomes are not resent.
-Apply migration `b14ac40bb88e` before deploying. Downgrade is blocked once a withdrawal or its
-delivery history has been recorded, so rollback cannot accidentally republish a withdrawn message.
+Apply `alembic upgrade head` before serving traffic; every Communications read requires the
+new columns. Schema downgrade is blocked after recording a withdrawal or a withdrawal notice.
+An application-only rollback is not safe after using these features: see the
+[deployment checklist](../docs/comunicaciones-gestion-deployment.md).
 
 `PATCH /comunicaciones/{id}/contenido` accepts only the current `version`, `asunto`, `cuerpo`
 and optional `cuerpo_rico` for active publications in the management list, including course
@@ -846,7 +848,7 @@ publications. It corrects what the portal
 displays without changing the original email snapshot or queuing mail. `DELETE
 /comunicaciones/{id}?version=…` removes only the caller's draft from view; the record, attachments,
 key and audit trail are retained. Both operations use `comunicaciones.actualizar`. Apply
-`dd3ad6076c35` before deploying either operation.
+the full migration chain, including `dd3ad6076c35`, before starting the backend.
 
 Drafts may store an optional `evento` with incomplete fields. Send `evento: null` to
 remove it. Preview and publication require a title and date; if both local times are
