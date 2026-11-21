@@ -42,12 +42,18 @@ EXTENSIONES = {"application/pdf": ".pdf", "image/jpeg": ".jpg", "image/png": ".p
 
 
 def _respuesta_descarga(adjunto: ComunicacionAdjunto, contenido: bytes) -> Response:
-    nombre = quote(adjunto.nombre, safe="")
-    respaldo = f"adjunto{EXTENSIONES.get(adjunto.tipo_contenido, '')}"
+    return respuesta_archivo_privado(adjunto.nombre, adjunto.tipo_contenido, contenido)
+
+
+def respuesta_archivo_privado(
+    nombre_archivo: str, tipo_contenido: str, contenido: bytes
+) -> Response:
+    nombre = quote(nombre_archivo, safe="")
+    respaldo = f"adjunto{EXTENSIONES.get(tipo_contenido, '')}"
     disposicion = f"attachment; filename=\"{respaldo}\"; filename*=UTF-8''{nombre}"
     return Response(
         content=contenido,
-        media_type=adjunto.tipo_contenido,
+        media_type=tipo_contenido,
         headers={
             "Content-Disposition": disposicion,
             "Cache-Control": "private, no-store",

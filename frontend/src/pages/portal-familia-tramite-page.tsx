@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
@@ -1288,6 +1288,17 @@ export function PortalFamiliaTramitePage({
                             </SheetDescription>
                           </SheetHeader>
                           <div className="flex flex-col gap-5 px-4 pb-6">
+                            <Button variant="secondary" className="self-start rounded-full" asChild>
+                              <Link
+                                to={rutaContexto(
+                                  'solicitud_ausencia_periodo',
+                                  detalleJustificacion.solicitud.id,
+                                  true,
+                                )}
+                              >
+                                Conversación sobre esta justificación
+                              </Link>
+                            </Button>
                             <Badge
                               variant={
                                 VARIANTE_ESTADO_SOLICITUD_PERIODO[
@@ -1551,6 +1562,22 @@ export function PortalFamiliaTramitePage({
                                       hidden={!expandido}
                                       className="mt-2 rounded-pf-item bg-pf-item-hover p-2.5 text-xs text-texto-2"
                                     >
+                                      <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        className="mb-2 rounded-full"
+                                        asChild
+                                      >
+                                        <Link
+                                          to={rutaContexto(
+                                            'justificacion_inasistencia',
+                                            asistencia.justificacion_id,
+                                            true,
+                                          )}
+                                        >
+                                          Conversación sobre esta justificación
+                                        </Link>
+                                      </Button>
                                       <p>
                                         <strong>Motivo:</strong>{' '}
                                         {etiquetaMotivoJustificacion(
@@ -1661,3 +1688,4 @@ export function PortalFamiliaTramitePage({
     </section>
   )
 }
+import { rutaContexto } from '@/modules/comunicaciones/conversaciones'

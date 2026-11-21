@@ -106,6 +106,15 @@ export function PanelAdministracionPage() {
         </section>
       )}
 
+      {(atencion.justificaciones || acceso.finanzas) && (
+        <Link
+          className="text-sm font-semibold text-violeta hover:underline"
+          to="/comunicaciones/conversaciones"
+        >
+          Ver conversaciones pendientes
+        </Link>
+      )}
+
       {/* La cola de atención (8) y la actividad reciente (4), que toma su altura y hace scroll. */}
       <div className="grid min-w-0 items-stretch gap-4 @5xl/main:grid-cols-12">
         {hayAtencion && (

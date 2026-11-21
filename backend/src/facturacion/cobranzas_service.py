@@ -47,8 +47,9 @@ from src.facturacion.models import (
 )
 from src.familias_alumnos.models import Alumno
 from src.inscripciones.models import Inscripcion
-from src.models import Persona
+from src.models import EventLog, Persona
 from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
+from src.workflows.models import TipoEvento
 
 
 @dataclass(frozen=True)
@@ -833,3 +834,47 @@ def listar_liberaciones(db: Session, *, pagina: int, tamanio: int) -> Liberacion
         for lote in lotes
     ]
     return LiberacionesRead(items=items, total=total, pagina=pagina, tamanio=tamanio)
+
+
+def intentos_de_factura(db: Session, factura_id: uuid.UUID) -> list[dict]:
+    """Intentos de débito confirmados de una factura, con el motivo congelado en su evento."""
+    filas = db.execute(
+        select(
+            DebitoCobranza.id,
+            DebitoCobranza.lote_id,
+            DebitoCobranza.importe,
+            DebitoCobranza.pago_id,
+            EventLog.timestamp,
+            EventLog.payload,
+        )
+        .join(EventLog, EventLog.entidad_id == DebitoCobranza.id)
+        .join(TipoEvento, TipoEvento.id == EventLog.tipo_evento_id)
+        .where(
+            DebitoCobranza.factura_id == factura_id,
+            EventLog.entidad == "debito_cobranza",
+            TipoEvento.nombre == "debito.resultado_registrado",
+        )
+        .order_by(EventLog.timestamp.desc(), EventLog.id.desc())
+    ).all()
+    vistos: set[uuid.UUID] = set()
+    intentos = []
+    for debito_id, lote_id, importe, pago_id, fecha, payload in filas:
+        if debito_id in vistos:
+            continue
+        vistos.add(debito_id)
+        datos = payload or {}
+        resultado = datos.get("resultado")
+        if resultado not in ("exitoso", "rechazado"):
+            resultado = "exitoso" if pago_id is not None else "rechazado"
+        motivo = str(datos.get("motivo_rechazo") or datos.get("codigo_resultado") or "")
+        intentos.append(
+            {
+                "debito_id": debito_id,
+                "lote_id": lote_id,
+                "fecha": fecha,
+                "importe": importe,
+                "resultado": resultado,
+                "motivo": motivo,
+            }
+        )
+    return intentos

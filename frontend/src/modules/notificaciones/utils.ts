@@ -7,6 +7,7 @@ import {
   CircleXIcon,
   ClipboardCheckIcon,
   MegaphoneIcon,
+  MessageSquareIcon,
   ReceiptTextIcon,
   type LucideIcon,
 } from 'lucide-react'
@@ -61,6 +62,10 @@ const ESTILOS_POR_TIPO: Record<TipoNotificacion, { icon: LucideIcon; tileClassNa
   },
   'comunicaciones.institucional_publicada': {
     icon: MegaphoneIcon,
+    tileClassName: 'bg-violeta-suave text-violeta',
+  },
+  'comunicaciones.respuesta_conversacion': {
+    icon: MessageSquareIcon,
     tileClassName: 'bg-violeta-suave text-violeta',
   },
   'facturacion.factura_emitida': {
@@ -134,6 +139,9 @@ export function rutaDesdeDestino(destino: DestinoNotificacion | null | undefined
   if (!destino || !destino.id.trim()) return null
   if (destino.tipo === 'comunicacion') {
     return `/familia/comunicaciones/${encodeURIComponent(destino.id)}`
+  }
+  if (destino.tipo === 'conversacion') {
+    return `/familia/conversaciones/${encodeURIComponent(destino.id)}`
   }
   if (destino.tipo === 'factura' || destino.tipo === 'pago') {
     return `/familia/facturacion?${destino.tipo}=${encodeURIComponent(destino.id)}`

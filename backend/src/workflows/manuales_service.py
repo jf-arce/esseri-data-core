@@ -29,6 +29,7 @@ from src.config import settings
 from src.exceptions import AppException
 from src.familias_alumnos.models import FamiliaAlumno
 from src.fechas import ahora_utc
+from src.notificaciones.conversaciones_service import envio_autorizado, hilo_de_envio
 from src.workflows import n8n_client
 from src.workflows.email_html import armar_html
 from src.workflows.models import EnvioNotificacion, Notificacion
@@ -272,6 +273,8 @@ def _vinculo_vigente(db: Session, envio: EnvioNotificacion) -> bool:
     Un vínculo nuevo con otro alumno no reautoriza una publicación vieja.
     """
 
+    if envio.mensaje_conversacion_id is not None:
+        return envio_autorizado(db, envio)
     alumnos_congelados = db.scalar(
         select(ReciboComunicacion.alumnos).where(
             ReciboComunicacion.comunicacion_id == envio.comunicacion_id,
@@ -404,14 +407,29 @@ def _procesar_uno(db: Session, envio_id: uuid.UUID, intento_id: uuid.UUID) -> st
     if envio is None or envio.intento_actual_id != intento_id:
         return "omitido"
     try:
-        cantidad_adjuntos = (
-            db.scalar(
-                select(func.count())
-                .select_from(ComunicacionAdjunto)
-                .where(ComunicacionAdjunto.comunicacion_id == envio.comunicacion_id)
+        if envio.mensaje_conversacion_id is not None:
+            hilo = hilo_de_envio(db, envio)
+            if hilo is None or not envio_autorizado(db, envio):
+                return _finalizar(
+                    db,
+                    envio_id,
+                    intento_id,
+                    n8n_client.ResultadoEnvioManual(
+                        estado="fallido", error_codigo="vinculo_revocado"
+                    ),
+                )
+            url = f"{settings.FRONTEND_URL.rstrip('/')}/familia/conversaciones/{hilo.id}"
+            enlace = (url, "Ver conversación en el portal")
+        else:
+            cantidad_adjuntos = (
+                db.scalar(
+                    select(func.count())
+                    .select_from(ComunicacionAdjunto)
+                    .where(ComunicacionAdjunto.comunicacion_id == envio.comunicacion_id)
+                )
+                or 0
             )
-            or 0
-        )
+            enlace = _enlace_portal(envio, cantidad_adjuntos=cantidad_adjuntos)
         comunicacion = db.get(Comunicacion, envio.comunicacion_id)
         texto_html = envio.cuerpo
         cuerpo_rico = None
@@ -429,7 +447,7 @@ def _procesar_uno(db: Session, envio_id: uuid.UUID, intento_id: uuid.UUID) -> st
             armar_html(
                 envio.asunto,
                 texto_html,
-                _enlace_portal(envio, cantidad_adjuntos=cantidad_adjuntos),
+                enlace,
                 cuerpo_rico=cuerpo_rico,
             ),
             envio_id=envio.id,
@@ -614,6 +632,15 @@ def reclamar_intento(db: Session, envio_id: uuid.UUID, intento_id: uuid.UUID) ->
         raise EnvioNoEncontrado("El intento indicado no existe para ese envío.")
     if intento.proveedor_iniciado:
         return _respuesta_claim(envio, "duplicado", intento)
+    if envio.mensaje_conversacion_id is not None and not envio_autorizado(db, envio):
+        intento.estado_envio = "fallido"
+        intento.finished_at = ahora_utc()
+        intento.error_codigo = "vinculo_revocado"
+        envio.estado = "fallido"
+        envio.lease_at = None
+        envio.intento_actual_id = None
+        db.commit()
+        return _respuesta_claim(envio, "vinculo_revocado", intento)
 
     intento.proveedor_iniciado = True
     if intento.started_at is None:

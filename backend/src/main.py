@@ -13,6 +13,7 @@ from src.asistente.router import router as asistente_router
 from src.auditoria.router import router as auditoria_router
 from src.auth.router import router as auth_router
 from src.comunicaciones.adjuntos_router import router as adjuntos_router
+from src.comunicaciones.conversaciones_router import router as conversaciones_router
 from src.comunicaciones.router import router as comunicaciones_router
 from src.config import settings
 from src.exceptions import AppException, app_exception_handler
@@ -84,6 +85,7 @@ app.add_middleware(
 app.add_exception_handler(AppException, app_exception_handler)
 
 app.include_router(auth_router)
+app.include_router(conversaciones_router)
 app.include_router(comunicaciones_router)
 app.include_router(adjuntos_router)
 app.include_router(familias_alumnos_router)

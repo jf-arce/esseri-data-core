@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from io import BytesIO
 
-from sqlalchemy import String, cast, func, or_, select
+from sqlalchemy import String, cast, exists, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from src.auditoria.service import log_audit
@@ -28,6 +28,7 @@ from src.facturacion.exceptions import (
 from src.facturacion.models import (
     ArchivoComprobantePago,
     ConceptoCobro,
+    DebitoCobranza,
     DetalleFactura,
     Factura,
     MetodoPago,
@@ -409,6 +410,7 @@ def listar_facturas(
     familia_id: uuid.UUID | None = None,
     concepto_cobro_id: uuid.UUID | None = None,
     estado: str | None = None,
+    debito: str | None = None,
     buscar: str | None = None,
     emision_desde: date | None = None,
     emision_hasta: date | None = None,
@@ -439,6 +441,20 @@ def listar_facturas(
         filtros.append(Factura.detalles.any(DetalleFactura.concepto_cobro_id == concepto_cobro_id))
     if estado is not None:
         filtros.append(Factura.estado == estado)
+    if debito == "rechazado":
+        filtros.append(
+            exists().where(
+                DebitoCobranza.factura_id == Factura.id,
+                DebitoCobranza.resultado == "RECHAZADO_SIM",
+            )
+        )
+    elif debito == "cobrado":
+        filtros.append(
+            exists().where(
+                DebitoCobranza.factura_id == Factura.id,
+                DebitoCobranza.resultado == "COBRADO_SIM",
+            )
+        )
     if buscar:
         filtros.append(cast(Factura.id, String).ilike(f"%{buscar.strip()}%"))
     if emision_desde is not None:

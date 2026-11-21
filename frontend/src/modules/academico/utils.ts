@@ -7,6 +7,7 @@ import type {
   MateriaCurso,
   TipoAsistencia,
 } from '@/modules/academico/types'
+import { capitalizar } from '@/lib/texto'
 
 export const VARIANTE_ESTADO_SOLICITUD_PERIODO = {
   pendiente: 'advertencia',
@@ -32,7 +33,7 @@ const ETIQUETAS_MOTIVO_JUSTIFICACION = Object.fromEntries(
 
 export function etiquetaMotivoJustificacion(motivo: string | null): string {
   if (!motivo) return 'Otro'
-  return ETIQUETAS_MOTIVO_JUSTIFICACION[motivo] ?? motivo
+  return ETIQUETAS_MOTIVO_JUSTIFICACION[motivo] ?? capitalizar(motivo)
 }
 
 // Normaliza un texto para comparar búsquedas sin depender de mayúsculas, acentos ni del signo

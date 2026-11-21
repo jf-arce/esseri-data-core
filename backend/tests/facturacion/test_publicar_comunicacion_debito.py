@@ -139,6 +139,7 @@ def test_publicar_resultado(
         assert cuenta["avisos_debito"] == []
         assert [fila["id"] for fila in cuenta["facturas"]] == [propia.id]
         resultado = cuenta["facturas"][0]["ultimo_resultado_debito"]
+        assert resultado["debito_id"] is not None
         assert resultado["resultado"] == ("rechazado" if rechazado else "exitoso")
         assert resultado["numero_factura"] == f"F-{numero:04d}"
         assert (resultado["motivo_rechazo"] != "") is rechazado

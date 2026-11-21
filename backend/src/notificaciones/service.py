@@ -16,11 +16,12 @@ from sqlalchemy import and_, case, exists, false, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from src.academico.models import JustificacionInasistencia
-from src.comunicaciones.models import Comunicacion, ReciboComunicacion
-from src.facturacion.models import Factura, Pago, ResponsableEconomico
+from src.academico.models import JustificacionInasistencia, SolicitudAusenciaPeriodo
+from src.comunicaciones.models import Comunicacion, ConversacionContextual, ReciboComunicacion
+from src.facturacion.models import DebitoCobranza, Factura, Pago, ResponsableEconomico
 from src.familias_alumnos.models import FamiliaAlumno
 from src.fechas import ahora_utc
+from src.inscripciones.models import Asistencia, Inscripcion
 from src.notificaciones.constants import (
     AMBITO_ACADEMICO,
     AMBITO_ADMINISTRACION,
@@ -28,6 +29,7 @@ from src.notificaciones.constants import (
     AMBITO_FACTURACION,
     AMBITO_POR_TIPO,
     AMBITOS_VALIDOS,
+    DESTINO_CONVERSACION,
     DESTINO_FACTURA,
     DESTINO_PAGO,
     DESTINOS_VALIDOS,
@@ -217,9 +219,66 @@ def _predicado_autorizado(usuario_id: uuid.UUID, alcance: AlcanceBandeja, dialec
     return [
         NotificacionInterna.usuario_id == usuario_id,
         NotificacionInterna.familia_id == familia_id,
-        or_(academico, comunicaciones, facturacion),
+        or_(academico, comunicaciones, facturacion, _conversacion_autorizada(enlace_habilitado)),
         _predicado_tipo_conocido(dialecto),
     ]
+
+
+def _conversacion_autorizada(enlace):
+    aviso = NotificacionInterna
+    hilo = ConversacionContextual
+    individual = JustificacionInasistencia
+    periodo = SolicitudAusenciaPeriodo
+    return and_(
+        aviso.destino_tipo == DESTINO_CONVERSACION,
+        enlace,
+        exists(
+            select(hilo.id)
+            .where(
+                hilo.id == aviso.destino_id,
+                hilo.familia_id == aviso.familia_id,
+                or_(
+                    exists(
+                        select(periodo.id)
+                        .where(
+                            periodo.id == hilo.solicitud_periodo_id,
+                            periodo.familia_id == hilo.familia_id,
+                            periodo.alumno_id == aviso.alumno_id,
+                        )
+                        .correlate(hilo, aviso)
+                    ),
+                    exists(
+                        select(individual.id)
+                        .join(Asistencia, Asistencia.id == individual.asistencia_id)
+                        .join(Inscripcion, Inscripcion.id == Asistencia.inscripcion_id)
+                        .where(
+                            individual.id == hilo.justificacion_id,
+                            individual.familia_id == hilo.familia_id,
+                            Inscripcion.alumno_id == aviso.alumno_id,
+                        )
+                        .correlate(hilo, aviso)
+                    ),
+                    exists(
+                        select(DebitoCobranza.id)
+                        .join(Factura, Factura.id == DebitoCobranza.factura_id)
+                        .join(Inscripcion, Inscripcion.id == Factura.inscripcion_id)
+                        .join(
+                            ResponsableEconomico,
+                            ResponsableEconomico.id == Factura.responsable_economico_id,
+                        )
+                        .where(
+                            DebitoCobranza.id == hilo.debito_id,
+                            DebitoCobranza.resultado == "RECHAZADO_SIM",
+                            ResponsableEconomico.familia_id == hilo.familia_id,
+                            Inscripcion.alumno_id == aviso.alumno_id,
+                        )
+                        .correlate(hilo, aviso)
+                    ),
+                ),
+            )
+            .correlate(aviso)
+        ),
+    )
 
 
 def _predicado_tipo_conocido(dialecto: str):

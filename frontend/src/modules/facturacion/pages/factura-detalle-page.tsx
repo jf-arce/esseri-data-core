@@ -9,6 +9,8 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/componen
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { FormularioPagoFactura } from '@/modules/facturacion/components/formulario-pago-factura'
+import { useConversacionesContexto } from '@/modules/comunicaciones/hooks/use-conversaciones-contexto'
+import { AccionConversacion } from '@/modules/comunicaciones/components/accion-conversacion'
 import { useFacturaDetalle } from '@/modules/facturacion/hooks/use-factura-detalle'
 import {
   etiquetaEstadoFactura,
@@ -22,6 +24,7 @@ const VARIANTE_ESTADO = { pendiente: 'advertencia', vencida: 'error', pagada: 'e
 export function FacturaDetallePage() {
   const { facturaId } = useParams()
   const { factura, cargando, error, sinPermiso, recargar } = useFacturaDetalle(facturaId)
+  const conversaciones = useConversacionesContexto()
 
   if (cargando) {
     return <Skeleton className="h-120 w-full rounded-panel" />
@@ -225,14 +228,58 @@ export function FacturaDetallePage() {
           </Card>
         </div>
 
-        <Card>
-          <CardHeader className="border-b border-borde">
-            <CardTitle>Registrar pago</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <FormularioPagoFactura factura={factura} onPagoRegistrado={recargar} />
-          </CardContent>
-        </Card>
+        <div className="flex flex-col gap-5">
+          <Card>
+            <CardHeader className="border-b border-borde">
+              <CardTitle>Registrar pago</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FormularioPagoFactura factura={factura} onPagoRegistrado={recargar} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="border-b border-borde">
+              <CardTitle>Cobros automáticos</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              {(factura.intentos_debito ?? []).length === 0 ? (
+                <p className="text-sm text-texto-2">
+                  Sin intentos de débito registrados para esta factura.
+                </p>
+              ) : (
+                (factura.intentos_debito ?? []).map((intento) => (
+                  <div
+                    key={intento.debito_id}
+                    className="flex flex-col gap-2 rounded-[12px] border border-borde px-3 py-3"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-sm font-medium text-texto">
+                        {formatearFechaHora(intento.fecha)}
+                      </span>
+                      <Badge variant={intento.resultado === 'exitoso' ? 'exito' : 'error'}>
+                        {intento.resultado === 'exitoso' ? 'Cobrado' : 'Rechazado'}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                      <span className="tabular-nums text-texto-2">
+                        {formatearMoneda(intento.importe)}
+                      </span>
+                      <AccionConversacion
+                        tipo="debito_cobranza"
+                        id={intento.debito_id}
+                        consulta={conversaciones.get(`debito_cobranza:${intento.debito_id}`)}
+                      />
+                    </div>
+                    {intento.motivo && intento.resultado === 'rechazado' && (
+                      <p className="text-xs text-texto-3">Motivo: {intento.motivo}</p>
+                    )}
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )

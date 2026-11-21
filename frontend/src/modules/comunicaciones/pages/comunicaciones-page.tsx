@@ -41,6 +41,7 @@ import {
 import { formatearDiaDeInstante } from '@/lib/fechas'
 import { paginasVisibles } from '@/lib/paginacion'
 import { cn } from '@/lib/utils'
+import { SubnavComunicaciones } from '../components/subnav-comunicaciones'
 import { listarComunicaciones } from '../services/listar-comunicaciones'
 import type { Comunicacion, Listado } from '../types'
 import { ETIQUETAS_CANAL, ETIQUETAS_TIPO } from '../utils'
@@ -262,6 +263,7 @@ function ListaFamiliaMovil({
           volverEtiqueta="Volver al inicio"
           className="pb-8"
         />
+        <SubnavComunicaciones actual="avisos" />
 
         <div className="flex w-full flex-col gap-4 pb-10">
           <div className="relative w-full">
@@ -522,6 +524,7 @@ function ListaFamiliaEscritorio({
             volverEtiqueta="Volver al inicio"
             className="pb-8"
           />
+          <SubnavComunicaciones actual="avisos" />
 
           <div className="flex w-full flex-col pb-10">
             <div className="overflow-hidden rounded-pf-card bg-superficie shadow-pf-card">

@@ -125,11 +125,11 @@ def _tipo_por_firma(contenido: bytes) -> str | None:
     return None
 
 
-def _leer_acotado(archivo: UploadFile | object) -> bytes:
+def _leer_acotado(archivo: UploadFile | object, limite: int = MAX_BYTES_POR_ADJUNTO) -> bytes:
     """Read at most one byte past the per-file limit, never the whole stream."""
     flujo = getattr(archivo, "file", archivo)
     partes: list[bytes] = []
-    restante = MAX_BYTES_POR_ADJUNTO + 1
+    restante = limite + 1
     while restante > 0:
         bloque = flujo.read(min(BLOQUE_LECTURA, restante))
         if not bloque:
@@ -137,8 +137,8 @@ def _leer_acotado(archivo: UploadFile | object) -> bytes:
         partes.append(bloque)
         restante -= len(bloque)
     contenido = b"".join(partes)
-    if len(contenido) > MAX_BYTES_POR_ADJUNTO:
-        raise HTTPException(413, "El archivo supera los 5 MiB")
+    if len(contenido) > limite:
+        raise HTTPException(413, f"El archivo supera los {limite // (1024 * 1024)} MiB")
     if not contenido:
         raise HTTPException(422, "El archivo está vacío")
     return contenido
@@ -257,6 +257,19 @@ def _veredicto(contenido: bytes) -> tuple[str, str | None]:
     if firma:
         _rechazar("El archivo no pasó el análisis de seguridad")
     return ESTADO_LIMPIO, None
+
+
+def preparar_adjunto_privado(
+    archivo: UploadFile, limite: int = MAX_BYTES_POR_ADJUNTO
+) -> tuple[str, str, bytes]:
+    """Inspect a file for immediate use; an immutable message cannot quarantine it."""
+    _exigir_habilitados()
+    contenido = _leer_acotado(archivo, limite)
+    tipo = inspeccionar(contenido)
+    estado, _ = _veredicto(contenido)
+    if estado != ESTADO_LIMPIO:
+        raise HTTPException(503, "No se pudo verificar el adjunto. Volvé a intentar.")
+    return nombre_seguro(archivo.filename), tipo, contenido
 
 
 def metadata(adjunto: ComunicacionAdjunto) -> dict:

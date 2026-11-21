@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ConversacionesFamilia } from '@/modules/comunicaciones/components/conversaciones-familia'
 import {
   Table,
   TableBody,
@@ -201,6 +202,7 @@ export function FamiliaFichaPage() {
           <TabsTrigger value="comunicaciones" disabled>
             Comunicaciones
           </TabsTrigger>
+          <TabsTrigger value="conversaciones">Conversaciones</TabsTrigger>
         </TabsList>
 
         <TabsContent value="datos">
@@ -387,6 +389,10 @@ export function FamiliaFichaPage() {
               </p>
             )}
           </Card>
+        </TabsContent>
+
+        <TabsContent value="conversaciones">
+          <ConversacionesFamilia alumnoIds={vinculos.map((vinculo) => vinculo.alumno_id)} />
         </TabsContent>
 
         <TabsContent value="alumnos">
