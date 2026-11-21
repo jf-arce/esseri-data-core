@@ -9,10 +9,10 @@ from src.asistente.models import Conversacion
 from src.asistente.seudonimos_service import (
     FiltroAlias,
     Mencion,
+    _sin_datos_de_contacto,
     neutralizar_alias_no_emitidos,
     obtener_o_crear_alias,
     preparar_entrada,
-    _sin_datos_de_contacto,
     resolver_alias,
 )
 from src.models import Persona
