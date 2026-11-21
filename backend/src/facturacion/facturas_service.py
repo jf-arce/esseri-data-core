@@ -1,6 +1,7 @@
 """Lógica de generación y administración de facturas por alumno."""
 
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from io import BytesIO
@@ -555,3 +556,53 @@ def eliminar_factura(db: Session, factura: Factura, usuario_id: uuid.UUID | None
         usuario_id=usuario_id,
     )
     db.commit()
+
+
+@dataclass(frozen=True)
+class PagoAprobado:
+    fecha: date
+    monto: Decimal
+    metodo: str
+    por_debito: bool
+    conceptos: tuple[str, ...]
+
+
+def listar_pagos_aprobados(db: Session, *, desde: date, hasta: date) -> list[PagoAprobado]:
+    """Pagos aprobados con fecha en el rango, con su método y si entraron por un débito.
+
+    Solo lectura: no expone comprobantes ni referencias, solo lo necesario para agregar.
+    """
+    filas = db.execute(
+        select(
+            Pago.id,
+            Pago.factura_id,
+            Pago.fecha,
+            Pago.monto,
+            MetodoPago.nombre,
+            select(DebitoCobranza.id).where(DebitoCobranza.pago_id == Pago.id).exists(),
+        )
+        .join(MetodoPago, MetodoPago.id == Pago.metodo_pago_id)
+        .where(Pago.estado == "aprobado", Pago.fecha >= desde, Pago.fecha <= hasta)
+        .order_by(Pago.fecha, Pago.id)
+    ).all()
+    conceptos: dict[uuid.UUID, list[str]] = {}
+    if filas:
+        for factura_id, nombre in db.execute(
+            select(DetalleFactura.factura_id, ConceptoCobro.nombre)
+            .join(ConceptoCobro, ConceptoCobro.id == DetalleFactura.concepto_cobro_id)
+            .where(DetalleFactura.factura_id.in_({fila[1] for fila in filas}))
+            .order_by(ConceptoCobro.nombre)
+        ):
+            conceptos.setdefault(factura_id, [])
+            if nombre not in conceptos[factura_id]:
+                conceptos[factura_id].append(nombre)
+    return [
+        PagoAprobado(
+            fecha=fecha,
+            monto=Decimal(monto),
+            metodo=metodo,
+            por_debito=bool(por_debito),
+            conceptos=tuple(conceptos.get(factura_id, ())),
+        )
+        for _, factura_id, fecha, monto, metodo, por_debito in filas
+    ]
