@@ -66,9 +66,12 @@ def _id(etiqueta: str) -> uuid.UUID:
 
 
 def _catalogo(db):
-    nivel = db.scalar(select(NivelEducativo).where(NivelEducativo.nombre == "Primario"))
+    niveles = db.scalars(select(NivelEducativo)).all()
+    nivel = next((item for item in niveles if item.nombre == "Nivel Primario"), None) or next(
+        (item for item in niveles if item.nombre == "Primario"), None
+    )
     if nivel is None:
-        nivel = NivelEducativo(id=_id("nivel"), nombre="Primario")
+        nivel = NivelEducativo(id=_id("nivel"), nombre="Nivel Primario")
         db.add(nivel)
         db.flush()
     anio = db.scalar(select(Anio).where(Anio.numero == 4, Anio.nivel_educativo_id == nivel.id))

@@ -16,6 +16,12 @@ El diccionario clasifica los catálogos en 3 grupos según qué tan segura es la
 
 ## Cómo correr los scripts ya disponibles
 
+`02_seed_grupo_c.py` reconcilia los niveles por nombre normalizado: la migración
+`e0483c8d9e9c` inserta `Inicial`/`Primario`/`Secundario` en una base vacía y el seed los
+renombra a `Nivel Inicial`/`Nivel Primario`/`Nivel Secundario` sin duplicar. Una fila con
+años o solicitudes nunca se renombra ni se borra; el seed la conserva y no crea un
+equivalente.
+
 Requiere Postgres corriendo (`infra/docker-compose.yml`, servicio `postgres`) y `backend/.env` configurado.
 
 ```bash
