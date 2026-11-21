@@ -187,7 +187,7 @@ function ContextoCard({ contexto, mostrarEstado }: { contexto: Contexto; mostrar
       aria-label="Datos del trámite"
       className="flex flex-col gap-4 rounded-[20px] border border-[#F0EAF6] bg-white p-5 shadow-[0_10px_26px_rgba(24,16,40,0.08)]"
     >
-      <div className="flex flex-wrap items-center gap-4 xl:flex-nowrap">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
         <div className="flex min-w-0 items-center gap-3 xl:w-[19rem] xl:shrink-0">
           <span className="flex size-12 shrink-0 items-center justify-center rounded-[13px] bg-[#E3CEF6] text-[#832ED2]">
             <FileTextIcon aria-hidden="true" className="size-6" />
@@ -202,10 +202,7 @@ function ContextoCard({ contexto, mostrarEstado }: { contexto: Contexto; mostrar
           return (
             <div
               key={dato.etiqueta}
-              className={cn(
-                'flex shrink-0 items-start gap-3 xl:border-l xl:border-[#F0EAF6] xl:pl-5',
-                dato.crece && 'min-w-[14rem] flex-1',
-              )}
+              className={cn('flex min-w-0 items-start gap-3', dato.crece && 'flex-1')}
             >
               {Icono && (
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[#F5F1FB] text-[#7A2FA8]">
