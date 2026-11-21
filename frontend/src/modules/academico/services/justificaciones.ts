@@ -44,3 +44,28 @@ export function resolverJustificacion(id: string, aprobar: boolean, observacion?
     body: JSON.stringify({ aprobar, ...(observacion ? { observacion } : {}) }),
   })
 }
+
+export type AltaJustificacionAdministrativa = {
+  alumnoId: string
+  fecha: string
+  motivo: string
+  observacion?: string
+  comprobante?: File
+}
+
+/** Alta desde Administración: el backend la crea ya aprobada. */
+export function crearJustificacionAdministrativa(
+  datos: AltaJustificacionAdministrativa,
+): Promise<JustificacionFamilia> {
+  const formulario = new FormData()
+  formulario.append('alumno_id', datos.alumnoId)
+  formulario.append('fecha', datos.fecha)
+  formulario.append('motivo', datos.motivo)
+  if (datos.observacion) formulario.append('observacion', datos.observacion)
+  if (datos.comprobante) formulario.append('comprobante', datos.comprobante)
+
+  return apiClient<JustificacionFamilia>('/academico/justificaciones', {
+    method: 'POST',
+    body: formulario,
+  })
+}
