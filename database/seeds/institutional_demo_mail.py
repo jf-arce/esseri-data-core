@@ -75,7 +75,14 @@ def main():
         if not 0 <= args.port <= 65535:
             raise ValueError("Capture port must be between 0 and 65535.")
         with args.output.open("x", encoding="utf-8") as output:
-            with capture_server(args.port, token, output) as server:
+            try:
+                server = capture_server(args.port, token, output)
+            except OSError:
+                # A failed bind must not leave a capture file that blocks the retry.
+                output.close()
+                args.output.unlink(missing_ok=True)
+                raise
+            with server:
                 print(f"Capturing on http://127.0.0.1:{server.server_port}/capture", flush=True)
                 server.serve_forever()
     except KeyboardInterrupt:

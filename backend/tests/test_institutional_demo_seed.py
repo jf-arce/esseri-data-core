@@ -12,7 +12,7 @@ from src.academico.models import AsignacionDocente, Docente, HorarioMateriaCurso
 from src.auth.models import Rol
 from src.facturacion.models import Factura, FacturaCobranzaDemo, Movimiento, Pago
 from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
-from src.inscripciones.models import Inscripcion
+from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import Persona
 
 ROLES = ("administracion", "direccion", "docente", "familia", "administrador del sistema")
@@ -174,6 +174,44 @@ def test_invalid_capture_start_does_not_create_file(tmp_path, token, port):
         "institutional_demo_mail.py", str(output), "--port", port, N8N_WEBHOOK_TOKEN=token
     )
     assert result.returncode == 1 and not output.exists()
+
+
+def test_capture_bind_failure_does_not_leave_a_stale_file(tmp_path):
+    import socket
+
+    output = tmp_path / "capture.jsonl"
+    with socket.socket() as held:
+        held.bind(("127.0.0.1", 0))
+        held.listen()
+        port = held.getsockname()[1]
+        result = demo_cli(
+            "institutional_demo_mail.py",
+            str(output),
+            "--port",
+            str(port),
+            N8N_WEBHOOK_TOKEN="test-only",
+        )
+    assert result.returncode == 1
+    assert "in use" in result.stderr.lower()
+    assert not output.exists()
+
+
+def test_reference_date_near_term_start_keeps_attendance_inside_the_term(seed_module, db_session):
+    db = db_session
+    db.add_all(NivelEducativo(nombre=name) for name in seed_module.LEVELS)
+    db.add_all(Rol(nombre=name) for name in ROLES)
+    db.flush()
+    seed_module.seed_school(db, date(2026, 3, 1), "local-only-demo-password")
+    early_2026 = db.scalar(
+        select(Asistencia.id)
+        .where(Asistencia.fecha >= date(2026, 1, 1), Asistencia.fecha < date(2026, 3, 2))
+        .limit(1)
+    )
+    early_2025 = db.scalar(
+        select(Asistencia.id).where(Asistencia.fecha < date(2025, 3, 2)).limit(1)
+    )
+    assert early_2026 is None
+    assert early_2025 is None
 
 
 def test_demo_mail_capture_accepts_only_fictional_families(seed_module, tmp_path, monkeypatch):

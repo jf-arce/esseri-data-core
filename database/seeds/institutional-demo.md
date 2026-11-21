@@ -15,10 +15,11 @@ as disposable. Run this in a dedicated development shell:
 
 ```bash
 export DEMO_CONTAINER=esseri-institutional-demo-local
+export DEMO_DB_PASSWORD="$(openssl rand -hex 16)"
 docker run --rm -d --name "$DEMO_CONTAINER" --label esseri.disposable-demo=institutional-v1 \
   -p 127.0.0.1::5432 \
   -e POSTGRES_DB=esseri_institutional_demo -e POSTGRES_USER=esseri_institutional_demo \
-  -e POSTGRES_PASSWORD=demo-postgres-local-only postgres:16-alpine
+  -e POSTGRES_PASSWORD="$DEMO_DB_PASSWORD" postgres:16-alpine
 docker exec "$DEMO_CONTAINER" pg_isready -U esseri_institutional_demo -d esseri_institutional_demo
 ```
 
@@ -29,7 +30,7 @@ docker exec "$DEMO_CONTAINER" psql -U esseri_institutional_demo -d esseri_instit
   -v ON_ERROR_STOP=1 -c "COMMENT ON DATABASE esseri_institutional_demo IS 'esseri:disposable-institutional-demo:v1'"
 DEMO_PORT="$(docker port "$DEMO_CONTAINER" 5432/tcp | sed 's/.*://')"
 export ENVIRONMENT=development
-export DATABASE_URL="postgresql://esseri_institutional_demo:demo-postgres-local-only@127.0.0.1:${DEMO_PORT}/esseri_institutional_demo"
+export DATABASE_URL="postgresql://esseri_institutional_demo:${DEMO_DB_PASSWORD}@127.0.0.1:${DEMO_PORT}/esseri_institutional_demo"
 export JWT_SECRET="$(openssl rand -hex 32)"
 export ESSERI_DEMO_SEED_ENABLED=true
 export ESSERI_DEMO_PASSWORD="$(openssl rand -hex 16)"
@@ -185,7 +186,7 @@ reuse live n8n, a sender account, or a real recipient.
 | AI and audit | Rule-based suggestions are seeded; the Assistant debt tool runs against actual data; family access to the Assistant is denied; 28 debit audit rows after confirmation |
 
 Observed checks: the seed loaded and reran as a no-op on migrated PostgreSQL
-16. The 13 institutional tests and 60 related debit regressions passed.
+16. The 15 institutional tests and 60 related debit regressions passed.
 Browser smoke against a disposable seeded API showed the family timetable
 and Feria de ciencias, the teacher's three assigned divisions, both management
 panels, and all 30 debit candidates. The full import and dispatch were tested

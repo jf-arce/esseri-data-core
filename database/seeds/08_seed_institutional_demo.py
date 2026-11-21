@@ -16,6 +16,7 @@ from pathlib import Path
 
 from sqlalchemy import select, text
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
@@ -55,6 +56,12 @@ NAMESPACE = uuid.UUID("333bd0b8-251d-4265-805d-08eaf7d905fc")
 REFERENCE = date(2026, 11, 18)
 DATABASE = "esseri_institutional_demo"
 MARKER = "esseri:disposable-institutional-demo:v1"
+# Historical bills and receipts produced by the documented default reference date.
+DEFAULT_HISTORY_BILLS = 983
+DEFAULT_HISTORY_PAYMENTS = 750
+# Response split for the 28 rendered invoices: 20 approved, five insufficient funds, three other.
+APPROVED_OPERATIONS = 20
+INSUFFICIENT_FUNDS_OPERATIONS = 5
 LEVELS = {
     "Nivel Inicial": range(3, 6),
     "Nivel Primario": range(1, 7),
@@ -293,7 +300,13 @@ def seed_school(db: Session, reference: date, password: str) -> School | None:
             if not 0 <= target < len(divisions) or (delta == 1 and (i % 3 or i >= 246)):
                 continue
             cycle = reference.year + delta
-            registered = date(cycle, 3, 2) if delta < 1 else reference - timedelta(days=7)
+            registered = (
+                date(cycle, 3, 2)
+                if delta < 0
+                else min(date(cycle, 3, 2), reference)
+                if delta == 0
+                else reference - timedelta(days=7)
+            )
             status = "finalizada" if delta == -1 else "baja" if i >= 246 else "activa"
             registrations[i, delta] = add(
                 db,
@@ -317,8 +330,10 @@ def seed_school(db: Session, reference: date, password: str) -> School | None:
             end = min(end, date(cycle, 7, 31))
         start = date(cycle, 3, 2)
         # March through November, sampled fortnightly, plus the reference school week.
+        # Days stay inside the enrollment window even for a reference date near March 2.
         days = {start + timedelta(days=offset) for offset in range(0, (end - start).days + 1, 13)}
         days.update(end - timedelta(days=offset) for offset in range(5))
+        days = {day for day in days if start <= day <= end}
         for day in sorted(days):
             if day.weekday() >= 5:
                 continue
@@ -367,7 +382,9 @@ def seed_finance(db: Session, school: School, reference: date) -> None:
                 history.append((i, registration, emitted))
     # Protagonists start with no historical debt. The rest use a repeatable mixed pattern.
     ranked = sorted(history, key=lambda row: (row[0] < 30, (row[0] * 41 + row[2].month) % 113))
-    paid_count = len(ranked) * 750 // 983
+    # The default reference date produces DEFAULT_HISTORY_BILLS historical bills; paying the
+    # same share on another date keeps the documented 750 receipts only for that default run.
+    paid_count = len(ranked) * DEFAULT_HISTORY_PAYMENTS // DEFAULT_HISTORY_BILLS
     paid_keys = {(i, day) for i, _, day in ranked[len(ranked) - paid_count :]}
     debts: dict[int, str] = {}
     bills = []
@@ -758,11 +775,18 @@ def bank_response(exported: str, batch: uuid.UUID, processed_on: date) -> str:
         raise ValueError("Expected all 28 ID-RENDICION invoices in the processing month.")
     results = []
     for i, row in enumerate(sorted(rows, key=lambda row: row["factura"])):
-        reason = bank.MOTIVOS_RECHAZO_SIMULADOS[0 if i < 25 else i - 24] if i >= 20 else ("", "")
+        if i < APPROVED_OPERATIONS:
+            reason = ("", "")
+        elif i < APPROVED_OPERATIONS + INSUFFICIENT_FUNDS_OPERATIONS:
+            reason = bank.MOTIVOS_RECHAZO_SIMULADOS[0]
+        else:
+            reason = bank.MOTIVOS_RECHAZO_SIMULADOS[
+                i - APPROVED_OPERATIONS - INSUFFICIENT_FUNDS_OPERATIONS + 1
+            ]
         results.append(
             bank.RespuestaDetalle(
                 uuid.UUID(row["referencia"]),
-                bank.RECHAZADO if i >= 20 else bank.COBRADO,
+                bank.RECHAZADO if i >= APPROVED_OPERATIONS else bank.COBRADO,
                 Decimal(row["importe"]),
                 processed_on,
                 *reason,
@@ -838,7 +862,7 @@ def main() -> None:
             if school
             else "Institutional demo already loaded; no changes."
         )
-    except (KeyError, RuntimeError, ValueError) as exc:
+    except (KeyError, RuntimeError, ValueError, SQLAlchemyError) as exc:
         parser.exit(1, f"{exc}\n")
 
 
