@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { listarFacturas } from '@/modules/facturacion/services/listar-facturas'
+import { listarCiclosFacturas } from '@/modules/facturacion/services/listar-ciclos-facturas'
 import { obtenerCuentaCorriente } from '@/modules/facturacion/services/obtener-cuenta-corriente'
 import { AlumnoFichaPage } from '@/modules/familias-alumnos/pages/alumno-ficha-page'
 import { listarVinculosAlumno } from '@/modules/familias-alumnos/services/listar-vinculos-alumno'
@@ -13,6 +14,7 @@ vi.mock('@/modules/familias-alumnos/services/obtener-alumno')
 vi.mock('@/modules/familias-alumnos/services/listar-vinculos-alumno')
 vi.mock('@/modules/facturacion/services/obtener-cuenta-corriente')
 vi.mock('@/modules/facturacion/services/listar-facturas')
+vi.mock('@/modules/facturacion/services/listar-ciclos-facturas')
 vi.mock('@/modules/auditoria/components/historial-cambios', () => ({
   HistorialCambios: () => null,
 }))
@@ -58,6 +60,7 @@ describe('AlumnoFichaPage', () => {
       tamanio: 10,
     })
     vi.mocked(listarFacturas).mockResolvedValue({ items: [], total: 0, pagina: 1, tamanio: 5 })
+    vi.mocked(listarCiclosFacturas).mockResolvedValue(['2027'])
   })
 
   it('muestra las facturas del alumno en su pestaña de facturación', async () => {

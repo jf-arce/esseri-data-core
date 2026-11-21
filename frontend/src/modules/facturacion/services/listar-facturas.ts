@@ -12,6 +12,7 @@ export function listarFacturas(filtros: FiltrosFacturas, signal?: AbortSignal) {
   if (filtros.alumnoId) parametros.set('alumno_id', filtros.alumnoId)
   if (filtros.familiaResponsableId)
     parametros.set('familia_responsable_id', filtros.familiaResponsableId)
+  if (filtros.cicloLectivo) parametros.set('ciclo_lectivo', filtros.cicloLectivo)
   if (filtros.conceptoCobroId) parametros.set('concepto_cobro_id', filtros.conceptoCobroId)
   if (filtros.emisionDesde) parametros.set('emision_desde', filtros.emisionDesde)
   if (filtros.emisionHasta) parametros.set('emision_hasta', filtros.emisionHasta)

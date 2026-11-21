@@ -37,7 +37,7 @@ describe('DeudaFamiliasTabla', () => {
 
     expect(screen.getByRole('link', { name: 'García, Ana' })).toHaveAttribute(
       'href',
-      '/familias-alumnos/familias/familia-1',
+      '/familias-alumnos/familias/familia-1?tab=facturacion',
     )
     expect(screen.getByText('2 impagas · 1 pagadas')).toBeInTheDocument()
     expect(screen.getByText('Vencida')).toBeInTheDocument()

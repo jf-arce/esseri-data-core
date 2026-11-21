@@ -6,6 +6,7 @@ import { crearFactura } from '@/modules/facturacion/services/crear-factura'
 import { crearReglaFacturacion } from '@/modules/facturacion/services/crear-regla-facturacion'
 import { generarFacturacion } from '@/modules/facturacion/services/generar-facturacion'
 import { listarConceptosCobro } from '@/modules/facturacion/services/listar-conceptos-cobro'
+import { listarCiclosFacturas } from '@/modules/facturacion/services/listar-ciclos-facturas'
 import { listarFacturas } from '@/modules/facturacion/services/listar-facturas'
 import { listarDeudaFamilias } from '@/modules/facturacion/services/listar-deuda-familias'
 import { previsualizarGeneracionFacturacion } from '@/modules/facturacion/services/previsualizar-generacion-facturacion'
@@ -38,6 +39,16 @@ describe('servicios de facturación', () => {
 
     expect(fetchMock.mock.calls[0][0]).toContain(
       '/facturacion/facturas?pagina=2&tamanio=10&estado=pendiente&buscar=c4341acf&alumno_id=alumno-1&familia_responsable_id=familia-1&concepto_cobro_id=concepto-1&ordenar_por=monto_total&direccion=desc',
+    )
+  })
+
+  it('consulta los ciclos con facturas del alcance pedido', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => respuestaOk())
+
+    await listarCiclosFacturas({ alumnoId: 'alumno-1', familiaResponsableId: 'familia-1' })
+
+    expect(fetchMock.mock.calls[0][0]).toContain(
+      '/facturacion/facturas/ciclos?alumno_id=alumno-1&familia_responsable_id=familia-1',
     )
   })
 

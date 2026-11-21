@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { MoreHorizontalIcon, Trash2Icon, UserPlusIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
@@ -57,6 +57,14 @@ import type { Familia, Vinculo } from '../types'
 export function FamiliaFichaPage() {
   const { familiaId } = useParams<{ familiaId: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabInicial = searchParams.get('tab') === 'facturacion' ? 'facturacion' : 'datos'
+  function cambiarTab(valor: string) {
+    const siguientes = new URLSearchParams(searchParams)
+    if (valor === 'datos') siguientes.delete('tab')
+    else siguientes.set('tab', valor)
+    setSearchParams(siguientes, { replace: true })
+  }
   const [familia, setFamilia] = useState<Familia>()
   const [vinculos, setVinculos] = useState<Vinculo[]>([])
   const [resultadoFacturacion, setResultadoFacturacion] = useState<{
@@ -195,7 +203,7 @@ export function FamiliaFichaPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="datos">
+      <Tabs defaultValue={tabInicial} onValueChange={cambiarTab}>
         <TabsList>
           <TabsTrigger value="datos">Datos</TabsTrigger>
           <TabsTrigger value="alumnos">Alumnos</TabsTrigger>

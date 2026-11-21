@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { FilterDropdown } from '@/components/filter-dropdown'
 import { PaginadorServidor } from '@/components/paginador-servidor'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,6 +13,7 @@ import {
 } from '@/components/ui/table'
 import { FacturaDetalleSheet } from '@/modules/facturacion/components/factura-detalle-sheet'
 import { useFacturas } from '@/modules/facturacion/hooks/use-facturas'
+import { listarCiclosFacturas } from '@/modules/facturacion/services/listar-ciclos-facturas'
 import {
   etiquetaEstadoFactura,
   formatearFechaFactura,
@@ -39,13 +41,28 @@ function numeroCorto(id: string) {
 export function FacturasVinculadas({ familiaResponsableId, alumnoId }: FacturasVinculadasProps) {
   const [pagina, setPagina] = useState(1)
   const [abiertaId, setAbiertaId] = useState<string | null>(null)
+  const [ciclo, setCiclo] = useState('')
+  const [ciclos, setCiclos] = useState<string[]>([])
   const { datos, cargando, error, sinPermiso, recargar } = useFacturas({
     pagina,
     tamanio: TAMANIO_PAGINA,
     familiaResponsableId,
     alumnoId,
+    cicloLectivo: ciclo || undefined,
   })
   const totalPaginas = Math.max(1, Math.ceil(datos.total / TAMANIO_PAGINA))
+
+  useEffect(() => {
+    const controller = new AbortController()
+    listarCiclosFacturas({ alumnoId, familiaResponsableId }, controller.signal)
+      .then((anios) => {
+        if (!controller.signal.aborted) setCiclos(anios)
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setCiclos([])
+      })
+    return () => controller.abort()
+  }, [alumnoId, familiaResponsableId])
 
   if (sinPermiso) {
     return <p className="text-sm text-texto-2">No tenés permiso para ver las facturas.</p>
@@ -53,6 +70,24 @@ export function FacturasVinculadas({ familiaResponsableId, alumnoId }: FacturasV
 
   return (
     <div className="rounded-panel bg-superficie shadow-card">
+      {ciclos.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-borde px-4 py-3">
+          <FilterDropdown
+            label="Ciclo lectivo"
+            options={[
+              { value: 'todos', label: 'Todos' },
+              ...ciclos.map((anio) => ({ value: anio, label: anio })),
+            ]}
+            value={ciclo || 'todos'}
+            active={ciclo !== ''}
+            onChange={(valor) => {
+              setCiclo(valor === 'todos' ? '' : valor)
+              setPagina(1)
+              setAbiertaId(null)
+            }}
+          />
+        </div>
+      )}
       {error ? (
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
           <p className="text-sm text-texto-2">{error}</p>

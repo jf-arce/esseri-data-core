@@ -5,11 +5,13 @@ import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '@/api/client'
 import { FacturasVinculadas } from '@/modules/facturacion/components/facturas-vinculadas'
+import { listarCiclosFacturas } from '@/modules/facturacion/services/listar-ciclos-facturas'
 import { listarFacturas } from '@/modules/facturacion/services/listar-facturas'
 import { obtenerFactura } from '@/modules/facturacion/services/obtener-factura'
 import type { FacturaDetalle, FacturasListado } from '@/modules/facturacion/types'
 
 vi.mock('@/modules/facturacion/services/listar-facturas')
+vi.mock('@/modules/facturacion/services/listar-ciclos-facturas')
 vi.mock('@/modules/facturacion/services/obtener-factura')
 
 const FACTURA_ID = '11111111-2222-3333-4444-555555555555'
@@ -81,6 +83,7 @@ describe('FacturasVinculadas', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(listarFacturas).mockResolvedValue(listado)
+    vi.mocked(listarCiclosFacturas).mockResolvedValue(['2027', '2026'])
     vi.mocked(obtenerFactura).mockResolvedValue(detalleFactura)
   })
 
@@ -112,6 +115,22 @@ describe('FacturasVinculadas', () => {
       expect.any(AbortSignal),
     )
     expect(screen.queryByRole('columnheader', { name: 'Alumno' })).not.toBeInTheDocument()
+  })
+
+  it('filtra por ciclo lectivo y vuelve a la primera página', async () => {
+    const user = userEvent.setup()
+    renderizar({ familiaResponsableId: 'familia-1' })
+    await screen.findByRole('button', { name: `#${FACTURA_ID.slice(0, 8)}` })
+
+    await user.click(screen.getByRole('button', { name: 'Ciclo lectivo' }))
+    await user.click(screen.getByRole('radio', { name: '2026' }))
+
+    await waitFor(() =>
+      expect(listarFacturas).toHaveBeenLastCalledWith(
+        expect.objectContaining({ cicloLectivo: '2026', pagina: 1 }),
+        expect.any(AbortSignal),
+      ),
+    )
   })
 
   it('muestra un aviso cuando no hay facturas', async () => {
