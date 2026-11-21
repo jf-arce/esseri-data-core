@@ -167,9 +167,22 @@ class TestLotesDebito:
         correr(administracion_deb, proveedor, ("lotes_debito", {"codigo": "ld-2026-11-001"}))
         datos = resultado(proveedor)
         assert (datos["cobrados"], datos["rechazados"]) == (2, 1)
-        (fila,) = datos["detalle_rechazados"]
+        (fila,) = datos["detalle"]
         assert fila["alumno"] == "[ALUMNO:1]" and fila["familia"] == "[FAMILIA:1]"
         assert fila["motivo"] == "Saldo insuficiente"
+        enviado = proveedor.texto_enviado()
+        assert "Alumno3" not in enviado and "Familia3" not in enviado
+
+    def test_detalle_con_todos_los_debitos(self, administracion_deb, proveedor, lote_rendido):
+        correr(
+            administracion_deb,
+            proveedor,
+            ("lotes_debito", {"codigo": "LD-2026-11-001", "todos": True}),
+        )
+        datos = resultado(proveedor)
+        assert datos["devueltos"] == datos["debitos"] == 4
+        estados = sorted(fila["estado"] for fila in datos["detalle"])
+        assert estados.count("Cobrado") == 2 and estados.count("Rechazado") == 1
         enviado = proveedor.texto_enviado()
         assert "Alumno3" not in enviado and "Familia3" not in enviado
 

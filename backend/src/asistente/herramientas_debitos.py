@@ -199,9 +199,16 @@ class ParametrosLotesDebito(BaseModel):
     codigo: str | None = Field(
         default=None, max_length=20, description="Código de un lote (LD-...) para ver su detalle."
     )
+    todos: bool = Field(
+        default=False,
+        description="Con codigo: lista todos los débitos del lote, no solo los rechazados.",
+    )
     periodo: str | None = Field(default=None, pattern=_PATRON_PERIODO, description="AAAA-MM.")
     estado: Literal["exportado", "en_revision", "pagos_registrados", "liberado"] | None = None
     limite: int = Field(default=10, ge=1, le=50, description="Lotes a devolver.")
+
+
+_ESTADO_DEBITO = {formato.COBRADO: "Cobrado", formato.RECHAZADO: "Rechazado"}
 
 
 def _estado_importacion(contexto: ContextoHerramienta, importacion_id: uuid.UUID | None) -> str:
@@ -211,7 +218,9 @@ def _estado_importacion(contexto: ContextoHerramienta, importacion_id: uuid.UUID
     return "sin importar" if importacion is None else importacion.estado
 
 
-def _detalle_de_lote(contexto: ContextoHerramienta, codigo: str) -> ResultadoHerramienta:
+def _detalle_de_lote(
+    contexto: ContextoHerramienta, codigo: str, *, todos: bool
+) -> ResultadoHerramienta:
     historial = listar_lotes(
         contexto.db, periodo=None, estado=None, buscar=codigo, pagina=1, tamanio=10
     )
@@ -220,7 +229,8 @@ def _detalle_de_lote(contexto: ContextoHerramienta, codigo: str) -> ResultadoHer
         return ResultadoHerramienta(para_llm={"error": "No hay un lote con ese código."})
     detalle = leer_lote(contexto.db, obtener_lote(contexto.db, encontrado.id))
     rechazados = [d for d in detalle.items if d.resultado == formato.RECHAZADO]
-    factura_ids = [d.factura_id for d in rechazados]
+    mostrados = detalle.items if todos else rechazados
+    factura_ids = [d.factura_id for d in mostrados]
     personas = {
         factura_id: (alumno_id, familia_id)
         for factura_id, alumno_id, familia_id in contexto.db.execute(
@@ -247,7 +257,7 @@ def _detalle_de_lote(contexto: ContextoHerramienta, codigo: str) -> ResultadoHer
     }
     ya_cobrados = sum(1 for d in detalle.items if d.resultado == formato.COBRADO)
     filas = []
-    for debito in rechazados[: contexto.max_filas]:
+    for debito in mostrados[: contexto.max_filas]:
         alumno_id, familia_id = personas.get(debito.factura_id, (None, None))
         codigo_motivo = motivos.get(debito.referencia)
         filas.append(
@@ -263,16 +273,20 @@ def _detalle_de_lote(contexto: ContextoHerramienta, codigo: str) -> ResultadoHer
                 if familia_id
                 else None,
                 "importe": numero(debito.importe),
-                "motivo": _DESCRIPCION_MOTIVO.get(codigo_motivo or "", "Sin motivo informado"),
+                "estado": _ESTADO_DEBITO.get(debito.resultado, "Sin respuesta"),
+                "motivo": _DESCRIPCION_MOTIVO.get(codigo_motivo or "", "Sin motivo informado")
+                if debito.resultado == formato.RECHAZADO
+                else "",
             }
         )
     periodo = mes_iso_ar(detalle.periodo)
     tabla = bloque_tabla(
-        f"Débitos rechazados del lote {detalle.codigo}",
+        f"Débitos {'' if todos else 'rechazados '}del lote {detalle.codigo}",
         [
             {"clave": "alumno", "etiqueta": "Alumno", "tipo": "alias"},
             {"clave": "familia", "etiqueta": "Familia", "tipo": "alias"},
             {"clave": "importe", "etiqueta": "Importe", "tipo": "moneda"},
+            {"clave": "estado", "etiqueta": "Estado", "tipo": "texto"},
             {"clave": "motivo", "etiqueta": "Motivo", "tipo": "texto"},
         ],
         filas,
@@ -292,8 +306,8 @@ def _detalle_de_lote(contexto: ContextoHerramienta, codigo: str) -> ResultadoHer
             "importe_total": numero(detalle.importe_total),
             "cobrados": ya_cobrados,
             "rechazados": len(rechazados),
-            "rechazados_devueltos": len(filas),
-            "detalle_rechazados": filas,
+            "devueltos": len(filas),
+            "detalle": filas,
         },
         bloques=bloques,
     )
@@ -303,7 +317,7 @@ def _lotes_debito(
     contexto: ContextoHerramienta, parametros: ParametrosLotesDebito
 ) -> ResultadoHerramienta:
     if parametros.codigo is not None:
-        return _detalle_de_lote(contexto, parametros.codigo)
+        return _detalle_de_lote(contexto, parametros.codigo, todos=parametros.todos)
     historial = listar_lotes(
         contexto.db,
         periodo=parametros.periodo,
@@ -403,7 +417,8 @@ HERRAMIENTAS = [
         descripcion=(
             "Historial de lotes de débito (código, período, estado, cantidades, importes e "
             "importación). Con codigo devuelve el detalle de ese lote: los débitos rechazados por "
-            "familia y alumno (alias) con su motivo. Para totales y tasas por mes usá "
+            "familia y alumno (alias) con su motivo; con todos=true, todos los débitos del lote "
+            "con su estado (cobrado, rechazado o sin respuesta). Para totales y tasas por mes usá "
             "resumen_debitos."
         ),
         parametros=ParametrosLotesDebito,
