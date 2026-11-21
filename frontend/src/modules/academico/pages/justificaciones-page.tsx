@@ -96,8 +96,8 @@ export function JustificacionesPage() {
   const [searchParams] = useSearchParams()
   const focoJustificacionId = searchParams.get('justificacion')
   const [filtros, setFiltros] = useState<FiltrosJustificaciones>(() => ({
-    // Un aviso puede apuntar a una justificación ya resuelta: se muestra el historial completo.
-    estado: focoJustificacionId ? undefined : 'pendiente',
+    // La bandeja abre con el historial completo; las pestañas filtran por estado.
+    estado: undefined,
     pagina: 1,
     tamanio_pagina: TAMANIO_PAGINA,
   }))
@@ -234,7 +234,7 @@ export function JustificacionesPage() {
 
   const limpiarFiltros = () => {
     setBusqueda('')
-    setFiltros({ estado: 'pendiente', pagina: 1, tamanio_pagina: TAMANIO_PAGINA })
+    setFiltros({ estado: undefined, pagina: 1, tamanio_pagina: TAMANIO_PAGINA })
   }
 
   const aprobar = async (item: JustificacionFamilia) => {
@@ -389,6 +389,10 @@ export function JustificacionesPage() {
         }
       >
         <TabsList className="max-w-full overflow-x-auto">
+          <TabsTrigger value="todas">
+            Todas
+            <span className="text-texto-3">{resumen?.total ?? 0}</span>
+          </TabsTrigger>
           <TabsTrigger value="pendiente">
             Pendientes
             <span className="text-texto-3">{resumen?.pendientes ?? 0}</span>
@@ -400,10 +404,6 @@ export function JustificacionesPage() {
           <TabsTrigger value="rechazada">
             Rechazadas
             <span className="text-texto-3">{resumen?.rechazadas ?? 0}</span>
-          </TabsTrigger>
-          <TabsTrigger value="todas">
-            Todas
-            <span className="text-texto-3">{resumen?.total ?? 0}</span>
           </TabsTrigger>
         </TabsList>
       </Tabs>
