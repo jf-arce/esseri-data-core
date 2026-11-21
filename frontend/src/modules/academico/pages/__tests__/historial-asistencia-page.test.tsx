@@ -6,7 +6,17 @@ import { HistorialAsistenciaPage } from '../historial-asistencia-page'
 import { useConsultaHistorial } from '../../hooks/use-consulta-historial'
 import { exportarHistorial, type FiltrosHistorial } from '../../services/consultar-historial'
 
-const estado = vi.hoisted(() => ({ vacio: false, exportar: true, error: null as string | null }))
+const estado = vi.hoisted(() => ({
+  vacio: false,
+  exportar: true,
+  error: null as string | null,
+  puntos: [] as {
+    fecha: string
+    presentes: number
+    ausentes: number
+    porcentaje_presencia: number
+  }[],
+}))
 vi.mock('../../hooks/use-consulta-historial', () => ({
   useCiclosHistorial: () => ({ datos: ['2026', '2025'], error: null, recargar: vi.fn() }),
   useConsultaHistorial: vi.fn((filtros: FiltrosHistorial) => ({
@@ -69,7 +79,7 @@ vi.mock('../../hooks/use-consulta-historial', () => ({
     recargar: vi.fn(),
   }),
   useTendenciaHistorial: () => ({
-    datos: { puntos: [] },
+    datos: { puntos: estado.puntos },
     cargando: false,
     error: null,
     sinPermiso: false,
@@ -89,6 +99,7 @@ beforeEach(() => {
   estado.vacio = false
   estado.exportar = true
   estado.error = null
+  estado.puntos = []
   useCicloLectivoStore.setState({ cicloLectivo: '2026' })
 })
 const originales = new Map<string, PropertyDescriptor | undefined>()
@@ -138,6 +149,21 @@ it('opens today in the global cycle and shows full-result indicators and result 
   expect(within(indicadores).getByText('57,14%')).toBeInTheDocument()
   expect(screen.getByText('1-20 de 21 registros')).toBeInTheDocument()
   expect(screen.getByRole('columnheader', { name: 'División' })).toBeInTheDocument()
+})
+
+it('muestra el detalle de cada barra de la tendencia al enfocarla', async () => {
+  estado.puntos = [
+    { fecha: '2026-11-17', presentes: 20, ausentes: 5, porcentaje_presencia: 80 },
+    { fecha: '2026-11-18', presentes: 18, ausentes: 7, porcentaje_presencia: 72 },
+  ]
+  render(<HistorialAsistenciaPage />)
+
+  const barras = await screen.findAllByRole('button', { name: /Ver tendencia del/ })
+  expect(barras).toHaveLength(2)
+  await userEvent.hover(barras[0])
+
+  expect(await screen.findByText('80% de presencia')).toBeInTheDocument()
+  expect(screen.getByText('20 presentes · 5 ausentes')).toBeInTheDocument()
 })
 
 it('applies independent selectors, state and date filters without cascading resets', async () => {
