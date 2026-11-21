@@ -207,6 +207,14 @@ and Feria de ciencias, the teacher's three assigned divisions, both management
 panels, and all 30 debit candidates. The full import and dispatch were tested
 through the API, not by clicking through the entire browser flow.
 
+On a fresh v2 database the full journey was exercised: 30 candidates, 28
+rendered and 2 reserved, 20 collected and 8 rejected, 770 payments, 8 captured
+emails, 8 executions, reimport of the same file returned the same import id
+without extra rows, the protagonist's debit chat worked with an administrative
+reply, `resumen_debitos` and `lotes_debito` returned real data, and audit
+recorded the 28 debit results. The conversational reply itself still needs an
+authorized provider key; the tools run against real data without it.
+
 ```bash
 # Run from backend/ with the venv activated.
 ENVIRONMENT=development NOTIFICACIONES_VENCIMIENTOS_HABILITADO=false \

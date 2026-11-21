@@ -417,3 +417,5 @@ Priorizá la estabilidad y la coherencia del sistema por encima de agregar más 
 ```
 
 - L15 — Chat contexts are limited to debits, justifications and period-absence requests. Historical fee/activity threads have no supported context; only absence-related threads are seeded rather than inventing a free-form chat.
+
+- L16 — Fresh disposable PostgreSQL: v2 seed loaded `250 students | 24 conversations | 48 messages | 8 period requests | 1013 invoices | 750 payments | 3 levels`. End-to-end on that database: 30 candidates, 28 rendered + 2 reserved, 20 collected and 8 rejected, 770 payments, 8 captured emails, 8 executions for the new rule, reimport of the same file returned the same import id with no extra rows, the protagonist started the debit chat and administration replied, `resumen_debitos` returned 20/8/2 with the 5/1/1/1 reasons, `lotes_debito` returned the batch detail, and audit showed 28 debit rows. The first tool attempt failed only because the harness used a random conversation id; the alias FK requires a real Assistant conversation, which the product creates before asking.
