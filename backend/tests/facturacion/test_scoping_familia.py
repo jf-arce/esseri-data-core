@@ -118,7 +118,7 @@ def test_familia_solo_ve_su_deuda(client_familia, escenario_dos_familias):
     assert respuesta.json()["total"] == 1
 
 
-def test_familia_solo_consulta_la_cuenta_corriente_de_sus_alumnos(
+def test_familia_no_consulta_la_cuenta_corriente_administrativa(
     client_familia, escenario_dos_familias
 ):
     propia = client_familia.get(
@@ -128,8 +128,22 @@ def test_familia_solo_consulta_la_cuenta_corriente_de_sus_alumnos(
         f"/facturacion/alumnos/{escenario_dos_familias['alumno_b']}/cuenta-corriente"
     )
 
-    assert propia.status_code == 200
+    assert propia.status_code == 403
+    assert propia.json()["detail"] == (
+        "Esta consulta administrativa no está disponible para el rol Familia"
+    )
     assert ajena.status_code == 403
+
+
+def test_staff_consulta_la_cuenta_corriente_de_cualquier_alumno(
+    client_solo_lectura, escenario_dos_familias
+):
+    respuesta = client_solo_lectura.get(
+        f"/facturacion/alumnos/{escenario_dos_familias['alumno_b']}/cuenta-corriente"
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["alumno_id"] == str(escenario_dos_familias["alumno_b"])
 
 
 def test_familia_no_puede_consultar_agregados_de_generacion(client_familia):
