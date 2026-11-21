@@ -4,11 +4,24 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { useDetalleDireccion } from '../../hooks/use-detalle-direccion'
+import { AtencionDireccion } from '../atencion-direccion'
 import { DetalleDireccion } from '../detalle-direccion'
 
 // El hook se mockea más abajo; la página real lo llama y pasa el resultado como prop.
+// También monta `AtencionDireccion` (que vive en el Panel Administrativo) con los mismos datos,
+// porque estas pruebas cubren su contenido.
 function Detalle({ acceso }: { acceso: Parameters<typeof DetalleDireccion>[0]['acceso'] }) {
-  return <DetalleDireccion acceso={acceso} datos={useDetalleDireccion(acceso)} />
+  const datos = useDetalleDireccion(acceso)
+  return (
+    <>
+      <AtencionDireccion
+        compras={datos.compras}
+        deudas={datos.deudas}
+        acceso={{ compras: acceso.compras, finanzas: acceso.finanzas }}
+      />
+      <DetalleDireccion acceso={acceso} datos={datos} />
+    </>
+  )
 }
 
 interface FilaActividad {

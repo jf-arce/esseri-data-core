@@ -1,5 +1,6 @@
 import { RefreshCwIcon } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/page-header'
 import { useIndicadoresDireccion } from '@/modules/panel-admin/hooks/use-indicadores-direccion'
@@ -18,18 +19,6 @@ import { AtencionInstitucional } from '../components/atencion-institucional'
 import { DetalleDireccion } from '../components/detalle-direccion'
 import { IndicadoresDireccion } from '../components/indicadores-direccion'
 
-const fechaDeHoy = () =>
-  new Date().toLocaleDateString('es-AR', {
-    weekday: 'long',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
-
-const capitalize = (str: string) => {
-  return str.charAt(0).toUpperCase() + str.slice(1)
-}
-
 export function PanelDireccionPage() {
   const cicloLectivo = useCicloLectivoStore((estado) => estado.cicloLectivo)
   const { datos, cargando, actualizando, actualizadoEn, error, version, recargar } =
@@ -43,6 +32,7 @@ export function PanelDireccionPage() {
     tareas: tienePermiso(permisos, PERMISO_WORKFLOWS_LEER),
   }
   const atencion = {
+    // La bandeja de justificaciones es operativa: está en el Panel Administrativo.
     justificaciones: false,
     workflows: tienePermiso(permisos, PERMISO_WORKFLOWS_LEER),
   }
@@ -51,13 +41,12 @@ export function PanelDireccionPage() {
   const detalle = useDetalleDireccion(acceso, version, cicloLectivo)
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader
-        etiqueta="Dirección"
         titulo="Panel de Dirección"
-        descripcion={`${capitalize(fechaDeHoy())} · Ciclo ${cicloLectivo}`}
+        chip={<Badge variant="secondary">Ciclo {cicloLectivo}</Badge>}
         accion={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {actualizadoEn && (
               <span className="text-xs tabular-nums text-texto-2">
                 Actualizado a las{' '}
@@ -89,6 +78,8 @@ export function PanelDireccionPage() {
         </Alert>
       )}
 
+      <AtencionInstitucional acceso={atencion} version={version} />
+
       <IndicadoresDireccion
         datos={datos}
         cargando={cargando}
@@ -102,7 +93,6 @@ export function PanelDireccionPage() {
           tareas: acceso.tareas,
         }}
       />
-      <AtencionInstitucional acceso={atencion} version={version} />
       <DetalleDireccion acceso={acceso} datos={detalle} />
     </div>
   )

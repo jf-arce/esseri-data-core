@@ -12,7 +12,7 @@ Es una superficie de **producto**, no de marketing: una herramienta de uso inter
 
 ## 2. Color
 
-El sistema ofrece tema claro y oscuro. Oscuro es el valor predeterminado y la elección se conserva por navegador; el tema guardado se aplica antes del primer render para evitar un destello de color incorrecto. Nunca `#000000` ni `#FFFFFF` puros: todo neutro de este sistema lleva un tinte violáceo (hue ≈300 en OKLCH), para que la interfaz se lea como una sola familia y no como grises de sistema operativo.
+El sistema ofrece tema claro y oscuro. Claro es el valor predeterminado y la elección se conserva por navegador; el tema guardado se aplica antes del primer render para evitar un destello de color incorrecto. Nunca `#000000` ni `#FFFFFF` puros: todo neutro de este sistema lleva un tinte violáceo (hue ≈300 en OKLCH), para que la interfaz se lea como una sola familia y no como grises de sistema operativo.
 
 Los tokens semánticos se redefinen en `.dark` dentro de `frontend/src/index.css`; las pantallas y componentes usan exclusivamente esos tokens, sin variantes `dark:` ni colores fijos. El selector de tema vive en el menú de cuenta y ofrece "Claro" y "Oscuro" como opciones de radio accesibles.
 
@@ -51,9 +51,9 @@ Los tokens semánticos se redefinen en `.dark` dentro de `frontend/src/index.css
 
 | Token            | Valor     | Rol                                                                                                         |
 | ---------------- | --------- | ----------------------------------------------------------------------------------------------------------- |
-| violeta-vibrante | `#7C24A3` | **primario de interacción**: botones, links activos, ítem activo de navegación, foco, iconografía de acento |
-| violeta-esseri   | `#6E2A8D` | **marca en reposo**: wordmark/logo, y estado _hover_ de violeta-vibrante. No es un color de acción          |
-| violeta-pressed  | `#55206E` | estado _pressed_ del primario                                                                               |
+| violeta-vibrante | `#54327A` | **primario de interacción**: botones, links activos, ítem activo de navegación, foco, iconografía de acento |
+| violeta-esseri   | `#472A66` | **marca en reposo**: wordmark/logo, y estado _hover_ de violeta-vibrante. No es un color de acción          |
+| violeta-pressed  | `#3B2256` | estado _pressed_ del primario                                                                               |
 | violeta-suave    | `#F6EDFB` | fondo tenue (chips, superficies seleccionadas)                                                              |
 | violeta-borde    | `#E7CFF2` | borde tenue a juego con violeta-suave                                                                       |
 
@@ -110,23 +110,23 @@ Violeta, petróleo, ámbar, ciruela clara, pizarra. Sin degradés. **Nunca pie/d
 
 Una sola familia tipográfica: **Geist** (variable, pesos 100–900, roman + italic). Prohibidas Inter, Arial, system-ui, mono y Roboto como fuente de marca.
 
-- **Etiquetas de sección**: Geist peso 700, versalitas (uppercase), tracking ~0.06em, tamaño 13px (`text-xs`). Es el único lugar donde va texto tracked en mayúsculas; nunca en frases largas.
-- **UI y cuerpo**: Geist 400/500/600, base 13–15px. Título de página 24px/600, encabezado de sección 17px/600, cuerpo 15px/400.
+- **Etiquetas de sección**: Geist peso 700, versalitas (uppercase), tracking ~0.06em, tamaño 12px (`text-xs`). Es el único lugar donde va texto tracked en mayúsculas; nunca en frases largas.
+- **UI y cuerpo**: Geist 400/500/600, base 12–14px. Título de página 24px/600, encabezado de sección 16px/600, cuerpo 14px/400.
 
-### 3.1 Escala (revisado: cuatro pasos sobre la escala nativa de Tailwind, apenas arriba del default)
+### 3.1 Escala (revisado: cuatro pasos sobre la escala nativa de Tailwind)
 
 La escala vive directamente en la escala de tamaños de Tailwind — **nunca** como un valor `text-[Npx]` a mano. Esto no es solo prolijidad: los componentes de shadcn/ui que ya usamos (y cualquiera que se instale a futuro con `npx shadcn add ...`) vienen escritos contra `text-xs`/`text-sm`/`text-base`, así que alinear la escala del proyecto a esos mismos pasos evita que cada componente nuevo necesite retocarse a mano.
 
-`text-xs`/`text-sm`/`text-base` están redefinidos en `frontend/src/index.css` (`@theme inline`) apenas por encima del valor nativo de Tailwind — el sistema lo usa personal y familias de un colegio, no solo un equipo técnico, así que el piso de legibilidad sube de 12px a 13px, sin llegar a un salto completo de escalón. `text-2xl` (rol título) queda en su valor nativo, 24px.
+`text-xs`/`text-sm`/`text-base` están fijados en `frontend/src/index.css` (`@theme inline`) en los valores nativos de Tailwind (12, 14 y 16px). Antes estaban 1px por encima (13, 15 y 17px) para subir el piso de legibilidad; se volvió a la escala nativa por considerarse demasiado grande. `text-2xl` (rol título) queda en su valor nativo, 24px.
 
 | Rol        | Utilidad Tailwind | Tamaño | Uso                                                                                                                                                                                                                                                           |
 | ---------- | ----------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| micro      | `text-xs`         | 13px   | Etiqueta de sección (versalitas), encabezado de columna de tabla densa, badge, chip, texto auxiliar mínimo (helper, error inline)                                                                                                                             |
-| cuerpo     | `text-sm`         | 15px   | Cuerpo de UI por defecto: botón, input, select, texto de fila de tabla, label de campo, breadcrumb, texto de tabs. También cubre lo que antes era "texto secundario/metadata" — se diferencia por color (`texto-2`/`texto-3`) y peso, no por un tamaño propio |
-| encabezado | `text-base`       | 17px   | Encabezado de sección                                                                                                                                                                                                                                         |
+| micro      | `text-xs`         | 12px   | Etiqueta de sección (versalitas), encabezado de columna de tabla densa, badge, chip, texto auxiliar mínimo (helper, error inline)                                                                                                                             |
+| cuerpo     | `text-sm`         | 14px   | Cuerpo de UI por defecto: botón, input, select, texto de fila de tabla, label de campo, breadcrumb, texto de tabs. También cubre lo que antes era "texto secundario/metadata" — se diferencia por color (`texto-2`/`texto-3`) y peso, no por un tamaño propio |
+| encabezado | `text-base`       | 16px   | Encabezado de sección                                                                                                                                                                                                                                         |
 | título     | `text-2xl`        | 24px   | Título de página                                                                                                                                                                                                                                              |
 
-Nunca un valor suelto entre estos pasos (nada de 12.5px, 13.5px, 14.5px, 16px, ni un `text-[Npx]` que solo reescribe a mano un valor que la escala de Tailwind ya cubre): si un texto no encaja claramente en un rol, es señal de que le falta jerarquía real (peso, color, spacing), no que necesite un tamaño intermedio. La densidad de este sistema (§1) ya justifica un piso de 13-15px para texto de UI corriente, por debajo del piso de 15-17px que aplicaría a una superficie de lectura o de marketing (el hero de marketing del login es la única excepción documentada, con un tamaño propio de 40px fuera de esta escala).
+Nunca un valor suelto entre estos pasos (nada de 12.5px, 13.5px, 14.5px, 15px, ni un `text-[Npx]` que solo reescribe a mano un valor que la escala de Tailwind ya cubre): si un texto no encaja claramente en un rol, es señal de que le falta jerarquía real (peso, color, spacing), no que necesite un tamaño intermedio. La densidad de este sistema (§1) ya justifica un piso de 12-14px para texto de UI corriente, por debajo del piso de 15-17px que aplicaría a una superficie de lectura o de marketing (el hero de marketing del login es la única excepción documentada, con un tamaño propio de 40px fuera de esta escala).
 
 - **Datos**: Geist con numerales tabulares (`font-variant-numeric: tabular-nums`) para todo dato: montos, legajos, DNI, fechas, IDs, logs. No hay una fuente monoespaciada separada; la alineación tabular se logra con la feature OpenType, no con otra tipografía.
 - Longitud de línea de texto corrido: 65–75ch máximo.
@@ -152,15 +152,15 @@ Grilla de 8px, submúltiplos de 4: **8 / 16 / 24 / 32 / 48**. Padding interno m�
 | Modal/diálogo                                                    | 12px                                                     |
 | Grilla de datos densa (fila de tabla, línea de tiempo)           | 8px                                                      |
 
-### 5.2 Elevación de card: superficie + sombra baja, sin borde
+### 5.2 Elevación de card: superficie + borde sutil + sombra baja
 
-La Card (ver 9) no usa el hairline de 1px como recurso de separación — el hairline queda para inputs, divisores y filas de tabla. Una card se separa del lienzo por su `superficie` lisa (ver 2.1) más una sombra baja y muy sutil en reposo: `0 1px 2px rgba(20,17,26,.03), 0 4px 12px rgba(20,17,26,.025)` (dos capas, contacto + difusión). Revisado varias veces: el valor original (`0 6px 20px rgba(20,17,26,.06)`) leía más pesado de lo que corresponde a una herramienta interna densa; se probó incluso sacarla del todo (solo el contraste `superficie`/`lienzo`), pero se decidió mantenerla, apenas por debajo de la intensidad anterior — sin sacar la sombra del todo, para mantener la separación de card del §5.2 sin que compita con el dato. Sigue prohibida una sombra dura, de radio grande, o cualquier sombra decorativa fuera de ese valor — la sombra existe para separar la card del fondo, no para simular profundidad.
+La Card (ver 9) y la tabla llevan un hairline de 1px muy tenue (`borde` al 60%) además de la sombra, dibujado como anillo `0 0 0 1px` dentro de `--sombra-card` (no como `border`, así no suma tamaño al layout): sin él, el contraste `superficie`/`lienzo` y una sombra tan baja dejaban la card poco definida, sobre todo en tema claro. Se separa del lienzo por su `superficie` lisa (ver 2.1), ese borde sutil y una sombra baja y muy sutil en reposo: `0 1px 2px rgba(20,17,26,.03), 0 4px 12px rgba(20,17,26,.025)` (dos capas, contacto + difusión). Revisado varias veces: el valor original (`0 6px 20px rgba(20,17,26,.06)`) leía más pesado de lo que corresponde a una herramienta interna densa; se probó incluso sacarla del todo (solo el contraste `superficie`/`lienzo`), pero se decidió mantenerla, apenas por debajo de la intensidad anterior — sin sacar la sombra del todo, para mantener la separación de card del §5.2 sin que compita con el dato. Sigue prohibida una sombra dura, de radio grande, o cualquier sombra decorativa fuera de ese valor — la sombra existe para separar la card del fondo, no para simular profundidad.
 
 Los demás overlays (dropdowns, modales, toasts, popovers) mantienen su propia sombra de overlay, más marcada que la de una card en reposo. Un ítem en estado de arrastre activo puede llevar una sombra sutil como feedback transitorio.
 
 Prohibido anidar cards dentro de cards: para agrupar contenido dentro de una card se usan divisores (`border-top`) y encabezados de sección internos, nunca otra card.
 
-Densidad empresarial en tablas: una sola densidad, fila de 40px, con `text-sm` (15px) en la celda y padding lateral de 16px. Revisado: hubo dos modos (cómoda 44px/15px y compacta 36px/13px, alternables con un switch); en el uso real el switch no aportaba una decisión real —"cómoda" no se sentía más cómoda, solo más vacía— y la compacta bajaba el texto por debajo de lo legible. Se unificó en un solo valor, el punto medio de aire horizontal de la compacta con la tipografía de cuerpo del sistema.
+Densidad empresarial en tablas: una sola densidad, fila de 40px, con `text-sm` (14px) en la celda y padding lateral de 16px. Revisado: hubo dos modos (cómoda 44px/15px y compacta 36px/13px, alternables con un switch); en el uso real el switch no aportaba una decisión real —"cómoda" no se sentía más cómoda, solo más vacía— y la compacta bajaba el texto por debajo de lo legible. Se unificó en un solo valor, el punto medio de aire horizontal de la compacta con la tipografía de cuerpo del sistema.
 
 ## 6. Movimiento
 
@@ -172,7 +172,7 @@ Densidad empresarial en tablas: una sola densidad, fila de 40px, con `text-sm` (
 
 ## 7. Iconografía
 
-Lucide, trazo 1.5px, `stroke-linecap` y `stroke-linejoin` en `round` (un ícono con puntas en ángulo recto se lee genérico, no del sistema). Tamaño único de 16px en controles de UI, 20px en navegación (sidebar, topbar). Sin emoji, sin unicode como ícono, sin ilustraciones figurativas ni personajes. La capa de IA se marca con color (petróleo) + texto explícito ("Sugerencia de IA"), nunca con un ícono de sparkles o cualquier imaginería "mágica": la IA tiene que verse auditable, no mágica.
+Lucide, trazo 1.5px, `stroke-linecap` y `stroke-linejoin` en `round` (un ícono con puntas en ángulo recto se lee genérico, no del sistema). Tamaño único de 16px en controles de UI, 20px en navegación (sidebar, topbar). Sin emoji, sin unicode como ícono, sin ilustraciones figurativas ni personajes (única excepción: el emoji del saludo del Portal Familia, ver §8.2). La capa de IA se marca con color (petróleo) + texto explícito ("Sugerencia de IA"), nunca con un ícono de sparkles o cualquier imaginería "mágica": la IA tiene que verse auditable, no mágica.
 
 Donde una vista necesita más peso visual que un ícono suelto (un nivel académico, una tarjeta de rol, una celda de bento), el ícono va dentro de un **tile**: 36-44px, radio 10-12px, fondo en el tono `-suave` del color de módulo correspondiente e ícono en el tono saturado. No se siembran íconos sueltos como decoración: dentro de una celda de tabla el estado ya lo comunica el badge (punto + texto), y un ícono ahí suma ruido en vez de jerarquía. Ver §13 para el set de ilustraciones geométricas, que es un lenguaje aparte del ícono funcional.
 
@@ -186,6 +186,78 @@ Dos shells, no uno solo — elegir según cuántos destinos tiene el rol, no por
 - **Nunca ancho fijo ni alto fijo en el shell**: `width:100%;min-height:100vh` (o `min-height:100%` dentro de un contenedor con altura), nunca `width:1440px;min-height:900px`. El frame del artboard/viewport define el tamaño real; el CSS no debe imponer uno propio, o queda banda vacía abajo cuando el contenido es más corto que ese número fijo.
 - Todo elemento de grid (`.two-col`, `.two`) que puede contener una tabla ancha necesita `min-width:0` en sus hijos directos, y la tabla va envuelta en un contenedor con `overflow-x:auto` — si no, la tabla fuerza su `min-width` y desborda la columna (y a veces la página entera) en vez de scrollear contenida.
 - **Encabezado de página**: etiqueta de sección (estilo versalitas), breadcrumb que nombre la vista de origen (toda vista de detalle lo lleva), título, acciones primarias a la derecha, tabs debajo si corresponde.
+
+### 8.2 Portal Familia: registro visual
+
+Mismo ADN, otro registro. El portal **hereda** la marca, Geist, el isotipo, los tokens semánticos (`exito`, `advertencia`, `error`, `info`), los badges de estado y las reglas de accesibilidad (§12). **Cambia** la escala, la densidad y el tono, para sentirse más cálido y menos "consola". Todo lo que difiere del sistema vive como token `--pf-*` dentro de `.portal-familia` (y su variante `.dark`) en `frontend/src/index.css`; las páginas del portal nunca llevan hex, `text-[Npx]`, `rounded-[N]` ni `shadow-[...]` sueltos.
+
+**Ancho y alineación:** un único contenedor de 1152px (`max-w-pf`, `--container-pf`) con `px-4 sm:px-6`, compartido por el header, el `<main>` del layout y todas las vistas. Ninguna página define su propio ancho ni padding lateral, así título, buscador y cards comparten borde. El detalle de una comunicación se acota a 896px (`max-w-4xl`) para mantener una línea de lectura corta.
+
+**Tipografía** (misma escala que el sistema, con nombres propios):
+
+| Rol | Utilidad | Tamaño |
+| --- | --- | --- |
+| detalle, metadata | `text-sm` | 14px |
+| cuerpo | `text-pf-cuerpo` | 14px |
+| encabezado de card | `text-pf-encabezado` | 16px |
+| cifra de indicador | `text-pf-cifra` | 24px, tabular, 700 |
+| título de página | `text-pf-titulo` | 24px (28px desde `sm`) |
+
+Íconos de 16px en controles y 20px dentro de tiles; tiles de ícono de 40px. Sin tiles de 48px o más.
+
+**Forma:**
+
+| Elemento | Radio (igual que el sistema) |
+| --- | --- |
+| Card | `rounded-pf-card` 16px, `bg-superficie`, hairline |
+| Tile de indicador, banner de alerta | `rounded-pf-tile` 12px |
+| Ítem de lista dentro de card | `rounded-pf-item` 8px |
+| Tile de ícono | `rounded-pf-icono` 12px |
+| Botón primario y secundario, ítem de navegación, badge, avatar, punto | píldora |
+| Chips, tabs, controles de ícono | 8px (`rounded-lg`) |
+| Input, select | `rounded-pf-input` 8px |
+| Diálogo, sheet | `rounded-pf-dialogo` 12px |
+
+Los radios del portal coinciden con los de Administración (§5.1); los tokens `--radius-pf-*` se mantienen para poder ajustarlos en un solo lugar.
+
+**Elevación y bordes:** el portal usa exactamente los mismos que Administración (§5.2): `shadow-pf-card` es `--sombra-card` (anillo hairline de `borde` al 60% más sombra baja) y `shadow-pf-hover` es `--sombra-card-hover`. `border-pf-borde` es `--borde` (inputs, controles) y `border-pf-divisor` es `--borde` al 60% (separadores y contornos internos). No hay bordes ni sombras propios del portal. Las secciones que contienen cards no llevan `overflow-hidden`, porque recortaría el anillo de la sombra en los costados. `border-dashed` solo para estados vacíos y dropzone.
+
+**Color:** un único violeta de acción (`text-pf-accent`, `bg-pf-accent`), un header derivado de la rampa `nav` (`--pf-header`) y tonos de tile (`lavanda`, `ambar`, `azul`, `verde`, `rojo`) como pares `--pf-tile-<tono>-bg/fg` con contraste de al menos 3:1 en el ícono (WCAG 1.4.11). Tienen valores propios en `.dark .portal-familia`, así que ningún componente necesita reglas por clase para el tema oscuro.
+
+**Navegación activa:** el ítem activo del header usa `--pf-nav-activo` (blanco al 18% sobre `--pf-header`) con texto blanco. Se distingue del header (más de 1.3:1) y el texto llega a 4.5:1.
+
+**Contraste verificado** (WCAG, calculado para ambos temas): texto 4.5:1 o más sobre `superficie`, `pf-item`, `pf-lila` y sobre cada fondo de tile; íconos 3:1 o más sobre su tile. En claro, `--pf-tile-ambar-fg` es `#9a4507` (no `--advertencia`) porque `#b45309` daba 3.85:1 sobre el tile. Al cambiar un token `--pf-*`, recalcular estos pares.
+
+**Estados de carga:** cada pantalla muestra un skeleton con la silueta real del contenido (mismas cards, radios, alturas y grillas), nunca un rectángulo genérico ni un texto "Cargando…", para evitar saltos de layout. El skeleton va dentro de `PortalSkeletonRegion` (`role="status"`, `aria-busy`, `aria-label`), que deja el contenido visual en `aria-hidden`. Los helpers (`PortalSkeletonRegion`, `PortalCardSkeleton`, `SkeletonFila`, `SkeletonTile`) viven en `components/portal-familia/portal-familia-ui.tsx`. Se usa el shimmer por defecto, salvo sobre fondos pastel.
+
+**Tono de copy:** cercano y en voseo ("Hola, Laura", "Podés justificarla"), sin exclamaciones de entusiasmo.
+
+**Excepción explícita del hero del inicio:** el saludo lleva un emoji que cambia según la hora de Argentina (`Buen día ☀️`, `Buenas tardes 👋`, `Buenas noches 🌙`) y la descripción resume lo pendiente con datos reales ("Tenés 1 ausencia pendiente y 2 comunicaciones sin leer."). El emoji es una decisión consciente del portal, no se extiende a otra pantalla, y por eso §7 y §11 no aplican a ese hero. La portada usa el isotipo de ESSERI (`/esseri-icon.png`) a la altura de la cabecera, sin ilustración propia: respeta §13.
+
+### 8.0 Responsive del contenido (container queries)
+
+En la Consola, el contenido de las páginas comparte el ancho con el sidebar (16rem, o 4rem en modo ícono) y con el asistente acoplado (340 a 640px). Un breakpoint de viewport (`sm:`, `lg:`, `xl:`) no sabe nada de eso: con ambos paneles abiertos en 1440px, `xl:` sigue activo y al contenido le quedan unos 780px.
+
+**Regla**: dentro de las páginas, el responsive se hace con container queries contra `main` (`@xl/main:`, `@5xl/main:`...), no con breakpoints de viewport. Los tres layouts (`app-layout.tsx`, `portal-layout.tsx`, `portal-docente-layout.tsx`) declaran `@container/main` en su contenedor de contenido, así que las páginas compartidas entre portales funcionan igual en los tres.
+
+| Viewport | Container (contra `main`) |
+|---|---|
+| `sm:` | `@xl/main:` (576px) |
+| `md:` | `@3xl/main:` (768px) |
+| `lg:` | `@5xl/main:` (1024px) |
+| `xl:` | `@7xl/main:` (1280px) |
+| `2xl:` | `@6xl/main:` (1152px, baja a propósito) |
+| `max-lg:` | `@max-5xl/main:` |
+
+Excepciones y contenedores propios:
+
+- Lo que se renderiza en un portal (Dialog, Sheet, AlertDialog, Popover, DropdownMenu, contenido de Select/Command y Tooltip) se mide contra la ventana: sigue con `sm:` y similares.
+- Los márgenes negativos que compensan el padding del `<main>` de los portales (Comunicaciones) usan el breakpoint de viewport, porque ese padding también es de viewport.
+- Formularios dentro de `FieldGroup`: `@…/field-group:`. Cards de `panel-card`: `@sm:` y similares (ya es `@container`). Card de atención de Dirección: `@…/atencion:`. Lienzo del editor de workflows: `@…/lienzo:`.
+- El topbar usa `@container/shell` (el ancho del `SidebarInset`), para que el buscador se reduzca a ícono cuando el asistente lo aplasta.
+- Por debajo de `md` el sidebar es un Sheet; el `SidebarTrigger` del topbar (`md:hidden`) es el único modo de abrirlo.
+
+Patrones asociados: tabla dentro de una pista de grid siempre con `minmax(0,1fr)` o `min-w-0`; `Table bare` cuando va dentro de un `Card`; `max-w-* truncate` va en un `<span className="block ...">` dentro de la celda, no sobre el `<td>`; si una tabla oculta columnas por ancho, el esqueleto (`COLUMNAS_ESQUELETO`) se convierte en el mismo cambio; grillas con cantidad variable de tiles con `repeat(auto-fit|auto-fill, minmax(...))` o `flex flex-wrap *:flex-1 *:min-w-N`.
 
 ### 8.1 Autenticación y roles
 
@@ -207,7 +279,7 @@ Vocabulario mínimo de componentes que cualquier implementación de este sistema
 
 Los 7 estados que todo control interactivo (Button, Input, ítem de nav, chip) contempla: reposo, hover, foco, pressed/activo, deshabilitado, cargando (solo Button), error (solo campos).
 
-**Card**: siempre sobre `superficie` lisa, sin borde, radio según 5.1, sombra baja en reposo según 5.2. El título va en `texto`, nunca en el color de un módulo — el color queda reservado a íconos, badges y a los nodos del canvas de workflows, no a la superficie ni al texto de una card genérica. Una tabla dentro de una card se mantiene sobre `superficie` neutra (mismo tono, sin distinción visual adicional).
+**Card**: siempre sobre `superficie` lisa, con borde sutil (`borde` al 60%), radio según 5.1, sombra baja en reposo según 5.2. El título va en `texto`, nunca en el color de un módulo — el color queda reservado a íconos, badges y a los nodos del canvas de workflows, no a la superficie ni al texto de una card genérica. Una tabla dentro de una card se mantiene sobre `superficie` neutra (mismo tono, sin distinción visual adicional).
 
 **Card de indicador (KPI)**: variante chica de Card (radio 12px según 5.1) con una anatomía fija — encabezado con la etiqueta a la izquierda y el ícono de color a la derecha (fondo `-suave` del semántico o módulo que corresponda + ícono saturado, 30px, radio 9px), debajo el valor en grande (`26px`, tabular-nums) y, solo cuando hay un dato real que lo justifique, una nota chica en `texto-3` (variación respecto al período anterior, cantidad que vence pronto, etc.) — nunca una nota de relleno. La primera card de una grilla de indicadores puede ir en `tinta` como ancla visual de la métrica principal; en ese caso lleva una ilustración de línea sutil (un motivo geométrico en blanco al 8–10% de opacidad, recortado por el radio de la card) para que no quede vacía, y mantiene la misma anatomía que las demás.
 
@@ -267,7 +339,7 @@ El editor de una regla es un flujo de nodos con `@xyflow/react`: fondo de grilla
 
 **Sin condición.** Una acción conectada directo al disparador es válida y corre con cada evento: la arista lleva la etiqueta "Siempre", la frase lo dice ("siempre …") y un texto aclara cómo limitarla con una condición. Un bloque que viene de la paleta queda suelto y se marca "Sin conectar" desde el primer momento.
 
-**Edición.** Zoom, pan y minimapa (oculto mientras el inspector está abierto); los controles flotantes abajo a la izquierda deshacen, rehacen, ordenan y abren "Atajos", que lista el teclado y los gestos; "Ordenar" acomoda por niveles; Supr elimina (con confirmación que dice cuántos bloques caen si hay subárbol); Ctrl+Z y Ctrl+Shift+Z deshacen y rehacen el borrador; Ctrl+D duplica el nodo con su subárbol. Nada se persiste hasta "Guardar regla". La plantilla del mensaje se edita en un Sheet y se guarda al instante, porque afecta a todas las reglas que la usan.
+**Edición.** Zoom y pan; "Probar regla" abajo a la derecha, que despliega su panel hacia arriba; los controles flotantes abajo a la izquierda deshacen, rehacen, ordenan y abren "Atajos", que lista el teclado y los gestos; "Ordenar" acomoda por niveles; Supr elimina (con confirmación que dice cuántos bloques caen si hay subárbol); Ctrl+Z y Ctrl+Shift+Z deshacen y rehacen el borrador; Ctrl+D duplica el nodo con su subárbol. Nada se persiste hasta "Guardar regla". La plantilla del mensaje se edita en un Sheet y se guarda al instante, porque afecta a todas las reglas que la usan.
 
 **Probar regla.** El botón flotante "Probar regla" abre un panel donde se elige un evento real y un indicador recorre las aristas de la rama tomada: cada condición muestra check o cruz, cada acción su estado (alcanzada, candado, diferida, no implementada) y lo no alcanzado queda atenuado. Hay un resumen textual equivalente. Editar el borrador cancela la simulación y la marca desactualizada. "Alcanzada" no promete cómo termina la ejecución.
 
@@ -287,7 +359,7 @@ Es el centro de control del módulo y sigue §10: un dato principal (ejecuciones
 
 ## 11. Contenido y voz
 
-**Voz:** institucional y precisa. El sistema informa y ejecuta; no vende ni felicita. Nunca "¡Genial! 🎉", nunca signos de exclamación de entusiasmo, nunca emoji.
+**Voz:** institucional y precisa. El sistema informa y ejecuta; no vende ni felicita. Nunca "¡Genial! 🎉", nunca signos de exclamación de entusiasmo, nunca emoji (salvo el saludo del Portal Familia, ver §8.2).
 
 **Microcopy es-AR, voz activa, sentence case:** "Registrar pago", "Dar de alta familia", "Aprobar sugerencia". Nunca "Enviar" genérico, nunca Title Case. El verbo de la acción se mantiene igual entre el botón y el mensaje de éxito: "Registrar pago" → "Pago registrado".
 
@@ -325,7 +397,7 @@ El isotipo de la marca es un hexágono rodeado de nodos conectados: una red, por
 - Glassmorphism, blur decorativo, glows, sombras difusas grandes fuera de la de 5.2.
 - Easing con rebote o elástico.
 - Una teja de ícono redondeada arriba de cada encabezado.
-- Emoji como ícono, ilustraciones 3D, ilustraciones figurativas, personajes.
+- Emoji como ícono, ilustraciones 3D, ilustraciones figurativas, personajes
 - Una fila plana de chips como único filtro cuando hay más de dos o tres opciones que combinar.
 - Un menú de acciones idéntico copiado entre tablas de dominios distintos, en vez de las acciones específicas de cada una.
 - Gráficos de torta/dona.

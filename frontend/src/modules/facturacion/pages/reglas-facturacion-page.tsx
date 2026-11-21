@@ -97,7 +97,7 @@ export function ReglasFacturacionPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-3 @xl/main:flex-row @xl/main:items-end @xl/main:justify-between">
         <div className="flex flex-col gap-1.5">
           <BackLink to="/facturacion" label="Volver a facturas" />
           <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
@@ -124,7 +124,7 @@ export function ReglasFacturacionPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar las reglas</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargarReglas}>
               Reintentar
@@ -148,7 +148,7 @@ export function ReglasFacturacionPage() {
         </Empty>
       ) : (
         <div className="overflow-hidden rounded-panel bg-superficie shadow-card">
-          <Table bare minWidth="min-w-[1240px]">
+          <Table bare minWidth="min-w-[960px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Regla</TableHead>
@@ -159,15 +159,19 @@ export function ReglasFacturacionPage() {
                 <TableHead>Vencimiento</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Próxima generación</TableHead>
-                <TableHead>Última ejecución</TableHead>
-                <TableHead data-align="end">Acciones</TableHead>
+                <TableHead className="hidden @7xl/main:table-cell">Última ejecución</TableHead>
+                <TableHead data-align="end" className="sticky right-0 bg-superficie">
+                  Acciones
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {reglas.map((regla) => (
                 <TableRow key={regla.id}>
                   <TableCell>
-                    <div className="font-medium">{regla.nombre}</div>
+                    <div className="max-w-56 truncate font-medium" title={regla.nombre}>
+                      {regla.nombre}
+                    </div>
                     <span className="text-xs text-texto-3">
                       {regla.modo_generacion === 'automatica' ? 'Automática' : 'Manual'}
                     </span>
@@ -193,7 +197,7 @@ export function ReglasFacturacionPage() {
                       ? formatearFechaFactura(regla.proxima_generacion)
                       : 'Sin agenda pendiente'}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden @7xl/main:table-cell">
                     {regla.ultima_ejecucion ? (
                       <div className="flex flex-col gap-1">
                         <span className="text-xs text-texto-2">
@@ -214,7 +218,7 @@ export function ReglasFacturacionPage() {
                       'Sin ejecuciones'
                     )}
                   </TableCell>
-                  <TableCell data-align="end">
+                  <TableCell data-align="end" className="sticky right-0 bg-superficie">
                     <div className="flex justify-end gap-1">
                       <Button
                         variant="ghost"
@@ -294,7 +298,7 @@ export function ReglasFacturacionPage() {
                         {ETIQUETA_EJECUCION[ejecucion.estado]}
                       </Badge>
                       {ejecucion.error_detalle && (
-                        <p className="mt-1 max-w-56 text-xs text-error">
+                        <p className="mt-1 max-w-56 text-xs break-words whitespace-normal text-error">
                           {ejecucion.error_detalle}
                         </p>
                       )}

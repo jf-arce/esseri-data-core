@@ -54,15 +54,18 @@ export function BarraEditor({
             <ArrowLeftIcon />
           </Link>
         </BotonIcono>
-        <nav aria-label="Ubicación" className="hidden shrink-0 text-sm text-texto-2 sm:block">
-          <Link to={RUTA_REGLAS} className="hover:text-texto">
+        <nav aria-label="Ubicación" className="hidden shrink-0 text-sm text-texto-2 @xl/main:block">
+          <Link to={RUTA_REGLAS} className="hidden hover:text-texto @xl/main:inline">
             Workflows
           </Link>
-          <span aria-hidden="true"> / </span>
+          <span aria-hidden="true" className="hidden @xl/main:inline">
+            {' '}
+            /{' '}
+          </span>
           <span className="font-semibold text-texto">{titulo}</span>
         </nav>
         {cargando ? (
-          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-9 w-64 min-w-0 motion-reduce:animate-none!" aria-hidden="true" />
         ) : (
           <Input
             aria-label="Nombre de la regla"
@@ -70,18 +73,19 @@ export function BarraEditor({
             value={nombre}
             maxLength={LIMITE_NOMBRE_REGLA}
             disabled={soloLectura}
+            aria-invalid={!soloLectura && nombre.trim() === ''}
             onChange={(evento) => onCambiarNombre(evento.target.value)}
-            className="h-9 max-w-md min-w-40 flex-1 border-transparent bg-transparent px-2 text-base font-semibold shadow-none hover:bg-fila-hover focus-visible:bg-superficie"
+            className="h-9 max-w-md min-w-40 flex-1 border-transparent bg-transparent px-2 text-base font-semibold shadow-none hover:bg-fila-hover focus-visible:bg-superficie aria-invalid:border-error"
           />
         )}
       </div>
-      <div className="flex items-center gap-3">
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
         <div className="flex items-center gap-2">
           <Switch
             id="regla-activa"
             aria-label="Regla activa"
             checked={activo}
-            disabled={soloLectura}
+            disabled={soloLectura || cargando}
             onCheckedChange={onCambiarActivo}
           />
           <label htmlFor="regla-activa" className="text-sm font-semibold text-texto-2">
@@ -107,13 +111,13 @@ export function BarraEditor({
           <Link to={RUTA_REGLAS}>{soloLectura ? 'Volver' : 'Cancelar'}</Link>
         </Button>
         {!soloLectura && (
-          <Button onClick={onGuardar} disabled={guardando || cargando}>
+          <Button aria-label="Guardar regla" onClick={onGuardar} disabled={guardando || cargando}>
             {guardando ? (
               <Spinner data-icon="inline-start" />
             ) : (
               <SaveIcon data-icon="inline-start" />
             )}
-            Guardar regla
+            <span className="hidden @xl/main:inline">Guardar regla</span>
           </Button>
         )}
       </div>

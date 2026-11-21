@@ -96,27 +96,34 @@ export function SugerenciasTabla({
               )}
               <TableCell data-align="end">
                 <div className="flex justify-end gap-1">
-                  <Button variant="ghost" size="sm" onClick={() => onVerDetalle(sugerencia)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Ver detalle"
+                    onClick={() => onVerDetalle(sugerencia)}
+                  >
                     <EyeIcon data-icon="inline-start" />
-                    Ver detalle
+                    <span className="hidden @5xl/main:inline">Ver detalle</span>
                   </Button>
                   {!esHistorial && puedeRevisar && (
                     <>
                       <Button
                         variant="ghost"
                         size="sm"
+                        aria-label="Aprobar"
                         onClick={() => onRevisar(sugerencia, 'aprobar')}
                       >
                         <CheckIcon data-icon="inline-start" />
-                        Aprobar
+                        <span className="hidden @5xl/main:inline">Aprobar</span>
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
+                        aria-label="Rechazar"
                         onClick={() => onRevisar(sugerencia, 'rechazar')}
                       >
                         <XIcon data-icon="inline-start" />
-                        Rechazar
+                        <span className="hidden @5xl/main:inline">Rechazar</span>
                       </Button>
                     </>
                   )}

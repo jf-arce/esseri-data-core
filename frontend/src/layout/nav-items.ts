@@ -22,7 +22,6 @@ import {
   PercentIcon,
   Settings2Icon,
   ShieldCheck,
-  SparklesIcon,
   Truck,
   UserCog,
   UserIcon,
@@ -59,7 +58,6 @@ import {
   RUTA_REGLAS,
   RUTA_TAREAS,
 } from '@/modules/workflows/constants'
-import { PERMISO_IA_SUGERENCIAS_LEER, RUTA_SUGERENCIAS } from '@/modules/ia-sugerencias/constants'
 import type { Permiso } from '@/modules/auth/types'
 
 /** Dominio al que pertenece un ítem de primer nivel (color en el buscador global, §2.5
@@ -137,8 +135,8 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: LayoutDashboard,
         modulo: 'paneles',
         permiso: PERMISO_PANEL_ADMIN_LEER,
-        // administrador del sistema = todo (grupo-b.yaml): ve los dos paneles en el sidebar,
-        // aunque su pantalla de inicio por default sea /panel (ver rutaInicioDe más abajo).
+        // El administrador del sistema ve los dos paneles y alterna; su inicio sigue siendo /panel
+        // (ver rutaInicioDe más abajo).
         roles: [ROL_ADMINISTRACION, ROL_ADMINISTRADOR_DEL_SISTEMA],
       },
     ],
@@ -310,14 +308,6 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: ListChecksIcon,
         modulo: 'workflows',
         soloRolActivo: true,
-      },
-      {
-        label: 'Sugerencias de IA',
-        href: RUTA_SUGERENCIAS,
-        tituloLanding: 'Sugerencias de IA',
-        icon: SparklesIcon,
-        modulo: 'ia',
-        permiso: PERMISO_IA_SUGERENCIAS_LEER,
       },
     ],
   },

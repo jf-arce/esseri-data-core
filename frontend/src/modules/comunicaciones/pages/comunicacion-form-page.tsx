@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { ArrowLeftIcon, CheckCircle2Icon, ChevronDownIcon, SearchIcon } from 'lucide-react'
+import {
+  ArrowLeftIcon,
+  CheckCircle2Icon,
+  ChevronDownIcon,
+  ClipboardListIcon,
+  EllipsisIcon,
+  MegaphoneIcon,
+  SearchIcon,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { FieldDescription, FieldGroup } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -16,10 +25,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
 import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 import { useAuthStore } from '@/store/auth-store'
 import { AdjuntosBorrador } from '../components/adjuntos-borrador'
+import { EditorMensaje } from '../components/editor-mensaje'
+import { EventoComunicacion } from '../components/evento-comunicacion'
+import { MensajeComunicacion } from '../components/mensaje-comunicacion'
+import { SelectorComunicacion } from '../components/selector-comunicacion'
 import { listarAdjuntos } from '../services/adjuntos'
 import { guardarBorrador } from '../services/guardar-borrador'
 import { obtenerComunicacion } from '../services/obtener-comunicacion'
@@ -43,6 +55,7 @@ import type {
   Borrador,
   Canal,
   Comunicacion,
+  EventoBorrador,
   Opciones,
   TipoComunicacion,
 } from '../types'
@@ -63,6 +76,18 @@ const etiquetas = {
   responsables: 'Responsables seleccionados',
 }
 
+const TIPOS_GESTION = [
+  'institucional',
+  'administrativa',
+  'otro',
+] as const satisfies readonly TipoComunicacion[]
+const CANALES = ['portal', 'email', 'ambos'] as const satisfies readonly Canal[]
+const ICONOS_TIPO = {
+  institucional: MegaphoneIcon,
+  administrativa: ClipboardListIcon,
+  otro: EllipsisIcon,
+}
+
 const MENSAJES_SINCRONIZACION: Record<EstadoSincronizacion, string> = {
   inactivo: '',
   pendiente: 'Guardado en este dispositivo. Sincronizando con el servidor…',
@@ -75,6 +100,14 @@ const MENSAJES_SINCRONIZACION: Record<EstadoSincronizacion, string> = {
 
 function normalizarBusqueda(valor: string) {
   return valor.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('es').trim()
+}
+
+function validarEvento(evento: EventoBorrador | null | undefined) {
+  if (!evento) return
+  if (!evento.titulo.trim() || !evento.fecha)
+    throw new Error('Completá el título y la fecha del evento.')
+  if (evento.hora_inicio && evento.hora_fin && evento.hora_fin <= evento.hora_inicio)
+    throw new Error('La hora de fin debe ser posterior a la hora de inicio.')
 }
 
 export function ComunicacionFormPage({ docente = false }: { docente?: boolean }) {
@@ -210,9 +243,11 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
             clave: c.clave,
             asunto: c.asunto,
             cuerpo: c.cuerpo,
+            cuerpo_rico: c.cuerpo_rico ?? undefined,
             audiencia: c.audiencia,
             canal: c.canal ?? 'portal',
             tipo: c.tipo,
+            evento: c.evento ?? undefined,
           }
           let respaldo: RespaldoBorrador | undefined
           let copiasLocales: RespaldoBorrador[] = []
@@ -292,9 +327,11 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
           clave: remoto.clave,
           asunto: remoto.asunto,
           cuerpo: remoto.cuerpo,
+          cuerpo_rico: remoto.cuerpo_rico ?? undefined,
           audiencia: remoto.audiencia,
           canal: remoto.canal ?? 'portal',
           tipo: remoto.tipo,
+          evento: remoto.evento ?? undefined,
         }
         datosActuales.current = datosRemotos
         setDatos(datosRemotos)
@@ -325,6 +362,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
     try {
       if (!datos.asunto.trim() || !datos.cuerpo.trim())
         throw new Error('Completá el asunto y el mensaje.')
+      if (accion !== 'guardar') validarEvento(datos.evento)
       if (docente && (!datos.audiencia.ciclo_lectivo || datos.audiencia.ids.length === 0))
         throw new Error('Elegí un curso o alumnos del ciclo lectivo.')
       if (accion === 'publicar' && !puedePublicar(adjuntos))
@@ -442,38 +480,45 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
       {respaldos.length > 0 && (
         <section aria-label="Borradores en este dispositivo" className="space-y-2">
           <p className="text-sm text-texto-2">Borradores guardados en este dispositivo</p>
-          {respaldos.map((respaldo) =>
-            respaldo.id ? (
-              <Button key={respaldo.localId} variant="secondary" asChild>
-                <Link
-                  to={`${base}/${respaldo.id}/editar`}
-                  aria-label={`Continuar borrador: ${respaldo.datos.asunto || 'Sin asunto'}`}
+          <div className="flex flex-wrap gap-2">
+            {respaldos.map((respaldo) =>
+              respaldo.id ? (
+                <Button key={respaldo.localId} variant="secondary" className="max-w-full" asChild>
+                  <Link
+                    to={`${base}/${respaldo.id}/editar`}
+                    aria-label={`Continuar borrador: ${respaldo.datos.asunto || 'Sin asunto'}`}
+                  >
+                    <span className="truncate">
+                      Continuar: {respaldo.datos.asunto || 'Sin asunto'}
+                    </span>
+                  </Link>
+                </Button>
+              ) : (
+                <Button
+                  key={respaldo.localId}
+                  variant="secondary"
+                  className="max-w-full"
+                  aria-label={`Recuperar borrador: ${respaldo.datos.asunto || 'Sin asunto'}`}
+                  onClick={() => {
+                    respaldoId.current = respaldo.localId
+                    datosActuales.current = respaldo.datos
+                    setDatos(respaldo.datos)
+                    sincronizadorRef.current?.encolar(respaldo.datos)
+                    setRevisionRespaldos((valor) => valor + 1)
+                  }}
                 >
-                  Continuar: {respaldo.datos.asunto || 'Sin asunto'}
-                </Link>
-              </Button>
-            ) : (
-              <Button
-                key={respaldo.localId}
-                variant="secondary"
-                aria-label={`Recuperar borrador: ${respaldo.datos.asunto || 'Sin asunto'}`}
-                onClick={() => {
-                  respaldoId.current = respaldo.localId
-                  datosActuales.current = respaldo.datos
-                  setDatos(respaldo.datos)
-                  sincronizadorRef.current?.encolar(respaldo.datos)
-                  setRevisionRespaldos((valor) => valor + 1)
-                }}
-              >
-                Recuperar: {respaldo.datos.asunto || 'Sin asunto'}
-              </Button>
-            ),
-          )}
+                  <span className="truncate">
+                    Recuperar: {respaldo.datos.asunto || 'Sin asunto'}
+                  </span>
+                </Button>
+              ),
+            )}
+          </div>
         </section>
       )}
       <ol
         aria-label="Pasos de publicación"
-        className="grid grid-cols-4 gap-1 text-center text-xs sm:gap-3 sm:text-sm"
+        className="grid grid-cols-4 gap-1 text-center text-xs @xl/main:gap-3 @xl/main:text-sm"
       >
         {pasos.map((p, i) => {
           const activo = paso === i + 1
@@ -528,51 +573,43 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
         </Alert>
       )}
       <div
-        className="space-y-5 rounded-panel bg-superficie p-5 shadow-card sm:p-8"
+        className="space-y-5 rounded-panel bg-superficie p-5 shadow-card @xl/main:p-8"
         aria-busy={ocupado || cargando}
       >
         {cargando ? (
           <p role="status">Cargando borrador…</p>
         ) : paso === 1 ? (
           <>
-            {!docente && (
-              <fieldset>
-                <legend className="sr-only">Tipo de comunicación</legend>
-                <RadioGroup
-                  value={datos.tipo ?? (docente ? 'curso' : 'institucional')}
-                  onValueChange={(tipo) =>
-                    actualizarDatos({ ...datos, tipo: tipo as TipoComunicacion })
-                  }
-                  disabled={ocupado}
-                  className={`grid grid-cols-1 gap-3 ${docente ? '' : 'sm:grid-cols-3'}`}
-                >
-                  {(Object.keys(ETIQUETAS_TIPO) as TipoComunicacion[])
-                    .filter((tipo) => (docente ? tipo === 'curso' : tipo !== 'curso'))
-                    .map((tipo) => (
-                      <Label
-                        key={tipo}
-                        className="flex h-full items-start gap-2 rounded-lg border border-borde p-4 has-[[data-state=checked]]:border-violeta has-[[data-state=checked]]:bg-violeta-suave has-[:disabled]:opacity-60"
-                      >
-                        <RadioGroupItem
-                          value={tipo}
-                          aria-label={ETIQUETAS_TIPO[tipo]}
-                          className="mt-0.5"
-                          disabled={docente ? tipo !== 'curso' : tipo === 'curso'}
-                        />
-                        <span className="space-y-1">
-                          <span className="block font-semibold">{ETIQUETAS_TIPO[tipo]}</span>
-                          <span className="block text-xs text-texto-2">
-                            {DESCRIPCIONES_TIPO[tipo]}
-                          </span>
-                        </span>
-                      </Label>
-                    ))}
-                </RadioGroup>
-                <p className="mt-2 text-xs text-texto-2">
-                  En Destinatarios podés elegir todo el colegio, un nivel o un curso.
-                </p>
-              </fieldset>
-            )}
+            <FieldGroup className={docente ? '' : 'grid grid-cols-1 gap-4 @xl/main:grid-cols-2'}>
+              {!docente && (
+                <div className="flex min-w-0 flex-col gap-2">
+                  <SelectorComunicacion
+                    id="tipo-comunicacion"
+                    etiqueta="Tipo de comunicación"
+                    valor={datos.tipo ?? 'institucional'}
+                    opciones={TIPOS_GESTION}
+                    titulos={ETIQUETAS_TIPO}
+                    descripciones={DESCRIPCIONES_TIPO}
+                    iconos={ICONOS_TIPO}
+                    disabled={ocupado}
+                    onChange={(tipo) => actualizarDatos({ ...datos, tipo })}
+                  />
+                  <FieldDescription>
+                    En Destinatarios podés elegir todo el colegio, un nivel o un curso.
+                  </FieldDescription>
+                </div>
+              )}
+              <SelectorComunicacion
+                id="canal-comunicacion"
+                etiqueta="Canal de envío"
+                valor={canal}
+                opciones={CANALES}
+                titulos={ETIQUETAS_CANAL}
+                descripciones={DESCRIPCIONES_CANAL}
+                disabled={ocupado}
+                onChange={(canal) => actualizarDatos({ ...datos, canal })}
+              />
+            </FieldGroup>
             <div className="space-y-2">
               <Label htmlFor="asunto">Asunto</Label>
               <Input
@@ -584,39 +621,21 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="mensaje">Mensaje</Label>
-              <Textarea
-                id="mensaje"
-                maxLength={20000}
-                className="min-h-48"
-                value={datos.cuerpo}
+              <Label id="mensaje-etiqueta">Mensaje</Label>
+              <EditorMensaje
+                texto={datos.cuerpo}
+                cuerpoRico={datos.cuerpo_rico}
                 disabled={ocupado}
-                onChange={(e) => actualizarDatos({ ...datos, cuerpo: e.target.value })}
+                onChange={(cuerpo, cuerpo_rico) =>
+                  actualizarDatos({ ...datosActuales.current, cuerpo, cuerpo_rico })
+                }
               />
             </div>
-            <fieldset className="space-y-3">
-              <legend className="mb-1 font-semibold">Canal de envío</legend>
-              <RadioGroup
-                value={canal}
-                onValueChange={(v) => actualizarDatos({ ...datos, canal: v as Canal })}
-                disabled={ocupado}
-              >
-                {(Object.keys(ETIQUETAS_CANAL) as Canal[]).map((opcion) => (
-                  <Label
-                    key={opcion}
-                    className="flex items-start gap-3 rounded-lg border border-borde p-3"
-                  >
-                    <RadioGroupItem value={opcion} className="mt-0.5" />
-                    <span>
-                      <span className="block">{ETIQUETAS_CANAL[opcion]}</span>
-                      <span className="block text-xs text-texto-2">
-                        {DESCRIPCIONES_CANAL[opcion]}
-                      </span>
-                    </span>
-                  </Label>
-                ))}
-              </RadioGroup>
-            </fieldset>
+            <EventoComunicacion
+              evento={datos.evento}
+              disabled={ocupado}
+              onChange={(evento) => actualizarDatos({ ...datos, evento })}
+            />
             <AdjuntosBorrador
               comunicacionId={persistido}
               adjuntos={adjuntos}
@@ -725,7 +744,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
                         <legend className="mb-2 text-sm text-texto-2">
                           Elegí una o más opciones
                         </legend>
-                        <div className="max-h-64 space-y-1 overflow-y-auto">
+                        <div className="grid max-h-64 grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-1 overflow-y-auto">
                           {seleccionVisible?.map((o) => (
                             <Label
                               key={o.id}
@@ -782,7 +801,11 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
               {total} responsables · {ETIQUETAS_CANAL[canal]}
             </p>
             <h2 className="text-xl font-semibold break-words">{datos.asunto}</h2>
-            <p className="text-sm whitespace-pre-wrap break-words">{datos.cuerpo}</p>
+            <MensajeComunicacion
+              texto={datos.cuerpo}
+              cuerpoRico={datos.cuerpo_rico}
+              className="text-sm"
+            />
             {adjuntos.length > 0 && (
               <p className="text-sm text-texto-2">
                 {adjuntos.length} archivo{adjuntos.length === 1 ? '' : 's'} adjunto
@@ -853,7 +876,15 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
               {paso === 1 ? (
                 <Button
                   disabled={ocupado || !datos.asunto.trim() || !datos.cuerpo.trim()}
-                  onClick={() => setPaso(2)}
+                  onClick={() => {
+                    try {
+                      validarEvento(datos.evento)
+                      setError('')
+                      setPaso(2)
+                    } catch (error) {
+                      if (error instanceof Error) setError(error.message)
+                    }
+                  }}
                 >
                   Siguiente
                 </Button>

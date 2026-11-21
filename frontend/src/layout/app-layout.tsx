@@ -1,7 +1,5 @@
 import {
   BellIcon,
-  CalendarIcon,
-  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   HouseIcon,
@@ -10,15 +8,8 @@ import {
   Search,
   SparklesIcon,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
@@ -33,6 +24,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  SidebarSeparator,
+  SidebarTrigger,
 } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import {
@@ -49,9 +42,10 @@ import { AsistenteDock } from '@/modules/asistente/components/asistente-dock'
 import { TECLA_ATAJO } from '@/modules/asistente/constants'
 import { useAsistenteDisponible } from '@/modules/asistente/hooks/use-asistente-disponible'
 import { useAsistenteStore } from '@/modules/asistente/store'
+import { CampanitaNotificaciones } from '@/modules/notificaciones/components/campanita-notificaciones'
+import { esRolAdministrativo } from '@/modules/notificaciones/types'
 import { PERMISO_ASISTENTE_LEER, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
-import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 import { useUiStore } from '@/store/ui-store'
 import { Button } from '@/components/ui/button'
 
@@ -59,9 +53,8 @@ export function AppLayout() {
   const sidebarOpen = useUiStore((state) => state.sidebarOpen)
   const setSidebarOpen = useUiStore((state) => state.setSidebarOpen)
   const rolActivo = useAuthStore((state) => state.rolActivo)
+  const usuario = useAuthStore((state) => state.usuario)
   const permisos = useAuthStore(permisosActivos)
-  const ciclo = useCicloLectivoStore((state) => state.cicloLectivo)
-  const setCicloLectivo = useCicloLectivoStore((state) => state.setCicloLectivo)
   const location = useLocation()
   const asistenteAbierto = useAsistenteStore((state) => state.abierto)
   const alternarAsistente = useAsistenteStore((state) => state.alternar)
@@ -121,20 +114,41 @@ export function AppLayout() {
   return (
     <TooltipProvider>
       <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <Sidebar collapsible="icon">
-          <SidebarHeader>
-            <div className="flex items-center gap-2.5 px-1.5 py-1">
-              <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-superficie">
-                <img src="/esseri-icon.png" alt="" className="size-5 object-contain" />
-              </div>
-              <span className="text-sm font-semibold text-texto-sobre-oscuro group-data-[collapsible=icon]:hidden">
-                ESSERI
-              </span>
+        <Sidebar collapsible="icon" className="border-sidebar-border">
+          <SidebarHeader className="relative h-16 justify-center bg-(--sidebar-header) after:absolute after:inset-y-0 after:-right-px after:w-px after:bg-(--sidebar-header-lado)">
+            <div className="flex items-center justify-between gap-2 overflow-hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
+              <Link
+                to="/"
+                aria-label="Ir al inicio"
+                className="flex max-w-40 min-w-0 items-center gap-2.5 overflow-hidden rounded-lg px-1.5 py-1 transition-[max-width,opacity] duration-200 ease-linear focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:transition-none group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:opacity-0"
+              >
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-superficie">
+                  <img src="/esseri-icon.png" alt="" className="size-5 object-contain" />
+                </div>
+                <span className="text-sm font-semibold whitespace-nowrap text-texto-sobre-oscuro">
+                  ESSERI
+                </span>
+              </Link>
+              <Button
+                type="button"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                variant="ghost"
+                className="flex size-9 shrink-0 cursor-pointer items-center justify-center text-(--topbar-texto) hover:bg-(--topbar-hover) hover:text-(--topbar-texto-hover)"
+                aria-label="Mostrar u ocultar la navegación"
+                title={sidebarOpen ? 'Contraer barra lateral' : 'Expandir barra lateral'}
+                aria-expanded={sidebarOpen}
+              >
+                {sidebarOpen ? (
+                  <PanelLeftCloseIcon className="size-4.5" />
+                ) : (
+                  <PanelLeftOpenIcon className="size-4.5" />
+                )}
+              </Button>
             </div>
           </SidebarHeader>
           <SidebarContent className="relative overflow-hidden">
             <div
-              className={`absolute inset-0 overflow-y-auto transition-opacity duration-150 ease-in-out ${
+              className={`absolute inset-0 overflow-y-auto [scrollbar-color:var(--sidebar-border)_transparent] [scrollbar-width:thin] transition-opacity duration-150 ease-in-out ${
                 mostrarModulo ? 'pointer-events-none opacity-0' : 'opacity-100'
               }`}
               aria-hidden={mostrarModulo}
@@ -148,7 +162,7 @@ export function AppLayout() {
               />
             </div>
             <div
-              className={`absolute inset-0 overflow-y-auto transition-opacity duration-150 ease-in-out ${
+              className={`absolute inset-0 overflow-y-auto [scrollbar-color:var(--sidebar-border)_transparent] [scrollbar-width:thin] transition-opacity duration-150 ease-in-out ${
                 mostrarModulo ? 'opacity-100' : 'pointer-events-none opacity-0'
               }`}
               aria-hidden={!mostrarModulo}
@@ -165,30 +179,18 @@ export function AppLayout() {
           </SidebarContent>
         </Sidebar>
 
-        <SidebarInset>
-          <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-4 border-b border-borde bg-superficie px-7">
-            <Button
-              type="button"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              variant="ghost"
-              className="flex cursor-pointer size-9 shrink-0 items-center justify-center"
-              aria-label="Mostrar u ocultar la navegación"
-              title={sidebarOpen ? 'Contraer barra lateral' : 'Expandir barra lateral'}
-              aria-expanded={sidebarOpen}
-            >
-              {sidebarOpen ? (
-                <PanelLeftCloseIcon className="size-4.5" />
-              ) : (
-                <PanelLeftOpenIcon className="size-4.5" />
-              )}
-            </Button>
-
+        <SidebarInset className="@container/shell">
+          <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-4 border-b border-(--topbar-borde) bg-(--topbar) px-4 md:px-7">
+            <SidebarTrigger
+              className="shrink-0 text-(--topbar-texto) hover:bg-(--topbar-hover) hover:text-(--topbar-texto-hover) md:hidden"
+              aria-label="Abrir la navegación"
+            />
             {/* En celular el buscador es solo el ícono: el campo entero queda aplastado. */}
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="ml-auto sm:hidden"
+              className="ml-auto text-(--topbar-texto) hover:bg-(--topbar-hover) hover:text-(--topbar-texto-hover) @xl/shell:hidden"
               aria-label="Buscar"
               onClick={() => setComandoAbierto(true)}
             >
@@ -198,11 +200,11 @@ export function AppLayout() {
             <button
               type="button"
               onClick={() => setComandoAbierto(true)}
-              className="mx-auto hidden h-10 w-full max-w-150 min-w-0 cursor-pointer items-center gap-2.5 rounded-lg border border-borde bg-lienzo px-4 text-left text-sm text-texto-3 hover:bg-fila-hover sm:flex"
+              className="mx-auto hidden h-10 w-full max-w-150 min-w-0 cursor-pointer items-center gap-2.5 rounded-lg border border-borde bg-lienzo px-4 text-left text-sm text-texto-3 transition-colors hover:bg-[color-mix(in_srgb,var(--fila-hover)_85%,var(--borde))] @xl/shell:flex"
             >
               <Search className="size-4 shrink-0" />
               <span className="truncate">Buscar o ir a…</span>
-              <kbd className="ml-auto hidden shrink-0 rounded-md sm:block border border-borde bg-superficie px-1.5 py-0.5">
+              <kbd className="ml-auto hidden shrink-0 rounded-md border border-borde bg-superficie px-1.5 py-0.5">
                 <div className="text-xs text-texto-3 flex gap-0.5 items-center justify-center">
                   <span>⌘</span>
                   <span>K</span>
@@ -210,37 +212,12 @@ export function AppLayout() {
               </kbd>
             </button>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-borde px-3 py-2 text-sm font-medium text-texto-2 hover:bg-fila-hover"
-                >
-                  <CalendarIcon className="size-4 text-texto-3" />
-                  Ciclo {ciclo}
-                  <ChevronDownIcon className="size-3.5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuRadioGroup value={ciclo} onValueChange={setCicloLectivo}>
-                  <DropdownMenuRadioItem value="2026">
-                    <CalendarIcon className="text-texto-3" />
-                    2026
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="2025">
-                    <CalendarIcon className="text-texto-3" />
-                    2025
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
             {asistenteDisponible && (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="shrink-0"
+                className="shrink-0 text-(--topbar-texto) hover:bg-(--topbar-hover) hover:text-(--topbar-texto-hover)"
                 aria-label="Asistente"
                 aria-pressed={asistenteAbierto}
                 title="Asistente (Ctrl+I)"
@@ -250,36 +227,44 @@ export function AppLayout() {
               </Button>
             )}
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-texto-2 hover:bg-fila-hover"
-                  aria-label="Notificaciones"
-                >
-                  <BellIcon className="size-5" />
-                  {hayNotificacionesSinLeer && (
-                    <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-advertencia" />
-                  )}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-80">
-                <Empty className="p-4">
-                  <EmptyMedia variant="neutral">
-                    <BellIcon />
-                  </EmptyMedia>
-                  <EmptyTitle>No hay notificaciones</EmptyTitle>
-                  <EmptyDescription>Todavía no hay avisos para mostrar acá.</EmptyDescription>
-                </Empty>
-              </PopoverContent>
-            </Popover>
+            {esRolAdministrativo(rolActivo) && usuario && rolActivo ? (
+              <CampanitaNotificaciones
+                key={`${usuario.id}:${rolActivo}`}
+                usuarioId={usuario.id}
+                rolActivo={rolActivo}
+              />
+            ) : (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-(--topbar-texto) hover:bg-(--topbar-hover) hover:text-(--topbar-texto-hover)"
+                    aria-label="Notificaciones"
+                  >
+                    <BellIcon className="size-5" />
+                    {hayNotificacionesSinLeer && (
+                      <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-advertencia" />
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-80">
+                  <Empty className="p-4">
+                    <EmptyMedia variant="neutral">
+                      <BellIcon />
+                    </EmptyMedia>
+                    <EmptyTitle>No hay notificaciones</EmptyTitle>
+                    <EmptyDescription>Todavía no hay avisos para mostrar acá.</EmptyDescription>
+                  </Empty>
+                </PopoverContent>
+              </Popover>
+            )}
 
-            <MenuCuenta />
+            <MenuCuenta className="hover:bg-(--topbar-hover)" />
           </header>
 
-          <main className="min-w-0 flex-1 px-8 py-6">
+          <div className="@container/main min-w-0 flex-1 px-4 py-4 [--main-py:1rem] @2xl/shell:px-8 @2xl/shell:py-6 @2xl/shell:[--main-py:1.5rem]">
             <Outlet />
-          </main>
+          </div>
         </SidebarInset>
 
         {/* Montado aunque esté cerrado: así no se pierde la conversación al cerrarlo. */}
@@ -328,71 +313,74 @@ function SidebarRootView({
 }) {
   return (
     <>
-      {grupos.map((grupo) => (
-        <SidebarGroup key={grupo.label}>
-          <SidebarGroupLabel>{grupo.label}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {grupo.items.map((item) =>
-                item.children && item.children.length > 0 ? (
-                  <SidebarMenuItem key={item.label}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={item.href === hrefActivo}
-                      tooltip={item.label}
-                      onClick={() => onSeleccionarModulo(item)}
-                    >
-                      {/* Si el módulo no tiene landing propia (ej. "Proveedores y compras"),
+      {grupos.map((grupo, indice) => (
+        <Fragment key={grupo.label}>
+          {indice > 0 && <SidebarSeparator className="mx-0" />}
+          <SidebarGroup>
+            <SidebarGroupLabel>{grupo.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {grupo.items.map((item) =>
+                  item.children && item.children.length > 0 ? (
+                    <SidebarMenuItem key={item.label}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={item.href === hrefActivo}
+                        tooltip={item.label}
+                        onClick={() => onSeleccionarModulo(item)}
+                      >
+                        {/* Si el módulo no tiene landing propia (ej. "Proveedores y compras"),
                           entra directo a la primera sección en vez de quedar sin navegar. */}
-                      <Link to={item.href ?? item.children[0].href ?? '#'}>
-                        <item.icon />
-                        {/* truncate explícito: el chevron es el último hijo, así que la regla
+                        <Link to={item.href ?? item.children[0].href ?? '#'}>
+                          <item.icon />
+                          {/* truncate explícito: el chevron es el último hijo, así que la regla
                             `span:last-child` del botón no aplica y el label se partía en dos
                             líneas durante la animación de ancho. */}
-                        <span className="truncate">{item.label}</span>
-                        <ChevronRightIcon className="ml-auto size-4 text-texto-3 group-data-[collapsible=icon]:hidden" />
-                      </Link>
-                    </SidebarMenuButton>
-                    {moduloExpandido?.label === item.label && (
-                      <SidebarMenu
-                        aria-label={`Secciones de ${item.label}`}
-                        className="ml-1 mt-1 w-auto border-l border-borde pl-1"
+                          <span className="truncate">{item.label}</span>
+                          <ChevronRightIcon className="ml-auto size-4 text-texto-3 group-data-[active=true]/menu-button:text-sidebar-primary-foreground group-data-[collapsible=icon]:hidden" />
+                        </Link>
+                      </SidebarMenuButton>
+                      {moduloExpandido?.label === item.label && (
+                        <SidebarMenu
+                          aria-label={`Secciones de ${item.label}`}
+                          className="ml-1 mt-1 w-auto border-l border-borde pl-1"
+                        >
+                          {seccionesDe(item).map((seccion) => (
+                            <SidebarMenuItem key={seccion.href}>
+                              <SidebarMenuButton
+                                asChild
+                                isActive={seccion.href === hrefActivo}
+                                tooltip={seccion.label}
+                              >
+                                <Link to={seccion.href ?? '#'}>
+                                  <seccion.icon />
+                                  <span>{seccion.label}</span>
+                                </Link>
+                              </SidebarMenuButton>
+                            </SidebarMenuItem>
+                          ))}
+                        </SidebarMenu>
+                      )}
+                    </SidebarMenuItem>
+                  ) : (
+                    <SidebarMenuItem key={item.label}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={item.href === hrefActivo}
+                        tooltip={item.label}
                       >
-                        {seccionesDe(item).map((seccion) => (
-                          <SidebarMenuItem key={seccion.href}>
-                            <SidebarMenuButton
-                              asChild
-                              isActive={seccion.href === hrefActivo}
-                              tooltip={seccion.label}
-                            >
-                              <Link to={seccion.href ?? '#'}>
-                                <seccion.icon />
-                                <span>{seccion.label}</span>
-                              </Link>
-                            </SidebarMenuButton>
-                          </SidebarMenuItem>
-                        ))}
-                      </SidebarMenu>
-                    )}
-                  </SidebarMenuItem>
-                ) : (
-                  <SidebarMenuItem key={item.label}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={item.href === hrefActivo}
-                      tooltip={item.label}
-                    >
-                      <Link to={item.href ?? '#'}>
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ),
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                        <Link to={item.href ?? '#'}>
+                          <item.icon />
+                          <span>{item.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ),
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </Fragment>
       ))}
     </>
   )

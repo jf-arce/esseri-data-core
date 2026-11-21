@@ -10,12 +10,15 @@ import {
 } from 'lucide-react'
 import { PORTAL_FAMILIA_BACKGROUND } from '@/components/portal-familia/portal-familia-shell'
 import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
+import { PortalSkeletonRegion } from '@/components/portal-familia/portal-familia-ui'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AdjuntosComunicacion } from '../components/adjuntos-comunicacion'
+import { EventoComunicacionDetalle } from '../components/evento-comunicacion-detalle'
+import { MensajeComunicacion } from '../components/mensaje-comunicacion'
 import { EntregaComunicacion } from '../components/entrega-comunicacion'
 import { listarComunicaciones } from '../services/listar-comunicaciones'
 import { obtenerComunicacion } from '../services/obtener-comunicacion'
@@ -151,9 +154,11 @@ export function ComunicacionDetallePage({
     )
   const mensaje = datos && (
     <>
-      <div className="text-sm leading-relaxed whitespace-pre-wrap break-words text-texto">
-        {datos.cuerpo}
-      </div>
+      <MensajeComunicacion
+        texto={datos.cuerpo}
+        cuerpoRico={datos.cuerpo_rico}
+        className="text-sm leading-relaxed text-texto"
+      />
       {familia && canal === 'email' && (
         <p role="status" className="text-sm text-texto-2">
           Esta comunicación se envía por email y no aparece en la bandeja del portal.
@@ -193,37 +198,39 @@ export function ComunicacionDetallePage({
     fechaPublicacion && !Number.isNaN(fechaPublicacion.getTime())
       ? `${FORMATO_FECHA_LARGA.format(fechaPublicacion)}, ${FORMATO_HORA_LARGA.format(fechaPublicacion)}`
       : 'Sin publicar'
+  const eventoDetalle =
+    familia && datos?.evento?.fecha ? { ...datos.evento, fecha: datos.evento.fecha } : null
   if (familia) {
     return (
       <section
-        className="relative isolate -mx-4 -mt-6 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden px-4 pt-6 pb-10 sm:-mx-8 sm:px-8"
+        className="relative isolate -mt-6 -mb-6 min-h-[calc(100svh-4rem)] pt-6 pb-10"
         style={{ background: PORTAL_FAMILIA_BACKGROUND }}
       >
         <PortalFamiliaWatermark />
 
-        <div className="relative z-10 mx-auto flex w-full max-w-[92vw] flex-col gap-5">
+        <div className="relative z-10 mx-auto flex w-full max-w-4xl flex-col gap-5">
           <div className="flex flex-col gap-3">
             <Link
               to={base}
-              className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-[#5B3A7E] transition-colors hover:text-[#3F245C] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
+              className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-pf-accent transition-colors hover:text-pf-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
             >
               <ArrowLeftIcon aria-hidden="true" className="size-4" />
               Volver a comunicaciones
             </Link>
-            <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-[#6B6478]">
+            <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-texto-2">
               <Link
                 to="/familia"
                 aria-label="Inicio"
-                className="inline-flex items-center text-[#6B6478] transition-colors hover:text-[#5B3A7E] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
+                className="inline-flex items-center text-texto-2 transition-colors hover:text-pf-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
               >
                 <HomeIcon aria-hidden="true" className="size-4" />
               </Link>
-              <ChevronRightIcon aria-hidden="true" className="size-3.5 text-[#A995BF]" />
-              <Link to={base} className="transition-colors hover:text-[#5B3A7E]">
+              <ChevronRightIcon aria-hidden="true" className="size-3.5 text-texto-3" />
+              <Link to={base} className="transition-colors hover:text-pf-accent-hover">
                 Comunicaciones
               </Link>
-              <ChevronRightIcon aria-hidden="true" className="size-3.5 text-[#A995BF]" />
-              <span className="font-semibold text-[#2B1838]">Detalle</span>
+              <ChevronRightIcon aria-hidden="true" className="size-3.5 text-texto-3" />
+              <span className="font-semibold text-texto">Detalle</span>
             </nav>
           </div>
 
@@ -241,12 +248,37 @@ export function ComunicacionDetallePage({
               </AlertDescription>
             </Alert>
           ) : !datos ? (
-            <Skeleton className="h-64 w-full rounded-[28px]" aria-label="Cargando comunicación" />
+            <PortalSkeletonRegion etiqueta="Cargando comunicación">
+              <article
+                aria-hidden="true"
+                className="relative overflow-hidden rounded-pf-card bg-superficie shadow-pf-card"
+              >
+                <div className="pointer-events-none absolute top-6 right-6 hidden w-[120px] @5xl/main:block">
+                  <Skeleton className="aspect-square w-full rounded-pf-card" />
+                </div>
+                <div className="relative z-10 p-6 @xl/main:p-10">
+                  <div className="@5xl/main:pr-[200px]">
+                    <Skeleton className="h-7 w-56 rounded-full" />
+                    <Skeleton className="mt-5 h-9 w-4/5" />
+                    <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2">
+                      <Skeleton className="h-5 w-40" />
+                      <Skeleton className="h-5 w-44" />
+                    </div>
+                  </div>
+                  <div className="mt-8 border-t border-pf-divisor" />
+                  <div className="space-y-3 py-8">
+                    {['w-full', 'w-full', 'w-11/12', 'w-full', 'w-2/3'].map((ancho, indice) => (
+                      <Skeleton key={indice} className={`h-5 ${ancho}`} />
+                    ))}
+                  </div>
+                </div>
+              </article>
+            </PortalSkeletonRegion>
           ) : (
-            <article className="relative overflow-hidden rounded-[28px] bg-white shadow-[0_28px_70px_rgba(70,32,110,0.12)]">
+            <article className="relative overflow-hidden rounded-pf-card bg-superficie shadow-pf-card">
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute top-6 right-6 hidden w-[120px] lg:block"
+                className="pointer-events-none absolute top-6 right-6 hidden w-[120px] @5xl/main:block"
               >
                 <img
                   data-slot="portal-familia-detalle-logo"
@@ -256,9 +288,9 @@ export function ComunicacionDetallePage({
                 />
               </div>
 
-              <div className="relative z-10 p-6 sm:p-10">
-                <div className="lg:pr-[200px]">
-                  <span className="inline-flex items-center gap-2 rounded-full bg-[#F1E4FB] px-4 py-2 text-[12px] font-bold tracking-[0.08em] text-[#7A2FA8] uppercase">
+              <div className="relative z-10 p-6 @xl/main:p-10">
+                <div className="@5xl/main:pr-[200px]">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-pf-lila px-3 py-1 text-xs font-semibold tracking-[0.06em] text-pf-accent uppercase">
                     <Building2Icon aria-hidden="true" className="size-4" />
                     {datos.tipo === 'curso'
                       ? 'COMUNICADO DE CURSO'
@@ -266,31 +298,43 @@ export function ComunicacionDetallePage({
                         ? 'COMUNICADO INSTITUCIONAL'
                         : `COMUNICADO ${ETIQUETAS_TIPO[datos.tipo].toUpperCase()}`}
                   </span>
-                  <h1 className="mt-5 font-heading text-[32px] leading-[1.12] font-bold tracking-[-0.02em] text-[#2B1838] sm:text-[40px] xl:text-[44px]">
+                  <h1 className="mt-5 font-heading text-pf-titulo leading-tight font-semibold tracking-[-0.01em] text-texto @xl/main:text-pf-titulo-lg">
                     {datos.asunto}
                   </h1>
-                  <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-[15px] font-medium text-[#4A3B5C]">
+                  <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-pf-cuerpo font-medium text-texto-2">
                     <span className="inline-flex items-center gap-2">
-                      <Building2Icon aria-hidden="true" className="size-4 text-[#7A2FA8]" />
+                      <Building2Icon aria-hidden="true" className="size-4 text-pf-accent" />
                       {datos.emisor ?? 'Colegio ESSERI'}
                     </span>
-                    <span aria-hidden="true" className="hidden h-5 w-px bg-[#E7DEF0] sm:block" />
+                    <span
+                      aria-hidden="true"
+                      className="hidden h-5 w-px bg-pf-borde @xl/main:block"
+                    />
                     <span className="inline-flex items-center gap-2">
-                      <CalendarIcon aria-hidden="true" className="size-4 text-[#7A2FA8]" />
+                      <CalendarIcon aria-hidden="true" className="size-4 text-pf-accent" />
                       {fechaLarga}
                     </span>
                   </div>
                 </div>
 
-                <div className="mt-8 border-t border-[#EEE8F4]" />
-                <div className="flex flex-col gap-4 py-8 text-[16px] leading-8 break-words whitespace-pre-wrap text-[#3A2E4A] sm:text-[17px]">
-                  {datos.cuerpo}
-                </div>
+                <div className="mt-8 border-t border-pf-divisor" />
+                <MensajeComunicacion
+                  texto={datos.cuerpo}
+                  cuerpoRico={datos.cuerpo_rico}
+                  className="py-8 text-pf-cuerpo leading-7 text-texto @xl/main:text-pf-encabezado"
+                />
+
+                {eventoDetalle && (
+                  <EventoComunicacionDetalle
+                    evento={eventoDetalle}
+                    destinoCalendario="/familia/calendario"
+                  />
+                )}
 
                 {canal === 'email' && (
                   <p
                     role="status"
-                    className="mb-6 rounded-[12px] bg-[#F7F1FC] px-4 py-3 text-sm text-[#5F4B7A]"
+                    className="mb-6 rounded-pf-item bg-pf-item px-4 py-3 text-sm text-texto-2"
                   >
                     Esta comunicación se envía por email y no aparece en la bandeja del portal.
                   </p>
@@ -305,15 +349,15 @@ export function ComunicacionDetallePage({
                 />
 
                 {navegacionActual && (
-                  <div className="mt-8 border-t border-[#EEE8F4] pt-6">
+                  <div className="mt-8 border-t border-pf-divisor pt-6">
                     <nav
                       aria-label="Navegación entre comunicaciones"
-                      className="flex flex-col gap-3 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center"
+                      className="flex flex-col gap-3 @xl/main:grid @xl/main:grid-cols-[1fr_auto_1fr] @xl/main:items-center"
                     >
                       {navegacionActual.anteriorId ? (
                         <Link
                           to={`${base}/${navegacionActual.anteriorId}`}
-                          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[#8B4BC0]/40 px-6 text-[15px] font-semibold text-[#6E2A8D] transition-colors hover:bg-[#F6EDFB] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8] sm:w-auto sm:justify-self-start"
+                          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-pf-accent/40 px-6 text-pf-cuerpo font-semibold text-pf-accent transition-colors hover:bg-(--card-hover) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent @xl/main:w-auto @xl/main:justify-self-start"
                         >
                           <ArrowLeftIcon aria-hidden="true" className="size-4" />
                           Anterior
@@ -321,19 +365,19 @@ export function ComunicacionDetallePage({
                       ) : (
                         <span
                           aria-disabled="true"
-                          className="inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-full border border-[#8B4BC0]/20 px-6 text-[15px] font-semibold text-[#6E2A8D] opacity-40 sm:w-auto sm:justify-self-start"
+                          className="inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-full border border-pf-accent/20 px-6 text-pf-cuerpo font-semibold text-pf-accent opacity-40 @xl/main:w-auto @xl/main:justify-self-start"
                         >
                           <ArrowLeftIcon aria-hidden="true" className="size-4" />
                           Anterior
                         </span>
                       )}
-                      <span className="text-center text-[15px] font-medium text-[#6B6478]">
+                      <span className="text-center text-pf-cuerpo font-medium text-texto-2">
                         {navegacionActual.posicion} de {navegacionActual.total}
                       </span>
                       {navegacionActual.siguienteId ? (
                         <Link
                           to={`${base}/${navegacionActual.siguienteId}`}
-                          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[#6E2A8D] px-6 text-[15px] font-semibold text-white transition-colors hover:bg-[#5B2078] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8] sm:w-auto sm:justify-self-end"
+                          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-pf-accent px-6 text-pf-cuerpo font-semibold text-superficie transition-colors hover:bg-pf-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent @xl/main:w-auto @xl/main:justify-self-end"
                         >
                           Siguiente
                           <ArrowRightIcon aria-hidden="true" className="size-4" />
@@ -341,7 +385,7 @@ export function ComunicacionDetallePage({
                       ) : (
                         <span
                           aria-disabled="true"
-                          className="inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-full bg-[#6E2A8D]/40 px-6 text-[15px] font-semibold text-white opacity-50 sm:w-auto sm:justify-self-end"
+                          className="inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-full bg-pf-accent/40 px-6 text-pf-cuerpo font-semibold text-superficie opacity-50 @xl/main:w-auto @xl/main:justify-self-end"
                         >
                           Siguiente
                           <ArrowRightIcon aria-hidden="true" className="size-4" />
@@ -393,7 +437,7 @@ export function ComunicacionDetallePage({
       ) : !datos ? (
         <Skeleton className="h-40 w-full" aria-label="Cargando comunicación" />
       ) : (
-        <article className="space-y-6 rounded-panel bg-superficie p-5 shadow-card sm:p-8">
+        <article className="space-y-6 rounded-panel bg-superficie p-5 shadow-card @xl/main:p-8">
           {familia ? (
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="neutro">{ETIQUETAS_TIPO[datos.tipo]}</Badge>

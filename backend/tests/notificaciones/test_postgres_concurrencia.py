@@ -31,6 +31,7 @@ from src.notificaciones.academico_service import registrar_ausencia
 from src.notificaciones.constants import TIPO_INASISTENCIA_REGISTRADA
 from src.notificaciones.exceptions import NotificacionNoEncontrada
 from src.notificaciones.models import NotificacionInterna
+from src.notificaciones.service import AlcanceBandeja
 from src.workflows.models import CampoEvento, TipoEvento
 
 PASSWORD_VALIDA = "una-contrasenia-larga"
@@ -222,7 +223,10 @@ def test_dos_lecturas_concurrentes_conservan_el_mismo_primer_leida_at(escenario_
     def leer(_):
         with Session(engine) as db:
             return notificaciones_service.marcar_lectura(
-                db, ids["usuario"], ids["familia"], notificacion_id
+                db,
+                ids["usuario"],
+                AlcanceBandeja(rol="familia", familia_id=ids["familia"]),
+                notificacion_id,
             ).leida_at
 
     try:
@@ -361,19 +365,41 @@ def test_el_allowlist_de_lectura_deniega_filas_desconocidas_en_postgresql(escena
         db.commit()
 
         listado = notificaciones_service.listar(
-            db, ids["usuario"], ids["familia"], no_leidas=False, limite=20, cursor=None
+            db,
+            ids["usuario"],
+            AlcanceBandeja(rol="familia", familia_id=ids["familia"]),
+            no_leidas=False,
+            limite=20,
+            cursor=None,
         )
         assert [item.tipo for item in listado.items] == [TIPO_INASISTENCIA_REGISTRADA]
         assert listado.total_no_leidas == 1
         assert (
-            notificaciones_service.resumen(db, ids["usuario"], ids["familia"]).total_no_leidas == 1
+            notificaciones_service.resumen(
+                db,
+                ids["usuario"],
+                AlcanceBandeja(rol="familia", familia_id=ids["familia"]),
+            ).total_no_leidas
+            == 1
         )
 
         for denegada in denegadas:
             with pytest.raises(NotificacionNoEncontrada):
-                notificaciones_service.marcar_lectura(db, ids["usuario"], ids["familia"], denegada)
+                notificaciones_service.marcar_lectura(
+                    db,
+                    ids["usuario"],
+                    AlcanceBandeja(rol="familia", familia_id=ids["familia"]),
+                    denegada,
+                )
 
-        assert notificaciones_service.marcar_todas(db, ids["usuario"], ids["familia"]).marcadas == 1
+        assert (
+            notificaciones_service.marcar_todas(
+                db,
+                ids["usuario"],
+                AlcanceBandeja(rol="familia", familia_id=ids["familia"]),
+            ).marcadas
+            == 1
+        )
         db.expire_all()
         assert all(db.get(NotificacionInterna, fila).leida_at is None for fila in denegadas)
 

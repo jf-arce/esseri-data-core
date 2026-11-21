@@ -14,12 +14,11 @@ interface InscripcionesResumenProps {
 
 export function InscripcionesResumen({ resumen, cargando }: InscripcionesResumenProps) {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
       <StatTile
         label="Inscripciones activas"
         value={resumen.inscripciones_activas}
         icon={ClipboardCheckIcon}
-        variant="dark"
         cargando={cargando}
       />
       <StatTile

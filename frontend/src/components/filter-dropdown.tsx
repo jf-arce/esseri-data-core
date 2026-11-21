@@ -177,7 +177,7 @@ function FilterChips({
 function FilterChip({ children, onRemove }: { children: React.ReactNode; onRemove: () => void }) {
   return (
     <span className="inline-flex h-[26px] items-center gap-1.5 rounded-full bg-violeta-suave py-0 pr-1.5 pl-3 text-xs font-medium text-violeta">
-      {children}
+      <span className="max-w-64 truncate">{children}</span>
       <button
         type="button"
         onClick={onRemove}

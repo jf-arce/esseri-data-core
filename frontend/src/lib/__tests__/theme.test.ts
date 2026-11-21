@@ -27,12 +27,12 @@ beforeEach(() => {
 })
 
 describe('theme preferences', () => {
-  it('uses dark as the default when storage is empty or invalid', () => {
-    expect(getThemePreference()).toBe('dark')
+  it('uses light as the default when storage is empty or invalid', () => {
+    expect(getThemePreference()).toBe('light')
 
     window.localStorage.setItem(THEME_STORAGE_KEY, 'sepia')
 
-    expect(getThemePreference()).toBe('dark')
+    expect(getThemePreference()).toBe('light')
   })
 
   it('persists a valid explicit preference', () => {

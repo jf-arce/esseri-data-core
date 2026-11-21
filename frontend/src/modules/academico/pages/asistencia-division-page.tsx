@@ -298,7 +298,7 @@ export function AsistenciaDivisionPage({
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar los datos</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargar}>
               Reintentar
@@ -339,14 +339,8 @@ export function AsistenciaDivisionPage({
       {divisionId && (
         <>
           {/* Stats */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatTile
-              variant="dark"
-              compact
-              label="Presentes"
-              value={stats.presentes}
-              icon={CheckIcon}
-            />
+          <div className="grid grid-cols-2 gap-4 @3xl/main:grid-cols-4">
+            <StatTile compact label="Presentes" value={stats.presentes} icon={CheckIcon} />
             <StatTile
               compact
               label="Tardanzas"
@@ -381,7 +375,7 @@ export function AsistenciaDivisionPage({
 
           {cargando ? (
             <div className="rounded-panel bg-superficie p-6 shadow-card">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(min(32rem,100%),1fr))]">
                 {[1, 2, 3, 4, 5, 6].map((i) => (
                   <div key={i} className="h-16 animate-pulse rounded-lg bg-fila-hover" />
                 ))}
@@ -423,7 +417,7 @@ export function AsistenciaDivisionPage({
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(min(32rem,100%),1fr))]">
                 {alumnosConSeleccion.map((alumno) => (
                   <div
                     key={alumno.id}
@@ -443,7 +437,7 @@ export function AsistenciaDivisionPage({
                         </p>
                       )}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex shrink-0 gap-2">
                       {BOTONES_ACCION.map((boton) => (
                         <button
                           key={boton.tipo}
@@ -462,7 +456,7 @@ export function AsistenciaDivisionPage({
                 ))}
               </div>
 
-              <div className="flex justify-end gap-2">
+              <div className="flex flex-wrap justify-end gap-2">
                 <Button
                   variant="secondary"
                   onClick={() => {
@@ -511,7 +505,7 @@ function AsistenteAlumno({
         {alumno.alumno_nombre.slice(0, 1)}
         {alumno.alumno_apellido.slice(0, 1)}
       </div>
-      <p className="text-xl font-semibold text-texto">
+      <p className="text-xl font-semibold break-words text-texto">
         {alumno.alumno_apellido}, {alumno.alumno_nombre}
       </p>
 

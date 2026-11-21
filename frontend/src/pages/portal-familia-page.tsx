@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRightIcon,
   CalendarClockIcon,
-  CalendarDaysIcon,
   ChevronRightIcon,
   CircleAlertIcon,
   CircleCheckIcon,
@@ -20,7 +19,9 @@ import {
   PORTAL_PRIMARY_BUTTON_CLASS,
   PortalAlertBanner,
   PortalCard,
+  PortalSkeletonRegion,
 } from '@/components/portal-familia/portal-familia-ui'
+import { TONOS, type PortalFamiliaTone } from '@/components/portal-familia/portal-familia-tonos'
 import { useMisAlumnos } from '@/modules/familias-alumnos/hooks/use-mis-alumnos'
 import { listarComunicaciones } from '@/modules/comunicaciones/services/listar-comunicaciones'
 import { listarAsistenciasFamilia } from '@/modules/academico/services/listar-asistencias-familia'
@@ -33,25 +34,39 @@ import { nombreDeUsuario } from '@/modules/auth/utils'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth-store'
 
-const TINTA = 'text-[#2B2338]'
-const TINTA_2 = 'text-[#6B6478]'
-const ENLACE_VIOLETA = 'text-[#7A2FA8] hover:text-[#6A2494]'
+function saludoSegunHora(hora: number): string {
+  if (hora >= 6 && hora < 13) return 'Buen día'
+  if (hora >= 13 && hora < 20) return 'Buenas tardes'
+  return 'Buenas noches'
+}
+
+type PendienteChip = {
+  clave: string
+  texto: string
+  tono: PortalFamiliaTone
+  href: string
+}
+
+function crearChips(items: [number, string, string, PortalFamiliaTone, string][]): PendienteChip[] {
+  return items
+    .filter(([cantidad]) => cantidad > 0)
+    .map(([cantidad, singular, plural, tono, href]) => ({
+      clave: href,
+      texto: `${cantidad} ${cantidad === 1 ? singular : plural}`,
+      tono,
+      href,
+    }))
+}
 
 function iniciales(nombre: string, apellido: string) {
   return `${nombre.charAt(0)}${apellido.charAt(0)}`.toUpperCase()
 }
 
-const TONOS_INDICADOR = {
-  lavanda: 'bg-[#F1E4FB] text-[#7A2FA8]',
-  ambar: 'bg-[#FCE4CA] text-[#DF8A2F]',
-  azul: 'bg-[#DCE9FC] text-[#4F86D9]',
-} as const
-
 type IndicadorCompactoProps = {
   etiqueta: string
   valor: number | string
   icono: LucideIcon
-  tono: keyof typeof TONOS_INDICADOR
+  tono: PortalFamiliaTone
   cargando?: boolean
   href?: string
 }
@@ -69,37 +84,35 @@ function IndicadorCompacto({
     <>
       <span
         className={cn(
-          'flex size-10 shrink-0 items-center justify-center rounded-[12px]',
-          TONOS_INDICADOR[tono],
+          'flex size-10 shrink-0 items-center justify-center rounded-pf-item',
+          TONOS[tono].tile,
         )}
       >
         <Icono aria-hidden="true" className="size-5" />
       </span>
-      <span aria-hidden="true" className="h-9 w-px shrink-0 bg-[#EEE7F5]" />
+      <span aria-hidden="true" className="h-9 w-px shrink-0 bg-pf-lila" />
       <span className="min-w-0 flex-1">
         {cargando ? (
-          <Skeleton className="h-7 w-10 bg-[#F1EAF7]" />
+          <Skeleton className="h-7 w-10" />
         ) : (
-          <span className="block font-heading text-[24px] leading-none font-bold text-[#2B2338] tabular-nums">
+          <span className="block font-heading text-pf-cifra leading-none font-bold text-texto tabular-nums">
             {valor}
           </span>
         )}
-        <span className="mt-1 block text-[13px] leading-tight text-[#6B6478] sm:text-[14px]">
-          {etiqueta}
-        </span>
+        <span className="mt-1 block text-sm leading-tight text-texto-2 sm:text-sm">{etiqueta}</span>
       </span>
-      {href && <ChevronRightIcon aria-hidden="true" className="size-5 shrink-0 text-[#3A2E45]" />}
+      {href && <ChevronRightIcon aria-hidden="true" className="size-5 shrink-0 text-texto" />}
     </>
   )
 
   const clases =
-    'flex min-h-[74px] items-center gap-3 rounded-[18px] border border-[#E9E1F1] bg-white px-4 py-3 shadow-[0_6px_18px_rgba(24,16,40,0.05)]'
+    'flex min-h-[74px] items-center gap-3 rounded-pf-tile bg-superficie px-4 py-3 shadow-pf-card'
 
   return href ? (
     <Link
       to={href}
       aria-label={`${etiqueta}: ${valor}`}
-      className={cn(clases, 'transition-colors hover:border-[#DCCBEC] hover:bg-[#FCFAFE]')}
+      className={cn(clases, 'transition-colors hover:bg-(--card-hover)')}
     >
       {contenido}
     </Link>
@@ -107,48 +120,6 @@ function IndicadorCompacto({
     <div role="group" aria-label={etiqueta} className={clases}>
       {contenido}
     </div>
-  )
-}
-
-function IlustracionColegio() {
-  return (
-    <svg viewBox="0 0 460 260" fill="none" aria-hidden="true" className="h-auto w-full">
-      <defs>
-        <linearGradient
-          id="portal-familia-colegio"
-          x1="230"
-          y1="70"
-          x2="230"
-          y2="230"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor="#B392D1" stopOpacity="0.9" />
-          <stop offset="1" stopColor="#7B5AA6" stopOpacity="0.4" />
-        </linearGradient>
-      </defs>
-      <ellipse cx="238" cy="236" rx="190" ry="18" fill="#8E6BB8" opacity="0.22" />
-      <g fill="#8B67B5" opacity="0.55">
-        <rect x="48" y="150" width="10" height="80" rx="3" />
-        <circle cx="53" cy="128" r="32" />
-        <circle cx="34" cy="150" r="24" />
-        <circle cx="74" cy="150" r="24" />
-        <rect x="396" y="158" width="9" height="72" rx="3" />
-        <circle cx="401" cy="138" r="28" />
-        <circle cx="384" cy="158" r="20" />
-        <circle cx="418" cy="158" r="20" />
-      </g>
-      <g opacity="0.82">
-        <path d="M150 226V120l80-48 80 48v106" fill="url(#portal-familia-colegio)" />
-        <path d="M150 120l80-48 80 48" stroke="#D6C3E8" strokeWidth="2" fill="none" />
-        <rect x="176" y="146" width="26" height="30" rx="3" fill="#5C3F82" />
-        <rect x="258" y="146" width="26" height="30" rx="3" fill="#5C3F82" />
-        <rect x="216" y="170" width="28" height="56" rx="4" fill="#4E346F" />
-        <path d="M230 74V44" stroke="#D6C3E8" strokeWidth="2" />
-        <path d="M232 44l26 8-26 9z" fill="#C9A7E8" />
-        <rect x="112" y="176" width="42" height="50" rx="3" fill="#9B7BBF" opacity="0.7" />
-        <rect x="306" y="176" width="42" height="50" rx="3" fill="#9B7BBF" opacity="0.7" />
-      </g>
-    </svg>
   )
 }
 
@@ -173,6 +144,15 @@ export function PortalFamiliaPage() {
     if (usuario.persona_nombre) return usuario.persona_nombre.split(' ')[0]
     return nombreDeUsuario(usuario.email).split(/[ ,]/)[0]
   }, [usuario])
+
+  const horaArgentina = Number(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      hour: '2-digit',
+      hourCycle: 'h23',
+    }).format(new Date()),
+  )
+  const saludoHora = saludoSegunHora(horaArgentina)
 
   useEffect(() => {
     if (alumnos.length === 0) return
@@ -239,6 +219,7 @@ export function PortalFamiliaPage() {
 
   const cargandoAsistencias = cargandoAlumnos || (alumnos.length > 0 && asistencias.cargando)
   const pendientesJustificar = alumnos.length === 0 ? 0 : asistencias.total
+  const hayAusenciasPendientes = pendientesJustificar !== null && pendientesJustificar > 0
   const hoyArgentina = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Argentina/Buenos_Aires',
     year: 'numeric',
@@ -259,21 +240,62 @@ export function PortalFamiliaPage() {
       ? `${facturasVencidas} ${facturasVencidas === 1 ? 'vencida' : 'vencidas'}`
       : 'Sin vencimientos'
 
+  const cargandoResumen = cargandoAsistencias || sinLeer.cargando || facturacion.cargando
+  const chips = cargandoResumen
+    ? []
+    : crearChips([
+        [
+          sinLeer.total ?? 0,
+          'comunicación sin leer',
+          'comunicaciones sin leer',
+          'azul',
+          '/familia/comunicaciones',
+        ],
+        [facturasVencidas, 'factura vencida', 'facturas vencidas', 'rojo', '/familia/facturacion'],
+      ])
+  const resumen = cargandoResumen ? (
+    'Estamos armando el resumen de tu familia.'
+  ) : chips.length === 0 ? (
+    hayAusenciasPendientes ? null : (
+      'Todo al día por ahora.'
+    )
+  ) : (
+    <span className="flex flex-wrap items-center gap-1.5 text-sm">
+      {chips.map((chip) => (
+        <Link
+          key={chip.clave}
+          to={chip.href}
+          className={cn(
+            'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-texto transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent',
+            TONOS[chip.tono].tile,
+          )}
+        >
+          {chip.texto}
+        </Link>
+      ))}
+    </span>
+  )
+
   return (
     <section className="relative isolate flex w-full flex-col">
       <PortalFamiliaWatermark />
       <PortalFamiliaShell
-        titulo={<>{saludo ? `Hola, ${saludo}` : 'Hola'} 👋</>}
-        tituloClassName="text-[32px] sm:text-[40px]"
-        descripcion="Este es el resumen de tu familia en ESSERI."
-        ilustracion={<IlustracionColegio />}
+        titulo={<>{saludo ? `¡${saludoHora}, ${saludo}!` : `¡${saludoHora}!`}</>}
+        descripcion={resumen}
+        ilustracion={
+          <img
+            src="/esseri-icon.png"
+            alt=""
+            draggable={false}
+            className="h-full w-auto opacity-80"
+          />
+        }
         className="pb-8"
-        anchoMaximo="max-w-[92vw]"
       />
 
-      <div className="relative mx-auto flex w-full max-w-[92vw] flex-col gap-5">
+      <div className="relative flex w-full flex-col gap-5">
         <div className="flex flex-col gap-5">
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 @3xl/main:grid-cols-3">
             <IndicadorCompacto
               etiqueta="Alumnos vinculados"
               valor={alumnos.length}
@@ -298,7 +320,7 @@ export function PortalFamiliaPage() {
             />
           </div>
 
-          {pendientesJustificar !== null && pendientesJustificar > 0 && (
+          {hayAusenciasPendientes && (
             <PortalAlertBanner
               titulo={
                 pendientesJustificar === 1
@@ -306,7 +328,6 @@ export function PortalFamiliaPage() {
                   : `Tenés ${pendientesJustificar} ausencias pendientes`
               }
               descripcion="Podés justificarla desde el portal."
-              className="items-center gap-3 p-3 sm:p-3"
               accion={
                 <Button asChild className={PORTAL_PRIMARY_BUTTON_CLASS}>
                   <Link to="/familia/justificar-ausencia">
@@ -323,21 +344,41 @@ export function PortalFamiliaPage() {
           <PortalCard
             titulo="Mis alumnos"
             descripcion="Accedé a la información y gestiones de cada alumno."
-            tituloClassName="font-heading text-[20px] font-bold tracking-[-0.01em] text-[#2B2338]"
-            headerClassName="border-b border-[#F1EBF7] px-5 py-4"
+            tituloClassName="font-heading text-pf-encabezado font-bold tracking-[-0.01em] text-texto"
+            headerClassName="border-b border-pf-divisor px-5 py-4"
             contentClassName="px-4 py-3"
           >
             {cargandoAlumnos ? (
-              <Skeleton className="h-28 w-full bg-[#F0EAF7]" />
+              <PortalSkeletonRegion etiqueta="Cargando alumnos">
+                <ul aria-hidden="true" className="flex flex-col gap-4">
+                  {[0, 1].map((indice) => (
+                    <li
+                      key={indice}
+                      className="flex flex-wrap items-center gap-3 rounded-pf-icono border border-pf-divisor bg-superficie px-3 py-2.5"
+                    >
+                      <Skeleton className="size-10 shrink-0 rounded-full" />
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <Skeleton className="h-4 w-40 max-w-full" />
+                        <Skeleton className="h-3.5 w-20" />
+                      </div>
+                      <div className="flex min-h-9 w-full items-center gap-3 sm:w-auto">
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-4 w-14" />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </PortalSkeletonRegion>
             ) : alumnos.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-10 text-center">
-                <span className="flex size-14 items-center justify-center rounded-full bg-[#F0E4FA] text-[#7A2FA8]">
-                  <UsersIcon aria-hidden="true" className="size-6" />
+                <span className="flex size-10 items-center justify-center rounded-full bg-pf-lila text-pf-accent">
+                  <UsersIcon aria-hidden="true" className="size-5" />
                 </span>
-                <p className={cn('text-[15px] font-semibold', TINTA)}>
+                <p className={cn('text-pf-cuerpo font-semibold', 'text-texto')}>
                   No encontramos alumnos vinculados a tu cuenta.
                 </p>
-                <p className={cn('max-w-[280px] text-[14px]', TINTA_2)}>
+                <p className={cn('max-w-[280px] text-sm', 'text-texto-2')}>
                   Comunicate con el colegio para vincular tu cuenta.
                 </p>
               </div>
@@ -346,19 +387,22 @@ export function PortalFamiliaPage() {
                 {alumnos.map((alumno) => (
                   <li
                     key={alumno.alumno_id}
-                    className="rounded-[14px] border border-[#EFE9F6] bg-white px-3 py-2.5"
+                    className="rounded-pf-icono border border-pf-divisor bg-superficie px-3 py-2.5"
                   >
                     <div className="flex flex-wrap items-center gap-3">
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#E7D4F7] text-[14px] font-semibold text-[#7A2FA8]">
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-pf-lila-fuerte text-sm font-semibold text-pf-accent">
                         {iniciales(alumno.nombre, alumno.apellido)}
                       </span>
                       <div className="min-w-0 flex-1">
                         <p
-                          className={cn('truncate text-[16px] leading-tight font-semibold', TINTA)}
+                          className={cn(
+                            'truncate text-pf-cuerpo leading-tight font-semibold',
+                            'text-texto',
+                          )}
                         >
                           {alumno.apellido}, {alumno.nombre}
                         </p>
-                        <p className={cn('mt-0.5 text-[13px]', TINTA_2)}>
+                        <p className={cn('mt-0.5 text-sm', 'text-texto-2')}>
                           {alumno.division_etiqueta ?? 'Curso no informado'}
                         </p>
                       </div>
@@ -366,40 +410,33 @@ export function PortalFamiliaPage() {
                         <Link
                           to="/familia/asistencias"
                           className={cn(
-                            'inline-flex min-h-9 items-center gap-1.5 rounded-full px-2 text-[14px] font-semibold',
-                            ENLACE_VIOLETA,
+                            'inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-sm font-semibold',
+                            'text-pf-accent hover:text-pf-accent-hover',
                           )}
                         >
-                          <CalendarClockIcon aria-hidden="true" className="size-4" />
                           Asistencias
                         </Link>
-                        <span aria-hidden="true" className="h-4 w-px bg-[#E4DBEE]" />
+                        <span aria-hidden="true" className="h-4 w-px bg-pf-lila" />
                         <Link
                           to={`/familia/facturacion?alumno=${alumno.alumno_id}`}
                           className={cn(
-                            'inline-flex min-h-9 items-center gap-1.5 rounded-full px-2 text-[14px] font-semibold',
-                            ENLACE_VIOLETA,
+                            'inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-sm font-semibold',
+                            'text-pf-accent hover:text-pf-accent-hover',
                           )}
                         >
-                          <ReceiptTextIcon aria-hidden="true" className="size-4" />
                           Facturación
                         </Link>
-                        <span aria-hidden="true" className="h-4 w-px bg-[#E4DBEE]" />
+                        <span aria-hidden="true" className="h-4 w-px bg-pf-lila" />
                         <Link
                           to={`/familia/calendario?alumno=${alumno.alumno_id}`}
                           className={cn(
-                            'inline-flex min-h-9 items-center gap-1.5 rounded-full px-2 text-[14px] font-semibold',
-                            ENLACE_VIOLETA,
+                            'inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-sm font-semibold',
+                            'text-pf-accent hover:text-pf-accent-hover',
                           )}
                         >
-                          <CalendarDaysIcon aria-hidden="true" className="size-4" />
                           Horario
                         </Link>
                       </div>
-                      <ChevronRightIcon
-                        aria-hidden="true"
-                        className="hidden size-4 shrink-0 text-[#6B6478] sm:block"
-                      />
                     </div>
                   </li>
                 ))}
@@ -417,29 +454,29 @@ export function PortalFamiliaPage() {
               contentClassName="px-5 pt-4 pb-4"
             >
               <div className="flex flex-col">
-                <div className="border-t border-[#F1EBF7] pt-3">
-                  <p className="text-[13px] font-medium text-[#6B6478]">
+                <div className="border-t border-pf-divisor pt-3">
+                  <p className="text-sm font-medium text-texto-2">
                     {saldoAFavor ? 'Saldo a favor' : 'Saldo pendiente'}
                   </p>
                   {facturacion.cargando ? (
-                    <Skeleton className="mt-2 h-8 w-28 bg-[#EEF4EE]" />
+                    <Skeleton className="mt-1 h-8 w-28" />
                   ) : (
                     <p
                       className={cn(
-                        'mt-1 font-heading text-[30px] leading-none font-bold tabular-nums',
-                        TINTA,
+                        'mt-1 font-heading text-pf-cifra leading-none font-bold tabular-nums',
+                        'text-texto',
                       )}
                     >
                       {facturacion.cuenta ? formatearMoneda(Math.abs(saldoCuenta ?? 0)) : '-'}
                     </p>
                   )}
                   {facturacion.cargando ? (
-                    <Skeleton className="mt-3 h-5 w-32 bg-[#EEF4EE]" />
+                    <Skeleton className="mt-3 h-5 w-32" />
                   ) : facturacion.cuenta ? (
                     <p
                       className={cn(
-                        'mt-3 inline-flex items-center gap-1.5 text-[14px] font-medium',
-                        facturasVencidas > 0 ? 'text-[#B42318]' : 'text-[#3E7B45]',
+                        'mt-3 inline-flex items-center gap-1.5 text-sm font-medium',
+                        facturasVencidas > 0 ? 'text-error' : 'text-exito',
                       )}
                     >
                       {facturasVencidas > 0 ? (
@@ -454,8 +491,8 @@ export function PortalFamiliaPage() {
                 <Link
                   to="/familia/facturacion"
                   className={cn(
-                    'mt-4 flex min-h-11 items-center justify-between border-t border-[#F1EBF7] pt-3 text-[15px] font-semibold',
-                    ENLACE_VIOLETA,
+                    'mt-4 flex min-h-11 items-center justify-between border-t border-pf-divisor pt-3 text-pf-cuerpo font-semibold',
+                    'text-pf-accent hover:text-pf-accent-hover',
                   )}
                 >
                   Ver facturación

@@ -61,7 +61,7 @@ export function DebitosHistorialTabla({
   const totalPaginas = Math.max(1, Math.ceil(total / tamanio))
 
   return (
-    <div className="min-w-0 w-full rounded-panel bg-superficie shadow-card">
+    <div className="min-w-0 w-full">
       <Table bare className="text-[13px]">
         <TableHeader>
           <TableRow>

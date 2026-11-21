@@ -38,6 +38,7 @@ export function NodoAccion({ data }: NodeProps<NodoAccionFlujo>) {
       superficie="bg-sup-inscripciones"
       acento="text-mod-inscripciones"
       contorno="outline-mod-inscripciones"
+      anillo="ring-mod-inscripciones/45"
       seleccionado={data.seleccionado}
       incompleto={data.incompleto}
       acciones={data.acciones}

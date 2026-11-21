@@ -8,6 +8,7 @@ solo la presentación del envío.
 import re
 from html import escape
 
+from src.comunicaciones.mensaje_rico import fragmento_email
 from src.config import settings
 
 ANCHO = 600
@@ -40,6 +41,7 @@ def armar_html(
     enlace: tuple[str, str] | None = None,
     *,
     resaltados: bool = False,
+    cuerpo_rico: dict | None = None,
 ) -> str:
     """`enlace` es `(url completa, texto del botón)`. Todo lo que viene de datos del evento o de
     la configuración se escapa. Con `resaltados`, `**texto**` va en negrita y un párrafo que es
@@ -64,6 +66,7 @@ def armar_html(
         f'<tr><td style="padding:32px 32px 8px 32px;color:{COLOR_TEXTO};">'
         f'<h1 style="margin:0 0 16px 0;font-size:20px;line-height:1.3;color:{COLOR_TEXTO};">'
         f"{escape(asunto)}</h1>"
+        f"{fragmento_email(cuerpo_rico) if cuerpo_rico is not None else ''}"
         f"{_parrafos(cuerpo, resaltados=resaltados)}"
         f"{_boton(enlace)}"
         f'<p style="margin:24px 0 0 0;font-size:15px;line-height:1.5;color:{COLOR_TEXTO};">'

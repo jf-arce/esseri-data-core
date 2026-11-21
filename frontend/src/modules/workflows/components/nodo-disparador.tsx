@@ -30,6 +30,7 @@ export function NodoDisparador({ data }: NodeProps<NodoDisparadorFlujo>) {
       superficie="bg-sup-workflows"
       acento="text-mod-workflows"
       contorno="outline-mod-workflows"
+      anillo="ring-mod-workflows/45"
       seleccionado={data.seleccionado}
       incompleto={data.incompleto}
       acciones={data.acciones}

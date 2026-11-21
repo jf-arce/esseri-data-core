@@ -592,7 +592,14 @@ describe('PortalFamiliaFacturacionPage', () => {
     expect(screen.getByText('Débito rechazado')).toBeInTheDocument()
     const atrasada = screen.getAllByText('Atrasada')[0].closest('details')!
     fireEvent.click(within(atrasada).getByText('Débito rechazado'))
-    expect(within(atrasada).queryByRole('link', { name: 'Comunicaciones' })).not.toBeInTheDocument()
+    // Sin intento de débito no hay conversación contextual: queda el enlace genérico.
+    expect(within(atrasada).getByRole('link', { name: 'Comunicaciones' })).toHaveAttribute(
+      'href',
+      '/familia/comunicaciones',
+    )
+    expect(
+      within(atrasada).queryByRole('link', { name: 'Consultar sobre este pago' }),
+    ).not.toBeInTheDocument()
     expect(within(atrasada).queryByText(/Revisá tu medio de pago/)).not.toBeInTheDocument()
     const sinPagos = screen.getAllByText('Hoy')[0].closest('details')!
     expect(sinPagos.querySelector('[data-slot="card-content"]')).toHaveClass('pb-5')

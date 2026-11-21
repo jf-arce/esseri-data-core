@@ -16,12 +16,12 @@ import { etiquetaEstadoFactura, formatearMoneda } from '@/modules/facturacion/ut
 
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-40', anchoAlt: 'h-4 w-28' },
-  { tipo: 'texto', ancho: 'h-4 w-24', clase: 'hidden 2xl:table-cell' },
-  { tipo: 'texto', ancho: 'h-4 w-14', clase: 'hidden 2xl:table-cell' },
-  { tipo: 'texto', ancho: 'h-4 w-20', clase: 'hidden xl:table-cell' },
-  { tipo: 'texto', ancho: 'h-4 w-20', clase: 'hidden xl:table-cell' },
-  { tipo: 'texto', ancho: 'h-4 w-20', clase: 'hidden 2xl:table-cell' },
-  { tipo: 'texto', ancho: 'h-4 w-20', clase: 'hidden lg:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-24', clase: 'hidden @6xl/main:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-14', clase: 'hidden @6xl/main:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-20', clase: 'hidden @6xl/main:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-20', clase: 'hidden @6xl/main:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-20', clase: 'hidden @6xl/main:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-20', clase: 'hidden @5xl/main:table-cell' },
   { tipo: 'chip', ancho: 'w-24', anchoAlt: 'w-20' },
   { tipo: 'texto', ancho: 'h-4 w-20' },
 ]
@@ -58,29 +58,29 @@ export function DeudaFamiliasTabla({
       <Table bare minWidth="min-w-0">
         <TableHeader>
           <TableRow>
-            <TableHead className="lg:w-56">
-              <span className="lg:hidden">Responsable</span>
-              <span className="max-lg:hidden">Responsable económico</span>
+            <TableHead className="@5xl/main:w-56">
+              <span className="@5xl/main:hidden">Responsable</span>
+              <span className="@max-5xl/main:hidden">Responsable económico</span>
             </TableHead>
-            <TableHead className="hidden w-28 2xl:table-cell">DNI</TableHead>
-            <TableHead className="hidden w-28 2xl:table-cell" data-align="end">
+            <TableHead className="hidden w-28 @6xl/main:table-cell">DNI</TableHead>
+            <TableHead className="hidden w-28 @6xl/main:table-cell" data-align="end">
               Facturas
             </TableHead>
-            <TableHead className="hidden w-32 xl:table-cell" data-align="end">
+            <TableHead className="hidden w-32 @6xl/main:table-cell" data-align="end">
               Pendiente
             </TableHead>
-            <TableHead className="hidden w-32 xl:table-cell" data-align="end">
+            <TableHead className="hidden w-32 @6xl/main:table-cell" data-align="end">
               Vencido
             </TableHead>
-            <TableHead className="hidden w-32 2xl:table-cell" data-align="end">
+            <TableHead className="hidden w-32 @6xl/main:table-cell" data-align="end">
               Pagado
             </TableHead>
-            <TableHead className="hidden w-32 lg:table-cell" data-align="end">
+            <TableHead className="hidden w-32 @5xl/main:table-cell" data-align="end">
               Deuda total
             </TableHead>
-            <TableHead className="lg:w-28">Estado</TableHead>
-            <TableHead className="px-2 sm:px-4 lg:w-28" data-align="end">
-              <span className="max-lg:sr-only">Prórrogas</span>
+            <TableHead className="@5xl/main:w-28">Estado</TableHead>
+            <TableHead className="px-2 @xl/main:px-4 @5xl/main:w-28" data-align="end">
+              <span className="@max-5xl/main:sr-only">Prórrogas</span>
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -90,7 +90,7 @@ export function DeudaFamiliasTabla({
           ) : (
             items.map((deuda) => (
               <TableRow key={deuda.familia_id}>
-                <TableCell className="max-w-[12rem] whitespace-normal md:max-w-[14rem] md:truncate md:whitespace-nowrap">
+                <TableCell className="max-w-[12rem] whitespace-normal @3xl/main:max-w-[14rem] @3xl/main:truncate @3xl/main:whitespace-nowrap">
                   <Link
                     to={`/familias-alumnos/familias/${deuda.familia_id}`}
                     className="font-medium hover:text-violeta hover:underline"
@@ -98,33 +98,33 @@ export function DeudaFamiliasTabla({
                     {deuda.familia_apellido}, {deuda.familia_nombre}
                   </Link>
                 </TableCell>
-                <TableCell className="hidden tabular-nums 2xl:table-cell">
+                <TableCell className="hidden tabular-nums @6xl/main:table-cell">
                   {deuda.familia_dni}
                 </TableCell>
                 <TableCell
                   data-align="end"
-                  className="hidden tabular-nums text-texto-2 2xl:table-cell"
+                  className="hidden tabular-nums text-texto-2 @6xl/main:table-cell"
                 >
                   {deuda.facturas_pendientes} impagas · {deuda.facturas_pagadas} pagadas
                 </TableCell>
-                <TableCell data-align="end" className="hidden tabular-nums xl:table-cell">
+                <TableCell data-align="end" className="hidden tabular-nums @6xl/main:table-cell">
                   {formatearMoneda(deuda.monto_pendiente)}
                 </TableCell>
                 <TableCell
                   data-align="end"
-                  className="hidden font-medium tabular-nums text-error xl:table-cell"
+                  className="hidden font-medium tabular-nums text-error @6xl/main:table-cell"
                 >
                   {formatearMoneda(deuda.monto_vencido)}
                 </TableCell>
                 <TableCell
                   data-align="end"
-                  className="hidden tabular-nums text-exito 2xl:table-cell"
+                  className="hidden tabular-nums text-exito @6xl/main:table-cell"
                 >
                   {formatearMoneda(deuda.monto_pagado)}
                 </TableCell>
                 <TableCell
                   data-align="end"
-                  className="hidden font-semibold tabular-nums lg:table-cell"
+                  className="hidden font-semibold tabular-nums @5xl/main:table-cell"
                 >
                   {formatearMoneda(deuda.deuda_total)}
                 </TableCell>
@@ -133,7 +133,7 @@ export function DeudaFamiliasTabla({
                     {etiquetaEstadoFactura(deuda.estado)}
                   </Badge>
                 </TableCell>
-                <TableCell data-align="end" className="px-2 sm:px-4">
+                <TableCell data-align="end" className="px-2 @xl/main:px-4">
                   <Button variant="ghost" size="sm" onClick={() => onVerProrrogas(deuda)}>
                     Ver
                   </Button>

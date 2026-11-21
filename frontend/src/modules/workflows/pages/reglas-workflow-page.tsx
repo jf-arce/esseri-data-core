@@ -32,9 +32,11 @@ import { LeyendaReglas } from '@/modules/workflows/components/leyenda-reglas'
 import { MapaAutomatizaciones } from '@/modules/workflows/components/mapa-automatizaciones'
 import { IndicadorEjecuciones } from '@/modules/workflows/components/indicador-ejecuciones'
 import { RenombrarReglaDialog } from '@/modules/workflows/components/renombrar-regla-dialog'
-import { RelojPanel } from '@/modules/workflows/components/reloj-panel'
+import { EstadoEnVivo } from '@/modules/workflows/components/estado-en-vivo'
 import { RechazoEjecucionDialog } from '@/modules/workflows/components/rechazo-ejecucion-dialog'
 import { ReglasWorkflowTabla } from '@/modules/workflows/components/reglas-workflow-tabla'
+import { MapaSkeleton } from '@/modules/workflows/components/mapa-skeleton'
+import { TarjetaReglaSkeleton } from '@/modules/workflows/components/tarjeta-regla-skeleton'
 import { TarjetaRegla } from '@/modules/workflows/components/tarjeta-regla'
 import {
   CLAVE_VISTA_REGLAS,
@@ -227,7 +229,7 @@ export function ReglasWorkflowPage() {
   )
   const accionEncabezado = (
     <div className="flex flex-wrap items-center gap-4">
-      <RelojPanel actualizadoEn={actividad.actualizadoEn} />
+      <EstadoEnVivo actualizadoEn={actividad.actualizadoEn} />
       {nuevaRegla}
     </div>
   )
@@ -239,7 +241,7 @@ export function ReglasWorkflowPage() {
       {resumen.error && (
         <Alert variant="error">
           <AlertTitle>No se pudo cargar el resumen</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {resumen.error}
             <Button variant="secondary" size="sm" onClick={resumen.recargar}>
               Reintentar
@@ -247,7 +249,7 @@ export function ReglasWorkflowPage() {
           </AlertDescription>
         </Alert>
       )}
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid gap-5 @5xl/main:grid-cols-2">
         <AtencionWorkflows
           pendientes={pendientes.datos.items.filter((item) => item.aprobable)}
           cargandoPendientes={pendientes.cargando}
@@ -269,7 +271,7 @@ export function ReglasWorkflowPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar las reglas</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargar}>
               Reintentar
@@ -348,7 +350,7 @@ export function ReglasWorkflowPage() {
                   <Icono />
                   {etiqueta}
                   <span className="ml-1 text-xs font-normal text-texto-3 tabular-nums">
-                    {visibles.length}
+                    {cargando ? <Skeleton className="h-3 w-4" /> : visibles.length}
                   </span>
                 </TabsTrigger>
               ))}
@@ -357,13 +359,17 @@ export function ReglasWorkflowPage() {
               {vista === 'tarjetas' && <LeyendaReglas />}
               {vista === 'tarjetas' &&
                 (cargando ? (
-                  <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3" aria-busy="true">
-                    {[0, 1, 2].map((indice) => (
-                      <Skeleton key={indice} className="h-56 rounded-card-sm" />
+                  <div
+                    className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,20rem),1fr))]"
+                    role="status"
+                  >
+                    <span className="sr-only">Cargando reglas</span>
+                    {Array.from({ length: TAMANIO_PAGINA_TARJETAS }, (_, indice) => (
+                      <TarjetaReglaSkeleton key={indice} indice={indice} />
                     ))}
                   </div>
                 ) : (
-                  <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+                  <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,20rem),1fr))]">
                     {deLaPagina.map((regla) => (
                       <TarjetaRegla
                         key={regla.id}
@@ -390,7 +396,8 @@ export function ReglasWorkflowPage() {
                   onDuplicar={duplicar}
                 />
               )}
-              {vista === 'mapa' && (
+              {vista === 'mapa' && cargando && <MapaSkeleton />}
+              {vista === 'mapa' && !cargando && (
                 <MapaAutomatizaciones
                   tiposEvento={tiposEvento}
                   reglas={visibles}

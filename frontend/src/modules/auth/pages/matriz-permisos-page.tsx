@@ -37,7 +37,7 @@ export function MatrizPermisosPage() {
       <PageHeader
         titulo="Matriz de permisos"
         accion={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {matriz.hayCambiosPendientes && (
               <Button
                 variant="secondary"
@@ -66,7 +66,7 @@ export function MatrizPermisosPage() {
       {matriz.error && (
         <Alert variant="error">
           <AlertTitle>No se pudo cargar la matriz</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {matriz.error}
             <Button variant="secondary" size="sm" onClick={matriz.recargar}>
               Reintentar

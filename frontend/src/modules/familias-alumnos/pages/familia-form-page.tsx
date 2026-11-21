@@ -124,7 +124,7 @@ export function FamiliaFormPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col gap-5 bg-lienzo py-8">
+    <div className="flex flex-col gap-5">
       <BackLink
         to={familiaId ? `/familias-alumnos/familias/${familiaId}` : '/familias-alumnos'}
         label={familiaId ? 'Volver a la familia' : 'Volver a Familias'}
