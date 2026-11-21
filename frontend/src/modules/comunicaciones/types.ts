@@ -26,6 +26,7 @@ export interface Envio {
   email: string | null
   estado: string
   intentos: IntentoEnvio[]
+  proposito?: 'publicacion' | 'retiro'
 }
 
 export type FiltroEntrega =
@@ -120,6 +121,8 @@ export interface Comunicacion {
   created_at: string
   publicada_at: string | null
   destinatarios: number
+  destino?: string | null
+  retirada_at?: string | null
   leida_at: string | null
   canal: Canal
   adjuntos?: Adjunto[]
@@ -130,6 +133,7 @@ export interface Listado {
   total: number
   pagina: number
   total_paginas: number
+  conteos?: { todas: number; publicadas: number; borradores: number }
 }
 export interface Opcion {
   id: string

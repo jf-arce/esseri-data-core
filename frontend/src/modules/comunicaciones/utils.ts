@@ -125,3 +125,4 @@ export function estadoEnvio(estado: string): EstadoEnvio {
     return { etiqueta: 'Resultado incierto', variante: 'advertencia', incierto: true }
   return { etiqueta: estado, variante: 'neutro', incierto: false }
 }
+export const DESTINO_INICIAL = { destinatarios: '', nivel_id: '', division_id: '' }

@@ -229,13 +229,24 @@ class EnvioNotificacion(Base):
 
     __tablename__ = "envio_notificacion"
     __table_args__ = (
-        sa.UniqueConstraint("comunicacion_id", "familia_id", "email", name="uq_envio_destino"),
+        sa.UniqueConstraint(
+            "comunicacion_id", "familia_id", "email", "proposito", name="uq_envio_destino"
+        ),
         sa.UniqueConstraint(
             "mensaje_conversacion_id", "familia_id", "email", name="uq_envio_mensaje_destino"
         ),
         sa.CheckConstraint(
             "(comunicacion_id IS NULL) <> (mensaje_conversacion_id IS NULL)",
             name="ck_envio_origen_exclusivo",
+        ),
+        sa.CheckConstraint("proposito IN ('publicacion', 'retiro')", name="ck_envio_proposito"),
+        sa.Index(
+            "uq_envio_retiro_email",
+            "comunicacion_id",
+            "email",
+            unique=True,
+            postgresql_where=sa.text("proposito = 'retiro'"),
+            sqlite_where=sa.text("proposito = 'retiro'"),
         ),
         sa.CheckConstraint(
             "estado IN ('pendiente','procesando','presentado','fallido','incierto','sin_email')",
@@ -249,6 +260,9 @@ class EnvioNotificacion(Base):
     )
     familia_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("familia.id"))
     email: Mapped[str] = mapped_column(sa.String(320))
+    proposito: Mapped[str] = mapped_column(
+        sa.String(15), nullable=False, default="publicacion", server_default="publicacion"
+    )
     asunto: Mapped[str] = mapped_column(sa.String(200))
     cuerpo: Mapped[str] = mapped_column(sa.Text)
     estado: Mapped[str] = mapped_column(sa.String(20), default="pendiente", index=True)

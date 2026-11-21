@@ -60,16 +60,11 @@ class Audiencia(AudienciaBorrador):
         return self
 
 
-class BorradorInput(BaseModel):
+class MensajeInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    clave: uuid.UUID
     asunto: str = Field(max_length=200)
     cuerpo: str = Field(max_length=20000)
     cuerpo_rico: dict | None = None
-    audiencia: AudienciaBorrador
-    canal: Literal["portal", "email", "ambos"] = "portal"
-    tipo: Literal["institucional", "curso", "administrativa", "otro"] | None = None
-    evento: EventoBorrador | None = None
 
     @model_validator(mode="after")
     def normalizar_mensaje(self):
@@ -79,6 +74,14 @@ class BorradorInput(BaseModel):
             if len(self.cuerpo) > 20000:
                 raise ValueError("El mensaje no puede superar 20000 caracteres")
         return self
+
+
+class BorradorInput(MensajeInput):
+    clave: uuid.UUID
+    audiencia: AudienciaBorrador
+    canal: Literal["portal", "email", "ambos"] = "portal"
+    tipo: Literal["institucional", "curso", "administrativa", "otro"] | None = None
+    evento: EventoBorrador | None = None
 
 
 class PublicableInput(BorradorInput):
@@ -103,6 +106,18 @@ class BorradorEdicionInput(BorradorInput):
 class PublicacionInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     version: int | None = Field(default=None, ge=1)
+
+
+class PublicadaEdicionInput(MensajeInput):
+    asunto: Texto = Field(max_length=200)
+    cuerpo: Texto = Field(max_length=20000)
+    version: int = Field(ge=1)
+
+    @model_validator(mode="after")
+    def validar_mensaje(self):
+        if not self.cuerpo.strip():
+            raise ValueError("Completá el mensaje")
+        return self
 
 
 class ComunicacionRead(BaseModel):
@@ -134,6 +149,45 @@ class Listado(BaseModel):
     total_paginas: int
 
 
+class FiltrosGestion(BaseModel):
+    pagina: int = Field(default=1, ge=1)
+    buscar: str = Field(default="", max_length=200)
+    estado: Literal["publicada", "borrador"] | None = None
+    tipo: Literal["institucional", "curso", "administrativa", "otro"] | None = None
+    destinatarios: Literal["todos", "nivel", "division", "alumnos", "responsables"] | None = None
+    nivel_id: uuid.UUID | None = None
+    division_id: uuid.UUID | None = None
+    fecha_desde: date | None = None
+    fecha_hasta: date | None = None
+    retirada: bool = False
+
+    @model_validator(mode="after")
+    def fechas_en_orden(self):
+        if self.fecha_desde and self.fecha_hasta and self.fecha_desde > self.fecha_hasta:
+            raise ValueError("La fecha desde no puede ser posterior a la fecha hasta")
+        if self.nivel_id and self.destinatarios not in ("nivel", "division"):
+            raise ValueError("Seleccioná Nivel o División para filtrar por nivel educativo")
+        if self.division_id and self.destinatarios != "division":
+            raise ValueError("Seleccioná División para filtrar por una división")
+        return self
+
+
+class ConteosGestion(BaseModel):
+    todas: int
+    publicadas: int
+    borradores: int
+
+
+class ComunicacionGestionRead(ComunicacionRead):
+    destino: str | None = None
+    retirada_at: datetime | None = None
+
+
+class ListadoGestion(Listado):
+    items: list[ComunicacionGestionRead]
+    conteos: ConteosGestion
+
+
 class DestinatarioRead(BaseModel):
     id: uuid.UUID
     nombre: str
@@ -160,6 +214,9 @@ class EnvioEntregaRead(BaseModel):
     id: uuid.UUID
     email: str | None = None
     estado: str
+    proposito: Literal["publicacion", "retiro"] = Field(
+        default="publicacion", exclude_if=lambda valor: valor == "publicacion"
+    )
     intentos: list[IntentoEntregaRead] = Field(default_factory=list)
 
 

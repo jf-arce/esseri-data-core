@@ -291,6 +291,17 @@ detalle propio de Safari en iOS solo se ve en un dispositivo.
 
 Vitest excluye `e2e/`: esos specs corren solo con Playwright.
 
+### Communications management filters
+
+Use **Cualquier destino** for an unfiltered audience or **Todo el colegio** for school-wide
+communications only. **Nivel** narrows to an academic level; **División** can narrow further
+after selecting a level. Select **Aplicar** to commit the audience choice. Date ranges, search
+and the current tab can be combined. Remove individual chips or use **Limpiar filtros** to
+keep the current tab and return to the first page with no filters.
+
+The calendar selectors and date chips always display dates as `DD/MM/AAAA`, independently of
+the browser language. Requests keep the date-only ISO format.
+
 ### Comunicaciones etapa 3 — prueba real de navegador
 
 `e2e/comunicaciones-etapa-3.spec.ts` prueba canales, adjuntos privados con ClamAV real y

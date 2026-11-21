@@ -43,6 +43,12 @@ LEASE_SEGUNDOS = 300
 ERROR_LEASE_SIN_INICIO = "lease_expirado_sin_inicio"
 ERROR_CLIENTE = "error_cliente_envio"
 TEXTO_ENLACE_PORTAL = "Ver comunicación en el portal"
+ASUNTO_RETIRO = "Comunicación retirada por la institución"
+CUERPO_RETIRO = (
+    "Esta comunicación fue retirada por la institución y ya no se encuentra disponible para su "
+    "consulta.\n\nPor favor, desestimá la información recibida anteriormente."
+)
+ERROR_PUBLICACION_RETIRADA = "publicacion_retirada"
 
 
 class EnvioNoEncontrado(AppException):
@@ -116,29 +122,41 @@ def preparar_envios(
             }
         )
         for email in emails or [""]:
-            envio = _crear_intento_si_falta(db, comunicacion, familia_id, email, cuerpo)
+            envio = _crear_intento_si_falta(
+                db, comunicacion.id, familia_id, email, comunicacion.asunto, cuerpo
+            )
             envios.append(envio)
     return envios
 
 
 def _crear_intento_si_falta(
-    db: Session, comunicacion: Comunicacion, familia_id: uuid.UUID, email: str, cuerpo: str
+    db: Session,
+    comunicacion_id: uuid.UUID,
+    familia_id: uuid.UUID,
+    email: str,
+    asunto: str,
+    cuerpo: str,
+    *,
+    proposito: str = "publicacion",
 ) -> EnvioNotificacion:
     consulta = select(EnvioNotificacion).where(
-        EnvioNotificacion.comunicacion_id == comunicacion.id,
-        EnvioNotificacion.familia_id == familia_id,
+        EnvioNotificacion.comunicacion_id == comunicacion_id,
         EnvioNotificacion.email == email,
+        EnvioNotificacion.proposito == proposito,
     )
+    if proposito == "publicacion":
+        consulta = consulta.where(EnvioNotificacion.familia_id == familia_id)
     existente = db.scalar(consulta)
     if existente is not None:
         return existente
 
     envio = EnvioNotificacion(
-        comunicacion_id=comunicacion.id,
+        comunicacion_id=comunicacion_id,
         familia_id=familia_id,
         email=email,
-        asunto=comunicacion.asunto,
+        asunto=asunto,
         cuerpo=cuerpo,
+        proposito=proposito,
         estado="sin_email" if not email else "pendiente",
         intentos=0,
         reintentos_ciclo=0,
@@ -150,6 +168,45 @@ def _crear_intento_si_falta(
     db.add(envio)
     db.flush()
     return envio
+
+
+def preparar_avisos_retiro(db: Session, comunicacion_id: uuid.UUID) -> None:
+    """Caller holds the communication lock; use the accepted email snapshots, never new contacts."""
+    presentados = db.scalars(
+        select(EnvioNotificacion)
+        .where(
+            EnvioNotificacion.comunicacion_id == comunicacion_id,
+            EnvioNotificacion.proposito == "publicacion",
+            EnvioNotificacion.estado == "presentado",
+            EnvioNotificacion.email != "",
+        )
+        .order_by(EnvioNotificacion.email, EnvioNotificacion.familia_id)
+    ).all()
+    for envio in presentados:
+        _preparar_aviso_retiro(db, envio)
+
+
+def _preparar_aviso_retiro(db: Session, original: EnvioNotificacion) -> None:
+    _crear_intento_si_falta(
+        db,
+        original.comunicacion_id,
+        original.familia_id,
+        _normalizar_email(original.email),
+        ASUNTO_RETIRO,
+        CUERPO_RETIRO,
+        proposito="retiro",
+    )
+
+
+def _bloquear_comunicacion_original(db: Session, envio_id: uuid.UUID) -> Comunicacion | None:
+    # Same lock order as withdrawal: communication before individual email intent.
+    return db.scalar(
+        select(Comunicacion)
+        .join(EnvioNotificacion, EnvioNotificacion.comunicacion_id == Comunicacion.id)
+        .where(EnvioNotificacion.id == envio_id, EnvioNotificacion.proposito == "publicacion")
+        .with_for_update(of=Comunicacion)
+        .execution_options(populate_existing=True)
+    )
 
 
 def historial(db: Session, comunicacion_id: uuid.UUID) -> list[dict]:
@@ -170,6 +227,7 @@ def historial(db: Session, comunicacion_id: uuid.UUID) -> list[dict]:
             "id": envio.id,
             "email": envio.email or None,
             "estado": envio.estado,
+            **({"proposito": "retiro"} if envio.proposito == "retiro" else {}),
             "intentos": [
                 {
                     "id": intento.id,
@@ -209,6 +267,7 @@ def reintentar(db: Session, comunicacion_id: uuid.UUID, envio_id: uuid.UUID) -> 
     numeración de intentos; abre un ciclo nuevo de hasta 3 reintentos automáticos.
     """
 
+    comunicacion = _bloquear_comunicacion_original(db, envio_id)
     envio = db.scalar(
         select(EnvioNotificacion)
         .where(
@@ -219,6 +278,8 @@ def reintentar(db: Session, comunicacion_id: uuid.UUID, envio_id: uuid.UUID) -> 
     )
     if envio is None:
         raise EnvioNoEncontrado()
+    if comunicacion is not None and comunicacion.retirada_at is not None:
+        raise EnvioNoReintentable("La publicación original fue retirada.")
     if envio.estado != "fallido":
         raise EnvioNoReintentable()
 
@@ -275,6 +336,24 @@ def _vinculo_vigente(db: Session, envio: EnvioNotificacion) -> bool:
 
     if envio.mensaje_conversacion_id is not None:
         return envio_autorizado(db, envio)
+    if envio.proposito == "retiro":
+        # This generic correction contains no original content and goes only to an
+        # address already accepted by the provider for that publication.
+        return bool(
+            db.scalar(
+                select(
+                    select(EnvioNotificacion.id)
+                    .where(
+                        EnvioNotificacion.comunicacion_id == envio.comunicacion_id,
+                        EnvioNotificacion.proposito == "publicacion",
+                        EnvioNotificacion.estado == "presentado",
+                        EnvioNotificacion.email == envio.email,
+                    )
+                    .exists()
+                )
+            )
+        )
+
     alumnos_congelados = db.scalar(
         select(ReciboComunicacion.alumnos).where(
             ReciboComunicacion.comunicacion_id == envio.comunicacion_id,
@@ -406,6 +485,19 @@ def _procesar_uno(db: Session, envio_id: uuid.UUID, intento_id: uuid.UUID) -> st
     envio = db.get(EnvioNotificacion, envio_id)
     if envio is None or envio.intento_actual_id != intento_id:
         return "omitido"
+    original = envio.comunicacion_id is not None and envio.proposito == "publicacion"
+    comunicacion = (
+        db.get(Comunicacion, envio.comunicacion_id, populate_existing=True) if original else None
+    )
+    if original and comunicacion is not None and comunicacion.retirada_at is not None:
+        return _finalizar(
+            db,
+            envio_id,
+            intento_id,
+            n8n_client.ResultadoEnvioManual(
+                estado="fallido", error_codigo=ERROR_PUBLICACION_RETIRADA
+            ),
+        )
     try:
         if envio.mensaje_conversacion_id is not None:
             hilo = hilo_de_envio(db, envio)
@@ -422,19 +514,23 @@ def _procesar_uno(db: Session, envio_id: uuid.UUID, intento_id: uuid.UUID) -> st
             enlace = (url, "Ver conversación en el portal")
         else:
             cantidad_adjuntos = (
-                db.scalar(
-                    select(func.count())
-                    .select_from(ComunicacionAdjunto)
-                    .where(ComunicacionAdjunto.comunicacion_id == envio.comunicacion_id)
+                (
+                    db.scalar(
+                        select(func.count())
+                        .select_from(ComunicacionAdjunto)
+                        .where(ComunicacionAdjunto.comunicacion_id == envio.comunicacion_id)
+                    )
+                    or 0
                 )
-                or 0
+                if original
+                else 0
             )
             enlace = _enlace_portal(envio, cantidad_adjuntos=cantidad_adjuntos)
-        comunicacion = db.get(Comunicacion, envio.comunicacion_id)
         texto_html = envio.cuerpo
         cuerpo_rico = None
         if (
-            comunicacion is not None
+            original
+            and comunicacion is not None
             and comunicacion.cuerpo_rico is not None
             and envio.cuerpo.startswith(comunicacion.cuerpo)
         ):
@@ -476,6 +572,7 @@ def _finalizar(
     intento_id: uuid.UUID,
     resultado: n8n_client.ResultadoEnvioManual,
 ) -> str:
+    comunicacion = _bloquear_comunicacion_original(db, envio_id)
     envio = db.scalar(
         select(EnvioNotificacion)
         .where(EnvioNotificacion.id == envio_id)
@@ -509,6 +606,8 @@ def _finalizar(
         intento.finished_at = ahora
         envio.estado = "presentado"
         envio.lease_at = None
+        if comunicacion is not None and comunicacion.retirada_at is not None:
+            _preparar_aviso_retiro(db, envio)
     elif resultado.estado == "incierto":
         intento.estado_envio = "incierto"
         intento.proveedor_iniciado = True
@@ -620,6 +719,7 @@ def _reemplazar(resumen: ResumenEnviosManuales, **cambios: int) -> ResumenEnvios
 def reclamar_intento(db: Session, envio_id: uuid.UUID, intento_id: uuid.UUID) -> dict:
     """Claim durable de n8n antes de Gmail. Solo el intento activo y sin claim previo avanza."""
 
+    comunicacion = _bloquear_comunicacion_original(db, envio_id)
     envio = db.scalar(
         select(EnvioNotificacion).where(EnvioNotificacion.id == envio_id).with_for_update()
     )
@@ -641,6 +741,8 @@ def reclamar_intento(db: Session, envio_id: uuid.UUID, intento_id: uuid.UUID) ->
         envio.intento_actual_id = None
         db.commit()
         return _respuesta_claim(envio, "vinculo_revocado", intento)
+    if comunicacion is not None and comunicacion.retirada_at is not None:
+        return _respuesta_claim(envio, ERROR_PUBLICACION_RETIRADA, intento)
 
     intento.proveedor_iniciado = True
     if intento.started_at is None:
@@ -678,6 +780,7 @@ def registrar_resultado(
     convierte en entrega. Un intento `incierto` puede reconciliarse a presentado o fallido.
     """
 
+    comunicacion = _bloquear_comunicacion_original(db, envio_id)
     envio = db.scalar(
         select(EnvioNotificacion).where(EnvioNotificacion.id == envio_id).with_for_update()
     )
@@ -707,6 +810,8 @@ def registrar_resultado(
         intento.referencia_proveedor = referencia_proveedor
         envio.estado = "presentado"
         envio.lease_at = None
+        if comunicacion is not None and comunicacion.retirada_at is not None:
+            _preparar_aviso_retiro(db, envio)
     elif estado == "incierto":
         intento.error_codigo = error_codigo or "proveedor_incierto"
         envio.estado = "incierto"
