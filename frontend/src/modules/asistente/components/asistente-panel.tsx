@@ -132,13 +132,21 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
   }, [])
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-superficie">
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b border-borde px-4">
-        <SparklesIcon className="size-4.5 text-violeta" />
-        <h2 className="flex-1 truncate text-sm font-semibold text-texto">Asistente</h2>
+    <div className="relative flex h-full min-h-0 flex-col bg-superficie after:absolute after:inset-y-0 after:left-0 after:w-px after:bg-borde max-md:after:hidden">
+      <header className="relative z-10 flex h-16 shrink-0 items-center gap-2 border-b border-(--topbar-borde) bg-(--topbar) px-4 before:absolute before:inset-y-0 before:left-0 before:w-px before:bg-(--sidebar-header-lado)">
+        <SparklesIcon className="size-4.5 text-(--topbar-texto-hover)" />
+        <h2 className="flex-1 truncate text-sm font-semibold text-(--topbar-texto-hover)">
+          Asistente
+        </h2>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button type="button" variant="ghost" size="icon-sm" onClick={nueva}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="text-(--topbar-texto) hover:bg-(--topbar-hover) hover:text-(--topbar-texto-hover)"
+              onClick={nueva}
+            >
               <PlusIcon />
               <span className="sr-only">Nueva conversación</span>
             </Button>
@@ -152,7 +160,13 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
         />
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button type="button" variant="ghost" size="icon-sm" onClick={() => cerrar(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="text-(--topbar-texto) hover:bg-(--topbar-hover) hover:text-(--topbar-texto-hover)"
+              onClick={() => cerrar(false)}
+            >
               <XIcon />
               <span className="sr-only">Cerrar el asistente</span>
             </Button>

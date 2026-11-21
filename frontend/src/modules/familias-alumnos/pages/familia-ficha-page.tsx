@@ -173,14 +173,14 @@ export function FamiliaFichaPage() {
         Familias y alumnos
       </p>
 
-      <div className="flex items-end justify-between gap-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-[-.01em] text-texto">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-[-.01em] break-words text-texto">
             {/* TODO: Mostrar nombre de persona cuando el join esté disponible */}
             {tituloFamilia}
           </h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="secondary"
             onClick={() => navigate(`/familias-alumnos/familias/${familia.id}/editar`)}
@@ -206,10 +206,10 @@ export function FamiliaFichaPage() {
         </TabsList>
 
         <TabsContent value="datos">
-          <div className="grid grid-cols-[1fr_380px] gap-6">
+          <div className="grid grid-cols-1 gap-6 @5xl/main:grid-cols-[minmax(0,1fr)_380px]">
             <div className="flex flex-col gap-5">
               <Card className="p-0">
-                <div className="flex items-center justify-between border-b border-borde px-6 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-borde px-6 py-4">
                   <h3 className="text-base font-semibold">Datos de contacto</h3>
                   {familia.estado_deuda === 'con_deuda' && (
                     <Badge variant="advertencia">Con deuda</Badge>
@@ -219,15 +219,17 @@ export function FamiliaFichaPage() {
                     <Badge variant="exito">Al día</Badge>
                   )}
                 </div>
-                <div className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-3 px-6 py-5 text-sm">
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-x-4 gap-y-3 px-6 py-5 text-sm">
                   <span className="text-texto-2">Nombre</span>
-                  <span className="font-medium text-texto">
+                  <span className="font-medium break-words text-texto">
                     {familia.persona_nombre} {familia.persona_apellido}
                   </span>
                   <span className="text-texto-2">DNI</span>
-                  <span className="font-medium text-texto">{familia.persona_dni}</span>
+                  <span className="font-medium break-words text-texto">{familia.persona_dni}</span>
                   <span className="text-texto-2">Teléfono</span>
-                  <span className="font-medium text-texto">{familia.persona_telefono ?? '—'}</span>
+                  <span className="font-medium break-words text-texto">
+                    {familia.persona_telefono ?? '—'}
+                  </span>
                   <span className="text-texto-2">Usuario del sistema</span>
                   <span>
                     <Badge variant="exito">Activo</Badge>
@@ -236,7 +238,7 @@ export function FamiliaFichaPage() {
               </Card>
 
               <Card className="p-0">
-                <div className="flex items-center justify-between border-b border-borde px-6 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-borde px-6 py-4">
                   <h3 className="text-base font-semibold">Alumnos vinculados</h3>
                   <Button
                     variant="secondary"
@@ -258,7 +260,7 @@ export function FamiliaFichaPage() {
                     </EmptyDescription>
                   </Empty>
                 ) : (
-                  <Table>
+                  <Table bare>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Alumno</TableHead>
@@ -324,8 +326,8 @@ export function FamiliaFichaPage() {
                 <div className="border-b border-borde px-6 py-4">
                   <h3 className="text-base font-semibold">Estado de cuenta</h3>
                 </div>
-                <div className="flex gap-5 px-6 py-5">
-                  <div className="flex-1">
+                <div className="flex flex-wrap gap-5 px-6 py-5">
+                  <div className="min-w-0 flex-1 basis-32">
                     <p className="mb-1 text-xs text-texto-2">Deuda total</p>
                     <p className="text-xl font-semibold tabular-nums">
                       {cargandoFacturacion
@@ -335,7 +337,7 @@ export function FamiliaFichaPage() {
                           : '—'}
                     </p>
                   </div>
-                  <div className="flex-1">
+                  <div className="min-w-0 flex-1 basis-32">
                     <p className="mb-1 text-xs text-texto-2">Facturas pendientes</p>
                     <p className="text-xl font-semibold tabular-nums">
                       {cargandoFacturacion ? '…' : (resumenFacturacion?.facturas_pendientes ?? '—')}
@@ -355,7 +357,7 @@ export function FamiliaFichaPage() {
             {cargandoFacturacion ? (
               <p className="px-6 py-5 text-sm text-texto-2">Cargando estado de cuenta…</p>
             ) : resumenFacturacion ? (
-              <div className="grid gap-4 px-6 py-5 sm:grid-cols-4">
+              <div className="grid gap-4 px-6 py-5 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
                 <div>
                   <p className="text-xs text-texto-2">Pendiente</p>
                   <p className="mt-1 font-semibold tabular-nums">
@@ -409,7 +411,7 @@ export function FamiliaFichaPage() {
                 </EmptyDescription>
               </Empty>
             ) : (
-              <Table>
+              <Table bare>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Alumno</TableHead>

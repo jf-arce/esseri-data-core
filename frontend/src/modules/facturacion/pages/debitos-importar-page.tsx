@@ -275,7 +275,7 @@ export function DebitosImportarPage({
       {actual && (
         <>
           <DebitosImportacionResumen resumen={actual.resumen} cargando={mostrarCarga} />
-          <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="grid min-w-0 items-start gap-4 @7xl/main:grid-cols-[minmax(0,1fr)_320px]">
             <DebitosImportacionTabla
               items={actual.items}
               resumen={actual.resumen}

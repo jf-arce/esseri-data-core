@@ -128,18 +128,18 @@ export function AuditoriaFiltros({
         />
         {/* El rango de fechas va como un bloque propio: así envuelve entero y nunca queda
             "Desde" en un renglón y "Hasta" en el siguiente. */}
-        <div className="flex shrink-0 items-center gap-2">
-          <span aria-hidden="true" className="mx-1 hidden h-6 w-px bg-borde sm:block" />
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span aria-hidden="true" className="mx-1 hidden h-6 w-px bg-borde @xl/main:block" />
           <DatePicker
             id="auditoria-desde"
-            className="h-10 w-40"
+            className="h-10 w-[calc(50%-0.25rem)] @xl/main:w-40"
             value={desde ? parsearFechaISO(desde) : undefined}
             onChange={(fecha) => onCambios({ desde: fecha ? fechaAISO(fecha) : '' })}
             placeholder="Desde"
           />
           <DatePicker
             id="auditoria-hasta"
-            className="h-10 w-40"
+            className="h-10 w-[calc(50%-0.25rem)] @xl/main:w-40"
             value={hasta ? parsearFechaISO(hasta) : undefined}
             onChange={(fecha) => onCambios({ hasta: fecha ? fechaAISO(fecha) : '' })}
             placeholder="Hasta"

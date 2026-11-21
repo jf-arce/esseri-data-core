@@ -82,7 +82,7 @@ export function RolesPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar los roles</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargar}>
               Reintentar
@@ -126,7 +126,7 @@ export function RolesPage() {
           )}
         </Empty>
       ) : (
-        <Table>
+        <Table minWidth="min-w-[480px]">
           <TableHeader>
             <TableRow>
               <TableHead>Nombre</TableHead>
@@ -143,7 +143,11 @@ export function RolesPage() {
               filtrados.map((rol) => (
                 <TableRow key={rol.id}>
                   <TableCell className="font-medium">{rol.nombre}</TableCell>
-                  <TableCell className="text-texto-2">{rol.descripcion ?? '—'}</TableCell>
+                  <TableCell className="text-texto-2">
+                    <span className="block max-w-md truncate" title={rol.descripcion ?? undefined}>
+                      {rol.descripcion ?? '—'}
+                    </span>
+                  </TableCell>
                   <TableCell data-align="end">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

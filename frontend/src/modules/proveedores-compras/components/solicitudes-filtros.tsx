@@ -106,8 +106,8 @@ function SolicitudesFiltros({
         />
       </FilterBar>
 
-      <div className="flex flex-wrap items-end gap-3">
-        <Field className="w-44">
+      <div className="grid grid-cols-2 items-end gap-3 @3xl/main:flex @3xl/main:flex-wrap">
+        <Field className="w-full @3xl/main:w-44">
           <FieldLabel htmlFor="solicitudes-desde">Fecha desde</FieldLabel>
           <DatePicker
             id="solicitudes-desde"
@@ -116,7 +116,7 @@ function SolicitudesFiltros({
             placeholder="dd/mm/aaaa"
           />
         </Field>
-        <Field className="w-44">
+        <Field className="w-full @3xl/main:w-44">
           <FieldLabel htmlFor="solicitudes-hasta">Fecha hasta</FieldLabel>
           <DatePicker
             id="solicitudes-hasta"
@@ -125,7 +125,7 @@ function SolicitudesFiltros({
             placeholder="dd/mm/aaaa"
           />
         </Field>
-        <Field className="w-32">
+        <Field className="w-full @3xl/main:w-32">
           <FieldLabel htmlFor="solicitudes-cantidad-min">Cantidad mín.</FieldLabel>
           <Input
             id="solicitudes-cantidad-min"
@@ -137,7 +137,7 @@ function SolicitudesFiltros({
             placeholder="1"
           />
         </Field>
-        <Field className="w-32">
+        <Field className="w-full @3xl/main:w-32">
           <FieldLabel htmlFor="solicitudes-cantidad-max">Cantidad máx.</FieldLabel>
           <Input
             id="solicitudes-cantidad-max"

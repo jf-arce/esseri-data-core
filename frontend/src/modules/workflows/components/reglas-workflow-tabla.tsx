@@ -17,7 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { BotonEstadoRegla } from '@/modules/workflows/components/boton-estado-regla'
-import { rutaRegla } from '@/modules/workflows/constants'
+import { rutaRegla, TAMANIO_PAGINA_TABLA } from '@/modules/workflows/constants'
 import type { ReglaWorkflow, TipoEvento } from '@/modules/workflows/types'
 import { ETIQUETA_ACCION, etiquetaEvento } from '@/modules/workflows/utils'
 
@@ -30,12 +30,15 @@ function resumenAcciones(regla: ReglaWorkflow): string {
   return acciones.length > 1 ? `${nombre} y ${acciones.length - 1} más` : nombre
 }
 
+// Filas más altas que el estándar de 40px: el botón de estado y el menú miden 36px.
+const CLASE_FILA = '[&>td]:h-14'
+
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-44', anchoAlt: 'h-4 w-32' },
-  { tipo: 'texto', clase: 'hidden xl:table-cell' },
-  { tipo: 'texto', ancho: 'h-4 w-36', anchoAlt: 'h-4 w-28', clase: 'hidden lg:table-cell' },
-  { tipo: 'texto', ancho: 'h-4 w-10', clase: 'hidden 2xl:table-cell' },
-  { tipo: 'chip' },
+  { tipo: 'texto', clase: 'hidden @7xl/main:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-36', anchoAlt: 'h-4 w-28', clase: 'hidden @5xl/main:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-10', clase: 'hidden @6xl/main:table-cell' },
+  { tipo: 'texto', ancho: 'size-9 rounded-full' },
   { tipo: 'accion' },
 ]
 
@@ -68,9 +71,9 @@ export function ReglasWorkflowTabla({
         <TableHeader>
           <TableRow>
             <TableHead>Regla</TableHead>
-            <TableHead className="hidden xl:table-cell">Evento</TableHead>
-            <TableHead className="hidden lg:table-cell">Acciones</TableHead>
-            <TableHead className="hidden 2xl:table-cell">Aprob. humana</TableHead>
+            <TableHead className="hidden @7xl/main:table-cell">Evento</TableHead>
+            <TableHead className="hidden @5xl/main:table-cell">Acciones</TableHead>
+            <TableHead className="hidden @6xl/main:table-cell">Aprob. humana</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead data-align="end">
               <span className="sr-only">Acciones</span>
@@ -79,22 +82,29 @@ export function ReglasWorkflowTabla({
         </TableHeader>
         <TableBody>
           {cargando ? (
-            <TableSkeleton columnas={COLUMNAS_ESQUELETO} />
+            <TableSkeleton
+              columnas={COLUMNAS_ESQUELETO}
+              filas={TAMANIO_PAGINA_TABLA}
+              claseFila={CLASE_FILA}
+            />
           ) : (
             reglas.map((regla) => (
-              // Filas más altas que el estándar de 40px: el botón de estado y el menú miden 36px.
-              <TableRow key={regla.id} className="[&>td]:h-14">
-                <TableCell
-                  className="whitespace-normal font-medium md:max-w-[12rem] md:truncate md:whitespace-nowrap xl:max-w-xs"
-                  title={regla.nombre}
-                >
-                  {regla.nombre}
+              <TableRow key={regla.id} className={CLASE_FILA}>
+                <TableCell className="font-medium whitespace-normal @3xl/main:whitespace-nowrap">
+                  <span
+                    className="block @3xl/main:max-w-[12rem] @3xl/main:truncate @7xl/main:max-w-xs"
+                    title={regla.nombre}
+                  >
+                    {regla.nombre}
+                  </span>
                 </TableCell>
-                <TableCell className="hidden text-texto-2 xl:table-cell">
+                <TableCell className="hidden text-texto-2 @7xl/main:table-cell">
                   {nombreEvento.get(regla.tipo_evento_id) ?? 'Evento desconocido'}
                 </TableCell>
-                <TableCell className="hidden lg:table-cell">{resumenAcciones(regla)}</TableCell>
-                <TableCell className="hidden 2xl:table-cell">
+                <TableCell className="hidden @5xl/main:table-cell">
+                  {resumenAcciones(regla)}
+                </TableCell>
+                <TableCell className="hidden @6xl/main:table-cell">
                   {regla.nodos.some((nodo) => nodo.requiere_aprobacion_humana) ? 'Sí' : 'No'}
                 </TableCell>
                 <TableCell>
@@ -104,7 +114,7 @@ export function ReglasWorkflowTabla({
                     onCambiarActivo={onCambiarActivo}
                   />
                 </TableCell>
-                <TableCell data-align="end" className="px-2 sm:px-4">
+                <TableCell data-align="end" className="px-2 @xl/main:px-4">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button

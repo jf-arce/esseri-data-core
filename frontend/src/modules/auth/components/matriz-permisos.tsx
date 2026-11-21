@@ -14,10 +14,13 @@ export function MatrizPermisos({ matriz }: MatrizPermisosProps) {
 
   return (
     <div className="overflow-x-auto rounded-panel bg-superficie shadow-card">
-      <table className="w-full min-w-[1540px] table-fixed border-collapse text-xs">
+      <table
+        className="w-full table-fixed border-collapse text-xs"
+        style={{ minWidth: 180 + roles.length * 136 }}
+      >
         <thead>
           <tr>
-            <th className="sticky left-0 z-[1] w-45 border-b border-borde bg-superficie px-6 py-3 text-left text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
+            <th className="sticky left-0 z-[1] w-45 border-b border-borde bg-superficie px-3 py-3 text-left text-xs @3xl/main:px-6 font-bold tracking-[.06em] text-texto-3 uppercase">
               Módulo · acción
             </th>
             {roles.map((rol) => (
@@ -37,7 +40,7 @@ export function MatrizPermisos({ matriz }: MatrizPermisosProps) {
         <tbody>
           {permisos.map((permiso) => (
             <tr key={permiso.id} className="group hover:bg-fila-hover">
-              <td className="sticky left-0 z-[1] border-b border-borde bg-superficie px-6 py-2.5 text-left font-semibold whitespace-nowrap text-texto group-hover:bg-fila-hover">
+              <td className="sticky left-0 z-[1] border-b border-borde bg-superficie px-3 py-2.5 text-left leading-tight font-semibold break-words text-texto @3xl/main:px-6 group-hover:bg-fila-hover">
                 {permiso.modulo} · {permiso.accion}
                 {permiso.tipo_informacion && (
                   <span className="ml-1 font-normal text-texto-3">

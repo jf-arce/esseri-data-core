@@ -63,7 +63,11 @@ function ProductosTabla({
         ) : (
           productos.map((producto) => (
             <TableRow key={producto.id}>
-              <TableCell className="font-medium">{producto.nombre}</TableCell>
+              <TableCell className="font-medium">
+                <span className="block max-w-[16rem] truncate" title={producto.nombre}>
+                  {producto.nombre}
+                </span>
+              </TableCell>
               <TableCell>
                 <Badge variant="secondary">
                   {producto.tipo === 'producto' ? 'Producto' : 'Servicio'}

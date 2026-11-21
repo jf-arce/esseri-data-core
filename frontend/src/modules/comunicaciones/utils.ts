@@ -1,4 +1,4 @@
-import type { Adjunto, Canal, EstadoAdjunto, TipoComunicacion } from './types'
+import type { Adjunto, Canal, EstadoAdjunto, EventoBorrador, TipoComunicacion } from './types'
 
 export const ETIQUETAS_TIPO: Record<TipoComunicacion, string> = {
   institucional: 'Institucional',
@@ -8,10 +8,11 @@ export const ETIQUETAS_TIPO: Record<TipoComunicacion, string> = {
 }
 
 export const DESCRIPCIONES_TIPO: Record<TipoComunicacion, string> = {
-  institucional: 'Novedades y avisos del colegio',
+  institucional: 'Novedades, actividades, eventos y avisos generales del colegio.',
   curso: 'Información para un curso o división',
-  administrativa: 'Información de gestión',
-  otro: 'Otro tipo de comunicación',
+  administrativa:
+    'Información operativa o de gestión (facturación, inscripciones, documentación, etc.).',
+  otro: 'Comunicaciones no contempladas en las categorías anteriores.',
 }
 
 export const MAX_ADJUNTOS = 5
@@ -34,9 +35,9 @@ export const ETIQUETAS_CANAL: Record<Canal, string> = {
 }
 
 export const DESCRIPCIONES_CANAL: Record<Canal, string> = {
-  portal: 'Se publica en la bandeja del portal familiar.',
-  email: 'No aparece en la bandeja del portal: se envía por email a los responsables.',
-  ambos: 'Se publica en el portal y también se envía por email.',
+  portal: 'Se publica en la bandeja del Portal Familia.',
+  email: 'No aparece en la bandeja del portal; se envía por correo a los responsables.',
+  ambos: 'Se publica en el portal y también se envía por correo.',
 }
 
 export const ETIQUETAS_ESTADO_ADJUNTO: Record<EstadoAdjunto, string> = {
@@ -60,8 +61,28 @@ export function formatearTamanio(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
-/** Un adjunto en cuarentena o con error todavía no habilitó la publicación. */
-export function adjuntosPendientes(adjuntos: Adjunto[]): Adjunto[] {
+const FECHA_EVENTO = new Intl.DateTimeFormat('es-AR', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  timeZone: 'UTC',
+})
+
+/** "viernes 27 de noviembre": día de la semana, día y mes sin la coma del formateador. */
+export function fechaEvento(fecha: string): string {
+  return FECHA_EVENTO.format(new Date(`${fecha}T00:00:00Z`)).replace(',', '')
+}
+
+/** "18:00 a 19:30", o el extremo que exista; sin horarios no hay texto. */
+export function horarioEvento(evento: Pick<EventoBorrador, 'hora_inicio' | 'hora_fin'>) {
+  if (evento.hora_inicio && evento.hora_fin) return `${evento.hora_inicio} a ${evento.hora_fin}`
+  if (evento.hora_inicio) return `Desde ${evento.hora_inicio}`
+  return evento.hora_fin ? `Hasta ${evento.hora_fin}` : null
+}
+
+/** Un adjunto en cuarentena o con error todavía no habilitó la publicación. */ export function adjuntosPendientes(
+  adjuntos: Adjunto[],
+): Adjunto[] {
   return adjuntos.filter((adjunto) => adjunto.estado !== 'limpio')
 }
 

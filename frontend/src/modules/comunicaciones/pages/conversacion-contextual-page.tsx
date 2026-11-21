@@ -779,7 +779,6 @@ function Detalle({
           volverA={destino}
           volverEtiqueta="Volver a Mis consultas"
           acciones={estadoHilo}
-          anchoMaximo="max-w-[1100px]"
           className="px-0 pt-8 pb-4 sm:px-0"
           classNameContenido="px-4 sm:px-8"
         />

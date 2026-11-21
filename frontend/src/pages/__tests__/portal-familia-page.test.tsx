@@ -159,14 +159,49 @@ describe('PortalFamiliaPage', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     useAuthStore.setState({ usuario: null, status: 'idle', rolActivo: null })
+  })
+
+  it.each([
+    ['2027-03-15T11:00:00Z', '¡Buen día, Laura!'],
+    ['2027-03-15T18:00:00Z', '¡Buenas tardes, Laura!'],
+    ['2027-03-16T01:00:00Z', '¡Buenas noches, Laura!'],
+  ])('saluda según la hora de Argentina (%s)', async (instante, saludo) => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(instante))
+    renderPage()
+
+    expect(await screen.findByRole('heading', { level: 1, name: saludo })).toBeInTheDocument()
+  })
+
+  it('resume lo pendiente en la descripción de la cabecera', async () => {
+    renderPage()
+
+    expect(await screen.findByRole('link', { name: '2 comunicaciones sin leer' })).toHaveAttribute(
+      'href',
+      '/familia/comunicaciones',
+    )
+  })
+
+  it('indica que todo está al día cuando no hay pendientes', async () => {
+    mockedListarAsistencias.mockResolvedValue([])
+    mockedListarComunicaciones.mockResolvedValue({
+      items: [],
+      total: 0,
+      pagina: 1,
+      total_paginas: 1,
+    } satisfies Listado)
+    renderPage()
+
+    expect(await screen.findByText('Todo al día por ahora.')).toBeInTheDocument()
   })
 
   it('muestra el saludo y los tres indicadores del resumen', async () => {
     renderPage()
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Hola, Laura 👋' }),
+      await screen.findByRole('heading', { level: 1, name: /^¡(Buen día|Buenas \w+), Laura!$/ }),
     ).toBeInTheDocument()
     expect(
       await within(screen.getByRole('group', { name: 'Alumnos vinculados' })).findByText('2'),
@@ -305,9 +340,7 @@ describe('PortalFamiliaPage', () => {
     mockedListarFacturacion.mockRejectedValue(new Error('network'))
     renderPage()
 
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'Hola, Laura 👋' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: /Laura/u })).toBeInTheDocument()
     await waitFor(() => {
       expect(mockedListarComunicaciones).toHaveBeenCalled()
       expect(mockedListarFacturacion).toHaveBeenCalled()
@@ -326,9 +359,7 @@ describe('PortalFamiliaPage', () => {
       </MemoryRouter>,
     )
 
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'Hola, Laura 👋' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: /Laura/u })).toBeInTheDocument()
     expect(screen.getAllByRole('banner')).toHaveLength(1)
     expect(screen.getAllByText('ESSERI')).toHaveLength(1)
 
@@ -338,7 +369,7 @@ describe('PortalFamiliaPage', () => {
 
     const inicio = screen.getByRole('link', { name: 'Inicio' })
     expect(inicio).toHaveAttribute('aria-current', 'page')
-    expect(inicio.className).toContain('bg-white/15')
+    expect(inicio.className).toContain('bg-pf-nav-activo')
   })
 
   it('muestra el contador real de notificaciones en la cabecera del portal', async () => {

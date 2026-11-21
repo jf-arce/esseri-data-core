@@ -41,7 +41,7 @@ export function PaginadorServidor({
   }
 
   return (
-    <Pagination>
+    <Pagination className="flex-wrap gap-y-2">
       <PaginationCount>
         {primeraFila}-{ultimaFila} de {total} {etiqueta}
       </PaginationCount>

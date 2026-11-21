@@ -8,14 +8,18 @@ export function useConversacionesContexto() {
     const controller = new AbortController()
     void listarConversaciones({ limite: 100 }, controller.signal)
       .then((datos) => {
-        if (!controller.signal.aborted) setItems(datos.items)
+        // El indicador es accesorio: una respuesta parcial no debe romper la pantalla.
+        if (!controller.signal.aborted && Array.isArray(datos?.items)) setItems(datos.items)
       })
       .catch(() => undefined)
     return () => controller.abort()
   }, [])
   return useMemo(() => {
     const mapa = new Map<string, ConsultaResumen>()
-    for (const item of items) mapa.set(`${item.contexto.tipo}:${item.contexto.id}`, item)
+    for (const item of items) {
+      if (!item?.contexto?.tipo || !item.contexto.id) continue
+      mapa.set(`${item.contexto.tipo}:${item.contexto.id}`, item)
+    }
     return mapa
   }, [items])
 }
@@ -27,7 +31,8 @@ export function useConversacionesPorFactura() {
     const controller = new AbortController()
     void listarConversaciones({ limite: 100 }, controller.signal)
       .then((datos) => {
-        if (!controller.signal.aborted) setItems(datos.items)
+        // El indicador es accesorio: una respuesta parcial no debe romper la pantalla.
+        if (!controller.signal.aborted && Array.isArray(datos?.items)) setItems(datos.items)
       })
       .catch(() => undefined)
     return () => controller.abort()
@@ -35,7 +40,7 @@ export function useConversacionesPorFactura() {
   return useMemo(() => {
     const mapa = new Map<string, ConsultaResumen>()
     for (const item of items) {
-      if (item.contexto.factura_id) mapa.set(item.contexto.factura_id, item)
+      if (item?.contexto?.factura_id) mapa.set(item.contexto.factura_id, item)
     }
     return mapa
   }, [items])

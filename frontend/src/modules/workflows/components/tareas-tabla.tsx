@@ -30,10 +30,10 @@ import {
 
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-48', anchoAlt: 'h-4 w-36' },
-  { tipo: 'texto', ancho: 'h-4 w-40', anchoAlt: 'h-4 w-32', clase: 'hidden xl:table-cell' },
-  { tipo: 'texto', ancho: 'h-4 w-16', clase: 'hidden 2xl:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-40', anchoAlt: 'h-4 w-32', clase: 'hidden @7xl/main:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-16', clase: 'hidden @6xl/main:table-cell' },
   { tipo: 'chip' },
-  { tipo: 'texto', ancho: 'h-4 w-20', clase: 'hidden lg:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-20', clase: 'hidden @5xl/main:table-cell' },
   { tipo: 'accion' },
 ]
 
@@ -90,10 +90,10 @@ export function TareasTabla({
         <TableHeader>
           <TableRow>
             <TableHead>Tarea</TableHead>
-            <TableHead className="hidden xl:table-cell">Asignada a</TableHead>
-            <TableHead className="hidden 2xl:table-cell">Prioridad</TableHead>
+            <TableHead className="hidden @7xl/main:table-cell">Asignada a</TableHead>
+            <TableHead className="hidden @6xl/main:table-cell">Prioridad</TableHead>
             <TableHead>Estado</TableHead>
-            <TableHead className="hidden lg:table-cell">Vence</TableHead>
+            <TableHead className="hidden @5xl/main:table-cell">Vence</TableHead>
             <TableHead data-align="end">
               <span className="sr-only">Acciones</span>
             </TableHead>
@@ -105,9 +105,9 @@ export function TareasTabla({
           ) : (
             items.map((tarea) => (
               <TableRow key={tarea.id}>
-                <TableCell className="whitespace-normal md:whitespace-nowrap">
+                <TableCell className="whitespace-normal @3xl/main:whitespace-nowrap">
                   <span
-                    className="block font-medium md:max-w-[12rem] md:truncate xl:max-w-xs"
+                    className="block font-medium @3xl/main:max-w-[12rem] @3xl/main:truncate @7xl/main:max-w-xs"
                     title={tarea.titulo}
                   >
                     {tarea.titulo}
@@ -116,10 +116,10 @@ export function TareasTabla({
                     <span className="block text-xs text-texto-3">{tarea.workflow_rule_nombre}</span>
                   )}
                 </TableCell>
-                <TableCell className="hidden text-texto-2 xl:table-cell">
+                <TableCell className="hidden text-texto-2 @7xl/main:table-cell">
                   {tarea.usuario_email}
                 </TableCell>
-                <TableCell className="hidden 2xl:table-cell">
+                <TableCell className="hidden @6xl/main:table-cell">
                   <Badge variant={VARIANTE_PRIORIDAD_TAREA[tarea.prioridad]}>
                     {ETIQUETA_PRIORIDAD_TAREA[tarea.prioridad]}
                   </Badge>
@@ -129,7 +129,7 @@ export function TareasTabla({
                     {ETIQUETA_ESTADO_TAREA[tarea.estado]}
                   </Badge>
                 </TableCell>
-                <TableCell className="hidden tabular-nums lg:table-cell">
+                <TableCell className="hidden tabular-nums @5xl/main:table-cell">
                   {tarea.fecha_vencimiento ? (
                     <span className={tarea.vencida ? 'font-medium text-error' : undefined}>
                       {formatearDiaDeInstante(tarea.fecha_vencimiento)}
@@ -139,7 +139,7 @@ export function TareasTabla({
                     <span className="text-texto-3">—</span>
                   )}
                 </TableCell>
-                <TableCell data-align="end" className="px-2 sm:px-4">
+                <TableCell data-align="end" className="px-2 @xl/main:px-4">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button

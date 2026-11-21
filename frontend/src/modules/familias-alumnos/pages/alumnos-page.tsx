@@ -123,12 +123,11 @@ export function AlumnosPage() {
         }
       />
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-3">
         <StatTile
           label="Alumnos registrados"
           value={stats.total}
           icon={GraduationCapIcon}
-          variant="dark"
           cargando={cargando}
         />
         <StatTile
@@ -150,7 +149,7 @@ export function AlumnosPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar los alumnos</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargar}>
               Reintentar
@@ -228,7 +227,7 @@ export function AlumnosPage() {
         </Empty>
       ) : (
         <Card className="overflow-hidden p-0">
-          <Table>
+          <Table bare>
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>

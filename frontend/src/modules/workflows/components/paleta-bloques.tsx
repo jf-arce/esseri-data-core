@@ -25,7 +25,7 @@ export function PaletaBloques({
   return (
     <Popover open={abierta} onOpenChange={setAbierta}>
       <PopoverTrigger asChild>
-        <Button disabled={soloLectura} className="shadow-card">
+        <Button disabled={soloLectura} className="shadow-(--sombra-flotante)">
           <PlusIcon data-icon="inline-start" />
           Agregar bloque
         </Button>

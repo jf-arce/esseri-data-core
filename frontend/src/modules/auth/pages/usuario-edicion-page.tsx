@@ -145,7 +145,7 @@ export function UsuarioEdicionPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex max-w-3xl flex-col gap-5">
       <BackLink to="/usuarios-roles/usuarios" label="Volver a Usuarios" />
       <PageHeader titulo="Editar usuario" />
 

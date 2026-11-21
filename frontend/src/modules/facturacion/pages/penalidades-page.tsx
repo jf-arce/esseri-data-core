@@ -79,7 +79,7 @@ export function PenalidadesPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-3 @xl/main:flex-row @xl/main:items-end @xl/main:justify-between">
         <div className="flex flex-col gap-1.5">
           <BackLink to="/facturacion" label="Volver a facturas" />
           <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
@@ -101,7 +101,7 @@ export function PenalidadesPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar los tramos</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargar}>
               Reintentar

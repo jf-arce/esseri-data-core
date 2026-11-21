@@ -143,7 +143,10 @@ export function GlobalSearchDialog({
 
   return (
     <CommandDialog open={open} onOpenChange={manejarCambioAbierto} title="Buscar o ir a…">
-      <Command shouldFilter>
+      <Command
+        shouldFilter
+        className="**:data-[slot=command-input-wrapper]:px-4.5 **:data-[slot=command-input-wrapper]:py-3.5 **:data-[slot=command-list]:p-1.5 **:data-[slot=command-item]:px-2.5 **:data-[slot=command-item]:py-2.5"
+      >
         <CommandInput
           value={termino}
           onValueChange={setTermino}
@@ -205,7 +208,7 @@ export function GlobalSearchDialog({
                     `CheckIcon` oculto con `ml-auto` propio (para su uso como selector) — dos
                     márgenes automáticos en la misma fila se repartían el espacio libre entre
                     los dos y el chevron quedaba corrido, no pegado al borde derecho. */}
-                <ChevronRightIcon className="absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-texto-3" />
+                <ChevronRightIcon className="absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-texto-3" />
               </CommandItem>
             ))}
           </CommandGroup>

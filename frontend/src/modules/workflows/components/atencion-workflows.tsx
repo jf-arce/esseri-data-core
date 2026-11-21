@@ -20,7 +20,7 @@ import type { ItemAtencion } from '@/modules/workflows/utils-mapa'
 
 // Cada fila entera es un enlace; el destino se anticipa con un chevron al pasar el mouse.
 const FILA =
-  'group/fila -mx-2 flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-fila-hover focus-visible:outline-2 focus-visible:outline-violeta'
+  'group/fila -mx-2 flex min-w-0 flex-[1_1_12rem] items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-fila-hover focus-visible:outline-2 focus-visible:outline-violeta'
 
 interface AtencionWorkflowsProps {
   pendientes: EjecucionWorkflow[]

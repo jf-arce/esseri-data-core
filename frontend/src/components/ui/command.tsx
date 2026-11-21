@@ -47,7 +47,7 @@ function CommandDialog({
       </DialogHeader>
       <DialogContent
         className={cn(
-          'top-20 translate-y-0 overflow-hidden rounded-card! p-0 sm:max-w-[560px]',
+          'top-20 translate-y-0 overflow-hidden rounded-card! p-0 sm:max-w-[680px]',
           className,
         )}
         showCloseButton={showCloseButton}
@@ -87,7 +87,7 @@ function CommandList({ className, ...props }: React.ComponentProps<typeof Comman
     <CommandPrimitive.List
       data-slot="command-list"
       className={cn(
-        'no-scrollbar max-h-80 scroll-py-1 overflow-x-hidden overflow-y-auto p-1.5 outline-none',
+        'no-scrollbar max-h-96 scroll-py-1 overflow-x-hidden overflow-y-auto p-1.5 outline-none',
         className,
       )}
       {...props}

@@ -21,8 +21,8 @@ const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-24', anchoAlt: 'h-4 w-20' },
   { tipo: 'texto', ancho: 'h-4 w-20', anchoAlt: 'h-4 w-24' },
   { tipo: 'chips' },
-  { tipo: 'texto', ancho: 'h-4 w-24', clase: 'hidden lg:table-cell' },
-  { tipo: 'texto', ancho: 'h-4 w-24', clase: 'hidden xl:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-24', clase: 'hidden @5xl/main:table-cell' },
+  { tipo: 'texto', ancho: 'h-4 w-24', clase: 'hidden @7xl/main:table-cell' },
   { tipo: 'accion' },
 ]
 
@@ -51,15 +51,15 @@ export function AuditoriaTabla({
     <div className="overflow-hidden rounded-panel bg-superficie shadow-card">
       {/* Un ancho mínimo real (no `min-w-0`) hace que en pantallas angostas la tabla scrollee en
           horizontal, en vez de aplastar las columnas y que un valor largo pise al actor. */}
-      <Table bare minWidth="min-w-[880px]">
+      <Table bare minWidth="min-w-[640px] @5xl/main:min-w-[880px]">
         <TableHeader>
           <TableRow>
             <TableHead>Fecha</TableHead>
             <TableHead>Entidad</TableHead>
             <TableHead>Campo</TableHead>
             <TableHead>Cambio</TableHead>
-            <TableHead className="hidden lg:table-cell">Actor</TableHead>
-            <TableHead className="hidden xl:table-cell">Origen</TableHead>
+            <TableHead className="hidden @5xl/main:table-cell">Actor</TableHead>
+            <TableHead className="hidden @7xl/main:table-cell">Origen</TableHead>
             <TableHead data-align="end">
               <span className="sr-only">Acciones</span>
             </TableHead>
@@ -84,17 +84,18 @@ export function AuditoriaTabla({
                 <TableCell className="whitespace-nowrap tabular-nums text-texto-2">
                   {formatearFechaHora(item.fecha)}
                 </TableCell>
-                <TableCell
-                  className="max-w-[10rem] truncate font-medium"
-                  title={etiquetaEntidad(item.entidad)}
-                >
-                  {etiquetaEntidad(item.entidad)}
+                <TableCell className="font-medium">
+                  <span
+                    className="block max-w-[10rem] truncate"
+                    title={etiquetaEntidad(item.entidad)}
+                  >
+                    {etiquetaEntidad(item.entidad)}
+                  </span>
                 </TableCell>
-                <TableCell
-                  className="max-w-[10rem] truncate text-texto-2"
-                  title={formatearCampo(item.campo)}
-                >
-                  {formatearCampo(item.campo)}
+                <TableCell className="text-texto-2">
+                  <span className="block max-w-[10rem] truncate" title={formatearCampo(item.campo)}>
+                    {formatearCampo(item.campo)}
+                  </span>
                 </TableCell>
                 <TableCell className="whitespace-normal">
                   <div className="max-w-[22rem]">
@@ -105,7 +106,7 @@ export function AuditoriaTabla({
                     />
                   </div>
                 </TableCell>
-                <TableCell className="hidden lg:table-cell">
+                <TableCell className="hidden @5xl/main:table-cell">
                   <div className="flex max-w-[13rem] flex-col items-start gap-1">
                     <Badge variant={item.actor_tipo === 'sistema' ? 'neutro' : 'info'}>
                       {item.actor_tipo === 'sistema' ? 'Sistema' : 'Usuario'}
@@ -120,13 +121,15 @@ export function AuditoriaTabla({
                     )}
                   </div>
                 </TableCell>
-                <TableCell
-                  className="hidden max-w-[8rem] truncate text-texto-2 xl:table-cell"
-                  title={item.origen ? formatearCampo(item.origen) : undefined}
-                >
-                  {item.origen ? formatearCampo(item.origen) : '—'}
+                <TableCell className="hidden text-texto-2 @7xl/main:table-cell">
+                  <span
+                    className="block max-w-[8rem] truncate"
+                    title={item.origen ? formatearCampo(item.origen) : undefined}
+                  >
+                    {item.origen ? formatearCampo(item.origen) : '—'}
+                  </span>
                 </TableCell>
-                <TableCell data-align="end" className="px-2 sm:px-4">
+                <TableCell data-align="end" className="px-2 @xl/main:px-4">
                   <Button
                     variant="ghost"
                     size="icon-sm"

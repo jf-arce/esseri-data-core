@@ -212,7 +212,7 @@ test.describe('Comunicaciones etapa 3 — prueba real de navegador', () => {
     await page
       .getByLabel('Mensaje', { exact: true })
       .fill('Publicación institucional con un archivo real. <script>no ejecutar</script>')
-    await page.getByRole('radio', { name: /^Solo portal/ }).click()
+    await expect(page.getByRole('combobox', { name: 'Canal de envío' })).toHaveText('Solo portal')
     const borrador = await guardarBorrador(page, false)
     const adjunto = await subirPng(page, nombreArchivo)
 
@@ -300,7 +300,7 @@ test.describe('Comunicaciones etapa 3 — prueba real de navegador', () => {
     await page.goto('/docente/comunicaciones/nueva')
     await page.getByLabel('Asunto', { exact: true }).fill(asunto)
     await page.getByLabel('Mensaje', { exact: true }).fill('Materiales para el curso asignado.')
-    await page.getByRole('radio', { name: /^Solo portal/ }).click()
+    await expect(page.getByRole('combobox', { name: 'Canal de envío' })).toHaveText('Solo portal')
 
     // A course draft is only valid with its audience, so choose the assigned course before the
     // first save; then go back to step 1 to attach the file (the dropzone needs a persisted id).
@@ -360,7 +360,8 @@ test.describe('Comunicaciones etapa 3 — prueba real de navegador', () => {
     await page
       .getByLabel('Mensaje', { exact: true })
       .fill('Solo por email: no debe aparecer en la bandeja del portal familiar.')
-    await page.getByRole('radio', { name: /^Solo email/ }).click()
+    await page.getByRole('combobox', { name: 'Canal de envío' }).click()
+    await page.getByRole('option', { name: /^Solo email/ }).click()
     await page.getByRole('button', { name: 'Siguiente' }).click()
     await elegirDivision(page, true)
     await page.getByRole('button', { name: 'Vista previa', exact: true }).click()

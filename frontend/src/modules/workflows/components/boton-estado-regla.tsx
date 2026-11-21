@@ -9,13 +9,13 @@ interface BotonEstadoReglaProps {
   onCambiarActivo: (regla: ReglaWorkflow) => void
 }
 
-/** Play (verde) si la regla está activa, stop (rojo) si está pausada. Un clic la cambia. */
+/** Muestra la acción del clic: stop (rojo) si la regla está activa, play (verde) si está pausada. */
 export function BotonEstadoRegla({
   regla,
   puedeActualizar,
   onCambiarActivo,
 }: BotonEstadoReglaProps) {
-  const etiqueta = `${regla.activo ? 'Pausar' : 'Activar'} ${regla.nombre}`
+  const etiqueta = `${regla.activo ? 'Detener' : 'Activar'} ${regla.nombre}`
   return (
     <TooltipProvider>
       <Tooltip>
@@ -30,16 +30,14 @@ export function BotonEstadoRegla({
               onClick={() => onCambiarActivo(regla)}
             >
               {regla.activo ? (
-                <PlayIcon className="size-4.5 fill-current text-exito" />
-              ) : (
                 <SquareIcon className="size-4.5 fill-current text-error" />
+              ) : (
+                <PlayIcon className="size-4.5 fill-current text-exito" />
               )}
             </Button>
           </span>
         </TooltipTrigger>
-        <TooltipContent>
-          {regla.activo ? 'Activa · clic para pausar' : 'Pausada · clic para activar'}
-        </TooltipContent>
+        <TooltipContent>{regla.activo ? 'Detener' : 'Activar'}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   )

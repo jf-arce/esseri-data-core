@@ -56,7 +56,12 @@ export function HistorialConversaciones({
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <Button type="button" variant="ghost" size="icon-sm">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="text-(--topbar-texto) hover:bg-(--topbar-hover) hover:text-(--topbar-texto-hover)"
+            >
               <HistoryIcon />
               <span className="sr-only">Historial de conversaciones</span>
             </Button>

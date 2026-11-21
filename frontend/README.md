@@ -87,6 +87,13 @@ Focused component tests:
 npm run test -- src/modules/comunicaciones/pages/__tests__/comunicaciones.test.tsx
 ```
 
+Browser tests for autosave, rich-text paste and responsive selectors use a local mocked
+API and do not require a database:
+
+```bash
+npm run test:e2e -- --config playwright-autosave.config.ts
+```
+
 Real end-to-end test (no frontend responses mocked): start the backend and frontend against an
 isolated migrated PostgreSQL database. Supply an Administration account with the stage-one
 permissions and a Family account linked to an active student with communications enabled.
@@ -114,6 +121,9 @@ explicit opt-in it skips. Do not point it at shared or production environments.
 ```bash
 npm install
 ```
+
+Communications uses TipTap for the message editor. The body still has a plain-text fallback
+for older drafts and clients. The editor requires no additional environment variables.
 
 ## Variables de entorno
 
@@ -221,8 +231,10 @@ la pantalla no amplía sus permisos. Los errores no se muestran como indicadores
 
 ### Notificaciones internas del Portal Familia
 
-La campanita vive en `frontend/src/modules/notificaciones/` y se monta solo en el shell del
-Portal Familia (`layout/portal-layout.tsx`). Consume el contrato de notificaciones:
+La campanita vive en `frontend/src/modules/notificaciones/`. Se monta en el shell del Portal
+Familia (`layout/portal-layout.tsx`) y, para el rol activo Administración, en el encabezado del
+panel (`layout/app-layout.tsx`); el resto de los roles conserva el marcador sin datos. Consume el
+contrato de notificaciones:
 `GET /notificaciones` con `no_leidas`, `limite` y `cursor`, `GET /notificaciones/resumen`,
 `PATCH /notificaciones/{id}/lectura` y `POST /notificaciones/lecturas`. El contador se refresca
 cada 30 segundos únicamente con la pestaña visible, al recuperar el foco y al abrir el panel;
@@ -238,7 +250,9 @@ comunicaciones abren `/familia/comunicaciones/:id`; facturas, vencimientos y res
 abren `/familia/facturacion?factura=<id>`, y los pagos `/familia/facturacion?pago=<id>`, con la
 tarjeta correspondiente abierta, resaltada y desplazada a la vista. Los avisos
 `facturacion.debito_exitoso` y `facturacion.debito_rechazado` usan íconos y colores propios de
-éxito y error. Si la marcación de lectura falla, la navegación igual se completa. Un destino
+éxito y error. El aviso `administracion.justificacion_pendiente` abre
+`/academico/justificaciones?justificacion=<id>` con la fila resaltada sobre el historial
+completo. Si la marcación de lectura falla, la navegación igual se completa. Un destino
 desconocido no genera una URL arbitraria y la notificación se muestra sin enlace.
 
 Verificación focalizada:

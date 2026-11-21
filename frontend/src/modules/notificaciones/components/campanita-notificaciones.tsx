@@ -9,12 +9,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { useNotificaciones } from '../hooks/use-notificaciones'
-import type { FiltroNotificaciones, NotificacionInterna } from '../types'
+import { esRolAdministrativo, type FiltroNotificaciones, type NotificacionInterna } from '../types'
 import { estiloNotificacion, etiquetaTiempoNotificacion, rutaDesdeDestino } from '../utils'
 
 type CampanitaNotificacionesProps = {
   usuarioId: string
   rolActivo: string
+  /** El Portal Familia usa encabezado oscuro; el panel administrativo, claro. */
+  tono?: 'oscuro' | 'claro'
 }
 
 function etiquetaContador(total: number | null, resumenFallido: boolean): string {
@@ -46,7 +48,7 @@ function FilaNotificacion({
       <span
         aria-hidden="true"
         className={cn(
-          'flex size-10 shrink-0 items-center justify-center rounded-[10px]',
+          'flex size-10 shrink-0 items-center justify-center rounded-pf-input',
           estilo.tileClassName,
         )}
       >
@@ -76,7 +78,7 @@ function FilaNotificacion({
               onNavegar()
               void onLeer(notificacion.id)
             }}
-            className="flex min-w-0 flex-1 items-start gap-3 rounded-[10px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pf-accent)]"
+            className="flex min-w-0 flex-1 items-start gap-3 rounded-pf-input focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
           >
             {contenido}
           </Link>
@@ -92,7 +94,7 @@ function FilaNotificacion({
               onClick={() => {
                 void onLeer(notificacion.id)
               }}
-              className="flex size-8 items-center justify-center rounded-full text-texto-2 transition-colors hover:bg-violeta/10 hover:text-[var(--pf-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pf-accent)]"
+              className="flex size-8 items-center justify-center rounded-full text-texto-2 transition-colors hover:bg-violeta/10 hover:text-[var(--pf-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
             >
               <CheckIcon aria-hidden="true" className="size-4" />
             </button>
@@ -114,7 +116,7 @@ function EsqueletoLista() {
     >
       {[0, 1, 2].map((indice) => (
         <div key={indice} className="flex items-start gap-3">
-          <Skeleton className="size-10 shrink-0 rounded-[10px]" />
+          <Skeleton className="size-10 shrink-0 rounded-pf-input" />
           <div className="flex-1 space-y-2">
             <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-3 w-full" />
@@ -145,8 +147,13 @@ function EstadoVacio({ filtro }: { filtro: FiltroNotificaciones }) {
   )
 }
 
-/** Campanita del Portal Familia: contador, panel paginado y lectura individual o masiva. */
-export function CampanitaNotificaciones({ usuarioId, rolActivo }: CampanitaNotificacionesProps) {
+/** Campanita de la bandeja interna: contador, panel paginado y lectura individual o masiva. */
+export function CampanitaNotificaciones({
+  usuarioId,
+  rolActivo,
+  tono = 'oscuro',
+}: CampanitaNotificacionesProps) {
+  const habilitado = rolActivo === 'familia' || esRolAdministrativo(rolActivo)
   const {
     abierto,
     setAbierto,
@@ -164,7 +171,7 @@ export function CampanitaNotificaciones({ usuarioId, rolActivo }: CampanitaNotif
     marcarLeida,
     marcarTodas,
     reintentarLista,
-  } = useNotificaciones({ habilitado: rolActivo === 'familia', usuarioId, rolActivo })
+  } = useNotificaciones({ habilitado, usuarioId, rolActivo })
 
   const botonRef = useRef<HTMLButtonElement>(null)
   const etiqueta = etiquetaContador(totalNoLeidas, resumenFallido)
@@ -177,7 +184,12 @@ export function CampanitaNotificaciones({ usuarioId, rolActivo }: CampanitaNotif
           ref={botonRef}
           type="button"
           aria-label={etiqueta}
-          className="relative flex size-9 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          className={cn(
+            'relative flex size-9 items-center justify-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2',
+            tono === 'oscuro'
+              ? 'text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-white'
+              : 'text-texto-2 hover:bg-fila-hover hover:text-texto focus-visible:outline-violeta',
+          )}
         >
           <BellIcon aria-hidden="true" className="size-4" />
           {sinLeer && (

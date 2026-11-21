@@ -93,12 +93,11 @@ export function UsuariosPage() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-3">
         <StatTile
           label="Usuarios activos"
           value={kpis.activos}
           icon={UserCheckIcon}
-          variant="dark"
           cargando={cargando}
         />
         <StatTile
@@ -113,7 +112,7 @@ export function UsuariosPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar los usuarios</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargar}>
               Reintentar

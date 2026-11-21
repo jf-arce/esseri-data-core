@@ -237,7 +237,7 @@ export function SolicitudAdmisionPage() {
     return (
       <Alert variant="error">
         <AlertTitle>No se pudo abrir la solicitud</AlertTitle>
-        <AlertDescription className="flex items-center justify-between gap-3">
+        <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
           {resultado.error}
           <BackLink to="/inscripciones/admisiones" label="Volver a Admisiones" />
         </AlertDescription>
@@ -249,12 +249,12 @@ export function SolicitudAdmisionPage() {
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
       <div className="flex flex-col gap-3">
         <BackLink to="/inscripciones/admisiones" label="Volver a Admisiones" />
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div>
+        <div className="flex flex-col justify-between gap-4 @3xl/main:flex-row @3xl/main:items-end">
+          <div className="min-w-0">
             <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
               Inscripciones
             </p>
-            <h1 className="mt-1 text-2xl font-semibold">
+            <h1 className="mt-1 text-2xl font-semibold break-words">
               Solicitud de {solicitud.aspirante.apellido}, {solicitud.aspirante.nombre}
             </h1>
           </div>
@@ -329,7 +329,7 @@ export function SolicitudAdmisionPage() {
         </Alert>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,1fr)]">
+      <div className="grid gap-5 @5xl/main:grid-cols-[minmax(0,1.7fr)_minmax(260px,1fr)]">
         <div className="flex flex-col gap-5">
           <section className="overflow-hidden rounded-panel bg-superficie shadow-card">
             <div className="flex items-center justify-between border-b border-borde px-5 py-4">
@@ -338,21 +338,21 @@ export function SolicitudAdmisionPage() {
                 {etiquetaEtapaSolicitud(solicitud.etapa)}
               </Badge>
             </div>
-            <dl className="grid gap-x-6 gap-y-3 p-5 text-sm sm:grid-cols-[132px_1fr]">
+            <dl className="grid gap-x-6 gap-y-3 p-5 text-sm @xl/main:grid-cols-[132px_minmax(0,1fr)]">
               <dt className="text-texto-2">Aspirante</dt>
-              <dd className="font-medium">
+              <dd className="font-medium break-words">
                 {solicitud.aspirante.apellido}, {solicitud.aspirante.nombre}
               </dd>
               <dt className="text-texto-2">Ciclo lectivo</dt>
-              <dd className="font-medium">{solicitud.ciclo_lectivo}</dd>
+              <dd className="font-medium break-words">{solicitud.ciclo_lectivo}</dd>
               <dt className="text-texto-2">Contacto</dt>
-              <dd className="font-medium">
+              <dd className="font-medium break-words">
                 {solicitud.contacto
                   ? `${solicitud.contacto.apellido}, ${solicitud.contacto.nombre}${solicitud.contacto.telefono ? ` · ${solicitud.contacto.telefono}` : ''}`
                   : 'Sin contacto informado'}
               </dd>
               <dt className="text-texto-2">Fecha de solicitud</dt>
-              <dd className="font-medium">
+              <dd className="font-medium break-words">
                 {formatearFechaInscripcion(solicitud.fecha_solicitud)}
               </dd>
             </dl>
@@ -431,7 +431,7 @@ export function SolicitudAdmisionPage() {
                     solicitud.documentos.map((documento) => (
                       <div key={documento.id} className="rounded-lg border border-borde p-3">
                         <p className="font-medium">{documento.tipo_documento}</p>
-                        <p className="text-xs text-texto-3">{documento.archivo}</p>
+                        <p className="text-xs break-all text-texto-3">{documento.archivo}</p>
                         <div className="mt-2 flex gap-3 text-sm">
                           <a
                             className="text-texto underline underline-offset-2"

@@ -19,7 +19,7 @@ function FilterSearch({
   return (
     <div
       className={cn(
-        'relative flex h-10 min-w-[280px] flex-1 max-w-[420px] items-center rounded-lg border border-borde bg-superficie pr-4 pl-10 text-sm text-texto-2 transition-colors has-[:focus-visible]:shadow-[0_0_0_1.5px_var(--violeta)]',
+        'relative flex h-10 min-w-[min(280px,100%)] flex-1 max-w-[420px] items-center rounded-lg border border-borde bg-superficie pr-4 pl-10 text-sm text-texto-2 transition-colors has-[:focus-visible]:shadow-[0_0_0_1.5px_var(--violeta)]',
         className,
       )}
     >

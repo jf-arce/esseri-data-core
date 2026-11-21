@@ -1,21 +1,12 @@
-import {
-  ClipboardCheckIcon,
-  ClipboardListIcon,
-  FileWarningIcon,
-  LandmarkIcon,
-  TruckIcon,
-  UsersRoundIcon,
-} from 'lucide-react'
+import { ClipboardListIcon, FileWarningIcon, LandmarkIcon } from 'lucide-react'
 import { Link } from 'react-router'
 import { PageHeader } from '@/components/page-header'
 import { StatTile } from '@/components/stat-tile'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatearMoneda } from '@/modules/facturacion/utils'
 import {
   PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES,
   PERMISO_FACTURACION_LEER,
   PERMISO_FAMILIAS_ALUMNOS_LEER,
-  PERMISO_INSCRIPCIONES_LEER,
   PERMISO_PROVEEDORES_COMPRAS_LEER,
   tienePermiso,
 } from '@/modules/auth/constants'
@@ -27,47 +18,8 @@ import { AtencionDireccion } from '../components/atencion-direccion'
 import { useDetalleDireccion } from '../hooks/use-detalle-direccion'
 import { useIndicadoresAdministracion } from '../hooks/use-indicadores-administracion'
 
-const accesos = [
-  {
-    titulo: 'Familias',
-    descripcion: 'Responsables, familias y alumnos.',
-    href: '/familias-alumnos',
-    icono: UsersRoundIcon,
-    permiso: PERMISO_FAMILIAS_ALUMNOS_LEER,
-  },
-  {
-    titulo: 'Facturación',
-    descripcion: 'Facturas, pagos y reglas de facturación.',
-    href: '/facturacion',
-    icono: LandmarkIcon,
-    permiso: PERMISO_FACTURACION_LEER,
-  },
-  {
-    titulo: 'Proveedores',
-    descripcion: 'Catálogo y datos de proveedores.',
-    href: '/proveedores',
-    icono: TruckIcon,
-    permiso: PERMISO_PROVEEDORES_COMPRAS_LEER,
-  },
-  {
-    titulo: 'Inscripciones',
-    descripcion: 'Altas, reinscripciones y movimientos.',
-    href: '/inscripciones',
-    icono: ClipboardCheckIcon,
-    permiso: PERMISO_INSCRIPCIONES_LEER,
-  },
-  {
-    titulo: 'Compras',
-    descripcion: 'Solicitudes y seguimiento de compras.',
-    href: '/solicitudes-compra',
-    icono: ClipboardListIcon,
-    permiso: PERMISO_PROVEEDORES_COMPRAS_LEER,
-  },
-]
-
 export function PanelAdministracionPage() {
   const permisos = useAuthStore(permisosActivos)
-  const accesosVisibles = accesos.filter((acceso) => tienePermiso(permisos, acceso.permiso))
   const { datos, cargando, error } = useIndicadoresAdministracion()
   const acceso = {
     compras: tienePermiso(permisos, PERMISO_PROVEEDORES_COMPRAS_LEER),
@@ -122,13 +74,15 @@ export function PanelAdministracionPage() {
   ].filter((indicador) => indicador.visible)
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader titulo="Panel Administrativo" />
+
+      <AtencionInstitucional acceso={atencion} version={0} />
 
       {indicadores.length > 0 && (
         <section
           aria-label="Indicadores operativos"
-          className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+          className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @3xl/main:grid-cols-3"
         >
           {indicadores.map((indicador) => (
             <Link
@@ -143,6 +97,7 @@ export function PanelAdministracionPage() {
                 icon={indicador.icon}
                 iconClassName={indicador.iconClassName}
                 note={indicador.note}
+                compact
                 cargando={cargando}
                 className="h-full transition-colors duration-200 group-hover:bg-fila-hover"
               />
@@ -151,7 +106,6 @@ export function PanelAdministracionPage() {
         </section>
       )}
 
-      {atencion.justificaciones && <AtencionInstitucional acceso={atencion} version={0} />}
       {(atencion.justificaciones || acceso.finanzas) && (
         <Link
           className="text-sm font-semibold text-violeta hover:underline"
@@ -161,9 +115,15 @@ export function PanelAdministracionPage() {
         </Link>
       )}
 
-      <div className="grid min-w-0 items-stretch gap-6 xl:grid-cols-12">
+      {/* La cola de atención (8) y la actividad reciente (4), que toma su altura y hace scroll. */}
+      <div className="grid min-w-0 items-stretch gap-4 @5xl/main:grid-cols-12">
         {hayAtencion && (
-          <div className={cn('min-w-0', hayActividad ? 'xl:col-span-6' : 'xl:col-span-12')}>
+          <div
+            className={cn(
+              'min-w-0',
+              hayActividad ? '@5xl/main:col-span-8' : '@5xl/main:col-span-12',
+            )}
+          >
             <AtencionDireccion
               compras={detalle.compras}
               deudas={detalle.deudas}
@@ -172,31 +132,24 @@ export function PanelAdministracionPage() {
           </div>
         )}
         {hayActividad && (
-          <div className={cn('min-w-0', hayAtencion ? 'xl:col-span-6' : 'xl:col-span-12')}>
+          <div
+            className={cn(
+              'min-w-0',
+              hayAtencion
+                ? '@5xl/main:col-span-4 @5xl/main:h-0 @5xl/main:min-h-full'
+                : '@5xl/main:col-span-12',
+            )}
+          >
             <PanelActividadReciente
               recurso={detalle.actividad}
-              contenidoClassName="max-h-96 min-h-0 flex-1 overflow-y-auto"
+              contenidoClassName={cn(
+                'min-h-0 flex-1 overflow-y-auto',
+                hayAtencion ? 'max-h-96 @5xl/main:max-h-none' : 'max-h-96',
+              )}
             />
           </div>
         )}
       </div>
-
-      <section aria-label="Accesos rápidos" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {accesosVisibles.map(({ titulo, descripcion, href, icono: Icono }) => (
-          <Link key={href} to={href} className="group rounded-card">
-            <Card className="h-full py-4 transition-colors duration-200 group-hover:bg-fila-hover">
-              <CardHeader>
-                <div className="mb-1 flex size-10 items-center justify-center rounded-[10px] bg-violeta-suave text-violeta">
-                  <Icono className="size-5" />
-                </div>
-                <CardTitle>{titulo}</CardTitle>
-                <CardDescription>{descripcion}</CardDescription>
-              </CardHeader>
-              <CardContent className="text-sm font-medium text-violeta">Abrir {titulo}</CardContent>
-            </Card>
-          </Link>
-        ))}
-      </section>
     </div>
   )
 }

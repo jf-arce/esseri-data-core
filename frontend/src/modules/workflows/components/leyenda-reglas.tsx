@@ -24,12 +24,12 @@ export function LeyendaReglas() {
         Acción con aprobación
       </li>
       <li className="flex items-center gap-1.5">
-        <PlayIcon className="size-3.5 text-exito" aria-hidden="true" />
-        Regla activa
+        <SquareIcon className="size-3.5 fill-current text-error" aria-hidden="true" />
+        Detener regla activa
       </li>
       <li className="flex items-center gap-1.5">
-        <SquareIcon className="size-3.5 fill-current text-error" aria-hidden="true" />
-        Regla pausada
+        <PlayIcon className="size-3.5 fill-current text-exito" aria-hidden="true" />
+        Activar regla pausada
       </li>
     </ul>
   )

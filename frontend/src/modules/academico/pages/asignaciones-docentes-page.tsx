@@ -2,7 +2,6 @@ import {
   MoreHorizontalIcon,
   PencilIcon,
   PlusIcon,
-  SearchIcon,
   ShieldAlertIcon,
   Trash2Icon,
   UsersIcon,
@@ -18,7 +17,7 @@ import { useAbrirDesdeUrl } from '@/hooks/use-abrir-desde-url'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { PageHeader } from '@/components/page-header'
 import { StatTile } from '@/components/stat-tile'
-import { FilterBar, FilterBarSpacer } from '@/components/filter-bar'
+import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
 import { FilterDropdown, type FilterDropdownOption } from '@/components/filter-dropdown'
 import {
   Table,
@@ -151,13 +150,8 @@ export function AsignacionesDocentesPage() {
       />
 
       {/* Stats strip */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatTile
-          variant="dark"
-          label="Asignaciones activas"
-          value={stats.activas}
-          icon={UsersIcon}
-        />
+      <div className="grid grid-cols-2 gap-4 @3xl/main:grid-cols-4">
+        <StatTile label="Asignaciones activas" value={stats.activas} icon={UsersIcon} />
         <StatTile
           label="Docentes con asignación"
           value={stats.docentes}
@@ -181,7 +175,7 @@ export function AsignacionesDocentesPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar las asignaciones</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargarTodo}>
               Reintentar
@@ -192,16 +186,11 @@ export function AsignacionesDocentesPage() {
 
       {asignaciones.length > 0 && (
         <FilterBar>
-          <div className="relative flex h-10 min-w-[200px] items-center gap-2 rounded-lg border border-borde bg-superficie pl-3.5 pr-3 text-sm text-texto-2">
-            <SearchIcon className="size-4 text-texto-3" />
-            <input
-              type="text"
-              placeholder="Buscar docente o materia"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              className="w-full bg-transparent text-texto outline-none placeholder:text-texto-3"
-            />
-          </div>
+          <FilterSearch
+            value={busqueda}
+            onChange={setBusqueda}
+            placeholder="Buscar docente o materia"
+          />
           {ciclosDisponibles.length > 0 && (
             <FilterDropdown
               label="Ciclo lectivo"
@@ -275,7 +264,7 @@ export function AsignacionesDocentesPage() {
                 </TableCell>
                 <TableCell>{asignacion.materia_nombre}</TableCell>
                 <TableCell>{asignacion.division_nombre}</TableCell>
-                <TableCell className="text-xs text-texto-2">
+                <TableCell className="max-w-64 min-w-48 text-xs whitespace-normal text-texto-2">
                   {formatearHorarios(asignacion.horarios)}
                 </TableCell>
                 <TableCell className="tabular-nums">{asignacion.ciclo_lectivo}</TableCell>

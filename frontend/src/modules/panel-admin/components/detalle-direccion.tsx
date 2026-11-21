@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import type { DatosDetalleDireccion } from '../hooks/use-detalle-direccion'
 import { PanelActividadReciente } from './actividad-reciente'
-import { AtencionDireccion } from './atencion-direccion'
 import { Estado } from './estado-recurso'
 import { GraficoAsistencia, GraficoFinanciero } from './graficos-direccion'
 import { Panel } from './panel-card'
@@ -40,92 +39,79 @@ export function DetalleDireccion({
     dias.set(item.fecha, dia)
   }
   const serie = [...dias].sort(([a], [b]) => a.localeCompare(b))
-  const hayAtencion = acceso.compras || acceso.finanzas
   const hayActividad = acceso.compras || acceso.finanzas || acceso.alumnos
-  // Bento de 12 columnas: 8/4 arriba y 4/8 abajo, para que los anchos se alternen en vez de
-  // repetir dos columnas iguales. Si falta la pareja de una celda, ocupa todo el ancho.
-  const ancho = (principal: boolean, pareja: boolean, grande: string, chico: string) =>
-    pareja ? (principal ? grande : chico) : 'xl:col-span-12'
-  return (
-    <div className="grid min-w-0 items-stretch gap-6 xl:grid-cols-12">
-      {hayAtencion && (
-        <div className={cn('min-w-0', ancho(true, hayActividad, 'xl:col-span-8', 'xl:col-span-4'))}>
-          <AtencionDireccion
-            compras={datos.compras}
-            deudas={datos.deudas}
-            acceso={{ compras: acceso.compras, finanzas: acceso.finanzas }}
+  // Bento de 12 columnas: "Actividad reciente" (4) acompaña a la primera tendencia disponible
+  // (8), con su misma altura y scroll adentro; si hay una segunda tendencia, va debajo a todo el
+  // ancho. Así la lista no se estira hasta el final de la pantalla.
+  const financiera = acceso.finanzas && (
+    <Panel
+      titulo="Evolución financiera"
+      accion={<Acceso to="/facturacion">Abrir facturación</Acceso>}
+    >
+      <Estado
+        recurso={datos.finanzas}
+        vacio={!meses.length}
+        carga={<GraficoFinanciero meses={[]} cargando />}
+      >
+        <GraficoFinanciero
+          meses={meses}
+          onMesClick={(mes) => navegar(`/facturacion?emision_mes=${mes}`)}
+        />
+      </Estado>
+    </Panel>
+  )
+  const asistencia = acceso.academico && (
+    <Panel
+      titulo="Asistencia · 30 días"
+      accion={<Acceso to="/academico/historial-asistencia">Ver asistencias</Acceso>}
+    >
+      <Estado
+        recurso={datos.asistencia}
+        vacio={!serie.length}
+        carga={<GraficoAsistencia serie={[]} cargando />}
+      >
+        {serie.length > 0 && (
+          <GraficoAsistencia
+            serie={serie}
+            onDiaClick={(dia) => navegar(`/academico/historial-asistencia?fecha=${dia}`)}
           />
+        )}
+      </Estado>
+    </Panel>
+  )
+  const principal = financiera || asistencia
+  const secundaria = financiera ? asistencia : null
+  const conPareja = hayActividad && !!principal
+  return (
+    <div className="grid min-w-0 items-stretch gap-4 @5xl/main:grid-cols-12">
+      {principal && (
+        <div
+          className={cn('min-w-0', conPareja ? '@5xl/main:col-span-8' : '@5xl/main:col-span-12')}
+        >
+          {principal}
         </div>
       )}
       {hayActividad && (
-        // En escritorio la card toma la altura de "Requiere tu atención" (`xl:h-0 xl:min-h-full`
-        // la saca del cálculo de la fila) y la lista hace scroll adentro si hay muchos eventos.
+        // En escritorio la card toma la altura de la tendencia (`h-0 min-h-full` la saca del
+        // cálculo de las filas) y la lista hace scroll adentro.
         <div
           className={cn(
             'min-w-0',
-            ancho(false, hayAtencion, 'xl:col-span-8', 'xl:col-span-4'),
-            hayAtencion && 'xl:h-0 xl:min-h-full',
+            conPareja
+              ? '@5xl/main:col-span-4 @5xl/main:h-0 @5xl/main:min-h-full'
+              : '@5xl/main:col-span-12',
           )}
         >
           <PanelActividadReciente
             recurso={datos.actividad}
             contenidoClassName={cn(
               'min-h-0 flex-1 overflow-y-auto',
-              hayAtencion ? 'max-h-96 xl:max-h-none' : 'max-h-[32rem]',
+              conPareja ? 'max-h-96 @5xl/main:max-h-none' : 'max-h-[32rem]',
             )}
           />
         </div>
       )}
-      {acceso.finanzas && (
-        <div
-          className={cn(
-            'min-w-0 xl:order-4',
-            ancho(true, acceso.academico, 'xl:col-span-8', 'xl:col-span-4'),
-          )}
-        >
-          <Panel
-            titulo="Evolución financiera"
-            accion={<Acceso to="/facturacion">Abrir facturación</Acceso>}
-          >
-            <Estado
-              recurso={datos.finanzas}
-              vacio={!meses.length}
-              carga={<GraficoFinanciero meses={[]} cargando />}
-            >
-              <GraficoFinanciero
-                meses={meses}
-                onMesClick={(mes) => navegar(`/facturacion?emision_mes=${mes}`)}
-              />
-            </Estado>
-          </Panel>
-        </div>
-      )}
-      {acceso.academico && (
-        <div
-          className={cn(
-            'min-w-0 xl:order-3',
-            ancho(false, acceso.finanzas, 'xl:col-span-8', 'xl:col-span-4'),
-          )}
-        >
-          <Panel
-            titulo="Asistencia · 30 días"
-            accion={<Acceso to="/academico/historial-asistencia">Ver asistencias</Acceso>}
-          >
-            <Estado
-              recurso={datos.asistencia}
-              vacio={!serie.length}
-              carga={<GraficoAsistencia serie={[]} cargando />}
-            >
-              {serie.length > 0 && (
-                <GraficoAsistencia
-                  serie={serie}
-                  onDiaClick={(dia) => navegar(`/academico/historial-asistencia?fecha=${dia}`)}
-                />
-              )}
-            </Estado>
-          </Panel>
-        </div>
-      )}
+      {secundaria && <div className="min-w-0 @5xl/main:col-span-12">{secundaria}</div>}
     </div>
   )
 }

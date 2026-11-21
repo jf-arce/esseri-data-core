@@ -161,7 +161,6 @@ export function MisConsultasPage() {
           etiqueta="Portal de familia"
           volverA="/familia"
           volverEtiqueta="Volver al inicio"
-          anchoMaximo="max-w-[92vw]"
           className="pb-6"
         />
         <SubnavComunicaciones actual="consultas" consultas={resumen?.total ?? null} />

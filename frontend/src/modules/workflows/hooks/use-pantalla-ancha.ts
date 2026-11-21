@@ -1,20 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type RefObject } from 'react'
 
-const ANCHO_MINIMO = 1024
+const ANCHO_MINIMO = 760
 
-function esAncha() {
-  return window.innerWidth >= ANCHO_MINIMO
-}
-
-/** `true` desde el breakpoint `lg`: el inspector flota sobre el lienzo; debajo, sube como hoja. */
-export function usePantallaAncha() {
-  const [ancha, setAncha] = useState(esAncha)
+/** `true` si el lienzo mide al menos 760px: el inspector flota sobre él; debajo, sube como hoja. */
+export function usePantallaAncha(contenedor: RefObject<HTMLElement | null>) {
+  const [ancha, setAncha] = useState(true)
   useEffect(() => {
-    if (typeof window.matchMedia !== 'function') return
-    const consulta = window.matchMedia(`(min-width: ${ANCHO_MINIMO}px)`)
-    const alCambiar = () => setAncha(esAncha())
-    consulta.addEventListener('change', alCambiar)
-    return () => consulta.removeEventListener('change', alCambiar)
-  }, [])
+    const elemento = contenedor.current
+    if (!elemento || typeof ResizeObserver === 'undefined') return
+    const observador = new ResizeObserver(([entrada]) => {
+      const ancho = entrada?.contentRect.width ?? 0
+      if (ancho > 0) setAncha(ancho >= ANCHO_MINIMO)
+    })
+    observador.observe(elemento)
+    return () => observador.disconnect()
+  }, [contenedor])
   return ancha
 }

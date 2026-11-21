@@ -286,7 +286,7 @@ function MensajeDelAsistente({
               exit={{ opacity: 0, transition: { duration: 0.15 } }}
             >
               <PuntosPensando />
-              <span className="shimmer motion-reduce:shimmer-none">
+              <span className="shimmer [--shimmer-color:var(--texto)] motion-reduce:shimmer-none">
                 {mensaje.pasos.length > 0 ? 'Redactando…' : 'Pensando…'}
               </span>
             </motion.p>

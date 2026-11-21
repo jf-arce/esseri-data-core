@@ -8,7 +8,7 @@ import {
   XIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 import { BackLink } from '@/components/back-link'
@@ -83,11 +83,14 @@ function formatearFechaHora(iso: string): string {
 
 export function JustificacionesPage() {
   const conversaciones = useConversacionesContexto()
-  const [filtros, setFiltros] = useState<FiltrosJustificaciones>({
-    estado: 'pendiente',
+  const [searchParams] = useSearchParams()
+  const focoJustificacionId = searchParams.get('justificacion')
+  const [filtros, setFiltros] = useState<FiltrosJustificaciones>(() => ({
+    // Un aviso puede apuntar a una justificación ya resuelta: se muestra el historial completo.
+    estado: focoJustificacionId ? undefined : 'pendiente',
     pagina: 1,
     tamanio_pagina: TAMANIO_PAGINA,
-  })
+  }))
   const [busqueda, setBusqueda] = useState('')
   const [datos, setDatos] = useState<JustificacionesPaginadas | null>(null)
   const [opciones, setOpciones] = useState<OpcionJustificacion[]>([])
@@ -132,6 +135,16 @@ export function JustificacionesPage() {
       activo = false
     }
   }, [filtros, claveConsulta])
+
+  useEffect(() => {
+    if (!focoJustificacionId || !datos) return
+    const cuadro = window.setTimeout(() => {
+      document
+        .getElementById(`justificacion-${focoJustificacionId}`)
+        ?.scrollIntoView?.({ block: 'center' })
+    }, 0)
+    return () => window.clearTimeout(cuadro)
+  }, [focoJustificacionId, datos])
 
   const recargar = () => setRevision((anterior) => anterior + 1)
 
@@ -241,16 +254,17 @@ export function JustificacionesPage() {
   return (
     <div className="flex flex-col gap-5">
       <BackLink to="/academico" label="Volver a Académico" />
-      <PageHeader titulo="Justificaciones" />
-      <div className="flex justify-end">
-        <Button variant="secondary" size="sm" asChild>
-          <Link to="/academico/solicitudes-ausencia">Solicitudes por período</Link>
-        </Button>
-      </div>
+      <PageHeader
+        titulo="Justificaciones"
+        accion={
+          <Button variant="secondary" size="sm" asChild>
+            <Link to="/academico/solicitudes-ausencia">Solicitudes por período</Link>
+          </Button>
+        }
+      />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 @5xl/main:grid-cols-4">
         <StatTile
-          variant="dark"
           label="Pendientes"
           value={resumen?.pendientes ?? 0}
           icon={ClockIcon}
@@ -281,7 +295,7 @@ export function JustificacionesPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar las justificaciones</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargar}>
               Reintentar
@@ -298,7 +312,7 @@ export function JustificacionesPage() {
           })
         }
       >
-        <TabsList>
+        <TabsList className="max-w-full overflow-x-auto">
           <TabsTrigger value="pendiente">
             Pendientes
             <span className="text-texto-3">{resumen?.pendientes ?? 0}</span>
@@ -436,7 +450,12 @@ export function JustificacionesPage() {
             </TableHeader>
             <TableBody>
               {items.map((item) => (
-                <TableRow key={item.id}>
+                <TableRow
+                  key={item.id}
+                  id={`justificacion-${item.id}`}
+                  aria-current={item.id === focoJustificacionId ? 'true' : undefined}
+                  className={item.id === focoJustificacionId ? 'bg-violeta/10' : undefined}
+                >
                   <TableCell>
                     <div className="flex flex-col">
                       <span className="font-medium">{item.alumno_nombre}</span>
@@ -464,7 +483,7 @@ export function JustificacionesPage() {
                     {item.archivo_nombre && (
                       <Button
                         variant="link"
-                        className="mt-0.5 h-auto p-0 text-xs"
+                        className="mt-0.5 h-auto max-w-full p-0 text-xs"
                         onClick={() =>
                           void descargarExport(
                             `/academico/justificaciones/${item.id}/archivo`,
@@ -473,7 +492,7 @@ export function JustificacionesPage() {
                         }
                       >
                         <DownloadIcon data-icon="inline-start" />
-                        {item.archivo_nombre}
+                        <span className="max-w-[240px] truncate">{item.archivo_nombre}</span>
                       </Button>
                     )}
                   </TableCell>

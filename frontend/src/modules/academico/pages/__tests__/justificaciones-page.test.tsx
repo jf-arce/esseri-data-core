@@ -15,6 +15,9 @@ describe('JustificacionesPage', () => {
     vi.clearAllMocks()
     mockedApiClient.mockImplementation(((ruta: string) => {
       if (ruta.includes('/justificaciones/opciones')) return Promise.resolve([])
+      if (ruta.includes('/comunicaciones/conversaciones')) {
+        return Promise.resolve({ items: [], total: 0 })
+      }
       return Promise.resolve({
         items: [],
         total: 0,
@@ -37,5 +40,49 @@ describe('JustificacionesPage', () => {
       await screen.findByText('No hay justificaciones pendientes para revisar.'),
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Justificaciones' })).toBeInTheDocument()
+  })
+
+  it('resalta y consulta el historial cuando llega desde un aviso', async () => {
+    mockedApiClient.mockImplementation(((ruta: string) => {
+      if (ruta.includes('/justificaciones/opciones')) return Promise.resolve([])
+      if (ruta.includes('/comunicaciones/conversaciones')) {
+        return Promise.resolve({ items: [], total: 0 })
+      }
+      return Promise.resolve({
+        items: [
+          {
+            id: 'just-1',
+            alumno_id: 'alumno-1',
+            alumno_nombre: 'Gómez, Juan',
+            division_nombre: '4° B',
+            nivel_educativo_nombre: 'Primario',
+            fecha_asistencia: '2026-11-10',
+            motivo: 'enfermedad',
+            observacion: null,
+            estado: 'pendiente',
+            fecha_carga: '2026-11-11T10:00:00Z',
+            fecha_resolucion: null,
+            archivo_nombre: null,
+          },
+        ],
+        total: 1,
+        pagina: 1,
+        tamanio_pagina: 20,
+        total_paginas: 1,
+        resumen: { pendientes: 1, aprobadas: 0, rechazadas: 0, total: 1 },
+      })
+    }) as never)
+
+    render(
+      <MemoryRouter initialEntries={['/academico/justificaciones?justificacion=just-1']}>
+        <JustificacionesPage />
+      </MemoryRouter>,
+    )
+
+    const fila = await screen.findByText('Gómez, Juan')
+    expect(fila.closest('tr')).toHaveAttribute('aria-current', 'true')
+    expect(mockedApiClient).toHaveBeenCalledWith(
+      '/academico/justificaciones?pagina=1&tamanio_pagina=20',
+    )
   })
 })

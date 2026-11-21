@@ -128,7 +128,7 @@ export function TarjetaRegla({
   return (
     <article
       className={cn(
-        'group/tarjeta flex flex-col gap-3 rounded-card-sm bg-superficie p-4 shadow-card transition-colors duration-200 hover:bg-[color-mix(in_oklch,var(--fila-hover)_45%,var(--superficie))]',
+        'group/tarjeta flex flex-col gap-3 rounded-card-sm bg-superficie p-4 shadow-card transition-colors duration-200 hover:bg-(--card-hover)',
         !regla.activo && 'opacity-80',
       )}
     >
@@ -232,7 +232,7 @@ export function TarjetaRegla({
           <li className="pl-5.5 font-semibold text-texto-3">+{pasos.length - MAX_PASOS} más</li>
         )}
       </ol>
-      <footer className="mt-auto flex items-center justify-between gap-3 border-t border-borde pt-3">
+      <footer className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-borde pt-3">
         {nuncaSeEjecuto ? (
           <p className="text-sm text-texto-2">Sin ejecuciones</p>
         ) : (
@@ -249,7 +249,7 @@ export function TarjetaRegla({
                 {fallas > 0 && (
                   <span
                     title="Ejecuciones fallidas en los últimos 7 días"
-                    className="ml-2 rounded-full bg-error-suave px-2 py-0.5 font-semibold text-error"
+                    className="ml-2 inline-block rounded-full bg-error-suave px-2 py-0.5 font-semibold text-error"
                   >
                     {fallas} {fallas === 1 ? 'falla' : 'fallas'} en 7 días
                   </span>
