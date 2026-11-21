@@ -104,6 +104,48 @@ def test_staff_de_lectura_sigue_viendo_todas_las_facturas(
     assert respuesta.json()["total"] == 2
 
 
+def test_staff_filtra_las_facturas_por_familia(client_solo_lectura, escenario_dos_familias):
+    respuesta = client_solo_lectura.get(
+        "/facturacion/facturas",
+        params={"familia_responsable_id": str(escenario_dos_familias["familia_a"])},
+    )
+
+    assert respuesta.status_code == 200
+    assert [factura["id"] for factura in respuesta.json()["items"]] == [
+        str(escenario_dos_familias["factura_a"])
+    ]
+    assert respuesta.json()["total"] == 1
+
+
+def test_staff_filtra_por_familia_responsable_y_no_por_vinculo(
+    client_solo_lectura, escenario_dos_familias
+):
+    """familia_c está vinculada al alumno de factura_a pero no es su responsable económica."""
+    respuesta = client_solo_lectura.get(
+        "/facturacion/facturas",
+        params={"familia_responsable_id": str(escenario_dos_familias["familia_c"])},
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["items"] == []
+    assert respuesta.json()["total"] == 0
+
+
+def test_familia_no_puede_ampliar_su_alcance_con_familia_responsable_id(
+    client_familia, escenario_dos_familias
+):
+    respuesta = client_familia.get(
+        "/facturacion/facturas",
+        params={"familia_responsable_id": str(escenario_dos_familias["familia_b"])},
+    )
+
+    assert respuesta.status_code == 200
+    assert [factura["id"] for factura in respuesta.json()["items"]] == [
+        str(escenario_dos_familias["factura_a"])
+    ]
+    assert respuesta.json()["total"] == 1
+
+
 def test_staff_de_lectura_sigue_viendo_todas_las_deudas(
     client_solo_lectura, escenario_dos_familias
 ):

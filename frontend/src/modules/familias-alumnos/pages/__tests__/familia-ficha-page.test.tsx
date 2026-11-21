@@ -1,12 +1,15 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FamiliaFichaPage } from '@/modules/familias-alumnos/pages/familia-ficha-page'
 import { listarDeudaFamilias } from '@/modules/facturacion/services/listar-deuda-familias'
+import { listarFacturas } from '@/modules/facturacion/services/listar-facturas'
 import { getFamiliaById } from '@/modules/familias-alumnos/services/create-familia'
 import { listarVinculosFamilia } from '@/modules/familias-alumnos/services/listar-vinculos-familia'
 
 vi.mock('@/modules/facturacion/services/listar-deuda-familias')
+vi.mock('@/modules/facturacion/services/listar-facturas')
 vi.mock('@/modules/familias-alumnos/services/create-familia')
 vi.mock('@/modules/familias-alumnos/services/listar-vinculos-familia')
 vi.mock('@/modules/familias-alumnos/hooks/use-alumnos', () => ({
@@ -32,6 +35,7 @@ const familia = {
 const mockedObtenerFamilia = vi.mocked(getFamiliaById)
 const mockedListarVinculos = vi.mocked(listarVinculosFamilia)
 const mockedListarDeuda = vi.mocked(listarDeudaFamilias)
+const mockedListarFacturas = vi.mocked(listarFacturas)
 
 function renderizarPagina() {
   return render(
@@ -61,6 +65,7 @@ describe('FamiliaFichaPage', () => {
     vi.clearAllMocks()
     mockedObtenerFamilia.mockResolvedValue(familia)
     mockedListarVinculos.mockResolvedValue([])
+    mockedListarFacturas.mockResolvedValue({ items: [], total: 0, pagina: 1, tamanio: 5 })
     mockedListarDeuda.mockResolvedValue({
       items: [
         {
@@ -94,5 +99,20 @@ describe('FamiliaFichaPage', () => {
         expect.any(AbortSignal),
       ),
     )
+  })
+
+  it('lista las facturas de la familia en su pestaña de facturación', async () => {
+    const user = userEvent.setup()
+    renderizarPagina()
+
+    await user.click(await screen.findByRole('tab', { name: 'Facturación' }))
+
+    await waitFor(() =>
+      expect(mockedListarFacturas).toHaveBeenCalledWith(
+        expect.objectContaining({ familiaResponsableId: 'familia-1', pagina: 1, tamanio: 5 }),
+        expect.any(AbortSignal),
+      ),
+    )
+    expect(await screen.findByText('No hay facturas registradas.')).toBeInTheDocument()
   })
 })

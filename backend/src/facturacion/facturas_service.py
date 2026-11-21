@@ -409,6 +409,7 @@ def listar_facturas(
     tamanio: int,
     alumno_id: uuid.UUID | None = None,
     familia_id: uuid.UUID | None = None,
+    familia_responsable_id: uuid.UUID | None = None,
     concepto_cobro_id: uuid.UUID | None = None,
     estado: str | None = None,
     debito: str | None = None,
@@ -436,6 +437,14 @@ def listar_facturas(
         filtros.append(
             Inscripcion.alumno_id.in_(
                 select(FamiliaAlumno.alumno_id).where(FamiliaAlumno.familia_id == familia_id)
+            )
+        )
+    if familia_responsable_id is not None:
+        filtros.append(
+            Factura.responsable_economico_id.in_(
+                select(ResponsableEconomico.id).where(
+                    ResponsableEconomico.familia_id == familia_responsable_id
+                )
             )
         )
     if concepto_cobro_id is not None:

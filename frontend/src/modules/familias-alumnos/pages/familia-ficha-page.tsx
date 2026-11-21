@@ -45,6 +45,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { formatearMoneda } from '@/modules/facturacion/utils'
+import { FacturasVinculadas } from '@/modules/facturacion/components/facturas-vinculadas'
 import { listarDeudaFamilias } from '@/modules/facturacion/services/listar-deuda-familias'
 import { getFamiliaById, deleteFamilia } from '../services/create-familia'
 import { listarVinculosFamilia } from '../services/listar-vinculos-familia'
@@ -349,7 +350,7 @@ export function FamiliaFichaPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="facturacion">
+        <TabsContent value="facturacion" className="flex flex-col gap-5">
           <Card className="p-0">
             <div className="border-b border-borde px-6 py-4">
               <h3 className="text-base font-semibold">Resumen de facturación</h3>
@@ -389,6 +390,11 @@ export function FamiliaFichaPage() {
               </p>
             )}
           </Card>
+
+          <div className="flex flex-col gap-3">
+            <h3 className="text-base font-semibold">Facturas de la familia</h3>
+            <FacturasVinculadas key={familia.id} familiaResponsableId={familia.id} />
+          </div>
         </TabsContent>
 
         <TabsContent value="conversaciones">

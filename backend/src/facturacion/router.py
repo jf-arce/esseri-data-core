@@ -353,6 +353,7 @@ def listar_facturas(
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanio: Annotated[int, Query(ge=1, le=100)] = 20,
     alumno_id: uuid.UUID | None = None,
+    familia_responsable_id: uuid.UUID | None = None,
     concepto_cobro_id: uuid.UUID | None = None,
     estado: FacturaEstado | None = None,
     debito: Literal["rechazado", "cobrado"] | None = None,
@@ -368,6 +369,8 @@ def listar_facturas(
         tamanio=tamanio,
         alumno_id=alumno_id,
         familia_id=familia_activa.id if familia_activa is not None else None,
+        # El rol familia nunca amplía su alcance con el filtro administrativo.
+        familia_responsable_id=(familia_responsable_id if familia_activa is None else None),
         concepto_cobro_id=concepto_cobro_id,
         estado=estado,
         debito=debito,

@@ -30,13 +30,14 @@ describe('servicios de facturación', () => {
       estado: 'pendiente',
       buscar: 'c4341acf',
       alumnoId: 'alumno-1',
+      familiaResponsableId: 'familia-1',
       conceptoCobroId: 'concepto-1',
       ordenarPor: 'monto_total',
       direccion: 'desc',
     })
 
     expect(fetchMock.mock.calls[0][0]).toContain(
-      '/facturacion/facturas?pagina=2&tamanio=10&estado=pendiente&buscar=c4341acf&alumno_id=alumno-1&concepto_cobro_id=concepto-1&ordenar_por=monto_total&direccion=desc',
+      '/facturacion/facturas?pagina=2&tamanio=10&estado=pendiente&buscar=c4341acf&alumno_id=alumno-1&familia_responsable_id=familia-1&concepto_cobro_id=concepto-1&ordenar_por=monto_total&direccion=desc',
     )
   })
 
