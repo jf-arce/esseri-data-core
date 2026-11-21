@@ -38,7 +38,7 @@ from src.facturacion.models import (
     ResponsableEconomico,
 )
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate, FacturaUpdate
-from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
+from src.familias_alumnos.models import Alumno, Familia
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
 from src.workflows.eventos_service import emit_event
@@ -405,19 +405,12 @@ def generar_pdf_factura(factura: Factura, alumno: Alumno) -> bytes:
 def _filtros_alcance(
     *,
     alumno_id: uuid.UUID | None = None,
-    familia_id: uuid.UUID | None = None,
     familia_responsable_id: uuid.UUID | None = None,
 ) -> list:
     """Filtros de alcance compartidos por el listado y los ciclos disponibles."""
     filtros = []
     if alumno_id is not None:
         filtros.append(Inscripcion.alumno_id == alumno_id)
-    if familia_id is not None:
-        filtros.append(
-            Inscripcion.alumno_id.in_(
-                select(FamiliaAlumno.alumno_id).where(FamiliaAlumno.familia_id == familia_id)
-            )
-        )
     if familia_responsable_id is not None:
         filtros.append(
             Factura.responsable_economico_id.in_(
@@ -435,7 +428,6 @@ def listar_facturas(
     pagina: int,
     tamanio: int,
     alumno_id: uuid.UUID | None = None,
-    familia_id: uuid.UUID | None = None,
     familia_responsable_id: uuid.UUID | None = None,
     concepto_cobro_id: uuid.UUID | None = None,
     estado: str | None = None,
@@ -449,7 +441,6 @@ def listar_facturas(
 ) -> tuple[list[Factura], int]:
     filtros = _filtros_alcance(
         alumno_id=alumno_id,
-        familia_id=familia_id,
         familia_responsable_id=familia_responsable_id,
     )
     consulta = (
@@ -518,13 +509,11 @@ def listar_ciclos_facturacion(
     db: Session,
     *,
     alumno_id: uuid.UUID | None = None,
-    familia_id: uuid.UUID | None = None,
     familia_responsable_id: uuid.UUID | None = None,
 ) -> list[str]:
     """Ciclos lectivos con facturas dentro del alcance pedido, del más nuevo al más viejo."""
     filtros = _filtros_alcance(
         alumno_id=alumno_id,
-        familia_id=familia_id,
         familia_responsable_id=familia_responsable_id,
     )
     consulta = (

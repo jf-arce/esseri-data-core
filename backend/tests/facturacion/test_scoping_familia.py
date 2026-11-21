@@ -1,4 +1,39 @@
-"""El rol familia solo accede a las facturas, pagos y cuentas de sus alumnos."""
+"""El rol familia solo accede a las facturas y pagos de su responsabilidad económica."""
+
+import uuid
+
+import pytest
+from sqlalchemy import select
+
+from src.auth import sesion_service
+from src.auth.models import Rol, Usuario, UsuarioRol
+from src.familias_alumnos.models import FamiliaAlumno
+
+PASSWORD_VALIDA = "una-contrasenia-larga"
+
+
+@pytest.fixture()
+def client_familia_c(client, client_familia, db_session, escenario_dos_familias):
+    """Familia C: vinculada al alumno de factura_a, sin responsabilidad económica."""
+    usuario = Usuario(
+        id=uuid.uuid4(),
+        email="familia.c@esseri.edu.ar",
+        password_hash=sesion_service.hashear_password(PASSWORD_VALIDA),
+        auth_provider="local",
+        estado="activo",
+        persona_id=escenario_dos_familias["persona_familia_c"],
+    )
+    db_session.add(usuario)
+    db_session.flush()
+    rol = db_session.scalar(select(Rol).where(Rol.codigo == "familia"))
+    db_session.add(UsuarioRol(usuario_id=usuario.id, rol_id=rol.id))
+    db_session.commit()
+
+    respuesta = client.post(
+        "/auth/login", json={"email": usuario.email, "password": PASSWORD_VALIDA}
+    )
+    assert respuesta.status_code == 200
+    return client
 
 
 def test_familia_lista_solo_sus_facturas(client_familia, escenario_dos_familias):
@@ -37,6 +72,40 @@ def test_familia_descarga_solo_el_comprobante_de_sus_pagos(client_familia, escen
     assert propio.status_code == 200
     assert propio.content == b"%PDF"
     assert ajeno.status_code == 403
+
+
+def test_familia_vinculada_sin_responsabilidad_no_ve_facturas(
+    client_familia_c, escenario_dos_familias
+):
+    lista = client_familia_c.get("/facturacion/facturas")
+    detalle = client_familia_c.get(f"/facturacion/facturas/{escenario_dos_familias['factura_a']}")
+    ciclos = client_familia_c.get("/facturacion/facturas/ciclos")
+
+    assert lista.status_code == 200
+    assert lista.json()["items"] == []
+    assert lista.json()["total"] == 0
+    assert detalle.status_code == 403
+    assert ciclos.status_code == 200
+    assert ciclos.json() == []
+
+
+def test_familia_responsable_economica_ve_sus_facturas_sin_vinculo(
+    client_familia, db_session, escenario_dos_familias
+):
+    db_session.query(FamiliaAlumno).filter_by(
+        familia_id=escenario_dos_familias["familia_a"],
+        alumno_id=escenario_dos_familias["alumno_a"],
+    ).delete()
+    db_session.commit()
+
+    lista = client_familia.get("/facturacion/facturas")
+    detalle = client_familia.get(f"/facturacion/facturas/{escenario_dos_familias['factura_a']}")
+
+    assert lista.status_code == 200
+    assert [factura["id"] for factura in lista.json()["items"]] == [
+        str(escenario_dos_familias["factura_a"])
+    ]
+    assert detalle.status_code == 200
 
 
 def test_familia_solo_ve_su_deuda(client_familia, escenario_dos_familias):

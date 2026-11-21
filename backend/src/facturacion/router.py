@@ -106,7 +106,7 @@ def _denegar_consulta_administrativa_familia(familia_activa: Familia | None) -> 
 def _familia_responsable_efectiva(
     familia_activa: Familia | None, familia_responsable_id: uuid.UUID | None
 ) -> uuid.UUID | None:
-    """Filtro administrativo por familia responsable; el rol familia solo puede usar la propia."""
+    """Familia que limita las facturas: la propia del rol familia, o la pedida por staff."""
     if familia_activa is None:
         return familia_responsable_id
     if familia_responsable_id is not None and familia_responsable_id != familia_activa.id:
@@ -114,7 +114,7 @@ def _familia_responsable_efectiva(
             status_code=403,
             detail="No podés consultar las facturas de otra familia",
         )
-    return None
+    return familia_activa.id
 
 
 @router.get("/familia/me", response_model=FacturacionFamiliaRead)
@@ -383,7 +383,6 @@ def listar_facturas(
         pagina=pagina,
         tamanio=tamanio,
         alumno_id=alumno_id,
-        familia_id=familia_activa.id if familia_activa is not None else None,
         familia_responsable_id=_familia_responsable_efectiva(
             familia_activa, familia_responsable_id
         ),
@@ -416,7 +415,6 @@ def listar_ciclos_facturas(
     return facturas_service.listar_ciclos_facturacion(
         db,
         alumno_id=alumno_id,
-        familia_id=familia_activa.id if familia_activa is not None else None,
         familia_responsable_id=_familia_responsable_efectiva(
             familia_activa, familia_responsable_id
         ),
