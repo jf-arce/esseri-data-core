@@ -12,6 +12,7 @@ from src.asistente.seudonimos_service import (
     neutralizar_alias_no_emitidos,
     obtener_o_crear_alias,
     preparar_entrada,
+    _sin_datos_de_contacto,
     resolver_alias,
 )
 from src.models import Persona
@@ -209,3 +210,12 @@ class TestFiltroAlias:
     def test_un_alias_de_docente_partido_en_trozos_se_conserva(self):
         salida = self._correr(["Da [DOC", "ENTE:", "2] hoy"], {"[DOCENTE:2]"})
         assert salida == "Da [DOCENTE:2] hoy"
+
+
+class TestDatosDeContacto:
+    def test_el_codigo_de_un_lote_de_debito_no_se_toma_por_telefono(self):
+        texto = "¿Qué pasó con el lote LD-2026-11-001?"
+        assert _sin_datos_de_contacto(texto) == texto
+
+    def test_un_telefono_sigue_ocultandose(self):
+        assert _sin_datos_de_contacto("Llamá al 011 4567-8901") == "Llamá al [teléfono]"

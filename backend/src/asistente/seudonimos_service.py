@@ -36,7 +36,8 @@ from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
 PATRON_ALIAS = re.compile(r"\[(ALUMNO|FAMILIA|DOCENTE):(\d+)\]")
 _PATRON_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 _PATRON_DNI = re.compile(r"(?<![\d.])\d{1,2}\.?\d{3}\.?\d{3}(?![\d.]*\d)")
-_PATRON_TELEFONO = re.compile(r"(?<![\w])\+?\d[\d\s().-]{6,}\d")
+# `(?<!LD-)`: el código de un lote de débito (LD-2026-11-001) no es un teléfono.
+_PATRON_TELEFONO = re.compile(r"(?<![\w])(?<![Ll][Dd]-)\+?\d[\d\s().-]{6,}\d")
 _PATRON_FECHA_ISO = re.compile(r"\d{4}-\d{2}-\d{2}")
 _PATRON_PALABRA = re.compile(r"[^\W\d_]{3,}")
 
