@@ -666,6 +666,90 @@ def seed_history(db: Session, school: School, reference: date) -> None:
     db.flush()
 
 
+def seed_conversations(db: Session, school: School, reference: date) -> None:
+    """Three historical contextual threads on resolved absence explanations.
+
+    The protagonist's rejected debit is deliberately left without a thread: the family
+    starts it live from the debit notice.
+    """
+    from src.academico.models import JustificacionInasistencia
+    from src.auth.models import Usuario
+    from src.comunicaciones.conversaciones_schemas import MensajeCreate
+    from src.comunicaciones.conversaciones_service import abrir, cambiar_estado, responder
+    from src.comunicaciones.models import ConversacionContextual, MensajeConversacion
+
+    excuses = list(
+        db.scalars(
+            select(JustificacionInasistencia)
+            .where(JustificacionInasistencia.familia_id.in_([f.id for f in school.families[:30]]))
+            .order_by(JustificacionInasistencia.familia_id)
+            .limit(3)
+        )
+    )
+    if len(excuses) < 3:
+        raise RuntimeError(
+            "The institutional demo needs three explained absences for chat history."
+        )
+    family_index = {family.id: index for index, family in enumerate(school.families)}
+    turns = (
+        (
+            0,
+            "Buen día, quería consultar por la justificación de la ausencia de mi hijo. "
+            "¿Quedó registrada?",
+            "Buen día. Sí, la justificación quedó aprobada y la ausencia figura como "
+            "justificada en el legajo.",
+            True,
+        ),
+        (
+            1,
+            "Adjuntamos el certificado médico de la semana pasada. ¿Necesitan algo más?",
+            "Recibimos el certificado. Con eso alcanza; ya está cargado en el sistema.",
+            False,
+        ),
+        (2, "Quería saber si falta algún documento para completar la justificación.", None, False),
+    )
+    threads = Session(bind=db.connection(), join_transaction_mode="create_savepoint")
+    with threads:
+        for offset, family_text, admin_text, resolved in turns:
+            excuse = excuses[offset]
+            owner = threads.get(
+                Usuario, stable_id(f"account:familia-{family_index[excuse.familia_id] + 1:02}")
+            )
+            hilo = abrir(
+                threads,
+                owner,
+                "familia",
+                "justificacion_inasistencia",
+                excuse.id,
+                MensajeCreate(texto=family_text, clave=stable_id(f"chat:{offset}:family")),
+            )
+            if admin_text:
+                responder(
+                    threads,
+                    school.admin,
+                    "administracion",
+                    hilo.id,
+                    MensajeCreate(texto=admin_text, clave=stable_id(f"chat:{offset}:admin")),
+                )
+            if resolved:
+                cambiar_estado(threads, school.admin, "administracion", hilo.id, resolver=True)
+            # Backdate the thread so the inbox reads as institutional history.
+            day = reference - timedelta(days=12 - offset * 2)
+            messages = list(
+                threads.scalars(
+                    select(MensajeConversacion)
+                    .where(MensajeConversacion.conversacion_id == hilo.id)
+                    .order_by(MensajeConversacion.created_at)
+                )
+            )
+            for position, message in enumerate(messages):
+                message.created_at = datetime.combine(day, time(9 + position), UTC)
+            threads.get(ConversacionContextual, hilo.id).updated_at = datetime.combine(
+                day, time(9 + len(messages) - 1), UTC
+            )
+        threads.flush()
+
+
 def seed_offline_workflow(db: Session, school: School, reference: date) -> None:
     from src.ia_sugerencias.service import detectar_patrones
     from src.models import EventLog
@@ -856,6 +940,7 @@ def main() -> None:
             if school:
                 seed_finance(db, school, args.reference_date)
                 seed_history(db, school, args.reference_date)
+                seed_conversations(db, school, args.reference_date)
                 seed_offline_workflow(db, school, args.reference_date)
         print(
             "Institutional demo loaded."

@@ -264,6 +264,7 @@ def test_institutional_demo_through_real_api(seed_module, db_session, client, mo
     from src.asistente import herramientas
     from src.asistente.herramientas_base import ContextoHerramienta
     from src.auth.models import Usuario
+    from src.comunicaciones.models import ConversacionContextual, MensajeConversacion
     from src.facturacion.cobranzas_importacion_service import METODO_ID
     from src.facturacion.models import DebitoCobranza, MetodoPago
     from src.ia_sugerencias.models import IaSugerencia
@@ -286,10 +287,13 @@ def test_institutional_demo_through_real_api(seed_module, db_session, client, mo
     school = seed_module.seed_school(db, reference, password)
     seed_module.seed_finance(db, school, reference)
     seed_module.seed_history(db, school, reference)
+    seed_module.seed_conversations(db, school, reference)
     seed_module.seed_offline_workflow(db, school, reference)
     db.commit()
     assert db.query(WorkflowExecution).filter_by(estado="exitoso").count() == 1
     assert db.query(IaSugerencia).count() > 0
+    assert db.query(ConversacionContextual).count() == 3
+    assert db.query(MensajeConversacion).count() == 5
 
     def login(alias):
         client.cookies.clear()
@@ -313,6 +317,13 @@ def test_institutional_demo_through_real_api(seed_module, db_session, client, mo
     login("admin")
     assert ok(client.get("/panel-admin/indicadores-administracion"))
     assert len(ok(client.get("/proveedores-compras/proveedores"))) == 15
+    inbox = ok(client.get("/comunicaciones/conversaciones", params={"limite": 10}))
+    assert inbox["total"] == 3
+    assert {item["estado"] for item in inbox["items"]} == {
+        "resuelta",
+        "pendiente_familia",
+        "pendiente_administracion",
+    }
 
     prefix = "/facturacion/cobranzas-simuladas"
     assert (
@@ -441,5 +452,6 @@ def test_institutional_demo_through_real_api(seed_module, db_session, client, mo
     )
     assert client.get(prefix).status_code == 403
     assert client.get("/asistente/conversaciones").status_code == 403
+    assert ok(client.get("/comunicaciones/conversaciones"))["total"] == 0
     login("familia-29")
     assert not ok(client.get("/facturacion/familia/me"))["avisos_debito"]
