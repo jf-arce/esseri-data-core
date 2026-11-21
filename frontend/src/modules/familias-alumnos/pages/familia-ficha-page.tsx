@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { MoreHorizontalIcon, Trash2Icon, UserPlusIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
@@ -45,6 +45,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { formatearMoneda } from '@/modules/facturacion/utils'
+import { FacturasVinculadas } from '@/modules/facturacion/components/facturas-vinculadas'
 import { listarDeudaFamilias } from '@/modules/facturacion/services/listar-deuda-familias'
 import { getFamiliaById, deleteFamilia } from '../services/create-familia'
 import { listarVinculosFamilia } from '../services/listar-vinculos-familia'
@@ -56,6 +57,14 @@ import type { Familia, Vinculo } from '../types'
 export function FamiliaFichaPage() {
   const { familiaId } = useParams<{ familiaId: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabInicial = searchParams.get('tab') === 'facturacion' ? 'facturacion' : 'datos'
+  function cambiarTab(valor: string) {
+    const siguientes = new URLSearchParams(searchParams)
+    if (valor === 'datos') siguientes.delete('tab')
+    else siguientes.set('tab', valor)
+    setSearchParams(siguientes, { replace: true })
+  }
   const [familia, setFamilia] = useState<Familia>()
   const [vinculos, setVinculos] = useState<Vinculo[]>([])
   const [resultadoFacturacion, setResultadoFacturacion] = useState<{
@@ -194,7 +203,7 @@ export function FamiliaFichaPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="datos">
+      <Tabs defaultValue={tabInicial} onValueChange={cambiarTab}>
         <TabsList>
           <TabsTrigger value="datos">Datos</TabsTrigger>
           <TabsTrigger value="alumnos">Alumnos</TabsTrigger>
@@ -349,7 +358,7 @@ export function FamiliaFichaPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="facturacion">
+        <TabsContent value="facturacion" className="flex flex-col gap-5">
           <Card className="p-0">
             <div className="border-b border-borde px-6 py-4">
               <h3 className="text-base font-semibold">Resumen de facturación</h3>
@@ -389,6 +398,11 @@ export function FamiliaFichaPage() {
               </p>
             )}
           </Card>
+
+          <div className="flex flex-col gap-3">
+            <h3 className="text-base font-semibold">Facturas de la familia</h3>
+            <FacturasVinculadas key={familia.id} familiaResponsableId={familia.id} />
+          </div>
         </TabsContent>
 
         <TabsContent value="conversaciones">

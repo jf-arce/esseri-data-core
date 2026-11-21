@@ -92,7 +92,7 @@ export function DeudaFamiliasTabla({
               <TableRow key={deuda.familia_id}>
                 <TableCell className="max-w-[12rem] whitespace-normal @3xl/main:max-w-[14rem] @3xl/main:truncate @3xl/main:whitespace-nowrap">
                   <Link
-                    to={`/familias-alumnos/familias/${deuda.familia_id}`}
+                    to={`/familias-alumnos/familias/${deuda.familia_id}?tab=facturacion`}
                     className="font-medium hover:text-violeta hover:underline"
                   >
                     {deuda.familia_apellido}, {deuda.familia_nombre}

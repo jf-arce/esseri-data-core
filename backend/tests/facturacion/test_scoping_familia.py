@@ -104,6 +104,86 @@ def test_staff_de_lectura_sigue_viendo_todas_las_facturas(
     assert respuesta.json()["total"] == 2
 
 
+def test_staff_filtra_las_facturas_por_familia(client_solo_lectura, escenario_dos_familias):
+    respuesta = client_solo_lectura.get(
+        "/facturacion/facturas",
+        params={"familia_responsable_id": str(escenario_dos_familias["familia_a"])},
+    )
+
+    assert respuesta.status_code == 200
+    assert [factura["id"] for factura in respuesta.json()["items"]] == [
+        str(escenario_dos_familias["factura_a"])
+    ]
+    assert respuesta.json()["total"] == 1
+
+
+def test_staff_filtra_por_familia_responsable_y_no_por_vinculo(
+    client_solo_lectura, escenario_dos_familias
+):
+    """familia_c está vinculada al alumno de factura_a pero no es su responsable económica."""
+    respuesta = client_solo_lectura.get(
+        "/facturacion/facturas",
+        params={"familia_responsable_id": str(escenario_dos_familias["familia_c"])},
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["items"] == []
+    assert respuesta.json()["total"] == 0
+
+
+def test_familia_no_puede_consultar_otra_familia_con_el_filtro(
+    client_familia, escenario_dos_familias
+):
+    respuesta = client_familia.get(
+        "/facturacion/facturas",
+        params={"familia_responsable_id": str(escenario_dos_familias["familia_b"])},
+    )
+
+    assert respuesta.status_code == 403
+    assert respuesta.json()["detail"] == "No podés consultar las facturas de otra familia"
+
+
+def test_familia_puede_consultar_su_propia_familia_con_el_filtro(
+    client_familia, escenario_dos_familias
+):
+    respuesta = client_familia.get(
+        "/facturacion/facturas",
+        params={"familia_responsable_id": str(escenario_dos_familias["familia_a"])},
+    )
+
+    assert respuesta.status_code == 200
+    assert [factura["id"] for factura in respuesta.json()["items"]] == [
+        str(escenario_dos_familias["factura_a"])
+    ]
+
+
+def test_staff_consulta_los_ciclos_con_facturas(client_solo_lectura, escenario_dos_familias):
+    respuesta = client_solo_lectura.get(
+        "/facturacion/facturas/ciclos",
+        params={"familia_responsable_id": str(escenario_dos_familias["familia_a"])},
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == ["2027"]
+
+
+def test_familia_consulta_solo_los_ciclos_de_sus_facturas(client_familia, escenario_dos_familias):
+    respuesta = client_familia.get("/facturacion/facturas/ciclos")
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == ["2027"]
+
+
+def test_familia_no_puede_consultar_ciclos_de_otra_familia(client_familia, escenario_dos_familias):
+    respuesta = client_familia.get(
+        "/facturacion/facturas/ciclos",
+        params={"familia_responsable_id": str(escenario_dos_familias["familia_b"])},
+    )
+
+    assert respuesta.status_code == 403
+    assert respuesta.json()["detail"] == "No podés consultar las facturas de otra familia"
+
+
 def test_staff_de_lectura_sigue_viendo_todas_las_deudas(
     client_solo_lectura, escenario_dos_familias
 ):

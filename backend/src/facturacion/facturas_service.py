@@ -402,6 +402,33 @@ def generar_pdf_factura(factura: Factura, alumno: Alumno) -> bytes:
     return buffer.getvalue()
 
 
+def _filtros_alcance(
+    *,
+    alumno_id: uuid.UUID | None = None,
+    familia_id: uuid.UUID | None = None,
+    familia_responsable_id: uuid.UUID | None = None,
+) -> list:
+    """Filtros de alcance compartidos por el listado y los ciclos disponibles."""
+    filtros = []
+    if alumno_id is not None:
+        filtros.append(Inscripcion.alumno_id == alumno_id)
+    if familia_id is not None:
+        filtros.append(
+            Inscripcion.alumno_id.in_(
+                select(FamiliaAlumno.alumno_id).where(FamiliaAlumno.familia_id == familia_id)
+            )
+        )
+    if familia_responsable_id is not None:
+        filtros.append(
+            Factura.responsable_economico_id.in_(
+                select(ResponsableEconomico.id).where(
+                    ResponsableEconomico.familia_id == familia_responsable_id
+                )
+            )
+        )
+    return filtros
+
+
 def listar_facturas(
     db: Session,
     *,
@@ -409,16 +436,22 @@ def listar_facturas(
     tamanio: int,
     alumno_id: uuid.UUID | None = None,
     familia_id: uuid.UUID | None = None,
+    familia_responsable_id: uuid.UUID | None = None,
     concepto_cobro_id: uuid.UUID | None = None,
     estado: str | None = None,
     debito: str | None = None,
     buscar: str | None = None,
     emision_desde: date | None = None,
     emision_hasta: date | None = None,
+    ciclo_lectivo: str | None = None,
     ordenar_por: str = "fecha_vencimiento",
     direccion: str = "asc",
 ) -> tuple[list[Factura], int]:
-    filtros = []
+    filtros = _filtros_alcance(
+        alumno_id=alumno_id,
+        familia_id=familia_id,
+        familia_responsable_id=familia_responsable_id,
+    )
     consulta = (
         select(Factura, Alumno.id.label("alumno_id"), Persona.nombre, Persona.apellido)
         .join(Inscripcion, Factura.inscripcion_id == Inscripcion.id)
@@ -430,14 +463,6 @@ def listar_facturas(
         .select_from(Factura)
         .join(Inscripcion, Factura.inscripcion_id == Inscripcion.id)
     )
-    if alumno_id is not None:
-        filtros.append(Inscripcion.alumno_id == alumno_id)
-    if familia_id is not None:
-        filtros.append(
-            Inscripcion.alumno_id.in_(
-                select(FamiliaAlumno.alumno_id).where(FamiliaAlumno.familia_id == familia_id)
-            )
-        )
     if concepto_cobro_id is not None:
         filtros.append(Factura.detalles.any(DetalleFactura.concepto_cobro_id == concepto_cobro_id))
     if estado is not None:
@@ -462,6 +487,8 @@ def listar_facturas(
         filtros.append(Factura.fecha_emision >= emision_desde)
     if emision_hasta is not None:
         filtros.append(Factura.fecha_emision <= emision_hasta)
+    if ciclo_lectivo is not None:
+        filtros.append(Inscripcion.ciclo_lectivo == ciclo_lectivo)
     if filtros:
         consulta = consulta.where(*filtros)
         consulta_total = consulta_total.where(*filtros)
@@ -485,6 +512,30 @@ def listar_facturas(
         factura.alumno_apellido = alumno_apellido
         facturas.append(factura)
     return facturas, total
+
+
+def listar_ciclos_facturacion(
+    db: Session,
+    *,
+    alumno_id: uuid.UUID | None = None,
+    familia_id: uuid.UUID | None = None,
+    familia_responsable_id: uuid.UUID | None = None,
+) -> list[str]:
+    """Ciclos lectivos con facturas dentro del alcance pedido, del más nuevo al más viejo."""
+    filtros = _filtros_alcance(
+        alumno_id=alumno_id,
+        familia_id=familia_id,
+        familia_responsable_id=familia_responsable_id,
+    )
+    consulta = (
+        select(Inscripcion.ciclo_lectivo)
+        .join(Factura, Factura.inscripcion_id == Inscripcion.id)
+        .distinct()
+        .order_by(Inscripcion.ciclo_lectivo.desc())
+    )
+    if filtros:
+        consulta = consulta.where(*filtros)
+    return list(db.scalars(consulta).all())
 
 
 def actualizar_factura(
