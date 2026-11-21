@@ -261,6 +261,7 @@ def test_demo_mail_capture_accepts_only_fictional_families(seed_module, tmp_path
 def test_institutional_demo_through_real_api(seed_module, db_session, client, monkeypatch):
     import uuid
 
+    from src.academico.models import SolicitudAusenciaPeriodo
     from src.asistente import herramientas
     from src.asistente.herramientas_base import ContextoHerramienta
     from src.auth.models import Usuario
@@ -292,8 +293,9 @@ def test_institutional_demo_through_real_api(seed_module, db_session, client, mo
     db.commit()
     assert db.query(WorkflowExecution).filter_by(estado="exitoso").count() == 1
     assert db.query(IaSugerencia).count() > 0
-    assert db.query(ConversacionContextual).count() == 3
-    assert db.query(MensajeConversacion).count() == 5
+    assert db.query(ConversacionContextual).count() == 24
+    assert db.query(MensajeConversacion).count() == 48
+    assert db.query(SolicitudAusenciaPeriodo).count() == 8
 
     def login(alias):
         client.cookies.clear()
@@ -317,12 +319,13 @@ def test_institutional_demo_through_real_api(seed_module, db_session, client, mo
     login("admin")
     assert ok(client.get("/panel-admin/indicadores-administracion"))
     assert len(ok(client.get("/proveedores-compras/proveedores"))) == 15
-    inbox = ok(client.get("/comunicaciones/conversaciones", params={"limite": 10}))
-    assert inbox["total"] == 3
-    assert {item["estado"] for item in inbox["items"]} == {
-        "resuelta",
-        "pendiente_familia",
-        "pendiente_administracion",
+    inbox = ok(client.get("/comunicaciones/conversaciones", params={"limite": 50}))
+    assert len(inbox["items"]) == 24
+    estados = [item["estado"] for item in inbox["items"]]
+    assert {estado: estados.count(estado) for estado in set(estados)} == {
+        "resuelta": 8,
+        "pendiente_familia": 8,
+        "pendiente_administracion": 8,
     }
 
     prefix = "/facturacion/cobranzas-simuladas"
