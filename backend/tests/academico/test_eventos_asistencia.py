@@ -65,6 +65,7 @@ def test_ausencia_y_justificacion_emiten_sus_eventos_y_el_despachador_los_proces
     assert eventos["inasistencia.justificada"].payload["fecha_resolucion"] == (
         date.today().isoformat()
     )
+    assert eventos["inasistencia.justificada"].payload["estado"] == "aprobada"
 
     # 3. El despachador los toma sin fallar, aunque no haya ninguna regla configurada.
     resumen = procesar_eventos_pendientes(db_session)

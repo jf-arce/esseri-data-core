@@ -529,6 +529,7 @@ def resolver_justificacion(
             "alumno_nombre": _nombre_alumno(db, inscripcion.alumno_id) if inscripcion else "",
             "motivo": motivo.nombre if motivo is not None else "",
             "fecha_resolucion": justificacion.fecha_resolucion.date().isoformat(),
+            "estado": justificacion.estado,
         },
         usuario_id=usuario_id,
     )

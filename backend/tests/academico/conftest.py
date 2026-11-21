@@ -88,6 +88,12 @@ def tipo_inasistencia_justificada(db_session):
                 tipo_dato="fecha",
                 tipo_evento_id=tipo.id,
             ),
+            CampoEvento(
+                nombre_interno="estado",
+                etiqueta="Resultado de la justificación",
+                tipo_dato="texto",
+                tipo_evento_id=tipo.id,
+            ),
         ]
     )
     db_session.commit()

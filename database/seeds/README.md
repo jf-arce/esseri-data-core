@@ -155,7 +155,7 @@ cuenta ya tiene el rol `familia` y la contraseña demo, porque el alta la convie
 no toca su cuenta; antes del alta el portal la muestra vacía. Si ya se finalizó, volver a correr el
 seed crea otra con el aspirante siguiente.
 
-**Loop de inasistencias (#218).** Además crea 4 plantillas y 4 reglas sobre los eventos de asistencia, todas hacia los responsables habilitados de la familia: `Inasistencia: avisar a la familia` y `Tardanza: avisar a la familia` (`notificar` sobre `inasistencia.registrada`, según `tipo_asistencia`), `Inasistencia justificada: avisar a la familia` (`notificar` sobre `inasistencia.justificada`) e `Inasistencia sin justificar: recordatorio` (`generar_recordatorio` a los 2 días, solo si la inasistencia sigue sin justificar). El aviso de justificación es neutral porque el evento no dice si se aprobó o se rechazó. Los emails salen por n8n (`N8N_WEBHOOK_URL`): sin configurar, las ejecuciones quedan `fallido`.
+**Loop de inasistencias (#218).** Además crea 4 plantillas y 4 reglas sobre los eventos de asistencia, todas hacia los responsables habilitados de la familia: `Inasistencia: avisar a la familia` y `Tardanza: avisar a la familia` (`notificar` sobre `inasistencia.registrada`, según `tipo_asistencia`), `Inasistencia justificada: avisar a la familia` (`notificar` sobre `inasistencia.justificada`) e `Inasistencia sin justificar: recordatorio` (`generar_recordatorio` a los 2 días, solo si la inasistencia sigue sin justificar). El aviso de justificación incluye el resultado: el evento envía `{{estado}}` (`aprobada` o `rechazada`). Los emails salen por n8n (`N8N_WEBHOOK_URL`): sin configurar, las ejecuciones quedan `fallido`.
 
 ### Regenerar la demo
 
