@@ -10,12 +10,21 @@ Objective: a reproducible school dataset and a live debit rehearsal without exte
 - S4 — “Prepará los usuarios y relaciones para que este escenario funcione, pero dejá la conversación nueva sin iniciar.” Identify approved, rejected and pending protagonists; verify chat and current agent capabilities without widening permissions.
 - S5 — “No hagas cambios destructivos sobre datos existentes ni ejecutes nada en producción.” Provide repeatable seed and isolated reset, without external integrations during historical load.
 - S6 — “No alcanza con verificar que los INSERT funcionaron.” Deliver commands, access, checklist, observed evidence, walkthrough and limitations.
+- S7 — “Ampliá a aproximadamente **20–30 conversaciones históricas realistas**”. Use only supported contextual trámites, varied families, dates, administrative authors and states; keep `familia-21` without a thread.
+- S8 — “Verificá que la seed permita visualizar correctamente” subjects, teachers, divisions, weekly schedules, activities and institutional events through the real Administration, Family and Teacher views.
+- S9 — “El lote principal pueda exportar exactamente 30 operaciones.” Alma approved, Bruno rejected, Mateo available for a separate lot; no processed lot or live-flow consequence preloaded.
+- S10 — “Probá el siguiente recorrido completo” from workflow creation to audit, including reimport, chat and the conversational agent within its real permissions.
+- S11 — “Revisá la dependencia de los helpers privados de la seed 04 para evitar que cambios posteriores rompan la seed 08.”
 
 ## Tasks
 
 - T1 · S1 S2 S4 S5 · inline, atomic dataset and isolation share one seam · implementation and independent guard proof observed · `7764e2a`
 - T2 · S3 S4 · inline, export fixture uses T1's invoice names and existing production codec · API lifecycle and capture tested; family-to-administration chat is not implemented · `7764e2a`
 - T3 · S2 S3 S4 S6 · inline, runbook and integration proof · calendar, teacher portal, management panels and debit candidates viewed in browser; bank lifecycle exercised via API · `7764e2a`
+- T4 · S7 · inline, 24 contextual threads (16 justification, 8 period absence) plus 8 period requests; 8 open, 8 awaiting family, 8 resolved · in progress
+- T5 · S8 · inline, browser proof of family calendar, teacher divisions and management structure · pending
+- T6 · S9 S10 · inline, fresh disposable DB, full debit lifecycle, capture, chat, agent tools, audit and reimport · pending
+- T7 · S10 S11 · inline, public 04 helpers and runbook update · pending
 
 ## Log
 
@@ -295,3 +304,116 @@ La meta es que ESSERI se vea como una institución real en funcionamiento y que 
 - L11 — The risk reviewer completed after the stop. Withdrew that declaration with the exact bound command, re-consulted STATUS, and captured all four lens results through `review capture-result --input`. Go approved lineage `review-2da106aa173d3f84`; the exact acknowledgement burned authority (`gentle-ai.review-acknowledged/v1`). Warnings only; no blockers.
 - L12 — Closed concrete warnings in a follow-up commit: per-run disposable Postgres password in the guide, capture file removed when the bind fails, reference-date clamp so attendance and enrollment never precede the term, named payment/rejection constants, and SQLAlchemy errors reported as clean CLI refusals. Added tests for bind failure and the March boundary. 15 focused tests and the 60 debit regressions pass; this follow-up commit is outside the approved candidate `7764e2a`.
 - L13 — Rebased the three commits onto `origin/main` (`37cfec9`, 64 commits ahead, no conflicts). Main now ships contextual family↔administration conversations (`conversacion_contextual`) and Assistant debit tools (`resumen_debitos`, `lotes_debito`, `facturas_para_debitar`). Added `seed_conversations`: three backdated historical threads on explained absences with audit rows, and no protagonist thread so the rejected-debit chat starts live. Updated the runbook step 6, step 7 and limitations. Focused suite still 15 passed; 75 passed including the 60 debit regressions.
+
+- L14 — Second-pass request (verbatim):
+
+```markdown
+## ESSERI — Ajustes finales de la seed institucional para la demo
+
+La seed 08 ya está implementada y tiene un volumen de datos suficiente. Quiero realizar una segunda pasada para mejorar el realismo y validar los recorridos de la demo.
+
+**No rehagas la seed desde cero ni agregues datos masivos innecesariamente.**
+
+### 1. Sugerencias de IA
+
+No vamos a demostrar el módulo de sugerencias de IA, por lo tanto no hace falta ampliarlo ni generar nuevos escenarios para ese módulo.
+
+El agente conversacional sí forma parte de la demo y debe mantenerse operativo.
+
+### 2. Conversaciones históricas
+
+Actualmente tenemos solamente 3 conversaciones con 5 mensajes.
+
+Ampliá a aproximadamente **20–30 conversaciones históricas realistas**, incluyendo:
+
+- Consultas sobre justificaciones de inasistencias.
+- Consultas administrativas.
+- Consultas sobre cuotas y pagos.
+- Consultas sobre actividades escolares.
+- Solicitudes de información.
+- Conversaciones abiertas, respondidas y cerradas, según los estados disponibles.
+
+Distribuí las conversaciones entre distintas familias, fechas y usuarios administrativos.
+
+Respetá las relaciones, permisos y reglas reales del chat.
+
+**Importante:** el chat de la familia protagonista `familia-21` (Bruno, débito rechazado) debe permanecer sin iniciar para demostrarlo en vivo.
+
+### 3. Calendarios
+
+Verificá que la seed permita visualizar correctamente:
+
+- Materias y docentes asignados.
+- Cursos y divisiones.
+- Horarios semanales.
+- Clases y actividades escolares.
+- Eventos institucionales, pasados y futuros.
+
+Validá las vistas de:
+
+- Administración.
+- Portal Familia.
+- Portal Docente.
+
+Los calendarios deben mostrar información consistente y respetar los permisos y relaciones de cada perfil.
+
+No alcanza con tener los registros en PostgreSQL: verificá que aparezcan correctamente en las interfaces.
+
+### 4. Débitos automáticos
+
+Mantené preparado el escenario bancario de la demo.
+
+Verificá que:
+
+- El lote principal pueda exportar exactamente 30 operaciones.
+- El caso de `familia-01` (Alma) corresponda a un débito aprobado.
+- El caso de `familia-21` (Bruno) corresponda a un débito rechazado.
+- El caso de `familia-29` (Mateo) pueda utilizarse en un lote separado.
+- Los resultados bancarios sean compatibles con el formato real de importación.
+
+No precargues lotes procesados ni las consecuencias del flujo en vivo.
+
+### 5. Validación end-to-end
+
+Probá el siguiente recorrido completo:
+
+1. Crear un workflow que envíe comunicaciones según resultados de débitos.
+2. Exportar débitos.
+3. Importar resultados bancarios.
+4. Verificar actualización de facturas, pagos y deudas.
+5. Comprobar el envío del email de prueba y su visualización en el Portal Familia.
+6. Iniciar el chat de Bruno y responder desde administración.
+7. Consultar al agente conversacional sobre lo sucedido.
+8. Verificar la trazabilidad en auditoría.
+
+Validá también que reimportar el mismo archivo no genere duplicaciones de pagos, comunicaciones ni ejecuciones.
+
+### 6. Seguridad y reproducibilidad
+
+- Conservá la idempotencia de la seed.
+- Utilizá únicamente datos ficticios.
+- No afectes datos reales ni producción.
+- Evitá envíos de correos a destinatarios no autorizados.
+- Permití reiniciar el escenario de la demo de manera controlada.
+- Revisá la dependencia de los helpers privados de la seed 04 para evitar que cambios posteriores rompan la seed 08.
+
+### 7. Entrega
+
+Implementá los ajustes necesarios y ejecutá las pruebas.
+
+Al finalizar, entregame:
+
+- Resumen de cambios realizados.
+- Cantidades definitivas de registros.
+- Resultado de validación de calendarios y portales.
+- Resultado de las pruebas end-to-end.
+- Problemas detectados y pendientes.
+- Comandos para ejecutar y reiniciar la demo.
+- Usuarios y escenarios concretos que utilizaremos durante la presentación.
+
+**Objetivo:** tener una base institucional realista y un flujo completo de débitos, comunicaciones, chat, agente y auditoría funcionando de punta a punta.
+
+Priorizá la estabilidad y la coherencia del sistema por encima de agregar más registros.
+```
+
+- L15 — Chat contexts are limited to debits, justifications and period-absence requests. Historical fee/activity threads have no supported context; only absence-related threads are seeded rather than inventing a free-form chat.
