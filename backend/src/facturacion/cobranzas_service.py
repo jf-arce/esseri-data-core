@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from sqlalchemy import String, cast, func, or_, select, text, update
+from sqlalchemy import String, case, cast, func, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -42,6 +42,7 @@ from src.facturacion.models import (
     Factura,
     FacturaCobranzaDemo,
     ImportacionCobranza,
+    ImportacionCobranzaDetalle,
     LoteCobranza,
     Pago,
 )
@@ -834,6 +835,88 @@ def listar_liberaciones(db: Session, *, pagina: int, tamanio: int) -> Liberacion
         for lote in lotes
     ]
     return LiberacionesRead(items=items, total=total, pagina=pagina, tamanio=tamanio)
+
+
+@dataclass(frozen=True)
+class ResumenDebitosPeriodo:
+    periodo: str
+    lotes: int
+    enviados: int
+    cobrados: int
+    rechazados: int
+    sin_respuesta: int
+    importe_enviado: Decimal
+    importe_cobrado: Decimal
+    importe_rechazado: Decimal
+
+
+def resumen_debitos_por_periodo(
+    db: Session, *, desde: str, hasta: str
+) -> tuple[list[ResumenDebitosPeriodo], dict[str, int]]:
+    """Débitos por período de lote (`AAAA-MM`, ambos inclusive) y motivos de rechazo con conteo.
+
+    Solo lectura. Un débito sin `resultado` todavía no tiene respuesta importada. Los motivos
+    salen de la importación confirmada del lote y se devuelven como `código -> cantidad`.
+    """
+    periodo = func.coalesce(
+        LoteCobranza.periodo, func.substr(cast(LoteCobranza.fecha, String), 1, 7)
+    )
+    cobrado = DebitoCobranza.resultado == formato.COBRADO
+    rechazado = DebitoCobranza.resultado == formato.RECHAZADO
+    filas = db.execute(
+        select(
+            periodo,
+            func.count(func.distinct(LoteCobranza.id)),
+            func.count(DebitoCobranza.id),
+            func.coalesce(func.sum(case((cobrado, 1), else_=0)), 0),
+            func.coalesce(func.sum(case((rechazado, 1), else_=0)), 0),
+            func.coalesce(func.sum(DebitoCobranza.importe), Decimal("0.00")),
+            func.coalesce(func.sum(case((cobrado, DebitoCobranza.importe), else_=0)), 0),
+            func.coalesce(func.sum(case((rechazado, DebitoCobranza.importe), else_=0)), 0),
+        )
+        .select_from(LoteCobranza)
+        .join(DebitoCobranza, DebitoCobranza.lote_id == LoteCobranza.id)
+        .where(periodo >= desde, periodo <= hasta)
+        .group_by(periodo)
+        .order_by(periodo)
+    ).all()
+    resumen = [
+        ResumenDebitosPeriodo(
+            periodo=str(per),
+            lotes=int(lotes),
+            enviados=int(enviados),
+            cobrados=int(cobrados),
+            rechazados=int(rechazados),
+            sin_respuesta=int(enviados) - int(cobrados) - int(rechazados),
+            importe_enviado=Decimal(importe),
+            importe_cobrado=Decimal(imp_cobrado),
+            importe_rechazado=Decimal(imp_rechazado),
+        )
+        for per, lotes, enviados, cobrados, rechazados, importe, imp_cobrado, imp_rechazado in filas
+    ]
+    motivos: dict[str, int] = {}
+    for codigo, cantidad in db.execute(
+        select(
+            ImportacionCobranzaDetalle.codigo,
+            func.count(func.distinct(ImportacionCobranzaDetalle.debito_id)),
+        )
+        .join(
+            ImportacionCobranza,
+            ImportacionCobranza.id == ImportacionCobranzaDetalle.importacion_id,
+        )
+        .join(DebitoCobranza, DebitoCobranza.id == ImportacionCobranzaDetalle.debito_id)
+        .join(LoteCobranza, LoteCobranza.id == DebitoCobranza.lote_id)
+        .where(
+            ImportacionCobranza.estado == "confirmada",
+            ImportacionCobranzaDetalle.resultado == formato.RECHAZADO,
+            DebitoCobranza.resultado == formato.RECHAZADO,
+            periodo >= desde,
+            periodo <= hasta,
+        )
+        .group_by(ImportacionCobranzaDetalle.codigo)
+    ):
+        motivos[codigo or "SIN_MOTIVO"] = int(cantidad)
+    return resumen, motivos
 
 
 def intentos_de_factura(db: Session, factura_id: uuid.UUID) -> list[dict]:

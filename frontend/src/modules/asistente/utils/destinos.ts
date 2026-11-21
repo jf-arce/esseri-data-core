@@ -26,6 +26,7 @@ export const RUTAS_DE_DESTINO: Record<string, string> = {
   admisiones: '/inscripciones/admisiones',
   facturas: '/facturacion',
   deuda_por_familia: '/facturacion/deudas/familias',
+  cobranzas: '/facturacion/cobranzas',
   reglas_facturacion: '/facturacion/reglas',
   penalidades: '/facturacion/penalidades',
   proveedores: '/proveedores',

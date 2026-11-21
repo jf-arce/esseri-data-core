@@ -199,14 +199,20 @@ def test_confirmacion_revalida_y_revierte_fallos(
     assert db_session.query(Pago).count() == 1
 
 
+# Fijos: xdist exige que los IDs de test sean iguales en todos los workers.
+_ID_A = "00000000-0000-4000-8000-000000000001"
+_ID_B = "00000000-0000-4000-8000-000000000002"
+_ID_C = "00000000-0000-4000-8000-000000000003"
+
+
 @pytest.mark.parametrize(
     "ruta,body",
     [
-        ("", {"factura_ids": [str(uuid.uuid4())]}),
+        ("", {"factura_ids": [_ID_A]}),
         ("/previsualizar", {"contenido": "invalido"}),
         ("/confirmar", {"contenido": "invalido"}),
-        (f"/{uuid.uuid4()}/respuesta", {"rechazar_referencias": []}),
-        (f"/{uuid.uuid4()}/liberar", {"motivo": "x", "confirmacion_no_procesado": True}),
+        (f"/{_ID_B}/respuesta", {"rechazar_referencias": []}),
+        (f"/{_ID_C}/liberar", {"motivo": "x", "confirmacion_no_procesado": True}),
     ],
 )
 def test_lector_no_puede_operar(client_solo_lectura, db_session, ruta, body):

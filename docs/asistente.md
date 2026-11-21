@@ -10,7 +10,7 @@ Un panel de chat acoplado a la derecha de la aplicación para **Dirección** y *
 - **Quién lo ve:** quien tenga el permiso `asistente.leer` en su rol activo (hoy dirección, administración y administrador del sistema, por el seed `database/seeds/grupo-b.yaml` de la raíz del repo) y siempre que el módulo esté habilitado (`ASISTENTE_HABILITADO`).
 - **Cómo se abre:** botón con el ícono de destellos en el header o `Ctrl/⌘ + I`. Siempre arranca cerrado. Solo se recuerda su ancho (se cambia arrastrando el borde izquierdo).
 
-Qué puede responder hoy: indicadores generales, evolución de facturado y cobrado, deuda por familia (hoy o al cierre de un día pasado), inscripciones, asistencias y ausentes del día, estructura de cursos, horarios, alumnos y docentes de un curso, ficha de un alumno, tareas y ejecuciones pendientes, búsqueda de un alumno por legajo, y navegación a pantallas.
+Qué puede responder hoy: indicadores generales, evolución de facturado y cobrado, deuda por familia (hoy o al cierre de un día pasado), estado de cuenta de una familia, facturas por estado o concepto, cobros por método, resultado de los débitos automáticos (cobrados, rechazos y motivos), lotes de débito, facturas que se pueden debitar, reglas de facturación, recargos y explicaciones de cómo funciona la facturación, inscripciones, asistencias y ausentes del día, estructura de cursos, horarios, alumnos y docentes de un curso, ficha de un alumno, tareas y ejecuciones pendientes, búsqueda de un alumno por legajo, y navegación a pantallas.
 
 ## 2. Principios de diseño
 
@@ -112,6 +112,14 @@ Cada herramienta declara parámetros (con esquema validado), permisos acumulativ
 | `indicadores_generales` | `panel_administrativo.leer` | Solo los indicadores pedidos (alumnos activos, inasistencias del día, tareas, ...). | Panel del rol |
 | `evolucion_financiera` | `panel_administrativo.leer`, `facturacion.leer` | Facturado y cobrado mes a mes. Opcionales: `grafico` (barras, líneas o áreas; se ignora con menos de 3 períodos) y `comparar_con_anterior` (suma el período anterior de igual duración, la variación y dos indicadores con los totales). | Facturas |
 | `deuda_por_familias` | `facturacion.leer` | Familias con mayor deuda, con el total vencido de todas y la cantidad con deuda vencida. Hoy o al cierre de un día pasado; con `comparar_al` (o `comparar_con_anterior`, que toma un mes antes del corte), agrega un indicador con la variación del total vencido contra esa fecha. Opcional: `grafico`. | Deuda por familia |
+| `estado_de_cuenta_familia` | `facturacion.leer`, `familias_alumnos.leer` | Estado de cuenta de una familia (alias): deuda vencida, por vencer y total, facturas impagas por alumno (alias) con vencimiento efectivo, saldo y recargos, último pago y excepciones vigentes (sin el motivo). Con `facturacion.crear` suma los medios de débito y el resultado del último débito. | Deuda por familia |
+| `facturas` | `facturacion.leer` | Cantidad, monto facturado y saldo impago de las facturas filtradas por estado (vencida, pendiente, pagada), concepto, fechas de emisión o vencimiento, alumno o familia (alias). Con `agrupar_por` (concepto, estado o mes de emisión), totales por grupo; sin agrupar, las primeras facturas. Opcional: `grafico`. | Facturas |
+| `resumen_cobros` | `facturacion.leer` | Pagos aprobados de un período (por defecto, el mes en curso): total, cobrado por débito y manual, agrupados por método, mes o concepto. Opcionales: `comparar_con_anterior` (período anterior de igual duración, variación e indicador) y `grafico`. | Facturas |
+| `resumen_debitos` | `facturacion.leer` | Resultado de los débitos de un mes o rango (`AAAA-MM`): lotes, enviados, cobrados, rechazados y sin respuesta, importes, tasa de rechazo (sobre los que tienen respuesta) y motivos de rechazo con su cantidad. Agregado: sin alias ni lotes, y sin pantalla sugerida porque Dirección no entra a Cobranzas. Opcionales: `agrupar_por=mes`, `comparar_con_anterior` y `grafico`. | |
+| `lotes_debito` | `facturacion.crear` | Historial de lotes (código, período, estado, cantidades, importes, estado de la importación). Con `codigo`, el detalle de un lote: rechazados por alumno y familia (alias) con el motivo; con `todos`, todos los débitos del lote con su estado (cobrado, rechazado o sin respuesta). | Débitos automáticos |
+| `facturas_para_debitar` | `facturacion.crear` | Cuántas facturas se pueden debitar hoy y por qué monto (por medio), y cuántas quedan fuera por estar en otro lote. Filtros: período y medio. | Débitos automáticos |
+| `configuracion_facturacion` | `facturacion.leer` | Según `seccion`: reglas (concepto, importe, periodicidad, alcance, estado, próxima generación), ejecuciones (últimas corridas), penalidades (tramos de recargo), conceptos o métodos de pago. Los textos libres (descripciones, motivos, errores) no salen. | |
+| `ayuda_facturacion` | `facturacion.leer` | Texto fijo por `tema` (cuenta corriente, vencimientos, recargos, excepciones, generación automática, débitos, responsable económico, Portal Familia). No trae datos: para valores reales se combina con `configuracion_facturacion`. | |
 | `resumen_inscripciones` | `inscripciones.leer` | Inscripciones por tipo y estado (la tabla); las admisiones en proceso van como indicador y por etapa solo al modelo. Opcionales: `comparar_con_anterior` (suma el ciclo lectivo anterior, la variación y un indicador con el total) y `grafico`. | Inscripciones |
 | `tendencia_asistencias` | `academico.leer` | Asistencia por día, semana o mes. Distingue "sin registros" de 0 %. Opcionales: `comparar_con_anterior` (período anterior de igual duración, diferencia de presencia en puntos y un indicador con los ausentes) y `grafico`. | Historial de asistencia |
 | `alumnos_con_mas_inasistencias` | `academico.leer`, `familias_alumnos.leer` | Ranking de alumnos (alias) con más inasistencias de un período (por defecto, el ciclo hasta hoy), de toda la institución o de un curso: inasistencias y sin justificar. Opcionales: `solo_sin_justificar` y `presencia_maxima`. Opcional: `grafico`. | Historial de asistencia |
@@ -127,6 +135,26 @@ Cada herramienta declara parámetros (con esquema validado), permisos acumulativ
 | `buscar_recurso` | `familias_alumnos.leer` | Busca un alumno por número de legajo y devuelve su alias y una tarjeta. Los nombres no se buscan acá: las personas mencionadas llegan ya como alias. | Tarjeta propia |
 | `tareas_y_ejecuciones_pendientes` | (ninguno) | Solo conteos de tareas y ejecuciones. | Tareas |
 | `ir_a` | (según destino) | Deja un botón hacia una pantalla o ficha. Solo si la persona lo pide. | |
+
+### Preguntas de ejemplo de facturación
+
+Sirven de banco para probar a mano con el rol de Administración y con el de Dirección (con los seeds de débitos demo, `database/seeds/07_seed_debitos_demo.py`). Dirección no debe poder usar `lotes_debito` ni `facturas_para_debitar`, ni recibir botones hacia Cobranzas.
+
+| Pregunta | Herramienta esperada |
+|---|---|
+| "¿Qué debe [FAMILIA:2]?" (después de un ranking) | `estado_de_cuenta_familia` |
+| "¿Qué familias deben más?" | `deuda_por_familias` |
+| "¿Qué facturas vencen esta semana?" | `facturas` (con `vencimiento_desde` y `vencimiento_hasta`) |
+| "¿Cuánto se facturó de matrícula este año?" | `facturas` (`concepto`, `emision_desde`) |
+| "¿Cuántas facturas de octubre siguen impagas?" | `facturas` (`agrupar_por=estado` o `estado=vencida`) |
+| "¿Cuánto se cobró en octubre y cuánto fue por débito?" | `resumen_cobros` |
+| "¿Cuántos débitos rebotaron en noviembre y por qué?" | `resumen_debitos` |
+| "¿Cómo viene la tasa de rechazo contra el mes anterior?" | `resumen_debitos` (`comparar_con_anterior`) |
+| "¿Qué pasó con el lote LD-2026-11-001?" | `lotes_debito` (`codigo`) |
+| "¿Cuántas facturas puedo debitar hoy?" | `facturas_para_debitar` |
+| "¿Cuándo corre la próxima facturación?" | `configuracion_facturacion` (`reglas`) |
+| "¿Falló alguna facturación automática?" | `configuracion_facturacion` (`ejecuciones`, `estado=fallida`) |
+| "¿Cómo se calcula el recargo? ¿Y cuánto es hoy?" | `ayuda_facturacion` (`recargos`) y `configuracion_facturacion` (`penalidades`) |
 
 ### Bloques de salida
 
