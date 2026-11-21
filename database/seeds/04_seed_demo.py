@@ -1725,5 +1725,17 @@ def seed_demo():
         db.close()
 
 
+# Stable entry points for the institutional demo seed (08). These two datasets are shared
+# with the older demo; keeping the public names here makes the dependency explicit.
+def ensure_admisiones_para_demo(db, usuario, niveles, hoy):
+    """Admissions reused by the institutional demo seed."""
+    return _ensure_admisiones(db, usuario, niveles, hoy)
+
+
+def ensure_compras_para_demo(db, usuario, hoy):
+    """Suppliers, purchase requests, orders and receipts reused by the institutional demo."""
+    return _ensure_compras(db, usuario, hoy)
+
+
 if __name__ == "__main__":
     seed_demo()

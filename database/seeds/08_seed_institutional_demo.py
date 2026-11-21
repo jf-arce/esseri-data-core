@@ -98,6 +98,112 @@ SURNAMES = (
 COLORS = ("#5c6bc0", "#00796b", "#8e24aa", "#ef6c00", "#1565c0")
 
 
+# Period-absence requests used as contextual chat history (states are the model's own).
+PERIOD_REQUESTS = (
+    (2, "viaje_familiar", -42, 3, "aprobada"),
+    (5, "turno_estudio_medico", -36, 2, "aprobada"),
+    (8, "motivo_familiar_personal", -30, 2, "pendiente"),
+    (11, "enfermedad", -25, 4, "rechazada"),
+    (14, "viaje_familiar", -18, 3, "aprobada"),
+    (17, "motivo_familiar_personal", -12, 2, "pendiente"),
+    (23, "turno_estudio_medico", -7, 2, "cancelada"),
+    (26, "viaje_familiar", 6, 3, "pendiente"),
+)
+
+# 24 historical threads: 16 on absence explanations, 8 on period-absence requests.
+# First eight close, next eight await the family, the last eight await administration.
+CONVERSATION_TEXTS = (
+    (
+        "Buen día, adjuntamos el certificado médico de la ausencia del lunes. ¿Quedó registrada?",
+        "Recibimos el certificado; la justificación quedó aprobada.",
+        "Gracias, quedamos tranquilos.",
+    ),
+    (
+        "Quería confirmar si la justificación de la semana pasada ya está aprobada.",
+        "Sí, ya está aprobada y la ausencia figura justificada.",
+        "Perfecto, gracias por la confirmación.",
+    ),
+    (
+        "Mandamos el comprobante del turno médico por el portal. ¿Falta algo más?",
+        "Con el comprobante alcanza; no falta documentación.",
+        "Buenísimo, gracias.",
+    ),
+    (
+        "Mi hijo faltó por un trámite familiar; adjuntamos la constancia.",
+        "Registramos la constancia y aprobamos la justificación.",
+        "Gracias por la gestión.",
+    ),
+    (
+        "¿Se puede justificar una ausencia de dos días por viaje familiar?",
+        "Sí, se puede justificar; necesitamos el detalle de los días.",
+        "Entendido, muchas gracias.",
+    ),
+    (
+        "Enviamos el certificado el viernes, ¿lo recibieron?",
+        "Lo recibimos el viernes; está en revisión.",
+        "Gracias, saludos.",
+    ),
+    (
+        "La ausencia fue por fiebre; quería saber si quedó justificada.",
+        "Quedó justificada por enfermedad; no tenés que hacer nada más.",
+        "Perfecto, gracias.",
+    ),
+    (
+        "Necesitamos corregir la fecha de la justificación cargada.",
+        "Corregimos la fecha; ya está actualizada.",
+        "Gracias por avisar.",
+    ),
+    (
+        "¿Cómo sigue el trámite de la justificación que presentamos?",
+        "El trámite está en revisión; te avisamos cuando esté resuelto.",
+        None,
+    ),
+    (
+        "Adjuntamos nuevamente el certificado porque no figuraba.",
+        "Ahora sí figura el certificado; gracias.",
+        None,
+    ),
+    (
+        "Quería consultar si la ausencia del martes afecta el presentismo.",
+        "La ausencia justificada no afecta el presentismo.",
+        None,
+    ),
+    (
+        "Mi hija tuvo turno con el médico; mandamos el comprobante.",
+        "Recibido; la justificación quedó aprobada.",
+        None,
+    ),
+    (
+        "¿Hay que presentar el original del certificado en secretaría?",
+        "No hace falta el original; con la foto alcanza.",
+        None,
+    ),
+    (
+        "Informamos la ausencia por el portal, ¿está todo en orden?",
+        "Está todo en orden; la ausencia quedó justificada.",
+        None,
+    ),
+    (
+        "Nos pidieron documentación adicional; la enviamos adjunta.",
+        "Con la documentación adjunta ya está completo.",
+        None,
+    ),
+    (
+        "¿La justificación ya fue revisada por administración?",
+        "Sí, ya fue revisada y aprobada.",
+        None,
+    ),
+    ("Informamos que viajamos por trabajo del 24 al 26; ¿la solicitud quedó cargada?", None, None),
+    ("¿La solicitud de ausencia por tres días ya fue aprobada?", None, None),
+    ("Necesitamos reprogramar los días informados por un cambio de vuelo.", None, None),
+    ("¿Hace falta certificado para una ausencia programada de cuatro días?", None, None),
+    ("Enviamos la solicitud para el viaje de egresados; ¿falta algo?", None, None),
+    ("Queríamos saber si la ausencia por tratamiento médico fue aprobada.", None, None),
+    ("La solicitud quedó pendiente; ¿podemos acercar la documentación?", None, None),
+    ("¿La escuela ya avisó a los docentes por la ausencia informada?", None, None),
+)
+
+
 def stable_id(key: str) -> uuid.UUID:
     return uuid.uuid5(NAMESPACE, key)
 
@@ -490,15 +596,19 @@ def seed_finance(db: Session, school: School, reference: date) -> None:
 
 
 def seed_history(db: Session, school: School, reference: date) -> None:
-    from src.academico.models import JustificacionInasistencia, MotivoJustificacion
+    from src.academico.models import (
+        JustificacionInasistencia,
+        MotivoJustificacion,
+        SolicitudAusenciaPeriodo,
+    )
     from src.comunicaciones.models import Comunicacion, ReciboComunicacion
     from src.comunicaciones.schemas import PublicableInput
     from src.comunicaciones.service import publicar_en_transaccion, resolver
 
     legacy = import_module("04_seed_demo")
     levels = {row.nombre: row for row in db.scalars(select(NivelEducativo))}
-    legacy._ensure_admisiones(db, school.admin, levels, reference)
-    legacy._ensure_compras(db, school.admin, reference)
+    legacy.ensure_admisiones_para_demo(db, school.admin, levels, reference)
+    legacy.ensure_compras_para_demo(db, school.admin, reference)
     for i, (name, category) in enumerate(
         (
             ("Laboratorio Abierto", "Material de laboratorio"),
@@ -663,78 +773,109 @@ def seed_history(db: Session, school: School, reference: date) -> None:
             fecha_resolucion=uploaded + timedelta(hours=2),
             observacion="La familia informó el motivo de la ausencia por el portal.",
         )
+
+    reasons = {row.nombre: row.id for row in db.scalars(select(MotivoJustificacion))}
+    for i, (family_idx, reason_name, offset, days, estado) in enumerate(PERIOD_REQUESTS):
+        start = reference + timedelta(days=offset)
+        add(
+            db,
+            SolicitudAusenciaPeriodo,
+            f"period-absence:{i}",
+            fecha_inicio=start,
+            fecha_fin=start + timedelta(days=days - 1),
+            estado=estado,
+            observacion=f"Motivo informado: {reason_name.replace('_', ' ')}.",
+            motivo_justificacion_id=reasons[reason_name],
+            alumno_id=school.students[family_idx].id,
+            familia_id=school.families[family_idx].id,
+            usuario_id=stable_id(f"account:familia-{family_idx + 1:02}"),
+            fecha_carga=datetime.combine(start - timedelta(days=3), time(10), UTC),
+        )
     db.flush()
 
 
 def seed_conversations(db: Session, school: School, reference: date) -> None:
-    """Three historical contextual threads on resolved absence explanations.
+    """24 historical contextual threads on real absence trámites.
 
-    The protagonist's rejected debit is deliberately left without a thread: the family
-    starts it live from the debit notice.
+    Sixteen threads use explained absences and eight use period-absence requests.
+    Eight close, eight await the family and eight await administration. The
+    protagonist's rejected debit stays without a thread: it starts live.
     """
-    from src.academico.models import JustificacionInasistencia
+    from src.academico.models import JustificacionInasistencia, SolicitudAusenciaPeriodo
     from src.auth.models import Usuario
     from src.comunicaciones.conversaciones_schemas import MensajeCreate
     from src.comunicaciones.conversaciones_service import abrir, cambiar_estado, responder
     from src.comunicaciones.models import ConversacionContextual, MensajeConversacion
 
+    protagonists_excluded = school.families[20].id
     excuses = list(
         db.scalars(
             select(JustificacionInasistencia)
-            .where(JustificacionInasistencia.familia_id.in_([f.id for f in school.families[:30]]))
+            .where(JustificacionInasistencia.familia_id != protagonists_excluded)
             .order_by(JustificacionInasistencia.familia_id)
-            .limit(3)
+            .limit(16)
         )
     )
-    if len(excuses) < 3:
-        raise RuntimeError(
-            "The institutional demo needs three explained absences for chat history."
+    periods = list(
+        db.scalars(
+            select(SolicitudAusenciaPeriodo)
+            .where(SolicitudAusenciaPeriodo.familia_id != protagonists_excluded)
+            .order_by(SolicitudAusenciaPeriodo.fecha_inicio)
+            .limit(8)
         )
+    )
+    if len(excuses) < 16 or len(periods) < 8:
+        raise RuntimeError("The institutional demo needs 16 explanations and 8 period requests.")
+    contexts = [
+        *[("justificacion_inasistencia", row, row.familia_id) for row in excuses],
+        *[("solicitud_ausencia_periodo", row, row.familia_id) for row in periods],
+    ]
     family_index = {family.id: index for index, family in enumerate(school.families)}
-    turns = (
-        (
-            0,
-            "Buen día, quería consultar por la justificación de la ausencia de mi hijo. "
-            "¿Quedó registrada?",
-            "Buen día. Sí, la justificación quedó aprobada y la ausencia figura como "
-            "justificada en el legajo.",
-            True,
-        ),
-        (
-            1,
-            "Adjuntamos el certificado médico de la semana pasada. ¿Necesitan algo más?",
-            "Recibimos el certificado. Con eso alcanza; ya está cargado en el sistema.",
-            False,
-        ),
-        (2, "Quería saber si falta algún documento para completar la justificación.", None, False),
-    )
+    operator = db.get(Usuario, stable_id("account:workflow"))
+    if operator is None:
+        raise RuntimeError("Missing the system administrator demo account.")
+    administratives = ((school.admin, "administracion"), (operator, "administrador_del_sistema"))
+
     threads = Session(bind=db.connection(), join_transaction_mode="create_savepoint")
     with threads:
-        for offset, family_text, admin_text, resolved in turns:
-            excuse = excuses[offset]
+        for index, ((tipo, origen, family_id), texts) in enumerate(
+            zip(contexts, CONVERSATION_TEXTS, strict=True)
+        ):
+            family_text, admin_text, thanks = texts
+            if index >= 16 and (admin_text or thanks):
+                raise RuntimeError("Open threads cannot have administrative replies.")
+            if index < 8 and not thanks:
+                raise RuntimeError("Closed threads need the family's closing message.")
             owner = threads.get(
-                Usuario, stable_id(f"account:familia-{family_index[excuse.familia_id] + 1:02}")
+                Usuario, stable_id(f"account:familia-{family_index[family_id] + 1:02}")
             )
             hilo = abrir(
                 threads,
                 owner,
                 "familia",
-                "justificacion_inasistencia",
-                excuse.id,
-                MensajeCreate(texto=family_text, clave=stable_id(f"chat:{offset}:family")),
+                tipo,
+                origen.id,
+                MensajeCreate(texto=family_text, clave=stable_id(f"chat:{index}:family:1")),
             )
             if admin_text:
+                autor, rol = administratives[index % 2]
                 responder(
                     threads,
-                    school.admin,
-                    "administracion",
+                    autor,
+                    rol,
                     hilo.id,
-                    MensajeCreate(texto=admin_text, clave=stable_id(f"chat:{offset}:admin")),
+                    MensajeCreate(texto=admin_text, clave=stable_id(f"chat:{index}:admin")),
                 )
-            if resolved:
+            if thanks:
+                responder(
+                    threads,
+                    owner,
+                    "familia",
+                    hilo.id,
+                    MensajeCreate(texto=thanks, clave=stable_id(f"chat:{index}:family:2")),
+                )
                 cambiar_estado(threads, school.admin, "administracion", hilo.id, resolver=True)
-            # Backdate the thread so the inbox reads as institutional history.
-            day = reference - timedelta(days=12 - offset * 2)
+            day = reference - timedelta(days=70 - index * 2)
             messages = list(
                 threads.scalars(
                     select(MensajeConversacion)
@@ -743,9 +884,11 @@ def seed_conversations(db: Session, school: School, reference: date) -> None:
                 )
             )
             for position, message in enumerate(messages):
-                message.created_at = datetime.combine(day, time(9 + position), UTC)
+                message.created_at = datetime.combine(
+                    day, time(9 if position == 0 else 11 + position), UTC
+                )
             threads.get(ConversacionContextual, hilo.id).updated_at = datetime.combine(
-                day, time(9 + len(messages) - 1), UTC
+                day, time(11 + len(messages)), UTC
             )
         threads.flush()
 
