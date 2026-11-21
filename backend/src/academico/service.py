@@ -334,6 +334,115 @@ def justificar_asistencia_de_familia(
     return justificacion
 
 
+def crear_justificacion_administrativa(
+    db: Session,
+    usuario: Usuario,
+    alumno_id: uuid.UUID,
+    fecha_asistencia: date,
+    motivo: str,
+    observacion: str | None,
+    comprobante_nombre: str | None = None,
+    comprobante_tipo_contenido: str | None = None,
+    comprobante_contenido: bytes | None = None,
+) -> JustificacionInasistencia:
+    """Alta desde Administración: nace aprobada y aplica las mismas reglas que la resolución."""
+    # Mismo orden de locks que la creación/resolución: alumno y luego vínculo/familia.
+    db.scalar(select(Alumno.id).where(Alumno.id == alumno_id).with_for_update())
+    inscripcion = db.scalar(
+        select(Inscripcion)
+        .where(Inscripcion.alumno_id == alumno_id, Inscripcion.estado == "activa")
+        .order_by(Inscripcion.fecha_inscripcion.desc())
+        .limit(1)
+    )
+    if inscripcion is None:
+        raise SinInscripcionActiva()
+    asistencia = db.scalar(
+        select(Asistencia).where(
+            Asistencia.inscripcion_id == inscripcion.id,
+            Asistencia.fecha == fecha_asistencia,
+        )
+    )
+    if asistencia is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            "No hay una asistencia registrada para ese alumno y esa fecha.",
+        )
+    if asistencia.tipo != "ausente_pendiente":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Solo se pueden justificar ausencias pendientes."
+        )
+    if db.scalar(
+        select(JustificacionInasistencia.id).where(
+            JustificacionInasistencia.asistencia_id == asistencia.id
+        )
+    ):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Esta ausencia ya tiene una justificación.")
+    periodo = solicitud_periodo_que_cubre(db, alumno_id=alumno_id, fecha=fecha_asistencia)
+    if periodo is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            {
+                "mensaje": "Ya existe una solicitud por período para esta fecha",
+                "origen": "periodo",
+                "id": str(periodo),
+            },
+        )
+    _validar_comprobante_justificacion(
+        nombre=comprobante_nombre,
+        tipo_contenido=comprobante_tipo_contenido,
+        contenido=comprobante_contenido,
+    )
+    motivo_db = db.scalar(
+        select(MotivoJustificacion).where(
+            MotivoJustificacion.nombre == motivo.strip(),
+            MotivoJustificacion.activo.is_(True),
+        )
+    )
+    if motivo_db is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "El motivo de la justificación no está disponible en el catálogo.",
+        )
+    familia_id = db.scalar(
+        select(FamiliaAlumno.familia_id)
+        .where(FamiliaAlumno.alumno_id == alumno_id)
+        .order_by(FamiliaAlumno.responsable_principal.desc(), FamiliaAlumno.id)
+        .limit(1)
+    )
+    if familia_id is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "El alumno no tiene una familia vinculada.")
+    justificacion = JustificacionInasistencia(
+        asistencia_id=asistencia.id,
+        familia_id=familia_id,
+        motivo_justificacion_id=motivo_db.id,
+        usuario_id=usuario.id,
+        observacion=observacion,
+        archivo=comprobante_nombre,
+        estado="pendiente",
+    )
+    if comprobante_contenido is not None:
+        justificacion.archivo_adjunto = ArchivoJustificacionInasistencia(
+            nombre=comprobante_nombre or "comprobante",
+            tipo_contenido=comprobante_tipo_contenido or "application/octet-stream",
+            tamanio=len(comprobante_contenido),
+            contenido=comprobante_contenido,
+        )
+    db.add(justificacion)
+    db.flush()
+    log_audit(
+        db,
+        entidad="JUSTIFICACION_INASISTENCIA",
+        entidad_id=justificacion.id,
+        campo="__alta_administrativa__",
+        valor_anterior=None,
+        valor_nuevo=motivo_db.nombre,
+        usuario_id=usuario.id,
+    )
+    # El alta administrativa no avisa al usuario que la carga: la familia lo ve en su portal
+    # y el evento `inasistencia.justificada` sigue disponible para las reglas de Workflows.
+    return resolver_justificacion(db, justificacion, True, usuario_id=usuario.id, notificar=False)
+
+
 def _validar_comprobante_justificacion(
     *, nombre: str | None, tipo_contenido: str | None, contenido: bytes | None
 ) -> None:
@@ -363,6 +472,8 @@ def resolver_justificacion(
     aprobar: bool,
     observacion: str | None = None,
     usuario_id: uuid.UUID | None = None,
+    *,
+    notificar: bool = True,
 ) -> JustificacionInasistencia:
     asistencia = db.get(Asistencia, justificacion.asistencia_id)
     if asistencia is not None:
@@ -407,7 +518,8 @@ def resolver_justificacion(
         },
         usuario_id=usuario_id,
     )
-    notificaciones_academicas.registrar_resolucion_individual(db, justificacion=justificacion)
+    if notificar:
+        notificaciones_academicas.registrar_resolucion_individual(db, justificacion=justificacion)
     db.commit()
     db.refresh(justificacion)
     return justificacion

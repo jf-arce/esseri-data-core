@@ -27,6 +27,15 @@ def _verificar_acceso_institucional(client):
         == 404
     )
     assert client.get(f"/academico/justificaciones/{ID_INEXISTENTE}/archivo").status_code == 404
+    alta = client.post(
+        "/academico/justificaciones",
+        data={
+            "alumno_id": str(ID_INEXISTENTE),
+            "fecha": "2026-11-10",
+            "motivo": "enfermedad",
+        },
+    )
+    assert alta.status_code != 403
 
 
 def test_secretaria_puede_ver_resolver_y_descargar_justificaciones(client_secretaria):
@@ -48,6 +57,17 @@ def test_docente_no_puede_acceder_a_la_bandeja_ni_a_sus_operaciones(client_docen
     )
     assert (
         client_docente.get(f"/academico/justificaciones/{ID_INEXISTENTE}/archivo").status_code
+        == 403
+    )
+    assert (
+        client_docente.post(
+            "/academico/justificaciones",
+            data={
+                "alumno_id": str(ID_INEXISTENTE),
+                "fecha": "2026-11-10",
+                "motivo": "enfermedad",
+            },
+        ).status_code
         == 403
     )
 

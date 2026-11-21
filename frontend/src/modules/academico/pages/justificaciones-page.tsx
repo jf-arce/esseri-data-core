@@ -30,6 +30,13 @@ import {
 } from '@/components/ui/dialog'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
@@ -42,6 +49,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { descargarExport } from '@/lib/descargar-export'
 import {
+  crearJustificacionAdministrativa,
   listarJustificaciones,
   obtenerOpcionesJustificaciones,
   resolverJustificacion,
@@ -53,6 +61,8 @@ import type {
   JustificacionesPaginadas,
   OpcionJustificacion,
 } from '@/modules/academico/types'
+import type { Alumno } from '@/modules/familias-alumnos/types'
+import { listarAlumnos } from '@/modules/familias-alumnos/services/listar-alumnos'
 import { etiquetaMotivoJustificacion, MOTIVOS_JUSTIFICACION } from '@/modules/academico/utils'
 
 const TAMANIO_PAGINA = 20
@@ -98,11 +108,33 @@ export function JustificacionesPage() {
   const [rechazo, setRechazo] = useState<JustificacionFamilia | null>(null)
   const [observacionRechazo, setObservacionRechazo] = useState('')
   const [resolviendo, setResolviendo] = useState(false)
+  const [altaAbierta, setAltaAbierta] = useState(false)
+  const [alumnos, setAlumnos] = useState<Alumno[]>([])
+  const [altaAlumno, setAltaAlumno] = useState('')
+  const [altaFecha, setAltaFecha] = useState('')
+  const [altaMotivo, setAltaMotivo] = useState<string>(MOTIVOS_JUSTIFICACION[0].value)
+  const [altaObservacion, setAltaObservacion] = useState('')
+  const [altaArchivo, setAltaArchivo] = useState<File | null>(null)
+  const [altaError, setAltaError] = useState<string | null>(null)
+  const [enviandoAlta, setEnviandoAlta] = useState(false)
 
   // `cargando` se deriva de la clave consultada para no llamar setState en el cuerpo del efecto
   // (evita renders en cascada): el estado inicial ya arranca como "cargando".
   const claveConsulta = `${JSON.stringify(filtros)}|${revision}`
   const cargando = claveCargada !== claveConsulta
+
+  useEffect(() => {
+    if (!altaAbierta || alumnos.length > 0) return
+    let activo = true
+    listarAlumnos()
+      .then((datosAlumnos) => {
+        if (activo) setAlumnos(datosAlumnos)
+      })
+      .catch(() => undefined)
+    return () => {
+      activo = false
+    }
+  }, [altaAbierta, alumnos.length])
 
   useEffect(() => {
     let activo = true
@@ -205,6 +237,34 @@ export function JustificacionesPage() {
     }
   }
 
+  const confirmarAlta = async () => {
+    if (!altaAlumno || !altaFecha) return
+    setEnviandoAlta(true)
+    setAltaError(null)
+    try {
+      await crearJustificacionAdministrativa({
+        alumnoId: altaAlumno,
+        fecha: altaFecha,
+        motivo: altaMotivo,
+        observacion: altaObservacion.trim() || undefined,
+        comprobante: altaArchivo ?? undefined,
+      })
+      toast.success('Justificación creada y aprobada.')
+      setAltaAbierta(false)
+      setFiltros({ estado: 'aprobada', pagina: 1, tamanio_pagina: TAMANIO_PAGINA })
+    } catch (fallo) {
+      const detalle =
+        fallo instanceof ApiError
+          ? typeof fallo.detail === 'string'
+            ? fallo.detail
+            : (fallo.detail as { mensaje?: string } | null)?.mensaje
+          : null
+      setAltaError(detalle ?? 'No se pudo crear la justificación.')
+    } finally {
+      setEnviandoAlta(false)
+    }
+  }
+
   const confirmarRechazo = async () => {
     if (!rechazo) return
     const observacion = observacionRechazo.trim()
@@ -242,9 +302,23 @@ export function JustificacionesPage() {
     <div className="flex flex-col gap-5">
       <BackLink to="/academico" label="Volver a Académico" />
       <PageHeader titulo="Justificaciones" />
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
         <Button variant="secondary" size="sm" asChild>
           <Link to="/academico/solicitudes-ausencia">Solicitudes por período</Link>
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => {
+            setAltaAlumno('')
+            setAltaFecha('')
+            setAltaMotivo(MOTIVOS_JUSTIFICACION[0].value)
+            setAltaObservacion('')
+            setAltaArchivo(null)
+            setAltaError(null)
+            setAltaAbierta(true)
+          }}
+        >
+          Nueva justificación
         </Button>
       </div>
 
@@ -589,6 +663,100 @@ export function JustificacionesPage() {
               onClick={() => void confirmarRechazo()}
             >
               Confirmar rechazo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={altaAbierta} onOpenChange={setAltaAbierta}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nueva justificación</DialogTitle>
+            <DialogDescription>
+              Se crea aprobada y deja la asistencia como justificada. Solo para ausencias pendientes
+              de ese alumno.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4">
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              Alumno
+              <Select value={altaAlumno} onValueChange={setAltaAlumno}>
+                <SelectTrigger aria-label="Alumno">
+                  <SelectValue placeholder="Elegí un alumno" />
+                </SelectTrigger>
+                <SelectContent>
+                  {alumnos.map((alumno) => (
+                    <SelectItem key={alumno.id} value={alumno.id}>
+                      {alumno.persona_apellido}, {alumno.persona_nombre} · {alumno.numero_legajo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              Fecha de la inasistencia
+              <Input
+                type="date"
+                aria-label="Fecha de la inasistencia"
+                value={altaFecha}
+                onChange={(evento) => setAltaFecha(evento.target.value)}
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              Motivo
+              <Select value={altaMotivo} onValueChange={setAltaMotivo}>
+                <SelectTrigger aria-label="Motivo">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MOTIVOS_JUSTIFICACION.map((motivo) => (
+                    <SelectItem key={motivo.value} value={motivo.value}>
+                      {motivo.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              Observación (opcional)
+              <Textarea
+                value={altaObservacion}
+                maxLength={500}
+                placeholder="Detalle de la documentación presentada."
+                onChange={(evento) => setAltaObservacion(evento.target.value)}
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              Comprobante (opcional)
+              <Input
+                type="file"
+                aria-label="Comprobante"
+                accept="application/pdf,image/png,image/jpeg"
+                onChange={(evento) => setAltaArchivo(evento.target.files?.[0] ?? null)}
+              />
+            </label>
+
+            {altaError && (
+              <Alert variant="error">
+                <AlertDescription>{altaError}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setAltaAbierta(false)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={!altaAlumno || !altaFecha || enviandoAlta}
+              onClick={() => void confirmarAlta()}
+            >
+              {enviandoAlta ? 'Guardando…' : 'Crear justificación'}
             </Button>
           </DialogFooter>
         </DialogContent>

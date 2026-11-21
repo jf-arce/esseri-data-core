@@ -139,6 +139,7 @@ from src.academico.service import (
     crear_division,
     crear_docente,
     crear_docente_desde_usuario,
+    crear_justificacion_administrativa,
     crear_materia,
     crear_materia_curso,
     divisiones_de_persona,
@@ -1188,6 +1189,39 @@ def revocar_solicitud_ausencia_endpoint(
         db, usuario, solicitud_id, datos.motivo, datos.notificar_familia
     )
     return respuesta_admin_solicitud(db, solicitud)
+
+
+@router.post(
+    "/justificaciones",
+    response_model=JustificacionFamiliaResponse,
+    status_code=201,
+)
+def crear_justificacion_administrativa_endpoint(
+    alumno_id: Annotated[uuid.UUID, Form()],
+    fecha: Annotated[date, Form()],
+    motivo: Annotated[str, Form(min_length=1, max_length=120)],
+    usuario: Annotated[
+        Usuario,
+        Depends(requiere_permiso(PERMISO_ACADEMICO_ACTUALIZAR_JUSTIFICACIONES)),
+    ],
+    observacion: Annotated[str | None, Form(max_length=500)] = None,
+    comprobante: Annotated[UploadFile | None, File()] = None,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> JustificacionFamiliaResponse:
+    """Alta administrativa de una justificación: queda aprobada y aplica la resolución."""
+    contenido = comprobante.file.read() if comprobante is not None else None
+    justificacion = crear_justificacion_administrativa(
+        db,
+        usuario,
+        alumno_id,
+        fecha,
+        motivo,
+        observacion,
+        comprobante.filename if comprobante is not None else None,
+        comprobante.content_type if comprobante is not None else None,
+        contenido,
+    )
+    return _respuesta_justificacion(db, justificacion)
 
 
 @router.get("/justificaciones", response_model=JustificacionesPaginadasResponse)
