@@ -160,6 +160,7 @@ def tipos_inasistencia(db_session):
             ("alumno_nombre", "texto"),
             ("fecha_resolucion", "fecha"),
             ("motivo", "texto"),
+            ("estado", "texto"),
         ],
         revocacion: [
             ("alumno_nombre", "texto"),
