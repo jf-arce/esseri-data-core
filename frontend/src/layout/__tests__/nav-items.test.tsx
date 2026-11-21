@@ -142,7 +142,7 @@ describe('filtrarNav', () => {
     expect(labels).not.toContain('Panel Administrativo')
   })
 
-  it('administrador del sistema (grupo-b.yaml: "= todo") ve los dos paneles', () => {
+  it('administrador del sistema ve los dos paneles', () => {
     const grupos = filtrarNav(NAV_GROUPS, 'administrador_del_sistema', [
       permiso('panel_administrativo.leer'),
     ])
@@ -183,7 +183,7 @@ describe('rutaInicioDe', () => {
     expect(rutaInicioDe('direccion', [permiso('panel_administrativo.leer')])).toBe('/panel')
   })
 
-  it('la pantalla de inicio por default de administrador del sistema es /panel (aunque también puede entrar a /admin)', () => {
+  it('la pantalla de inicio por default de administrador del sistema es /panel', () => {
     expect(rutaInicioDe('administrador_del_sistema', [permiso('panel_administrativo.leer')])).toBe(
       '/panel',
     )

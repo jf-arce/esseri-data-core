@@ -93,7 +93,7 @@ export function CatalogoMateriasPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar las materias</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={() => void cargar()}>
               Reintentar

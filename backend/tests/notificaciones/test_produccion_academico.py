@@ -14,7 +14,10 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from src.academico import solicitud_periodo_service
-from src.academico.service import justificar_asistencia_de_familia
+from src.academico.service import (
+    crear_justificacion_administrativa,
+    justificar_asistencia_de_familia,
+)
 from src.inscripciones.models import Asistencia
 from src.models import EventLog
 from src.notificaciones import service as notificaciones_service
@@ -527,3 +530,52 @@ def test_la_justificacion_individual_sigue_bloqueada_por_una_solicitud_que_cubre
         "origen": "periodo",
         "id": str(solicitud.id),
     }
+
+
+# --- Alta administrativa ---------------------------------------------------------------
+
+
+def test_el_alta_administrativa_avisa_a_cada_cuenta_familiar_habilitada(
+    db_session, escenario_notificaciones, tipo_inasistencia_justificada
+):
+    escenario = escenario_notificaciones
+    asistencia = Asistencia(
+        inscripcion_id=escenario["inscripcion"].id,
+        fecha=date(2027, 3, 15),
+        tipo="ausente_pendiente",
+    )
+    db_session.add(asistencia)
+    db_session.commit()
+
+    justificacion = crear_justificacion_administrativa(
+        db_session,
+        escenario["usuario_academico"],
+        escenario["alumno"].id,
+        asistencia.fecha,
+        "enfermedad",
+        "Certificado presentado en Administración.",
+    )
+
+    filas = [f for f in _notificaciones(db_session) if f.tipo == TIPO_JUSTIFICACION_APROBADA]
+    assert {f.usuario_id for f in filas} == {
+        escenario["usuario_a"].id,
+        escenario["usuario_a2"].id,
+        escenario["usuario_b"].id,
+    }
+    fila = next(f for f in filas if f.usuario_id == escenario["usuario_a"].id)
+    assert fila.familia_id == escenario["familia_a"].id
+    assert fila.destino_tipo == DESTINO_JUSTIFICACION_INDIVIDUAL
+    assert fila.destino_id == justificacion.id
+    assert fila.clave_hecho == (
+        f"academico:justificacion_individual:{justificacion.id}:alta_administrativa"
+    )
+    assert fila.titulo == "Justificación aprobada"
+    assert fila.mensaje == (
+        "Administración cargó y aprobó la justificación de la inasistencia de "
+        "Ríos, Tiziano del 15/03/2027."
+    )
+    assert fila.contexto["fecha_asistencia"] == "2027-03-15"
+    # Ni la cuenta que carga el alta ni la familia sin comunicaciones reciben el aviso.
+    assert escenario["usuario_academico"].id not in {f.usuario_id for f in filas}
+    assert escenario["usuario_c"].id not in {f.usuario_id for f in filas}
+    assert escenario["usuario_a_inactivo"].id not in {f.usuario_id for f in filas}

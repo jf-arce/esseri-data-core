@@ -34,10 +34,8 @@ export function PortalLayout() {
   const [menuAbierto, setMenuAbierto] = useState(false)
   const navItemClass = ({ isActive }: { isActive: boolean }) =>
     cn(
-      'rounded-full px-2.5 py-2 text-[13px] font-semibold whitespace-nowrap transition-colors lg:px-4 lg:text-sm',
-      isActive
-        ? 'bg-white/15 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.16)]'
-        : 'text-white/70 hover:bg-white/10 hover:text-white',
+      'rounded-full px-2.5 py-2 text-sm font-semibold whitespace-nowrap transition-colors lg:px-4',
+      isActive ? 'bg-pf-nav-activo text-white' : 'text-white/70 hover:bg-white/10 hover:text-white',
     )
 
   return (
@@ -55,7 +53,7 @@ export function PortalLayout() {
         className="sticky top-0 z-30 border-b border-white/10 print:hidden"
         style={{ background: PORTAL_FAMILIA_HEADER_BACKGROUND }}
       >
-        <div className="relative mx-auto flex min-h-16 w-full max-w-[92vw] items-center gap-3 py-3">
+        <div className="relative mx-auto flex min-h-14 w-full max-w-pf items-center gap-3 px-4 py-2 sm:px-6">
           <div className="flex items-center gap-2.5">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10">
               <img
@@ -115,7 +113,7 @@ export function PortalLayout() {
                   </SheetTrigger>
                   <SheetContent side="left" className="portal-familia w-[85vw] max-w-xs">
                     <SheetHeader>
-                      <SheetTitle className="font-heading text-[20px]">Menú</SheetTitle>
+                      <SheetTitle className="font-heading text-pf-encabezado">Menú</SheetTitle>
                       <SheetDescription>Portal de Familia</SheetDescription>
                     </SheetHeader>
                     <nav
@@ -130,10 +128,10 @@ export function PortalLayout() {
                           onClick={() => setMenuAbierto(false)}
                           className={({ isActive }) =>
                             cn(
-                              'flex min-h-11 items-center rounded-full px-4 text-[15px] font-semibold transition-colors',
+                              'flex min-h-11 items-center rounded-full px-4 text-pf-cuerpo font-semibold transition-colors',
                               isActive
-                                ? 'bg-[#F1E4FB] text-[#7A2FA8]'
-                                : 'text-[#2B2338] hover:bg-[#F7F2FC]',
+                                ? 'bg-pf-lila text-pf-accent'
+                                : 'text-texto hover:bg-(--card-hover)',
                             )
                           }
                         >
@@ -149,7 +147,7 @@ export function PortalLayout() {
         </div>
       </header>
 
-      <main className="relative z-10 px-4 py-6 sm:px-8">
+      <main className="@container/main relative z-10 mx-auto w-full max-w-pf px-4 py-6 sm:px-6">
         <Outlet />
       </main>
     </div>

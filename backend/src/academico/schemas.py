@@ -376,6 +376,9 @@ class FiltrosSolicitudesPeriodo(BaseModel):
     estado: Literal["pendiente", "aprobada", "rechazada", "cancelada", "revocada"] | None = Field(
         None, description="Estado de la solicitud"
     )
+    motivo: str | None = Field(
+        None, max_length=60, description="Nombre del motivo de justificación"
+    )
     busqueda: str | None = Field(
         None, max_length=120, description="Texto libre para buscar por alumno"
     )
@@ -457,6 +460,9 @@ class FiltrosJustificaciones(BaseModel):
     alumno_id: uuid.UUID | None = Field(None, description="ID del alumno")
     estado: Literal["pendiente", "aprobada", "rechazada"] | None = Field(
         None, description="Estado de la justificación"
+    )
+    motivo: str | None = Field(
+        None, max_length=60, description="Nombre del motivo de justificación"
     )
     busqueda: str | None = Field(
         None, max_length=120, description="Texto libre para buscar por alumno"

@@ -12,7 +12,7 @@ export function DebitosImportacionResumen({ resumen, cargando }: DebitosImportac
   return (
     <section
       aria-label="Resumen de la importación"
-      className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+      className="grid min-w-0 gap-3 grid-cols-[repeat(auto-fit,minmax(13rem,1fr))]"
     >
       <StatTile
         compact

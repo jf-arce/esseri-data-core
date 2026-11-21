@@ -104,7 +104,7 @@ export function EjecucionesWorkflowPage() {
       <PageHeader titulo="Historial de ejecuciones" />
       {filtradaPorRegla && (
         <Alert variant="info">
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {nodoId
               ? 'Mostrando solo las ejecuciones de una acción de la regla.'
               : 'Mostrando solo las ejecuciones de una regla.'}
@@ -124,7 +124,7 @@ export function EjecucionesWorkflowPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudo cargar el historial</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargar}>
               Reintentar

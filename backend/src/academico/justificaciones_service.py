@@ -76,6 +76,8 @@ def _aplicar_filtros(query, filtros: FiltrosJustificaciones, incluir_estado: boo
         query = query.filter(Asistencia.fecha >= filtros.fecha_desde)
     if filtros.fecha_hasta is not None:
         query = query.filter(Asistencia.fecha <= filtros.fecha_hasta)
+    if filtros.motivo:
+        query = query.filter(MotivoJustificacion.nombre == filtros.motivo)
     if filtros.busqueda and filtros.busqueda.strip():
         patron = f"%{normalizar_texto_busqueda(filtros.busqueda.strip())}%"
         query = query.filter(

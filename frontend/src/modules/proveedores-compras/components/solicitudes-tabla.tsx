@@ -91,7 +91,9 @@ function SolicitudesTabla({
             const esPropia = solicitud.usuario_id === usuarioActualId
             return (
               <TableRow key={solicitud.id}>
-                <TableCell className="font-medium">{descripcionSolicitud(solicitud)}</TableCell>
+                <TableCell className="max-w-[20rem] min-w-48 font-medium whitespace-normal">
+                  {descripcionSolicitud(solicitud)}
+                </TableCell>
                 <TableCell data-align="end" className="tabular-nums">
                   {solicitud.cantidad}
                 </TableCell>

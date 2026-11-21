@@ -15,8 +15,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { listarAlumnos } from '@/modules/familias-alumnos/services/listar-alumnos'
 import type { Alumno } from '@/modules/familias-alumnos/types'
 import { listarConceptosCobro } from '@/modules/facturacion/services/listar-conceptos-cobro'
-import type { ConceptoCobro, EstadoFactura } from '@/modules/facturacion/types'
+import type { ConceptoCobro, EstadoFactura, FiltroDebitoFactura } from '@/modules/facturacion/types'
 import { etiquetaEstadoFactura } from '@/modules/facturacion/utils'
+
+const OPCIONES_DEBITO = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'rechazado', label: 'Con débito rechazado' },
+  { value: 'cobrado', label: 'Con débito cobrado' },
+]
 
 const OPCIONES_ESTADO = [
   { value: 'todos', label: 'Todos' },
@@ -27,9 +33,11 @@ const OPCIONES_ESTADO = [
 
 interface FacturasFiltrosProps {
   estado: EstadoFactura | ''
+  debito: FiltroDebitoFactura | ''
   alumnoId: string
   conceptoCobroId: string
   onEstadoChange: (estado: EstadoFactura | '') => void
+  onDebitoChange: (debito: FiltroDebitoFactura | '') => void
   onAlumnoChange: (alumnoId: string) => void
   onConceptoCobroChange: (conceptoCobroId: string) => void
 }
@@ -43,9 +51,11 @@ export function FacturasFiltros(props: FacturasFiltrosProps) {
     alumnoId,
     conceptoCobroId,
     estado,
+    debito,
     onAlumnoChange,
     onConceptoCobroChange,
     onEstadoChange,
+    onDebitoChange,
   } = props
 
   useEffect(() => {
@@ -133,12 +143,22 @@ export function FacturasFiltros(props: FacturasFiltrosProps) {
           active={estado !== ''}
           onChange={(valor) => onEstadoChange(valor === 'todos' ? '' : (valor as EstadoFactura))}
         />
+        <FilterDropdown
+          label="Débito"
+          options={OPCIONES_DEBITO}
+          value={debito || 'todos'}
+          active={debito !== ''}
+          onChange={(valor) =>
+            onDebitoChange(valor === 'todos' ? '' : (valor as FiltroDebitoFactura))
+          }
+        />
         <FilterBarSpacer />
       </FilterBar>
-      {(estado || alumnoId || conceptoCobroId) && (
+      {(estado || debito || alumnoId || conceptoCobroId) && (
         <FilterChips
           onClearAll={() => {
             onEstadoChange('')
+            onDebitoChange('')
             onAlumnoChange('')
             onConceptoCobroChange('')
           }}
@@ -156,6 +176,11 @@ export function FacturasFiltros(props: FacturasFiltrosProps) {
           {estado && (
             <FilterChip onRemove={() => onEstadoChange('')}>
               Estado: {etiquetaEstadoFactura(estado)}
+            </FilterChip>
+          )}
+          {debito && (
+            <FilterChip onRemove={() => onDebitoChange('')}>
+              Débito: {debito === 'rechazado' ? 'Rechazado' : 'Cobrado'}
             </FilterChip>
           )}
         </FilterChips>

@@ -48,7 +48,7 @@ function FilaNotificacion({
       <span
         aria-hidden="true"
         className={cn(
-          'flex size-10 shrink-0 items-center justify-center rounded-[10px]',
+          'flex size-10 shrink-0 items-center justify-center rounded-pf-input',
           estilo.tileClassName,
         )}
       >
@@ -78,7 +78,7 @@ function FilaNotificacion({
               onNavegar()
               void onLeer(notificacion.id)
             }}
-            className="flex min-w-0 flex-1 items-start gap-3 rounded-[10px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pf-accent)]"
+            className="flex min-w-0 flex-1 items-start gap-3 rounded-pf-input focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
           >
             {contenido}
           </Link>
@@ -94,7 +94,7 @@ function FilaNotificacion({
               onClick={() => {
                 void onLeer(notificacion.id)
               }}
-              className="flex size-8 items-center justify-center rounded-full text-texto-2 transition-colors hover:bg-violeta/10 hover:text-[var(--pf-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pf-accent)]"
+              className="flex size-8 items-center justify-center rounded-full text-texto-2 transition-colors hover:bg-violeta/10 hover:text-[var(--pf-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
             >
               <CheckIcon aria-hidden="true" className="size-4" />
             </button>
@@ -116,7 +116,7 @@ function EsqueletoLista() {
     >
       {[0, 1, 2].map((indice) => (
         <div key={indice} className="flex items-start gap-3">
-          <Skeleton className="size-10 shrink-0 rounded-[10px]" />
+          <Skeleton className="size-10 shrink-0 rounded-pf-input" />
           <div className="flex-1 space-y-2">
             <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-3 w-full" />

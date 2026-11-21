@@ -3,7 +3,6 @@ import { Badge } from '@/components/ui/badge'
 import { RUTA_EJECUCIONES } from '@/modules/workflows/constants'
 import { useAtencionInstitucional } from '../hooks/use-atencion-institucional'
 import type { Recurso } from '../hooks/use-recurso'
-import { Panel } from './panel-card'
 
 export interface AccesoAtencion {
   justificaciones: boolean
@@ -35,6 +34,8 @@ export function AtencionInstitucional({
     valor: string
     to: string
     accion: string
+    // El color sigue la gravedad: una falla advierte, un pendiente solo informa.
+    tono: 'advertencia' | 'info'
   }[] = []
   if (acceso.justificaciones) {
     filas.push({
@@ -44,6 +45,7 @@ export function AtencionInstitucional({
       valor: valor(justificaciones, (datos) => (datos as { total: number }).total),
       to: '/academico/justificaciones',
       accion: 'Abrir bandeja',
+      tono: 'info',
     })
   }
   if (acceso.workflows) {
@@ -55,32 +57,29 @@ export function AtencionInstitucional({
       valor: valor(workflows, (datos) => (datos as { actual: { fallido: number } }).actual.fallido),
       to: `${RUTA_EJECUCIONES}?estado=fallido`,
       accion: 'Ver ejecuciones',
+      tono: 'advertencia',
     })
   }
 
-  if (!filas.length) return null
+  // Sin nada que revisar la franja no ocupa lugar; un error sí se muestra.
+  const visibles = filas.filter((fila) => fila.valor !== '0' && fila.valor !== '—')
+  if (!visibles.length) return null
 
   return (
-    <Panel titulo="Situaciones para revisar">
-      <ul aria-label="Situaciones para revisar" className="divide-y divide-borde">
-        {filas.map((fila) => (
-          <li
-            key={fila.clave}
-            className="flex flex-wrap items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
-          >
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-texto">{fila.etiqueta}</p>
-              <p className="text-xs text-texto-2">{fila.detalle}</p>
-            </div>
-            <div className="flex shrink-0 items-center gap-3">
-              <Badge variant={fila.valor === '0' ? 'neutro' : 'info'}>{fila.valor}</Badge>
-              <Link to={fila.to} className="text-sm font-semibold text-violeta hover:underline">
-                {fila.accion}
-              </Link>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </Panel>
+    <section
+      aria-label="Situaciones para revisar"
+      className="flex flex-wrap items-center justify-start gap-x-8 gap-y-1 rounded-card-sm bg-superficie px-4 py-3 shadow-card"
+    >
+      {visibles.map((fila) => (
+        <div key={fila.clave} className="flex min-h-7 min-w-0 flex-wrap items-center gap-x-3">
+          <Badge variant={fila.tono}>{fila.valor}</Badge>
+          <span className="text-sm font-medium text-texto">{fila.etiqueta}</span>
+          <span className="hidden text-xs text-texto-2 @3xl/main:inline">{fila.detalle}</span>
+          <Link to={fila.to} className="text-sm font-semibold text-violeta hover:underline">
+            {fila.accion}
+          </Link>
+        </div>
+      ))}
+    </section>
   )
 }

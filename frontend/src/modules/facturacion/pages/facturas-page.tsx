@@ -19,6 +19,7 @@ import { rangoDeMes } from '@/modules/facturacion/utils'
 import type {
   DireccionOrdenFacturas,
   EstadoFactura,
+  FiltroDebitoFactura,
   OrdenarPorFacturas,
 } from '@/modules/facturacion/types'
 
@@ -28,6 +29,9 @@ export function FacturasPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [estado, setEstado] = useState<EstadoFactura | ''>(
     (searchParams.get('estado') as EstadoFactura | null) ?? '',
+  )
+  const [debito, setDebito] = useState<FiltroDebitoFactura | ''>(
+    (searchParams.get('debito') as FiltroDebitoFactura | null) ?? '',
   )
   const [alumnoId, setAlumnoId] = useState(searchParams.get('alumno_id') ?? '')
   const [conceptoCobroId, setConceptoCobroId] = useState(
@@ -51,6 +55,7 @@ export function FacturasPage() {
       pagina,
       tamanio: TAMANIO_PAGINA,
       estado: estado || undefined,
+      debito: debito || undefined,
       alumnoId: alumnoId || undefined,
       conceptoCobroId: conceptoCobroId || undefined,
       emisionDesde: rango?.desde,
@@ -58,7 +63,7 @@ export function FacturasPage() {
       ordenarPor,
       direccion,
     }
-  }, [alumnoId, conceptoCobroId, direccion, emisionMes, estado, ordenarPor, pagina])
+  }, [alumnoId, conceptoCobroId, debito, direccion, emisionMes, estado, ordenarPor, pagina])
   const { datos, cargando, error, sinPermiso, recargar } = useFacturas(filtros)
 
   const actualizarEstado = (siguiente: EstadoFactura | '') => {
@@ -88,6 +93,7 @@ export function FacturasPage() {
   useEffect(() => {
     const parametros = new URLSearchParams()
     if (estado) parametros.set('estado', estado)
+    if (debito) parametros.set('debito', debito)
     if (alumnoId) parametros.set('alumno_id', alumnoId)
     if (conceptoCobroId) parametros.set('concepto_cobro_id', conceptoCobroId)
     if (ordenarPor !== 'fecha_vencimiento') parametros.set('ordenar_por', ordenarPor)
@@ -98,6 +104,7 @@ export function FacturasPage() {
   }, [
     alumnoId,
     conceptoCobroId,
+    debito,
     direccion,
     emisionMes,
     estado,
@@ -159,7 +166,7 @@ export function FacturasPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar las facturas</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargar}>
               Reintentar
@@ -170,9 +177,14 @@ export function FacturasPage() {
 
       <FacturasFiltros
         estado={estado}
+        debito={debito}
         alumnoId={alumnoId}
         conceptoCobroId={conceptoCobroId}
         onEstadoChange={actualizarEstado}
+        onDebitoChange={(valor) => {
+          setDebito(valor)
+          setPagina(1)
+        }}
         onAlumnoChange={actualizarAlumno}
         onConceptoCobroChange={actualizarConcepto}
       />

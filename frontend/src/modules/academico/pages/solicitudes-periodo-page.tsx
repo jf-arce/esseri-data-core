@@ -81,6 +81,7 @@ function formatearFechaHora(iso: string): string {
 }
 
 export function SolicitudesPeriodoPage() {
+  const conversaciones = useConversacionesContexto()
   const [filtros, setFiltros] = useState<FiltrosSolicitudesPeriodo>({
     estado: 'pendiente',
     pagina: 1,
@@ -230,14 +231,16 @@ export function SolicitudesPeriodoPage() {
   return (
     <div className="flex flex-col gap-5">
       <BackLink to="/academico" label="Volver a Académico" />
-      <PageHeader titulo="Solicitudes por período" />
-      <div className="flex justify-end">
-        <Button variant="secondary" size="sm" asChild>
-          <Link to="/academico/justificaciones">Ver justificaciones individuales</Link>
-        </Button>
-      </div>
+      <PageHeader
+        titulo="Solicitudes por período"
+        accion={
+          <Button variant="secondary" size="sm" asChild>
+            <Link to="/academico/justificaciones">Ver justificaciones individuales</Link>
+          </Button>
+        }
+      />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="flex flex-wrap gap-4 *:min-w-40 *:flex-1">
         <StatTile
           label="Pendientes"
           value={resumen?.pendientes ?? 0}
@@ -275,7 +278,7 @@ export function SolicitudesPeriodoPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar las solicitudes</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargar}>
               Reintentar
@@ -292,7 +295,7 @@ export function SolicitudesPeriodoPage() {
           })
         }
       >
-        <TabsList>
+        <TabsList className="max-w-full overflow-x-auto">
           <TabsTrigger value="pendiente">
             Pendientes <span className="text-texto-3">{resumen?.pendientes ?? 0}</span>
           </TabsTrigger>
@@ -412,7 +415,7 @@ export function SolicitudesPeriodoPage() {
                     {item.archivo_nombre && (
                       <Button
                         variant="link"
-                        className="mt-0.5 h-auto p-0 text-xs"
+                        className="mt-0.5 h-auto max-w-full p-0 text-xs"
                         onClick={() =>
                           void descargarComprobanteSolicitudPeriodoAdmin(
                             item.id,
@@ -421,7 +424,7 @@ export function SolicitudesPeriodoPage() {
                         }
                       >
                         <DownloadIcon data-icon="inline-start" />
-                        {item.archivo_nombre}
+                        <span className="max-w-[240px] truncate">{item.archivo_nombre}</span>
                       </Button>
                     )}
                   </TableCell>
@@ -431,6 +434,11 @@ export function SolicitudesPeriodoPage() {
                     </Badge>
                   </TableCell>
                   <TableCell data-align="end">
+                    <AccionConversacion
+                      tipo="solicitud_ausencia_periodo"
+                      id={item.id}
+                      consulta={conversaciones.get(`solicitud_ausencia_periodo:${item.id}`)}
+                    />
                     {item.estado === 'pendiente' ? (
                       <div className="flex justify-end gap-2">
                         <Button
@@ -625,3 +633,5 @@ export function SolicitudesPeriodoPage() {
     </div>
   )
 }
+import { AccionConversacion } from '@/modules/comunicaciones/components/accion-conversacion'
+import { useConversacionesContexto } from '@/modules/comunicaciones/hooks/use-conversaciones-contexto'

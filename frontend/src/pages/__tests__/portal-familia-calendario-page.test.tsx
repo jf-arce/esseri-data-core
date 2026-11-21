@@ -113,7 +113,7 @@ describe('PortalFamiliaCalendarioPage', () => {
   it('muestra el horario del alumno a cargo en la grilla semanal', () => {
     renderizar()
 
-    expect(screen.getByText('Horario semanal')).toBeInTheDocument()
+    expect(screen.getByText('Calendario')).toBeInTheDocument()
     expect(screen.getByText('4°B · Primario')).toBeInTheDocument()
     const grilla = within(screen.getByTestId('calendario-grilla'))
     expect(grilla.getByText('Matemática')).toBeInTheDocument()

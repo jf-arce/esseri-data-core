@@ -86,7 +86,11 @@ def _ultimos_resultados_debito(
     """Project confirmed results only for invoices already scoped to the calling family."""
     filas = db.execute(
         select(
-            DebitoCobranza.factura_id, DebitoCobranza.importe, EventLog.timestamp, EventLog.payload
+            DebitoCobranza.factura_id,
+            DebitoCobranza.id,
+            DebitoCobranza.importe,
+            EventLog.timestamp,
+            EventLog.payload,
         )
         .select_from(DebitoCobranza)
         .join(EventLog, EventLog.entidad_id == DebitoCobranza.id)
@@ -99,12 +103,13 @@ def _ultimos_resultados_debito(
         .order_by(EventLog.timestamp.desc(), EventLog.id.desc())
     )
     resultados = {}
-    for factura_id, importe, fecha, payload in filas:
+    for factura_id, debito_id, importe, fecha, payload in filas:
         datos = payload or {}
         resultado = datos.get("resultado")
         if factura_id in resultados or resultado not in ("exitoso", "rechazado"):
             continue
         resultados[factura_id] = ResultadoDebitoFamiliaRead(
+            debito_id=debito_id,
             resultado=resultado,
             fecha=fecha,
             importe=importe,

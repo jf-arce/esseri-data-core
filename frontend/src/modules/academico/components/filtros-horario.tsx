@@ -29,7 +29,7 @@ interface FiltrosHorarioProps {
 export function FiltrosHorario({ filtro, onFiltro, docentes }: FiltrosHorarioProps) {
   return (
     <>
-      <div className="relative w-full sm:w-56">
+      <div className="relative w-full @xl/main:w-56">
         <SearchIcon
           className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-texto-3"
           aria-hidden="true"

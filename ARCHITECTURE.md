@@ -56,6 +56,20 @@ transport dependency or infrastructure.
 
 ### Communications domain (stages 1–3)
 
+Contextual conversations are a separate capability within Communications. Each thread has exactly
+one database-enforced business context: a rejected debit attempt, an individual justification, or
+an absence period request. Coverage rows are not separate contexts. Family access matches both
+the original family and the student's current link. Administrative access checks the active role
+and the relevant domain permission. Messages and thread transitions never write to source records.
+Administrative messages enqueue a generic Portal notice and, when the address has an email, reuse
+the durable Workflows transport with a distinct message-based origin, recipient deduplication and
+a fresh scope check before n8n claims the delivery. Both the notice and the email require the
+current student link to keep `recibe_comunicaciones`; that flag governs alerts, never access to the
+thread, which still follows the original family and the current student link. These alerts never
+replace billing or attendance notices. The same collection endpoint serves the family's own
+consultations (revalidating each record) and the staff queue; the family portal groups them under
+Comunicaciones → Mis consultas without mixing them with institutional announcements.
+
 Institutional and course communications are owned by `backend/src/comunicaciones/` and
 `frontend/src/modules/comunicaciones/`, an additional domain alongside the original EDT modules.
 It owns drafts, publication, recipient resolution and individual responsible read receipts.
@@ -223,7 +237,7 @@ Arma el árbol de rutas de React Router juntando lo que cada módulo expone en s
 | `protected-route.tsx` | Componente wrapper que envuelve rutas que requieren sesión iniciada — redirige a login si no hay usuario autenticado (usa `store/auth-store.ts`). |
 | `rol-activo-route.tsx` | Dentro de `ProtectedRoute`, antes del shell: con sesión pero sin rol activo elegido todavía, redirige a `/elegir-perfil` en vez de dejar entrar a un panel sin rol. |
 | `inicio-route.tsx` | La ruta `index` del shell: redirige a la pantalla principal del rol activo (`nav-items.ts` → `rutaInicioDe`), o muestra "sin acceso" si el rol no tiene ningún permiso. Reemplaza a la vieja `HomePage` genérica. |
-| `role-route.tsx` | Wrapper similar a `protected-route.tsx`, pero además valida el **rol activo** (no todos los roles de la cuenta) contra los roles permitidos para esa ruta (ej. solo `dirección` entra a `/panel`, solo `administración` a `/admin`). |
+| `role-route.tsx` | Wrapper similar a `protected-route.tsx`, pero además valida el **rol activo** (no todos los roles de la cuenta) contra los roles permitidos para esa ruta (ej. `/panel` es de `dirección` y del administrador del sistema, `/admin` de `administración` y del administrador del sistema). |
 | `permiso-route.tsx` | Análogo a `role-route.tsx` pero por permiso: valida el código contra los permisos del **rol activo** (`store/auth-store.ts` → `permisosActivos`), no contra la suma de permisos de la cuenta. |
 
 Con esto, ningún módulo necesita saber de la existencia de los demás para definir sus propias rutas — cada uno declara las suyas en su `routes.tsx`, y `router/index.tsx` es el único lugar que los conoce a todos.
@@ -253,7 +267,7 @@ guard is therefore only an additional affordance, never a substitute for backend
 | `types/global.d.ts` | Tipos globales que no pertenecen a un módulo específico. |
 | `App.tsx` | Componente raíz: renderiza el `RouterProvider` (o `<Routes>`) con el árbol armado en `src/router/`, envuelto en el `layout/` general. |
 | `main.tsx` | Punto de entrada de la aplicación. |
-| `index.css` | Estilos globales y punto de entrada de Tailwind. Acá viven los tokens de `DESIGN.md` (`--violeta`, `--superficie`, `--texto-2`, etc.), mapeados sobre el contrato de variables de shadcn/ui y expuestos como utilidades Tailwind (`bg-superficie`, `text-texto-2`). Define tema claro y oscuro: `:root` establece la paleta clara y `:root.dark` redefine los mismos tokens semánticos. El subárbol `.portal-familia` fija además la paleta clara de forma local, con independencia del tema elegido en la aplicación. |
+| `index.css` | Estilos globales y punto de entrada de Tailwind. Acá viven los tokens de `DESIGN.md` (`--violeta`, `--superficie`, `--texto-2`, etc.), mapeados sobre el contrato de variables de shadcn/ui y expuestos como utilidades Tailwind (`bg-superficie`, `text-texto-2`). Define tema claro y oscuro: `:root` establece la paleta clara y `:root.dark` redefine los mismos tokens semánticos. El subárbol `.portal-familia` define además los tokens `--pf-*` del registro visual del Portal Familia (`DESIGN.md` §8.2), con valores claros y oscuros; las páginas del portal los usan vía utilidades (`bg-pf-item`, `rounded-pf-card`, `shadow-pf-card`) y no llevan colores fijos. |
 | `components.json` | Archivo de configuración de shadcn/ui (le indica a la CLI dónde generar los componentes: `src/components/ui/`). |
 
 ### Archivos propios de `frontend/` (independientes del resto del repo)

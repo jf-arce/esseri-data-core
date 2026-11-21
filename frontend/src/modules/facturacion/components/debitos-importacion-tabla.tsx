@@ -107,7 +107,7 @@ export function DebitosImportacionTabla({
           </EmptyDescription>
         </Empty>
       ) : (
-        <Table bare minWidth="min-w-[960px]" className="text-[13px]">
+        <Table bare minWidth="min-w-[880px]" className="text-[13px]">
           <TableHeader>
             <TableRow>
               <TableHead>Factura</TableHead>

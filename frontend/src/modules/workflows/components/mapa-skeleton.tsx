@@ -1,6 +1,6 @@
 import { Skeleton } from '@/components/ui/skeleton'
 
-const COLUMNAS = 'md:grid-cols-[minmax(0,1fr)_32px_minmax(0,1.1fr)_32px_minmax(0,1.1fr)]'
+const COLUMNAS = '@3xl/main:grid-cols-[minmax(0,1fr)_32px_minmax(0,1.1fr)_32px_minmax(0,1.1fr)]'
 
 /** Esqueleto del mapa: filtros de módulo y dos carriles de Evento → Regla → Qué hace. */
 export function MapaSkeleton() {
@@ -24,12 +24,12 @@ export function MapaSkeleton() {
           </div>
           <div className="flex flex-col gap-3">
             {[0, 1, 2].map((fila) => (
-              <div key={fila} className={`grid gap-2 md:gap-x-2 ${COLUMNAS}`}>
-                <Skeleton className="h-10 rounded-card-sm md:self-center" />
-                <span className="hidden md:block" />
+              <div key={fila} className={`grid gap-2 @3xl/main:gap-x-2 ${COLUMNAS}`}>
+                <Skeleton className="h-10 rounded-card-sm @3xl/main:self-center" />
+                <span className="hidden @3xl/main:block" />
                 <Skeleton className="h-14 rounded-card-sm" />
-                <span className="hidden md:block" />
-                <Skeleton className="h-10 rounded-card-sm md:self-center" />
+                <span className="hidden @3xl/main:block" />
+                <Skeleton className="h-10 rounded-card-sm @3xl/main:self-center" />
               </div>
             ))}
           </div>

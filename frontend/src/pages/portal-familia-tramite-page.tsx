@@ -22,13 +22,14 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Sheet,
   SheetContent,
@@ -43,7 +44,10 @@ import {
   PORTAL_PRIMARY_BUTTON_CLASS,
   PortalAlertBanner,
   PortalCard,
+  PortalSkeletonRegion,
   PortalStatTile,
+  SkeletonFila,
+  SkeletonTile,
 } from '@/components/portal-familia/portal-familia-ui'
 import {
   Select,
@@ -137,11 +141,11 @@ function SelectorPeriodo({ valor, periodos, onChange, etiqueta }: SelectorPeriod
         <button
           type="button"
           aria-label={`${etiqueta}: ${etiquetaPeriodo(valor)}`}
-          className="inline-flex min-h-10 items-center gap-2 rounded-[12px] border border-[#E7DDF1] bg-white px-3 text-[14px] font-medium text-[#2B2338] transition-colors hover:bg-[#FBF9FE]"
+          className="inline-flex min-h-10 items-center gap-2 rounded-pf-item border border-pf-borde bg-superficie px-3 text-sm font-medium text-texto transition-colors hover:bg-(--card-hover)"
         >
-          <CalendarDaysIcon aria-hidden="true" className="size-4 text-[#7A2FA8]" />
+          <CalendarDaysIcon aria-hidden="true" className="size-4 text-pf-accent" />
           {etiquetaPeriodo(valor)}
-          <ChevronDownIcon aria-hidden="true" className="size-4 text-[#6B6478]" />
+          <ChevronDownIcon aria-hidden="true" className="size-4 text-texto-2" />
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="portal-familia w-72">
@@ -149,16 +153,16 @@ function SelectorPeriodo({ valor, periodos, onChange, etiqueta }: SelectorPeriod
           <button
             type="button"
             aria-label="Año anterior"
-            className="inline-flex size-8 items-center justify-center rounded-full text-[#6B6478] hover:bg-[#F5EFFA] hover:text-[#7A2FA8]"
+            className="inline-flex size-8 items-center justify-center rounded-lg text-texto-2 hover:bg-(--card-hover) hover:text-pf-accent"
             onClick={() => setAnioNavegado(anio - 1)}
           >
             <ChevronLeftIcon aria-hidden="true" className="size-4" />
           </button>
-          <span className="text-[15px] font-semibold text-[#2B2338] tabular-nums">{anio}</span>
+          <span className="text-pf-cuerpo font-semibold text-texto tabular-nums">{anio}</span>
           <button
             type="button"
             aria-label="Año siguiente"
-            className="inline-flex size-8 items-center justify-center rounded-full text-[#6B6478] hover:bg-[#F5EFFA] hover:text-[#7A2FA8]"
+            className="inline-flex size-8 items-center justify-center rounded-lg text-texto-2 hover:bg-(--card-hover) hover:text-pf-accent"
             onClick={() => setAnioNavegado(anio + 1)}
           >
             <ChevronRightIcon aria-hidden="true" className="size-4" />
@@ -172,12 +176,12 @@ function SelectorPeriodo({ valor, periodos, onChange, etiqueta }: SelectorPeriod
             setAnioNavegado(null)
             onChange(String(anio))
           }}
-          className={`min-h-9 w-full rounded-[10px] text-[14px] font-medium transition-colors ${
+          className={`min-h-9 w-full rounded-pf-input text-sm font-medium transition-colors ${
             valor === String(anio)
-              ? 'bg-[#7A2FA8] text-white'
+              ? 'bg-pf-accent text-white'
               : periodos.some((periodo) => periodo.startsWith(String(anio)))
-                ? 'text-[#2B2338] hover:bg-[#F5EFFA]'
-                : 'cursor-not-allowed text-[#C9C2D3]'
+                ? 'text-texto hover:bg-(--card-hover)'
+                : 'cursor-not-allowed text-desactivado'
           }`}
         >
           Todo el año
@@ -197,12 +201,12 @@ function SelectorPeriodo({ valor, periodos, onChange, etiqueta }: SelectorPeriod
                   setAnioNavegado(null)
                   onChange(clave)
                 }}
-                className={`min-h-9 rounded-[10px] text-[14px] font-medium transition-colors ${
+                className={`min-h-9 rounded-pf-input text-sm font-medium transition-colors ${
                   activo
-                    ? 'bg-[#7A2FA8] text-white'
+                    ? 'bg-pf-accent text-white'
                     : disponible
-                      ? 'text-[#2B2338] hover:bg-[#F5EFFA]'
-                      : 'cursor-not-allowed text-[#C9C2D3]'
+                      ? 'text-texto hover:bg-(--card-hover)'
+                      : 'cursor-not-allowed text-desactivado'
                 }`}
               >
                 {nombre.slice(0, 3)}
@@ -368,6 +372,47 @@ function justificacionVisible(asistencia: AsistenciaFamilia): string {
   return '—'
 }
 
+/** Silueta de la pantalla: tabs, indicadores, selector de período y filas de historial. */
+function TramiteSkeleton() {
+  return (
+    <PortalSkeletonRegion etiqueta="Cargando asistencias">
+      <div aria-hidden="true" className="flex flex-col gap-4">
+        <div className="flex gap-1 border-b border-pf-borde">
+          {['w-24', 'w-32', 'w-24'].map((ancho, indice) => (
+            <div key={indice} className="flex min-h-11 items-center px-3">
+              <Skeleton className={`h-4 ${ancho}`} />
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-10 w-44 rounded-pf-item" />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((indice) => (
+            <SkeletonTile key={indice} />
+          ))}
+        </div>
+        <div className="overflow-hidden rounded-pf-tile border border-pf-divisor">
+          <div className="border-b border-pf-divisor px-4 py-3">
+            <Skeleton className="h-5 w-40" />
+          </div>
+          <div className="divide-y divide-pf-divisor">
+            {[0, 1, 2, 3, 4].map((indice) => (
+              <SkeletonFila
+                key={indice}
+                className="px-4 py-2.5"
+                avatarClassName="size-8"
+                acciones={2}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </PortalSkeletonRegion>
+  )
+}
+
 // Estos trámites tienen una pantalla propia para completar el flujo del portal sin reutilizar
 // vistas de backoffice. Su operación se habilitará cuando existan endpoints que autoricen a la
 // familia sólo sobre sus alumnos vinculados.
@@ -390,6 +435,7 @@ export function PortalFamiliaTramitePage({
   const destinoAplicado = useRef<string | null>(null)
   const datosCargadosPara = useRef<string | null>(null)
   const [asistencias, setAsistencias] = useState<AsistenciaFamilia[]>([])
+  const [datosListosPara, setDatosListosPara] = useState<string | null>(null)
   const [solicitudes, setSolicitudes] = useState<SolicitudAusenciaPeriodo[]>([])
   const [alumnoId, setAlumnoId] = useState(() => destinoUrl?.alumnoId ?? '')
   const [registroResaltado, setRegistroResaltado] = useState<RegistroResaltado | null>(null)
@@ -413,6 +459,7 @@ export function PortalFamiliaTramitePage({
   const alumnoSeleccionado = alumnos.some((alumno) => alumno.alumno_id === alumnoId)
     ? alumnoId
     : (alumnos[0]?.alumno_id ?? '')
+  const cargandoDatos = alumnoSeleccionado !== '' && datosListosPara !== alumnoSeleccionado
   const alumnoActual = alumnos.find((alumno) => alumno.alumno_id === alumnoSeleccionado)
   const nombreAlumno = alumnoActual
     ? `${alumnoActual.nombre} ${alumnoActual.apellido}`
@@ -574,6 +621,7 @@ export function PortalFamiliaTramitePage({
       setAsistencias(asistenciasCargadas)
       setSolicitudes(solicitudesCargadas)
       datosCargadosPara.current = alumnoSeleccionado
+      setDatosListosPara(alumnoSeleccionado)
     })
     return () => {
       activo = false
@@ -684,10 +732,8 @@ export function PortalFamiliaTramitePage({
       <PortalFamiliaShell
         titulo={titulo}
         descripcion={descripcion}
-        etiqueta="Portal de familia"
         volverA="/familia"
         volverEtiqueta="Volver al inicio"
-        anchoMaximo="max-w-[92vw]"
         acciones={
           esJustificacion && alumnos.length > 0 ? (
             <div className="w-full sm:w-64">
@@ -698,7 +744,7 @@ export function PortalFamiliaTramitePage({
                 <Select value={alumnoSeleccionado} onValueChange={setAlumnoId}>
                   <SelectTrigger id="familia-alumno" className="w-full">
                     <span className="flex items-center gap-2">
-                      <UserRoundIcon aria-hidden="true" className="size-4 text-[#6B6478]" />
+                      <UserRoundIcon aria-hidden="true" className="size-4 text-texto-2" />
                       <SelectValue placeholder="Seleccioná un alumno" />
                     </span>
                   </SelectTrigger>
@@ -716,9 +762,11 @@ export function PortalFamiliaTramitePage({
         }
       />
 
-      <div className="mx-auto flex w-full max-w-[92vw] flex-col gap-5 pt-2">
+      <div className="flex w-full flex-col gap-5 pt-2">
         <PortalCard contentClassName="px-5 pt-4 pb-5 sm:px-6 sm:pt-5 sm:pb-6">
-          {esJustificacion && alumnos.length > 0 ? (
+          {cargandoAlumnos || cargandoDatos ? (
+            <TramiteSkeleton />
+          ) : esJustificacion && alumnos.length > 0 ? (
             <div className="flex flex-col gap-4">
               {esAsistencias && asistenciasPendientes.length > 0 && (
                 <PortalAlertBanner
@@ -762,7 +810,7 @@ export function PortalFamiliaTramitePage({
               <div
                 role="tablist"
                 aria-label="Sección de asistencias"
-                className="flex flex-wrap gap-1 border-b border-[#E7DDF1]"
+                className="flex flex-wrap gap-1 border-b border-pf-borde"
               >
                 {opcionesSeccion.map(({ clave, etiqueta }) => {
                   const seleccionada = seccionAsistencia === clave
@@ -775,7 +823,7 @@ export function PortalFamiliaTramitePage({
                       role="tab"
                       aria-selected={seleccionada}
                       aria-controls={`asistencias-panel-${clave}`}
-                      className={`relative -mb-px inline-flex min-h-11 items-center gap-2 border-b-2 px-3 py-2 text-sm font-semibold transition-colors ${seleccionada ? 'border-[#7A2FA8] text-[#7A2FA8]' : 'border-transparent text-[#6B6478] hover:text-[#2B2338]'}`}
+                      className={`relative -mb-px inline-flex min-h-11 items-center gap-2 border-b-2 px-3 py-2 text-sm font-semibold transition-colors ${seleccionada ? 'border-pf-accent text-pf-accent' : 'border-transparent text-texto-2 hover:text-texto'}`}
                       onClick={() => setSeccionAsistencia(clave)}
                     >
                       <Icono aria-hidden="true" className="size-4" />
@@ -792,12 +840,12 @@ export function PortalFamiliaTramitePage({
                   tabIndex={0}
                 >
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                    <h2 className="text-[17px] font-semibold text-[#2B2338]">
+                    <h2 className="text-pf-encabezado font-semibold text-texto">
                       Resumen del período
                     </h2>
                     {periodos.length > 0 && (
                       <div className="flex items-center gap-2">
-                        <span className="text-[14px] text-[#6B6478]">Período:</span>
+                        <span className="text-sm text-texto-2">Período:</span>
                         <SelectorPeriodo
                           valor={periodoActivo}
                           periodos={periodos}
@@ -822,7 +870,7 @@ export function PortalFamiliaTramitePage({
                           detalle={`${resumenPeriodo.justificadas} ${
                             resumenPeriodo.justificadas === 1 ? 'justificada' : 'justificadas'
                           }`}
-                          detalleClassName="font-medium text-[#B42318]"
+                          detalleClassName="font-medium text-error"
                           value={resumenPeriodo.inasistencias}
                           icon={XIcon}
                           tone="rojo"
@@ -834,13 +882,13 @@ export function PortalFamiliaTramitePage({
                           icon={ClockIcon}
                           tone="ambar"
                         />
-                        <div className="flex flex-col justify-center gap-3 rounded-[22px] bg-white p-5 shadow-[0_10px_26px_rgba(24,16,40,0.08)]">
+                        <div className="flex flex-col justify-center gap-3 rounded-pf-card bg-superficie p-5 shadow-pf-card">
                           <div className="flex items-start justify-between gap-2">
-                            <p className="text-[15px] font-semibold text-[#2B2338]">
+                            <p className="text-pf-cuerpo font-semibold text-texto">
                               Asistencia del período
                             </p>
                           </div>
-                          <p className="font-heading text-[26px] leading-none font-bold text-[#2B2338] tabular-nums">
+                          <p className="font-heading text-pf-cifra leading-none font-bold text-texto tabular-nums">
                             {porcentajeAsistencia} %
                           </p>
                           <div
@@ -848,26 +896,26 @@ export function PortalFamiliaTramitePage({
                             aria-valuenow={porcentajeAsistencia}
                             aria-valuemin={0}
                             aria-valuemax={100}
-                            className="h-2 w-full overflow-hidden rounded-full bg-[#EAE2F2]"
+                            className="h-2 w-full overflow-hidden rounded-full bg-pf-lila"
                           >
                             <div
-                              className="h-full rounded-full bg-[#7A2FA8]"
+                              className="h-full rounded-full bg-pf-accent"
                               style={{ width: `${porcentajeAsistencia}%` }}
                             />
                           </div>
                         </div>
                       </div>
 
-                      <div className="mt-5 max-w-full overflow-hidden rounded-[18px] border border-[#EFE7F6] bg-white">
-                        <div className="flex items-center gap-2 border-b border-[#F1EBF7] px-4 py-3">
-                          <ListIcon aria-hidden="true" className="size-5 text-[#7A2FA8]" />
-                          <h3 className="text-[15px] font-semibold text-[#2B2338]">
+                      <div className="mt-5 max-w-full overflow-hidden rounded-pf-tile border border-pf-divisor bg-superficie">
+                        <div className="flex items-center gap-2 border-b border-pf-divisor px-4 py-3">
+                          <ListIcon aria-hidden="true" className="size-5 text-pf-accent" />
+                          <h3 className="text-pf-cuerpo font-semibold text-texto">
                             Últimos registros
                           </h3>
                         </div>
                         <div className="w-full min-w-0 overflow-x-auto">
                           <table className="w-full text-sm">
-                            <thead className="bg-[#F7F3FB] text-left text-[13px] text-[#6B6478]">
+                            <thead className="bg-pf-item text-left text-sm text-texto-2">
                               <tr>
                                 <th scope="col" className="px-4 py-2 font-semibold">
                                   Fecha
@@ -892,13 +940,13 @@ export function PortalFamiliaTramitePage({
                                 </th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-[#F1EBF7]">
+                            <tbody className="divide-y divide-pf-divisor">
                               {ultimosRegistros.map((asistencia) => {
                                 const condicion = condicionAsistencia(asistencia)
                                 const justificacion = justificacionVisible(asistencia)
                                 return (
                                   <tr key={asistencia.id}>
-                                    <td className="px-4 py-2 whitespace-nowrap text-[#3A2E45]">
+                                    <td className="px-4 py-2 whitespace-nowrap text-texto">
                                       {fechaCorta(asistencia.fecha)}
                                     </td>
                                     <td className="px-4 py-2">
@@ -910,17 +958,17 @@ export function PortalFamiliaTramitePage({
                                       {justificacion === 'Sin justificar' ? (
                                         <Badge variant="advertencia">Sin justificar</Badge>
                                       ) : (
-                                        <span className="text-[#3A2E45]">{justificacion}</span>
+                                        <span className="text-texto">{justificacion}</span>
                                       )}
                                     </td>
-                                    <td className="hidden max-w-[220px] truncate px-4 py-2 text-[#6B6478] sm:table-cell">
+                                    <td className="hidden max-w-[220px] truncate px-4 py-2 text-texto-2 sm:table-cell">
                                       {asistencia.justificacion_observacion ?? '—'}
                                     </td>
                                     <td className="px-4 py-2 text-right">
                                       <button
                                         type="button"
                                         aria-label={`Ver el registro del ${fechaCorta(asistencia.fecha)} en el historial`}
-                                        className="inline-flex size-8 items-center justify-center rounded-full text-[#6B6478] transition-colors hover:bg-[#F5EFFA] hover:text-[#7A2FA8]"
+                                        className="inline-flex size-8 items-center justify-center rounded-lg text-texto-2 transition-colors hover:bg-(--card-hover) hover:text-pf-accent"
                                         onClick={() => setSeccionAsistencia('historial')}
                                       >
                                         <MoreHorizontalIcon aria-hidden="true" className="size-4" />
@@ -935,7 +983,7 @@ export function PortalFamiliaTramitePage({
                       </div>
                     </>
                   ) : (
-                    <p className="rounded-[16px] border border-dashed border-[#E4D9F0] bg-[#FBF9FD] p-4 text-sm text-[#6B6478]">
+                    <p className="rounded-pf-tile border border-dashed border-pf-borde bg-pf-item p-4 text-sm text-texto-2">
                       Todavía no hay registros de asistencia para este alumno.
                     </p>
                   )}
@@ -949,11 +997,11 @@ export function PortalFamiliaTramitePage({
                 >
                   <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h2 className="text-[17px] font-semibold text-[#2B2338]">
+                      <h2 className="text-pf-encabezado font-semibold text-texto">
                         {esAsistencias ? 'Justificaciones' : 'Pendientes'}
                       </h2>
                       {esAsistencias && (
-                        <p className="mt-1 text-sm text-[#6B6478]">
+                        <p className="mt-1 text-sm text-texto-2">
                           Gestioná las ausencias: justificá las pendientes y revisá el estado de las
                           solicitudes enviadas.
                         </p>
@@ -962,7 +1010,7 @@ export function PortalFamiliaTramitePage({
                     {esAsistencias && (
                       <Button
                         variant="secondary"
-                        className="rounded-full"
+                        className="rounded-lg"
                         onClick={() => abrirFormulario('informar')}
                       >
                         Informar ausencia
@@ -994,10 +1042,10 @@ export function PortalFamiliaTramitePage({
                           onClick={() =>
                             setFiltroJustificacion(clave as 'todas' | 'pendientes' | 'enviadas')
                           }
-                          className={`min-h-9 rounded-full px-4 text-[14px] font-semibold transition-colors ${
+                          className={`min-h-9 rounded-md px-4 text-sm font-semibold transition-colors ${
                             filtroJustificacion === clave
-                              ? 'bg-[#F1E4FB] text-[#7A2FA8]'
-                              : 'text-[#3A2E45] hover:bg-[#F7F2FC]'
+                              ? 'bg-pf-lila text-pf-accent'
+                              : 'text-texto hover:bg-(--card-hover)'
                           }`}
                         >
                           {etiqueta}
@@ -1008,7 +1056,7 @@ export function PortalFamiliaTramitePage({
                     <div className="ml-auto flex flex-wrap items-center gap-2">
                       {periodosJustificacion.length > 0 && (
                         <div className="flex items-center gap-2">
-                          <span className="text-[14px] text-[#6B6478]">Período:</span>
+                          <span className="text-sm text-texto-2">Período:</span>
                           <SelectorPeriodo
                             valor={periodoJustificacionActivo}
                             periodos={periodosJustificacion}
@@ -1020,30 +1068,30 @@ export function PortalFamiliaTramitePage({
                       <div className="relative w-full sm:w-56">
                         <SearchIcon
                           aria-hidden="true"
-                          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#8C8599]"
+                          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-texto-3"
                         />
                         <Input
                           aria-label="Buscar por motivo"
                           placeholder="Buscar por motivo..."
                           value={busquedaJustificacion}
                           onChange={(evento) => setBusquedaJustificacion(evento.target.value)}
-                          className="h-10 rounded-full bg-white pl-9 text-[14px]"
+                          className="h-10 rounded-lg bg-superficie pl-9 text-sm"
                         />
                       </div>
                     </div>
                   </div>
 
                   {pendientesJustificacion.length > 0 && filtroJustificacion !== 'enviadas' && (
-                    <div className="mb-4 overflow-hidden rounded-[16px] border border-[#EFE7F6]">
-                      <div className="flex items-center gap-2 bg-[#F7F3FB] px-4 py-2.5">
-                        <ClockIcon aria-hidden="true" className="size-4 text-[#D98A2B]" />
-                        <h3 className="text-[15px] font-semibold text-[#2B2338]">
+                    <div className="mb-4 overflow-hidden rounded-pf-tile border border-pf-divisor">
+                      <div className="flex items-center gap-2 bg-pf-item px-4 py-2.5">
+                        <ClockIcon aria-hidden="true" className="size-4 text-pf-ambar-fg" />
+                        <h3 className="text-pf-cuerpo font-semibold text-texto">
                           Pendientes de justificar ({pendientesJustificacion.length})
                         </h3>
                       </div>
                       <div className="w-full overflow-x-auto">
                         <table className="w-full min-w-[520px] text-sm">
-                          <thead className="bg-white text-left text-[13px] text-[#6B6478]">
+                          <thead className="bg-superficie text-left text-sm text-texto-2">
                             <tr>
                               <th scope="col" className="px-4 py-2 font-semibold">
                                 Fecha / Período
@@ -1059,7 +1107,7 @@ export function PortalFamiliaTramitePage({
                               </th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-[#F1EBF7]">
+                          <tbody className="divide-y divide-pf-divisor">
                             {pendientesJustificacion.map((asistencia) => {
                               const resaltada =
                                 registroResaltado?.tipo === 'asistencia' &&
@@ -1070,10 +1118,10 @@ export function PortalFamiliaTramitePage({
                                   aria-current={resaltada ? 'true' : undefined}
                                   className={resaltada ? 'bg-violeta-suave' : undefined}
                                 >
-                                  <td className="px-4 py-2.5 whitespace-nowrap text-[#3A2E45]">
+                                  <td className="px-4 py-2.5 whitespace-nowrap text-texto">
                                     {formatearFecha(asistencia.fecha)}
                                   </td>
-                                  <td className="px-4 py-2.5 text-[#3A2E45]">Inasistencia</td>
+                                  <td className="px-4 py-2.5 text-texto">Inasistencia</td>
                                   <td className="px-4 py-2.5">
                                     <Badge variant="advertencia">Sin justificar</Badge>
                                   </td>
@@ -1081,7 +1129,7 @@ export function PortalFamiliaTramitePage({
                                     <Button
                                       size="sm"
                                       variant="secondary"
-                                      className="rounded-full"
+                                      className="rounded-lg"
                                       onClick={() =>
                                         abrirFormulario('justificar', asistencia.fecha)
                                       }
@@ -1099,16 +1147,16 @@ export function PortalFamiliaTramitePage({
                   )}
 
                   {enviadasJustificacion.length > 0 && filtroJustificacion !== 'pendientes' && (
-                    <div className="overflow-hidden rounded-[16px] border border-[#EFE7F6]">
-                      <div className="flex items-center gap-2 bg-[#F7F3FB] px-4 py-2.5">
-                        <CheckIcon aria-hidden="true" className="size-4 text-[#0F7A4D]" />
-                        <h3 className="text-[15px] font-semibold text-[#2B2338]">
+                    <div className="overflow-hidden rounded-pf-tile border border-pf-divisor">
+                      <div className="flex items-center gap-2 bg-pf-item px-4 py-2.5">
+                        <CheckIcon aria-hidden="true" className="size-4 text-exito" />
+                        <h3 className="text-pf-cuerpo font-semibold text-texto">
                           Justificaciones enviadas ({enviadasJustificacion.length})
                         </h3>
                       </div>
                       <div className="w-full overflow-x-auto">
                         <table className="w-full min-w-[640px] text-sm">
-                          <thead className="bg-white text-left text-[13px] text-[#6B6478]">
+                          <thead className="bg-superficie text-left text-sm text-texto-2">
                             <tr>
                               <th scope="col" className="px-4 py-2 font-semibold">
                                 Fecha / Período
@@ -1130,7 +1178,7 @@ export function PortalFamiliaTramitePage({
                               </th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-[#F1EBF7]">
+                          <tbody className="divide-y divide-pf-divisor">
                             {enviadasJustificacion.map((solicitud) => {
                               const resaltada =
                                 registroResaltado?.tipo === 'solicitud' &&
@@ -1141,14 +1189,14 @@ export function PortalFamiliaTramitePage({
                                   aria-current={resaltada ? 'true' : undefined}
                                   className={resaltada ? 'bg-violeta-suave' : undefined}
                                 >
-                                  <td className="px-4 py-2.5 whitespace-nowrap text-[#3A2E45]">
+                                  <td className="px-4 py-2.5 whitespace-nowrap text-texto">
                                     {rangoPeriodo(solicitud)}
                                   </td>
-                                  <td className="px-4 py-2.5 text-[#3A2E45]">Inasistencia</td>
-                                  <td className="px-4 py-2.5 text-[#3A2E45]">
+                                  <td className="px-4 py-2.5 text-texto">Inasistencia</td>
+                                  <td className="px-4 py-2.5 text-texto">
                                     {etiquetaMotivoJustificacion(solicitud.motivo)}
                                   </td>
-                                  <td className="px-4 py-2.5 whitespace-nowrap text-[#6B6478]">
+                                  <td className="px-4 py-2.5 whitespace-nowrap text-texto-2">
                                     {formatearFechaHora(solicitud.fecha_carga)}
                                   </td>
                                   <td className="px-4 py-2.5">
@@ -1162,7 +1210,7 @@ export function PortalFamiliaTramitePage({
                                     <Button
                                       size="sm"
                                       variant="secondary"
-                                      className="rounded-full"
+                                      className="rounded-lg"
                                       onClick={() =>
                                         setDetalleJustificacion({ tipo: 'enviada', solicitud })
                                       }
@@ -1180,7 +1228,7 @@ export function PortalFamiliaTramitePage({
                   )}
 
                   {pendientesJustificacion.length === 0 && filtroJustificacion !== 'enviadas' ? (
-                    <p className="rounded-[16px] border border-dashed border-[#E4D9F0] bg-[#FBF9FD] p-4 text-sm text-[#6B6478]">
+                    <p className="rounded-pf-tile border border-dashed border-pf-borde bg-pf-item p-4 text-sm text-texto-2">
                       No tenés ausencias pendientes de justificar.
                     </p>
                   ) : null}
@@ -1198,7 +1246,9 @@ export function PortalFamiliaTramitePage({
                       {detalleJustificacion?.tipo === 'pendiente' ? (
                         <>
                           <SheetHeader>
-                            <SheetTitle className="text-[20px]">Detalle de ausencia</SheetTitle>
+                            <SheetTitle className="text-pf-encabezado">
+                              Detalle de ausencia
+                            </SheetTitle>
                             <SheetDescription>
                               {formatearFecha(detalleJustificacion.asistencia.fecha)} ·{' '}
                               {nombreAlumno}
@@ -1207,14 +1257,14 @@ export function PortalFamiliaTramitePage({
                           <div className="flex flex-col gap-4 px-4 pb-6">
                             <Badge variant="advertencia">Sin justificar</Badge>
                             <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-                              <dt className="text-[#6B6478]">Alumno</dt>
-                              <dd className="text-[#2B2338]">{nombreAlumno}</dd>
-                              <dt className="text-[#6B6478]">Fecha</dt>
-                              <dd className="text-[#2B2338]">
+                              <dt className="text-texto-2">Alumno</dt>
+                              <dd className="text-texto">{nombreAlumno}</dd>
+                              <dt className="text-texto-2">Fecha</dt>
+                              <dd className="text-texto">
                                 {formatearFecha(detalleJustificacion.asistencia.fecha)}
                               </dd>
-                              <dt className="text-[#6B6478]">Tipo</dt>
-                              <dd className="text-[#2B2338]">Inasistencia</dd>
+                              <dt className="text-texto-2">Tipo</dt>
+                              <dd className="text-texto">Inasistencia</dd>
                             </dl>
                             <Button
                               className={PORTAL_PRIMARY_BUTTON_CLASS}
@@ -1230,7 +1280,7 @@ export function PortalFamiliaTramitePage({
                       ) : detalleJustificacion?.tipo === 'enviada' ? (
                         <>
                           <SheetHeader>
-                            <SheetTitle className="text-[20px]">
+                            <SheetTitle className="text-pf-encabezado">
                               Detalle de justificación
                             </SheetTitle>
                             <SheetDescription className="uppercase">
@@ -1238,6 +1288,17 @@ export function PortalFamiliaTramitePage({
                             </SheetDescription>
                           </SheetHeader>
                           <div className="flex flex-col gap-5 px-4 pb-6">
+                            <Button variant="secondary" className="self-start rounded-full" asChild>
+                              <Link
+                                to={rutaContexto(
+                                  'solicitud_ausencia_periodo',
+                                  detalleJustificacion.solicitud.id,
+                                  true,
+                                )}
+                              >
+                                Conversación sobre esta justificación
+                              </Link>
+                            </Button>
                             <Badge
                               variant={
                                 VARIANTE_ESTADO_SOLICITUD_PERIODO[
@@ -1249,38 +1310,38 @@ export function PortalFamiliaTramitePage({
                             </Badge>
 
                             <section>
-                              <h3 className="mb-2 flex items-center gap-2 text-[15px] font-semibold text-[#2B2338]">
+                              <h3 className="mb-2 flex items-center gap-2 text-pf-cuerpo font-semibold text-texto">
                                 <FileTextIcon
                                   aria-hidden="true"
-                                  className="size-4 text-[#7A2FA8]"
+                                  className="size-4 text-pf-accent"
                                 />
                                 Información general
                               </h3>
                               <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-                                <dt className="text-[#6B6478]">Alumno</dt>
-                                <dd className="text-[#2B2338]">{nombreAlumno}</dd>
-                                <dt className="text-[#6B6478]">Período de ausencia</dt>
-                                <dd className="text-[#2B2338]">
+                                <dt className="text-texto-2">Alumno</dt>
+                                <dd className="text-texto">{nombreAlumno}</dd>
+                                <dt className="text-texto-2">Período de ausencia</dt>
+                                <dd className="text-texto">
                                   {rangoPeriodo(detalleJustificacion.solicitud)}
                                 </dd>
-                                <dt className="text-[#6B6478]">Fecha de envío</dt>
-                                <dd className="text-[#2B2338]">
+                                <dt className="text-texto-2">Fecha de envío</dt>
+                                <dd className="text-texto">
                                   {formatearFechaHora(detalleJustificacion.solicitud.fecha_carga)}
                                 </dd>
-                                <dt className="text-[#6B6478]">Canal</dt>
-                                <dd className="text-[#2B2338]">Portal de Familia</dd>
+                                <dt className="text-texto-2">Canal</dt>
+                                <dd className="text-texto">Portal de Familia</dd>
                               </dl>
                             </section>
 
                             <section>
-                              <h3 className="mb-2 flex items-center gap-2 text-[15px] font-semibold text-[#2B2338]">
+                              <h3 className="mb-2 flex items-center gap-2 text-pf-cuerpo font-semibold text-texto">
                                 <StickyNoteIcon
                                   aria-hidden="true"
-                                  className="size-4 text-[#7A2FA8]"
+                                  className="size-4 text-pf-accent"
                                 />
                                 Motivo informado
                               </h3>
-                              <p className="rounded-[12px] bg-[#FBF9FD] p-3 text-sm text-[#3A2E45]">
+                              <p className="rounded-pf-item bg-pf-item p-3 text-sm text-texto">
                                 {etiquetaMotivoJustificacion(detalleJustificacion.solicitud.motivo)}
                                 {detalleJustificacion.solicitud.observacion
                                   ? ` ${detalleJustificacion.solicitud.observacion}`
@@ -1290,16 +1351,16 @@ export function PortalFamiliaTramitePage({
 
                             {detalleJustificacion.solicitud.archivo_nombre && (
                               <section>
-                                <h3 className="mb-2 flex items-center gap-2 text-[15px] font-semibold text-[#2B2338]">
+                                <h3 className="mb-2 flex items-center gap-2 text-pf-cuerpo font-semibold text-texto">
                                   <PaperclipIcon
                                     aria-hidden="true"
-                                    className="size-4 text-[#7A2FA8]"
+                                    className="size-4 text-pf-accent"
                                   />
                                   Comprobante adjunto
                                 </h3>
                                 <Button
                                   variant="secondary"
-                                  className="w-full justify-start rounded-[12px]"
+                                  className="w-full justify-start rounded-pf-item"
                                   onClick={() =>
                                     void descargarComprobanteSolicitudAusencia(
                                       detalleJustificacion.solicitud.id,
@@ -1315,12 +1376,12 @@ export function PortalFamiliaTramitePage({
                             )}
 
                             <section>
-                              <h3 className="mb-2 flex items-center gap-2 text-[15px] font-semibold text-[#2B2338]">
-                                <CheckIcon aria-hidden="true" className="size-4 text-[#7A2FA8]" />
+                              <h3 className="mb-2 flex items-center gap-2 text-pf-cuerpo font-semibold text-texto">
+                                <CheckIcon aria-hidden="true" className="size-4 text-pf-accent" />
                                 Revisión
                               </h3>
                               <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-                                <dt className="text-[#6B6478]">Resultado</dt>
+                                <dt className="text-texto-2">Resultado</dt>
                                 <dd>
                                   <Badge
                                     variant={
@@ -1332,16 +1393,16 @@ export function PortalFamiliaTramitePage({
                                     {etiquetaEstadoSolicitud(detalleJustificacion.solicitud.estado)}
                                   </Badge>
                                 </dd>
-                                <dt className="text-[#6B6478]">Fecha de revisión</dt>
-                                <dd className="text-[#2B2338]">
+                                <dt className="text-texto-2">Fecha de revisión</dt>
+                                <dd className="text-texto">
                                   {formatearFechaHora(
                                     detalleJustificacion.solicitud.fecha_resolucion,
                                   )}
                                 </dd>
                                 {detalleJustificacion.solicitud.observacion_resolucion && (
                                   <>
-                                    <dt className="text-[#6B6478]">Observación</dt>
-                                    <dd className="text-[#2B2338]">
+                                    <dt className="text-texto-2">Observación</dt>
+                                    <dd className="text-texto">
                                       {detalleJustificacion.solicitud.observacion_resolucion}
                                     </dd>
                                   </>
@@ -1352,7 +1413,7 @@ export function PortalFamiliaTramitePage({
                             {detalleJustificacion.solicitud.estado === 'pendiente' && (
                               <Button
                                 variant="secondary"
-                                className="rounded-full"
+                                className="rounded-lg"
                                 onClick={() => {
                                   void cancelarSolicitud(detalleJustificacion.solicitud)
                                   setDetalleJustificacion(null)
@@ -1374,10 +1435,10 @@ export function PortalFamiliaTramitePage({
                   aria-labelledby="asistencias-tab-historial"
                   tabIndex={0}
                 >
-                  <h2 className="mb-2 text-sm font-semibold text-[#2B2338]">Historial</h2>
+                  <h2 className="mb-2 text-sm font-semibold text-texto">Historial</h2>
                   {asistenciasHistorial.length > 0 ? (
                     <>
-                      <div className="mb-4 grid gap-3 rounded-[16px] border border-[#EFE5F7] bg-[#F7F2FC] p-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="mb-4 grid gap-3 rounded-pf-tile border border-pf-divisor bg-pf-item p-3 sm:grid-cols-2 lg:grid-cols-4">
                         <Field>
                           <FieldLabel htmlFor="historial-fecha-desde">Desde</FieldLabel>
                           <Input
@@ -1445,7 +1506,7 @@ export function PortalFamiliaTramitePage({
                       </div>
                       {asistenciasHistorialFiltradas.length > 0 ? (
                         <>
-                          <div className="divide-y divide-[#F0EAF6] overflow-hidden rounded-[16px] border border-[#F0EAF6] bg-[#FBF9FD]">
+                          <div className="divide-y divide-pf-divisor overflow-hidden rounded-pf-tile border border-pf-divisor bg-pf-item">
                             {asistenciasHistorialPaginadas.map((asistencia) => {
                               const detalleId = `justificacion-detalle-${asistencia.id}`
                               const expandido = detalleExpandido === asistencia.id
@@ -1467,20 +1528,20 @@ export function PortalFamiliaTramitePage({
                                         'es-AR',
                                       )}
                                     </span>
-                                    <span className="text-right text-[#6B6478]">
+                                    <span className="text-right text-texto-2">
                                       {etiquetaAsistencia(asistencia)}
                                     </span>
                                     {iconoEstadoJustificacion(asistencia.justificacion_estado)}
                                     {!asistencia.justificacion_id &&
                                       cubiertaPorPeriodo(asistencia.fecha) && (
-                                        <span className="text-xs text-[#8C8599]">
+                                        <span className="text-xs text-texto-3">
                                           Cubierta por solicitud
                                         </span>
                                       )}
                                     {asistencia.justificacion_id && (
                                       <button
                                         type="button"
-                                        className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-[#6B6478] transition-colors hover:bg-[#F5EFFA] hover:text-[#7A2FA8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
+                                        className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-texto-2 transition-colors hover:bg-(--card-hover) hover:text-pf-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
                                         aria-label={`${expandido ? 'Ocultar' : 'Mostrar'} detalle de la justificación del ${new Date(`${asistencia.fecha}T00:00:00`).toLocaleDateString('es-AR')}`}
                                         aria-expanded={expandido}
                                         aria-controls={detalleId}
@@ -1499,8 +1560,24 @@ export function PortalFamiliaTramitePage({
                                     <div
                                       id={detalleId}
                                       hidden={!expandido}
-                                      className="mt-2 rounded-[12px] bg-[#F5EFFA] p-2.5 text-xs text-[#6B6478]"
+                                      className="mt-2 rounded-pf-item bg-pf-item-hover p-2.5 text-xs text-texto-2"
                                     >
+                                      <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        className="mb-2 rounded-full"
+                                        asChild
+                                      >
+                                        <Link
+                                          to={rutaContexto(
+                                            'justificacion_inasistencia',
+                                            asistencia.justificacion_id,
+                                            true,
+                                          )}
+                                        >
+                                          Conversación sobre esta justificación
+                                        </Link>
+                                      </Button>
                                       <p>
                                         <strong>Motivo:</strong>{' '}
                                         {etiquetaMotivoJustificacion(
@@ -1516,7 +1593,7 @@ export function PortalFamiliaTramitePage({
                                       {asistencia.justificacion_archivo_nombre && (
                                         <button
                                           type="button"
-                                          className="mt-2 inline-flex items-center gap-1 font-semibold text-[#7A2FA8] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
+                                          className="mt-2 inline-flex items-center gap-1 font-semibold text-pf-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
                                           onClick={() =>
                                             void descargarComprobanteJustificacionFamilia(
                                               asistencia.justificacion_id!,
@@ -1536,13 +1613,13 @@ export function PortalFamiliaTramitePage({
                           </div>
                           {historialTotalPaginas > 1 && (
                             <nav
-                              className="mt-3 flex items-center justify-between gap-3 text-xs text-[#6B6478]"
+                              className="mt-3 flex items-center justify-between gap-3 text-xs text-texto-2"
                               aria-label="Paginación del historial"
                             >
                               <Button
                                 variant="secondary"
                                 size="sm"
-                                className="rounded-full"
+                                className="rounded-lg"
                                 disabled={historialPaginaActual === 1}
                                 onClick={() =>
                                   setHistorialPagina((pagina) => Math.max(1, pagina - 1))
@@ -1557,7 +1634,7 @@ export function PortalFamiliaTramitePage({
                               <Button
                                 variant="secondary"
                                 size="sm"
-                                className="rounded-full"
+                                className="rounded-lg"
                                 disabled={historialPaginaActual === historialTotalPaginas}
                                 onClick={() =>
                                   setHistorialPagina((pagina) =>
@@ -1572,13 +1649,13 @@ export function PortalFamiliaTramitePage({
                           )}
                         </>
                       ) : (
-                        <p className="rounded-[16px] border border-dashed border-[#E4D9F0] bg-[#FBF9FD] p-4 text-sm text-[#6B6478]">
+                        <p className="rounded-pf-tile border border-dashed border-pf-borde bg-pf-item p-4 text-sm text-texto-2">
                           No hay registros que coincidan con los filtros seleccionados.
                         </p>
                       )}
                     </>
                   ) : (
-                    <p className="rounded-[16px] border border-dashed border-[#E4D9F0] bg-[#FBF9FD] p-4 text-sm text-[#6B6478]">
+                    <p className="rounded-pf-tile border border-dashed border-pf-borde bg-pf-item p-4 text-sm text-texto-2">
                       Todavía no hay registros en tu historial.
                     </p>
                   )}
@@ -1611,3 +1688,4 @@ export function PortalFamiliaTramitePage({
     </section>
   )
 }
+import { rutaContexto } from '@/modules/comunicaciones/conversaciones'

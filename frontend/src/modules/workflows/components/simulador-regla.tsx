@@ -105,7 +105,7 @@ export function SimuladorRegla({
         {abierto ? (
           <section
             aria-label="Probar regla"
-            className="relative ml-auto w-[min(320px,calc(100vw-2rem))] origin-bottom-right animate-in overflow-hidden rounded-lg border border-borde bg-superficie shadow-card duration-200 fade-in-0 zoom-in-95 motion-reduce:animate-none"
+            className="relative ml-auto w-[min(320px,calc(100cqw-1.5rem))] origin-bottom-right animate-in overflow-hidden rounded-lg border border-borde bg-superficie shadow-card duration-200 fade-in-0 zoom-in-95 motion-reduce:animate-none"
           >
             <Button
               variant="ghost"

@@ -32,7 +32,7 @@ export function HistorialCambios({ entidad, entidadId }: HistorialCambiosProps) 
     return (
       <Alert variant="error">
         <AlertTitle>No se pudo cargar el historial</AlertTitle>
-        <AlertDescription className="flex items-center justify-between gap-3">
+        <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
           {error}
           <Button variant="secondary" size="sm" onClick={recargar}>
             Reintentar

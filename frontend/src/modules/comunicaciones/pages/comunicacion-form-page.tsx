@@ -480,38 +480,45 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
       {respaldos.length > 0 && (
         <section aria-label="Borradores en este dispositivo" className="space-y-2">
           <p className="text-sm text-texto-2">Borradores guardados en este dispositivo</p>
-          {respaldos.map((respaldo) =>
-            respaldo.id ? (
-              <Button key={respaldo.localId} variant="secondary" asChild>
-                <Link
-                  to={`${base}/${respaldo.id}/editar`}
-                  aria-label={`Continuar borrador: ${respaldo.datos.asunto || 'Sin asunto'}`}
+          <div className="flex flex-wrap gap-2">
+            {respaldos.map((respaldo) =>
+              respaldo.id ? (
+                <Button key={respaldo.localId} variant="secondary" className="max-w-full" asChild>
+                  <Link
+                    to={`${base}/${respaldo.id}/editar`}
+                    aria-label={`Continuar borrador: ${respaldo.datos.asunto || 'Sin asunto'}`}
+                  >
+                    <span className="truncate">
+                      Continuar: {respaldo.datos.asunto || 'Sin asunto'}
+                    </span>
+                  </Link>
+                </Button>
+              ) : (
+                <Button
+                  key={respaldo.localId}
+                  variant="secondary"
+                  className="max-w-full"
+                  aria-label={`Recuperar borrador: ${respaldo.datos.asunto || 'Sin asunto'}`}
+                  onClick={() => {
+                    respaldoId.current = respaldo.localId
+                    datosActuales.current = respaldo.datos
+                    setDatos(respaldo.datos)
+                    sincronizadorRef.current?.encolar(respaldo.datos)
+                    setRevisionRespaldos((valor) => valor + 1)
+                  }}
                 >
-                  Continuar: {respaldo.datos.asunto || 'Sin asunto'}
-                </Link>
-              </Button>
-            ) : (
-              <Button
-                key={respaldo.localId}
-                variant="secondary"
-                aria-label={`Recuperar borrador: ${respaldo.datos.asunto || 'Sin asunto'}`}
-                onClick={() => {
-                  respaldoId.current = respaldo.localId
-                  datosActuales.current = respaldo.datos
-                  setDatos(respaldo.datos)
-                  sincronizadorRef.current?.encolar(respaldo.datos)
-                  setRevisionRespaldos((valor) => valor + 1)
-                }}
-              >
-                Recuperar: {respaldo.datos.asunto || 'Sin asunto'}
-              </Button>
-            ),
-          )}
+                  <span className="truncate">
+                    Recuperar: {respaldo.datos.asunto || 'Sin asunto'}
+                  </span>
+                </Button>
+              ),
+            )}
+          </div>
         </section>
       )}
       <ol
         aria-label="Pasos de publicación"
-        className="grid grid-cols-4 gap-1 text-center text-xs sm:gap-3 sm:text-sm"
+        className="grid grid-cols-4 gap-1 text-center text-xs @xl/main:gap-3 @xl/main:text-sm"
       >
         {pasos.map((p, i) => {
           const activo = paso === i + 1
@@ -566,14 +573,14 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
         </Alert>
       )}
       <div
-        className="space-y-5 rounded-panel bg-superficie p-5 shadow-card sm:p-8"
+        className="space-y-5 rounded-panel bg-superficie p-5 shadow-card @xl/main:p-8"
         aria-busy={ocupado || cargando}
       >
         {cargando ? (
           <p role="status">Cargando borrador…</p>
         ) : paso === 1 ? (
           <>
-            <FieldGroup className={docente ? '' : 'grid grid-cols-1 gap-4 sm:grid-cols-2'}>
+            <FieldGroup className={docente ? '' : 'grid grid-cols-1 gap-4 @xl/main:grid-cols-2'}>
               {!docente && (
                 <div className="flex min-w-0 flex-col gap-2">
                   <SelectorComunicacion
@@ -737,7 +744,7 @@ export function ComunicacionFormPage({ docente = false }: { docente?: boolean })
                         <legend className="mb-2 text-sm text-texto-2">
                           Elegí una o más opciones
                         </legend>
-                        <div className="max-h-64 space-y-1 overflow-y-auto">
+                        <div className="grid max-h-64 grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-1 overflow-y-auto">
                           {seleccionVisible?.map((o) => (
                             <Label
                               key={o.id}

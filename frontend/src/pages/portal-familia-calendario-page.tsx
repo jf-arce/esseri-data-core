@@ -24,7 +24,11 @@ import {
   PortalFamiliaShell,
 } from '@/components/portal-familia/portal-familia-shell'
 import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
-import { PortalCard } from '@/components/portal-familia/portal-familia-ui'
+import {
+  PortalCard,
+  PortalCardSkeleton,
+  PortalSkeletonRegion,
+} from '@/components/portal-familia/portal-familia-ui'
 import { useHorarioFamilia } from '@/modules/academico/hooks/use-horario-familia'
 import { GrillaSemanal, type Actividad } from '@/modules/academico/components/grilla-semanal'
 import { GrupoActividadesSheet } from '@/modules/academico/components/grupo-actividades-sheet'
@@ -64,6 +68,100 @@ function rangoHora(hora: string): string {
 }
 
 type Franja = MateriaCurso['horarios'][number] & { materia: MateriaCurso }
+
+const ALTURAS_BLOQUES = [
+  ['h-16', 'h-24', 'h-16'],
+  ['h-24', 'h-16', 'h-20'],
+  ['h-20', 'h-16', 'h-24'],
+  ['h-16', 'h-20', 'h-16'],
+  ['h-24', 'h-16', 'h-20'],
+]
+
+/** Silueta del horario: grilla L-V en desktop y tabs + bloques en la agenda móvil. */
+function HorarioSkeletonContenido() {
+  return (
+    <>
+      <div className="hidden overflow-hidden rounded-pf-tile border border-pf-divisor lg:block">
+        <div className="grid grid-cols-[4.5rem_repeat(5,minmax(0,1fr))] border-b border-pf-divisor bg-pf-item">
+          <div />
+          {NOMBRES_DIA.map((dia) => (
+            <div key={dia} className="flex flex-col items-center gap-1.5 py-3">
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-3.5 w-8" />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-[4.5rem_repeat(5,minmax(0,1fr))]">
+          <div className="flex flex-col items-center gap-[2.1rem] py-3">
+            {[0, 1, 2, 3, 4].map((indice) => (
+              <Skeleton key={indice} className="h-3.5 w-9" />
+            ))}
+          </div>
+          {ALTURAS_BLOQUES.map((alturas, columna) => (
+            <div key={columna} className="flex flex-col gap-2 border-l border-pf-divisor p-1.5">
+              {alturas.map((altura, indice) => (
+                <Skeleton key={indice} className={cn('w-full rounded-pf-icono', altura)} />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-col gap-4 lg:hidden">
+        <div className="flex gap-1 rounded-pf-card bg-pf-item-hover p-1">
+          {NOMBRES_DIA.map((dia) => (
+            <Skeleton key={dia} className="h-10 flex-1 rounded-md" />
+          ))}
+        </div>
+        <div className="flex flex-col gap-2">
+          {[0, 1, 2].map((indice) => (
+            <Skeleton key={indice} className="h-[88px] w-full rounded-pf-icono" />
+          ))}
+        </div>
+      </div>
+    </>
+  )
+}
+
+function HorarioSkeleton() {
+  return (
+    <PortalSkeletonRegion etiqueta="Cargando horario">
+      <div aria-hidden="true">
+        <HorarioSkeletonContenido />
+      </div>
+    </PortalSkeletonRegion>
+  )
+}
+
+/** Silueta de la card "Horario semanal" mientras se cargan los alumnos. */
+function CalendarioAlumnosSkeleton() {
+  return (
+    <PortalSkeletonRegion etiqueta="Cargando calendario">
+      <div aria-hidden="true" className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="w-full space-y-1.5 sm:w-64">
+            <Skeleton className="h-4 w-14" />
+            <Skeleton className="h-10 w-full rounded-pf-item" />
+          </div>
+          <Skeleton className="mb-1.5 h-7 w-28 rounded-full" />
+        </div>
+        <PortalCardSkeleton conEncabezado={false} contentClassName="px-5 pt-0 pb-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-pf-divisor py-2.5">
+            <Skeleton className="h-9 w-80 max-w-full" />
+            <Skeleton className="size-9" />
+          </div>
+          <div className="flex flex-wrap items-center gap-2 border-b border-pf-divisor py-2.5">
+            <Skeleton className="h-10 w-56 rounded-pf-input" />
+            <Skeleton className="h-10 w-28 rounded-pf-input" />
+            <Skeleton className="h-10 w-44 rounded-pf-input" />
+          </div>
+          <div className="pt-4">
+            <HorarioSkeletonContenido />
+          </div>
+        </PortalCardSkeleton>
+      </div>
+    </PortalSkeletonRegion>
+  )
+}
 
 export function PortalFamiliaCalendarioPage() {
   const { alumnos, cargando } = useMisAlumnos(true)
@@ -238,7 +336,7 @@ export function PortalFamiliaCalendarioPage() {
 
   return (
     <section
-      className="relative isolate -mx-4 -mb-6 min-h-[calc(100svh-4rem)] overflow-hidden sm:-mx-8"
+      className="relative isolate -mb-6 min-h-[calc(100svh-4rem)]"
       style={{ background: PORTAL_FAMILIA_BACKGROUND }}
     >
       <PortalFamiliaWatermark />
@@ -246,17 +344,14 @@ export function PortalFamiliaCalendarioPage() {
         <PortalFamiliaShell
           titulo="Calendario"
           descripcion="Consultá el horario semanal de cada alumno a tu cargo."
-          etiqueta="Portal de familia"
           volverA="/familia"
           volverEtiqueta="Volver al inicio"
-          anchoMaximo="max-w-[96vw]"
-          className="pb-8 print:hidden"
-          classNameContenido="px-4 sm:px-8"
+          className="pb-4 print:hidden"
         />
 
-        <div className="zona-impresion mx-auto w-full max-w-[96vw] px-3 pb-10 sm:px-5 print:max-w-none print:p-0">
+        <div className="zona-impresion w-full pb-10 print:max-w-none print:p-0">
           {cargando ? (
-            <Skeleton className="h-96 w-full rounded-[24px] bg-white/80" />
+            <CalendarioAlumnosSkeleton />
           ) : alumnos.length === 0 ? (
             <PortalCard contentClassName="p-8">
               <Empty className="min-h-64">
@@ -272,50 +367,46 @@ export function PortalFamiliaCalendarioPage() {
             </PortalCard>
           ) : (
             <div className="flex flex-col gap-4">
-              <PortalCard
-                className="print:hidden"
-                titulo="Horario semanal"
-                descripcion={alumno?.division_etiqueta ?? 'Todavía sin división asignada'}
-                tituloClassName="font-heading text-[26px] leading-tight font-bold tracking-[-0.01em] text-[#241A33]"
-                headerClassName="border-b border-[#F1EBF7] px-5 pt-5 pb-4"
-                contentClassName="px-4 pt-5 pb-5"
-                accion={
-                  <div className="w-full sm:w-64">
-                    <Field>
-                      <FieldLabel htmlFor="calendario-alumno">Alumno</FieldLabel>
-                      <Select
-                        value={alumno?.alumno_id ?? ''}
-                        onValueChange={(valor) => {
-                          setAlumnoId(valor)
-                          setDiaAgenda(null)
-                          setSeleccionId(null)
-                        }}
+              <div className="flex flex-wrap items-end justify-between gap-3 print:hidden">
+                <div className="w-full sm:w-64">
+                  <Field>
+                    <FieldLabel htmlFor="calendario-alumno">Alumno</FieldLabel>
+                    <Select
+                      value={alumno?.alumno_id ?? ''}
+                      onValueChange={(valor) => {
+                        setAlumnoId(valor)
+                        setDiaAgenda(null)
+                        setSeleccionId(null)
+                      }}
+                    >
+                      <SelectTrigger
+                        id="calendario-alumno"
+                        className="h-10 w-full rounded-pf-item border-pf-borde bg-superficie text-pf-cuerpo"
                       >
-                        <SelectTrigger
-                          id="calendario-alumno"
-                          className="h-11 w-full rounded-[12px] border-[#E7DDF1] bg-white text-[15px]"
-                        >
-                          <span className="flex items-center gap-2">
-                            <UserRoundIcon aria-hidden="true" className="size-4 text-[#6B6478]" />
-                            <SelectValue placeholder="Seleccioná un alumno" />
-                          </span>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {alumnos.map((item) => (
-                            <SelectItem key={item.alumno_id} value={item.alumno_id}>
-                              {item.nombre} {item.apellido}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                  </div>
-                }
-              >
+                        <span className="flex items-center gap-2">
+                          <UserRoundIcon aria-hidden="true" className="size-4 text-texto-2" />
+                          <SelectValue placeholder="Seleccioná un alumno" />
+                        </span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {alumnos.map((item) => (
+                          <SelectItem key={item.alumno_id} value={item.alumno_id}>
+                            {item.nombre} {item.apellido}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+                <span className="mb-1.5 inline-flex h-7 items-center rounded-full bg-pf-lila px-2.5 text-xs font-semibold text-pf-accent">
+                  {alumno?.division_etiqueta ?? 'Sin división asignada'}
+                </span>
+              </div>
+              <PortalCard className="print:hidden" contentClassName="px-5 pt-0 pb-5">
                 {cargandoHorario ? (
-                  <Skeleton className="h-80 w-full rounded-[16px] bg-[#F3EDF9]" />
+                  <HorarioSkeleton />
                 ) : error ? (
-                  <p className="rounded-[16px] border border-dashed border-[#E4D9F0] bg-[#FBF9FD] p-4 text-sm text-[#6B6478]">
+                  <p className="rounded-pf-tile border border-dashed border-pf-borde bg-pf-item p-4 text-sm text-texto-2">
                     No pudimos cargar el calendario de este alumno. Probá de nuevo en unos minutos.
                   </p>
                 ) : materiasCurso.length === 0 ? (
@@ -331,7 +422,7 @@ export function PortalFamiliaCalendarioPage() {
                   </Empty>
                 ) : (
                   <>
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F1EBF7] px-4 py-3 print:hidden">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-pf-divisor py-2.5 print:hidden">
                       <div className="flex flex-wrap items-center gap-1">
                         <Button
                           variant="secondary"
@@ -347,7 +438,7 @@ export function PortalFamiliaCalendarioPage() {
                         <Button
                           variant="secondary"
                           size="sm"
-                          className="rounded-full"
+                          className="rounded-lg"
                           disabled={semanaOffset === 0}
                           onClick={() => setSemanaOffset(0)}
                         >
@@ -364,7 +455,7 @@ export function PortalFamiliaCalendarioPage() {
                         >
                           <ChevronRightIcon aria-hidden="true" />
                         </Button>
-                        <span className="ml-2 text-[14px] font-medium text-[#6B6478]">
+                        <span className="ml-2 text-sm font-medium text-texto-2">
                           Semana del {etiquetaSemana}
                         </span>
                       </div>
@@ -381,7 +472,7 @@ export function PortalFamiliaCalendarioPage() {
                       />
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 border-b border-[#F1EBF7] px-4 py-3 print:hidden">
+                    <div className="flex flex-wrap items-center gap-2 border-b border-pf-divisor py-2.5 print:hidden">
                       <FiltrosHorario
                         filtro={filtro}
                         onFiltro={setFiltro}
@@ -390,7 +481,7 @@ export function PortalFamiliaCalendarioPage() {
                     </div>
 
                     {hayFiltroHorario(filtro) && franjasFiltradas.length === 0 && (
-                      <p className="mx-4 mt-4 rounded-[12px] border border-dashed border-[#E4D9F0] bg-[#FBF9FD] p-4 text-sm text-[#6B6478]">
+                      <p className="mt-4 rounded-pf-item border border-dashed border-pf-borde bg-pf-item p-4 text-sm text-texto-2">
                         No hay clases que coincidan con los filtros.
                       </p>
                     )}
@@ -411,7 +502,7 @@ export function PortalFamiliaCalendarioPage() {
                       <div
                         role="tablist"
                         aria-label="Día del calendario"
-                        className="flex flex-wrap gap-1 rounded-[20px] bg-[#F5EFFA] p-1"
+                        className="flex flex-wrap gap-1 rounded-pf-card bg-pf-item-hover p-1"
                       >
                         {DIAS.map((dia) => (
                           <button
@@ -421,10 +512,10 @@ export function PortalFamiliaCalendarioPage() {
                             aria-selected={dia === diaVisible}
                             onClick={() => elegirDia(dia)}
                             className={cn(
-                              'min-h-10 flex-1 rounded-full px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-[#7A2FA8] focus-visible:ring-offset-2',
+                              'min-h-10 flex-1 rounded-md px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-pf-accent focus-visible:ring-offset-2',
                               dia === diaVisible
-                                ? 'bg-white text-[#7A2FA8] shadow-sm'
-                                : 'text-[#6B6478] hover:text-[#2B2338]',
+                                ? 'bg-superficie text-pf-accent shadow-sm'
+                                : 'text-texto-2 hover:text-texto',
                             )}
                           >
                             {NOMBRES_DIA[dia - 1]}
@@ -433,14 +524,14 @@ export function PortalFamiliaCalendarioPage() {
                       </div>
                       <div className="flex flex-col gap-2">
                         {franjasDelDia.length === 0 ? (
-                          <p className="rounded-[12px] border border-dashed border-[#E4D9F0] bg-[#FBF9FD] p-4 text-sm text-[#6B6478]">
+                          <p className="rounded-pf-item border border-dashed border-pf-borde bg-pf-item p-4 text-sm text-texto-2">
                             No hay clases este día.
                           </p>
                         ) : (
                           franjasDelDia.map((franja) => {
                             const estilo = estiloMateria(franja.materia.materia_nombre)
                             const Icono = estilo.Icono
-                            const color = franja.materia.materia_color || '#7A2FA8'
+                            const color = franja.materia.materia_color || 'var(--pf-accent)'
                             const docentes = franja.materia.docentes ?? []
                             const docente =
                               docentes.length > 1
@@ -454,26 +545,26 @@ export function PortalFamiliaCalendarioPage() {
                                 key={franja.id}
                                 aria-label={`${franja.materia.materia_nombre ?? 'Materia'}: ver detalle`}
                                 onClick={() => setClaseMovil(franja)}
-                                className="flex items-center gap-3 rounded-[14px] px-4 py-3 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
+                                className="flex items-center gap-3 rounded-pf-icono px-4 py-3 text-left transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
                                 style={{
                                   backgroundColor: `color-mix(in srgb, ${color} 20%, var(--superficie))`,
                                   border: `1px solid color-mix(in srgb, ${color} 45%, var(--borde))`,
                                 }}
                               >
                                 <span
-                                  className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-white/70"
+                                  className="flex size-10 shrink-0 items-center justify-center rounded-pf-input bg-superficie/70"
                                   style={{ color }}
                                 >
                                   <Icono aria-hidden="true" className="size-5" />
                                 </span>
                                 <span className="min-w-0 flex-1">
-                                  <span className="block text-[15px] font-bold text-[#2B2338]">
+                                  <span className="block text-pf-cuerpo font-bold text-texto">
                                     {franja.materia.materia_nombre}
                                   </span>
-                                  <span className="mt-0.5 block text-[13px] font-medium text-[#4B4456] tabular-nums">
+                                  <span className="mt-0.5 block text-sm font-medium text-texto-2 tabular-nums">
                                     {rangoHora(franja.hora_inicio)} – {rangoHora(franja.hora_fin)}
                                   </span>
-                                  <span className="mt-0.5 block text-[13px] font-medium text-[#4B4456]">
+                                  <span className="mt-0.5 block text-sm font-medium text-texto-2">
                                     {docente}
                                   </span>
                                 </span>
@@ -555,7 +646,7 @@ export function PortalFamiliaCalendarioPage() {
       />
 
       <Sheet open={claseMovil !== null} onOpenChange={(abierto) => !abierto && setClaseMovil(null)}>
-        <SheetContent side="bottom" className="max-h-[85svh] overflow-y-auto rounded-t-[24px]">
+        <SheetContent side="bottom" className="max-h-[85svh] overflow-y-auto rounded-t-pf-dialogo">
           {claseMovil && (
             <>
               <SheetHeader className="sr-only">

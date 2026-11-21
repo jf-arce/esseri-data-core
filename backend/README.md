@@ -834,6 +834,29 @@ Focused tests (SQLite by default):
 pytest -q tests/comunicaciones
 ```
 
+The contextual conversation API lives under `/comunicaciones/conversaciones`. An authorized
+caller consults and opens a thread at `/contextos/{tipo}/{id}`; history is at `/{id}/mensajes`.
+`GET /comunicaciones/conversaciones` returns the active family's own consultations (revalidating
+each record's current link) with `abiertas`, `buscar`, `limite` and `offset`, plus totals and the
+last message preview; staff receive the permission-scoped queue of the same endpoint.
+Message commands take plain `texto` and a UUID `clave` kept stable across retries. Staff can
+list pending threads and resolve or reopen them without mutating the underlying record. Run
+`pytest -q tests/comunicaciones/test_conversaciones.py`; set `COMUNICACIONES_TEST_DATABASE_URL`
+to an explicitly isolated, migrated PostgreSQL test database to include the simultaneous-open
+constraint test.
+
+Text messages use JSON. To send up to five private PDF/JPG/PNG files (10 MiB each, 25 MiB total) with a
+message, use the corresponding `/con-adjuntos` action with multipart `texto`, `clave` and
+repeated `archivos` fields. This uses the existing Communications attachment switch and
+scanner. A failed inspection leaves neither a message nor attachments. Downloads never use
+public URLs and always recheck the contextual thread's visibility.
+
+Administrative messages enqueue a portal notice and, for enabled addresses, a correlated email
+intent. The existing Workflows/n8n worker dispatches those intents and revalidates authorization
+before the provider claim. No email credentials or workflow JSON changed. Email delivery errors
+do not roll back messages. The mail-origin migration cannot be downgraded once contextual mail
+history exists without an explicit data-retention decision; it does not delete delivery rows.
+
 For PostgreSQL, first apply `alembic upgrade head` against an **isolated disposable database**,
 then explicitly supply that URL (never a shared or production database):
 

@@ -71,7 +71,7 @@ export function EventoComunicacion({
       </div>
       {evento && (
         <CollapsibleContent className="border-t border-borde p-3">
-          <FieldGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FieldGroup className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2">
             {CAMPOS.map(({ clave, etiqueta, tipo, requerido }) => (
               <Field key={clave} className="min-w-0">
                 <FieldLabel htmlFor={`${id}-${clave}`}>{etiqueta}</FieldLabel>
@@ -91,7 +91,7 @@ export function EventoComunicacion({
                 />
               </Field>
             ))}
-            <Field className="sm:col-span-2">
+            <Field className="@xl/main:col-span-2">
               <FieldLabel htmlFor={`${id}-descripcion`}>Descripción opcional</FieldLabel>
               <Textarea
                 id={`${id}-descripcion`}

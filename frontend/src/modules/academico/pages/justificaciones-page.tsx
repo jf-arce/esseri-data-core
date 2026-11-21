@@ -3,6 +3,7 @@ import {
   ClipboardListIcon,
   ClockIcon,
   DownloadIcon,
+  RefreshCwIcon,
   ShieldAlertIcon,
   XIcon,
 } from 'lucide-react'
@@ -29,6 +30,13 @@ import {
 } from '@/components/ui/dialog'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
@@ -41,6 +49,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { descargarExport } from '@/lib/descargar-export'
 import {
+  crearJustificacionAdministrativa,
   listarJustificaciones,
   obtenerOpcionesJustificaciones,
   resolverJustificacion,
@@ -52,7 +61,9 @@ import type {
   JustificacionesPaginadas,
   OpcionJustificacion,
 } from '@/modules/academico/types'
-import { etiquetaMotivoJustificacion } from '@/modules/academico/utils'
+import type { Alumno } from '@/modules/familias-alumnos/types'
+import { listarAlumnos } from '@/modules/familias-alumnos/services/listar-alumnos'
+import { etiquetaMotivoJustificacion, MOTIVOS_JUSTIFICACION } from '@/modules/academico/utils'
 
 const TAMANIO_PAGINA = 20
 
@@ -81,6 +92,7 @@ function formatearFechaHora(iso: string): string {
 }
 
 export function JustificacionesPage() {
+  const conversaciones = useConversacionesContexto()
   const [searchParams] = useSearchParams()
   const focoJustificacionId = searchParams.get('justificacion')
   const [filtros, setFiltros] = useState<FiltrosJustificaciones>(() => ({
@@ -99,11 +111,33 @@ export function JustificacionesPage() {
   const [rechazo, setRechazo] = useState<JustificacionFamilia | null>(null)
   const [observacionRechazo, setObservacionRechazo] = useState('')
   const [resolviendo, setResolviendo] = useState(false)
+  const [altaAbierta, setAltaAbierta] = useState(false)
+  const [alumnos, setAlumnos] = useState<Alumno[]>([])
+  const [altaAlumno, setAltaAlumno] = useState('')
+  const [altaFecha, setAltaFecha] = useState('')
+  const [altaMotivo, setAltaMotivo] = useState<string>(MOTIVOS_JUSTIFICACION[0].value)
+  const [altaObservacion, setAltaObservacion] = useState('')
+  const [altaArchivo, setAltaArchivo] = useState<File | null>(null)
+  const [altaError, setAltaError] = useState<string | null>(null)
+  const [enviandoAlta, setEnviandoAlta] = useState(false)
 
   // `cargando` se deriva de la clave consultada para no llamar setState en el cuerpo del efecto
   // (evita renders en cascada): el estado inicial ya arranca como "cargando".
   const claveConsulta = `${JSON.stringify(filtros)}|${revision}`
   const cargando = claveCargada !== claveConsulta
+
+  useEffect(() => {
+    if (!altaAbierta || alumnos.length > 0) return
+    let activo = true
+    listarAlumnos()
+      .then((datosAlumnos) => {
+        if (activo) setAlumnos(datosAlumnos)
+      })
+      .catch(() => undefined)
+    return () => {
+      activo = false
+    }
+  }, [altaAbierta, alumnos.length])
 
   useEffect(() => {
     let activo = true
@@ -216,6 +250,34 @@ export function JustificacionesPage() {
     }
   }
 
+  const confirmarAlta = async () => {
+    if (!altaAlumno || !altaFecha) return
+    setEnviandoAlta(true)
+    setAltaError(null)
+    try {
+      await crearJustificacionAdministrativa({
+        alumnoId: altaAlumno,
+        fecha: altaFecha,
+        motivo: altaMotivo,
+        observacion: altaObservacion.trim() || undefined,
+        comprobante: altaArchivo ?? undefined,
+      })
+      toast.success('Justificación creada y aprobada.')
+      setAltaAbierta(false)
+      setFiltros({ estado: 'aprobada', pagina: 1, tamanio_pagina: TAMANIO_PAGINA })
+    } catch (fallo) {
+      const detalle =
+        fallo instanceof ApiError
+          ? typeof fallo.detail === 'string'
+            ? fallo.detail
+            : (fallo.detail as { mensaje?: string } | null)?.mensaje
+          : null
+      setAltaError(detalle ?? 'No se pudo crear la justificación.')
+    } finally {
+      setEnviandoAlta(false)
+    }
+  }
+
   const confirmarRechazo = async () => {
     if (!rechazo) return
     const observacion = observacionRechazo.trim()
@@ -252,14 +314,32 @@ export function JustificacionesPage() {
   return (
     <div className="flex flex-col gap-5">
       <BackLink to="/academico" label="Volver a Académico" />
-      <PageHeader titulo="Justificaciones" />
-      <div className="flex justify-end">
-        <Button variant="secondary" size="sm" asChild>
-          <Link to="/academico/solicitudes-ausencia">Solicitudes por período</Link>
-        </Button>
-      </div>
+      <PageHeader
+        titulo="Justificaciones"
+        accion={
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="secondary" size="sm" asChild>
+              <Link to="/academico/solicitudes-ausencia">Solicitudes por período</Link>
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setAltaAlumno('')
+                setAltaFecha('')
+                setAltaMotivo(MOTIVOS_JUSTIFICACION[0].value)
+                setAltaObservacion('')
+                setAltaArchivo(null)
+                setAltaError(null)
+                setAltaAbierta(true)
+              }}
+            >
+              Nueva justificación
+            </Button>
+          </div>
+        }
+      />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 @5xl/main:grid-cols-4">
         <StatTile
           label="Pendientes"
           value={resumen?.pendientes ?? 0}
@@ -291,7 +371,7 @@ export function JustificacionesPage() {
       {error && (
         <Alert variant="error">
           <AlertTitle>No se pudieron cargar las justificaciones</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             {error}
             <Button variant="secondary" size="sm" onClick={recargar}>
               Reintentar
@@ -308,7 +388,7 @@ export function JustificacionesPage() {
           })
         }
       >
-        <TabsList>
+        <TabsList className="max-w-full overflow-x-auto">
           <TabsTrigger value="pendiente">
             Pendientes
             <span className="text-texto-3">{resumen?.pendientes ?? 0}</span>
@@ -348,6 +428,19 @@ export function JustificacionesPage() {
             active={Boolean(filtros.nivel_id)}
           />
         )}
+        <FilterDropdown
+          label="Motivo"
+          options={[
+            { value: 'todos', label: 'Todos' },
+            ...MOTIVOS_JUSTIFICACION.map((motivo) => ({
+              value: motivo.value,
+              label: motivo.label,
+            })),
+          ]}
+          value={filtros.motivo ?? 'todos'}
+          onChange={(valor) => actualizarFiltros({ motivo: valor === 'todos' ? undefined : valor })}
+          active={Boolean(filtros.motivo)}
+        />
         {divisionOptions.length > 0 && (
           <FilterDropdown
             label="División"
@@ -378,6 +471,14 @@ export function JustificacionesPage() {
           }
         />
         <FilterBarSpacer />
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Actualizar justificaciones"
+          onClick={() => setRevision((valor) => valor + 1)}
+        >
+          <RefreshCwIcon className="size-4" />
+        </Button>
         {hayFiltros && (
           <Button variant="ghost" size="sm" onClick={limpiarFiltros}>
             Limpiar filtros
@@ -419,6 +520,7 @@ export function JustificacionesPage() {
                 <TableHead>Fecha de la falta</TableHead>
                 <TableHead>Motivo</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead>Conversación</TableHead>
                 <TableHead data-align="end">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -451,13 +553,13 @@ export function JustificacionesPage() {
                   </TableCell>
                   <TableCell>
                     <span className="font-medium">{etiquetaMotivoJustificacion(item.motivo)}</span>
-                    <span className="block max-w-[280px] truncate text-xs text-texto-2">
+                    <span className="block max-w-[200px] truncate text-xs text-texto-2">
                       {item.observacion?.trim() || 'Sin observación de la familia'}
                     </span>
                     {item.archivo_nombre && (
                       <Button
                         variant="link"
-                        className="mt-0.5 h-auto p-0 text-xs"
+                        className="mt-0.5 h-auto max-w-full p-0 text-xs"
                         onClick={() =>
                           void descargarExport(
                             `/academico/justificaciones/${item.id}/archivo`,
@@ -466,7 +568,7 @@ export function JustificacionesPage() {
                         }
                       >
                         <DownloadIcon data-icon="inline-start" />
-                        {item.archivo_nombre}
+                        <span className="max-w-[240px] truncate">{item.archivo_nombre}</span>
                       </Button>
                     )}
                   </TableCell>
@@ -475,9 +577,16 @@ export function JustificacionesPage() {
                       {ETIQUETA_ESTADO[item.estado]}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    <AccionConversacion
+                      tipo="justificacion_inasistencia"
+                      id={item.id}
+                      consulta={conversaciones.get(`justificacion_inasistencia:${item.id}`)}
+                    />
+                  </TableCell>
                   <TableCell data-align="end">
                     {item.estado === 'pendiente' ? (
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1.5">
                         <Button
                           variant="secondary"
                           size="sm"
@@ -579,6 +688,102 @@ export function JustificacionesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={altaAbierta} onOpenChange={setAltaAbierta}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nueva justificación</DialogTitle>
+            <DialogDescription>
+              Se crea aprobada y deja la asistencia como justificada. Solo para ausencias pendientes
+              de ese alumno.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4">
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              Alumno
+              <Select value={altaAlumno} onValueChange={setAltaAlumno}>
+                <SelectTrigger aria-label="Alumno">
+                  <SelectValue placeholder="Elegí un alumno" />
+                </SelectTrigger>
+                <SelectContent>
+                  {alumnos.map((alumno) => (
+                    <SelectItem key={alumno.id} value={alumno.id}>
+                      {alumno.persona_apellido}, {alumno.persona_nombre} · {alumno.numero_legajo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              Fecha de la inasistencia
+              <Input
+                type="date"
+                aria-label="Fecha de la inasistencia"
+                value={altaFecha}
+                onChange={(evento) => setAltaFecha(evento.target.value)}
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              Motivo
+              <Select value={altaMotivo} onValueChange={setAltaMotivo}>
+                <SelectTrigger aria-label="Motivo">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MOTIVOS_JUSTIFICACION.map((motivo) => (
+                    <SelectItem key={motivo.value} value={motivo.value}>
+                      {motivo.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              Observación (opcional)
+              <Textarea
+                value={altaObservacion}
+                maxLength={500}
+                placeholder="Detalle de la documentación presentada."
+                onChange={(evento) => setAltaObservacion(evento.target.value)}
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              Comprobante (opcional)
+              <Input
+                type="file"
+                aria-label="Comprobante"
+                accept="application/pdf,image/png,image/jpeg"
+                onChange={(evento) => setAltaArchivo(evento.target.files?.[0] ?? null)}
+              />
+            </label>
+
+            {altaError && (
+              <Alert variant="error">
+                <AlertDescription>{altaError}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setAltaAbierta(false)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={!altaAlumno || !altaFecha || enviandoAlta}
+              onClick={() => void confirmarAlta()}
+            >
+              {enviandoAlta ? 'Guardando…' : 'Crear justificación'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
+import { AccionConversacion } from '@/modules/comunicaciones/components/accion-conversacion'
+import { useConversacionesContexto } from '@/modules/comunicaciones/hooks/use-conversaciones-contexto'

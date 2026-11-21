@@ -15,6 +15,9 @@ describe('JustificacionesPage', () => {
     vi.clearAllMocks()
     mockedApiClient.mockImplementation(((ruta: string) => {
       if (ruta.includes('/justificaciones/opciones')) return Promise.resolve([])
+      if (ruta.includes('/comunicaciones/conversaciones')) {
+        return Promise.resolve({ items: [], total: 0 })
+      }
       return Promise.resolve({
         items: [],
         total: 0,
@@ -42,6 +45,9 @@ describe('JustificacionesPage', () => {
   it('resalta y consulta el historial cuando llega desde un aviso', async () => {
     mockedApiClient.mockImplementation(((ruta: string) => {
       if (ruta.includes('/justificaciones/opciones')) return Promise.resolve([])
+      if (ruta.includes('/comunicaciones/conversaciones')) {
+        return Promise.resolve({ items: [], total: 0 })
+      }
       return Promise.resolve({
         items: [
           {

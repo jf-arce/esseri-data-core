@@ -143,7 +143,7 @@ export function EsqueletoEditor({ inicioPulso }: { inicioPulso?: RefObject<numbe
   )
 
   return (
-    <div className="flex h-[calc(100dvh-7rem)] min-h-[480px] flex-col gap-3">
+    <div className="flex h-[calc(100dvh-4rem-2*var(--main-py))] min-h-[480px] flex-col gap-3">
       <span role="status" className="sr-only">
         Cargando el editor
       </span>

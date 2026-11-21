@@ -110,7 +110,7 @@ export function PortalDocenteLayout() {
           {renderNavegacion('flex gap-1 overflow-x-auto py-2')}
         </div>
       </header>
-      <main className="min-w-0 px-4 py-6 sm:px-8">
+      <main className="@container/main min-w-0 px-4 py-6 sm:px-8">
         <Outlet />
       </main>
     </div>

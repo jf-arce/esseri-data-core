@@ -18,6 +18,7 @@ from src.auth.dependencies import UsuarioAutenticado, requiere_permiso
 from src.auth.models import Usuario
 from src.database import get_db
 from src.facturacion import (
+    cobranzas_service,
     cuenta_corriente_service,
     facturas_service,
     penalidades_service,
@@ -55,6 +56,7 @@ from src.facturacion.schemas import (
     FacturaUpdate,
     GeneracionFacturacionRequest,
     GeneracionFacturacionResumenRead,
+    IntentoDebitoRead,
     MetodoPagoRead,
     MovimientoCuentaCorrienteRead,
     PagoRead,
@@ -191,6 +193,10 @@ def _factura_detalle_read(db: Session, factura: Factura) -> FacturaDetalleRead:
             else None
         ),
         pagos=[PagoRead.model_validate(pago) for pago in factura.pagos],
+        intentos_debito=[
+            IntentoDebitoRead(**intento)
+            for intento in cobranzas_service.intentos_de_factura(db, factura.id)
+        ],
         recargos=[
             RecargoRead.model_validate(movimiento)
             for movimiento in penalidades_service.recargos_de_factura(db, factura.id)
@@ -349,6 +355,7 @@ def listar_facturas(
     alumno_id: uuid.UUID | None = None,
     concepto_cobro_id: uuid.UUID | None = None,
     estado: FacturaEstado | None = None,
+    debito: Literal["rechazado", "cobrado"] | None = None,
     buscar: Annotated[str | None, Query(max_length=100)] = None,
     emision_desde: date | None = None,
     emision_hasta: date | None = None,
@@ -363,6 +370,7 @@ def listar_facturas(
         familia_id=familia_activa.id if familia_activa is not None else None,
         concepto_cobro_id=concepto_cobro_id,
         estado=estado,
+        debito=debito,
         buscar=buscar,
         emision_desde=emision_desde,
         emision_hasta=emision_hasta,

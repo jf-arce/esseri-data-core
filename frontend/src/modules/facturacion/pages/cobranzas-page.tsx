@@ -75,26 +75,26 @@ export function CobranzasPage() {
           <TabsTrigger
             value="generar"
             aria-label="Generar lote"
-            className="mr-1 px-4 py-3 text-[15px] tracking-tight sm:mr-2"
+            className="mr-1 px-4 py-3 text-[15px] tracking-tight @xl/main:mr-2"
           >
-            <span className="sm:hidden">Generar</span>
-            <span className="hidden sm:inline">Generar lote</span>
+            <span className="@xl/main:hidden">Generar</span>
+            <span className="hidden @xl/main:inline">Generar lote</span>
           </TabsTrigger>
           <TabsTrigger
             value="importar"
             aria-label="Importar resultados"
-            className="mr-1 px-4 py-3 text-[15px] tracking-tight sm:mr-2"
+            className="mr-1 px-4 py-3 text-[15px] tracking-tight @xl/main:mr-2"
           >
-            <span className="sm:hidden">Importar</span>
-            <span className="hidden sm:inline">Importar resultados</span>
+            <span className="@xl/main:hidden">Importar</span>
+            <span className="hidden @xl/main:inline">Importar resultados</span>
           </TabsTrigger>
           <TabsTrigger
             value="historial"
             aria-label="Historial de lotes"
-            className="mr-1 px-4 py-3 text-[15px] tracking-tight sm:mr-2"
+            className="mr-1 px-4 py-3 text-[15px] tracking-tight @xl/main:mr-2"
           >
-            <span className="sm:hidden">Historial</span>
-            <span className="hidden sm:inline">Historial de lotes</span>
+            <span className="@xl/main:hidden">Historial</span>
+            <span className="hidden @xl/main:inline">Historial de lotes</span>
           </TabsTrigger>
         </TabsList>
         <TabsContent value="generar" className="min-w-0 pt-3">

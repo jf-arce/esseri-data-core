@@ -29,7 +29,7 @@ import {
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-28', anchoAlt: 'h-4 w-24' },
   { tipo: 'texto', ancho: 'h-4 w-20' },
-  { tipo: 'texto', ancho: 'h-4 w-20' },
+  { tipo: 'texto', ancho: 'h-4 w-20', clase: 'hidden @5xl/main:table-cell' },
   { tipo: 'texto', ancho: 'h-4 w-48', anchoAlt: 'h-4 w-36' },
   { tipo: 'texto', ancho: 'h-4 w-20' },
   { tipo: 'chip', ancho: 'w-24', anchoAlt: 'w-20' },
@@ -96,12 +96,12 @@ export function FacturasTabla({
 
   return (
     <div className="rounded-panel bg-superficie shadow-card">
-      <Table bare minWidth="min-w-[1080px]" className="table-fixed">
+      <Table bare minWidth="min-w-[880px]" className="table-fixed">
         <TableHeader>
           <TableRow>
             <TableHead className="w-28">Factura</TableHead>
             <TableHead className="w-44">Alumno</TableHead>
-            <TableHead className="w-24">Emisión</TableHead>
+            <TableHead className="hidden w-24 @5xl/main:table-cell">Emisión</TableHead>
             <TableHead
               className="w-32"
               aria-sort={
@@ -160,7 +160,7 @@ export function FacturasTabla({
                 <TableCell className="truncate">
                   {factura.alumno_nombre} {factura.alumno_apellido}
                 </TableCell>
-                <TableCell className="tabular-nums">
+                <TableCell className="hidden tabular-nums @5xl/main:table-cell">
                   {formatearFechaFactura(factura.fecha_emision)}
                 </TableCell>
                 <TableCell className="tabular-nums">

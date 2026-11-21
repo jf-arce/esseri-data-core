@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router'
 import { SearchXIcon } from 'lucide-react'
 import { toast } from 'sonner'
@@ -141,7 +141,8 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
   const conceptos = useConceptosCobro()
   const destinatariosDisponibles = useDestinatariosDisponibles()
   const estadisticas = useEstadisticasRegla(regla?.id)
-  const ancha = usePantallaAncha()
+  const lienzoRef = useRef<HTMLDivElement>(null)
+  const ancha = usePantallaAncha(lienzoRef)
 
   const [historial, setHistorial] = useState<Historial<BorradorFlujo>>(() =>
     iniciarHistorial(inicial),
@@ -416,10 +417,10 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
   const puedeRehacer = historial.futuro.length > 0
 
   return (
-    // Alto de la ventana menos el encabezado del layout (4rem) y el aire de `main` (3rem).
+    // Alto de la ventana menos el encabezado del layout (4rem) y el aire vertical de `main` (--main-py, arriba y abajo).
     // El contenedor recibe el teclado del editor (deshacer, duplicar, eliminar).
     <div
-      className="flex h-[calc(100dvh-7rem)] min-h-[480px] flex-col gap-3 outline-none"
+      className="flex h-[calc(100dvh-4rem-2*var(--main-py))] min-h-[480px] flex-col gap-3 outline-none"
       role="presentation"
       onKeyDown={alTeclear}
     >
@@ -443,7 +444,7 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
         onDuplicar={duplicarEstaRegla}
         onGuardar={guardar}
       />
-      <div className="relative min-h-0 flex-1">
+      <div ref={lienzoRef} className="relative min-h-0 flex-1">
         <CanvasFlujo
           borrador={borrador}
           tiposEvento={tiposEvento}
@@ -487,6 +488,7 @@ function EditorRegla({ regla, inicial, tiposEvento, tiposAccion, destino }: Edit
         />
         {seleccionado && (
           <InspectorNodo
+            ancha={ancha}
             seleccion={seleccionado}
             borrador={borrador}
             tiposEvento={tiposEvento}
@@ -638,7 +640,7 @@ export function ReglaWorkflowEditorPage({
     return (
       <Alert variant="error">
         <AlertTitle>No se pudo abrir el editor</AlertTitle>
-        <AlertDescription className="flex items-center justify-between gap-3">
+        <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
           {errorCarga}
           {catalogos.error && (
             <Button variant="secondary" size="sm" onClick={catalogos.recargar}>
