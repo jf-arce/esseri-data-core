@@ -99,6 +99,9 @@ datos ajenos ni incluye CBU, cuentas o tarjetas):
 python ../database/seeds/07_seed_debitos_demo.py
 ```
 
+La [demo institucional aislada](../database/seeds/institutional-demo.md) usa el seed `08`,
+con su propio conjunto de facturas, rendición y captura local de correos. No combinar con `07`.
+
 Con `ESSERI_DEMO_EMAIL_BASE=tu-casilla@gmail.com` el seed crea tres cuentas familiares
 (`tu-casilla+debito-1@gmail.com` a `+debito-3`) con la contraseña `ESSERI_DEMO_PASSWORD`
 (por defecto `EsseriDemo2026!`), para mostrar el correo real y el Portal Familia. Sin esa
