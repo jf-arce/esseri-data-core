@@ -272,7 +272,7 @@ it('applies a real level and division with search, dates, and tabs and resets to
     })
   })
   expect(screen.getByText('Destinatarios: 1.º A - Primaria', { selector: 'span' })).toBeVisible()
-  await user.click(screen.getByRole('button', { name: 'Limpiar filtros' }))
+  await user.click(screen.getByRole('button', { name: 'Limpiar todo' }))
   await waitFor(() =>
     expect(Object.fromEntries(ultimaConsulta())).toEqual({
       pagina: '1',
