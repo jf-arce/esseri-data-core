@@ -1,11 +1,13 @@
 import { ArrowDownAZIcon } from 'lucide-react'
+import { ComboboxBuscable, type OpcionCombo } from '@/components/combobox-buscable'
 import { DatePicker } from '@/components/date-picker'
 import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
-import { FilterChip, FilterChips, FilterDropdown } from '@/components/filter-dropdown'
+import { FilterChip, FilterChips, FilterDropdown, FilterTrigger } from '@/components/filter-dropdown'
 import { FILTRO_TODOS } from '@/modules/auditoria/constants'
 import type { FiltrosAuditoria, OpcionesAuditoria, OrdenAuditoria } from '@/modules/auditoria/types'
 import {
   etiquetaEntidad,
+  etiquetaUsuario,
   fechaAISO,
   formatearCampo,
   formatearFechaDia,
@@ -20,7 +22,7 @@ const OPCIONES_ORDEN: { value: OrdenAuditoria; label: string }[] = [
 
 const OPCIONES_ACTOR = [
   { value: FILTRO_TODOS, label: 'Todos' },
-  { value: 'usuario', label: 'Usuario' },
+  { value: 'usuario', label: 'Personas' },
   { value: 'sistema', label: 'Sistema' },
 ]
 
@@ -39,9 +41,21 @@ export function AuditoriaFiltros({
 }: AuditoriaFiltrosProps) {
   const { busqueda, entidad, campo, usuarioId, actorTipo, origen, desde, hasta, orden } = filtros
 
-  const etiquetaEntidadActual = opciones.entidades.find((valor) => valor === entidad)
-  const etiquetaCampoActual = opciones.campos.find((valor) => valor === campo)
-  const etiquetaUsuarioActual = opciones.usuarios.find((usuario) => usuario.id === usuarioId)
+  const opcionesEntidad: OpcionCombo[] = [
+    { valor: FILTRO_TODOS, etiqueta: 'Todas' },
+    ...opciones.entidades.map((valor) => ({ valor, etiqueta: etiquetaEntidad(valor) })),
+  ]
+  const opcionesUsuario: OpcionCombo[] = [
+    { valor: FILTRO_TODOS, etiqueta: 'Todos' },
+    ...opciones.usuarios.map((usuario) => ({
+      valor: usuario.id,
+      etiqueta: etiquetaUsuario(usuario),
+      detalle: usuario.nombre ? usuario.email : undefined,
+    })),
+  ]
+
+  const entidadElegida = opcionesEntidad.find((opcion) => opcion.valor === entidad)
+  const usuarioElegido = opcionesUsuario.find((opcion) => opcion.valor === usuarioId)
   const etiquetaOrigenActual = opciones.origenes.find((valor) => valor === origen)
   const etiquetaActorActual = OPCIONES_ACTOR.find((opcion) => opcion.value === actorTipo)
   const etiquetaOrdenActual = OPCIONES_ORDEN.find((opcion) => opcion.value === orden)
@@ -70,19 +84,24 @@ export function AuditoriaFiltros({
       </FilterBar>
 
       <FilterBar>
-        <FilterDropdown
-          label="Entidad"
-          options={[
-            { value: FILTRO_TODOS, label: 'Todas' },
-            ...opciones.entidades.map((valor) => ({
-              value: valor,
-              label: etiquetaEntidad(valor),
-            })),
-          ]}
-          value={entidad}
-          active={entidad !== FILTRO_TODOS}
-          onChange={(valor) => onCambios({ entidad: valor })}
-        />
+        {/* Entidad y usuario son listas largas: el buscador interno evita que el desplegable
+            se vuelva inmanejable y deja elegir cualquier opción. */}
+        <ComboboxBuscable
+          opciones={opcionesEntidad}
+          valor={entidad}
+          onElegir={(valor) => onCambios({ entidad: valor })}
+        >
+          <FilterTrigger
+            label={
+              entidad !== FILTRO_TODOS && entidadElegida
+                ? `Entidad: ${entidadElegida.etiqueta}`
+                : 'Entidad'
+            }
+            active={entidad !== FILTRO_TODOS}
+            role="combobox"
+            aria-label="Entidad"
+          />
+        </ComboboxBuscable>
         <FilterDropdown
           label="Campo"
           options={[
@@ -94,25 +113,28 @@ export function AuditoriaFiltros({
           onChange={(valor) => onCambios({ campo: valor })}
         />
         <FilterDropdown
-          label="Actor"
+          label="Realizado por"
           options={OPCIONES_ACTOR}
           value={actorTipo}
           active={actorTipo !== FILTRO_TODOS}
           onChange={(valor) => onCambios({ actorTipo: valor })}
         />
-        <FilterDropdown
-          label="Usuario"
-          options={[
-            { value: FILTRO_TODOS, label: 'Todos' },
-            ...opciones.usuarios.map((usuario) => ({
-              value: usuario.id,
-              label: usuario.email,
-            })),
-          ]}
-          value={usuarioId}
-          active={usuarioId !== FILTRO_TODOS}
-          onChange={(valor) => onCambios({ usuarioId: valor })}
-        />
+        <ComboboxBuscable
+          opciones={opcionesUsuario}
+          valor={usuarioId}
+          onElegir={(valor) => onCambios({ usuarioId: valor })}
+        >
+          <FilterTrigger
+            label={
+              usuarioId !== FILTRO_TODOS && usuarioElegido
+                ? `Usuario: ${usuarioElegido.etiqueta}`
+                : 'Usuario'
+            }
+            active={usuarioId !== FILTRO_TODOS}
+            role="combobox"
+            aria-label="Usuario"
+          />
+        </ComboboxBuscable>
         <FilterDropdown
           label="Origen"
           options={[
@@ -128,18 +150,18 @@ export function AuditoriaFiltros({
         />
         {/* El rango de fechas va como un bloque propio: así envuelve entero y nunca queda
             "Desde" en un renglón y "Hasta" en el siguiente. */}
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span aria-hidden="true" className="mx-1 hidden h-6 w-px bg-borde @xl/main:block" />
+        <div className="flex shrink-0 items-center gap-2">
+          <span aria-hidden="true" className="mx-1 hidden h-6 w-px bg-borde sm:block" />
           <DatePicker
             id="auditoria-desde"
-            className="h-10 w-[calc(50%-0.25rem)] @xl/main:w-40"
+            className="h-10 w-40"
             value={desde ? parsearFechaISO(desde) : undefined}
             onChange={(fecha) => onCambios({ desde: fecha ? fechaAISO(fecha) : '' })}
             placeholder="Desde"
           />
           <DatePicker
             id="auditoria-hasta"
-            className="h-10 w-[calc(50%-0.25rem)] @xl/main:w-40"
+            className="h-10 w-40"
             value={hasta ? parsearFechaISO(hasta) : undefined}
             onChange={(fecha) => onCambios({ hasta: fecha ? fechaAISO(fecha) : '' })}
             placeholder="Hasta"
@@ -156,22 +178,22 @@ export function AuditoriaFiltros({
           )}
           {entidad !== FILTRO_TODOS && (
             <FilterChip onRemove={() => onCambios({ entidad: FILTRO_TODOS })}>
-              Entidad: {etiquetaEntidad(etiquetaEntidadActual ?? entidad)}
+              Entidad: {etiquetaEntidad(entidad)}
             </FilterChip>
           )}
           {campo !== FILTRO_TODOS && (
             <FilterChip onRemove={() => onCambios({ campo: FILTRO_TODOS })}>
-              Campo: {formatearCampo(etiquetaCampoActual ?? campo)}
+              Campo: {formatearCampo(campo)}
             </FilterChip>
           )}
           {usuarioId !== FILTRO_TODOS && (
             <FilterChip onRemove={() => onCambios({ usuarioId: FILTRO_TODOS })}>
-              Usuario: {etiquetaUsuarioActual?.email ?? '—'}
+              Usuario: {usuarioElegido?.etiqueta ?? '—'}
             </FilterChip>
           )}
           {actorTipo !== FILTRO_TODOS && (
             <FilterChip onRemove={() => onCambios({ actorTipo: FILTRO_TODOS })}>
-              Actor: {etiquetaActorActual?.label ?? actorTipo}
+              Realizado por: {etiquetaActorActual?.label ?? actorTipo}
             </FilterChip>
           )}
           {origen !== FILTRO_TODOS && (

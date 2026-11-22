@@ -35,6 +35,7 @@ const listado: AuditoriaListado = {
       fecha: '2027-01-01T10:00:00',
       usuario_id: 'u1',
       usuario_email: 'admin@esseri.edu.ar',
+      usuario_nombre: 'Admin de prueba',
       actor_tipo: 'usuario',
       origen: 'edicion_manual',
       motivo: null,
