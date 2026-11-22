@@ -73,10 +73,10 @@ export function DeudaFamiliasPage() {
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
         <BackLink to="/facturacion" label="Volver a facturas" />
-        <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
-          Facturación y cobranza
-        </p>
-        <PageHeader titulo="Deuda por familia" />
+        <PageHeader
+          titulo="Deuda por familia"
+          descripcion="Saldo pendiente y vencido de cada familia."
+        />
       </div>
 
       {error && (

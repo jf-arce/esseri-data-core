@@ -97,29 +97,29 @@ export function ReglasFacturacionPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3 @xl/main:flex-row @xl/main:items-end @xl/main:justify-between">
-        <div className="flex flex-col gap-1.5">
-          <BackLink to="/facturacion" label="Volver a facturas" />
-          <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
-            Facturación y cobranza
-          </p>
-          <PageHeader titulo="Reglas de facturación" />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => setDialogoGenerar(true)}>
-            <PlayIcon data-icon="inline-start" />
-            Generar ahora
-          </Button>
-          <Button
-            onClick={() => {
-              setReglaEditando(undefined)
-              setDialogoRegla(true)
-            }}
-          >
-            <PlusIcon data-icon="inline-start" />
-            Nueva regla
-          </Button>
-        </div>
+      <div className="flex flex-col gap-1.5">
+        <BackLink to="/facturacion" label="Volver a facturas" />
+        <PageHeader
+          titulo="Reglas de facturación"
+          descripcion="Definí qué se factura, a quién y cuándo."
+          accion={
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={() => setDialogoGenerar(true)}>
+                <PlayIcon data-icon="inline-start" />
+                Generar ahora
+              </Button>
+              <Button
+                onClick={() => {
+                  setReglaEditando(undefined)
+                  setDialogoRegla(true)
+                }}
+              >
+                <PlusIcon data-icon="inline-start" />
+                Nueva regla
+              </Button>
+            </div>
+          }
+        />
       </div>
       {error && (
         <Alert variant="error">

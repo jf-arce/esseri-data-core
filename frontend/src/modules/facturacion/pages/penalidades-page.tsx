@@ -79,24 +79,20 @@ export function PenalidadesPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3 @xl/main:flex-row @xl/main:items-end @xl/main:justify-between">
-        <div className="flex flex-col gap-1.5">
-          <BackLink to="/facturacion" label="Volver a facturas" />
-          <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
-            Facturación y cobranza
-          </p>
-          <PageHeader titulo="Penalidades por mora" />
-          <p className="max-w-2xl text-sm text-texto-2">
-            Cada tramo fija el porcentaje que se cobra sobre la factura según los días de atraso.
-            Los tramos no se suman: al pasar al siguiente se completa hasta su porcentaje.
-          </p>
-        </div>
-        {puedeCrear && (
-          <Button onClick={() => abrir()}>
-            <PlusIcon data-icon="inline-start" />
-            Nuevo tramo
-          </Button>
-        )}
+      <div className="flex flex-col gap-1.5">
+        <BackLink to="/facturacion" label="Volver a facturas" />
+        <PageHeader
+          titulo="Penalidades por mora"
+          descripcion="Cada tramo fija el porcentaje a cobrar según los días de atraso. Los tramos no se suman."
+          accion={
+            puedeCrear && (
+              <Button onClick={() => abrir()}>
+                <PlusIcon data-icon="inline-start" />
+                Nuevo tramo
+              </Button>
+            )
+          }
+        />
       </div>
       {error && (
         <Alert variant="error">

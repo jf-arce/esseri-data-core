@@ -68,7 +68,7 @@ export function LiberarLoteDialog({ open, lote, onOpenChange, onConfirm }: Liber
 
   return (
     <Dialog open={open} onOpenChange={cambiarAbierto}>
-      <DialogContent className="min-w-0 text-[13px] [&_.text-sm]:text-[13px] [&_.text-sm]:leading-[18px] sm:max-w-md">
+      <DialogContent className="min-w-0 sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Liberar lote {lote.codigo}</DialogTitle>
           <DialogDescription>

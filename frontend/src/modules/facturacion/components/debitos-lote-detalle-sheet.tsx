@@ -108,7 +108,7 @@ export function DebitosLoteDetalleSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full bg-superficie text-[13px] [&_.text-sm]:text-[13px] [&_.text-sm]:leading-[18px] data-[side=right]:sm:w-1/2 data-[side=right]:sm:max-w-none"
+        className="w-full bg-superficie data-[side=right]:sm:w-1/2 data-[side=right]:sm:max-w-none"
       >
         <SheetHeader className="border-b border-borde pr-12">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -225,7 +225,7 @@ export function DebitosLoteDetalleSheet({
                 ref={setLista}
                 className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden rounded-panel border border-borde"
               >
-                <table className="w-full min-w-0 border-separate border-spacing-0 caption-bottom text-[13px] text-texto [&_tbody_td]:border-b [&_tbody_td]:border-borde [&_thead_th]:border-b [&_thead_th]:border-borde [&_td]:px-2 [&_th]:px-2">
+                <table className="w-full min-w-0 border-separate border-spacing-0 caption-bottom text-sm text-texto [&_tbody_td]:border-b [&_tbody_td]:border-borde [&_thead_th]:border-b [&_thead_th]:border-borde [&_td]:px-2 [&_th]:px-2">
                   <TableHeader>
                     <TableRow>
                       <TableHead className={CELDA_FIJA}>Factura</TableHead>
