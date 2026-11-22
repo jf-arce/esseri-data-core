@@ -17,6 +17,7 @@ const entradaAntigua: HistorialEntrada = {
   fecha: '2027-01-01T09:00:00',
   usuario_id: 'usuario-1',
   usuario_email: 'admin@esseri.edu.ar',
+  usuario_nombre: 'Admin de prueba',
 }
 
 const entradaReciente: HistorialEntrada = {
@@ -27,6 +28,7 @@ const entradaReciente: HistorialEntrada = {
   fecha: '2027-01-05T10:00:00',
   usuario_id: 'usuario-1',
   usuario_email: 'admin@esseri.edu.ar',
+  usuario_nombre: 'Admin de prueba',
 }
 
 beforeEach(() => {
@@ -45,7 +47,8 @@ describe('HistorialCambios', () => {
     expect(items[0]).toHaveTextContent('Estado')
     expect(items[0]).toHaveTextContent('activo')
     expect(items[0]).toHaveTextContent('inactivo')
-    expect(items[1]).toHaveTextContent('Numero legajo')
+    expect(items[0]).toHaveTextContent('Admin de prueba')
+    expect(items[1]).toHaveTextContent('Número de legajo')
     expect(items[1]).toHaveTextContent('1001')
     expect(items[1]).toHaveTextContent('1002')
   })

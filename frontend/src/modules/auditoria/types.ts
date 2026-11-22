@@ -6,6 +6,7 @@ export interface HistorialEntrada {
   fecha: string
   usuario_id: string
   usuario_email: string | null
+  usuario_nombre: string | null
 }
 
 export type ActorTipo = 'usuario' | 'sistema'
@@ -23,6 +24,7 @@ export interface AuditoriaItem {
   fecha: string
   usuario_id: string | null
   usuario_email: string | null
+  usuario_nombre: string | null
   actor_tipo: ActorTipo
   origen: string | null
   motivo: string | null
@@ -57,6 +59,7 @@ export interface FiltrosAuditoria {
 export interface OpcionUsuarioAuditoria {
   id: string
   email: string
+  nombre: string | null
 }
 
 export interface OpcionesAuditoria {

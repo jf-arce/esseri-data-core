@@ -386,7 +386,7 @@ export function HistorialAsistenciaPage() {
               }}
             >
               <RotateCcwIcon data-icon="inline-start" />
-              Limpiar filtros
+              Limpiar todo
             </Button>
             <Button variant="secondary" onClick={() => setGestionFiltros(true)}>
               <BookmarkIcon data-icon="inline-start" />

@@ -32,7 +32,7 @@ export function HistorialCambios({ entidad, entidadId }: HistorialCambiosProps) 
     return (
       <Alert variant="error">
         <AlertTitle>No se pudo cargar el historial</AlertTitle>
-        <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+        <AlertDescription className="flex items-center justify-between gap-3">
           {error}
           <Button variant="secondary" size="sm" onClick={recargar}>
             Reintentar
@@ -77,7 +77,9 @@ export function HistorialCambios({ entidad, entidadId }: HistorialCambiosProps) 
               />
               <p className="text-xs text-texto-3">
                 {new Date(entrada.fecha).toLocaleString('es-AR')}
-                {entrada.usuario_email ? ` · ${entrada.usuario_email}` : ''}
+                {entrada.usuario_nombre || entrada.usuario_email
+                  ? ` · ${entrada.usuario_nombre ?? entrada.usuario_email}`
+                  : ''}
               </p>
             </li>
           ))}

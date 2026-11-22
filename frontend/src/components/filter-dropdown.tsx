@@ -100,20 +100,22 @@ function FilterDropdown(props: FilterDropdownProps) {
         </PopoverTrigger>
         <PopoverContent align={align} className="w-56 gap-3">
           <FilterPanelLabel label={label} />
-          <div className="grid w-full gap-2">
-            {options.map((option) => {
-              const id = `${groupId}-${option.value}`
-              return (
-                <Label key={option.value} htmlFor={id} className="gap-2.5 font-normal text-texto">
-                  <Checkbox
-                    id={id}
-                    checked={value.includes(option.value)}
-                    onCheckedChange={(checked) => toggle(option.value, checked === true)}
-                  />
-                  {option.label}
-                </Label>
-              )
-            })}
+          <div className="max-h-80 overflow-y-auto">
+            <div className="grid w-full gap-2">
+              {options.map((option) => {
+                const id = `${groupId}-${option.value}`
+                return (
+                  <Label key={option.value} htmlFor={id} className="gap-2.5 font-normal text-texto">
+                    <Checkbox
+                      id={id}
+                      checked={value.includes(option.value)}
+                      onCheckedChange={(checked) => toggle(option.value, checked === true)}
+                    />
+                    {option.label}
+                  </Label>
+                )
+              })}
+            </div>
           </div>
         </PopoverContent>
       </Popover>
@@ -135,6 +137,7 @@ function FilterDropdown(props: FilterDropdownProps) {
             onChange(next)
             setOpen(false)
           }}
+          className="max-h-80 overflow-y-auto"
         >
           {options.map((option) => {
             const id = `${groupId}-${option.value}`
@@ -156,11 +159,9 @@ function FilterDropdown(props: FilterDropdownProps) {
 function FilterChips({
   children,
   onClearAll,
-  clearLabel = 'Limpiar todo',
 }: {
   children: React.ReactNode
   onClearAll: () => void
-  clearLabel?: string
 }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
@@ -170,7 +171,7 @@ function FilterChips({
         onClick={onClearAll}
         className="cursor-pointer text-xs font-semibold text-texto-3 hover:text-texto-2"
       >
-        {clearLabel}
+        Limpiar todo
       </button>
     </div>
   )
@@ -179,7 +180,7 @@ function FilterChips({
 function FilterChip({ children, onRemove }: { children: React.ReactNode; onRemove: () => void }) {
   return (
     <span className="inline-flex h-[26px] items-center gap-1.5 rounded-full bg-violeta-suave py-0 pr-1.5 pl-3 text-xs font-medium text-violeta">
-      <span className="max-w-64 truncate">{children}</span>
+      {children}
       <button
         type="button"
         onClick={onRemove}

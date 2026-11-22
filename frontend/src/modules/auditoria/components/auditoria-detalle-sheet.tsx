@@ -1,5 +1,4 @@
 import { formatearFechaHora } from '@/lib/fechas'
-import { Badge } from '@/components/ui/badge'
 import {
   Sheet,
   SheetContent,
@@ -9,7 +8,13 @@ import {
 } from '@/components/ui/sheet'
 import { ValoresCambio } from '@/modules/auditoria/components/valores-cambio'
 import type { AuditoriaItem } from '@/modules/auditoria/types'
-import { etiquetaEntidad, formatearCampo } from '@/modules/auditoria/utils'
+import {
+  esAccion,
+  etiquetaAccion,
+  etiquetaEntidad,
+  formatearCampo,
+  nombreActor,
+} from '@/modules/auditoria/utils'
 
 function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
   return (
@@ -34,7 +39,7 @@ export function AuditoriaDetalleSheet({ item, onCerrar }: AuditoriaDetalleSheetP
             <SheetHeader>
               <SheetTitle>Detalle del registro</SheetTitle>
               <SheetDescription>
-                {etiquetaEntidad(item.entidad)} · {formatearCampo(item.campo)}
+                {etiquetaAccion(item.campo)} · {etiquetaEntidad(item.entidad)}
               </SheetDescription>
             </SheetHeader>
             <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4">
@@ -45,24 +50,39 @@ export function AuditoriaDetalleSheet({ item, onCerrar }: AuditoriaDetalleSheetP
                     {item.entidad_id}
                   </span>
                 </Dato>
-                <Dato etiqueta="Campo">{formatearCampo(item.campo)}</Dato>
-                <Dato etiqueta="Cambio">
-                  <ValoresCambio
-                    valorAnterior={item.valor_anterior}
-                    valorNuevo={item.valor_nuevo}
-                  />
-                </Dato>
+                <Dato etiqueta="Acción">{etiquetaAccion(item.campo)}</Dato>
                 <Dato etiqueta="Fecha">{formatearFechaHora(item.fecha)}</Dato>
-                <Dato etiqueta="Actor">
-                  <Badge variant={item.actor_tipo === 'sistema' ? 'neutro' : 'info'}>
-                    {item.actor_tipo === 'sistema' ? 'Sistema' : 'Usuario'}
-                  </Badge>
-                </Dato>
-                <Dato etiqueta="Usuario">
-                  {item.usuario_email ?? (
-                    <span className="text-texto-3">Sin usuario (operación automática)</span>
+                <Dato etiqueta="Quién">
+                  {nombreActor(item)}
+                  {item.actor_tipo === 'sistema' ? (
+                    <span className="block text-xs text-texto-3">Operación automática</span>
+                  ) : (
+                    item.usuario_nombre &&
+                    item.usuario_email && (
+                      <span className="block text-xs break-all text-texto-3">
+                        {item.usuario_email}
+                      </span>
+                    )
                   )}
                 </Dato>
+                {esAccion(item.campo) ? (
+                  <Dato etiqueta="Valor">
+                    <ValoresCambio
+                      valorAnterior={item.valor_anterior}
+                      valorNuevo={item.valor_nuevo}
+                    />
+                  </Dato>
+                ) : (
+                  <>
+                    <Dato etiqueta="Campo">{formatearCampo(item.campo)}</Dato>
+                    <Dato etiqueta="Cambio">
+                      <ValoresCambio
+                        valorAnterior={item.valor_anterior}
+                        valorNuevo={item.valor_nuevo}
+                      />
+                    </Dato>
+                  </>
+                )}
                 {item.origen && <Dato etiqueta="Origen">{formatearCampo(item.origen)}</Dato>}
                 {item.motivo && <Dato etiqueta="Motivo">{item.motivo}</Dato>}
                 {item.referencia_entidad && (
