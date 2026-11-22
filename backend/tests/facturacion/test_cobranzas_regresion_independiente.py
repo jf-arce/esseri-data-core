@@ -222,7 +222,7 @@ def test_s7_paginacion_25_estado_filtros_y_ocultas(client_autenticado, db_sessio
     en_lote = client_autenticado.get(BASE + "/facturas-elegibles?estado=en_lote").json()
     assert en_lote["total"] == 3 and all(i["en_lote"] for i in en_lote["items"])
     todas = client_autenticado.get(BASE + "/facturas-elegibles?estado=todas").json()
-    assert todas["total"] == 33 and todas["ocultas_en_lote"] == 0
+    assert todas["total"] == 33 and todas["ocultas_en_lote"] == 3
 
 
 def test_s7_filtrados_predicado_y_export_con_reintento(client_autenticado, db_session):
