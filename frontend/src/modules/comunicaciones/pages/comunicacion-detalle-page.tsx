@@ -508,7 +508,7 @@ export function ComunicacionDetallePage({
                     Mensaje
                   </TabsTrigger>
                   <TabsTrigger value="entrega" ref={entregaTab} className="min-h-11">
-                    Entrega ({datos.destinatarios})
+                    Seguimiento ({datos.destinatarios})
                   </TabsTrigger>
                 </TabsList>
                 <TabsContent value="mensaje" className="space-y-6 pt-4">
