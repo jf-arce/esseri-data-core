@@ -92,13 +92,20 @@ def _anio_de_division(db: Session, division_id: uuid.UUID) -> uuid.UUID | None:
     return db.scalar(select(Division.anio_id).where(Division.id == division_id))
 
 
+_ATRIBUTO_POR_CRITERIO = {
+    "nivel": "nivel_educativo_id",
+    "anio": "anio_id",
+    "division": "division_id",
+}
+
+
 def _alcances_se_superponen(
     db: Session, primera: ReglaFacturacion, segunda: ReglaFacturacion
 ) -> bool:
     if "todas_inscripciones" in {primera.criterio_aplicacion, segunda.criterio_aplicacion}:
         return True
     if primera.criterio_aplicacion == segunda.criterio_aplicacion:
-        atributo = f"{primera.criterio_aplicacion}_id"
+        atributo = _ATRIBUTO_POR_CRITERIO[primera.criterio_aplicacion]
         return getattr(primera, atributo) == getattr(segunda, atributo)
 
     por_criterio = {primera.criterio_aplicacion: primera, segunda.criterio_aplicacion: segunda}
