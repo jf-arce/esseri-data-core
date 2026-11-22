@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest'
 import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
 import { HistorialAsistenciaPage } from '../historial-asistencia-page'
-import { useConsultaHistorial } from '../../hooks/use-consulta-historial'
+import { useConsultaHistorial, useTendenciaHistorial } from '../../hooks/use-consulta-historial'
 import { exportarHistorial, type FiltrosHistorial } from '../../services/consultar-historial'
 
 const estado = vi.hoisted(() => ({
@@ -80,13 +80,13 @@ vi.mock('../../hooks/use-consulta-historial', () => ({
     error: null,
     recargar: vi.fn(),
   }),
-  useTendenciaHistorial: () => ({
+  useTendenciaHistorial: vi.fn(() => ({
     datos: { puntos: estado.puntos },
     cargando: false,
     error: null,
     sinPermiso: false,
     recargar: vi.fn(),
-  }),
+  })),
 }))
 vi.mock('../../services/consultar-historial', () => ({
   exportarHistorial: vi.fn().mockResolvedValue(undefined),
@@ -207,10 +207,28 @@ it('filtra el historial por el día de la barra y permite volver al período', a
   )
   expect(barras[1]).toHaveAttribute('aria-pressed', 'true')
 
-  await userEvent.click(screen.getByRole('button', { name: 'Ver todo el período' }))
-  const filtros = vi.mocked(useConsultaHistorial).mock.lastCall?.[0]
-  expect(filtros?.fecha_desde).toBeUndefined()
-  expect(filtros?.fecha_hasta).toBeUndefined()
+  expect(vi.mocked(useTendenciaHistorial).mock.lastCall?.[0]).toEqual(
+    expect.objectContaining({ fecha_desde: undefined, fecha_hasta: undefined }),
+  )
+})
+
+it('mantiene todas las barras y permite elegir otro día sin limpiar el filtro', async () => {
+  estado.puntos = [
+    { fecha: '2026-11-17', presentes: 20, ausentes: 5, porcentaje_presencia: 80 },
+    { fecha: '2026-11-18', presentes: 18, ausentes: 7, porcentaje_presencia: 72 },
+  ]
+  render(<HistorialAsistenciaPage />)
+
+  await userEvent.click(await screen.findByRole('button', { name: 'Filtrar por el 17/11' }))
+  expect(await screen.findAllByRole('button', { name: /Filtrar por el/ })).toHaveLength(2)
+  await userEvent.click(screen.getByRole('button', { name: 'Filtrar por el 18/11' }))
+
+  expect(useConsultaHistorial).toHaveBeenLastCalledWith(
+    expect.objectContaining({ fecha_desde: '2026-11-18', fecha_hasta: '2026-11-18' }),
+  )
+  expect(vi.mocked(useTendenciaHistorial).mock.lastCall?.[0]).toEqual(
+    expect.objectContaining({ fecha_desde: undefined, fecha_hasta: undefined }),
+  )
 })
 
 it('applies independent selectors, state and date filters without cascading resets', async () => {

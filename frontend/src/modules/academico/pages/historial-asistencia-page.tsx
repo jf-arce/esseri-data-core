@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -172,14 +172,19 @@ export function HistorialAsistenciaPage() {
     const dia = new URLSearchParams(window.location.search).get('fecha') ?? ''
     return /^\d{4}-\d{2}-\d{2}$/.test(dia) ? { ...base, fecha_desde: dia, fecha_hasta: dia } : base
   })
+  const [diaGrafico, setDiaGrafico] = useState<string | null>(null)
   const filtros = seleccion.ciclo_lectivo === ciclo ? seleccion : filtrosIniciales(ciclo)
   if (seleccion.ciclo_lectivo !== ciclo) setSeleccion(filtros)
   const recurso = useConsultaHistorial(filtros)
-  const tendencia = useTendenciaHistorial({
-    ...filtros,
-    pagina: undefined,
-    tamanio_pagina: undefined,
-  })
+  const filtrosTendencia = useMemo(() => {
+    const base = { ...filtros, pagina: undefined, tamanio_pagina: undefined }
+    // El clic en una barra filtra la tabla; el gráfico sigue mostrando el período completo.
+    if (diaGrafico && filtros.fecha_desde === diaGrafico && filtros.fecha_hasta === diaGrafico) {
+      return { ...base, fecha_desde: undefined, fecha_hasta: undefined }
+    }
+    return base
+  }, [filtros, diaGrafico])
+  const tendencia = useTendenciaHistorial(filtrosTendencia)
   const catalogo = useOpcionesHistorial(ciclo)
   const ciclosRecurso = useCiclosHistorial()
   const [exportando, setExportando] = useState(false)
@@ -192,10 +197,6 @@ export function HistorialAsistenciaPage() {
   const alumnoSeleccionado = filtros.inscripcion_id
     ? opciones.find((item) => item.inscripcion_id === filtros.inscripcion_id)?.alumno
     : undefined
-  const diaSeleccionado =
-    filtros.fecha_desde && filtros.fecha_desde === filtros.fecha_hasta
-      ? filtros.fecha_desde
-      : undefined
   const resumen = datos?.resumen
   const error =
     ciclosRecurso.error ||
@@ -366,7 +367,10 @@ export function HistorialAsistenciaPage() {
               type="date"
               value={filtros.fecha_desde ?? ''}
               max={filtros.fecha_hasta}
-              onChange={(event) => aplicar({ fecha_desde: event.target.value || undefined })}
+              onChange={(event) => {
+                setDiaGrafico(null)
+                aplicar({ fecha_desde: event.target.value || undefined })
+              }}
             />
           </Field>
           <Field className="min-w-0">
@@ -376,7 +380,10 @@ export function HistorialAsistenciaPage() {
               type="date"
               value={filtros.fecha_hasta ?? ''}
               min={filtros.fecha_desde}
-              onChange={(event) => aplicar({ fecha_hasta: event.target.value || undefined })}
+              onChange={(event) => {
+                setDiaGrafico(null)
+                aplicar({ fecha_hasta: event.target.value || undefined })
+              }}
             />
           </Field>
         </div>
@@ -488,17 +495,6 @@ export function HistorialAsistenciaPage() {
                 ? 'Porcentaje de presentes del alumno por día'
                 : 'Porcentaje de presentes por día'}
             </span>
-            {diaSeleccionado && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs text-violeta"
-                onClick={() => aplicar({ fecha_desde: undefined, fecha_hasta: undefined })}
-              >
-                Ver todo el período
-              </Button>
-            )}
           </div>
         </div>
         {tendencia.cargando ? (
@@ -528,9 +524,10 @@ export function HistorialAsistenciaPage() {
                                 filtros.fecha_desde === punto.fecha &&
                                 filtros.fecha_hasta === punto.fecha
                               }
-                              onClick={() =>
+                              onClick={() => {
+                                setDiaGrafico(punto.fecha)
                                 aplicar({ fecha_desde: punto.fecha, fecha_hasta: punto.fecha })
-                              }
+                              }}
                               className="group flex h-full flex-1 items-end rounded-sm bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-violeta focus-visible:ring-offset-2 focus-visible:ring-offset-superficie"
                             >
                               <span
