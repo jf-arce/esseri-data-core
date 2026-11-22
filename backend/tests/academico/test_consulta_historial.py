@@ -72,6 +72,8 @@ def test_filtros_historicos_indicadores_y_paginacion(client_direccion, historial
     assert [fila["fecha"] for fila in datos["items"]] == ["2026-03-05", "2026-03-04"]
     assert all(fila["inscripcion_id"] == str(anterior.id) for fila in datos["items"])
     assert all(fila["division"] == "4°B" for fila in datos["items"])
+    assert all(fila["anio"] == 4 for fila in datos["items"])
+    assert all(fila["nivel"] == "Primario" for fila in datos["items"])
     ids = []
     for pagina in range(1, 4):
         ids.extend(

@@ -43,6 +43,8 @@ class ResumenHistorial(BaseModel):
 class FilaHistorial(AsistenciaResponse):
     alumno: str
     division: str
+    anio: int
+    nivel: str
 
 
 class PaginaHistorial(BaseModel):
