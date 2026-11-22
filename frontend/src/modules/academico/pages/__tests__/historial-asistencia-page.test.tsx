@@ -12,6 +12,7 @@ const estado = vi.hoisted(() => ({
   error: null as string | null,
   puntos: [] as {
     fecha: string
+    fecha_fin: string
     presentes: number
     ausentes: number
     porcentaje_presencia: number
@@ -286,12 +287,10 @@ it('cambia la agrupación y navega períodos anteriores de la tendencia', async 
   )
 
   await userEvent.click(screen.getByRole('button', { name: 'Diario' }))
-  expect(await screen.findAllByRole('button', { name: /Filtrar por el/ })).toHaveLength(21)
+  expect(await screen.findAllByRole('button', { name: /Filtrar por el/ })).toHaveLength(14)
 
   await userEvent.click(screen.getByRole('button', { name: 'Período anterior' }))
-  const visibles = await screen.findAllByRole('button', { name: /Filtrar por el/ })
-  expect(visibles).toHaveLength(4)
-  expect(visibles[0]).toHaveAccessibleName('Filtrar por el 1/3')
+  expect(await screen.findAllByRole('button', { name: /Filtrar por el/ })).toHaveLength(11)
 })
 
 it('applies independent selectors, state and date filters without cascading resets', async () => {

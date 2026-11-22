@@ -128,13 +128,13 @@ function fechaCorta(iso: string) {
 
 type Agrupacion = 'dia' | 'semana' | 'mes'
 
+const TRAMOS_POR_PAGINA: Record<Agrupacion, number> = { dia: 14, semana: 12, mes: 6 }
+
 const AGRUPACIONES: { valor: Agrupacion; etiqueta: string }[] = [
   { valor: 'dia', etiqueta: 'Diario' },
   { valor: 'semana', etiqueta: 'Semanal' },
   { valor: 'mes', etiqueta: 'Mensual' },
 ]
-
-const VENTANA_TENDENCIA: Record<Agrupacion, number> = { dia: 21, semana: 12, mes: 12 }
 
 const MES_LARGO = new Intl.DateTimeFormat('es-AR', { month: 'long', year: 'numeric' })
 
@@ -194,7 +194,7 @@ export function HistorialAsistenciaPage() {
     return /^\d{4}-\d{2}-\d{2}$/.test(dia) ? { ...base, fecha_desde: dia, fecha_hasta: dia } : base
   })
   const [agrupacion, setAgrupacion] = useState<Agrupacion>('dia')
-  const [desplazamiento, setDesplazamiento] = useState(0)
+  const [paginaTendencia, setPaginaTendencia] = useState(0)
   const [rangoGrafico, setRangoGrafico] = useState<{ desde: string; hasta: string } | null>(null)
   const filtros = seleccion.ciclo_lectivo === ciclo ? seleccion : filtrosIniciales(ciclo)
   if (seleccion.ciclo_lectivo !== ciclo) setSeleccion(filtros)
@@ -214,13 +214,16 @@ export function HistorialAsistenciaPage() {
 
   function cambiarAgrupacion(valor: Agrupacion) {
     setAgrupacion(valor)
-    setDesplazamiento(0)
     if (rangoGrafico) {
       setRangoGrafico(null)
       aplicar({ fecha_desde: undefined, fecha_hasta: undefined })
     }
   }
   const tendencia = useTendenciaHistorial(filtrosTendencia)
+  const puntosTendencia = tendencia.datos?.puntos ?? []
+  const tramosTendencia = TRAMOS_POR_PAGINA[agrupacion]
+  const finTendencia = Math.max(0, puntosTendencia.length - paginaTendencia * tramosTendencia)
+  const inicioTendencia = Math.max(0, finTendencia - tramosTendencia)
   const catalogo = useOpcionesHistorial(ciclo)
   const ciclosRecurso = useCiclosHistorial()
   const [exportando, setExportando] = useState(false)
@@ -561,12 +564,8 @@ export function HistorialAsistenciaPage() {
                 size="icon"
                 className="size-8"
                 aria-label="Período anterior"
-                disabled={
-                  desplazamiento >=
-                  Math.ceil((tendencia.datos?.puntos.length ?? 0) / VENTANA_TENDENCIA[agrupacion]) -
-                    1
-                }
-                onClick={() => setDesplazamiento((valor) => valor + 1)}
+                disabled={inicioTendencia === 0}
+                onClick={() => setPaginaTendencia((valor) => valor + 1)}
               >
                 <ChevronLeftIcon aria-hidden="true" />
               </Button>
@@ -576,8 +575,8 @@ export function HistorialAsistenciaPage() {
                 size="icon"
                 className="size-8"
                 aria-label="Período siguiente"
-                disabled={desplazamiento === 0}
-                onClick={() => setDesplazamiento((valor) => Math.max(0, valor - 1))}
+                disabled={paginaTendencia === 0}
+                onClick={() => setPaginaTendencia((valor) => Math.max(0, valor - 1))}
               >
                 <ChevronRightIcon aria-hidden="true" />
               </Button>
@@ -592,16 +591,14 @@ export function HistorialAsistenciaPage() {
           </p>
         ) : (
           (() => {
-            const puntos = tendencia.datos?.puntos ?? []
-            const tamano = VENTANA_TENDENCIA[agrupacion]
-            const fin = Math.max(0, puntos.length - desplazamiento * tamano)
-            const inicio = Math.max(0, fin - tamano)
-            const visibles = puntos.slice(inicio, fin)
+            const visibles = puntosTendencia.slice(inicioTendencia, finTendencia)
             return (
               <>
                 <TooltipProvider delayDuration={0}>
                   <div className="mt-4 flex h-32 items-end gap-1">
-                    {visibles.map((punto) => {
+                    {Array.from({ length: tramosTendencia }, (_, indice) => {
+                      const punto = visibles[indice]
+                      if (!punto) return <span key={`vacio-${indice}`} className="flex-1" />
                       const seleccionado =
                         filtros.fecha_desde === punto.fecha &&
                         filtros.fecha_hasta === punto.fecha_fin
@@ -623,7 +620,7 @@ export function HistorialAsistenciaPage() {
                                   fecha_hasta: punto.fecha_fin,
                                 })
                               }}
-                              className="group flex h-full flex-1 items-end rounded-sm bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-violeta focus-visible:ring-offset-2 focus-visible:ring-offset-superficie"
+                              className="group flex h-full min-w-0 flex-1 items-end rounded-sm bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-violeta focus-visible:ring-offset-2 focus-visible:ring-offset-superficie"
                             >
                               <span
                                 aria-hidden="true"
@@ -656,13 +653,6 @@ export function HistorialAsistenciaPage() {
                     })}
                   </div>
                 </TooltipProvider>
-                <div className="mt-2 flex justify-between text-xs text-texto-3">
-                  <span>{visibles[0] && etiquetaPunto(visibles[0], agrupacion)}</span>
-                  <span>
-                    {visibles[visibles.length - 1] &&
-                      etiquetaPunto(visibles[visibles.length - 1], agrupacion)}
-                  </span>
-                </div>
               </>
             )
           })()
