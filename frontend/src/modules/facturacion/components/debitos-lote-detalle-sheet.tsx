@@ -123,10 +123,33 @@ export function DebitosLoteDetalleSheet({
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pt-3">
           {cargando && (
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-4 w-52" />
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-24 w-full" />
+            <div aria-hidden="true" className="flex flex-col gap-3">
+              <div className="flex items-end justify-between gap-3">
+                <div className="flex flex-col gap-2">
+                  <p className="text-texto-2">Total del lote</p>
+                  <Skeleton className="h-8 w-40" />
+                </div>
+                <Skeleton className="h-9 w-32" />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {['Exportado', 'Período', 'Facturas'].map((etiqueta) => (
+                  <div key={etiqueta} className="rounded-card-sm bg-lienzo px-3 py-2">
+                    <p className="text-xs text-texto-2">{etiqueta}</p>
+                    <Skeleton className="mt-1 h-4 w-16" />
+                  </div>
+                ))}
+              </div>
+              <Skeleton className="h-9 w-full" />
+              <div className="flex flex-col gap-3 rounded-panel border border-borde p-3">
+                {[0, 1, 2, 3, 4].map((fila) => (
+                  <div key={fila} className="flex items-center gap-4">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className={fila % 2 === 0 ? 'h-4 w-32' : 'h-4 w-24'} />
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="ml-auto h-4 w-16" />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           {error && <p className="text-sm text-error">{error}</p>}

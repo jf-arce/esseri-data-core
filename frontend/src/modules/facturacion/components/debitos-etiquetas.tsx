@@ -46,12 +46,6 @@ export function etiquetaMedio(medio: string) {
   return medio
 }
 
-export function etiquetaResultado(resultado: string | null) {
-  if (resultado === 'COBRADO_SIM') return 'Cobrado'
-  if (resultado === 'RECHAZADO_SIM') return 'Rechazado'
-  return '—'
-}
-
 const ESTADO_LOTE_CORTO: Record<EstadoLoteDebitos, string> = {
   exportado: 'Exportado',
   en_revision: 'En revisión',

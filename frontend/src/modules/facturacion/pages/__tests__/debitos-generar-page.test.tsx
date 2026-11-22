@@ -279,13 +279,12 @@ describe('DebitosGenerarPage', () => {
     await user.click(screen.getByRole('checkbox', { name: 'Seleccionar F-2026-00001' }))
     await user.click(screen.getByRole('checkbox', { name: 'Seleccionar F-2026-00002' }))
 
-    const resumenPanel = await screen.findByRole('complementary', { name: 'Resumen del lote' })
-    expect(within(resumenPanel).getByText('Selección: todos los filtrados')).toBeInTheDocument()
-    expect(within(resumenPanel).getAllByText('436')).toHaveLength(2)
-    expect(within(resumenPanel).queryByText('Débito con tarjeta')).not.toBeInTheDocument()
-    expect(within(resumenPanel).getByText('438')).toBeInTheDocument()
-    expect(within(resumenPanel).getByText('12')).toBeInTheDocument()
-    expect(within(resumenPanel).getByText(/74\.992\.000/)).toBeInTheDocument()
+    const resumen = await screen.findByRole('region', { name: 'Resumen del lote' })
+    expect(within(resumen).getByText(/436 facturas · todos los filtrados/)).toBeInTheDocument()
+    expect(within(resumen).getByText('438')).toBeInTheDocument()
+    expect(within(resumen).getByText('12')).toBeInTheDocument()
+    expect(within(resumen).getByText(/74\.992\.000/)).toBeInTheDocument()
+    expect(screen.getByText(/436 facturas seleccionadas/)).toBeInTheDocument()
   })
 
   it('exporta el lote CBU con exclusiones sin registrar pagos', async () => {

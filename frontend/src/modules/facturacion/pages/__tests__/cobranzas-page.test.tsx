@@ -48,17 +48,14 @@ function renderPage(initialEntry = '/facturacion/cobranzas') {
 }
 
 describe('CobranzasPage', () => {
-  it('presenta el título, las tres pestañas y conserva el acceso desde facturas', () => {
+  it('presenta el título, las tres pestañas y el chip del medio', () => {
     renderPage()
 
     expect(screen.getByRole('heading', { name: 'Débitos automáticos' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Generar lote' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Importar resultados' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Historial de lotes' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Volver a facturas' })).toHaveAttribute(
-      'href',
-      '/facturacion',
-    )
+    expect(screen.getByRole('button', { name: 'Historial de lotes' })).toBeInTheDocument()
+    expect(screen.getByText('Débito por CBU')).toBeInTheDocument()
     expect(screen.getByText('Contenido generar')).toBeInTheDocument()
   })
 
@@ -71,7 +68,7 @@ describe('CobranzasPage', () => {
     expect(screen.getByText('Contenido importar sin-id')).toBeInTheDocument()
     expect(screen.getByTestId('location')).toHaveTextContent('pestana=importar')
 
-    await user.click(screen.getByRole('tab', { name: 'Historial de lotes' }))
+    await user.click(screen.getByRole('button', { name: 'Historial de lotes' }))
     await user.click(screen.getByRole('button', { name: 'Continuar revisión simulada' }))
 
     expect(await screen.findByText('Contenido importar imp-9')).toBeInTheDocument()

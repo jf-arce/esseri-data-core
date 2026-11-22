@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
-import { DownloadIcon, FileTextIcon, RotateCcwIcon } from 'lucide-react'
+import { ArrowRightIcon, DownloadIcon, FileTextIcon, RotateCcwIcon } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { FilterBar, FilterSearch } from '@/components/filter-bar'
 import { FilterDropdown } from '@/components/filter-dropdown'
 import { DebitosGenerarTabla } from '@/modules/facturacion/components/debitos-generar-tabla'
-import { DebitosResumenSeleccion } from '@/modules/facturacion/components/debitos-resumen-seleccion'
 import { FacturaDetalleSheet } from '@/modules/facturacion/components/factura-detalle-sheet'
 import {
   etiquetaArchivoSolicitud,
@@ -32,6 +32,36 @@ const ESTADOS: { value: EstadoSeleccionDebitos; label: string }[] = [
 
 const TAMANIO_PAGINA = 10
 const MEDIO_DEMO: MedioDebito = 'cbu'
+
+function ResumenMetrica({
+  etiqueta,
+  valor,
+  nota,
+  cargando,
+  destacada = false,
+}: {
+  etiqueta: string
+  valor: string | number
+  nota?: string
+  cargando: boolean
+  destacada?: boolean
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1 px-5 py-3">
+      <p className="text-xs font-semibold text-texto-2">{etiqueta}</p>
+      {cargando ? (
+        <Skeleton className={destacada ? 'h-8 w-40' : 'h-7 w-16'} />
+      ) : (
+        <p
+          className={`font-semibold tabular-nums text-texto ${destacada ? 'text-2xl' : 'text-xl'}`}
+        >
+          {valor}
+        </p>
+      )}
+      {nota && <p className="text-xs text-texto-3">{nota}</p>}
+    </div>
+  )
+}
 
 interface DebitosGenerarPageProps {
   onIrAImportar: () => void
@@ -133,6 +163,11 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
 
   const barraFiltros = (
     <FilterBar>
+      <FilterSearch
+        value={buscar}
+        onChange={actualizarBusqueda}
+        placeholder="Buscar alumno o factura"
+      />
       <FilterDropdown
         label={periodoEfectivo ? `Período: ${etiquetaPeriodo(periodoEfectivo)}` : 'Período'}
         value={periodoEfectivo ?? ''}
@@ -142,17 +177,11 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
           label: etiquetaPeriodo(valor),
         }))}
       />
-      <span className="self-center text-sm text-texto-2">CBU</span>
       <FilterDropdown
         label={`Estado: ${ESTADOS.find((opcion) => opcion.value === estado)?.label ?? 'Todos'}`}
         value={estado}
         onChange={actualizarEstado}
         options={ESTADOS}
-      />
-      <FilterSearch
-        value={buscar}
-        onChange={actualizarBusqueda}
-        placeholder="Buscar alumno o factura"
       />
     </FilterBar>
   )
@@ -178,36 +207,40 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
         </Alert>
       )}
       {loteCreado && (
-        <Alert variant="success">
-          <AlertTitle>Lote {loteCreado.codigo} exportado</AlertTitle>
-          <AlertDescription className="flex flex-col gap-2">
-            <p>
-              Se generaron {loteCreado.cantidad_facturas} solicitudes por{' '}
-              {formatearMoneda(loteCreado.importe_total)}. Descargá cada archivo y subilo a su
-              plataforma. Exportar no registró pagos.
+        <section
+          aria-label="Lote exportado"
+          className="flex min-w-0 flex-col gap-3 rounded-card-sm border border-exito/30 bg-exito-suave p-4"
+        >
+          <div>
+            <h2 className="text-base font-semibold text-texto">
+              Lote {loteCreado.codigo} exportado
+            </h2>
+            <p className="text-sm text-texto-2">
+              {loteCreado.cantidad_facturas} solicitudes por{' '}
+              {formatearMoneda(loteCreado.importe_total)}. Todavía no se registraron pagos.
             </p>
-            <div className="flex flex-wrap gap-2">
-              {loteCreado.solicitudes.map((archivo) => (
-                <Button
-                  key={archivo.nombre}
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => descargarArchivoDebitos(archivo)}
-                >
-                  <DownloadIcon data-icon="inline-start" />
-                  {etiquetaArchivoSolicitud(archivo.nombre)}
-                </Button>
-              ))}
-              <Button variant="ghost" size="sm" disabled={exportando} onClick={prepararRespuesta}>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {loteCreado.solicitudes.map((archivo) => (
+              <Button
+                key={archivo.nombre}
+                variant="secondary"
+                onClick={() => descargarArchivoDebitos(archivo)}
+              >
                 <DownloadIcon data-icon="inline-start" />
-                Preparar respuesta de ejemplo
+                {etiquetaArchivoSolicitud(archivo.nombre)}
               </Button>
-              <Button variant="ghost" size="sm" onClick={onIrAImportar}>
-                Ir a importar resultados
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
+            ))}
+            <Button variant="ghost" disabled={exportando} onClick={prepararRespuesta}>
+              <DownloadIcon data-icon="inline-start" />
+              Preparar respuesta de ejemplo
+            </Button>
+            <Button onClick={onIrAImportar}>
+              Continuar con importar
+              <ArrowRightIcon data-icon="inline-end" />
+            </Button>
+          </div>
+        </section>
       )}
       {cargando && (
         <p role="status" className="sr-only">
@@ -215,45 +248,60 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
         </p>
       )}
 
-      <div className="grid min-w-0 w-full items-start gap-4 @5xl/main:grid-cols-[minmax(0,1fr)_304px]">
-        <DebitosGenerarTabla
-          filtros={barraFiltros}
-          vacio={
-            <Empty>
-              <EmptyMedia variant="icon" className="bg-sup-facturacion text-mod-facturacion">
-                <FileTextIcon />
-              </EmptyMedia>
-              <EmptyTitle>No hay facturas para estos filtros.</EmptyTitle>
-              <EmptyDescription>
-                Probá con otro período, medio o búsqueda. Las facturas de lotes exportados no se
-                incluyen hasta que el lote se libere.
-              </EmptyDescription>
-            </Empty>
-          }
-          facturas={datos.items}
-          cargando={cargando}
-          pagina={pagina}
-          tamanio={TAMANIO_PAGINA}
-          total={datos.total}
-          resumen={seleccion.resumen}
-          modo={seleccion.modo}
-          seleccionadas={seleccion.seleccionadas}
-          excluidos={seleccion.excluidos}
-          estadoTodas={seleccion.estadoTodas}
-          onCambiarPagina={setPagina}
-          onAlternarFila={seleccion.alternarFila}
-          onAlternarTodasFiltradas={seleccion.alternarTodasFiltradas}
-          onVerFactura={(factura) => setFacturaAbierta({ id: factura.id, numero: factura.numero })}
-        />
-        <DebitosResumenSeleccion
-          resumen={seleccion.resumen}
+      <section
+        aria-label="Resumen del lote"
+        className="grid min-w-0 grid-cols-1 divide-y divide-borde rounded-card-sm bg-superficie shadow-card sm:grid-cols-[2fr_1fr_1fr] sm:divide-x sm:divide-y-0"
+      >
+        <ResumenMetrica
+          etiqueta="Seleccionado para el lote"
+          valor={formatearMoneda(seleccion.resumen.importe_total)}
+          nota={`${seleccion.resumen.cantidad} ${seleccion.resumen.cantidad === 1 ? 'factura' : 'facturas'} · ${seleccion.resumen.alcance === 'filtrados' ? 'todos los filtrados' : 'esta página'}. Exportar no registra pagos.`}
           cargando={seleccion.cargandoResumen}
-          total={datos.total}
-          exportando={exportando}
-          onExportar={() => void exportar()}
-          onLimpiar={seleccion.limpiar}
+          destacada
         />
-      </div>
+        <ResumenMetrica
+          etiqueta="Pendientes sin lote"
+          valor={datos.total}
+          nota={periodoEfectivo ? etiquetaPeriodo(periodoEfectivo) : undefined}
+          cargando={cargando && datos.total === 0}
+        />
+        <ResumenMetrica
+          etiqueta="Ya en lote"
+          valor={seleccion.resumen.ocultas_en_lote}
+          nota={estado === 'pendientes_sin_lote' ? 'Visibles en el estado «En lote»' : undefined}
+          cargando={seleccion.cargandoResumen}
+        />
+      </section>
+
+      <DebitosGenerarTabla
+        filtros={barraFiltros}
+        vacio={
+          <Empty>
+            <EmptyMedia variant="icon" className="bg-sup-facturacion text-mod-facturacion">
+              <FileTextIcon />
+            </EmptyMedia>
+            <EmptyTitle>No hay facturas para estos filtros.</EmptyTitle>
+            <EmptyDescription>Probá con otro período o estado.</EmptyDescription>
+          </Empty>
+        }
+        facturas={datos.items}
+        cargando={cargando}
+        pagina={pagina}
+        tamanio={TAMANIO_PAGINA}
+        total={datos.total}
+        resumen={seleccion.resumen}
+        modo={seleccion.modo}
+        seleccionadas={seleccion.seleccionadas}
+        excluidos={seleccion.excluidos}
+        estadoTodas={seleccion.estadoTodas}
+        exportando={exportando}
+        onCambiarPagina={setPagina}
+        onAlternarFila={seleccion.alternarFila}
+        onAlternarTodasFiltradas={seleccion.alternarTodasFiltradas}
+        onVerFactura={(factura) => setFacturaAbierta({ id: factura.id, numero: factura.numero })}
+        onExportar={() => void exportar()}
+        onLimpiar={seleccion.limpiar}
+      />
       {seleccion.errorResumen && (
         <Alert variant="error">
           <AlertTitle>No se pudo resumir la selección</AlertTitle>
