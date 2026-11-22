@@ -180,12 +180,37 @@ it('muestra el detalle de cada barra de la tendencia al enfocarla', async () => 
   ]
   render(<HistorialAsistenciaPage />)
 
-  const barras = await screen.findAllByRole('button', { name: /Ver tendencia del/ })
+  const barras = await screen.findAllByRole('button', { name: /Filtrar por el/ })
   expect(barras).toHaveLength(2)
   await userEvent.hover(barras[0])
 
   expect(await screen.findByText('80% de presencia')).toBeInTheDocument()
   expect(screen.getByText('20 presentes · 5 ausentes')).toBeInTheDocument()
+})
+
+it('filtra el historial por el día de la barra y permite volver al período', async () => {
+  estado.puntos = [
+    { fecha: '2026-11-17', presentes: 20, ausentes: 5, porcentaje_presencia: 80 },
+    { fecha: '2026-11-18', presentes: 18, ausentes: 7, porcentaje_presencia: 72 },
+  ]
+  render(<HistorialAsistenciaPage />)
+
+  const barras = await screen.findAllByRole('button', { name: /Filtrar por el/ })
+  await userEvent.click(barras[1])
+
+  expect(useConsultaHistorial).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      fecha_desde: '2026-11-18',
+      fecha_hasta: '2026-11-18',
+      pagina: 1,
+    }),
+  )
+  expect(barras[1]).toHaveAttribute('aria-pressed', 'true')
+
+  await userEvent.click(screen.getByRole('button', { name: 'Ver todo el período' }))
+  const filtros = vi.mocked(useConsultaHistorial).mock.lastCall?.[0]
+  expect(filtros?.fecha_desde).toBeUndefined()
+  expect(filtros?.fecha_hasta).toBeUndefined()
 })
 
 it('applies independent selectors, state and date filters without cascading resets', async () => {
