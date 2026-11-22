@@ -219,7 +219,7 @@ it('applies independent selectors, state and date filters without cascading rese
       pagina: 1,
     }),
   )
-  await userEvent.click(screen.getByRole('button', { name: 'Limpiar filtros' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Limpiar todo' }))
   expect(useConsultaHistorial).toHaveBeenLastCalledWith(
     expect.objectContaining({
       ciclo_lectivo: '2026',
