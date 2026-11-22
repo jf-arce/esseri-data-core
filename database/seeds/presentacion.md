@@ -42,6 +42,18 @@ python ../database/seeds/09_seed_presentacion.py
 
 Volver a correr el `09` sobre la misma base no hace nada. Para repetir el ensayo hay que borrar y recrear la base (`DROP DATABASE` y los pasos de arriba): el lote de débitos confirmado no se puede deshacer.
 
+### Repetir el ensayo sin recargar los seeds
+
+`presentacion-copia.sh` guarda una copia de la base ya cargada y la restaura cuando hace falta. Usa la conexión de `backend/.env` como administrador de Postgres.
+
+```bash
+cd database/seeds
+./presentacion-copia.sh guardar     # con la base lista, antes de ensayar el flujo de débitos
+./presentacion-copia.sh restaurar   # vuelve la base al estado guardado
+```
+
+`guardar` pisa la copia anterior. `restaurar` corta las conexiones abiertas (el backend se reconecta solo) y tarda unos segundos.
+
 ## Cuentas
 
 Todas usan la contraseña de `ESSERI_DEMO_PASSWORD`.
