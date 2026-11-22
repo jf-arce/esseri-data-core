@@ -124,7 +124,7 @@ def test_entrega_docente_exige_ser_el_autor_del_curso(client, docente):
     assert client.get(ruta).status_code == 403
 
 
-def test_entrega_generica_no_expone_comunicaciones_de_curso(client, docente):
+def test_entrega_generica_muestra_comunicaciones_de_curso_a_administracion(client, docente):
     ids, entrar = docente
     c = client.post("/comunicaciones/docente", json=datos(ids)).json()
     assert client.post(f"/comunicaciones/docente/{c['id']}/publicar").status_code == 200
@@ -132,17 +132,18 @@ def test_entrega_generica_no_expone_comunicaciones_de_curso(client, docente):
 
     entrar(rol="administracion")
     respuesta = client.get(ruta)
-    assert respuesta.status_code == 404, respuesta.text
+    assert respuesta.status_code == 200, respuesta.text
 
     entrar(rol="docente")
     respuesta = client.get(f"/comunicaciones/docente/{c['id']}/entrega")
     assert respuesta.status_code == 200, respuesta.text
 
 
-def test_entrega_generica_rechaza_staff_ajeno(client, docente, db_session):
+def test_entrega_generica_permite_staff_no_autor_y_protege_borradores(client, docente, db_session):
     ids, entrar = docente
     c = client.post("/comunicaciones/docente", json=datos(ids)).json()
     assert client.post(f"/comunicaciones/docente/{c['id']}/publicar").status_code == 200
+    borrador = client.post("/comunicaciones/docente", json=datos(ids)).json()
 
     rol = db_session.scalar(select(Rol).where(Rol.codigo == "administracion"))
     persona = Persona(nombre="Marta", apellido="Staff", dni="90000666")
@@ -160,7 +161,8 @@ def test_entrega_generica_rechaza_staff_ajeno(client, docente, db_session):
     db_session.commit()
 
     entrar(rol="administracion", usuario_id=staff.id)
-    assert client.get(f"/comunicaciones/{c['id']}/entrega").status_code == 404
+    assert client.get(f"/comunicaciones/{c['id']}/entrega").status_code == 200
+    assert client.get(f"/comunicaciones/{borrador['id']}/entrega").status_code == 404
 
 
 def estado(db):

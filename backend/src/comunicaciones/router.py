@@ -368,7 +368,7 @@ def entrega(
     filtro: FiltroEntrega = "todos",
 ) -> ListadoEntrega:
     gestion(rol)
-    comunicacion = service.obtener(db, id, usuario, tipo="institucional")
+    comunicacion = service.obtener(db, id, usuario)
     response.headers["Cache-Control"] = "private, no-store"
     return service.listar_entrega(db, comunicacion, pagina, buscar, filtro)
 
