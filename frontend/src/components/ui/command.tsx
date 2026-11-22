@@ -1,8 +1,9 @@
 import * as React from 'react'
-import { Command as CommandPrimitive } from 'cmdk'
+import { Command as CommandPrimitive, defaultFilter } from 'cmdk'
 import { CheckIcon, SearchIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { normalizarTexto } from '@/lib/texto'
 import {
   Dialog,
   DialogContent,
@@ -15,6 +16,13 @@ function Command({ className, ...props }: React.ComponentProps<typeof CommandPri
   return (
     <CommandPrimitive
       data-slot="command"
+      filter={(valor, busqueda, palabras) =>
+        defaultFilter(
+          normalizarTexto(valor),
+          normalizarTexto(busqueda),
+          palabras?.map(normalizarTexto),
+        )
+      }
       className={cn(
         'flex size-full flex-col overflow-hidden rounded-card! bg-superficie p-0 text-texto',
         className,

@@ -32,7 +32,11 @@ from src.familias_alumnos.schemas import (
 )
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
-from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
+from src.search import (
+    contiene_texto_busqueda,
+    normalizar_columna_busqueda,
+    normalizar_texto_busqueda,
+)
 
 ROL_FAMILIA = "familia"
 PREFIJO_LEGAJO_AUTOMATICO = "ALU-"
@@ -406,17 +410,16 @@ def obtener_alumno_por_id(db: Session, alumno_id: uuid.UUID) -> Alumno | None:
 def _condicion_de_busqueda(buscar: str, *, solo_nombre: bool):
     """Condición SQL de la búsqueda de personas.
 
-    Por defecto el texto entero se busca en nombre, apellido o DNI. Con `solo_nombre` (el `@` del
-    Asistente) no se mira el DNI y cada palabra tiene que estar en el nombre o en el apellido, sin
+    Por defecto el texto entero se busca sin tildes en nombre, apellido o DNI.
+    Con `solo_nombre` (el `@` del Asistente) se ignora el DNI y cada palabra se busca sin
     distinguir tildes ni orden, así "perez ana" encuentra a Ana Pérez y un "1" no trae a todos los
     DNI que lo contienen. `None` si no queda nada que buscar.
     """
     if not solo_nombre:
-        patron = f"%{buscar}%"
         return or_(
-            Persona.nombre.ilike(patron),
-            Persona.apellido.ilike(patron),
-            Persona.dni.ilike(patron),
+            contiene_texto_busqueda(Persona.nombre, buscar),
+            contiene_texto_busqueda(Persona.apellido, buscar),
+            contiene_texto_busqueda(Persona.dni, buscar),
         )
     palabras = re.findall(r"\w+", normalizar_texto_busqueda(buscar))
     if not palabras:

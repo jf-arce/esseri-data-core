@@ -40,7 +40,11 @@ from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
 from src.familias_alumnos.service import obtener_familia_de_usuario
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
-from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
+from src.search import (
+    contiene_texto_busqueda,
+    normalizar_columna_busqueda,
+    normalizar_texto_busqueda,
+)
 
 
 def auditar(db, comunicacion, usuario, campo, anterior, nuevo):
@@ -835,7 +839,7 @@ def _existe_contacto(texto: str):
         .where(
             Usuario.persona_id == Familia.persona_id,
             Usuario.estado == "activo",
-            Usuario.email.ilike(_patron_busqueda(texto), escape="\\"),
+            contiene_texto_busqueda(Usuario.email, texto),
         )
         .correlate(Familia)
         .exists()
@@ -874,7 +878,7 @@ def listar_destinatarios(
         if vista != "destinatarios":
             criterio = or_(
                 criterio,
-                EnvioNotificacion.email.ilike(_patron_busqueda(texto), escape="\\"),
+                contiene_texto_busqueda(EnvioNotificacion.email, texto),
             )
         consulta = consulta.where(criterio)
     total = db.scalar(select(func.count()).select_from(consulta.subquery())) or 0
@@ -1044,7 +1048,7 @@ def listar_entrega(
                 criterio,
                 _existe_envio(
                     comunicacion.id,
-                    EnvioNotificacion.email.ilike(_patron_busqueda(texto), escape="\\"),
+                    contiene_texto_busqueda(EnvioNotificacion.email, texto),
                 ),
             )
         else:

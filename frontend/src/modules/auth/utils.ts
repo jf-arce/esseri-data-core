@@ -1,4 +1,5 @@
 import type { Permiso, Rol, UsuarioActual, UsuarioConRoles } from '@/modules/auth/types'
+import { normalizarTexto } from '@/lib/texto'
 
 // Colores de avatar/chip de identidad estables por id (§9.3 DESIGN.md: identidad puntual en
 // fila densa). No son la paleta de módulo de dominio (§2.5): un rol como "Docente" o
@@ -124,12 +125,12 @@ export function filtrarYOrdenarUsuarios(
   usuarios: UsuarioConRoles[],
   filtros: FiltrosUsuarios,
 ): UsuarioConRoles[] {
-  const busqueda = filtros.busqueda.trim().toLowerCase()
+  const busqueda = normalizarTexto(filtros.busqueda)
 
   const filtrados = usuarios.filter((usuario) => {
     if (busqueda) {
-      const nombre = nombreVisibleDeUsuario(usuario).toLowerCase()
-      if (!nombre.includes(busqueda) && !usuario.email.toLowerCase().includes(busqueda)) {
+      const nombre = normalizarTexto(nombreVisibleDeUsuario(usuario))
+      if (!nombre.includes(busqueda) && !normalizarTexto(usuario.email).includes(busqueda)) {
         return false
       }
     }
@@ -169,13 +170,13 @@ export function filtrarYOrdenarRoles(
   roles: Rol[],
   filtros: { busqueda: string; orden: OrdenRoles },
 ): Rol[] {
-  const busqueda = filtros.busqueda.trim().toLowerCase()
+  const busqueda = normalizarTexto(filtros.busqueda)
 
   const filtrados = roles.filter((rol) => {
     if (!busqueda) return true
     return (
-      rol.nombre.toLowerCase().includes(busqueda) ||
-      (rol.descripcion ?? '').toLowerCase().includes(busqueda)
+      normalizarTexto(rol.nombre).includes(busqueda) ||
+      normalizarTexto(rol.descripcion ?? '').includes(busqueda)
     )
   })
 
@@ -199,12 +200,13 @@ interface FiltrosPermisos {
 // Filtro + orden de la tabla de permisos (§9.1): es la tabla de más volumen (8 módulos ×
 // acciones), lleva búsqueda, filtro múltiple de módulo y orden.
 export function filtrarYOrdenarPermisos(permisos: Permiso[], filtros: FiltrosPermisos): Permiso[] {
-  const busqueda = filtros.busqueda.trim().toLowerCase()
+  const busqueda = normalizarTexto(filtros.busqueda)
 
   const filtrados = permisos.filter((permiso) => {
     if (busqueda) {
-      const enTexto =
-        `${permiso.modulo} ${permiso.accion} ${permiso.tipo_informacion ?? ''}`.toLowerCase()
+      const enTexto = normalizarTexto(
+        `${permiso.modulo} ${permiso.accion} ${permiso.tipo_informacion ?? ''}`,
+      )
       if (!enTexto.includes(busqueda)) return false
     }
     if (filtros.modulos.length > 0 && !filtros.modulos.includes(permiso.modulo)) {
@@ -234,11 +236,11 @@ export function filtrarPermisosDeMatriz(
   permisos: Permiso[],
   filtros: { busqueda: string; modulos: string[] },
 ): Permiso[] {
-  const busqueda = filtros.busqueda.trim().toLowerCase()
+  const busqueda = normalizarTexto(filtros.busqueda)
 
   return permisos.filter((permiso) => {
     if (busqueda) {
-      const enTexto = `${permiso.modulo} ${permiso.accion}`.toLowerCase()
+      const enTexto = normalizarTexto(`${permiso.modulo} ${permiso.accion}`)
       if (!enTexto.includes(busqueda)) return false
     }
     if (filtros.modulos.length > 0 && !filtros.modulos.includes(permiso.modulo)) {

@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from src.auth.models import Usuario
 from src.models import AuditLog
+from src.search import contiene_texto_busqueda
 
 # El filtro de fechas del listado llega como día local (es el que ve el administrador en pantalla,
 # ya convertido a hora argentina). AUDIT_LOG guarda UTC sin zona, así que cada extremo se convierte
@@ -213,17 +214,16 @@ def _filtros_auditoria(
         filtros.append(AuditLog.fecha < _instante_en_utc(hasta + timedelta(days=1)))
     termino = (buscar or "").strip()
     if termino:
-        patron = f"%{termino}%"
         filtros.append(
             or_(
-                AuditLog.entidad.ilike(patron),
-                AuditLog.campo.ilike(patron),
-                AuditLog.valor_anterior.ilike(patron),
-                AuditLog.valor_nuevo.ilike(patron),
-                AuditLog.origen.ilike(patron),
-                AuditLog.motivo.ilike(patron),
-                AuditLog.referencia_entidad.ilike(patron),
-                Usuario.email.ilike(patron),
+                contiene_texto_busqueda(AuditLog.entidad, termino),
+                contiene_texto_busqueda(AuditLog.campo, termino),
+                contiene_texto_busqueda(AuditLog.valor_anterior, termino),
+                contiene_texto_busqueda(AuditLog.valor_nuevo, termino),
+                contiene_texto_busqueda(AuditLog.origen, termino),
+                contiene_texto_busqueda(AuditLog.motivo, termino),
+                contiene_texto_busqueda(AuditLog.referencia_entidad, termino),
+                contiene_texto_busqueda(Usuario.email, termino),
             )
         )
     return filtros

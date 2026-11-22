@@ -10,6 +10,7 @@ import {
   AlertTriangleIcon,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { normalizarTexto } from '@/lib/texto'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { BackLink } from '@/components/back-link'
 import { Button } from '@/components/ui/button'
@@ -100,10 +101,11 @@ export function AsignacionesDocentesPage() {
       result = result.filter((a) => filtroDivision.includes(a.division_id ?? ''))
     }
     if (busqueda.trim()) {
-      const q = busqueda.toLowerCase()
+      const q = normalizarTexto(busqueda)
       result = result.filter(
         (a) =>
-          a.docente_nombre.toLowerCase().includes(q) || a.materia_nombre.toLowerCase().includes(q),
+          normalizarTexto(a.docente_nombre).includes(q) ||
+          normalizarTexto(a.materia_nombre).includes(q),
       )
     }
     return result

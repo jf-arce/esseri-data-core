@@ -160,6 +160,7 @@ def test_busqueda_libre_cubre_valores_motivo_entidad_y_usuario(db_session):
     resultado = listar_auditoria(db_session, buscar="beca")
 
     assert resultado["total"] == 4
+    assert listar_auditoria(db_session, buscar="sin relacion")["total"] == 1
 
 
 def test_opciones_deduplica_entidades_y_lista_usuarios(db_session):

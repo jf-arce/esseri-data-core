@@ -379,6 +379,13 @@ describe('GlobalSearchDialog', () => {
     expect(mockedListarAlumnos).toHaveBeenCalledWith({ buscar: 'Paz' }, expect.any(AbortSignal))
   })
 
+  it('mantiene visible un resultado con tilde cuando se escribe sin tilde', async () => {
+    const user = userEvent.setup()
+    renderDialogo()
+    await user.type(screen.getByPlaceholderText(PLACEHOLDER), 'lucia')
+    expect(await screen.findByText('Paz, Lucía')).toBeVisible()
+  })
+
   it.each(['administrador_del_sistema', 'direccion', 'administracion', 'secretaria'])(
     'cada destino visible del menú lateral aparece en "Ir a" (%s)',
     (rol) => {

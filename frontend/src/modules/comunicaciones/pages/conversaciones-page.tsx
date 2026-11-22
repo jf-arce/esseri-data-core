@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { capitalizar } from '@/lib/texto'
+import { capitalizar, normalizarTexto } from '@/lib/texto'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth-store'
 import {
@@ -206,19 +206,19 @@ function Panel({ seleccionada }: { seleccionada?: string }) {
   }, [pestana, tipo, revision])
 
   const visibles = useMemo(() => {
-    const termino = buscar.trim().toLowerCase()
+    const termino = normalizarTexto(buscar)
     const filtradas = termino
       ? items.filter((item) =>
-          [
-            item.contexto.alumno_nombre,
-            item.contexto.concepto,
-            item.contexto.motivo,
-            item.ultimo_mensaje?.texto,
-          ]
-            .filter(Boolean)
-            .join(' ')
-            .toLowerCase()
-            .includes(termino),
+          normalizarTexto(
+            [
+              item.contexto.alumno_nombre,
+              item.contexto.concepto,
+              item.contexto.motivo,
+              item.ultimo_mensaje?.texto,
+            ]
+              .filter(Boolean)
+              .join(' '),
+          ).includes(termino),
         )
       : items
     return [...filtradas].sort((a, b) => {

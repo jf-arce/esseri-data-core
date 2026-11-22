@@ -129,12 +129,12 @@ export function PortalDocenteCursoPage({ vista = 'resumen' }: { vista?: VistaCur
   const cargandoAsistencias = estadoAsistencias === null
   const [busquedaAlumnos, setBusquedaAlumnos] = useState('')
   const alumnosFiltrados = useMemo(() => {
-    const consulta = busquedaAlumnos.trim().toLowerCase()
+    const consulta = normalizarTexto(busquedaAlumnos)
     if (!consulta) return alumnos
     return alumnos.filter((alumno) =>
-      `${alumno.alumno_apellido} ${alumno.alumno_nombre} ${alumno.numero_legajo}`
-        .toLowerCase()
-        .includes(consulta),
+      normalizarTexto(
+        `${alumno.alumno_apellido} ${alumno.alumno_nombre} ${alumno.numero_legajo}`,
+      ).includes(consulta),
     )
   }, [alumnos, busquedaAlumnos])
 
@@ -632,3 +632,4 @@ export function PortalDocenteCursoPage({ vista = 'resumen' }: { vista?: VistaCur
     </div>
   )
 }
+import { normalizarTexto } from '@/lib/texto'

@@ -254,6 +254,14 @@ class TestFacturas:
         assert "error" in resultado
         assert set(resultado["conceptos_disponibles"]) == {"Cuota", "Matrícula"}
 
+    def test_concepto_escrito_sin_tilde_encuentra_la_factura(
+        self, direccion_fact, proveedor, escenario
+    ):
+        correr(direccion_fact, proveedor, ("facturas", {"concepto": "matricula"}))
+        resultado = resultados(proveedor, 1)
+        assert "error" not in resultado
+        assert resultado["totales"]["cantidad"] == 1
+
     def test_sin_datos_devuelve_ceros(self, direccion_fact, proveedor):
         correr(direccion_fact, proveedor, ("facturas", {}))
         resultado = resultados(proveedor, 1)

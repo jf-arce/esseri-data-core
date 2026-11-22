@@ -39,6 +39,11 @@ def test_por_defecto_el_dni_sigue_contando(db_session, personas):
     assert _familias(db_session, "1", solo_nombre=False) == ["Gómez", "Pérez"]
 
 
+def test_busqueda_general_de_personas_ignora_tildes(db_session, personas):
+    assert _alumnos(db_session, "GOMEZ", solo_nombre=False) == ["Gómez"]
+    assert _familias(db_session, "diaz", solo_nombre=False) == ["Díaz"]
+
+
 def test_solo_nombre_ignora_el_dni(db_session, personas):
     assert _alumnos(db_session, "1", solo_nombre=True) == []
     assert _familias(db_session, "40111111", solo_nombre=True) == []
