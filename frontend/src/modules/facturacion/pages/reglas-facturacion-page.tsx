@@ -4,11 +4,11 @@ import {
   CalendarClockIcon,
   EyeIcon,
   HistoryIcon,
-  PauseIcon,
   PencilIcon,
   PlayIcon,
   PlusIcon,
   ShieldAlertIcon,
+  SquareIcon,
   TriangleAlertIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -179,7 +179,7 @@ export function ReglasFacturacionPage() {
                 <TableHead data-align="end">Acciones</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="[&_td]:py-3.5">
               {visibles.map((regla) => {
                 const ultima = regla.ultima_ejecucion
                 const conAlerta = ultima?.estado === 'parcial' || ultima?.estado === 'fallida'
@@ -231,19 +231,28 @@ export function ReglasFacturacionPage() {
                           etiqueta="Ver detalle"
                           onClick={() => setReglaDetalleId(regla.id)}
                         >
-                          <EyeIcon />
+                          <EyeIcon className="size-4" />
                         </AccionIcono>
                         <AccionIcono etiqueta="Editar" onClick={() => editar(regla)}>
-                          <PencilIcon />
+                          <PencilIcon className="size-4" />
                         </AccionIcono>
                         {regla.estado === 'finalizada' ? (
-                          <span className="size-8" aria-hidden="true" />
+                          <span className="size-9" aria-hidden="true" />
                         ) : (
                           <AccionIcono
                             etiqueta={regla.estado === 'activa' ? 'Pausar' : 'Activar'}
+                            className={
+                              regla.estado === 'activa'
+                                ? 'text-error hover:bg-error-suave hover:text-error'
+                                : 'text-exito hover:bg-exito-suave hover:text-exito'
+                            }
                             onClick={() => cambiarEstado(regla)}
                           >
-                            {regla.estado === 'activa' ? <PauseIcon /> : <PlayIcon />}
+                            {regla.estado === 'activa' ? (
+                              <SquareIcon className="size-4 fill-current" />
+                            ) : (
+                              <PlayIcon className="size-4 fill-current" />
+                            )}
                           </AccionIcono>
                         )}
                       </div>
@@ -292,10 +301,12 @@ export function ReglasFacturacionPage() {
 function AccionIcono({
   etiqueta,
   onClick,
+  className,
   children,
 }: {
   etiqueta: string
   onClick: () => void
+  className?: string
   children: React.ReactNode
 }) {
   return (
@@ -303,8 +314,9 @@ function AccionIcono({
       <TooltipTrigger asChild>
         <Button
           variant="ghost"
-          size="icon-sm"
+          size="icon"
           aria-label={etiqueta}
+          className={className}
           onClick={(evento) => {
             evento.stopPropagation()
             onClick()

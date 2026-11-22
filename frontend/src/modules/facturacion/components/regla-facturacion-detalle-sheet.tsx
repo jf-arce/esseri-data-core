@@ -1,4 +1,4 @@
-import { PauseIcon, PencilIcon, PlayIcon } from 'lucide-react'
+import { PencilIcon, PlayIcon, SquareIcon } from 'lucide-react'
 import { Link } from 'react-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -155,11 +155,15 @@ export function ReglaFacturacionDetalleSheet({
                 Editar
               </Button>
               {regla.estado !== 'finalizada' && (
-                <Button variant="secondary" onClick={() => onCambiarEstado(regla)}>
+                <Button
+                  variant="secondary"
+                  className={regla.estado === 'activa' ? 'text-error' : 'text-exito'}
+                  onClick={() => onCambiarEstado(regla)}
+                >
                   {regla.estado === 'activa' ? (
-                    <PauseIcon data-icon="inline-start" />
+                    <SquareIcon data-icon="inline-start" className="fill-current" />
                   ) : (
-                    <PlayIcon data-icon="inline-start" />
+                    <PlayIcon data-icon="inline-start" className="fill-current" />
                   )}
                   {regla.estado === 'activa' ? 'Pausar' : 'Activar'}
                 </Button>
