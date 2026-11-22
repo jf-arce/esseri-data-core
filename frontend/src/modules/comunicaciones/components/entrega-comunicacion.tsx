@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
+  CircleCheckIcon,
   EyeIcon,
   InfoIcon,
   MailIcon,
   MailOpenIcon,
   SearchIcon,
   SendIcon,
-  UserIcon,
 } from 'lucide-react'
 import { PaginadorServidor } from '@/components/paginador-servidor'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -54,21 +54,19 @@ function Metrica({
   icon: Icon,
   etiqueta,
   valor,
-  tono,
 }: {
   icon: LucideIcon
   etiqueta: string
   valor: number
-  tono: string
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-card-sm bg-superficie p-4 shadow-card">
-      <span className={cn('flex size-11 shrink-0 items-center justify-center rounded-lg', tono)}>
-        <Icon aria-hidden className="size-5" />
+    <div className="flex items-center gap-3 rounded-card-sm border border-borde bg-superficie p-4">
+      <span className="flex h-11 w-14 shrink-0 items-center justify-center border-r border-borde text-texto-2">
+        <Icon aria-hidden className="size-7" />
       </span>
       <div className="min-w-0">
-        <p className="text-xs font-medium text-texto-2">{etiqueta}</p>
-        <p className="text-2xl font-semibold tabular-nums text-texto">{valor}</p>
+        <p className="text-sm font-semibold text-texto-2">{etiqueta}</p>
+        <p className="text-3xl leading-none font-semibold tabular-nums text-texto">{valor}</p>
       </div>
     </div>
   )
@@ -156,7 +154,6 @@ export function EntregaComunicacion({
           etiqueta: 'Destinatarios',
           valor: resumen.responsables,
           icon: MailIcon,
-          tono: 'bg-violeta-suave text-violeta',
         },
         ...(emailAplica
           ? [
@@ -164,7 +161,6 @@ export function EntregaComunicacion({
                 etiqueta: 'Enviados (email)',
                 valor: resumen.emails_aceptados,
                 icon: SendIcon,
-                tono: 'bg-exito-suave text-exito',
               },
             ]
           : []),
@@ -174,13 +170,11 @@ export function EntregaComunicacion({
                 etiqueta: 'Leídos (portal)',
                 valor: resumen.responsables_leidos,
                 icon: MailOpenIcon,
-                tono: 'bg-violeta-suave text-violeta',
               },
               {
                 etiqueta: 'Sin leer (portal)',
                 valor: resumen.responsables_no_leidos,
                 icon: EyeIcon,
-                tono: 'bg-advertencia-suave text-advertencia',
               },
             ]
           : []),
@@ -195,17 +189,17 @@ export function EntregaComunicacion({
         </span>
 
         {resumen && (
-          <div className="grid gap-3 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+          <div className="grid gap-3 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 @5xl/main:gap-5">
             {metricas.map((metrica) => (
               <Metrica key={metrica.etiqueta} {...metrica} />
             ))}
           </div>
         )}
 
-        <Alert>
-          <InfoIcon aria-hidden className="size-4" />
-          <AlertDescription>{TEXTO_CANAL[canal]}</AlertDescription>
-        </Alert>
+        <p className="flex items-center gap-3 rounded-card-sm bg-violeta-suave px-4 py-2.5 text-sm text-texto">
+          <InfoIcon aria-hidden className="size-5 shrink-0 text-violeta" />
+          {TEXTO_CANAL[canal]}
+        </p>
 
         <div className="flex flex-col gap-3 @xl/main:flex-row @xl/main:items-center">
           <div className="relative flex-1">
@@ -226,7 +220,7 @@ export function EntregaComunicacion({
           </div>
           <select
             aria-label="Filtrar por estado"
-            className="h-9 w-full rounded-lg border border-borde bg-superficie px-3 text-sm text-texto outline-none @xl/main:w-60"
+            className="h-9 w-full rounded-lg border border-borde bg-superficie px-3 text-sm text-texto focus-visible:ring-2 focus-visible:ring-violeta @xl/main:w-64"
             value={filtro}
             onChange={(evento) => {
               setFiltro(evento.target.value as FiltroEntrega)
@@ -275,7 +269,7 @@ export function EntregaComunicacion({
           <>
             <Table
               bare
-              minWidth="min-w-0"
+              minWidth={emailAplica && lecturaAplica ? 'min-w-[45rem]' : 'min-w-0'}
               containerClassName={cn(
                 'rounded-lg border border-borde transition-opacity',
                 cargando && 'opacity-60',
@@ -283,7 +277,7 @@ export function EntregaComunicacion({
               aria-label="Seguimiento por destinatario"
             >
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-fila-hover">
                   <TableHead className="px-1.5 @xl/main:px-4">Destinatario</TableHead>
                   <TableHead className="px-1.5 @xl/main:px-4">Email</TableHead>
                   {emailAplica && (
@@ -300,18 +294,10 @@ export function EntregaComunicacion({
               <TableBody>
                 {datos.items.map((responsable) => (
                   <TableRow key={responsable.id}>
-                    <TableCell className="h-auto px-2 py-3 whitespace-normal align-top @xl/main:px-4">
-                      <span className="flex items-center gap-2">
-                        <span
-                          aria-hidden
-                          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-fila-hover text-texto-2"
-                        >
-                          <UserIcon className="size-4" />
-                        </span>
-                        <span className="font-medium break-words">{responsable.nombre}</span>
-                      </span>
+                    <TableCell className="h-auto px-2 py-1.5 whitespace-normal @xl/main:px-4">
+                      <span className="font-medium break-words">{responsable.nombre}</span>
                     </TableCell>
-                    <TableCell className="h-auto px-2 py-3 whitespace-normal align-top @xl/main:px-4">
+                    <TableCell className="h-auto px-2 py-1.5 whitespace-normal @xl/main:px-4">
                       <ul className="space-y-1">
                         {emailAplica ? (
                           responsable.emails.length === 0 ? (
@@ -340,7 +326,7 @@ export function EntregaComunicacion({
                       </ul>
                     </TableCell>
                     {emailAplica && (
-                      <TableCell className="h-auto px-2 py-3 whitespace-normal align-top @xl/main:px-4">
+                      <TableCell className="h-auto px-2 py-1.5 whitespace-normal @xl/main:px-4">
                         <div className="space-y-2">
                           {responsable.emails.length === 0 ? (
                             <span className="text-texto-2">Sin registro de email</span>
@@ -359,7 +345,7 @@ export function EntregaComunicacion({
                     )}
                     {lecturaAplica && (
                       <>
-                        <TableCell className="h-auto px-2 py-3 whitespace-normal align-top @xl/main:px-4">
+                        <TableCell className="h-auto px-2 py-1.5 whitespace-normal @xl/main:px-4">
                           {responsable.leida_at ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -382,7 +368,7 @@ export function EntregaComunicacion({
                             </Tooltip>
                           )}
                         </TableCell>
-                        <TableCell className="h-auto px-2 py-3 whitespace-nowrap align-top text-sm tabular-nums text-texto-2 @xl/main:px-4">
+                        <TableCell className="h-auto px-2 py-1.5 text-sm whitespace-nowrap text-texto-2 tabular-nums @xl/main:px-4">
                           {formatearFechaHora(responsable.leida_at)}
                         </TableCell>
                       </>
@@ -420,15 +406,18 @@ function EstadoEmail({
 }) {
   const estado = estadoEnvio(envio.estado)
   const direccion = envio.email ?? 'sin dirección'
+  const enviado = estado.etiqueta === 'Enviado'
   return (
     <div className="space-y-1">
       <Tooltip>
         <TooltipTrigger asChild>
           <Badge
-            variant={estado.variante}
+            variant={enviado ? 'exito' : estado.variante}
+            className={enviado ? 'before:hidden' : undefined}
             tabIndex={0}
             aria-label={`Estado de ${direccion}: ${estado.etiqueta}`}
           >
+            {enviado && <CircleCheckIcon aria-hidden />}
             {estado.etiqueta}
           </Badge>
         </TooltipTrigger>
