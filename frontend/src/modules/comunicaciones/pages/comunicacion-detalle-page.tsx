@@ -6,7 +6,13 @@ import {
   Building2Icon,
   CalendarIcon,
   ChevronRightIcon,
+  ClockIcon,
   HomeIcon,
+  MailIcon,
+  MapPinIcon,
+  MessageSquareIcon,
+  PencilIcon,
+  UsersIcon,
 } from 'lucide-react'
 import { ApiError } from '@/api/client'
 import { PORTAL_FAMILIA_BACKGROUND } from '@/components/portal-familia/portal-familia-shell'
@@ -17,14 +23,21 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  PERMISO_COMUNICACIONES_ACTUALIZAR,
+  PERMISO_COMUNICACIONES_CREAR,
+  tienePermiso,
+} from '@/modules/auth/constants'
+import { permisosActivos, useAuthStore } from '@/store/auth-store'
 import { AdjuntosComunicacion } from '../components/adjuntos-comunicacion'
 import { EventoComunicacionDetalle } from '../components/evento-comunicacion-detalle'
+import { EditarEventoPublicadoDialog } from '../components/evento-comunicacion'
 import { MensajeComunicacion } from '../components/mensaje-comunicacion'
 import { EntregaComunicacion } from '../components/entrega-comunicacion'
 import { listarComunicaciones } from '../services/listar-comunicaciones'
 import { obtenerComunicacion } from '../services/obtener-comunicacion'
 import { registrarLectura } from '../services/registrar-lectura'
-import type { Adjunto, Comunicacion } from '../types'
+import type { Adjunto, Comunicacion, EventoBorrador } from '../types'
 import { ETIQUETAS_CANAL, ETIQUETAS_TIPO } from '../utils'
 
 const FORMATO_FECHA_LARGA = new Intl.DateTimeFormat('es-AR', {
@@ -39,6 +52,82 @@ const FORMATO_HORA_LARGA = new Intl.DateTimeFormat('es-AR', {
   hourCycle: 'h23',
   timeZone: 'America/Argentina/Buenos_Aires',
 })
+const FECHA_EVENTO = new Intl.DateTimeFormat('es-AR', {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC',
+})
+
+function EventoVinculado({
+  evento,
+  editar,
+  onEditar,
+}: {
+  evento: EventoBorrador
+  editar?: string
+  onEditar?: () => void
+}) {
+  const fecha = evento.fecha ? new Date(`${evento.fecha}T00:00:00Z`) : null
+  const inicio = evento.hora_inicio?.slice(0, 5)
+  const fin = evento.hora_fin?.slice(0, 5)
+  const horario =
+    inicio && fin ? `${inicio}–${fin} h` : inicio ? `${inicio} h` : fin ? `Hasta ${fin} h` : null
+  const detalles = [
+    {
+      icono: CalendarIcon,
+      etiqueta: 'Fecha',
+      valor: fecha && !Number.isNaN(fecha.getTime()) ? FECHA_EVENTO.format(fecha) : null,
+    },
+    { icono: ClockIcon, etiqueta: 'Horario', valor: horario },
+    { icono: MapPinIcon, etiqueta: 'Lugar', valor: evento.lugar },
+  ]
+  return (
+    <section aria-label="Evento vinculado" className="min-w-0 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 font-semibold text-violeta">
+          <CalendarIcon aria-hidden className="size-5" /> Evento vinculado
+        </h2>
+        {editar && (
+          <Button variant="secondary" asChild>
+            <Link to={editar}>
+              <PencilIcon aria-hidden /> Editar
+            </Link>
+          </Button>
+        )}
+        {onEditar && (
+          <Button variant="secondary" onClick={onEditar}>
+            <PencilIcon aria-hidden /> Editar
+          </Button>
+        )}
+      </div>
+      <div className="space-y-2 rounded-card-sm bg-violeta-suave/55 p-4">
+        <h3 className="text-base font-semibold wrap-break-word text-texto">
+          {evento.titulo || 'Sin título'}
+        </h3>
+        <dl className="space-y-2 text-sm text-texto-2">
+          {detalles
+            .filter(({ valor }) => Boolean(valor))
+            .map(({ icono: Icono, etiqueta, valor }) => (
+              <div key={etiqueta} className="flex items-start gap-3">
+                <dt className="sr-only">{etiqueta}</dt>
+                <dd className="flex min-w-0 items-start gap-3 wrap-break-word">
+                  <Icono aria-hidden className="size-4 shrink-0 text-violeta" />
+                  <span className="min-w-0">{valor}</span>
+                </dd>
+              </div>
+            ))}
+        </dl>
+        {evento.descripcion && (
+          <p className="text-sm wrap-break-word whitespace-pre-wrap text-texto-2">
+            {evento.descripcion}
+          </p>
+        )}
+      </div>
+    </section>
+  )
+}
 
 type NavegacionDetalle = {
   id: string
@@ -57,18 +146,26 @@ export function ComunicacionDetallePage({
 }) {
   const { id } = useParams()
   const [parametros, setParametros] = useSearchParams()
-  const vista = parametros.get('vista') === 'entrega' ? 'entrega' : 'mensaje'
+  const vistaSolicitada = parametros.get('vista')
   const entregaTab = useRef<HTMLButtonElement>(null)
   function cambiarVista(valor: string) {
     setParametros((actual) => {
       const nuevos = new URLSearchParams(actual)
-      if (valor === 'entrega') nuevos.set('vista', 'entrega')
+      if (valor === 'entrega' || valor === 'evento') nuevos.set('vista', valor)
       else nuevos.delete('vista')
       return nuevos
     })
   }
   const [datosCargados, setDatos] = useState<Comunicacion | null>(null)
+  const [edicionEventoId, setEdicionEventoId] = useState<string | null>(null)
   const datos = datosCargados?.id === id ? datosCargados : null
+  const eventoAdmin = !familia && !docente ? datos?.evento : null
+  const vista =
+    vistaSolicitada === 'entrega' || (vistaSolicitada === 'evento' && eventoAdmin)
+      ? vistaSolicitada
+      : 'mensaje'
+  const permisos = useAuthStore(permisosActivos)
+  const usuarioId = useAuthStore((estado) => estado.usuario?.id)
   const [retiradaId, setRetiradaId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [errorLectura, setErrorLectura] = useState(false)
@@ -180,13 +277,59 @@ export function ComunicacionDetallePage({
           }
         : actual,
     )
+  const editarEvento =
+    eventoAdmin &&
+    datos?.estado === 'borrador' &&
+    usuarioId &&
+    usuarioId === datos.autor_id &&
+    tienePermiso(permisos, PERMISO_COMUNICACIONES_CREAR)
+      ? `${base}/${datos.id}/editar`
+      : undefined
+  const editarEventoPublicado =
+    datos &&
+    eventoAdmin &&
+    datos.estado === 'publicada' &&
+    !datos.retirada_at &&
+    tienePermiso(permisos, PERMISO_COMUNICACIONES_ACTUALIZAR)
+      ? () => setEdicionEventoId(datos.id)
+      : undefined
   const mensaje = datos && (
     <>
-      <MensajeComunicacion
-        texto={datos.cuerpo}
-        cuerpoRico={datos.cuerpo_rico}
-        className="text-sm leading-relaxed text-texto"
-      />
+      {!familia && !docente && (
+        <div className="space-y-1 border-b border-borde pb-4">
+          <p className="text-sm font-medium text-texto-2">Asunto</p>
+          <h2 className="text-xl font-semibold wrap-break-word text-texto">{datos.asunto}</h2>
+        </div>
+      )}
+      <div
+        className={
+          eventoAdmin
+            ? 'grid min-w-0 gap-5 @3xl/main:grid-cols-[minmax(0,5fr)_minmax(0,3fr)]'
+            : undefined
+        }
+      >
+        <div className="min-w-0 space-y-2">
+          {eventoAdmin && <h2 className="font-semibold text-texto">Mensaje</h2>}
+          <MensajeComunicacion
+            texto={datos.cuerpo}
+            cuerpoRico={datos.cuerpo_rico}
+            className={
+              familia || docente
+                ? 'text-sm leading-relaxed text-texto'
+                : 'text-base leading-relaxed text-texto [&_li::marker]:text-violeta [&_ul]:my-2 [&_ol]:my-2'
+            }
+          />
+        </div>
+        {eventoAdmin && (
+          <div className="min-w-0 border-t border-borde pt-4 @3xl/main:border-t-0 @3xl/main:border-l @3xl/main:pt-0 @3xl/main:pl-6">
+            <EventoVinculado
+              evento={eventoAdmin}
+              editar={editarEvento}
+              onEditar={editarEventoPublicado}
+            />
+          </div>
+        )}
+      </div>
       {familia && canal === 'email' && (
         <p role="status" className="text-sm text-texto-2">
           Esta comunicación se envía por email y no aparece en la bandeja del portal.
@@ -197,6 +340,7 @@ export function ComunicacionDetallePage({
         adjuntos={datos.adjuntos ?? []}
         familia={familia}
         docente={docente}
+        enLinea={!familia && !docente}
         onActualizar={actualizarAdjunto}
       />
     </>
@@ -446,7 +590,9 @@ export function ComunicacionDetallePage({
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+    <section
+      className={`mx-auto flex w-full min-w-0 flex-col ${familia || docente ? 'max-w-4xl gap-5' : 'gap-1.5 @xl/main:-mt-3'}`}
+    >
       <Button variant="ghost" asChild className="-ml-2 w-fit">
         <Link to={base}>
           <ArrowLeftIcon data-icon="inline-start" />
@@ -465,7 +611,13 @@ export function ComunicacionDetallePage({
       ) : !datos ? (
         <Skeleton className="h-40 w-full" aria-label="Cargando comunicación" />
       ) : (
-        <article className="space-y-6 rounded-panel bg-superficie p-5 shadow-card @xl/main:p-8">
+        <article
+          className={
+            familia
+              ? 'space-y-6 rounded-panel bg-superficie p-5 shadow-card @xl/main:p-8'
+              : 'min-w-0 space-y-2'
+          }
+        >
           {familia ? (
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="neutro">{ETIQUETAS_TIPO[datos.tipo]}</Badge>
@@ -473,12 +625,10 @@ export function ComunicacionDetallePage({
                 {ETIQUETAS_CANAL[canal]}
               </Badge>
             </div>
-          ) : (
-            <p className="text-sm text-texto-2">
-              {ETIQUETAS_TIPO[datos.tipo]} · {ETIQUETAS_CANAL[canal]}
-            </p>
+          ) : null}
+          {familia && (
+            <h1 className="text-2xl font-semibold break-words text-texto">{datos.asunto}</h1>
           )}
-          <h1 className="text-2xl font-semibold break-words text-texto">{datos.asunto}</h1>
           {familia ? (
             <>
               <p className="text-sm text-texto-2">De: {datos.emisor ?? 'Colegio ESSERI'}</p>
@@ -487,33 +637,68 @@ export function ComunicacionDetallePage({
             </>
           ) : (
             <>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-texto-2">
-                <span>{datos.emisor ?? 'Colegio ESSERI'}</span>
-                <span aria-hidden>·</span>
-                <span>{fechaCompacta}</span>
-                <span aria-hidden>·</span>
-                <span
-                  className={`inline-flex items-center gap-2 ${datos.estado === 'publicada' ? 'text-exito' : 'text-texto-2'}`}
-                >
-                  <span aria-hidden className="size-1.5 rounded-full bg-current" />
-                  {datos.estado === 'publicada' ? 'Publicada' : 'Borrador'}
-                </span>
-              </div>
+              <header className="flex items-center gap-4 rounded-panel border border-borde bg-superficie p-4 @xl/main:gap-6 @xl/main:p-6">
+                <div className="min-w-0 space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="secondary" className="bg-violeta-suave px-3 text-violeta">
+                      {ETIQUETAS_TIPO[datos.tipo]}
+                    </Badge>
+                    <Badge className="gap-1.5 px-3" variant="secondary">
+                      <MailIcon aria-hidden className="size-4" />
+                      {ETIQUETAS_CANAL[canal]}
+                    </Badge>
+                  </div>
+                  <h1 className="text-2xl font-semibold break-words text-texto @xl/main:text-3xl">
+                    {datos.asunto}
+                  </h1>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-texto-2">
+                    <span className="inline-flex items-center gap-2">
+                      <Building2Icon aria-hidden className="size-4" />
+                      {datos.emisor ?? 'Colegio ESSERI'}
+                    </span>
+                    <span className="inline-flex items-center gap-2">
+                      <CalendarIcon aria-hidden className="size-4" />
+                      {fechaCompacta}
+                    </span>
+                    <Badge variant={datos.estado === 'publicada' ? 'exito' : 'neutro'}>
+                      {datos.estado === 'publicada' ? 'Publicada' : 'Borrador'}
+                    </Badge>
+                  </div>
+                </div>
+              </header>
               <Tabs value={vista} onValueChange={cambiarVista}>
                 <TabsList
                   aria-label="Detalle de la comunicación"
-                  className="group-data-horizontal/tabs:h-11"
+                  className="w-full flex-wrap justify-start gap-x-3 border-b border-borde group-data-horizontal/tabs:h-auto @xl/main:gap-x-6"
                 >
-                  <TabsTrigger value="mensaje" className="min-h-11">
+                  <TabsTrigger value="mensaje" className="mr-0 min-h-11">
+                    <MessageSquareIcon aria-hidden />
                     Mensaje
                   </TabsTrigger>
-                  <TabsTrigger value="entrega" ref={entregaTab} className="min-h-11">
+                  <TabsTrigger value="entrega" ref={entregaTab} className="mr-0 min-h-11">
+                    <UsersIcon aria-hidden />
                     Seguimiento ({datos.destinatarios})
                   </TabsTrigger>
+                  {eventoAdmin && (
+                    <TabsTrigger
+                      value="evento"
+                      aria-label="Evento Vinculado"
+                      className="mr-0 min-h-11"
+                    >
+                      <CalendarIcon aria-hidden />
+                      Evento
+                      <Badge variant="secondary" className="bg-violeta-suave text-violeta">
+                        Vinculado
+                      </Badge>
+                    </TabsTrigger>
+                  )}
                 </TabsList>
-                <TabsContent value="mensaje" className="space-y-6 pt-4">
+                <TabsContent
+                  value="mensaje"
+                  className="min-w-0 space-y-4 rounded-panel border border-borde bg-superficie p-4 @xl/main:p-6"
+                >
                   {mensaje}
-                  {datos.estado === 'publicada' && (
+                  {docente && datos.estado === 'publicada' && (
                     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-borde pt-3">
                       <p className="text-sm text-texto-2">
                         {datos.destinatarios} destinatario{datos.destinatarios === 1 ? '' : 's'} ·{' '}
@@ -532,7 +717,10 @@ export function ComunicacionDetallePage({
                     </div>
                   )}
                 </TabsContent>
-                <TabsContent value="entrega" className="space-y-4 pt-4">
+                <TabsContent
+                  value="entrega"
+                  className="min-w-0 space-y-4 rounded-panel border border-borde bg-superficie p-4 @xl/main:p-6"
+                >
                   {datos.estado === 'borrador' ? (
                     <p className="text-sm text-texto-2">
                       La entrega se genera al publicar la comunicación.
@@ -545,10 +733,35 @@ export function ComunicacionDetallePage({
                     />
                   )}
                 </TabsContent>
+                {eventoAdmin && (
+                  <TabsContent
+                    value="evento"
+                    className="rounded-panel border border-borde bg-superficie p-4 @xl/main:p-6"
+                  >
+                    <EventoVinculado
+                      evento={eventoAdmin}
+                      editar={editarEvento}
+                      onEditar={editarEventoPublicado}
+                    />
+                  </TabsContent>
+                )}
               </Tabs>
             </>
           )}
         </article>
+      )}
+      {editarEventoPublicado && eventoAdmin && datos && edicionEventoId === datos.id && (
+        <EditarEventoPublicadoDialog
+          key={datos.id}
+          id={datos.id}
+          version={datos.version}
+          original={eventoAdmin}
+          onCerrar={() => setEdicionEventoId(null)}
+          onGuardado={(comunicacion) => {
+            setDatos((actual) => (actual?.id === comunicacion.id ? comunicacion : actual))
+            setEdicionEventoId(null)
+          }}
+        />
       )}
       {errorLectura && (
         <Alert variant="error">

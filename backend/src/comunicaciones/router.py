@@ -20,6 +20,7 @@ from src.comunicaciones.schemas import (
     BorradorInput,
     ComunicacionRead,
     EventoCalendario,
+    EventoPublicadoEdicionInput,
     FiltrosGestion,
     Listado,
     ListadoDestinatarios,
@@ -274,6 +275,14 @@ def editar_contenido_publicado(
 ) -> ComunicacionRead:
     gestion(rol)
     return service.editar_publicada(db, id, data, usuario)
+
+
+@router.patch("/{id}/evento")
+def editar_evento_publicado(
+    id: uuid.UUID, data: EventoPublicadoEdicionInput, db: DbSession, usuario: Editar, rol: RolActivo
+) -> ComunicacionRead:
+    gestion(rol)
+    return service.editar_evento_publicado(db, id, data, usuario)
 
 
 @router.delete("/{id}", status_code=204)

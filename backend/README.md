@@ -857,6 +857,12 @@ displays without changing the original email snapshot or queuing mail. `DELETE
 key and audit trail are retained. Both operations use `comunicaciones.actualizar`. Apply
 the full migration chain, including `dd3ad6076c35`, before starting the backend.
 
+
+`PATCH /comunicaciones/{id}/evento` accepts the current `version` and a complete
+`evento` for an active publication that already has a linked event. It uses
+`comunicaciones.actualizar`, updates the family calendar and audits the change
+without modifying recipients, message content, or emails already queued or sent.
+
 Drafts may store an optional `evento` with incomplete fields. Send `evento: null` to
 remove it. Preview and publication require a title and date; if both local times are
 provided, the end must follow the start. The calendar projects the event from the

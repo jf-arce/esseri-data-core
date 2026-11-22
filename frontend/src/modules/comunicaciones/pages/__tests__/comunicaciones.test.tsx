@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { ApiError, apiClient } from '@/api/client'
+import { permisosActivos, useAuthStore } from '@/store/auth-store'
 import { ComunicacionFormPage } from '../comunicacion-form-page'
 import { ComunicacionDetallePage } from '../comunicacion-detalle-page'
 import { ComunicacionesPage } from '../comunicaciones-page'
@@ -12,6 +13,7 @@ vi.mock('@/api/client', async (importOriginal) => ({
   apiClient: vi.fn(),
 }))
 const api = vi.mocked(apiClient)
+vi.mock('@/store/auth-store', { spy: true })
 const comunicacion = {
   id: 'c1',
   clave: 'key1',
@@ -954,6 +956,7 @@ it('keeps staff message separate from delivery and uses compact Buenos Aires met
           canal: 'ambos',
           publicada_at: '2026-10-30T22:04:59Z',
           destinatarios: 2,
+          adjuntos: [{ ...adjunto, estado: 'limpio' }],
         },
   )
   render(
@@ -963,14 +966,23 @@ it('keeps staff message separate from delivery and uses compact Buenos Aires met
       </Routes>
     </MemoryRouter>,
   )
-  expect(await screen.findByRole('heading', { name: 'Acto de fin de año' })).toBeInTheDocument()
+  const encabezado = (
+    await screen.findByRole('heading', { level: 1, name: 'Acto de fin de año' })
+  ).closest('header')
   expect(screen.getByRole('tab', { name: 'Mensaje' })).toHaveAttribute('aria-selected', 'true')
+  expect(screen.queryByRole('tab', { name: /Evento/ })).not.toBeInTheDocument()
   expect(screen.getByText(/30 oct.*2026.*19:04/)).toBeInTheDocument()
   expect(screen.queryByText(/19:04:59/)).not.toBeInTheDocument()
   expect(screen.getByText('Publicada')).toBeInTheDocument()
   expect(api.mock.calls.some(([path]) => path.includes('/entrega'))).toBe(false)
-  expect(document.querySelector('[data-slot="badge"]')).toBeNull()
-  await userEvent.click(screen.getByRole('button', { name: 'Ver entrega' }))
+  expect(encabezado).toHaveTextContent('Institucional')
+  expect(encabezado).toHaveTextContent('Portal y email')
+  expect(screen.getByText('Asunto')).toBeInTheDocument()
+  expect(screen.getByRole('heading', { level: 2, name: 'Acto de fin de año' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Archivos adjuntos (1)' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Descargar acta.pdf' })).toBeEnabled()
+  expect(screen.queryByRole('button', { name: 'Ver entrega' })).not.toBeInTheDocument()
+  await userEvent.click(screen.getByRole('tab', { name: 'Seguimiento (2)' }))
   expect(await screen.findByText('No hay destinatarios para mostrar.')).toBeInTheDocument()
   expect(screen.getByText('Destinatarios')).toBeInTheDocument()
   expect(screen.getByRole('tab', { name: 'Seguimiento (2)' })).toHaveFocus()
@@ -978,6 +990,80 @@ it('keeps staff message separate from delivery and uses compact Buenos Aires met
   await userEvent.click(screen.getByRole('tab', { name: 'Mensaje' }))
   expect(await screen.findByText('<script>secreto</script>')).toBeInTheDocument()
   expect(api.mock.calls.some(([path]) => path.includes('/lectura'))).toBe(false)
+})
+
+it('shows a linked event beside the administrative message and on its own tab', async () => {
+  api.mockResolvedValue({
+    ...publicadaDetalle,
+    evento: {
+      titulo: 'Acto de cierre',
+      fecha: '2026-12-17',
+      hora_inicio: '10:00',
+      hora_fin: null,
+      lugar: 'Salón de actos',
+      descripcion: '',
+    },
+  })
+  render(
+    <MemoryRouter initialEntries={['/comunicaciones/c1']}>
+      <Routes>
+        <Route path="/comunicaciones/:id" element={<ComunicacionDetallePage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+  const evento = await screen.findByRole('tab', { name: 'Evento Vinculado' })
+  expect(screen.getByRole('tabpanel', { name: 'Mensaje' })).toHaveTextContent('Acto de cierre')
+  expect(screen.getByText(/17 de diciembre de 2026/)).toBeVisible()
+  expect(screen.getByText('10:00 h')).toBeVisible()
+  expect(screen.getByText('Salón de actos')).toBeVisible()
+  expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
+  await userEvent.click(evento)
+  expect(evento).toHaveAttribute('aria-selected', 'true')
+  expect(screen.getByRole('tabpanel', { name: 'Evento Vinculado' })).toHaveTextContent(
+    'Acto de cierre',
+  )
+  expect(api.mock.calls.some(([path]) => path.includes('/entrega'))).toBe(false)
+})
+
+it('edits only the linked event of a publication from the administrative detail', async () => {
+  vi.mocked(useAuthStore).mockImplementation((selector) =>
+    selector === permisosActivos ? [{ codigo: 'comunicaciones.actualizar' }] : undefined,
+  )
+  const original = {
+    ...publicadaDetalle,
+    evento: {
+      titulo: 'Acto de cierre',
+      fecha: '2026-12-17',
+      hora_inicio: '10:00',
+      hora_fin: null,
+      lugar: 'Salón de actos',
+      descripcion: '',
+    },
+  }
+  const editado = { ...original.evento, lugar: 'Biblioteca' }
+  api.mockImplementation(async (_, init) =>
+    init?.method === 'PATCH' ? { ...original, evento: editado, version: 2 } : original,
+  )
+  render(
+    <MemoryRouter initialEntries={['/comunicaciones/c1?vista=evento']}>
+      <Routes>
+        <Route path="/comunicaciones/:id" element={<ComunicacionDetallePage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+  await userEvent.click(await screen.findByRole('button', { name: 'Editar' }))
+  const lugar = screen.getByRole('textbox', { name: 'Lugar' })
+  await userEvent.clear(lugar)
+  await userEvent.type(lugar, 'Biblioteca')
+  await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+  expect(await screen.findByText('Biblioteca')).toBeVisible()
+  expect(api).toHaveBeenCalledWith(
+    '/comunicaciones/c1/evento',
+    expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify({ version: 1, evento: editado }),
+    }),
+  )
 })
 
 it('supports delivery deep links and portal-only communications without email requests', async () => {

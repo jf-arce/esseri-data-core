@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { FileImageIcon, FileTextIcon, MinusIcon, PlusIcon } from 'lucide-react'
+import {
+  DownloadIcon,
+  FileImageIcon,
+  FileTextIcon,
+  MinusIcon,
+  PaperclipIcon,
+  PlusIcon,
+} from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -29,6 +36,7 @@ interface Props {
   adjuntos: Adjunto[]
   familia?: boolean
   docente?: boolean
+  enLinea?: boolean
   onActualizar?: (adjunto: Adjunto) => void
 }
 
@@ -38,6 +46,7 @@ export function AdjuntosComunicacion({
   adjuntos,
   familia = false,
   docente = false,
+  enLinea = false,
   onActualizar,
 }: Props) {
   const [error, setError] = useState('')
@@ -50,6 +59,15 @@ export function AdjuntosComunicacion({
   const disparador = useRef<HTMLButtonElement | null>(null)
   const visibles = familia ? adjuntos.filter((adjunto) => adjunto.estado === 'limpio') : adjuntos
   const disponibles = visibles.filter((adjunto) => adjunto.estado === 'limpio')
+
+  function abrirPrevia(adjunto: Adjunto, boton: HTMLButtonElement) {
+    disparador.current = boton
+    setArchivo(null)
+    setErrorVista('')
+    setError('')
+    setZoom(100)
+    setVistaPrevia(adjunto)
+  }
 
   useEffect(() => {
     if (!vistaPrevia || vistaPrevia.estado !== 'limpio') return
@@ -109,16 +127,27 @@ export function AdjuntosComunicacion({
   }
 
   return (
-    <section className="space-y-3" aria-labelledby="archivos-titulo">
-      <h2 id="archivos-titulo" className="font-semibold">
+    <section
+      className={enLinea ? 'space-y-3 border-t border-borde pt-4' : 'space-y-3'}
+      aria-labelledby="archivos-titulo"
+    >
+      <h2 id="archivos-titulo" className="flex items-center gap-2 font-semibold">
+        {enLinea && <PaperclipIcon aria-hidden className="size-4 text-violeta" />}
         Archivos adjuntos
+        {enLinea && ` (${visibles.length})`}
       </h2>
       {error && (
         <Alert variant="error">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <div className="flex flex-col gap-3 rounded-lg border border-borde p-3 @xl/main:flex-row @xl/main:items-center">
+      <div
+        className={
+          enLinea
+            ? 'rounded-lg border border-borde px-3'
+            : 'flex flex-col gap-3 rounded-lg border border-borde p-3 @xl/main:flex-row @xl/main:items-center'
+        }
+      >
         <ul className="min-w-0 flex-1 divide-y divide-borde">
           {visibles.map((adjunto) => (
             <li key={adjunto.id} className="flex flex-wrap items-center gap-3 py-2">
@@ -133,16 +162,31 @@ export function AdjuntosComunicacion({
                 )}
               </span>
               <span className="min-w-0 flex-1">
-                <span title={adjunto.nombre} className="block truncate text-sm font-semibold">
-                  {adjunto.nombre}
-                </span>
+                {enLinea && adjunto.estado === 'limpio' ? (
+                  <button
+                    type="button"
+                    title={adjunto.nombre}
+                    aria-label={`Ver ${adjunto.nombre}`}
+                    className="block max-w-full cursor-pointer truncate rounded-sm text-left text-sm font-semibold hover:text-violeta hover:underline focus-visible:outline-2 focus-visible:outline-violeta"
+                    onClick={(evento) => abrirPrevia(adjunto, evento.currentTarget)}
+                  >
+                    {adjunto.nombre}
+                  </button>
+                ) : (
+                  <span title={adjunto.nombre} className="block truncate text-sm font-semibold">
+                    {adjunto.nombre}
+                  </span>
+                )}
                 <span className="text-xs text-texto-2">
-                  {adjunto.tipo_contenido === 'application/pdf'
-                    ? 'PDF'
-                    : adjunto.tipo_contenido === 'image/png'
-                      ? 'PNG'
-                      : 'JPG'}{' '}
-                  · {formatearTamanio(adjunto.tamanio)}
+                  {!enLinea &&
+                    `${
+                      adjunto.tipo_contenido === 'application/pdf'
+                        ? 'PDF'
+                        : adjunto.tipo_contenido === 'image/png'
+                          ? 'PNG'
+                          : 'JPG'
+                    } · `}
+                  {formatearTamanio(adjunto.tamanio)}
                 </span>
               </span>
               {!familia && adjunto.estado !== 'limpio' && (
@@ -160,23 +204,30 @@ export function AdjuntosComunicacion({
                   Reintentar análisis
                 </Button>
               )}
+              {enLinea && adjunto.estado === 'limpio' && (
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="min-h-11 min-w-11 shrink-0"
+                  aria-label={`Descargar ${adjunto.nombre}`}
+                  disabled={ocupado !== null}
+                  onClick={() => void descargar(adjunto)}
+                >
+                  <DownloadIcon aria-hidden />
+                </Button>
+              )}
             </li>
           ))}
         </ul>
-        <Button
-          className="shrink-0"
-          disabled={ocupado !== null || disponibles.length === 0}
-          onClick={(evento) => {
-            disparador.current = evento.currentTarget
-            setArchivo(null)
-            setErrorVista('')
-            setError('')
-            setZoom(100)
-            setVistaPrevia(disponibles[0])
-          }}
-        >
-          {visibles.length === 1 ? 'Ver adjunto' : 'Ver adjuntos'}
-        </Button>
+        {!enLinea && (
+          <Button
+            className="shrink-0"
+            disabled={ocupado !== null || disponibles.length === 0}
+            onClick={(evento) => abrirPrevia(disponibles[0], evento.currentTarget)}
+          >
+            {visibles.length === 1 ? 'Ver adjunto' : 'Ver adjuntos'}
+          </Button>
+        )}
       </div>
       <Dialog
         open={vistaPrevia !== null}
