@@ -335,6 +335,68 @@ def test_edita_publicada_solo_en_portal_sin_reenviar(client, escenario, db_sessi
     assert client.get(f"/comunicaciones/{id}").json()["cuerpo"] == datos_edicion["cuerpo"]
 
 
+def test_edita_evento_publicado_y_actualiza_calendario_sin_reenviar(client, escenario, db_session):
+    ids, entrar = escenario
+    evento = {"titulo": "Encuentro original", "fecha": "2026-12-17", "hora_inicio": "10:00"}
+    id = crear(client, ids, canal="ambos", evento=evento)["id"]
+    original = client.post(f"/comunicaciones/{id}/publicar").json()
+    ruta = f"/comunicaciones/{id}/evento"
+    cambio = {
+        "version": original["version"],
+        "evento": {**evento, "titulo": "Encuentro reprogramado", "fecha": "2026-12-18"},
+    }
+    entrar(ids["usuario_a"], "familia")
+    assert client.patch(ruta, json=cambio).status_code == 403
+    entrar()
+    assert client.patch(ruta, json={**cambio, "evento": None}).status_code == 422
+    editada = client.patch(ruta, json=cambio)
+    assert editada.status_code == 200, editada.text
+    item = editada.json()
+    assert item["version"] == original["version"] + 1
+    for campo in ("asunto", "cuerpo", "audiencia", "canal", "publicada_at", "destinatarios"):
+        assert item[campo] == original[campo]
+    assert item["evento"]["fecha"] == "2026-12-18"
+    assert client.patch(ruta, json=cambio).status_code == 409
+    assert (
+        client.patch(ruta, json={**cambio, "version": item["version"]}).json()["version"]
+        == item["version"]
+    )
+    assert (
+        len(
+            db_session.scalars(
+                select(EnvioNotificacion).where(EnvioNotificacion.comunicacion_id == uuid.UUID(id))
+            ).all()
+        )
+        == 1
+    )
+    assert (
+        len(
+            db_session.scalars(
+                select(AuditLog).where(
+                    AuditLog.entidad_id == uuid.UUID(id), AuditLog.campo == "evento"
+                )
+            ).all()
+        )
+        == 1
+    )
+    entrar(ids["usuario_a"], "familia")
+    calendario = client.get(
+        "/comunicaciones/familia/eventos",
+        params={
+            "alumno_id": str(ids["alumno_a"]),
+            "desde": "2026-12-17",
+            "hasta": "2026-12-18",
+        },
+    )
+    assert calendario.status_code == 200, calendario.text
+    assert [(e["titulo"], e["fecha"]) for e in calendario.json()] == [
+        ("Encuentro reprogramado", "2026-12-18")
+    ]
+    entrar()
+    assert client.post(f"/comunicaciones/{id}/retirar").status_code == 204
+    assert client.patch(ruta, json={**cambio, "version": item["version"] + 1}).status_code == 409
+
+
 def test_gestion_edita_y_retira_publicaciones_de_curso_sin_acceder_a_borradores(
     client, escenario, db_session
 ):

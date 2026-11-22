@@ -1,5 +1,5 @@
 import { apiClient } from '@/api/client'
-import type { Comunicacion } from '../types'
+import type { Comunicacion, EventoBorrador } from '../types'
 
 export function editarPublicacion(
   id: string,
@@ -14,4 +14,12 @@ export function editarPublicacion(
 
 export function eliminarBorrador(id: string, version: number) {
   return apiClient<void>(`/comunicaciones/${id}?version=${version}`, { method: 'DELETE' })
+}
+
+export function editarEventoPublicado(id: string, version: number, evento: EventoBorrador) {
+  return apiClient<Comunicacion>(`/comunicaciones/${id}/evento`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ version, evento }),
+  })
 }

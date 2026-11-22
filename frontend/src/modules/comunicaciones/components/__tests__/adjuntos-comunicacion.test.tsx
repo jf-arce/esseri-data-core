@@ -40,6 +40,17 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+it('downloads the selected file directly from its row in message detail', async () => {
+  vi.mocked(fetch).mockResolvedValue(
+    new Response('image', { headers: { 'Content-Type': 'image/png' } }),
+  )
+  render(<AdjuntosComunicacion comunicacionId="c1" adjuntos={[adjunto]} enLinea />)
+  await userEvent.click(screen.getByRole('button', { name: 'Descargar imagen.png' }))
+  await waitFor(() => expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledOnce())
+  expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain('/comunicaciones/c1/adjuntos/a1')
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
 it.each([
   [{ familia: true }, '/comunicaciones/familia/'],
   [{ docente: true }, '/comunicaciones/docente/'],
