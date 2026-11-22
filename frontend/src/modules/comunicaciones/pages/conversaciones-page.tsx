@@ -5,6 +5,7 @@ import {
   ChevronDownIcon,
   CreditCardIcon,
   InboxIcon,
+  MessageCircleMoreIcon,
   SearchIcon,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -347,14 +348,17 @@ function Panel({ seleccionada }: { seleccionada?: string }) {
               onCambio={() => setRevision((valor) => valor + 1)}
             />
           ) : (
-            <div className="flex h-full min-h-64 flex-col items-center justify-center gap-2 rounded-[18px] bg-superficie p-8 text-center shadow-card">
-              <span className="flex size-14 items-center justify-center rounded-full bg-violeta-suave text-violeta">
-                <InboxIcon aria-hidden="true" className="size-6" />
+            <div className="flex min-h-[32rem] flex-col items-center justify-center gap-5 rounded-[18px] border border-borde bg-superficie p-8 text-center xl:sticky xl:top-4 xl:h-[calc(100svh-9rem)]">
+              <span className="flex size-32 items-center justify-center rounded-full bg-violeta-suave text-violeta @xl/main:size-40">
+                <MessageCircleMoreIcon aria-hidden="true" className="size-14 @xl/main:size-16" />
               </span>
-              <p className="text-[16px] font-semibold text-texto">Elegí una conversación</p>
-              <p className="max-w-sm text-sm text-texto-2">
-                Seleccioná una consulta de la lista para ver el historial y responder.
-              </p>
+              <div className="space-y-3">
+                <h2 className="text-2xl font-semibold text-texto">Seleccioná una conversación</h2>
+                <p className="mx-auto max-w-md text-base text-balance text-texto-2">
+                  Elegí una solicitud de la lista para ver el detalle del trámite, consultar
+                  información y responder a la familia.
+                </p>
+              </div>
             </div>
           )}
         </div>
