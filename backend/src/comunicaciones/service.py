@@ -548,11 +548,17 @@ def _inicio_dia_utc(dia: date) -> datetime:
     return datetime.combine(dia, time.min, zona).astimezone(UTC).replace(tzinfo=None)
 
 
+def _nombre_curso(numero: int, division: str) -> str:
+    """Nombre visible del curso: agrega el año solo si la división no lo trae."""
+    return division if division.lstrip()[:1].isdigit() else f"{numero}° {division}"
+
+
 def _divisiones_gestion():
     return (
         select(
             Division.id,
             Division.nombre,
+            Anio.numero,
             NivelEducativo.nombre.label("nivel"),
             Anio.nivel_educativo_id,
         )
@@ -573,8 +579,8 @@ def opciones_filtros(db: Session) -> dict:
             )
         ],
         "divisiones": [
-            {"id": id, "nombre": nombre, "nivel_id": nivel_id}
-            for id, nombre, _, nivel_id in db.execute(
+            {"id": id, "nombre": _nombre_curso(numero, nombre), "nivel_id": nivel_id}
+            for id, nombre, numero, _, nivel_id in db.execute(
                 _divisiones_gestion().order_by(Anio.numero, Division.nombre, Division.id)
             )
         ],
@@ -599,7 +605,10 @@ def _destinos_gestion(db: Session, audiencias: list[AudienciaBorrador]) -> dict:
     if divisiones:
         filas = db.execute(_divisiones_gestion().where(Division.id.in_(divisiones)))
         nombres.update(
-            {("division", id): f"{division} - {nivel}" for id, division, nivel, _ in filas}
+            {
+                ("division", id): f"{_nombre_curso(numero, division)} - {nivel}"
+                for id, division, numero, nivel, _ in filas
+            }
         )
     return nombres
 

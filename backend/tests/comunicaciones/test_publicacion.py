@@ -1127,3 +1127,29 @@ def test_listado_busca_asunto_ignorando_tildes_y_mayusculas(client, escenario):
         listado = client.get("/comunicaciones", params={"buscar": termino}).json()
         assert listado["total"] == 1
         assert [item["id"] for item in listado["items"]] == [propia["id"]]
+
+
+def test_destino_y_opciones_incluyen_el_anio_cuando_la_division_es_solo_letra(
+    client, escenario, db_session
+):
+    ids, _ = escenario
+    nivel = NivelEducativo(nombre="Inicial letra")
+    anio = Anio(numero=3, nivel_educativo=nivel)
+    division = Division(nombre="C", anio=anio)
+    db_session.add(division)
+    db_session.commit()
+
+    crear(
+        client,
+        ids,
+        audiencia={"tipo": "division", "ids": [str(division.id)], "ciclo_lectivo": "2027"},
+    )
+
+    item = client.get("/comunicaciones").json()["items"][0]
+    assert item["destino"] == "3° C - Inicial letra"
+    catalogo = client.get("/comunicaciones/opciones-filtros").json()
+    assert {
+        "id": str(division.id),
+        "nombre": "3° C",
+        "nivel_id": str(nivel.id),
+    } in catalogo["divisiones"]
