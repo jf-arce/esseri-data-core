@@ -5,7 +5,7 @@ It loads 250 students (246 active), 220 guardians, 25 teachers, 15 grades/divisi
 150 weekly time slots, attendance and admissions, 1,013 invoices and 750 payments,
 18 communications, 24 historical contextual conversations and 8 period-absence requests,
 15 vendors, purchase/receipt examples, a local-only work item from an actual
-workflow run, and rule-based AI suggestions. The reference date is
+workflow run, and an audit trail for every seeded entity. The reference date is
 **November 18, 2026**. The bank lot, live workflow, its effects, and the
 protagonist's debit chat do not exist after loading.
 
