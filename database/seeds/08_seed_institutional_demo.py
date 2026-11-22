@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import os
 import sys
 import uuid
@@ -11,8 +12,9 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from importlib import import_module
-from io import StringIO
+from io import BytesIO, StringIO
 from pathlib import Path
+from textwrap import fill
 
 from sqlalchemy import select, text
 from sqlalchemy.engine import make_url
@@ -596,15 +598,6 @@ def seed_finance(db: Session, school: School, reference: date) -> None:
 
 
 def seed_history(db: Session, school: School, reference: date) -> None:
-    from src.academico.models import (
-        JustificacionInasistencia,
-        MotivoJustificacion,
-        SolicitudAusenciaPeriodo,
-    )
-    from src.comunicaciones.models import Comunicacion, ReciboComunicacion
-    from src.comunicaciones.schemas import PublicableInput
-    from src.comunicaciones.service import publicar_en_transaccion, resolver
-
     legacy = import_module("04_seed_demo")
     levels = {row.nombre: row for row in db.scalars(select(NivelEducativo))}
     legacy.ensure_admisiones_para_demo(db, school.admin, levels, reference)
@@ -632,8 +625,158 @@ def seed_history(db: Session, school: School, reference: date) -> None:
             estado="activo",
         )
 
+    seed_communications(
+        db,
+        school.admin,
+        school.registrations[0, 0].division_id,
+        school.registrations[1, 0].division_id,
+        reference,
+    )
+    seed_absence_history(db, school, reference)
+
+
+def communication_examples(division_id: uuid.UUID, reference: date):
+    """Nine long-form examples covering the three event/attachment combinations."""
+    for subject, offset, filename, detail in (
+        (
+            "Jornada de lectura compartida",
+            8,
+            None,
+            "Cada grupo elegirá un cuento y preparará una lectura breve. Las familias pueden traer "
+            "un libro para compartir; no es necesario comprar material para participar.",
+        ),
+        (
+            "Encuentro de juegos cooperativos",
+            10,
+            None,
+            "Las estaciones proponen desafíos en equipos. Sugerimos venir con ropa cómoda, "
+            "botella de agua identificada y un bolso liviano.",
+        ),
+        (
+            "Conversatorio sobre convivencia digital",
+            15,
+            None,
+            "El equipo de orientación compartirá pautas para conversar sobre privacidad, tiempos "
+            "de pantalla y el uso responsable de los grupos de mensajería.",
+        ),
+        (
+            "Guía de materiales para el próximo ciclo",
+            None,
+            "Guia_de_materiales.pdf",
+            "El documento de referencia distingue entre materiales de uso personal y materiales "
+            "compartidos. Los útiles que estén en buen estado se pueden reutilizar.",
+        ),
+        (
+            "Orientaciones para las entrevistas de fin de año",
+            None,
+            "Orientaciones_entrevistas.pdf",
+            "Sugerimos llegar a la entrevista con una pregunta sobre los avances del año y otra "
+            "sobre los apoyos que podrían ser útiles durante el próximo ciclo.",
+        ),
+        (
+            "Recomendaciones de lectura para el receso",
+            None,
+            "Lecturas_para_el_receso.pdf",
+            "La selección propone relatos breves, historietas y textos informativos. Las "
+            "recomendaciones son optativas y cada estudiante puede elegir otro texto.",
+        ),
+        (
+            "Acto de cierre del ciclo lectivo",
+            29,
+            "Programa_del_acto_de_cierre.pdf",
+            "El acto comenzará con una bienvenida del equipo directivo. Luego cada grupo "
+            "compartirá una selección de sus trabajos. El programa adjunto indica el orden.",
+        ),
+        (
+            "Expo de proyectos interdisciplinarios",
+            16,
+            "Recorrido_de_la_expo.pdf",
+            "Los equipos presentarán sus proyectos en estaciones. El recorrido adjunto "
+            "indica el orden sugerido y permite identificar las salas y los turnos.",
+        ),
+        (
+            "Taller abierto de arte y música",
+            21,
+            "Guia_del_taller.pdf",
+            "Durante el taller habrá una actividad de creación plástica y otra de música. "
+            "Se pueden recorrer ambas mesas; no hace falta traer instrumentos ni materiales.",
+        ),
+    ):
+        content = (
+            f"Estimadas familias:\n\n{detail}\n\n"
+            "Les pedimos que lean la información con sus hijos e hijas y revisen en el "
+            "Portal Familia cualquier novedad antes de organizar la actividad. Si necesitan "
+            "algún apoyo de accesibilidad o tienen dudas sobre la propuesta, pueden "
+            "comunicarse con Secretaría en el horario habitual de atención.\n\n"
+            "Les agradecemos el acompañamiento durante todo el ciclo lectivo.\n"
+            "Equipo Directivo · Colegio ESSERI"
+        )
+        yield (
+            subject,
+            reference + timedelta(days=offset) if offset is not None else None,
+            "institucional",
+            "division",
+            [division_id],
+            content,
+            "ambos" if offset is not None and filename else "portal",
+            filename,
+        )
+
+
+def seed_communication_pdf(
+    db: Session, key: str, comunicacion_id: uuid.UUID, filename: str, title: str, body: str
+) -> None:
+    from PIL import Image, ImageDraw
+
+    from src.comunicaciones.adjuntos_service import ESTADO_LIMPIO, inspeccionar
+    from src.comunicaciones.models import ComunicacionAdjunto, ComunicacionAdjuntoContenido
+
+    # Only locally generated fixture bytes enter this path; actual uploads still require scanning.
+    image = Image.new("RGB", (850, 640), "white")
+    draw = ImageDraw.Draw(image)
+    draw.text((52, 48), "Colegio ESSERI · Material de demostración", fill="#54327A", font_size=19)
+    draw.text((52, 105), fill(title, 48), fill="#241E2E", font_size=25, spacing=8)
+    draw.multiline_text(
+        (52, 205),
+        "\n\n".join(fill(paragraph, 72) for paragraph in body.split("\n\n")),
+        fill="#241E2E",
+        font_size=16,
+        spacing=7,
+    )
+    with BytesIO() as output:
+        image.save(output, "PDF", title=title)
+        data = output.getvalue()
+    metadata = add(
+        db,
+        ComunicacionAdjunto,
+        f"{key}:attachment",
+        comunicacion_id=comunicacion_id,
+        nombre=filename,
+        tipo_contenido=inspeccionar(data),
+        tamanio=len(data),
+        checksum=hashlib.sha256(data).hexdigest(),
+        estado=ESTADO_LIMPIO,
+    )
+    db.flush()
+    db.add(ComunicacionAdjuntoContenido(adjunto_id=metadata.id, contenido=data))
+
+
+def seed_communications(
+    db: Session,
+    admin: Usuario,
+    division_id: uuid.UUID,
+    second_division_id: uuid.UUID,
+    reference: date,
+    *,
+    dual_channel_only: bool = False,
+) -> int:
+    """Add missing historical publications without changing any existing record."""
+    from src.comunicaciones.models import Comunicacion, ReciboComunicacion
+    from src.comunicaciones.schemas import PublicableInput
+    from src.comunicaciones.service import publicar_en_transaccion, resolver
+    from src.workflows.models import EnvioNotificacion, Notificacion
+
     cycle = str(reference.year)
-    division_id = school.registrations[0, 0].division_id
     monday = reference - timedelta(days=reference.weekday())
     entries = (
         (
@@ -643,6 +786,7 @@ def seed_history(db: Session, school: School, reference: date) -> None:
             "todos",
             [],
             "Presentación del equipo docente y bienvenida a las familias.",
+            "portal",
         ),
         (
             f"Muestra anual de {reference.year - 1}",
@@ -651,6 +795,7 @@ def seed_history(db: Session, school: School, reference: date) -> None:
             "todos",
             [],
             "Exposición de proyectos realizados durante el ciclo.",
+            "portal",
         ),
         (
             "Reunión de familias de sala",
@@ -659,6 +804,7 @@ def seed_history(db: Session, school: School, reference: date) -> None:
             "division",
             [division_id],
             "Compartimos la evolución del grupo y la planificación de fin de año.",
+            "portal",
         ),
         (
             "Feria de ciencias",
@@ -667,6 +813,7 @@ def seed_history(db: Session, school: School, reference: date) -> None:
             "todos",
             [],
             "Cada curso presenta su proyecto en el patio cubierto.",
+            "portal",
         ),
         (
             "Clase abierta de expresión",
@@ -675,6 +822,7 @@ def seed_history(db: Session, school: School, reference: date) -> None:
             "division",
             [division_id],
             "Las familias pueden participar de la última parte de la clase.",
+            "portal",
         ),
         (
             "Vencimiento de la cuota",
@@ -683,6 +831,7 @@ def seed_history(db: Session, school: School, reference: date) -> None:
             "todos",
             [],
             "Consulten su factura y el estado de cuenta en el Portal Familia.",
+            "portal",
         ),
         (
             "Cambio de horario de Educación Física",
@@ -691,17 +840,42 @@ def seed_history(db: Session, school: School, reference: date) -> None:
             "division",
             [division_id],
             "Esta semana la actividad se realizará en el gimnasio.",
+            "portal",
+        ),
+        (
+            f"Cierre del ciclo lectivo {reference.year}",
+            None,
+            "institucional",
+            "division",
+            [division_id],
+            "Compartimos las pautas para el cierre del ciclo y la entrega de informes.",
+            "ambos",
+        ),
+        (
+            "Recordatorio de actualización de contactos",
+            None,
+            "administrativa",
+            "division",
+            [second_division_id],
+            "Por favor, revisen sus datos de contacto en el Portal Familia.",
+            "ambos",
         ),
     )
-    for i, (subject, day, kind, audience, ids, content) in enumerate(entries):
+    created = 0
+    examples = (*entries, *communication_examples(division_id, reference))
+    for i, (subject, day, kind, audience, ids, content, channel, *files) in enumerate(examples):
+        if dual_channel_only and channel != "ambos":
+            continue
         key = f"communication:{i}"
+        if db.get(Comunicacion, stable_id(key)) is not None:
+            continue
         body = PublicableInput(
             clave=stable_id(f"{key}:request"),
             asunto=subject,
             cuerpo=content,
             tipo=kind,
             audiencia={"tipo": audience, "ids": ids, "ciclo_lectivo": cycle},
-            canal="portal",
+            canal=channel,
             evento={
                 "titulo": subject,
                 "fecha": day,
@@ -726,19 +900,60 @@ def seed_history(db: Session, school: School, reference: date) -> None:
             **body.model_dump(mode="json", exclude={"clave"}),
             clave=body.clave,
             solicitud_hash=stable_id(key).hex,
-            autor_id=school.admin.id,
+            autor_id=admin.id,
             estado="borrador",
             created_at=timestamp,
         )
         db.flush()
-        publicar_en_transaccion(db, row, school.admin, recipients)
+        if files and files[0]:
+            seed_communication_pdf(db, key, row.id, files[0], subject, content)
+        publicar_en_transaccion(db, row, admin, recipients)
         row.publicada_at = timestamp
         db.flush()
+        if row.canal == "ambos":
+            # Historical samples must never leave work for the email dispatcher.
+            for delivery in db.scalars(
+                select(EnvioNotificacion).where(
+                    EnvioNotificacion.comunicacion_id == row.id,
+                    EnvioNotificacion.estado == "pendiente",
+                )
+            ):
+                delivery.estado = "presentado"
+                delivery.intentos = 1
+                delivery.disponible_at = timestamp
+                add(
+                    db,
+                    Notificacion,
+                    f"{key}:email:{delivery.familia_id}:{delivery.email}",
+                    destinatario_tipo="familia",
+                    canal="email",
+                    destinatario_snapshot=delivery.email,
+                    asunto_snapshot=delivery.asunto,
+                    cuerpo_snapshot=delivery.cuerpo,
+                    estado_envio="presentado",
+                    envio_id=delivery.id,
+                    familia_id=delivery.familia_id,
+                    numero_intento=1,
+                    started_at=timestamp + timedelta(minutes=1),
+                    finished_at=timestamp + timedelta(minutes=1),
+                    proveedor_iniciado=True,
+                )
         for receipt in db.scalars(
             select(ReciboComunicacion).where(ReciboComunicacion.comunicacion_id == row.id)
         ):
             if receipt.familia_id.int % 3:
                 receipt.leida_at = timestamp + timedelta(hours=6)
+        created += 1
+    db.flush()
+    return created
+
+
+def seed_absence_history(db: Session, school: School, reference: date) -> None:
+    from src.academico.models import (
+        JustificacionInasistencia,
+        MotivoJustificacion,
+        SolicitudAusenciaPeriodo,
+    )
 
     reason = db.scalar(
         select(MotivoJustificacion.id).where(MotivoJustificacion.nombre == "enfermedad")
@@ -1082,9 +1297,10 @@ def main() -> None:
             school = seed_school(db, args.reference_date, password)
             if school:
                 seed_finance(db, school, args.reference_date)
+                # Run the offline dispatcher before recording historical email attempts.
+                seed_offline_workflow(db, school, args.reference_date)
                 seed_history(db, school, args.reference_date)
                 seed_conversations(db, school, args.reference_date)
-                seed_offline_workflow(db, school, args.reference_date)
         print(
             "Institutional demo loaded."
             if school

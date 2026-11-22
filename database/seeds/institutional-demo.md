@@ -3,7 +3,7 @@
 This dataset is fictional and separate from the smaller demos in seeds `04`–`07`.
 It loads 250 students (246 active), 220 guardians, 25 teachers, 15 grades/divisions,
 150 weekly time slots, attendance and admissions, 1,013 invoices and 750 payments,
-seven portal communications, 24 historical contextual conversations and 8 period-absence requests,
+18 communications, 24 historical contextual conversations and 8 period-absence requests,
 15 vendors, purchase/receipt examples, a local-only work item from an actual
 workflow run, and rule-based AI suggestions. The reference date is
 **November 18, 2026**. The bank lot, live workflow, its effects, and the
@@ -196,7 +196,7 @@ reuse live n8n, a sender account, or a real recipient.
 | Scheduling and portals | Family schedule has teachers and time slots; unrelated student is denied; published events appear only for eligible recipients; teacher reads assigned divisions |
 | Management | Direction and Administration endpoints return indicators with their real role grants; suppliers endpoint returns 15 vendors |
 | Billing and bank | 1,013 invoice charges, 750 baseline payments; file preview is non-financial; confirmation adds 20 payments and credits; reserve lot remains unprocessed |
-| Workflows and comms | Historical portal publications have recipient/read receipts; 24 historical conversations with distinct states; live rule produces eight executions, captured emails and rejection notices; reimport does not duplicate them |
+| Workflows and comms | Open “Acto de cierre del ciclo lectivo” to see a long message, a linked event, a downloadable demo PDF, and both delivery channels. The seed adds three event-only, three attachment-only, and three combined examples. Seeded email attempts are historical, not queued. The live rule still produces eight executions, captured emails and rejection notices; reimport does not duplicate them. |
 | Conversations | Admin inbox lists the three threads with their states; the protagonist has none until the family starts the debit query; family cannot read another family's thread |
 | AI and audit | Rule-based suggestions are seeded; the Assistant debt tool runs against actual data; family access to the Assistant is denied; 28 debit audit rows after confirmation |
 

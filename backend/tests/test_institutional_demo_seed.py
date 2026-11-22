@@ -287,9 +287,20 @@ def test_institutional_demo_through_real_api(seed_module, db_session, client, mo
     password = "local-only-demo-password"
     school = seed_module.seed_school(db, reference, password)
     seed_module.seed_finance(db, school, reference)
-    seed_module.seed_history(db, school, reference)
-    seed_module.seed_conversations(db, school, reference)
     seed_module.seed_offline_workflow(db, school, reference)
+    seed_module.seed_history(db, school, reference)
+    assert (
+        seed_module.seed_communications(
+            db,
+            school.admin,
+            school.registrations[0, 0].division_id,
+            school.registrations[1, 0].division_id,
+            reference,
+            dual_channel_only=True,
+        )
+        == 0
+    )
+    seed_module.seed_conversations(db, school, reference)
     db.commit()
     assert db.query(WorkflowExecution).filter_by(estado="exitoso").count() == 1
     assert db.query(IaSugerencia).count() > 0
@@ -320,14 +331,53 @@ def test_institutional_demo_through_real_api(seed_module, db_session, client, mo
     assert ok(client.get("/panel-admin/indicadores-administracion"))
     assert len(ok(client.get("/proveedores-compras/proveedores"))) == 15
     comunicaciones = ok(client.get("/comunicaciones", params={"pagina": 1}))
-    assert {c["tipo"] for c in comunicaciones["items"]} == {
+    assert comunicaciones["total"] == 18
+    ejemplos = [
+        ok(client.get(f"/comunicaciones/{seed_module.stable_id(f'communication:{i}')}"))
+        for i in range(9, 18)
+    ]
+    assert [
+        sum(bool(c["evento"]) and not c["adjuntos"] for c in ejemplos),
+        sum(not c["evento"] and bool(c["adjuntos"]) for c in ejemplos),
+        sum(bool(c["evento"]) and bool(c["adjuntos"]) for c in ejemplos),
+    ] == [3, 3, 3]
+    for ejemplo in ejemplos:
+        assert len(ejemplo["cuerpo"]) >= 400
+        for adjunto in ejemplo["adjuntos"]:
+            archivo = client.get(
+                f"/comunicaciones/{ejemplo['id']}/adjuntos/{adjunto['id']}/archivo"
+            )
+            assert archivo.status_code == 200, archivo.text
+            assert archivo.headers["content-type"] == "application/pdf"
+            assert archivo.content.startswith(b"%PDF-")
+            assert len(archivo.content) == adjunto["tamanio"]
+    items = (
+        comunicaciones["items"] + ok(client.get("/comunicaciones", params={"pagina": 2}))["items"]
+    )
+    canales = [c["canal"] for c in items]
+    assert canales.count("portal") == 13
+    assert canales.count("ambos") == 5
+    assert {c["tipo"] for c in items} == {
         "institucional",
         "administrativa",
         "otro",
     }
-    for comunicacion in comunicaciones["items"]:
-        entrega = client.get(f"/comunicaciones/{comunicacion['id']}/entrega")
-        assert entrega.status_code == 200, (comunicacion["asunto"], entrega.text)
+    for comunicacion in items:
+        entrega = ok(client.get(f"/comunicaciones/{comunicacion['id']}/entrega"))
+        resumen = entrega["resumen"]
+        assert resumen["lectura_aplica"] is True
+        assert resumen["email_aplica"] == (comunicacion["canal"] == "ambos")
+        if comunicacion["canal"] == "ambos":
+            assert resumen["responsables_leidos"] > 0
+            assert resumen["responsables_no_leidos"] > 0
+            assert resumen["emails_aceptados"] == resumen["emails"] > 0
+            assert resumen["emails_pendientes"] == 0
+            assert all(
+                envio["intentos"][0]["estado"] == "presentado"
+                for item in entrega["items"]
+                for envio in item["emails"]
+                if envio["email"]
+            )
     inbox = ok(client.get("/comunicaciones/conversaciones", params={"limite": 50}))
     assert len(inbox["items"]) == 24
     estados = [item["estado"] for item in inbox["items"]]
