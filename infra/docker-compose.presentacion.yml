@@ -1,0 +1,6 @@
+# Override para apuntar el backend a la base descartable de la presentación.
+# Uso: PRESENTACION_DATABASE_URL=postgresql://... docker compose -f docker-compose.yml -f docker-compose.presentacion.yml up
+services:
+  backend:
+    environment:
+      DATABASE_URL: ${PRESENTACION_DATABASE_URL:?definir PRESENTACION_DATABASE_URL}
