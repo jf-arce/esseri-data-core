@@ -72,6 +72,9 @@ HISTORICAL_OVERDUE_EVENTS = 6
 STUDENTS = 420
 FAMILIES = 340  # familias principales (una por alumno hasta acá)
 SECOND_GUARDIANS = 20  # segundo responsable de las primeras familias
+# Bruno Acuña (A-0021, primer débito rechazado) es hermano de Alma (A-0001, débito acreditado):
+# su familia es la de Elena Acuña, que ve los dos casos con una sola cuenta.
+SIBLING_REJECTED = 20
 INACTIVE_STUDENTS = 4  # los últimos alumnos están dados de baja
 DEFAULT_HISTORY_BILLS = 983
 DEFAULT_HISTORY_PAYMENTS = 750
@@ -632,6 +635,11 @@ def _siblings() -> tuple[tuple[str, str], ...]:
     return tuple(siblings)
 
 
+def payer_family(i: int) -> int:
+    """Índice de la familia que paga por el alumno i."""
+    return 0 if i == SIBLING_REJECTED else i % FAMILIES
+
+
 def seed_school(db: Session, reference: date, password: str) -> School | None:
     from src.auth.sesion_service import hashear_password
 
@@ -728,10 +736,12 @@ def seed_school(db: Session, reference: date, password: str) -> School | None:
 
     registrations = {}
     for i, student in enumerate(students):
-        guardian = i % FAMILIES
+        guardian = payer_family(i)
         linked = [guardian] + (
             [FAMILIES + guardian] if guardian < SECOND_GUARDIANS and i < FAMILIES else []
         )
+        if i == SIBLING_REJECTED:
+            linked.append(i)  # su padre, Felipe Acuña, también ve a Bruno
         for j, index in enumerate(linked):
             add(
                 db,
@@ -914,7 +924,7 @@ def seed_finance(db: Session, school: School, reference: date) -> None:
             ResponsableEconomico,
             f"payer:{i}",
             alumno_id=student.id,
-            familia_id=school.families[i % FAMILIES].id,
+            familia_id=school.families[payer_family(i)].id,
             vigencia_desde=date(reference.year - 1, 1, 1),
         )
         for i, student in enumerate(school.students)
@@ -957,7 +967,7 @@ def seed_finance(db: Session, school: School, reference: date) -> None:
         partial = paid and i >= 30 and (i + emitted.month) % 23 == 0
         status = "pendiente" if live else "pagada" if paid and not partial else "vencida"
         if status != "pagada":
-            household = i % FAMILIES
+            household = payer_family(i)
             if debts.get(household) != "en_mora":
                 debts[household] = "con_deuda" if live else "en_mora"
         bill = add(
@@ -1497,7 +1507,7 @@ def seed_conversations(db: Session, school: School, reference: date) -> None:
     from src.comunicaciones.conversaciones_service import abrir, cambiar_estado, responder
     from src.comunicaciones.models import ConversacionContextual, MensajeConversacion
 
-    protagonists_excluded = school.families[20].id
+    protagonists_excluded = school.families[0].id
     excuses = list(
         db.scalars(
             select(JustificacionInasistencia)
