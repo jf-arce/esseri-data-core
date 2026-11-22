@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
-import { SearchIcon } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import {
+  EyeIcon,
+  InfoIcon,
+  MailIcon,
+  MailOpenIcon,
+  SearchIcon,
+  SendIcon,
+  UserIcon,
+} from 'lucide-react'
 import { PaginadorServidor } from '@/components/paginador-servidor'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -16,6 +25,7 @@ import {
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatearFechaHora } from '@/lib/fechas'
+import { cn } from '@/lib/utils'
 import { listarEntrega, reintentarEnvio } from '../services/entrega'
 import type { Canal, Envio, FiltroEntrega, ListadoEntrega } from '../types'
 import { estadoEnvio } from '../utils'
@@ -33,6 +43,36 @@ const OPCIONES_PORTAL: { valor: FiltroEntrega; etiqueta: string }[] = [
   { valor: 'leidos', etiqueta: 'Leídos' },
   { valor: 'no_leidos', etiqueta: 'No leído' },
 ]
+
+const TEXTO_CANAL: Record<Canal, string> = {
+  ambos: 'La comunicación fue enviada por email y también está disponible en el Portal Familia.',
+  email: 'La comunicación fue enviada por email.',
+  portal: 'La comunicación está disponible en el Portal Familia.',
+}
+
+function Metrica({
+  icon: Icon,
+  etiqueta,
+  valor,
+  tono,
+}: {
+  icon: LucideIcon
+  etiqueta: string
+  valor: number
+  tono: string
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-card-sm bg-superficie p-4 shadow-card">
+      <span className={cn('flex size-11 shrink-0 items-center justify-center rounded-lg', tono)}>
+        <Icon aria-hidden className="size-5" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-texto-2">{etiqueta}</p>
+        <p className="text-2xl font-semibold tabular-nums text-texto">{valor}</p>
+      </div>
+    </div>
+  )
+}
 
 /** Seguimiento por destinatario: lecturas del portal y resultados de cada email. */
 export function EntregaComunicacion({
@@ -112,17 +152,36 @@ export function EntregaComunicacion({
   ]
   const metricas = resumen
     ? [
-        { etiqueta: 'Destinatarios', valor: resumen.responsables },
+        {
+          etiqueta: 'Destinatarios',
+          valor: resumen.responsables,
+          icon: MailIcon,
+          tono: 'bg-violeta-suave text-violeta',
+        },
         ...(emailAplica
           ? [
-              { etiqueta: 'Enviados', valor: resumen.emails_aceptados },
-              { etiqueta: 'Rechazados', valor: resumen.emails_fallidos },
+              {
+                etiqueta: 'Enviados (email)',
+                valor: resumen.emails_aceptados,
+                icon: SendIcon,
+                tono: 'bg-exito-suave text-exito',
+              },
             ]
           : []),
         ...(lecturaAplica
           ? [
-              { etiqueta: 'Leídos', valor: resumen.responsables_leidos },
-              { etiqueta: 'Sin leer', valor: resumen.responsables_no_leidos },
+              {
+                etiqueta: 'Leídos (portal)',
+                valor: resumen.responsables_leidos,
+                icon: MailOpenIcon,
+                tono: 'bg-violeta-suave text-violeta',
+              },
+              {
+                etiqueta: 'Sin leer (portal)',
+                valor: resumen.responsables_no_leidos,
+                icon: EyeIcon,
+                tono: 'bg-advertencia-suave text-advertencia',
+              },
             ]
           : []),
       ]
@@ -130,32 +189,23 @@ export function EntregaComunicacion({
 
   return (
     <TooltipProvider>
-      <section className="space-y-4" aria-label="Entrega" aria-busy={cargando}>
+      <section className="space-y-4" aria-label="Seguimiento" aria-busy={cargando}>
         <span role="status" className="sr-only">
           {cargando ? 'Actualizando entrega' : ''}
         </span>
 
         {resumen && (
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))] gap-2">
+          <div className="grid gap-3 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
             {metricas.map((metrica) => (
-              <div
-                key={metrica.etiqueta}
-                className="flex flex-col rounded-lg border border-borde bg-fila-hover px-3 py-2.5"
-              >
-                <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
-                  {metrica.etiqueta}
-                </p>
-                <p className="mt-1 text-xl font-semibold tabular-nums text-texto">
-                  {metrica.valor}
-                </p>
-              </div>
+              <Metrica key={metrica.etiqueta} {...metrica} />
             ))}
           </div>
         )}
 
-        {resumen && !emailAplica && (
-          <p className="text-sm text-texto-2">Esta comunicación no generó envíos por email.</p>
-        )}
+        <Alert>
+          <InfoIcon aria-hidden className="size-4" />
+          <AlertDescription>{TEXTO_CANAL[canal]}</AlertDescription>
+        </Alert>
 
         <div className="flex flex-col gap-3 @xl/main:flex-row @xl/main:items-center">
           <div className="relative flex-1">
@@ -176,7 +226,7 @@ export function EntregaComunicacion({
           </div>
           <select
             aria-label="Filtrar por estado"
-            className="h-9 rounded-lg border border-borde bg-superficie px-3 text-sm text-texto outline-none"
+            className="h-9 w-full rounded-lg border border-borde bg-superficie px-3 text-sm text-texto outline-none @xl/main:w-60"
             value={filtro}
             onChange={(evento) => {
               setFiltro(evento.target.value as FiltroEntrega)
@@ -187,7 +237,7 @@ export function EntregaComunicacion({
           >
             {opcionesFiltro.map((opcion) => (
               <option key={opcion.valor} value={opcion.valor}>
-                {opcion.etiqueta}
+                Estado: {opcion.etiqueta}
               </option>
             ))}
           </select>
@@ -226,22 +276,24 @@ export function EntregaComunicacion({
             <Table
               bare
               minWidth="min-w-0"
-              containerClassName={`rounded-lg border border-borde transition-opacity ${
-                cargando ? 'opacity-60' : ''
-              }`}
-              aria-label="Entrega por destinatario"
+              containerClassName={cn(
+                'rounded-lg border border-borde transition-opacity',
+                cargando && 'opacity-60',
+              )}
+              aria-label="Seguimiento por destinatario"
             >
               <TableHeader>
                 <TableRow>
                   <TableHead className="px-1.5 @xl/main:px-4">Destinatario</TableHead>
                   <TableHead className="px-1.5 @xl/main:px-4">Email</TableHead>
                   {emailAplica && (
-                    <TableHead className="px-1.5 @xl/main:px-4">Estado mail</TableHead>
+                    <TableHead className="px-1.5 @xl/main:px-4">Envío (email)</TableHead>
                   )}
                   {lecturaAplica && (
-                    <TableHead className="px-1.5 @xl/main:px-4">
-                      {emailAplica ? 'Estado portal' : 'Estado'}
-                    </TableHead>
+                    <>
+                      <TableHead className="px-1.5 @xl/main:px-4">Lectura (portal)</TableHead>
+                      <TableHead className="px-1.5 @xl/main:px-4">Fecha de lectura</TableHead>
+                    </>
                   )}
                 </TableRow>
               </TableHeader>
@@ -249,7 +301,15 @@ export function EntregaComunicacion({
                 {datos.items.map((responsable) => (
                   <TableRow key={responsable.id}>
                     <TableCell className="h-auto px-2 py-3 whitespace-normal align-top @xl/main:px-4">
-                      <span className="font-medium break-words">{responsable.nombre}</span>
+                      <span className="flex items-center gap-2">
+                        <span
+                          aria-hidden
+                          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-fila-hover text-texto-2"
+                        >
+                          <UserIcon className="size-4" />
+                        </span>
+                        <span className="font-medium break-words">{responsable.nombre}</span>
+                      </span>
                     </TableCell>
                     <TableCell className="h-auto px-2 py-3 whitespace-normal align-top @xl/main:px-4">
                       <ul className="space-y-1">
@@ -298,29 +358,34 @@ export function EntregaComunicacion({
                       </TableCell>
                     )}
                     {lecturaAplica && (
-                      <TableCell className="h-auto px-2 py-3 whitespace-normal align-top @xl/main:px-4">
-                        {responsable.leida_at ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge variant="exito" tabIndex={0}>
-                                Leído
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent sideOffset={6} className="block max-w-xs">
-                              Leído el {formatearFechaHora(responsable.leida_at)}
-                            </TooltipContent>
-                          </Tooltip>
-                        ) : (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge variant="advertencia" tabIndex={0}>
-                                No leído
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent sideOffset={6}>Sin lectura registrada</TooltipContent>
-                          </Tooltip>
-                        )}
-                      </TableCell>
+                      <>
+                        <TableCell className="h-auto px-2 py-3 whitespace-normal align-top @xl/main:px-4">
+                          {responsable.leida_at ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="exito" tabIndex={0}>
+                                  Leído
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent sideOffset={6} className="block max-w-xs">
+                                Leído el {formatearFechaHora(responsable.leida_at)}
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="advertencia" tabIndex={0}>
+                                  No leído
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent sideOffset={6}>Sin lectura registrada</TooltipContent>
+                            </Tooltip>
+                          )}
+                        </TableCell>
+                        <TableCell className="h-auto px-2 py-3 whitespace-nowrap align-top text-sm tabular-nums text-texto-2 @xl/main:px-4">
+                          {formatearFechaHora(responsable.leida_at)}
+                        </TableCell>
+                      </>
                     )}
                   </TableRow>
                 ))}
