@@ -192,6 +192,10 @@ export function HistorialAsistenciaPage() {
   const alumnoSeleccionado = filtros.inscripcion_id
     ? opciones.find((item) => item.inscripcion_id === filtros.inscripcion_id)?.alumno
     : undefined
+  const diaSeleccionado =
+    filtros.fecha_desde && filtros.fecha_desde === filtros.fecha_hasta
+      ? filtros.fecha_desde
+      : undefined
   const resumen = datos?.resumen
   const error =
     ciclosRecurso.error ||
@@ -478,11 +482,24 @@ export function HistorialAsistenciaPage() {
             Tendencia de asistencia
             {alumnoSeleccionado ? ` · ${alumnoSeleccionado}` : ''}
           </h2>
-          <span className="text-xs text-texto-3">
-            {alumnoSeleccionado
-              ? 'Porcentaje de presentes del alumno por día'
-              : 'Porcentaje de presentes por día'}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-texto-3">
+              {alumnoSeleccionado
+                ? 'Porcentaje de presentes del alumno por día'
+                : 'Porcentaje de presentes por día'}
+            </span>
+            {diaSeleccionado && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-violeta"
+                onClick={() => aplicar({ fecha_desde: undefined, fecha_hasta: undefined })}
+              >
+                Ver todo el período
+              </Button>
+            )}
+          </div>
         </div>
         {tendencia.cargando ? (
           <Skeleton className="mt-4 h-32 w-full" />
@@ -498,38 +515,53 @@ export function HistorialAsistenciaPage() {
               <>
                 <TooltipProvider delayDuration={0}>
                   <div className="mt-4 flex h-32 items-end gap-1">
-                    {puntosRecientes.map((punto) => (
-                      <Tooltip key={punto.fecha}>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            aria-label={`Ver tendencia del ${fechaCorta(punto.fecha)}`}
-                            className="group flex h-full flex-1 items-end rounded-sm bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-violeta focus-visible:ring-offset-2 focus-visible:ring-offset-superficie"
+                    {puntosRecientes.map((punto) => {
+                      const esDiaSeleccionado =
+                        filtros.fecha_desde === punto.fecha && filtros.fecha_hasta === punto.fecha
+                      return (
+                        <Tooltip key={punto.fecha}>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label={`Filtrar por el ${fechaCorta(punto.fecha)}`}
+                              aria-pressed={
+                                filtros.fecha_desde === punto.fecha &&
+                                filtros.fecha_hasta === punto.fecha
+                              }
+                              onClick={() =>
+                                aplicar({ fecha_desde: punto.fecha, fecha_hasta: punto.fecha })
+                              }
+                              className="group flex h-full flex-1 items-end rounded-sm bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-violeta focus-visible:ring-offset-2 focus-visible:ring-offset-superficie"
+                            >
+                              <span
+                                aria-hidden="true"
+                                className={`w-full rounded-t transition-colors ${
+                                  esDiaSeleccionado
+                                    ? 'bg-violeta'
+                                    : 'bg-violeta/70 group-hover:bg-violeta'
+                                }`}
+                                style={{
+                                  height: `${Math.max(punto.porcentaje_presencia, 2)}%`,
+                                }}
+                              />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="top"
+                            sideOffset={8}
+                            className="rounded-lg border border-borde bg-superficie px-3 py-2 text-xs text-texto shadow-card"
                           >
-                            <span
-                              aria-hidden="true"
-                              className="w-full rounded-t bg-violeta/70 transition-colors group-hover:bg-violeta"
-                              style={{
-                                height: `${Math.max(punto.porcentaje_presencia, 2)}%`,
-                              }}
-                            />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent
-                          side="top"
-                          sideOffset={8}
-                          className="rounded-lg border border-borde bg-superficie px-3 py-2 text-xs text-texto shadow-card"
-                        >
-                          <p className="font-medium">{fechaCorta(punto.fecha)}</p>
-                          <p className="tabular-nums">
-                            {punto.porcentaje_presencia.toLocaleString('es-AR')}% de presencia
-                          </p>
-                          <p className="tabular-nums text-texto-2">
-                            {punto.presentes} presentes · {punto.ausentes} ausentes
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    ))}
+                            <p className="font-medium">{fechaCorta(punto.fecha)}</p>
+                            <p className="tabular-nums">
+                              {punto.porcentaje_presencia.toLocaleString('es-AR')}% de presencia
+                            </p>
+                            <p className="tabular-nums text-texto-2">
+                              {punto.presentes} presentes · {punto.ausentes} ausentes
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )
+                    })}
                   </div>
                 </TooltipProvider>
                 <div className="mt-2 flex justify-between text-xs text-texto-3">
