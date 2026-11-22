@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { normalizarTexto } from '@/lib/texto'
 import { ChevronsUpDownIcon } from 'lucide-react'
 import { FilterBar, FilterBarSpacer } from '@/components/filter-bar'
 import { FilterChip, FilterChips, FilterDropdown } from '@/components/filter-dropdown'
@@ -80,23 +81,26 @@ export function FacturasFiltros(props: FacturasFiltrosProps) {
   const familiaSeleccionada = familias.find((familia) => familia.id === familiaResponsableId)
   const conceptoSeleccionado = conceptos.find((concepto) => concepto.id === conceptoCobroId)
   const alumnosFiltrados = useMemo(() => {
-    const termino = busqueda.trim().toLocaleLowerCase('es-AR')
+    const termino = normalizarTexto(busqueda)
     if (!termino) return alumnos
     return alumnos.filter((alumno) =>
-      [alumno.persona_nombre, alumno.persona_apellido, alumno.persona_dni, alumno.numero_legajo]
-        .join(' ')
-        .toLocaleLowerCase('es-AR')
-        .includes(termino),
+      normalizarTexto(
+        [
+          alumno.persona_nombre,
+          alumno.persona_apellido,
+          alumno.persona_dni,
+          alumno.numero_legajo,
+        ].join(' '),
+      ).includes(termino),
     )
   }, [alumnos, busqueda])
   const familiasFiltradas = useMemo(() => {
-    const termino = busquedaFamilia.trim().toLocaleLowerCase('es-AR')
+    const termino = normalizarTexto(busquedaFamilia)
     if (!termino) return familias
     return familias.filter((familia) =>
-      [familia.persona_nombre, familia.persona_apellido, familia.persona_dni]
-        .join(' ')
-        .toLocaleLowerCase('es-AR')
-        .includes(termino),
+      normalizarTexto(
+        [familia.persona_nombre, familia.persona_apellido, familia.persona_dni].join(' '),
+      ).includes(termino),
     )
   }, [familias, busquedaFamilia])
 

@@ -15,6 +15,7 @@ from src.inscripciones.schemas import (
     SolicitudInscripcionOpcionRead,
 )
 from src.models import Persona
+from src.search import contiene_texto_busqueda
 
 
 def listar_solicitudes_disponibles(
@@ -61,12 +62,11 @@ def listar_solicitudes_disponibles(
     )
     termino = buscar.strip() if buscar else ""
     if termino:
-        patron = f"%{termino}%"
         statement = statement.where(
             or_(
-                Persona.nombre.ilike(patron),
-                Persona.apellido.ilike(patron),
-                Alumno.numero_legajo.ilike(patron),
+                contiene_texto_busqueda(Persona.nombre, termino),
+                contiene_texto_busqueda(Persona.apellido, termino),
+                contiene_texto_busqueda(Alumno.numero_legajo, termino),
             )
         )
     if familia is not None:
@@ -156,12 +156,11 @@ def listar_alumnos_elegibles_reinscripcion(
     )
     termino = buscar.strip() if buscar else ""
     if termino:
-        patron = f"%{termino}%"
         statement = statement.where(
             or_(
-                Persona.nombre.ilike(patron),
-                Persona.apellido.ilike(patron),
-                Alumno.numero_legajo.ilike(patron),
+                contiene_texto_busqueda(Persona.nombre, termino),
+                contiene_texto_busqueda(Persona.apellido, termino),
+                contiene_texto_busqueda(Alumno.numero_legajo, termino),
             )
         )
     if familia_id is not None:

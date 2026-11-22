@@ -534,3 +534,5 @@ están conectados se guardan con la regla (`bloques_sueltos`) pero no se ejecuta
 no impiden guardar. En una condición sobre un campo con opciones, el valor es una lista y solo se
 puede elegir "es" o "no es". Los campos de alumnos, familias y artículos usan un buscador que
 consulta al servidor (`selector-buscable`); el artículo permite además "Otro (escribir a mano)".
+Free-text search and searchable pickers match accented names without requiring accents
+(for example, `ines` finds `Inés`).

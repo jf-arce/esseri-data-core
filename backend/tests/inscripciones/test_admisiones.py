@@ -43,6 +43,10 @@ def test_crear_y_listar_solicitud_de_admision(client, db_session):
 
     creada = client.post("/inscripciones/solicitudes", json=crear_payload_solicitud(escenario))
     listado = client.get("/inscripciones/solicitudes", params={"buscar": "Sofía"})
+    assert (
+        client.get("/inscripciones/solicitudes", params={"buscar": "sofia"}).json()
+        == listado.json()
+    )
 
     assert creada.status_code == 201
     assert creada.json()["etapa"] == "consulta_lead"

@@ -1,4 +1,5 @@
 import type { OpcionCombo } from '@/components/combobox-buscable'
+import { normalizarTexto } from '@/lib/texto'
 import type { UsuarioConRoles } from '@/modules/auth/types'
 import { nombreVisibleDeUsuario } from '@/modules/auth/utils'
 import {
@@ -12,7 +13,6 @@ import {
   FILTRO_ACTIVAS,
   FILTRO_INACTIVAS,
   FILTRO_TODOS,
-  LOCALE,
   PRIORIDADES_TAREA_FILTRO,
   REGISTRO_ALUMNO_Y_FAMILIA,
 } from '@/modules/workflows/constants'
@@ -340,9 +340,9 @@ export interface FiltrosReglas {
 }
 
 export function filtrarReglas(reglas: ReglaWorkflow[], filtros: FiltrosReglas): ReglaWorkflow[] {
-  const busqueda = filtros.busqueda.trim().toLocaleLowerCase(LOCALE)
+  const busqueda = normalizarTexto(filtros.busqueda)
   return reglas.filter((regla) => {
-    if (busqueda !== '' && !regla.nombre.toLocaleLowerCase(LOCALE).includes(busqueda)) return false
+    if (busqueda !== '' && !normalizarTexto(regla.nombre).includes(busqueda)) return false
     if (filtros.estado === FILTRO_ACTIVAS && !regla.activo) return false
     if (filtros.estado === FILTRO_INACTIVAS && regla.activo) return false
     return filtros.tipoEventoId === FILTRO_TODOS || regla.tipo_evento_id === filtros.tipoEventoId

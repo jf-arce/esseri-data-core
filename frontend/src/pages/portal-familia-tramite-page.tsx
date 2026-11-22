@@ -547,7 +547,7 @@ export function PortalFamiliaTramitePage({
     [asistenciasPendientes, periodoJustificacionActivo],
   )
   const enviadasJustificacion = useMemo(() => {
-    const termino = busquedaJustificacion.trim().toLowerCase()
+    const termino = normalizarTexto(busquedaJustificacion)
     return solicitudes.filter((solicitud) => {
       if (
         periodoJustificacionActivo &&
@@ -556,9 +556,9 @@ export function PortalFamiliaTramitePage({
         return false
       }
       if (!termino) return true
-      return `${solicitud.motivo} ${etiquetaMotivoJustificacion(solicitud.motivo)} ${solicitud.observacion ?? ''}`
-        .toLowerCase()
-        .includes(termino)
+      return normalizarTexto(
+        `${solicitud.motivo} ${etiquetaMotivoJustificacion(solicitud.motivo)} ${solicitud.observacion ?? ''}`,
+      ).includes(termino)
     })
   }, [solicitudes, periodoJustificacionActivo, busquedaJustificacion])
   const asistenciasHistorialFiltradas = useMemo(() => {
@@ -1689,3 +1689,4 @@ export function PortalFamiliaTramitePage({
   )
 }
 import { rutaContexto } from '@/modules/comunicaciones/conversaciones'
+import { normalizarTexto } from '@/lib/texto'

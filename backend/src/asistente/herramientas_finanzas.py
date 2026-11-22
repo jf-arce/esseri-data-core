@@ -51,6 +51,7 @@ from src.facturacion.models import (
 from src.facturacion.penalidades_service import listar_excepciones_familia, recargos_de_factura
 from src.facturacion.vencimientos_service import fecha_vencimiento_efectiva
 from src.familias_alumnos.models import Familia
+from src.search import normalizar_texto_busqueda
 
 _FUENTE = "Cuenta corriente (movimientos contables)"
 _MAX_FAMILIAS_PARA_TOTAL = 2000
@@ -222,10 +223,10 @@ def _entidad_de_alias(
 
 
 def _concepto_por_nombre(db: Session, nombre: str) -> ConceptoCobro | None:
-    termino = nombre.strip().lower()
+    termino = normalizar_texto_busqueda(nombre.strip())
     conceptos = db.scalars(select(ConceptoCobro).order_by(ConceptoCobro.nombre)).all()
-    exacto = [c for c in conceptos if c.nombre.lower() == termino]
-    parcial = [c for c in conceptos if termino in c.nombre.lower()]
+    exacto = [c for c in conceptos if normalizar_texto_busqueda(c.nombre) == termino]
+    parcial = [c for c in conceptos if termino in normalizar_texto_busqueda(c.nombre)]
     candidatos = exacto or parcial
     return candidatos[0] if candidatos else None
 

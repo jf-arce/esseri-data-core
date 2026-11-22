@@ -18,7 +18,7 @@ def normalizar_texto_busqueda(valor: str) -> str:
         caracter
         for caracter in unicodedata.normalize("NFD", valor.casefold())
         if unicodedata.category(caracter) != "Mn"
-    )
+    ).strip()
 
 
 def normalizar_columna_busqueda(columna):
@@ -48,3 +48,19 @@ def normalizar_columna_busqueda(columna):
     ):
         resultado = func.replace(resultado, origen, destino)
     return resultado
+
+
+def patron_busqueda(termino: str) -> str:
+    """Patrón LIKE literal: escapa comodines y pliega mayúsculas y tildes."""
+
+    escapado = termino.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{normalizar_texto_busqueda(escapado)}%"
+
+
+def contiene_texto_busqueda(columna, termino: str):
+    """Búsqueda por subcadena para filtros libres: sin mayúsculas ni tildes.
+
+    `%` y `_` se buscan como caracteres literales, igual que en Comunicaciones.
+    """
+
+    return normalizar_columna_busqueda(columna).like(patron_busqueda(termino), escape="\\")

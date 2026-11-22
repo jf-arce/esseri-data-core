@@ -2,6 +2,10 @@
 
 API en FastAPI + SQLAlchemy + Alembic. Ver `ARCHITECTURE.md` en la raíz del repo para la explicación completa de la estructura (`src/<modulo>/`, convenciones, testing).
 
+Las búsquedas de texto libre usan la normalización compartida de `src/search.py`: `ines`
+encuentra `Inés` y `pena` encuentra `Peña`. Los identificadores exactos y los permisos no
+son campos de búsqueda libre.
+
 ## Requisitos
 
 - Python 3.14 (o compatible; el proyecto se armó con Python 3.14.7 vía [mise](https://mise.jdx.dev/)).
