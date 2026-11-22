@@ -935,7 +935,7 @@ it('shows email attempts and marks uncertain outcomes without claiming delivery'
       </Routes>
     </MemoryRouter>,
   )
-  await userEvent.click(await screen.findByRole('tab', { name: /Entrega/ }))
+  await userEvent.click(await screen.findByRole('tab', { name: /Seguimiento/ }))
   expect(await screen.findByText('responsable@ejemplo.com')).toBeInTheDocument()
   expect(screen.getByText('Resultado incierto')).toBeInTheDocument()
   expect(screen.getByText(/no se confirma que el mensaje haya sido entregado/)).toBeInTheDocument()
@@ -973,7 +973,7 @@ it('keeps staff message separate from delivery and uses compact Buenos Aires met
   await userEvent.click(screen.getByRole('button', { name: 'Ver entrega' }))
   expect(await screen.findByText('No hay destinatarios para mostrar.')).toBeInTheDocument()
   expect(screen.getByText('Destinatarios')).toBeInTheDocument()
-  expect(screen.getByRole('tab', { name: 'Entrega (2)' })).toHaveFocus()
+  expect(screen.getByRole('tab', { name: 'Seguimiento (2)' })).toHaveFocus()
   expect(screen.queryByText('<script>secreto</script>')).not.toBeInTheDocument()
   await userEvent.click(screen.getByRole('tab', { name: 'Mensaje' }))
   expect(await screen.findByText('<script>secreto</script>')).toBeInTheDocument()
@@ -1012,10 +1012,13 @@ it('supports delivery deep links and portal-only communications without email re
       </Routes>
     </MemoryRouter>,
   )
-  expect(await screen.findByRole('region', { name: 'Entrega' })).toBeInTheDocument()
-  expect(screen.queryByRole('heading', { name: 'Entrega' })).not.toBeInTheDocument()
+  expect(await screen.findByRole('region', { name: 'Seguimiento' })).toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: 'Seguimiento' })).not.toBeInTheDocument()
   expect(screen.queryByText(/Seguimiento por destinatario/)).not.toBeInTheDocument()
-  expect(screen.getByRole('tab', { name: 'Entrega (2)' })).toHaveAttribute('aria-selected', 'true')
+  expect(screen.getByRole('tab', { name: 'Seguimiento (2)' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
   // The section mounts before its delivery data; await the rows instead of racing them.
   expect(await screen.findByText('Familia Prueba')).toBeInTheDocument()
   expect(await screen.findByRole('cell', { name: 'No leído' })).toBeInTheDocument()
