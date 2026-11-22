@@ -1,0 +1,1820 @@
+"""Dataset de presentación final de ESSERI: escuela completa con datos simulados verosímiles."""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import hashlib
+import os
+import random
+import re
+import sys
+import unicodedata
+import uuid
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, time, timedelta
+from decimal import Decimal
+from functools import cache
+from importlib import import_module
+from io import BytesIO, StringIO
+from pathlib import Path
+from textwrap import fill
+
+from sqlalchemy import select, text
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
+
+from src.academico.models import (  # noqa: E402
+    Anio,
+    AsignacionDocente,
+    Division,
+    Docente,
+    HorarioMateriaCurso,
+    Materia,
+    MateriaCurso,
+    NivelEducativo,
+)
+from src.auth.models import Rol, Usuario, UsuarioRol  # noqa: E402
+from src.facturacion import formato_cobranza_simulada as bank  # noqa: E402
+from src.facturacion.cuenta_corriente_service import (  # noqa: E402
+    registrar_cargos_factura_en_transaccion,
+    registrar_pago_en_transaccion,
+)
+from src.facturacion.models import (  # noqa: E402
+    CargoFacturacionGenerado,
+    ConceptoCobro,
+    DetalleFactura,
+    EjecucionFacturacion,
+    EjecucionFacturacionRegla,
+    Factura,
+    FacturaCobranzaDemo,
+    MetodoPago,
+    Pago,
+    ReglaFacturacion,
+    ResponsableEconomico,
+)
+from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno  # noqa: E402
+from src.inscripciones.models import Asistencia, Inscripcion  # noqa: E402
+from src.models import Persona  # noqa: E402
+from src.proveedores_compras.models import Proveedor  # noqa: E402
+from src.workflows.models import NotificacionTemplate  # noqa: E402
+
+NAMESPACE = uuid.UUID("333bd0b8-251d-4265-805d-08eaf7d905fc")
+REFERENCE = date(2026, 11, 18)
+DATABASE = "esseri_presentacion"
+MARKER = "esseri:disposable-presentacion:v1"
+# Historical bills and receipts produced by the documented default reference date.
+HISTORICAL_OVERDUE_EVENTS = 6
+# Matrícula: cada alumno tiene una familia principal; los últimos son hermanos de las primeras.
+STUDENTS = 420
+FAMILIES = 340  # familias principales (una por alumno hasta acá)
+SECOND_GUARDIANS = 20  # segundo responsable de las primeras familias
+INACTIVE_STUDENTS = 4  # los últimos alumnos están dados de baja
+DEFAULT_HISTORY_BILLS = 983
+DEFAULT_HISTORY_PAYMENTS = 750
+# Response split for the 28 rendered invoices: 20 approved, five insufficient funds, three other.
+APPROVED_OPERATIONS = 20
+INSUFFICIENT_FUNDS_OPERATIONS = 5
+TEMPLATE_NAMES = {
+    "exitoso": "Acreditación de débito",
+    "rechazado": "Rechazo de acreditación de débito",
+}
+LEVELS = {
+    "Nivel Inicial": range(3, 6),
+    "Nivel Primario": range(1, 7),
+    "Nivel Secundario": range(1, 7),
+}
+# Currícula semanal en módulos: (materia, módulos por semana). Cada nivel llena su grilla.
+INICIAL = (
+    ("Prácticas del lenguaje", 4),
+    ("Nociones matemáticas", 2),
+    ("Exploración del ambiente", 2),
+    ("Juego y expresión", 2),
+    ("Música", 2),
+    ("Educación Física", 2),
+    ("Arte", 1),
+)
+PRIMARIO = (
+    ("Lengua", 5),
+    ("Matemática", 5),
+    ("Ciencias Sociales", 3),
+    ("Ciencias Naturales", 2),
+    ("Inglés", 3),
+    ("Educación Física", 2),
+    ("Música", 1),
+    ("Plástica", 1),
+    ("Tecnología", 1),
+    ("Formación Ética y Ciudadana", 1),
+    ("Taller de lectura", 1),
+)
+SECUNDARIO_BASICO = (
+    ("Lengua y Literatura", 4),
+    ("Matemática", 4),
+    ("Ciencias Naturales", 3),
+    ("Ciencias Sociales", 3),
+    ("Inglés", 3),
+    ("Educación Física", 2),
+    ("Educación Artística", 2),
+    ("Tecnología", 1),
+    ("Formación Ética y Ciudadana", 2),
+    ("Informática", 1),
+)
+SECUNDARIO_ORIENTADO = (
+    ("Lengua y Literatura", 3),
+    ("Matemática", 3),
+    ("Historia", 2),
+    ("Geografía", 2),
+    ("Biología", 3),
+    ("Física", 3),
+    ("Química", 2),
+    ("Inglés", 2),
+    ("Educación Física", 2),
+    ("Filosofía", 2),
+    ("Informática", 1),
+)
+# Módulos del día por nivel: (hora_inicio, minuto, hora_fin, minuto). Duran 60 minutos y
+# empiezan en punto o y media, como la grilla de 30 minutos del calendario; dejan un recreo.
+MODULOS = {
+    "Nivel Inicial": ((8, 30, 9, 30), (9, 30, 10, 30), (11, 0, 12, 0)),
+    "Nivel Primario": (
+        (8, 0, 9, 0),
+        (9, 0, 10, 0),
+        (10, 0, 11, 0),
+        (11, 30, 12, 30),
+        (12, 30, 13, 30),
+    ),
+    "Nivel Secundario": (
+        (7, 30, 8, 30),
+        (8, 30, 9, 30),
+        (9, 30, 10, 30),
+        (11, 0, 12, 0),
+        (12, 0, 13, 0),
+    ),
+}
+# En Inicial y Primario la maestra o el maestro de grado dicta estas materias; el resto, especiales.
+MATERIAS_DEL_TITULAR = {
+    "Nivel Inicial": {
+        "Prácticas del lenguaje",
+        "Nociones matemáticas",
+        "Exploración del ambiente",
+        "Juego y expresión",
+    },
+    "Nivel Primario": {
+        "Lengua",
+        "Matemática",
+        "Ciencias Sociales",
+        "Ciencias Naturales",
+        "Formación Ética y Ciudadana",
+        "Taller de lectura",
+    },
+    "Nivel Secundario": set(),
+}
+# Importes vigentes del ciclo actual por nivel; el ciclo anterior se factura con un 15 % menos.
+MONTHLY_FEE = {"Nivel Inicial": 110_000, "Nivel Primario": 125_000, "Nivel Secundario": 145_000}
+ENROLLMENT_FEE = {"Nivel Inicial": 150_000, "Nivel Primario": 170_000, "Nivel Secundario": 190_000}
+PREVIOUS_CYCLE_FACTOR = Decimal("0.85")
+CARGA_MAXIMA_DOCENTE = 18  # módulos semanales por docente al dimensionar cada plantel
+NAMES = ("Alma", "Bruno", "Clara", "Dante", "Elena", "Felipe", "Inés", "Joaquín", "Lara", "Mateo")
+NAMES_EXTRA = (
+    "Agustina",
+    "Benjamín",
+    "Camila",
+    "Facundo",
+    "Gabriela",
+    "Ignacio",
+    "Julieta",
+    "Lucas",
+    "Martina",
+    "Nicolás",
+)
+NAMES_SIBLINGS = (
+    "Bautista",
+    "Catalina",
+    "Emilia",
+    "Francisco",
+    "Guadalupe",
+    "Lautaro",
+    "Milagros",
+    "Santino",
+    "Valentina",
+    "Tomás",
+)
+SURNAMES = (
+    "Acuña",
+    "Beltrán",
+    "Cabrera",
+    "Duarte",
+    "Escobar",
+    "Ferreyra",
+    "Gallardo",
+    "Herrera",
+    "Ibarra",
+    "Juárez",
+    "Ledesma",
+    "Mansilla",
+    "Navarro",
+    "Ocampo",
+    "Peralta",
+    "Quiroga",
+    "Ríos",
+    "Sosa",
+    "Torres",
+    "Varela",
+)
+COLORS = (
+    "#5c6bc0",
+    "#00796b",
+    "#8e24aa",
+    "#ef6c00",
+    "#1565c0",
+    "#c62828",
+    "#2e7d32",
+    "#6d4c41",
+    "#00838f",
+    "#ad1457",
+    "#827717",
+    "#37474f",
+)
+
+
+# Period-absence requests used as contextual chat history (states are the model's own).
+PERIOD_REQUESTS = (
+    (2, "viaje_familiar", -42, 3, "aprobada"),
+    (5, "turno_estudio_medico", -36, 2, "aprobada"),
+    (8, "motivo_familiar_personal", -30, 2, "pendiente"),
+    (11, "enfermedad", -25, 4, "rechazada"),
+    (14, "viaje_familiar", -18, 3, "aprobada"),
+    (17, "motivo_familiar_personal", -12, 2, "pendiente"),
+    (23, "turno_estudio_medico", -7, 2, "cancelada"),
+    (26, "viaje_familiar", 6, 3, "pendiente"),
+)
+
+# 24 historical threads: 16 on absence explanations, 8 on period-absence requests.
+# First eight close, next eight await the family, the last eight await administration.
+CONVERSATION_TEXTS = (
+    (
+        "Buen día, adjuntamos el certificado médico de la ausencia del lunes. ¿Quedó registrada?",
+        "Recibimos el certificado; la justificación quedó aprobada.",
+        "Gracias, quedamos tranquilos.",
+    ),
+    (
+        "Quería confirmar si la justificación de la semana pasada ya está aprobada.",
+        "Sí, ya está aprobada y la ausencia figura justificada.",
+        "Perfecto, gracias por la confirmación.",
+    ),
+    (
+        "Mandamos el comprobante del turno médico por el portal. ¿Falta algo más?",
+        "Con el comprobante alcanza; no falta documentación.",
+        "Buenísimo, gracias.",
+    ),
+    (
+        "Mi hijo faltó por un trámite familiar; adjuntamos la constancia.",
+        "Registramos la constancia y aprobamos la justificación.",
+        "Gracias por la gestión.",
+    ),
+    (
+        "¿Se puede justificar una ausencia de dos días por viaje familiar?",
+        "Sí, se puede justificar; necesitamos el detalle de los días.",
+        "Entendido, muchas gracias.",
+    ),
+    (
+        "Enviamos el certificado el viernes, ¿lo recibieron?",
+        "Lo recibimos el viernes; está en revisión.",
+        "Gracias, saludos.",
+    ),
+    (
+        "La ausencia fue por fiebre; quería saber si quedó justificada.",
+        "Quedó justificada por enfermedad; no tenés que hacer nada más.",
+        "Perfecto, gracias.",
+    ),
+    (
+        "Necesitamos corregir la fecha de la justificación cargada.",
+        "Corregimos la fecha; ya está actualizada.",
+        "Gracias por avisar.",
+    ),
+    (
+        "¿Cómo sigue el trámite de la justificación que presentamos?",
+        "El trámite está en revisión; te avisamos cuando esté resuelto.",
+        None,
+    ),
+    (
+        "Adjuntamos nuevamente el certificado porque no figuraba.",
+        "Ahora sí figura el certificado; gracias.",
+        None,
+    ),
+    (
+        "Quería consultar si la ausencia del martes afecta el presentismo.",
+        "La ausencia justificada no afecta el presentismo.",
+        None,
+    ),
+    (
+        "Mi hija tuvo turno con el médico; mandamos el comprobante.",
+        "Recibido; la justificación quedó aprobada.",
+        None,
+    ),
+    (
+        "¿Hay que presentar el original del certificado en secretaría?",
+        "No hace falta el original; con la foto alcanza.",
+        None,
+    ),
+    (
+        "Informamos la ausencia por el portal, ¿está todo en orden?",
+        "Está todo en orden; la ausencia quedó justificada.",
+        None,
+    ),
+    (
+        "Nos pidieron documentación adicional; la enviamos adjunta.",
+        "Con la documentación adjunta ya está completo.",
+        None,
+    ),
+    (
+        "¿La justificación ya fue revisada por administración?",
+        "Sí, ya fue revisada y aprobada.",
+        None,
+    ),
+    ("Informamos que viajamos por trabajo del 24 al 26; ¿la solicitud quedó cargada?", None, None),
+    ("¿La solicitud de ausencia por tres días ya fue aprobada?", None, None),
+    ("Necesitamos reprogramar los días informados por un cambio de vuelo.", None, None),
+    ("¿Hace falta certificado para una ausencia programada de cuatro días?", None, None),
+    ("Enviamos la solicitud para el viaje de egresados; ¿falta algo?", None, None),
+    ("Queríamos saber si la ausencia por tratamiento médico fue aprobada.", None, None),
+    ("La solicitud quedó pendiente; ¿podemos acercar la documentación?", None, None),
+    ("¿La escuela ya avisó a los docentes por la ausencia informada?", None, None),
+)
+
+
+def stable_id(key: str) -> uuid.UUID:
+    return uuid.uuid5(NAMESPACE, key)
+
+
+def add(db: Session, model, key: str, **fields):
+    row = model(id=stable_id(key), **fields)
+    db.add(row)
+    return row
+
+
+@dataclass
+class School:
+    admin: Usuario
+    families: list[Familia]
+    students: list[Alumno]
+    registrations: dict[tuple[int, int], Inscripcion]
+
+
+@dataclass(frozen=True)
+class DivisionPlan:
+    level: str
+    grade: int
+    section: str
+
+    @property
+    def key(self) -> str:
+        return f"{self.level}:{self.grade}{self.section}"
+
+
+@dataclass(frozen=True)
+class CoursePlan:
+    teacher: int
+    slots: tuple[tuple[int, int], ...]  # (día 1 a 5, módulo del día)
+
+
+@dataclass(frozen=True)
+class StructurePlan:
+    divisions: tuple[DivisionPlan, ...]
+    courses: dict[tuple[str, str], CoursePlan]
+    teacher_count: int
+
+
+def _sections(level: str, grade: int) -> str:
+    # Los primeros grados de Primario y Secundario son los más numerosos y tienen dos divisiones.
+    return "AB" if level != "Nivel Inicial" and grade <= 3 else "A"
+
+
+def _curriculum(level: str, grade: int) -> tuple[tuple[str, int], ...]:
+    if level == "Nivel Inicial":
+        return INICIAL
+    if level == "Nivel Primario":
+        return PRIMARIO
+    return SECUNDARIO_BASICO if grade <= 3 else SECUNDARIO_ORIENTADO
+
+
+def _assign_teachers(divisions: tuple[DivisionPlan, ...]) -> tuple[dict[tuple[str, str], int], int]:
+    """Plantel por nivel: maestro de grado donde corresponde y docentes por materia, sin sobrecarga.
+
+    Los docentes de Secundario van primero, así el índice 0 (cuenta `docente`) dicta Lengua en
+    varias divisiones.
+    """
+    teacher_of: dict[tuple[str, str], int] = {}
+    next_teacher = 0
+    for level in reversed(list(LEVELS)):
+        level_divisions = [d for d in divisions if d.level == level]
+        subjects: dict[str, list[tuple[DivisionPlan, int]]] = {}
+        for division in level_divisions:
+            for name, hours in _curriculum(level, division.grade):
+                subjects.setdefault(name, []).append((division, hours))
+        for name, rows in subjects.items():
+            if name in MATERIAS_DEL_TITULAR[level]:
+                continue
+            pool = max(1, -(-sum(hours for _, hours in rows) // CARGA_MAXIMA_DOCENTE))
+            for position, (division, _) in enumerate(rows):
+                teacher_of[division.key, name] = next_teacher + position * pool // len(rows)
+            next_teacher += pool
+        for division in level_divisions if MATERIAS_DEL_TITULAR[level] else []:
+            for name in MATERIAS_DEL_TITULAR[level]:
+                teacher_of[division.key, name] = next_teacher
+            next_teacher += 1
+    return teacher_of, next_teacher
+
+
+def _place_division(
+    division: DivisionPlan,
+    teacher_of: dict[tuple[str, str], int],
+    busy: dict[int, set[tuple[int, int]]],
+    rng: random.Random,
+) -> dict[str, tuple[tuple[int, int], ...]] | None:
+    """Una grilla completa para la división; None si algún módulo no encuentra lugar."""
+    modules = len(MODULOS[division.level])
+    grid: set[tuple[int, int]] = set()
+    taken: dict[int, set[tuple[int, int]]] = {}
+    placed: dict[str, tuple[tuple[int, int], ...]] = {}
+    curriculum = sorted(_curriculum(division.level, division.grade), key=lambda row: -row[1])
+    for name, hours in curriculum:
+        teacher = teacher_of[division.key, name]
+        agenda = busy.get(teacher, set()) | taken.setdefault(teacher, set())
+        slots: list[tuple[int, int]] = []
+        per_day = [0] * 6
+        max_per_day = 1 if hours <= 5 else 2
+        days = rng.sample(range(1, 6), 5)
+        for hour in range(hours):
+            choice = None
+            for strict in (True, False):
+                for day in days[hour % 5 :] + days[: hour % 5]:
+                    if strict and per_day[day] >= max_per_day:
+                        continue
+                    order = rng.sample(range(modules), modules)
+                    if strict and per_day[day]:
+                        mine = {m for d, m in slots if d == day}
+                        order = [m for m in order if {m - 1, m + 1} & mine]
+                    choice = next(((day, m) for m in order if (day, m) not in grid | agenda), None)
+                    if choice:
+                        break
+                if choice:
+                    break
+            if choice is None:
+                return None
+            grid.add(choice)
+            agenda = agenda | {choice}
+            taken[teacher].add(choice)
+            per_day[choice[0]] += 1
+            slots.append(choice)
+        placed[name] = tuple(sorted(slots))
+    for teacher, cells in taken.items():
+        busy.setdefault(teacher, set()).update(cells)
+    return placed
+
+
+def _schedule(
+    divisions: tuple[DivisionPlan, ...], teacher_of: dict[tuple[str, str], int], seed: int
+) -> dict[tuple[str, str], tuple[tuple[int, int], ...]] | None:
+    rng = random.Random(seed)
+    busy: dict[int, set[tuple[int, int]]] = {}
+    result: dict[tuple[str, str], tuple[tuple[int, int], ...]] = {}
+    for division in divisions:
+        for _ in range(300):
+            placed = _place_division(division, teacher_of, busy, rng)
+            if placed is not None:
+                break
+        else:
+            return None
+        result.update({(division.key, name): slots for name, slots in placed.items()})
+    return result
+
+
+@cache
+def structure() -> StructurePlan:
+    divisions = tuple(
+        DivisionPlan(level, grade, section)
+        for level, grades in LEVELS.items()
+        for grade in grades
+        for section in _sections(level, grade)
+    )
+    teacher_of, teacher_count = _assign_teachers(divisions)
+    for seed in range(500):
+        placed = _schedule(divisions, teacher_of, seed)
+        if placed is not None:
+            courses = {key: CoursePlan(teacher_of[key], slots) for key, slots in placed.items()}
+            return StructurePlan(divisions, courses, teacher_count)
+    raise RuntimeError("No se pudo armar una grilla horaria sin superposiciones.")
+
+
+def teaching(db: Session, teachers: list[Docente], reference: date) -> list[list[Division]]:
+    """Crea la estructura académica y devuelve las divisiones agrupadas por grado."""
+    plan = structure()
+    years: dict[tuple[str, int], Anio] = {}
+    by_grade: list[list[Division]] = []
+    subjects: dict[str, Materia] = {}
+    for division_plan in plan.divisions:
+        year_key = (division_plan.level, division_plan.grade)
+        if year_key not in years:
+            level_id = db.scalar(
+                select(NivelEducativo.id).where(NivelEducativo.nombre == division_plan.level)
+            )
+            if level_id is None:
+                raise RuntimeError(f"Missing canonical level: {division_plan.level}")
+            years[year_key] = add(
+                db,
+                Anio,
+                f"grade:{division_plan.level}:{division_plan.grade}",
+                numero=division_plan.grade,
+                nivel_educativo_id=level_id,
+            )
+            db.flush()
+            by_grade.append([])
+        division = add(
+            db,
+            Division,
+            f"division:{division_plan.key}",
+            nombre=division_plan.section,
+            anio_id=years[year_key].id,
+        )
+        by_grade[-1].append(division)
+        db.flush()
+        for name, _ in _curriculum(division_plan.level, division_plan.grade):
+            if name not in subjects:
+                subjects[name] = add(
+                    db,
+                    Materia,
+                    f"subject:{name}",
+                    nombre=name,
+                    tipo="materia",
+                    color=COLORS[len(subjects) % len(COLORS)],
+                )
+                db.flush()
+            course_plan = plan.courses[division_plan.key, name]
+            course = add(
+                db,
+                MateriaCurso,
+                f"course:{division_plan.key}:{name}",
+                division_id=division.id,
+                materia_id=subjects[name].id,
+            )
+            db.flush()
+            modules = MODULOS[division_plan.level]
+            for day, module in course_plan.slots:
+                start_hour, start_minute, end_hour, end_minute = modules[module]
+                add(
+                    db,
+                    HorarioMateriaCurso,
+                    f"slot:{division_plan.key}:{name}:{day}:{module}",
+                    dia_semana=day,
+                    hora_inicio=time(start_hour, start_minute),
+                    hora_fin=time(end_hour, end_minute),
+                    materia_curso_id=course.id,
+                )
+            for cycle in (reference.year - 1, reference.year):
+                add(
+                    db,
+                    AsignacionDocente,
+                    f"assignment:{division_plan.key}:{name}:{cycle}",
+                    ciclo_lectivo=str(cycle),
+                    docente_id=teachers[course_plan.teacher].id,
+                    materia_curso_id=course.id,
+                )
+    db.flush()
+    return by_grade
+
+
+def _slug(texto: str) -> str:
+    base = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z]+", "", base.lower())
+
+
+def email_de(owner: Persona, role: str) -> str:
+    dominio = "familias.esseri.test" if role == "familia" else "esseri.test"
+    return f"{_slug(owner.nombre)}.{_slug(owner.apellido)}@{dominio}"
+
+
+def guardian_name(i: int) -> tuple[str, str]:
+    if i < 200:
+        return NAMES[(i + 4 + i // 20) % 10], SURNAMES[i % 20]
+    if i < FAMILIES:
+        k = i - 200
+        return NAMES_EXTRA[(k + k // 20) % 10], SURNAMES[k % 20]
+    g = i - FAMILIES
+    return NAMES_SIBLINGS[g % 10], SURNAMES[(g + 8) % 20]
+
+
+def student_name(i: int) -> tuple[str, str]:
+    if i < 200:
+        return NAMES[(i + i // 20) % 10], SURNAMES[i % 20]
+    if i < FAMILIES:
+        k = i - 200
+        return NAMES_EXTRA[(k + k // 20 + 5) % 10], SURNAMES[k % 20]
+    return _siblings()[i - FAMILIES]
+
+
+@cache
+def _siblings() -> tuple[tuple[str, str], ...]:
+    """Hermanos de las primeras familias: mismo apellido y un nombre que nadie más usa."""
+    used = {student_name(i) for i in range(FAMILIES)}
+    names = NAMES + NAMES_EXTRA + NAMES_SIBLINGS
+    siblings = []
+    for b in range(STUDENTS - FAMILIES):
+        surname = SURNAMES[b % 20]
+        name = next(
+            n for n in names[(b + b // 20 + 7) % len(names) :] + names if (n, surname) not in used
+        )
+        used.add((name, surname))
+        siblings.append((name, surname))
+    return tuple(siblings)
+
+
+def seed_school(db: Session, reference: date, password: str) -> School | None:
+    from src.auth.sesion_service import hashear_password
+
+    marker = db.get(Usuario, stable_id("account:admin"))
+    if marker is not None:
+        if marker.fecha_creacion.date() != reference:
+            raise RuntimeError("Reference date changed; provision a fresh disposable database.")
+        return None
+    for model in (Persona, Usuario, Anio, Division, Materia, Proveedor):
+        if db.scalar(select(model.id).limit(1)):
+            raise RuntimeError(
+                "Database is not empty; refusing to seed existing institutional data."
+            )
+
+    roles = dict(db.execute(select(Rol.codigo, Rol.id)).all())
+    password_hash = hashear_password(password)
+
+    def person(kind, index, base_dni, name, surname):
+        return add(
+            db,
+            Persona,
+            f"person:{kind}:{index}",
+            nombre=name,
+            apellido=surname,
+            dni=str(base_dni + index),
+        )
+
+    def account(alias, owner, role):
+        user = add(
+            db,
+            Usuario,
+            f"account:{alias}",
+            email=email_de(owner, role),
+            auth_provider="local",
+            password_hash=password_hash,
+            estado="activo",
+            persona_id=owner.id,
+            fecha_creacion=datetime.combine(reference, time(12)),
+        )
+        db.flush()
+        add(db, UsuarioRol, f"role:{alias}", usuario_id=user.id, rol_id=roles[role])
+        return user
+
+    admin_person = person("staff", 0, 97000000, "Paula", "Luna")
+    director_person = person("staff", 1, 97000000, "Mariana", "Funes")
+    operator_person = person("staff", 2, 97000000, "Santiago", "Acosta")
+    db.flush()
+    admin = account("admin", admin_person, "administracion")
+    account("direccion", director_person, "direccion")
+    account("workflow", operator_person, "administrador_del_sistema")
+
+    teacher_people = [
+        person(
+            "teacher",
+            i,
+            97000100,
+            NAMES[i % 10],
+            SURNAMES[(i * 3 + 4 + i // 20 * 7) % 20],
+        )
+        for i in range(structure().teacher_count)
+    ]
+    db.flush()
+    teachers = [
+        add(db, Docente, f"teacher:{i}", legajo=f"D-{i + 1:03}", persona_id=owner.id)
+        for i, owner in enumerate(teacher_people)
+    ]
+    account("docente", teacher_people[0], "docente")
+    grades = teaching(db, teachers, reference)
+
+    guardians = [
+        person("guardian", i, 97001000, *guardian_name(i))
+        for i in range(FAMILIES + SECOND_GUARDIANS)
+    ]
+    student_people = [person("student", i, 97002000, *student_name(i)) for i in range(STUDENTS)]
+    db.flush()
+    families = [
+        add(db, Familia, f"family:{i}", persona_id=owner.id, estado_deuda="al_dia")
+        for i, owner in enumerate(guardians)
+    ]
+    students = [
+        add(
+            db,
+            Alumno,
+            f"student:{i}",
+            persona_id=owner.id,
+            numero_legajo=f"A-{i + 1:04}",
+            estado="inactivo" if i >= STUDENTS - INACTIVE_STUDENTS else "activo",
+        )
+        for i, owner in enumerate(student_people)
+    ]
+    db.flush()
+    for i in range(30):
+        account(f"familia-{i + 1:02}", guardians[i], "familia")
+
+    registrations = {}
+    for i, student in enumerate(students):
+        guardian = i % FAMILIES
+        linked = [guardian] + (
+            [FAMILIES + guardian] if guardian < SECOND_GUARDIANS and i < FAMILIES else []
+        )
+        for j, index in enumerate(linked):
+            add(
+                db,
+                FamiliaAlumno,
+                f"link:{i}:{index}",
+                alumno_id=student.id,
+                familia_id=families[index].id,
+                parentesco="responsable parental",
+                responsable_principal=j == 0,
+                recibe_comunicaciones=True,
+            )
+        current = i % len(grades)
+        for delta in (-1, 0, 1):
+            target = current + delta
+            if not 0 <= target < len(grades) or (
+                delta == 1 and (i % 3 or i >= STUDENTS - INACTIVE_STUDENTS)
+            ):
+                continue
+            cycle = reference.year + delta
+            registered = (
+                date(cycle, 3, 2)
+                if delta < 0
+                else min(date(cycle, 3, 2), reference)
+                if delta == 0
+                else reference - timedelta(days=7)
+            )
+            status = (
+                "finalizada"
+                if delta == -1
+                else "baja"
+                if i >= STUDENTS - INACTIVE_STUDENTS
+                else "activa"
+            )
+            registrations[i, delta] = add(
+                db,
+                Inscripcion,
+                f"registration:{i}:{cycle}",
+                alumno_id=student.id,
+                division_id=grades[target][i // len(grades) % len(grades[target])].id,
+                ciclo_lectivo=str(cycle),
+                fecha_inscripcion=registered,
+                estado=status,
+                tipo="baja" if status == "baja" else "nueva" if target == 0 else "reinscripcion",
+            )
+    db.flush()
+
+    for (i, delta), registration in registrations.items():
+        if delta > 0:
+            continue
+        cycle = int(registration.ciclo_lectivo)
+        end = reference if delta == 0 else date(cycle, 11, 28)
+        if registration.estado == "baja":
+            end = min(end, date(cycle, 7, 31))
+        start = date(cycle, 3, 2)
+        # March through November, sampled fortnightly, plus the reference school week.
+        # Days stay inside the enrollment window even for a reference date near March 2.
+        days = {start + timedelta(days=offset) for offset in range(0, (end - start).days + 1, 13)}
+        days.update(end - timedelta(days=offset) for offset in range(5))
+        days = {day for day in days if start <= day <= end}
+        for day in sorted(days):
+            if day.weekday() >= 5:
+                continue
+            bucket = (i * 11 + day.toordinal()) % 37
+            kind = {0: "ausente_injustificado", 1: "ausente_justificado", 2: "tardanza"}.get(
+                bucket, "presente"
+            )
+            add(
+                db,
+                Asistencia,
+                f"attendance:{i}:{day}",
+                fecha=day,
+                tipo=kind,
+                inscripcion_id=registration.id,
+            )
+    db.flush()
+    return School(admin, families, students, registrations)
+
+
+def fee_amount(level: str, concept: str, year: int, current_year: int) -> Decimal:
+    base = Decimal(ENROLLMENT_FEE[level] if concept == "Matrícula" else MONTHLY_FEE[level])
+    if year < current_year:
+        return (base * PREVIOUS_CYCLE_FACTOR / 1000).quantize(Decimal(1)) * 1000
+    return base
+
+
+def seed_billing_rules(db: Session, charges: list, concepts: dict, reference: date) -> None:
+    """Reglas de facturación por nivel que explican las facturas ya emitidas.
+
+    Quedan en modo manual: así el job automático no vuelve a generar períodos que el seed cargó
+    de forma parcial (solo 30 cuotas del mes actual, las de la demo de débitos).
+    """
+    levels = {row.nombre: row.id for row in db.scalars(select(NivelEducativo))}
+    rules: dict[tuple[str, str, int], ReglaFacturacion] = {}
+    for _, _, emitted, concept, level, amount in charges:
+        key = (level, concept, emitted.year)
+        if key in rules:
+            continue
+        monthly = concept != "Matrícula"
+        rules[key] = add(
+            db,
+            ReglaFacturacion,
+            f"billing-rule:{level}:{concept}:{emitted.year}",
+            nombre=f"{'Cuota mensual' if monthly else 'Matrícula'} {emitted.year} · {level}",
+            descripcion=(
+                f"{'Cuota educativa mensual' if monthly else 'Matrícula anual'} del ciclo "
+                f"{emitted.year} para todo el {level.lower()}."
+            ),
+            ciclo_lectivo=str(emitted.year),
+            importe=amount,
+            periodicidad="mensual" if monthly else "anual",
+            vigencia_desde=date(emitted.year, 3, 1),
+            vigencia_hasta=date(emitted.year, 12, 31),
+            mes_aplicacion=None if monthly else 3,
+            modo_generacion="manual",
+            dia_vencimiento=10,
+            criterio_aplicacion="nivel",
+            estado="finalizada" if emitted.year < reference.year else "activa",
+            concepto_cobro_id=concepts[concept],
+            nivel_educativo_id=levels[level],
+        )
+    db.flush()
+    by_period: dict[date, list] = {}
+    for charge in charges:
+        by_period.setdefault(charge[2], []).append(charge)
+    for period, rows in sorted(by_period.items()):
+        execution = add(
+            db,
+            EjecucionFacturacion,
+            f"billing-execution:{period}",
+            periodo=period,
+            fecha_ejecucion=datetime.combine(period, time(3, 5), UTC),
+            facturas_generadas=len(rows),
+            cargos_generados=len(rows),
+            monto_total=sum(row[5] for row in rows),
+            origen="automatica",
+            estado="exitosa",
+        )
+        db.flush()
+        used = {(row[4], row[3], row[2].year) for row in rows}
+        for key in sorted(used):
+            add(
+                db,
+                EjecucionFacturacionRegla,
+                f"billing-execution-rule:{period}:{key}",
+                ejecucion_facturacion_id=execution.id,
+                regla_facturacion_id=rules[key].id,
+            )
+        for bill, registration, emitted, concept, level, amount in rows:
+            add(
+                db,
+                CargoFacturacionGenerado,
+                f"billing-charge:{bill.id}",
+                periodo=period,
+                fecha_vencimiento=bill.fecha_vencimiento,
+                importe=amount,
+                regla_facturacion_id=rules[level, concept, emitted.year].id,
+                ejecucion_facturacion_id=execution.id,
+                factura_id=bill.id,
+                inscripcion_id=registration.id,
+                concepto_cobro_id=concepts[concept],
+            )
+    db.flush()
+
+
+def seed_finance(db: Session, school: School, reference: date) -> None:
+    concepts = dict(db.execute(select(ConceptoCobro.nombre, ConceptoCobro.id)).all())
+    method = db.scalar(select(MetodoPago.id).where(MetodoPago.nombre == "tarjeta_debito"))
+    if not method or not {"Cuota educativa", "Matrícula"} <= concepts.keys():
+        raise RuntimeError("Missing canonical billing concepts or debit-card payment method.")
+    levels = dict(
+        db.execute(
+            select(Division.id, NivelEducativo.nombre)
+            .join(Anio, Anio.id == Division.anio_id)
+            .join(NivelEducativo, NivelEducativo.id == Anio.nivel_educativo_id)
+        ).all()
+    )
+    responsible = [
+        add(
+            db,
+            ResponsableEconomico,
+            f"payer:{i}",
+            alumno_id=student.id,
+            familia_id=school.families[i % FAMILIES].id,
+            vigencia_desde=date(reference.year - 1, 1, 1),
+        )
+        for i, student in enumerate(school.students)
+    ]
+    db.flush()
+    current = reference.replace(day=1)
+    history = []
+    for (i, delta), registration in school.registrations.items():
+        if delta > 0:
+            continue
+        year = int(registration.ciclo_lectivo)
+        for month in (10,) if delta < 0 else (3, 6, 7):
+            emitted = date(year, month, 1)
+            if emitted < current:
+                history.append((i, registration, emitted))
+    # Protagonists start with no historical debt. The rest use a repeatable mixed pattern.
+    ranked = sorted(history, key=lambda row: (row[0] < 30, (row[0] * 41 + row[2].month) % 113))
+    # The default reference date produces DEFAULT_HISTORY_BILLS historical bills; paying the
+    # same share on another date keeps the documented 750 receipts only for that default run.
+    paid_count = len(ranked) * DEFAULT_HISTORY_PAYMENTS // DEFAULT_HISTORY_BILLS
+    paid_keys = {(i, day) for i, _, day in ranked[len(ranked) - paid_count :]}
+    debts: dict[int, str] = {}
+    bills = []
+    charges = []
+    for i, registration, emitted in [
+        *history,
+        *((i, school.registrations[i, 0], current) for i in range(30)),
+    ]:
+        live = emitted == current
+        due = (
+            max(reference + timedelta(days=5), emitted + timedelta(days=9))
+            if live
+            else emitted + timedelta(days=9)
+        )
+        month_key = f"{emitted:%Y%m}:{i}"
+        concept = "Matrícula" if emitted.month == 3 and not live else "Cuota educativa"
+        level = levels[registration.division_id]
+        amount = fee_amount(level, concept, emitted.year, reference.year)
+        paid = (i, emitted) in paid_keys
+        partial = paid and i >= 30 and (i + emitted.month) % 23 == 0
+        status = "pendiente" if live else "pagada" if paid and not partial else "vencida"
+        if status != "pagada":
+            household = i % FAMILIES
+            if debts.get(household) != "en_mora":
+                debts[household] = "con_deuda" if live else "en_mora"
+        bill = add(
+            db,
+            Factura,
+            f"bill:{month_key}",
+            fecha_emision=emitted,
+            fecha_vencimiento=due,
+            monto_total=amount,
+            estado=status,
+            inscripcion_id=registration.id,
+            responsable_economico_id=responsible[i].id,
+        )
+        bill.detalles.append(
+            DetalleFactura(
+                id=stable_id(f"detail:{month_key}"),
+                descripcion=f"{concept} · {emitted:%m/%Y}",
+                monto=amount,
+                concepto_cobro_id=concepts[concept],
+            )
+        )
+        bills.append(
+            (i, emitted, bill, amount if paid and not partial else amount / 2 if partial else None)
+        )
+        charges.append((bill, registration, emitted, concept, level, amount))
+    db.flush()
+    seed_billing_rules(db, charges, concepts, reference)
+
+    for i, emitted, bill, payment in bills:
+        registrar_cargos_factura_en_transaccion(db, bill)
+        if emitted == current:
+            add(
+                db,
+                FacturaCobranzaDemo,
+                f"debit-metadata:{i}",
+                factura_id=bill.id,
+                numero=f"F-{emitted:%Y%m}-{i + 1:04}",
+                periodo=f"{emitted:%Y-%m}",
+                medio="cbu",
+            )
+        if payment is not None:
+            paid_on = min(emitted + timedelta(days=8), reference)
+            row = add(
+                db,
+                Pago,
+                f"payment:{bill.id}",
+                factura_id=bill.id,
+                fecha=paid_on,
+                monto=payment,
+                estado="aprobado",
+                referencia_transaccion=f"OP-{bill.id.hex[:10].upper()}",
+                fecha_operacion=datetime.combine(paid_on, time(14), UTC),
+                metodo_pago_id=method,
+                usuario_registro_id=school.admin.id,
+            )
+            db.flush()
+            registrar_pago_en_transaccion(db, row)
+    for i, state in debts.items():
+        school.families[i].estado_deuda = state
+
+    for result, subject, body in (
+        (
+            "exitoso",
+            "Débito acreditado · factura {{numero_factura}}",
+            "Acreditamos el débito automático de ${{importe}} correspondiente a la factura "
+            "{{numero_factura}}. No tenés que hacer nada más.",
+        ),
+        (
+            "rechazado",
+            "Rechazo de débito · factura {{numero_factura}}",
+            "No pudimos acreditar el débito automático de ${{importe}}. Motivo: "
+            "{{motivo_rechazo}}. La factura {{numero_factura}} sigue pendiente de pago.",
+        ),
+    ):
+        add(
+            db,
+            NotificacionTemplate,
+            f"template:debit:{result}",
+            nombre=TEMPLATE_NAMES[result],
+            asunto=subject,
+            cuerpo=body,
+        )
+    db.flush()
+
+
+def seed_history(db: Session, school: School, reference: date) -> None:
+    legacy = import_module("04_seed_demo")
+    levels = {row.nombre: row for row in db.scalars(select(NivelEducativo))}
+    legacy.ensure_admisiones_para_demo(db, school.admin, levels, reference)
+    legacy.ensure_compras_para_demo(db, school.admin, reference)
+    for i, (name, category) in enumerate(
+        (
+            ("Laboratorio Abierto", "Material de laboratorio"),
+            ("Patio Norte", "Juegos y recreación"),
+            ("Trama Escolar", "Indumentaria"),
+            ("Fibra Aula", "Conectividad"),
+            ("Luz de Taller", "Electricidad"),
+            ("Archivo Austral", "Material bibliográfico"),
+            ("Ruta Escolar", "Transporte"),
+            ("Tecla Sur", "Instrumentos musicales"),
+            ("Gran Patio", "Jardinería"),
+        )
+    ):
+        add(
+            db,
+            Proveedor,
+            f"supplier:{i}",
+            nombre=name,
+            categoria=category,
+            email=f"ventas@{_slug(name)}.esseri.test",
+            estado="activo",
+        )
+
+    seed_communications(
+        db,
+        school.admin,
+        school.registrations[0, 0].division_id,
+        school.registrations[1, 0].division_id,
+        reference,
+    )
+    seed_absence_history(db, school, reference)
+
+
+def limpiar_rotulos_heredados(db: Session) -> None:
+    """Reemplaza las etiquetas de demo que dejan los helpers del seed 04 por texto de uso real."""
+    db.execute(
+        text(
+            "UPDATE proveedor SET email = regexp_replace(email, '\\.demo$', '.esseri.test') "
+            "WHERE email LIKE '%.demo'"
+        )
+    )
+    db.execute(
+        text(
+            "UPDATE recepcion_compra "
+            "SET remito = regexp_replace(remito, '^DEMO-R-', 'R-0001-0000') "
+            "WHERE remito LIKE 'DEMO-R-%'"
+        )
+    )
+    db.execute(
+        text(
+            "UPDATE etapa_solicitud SET observaciones = 'Entrevista con la familia coordinada.' "
+            "WHERE observaciones ILIKE '%demo%'"
+        )
+    )
+    db.execute(
+        text(
+            "UPDATE solicitud_inscripcion SET observaciones = 'Familia contactada por teléfono.' "
+            "WHERE observaciones ILIKE '%demo%'"
+        )
+    )
+
+
+def communication_examples(division_id: uuid.UUID, reference: date):
+    """Nine long-form examples covering the three event/attachment combinations."""
+    for subject, offset, filename, detail in (
+        (
+            "Jornada de lectura compartida",
+            8,
+            None,
+            "Cada grupo elegirá un cuento y preparará una lectura breve. Las familias pueden traer "
+            "un libro para compartir; no es necesario comprar material para participar.",
+        ),
+        (
+            "Encuentro de juegos cooperativos",
+            10,
+            None,
+            "Las estaciones proponen desafíos en equipos. Sugerimos venir con ropa cómoda, "
+            "botella de agua identificada y un bolso liviano.",
+        ),
+        (
+            "Conversatorio sobre convivencia digital",
+            15,
+            None,
+            "El equipo de orientación compartirá pautas para conversar sobre privacidad, tiempos "
+            "de pantalla y el uso responsable de los grupos de mensajería.",
+        ),
+        (
+            "Guía de materiales para el próximo ciclo",
+            None,
+            "Guia_de_materiales.pdf",
+            "El documento de referencia distingue entre materiales de uso personal y materiales "
+            "compartidos. Los útiles que estén en buen estado se pueden reutilizar.",
+        ),
+        (
+            "Orientaciones para las entrevistas de fin de año",
+            None,
+            "Orientaciones_entrevistas.pdf",
+            "Sugerimos llegar a la entrevista con una pregunta sobre los avances del año y otra "
+            "sobre los apoyos que podrían ser útiles durante el próximo ciclo.",
+        ),
+        (
+            "Recomendaciones de lectura para el receso",
+            None,
+            "Lecturas_para_el_receso.pdf",
+            "La selección propone relatos breves, historietas y textos informativos. Las "
+            "recomendaciones son optativas y cada estudiante puede elegir otro texto.",
+        ),
+        (
+            "Acto de cierre del ciclo lectivo",
+            29,
+            "Programa_del_acto_de_cierre.pdf",
+            "El acto comenzará con una bienvenida del equipo directivo. Luego cada grupo "
+            "compartirá una selección de sus trabajos. El programa adjunto indica el orden.",
+        ),
+        (
+            "Expo de proyectos interdisciplinarios",
+            16,
+            "Recorrido_de_la_expo.pdf",
+            "Los equipos presentarán sus proyectos en estaciones. El recorrido adjunto "
+            "indica el orden sugerido y permite identificar las salas y los turnos.",
+        ),
+        (
+            "Taller abierto de arte y música",
+            21,
+            "Guia_del_taller.pdf",
+            "Durante el taller habrá una actividad de creación plástica y otra de música. "
+            "Se pueden recorrer ambas mesas; no hace falta traer instrumentos ni materiales.",
+        ),
+    ):
+        content = (
+            f"Estimadas familias:\n\n{detail}\n\n"
+            "Les pedimos que lean la información con sus hijos e hijas y revisen en el "
+            "Portal Familia cualquier novedad antes de organizar la actividad. Si necesitan "
+            "algún apoyo de accesibilidad o tienen dudas sobre la propuesta, pueden "
+            "comunicarse con Secretaría en el horario habitual de atención.\n\n"
+            "Les agradecemos el acompañamiento durante todo el ciclo lectivo.\n"
+            "Equipo Directivo · Colegio ESSERI"
+        )
+        yield (
+            subject,
+            reference + timedelta(days=offset) if offset is not None else None,
+            "institucional",
+            "division",
+            [division_id],
+            content,
+            "ambos" if offset is not None and filename else "portal",
+            filename,
+        )
+
+
+def seed_communication_pdf(
+    db: Session, key: str, comunicacion_id: uuid.UUID, filename: str, title: str, body: str
+) -> None:
+    from PIL import Image, ImageDraw
+
+    from src.comunicaciones.adjuntos_service import ESTADO_LIMPIO, inspeccionar
+    from src.comunicaciones.models import ComunicacionAdjunto, ComunicacionAdjuntoContenido
+
+    # Only locally generated fixture bytes enter this path; actual uploads still require scanning.
+    image = Image.new("RGB", (850, 640), "white")
+    draw = ImageDraw.Draw(image)
+    draw.text((52, 48), "Colegio ESSERI · Comunicado institucional", fill="#54327A", font_size=19)
+    draw.text((52, 105), fill(title, 48), fill="#241E2E", font_size=25, spacing=8)
+    draw.multiline_text(
+        (52, 205),
+        "\n\n".join(fill(paragraph, 72) for paragraph in body.split("\n\n")),
+        fill="#241E2E",
+        font_size=16,
+        spacing=7,
+    )
+    with BytesIO() as output:
+        image.save(output, "PDF", title=title)
+        data = output.getvalue()
+    metadata = add(
+        db,
+        ComunicacionAdjunto,
+        f"{key}:attachment",
+        comunicacion_id=comunicacion_id,
+        nombre=filename,
+        tipo_contenido=inspeccionar(data),
+        tamanio=len(data),
+        checksum=hashlib.sha256(data).hexdigest(),
+        estado=ESTADO_LIMPIO,
+    )
+    db.flush()
+    db.add(ComunicacionAdjuntoContenido(adjunto_id=metadata.id, contenido=data))
+
+
+def seed_communications(
+    db: Session,
+    admin: Usuario,
+    division_id: uuid.UUID,
+    second_division_id: uuid.UUID,
+    reference: date,
+    *,
+    dual_channel_only: bool = False,
+) -> int:
+    """Add missing historical publications without changing any existing record."""
+    from src.comunicaciones.models import Comunicacion, ReciboComunicacion
+    from src.comunicaciones.schemas import PublicableInput
+    from src.comunicaciones.service import publicar_en_transaccion, resolver
+    from src.workflows.models import EnvioNotificacion, Notificacion
+
+    cycle = str(reference.year)
+    monday = reference - timedelta(days=reference.weekday())
+    entries = (
+        (
+            "Inicio del ciclo lectivo",
+            date(reference.year, 3, 2),
+            "institucional",
+            "todos",
+            [],
+            "Presentación del equipo docente y bienvenida a las familias.",
+            "portal",
+        ),
+        (
+            f"Muestra anual de {reference.year - 1}",
+            date(reference.year - 1, 11, 20),
+            "institucional",
+            "todos",
+            [],
+            "Exposición de proyectos realizados durante el ciclo.",
+            "portal",
+        ),
+        (
+            "Reunión de familias de sala",
+            monday - timedelta(days=5),
+            "institucional",
+            "division",
+            [division_id],
+            "Compartimos la evolución del grupo y la planificación de fin de año.",
+            "portal",
+        ),
+        (
+            "Feria de ciencias",
+            monday + timedelta(days=2),
+            "institucional",
+            "todos",
+            [],
+            "Cada curso presenta su proyecto en el patio cubierto.",
+            "portal",
+        ),
+        (
+            "Clase abierta de expresión",
+            monday + timedelta(days=9),
+            "institucional",
+            "division",
+            [division_id],
+            "Las familias pueden participar de la última parte de la clase.",
+            "portal",
+        ),
+        (
+            "Vencimiento de la cuota",
+            None,
+            "administrativa",
+            "todos",
+            [],
+            "Consulten su factura y el estado de cuenta en el Portal Familia.",
+            "portal",
+        ),
+        (
+            "Cambio de horario de Educación Física",
+            None,
+            "otro",
+            "division",
+            [division_id],
+            "Esta semana la actividad se realizará en el gimnasio.",
+            "portal",
+        ),
+        (
+            f"Cierre del ciclo lectivo {reference.year}",
+            None,
+            "institucional",
+            "division",
+            [division_id],
+            "Compartimos las pautas para el cierre del ciclo y la entrega de informes.",
+            "ambos",
+        ),
+        (
+            "Recordatorio de actualización de contactos",
+            None,
+            "administrativa",
+            "division",
+            [second_division_id],
+            "Por favor, revisen sus datos de contacto en el Portal Familia.",
+            "ambos",
+        ),
+    )
+    created = 0
+    examples = (*entries, *communication_examples(division_id, reference))
+    for i, (subject, day, kind, audience, ids, content, channel, *files) in enumerate(examples):
+        if dual_channel_only and channel != "ambos":
+            continue
+        key = f"communication:{i}"
+        if db.get(Comunicacion, stable_id(key)) is not None:
+            continue
+        body = PublicableInput(
+            clave=stable_id(f"{key}:request"),
+            asunto=subject,
+            cuerpo=content,
+            tipo=kind,
+            audiencia={"tipo": audience, "ids": ids, "ciclo_lectivo": cycle},
+            canal=channel,
+            evento={
+                "titulo": subject,
+                "fecha": day,
+                "hora_inicio": "14:00",
+                "hora_fin": "15:00",
+                "lugar": "Colegio ESSERI",
+            }
+            if day
+            else None,
+        )
+        recipients = resolver(db, body.audiencia)
+        published = (
+            min(reference - timedelta(days=1), day - timedelta(days=3))
+            if day
+            else reference - timedelta(days=2)
+        )
+        timestamp = datetime.combine(published, time(12))
+        row = add(
+            db,
+            Comunicacion,
+            key,
+            **body.model_dump(mode="json", exclude={"clave"}),
+            clave=body.clave,
+            solicitud_hash=stable_id(key).hex,
+            autor_id=admin.id,
+            estado="borrador",
+            created_at=timestamp,
+        )
+        db.flush()
+        if files and files[0]:
+            seed_communication_pdf(db, key, row.id, files[0], subject, content)
+        publicar_en_transaccion(db, row, admin, recipients)
+        row.publicada_at = timestamp
+        db.flush()
+        if row.canal == "ambos":
+            # Historical samples must never leave work for the email dispatcher.
+            for delivery in db.scalars(
+                select(EnvioNotificacion).where(
+                    EnvioNotificacion.comunicacion_id == row.id,
+                    EnvioNotificacion.estado == "pendiente",
+                )
+            ):
+                delivery.estado = "presentado"
+                delivery.intentos = 1
+                delivery.disponible_at = timestamp
+                add(
+                    db,
+                    Notificacion,
+                    f"{key}:email:{delivery.familia_id}:{delivery.email}",
+                    destinatario_tipo="familia",
+                    canal="email",
+                    destinatario_snapshot=delivery.email,
+                    asunto_snapshot=delivery.asunto,
+                    cuerpo_snapshot=delivery.cuerpo,
+                    estado_envio="presentado",
+                    envio_id=delivery.id,
+                    familia_id=delivery.familia_id,
+                    numero_intento=1,
+                    started_at=timestamp + timedelta(minutes=1),
+                    finished_at=timestamp + timedelta(minutes=1),
+                    proveedor_iniciado=True,
+                )
+        for receipt in db.scalars(
+            select(ReciboComunicacion).where(ReciboComunicacion.comunicacion_id == row.id)
+        ):
+            if receipt.familia_id.int % 3:
+                receipt.leida_at = timestamp + timedelta(hours=6)
+        created += 1
+    db.flush()
+    return created
+
+
+def seed_absence_history(db: Session, school: School, reference: date) -> None:
+    from src.academico.models import (
+        JustificacionInasistencia,
+        MotivoJustificacion,
+        SolicitudAusenciaPeriodo,
+    )
+
+    reason = db.scalar(
+        select(MotivoJustificacion.id).where(MotivoJustificacion.nombre == "enfermedad")
+    )
+    if reason is None:
+        raise RuntimeError("Missing canonical illness explanation.")
+    for i in range(30):
+        registration = school.registrations[i, 0]
+        attendance = db.scalar(
+            select(Asistencia)
+            .where(
+                Asistencia.inscripcion_id == registration.id,
+                Asistencia.tipo.in_(("ausente_justificado", "ausente_injustificado")),
+            )
+            .order_by(Asistencia.fecha.desc())
+            .limit(1)
+        )
+        if attendance is None:
+            continue
+        uploaded = datetime.combine(attendance.fecha, time(15))
+        status = "aprobada" if attendance.tipo == "ausente_justificado" else "rechazada"
+        add(
+            db,
+            JustificacionInasistencia,
+            f"excuse:{i}",
+            asistencia_id=attendance.id,
+            familia_id=school.families[i].id,
+            motivo_justificacion_id=reason,
+            usuario_id=stable_id(f"account:familia-{i + 1:02}"),
+            estado=status,
+            fecha_carga=uploaded,
+            fecha_resolucion=uploaded + timedelta(hours=2),
+            observacion="La familia informó el motivo de la ausencia por el portal.",
+        )
+
+    reasons = {row.nombre: row.id for row in db.scalars(select(MotivoJustificacion))}
+    for i, (family_idx, reason_name, offset, days, estado) in enumerate(PERIOD_REQUESTS):
+        start = reference + timedelta(days=offset)
+        add(
+            db,
+            SolicitudAusenciaPeriodo,
+            f"period-absence:{i}",
+            fecha_inicio=start,
+            fecha_fin=start + timedelta(days=days - 1),
+            estado=estado,
+            observacion=f"Motivo informado: {reason_name.replace('_', ' ')}.",
+            motivo_justificacion_id=reasons[reason_name],
+            alumno_id=school.students[family_idx].id,
+            familia_id=school.families[family_idx].id,
+            usuario_id=stable_id(f"account:familia-{family_idx + 1:02}"),
+            fecha_carga=datetime.combine(start - timedelta(days=3), time(10), UTC),
+        )
+    db.flush()
+
+
+def seed_conversations(db: Session, school: School, reference: date) -> None:
+    """24 historical contextual threads on real absence trámites.
+
+    Sixteen threads use explained absences and eight use period-absence requests.
+    Eight close, eight await the family and eight await administration. The
+    protagonist's rejected debit stays without a thread: it starts live.
+    """
+    from src.academico.models import JustificacionInasistencia, SolicitudAusenciaPeriodo
+    from src.auth.models import Usuario
+    from src.comunicaciones.conversaciones_schemas import MensajeCreate
+    from src.comunicaciones.conversaciones_service import abrir, cambiar_estado, responder
+    from src.comunicaciones.models import ConversacionContextual, MensajeConversacion
+
+    protagonists_excluded = school.families[20].id
+    excuses = list(
+        db.scalars(
+            select(JustificacionInasistencia)
+            .where(JustificacionInasistencia.familia_id != protagonists_excluded)
+            .order_by(JustificacionInasistencia.familia_id)
+            .limit(16)
+        )
+    )
+    periods = list(
+        db.scalars(
+            select(SolicitudAusenciaPeriodo)
+            .where(SolicitudAusenciaPeriodo.familia_id != protagonists_excluded)
+            .order_by(SolicitudAusenciaPeriodo.fecha_inicio)
+            .limit(8)
+        )
+    )
+    if len(excuses) < 16 or len(periods) < 8:
+        raise RuntimeError("The institutional demo needs 16 explanations and 8 period requests.")
+    contexts = [
+        *[("justificacion_inasistencia", row, row.familia_id) for row in excuses],
+        *[("solicitud_ausencia_periodo", row, row.familia_id) for row in periods],
+    ]
+    family_index = {family.id: index for index, family in enumerate(school.families)}
+    operator = db.get(Usuario, stable_id("account:workflow"))
+    if operator is None:
+        raise RuntimeError("Missing the system administrator demo account.")
+    administratives = ((school.admin, "administracion"), (operator, "administrador_del_sistema"))
+
+    threads = Session(bind=db.connection(), join_transaction_mode="create_savepoint")
+    with threads:
+        for index, ((tipo, origen, family_id), texts) in enumerate(
+            zip(contexts, CONVERSATION_TEXTS, strict=True)
+        ):
+            family_text, admin_text, thanks = texts
+            if index >= 16 and (admin_text or thanks):
+                raise RuntimeError("Open threads cannot have administrative replies.")
+            if index < 8 and not thanks:
+                raise RuntimeError("Closed threads need the family's closing message.")
+            owner = threads.get(
+                Usuario, stable_id(f"account:familia-{family_index[family_id] + 1:02}")
+            )
+            hilo = abrir(
+                threads,
+                owner,
+                "familia",
+                tipo,
+                origen.id,
+                MensajeCreate(texto=family_text, clave=stable_id(f"chat:{index}:family:1")),
+            )
+            if admin_text:
+                autor, rol = administratives[index % 2]
+                responder(
+                    threads,
+                    autor,
+                    rol,
+                    hilo.id,
+                    MensajeCreate(texto=admin_text, clave=stable_id(f"chat:{index}:admin")),
+                )
+            if thanks:
+                responder(
+                    threads,
+                    owner,
+                    "familia",
+                    hilo.id,
+                    MensajeCreate(texto=thanks, clave=stable_id(f"chat:{index}:family:2")),
+                )
+                cambiar_estado(threads, school.admin, "administracion", hilo.id, resolver=True)
+            day = reference - timedelta(days=70 - index * 2)
+            messages = list(
+                threads.scalars(
+                    select(MensajeConversacion)
+                    .where(MensajeConversacion.conversacion_id == hilo.id)
+                    .order_by(MensajeConversacion.created_at)
+                )
+            )
+            for position, message in enumerate(messages):
+                message.created_at = datetime.combine(
+                    day, time(9 if position == 0 else 11 + position), UTC
+                )
+            threads.get(ConversacionContextual, hilo.id).updated_at = datetime.combine(
+                day, time(11 + len(messages)), UTC
+            )
+        threads.flush()
+
+
+def seed_offline_workflow(db: Session, school: School, reference: date) -> None:
+    from src.ia_sugerencias.service import detectar_patrones
+    from src.models import EventLog
+    from src.workflows.despacho_service import procesar_eventos_pendientes
+    from src.workflows.eventos_service import emit_event
+    from src.workflows.models import Notificacion, TipoEvento, WorkflowExecution, WorkflowRule
+    from src.workflows.reglas_service import crear_regla, nodos_de_regla_simple
+    from src.workflows.schemas import WorkflowRuleCreate
+
+    # The dispatcher has a broad recovery pass. Never run it against existing rules,
+    # events, or outbound notification state, even in a marked demo database.
+    for model in (EventLog, Notificacion, WorkflowExecution, WorkflowRule):
+        if db.scalar(select(model.id).limit(1)):
+            raise RuntimeError("Workflow data is not empty; refusing to dispatch historical work.")
+    sources = db.scalars(
+        select(Factura)
+        .where(Factura.estado == "vencida")
+        .order_by(Factura.fecha_vencimiento.desc(), Factura.id)
+        .limit(HISTORICAL_OVERDUE_EVENTS)
+    ).all()
+    # The services retain their own commit boundaries inside the fixture's outer transaction.
+    with Session(bind=db.connection(), join_transaction_mode="create_savepoint") as history:
+        if sources:
+            event_id = history.scalar(
+                select(TipoEvento.id).where(TipoEvento.nombre == "factura.vencida")
+            )
+            admin_role = history.scalar(select(Rol.id).where(Rol.codigo == "administracion"))
+            director_role = history.scalar(select(Rol.id).where(Rol.codigo == "direccion"))
+            crear_regla(
+                history,
+                WorkflowRuleCreate(
+                    nombre="Revisión de cuentas vencidas",
+                    tipo_evento_id=event_id,
+                    nodos=nodos_de_regla_simple(
+                        condicion={},
+                        tipo_accion="crear_tarea",
+                        accion_config={
+                            "titulo": "Reclamar la deuda de {{nombre_familia}}",
+                            "descripcion": "Lleva {{dias_vencido}} días vencida, deuda de "
+                            "${{monto_deuda}}.",
+                            "prioridad": "media",
+                            "dias_para_vencer": 5,
+                        },
+                        rol_ids=[admin_role],
+                    ),
+                ),
+                school.admin.id,
+            )
+            crear_regla(
+                history,
+                WorkflowRuleCreate(
+                    nombre="Escalamiento de mora a Dirección",
+                    tipo_evento_id=event_id,
+                    nodos=nodos_de_regla_simple(
+                        condicion={"campo": "dias_vencido", "operador": ">", "valor": 120},
+                        tipo_accion="escalar_caso",
+                        accion_config={
+                            "motivo": "La factura de {{nombre_familia}} lleva más de 120 días "
+                            "vencida sin regularizarse.",
+                            "prioridad": "alta",
+                        },
+                        rol_ids=[director_role],
+                    ),
+                ),
+                school.admin.id,
+            )
+            for n, source in enumerate(sources):
+                responsible = history.get(ResponsableEconomico, source.responsable_economico_id)
+                guardian = history.get(Familia, responsible.familia_id)
+                student = history.get(Alumno, responsible.alumno_id)
+                overdue = (reference - source.fecha_vencimiento).days
+                event = emit_event(
+                    history,
+                    tipo="factura.vencida",
+                    entidad="factura",
+                    entidad_id=source.id,
+                    payload={
+                        "dias_vencido": overdue,
+                        "dias_vencido_texto": str(overdue),
+                        "monto_deuda": source.monto_total,
+                        "nombre_familia": guardian.persona_nombre,
+                        "apellido_familia": guardian.persona_apellido,
+                        "alumno_nombre": f"{student.persona_nombre} {student.persona_apellido}",
+                    },
+                )
+                event.timestamp = datetime.combine(
+                    reference - timedelta(days=2 + n), time(9 + n % 6)
+                )
+            history.commit()
+            summary = procesar_eventos_pendientes(history, limite=len(sources))
+            if summary.eventos_procesados != len(sources) or not summary.ejecuciones_creadas:
+                raise RuntimeError("The offline historical workflow did not execute as expected.")
+        detectar_patrones(history, hoy=reference, usuario_id=school.admin.id)
+
+
+def validate_target(environment: str, database_url: str, enabled: str) -> None:
+    if environment.strip().lower() not in {"development", "test"} or enabled != "true":
+        raise RuntimeError("Use development/test and ESSERI_DEMO_SEED_ENABLED=true.")
+    url = make_url(database_url)
+    if (
+        url.get_backend_name() != "postgresql"
+        or url.host not in {"127.0.0.1", "::1"}
+        or url.database != DATABASE
+        or url.username != DATABASE
+        or url.query
+    ):
+        raise RuntimeError(
+            f"Only a dedicated loopback PostgreSQL database/role {DATABASE} is allowed."
+        )
+
+
+def bank_response(exported: str, batch: uuid.UUID, processed_on: date) -> str:
+    reader = csv.DictReader(StringIO(exported), delimiter=";", strict=True)
+    if reader.fieldnames != [
+        "referencia",
+        "factura",
+        "alumno",
+        "periodo",
+        "concepto",
+        "importe",
+        "vencimiento",
+        "cbu",
+    ]:
+        raise ValueError("Use the unmodified CBU export from the institutional demo batch.")
+    rows = list(reader)
+    expected = [f"F-{processed_on:%Y%m}-{i:04}" for i in range(1, 29)]
+    if (
+        len(rows) != 28
+        or {row.get("factura") for row in rows} != set(expected)
+        or any(
+            row.get("periodo") != f"{processed_on:%Y-%m}" or None in row or None in row.values()
+            for row in rows
+        )
+    ):
+        raise ValueError(
+            "Expected the first 28 invoices (F-AAAAMM-0001 to 0028) of the processing month."
+        )
+    results = []
+    for i, row in enumerate(sorted(rows, key=lambda row: row["factura"])):
+        if i < APPROVED_OPERATIONS:
+            reason = ("", "")
+        elif i < APPROVED_OPERATIONS + INSUFFICIENT_FUNDS_OPERATIONS:
+            reason = bank.MOTIVOS_RECHAZO_SIMULADOS[0]
+        else:
+            reason = bank.MOTIVOS_RECHAZO_SIMULADOS[
+                i - APPROVED_OPERATIONS - INSUFFICIENT_FUNDS_OPERATIONS + 1
+            ]
+        results.append(
+            bank.RespuestaDetalle(
+                uuid.UUID(row["referencia"]),
+                bank.RECHAZADO if i >= APPROVED_OPERATIONS else bank.COBRADO,
+                Decimal(row["importe"]),
+                processed_on,
+                *reason,
+            )
+        )
+    content = bank.generar_respuesta(batch, processed_on, results)
+    bank.leer_respuesta(content)
+    return content
+
+
+def response_command(args: list[str]) -> None:
+    parser = argparse.ArgumentParser(
+        description="Create a fixture from the exported 28-item CBU batch."
+    )
+    parser.add_argument("export", type=Path)
+    parser.add_argument("batch", type=uuid.UUID)
+    parser.add_argument("output", type=Path)
+    parser.add_argument("--processing-date", type=date.fromisoformat, default=REFERENCE)
+    options = parser.parse_args(args)
+    try:
+        content = bank_response(
+            options.export.read_text(encoding="utf-8-sig"), options.batch, options.processing_date
+        )
+        with options.output.open("x", encoding="utf-8", newline="") as destination:
+            destination.write(content)
+    except (ArithmeticError, OSError, ValueError, csv.Error) as exc:
+        parser.exit(1, f"{exc}\n")
+
+
+def main() -> None:
+    if sys.argv[1:2] == ["bank-response"]:
+        response_command(sys.argv[2:])
+        return
+
+    from src.config import settings
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--reference-date", type=date.fromisoformat, default=REFERENCE)
+    args = parser.parse_args()
+    try:
+        if not 3 <= args.reference_date.month <= 11:
+            raise RuntimeError("Choose a reference date within the March–November school term.")
+        validate_target(
+            settings.ENVIRONMENT, settings.DATABASE_URL, os.getenv("ESSERI_DEMO_SEED_ENABLED", "")
+        )
+        if os.getenv("PGHOSTADDR"):
+            raise RuntimeError("Unset PGHOSTADDR; the demo must use the explicit loopback host.")
+        password = os.getenv("ESSERI_DEMO_PASSWORD", "")
+        if len(password) < 12:
+            raise RuntimeError("Set ESSERI_DEMO_PASSWORD to a demo-only password (12+ characters).")
+        from src.database import SessionLocal
+        from src.main import app as _app  # noqa: F401 — register model dependencies without startup
+
+        with SessionLocal.begin() as db:
+            if (
+                db.scalar(
+                    text(
+                        "SELECT shobj_description(oid, 'pg_database') FROM pg_database "
+                        "WHERE datname = current_database()"
+                    )
+                )
+                != MARKER
+            ):
+                raise RuntimeError("Not a provisioned disposable demo database.")
+            db.execute(text("SELECT pg_advisory_xact_lock(2026111809)"))
+            school = seed_school(db, args.reference_date, password)
+            if school:
+                seed_finance(db, school, args.reference_date)
+                # Run the offline dispatcher before recording historical email attempts.
+                seed_offline_workflow(db, school, args.reference_date)
+                seed_history(db, school, args.reference_date)
+                seed_conversations(db, school, args.reference_date)
+                limpiar_rotulos_heredados(db)
+        print(
+            "Institutional demo loaded."
+            if school
+            else "Institutional demo already loaded; no changes."
+        )
+    except (KeyError, RuntimeError, ValueError, SQLAlchemyError) as exc:
+        parser.exit(1, f"{exc}\n")
+
+
+if __name__ == "__main__":
+    main()
