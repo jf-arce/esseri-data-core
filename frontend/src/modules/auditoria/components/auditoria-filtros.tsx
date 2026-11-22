@@ -2,7 +2,12 @@ import { ArrowDownAZIcon } from 'lucide-react'
 import { ComboboxBuscable, type OpcionCombo } from '@/components/combobox-buscable'
 import { DatePicker } from '@/components/date-picker'
 import { FilterBar, FilterBarSpacer, FilterSearch } from '@/components/filter-bar'
-import { FilterChip, FilterChips, FilterDropdown, FilterTrigger } from '@/components/filter-dropdown'
+import {
+  FilterChip,
+  FilterChips,
+  FilterDropdown,
+  FilterTrigger,
+} from '@/components/filter-dropdown'
 import { FILTRO_TODOS } from '@/modules/auditoria/constants'
 import type { FiltrosAuditoria, OpcionesAuditoria, OrdenAuditoria } from '@/modules/auditoria/types'
 import {

@@ -29,9 +29,7 @@ describe('etiquetaEntidad', () => {
   it('usa el nombre visible y no distingue mayúsculas', () => {
     expect(etiquetaEntidad('ALUMNO')).toBe('Alumno')
     expect(etiquetaEntidad('alumno')).toBe('Alumno')
-    expect(etiquetaEntidad('solicitud_ausencia_periodo')).toBe(
-      'Solicitud de ausencia por período',
-    )
+    expect(etiquetaEntidad('solicitud_ausencia_periodo')).toBe('Solicitud de ausencia por período')
   })
 
   it('una entidad fuera del catálogo se capitaliza palabra por palabra', () => {
@@ -56,9 +54,9 @@ describe('formatearCampo', () => {
 
 describe('nombreActor', () => {
   it('para una operación automática muestra el sistema', () => {
-    expect(
-      nombreActor({ actor_tipo: 'sistema', usuario_nombre: null, usuario_email: null }),
-    ).toBe('Sistema')
+    expect(nombreActor({ actor_tipo: 'sistema', usuario_nombre: null, usuario_email: null })).toBe(
+      'Sistema',
+    )
   })
 
   it('prioriza el nombre de la persona y cae al email', () => {
