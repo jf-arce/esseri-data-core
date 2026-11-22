@@ -120,6 +120,12 @@ class PublicadaEdicionInput(MensajeInput):
         return self
 
 
+class EventoPublicadoEdicionInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    version: int = Field(ge=1)
+    evento: EventoPublicable
+
+
 class ComunicacionRead(BaseModel):
     id: uuid.UUID
     asunto: str

@@ -44,27 +44,33 @@ server pagination use the real API.
 
 ### Communications — stage 3 interface
 
-The staff detail separates **Mensaje** from **Entrega (N)**, where N counts responsible
+The staff detail separates **Mensaje** from **Seguimiento (N)**, where N counts responsible
 people (not email addresses). The active tab is preserved in `?vista=entrega`. Message content
-and attachments remain on the first tab, with a short delivery link; delivery data is loaded
+and attachments remain on the first tab; administrators see the subject, body, and per-file
+preview and download actions for verified attachments. Delivery data is loaded
 only when opening it. Portal-only publications and drafts have explicit delivery states without
 calling email endpoints. Families do not receive staff delivery tabs or recipient lists.
 
-**Entrega** is a server-side projection with one row per responsible. The **Email** column shows
-only the address(es). Communications with email get **Estado mail**; communications with portal
-get **Estado** (portal-only) or **Estado portal** (when both channels apply), carrying the first
-portal read (“Leído” with its date/time on hover, “No leído”). The summary uses compact
-individual metric cards: **Destinatarios**, plus **Enviados**/**Rechazados** when email applies
-and **Leídos**/**Sin leer** when portal applies (3 cards for one channel, 5 for both). All cards
-share the same size and typography. Portal-only rows show the responsible's contact email; the
-summary clarifies that no emails were sent. Search and state filters run over the complete result
+When a communication has an event, administrators see its summary beside the message on
+wide screens and below it on narrow screens. The **Evento** tab is also available via
+`?vista=evento`. The event edit link opens the existing draft editor for the draft author
+with create permission. Management users with update permission can edit the linked event
+of an active publication without changing the message or queuing any email.
+
+**Seguimiento** is a server-side projection with one row per responsible. The **Email** column
+shows only the address(es). The **Envío (email)** and **Lectura (portal)** columns appear when
+their channel applies, and **Fecha de lectura** shows the first portal read. The summary uses
+**Destinatarios**, **Enviados (email)**, **Leídos (portal)** and **Sin leer (portal)**, hiding
+metrics for channels that do not apply. Administrative detail uses the full available content
+width; the table can scroll horizontally on narrow screens. Portal-only rows show the
+responsible's contact email. Search and state filters run over the complete result
 (accent-insensitive, including email addresses; `%` and `_` are literal); pagination shows 10
 responsible people per page. If the current page becomes out of range after a retry or filter
 change, the table clamps to the last valid page and refetches instead of showing a dead-end empty
 state. Retry errors clear when the delivery is reloaded. Summary counts keep responsible people
 and email intentions separate and never claim delivery or bounce. Send-status tooltips expose the
 attempt history; retries are offered only for definite failures. Staff metadata
-uses the subject as title, plain category/channel labels, publication state and a compact
+uses the subject as title, category/channel badges, publication state and a compact
 Buenos Aires date/time without seconds. No new backend delivery states are inferred.
 
 Management can select Institutional, Administrative or Other content types, then select the

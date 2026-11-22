@@ -26,6 +26,7 @@ from src.comunicaciones.schemas import (
     ConteosGestion,
     EnvioEntregaRead,
     EventoCalendario,
+    EventoPublicadoEdicionInput,
     FiltrosGestion,
     IntentoEntregaRead,
     Listado,
@@ -345,15 +346,21 @@ def editar(
     return respuesta(db, c)
 
 
-def editar_publicada(
-    db: Session, id: uuid.UUID, data: PublicadaEdicionInput, usuario: Usuario
-) -> ComunicacionRead:
+def _publicacion_para_editar(
+    db: Session, id: uuid.UUID, version: int, usuario: Usuario
+) -> Comunicacion:
     c = obtener(db, id, usuario, bloquear=True)
     if c.estado != "publicada" or c.retirada_at is not None:
         raise HTTPException(409, "Solo se pueden editar publicaciones vigentes")
-    if c.version != data.version:
+    if c.version != version:
         raise HTTPException(409, "La publicación fue modificada en otra sesión")
+    return c
 
+
+def editar_publicada(
+    db: Session, id: uuid.UUID, data: PublicadaEdicionInput, usuario: Usuario
+) -> ComunicacionRead:
+    c = _publicacion_para_editar(db, id, data.version, usuario)
     actual = _contenido_portal(c)
     nuevo = data.model_dump(exclude={"version"})
     if "cuerpo_rico" not in data.model_fields_set and actual["cuerpo"] == data.cuerpo:
@@ -363,6 +370,21 @@ def editar_publicada(
             if valor != actual[campo]:
                 auditar(db, c, usuario, campo, "anterior", "actualizado")
         c.edicion_portal = nuevo
+        c.version += 1
+    db.commit()
+    return respuesta(db, c)
+
+
+def editar_evento_publicado(
+    db: Session, id: uuid.UUID, data: EventoPublicadoEdicionInput, usuario: Usuario
+) -> ComunicacionRead:
+    c = _publicacion_para_editar(db, id, data.version, usuario)
+    if c.evento is None:
+        raise HTTPException(409, "La publicación no tiene un evento vinculado")
+    evento = data.evento.model_dump(mode="json")
+    if c.evento != evento:
+        auditar(db, c, usuario, "evento", "anterior", "actualizado")
+        c.evento = evento
         c.version += 1
     db.commit()
     return respuesta(db, c)
