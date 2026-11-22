@@ -159,6 +159,36 @@ def test_tendencia_agrega_presencia_por_dia(client_direccion, historial):
     assert puntos[0]["porcentaje_presencia"] == 100.0
 
 
+def test_tendencia_agrupa_por_semana(client_direccion, historial):
+    respuesta = client_direccion.get(
+        "/academico/asistencias/tendencia",
+        params={"ciclo_lectivo": "2026", "agrupacion": "semana"},
+    )
+
+    assert respuesta.status_code == 200
+    puntos = respuesta.json()["puntos"]
+    assert [(p["fecha"], p["fecha_fin"]) for p in puntos] == [
+        ("2026-02-23", "2026-03-01"),
+        ("2026-03-02", "2026-03-08"),
+    ]
+    assert [p["presentes"] for p in puntos] == [1, 1]
+    assert [p["ausentes"] for p in puntos] == [0, 3]
+    assert [p["porcentaje_presencia"] for p in puntos] == [100.0, 25.0]
+
+
+def test_tendencia_agrupa_por_mes(client_direccion, historial):
+    respuesta = client_direccion.get(
+        "/academico/asistencias/tendencia",
+        params={"ciclo_lectivo": "2026", "agrupacion": "mes"},
+    )
+
+    assert respuesta.status_code == 200
+    (punto,) = respuesta.json()["puntos"]
+    assert (punto["fecha"], punto["fecha_fin"]) == ("2026-03-01", "2026-03-31")
+    assert (punto["presentes"], punto["ausentes"]) == (2, 3)
+    assert punto["porcentaje_presencia"] == 40.0
+
+
 def test_ultima_fecha_con_asistencias(client_direccion, historial):
     escenario, _, _ = historial
 

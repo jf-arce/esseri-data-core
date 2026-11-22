@@ -14,6 +14,7 @@ export interface FiltrosHistorial {
   orden?: 'fecha_desc' | 'fecha_asc' | 'alumno_asc' | 'alumno_desc'
   pagina?: number
   tamanio_pagina?: number
+  agrupacion?: 'dia' | 'semana' | 'mes'
 }
 
 export interface PaginaHistorial {
@@ -33,6 +34,7 @@ export interface PaginaHistorial {
 
 export interface PuntoTendencia {
   fecha: string
+  fecha_fin: string
   presentes: number
   ausentes: number
   porcentaje_presencia: number

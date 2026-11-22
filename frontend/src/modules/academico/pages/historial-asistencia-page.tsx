@@ -6,6 +6,8 @@ import {
   CalendarIcon,
   CheckIcon,
   ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   ClipboardListIcon,
   DownloadIcon,
   RotateCcwIcon,
@@ -124,6 +126,25 @@ function fechaCorta(iso: string) {
   })
 }
 
+type Agrupacion = 'dia' | 'semana' | 'mes'
+
+const AGRUPACIONES: { valor: Agrupacion; etiqueta: string }[] = [
+  { valor: 'dia', etiqueta: 'Diario' },
+  { valor: 'semana', etiqueta: 'Semanal' },
+  { valor: 'mes', etiqueta: 'Mensual' },
+]
+
+const VENTANA_TENDENCIA: Record<Agrupacion, number> = { dia: 21, semana: 12, mes: 12 }
+
+const MES_LARGO = new Intl.DateTimeFormat('es-AR', { month: 'long', year: 'numeric' })
+
+function etiquetaPunto(punto: { fecha: string; fecha_fin: string }, agrupacion: Agrupacion) {
+  if (agrupacion === 'dia') return fechaCorta(punto.fecha)
+  if (agrupacion === 'semana')
+    return `Semana del ${fechaCorta(punto.fecha)} al ${fechaCorta(punto.fecha_fin)}`
+  return MES_LARGO.format(new Date(`${punto.fecha}T12:00:00`))
+}
+
 function filtrosIniciales(ciclo: string): FiltrosHistorial {
   return {
     ciclo_lectivo: ciclo,
@@ -172,18 +193,33 @@ export function HistorialAsistenciaPage() {
     const dia = new URLSearchParams(window.location.search).get('fecha') ?? ''
     return /^\d{4}-\d{2}-\d{2}$/.test(dia) ? { ...base, fecha_desde: dia, fecha_hasta: dia } : base
   })
-  const [diaGrafico, setDiaGrafico] = useState<string | null>(null)
+  const [agrupacion, setAgrupacion] = useState<Agrupacion>('dia')
+  const [desplazamiento, setDesplazamiento] = useState(0)
+  const [rangoGrafico, setRangoGrafico] = useState<{ desde: string; hasta: string } | null>(null)
   const filtros = seleccion.ciclo_lectivo === ciclo ? seleccion : filtrosIniciales(ciclo)
   if (seleccion.ciclo_lectivo !== ciclo) setSeleccion(filtros)
   const recurso = useConsultaHistorial(filtros)
   const filtrosTendencia = useMemo(() => {
-    const base = { ...filtros, pagina: undefined, tamanio_pagina: undefined }
+    const base = { ...filtros, agrupacion, pagina: undefined, tamanio_pagina: undefined }
     // El clic en una barra filtra la tabla; el gráfico sigue mostrando el período completo.
-    if (diaGrafico && filtros.fecha_desde === diaGrafico && filtros.fecha_hasta === diaGrafico) {
+    if (
+      rangoGrafico &&
+      filtros.fecha_desde === rangoGrafico.desde &&
+      filtros.fecha_hasta === rangoGrafico.hasta
+    ) {
       return { ...base, fecha_desde: undefined, fecha_hasta: undefined }
     }
     return base
-  }, [filtros, diaGrafico])
+  }, [filtros, agrupacion, rangoGrafico])
+
+  function cambiarAgrupacion(valor: Agrupacion) {
+    setAgrupacion(valor)
+    setDesplazamiento(0)
+    if (rangoGrafico) {
+      setRangoGrafico(null)
+      aplicar({ fecha_desde: undefined, fecha_hasta: undefined })
+    }
+  }
   const tendencia = useTendenciaHistorial(filtrosTendencia)
   const catalogo = useOpcionesHistorial(ciclo)
   const ciclosRecurso = useCiclosHistorial()
@@ -368,7 +404,7 @@ export function HistorialAsistenciaPage() {
               value={filtros.fecha_desde ?? ''}
               max={filtros.fecha_hasta}
               onChange={(event) => {
-                setDiaGrafico(null)
+                setRangoGrafico(null)
                 aplicar({ fecha_desde: event.target.value || undefined })
               }}
             />
@@ -381,7 +417,7 @@ export function HistorialAsistenciaPage() {
               value={filtros.fecha_hasta ?? ''}
               min={filtros.fecha_desde}
               onChange={(event) => {
-                setDiaGrafico(null)
+                setRangoGrafico(null)
                 aplicar({ fecha_hasta: event.target.value || undefined })
               }}
             />
@@ -484,17 +520,68 @@ export function HistorialAsistenciaPage() {
         aria-label="Tendencia de asistencia"
         className="rounded-panel bg-superficie p-4 shadow-card"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-texto">
-            Tendencia de asistencia
-            {alumnoSeleccionado ? ` · ${alumnoSeleccionado}` : ''}
-          </h2>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-texto-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-texto">
+              Tendencia de asistencia
+              {alumnoSeleccionado ? ` · ${alumnoSeleccionado}` : ''}
+            </h2>
+            <p className="text-xs text-texto-3">
               {alumnoSeleccionado
-                ? 'Porcentaje de presentes del alumno por día'
-                : 'Porcentaje de presentes por día'}
-            </span>
+                ? `Porcentaje de presentes del alumno por ${agrupacion}`
+                : `Porcentaje de presentes por ${agrupacion}`}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div
+              role="group"
+              aria-label="Agrupar la tendencia"
+              className="flex rounded-full bg-fila-hover p-1"
+            >
+              {AGRUPACIONES.map(({ valor, etiqueta }) => (
+                <button
+                  key={valor}
+                  type="button"
+                  aria-pressed={agrupacion === valor}
+                  onClick={() => cambiarAgrupacion(valor)}
+                  className={`min-h-7 rounded-full px-3 text-xs font-semibold transition-colors ${
+                    agrupacion === valor
+                      ? 'bg-superficie text-violeta shadow-sm'
+                      : 'text-texto-2 hover:text-texto'
+                  }`}
+                >
+                  {etiqueta}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon"
+                className="size-8"
+                aria-label="Período anterior"
+                disabled={
+                  desplazamiento >=
+                  Math.ceil((tendencia.datos?.puntos.length ?? 0) / VENTANA_TENDENCIA[agrupacion]) -
+                    1
+                }
+                onClick={() => setDesplazamiento((valor) => valor + 1)}
+              >
+                <ChevronLeftIcon aria-hidden="true" />
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon"
+                className="size-8"
+                aria-label="Período siguiente"
+                disabled={desplazamiento === 0}
+                onClick={() => setDesplazamiento((valor) => Math.max(0, valor - 1))}
+              >
+                <ChevronRightIcon aria-hidden="true" />
+              </Button>
+            </div>
           </div>
         </div>
         {tendencia.cargando ? (
@@ -506,34 +593,42 @@ export function HistorialAsistenciaPage() {
         ) : (
           (() => {
             const puntos = tendencia.datos?.puntos ?? []
-            const puntosRecientes = puntos.slice(-30)
+            const tamano = VENTANA_TENDENCIA[agrupacion]
+            const fin = Math.max(0, puntos.length - desplazamiento * tamano)
+            const inicio = Math.max(0, fin - tamano)
+            const visibles = puntos.slice(inicio, fin)
             return (
               <>
                 <TooltipProvider delayDuration={0}>
                   <div className="mt-4 flex h-32 items-end gap-1">
-                    {puntosRecientes.map((punto) => {
-                      const esDiaSeleccionado =
-                        filtros.fecha_desde === punto.fecha && filtros.fecha_hasta === punto.fecha
+                    {visibles.map((punto) => {
+                      const seleccionado =
+                        filtros.fecha_desde === punto.fecha &&
+                        filtros.fecha_hasta === punto.fecha_fin
                       return (
                         <Tooltip key={punto.fecha}>
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              aria-label={`Filtrar por el ${fechaCorta(punto.fecha)}`}
-                              aria-pressed={
-                                filtros.fecha_desde === punto.fecha &&
-                                filtros.fecha_hasta === punto.fecha
+                              aria-label={
+                                agrupacion === 'dia'
+                                  ? `Filtrar por el ${fechaCorta(punto.fecha)}`
+                                  : `Filtrar del ${fechaCorta(punto.fecha)} al ${fechaCorta(punto.fecha_fin)}`
                               }
+                              aria-pressed={seleccionado}
                               onClick={() => {
-                                setDiaGrafico(punto.fecha)
-                                aplicar({ fecha_desde: punto.fecha, fecha_hasta: punto.fecha })
+                                setRangoGrafico({ desde: punto.fecha, hasta: punto.fecha_fin })
+                                aplicar({
+                                  fecha_desde: punto.fecha,
+                                  fecha_hasta: punto.fecha_fin,
+                                })
                               }}
                               className="group flex h-full flex-1 items-end rounded-sm bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-violeta focus-visible:ring-offset-2 focus-visible:ring-offset-superficie"
                             >
                               <span
                                 aria-hidden="true"
                                 className={`w-full rounded-t transition-colors ${
-                                  esDiaSeleccionado
+                                  seleccionado
                                     ? 'bg-violeta'
                                     : 'bg-violeta/70 group-hover:bg-violeta'
                                 }`}
@@ -548,7 +643,7 @@ export function HistorialAsistenciaPage() {
                             sideOffset={8}
                             className="rounded-lg border border-borde bg-superficie px-3 py-2 text-xs text-texto shadow-card"
                           >
-                            <p className="font-medium">{fechaCorta(punto.fecha)}</p>
+                            <p className="font-medium">{etiquetaPunto(punto, agrupacion)}</p>
                             <p className="tabular-nums">
                               {punto.porcentaje_presencia.toLocaleString('es-AR')}% de presencia
                             </p>
@@ -562,14 +657,12 @@ export function HistorialAsistenciaPage() {
                   </div>
                 </TooltipProvider>
                 <div className="mt-2 flex justify-between text-xs text-texto-3">
-                  <span>{fechaCorta(puntosRecientes[0].fecha)}</span>
-                  <span>{fechaCorta(puntosRecientes[puntosRecientes.length - 1].fecha)}</span>
+                  <span>{visibles[0] && etiquetaPunto(visibles[0], agrupacion)}</span>
+                  <span>
+                    {visibles[visibles.length - 1] &&
+                      etiquetaPunto(visibles[visibles.length - 1], agrupacion)}
+                  </span>
                 </div>
-                {puntos.length > puntosRecientes.length && (
-                  <p className="mt-1 text-xs text-texto-3">
-                    Se muestran los últimos 30 días del período.
-                  </p>
-                )}
               </>
             )
           })()

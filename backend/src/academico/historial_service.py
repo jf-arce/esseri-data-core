@@ -2,6 +2,7 @@
 
 import math
 import uuid
+from datetime import date, timedelta
 
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
@@ -200,10 +201,22 @@ def pagina_historial(
     )
 
 
+def _tramo(fecha: date, agrupacion: str) -> tuple[date, date]:
+    """Inicio y fin del tramo al que pertenece una fecha."""
+    if agrupacion == "semana":
+        inicio = fecha - timedelta(days=fecha.weekday())
+        return inicio, inicio + timedelta(days=6)
+    if agrupacion == "mes":
+        inicio = fecha.replace(day=1)
+        siguiente = (inicio + timedelta(days=32)).replace(day=1)
+        return inicio, siguiente - timedelta(days=1)
+    return fecha, fecha
+
+
 def tendencia_historial(
     db: Session, usuario_id: uuid.UUID, rol: str, filtros: FiltrosHistorial
 ) -> TendenciaHistorial:
-    """Presencia agregada por día para el período y filtros consultados."""
+    """Presencia agregada por día, semana o mes para el período consultado."""
     filas = (
         consulta_historial(db, usuario_id, rol, filtros)
         .with_entities(
@@ -218,14 +231,21 @@ def tendencia_historial(
         .order_by(Asistencia.fecha)
         .all()
     )
+    acumulado: dict[date, list[int]] = {}
+    for fecha, total, presentes in filas:
+        inicio, _ = _tramo(fecha, filtros.agrupacion)
+        valores = acumulado.setdefault(inicio, [0, 0])
+        valores[0] += total
+        valores[1] += presentes
     puntos = [
         PuntoTendencia(
-            fecha=fecha,
+            fecha=inicio,
+            fecha_fin=_tramo(inicio, filtros.agrupacion)[1],
             presentes=presentes,
             ausentes=total - presentes,
             porcentaje_presencia=round(presentes / total * 100, 2) if total else 0,
         )
-        for fecha, total, presentes in filas
+        for inicio, (total, presentes) in sorted(acumulado.items())
     ]
     return TendenciaHistorial(puntos=puntos)
 

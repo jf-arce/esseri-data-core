@@ -175,8 +175,20 @@ it('opens the day named by a ?fecha= deep link without changing the other filter
 
 it('muestra el detalle de cada barra de la tendencia al enfocarla', async () => {
   estado.puntos = [
-    { fecha: '2026-11-17', presentes: 20, ausentes: 5, porcentaje_presencia: 80 },
-    { fecha: '2026-11-18', presentes: 18, ausentes: 7, porcentaje_presencia: 72 },
+    {
+      fecha: '2026-11-17',
+      fecha_fin: '2026-11-17',
+      presentes: 20,
+      ausentes: 5,
+      porcentaje_presencia: 80,
+    },
+    {
+      fecha: '2026-11-18',
+      fecha_fin: '2026-11-18',
+      presentes: 18,
+      ausentes: 7,
+      porcentaje_presencia: 72,
+    },
   ]
   render(<HistorialAsistenciaPage />)
 
@@ -190,8 +202,20 @@ it('muestra el detalle de cada barra de la tendencia al enfocarla', async () => 
 
 it('filtra el historial por el día de la barra y permite volver al período', async () => {
   estado.puntos = [
-    { fecha: '2026-11-17', presentes: 20, ausentes: 5, porcentaje_presencia: 80 },
-    { fecha: '2026-11-18', presentes: 18, ausentes: 7, porcentaje_presencia: 72 },
+    {
+      fecha: '2026-11-17',
+      fecha_fin: '2026-11-17',
+      presentes: 20,
+      ausentes: 5,
+      porcentaje_presencia: 80,
+    },
+    {
+      fecha: '2026-11-18',
+      fecha_fin: '2026-11-18',
+      presentes: 18,
+      ausentes: 7,
+      porcentaje_presencia: 72,
+    },
   ]
   render(<HistorialAsistenciaPage />)
 
@@ -214,8 +238,20 @@ it('filtra el historial por el día de la barra y permite volver al período', a
 
 it('mantiene todas las barras y permite elegir otro día sin limpiar el filtro', async () => {
   estado.puntos = [
-    { fecha: '2026-11-17', presentes: 20, ausentes: 5, porcentaje_presencia: 80 },
-    { fecha: '2026-11-18', presentes: 18, ausentes: 7, porcentaje_presencia: 72 },
+    {
+      fecha: '2026-11-17',
+      fecha_fin: '2026-11-17',
+      presentes: 20,
+      ausentes: 5,
+      porcentaje_presencia: 80,
+    },
+    {
+      fecha: '2026-11-18',
+      fecha_fin: '2026-11-18',
+      presentes: 18,
+      ausentes: 7,
+      porcentaje_presencia: 72,
+    },
   ]
   render(<HistorialAsistenciaPage />)
 
@@ -229,6 +265,33 @@ it('mantiene todas las barras y permite elegir otro día sin limpiar el filtro',
   expect(vi.mocked(useTendenciaHistorial).mock.lastCall?.[0]).toEqual(
     expect.objectContaining({ fecha_desde: undefined, fecha_hasta: undefined }),
   )
+})
+
+it('cambia la agrupación y navega períodos anteriores de la tendencia', async () => {
+  estado.puntos = Array.from({ length: 25 }, (_, indice) => {
+    const dia = String(indice + 1).padStart(2, '0')
+    return {
+      fecha: `2026-03-${dia}`,
+      fecha_fin: `2026-03-${dia}`,
+      presentes: 20,
+      ausentes: 5,
+      porcentaje_presencia: 80,
+    }
+  })
+  render(<HistorialAsistenciaPage />)
+
+  await userEvent.click(screen.getByRole('button', { name: 'Semanal' }))
+  expect(vi.mocked(useTendenciaHistorial).mock.lastCall?.[0]).toEqual(
+    expect.objectContaining({ agrupacion: 'semana' }),
+  )
+
+  await userEvent.click(screen.getByRole('button', { name: 'Diario' }))
+  expect(await screen.findAllByRole('button', { name: /Filtrar por el/ })).toHaveLength(21)
+
+  await userEvent.click(screen.getByRole('button', { name: 'Período anterior' }))
+  const visibles = await screen.findAllByRole('button', { name: /Filtrar por el/ })
+  expect(visibles).toHaveLength(4)
+  expect(visibles[0]).toHaveAccessibleName('Filtrar por el 1/3')
 })
 
 it('applies independent selectors, state and date filters without cascading resets', async () => {
