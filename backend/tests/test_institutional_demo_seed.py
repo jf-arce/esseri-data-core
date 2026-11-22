@@ -319,6 +319,15 @@ def test_institutional_demo_through_real_api(seed_module, db_session, client, mo
     login("admin")
     assert ok(client.get("/panel-admin/indicadores-administracion"))
     assert len(ok(client.get("/proveedores-compras/proveedores"))) == 15
+    comunicaciones = ok(client.get("/comunicaciones", params={"pagina": 1}))
+    assert {c["tipo"] for c in comunicaciones["items"]} == {
+        "institucional",
+        "administrativa",
+        "otro",
+    }
+    for comunicacion in comunicaciones["items"]:
+        entrega = client.get(f"/comunicaciones/{comunicacion['id']}/entrega")
+        assert entrega.status_code == 200, (comunicacion["asunto"], entrega.text)
     inbox = ok(client.get("/comunicaciones/conversaciones", params={"limite": 50}))
     assert len(inbox["items"]) == 24
     estados = [item["estado"] for item in inbox["items"]]

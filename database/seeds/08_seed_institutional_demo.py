@@ -655,7 +655,7 @@ def seed_history(db: Session, school: School, reference: date) -> None:
         (
             "Reunión de familias de sala",
             monday - timedelta(days=5),
-            "curso",
+            "institucional",
             "division",
             [division_id],
             "Compartimos la evolución del grupo y la planificación de fin de año.",
@@ -671,7 +671,7 @@ def seed_history(db: Session, school: School, reference: date) -> None:
         (
             "Clase abierta de expresión",
             monday + timedelta(days=9),
-            "curso",
+            "institucional",
             "division",
             [division_id],
             "Las familias pueden participar de la última parte de la clase.",
