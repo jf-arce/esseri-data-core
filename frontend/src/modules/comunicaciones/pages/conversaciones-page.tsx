@@ -13,7 +13,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { capitalizar, normalizarTexto } from '@/lib/texto'
+import { normalizarTexto } from '@/lib/texto'
+import { etiquetaMotivo } from '@/lib/motivos'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth-store'
 import {
@@ -75,8 +76,8 @@ function subtitulo(consulta: ConsultaResumen) {
   const detalle =
     contexto.concepto ??
     (contexto.fecha_fin
-      ? `${capitalizar(contexto.motivo ?? 'Justificación')} · ${diaMes(contexto.fecha_inicio)} al ${diaMes(contexto.fecha_fin)}`
-      : capitalizar(contexto.motivo ?? 'Consulta'))
+      ? `${etiquetaMotivo(contexto.motivo, 'Justificación')} · ${diaMes(contexto.fecha_inicio)} al ${diaMes(contexto.fecha_fin)}`
+      : etiquetaMotivo(contexto.motivo, 'Consulta'))
   return `${contexto.alumno_nombre} · ${detalle}`
 }
 
@@ -91,8 +92,8 @@ function FilaConsulta({ consulta, activa }: { consulta: ConsultaResumen; activa:
         className={cn(
           'flex flex-col gap-1.5 rounded-[16px] border px-4 py-3 transition-colors',
           activa
-            ? 'border-[#7A2FA8] bg-[#F7F0FC]'
-            : 'border-transparent hover:border-[#EFE9F6] hover:bg-fila-hover',
+            ? 'border-violeta bg-violeta-suave'
+            : 'border-transparent hover:border-borde hover:bg-fila-hover',
         )}
       >
         <span className="flex items-start justify-between gap-3">
@@ -100,7 +101,7 @@ function FilaConsulta({ consulta, activa }: { consulta: ConsultaResumen; activa:
             <span
               className={cn(
                 'flex size-10 shrink-0 items-center justify-center rounded-[11px]',
-                activa ? 'bg-[#E3CEF6] text-[#832ED2]' : 'bg-[#F1E4FB] text-[#7A2FA8]',
+                activa ? 'bg-violeta-suave text-violeta' : 'bg-violeta-suave text-violeta',
               )}
             >
               <Icono aria-hidden="true" className="size-5" />
@@ -213,7 +214,7 @@ function Panel({ seleccionada }: { seleccionada?: string }) {
             [
               item.contexto.alumno_nombre,
               item.contexto.concepto,
-              item.contexto.motivo,
+              etiquetaMotivo(item.contexto.motivo, ''),
               item.ultimo_mensaje?.texto,
             ]
               .filter(Boolean)
@@ -234,7 +235,7 @@ function Panel({ seleccionada }: { seleccionada?: string }) {
       <div className="grid min-h-[calc(100svh-12rem)] gap-5 xl:grid-cols-[minmax(360px,460px)_minmax(0,1fr)]">
         <div
           className={cn(
-            'min-w-0 flex-col gap-3 rounded-[18px] bg-white p-3 shadow-[0_10px_26px_rgba(24,16,40,0.06)]',
+            'min-w-0 flex-col gap-3 rounded-[18px] bg-superficie p-3 shadow-card',
             seleccionada ? 'hidden xl:flex' : 'flex',
           )}
         >
@@ -253,7 +254,7 @@ function Panel({ seleccionada }: { seleccionada?: string }) {
                 className={cn(
                   'min-h-9 shrink-0 rounded-full px-3 text-[13px] font-semibold whitespace-nowrap transition-colors',
                   pestana === valor
-                    ? 'bg-[#F1E4FB] text-[#7A2FA8]'
+                    ? 'bg-violeta-suave text-violeta'
                     : 'text-texto-2 hover:bg-fila-hover',
                 )}
               >
@@ -286,7 +287,7 @@ function Panel({ seleccionada }: { seleccionada?: string }) {
                   className={cn(
                     'min-h-9 rounded-full px-3 text-[13px] font-semibold whitespace-nowrap transition-colors',
                     tipo === opcion.valor
-                      ? 'bg-[#7A2FA8] text-white'
+                      ? 'bg-violeta text-superficie'
                       : 'text-texto-2 hover:bg-fila-hover',
                   )}
                 >
@@ -346,8 +347,8 @@ function Panel({ seleccionada }: { seleccionada?: string }) {
               onCambio={() => setRevision((valor) => valor + 1)}
             />
           ) : (
-            <div className="flex h-full min-h-64 flex-col items-center justify-center gap-2 rounded-[18px] bg-white p-8 text-center shadow-[0_10px_26px_rgba(24,16,40,0.06)]">
-              <span className="flex size-14 items-center justify-center rounded-full bg-[#F1E4FB] text-[#7A2FA8]">
+            <div className="flex h-full min-h-64 flex-col items-center justify-center gap-2 rounded-[18px] bg-superficie p-8 text-center shadow-card">
+              <span className="flex size-14 items-center justify-center rounded-full bg-violeta-suave text-violeta">
                 <InboxIcon aria-hidden="true" className="size-6" />
               </span>
               <p className="text-[16px] font-semibold text-texto">Elegí una conversación</p>

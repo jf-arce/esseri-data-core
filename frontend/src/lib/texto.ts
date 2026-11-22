@@ -18,3 +18,9 @@ export function capitalizar(valor: string): string {
   if (!texto) return texto
   return texto.charAt(0).toLocaleUpperCase('es-AR') + texto.slice(1)
 }
+
+/** Convierte un código guardado en texto legible: `motivo_familiar` → `Motivo familiar`. */
+export function etiquetaDesdeCodigo(valor: string): string {
+  const texto = valor.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim()
+  return capitalizar(texto)
+}

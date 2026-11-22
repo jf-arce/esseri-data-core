@@ -36,7 +36,7 @@ export function AccionConversacion({
     <Link
       to={`/comunicaciones/conversaciones/${consulta.id}`}
       className={cn(
-        'inline-flex min-h-8 items-center gap-1.5 rounded-full bg-[#F1E4FB] px-2.5 text-[12.5px] font-semibold whitespace-nowrap text-[#7A2FA8] transition-colors hover:bg-[#E8D8F7]',
+        'inline-flex min-h-8 items-center gap-1.5 rounded-full bg-violeta-suave px-2.5 text-[12.5px] font-semibold whitespace-nowrap text-violeta transition-colors hover:bg-violeta-suave/70',
         className,
       )}
     >

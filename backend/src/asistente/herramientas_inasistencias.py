@@ -13,6 +13,7 @@ from sqlalchemy import case, desc, func, select
 
 from src.academico.horarios_service import etiqueta_division
 from src.academico.models import Division, JustificacionInasistencia, MotivoJustificacion
+from src.academico.motivos import etiqueta_motivo
 from src.asistente.constants import (
     MAX_DIAS_PERIODO,
     TIPO_ALIAS_ALUMNO,
@@ -434,7 +435,10 @@ def _conteo_justificaciones(
         )
     if ids is not None:
         consulta = consulta.where(Inscripcion.division_id.in_(ids))
-    return {nombre: cantidad for nombre, cantidad in contexto.db.execute(consulta)}
+    return {
+        etiqueta_motivo(nombre) if agrupar_por == "motivo" else nombre: cantidad
+        for nombre, cantidad in contexto.db.execute(consulta)
+    }
 
 
 def _resumen_justificaciones(
@@ -592,7 +596,7 @@ def _justificaciones_pendientes(
             ),
             "curso": cursos[division_id],
             "fecha": fecha_ar(fecha),
-            "motivo": motivo,
+            "motivo": etiqueta_motivo(motivo),
             "dias_esperando": max((contexto.hoy - fecha_carga.date()).days, 0),
         }
         for alumno_id, division_id, fecha, motivo, fecha_carga in registros
