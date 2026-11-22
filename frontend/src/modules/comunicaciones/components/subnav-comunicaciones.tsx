@@ -52,8 +52,8 @@ export function SubnavComunicaciones({
             className={cn(
               'inline-flex min-h-11 items-center gap-2 rounded-[12px] px-5 text-[15px] font-semibold transition-colors',
               activa
-                ? 'bg-[#7A2FA8] text-white shadow-[0_8px_18px_rgba(80,20,120,0.25)]'
-                : 'bg-white/80 text-[#3A2E45] hover:bg-white',
+                ? 'bg-violeta text-superficie shadow-card'
+                : 'bg-superficie/80 text-texto hover:bg-superficie',
             )}
           >
             <Icono aria-hidden="true" className="size-4" />

@@ -186,16 +186,16 @@ function ContextoCard({ contexto, mostrarEstado }: { contexto: Contexto; mostrar
   return (
     <section
       aria-label="Datos del trámite"
-      className="flex flex-col gap-4 rounded-[20px] border border-[#F0EAF6] bg-white p-5 shadow-[0_10px_26px_rgba(24,16,40,0.08)]"
+      className="flex flex-col gap-4 rounded-[20px] border border-borde bg-superficie p-5 shadow-card"
     >
       <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
         <div className="flex min-w-0 items-center gap-3 xl:w-[19rem] xl:shrink-0">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-[13px] bg-[#E3CEF6] text-[#832ED2]">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-[13px] bg-violeta-suave text-violeta">
             <FileTextIcon aria-hidden="true" className="size-6" />
           </span>
           <div className="min-w-0">
-            <p className="text-[16px] font-semibold text-[#2B2338]">{tituloTramite}</p>
-            <p className="truncate text-[13px] text-[#6B6478]">{subtitulo}</p>
+            <p className="text-[16px] font-semibold text-texto">{tituloTramite}</p>
+            <p className="truncate text-[13px] text-texto-2">{subtitulo}</p>
           </div>
         </div>
         {datos.map((dato) => {
@@ -206,31 +206,29 @@ function ContextoCard({ contexto, mostrarEstado }: { contexto: Contexto; mostrar
               className={cn('flex min-w-0 items-start gap-3', dato.crece && 'flex-1')}
             >
               {Icono && (
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[#F5F1FB] text-[#7A2FA8]">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-violeta-suave/60 text-violeta">
                   <Icono aria-hidden="true" className="size-4.5" />
                 </span>
               )}
               <div className={cn('min-w-0', !Icono && 'lg:pl-0')}>
-                <p className="text-[12px] font-medium tracking-[.02em] text-[#6B6478]">
+                <p className="text-[12px] font-medium tracking-[.02em] text-texto-2">
                   {dato.etiqueta}
                 </p>
-                <p className="text-[14px] font-semibold text-[#2B2338]">{dato.valor}</p>
+                <p className="text-[14px] font-semibold text-texto">{dato.valor}</p>
               </div>
             </div>
           )
         })}
         {estado && mostrarEstado && (
-          <div className="xl:ml-auto xl:shrink-0 xl:border-l xl:border-[#F0EAF6] xl:pl-5">
+          <div className="xl:ml-auto xl:shrink-0 xl:border-l xl:border-borde xl:pl-5">
             <Badge variant={estado.variante}>{estado.texto}</Badge>
           </div>
         )}
       </div>
       {motivo && (
-        <div className="border-t border-[#F0EAF6] pt-3">
-          <p className="text-[12px] font-medium tracking-[.02em] text-[#6B6478]">
-            {motivo.etiqueta}
-          </p>
-          <p className="text-[14px] text-[#2B2338]">{motivo.valor}</p>
+        <div className="border-t border-borde pt-3">
+          <p className="text-[12px] font-medium tracking-[.02em] text-texto-2">{motivo.etiqueta}</p>
+          <p className="text-[14px] text-texto">{motivo.valor}</p>
         </div>
       )}
     </section>
@@ -243,7 +241,7 @@ function Avatar({ mensaje, propio }: { mensaje: Mensaje; propio: boolean }) {
       aria-hidden="true"
       className={cn(
         'flex size-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold',
-        propio ? 'bg-[#E3CEF6] text-[#832ED2]' : 'bg-[#EDEAF2] text-[#6B6478]',
+        propio ? 'bg-violeta-suave text-violeta' : 'bg-fila-hover text-texto-2',
       )}
     >
       {iniciales(mensaje.autor) || (propio ? 'F' : 'A')}
@@ -265,16 +263,16 @@ function Adjuntos({
       {mensaje.adjuntos?.map((adjunto) => (
         <li
           key={adjunto.id}
-          className="flex items-center gap-3 rounded-[12px] border border-[#E7DDF1] bg-white px-3 py-2"
+          className="flex items-center gap-3 rounded-[12px] border border-borde bg-superficie px-3 py-2"
         >
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-[#F5F1FB] text-[#7A2FA8]">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-violeta-suave/60 text-violeta">
             <FileTextIcon aria-hidden="true" className="size-4" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] font-semibold text-[#2B2338]">
+            <span className="block truncate text-[13px] font-semibold text-texto">
               {adjunto.nombre}
             </span>
-            <span className="block text-[12px] text-[#6B6478]">
+            <span className="block text-[12px] text-texto-2">
               {adjunto.tipo_contenido.includes('pdf') ? 'PDF' : 'Imagen'} ·{' '}
               {tamano(adjunto.tamanio)}
             </span>
@@ -529,7 +527,7 @@ function Detalle({
           mostrarEstado={!hilo || contexto.tipo === 'debito_cobranza'}
         />
       )}
-      <Card className="gap-0 rounded-[20px] border border-[#F0EAF6] bg-white py-0 shadow-[0_10px_26px_rgba(24,16,40,0.08)]">
+      <Card className="gap-0 rounded-[20px] border border-borde bg-superficie py-0 shadow-card">
         <CardContent className="flex flex-col gap-4 px-5 pt-5 pb-5">
           {cargando && <Skeleton className="h-24 w-full" />}
           {error && (
@@ -539,13 +537,13 @@ function Detalle({
           )}
           {!cargando && !hilo && puedeIniciar && (
             <div className="flex flex-col items-center gap-2 py-8 text-center">
-              <span className="flex size-16 items-center justify-center rounded-full bg-[#F1E4FB] text-[#7A2FA8]">
+              <span className="flex size-16 items-center justify-center rounded-full bg-violeta-suave text-violeta">
                 <MessageCircleIcon aria-hidden="true" className="size-7" />
               </span>
-              <h2 className="text-[19px] font-semibold text-[#2B2338]">
+              <h2 className="text-[19px] font-semibold text-texto">
                 Todavía no hay una conversación sobre {referencia}
               </h2>
-              <p className="max-w-md text-[15px] text-[#6B6478]">
+              <p className="max-w-md text-[15px] text-texto-2">
                 Escribí tu consulta para comunicarte con Administración.
               </p>
             </div>
@@ -579,7 +577,7 @@ function Detalle({
             </Button>
           )}
           {hilo && historial.items.length === 0 && !cargando && (
-            <p className="py-6 text-center text-sm text-[#6B6478]">
+            <p className="py-6 text-center text-sm text-texto-2">
               La conversación todavía no tiene mensajes.
             </p>
           )}
@@ -593,7 +591,7 @@ function Detalle({
                 const caja = evento.currentTarget
                 alFinal.current = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 48
               }}
-              className="max-h-[min(60vh,36rem)] overflow-y-auto overscroll-contain pr-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8]"
+              className="max-h-[min(60vh,36rem)] overflow-y-auto overscroll-contain pr-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
             >
               <ol className="flex flex-col">
                 {historial.items.map((mensaje, indice) => {
@@ -609,7 +607,7 @@ function Detalle({
                           className="mt-4 flex justify-center first:mt-0"
                           aria-label={`Mensajes del ${fechaLarga(mensaje.created_at)}`}
                         >
-                          <span className="rounded-full bg-[#F1EEF6] px-3 py-1 text-[12px] font-medium text-[#6B6478]">
+                          <span className="rounded-full bg-fila-hover px-3 py-1 text-[12px] font-medium text-texto-2">
                             {fechaLarga(mensaje.created_at)}
                           </span>
                         </li>
@@ -633,10 +631,8 @@ function Detalle({
                           )}
                         >
                           {!agrupado && (
-                            <p className="mb-1 text-[12px] text-[#6B6478]">
-                              <strong className="font-semibold text-[#2B2338]">
-                                {mensaje.autor}
-                              </strong>
+                            <p className="mb-1 text-[12px] text-texto-2">
+                              <strong className="font-semibold text-texto">{mensaje.autor}</strong>
                               {' · '}
                               <time dateTime={mensaje.created_at}>
                                 {fechaHora(mensaje.created_at)}
@@ -645,8 +641,8 @@ function Detalle({
                           )}
                           <div
                             className={cn(
-                              'w-full rounded-[14px] px-3.5 py-3 text-[14px] text-[#2B2338]',
-                              esPropio ? 'bg-[#F1E4FB]' : 'bg-[#F6F4F9]',
+                              'w-full rounded-[14px] px-3.5 py-3 text-[14px] text-texto',
+                              esPropio ? 'bg-violeta-suave' : 'bg-fila-hover',
                             )}
                           >
                             <p className="break-words whitespace-pre-wrap">{mensaje.texto}</p>
@@ -670,7 +666,7 @@ function Detalle({
           )}
         </CardContent>
         {puedeEnviar && (
-          <CardFooter className="border-t border-[#F0EAF6] px-5 py-4">
+          <CardFooter className="border-t border-borde px-5 py-4">
             <form onSubmit={enviar} className="flex w-full flex-col gap-3">
               <label htmlFor="mensaje-contextual" className="sr-only">
                 Mensaje
@@ -681,7 +677,7 @@ function Detalle({
                 maxLength={5000}
                 disabled={ocupado}
                 placeholder={familia ? 'Escribí tu mensaje...' : 'Escribí una respuesta...'}
-                className="min-h-20 rounded-[12px] border-[#E7DDF1] bg-white text-[14px]"
+                className="min-h-20 rounded-[12px] border-borde bg-superficie text-[14px]"
                 onChange={(evento) => {
                   clave.current = null
                   setTexto(evento.target.value)
@@ -692,13 +688,13 @@ function Detalle({
                   {archivos.map((archivo) => (
                     <li
                       key={`${archivo.name}-${archivo.lastModified}`}
-                      className="flex items-center gap-2 rounded-full bg-[#F5F1FB] py-1 pr-1 pl-3 text-[12px] text-[#2B2338]"
+                      className="flex items-center gap-2 rounded-full bg-violeta-suave/60 py-1 pr-1 pl-3 text-[12px] text-texto"
                     >
                       <span className="max-w-52 truncate">{archivo.name}</span>
                       <button
                         type="button"
                         aria-label={`Quitar ${archivo.name}`}
-                        className="flex size-6 items-center justify-center rounded-full text-[#6B6478] hover:bg-white"
+                        className="flex size-6 items-center justify-center rounded-full text-texto-2 hover:bg-superficie"
                         onClick={() => {
                           clave.current = null
                           setArchivos((actual) => actual.filter((item) => item !== archivo))
@@ -749,7 +745,7 @@ function Detalle({
                         <PaperclipIcon aria-hidden="true" className="size-4" />
                         Adjuntar archivo
                       </Button>
-                      <span className="text-[12px] text-[#6B6478]">{CANAL_ADJUNTOS}</span>
+                      <span className="text-[12px] text-texto-2">{CANAL_ADJUNTOS}</span>
                     </>
                   )}
                 </div>
