@@ -481,7 +481,7 @@ export function JustificacionesPage() {
         </Button>
         {hayFiltros && (
           <Button variant="ghost" size="sm" onClick={limpiarFiltros}>
-            Limpiar filtros
+            Limpiar todo
           </Button>
         )}
       </FilterBar>

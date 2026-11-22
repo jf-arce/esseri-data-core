@@ -1102,7 +1102,7 @@ export function ComunicacionesPage({
         )}
       </FilterBar>
       {!docente && (buscar || tipoActivo || destinoActivo || fechaActiva || verRetiradas) && (
-        <FilterChips onClearAll={limpiarFiltros} clearLabel="Limpiar filtros">
+        <FilterChips onClearAll={limpiarFiltros}>
           {buscar && (
             <FilterChip
               onRemove={() => {
