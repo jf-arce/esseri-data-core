@@ -24,6 +24,7 @@ class FiltrosHistorial(BaseModel):
     pagina: int = Field(default=1, ge=1)
     tamanio_pagina: int = Field(default=20, ge=1, le=100)
     formato: Literal["csv", "xlsx", "pdf"] = "csv"
+    agrupacion: Literal["dia", "semana", "mes"] = "dia"
 
     @model_validator(mode="after")
     def validar_periodo(self) -> Self:
@@ -68,9 +69,10 @@ class OpcionHistorial(BaseModel):
 
 
 class PuntoTendencia(BaseModel):
-    """Un día del período consultado, con su presencia agregada."""
+    """Un tramo del período consultado (día, semana o mes), con su presencia agregada."""
 
     fecha: date
+    fecha_fin: date
     presentes: int
     ausentes: int
     porcentaje_presencia: float
