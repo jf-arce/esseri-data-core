@@ -8,6 +8,7 @@ import {
   ChevronRightIcon,
   HomeIcon,
 } from 'lucide-react'
+import { ApiError } from '@/api/client'
 import { PORTAL_FAMILIA_BACKGROUND } from '@/components/portal-familia/portal-familia-shell'
 import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
 import { PortalSkeletonRegion } from '@/components/portal-familia/portal-familia-ui'
@@ -66,7 +67,9 @@ export function ComunicacionDetallePage({
       return nuevos
     })
   }
-  const [datos, setDatos] = useState<Comunicacion | null>(null)
+  const [datosCargados, setDatos] = useState<Comunicacion | null>(null)
+  const datos = datosCargados?.id === id ? datosCargados : null
+  const [retiradaId, setRetiradaId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [errorLectura, setErrorLectura] = useState(false)
   const [revision, setRevision] = useState(0)
@@ -78,6 +81,7 @@ export function ComunicacionDetallePage({
         .then(async (data) => {
           if (controller.signal.aborted) return
           setDatos(data)
+          setRetiradaId(null)
           setError('')
           // Una comunicación solo email no se publica en la bandeja del portal: abrir el enlace
           // no equivale a una lectura en el portal.
@@ -97,9 +101,14 @@ export function ComunicacionDetallePage({
             }
           }
         })
-        .catch(() => {
-          if (!controller.signal.aborted)
-            setError('No se pudo abrir la comunicación o no tenés acceso.')
+        .catch((causa: unknown) => {
+          if (controller.signal.aborted) return
+          if (familia && causa instanceof ApiError && causa.status === 410) {
+            setDatos(null)
+            setRetiradaId(id)
+            return
+          }
+          setError('No se pudo abrir la comunicación o no tenés acceso.')
         })
     return () => controller.abort()
   }, [id, familia, docente, revision])
@@ -139,6 +148,25 @@ export function ComunicacionDetallePage({
     : docente
       ? '/docente/comunicaciones'
       : '/comunicaciones'
+
+  if (familia && retiradaId !== null && retiradaId === id) {
+    return (
+      <section className="mx-auto flex w-full max-w-2xl flex-col items-start gap-4 rounded-panel bg-superficie p-6 shadow-card">
+        <h1 className="text-xl font-semibold text-texto">Comunicación retirada</h1>
+        <p className="text-sm text-texto-2">
+          Esta comunicación fue retirada por la institución y ya no se encuentra disponible para su
+          consulta.
+        </p>
+        <p className="text-sm text-texto-2">
+          Por favor, desestimá la información recibida anteriormente.
+        </p>
+        <Button asChild>
+          <Link to={base}>Volver a Comunicaciones</Link>
+        </Button>
+      </section>
+    )
+  }
+
   const navegacionActual = navegacion?.id === id ? navegacion : null
   const canal = datos?.canal ?? 'portal'
   const actualizarAdjunto = (adjunto: Adjunto) =>
@@ -480,7 +508,7 @@ export function ComunicacionDetallePage({
                     Mensaje
                   </TabsTrigger>
                   <TabsTrigger value="entrega" ref={entregaTab} className="min-h-11">
-                    Entrega ({datos.destinatarios})
+                    Seguimiento ({datos.destinatarios})
                   </TabsTrigger>
                 </TabsList>
                 <TabsContent value="mensaje" className="space-y-6 pt-4">

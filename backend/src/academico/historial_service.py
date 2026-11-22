@@ -185,8 +185,10 @@ def pagina_historial(
             updated_at=asistencia.updated_at,
             alumno=f"{persona.apellido}, {persona.nombre}",
             division=division.nombre,
+            anio=anio.numero,
+            nivel=nivel.nombre,
         )
-        for inscripcion, persona, _, division, _, _, asistencia in filas
+        for inscripcion, persona, _, division, anio, nivel, asistencia in filas
     ]
     return PaginaHistorial(
         items=items,

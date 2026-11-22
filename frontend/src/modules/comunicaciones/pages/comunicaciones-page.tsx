@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link } from 'react-router'
+import { format, parseISO } from 'date-fns'
+import { es } from 'date-fns/locale/es'
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -7,14 +9,26 @@ import {
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  EllipsisIcon,
+  PencilIcon,
   MessageSquareTextIcon,
   FilterIcon,
   MegaphoneIcon,
   PlusIcon,
   SearchIcon,
+  Trash2Icon,
   UsersIcon,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { ConfirmarEliminacion } from '@/components/confirmar-eliminacion'
+import { DatePicker } from '@/components/date-picker'
+import { FilterBar } from '@/components/filter-bar'
+import {
+  FilterChip,
+  FilterChips,
+  FilterDropdown,
+  FilterTrigger,
+} from '@/components/filter-dropdown'
 import { PageHeader } from '@/components/page-header'
 import { PaginadorServidor } from '@/components/paginador-servidor'
 import {
@@ -24,7 +38,15 @@ import {
 import { PortalFamiliaWatermark } from '@/components/portal-familia/portal-familia-watermark'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -41,14 +63,54 @@ import {
 import { formatearDiaDeInstante } from '@/lib/fechas'
 import { paginasVisibles } from '@/lib/paginacion'
 import { cn } from '@/lib/utils'
+import {
+  PERMISO_COMUNICACIONES_ACTUALIZAR,
+  PERMISO_COMUNICACIONES_CREAR,
+  tienePermiso,
+} from '@/modules/auth/constants'
+import { permisosActivos, useAuthStore } from '@/store/auth-store'
+import { FiltroDestinatarios } from '../components/filtro-destinatarios'
 import { SubnavComunicaciones } from '../components/subnav-comunicaciones'
+import { eliminarBorrador } from '../services/editar-comunicacion'
 import { listarComunicaciones } from '../services/listar-comunicaciones'
+import type { FiltrosListadoGestion } from '../services/listar-comunicaciones'
+import { retirarComunicacion } from '../services/retirar-comunicacion'
+import { leerRespaldos, olvidarRespaldo } from '../services/respaldo-borrador'
 import type { Comunicacion, Listado } from '../types'
-import { ETIQUETAS_CANAL, ETIQUETAS_TIPO } from '../utils'
+import { DESTINO_INICIAL, ETIQUETAS_CANAL, ETIQUETAS_TIPO } from '../utils'
 
 type FiltroEstado = 'todas' | 'publicada' | 'borrador'
 type OrdenFecha = 'recientes' | 'antiguas'
 type TipoVisual = 'institucional' | 'curso' | 'otro'
+
+const EditarPublicacionDialog = lazy(() =>
+  import('../components/editar-publicacion-dialog').then((modulo) => ({
+    default: modulo.EditarPublicacionDialog,
+  })),
+)
+
+const FILTROS_INICIALES: FiltrosListadoGestion = {
+  tipo: '',
+  ...DESTINO_INICIAL,
+  fecha_desde: '',
+  fecha_hasta: '',
+  retirada: '',
+}
+const OPCIONES_PUBLICACION = [
+  { value: 'vigentes', label: 'Vigentes' },
+  { value: 'true', label: 'Retiradas' },
+]
+const OPCIONES_TIPO = [
+  { value: 'todos', label: 'Todos' },
+  ...Object.entries(ETIQUETAS_TIPO).map(([value, label]) => ({ value, label })),
+]
+
+function fechaGestion(valor: string): string {
+  const instante = /(?:Z|[+-]\d{2}:\d{2})$/i.test(valor) ? valor : `${valor}Z`
+  const fecha = new Date(instante)
+  if (Number.isNaN(fecha.getTime())) return '—'
+  return `${formatearDiaDeInstante(instante)} ${FECHA_HORA.format(fecha)}`
+}
 
 const ESTILOS_TIPO: Record<TipoVisual, { pill: string; tile: string; Icon: LucideIcon }> = {
   institucional: {
@@ -757,6 +819,16 @@ export function ComunicacionesPage({
   const [noLeidas, setNoLeidas] = useState(false)
   const [orden, setOrden] = useState<OrdenFecha>('recientes')
   const [filtro, setFiltro] = useState<FiltroEstado>('todas')
+  const [filtrosGestion, setFiltrosGestion] = useState(FILTROS_INICIALES)
+  const [destinoActivo, setDestinoActivo] = useState('')
+  const [ultimos30, setUltimos30] = useState(false)
+  const [paraRetirar, setParaRetirar] = useState<Comunicacion | null>(null)
+  const [paraEliminar, setParaEliminar] = useState<Comunicacion | null>(null)
+  const [publicacionParaEditar, setPublicacionParaEditar] = useState<string | null>(null)
+  const permisos = useAuthStore(permisosActivos)
+  const usuarioId = useAuthStore((estado) => estado.usuario?.id)
+  const puedeGestionar = !docente && tienePermiso(permisos, PERMISO_COMUNICACIONES_ACTUALIZAR)
+  const puedeAbrirEditorBorrador = tienePermiso(permisos, PERMISO_COMUNICACIONES_CREAR)
   const [error, setError] = useState(false)
   const [revision, setRevision] = useState(0)
   const [conteos, setConteos] = useState<Conteos>({ todas: null, noLeidas: null })
@@ -774,6 +846,7 @@ export function ComunicacionesPage({
       estado,
       familia ? 5 : undefined,
       orden,
+      familia || docente ? undefined : filtrosGestion,
     )
       .then((data) => {
         if (!controller.signal.aborted) {
@@ -785,7 +858,7 @@ export function ComunicacionesPage({
         if (!controller.signal.aborted) setError(true)
       })
     return () => controller.abort()
-  }, [familia, docente, pagina, buscar, noLeidas, filtro, orden, revision])
+  }, [familia, docente, pagina, buscar, noLeidas, filtro, orden, revision, filtrosGestion])
 
   useEffect(() => {
     if (!familia) return
@@ -840,6 +913,49 @@ export function ComunicacionesPage({
     )
   }
 
+  function cambiarFiltro(clave: keyof FiltrosListadoGestion, valor: string) {
+    if (clave === 'fecha_desde' || clave === 'fecha_hasta') setUltimos30(false)
+    setFiltrosGestion((prev) => ({ ...prev, [clave]: valor }))
+    setPagina(1)
+  }
+
+  function limpiarFiltros() {
+    setFiltrosGestion(FILTROS_INICIALES)
+    setDestinoActivo('')
+    setUltimos30(false)
+    setBuscar('')
+    setPagina(1)
+  }
+
+  function cambiarDestino(destino: typeof DESTINO_INICIAL, etiqueta: string) {
+    setFiltrosGestion((actual) => ({ ...actual, ...destino }))
+    setDestinoActivo(etiqueta)
+    setPagina(1)
+  }
+
+  const conteosGestion = !docente ? datos?.conteos : undefined
+  const tipoActivo = OPCIONES_TIPO.find(({ value }) => value === filtrosGestion.tipo)?.label
+  const { fecha_desde: desde, fecha_hasta: hasta } = filtrosGestion
+  const fechaActiva = desde || hasta
+  const verRetiradas = filtrosGestion.retirada === 'true'
+
+  async function confirmarEliminar(borrador: Comunicacion) {
+    await eliminarBorrador(borrador.id, borrador.version)
+    if (usuarioId) {
+      try {
+        for (const copia of leerRespaldos(usuarioId, false)) {
+          if (copia.id === borrador.id || copia.datos.clave === borrador.clave) {
+            olvidarRespaldo(usuarioId, false, copia.localId)
+          }
+        }
+      } catch {
+        // The server removal is authoritative even if local storage is unavailable.
+      }
+    }
+    setPagina(1)
+    setRevision((actual) => actual + 1)
+  }
+
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-5">
       <PageHeader
@@ -867,17 +983,24 @@ export function ComunicacionesPage({
         }}
       >
         <TabsList>
-          <TabsTrigger value="todas">Todas</TabsTrigger>
-          <TabsTrigger value="publicada">Publicadas</TabsTrigger>
-          <TabsTrigger value="borrador">Borradores</TabsTrigger>
+          <TabsTrigger value="todas">
+            Todas{conteosGestion && ` (${conteosGestion.todas})`}
+          </TabsTrigger>
+          <TabsTrigger value="publicada">
+            Publicadas{conteosGestion && ` (${conteosGestion.publicadas})`}
+          </TabsTrigger>
+          <TabsTrigger value="borrador">
+            Borradores{conteosGestion && ` (${conteosGestion.borradores})`}
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="relative min-w-0 flex-1">
+      <FilterBar>
+        <div className={cn('relative flex-1', docente ? 'min-w-0' : 'min-w-[min(260px,100%)]')}>
           <SearchIcon aria-hidden className="absolute top-2.5 left-3 size-4 text-texto-3" />
           <Input
             aria-label="Buscar comunicaciones"
+            placeholder={docente ? undefined : 'Buscar por asunto o autor...'}
             className="pl-9"
             value={buscar}
             onChange={(e) => {
@@ -886,7 +1009,139 @@ export function ComunicacionesPage({
             }}
           />
         </div>
-      </div>
+        {!docente && (
+          <>
+            <FilterDropdown
+              label={`Tipo: ${tipoActivo ?? 'Todos'}`}
+              options={OPCIONES_TIPO}
+              value={filtrosGestion.tipo || 'todos'}
+              active={Boolean(tipoActivo)}
+              onChange={(valor) => cambiarFiltro('tipo', valor === 'todos' ? '' : valor)}
+            />
+            <FiltroDestinatarios
+              value={{
+                destinatarios: filtrosGestion.destinatarios,
+                nivel_id: filtrosGestion.nivel_id,
+                division_id: filtrosGestion.division_id,
+              }}
+              etiqueta={destinoActivo}
+              onChange={cambiarDestino}
+            />
+            <Popover>
+              <PopoverTrigger asChild>
+                <FilterTrigger
+                  label={
+                    ultimos30
+                      ? 'Fecha: Últimos 30 días'
+                      : fechaActiva
+                        ? 'Fecha: Rango'
+                        : 'Fecha: Todas'
+                  }
+                  icon={CalendarDaysIcon}
+                  active={Boolean(fechaActiva)}
+                />
+              </PopoverTrigger>
+              <PopoverContent align="start" className="grid gap-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    const ahora = Date.now()
+                    setFiltrosGestion((prev) => ({
+                      ...prev,
+                      fecha_desde: FECHA_DIA.format(ahora - 29 * 86_400_000),
+                      fecha_hasta: FECHA_DIA.format(ahora),
+                    }))
+                    setUltimos30(true)
+                    setPagina(1)
+                  }}
+                >
+                  Últimos 30 días
+                </Button>
+                <div className="grid gap-1 text-sm">
+                  <Label htmlFor="filtro-comunicaciones-desde">Desde</Label>
+                  <DatePicker
+                    id="filtro-comunicaciones-desde"
+                    placeholder="DD/MM/AAAA"
+                    value={desde ? parseISO(desde) : undefined}
+                    disabledDays={hasta ? { after: parseISO(hasta) } : undefined}
+                    locale={es}
+                    onChange={(fecha) => {
+                      const dia = fecha ? format(fecha, 'yyyy-MM-dd') : ''
+                      if (!hasta || dia <= hasta) cambiarFiltro('fecha_desde', dia)
+                    }}
+                  />
+                </div>
+                <div className="grid gap-1 text-sm">
+                  <Label htmlFor="filtro-comunicaciones-hasta">Hasta</Label>
+                  <DatePicker
+                    id="filtro-comunicaciones-hasta"
+                    placeholder="DD/MM/AAAA"
+                    value={hasta ? parseISO(hasta) : undefined}
+                    disabledDays={desde ? { before: parseISO(desde) } : undefined}
+                    locale={es}
+                    onChange={(fecha) => {
+                      const dia = fecha ? format(fecha, 'yyyy-MM-dd') : ''
+                      if (!dia || dia >= desde) cambiarFiltro('fecha_hasta', dia)
+                    }}
+                  />
+                </div>
+              </PopoverContent>
+            </Popover>
+            <FilterDropdown
+              label={`Publicaciones: ${verRetiradas ? 'Retiradas' : 'Vigentes'}`}
+              options={OPCIONES_PUBLICACION}
+              value={verRetiradas ? 'true' : 'vigentes'}
+              active={verRetiradas}
+              onChange={(valor) => {
+                cambiarFiltro('retirada', valor === 'true' ? valor : '')
+                if (valor === 'true' && filtro === 'borrador') setFiltro('todas')
+              }}
+            />
+          </>
+        )}
+      </FilterBar>
+      {!docente && (buscar || tipoActivo || destinoActivo || fechaActiva || verRetiradas) && (
+        <FilterChips onClearAll={limpiarFiltros}>
+          {buscar && (
+            <FilterChip
+              onRemove={() => {
+                setBuscar('')
+                setPagina(1)
+              }}
+            >
+              Búsqueda: {buscar}
+            </FilterChip>
+          )}
+          {tipoActivo && (
+            <FilterChip onRemove={() => cambiarFiltro('tipo', '')}>Tipo: {tipoActivo}</FilterChip>
+          )}
+          {destinoActivo && (
+            <FilterChip onRemove={() => cambiarDestino(DESTINO_INICIAL, '')}>
+              Destinatarios: {destinoActivo}
+            </FilterChip>
+          )}
+          {fechaActiva && (
+            <FilterChip
+              onRemove={() => {
+                setFiltrosGestion((prev) => ({ ...prev, fecha_desde: '', fecha_hasta: '' }))
+                setUltimos30(false)
+                setPagina(1)
+              }}
+            >
+              Fecha:{' '}
+              {ultimos30
+                ? 'Últimos 30 días'
+                : `${desde ? format(parseISO(desde), 'dd/MM/yyyy') : 'Sin inicio'} – ${hasta ? format(parseISO(hasta), 'dd/MM/yyyy') : 'Sin fin'}`}
+            </FilterChip>
+          )}
+          {verRetiradas && (
+            <FilterChip onRemove={() => cambiarFiltro('retirada', '')}>
+              Publicaciones: Retiradas
+            </FilterChip>
+          )}
+        </FilterChips>
+      )}
 
       {error ? (
         <Alert variant="error">
@@ -909,11 +1164,18 @@ export function ComunicacionesPage({
             <TableRow>
               <TableHead>Asunto</TableHead>
               <TableHead>Tipo</TableHead>
-              <TableHead className="hidden @5xl/main:table-cell">Canal</TableHead>
+              {docente && <TableHead className="hidden @5xl/main:table-cell">Canal</TableHead>}
               <TableHead>Destinatarios</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Fecha</TableHead>
-              <TableHead className="hidden @5xl/main:table-cell">Autor</TableHead>
+              <TableHead className={docente ? 'hidden @5xl/main:table-cell' : undefined}>
+                Autor
+              </TableHead>
+              {puedeGestionar && (
+                <TableHead>
+                  <span className="sr-only">Acciones</span>
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody className="font-medium [&_td]:py-3">
@@ -929,33 +1191,100 @@ export function ComunicacionesPage({
                   </Link>
                 </TableCell>
                 <TableCell>{ETIQUETAS_TIPO[c.tipo]}</TableCell>
-                <TableCell className="hidden @5xl/main:table-cell">
-                  <span className="text-texto-2">{ETIQUETAS_CANAL[c.canal ?? 'portal']}</span>
-                </TableCell>
+                {docente && (
+                  <TableCell className="hidden @5xl/main:table-cell">
+                    <span className="text-texto-2">{ETIQUETAS_CANAL[c.canal ?? 'portal']}</span>
+                  </TableCell>
+                )}
                 <TableCell>
-                  <span className="block max-w-56 truncate">
-                    {c.estado === 'borrador'
-                      ? 'Por confirmar'
-                      : `${etiquetaAudiencia(c)} · ${c.destinatarios}`}
+                  <span className="block max-w-56 truncate" title={c.destino ?? undefined}>
+                    {!docente
+                      ? `${c.destino ?? etiquetaAudiencia(c)} (${c.destinatarios ?? 0})`
+                      : c.estado === 'borrador'
+                        ? 'Por confirmar'
+                        : `${etiquetaAudiencia(c)} · ${c.destinatarios}`}
                   </span>
                 </TableCell>
                 <TableCell>
                   <span
-                    className={`inline-flex items-center gap-2 ${c.estado === 'publicada' ? 'text-exito' : 'text-texto-2'}`}
+                    className={`inline-flex items-center gap-2 ${c.estado === 'publicada' && !c.retirada_at ? 'text-exito' : 'text-texto-2'}`}
                   >
                     <span
                       aria-hidden="true"
                       className="size-1.5 shrink-0 rounded-full bg-current"
                     />
-                    {c.estado === 'publicada' ? 'Publicada' : 'Borrador'}
+                    {c.retirada_at
+                      ? 'Retirada'
+                      : c.estado === 'publicada'
+                        ? 'Publicada'
+                        : 'Borrador'}
                   </span>
                 </TableCell>
-                <TableCell className="tabular-nums">
-                  {formatearDiaDeInstante(c.publicada_at ?? c.created_at)}
+                <TableCell className="tabular-nums whitespace-nowrap">
+                  {docente
+                    ? formatearDiaDeInstante(c.publicada_at ?? c.created_at)
+                    : fechaGestion(
+                        c.estado === 'publicada' ? (c.publicada_at ?? c.created_at) : c.created_at,
+                      )}
                 </TableCell>
-                <TableCell className="hidden text-texto-2 @5xl/main:table-cell">
+                <TableCell className={cn('text-texto-2', docente && 'hidden @5xl/main:table-cell')}>
                   {c.autor_nombre ?? c.emisor ?? '—'}
                 </TableCell>
+                {puedeGestionar && (
+                  <TableCell className="w-12 text-right">
+                    {!c.retirada_at && (c.estado === 'publicada' || c.tipo !== 'curso') && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Acciones de ${c.asunto.trim() || 'Sin asunto'}`}
+                          >
+                            <EllipsisIcon aria-hidden="true" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {c.estado === 'borrador' ? (
+                            <>
+                              {puedeAbrirEditorBorrador && (
+                                <>
+                                  <DropdownMenuItem asChild>
+                                    <Link to={`${base}/${c.id}/editar`}>
+                                      <PencilIcon aria-hidden="true" />
+                                      Editar
+                                    </Link>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                </>
+                              )}
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onSelect={() => setParaEliminar(c)}
+                              >
+                                <Trash2Icon aria-hidden="true" />
+                                Eliminar
+                              </DropdownMenuItem>
+                            </>
+                          ) : (
+                            <>
+                              <DropdownMenuItem onSelect={() => setPublicacionParaEditar(c.id)}>
+                                <PencilIcon aria-hidden="true" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onSelect={() => setParaRetirar(c)}
+                              >
+                                Retirar publicación
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
@@ -971,6 +1300,48 @@ export function ComunicacionesPage({
           onCambiarPagina={setPagina}
           etiqueta="comunicaciones"
         />
+      )}
+      {paraRetirar && (
+        <ConfirmarEliminacion
+          open
+          onOpenChange={(abierto) => {
+            if (!abierto) setParaRetirar(null)
+          }}
+          titulo={`¿Retirar «${paraRetirar.asunto}»?`}
+          descripcion="La comunicación dejará de estar disponible para las familias. Los correos enviados anteriormente no pueden eliminarse. Se enviará un aviso de retiro a quienes recibieron el correo original."
+          textoConfirmar="Retirar publicación"
+          destructivo
+          onConfirmar={async () => {
+            await retirarComunicacion(paraRetirar.id)
+            setPagina(1)
+            setRevision((actual) => actual + 1)
+          }}
+        />
+      )}
+      {paraEliminar && (
+        <ConfirmarEliminacion
+          open
+          onOpenChange={(abierto) => {
+            if (!abierto) setParaEliminar(null)
+          }}
+          titulo={`¿Eliminar «${paraEliminar.asunto.trim() || 'Sin asunto'}»?`}
+          descripcion="El borrador dejará de aparecer en Comunicaciones. No se enviará ningún aviso."
+          textoConfirmar="Eliminar borrador"
+          destructivo
+          onConfirmar={() => confirmarEliminar(paraEliminar)}
+        />
+      )}
+      {publicacionParaEditar && (
+        <Suspense fallback={null}>
+          <EditarPublicacionDialog
+            id={publicacionParaEditar}
+            onCerrar={() => setPublicacionParaEditar(null)}
+            onGuardado={() => {
+              setPublicacionParaEditar(null)
+              setRevision((actual) => actual + 1)
+            }}
+          />
+        </Suspense>
       )}
     </section>
   )

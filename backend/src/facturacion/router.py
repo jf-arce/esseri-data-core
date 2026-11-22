@@ -103,6 +103,20 @@ def _denegar_consulta_administrativa_familia(familia_activa: Familia | None) -> 
         )
 
 
+def _familia_responsable_efectiva(
+    familia_activa: Familia | None, familia_responsable_id: uuid.UUID | None
+) -> uuid.UUID | None:
+    """Familia que limita las facturas: la propia del rol familia, o la pedida por staff."""
+    if familia_activa is None:
+        return familia_responsable_id
+    if familia_responsable_id is not None and familia_responsable_id != familia_activa.id:
+        raise HTTPException(
+            status_code=403,
+            detail="No podés consultar las facturas de otra familia",
+        )
+    return familia_activa.id
+
+
 @router.get("/familia/me", response_model=FacturacionFamiliaRead)
 def obtener_facturacion_de_mi_familia(
     db: DbSession,
@@ -282,10 +296,12 @@ def listar_historial_responsables_economicos(
 def obtener_cuenta_corriente(
     db: DbSession,
     _: PuedeLeer,
+    familia_activa: FamiliaActiva,
     alumno: AlumnoActual,
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanio: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> CuentaCorrienteRead:
+    _denegar_consulta_administrativa_familia(familia_activa)
     cuenta, total_debe, total_haber, saldo = cuenta_corriente_service.obtener_resumen_cuenta(
         db, alumno.id
     )
@@ -353,12 +369,14 @@ def listar_facturas(
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanio: Annotated[int, Query(ge=1, le=100)] = 20,
     alumno_id: uuid.UUID | None = None,
+    familia_responsable_id: uuid.UUID | None = None,
     concepto_cobro_id: uuid.UUID | None = None,
     estado: FacturaEstado | None = None,
     debito: Literal["rechazado", "cobrado"] | None = None,
     buscar: Annotated[str | None, Query(max_length=100)] = None,
     emision_desde: date | None = None,
     emision_hasta: date | None = None,
+    ciclo_lectivo: Annotated[str | None, Query(min_length=4, max_length=4)] = None,
     ordenar_por: Literal["fecha_vencimiento", "monto_total"] = "fecha_vencimiento",
     direccion: Literal["asc", "desc"] = "asc",
 ) -> FacturaListadoRead:
@@ -367,13 +385,16 @@ def listar_facturas(
         pagina=pagina,
         tamanio=tamanio,
         alumno_id=alumno_id,
-        familia_id=familia_activa.id if familia_activa is not None else None,
+        familia_responsable_id=_familia_responsable_efectiva(
+            familia_activa, familia_responsable_id
+        ),
         concepto_cobro_id=concepto_cobro_id,
         estado=estado,
         debito=debito,
         buscar=buscar,
         emision_desde=emision_desde,
         emision_hasta=emision_hasta,
+        ciclo_lectivo=ciclo_lectivo,
         ordenar_por=ordenar_por,
         direccion=direccion,
     )
@@ -382,6 +403,23 @@ def listar_facturas(
         total=total,
         pagina=pagina,
         tamanio=tamanio,
+    )
+
+
+@router.get("/facturas/ciclos")
+def listar_ciclos_facturas(
+    db: DbSession,
+    _: PuedeLeer,
+    familia_activa: FamiliaActiva,
+    alumno_id: uuid.UUID | None = None,
+    familia_responsable_id: uuid.UUID | None = None,
+) -> list[str]:
+    return facturas_service.listar_ciclos_facturacion(
+        db,
+        alumno_id=alumno_id,
+        familia_responsable_id=_familia_responsable_efectiva(
+            familia_activa, familia_responsable_id
+        ),
     )
 
 

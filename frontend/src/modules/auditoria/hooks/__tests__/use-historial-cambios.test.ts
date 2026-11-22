@@ -17,6 +17,7 @@ const entrada: HistorialEntrada = {
   fecha: '2027-01-01T10:00:00',
   usuario_id: 'usuario-1',
   usuario_email: 'admin@esseri.edu.ar',
+  usuario_nombre: null,
 }
 
 beforeEach(() => {

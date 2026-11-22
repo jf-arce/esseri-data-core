@@ -9,7 +9,7 @@ from datetime import date, datetime
 
 from src.auditoria.service import listar_auditoria, listar_opciones_auditoria
 from src.auth.models import Usuario
-from src.models import AuditLog
+from src.models import AuditLog, Persona
 
 
 def _crear_usuario(db_session, email="registrador@esseri.edu.ar"):
@@ -172,12 +172,29 @@ def test_opciones_deduplica_entidades_y_lista_usuarios(db_session):
 
     opciones = listar_opciones_auditoria(db_session)
 
-    assert opciones["entidades"] == ["alumno", "familia"]
+    assert opciones["entidades"] == sorted(set(opciones["entidades"]))
+    assert {"alumno", "familia", "usuario", "proveedor"} <= set(opciones["entidades"])
     assert opciones["campos"] == ["estado", "tipo"]
     assert opciones["origenes"] == ["edicion_manual"]
     assert [item["email"] for item in opciones["usuarios"]] == [
         "admin@esseri.edu.ar",
         "direccion@esseri.edu.ar",
+    ]
+
+
+def test_opciones_incluye_el_nombre_del_usuario(db_session):
+    persona = Persona(nombre="Ana", apellido="Pérez", dni="30111222")
+    db_session.add(persona)
+    db_session.flush()
+    usuario = _crear_usuario(db_session, email="ana@esseri.edu.ar")
+    usuario.persona_id = persona.id
+    _crear_log(db_session, usuario_id=usuario.id)
+    db_session.commit()
+
+    opciones = listar_opciones_auditoria(db_session)
+
+    assert opciones["usuarios"] == [
+        {"id": usuario.id, "email": "ana@esseri.edu.ar", "nombre": "Ana Pérez"}
     ]
 
 
@@ -205,7 +222,9 @@ def test_endpoint_opciones(client_autenticado, db_session):
     respuesta = client_autenticado.get("/auditoria/opciones")
 
     assert respuesta.status_code == 200
-    assert respuesta.json()["entidades"] == ["alumno"]
+    assert "alumno" in respuesta.json()["entidades"]
+    # El catálogo suma las entidades auditables aunque todavía no tengan registros.
+    assert "usuario" in respuesta.json()["entidades"]
     assert respuesta.json()["campos"] == ["estado"]
 
 

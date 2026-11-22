@@ -29,6 +29,7 @@ from src.facturacion.models import (
     ResponsableEconomico,
 )
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate, FacturaUpdate
+from src.inscripciones.models import Inscripcion
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
 
@@ -181,6 +182,17 @@ def test_listar_facturas_filtra_por_mes_de_emision(db_session):
     assert total == 2
     assert total_marzo == 1
     assert marzo[0].monto_total == Decimal("100.00")
+
+
+def test_listar_facturas_filtra_por_ciclo_lectivo(db_session, escenario_dos_familias):
+    inscripcion_b = db_session.get(Inscripcion, escenario_dos_familias["inscripcion_b"])
+    inscripcion_b.ciclo_lectivo = "2028"
+    db_session.commit()
+
+    facturas, total = listar_facturas(db_session, pagina=1, tamanio=10, ciclo_lectivo="2028")
+
+    assert [str(factura.id) for factura in facturas] == [str(escenario_dos_familias["factura_b"])]
+    assert total == 1
 
 
 def test_listar_facturas_filtra_por_concepto_sin_duplicar_y_expone_alumno(db_session):

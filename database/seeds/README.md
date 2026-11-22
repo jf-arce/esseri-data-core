@@ -1,5 +1,9 @@
 # `database/seeds/`
 
+For the isolated 2025–2027 dataset and final debit demo, see
+[Institutional demo](institutional-demo.md). Do not combine seed `08` with
+the independent demos in `04`–`07`.
+
 Scripts o archivos de carga inicial: catálogos que el sistema necesita para funcionar (niveles educativos, roles, métodos de pago, etc.), según lo documentado en `docs/diccionario-de-datos-esseri.md` (sección "Tablas Catálogo — Datos a Precargar").
 
 El diccionario clasifica los catálogos en 3 grupos según qué tan segura es la carga:
@@ -11,6 +15,12 @@ El diccionario clasifica los catálogos en 3 grupos según qué tan segura es la
 | **C** — dato real de ESSERI | `NIVEL_EDUCATIVO` (3 valores) **cargado** vía `02_seed_grupo_c.py`. El resto (`ANIO`/`DIVISION`/`MATERIA`, `PRODUCTO_SERVICIO`) **sigue bloqueado**. | **Corrección sobre el diccionario**: dice que "el equipo ya recibió la tabla maestra", pero `docs/aclaraciones-cliente-esseri.md` (pregunta 19) lo dice en futuro ("vamos a entregar/preparar") — todavía no llegó. Solo los 3 niveles (Inicial/Primario/Secundario) están confirmados con nombre concreto (pregunta 6); años, divisiones, materias, docentes y catálogo de productos siguen sin entregar — no inventarlos. |
 
 ## Cómo correr los scripts ya disponibles
+
+`02_seed_grupo_c.py` reconcilia los niveles por nombre normalizado: la migración
+`e0483c8d9e9c` inserta `Inicial`/`Primario`/`Secundario` en una base vacía y el seed los
+renombra a `Nivel Inicial`/`Nivel Primario`/`Nivel Secundario` sin duplicar. Una fila con
+años o solicitudes nunca se renombra ni se borra; el seed la conserva y no crea un
+equivalente.
 
 Requiere Postgres corriendo (`infra/docker-compose.yml`, servicio `postgres`) y `backend/.env` configurado.
 
@@ -155,7 +165,7 @@ cuenta ya tiene el rol `familia` y la contraseña demo, porque el alta la convie
 no toca su cuenta; antes del alta el portal la muestra vacía. Si ya se finalizó, volver a correr el
 seed crea otra con el aspirante siguiente.
 
-**Loop de inasistencias (#218).** Además crea 4 plantillas y 4 reglas sobre los eventos de asistencia, todas hacia los responsables habilitados de la familia: `Inasistencia: avisar a la familia` y `Tardanza: avisar a la familia` (`notificar` sobre `inasistencia.registrada`, según `tipo_asistencia`), `Inasistencia justificada: avisar a la familia` (`notificar` sobre `inasistencia.justificada`) e `Inasistencia sin justificar: recordatorio` (`generar_recordatorio` a los 2 días, solo si la inasistencia sigue sin justificar). El aviso de justificación es neutral porque el evento no dice si se aprobó o se rechazó. Los emails salen por n8n (`N8N_WEBHOOK_URL`): sin configurar, las ejecuciones quedan `fallido`.
+**Loop de inasistencias (#218).** Además crea 4 plantillas y 4 reglas sobre los eventos de asistencia, todas hacia los responsables habilitados de la familia: `Inasistencia: avisar a la familia` y `Tardanza: avisar a la familia` (`notificar` sobre `inasistencia.registrada`, según `tipo_asistencia`), `Inasistencia justificada: avisar a la familia` (`notificar` sobre `inasistencia.justificada`) e `Inasistencia sin justificar: recordatorio` (`generar_recordatorio` a los 2 días, solo si la inasistencia sigue sin justificar). El aviso de justificación incluye el resultado: el evento envía `{{estado}}` (`aprobada` o `rechazada`). Los emails salen por n8n (`N8N_WEBHOOK_URL`): sin configurar, las ejecuciones quedan `fallido`.
 
 ### Regenerar la demo
 

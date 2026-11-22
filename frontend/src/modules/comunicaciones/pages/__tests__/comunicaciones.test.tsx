@@ -2,12 +2,15 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, expect, it, vi } from 'vitest'
-import { apiClient } from '@/api/client'
+import { ApiError, apiClient } from '@/api/client'
 import { ComunicacionFormPage } from '../comunicacion-form-page'
 import { ComunicacionDetallePage } from '../comunicacion-detalle-page'
 import { ComunicacionesPage } from '../comunicaciones-page'
 
-vi.mock('@/api/client')
+vi.mock('@/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/client')>()),
+  apiClient: vi.fn(),
+}))
 const api = vi.mocked(apiClient)
 const comunicacion = {
   id: 'c1',
@@ -70,6 +73,30 @@ function renderDetalleFamilia(id = 'c1') {
     </MemoryRouter>,
   )
 }
+
+it('keeps an old family link on the withdrawal screen without rendering or marking the message', async () => {
+  api.mockImplementation(async (path) => {
+    if (path === '/comunicaciones/familia/c1') throw new ApiError(410, 'Comunicación retirada')
+    return { items: [], total: 0, pagina: 1, total_paginas: 1 }
+  })
+  renderDetalleFamilia()
+
+  expect(await screen.findByRole('heading', { name: 'Comunicación retirada' })).toBeVisible()
+  expect(
+    screen.getByText(
+      'Esta comunicación fue retirada por la institución y ya no se encuentra disponible para su consulta.',
+    ),
+  ).toBeVisible()
+  expect(
+    screen.getByText('Por favor, desestimá la información recibida anteriormente.'),
+  ).toBeVisible()
+  expect(screen.getByRole('link', { name: 'Volver a Comunicaciones' })).toHaveAttribute(
+    'href',
+    '/familia/comunicaciones',
+  )
+  expect(screen.queryByText(/secreto|Reunión/)).not.toBeInTheDocument()
+  expect(api.mock.calls.some(([path]) => path.endsWith('/lectura'))).toBe(false)
+})
 
 beforeEach(() => {
   vi.resetAllMocks()
@@ -908,7 +935,7 @@ it('shows email attempts and marks uncertain outcomes without claiming delivery'
       </Routes>
     </MemoryRouter>,
   )
-  await userEvent.click(await screen.findByRole('tab', { name: /Entrega/ }))
+  await userEvent.click(await screen.findByRole('tab', { name: /Seguimiento/ }))
   expect(await screen.findByText('responsable@ejemplo.com')).toBeInTheDocument()
   expect(screen.getByText('Resultado incierto')).toBeInTheDocument()
   expect(screen.getByText(/no se confirma que el mensaje haya sido entregado/)).toBeInTheDocument()
@@ -946,7 +973,7 @@ it('keeps staff message separate from delivery and uses compact Buenos Aires met
   await userEvent.click(screen.getByRole('button', { name: 'Ver entrega' }))
   expect(await screen.findByText('No hay destinatarios para mostrar.')).toBeInTheDocument()
   expect(screen.getByText('Destinatarios')).toBeInTheDocument()
-  expect(screen.getByRole('tab', { name: 'Entrega (2)' })).toHaveFocus()
+  expect(screen.getByRole('tab', { name: 'Seguimiento (2)' })).toHaveFocus()
   expect(screen.queryByText('<script>secreto</script>')).not.toBeInTheDocument()
   await userEvent.click(screen.getByRole('tab', { name: 'Mensaje' }))
   expect(await screen.findByText('<script>secreto</script>')).toBeInTheDocument()
@@ -985,10 +1012,13 @@ it('supports delivery deep links and portal-only communications without email re
       </Routes>
     </MemoryRouter>,
   )
-  expect(await screen.findByRole('region', { name: 'Entrega' })).toBeInTheDocument()
-  expect(screen.queryByRole('heading', { name: 'Entrega' })).not.toBeInTheDocument()
+  expect(await screen.findByRole('region', { name: 'Seguimiento' })).toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: 'Seguimiento' })).not.toBeInTheDocument()
   expect(screen.queryByText(/Seguimiento por destinatario/)).not.toBeInTheDocument()
-  expect(screen.getByRole('tab', { name: 'Entrega (2)' })).toHaveAttribute('aria-selected', 'true')
+  expect(screen.getByRole('tab', { name: 'Seguimiento (2)' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
   // The section mounts before its delivery data; await the rows instead of racing them.
   expect(await screen.findByText('Familia Prueba')).toBeInTheDocument()
   expect(await screen.findByRole('cell', { name: 'No leído' })).toBeInTheDocument()

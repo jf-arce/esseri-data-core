@@ -1,6 +1,7 @@
 """Lógica de generación y administración de facturas por alumno."""
 
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from io import BytesIO
@@ -37,7 +38,7 @@ from src.facturacion.models import (
     ResponsableEconomico,
 )
 from src.facturacion.schemas import DetalleFacturaCreate, FacturaCreate, FacturaUpdate
-from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
+from src.familias_alumnos.models import Alumno, Familia
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
 from src.workflows.eventos_service import emit_event
@@ -401,23 +402,47 @@ def generar_pdf_factura(factura: Factura, alumno: Alumno) -> bytes:
     return buffer.getvalue()
 
 
+def _filtros_alcance(
+    *,
+    alumno_id: uuid.UUID | None = None,
+    familia_responsable_id: uuid.UUID | None = None,
+) -> list:
+    """Filtros de alcance compartidos por el listado y los ciclos disponibles."""
+    filtros = []
+    if alumno_id is not None:
+        filtros.append(Inscripcion.alumno_id == alumno_id)
+    if familia_responsable_id is not None:
+        filtros.append(
+            Factura.responsable_economico_id.in_(
+                select(ResponsableEconomico.id).where(
+                    ResponsableEconomico.familia_id == familia_responsable_id
+                )
+            )
+        )
+    return filtros
+
+
 def listar_facturas(
     db: Session,
     *,
     pagina: int,
     tamanio: int,
     alumno_id: uuid.UUID | None = None,
-    familia_id: uuid.UUID | None = None,
+    familia_responsable_id: uuid.UUID | None = None,
     concepto_cobro_id: uuid.UUID | None = None,
     estado: str | None = None,
     debito: str | None = None,
     buscar: str | None = None,
     emision_desde: date | None = None,
     emision_hasta: date | None = None,
+    ciclo_lectivo: str | None = None,
     ordenar_por: str = "fecha_vencimiento",
     direccion: str = "asc",
 ) -> tuple[list[Factura], int]:
-    filtros = []
+    filtros = _filtros_alcance(
+        alumno_id=alumno_id,
+        familia_responsable_id=familia_responsable_id,
+    )
     consulta = (
         select(Factura, Alumno.id.label("alumno_id"), Persona.nombre, Persona.apellido)
         .join(Inscripcion, Factura.inscripcion_id == Inscripcion.id)
@@ -429,14 +454,6 @@ def listar_facturas(
         .select_from(Factura)
         .join(Inscripcion, Factura.inscripcion_id == Inscripcion.id)
     )
-    if alumno_id is not None:
-        filtros.append(Inscripcion.alumno_id == alumno_id)
-    if familia_id is not None:
-        filtros.append(
-            Inscripcion.alumno_id.in_(
-                select(FamiliaAlumno.alumno_id).where(FamiliaAlumno.familia_id == familia_id)
-            )
-        )
     if concepto_cobro_id is not None:
         filtros.append(Factura.detalles.any(DetalleFactura.concepto_cobro_id == concepto_cobro_id))
     if estado is not None:
@@ -461,6 +478,8 @@ def listar_facturas(
         filtros.append(Factura.fecha_emision >= emision_desde)
     if emision_hasta is not None:
         filtros.append(Factura.fecha_emision <= emision_hasta)
+    if ciclo_lectivo is not None:
+        filtros.append(Inscripcion.ciclo_lectivo == ciclo_lectivo)
     if filtros:
         consulta = consulta.where(*filtros)
         consulta_total = consulta_total.where(*filtros)
@@ -484,6 +503,28 @@ def listar_facturas(
         factura.alumno_apellido = alumno_apellido
         facturas.append(factura)
     return facturas, total
+
+
+def listar_ciclos_facturacion(
+    db: Session,
+    *,
+    alumno_id: uuid.UUID | None = None,
+    familia_responsable_id: uuid.UUID | None = None,
+) -> list[str]:
+    """Ciclos lectivos con facturas dentro del alcance pedido, del más nuevo al más viejo."""
+    filtros = _filtros_alcance(
+        alumno_id=alumno_id,
+        familia_responsable_id=familia_responsable_id,
+    )
+    consulta = (
+        select(Inscripcion.ciclo_lectivo)
+        .join(Factura, Factura.inscripcion_id == Inscripcion.id)
+        .distinct()
+        .order_by(Inscripcion.ciclo_lectivo.desc())
+    )
+    if filtros:
+        consulta = consulta.where(*filtros)
+    return list(db.scalars(consulta).all())
 
 
 def actualizar_factura(
@@ -555,3 +596,53 @@ def eliminar_factura(db: Session, factura: Factura, usuario_id: uuid.UUID | None
         usuario_id=usuario_id,
     )
     db.commit()
+
+
+@dataclass(frozen=True)
+class PagoAprobado:
+    fecha: date
+    monto: Decimal
+    metodo: str
+    por_debito: bool
+    conceptos: tuple[str, ...]
+
+
+def listar_pagos_aprobados(db: Session, *, desde: date, hasta: date) -> list[PagoAprobado]:
+    """Pagos aprobados con fecha en el rango, con su método y si entraron por un débito.
+
+    Solo lectura: no expone comprobantes ni referencias, solo lo necesario para agregar.
+    """
+    filas = db.execute(
+        select(
+            Pago.id,
+            Pago.factura_id,
+            Pago.fecha,
+            Pago.monto,
+            MetodoPago.nombre,
+            select(DebitoCobranza.id).where(DebitoCobranza.pago_id == Pago.id).exists(),
+        )
+        .join(MetodoPago, MetodoPago.id == Pago.metodo_pago_id)
+        .where(Pago.estado == "aprobado", Pago.fecha >= desde, Pago.fecha <= hasta)
+        .order_by(Pago.fecha, Pago.id)
+    ).all()
+    conceptos: dict[uuid.UUID, list[str]] = {}
+    if filas:
+        for factura_id, nombre in db.execute(
+            select(DetalleFactura.factura_id, ConceptoCobro.nombre)
+            .join(ConceptoCobro, ConceptoCobro.id == DetalleFactura.concepto_cobro_id)
+            .where(DetalleFactura.factura_id.in_({fila[1] for fila in filas}))
+            .order_by(ConceptoCobro.nombre)
+        ):
+            conceptos.setdefault(factura_id, [])
+            if nombre not in conceptos[factura_id]:
+                conceptos[factura_id].append(nombre)
+    return [
+        PagoAprobado(
+            fecha=fecha,
+            monto=Decimal(monto),
+            metodo=metodo,
+            por_debito=bool(por_debito),
+            conceptos=tuple(conceptos.get(factura_id, ())),
+        )
+        for _, factura_id, fecha, monto, metodo, por_debito in filas
+    ]

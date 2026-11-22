@@ -13,7 +13,6 @@ from src.facturacion.exceptions import FacturaNoEncontrada
 from src.facturacion.models import ConceptoCobro, Factura, Pago
 from src.facturacion.service import obtener_concepto_cobro
 from src.familias_alumnos.dependencies import FamiliaActiva
-from src.familias_alumnos.service import familia_tiene_alumno
 
 DbSession = Annotated[Session, Depends(get_db)]
 
@@ -30,13 +29,13 @@ def obtener_factura_o_404(
     familia_activa: FamiliaActiva,
     db: DbSession,
 ) -> Factura:
-    """Factura por ID, con 403 si el rol familia no está vinculado a su alumno."""
+    """Factura por ID, con 403 si el rol familia no es su responsable económica."""
     factura = facturas_service.obtener_factura(db, factura_id)
     if factura is None:
         raise FacturaNoEncontrada()
     if familia_activa is not None:
-        alumno = facturas_service.obtener_alumno_factura(db, factura)
-        if alumno is None or not familia_tiene_alumno(db, familia_activa.id, alumno.id):
+        responsable = facturas_service.obtener_responsable_factura(db, factura)
+        if responsable is None or responsable.id != familia_activa.id:
             raise PermisoDenegado("No tenés acceso a esta factura")
     return factura
 
@@ -53,10 +52,10 @@ def obtener_pago_accesible_o_404(
     familia_activa: FamiliaActiva,
     db: DbSession,
 ) -> Pago:
-    """Pago por ID, con 403 si el rol familia no está vinculado al alumno de la factura."""
+    """Pago por ID, con 403 si el rol familia no es responsable económica de su factura."""
     if familia_activa is not None:
         factura = facturas_service.obtener_factura(db, pago.factura_id)
-        alumno = facturas_service.obtener_alumno_factura(db, factura) if factura else None
-        if alumno is None or not familia_tiene_alumno(db, familia_activa.id, alumno.id):
+        responsable = facturas_service.obtener_responsable_factura(db, factura) if factura else None
+        if responsable is None or responsable.id != familia_activa.id:
             raise PermisoDenegado("No tenés acceso a este comprobante")
     return pago

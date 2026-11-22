@@ -154,6 +154,10 @@ OPCIONES_POR_CAMPO: dict[tuple[str, str], tuple[tuple[str, str], ...]] = {
         ("ausente_pendiente", "Ausente"),
         ("tardanza", "Tardanza"),
     ),
+    ("inasistencia.justificada", "estado"): (
+        ("aprobada", "Aprobada"),
+        ("rechazada", "Rechazada"),
+    ),
     ("inscripcion.cambio_matricula", "tipo_cambio"): (
         ("division", "Cambio de división"),
         ("nivel", "Cambio de nivel"),

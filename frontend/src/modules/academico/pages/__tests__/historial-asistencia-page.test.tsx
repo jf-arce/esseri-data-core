@@ -6,7 +6,17 @@ import { HistorialAsistenciaPage } from '../historial-asistencia-page'
 import { useConsultaHistorial } from '../../hooks/use-consulta-historial'
 import { exportarHistorial, type FiltrosHistorial } from '../../services/consultar-historial'
 
-const estado = vi.hoisted(() => ({ vacio: false, exportar: true, error: null as string | null }))
+const estado = vi.hoisted(() => ({
+  vacio: false,
+  exportar: true,
+  error: null as string | null,
+  puntos: [] as {
+    fecha: string
+    presentes: number
+    ausentes: number
+    porcentaje_presencia: number
+  }[],
+}))
 vi.mock('../../hooks/use-consulta-historial', () => ({
   useCiclosHistorial: () => ({ datos: ['2026', '2025'], error: null, recargar: vi.fn() }),
   useConsultaHistorial: vi.fn((filtros: FiltrosHistorial) => ({
@@ -21,7 +31,9 @@ vi.mock('../../hooks/use-consulta-historial', () => ({
                   fecha: '2026-10-28',
                   tipo: 'presente',
                   alumno: 'Cabral, Tiziano',
-                  division: '4°B',
+                  division: 'B',
+                  anio: 4,
+                  nivel: 'Primario',
                 },
               ],
           total: estado.vacio ? 0 : 21,
@@ -69,7 +81,7 @@ vi.mock('../../hooks/use-consulta-historial', () => ({
     recargar: vi.fn(),
   }),
   useTendenciaHistorial: () => ({
-    datos: { puntos: [] },
+    datos: { puntos: estado.puntos },
     cargando: false,
     error: null,
     sinPermiso: false,
@@ -89,6 +101,7 @@ beforeEach(() => {
   estado.vacio = false
   estado.exportar = true
   estado.error = null
+  estado.puntos = []
   useCicloLectivoStore.setState({ cicloLectivo: '2026' })
 })
 const originales = new Map<string, PropertyDescriptor | undefined>()
@@ -113,31 +126,66 @@ afterAll(() => {
     else Reflect.deleteProperty(HTMLElement.prototype, nombre)
   }
 })
-afterEach(() => vi.useRealTimers())
+afterEach(() => {
+  vi.useRealTimers()
+  window.history.replaceState({}, '', '/')
+})
 
 async function elegir(nombre: string, opcion: string) {
   await userEvent.click(screen.getByRole('combobox', { name: nombre }))
   await userEvent.click(screen.getByRole('option', { name: opcion }))
 }
 
-it('opens today in the global cycle and shows full-result indicators and result counts', () => {
-  vi.useFakeTimers()
-  vi.setSystemTime(new Date(2026, 9, 28, 23, 30))
+it('opens the global cycle without a date filter and shows full-result indicators and result counts', () => {
   render(<HistorialAsistenciaPage />)
   expect(useConsultaHistorial).toHaveBeenLastCalledWith(
     expect.objectContaining({
       ciclo_lectivo: '2026',
-      fecha_desde: '2026-10-28',
-      fecha_hasta: '2026-10-28',
       orden: 'fecha_desc',
     }),
   )
+  const filtrosIniciales = vi.mocked(useConsultaHistorial).mock.lastCall?.[0]
+  expect(filtrosIniciales?.fecha_desde).toBeUndefined()
+  expect(filtrosIniciales?.fecha_hasta).toBeUndefined()
   const indicadores = screen.getByRole('region', { name: 'Indicadores de asistencia' })
   expect(within(indicadores).getByText('Total de registros')).toBeInTheDocument()
   expect(within(indicadores).getByText('21')).toBeInTheDocument()
   expect(within(indicadores).getByText('57,14%')).toBeInTheDocument()
   expect(screen.getByText('1-20 de 21 registros')).toBeInTheDocument()
-  expect(screen.getByRole('columnheader', { name: 'División' })).toBeInTheDocument()
+  expect(screen.getByRole('columnheader', { name: 'Nivel' })).toBeInTheDocument()
+  expect(screen.getByRole('columnheader', { name: 'Curso' })).toBeInTheDocument()
+  expect(screen.queryByRole('columnheader', { name: 'División' })).not.toBeInTheDocument()
+  // El curso concatena el año con la división: "4" + "B" → "4°B".
+  expect(screen.getByText('Primario')).toBeInTheDocument()
+  expect(screen.getByText('4°B')).toBeInTheDocument()
+})
+
+it('opens the day named by a ?fecha= deep link without changing the other filters', () => {
+  window.history.replaceState({}, '', '/academico/historial-asistencia?fecha=2026-05-04')
+  render(<HistorialAsistenciaPage />)
+  expect(useConsultaHistorial).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      ciclo_lectivo: '2026',
+      fecha_desde: '2026-05-04',
+      fecha_hasta: '2026-05-04',
+      orden: 'fecha_desc',
+    }),
+  )
+})
+
+it('muestra el detalle de cada barra de la tendencia al enfocarla', async () => {
+  estado.puntos = [
+    { fecha: '2026-11-17', presentes: 20, ausentes: 5, porcentaje_presencia: 80 },
+    { fecha: '2026-11-18', presentes: 18, ausentes: 7, porcentaje_presencia: 72 },
+  ]
+  render(<HistorialAsistenciaPage />)
+
+  const barras = await screen.findAllByRole('button', { name: /Ver tendencia del/ })
+  expect(barras).toHaveLength(2)
+  await userEvent.hover(barras[0])
+
+  expect(await screen.findByText('80% de presencia')).toBeInTheDocument()
+  expect(screen.getByText('20 presentes · 5 ausentes')).toBeInTheDocument()
 })
 
 it('applies independent selectors, state and date filters without cascading resets', async () => {
@@ -171,7 +219,7 @@ it('applies independent selectors, state and date filters without cascading rese
       pagina: 1,
     }),
   )
-  await userEvent.click(screen.getByRole('button', { name: 'Limpiar filtros' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Limpiar todo' }))
   expect(useConsultaHistorial).toHaveBeenLastCalledWith(
     expect.objectContaining({
       ciclo_lectivo: '2026',

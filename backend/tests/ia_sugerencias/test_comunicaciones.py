@@ -40,6 +40,7 @@ def clave(monkeypatch):
     monkeypatch.setattr(settings, "OPENAI_API_KEY", "clave-de-prueba")
     monkeypatch.setattr(settings, "OPENAI_BASE_URL", "http://ia.test/v1/")
     monkeypatch.setattr(settings, "OPENAI_MODEL", "modelo-de-prueba")
+    monkeypatch.setattr(llm_client.time, "sleep", lambda _segundos: None)
 
 
 @pytest.fixture()

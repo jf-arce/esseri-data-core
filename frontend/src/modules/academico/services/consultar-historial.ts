@@ -17,7 +17,7 @@ export interface FiltrosHistorial {
 }
 
 export interface PaginaHistorial {
-  items: (Asistencia & { alumno: string; division: string })[]
+  items: (Asistencia & { alumno: string; division: string; anio: number; nivel: string })[]
   total: number
   pagina: number
   tamanio_pagina: number

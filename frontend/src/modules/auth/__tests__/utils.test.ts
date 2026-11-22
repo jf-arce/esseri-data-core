@@ -159,6 +159,15 @@ describe('filtrarYOrdenarRoles', () => {
     expect(resultado.map((r) => r.id)).toEqual(['r2'])
   })
 
+  it('encuentra perfiles y descripciones aunque la búsqueda no tenga tilde', () => {
+    expect(
+      filtrarYOrdenarRoles(roles, { busqueda: 'administracion', orden: 'nombre-asc' }),
+    ).toEqual([roles[1]])
+    expect(
+      filtrarYOrdenarRoles(roles, { busqueda: 'operacion diaria', orden: 'nombre-asc' }),
+    ).toEqual([roles[1]])
+  })
+
   it('ordena por nombre ascendente y descendente', () => {
     // Administración < Dirección < Docente
     const asc = filtrarYOrdenarRoles(roles, { busqueda: '', orden: 'nombre-asc' })

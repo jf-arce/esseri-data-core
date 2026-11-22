@@ -6,8 +6,18 @@ import type { FacturasListado, FiltrosFacturas } from '@/modules/facturacion/typ
 const LISTADO_VACIO: FacturasListado = { items: [], total: 0, pagina: 1, tamanio: 10 }
 
 export function useFacturas(filtros: FiltrosFacturas) {
-  const { pagina, tamanio, estado, debito, alumnoId, conceptoCobroId, ordenarPor, direccion } =
-    filtros
+  const {
+    pagina,
+    tamanio,
+    estado,
+    debito,
+    alumnoId,
+    familiaResponsableId,
+    cicloLectivo,
+    conceptoCobroId,
+    ordenarPor,
+    direccion,
+  } = filtros
   const [revision, setRevision] = useState(0)
   const [resultado, setResultado] = useState<{
     clave: string | null
@@ -21,6 +31,8 @@ export function useFacturas(filtros: FiltrosFacturas) {
     estado,
     debito,
     alumnoId,
+    familiaResponsableId,
+    cicloLectivo,
     conceptoCobroId,
     ordenarPor,
     direccion,
@@ -31,7 +43,18 @@ export function useFacturas(filtros: FiltrosFacturas) {
   useEffect(() => {
     const controller = new AbortController()
     listarFacturas(
-      { pagina, tamanio, estado, debito, alumnoId, conceptoCobroId, ordenarPor, direccion },
+      {
+        pagina,
+        tamanio,
+        estado,
+        debito,
+        alumnoId,
+        familiaResponsableId,
+        cicloLectivo,
+        conceptoCobroId,
+        ordenarPor,
+        direccion,
+      },
       controller.signal,
     )
       .then((datos) => setResultado({ clave, datos, error: null, sinPermiso: false }))
@@ -51,7 +74,19 @@ export function useFacturas(filtros: FiltrosFacturas) {
       })
 
     return () => controller.abort()
-  }, [alumnoId, clave, conceptoCobroId, debito, direccion, ordenarPor, pagina, tamanio, estado])
+  }, [
+    alumnoId,
+    clave,
+    cicloLectivo,
+    conceptoCobroId,
+    debito,
+    direccion,
+    familiaResponsableId,
+    ordenarPor,
+    pagina,
+    tamanio,
+    estado,
+  ])
 
   const vigente = resultado.clave === clave
   return {

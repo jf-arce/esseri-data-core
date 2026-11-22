@@ -2,7 +2,6 @@
 familia, artículo). El texto que devuelve es idéntico al que arma el módulo que emite el evento:
 la condición compara con `==`, así que tiene que coincidir carácter por carácter."""
 
-import unicodedata
 import uuid
 from collections.abc import Callable
 from itertools import islice
@@ -14,6 +13,7 @@ from sqlalchemy.orm import Session
 from src.familias_alumnos.models import Alumno, Familia
 from src.models import Persona
 from src.proveedores_compras.models import ProductoServicio
+from src.search import normalizar_texto_busqueda
 from src.workflows.constants import BUSQUEDA_POR_CAMPO, FuenteBusqueda
 from src.workflows.models import CampoEvento, TipoEvento
 from src.workflows.schemas import OpcionCampoRead
@@ -40,19 +40,15 @@ def _consulta(fuente: FuenteBusqueda) -> tuple[sa.ColumnElement[str], sa.Select[
     return ProductoServicio.nombre, select(ProductoServicio.nombre).where(ProductoServicio.activo)
 
 
-def _simplificar(texto: str) -> str:
-    """Minúsculas y sin tildes, para que "gom" encuentre "Gómez"."""
-    base = unicodedata.normalize("NFD", texto.casefold())
-    return "".join(c for c in base if not unicodedata.combining(c))
-
-
 def buscar(db: Session, fuente: FuenteBusqueda, q: str) -> list[OpcionCampoRead]:
     # Se filtra en Python para ignorar tildes igual en SQLite y en Postgres; los padrones de
     # alumnos y familias de un colegio son chicos.
     texto, consulta = _consulta(fuente)
-    termino = _simplificar(q.strip())
+    termino = normalizar_texto_busqueda(q.strip())
     valores = (
-        v for v in db.scalars(consulta.distinct().order_by(texto)) if termino in _simplificar(v)
+        v
+        for v in db.scalars(consulta.distinct().order_by(texto))
+        if termino in normalizar_texto_busqueda(v)
     )
     return [OpcionCampoRead(valor=v, etiqueta=v) for v in islice(valores, LIMITE_BUSQUEDA)]
 

@@ -16,8 +16,10 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from src.auditoria.constants import ENTIDADES_AUDITABLES
 from src.auth.models import Usuario
-from src.models import AuditLog
+from src.models import AuditLog, Persona
+from src.search import contiene_texto_busqueda
 
 # El filtro de fechas del listado llega como día local (es el que ve el administrador en pantalla,
 # ya convertido a hora argentina). AUDIT_LOG guarda UTC sin zona, así que cada extremo se convierte
@@ -76,12 +78,19 @@ def log_audit(
 def listar_historial_entidad(db: Session, entidad: str, entidad_id: uuid.UUID) -> list[dict]:
     """Cambios de campo de una entidad, del más antiguo al más reciente."""
     filas = db.execute(
-        select(AuditLog, Usuario.email)
+        select(
+            AuditLog,
+            Usuario.email,
+            Usuario.nombre_google,
+            Persona.nombre,
+            Persona.apellido,
+        )
         .outerjoin(Usuario, Usuario.id == AuditLog.usuario_id)
+        .outerjoin(Persona, Persona.id == Usuario.persona_id)
         .where(AuditLog.entidad == entidad, AuditLog.entidad_id == entidad_id)
         .order_by(AuditLog.fecha)
     ).all()
-    return [_fila_auditoria(registro, email) for registro, email in filas]
+    return [_fila_auditoria(*fila) for fila in filas]
 
 
 def listar_auditoria(
@@ -134,15 +143,22 @@ def listar_auditoria(
     else:
         ordenamiento = (AuditLog.fecha.desc(), AuditLog.id.desc())
     filas = db.execute(
-        select(AuditLog, Usuario.email)
+        select(
+            AuditLog,
+            Usuario.email,
+            Usuario.nombre_google,
+            Persona.nombre,
+            Persona.apellido,
+        )
         .outerjoin(Usuario, Usuario.id == AuditLog.usuario_id)
+        .outerjoin(Persona, Persona.id == Usuario.persona_id)
         .where(*filtros)
         .order_by(*ordenamiento)
         .offset((pagina - 1) * tamanio_pagina)
         .limit(tamanio_pagina)
     ).all()
     return {
-        "items": [_fila_auditoria(registro, email) for registro, email in filas],
+        "items": [_fila_auditoria(*fila) for fila in filas],
         "total": total,
         "pagina": pagina,
         "tamanio_pagina": tamanio_pagina,
@@ -154,9 +170,12 @@ def listar_opciones_auditoria(db: Session) -> dict:
     """Valores disponibles para los filtros del listado global.
 
     `entidades` se devuelve normalizado a minúsculas y sin duplicados: el filtro es
-    insensible a mayúsculas, así que `alumno` y `ALUMNO` son una sola opción.
+    insensible a mayúsculas, así que `alumno` y `ALUMNO` son una sola opción. Al catálogo
+    de entidades auditables se le suman los valores históricos de AUDIT_LOG, para que una
+    entidad que ya no está en el catálogo siga siendo filtrable.
     """
-    entidades = db.scalars(select(AuditLog.entidad).distinct()).all()
+    entidades = {valor.lower() for valor in db.scalars(select(AuditLog.entidad).distinct()).all()}
+    entidades.update(codigo.lower() for codigo in ENTIDADES_AUDITABLES)
     campos = db.scalars(select(AuditLog.campo).distinct().order_by(AuditLog.campo)).all()
     origenes = db.scalars(
         select(AuditLog.origen)
@@ -165,15 +184,29 @@ def listar_opciones_auditoria(db: Session) -> dict:
         .order_by(AuditLog.origen)
     ).all()
     usuarios = db.execute(
-        select(Usuario.id, Usuario.email)
+        select(
+            Usuario.id,
+            Usuario.email,
+            Usuario.nombre_google,
+            Persona.nombre,
+            Persona.apellido,
+        )
+        .outerjoin(Persona, Persona.id == Usuario.persona_id)
         .where(Usuario.id.in_(select(AuditLog.usuario_id).where(AuditLog.usuario_id.is_not(None))))
         .order_by(Usuario.email)
     ).all()
     return {
-        "entidades": sorted({valor.lower() for valor in entidades}),
+        "entidades": sorted(entidades),
         "campos": list(campos),
         "origenes": list(origenes),
-        "usuarios": [{"id": id_, "email": email} for id_, email in usuarios],
+        "usuarios": [
+            {
+                "id": id_,
+                "email": email,
+                "nombre": _nombre_usuario(nombre_google, nombre, apellido),
+            }
+            for id_, email, nombre_google, nombre, apellido in usuarios
+        ],
     }
 
 
@@ -213,17 +246,16 @@ def _filtros_auditoria(
         filtros.append(AuditLog.fecha < _instante_en_utc(hasta + timedelta(days=1)))
     termino = (buscar or "").strip()
     if termino:
-        patron = f"%{termino}%"
         filtros.append(
             or_(
-                AuditLog.entidad.ilike(patron),
-                AuditLog.campo.ilike(patron),
-                AuditLog.valor_anterior.ilike(patron),
-                AuditLog.valor_nuevo.ilike(patron),
-                AuditLog.origen.ilike(patron),
-                AuditLog.motivo.ilike(patron),
-                AuditLog.referencia_entidad.ilike(patron),
-                Usuario.email.ilike(patron),
+                contiene_texto_busqueda(AuditLog.entidad, termino),
+                contiene_texto_busqueda(AuditLog.campo, termino),
+                contiene_texto_busqueda(AuditLog.valor_anterior, termino),
+                contiene_texto_busqueda(AuditLog.valor_nuevo, termino),
+                contiene_texto_busqueda(AuditLog.origen, termino),
+                contiene_texto_busqueda(AuditLog.motivo, termino),
+                contiene_texto_busqueda(AuditLog.referencia_entidad, termino),
+                contiene_texto_busqueda(Usuario.email, termino),
             )
         )
     return filtros
@@ -238,7 +270,22 @@ def _instante_en_utc(dia: date) -> datetime:
     )
 
 
-def _fila_auditoria(registro: AuditLog, email: str | None) -> dict:
+def _nombre_usuario(
+    nombre_google: str | None, nombre: str | None, apellido: str | None
+) -> str | None:
+    """Nombre visible del actor: persona vinculada, nombre de Google o, si no hay, el email
+    (lo resuelve la UI). No se inventa un nombre a partir del email."""
+    nombre_completo = " ".join(parte for parte in (nombre, apellido) if parte).strip()
+    return nombre_completo or nombre_google
+
+
+def _fila_auditoria(
+    registro: AuditLog,
+    email: str | None,
+    nombre_google: str | None = None,
+    nombre: str | None = None,
+    apellido: str | None = None,
+) -> dict:
     return {
         "id": registro.id,
         "entidad": registro.entidad,
@@ -249,6 +296,7 @@ def _fila_auditoria(registro: AuditLog, email: str | None) -> dict:
         "fecha": registro.fecha,
         "usuario_id": registro.usuario_id,
         "usuario_email": email,
+        "usuario_nombre": _nombre_usuario(nombre_google, nombre, apellido),
         "actor_tipo": registro.actor_tipo,
         "origen": registro.origen,
         "motivo": registro.motivo,

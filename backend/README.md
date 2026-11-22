@@ -2,6 +2,10 @@
 
 API en FastAPI + SQLAlchemy + Alembic. Ver `ARCHITECTURE.md` en la raíz del repo para la explicación completa de la estructura (`src/<modulo>/`, convenciones, testing).
 
+Las búsquedas de texto libre usan la normalización compartida de `src/search.py`: `ines`
+encuentra `Inés` y `pena` encuentra `Peña`. Los identificadores exactos y los permisos no
+son campos de búsqueda libre.
+
 ## Requisitos
 
 - Python 3.14 (o compatible; el proyecto se armó con Python 3.14.7 vía [mise](https://mise.jdx.dev/)).
@@ -98,6 +102,9 @@ datos ajenos ni incluye CBU, cuentas o tarjetas):
 ```bash
 python ../database/seeds/07_seed_debitos_demo.py
 ```
+
+La [demo institucional aislada](../database/seeds/institutional-demo.md) usa el seed `08`,
+con su propio conjunto de facturas, rendición y captura local de correos. No combinar con `07`.
 
 Con `ESSERI_DEMO_EMAIL_BASE=tu-casilla@gmail.com` el seed crea tres cuentas familiares
 (`tu-casilla+debito-1@gmail.com` a `+debito-3`) con la contraseña `ESSERI_DEMO_PASSWORD`
@@ -822,6 +829,34 @@ Family presentation includes `tipo` and the author name (`emisor`) for course me
 Draft create/edit, publication and first reading use the existing audit helper; message contents
 are not duplicated in the audit log. No external service is called by these operations.
 
+The management list accepts `destinatarios`, `nivel_id`, `division_id`, `fecha_desde` and
+`fecha_hasta` together with search, status and pagination. `nivel_id` narrows level destinations
+or the set of divisions for division destinations. `GET /comunicaciones/opciones-filtros` uses the
+list permission and returns academic levels and divisions only. Date bounds are inclusive in
+Buenos Aires time and refer to publication time for published records and creation time for drafts.
+
+Management roles with `comunicaciones.actualizar` can call `POST /comunicaciones/{id}/retirar`
+for any published communication in the management list, including course publications.
+This operation is idempotent, keeps the original publication and receipts, and hides it from
+the family inbox, calendar and notifications. An authorized family opening the original link
+receives `410 Gone` without the message; unauthorized links still return `404`. Management can
+use `GET /comunicaciones?retirada=true` to inspect withdrawn records and their delivery history.
+The existing dispatcher sends a separate withdrawal notice to each original email address with
+confirmed provider acceptance. This includes acceptances confirmed after withdrawal. Known
+failures can be retried on the same notice; uncertain outcomes are not resent.
+Apply `alembic upgrade head` before serving traffic; every Communications read requires the
+new columns. Schema downgrade is blocked after recording a withdrawal or a withdrawal notice.
+An application-only rollback is not safe after using these features: see the
+[deployment checklist](../docs/comunicaciones-gestion-deployment.md).
+
+`PATCH /comunicaciones/{id}/contenido` accepts only the current `version`, `asunto`, `cuerpo`
+and optional `cuerpo_rico` for active publications in the management list, including course
+publications. It corrects what the portal
+displays without changing the original email snapshot or queuing mail. `DELETE
+/comunicaciones/{id}?version=…` removes only the caller's draft from view; the record, attachments,
+key and audit trail are retained. Both operations use `comunicaciones.actualizar`. Apply
+the full migration chain, including `dd3ad6076c35`, before starting the backend.
+
 Drafts may store an optional `evento` with incomplete fields. Send `evento: null` to
 remove it. Preview and publication require a title and date; if both local times are
 provided, the end must follow the start. The calendar projects the event from the
@@ -946,8 +981,11 @@ Conserva `academico.exportar`. Los endpoints anteriores de listado y exportació
 `GET /academico/divisiones/{division_id}/horario/exportar` devuelve un `.xlsx` con el horario semanal de la división (hoja "Horario" en grilla y hoja "Listado"). Los docentes son los asignados en `ciclo_lectivo` (por defecto, el año en curso). Pide `academico.leer`, no `exportar`: es la información que ya ve quien abre el horario.
 
 ```bash
-pytest
+pytest          # en serie
+pytest -n auto  # en paralelo con pytest-xdist (como en CI)
 ```
+
+`tests/conftest.py` baja bcrypt a 4 rondas solo para los tests (con 12 cada hash tarda ~0.6 s). Con `-n auto`, los IDs de test parametrizados deben ser determinísticos: no usar `uuid4()` ni valores aleatorios en `parametrize`. Los tests de `COMUNICACIONES_TEST_DATABASE_URL` comparten una base real y no son seguros en paralelo; correrlos en serie.
 
 Los tests usan una base SQLite en memoria (ver `tests/conftest.py`), no la base de `DATABASE_URL` — así corren sin depender de Postgres. Si el equipo prefiere testear contra un Postgres real, ajustar `TEST_DATABASE_URL` en `tests/conftest.py`.
 

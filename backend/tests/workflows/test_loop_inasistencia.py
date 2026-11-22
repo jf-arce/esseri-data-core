@@ -199,6 +199,7 @@ def test_si_se_justifica_antes_no_llega_el_recordatorio_pero_si_el_aviso_de_reso
             "alumno_nombre": "Cabral, Ana",
             "motivo": "Enfermedad",
             "fecha_resolucion": "2027-03-04",
+            "estado": "aprobada",
         },
     )
     db_session.commit()
@@ -215,6 +216,7 @@ def test_si_se_justifica_antes_no_llega_el_recordatorio_pero_si_el_aviso_de_reso
         "Estimada familia:\n\n"
         "Se resolvió el 2027-03-04 la justificación de la inasistencia de Cabral, Ana. "
         "Motivo presentado: Enfermedad.\n\n"
+        "La justificación quedó aprobada.\n\n"
         "Saludos cordiales."
     )
     # El recordatorio se evaluó, vio que ya estaba resuelta y lo dejó dicho sin mandar nada.

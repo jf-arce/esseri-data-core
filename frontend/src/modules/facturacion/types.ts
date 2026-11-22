@@ -443,6 +443,8 @@ export interface FiltrosFacturas {
   debito?: FiltroDebitoFactura
   buscar?: string
   alumnoId?: string
+  familiaResponsableId?: string
+  cicloLectivo?: string
   conceptoCobroId?: string
   emisionDesde?: string
   emisionHasta?: string

@@ -30,6 +30,7 @@ class HistorialEntradaRead(BaseModel):
     fecha: datetime
     usuario_id: uuid.UUID | None
     usuario_email: str | None
+    usuario_nombre: str | None
     actor_tipo: str
     origen: str | None
     motivo: str | None
@@ -53,6 +54,7 @@ class AuditoriaListadoRead(BaseModel):
 class OpcionUsuarioAuditoriaRead(BaseModel):
     id: uuid.UUID
     email: str
+    nombre: str | None
 
 
 class OpcionesAuditoriaRead(BaseModel):

@@ -6,11 +6,14 @@ from datetime import datetime
 import pytest
 from sqlalchemy import select
 
+from src.academico.models import Anio, Division, NivelEducativo
 from src.auth import config, sesion_service
 from src.auth.models import Permiso, Rol, RolPermiso, Usuario, UsuarioRol
 from src.comunicaciones.models import Comunicacion, ReciboComunicacion
+from src.config import settings
 from src.familias_alumnos.models import Familia, FamiliaAlumno
 from src.models import AuditLog, Base, Persona
+from src.workflows import manuales_service, n8n_client
 from src.workflows.models import EnvioNotificacion, Notificacion
 
 
@@ -68,6 +71,467 @@ def snapshot(db):
         t.name: sorted(repr(tuple(r)) for r in db.execute(select(t)))
         for t in Base.metadata.sorted_tables
     }
+
+
+def test_listado_combina_autor_filtros_conteos_y_paginacion(client, escenario, db_session):
+    ids, _ = escenario
+    for indice in range(11):
+        borrador = crear(client, ids, asunto=f"Aviso {indice}", audiencia={"tipo": "todos"})
+        if indice != 10:
+            assert client.post(f"/comunicaciones/{borrador['id']}/publicar").status_code == 200
+        c = db_session.get(Comunicacion, uuid.UUID(borrador["id"]))
+        c.created_at = datetime(2026, 11, 15, 3, indice)
+        if c.estado == "publicada":
+            c.publicada_at = datetime(2026, 11, 16, 3, indice)
+    crear(client, ids, asunto="Otra audiencia")
+    db_session.commit()
+
+    filtros = {
+        "buscar": "communications@example.test",
+        "tipo": "institucional",
+        "destinatarios": "todos",
+        "fecha_desde": "2026-11-15",
+        "fecha_hasta": "2026-11-16",
+    }
+    consulta = client.get("/comunicaciones", params={**filtros, "pagina": 2})
+    assert consulta.status_code == 200, consulta.text
+    listado = consulta.json()
+    assert listado["conteos"] == {"todas": 11, "publicadas": 10, "borradores": 1}
+    assert (listado["total"], listado["pagina"], listado["total_paginas"]) == (11, 2, 2)
+    assert [item["asunto"] for item in listado["items"]] == ["Aviso 10"]
+    assert listado["items"][0]["destino"] == "Todo el colegio"
+    assert listado["items"][0]["destinatarios"] == 2
+    publicados = client.get("/comunicaciones", params={**filtros, "estado": "publicada"}).json()
+    assert publicados["total"] == 10
+    assert publicados["conteos"] == listado["conteos"]
+    assert [item["asunto"] for item in publicados["items"]] == [
+        f"Aviso {indice}" for indice in reversed(range(10))
+    ]
+    dia_publicacion = client.get(
+        "/comunicaciones", params={**filtros, "fecha_desde": "2026-11-16"}
+    ).json()
+    assert dia_publicacion["conteos"] == {"todas": 10, "publicadas": 10, "borradores": 0}
+    assert "Aviso 0" in [item["asunto"] for item in dia_publicacion["items"]]
+
+
+@pytest.mark.parametrize(
+    ("tipo", "claves", "etiqueta", "cantidad"),
+    [
+        ("todos", (), "Todo el colegio", 2),
+        ("nivel", ("nivel",), "Primario", 2),
+        ("division", ("division",), "4° B - Primario", 2),
+        ("alumnos", ("alumno_a", "alumno_a"), "Selección individual", 1),
+        ("responsables", ("familia_a", "familia_a"), "Selección individual", 1),
+    ],
+)
+def test_listado_proyecta_destinatarios_unicos(
+    client, escenario, db_session, tipo, claves, etiqueta, cantidad
+):
+    ids, entrar = escenario
+    db_session.add(
+        FamiliaAlumno(
+            familia_id=ids["familia_a"],
+            alumno_id=ids["alumno_b"],
+            recibe_comunicaciones=True,
+        )
+    )
+    db_session.commit()
+    borrador = crear(
+        client,
+        ids,
+        audiencia={"tipo": tipo, "ids": [str(ids[key]) for key in claves], "ciclo_lectivo": "2027"},
+    )
+
+    def comprobar():
+        resultado = client.get("/comunicaciones").json()["items"][0]
+        assert (resultado["destino"], resultado["destinatarios"]) == (etiqueta, cantidad)
+
+    comprobar()
+    assert client.post(f"/comunicaciones/{borrador['id']}/publicar").status_code == 200
+    comprobar()
+    entrar(ids["usuario_a"], "familia")
+    assert client.get("/comunicaciones").status_code == 403
+    resultado = client.get("/comunicaciones/familia").json()["items"][0]
+    assert resultado.get("destino") is None
+    assert resultado["destinatarios"] == 1
+    assert resultado["audiencia"] is None
+
+
+def test_retiro_oculta_portal_y_reserva_el_aviso_a_destinatarios_autorizados(
+    client, escenario, db_session
+):
+    ids, entrar = escenario
+    borrador = crear(
+        client,
+        ids,
+        asunto="Original privado",
+        evento={
+            "titulo": "Reunión privada",
+            "fecha": "2026-11-30",
+        },
+    )
+    id = borrador["id"]
+    detalle = f"/comunicaciones/familia/{id}"
+    retiro = f"/comunicaciones/{id}/retirar"
+    assert client.post(f"/comunicaciones/{id}/publicar").status_code == 200
+    entrar(ids["usuario_a"], "familia")
+    assert client.get(detalle).json()["asunto"] == "Original privado"
+    assert client.post(retiro).status_code == 403
+    entrar()
+
+    assert client.post(retiro).status_code == 204
+    assert client.post(retiro).status_code == 204
+    assert client.get(f"/comunicaciones/{id}").json()["asunto"] == "Original privado"
+    assert client.get("/comunicaciones").json()["total"] == 0
+    assert client.get("/comunicaciones?retirada=true").json()["items"][0]["id"] == id
+    auditorias = list(
+        db_session.scalars(
+            select(AuditLog).where(
+                AuditLog.entidad_id == uuid.UUID(id),
+                AuditLog.campo == "retirada_at",
+            )
+        )
+    )
+    assert len(auditorias) == 1
+    assert (
+        db_session.scalar(
+            select(ReciboComunicacion).where(ReciboComunicacion.comunicacion_id == uuid.UUID(id))
+        )
+        is not None
+    )
+
+    entrar(ids["usuario_a"], "familia")
+    assert client.get("/comunicaciones/familia").json()["total"] == 0
+    eventos = client.get(
+        "/comunicaciones/familia/eventos",
+        params={
+            "alumno_id": str(ids["alumno_a"]),
+            "desde": "2026-11-30",
+            "hasta": "2026-12-06",
+        },
+    )
+    assert eventos.json() == []
+    for respuesta in (client.get(detalle), client.put(f"{detalle}/lectura")):
+        assert respuesta.status_code == 410
+        assert respuesta.json() == {"detail": "Comunicación retirada"}
+        assert respuesta.headers["Cache-Control"] == "private, no-store"
+
+    db_session.get(FamiliaAlumno, ids["vinculo_a"]).recibe_comunicaciones = False
+    db_session.commit()
+    assert client.get(detalle).status_code == 404
+
+
+def test_retiro_rechaza_borrador_y_rol_sin_actualizar(client, escenario, db_session):
+    ids, _ = escenario
+    id = crear(client, ids)["id"]
+    retiro = f"/comunicaciones/{id}/retirar"
+    assert client.post(retiro).status_code == 409
+    assert client.post(f"/comunicaciones/{id}/publicar").status_code == 200
+    permiso = db_session.scalar(
+        select(Permiso).where(Permiso.codigo == "comunicaciones.actualizar")
+    )
+    for rol_permiso in db_session.scalars(
+        select(RolPermiso).where(RolPermiso.permiso_id == permiso.id)
+    ):
+        db_session.delete(rol_permiso)
+    db_session.commit()
+    assert client.post(retiro).status_code == 403
+    assert client.get("/comunicaciones").json()["items"][0]["id"] == id
+
+
+def test_elimina_solo_borrador_propio_y_conserva_auditoria(client, escenario, db_session):
+    ids, entrar = escenario
+    datos_borrador = datos(ids)
+    borrador = client.post("/comunicaciones", json=datos_borrador).json()
+    id = borrador["id"]
+    ruta = f"/comunicaciones/{id}"
+    assert client.delete(ruta, params={"version": borrador["version"] + 1}).status_code == 409
+    entrar(ids["usuario_a"], "familia")
+    assert client.delete(ruta, params={"version": borrador["version"]}).status_code == 403
+    administracion = db_session.scalar(select(Rol).where(Rol.codigo == "administracion"))
+    db_session.add(UsuarioRol(usuario_id=ids["usuario_otro"], rol_id=administracion.id))
+    db_session.commit()
+    entrar(ids["usuario_otro"])
+    assert client.delete(ruta, params={"version": borrador["version"]}).status_code == 404
+    entrar()
+    assert client.delete(ruta, params={"version": borrador["version"]}).status_code == 204
+    assert client.get(ruta).status_code == 404
+    assert client.put(ruta, json=datos_borrador).status_code == 404
+    assert client.post(f"{ruta}/publicar").status_code == 404
+    assert client.post("/comunicaciones", json=datos_borrador).status_code == 409
+    assert client.get("/comunicaciones").json()["total"] == 0
+    assert client.get("/comunicaciones?retirada=true").json()["total"] == 0
+    assert db_session.get(Comunicacion, uuid.UUID(id)).asunto == borrador["asunto"]
+    assert (
+        db_session.scalar(
+            select(AuditLog).where(
+                AuditLog.entidad_id == uuid.UUID(id), AuditLog.campo == "eliminada_at"
+            )
+        )
+        is not None
+    )
+
+
+def test_edita_publicada_solo_en_portal_sin_reenviar(client, escenario, db_session):
+    ids, entrar = escenario
+    id = crear(client, ids, canal="ambos")["id"]
+    original = client.post(f"/comunicaciones/{id}/publicar").json()
+    ruta = f"/comunicaciones/{id}/contenido"
+    datos_edicion = {
+        "asunto": "Aviso corregido",
+        "cuerpo": "Mensaje corregido",
+        "version": original["version"],
+    }
+    assert (
+        client.delete(f"/comunicaciones/{id}", params={"version": original["version"]}).status_code
+        == 409
+    )
+    entrar(ids["usuario_a"], "familia")
+    assert client.patch(ruta, json=datos_edicion).status_code == 403
+    entrar()
+    assert client.patch(ruta, json={**datos_edicion, "canal": "portal"}).status_code == 422
+    editada = client.patch(ruta, json=datos_edicion)
+    assert editada.status_code == 200, editada.text
+    item = editada.json()
+    for campo in ("audiencia", "canal", "publicada_at", "autor_id", "evento", "destinatarios"):
+        assert item[campo] == original[campo]
+    assert (item["asunto"], item["cuerpo"], item["version"]) == (
+        datos_edicion["asunto"],
+        datos_edicion["cuerpo"],
+        original["version"] + 1,
+    )
+    assert client.patch(ruta, json=datos_edicion).status_code == 409
+    assert client.get("/comunicaciones", params={"buscar": "Aviso corregido"}).json()["total"] == 1
+    assert client.get("/comunicaciones", params={"buscar": original["asunto"]}).json()["total"] == 0
+    c = db_session.get(Comunicacion, uuid.UUID(id))
+    assert c.cuerpo == original["cuerpo"]
+    envios = db_session.scalars(
+        select(EnvioNotificacion).where(EnvioNotificacion.comunicacion_id == c.id)
+    ).all()
+    assert len(envios) == 1
+    assert (envios[0].asunto, envios[0].cuerpo) == (original["asunto"], original["cuerpo"])
+    assert (
+        len(
+            db_session.scalars(
+                select(AuditLog).where(
+                    AuditLog.entidad_id == c.id, AuditLog.campo.in_(("asunto", "cuerpo"))
+                )
+            ).all()
+        )
+        == 2
+    )
+    entrar(ids["usuario_a"], "familia")
+    assert client.get(f"/comunicaciones/familia/{id}").json()["cuerpo"] == datos_edicion["cuerpo"]
+    assert (
+        client.get("/comunicaciones/familia", params={"buscar": "Aviso corregido"}).json()["total"]
+        == 1
+    )
+    entrar()
+    assert client.post(f"/comunicaciones/{id}/retirar").status_code == 204
+    assert (
+        client.patch(ruta, json={**datos_edicion, "version": item["version"] + 1}).status_code
+        == 409
+    )
+    assert client.get(f"/comunicaciones/{id}").json()["cuerpo"] == datos_edicion["cuerpo"]
+
+
+def test_gestion_edita_y_retira_publicaciones_de_curso_sin_acceder_a_borradores(
+    client, escenario, db_session
+):
+    ids, entrar = escenario
+    id = crear(client, ids)["id"]
+    ruta = f"/comunicaciones/{id}"
+    original = client.post(f"{ruta}/publicar").json()
+    curso = db_session.get(Comunicacion, uuid.UUID(id))
+    curso.tipo = "curso"
+    curso.autor_id = ids["usuario_otro"]
+    borrador_id = crear(client, ids)["id"]
+    db_session.get(Comunicacion, uuid.UUID(borrador_id)).tipo = "curso"
+    db_session.commit()
+    edicion = {
+        "asunto": "Curso corregido",
+        "cuerpo": "Mensaje corregido",
+        "version": original["version"],
+    }
+
+    entrar(ids["usuario_a"], "familia")
+    assert client.patch(f"{ruta}/contenido", json=edicion).status_code == 403
+    assert client.post(f"{ruta}/retirar").status_code == 403
+    entrar()
+    ids_visibles = {item["id"] for item in client.get("/comunicaciones").json()["items"]}
+    assert id in ids_visibles
+    assert borrador_id not in ids_visibles
+    assert client.patch(f"/comunicaciones/{borrador_id}/contenido", json=edicion).status_code == 404
+    assert client.post(f"/comunicaciones/{borrador_id}/retirar").status_code == 404
+    assert client.delete(f"/comunicaciones/{borrador_id}", params={"version": 1}).status_code == 404
+    editada = client.patch(f"{ruta}/contenido", json=edicion)
+    assert editada.status_code == 200
+    assert editada.json()["asunto"] == "Curso corregido"
+    assert editada.json()["tipo"] == "curso"
+    assert client.get(f"{ruta}/entrega").status_code == 200
+    assert client.delete(ruta, params={"version": editada.json()["version"]}).status_code == 404
+    assert client.post(f"{ruta}/retirar").status_code == 204
+    assert client.get(ruta).json()["asunto"] == "Curso corregido"
+    db_session.refresh(curso)
+    assert (curso.asunto, curso.cuerpo) == (original["asunto"], original["cuerpo"])
+    assert curso.eliminada_at is None
+
+    permiso = db_session.scalar(
+        select(Permiso).where(Permiso.codigo == "comunicaciones.actualizar")
+    )
+    for rol_permiso in db_session.scalars(
+        select(RolPermiso).where(RolPermiso.permiso_id == permiso.id)
+    ):
+        db_session.delete(rol_permiso)
+    db_session.commit()
+    assert client.patch(f"{ruta}/contenido", json=edicion).status_code == 403
+    assert client.post(f"{ruta}/retirar").status_code == 403
+    entrar(ids["usuario_a"], "familia")
+    assert client.get(f"/comunicaciones/familia/{id}").status_code == 410
+
+
+def test_retiro_notifica_solo_correos_aceptados_y_reintenta_sin_duplicar(
+    client, escenario, db_session, monkeypatch
+):
+    ids, _ = escenario
+    c_id = crear(
+        client, ids, asunto="Asunto original privado", canal="ambos", audiencia={"tipo": "todos"}
+    )["id"]
+    assert client.post(f"/comunicaciones/{c_id}/publicar").status_code == 200
+    originales = list(
+        db_session.scalars(
+            select(EnvioNotificacion).where(EnvioNotificacion.comunicacion_id == uuid.UUID(c_id))
+        )
+    )
+    aceptado = next(e for e in originales if e.familia_id == ids["familia_a"])
+    sin_confirmar = next(e for e in originales if e.familia_id != ids["familia_a"])
+    aceptado.estado = "presentado"
+    sin_confirmar.estado = "incierto"
+    email_original = aceptado.email
+    db_session.get(Usuario, ids["usuario_a"]).email = "nuevo@example.test"
+    db_session.commit()
+    for _ in range(2):
+        assert client.post(f"/comunicaciones/{c_id}/retirar").status_code == 204
+    correo = db_session.scalar(
+        select(EnvioNotificacion).where(EnvioNotificacion.proposito == "retiro")
+    )
+    assert correo.email == email_original
+    assert correo.estado == "pendiente"
+    monkeypatch.setattr(settings, "N8N_MANUAL_HABILITADO", True)
+    monkeypatch.setattr(settings, "N8N_WEBHOOK_URL", "http://n8n.test/webhook/enviar-email")
+    monkeypatch.setattr(settings, "N8N_WEBHOOK_TOKEN", "test")
+    monkeypatch.setattr(settings, "N8N_CALLBACK_BASE_URL", "http://backend.test")
+    llamadas = []
+
+    def enviar(email, asunto, texto, html, **ids):
+        llamadas.append((email, asunto, texto, html, ids))
+        if len(llamadas) == 1:
+            return n8n_client.ResultadoEnvioManual(estado="fallido", error_codigo="rechazo_seguro")
+        return n8n_client.ResultadoEnvioManual(estado="presentado", referencia_proveedor="gmail-id")
+
+    monkeypatch.setattr(n8n_client, "enviar_email_manual", enviar)
+    assert manuales_service.procesar_envios_pendientes(db_session).fallidos == 1
+    entrega = client.get(f"/comunicaciones/{c_id}/entrega?filtro=fallidos").json()
+    aviso = next(e for e in entrega["items"][0]["emails"] if e.get("proposito") == "retiro")
+    assert aviso["intentos"][0]["error_codigo"] == "rechazo_seguro"
+    reintento = f"/comunicaciones/{c_id}/envios/{correo.id}/reintentar"
+    assert client.post(reintento).status_code == 200
+    assert client.post(reintento).status_code == 409
+    manuales_service.procesar_envios_pendientes(db_session)
+    manuales_service.procesar_envios_pendientes(db_session)
+    assert len(llamadas) == 2
+    for email, asunto, texto, html, referencias in llamadas:
+        assert email == email_original
+        assert "retirada" in asunto
+        assert "desestimá" in texto
+        assert "Asunto original privado" not in html
+        assert f"/familia/comunicaciones/{c_id}" in html
+        assert referencias["envio_id"] == correo.id
+    assert llamadas[0][4]["intento_id"] != llamadas[1][4]["intento_id"]
+    assert client.post(reintento).status_code == 409
+
+
+def test_retiro_encola_una_vez_si_el_proveedor_confirma_despues(client, escenario, db_session):
+    ids, _ = escenario
+    c_id = crear(client, ids, canal="ambos")["id"]
+    assert client.post(f"/comunicaciones/{c_id}/publicar").status_code == 200
+    original = db_session.scalar(
+        select(EnvioNotificacion).where(EnvioNotificacion.comunicacion_id == uuid.UUID(c_id))
+    )
+    intento = manuales_service._reclamar(db_session, original.id)
+    assert intento is not None
+    manuales_service.reclamar_intento(db_session, original.id, intento)
+    assert client.post(f"/comunicaciones/{c_id}/retirar").status_code == 204
+    assert (
+        db_session.scalar(select(EnvioNotificacion).where(EnvioNotificacion.proposito == "retiro"))
+        is None
+    )
+    for _ in range(2):
+        manuales_service.registrar_resultado(
+            db_session,
+            original.id,
+            intento,
+            estado="presentado",
+            referencia_proveedor="gmail-tras-retiro",
+            error_codigo=None,
+        )
+    avisos = list(
+        db_session.scalars(select(EnvioNotificacion).where(EnvioNotificacion.proposito == "retiro"))
+    )
+    assert len(avisos) == 1
+    assert avisos[0].email == original.email
+
+
+def test_filtro_jerarquico_usa_catalogo_real_y_se_combina_con_pagina(client, escenario, db_session):
+    ids, entrar = escenario
+    secundario = NivelEducativo(nombre="Secundario")
+    anio = Anio(numero=4, nivel_educativo=secundario)
+    division = Division(nombre="4° B", anio=anio)
+    db_session.add(division)
+    db_session.commit()
+    primario, curso_primario = str(ids["nivel"]), str(ids["division"])
+    curso_secundario = str(division.id)
+    catalogo = client.get("/comunicaciones/opciones-filtros").json()
+    assert set(catalogo) == {"niveles", "divisiones"}
+    assert {"id": primario, "nombre": "Primario"} in catalogo["niveles"]
+    assert {"id": curso_primario, "nombre": "4° B", "nivel_id": primario} in catalogo["divisiones"]
+    assert {"id": curso_secundario, "nombre": "4° B", "nivel_id": str(secundario.id)} in catalogo[
+        "divisiones"
+    ]
+
+    for curso, cantidad in ((curso_primario, 11), (curso_secundario, 1)):
+        for _ in range(cantidad):
+            fila = crear(
+                client, ids, audiencia={"tipo": "division", "ids": [curso], "ciclo_lectivo": "2027"}
+            )
+            db_session.get(Comunicacion, uuid.UUID(fila["id"])).created_at = datetime(
+                2026, 11, 20, 13
+            )
+    crear(client, ids, audiencia={"tipo": "todos"})
+    db_session.commit()
+    filtros = {
+        "destinatarios": "division",
+        "nivel_id": primario,
+        "division_id": curso_primario,
+        "buscar": "communications@example.test",
+        "estado": "borrador",
+        "fecha_desde": "2026-11-20",
+        "fecha_hasta": "2026-11-20",
+        "pagina": 2,
+    }
+    listado = client.get("/comunicaciones", params=filtros).json()
+    assert listado["conteos"] == {"todas": 11, "publicadas": 0, "borradores": 11}
+    assert (listado["total"], listado["total_paginas"], len(listado["items"])) == (11, 2, 1)
+    assert listado["items"][0]["audiencia"]["ids"] == [curso_primario]
+    assert (
+        client.get("/comunicaciones", params={**filtros, "division_id": curso_secundario}).json()[
+            "total"
+        ]
+        == 0
+    )
+    assert client.get("/comunicaciones", params={"destinatarios": "todos"}).json()["total"] == 1
+    entrar(ids["usuario_a"], "familia")
+    assert client.get("/comunicaciones/opciones-filtros").status_code == 403
 
 
 @pytest.mark.parametrize(
@@ -663,3 +1127,29 @@ def test_listado_busca_asunto_ignorando_tildes_y_mayusculas(client, escenario):
         listado = client.get("/comunicaciones", params={"buscar": termino}).json()
         assert listado["total"] == 1
         assert [item["id"] for item in listado["items"]] == [propia["id"]]
+
+
+def test_destino_y_opciones_incluyen_el_anio_cuando_la_division_es_solo_letra(
+    client, escenario, db_session
+):
+    ids, _ = escenario
+    nivel = NivelEducativo(nombre="Inicial letra")
+    anio = Anio(numero=3, nivel_educativo=nivel)
+    division = Division(nombre="C", anio=anio)
+    db_session.add(division)
+    db_session.commit()
+
+    crear(
+        client,
+        ids,
+        audiencia={"tipo": "division", "ids": [str(division.id)], "ciclo_lectivo": "2027"},
+    )
+
+    item = client.get("/comunicaciones").json()["items"][0]
+    assert item["destino"] == "3° C - Inicial letra"
+    catalogo = client.get("/comunicaciones/opciones-filtros").json()
+    assert {
+        "id": str(division.id),
+        "nombre": "3° C",
+        "nivel_id": str(nivel.id),
+    } in catalogo["divisiones"]

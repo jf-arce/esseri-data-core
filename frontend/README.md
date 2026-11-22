@@ -212,17 +212,20 @@ de la solicitud de compra y no se estima a partir de los precios de proveedores.
 
 ### Historial de asistencia
 
-El botón «Ver asistencias» del Panel de Dirección abre el historial con los registros
-de hoy (fecha local) y respeta el ciclo lectivo del encabezado. El selector de ciclo de
-la pantalla actualiza ese mismo estado global. Los filtros dependientes de nivel, año,
-división y alumno usan inscripciones históricas, incluidas las finalizadas. Cambiar un
-filtro superior limpia sus dependientes. Se puede filtrar también por estado y rango de
-fechas; «Limpiar filtros» conserva el ciclo del sistema y vuelve al día actual.
+El botón «Ver asistencias» del Panel de Dirección abre el historial sin rango de fechas:
+se consulta todo el ciclo lectivo del encabezado. Un clic en un día del gráfico abre ese
+día como rango mediante `?fecha=AAAA-MM-DD`. El selector de ciclo de la pantalla actualiza
+ese mismo estado global. Los filtros dependientes de nivel, año, división y alumno usan
+inscripciones históricas, incluidas las finalizadas. Cambiar un filtro superior limpia sus
+dependientes. Se puede filtrar también por estado y rango de fechas; «Limpiar filtros»
+conserva el ciclo del sistema y quita el rango de fechas.
 
 Los indicadores muestran el total filtrado, presentes, ausencias justificadas e
 injustificadas y porcentaje de asistencia (presentes más tardanzas sobre registros).
-No dependen de la página visible. La tabla ordena inicialmente por fecha descendente,
-permite ordenar por alumno y fecha y usa paginación del servidor con cantidad de resultados.
+No dependen de la página visible. Cada fila muestra el nivel educativo y el curso, que
+concatena el año con la división (por ejemplo, año 4 y división B → «4°B»). La tabla
+ordena inicialmente por fecha descendente, permite ordenar por alumno y fecha y usa
+paginación del servidor con cantidad de resultados.
 El botón «Exportar» abre un menú con CSV, Excel y PDF. Exporta todos los registros
 filtrados, no solo la página, y solo se ofrece con `academico.exportar`. El acceso
 separado «Exportar asistencias» ya no aparece en el menú; su URL anterior redirige al
@@ -290,6 +293,17 @@ fallas conocidas quedan anotadas en `FALLAS_CONOCIDAS` con su motivo. WebKit no 
 detalle propio de Safari en iOS solo se ve en un dispositivo.
 
 Vitest excluye `e2e/`: esos specs corren solo con Playwright.
+
+### Communications management filters
+
+Use **Cualquier destino** for an unfiltered audience or **Todo el colegio** for school-wide
+communications only. **Nivel** narrows to an academic level; **División** can narrow further
+after selecting a level. Select **Aplicar** to commit the audience choice. Date ranges, search
+and the current tab can be combined. Remove individual chips or use **Limpiar filtros** to
+keep the current tab and return to the first page with no filters.
+
+The calendar selectors and date chips always display dates as `DD/MM/AAAA`, independently of
+the browser language. Requests keep the date-only ISO format.
 
 ### Comunicaciones etapa 3 — prueba real de navegador
 
@@ -520,3 +534,5 @@ están conectados se guardan con la regla (`bloques_sueltos`) pero no se ejecuta
 no impiden guardar. En una condición sobre un campo con opciones, el valor es una lista y solo se
 puede elegir "es" o "no es". Los campos de alumnos, familias y artículos usan un buscador que
 consulta al servidor (`selector-buscable`); el artículo permite además "Otro (escribir a mano)".
+Free-text search and searchable pickers match accented names without requiring accents
+(for example, `ines` finds `Inés`).

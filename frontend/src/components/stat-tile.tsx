@@ -122,11 +122,11 @@ export function StatTile({
         </div>
       </div>
       {hero && children ? (
-        // Hero con desglose: el valor y el desglose comparten renglón cuando hay ancho, y se
-        // apilan cuando no, así la card no gana altura de más.
-        <div className="relative mt-auto flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+        // Hero con desglose: el valor queda bajo la etiqueta y el desglose se pega al fondo,
+        // así cuando la card se estira junto al gráfico el hueco queda entre ambos y no arriba.
+        <div className="relative flex flex-1 flex-col gap-4">
           {valor}
-          {children}
+          <div className="mt-auto">{children}</div>
         </div>
       ) : (
         <>{valor}</>

@@ -34,6 +34,9 @@ export function FacturasPage() {
     (searchParams.get('debito') as FiltroDebitoFactura | null) ?? '',
   )
   const [alumnoId, setAlumnoId] = useState(searchParams.get('alumno_id') ?? '')
+  const [familiaResponsableId, setFamiliaResponsableId] = useState(
+    searchParams.get('familia_responsable_id') ?? '',
+  )
   const [conceptoCobroId, setConceptoCobroId] = useState(
     searchParams.get('concepto_cobro_id') ?? '',
   )
@@ -57,13 +60,24 @@ export function FacturasPage() {
       estado: estado || undefined,
       debito: debito || undefined,
       alumnoId: alumnoId || undefined,
+      familiaResponsableId: familiaResponsableId || undefined,
       conceptoCobroId: conceptoCobroId || undefined,
       emisionDesde: rango?.desde,
       emisionHasta: rango?.hasta,
       ordenarPor,
       direccion,
     }
-  }, [alumnoId, conceptoCobroId, debito, direccion, emisionMes, estado, ordenarPor, pagina])
+  }, [
+    alumnoId,
+    conceptoCobroId,
+    debito,
+    direccion,
+    emisionMes,
+    estado,
+    familiaResponsableId,
+    ordenarPor,
+    pagina,
+  ])
   const { datos, cargando, error, sinPermiso, recargar } = useFacturas(filtros)
 
   const actualizarEstado = (siguiente: EstadoFactura | '') => {
@@ -73,6 +87,11 @@ export function FacturasPage() {
 
   const actualizarAlumno = (siguiente: string) => {
     setAlumnoId(siguiente)
+    setPagina(1)
+  }
+
+  const actualizarFamilia = (siguiente: string) => {
+    setFamiliaResponsableId(siguiente)
     setPagina(1)
   }
 
@@ -95,6 +114,7 @@ export function FacturasPage() {
     if (estado) parametros.set('estado', estado)
     if (debito) parametros.set('debito', debito)
     if (alumnoId) parametros.set('alumno_id', alumnoId)
+    if (familiaResponsableId) parametros.set('familia_responsable_id', familiaResponsableId)
     if (conceptoCobroId) parametros.set('concepto_cobro_id', conceptoCobroId)
     if (ordenarPor !== 'fecha_vencimiento') parametros.set('ordenar_por', ordenarPor)
     if (direccion !== 'asc') parametros.set('direccion', direccion)
@@ -108,6 +128,7 @@ export function FacturasPage() {
     direccion,
     emisionMes,
     estado,
+    familiaResponsableId,
     ordenarPor,
     pagina,
     setSearchParams,
@@ -179,6 +200,7 @@ export function FacturasPage() {
         estado={estado}
         debito={debito}
         alumnoId={alumnoId}
+        familiaResponsableId={familiaResponsableId}
         conceptoCobroId={conceptoCobroId}
         onEstadoChange={actualizarEstado}
         onDebitoChange={(valor) => {
@@ -186,6 +208,7 @@ export function FacturasPage() {
           setPagina(1)
         }}
         onAlumnoChange={actualizarAlumno}
+        onFamiliaResponsableChange={actualizarFamilia}
         onConceptoCobroChange={actualizarConcepto}
       />
 

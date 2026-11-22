@@ -1,12 +1,17 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FamiliaFichaPage } from '@/modules/familias-alumnos/pages/familia-ficha-page'
+import { listarCiclosFacturas } from '@/modules/facturacion/services/listar-ciclos-facturas'
 import { listarDeudaFamilias } from '@/modules/facturacion/services/listar-deuda-familias'
+import { listarFacturas } from '@/modules/facturacion/services/listar-facturas'
 import { getFamiliaById } from '@/modules/familias-alumnos/services/create-familia'
 import { listarVinculosFamilia } from '@/modules/familias-alumnos/services/listar-vinculos-familia'
 
 vi.mock('@/modules/facturacion/services/listar-deuda-familias')
+vi.mock('@/modules/facturacion/services/listar-facturas')
+vi.mock('@/modules/facturacion/services/listar-ciclos-facturas')
 vi.mock('@/modules/familias-alumnos/services/create-familia')
 vi.mock('@/modules/familias-alumnos/services/listar-vinculos-familia')
 vi.mock('@/modules/familias-alumnos/hooks/use-alumnos', () => ({
@@ -32,10 +37,12 @@ const familia = {
 const mockedObtenerFamilia = vi.mocked(getFamiliaById)
 const mockedListarVinculos = vi.mocked(listarVinculosFamilia)
 const mockedListarDeuda = vi.mocked(listarDeudaFamilias)
+const mockedListarFacturas = vi.mocked(listarFacturas)
+const mockedListarCiclos = vi.mocked(listarCiclosFacturas)
 
-function renderizarPagina() {
+function renderizarPagina(entrada = '/familias-alumnos/familias/familia-1') {
   return render(
-    <MemoryRouter initialEntries={['/familias-alumnos/familias/familia-1']}>
+    <MemoryRouter initialEntries={[entrada]}>
       <Routes>
         <Route path="/familias-alumnos/familias/:familiaId" element={<FamiliaFichaPage />} />
       </Routes>
@@ -61,6 +68,8 @@ describe('FamiliaFichaPage', () => {
     vi.clearAllMocks()
     mockedObtenerFamilia.mockResolvedValue(familia)
     mockedListarVinculos.mockResolvedValue([])
+    mockedListarFacturas.mockResolvedValue({ items: [], total: 0, pagina: 1, tamanio: 5 })
+    mockedListarCiclos.mockResolvedValue(['2027'])
     mockedListarDeuda.mockResolvedValue({
       items: [
         {
@@ -91,6 +100,33 @@ describe('FamiliaFichaPage', () => {
     await waitFor(() =>
       expect(mockedListarDeuda).toHaveBeenCalledWith(
         { pagina: 1, tamanio: 1, buscar: '12345678' },
+        expect.any(AbortSignal),
+      ),
+    )
+  })
+
+  it('lista las facturas de la familia en su pestaña de facturación', async () => {
+    const user = userEvent.setup()
+    renderizarPagina()
+
+    await user.click(await screen.findByRole('tab', { name: 'Facturación' }))
+
+    await waitFor(() =>
+      expect(mockedListarFacturas).toHaveBeenCalledWith(
+        expect.objectContaining({ familiaResponsableId: 'familia-1', pagina: 1, tamanio: 5 }),
+        expect.any(AbortSignal),
+      ),
+    )
+    expect(await screen.findByText('No hay facturas registradas.')).toBeInTheDocument()
+  })
+
+  it('abre la pestaña Facturación desde el deep link', async () => {
+    renderizarPagina('/familias-alumnos/familias/familia-1?tab=facturacion')
+
+    expect(await screen.findByText('Facturas de la familia')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(mockedListarFacturas).toHaveBeenCalledWith(
+        expect.objectContaining({ familiaResponsableId: 'familia-1' }),
         expect.any(AbortSignal),
       ),
     )

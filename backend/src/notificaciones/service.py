@@ -192,6 +192,7 @@ def _predicado_autorizado(usuario_id: uuid.UUID, alcance: AlcanceBandeja, dialec
         exists().where(
             Comunicacion.id == NotificacionInterna.destino_id,
             Comunicacion.estado == "publicada",
+            Comunicacion.retirada_at.is_(None),
         ),
     )
     facturacion = and_(

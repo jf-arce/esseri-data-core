@@ -1,7 +1,8 @@
 import hashlib
 import json
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -19,14 +20,19 @@ from src.comunicaciones.schemas import (
     AudienciaBorrador,
     BorradorEdicionInput,
     BorradorInput,
+    ComunicacionGestionRead,
     ComunicacionRead,
     ContactoEntregaRead,
+    ConteosGestion,
     EnvioEntregaRead,
     EventoCalendario,
+    FiltrosGestion,
     IntentoEntregaRead,
     Listado,
     ListadoEntrega,
+    ListadoGestion,
     PublicableInput,
+    PublicadaEdicionInput,
     ResponsableEntregaRead,
     ResumenEntrega,
 )
@@ -34,7 +40,11 @@ from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
 from src.familias_alumnos.service import obtener_familia_de_usuario
 from src.inscripciones.models import Inscripcion
 from src.models import Persona
-from src.search import normalizar_columna_busqueda, normalizar_texto_busqueda
+from src.search import (
+    contiene_texto_busqueda,
+    normalizar_columna_busqueda,
+    normalizar_texto_busqueda,
+)
 
 
 def auditar(db, comunicacion, usuario, campo, anterior, nuevo):
@@ -136,6 +146,7 @@ def obtener(
     comunicacion = db.scalar(consulta.execution_options(populate_existing=True))
     if (
         comunicacion is None
+        or comunicacion.eliminada_at is not None
         or (
             tipo is not None
             and (
@@ -174,6 +185,18 @@ def _autor_nombre(db: Session, c: Comunicacion) -> str:
     return email or "—"
 
 
+def _contenido_portal(c: Comunicacion) -> dict:
+    return c.edicion_portal or {
+        "asunto": c.asunto,
+        "cuerpo": c.cuerpo,
+        "cuerpo_rico": c.cuerpo_rico,
+    }
+
+
+def _asunto_portal():
+    return func.coalesce(Comunicacion.edicion_portal["asunto"].as_string(), Comunicacion.asunto)
+
+
 def respuesta(
     db: Session, c: Comunicacion, *, recibo=None, incluir_formato=True
 ) -> ComunicacionRead:
@@ -184,11 +207,12 @@ def respuesta(
         .select_from(ReciboComunicacion)
         .where(ReciboComunicacion.comunicacion_id == c.id)
     )
+    contenido = _contenido_portal(c)
     return ComunicacionRead(
         id=c.id,
-        asunto=c.asunto,
-        cuerpo=c.cuerpo,
-        cuerpo_rico=c.cuerpo_rico if incluir_formato else None,
+        asunto=contenido["asunto"],
+        cuerpo=contenido["cuerpo"],
+        cuerpo_rico=contenido["cuerpo_rico"] if incluir_formato else None,
         tipo=c.tipo,
         emisor=_emisor(db, c),
         autor_nombre=_autor_nombre(db, c),
@@ -230,6 +254,8 @@ def crear(db: Session, data: BorradorInput, usuario: Usuario, *, tipo="instituci
         )
     )
     if existente:
+        if existente.eliminada_at is not None:
+            raise HTTPException(409, "El borrador fue eliminado")
         if existente.solicitud_hash != digest or existente.tipo != tipo:
             raise HTTPException(409, "La clave ya se usó para otro contenido")
         return respuesta(db, existente)
@@ -260,6 +286,8 @@ def crear(db: Session, data: BorradorInput, usuario: Usuario, *, tipo="instituci
         )
         if existente is None:
             raise
+        if existente.eliminada_at is not None:
+            raise HTTPException(409, "El borrador fue eliminado") from None
         if existente.solicitud_hash != digest or existente.tipo != tipo:
             raise HTTPException(409, "La clave ya se usó para otro contenido") from None
         c = existente
@@ -315,6 +343,41 @@ def editar(
         c.version += 1
     db.commit()
     return respuesta(db, c)
+
+
+def editar_publicada(
+    db: Session, id: uuid.UUID, data: PublicadaEdicionInput, usuario: Usuario
+) -> ComunicacionRead:
+    c = obtener(db, id, usuario, bloquear=True)
+    if c.estado != "publicada" or c.retirada_at is not None:
+        raise HTTPException(409, "Solo se pueden editar publicaciones vigentes")
+    if c.version != data.version:
+        raise HTTPException(409, "La publicación fue modificada en otra sesión")
+
+    actual = _contenido_portal(c)
+    nuevo = data.model_dump(exclude={"version"})
+    if "cuerpo_rico" not in data.model_fields_set and actual["cuerpo"] == data.cuerpo:
+        nuevo["cuerpo_rico"] = actual["cuerpo_rico"]
+    if actual != nuevo:
+        for campo, valor in nuevo.items():
+            if valor != actual[campo]:
+                auditar(db, c, usuario, campo, "anterior", "actualizado")
+        c.edicion_portal = nuevo
+        c.version += 1
+    db.commit()
+    return respuesta(db, c)
+
+
+def eliminar_borrador(db: Session, id: uuid.UUID, version: int, usuario: Usuario) -> None:
+    c = obtener(db, id, usuario, bloquear=True, tipo="institucional")
+    if c.estado != "borrador":
+        raise HTTPException(409, "Solo se pueden eliminar borradores")
+    if c.version != version:
+        raise HTTPException(409, "El borrador fue modificado en otra sesión")
+    c.eliminada_at = datetime.now(UTC).replace(tzinfo=None)
+    c.version += 1
+    auditar(db, c, usuario, "eliminada_at", None, c.eliminada_at.isoformat())
+    db.commit()
 
 
 def publicar(
@@ -382,6 +445,22 @@ def publicar_en_transaccion(
     auditar(db, c, usuario, "estado", "borrador", "publicada")
 
 
+def retirar(db: Session, id: uuid.UUID, usuario: Usuario) -> None:
+    from src.workflows.manuales_service import preparar_avisos_retiro
+
+    c = obtener(db, id, usuario, bloquear=True)
+    if c.estado != "publicada":
+        raise HTTPException(409, "Solo se pueden retirar comunicaciones publicadas")
+    if c.retirada_at is not None:
+        db.rollback()
+        return
+    c.retirada_at = datetime.now(UTC).replace(tzinfo=None)
+    c.version += 1
+    auditar(db, c, usuario, "retirada_at", None, c.retirada_at.isoformat())
+    preparar_avisos_retiro(db, c.id)
+    db.commit()
+
+
 def recibos_propios(db: Session, usuario: Usuario, *, alumno_id: uuid.UUID | None = None):
     familia = obtener_familia_de_usuario(db, usuario)
     if familia is None:
@@ -424,6 +503,7 @@ def eventos_familia(
             select(Comunicacion.id, Comunicacion.evento).where(
                 Comunicacion.id.in_(ids),
                 Comunicacion.estado == "publicada",
+                Comunicacion.retirada_at.is_(None),
                 Comunicacion.evento.is_not(None),
             )
         )
@@ -434,9 +514,17 @@ def eventos_familia(
 
 def detalle_familia(db: Session, id: uuid.UUID, usuario: Usuario, *, leer=False):
     recibo = next((r for r in recibos_propios(db, usuario) if r.comunicacion_id == id), None)
-    c = db.get(Comunicacion, id) if recibo is not None else None
+    c = (
+        db.get(Comunicacion, id, populate_existing=True, with_for_update=leer)
+        if recibo is not None
+        else None
+    )
     if c is None or c.estado != "publicada":
         raise HTTPException(404, "Comunicación no encontrada")
+    if c.retirada_at is not None:
+        raise HTTPException(
+            410, "Comunicación retirada", headers={"Cache-Control": "private, no-store"}
+        )
     # Email-link access does not fabricate a portal read for an email-only message.
     if leer and c.canal != "email":
         cambio = db.execute(
@@ -449,6 +537,203 @@ def detalle_familia(db: Session, id: uuid.UUID, usuario: Usuario, *, leer=False)
         db.commit()
         db.refresh(recibo)
     return respuesta(db, c, recibo=recibo)
+
+
+def _gestion_visible(usuario: Usuario):
+    return select(Comunicacion).where(
+        Comunicacion.eliminada_at.is_(None),
+        or_(Comunicacion.estado == "publicada", Comunicacion.autor_id == usuario.id),
+        or_(Comunicacion.estado == "publicada", Comunicacion.tipo != "curso"),
+    )
+
+
+def _inicio_dia_utc(dia: date) -> datetime:
+    zona = ZoneInfo("America/Argentina/Buenos_Aires")
+    return datetime.combine(dia, time.min, zona).astimezone(UTC).replace(tzinfo=None)
+
+
+def _nombre_curso(numero: int, division: str) -> str:
+    """Nombre visible del curso: agrega el año solo si la división no lo trae."""
+    return division if division.lstrip()[:1].isdigit() else f"{numero}° {division}"
+
+
+def _divisiones_gestion():
+    return (
+        select(
+            Division.id,
+            Division.nombre,
+            Anio.numero,
+            NivelEducativo.nombre.label("nivel"),
+            Anio.nivel_educativo_id,
+        )
+        .select_from(Division)
+        .join(Division.anio)
+        .join(Anio.nivel_educativo)
+    )
+
+
+def opciones_filtros(db: Session) -> dict:
+    return {
+        "niveles": [
+            {"id": id, "nombre": nombre}
+            for id, nombre in db.execute(
+                select(NivelEducativo.id, NivelEducativo.nombre).order_by(
+                    NivelEducativo.nombre, NivelEducativo.id
+                )
+            )
+        ],
+        "divisiones": [
+            {"id": id, "nombre": _nombre_curso(numero, nombre), "nivel_id": nivel_id}
+            for id, nombre, numero, _, nivel_id in db.execute(
+                _divisiones_gestion().order_by(Anio.numero, Division.nombre, Division.id)
+            )
+        ],
+    }
+
+
+def _destinos_gestion(db: Session, audiencias: list[AudienciaBorrador]) -> dict:
+    niveles = {id for a in audiencias if a.tipo == "nivel" for id in a.ids}
+    divisiones = {id for a in audiencias if a.tipo == "division" for id in a.ids}
+    nombres = (
+        {
+            ("nivel", id): nombre
+            for id, nombre in db.execute(
+                select(NivelEducativo.id, NivelEducativo.nombre).where(
+                    NivelEducativo.id.in_(niveles)
+                )
+            )
+        }
+        if niveles
+        else {}
+    )
+    if divisiones:
+        filas = db.execute(_divisiones_gestion().where(Division.id.in_(divisiones)))
+        nombres.update(
+            {
+                ("division", id): f"{_nombre_curso(numero, division)} - {nivel}"
+                for id, division, numero, nivel, _ in filas
+            }
+        )
+    return nombres
+
+
+def _etiqueta_destino(audiencia: AudienciaBorrador, nombres: dict) -> str:
+    if audiencia.tipo == "todos":
+        return "Todo el colegio"
+    if audiencia.tipo in ("alumnos", "responsables"):
+        return "Selección individual" if audiencia.ids else "Por confirmar"
+    etiquetas = {
+        nombres[(audiencia.tipo, id)] for id in audiencia.ids if (audiencia.tipo, id) in nombres
+    }
+    return ", ".join(sorted(etiquetas)) or "Por confirmar"
+
+
+def _coincide_audiencia(db: Session, filtros: FiltrosGestion):
+    ids = []
+    if filtros.destinatarios == "nivel":
+        ids = [str(filtros.nivel_id)]
+    elif filtros.destinatarios == "division":
+        divisiones = select(Division.id).join(Division.anio)
+        if filtros.nivel_id:
+            divisiones = divisiones.where(Anio.nivel_educativo_id == filtros.nivel_id)
+        if filtros.division_id:
+            divisiones = divisiones.where(Division.id == filtros.division_id)
+        ids = [str(id) for id in db.scalars(divisiones)]
+    arreglo = Comunicacion.audiencia["ids"]
+    funcion = (
+        func.json_each if db.get_bind().dialect.name == "sqlite" else func.json_array_elements_text
+    )
+    valores = funcion(arreglo).table_valued("value")
+    return (
+        select(1)
+        .select_from(valores)
+        .where(valores.c.value.in_(ids))
+        .correlate(Comunicacion)
+        .exists()
+    )
+
+
+def listar_gestion(db: Session, usuario: Usuario, filtros: FiltrosGestion) -> ListadoGestion:
+    pagina, buscar, estado = filtros.pagina, filtros.buscar, filtros.estado
+    consulta = _gestion_visible(usuario)
+    consulta = consulta.where(
+        Comunicacion.retirada_at.is_not(None)
+        if filtros.retirada
+        else Comunicacion.retirada_at.is_(None)
+    )
+    fecha = case(
+        (
+            Comunicacion.estado == "publicada",
+            func.coalesce(Comunicacion.publicada_at, Comunicacion.created_at),
+        ),
+        else_=Comunicacion.created_at,
+    )
+    if filtros.tipo:
+        consulta = consulta.where(Comunicacion.tipo == filtros.tipo)
+    if filtros.destinatarios:
+        consulta = consulta.where(
+            Comunicacion.audiencia["tipo"].as_string() == filtros.destinatarios
+        )
+    if filtros.nivel_id or filtros.division_id:
+        consulta = consulta.where(_coincide_audiencia(db, filtros))
+    if filtros.fecha_desde:
+        consulta = consulta.where(fecha >= _inicio_dia_utc(filtros.fecha_desde))
+    if filtros.fecha_hasta and filtros.fecha_hasta != date.max:
+        consulta = consulta.where(fecha < _inicio_dia_utc(filtros.fecha_hasta + timedelta(days=1)))
+    if buscar.strip():
+        patron = _patron_busqueda(normalizar_texto_busqueda(buscar.strip()))
+        autor = func.coalesce(Persona.nombre + " " + Persona.apellido, Usuario.email)
+        consulta = (
+            consulta.join(Usuario, Usuario.id == Comunicacion.autor_id)
+            .outerjoin(Persona, Persona.id == Usuario.persona_id)
+            .where(
+                or_(
+                    normalizar_columna_busqueda(_asunto_portal()).like(patron, escape="\\"),
+                    normalizar_columna_busqueda(autor).like(patron, escape="\\"),
+                )
+            )
+        )
+    filtradas = consulta.subquery()
+    cantidades = dict(
+        db.execute(select(filtradas.c.estado, func.count()).group_by(filtradas.c.estado)).all()
+    )
+    publicadas, borradores = cantidades.get("publicada", 0), cantidades.get("borrador", 0)
+    conteos = ConteosGestion(
+        todas=publicadas + borradores, publicadas=publicadas, borradores=borradores
+    )
+    if estado:
+        consulta = consulta.where(Comunicacion.estado == estado)
+    total = cantidades.get(estado, 0) if estado else conteos.todas
+    tamanio = 10
+    filas = list(
+        db.scalars(
+            consulta.order_by(fecha.desc(), Comunicacion.id)
+            .offset((pagina - 1) * tamanio)
+            .limit(tamanio)
+        )
+    )
+    respuestas = [respuesta(db, c, incluir_formato=False) for c in filas]
+    nombres = _destinos_gestion(db, [fila.audiencia for fila in respuestas if fila.audiencia])
+    items = []
+    for c, fila in zip(filas, respuestas, strict=True):
+        item = ComunicacionGestionRead(**fila.model_dump(), retirada_at=c.retirada_at)
+        if fila.audiencia:
+            item.destino = _etiqueta_destino(fila.audiencia, nombres)
+            if fila.estado == "borrador":
+                try:
+                    audiencia = Audiencia.model_validate(fila.audiencia.model_dump())
+                except ValidationError:
+                    pass  # Drafts can be intentionally incomplete.
+                else:
+                    item.destinatarios = len(resolver(db, audiencia))
+        items.append(item)
+    return ListadoGestion(
+        items=items,
+        conteos=conteos,
+        total=total,
+        pagina=pagina,
+        total_paginas=max(1, (total + tamanio - 1) // tamanio),
+    )
 
 
 def listar(
@@ -465,7 +750,7 @@ def listar(
     tamanio: int = 10,
     orden: str = "recientes",
 ):
-    consulta = select(Comunicacion)
+    consulta = select(Comunicacion).where(Comunicacion.eliminada_at.is_(None))
     recibos = {}
     if familia:
         recibos = {
@@ -475,6 +760,7 @@ def listar(
         }
         consulta = consulta.where(
             Comunicacion.estado == "publicada",
+            Comunicacion.retirada_at.is_(None),
             Comunicacion.canal.in_(("portal", "ambos")),
             Comunicacion.id.in_(recibos),
         )
@@ -494,7 +780,7 @@ def listar(
         consulta = consulta.where(Comunicacion.estado == estado)
     if buscar:
         consulta = consulta.where(
-            normalizar_columna_busqueda(Comunicacion.asunto).like(
+            normalizar_columna_busqueda(_asunto_portal()).like(
                 f"%{normalizar_texto_busqueda(buscar)}%"
             )
         )
@@ -553,7 +839,7 @@ def _existe_contacto(texto: str):
         .where(
             Usuario.persona_id == Familia.persona_id,
             Usuario.estado == "activo",
-            Usuario.email.ilike(_patron_busqueda(texto), escape="\\"),
+            contiene_texto_busqueda(Usuario.email, texto),
         )
         .correlate(Familia)
         .exists()
@@ -592,7 +878,7 @@ def listar_destinatarios(
         if vista != "destinatarios":
             criterio = or_(
                 criterio,
-                EnvioNotificacion.email.ilike(_patron_busqueda(texto), escape="\\"),
+                contiene_texto_busqueda(EnvioNotificacion.email, texto),
             )
         consulta = consulta.where(criterio)
     total = db.scalar(select(func.count()).select_from(consulta.subquery())) or 0
@@ -762,7 +1048,7 @@ def listar_entrega(
                 criterio,
                 _existe_envio(
                     comunicacion.id,
-                    EnvioNotificacion.email.ilike(_patron_busqueda(texto), escape="\\"),
+                    contiene_texto_busqueda(EnvioNotificacion.email, texto),
                 ),
             )
         else:
@@ -790,6 +1076,7 @@ def listar_entrega(
                 EnvioNotificacion.id,
                 EnvioNotificacion.email,
                 EnvioNotificacion.estado,
+                EnvioNotificacion.proposito,
             )
             .where(
                 EnvioNotificacion.comunicacion_id == comunicacion.id,
@@ -826,6 +1113,7 @@ def listar_entrega(
                 id=envio.id,
                 email=envio.email or None,
                 estado=envio.estado,
+                proposito=envio.proposito,
                 intentos=intentos.get(envio.id, []),
             )
         )

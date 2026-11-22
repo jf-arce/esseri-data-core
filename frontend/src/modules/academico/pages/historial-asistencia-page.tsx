@@ -53,6 +53,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { PERMISO_ACADEMICO_EXPORTAR, tienePermiso } from '@/modules/auth/constants'
 import { permisosActivos, useAuthStore } from '@/store/auth-store'
 import { useCicloLectivoStore } from '@/store/ciclo-lectivo-store'
@@ -64,7 +65,7 @@ import {
 } from '../hooks/use-consulta-historial'
 import { exportarHistorial, type FiltrosHistorial } from '../services/consultar-historial'
 import type { TipoAsistencia } from '../types'
-import { etiquetaTipoAsistencia, variantePorTipoAsistencia } from '../utils'
+import { etiquetaCurso, etiquetaTipoAsistencia, variantePorTipoAsistencia } from '../utils'
 
 const ESTADOS: TipoAsistencia[] = [
   'presente',
@@ -123,16 +124,9 @@ function fechaCorta(iso: string) {
   })
 }
 
-function hoyIso() {
-  const hoy = new Date()
-  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
-}
-
 function filtrosIniciales(ciclo: string): FiltrosHistorial {
   return {
     ciclo_lectivo: ciclo,
-    fecha_desde: hoyIso(),
-    fecha_hasta: hoyIso(),
     orden: 'fecha_desc',
     pagina: 1,
     tamanio_pagina: 20,
@@ -392,7 +386,7 @@ export function HistorialAsistenciaPage() {
               }}
             >
               <RotateCcwIcon data-icon="inline-start" />
-              Limpiar filtros
+              Limpiar todo
             </Button>
             <Button variant="secondary" onClick={() => setGestionFiltros(true)}>
               <BookmarkIcon data-icon="inline-start" />
@@ -502,22 +496,42 @@ export function HistorialAsistenciaPage() {
             const puntosRecientes = puntos.slice(-30)
             return (
               <>
-                <div className="mt-4 flex h-32 items-end gap-1">
-                  {puntosRecientes.map((punto) => (
-                    <div
-                      key={punto.fecha}
-                      className="group flex h-full flex-1 items-end"
-                      title={`${fechaCorta(punto.fecha)}: ${punto.porcentaje_presencia.toLocaleString(
-                        'es-AR',
-                      )}% de presencia`}
-                    >
-                      <div
-                        className="w-full rounded-t bg-violeta/70 transition-colors group-hover:bg-violeta"
-                        style={{ height: `${Math.max(punto.porcentaje_presencia, 2)}%` }}
-                      />
-                    </div>
-                  ))}
-                </div>
+                <TooltipProvider delayDuration={0}>
+                  <div className="mt-4 flex h-32 items-end gap-1">
+                    {puntosRecientes.map((punto) => (
+                      <Tooltip key={punto.fecha}>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label={`Ver tendencia del ${fechaCorta(punto.fecha)}`}
+                            className="group flex h-full flex-1 items-end rounded-sm bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-violeta focus-visible:ring-offset-2 focus-visible:ring-offset-superficie"
+                          >
+                            <span
+                              aria-hidden="true"
+                              className="w-full rounded-t bg-violeta/70 transition-colors group-hover:bg-violeta"
+                              style={{
+                                height: `${Math.max(punto.porcentaje_presencia, 2)}%`,
+                              }}
+                            />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="top"
+                          sideOffset={8}
+                          className="rounded-lg border border-borde bg-superficie px-3 py-2 text-xs text-texto shadow-card"
+                        >
+                          <p className="font-medium">{fechaCorta(punto.fecha)}</p>
+                          <p className="tabular-nums">
+                            {punto.porcentaje_presencia.toLocaleString('es-AR')}% de presencia
+                          </p>
+                          <p className="tabular-nums text-texto-2">
+                            {punto.presentes} presentes · {punto.ausentes} ausentes
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </TooltipProvider>
                 <div className="mt-2 flex justify-between text-xs text-texto-3">
                   <span>{fechaCorta(puntosRecientes[0].fecha)}</span>
                   <span>{fechaCorta(puntosRecientes[puntosRecientes.length - 1].fecha)}</span>
@@ -589,7 +603,8 @@ export function HistorialAsistenciaPage() {
                       </Button>
                     </TableHead>
                   ))}
-                  <TableHead>División</TableHead>
+                  <TableHead>Nivel</TableHead>
+                  <TableHead>Curso</TableHead>
                   <TableHead>Estado</TableHead>
                 </TableRow>
               </TableHeader>
@@ -602,7 +617,8 @@ export function HistorialAsistenciaPage() {
                     <TableCell className="whitespace-normal font-medium">
                       {registro.alumno}
                     </TableCell>
-                    <TableCell>{registro.division}</TableCell>
+                    <TableCell>{registro.nivel}</TableCell>
+                    <TableCell>{etiquetaCurso(registro.anio, registro.division)}</TableCell>
                     <TableCell>
                       <Badge variant={variantePorTipoAsistencia(registro.tipo)}>
                         {etiquetaTipoAsistencia(registro.tipo)}

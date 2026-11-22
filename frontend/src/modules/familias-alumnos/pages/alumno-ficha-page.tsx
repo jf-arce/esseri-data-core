@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/table'
 import { HistorialCambios } from '@/modules/auditoria/components/historial-cambios'
 import { formatearMoneda } from '@/modules/facturacion/utils'
+import { FacturasVinculadas } from '@/modules/facturacion/components/facturas-vinculadas'
 import { obtenerCuentaCorriente } from '@/modules/facturacion/services/obtener-cuenta-corriente'
 import { obtenerAlumno } from '../services/obtener-alumno'
 import { eliminarAlumno } from '../services/eliminar-alumno'
@@ -124,6 +125,7 @@ export function AlumnoFichaPage() {
           <TabsTrigger value="datos">Datos</TabsTrigger>
           <TabsTrigger value="responsables">Responsables</TabsTrigger>
           <TabsTrigger value="historial">Historial</TabsTrigger>
+          <TabsTrigger value="facturacion">Facturación</TabsTrigger>
         </TabsList>
 
         <TabsContent value="datos">
@@ -333,6 +335,13 @@ export function AlumnoFichaPage() {
 
         <TabsContent value="historial">
           <HistorialCambios entidad="ALUMNO" entidadId={alumno.id} />
+        </TabsContent>
+
+        <TabsContent value="facturacion">
+          <div className="flex flex-col gap-3">
+            <h3 className="text-base font-semibold">Facturas del alumno</h3>
+            <FacturasVinculadas key={alumno.id} alumnoId={alumno.id} />
+          </div>
         </TabsContent>
       </Tabs>
 
