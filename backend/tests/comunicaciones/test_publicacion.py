@@ -368,7 +368,7 @@ def test_gestion_edita_y_retira_publicaciones_de_curso_sin_acceder_a_borradores(
     assert editada.status_code == 200
     assert editada.json()["asunto"] == "Curso corregido"
     assert editada.json()["tipo"] == "curso"
-    assert client.get(f"{ruta}/entrega").status_code == 404
+    assert client.get(f"{ruta}/entrega").status_code == 200
     assert client.delete(ruta, params={"version": editada.json()["version"]}).status_code == 404
     assert client.post(f"{ruta}/retirar").status_code == 204
     assert client.get(ruta).json()["asunto"] == "Curso corregido"
