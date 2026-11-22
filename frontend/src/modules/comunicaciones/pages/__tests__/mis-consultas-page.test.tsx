@@ -16,7 +16,7 @@ const consulta = {
     alumno_id: 'alumno-1',
     fecha_inicio: '2026-10-10',
     fecha_fin: '2026-10-12',
-    motivo: 'Enfermedad',
+    motivo: 'motivo_familiar_personal',
   },
   estado: 'pendiente_administracion',
   updated_at: '2026-10-12T11:42:00Z',
@@ -44,7 +44,7 @@ it('lists the family consultations and filters the pending ones', async () => {
     </MemoryRouter>,
   )
   expect(await screen.findByText('Justificación por período')).toBeInTheDocument()
-  expect(screen.getByText(/Martina Torres · Enfermedad/)).toBeInTheDocument()
+  expect(screen.getByText(/Martina Torres · Motivo familiar\/personal/)).toBeInTheDocument()
   expect(screen.getByText('Vos:')).toBeInTheDocument()
   expect(screen.getByText('Esperando a Administración')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: /Justificación por período/ })).toHaveAttribute(

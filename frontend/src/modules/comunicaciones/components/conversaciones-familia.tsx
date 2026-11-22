@@ -5,7 +5,7 @@ import type { LucideIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { capitalizar } from '@/lib/texto'
+import { etiquetaMotivo } from '@/lib/motivos'
 import { cn } from '@/lib/utils'
 import {
   ESTADOS,
@@ -35,7 +35,7 @@ function detalleTramite(consulta: ConsultaResumen) {
   const { contexto } = consulta
   if (contexto.concepto) return contexto.concepto
   if (contexto.fecha_fin) return `${diaMes(contexto.fecha_inicio)} al ${diaMes(contexto.fecha_fin)}`
-  return capitalizar(contexto.motivo ?? 'Consulta')
+  return etiquetaMotivo(contexto.motivo, 'Consulta')
 }
 
 /** Conversaciones de una familia, acotadas a los alumnos que hoy tiene vinculados. */

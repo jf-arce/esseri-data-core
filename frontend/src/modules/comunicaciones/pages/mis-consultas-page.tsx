@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { capitalizar } from '@/lib/texto'
+import { etiquetaMotivo } from '@/lib/motivos'
 import { cn } from '@/lib/utils'
 import {
   ESTADOS,
@@ -44,8 +44,8 @@ function subtitulo(consulta: ConsultaResumen) {
   const { contexto } = consulta
   if (contexto.tipo === 'debito_cobranza') return contexto.concepto ?? 'Débito automático'
   if (contexto.tipo === 'solicitud_ausencia_periodo' && contexto.fecha_fin)
-    return `${capitalizar(contexto.motivo ?? 'Justificación')} · ${fechaCorta(contexto.fecha_inicio)} al ${fechaCorta(contexto.fecha_fin)}`
-  return capitalizar(contexto.motivo ?? 'Justificación de inasistencia')
+    return `${etiquetaMotivo(contexto.motivo, 'Justificación')} · ${fechaCorta(contexto.fecha_inicio)} al ${fechaCorta(contexto.fecha_fin)}`
+  return etiquetaMotivo(contexto.motivo, 'Justificación de inasistencia')
 }
 
 function FilaConsulta({ consulta }: { consulta: ConsultaResumen }) {

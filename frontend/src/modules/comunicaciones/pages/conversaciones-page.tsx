@@ -13,7 +13,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { capitalizar, normalizarTexto } from '@/lib/texto'
+import { normalizarTexto } from '@/lib/texto'
+import { etiquetaMotivo } from '@/lib/motivos'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth-store'
 import {
@@ -75,8 +76,8 @@ function subtitulo(consulta: ConsultaResumen) {
   const detalle =
     contexto.concepto ??
     (contexto.fecha_fin
-      ? `${capitalizar(contexto.motivo ?? 'Justificación')} · ${diaMes(contexto.fecha_inicio)} al ${diaMes(contexto.fecha_fin)}`
-      : capitalizar(contexto.motivo ?? 'Consulta'))
+      ? `${etiquetaMotivo(contexto.motivo, 'Justificación')} · ${diaMes(contexto.fecha_inicio)} al ${diaMes(contexto.fecha_fin)}`
+      : etiquetaMotivo(contexto.motivo, 'Consulta'))
   return `${contexto.alumno_nombre} · ${detalle}`
 }
 
@@ -213,7 +214,7 @@ function Panel({ seleccionada }: { seleccionada?: string }) {
             [
               item.contexto.alumno_nombre,
               item.contexto.concepto,
-              item.contexto.motivo,
+              etiquetaMotivo(item.contexto.motivo, ''),
               item.ultimo_mensaje?.texto,
             ]
               .filter(Boolean)

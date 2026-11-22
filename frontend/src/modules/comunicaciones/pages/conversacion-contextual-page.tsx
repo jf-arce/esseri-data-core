@@ -19,7 +19,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { formatearMoneda } from '@/modules/facturacion/utils'
-import { capitalizar } from '@/lib/texto'
+import { etiquetaMotivo } from '@/lib/motivos'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth-store'
 import {
@@ -136,8 +136,9 @@ function datosDelContexto(contexto: Contexto): DatoHeader[] {
       },
       {
         etiqueta: 'Motivo',
-        valor: capitalizar(
-          contexto.motivo ?? 'El intento de débito automático no pudo ser procesado.',
+        valor: etiquetaMotivo(
+          contexto.motivo,
+          'El intento de débito automático no pudo ser procesado.',
         ),
         crece: true,
       },
@@ -154,7 +155,7 @@ function datosDelContexto(contexto: Contexto): DatoHeader[] {
       },
       {
         etiqueta: 'Motivo',
-        valor: capitalizar(contexto.motivo ?? 'Sin motivo informado'),
+        valor: etiquetaMotivo(contexto.motivo, 'Sin motivo informado'),
         crece: true,
       },
     ]
@@ -167,7 +168,7 @@ function datosDelContexto(contexto: Contexto): DatoHeader[] {
     },
     {
       etiqueta: 'Motivo',
-      valor: capitalizar(contexto.motivo ?? 'Sin motivo informado'),
+      valor: etiquetaMotivo(contexto.motivo, 'Sin motivo informado'),
       crece: true,
     },
   ]
