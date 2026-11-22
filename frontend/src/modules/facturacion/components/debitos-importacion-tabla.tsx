@@ -118,7 +118,10 @@ export function DebitosImportacionTabla({
           </TableHeader>
           <TableBody>
             {cargando ? (
-              <TableSkeleton columnas={COLUMNAS_ESQUELETO} filas={Math.min(tamanio, FILAS_ESQUELETO)} />
+              <TableSkeleton
+                columnas={COLUMNAS_ESQUELETO}
+                filas={Math.min(tamanio, FILAS_ESQUELETO)}
+              />
             ) : (
               items.map((item) => (
                 <TableRow key={`${item.linea}-${item.referencia ?? ''}`}>

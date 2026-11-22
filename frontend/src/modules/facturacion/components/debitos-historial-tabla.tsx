@@ -80,7 +80,10 @@ export function DebitosHistorialTabla({
         </TableHeader>
         <TableBody>
           {cargando ? (
-            <TableSkeleton columnas={COLUMNAS_ESQUELETO} filas={Math.min(tamanio, FILAS_ESQUELETO)} />
+            <TableSkeleton
+              columnas={COLUMNAS_ESQUELETO}
+              filas={Math.min(tamanio, FILAS_ESQUELETO)}
+            />
           ) : (
             lotes.map((lote) => (
               <TableRow key={lote.id}>
